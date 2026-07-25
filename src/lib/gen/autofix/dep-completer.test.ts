@@ -1,10 +1,13 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import {
+  isBuiltinPackage,
   KNOWN_PACKAGES,
   mergeMissingDependenciesIntoPackageJson,
+  normalizePackageName,
   resolveCapabilityDependencies,
   resolveKnownVersion,
   runDepCompleter,
@@ -426,5 +429,35 @@ describe("dep-completer", () => {
     ]) {
       expect(deps[pkg]).not.toBe("latest");
     }
+  });
+
+  /**
+   * Generic replacement for the per-dossier pin assertions above: EVERY package
+   * any manifest declares must resolve through the curated allowlist, because
+   * the import scan (`runDepCompleter`, the only dependency pass that runs on
+   * the export path) can otherwise not pin it — generated code that imports the
+   * SDK without the capability being requested then ships a `package.json`
+   * without it and the VM build fails with "Module not found".
+   *
+   * The pre-VM typecheck's dossier-SDK suppression
+   * (`src/lib/gen/preview/generated-only-modules.ts`) depends on this invariant:
+   * dropping an undecidable TS2307 is only safe while the export pipeline
+   * guarantees the VM installs the package.
+   */
+  it("resolves EVERY dossier-declared dependency through the curated allowlist", () => {
+    const unresolved: string[] = [];
+    for (const dossier of getAllDossiers()) {
+      for (const dep of dossier.dependencies ?? []) {
+        const pkg = normalizePackageName(dep.trim());
+        if (!pkg || isBuiltinPackage(pkg)) continue;
+        if (!resolveKnownVersion(pkg)) {
+          unresolved.push(`${pkg} (${dossier.class}/${dossier.id})`);
+        }
+      }
+    }
+    expect(
+      unresolved,
+      "add the package to KNOWN_PACKAGES in dep-completer.ts (verify the major with `npm view <pkg> version`)",
+    ).toEqual([]);
   });
 });

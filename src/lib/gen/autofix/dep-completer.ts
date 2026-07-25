@@ -168,6 +168,20 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   // Dossier Fas D (legacy import 2026-07-09, capability `cms`): sanity-cms.
   // Major verified against the npm registry 2026-07-09 (npm view → 13.1.1).
   "next-sanity": "^13",
+  // Remaining dossier-declared SDKs (2026-07-25). These were reachable through
+  // `resolveCapabilityDependencies` (manifest fallback → "latest") but NOT
+  // through the import scan, so generated code that imported them without the
+  // capability being requested shipped a package.json without them → VM
+  // "Module not found". `dep-completer.test.ts` now asserts the whole manifest
+  // dependency union resolves here, and `generated-only-modules.ts` relies on
+  // that invariant when it drops undecidable pre-VM TS2307s.
+  // Majors verified against the npm registry 2026-07-25 (`npm view <pkg> version`).
+  "@sentry/nextjs": "^10",
+  "maplibre-gl": "^6",
+  minisearch: "^7",
+  // Pinned to the platform's own range so the generated site gets the major the
+  // vercel-analytics dossier was verified against (repo: ^1.3.1).
+  "@vercel/speed-insights": "^1.3.1",
 };
 
 /**
@@ -187,7 +201,13 @@ export function resolveKnownVersion(pkg: string): string | undefined {
   return undefined;
 }
 
-function normalizePackageName(source: string): string {
+/**
+ * Reduce an import specifier to its npm package name (`ably/promises` → `ably`,
+ * `@supabase/ssr/dist/x` → `@supabase/ssr`). Exported because the pre-VM
+ * typecheck needs the exact same normalization to map a `TS2307` module
+ * specifier back to a package (`generated-only-modules.ts`).
+ */
+export function normalizePackageName(source: string): string {
   if (source.startsWith("@")) {
     const parts = source.split("/");
     return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : source;
@@ -195,7 +215,12 @@ function normalizePackageName(source: string): string {
   return source.split("/")[0];
 }
 
-function isBuiltin(pkg: string): boolean {
+/**
+ * Packages the preview/VM runtime already ships, so they are never pinned into
+ * the generated `package.json`. Exported for the dossier-dependency coverage
+ * invariant (`dep-completer.test.ts`) and the pre-VM module classifier.
+ */
+export function isBuiltinPackage(pkg: string): boolean {
   if (BUILTIN_PACKAGES.has(pkg)) return true;
   for (const b of BUILTIN_PACKAGES) {
     if (pkg.startsWith(`${b}/`)) return true;
@@ -237,7 +262,7 @@ export function resolveCapabilityDependencies(
     for (const rawPkg of selected.entry.dependencies ?? []) {
       const { pkg, version: manifestVersion } = parseManifestDependencySpec(rawPkg);
       if (!pkg) continue;
-      if (isBuiltin(pkg)) continue;
+      if (isBuiltinPackage(pkg)) continue;
       const version = resolveKnownVersion(pkg);
       if (version) {
         deps[pkg] = version;
@@ -301,7 +326,7 @@ export function runDepCompleter(code: string): {
     if (seen.has(pkg)) continue;
     seen.add(pkg);
 
-    if (isBuiltin(pkg)) continue;
+    if (isBuiltinPackage(pkg)) continue;
 
     if (pkg.startsWith("@/") || pkg.startsWith("~/") || pkg.startsWith(".")) continue;
 

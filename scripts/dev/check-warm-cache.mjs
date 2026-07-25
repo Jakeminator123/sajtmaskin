@@ -8,9 +8,10 @@
  * as scripts/provision-warm-cache.ts):
  *   1. cache dir exists            (<root>/<scaffoldId>/)
  *   2. node_modules exists         (symlink/junction to repo node_modules)
- *   3. tsconfig.json exists AND maps `@/*` to `./*` (generated-project
- *      layout; a stale cache with the repo's `./src/*` alias makes tsc
- *      report bogus TS2307 for every `@/…` import — re-provision)
+ *   3. tsconfig.json exists AND maps `@/*` to `./*` and nothing else
+ *      (generated-project layout; a stale cache with the repo's `./src/*` alias
+ *      makes tsc report bogus TS2307 for every `@/…` import, and a leftover SDK
+ *      stub alias from #600/#603 makes it report bogus TS2305 — re-provision)
  *   4. eslint.config.{mjs,js,ts} exists
  * Plus once per run, inside the first warm cache dir:
  *   5. `npx --no-install tsc --version` works
@@ -66,26 +67,19 @@ function checkScaffold(cacheRoot, scaffoldId) {
           `tsconfig.json maps "@/*" to ${JSON.stringify(alias)} instead of ["./*"] — stale provisioning, re-run npm run provision:warm-cache`,
         );
       }
-      // Generated-only SDK stubs (Codex P2 on #600 + Bugbot follow-up): the
-      // cache must both alias each package/subpath AND carry the stub file,
-      // or pre-VM tsc reports TS2307 on valid generated Clerk code.
-      const sdkStubs = [
-        { packageName: "@clerk/nextjs", repoStub: "clerk-nextjs.tsx" },
-        { packageName: "@clerk/nextjs/server", repoStub: "clerk-nextjs-server.ts" },
-      ];
-      for (const { packageName, repoStub } of sdkStubs) {
-        if (!existsSync(join(REPO_ROOT, "tests", "stubs", repoStub))) continue;
-        const stubAlias = tsconfig?.compilerOptions?.paths?.[packageName];
-        const stubTarget = Array.isArray(stubAlias) ? stubAlias[0] : null;
-        if (!stubTarget) {
-          problems.push(
-            `"${packageName}" stub alias missing — stale provisioning, re-run npm run provision:warm-cache`,
-          );
-        } else if (!existsSync(join(cacheDir, stubTarget))) {
-          problems.push(
-            `"${packageName}" stub file missing at ${stubTarget} — re-run npm run provision:warm-cache`,
-          );
-        }
+      // Retired SDK stub aliases (#600/#603, removed in #607): a cache
+      // provisioned by the older script still resolves `@clerk/nextjs` to the
+      // narrow stub, which reports TS2305 ("has no exported member 'useUser'")
+      // on valid generated code. The pre-VM pass now drops undecidable
+      // unresolved-module diagnostics instead, so any leftover stub alias means
+      // stale provisioning.
+      const staleStubAliases = Object.keys(tsconfig?.compilerOptions?.paths ?? {}).filter(
+        (alias) => alias !== "@/*",
+      );
+      if (staleStubAliases.length > 0) {
+        problems.push(
+          `tsconfig.json still carries retired SDK stub alias(es) ${staleStubAliases.join(", ")} — stale provisioning, re-run npm run provision:warm-cache`,
+        );
       }
     } catch (err) {
       problems.push(`tsconfig.json unreadable: ${err instanceof Error ? err.message : String(err)}`);

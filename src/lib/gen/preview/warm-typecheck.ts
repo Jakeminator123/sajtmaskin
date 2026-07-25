@@ -18,6 +18,10 @@
  *    generated files are written into the cache root. Intended for
  *    catching the long tail of "type-A is missing" / "callable signature"
  *    issues that survive esbuild syntax validation.
+ *  - **Only decidable diagnostics:** the cache reuses the repo's
+ *    `node_modules`, so unresolved-module errors for dossier-supplied SDKs
+ *    describe the cache rather than the code and are dropped before the
+ *    repair loop (see `generated-only-modules.ts`).
  *
  * Cache provisioning is intentionally out of scope here — the directory
  * is expected to be populated by an offline script (one-time per scaffold
@@ -31,6 +35,7 @@ import { tmpdir } from "node:os";
 
 import type { CodeFile } from "@/lib/gen/parser";
 import { hasTraversalSegment } from "@/lib/utils/path-utils";
+import { partitionUndecidableModuleDiagnostics } from "./generated-only-modules";
 
 export type PreVmTypecheckSkipReason =
   | "feature_flag_disabled"
@@ -52,6 +57,13 @@ export interface PreVmTypecheckResult {
   skipped?: PreVmTypecheckSkipReason;
   diagnostics: PreVmTypecheckDiagnostic[];
   durationMs: number;
+  /**
+   * Packages whose unresolved-module diagnostics were dropped because the warm
+   * cache cannot decide them — the VM installs them from the generated
+   * `package.json`. Observability only (the repair loop never sees them); the
+   * finalize pass logs it so a suppression is never invisible.
+   */
+  suppressedModules?: string[];
 }
 
 const CACHE_ROOT_ENV = "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT";
@@ -192,11 +204,15 @@ export async function runPreVmTypecheck(
       };
     }
     const combined = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
-    const diagnostics = parseTscOutput(combined);
+    const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(
+      parseTscOutput(combined),
+      cacheDir,
+    );
     return {
-      ok: diagnostics.length === 0,
-      diagnostics,
+      ok: kept.length === 0,
+      diagnostics: kept,
       durationMs: Date.now() - startedAt,
+      ...(suppressedModules.length > 0 ? { suppressedModules } : {}),
     };
   } catch (err) {
     // Tsc-process crashed (different from "tsc reported diagnostics"). The

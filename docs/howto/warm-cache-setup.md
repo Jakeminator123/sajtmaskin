@@ -44,7 +44,23 @@ produktens kontrollflöde.
 npm run warm-cache:smoke
 ```
 
-Kollar per scaffold att cache-dir, `node_modules`-symlink, `tsconfig.json` och `eslint.config.*` finns, samt att `npx --no-install tsc/eslint --version` fungerar inne i cachen. Exit 1 med tydlig `COLD`-rad om något saknas.
+Kollar per scaffold att cache-dir, `node_modules`-symlink, `tsconfig.json` och `eslint.config.*` finns, samt att `npx --no-install tsc/eslint --version` fungerar inne i cachen. Exit 1 med tydlig `COLD`-rad om något saknas. En cache som provisionerats av en äldre scriptversion flaggas också som `COLD` — antingen fel `@/*`-alias eller en kvarlämnad SDK-stub-alias (se nedan).
+
+## Dossier-SDK:er: cachen kan inte avgöra dem
+
+Cachen återanvänder **repots** `node_modules`, men en genererad sajt får sina
+SDK:er ur dossier-manifestens `dependencies` — paket repot inte installerar
+(`ably`, `@supabase/ssr`, `mongodb`, `@sentry/nextjs`, `@clerk/nextjs`, …). `tsc`
+i cachen rapporterar därför `TS2307` på **korrekt** genererad kod.
+
+Kontraktet sedan 2026-07-25: pre-VM-passet **släpper** olösbara
+modul-diagnostiker för dossier-deklarerade paket i stället för att gissa
+installationsstatus ([`src/lib/gen/preview/generated-only-modules.ts`](../../src/lib/gen/preview/generated-only-modules.ts)). Detaljer:
+
+- Gäller bara `TS2307` där paketnamnet är dossier-deklarerat **och** saknas i cachens `node_modules` — en trasig subpath på ett installerat paket (`"stripe/nope"`) är ett riktigt fel och behålls.
+- Säkert eftersom `dep-completer.ts` pinnar varje dossier-deklarerat paket i den genererade `package.json` när koden importerar det; `dep-completer.test.ts` låser den täckningen som invariant. Ny dossier kräver alltså **inget** arbete här.
+- Släppta paket loggas som `validate.tsc.undecidable-modules` i devLog, så en filtrering aldrig är osynlig. VM-bygget (ReleaseGate) är fortsatt auktoritativt för om ett beroende verkligen finns.
+- **Inga per-paket-stubbar.** #600/#603 aliasade `@clerk/nextjs` till en teststub i cachen; en stub som är smalare än riktiga SDK:n byter bara `TS2307` mot `TS2305` (`has no exported member 'useUser'`) — samma falska diagnostik i en annan kod. Aliaset togs bort 2026-07-25 och `provision:warm-cache` raderar `__sdk-stubs/` från gamla cachar.
 
 ## Uppdatera cachen
 
@@ -89,4 +105,4 @@ Backoffice-sidan **LLM-flöde telemetri** (`backoffice/pages/llm_flode_telemetry
 
 - **CI/Vercel-provisionering** är out-of-scope för denna how-to. Det kräver antingen (a) en build-step som kör scriptet, eller (b) en prebuilt cache-layer i Vercel-container. Se P34 Fas D-planen för CI-delen.
 - **Disk**: symlink-strategin betyder i praktiken noll extra disk per scaffold; men om du någon gång raderar repots `node_modules` går alla cache-symlinks dead. Kör då om provisioneringsscriptet.
-- **Scaffold-version-skew** — vi använder repots deps som superset av scaffoldens. I 99% av fallen stämmer det, men om en scaffold någon gång får en `package.json`-dep som repot inte har, måste `SCAFFOLD_IDS`-flödet ändras till att göra ett riktigt `npm install` per scaffold-dir. Flagga när det inträffar.
+- **Scaffold-version-skew** — vi använder repots deps som superset av scaffoldens. I 99% av fallen stämmer det, men om en scaffold någon gång får en `package.json`-dep som repot inte har, måste `SCAFFOLD_IDS`-flödet ändras till att göra ett riktigt `npm install` per scaffold-dir. Flagga när det inträffar. (Dossier-SDK:er är ett medvetet undantag och hanteras av filtreringen ovan — de installeras aldrig i cachen.)

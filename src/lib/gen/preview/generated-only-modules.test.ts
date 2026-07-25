@@ -1,0 +1,109 @@
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  getGeneratedOnlyPackages,
+  partitionUndecidableModuleDiagnostics,
+} from "./generated-only-modules";
+
+function unresolved(specifier: string) {
+  return {
+    code: "TS2307",
+    message: `Cannot find module '${specifier}' or its corresponding type declarations.`,
+  };
+}
+
+describe("getGeneratedOnlyPackages", () => {
+  it("covers dossier-declared SDKs the platform does not install", () => {
+    const packages = getGeneratedOnlyPackages();
+    for (const pkg of [
+      "ably",
+      "@supabase/ssr",
+      "@supabase/supabase-js",
+      "@sentry/nextjs",
+      "@clerk/nextjs",
+      "mongodb",
+      "next-sanity",
+      "maplibre-gl",
+      "minisearch",
+      "server-only",
+    ]) {
+      expect(packages.has(pkg), `${pkg} missing from the generated-only set`).toBe(true);
+    }
+  });
+
+  it("excludes packages the preview runtime already ships", () => {
+    const packages = getGeneratedOnlyPackages();
+    expect(packages.has("clsx")).toBe(false);
+    expect(packages.has("tailwind-merge")).toBe(false);
+    expect(packages.has("react")).toBe(false);
+  });
+});
+
+describe("partitionUndecidableModuleDiagnostics", () => {
+  let cacheDir: string;
+
+  beforeAll(() => {
+    // Minimal stand-in for a warm cache: `stripe` is installed (it is both a
+    // dossier dependency AND a platform dependency), the other SDKs are not.
+    cacheDir = mkdtempSync(join(tmpdir(), "generated-only-modules-"));
+    mkdirSync(join(cacheDir, "node_modules", "stripe"), { recursive: true });
+  });
+
+  afterAll(() => {
+    rmSync(cacheDir, { recursive: true, force: true });
+  });
+
+  it("drops unresolved-module errors for dossier SDKs the cache cannot install", () => {
+    const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(
+      [unresolved("ably"), unresolved("@supabase/ssr")],
+      cacheDir,
+    );
+    expect(kept).toEqual([]);
+    expect(suppressedModules).toEqual(["@supabase/ssr", "ably"]);
+  });
+
+  it("normalizes subpath imports to the package name", () => {
+    const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(
+      [unresolved("@supabase/ssr/dist/module"), unresolved("maplibre-gl/dist/maplibre-gl.css")],
+      cacheDir,
+    );
+    expect(kept).toEqual([]);
+    expect(suppressedModules).toEqual(["@supabase/ssr", "maplibre-gl"]);
+  });
+
+  it("keeps unresolved-module errors for packages no dossier declares", () => {
+    const diagnostics = [unresolved("totally-made-up-package"), unresolved("@acme/invented")];
+    const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(
+      diagnostics,
+      cacheDir,
+    );
+    expect(kept).toEqual(diagnostics);
+    expect(suppressedModules).toEqual([]);
+  });
+
+  it("keeps a bad subpath of an INSTALLED dossier package (a real error)", () => {
+    const diagnostics = [unresolved("stripe/does-not-exist")];
+    const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(
+      diagnostics,
+      cacheDir,
+    );
+    expect(kept).toEqual(diagnostics);
+    expect(suppressedModules).toEqual([]);
+  });
+
+  it("keeps every non-TS2307 diagnostic, including stub-shaped TS2305", () => {
+    const diagnostics = [
+      { code: "TS2322", message: "Type 'string' is not assignable to type 'number'." },
+      { code: "TS2305", message: `Module '"@clerk/nextjs"' has no exported member 'useUser'.` },
+      { code: "TS2304", message: "Cannot find name 'Badge'." },
+    ];
+    const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(
+      diagnostics,
+      cacheDir,
+    );
+    expect(kept).toEqual(diagnostics);
+    expect(suppressedModules).toEqual([]);
+  });
+});
