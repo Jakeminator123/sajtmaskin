@@ -1,7 +1,11 @@
 #!/bin/sh
 set -e
 
-OPENCLAW_DIR="/root/.openclaw"
+# Both default to the container layout. They are overridable ONLY so the config
+# generation below can be exercised in a sandbox — see
+# tests/openclaw-entrypoint-config.test.ts.
+OPENCLAW_DIR="${SAJTAGENT_HOME_DIR:-/root/.openclaw}"
+SEED_DIR="${SAJTAGENT_SEED_DIR:-/app/seed}"
 CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
 AGENT_DIR="$OPENCLAW_DIR/agents/sajtagenten/agent"
 WORKSPACE_DIR="$OPENCLAW_DIR/workspace-sajtagenten"
@@ -10,6 +14,11 @@ BIND_MODE="${OPENCLAW_GATEWAY_BIND:-lan}"
 # gpt-5.5 is OpenAI's current frontier model for complex coding / tool-heavy
 # agentic work (best fit for debug-mode bug-hunt). gpt-5.3-codex / gpt-5.1-codex
 # are deprecated. Override per instance with OPENCLAW_MODEL_PRIMARY/FALLBACK.
+#
+# OPENCLAW_MODEL_FALLBACK takes a COMMA-SEPARATED chain so the steps can span
+# different provider quotas. A chain that stays inside one subscription (the
+# openai/gpt-5.5 -> openai/gpt-5.4 default shares a single Codex plan) runs out
+# on every step at once, and the app then shows an empty answer.
 MODEL_PRIMARY="${OPENCLAW_MODEL_PRIMARY:-openai/gpt-5.5}"
 MODEL_FALLBACK="${OPENCLAW_MODEL_FALLBACK:-openai/gpt-5.4}"
 OPENCLAW_VERSION="$(openclaw --version 2>/dev/null | tr -d '\r')"
@@ -35,7 +44,7 @@ fi
 mkdir -p "$AGENT_DIR"
 mkdir -p "$WORKSPACE_DIR"
 
-cp /app/seed/IDENTITY.md "$AGENT_DIR/IDENTITY.md"
+cp "$SEED_DIR/IDENTITY.md" "$AGENT_DIR/IDENTITY.md"
 echo "[entrypoint] IDENTITY.md written for sajtagenten"
 
 # Seed files are config-managed (git) — OVERWRITE them on every boot so a new
@@ -43,8 +52,8 @@ echo "[entrypoint] IDENTITY.md written for sajtagenten"
 # Only the seeded filenames are touched; files the agent has created itself in
 # the workspace (memory, notes) are left intact. (This used to be `cp -rn`,
 # which meant updated SOUL/TOOLS/USER/BOOTSTRAP never reached a live instance.)
-if [ -d "/app/seed/workspace" ]; then
-  cp -rf /app/seed/workspace/. "$WORKSPACE_DIR/" 2>/dev/null || true
+if [ -d "$SEED_DIR/workspace" ]; then
+  cp -rf "$SEED_DIR/workspace/." "$WORKSPACE_DIR/" 2>/dev/null || true
   echo "[entrypoint] Seeded workspace files (refreshed from image)"
 fi
 
@@ -108,6 +117,31 @@ for origin in $ALLOWED_ORIGINS_RAW; do
 done
 IFS="$ORIGIN_OLD_IFS"
 
+# Same treatment for the fallback chain: split on commas, trim, drop blanks and
+# duplicates, and emit the quoted JSON array body for agents.*.model.fallbacks.
+MODEL_FALLBACKS_JSON=""
+FALLBACK_SEEN="|"
+FALLBACK_OLD_IFS="$IFS"
+IFS=","
+for fallback in $MODEL_FALLBACK; do
+  fallback=$(printf '%s' "$fallback" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+  if [ -z "$fallback" ]; then
+    continue
+  fi
+  case "$FALLBACK_SEEN" in
+    *"|${fallback}|"*)
+      continue
+      ;;
+  esac
+  FALLBACK_SEEN="${FALLBACK_SEEN}${fallback}|"
+  if [ -z "$MODEL_FALLBACKS_JSON" ]; then
+    MODEL_FALLBACKS_JSON="\"${fallback}\""
+  else
+    MODEL_FALLBACKS_JSON="${MODEL_FALLBACKS_JSON}, \"${fallback}\""
+  fi
+done
+IFS="$FALLBACK_OLD_IFS"
+
 cat > "$CONFIG_FILE" <<EOF
 {
   ${CUSTOM_PROVIDERS}
@@ -135,7 +169,7 @@ cat > "$CONFIG_FILE" <<EOF
     "defaults": {
       "model": {
         "primary": "${MODEL_PRIMARY}",
-        "fallbacks": ["${MODEL_FALLBACK}"]
+        "fallbacks": [${MODEL_FALLBACKS_JSON}]
       }
     },
     "list": [
@@ -146,7 +180,7 @@ cat > "$CONFIG_FILE" <<EOF
         "agentDir": "${AGENT_DIR}",
         "model": {
           "primary": "${MODEL_PRIMARY}",
-          "fallbacks": ["${MODEL_FALLBACK}"]
+          "fallbacks": [${MODEL_FALLBACKS_JSON}]
         }
       }
     ]
@@ -154,7 +188,7 @@ cat > "$CONFIG_FILE" <<EOF
 }
 EOF
 
-echo "[entrypoint] Config written — model=${MODEL_PRIMARY}, fallback=${MODEL_FALLBACK}, port=${LISTEN_PORT}, bind=${BIND_MODE}"
+echo "[entrypoint] Config written — model=${MODEL_PRIMARY}, fallbacks=[${MODEL_FALLBACKS_JSON}], port=${LISTEN_PORT}, bind=${BIND_MODE}"
 echo "[entrypoint] OpenClaw version: ${OPENCLAW_VERSION:-unknown}"
 echo "[entrypoint] Target site: ${TARGET_SITE_URL}"
 echo "[entrypoint] controlUi.allowedOrigins: [${ALLOWED_ORIGINS_JSON}]"
