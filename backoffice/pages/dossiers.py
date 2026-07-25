@@ -32,7 +32,17 @@ from typing import Any
 
 import streamlit as st
 
-from backoffice.shared import backup_file, backup_tree
+from backoffice.shared import (
+    backup_file,
+    backup_tree,
+    read_json,
+    render_building_blocks_nav,
+    render_save_scope,
+    render_where_panel,
+    tech_details,
+)
+
+PAGE_NAME = "Byggblock (dossiers)"
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -1261,14 +1271,32 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
         st.info("Inte behandlad ännu. Klicka 'Normalisera denna' för att skapa ett utkast.")
 
 
-def render(ctx) -> None:  # ctx kept for backoffice signature parity
-    del ctx
-    st.title("Dossiers")
-    st.caption(
-        "Capability-driven, deterministic urval. "
-        "[Format-spec](/?nav=docs) · "
-        "Disk: `data/dossiers/{hard|soft}/<id>/` · Schema: `docs/schemas/strict/dossier.schema.json`."
+def render(ctx) -> None:
+    # `app_main` sätter redan sidtiteln — sidan ska bara ha sin egen rubrik.
+    st.header("Byggblock (dossiers)")
+    render_building_blocks_nav(PAGE_NAME)
+    st.markdown(
+        "Ett **byggblock** är en färdig funktion som kan byggas in i en genererad "
+        "sajt — betalning, inloggning, sökfält, 3D-vy. Byggblocken är en **egen "
+        "pool**, inte samma sak som mallar: de väljs deterministiskt utifrån vilka "
+        "funktioner briefen ber om."
     )
+    render_save_scope("repo", paths=("data/dossiers/hard/", "data/dossiers/soft/"))
+    domain_map = (
+        read_json(ctx.domain_map_json)
+        if getattr(ctx, "domain_map_json", None) and ctx.domain_map_json.is_file()
+        else {"pages": {}}
+    )
+    with tech_details():
+        st.markdown("- Disk: `data/dossiers/{hard|soft}/<id>/manifest.json`")
+        st.markdown("- Strict-schema: `docs/schemas/strict/dossier.schema.json`")
+        st.markdown("- Kontrakt: `docs/contracts/dossier-system.md`")
+        st.markdown(
+            "- Genererad vy: `data/dossiers/_index/capability-map.json` "
+            "(byggs om i fliken Capability map)"
+        )
+        st.markdown("- Validera efter ändring: `npm run dossiers:validate-all`")
+        render_where_panel(PAGE_NAME, domain_map)
 
     dossiers = _walk_all_dossiers()
     tabs = st.tabs(

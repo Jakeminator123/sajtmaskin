@@ -31,7 +31,12 @@ import pandas as pd
 import streamlit as st
 
 from backoffice.observability_io import load_tail_ndjson
-from backoffice.shared import BackofficeContext, read_json, render_where_panel
+from backoffice.shared import (
+    BackofficeContext,
+    read_json,
+    render_save_scope,
+    render_where_panel,
+)
 
 _DEFAULT_TIMEOUT_S = 60
 _PERF_INDEX_TIMEOUT_S = 300  # CREATE INDEX kan ta tid på stora tabeller
@@ -172,6 +177,12 @@ def render(ctx: BackofficeContext) -> None:
         else {"pages": {}, "repoSiblings": {}}
     )
     render_where_panel("Databashälsa", domain_map)
+    render_save_scope(
+        "prod",
+        note="Hälsokollen är read-only. **APPLY-flödet skapar index i databasen "
+        "direkt** (idempotent `CREATE INDEX IF NOT EXISTS`, audit-loggat) — ingen "
+        "commit, ingen merge, ingen ångra-knapp.",
+    )
 
     with st.expander("Vad gör sidan?", expanded=False):
         st.markdown(

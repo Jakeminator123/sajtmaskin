@@ -21,7 +21,7 @@ from typing import Any
 
 import streamlit as st
 
-from backoffice.shared import BackofficeContext
+from backoffice.shared import BackofficeContext, render_save_scope
 
 
 _DEFAULT_TIMEOUT_S = 120
@@ -33,6 +33,12 @@ def render(ctx: BackofficeContext) -> None:
     st.caption(
         "Kör `scripts/db/cleanup-test-projects.mjs` mot DB:n som `.env.local` pekar på. "
         "Default är DRY-RUN — apply kräver explicit bekräftelse."
+    )
+    render_save_scope(
+        "prod",
+        note="Dry-run läser bara. **Apply raderar rader i databasen** som "
+        "`.env.local` pekar på — det går inte att ångra via **Återställning** "
+        "(backup-lagret täcker filer, inte databasen).",
     )
 
     test_emails = _read_test_emails(ctx)

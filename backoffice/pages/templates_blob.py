@@ -24,7 +24,14 @@ from pathlib import Path
 
 import streamlit as st
 
-from backoffice.shared import BackofficeContext
+from backoffice.shared import (
+    BackofficeContext,
+    render_building_blocks_nav,
+    render_save_scope,
+    tech_details,
+)
+
+PAGE_NAME = "Mallar (v0): inspiration & uppladdning"
 
 _UPLOADER_REL = "scripts/v0-templates/upload-mallar-blob.mjs"
 _MANIFEST_REL = "src/lib/templates/template-blob-manifest.json"
@@ -112,12 +119,31 @@ def _load_manifest_summary(repo_root: Path) -> dict | None:
 
 
 def render(ctx: BackofficeContext) -> None:
-    st.title("Mallar → Blob-upload")
-    st.caption(
-        "Ladda upp v0-mallar (zip) till Vercel Blob och regenerera katalogen så att "
-        "`Mallar`/Templates-galleriet på sajten visar exakt de uppladdade mallarna. "
-        "Varje mall kan sedan väljas och startas som preview i Fly-VM:en."
+    st.header("Mallar (v0): inspiration & uppladdning")
+    render_building_blocks_nav(PAGE_NAME)
+    st.markdown(
+        "**Mallar är färdiga sajter** som användaren kan starta direkt — och den "
+        "inspirationskälla **Guide** använder när en ny variant ska skapas. En mall "
+        "är alltså varken en scaffold eller ett byggblock: den importeras ordagrant, "
+        "utan AI."
     )
+    render_save_scope(
+        "prod",
+        note="Uppladdningen lägger zip-filer i **Vercel Blob** direkt (live-lagring). "
+        "Katalogfilerna som skrivs i repot syns på sajten först när de committas "
+        "och mergas till `master`.",
+    )
+    with tech_details():
+        st.markdown(f"- Uppladdare: `{_UPLOADER_REL}`")
+        st.markdown(f"- Manifest (runtime-källa): `{_MANIFEST_REL}`")
+        st.markdown(
+            "- Katalogfiler som regenereras: `src/lib/templates/templates.json`, "
+            "`template-categories.json`"
+        )
+        st.markdown(
+            "- Intag: mappen ska innehålla `out/downloaded.jsonl` och "
+            "`downloads/<kategori>/<id>/*.zip`"
+        )
 
     repo_root = ctx.repo_root
 
