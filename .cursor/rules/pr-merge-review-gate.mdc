@@ -84,6 +84,18 @@ Två konsekvenser:
 
 Spegelbilden på mergarsidan: **avsaknad av `merge:ready` betyder "författaren är inte klar"** — grönt CI är inget godkännande, och mergaren sätter aldrig labeln åt författaren för att komma vidare.
 
+## Svep hela fyndlistan — aldrig ett tidsfönster
+
+Frågan inför merge är **"är varje fynd på PR:en åtgärdat på nuvarande head?"**, inte
+"har något nytt landat sedan jag sist tittade?". Ett fynd hör till en SHA och till
+om det är fixat.
+
+Ett tidsfilter felar åt båda hållen, och båda hände 2026-07-25: #610 mergades förbi
+ett Vercel-fynd som låg åtta minuter före filtret (författarens sista fix kapades
+och fick bli #619), och #613 blockerades på tre fynd som redan var åtgärdade på en
+tidigare commit. Jämför alltid varje fynds `original_commit_id` mot head och
+kontrollera i koden om det ligger bakåt.
+
 ## Spårningskrav (varje fynd, inget tappas)
 
 Varje listat bot-/review-fynd ska sluta i **exakt ett** av:

@@ -59,9 +59,32 @@ Hoppa över drafts. Ta en PR i taget, äldst först.
 ```powershell
 gh pr checks <n>
 gh pr view <n> --json headRefOid,mergeStateStatus,labels,createdAt --jq '{sha:.headRefOid,state:.mergeStateStatus,labels:[.labels[].name],created:.createdAt}'
-gh api repos/Jakeminator123/sajtmaskin/pulls/<n>/comments --jq '.[] | {user:.user.login, path:.path, body:(.body|.[0:400])}'
+gh api --method GET --paginate -F per_page=100 repos/Jakeminator123/sajtmaskin/pulls/<n>/comments --jq '.[] | {user:.user.login, sha:.original_commit_id, path:.path, body:(.body|.[0:400])}'
 gh pr view <n> --json reviews --jq '[.reviews[] | {author:.author.login,state:.state}]'
 ```
+
+### Hämta ALLA fynd. Filtrera aldrig på tid.
+
+Frågan är **"är varje fynd på den här PR:en åtgärdat på nuvarande head?"** — aldrig
+"har något nytt landat sedan jag sist tittade?". Ett fynd hör till en SHA och till
+om det är fixat, inte till när du råkade titta.
+
+Ett tidsfilter felar åt **båda** hållen, och båda inträffade 2026-07-25:
+
+| Fel | Vad som hände |
+|---|---|
+| Filtrerar bort ett olöst fynd | #610 mergades förbi ett Vercel-fynd från 05:47 eftersom svepet frågade efter fynd nyare än 05:55. Författarens sista fix kapades och fick bli #619 |
+| Blockerar på ett redan löst fynd | #613 blockerades på tre fynd som låg på en äldre commit och var åtgärdade sedan länge. Kostade en aktiv agent en runda i onödan |
+
+Hämta därför alltid hela listan och jämför varje fynds `original_commit_id` mot
+nuvarande head. Ligger ett fynd på en äldre SHA: kontrollera i koden eller i
+commit-loggen om det är åtgärdat — anta det inte i någondera riktningen.
+
+**Paginera.** REST-API:ets standardsida är 30 poster, så en PR med fler
+kommentarer tappar de äldsta tyst — och de äldsta är precis de som hunnit bli
+olösta länge. Ett sidfilter är samma fel som ett tidsfilter, bara med en annan
+axel. Använd `--method GET --paginate -F per_page=100` på varje fyndhämtning,
+som [`pr-bot-findings-sweep.mdc`](../../rules/pr-bot-findings-sweep.mdc) föreskriver.
 
 **Grönt `gh pr checks` betyder inte "inga fynd".** Enligt
 [`pr-bot-findings-sweep.mdc`](../../rules/pr-bot-findings-sweep.mdc) lägger flera
@@ -70,8 +93,8 @@ skriver i check-runens `output`/`annotations`, och PR-nivånotiser hamnar bland
 `issues/comments` i stället för de radbundna `pulls/comments`. Svep därför båda:
 
 ```powershell
-gh api "repos/Jakeminator123/sajtmaskin/commits/<sha>/check-runs?per_page=50" --jq '.check_runs[] | {id, name, conclusion, title:.output.title, summary:(.output.summary // "" | .[0:400]), annotations:.output.annotations_count}'
-gh api repos/Jakeminator123/sajtmaskin/issues/<n>/comments --jq '.[] | select(.user.type == "Bot") | {user:.user.login, body:(.body|.[0:400])}'
+gh api --method GET --paginate -F per_page=100 "repos/Jakeminator123/sajtmaskin/commits/<sha>/check-runs" --jq '.check_runs[] | {id, name, conclusion, title:.output.title, summary:(.output.summary // "" | .[0:400]), annotations:.output.annotations_count}'
+gh api --method GET --paginate -F per_page=100 repos/Jakeminator123/sajtmaskin/issues/<n>/comments --jq '.[] | select(.user.type == "Bot") | {user:.user.login, body:(.body|.[0:400])}'
 ```
 
 `output` räcker inte: ett fynd kan ligga **bara** som annotation, och de hämtas
@@ -145,6 +168,26 @@ Landar ett nytt bot-fynd medan du väntar: triagera det innan merge. Är det gil
 och författaragenten är aktiv — låt den fixa. Är den borta och fixen är liten och
 inom PR:ens scope — fixa själv i författarens worktree/branch, dokumentera i PR:en,
 och kör om grinden på den nya SHA:n. Rör aldrig CI-checkar för att få grönt.
+
+### Lova aldrig att merga på ett mekaniskt villkor
+
+Skriv inte "säg till när den är grön, så mergar jag" eller "jag mergar när klockan
+gått". Grönt CI och en passerad klocka säger att *det som är pushat* håller — inte
+att författaren är färdig med att pusha. Det kan bara författaren säga.
+
+Ett sådant löfte gör dessutom att du mergar utan att någon signal begärts, vilket
+är exakt vad `merge:ready` finns för att förhindra. Det hände på #610: en
+konfliktnot innehöll löftet, PR:en blev grön, och mergen kapade en pågående fix
+med en minuts marginal.
+
+Rätt formulering: *"ping mig när du är klar, så tar jag grinden."*
+
+### Delegering ger mandat att signera, inte kunskap om att någon är klar
+
+Har ägaren delegerat sign-off-beslutet för omgången får du sätta labeln — men
+delegeringen ersätter inte författarens besked. Pushar författaren fortfarande,
+svarar på fynd eller har commits de senaste minuterna: **vänta ändå**. Mandatet
+gäller vem som får skriva under, inte vem som vet när arbetet är slut.
 
 Proportionalitet enligt gate-regeln: smaknit stoppar aldrig en välmotiverad PR —
 logga i `BUG-SWARM-BACKLOG.md` och merga. Riktig skada (P0/P1, säkerhet,
@@ -252,6 +295,38 @@ merge:ready — sha: <hela 40-teckens head-SHA>, bugkoll: <bugbot|codex|manual>,
 genväg förbi röda checks eller utebliven granskning.
 
 Efter merge: `git pull --ff-only` i huvudcheckouten så lokal master följer origin.
+
+### Merge-ordning när flera PR:er delar en högfrekvent fil
+
+`BUG-SWARM-BACKLOG.md` och den genererade canvasen rörs av nästan varje PR. Varje
+merge som skriver i dem ger konflikt åt alla andra öppna PR:er som också gör det.
+
+**Ta den som redan står i konflikt först.** Annars får författaren lösa samma
+konflikt om och om igen medan du mergar andra — det hände #610 tre gånger på en
+timme, utan att något var fel med deras lösning. Är två PR:er lika långt komna,
+merga den som rör backloggen före den som inte gör det.
+
+Konfliktlösning i backloggen ska kontrolleras **semantiskt**, inte textuellt — en
+textuell lösning kan tappa masters nya rader utan att det syns i diffen.
+
+Jämför **radidentiteter, inte antal**. En PR kan både stänga gamla rader och logga
+nya fynd, så antalet ändras med `stängda − tillagda`. En ren antalskontroll
+underkänner då en korrekt lösning, eller värre: får någon att stryka det nyloggade
+fyndet för att få siffran att stämma.
+
+```powershell
+$key = { param($f) (git show "${f}:BUG-SWARM-BACKLOG.md") -split "`n" | Where-Object { $_ -match "^\| \[ \]" } | ForEach-Object { (($_ -split "\|")[4]).Trim().Substring(0, [Math]::Min(60, (($_ -split "\|")[4]).Trim().Length)) } }
+$m = & $key "origin/master"; $b = & $key "<head>"
+"borta ur branchen:"; Compare-Object $m $b | Where-Object SideIndicator -eq "<=" | ForEach-Object { $_.InputObject }
+"nya i branchen:";    Compare-Object $m $b | Where-Object SideIndicator -eq "=>" | ForEach-Object { $_.InputObject }
+```
+
+Varje rad under "borta" ska återfinnas avbockad i arkivfilen. Varje rad under
+"nya" ska vara ett fynd PR:en medvetet loggar. Är någondera oväntad: konflikten
+är felaktigt löst.
+
+Canvasen handmergas aldrig — ta vilken sida som helst och kör om
+`node scripts/canvas/build-llm-flow-canvas.mjs`.
 
 ## Steg 5 — efterkontroll av andras merger
 
