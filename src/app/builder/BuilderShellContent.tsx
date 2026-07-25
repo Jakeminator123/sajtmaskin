@@ -757,15 +757,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // Sista försvarslinje utöver panelens disabled-rader: skicka aldrig om
       // buildern är upptagen (aborterar aktiv stream) — droppa hellre klicket.
       if (isBusy) return;
-      void (async () => {
-        // Utfallskontraktet (BB#shadcn-lane1): sändvägen toastar VARFÖR ett
-        // avslag skedde, men inte att det gällde byggblocket — säg det här så
-        // klicket inte ser ut att ha lyckats.
-        const outcome = await sendMessage(buildAddDossierMessage({ id, label }));
-        if (outcome.status === "rejected") {
-          toast.error(`${label} lades inte till — försök igen.`);
-        }
-      })();
+      // Utfallet läses medvetet INTE här: katalograderna har ingen egen
+      // "skickat"-status att ljuga med (till skillnad från insättningskorten),
+      // och sändvägen äger redan avslagsytan — reload-toast vid stale base,
+      // kravytan + chattmeddelande vid 412, ReleaseGate-toast vid 409. En extra
+      // toast härifrån skulle staplas på och i värsta fall säga "försök igen" om
+      // ett avslag som kräver en omladdning.
+      void sendMessage(buildAddDossierMessage({ id, label }));
     },
     [sendMessage, isBusy],
   );
