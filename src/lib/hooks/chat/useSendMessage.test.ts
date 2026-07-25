@@ -641,12 +641,18 @@ describe("useSendMessage outcome contract", () => {
    * composer to clear a draft for a turn that built nothing (bugbot on #610).
    */
   describe("nested finalize verdicts are classified per verdict", () => {
-    function stubFinalize(finalizeResponse: Response | (() => Response)) {
+    function stubFinalize(
+      finalizeResponse: Response | (() => Response),
+      // The gate reports whether it persisted the user row before its 409; the
+      // auto-kick path (default) never does, the approve continuation does.
+      userTurnPersisted = false,
+    ) {
       fetchMock.mockImplementation(async (url: string) => {
         if (url.endsWith("/stream")) {
           return jsonResponse(409, {
             error: "f3_deterministic_release_required",
             parentVersionId: "ver_f2_parent",
+            userTurnPersisted,
           });
         }
         return typeof finalizeResponse === "function"
@@ -679,13 +685,13 @@ describe("useSendMessage outcome contract", () => {
       expect(await sendF3(result)).toEqual({
         status: "rejected",
         reason: "tier3_env_not_ready",
-        turnRecorded: true,
+        turnRecorded: false,
       });
       expect(dispatchF3Requirements).toHaveBeenCalledTimes(1);
-      // The user row is KEPT unlike the direct 412: this 409 comes from the
-      // approve-continuation backstop, which persists the row before returning,
-      // so hiding it would diverge from the DB (bugbot on #610).
-      expect(messagesBox.current.filter((m) => m.role === "user")).toHaveLength(1);
+      // Auto-kick path: the gate persisted nothing, so the optimistic row is a
+      // ghost and goes — keeping it would show a turn no reload can confirm
+      // (Vercel Agent on #610).
+      expect(messagesBox.current.filter((m) => m.role === "user")).toEqual([]);
       expect(messagesBox.current.at(-1)?.content).toMatch(/build-nycklar/i);
     });
 
@@ -703,10 +709,36 @@ describe("useSendMessage outcome contract", () => {
       expect(await sendF3(result)).toEqual({
         status: "rejected",
         reason: "f3_build_required",
+        turnRecorded: false,
+      });
+      expect(messagesBox.current.filter((m) => m.role === "user")).toEqual([]);
+      expect(messagesBox.current.at(-1)?.content).toMatch(/previewpanelen/i);
+    });
+
+    // Mirror case: the approve continuation DID write the row, so the bubble
+    // stays and the caller clears its draft instead (bugbot on #610). The two
+    // cases differ only by what the gate reports.
+    it("keeps the bubble when the gate reports it persisted the turn", async () => {
+      stubFinalize(
+        () =>
+          jsonResponse(412, {
+            ready: false,
+            parentVersionId: "ver_f2_parent",
+            projectId: "project_1",
+            missingByIntegration: [
+              { key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] },
+            ],
+          }),
+        true,
+      );
+      const { result, messagesBox } = createHarness({ activeVersionId: "ver_f2_parent" });
+
+      expect(await sendF3(result)).toEqual({
+        status: "rejected",
+        reason: "tier3_env_not_ready",
         turnRecorded: true,
       });
       expect(messagesBox.current.filter((m) => m.role === "user")).toHaveLength(1);
-      expect(messagesBox.current.at(-1)?.content).toMatch(/previewpanelen/i);
     });
 
     it("maps a finalize error to failed and keeps the user row", async () => {

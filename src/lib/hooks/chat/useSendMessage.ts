@@ -488,6 +488,12 @@ export function useSendMessage(
             // supersedes saves made during the ORIGINAL stream request, so
             // its 412 must carry its own start time (Bugbot on #525).
             const finalizeRequestStartedAt = Date.now();
+            // The gate persists the user row only on the approve-continuation
+            // path, so it reports which case this is rather than letting the
+            // client guess (`f3-readiness-gate.ts`). Absent/false means the
+            // optimistic bubble is a ghost, as on the "Bygg integrationer"
+            // auto-kick path.
+            const userTurnPersisted = errorData?.userTurnPersisted === true;
             const release = await runF3FinalizeAction({
               chatId,
               parentVersionId: errorData.parentVersionId,
@@ -538,7 +544,7 @@ export function useSendMessage(
               outcome = {
                 status: "rejected",
                 reason: "tier3_env_not_ready",
-                turnRecorded: true,
+                turnRecorded: userTurnPersisted,
               };
             } else if (release.kind === "llm_ready") {
               content =
@@ -547,25 +553,27 @@ export function useSendMessage(
               outcome = {
                 status: "rejected",
                 reason: "f3_build_required",
-                turnRecorded: true,
+                turnRecorded: userTurnPersisted,
               };
             } else {
               content = release.message;
               toast.warning("F3-kontrollen kunde inte slutföras.");
               outcome = { status: "failed", message: release.message };
             }
-            // `turnRecorded: true` on this path — the approve-continuation
-            // backstop persists the user row before returning its 409
-            // (`f3-readiness-gate.ts` consumes the marker, then writes the
-            // row). So the bubble stays and the caller clears its draft; the
-            // prompt lives in the thread, once.
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantMessageId
-                  ? { ...message, content, isStreaming: false }
-                  : message,
-              ),
-            );
+            // Same single rule as everywhere else: a rejection the server did
+            // not write down drops the ghost row so the prompt lives only in the
+            // caller's draft; anything else keeps the bubble.
+            if (outcome.status === "rejected" && !outcome.turnRecorded) {
+              settleRejectedTurn(content);
+            } else {
+              setMessages((prev) =>
+                prev.map((message) =>
+                  message.id === assistantMessageId
+                    ? { ...message, content, isStreaming: false }
+                    : message,
+                ),
+              );
+            }
             return outcome;
           }
           // 5-2 stale-base gate (client half) — delad hanterare, se ovan.
