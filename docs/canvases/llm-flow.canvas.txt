@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "6b459ede",
+    "commit": "57416834",
     "commitDate": "2026-07-25",
     "sinceDays": 14
   },
@@ -71,8 +71,8 @@ const DATA: CanvasData = {
     "processes": 8,
     "openP0": 0,
     "openP1": 0,
-    "openP2": 14,
-    "openP3": 22,
+    "openP2": 15,
+    "openP3": 24,
     "blocked": 0,
     "shaky": 6,
     "evalExactHitPct": 98.46
@@ -142,7 +142,7 @@ const DATA: CanvasData = {
         "P3": 3,
         "other": 0
       },
-      "churn": 14,
+      "churn": 13,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
       "note": "4 oppna backlog-rader (P0:0 P1:0 P2:1 P3:3)"
     },
@@ -159,7 +159,7 @@ const DATA: CanvasData = {
         "P3": 4,
         "other": 0
       },
-      "churn": 11,
+      "churn": 10,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/pro",
       "note": "10 oppna backlog-rader (P0:0 P1:0 P2:6 P3:4)"
     },
@@ -185,17 +185,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 30,
+      "openBugs": 31,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 10,
+        "P2": 11,
         "P3": 20,
         "other": 0
       },
       "churn": 17,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "30 oppna backlog-rader (P0:0 P1:0 P2:10 P3:20)"
+      "note": "31 oppna backlog-rader (P0:0 P1:0 P2:11 P3:20)"
     },
     {
       "name": "Eval",
@@ -220,7 +220,7 @@ const DATA: CanvasData = {
       "name": "Preview och versioner",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "30 oppna backlog-rader (P0:0 P1:0 P2:10 P3:20)"
+      "reason": "31 oppna backlog-rader (P0:0 P1:0 P2:11 P3:20)"
     },
     {
       "name": "Scaffolds",
@@ -252,6 +252,11 @@ const DATA: CanvasData = {
       "prio": "P2",
       "blocker": false,
       "fynd": "**Tidigare LLM-byggd chattyta konkurrerar med senare `openai-chat`-dossier (dubbel chatt-yta/route):** en F2-…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "**Dedupe-bailouten i placement-hooken saknar regressionstest på hook-/komponentnivå:** #604 testar bara `isSa…"
     },
     {
       "prio": "P2",
@@ -302,14 +307,9 @@ const DATA: CanvasData = {
       "prio": "P2",
       "blocker": false,
       "fynd": "**DB-pool-svält i prod under generering** (live-session 2026-07-03, chat `69aae3d5`): klustrade `timeout exce…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "Scaffold-matchern gate:ar embedding-override via ad-hoc keyword-heuristik (`canUseEmbeddingOverride`), inte v…"
     }
   ],
-  "topOpenRisksOmitted": 2,
+  "topOpenRisksOmitted": 3,
   "evals": {
     "exactHitPct": 98.46,
     "acceptableHitPct": null,
