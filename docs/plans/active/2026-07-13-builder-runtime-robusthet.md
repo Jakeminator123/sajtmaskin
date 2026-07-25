@@ -70,10 +70,14 @@ beteende vid snabba versionsbyten (mildras av backoff i A2).
 
 ## C. Kosmetiskt brus (lågprio)
 
-- **C1 — CSP eval report-only:** varningen är **report-only** ("no further action taken").
-  Prod-policyn (`src/proxy.ts`) har inte `unsafe-eval`; `src/app/api/csp-report/route.ts`
-  (30–51) tystar redan prod-eval-brus → 204. *Åtgärd:* bekräfta att varningen är godartad
-  (dev/preview-runtime, inte app) och ev. dämpa konsol-bruset. Låg prioritet.
+- **C1 — CSP eval report-only: ÅTGÄRDAD 2026-07-25.** Varningen var **report-only** ("no
+  further action taken") och prod-policyn (`src/proxy.ts`) har inte `unsafe-eval`. Källan var
+  **inte** preview-runtimen utan appens egen bundle: **Zod v4 JIT-kompilerar objektschemat med
+  `new Function`**, och eftersom policyn bara rapporterar lyckas Zods `Function("")`-probe →
+  varje kompilerat schema loggade en violation (×45 per sidladdning). Fix:
+  `src/instrumentation-client.ts` sätter `z.config({ jitless: true })` innan appens klientkod
+  körs. Servern behåller JIT (ingen CSP i Node). `src/app/api/csp-report/route.ts` (30–51)
+  tystar fortfarande kvarvarande prod-eval-rapporter → 204.
 - **C2 — Preview font 403** (`/__nextjs_font/geist-latin.woff2`): preview-host-proxyns
   Origin-strip för Next 16 `blockCrossSiteDEV` träffar inte alltid (`preview-host/src/runtime.js`
   2127–2139). *Åtgärd:* härda Origin/Referer-fallback så `/__nextjs_font/*` proxas korrekt.
