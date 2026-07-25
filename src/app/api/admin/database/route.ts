@@ -27,7 +27,6 @@ import {
 import { TEST_USER_EMAIL, getUploadsDir } from "@/lib/db/services/shared";
 import { getRedisInfo, flushRedisCache } from "@/lib/data/redis";
 import { PATHS } from "@/lib/config";
-import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";
 
 async function countTable(table: unknown): Promise<number> {
   const rows = await db.select({ count: sql<number>`count(*)` }).from(table as never);
@@ -396,53 +395,24 @@ export async function POST(req: NextRequest) {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // MEGA CLEANUP - Clear Vercel, Postgres, and Redis
+    // DATA RESET — Postgres + Redis + uploads for THIS environment
+    //
+    // Removed 2026-07-24: this action used to also list every Vercel project the
+    // access token could see and delete all of them — including Sajtmaskin's own
+    // production project. Per-project deletion now lives in the admin Miljö
+    // section, guarded by `src/lib/vercel/self-project-guard.ts`. The legacy
+    // `mega-cleanup` action id is kept as an alias of `reset-all` so an old
+    // bookmark/script cannot silently start deleting infrastructure again.
     // ═══════════════════════════════════════════════════════════════════════════
 
     if (action === "mega-cleanup") {
       const results: {
-        vercel: { deleted: number; errors: string[] };
         database: { deleted: number };
         redis: { success: boolean; deleted: number };
       } = {
-        vercel: { deleted: 0, errors: [] },
         database: { deleted: 0 },
         redis: { success: false, deleted: 0 },
       };
-
-      const vercelToken = pickVercelAccessTokenFromEnv();
-      if (vercelToken) {
-        try {
-          const projectsRes = await fetch("https://api.vercel.com/v9/projects", {
-            headers: { Authorization: `Bearer ${vercelToken}` },
-          });
-
-          if (projectsRes.ok) {
-            const projectsData = await projectsRes.json();
-            const vercelProjects = projectsData.projects || [];
-
-            for (const proj of vercelProjects) {
-              try {
-                const delRes = await fetch(`https://api.vercel.com/v9/projects/${proj.id}`, {
-                  method: "DELETE",
-                  headers: { Authorization: `Bearer ${vercelToken}` },
-                });
-                if (delRes.ok || delRes.status === 204) {
-                  results.vercel.deleted++;
-                }
-              } catch (err) {
-                results.vercel.errors.push(
-                  `Failed to delete ${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`,
-                );
-              }
-            }
-          }
-        } catch (err) {
-          results.vercel.errors.push(
-            `Failed to fetch Vercel projects: ${err instanceof Error ? err.message : "Unknown"}`,
-          );
-        }
-      }
 
       const deletedRows = await Promise.all([
         db.delete(projectFiles).where(sql`true`).returning({ id: projectFiles.id }),
@@ -472,85 +442,34 @@ export async function POST(req: NextRequest) {
       clearUploadsFolder();
 
       // BUG-FIX 2026-04-24 (test-agent rapport): tidigare hardcoded
-      // `success: true` även när redis.success var false eller vercel
-      // hade fel. Nu härleds top-level success från delresultaten.
-      const allOk =
-        results.redis.success && results.vercel.errors.length === 0;
+      // `success: true` även när redis.success var false. Nu härleds top-level
+      // success från delresultaten.
+      const allOk = results.redis.success;
 
       return NextResponse.json({
         success: allOk,
         partialSuccess: !allOk,
         results,
-        message: `Mega cleanup: ${results.vercel.deleted} Vercel, ${results.database.deleted} DB rows, ${results.redis.deleted} Redis keys${
-          allOk ? "" : " (med fel — se results)"
+        message: `Nollställning: ${results.database.deleted} databasrader, ${results.redis.deleted} cachenycklar${
+          allOk ? "" : " (cachen kunde inte tömmas — se serverloggen)"
         }`,
       });
     }
 
+    // `cleanup-vercel-projects` removed 2026-07-24 (see the reset comment above):
+    // it deleted every project the access token could see, Sajtmaskin's own
+    // production project included. Deleting a single customer project now goes
+    // through `DELETE /api/admin/vercel/projects/[projectId]`, which refuses the
+    // app's own project via `src/lib/vercel/self-project-guard.ts`.
     if (action === "cleanup-vercel-projects") {
-      const vercelToken = pickVercelAccessTokenFromEnv();
-      if (!vercelToken) {
-        return NextResponse.json({
+      return NextResponse.json(
+        {
           success: false,
-          error: "VERCEL_TOKEN (or VERCEL_TOKEN_FULL) not configured",
-        });
-      }
-
-      const deleted: string[] = [];
-      const errors: string[] = [];
-
-      try {
-        const projectsRes = await fetch("https://api.vercel.com/v9/projects", {
-          headers: { Authorization: `Bearer ${vercelToken}` },
-        });
-
-        if (!projectsRes.ok) {
-          return NextResponse.json({
-            success: false,
-            error: `Failed to fetch Vercel projects: ${projectsRes.status}`,
-          });
-        }
-
-        const projectsData = await projectsRes.json();
-        const vercelProjects = projectsData.projects || [];
-
-        for (const proj of vercelProjects) {
-          try {
-            const delRes = await fetch(`https://api.vercel.com/v9/projects/${proj.id}`, {
-              method: "DELETE",
-              headers: { Authorization: `Bearer ${vercelToken}` },
-            });
-            if (delRes.ok || delRes.status === 204) {
-              deleted.push(proj.id);
-            } else {
-              errors.push(`${proj.id}: ${delRes.status}`);
-            }
-          } catch (err) {
-            errors.push(`${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`);
-          }
-        }
-
-        // BUG-FIX 2026-04-24 (review-agent): tidigare alltid success: true
-        // även om enstaka projekt-deletes failade. Speglar samma härlednings-
-        // mönster som import-templates / mega-cleanup.
-        const allOk = errors.length === 0;
-        return NextResponse.json({
-          success: allOk,
-          partialSuccess: !allOk && deleted.length > 0,
-          deleted: deleted.length,
-          total: vercelProjects.length,
-          failed: errors.length,
-          errors,
-          message: allOk
-            ? `Deleted ${deleted.length}/${vercelProjects.length} Vercel projects`
-            : `Deleted ${deleted.length}/${vercelProjects.length} Vercel projects (${errors.length} failed)`,
-        });
-      } catch (err) {
-        return NextResponse.json({
-          success: false,
-          error: err instanceof Error ? err.message : "Unknown error",
-        });
-      }
+          error:
+            "Bulkradering av Vercel-projekt är borttagen. Radera enskilda projekt under Miljö i adminpanelen.",
+        },
+        { status: 410 },
+      );
     }
 
     if (action === "cleanup-anonymous-projects") {

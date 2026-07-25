@@ -1,4 +1,10 @@
-export type AdminTab = "analytics" | "database" | "environment" | "frontlogs";
+/**
+ * Shared payload types for the admin console.
+ *
+ * Each block mirrors one `/api/admin/*` (or `/api/analytics`) response — the API
+ * is the contract, this file is just the typed view of it. Fields the UI does not
+ * render are deliberately absent so drift is visible in review.
+ */
 
 export interface AnalyticsStats {
   days: number;
@@ -29,8 +35,6 @@ export interface DatabaseStats {
     transactions: number;
     guestUsage: number;
     companyProfiles: number;
-    templateCache?: number;
-    templateCacheExpired?: number;
   };
   redis: {
     connected: boolean;
@@ -47,11 +51,37 @@ export interface DatabaseStats {
   dataDir?: string;
 }
 
+/** `POST /api/admin/database` action `get-cleanup-stats`. */
+export interface CleanupStatsPayload {
+  success: boolean;
+  stats: {
+    anonymousProjects: number;
+    anonymousProjectsOld: number;
+    userProjects: number;
+    orphanedFiles: number;
+    orphanedImages: number;
+    templateCacheCount: number;
+    templateCacheExpired: number;
+  };
+  config?: Record<string, unknown>;
+}
+
 export interface EnvKeyStatus {
   key: string;
   required: boolean;
   present: boolean;
   notes?: string;
+}
+
+export interface OpenClawStatus {
+  status: "ok" | "unconfigured" | "unhealthy" | "unreachable";
+  surfaceEnabled: boolean;
+  surfaceStatus: string;
+  blockers: string[];
+  debugEnabled: boolean;
+  upstream?: number;
+  error?: string;
+  healthEndpoint?: string;
 }
 
 export interface EnvStatusPayload {
@@ -67,6 +97,7 @@ export interface EnvStatusPayload {
     teamId: string | null;
     projectId: string | null;
   };
+  openclaw?: OpenClawStatus;
   features: Record<string, boolean>;
   keys: EnvKeyStatus[];
 }
@@ -91,6 +122,12 @@ export interface VercelProject {
   name: string;
   accountId: string;
   updatedAt: number;
+  /**
+   * Set by `GET /api/admin/vercel/projects` for Sajtmaskin's own project
+   * (`VERCEL_PROJECT_ID`). The UI refuses to offer deletion for it and the API
+   * refuses to perform it — the old admin UI happily deleted production.
+   */
+  isSelf?: boolean;
 }
 
 export interface VercelEnvVar {
@@ -118,26 +155,20 @@ export interface FrontlogsPayload {
   note?: string | null;
 }
 
+export interface TeamPlanInfo {
+  id: string;
+  slug: string;
+  name: string;
+  plan: string;
+  isFree: boolean;
+  isPro: boolean;
+  isEnterprise: boolean;
+}
+
 export interface TeamStatus {
   configured: boolean;
   configuredTeamId: string | null;
-  configuredTeam: {
-    id: string;
-    slug: string;
-    name: string;
-    plan: string;
-    isFree: boolean;
-    isPro: boolean;
-    isEnterprise: boolean;
-  } | null;
-  teams: Array<{
-    id: string;
-    slug: string;
-    name: string;
-    plan: string;
-    isFree: boolean;
-    isPro: boolean;
-    isEnterprise: boolean;
-  }>;
+  configuredTeam: TeamPlanInfo | null;
+  teams: TeamPlanInfo[];
   warnings: string[];
 }

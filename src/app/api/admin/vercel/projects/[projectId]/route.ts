@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAccess } from "@/lib/auth/admin";
 import { deleteProject, isVercelConfigured } from "@/lib/vercel/vercel-client";
+import { SELF_PROJECT_DELETE_ERROR, isSelfVercelProject } from "@/lib/vercel/self-project-guard";
 
 export async function DELETE(
   req: NextRequest,
@@ -24,6 +25,15 @@ export async function DELETE(
     if (!projectId) {
       return NextResponse.json(
         { success: false, error: "projectId is required" },
+        { status: 400 },
+      );
+    }
+
+    // Fail closed on Sajtmaskin's own project — deleting it would take the whole
+    // app (and this very admin panel) down. See self-project-guard.ts.
+    if (isSelfVercelProject(projectId)) {
+      return NextResponse.json(
+        { success: false, error: SELF_PROJECT_DELETE_ERROR },
         { status: 400 },
       );
     }

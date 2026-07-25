@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/auth";
+import { getCurrentUser, getCurrentUserFromCookies } from "@/lib/auth/auth";
 import { isAdminEmailEdge } from "@/lib/auth/edge-auth";
+import type { User } from "@/lib/db/services/shared";
 
 type AdminAccessResult =
   | {
@@ -43,4 +44,29 @@ export async function requireAdminAccess(request: Request): Promise<AdminAccessR
   }
 
   return { ok: true, user };
+}
+
+/**
+ * Server Component variant of {@link requireAdminAccess}: resolves the signed-in
+ * user from the auth cookie and returns it only when the email is an admin.
+ *
+ * Uses the exact same admin predicate (`isAdminEmailEdge`) as the API guard and
+ * the `/admin` proxy gate, so page shell and data access can never disagree.
+ * Returns `null` instead of a response — the caller decides (redirect/render).
+ */
+export async function getAdminUserForPage(): Promise<User | null> {
+  let user: User | null = null;
+
+  try {
+    user = await getCurrentUserFromCookies();
+  } catch (error) {
+    console.error("[auth/admin] Failed to resolve admin page user:", error);
+    return null;
+  }
+
+  if (!user?.email || !isAdminEmailEdge(user.email)) {
+    return null;
+  }
+
+  return user;
 }

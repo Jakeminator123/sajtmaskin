@@ -1,7 +1,6 @@
-import { LogViewer } from "../log/log-viewer";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default function LoggPage() {
-  return <LogViewer />;
+/** Legacy alias — see `src/app/log/page.tsx`. */
+export default function LegacyLoggPage() {
+  redirect("/admin/loggar");
 }
