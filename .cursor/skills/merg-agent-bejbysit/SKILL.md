@@ -202,13 +202,17 @@ Merge-agenten läser mycket och skriver lite. Håll kostnaden nere:
 | Verifiera författarens bugbot-pass | Köra om ett pass som redan är dokumenterat |
 | `bugbot`-subagent bara när du själv rört koden, eller på protected path utan oberoende pass | `/granska`-svärmen (8 rapporter, dyrt — bara på uttrycklig begäran) |
 
-Väntemönster:
+Väntemönster — låt **exit-koden** avgöra (`0` = alla gröna, `8` = pending). Att
+läsa stdout och tolka "inget 'pending'" som klart gör ett gh-fel, ett auth-utgånget
+token eller en rate-limit till ett falskt "allt grönt":
 
 ```powershell
-foreach ($i in 1..20) { Start-Sleep -Seconds 50; $out = gh pr checks <n> 2>&1 | Out-String; if ($out -match "fail") { "CHECK-FAILED"; $out; break }; if ($out -notmatch "pending") { "ALL-SETTLED"; $out; break } }
+foreach ($i in 1..20) { Start-Sleep -Seconds 50; $out = gh pr checks <n> 2>&1 | Out-String; $code = $LASTEXITCODE; if ($code -eq 8) { continue }; if ($code -eq 0) { "ALL-SETTLED"; $out; break }; "CHECK-PROBLEM (exit $code)"; $out; break }
 ```
 
-Starta den i bakgrunden, avsluta turen, triagera när notisen kommer.
+Starta den i bakgrunden, avsluta turen, triagera när notisen kommer. Föredra
+`scripts/watch-prs.ps1` när flera PR:er ska bevakas — den gör samma sak för hela
+kön och larmar även på nya PR:er och nya commits.
 
 ## Rapportformat
 

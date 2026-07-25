@@ -9,7 +9,8 @@
     NEWPR      #<n>  ny öppen PR upptäckt
     NEWCOMMIT  #<n>  head-SHA ändrad (mognadsklockan startar om)
     FAILED     #<n>  minst en check röd
-    ACTIONABLE #<n>  alla checks klara + gröna OCH >= MinutesMature sedan senaste commit
+    ACTIONABLE #<n>  alla checks klara + gröna OCH >= MinutesMature granskningsbar
+                     (minsta av commit-ålder och PR-ålder - se Get-ReviewableMinutes)
 
   ACTIONABLE betyder "redo för TRIAGE", inte "merga". Bot-fynd, författarens
   bugg-efterkontroll och P0/P1-läget måste fortfarande bedömas av agenten.
@@ -26,19 +27,29 @@ param(
   # inte som ACTIONABLE (de är gröna men får ändå inte merge:as), men en NY commit
   # på dem larmar fortfarande - det är signalen att blockeringen kan vara löst.
   [int[]]$Ignore = @(),
+  # Cykler innan samma larm får upprepas. Utan en påminnelse tystnar en PR som
+  # larmats en gång för alltid, även om blockeringen lösts UTAN ny commit (t.ex.
+  # författaren lade sign-off eller triagerade ett fynd) - då kommer ingen ny
+  # sentinel och agenten väcks aldrig.
+  [int]$ReAnnounceCycles = 15,
   [string]$Repo = "Jakeminator123/sajtmaskin"
 )
 
 $ErrorActionPreference = "Continue"
 $seenSha = @{}
 $known = New-Object System.Collections.Generic.HashSet[int]
-# Larma en gång per (PR, SHA, läge). Utan detta upprepas ACTIONABLE varje cykel
-# för en PR som blockerats på triage, vilket dränker notiserna och kostar tokens.
-$announced = New-Object System.Collections.Generic.HashSet[string]
+# Larma en gång per (PR, SHA, läge), men påminn efter $ReAnnounceCycles. Utan
+# strypningen upprepas ACTIONABLE varje cykel för en PR som blockerats på triage,
+# vilket dränker notiserna och kostar tokens; utan påminnelsen tystnar i stället
+# en PR vars blockering löstes utan ny commit.
+$announced = @{}
 $first = $true
 
-function Announce([string]$key, [string]$message) {
-  if ($announced.Add($key)) { Write-Output $message }
+function Announce([string]$key, [string]$message, [int]$cycle) {
+  $last = $announced[$key]
+  if ($null -ne $last -and ($cycle - $last) -lt $ReAnnounceCycles) { return }
+  $announced[$key] = $cycle
+  Write-Output $message
 }
 
 # Datumen hämtas via --jq som RÅA strängar. ConvertFrom-Json omvandlar annars
@@ -143,9 +154,9 @@ for ($i = 1; $i -le $Cycles; $i++) {
     $age = Get-ReviewableMinutes (Get-CommitAgeMinutes $sha) (Get-AgeMinutes $pr.Created)
     $summary += "#$n=$state/${age}min"
 
-    if ($state -eq "failed") { Announce "$n/$sha/failed" "FAILED #$n" }
+    if ($state -eq "failed") { Announce "$n/$sha/failed" "FAILED #$n" $i }
     elseif ($state -eq "green" -and $age -ge $MinutesMature -and $Ignore -notcontains $n) {
-      Announce "$n/$sha/actionable" "ACTIONABLE #$n (${age}min granskningsbar)"
+      Announce "$n/$sha/actionable" "ACTIONABLE #$n (${age}min granskningsbar)" $i
     }
   }
 
