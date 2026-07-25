@@ -189,6 +189,7 @@ export async function POST(req: Request) {
               phase: "prompt_assist",
               model: normalizedModel,
               usage,
+              userId,
             });
           },
         });
@@ -252,6 +253,7 @@ export async function POST(req: Request) {
               phase: "prompt_assist",
               model: normalizedModel,
               usage,
+              userId,
             });
           },
         });

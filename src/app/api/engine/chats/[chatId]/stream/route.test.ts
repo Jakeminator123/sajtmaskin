@@ -90,6 +90,8 @@ vi.mock("@/lib/rateLimit", () => ({
 vi.mock("@/lib/tenant", () => ({
   getChatByV0ChatIdForRequest,
   getEngineChatByIdForRequest,
+  // Ägaren till tokenförbrukningen (llm_usage) slås upp här.
+  getRequestUserId: vi.fn(async () => "user_1"),
 }));
 
 vi.mock("@/lib/auth/session", () => ({

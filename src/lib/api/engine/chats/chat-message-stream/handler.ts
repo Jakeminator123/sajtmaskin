@@ -50,7 +50,11 @@ import { classifyFollowUpIntentWithStrategy } from "@/lib/providers/own-engine/f
 import { withRateLimit } from "@/lib/rateLimit";
 import { runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
 import { createSSEHeaders } from "@/lib/streaming";
-import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
+import {
+  getAppProjectByIdForRequest,
+  getEngineChatByIdForRequest,
+  getRequestUserId,
+} from "@/lib/tenant";
 import { debugLog } from "@/lib/utils/debug";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { createCommitCreditsOnce } from "../credits-handler";
@@ -127,6 +131,17 @@ export async function handleMessageStreamRequest(
           NextResponse.json({ error: "Chat not found" }, { status: 404 }),
         );
       }
+      // Ägaren måste sättas HÄR, inte efter kreditkollen: intent-klassificeraren
+      // och brief-deltat kör innan dess och skulle annars bli oattribuerade.
+      // `getRequestUserId` ger `users.id` eller `guest:<sessionId>`. Att lösa upp
+      // ägaren är observability — det får aldrig fälla turen.
+      let usageOwnerId: string | null = null;
+      try {
+        usageOwnerId = await getRequestUserId(req, { sessionId });
+      } catch {
+        // Faller tillbaka på gästformen nedan.
+      }
+      setLlmUsageContext({ userId: usageOwnerId ?? `guest:${sessionId}` });
 
       // P0 stream-abort recovery (2026-04-26). Versionless-chat hard guard.
       // If the most recent generation/repair stream for this chat died
@@ -614,9 +629,6 @@ export async function handleMessageStreamRequest(
         const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
           userId: creditCheck.user?.id,
         });
-        // Samma identitetsform som tenant-lagret, så följdturens förbrukning
-        // (klassificerare, brief-delta, codegen, verifier, RepairGate) attribueras.
-        setLlmUsageContext({ userId: creditCheck.user?.id ?? `guest:${sessionId}` });
         await recordFollowUpPromptLog({
           chatId,
           engineChat,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
+import { runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
 import { emit as emitBusEvent } from "@/lib/logging/event-bus";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -255,7 +256,11 @@ async function promoteVersionWithRetry(
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
-  return withRateLimit(req, "engine:quality-gate", () => handlePOST(req, ctx));
+  // Server-verify kan starta verifier/RepairGate i den här requesten; scopet ger
+  // deras tokenrader chat- och versionsägare.
+  return withRateLimit(req, "engine:quality-gate", () =>
+    runWithLlmUsageContext({}, () => handlePOST(req, ctx)),
+  );
 }
 
 async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -272,6 +277,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     }
 
     const { versionId, gate } = validation.data;
+    setLlmUsageContext({ chatId, versionId });
 
     const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
     if (!scopedVersion) {

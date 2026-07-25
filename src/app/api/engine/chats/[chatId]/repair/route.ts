@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
+import { runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
@@ -131,7 +132,11 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ chatId: string }> },
 ) {
-  return withRateLimit(req, "engine:repair", () => handlePOST(req, ctx));
+  // Manuell repair är en egen request — utan ett eget scope skulle RepairGate:s
+  // tokenrader sakna ägare (chatten sätts så snart params är lästa).
+  return withRateLimit(req, "engine:repair", () =>
+    runWithLlmUsageContext({}, () => handlePOST(req, ctx)),
+  );
 }
 
 async function handlePOST(
@@ -191,6 +196,7 @@ async function handlePOST(
     }
 
     const { versionId, repairContext } = validation.data;
+    setLlmUsageContext({ chatId, versionId });
 
     // #260 Codex P2 (route re-verify build-gate): compute the build-origin signal
     // once here, at a scope visible to the finally-block after() re-verify. A
