@@ -666,6 +666,201 @@ def nav_link_button(label: str, page_name: str, *, key: str) -> None:
         st.rerun()
 
 
+# --- Byggstenar: kedja, spara-läge, teknik-expander och docs-rendering --------
+# Byggstenar-gruppens ytor i arbetsordning (titta → skapa → byggblock → mallar).
+# Sidnamnen är kanoniska i `backoffice.pages.PAGE_SPECS`; kedjeraden renderas
+# högst upp på varje Byggstenar-sida så operatören alltid ser var i kedjan hen
+# står och kan hoppa vidare utan att gå via sidomenyn.
+BUILDING_BLOCK_CHAIN: tuple[tuple[str, str], ...] = (
+    ("Översikt", "Byggstenar: översikt"),
+    ("Scaffolds", "Scaffolds: titta & justera"),
+    ("Skapa & ta bort", "Scaffolds & varianter: skapa, klona, ta bort"),
+    ("Guide (AI)", "Guide: ny scaffold eller variant (AI)"),
+    ("Byggblock", "Byggblock (dossiers)"),
+    ("Mallar (v0)", "Mallar (v0): inspiration & uppladdning"),
+)
+
+
+def render_building_blocks_nav(current: str) -> None:
+    """Render the shared Byggstenar chain row at the top of a Byggstenar page.
+
+    ``current`` is the calling page's registered name; it renders as plain text
+    (no self-link) so the operator can see where in the chain they are.
+    """
+    cols = st.columns(len(BUILDING_BLOCK_CHAIN))
+    slug = re.sub(r"[^a-z0-9]+", "_", current.lower()).strip("_")
+    for col, (short, page_name) in zip(cols, BUILDING_BLOCK_CHAIN):
+        with col:
+            if page_name == current:
+                st.markdown(f"**● {short}**")
+            else:
+                target_slug = re.sub(r"[^a-z0-9]+", "_", page_name.lower()).strip("_")
+                nav_link_button(short, page_name, key=f"bbchain_{slug}_{target_slug}")
+    st.divider()
+
+
+# Spara-lägen: vad en sparning på den här ytan faktiskt påverkar. Renderas i
+# DEFAULT-ytan (aldrig i en expander) på varje redigerings-/skapayta, så
+# skillnaden "repo-fil" vs "produktion" alltid är synlig innan man klickar.
+SAVE_SCOPE_MESSAGES: dict[str, tuple[str, str]] = {
+    "repo": (
+        "💾",
+        "**Sparar en fil i repot.** Produktionen påverkas först när ändringen "
+        "committas och mergas till `master`. Föregående version säkerhetskopieras "
+        "(se **Återställning**).",
+    ),
+    "local": (
+        "📝",
+        "**Sparar bara lokalt** i en gitignorerad mapp — filen når aldrig "
+        "produktion och committas inte.",
+    ),
+    "prod": (
+        "🔴",
+        "**Påverkar produktion direkt.** Åtgärden träffar live-data eller en "
+        "live-tjänst utan mellansteg — ingen commit, ingen merge, ingen ångra-knapp.",
+    ),
+}
+
+# Deklarerade sökvägar per spara-läge. `backoffice/test_save_scope_parity.py`
+# verifierar mot git att varje `repo`-sökväg verkligen är spårad och varje
+# `local`-sökväg verkligen är gitignorerad — så UI-texten inte kan börja ljuga
+# efter en framtida .gitignore-ändring.
+SAVE_SCOPE_PATHS: dict[str, tuple[str, ...]] = {
+    "repo": (
+        "config/scaffold-variants",
+        "config/ai_models/manifest.json",
+        "data/dossiers/hard",
+        "data/dossiers/soft",
+        "src/lib/gen/scaffolds",
+    ),
+    "local": (
+        "data/scaffold-wizard-drafts",
+        "data/backoffice",
+    ),
+}
+
+
+def render_save_scope(
+    scope: str,
+    *,
+    paths: tuple[str, ...] | list[str] = (),
+    note: str = "",
+) -> None:
+    """Say — in plain Swedish, in the default surface — what a save does here.
+
+    ``scope`` is one of ``"repo"`` (git-tracked file: production only after
+    commit + merge to master), ``"local"`` (gitignored, never reaches
+    production) or ``"prod"`` (hits live data/service immediately).
+    Unknown scopes raise, so a typo fails loudly in the page-import smoke test
+    instead of rendering a silently wrong promise.
+    """
+    if scope not in SAVE_SCOPE_MESSAGES:
+        raise ValueError(
+            f"Okänt spara-läge {scope!r} — välj ett av {sorted(SAVE_SCOPE_MESSAGES)}."
+        )
+    icon, message = SAVE_SCOPE_MESSAGES[scope]
+    body = f"{icon} {message}"
+    if paths:
+        body += "\n\nBerör: " + ", ".join(f"`{path}`" for path in paths)
+    if note:
+        body += f"\n\n{note}"
+    if scope == "prod":
+        st.error(body)
+    elif scope == "local":
+        st.success(body)
+    else:
+        st.info(body)
+
+
+def tech_details(label: str = "Visa tekniska detaljer", *, expanded: bool = False):
+    """Standard collapsed expander for jargon (paths, schemas, script names).
+
+    Product-owner surface stays clean: sökvägar, schema-id:n, registry-detaljer
+    och kommandon bor här inne, inte i default-vyn. Returns the expander so it
+    can be used as a context manager.
+    """
+    return st.expander(label, expanded=expanded)
+
+
+def first_sentence(text: str, *, max_chars: int = 260) -> str:
+    """First sentence of a glossary/doc snippet, truncated on a word boundary."""
+    cleaned = " ".join((text or "").split())
+    if not cleaned:
+        return ""
+    match = re.search(r"(?<!\bt\.ex)\.\s", cleaned)
+    sentence = cleaned[: match.start() + 1] if match else cleaned
+    if len(sentence) <= max_chars:
+        return sentence
+    cut = sentence[:max_chars].rsplit(" ", 1)[0]
+    return f"{cut} …"
+
+
+def read_markdown_table_cell(path: Path, first_cell: str) -> str | None:
+    """Read the second column of a markdown table row whose first cell matches.
+
+    Used to render canonical definitions straight out of
+    ``docs/architecture/glossary.md`` instead of duplicating the prose in
+    Python. Returns ``None`` when the file or the row is missing, so callers can
+    show an honest "saknas i docs"-notice rather than a stale copy.
+    """
+    path = Path(path)
+    if not path.is_file():
+        return None
+    needle = first_cell.strip().lower()
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        label = cells[0].replace("**", "").replace("`", "").strip().lower()
+        if label == needle:
+            return cells[1].strip() or None
+    return None
+
+
+def read_doc_section(path: Path, needle: str, *, max_chars: int = 2400) -> str | None:
+    """Return one markdown section (heading + body) from a docs file.
+
+    ``needle`` is matched case-insensitively against the heading text, so a
+    stable fragment ("TL;DR", "STEG 3") survives heading edits better than the
+    full string. The section ends at the next heading of the same or higher
+    level. Truncated at ``max_chars`` with an ellipsis so a hub page never
+    dumps a 350-line contract doc. Returns ``None`` when the file or heading is
+    missing — callers must then link to the doc instead of inlining a copy.
+    """
+    path = Path(path)
+    if not path.is_file():
+        return None
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    needle_lower = needle.strip().lower()
+    start: int | None = None
+    level = 0
+    for index, line in enumerate(lines):
+        heading = re.match(r"^(#{1,6})\s+(.*)$", line)
+        if not heading:
+            continue
+        if start is None:
+            if needle_lower in heading.group(2).lower():
+                start = index
+                level = len(heading.group(1))
+            continue
+        if len(heading.group(1)) <= level:
+            body = "\n".join(lines[start:index]).strip()
+            return body[:max_chars].rstrip() + " …" if len(body) > max_chars else body
+    if start is None:
+        return None
+    body = "\n".join(lines[start:]).strip()
+    return body[:max_chars].rstrip() + " …" if len(body) > max_chars else body
+
+
 def render_where_panel(page: str, dm: dict[str, Any]) -> None:
     meta = (dm.get("pages") or {}).get(page)
     if not meta:
