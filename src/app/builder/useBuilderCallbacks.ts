@@ -8,6 +8,7 @@ import {
   isTier2LivePreviewUrl,
   normalizePreviewUrl,
 } from "@/lib/gen/preview/preview-url-classifier";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 
 export type VersionLike = {
   versionId?: string | null;
@@ -47,7 +48,7 @@ function pickEngineIframeUrl(match: VersionLike, explicitDemo?: string | null): 
 type UseBuilderCallbacksArgs = {
   chatId: string | null;
   currentPreviewUrl: string | null;
-  sendMessage: (message: string) => Promise<void>;
+  sendMessage: (message: string) => Promise<SendMessageOutcome>;
   effectiveVersionsList: VersionLike[];
   bumpPreviewRefreshToken: () => void;
   setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;

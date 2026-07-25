@@ -580,23 +580,31 @@ export function PreviewPanel({
           return;
         }
         const detail = buildComposerDropDetail(e, sectionZones);
-        setLastComposerActionLabel(
-          `Registry-block skickat till AI (${detail.placementLabel})`,
-        );
         try {
-          await onShadcnItemInsert({
+          const outcome = await onShadcnItemInsert({
             ...selection,
             placement: detail.placement,
             placementLabel: detail.placementLabel,
             anchorSectionLabel: detail.anchorSection?.label,
           });
-          // Neutral copy (BB#shadcn-lane1): sendMessage exponerar inget utfall,
-          // så lova aldrig mer än att blocket skickades.
-          toast.success(
-            `Skickat till chatten (${detail.placementLabel}) — se status där.`,
-          );
+          // Utfallskontraktet (BB#shadcn-lane1) ersätter den tidigare neutrala
+          // copyn: statusraden och toasten lovar bara ett startat bygge. Avslag
+          // och fel har redan sin egen toast från sändvägen.
+          if (outcome.status === "started") {
+            setLastComposerActionLabel(
+              `Registry-block skickat till AI (${detail.placementLabel})`,
+            );
+            toast.success(`Bygger in blocket (${detail.placementLabel}).`);
+          } else {
+            setLastComposerActionLabel(
+              `Registry-block skickades inte (${detail.placementLabel})`,
+            );
+          }
         } catch {
           // Fel-toasten ägs av insert-handlern (busy/chattbyte/etc.).
+          setLastComposerActionLabel(
+            `Registry-block skickades inte (${detail.placementLabel})`,
+          );
         }
         return;
       }

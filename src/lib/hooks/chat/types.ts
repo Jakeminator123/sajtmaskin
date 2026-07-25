@@ -295,6 +295,43 @@ export type ChatMessagingParams = {
   resetBeforeCreateChat: () => void;
 };
 
+/**
+ * Why a send did not turn into a generation. Every one of these is already
+ * surfaced to the user by `useSendMessage` itself (toast + assistant message);
+ * the reason exists so a PROGRAMMATIC sender can be precise about its own
+ * surface too (a card that says "Skickat" for a rejected send is a lie).
+ *
+ * - `empty_message` — nothing to send.
+ * - `create_chat_failed` — no chat existed and creating one failed.
+ * - `stale_base_version` — server head moved past the base this request was
+ *   built on, and the single auto-rebase retry did not resolve it (409).
+ * - `tier3_env_not_ready` — F3 needs real build keys first (412).
+ * - `f3_deterministic_release` — the turn became a ReleaseGate round on the
+ *   parent version instead of a new generation (409).
+ */
+export type SendMessageRejectionReason =
+  | "empty_message"
+  | "create_chat_failed"
+  | "stale_base_version"
+  | "tier3_env_not_ready"
+  | "f3_deterministic_release";
+
+/**
+ * Outcome contract for `sendMessage` (BB#shadcn-lane1). The hook handles every
+ * failure path itself and resolves rather than rejecting, so before this
+ * contract a caller could not tell "generation started" from "rejected but
+ * handled" — programmatic senders (insert cards, dossier catalog, composer
+ * fallback) were forced into neutral copy.
+ *
+ * `started` means the request was accepted and the turn ran; per-turn success
+ * is reported by the chat/version status UI, not here.
+ */
+export type SendMessageOutcome =
+  | { status: "started"; via: "stream" | "messages_fallback" | "new_chat" }
+  | { status: "rejected"; reason: SendMessageRejectionReason }
+  | { status: "aborted"; by: "client" | "server" }
+  | { status: "failed"; message: string };
+
 export type ChatMessagingReturn = {
   isCreatingChat: boolean;
   createNewChat: (
@@ -302,6 +339,9 @@ export type ChatMessagingReturn = {
     options?: MessageOptions,
     systemPromptOverride?: string,
   ) => Promise<boolean>;
-  sendMessage: (messageText: string, options?: MessageOptions) => Promise<void>;
+  sendMessage: (
+    messageText: string,
+    options?: MessageOptions,
+  ) => Promise<SendMessageOutcome>;
   cancelActiveGeneration: () => void;
 };

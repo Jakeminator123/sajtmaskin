@@ -7,6 +7,7 @@ import type { DescribeCandidate } from "@/lib/shadcn/describe";
 import {
   serializeShadcnDragPayload,
   SHADCN_ITEM_DND_TYPE,
+  type ShadcnInsertHandler,
   type ShadcnInsertSelection,
 } from "@/lib/builder/shadcn-insert";
 import { RegistryItemThumb } from "./RegistryItemThumb";
@@ -31,7 +32,7 @@ export interface PreviewPanelDescribeTabProps {
    * sendMessage/own-engine-vägen (se `shadcn-insert.ts`). Saknas callbacken
    * visas korten utan "Lägg till"-knapp aktiv.
    */
-  onInsertItem?: (selection: ShadcnInsertSelection) => void | Promise<void>;
+  onInsertItem?: ShadcnInsertHandler;
   /** Aktiverar Composer-overlayns drop-yta medan ett kandidatkort dras. */
   onDragStart?: () => void;
   onDragEnd?: () => void;
@@ -123,11 +124,11 @@ export function PreviewPanelDescribeTab({
       setInsertingKey(key);
       setInsertedKey(null);
       try {
-        await onInsertItem(toSelection(candidate));
+        const outcome = await onInsertItem(toSelection(candidate));
+        // Samma ärlighetsregel som Bläddra-kortet: bara ett startat bygge får
+        // visa "Skickat". Hanterade avslag (409/412) resolvar utan kast.
+        if (outcome.status !== "started") return;
         setInsertedKey(key);
-        // sendMessage exponerar inget utfall (BB#shadcn-lane1): vissa hanterade
-        // fel (409/412/abort) resolvar utan kast. Tidsbegränsa "Skickat"-låset
-        // så ett tyst misslyckande inte bränner kandidaten för nya försök.
         window.setTimeout(() => {
           setInsertedKey((current) => (current === key ? null : current));
         }, 8000);

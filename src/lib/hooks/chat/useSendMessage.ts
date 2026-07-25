@@ -3,7 +3,12 @@ import { toast } from "sonner";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
-import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
+import type {
+  AutoFixPayload,
+  MessageOptions,
+  ChatMessagingParams,
+  SendMessageOutcome,
+} from "./types";
 import {
   appendAttachmentPrompt,
   appendToolPartToMessage,
@@ -84,12 +89,19 @@ export function useSendMessage(
   } = deps;
 
   const sendMessage = useCallback(
-    async (messageText: string, options: MessageOptions = {}) => {
-      if (!messageText?.trim()) return;
+    async (
+      messageText: string,
+      options: MessageOptions = {},
+    ): Promise<SendMessageOutcome> => {
+      if (!messageText?.trim()) {
+        return { status: "rejected", reason: "empty_message" };
+      }
 
       if (!chatId) {
-        if (!(await createNewChat(messageText, options))) return;
-        return;
+        if (!(await createNewChat(messageText, options))) {
+          return { status: "rejected", reason: "create_chat_failed" };
+        }
+        return { status: "started", via: "new_chat" };
       }
 
       const now = Date.now();
@@ -453,7 +465,7 @@ export function useSendMessage(
                   : message,
               ),
             );
-            return;
+            return { status: "rejected", reason: "tier3_env_not_ready" };
           }
           if (
             response.status === 409 &&
@@ -517,10 +529,12 @@ export function useSendMessage(
                   : message,
               ),
             );
-            return;
+            return { status: "rejected", reason: "f3_deterministic_release" };
           }
           // 5-2 stale-base gate (client half) — delad hanterare, se ovan.
-          if (handleStaleBaseVersion(response.status, errorData)) return;
+          if (handleStaleBaseVersion(response.status, errorData)) {
+            return { status: "rejected", reason: "stale_base_version" };
+          }
           throw new Error(
             buildApiErrorMessage({
               response,
@@ -556,10 +570,11 @@ export function useSendMessage(
           },
           streamController.signal,
         );
+        return { status: "started", via: "stream" };
       } catch (error) {
         if (isClientInitiatedAbort(error, streamController)) {
           debugLog("AI", "Streaming send aborted by client");
-          return;
+          return { status: "aborted", by: "client" };
         }
         if (isAbortLikeError(error)) {
           // Abort-shaped error that did NOT originate from our controller →
@@ -569,7 +584,7 @@ export function useSendMessage(
           toast.error(
             "Strömmen avbröts av servern eller modellen. Försök igen — om det upprepas, prova en annan modell.",
           );
-          return;
+          return { status: "aborted", by: "server" };
         }
 
         let finalError = error;
@@ -591,7 +606,9 @@ export function useSendMessage(
               }
               // PR #355-triage #20: fallbacken ska ge samma stale-base-reload-UX
               // som stream-vägen — inte ett generiskt "Failed to send message".
-              if (handleStaleBaseVersion(fallbackRes.status, errorData)) return;
+              if (handleStaleBaseVersion(fallbackRes.status, errorData)) {
+                return { status: "rejected", reason: "stale_base_version" };
+              }
               throw new Error(
                 buildApiErrorMessage({
                   response: fallbackRes,
@@ -602,11 +619,11 @@ export function useSendMessage(
             }
             const data = await fallbackRes.json();
             await handleNonStreamingSend(data);
-            return;
+            return { status: "started", via: "messages_fallback" };
           } catch (fallbackErr) {
             if (isClientInitiatedAbort(fallbackErr, fallbackController)) {
               debugLog("AI", "Streaming send fallback aborted by client");
-              return;
+              return { status: "aborted", by: "client" };
             }
             finalError = fallbackErr;
           }
@@ -628,6 +645,7 @@ export function useSendMessage(
               : m,
           ),
         );
+        return { status: "failed", message };
       } finally {
         clearStreamSafetyTimer();
         setMessages((prev) =>

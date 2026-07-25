@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MutableRefObject } from "react";
 import type { ChatMessage } from "@/lib/builder/types";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
-import type { AutoFixPayload, ChatMessagingParams, MessageOptions } from "./types";
+import type {
+  AutoFixPayload,
+  ChatMessagingParams,
+  MessageOptions,
+  SendMessageOutcome,
+} from "./types";
 
 const handleSseStream = vi.hoisted(() => vi.fn());
 const dispatchF3Requirements = vi.hoisted(() => vi.fn());
@@ -43,7 +48,10 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
   });
 }
 
-function createHarness(overrides?: Partial<ChatMessagingParams>) {
+function createHarness(
+  overrides?: Partial<ChatMessagingParams>,
+  depsOverrides?: { createNewChat?: () => Promise<boolean> },
+) {
   const messagesBox = { current: [] as ChatMessage[] };
   const setMessages = vi.fn((next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
     messagesBox.current =
@@ -72,7 +80,7 @@ function createHarness(overrides?: Partial<ChatMessagingParams>) {
   };
 
   const deps = {
-    createNewChat: vi.fn(async () => true),
+    createNewChat: vi.fn(depsOverrides?.createNewChat ?? (async () => true)),
     streamAbortRef: { current: null } as MutableRefObject<AbortController | null>,
     autoFixHandlerRef: { current: vi.fn() } as MutableRefObject<
       (payload: AutoFixPayload) => void
@@ -84,17 +92,27 @@ function createHarness(overrides?: Partial<ChatMessagingParams>) {
   };
 
   const { result } = renderHook(() => useSendMessage(params, deps));
-  return { result, messagesBox, mutateVersions };
+  return { result, messagesBox, mutateVersions, streamAbortRef: deps.streamAbortRef };
 }
 
 async function send(
-  result: { current: { sendMessage: (text: string, options?: MessageOptions) => Promise<void> } },
+  result: {
+    current: {
+      sendMessage: (
+        text: string,
+        options?: MessageOptions,
+      ) => Promise<SendMessageOutcome>;
+    };
+  },
   text: string,
   options?: MessageOptions,
-) {
+): Promise<SendMessageOutcome> {
+  let outcome: SendMessageOutcome | null = null;
   await act(async () => {
-    await result.current.sendMessage(text, options);
+    outcome = await result.current.sendMessage(text, options);
   });
+  if (!outcome) throw new Error("sendMessage did not resolve to an outcome");
+  return outcome;
 }
 
 beforeEach(() => {
@@ -472,5 +490,182 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
 
     const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
     expect(meta.lifecycleStage).toBeUndefined();
+  });
+});
+
+/**
+ * Outcome contract (BB#shadcn-lane1). The hook handles every failure path
+ * itself and resolves instead of rejecting, so before this a caller could not
+ * tell "generation started" from "rejected but handled" — the insert cards had
+ * to fall back to neutral copy and still marked a rejected insert as sent.
+ * Every exit path of `sendMessage` is pinned here.
+ */
+describe("useSendMessage outcome contract", () => {
+  it("reports started/stream when the SSE turn runs", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    handleSseStream.mockResolvedValue(undefined);
+    const { result } = createHarness();
+
+    expect(await send(result, "Uppdatera hero copy")).toEqual({
+      status: "started",
+      via: "stream",
+    });
+  });
+
+  it("reports started/new_chat when no chat existed yet", async () => {
+    const { result } = createHarness({ chatId: null });
+
+    expect(await send(result, "Bygg en portfoliosajt")).toEqual({
+      status: "started",
+      via: "new_chat",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("reports rejected/create_chat_failed when chat creation fails", async () => {
+    const { result } = createHarness({ chatId: null }, { createNewChat: async () => false });
+
+    expect(await send(result, "Bygg en portfoliosajt")).toEqual({
+      status: "rejected",
+      reason: "create_chat_failed",
+    });
+  });
+
+  it("reports rejected/empty_message for a blank prompt", async () => {
+    const { result } = createHarness();
+
+    expect(await send(result, "   ")).toEqual({
+      status: "rejected",
+      reason: "empty_message",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("reports rejected/stale_base_version when the rebase retry also hits 409", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(409, {
+        error: "stale_base_version",
+        reason: "stale_base_version",
+        latestVersionId: "ver_new",
+      }),
+    );
+    const { result } = createHarness({
+      activeVersionId: "ver_old",
+      latestKnownVersionId: "ver_old",
+    });
+
+    expect(await send(result, "Uppdatera hero copy")).toEqual({
+      status: "rejected",
+      reason: "stale_base_version",
+    });
+  });
+
+  it("reports rejected/tier3_env_not_ready on a 412 from the F3 stream", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(412, {
+        error: "tier3_env_not_ready",
+        parentVersionId: "ver_f2_parent",
+        projectId: "project_1",
+        missingByIntegration: [{ key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] }],
+      }),
+    );
+    const { result } = createHarness({ activeVersionId: "ver_f2_parent" });
+
+    expect(
+      await send(result, "Bygg integrationer nu.", {
+        lifecycleStageOverride: "integrations",
+        parentVersionIdOverride: "ver_f2_parent",
+        engineBaseVersionIdOverride: "ver_f2_parent",
+      }),
+    ).toEqual({ status: "rejected", reason: "tier3_env_not_ready" });
+  });
+
+  it("reports rejected/f3_deterministic_release when the turn becomes a ReleaseGate round", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/stream")) {
+        return jsonResponse(409, {
+          error: "f3_deterministic_release_required",
+          parentVersionId: "ver_f2_parent",
+        });
+      }
+      if (url.endsWith("/finalize-design")) {
+        return jsonResponse(200, {
+          ready: true,
+          action: "deterministic_release",
+          parentVersionId: "ver_f2_parent",
+          versionId: "ver_f3_exact",
+          gateRequired: true,
+          releaseState: "draft",
+          verificationState: "pending",
+        });
+      }
+      return jsonResponse(200, {
+        passed: true,
+        promoted: true,
+        vmGatePassed: true,
+        checks: [{ check: "build", passed: true }],
+      });
+    });
+    const { result } = createHarness({ activeVersionId: "ver_f2_parent" });
+
+    expect(
+      await send(result, "Bygg integrationer nu.", {
+        lifecycleStageOverride: "integrations",
+        parentVersionIdOverride: "ver_f2_parent",
+        engineBaseVersionIdOverride: "ver_f2_parent",
+      }),
+    ).toEqual({ status: "rejected", reason: "f3_deterministic_release" });
+  });
+
+  it("reports started/messages_fallback when the network fallback succeeds", async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce(jsonResponse(200, { text: "Klart", versionId: "ver_new" }));
+    const { result } = createHarness();
+
+    expect(await send(result, "Uppdatera hero copy")).toEqual({
+      status: "started",
+      via: "messages_fallback",
+    });
+  });
+
+  it("reports aborted/client when this client cancelled the stream", async () => {
+    const { result, streamAbortRef } = createHarness();
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    handleSseStream.mockImplementation(async () => {
+      // Mirror `cancelActiveGeneration` / a newer send: our own controller is
+      // aborted, then fetch/stream rejects with an abort-shaped error.
+      streamAbortRef.current?.abort();
+      throw new DOMException("The operation was aborted.", "AbortError");
+    });
+
+    expect(await send(result, "Uppdatera hero copy")).toEqual({
+      status: "aborted",
+      by: "client",
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("reports aborted/server when the stream dies without a client abort", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    handleSseStream.mockRejectedValue(
+      new DOMException("The operation was aborted.", "AbortError"),
+    );
+    const { result } = createHarness();
+
+    expect(await send(result, "Uppdatera hero copy")).toEqual({
+      status: "aborted",
+      by: "server",
+    });
+    expect(String(toast.error.mock.calls[0]?.[0])).toMatch(/avbröts av servern/i);
+  });
+
+  it("reports failed with the surfaced message on an unexpected error", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(500, { error: "boom" }));
+    const { result } = createHarness();
+
+    const outcome = await send(result, "Uppdatera hero copy");
+    expect(outcome.status).toBe("failed");
+    expect(outcome).toMatchObject({ message: expect.stringContaining("boom") });
   });
 });

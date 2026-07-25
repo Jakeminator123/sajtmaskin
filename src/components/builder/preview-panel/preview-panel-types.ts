@@ -1,5 +1,5 @@
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
-import type { ShadcnInsertSelection } from "@/lib/builder/shadcn-insert";
+import type { ShadcnInsertHandler } from "@/lib/builder/shadcn-insert";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
@@ -132,7 +132,7 @@ export interface PreviewPanelProps {
    * sendMessage/own-engine-vägen → generering + verify → ny version. Aldrig
    * rå filpatch. Saknas → insättningsknapparna i panelen är disabled.
    */
-  onShadcnItemInsert?: (selection: ShadcnInsertSelection) => void | Promise<void>;
+  onShadcnItemInsert?: ShadcnInsertHandler;
   /**
    * F2 vs F3 stage of the active version. Controls visibility of the
    * "Bygg integrationer" (F3 trigger) button in the preview chrome. F2 (`design`)

@@ -5,6 +5,7 @@ import {
   buildShadcnInsertMessage,
   type ShadcnInsertSelection,
 } from "@/lib/builder/shadcn-insert";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import type { ComponentCategory } from "@/lib/shadcn/registry-service";
 
 // Mocka registry-fetcharna (används av "Bläddra"-fliken). Övriga rena
@@ -115,10 +116,14 @@ describe("PreviewPanelAddPanel", () => {
 
     // Samma wiring som BuilderShellContent.handleShadcnItemInsert: valet byggs
     // till prompt via shadcn-insert och skickas genom sendMessage-vägen.
-    const sendMessage = vi.fn().mockResolvedValue(undefined);
+    const sendMessage = vi
+      .fn()
+      .mockResolvedValue({ status: "started", via: "stream" } satisfies SendMessageOutcome);
     const onInsertShadcnItem = async (selection: ShadcnInsertSelection) => {
       const built = await buildShadcnInsertMessage(selection);
-      await sendMessage(built.message, { promptSourceMeta: built.meta });
+      return (await sendMessage(built.message, {
+        promptSourceMeta: built.meta,
+      })) as SendMessageOutcome;
     };
 
     render(<PreviewPanelAddPanel onInsertShadcnItem={onInsertShadcnItem} />);

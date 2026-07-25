@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { LayoutGrid, MessageSquareText, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isShadcnDescribeEnabled } from "@/lib/shadcn/describe-feature";
-import type { ShadcnInsertSelection } from "@/lib/builder/shadcn-insert";
+import type { ShadcnInsertHandler } from "@/lib/builder/shadcn-insert";
 import { PreviewPanelComposerPalette } from "./PreviewPanelComposer";
 import { PreviewPanelBrowseGallery } from "./PreviewPanelBrowseGallery";
 import { PreviewPanelDescribeTab } from "./PreviewPanelDescribeTab";
@@ -39,7 +39,7 @@ export interface PreviewPanelAddPanelProps {
    * som välformat prompt-meddelande genom befintliga sendMessage/own-engine-
    * vägen. Saknas callbacken är insättningsknapparna disabled (read-only-läge).
    */
-  onInsertShadcnItem?: (selection: ShadcnInsertSelection) => void | Promise<void>;
+  onInsertShadcnItem?: ShadcnInsertHandler;
 }
 
 const TABS: {
