@@ -581,6 +581,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           planOrchestration.resolvedScaffold?.id,
         );
         await chatRepo.addMessage(plannerChat.id, "user", message);
+        // Tredje chat-skapande vägen (utöver own-engine och kontraktsgrinden):
+        // brief och scaffold-embeddings har redan kört, och planner-strömmen
+        // loggar mer förbrukning efter detta.
+        setLlmUsageContext({ chatId: plannerChat.id });
+        attachChatToPendingUsage(sessionId, plannerChat.id);
         debugLog("engine", "Chat DB bootstrap complete", {
           durationMs: Date.now() - plannerChatDbStartedAt,
           mode: "plan",
