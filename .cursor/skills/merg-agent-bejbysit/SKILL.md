@@ -4,9 +4,9 @@ description: >-
   Sätter agenten i rollen som stående merge-agent för Sajtmaskin: tar först ett
   rollansvarstest (rätt checkout, ren tree, master i synk, gh-åtkomst), sveper
   sedan alla öppna PR:er, verifierar att buggranskning är gjord och triagerad,
-  och mergar de som är gröna + mogna enligt 15-min-regeln (minsta av commit-ålder
-  och PR-ålder, så både en sen push och en gammal lokal commit i en ny PR
-  hanteras). Use when
+  och mergar de som är gröna + mogna enligt 15-min-regeln (minsta av
+  head-synlighet och PR-ålder, så både en sen push och en gammal lokal commit i
+  en ny PR hanteras). Use when
   the user runs /merg-agent-bejbysit, says "merge-agent", "bejbysit" or
   "babysitta PR:erna", or asks someone to hålla koll på och merga öppna PR:er.
 disable-model-invocation: true
@@ -129,7 +129,7 @@ Merga när **allt** stämmer:
 2. Författarens bugg-efterkontroll finns dokumenterad i PR:en — verifiera, **kör inte om den**.
 3. Varje bot-fynd (Codex, Bugbot, Vercel Agent Review, GitGuardian) är fixat, loggat eller avfärdat med motivering. Ett fynd som författaren avvisat med god anledning räknas som triagerat.
 4. Inga öppna P0/P1.
-5. ≥ 15 min **granskningsbar** enligt båda klockorna i Steg 2 — alltså minsta av commit-åldern och PR-åldern, inte bara commit-åldern.
+5. ≥ 15 min **granskningsbar** enligt båda klockorna i Steg 2 — minsta av head-synligheten (pushen, via check-runarnas `started_at`) och PR-åldern. Aldrig `commit.committer.date`.
 6. Head-SHA oförändrad sedan sign-off.
 
 Landar ett nytt bot-fynd medan du väntar: triagera det innan merge. Är det giltigt
@@ -192,7 +192,7 @@ Innan du behandlar en författare som frånvarande, väg in tecknen på motsatse
 
 | Tecken på att författaren fortfarande jobbar | Var det syns |
 |---|---|
-| Head-commiten är färskare än mognadsfönstret | `commit.committer.date` |
+| Head:et pushades nyligen | tidigaste `started_at` bland head:ets check-runs |
 | PR:en öppnades nyss | `createdAt` |
 | Färska kommentarer eller commits från författaren | `gh pr view <n> --json comments,commits` |
 | PR:en är draft | `isDraft` — rör den aldrig |
@@ -261,7 +261,7 @@ Svep <tid>: N öppna, M mergade, K väntar.
 | PR | Läge | Åtgärd |
 |---|---|---|
 | #605 | grönt, 56 min, Codex-P1 triagerad av författaren | mergad `abc1234` |
-| #607 | grönt men 4 min sedan senaste commit | väntar till 15 min |
+| #607 | grönt men 4 min sedan pushen | väntar till 15 min |
 | #608 | dead-code röd | pingat författaren / fixat i <commit> |
 
 Master: i synk, grön.

@@ -10,7 +10,7 @@
     NEWCOMMIT  #<n>  head-SHA ändrad (mognadsklockan startar om)
     FAILED     #<n>  minst en check röd
     ACTIONABLE #<n>  alla checks klara + gröna OCH >= MinutesMature granskningsbar
-                     (minsta av commit-ålder och PR-ålder - se Get-ReviewableMinutes)
+                     (minsta av head-synlighet och PR-ålder - se Get-ReviewableMinutes)
 
   ACTIONABLE betyder "redo för TRIAGE", inte "merga". Bot-fynd, författarens
   bugg-efterkontroll och P0/P1-läget måste fortfarande bedömas av agenten.
