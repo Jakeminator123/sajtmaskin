@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const after = vi.hoisted(() => vi.fn());
 const createLlmUsageRecord = vi.hoisted(() => vi.fn());
 const attachVersionToUnassignedLlmUsage = vi.hoisted(() => vi.fn());
 const attachChatToUnassignedLlmUsage = vi.hoisted(() => vi.fn());
 const dbState = vi.hoisted(() => ({ configured: true }));
+
+vi.mock("next/server", () => ({ after }));
 
 vi.mock("@/lib/db/client", () => ({
   get dbConfigured() {
@@ -442,5 +445,43 @@ describe("flushPendingUsageWrites", () => {
 
     insertGate.resolve?.();
     await vi.waitFor(() => expect(order).toEqual(["insert", "claim"]));
+  });
+});
+
+describe("skrivningens livstid", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv("POSTGRES_URL", "postgres://user:pass@localhost:5432/test");
+    dbState.configured = true;
+    createLlmUsageRecord.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("registrerar skrivningen med after() så serverless inte fryser bort den", async () => {
+    // Precedens: en odetacherad skrivning dog tyst när strömmen stängdes
+    // (preview_url, chat 4314362f 2026-07-02). after() håller invokeringen vid liv.
+    recordLlmUsage({ phase: "codegen", model: "gpt-5.5", usage: { inputTokens: 1 } });
+    expect(after).toHaveBeenCalledTimes(1);
+    await expect(after.mock.calls[0][0]).resolves.toBeUndefined();
+  });
+
+  it("registrerar även claim och versionsstämpling", async () => {
+    attachChatToPendingUsage("sess_1", "chat_1");
+    attachVersionToPendingUsage("chat_1", "ver_1");
+    expect(after).toHaveBeenCalledTimes(2);
+  });
+
+  it("faller tillbaka på fire-and-forget utanför en request-kontext", async () => {
+    // after() kastar i skript och tester utan request — det får inte fälla loggningen.
+    after.mockImplementation(() => {
+      throw new Error("`after` was called outside a request scope");
+    });
+    expect(() =>
+      recordLlmUsage({ phase: "codegen", model: "gpt-5.5", usage: { inputTokens: 1 } }),
+    ).not.toThrow();
+    await vi.waitFor(() => expect(createLlmUsageRecord).toHaveBeenCalled());
   });
 });

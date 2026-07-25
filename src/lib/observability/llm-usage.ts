@@ -21,6 +21,7 @@
  */
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
+import { after } from "next/server";
 import { resolveConfiguredDbEnv } from "@/lib/db/env";
 import type { CreateLlmUsageRecord } from "@/lib/db/services/llm-usage";
 
@@ -301,6 +302,26 @@ const inFlightWrites = new Set<Promise<void>>();
 const FLUSH_MAX_ROUNDS = 3;
 
 /**
+ * Håll invokeringen vid liv tills skrivningen landat.
+ *
+ * På serverless fryser funktionen så fort svaret/strömmen stängs, och en
+ * odetacherad skrivning dör då tyst. Det är inte en teori: exakt det hände med
+ * `preview_url` (chat 4314362f, 2026-07-02) och står dokumenterat i
+ * `generation-stream-post-finalize.ts`. `after()` registrerar promisen hos
+ * plattformen i stället, så raden hinner skrivas utan att fördröja svaret.
+ *
+ * Utanför en request-kontext (skript, tester) kastar `after()` — då räcker
+ * fire-and-forget, för där finns ingen invokering som kan frysa.
+ */
+function keepWriteAlive(pending: Promise<void>): void {
+  try {
+    after(pending);
+  } catch {
+    void pending;
+  }
+}
+
+/**
  * Skriv en förbrukningsrad. Fire-and-forget: returnerar direkt, kastar aldrig,
  * och sväljer alla fel med en varning. Anropas från LLM-callsites.
  */
@@ -308,6 +329,7 @@ export function recordLlmUsage(input: RecordLlmUsageInput): void {
   const pending = recordLlmUsageAsync(input);
   inFlightWrites.add(pending);
   void pending.finally(() => inFlightWrites.delete(pending));
+  keepWriteAlive(pending);
 }
 
 /** Vänta in pågående skrivningar innan en UPDATE som ska matcha dem. */
@@ -363,7 +385,7 @@ export async function safeUsageOwnerId(
  */
 export function attachChatToPendingUsage(sessionId: string, chatId: string): void {
   const { claimKey } = getLlmUsageContext();
-  void (async () => {
+  keepWriteAlive((async () => {
     try {
       if (!sessionId || !chatId || !dbEnvPresent()) return;
       await flushPendingUsageWrites();
@@ -374,7 +396,7 @@ export function attachChatToPendingUsage(sessionId: string, chatId: string): voi
     } catch {
       // Claim är en förbättring, inte ett krav.
     }
-  })();
+  })());
 }
 
 /**
@@ -385,7 +407,7 @@ export function attachChatToPendingUsage(sessionId: string, chatId: string): voi
  * körning blir för låg. Fire-and-forget, som all annan loggning här.
  */
 export function attachVersionToPendingUsage(chatId: string, versionId: string): void {
-  void (async () => {
+  keepWriteAlive((async () => {
     try {
       if (!chatId || !versionId || !dbEnvPresent()) return;
       await flushPendingUsageWrites();
@@ -396,7 +418,7 @@ export function attachVersionToPendingUsage(chatId: string, versionId: string): 
     } catch {
       // Efterstämpling är en förbättring, inte ett krav.
     }
-  })();
+  })());
 }
 
 /** Nollställer engångsvarningen. Endast för tester. */

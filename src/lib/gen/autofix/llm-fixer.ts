@@ -159,6 +159,11 @@ export async function runLlmFixer(
 ): Promise<FixerResult> {
   const start = performance.now();
 
+  // Hoistat så catch-vägen kan läsa usage: ett avbrutet eller timeat fixer-anrop
+  // har ändå förbrukat tokens, och det är just de körningarna som är dyrast.
+  let streamResult: ReturnType<typeof streamText> | null = null;
+  let usageRecorded = false;
+  let resolvedModelIdForUsage: string | null = null;
   try {
     const userPrompt = buildFixerUserPrompt(content, errors, {
       requiredFiles: options?.requiredFiles,
@@ -181,6 +186,7 @@ export async function runLlmFixer(
           };
     }
 
+    resolvedModelIdForUsage = resolvedModelId;
     const result = streamText({
       model,
       system: FIXER_SYSTEM_PROMPT,
@@ -189,6 +195,7 @@ export async function runLlmFixer(
       abortSignal: options?.abortSignal,
       ...(providerOptions ? { providerOptions } : {}),
     });
+    streamResult = result;
 
     const fixedText = await result.text;
     // RepairGate kastade tidigare sin usage — den kunde vara en stor del av en
@@ -199,6 +206,7 @@ export async function runLlmFixer(
       usage: await Promise.resolve(result.usage).catch(() => null),
       durationMs: Math.round(performance.now() - start),
     });
+    usageRecorded = true;
     const fixedProject = parseCodeProject(fixedText);
 
     if (fixedProject.files.length === 0) {
@@ -275,6 +283,22 @@ export async function runLlmFixer(
       err instanceof Error &&
       (err.name === "AbortError" || /aborted/i.test(err.message));
     const message = err instanceof Error ? err.message : String(err);
+    if (!usageRecorded) {
+      // Avbrott/timeout/providerfel: strömmen hann kosta tokens även om ingen
+      // text kom ut. Utan den här raden underrapporteras precis de körningar
+      // där reparationen föll.
+      recordLlmUsage({
+        phase: "fixer",
+        model: resolvedModelIdForUsage,
+        usage: streamResult
+          ? await Promise.resolve(streamResult.usage).catch(() => null)
+          : null,
+        durationMs: Math.round(performance.now() - start),
+        ok: false,
+        errorCode: isAbort ? "llm_fixer_aborted" : "llm_fixer_failed",
+      });
+      usageRecorded = true;
+    }
     if (isAbort) {
       console.error("[llm-fixer] aborted (AbortSignal/timeout):", message);
       const inputFiles = parseCodeProject(content).files;
