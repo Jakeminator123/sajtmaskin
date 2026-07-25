@@ -109,14 +109,20 @@ $sha = gh pr view <n> --json headRefOid --jq .headRefOid
 $created = gh pr view <n> --json createdAt --jq .createdAt
 $pushed = gh api "repos/Jakeminator123/sajtmaskin/commits/$sha/check-runs?per_page=100" --jq '[.check_runs[].started_at] | map(select(. != null)) | sort | first'
 $styles = [Globalization.DateTimeStyles]::AdjustToUniversal -bor [Globalization.DateTimeStyles]::AssumeUniversal
-# Inga check-runs an -> head:et ar nyss pushat (0 min), inte "okant".
-if (-not $pushed -or $pushed -eq "null") { 0 } else {
+# Inga check-runs (eller gh-fel) -> klockan gar inte att belagga -> INTE mogen.
+if ($LASTEXITCODE -ne 0 -or -not $pushed -or $pushed -eq "null") { "obelagd-klocka" } else {
   $ages = @($pushed, $created) | ForEach-Object {
     [int]((Get-Date).ToUniversalTime() - [datetime]::Parse($_, [Globalization.CultureInfo]::InvariantCulture, $styles)).TotalMinutes
   }
   ($ages | Measure-Object -Minimum).Minimum
 }
 ```
+
+Gissa aldrig en mognad du inte kan belägga. Noll ("nyss pushat") låser PR:en
+under tröskeln för alltid; bevakarens egen observationstid kan ligga **före**
+botarnas — är CI fördröjd startar Codex och Vercel också sent, och då hade
+larmet gått innan granskarna kunde se koden. Saknas serverside-tidsstämpel:
+behandla som inte mogen och ta reda på varför check-runs uteblir.
 
 Under 15 → merga inte. Går en av tiderna inte att läsa: behandla som **inte
 mogen**, aldrig som "då gäller den andra" — en gate faller stängd.
