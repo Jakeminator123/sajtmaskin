@@ -172,19 +172,26 @@ först, kommentarer i kronologisk ordning, så en gammal kommentar kan vinna öv
 en uppdaterad body). Fråga i stället det grinden faktiskt kräver: **finns en
 sign-off som avser nuvarande head?**
 
-Läs `sha:`-värdet ur sign-off-raden och kontrollera att head **börjar med** det.
-Då accepteras både full SHA och kortform, utan att en delsträng någon annanstans
-i texten kan råka matcha:
+**Sign-offen ska bära hela 40-teckens-SHA:t.** Då är verifieringen exakt likhet
+och inget behöver tolkas. Kortform tvingar fram prefixmatchning, och en kort SHA
+ur en gammal sign-off kan då räknas som giltig för ett nytt head som råkar dela
+prefixet — osannolikt, men det är ett format­problem och löses billigast i
+formatet i stället för i jämförelsen.
 
 ```powershell
 gh pr view <n> --json headRefOid,labels --jq '{sha:.headRefOid,labels:[.labels[].name]}'
-gh pr view <n> --json headRefOid,body,comments --jq '.headRefOid as $head | [.body, (.comments[].body)] | map(select(. != null and test("merge:ready — sha:")) | (capture("sha:\\s*(?<sha>[0-9a-f]{7,40})") // {sha:""}).sha) | {antal: length, signoffs: ., avser_head: (any(.[]; . as $s | $s != "" and ($head | startswith($s))))}'
+gh pr view <n> --json headRefOid,body,comments --jq '.headRefOid as $head | [.body, (.comments[].body)] | map(select(. != null and test("merge:ready — sha:")) | (capture("sha:\\s*(?<sha>[0-9a-f]{7,40})") // {sha:""}).sha) | {signoffs: ., avser_head: (any(.[]; . == $head))}'
 ```
 
-Obs `. as $s`: utan bindningen blir `.` ombundet av pipen så att uttrycket
-jämför `$head` med sig självt och **alltid** svarar sant. Kör alltid en sån här
-kontroll mot en PR med känt inaktuell sign-off innan du litar på den — den
-första varianten av just detta uttryck såg korrekt ut och var alltid grön.
+Träffar ingen sign-off exakt men en kortform ser rätt ut: behandla som
+**overifierad** och be författaren skriva om raden med full SHA. Gissa inte.
+
+Två fällor värda att minnas, båda upptäckta i skarp körning på just detta uttryck:
+
+- `. as $s` behövdes i den tidigare varianten eftersom `.` blir ombundet av pipen — utan bindningen jämförde uttrycket `$head` med sig självt och svarade **alltid** sant.
+- Att labeln finns bevisar ingenting om vilken SHA den avser. Labeln ska tas bort vid ny commit, men det är disciplin och inte tvingat, så en kvarglömd label kan peka bakåt. Bevakarens `label:merge:ready` betyder just labelns existens — inte att sign-offen gäller.
+
+Kör alltid kontrollen mot en PR med känt inaktuell sign-off innan du litar på den.
 
 Labeln finns **och** sign-off-radens SHA matchar nuvarande head → merga:
 
@@ -238,7 +245,7 @@ vidare till nästa PR i kön i stället för att vänta.
 Sign-off-raden:
 
 ```
-merge:ready — sha: <sha>, bugkoll: <bugbot|codex|manual>, triage: <n fixat / n loggat / n avfärdat>, P0/P1: 0
+merge:ready — sha: <hela 40-teckens head-SHA>, bugkoll: <bugbot|codex|manual>, triage: <n fixat / n loggat / n avfärdat>, P0/P1: 0
 ```
 
 `--admin` behövs för ägarens egna PR:er (kan inte självgodkännas) — aldrig som

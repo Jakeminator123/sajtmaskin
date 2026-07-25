@@ -68,9 +68,11 @@ function Get-OpenPrs {
       Number  = [int]$parts[0]
       Sha     = $parts[1]
       Created = $parts[2]
-      # Författarens godkännande. Saknas det är PR:en inte redo, hur grön den än
-      # är - författaren kan ha mer på gång. Larmet visar läget så mergaren
-      # slipper hämta labels separat för att se om det ens är lönt att titta.
+      # ENBART att labeln finns - inte att sign-offen avser nuvarande head.
+      # Labeln ska tas bort vid ny commit, men det är agent-disciplin och inte
+      # tvingat, så en kvarglömd label kan peka på en äldre SHA. Larmet säger
+      # därför "label:merge:ready", inte "signerad"; SHA-verifieringen görs i
+      # Steg 4 och kan inte hoppas över för att larmet såg positivt ut.
       Signed  = ($parts[3] -eq "true")
     }
   }
@@ -196,7 +198,7 @@ for ($i = 1; $i -le $Cycles; $i++) {
     $ageText = $(if ($age -lt 0) { "obelagd-klocka" } else { "${age}min" })
     $summary += "#$n=$state/$ageText"
 
-    $signed = $(if ($pr.Signed) { "merge:ready" } else { "OSIGNERAD" })
+    $signed = $(if ($pr.Signed) { "label:merge:ready" } else { "OSIGNERAD" })
     if ($state -eq "failed") { Announce "$n/$sha/failed" "FAILED #$n" $i }
     elseif ($state -eq "green" -and $age -ge $MinutesMature -and $Ignore -notcontains $n) {
       # Signaturläget ingår i nyckeln: när författaren sätter merge:ready UTAN
