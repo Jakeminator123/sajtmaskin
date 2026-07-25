@@ -78,6 +78,8 @@ const EXPECTED_TABLES = [
   "version_approvals",
   // OpenClaw debug-mode bug-hunt findings (OC_DEBUG)
   "oc_debug_findings",
+  // Tokenförbrukning per LLM-anrop
+  "llm_usage",
   // Domains
   "domain_orders",
 ];
@@ -101,6 +103,12 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
     { name: "idx_generation_telemetry_chat", columns: ["chat_id"] },
     { name: "idx_generation_telemetry_version", columns: ["version_id"] },
     { name: "idx_generation_telemetry_created", columns: ["created_at"] },
+  ],
+  llm_usage: [
+    { name: "idx_llm_usage_chat", columns: ["chat_id"] },
+    { name: "idx_llm_usage_version", columns: ["version_id"] },
+    { name: "idx_llm_usage_user_created", columns: ["user_id", "created_at"] },
+    { name: "idx_llm_usage_created", columns: ["created_at"] },
   ],
   version_comments: [
     { name: "idx_version_comments_version", columns: ["version_id"] },

@@ -5,6 +5,7 @@ import {
 } from "@/lib/gen/stream/builder-stream-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { debugLog } from "@/lib/utils/debug";
 
 export interface StreamMeta {
@@ -178,6 +179,41 @@ export function createCodeGenSSEStream(
   return new ReadableStream({
     async start(controller) {
       const streamStartedAt = Date.now();
+      /**
+       * Per-anrops-förbrukning för codegen. `done`-eventet driver fortfarande
+       * engine_generation_logs/generation_telemetry — det här är den finkorniga
+       * raden som gör codegen jämförbar med brief/verifier/fixer.
+       *
+       * Anropas på ALLA utgångar (klart, trunkerat, providerabort, fel), för
+       * tokens förbrukas även när strömmen inte gav något användbart svar.
+       */
+      let codegenUsageRecorded = false;
+      const recordCodegenUsage = async (
+        errorCode: string | null,
+        knownUsage?: unknown,
+        durationMs?: number,
+      ): Promise<void> => {
+        // Ett API-anrop = EN rad. Providerabort loggar tidigt men avbryter inte
+        // strömmen, så done-vägen skulle annars skriva samma usage igen och
+        // dubbla tokensumman för just avbrutna körningar.
+        if (codegenUsageRecorded) return;
+        codegenUsageRecorded = true;
+        let usage = knownUsage;
+        if (usage === undefined) {
+          usage = await Promise.resolve(result.usage).catch(() => null);
+        }
+        recordLlmUsage({
+          phase: "codegen",
+          model: typeof meta?.modelId === "string" ? meta.modelId : null,
+          modelTier: typeof meta?.modelTier === "string" ? meta.modelTier : null,
+          usage,
+          durationMs: durationMs ?? Date.now() - streamStartedAt,
+          ok: errorCode === null,
+          errorCode,
+          chatId: typeof meta?.chatId === "string" ? meta.chatId : null,
+          versionId: typeof meta?.versionId === "string" ? meta.versionId : null,
+        });
+      };
       const eventCounts = new Map<string, number>();
       const toolCallCounts = new Map<string, number>();
       const toolInputFallbackCounters = new Map<string, number>();
@@ -550,6 +586,10 @@ export function createCodeGenSSEStream(
         if (truncatedByLength) {
           eventCounts.set("finish_reason_length", 1);
           summarizeStream("error");
+          // Ett trunkerat svar har förbrukat tokens precis som ett komplett.
+          // Utan den här raden blir fas-summan systematiskt för låg för just de
+          // körningar som kostade mest.
+          await recordCodegenUsage("output_truncated");
           devLogAppend("in-progress", {
             type: "site.aborted",
             chatId: typeof meta?.chatId === "string" ? meta.chatId : null,
@@ -579,6 +619,7 @@ export function createCodeGenSSEStream(
         }
 
         if (abortedByProvider) {
+          await recordCodegenUsage("provider_aborted");
           eventCounts.set(
             "aborted_by_provider",
             (eventCounts.get("aborted_by_provider") ?? 0) + 1,
@@ -630,6 +671,7 @@ export function createCodeGenSSEStream(
 
         const usage = await result.usage;
         const streamTiming = summarizeStream("done", usage);
+        await recordCodegenUsage(null, usage, streamTiming.durationMs);
         devLogAppend("in-progress", {
           type: "stream.summary",
           chatId: meta?.chatId ?? null,
@@ -667,6 +709,9 @@ export function createCodeGenSSEStream(
           reasoningHeartbeatTimer = null;
         }
         summarizeStream("error");
+        await recordCodegenUsage(
+          err instanceof Error && err.name ? err.name : "stream_error",
+        );
         // P0 stream-abort recovery (2026-04-26). Same emit as the explicit
         // `abort` part above, but for the generic catch path (provider
         // returned an error, network blip, AI SDK threw mid-iteration). We

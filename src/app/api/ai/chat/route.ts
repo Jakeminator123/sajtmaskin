@@ -7,6 +7,7 @@ import { requireNotBot } from "@/lib/botProtection";
 import { getRequestUserId } from "@/lib/tenant";
 import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
   isAnthropicAssistModel,
   isOpenAIAssistModel,
@@ -177,12 +178,18 @@ export async function POST(req: Request) {
           messages,
           maxOutputTokens: maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
-          onFinish({ text }) {
+          onFinish({ text, usage }) {
             devLogAppend("latest", {
               type: "assist.chat.response",
               provider: "openai",
               model: normalizedModel,
               text,
+            });
+            recordLlmUsage({
+              phase: "prompt_assist",
+              model: normalizedModel,
+              usage,
+              userId,
             });
           },
         });
@@ -235,12 +242,18 @@ export async function POST(req: Request) {
           messages,
           maxOutputTokens: maxTokens,
           ...getTemperatureConfig(anthropicModel, temperature),
-          onFinish({ text }) {
+          onFinish({ text, usage }) {
             devLogAppend("latest", {
               type: "assist.chat.response",
               provider: resolvedProvider,
               model: normalizedModel,
               text,
+            });
+            recordLlmUsage({
+              phase: "prompt_assist",
+              model: normalizedModel,
+              usage,
+              userId,
             });
           },
         });

@@ -9,6 +9,7 @@ import {
   canonicalModelIdToOwnModelId,
   DEFAULT_MODEL_ID,
 } from "@/lib/models/catalog";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { formatSSEEvent } from "@/lib/streaming";
 
 const QA_SHORTCIRCUIT_MODEL = canonicalModelIdToOwnModelId(DEFAULT_MODEL_ID);
@@ -17,12 +18,20 @@ export async function generateQaShortCircuitText(params: {
   optimizedMessage: string;
   signal: AbortSignal;
 }): Promise<string> {
+  const startedAt = Date.now();
   const result = await generateText({
     model: createDirectModel(QA_SHORTCIRCUIT_MODEL),
     abortSignal: params.signal,
     prompt:
       "Användaren har ställt en fråga om sin sajt. Svara koncist (max 4 meningar) baserat på följande kontext:\n\n" +
       params.optimizedMessage,
+  });
+  recordLlmUsage({
+    phase: "qa",
+    workload: "qa_short_circuit",
+    model: QA_SHORTCIRCUIT_MODEL,
+    usage: result.usage,
+    durationMs: Date.now() - startedAt,
   });
   return result.text.trim();
 }

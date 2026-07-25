@@ -6,6 +6,11 @@ import {
 import { createChatSchema } from "@/lib/validations/chatSchemas";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
+import {
+  attachChatToPendingUsage,
+  runWithLlmUsageContext,
+  setLlmUsageContext,
+} from "@/lib/observability/llm-usage";
 import { prepareCredits } from "@/lib/credits/server";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
@@ -93,11 +98,16 @@ import { classifySimpleWebsitePath } from "./simple-website-path";
 
 /** Shared create handler (SSE). Used by `POST` and by sync `POST /chats` JSON adapter. */
 export async function handleCreateChatStreamPost(req: Request): Promise<Response> {
-  return withRateLimit(req, "chat:create", async () => {
+  return withRateLimit(req, "chat:create", async () =>
+    // Etablerar ägarkontexten för HELA genereringen: brief, scaffold-embeddings,
+    // codegen, verifier och RepairGate hamnar på rätt chat/användare utan att
+    // varje mellanliggande funktion behöver bära id:n.
+    runWithLlmUsageContext({}, async () => {
     const requestStartedAt = Date.now();
     const requestId = req.headers.get("x-vercel-id") || "unknown";
     const session = ensureSessionIdFromRequest(req);
     const sessionId = session.sessionId;
+    setLlmUsageContext({ sessionId });
     const attachSessionCookie = (response: Response) => {
       if (session.setCookie) {
         response.headers.set("Set-Cookie", session.setCookie);
@@ -199,6 +209,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       // cannot repeatedly consume host install capacity before settlement.
       const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
         userId: creditCheck.user?.id,
+      });
+      // Samma identitetsform som tenant-lagret (`getRequestUserId`), så gäst-
+      // förbrukning kan attribueras i stället för att bli NULL.
+      setLlmUsageContext({
+        userId: creditCheck.user?.id ?? `guest:${sessionId}`,
       });
       optimizedMessage = await appendHydratedTextAttachmentExcerpts(
         optimizedMessage,
@@ -566,6 +581,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           planOrchestration.resolvedScaffold?.id,
         );
         await chatRepo.addMessage(plannerChat.id, "user", message);
+        // Tredje chat-skapande vägen (utöver own-engine och kontraktsgrinden):
+        // brief och scaffold-embeddings har redan kört, och planner-strömmen
+        // loggar mer förbrukning efter detta.
+        setLlmUsageContext({ chatId: plannerChat.id });
+        attachChatToPendingUsage(sessionId, plannerChat.id);
         debugLog("engine", "Chat DB bootstrap complete", {
           durationMs: Date.now() - plannerChatDbStartedAt,
           mode: "plan",
@@ -785,6 +805,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             resolvedScaffold?.id,
           );
           await chatRepo.addMessage(engineChat.id, "user", message);
+          setLlmUsageContext({ chatId: engineChat.id });
+          attachChatToPendingUsage(sessionId, engineChat.id);
           debugLog("engine", "Chat DB bootstrap complete", {
             durationMs: Date.now() - contractGateDbStartedAt,
             mode: "pre-generation-contract-gate",
@@ -894,6 +916,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           resolvedScaffold?.id,
         );
         await chatRepo.addMessage(engineChat.id, "user", message);
+        setLlmUsageContext({ chatId: engineChat.id });
+        // Brief och scaffold-embeddings kördes innan chatten fanns — claima dem.
+        attachChatToPendingUsage(sessionId, engineChat.id);
         debugLog("engine", "Chat DB bootstrap complete", {
           durationMs: Date.now() - engineChatDbStartedAt,
           mode: "own-engine",
@@ -1014,6 +1039,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         attachSessionCookie,
       });
     }
-  });
+    }),
+  );
 }
 

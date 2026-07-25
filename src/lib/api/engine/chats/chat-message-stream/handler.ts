@@ -48,8 +48,17 @@ import {
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import { classifyFollowUpIntentWithStrategy } from "@/lib/providers/own-engine/follow-up-intent-router";
 import { withRateLimit } from "@/lib/rateLimit";
+import {
+  runWithLlmUsageContext,
+  safeUsageOwnerId,
+  setLlmUsageContext,
+} from "@/lib/observability/llm-usage";
 import { createSSEHeaders } from "@/lib/streaming";
-import { getAppProjectByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
+import {
+  getAppProjectByIdForRequest,
+  getEngineChatByIdForRequest,
+  getRequestUserId,
+} from "@/lib/tenant";
 import { debugLog } from "@/lib/utils/debug";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { createCommitCreditsOnce } from "../credits-handler";
@@ -84,10 +93,14 @@ export async function handleMessageStreamRequest(
     }
     return response;
   };
-  const runHandler = async () => {
+  const runHandler = async () =>
+    // Samma ägarkontext som init-vägen: allt LLM-arbete i den här turen (brief-
+    // delta, klassificerare, codegen, verifier, RepairGate) knyts till chatten.
+    runWithLlmUsageContext({ sessionId }, async () => {
     const promptStartedAt = Date.now();
     try {
       const { chatId } = await ctx.params;
+      setLlmUsageContext({ chatId });
       const body = await req.json().catch(() => ({}));
       const validationResult = sendMessageSchema.safeParse(body);
       if (!validationResult.success) {
@@ -122,6 +135,14 @@ export async function handleMessageStreamRequest(
           NextResponse.json({ error: "Chat not found" }, { status: 404 }),
         );
       }
+      // Ägaren måste sättas HÄR, inte efter kreditkollen: intent-klassificeraren
+      // och brief-deltat kör innan dess och skulle annars bli oattribuerade.
+      // `getRequestUserId` ger `users.id` eller `guest:<sessionId>`. Uppslaget är
+      // observability och får aldrig fälla turen — därav safeUsageOwnerId.
+      const usageOwnerId = await safeUsageOwnerId(() =>
+        getRequestUserId(req, { sessionId }),
+      );
+      setLlmUsageContext({ userId: usageOwnerId ?? `guest:${sessionId}` });
 
       // P0 stream-abort recovery (2026-04-26). Versionless-chat hard guard.
       // If the most recent generation/repair stream for this chat died
@@ -771,7 +792,7 @@ export async function handleMessageStreamRequest(
         attachSessionCookie,
       });
     }
-  };
+    });
 
   return options.skipRateLimit ? runHandler() : withRateLimit(req, "message:send", runHandler);
 }

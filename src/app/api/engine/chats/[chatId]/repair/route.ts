@@ -1,7 +1,16 @@
 import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
-import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import {
+  getLlmUsageContext,
+  runWithLlmUsageContext,
+  safeUsageOwnerId,
+  setLlmUsageContext,
+} from "@/lib/observability/llm-usage";
+import {
+  getEngineVersionForChatByIdForRequest,
+  getRequestUserId,
+} from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
@@ -131,7 +140,11 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ chatId: string }> },
 ) {
-  return withRateLimit(req, "engine:repair", () => handlePOST(req, ctx));
+  // Manuell repair är en egen request — utan ett eget scope skulle RepairGate:s
+  // tokenrader sakna ägare (chatten sätts så snart params är lästa).
+  return withRateLimit(req, "engine:repair", () =>
+    runWithLlmUsageContext({}, () => handlePOST(req, ctx)),
+  );
 }
 
 async function handlePOST(
@@ -191,6 +204,11 @@ async function handlePOST(
     }
 
     const { versionId, repairContext } = validation.data;
+    setLlmUsageContext({
+      chatId,
+      versionId,
+      userId: await safeUsageOwnerId(() => getRequestUserId(req)),
+    });
 
     // #260 Codex P2 (route re-verify build-gate): compute the build-origin signal
     // once here, at a scope visible to the finally-block after() re-verify. A
@@ -811,12 +829,24 @@ async function handlePOST(
       // for that residual edge, so the row never stays stuck. See
       // BUG-SWARM-BACKLOG.md (#265 Bugbot MEDIUM: deferred re-verify inflight).
       const reverifyForce = reverifyForceBuildCheck;
+      // `after()` körs EFTER responsen och därmed utanför requestens
+      // kontext-scope. Utan ett eget scope här skulle re-verifieringens
+      // verifier-/RepairGate-anrop bli oattribuerade.
+      const reverifyOwner = getLlmUsageContext();
       after(async () => {
-        await triggerServerVerification({
-          chatId: reverifyChatId,
-          versionId: reverifyVersionId,
-          forceBuildCheck: reverifyForce,
-        }).catch(() => {});
+        await runWithLlmUsageContext(
+          {
+            chatId: reverifyChatId,
+            versionId: reverifyVersionId,
+            userId: reverifyOwner.userId ?? null,
+          },
+          () =>
+            triggerServerVerification({
+              chatId: reverifyChatId,
+              versionId: reverifyVersionId,
+              forceBuildCheck: reverifyForce,
+            }).catch(() => {}),
+        );
       });
     }
   }

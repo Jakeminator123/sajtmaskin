@@ -17,6 +17,7 @@ import { z } from "zod";
 import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
   FOLLOW_UP_INTENT_MODES,
   type FollowUpIntentMode,
@@ -90,6 +91,10 @@ export async function llmClassifyFollowUpIntent(
     opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   );
 
+  const classifierStartedAt = Date.now();
+  // Ett API-anrop = EN rad. Valideringen nedan kan kasta EFTER att den lyckade
+  // raden skrivits, och då skulle catch-vägen skriva en andra rad för samma anrop.
+  let usageRecorded = false;
   try {
     const result = await generateObject({
       model,
@@ -104,11 +109,39 @@ export async function llmClassifyFollowUpIntent(
       providerOptions: { openai: { reasoningEffort: "low" } },
     });
 
+    recordLlmUsage({
+      phase: "classifier",
+      workload: "match_classifier",
+      model: modelId,
+      usage: result.usage,
+      durationMs: Date.now() - classifierStartedAt,
+    });
+    usageRecorded = true;
+
     const intent = result.object.intent;
     if (!FOLLOW_UP_INTENT_MODES.has(intent)) {
       throw new Error(`[match_classifier] unexpected intent label: ${intent}`);
     }
     return intent;
+  } catch (err) {
+    // Timeout, schemafel och providerfel har ändå kostat tokens (och AI SDK:s
+    // NoObjectGeneratedError bär usage). Anroparen faller tillbaka på den
+    // deterministiska klassificeraren; kostnaden ska ändå synas.
+    const errorObject =
+      err && typeof err === "object" ? (err as { usage?: unknown; name?: unknown }) : null;
+    if (!usageRecorded) {
+      recordLlmUsage({
+        phase: "classifier",
+        workload: "match_classifier",
+        model: modelId,
+        usage: errorObject?.usage,
+        durationMs: Date.now() - classifierStartedAt,
+        ok: false,
+        errorCode:
+          typeof errorObject?.name === "string" ? errorObject.name : "classifier_failed",
+      });
+    }
+    throw err;
   } finally {
     clearTimeout(timeoutId);
   }

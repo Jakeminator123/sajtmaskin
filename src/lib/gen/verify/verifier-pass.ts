@@ -12,6 +12,7 @@ import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-gener
 import { isBuildBreakingImportFindingId } from "@/lib/gen/preview/should-start-preview";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { incVerifierBlocking, recordPhaseDuration } from "@/lib/observability/metrics";
 
 /** OpenAI structured-output strict mode requires no optional object keys — keep paths inside `detail`. */
@@ -871,6 +872,10 @@ Use those exact ids so downstream tooling can recognise them.`;
         };
   }
 
+  const llmCallStartedAt = Date.now();
+  // Ett API-anrop = EN rad: efterbehandlingen nedan kan kasta efter att den
+  // lyckade raden skrivits, och catch-vägen skulle då logga samma anrop igen.
+  let usageRecorded = false;
   try {
     const result = await generateObject({
       model: getOpenAIModel(modelId),
@@ -887,6 +892,13 @@ Use those exact ids so downstream tooling can recognise them.`;
       maxRetries: 1,
       ...(providerOptions ? { providerOptions } : {}),
     });
+    recordLlmUsage({
+      phase: "verifier",
+      model: modelId,
+      usage: result.usage,
+      durationMs: Date.now() - llmCallStartedAt,
+    });
+    usageRecorded = true;
     const promoted = suppressValidInPageAnchorNavigationFindings(
       promoteForcedBlockingFindings(result.object),
       files,
@@ -896,6 +908,22 @@ Use those exact ids so downstream tooling can recognise them.`;
       quality: [...deterministic.quality, ...promoted.quality],
     });
   } catch (err) {
+    // Ett misslyckat verifier-anrop har ändå kostat tokens. AI SDK:s
+    // NoObjectGeneratedError bär `usage` när modellen svarade men svaret inte
+    // gick att tolka mot schemat; andra fel saknar siffror och sparas som ett
+    // misslyckat anrop så luckan går att förklara.
+    const errorObject =
+      err && typeof err === "object" ? (err as { usage?: unknown; name?: unknown }) : null;
+    if (!usageRecorded) {
+      recordLlmUsage({
+        phase: "verifier",
+        model: modelId,
+        usage: errorObject?.usage,
+        durationMs: Date.now() - llmCallStartedAt,
+        ok: false,
+        errorCode: typeof errorObject?.name === "string" ? errorObject.name : "verifier_failed",
+      });
+    }
     if (isNonRetryableProviderError(err)) {
       console.warn("[verifier-pass] Non-retryable provider error, skipping:", summariseProviderError(err));
     } else {
