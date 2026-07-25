@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -47,6 +47,55 @@ describe("runPreVmTypecheck", () => {
     });
     expect(result.skipped).toBe("cache_cold");
     expect(result.ok).toBe(true);
+  });
+
+  /**
+   * A cache provisioned by an older script version still sits on disk. Its
+   * tsconfig produces diagnostics that describe the cache and CANNOT be filtered
+   * afterwards — the repo's `@/*` → `./src/*` alias gives bogus TS2307 for every
+   * `@/…` import, and the retired SDK stub alias from #600/#603 gives bogus
+   * TS2305 on valid Clerk code. Both must read as cold (bugbot on #610).
+   */
+  describe("stale provisioning is treated as cold", () => {
+    let cacheDir: string;
+
+    beforeAll(() => {
+      cacheDir = mkdtempSync(join(tmpdir(), "warm-typecheck-stale-"));
+      mkdirSync(join(cacheDir, "node_modules"), { recursive: true });
+    });
+
+    afterAll(() => {
+      rmSync(cacheDir, { recursive: true, force: true });
+    });
+
+    async function runWithTsconfig(paths: Record<string, string[]>) {
+      writeFileSync(
+        join(cacheDir, "tsconfig.json"),
+        JSON.stringify({ compilerOptions: { paths } }),
+        "utf8",
+      );
+      return runPreVmTypecheck({
+        scaffoldId: "landing-page",
+        files: [{ path: "app/page.tsx", content: "export default () => null", language: "tsx" }],
+        force: true,
+        cacheDirOverride: cacheDir,
+      });
+    }
+
+    it("rejects the repo's own @/* alias", async () => {
+      const result = await runWithTsconfig({ "@/*": ["./src/*"] });
+      expect(result.skipped).toBe("cache_cold");
+      expect(result.ok).toBe(true);
+    });
+
+    it("rejects a leftover SDK stub alias", async () => {
+      const result = await runWithTsconfig({
+        "@/*": ["./*"],
+        "@clerk/nextjs": ["./__sdk-stubs/clerk-nextjs.tsx"],
+      });
+      expect(result.skipped).toBe("cache_cold");
+      expect(result.ok).toBe(true);
+    });
   });
 });
 

@@ -21,14 +21,16 @@
  *  - **Only decidable diagnostics:** the cache reuses the repo's
  *    `node_modules`, so unresolved-module errors for dossier-supplied SDKs
  *    describe the cache rather than the code and are dropped before the
- *    repair loop (see `generated-only-modules.ts`).
+ *    repair loop (see `generated-only-modules.ts`). A cache whose tsconfig
+ *    came from an older provisioning run produces cache-shaped diagnostics
+ *    that cannot be filtered after the fact, so it counts as cold.
  *
  * Cache provisioning is intentionally out of scope here — the directory
  * is expected to be populated by an offline script (one-time per scaffold
  * deploy). When unprovisioned, the function reports `cache_cold` and the
  * pipeline continues unaffected.
  */
-import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -87,12 +89,42 @@ function resolveCacheForScaffold(scaffoldId: string | null | undefined): string 
   return join(root, id);
 }
 
-function isCacheWarm(cacheDir: string): boolean {
-  return (
-    existsSync(cacheDir) &&
-    existsSync(join(cacheDir, "node_modules")) &&
-    existsSync(join(cacheDir, "tsconfig.json"))
-  );
+/**
+ * A cache is only usable when its tsconfig matches what provisioning writes
+ * today. `scripts/dev/check-warm-cache.mjs` asserts the same thing, but a dev
+ * who provisioned before a change to the script still has the old cache on
+ * disk — and the runtime, not the smoke check, is what feeds the repair loop.
+ * Two stale shapes both produce diagnostics that describe the CACHE rather than
+ * the code: the repo's own `@/*` → `./src/*` alias (bogus TS2307 for every
+ * `@/components/ui/*` import) and the retired SDK stub aliases from #600/#603
+ * (bogus TS2305, e.g. `@clerk/nextjs` "has no exported member 'useUser'").
+ * Neither is suppressible after the fact, so a stale cache is treated as cold.
+ *
+ * @returns a short reason when the cache is unusable, `null` when it is warm.
+ */
+function describeCacheProblem(cacheDir: string): string | null {
+  if (!existsSync(cacheDir)) return "cache dir missing";
+  if (!existsSync(join(cacheDir, "node_modules"))) return "node_modules missing";
+  const tsconfigPath = join(cacheDir, "tsconfig.json");
+  if (!existsSync(tsconfigPath)) return "tsconfig.json missing";
+  let paths: Record<string, unknown>;
+  try {
+    const tsconfig = JSON.parse(readFileSync(tsconfigPath, "utf8")) as {
+      compilerOptions?: { paths?: Record<string, unknown> };
+    };
+    paths = tsconfig.compilerOptions?.paths ?? {};
+  } catch (err) {
+    return `tsconfig.json unreadable (${err instanceof Error ? err.message : String(err)})`;
+  }
+  const appAlias = paths["@/*"];
+  if (!Array.isArray(appAlias) || appAlias.length !== 1 || appAlias[0] !== "./*") {
+    return `tsconfig.json maps "@/*" to ${JSON.stringify(appAlias)} instead of ["./*"]`;
+  }
+  const retiredAliases = Object.keys(paths).filter((alias) => alias !== "@/*");
+  if (retiredAliases.length > 0) {
+    return `tsconfig.json carries retired SDK stub alias(es) ${retiredAliases.join(", ")}`;
+  }
+  return null;
 }
 
 function writeFilesIntoCache(cacheDir: string, files: CodeFile[]): string[] {
@@ -169,13 +201,24 @@ export async function runPreVmTypecheck(
   }
   const cacheDir =
     params.cacheDirOverride ?? resolveCacheForScaffold(params.scaffoldId);
-  if (!cacheDir || !isCacheWarm(cacheDir)) {
-    return {
-      ok: true,
-      skipped: "cache_cold",
-      diagnostics: [],
-      durationMs: Date.now() - startedAt,
-    };
+  const coldResult: PreVmTypecheckResult = {
+    ok: true,
+    skipped: "cache_cold",
+    diagnostics: [],
+    durationMs: Date.now() - startedAt,
+  };
+  if (!cacheDir) return coldResult;
+  const cacheProblem = describeCacheProblem(cacheDir);
+  if (cacheProblem) {
+    // A cache that exists but is stale is an operator problem the `cache_cold`
+    // telemetry alone cannot explain, so name it once. (A missing cache is the
+    // normal unprovisioned case and already warned about by the caller.)
+    if (existsSync(cacheDir)) {
+      console.warn(
+        `[warm-typecheck] Warm cache at ${cacheDir} is stale — ${cacheProblem}. Treating it as cold; run \`npm run provision:warm-cache\` (see docs/howto/warm-cache-setup.md).`,
+      );
+    }
+    return coldResult;
   }
 
   let written: string[] = [];

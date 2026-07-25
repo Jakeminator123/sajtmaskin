@@ -61,6 +61,7 @@ installationsstatus ([`src/lib/gen/preview/generated-only-modules.ts`](../../src
 - Säkert eftersom `dep-completer.ts` pinnar varje dossier-deklarerat paket i den genererade `package.json` när koden importerar det; `dep-completer.test.ts` låser den täckningen som invariant. Ny dossier kräver alltså **inget** arbete här.
 - Släppta paket loggas som `validate.tsc.undecidable-modules` i devLog, så en filtrering aldrig är osynlig. VM-bygget (ReleaseGate) är fortsatt auktoritativt för om ett beroende verkligen finns.
 - **Inga per-paket-stubbar.** #600/#603 aliasade `@clerk/nextjs` till en teststub i cachen; en stub som är smalare än riktiga SDK:n byter bara `TS2307` mot `TS2305` (`has no exported member 'useUser'`) — samma falska diagnostik i en annan kod. Aliaset togs bort 2026-07-25 och `provision:warm-cache` raderar `__sdk-stubs/` från gamla cachar.
+- **Stale cache = kall cache.** `runPreVmTypecheck` validerar numera själv cachens tsconfig (samma krav som smoke-checken: `@/*` → `./*` och inga andra alias). En cache som provisionerats av en äldre scriptversion ger diagnostiker som beskriver cachen och som INTE kan filtreras i efterhand, så den behandlas som `cache_cold` med en `console.warn` som namnger problemet. Kör om provisioneringen.
 
 ## Uppdatera cachen
 
