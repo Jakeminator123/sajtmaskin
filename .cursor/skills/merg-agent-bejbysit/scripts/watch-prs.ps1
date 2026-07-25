@@ -41,24 +41,56 @@ function Announce([string]$key, [string]$message) {
   if ($announced.Add($key)) { Write-Output $message }
 }
 
+# Datumen hämtas via --jq som RÅA strängar. ConvertFrom-Json omvandlar annars
+# ISO-tider till DateTime-objekt, och en [string]-konvertering av dem tappar
+# Z-suffixet -> tidsstämpeln tolkas som lokal tid och åldern blir fel med hela
+# UTC-offseten (upptäckt i skarp körning: en 3 min gammal PR såg 125 min ut).
 function Get-OpenPrs {
-  $raw = gh pr list --repo $Repo --state open --json number,isDraft,headRefOid 2>$null | Out-String
-  if ($LASTEXITCODE -ne 0 -or -not ($raw -match "\S")) { return $null }
-  try { $parsed = $raw | ConvertFrom-Json } catch { return $null }
+  $raw = gh pr list --repo $Repo --state open --json number,isDraft,headRefOid,createdAt `
+    --jq '.[] | select(.isDraft == false) | "\(.number)|\(.headRefOid)|\(.createdAt)"' 2>$null | Out-String
+  if ($LASTEXITCODE -ne 0) { return $null }
   $out = @()
-  foreach ($pr in @($parsed)) {
-    if ($pr.isDraft) { continue }
-    $out += [pscustomobject]@{ Number = [int]$pr.number; Sha = [string]$pr.headRefOid }
+  foreach ($line in @($raw -split "`n" | Where-Object { $_ -match "\S" })) {
+    $parts = $line.Trim() -split "\|"
+    if ($parts.Count -lt 3) { continue }
+    $out += [pscustomobject]@{
+      Number  = [int]$parts[0]
+      Sha     = $parts[1]
+      Created = $parts[2]
+    }
   }
   return , $out
 }
 
-# Minuter sedan head-commiten pushades. Mognadsklockan räknas härifrån - inte
-# från PR:ens createdAt - så en ny push från författaragenten förlänger väntan.
+function Get-AgeMinutes([string]$isoDate) {
+  if (-not $isoDate) { return -1 }
+  $styles = [Globalization.DateTimeStyles]::AdjustToUniversal -bor [Globalization.DateTimeStyles]::AssumeUniversal
+  $parsed = [datetime]::MinValue
+  if (-not [datetime]::TryParse($isoDate, [Globalization.CultureInfo]::InvariantCulture, $styles, [ref]$parsed)) { return -1 }
+  return [int]((Get-Date).ToUniversalTime() - $parsed).TotalMinutes
+}
+
 function Get-CommitAgeMinutes([string]$sha) {
   $date = gh api "repos/$Repo/commits/$sha" --jq .commit.committer.date 2>$null
   if ($LASTEXITCODE -ne 0 -or -not $date) { return -1 }
-  return [int]((Get-Date).ToUniversalTime() - [datetime]::Parse($date).ToUniversalTime()).TotalMinutes
+  return Get-AgeMinutes $date
+}
+
+<#
+Hur länge innehållet varit granskningsbart. Två klockor måste båda ha gått:
+
+  commit-åldern  - en ny push från författaragenten startar om väntan, annars
+                   kan en sen ändring smygas in precis före merge.
+  PR-åldern      - en gammal lokal commit som pushas som ny PR har inte varit
+                   synlig för Codex/Vercel/Bugbot en enda minut ännu.
+
+Innehållet blev granskningsbart vid den SENASTE av de två händelserna, så den
+förflutna tiden är den MINSTA av de två åldrarna.
+#>
+function Get-ReviewableMinutes([int]$commitAge, [int]$prAge) {
+  if ($commitAge -lt 0) { return $prAge }
+  if ($prAge -lt 0) { return $commitAge }
+  return [Math]::Min($commitAge, $prAge)
 }
 
 function Get-CheckState([int]$number) {
@@ -96,12 +128,12 @@ for ($i = 1; $i -le $Cycles; $i++) {
     $seenSha[$n] = $sha
 
     $state = Get-CheckState $n
-    $age = Get-CommitAgeMinutes $sha
+    $age = Get-ReviewableMinutes (Get-CommitAgeMinutes $sha) (Get-AgeMinutes $pr.Created)
     $summary += "#$n=$state/${age}min"
 
     if ($state -eq "failed") { Announce "$n/$sha/failed" "FAILED #$n" }
     elseif ($state -eq "green" -and $age -ge $MinutesMature -and $Ignore -notcontains $n) {
-      Announce "$n/$sha/actionable" "ACTIONABLE #$n (${age}min sedan senaste commit)"
+      Announce "$n/$sha/actionable" "ACTIONABLE #$n (${age}min granskningsbar)"
     }
   }
 

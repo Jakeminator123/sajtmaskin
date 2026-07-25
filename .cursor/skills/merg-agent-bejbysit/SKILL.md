@@ -62,14 +62,22 @@ gh api repos/Jakeminator123/sajtmaskin/pulls/<n>/comments --jq '.[] | {user:.use
 gh pr view <n> --json reviews --jq '[.reviews[] | {author:.author.login,state:.state}]'
 ```
 
-**Mognadsregeln (15 min, förlängs vid ny commit).** Klockan räknas från **senaste
-commit på head**, inte från PR-skapandet — pushar författaragenten något under
-väntan börjar de 15 minuterna om:
+**Mognadsregeln: 15 min granskningsbar.** Två klockor måste båda ha gått, för att
+täcka två olika sätt att smita förbi granskning:
+
+| Klocka | Skyddar mot |
+|---|---|
+| Senaste commit på head | En sen push precis före merge — ny commit startar om väntan |
+| PR:ens `createdAt` | En gammal lokal commit som pushas som ny PR; den har inte varit synlig för Codex/Vercel/Bugbot en enda minut |
+
+Innehållet blev granskningsbart vid den **senaste** av de två händelserna, så den
+förflutna tiden är den **minsta** av de två åldrarna:
 
 ```powershell
-$sha = gh pr view <n> --json headRefOid --jq .headRefOid
-$pushed = gh api repos/Jakeminator123/sajtmaskin/commits/$sha --jq .commit.committer.date
-[int]((Get-Date).ToUniversalTime() - [datetime]::Parse($pushed).ToUniversalTime()).TotalMinutes
+$pr = gh pr view <n> --json headRefOid,createdAt | ConvertFrom-Json
+$pushed = gh api repos/Jakeminator123/sajtmaskin/commits/$($pr.headRefOid) --jq .commit.committer.date
+$ages = @($pushed, $pr.createdAt) | ForEach-Object { [int]((Get-Date).ToUniversalTime() - [datetime]::Parse($_).ToUniversalTime()).TotalMinutes }
+($ages | Measure-Object -Minimum).Minimum
 ```
 
 Under 15 → merga inte. Detta är **strängare** än CI-checken `review-window`
