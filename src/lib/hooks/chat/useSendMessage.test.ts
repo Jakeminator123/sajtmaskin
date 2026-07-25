@@ -530,6 +530,7 @@ describe("useSendMessage outcome contract", () => {
     expect(await send(result, "Bygg en portfoliosajt")).toEqual({
       status: "rejected",
       reason: "create_chat_failed",
+      turnRecorded: false,
     });
   });
 
@@ -539,6 +540,7 @@ describe("useSendMessage outcome contract", () => {
     expect(await send(result, "   ")).toEqual({
       status: "rejected",
       reason: "empty_message",
+      turnRecorded: false,
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -559,6 +561,7 @@ describe("useSendMessage outcome contract", () => {
     expect(await send(result, "Uppdatera hero copy")).toEqual({
       status: "rejected",
       reason: "stale_base_version",
+      turnRecorded: false,
     });
   });
 
@@ -579,7 +582,11 @@ describe("useSendMessage outcome contract", () => {
         parentVersionIdOverride: "ver_f2_parent",
         engineBaseVersionIdOverride: "ver_f2_parent",
       }),
-    ).toEqual({ status: "rejected", reason: "tier3_env_not_ready" });
+    ).toEqual({
+      status: "rejected",
+      reason: "tier3_env_not_ready",
+      turnRecorded: false,
+    });
     // The 412 also returns before the server persists the user row, so the
     // optimistic ghost goes away and only the assistant notice remains.
     expect(messagesBox.current.filter((m) => m.role === "user")).toEqual([]);
@@ -672,6 +679,7 @@ describe("useSendMessage outcome contract", () => {
       expect(await sendF3(result)).toEqual({
         status: "rejected",
         reason: "tier3_env_not_ready",
+        turnRecorded: true,
       });
       expect(dispatchF3Requirements).toHaveBeenCalledTimes(1);
       // The user row is KEPT unlike the direct 412: this 409 comes from the
@@ -695,6 +703,7 @@ describe("useSendMessage outcome contract", () => {
       expect(await sendF3(result)).toEqual({
         status: "rejected",
         reason: "f3_build_required",
+        turnRecorded: true,
       });
       expect(messagesBox.current.filter((m) => m.role === "user")).toHaveLength(1);
       expect(messagesBox.current.at(-1)?.content).toMatch(/previewpanelen/i);

@@ -621,13 +621,14 @@ export function ChatInterface({
       } else {
         if (!onSendMessage) return;
         const outcome = await onSendMessage(payload.finalMessage, msgOpts);
-        // Utfallskontraktet (BB#shadcn-lane1): `rejected` betyder att servern
-        // vägrade turen UTAN att konsumera prompten (409 stale base, 412
-        // tier-3-env), så utkastet — inklusive bilagor, Figma-länk och
-        // inspect-punkter — måste ligga kvar. Förut rensades allt eftersom
-        // sändvägen resolvade utan kast. Övriga utfall konsumerade prompten
-        // (`settled` = F3-ReleaseGate-runda) och rensar som tidigare.
-        if (outcome.status === "rejected") return;
+        // Utfallskontraktet (BB#shadcn-lane1): en avvisad tur som servern INTE
+        // skrev ner (`turnRecorded: false` — 409 stale base, 412 tier-3-env)
+        // finns bara här, så utkastet inklusive bilagor, Figma-länk och
+        // inspect-punkter måste ligga kvar. Förut rensades allt eftersom
+        // sändvägen resolvade utan kast. Skrev servern ner turen ligger prompten
+        // i tråden i stället och utkastet rensas — annars finns den på två
+        // ställen och ett omsänd kan dubblera turen (bugbot på #610).
+        if (outcome.status === "rejected" && !outcome.turnRecorded) return;
       }
       if (options.clearDraft !== false) {
         setInput("");

@@ -160,6 +160,7 @@ describe("PreviewPanelBrowseGallery", () => {
     const onInsertItem = vi.fn().mockResolvedValue({
       status: "rejected",
       reason: "tier3_env_not_ready",
+      turnRecorded: true,
     } satisfies SendMessageOutcome);
     render(<PreviewPanelBrowseGallery onInsertItem={onInsertItem} />);
     await waitFor(() => screen.getByText("Login 01"));

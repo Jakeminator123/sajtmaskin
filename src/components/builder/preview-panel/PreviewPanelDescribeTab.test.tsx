@@ -124,6 +124,7 @@ describe("PreviewPanelDescribeTab", () => {
     const onInsertItem = vi.fn().mockResolvedValue({
       status: "rejected",
       reason: "stale_base_version",
+      turnRecorded: false,
     } satisfies SendMessageOutcome);
 
     render(<PreviewPanelDescribeTab onInsertItem={onInsertItem} />);

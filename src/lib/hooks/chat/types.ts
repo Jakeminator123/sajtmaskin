@@ -328,8 +328,9 @@ export type SendMessageRejectionReason =
  * Two axes matter to callers and they do not coincide:
  *  - did a GENERATION run (`started`)? An insert card may only say "Skickat"
  *    for that.
- *  - was the PROMPT consumed? Only `rejected` means no, so it is the only
- *    outcome where the composer keeps the draft.
+ *  - was the PROMPT consumed? Only `rejected` means no — and `turnRecorded`
+ *    then says whether the server nevertheless wrote the turn down, which is
+ *    what decides where the prompt lives.
  *
  * `settled` is the case where those differ: the server turned the turn into a
  * deterministic F3 ReleaseGate round on the parent version, so the prompt was
@@ -344,7 +345,25 @@ export type SendMessageRejectionReason =
 export type SendMessageOutcome =
   | { status: "started"; via: "stream" | "messages_fallback" | "new_chat" }
   | { status: "settled"; as: "f3_deterministic_release" }
-  | { status: "rejected"; reason: SendMessageRejectionReason }
+  | {
+      status: "rejected";
+      reason: SendMessageRejectionReason;
+      /**
+       * Whether the server wrote this turn down before refusing it. It decides
+       * where the prompt lives, so that it lives in exactly ONE place:
+       *
+       * - `false` — nothing was persisted (the stale-base and tier-3 gates both
+       *   return ahead of `addMessage`), so `useSendMessage` removes the
+       *   optimistic user row and the caller KEEPS its draft. The user retries
+       *   from the composer with attachments intact.
+       * - `true` — the turn is in the thread (the F3 approve-continuation
+       *   backstop persists the user row before returning its 409), so the
+       *   bubble stays and the caller CLEARS its draft. Hiding a persisted row
+       *   would reappear on reload; keeping both copies invites a duplicate
+       *   turn. Both failure modes were reported on #610.
+       */
+      turnRecorded: boolean;
+    }
   | { status: "aborted"; by: "client" | "server" }
   | { status: "failed"; message: string };
 

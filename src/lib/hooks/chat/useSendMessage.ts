@@ -94,12 +94,12 @@ export function useSendMessage(
       options: MessageOptions = {},
     ): Promise<SendMessageOutcome> => {
       if (!messageText?.trim()) {
-        return { status: "rejected", reason: "empty_message" };
+        return { status: "rejected", reason: "empty_message", turnRecorded: false };
       }
 
       if (!chatId) {
         if (!(await createNewChat(messageText, options))) {
-          return { status: "rejected", reason: "create_chat_failed" };
+          return { status: "rejected", reason: "create_chat_failed", turnRecorded: false };
         }
         return { status: "started", via: "new_chat" };
       }
@@ -109,16 +109,15 @@ export function useSendMessage(
       const assistantMessageId = `assistant-${now}`;
 
       /**
-       * For the two gates that refuse a turn BEFORE the server persists
-       * anything — stale-base 409 and tier-3 412, both of which return ahead of
-       * `addMessage` — the optimistic user row is a client-only ghost. It is
-       * dropped and only the assistant notice explaining the refusal stays: the
-       * composer keeps the draft for a `rejected` outcome, and the prompt must
-       * live in exactly one place, otherwise the thread shows it as a sent turn
-       * that never happened and a retry renders it twice (bugbot on #610).
-       *
-       * NOT for every rejection: the nested-finalize 409 can already have
-       * persisted the user row, so that path keeps the bubble (see its comment).
+       * Settle a rejection the server did NOT write down (`turnRecorded:
+       * false`): the stale-base 409 and the tier-3 412 both return ahead of
+       * `addMessage`, so the optimistic user row is a client-only ghost. It is
+       * dropped and only the assistant notice explaining the refusal stays,
+       * because the caller keeps its draft for that outcome — the prompt must
+       * live in exactly ONE place. Keeping both copies invites a duplicate
+       * turn; hiding a row the server DID persist reappears on reload. Both
+       * were reported on #610, which is why the two decisions derive from the
+       * one `turnRecorded` field instead of being judged per call site.
        */
       const settleRejectedTurn = (assistantContent: string) => {
         setMessages((prev) =>
@@ -474,7 +473,11 @@ export function useSendMessage(
             settleRejectedTurn(
               "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och fortsätt integrationsbygget.",
             );
-            return { status: "rejected", reason: "tier3_env_not_ready" };
+            return {
+              status: "rejected",
+              reason: "tier3_env_not_ready",
+              turnRecorded: false,
+            };
           }
           if (
             response.status === 409 &&
@@ -532,26 +535,30 @@ export function useSendMessage(
               content =
                 "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och försök igen.";
               toast.warning("F3 saknar obligatoriska env-värden.");
-              outcome = { status: "rejected", reason: "tier3_env_not_ready" };
+              outcome = {
+                status: "rejected",
+                reason: "tier3_env_not_ready",
+                turnRecorded: true,
+              };
             } else if (release.kind === "llm_ready") {
               content =
                 "F3-specen kräver nu ett vanligt integrationsbygge. Starta det igen från previewpanelen.";
               toast.warning("F3-kontrollen kunde inte slutföras.");
-              outcome = { status: "rejected", reason: "f3_build_required" };
+              outcome = {
+                status: "rejected",
+                reason: "f3_build_required",
+                turnRecorded: true,
+              };
             } else {
               content = release.message;
               toast.warning("F3-kontrollen kunde inte slutföras.");
               outcome = { status: "failed", message: release.message };
             }
-            // The user row is KEPT here even when the verdict is a rejection,
-            // unlike the direct 412 and the stale-base 409. Those two gates
-            // return before the server persists anything, but this 409 comes
-            // from the approve-continuation backstop, which persists the user
-            // row when the reply was an approval (`f3-readiness-gate.ts`
-            // consumes the marker, then writes the row). Hiding a row that
-            // exists in the DB would be the worse lie — it reappears on reload
-            // (bugbot on #610). The draft still survives via the `rejected`
-            // status, so the prompt is recoverable either way.
+            // `turnRecorded: true` on this path — the approve-continuation
+            // backstop persists the user row before returning its 409
+            // (`f3-readiness-gate.ts` consumes the marker, then writes the
+            // row). So the bubble stays and the caller clears its draft; the
+            // prompt lives in the thread, once.
             setMessages((prev) =>
               prev.map((message) =>
                 message.id === assistantMessageId
@@ -563,7 +570,7 @@ export function useSendMessage(
           }
           // 5-2 stale-base gate (client half) — delad hanterare, se ovan.
           if (handleStaleBaseVersion(response.status, errorData)) {
-            return { status: "rejected", reason: "stale_base_version" };
+            return { status: "rejected", reason: "stale_base_version", turnRecorded: false };
           }
           throw new Error(
             buildApiErrorMessage({
@@ -637,7 +644,7 @@ export function useSendMessage(
               // PR #355-triage #20: fallbacken ska ge samma stale-base-reload-UX
               // som stream-vägen — inte ett generiskt "Failed to send message".
               if (handleStaleBaseVersion(fallbackRes.status, errorData)) {
-                return { status: "rejected", reason: "stale_base_version" };
+                return { status: "rejected", reason: "stale_base_version", turnRecorded: false };
               }
               throw new Error(
                 buildApiErrorMessage({

@@ -47,10 +47,11 @@ async function typeAndSend(outcome: SendMessageOutcome) {
 }
 
 describe("ChatInterface draft retention", () => {
-  it("keeps the draft when the send was rejected but handled", async () => {
+  it("keeps the draft when the rejected turn was never written down", async () => {
     const textarea = await typeAndSend({
       status: "rejected",
       reason: "stale_base_version",
+      turnRecorded: false,
     });
     await waitFor(() => expect(textarea.value).toBe(DRAFT));
   });
@@ -60,9 +61,21 @@ describe("ChatInterface draft retention", () => {
     await waitFor(() => expect(textarea.value).toBe(""));
   });
 
-  // Bugbot on #610: the F3 deterministic ReleaseGate round consumes the prompt
-  // (and may promote a version), so it must NOT be treated as a rejection —
-  // that would leave the whole draft behind for a turn that completed.
+  // Bugbot on #610: a rejection the server DID write down leaves the prompt in
+  // the thread, so keeping the draft too would put it in two places and let a
+  // resend duplicate the turn.
+  it("clears the draft when the rejected turn was recorded server-side", async () => {
+    const textarea = await typeAndSend({
+      status: "rejected",
+      reason: "tier3_env_not_ready",
+      turnRecorded: true,
+    });
+    await waitFor(() => expect(textarea.value).toBe(""));
+  });
+
+  // The F3 deterministic ReleaseGate round consumes the prompt (and may promote
+  // a version), so it must NOT be treated as a rejection at all — that would
+  // leave the whole draft behind for a turn that completed.
   it("clears the draft when the turn settled as an F3 ReleaseGate round", async () => {
     const textarea = await typeAndSend({
       status: "settled",
