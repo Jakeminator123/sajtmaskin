@@ -200,6 +200,18 @@ gh pr view <n> --json state,mergeCommit --jq '{state,sha:.mergeCommit.oid}'
 | **Label saknas** | **Merga inte.** Grönt CI är inte ett godkännande — se nedan |
 | Label saknas och författaragenten svarar inte inom rimlig tid | Först då får du ta över **författarrollen**: kör bugbot-passet själv, triagera, och skriv sign-off-raden med `bugkoll: <väg> (merge-agenten agerade författare — ingen oberoende andra part)`. Aldrig på en protected path |
 
+**Övertagandet är ett undantag, inte ett arbetssätt.** Det kräver antingen att
+författaren är oåtkomlig, eller att ägaren uttryckligen delegerat sign-off-beslutet
+för den omgången. Delegeringen gäller den gången den gavs — den blir inte stående,
+och nästa pass börjar med att författarna signerar själva igen.
+
+Två skäl att hålla på det. Signalen betyder "jag är klar med att pusha", och den
+kan bara författaren veta (2026-07-25: #607 mergades på grönt CI medan dess
+författare hade en commit på väg). Och tar mergaren över rollen försvinner den
+oberoende andra parten — bugbot-subagenten är då enda kvarvarande skydd, vilket
+är varför övertagandet aldrig gäller protected paths. Skriv alltid ut i
+sign-offen vilken av de två grunderna som gällde.
+
 ### Avsaknad av `merge:ready` betyder "författaren är inte klar"
 
 Detta är den regel som kostade oss en extra runda 2026-07-25: #607 mergades på
