@@ -131,8 +131,31 @@
         "src/app/api/projects/[id]/analyze/route.ts"
       ]
     },
-    "Scaffolds": {
-      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/promptHints/qualityChecklist). Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab (v0-mallar i Blob). CRUD görs i Scaffold Lifecycle.",
+    "Byggstenar: översikt": {
+      "summary": "Ingången till Byggstenar (ny 2026-07-24): vad scaffold, variant, byggblock och mall är, hur de hänger ihop, hur de väljs och vad en sparning påverkar (repo-fil vs produktion). Sidan äger ingen egen sanning — definitionerna renderas ur docs/architecture/glossary.md och urvalsavsnitten ur docs/contracts/{scaffold-system,dossier-system}.md; siffrorna läses från disk. Kartan över alla vyer bor kvar i Översikt och filägarskap per beslut i Control Plane (cockpit).",
+      "canonicalPaths": [
+        "src/lib/gen/scaffolds/",
+        "config/scaffold-variants/",
+        "data/dossiers/",
+        "src/lib/templates/template-blob-manifest.json"
+      ],
+      "docsPaths": [
+        "docs/architecture/glossary.md",
+        "docs/contracts/scaffold-system.md",
+        "docs/contracts/dossier-system.md"
+      ],
+      "strictSchemaPaths": [
+        "docs/schemas/strict/scaffold-variant.schema.json",
+        "docs/schemas/strict/dossier.schema.json"
+      ],
+      "codeReaders": [
+        "backoffice/pages/building_blocks.py",
+        "backoffice/shared.py",
+        "backoffice/test_building_blocks_nav.py"
+      ]
+    },
+    "Scaffolds: titta & justera": {
+      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/promptHints/qualityChecklist). Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab (v0-mallar i Blob). Skapa/klona/radera görs i 'Scaffolds & varianter: skapa, klona, ta bort'.",
       "canonicalPaths": [
         "src/lib/gen/scaffolds/",
         "src/lib/gen/scaffolds/protected-paths.ts",
@@ -157,8 +180,8 @@
         "src/lib/api/engine/chats/chat-message-stream-post.ts"
       ]
     },
-    "Scaffold Lifecycle": {
-      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, beroendevaliderad scaffold-radering samt Baseline-flik (fabriksåterställning av scaffold-ytorna till git-taggen scaffold-baseline-v1). Variantens sourceTemplateIds slås upp mot Blob-manifestet (v0-mallar) — legacy-katalogen är avvecklad. Variants är det visuella uttrycket inom en scaffold. Dossiers (separat system, v2 sedan 2026-04-20) hanteras under 'Dossiers (legoklossar)'-sidan och injiceras deterministiskt baserat på brief.requestedCapabilities — inte embeddings.",
+    "Scaffolds & varianter: skapa, klona, ta bort": {
+      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, beroendevaliderad scaffold-radering samt Baseline-flik (fabriksåterställning av scaffold-ytorna till git-taggen scaffold-baseline-v1). Variantens sourceTemplateIds slås upp mot Blob-manifestet (v0-mallar) — legacy-katalogen är avvecklad. Variants är det visuella uttrycket inom en scaffold. Byggblock/dossiers (separat system, v2 sedan 2026-04-20) hanteras under 'Byggblock (dossiers)'-sidan och injiceras deterministiskt baserat på brief.requestedCapabilities — inte embeddings.",
       "canonicalPaths": [
         "config/scaffold-variants/",
         "backoffice/pages/scaffold_lifecycle.py",
@@ -179,7 +202,7 @@
         "scripts/scaffolds/generate-variant-embeddings.ts"
       ]
     },
-    "Scaffold Wizard": {
+    "Guide: ny scaffold eller variant (AI)": {
       "summary": "Pedagogisk steg-för-steg-wizard: välj en v0-mall i Vercel Blob (template-blob-manifest.json) som INSPIRATION, låt en OpenAI-persona (vision: stillbild + kodutdrag ur zippen) skriva ett utkast, granska/justera, validera mot det strikta variant-schemat och skapa en scaffold-variant eller ny scaffold + startvariant. Inget persisteras förrän checklistan är grön; utkast sparas gitignorerat i data/scaffold-wizard-drafts/. Mallens filer kopieras aldrig — ny scaffold klonar alltid filshell från en befintlig scaffold så stacken förblir kompatibel.",
       "canonicalPaths": [
         "backoffice/pages/scaffold_wizard.py",
@@ -460,7 +483,7 @@
         "backoffice/test_backup_restore.py"
       ]
     },
-    "Scaffold Performance": {
+    "Scaffold-poäng": {
       "summary": "Read-only poängvy per scaffold från generation_telemetry (kör scripts/db/scaffold-scores.mjs via subprocess mot DB:n som .env.local pekar på). Beslutsunderlag för vilka scaffolds som presterar — ingen redigering här.",
       "canonicalPaths": [
         "backoffice/pages/scaffold_performance.py",
@@ -473,8 +496,8 @@
         "backoffice/pages/scaffold_performance.py"
       ]
     },
-    "Dossiers (legoklossar)": {
-      "summary": "Adminvy för runtime dossiers (Byggblock/capability-moduler) under data/dossiers/{hard,soft}/: bläddra per dossier-grupp, redigera manifest (validerar mot strict-schema före save), radera (checklist + id-bekräftelse + zip-snapshot till Återställning), AI-kurering från template-references och ombyggnad av capability-map (genererad vy).",
+    "Byggblock (dossiers)": {
+      "summary": "Adminvy för byggblocken (runtime dossiers/capability-moduler; UI-label Byggblock, kod-id dossier) under data/dossiers/{hard,soft}/: bläddra per dossier-grupp, redigera manifest (validerar mot strict-schema före save), radera (checklist + id-bekräftelse + zip-snapshot till Återställning), AI-kurering från template-references och ombyggnad av capability-map (genererad vy).",
       "canonicalPaths": [
         "data/dossiers/",
         "data/dossiers/_index/capability-map.json",
@@ -613,7 +636,7 @@
         "backoffice/pages/projects_admin.py"
       ]
     },
-    "Mallar → Blob-upload": {
+    "Mallar (v0): inspiration & uppladdning": {
       "summary": "Laddar upp v0-mallar (zip) till Vercel Blob och uppdaterar template-blob-manifest.json + galleri-katalogen via scripts/v0-templates/upload-mallar-blob.mjs. Mallar (v0-mallar i Blob-galleriet) är ett separat system från scaffolds och dossiers.",
       "canonicalPaths": [
         "src/lib/templates/template-blob-manifest.json",

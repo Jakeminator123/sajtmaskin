@@ -339,7 +339,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 
 ### Backoffice
 
-`npm run backoffice` startar Streamlit-appen (`sajtmaskin_backoffice.py`). Scaffold-ytor: **Scaffolds** (översikt + termguide + detaljer + metadata-redigering, inkl. mental modell-docs), **Scaffold Lifecycle** (skapa/klona/radera + varianter + baseline-återställning), **Scaffold Wizard** (AI-guidat skapande), **Scaffold Performance** (telemetri-poäng) och **Dossiers (legoklossar)**. Alla sparningar säkerhetskopieras (sidan **Återställning**).
+`npm run backoffice` startar Streamlit-appen (`sajtmaskin_backoffice.py`). Byggstenar-ytor (omdöpta 2026-07-24, gamla `?nav=`-slugs fungerar fortfarande): **Byggstenar: översikt** (mental modell, renderad ur glossary + kontraktsdocs), **Scaffolds: titta & justera** (översikt + termguide + detaljer + metadata-redigering), **Scaffolds & varianter: skapa, klona, ta bort** (skapa/klona/radera + varianter + baseline-återställning), **Guide: ny scaffold eller variant (AI)** (AI-guidat skapande), **Byggblock (dossiers)** och **Mallar (v0): inspiration & uppladdning**. Telemetri-poängen bor i **Scaffold-poäng** (gruppen Telemetri & loggar). Alla sparningar säkerhetskopieras (sidan **Återställning**).
 
 ---
 

@@ -18,13 +18,18 @@ from backoffice.shared import (
     get_all_manifests,
     read_json,
     read_text,
+    render_building_blocks_nav,
+    render_save_scope,
     render_where_panel,
+    tech_details,
     validate_json_against_schema,
     write_json,
     write_text,
 )
 from backoffice.shared import extract_ts_string_array_field as _extract_ts_string_array_field
 from backoffice.shared import extract_ts_string_field as _extract_ts_string_field
+
+PAGE_NAME = "Scaffolds & varianter: skapa, klona, ta bort"
 
 THEME_TOKEN_KEYS = (
     "background",
@@ -224,7 +229,7 @@ def _dead_source_template_ids_message(dead: list[str]) -> str:
     return (
         "sourceTemplateIds pekar på id:n som inte finns i Blob-manifestet "
         f"(`{BLOB_MANIFEST_REL}`): {', '.join(dead)}. Använd riktiga v0-mall-id:n "
-        "(kolumnen Blob-id i Scaffold Wizard steg 1) eller ta bort raderna."
+        "(kolumnen Blob-id i **Guide** steg 1) eller ta bort raderna."
     )
 
 
@@ -328,7 +333,7 @@ def _variant_integrity_errors(
             "(`variant-integrity.test.ts`) kräver minst "
             f"{_SIG_MIN_LAYOUTS} layouts, {_SIG_MIN_MOTIFS} motifs och "
             f"{_SIG_MIN_ANTI} antiPatterns. Fyll i fälten under **Advanced**, "
-            "eller skapa varianten via **Scaffold Wizard** som AI-kurerar mönstren."
+            "eller skapa varianten via **Guide** som AI-kurerar mönstren."
         )
     if payload.get("default") is True and sibling_defaults:
         errors.append(
@@ -825,7 +830,7 @@ def _render_tree_view(
         "injiceras från dem. Runtime-dossiers under `data/dossiers/{hard,soft}/` är en "
         f"separat pool: {runtime_total} dossiers "
         f"(hard={runtime_dossier_counts.get('hard', 0)}, soft={runtime_dossier_counts.get('soft', 0)}). "
-        "Se `Dossiers` i backoffice för runtime-poolen."
+        "Se **Byggblock (dossiers)** i backoffice för runtime-poolen."
     )
 
     if inspiration_sources:
@@ -866,7 +871,7 @@ def _render_tree_view(
             st.caption(
                 "Id:n som varken finns i Blob-manifestet eller i en lokal legacy-katalog. "
                 "De påverkar inte runtime (bara en textrad i prompten) och kan bytas ut mot "
-                "Blob-id:n via Scaffold Wizard när varianten ändå uppdateras."
+                "Blob-id:n via **Guide** när varianten ändå uppdateras."
             )
             for template_id in unresolved_links:
                 st.markdown(f"- `{template_id}`")
@@ -969,7 +974,7 @@ def _render_create_variant(scaffold_ids: list[str], ctx: BackofficeContext) -> N
         st.caption(
             f"Minst {_SIG_MIN_LAYOUTS} layouts, {_SIG_MIN_MOTIFS} motifs och "
             f"{_SIG_MIN_ANTI} antiPatterns (en konkret mening per rad). Vill du hellre "
-            "AI-kurera dem? Skapa varianten via **Scaffold Wizard** i stället."
+            "AI-kurera dem? Skapa varianten via **Guide** i stället."
         )
         signature_layouts_text = st.text_area(
             "Signature layouts (one per line)",
@@ -1684,7 +1689,7 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
     st.caption(
         f"Källan `{source_scaffold_id}` har {source_manifest.get('file_count', 0)} filer och används bara som filshell. "
         "Matcher/retry-semantik och katalogreferenser (`sourceTemplateIds`) kurateras separat. "
-        "Runtime-dossiers (`data/dossiers/{hard,soft}`) är en separat pool och hanteras i sidan **Dossiers**."
+        "Byggblock (`data/dossiers/{hard,soft}`) är en separat pool och hanteras i sidan **Byggblock (dossiers)**."
     )
     with st.expander("Vad skapas automatiskt?", expanded=False):
         st.markdown("- `manifest.ts` + klonad `files/` från vald källscaffold")
@@ -1817,7 +1822,7 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
         st.error(
             "En scaffold måste ha minst en variant för att kunna väljas av matchern. "
             "Låt 'Create neutral starter variant' vara ikryssad — eller skapa scaffolden "
-            "via **Scaffold Wizard**, som alltid skriver en startvariant."
+            "via **Guide**, som alltid skriver en startvariant."
         )
         return
 
@@ -2538,15 +2543,33 @@ def render(ctx: BackofficeContext) -> None:
     inspiration_lookup, inspiration_sources = _load_inspiration_lookup(ctx)
     runtime_dossier_counts = _count_runtime_dossiers(ctx)
 
-    st.header("Scaffold Lifecycle")
-    render_where_panel("Scaffold Lifecycle", domain_map)
-    st.info(
-        "Den här sidan binder ihop runtime-scaffolds, scaffold-variants och deras "
-        f"inspirationsreferenser (`sourceTemplateIds` → v0-mallarna i `{BLOB_MANIFEST_REL}`). "
-        "Själva varianten är det visuella uttrycket inom en scaffold, inte ett separat runtime-lager. "
-        "Runtime-dossiers under `data/dossiers/{hard,soft}` är en **separat** pool som hanteras i sidan **Dossiers**. "
-        "Vill du skapa nytt med AI-stöd? Använd **Scaffold Wizard**."
+    st.header("Scaffolds & varianter: skapa, klona, ta bort")
+    render_building_blocks_nav(PAGE_NAME)
+    st.markdown(
+        "Här skapar och klonar du **scaffolds** (startpunkter) och **varianter** "
+        "(det visuella uttrycket inom en scaffold). Radering och "
+        "fabriksåterställning ligger i en egen farlig zon."
     )
+    render_save_scope(
+        "repo",
+        paths=("src/lib/gen/scaffolds/", "config/scaffold-variants/"),
+        note="Vill du ha AI-hjälp med utkastet? Använd **Guide** i kedjan ovan.",
+    )
+    with tech_details():
+        st.markdown(
+            "- Variantens `sourceTemplateIds` är inspirationsetiketter som slås upp "
+            f"mot Blob-manifestet (`{BLOB_MANIFEST_REL}`) — inget injiceras från dem."
+        )
+        st.markdown(
+            "- Byggblock (dossiers) under `data/dossiers/{hard,soft}` är en **separat** "
+            "pool: se sidan **Byggblock (dossiers)**."
+        )
+        st.markdown(
+            "- Skapande skriver även `types.ts`, `registry.ts` och "
+            "`scaffold-embedding-locale.ts`; misslyckas något rullas allt tillbaka."
+        )
+        st.markdown("- Validera efter ändring: `npm run scaffolds:validate`")
+        render_where_panel(PAGE_NAME, domain_map)
 
     overview_tab, create_tab, variants_tab, delete_tab, pipeline_tab, baseline_tab = st.tabs(
         ["Översikt", "Skapa scaffold", "Varianter", "Radera scaffold", "Pipeline", "Baseline"]

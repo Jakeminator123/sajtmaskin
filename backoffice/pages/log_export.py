@@ -25,7 +25,12 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from backoffice.shared import BackofficeContext, render_where_panel, read_json
+from backoffice.shared import (
+    BackofficeContext,
+    read_json,
+    render_save_scope,
+    render_where_panel,
+)
 
 _DUMP_SCRIPT_REL = "scripts/db/dump-logs.mjs"
 _PROD_ENV_FILE = ".env.vercel.production.pulled"
@@ -160,6 +165,11 @@ def render(ctx: BackofficeContext) -> None:
         else {"pages": {}, "repoSiblings": {}}
     )
     render_where_panel("Logg-export", domain_map)
+    render_save_scope(
+        "prod",
+        note="Exporten är read-only (SELECT), men kan läsa **produktionsdatabasen** "
+        "när du väljer prod nedan. Behandla nedladdade filer som produktionsdata.",
+    )
 
     # --- Mål-DB ---------------------------------------------------------------
     st.subheader("1. Mål-databas")

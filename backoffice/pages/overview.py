@@ -22,11 +22,20 @@ def render(ctx: BackofficeContext) -> None:
 
     st.header("Välkommen till Sajtmaskin Backoffice")
     st.markdown(
-        "Det här är verktygsytan för att **inspektera och styra** Sajtmaskins "
-        "generierings-pipeline: scaffolds (startpunkter), dossiers (byggblock), "
-        "LLM-modeller/prompts, miljöpolicy, drift och telemetri. "
-        "Koden är alltid source of truth — panelen speglar och redigerar de "
-        "kanoniska filerna under `config/`, `src/lib/gen/scaffolds/` och `data/dossiers/`."
+        "Den här sidan är **kartan över alla vyer**. Koden är alltid source of "
+        "truth — panelen speglar och redigerar de kanoniska filerna under "
+        "`config/`, `src/lib/gen/scaffolds/` och `data/dossiers/`."
+    )
+    # Byggstens-modellen (scaffold / variant / byggblock / mall) ägs av hubben
+    # "Byggstenar: översikt" — den förklaringen upprepas medvetet INTE här.
+    st.markdown(
+        "Vill du förstå hur en sajt byggs — scaffold, variant, byggblock och "
+        "mall — börja i **Byggstenar: översikt**."
+    )
+    nav_link_button(
+        "→ Öppna Byggstenar: översikt",
+        "Byggstenar: översikt",
+        key="overview_goto_building_blocks",
     )
     st.success(
         "**Tryggt att experimentera:** de vanliga redigeringsvyerna säkerhetskopierar "

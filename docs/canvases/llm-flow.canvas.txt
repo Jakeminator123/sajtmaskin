@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "c79dcd6d",
+    "commit": "778717bb",
     "commitDate": "2026-07-25",
     "sinceDays": 14
   },
@@ -147,7 +147,7 @@ const DATA: CanvasData = {
       "note": "4 oppna backlog-rader (P0:0 P1:0 P2:1 P3:3)"
     },
     {
-      "name": "Scaffolds",
+      "name": "Scaffolds: titta & justera",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
@@ -159,12 +159,12 @@ const DATA: CanvasData = {
         "P3": 4,
         "other": 0
       },
-      "churn": 10,
+      "churn": 9,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/pro",
       "note": "10 oppna backlog-rader (P0:0 P1:0 P2:6 P3:4)"
     },
     {
-      "name": "Scaffold Lifecycle",
+      "name": "Scaffolds & varianter: skapa, klona, ta bort",
       "status": "ongoing",
       "statusLabel": "Pagar",
       "tone": "info",
@@ -223,7 +223,7 @@ const DATA: CanvasData = {
       "reason": "31 oppna backlog-rader (P0:0 P1:1 P2:10 P3:20)"
     },
     {
-      "name": "Scaffolds",
+      "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "10 oppna backlog-rader (P0:0 P1:0 P2:6 P3:4)"

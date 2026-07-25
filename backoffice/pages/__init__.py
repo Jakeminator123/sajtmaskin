@@ -6,6 +6,7 @@ from typing import Callable
 from . import (
     ai_models,
     autofix,
+    building_blocks,
     codegen_core,
     control_plane,
     cursor_agents,
@@ -82,47 +83,51 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         blurb="Registerkarta: vilken fil äger vilket beslut, och var den redigeras.",
     ),
     # ── Byggstenar ───────────────────────────────────────────────────────
+    # Ordningen är arbetsordningen: förstå → titta → skapa/ta bort → guide →
+    # byggblock → mallar. Namnen innehåller verbet, så menyn svarar på "var
+    # tittar jag / var ändrar jag / var skapar jag". Gamla namn lever kvar som
+    # `?nav=`-alias längst ned i filen (permanent, testat).
     PageSpec(
-        "Scaffolds",
+        "Byggstenar: översikt",
+        "Byggstenar",
+        building_blocks.render,
+        mode="read",
+        blurb="Börja här: scaffold, variant, byggblock och mall — vad de är, hur de hänger ihop och vad en sparning påverkar.",
+    ),
+    PageSpec(
+        "Scaffolds: titta & justera",
         "Byggstenar",
         scaffolds.render,
         mode="edit",
-        blurb="Runtime-scaffolds: översikt, detaljer, termguide och metadata-redigering.",
+        blurb="Titta på scaffolds och finjustera matchord, instruktioner och kvalitetskrav.",
     ),
     PageSpec(
-        "Scaffold Lifecycle",
+        "Scaffolds & varianter: skapa, klona, ta bort",
         "Byggstenar",
         scaffold_lifecycle.render,
         mode="danger",
-        blurb="Skapa, klona och radera scaffolds/varianter. Baseline-fliken kan fabriksåterställa.",
+        blurb="Skapa och klona scaffolds/varianter. Radering och fabriksåterställning ligger i en egen farlig zon.",
     ),
     PageSpec(
-        "Scaffold Wizard",
+        "Guide: ny scaffold eller variant (AI)",
         "Byggstenar",
         scaffold_wizard.render,
         mode="edit",
-        blurb="Steg-för-steg-guide: skapa en ny scaffold-variant med AI-utkast.",
+        blurb="Rekommenderad väg: steg-för-steg med AI-utkast, grön checklista innan något skrivs.",
     ),
     PageSpec(
-        "Scaffold Performance",
-        "Byggstenar",
-        scaffold_performance.render,
-        mode="read",
-        blurb="Poäng per scaffold från genererings-telemetri (kräver databas).",
-    ),
-    PageSpec(
-        "Dossiers (legoklossar)",
+        "Byggblock (dossiers)",
         "Byggstenar",
         dossiers.render,
         mode="danger",
-        blurb="Byggblock (capability-moduler): bläddra, redigera, kurera och radera.",
+        blurb="Byggblocken (funktioner) som kan byggas in i en sajt: bläddra, redigera, kurera och radera.",
     ),
     PageSpec(
-        "Mallar → Blob-upload",
+        "Mallar (v0): inspiration & uppladdning",
         "Byggstenar",
         templates_blob.render,
         mode="run",
-        blurb="Ladda upp v0-mallar (zip) till Vercel Blob och uppdatera katalogen.",
+        blurb="v0-mallar i Vercel Blob — inspiration för nya varianter, inte en byggsten i sig.",
     ),
     # ── LLM & prompts ────────────────────────────────────────────────────
     PageSpec(
@@ -290,6 +295,15 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         blurb="Tokenkostnad i USD/SEK från loggad användning.",
     ),
     PageSpec(
+        # Flyttad från Byggstenar 2026-07-24: det här är telemetri (kräver DB),
+        # inte en byggsten man redigerar.
+        "Scaffold-poäng",
+        "Telemetri & loggar",
+        scaffold_performance.render,
+        mode="read",
+        blurb="Poäng per scaffold från genererings-telemetri (kräver databas).",
+    ),
+    PageSpec(
         "Logg-export",
         "Telemetri & loggar",
         log_export.render,
@@ -343,10 +357,34 @@ PAGE_QUERY_ALIASES = {
     "llm-flow": "LLM-flöde status",
     "canvas": "LLM-flöde status",
     "core": "prompt-core",
-    "dossiers": "Dossiers (legoklossar)",
-    "wizard": "Scaffold Wizard",
-    "scaffold-wizard": "Scaffold Wizard",
-    "scaffolds": "Scaffolds",
+    # ── Byggstenar: korta slugs + PERMANENTA alias för de gamla sidnamnen ──
+    # Sidorna döptes om 2026-07-24 (verb-namn på svenska). De gamla namnen och
+    # slugsen får aldrig sluta fungera — sparade deep links, docs och
+    # `config/control-plane/policy-registry.json` refererar dem.
+    # `backoffice/test_building_blocks_nav.py` vaktar att varje rad resolverar.
+    "byggstenar": "Byggstenar: översikt",
+    "building-blocks": "Byggstenar: översikt",
+    "scaffolds": "Scaffolds: titta & justera",
+    "Scaffolds": "Scaffolds: titta & justera",
+    "scaffold-lifecycle": "Scaffolds & varianter: skapa, klona, ta bort",
+    "lifecycle": "Scaffolds & varianter: skapa, klona, ta bort",
+    "varianter": "Scaffolds & varianter: skapa, klona, ta bort",
+    "variants": "Scaffolds & varianter: skapa, klona, ta bort",
+    "Scaffold Lifecycle": "Scaffolds & varianter: skapa, klona, ta bort",
+    "wizard": "Guide: ny scaffold eller variant (AI)",
+    "scaffold-wizard": "Guide: ny scaffold eller variant (AI)",
+    "guide": "Guide: ny scaffold eller variant (AI)",
+    "Scaffold Wizard": "Guide: ny scaffold eller variant (AI)",
+    "dossiers": "Byggblock (dossiers)",
+    "byggblock": "Byggblock (dossiers)",
+    "Dossiers (legoklossar)": "Byggblock (dossiers)",
+    "mallar": "Mallar (v0): inspiration & uppladdning",
+    "templates": "Mallar (v0): inspiration & uppladdning",
+    "blob": "Mallar (v0): inspiration & uppladdning",
+    "Mallar → Blob-upload": "Mallar (v0): inspiration & uppladdning",
+    "scaffold-performance": "Scaffold-poäng",
+    "scaffold-poang": "Scaffold-poäng",
+    "Scaffold Performance": "Scaffold-poäng",
     "db": "Databashälsa",
     "database": "Databashälsa",
     "redis": "Redis-hälsa",

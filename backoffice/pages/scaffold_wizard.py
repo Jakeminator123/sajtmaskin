@@ -33,10 +33,15 @@ from backoffice.shared import (
     BackofficeContext,
     get_all_manifests,
     read_json,
+    render_building_blocks_nav,
+    render_save_scope,
     render_where_panel,
     run_repo_command,
+    tech_details,
     write_json,
 )
+
+PAGE_NAME = "Guide: ny scaffold eller variant (AI)"
 
 _STEPS = (
     "1. Välj mall i Blob",
@@ -53,6 +58,19 @@ def _step() -> int:
 def _goto(step: int) -> None:
     st.session_state["swz_step"] = max(0, min(step, len(_STEPS) - 1))
     st.rerun()
+
+
+def _save_scope_for_step(step: int) -> str:
+    """Vilket spara-läge gäller i det här wizard-steget?
+
+    Steg 1–3 (index 0–2) rör bara det gitignorerade utkastet i
+    ``data/scaffold-wizard-drafts/``. Steg 4 (index 3) kör :func:`_apply` och
+    skriver **spårade** filer under ``config/scaffold-variants/`` (och vid ny
+    scaffold även ``src/lib/gen/scaffolds/``). En fast ``local``-rubrik i steg 4
+    skulle alltså lova "committas inte" på just den yta som committas — därför är
+    lägesvalet steg-styrt och testat (Codex P2 på PR #615).
+    """
+    return "repo" if step >= len(_STEPS) - 1 else "local"
 
 
 def _draft() -> dict[str, Any]:
@@ -342,7 +360,7 @@ def _render_step_review(ctx: BackofficeContext) -> None:
         st.warning(
             "Inga runtime-scaffolds hittades i `src/lib/gen/scaffolds/` — wizarden "
             "behöver minst en befintlig scaffold (som mål för varianten eller som "
-            "klonkälla). Återställ scaffold-ytorna via Scaffold Lifecycle → Baseline."
+            "klonkälla). Återställ scaffold-ytorna via **Scaffolds & varianter** → Baseline."
         )
         if st.button("← Till steg 1", key="swz_review_empty_back"):
             _goto(0)
@@ -757,7 +775,7 @@ def _render_step_validate(ctx: BackofficeContext) -> None:
     st.subheader("Steg 4 — Validering och skapande")
     st.caption(
         "Skapa-knappen är låst tills alla kontroller är gröna. Skapandet använder samma "
-        "transaktionslogik som Scaffold Lifecycle (rollback vid fel)."
+        "transaktionslogik som **Scaffolds & varianter** (rollback vid fel)."
     )
 
     checks, payload = _run_checks(ctx, draft)
@@ -990,7 +1008,7 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
     st.divider()
     st.caption(
         "Kvar manuellt: granska diffen och committa när du är nöjd. Ångra allt? Fliken "
-        "**Baseline** i Scaffold Lifecycle återställer till `scaffold-baseline-v1`."
+        "**Baseline** i **Scaffolds & varianter** återställer till `scaffold-baseline-v1`."
     )
     if st.button("Skapa en till variant / börja om"):
         for key in (
@@ -1014,14 +1032,43 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
 
 def render(ctx: BackofficeContext) -> None:
     domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
-    st.header("Scaffold Wizard")
-    render_where_panel("Scaffold Wizard", domain_map)
-    st.info(
-        "Steg-för-steg-flöde: välj en v0-mall i Vercel Blob som **inspiration**, låt en "
-        "AI-persona skriva ett utkast, granska, validera och skapa en scaffold-variant "
-        "(eller ny scaffold + startvariant). Ingenting sparas förrän checklistan i sista "
-        "steget är grön. Fabriksåterställning finns i Scaffold Lifecycle → Baseline."
+    st.header("Guide: ny scaffold eller variant (AI)")
+    render_building_blocks_nav(PAGE_NAME)
+    st.markdown(
+        "**Rekommenderad väg när du vill skapa något nytt.** Fyra steg: välj en "
+        "mall som inspiration → låt en AI-persona skriva ett utkast → granska och "
+        "ändra → validera och skapa. **Ingenting skrivs förrän checklistan i sista "
+        "steget är grön.**"
     )
+    if _save_scope_for_step(_step()) == "repo":
+        render_save_scope(
+            "repo",
+            paths=("config/scaffold-variants/", "src/lib/gen/scaffolds/"),
+            note="Det här steget skriver **spårade filer** när checklistan är grön. "
+            "Utkastet i `data/scaffold-wizard-drafts/` är fortfarande lokalt och "
+            "committas inte. Föregående filversioner säkerhetskopieras.",
+        )
+    else:
+        render_save_scope(
+            "local",
+            paths=("data/scaffold-wizard-drafts/",),
+            note="Först i **steg 4**, efter grön checklista, skrivs filer i repot "
+            "(`config/scaffold-variants/`, och vid ny scaffold även `src/lib/gen/scaffolds/`).",
+        )
+    with tech_details():
+        st.markdown(
+            "- Utkast sparas i `data/scaffold-wizard-drafts/` (gitignorerad) — "
+            "aldrig i runtime-config."
+        )
+        st.markdown(
+            "- Steg 4 validerar mot `docs/schemas/strict/scaffold-variant.schema.json` "
+            "och kör samma integritetskrav som `variant-integrity.test.ts`."
+        )
+        st.markdown(
+            "- Fabriksåterställning av scaffold-ytorna finns i "
+            "**Scaffolds & varianter** → Baseline."
+        )
+        render_where_panel(PAGE_NAME, domain_map)
     _render_progress()
 
     step = _step()

@@ -20,12 +20,29 @@ from backoffice.shared import (
     _escape_ts_string,
     extract_ts_string_array_field,
     extract_ts_string_field,
-    nav_link_button,
     read_json,
     read_text,
+    render_building_blocks_nav,
+    render_save_scope,
     render_where_panel,
+    tech_details,
     write_text,
 )
+
+PAGE_NAME = "Scaffolds: titta & justera"
+
+
+def _count_variants(ctx: BackofficeContext) -> int:
+    """Antal variant-JSON kopplade till scaffolds (hoppar över `_index`)."""
+    if not ctx.variants_dir.is_dir():
+        return 0
+    return len(
+        [
+            path
+            for path in ctx.variants_dir.glob("*/*.json")
+            if not path.parent.name.startswith("_")
+        ]
+    )
 
 
 def _load_scaffold_manifest(manifest_path: Path, ctx: BackofficeContext) -> dict[str, Any]:
@@ -156,11 +173,11 @@ def _render_editor(ctx: BackofficeContext, picked: dict[str, Any]) -> None:
         st.warning(f"`{selected_id}/manifest.ts` saknas — inget att redigera.")
         return
 
-    st.caption(
-        "Här kan du tryggt justera matchningssignaler och promptkrav för en befintlig "
-        "scaffold. Sparningen skriver bara dessa fyra fält i `manifest.ts` — och den "
-        "gamla versionen säkerhetskopieras automatiskt (se sidan **Återställning**)."
+    st.markdown(
+        "Här justerar du hur scaffolden matchas och vad den kräver. Sparningen rör "
+        "bara fyra fält — resten av filen lämnas orörd."
     )
+    render_save_scope("repo", paths=(picked["manifestPath"],))
     manifest_text = read_text(manifest_path)
 
     edit_col1, edit_col2 = st.columns(2)
@@ -221,28 +238,36 @@ def _render_editor(ctx: BackofficeContext, picked: dict[str, Any]) -> None:
 
 def render(ctx: BackofficeContext) -> None:
     domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
-    st.header("Scaffolds")
-    render_where_panel("Scaffolds", domain_map)
-    st.caption(
-        "Runtime-scaffolds är own-engines startpunkter. Den här vyn visar allt och kan "
-        "redigera metadata. Vill du **skapa/klona/radera** scaffolds eller varianter: "
-        "använd Scaffold Lifecycle. Vill du bygga en ny variant med AI-hjälp: Scaffold Wizard."
+    st.header("Scaffolds: titta & justera")
+    render_building_blocks_nav(PAGE_NAME)
+    st.markdown(
+        "En **scaffold** är startpunkten som sajten byggs vidare från. Här kan du "
+        "titta på alla scaffolds och finjustera hur de matchas och vad de kräver."
     )
-    link_col1, link_col2, _spacer = st.columns([1, 1, 2])
-    with link_col1:
-        nav_link_button("→ Scaffold Lifecycle", "Scaffold Lifecycle", key="scaffolds_goto_lifecycle")
-    with link_col2:
-        nav_link_button("→ Scaffold Wizard", "Scaffold Wizard", key="scaffolds_goto_wizard")
+    st.caption(
+        "Skapa, klona eller ta bort gör du i **Scaffolds & varianter** — eller med "
+        "AI-hjälp i **Guide**. Länkarna ligger i kedjan högst upp."
+    )
 
     manifests = sorted(ctx.scaffolds_dir.glob("*/manifest.ts"))
     research_path = ctx.research_json
     embeddings_path = ctx.embeddings_json
     scaffold_rows = [_load_scaffold_manifest(manifest, ctx) for manifest in manifests]
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Scaffold-familjer", len(manifests))
-    c2.metric("Research JSON", "finns" if research_path.is_file() else "saknas")
-    c3.metric("Embeddings JSON", "finns" if embeddings_path.is_file() else "saknas")
+    c1, c2 = st.columns(2)
+    c1.metric("Scaffolds", len(manifests))
+    c2.metric("Varianter kopplade till dem", _count_variants(ctx))
+
+    with tech_details():
+        st.markdown("- Manifest: `src/lib/gen/scaffolds/<id>/manifest.ts`")
+        st.markdown("- Varianter: `config/scaffold-variants/<scaffold>/<variant>.json`")
+        st.markdown(
+            "- Genererade artefakter: "
+            f"`scaffold-research.generated.json` ({'finns' if research_path.is_file() else 'saknas'}), "
+            f"`scaffold-embeddings.json` ({'finns' if embeddings_path.is_file() else 'saknas'})"
+        )
+        st.markdown("- Validera efter ändring: `npm run scaffolds:validate`")
+        render_where_panel(PAGE_NAME, domain_map)
 
     _render_termguide()
     _render_mental_model(ctx)
