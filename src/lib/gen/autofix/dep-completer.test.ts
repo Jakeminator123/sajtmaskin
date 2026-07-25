@@ -1,11 +1,16 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import {
+  buildDossierDeclaredVersions,
+  isBuiltinPackage,
   KNOWN_PACKAGES,
   mergeMissingDependenciesIntoPackageJson,
+  parseManifestDependencySpec,
   resolveCapabilityDependencies,
+  resolveExportableVersion,
   resolveKnownVersion,
   runDepCompleter,
 } from "./dep-completer";
@@ -426,5 +431,61 @@ describe("dep-completer", () => {
     ]) {
       expect(deps[pkg]).not.toBe("latest");
     }
+  });
+
+  /**
+   * Generic replacement for the per-dossier pin assertions above: the export
+   * path must be able to pin EVERY package any manifest declares, because
+   * `runDepCompleter` is the only dependency pass that runs there — generated
+   * code that imports the SDK without the capability being requested otherwise
+   * ships a `package.json` without it and the VM build fails with "Module not
+   * found".
+   *
+   * The pre-VM typecheck's dossier-SDK suppression
+   * (`src/lib/gen/preview/generated-only-modules.ts`) depends on this invariant:
+   * dropping an undecidable TS2307 is only safe while the export pipeline
+   * guarantees the VM installs the package.
+   *
+   * Asserted through `resolveExportableVersion` — the same resolver the export
+   * path uses — so the test cannot claim coverage the pipeline does not have.
+   * An earlier version exempted the pinned manifest form and was green while
+   * exactly that case shipped unpinned (Codex P1 on #610).
+   */
+  it("lets the export path pin EVERY dossier-declared dependency", () => {
+    const unresolved: string[] = [];
+    for (const dossier of getAllDossiers()) {
+      for (const dep of dossier.dependencies ?? []) {
+        const { pkg } = parseManifestDependencySpec(dep);
+        if (!pkg || isBuiltinPackage(pkg)) continue;
+        if (!resolveExportableVersion(pkg)) {
+          unresolved.push(`${pkg} (${dossier.class}/${dossier.id})`);
+        }
+      }
+    }
+    expect(
+      unresolved,
+      "add the package to KNOWN_PACKAGES in dep-completer.ts (verify the major with `npm view <pkg> version`), or pin it in the manifest entry itself",
+    ).toEqual([]);
+  });
+
+  // The pinned manifest form is what made the invariant above leak, so the
+  // mapping that now backs it is covered directly rather than only through the
+  // current (all-bare) manifest data.
+  it("maps a pinned manifest entry to its declared version", () => {
+    const versions = buildDossierDeclaredVersions([
+      { dependencies: ["some-sdk@^1.2.3", "@scope/pkg@~2.0.0", "bare-pkg"] },
+      { dependencies: undefined },
+    ]);
+
+    expect(versions.get("some-sdk")).toBe("^1.2.3");
+    expect(versions.get("@scope/pkg")).toBe("~2.0.0");
+    // A bare entry carries no version — it must come from KNOWN_PACKAGES.
+    expect(versions.has("bare-pkg")).toBe(false);
+  });
+
+  it("pins a bare dossier dependency found in generated code via the allowlist", () => {
+    const result = runDepCompleter('import MiniSearch from "minisearch";\nvoid MiniSearch;\n');
+    expect(result.dependencies.minisearch).toBe(resolveExportableVersion("minisearch"));
+    expect(result.unknownPackages).not.toContain("minisearch");
   });
 });

@@ -17,6 +17,7 @@ import {
   OFFICIAL_SHADCN_REGISTRY,
   serializeShadcnDragPayload,
   SHADCN_ITEM_DND_TYPE,
+  type ShadcnInsertHandler,
   type ShadcnInsertSelection,
 } from "@/lib/builder/shadcn-insert";
 import { RegistryItemThumb } from "./RegistryItemThumb";
@@ -43,7 +44,7 @@ type BrowseItemType = RegistryItemKind;
 export interface PreviewPanelBrowseGalleryProps {
   disabled?: boolean;
   /** Insättnings-lane v1 (own-engine). Saknas → detaljvyns knapp är disabled. */
-  onInsertItem?: (selection: ShadcnInsertSelection) => void | Promise<void>;
+  onInsertItem?: ShadcnInsertHandler;
   /** Aktiverar Composer-overlayns drop-yta medan ett kort dras (samma som Block-fliken). */
   onDragStart?: () => void;
   onDragEnd?: () => void;
@@ -366,7 +367,7 @@ function BrowseDetailView({
 }: {
   item: ComponentItem;
   onBack: () => void;
-  onInsertItem?: (selection: ShadcnInsertSelection) => void | Promise<void>;
+  onInsertItem?: ShadcnInsertHandler;
   /**
    * Panelens disabled-läge (saknad preview, placement mode, composer-historik).
    * Wrappern har bara `pointer-events-none` — utan detta kan tangentbordet
@@ -394,17 +395,19 @@ function BrowseDetailView({
     setInserting(true);
     setInserted(false);
     try {
-      await onInsertItem({
+      const outcome = await onInsertItem({
         name: item.name,
         registry: OFFICIAL_SHADCN_REGISTRY,
         title: item.title,
         description: item.description || undefined,
         origin: "browse",
       });
+      // Markera bara "Skickat" när en generation faktiskt startade. Hanterade
+      // avslag (409 stale base, 412 tier-3-env) resolvar utan kast och visade
+      // förut ändå "Skickat" — utfallskontraktet gör kortet ärligt. Låset
+      // släpps efter 8 s så kortet kan användas igen.
+      if (outcome.status !== "started") return;
       setInserted(true);
-      // sendMessage exponerar inget utfall (BB#shadcn-lane1): vissa hanterade
-      // fel (409/412/abort) resolvar utan kast. Tidsbegränsa "Skickat"-låset
-      // så ett tyst misslyckande inte bränner kortet för nya försök.
       window.setTimeout(() => setInserted(false), 8000);
     } catch {
       // Fel-ytan ägs av callern (toast) — markera bara ALDRIG som skickad.

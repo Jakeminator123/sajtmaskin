@@ -3,7 +3,12 @@ import { toast } from "sonner";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
-import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
+import type {
+  AutoFixPayload,
+  MessageOptions,
+  ChatMessagingParams,
+  SendMessageOutcome,
+} from "./types";
 import {
   appendAttachmentPrompt,
   appendToolPartToMessage,
@@ -84,17 +89,51 @@ export function useSendMessage(
   } = deps;
 
   const sendMessage = useCallback(
-    async (messageText: string, options: MessageOptions = {}) => {
-      if (!messageText?.trim()) return;
+    async (
+      messageText: string,
+      options: MessageOptions = {},
+    ): Promise<SendMessageOutcome> => {
+      if (!messageText?.trim()) {
+        return { status: "rejected", reason: "empty_message", turnRecorded: false };
+      }
 
       if (!chatId) {
-        if (!(await createNewChat(messageText, options))) return;
-        return;
+        if (!(await createNewChat(messageText, options))) {
+          return { status: "rejected", reason: "create_chat_failed", turnRecorded: false };
+        }
+        return { status: "started", via: "new_chat" };
       }
 
       const now = Date.now();
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
+
+      /**
+       * Settle a rejection the server did NOT write down (`turnRecorded:
+       * false`): the stale-base 409 and the tier-3 412 both return ahead of
+       * `addMessage`, so the optimistic user row is a client-only ghost. It is
+       * dropped and only the assistant notice explaining the refusal stays,
+       * because the caller keeps its draft for that outcome — the prompt must
+       * live in exactly ONE place. Keeping both copies invites a duplicate
+       * turn; hiding a row the server DID persist reappears on reload. Both
+       * were reported on #610, which is why the two decisions derive from the
+       * one `turnRecorded` field instead of being judged per call site.
+       */
+      const settleRejectedTurn = (assistantContent: string) => {
+        setMessages((prev) =>
+          prev
+            .filter((m) => m.id !== userMessageId)
+            .map((m) =>
+              m.id === assistantMessageId
+                ? {
+                    ...m,
+                    content: m.content?.trim() || assistantContent,
+                    isStreaming: false,
+                  }
+                : m,
+            ),
+        );
+      };
 
       // 5-2 stale-base gate (client half), delad mellan stream-vägen och
       // /messages-nätverksfallbacken (backlog PR #355-triage #20): servern har
@@ -109,18 +148,8 @@ export function useSendMessage(
           "En nyare version finns. Ladda om sidan för att fortsätta från den senaste versionen.",
         );
         mutateVersions();
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessageId
-              ? {
-                  ...m,
-                  content:
-                    m.content?.trim() ||
-                    "En nyare version finns – ladda om för att bygga vidare på den senaste versionen.",
-                  isStreaming: false,
-                }
-              : m,
-          ),
+        settleRejectedTurn(
+          "En nyare version finns – ladda om för att bygga vidare på den senaste versionen.",
         );
         return true;
       };
@@ -441,19 +470,14 @@ export function useSendMessage(
                   ),
               ),
             });
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantMessageId
-                  ? {
-                      ...message,
-                      content:
-                        "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och fortsätt integrationsbygget.",
-                      isStreaming: false,
-                    }
-                  : message,
-              ),
+            settleRejectedTurn(
+              "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och fortsätt integrationsbygget.",
             );
-            return;
+            return {
+              status: "rejected",
+              reason: "tier3_env_not_ready",
+              turnRecorded: false,
+            };
           }
           if (
             response.status === 409 &&
@@ -468,8 +492,16 @@ export function useSendMessage(
               chatId,
               parentVersionId: errorData.parentVersionId,
             });
+            // Each finalize verdict gets its own outcome (bugbot on #610): the
+            // nested round is NOT uniformly "settled". Only a deterministic
+            // release consumed the prompt; `missing_env` is the same situation
+            // as the direct 412 above (nothing built, requirements surface
+            // opened, user fills keys and retries) and `llm_ready` sends the
+            // user to the preview panel — both must keep the draft.
             let content: string;
+            let outcome: SendMessageOutcome;
             if (release.kind === "deterministic_release") {
+              outcome = { status: "settled", as: "f3_deterministic_release" };
               onDeterministicF3Settled?.({
                 versionId: release.versionId,
                 selectVersion: !release.superseded,
@@ -503,13 +535,30 @@ export function useSendMessage(
               content =
                 "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och försök igen.";
               toast.warning("F3 saknar obligatoriska env-värden.");
-            } else {
+              outcome = {
+                status: "rejected",
+                reason: "tier3_env_not_ready",
+                turnRecorded: true,
+              };
+            } else if (release.kind === "llm_ready") {
               content =
-                release.kind === "error"
-                  ? release.message
-                  : "F3-specen kräver nu ett vanligt integrationsbygge. Starta det igen från previewpanelen.";
+                "F3-specen kräver nu ett vanligt integrationsbygge. Starta det igen från previewpanelen.";
               toast.warning("F3-kontrollen kunde inte slutföras.");
+              outcome = {
+                status: "rejected",
+                reason: "f3_build_required",
+                turnRecorded: true,
+              };
+            } else {
+              content = release.message;
+              toast.warning("F3-kontrollen kunde inte slutföras.");
+              outcome = { status: "failed", message: release.message };
             }
+            // `turnRecorded: true` on this path — the approve-continuation
+            // backstop persists the user row before returning its 409
+            // (`f3-readiness-gate.ts` consumes the marker, then writes the
+            // row). So the bubble stays and the caller clears its draft; the
+            // prompt lives in the thread, once.
             setMessages((prev) =>
               prev.map((message) =>
                 message.id === assistantMessageId
@@ -517,10 +566,12 @@ export function useSendMessage(
                   : message,
               ),
             );
-            return;
+            return outcome;
           }
           // 5-2 stale-base gate (client half) — delad hanterare, se ovan.
-          if (handleStaleBaseVersion(response.status, errorData)) return;
+          if (handleStaleBaseVersion(response.status, errorData)) {
+            return { status: "rejected", reason: "stale_base_version", turnRecorded: false };
+          }
           throw new Error(
             buildApiErrorMessage({
               response,
@@ -556,10 +607,11 @@ export function useSendMessage(
           },
           streamController.signal,
         );
+        return { status: "started", via: "stream" };
       } catch (error) {
         if (isClientInitiatedAbort(error, streamController)) {
           debugLog("AI", "Streaming send aborted by client");
-          return;
+          return { status: "aborted", by: "client" };
         }
         if (isAbortLikeError(error)) {
           // Abort-shaped error that did NOT originate from our controller →
@@ -569,7 +621,7 @@ export function useSendMessage(
           toast.error(
             "Strömmen avbröts av servern eller modellen. Försök igen — om det upprepas, prova en annan modell.",
           );
-          return;
+          return { status: "aborted", by: "server" };
         }
 
         let finalError = error;
@@ -591,7 +643,9 @@ export function useSendMessage(
               }
               // PR #355-triage #20: fallbacken ska ge samma stale-base-reload-UX
               // som stream-vägen — inte ett generiskt "Failed to send message".
-              if (handleStaleBaseVersion(fallbackRes.status, errorData)) return;
+              if (handleStaleBaseVersion(fallbackRes.status, errorData)) {
+                return { status: "rejected", reason: "stale_base_version", turnRecorded: false };
+              }
               throw new Error(
                 buildApiErrorMessage({
                   response: fallbackRes,
@@ -602,11 +656,11 @@ export function useSendMessage(
             }
             const data = await fallbackRes.json();
             await handleNonStreamingSend(data);
-            return;
+            return { status: "started", via: "messages_fallback" };
           } catch (fallbackErr) {
             if (isClientInitiatedAbort(fallbackErr, fallbackController)) {
               debugLog("AI", "Streaming send fallback aborted by client");
-              return;
+              return { status: "aborted", by: "client" };
             }
             finalError = fallbackErr;
           }
@@ -628,6 +682,7 @@ export function useSendMessage(
               : m,
           ),
         );
+        return { status: "failed", message };
       } finally {
         clearStreamSafetyTimer();
         setMessages((prev) =>

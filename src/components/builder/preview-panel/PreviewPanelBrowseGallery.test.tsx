@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanelBrowseGallery } from "./PreviewPanelBrowseGallery";
 import type { ComponentCategory } from "@/lib/shadcn/registry-service";
 import { SHADCN_ITEM_DND_TYPE } from "@/lib/builder/shadcn-insert";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
+
+/** Insättning där sändvägen faktiskt startade en generation. */
+const STARTED_OUTCOME: SendMessageOutcome = { status: "started", via: "stream" };
 
 // Mocka bara de async registry-fetcharna; behåll rena funktioner/konstanter
 // (searchBlocks, buildPreviewImageUrl, FEATURED_BLOCKS) äkta så testet täcker
@@ -126,7 +130,7 @@ describe("PreviewPanelBrowseGallery", () => {
   });
 
   it("kortval → onInsertItem med registry-metadata (insättnings-lane v1, Fas 2)", async () => {
-    const onInsertItem = vi.fn().mockResolvedValue(undefined);
+    const onInsertItem = vi.fn().mockResolvedValue(STARTED_OUTCOME);
     render(<PreviewPanelBrowseGallery onInsertItem={onInsertItem} />);
     await waitFor(() => screen.getByText("Login 01"));
 
@@ -145,8 +149,27 @@ describe("PreviewPanelBrowseGallery", () => {
         origin: "browse",
       }),
     );
-    // Lyckat sänd-försök bekräftas i detaljvyn (neutral copy — status ägs av chatten).
+    // Startad generation bekräftas i detaljvyn.
     await waitFor(() => screen.getByText(/Skickat till chatten/i));
+  });
+
+  // Utfallskontraktet (BB#shadcn-lane1): ett hanterat avslag resolvar utan kast,
+  // så före kontraktet visade detaljvyn "Skickat" för en insättning som aldrig
+  // startade någon generation.
+  it("markerar ALDRIG detaljvyn som skickad vid ett hanterat avslag", async () => {
+    const onInsertItem = vi.fn().mockResolvedValue({
+      status: "rejected",
+      reason: "tier3_env_not_ready",
+      turnRecorded: true,
+    } satisfies SendMessageOutcome);
+    render(<PreviewPanelBrowseGallery onInsertItem={onInsertItem} />);
+    await waitFor(() => screen.getByText("Login 01"));
+
+    fireEvent.click(screen.getByText("Login 01"));
+    fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));
+
+    await waitFor(() => expect(onInsertItem).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/Skickat till chatten/i)).toBeNull();
   });
 
   it("markerar ALDRIG detaljvyn som skickad när insättningen misslyckas", async () => {

@@ -4,12 +4,12 @@ import * as clerkServerStub from "./clerk-nextjs-server";
 import { CLERK_SERVER_IMPORTS } from "@/lib/gen/autofix/rules/ts2304-known-import-fixer";
 
 /**
- * The warm-cache pre-VM typecheck aliases `@clerk/nextjs/server` to this stub
- * (`scripts/provision-warm-cache.ts`), because the SDK belongs to the generated
- * project, not to this repo. If the stub is narrower than what the pipeline
- * itself injects, valid generated auth code fails with TS2305/TS2339 and goes
- * into the repair loop — the exact false-red the stub exists to prevent
- * (Codex P2 on #603).
+ * `@clerk/nextjs/server` belongs to the GENERATED project, not to this repo, so
+ * `vitest.config.ts` and the repo tsconfig alias it to this stub for dossier
+ * component tests. A stub narrower than what the pipeline itself injects fails
+ * valid generated auth code with TS2305/TS2339 — the same false-red class that
+ * made the warm cache stop aliasing SDK stubs altogether (2026-07-25); keep the
+ * surface complete so the alias that remains cannot reintroduce it.
  */
 describe("clerk-nextjs-server stub", () => {
   it("exports every symbol the TS2304 fixer resolves to @clerk/nextjs/server", () => {

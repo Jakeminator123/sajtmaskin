@@ -4,6 +4,7 @@ import {
   buildPromptSourceMessage,
   type PromptBuildResult,
 } from "@/lib/builder/prompt-builder";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 
 /**
  * Insättnings-lane v1 ("Lägg till"-ytan → own-engine)
@@ -56,6 +57,18 @@ export type ShadcnInsertSelection = {
   /** Label på den detekterade ankarsektionen (om droppen träffade en). */
   anchorSectionLabel?: string;
 };
+
+/**
+ * Insättningshandler genom hela kedjan (`onShadcnItemInsert` →
+ * `onInsertShadcnItem` → `onInsertItem`). Returnerar `sendMessage`s utfall så
+ * kort och toaster bara kan lova "Skickat" när en generation faktiskt startade
+ * — före utfallskontraktet (BB#shadcn-lane1) resolvade hanterade avslag
+ * (409 stale base, 412 tier-3-env) tyst och kortet markerades ändå skickat.
+ * Pre-send-guards (ingen chat, buildern upptagen, chattbyte) kastar fortfarande.
+ */
+export type ShadcnInsertHandler = (
+  selection: ShadcnInsertSelection,
+) => Promise<SendMessageOutcome>;
 
 // ============================================================================
 // DRAG-AND-DROP (Bläddra-/Beskriv-kort → preview-overlay)

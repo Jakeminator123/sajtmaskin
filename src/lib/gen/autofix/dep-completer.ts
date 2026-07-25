@@ -1,4 +1,5 @@
 import type { AutoFixEntry } from "./pipeline";
+import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 
 const PACKAGE_SOURCE_PATTERN = String.raw`((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))`;
@@ -168,6 +169,20 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   // Dossier Fas D (legacy import 2026-07-09, capability `cms`): sanity-cms.
   // Major verified against the npm registry 2026-07-09 (npm view → 13.1.1).
   "next-sanity": "^13",
+  // Remaining dossier-declared SDKs (2026-07-25). These were reachable through
+  // `resolveCapabilityDependencies` (manifest fallback → "latest") but NOT
+  // through the import scan, so generated code that imported them without the
+  // capability being requested shipped a package.json without them → VM
+  // "Module not found". `dep-completer.test.ts` now asserts the whole manifest
+  // dependency union resolves here, and `generated-only-modules.ts` relies on
+  // that invariant when it drops undecidable pre-VM TS2307s.
+  // Majors verified against the npm registry 2026-07-25 (`npm view <pkg> version`).
+  "@sentry/nextjs": "^10",
+  "maplibre-gl": "^6",
+  minisearch: "^7",
+  // Pinned to the platform's own range so the generated site gets the major the
+  // vercel-analytics dossier was verified against (repo: ^1.3.1).
+  "@vercel/speed-insights": "^1.3.1",
 };
 
 /**
@@ -187,7 +202,64 @@ export function resolveKnownVersion(pkg: string): string | undefined {
   return undefined;
 }
 
-function normalizePackageName(source: string): string {
+/**
+ * Package → version for every dossier dependency declared in the pinned form
+ * the schema allows (`stripe@^14.0.0`). Pure so the mapping is testable without
+ * the registry.
+ */
+export function buildDossierDeclaredVersions(
+  dossiers: ReadonlyArray<{ dependencies?: readonly string[] }>,
+): Map<string, string> {
+  const versions = new Map<string, string>();
+  for (const dossier of dossiers) {
+    for (const raw of dossier.dependencies ?? []) {
+      const { pkg, version } = parseManifestDependencySpec(raw);
+      if (pkg && version) versions.set(pkg, version);
+    }
+  }
+  return versions;
+}
+
+// Memoized on the registry array identity: `getAllDossiers()` returns the same
+// cached array while no manifest changed, so this never re-walks the manifests
+// on a hot path (`runDepCompleter` runs per file in the autofix pipeline).
+let dossierVersionMemo: {
+  entries: ReadonlyArray<unknown>;
+  versions: Map<string, string>;
+} | null = null;
+
+function dossierDeclaredVersion(pkg: string): string | undefined {
+  const entries = getAllDossiers();
+  if (!dossierVersionMemo || dossierVersionMemo.entries !== entries) {
+    dossierVersionMemo = { entries, versions: buildDossierDeclaredVersions(entries) };
+  }
+  return dossierVersionMemo.versions.get(pkg);
+}
+
+/**
+ * The version the EXPORT path can pin for a package, i.e. what
+ * `runDepCompleter` will write into the generated `package.json` when it sees
+ * the import — the curated allowlist first, then a dossier manifest's own pin.
+ *
+ * This is the single resolver behind the manifest→export invariant that
+ * `generated-only-modules.ts` leans on when it drops an undecidable pre-VM
+ * `TS2307`: a dropped diagnostic is only safe while the VM is guaranteed to
+ * install the package. Codex P1 on #610: the invariant used to exempt pinned
+ * entries, so a pinned dossier dep outside `KNOWN_PACKAGES` was suppressed
+ * pre-VM and then missing from `package.json` — the failure just moved to the
+ * authoritative VM build.
+ */
+export function resolveExportableVersion(pkg: string): string | undefined {
+  return resolveKnownVersion(pkg) ?? dossierDeclaredVersion(pkg);
+}
+
+/**
+ * Reduce an import specifier to its npm package name (`ably/promises` → `ably`,
+ * `@supabase/ssr/dist/x` → `@supabase/ssr`). Exported because the pre-VM
+ * typecheck needs the exact same normalization to map a `TS2307` module
+ * specifier back to a package (`generated-only-modules.ts`).
+ */
+export function normalizePackageName(source: string): string {
   if (source.startsWith("@")) {
     const parts = source.split("/");
     return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : source;
@@ -195,7 +267,12 @@ function normalizePackageName(source: string): string {
   return source.split("/")[0];
 }
 
-function isBuiltin(pkg: string): boolean {
+/**
+ * Packages the preview/VM runtime already ships, so they are never pinned into
+ * the generated `package.json`. Exported for the dossier-dependency coverage
+ * invariant (`dep-completer.test.ts`) and the pre-VM module classifier.
+ */
+export function isBuiltinPackage(pkg: string): boolean {
   if (BUILTIN_PACKAGES.has(pkg)) return true;
   for (const b of BUILTIN_PACKAGES) {
     if (pkg.startsWith(`${b}/`)) return true;
@@ -214,7 +291,17 @@ function normalizeCapabilityList(requestedCapabilities: string[] | null | undefi
   );
 }
 
-function parseManifestDependencySpec(raw: string): { pkg: string; version: string | null } {
+/**
+ * Split a dossier manifest `dependencies` entry into package + optional version.
+ * The schema allows a semver-pinned form (`stripe@^14.0.0`), so consumers must
+ * never treat the raw entry as a package name — exported so the manifest→package
+ * mapping has exactly one parser (also used by the pre-VM module classifier and
+ * the allowlist-coverage invariant).
+ */
+export function parseManifestDependencySpec(raw: string): {
+  pkg: string;
+  version: string | null;
+} {
   const trimmed = raw.trim();
   if (!trimmed) return { pkg: "", version: null };
   if (trimmed.startsWith("@")) {
@@ -237,7 +324,7 @@ export function resolveCapabilityDependencies(
     for (const rawPkg of selected.entry.dependencies ?? []) {
       const { pkg, version: manifestVersion } = parseManifestDependencySpec(rawPkg);
       if (!pkg) continue;
-      if (isBuiltin(pkg)) continue;
+      if (isBuiltinPackage(pkg)) continue;
       const version = resolveKnownVersion(pkg);
       if (version) {
         deps[pkg] = version;
@@ -301,13 +388,13 @@ export function runDepCompleter(code: string): {
     if (seen.has(pkg)) continue;
     seen.add(pkg);
 
-    if (isBuiltin(pkg)) continue;
+    if (isBuiltinPackage(pkg)) continue;
 
     if (pkg.startsWith("@/") || pkg.startsWith("~/") || pkg.startsWith(".")) continue;
 
-    const knownVersion = resolveKnownVersion(pkg);
-    if (knownVersion) {
-      dependencies[pkg] = knownVersion;
+    const resolvedVersion = resolveExportableVersion(pkg);
+    if (resolvedVersion) {
+      dependencies[pkg] = resolvedVersion;
     } else {
       unknownPackages.push(pkg);
     }

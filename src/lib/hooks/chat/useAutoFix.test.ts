@@ -2,6 +2,13 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { summarizeVersionLogsForAutoFix, useAutoFix } from "./useAutoFix";
+import type { SendMessageOutcome } from "./types";
+
+/**
+ * Autofix ignores the outcome (its own surface is the chat), but the contract
+ * requires one — these mocks stand in for a send that started a generation.
+ */
+const STARTED: SendMessageOutcome = { status: "started", via: "stream" };
 
 describe("summarizeVersionLogsForAutoFix", () => {
   it("prioritizes blocking diagnostics and removes noisy success/info logs", () => {
@@ -145,7 +152,7 @@ describe("useAutoFix", () => {
   });
 
   it("pins autofix follow-ups to the failing version and preserves scaffold retry overrides", async () => {
-    const sendMessage = vi.fn(async () => undefined);
+    const sendMessage = vi.fn(async () => STARTED);
     const { result } = renderHook(() => useAutoFix(sendMessage));
 
     await act(async () => {
@@ -177,7 +184,7 @@ describe("useAutoFix", () => {
   });
 
   it("skips a scheduled autofix when the active chat changed since scheduling (#8)", async () => {
-    const sendMessage = vi.fn(async () => undefined);
+    const sendMessage = vi.fn(async () => STARTED);
     // Active chat is now a DIFFERENT chat than the payload's chat.
     const { result } = renderHook(() => useAutoFix(sendMessage, () => "chat_other"));
 
@@ -196,7 +203,7 @@ describe("useAutoFix", () => {
   });
 
   it("still sends when the active chat matches the payload chat (#8 control)", async () => {
-    const sendMessage = vi.fn(async () => undefined);
+    const sendMessage = vi.fn(async () => STARTED);
     const { result } = renderHook(() => useAutoFix(sendMessage, () => "chat_1"));
 
     await act(async () => {
@@ -214,7 +221,7 @@ describe("useAutoFix", () => {
   });
 
   it("skips when the user switches chat while the guard requests are in flight (Codex P1)", async () => {
-    const sendMessage = vi.fn(async () => undefined);
+    const sendMessage = vi.fn(async () => STARTED);
     let activeChat = "chat_1";
     const baseFetch = globalThis.fetch;
     // Flip the active chat when the `/readiness` guard request fires: that
@@ -244,7 +251,7 @@ describe("useAutoFix", () => {
   });
 
   it("never schedules an autofix while a generation stream is active (fast-edit guard)", async () => {
-    const sendMessage = vi.fn(async () => undefined);
+    const sendMessage = vi.fn(async () => STARTED);
     const { result } = renderHook(() =>
       useAutoFix(sendMessage, () => "chat_1", () => true),
     );
@@ -264,7 +271,7 @@ describe("useAutoFix", () => {
   });
 
   it("skips a scheduled autofix when a generation starts while the guards are in flight", async () => {
-    const sendMessage = vi.fn(async () => undefined);
+    const sendMessage = vi.fn(async () => STARTED);
     let generationActive = false;
     const baseFetch = globalThis.fetch;
     // The user submits a prompt while the timer callback's guard requests are
@@ -296,7 +303,7 @@ describe("useAutoFix", () => {
   });
 
   it("cancelPendingAutoFix drops a scheduled-but-not-sent autofix (user prompt supersedes)", async () => {
-    const sendMessage = vi.fn(async () => undefined);
+    const sendMessage = vi.fn(async () => STARTED);
     const { result } = renderHook(() => useAutoFix(sendMessage));
 
     await act(async () => {
@@ -338,7 +345,7 @@ describe("useAutoFix", () => {
     // The old cancel only cleared an already-armed timer, so the prelude went on
     // to arm a stale timer that fired ~1.5–4s later. The cancel-generation guard
     // must make the prelude bail before scheduling.
-    const sendMessage = vi.fn(async () => undefined);
+    const sendMessage = vi.fn(async () => STARTED);
     let cancel: (() => void) | null = null;
     let firedCancel = false;
     const baseFetch = globalThis.fetch;
@@ -385,10 +392,10 @@ describe("useAutoFix", () => {
     let releaseFirst: (() => void) | null = null;
     const sendMessage = vi.fn(
       () =>
-        new Promise<void>((resolve) => {
+        new Promise<SendMessageOutcome>((resolve) => {
           // The first send hangs until released; later sends resolve at once.
-          if (!releaseFirst) releaseFirst = resolve;
-          else resolve();
+          if (!releaseFirst) releaseFirst = () => resolve(STARTED);
+          else resolve(STARTED);
         }),
     );
     const { result } = renderHook(() => useAutoFix(sendMessage));
@@ -439,9 +446,9 @@ describe("useAutoFix", () => {
     let releaseFirst: (() => void) | null = null;
     const sendMessage = vi.fn(
       () =>
-        new Promise<void>((resolve) => {
-          if (!releaseFirst) releaseFirst = resolve;
-          else resolve();
+        new Promise<SendMessageOutcome>((resolve) => {
+          if (!releaseFirst) releaseFirst = () => resolve(STARTED);
+          else resolve(STARTED);
         }),
     );
     const { result } = renderHook(() => useAutoFix(sendMessage));
@@ -489,7 +496,7 @@ describe("useAutoFix", () => {
   });
 
   it.skipIf(capOverridden)("manual autofix bypasses the per-chat and per-reason caps but still sends", async () => {
-    const sendMessage = vi.fn(async () => undefined);
+    const sendMessage = vi.fn(async () => STARTED);
     const { result } = renderHook(() => useAutoFix(sendMessage));
 
     // Drive the per-chat cap to MAX (3) with distinct automatic reasons.
@@ -531,7 +538,7 @@ describe("useAutoFix", () => {
   });
 
   it.skipIf(capOverridden)("manual sends do not consume the automatic per-chat budget", async () => {
-    const sendMessage = vi.fn(async () => undefined);
+    const sendMessage = vi.fn(async () => STARTED);
     const { result } = renderHook(() => useAutoFix(sendMessage));
 
     // One manual fix first.
@@ -562,8 +569,8 @@ describe("useAutoFix", () => {
   });
 
   it("does not get stuck 'busy' when a pending timer is cancelled by re-render", async () => {
-    const sendMessage1 = vi.fn(async () => undefined);
-    const sendMessage2 = vi.fn(async () => undefined);
+    const sendMessage1 = vi.fn(async () => STARTED);
+    const sendMessage2 = vi.fn(async () => STARTED);
     const { result, rerender } = renderHook(({ send }) => useAutoFix(send), {
       initialProps: { send: sendMessage1 },
     });
@@ -604,7 +611,7 @@ describe("useAutoFix", () => {
   // fired. These drive it through the real nested
   // `readiness.info.lifecycleStatus/Stage` shape.
   describe("server-repair guard (isVersionUnderServerRepair)", () => {
-    async function triggerAutoFixOnce(sendMessage: () => Promise<void>) {
+    async function triggerAutoFixOnce(sendMessage: () => Promise<SendMessageOutcome>) {
       const { result } = renderHook(() => useAutoFix(sendMessage));
       await act(async () => {
         result.current.autoFixHandlerRef.current({
@@ -628,7 +635,7 @@ describe("useAutoFix", () => {
       "bails out when a server repair/verify is in progress (status=%s, stage=%s)",
       async (lifecycleStatus, lifecycleStage) => {
         readinessInfo = { lifecycleStatus, lifecycleStage };
-        const sendMessage = vi.fn(async () => undefined);
+        const sendMessage = vi.fn(async () => STARTED);
         await triggerAutoFixOnce(sendMessage);
         expect(sendMessage).not.toHaveBeenCalled();
       },
@@ -638,7 +645,7 @@ describe("useAutoFix", () => {
       // F2 design rows skip server-verify and sit in `verifying` while merely
       // pending — blocking here would permanently disable client autofix on F2.
       readinessInfo = { lifecycleStatus: "verifying", lifecycleStage: "design" };
-      const sendMessage = vi.fn(async () => undefined);
+      const sendMessage = vi.fn(async () => STARTED);
       await triggerAutoFixOnce(sendMessage);
       expect(sendMessage).toHaveBeenCalledTimes(1);
     });
@@ -647,7 +654,7 @@ describe("useAutoFix", () => {
       "does NOT bail when lifecycleStatus=%s (no active server repair)",
       async (lifecycleStatus) => {
         readinessInfo = { lifecycleStatus, lifecycleStage: "integrations" };
-        const sendMessage = vi.fn(async () => undefined);
+        const sendMessage = vi.fn(async () => STARTED);
         await triggerAutoFixOnce(sendMessage);
         expect(sendMessage).toHaveBeenCalledTimes(1);
       },
@@ -655,7 +662,7 @@ describe("useAutoFix", () => {
 
     it("does NOT bail when the readiness payload is missing info (fail-open)", async () => {
       readinessInfo = {};
-      const sendMessage = vi.fn(async () => undefined);
+      const sendMessage = vi.fn(async () => STARTED);
       await triggerAutoFixOnce(sendMessage);
       expect(sendMessage).toHaveBeenCalledTimes(1);
     });

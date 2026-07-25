@@ -1,16 +1,16 @@
 /**
  * Test/typecheck stub for `@clerk/nextjs/server` — like `clerk-nextjs.tsx` a
- * dependency of the GENERATED site (clerk-auth dossier), not of this repo.
- * The dossier's verbatim `middleware.ts` imports `clerkMiddleware` and
- * `createRouteMatcher` from this subpath, so the warm-cache pre-VM typecheck
- * needs it to resolve (Bugbot on the #600 follow-up). Every export is an
- * inert placeholder.
+ * dependency of the GENERATED site (clerk-auth dossier), not of this repo. The
+ * dossier's verbatim `middleware.ts` imports `clerkMiddleware` and
+ * `createRouteMatcher` from this subpath, so unit tests and the repo's own
+ * typecheck need it to resolve. Every export is an inert placeholder.
  *
  * The surface must cover EVERY symbol `ts2304-known-import-fixer.ts` resolves
  * to this module (`CLERK_SERVER_IMPORTS`), and the value types are deliberately
- * loose (`any`): a stub that is narrower than the real SDK just trades TS2307
- * for TS2305/TS2339 and sends the same clean auth code into repair, which is
- * the exact failure this stub exists to prevent (Codex P2 on #603).
+ * loose (`any`): a stub narrower than the real SDK just trades TS2307 for
+ * TS2305/TS2339 (Codex P2 on #603). The warm-cache pre-VM typecheck no longer
+ * aliases SDK stubs at all for that reason — it drops undecidable module errors
+ * instead (`src/lib/gen/preview/generated-only-modules.ts`).
  */
 /* eslint-disable @typescript-eslint/no-explicit-any -- see the loose-types note above */
 import { NextResponse } from "next/server";

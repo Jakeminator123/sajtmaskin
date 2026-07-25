@@ -5,6 +5,11 @@
  * the DEMO branch (no valid publishable key → Clerk components never mount)
  * still need the import to resolve. Wired via the `@clerk/nextjs` alias in
  * `vitest.config.ts`; every export is an inert placeholder.
+ *
+ * Deliberately NOT used by the warm-cache pre-VM typecheck: this surface covers
+ * only what the dossier components touch, so generated code using any other
+ * Clerk export got a false TS2305 there. That pass drops undecidable module
+ * errors instead (`src/lib/gen/preview/generated-only-modules.ts`).
  */
 import type { ReactNode } from "react";
 

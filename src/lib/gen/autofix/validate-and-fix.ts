@@ -159,6 +159,17 @@ async function runWarmTscPass(
       files: project,
       force: opts.forceTsc === true,
     });
+    // A dropped diagnostic must never be invisible: the warm cache cannot
+    // decide whether a dossier-supplied SDK resolves, so the packages it
+    // skipped are logged even when the pass ends green.
+    if (result.suppressedModules && result.suppressedModules.length > 0) {
+      devLogAppend("in-progress", {
+        type: "validate.tsc.undecidable-modules",
+        chatId: opts.chatId,
+        scaffoldId: opts.resolvedScaffold?.id ?? null,
+        modules: result.suppressedModules,
+      });
+    }
     if (result.skipped) {
       opts.onProgress?.({ pass: opts.pass, phase: "tsc-skipped", errorCount: 0 });
       devLogAppend("in-progress", {

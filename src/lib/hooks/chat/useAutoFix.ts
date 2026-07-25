@@ -7,7 +7,7 @@ import {
   readPreviewDiagnosticMeta,
 } from "@/lib/gen/preview/diagnostics";
 import { AUTO_FIX_EVENT_NAME, readAutoFixEventPayload } from "./auto-fix-events";
-import type { AutoFixPayload, MessageOptions } from "./types";
+import type { AutoFixPayload, MessageOptions, SendMessageOutcome } from "./types";
 import { buildAutoFixPrompt } from "./helpers";
 
 const AUTOFIX_LOCAL_STORAGE_KEY = "sajtmaskin:autofix-enabled";
@@ -474,7 +474,10 @@ async function isVersionUnderServerRepair(chatId: string, versionId: string): Pr
 }
 
 export function useAutoFix(
-  sendMessage: (messageText: string, options?: MessageOptions) => Promise<void>,
+  sendMessage: (
+    messageText: string,
+    options?: MessageOptions,
+  ) => Promise<SendMessageOutcome>,
   /**
    * Returns the currently active chatId. Used to skip a scheduled autofix whose
    * payload belongs to a chat the user has since navigated away from — otherwise

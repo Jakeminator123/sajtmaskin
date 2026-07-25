@@ -43,6 +43,7 @@ import {
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type PromptSourceMeta } from "@/lib/builder/prompt-builder";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import {
   INSPECT_CAPTURE_EVENT,
   type InspectCapturedElement,
@@ -168,7 +169,10 @@ interface ChatInterfaceProps {
   chatId: string | null;
   initialPrompt?: string | null;
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
-  onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
+  onSendMessage?: (
+    message: string,
+    options?: MessageOptions,
+  ) => Promise<SendMessageOutcome>;
   onPromptAssistModeReset?: () => void;
   isFigmaInputOpen?: boolean;
   onFigmaInputOpenChange?: (open: boolean) => void;
@@ -616,7 +620,15 @@ export function ChatInterface({
         if (created === false) return;
       } else {
         if (!onSendMessage) return;
-        await onSendMessage(payload.finalMessage, msgOpts);
+        const outcome = await onSendMessage(payload.finalMessage, msgOpts);
+        // Utfallskontraktet (BB#shadcn-lane1): en avvisad tur som servern INTE
+        // skrev ner (`turnRecorded: false` — 409 stale base, 412 tier-3-env)
+        // finns bara här, så utkastet inklusive bilagor, Figma-länk och
+        // inspect-punkter måste ligga kvar. Förut rensades allt eftersom
+        // sändvägen resolvade utan kast. Skrev servern ner turen ligger prompten
+        // i tråden i stället och utkastet rensas — annars finns den på två
+        // ställen och ett omsänd kan dubblera turen (bugbot på #610).
+        if (outcome.status === "rejected" && !outcome.turnRecorded) return;
       }
       if (options.clearDraft !== false) {
         setInput("");

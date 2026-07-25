@@ -737,7 +737,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           throw new Error("builder became busy during insert build");
         }
         try {
-          await sendMessage(built.message, { promptSourceMeta: built.meta });
+          return await sendMessage(built.message, { promptSourceMeta: built.meta });
         } catch (err) {
           toast.error("Kunde inte skicka blocket till own-engine.");
           throw err;
@@ -757,6 +757,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // Sista försvarslinje utöver panelens disabled-rader: skicka aldrig om
       // buildern är upptagen (aborterar aktiv stream) — droppa hellre klicket.
       if (isBusy) return;
+      // Utfallet läses medvetet INTE här: katalograderna har ingen egen
+      // "skickat"-status att ljuga med (till skillnad från insättningskorten),
+      // och sändvägen äger redan avslagsytan — reload-toast vid stale base,
+      // kravytan + chattmeddelande vid 412, ReleaseGate-toast vid 409. En extra
+      // toast härifrån skulle staplas på och i värsta fall säga "försök igen" om
+      // ett avslag som kräver en omladdning.
       void sendMessage(buildAddDossierMessage({ id, label }));
     },
     [sendMessage, isBusy],
@@ -996,7 +1002,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               versionId={vm.activeVersionId}
               messages={vm.messages}
               showStructuredParts={vm.showStructuredChat}
-              onQuickReply={(text, options) => vm.sendMessage(text, options)}
+              onQuickReply={async (text, options) => {
+                await vm.sendMessage(text, options);
+              }}
               onApproveBuildPlan={handleApproveBuildPlan}
               quickReplyDisabled={isBusy}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}

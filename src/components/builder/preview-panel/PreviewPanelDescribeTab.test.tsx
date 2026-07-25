@@ -2,6 +2,10 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanelDescribeTab } from "./PreviewPanelDescribeTab";
 import { SHADCN_ITEM_DND_TYPE } from "@/lib/builder/shadcn-insert";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
+
+/** Insättning där sändvägen faktiskt startade en generation. */
+const STARTED_OUTCOME: SendMessageOutcome = { status: "started", via: "stream" };
 
 /**
  * "Beskriv"-fliken (Fas 2 v1 + Fas 3): fritext → POST /api/shadcn/describe →
@@ -87,7 +91,7 @@ describe("PreviewPanelDescribeTab", () => {
 
   it("kortval anropar onInsertItem med kandidatens metadata (origin describe)", async () => {
     global.fetch = mockDescribeFetch({}) as unknown as typeof fetch;
-    const onInsertItem = vi.fn().mockResolvedValue(undefined);
+    const onInsertItem = vi.fn().mockResolvedValue(STARTED_OUTCOME);
 
     render(<PreviewPanelDescribeTab onInsertItem={onInsertItem} />);
     await searchFor("stapel-graf");
@@ -108,8 +112,29 @@ describe("PreviewPanelDescribeTab", () => {
         origin: "describe",
       }),
     );
-    // Lyckat sänd-försök bekräftas på kortet (neutral copy — status ägs av chatten).
+    // Startad generation bekräftas på kortet.
     await waitFor(() => screen.getByText(/Skickat till chatten/i));
+  });
+
+  // Utfallskontraktet (BB#shadcn-lane1): ett hanterat avslag resolvar utan kast,
+  // så före kontraktet visade kortet "Skickat" för en insättning som aldrig
+  // startade någon generation.
+  it("markerar ALDRIG kortet som skickat vid ett hanterat avslag", async () => {
+    global.fetch = mockDescribeFetch({}) as unknown as typeof fetch;
+    const onInsertItem = vi.fn().mockResolvedValue({
+      status: "rejected",
+      reason: "stale_base_version",
+      turnRecorded: false,
+    } satisfies SendMessageOutcome);
+
+    render(<PreviewPanelDescribeTab onInsertItem={onInsertItem} />);
+    await searchFor("stapel-graf");
+    await waitFor(() => screen.getByText("Bar Chart Interactive"));
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Lägg till i sajten/i })[0]);
+
+    await waitFor(() => expect(onInsertItem).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/Skickat till chatten/i)).toBeNull();
   });
 
   it("markerar ALDRIG kortet som skickat när insättningen misslyckas", async () => {

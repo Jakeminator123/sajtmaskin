@@ -7,6 +7,7 @@ import {
   serializeShadcnDragPayload,
   type ShadcnInsertSelection,
 } from "@/lib/builder/shadcn-insert";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 
 vi.mock("@/lib/hooks/useIntegrationStatus", () => ({
   useIntegrationStatus: () => ({
@@ -160,7 +161,12 @@ describe("PreviewPanel", () => {
   // onShadcnItemInsert-anrop — lås att placeringsankarna följer med.
   it("forwards placement anchors to onShadcnItemInsert when a registry card drops on the composer overlay", async () => {
     stubDropTestFetch();
-    const onShadcnItemInsert = vi.fn(async (_selection: ShadcnInsertSelection) => {});
+    const onShadcnItemInsert = vi.fn(
+      async (_selection: ShadcnInsertSelection): Promise<SendMessageOutcome> => ({
+        status: "started",
+        via: "stream",
+      }),
+    );
     renderPreviewPanel({ onShadcnItemInsert });
 
     // Iframen laddar klart → drop-guarden (iframeLoading) släpper.
@@ -201,7 +207,9 @@ describe("PreviewPanel", () => {
 
   it("ignores a drop with an unparsable registry payload without calling the insert lane", async () => {
     stubDropTestFetch();
-    const onShadcnItemInsert = vi.fn(async () => {});
+    const onShadcnItemInsert = vi.fn(
+      async (): Promise<SendMessageOutcome> => ({ status: "started", via: "stream" }),
+    );
     renderPreviewPanel({ onShadcnItemInsert });
 
     fireEvent.load(screen.getByTitle("Preview"));

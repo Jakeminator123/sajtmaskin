@@ -50,6 +50,9 @@ const SCAFFOLD_IDS: string[] = (
   ) as { scaffoldIds: string[] }
 ).scaffoldIds;
 
+/** Stub directory written by pre-#607 provisioning runs; removed on re-provision. */
+const LEGACY_SDK_STUB_DIR = "__sdk-stubs";
+
 const CACHE_ROOT_OVERRIDE = process.env.SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT;
 const CACHE_ROOT = CACHE_ROOT_OVERRIDE
   ? resolve(CACHE_ROOT_OVERRIDE)
@@ -89,35 +92,17 @@ function ensureDir(path: string): void {
  * `scripts/dev/check-warm-cache.mjs` asserts the alias so stale caches
  * provisioned by older versions of this script show up as COLD.
  *
- * Generated-only SDK stubs (Codex P2 on #600): the cache reuses the REPO's
- * `node_modules`, but some dossier SDKs (e.g. `@clerk/nextjs`) are supplied
- * by the generated project's own dependency and are NOT installed here — a
- * pre-VM `tsc` would report TS2307 on valid Clerk code before the VM installs
- * it. Mirror the repo's own solution: copy the test stub into the cache and
- * alias the package to it. (The raw-copied root tsconfig carried the alias
- * but never the stub FILE, so this resolution was silently broken before.)
+ * Dossier-supplied SDKs (`ably`, `@supabase/ssr`, `@clerk/nextjs`, …) are NOT
+ * aliased to stubs here. #600/#603 tried that for Clerk and it backfired: a
+ * stub narrower than the real SDK trades TS2307 for TS2305 (`has no exported
+ * member 'useUser'`), i.e. the same false diagnostic in a different code, and
+ * it needed one hand-maintained stub per package. The pre-VM pass now drops
+ * undecidable unresolved-module diagnostics instead
+ * (`src/lib/gen/preview/generated-only-modules.ts`), which covers every dossier
+ * package — including subpath imports — with no per-package bookkeeping.
  */
-const SDK_STUBS: Array<{ packageName: string; repoStubPath: string; cacheStubPath: string }> = [
-  {
-    packageName: "@clerk/nextjs",
-    repoStubPath: join(REPO_ROOT, "tests", "stubs", "clerk-nextjs.tsx"),
-    cacheStubPath: "__sdk-stubs/clerk-nextjs.tsx",
-  },
-  {
-    // The clerk-auth dossier's verbatim middleware imports this SUBPATH —
-    // aliasing only the package root still left TS2307 there (Bugbot on the
-    // #600 follow-up).
-    packageName: "@clerk/nextjs/server",
-    repoStubPath: join(REPO_ROOT, "tests", "stubs", "clerk-nextjs-server.ts"),
-    cacheStubPath: "__sdk-stubs/clerk-nextjs-server.ts",
-  },
-];
-
-function buildCacheTsconfig(availableStubs: Array<(typeof SDK_STUBS)[number]>) {
+function buildCacheTsconfig() {
   const paths: Record<string, string[]> = { "@/*": ["./*"] };
-  for (const stub of availableStubs) {
-    paths[stub.packageName] = [`./${stub.cacheStubPath}`];
-  }
   return {
     compilerOptions: {
       target: "ES2017",
@@ -142,15 +127,13 @@ function buildCacheTsconfig(availableStubs: Array<(typeof SDK_STUBS)[number]>) {
 }
 
 function writeCacheTsconfig(cacheDir: string): "written" {
-  const availableStubs = SDK_STUBS.filter((stub) => existsSync(stub.repoStubPath));
-  for (const stub of availableStubs) {
-    const dest = join(cacheDir, stub.cacheStubPath);
-    ensureDir(dirname(dest));
-    copyFileSync(stub.repoStubPath, dest);
-  }
+  // Drop the stub directory a pre-#607 provisioning run may have left behind,
+  // so a re-provisioned cache cannot keep resolving `@clerk/nextjs` to the
+  // narrow stub (the TS2305 source described above).
+  rmSync(join(cacheDir, LEGACY_SDK_STUB_DIR), { recursive: true, force: true });
   writeFileSync(
     join(cacheDir, "tsconfig.json"),
-    JSON.stringify(buildCacheTsconfig(availableStubs), null, 2) + "\n",
+    JSON.stringify(buildCacheTsconfig(), null, 2) + "\n",
     "utf8",
   );
   return "written";

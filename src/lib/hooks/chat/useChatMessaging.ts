@@ -7,6 +7,7 @@ import type {
   ChatMessagingParams,
   ChatMessagingReturn,
   MessageOptions,
+  SendMessageOutcome,
 } from "./types";
 import { clearCreateChatLock } from "./helpers";
 import { useCreateChat } from "./useCreateChat";
@@ -120,14 +121,17 @@ export function useChatMessaging(params: ChatMessagingParams): ChatMessagingRetu
   const cancelPendingAutoFixRef = useRef<() => void>(() => {});
 
   const sendMessage = useCallback(
-    async (messageText: string, options: MessageOptions = {}) => {
+    async (
+      messageText: string,
+      options: MessageOptions = {},
+    ): Promise<SendMessageOutcome> => {
       const isAutofixSend = options.promptSourceMeta?.sourceKind === "autofix";
       if (!isAutofixSend) {
         cancelPendingAutoFixRef.current();
       }
       generationActiveRef.current = true;
       try {
-        await sendMessageRaw(messageText, options);
+        return await sendMessageRaw(messageText, options);
       } finally {
         generationActiveRef.current = false;
       }
