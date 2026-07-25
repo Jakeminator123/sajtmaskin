@@ -112,15 +112,22 @@ område).
 - Ny test: ren prosa som *nämner* `file="…"` mitt i en mening renderas fortfarande
   som text (den befintliga regeln på rad 98–102 får inte gå förlorad).
 
-### Steg 2 — rensa kodblock ur OpenClaw-kontexten
+### Steg 2 — rensa kodblock ur OpenClaw-kontexten (bara assistentens)
 
-- `toContextMessage` (`BuilderShellContent.tsx:98-104`) ska strippa fenced
-  kodblock och ersätta dem med en kort markör, t.ex.
-  `[genererade 5 filer]`, innan innehållet klipps till 3 000 tecken.
-- Samma normalisering gäller `latestAssistantMessage` som skickas till
-  tips-routen.
+> **Rättelse efter Codex-granskning (P2, PR #614):** normaliseringen får **inte**
+> läggas i `toContextMessage` rakt av. `buildRecentContextMessages` mappar både
+> user- och assistant-roller genom samma funktion, så en användare som klistrar in
+> kod och sedan frågar OpenClaw om den skulle förlora själva koden ur kontexten.
+
+- Komprimera fenced kodblock till en kort markör, t.ex. `[genererade 5 filer:
+  app/page.tsx, …]`, **endast för assistentmeddelanden**.
+- Användarens egna kodblock behålls som de är, under den befintliga
+  längdgränsen — det är innehåll användaren aktivt valde att skicka in.
+- Samma assistent-begränsade normalisering gäller `latestAssistantMessage` som
+  skickas till tips-routen.
 - Ny test: ett assistentmeddelande med 50 kB kod ger en kontextrad under 200
   tecken som ändå säger hur många filer det gällde.
+- Ny test: ett **användar**meddelande med ett kodblock behåller koden.
 
 ### Steg 3 — Ö9: nedfällbart utdatafält
 
@@ -146,7 +153,7 @@ område).
 |---|---|---|
 | 1 | Ingen rå kodvägg kan renderas i en chattbubbla, i något fence-läge | nya tester (blandat, oavslutat, prosa-med-`file=`) |
 | 2 | Filräknaren undertalar inte vid oavslutad fence | nytt test |
-| 3 | OpenClaw-kontexten innehåller inga kodblock från chatthistoriken | nytt test |
+| 3 | OpenClaw-kontexten innehåller inga genererade kodblock från **assistentens** meddelanden, men behåller användarens egna | två nya tester |
 | 4 | OpenClaws kodkontext via `resolveFileContext` är oförändrad | befintliga tester gröna |
 | 5 | Chattens utdata kan fällas ned till inputens överkant och läget överlever omladdning | manuell körning |
 | 6 | Pågående generering syns även i kollapsat läge | manuell körning |
@@ -157,5 +164,6 @@ område).
 | Risk | Hantering |
 |---|---|
 | Att strippa kod ur `recentMessages` gör OpenClaw sämre på frågor om "senaste output" | markören ska säga hur många filer och vilka sökvägar; den riktiga koden finns via `resolveFileContext` |
+| Normaliseringen träffar användarens inklistrade kod | rollen måste kontrolleras i `buildRecentContextMessages`, inte inuti `toContextMessage` — funktionen används av båda rollerna |
 | Kollapsläget gömmer fel som användaren behöver se | låt blockerande status ligga kvar i den tunna raden, inte inne i det kollapsade |
 | Rollmärkningen av reparationsprompter kan bryta befintliga historikkonsumenter | additivt metadatafält är säkrare än en ny roll; verifiera mot alla läsare av `engine_messages` |

@@ -135,21 +135,37 @@ att steg 2 landat.
 - Ny test: en `package.json` som deklarerar en Node-kärnmodul som dependency ger
   ett **fel** (det är den riktiga defekten, och den saknar i dag detektion).
 
-### Steg 2 — F4: separera preview-transform från sparat innehåll
+### Steg 2 — F4: dela regeluppsättningen, inte pipelinen
 
-Kärnfrågan är arkitektonisk, inte kosmetisk: vilket innehåll är kanoniskt?
+Kärnfrågan är arkitektonisk: vilka transformationer hör till **artefakten** och
+vilka hör till **previewen**?
 
-- **Sparat innehåll ska vara otransformerat.** Suspense-reglerna ska köras på
-  vägen till previewen, inte på vägen till `files_json`.
-- Konkret: låt strömmen bära råtexten och applicera `SuspenseLineProcessor` i
-  preview-lanen (den som bygger preview-modulerna), inte i
-  `generation-stream.ts`/`generate-site-from-prompt.ts` innan finalisering.
-- Om det inte går att bryta ut i ett steg: behåll **båda** — spara råtexten och
-  låt previewen få den transformerade kopian. Det är mer minne men bevarar
-  artefaktens sanning.
-- Ny test: en fil som importerar `next/headers` sparas **med** importen intakt
-  och passerar `project-sanity` utan `code_structure_failure`.
-- Ny test: previewen får fortfarande den strippade varianten.
+> **Rättelse efter Codex-granskning (P1, PR #614):** ett tidigare utkast föreslog
+> att flytta hela `SuspenseLineProcessor` till efter persisteringen. Det vore
+> fel. `createDefaultRules()` innehåller inte bara import-strippningen — den
+> expanderar komprimerade URL-alias, lagar ogiltiga JSX-attribut, materialiserar
+> bildplatshållare och gör andra **kanoniska** reparationer. Att spara den råa
+> strömmen skulle alltså persistera trasiga och platshållarfyllda filer i stället
+> för att lösa problemet. Rätt åtgärd är att **dela regeluppsättningen.**
+
+- Klassificera varje regel i `src/lib/gen/suspense/default-rules.ts` som
+  **kanonisk** (hör till den sparade artefakten) eller **preview-only** (hör bara
+  till preview-renderingen).
+- `forbiddenImportStrip` (rad 275–284, `BLOCK_ENTIRELY`) är den enda kända
+  preview-only-regeln i dag: den kommenterar bort `next/headers`, `next/og` och
+  `server-only` eftersom preview-VM:en inte klarar dem. Den hör inte i sparad kod.
+- Låt `createDefaultRules()` ta en parameter, eller exponera två uppsättningar, så
+  att genereringsströmmen kör de kanoniska reglerna och preview-lanen kör
+  kanoniska + preview-only.
+- Gå igenom regellistan noggrant innan uppdelningen. Varje felklassad regel blir
+  antingen en trasig sparad fil eller en trasig preview, och båda är dyrare än
+  det fel vi lagar.
+- Ny test: en fil som importerar `next/headers` sparas **med** importen intakt och
+  passerar `project-sanity` utan `code_structure_failure`.
+- Ny test: samma fil får den strippade varianten i previewen.
+- Ny test (regressionsskydd för rättelsen ovan): en sparad fil har fortfarande
+  expanderade URL:er, lagade JSX-attribut och materialiserade bildplatshållare —
+  dvs. de kanoniska reglerna kördes.
 
 ### Steg 3 — F5: `next/server`-typer i route handlers
 
@@ -200,7 +216,7 @@ Detta är regeln som gör F3 och F4 ofarliga även om något liknande återkomme
 
 | Risk | Hantering |
 |---|---|
-| Att flytta suspense-transformet ändrar preview-beteende brett | leverera bakom ett test som låser båda sidorna (rått i DB, strippat i preview) före refaktoreringen |
+| Uppdelningen av regeluppsättningen felklassar en regel | lås båda sidorna med tester **före** refaktoreringen: kanoniska reparationer syns i sparad fil, preview-strippningen syns bara i preview |
 | `Module.builtinModules` kan skilja mellan Node-versioner | Volta pinnar 22.23.1; lägg ett test som låser att `crypto` och `fs` finns i mängden |
 | Rollback av reparation kan låsa en sajt i ett trasigt läge utan försök | begränsa till fallet "ny blockerare tillkom"; kvarstående blockerare får fortfarande ett andra försök |
 | Parse-guarden i Ö4 gör att navigationslänken tystnar | rapportera `navUpdated: false` i UI så användaren vet att länken saknas |

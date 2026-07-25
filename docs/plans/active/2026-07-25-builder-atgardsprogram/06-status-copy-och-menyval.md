@@ -18,40 +18,55 @@ parallellt med 01 och 02.
 | ID | Vad UI säger | Vad som gäller |
 |---|---|---|
 | Ö8 | "Lansering / Redo att publicera" med badge-status | oklart för användaren vad det indikerar och vilka gates som styr |
-| F8 | "Du redigerar v2 — inte senaste v1" | v2 **är** senaste |
+| F8 | "Du redigerar v2 — inte senaste v1" | sant, men ordet "senaste" är fel — v1 är den senaste *användbara* |
 | Ö11 | "Anthropic-jämförelse" | jämför ingenting; byter bara modell |
 
-## F8 — versionsbannern kan påstå det omöjliga
+## F8 — bannern har rätt men säger fel ord
+
+> **Diagnosen är omskriven efter Codex-granskning (P2, PR #614).** Ett tidigare
+> utkast läste bannern som ett omöjligt tillstånd och föreslog en guard som skulle
+> dölja den när aktiv version har högre nummer än "senaste". Det var fel, och
+> guarden hade varit skadlig: den hade tystat en **legitim** varning medan
+> uppföljningar fortsatte bygga på en underkänd bas — precis den typ av
+> false-green som repots granskningsregler prioriterar högst.
 
 Bannern renderas av `src/components/builder/ChatInterface.tsx:677-698` och styrs
-av `followUpBaseInfo`, som beräknas i
-`src/app/builder/BuilderShellContent.tsx:199-214`.
+av `followUpBaseInfo` i `src/app/builder/BuilderShellContent.tsx:199-214`.
+Villkoret är `activeVersionId !== latestVersionId`.
 
-Villkoret är `activeVersionIsLatest === false`, dvs. `vm.activeVersionId !==
-vm.latestVersionId`. Etiketterna kommer från versionslistan:
-`baseLabel` = numret för den aktiva versionen, `latestLabel` = numret för den
-som `latestVersionId` pekar på.
+Nyckeln ligger i vad `latestVersionId` faktiskt är. Den kommer från
+`useBuilderDerivedState.ts:108-122` → `selectPreferredEngineVersion`
+(`src/lib/db/engine-version-lifecycle.ts:250-264`), vars dokumenterade semantik är:
 
-I sessionen blev det `baseLabel: "v2"` och `latestLabel: "v1"`. Det betyder att
-`activeVersionId` hade uppdaterats till den nya versionen medan
-`latestVersionId` fortfarande pekade på den gamla — och ingenting i beräkningen
-kontrollerar att "senaste" faktiskt är senare än "aktiv".
+> newest non-failed, non-superseded version wins
 
-Bannern är alltså inte fel i sin copy. Den avslöjar att invarianten
-**latest ≥ active** inte upprätthålls någonstans.
+Det är alltså **inte** "senaste versionen" utan "senaste användbara versionen".
 
-Rimlig åtgärd i två delar:
+I sessionen underkändes v2 av quality gate. Då är utfallet korrekt: aktiv version
+är v2 (den användaren tittar på), och den föredragna är v1 (den som fungerar).
+Bannern försökte säga något viktigt — *du står på en underkänd version och nästa
+meddelande bygger på den* — men formulerade det som en självklar lögn genom att
+kalla v1 "senaste".
 
-1. **Guard i beräkningen:** rendera aldrig bannern när den aktiva versionens
-   nummer är större än eller lika med den "senaste"-versionens nummer. Det gör
-   symptomet omöjligt oavsett varför id:na glider.
-2. **Rotorsaken:** ta reda på varför `latestVersionId` inte uppdaterades när v2
-   skapades. Sannolikt saknad refetch efter att reparationsvarven skrivit klart —
-   samma familj som F10, men det här är ett klient-state-problem, inte
-   innehållsidentitet.
+Åtgärden är alltså språklig och begreppslig, inte en guard:
 
-Ny test: `followUpBaseInfo` är `null` när aktiv version har högre nummer än
-"senaste".
+1. **Byt ord.** `latestLabel` ska inte presenteras som "senaste". Copyn ska säga
+   varför den andra versionen föreslås, t.ex.: *"Du redigerar v2, som inte gick att
+   bygga. Nästa meddelande bygger på v2 — växla till v1 om du vill utgå från den
+   senaste som fungerade."*
+2. **Byt namn på fältet** från `latestLabel` till något som speglar
+   `selectPreferredEngineVersion`, t.ex. `preferredLabel`. Namnet är orsaken till
+   att copyn blev fel.
+3. **Skilj de två fallen.** "Aktiv är äldre än föredragen" och "aktiv är nyare men
+   underkänd" är olika situationer för användaren och förtjänar olika text. I dag
+   får de samma.
+
+Ny test: när aktiv version är underkänd och föredragen är en äldre fungerande
+version, innehåller bannertexten inte ordet "senaste" om den underkända, och
+förklarar varför den andra föreslås.
+
+Ny test (regressionsskydd för rättelsen ovan): bannern renderas **fortfarande** när
+aktiv version har högre nummer än den föredragna.
 
 ## Ö8 — vad indikerar "Lansering" egentligen?
 
@@ -119,11 +134,13 @@ svårmotiverad.
 
 Stegen är oberoende av varandra och kan tas i valfri ordning av samma agent.
 
-### Steg 1 — F8: guard + rotorsak
+### Steg 1 — F8: byt namn och copy, lägg ingen guard
 
-1. Lägg guarden i `followUpBaseInfo` (nummerjämförelse, inte bara id-olikhet).
-2. Spåra varför `latestVersionId` var stale efter reparationsvarven; åtgärda
-   refetchen eller dokumentera varför den inte kan göras här.
+1. Döp om `latestLabel` → `preferredLabel` hela vägen genom
+   `followUpBaseInfo`-propen och `ChatInterfaceProps`.
+2. Skriv om copyn så att den förklarar **varför** en annan version föreslås, och
+   skilj de två fallen (aktiv äldre än föredragen / aktiv nyare men underkänd).
+3. Lägg **ingen** villkorsguard som döljer bannern — se rättelsen ovan.
 
 ### Steg 2 — Ö11: ta bort menyposten
 
@@ -144,8 +161,8 @@ Stegen är oberoende av varandra och kan tas i valfri ordning av samma agent.
 
 | # | Krav | Bevis |
 |---|---|---|
-| 1 | Versionsbannern kan inte påstå att en högre version inte är senaste | nytt test |
-| 2 | Rotorsaken till stale `latestVersionId` är åtgärdad eller dokumenterad | PR-text |
+| 1 | Versionsbannern kallar aldrig en äldre version "senaste"; den förklarar varför en annan version föreslås | nytt test |
+| 2 | Bannern renderas fortfarande när aktiv version är nyare men underkänd | nytt regressionstest |
 | 3 | "Anthropic-jämförelse" är borta och ingen död kod är kvar | `npm run knip` |
 | 4 | B2 är beslutat och implementerat | ägarens rad nedan |
 | 5 | Ingen användarsynlig rad i Lansering-kortet innehåller intern gate-vokabulär | manuell genomgång av alla readiness-copy-strängar |
@@ -157,7 +174,7 @@ Stegen är oberoende av varandra och kan tas i valfri ordning av samma agent.
 |---|---|
 | Alt A/B gör att blockerare blir osynliga | `Publicera`-knappen måste själv förklara varför den inte går att använda innan kortet döljs |
 | Klarspråksomskrivning tappar teknisk information som behövs vid felsökning | behåll det tekniska i slutstegsloggen; klarspråket gäller kortet |
-| Guarden i F8 döljer ett verkligt fall där användaren står på en äldre version | guarden gäller bara när aktiv version har **högre** nummer — det legitima fallet (aktiv < senaste) renderas som förut |
+| En framtida agent lägger tillbaka guarden i F8 och tystar varningen | rättelserutan under F8 finns kvar i planen och förklarar varför; regressionstestet i DoD rad 2 låser beteendet |
 
 ## Ägarbeslut
 

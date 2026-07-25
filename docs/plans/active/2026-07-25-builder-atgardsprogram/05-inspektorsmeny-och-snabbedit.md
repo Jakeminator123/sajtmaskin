@@ -110,9 +110,20 @@ levereras.
 
 - Textåtgärden öppnar en redigeringsruta **ovanpå** iframen, inte i kodvyn.
 - Spara → `replace_text` via quick-edit → previewen uppdateras.
-- Ingen LLM, ingen ny version om det går att undvika (se risken nedan).
+- Ingen LLM, ingen scaffold-ombyggnad.
+
+> **Rättelse efter Codex-granskning (P1, PR #614):** ett tidigare utkast antydde
+> att snabbeditering borde undvika att skapa en ny version. Det vore fel.
+> `src/lib/gen/quick-edit/service.ts:46-55` persisterar redan medvetet en
+> **immutabel minorversion** (`quick_edit`) med majorversionen som förälder, och
+> buildern väljer det barnet för att undvika stale-base-konflikter. Att återanvända
+> basversionens id skulle återskapa F10: rullbackshistoriken försvinner och
+> verifieringskvitton kan beskriva innehållet före ändringen. **Behåll
+> minorversions-kontraktet.**
+
 - Ny test: en literal textändring ger exakt en `replace_text`-op mot rätt fil och
   rad.
+- Ny test: ändringen persisteras som en ny minorversion; basversionen är oförändrad.
 
 ### Steg 4 — byt bild
 
@@ -155,7 +166,7 @@ levereras.
 
 | Risk | Hantering |
 |---|---|
-| Varje snabbeditering skapar en ny version och spär ut versionslistan | avgör tidigt om quick-edit ska skriva i samma version; det hänger ihop med F10 och [`innehållsrevisions-planen`](../2026-07-25-innehallsrevision-verifieringskvitton.md) |
+| Varje snabbeditering skapar en ny version och spär ut versionslistan | **lös det i presentationen, inte i identiteten** — gruppera minorversioner under sin major i versionslistan. Skriv aldrig om basversionen (se rättelsen under steg 3) |
 | Regexbaserad borttagning shippas i brådska och trasar sönder filer | steg 5 levereras **bara** med AST + parse-guard; annars skjuts åtgärden |
 | Menyn erbjuder åtgärder som tystnar | steg 1 (klassificering) måste vara klart före steg 2 |
 | Playwright-antagandet smyger tillbaka i bild-av-ytan | testa i prod, inte lokalt, innan funktionen räknas som klar |
@@ -164,4 +175,5 @@ levereras.
 ## Ägarbeslut
 
 - **Bild-av-ytan: iframe-canvas eller preview-host?** _(ej beslutat)_
-- **Ska snabbeditering skapa ny version?** _(ej beslutat — samordna med F10)_
+- ~~Ska snabbeditering skapa ny version?~~ **Avgjort** — ja, immutabel minorversion,
+  precis som `quick-edit/service.ts` redan gör. Ingen ändring av identitetsmodellen.

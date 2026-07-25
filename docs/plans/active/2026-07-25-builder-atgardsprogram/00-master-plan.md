@@ -79,7 +79,7 @@ Fem måltillstånd. Varje delplan äger ett eller två av dem.
 | F5 | Autofix la till fel import; `NextRequest`/`NextResponse` saknas | P1 | 02 |
 | F6 | Mailchimp-dossiern används inte trots att prompten säger "Mailchimp" | P1 | 01 |
 | F7 | Kontraktspanelen lovar NextAuth + SQLite som ingen fil infriar | P2 | 01 |
-| F8 | Versionsbannern säger "Du redigerar v2 — inte senaste v1" när v2 *är* senaste | P2 | 06 |
+| F8 | Versionsbannern kallar en äldre version "senaste" — copy- och namngivningsfel, inte ett omöjligt tillstånd | P2 | 06 |
 | F9 | Rå kodvägg renderas som chattbubbla när en fence är oavslutad | P2 | 03 |
 | F10 | Reparationsvarv skriver över samma version-id — ingen återgångspunkt | P2 | 02 |
 
@@ -213,9 +213,27 @@ Tre saker kan inte avgöras av en agent. De blockerar respektive delplan.
 | B2 | Ska "Lansering"-kortet finnas kvar? | 06 | (a) bort helt, (b) bara vid blockerare, (c) behåll men skriv om |
 | B3 | Vad ska "+ Lägg till" heta? | 04 | Ö3 är öppen; namnet styr copy i tre ytor |
 
+## Rättelser efter granskning
+
+Codex granskade planfamiljen på PR #614 och hittade fyra sakfel i de föreslagna
+åtgärderna. Alla fyra är verifierade mot koden och rättade i respektive delplan,
+med en rättelseruta kvar på plats så att ingen återinför felet.
+
+| Delplan | Vad som var fel | Vad som gäller nu |
+|---|---|---|
+| 02 steg 2 | "flytta hela `SuspenseLineProcessor` efter persistering" — hade sparat rå modelloutput utan URL-expansion, JSX-lagning och bildmaterialisering | dela **regeluppsättningen**: preview-only-regler bara mot preview, kanoniska regler kvar i artefakten |
+| 05 steg 3 | antydde att snabbeditering borde undvika ny version | quick-edit skapar redan en immutabel minorversion; att återanvända id:t hade återskapat F10 |
+| 03 steg 2 | normalisering i `toContextMessage` | den funktionen används av **båda** rollerna; komprimera bara assistentens kod, behåll användarens inklistrade |
+| 06 F8 | läste bannern som ett omöjligt tillstånd och föreslog en guard | `latestVersionId` är `selectPreferredEngineVersion` = senaste **användbara**; guarden hade tystat en legitim varning. Åtgärden är copy + namngivning |
+
+Rättelse fyra är den viktigaste: den vände en föreslagen fix från false-green till
+ett språkfel, och den är anledningen till att F8:s allvar och åtgärd ser annorlunda
+ut i delplan 06 än i defekttabellen ovan antyder.
+
 ## Källor
 
 - Observationslogg med alla fynd och önskemål i fulltext:
   `.cursor/logg-internet/runs/2026-07-25_0302.md`
+- Codex-granskningen som gav rättelserna: PR #614, commit `9e3a9ae8`
 - Defektkö: [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md)
 - Planlivscykel: [`plan-lifecycle.mdc`](../../../../.cursor/rules/plan-lifecycle.mdc)
