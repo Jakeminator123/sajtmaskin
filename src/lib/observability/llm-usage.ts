@@ -20,6 +20,7 @@
  * `engine_generation_logs`/`generation_telemetry` ändras.
  */
 import { AsyncLocalStorage } from "node:async_hooks";
+import { randomUUID } from "node:crypto";
 import { resolveConfiguredDbEnv } from "@/lib/db/env";
 import type { CreateLlmUsageRecord } from "@/lib/db/services/llm-usage";
 
@@ -48,6 +49,13 @@ export type LlmUsageContext = {
   userId?: string | null;
   sessionId?: string | null;
   modelTier?: string | null;
+  /**
+   * Unik nyckel för det yttersta scopet (en per request). Skrivs i `meta` och
+   * används för att claima rader som skrevs innan `chat_id` fanns. Utan den
+   * skulle två parallella init-strömmar som delar sessionscookie kunna stämpla
+   * varandras brief-/embedding-rader.
+   */
+  claimKey?: string | null;
 };
 
 const storage = new AsyncLocalStorage<LlmUsageContext>();
@@ -57,7 +65,10 @@ const storage = new AsyncLocalStorage<LlmUsageContext>();
  * egen (yttre värden behålls när det inre inte anger något).
  */
 export function runWithLlmUsageContext<T>(context: LlmUsageContext, fn: () => T): T {
-  const merged = { ...(storage.getStore() ?? {}), ...pruneUndefined(context) };
+  const parent = storage.getStore();
+  const merged: LlmUsageContext = { ...(parent ?? {}), ...pruneUndefined(context) };
+  // Yttersta scopet får en claim-nyckel; nästlade scope ärver samma.
+  if (!merged.claimKey) merged.claimKey = randomUUID();
   return storage.run(merged, fn);
 }
 
@@ -273,7 +284,9 @@ export function buildLlmUsageRecord(input: RecordLlmUsageInput): CreateLlmUsageR
     durationMs: input.durationMs ?? null,
     ok: !failed,
     errorCode: input.errorCode ?? null,
-    meta: input.meta ?? null,
+    meta: context.claimKey
+      ? { ...(input.meta ?? {}), claimKey: context.claimKey }
+      : input.meta ?? null,
   };
 }
 
@@ -349,6 +362,7 @@ export async function safeUsageOwnerId(
  * versionsstämplingen. Fire-and-forget som all annan loggning här.
  */
 export function attachChatToPendingUsage(sessionId: string, chatId: string): void {
+  const { claimKey } = getLlmUsageContext();
   void (async () => {
     try {
       if (!sessionId || !chatId || !dbEnvPresent()) return;
@@ -356,7 +370,7 @@ export function attachChatToPendingUsage(sessionId: string, chatId: string): voi
       const { dbConfigured } = await import("@/lib/db/client");
       if (!dbConfigured) return;
       const { attachChatToUnassignedLlmUsage } = await import("@/lib/db/services/llm-usage");
-      await attachChatToUnassignedLlmUsage(sessionId, chatId);
+      await attachChatToUnassignedLlmUsage(sessionId, chatId, { claimKey });
     } catch {
       // Claim är en förbättring, inte ett krav.
     }

@@ -320,6 +320,7 @@ function recordFailedBriefAttempt(params: {
   workload: string;
   error: unknown;
   durationMs: number;
+  schema?: "full" | "simplified";
 }): void {
   const errorObject =
     params.error && typeof params.error === "object"
@@ -334,7 +335,11 @@ function recordFailedBriefAttempt(params: {
     ok: false,
     errorCode:
       typeof errorObject?.name === "string" ? errorObject.name : "brief_schema_failed",
-    meta: { schema: "full", outcome: "retried_with_simplified" },
+    meta: {
+      schema: params.schema ?? "full",
+      outcome:
+        (params.schema ?? "full") === "full" ? "retried_with_simplified" : "gave_up",
+    },
   });
 }
 
@@ -601,6 +606,13 @@ export async function generateSiteBriefObject(
         });
         usedSimplified = true;
       } catch (simplifiedErr) {
+        recordFailedBriefAttempt({
+          model: `anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`,
+          workload: briefSource,
+          error: simplifiedErr,
+          durationMs: Date.now() - briefStartedAt,
+          schema: "simplified",
+        });
         const errMsg = simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
         errorLog("AI", "Anthropic brief generation failed - both schemas", {
           model: normalizedModel,
@@ -687,6 +699,13 @@ export async function generateSiteBriefObject(
       });
       usedSimplified = true;
     } catch (simplifiedErr) {
+      recordFailedBriefAttempt({
+        model: normalizedModel,
+        workload: briefSource,
+        error: simplifiedErr,
+        durationMs: Date.now() - briefStartedAt,
+        schema: "simplified",
+      });
       const errMsg = simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
       errorLog("AI", "Brief generation failed - both schemas", {
         model: normalizedModel,

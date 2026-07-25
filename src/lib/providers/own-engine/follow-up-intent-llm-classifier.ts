@@ -119,6 +119,23 @@ export async function llmClassifyFollowUpIntent(
       throw new Error(`[match_classifier] unexpected intent label: ${intent}`);
     }
     return intent;
+  } catch (err) {
+    // Timeout, schemafel och providerfel har ändå kostat tokens (och AI SDK:s
+    // NoObjectGeneratedError bär usage). Anroparen faller tillbaka på den
+    // deterministiska klassificeraren; kostnaden ska ändå synas.
+    const errorObject =
+      err && typeof err === "object" ? (err as { usage?: unknown; name?: unknown }) : null;
+    recordLlmUsage({
+      phase: "classifier",
+      workload: "match_classifier",
+      model: modelId,
+      usage: errorObject?.usage,
+      durationMs: Date.now() - classifierStartedAt,
+      ok: false,
+      errorCode:
+        typeof errorObject?.name === "string" ? errorObject.name : "classifier_failed",
+    });
+    throw err;
   } finally {
     clearTimeout(timeoutId);
   }

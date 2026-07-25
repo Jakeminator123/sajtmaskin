@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import {
+  getLlmUsageContext,
   runWithLlmUsageContext,
   safeUsageOwnerId,
   setLlmUsageContext,
@@ -828,12 +829,24 @@ async function handlePOST(
       // for that residual edge, so the row never stays stuck. See
       // BUG-SWARM-BACKLOG.md (#265 Bugbot MEDIUM: deferred re-verify inflight).
       const reverifyForce = reverifyForceBuildCheck;
+      // `after()` körs EFTER responsen och därmed utanför requestens
+      // kontext-scope. Utan ett eget scope här skulle re-verifieringens
+      // verifier-/RepairGate-anrop bli oattribuerade.
+      const reverifyOwner = getLlmUsageContext();
       after(async () => {
-        await triggerServerVerification({
-          chatId: reverifyChatId,
-          versionId: reverifyVersionId,
-          forceBuildCheck: reverifyForce,
-        }).catch(() => {});
+        await runWithLlmUsageContext(
+          {
+            chatId: reverifyChatId,
+            versionId: reverifyVersionId,
+            userId: reverifyOwner.userId ?? null,
+          },
+          () =>
+            triggerServerVerification({
+              chatId: reverifyChatId,
+              versionId: reverifyVersionId,
+              forceBuildCheck: reverifyForce,
+            }).catch(() => {}),
+        );
       });
     }
   }

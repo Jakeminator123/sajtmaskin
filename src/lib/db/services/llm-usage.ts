@@ -72,19 +72,21 @@ export async function createLlmUsageRecord(record: CreateLlmUsageRecord): Promis
  * föräldralösa: de syns inte i chat-filtrerad export, och versions-stämplingen
  * nedan (som matchar på `chat_id`) hittar dem aldrig.
  *
- * Nyckeln är sessionen + ett tidsfönster. En session genererar en sajt i taget,
- * så det räcker som avgränsning — och rader utan `session_id` claimas aldrig.
+ * Nyckeln är `claimKey` — unik per request — vilket gör claim:en exakt även när
+ * två init-strömmar delar sessionscookie. Saknas nyckeln (äldre rader) faller den
+ * tillbaka på session + tidsfönster, och rader utan `session_id` claimas aldrig.
  *
  * Returnerar antalet uppdaterade rader.
  */
 export async function attachChatToUnassignedLlmUsage(
   sessionId: string,
   chatId: string,
-  options?: { maxAgeMinutes?: number },
+  options?: { maxAgeMinutes?: number; claimKey?: string | null },
 ): Promise<number> {
   assertDbConfigured();
   if (!sessionId) return 0;
   const maxAgeMinutes = Math.min(Math.max(options?.maxAgeMinutes ?? 30, 1), 24 * 60);
+  const claimKey = options?.claimKey?.trim() || null;
   const rows = await db
     .update(llmUsage)
     .set({ chat_id: chatId })
@@ -93,6 +95,9 @@ export async function attachChatToUnassignedLlmUsage(
         eq(llmUsage.session_id, sessionId),
         sql`${llmUsage.chat_id} IS NULL`,
         gt(llmUsage.created_at, sql`now() - (${String(maxAgeMinutes)} || ' minutes')::interval`),
+        ...(claimKey
+          ? [sql`${llmUsage.meta} ->> 'claimKey' = ${claimKey}`]
+          : []),
       ),
     )
     .returning({ id: llmUsage.id });

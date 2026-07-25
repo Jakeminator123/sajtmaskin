@@ -173,6 +173,19 @@ describe("buildLlmUsageRecord", () => {
     );
   });
 
+  it("skriver scopets claim-nyckel i meta", () => {
+    runWithLlmUsageContext({ sessionId: "sess_1" }, () => {
+      const key = getLlmUsageContext().claimKey;
+      const record = buildLlmUsageRecord({
+        phase: "brief",
+        model: "gpt-5.5",
+        usage: { inputTokens: 1 },
+        meta: { schema: "full" },
+      });
+      expect(record?.meta).toEqual({ schema: "full", claimKey: key });
+    });
+  });
+
   it("låter explicita fält vinna över kontexten", () => {
     runWithLlmUsageContext({ chatId: "chat_ctx" }, () => {
       const record = buildLlmUsageRecord({
@@ -327,8 +340,30 @@ describe("attachChatToPendingUsage", () => {
     attachChatToUnassignedLlmUsage.mockResolvedValue(2);
     attachChatToPendingUsage("sess_1", "chat_1");
     await vi.waitFor(() =>
-      expect(attachChatToUnassignedLlmUsage).toHaveBeenCalledWith("sess_1", "chat_1"),
+      expect(attachChatToUnassignedLlmUsage).toHaveBeenCalledWith("sess_1", "chat_1", {
+        claimKey: undefined,
+      }),
     );
+  });
+
+  it("skickar med scopets claim-nyckel så parallella strömmar inte krockar", async () => {
+    attachChatToUnassignedLlmUsage.mockResolvedValue(1);
+    const keys: Array<string | null | undefined> = [];
+    for (const chatId of ["chat_a", "chat_b"]) {
+      runWithLlmUsageContext({ sessionId: "sess_shared" }, () => {
+        keys.push(getLlmUsageContext().claimKey);
+        attachChatToPendingUsage("sess_shared", chatId);
+      });
+    }
+    await vi.waitFor(() => expect(attachChatToUnassignedLlmUsage).toHaveBeenCalledTimes(2));
+    // Två scope = två nycklar, så den ena claimen kan inte ta den andras rader.
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBeTruthy();
+    expect(keys[0]).not.toBe(keys[1]);
+    const passedKeys = attachChatToUnassignedLlmUsage.mock.calls.map(
+      (call) => (call[2] as { claimKey?: string }).claimKey,
+    );
+    expect(passedKeys).toEqual(keys);
   });
 
   it("gör ingenting utan session eller chat", async () => {
