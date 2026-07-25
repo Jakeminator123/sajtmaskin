@@ -122,7 +122,8 @@ export function MiljoSection() {
   const featureEntries = Object.entries(env.data?.features ?? {});
   const openclaw = env.data?.openclaw;
 
-  const deleteProject = async (project: VercelProject) => {
+  /** Returns false on failure so the confirm dialog stays open. */
+  const deleteProject = async (project: VercelProject): Promise<boolean> => {
     const response = await fetch(`/api/admin/vercel/projects/${encodeURIComponent(project.id)}`, {
       method: "DELETE",
     });
@@ -131,11 +132,12 @@ export function MiljoSection() {
       | null;
     if (!response.ok || data?.success === false) {
       toast.error(data?.error || "Kunde inte radera projektet");
-      return;
+      return false;
     }
     toast.success(`Raderade Vercel-projektet ${project.name}`);
     if (selectedProjectId === project.id) setSelectedProjectId("");
     await projects.reload();
+    return true;
   };
 
   return (

@@ -23,6 +23,14 @@ const deleteCalls = vi.hoisted(() => [] as { table: string; condition: unknown }
 vi.mock("@/lib/auth/admin", () => ({ requireAdminAccess }));
 vi.mock("@/lib/data/redis", () => ({ flushRedisCache, getRedisInfo }));
 
+const redisFeature = vi.hoisted(() => ({ enabled: true }));
+vi.mock("@/lib/config", () => ({
+  PATHS: { dataDir: "/tmp/sajtmaskin-data-test", uploads: "/tmp/sajtmaskin-uploads-test" },
+  get FEATURES() {
+    return { useRedisCache: redisFeature.enabled };
+  },
+}));
+
 // Simple stand-ins so conditions are inspectable plain objects.
 vi.mock("drizzle-orm", () => ({
   and: (...conditions: unknown[]) => ({ op: "and", conditions }),
@@ -100,6 +108,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
   deleteCalls.length = 0;
+  redisFeature.enabled = true;
   requireAdminAccess.mockResolvedValue({ ok: true, user: { email: ADMIN_EMAIL } });
   flushRedisCache.mockResolvedValue(0);
   getRedisInfo.mockResolvedValue({ connected: false });
@@ -119,6 +128,32 @@ describe("POST /api/admin/database — Vercel self-destruct is gone", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("deletes tables in FK-safe order (children before app_projects, users last)", async () => {
+    // Bugbot medium on #611: mega-cleanup used to fire the same deletes
+    // concurrently, which can trip a foreign-key error and half-clear the DB.
+    await POST(actionRequest({ action: "reset-all" }));
+
+    const order = deleteCalls.map((call) => call.table);
+    expect(order.indexOf("project_files")).toBeLessThan(order.indexOf("app_projects"));
+    expect(order.indexOf("project_data")).toBeLessThan(order.indexOf("app_projects"));
+    expect(order.indexOf("images")).toBeLessThan(order.indexOf("app_projects"));
+    expect(order.indexOf("domain_orders")).toBeLessThan(order.indexOf("app_projects"));
+    // Users last so the acting admin is still resolvable while the rest runs.
+    expect(order.indexOf("app_projects")).toBeLessThan(order.indexOf("users"));
+    expect(order[order.length - 1]).toBe("users");
+  });
+
+  it("mega-cleanup and reset-all delete exactly the same tables", async () => {
+    await POST(actionRequest({ action: "reset-all" }));
+    const resetOrder = deleteCalls.map((call) => call.table);
+
+    deleteCalls.length = 0;
+    await POST(actionRequest({ action: "mega-cleanup" }));
+    const megaOrder = deleteCalls.map((call) => call.table);
+
+    expect(megaOrder).toEqual(resetOrder);
+  });
+
   it("mega-cleanup resets data only and never calls the Vercel API", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
@@ -134,7 +169,7 @@ describe("POST /api/admin/database — Vercel self-destruct is gone", () => {
     expect(flushRedisCache).toHaveBeenCalledTimes(1);
   });
 
-  it("reports failure when the cache flush fails", async () => {
+  it("reports failure when a CONFIGURED cache fails to flush", async () => {
     flushRedisCache.mockResolvedValue(-1);
 
     const response = await POST(actionRequest({ action: "mega-cleanup" }));
@@ -142,6 +177,30 @@ describe("POST /api/admin/database — Vercel self-destruct is gone", () => {
 
     expect(body.success).toBe(false);
     expect(body.partialSuccess).toBe(true);
+  });
+
+  it("succeeds when no cache is configured — nothing to flush is not a failure", async () => {
+    // `flushRedisCache()` returns -1 both for "not configured" and "failed";
+    // conflating them made every reset report failure in Redis-less environments.
+    redisFeature.enabled = false;
+
+    const response = await POST(actionRequest({ action: "reset-all" }));
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.message).toMatch(/ingen cache konfigurerad/i);
+    expect(flushRedisCache).not.toHaveBeenCalled();
+  });
+
+  it("refuses the standalone cache flush when no cache is configured", async () => {
+    redisFeature.enabled = false;
+
+    const response = await POST(actionRequest({ action: "flush-redis" }));
+    const body = await response.json();
+
+    expect(body.success).toBe(false);
+    expect(body.error).toMatch(/ingen cache/i);
+    expect(flushRedisCache).not.toHaveBeenCalled();
   });
 });
 

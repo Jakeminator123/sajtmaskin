@@ -31,7 +31,15 @@ export interface DangerActionProps {
   confirmWord: string;
   /** Optional "this is how much disappears" line, rendered above the input. */
   impact?: React.ReactNode;
-  onConfirm: () => void | Promise<void>;
+  /**
+   * Run the destructive action.
+   *
+   * Return `false` when it failed: the dialog then STAYS open with an inline
+   * error instead of closing as if the wipe had succeeded (Bugbot low on #611 —
+   * callers only toast the failure and return, so a closing dialog read as
+   * "done"). Anything else (including `void`) counts as success.
+   */
+  onConfirm: () => void | boolean | Promise<void | boolean>;
   disabled?: boolean;
   /** Small inline variant for row actions. */
   size?: "sm" | "default";
@@ -64,22 +72,33 @@ export function DangerAction({
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [running, setRunning] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const unlocked = typed.trim() === confirmWord;
 
   const handleOpenChange = (next: boolean) => {
     if (running) return;
     setOpen(next);
-    if (!next) setTyped("");
+    if (!next) {
+      setTyped("");
+      setFailed(false);
+    }
   };
 
   const handleConfirm = async () => {
     if (!unlocked || running) return;
     setRunning(true);
+    setFailed(false);
     try {
-      await onConfirm();
+      const result = await onConfirm();
+      if (result === false) {
+        setFailed(true);
+        return;
+      }
       setOpen(false);
       setTyped("");
+    } catch {
+      setFailed(true);
     } finally {
       setRunning(false);
     }
@@ -132,6 +151,13 @@ export function DangerAction({
             onChange={(event) => setTyped(event.target.value)}
           />
         </div>
+
+        {failed && (
+          <p className="text-destructive text-sm">
+            Åtgärden gick inte igenom — se felmeddelandet uppe till höger. Dialogen är kvar så du
+            kan försöka igen.
+          </p>
+        )}
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={running}>Avbryt</AlertDialogCancel>

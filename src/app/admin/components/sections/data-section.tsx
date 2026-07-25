@@ -191,7 +191,10 @@ export function DataSection() {
                             confirmWord={entry.table}
                             disabled={busy !== null || count === 0}
                             onConfirm={async () => {
-                              await run(`clear:${entry.table}`, "clear", { table: entry.table });
+                              const result = await run(`clear:${entry.table}`, "clear", {
+                                table: entry.table,
+                              });
+                              return result.ok;
                             }}
                           />
                         </TableCell>
@@ -237,9 +240,7 @@ export function DataSection() {
                     impact={`${formatCount(stats.redis?.totalKeys)} nycklar i den här miljön töms.`}
                     confirmWord="cache"
                     disabled={busy !== null}
-                    onConfirm={async () => {
-                      await run("flush-redis", "flush-redis");
-                    }}
+                    onConfirm={async () => (await run("flush-redis", "flush-redis")).ok}
                   />
                 ) : undefined
               }
@@ -276,9 +277,7 @@ export function DataSection() {
                     impact={`${formatCount(stats.uploads?.fileCount)} filer (${stats.uploads?.totalSize ?? "0 B"}) raderas.`}
                     confirmWord="filer"
                     disabled={busy !== null}
-                    onConfirm={async () => {
-                      await run("clear-uploads", "clear-uploads");
-                    }}
+                    onConfirm={async () => (await run("clear-uploads", "clear-uploads")).ok}
                   />
                 ) : undefined
               }
@@ -441,9 +440,7 @@ export function DataSection() {
                     impact="Det går inte att ångra. Kör aldrig detta mot produktion utan säkerhetskopia."
                     confirmWord="nollställ"
                     disabled={busy !== null}
-                    onConfirm={async () => {
-                      await run("reset-all", "reset-all");
-                    }}
+                    onConfirm={async () => (await run("reset-all", "reset-all")).ok}
                   />
                 </div>
                 <Alert>

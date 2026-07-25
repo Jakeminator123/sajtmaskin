@@ -26,7 +26,7 @@ import {
 } from "@/lib/db/schema";
 import { TEST_USER_EMAIL, getUploadsDir } from "@/lib/db/services/shared";
 import { getRedisInfo, flushRedisCache } from "@/lib/data/redis";
-import { PATHS } from "@/lib/config";
+import { FEATURES, PATHS } from "@/lib/config";
 
 async function countTable(table: unknown): Promise<number> {
   const rows = await db.select({ count: sql<number>`count(*)` }).from(table as never);
@@ -57,6 +57,62 @@ async function deleteUsersExceptProtected(actingAdminEmail: string | null | unde
   return keep.length > 0
     ? query.where(notInArray(users.email, keep)).returning({ id: users.id })
     : query.where(sql`true`).returning({ id: users.id });
+}
+
+/**
+ * Wipe this environment's data in FOREIGN-KEY-SAFE order: children before their
+ * parents, users last.
+ *
+ * Both `reset-all` and its legacy alias `mega-cleanup` route through here.
+ * `mega-cleanup` used to fire the same deletes concurrently via `Promise.all`
+ * (Bugbot medium on #611): with child rows still referencing `app_projects`, an
+ * overlapping delete can raise an FK error and abort mid-run, leaving the
+ * database half-cleared. Sequential and shared means one behaviour, one order.
+ */
+async function resetEnvironmentData(actingAdminEmail: string | null | undefined): Promise<{
+  deletedRows: number;
+  flushedRedisKeys: number;
+  /**
+   * False when this environment has no cache at all. `flushRedisCache()` returns
+   * `-1` both for "not configured" and for "flush failed", and treating the
+   * former as a failure made the whole reset report failure in every
+   * Redis-less environment (caught while verifying the FK-order rewrite).
+   */
+  redisConfigured: boolean;
+}> {
+  let deletedRows = 0;
+
+  // Order matters: rows that reference app_projects go first.
+  const orderedTables = [
+    projectFiles,
+    projectData,
+    images,
+    mediaLibrary,
+    companyProfiles,
+    templateCache,
+    pageViews,
+    guestUsage,
+    transactions,
+    domainOrders,
+    appProjects,
+  ];
+
+  for (const table of orderedTables) {
+    const rows = await db
+      .delete(table)
+      .where(sql`true`)
+      .returning({ id: sql<string>`'row'` });
+    deletedRows += rows.length;
+  }
+
+  const deletedUsers = await deleteUsersExceptProtected(actingAdminEmail);
+  deletedRows += deletedUsers.length;
+
+  const redisConfigured = FEATURES.useRedisCache;
+  const flushedRedisKeys = redisConfigured ? await flushRedisCache() : 0;
+  clearUploadsFolder();
+
+  return { deletedRows, flushedRedisKeys, redisConfigured };
 }
 
 async function getDbFileSize(): Promise<string> {
@@ -177,6 +233,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "flush-redis") {
+      if (!FEATURES.useRedisCache) {
+        return NextResponse.json({
+          success: false,
+          error: "Ingen cache är konfigurerad i den här miljön — det finns inget att tömma.",
+        });
+      }
       // BUG-FIX 2026-04-24: flushRedisCache rensar nu BARA REDIS_KEY_PREFIX-scope
       // (dev:/preview:/prod:) — inte hela databasen som tidigare. Returvärdet
       // är antalet raderade nycklar (eller -1 vid fel).
@@ -191,37 +253,35 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (action === "reset-all") {
-      await db.delete(pageViews).where(sql`true`);
-      await db.delete(guestUsage).where(sql`true`);
-      await db.delete(transactions).where(sql`true`);
-      await db.delete(projectData).where(sql`true`);
-      await db.delete(projectFiles).where(sql`true`);
-      await db.delete(images).where(sql`true`);
-      await db.delete(mediaLibrary).where(sql`true`);
-      await db.delete(companyProfiles).where(sql`true`);
-      await db.delete(templateCache).where(sql`true`);
-      await db.delete(domainOrders).where(sql`true`);
-      await db.delete(appProjects).where(sql`true`);
-
-      await deleteUsersExceptProtected(admin.user.email);
+    if (action === "reset-all" || action === "mega-cleanup") {
+      // `mega-cleanup` is the retired alias (see the comment above the Vercel
+      // guard) — same data reset, no infrastructure calls.
+      const { deletedRows, flushedRedisKeys, redisConfigured } = await resetEnvironmentData(
+        admin.user.email,
+      );
 
       // BUG-FIX 2026-04-24 (test-agent rapport): tidigare ignorerades
       // returvärdet från flushRedisCache helt — `success: true` kunde
       // returneras även när Redis-flushen failade. Nu härleds success.
-      const flushed = await flushRedisCache();
-      clearUploadsFolder();
-
-      const redisOk = flushed >= 0;
+      const redisOk = !redisConfigured || flushedRedisKeys >= 0;
       console.info(
-        `[Admin] Reset all databases (Redis: ${redisOk ? `${flushed} keys flushed` : "FAILED"})`,
+        `[Admin] Reset environment data (rows: ${deletedRows}, Redis: ${
+          !redisConfigured ? "not configured" : redisOk ? `${flushedRedisKeys} keys flushed` : "FAILED"
+        })`,
       );
       return NextResponse.json({
         success: redisOk,
-        message: redisOk
-          ? `All data cleared (Redis: ${flushed} keys i denna miljö)`
-          : "Database cleared but Redis flush failed — check server logs",
-        redisFlushedKeys: redisOk ? flushed : null,
+        partialSuccess: !redisOk,
+        results: {
+          database: { deleted: deletedRows },
+          redis: { success: redisOk, deleted: redisOk ? flushedRedisKeys : 0 },
+        },
+        redisFlushedKeys: redisOk ? flushedRedisKeys : null,
+        message: !redisConfigured
+          ? `Nollställning: ${deletedRows} databasrader (ingen cache konfigurerad i den här miljön)`
+          : redisOk
+            ? `Nollställning: ${deletedRows} databasrader, ${flushedRedisKeys} cachenycklar`
+            : `Nollställning: ${deletedRows} databasrader (cachen kunde inte tömmas — se serverloggen)`,
       });
     }
 
@@ -426,70 +486,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // DATA RESET — Postgres + Redis + uploads for THIS environment
+    // RETIRED INFRASTRUCTURE ACTIONS (2026-07-24)
     //
-    // Removed 2026-07-24: this action used to also list every Vercel project the
-    // access token could see and delete all of them — including Sajtmaskin's own
-    // production project. Per-project deletion now lives in the admin Miljö
-    // section, guarded by `src/lib/vercel/self-project-guard.ts`. The legacy
-    // `mega-cleanup` action id is kept as an alias of `reset-all` so an old
-    // bookmark/script cannot silently start deleting infrastructure again.
+    // `mega-cleanup` and `cleanup-vercel-projects` used to list every Vercel
+    // project the access token could see and delete all of them — including
+    // Sajtmaskin's own production project — from a two-click admin button.
+    //
+    // `mega-cleanup` now aliases `reset-all` (data + cache only, handled above),
+    // and single-project deletion goes through
+    // `DELETE /api/admin/vercel/projects/[projectId]`, which refuses the app's own
+    // project via `src/lib/vercel/self-project-guard.ts`. The ids stay routed so
+    // an old bookmark/script cannot silently start deleting infrastructure again.
     // ═══════════════════════════════════════════════════════════════════════════
-
-    if (action === "mega-cleanup") {
-      const results: {
-        database: { deleted: number };
-        redis: { success: boolean; deleted: number };
-      } = {
-        database: { deleted: 0 },
-        redis: { success: false, deleted: 0 },
-      };
-
-      const deletedRows = await Promise.all([
-        db.delete(projectFiles).where(sql`true`).returning({ id: projectFiles.id }),
-        db.delete(projectData).where(sql`true`).returning({ id: projectData.project_id }),
-        db.delete(images).where(sql`true`).returning({ id: images.id }),
-        db.delete(mediaLibrary).where(sql`true`).returning({ id: mediaLibrary.id }),
-        db.delete(companyProfiles).where(sql`true`).returning({ id: companyProfiles.id }),
-        db.delete(templateCache).where(sql`true`).returning({ id: templateCache.id }),
-        db.delete(pageViews).where(sql`true`).returning({ id: pageViews.id }),
-        db.delete(guestUsage).where(sql`true`).returning({ id: guestUsage.id }),
-        db.delete(transactions).where(sql`true`).returning({ id: transactions.id }),
-        db.delete(domainOrders).where(sql`true`).returning({ id: domainOrders.id }),
-        db.delete(appProjects).where(sql`true`).returning({ id: appProjects.id }),
-      ]);
-
-      results.database.deleted = deletedRows.reduce((sum, rows) => sum + rows.length, 0);
-
-      const deletedUsers = await deleteUsersExceptProtected(admin.user.email);
-      results.database.deleted += deletedUsers.length;
-
-      // BUG-FIX 2026-04-24: prefix-scoped flush (se `flushRedisCache` JSDoc).
-      const flushedKeys = await flushRedisCache();
-      results.redis.success = flushedKeys >= 0;
-      results.redis.deleted = flushedKeys >= 0 ? flushedKeys : 0;
-      clearUploadsFolder();
-
-      // BUG-FIX 2026-04-24 (test-agent rapport): tidigare hardcoded
-      // `success: true` även när redis.success var false. Nu härleds top-level
-      // success från delresultaten.
-      const allOk = results.redis.success;
-
-      return NextResponse.json({
-        success: allOk,
-        partialSuccess: !allOk,
-        results,
-        message: `Nollställning: ${results.database.deleted} databasrader, ${results.redis.deleted} cachenycklar${
-          allOk ? "" : " (cachen kunde inte tömmas — se serverloggen)"
-        }`,
-      });
-    }
-
-    // `cleanup-vercel-projects` removed 2026-07-24 (see the reset comment above):
-    // it deleted every project the access token could see, Sajtmaskin's own
-    // production project included. Deleting a single customer project now goes
-    // through `DELETE /api/admin/vercel/projects/[projectId]`, which refuses the
-    // app's own project via `src/lib/vercel/self-project-guard.ts`.
     if (action === "cleanup-vercel-projects") {
       return NextResponse.json(
         {

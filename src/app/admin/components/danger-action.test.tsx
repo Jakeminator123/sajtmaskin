@@ -15,7 +15,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DangerAction } from "./danger-action";
 
-function setup(onConfirm = vi.fn()) {
+function setup(onConfirm: () => void | boolean | Promise<void | boolean> = vi.fn()) {
   render(
     <DangerAction
       label="Rensa sidvisningar"
@@ -78,5 +78,40 @@ describe("DangerAction", () => {
     openDialog();
 
     expect(screen.getByText(/1 234 rader raderas/)).toBeTruthy();
+  });
+
+  it("keeps the dialog open when the action reports failure", async () => {
+    // Bugbot low on #611: callers only toast the error and return, so a dialog
+    // that closes anyway reads as "done".
+    setup(vi.fn().mockResolvedValue(false));
+    openDialog();
+
+    fireEvent.change(confirmInput(), { target: { value: "page_views" } });
+    fireEvent.click(confirmButton());
+
+    await waitFor(() => expect(screen.getByText(/gick inte igenom/i)).toBeTruthy());
+    expect(screen.getByText("Rensa sidvisningar?")).toBeTruthy();
+  });
+
+  it("keeps the dialog open when the action throws", async () => {
+    setup(vi.fn().mockRejectedValue(new Error("nätverksfel")));
+    openDialog();
+
+    fireEvent.change(confirmInput(), { target: { value: "page_views" } });
+    fireEvent.click(confirmButton());
+
+    await waitFor(() => expect(screen.getByText(/gick inte igenom/i)).toBeTruthy());
+  });
+
+  it("closes the dialog on success", async () => {
+    setup(vi.fn().mockResolvedValue(true));
+    openDialog();
+
+    fireEvent.change(confirmInput(), { target: { value: "page_views" } });
+    fireEvent.click(confirmButton());
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /ja, genomför/i })).toBeNull(),
+    );
   });
 });
