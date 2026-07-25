@@ -85,4 +85,36 @@ describe("assertPromoteAllowed (false-green promotion guard)", () => {
     const decision = await assertPromoteAllowed("ver-1", async () => "some_future_value");
     expect(decision.allowed).toBe(true);
   });
+
+  // Re-triage 2026-07-25 av backlog-raden "stale quality-gate-telemetri
+  // överlever invalidateVerification". Den påstod att en STALE `preflight_passed`
+  // (från före en användar-edit) kan false-green:a en promote. Guarden är
+  // dock ALLOW-by-default: bara `verifier_failed`/`preflight_failed` blockerar,
+  // och `null` är medvetet fail-open (back-compat: template-import, rollback,
+  // äldre rader — se "Beslut & policy" i backloggen). En stale `passed` ger
+  // därför INGET som en superseding null-rad inte redan skulle ge — den
+  // föreslagna fixen ("skriv en superseding rad") kan inte stänga något hål.
+  // Detta test låser fast ekvivalensen så nästa agent inte bygger den fixen.
+  it("treats a stale passed signal identically to no signal (allow-by-default)", async () => {
+    const stalePassed = await assertPromoteAllowed("ver-1", async () => "preflight_passed", {
+      onReadError: "indeterminate",
+    });
+    const supersededToNull = await assertPromoteAllowed("ver-1", async () => null, {
+      onReadError: "indeterminate",
+    });
+    expect(stalePassed.allowed).toBe(true);
+    expect(supersededToNull.allowed).toBe(true);
+    expect(stalePassed.allowed).toBe(supersededToNull.allowed);
+  });
+
+  // Samma re-triage, motsatt riktning: den ENDA konkreta effekten av stale
+  // telemetri är för-strikt (en `verifier_failed` från före editen blockar en
+  // legitim promote av det NYA innehållet) — och den självläker så snart någon
+  // gate körs och skriver en färsk rad.
+  it("blocks on a stale failing signal until a fresh gate row supersedes it", async () => {
+    const staleFailed = await assertPromoteAllowed("ver-1", async () => "verifier_failed");
+    expect(staleFailed.allowed).toBe(false);
+    const afterFreshGate = await assertPromoteAllowed("ver-1", async () => "preflight_passed");
+    expect(afterFreshGate.allowed).toBe(true);
+  });
 });

@@ -10,6 +10,7 @@ import {
   buildOpenClawContextSystemMessage,
   type OpenClawOwnershipVerifier,
 } from "@/lib/openclaw/server-context";
+import { describeGatewayError } from "@/lib/openclaw/gateway-response";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import {
   getEngineChatByIdForRequest,
@@ -253,8 +254,24 @@ export async function POST(req: NextRequest) {
       const payload = (await upstream.json().catch(() => null)) as unknown;
       const reply = extractAssistantText(payload);
       if (!reply) {
+        // A 200 with no assistant text usually means the gateway's model chain
+        // failed (quota, provider auth) and put the reason in an error envelope
+        // instead. Report the classified reason rather than a bare empty
+        // answer, but keep the raw upstream text in the server log only — this
+        // response reaches a public avatar visitor.
+        const gatewayError = describeGatewayError(payload);
+        if (gatewayError) {
+          console.warn(
+            `[did/chat] gateway returned no answer (${gatewayError.kind}): ${gatewayError.detail}`,
+          );
+        }
         return NextResponse.json(
-          { success: false, error: "Tomt svar från avatar-bridgen" },
+          {
+            success: false,
+            error: gatewayError
+              ? gatewayError.message
+              : "Tomt svar från avatar-bridgen",
+          },
           { status: 502 },
         );
       }

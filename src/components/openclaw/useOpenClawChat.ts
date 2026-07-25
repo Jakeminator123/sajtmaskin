@@ -4,6 +4,10 @@ import { useCallback, useEffect, useRef } from "react";
 import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 import {
+  parseGatewayStream,
+  type GatewayErrorDescription,
+} from "@/lib/openclaw/gateway-response";
+import {
   createArmedMandate,
   parseArmingDirective,
   parseStopDirective,
@@ -11,40 +15,6 @@ import {
 
 function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/**
- * Parse SSE chunks from an OpenAI-compatible streaming response.
- * Yields content delta strings.
- */
-async function* parseSSE(reader: ReadableStreamDefaultReader<Uint8Array>) {
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith("data:")) continue;
-
-      const payload = trimmed.slice(5).trim();
-      if (payload === "[DONE]") return;
-
-      try {
-        const json = JSON.parse(payload);
-        const delta = json.choices?.[0]?.delta?.content;
-        if (typeof delta === "string") yield delta;
-      } catch {
-        // skip malformed chunks
-      }
-    }
-  }
 }
 
 export function useOpenClawChat() {
@@ -164,13 +134,31 @@ export function useOpenClawChat() {
 
         const reader = res.body.getReader();
         let accumulated = "";
+        let gatewayError: GatewayErrorDescription | null = null;
 
-        for await (const chunk of parseSSE(reader)) {
-          accumulated += chunk;
+        for await (const event of parseGatewayStream(reader)) {
+          if (event.type === "error") {
+            gatewayError = event.description;
+            break;
+          }
+          accumulated += event.text;
           updateAssistantMessage(placeholderId, accumulated);
         }
 
-        if (!accumulated) {
+        // The gateway answers 200 with a valid stream even when every model in
+        // the fallback chain failed, so the reason lives in an error chunk
+        // rather than in the HTTP status. Show the classified message —
+        // otherwise a provider quota wall is indistinguishable from a silent
+        // model. Only `message` is safe here; `detail` names internal models
+        // and subscriptions.
+        if (gatewayError) {
+          updateAssistantMessage(
+            placeholderId,
+            accumulated
+              ? `${accumulated}\n\n${gatewayError.message}`
+              : gatewayError.message,
+          );
+        } else if (!accumulated) {
           updateAssistantMessage(placeholderId, "(Inget svar fran agenten)");
         }
       } catch (e) {

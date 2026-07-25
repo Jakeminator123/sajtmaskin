@@ -215,6 +215,36 @@ describe("mapVersionStatusToDisplay — false-green guard (degraded ≠ success)
   });
 });
 
+// Verifierad invariant 2026-07-25 (re-triage av "status-bussen nollställs inte"
+// i BUG-SWARM-BACKLOG.md): efter en användar-edit via PUT/PATCH/DELETE `/files`
+// resettar `updateVersionFiles(..., {invalidateVerification:true})` DB-raden
+// till `draft`/`pending`. Bussen behåller sitt terminala `done` (den vet inget
+// om editen) och `reconcileTerminalDbState` låter det stå — MEN det starkaste
+// positiva tecknet ("Publicerad") härleds ur `releaseState`, inte ur bussen, så
+// badgen faller korrekt tillbaka till neutrala "Klar". Deploy-gaten läser DB:n.
+// Dessa tester låser fast att en framtida refaktor inte kan börja härleda
+// `promoted` ur bus-fasen — då blir det en riktig false-green.
+describe("mapVersionStatusToDisplay — user edit invalidates the promoted claim", () => {
+  it("drops promoted → ready when the DB release state was reset by an edit", () => {
+    const doneBus = status({ phase: "done" });
+    // Före editen: promoted i DB → starkaste positiva token.
+    expect(
+      mapVersionStatusToDisplay(doneBus, { isLatest: true, releaseState: "promoted" }).status,
+    ).toBe("promoted");
+    // Efter editen: DB nollställd till draft, bussen oförändrat `done`.
+    const afterEdit = mapVersionStatusToDisplay(doneBus, {
+      isLatest: true,
+      releaseState: "draft",
+    });
+    expect(afterEdit.status).toBe("ready");
+    expect(afterEdit.status).not.toBe("promoted");
+  });
+
+  it("never derives promoted from a terminal bus alone (no releaseState)", () => {
+    expect(mapVersionStatusToDisplay(status({ phase: "done" }), LATEST).status).toBe("ready");
+  });
+});
+
 describe("repair pass progress", () => {
   it("threads repairPassIndex through the repairing display", () => {
     expect(

@@ -67,6 +67,23 @@ Ingen agent mergar en PR utan att författaren först intygat att buggkollen är
 
 Detta är "verifiera att den uppladdande agenten faktiskt gett godkännande": labeln ÄR godkännandet — satt av författaren, läst av mergaren.
 
+### Signalordning för författaren (kollisionsskydd)
+
+Labeln skyddar bara om PR:ens synliga tillstånd följer arbetet. Håll ordningen:
+
+| Läge | Signal |
+|---|---|
+| Arbetar fortfarande, allt är inte pushat | **Draft.** Mergare rör aldrig drafts |
+| Allt pushat, granskning pågår | Ready for review, **ingen** `merge:ready` |
+| Bugg-efterkontroll klar, inga öppna P0/P1 | `merge:ready` + sign-off-rad |
+
+Två konsekvenser:
+
+- **Öppna aldrig en icke-draft PR med arbete kvar att pusha.** En mergare som ser grönt CI och en färdig-ut-seende PR har inget sätt att veta att en commit är på väg.
+- **Sent tillkommet arbete går i en NY PR**, aldrig som en extra commit på en PR som redan är signerad eller på väg in. (2026-07-25: en plan-commit landade i #607 samtidigt som den mergades och fick brytas ut till #608 i efterhand.)
+
+Spegelbilden på mergarsidan: **avsaknad av `merge:ready` betyder "författaren är inte klar"** — grönt CI är inget godkännande, och mergaren sätter aldrig labeln åt författaren för att komma vidare.
+
 ## Spårningskrav (varje fynd, inget tappas)
 
 Varje listat bot-/review-fynd ska sluta i **exakt ett** av:
