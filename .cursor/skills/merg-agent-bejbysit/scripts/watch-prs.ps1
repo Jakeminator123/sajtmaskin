@@ -74,6 +74,11 @@ function Get-OpenPrs {
       Signed  = ($parts[3] -eq "true")
     }
   }
+  # Unärt komma = standardidiomet för att BEVARA arrayen; PowerShell packar upp
+  # exakt en nivå vid retur, så kommat neutraliserar den uppackningen (utan det
+  # blir en tom array till ingenting och en enelementsarray till en skalär).
+  # Verifierat: 0/1/3 element ger 0/1/3 iterationer. Anroparen itererar ändå
+  # över @(...) så beteendet inte hänger på att läsaren kan idiomet.
   return , $out
 }
 
@@ -156,7 +161,7 @@ for ($i = 1; $i -le $Cycles; $i++) {
   }
 
   $summary = @()
-  foreach ($pr in $prs) {
+  foreach ($pr in @($prs)) {
     $n = $pr.Number
     $sha = $pr.Sha
 
@@ -184,7 +189,7 @@ for ($i = 1; $i -le $Cycles; $i++) {
     }
   }
 
-  if ($prs.Count -eq 0) { $summary = @("inga öppna PR:er") }
+  if (@($prs).Count -eq 0) { $summary = @("inga öppna PR:er") }
   Write-Output ("[{0}] cykel {1}/{2}: {3}" -f (Get-Date -Format "HH:mm"), $i, $Cycles, ($summary -join " "))
   $first = $false
   Start-Sleep -Seconds $IntervalSeconds

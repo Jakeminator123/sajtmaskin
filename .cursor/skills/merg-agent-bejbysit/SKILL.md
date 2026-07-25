@@ -161,9 +161,14 @@ Verifiera först:
 Sign-off får ligga i **PR-body eller en kommentar** — leta i båda, annars
 behandlas en giltigt godkänd PR felaktigt som osignerad:
 
+Fråga inte "vilken sign-off är senast" — ordningen ljuger (body kommer alltid
+först, kommentarer i kronologisk ordning, så en gammal kommentar kan vinna över
+en uppdaterad body). Fråga i stället det grinden faktiskt kräver: **finns en
+sign-off som avser nuvarande head?**
+
 ```powershell
 gh pr view <n> --json headRefOid,labels --jq '{sha:.headRefOid,labels:[.labels[].name]}'
-gh pr view <n> --json body,comments --jq '[.body, (.comments[].body)] | map(select(. != null and (test("merge:ready —")))) | last'
+gh pr view <n> --json headRefOid,body,comments --jq '.headRefOid as $sha | [.body, (.comments[].body)] | map(select(. != null and test("merge:ready —"))) | {antal: length, avser_head: (map(select(contains($sha[0:8]))) | length > 0)}'
 ```
 
 Labeln finns **och** sign-off-radens SHA matchar nuvarande head → merga:
