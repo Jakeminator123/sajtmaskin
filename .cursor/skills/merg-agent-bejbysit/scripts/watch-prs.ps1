@@ -57,17 +57,21 @@ function Announce([string]$key, [string]$message, [int]$cycle) {
 # Z-suffixet -> tidsstämpeln tolkas som lokal tid och åldern blir fel med hela
 # UTC-offseten (upptäckt i skarp körning: en 3 min gammal PR såg 125 min ut).
 function Get-OpenPrs {
-  $raw = gh pr list --repo $Repo --state open --json number,isDraft,headRefOid,createdAt `
-    --jq '.[] | select(.isDraft == false) | "\(.number)|\(.headRefOid)|\(.createdAt)"' 2>$null | Out-String
+  $raw = gh pr list --repo $Repo --state open --json number,isDraft,headRefOid,createdAt,labels `
+    --jq '.[] | select(.isDraft == false) | "\(.number)|\(.headRefOid)|\(.createdAt)|\([.labels[].name] | index("merge:ready") != null)"' 2>$null | Out-String
   if ($LASTEXITCODE -ne 0) { return $null }
   $out = @()
   foreach ($line in @($raw -split "`n" | Where-Object { $_ -match "\S" })) {
     $parts = $line.Trim() -split "\|"
-    if ($parts.Count -lt 3) { continue }
+    if ($parts.Count -lt 4) { continue }
     $out += [pscustomobject]@{
       Number  = [int]$parts[0]
       Sha     = $parts[1]
       Created = $parts[2]
+      # Författarens godkännande. Saknas det är PR:en inte redo, hur grön den än
+      # är - författaren kan ha mer på gång. Larmet visar läget så mergaren
+      # slipper hämta labels separat för att se om det ens är lönt att titta.
+      Signed  = ($parts[3] -eq "true")
     }
   }
   return , $out
@@ -154,9 +158,10 @@ for ($i = 1; $i -le $Cycles; $i++) {
     $age = Get-ReviewableMinutes (Get-CommitAgeMinutes $sha) (Get-AgeMinutes $pr.Created)
     $summary += "#$n=$state/${age}min"
 
+    $signed = $(if ($pr.Signed) { "merge:ready" } else { "OSIGNERAD" })
     if ($state -eq "failed") { Announce "$n/$sha/failed" "FAILED #$n" $i }
     elseif ($state -eq "green" -and $age -ge $MinutesMature -and $Ignore -notcontains $n) {
-      Announce "$n/$sha/actionable" "ACTIONABLE #$n (${age}min granskningsbar)" $i
+      Announce "$n/$sha/actionable" "ACTIONABLE #$n (${age}min granskningsbar, $signed)" $i
     }
   }
 

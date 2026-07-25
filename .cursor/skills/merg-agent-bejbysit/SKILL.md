@@ -160,8 +160,31 @@ gh pr view <n> --json state,mergeCommit --jq '{state,sha:.mergeCommit.oid}'
 |---|---|
 | Label + sign-off finns, SHA matchar | Merga |
 | Sign-off avser en äldre SHA | Behandla som osignerad — en commit landade efter godkännandet |
-| Varken label eller sign-off, författaragenten är aktiv | Be den komplettera. Sätt den inte åt den |
-| Författaragenten är borta och PR:en ska in | Du tar över **författarrollen**: kör bugbot-passet själv, triagera, och skriv sign-off-raden med `bugkoll: <väg> (merge-agenten agerade författare — ingen oberoende andra part)`. Merga först då, och bara när diffen inte rör en protected path |
+| **Label saknas** | **Merga inte.** Grönt CI är inte ett godkännande — se nedan |
+| Label saknas och författaragenten svarar inte inom rimlig tid | Först då får du ta över **författarrollen**: kör bugbot-passet själv, triagera, och skriv sign-off-raden med `bugkoll: <väg> (merge-agenten agerade författare — ingen oberoende andra part)`. Aldrig på en protected path |
+
+### Avsaknad av `merge:ready` betyder "författaren är inte klar"
+
+Detta är den regel som kostade oss en extra runda 2026-07-25: #607 mergades på
+grönt CI medan dess författaragent fortfarande hade en commit på gång till samma
+PR. Arbetet gick inte förlorat, men det fick brytas ut till en egen PR i efterhand.
+
+Grönt CI säger att *det som är pushat* håller. Det säger ingenting om huruvida
+författaren är **färdig med att pusha**. Bara labeln säger det. Att sätta den åt
+författaren gör inte PR:en redo — det raderar bara signalen som hade sagt att den
+inte var det.
+
+Innan du behandlar en författare som frånvarande, väg in tecknen på motsatsen:
+
+| Tecken på att författaren fortfarande jobbar | Var det syns |
+|---|---|
+| Head-commiten är färskare än mognadsfönstret | `commit.committer.date` |
+| PR:en öppnades nyss | `createdAt` |
+| Färska kommentarer eller commits från författaren | `gh pr view <n> --json comments,commits` |
+| PR:en är draft | `isDraft` — rör den aldrig |
+
+Utgångsläget är att **författaren är aktiv**. Är du osäker: fråga i PR:en och gå
+vidare till nästa PR i kön i stället för att vänta.
 
 Sign-off-raden:
 
