@@ -142,6 +142,20 @@ export interface VercelProject {
    * refuses to perform it — the old admin UI happily deleted production.
    */
   isSelf?: boolean;
+  /**
+   * The delete decision from `src/lib/vercel/self-project-guard.ts`, mirrored so
+   * the UI never offers an action the API rejects. `false` for the app's own
+   * project AND for every project while the app's own id is unknown.
+   */
+  deletable?: boolean;
+}
+
+/** `GET /api/admin/vercel/projects` envelope. */
+export interface VercelProjectsPayload {
+  projects: VercelProject[];
+  /** False → the app cannot identify its own project, so deletion is disabled. */
+  selfProjectKnown?: boolean;
+  selfProjectIdSource?: "env" | "vercel-link" | null;
 }
 
 export interface VercelEnvVar {

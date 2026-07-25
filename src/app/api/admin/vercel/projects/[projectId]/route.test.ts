@@ -85,4 +85,18 @@ describe("DELETE /api/admin/vercel/projects/[projectId]", () => {
     expect(response.status).toBe(503);
     expect(deleteProject).not.toHaveBeenCalled();
   });
+
+  it("refuses every delete while the app's own project id is unknown", async () => {
+    // Codex P1 on #611: with a token but no VERCEL_PROJECT_ID, the guard used to
+    // classify every project as "not self" — so production was deletable.
+    delete process.env.VERCEL_PROJECT_ID;
+
+    const response = await DELETE(deleteRequest("prj_customer"), ctx("prj_customer"));
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.reason).toBe("unknown-self");
+    expect(body.error).toMatch(/VERCEL_PROJECT_ID/);
+    expect(deleteProject).not.toHaveBeenCalled();
+  });
 });

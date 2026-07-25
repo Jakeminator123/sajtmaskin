@@ -12,6 +12,7 @@ import {
   ToggleLeft,
   Users,
 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,7 @@ import type {
   TeamStatus,
   VercelEnvVar,
   VercelProject,
+  VercelProjectsPayload,
 } from "../types";
 
 export function MiljoSection() {
@@ -59,13 +61,21 @@ export function MiljoSection() {
   const teams = useAdminResource<TeamStatus>("/api/admin/vercel/team-status", {
     errorMessage: "Kunde inte hämta Vercel-team",
   });
-  const projects = useAdminResource<VercelProject[], { projects: VercelProject[] }>(
+  const projects = useAdminResource<VercelProjectsPayload, VercelProjectsPayload>(
     "/api/admin/vercel/projects",
     {
-      select: (json) => json.projects ?? [],
+      select: (json) => ({
+        projects: json.projects ?? [],
+        selfProjectKnown: json.selfProjectKnown,
+        selfProjectIdSource: json.selfProjectIdSource,
+      }),
       errorMessage: "Kunde inte hämta Vercel-projekt",
     },
   );
+  const projectList = projects.data?.projects ?? [];
+  // The API disables deletion entirely when it cannot identify its own project —
+  // mirror that here instead of showing buttons the API will reject.
+  const selfProjectUnknown = projects.data?.selfProjectKnown === false;
 
   /**
    * The Vercel routes answer 503 when no token is configured. That is an expected
@@ -467,10 +477,23 @@ export function MiljoSection() {
         icon={FolderOpen}
         action={<RefreshButton onClick={() => void projects.reload()} loading={projects.loading} />}
       >
+        {selfProjectUnknown && (
+          <Alert className="mb-3">
+            <ShieldCheck className="h-4 w-4" />
+            <AlertTitle>Radering är avstängd</AlertTitle>
+            <AlertDescription>
+              <p>
+                Appen kan inte avgöra vilket av projekten som är dess eget, så inget projekt kan
+                raderas härifrån. Sätt <code className="font-mono text-xs">VERCEL_PROJECT_ID</code>{" "}
+                så skyddas appens projekt och radering av kundprojekt öppnas igen.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
         <DataState
           loading={projects.loading && !projects.data}
           error={vercelNotConfigured(projects.status) ? null : projects.error}
-          isEmpty={!projects.data?.length}
+          isEmpty={projectList.length === 0}
           onRetry={() => void projects.reload()}
           emptyTitle={
             vercelNotConfigured(projects.status) ? "Vercel är inte kopplat" : "Inga projekt"
@@ -491,7 +514,7 @@ export function MiljoSection() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(projects.data ?? []).map((project) => (
+              {projectList.map((project) => (
                 <TableRow key={project.id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -519,8 +542,17 @@ export function MiljoSection() {
                       >
                         Visa nycklar
                       </Button>
-                      {project.isSelf ? (
-                        <Button variant="outline" size="sm" disabled title="Skyddat projekt">
+                      {project.deletable === false || project.isSelf ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          title={
+                            project.isSelf
+                              ? "Appens eget projekt — skyddat"
+                              : "Radering avstängd tills appens eget projekt kan identifieras"
+                          }
+                        >
                           Skyddat
                         </Button>
                       ) : (
@@ -547,13 +579,13 @@ export function MiljoSection() {
         description="Vilka env-variabler som finns och för vilka miljöer. Värden visas aldrig."
         icon={Key}
         action={
-          (projects.data ?? []).length > 0 ? (
+          projectList.length > 0 ? (
             <Select value={projectId} onValueChange={setSelectedProjectId}>
               <SelectTrigger className="w-56" aria-label="Välj projekt">
                 <SelectValue placeholder="Välj projekt" />
               </SelectTrigger>
               <SelectContent>
-                {(projects.data ?? []).map((project) => (
+                {projectList.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
                   </SelectItem>
