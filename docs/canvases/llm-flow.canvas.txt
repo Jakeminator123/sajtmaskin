@@ -63,15 +63,15 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "57416834",
+    "commit": "c79dcd6d",
     "commitDate": "2026-07-25",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
-    "openP1": 0,
-    "openP2": 15,
+    "openP1": 1,
+    "openP2": 14,
     "openP3": 24,
     "blocked": 0,
     "shaky": 6,
@@ -188,14 +188,14 @@ const DATA: CanvasData = {
       "openBugs": 31,
       "openByPrio": {
         "P0": 0,
-        "P1": 0,
-        "P2": 11,
+        "P1": 1,
+        "P2": 10,
         "P3": 20,
         "other": 0
       },
       "churn": 17,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "31 oppna backlog-rader (P0:0 P1:0 P2:11 P3:20)"
+      "note": "31 oppna backlog-rader (P0:0 P1:1 P2:10 P3:20)"
     },
     {
       "name": "Eval",
@@ -220,7 +220,7 @@ const DATA: CanvasData = {
       "name": "Preview och versioner",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "31 oppna backlog-rader (P0:0 P1:0 P2:11 P3:20)"
+      "reason": "31 oppna backlog-rader (P0:0 P1:1 P2:10 P3:20)"
     },
     {
       "name": "Scaffolds",
@@ -249,14 +249,14 @@ const DATA: CanvasData = {
   ],
   "topOpenRisks": [
     {
-      "prio": "P2",
+      "prio": "P1",
       "blocker": false,
-      "fynd": "**Tidigare LLM-byggd chattyta konkurrerar med senare `openai-chat`-dossier (dubbel chatt-yta/route):** en F2-…"
+      "fynd": "**Dedupe-bailouten i placement-hooken saknar regressionstest på hook-/komponentnivå:** #604 testar bara `isSa…"
     },
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "**Dedupe-bailouten i placement-hooken saknar regressionstest på hook-/komponentnivå:** #604 testar bara `isSa…"
+      "fynd": "**Tidigare LLM-byggd chattyta konkurrerar med senare `openai-chat`-dossier (dubbel chatt-yta/route):** en F2-…"
     },
     {
       "prio": "P2",
