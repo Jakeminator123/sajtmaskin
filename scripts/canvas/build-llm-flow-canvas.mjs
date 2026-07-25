@@ -49,8 +49,8 @@ const DEFAULT_FOCUS = [
   "Codegen core",
   "prompt-core",
   "ai_models",
-  "Scaffolds",
-  "Scaffold Lifecycle",
+  "Scaffolds: titta & justera",
+  "Scaffolds & varianter: skapa, klona, ta bort",
   "Preview och versioner",
   "Eval",
 ];
@@ -139,8 +139,8 @@ const STRONG_TERMS = {
   "Codegen core": ["autofix", "cross-file", "null-render", "static-core", "domain-inference", "prompt-heuristic", "system-prompt"],
   "prompt-core": ["core rules", "prompt-core", "core-contract", "systemprompt", "system prompt"],
   "ai_models": ["manifest.json", "phase-routing", "token-budget", "tokenbudget", "repair-pass", "build-spec", "buildspec", "promptlimits", "partial-file repair"],
-  "Scaffolds": ["scaffold", "dossier", "capability", "route-plan", "routeplan"],
-  "Scaffold Lifecycle": ["scaffold-variant", "variant-json", "scaffold-variants"],
+  "Scaffolds: titta & justera": ["scaffold", "dossier", "capability", "route-plan", "routeplan"],
+  "Scaffolds & varianter: skapa, klona, ta bort": ["scaffold-variant", "variant-json", "scaffold-variants"],
   "Preview och versioner": ["preview", "verifier", "finalize-design", "quality gate", "quality-gate", "warm-typecheck", "product-postcheck", "server-verify", "event-bus", "build plan", "f3 ", " f3", "f2 ", " f2", "repair gate"],
   Eval: ["eval", "baseline", "merge-syntax", "merge syntax", "arcade-with-klarna"],
 };

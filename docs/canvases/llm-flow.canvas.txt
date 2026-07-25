@@ -63,8 +63,8 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "20333ccb",
-    "commitDate": "2026-07-24",
+    "commit": "db74edb5",
+    "commitDate": "2026-07-25",
     "sinceDays": 14
   },
   "totals": {
@@ -91,7 +91,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 7,
+      "churn": 8,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
     },
@@ -147,7 +147,7 @@ const DATA: CanvasData = {
       "note": "4 oppna backlog-rader (P0:0 P1:0 P2:1 P3:3)"
     },
     {
-      "name": "Scaffolds",
+      "name": "Scaffolds: titta & justera",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
@@ -159,12 +159,12 @@ const DATA: CanvasData = {
         "P3": 4,
         "other": 0
       },
-      "churn": 12,
+      "churn": 11,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/pro",
       "note": "10 oppna backlog-rader (P0:0 P1:0 P2:6 P3:4)"
     },
     {
-      "name": "Scaffold Lifecycle",
+      "name": "Scaffolds & varianter: skapa, klona, ta bort",
       "status": "ongoing",
       "statusLabel": "Pagar",
       "tone": "info",
@@ -176,9 +176,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 10,
+      "churn": 11,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 10 commits / 14d"
+      "note": "Aktiv: 11 commits / 14d"
     },
     {
       "name": "Preview och versioner",
@@ -193,7 +193,7 @@ const DATA: CanvasData = {
         "P3": 18,
         "other": 0
       },
-      "churn": 16,
+      "churn": 17,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "29 oppna backlog-rader (P0:0 P1:0 P2:11 P3:18)"
     },
@@ -223,7 +223,7 @@ const DATA: CanvasData = {
       "reason": "29 oppna backlog-rader (P0:0 P1:0 P2:11 P3:18)"
     },
     {
-      "name": "Scaffolds",
+      "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "10 oppna backlog-rader (P0:0 P1:0 P2:6 P3:4)"

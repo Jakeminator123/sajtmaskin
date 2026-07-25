@@ -155,7 +155,7 @@
       ]
     },
     "Scaffolds: titta & justera": {
-      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/promptHints/qualityChecklist). Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab (v0-mallar i Blob). CRUD görs i Scaffold Lifecycle.",
+      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/promptHints/qualityChecklist). Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab (v0-mallar i Blob). Skapa/klona/radera görs i 'Scaffolds & varianter: skapa, klona, ta bort'.",
       "canonicalPaths": [
         "src/lib/gen/scaffolds/",
         "src/lib/gen/scaffolds/protected-paths.ts",
@@ -181,7 +181,7 @@
       ]
     },
     "Scaffolds & varianter: skapa, klona, ta bort": {
-      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, beroendevaliderad scaffold-radering samt Baseline-flik (fabriksåterställning av scaffold-ytorna till git-taggen scaffold-baseline-v1). Variantens sourceTemplateIds slås upp mot Blob-manifestet (v0-mallar) — legacy-katalogen är avvecklad. Variants är det visuella uttrycket inom en scaffold. Dossiers (separat system, v2 sedan 2026-04-20) hanteras under 'Dossiers (legoklossar)'-sidan och injiceras deterministiskt baserat på brief.requestedCapabilities — inte embeddings.",
+      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, beroendevaliderad scaffold-radering samt Baseline-flik (fabriksåterställning av scaffold-ytorna till git-taggen scaffold-baseline-v1). Variantens sourceTemplateIds slås upp mot Blob-manifestet (v0-mallar) — legacy-katalogen är avvecklad. Variants är det visuella uttrycket inom en scaffold. Byggblock/dossiers (separat system, v2 sedan 2026-04-20) hanteras under 'Byggblock (dossiers)'-sidan och injiceras deterministiskt baserat på brief.requestedCapabilities — inte embeddings.",
       "canonicalPaths": [
         "config/scaffold-variants/",
         "backoffice/pages/scaffold_lifecycle.py",
@@ -497,7 +497,7 @@
       ]
     },
     "Byggblock (dossiers)": {
-      "summary": "Adminvy för runtime dossiers (Byggblock/capability-moduler) under data/dossiers/{hard,soft}/: bläddra per dossier-grupp, redigera manifest (validerar mot strict-schema före save), radera (checklist + id-bekräftelse + zip-snapshot till Återställning), AI-kurering från template-references och ombyggnad av capability-map (genererad vy).",
+      "summary": "Adminvy för byggblocken (runtime dossiers/capability-moduler; UI-label Byggblock, kod-id dossier) under data/dossiers/{hard,soft}/: bläddra per dossier-grupp, redigera manifest (validerar mot strict-schema före save), radera (checklist + id-bekräftelse + zip-snapshot till Återställning), AI-kurering från template-references och ombyggnad av capability-map (genererad vy).",
       "canonicalPaths": [
         "data/dossiers/",
         "data/dossiers/_index/capability-map.json",

@@ -721,7 +721,7 @@ SAVE_SCOPE_MESSAGES: dict[str, tuple[str, str]] = {
     ),
 }
 
-# Deklarerade sökvägar per spara-läge. `backoffice/test_save_scope_parity.py`
+# Deklarerade sökvägar per spara-läge. `backoffice/test_building_blocks_nav.py`
 # verifierar mot git att varje `repo`-sökväg verkligen är spårad och varje
 # `local`-sökväg verkligen är gitignorerad — så UI-texten inte kan börja ljuga
 # efter en framtida .gitignore-ändring.
