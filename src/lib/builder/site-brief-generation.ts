@@ -307,6 +307,37 @@ export const simplifiedBriefSchema = z.object({
     }),
 });
 
+/**
+ * Ett misslyckat brief-försök har ändå förbrukat tokens hos leverantören.
+ *
+ * AI SDK:s `NoObjectGeneratedError` bär `usage` när modellen svarade men svaret
+ * inte gick att tolka mot schemat — då loggas den verkliga volymen. Andra fel
+ * (timeout, kvot, transport) saknar siffror, och raden sparas då som ett
+ * misslyckat anrop så luckan i förbrukningen går att förklara.
+ */
+function recordFailedBriefAttempt(params: {
+  model: string;
+  workload: string;
+  error: unknown;
+  durationMs: number;
+}): void {
+  const errorObject =
+    params.error && typeof params.error === "object"
+      ? (params.error as { usage?: unknown; name?: unknown })
+      : null;
+  recordLlmUsage({
+    phase: "brief",
+    workload: params.workload,
+    model: params.model,
+    usage: errorObject?.usage,
+    durationMs: params.durationMs,
+    ok: false,
+    errorCode:
+      typeof errorObject?.name === "string" ? errorObject.name : "brief_schema_failed",
+    meta: { schema: "full", outcome: "retried_with_simplified" },
+  });
+}
+
 function resolveAnthropicBriefModelId(model: string): string {
   const stripped = model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
   return stripped.replace(/(\d+)\.(\d+)$/g, "$1-$2");
@@ -542,6 +573,14 @@ export async function generateSiteBriefObject(
       debugLog("AI", "Full Anthropic brief schema failed, trying simplified", {
         error: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
       });
+      // Det misslyckade försöket kostade tokens även om det inte gav något
+      // objekt. Utan den här raden försvinner den kostnaden ur körningen.
+      recordFailedBriefAttempt({
+        model: `anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`,
+        workload: briefSource,
+        error: fullSchemaErr,
+        durationMs: Date.now() - briefStartedAt,
+      });
       try {
         result = await generateObject({
           model: directModel,
@@ -621,6 +660,12 @@ export async function generateSiteBriefObject(
   } catch (fullSchemaErr) {
     debugLog("AI", "Full brief schema failed, trying simplified", {
       error: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
+    });
+    recordFailedBriefAttempt({
+      model: normalizedModel,
+      workload: briefSource,
+      error: fullSchemaErr,
+      durationMs: Date.now() - briefStartedAt,
     });
     try {
       result = await generateObject({

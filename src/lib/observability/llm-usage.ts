@@ -306,6 +306,27 @@ export async function recordLlmUsageAsync(input: RecordLlmUsageInput): Promise<v
 }
 
 /**
+ * Knyt sessionens tidigare anrop till chatten så snart den skapats.
+ *
+ * Init-flödet hinner köra brief och scaffold-embeddings innan chatten finns; utan
+ * det här blir de raderna föräldralösa och faller ur både chat-export och
+ * versionsstämplingen. Fire-and-forget som all annan loggning här.
+ */
+export function attachChatToPendingUsage(sessionId: string, chatId: string): void {
+  void (async () => {
+    try {
+      if (!sessionId || !chatId || !dbEnvPresent()) return;
+      const { dbConfigured } = await import("@/lib/db/client");
+      if (!dbConfigured) return;
+      const { attachChatToUnassignedLlmUsage } = await import("@/lib/db/services/llm-usage");
+      await attachChatToUnassignedLlmUsage(sessionId, chatId);
+    } catch {
+      // Claim är en förbättring, inte ett krav.
+    }
+  })();
+}
+
+/**
  * Knyt körningens tidigare anrop till versionen så snart den finns.
  *
  * Brief, scaffold-embeddings och klassificeraren hinner köra innan versionsraden

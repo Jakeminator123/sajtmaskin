@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const createLlmUsageRecord = vi.hoisted(() => vi.fn());
 const attachVersionToUnassignedLlmUsage = vi.hoisted(() => vi.fn());
+const attachChatToUnassignedLlmUsage = vi.hoisted(() => vi.fn());
 const dbState = vi.hoisted(() => ({ configured: true }));
 
 vi.mock("@/lib/db/client", () => ({
@@ -13,9 +14,11 @@ vi.mock("@/lib/db/client", () => ({
 vi.mock("@/lib/db/services/llm-usage", () => ({
   createLlmUsageRecord,
   attachVersionToUnassignedLlmUsage,
+  attachChatToUnassignedLlmUsage,
 }));
 
 const {
+  attachChatToPendingUsage,
   attachVersionToPendingUsage,
   buildLlmUsageRecord,
   getLlmUsageContext,
@@ -303,5 +306,39 @@ describe("attachVersionToPendingUsage", () => {
     attachVersionToUnassignedLlmUsage.mockRejectedValue(new Error("db nere"));
     expect(() => attachVersionToPendingUsage("chat_1", "ver_1")).not.toThrow();
     await vi.waitFor(() => expect(attachVersionToUnassignedLlmUsage).toHaveBeenCalled());
+  });
+});
+
+describe("attachChatToPendingUsage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv("POSTGRES_URL", "postgres://user:pass@localhost:5432/test");
+    dbState.configured = true;
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("claimar sessionens rader som skrevs innan chatten fanns", async () => {
+    // Brief och scaffold-embeddings körs före createChat på init.
+    attachChatToUnassignedLlmUsage.mockResolvedValue(2);
+    attachChatToPendingUsage("sess_1", "chat_1");
+    await vi.waitFor(() =>
+      expect(attachChatToUnassignedLlmUsage).toHaveBeenCalledWith("sess_1", "chat_1"),
+    );
+  });
+
+  it("gör ingenting utan session eller chat", async () => {
+    attachChatToPendingUsage("", "chat_1");
+    attachChatToPendingUsage("sess_1", "");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(attachChatToUnassignedLlmUsage).not.toHaveBeenCalled();
+  });
+
+  it("sväljer fel utan att kasta", async () => {
+    attachChatToUnassignedLlmUsage.mockRejectedValue(new Error("db nere"));
+    expect(() => attachChatToPendingUsage("sess_1", "chat_1")).not.toThrow();
+    await vi.waitFor(() => expect(attachChatToUnassignedLlmUsage).toHaveBeenCalled());
   });
 });

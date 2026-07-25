@@ -6,7 +6,11 @@ import {
 import { createChatSchema } from "@/lib/validations/chatSchemas";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
-import { runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
+import {
+  attachChatToPendingUsage,
+  runWithLlmUsageContext,
+  setLlmUsageContext,
+} from "@/lib/observability/llm-usage";
 import { prepareCredits } from "@/lib/credits/server";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
@@ -206,7 +210,11 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
         userId: creditCheck.user?.id,
       });
-      setLlmUsageContext({ userId: creditCheck.user?.id ?? null });
+      // Samma identitetsform som tenant-lagret (`getRequestUserId`), så gäst-
+      // förbrukning kan attribueras i stället för att bli NULL.
+      setLlmUsageContext({
+        userId: creditCheck.user?.id ?? `guest:${sessionId}`,
+      });
       optimizedMessage = await appendHydratedTextAttachmentExcerpts(
         optimizedMessage,
         requestAttachments,
@@ -792,6 +800,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             resolvedScaffold?.id,
           );
           await chatRepo.addMessage(engineChat.id, "user", message);
+          setLlmUsageContext({ chatId: engineChat.id });
+          attachChatToPendingUsage(sessionId, engineChat.id);
           debugLog("engine", "Chat DB bootstrap complete", {
             durationMs: Date.now() - contractGateDbStartedAt,
             mode: "pre-generation-contract-gate",
@@ -902,6 +912,8 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         );
         await chatRepo.addMessage(engineChat.id, "user", message);
         setLlmUsageContext({ chatId: engineChat.id });
+        // Brief och scaffold-embeddings kördes innan chatten fanns — claima dem.
+        attachChatToPendingUsage(sessionId, engineChat.id);
         debugLog("engine", "Chat DB bootstrap complete", {
           durationMs: Date.now() - engineChatDbStartedAt,
           mode: "own-engine",

@@ -65,6 +65,41 @@ export async function createLlmUsageRecord(record: CreateLlmUsageRecord): Promis
 }
 
 /**
+ * Stämpla `chat_id` på sessionens rader som saknar det.
+ *
+ * På init körs Deep Brief och scaffold-embeddings INNAN chatten existerar, så
+ * `chat_id` kan inte sättas vid skrivning. Utan den här claim:en blir de raderna
+ * föräldralösa: de syns inte i chat-filtrerad export, och versions-stämplingen
+ * nedan (som matchar på `chat_id`) hittar dem aldrig.
+ *
+ * Nyckeln är sessionen + ett tidsfönster. En session genererar en sajt i taget,
+ * så det räcker som avgränsning — och rader utan `session_id` claimas aldrig.
+ *
+ * Returnerar antalet uppdaterade rader.
+ */
+export async function attachChatToUnassignedLlmUsage(
+  sessionId: string,
+  chatId: string,
+  options?: { maxAgeMinutes?: number },
+): Promise<number> {
+  assertDbConfigured();
+  if (!sessionId) return 0;
+  const maxAgeMinutes = Math.min(Math.max(options?.maxAgeMinutes ?? 30, 1), 24 * 60);
+  const rows = await db
+    .update(llmUsage)
+    .set({ chat_id: chatId })
+    .where(
+      and(
+        eq(llmUsage.session_id, sessionId),
+        sql`${llmUsage.chat_id} IS NULL`,
+        gt(llmUsage.created_at, sql`now() - (${String(maxAgeMinutes)} || ' minutes')::interval`),
+      ),
+    )
+    .returning({ id: llmUsage.id });
+  return rows.length;
+}
+
+/**
  * Stämpla `version_id` på chattens rader som saknar det.
  *
  * Deep Brief, scaffold-embeddings och intent-klassificeraren körs INNAN

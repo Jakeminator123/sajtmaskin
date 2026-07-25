@@ -614,6 +614,9 @@ export async function handleMessageStreamRequest(
         const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
           userId: creditCheck.user?.id,
         });
+        // Samma identitetsform som tenant-lagret, så följdturens förbrukning
+        // (klassificerare, brief-delta, codegen, verifier, RepairGate) attribueras.
+        setLlmUsageContext({ userId: creditCheck.user?.id ?? `guest:${sessionId}` });
         await recordFollowUpPromptLog({
           chatId,
           engineChat,
