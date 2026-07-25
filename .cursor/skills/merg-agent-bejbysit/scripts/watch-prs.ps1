@@ -97,13 +97,21 @@ function Get-ReviewableMinutes([int]$commitAge, [int]$prAge) {
   return [Math]::Min($commitAge, $prAge)
 }
 
+# Exit-koden är den auktoritativa signalen: 0 = alla passerade, 8 = något är
+# pending, allt annat = fel eller misslyckad check. Att bara regexa stdout var
+# för svagt - `\bfail\b` matchar t.ex. inte en aggregatrad som säger "failing",
+# och ett API-fel med tom output hade lästs som grönt. Regexen är kvar enbart
+# för att skilja "rött" från "gick inte att läsa" inom samma exit-kod.
 function Get-CheckState([int]$number) {
   $out = gh pr checks $number --repo $Repo 2>&1 | Out-String
-  # "skipping" innehåller inte "fail"/"pending" - bara faktiska lägen matchas.
-  if ($out -match "\bfail\b") { return "failed" }
-  if ($out -match "\bpending\b") { return "pending" }
-  if ($out -notmatch "\S") { return "unknown" }
-  return "green"
+  $code = $LASTEXITCODE
+  if ($code -eq 8) { return "pending" }
+  if ($code -eq 0) {
+    if ($out -notmatch "\S") { return "unknown" }
+    return "green"
+  }
+  if ($out -match "fail") { return "failed" }
+  return "unknown"
 }
 
 Write-Output "[watch-prs] start: interval=${IntervalSeconds}s mognad=${MinutesMature}min cykler=$Cycles"

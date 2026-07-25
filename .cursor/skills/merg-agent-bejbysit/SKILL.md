@@ -4,8 +4,9 @@ description: >-
   Sätter agenten i rollen som stående merge-agent för Sajtmaskin: tar först ett
   rollansvarstest (rätt checkout, ren tree, master i synk, gh-åtkomst), sveper
   sedan alla öppna PR:er, verifierar att buggranskning är gjord och triagerad,
-  och mergar de som är gröna + mogna enligt 15-min-regeln (klockan räknas från
-  SENASTE commit, så en ny push från författaragenten förlänger väntan). Use when
+  och mergar de som är gröna + mogna enligt 15-min-regeln (minsta av commit-ålder
+  och PR-ålder, så både en sen push och en gammal lokal commit i en ny PR
+  hanteras). Use when
   the user runs /merg-agent-bejbysit, says "merge-agent", "bejbysit" or
   "babysitta PR:erna", or asks someone to hålla koll på och merga öppna PR:er.
 disable-model-invocation: true
@@ -60,6 +61,17 @@ gh pr checks <n>
 gh pr view <n> --json headRefOid,mergeStateStatus,labels,createdAt --jq '{sha:.headRefOid,state:.mergeStateStatus,labels:[.labels[].name],created:.createdAt}'
 gh api repos/Jakeminator123/sajtmaskin/pulls/<n>/comments --jq '.[] | {user:.user.login, path:.path, body:(.body|.[0:400])}'
 gh pr view <n> --json reviews --jq '[.reviews[] | {author:.author.login,state:.state}]'
+```
+
+**Grönt `gh pr checks` betyder inte "inga fynd".** Enligt
+[`pr-bot-findings-sweep.mdc`](../../rules/pr-bot-findings-sweep.mdc) lägger flera
+botar sina fynd på ytor som statuslistan inte visar — Vercel Agent Review (VADE)
+skriver i check-runens `output`/`annotations`, och PR-nivånotiser hamnar bland
+`issues/comments` i stället för de radbundna `pulls/comments`. Svep därför båda:
+
+```powershell
+gh api "repos/Jakeminator123/sajtmaskin/commits/<sha>/check-runs?per_page=50" --jq '.check_runs[] | select(.output.title != null or .output.summary != null) | {name, conclusion, title:.output.title, summary:(.output.summary // "" | .[0:400])}'
+gh api repos/Jakeminator123/sajtmaskin/issues/<n>/comments --jq '.[] | select(.user.type == "Bot") | {user:.user.login, body:(.body|.[0:400])}'
 ```
 
 **Mognadsregeln: 15 min granskningsbar.** Två klockor måste båda ha gått, för att
@@ -129,9 +141,12 @@ finns till för att stoppa.
 
 Verifiera först:
 
+Sign-off får ligga i **PR-body eller en kommentar** — leta i båda, annars
+behandlas en giltigt godkänd PR felaktigt som osignerad:
+
 ```powershell
 gh pr view <n> --json headRefOid,labels --jq '{sha:.headRefOid,labels:[.labels[].name]}'
-gh pr view <n> --json comments --jq '[.comments[] | select(.body | startswith("merge:ready")) | .body] | last'
+gh pr view <n> --json body,comments --jq '[.body, (.comments[].body)] | map(select(. != null and (test("merge:ready —")))) | last'
 ```
 
 Labeln finns **och** sign-off-radens SHA matchar nuvarande head → merga:
