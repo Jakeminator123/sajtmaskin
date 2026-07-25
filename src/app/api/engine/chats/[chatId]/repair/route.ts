@@ -1,8 +1,15 @@
 import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
-import { runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
-import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
+import {
+  runWithLlmUsageContext,
+  safeUsageOwnerId,
+  setLlmUsageContext,
+} from "@/lib/observability/llm-usage";
+import {
+  getEngineVersionForChatByIdForRequest,
+  getRequestUserId,
+} from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
@@ -196,7 +203,11 @@ async function handlePOST(
     }
 
     const { versionId, repairContext } = validation.data;
-    setLlmUsageContext({ chatId, versionId });
+    setLlmUsageContext({
+      chatId,
+      versionId,
+      userId: await safeUsageOwnerId(() => getRequestUserId(req)),
+    });
 
     // #260 Codex P2 (route re-verify build-gate): compute the build-origin signal
     // once here, at a scope visible to the finally-block after() re-verify. A

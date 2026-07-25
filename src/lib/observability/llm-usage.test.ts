@@ -359,9 +359,9 @@ describe("flushPendingUsageWrites", () => {
   it("väntar in pågående skrivningar", async () => {
     // Utan detta kan en claim-UPDATE hinna före sin INSERT och lämna raden
     // permanent oattribuerad.
-    let resolveInsert: (() => void) | null = null;
+    const insertGate: { resolve: (() => void) | null } = { resolve: null };
     createLlmUsageRecord.mockImplementation(
-      () => new Promise<void>((resolve) => (resolveInsert = () => resolve())),
+      () => new Promise<void>((resolve) => (insertGate.resolve = () => resolve())),
     );
     recordLlmUsage({ phase: "brief", model: "gpt-5.5", usage: { inputTokens: 5 } });
     await vi.waitFor(() => expect(createLlmUsageRecord).toHaveBeenCalled());
@@ -373,7 +373,7 @@ describe("flushPendingUsageWrites", () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     expect(flushed).toBe(false);
 
-    resolveInsert?.();
+    insertGate.resolve?.();
     await flush;
     expect(flushed).toBe(true);
   });
@@ -384,11 +384,11 @@ describe("flushPendingUsageWrites", () => {
 
   it("claimen väntar in skrivningen innan UPDATE", async () => {
     const order: string[] = [];
-    let resolveInsert: (() => void) | null = null;
+    const insertGate: { resolve: (() => void) | null } = { resolve: null };
     createLlmUsageRecord.mockImplementation(
       () =>
         new Promise<void>((resolve) => {
-          resolveInsert = () => {
+          insertGate.resolve = () => {
             order.push("insert");
             resolve();
           };
@@ -405,7 +405,7 @@ describe("flushPendingUsageWrites", () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     expect(order).toEqual([]);
 
-    resolveInsert?.();
+    insertGate.resolve?.();
     await vi.waitFor(() => expect(order).toEqual(["insert", "claim"]));
   });
 });

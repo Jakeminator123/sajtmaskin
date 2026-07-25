@@ -325,6 +325,23 @@ export async function recordLlmUsageAsync(input: RecordLlmUsageInput): Promise<v
 }
 
 /**
+ * Slå upp ägar-id för loggningen utan att kunna fälla anroparen.
+ *
+ * Uppslaget går genom auth-lagret, och en route ska aldrig gå sönder för att
+ * tokenloggningen inte kunde ta reda på vem användaren var. Sväljer även
+ * synkrona fel (t.ex. ett testmock som saknar funktionen).
+ */
+export async function safeUsageOwnerId(
+  lookup: () => Promise<string | null>,
+): Promise<string | null> {
+  try {
+    return await lookup();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Knyt sessionens tidigare anrop till chatten så snart den skapats.
  *
  * Init-flödet hinner köra brief och scaffold-embeddings innan chatten finns; utan

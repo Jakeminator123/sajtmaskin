@@ -187,11 +187,17 @@ export function createCodeGenSSEStream(
        * Anropas på ALLA utgångar (klart, trunkerat, providerabort, fel), för
        * tokens förbrukas även när strömmen inte gav något användbart svar.
        */
+      let codegenUsageRecorded = false;
       const recordCodegenUsage = async (
         errorCode: string | null,
         knownUsage?: unknown,
         durationMs?: number,
       ): Promise<void> => {
+        // Ett API-anrop = EN rad. Providerabort loggar tidigt men avbryter inte
+        // strömmen, så done-vägen skulle annars skriva samma usage igen och
+        // dubbla tokensumman för just avbrutna körningar.
+        if (codegenUsageRecorded) return;
+        codegenUsageRecorded = true;
         let usage = knownUsage;
         if (usage === undefined) {
           usage = await Promise.resolve(result.usage).catch(() => null);

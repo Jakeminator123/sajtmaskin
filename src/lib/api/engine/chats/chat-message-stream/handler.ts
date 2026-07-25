@@ -48,7 +48,11 @@ import {
 } from "@/lib/providers/own-engine/follow-up-clarification";
 import { classifyFollowUpIntentWithStrategy } from "@/lib/providers/own-engine/follow-up-intent-router";
 import { withRateLimit } from "@/lib/rateLimit";
-import { runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
+import {
+  runWithLlmUsageContext,
+  safeUsageOwnerId,
+  setLlmUsageContext,
+} from "@/lib/observability/llm-usage";
 import { createSSEHeaders } from "@/lib/streaming";
 import {
   getAppProjectByIdForRequest,
@@ -133,14 +137,11 @@ export async function handleMessageStreamRequest(
       }
       // Ägaren måste sättas HÄR, inte efter kreditkollen: intent-klassificeraren
       // och brief-deltat kör innan dess och skulle annars bli oattribuerade.
-      // `getRequestUserId` ger `users.id` eller `guest:<sessionId>`. Att lösa upp
-      // ägaren är observability — det får aldrig fälla turen.
-      let usageOwnerId: string | null = null;
-      try {
-        usageOwnerId = await getRequestUserId(req, { sessionId });
-      } catch {
-        // Faller tillbaka på gästformen nedan.
-      }
+      // `getRequestUserId` ger `users.id` eller `guest:<sessionId>`. Uppslaget är
+      // observability och får aldrig fälla turen — därav safeUsageOwnerId.
+      const usageOwnerId = await safeUsageOwnerId(() =>
+        getRequestUserId(req, { sessionId }),
+      );
       setLlmUsageContext({ userId: usageOwnerId ?? `guest:${sessionId}` });
 
       // P0 stream-abort recovery (2026-04-26). Versionless-chat hard guard.
