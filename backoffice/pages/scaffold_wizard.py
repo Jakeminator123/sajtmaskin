@@ -60,6 +60,19 @@ def _goto(step: int) -> None:
     st.rerun()
 
 
+def _save_scope_for_step(step: int) -> str:
+    """Vilket spara-läge gäller i det här wizard-steget?
+
+    Steg 1–3 (index 0–2) rör bara det gitignorerade utkastet i
+    ``data/scaffold-wizard-drafts/``. Steg 4 (index 3) kör :func:`_apply` och
+    skriver **spårade** filer under ``config/scaffold-variants/`` (och vid ny
+    scaffold även ``src/lib/gen/scaffolds/``). En fast ``local``-rubrik i steg 4
+    skulle alltså lova "committas inte" på just den yta som committas — därför är
+    lägesvalet steg-styrt och testat (Codex P2 på PR #615).
+    """
+    return "repo" if step >= len(_STEPS) - 1 else "local"
+
+
 def _draft() -> dict[str, Any]:
     return st.session_state.setdefault("swz_draft", {})
 
@@ -1027,12 +1040,21 @@ def render(ctx: BackofficeContext) -> None:
         "ändra → validera och skapa. **Ingenting skrivs förrän checklistan i sista "
         "steget är grön.**"
     )
-    render_save_scope(
-        "local",
-        paths=("data/scaffold-wizard-drafts/",),
-        note="Först i **steg 4**, efter grön checklista, skrivs filer i repot "
-        "(`config/scaffold-variants/`, och vid ny scaffold även `src/lib/gen/scaffolds/`).",
-    )
+    if _save_scope_for_step(_step()) == "repo":
+        render_save_scope(
+            "repo",
+            paths=("config/scaffold-variants/", "src/lib/gen/scaffolds/"),
+            note="Det här steget skriver **spårade filer** när checklistan är grön. "
+            "Utkastet i `data/scaffold-wizard-drafts/` är fortfarande lokalt och "
+            "committas inte. Föregående filversioner säkerhetskopieras.",
+        )
+    else:
+        render_save_scope(
+            "local",
+            paths=("data/scaffold-wizard-drafts/",),
+            note="Först i **steg 4**, efter grön checklista, skrivs filer i repot "
+            "(`config/scaffold-variants/`, och vid ny scaffold även `src/lib/gen/scaffolds/`).",
+        )
     with tech_details():
         st.markdown(
             "- Utkast sparas i `data/scaffold-wizard-drafts/` (gitignorerad) — "

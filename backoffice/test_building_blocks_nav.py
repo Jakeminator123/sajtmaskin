@@ -172,6 +172,30 @@ class SaveScopeParityTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             render_save_scope("kanske")
 
+    def test_blob_upload_is_listed_as_a_production_surface(self) -> None:
+        """Codex P2 på #615: Mallar-ytan laddar upp zip direkt till Vercel Blob
+        (live-lagring) och får därför inte saknas i hubbens prod-lista — annars
+        lovar sammanfattningen 'bara repot' för en produktionsändring."""
+        pages = [page for page, _what in building_blocks.PROD_SURFACES]
+        self.assertIn("Mallar (v0): inspiration & uppladdning", pages)
+
+    def test_wizard_save_scope_follows_the_step(self) -> None:
+        """Steg 1–3 = lokalt utkast, steg 4 = skriver spårade filer i repot."""
+        from backoffice.pages import scaffold_wizard
+
+        last_step = len(scaffold_wizard._STEPS) - 1
+        for step in range(last_step):
+            self.assertEqual(
+                scaffold_wizard._save_scope_for_step(step),
+                "local",
+                f"steg {step + 1} rör bara det gitignorerade utkastet",
+            )
+        self.assertEqual(
+            scaffold_wizard._save_scope_for_step(last_step),
+            "repo",
+            "sista steget skriver spårade filer och måste märkas som repo",
+        )
+
 
 class HubDocsRenderingTests(unittest.TestCase):
     """Hubben har ingen egen prosa — den renderar docs. Grinda de källorna."""
@@ -201,6 +225,21 @@ class HubDocsRenderingTests(unittest.TestCase):
             [],
             f"Hubbens docs-avsnitt hittades inte: {missing}",
         )
+
+    def test_mall_card_section_is_about_templates(self) -> None:
+        """Codex P2 på #615: Mall-kortet pekade tidigare på glossaryns
+        `Kärntermer`, vars Template-rad ligger ~4 800 tecken in och därför föll
+        bort i trunkeringen — expandern visade scaffold-/dossier-rader i stället.
+        Avsnittet måste faktiskt handla om mallar."""
+        card = next(
+            c for c in building_blocks.BLOCK_CARDS if c.glossary_term == "Template (v0-mall)"
+        )
+        section = read_doc_section(REPO_ROOT / card.doc_rel, card.doc_needle)
+        assert section is not None
+        lowered = section.lower()
+        self.assertIn("template", lowered)
+        self.assertIn("verbatim", lowered)
+        self.assertNotIn("scaffold variant |", lowered)
 
     def test_doc_section_stops_at_next_heading(self) -> None:
         section = read_doc_section(

@@ -40,11 +40,16 @@ PAGE_NAME = "Byggstenar: översikt"
 GLOSSARY_REL = "docs/architecture/glossary.md"
 SCAFFOLD_DOC_REL = "docs/contracts/scaffold-system.md"
 DOSSIER_DOC_REL = "docs/contracts/dossier-system.md"
+TEMPLATES_DOC_REL = "docs/architecture/templates.md"
 BLOB_MANIFEST_REL = "src/lib/templates/template-blob-manifest.json"
 
 # Ytor som påverkar produktion direkt — visas i "vad händer när jag sparar?" så
 # skillnaden mot repo-filerna blir konkret (namnen måste finnas i PAGE_SPECS).
 PROD_SURFACES: tuple[tuple[str, str], ...] = (
+    (
+        "Mallar (v0): inspiration & uppladdning",
+        "laddar upp zip-filer till Vercel Blob (live-lagring)",
+    ),
     ("Projekt-admin (radera)", "raderar användarprojekt i databasen"),
     ("Databashälsa", "kan applicera index i databasen"),
     ("Logg-export", "kan läsa produktionsdatabasen"),
@@ -102,9 +107,9 @@ BLOCK_CARDS: tuple[BlockCard, ...] = (
         title="4. Mall (v0) — inspirationen",
         glossary_term="Template (v0-mall)",
         lives_in="zip i Vercel Blob (live) + katalogfil i repot",
-        doc_rel=GLOSSARY_REL,
-        doc_needle="Kärntermer",
-        choose_caption="Mallar i ordlistan (de matchas inte — de importeras)",
+        doc_rel=TEMPLATES_DOC_REL,
+        doc_needle="Verbatim-import vs fritext",
+        choose_caption="Mallar matchas inte — de importeras ordagrant",
         actions=(
             ("Ladda upp mallar", "Mallar (v0): inspiration & uppladdning"),
             ("Använd som inspiration", "Guide: ny scaffold eller variant (AI)"),
@@ -211,9 +216,10 @@ def _render_choice_sections(ctx: BackofficeContext) -> None:
 def _render_save_scope_panel() -> None:
     st.subheader("Vad händer när jag sparar?")
     st.markdown(
-        "Byggstenarna är **filer i repot**. Att spara här ändrar alltså repot — "
-        "inte produktionen. Produktionen får ändringen när den committas och "
-        "mergas till `master`."
+        "Scaffolds, varianter och byggblock är **filer i repot**. Att spara dem "
+        "ändrar alltså repot — inte produktionen; produktionen får ändringen när "
+        "den committas och mergas till `master`. **Undantag:** Mallar-ytan laddar "
+        "upp zip-filer till Vercel Blob, som är live-lagring (se listan nedan)."
     )
     render_save_scope("repo", paths=SAVE_SCOPE_PATHS["repo"])
     render_save_scope("local", paths=SAVE_SCOPE_PATHS["local"])
