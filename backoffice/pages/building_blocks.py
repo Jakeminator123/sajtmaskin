@@ -190,8 +190,9 @@ def _render_card(ctx: BackofficeContext, card: BlockCard) -> None:
 def _render_choice_sections(ctx: BackofficeContext) -> None:
     st.subheader("Hur väljs de när en sajt byggs?")
     st.caption(
-        "Avsnitten nedan renderas direkt ur kontraktsdokumenten — panelen har "
-        "ingen egen version av sanningen."
+        "Avsnitten nedan renderas ordagrant ur kontraktsdokumenten — panelen har "
+        "ingen egen version av sanningen. Vissa kontrakt är skrivna på engelska; "
+        "de visas som de står i filen."
     )
     for card in BLOCK_CARDS:
         doc_path = ctx.repo_root / card.doc_rel

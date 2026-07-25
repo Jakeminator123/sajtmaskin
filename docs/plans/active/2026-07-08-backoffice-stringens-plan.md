@@ -207,3 +207,29 @@ sammanhållen PR (37 → 35 sidor, 2 → 6 grupper):
 statisk-referens-badge (P2 #7), tester för `projects_admin`/`templates_blob`
 (P2 #8), full terminologi-svepning (P2 #9), ev. uppdelning av
 `scaffold_lifecycle.py` (P2 #10).
+
+## Fas A landad 2026-07-24 — Byggstenar: navigation, hub och spara-läge
+
+Ägaren bad om ett helhetsgrepp på Byggstenar ("panelen känns råddig, jag vågar
+inte ändra"). Fas A av det arbetet är klar; fas B (create/edit + farlig zon),
+C (Byggblock-UX) och D (AI-modellval, separat omgång) väntar på godkännande.
+
+| Ändring | Vad som landade |
+|---|---|
+| Ny hub | `backoffice/pages/building_blocks.py` — sidan **Byggstenar: översikt** äger den mentala modellen (fyra byggstenar, kedjan, "hur väljs de?", siffror från disk). Ingen egen prosa: definitionerna renderas ur `docs/architecture/glossary.md` och urvalsavsnitten ur `docs/contracts/{scaffold-system,dossier-system}.md`. Start-Översikt länkar dit i stället för att upprepa; Control Plane orörd. |
+| Verb-namn i menyn | Byggstenar-sidorna heter nu `Byggstenar: översikt`, `Scaffolds: titta & justera`, `Scaffolds & varianter: skapa, klona, ta bort`, `Guide: ny scaffold eller variant (AI)`, `Byggblock (dossiers)`, `Mallar (v0): inspiration & uppladdning`. `Scaffold Performance` → `Scaffold-poäng` i **Telemetri & loggar**. |
+| **Spara-läge i default-ytan** | `shared.render_save_scope()` säger i klartext vad en sparning gör: `repo` (fil i repot — prod först vid merge till `master`), `local` (gitignorerat utkast), `prod` (påverkar produktion direkt). Prod-märkning satt på Mallar-uppladdning (Blob = live), Projekt-admin, Databashälsa och Logg-export. |
+| Jargon bakom expander | `shared.tech_details()` + kedjeraden `render_building_blocks_nav()` på alla Byggstenar-ytor; sökvägar, schema-id:n, `variant-integrity.test.ts` och npm-kommandon flyttade dit. `dossiers.py` följer nu sidmönstret (ingen dubbeltitel, `render_where_panel`, svensk ingress). |
+| Permanenta alias | Gamla sidnamn och slugs (`?nav=scaffolds`, `Scaffold Lifecycle`, `Dossiers (legoklossar)` …) resolverar fortfarande — testat, aldrig att tas bort. |
+| Nya grindar | `backoffice/test_building_blocks_nav.py` (15 tester): gruppordning, hub, legacy-alias, terminologi-guard mot menyn, hubbens länkmål, docs-avsnitten som renderas, samt **spara-läge-paritet mot git** (`git ls-files` / `git check-ignore`) så texten inte kan börja ljuga. |
+| Följ-referenser | `config/control-plane/policy-registry.json`, `scripts/canvas/*`, `docs/contracts/scaffold-system.md`, `docs/schemas/scaffold-contract.md`, `config/dashboard/domain-map.json` + `docs/generated/` uppdaterade i samma ändring. |
+
+Verifierat: `npm run backoffice:test` 123 tester gröna (108 → 123),
+`npm run docs:check`/`docs:links`/`check:terms:contract` gröna,
+`node scripts/control-plane/check-registry.mjs` grön, och UI-verifiering med
+Playwright-screenshots av alla sex Byggstenar-ytor + de tre prod-märkta sidorna.
+
+Fynd som Fas B måste åtgärda: `_factory_reset_to_baseline`
+(`backoffice/pages/scaffold_lifecycle.py`) raderar filer som tillkommit efter
+baselinen (inkl. **ospårade**) utan `backup_tree`/`backup_file` — ospårat
+material finns då varken i git eller i backup-lagret.
