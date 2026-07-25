@@ -1,0 +1,7 @@
+# Beroenden för scripts/observability/last-generated-usersite.py (lokal
+# logginsamling). Ren Python-drivrutin, samma pin som requirements.dbtest.txt, så
+# ett `pip install` räcker för båda. Allt annat i skriptet är stdlib.
+#
+# Utan pg8000 fungerar skriptet ändå, men i reducerat läge via
+# scripts/db/dump-logs.mjs (fasta kolumnlistor, ingen ägar-attribution).
+pg8000==1.31.5

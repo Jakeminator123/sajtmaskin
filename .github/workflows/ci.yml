@@ -133,6 +133,12 @@ jobs:
       - name: Backoffice tests (blocking)
         run: npm run backoffice:test
 
+      # Genlogg-insamlingen (scripts/observability/last-generated-usersite.py).
+      # Också nyckelfri och offline: env-parsning, secret-maskering,
+      # mapprotation, prissättning, bedömning och rapportrendering.
+      - name: Observability script tests (blocking)
+        run: npm run observability:test
+
   # Blockerande schema-drift-gate (grandmaster S4). Deterministisk, nyckelfri och billig:
   # låser att avsett schema (src/lib/db/schema.ts) == applicerat (db-init.mjs /
   # add-performance-indexes.mjs / migrations/*.sql). Kräver inga DB-creds. Medvetet UTAN

@@ -70,6 +70,11 @@ data/prompt-dumps/*
 # Pipeline-health-state (backoffice-paneldata, lokalt per-maskin)
 data/backoffice/
 
+# Lokala körningsloggar från scripts/observability/last-generated-usersite.py.
+# Innehåller hämtade prod-loggar (maskerade, men ändå kunddata) och roteras av
+# skriptet självt via MAX_GEN_LOGS.
+data/gen-logs/
+
 # Database files (local data, not for git)
 data/*.db
 data/*.db-shm

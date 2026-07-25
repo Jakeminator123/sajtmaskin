@@ -130,7 +130,10 @@ const KIND_SPECS = {
       "id", "chat_id", "version_id", "scaffold_id", "model", "model_tier",
       "build_intent", "retry_count", "autofix_applied", "preflight_error_count",
       "preflight_warning_count", "quality_gate_result", "preview_success",
-      "preview_blocking_reason", "duration_ms", "file_count", "created_at",
+      "preview_blocking_reason", "duration_ms", "file_count",
+      // Tokenkolumnerna: enda stället där en tokenvolym bär `version_id`, alltså
+      // det som gör kostnad per KÖRNING möjlig (engine_generation_logs är per chat).
+      "prompt_tokens", "completion_tokens", "created_at",
     ],
   },
   errors: {
