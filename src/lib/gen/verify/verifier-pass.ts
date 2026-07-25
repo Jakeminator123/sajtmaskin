@@ -873,6 +873,9 @@ Use those exact ids so downstream tooling can recognise them.`;
   }
 
   const llmCallStartedAt = Date.now();
+  // Ett API-anrop = EN rad: efterbehandlingen nedan kan kasta efter att den
+  // lyckade raden skrivits, och catch-vägen skulle då logga samma anrop igen.
+  let usageRecorded = false;
   try {
     const result = await generateObject({
       model: getOpenAIModel(modelId),
@@ -895,6 +898,7 @@ Use those exact ids so downstream tooling can recognise them.`;
       usage: result.usage,
       durationMs: Date.now() - llmCallStartedAt,
     });
+    usageRecorded = true;
     const promoted = suppressValidInPageAnchorNavigationFindings(
       promoteForcedBlockingFindings(result.object),
       files,
@@ -910,14 +914,16 @@ Use those exact ids so downstream tooling can recognise them.`;
     // misslyckat anrop så luckan går att förklara.
     const errorObject =
       err && typeof err === "object" ? (err as { usage?: unknown; name?: unknown }) : null;
-    recordLlmUsage({
-      phase: "verifier",
-      model: modelId,
-      usage: errorObject?.usage,
-      durationMs: Date.now() - llmCallStartedAt,
-      ok: false,
-      errorCode: typeof errorObject?.name === "string" ? errorObject.name : "verifier_failed",
-    });
+    if (!usageRecorded) {
+      recordLlmUsage({
+        phase: "verifier",
+        model: modelId,
+        usage: errorObject?.usage,
+        durationMs: Date.now() - llmCallStartedAt,
+        ok: false,
+        errorCode: typeof errorObject?.name === "string" ? errorObject.name : "verifier_failed",
+      });
+    }
     if (isNonRetryableProviderError(err)) {
       console.warn("[verifier-pass] Non-retryable provider error, skipping:", summariseProviderError(err));
     } else {

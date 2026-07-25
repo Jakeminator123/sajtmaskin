@@ -92,6 +92,9 @@ export async function llmClassifyFollowUpIntent(
   );
 
   const classifierStartedAt = Date.now();
+  // Ett API-anrop = EN rad. Valideringen nedan kan kasta EFTER att den lyckade
+  // raden skrivits, och då skulle catch-vägen skriva en andra rad för samma anrop.
+  let usageRecorded = false;
   try {
     const result = await generateObject({
       model,
@@ -113,6 +116,7 @@ export async function llmClassifyFollowUpIntent(
       usage: result.usage,
       durationMs: Date.now() - classifierStartedAt,
     });
+    usageRecorded = true;
 
     const intent = result.object.intent;
     if (!FOLLOW_UP_INTENT_MODES.has(intent)) {
@@ -125,16 +129,18 @@ export async function llmClassifyFollowUpIntent(
     // deterministiska klassificeraren; kostnaden ska ändå synas.
     const errorObject =
       err && typeof err === "object" ? (err as { usage?: unknown; name?: unknown }) : null;
-    recordLlmUsage({
-      phase: "classifier",
-      workload: "match_classifier",
-      model: modelId,
-      usage: errorObject?.usage,
-      durationMs: Date.now() - classifierStartedAt,
-      ok: false,
-      errorCode:
-        typeof errorObject?.name === "string" ? errorObject.name : "classifier_failed",
-    });
+    if (!usageRecorded) {
+      recordLlmUsage({
+        phase: "classifier",
+        workload: "match_classifier",
+        model: modelId,
+        usage: errorObject?.usage,
+        durationMs: Date.now() - classifierStartedAt,
+        ok: false,
+        errorCode:
+          typeof errorObject?.name === "string" ? errorObject.name : "classifier_failed",
+      });
+    }
     throw err;
   } finally {
     clearTimeout(timeoutId);
