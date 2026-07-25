@@ -628,6 +628,87 @@ describe("useSendMessage outcome contract", () => {
     expect(messagesBox.current.filter((m) => m.role === "user")).toHaveLength(1);
   });
 
+  /**
+   * The nested finalize round has four verdicts and only the deterministic
+   * release consumed the prompt. Collapsing the rest into `settled` told the
+   * composer to clear a draft for a turn that built nothing (bugbot on #610).
+   */
+  describe("nested finalize verdicts are classified per verdict", () => {
+    function stubFinalize(finalizeResponse: Response | (() => Response)) {
+      fetchMock.mockImplementation(async (url: string) => {
+        if (url.endsWith("/stream")) {
+          return jsonResponse(409, {
+            error: "f3_deterministic_release_required",
+            parentVersionId: "ver_f2_parent",
+          });
+        }
+        return typeof finalizeResponse === "function"
+          ? finalizeResponse()
+          : finalizeResponse;
+      });
+    }
+
+    async function sendF3(result: Parameters<typeof send>[0]) {
+      return send(result, "Bygg integrationer nu.", {
+        lifecycleStageOverride: "integrations",
+        parentVersionIdOverride: "ver_f2_parent",
+        engineBaseVersionIdOverride: "ver_f2_parent",
+      });
+    }
+
+    it("maps a missing_env verdict to the same rejection as a direct 412", async () => {
+      stubFinalize(() =>
+        jsonResponse(412, {
+          ready: false,
+          parentVersionId: "ver_f2_parent",
+          projectId: "project_1",
+          missingByIntegration: [
+            { key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] },
+          ],
+        }),
+      );
+      const { result, messagesBox } = createHarness({ activeVersionId: "ver_f2_parent" });
+
+      expect(await sendF3(result)).toEqual({
+        status: "rejected",
+        reason: "tier3_env_not_ready",
+      });
+      expect(dispatchF3Requirements).toHaveBeenCalledTimes(1);
+      // Nothing was built, so the ghost user row goes like on the direct 412.
+      expect(messagesBox.current.filter((m) => m.role === "user")).toEqual([]);
+      expect(messagesBox.current.at(-1)?.content).toMatch(/build-nycklar/i);
+    });
+
+    it("maps an llm_ready verdict to a rejection (user starts the build manually)", async () => {
+      stubFinalize(() =>
+        jsonResponse(200, {
+          ready: true,
+          action: "llm_build",
+          parentVersionId: "ver_f2_parent",
+          requirements: [],
+        }),
+      );
+      const { result, messagesBox } = createHarness({ activeVersionId: "ver_f2_parent" });
+
+      expect(await sendF3(result)).toEqual({
+        status: "rejected",
+        reason: "f3_build_required",
+      });
+      expect(messagesBox.current.filter((m) => m.role === "user")).toEqual([]);
+      expect(messagesBox.current.at(-1)?.content).toMatch(/previewpanelen/i);
+    });
+
+    it("maps a finalize error to failed and keeps the user row", async () => {
+      stubFinalize(() => jsonResponse(500, { error: "finalize blew up" }));
+      const { result, messagesBox } = createHarness({ activeVersionId: "ver_f2_parent" });
+
+      const outcome = await sendF3(result);
+      expect(outcome.status).toBe("failed");
+      // The prompt WAS sent, so the thread keeps it (only rejections drop it).
+      expect(messagesBox.current.filter((m) => m.role === "user")).toHaveLength(1);
+    });
+  });
+
   it("reports started/messages_fallback when the network fallback succeeds", async () => {
     fetchMock
       .mockRejectedValueOnce(new TypeError("fetch failed"))

@@ -486,8 +486,16 @@ export function useSendMessage(
               chatId,
               parentVersionId: errorData.parentVersionId,
             });
+            // Each finalize verdict gets its own outcome (bugbot on #610): the
+            // nested round is NOT uniformly "settled". Only a deterministic
+            // release consumed the prompt; `missing_env` is the same situation
+            // as the direct 412 above (nothing built, requirements surface
+            // opened, user fills keys and retries) and `llm_ready` sends the
+            // user to the preview panel — both must keep the draft.
             let content: string;
+            let outcome: SendMessageOutcome;
             if (release.kind === "deterministic_release") {
+              outcome = { status: "settled", as: "f3_deterministic_release" };
               onDeterministicF3Settled?.({
                 versionId: release.versionId,
                 selectVersion: !release.superseded,
@@ -521,23 +529,31 @@ export function useSendMessage(
               content =
                 "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och försök igen.";
               toast.warning("F3 saknar obligatoriska env-värden.");
-            } else {
+              outcome = { status: "rejected", reason: "tier3_env_not_ready" };
+            } else if (release.kind === "llm_ready") {
               content =
-                release.kind === "error"
-                  ? release.message
-                  : "F3-specen kräver nu ett vanligt integrationsbygge. Starta det igen från previewpanelen.";
+                "F3-specen kräver nu ett vanligt integrationsbygge. Starta det igen från previewpanelen.";
               toast.warning("F3-kontrollen kunde inte slutföras.");
+              outcome = { status: "rejected", reason: "f3_build_required" };
+            } else {
+              content = release.message;
+              toast.warning("F3-kontrollen kunde inte slutföras.");
+              outcome = { status: "failed", message: release.message };
             }
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantMessageId
-                  ? { ...message, content, isStreaming: false }
-                  : message,
-              ),
-            );
-            // Not `rejected`: the nested finalize consumed this prompt and may
-            // have promoted a version — only "no new generation ran" is true.
-            return { status: "settled", as: "f3_deterministic_release" };
+            if (outcome.status === "rejected") {
+              // Nothing was built, so the optimistic user row goes and the
+              // caller keeps its draft — same handling as the direct 412.
+              settleRejectedTurn(content);
+            } else {
+              setMessages((prev) =>
+                prev.map((message) =>
+                  message.id === assistantMessageId
+                    ? { ...message, content, isStreaming: false }
+                    : message,
+                ),
+              );
+            }
+            return outcome;
           }
           // 5-2 stale-base gate (client half) — delad hanterare, se ovan.
           if (handleStaleBaseVersion(response.status, errorData)) {

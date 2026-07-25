@@ -306,13 +306,17 @@ export type ChatMessagingParams = {
  * - `create_chat_failed` — no chat existed and creating one failed.
  * - `stale_base_version` — server head moved past the base this request was
  *   built on, and the single auto-rebase retry did not resolve it (409).
- * - `tier3_env_not_ready` — F3 needs real build keys first (412).
+ * - `tier3_env_not_ready` — F3 needs real build keys first. Reported both by a
+ *   direct 412 and by the nested finalize round's `missing_env` verdict.
+ * - `f3_build_required` — the nested finalize round found that the F3 spec needs
+ *   a normal integration build, which the user starts from the preview panel.
  */
 export type SendMessageRejectionReason =
   | "empty_message"
   | "create_chat_failed"
   | "stale_base_version"
-  | "tier3_env_not_ready";
+  | "tier3_env_not_ready"
+  | "f3_build_required";
 
 /**
  * Outcome contract for `sendMessage` (BB#shadcn-lane1). The hook handles every
@@ -330,7 +334,9 @@ export type SendMessageRejectionReason =
  * `settled` is the case where those differ: the server turned the turn into a
  * deterministic F3 ReleaseGate round on the parent version, so the prompt was
  * consumed (and may well have succeeded — `useSendMessage` reports the verdict)
- * but no new generation ran.
+ * but no new generation ran. Only that verdict is `settled`; the same nested
+ * round can also come back needing build keys or a normal integration build,
+ * and those are rejections because nothing was built.
  *
  * `started` means the request was accepted and the turn ran; per-turn success is
  * reported by the chat/version status UI, not here.
