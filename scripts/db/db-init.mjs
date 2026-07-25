@@ -696,6 +696,7 @@ const ALL_TABLES = [
   "version_approvals",
   "error_log_events",
   "oc_debug_findings",
+  "llm_usage",
 ];
 
 async function applySqlMigrations() {

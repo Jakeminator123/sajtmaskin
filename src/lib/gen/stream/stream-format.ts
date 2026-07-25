@@ -5,6 +5,7 @@ import {
 } from "@/lib/gen/stream/builder-stream-contract";
 import { formatSSEEvent } from "@/lib/streaming";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { debugLog } from "@/lib/utils/debug";
 
 export interface StreamMeta {
@@ -630,6 +631,18 @@ export function createCodeGenSSEStream(
 
         const usage = await result.usage;
         const streamTiming = summarizeStream("done", usage);
+        // Per-anrops-förbrukning. `done`-eventet nedan driver fortfarande
+        // engine_generation_logs/generation_telemetry — det här är den
+        // finkorniga raden som gör codegen jämförbar med brief/verifier/fixer.
+        recordLlmUsage({
+          phase: "codegen",
+          model: typeof meta?.modelId === "string" ? meta.modelId : null,
+          modelTier: typeof meta?.modelTier === "string" ? meta.modelTier : null,
+          usage,
+          durationMs: streamTiming.durationMs,
+          chatId: typeof meta?.chatId === "string" ? meta.chatId : null,
+          versionId: typeof meta?.versionId === "string" ? meta.versionId : null,
+        });
         devLogAppend("in-progress", {
           type: "stream.summary",
           chatId: meta?.chatId ?? null,

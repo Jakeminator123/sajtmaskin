@@ -93,6 +93,7 @@ aldrig faktiskt skapas i DB:n.
 | `engine_messages` | `getChat()` läser ALLA meddelanden per chat | **Index på `(chat_id, created_at)`** |
 | `engine_versions` | Versionshistorik per chat (repair-flöden) | **Index på `(chat_id, created_at)`** + unique `(chat_id, version_number)` |
 | `generation_telemetry` | Eval, observability | Index på `chat_id`, `version_id`, `created_at` |
+| `llm_usage` | Tokenförbrukning per LLM-anrop (skrivs av varje fas, läses av kostnadsrollups) | Index på `chat_id`, `version_id`, `(user_id, created_at)`, `created_at` |
 | `deployments` | SSE-events under deploy (`GET /api/v0/deployments/[id]/events`) | Index på `chat_id`, `version_id`, `vercel_deployment_id` |
 
 Långbänk 2026-04-24 lade till de saknade index ovan via
@@ -316,6 +317,7 @@ flowchart TD
 | `domain_orders` | Finansiella records, raderas explicit i `deleteProject()` och cleanup-scriptet |
 | `company_profiles` | `project_id` är `TEXT` **utan FK** → kaskaderar INTE, och `deleteProject()` raderar den inte explicit (kommentaren där säger felaktigt "FK CASCADE"). **Orphan-rader vid projekt-radering** — spårad bugg i `BUG-SWARM-BACKLOG.md`. |
 | `prompt_logs` | Telemetri, ska överleva projekt-radering så analytics inte tappas |
+| `llm_usage` | Förbrukning är en ekonomisk händelse: `chat_id`/`version_id`/`user_id` är `TEXT` **utan FK** så kostnadshistoriken överlever att chatten städas bort, och anrop kan loggas innan en version finns (brief, scaffold-val). `wipe-generated-sites.mjs` rensar den vid dev-reset. |
 | Externa Supabase/Neon hos genererade sajter | Ägs av användarens egna konto, helt utanför sajtmaskins DB |
 | Vercel Blob/S3-payloads | Lever utanför Postgres, separat städ-flöde |
 

@@ -1,0 +1,158 @@
+import { and, desc, eq, gt, sql } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { db } from "@/lib/db/client";
+import { llmUsage } from "@/lib/db/schema";
+import { assertDbConfigured } from "./shared";
+
+/**
+ * En rad per LLM-anrop. Skrivs av `recordLlmUsage`
+ * (`src/lib/observability/llm-usage.ts`), som är den enda anropsvägen
+ * pipeline-koden ska använda — den är best-effort och kastar aldrig.
+ *
+ * Ligger vid sidan av `engine_generation_logs`/`generation_telemetry`: de
+ * beskriver genereringen, den här tabellen beskriver varje enskilt anrop.
+ */
+export type CreateLlmUsageRecord = {
+  phase: string;
+  model: string;
+  runId?: string | null;
+  chatId?: string | null;
+  versionId?: string | null;
+  userId?: string | null;
+  sessionId?: string | null;
+  workload?: string | null;
+  provider?: string | null;
+  modelTier?: string | null;
+  inputTokens?: number | null;
+  cachedInputTokens?: number | null;
+  outputTokens?: number | null;
+  reasoningTokens?: number | null;
+  durationMs?: number | null;
+  ok?: boolean;
+  errorCode?: string | null;
+  meta?: Record<string, unknown> | null;
+};
+
+export type LlmUsageRow = typeof llmUsage.$inferSelect;
+
+export async function createLlmUsageRecord(record: CreateLlmUsageRecord): Promise<LlmUsageRow> {
+  assertDbConfigured();
+  const rows = await db
+    .insert(llmUsage)
+    .values({
+      id: nanoid(),
+      run_id: record.runId ?? null,
+      chat_id: record.chatId ?? null,
+      version_id: record.versionId ?? null,
+      user_id: record.userId ?? null,
+      session_id: record.sessionId ?? null,
+      phase: record.phase,
+      workload: record.workload ?? null,
+      provider: record.provider ?? null,
+      model: record.model,
+      model_tier: record.modelTier ?? null,
+      input_tokens: record.inputTokens ?? null,
+      cached_input_tokens: record.cachedInputTokens ?? null,
+      output_tokens: record.outputTokens ?? null,
+      reasoning_tokens: record.reasoningTokens ?? null,
+      duration_ms: record.durationMs ?? null,
+      ok: record.ok ?? true,
+      error_code: record.errorCode ?? null,
+      meta: record.meta ?? null,
+    })
+    .returning();
+  return rows[0];
+}
+
+/**
+ * Stämpla `version_id` på chattens rader som saknar det.
+ *
+ * Deep Brief, scaffold-embeddings och intent-klassificeraren körs INNAN
+ * versionsraden finns, så de kan inte bära `version_id` vid skrivning. Utan den
+ * här efterstämplingen faller de utanför körningens summa och kostnaden per
+ * körning blir systematiskt underskattad.
+ *
+ * Fönstret (`maxAgeMinutes`) hindrar att en gammal, övergiven brief-rad knyts
+ * till en helt annan körning. En chat genererar inte två versioner samtidigt, så
+ * ett tidsfönster räcker som avgränsning.
+ *
+ * Returnerar antalet uppdaterade rader.
+ */
+export async function attachVersionToUnassignedLlmUsage(
+  chatId: string,
+  versionId: string,
+  options?: { maxAgeMinutes?: number },
+): Promise<number> {
+  assertDbConfigured();
+  const maxAgeMinutes = Math.min(Math.max(options?.maxAgeMinutes ?? 30, 1), 24 * 60);
+  const rows = await db
+    .update(llmUsage)
+    .set({ version_id: versionId })
+    .where(
+      and(
+        eq(llmUsage.chat_id, chatId),
+        sql`${llmUsage.version_id} IS NULL`,
+        gt(llmUsage.created_at, sql`now() - (${String(maxAgeMinutes)} || ' minutes')::interval`),
+      ),
+    )
+    .returning({ id: llmUsage.id });
+  return rows.length;
+}
+
+export async function getLlmUsageForVersion(versionId: string): Promise<LlmUsageRow[]> {
+  assertDbConfigured();
+  return db
+    .select()
+    .from(llmUsage)
+    .where(eq(llmUsage.version_id, versionId))
+    .orderBy(desc(llmUsage.created_at));
+}
+
+export async function getLlmUsageForChat(chatId: string, limit = 200): Promise<LlmUsageRow[]> {
+  assertDbConfigured();
+  return db
+    .select()
+    .from(llmUsage)
+    .where(eq(llmUsage.chat_id, chatId))
+    .orderBy(desc(llmUsage.created_at))
+    .limit(limit);
+}
+
+export type LlmUsageRollupRow = {
+  phase: string;
+  model: string;
+  calls: number;
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+};
+
+/**
+ * Förbrukning per fas och modell för en användare. Grunden för att svara på
+ * "vad kostar den här användaren" utan att gissa utifrån antal genereringar.
+ */
+export async function getLlmUsageRollupForUser(
+  userId: string,
+  options?: { days?: number },
+): Promise<LlmUsageRollupRow[]> {
+  assertDbConfigured();
+  const days = Math.min(Math.max(options?.days ?? 30, 1), 365);
+  const rows = await db
+    .select({
+      phase: llmUsage.phase,
+      model: llmUsage.model,
+      calls: sql<number>`count(*)::int`,
+      inputTokens: sql<number>`coalesce(sum(${llmUsage.input_tokens}), 0)::int`,
+      cachedInputTokens: sql<number>`coalesce(sum(${llmUsage.cached_input_tokens}), 0)::int`,
+      outputTokens: sql<number>`coalesce(sum(${llmUsage.output_tokens}), 0)::int`,
+    })
+    .from(llmUsage)
+    .where(
+      and(
+        eq(llmUsage.user_id, userId),
+        gt(llmUsage.created_at, sql`now() - (${String(days)} || ' days')::interval`),
+      ),
+    )
+    .groupBy(llmUsage.phase, llmUsage.model);
+  return rows;
+}

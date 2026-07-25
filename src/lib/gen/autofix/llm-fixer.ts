@@ -12,6 +12,7 @@ import {
 } from "./fixer-prompt";
 import { canonicalModelIdToOwnModelId } from "@/lib/models/catalog";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 
 export interface FixerResult {
   fixedContent: string;
@@ -190,6 +191,14 @@ export async function runLlmFixer(
     });
 
     const fixedText = await result.text;
+    // RepairGate kastade tidigare sin usage — den kunde vara en stor del av en
+    // körnings kostnad utan att synas någonstans.
+    recordLlmUsage({
+      phase: "fixer",
+      model: resolvedModelId,
+      usage: await Promise.resolve(result.usage).catch(() => null),
+      durationMs: Math.round(performance.now() - start),
+    });
     const fixedProject = parseCodeProject(fixedText);
 
     if (fixedProject.files.length === 0) {

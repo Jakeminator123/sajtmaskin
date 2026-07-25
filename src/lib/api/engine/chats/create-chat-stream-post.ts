@@ -6,6 +6,7 @@ import {
 import { createChatSchema } from "@/lib/validations/chatSchemas";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
+import { runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
 import { prepareCredits } from "@/lib/credits/server";
 import { buildEngineStreamResponse, buildStreamErrorResponse } from "./stream-error-response";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
@@ -93,11 +94,16 @@ import { classifySimpleWebsitePath } from "./simple-website-path";
 
 /** Shared create handler (SSE). Used by `POST` and by sync `POST /chats` JSON adapter. */
 export async function handleCreateChatStreamPost(req: Request): Promise<Response> {
-  return withRateLimit(req, "chat:create", async () => {
+  return withRateLimit(req, "chat:create", async () =>
+    // Etablerar ägarkontexten för HELA genereringen: brief, scaffold-embeddings,
+    // codegen, verifier och RepairGate hamnar på rätt chat/användare utan att
+    // varje mellanliggande funktion behöver bära id:n.
+    runWithLlmUsageContext({}, async () => {
     const requestStartedAt = Date.now();
     const requestId = req.headers.get("x-vercel-id") || "unknown";
     const session = ensureSessionIdFromRequest(req);
     const sessionId = session.sessionId;
+    setLlmUsageContext({ sessionId });
     const attachSessionCookie = (response: Response) => {
       if (session.setCookie) {
         response.headers.set("Set-Cookie", session.setCookie);
@@ -200,6 +206,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
         userId: creditCheck.user?.id,
       });
+      setLlmUsageContext({ userId: creditCheck.user?.id ?? null });
       optimizedMessage = await appendHydratedTextAttachmentExcerpts(
         optimizedMessage,
         requestAttachments,
@@ -894,6 +901,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           resolvedScaffold?.id,
         );
         await chatRepo.addMessage(engineChat.id, "user", message);
+        setLlmUsageContext({ chatId: engineChat.id });
         debugLog("engine", "Chat DB bootstrap complete", {
           durationMs: Date.now() - engineChatDbStartedAt,
           mode: "own-engine",
@@ -1014,6 +1022,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         attachSessionCookie,
       });
     }
-  });
+    }),
+  );
 }
 

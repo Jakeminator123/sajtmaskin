@@ -7,6 +7,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
   isAnthropicAssistModel,
   isOpenAIAssistModel,
@@ -519,6 +520,7 @@ export async function generateSiteBriefObject(
     outputTokenCap,
   });
 
+  const briefStartedAt = Date.now();
   if (resolvedProvider === "anthropic") {
     const directModel = createDirectModel(`anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`);
     let usedSimplified = false;
@@ -570,6 +572,14 @@ export async function generateSiteBriefObject(
         throw simplifiedErr;
       }
     }
+    recordLlmUsage({
+      phase: "brief",
+      workload: briefSource,
+      model: `anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`,
+      usage: result.usage,
+      durationMs: Date.now() - briefStartedAt,
+      meta: { schema: usedSimplified ? "simplified" : "full" },
+    });
     const briefObject = result.object as Record<string, unknown>;
     const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
     devLogAppend("latest", {
@@ -642,6 +652,14 @@ export async function generateSiteBriefObject(
       throw simplifiedErr;
     }
   }
+  recordLlmUsage({
+    phase: "brief",
+    workload: briefSource,
+    model: normalizedModel,
+    usage: result.usage,
+    durationMs: Date.now() - briefStartedAt,
+    meta: { schema: usedSimplified ? "simplified" : "full" },
+  });
   const briefObject = result.object as Record<string, unknown>;
   const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
   devLogAppend("latest", {

@@ -17,6 +17,7 @@ import { z } from "zod";
 import { generateObject } from "ai";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { getWorkloadDefaultModelFromManifest } from "@/lib/ai-models/load-manifest";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
   FOLLOW_UP_INTENT_MODES,
   type FollowUpIntentMode,
@@ -90,6 +91,7 @@ export async function llmClassifyFollowUpIntent(
     opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   );
 
+  const classifierStartedAt = Date.now();
   try {
     const result = await generateObject({
       model,
@@ -102,6 +104,14 @@ export async function llmClassifyFollowUpIntent(
       maxRetries: 1,
       abortSignal: controller.signal,
       providerOptions: { openai: { reasoningEffort: "low" } },
+    });
+
+    recordLlmUsage({
+      phase: "classifier",
+      workload: "match_classifier",
+      model: modelId,
+      usage: result.usage,
+      durationMs: Date.now() - classifierStartedAt,
     });
 
     const intent = result.object.intent;

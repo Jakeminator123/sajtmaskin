@@ -856,6 +856,58 @@ export const versionApprovals = pgTable(
   }),
 );
 
+/**
+ * En rad per LLM-anrop: tokenförbrukningen för ETT anrop, med fas och ägare.
+ *
+ * Kompletterar — ersätter inte — `engine_generation_logs` och
+ * `generation_telemetry`, som bär codegen-strömmens siffror per chat respektive
+ * per version och har egna konsumenter (backoffice, `generation-cost.mjs`,
+ * `control-stats.mjs`). De svarar på "vad kostade genereringen"; den här tabellen
+ * svarar på "vad kostade varje fas, och vem förbrukade det" — alltså också
+ * Deep Brief, verifier, RepairGate, embeddings och klassificerarna, vars usage
+ * tidigare kastades.
+ *
+ * `chat_id`/`version_id` är text utan FK: förbrukningen är en ekonomisk
+ * händelse som ska överleva att chatten städas bort, och LLM-anrop sker även
+ * innan en version finns (brief, scaffold-val). `user_id` är av samma skäl
+ * ostyrt av FK — raden är en faktureringsspår, inte en relation.
+ */
+export const llmUsage = pgTable(
+  "llm_usage",
+  {
+    id: text("id").primaryKey(),
+    /** Grupperar alla anrop i samma körning (finalize/verify/repair-runId). */
+    run_id: text("run_id"),
+    chat_id: text("chat_id"),
+    version_id: text("version_id"),
+    /** Inloggad `users.id`, eller `guest:<sessionId>` (samma form som tenant-lagret). */
+    user_id: text("user_id"),
+    session_id: text("session_id"),
+    /** Pipeline-fas: codegen, brief, verifier, fixer, embeddings, … */
+    phase: text("phase").notNull(),
+    /** Finkornigare än fas när samma fas har flera anropstyper. */
+    workload: text("workload"),
+    provider: text("provider"),
+    model: text("model").notNull(),
+    model_tier: text("model_tier"),
+    input_tokens: integer("input_tokens"),
+    cached_input_tokens: integer("cached_input_tokens"),
+    output_tokens: integer("output_tokens"),
+    reasoning_tokens: integer("reasoning_tokens"),
+    duration_ms: integer("duration_ms"),
+    ok: boolean("ok").default(true).notNull(),
+    error_code: text("error_code"),
+    meta: jsonb("meta"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    chatIdx: index("idx_llm_usage_chat").on(table.chat_id),
+    versionIdx: index("idx_llm_usage_version").on(table.version_id),
+    userCreatedIdx: index("idx_llm_usage_user_created").on(table.user_id, table.created_at),
+    createdIdx: index("idx_llm_usage_created").on(table.created_at),
+  }),
+);
+
 // ---------------------------------------------------------------------------
 
 export const domainOrders = pgTable(

@@ -12,6 +12,7 @@ import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-gener
 import { isBuildBreakingImportFindingId } from "@/lib/gen/preview/should-start-preview";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { incVerifierBlocking, recordPhaseDuration } from "@/lib/observability/metrics";
 
 /** OpenAI structured-output strict mode requires no optional object keys — keep paths inside `detail`. */
@@ -871,6 +872,7 @@ Use those exact ids so downstream tooling can recognise them.`;
         };
   }
 
+  const llmCallStartedAt = Date.now();
   try {
     const result = await generateObject({
       model: getOpenAIModel(modelId),
@@ -886,6 +888,12 @@ Use those exact ids so downstream tooling can recognise them.`;
       // block to short-circuit on the next call.
       maxRetries: 1,
       ...(providerOptions ? { providerOptions } : {}),
+    });
+    recordLlmUsage({
+      phase: "verifier",
+      model: modelId,
+      usage: result.usage,
+      durationMs: Date.now() - llmCallStartedAt,
     });
     const promoted = suppressValidInPageAnchorNavigationFindings(
       promoteForcedBlockingFindings(result.object),
