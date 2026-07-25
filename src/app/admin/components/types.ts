@@ -6,14 +6,21 @@
  * render are deliberately absent so drift is visible in review.
  */
 
+/**
+ * Counters are `number | string` on purpose: Postgres returns `count(*)` as a
+ * string over the wire even where the service types it as `number`. The honest
+ * type forces callers through `formatCount`/`toCount` in `ui-bits.tsx`.
+ */
+export type DbCount = number | string;
+
 export interface AnalyticsStats {
   days: number;
-  totalPageViews: number;
-  uniqueVisitors: number;
-  totalUsers: number;
-  totalProjects: number;
-  totalGenerations: number;
-  totalRefines: number;
+  totalPageViews: DbCount;
+  uniqueVisitors: DbCount;
+  totalUsers: DbCount;
+  totalProjects: DbCount;
+  totalGenerations: DbCount;
+  totalRefines: DbCount;
   metricScopes: {
     totalPageViews: "period";
     uniqueVisitors: "period";
@@ -22,17 +29,10 @@ export interface AnalyticsStats {
     totalGenerations: "all_time";
     totalRefines: "all_time";
   };
-  recentPageViews: { path: string; count: number }[];
-  dailyViews: { date: string; views: number; unique: number }[];
-  topReferrers: { referrer: string; count: number }[];
+  recentPageViews: { path: string; count: DbCount }[];
+  dailyViews: { date: string; views: DbCount; unique: DbCount }[];
+  topReferrers: { referrer: string; count: DbCount }[];
 }
-
-/**
- * Counters are `number | string` on purpose: Postgres returns `count(*)` as a
- * string over the wire, so the honest type forces callers through `formatCount`/
- * `toCount` instead of silently printing `"42"` unformatted.
- */
-export type DbCount = number | string;
 
 export interface DatabaseStats {
   database: {

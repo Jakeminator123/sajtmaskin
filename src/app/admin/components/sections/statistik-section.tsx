@@ -25,7 +25,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAdminResource } from "../../lib/use-admin-resource";
-import { DataState, RefreshButton, SectionCard, StatCard, formatCount } from "../ui-bits";
+import {
+  DataState,
+  RefreshButton,
+  SectionCard,
+  StatCard,
+  formatCount,
+  toCount,
+} from "../ui-bits";
 import type { AnalyticsStats } from "../types";
 
 const PERIODS = [
@@ -55,11 +62,13 @@ export function StatistikSection() {
   const scopeHint = (scope: "period" | "all_time") =>
     scope === "period" ? periodLabel : "totalt sedan start";
 
+  // Coerce before charting: the counters arrive as strings from Postgres, and
+  // recharts needs real numbers to scale the axis.
   const chartData = (data?.dailyViews ?? []).slice(-30).map((day) => ({
     date: day.date,
     label: day.date.slice(5),
-    views: day.views,
-    unique: day.unique,
+    views: toCount(day.views),
+    unique: toCount(day.unique),
   }));
 
   return (
