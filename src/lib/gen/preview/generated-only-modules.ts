@@ -18,9 +18,11 @@
  *
  * Why dropping is safe: `dep-completer.ts` pins every dossier-declared package
  * into the generated `package.json` whenever the code imports it (import scan
- * on the export path, plus the capability backstop). `dep-completer.test.ts`
- * asserts that manifest→allowlist coverage as an invariant, so a dropped
- * `TS2307` can never mean "nobody will install this".
+ * on the export path, plus the capability backstop), resolving the version from
+ * the curated allowlist or the manifest entry's own pin
+ * (`resolveExportableVersion`). `dep-completer.test.ts` asserts that coverage
+ * through the same resolver, so a dropped `TS2307` can never mean "nobody will
+ * install this".
  *
  * Chosen over the alternatives on the 2026-07-25 bug-swarm row: installing the
  * SDKs into the cache means a heavy cache plus version drift against the

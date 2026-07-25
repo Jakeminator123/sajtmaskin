@@ -1,4 +1,5 @@
 import type { AutoFixEntry } from "./pipeline";
+import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 
 const PACKAGE_SOURCE_PATTERN = String.raw`((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))`;
@@ -202,6 +203,57 @@ export function resolveKnownVersion(pkg: string): string | undefined {
 }
 
 /**
+ * Package → version for every dossier dependency declared in the pinned form
+ * the schema allows (`stripe@^14.0.0`). Pure so the mapping is testable without
+ * the registry.
+ */
+export function buildDossierDeclaredVersions(
+  dossiers: ReadonlyArray<{ dependencies?: readonly string[] }>,
+): Map<string, string> {
+  const versions = new Map<string, string>();
+  for (const dossier of dossiers) {
+    for (const raw of dossier.dependencies ?? []) {
+      const { pkg, version } = parseManifestDependencySpec(raw);
+      if (pkg && version) versions.set(pkg, version);
+    }
+  }
+  return versions;
+}
+
+// Memoized on the registry array identity: `getAllDossiers()` returns the same
+// cached array while no manifest changed, so this never re-walks the manifests
+// on a hot path (`runDepCompleter` runs per file in the autofix pipeline).
+let dossierVersionMemo: {
+  entries: ReadonlyArray<unknown>;
+  versions: Map<string, string>;
+} | null = null;
+
+function dossierDeclaredVersion(pkg: string): string | undefined {
+  const entries = getAllDossiers();
+  if (!dossierVersionMemo || dossierVersionMemo.entries !== entries) {
+    dossierVersionMemo = { entries, versions: buildDossierDeclaredVersions(entries) };
+  }
+  return dossierVersionMemo.versions.get(pkg);
+}
+
+/**
+ * The version the EXPORT path can pin for a package, i.e. what
+ * `runDepCompleter` will write into the generated `package.json` when it sees
+ * the import — the curated allowlist first, then a dossier manifest's own pin.
+ *
+ * This is the single resolver behind the manifest→export invariant that
+ * `generated-only-modules.ts` leans on when it drops an undecidable pre-VM
+ * `TS2307`: a dropped diagnostic is only safe while the VM is guaranteed to
+ * install the package. Codex P1 on #610: the invariant used to exempt pinned
+ * entries, so a pinned dossier dep outside `KNOWN_PACKAGES` was suppressed
+ * pre-VM and then missing from `package.json` — the failure just moved to the
+ * authoritative VM build.
+ */
+export function resolveExportableVersion(pkg: string): string | undefined {
+  return resolveKnownVersion(pkg) ?? dossierDeclaredVersion(pkg);
+}
+
+/**
  * Reduce an import specifier to its npm package name (`ably/promises` → `ably`,
  * `@supabase/ssr/dist/x` → `@supabase/ssr`). Exported because the pre-VM
  * typecheck needs the exact same normalization to map a `TS2307` module
@@ -340,9 +392,9 @@ export function runDepCompleter(code: string): {
 
     if (pkg.startsWith("@/") || pkg.startsWith("~/") || pkg.startsWith(".")) continue;
 
-    const knownVersion = resolveKnownVersion(pkg);
-    if (knownVersion) {
-      dependencies[pkg] = knownVersion;
+    const resolvedVersion = resolveExportableVersion(pkg);
+    if (resolvedVersion) {
+      dependencies[pkg] = resolvedVersion;
     } else {
       unknownPackages.push(pkg);
     }
