@@ -296,25 +296,23 @@ export type ChatMessagingParams = {
 };
 
 /**
- * Why a send did not turn into a generation. Every one of these is already
- * surfaced to the user by `useSendMessage` itself (toast + assistant message);
- * the reason exists so a PROGRAMMATIC sender can be precise about its own
- * surface too (a card that says "Skickat" for a rejected send is a lie).
+ * Why the server refused the turn WITHOUT consuming the prompt. Every one of
+ * these is already surfaced to the user by `useSendMessage` itself (toast +
+ * assistant message); the reason exists so a PROGRAMMATIC sender can be precise
+ * about its own surface too (a card that says "Skickat" for a rejected send is a
+ * lie), and so the composer knows the draft is still worth keeping.
  *
  * - `empty_message` — nothing to send.
  * - `create_chat_failed` — no chat existed and creating one failed.
  * - `stale_base_version` — server head moved past the base this request was
  *   built on, and the single auto-rebase retry did not resolve it (409).
  * - `tier3_env_not_ready` — F3 needs real build keys first (412).
- * - `f3_deterministic_release` — the turn became a ReleaseGate round on the
- *   parent version instead of a new generation (409).
  */
 export type SendMessageRejectionReason =
   | "empty_message"
   | "create_chat_failed"
   | "stale_base_version"
-  | "tier3_env_not_ready"
-  | "f3_deterministic_release";
+  | "tier3_env_not_ready";
 
 /**
  * Outcome contract for `sendMessage` (BB#shadcn-lane1). The hook handles every
@@ -323,11 +321,23 @@ export type SendMessageRejectionReason =
  * handled" — programmatic senders (insert cards, dossier catalog, composer
  * fallback) were forced into neutral copy.
  *
- * `started` means the request was accepted and the turn ran; per-turn success
- * is reported by the chat/version status UI, not here.
+ * Two axes matter to callers and they do not coincide:
+ *  - did a GENERATION run (`started`)? An insert card may only say "Skickat"
+ *    for that.
+ *  - was the PROMPT consumed? Only `rejected` means no, so it is the only
+ *    outcome where the composer keeps the draft.
+ *
+ * `settled` is the case where those differ: the server turned the turn into a
+ * deterministic F3 ReleaseGate round on the parent version, so the prompt was
+ * consumed (and may well have succeeded — `useSendMessage` reports the verdict)
+ * but no new generation ran.
+ *
+ * `started` means the request was accepted and the turn ran; per-turn success is
+ * reported by the chat/version status UI, not here.
  */
 export type SendMessageOutcome =
   | { status: "started"; via: "stream" | "messages_fallback" | "new_chat" }
+  | { status: "settled"; as: "f3_deterministic_release" }
   | { status: "rejected"; reason: SendMessageRejectionReason }
   | { status: "aborted"; by: "client" | "server" }
   | { status: "failed"; message: string };

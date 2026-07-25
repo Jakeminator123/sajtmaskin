@@ -621,10 +621,12 @@ export function ChatInterface({
       } else {
         if (!onSendMessage) return;
         const outcome = await onSendMessage(payload.finalMessage, msgOpts);
-        // Utfallskontraktet (BB#shadcn-lane1): ett hanterat avslag (409 stale
-        // base, 412 tier-3-env) startade ingen generation, så utkastet — inklusive
-        // bilagor, Figma-länk och inspect-punkter — måste ligga kvar. Förut
-        // rensades allt eftersom sändvägen resolvade utan kast.
+        // Utfallskontraktet (BB#shadcn-lane1): `rejected` betyder att servern
+        // vägrade turen UTAN att konsumera prompten (409 stale base, 412
+        // tier-3-env), så utkastet — inklusive bilagor, Figma-länk och
+        // inspect-punkter — måste ligga kvar. Förut rensades allt eftersom
+        // sändvägen resolvade utan kast. Övriga utfall konsumerade prompten
+        // (`settled` = F3-ReleaseGate-runda) och rensar som tidigare.
         if (outcome.status === "rejected") return;
       }
       if (options.clearDraft !== false) {

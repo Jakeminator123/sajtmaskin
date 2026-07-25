@@ -529,7 +529,9 @@ export function useSendMessage(
                   : message,
               ),
             );
-            return { status: "rejected", reason: "f3_deterministic_release" };
+            // Not `rejected`: the nested finalize consumed this prompt and may
+            // have promoted a version — only "no new generation ran" is true.
+            return { status: "settled", as: "f3_deterministic_release" };
           }
           // 5-2 stale-base gate (client half) — delad hanterare, se ovan.
           if (handleStaleBaseVersion(response.status, errorData)) {

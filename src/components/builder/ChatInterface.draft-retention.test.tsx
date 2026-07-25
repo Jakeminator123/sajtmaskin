@@ -59,4 +59,15 @@ describe("ChatInterface draft retention", () => {
     const textarea = await typeAndSend({ status: "started", via: "stream" });
     await waitFor(() => expect(textarea.value).toBe(""));
   });
+
+  // Bugbot on #610: the F3 deterministic ReleaseGate round consumes the prompt
+  // (and may promote a version), so it must NOT be treated as a rejection —
+  // that would leave the whole draft behind for a turn that completed.
+  it("clears the draft when the turn settled as an F3 ReleaseGate round", async () => {
+    const textarea = await typeAndSend({
+      status: "settled",
+      as: "f3_deterministic_release",
+    });
+    await waitFor(() => expect(textarea.value).toBe(""));
+  });
 });

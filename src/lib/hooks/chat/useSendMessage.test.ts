@@ -580,7 +580,9 @@ describe("useSendMessage outcome contract", () => {
     ).toEqual({ status: "rejected", reason: "tier3_env_not_ready" });
   });
 
-  it("reports rejected/f3_deterministic_release when the turn becomes a ReleaseGate round", async () => {
+  // Not `rejected`: the nested finalize consumed the prompt (and promoted a
+  // version here), so the composer must still clear its draft.
+  it("reports settled/f3_deterministic_release when the turn becomes a ReleaseGate round", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url.endsWith("/stream")) {
         return jsonResponse(409, {
@@ -614,7 +616,7 @@ describe("useSendMessage outcome contract", () => {
         parentVersionIdOverride: "ver_f2_parent",
         engineBaseVersionIdOverride: "ver_f2_parent",
       }),
-    ).toEqual({ status: "rejected", reason: "f3_deterministic_release" });
+    ).toEqual({ status: "settled", as: "f3_deterministic_release" });
   });
 
   it("reports started/messages_fallback when the network fallback succeeds", async () => {
