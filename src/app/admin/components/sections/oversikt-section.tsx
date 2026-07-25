@@ -5,7 +5,14 @@ import { Database, Eye, FolderOpen, Key, Server, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAdminResource } from "../../lib/use-admin-resource";
-import { DataState, RefreshButton, SectionCard, StatCard, StatusBadge } from "../ui-bits";
+import {
+  DataState,
+  RefreshButton,
+  SectionCard,
+  StatCard,
+  StatusBadge,
+  formatCount,
+} from "../ui-bits";
 import { ADMIN_SECTIONS, ADMIN_SECTION_KIND_LABEL } from "../../admin-nav";
 import type { AnalyticsStats, DatabaseStats, EnvStatusPayload } from "../types";
 
@@ -44,7 +51,7 @@ export function OversiktSection() {
       tone: redisConnected ? ("ok" as const) : ("off" as const),
       status: redisConnected ? "Ansluten" : "Avstängd",
       detail: redisConnected
-        ? `${(db.data?.redis?.totalKeys ?? 0).toLocaleString("sv-SE")} nycklar`
+        ? `${formatCount(db.data?.redis?.totalKeys)} nycklar`
         : "Appen fungerar utan cache",
     },
     {
@@ -70,7 +77,7 @@ export function OversiktSection() {
       title: "Uppladdat",
       icon: FolderOpen,
       tone: "off" as const,
-      status: `${db.data?.uploads?.fileCount ?? 0} filer`,
+      status: `${formatCount(db.data?.uploads?.fileCount ?? 0)} filer`,
       detail: db.data?.uploads?.totalSize ?? "0 B",
     },
   ];

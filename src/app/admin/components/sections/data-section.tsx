@@ -31,6 +31,8 @@ import {
   RefreshButton,
   SectionCard,
   TechnicalDetails,
+  formatCount,
+  toCount,
 } from "../ui-bits";
 import type { CleanupStatsPayload, DatabaseStats } from "../types";
 
@@ -168,7 +170,9 @@ export function DataSection() {
                 </TableHeader>
                 <TableBody>
                   {CLEARABLE_TABLES.map((entry) => {
-                    const count = entry.countKey ? (stats.database[entry.countKey] ?? 0) : 0;
+                    // Postgres `count(*)` arrives as a string — normalise before
+                    // comparing/formatting so "0" disables the button correctly.
+                    const count = toCount(entry.countKey ? stats.database[entry.countKey] : 0);
                     return (
                       <TableRow key={entry.table}>
                         <TableCell>
@@ -176,14 +180,14 @@ export function DataSection() {
                           <p className="text-muted-foreground text-xs">{entry.description}</p>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {count.toLocaleString("sv-SE")}
+                          {formatCount(count)}
                         </TableCell>
                         <TableCell>
                           <DangerAction
                             label="Rensa"
                             title={`Rensa ${entry.label.toLowerCase()}?`}
                             description={entry.description}
-                            impact={`${count.toLocaleString("sv-SE")} rader raderas permanent och kan inte återskapas.`}
+                            impact={`${formatCount(count)} rader raderas permanent och kan inte återskapas.`}
                             confirmWord={entry.table}
                             disabled={busy !== null || count === 0}
                             onConfirm={async () => {
@@ -219,7 +223,7 @@ export function DataSection() {
               title="Cache (Redis)"
               description={
                 redisConnected
-                  ? `Ansluten · ${stats.redis?.memoryUsed ?? "?"} använt · ${(stats.redis?.totalKeys ?? 0).toLocaleString("sv-SE")} nycklar`
+                  ? `Ansluten · ${stats.redis?.memoryUsed ?? "?"} använt · ${formatCount(stats.redis?.totalKeys)} nycklar`
                   : "Inte ansluten — appen fungerar men utan cache."
               }
               icon={Server}
@@ -230,7 +234,7 @@ export function DataSection() {
                     label="Töm cache"
                     title="Töm cachen?"
                     description="Cachen byggs upp igen automatiskt. Första anropen efter tömningen blir långsammare."
-                    impact={`${(stats.redis?.totalKeys ?? 0).toLocaleString("sv-SE")} nycklar i den här miljön töms.`}
+                    impact={`${formatCount(stats.redis?.totalKeys)} nycklar i den här miljön töms.`}
                     confirmWord="cache"
                     disabled={busy !== null}
                     onConfirm={async () => {
@@ -256,16 +260,16 @@ export function DataSection() {
 
             <SectionCard
               title="Uppladdade filer"
-              description={`${stats.uploads?.fileCount ?? 0} filer · ${stats.uploads?.totalSize ?? "0 B"}`}
+              description={`${formatCount(stats.uploads?.fileCount ?? 0)} filer · ${stats.uploads?.totalSize ?? "0 B"}`}
               icon={HardDrive}
-              tone={stats.uploads?.fileCount ? "ok" : "off"}
+              tone={toCount(stats.uploads?.fileCount) > 0 ? "ok" : "off"}
               action={
-                stats.uploads?.fileCount ? (
+                toCount(stats.uploads?.fileCount) > 0 ? (
                   <DangerAction
                     label="Rensa filer"
                     title="Rensa uppladdade filer?"
                     description="Filer som användare laddat upp tas bort från serverns disk."
-                    impact={`${stats.uploads.fileCount} filer (${stats.uploads.totalSize}) raderas.`}
+                    impact={`${formatCount(stats.uploads?.fileCount)} filer (${stats.uploads?.totalSize ?? "0 B"}) raderas.`}
                     confirmWord="filer"
                     disabled={busy !== null}
                     onConfirm={async () => {
@@ -299,10 +303,10 @@ export function DataSection() {
                     ))}
                   </TableBody>
                 </Table>
-                {(stats.uploads?.fileCount ?? 0) > (stats.uploads?.files?.length ?? 0) && (
+                {toCount(stats.uploads?.fileCount) > (stats.uploads?.files?.length ?? 0) && (
                   <p className="text-muted-foreground mt-2 text-xs">
                     Visar de {stats.uploads?.files?.length} senaste av{" "}
-                    {stats.uploads?.fileCount} filer.
+                    {formatCount(stats.uploads?.fileCount)} filer.
                   </p>
                 )}
               </DataState>
@@ -340,27 +344,27 @@ export function DataSection() {
                     items={[
                       {
                         label: "Gästprojekt totalt",
-                        value: cleanupStats.stats.anonymousProjects.toLocaleString("sv-SE"),
+                        value: formatCount(cleanupStats.stats.anonymousProjects),
                       },
                       {
                         label: "Gästprojekt att städa",
-                        value: cleanupStats.stats.anonymousProjectsOld.toLocaleString("sv-SE"),
+                        value: formatCount(cleanupStats.stats.anonymousProjectsOld),
                       },
                       {
                         label: "Projekt med konto",
-                        value: cleanupStats.stats.userProjects.toLocaleString("sv-SE"),
+                        value: formatCount(cleanupStats.stats.userProjects),
                       },
                       {
                         label: "Filer utan projekt",
-                        value: cleanupStats.stats.orphanedFiles.toLocaleString("sv-SE"),
+                        value: formatCount(cleanupStats.stats.orphanedFiles),
                       },
                       {
                         label: "Bilder utan projekt",
-                        value: cleanupStats.stats.orphanedImages.toLocaleString("sv-SE"),
+                        value: formatCount(cleanupStats.stats.orphanedImages),
                       },
                       {
                         label: "Utgången cache",
-                        value: cleanupStats.stats.templateCacheExpired.toLocaleString("sv-SE"),
+                        value: formatCount(cleanupStats.stats.templateCacheExpired),
                       },
                     ]}
                   />

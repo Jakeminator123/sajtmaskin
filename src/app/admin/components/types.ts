@@ -27,24 +27,31 @@ export interface AnalyticsStats {
   topReferrers: { referrer: string; count: number }[];
 }
 
+/**
+ * Counters are `number | string` on purpose: Postgres returns `count(*)` as a
+ * string over the wire, so the honest type forces callers through `formatCount`/
+ * `toCount` instead of silently printing `"42"` unformatted.
+ */
+export type DbCount = number | string;
+
 export interface DatabaseStats {
   database: {
-    users: number;
-    projects: number;
-    pageViews: number;
-    transactions: number;
-    guestUsage: number;
-    companyProfiles: number;
+    users: DbCount;
+    projects: DbCount;
+    pageViews: DbCount;
+    transactions: DbCount;
+    guestUsage: DbCount;
+    companyProfiles: DbCount;
   };
   redis: {
     connected: boolean;
     memoryUsed?: string;
-    totalKeys?: number;
+    totalKeys?: DbCount;
     uptime?: number;
   } | null;
   dbFileSize: string;
   uploads?: {
-    fileCount: number;
+    fileCount: DbCount;
     totalSize: string;
     files: { name: string; size: string }[];
   };
@@ -55,13 +62,13 @@ export interface DatabaseStats {
 export interface CleanupStatsPayload {
   success: boolean;
   stats: {
-    anonymousProjects: number;
-    anonymousProjectsOld: number;
-    userProjects: number;
-    orphanedFiles: number;
-    orphanedImages: number;
-    templateCacheCount: number;
-    templateCacheExpired: number;
+    anonymousProjects: DbCount;
+    anonymousProjectsOld: DbCount;
+    userProjects: DbCount;
+    orphanedFiles: DbCount;
+    orphanedImages: DbCount;
+    templateCacheCount: DbCount;
+    templateCacheExpired: DbCount;
   };
   config?: Record<string, unknown>;
 }
@@ -70,6 +77,13 @@ export interface EnvKeyStatus {
   key: string;
   required: boolean;
   present: boolean;
+  /** From the canonical env policy (`src/lib/env-audit.ts`). */
+  classification?:
+    | "shared_runtime"
+    | "optional_runtime"
+    | "environment_specific"
+    | "local_only"
+    | "vercel_managed";
   notes?: string;
 }
 

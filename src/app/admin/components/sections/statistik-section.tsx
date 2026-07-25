@@ -25,7 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAdminResource } from "../../lib/use-admin-resource";
-import { DataState, RefreshButton, SectionCard, StatCard } from "../ui-bits";
+import { DataState, RefreshButton, SectionCard, StatCard, formatCount } from "../ui-bits";
 import type { AnalyticsStats } from "../types";
 
 const PERIODS = [
@@ -202,7 +202,7 @@ export function StatistikSection() {
                             {page.path}
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
-                            {page.count.toLocaleString("sv-SE")}
+                            {formatCount(page.count)}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -235,7 +235,7 @@ export function StatistikSection() {
                             {referrer.referrer || "Direkt"}
                           </TableCell>
                           <TableCell className="text-right tabular-nums">
-                            {referrer.count.toLocaleString("sv-SE")}
+                            {formatCount(referrer.count)}
                           </TableCell>
                         </TableRow>
                       ))}

@@ -4,9 +4,9 @@
  * POST /api/analytics - Record a page view
  */
 
+import { requireAdminAccess } from "@/lib/auth/admin";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getAnalyticsStats, recordPageView } from "@/lib/db/services/analytics";
-import { TEST_USER_EMAIL } from "@/lib/db/services/shared";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { after, NextRequest, NextResponse } from "next/server";
 
@@ -56,17 +56,19 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Get analytics stats (admin only - must be logged in as admin user)
+// Get analytics stats (admin only)
 export async function GET(req: NextRequest) {
   try {
-    // Check if user is logged in as admin (TEST_USER_EMAIL)
-    const user = await getCurrentUser(req);
-
-    if (!user || user.email !== TEST_USER_EMAIL) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized - admin access required" },
-        { status: 401 },
-      );
+    // Was previously gated on `user.email === TEST_USER_EMAIL` only, so the
+    // admin panel's statistics returned 401 for every real admin account in
+    // ADMIN_EMAILS/SUPERADMIN_EMAIL (the old UI reacted by logging the operator
+    // out). `requireAdminAccess` is the same guard the other /api/admin routes
+    // use, and its predicate (`isAdminEmailEdge`) still includes TEST_USER_EMAIL
+    // — so this is a strict superset of the old access, not a widening beyond
+    // admins.
+    const admin = await requireAdminAccess(req);
+    if (!admin.ok) {
+      return admin.response;
     }
 
     const rawDays = parseInt(req.nextUrl.searchParams.get("days") || "30", 10);

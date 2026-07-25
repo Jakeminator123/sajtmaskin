@@ -69,6 +69,7 @@ export function MiljoSection() {
 
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [keyFilter, setKeyFilter] = useState("");
+  const [keyScope, setKeyScope] = useState<"attention" | "set" | "all">("attention");
 
   const projectId = selectedProjectId || env.data?.vercel.projectId || "";
   const projectEnv = useAdminResource<VercelEnvVar[], { envs: VercelEnvVar[] }>(
@@ -79,14 +80,38 @@ export function MiljoSection() {
     },
   );
 
-  const filteredKeys = useMemo(() => {
-    const keys = env.data?.keys ?? [];
-    const needle = keyFilter.trim().toLowerCase();
-    if (!needle) return keys;
-    return keys.filter((item) => item.key.toLowerCase().includes(needle));
-  }, [env.data, keyFilter]);
+  const envData = env.data;
+  const allKeys = useMemo(() => envData?.keys ?? [], [envData]);
+  const missingRequired = allKeys.filter((k) => k.required && !k.present);
 
-  const missingRequired = (env.data?.keys ?? []).filter((k) => k.required && !k.present);
+  const keyScopeCounts = {
+    attention: allKeys.filter((k) => k.required || k.present).length,
+    set: allKeys.filter((k) => k.present).length,
+    all: allKeys.length,
+  };
+
+  /**
+   * The policy knows ~200 keys; showing them all by default would bury the few
+   * that matter. Default scope is "required or already set", with the full list
+   * one click away.
+   */
+  const filteredKeys = useMemo(() => {
+    const scoped =
+      keyScope === "all"
+        ? allKeys
+        : keyScope === "set"
+          ? allKeys.filter((item) => item.present)
+          : allKeys.filter((item) => item.required || item.present);
+    const needle = keyFilter.trim().toLowerCase();
+    const matched = needle
+      ? scoped.filter((item) => item.key.toLowerCase().includes(needle))
+      : scoped;
+    // Missing-but-required first, then missing, then the rest alphabetically.
+    return [...matched].sort((a, b) => {
+      const rank = (item: typeof a) => (item.required && !item.present ? 0 : item.present ? 2 : 1);
+      return rank(a) - rank(b) || a.key.localeCompare(b.key);
+    });
+  }, [allKeys, keyFilter, keyScope]);
   const featureEntries = Object.entries(env.data?.features ?? {});
   const openclaw = env.data?.openclaw;
 
@@ -169,6 +194,25 @@ export function MiljoSection() {
           />
         }
       >
+        <div className="mb-3 flex flex-wrap gap-2">
+          {(
+            [
+              ["attention", "Nödvändiga och satta"],
+              ["set", "Bara satta"],
+              ["all", "Alla kända"],
+            ] as const
+          ).map(([value, label]) => (
+            <Button
+              key={value}
+              variant={keyScope === value ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setKeyScope(value)}
+            >
+              {label} ({keyScopeCounts[value]})
+            </Button>
+          ))}
+        </div>
         <DataState
           loading={env.loading && !env.data}
           error={env.error}
@@ -189,7 +233,7 @@ export function MiljoSection() {
               {filteredKeys.map((item) => (
                 <TableRow key={item.key}>
                   <TableCell className="font-mono text-xs">{item.key}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
+                  <TableCell className="text-muted-foreground max-w-[420px] text-xs">
                     {item.notes || "—"}
                   </TableCell>
                   <TableCell className="text-right">

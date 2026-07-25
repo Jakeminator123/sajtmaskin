@@ -19,6 +19,27 @@ import { cn } from "@/lib/utils";
 /** Semantic health state shared by every admin section. */
 export type StatusTone = "ok" | "warn" | "error" | "off";
 
+/**
+ * Swedish thousands formatting that survives the API's mixed number shapes.
+ *
+ * `count(*)` comes back from Postgres as a **string** (`"42"`) even though the
+ * route types it as `number`, so a naive `value.toLocaleString("sv-SE")` silently
+ * printed the raw string. Coerce first, and fall back to the original value when
+ * it genuinely isn't numeric.
+ */
+export function formatCount(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "—";
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return String(value);
+  return numeric.toLocaleString("sv-SE");
+}
+
+/** Numeric view of the same mixed-shape counters (for comparisons/disabled state). */
+export function toCount(value: string | number | null | undefined): number {
+  const numeric = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
 const STATUS_CLASS: Record<StatusTone, string> = {
   ok: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
   warn: "border-amber-500/40 bg-amber-500/10 text-amber-400",
@@ -116,9 +137,7 @@ export function StatCard({
             />
           )}
         </div>
-        <p className="mt-1 text-2xl font-semibold tracking-tight">
-          {typeof value === "number" ? value.toLocaleString("sv-SE") : value}
-        </p>
+        <p className="mt-1 text-2xl font-semibold tracking-tight">{formatCount(value)}</p>
         {hint && <p className="text-muted-foreground mt-1 text-xs">{hint}</p>}
       </CardContent>
     </Card>
