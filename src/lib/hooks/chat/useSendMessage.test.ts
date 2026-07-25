@@ -191,9 +191,11 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     expect(handleSseStream).not.toHaveBeenCalled();
 
     const messages = messagesBox.current;
-    const userMessages = messages.filter((m) => m.role === "user");
-    expect(userMessages).toHaveLength(1);
-    expect(userMessages[0]?.content).toBe("Uppdatera hero copy");
+    // The gate returns BEFORE the server persists anything, so the optimistic
+    // user row is a client-only ghost and is dropped — the composer keeps the
+    // draft for a `rejected` outcome, so the prompt must not also sit in the
+    // thread as a turn that never happened (bugbot on #610).
+    expect(messages.filter((m) => m.role === "user")).toEqual([]);
 
     const assistant = messages.find((m) => m.role === "assistant");
     expect(assistant?.isStreaming).toBe(false);
@@ -569,7 +571,7 @@ describe("useSendMessage outcome contract", () => {
         missingByIntegration: [{ key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] }],
       }),
     );
-    const { result } = createHarness({ activeVersionId: "ver_f2_parent" });
+    const { result, messagesBox } = createHarness({ activeVersionId: "ver_f2_parent" });
 
     expect(
       await send(result, "Bygg integrationer nu.", {
@@ -578,6 +580,10 @@ describe("useSendMessage outcome contract", () => {
         engineBaseVersionIdOverride: "ver_f2_parent",
       }),
     ).toEqual({ status: "rejected", reason: "tier3_env_not_ready" });
+    // The 412 also returns before the server persists the user row, so the
+    // optimistic ghost goes away and only the assistant notice remains.
+    expect(messagesBox.current.filter((m) => m.role === "user")).toEqual([]);
+    expect(messagesBox.current.at(-1)?.content).toMatch(/build-nycklar/i);
   });
 
   // Not `rejected`: the nested finalize consumed the prompt (and promoted a
@@ -608,7 +614,7 @@ describe("useSendMessage outcome contract", () => {
         checks: [{ check: "build", passed: true }],
       });
     });
-    const { result } = createHarness({ activeVersionId: "ver_f2_parent" });
+    const { result, messagesBox } = createHarness({ activeVersionId: "ver_f2_parent" });
 
     expect(
       await send(result, "Bygg integrationer nu.", {
@@ -617,6 +623,9 @@ describe("useSendMessage outcome contract", () => {
         engineBaseVersionIdOverride: "ver_f2_parent",
       }),
     ).toEqual({ status: "settled", as: "f3_deterministic_release" });
+    // Mirror image of the rejected paths: this one DOES persist the user row
+    // server-side (`f3-readiness-gate.ts` addMessage), so the bubble stays.
+    expect(messagesBox.current.filter((m) => m.role === "user")).toHaveLength(1);
   });
 
   it("reports started/messages_fallback when the network fallback succeeds", async () => {

@@ -84,6 +84,7 @@ import {
   routeHasPageFile,
 } from "@/lib/builder/preview-page-ops";
 import type { QuickEditClientOp, QuickEditClientResult } from "@/lib/builder/engine-files-patch";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 
 const PreviewPanelInspectorDev = dynamic(
   () =>
@@ -98,6 +99,31 @@ type ComposerPatchHistoryEntry = {
   before: string;
   after: string;
 };
+
+/**
+ * Status line for a registry-block drop. Exhaustive over `SendMessageOutcome`
+ * so a new outcome cannot silently inherit another one's copy — the previous
+ * `else` branch claimed the block was sent even when the send failed.
+ */
+function composerDropStatusLabel(
+  outcome: SendMessageOutcome,
+  placementLabel: string,
+): string {
+  const suffix = ` (${placementLabel})`;
+  switch (outcome.status) {
+    case "started":
+      return `Registry-block skickat till AI${suffix}`;
+    case "settled":
+      // Prompten hanterades men gav inget nytt bygge (F3-ReleaseGate-runda).
+      return `Registry-block skickat — se status i chatten${suffix}`;
+    case "rejected":
+      return `Registry-block skickades inte${suffix}`;
+    case "aborted":
+      return `Registry-block avbröts${suffix}`;
+    case "failed":
+      return `Registry-block misslyckades${suffix}`;
+  }
+}
 
 export function PreviewPanel({
   chatId,
@@ -588,24 +614,15 @@ export function PreviewPanel({
             anchorSectionLabel: detail.anchorSection?.label,
           });
           // Utfallskontraktet (BB#shadcn-lane1) ersätter den tidigare neutrala
-          // copyn: bara ett startat bygge får en success-toast. Avslag och fel
-          // har redan sin egen toast från sändvägen. Statusraden skiljer på att
-          // servern VÄGRADE turen (`rejected` — inget skickades) och att den
-          // hanterades utan nytt bygge (`settled` = F3-ReleaseGate-runda) eller
-          // avbröts/fel efter att prompten gått iväg (bugbot på #610).
+          // copyn: bara ett startat bygge får en success-toast (avslag och fel
+          // har redan sin egen toast från sändvägen), och statusraden namnger
+          // varje utfall i stället för att bunta ihop dem — en `switch` så ett
+          // framtida utfall inte tyst ärver fel copy (bugbot på #610).
+          setLastComposerActionLabel(
+            composerDropStatusLabel(outcome, detail.placementLabel),
+          );
           if (outcome.status === "started") {
-            setLastComposerActionLabel(
-              `Registry-block skickat till AI (${detail.placementLabel})`,
-            );
             toast.success(`Bygger in blocket (${detail.placementLabel}).`);
-          } else if (outcome.status === "rejected") {
-            setLastComposerActionLabel(
-              `Registry-block skickades inte (${detail.placementLabel})`,
-            );
-          } else {
-            setLastComposerActionLabel(
-              `Registry-block skickat — se status i chatten (${detail.placementLabel})`,
-            );
           }
         } catch {
           // Fel-toasten ägs av insert-handlern (busy/chattbyte/etc.).

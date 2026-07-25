@@ -108,6 +108,31 @@ export function useSendMessage(
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
 
+      /**
+       * A handled rejection means the server refused the turn BEFORE persisting
+       * anything (both gates return ahead of `addMessage`), so the optimistic
+       * user row is a client-only ghost. It is dropped and only the assistant
+       * notice explaining the refusal stays: the composer keeps the draft for a
+       * `rejected` outcome, and the prompt must live in exactly one place —
+       * otherwise the thread shows it as a sent turn that never happened and a
+       * retry renders it twice (bugbot on #610).
+       */
+      const settleRejectedTurn = (assistantContent: string) => {
+        setMessages((prev) =>
+          prev
+            .filter((m) => m.id !== userMessageId)
+            .map((m) =>
+              m.id === assistantMessageId
+                ? {
+                    ...m,
+                    content: m.content?.trim() || assistantContent,
+                    isStreaming: false,
+                  }
+                : m,
+            ),
+        );
+      };
+
       // 5-2 stale-base gate (client half), delad mellan stream-vägen och
       // /messages-nätverksfallbacken (backlog PR #355-triage #20): servern har
       // redan en nyare version än den requesten byggdes mot — visa
@@ -121,18 +146,8 @@ export function useSendMessage(
           "En nyare version finns. Ladda om sidan för att fortsätta från den senaste versionen.",
         );
         mutateVersions();
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessageId
-              ? {
-                  ...m,
-                  content:
-                    m.content?.trim() ||
-                    "En nyare version finns – ladda om för att bygga vidare på den senaste versionen.",
-                  isStreaming: false,
-                }
-              : m,
-          ),
+        settleRejectedTurn(
+          "En nyare version finns – ladda om för att bygga vidare på den senaste versionen.",
         );
         return true;
       };
@@ -453,17 +468,8 @@ export function useSendMessage(
                   ),
               ),
             });
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantMessageId
-                  ? {
-                      ...message,
-                      content:
-                        "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och fortsätt integrationsbygget.",
-                      isStreaming: false,
-                    }
-                  : message,
-              ),
+            settleRejectedTurn(
+              "F3 kräver riktiga build-nycklar. Fyll i dem i kravytan och fortsätt integrationsbygget.",
             );
             return { status: "rejected", reason: "tier3_env_not_ready" };
           }
