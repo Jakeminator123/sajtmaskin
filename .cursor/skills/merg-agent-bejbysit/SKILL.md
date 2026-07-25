@@ -109,10 +109,13 @@ $sha = gh pr view <n> --json headRefOid --jq .headRefOid
 $created = gh pr view <n> --json createdAt --jq .createdAt
 $pushed = gh api "repos/Jakeminator123/sajtmaskin/commits/$sha/check-runs?per_page=100" --jq '[.check_runs[].started_at] | map(select(. != null)) | sort | first'
 $styles = [Globalization.DateTimeStyles]::AdjustToUniversal -bor [Globalization.DateTimeStyles]::AssumeUniversal
-$ages = @($pushed, $created) | ForEach-Object {
-  [int]((Get-Date).ToUniversalTime() - [datetime]::Parse($_, [Globalization.CultureInfo]::InvariantCulture, $styles)).TotalMinutes
+# Inga check-runs an -> head:et ar nyss pushat (0 min), inte "okant".
+if (-not $pushed -or $pushed -eq "null") { 0 } else {
+  $ages = @($pushed, $created) | ForEach-Object {
+    [int]((Get-Date).ToUniversalTime() - [datetime]::Parse($_, [Globalization.CultureInfo]::InvariantCulture, $styles)).TotalMinutes
+  }
+  ($ages | Measure-Object -Minimum).Minimum
 }
-($ages | Measure-Object -Minimum).Minimum
 ```
 
 Under 15 → merga inte. Går en av tiderna inte att läsa: behandla som **inte

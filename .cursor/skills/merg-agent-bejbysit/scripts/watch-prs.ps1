@@ -177,7 +177,10 @@ for ($i = 1; $i -le $Cycles; $i++) {
     $signed = $(if ($pr.Signed) { "merge:ready" } else { "OSIGNERAD" })
     if ($state -eq "failed") { Announce "$n/$sha/failed" "FAILED #$n" $i }
     elseif ($state -eq "green" -and $age -ge $MinutesMature -and $Ignore -notcontains $n) {
-      Announce "$n/$sha/actionable" "ACTIONABLE #$n (${age}min granskningsbar, $signed)" $i
+      # Signaturläget ingår i nyckeln: när författaren sätter merge:ready UTAN
+      # ny commit ändras varken SHA eller läge, och utan detta hade larmet tystats
+      # till nästa påminnelse - fast det är precis då PR:en blir mergebar.
+      Announce "$n/$sha/actionable/$signed" "ACTIONABLE #$n (${age}min granskningsbar, $signed)" $i
     }
   }
 
