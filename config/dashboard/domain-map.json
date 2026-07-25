@@ -132,7 +132,7 @@
       ]
     },
     "Byggstenar: översikt": {
-      "summary": "Ingången till Byggstenar (ny 2026-07-24): förklarar de fyra byggstenarna — scaffold (runtime-startpunkt), variant (visuellt uttryck), byggblock/dossier (capability-modul) och mall (v0-mall i Blob, inspiration) — hur de hänger ihop, hur de väljs och vad en sparning påverkar (repo-fil vs produktion). Sidan äger INGEN egen sanning: definitionerna renderas ur docs/architecture/glossary.md och urvalsavsnitten ur docs/contracts/{scaffold-system,dossier-system}.md; siffrorna läses från disk. Kartan över alla vyer bor kvar i Översikt, och filägarskap per beslut i Control Plane (cockpit).",
+      "summary": "Ingången till Byggstenar (ny 2026-07-24): vad scaffold, variant, byggblock och mall är, hur de hänger ihop, hur de väljs och vad en sparning påverkar (repo-fil vs produktion). Sidan äger ingen egen sanning — definitionerna renderas ur docs/architecture/glossary.md och urvalsavsnitten ur docs/contracts/{scaffold-system,dossier-system}.md; siffrorna läses från disk. Kartan över alla vyer bor kvar i Översikt och filägarskap per beslut i Control Plane (cockpit).",
       "canonicalPaths": [
         "src/lib/gen/scaffolds/",
         "config/scaffold-variants/",

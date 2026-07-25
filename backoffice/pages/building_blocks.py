@@ -68,7 +68,7 @@ BLOCK_CARDS: tuple[BlockCard, ...] = (
     BlockCard(
         title="1. Scaffold — startpunkten",
         glossary_term="Scaffold",
-        lives_in="`src/lib/gen/scaffolds/<id>/` (filer + manifest) — git-spårad",
+        lives_in="filer i repot (git-spårade) — exakta sökvägar i teknik-expandern",
         doc_rel=SCAFFOLD_DOC_REL,
         doc_needle="STEG 3",
         choose_caption="Så väljs scaffolden (ur scaffold-kontraktet)",
@@ -80,7 +80,7 @@ BLOCK_CARDS: tuple[BlockCard, ...] = (
     BlockCard(
         title="2. Variant — det visuella uttrycket",
         glossary_term="Scaffold Variant",
-        lives_in="`config/scaffold-variants/<scaffold>/<variant>.json` — git-spårad",
+        lives_in="en JSON-fil per variant i repot (git-spårad)",
         doc_rel=SCAFFOLD_DOC_REL,
         doc_needle="Variant signature patterns",
         choose_caption="Så väljs varianten (ur scaffold-kontraktet)",
@@ -92,7 +92,7 @@ BLOCK_CARDS: tuple[BlockCard, ...] = (
     BlockCard(
         title="3. Byggblock — funktionen",
         glossary_term="Dossier",
-        lives_in="`data/dossiers/hard|soft/<id>/` — git-spårad",
+        lives_in="en mapp per byggblock i repot (git-spårad)",
         doc_rel=DOSSIER_DOC_REL,
         doc_needle="TL;DR",
         choose_caption="Så väljs byggblocken (ur byggblocks-kontraktet)",
@@ -101,7 +101,7 @@ BLOCK_CARDS: tuple[BlockCard, ...] = (
     BlockCard(
         title="4. Mall (v0) — inspirationen",
         glossary_term="Template (v0-mall)",
-        lives_in="Vercel Blob + `src/lib/templates/template-blob-manifest.json`",
+        lives_in="zip i Vercel Blob (live) + katalogfil i repot",
         doc_rel=GLOSSARY_REL,
         doc_needle="Kärntermer",
         choose_caption="Mallar i ordlistan (de matchas inte — de importeras)",
@@ -217,10 +217,11 @@ def _render_save_scope_panel() -> None:
     render_save_scope("repo", paths=SAVE_SCOPE_PATHS["repo"])
     render_save_scope("local", paths=SAVE_SCOPE_PATHS["local"])
     st.markdown("**Ytor som däremot träffar produktionen direkt:**")
-    cols = st.columns(len(PROD_SURFACES))
-    for col, (page_name, what) in zip(cols, PROD_SURFACES):
-        with col:
-            st.caption(f"🔴 {page_name} — {what}")
+    for page_name, what in PROD_SURFACES:
+        text_col, button_col = st.columns([5, 1])
+        with text_col:
+            st.markdown(f"🔴 **{page_name}** — {what}")
+        with button_col:
             nav_link_button(
                 "Öppna",
                 page_name,
@@ -228,7 +229,7 @@ def _render_save_scope_panel() -> None:
             )
 
 
-def _render_tech_details(ctx: BackofficeContext) -> None:
+def _render_tech_details(ctx: BackofficeContext, domain_map: dict) -> None:
     with tech_details():
         st.markdown("**Kanoniska filer**")
         for line in (
@@ -256,6 +257,7 @@ def _render_tech_details(ctx: BackofficeContext) -> None:
             "Sökvägarna ovan speglas i `config/dashboard/domain-map.json`; "
             "kodägarskapet per beslut finns i vyn **Control Plane (cockpit)**."
         )
+        render_where_panel(PAGE_NAME, domain_map)
 
 
 def render(ctx: BackofficeContext) -> None:
@@ -300,5 +302,4 @@ def render(ctx: BackofficeContext) -> None:
     st.divider()
     _render_choice_sections(ctx)
 
-    _render_tech_details(ctx)
-    render_where_panel(PAGE_NAME, domain_map)
+    _render_tech_details(ctx, domain_map)

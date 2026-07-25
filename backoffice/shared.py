@@ -782,13 +782,41 @@ def tech_details(label: str = "Visa tekniska detaljer", *, expanded: bool = Fals
     return st.expander(label, expanded=expanded)
 
 
+# Svenska förkortningar som INTE avslutar en mening — annars kapas glossary-rader
+# mitt i ("… instruktioner och ev." i stället för "… ev. filer").
+_ABBREVIATIONS = (
+    "t.ex",
+    "d.v.s",
+    "dvs",
+    "ev",
+    "bl.a",
+    "m.m",
+    "m.fl",
+    "osv",
+    "etc",
+    "ca",
+    "resp",
+    "jfr",
+)
+
+
 def first_sentence(text: str, *, max_chars: int = 260) -> str:
-    """First sentence of a glossary/doc snippet, truncated on a word boundary."""
+    """First sentence of a glossary/doc snippet, truncated on a word boundary.
+
+    Hoppar över svenska förkortningar (``ev.``, ``t.ex.``, ``m.m.`` …) så en
+    definition inte kapas mitt i meningen.
+    """
     cleaned = " ".join((text or "").split())
     if not cleaned:
         return ""
-    match = re.search(r"(?<!\bt\.ex)\.\s", cleaned)
-    sentence = cleaned[: match.start() + 1] if match else cleaned
+    sentence = cleaned
+    for match in re.finditer(r"\.\s", cleaned):
+        prefix = cleaned[: match.start()]
+        last_word = re.split(r"[\s(]", prefix)[-1].lower()
+        if last_word in _ABBREVIATIONS:
+            continue
+        sentence = cleaned[: match.start() + 1]
+        break
     if len(sentence) <= max_chars:
         return sentence
     cut = sentence[:max_chars].rsplit(" ", 1)[0]
