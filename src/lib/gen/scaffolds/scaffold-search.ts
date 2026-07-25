@@ -6,6 +6,7 @@ import type { ScaffoldEmbeddingEntry, ScaffoldEmbeddingsFile } from "./scaffold-
 import { SCAFFOLD_EMBEDDING_MODEL, SCAFFOLD_EMBEDDING_DIMENSIONS } from "./scaffold-embeddings-core";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 
 export interface ScaffoldSearchResult {
   scaffold: ScaffoldManifest;
@@ -190,6 +191,13 @@ export async function searchScaffoldsWithDiagnostics(
       input: embeddingInput,
       dimensions: SCAFFOLD_EMBEDDING_DIMENSIONS,
     }, embeddingSignal ? { signal: embeddingSignal } : undefined);
+    recordLlmUsage({
+      phase: "embeddings",
+      workload: "scaffold_search",
+      model: SCAFFOLD_EMBEDDING_MODEL,
+      usage: response.usage,
+      durationMs: Date.now() - embeddingStartedAt,
+    });
     if (!response.data?.[0]?.embedding) {
       return {
         results: [],

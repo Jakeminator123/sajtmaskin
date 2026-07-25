@@ -7,6 +7,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import {
   isAnthropicAssistModel,
   isOpenAIAssistModel,
@@ -306,6 +307,42 @@ export const simplifiedBriefSchema = z.object({
     }),
 });
 
+/**
+ * Ett misslyckat brief-försök har ändå förbrukat tokens hos leverantören.
+ *
+ * AI SDK:s `NoObjectGeneratedError` bär `usage` när modellen svarade men svaret
+ * inte gick att tolka mot schemat — då loggas den verkliga volymen. Andra fel
+ * (timeout, kvot, transport) saknar siffror, och raden sparas då som ett
+ * misslyckat anrop så luckan i förbrukningen går att förklara.
+ */
+function recordFailedBriefAttempt(params: {
+  model: string;
+  workload: string;
+  error: unknown;
+  durationMs: number;
+  schema?: "full" | "simplified";
+}): void {
+  const errorObject =
+    params.error && typeof params.error === "object"
+      ? (params.error as { usage?: unknown; name?: unknown })
+      : null;
+  recordLlmUsage({
+    phase: "brief",
+    workload: params.workload,
+    model: params.model,
+    usage: errorObject?.usage,
+    durationMs: params.durationMs,
+    ok: false,
+    errorCode:
+      typeof errorObject?.name === "string" ? errorObject.name : "brief_schema_failed",
+    meta: {
+      schema: params.schema ?? "full",
+      outcome:
+        (params.schema ?? "full") === "full" ? "retried_with_simplified" : "gave_up",
+    },
+  });
+}
+
 function resolveAnthropicBriefModelId(model: string): string {
   const stripped = model.replace(/^anthropic-direct\//, "").replace(/^anthropic\//, "");
   return stripped.replace(/(\d+)\.(\d+)$/g, "$1-$2");
@@ -519,6 +556,7 @@ export async function generateSiteBriefObject(
     outputTokenCap,
   });
 
+  const briefStartedAt = Date.now();
   if (resolvedProvider === "anthropic") {
     const directModel = createDirectModel(`anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`);
     let usedSimplified = false;
@@ -540,6 +578,14 @@ export async function generateSiteBriefObject(
       debugLog("AI", "Full Anthropic brief schema failed, trying simplified", {
         error: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
       });
+      // Det misslyckade försöket kostade tokens även om det inte gav något
+      // objekt. Utan den här raden försvinner den kostnaden ur körningen.
+      recordFailedBriefAttempt({
+        model: `anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`,
+        workload: briefSource,
+        error: fullSchemaErr,
+        durationMs: Date.now() - briefStartedAt,
+      });
       try {
         result = await generateObject({
           model: directModel,
@@ -560,6 +606,13 @@ export async function generateSiteBriefObject(
         });
         usedSimplified = true;
       } catch (simplifiedErr) {
+        recordFailedBriefAttempt({
+          model: `anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`,
+          workload: briefSource,
+          error: simplifiedErr,
+          durationMs: Date.now() - briefStartedAt,
+          schema: "simplified",
+        });
         const errMsg = simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
         errorLog("AI", "Anthropic brief generation failed - both schemas", {
           model: normalizedModel,
@@ -570,6 +623,14 @@ export async function generateSiteBriefObject(
         throw simplifiedErr;
       }
     }
+    recordLlmUsage({
+      phase: "brief",
+      workload: briefSource,
+      model: `anthropic/${resolveAnthropicBriefModelId(normalizedModel)}`,
+      usage: result.usage,
+      durationMs: Date.now() - briefStartedAt,
+      meta: { schema: usedSimplified ? "simplified" : "full" },
+    });
     const briefObject = result.object as Record<string, unknown>;
     const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
     devLogAppend("latest", {
@@ -612,6 +673,12 @@ export async function generateSiteBriefObject(
     debugLog("AI", "Full brief schema failed, trying simplified", {
       error: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
     });
+    recordFailedBriefAttempt({
+      model: normalizedModel,
+      workload: briefSource,
+      error: fullSchemaErr,
+      durationMs: Date.now() - briefStartedAt,
+    });
     try {
       result = await generateObject({
         model: directModel,
@@ -632,6 +699,13 @@ export async function generateSiteBriefObject(
       });
       usedSimplified = true;
     } catch (simplifiedErr) {
+      recordFailedBriefAttempt({
+        model: normalizedModel,
+        workload: briefSource,
+        error: simplifiedErr,
+        durationMs: Date.now() - briefStartedAt,
+        schema: "simplified",
+      });
       const errMsg = simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
       errorLog("AI", "Brief generation failed - both schemas", {
         model: normalizedModel,
@@ -642,6 +716,14 @@ export async function generateSiteBriefObject(
       throw simplifiedErr;
     }
   }
+  recordLlmUsage({
+    phase: "brief",
+    workload: briefSource,
+    model: normalizedModel,
+    usage: result.usage,
+    durationMs: Date.now() - briefStartedAt,
+    meta: { schema: usedSimplified ? "simplified" : "full" },
+  });
   const briefObject = result.object as Record<string, unknown>;
   const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
   devLogAppend("latest", {

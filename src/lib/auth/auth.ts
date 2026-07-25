@@ -193,6 +193,25 @@ export async function getCurrentUser(request: Request): Promise<User | null> {
 }
 
 /**
+ * Resolve the signed-in user inside a Server Component / Server Action, where
+ * there is no `Request` object to read headers from.
+ *
+ * Same token contract as {@link getCurrentUser} — it just reads the auth cookie
+ * via `next/headers` instead of a request header, so the cookie name stays
+ * single-sourced in this module.
+ */
+export async function getCurrentUserFromCookies(): Promise<User | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  if (!token) return null;
+
+  const payload = verifyToken(token);
+  if (!payload) return null;
+
+  return getUserById(payload.userId);
+}
+
+/**
  * Register a new user with email/password
  */
 export async function registerUser(

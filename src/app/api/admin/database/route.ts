@@ -4,7 +4,7 @@
  * POST /api/admin/database - Clear/reset database tables, manage uploads
  */
 
-import { and, desc, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, desc, isNotNull, isNull, lt, notInArray, sql } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
@@ -26,12 +26,93 @@ import {
 } from "@/lib/db/schema";
 import { TEST_USER_EMAIL, getUploadsDir } from "@/lib/db/services/shared";
 import { getRedisInfo, flushRedisCache } from "@/lib/data/redis";
-import { PATHS } from "@/lib/config";
-import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";
+import { FEATURES, PATHS } from "@/lib/config";
 
 async function countTable(table: unknown): Promise<number> {
   const rows = await db.select({ count: sql<number>`count(*)` }).from(table as never);
   return (rows[0] as { count: number } | undefined)?.count ?? 0;
+}
+
+/**
+ * Emails that a "clear users" style action must NEVER delete.
+ *
+ * Includes the acting admin: every user-deleting action here previously kept
+ * only `TEST_USER_EMAIL`, so an admin from `ADMIN_EMAILS` who pressed "rensa
+ * användare" / "nollställ allt" deleted their OWN account mid-session. The JWT
+ * then pointed at a missing user, which locked them out of the admin panel (and
+ * the app) with no way back except a manual DB insert.
+ */
+function protectedUserEmails(actingAdminEmail: string | null | undefined): string[] {
+  const emails = new Set<string>();
+  if (TEST_USER_EMAIL) emails.add(TEST_USER_EMAIL);
+  const acting = (actingAdminEmail ?? "").trim();
+  if (acting) emails.add(acting);
+  return Array.from(emails);
+}
+
+/** Delete every user except the protected ones (see `protectedUserEmails`). */
+async function deleteUsersExceptProtected(actingAdminEmail: string | null | undefined) {
+  const keep = protectedUserEmails(actingAdminEmail);
+  const query = db.delete(users);
+  return keep.length > 0
+    ? query.where(notInArray(users.email, keep)).returning({ id: users.id })
+    : query.where(sql`true`).returning({ id: users.id });
+}
+
+/**
+ * Wipe this environment's data in FOREIGN-KEY-SAFE order: children before their
+ * parents, users last.
+ *
+ * Both `reset-all` and its legacy alias `mega-cleanup` route through here.
+ * `mega-cleanup` used to fire the same deletes concurrently via `Promise.all`
+ * (Bugbot medium on #611): with child rows still referencing `app_projects`, an
+ * overlapping delete can raise an FK error and abort mid-run, leaving the
+ * database half-cleared. Sequential and shared means one behaviour, one order.
+ */
+async function resetEnvironmentData(actingAdminEmail: string | null | undefined): Promise<{
+  deletedRows: number;
+  flushedRedisKeys: number;
+  /**
+   * False when this environment has no cache at all. `flushRedisCache()` returns
+   * `-1` both for "not configured" and for "flush failed", and treating the
+   * former as a failure made the whole reset report failure in every
+   * Redis-less environment (caught while verifying the FK-order rewrite).
+   */
+  redisConfigured: boolean;
+}> {
+  let deletedRows = 0;
+
+  // Order matters: rows that reference app_projects go first.
+  const orderedTables = [
+    projectFiles,
+    projectData,
+    images,
+    mediaLibrary,
+    companyProfiles,
+    templateCache,
+    pageViews,
+    guestUsage,
+    transactions,
+    domainOrders,
+    appProjects,
+  ];
+
+  for (const table of orderedTables) {
+    const rows = await db
+      .delete(table)
+      .where(sql`true`)
+      .returning({ id: sql<string>`'row'` });
+    deletedRows += rows.length;
+  }
+
+  const deletedUsers = await deleteUsersExceptProtected(actingAdminEmail);
+  deletedRows += deletedUsers.length;
+
+  const redisConfigured = FEATURES.useRedisCache;
+  const flushedRedisKeys = redisConfigured ? await flushRedisCache() : 0;
+  clearUploadsFolder();
+
+  return { deletedRows, flushedRedisKeys, redisConfigured };
 }
 
 async function getDbFileSize(): Promise<string> {
@@ -134,8 +215,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: "Invalid table name" }, { status: 400 });
       }
 
-      if (table === "users" && TEST_USER_EMAIL) {
-        await db.delete(users).where(ne(users.email, TEST_USER_EMAIL));
+      if (table === "users") {
+        await deleteUsersExceptProtected(admin.user.email);
       } else if (table === "projects") {
         await db.delete(projectData).where(sql`true`);
         await db.delete(projectFiles).where(sql`true`);
@@ -152,6 +233,12 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "flush-redis") {
+      if (!FEATURES.useRedisCache) {
+        return NextResponse.json({
+          success: false,
+          error: "Ingen cache är konfigurerad i den här miljön — det finns inget att tömma.",
+        });
+      }
       // BUG-FIX 2026-04-24: flushRedisCache rensar nu BARA REDIS_KEY_PREFIX-scope
       // (dev:/preview:/prod:) — inte hela databasen som tidigare. Returvärdet
       // är antalet raderade nycklar (eller -1 vid fel).
@@ -166,41 +253,35 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (action === "reset-all") {
-      await db.delete(pageViews).where(sql`true`);
-      await db.delete(guestUsage).where(sql`true`);
-      await db.delete(transactions).where(sql`true`);
-      await db.delete(projectData).where(sql`true`);
-      await db.delete(projectFiles).where(sql`true`);
-      await db.delete(images).where(sql`true`);
-      await db.delete(mediaLibrary).where(sql`true`);
-      await db.delete(companyProfiles).where(sql`true`);
-      await db.delete(templateCache).where(sql`true`);
-      await db.delete(domainOrders).where(sql`true`);
-      await db.delete(appProjects).where(sql`true`);
-
-      if (TEST_USER_EMAIL) {
-        await db.delete(users).where(ne(users.email, TEST_USER_EMAIL));
-      } else {
-        await db.delete(users).where(sql`true`);
-      }
+    if (action === "reset-all" || action === "mega-cleanup") {
+      // `mega-cleanup` is the retired alias (see the comment above the Vercel
+      // guard) — same data reset, no infrastructure calls.
+      const { deletedRows, flushedRedisKeys, redisConfigured } = await resetEnvironmentData(
+        admin.user.email,
+      );
 
       // BUG-FIX 2026-04-24 (test-agent rapport): tidigare ignorerades
       // returvärdet från flushRedisCache helt — `success: true` kunde
       // returneras även när Redis-flushen failade. Nu härleds success.
-      const flushed = await flushRedisCache();
-      clearUploadsFolder();
-
-      const redisOk = flushed >= 0;
+      const redisOk = !redisConfigured || flushedRedisKeys >= 0;
       console.info(
-        `[Admin] Reset all databases (Redis: ${redisOk ? `${flushed} keys flushed` : "FAILED"})`,
+        `[Admin] Reset environment data (rows: ${deletedRows}, Redis: ${
+          !redisConfigured ? "not configured" : redisOk ? `${flushedRedisKeys} keys flushed` : "FAILED"
+        })`,
       );
       return NextResponse.json({
         success: redisOk,
-        message: redisOk
-          ? `All data cleared (Redis: ${flushed} keys i denna miljö)`
-          : "Database cleared but Redis flush failed — check server logs",
-        redisFlushedKeys: redisOk ? flushed : null,
+        partialSuccess: !redisOk,
+        results: {
+          database: { deleted: deletedRows },
+          redis: { success: redisOk, deleted: redisOk ? flushedRedisKeys : 0 },
+        },
+        redisFlushedKeys: redisOk ? flushedRedisKeys : null,
+        message: !redisConfigured
+          ? `Nollställning: ${deletedRows} databasrader (ingen cache konfigurerad i den här miljön)`
+          : redisOk
+            ? `Nollställning: ${deletedRows} databasrader, ${flushedRedisKeys} cachenycklar`
+            : `Nollställning: ${deletedRows} databasrader (cachen kunde inte tömmas — se serverloggen)`,
       });
     }
 
@@ -217,7 +298,16 @@ export async function POST(req: NextRequest) {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // TEMPLATE CACHE MANAGEMENT
+    // TEMPLATE CACHE MANAGEMENT — LEGACY, NO UI (2026-07-24)
+    //
+    // The `template_cache` table is a leftover from the removed v0-API template
+    // sync: nothing in runtime writes it any more (the Blob manifest owns the
+    // gallery, `src/lib/templates/`), and `project-cleanup.ts` only deletes
+    // expired rows. The admin UI block that exposed export/import/extend/clear
+    // was removed because it was dead surface. The actions are kept here (and the
+    // table untouched) so nothing breaks for an existing script or bookmark;
+    // dropping table + actions is a separate decision tracked in
+    // BUG-SWARM-BACKLOG.md.
     // ═══════════════════════════════════════════════════════════════════════
 
     if (action === "export-templates") {
@@ -396,161 +486,27 @@ export async function POST(req: NextRequest) {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // MEGA CLEANUP - Clear Vercel, Postgres, and Redis
+    // RETIRED INFRASTRUCTURE ACTIONS (2026-07-24)
+    //
+    // `mega-cleanup` and `cleanup-vercel-projects` used to list every Vercel
+    // project the access token could see and delete all of them — including
+    // Sajtmaskin's own production project — from a two-click admin button.
+    //
+    // `mega-cleanup` now aliases `reset-all` (data + cache only, handled above),
+    // and single-project deletion goes through
+    // `DELETE /api/admin/vercel/projects/[projectId]`, which refuses the app's own
+    // project via `src/lib/vercel/self-project-guard.ts`. The ids stay routed so
+    // an old bookmark/script cannot silently start deleting infrastructure again.
     // ═══════════════════════════════════════════════════════════════════════════
-
-    if (action === "mega-cleanup") {
-      const results: {
-        vercel: { deleted: number; errors: string[] };
-        database: { deleted: number };
-        redis: { success: boolean; deleted: number };
-      } = {
-        vercel: { deleted: 0, errors: [] },
-        database: { deleted: 0 },
-        redis: { success: false, deleted: 0 },
-      };
-
-      const vercelToken = pickVercelAccessTokenFromEnv();
-      if (vercelToken) {
-        try {
-          const projectsRes = await fetch("https://api.vercel.com/v9/projects", {
-            headers: { Authorization: `Bearer ${vercelToken}` },
-          });
-
-          if (projectsRes.ok) {
-            const projectsData = await projectsRes.json();
-            const vercelProjects = projectsData.projects || [];
-
-            for (const proj of vercelProjects) {
-              try {
-                const delRes = await fetch(`https://api.vercel.com/v9/projects/${proj.id}`, {
-                  method: "DELETE",
-                  headers: { Authorization: `Bearer ${vercelToken}` },
-                });
-                if (delRes.ok || delRes.status === 204) {
-                  results.vercel.deleted++;
-                }
-              } catch (err) {
-                results.vercel.errors.push(
-                  `Failed to delete ${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`,
-                );
-              }
-            }
-          }
-        } catch (err) {
-          results.vercel.errors.push(
-            `Failed to fetch Vercel projects: ${err instanceof Error ? err.message : "Unknown"}`,
-          );
-        }
-      }
-
-      const deletedRows = await Promise.all([
-        db.delete(projectFiles).where(sql`true`).returning({ id: projectFiles.id }),
-        db.delete(projectData).where(sql`true`).returning({ id: projectData.project_id }),
-        db.delete(images).where(sql`true`).returning({ id: images.id }),
-        db.delete(mediaLibrary).where(sql`true`).returning({ id: mediaLibrary.id }),
-        db.delete(companyProfiles).where(sql`true`).returning({ id: companyProfiles.id }),
-        db.delete(templateCache).where(sql`true`).returning({ id: templateCache.id }),
-        db.delete(pageViews).where(sql`true`).returning({ id: pageViews.id }),
-        db.delete(guestUsage).where(sql`true`).returning({ id: guestUsage.id }),
-        db.delete(transactions).where(sql`true`).returning({ id: transactions.id }),
-        db.delete(domainOrders).where(sql`true`).returning({ id: domainOrders.id }),
-        db.delete(appProjects).where(sql`true`).returning({ id: appProjects.id }),
-      ]);
-
-      results.database.deleted = deletedRows.reduce((sum, rows) => sum + rows.length, 0);
-
-      const deletedUsers = TEST_USER_EMAIL
-        ? await db.delete(users).where(ne(users.email, TEST_USER_EMAIL)).returning({ id: users.id })
-        : await db.delete(users).where(sql`true`).returning({ id: users.id });
-      results.database.deleted += deletedUsers.length;
-
-      // BUG-FIX 2026-04-24: prefix-scoped flush (se `flushRedisCache` JSDoc).
-      const flushedKeys = await flushRedisCache();
-      results.redis.success = flushedKeys >= 0;
-      results.redis.deleted = flushedKeys >= 0 ? flushedKeys : 0;
-      clearUploadsFolder();
-
-      // BUG-FIX 2026-04-24 (test-agent rapport): tidigare hardcoded
-      // `success: true` även när redis.success var false eller vercel
-      // hade fel. Nu härleds top-level success från delresultaten.
-      const allOk =
-        results.redis.success && results.vercel.errors.length === 0;
-
-      return NextResponse.json({
-        success: allOk,
-        partialSuccess: !allOk,
-        results,
-        message: `Mega cleanup: ${results.vercel.deleted} Vercel, ${results.database.deleted} DB rows, ${results.redis.deleted} Redis keys${
-          allOk ? "" : " (med fel — se results)"
-        }`,
-      });
-    }
-
     if (action === "cleanup-vercel-projects") {
-      const vercelToken = pickVercelAccessTokenFromEnv();
-      if (!vercelToken) {
-        return NextResponse.json({
+      return NextResponse.json(
+        {
           success: false,
-          error: "VERCEL_TOKEN (or VERCEL_TOKEN_FULL) not configured",
-        });
-      }
-
-      const deleted: string[] = [];
-      const errors: string[] = [];
-
-      try {
-        const projectsRes = await fetch("https://api.vercel.com/v9/projects", {
-          headers: { Authorization: `Bearer ${vercelToken}` },
-        });
-
-        if (!projectsRes.ok) {
-          return NextResponse.json({
-            success: false,
-            error: `Failed to fetch Vercel projects: ${projectsRes.status}`,
-          });
-        }
-
-        const projectsData = await projectsRes.json();
-        const vercelProjects = projectsData.projects || [];
-
-        for (const proj of vercelProjects) {
-          try {
-            const delRes = await fetch(`https://api.vercel.com/v9/projects/${proj.id}`, {
-              method: "DELETE",
-              headers: { Authorization: `Bearer ${vercelToken}` },
-            });
-            if (delRes.ok || delRes.status === 204) {
-              deleted.push(proj.id);
-            } else {
-              errors.push(`${proj.id}: ${delRes.status}`);
-            }
-          } catch (err) {
-            errors.push(`${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`);
-          }
-        }
-
-        // BUG-FIX 2026-04-24 (review-agent): tidigare alltid success: true
-        // även om enstaka projekt-deletes failade. Speglar samma härlednings-
-        // mönster som import-templates / mega-cleanup.
-        const allOk = errors.length === 0;
-        return NextResponse.json({
-          success: allOk,
-          partialSuccess: !allOk && deleted.length > 0,
-          deleted: deleted.length,
-          total: vercelProjects.length,
-          failed: errors.length,
-          errors,
-          message: allOk
-            ? `Deleted ${deleted.length}/${vercelProjects.length} Vercel projects`
-            : `Deleted ${deleted.length}/${vercelProjects.length} Vercel projects (${errors.length} failed)`,
-        });
-      } catch (err) {
-        return NextResponse.json({
-          success: false,
-          error: err instanceof Error ? err.message : "Unknown error",
-        });
-      }
+          error:
+            "Bulkradering av Vercel-projekt är borttagen. Radera enskilda projekt under Miljö i adminpanelen.",
+        },
+        { status: 410 },
+      );
     }
 
     if (action === "cleanup-anonymous-projects") {

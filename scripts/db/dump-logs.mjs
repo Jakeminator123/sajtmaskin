@@ -11,7 +11,7 @@
  *     --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys \
  *     --limit=50 [--chat=<chatId>]
  *
- * Kinds: prompts, generations, versions, telemetry, errors, chats,
+ * Kinds: prompts, generations, versions, telemetry, llmusage, errors, chats,
  *   oc        -> oc_debug_findings   (OpenClaw bug-hunt Mode B findings)
  *   ragevents -> error_log_events    (durable fault/fix RAG telemetry)
  *   deploys   -> deployments         (Vercel deploy row: ids + url + status)
@@ -142,6 +142,16 @@ const KIND_SPECS = {
     table: "engine_chats",
     chatColumn: "id",
     columns: ["id", "title", "model", "scaffold_id", "project_id", "created_at", "updated_at"],
+  },
+  llmusage: {
+    table: "llm_usage",
+    chatColumn: "chat_id",
+    columns: [
+      "id", "run_id", "chat_id", "version_id", "user_id", "phase", "workload",
+      "provider", "model", "model_tier", "input_tokens", "cached_input_tokens",
+      "output_tokens", "reasoning_tokens", "duration_ms", "ok", "error_code",
+      "created_at",
+    ],
   },
   oc: {
     table: "oc_debug_findings",

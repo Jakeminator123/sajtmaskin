@@ -1,7 +1,10 @@
-import { LogViewer } from "./log-viewer";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default function LogPage() {
-  return <LogViewer />;
+/**
+ * Legacy alias. The log viewer moved into the admin console
+ * (`/admin/loggar`), where it is admin-gated like the data it shows —
+ * `/log` and `/logg` rendered the same component on two public URLs.
+ */
+export default function LegacyLogPage() {
+  redirect("/admin/loggar");
 }

@@ -9,6 +9,7 @@ import {
 import { getBlockedVariantIds } from "./eval-blocklist";
 import type { PickScaffoldVariantInput, ScaffoldVariant } from "./types";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
+import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 
 /**
@@ -316,10 +317,18 @@ export async function pickScaffoldVariantAsync(
         (input.styleKeywords ?? []).join(" "),
         (input.toneKeywords ?? []).join(" "),
       ].filter(Boolean).join("\n");
+      const embeddingStartedAt = Date.now();
       const res = await openai.embeddings.create({
         model: embeddingsFile._meta.model,
         input: text,
         dimensions: embeddingsFile._meta.dimensions,
+      });
+      recordLlmUsage({
+        phase: "embeddings",
+        workload: "scaffold_variant_match",
+        model: embeddingsFile._meta.model,
+        usage: res.usage,
+        durationMs: Date.now() - embeddingStartedAt,
       });
       queryVec = res.data[0]?.embedding ?? null;
     } catch {

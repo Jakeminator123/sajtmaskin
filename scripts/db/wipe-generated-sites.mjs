@@ -98,6 +98,7 @@ const pool = new Pool({
 // so children are deleted before their parents to stay FK-safe on any target.
 const DELETE_STATEMENTS = [
   // engine tree — leaf tables first
+  "DELETE FROM llm_usage",
   "DELETE FROM generation_telemetry",
   "DELETE FROM version_comments",
   "DELETE FROM version_approvals",
@@ -152,6 +153,7 @@ const REPORT_TABLES = {
     "user_audits",
     "prompt_handoffs",
     "generation_telemetry",
+    "llm_usage",
     "version_comments",
     "version_approvals",
   ],

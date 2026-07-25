@@ -55,6 +55,7 @@ import {
   pruneStaleLogsIfCleanRepair,
 } from "./persist-side-effects";
 import { persistTelemetryRecord } from "./persist-telemetry";
+import { attachVersionToPendingUsage, setLlmUsageContext } from "@/lib/observability/llm-usage";
 import { buildWarmPassTelemetry } from "./warm-pass-telemetry";
 import type {
   FinalizeParams,
@@ -417,6 +418,11 @@ export async function finalizeAndSaveVersion(
       });
   let version = initialVersion;
   const finalizeRunId = repairPassIndex > 0 ? `repair-${repairPassIndex}` : undefined;
+  // Nu finns versionen — knyt resten av körningens LLM-anrop (verifier,
+  // RepairGate) till den, och efterstämpla de som redan hunnit köra utan
+  // versionsid (brief, scaffold-embeddings, klassificeraren).
+  setLlmUsageContext({ chatId, versionId: version.id, runId: finalizeRunId ?? "root" });
+  attachVersionToPendingUsage(chatId, version.id);
   devLogAppend("in-progress", {
     type: "version.created",
     chatId,
