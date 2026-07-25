@@ -26,7 +26,12 @@ param(
   # PR:er som redan triagerats och blockerats i väntan på författaren. De larmar
   # inte som ACTIONABLE (de är gröna men får ändå inte merge:as), men en NY commit
   # på dem larmar fortfarande - det är signalen att blockeringen kan vara löst.
-  [int[]]$Ignore = @(),
+  #
+  # Sträng, inte [int[]]: under `pwsh -File` skickas argument som strängar, och
+  # `-Ignore 610,611,615` band tidigare ihop sig till ETT värde (610611615) som
+  # aldrig matchade något PR-nummer. Filtret gjorde alltså tyst ingenting medan
+  # operatören trodde att blockerade PR:er var dämpade - värre än att inte finnas.
+  [string]$Ignore = "",
   # Cykler innan samma larm får upprepas. Utan en påminnelse tystnar en PR som
   # larmats en gång för alltid, även om blockeringen lösts UTAN ny commit (t.ex.
   # författaren lade sign-off eller triagerade ett fynd) - då kommer ingen ny
@@ -36,6 +41,7 @@ param(
 )
 
 $ErrorActionPreference = "Continue"
+$ignoredPrs = @($Ignore -split "[,\s]+" | Where-Object { $_ -match "^\d+$" } | ForEach-Object { [int]$_ })
 $seenSha = @{}
 $known = New-Object System.Collections.Generic.HashSet[int]
 # Larma en gång per (PR, SHA, läge), men påminn efter $ReAnnounceCycles. Utan
@@ -160,7 +166,8 @@ function Get-CheckState([int]$number) {
   return "unknown"
 }
 
-Write-Output "[watch-prs] start: interval=${IntervalSeconds}s mognad=${MinutesMature}min cykler=$Cycles"
+$ignoreText = $(if ($ignoredPrs.Count -gt 0) { $ignoredPrs -join "," } else { "inga" })
+Write-Output "[watch-prs] start: interval=${IntervalSeconds}s mognad=${MinutesMature}min cykler=$Cycles dampade=$ignoreText"
 
 for ($i = 1; $i -le $Cycles; $i++) {
   $prs = Get-OpenPrs
@@ -200,7 +207,7 @@ for ($i = 1; $i -le $Cycles; $i++) {
 
     $signed = $(if ($pr.Signed) { "label:merge:ready" } else { "OSIGNERAD" })
     if ($state -eq "failed") { Announce "$n/$sha/failed" "FAILED #$n" $i }
-    elseif ($state -eq "green" -and $age -ge $MinutesMature -and $Ignore -notcontains $n) {
+    elseif ($state -eq "green" -and $age -ge $MinutesMature -and $ignoredPrs -notcontains $n) {
       # Signaturläget ingår i nyckeln: när författaren sätter merge:ready UTAN
       # ny commit ändras varken SHA eller läge, och utan detta hade larmet tystats
       # till nästa påminnelse - fast det är precis då PR:en blir mergebar.
