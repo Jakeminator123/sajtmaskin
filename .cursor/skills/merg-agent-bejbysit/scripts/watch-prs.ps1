@@ -86,10 +86,14 @@ Hur länge innehållet varit granskningsbart. Två klockor måste båda ha gått
 
 Innehållet blev granskningsbart vid den SENASTE av de två händelserna, så den
 förflutna tiden är den MINSTA av de två åldrarna.
+
+Går en klocka inte att läsa (gh-fel) returneras -1 = "vet inte", aldrig den
+andra klockan. Att falla tillbaka på PR-åldern vore fail-OPEN: en gammal PR med
+en fräsch head-commit skulle se mogen ut om just commit-uppslaget råkade fela,
+och en minut gammal kod kunde larmas som redo. En grind ska falla stängd.
 #>
 function Get-ReviewableMinutes([int]$commitAge, [int]$prAge) {
-  if ($commitAge -lt 0) { return $prAge }
-  if ($prAge -lt 0) { return $commitAge }
+  if ($commitAge -lt 0 -or $prAge -lt 0) { return -1 }
   return [Math]::Min($commitAge, $prAge)
 }
 

@@ -73,16 +73,27 @@ täcka två olika sätt att smita förbi granskning:
 Innehållet blev granskningsbart vid den **senaste** av de två händelserna, så den
 förflutna tiden är den **minsta** av de två åldrarna:
 
+Hämta båda tiderna som **råa strängar** via `--jq`. `ConvertFrom-Json` gör om
+ISO-tider till `DateTime`-objekt, och en `[string]`-konvertering av dem tappar
+`Z`-suffixet → värdet läses som lokal tid och åldern blir fel med hela
+UTC-offseten (en 3 min gammal PR mätte 125 min):
+
 ```powershell
-$pr = gh pr view <n> --json headRefOid,createdAt | ConvertFrom-Json
-$pushed = gh api repos/Jakeminator123/sajtmaskin/commits/$($pr.headRefOid) --jq .commit.committer.date
-$ages = @($pushed, $pr.createdAt) | ForEach-Object { [int]((Get-Date).ToUniversalTime() - [datetime]::Parse($_).ToUniversalTime()).TotalMinutes }
+$sha = gh pr view <n> --json headRefOid --jq .headRefOid
+$created = gh pr view <n> --json createdAt --jq .createdAt
+$pushed = gh api repos/Jakeminator123/sajtmaskin/commits/$sha --jq .commit.committer.date
+$styles = [Globalization.DateTimeStyles]::AdjustToUniversal -bor [Globalization.DateTimeStyles]::AssumeUniversal
+$ages = @($pushed, $created) | ForEach-Object {
+  [int]((Get-Date).ToUniversalTime() - [datetime]::Parse($_, [Globalization.CultureInfo]::InvariantCulture, $styles)).TotalMinutes
+}
 ($ages | Measure-Object -Minimum).Minimum
 ```
 
-Under 15 → merga inte. Detta är **strängare** än CI-checken `review-window`
-(7 min från `created_at`, förlängs inte av nya commits), och gäller även vid
-`--admin`, som överstyr checken.
+Under 15 → merga inte. Går en av tiderna inte att läsa: behandla som **inte
+mogen**, aldrig som "då gäller den andra" — en gate faller stängd.
+
+Detta är **strängare** än CI-checken `review-window` (7 min från `created_at`,
+förlängs inte av nya commits), och gäller även vid `--admin`, som överstyr checken.
 
 ## Steg 3 — bedöm
 
@@ -92,7 +103,7 @@ Merga när **allt** stämmer:
 2. Författarens bugg-efterkontroll finns dokumenterad i PR:en — verifiera, **kör inte om den**.
 3. Varje bot-fynd (Codex, Bugbot, Vercel Agent Review, GitGuardian) är fixat, loggat eller avfärdat med motivering. Ett fynd som författaren avvisat med god anledning räknas som triagerat.
 4. Inga öppna P0/P1.
-5. ≥ 15 min sedan senaste commit.
+5. ≥ 15 min **granskningsbar** enligt båda klockorna i Steg 2 — alltså minsta av commit-åldern och PR-åldern, inte bara commit-åldern.
 6. Head-SHA oförändrad sedan sign-off.
 
 Landar ett nytt bot-fynd medan du väntar: triagera det innan merge. Är det giltigt
