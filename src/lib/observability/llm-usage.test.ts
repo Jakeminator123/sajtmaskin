@@ -19,6 +19,8 @@ vi.mock("@/lib/db/services/llm-usage", () => ({
 
 const {
   attachChatToPendingUsage,
+  flushPendingUsageWrites,
+  recordLlmUsage,
   attachVersionToPendingUsage,
   buildLlmUsageRecord,
   getLlmUsageContext,
@@ -340,5 +342,70 @@ describe("attachChatToPendingUsage", () => {
     attachChatToUnassignedLlmUsage.mockRejectedValue(new Error("db nere"));
     expect(() => attachChatToPendingUsage("sess_1", "chat_1")).not.toThrow();
     await vi.waitFor(() => expect(attachChatToUnassignedLlmUsage).toHaveBeenCalled());
+  });
+});
+
+describe("flushPendingUsageWrites", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv("POSTGRES_URL", "postgres://user:pass@localhost:5432/test");
+    dbState.configured = true;
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("väntar in pågående skrivningar", async () => {
+    // Utan detta kan en claim-UPDATE hinna före sin INSERT och lämna raden
+    // permanent oattribuerad.
+    let resolveInsert: (() => void) | null = null;
+    createLlmUsageRecord.mockImplementation(
+      () => new Promise<void>((resolve) => (resolveInsert = () => resolve())),
+    );
+    recordLlmUsage({ phase: "brief", model: "gpt-5.5", usage: { inputTokens: 5 } });
+    await vi.waitFor(() => expect(createLlmUsageRecord).toHaveBeenCalled());
+
+    let flushed = false;
+    const flush = flushPendingUsageWrites().then(() => {
+      flushed = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(flushed).toBe(false);
+
+    resolveInsert?.();
+    await flush;
+    expect(flushed).toBe(true);
+  });
+
+  it("returnerar direkt när inget är på gång", async () => {
+    await expect(flushPendingUsageWrites()).resolves.toBeUndefined();
+  });
+
+  it("claimen väntar in skrivningen innan UPDATE", async () => {
+    const order: string[] = [];
+    let resolveInsert: (() => void) | null = null;
+    createLlmUsageRecord.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveInsert = () => {
+            order.push("insert");
+            resolve();
+          };
+        }),
+    );
+    attachChatToUnassignedLlmUsage.mockImplementation(async () => {
+      order.push("claim");
+      return 1;
+    });
+
+    recordLlmUsage({ phase: "brief", model: "gpt-5.5", usage: { inputTokens: 5 } });
+    await vi.waitFor(() => expect(createLlmUsageRecord).toHaveBeenCalled());
+    attachChatToPendingUsage("sess_1", "chat_1");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(order).toEqual([]);
+
+    resolveInsert?.();
+    await vi.waitFor(() => expect(order).toEqual(["insert", "claim"]));
   });
 });

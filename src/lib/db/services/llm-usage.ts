@@ -107,9 +107,13 @@ export async function attachChatToUnassignedLlmUsage(
  * här efterstämplingen faller de utanför körningens summa och kostnaden per
  * körning blir systematiskt underskattad.
  *
- * Fönstret (`maxAgeMinutes`) hindrar att en gammal, övergiven brief-rad knyts
- * till en helt annan körning. En chat genererar inte två versioner samtidigt, så
- * ett tidsfönster räcker som avgränsning.
+ * Två gränser hindrar att en TIDIGARE generations föräldralösa rader knyts till
+ * den här versionen och blåser upp dess kostnad:
+ *
+ * 1. raden måste vara nyare än chattens senast attribuerade rad (allt äldre hör
+ *    per definition till en föregående körning), och
+ * 2. den måste ligga inom `maxAgeMinutes` (gäller den allra första versionen i en
+ *    chat, där ingen tidigare attribuering finns att jämföra med).
  *
  * Returnerar antalet uppdaterade rader.
  */
@@ -128,6 +132,14 @@ export async function attachVersionToUnassignedLlmUsage(
         eq(llmUsage.chat_id, chatId),
         sql`${llmUsage.version_id} IS NULL`,
         gt(llmUsage.created_at, sql`now() - (${String(maxAgeMinutes)} || ' minutes')::interval`),
+        sql`${llmUsage.created_at} > COALESCE(
+          (
+            SELECT MAX(prior.created_at)
+            FROM ${llmUsage} AS prior
+            WHERE prior.chat_id = ${chatId} AND prior.version_id IS NOT NULL
+          ),
+          '-infinity'::timestamptz
+        )`,
       ),
     )
     .returning({ id: llmUsage.id });

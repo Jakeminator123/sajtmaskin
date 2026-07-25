@@ -904,6 +904,20 @@ Use those exact ids so downstream tooling can recognise them.`;
       quality: [...deterministic.quality, ...promoted.quality],
     });
   } catch (err) {
+    // Ett misslyckat verifier-anrop har ändå kostat tokens. AI SDK:s
+    // NoObjectGeneratedError bär `usage` när modellen svarade men svaret inte
+    // gick att tolka mot schemat; andra fel saknar siffror och sparas som ett
+    // misslyckat anrop så luckan går att förklara.
+    const errorObject =
+      err && typeof err === "object" ? (err as { usage?: unknown; name?: unknown }) : null;
+    recordLlmUsage({
+      phase: "verifier",
+      model: modelId,
+      usage: errorObject?.usage,
+      durationMs: Date.now() - llmCallStartedAt,
+      ok: false,
+      errorCode: typeof errorObject?.name === "string" ? errorObject.name : "verifier_failed",
+    });
     if (isNonRetryableProviderError(err)) {
       console.warn("[verifier-pass] Non-retryable provider error, skipping:", summariseProviderError(err));
     } else {

@@ -278,11 +278,30 @@ export function buildLlmUsageRecord(input: RecordLlmUsageInput): CreateLlmUsageR
 }
 
 /**
+ * Pågående skrivningar. Claim/stämpling är UPDATE:ar som matchar redan skrivna
+ * rader — utan att vänta in dessa kan en UPDATE hinna före sin INSERT och lämna
+ * raden permanent oattribuerad.
+ */
+const inFlightWrites = new Set<Promise<void>>();
+
+/** Max antal rundor `flushPendingUsageWrites` väntar, så den inte kan snurra. */
+const FLUSH_MAX_ROUNDS = 3;
+
+/**
  * Skriv en förbrukningsrad. Fire-and-forget: returnerar direkt, kastar aldrig,
  * och sväljer alla fel med en varning. Anropas från LLM-callsites.
  */
 export function recordLlmUsage(input: RecordLlmUsageInput): void {
-  void recordLlmUsageAsync(input);
+  const pending = recordLlmUsageAsync(input);
+  inFlightWrites.add(pending);
+  void pending.finally(() => inFlightWrites.delete(pending));
+}
+
+/** Vänta in pågående skrivningar innan en UPDATE som ska matcha dem. */
+export async function flushPendingUsageWrites(): Promise<void> {
+  for (let round = 0; round < FLUSH_MAX_ROUNDS && inFlightWrites.size > 0; round += 1) {
+    await Promise.allSettled([...inFlightWrites]);
+  }
 }
 
 /** Samma sak men väntbar — för tester och för `after()`-kontexter. */
@@ -316,6 +335,7 @@ export function attachChatToPendingUsage(sessionId: string, chatId: string): voi
   void (async () => {
     try {
       if (!sessionId || !chatId || !dbEnvPresent()) return;
+      await flushPendingUsageWrites();
       const { dbConfigured } = await import("@/lib/db/client");
       if (!dbConfigured) return;
       const { attachChatToUnassignedLlmUsage } = await import("@/lib/db/services/llm-usage");
@@ -337,6 +357,7 @@ export function attachVersionToPendingUsage(chatId: string, versionId: string): 
   void (async () => {
     try {
       if (!chatId || !versionId || !dbEnvPresent()) return;
+      await flushPendingUsageWrites();
       const { dbConfigured } = await import("@/lib/db/client");
       if (!dbConfigured) return;
       const { attachVersionToUnassignedLlmUsage } = await import("@/lib/db/services/llm-usage");

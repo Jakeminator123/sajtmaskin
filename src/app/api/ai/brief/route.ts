@@ -4,6 +4,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { getRequestUserId } from "@/lib/tenant";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { runWithLlmUsageContext, setLlmUsageContext } from "@/lib/observability/llm-usage";
 import { normalizeAssistModel } from "@/lib/builder/prompt-assist";
 import {
   buildBriefTrace,
@@ -47,7 +48,8 @@ function buildBriefHeaders(
 }
 
 export async function POST(req: Request) {
-  return withRateLimit(req, "ai:brief", async () => {
+  return withRateLimit(req, "ai:brief", async () =>
+    runWithLlmUsageContext({}, async () => {
     try {
       const botError = requireNotBot(req);
       if (botError) return botError;
@@ -60,6 +62,9 @@ export async function POST(req: Request) {
       if (!userId || userId.startsWith("guest:")) {
         return NextResponse.json({ error: "unauthorized" }, { status: 401 });
       }
+      // Klient-triggad Deep Brief är en egen request: utan eget scope skulle
+      // brief-anropets tokenrad sakna ägare.
+      setLlmUsageContext({ userId });
 
       const body = await req.json().catch(() => null);
       const parsed = briefRequestSchema.safeParse(body);
@@ -202,5 +207,6 @@ export async function POST(req: Request) {
         { status: 500 },
       );
     }
-  });
+    }),
+  );
 }
