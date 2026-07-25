@@ -674,8 +674,10 @@ describe("useSendMessage outcome contract", () => {
         reason: "tier3_env_not_ready",
       });
       expect(dispatchF3Requirements).toHaveBeenCalledTimes(1);
-      // Nothing was built, so the ghost user row goes like on the direct 412.
-      expect(messagesBox.current.filter((m) => m.role === "user")).toEqual([]);
+      // The user row is KEPT unlike the direct 412: this 409 comes from the
+      // approve-continuation backstop, which persists the row before returning,
+      // so hiding it would diverge from the DB (bugbot on #610).
+      expect(messagesBox.current.filter((m) => m.role === "user")).toHaveLength(1);
       expect(messagesBox.current.at(-1)?.content).toMatch(/build-nycklar/i);
     });
 
@@ -694,7 +696,7 @@ describe("useSendMessage outcome contract", () => {
         status: "rejected",
         reason: "f3_build_required",
       });
-      expect(messagesBox.current.filter((m) => m.role === "user")).toEqual([]);
+      expect(messagesBox.current.filter((m) => m.role === "user")).toHaveLength(1);
       expect(messagesBox.current.at(-1)?.content).toMatch(/previewpanelen/i);
     });
 

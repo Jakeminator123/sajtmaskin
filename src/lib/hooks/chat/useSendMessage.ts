@@ -109,13 +109,16 @@ export function useSendMessage(
       const assistantMessageId = `assistant-${now}`;
 
       /**
-       * A handled rejection means the server refused the turn BEFORE persisting
-       * anything (both gates return ahead of `addMessage`), so the optimistic
-       * user row is a client-only ghost. It is dropped and only the assistant
-       * notice explaining the refusal stays: the composer keeps the draft for a
-       * `rejected` outcome, and the prompt must live in exactly one place —
-       * otherwise the thread shows it as a sent turn that never happened and a
-       * retry renders it twice (bugbot on #610).
+       * For the two gates that refuse a turn BEFORE the server persists
+       * anything — stale-base 409 and tier-3 412, both of which return ahead of
+       * `addMessage` — the optimistic user row is a client-only ghost. It is
+       * dropped and only the assistant notice explaining the refusal stays: the
+       * composer keeps the draft for a `rejected` outcome, and the prompt must
+       * live in exactly one place, otherwise the thread shows it as a sent turn
+       * that never happened and a retry renders it twice (bugbot on #610).
+       *
+       * NOT for every rejection: the nested-finalize 409 can already have
+       * persisted the user row, so that path keeps the bubble (see its comment).
        */
       const settleRejectedTurn = (assistantContent: string) => {
         setMessages((prev) =>
@@ -540,19 +543,22 @@ export function useSendMessage(
               toast.warning("F3-kontrollen kunde inte slutföras.");
               outcome = { status: "failed", message: release.message };
             }
-            if (outcome.status === "rejected") {
-              // Nothing was built, so the optimistic user row goes and the
-              // caller keeps its draft — same handling as the direct 412.
-              settleRejectedTurn(content);
-            } else {
-              setMessages((prev) =>
-                prev.map((message) =>
-                  message.id === assistantMessageId
-                    ? { ...message, content, isStreaming: false }
-                    : message,
-                ),
-              );
-            }
+            // The user row is KEPT here even when the verdict is a rejection,
+            // unlike the direct 412 and the stale-base 409. Those two gates
+            // return before the server persists anything, but this 409 comes
+            // from the approve-continuation backstop, which persists the user
+            // row when the reply was an approval (`f3-readiness-gate.ts`
+            // consumes the marker, then writes the row). Hiding a row that
+            // exists in the DB would be the worse lie — it reappears on reload
+            // (bugbot on #610). The draft still survives via the `rejected`
+            // status, so the prompt is recoverable either way.
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantMessageId
+                  ? { ...message, content, isStreaming: false }
+                  : message,
+              ),
+            );
             return outcome;
           }
           // 5-2 stale-base gate (client half) — delad hanterare, se ovan.
