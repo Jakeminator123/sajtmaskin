@@ -19,7 +19,10 @@ vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
   checkTier3ReadinessForVersion: vi.fn(),
 }));
 vi.mock("@/lib/gen/orchestration-snapshot", () => ({
-  readF3ApprovedFromSnapshot: vi.fn(() => ({ providers: [] })),
+  // Both fields: the real reader always returns them, and the approve path maps
+  // over `capabilities` (f3-approve-round.ts), so a providers-only stub throws
+  // and the gate answers `tier3_readiness_unavailable` instead of its verdict.
+  readF3ApprovedFromSnapshot: vi.fn(() => ({ providers: [], capabilities: [] })),
 }));
 vi.mock("@/lib/logging/devLog", () => ({ devLogAppend: vi.fn() }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog: vi.fn() }));
@@ -154,5 +157,90 @@ describe("runF3ReadinessGate — f3ResolvedBaseVersionId (lineage source)", () =
     expect(result).not.toBeInstanceOf(Response);
     if (result instanceof Response) throw new Error("unreachable");
     expect(result.f3ResolvedBaseVersionId).toBeNull();
+  });
+});
+
+/**
+ * The deterministic-release 409 writes the user row only on the approve
+ * continuation, so the response has to say which case it is: the client uses it
+ * to tell an optimistic ghost bubble from a persisted turn, and it cannot infer
+ * it from the payload otherwise (Vercel Agent + bugbot on #610, reporting the
+ * two opposite failure modes).
+ */
+describe("runF3ReadinessGate — deterministic release reports user-row persistence", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /** Readiness passes with NO real-key requirements → deterministic-release branch. */
+  function mockDeterministicRelease(): void {
+    vi.mocked(checkTier3ReadinessForVersion).mockResolvedValue({
+      ok: true,
+      spec: { requirements: [] },
+    } as unknown as Awaited<ReturnType<typeof checkTier3ReadinessForVersion>>);
+  }
+
+  async function runDeterministic(
+    f3ContinuationDecision: Record<string, unknown> | null,
+  ): Promise<{ error: string; userTurnPersisted: boolean }> {
+    mockDeterministicRelease();
+    vi.mocked(resolveChatPreferredVersionId).mockResolvedValue("v-parent");
+    const result = await runF3ReadinessGate({
+      ...gateParams({
+        parsedMeta: makeParsedMeta("v-parent"),
+        metaEngineBaseVersionId: null,
+      }),
+      f3ContinuationDecision,
+    } as unknown as Parameters<typeof runF3ReadinessGate>[0]);
+
+    expect(result).toBeInstanceOf(Response);
+    if (!(result instanceof Response)) throw new Error("unreachable");
+    expect(result.status).toBe(409);
+    return (await result.json()) as { error: string; userTurnPersisted: boolean };
+  }
+
+  it("reports false on the auto-kick path, where no user row is written", async () => {
+    const body = await runDeterministic(null);
+
+    expect(body.error).toBe("f3_deterministic_release_required");
+    expect(body.userTurnPersisted).toBe(false);
+    expect(vi.mocked(chatRepo.addMessage)).not.toHaveBeenCalled();
+  });
+
+  it("reports true once the approve continuation persisted the row", async () => {
+    vi.mocked(chatRepo.consumeF3ContinuationMarker).mockResolvedValue(
+      true as unknown as Awaited<ReturnType<typeof chatRepo.consumeF3ContinuationMarker>>,
+    );
+    vi.mocked(chatRepo.addMessage).mockResolvedValue(
+      undefined as unknown as Awaited<ReturnType<typeof chatRepo.addMessage>>,
+    );
+
+    const body = await runDeterministic({
+      replyIntent: "approve",
+      markerMessageId: "marker-1",
+      markerSuggestedProviders: [],
+    });
+
+    expect(body.userTurnPersisted).toBe(true);
+    expect(vi.mocked(chatRepo.addMessage)).toHaveBeenCalledTimes(1);
+  });
+
+  // The persist is deliberately best-effort (a consumed marker must not
+  // dead-end the approval), so a failed insert must report false — otherwise the
+  // client keeps a bubble that no reload will show and discards the draft.
+  it("reports false when the best-effort persist fails", async () => {
+    vi.mocked(chatRepo.consumeF3ContinuationMarker).mockResolvedValue(
+      true as unknown as Awaited<ReturnType<typeof chatRepo.consumeF3ContinuationMarker>>,
+    );
+    vi.mocked(chatRepo.addMessage).mockRejectedValue(new Error("insert failed"));
+
+    const body = await runDeterministic({
+      replyIntent: "approve",
+      markerMessageId: "marker-1",
+      markerSuggestedProviders: [],
+    });
+
+    expect(body.error).toBe("f3_deterministic_release_required");
+    expect(body.userTurnPersisted).toBe(false);
   });
 });

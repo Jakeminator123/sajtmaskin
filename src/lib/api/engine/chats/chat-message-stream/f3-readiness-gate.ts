@@ -278,6 +278,12 @@ export async function runF3ReadinessGate(params: {
             // A stale/custom client must not spend credits on a general
             // LLM round. An approval marker is consumed here because this
             // early handoff returns before the normal Phase B boundary.
+            // Whether this response leaves a user row behind. The client cannot
+            // infer it — the row is written only on the approve path — and it
+            // decides whether the optimistic bubble is a ghost to drop or a
+            // persisted turn to keep (Vercel Agent + bugbot on #610, from
+            // opposite directions). So the gate states it instead.
+            let userTurnPersisted = false;
             if (f3ContinuationDecision?.replyIntent === "approve") {
               // BB#f3det2: consume the marker BEFORE persisting the user
               // row so a lost race returns 409 without leaving an orphan
@@ -310,6 +316,9 @@ export async function runF3ReadinessGate(params: {
               // minor data-quality; a dead-ended approval is not.
               await chatRepo
                 .addMessage(engineChat.id, "user", message)
+                .then(() => {
+                  userTurnPersisted = true;
+                })
                 .catch((persistErr) => {
                   debugLog(
                     "orchestration",
@@ -331,6 +340,7 @@ export async function runF3ReadinessGate(params: {
                   ready: false,
                   action: "deterministic_release",
                   parentVersionId: gateVersionId,
+                  userTurnPersisted,
                   message:
                     "Inga riktiga build-nycklar krävs. Skapa en exakt F3-fork via finalize-design och kör ReleaseGate utan LLM-generering.",
                 },
