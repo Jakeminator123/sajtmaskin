@@ -588,16 +588,23 @@ export function PreviewPanel({
             anchorSectionLabel: detail.anchorSection?.label,
           });
           // Utfallskontraktet (BB#shadcn-lane1) ersätter den tidigare neutrala
-          // copyn: statusraden och toasten lovar bara ett startat bygge. Avslag
-          // och fel har redan sin egen toast från sändvägen.
+          // copyn: bara ett startat bygge får en success-toast. Avslag och fel
+          // har redan sin egen toast från sändvägen. Statusraden skiljer på att
+          // servern VÄGRADE turen (`rejected` — inget skickades) och att den
+          // hanterades utan nytt bygge (`settled` = F3-ReleaseGate-runda) eller
+          // avbröts/fel efter att prompten gått iväg (bugbot på #610).
           if (outcome.status === "started") {
             setLastComposerActionLabel(
               `Registry-block skickat till AI (${detail.placementLabel})`,
             );
             toast.success(`Bygger in blocket (${detail.placementLabel}).`);
-          } else {
+          } else if (outcome.status === "rejected") {
             setLastComposerActionLabel(
               `Registry-block skickades inte (${detail.placementLabel})`,
+            );
+          } else {
+            setLastComposerActionLabel(
+              `Registry-block skickat — se status i chatten (${detail.placementLabel})`,
             );
           }
         } catch {

@@ -239,7 +239,17 @@ function normalizeCapabilityList(requestedCapabilities: string[] | null | undefi
   );
 }
 
-function parseManifestDependencySpec(raw: string): { pkg: string; version: string | null } {
+/**
+ * Split a dossier manifest `dependencies` entry into package + optional version.
+ * The schema allows a semver-pinned form (`stripe@^14.0.0`), so consumers must
+ * never treat the raw entry as a package name — exported so the manifest→package
+ * mapping has exactly one parser (also used by the pre-VM module classifier and
+ * the allowlist-coverage invariant).
+ */
+export function parseManifestDependencySpec(raw: string): {
+  pkg: string;
+  version: string | null;
+} {
   const trimmed = raw.trim();
   if (!trimmed) return { pkg: "", version: null };
   if (trimmed.startsWith("@")) {

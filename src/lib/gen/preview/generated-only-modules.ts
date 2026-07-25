@@ -33,7 +33,11 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { isBuiltinPackage, normalizePackageName } from "@/lib/gen/autofix/dep-completer";
+import {
+  isBuiltinPackage,
+  normalizePackageName,
+  parseManifestDependencySpec,
+} from "@/lib/gen/autofix/dep-completer";
 import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 
 /** tsc's unresolved-module diagnostic under `moduleResolution: bundler`. */
@@ -45,13 +49,15 @@ const UNRESOLVED_MODULE_SPECIFIER_RE = /Cannot find module '([^']+)'/;
 /**
  * Packages supplied by the GENERATED project rather than this repo, derived
  * from the dossier manifests (the canonical owner of dossier dependencies) so
- * a new dossier needs no bookkeeping here.
+ * a new dossier needs no bookkeeping here. Entries go through the manifest spec
+ * parser because the schema allows a semver-pinned form (`stripe@^14.0.0`) that
+ * would otherwise never match a diagnostic's module specifier.
  */
 export function getGeneratedOnlyPackages(): ReadonlySet<string> {
   const packages = new Set<string>();
   for (const dossier of getAllDossiers()) {
     for (const dep of dossier.dependencies ?? []) {
-      const pkg = normalizePackageName(dep.trim());
+      const { pkg } = parseManifestDependencySpec(dep);
       if (!pkg || isBuiltinPackage(pkg)) continue;
       packages.add(pkg);
     }

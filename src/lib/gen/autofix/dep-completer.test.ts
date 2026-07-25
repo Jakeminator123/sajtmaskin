@@ -7,7 +7,7 @@ import {
   isBuiltinPackage,
   KNOWN_PACKAGES,
   mergeMissingDependenciesIntoPackageJson,
-  normalizePackageName,
+  parseManifestDependencySpec,
   resolveCapabilityDependencies,
   resolveKnownVersion,
   runDepCompleter,
@@ -448,8 +448,10 @@ describe("dep-completer", () => {
     const unresolved: string[] = [];
     for (const dossier of getAllDossiers()) {
       for (const dep of dossier.dependencies ?? []) {
-        const pkg = normalizePackageName(dep.trim());
-        if (!pkg || isBuiltinPackage(pkg)) continue;
+        // The schema allows a semver-pinned entry (`stripe@^14.0.0`), which
+        // carries its own version and therefore needs no allowlist pin.
+        const { pkg, version } = parseManifestDependencySpec(dep);
+        if (!pkg || version || isBuiltinPackage(pkg)) continue;
         if (!resolveKnownVersion(pkg)) {
           unresolved.push(`${pkg} (${dossier.class}/${dossier.id})`);
         }

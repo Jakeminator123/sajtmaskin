@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { parseManifestDependencySpec } from "@/lib/gen/autofix/dep-completer";
 import {
   getGeneratedOnlyPackages,
   partitionUndecidableModuleDiagnostics,
@@ -38,6 +39,19 @@ describe("getGeneratedOnlyPackages", () => {
     expect(packages.has("clsx")).toBe(false);
     expect(packages.has("tailwind-merge")).toBe(false);
     expect(packages.has("react")).toBe(false);
+  });
+
+  // The dossier schema allows a semver-pinned entry (`stripe@^14.0.0`). Keying
+  // the set on the raw entry would never match a diagnostic's module specifier,
+  // so the whole suppression would silently stop working for that dossier
+  // (bugbot on #610).
+  it("keys on the package name, never the raw manifest entry", () => {
+    for (const pkg of getGeneratedOnlyPackages()) {
+      expect(pkg, `"${pkg}" still carries a version suffix`).toBe(
+        parseManifestDependencySpec(pkg).pkg,
+      );
+      expect(pkg.replace(/^@[^/]+\//, "")).not.toContain("@");
+    }
   });
 });
 
