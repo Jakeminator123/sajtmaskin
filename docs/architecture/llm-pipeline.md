@@ -91,7 +91,10 @@ Typisk ordning i runtime:
 1. codegen-output samlas till kandidat-innehåll.
 2. Normalize (kod: url-expand + autofix) expanderar media-URL:er och kör
    deterministiska fixers före LLM.
-3. syntax/esbuild körs; när syntax är ren kan warm-tsc köras. Warm ESLint är
+3. syntax/esbuild körs; när syntax är ren kan warm-tsc köras. Warm-cachen ser
+   inte dossier-egna SDK:er (VM:en installerar dem senare), så olösbara
+   modul-diagnostiker för dossier-deklarerade paket släpps i st.f. att gissa —
+   se [`warm-cache-setup.md`](../howto/warm-cache-setup.md). Warm ESLint är
    endast opt-in lokal diagnostik och ingår inte i finalize/RepairGate.
 4. deterministisk diagnostikdriven import-repair
    (`autofix/deterministic-import-repair.ts`: kända imports, egna komponenter,

@@ -92,8 +92,10 @@ def render(ctx: BackofficeContext) -> None:
   samma `runLlmFixer`-loop med `phaseRouting.fixer`-modell + 60 s abort. Sedan 2026-04-20 är `pre_vm_typecheck`
   borta som eget steg och uppgår i `validate_syntax`. Aktiveras via `SAJTMASKIN_PRE_VM_TYPECHECK`; F3 kör alltid
   warm-tsc. `SAJTMASKIN_BLOCKING_ESLINT` aktiverar bara lokal, icke-auktoritativ diagnostik; den startar aldrig repair och påverkar aldrig promotion.
-  med `forceTsc: true`. Fail-open vid kall cache. SSE-progress: `phase: "validating" | "fixing" | "tsc-validating"
-  | "tsc-fixing" | "tsc-passed" | "tsc-skipped" | "passed" | "gave-up"`.
+  med `forceTsc: true`. Fail-open vid kall cache. Cachen delar repots `node_modules` och ser därför inte dossier-egna
+  SDK:er — sedan 2026-07-25 släpps olösbara modul-diagnostiker (TS2307) för dossier-deklarerade paket i st.f. att
+  skickas till repair, och de släppta paketen loggas som `validate.tsc.undecidable-modules`. SSE-progress:
+  `phase: "validating" | "fixing" | "tsc-validating" | "tsc-fixing" | "tsc-passed" | "tsc-skipped" | "passed" | "gave-up"`.
 - **Verifier-pass är hybrid (2026-04-22)**: före LLM-auditen kör `runVerifierPass` nu deterministiska
   guards i `verifier-pass.ts` — `undefined-jsx-symbol` (kollar JSX-taggar mot importerade/deklarerade
   symboler, med TS-generic-registrering så `<T>` inte false-positivas), `r3f-client-boundary`,
