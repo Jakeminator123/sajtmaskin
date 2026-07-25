@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
 import {
   AlertDialog,
@@ -58,6 +58,9 @@ export function DangerAction({
   size = "sm",
   className,
 }: DangerActionProps) {
+  // `confirmWord` can contain spaces (a project name) and can repeat on a page,
+  // so it is not usable as a DOM id — React's useId keeps label/input paired.
+  const inputId = useId();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [running, setRunning] = useState(false);
@@ -117,11 +120,11 @@ export function DangerAction({
         </AlertDialogHeader>
 
         <div className="space-y-2">
-          <Label htmlFor={`danger-confirm-${confirmWord}`} className="text-sm">
+          <Label htmlFor={inputId} className="text-sm">
             Skriv <span className="font-mono font-semibold">{confirmWord}</span> för att bekräfta
           </Label>
           <Input
-            id={`danger-confirm-${confirmWord}`}
+            id={inputId}
             value={typed}
             autoComplete="off"
             spellCheck={false}

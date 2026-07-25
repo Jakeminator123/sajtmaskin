@@ -15,8 +15,13 @@ export interface AdminResource<T> {
    * rebuild did) is noise.
    */
   status: number | null;
-  /** Re-fetch on demand (refresh buttons). */
-  reload: () => Promise<void>;
+  /**
+   * Re-fetch on demand.
+   *
+   * `silent: true` skips the loading flag — used by the log polling so the
+   * refresh spinner doesn't blink every few seconds.
+   */
+  reload: (options?: { silent?: boolean }) => Promise<void>;
 }
 
 interface UseAdminResourceOptions<T, R = unknown> {
@@ -60,54 +65,68 @@ export function useAdminResource<T, R = unknown>(
 
   const requestIdRef = useRef(0);
 
-  const run = useCallback(async () => {
-    if (!url || !enabled) return;
+  const run = useCallback(
+    async (runOptions?: { silent?: boolean }) => {
+      if (!url || !enabled) return;
 
-    const requestId = ++requestIdRef.current;
-    setLoading(true);
-    setError(null);
+      const requestId = ++requestIdRef.current;
+      if (!runOptions?.silent) setLoading(true);
+      setError(null);
 
-    try {
-      const response = await fetch(url, { headers: { accept: "application/json" } });
-      const text = await response.text();
-
-      let json: unknown = null;
       try {
-        json = text ? JSON.parse(text) : null;
+        const response = await fetch(url, { headers: { accept: "application/json" } });
+        const text = await response.text();
+
+        let json: unknown = null;
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch {
+          json = null;
+        }
+
+        if (requestId !== requestIdRef.current) return;
+        setStatus(response.status);
+
+        // An expired/rejected session would otherwise surface the API's raw
+        // English "Unauthorized"/"Forbidden" in the middle of a Swedish panel.
+        if (response.status === 401 || response.status === 403) {
+          setError(
+            response.status === 401
+              ? "Din inloggning gäller inte längre. Ladda om sidan och logga in igen."
+              : "Ditt konto saknar adminbehörighet för den här datan.",
+          );
+          return;
+        }
+
+        if (json === null) {
+          setError(
+            response.ok
+              ? errorMessageRef.current
+              : `${errorMessageRef.current} (HTTP ${response.status})`,
+          );
+          return;
+        }
+
+        const envelope = json as { success?: boolean; error?: string };
+        if (!response.ok || envelope.success === false) {
+          setError(envelope.error || `${errorMessageRef.current} (HTTP ${response.status})`);
+          return;
+        }
+
+        const mapper = selectRef.current;
+        setData(mapper ? mapper(json as R) : (json as T));
       } catch {
-        json = null;
+        if (requestId !== requestIdRef.current) return;
+        setStatus(null);
+        setError(errorMessageRef.current);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
       }
-
-      if (requestId !== requestIdRef.current) return;
-      setStatus(response.status);
-
-      if (json === null) {
-        setError(
-          response.ok
-            ? errorMessageRef.current
-            : `${errorMessageRef.current} (HTTP ${response.status})`,
-        );
-        return;
-      }
-
-      const envelope = json as { success?: boolean; error?: string };
-      if (!response.ok || envelope.success === false) {
-        setError(envelope.error || `${errorMessageRef.current} (HTTP ${response.status})`);
-        return;
-      }
-
-      const mapper = selectRef.current;
-      setData(mapper ? mapper(json as R) : (json as T));
-    } catch {
-      if (requestId !== requestIdRef.current) return;
-      setStatus(null);
-      setError(errorMessageRef.current);
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setLoading(false);
-      }
-    }
-  }, [url, enabled]);
+    },
+    [url, enabled],
+  );
 
   useEffect(() => {
     void run();

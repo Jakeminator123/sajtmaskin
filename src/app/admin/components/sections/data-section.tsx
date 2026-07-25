@@ -80,7 +80,7 @@ const CLEARABLE_TABLES: {
   {
     table: "users",
     label: "Användare",
-    description: "Alla konton utom testkontot raderas.",
+    description: "Alla konton raderas — utom ditt eget och testkontot.",
     countKey: "users",
   },
 ];
@@ -430,14 +430,14 @@ export function DataSection() {
                   <div>
                     <p className="text-sm font-medium">Nollställ databasen och cachen</p>
                     <p className="text-muted-foreground text-xs">
-                      Tömmer alla tabeller (utom testkontot), tömmer cachen och rensar uppladdade
-                      filer. Används för att börja om från noll i en testmiljö.
+                      Tömmer alla tabeller (ditt eget konto och testkontot behålls), tömmer cachen
+                      och rensar uppladdade filer. Används för att börja om från noll i en testmiljö.
                     </p>
                   </div>
                   <DangerAction
                     label="Nollställ allt"
                     title="Nollställ databasen och cachen?"
-                    description="Alla projekt, konton (utom testkontot), statistik, transaktioner, uppladdade filer och cachenycklar raderas i den här miljön."
+                    description="Alla projekt, konton (utom ditt eget och testkontot), statistik, transaktioner, uppladdade filer och cachenycklar raderas i den här miljön."
                     impact="Det går inte att ångra. Kör aldrig detta mot produktion utan säkerhetskopia."
                     confirmWord="nollställ"
                     disabled={busy !== null}

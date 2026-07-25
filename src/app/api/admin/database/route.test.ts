@@ -1,11 +1,15 @@
 /**
  * Guards the admin data endpoint after the 2026-07-24 renovation.
  *
- * The two actions this file protects used to list `api.vercel.com/v9/projects`
- * and delete every project the access token could see — Sajtmaskin's own
- * production project included — behind a two-click button labelled
- * "🔥 MEGA CLEANUP". `cleanup-vercel-projects` is now retired (410) and
- * `mega-cleanup` is a data-only reset that must never touch the Vercel API.
+ * Two classes of self-destruct used to live here:
+ *
+ * 1. `mega-cleanup` / `cleanup-vercel-projects` listed `api.vercel.com/v9/projects`
+ *    and deleted every project the token could see — Sajtmaskin's own production
+ *    project included — behind a two-click "🔥 MEGA CLEANUP" button.
+ * 2. Every user-deleting action kept only `TEST_USER_EMAIL`, so an admin from
+ *    `ADMIN_EMAILS` deleted their OWN account and got locked out.
+ *
+ * Both are asserted here so they cannot come back.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,19 +17,33 @@ const requireAdminAccess = vi.hoisted(() => vi.fn());
 const flushRedisCache = vi.hoisted(() => vi.fn());
 const getRedisInfo = vi.hoisted(() => vi.fn());
 
-const deleteReturning = vi.hoisted(() => vi.fn());
+/** Recorded `db.delete(<table>).where(<condition>)` calls per test. */
+const deleteCalls = vi.hoisted(() => [] as { table: string; condition: unknown }[]);
 
 vi.mock("@/lib/auth/admin", () => ({ requireAdminAccess }));
 vi.mock("@/lib/data/redis", () => ({ flushRedisCache, getRedisInfo }));
 
-// Minimal drizzle stub: `db.delete(table).where(...).returning(...)` and
-// `db.select(...).from(...)`.
+// Simple stand-ins so conditions are inspectable plain objects.
+vi.mock("drizzle-orm", () => ({
+  and: (...conditions: unknown[]) => ({ op: "and", conditions }),
+  desc: (column: unknown) => ({ op: "desc", column }),
+  isNotNull: (column: unknown) => ({ op: "isNotNull", column }),
+  isNull: (column: unknown) => ({ op: "isNull", column }),
+  lt: (column: unknown, value: unknown) => ({ op: "lt", column, value }),
+  notInArray: (column: unknown, values: unknown[]) => ({ op: "notInArray", column, values }),
+  sql: (strings: TemplateStringsArray) => ({ op: "sql", text: strings?.join?.("") ?? "" }),
+}));
+
 vi.mock("@/lib/db/client", () => ({
   db: {
-    delete: () => ({
-      where: () => ({
-        returning: deleteReturning,
-      }),
+    delete: (table: { name?: string }) => ({
+      where: (condition: unknown) => {
+        deleteCalls.push({ table: table?.name ?? "unknown", condition });
+        return {
+          returning: () => Promise.resolve([]),
+          then: (resolve: (rows: unknown[]) => unknown) => resolve([]),
+        };
+      },
     }),
     select: () => ({
       from: () => ({
@@ -62,6 +80,8 @@ vi.mock("@/lib/db/services/shared", () => ({
 
 const { POST } = await import("./route");
 
+const ADMIN_EMAIL = "riktig.admin@sajtmaskin.se";
+
 function actionRequest(body: Record<string, unknown>) {
   return new Request("http://localhost/api/admin/database", {
     method: "POST",
@@ -70,16 +90,22 @@ function actionRequest(body: Record<string, unknown>) {
   }) as never;
 }
 
+function userDeleteConditions() {
+  return deleteCalls
+    .filter((call) => call.table === "users")
+    .map((call) => call.condition as { op?: string; values?: unknown[] });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
-  requireAdminAccess.mockResolvedValue({ ok: true, user: { email: "admin@example.com" } });
+  deleteCalls.length = 0;
+  requireAdminAccess.mockResolvedValue({ ok: true, user: { email: ADMIN_EMAIL } });
   flushRedisCache.mockResolvedValue(0);
   getRedisInfo.mockResolvedValue({ connected: false });
-  deleteReturning.mockResolvedValue([]);
 });
 
-describe("POST /api/admin/database", () => {
+describe("POST /api/admin/database — Vercel self-destruct is gone", () => {
   it("retires the bulk Vercel cleanup action instead of deleting projects", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
@@ -101,8 +127,6 @@ describe("POST /api/admin/database", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.results).toBeDefined();
-    // No Vercel bucket in the result shape anymore — data + cache only.
     expect(body.results.vercel).toBeUndefined();
     expect(body.results.database).toBeDefined();
     expect(body.results.redis).toBeDefined();
@@ -119,7 +143,47 @@ describe("POST /api/admin/database", () => {
     expect(body.success).toBe(false);
     expect(body.partialSuccess).toBe(true);
   });
+});
 
+describe("POST /api/admin/database — the acting admin survives", () => {
+  it("keeps the acting admin (and the test user) when clearing the users table", async () => {
+    await POST(actionRequest({ action: "clear", table: "users" }));
+
+    const conditions = userDeleteConditions();
+    expect(conditions).toHaveLength(1);
+    expect(conditions[0].op).toBe("notInArray");
+    expect(conditions[0].values).toEqual(
+      expect.arrayContaining(["test@example.com", ADMIN_EMAIL]),
+    );
+  });
+
+  it("keeps the acting admin during reset-all", async () => {
+    await POST(actionRequest({ action: "reset-all" }));
+
+    const conditions = userDeleteConditions();
+    expect(conditions).toHaveLength(1);
+    expect(conditions[0].values).toEqual(expect.arrayContaining([ADMIN_EMAIL]));
+  });
+
+  it("keeps the acting admin during mega-cleanup", async () => {
+    await POST(actionRequest({ action: "mega-cleanup" }));
+
+    const conditions = userDeleteConditions();
+    expect(conditions).toHaveLength(1);
+    expect(conditions[0].values).toEqual(expect.arrayContaining([ADMIN_EMAIL]));
+  });
+
+  it("still protects the test user when the admin email is missing", async () => {
+    requireAdminAccess.mockResolvedValue({ ok: true, user: { email: null } });
+
+    await POST(actionRequest({ action: "clear", table: "users" }));
+
+    const conditions = userDeleteConditions();
+    expect(conditions[0].values).toEqual(["test@example.com"]);
+  });
+});
+
+describe("POST /api/admin/database — access control", () => {
   it("requires admin access", async () => {
     requireAdminAccess.mockResolvedValue({
       ok: false,
@@ -132,6 +196,7 @@ describe("POST /api/admin/database", () => {
 
     expect(response.status).toBe(403);
     expect(flushRedisCache).not.toHaveBeenCalled();
+    expect(deleteCalls).toHaveLength(0);
   });
 
   it("rejects an unknown action", async () => {

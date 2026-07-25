@@ -85,7 +85,7 @@ export function LoggarSection() {
   useEffect(() => {
     if (!autoRefresh) return;
     const timer = window.setInterval(() => {
-      void reloadRuntime();
+      void reloadRuntime({ silent: true });
     }, AUTO_REFRESH_MS);
     return () => window.clearInterval(timer);
   }, [autoRefresh, reloadRuntime]);

@@ -63,8 +63,10 @@ export function StatistikSection() {
     scope === "period" ? periodLabel : "totalt sedan start";
 
   // Coerce before charting: the counters arrive as strings from Postgres, and
-  // recharts needs real numbers to scale the axis.
-  const chartData = (data?.dailyViews ?? []).slice(-30).map((day) => ({
+  // recharts needs real numbers to scale the axis. The whole selected period is
+  // plotted — an earlier `.slice(-30)` silently showed 30 days while the caption
+  // said "senaste 365 dagarna".
+  const chartData = (data?.dailyViews ?? []).map((day) => ({
     date: day.date,
     label: day.date.slice(5),
     views: toCount(day.views),

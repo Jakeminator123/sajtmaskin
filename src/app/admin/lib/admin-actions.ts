@@ -15,7 +15,7 @@ export interface AdminActionResult<T = Record<string, unknown>> {
   payload: T | null;
 }
 
-export async function postAdminAction<T = Record<string, unknown>>(
+async function postAdminAction<T = Record<string, unknown>>(
   url: string,
   body: Record<string, unknown>,
   fallbackError = "Åtgärden misslyckades",

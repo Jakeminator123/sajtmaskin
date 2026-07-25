@@ -4,7 +4,7 @@
  * POST /api/admin/database - Clear/reset database tables, manage uploads
  */
 
-import { and, desc, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, desc, isNotNull, isNull, lt, notInArray, sql } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
@@ -31,6 +31,32 @@ import { PATHS } from "@/lib/config";
 async function countTable(table: unknown): Promise<number> {
   const rows = await db.select({ count: sql<number>`count(*)` }).from(table as never);
   return (rows[0] as { count: number } | undefined)?.count ?? 0;
+}
+
+/**
+ * Emails that a "clear users" style action must NEVER delete.
+ *
+ * Includes the acting admin: every user-deleting action here previously kept
+ * only `TEST_USER_EMAIL`, so an admin from `ADMIN_EMAILS` who pressed "rensa
+ * användare" / "nollställ allt" deleted their OWN account mid-session. The JWT
+ * then pointed at a missing user, which locked them out of the admin panel (and
+ * the app) with no way back except a manual DB insert.
+ */
+function protectedUserEmails(actingAdminEmail: string | null | undefined): string[] {
+  const emails = new Set<string>();
+  if (TEST_USER_EMAIL) emails.add(TEST_USER_EMAIL);
+  const acting = (actingAdminEmail ?? "").trim();
+  if (acting) emails.add(acting);
+  return Array.from(emails);
+}
+
+/** Delete every user except the protected ones (see `protectedUserEmails`). */
+async function deleteUsersExceptProtected(actingAdminEmail: string | null | undefined) {
+  const keep = protectedUserEmails(actingAdminEmail);
+  const query = db.delete(users);
+  return keep.length > 0
+    ? query.where(notInArray(users.email, keep)).returning({ id: users.id })
+    : query.where(sql`true`).returning({ id: users.id });
 }
 
 async function getDbFileSize(): Promise<string> {
@@ -133,8 +159,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: "Invalid table name" }, { status: 400 });
       }
 
-      if (table === "users" && TEST_USER_EMAIL) {
-        await db.delete(users).where(ne(users.email, TEST_USER_EMAIL));
+      if (table === "users") {
+        await deleteUsersExceptProtected(admin.user.email);
       } else if (table === "projects") {
         await db.delete(projectData).where(sql`true`);
         await db.delete(projectFiles).where(sql`true`);
@@ -178,11 +204,7 @@ export async function POST(req: NextRequest) {
       await db.delete(domainOrders).where(sql`true`);
       await db.delete(appProjects).where(sql`true`);
 
-      if (TEST_USER_EMAIL) {
-        await db.delete(users).where(ne(users.email, TEST_USER_EMAIL));
-      } else {
-        await db.delete(users).where(sql`true`);
-      }
+      await deleteUsersExceptProtected(admin.user.email);
 
       // BUG-FIX 2026-04-24 (test-agent rapport): tidigare ignorerades
       // returvärdet från flushRedisCache helt — `success: true` kunde
@@ -439,9 +461,7 @@ export async function POST(req: NextRequest) {
 
       results.database.deleted = deletedRows.reduce((sum, rows) => sum + rows.length, 0);
 
-      const deletedUsers = TEST_USER_EMAIL
-        ? await db.delete(users).where(ne(users.email, TEST_USER_EMAIL)).returning({ id: users.id })
-        : await db.delete(users).where(sql`true`).returning({ id: users.id });
+      const deletedUsers = await deleteUsersExceptProtected(admin.user.email);
       results.database.deleted += deletedUsers.length;
 
       // BUG-FIX 2026-04-24: prefix-scoped flush (se `flushRedisCache` JSDoc).
