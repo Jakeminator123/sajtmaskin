@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:549933ea9ce86d07 -->
+<!-- source-fingerprint: config/env-policy.json sha256:37830733916d1db6 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:40181cc99930d580 -->
 
@@ -44,6 +44,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `DB_SSL_REJECT_UNAUTHORIZED`                         | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `DEBUG`                                              | `local_only`           | —                                      | Yes           | No           |
 | `DESIGN_SYSTEM_ID`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `DID_API_KEY`                                        | `local_only`           | —                                      | No            | No           |
 | `EMAIL_FROM`                                         | `optional_runtime`     | `development`, `preview`, `production` | No            | Yes          |
 | `ENABLE_PEXELS`                                      | `optional_runtime`     | `development`, `preview`, `production` | No            | Yes          |
 | `ENV_VAR_ENCRYPTION_KEY`                             | `shared_runtime`       | `development`, `preview`, `production` | No            | No           |
@@ -66,6 +67,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `LOG_PROMPTS`                                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `LOOPIA_API_PASSWORD`                                | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `LOOPIA_API_USER`                                    | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
+| `MAX_GEN_LOGS`                                       | `local_only`           | —                                      | No            | No           |
 | `NEXT_PHASE`                                         | `vercel_managed`       | —                                      | No            | Yes          |
 | `NEXT_PUBLIC_APP_URL`                                | `environment_specific` | `preview`, `production`                | No            | No           |
 | `NEXT_PUBLIC_AVATAR_AGENT_ID`                        | `environment_specific` | `production`, `preview`                | No            | No           |
@@ -81,6 +83,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `OC_DEBUGG`                                          | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_REPO_READ_TOKEN`                                 | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_REPO_SLUG`                                       | `optional_runtime`     | `development`, `preview`               | No            | No           |
+| `OPENAI_ADMIN_KEY`                                   | `local_only`           | —                                      | No            | No           |
 | `OPENAI_API_KEY`                                     | `shared_runtime`       | `development`, `preview`, `production` | No            | No           |
 | `OPENCLAW_GATEWAY_TOKEN`                             | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `OPENCLAW_GATEWAY_URL`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |

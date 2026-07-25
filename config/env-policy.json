@@ -97,6 +97,7 @@
     "CSP_ENFORCE",
     "DB_SSL_REJECT_UNAUTHORIZED",
     "DESIGN_SYSTEM_ID",
+    "DID_API_KEY",
     "ELASTICSEARCH_API_KEY",
     "ELASTICSEARCH_NODE_URL",
     "EMAIL_FROM",
@@ -123,6 +124,7 @@
     "LOG_PROMPTS",
     "LOOPIA_API_PASSWORD",
     "LOOPIA_API_USER",
+    "MAX_GEN_LOGS",
     "MEILISEARCH_API_KEY",
     "MEILISEARCH_HOST",
     "MONGODB_URI",
@@ -158,6 +160,7 @@
     "OC_DEBUG_RUN_TOKEN",
     "OC_REPO_READ_TOKEN",
     "OC_REPO_SLUG",
+    "OPENAI_ADMIN_KEY",
     "OPENCLAW_GATEWAY_TOKEN",
     "OPENCLAW_GATEWAY_URL",
     "OPENCLAW_REVIEW_REASONING_EFFORT",
@@ -806,6 +809,24 @@
       "classification": "local_only",
       "recommendedVercelTargets": [],
       "notes": "Opt-in local prompt dump writer under data/prompt-dumps/. Keep out of deployed Vercel envs unless explicitly debugging a short-lived preview."
+    },
+    {
+      "key": "MAX_GEN_LOGS",
+      "classification": "local_only",
+      "recommendedVercelTargets": [],
+      "notes": "Antal körningsmappar som scripts/observability/last-generated-usersite.py sparar under data/gen-logs/ (default 10). Rent lokalt verktyg — appen läser den aldrig."
+    },
+    {
+      "key": "OPENAI_ADMIN_KEY",
+      "classification": "local_only",
+      "recommendedVercelTargets": [],
+      "notes": "OpenAI ADMIN-nyckel (sk-admin-…) som last-generated-usersite.py använder för organisationens usage/costs. Ger läsning på hela organisationen och ska aldrig deployas — appen använder OPENAI_API_KEY."
+    },
+    {
+      "key": "DID_API_KEY",
+      "classification": "local_only",
+      "recommendedVercelTargets": [],
+      "notes": "D-ID server-API-nyckel (API_USER:API_PASSWORD) för credits-saldot i last-generated-usersite.py. Appens avatar använder de publika NEXT_PUBLIC_AVATAR_*-client-nycklarna, så den här hör bara lokalt."
     },
     {
       "key": "TEST_USER_EMAIL",
