@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
-import { LogOut, Menu, X } from "lucide-react";
+import { isAdminEmailClient } from "@/lib/auth/is-admin-client";
+import { LogOut, Menu, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -16,8 +17,11 @@ interface NavbarProps {
 export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { isAuthenticated, isInitialized, logout } = useAuth();
+  const { isAuthenticated, isInitialized, logout, user } = useAuth();
   const router = useRouter();
+  // Presentation only — /admin is gated server-side (src/proxy.ts + the admin
+  // layout). This just means an admin doesn't have to type the URL.
+  const showAdminLink = isInitialized && isAuthenticated && isAdminEmailClient(user?.email);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -100,6 +104,18 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
           </>
         ) : (
           <>
+            {showAdminLink && (
+              <Button
+                asChild
+                variant="ghost"
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                <Link href="/admin">
+                  <ShieldCheck className="w-4 h-4 mr-1.5" />
+                  Admin
+                </Link>
+              </Button>
+            )}
             {isAuthenticated && (
               <Button
                 variant="ghost"
@@ -158,6 +174,18 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               </>
             ) : (
               <>
+                {showAdminLink && (
+                  <Button
+                    asChild
+                    variant="ghost"
+                    className="justify-start text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    <Link href="/admin" onClick={() => setMobileOpen(false)}>
+                      <ShieldCheck className="w-4 h-4 mr-1.5" />
+                      Admin
+                    </Link>
+                  </Button>
+                )}
                 {isAuthenticated && (
                   <Button
                     variant="ghost"

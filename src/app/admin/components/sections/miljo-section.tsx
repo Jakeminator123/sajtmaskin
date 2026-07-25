@@ -67,6 +67,13 @@ export function MiljoSection() {
     },
   );
 
+  /**
+   * The Vercel routes answer 503 when no token is configured. That is an expected
+   * state (local dev, non-integrated environments) — show it as a calm empty
+   * state, not a red failure.
+   */
+  const vercelNotConfigured = (resourceStatus: number | null) => resourceStatus === 503;
+
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [keyFilter, setKeyFilter] = useState("");
   const [keyScope, setKeyScope] = useState<"attention" | "set" | "all">("attention");
@@ -356,13 +363,17 @@ export function MiljoSection() {
             {openclaw.debugEnabled && <Badge variant="outline">Debugläge</Badge>}
           </div>
           {openclaw.blockers.length > 0 && (
-            <ul className="text-muted-foreground mt-3 space-y-1 text-xs">
-              {openclaw.blockers.map((blocker) => (
-                <li key={blocker} className="font-mono">
-                  {blocker}
-                </li>
-              ))}
-            </ul>
+            <div className="mt-3">
+              <TechnicalDetails summary={`Vad som saknas (${openclaw.blockers.length})`}>
+                <ul className="text-muted-foreground space-y-1 text-xs">
+                  {openclaw.blockers.map((blocker) => (
+                    <li key={blocker} className="font-mono">
+                      {blocker}
+                    </li>
+                  ))}
+                </ul>
+              </TechnicalDetails>
+            </div>
           )}
         </SectionCard>
       )}
@@ -392,11 +403,18 @@ export function MiljoSection() {
       >
         <DataState
           loading={teams.loading && !teams.data}
-          error={teams.error}
+          error={vercelNotConfigured(teams.status) ? null : teams.error}
           isEmpty={!teams.data?.teams?.length}
           onRetry={() => void teams.reload()}
-          emptyTitle="Inga team hittades"
-          emptyDescription="Vercel är antingen inte konfigurerat eller så saknar token åtkomst."
+          emptyTitle={
+            vercelNotConfigured(teams.status) ? "Vercel är inte kopplat" : "Inga team hittades"
+          }
+          emptyDescription={
+            vercelNotConfigured(teams.status)
+              ? "Den här miljön har ingen Vercel-åtkomst (ingen token). Team och planer visas när kopplingen finns."
+              : "Token saknar åtkomst till något team."
+          }
+          emptyIcon={Users}
         >
           {(teams.data?.warnings ?? []).length > 0 && (
             <ul className="mb-3 space-y-1">
@@ -449,11 +467,18 @@ export function MiljoSection() {
       >
         <DataState
           loading={projects.loading && !projects.data}
-          error={projects.error}
+          error={vercelNotConfigured(projects.status) ? null : projects.error}
           isEmpty={!projects.data?.length}
           onRetry={() => void projects.reload()}
-          emptyTitle="Inga projekt"
-          emptyDescription="Vercel är inte konfigurerat i den här miljön, eller så finns inga projekt."
+          emptyTitle={
+            vercelNotConfigured(projects.status) ? "Vercel är inte kopplat" : "Inga projekt"
+          }
+          emptyDescription={
+            vercelNotConfigured(projects.status)
+              ? "Ingen Vercel-token i den här miljön, så det finns inga projekt att visa eller radera."
+              : "Token ser inga projekt."
+          }
+          emptyIcon={FolderOpen}
         >
           <Table>
             <TableHeader>
@@ -538,10 +563,16 @@ export function MiljoSection() {
       >
         <DataState
           loading={projectEnv.loading && !projectEnv.data}
-          error={projectEnv.error}
+          error={vercelNotConfigured(projectEnv.status) ? null : projectEnv.error}
           isEmpty={!projectId || !projectEnv.data?.length}
           onRetry={() => void projectEnv.reload()}
-          emptyTitle={projectId ? "Inga env-variabler" : "Välj ett projekt"}
+          emptyTitle={
+            vercelNotConfigured(projectEnv.status)
+              ? "Vercel är inte kopplat"
+              : projectId
+                ? "Inga env-variabler"
+                : "Välj ett projekt"
+          }
           emptyDescription={
             projectId
               ? "Projektet har inga env-variabler, eller så saknar token åtkomst."

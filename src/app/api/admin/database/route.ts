@@ -216,7 +216,16 @@ export async function POST(req: NextRequest) {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // TEMPLATE CACHE MANAGEMENT
+    // TEMPLATE CACHE MANAGEMENT — LEGACY, NO UI (2026-07-24)
+    //
+    // The `template_cache` table is a leftover from the removed v0-API template
+    // sync: nothing in runtime writes it any more (the Blob manifest owns the
+    // gallery, `src/lib/templates/`), and `project-cleanup.ts` only deletes
+    // expired rows. The admin UI block that exposed export/import/extend/clear
+    // was removed because it was dead surface. The actions are kept here (and the
+    // table untouched) so nothing breaks for an existing script or bookmark;
+    // dropping table + actions is a separate decision tracked in
+    // BUG-SWARM-BACKLOG.md.
     // ═══════════════════════════════════════════════════════════════════════
 
     if (action === "export-templates") {

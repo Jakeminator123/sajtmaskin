@@ -26,6 +26,8 @@ Den här kartan pekar enbart på primära owners. Den ersätter inte IDE-index,
 | Modeller                   | `config/ai_models/manifest.json`, `src/lib/models/`                                                                  |
 | Templates                  | `src/lib/templates/`, `src/app/api/template/`                                                                        |
 | Publicering                | `src/app/api/v0/deployments/`, `src/lib/deploy/`                                                                     |
+| Adminpanel (i appen)       | `src/app/admin/` (server-gate i `layout.tsx`, nav i `admin-nav.ts`), `src/app/api/admin/`, `src/lib/auth/admin.ts`    |
+| Backoffice (Streamlit)     | `sajtmaskin_backoffice.py`, `backoffice/`                                                                            |
 
 Om kartan behöver exakta radnummer eller fullständiga inventarier ska den
 informationen genereras eller valideras i kod i stället.

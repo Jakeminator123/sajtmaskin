@@ -249,10 +249,14 @@ export function DataSection() {
                   <Server className="h-4 w-4" />
                   <AlertTitle>Cache är avstängd</AlertTitle>
                   <AlertDescription>
-                    Sätt <span className="font-mono text-xs">REDIS_URL</span> — eller{" "}
-                    <span className="font-mono text-xs">REDIS_HOST</span> +{" "}
-                    <span className="font-mono text-xs">REDIS_PASSWORD</span> — för att slå på
-                    cachen.
+                    {/* One <p>: AlertDescription is a grid, so separate inline
+                        children would each land on their own row. */}
+                    <p>
+                      Sätt <code className="font-mono text-xs">REDIS_URL</code> — eller{" "}
+                      <code className="font-mono text-xs">REDIS_HOST</code> +{" "}
+                      <code className="font-mono text-xs">REDIS_PASSWORD</code> — för att slå på
+                      cachen.
+                    </p>
                   </AlertDescription>
                 </Alert>
               )}
@@ -446,9 +450,12 @@ export function DataSection() {
                   <ShieldAlert className="h-4 w-4" />
                   <AlertTitle>Bulkradering av Vercel-projekt är borttagen</AlertTitle>
                   <AlertDescription>
-                    Den gamla “MEGA CLEANUP”-knappen raderade varje projekt som åtkomsttoken kunde
-                    se — inklusive Sajtmaskins eget. Radera i stället enskilda kundprojekt under{" "}
-                    <span className="font-medium">Miljö</span>, där appens eget projekt är skyddat.
+                    <p>
+                      Den gamla “MEGA CLEANUP”-knappen raderade varje projekt som åtkomsttoken
+                      kunde se — inklusive Sajtmaskins eget. Radera i stället enskilda kundprojekt
+                      under <span className="font-medium">Miljö</span>, där appens eget projekt är
+                      skyddat.
+                    </p>
                   </AlertDescription>
                 </Alert>
               </div>
