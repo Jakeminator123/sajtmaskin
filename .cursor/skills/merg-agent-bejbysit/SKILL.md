@@ -110,11 +110,37 @@ fönstret, gör en dokumenterad manuell slutgranskning av diffen och notera båd
 
 ## Steg 4 — merga
 
+**`merge:ready` är författarens godkännande, inte mergarens.** Grinden är en
+tvåpartskontroll: författaragenten sätter labeln och sign-off-raden när dess
+bugg-efterkontroll är klar, och mergaren *verifierar* dem. Sätter mergaren själv
+labeln kollapsar kontrollen till en part — samma blindfläck som `Author-is-merger`
+finns till för att stoppa.
+
+Verifiera först:
+
 ```powershell
-gh pr edit <n> --add-label "merge:ready"
-gh pr comment <n> --body "merge:ready — sha: <sha>, bugkoll: <bugbot|codex|manual>, triage: <n fixat / n loggat / n avfärdat>, P0/P1: 0"
+gh pr view <n> --json headRefOid,labels --jq '{sha:.headRefOid,labels:[.labels[].name]}'
+gh pr view <n> --json comments --jq '[.comments[] | select(.body | startswith("merge:ready")) | .body] | last'
+```
+
+Labeln finns **och** sign-off-radens SHA matchar nuvarande head → merga:
+
+```powershell
 gh pr merge <n> --squash --admin
 gh pr view <n> --json state,mergeCommit --jq '{state,sha:.mergeCommit.oid}'
+```
+
+| Läge | Gör |
+|---|---|
+| Label + sign-off finns, SHA matchar | Merga |
+| Sign-off avser en äldre SHA | Behandla som osignerad — en commit landade efter godkännandet |
+| Varken label eller sign-off, författaragenten är aktiv | Be den komplettera. Sätt den inte åt den |
+| Författaragenten är borta och PR:en ska in | Du tar över **författarrollen**: kör bugbot-passet själv, triagera, och skriv sign-off-raden med `bugkoll: <väg> (merge-agenten agerade författare — ingen oberoende andra part)`. Merga först då, och bara när diffen inte rör en protected path |
+
+Sign-off-raden:
+
+```
+merge:ready — sha: <sha>, bugkoll: <bugbot|codex|manual>, triage: <n fixat / n loggat / n avfärdat>, P0/P1: 0
 ```
 
 `--admin` behövs för ägarens egna PR:er (kan inte självgodkännas) — aldrig som
