@@ -43,6 +43,10 @@ $known = New-Object System.Collections.Generic.HashSet[int]
 # vilket dränker notiserna och kostar tokens; utan påminnelsen tystnar i stället
 # en PR vars blockering löstes utan ny commit.
 $announced = @{}
+# När ett head saknar check-runs finns ingen serverside-tidsstämpel att mäta mot.
+# Bevakarens egen första observation av SHA:t duger som undre gräns: head:et kan
+# vara äldre, men aldrig yngre. Konservativt utan att hänga.
+$firstSeen = @{}
 $first = $true
 
 function Announce([string]$key, [string]$message, [int]$cycle) {
@@ -100,14 +104,19 @@ blev granskningsbar, och hela poängen med att en sen push startar om väntan
 faller (Codex P1 på #612).
 
 CI triggas av pushen, så den tidigaste check-runens `started_at` är en bra proxy
-för när head:et blev synligt. Saknas check-runs helt är head:et nyss pushat ->
-0 minuter, aldrig commit-tiden. Ett API-fel ger -1 = "vet inte" -> aldrig moget.
+för när head:et blev synligt.
+
+Returvärden: -1 = API-fel ("vet inte" -> aldrig moget), -2 = inga check-runs
+(anroparen faller tillbaka på egen observationstid). Att returnera 0 för "inga
+check-runs" vore fel: Math.Min(0, ...) är alltid 0, så en PR utan check-runs
+hade fastnat under mognadströskeln för alltid. En grind ska falla stängd, men
+inte hänga - ett läge som aldrig kan öppna är inte ett säkert läge.
 #>
 function Get-HeadVisibleMinutes([string]$sha) {
   $earliest = gh api "repos/$Repo/commits/$sha/check-runs?per_page=100" `
     --jq '[.check_runs[].started_at] | map(select(. != null)) | sort | first' 2>$null
   if ($LASTEXITCODE -ne 0) { return -1 }
-  if (-not $earliest -or $earliest -eq "null") { return 0 }
+  if (-not $earliest -or $earliest -eq "null") { return -2 }
   return Get-AgeMinutes $earliest
 }
 
@@ -176,7 +185,13 @@ for ($i = 1; $i -le $Cycles; $i++) {
     $seenSha[$n] = $sha
 
     $state = Get-CheckState $n
-    $age = Get-ReviewableMinutes (Get-HeadVisibleMinutes $sha) (Get-AgeMinutes $pr.Created)
+    $headAge = Get-HeadVisibleMinutes $sha
+    if ($headAge -eq -2) {
+      $seenKey = "$n/$sha"
+      if (-not $firstSeen.ContainsKey($seenKey)) { $firstSeen[$seenKey] = (Get-Date).ToUniversalTime() }
+      $headAge = [int]((Get-Date).ToUniversalTime() - $firstSeen[$seenKey]).TotalMinutes
+    }
+    $age = Get-ReviewableMinutes $headAge (Get-AgeMinutes $pr.Created)
     $summary += "#$n=$state/${age}min"
 
     $signed = $(if ($pr.Signed) { "merge:ready" } else { "OSIGNERAD" })
