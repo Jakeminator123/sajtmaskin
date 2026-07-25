@@ -59,7 +59,7 @@ Hoppa över drafts. Ta en PR i taget, äldst först.
 ```powershell
 gh pr checks <n>
 gh pr view <n> --json headRefOid,mergeStateStatus,labels,createdAt --jq '{sha:.headRefOid,state:.mergeStateStatus,labels:[.labels[].name],created:.createdAt}'
-gh api repos/Jakeminator123/sajtmaskin/pulls/<n>/comments --jq '.[] | {user:.user.login, sha:.original_commit_id, path:.path, body:(.body|.[0:400])}'
+gh api --method GET --paginate -F per_page=100 repos/Jakeminator123/sajtmaskin/pulls/<n>/comments --jq '.[] | {user:.user.login, sha:.original_commit_id, path:.path, body:(.body|.[0:400])}'
 gh pr view <n> --json reviews --jq '[.reviews[] | {author:.author.login,state:.state}]'
 ```
 
@@ -80,6 +80,12 @@ Hämta därför alltid hela listan och jämför varje fynds `original_commit_id`
 nuvarande head. Ligger ett fynd på en äldre SHA: kontrollera i koden eller i
 commit-loggen om det är åtgärdat — anta det inte i någondera riktningen.
 
+**Paginera.** REST-API:ets standardsida är 30 poster, så en PR med fler
+kommentarer tappar de äldsta tyst — och de äldsta är precis de som hunnit bli
+olösta länge. Ett sidfilter är samma fel som ett tidsfilter, bara med en annan
+axel. Använd `--method GET --paginate -F per_page=100` på varje fyndhämtning,
+som [`pr-bot-findings-sweep.mdc`](../../rules/pr-bot-findings-sweep.mdc) föreskriver.
+
 **Grönt `gh pr checks` betyder inte "inga fynd".** Enligt
 [`pr-bot-findings-sweep.mdc`](../../rules/pr-bot-findings-sweep.mdc) lägger flera
 botar sina fynd på ytor som statuslistan inte visar — Vercel Agent Review (VADE)
@@ -87,8 +93,8 @@ skriver i check-runens `output`/`annotations`, och PR-nivånotiser hamnar bland
 `issues/comments` i stället för de radbundna `pulls/comments`. Svep därför båda:
 
 ```powershell
-gh api "repos/Jakeminator123/sajtmaskin/commits/<sha>/check-runs?per_page=50" --jq '.check_runs[] | {id, name, conclusion, title:.output.title, summary:(.output.summary // "" | .[0:400]), annotations:.output.annotations_count}'
-gh api repos/Jakeminator123/sajtmaskin/issues/<n>/comments --jq '.[] | select(.user.type == "Bot") | {user:.user.login, body:(.body|.[0:400])}'
+gh api --method GET --paginate -F per_page=100 "repos/Jakeminator123/sajtmaskin/commits/<sha>/check-runs" --jq '.check_runs[] | {id, name, conclusion, title:.output.title, summary:(.output.summary // "" | .[0:400]), annotations:.output.annotations_count}'
+gh api --method GET --paginate -F per_page=100 repos/Jakeminator123/sajtmaskin/issues/<n>/comments --jq '.[] | select(.user.type == "Bot") | {user:.user.login, body:(.body|.[0:400])}'
 ```
 
 `output` räcker inte: ett fynd kan ligga **bara** som annotation, och de hämtas
@@ -300,16 +306,24 @@ konflikt om och om igen medan du mergar andra — det hände #610 tre gånger p�
 timme, utan att något var fel med deras lösning. Är två PR:er lika långt komna,
 merga den som rör backloggen före den som inte gör det.
 
-Konfliktlösning i backloggen ska kontrolleras **semantiskt**, inte textuellt:
-räkna öppna rader på båda sidor och verifiera att differensen är exakt de rader
-PR:en stänger, och att de återfinns i arkivfilen. En textuell lösning kan tappa
-masters nya rader utan att det syns i diffen.
+Konfliktlösning i backloggen ska kontrolleras **semantiskt**, inte textuellt — en
+textuell lösning kan tappa masters nya rader utan att det syns i diffen.
+
+Jämför **radidentiteter, inte antal**. En PR kan både stänga gamla rader och logga
+nya fynd, så antalet ändras med `stängda − tillagda`. En ren antalskontroll
+underkänner då en korrekt lösning, eller värre: får någon att stryka det nyloggade
+fyndet för att få siffran att stämma.
 
 ```powershell
-$m = (git show origin/master:BUG-SWARM-BACKLOG.md) -split "`n" | Where-Object { $_ -match "^\| \[ \]" }
-$b = (git show <head>:BUG-SWARM-BACKLOG.md) -split "`n" | Where-Object { $_ -match "^\| \[ \]" }
-"master: $($m.Count)  branch: $($b.Count)"
+$key = { param($f) (git show "${f}:BUG-SWARM-BACKLOG.md") -split "`n" | Where-Object { $_ -match "^\| \[ \]" } | ForEach-Object { (($_ -split "\|")[4]).Trim().Substring(0, [Math]::Min(60, (($_ -split "\|")[4]).Trim().Length)) } }
+$m = & $key "origin/master"; $b = & $key "<head>"
+"borta ur branchen:"; Compare-Object $m $b | Where-Object SideIndicator -eq "<=" | ForEach-Object { $_.InputObject }
+"nya i branchen:";    Compare-Object $m $b | Where-Object SideIndicator -eq "=>" | ForEach-Object { $_.InputObject }
 ```
+
+Varje rad under "borta" ska återfinnas avbockad i arkivfilen. Varje rad under
+"nya" ska vara ett fynd PR:en medvetet loggar. Är någondera oväntad: konflikten
+är felaktigt löst.
 
 Canvasen handmergas aldrig — ta vilken sida som helst och kör om
 `node scripts/canvas/build-llm-flow-canvas.mjs`.
