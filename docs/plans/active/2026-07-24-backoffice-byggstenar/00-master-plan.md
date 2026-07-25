@@ -40,13 +40,21 @@ faktiskt påverkar**, så ägaren vågar inte ändra något.
    →  (4) Fas C  →  ägaren tittar  →  (5) Fas D-förslag  →  ägaren godkänner  →  (6) Fas D
 ```
 
-| # | Etapp | Status |
-|---|---|---|
-| 1 | **Fas A** — navigation, hub, språk, spara-läge | **Klar 2026-07-24**, PR #615 |
-| 2 | **Baseline-backup** (egen liten PR, dataförlust) | Ej påbörjad — design nedan |
-| 3 | **Fas B** — trygg create/edit för scaffold + variant | Ej påbörjad |
-| 4 | **Fas C** — Byggblock i samma språk + skapa från grunden | Ej påbörjad |
-| 5–6 | **Fas D** — AI-modellval via manifest | Kräver ägarens OK på förslaget först |
+| # | Etapp | Aktivitetsdokument (ta ett i taget) | Status |
+|---|---|---|---|
+| 1 | **Fas A** — navigation, hub, språk, spara-läge | *(sammanfattad nedan)* | **Klar 2026-07-24**, PR #615 |
+| 2 | **Baseline-backup** — dataförlust, egen liten PR | [`aktiviteter/01-baseline-backup.md`](aktiviteter/01-baseline-backup.md) | Ej påbörjad — **ta denna först** |
+| 3 | **Fas B** — trygg create/edit för scaffold + variant | [`aktiviteter/02-fas-b-scaffold-variant.md`](aktiviteter/02-fas-b-scaffold-variant.md) | Ej påbörjad |
+| 4 | **Fas C** — Byggblock i samma språk + skapa från grunden | [`aktiviteter/03-fas-c-byggblock.md`](aktiviteter/03-fas-c-byggblock.md) | Ej påbörjad |
+| 5–6 | **Fas D** — AI-modellval via manifestet | [`aktiviteter/04-fas-d-ai-modellval.md`](aktiviteter/04-fas-d-ai-modellval.md) | Kräver ägarens OK på förslaget först |
+
+### Så tar en ny agent över
+
+1. Läs det här dokumentet (beslut + etappordning), sedan **ett** aktivitetsdokument.
+2. Kör bara den etappen, i **en egen PR** mot `master`, och stanna för ägarens granskning.
+3. Uppdatera statuskolumnen ovan i samma PR som etappen levereras.
+4. Rör inte senare etapper i förbigående — särskilt inte Fas D, som ändrar
+   modellval och kräver ägarens godkännande av förslaget innan kod.
 
 ## Fas A — vad som landade (klar)
 
