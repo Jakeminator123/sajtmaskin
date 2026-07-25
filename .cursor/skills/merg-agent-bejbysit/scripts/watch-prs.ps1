@@ -85,17 +85,33 @@ function Get-AgeMinutes([string]$isoDate) {
   return [int]((Get-Date).ToUniversalTime() - $parsed).TotalMinutes
 }
 
-function Get-CommitAgeMinutes([string]$sha) {
-  $date = gh api "repos/$Repo/commits/$sha" --jq .commit.committer.date 2>$null
-  if ($LASTEXITCODE -ne 0 -or -not $date) { return -1 }
-  return Get-AgeMinutes $date
+<#
+Hur länge head-SHA:t varit SYNLIGT på GitHub - inte hur gammal commiten är.
+
+`.commit.committer.date` är metadata från när commiten skapades lokalt. En
+författare kan committa klockan 03:00 och pusha den till en befintlig PR strax
+före merge; commit-tiden hade då sagt "en timme gammal" i samma stund som koden
+blev granskningsbar, och hela poängen med att en sen push startar om väntan
+faller (Codex P1 på #612).
+
+CI triggas av pushen, så den tidigaste check-runens `started_at` är en bra proxy
+för när head:et blev synligt. Saknas check-runs helt är head:et nyss pushat ->
+0 minuter, aldrig commit-tiden. Ett API-fel ger -1 = "vet inte" -> aldrig moget.
+#>
+function Get-HeadVisibleMinutes([string]$sha) {
+  $earliest = gh api "repos/$Repo/commits/$sha/check-runs?per_page=100" `
+    --jq '[.check_runs[].started_at] | map(select(. != null)) | sort | first' 2>$null
+  if ($LASTEXITCODE -ne 0) { return -1 }
+  if (-not $earliest -or $earliest -eq "null") { return 0 }
+  return Get-AgeMinutes $earliest
 }
 
 <#
 Hur länge innehållet varit granskningsbart. Två klockor måste båda ha gått:
 
-  commit-åldern  - en ny push från författaragenten startar om väntan, annars
-                   kan en sen ändring smygas in precis före merge.
+  head-synlighet - en ny push startar om väntan, annars kan en sen ändring
+                   smygas in precis före merge. Mäts från när head:et blev
+                   synligt (push), inte från commitens metadata-tid.
   PR-åldern      - en gammal lokal commit som pushas som ny PR har inte varit
                    synlig för Codex/Vercel/Bugbot en enda minut ännu.
 
@@ -107,9 +123,9 @@ andra klockan. Att falla tillbaka på PR-åldern vore fail-OPEN: en gammal PR me
 en fräsch head-commit skulle se mogen ut om just commit-uppslaget råkade fela,
 och en minut gammal kod kunde larmas som redo. En grind ska falla stängd.
 #>
-function Get-ReviewableMinutes([int]$commitAge, [int]$prAge) {
-  if ($commitAge -lt 0 -or $prAge -lt 0) { return -1 }
-  return [Math]::Min($commitAge, $prAge)
+function Get-ReviewableMinutes([int]$headAge, [int]$prAge) {
+  if ($headAge -lt 0 -or $prAge -lt 0) { return -1 }
+  return [Math]::Min($headAge, $prAge)
 }
 
 # Exit-koden är den auktoritativa signalen: 0 = alla passerade, 8 = något är
@@ -155,7 +171,7 @@ for ($i = 1; $i -le $Cycles; $i++) {
     $seenSha[$n] = $sha
 
     $state = Get-CheckState $n
-    $age = Get-ReviewableMinutes (Get-CommitAgeMinutes $sha) (Get-AgeMinutes $pr.Created)
+    $age = Get-ReviewableMinutes (Get-HeadVisibleMinutes $sha) (Get-AgeMinutes $pr.Created)
     $summary += "#$n=$state/${age}min"
 
     $signed = $(if ($pr.Signed) { "merge:ready" } else { "OSIGNERAD" })

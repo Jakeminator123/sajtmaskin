@@ -70,8 +70,16 @@ skriver i check-runens `output`/`annotations`, och PR-nivånotiser hamnar bland
 `issues/comments` i stället för de radbundna `pulls/comments`. Svep därför båda:
 
 ```powershell
-gh api "repos/Jakeminator123/sajtmaskin/commits/<sha>/check-runs?per_page=50" --jq '.check_runs[] | select(.output.title != null or .output.summary != null) | {name, conclusion, title:.output.title, summary:(.output.summary // "" | .[0:400])}'
+gh api "repos/Jakeminator123/sajtmaskin/commits/<sha>/check-runs?per_page=50" --jq '.check_runs[] | {id, name, conclusion, title:.output.title, summary:(.output.summary // "" | .[0:400]), annotations:.output.annotations_count}'
 gh api repos/Jakeminator123/sajtmaskin/issues/<n>/comments --jq '.[] | select(.user.type == "Bot") | {user:.user.login, body:(.body|.[0:400])}'
+```
+
+`output` räcker inte: ett fynd kan ligga **bara** som annotation, och de hämtas
+från en egen endpoint. Har en check-run `annotations_count > 0`, hämta dem —
+annars kan grinden se helt triagerad ut med ett öppet P1 kvar:
+
+```powershell
+gh api --paginate "repos/Jakeminator123/sajtmaskin/check-runs/<check-run-id>/annotations" --jq '.[] | {level:.annotation_level, path, line:.start_line, message:(.message|.[0:300])}'
 ```
 
 **Mognadsregeln: 15 min granskningsbar.** Två klockor måste båda ha gått, för att
@@ -79,8 +87,14 @@ täcka två olika sätt att smita förbi granskning:
 
 | Klocka | Skyddar mot |
 |---|---|
-| Senaste commit på head | En sen push precis före merge — ny commit startar om väntan |
+| När head:et blev **synligt** (push) | En sen push precis före merge — nytt head startar om väntan |
 | PR:ens `createdAt` | En gammal lokal commit som pushas som ny PR; den har inte varit synlig för Codex/Vercel/Bugbot en enda minut |
+
+Mät head-klockan från **pushen**, inte från `.commit.committer.date`. Commit-tiden
+är metadata: en författare kan committa 03:00 och pusha till en befintlig PR strax
+före merge, och då hade commit-tiden sagt "en timme gammal" i samma stund som koden
+blev granskningsbar. CI triggas av pushen, så tidigaste `started_at` bland head:ets
+check-runs är rätt proxy. Finns inga check-runs är head:et nyss pushat → 0 minuter.
 
 Innehållet blev granskningsbart vid den **senaste** av de två händelserna, så den
 förflutna tiden är den **minsta** av de två åldrarna:
@@ -93,7 +107,7 @@ UTC-offseten (en 3 min gammal PR mätte 125 min):
 ```powershell
 $sha = gh pr view <n> --json headRefOid --jq .headRefOid
 $created = gh pr view <n> --json createdAt --jq .createdAt
-$pushed = gh api repos/Jakeminator123/sajtmaskin/commits/$sha --jq .commit.committer.date
+$pushed = gh api "repos/Jakeminator123/sajtmaskin/commits/$sha/check-runs?per_page=100" --jq '[.check_runs[].started_at] | map(select(. != null)) | sort | first'
 $styles = [Globalization.DateTimeStyles]::AdjustToUniversal -bor [Globalization.DateTimeStyles]::AssumeUniversal
 $ages = @($pushed, $created) | ForEach-Object {
   [int]((Get-Date).ToUniversalTime() - [datetime]::Parse($_, [Globalization.CultureInfo]::InvariantCulture, $styles)).TotalMinutes
