@@ -95,6 +95,23 @@ function resolveConfiguredDbEnv(env = process.env) {
   return undefined;
 }
 
+/**
+ * The Postgres connection string this process is configured to use, following
+ * the same key precedence as the runtime resolver in `src/lib/db/env.ts`.
+ * Exported so plain-node scripts share one owner of the key list instead of
+ * re-declaring it (a drifting copy is how a script ends up silently checking
+ * the wrong database, or skipping because it looked at the wrong var).
+ *
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {string | undefined}
+ */
+export function resolveDbConnectionString(env = process.env) {
+  return resolveConfiguredDbEnv(env);
+}
+
+/** The env vars consulted by {@link resolveDbConnectionString}, in precedence order. */
+export { CONNECTION_KEYS };
+
 export function warnIfProdLikeReadTarget({ commandName = "db:read", env = process.env, logger = console } = {}) {
   const inspection = inspectDbTarget(env);
   if (inspection.isProdLike) {

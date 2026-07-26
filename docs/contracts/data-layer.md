@@ -78,6 +78,39 @@ så att fortsätta till perf-indexes vore meningslöst — appen kan ändå
 inte starta. `db:perf-indexes:soft` är "soft" eftersom index är en
 optimering (utan dem fungerar appen, bara långsammare).
 
+### Lokal schema-vakt (`ensure-schema.mjs`)
+
+`db-init.mjs` applicerar **alla** migrationer i `MIGRATION_ORDER` vid varje
+`npm run dev`, så den lokala DB:n hålls i synk automatiskt — men bara på den
+vägen. Tre sätt att tappa det tyst:
+
+1. `db:init:soft` sväljer ett fel mitt i körningen — WARN-raden rullar bort
+   bakom Next.js-output och dev startar på gammalt schema.
+2. `SKIP_PREDEV=1` eller `node scripts/dev/next-runner.mjs dev` direkt
+   (den dokumenterade snabbvägen) hoppar över migrationerna helt.
+3. Ledger-bokföringen är warn-only, så `db:migrate:check` kan säga BEHIND
+   även efter att SQL:en faktiskt applicerats.
+
+`scripts/db/ensure-schema.mjs` täpper till alla tre:
+
+| Läge | Vem kör | Beteende |
+|---|---|---|
+| `--check-only --soft --quiet-ok` | `next-runner.mjs` vid varje `dev`-start | Read-only ledger-SELECT i bakgrunden. Helt tyst när allt är rätt, ramad varning som listar saknade migrationer när DB:n ligger efter. Blockerar aldrig starten. |
+| `npm run db:ensure` | du, manuellt | Kollar → applicerar saknade via `npm run db:migrate` → verifierar om. Ett kommando som svar på "min lokala DB har fel schema". |
+
+Vakten kör **aldrig** DDL själv: den delegerar till `run-migrations.ts`, som
+förblir enda ägaren av apply-loopen och prod-skrivskyddet
+(`assertSafeWriteTarget`). Det håller kvar designvalet ovan — DDL sker bara
+från explicita ingångar, inte från en bakgrundsprocess.
+
+**SSL-ägare:** `scripts/db/db-ssl.mjs` (`resolveSslConfig`) avgör hur alla
+db-skript översätter en connection-sträng till `pg`:s `ssl`-option, så
+`sslmode=disable` (lokal Postgres utan TLS) betyder samma sak i `db-init.mjs`,
+`run-migrations.ts` och `ensure-schema.mjs`. Tidigare ignorerade
+`run-migrations.ts` `sslmode` helt, så `db:migrate` failade på SSL mot exakt den
+URL `db:init` anslöt till utan problem. Runtime-motsvarigheten är
+`resolvePoolSslConfig` i `src/lib/db/client.ts`.
+
 **Schema-drift fångas av automatisk test:**
 `src/lib/db/schema-drift.test.ts` kör i `npm run test:ci` och fångar
 när Drizzle-schemat deklarerar ett index/tabell som inte motsvaras av
@@ -204,6 +237,8 @@ Mappade mot Redis-skill-reglerna:
 | `npm run db:perf-indexes:dry` | CLI | Se vilka index som SKULLE skapas utan att göra det |
 | `npm run db:perf-indexes` | CLI | Faktiskt skapa saknade index (idempotent, säkert mot prod) |
 | `npm run db:perf-indexes:soft` | CLI / `predev` | Som ovan men felar tyst (auto-applicering) |
+| `npm run db:ensure` | CLI | Applicera saknade migrationer på den lokala DB:n + verifiera (svaret på "fel schema lokalt") |
+| `npm run db:migrate:check` | CLI | Read-only: ligger den lokala DB:n efter? (samma gate CI kör mot prod) |
 | `npm run redis:health` | CLI | Redis-statusen i JSON |
 | `/api/health` | HTTP | Snabb live-check (Redis + features) |
 | `/api/metrics` | HTTP | Prometheus-expo (renderas i Observability-sidan) |
