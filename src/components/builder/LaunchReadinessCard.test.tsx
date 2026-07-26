@@ -13,7 +13,7 @@ describe("LaunchReadinessCard", () => {
       blockers: [
         {
           id: "version-failed",
-          title: "Versionen underkändes av quality gate (typecheck/build).",
+          title: "Koden går inte att bygga än — vi försöker reparera.",
           severity: "blocker",
           category: "blocker",
           action: "versions",
@@ -22,7 +22,7 @@ describe("LaunchReadinessCard", () => {
       warnings: [
         {
           id: "seo-missing-title",
-          title: "SEO: title saknas.",
+          title: "Sidans titel saknas.",
           severity: "warning",
           category: "advisory",
           action: "seo",
@@ -39,14 +39,30 @@ describe("LaunchReadinessCard", () => {
 
     const { container } = render(<LaunchReadinessCard readiness={readiness} />);
 
-    expect(screen.getByText("Blockerar deploy")).toBeTruthy();
+    expect(screen.getByText("Blockerar publicering")).toBeTruthy();
     expect(
       screen.getByText("Rekommendationer — blockerar inte"),
     ).toBeTruthy();
     expect(
-      screen.getByText("Versionen underkändes av quality gate (typecheck/build)."),
+      screen.getByText("Koden går inte att bygga än — vi försöker reparera."),
     ).toBeTruthy();
-    expect(screen.getByText("SEO: title saknas.")).toBeTruthy();
+    expect(screen.getByText("Sidans titel saknas.")).toBeTruthy();
     expect(container.firstChild).toMatchSnapshot();
+  });
+
+  it("döljer kortet helt när status är ready (B2)", () => {
+    const readiness = buildChatReadiness({
+      info: {
+        versionId: "ver_1",
+        lifecycleStatus: "passed",
+        requiredEnvKeys: [],
+        configuredEnvKeys: [],
+        missingEnvKeys: [],
+      },
+    });
+
+    const { container } = render(<LaunchReadinessCard readiness={readiness} />);
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByText("Lansering")).toBeNull();
   });
 });

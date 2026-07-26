@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
+import { AlertCircle, Loader2, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,6 +76,11 @@ export function LaunchReadinessCard({
   isLoading = false,
   lifecycleStage = null,
 }: Props) {
+  // B2: show only when something needs attention. At `ready` the Publicera
+  // button carries the positive signal — keep the preview area clear.
+  if (readiness?.status === "ready") {
+    return null;
+  }
   if (!readiness && !isLoading) {
     return null;
   }
@@ -106,10 +111,8 @@ export function LaunchReadinessCard({
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : readiness?.status === "blocked" ? (
             <AlertCircle className="h-4 w-4 text-red-400" />
-          ) : readiness?.status === "warning" ? (
-            <TriangleAlert className="h-4 w-4 text-amber-400" />
           ) : (
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <TriangleAlert className="h-4 w-4 text-amber-400" />
           )}
           <span className="font-medium text-gray-200">Lansering</span>
         </div>
@@ -126,7 +129,7 @@ export function LaunchReadinessCard({
         <div className="mt-2 space-y-2">
           {blockingItems.length > 0 ? (
             <div className="space-y-1.5">
-              <div className="text-[11px] font-medium text-red-200">Blockerar deploy</div>
+              <div className="text-[11px] font-medium text-red-200">Blockerar publicering</div>
               {blockingItems.map((item) =>
                 renderItem(
                   item,

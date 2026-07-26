@@ -11,10 +11,7 @@ import {
   resolveEngineVersionLifecycleStatus,
 } from "@/lib/db/engine-version-lifecycle";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import {
-  describePreviewDiagnosticCode,
-  readPreviewDiagnosticMeta,
-} from "@/lib/gen/preview/diagnostics";
+import { readPreviewDiagnosticMeta } from "@/lib/gen/preview/diagnostics";
 import {
   isLatestGateVerdictGreen,
   resolveLatestGateAdvisoryChecks,
@@ -52,8 +49,8 @@ import {
 function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
   return {
     id: "missing-env",
-    title: "Projektet saknar obligatoriska miljövariabler.",
-    detail: `Saknas: ${missingEnvKeys.join(", ")}`,
+    title: "Obligatoriska nycklar saknas.",
+    detail: `Saknas: ${missingEnvKeys.join(", ")}. Lägg till dem under Byggblock.`,
     severity: "blocker",
     action: "env",
     envKeys: missingEnvKeys,
@@ -63,8 +60,8 @@ function buildMissingEnvBlocker(missingEnvKeys: string[]): ChatReadinessItem {
 function buildPlaceholderCoveredEnvWarning(keys: string[]): ChatReadinessItem {
   return {
     id: "placeholder-env",
-    title: "Vissa miljövariabler använder preview-placeholders.",
-    detail: `Fungerar i preview men behöver riktiga värden vid publicering: ${keys.join(", ")}`,
+    title: "Vissa nycklar använder tillfälliga värden i förhandsvisningen.",
+    detail: `Lägg in riktiga värden innan publicering: ${keys.join(", ")}`,
     severity: "warning",
     action: "env",
     envKeys: keys,
@@ -74,28 +71,77 @@ function buildPlaceholderCoveredEnvWarning(keys: string[]): ChatReadinessItem {
 function buildFeatureRuntimeEnvInfo(keys: string[]): ChatReadinessItem {
   return {
     id: "feature-runtime-env",
-    title: `${keys.length} ${keys.length === 1 ? "funktion kräver" : "funktioner kräver"} konfiguration vid användning.`,
-    detail: `Sajten bygger och visas utan dessa, men respektive feature visar en konfigurations-banner när användaren aktiverar den: ${keys.join(", ")}`,
+    title: `${keys.length} ${keys.length === 1 ? "funktion behöver" : "funktioner behöver"} ställas in när ${keys.length === 1 ? "den används" : "de används"}.`,
+    detail: `Sajten syns utan dem, men ${keys.length === 1 ? "funktionen ber" : "funktionerna ber"} om nycklar när någon aktiverar ${keys.length === 1 ? "den" : "dem"}: ${keys.join(", ")}`,
     severity: "warning",
     action: "env",
     envKeys: keys,
   };
 }
 
+/**
+ * Plain-language preview issue lines for the Lansering card.
+ * Keeps internal diagnostic codes out of user-visible copy (technical detail
+ * remains in generation logs via `describePreviewDiagnosticCode` elsewhere).
+ */
+function describePreviewIssueForReadiness(code?: string | null): string | null {
+  switch ((code ?? "").trim()) {
+    case "preflight_preview_blocked":
+      return "Förhandsvisningen stoppades innan den kunde starta.";
+    case "preflight_verification_blocked":
+      return "Förhandsvisningen fungerar, men vi hittade problem som måste åtgärdas.";
+    case "preview_waiting_for_vm":
+      return "Live-förhandsvisningen byggs fortfarande.";
+    case "render_route_version_not_found":
+      return "Förhandsvisningen kunde inte hitta versionen.";
+    case "render_route_chat_not_found":
+      return "Förhandsvisningen kunde inte verifiera chatten.";
+    case "render_route_files_missing":
+      return "Förhandsvisningen hittade inga genererade filer.";
+    case "render_route_no_renderable_component":
+      return "Förhandsvisningen hittade ingen sida att visa.";
+    case "render_route_shim_disabled":
+      return "Enkel förhandsvisning är avstängd — vänta på live-förhandsvisningen.";
+    case "preview_compile_error":
+      return "Förhandsvisningen kunde inte bygga koden.";
+    case "preview_validation_error":
+      return "Förhandsvisningen stoppades av ett valideringsfel.";
+    case "preview_runtime_error":
+      return "Förhandsvisningen kraschade när sidan kördes.";
+    case "preview_react_render_error":
+      return "Förhandsvisningen misslyckades när sidan skulle visas.";
+    case "preview_transport_error":
+      return "Förhandsvisningen kunde inte laddas.";
+    case "preview_ready_timeout":
+      return "Förhandsvisningen laddade inte klart i tid.";
+    case "preview_document_unavailable":
+      return "Förhandsvisningens innehåll kunde inte läsas.";
+    case "preview_route_error":
+      return "Förhandsvisningen returnerade ett fel.";
+    case "preview_missing_url":
+      return "Länk till förhandsvisningen saknas för versionen.";
+    case "preview_unknown_error":
+      return "Förhandsvisningen misslyckades av okänd anledning.";
+    default:
+      return null;
+  }
+}
+
 function buildLifecycleBlocker(
   status: string,
-  summary?: string | null,
+  _summary?: string | null,
   stage?: string | null,
 ): ChatReadinessItem | null {
   // False-green guard: suppress the verifying warning ONLY for an explicit
   // `design` stage. An unknown/null stage keeps the warning (never hide a
-  // possibly-real F3 verify).
+  // possibly-real F3 verify). Plain-language card copy — raw verification
+  // summaries stay on `info.verificationSummary` for logs/diagnostics.
   const isDesignStage = stage === "design";
   if (status === "draft") {
     return {
       id: "version-draft",
-      title: "Versionen är fortfarande ett draft-utkast.",
-      detail: summary || "Kör verifieringen först innan du publicerar.",
+      title: "Versionen är fortfarande ett utkast.",
+      detail: "Kör klart kontrollerna innan du publicerar.",
       severity: "blocker",
       action: "versions",
     };
@@ -110,8 +156,8 @@ function buildLifecycleBlocker(
     if (isDesignStage) return null;
     return {
       id: "version-verifying",
-      title: "Verifiering pågår fortfarande.",
-      detail: summary || "Quality gate och efterkontroller körs i bakgrunden. Preview är tillgänglig under tiden.",
+      title: "Vi kontrollerar fortfarande om versionen går att publicera.",
+      detail: "Förhandsvisningen fungerar under tiden — vänta tills kontrollen är klar.",
       severity: "warning",
       action: "versions",
     };
@@ -120,27 +166,22 @@ function buildLifecycleBlocker(
   if (status === "repairing") {
     return {
       id: "version-repairing",
-      title: "Server-side repair pågår.",
-      detail:
-        summary ||
-        "Reparations-loopen försöker laga verifieringsblockerande fynd. Vänta tills den är klar innan du publicerar.",
+      title: "Vi försöker reparera koden automatiskt.",
+      detail: "Vänta tills reparationen är klar innan du publicerar.",
       severity: "warning",
       action: "versions",
     };
   }
 
   if (status === "repair_available") {
-    const baseDetail =
-      summary ||
-      "Acceptera reparationen i versionspanelen för att applicera fixen innan publicering.";
     return {
       id: "version-repair-available",
-      title: "En serverreparation väntar på godkännande.",
+      title: "En reparation väntar på ditt godkännande.",
       // Make the auto-accept behaviour explicit instead of silent: a pending
       // repair is auto-accepted after REPAIR_ACCEPT_TIMEOUT_MINUTES without a
       // manual answer (see maybeAutoAcceptTimedOutRepair). Disclosing it here
       // turns a surprising "sudden fix" into an expected, opted-into outcome.
-      detail: `${baseDetail} Om du inte svarar inom ${REPAIR_ACCEPT_TIMEOUT_MINUTES} minuter accepteras den automatiskt.`,
+      detail: `Acceptera reparationen i versionslistan innan du publicerar. Om du inte svarar inom ${REPAIR_ACCEPT_TIMEOUT_MINUTES} minuter accepteras den automatiskt.`,
       severity: "blocker",
       action: "versions",
     };
@@ -149,10 +190,8 @@ function buildLifecycleBlocker(
   if (status === "failed") {
     return {
       id: "version-failed",
-      title: "Versionen underkändes av quality gate (typecheck/build).",
-      detail:
-        summary ||
-        "Publicering är blockerad tills typecheck/build passerar. Kör autofix eller en ny förfining och försök publicera igen.",
+      title: "Koden går inte att bygga än — vi försöker reparera.",
+      detail: "Du kan skriva vad som ska ändras, eller vänta på att reparationen blir klar.",
       severity: "blocker",
       action: "versions",
     };
@@ -169,11 +208,11 @@ function buildLifecycleBlocker(
 }
 
 function buildPreviewWarning(detail?: string | null, diagnosticCode?: string | null): ChatReadinessItem {
-  const normalizedDetail = describePreviewDiagnosticCode(diagnosticCode);
+  const normalizedDetail = describePreviewIssueForReadiness(diagnosticCode);
   return {
     id: "preview-warning",
-    title: "Den här versionen har preview- eller runtime-problem loggade.",
-    detail: normalizedDetail || detail || "Kontrollera previewn innan du publicerar.",
+    title: "Förhandsvisningen har problem.",
+    detail: normalizedDetail || detail || "Kontrollera förhandsvisningen innan du publicerar.",
     severity: "warning",
     action: "preview",
   };
@@ -334,9 +373,9 @@ async function buildEngineReadiness(
     // active version changed without an explicit "Acceptera fix" click.
     warnings.push({
       id: "repair-auto-accepted",
-      title: "En serverreparation accepterades automatiskt efter timeout.",
+      title: "En reparation godkändes automatiskt när tiden gick ut.",
       detail:
-        "Reparationen applicerades utan manuell bekräftelse. Granska resultatet i versionspanelen.",
+        "Ändringen sparades utan att du klickade Acceptera. Granska resultatet i versionslistan.",
       severity: "warning",
       action: "versions",
     });
@@ -384,8 +423,8 @@ async function buildEngineReadiness(
   if (invalidJsonPaths.length > 0) {
     blockers.push({
       id: "invalid-project-json",
-      title: "Projektfil(er) går inte att tolka.",
-      detail: `Ogiltig JSON: ${invalidJsonPaths.join(", ")}. Rätta filerna (t.ex. package.json / components.json) innan du publicerar.`,
+      title: "Projektfiler går inte att läsa.",
+      detail: `Felaktig JSON i: ${invalidJsonPaths.join(", ")}. Rätta filerna innan du publicerar.`,
       severity: "blocker",
       action: "deploy",
     });
@@ -435,8 +474,8 @@ async function buildEngineReadiness(
     if (requiredEnvKeys.length > 0 && !chat.project_id) {
       blockers.push({
         id: "project-context-missing",
-        title: "Projektkontext saknas för miljövariabler.",
-        detail: "Spara projektet först så att miljövariabler kan kopplas till rätt projekt.",
+        title: "Projektet måste sparas innan miljövariabler kan kopplas.",
+        detail: "Spara projektet först så nycklarna kopplas rätt.",
         severity: "blocker",
         action: "env",
       });
@@ -466,7 +505,9 @@ async function buildEngineReadiness(
   );
   if (latestPreviewSignal) {
     const previewMeta = readPreviewDiagnosticMeta(latestPreviewSignal.meta);
-    warnings.push(buildPreviewWarning(latestPreviewSignal.message, previewMeta.previewCode));
+    // Prefer plain-language diagnostic mapping; keep raw log message out of
+    // the card (it often contains internal vocabulary). Logs retain the detail.
+    warnings.push(buildPreviewWarning(null, previewMeta.previewCode));
   }
   const latestSeoWarning = errorLogs.find((log) => log.category === "seo");
   if (latestSeoWarning) {

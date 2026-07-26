@@ -23,15 +23,29 @@ describe("readiness payload category mapping", () => {
     expect(advisories.every((item) => item.severity === "warning")).toBe(true);
   });
 
-  it("klassar quality-gate/typecheck-fel som Blocker", () => {
+  it("klassar version-failed som Blocker", () => {
     const item = withReadinessCategory({
       id: "version-failed",
-      title: "Versionen underkändes av quality gate (typecheck/build).",
+      title: "Koden går inte att bygga än — vi försöker reparera.",
       severity: "blocker",
       action: "versions",
     });
 
     expect(item.category).toBe("blocker");
+  });
+
+  it("använder klarspråk utan intern gate-vokabulär i ReleaseGate-blockern", () => {
+    const gate = resolveDeployReleaseGate({
+      lifecycle_stage: "integrations",
+      verification_state: "verifying",
+      release_state: null,
+    });
+    const item = buildReleaseGateBlocker(gate, false);
+    const blob = `${item?.title ?? ""} ${item?.detail ?? ""}`;
+    expect(blob).not.toMatch(
+      /quality gate|preflight|ReleaseGate|\bF2\b|\bF3\b|\btypecheck\b|\bbuild\b|\blint\b/i,
+    );
+    expect(item?.title).toContain("Integrationerna");
   });
 });
 
