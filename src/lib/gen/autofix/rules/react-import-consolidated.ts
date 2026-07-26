@@ -71,8 +71,15 @@ const NAVIGATION_SYMBOLS = new Set([
 ]);
 
 // Broader identifier-call regex used for navigation symbols (they are not
-// restricted to the `use*` prefix — e.g. `redirect`, `notFound`).
-const SYMBOL_CALL_RE = /\b([A-Za-z_$][\w$]*)\s*\(/g;
+// restricted to the `use*` prefix — e.g. `redirect`, `notFound`). The leading
+// group rejects member calls: `NextResponse.redirect(...)` is not a bare
+// `redirect()` and must not pull in a next/navigation import.
+const SYMBOL_CALL_RE = /(^|[^.\w$])([A-Za-z_$][\w$]*)\s*\(/g;
+
+// Route handlers under `app/api/**` use the `next/server` types.
+const NEXT_SERVER_ROUTE_RE = /(?:^|\/)(?:src\/)?app\/api\/(?:.+\/)?route\.[jt]sx?$/;
+const NEXT_SERVER_VALUE_SYMBOLS = ["NextResponse"];
+const NEXT_SERVER_TYPE_SYMBOLS = ["NextRequest"];
 
 // Per-module named-import matcher (scoped to the module source so we merge
 // into the correct block).
@@ -136,6 +143,44 @@ function extractAlreadyImported(code: string, modulePath: string): Set<string> {
   );
 }
 
+function extractAlreadyImportedIncludingTypes(code: string, modulePath: string): Set<string> {
+  return new Set(
+    findNamedImportsFor(code, modulePath)
+      .flatMap((match) => match.specifiers)
+      .map(stripTypeAndAlias)
+      .filter(Boolean),
+  );
+}
+
+/**
+ * The file body with every import statement removed, so "is this symbol used?"
+ * cannot be answered by the import that is about to be written. Multi-line
+ * import clauses are dropped up to and including their `from "…"` line.
+ */
+function stripImportStatements(code: string): string {
+  const out: string[] = [];
+  let insideImport = false;
+  for (const line of code.split("\n")) {
+    if (insideImport) {
+      if (/\bfrom\s+["'][^"']+["']/.test(line)) insideImport = false;
+      continue;
+    }
+    if (/^\s*import\b/.test(line)) {
+      if (!/\bfrom\s+["'][^"']+["']/.test(line) && !/^\s*import\s+["']/.test(line)) {
+        insideImport = true;
+      }
+      continue;
+    }
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+/** True when `name` appears as a standalone identifier (not `foo.name`). */
+function usesIdentifier(body: string, name: string): boolean {
+  return new RegExp(`(^|[^.\\w$])${name}\\b`).test(body);
+}
+
 /**
  * Merge the given missing specifiers into an existing value-import block
  * for `modulePath`, or inject a fresh `import { … } from "modulePath"` line
@@ -145,11 +190,15 @@ function mergeOrInjectImport(
   code: string,
   modulePath: string,
   missing: string[],
+  typeOnly = false,
 ): string {
   if (missing.length === 0) return code;
   const sorted = [...missing].sort();
+  const typeKeyword = typeOnly ? "type " : "";
 
-  const existing = findNamedImportsFor(code, modulePath).find((match) => !match.typeOnly);
+  const existing = findNamedImportsFor(code, modulePath).find(
+    (match) => match.typeOnly === typeOnly,
+  );
   if (existing) {
     const existingValueNames = new Set(
       existing.specifiers
@@ -161,11 +210,11 @@ function mergeOrInjectImport(
     for (const symbol of sorted) {
       if (!existingValueNames.has(symbol)) merged.push(symbol);
     }
-    const rebuilt = `import ${existing.defaultPrefix}{ ${merged.join(", ")} } from "${modulePath}"${existing.hasSemicolon ? ";" : ""}`;
+    const rebuilt = `import ${typeKeyword}${existing.defaultPrefix}{ ${merged.join(", ")} } from "${modulePath}"${existing.hasSemicolon ? ";" : ""}`;
     return code.slice(0, existing.start) + rebuilt + code.slice(existing.end);
   }
 
-  const importLine = `import { ${sorted.join(", ")} } from "${modulePath}";\n`;
+  const importLine = `import ${typeKeyword}{ ${sorted.join(", ")} } from "${modulePath}";\n`;
   const directive = USE_CLIENT_DIRECTIVE_RE.exec(code);
   if (directive) {
     const after = directive[0].length;
@@ -204,14 +253,39 @@ function collectMissingReactHooks(code: string): string[] {
 }
 
 function collectMissingNavigationSymbols(code: string): string[] {
+  const body = stripImportStatements(code);
   const used = new Set<string>();
   SYMBOL_CALL_RE.lastIndex = 0;
-  for (const m of code.matchAll(SYMBOL_CALL_RE)) {
-    if (NAVIGATION_SYMBOLS.has(m[1])) used.add(m[1]);
+  for (const m of body.matchAll(SYMBOL_CALL_RE)) {
+    if (NAVIGATION_SYMBOLS.has(m[2])) used.add(m[2]);
   }
   if (used.size === 0) return [];
   const already = extractAlreadyImported(code, "next/navigation");
   return [...used].filter((s) => !already.has(s)).sort();
+}
+
+/**
+ * `NextRequest` / `NextResponse` used in an `app/api/**\/route.ts` handler
+ * without the `next/server` import — a ReferenceError (or TS2304 for the type)
+ * that takes the whole route down. Only symbols that actually appear in the
+ * file body are added.
+ */
+function collectMissingNextServerSymbols(
+  code: string,
+  filePath: string | undefined,
+): { value: string[]; type: string[] } {
+  if (!filePath || !NEXT_SERVER_ROUTE_RE.test(filePath)) return { value: [], type: [] };
+  const body = stripImportStatements(code);
+  const alreadyValue = extractAlreadyImported(code, "next/server");
+  const alreadyAny = extractAlreadyImportedIncludingTypes(code, "next/server");
+  return {
+    value: NEXT_SERVER_VALUE_SYMBOLS.filter(
+      (name) => usesIdentifier(body, name) && !alreadyValue.has(name) && !alreadyAny.has(name),
+    ),
+    type: NEXT_SERVER_TYPE_SYMBOLS.filter(
+      (name) => usesIdentifier(body, name) && !alreadyAny.has(name),
+    ),
+  };
 }
 
 // ── React import consolidation (TS2300 duplicate-identifier guard) ──────────
@@ -437,11 +511,16 @@ export interface ReactAndNavigationFixResult {
   addedReactHooks: string[];
   /** next/navigation specifiers that were added (e.g. ["useRouter", "usePathname"]). */
   addedNavigationSymbols: string[];
+  /** next/server specifiers added to an API route handler (e.g. ["NextRequest", "NextResponse"]). */
+  addedNextServerSymbols: string[];
   /** Local names de-duplicated when merging multiple `react` imports (TS2300). */
   consolidatedReactBindings: string[];
 }
 
-export function fixReactAndNavigationImports(code: string): ReactAndNavigationFixResult {
+export function fixReactAndNavigationImports(
+  code: string,
+  filePath?: string,
+): ReactAndNavigationFixResult {
   let current = code;
 
   // 0. Consolidate duplicate `react` imports FIRST so the add-missing passes
@@ -474,11 +553,25 @@ export function fixReactAndNavigationImports(code: string): ReactAndNavigationFi
     current = mergeOrInjectImport(current, "next/navigation", missingNav);
   }
 
+  // 4. next/server types in API route handlers.
+  const missingNextServer = collectMissingNextServerSymbols(current, filePath);
+  if (missingNextServer.value.length > 0) {
+    current = mergeOrInjectImport(current, "next/server", missingNextServer.value);
+  }
+  if (missingNextServer.type.length > 0) {
+    current = mergeOrInjectImport(current, "next/server", missingNextServer.type, true);
+  }
+  const addedNextServerSymbols = [
+    ...missingNextServer.value,
+    ...missingNextServer.type,
+  ].sort();
+
   const fixed =
     consolidatedReactBindings.length > 0 ||
     addedReactDefault ||
     missingHooks.length > 0 ||
-    missingNav.length > 0;
+    missingNav.length > 0 ||
+    addedNextServerSymbols.length > 0;
 
   return {
     code: current,
@@ -486,6 +579,7 @@ export function fixReactAndNavigationImports(code: string): ReactAndNavigationFi
     addedReactDefault,
     addedReactHooks: missingHooks,
     addedNavigationSymbols: missingNav,
+    addedNextServerSymbols,
     consolidatedReactBindings,
   };
 }

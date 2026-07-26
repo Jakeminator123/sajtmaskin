@@ -579,7 +579,7 @@ async function runAutoFixSinglePass(
       // three distinct `FixEntry`s — the fixer IDs, telemetry counters, and
       // registry rows they feed are unchanged.
       try {
-        const consolidated = fixReactAndNavigationImports(currentCode);
+        const consolidated = fixReactAndNavigationImports(currentCode, file.path);
         if (consolidated.fixed) {
           currentCode = consolidated.code;
           if (consolidated.consolidatedReactBindings.length > 0) {
@@ -611,6 +611,14 @@ async function runAutoFixSinglePass(
               fixer: "nextjs-navigation-import-fixer",
               category: "mechanical",
               description: `Added missing next/navigation imports: ${consolidated.addedNavigationSymbols.join(", ")}`,
+              file: file.path,
+            });
+          }
+          if (consolidated.addedNextServerSymbols.length > 0) {
+            allFixes.push({
+              fixer: "nextjs-navigation-import-fixer",
+              category: "mechanical",
+              description: `Added missing next/server imports: ${consolidated.addedNextServerSymbols.join(", ")}`,
               file: file.path,
             });
           }

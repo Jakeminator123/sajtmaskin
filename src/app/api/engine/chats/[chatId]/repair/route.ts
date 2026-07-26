@@ -746,11 +746,15 @@ async function handlePOST(
             ? "En annan körning tog över versionen — den här reparationen sparades inte."
             : loopResult.noContext
               ? "Ingen åtgärdbar felinformation hittades, så ingen automatisk reparation kördes."
-              : loopResult.earlyStopReason === "time_budget_exceeded"
-                ? "Reparationen avbröts: tidsbudgeten tog slut innan felen kunde lösas. Försök igen eller redigera filen manuellt."
-                : loopResult.remainingErrors === 0
-                  ? `Automatisk reparation kunde inte lösa bygg-/typfelet efter ${llmPasses} försök (koden är syntaktiskt korrekt men quality-gaten failar fortfarande). Prova en mindre eller mer specifik prompt, eller redigera filen manuellt.`
-                  : `Automatisk reparation ofullständig efter ${llmPasses} försök: ${loopResult.remainingErrors} kvarstående syntaxfel. Prova en mindre eller mer specifik prompt, eller redigera filen manuellt.`,
+              : loopResult.earlyStopReason === "blocker_regression"
+                ? "Reparationen ångrades: ändringen skapade ett nytt fel som inte fanns innan. Filerna är kvar som de var — beskriv felet i chatten eller redigera filen manuellt."
+                : loopResult.earlyStopReason === "blocker_unresolved"
+                  ? "Reparationen stoppades: samma fel fanns kvar efter två försök. Beskriv felet i chatten eller redigera filen manuellt."
+                  : loopResult.earlyStopReason === "time_budget_exceeded"
+                    ? "Reparationen avbröts: tidsbudgeten tog slut innan felen kunde lösas. Försök igen eller redigera filen manuellt."
+                    : loopResult.remainingErrors === 0
+                      ? `Automatisk reparation kunde inte lösa bygg-/typfelet efter ${llmPasses} försök (koden är syntaktiskt korrekt men quality-gaten failar fortfarande). Prova en mindre eller mer specifik prompt, eller redigera filen manuellt.`
+                      : `Automatisk reparation ofullständig efter ${llmPasses} försök: ${loopResult.remainingErrors} kvarstående syntaxfel. Prova en mindre eller mer specifik prompt, eller redigera filen manuellt.`,
     });
   } catch (err) {
     console.error("[repair] Error:", err);

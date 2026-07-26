@@ -655,15 +655,85 @@ export interface AddNavLinkResult {
   navUpdated: boolean;
 }
 
+const BRACKET_PAIRS: Array<[string, string]> = [
+  ["(", ")"],
+  ["{", "}"],
+  ["[", "]"],
+];
+const JSX_TAG_RE = /<\/?([A-Za-z][\w.]*)\b[^>]*?(\/?)>/g;
+const VOID_TAGS = new Set([
+  "br",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "source",
+  "track",
+  "wbr",
+]);
+
+/**
+ * Bracket, double-quote and JSX-tag imbalance in `content`. Not a parser: callers only
+ * compare the count before and after a mutation, so the shared baseline of
+ * false positives (brackets inside strings and comments) cancels out.
+ *
+ * `countParseErrors` from the autofix rules is the stricter check and can be
+ * injected by Node callers, but it cannot be the default here — this module is
+ * imported by the preview panel, and a static `typescript` import would ship
+ * the whole compiler in the browser bundle.
+ */
+export function countStructuralErrors(content: string): number {
+  let errors = 0;
+  for (const [open, close] of BRACKET_PAIRS) {
+    let depth = 0;
+    for (const ch of content) {
+      if (ch === open) depth += 1;
+      else if (ch === close) {
+        depth -= 1;
+        if (depth < 0) {
+          errors += 1;
+          depth = 0;
+        }
+      }
+    }
+    errors += depth;
+  }
+
+  for (const line of content.split("\n")) {
+    const quotes = line.replace(/\\"/g, "").split('"').length - 1;
+    if (quotes % 2 === 1) errors += 1;
+  }
+
+  const stack: string[] = [];
+  JSX_TAG_RE.lastIndex = 0;
+  for (const match of content.matchAll(JSX_TAG_RE)) {
+    const tag = match[1]!;
+    if (VOID_TAGS.has(tag.toLowerCase()) || match[2] === "/") continue;
+    if (match[0].startsWith("</")) {
+      const idx = stack.lastIndexOf(tag);
+      if (idx === -1) errors += 1;
+      else stack.length = idx;
+    } else {
+      stack.push(tag);
+    }
+  }
+  return errors + stack.length;
+}
+
+export type ParseErrorCounter = (content: string, filePath: string) => number;
+
 /**
  * Quick-edit ops that add a nav link to `route` into the most likely navigation
- * file. `navUpdated` is false when no suitable nav was found (the page is still
- * created by the caller; the link must be added another way).
+ * file. `navUpdated` is false when no suitable nav was found, or when every
+ * candidate mutation would leave the file more broken than it started (the page
+ * is still created by the caller; the link must be added another way).
  */
 export function buildAddNavLinkOps(
   files: PageFileShape[],
   route: string,
   label: string,
+  countErrors: ParseErrorCounter = countStructuralErrors,
 ): AddNavLinkResult {
   const candidates = files
     .map((file) => ({ file, content: file.content ?? "" }))
@@ -676,17 +746,16 @@ export function buildAddNavLinkOps(
     });
 
   for (const { file, content } of candidates) {
-    const viaData = insertDataNavEntry(content, route, label);
-    if (viaData && viaData !== content) {
+    const path = normalizeName(file.name);
+    const baseline = countErrors(content, path);
+    for (const mutated of [
+      insertDataNavEntry(content, route, label),
+      insertJsxNavLink(content, route, label),
+    ]) {
+      if (!mutated || mutated === content) continue;
+      if (countErrors(mutated, path) > baseline) continue;
       return {
-        ops: [{ kind: "replace_content", path: normalizeName(file.name), content: viaData }],
-        navUpdated: true,
-      };
-    }
-    const viaJsx = insertJsxNavLink(content, route, label);
-    if (viaJsx && viaJsx !== content) {
-      return {
-        ops: [{ kind: "replace_content", path: normalizeName(file.name), content: viaJsx }],
+        ops: [{ kind: "replace_content", path, content: mutated }],
         navUpdated: true,
       };
     }

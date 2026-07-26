@@ -437,3 +437,90 @@ describe("fixReactAndNavigationImports — duplicate react import consolidation"
     expect(result.code).toContain('import { useState } from "react";');
   });
 });
+
+describe("fixReactAndNavigationImports — next/server in route handlers", () => {
+  const ROUTE_PATH = "app/api/contact/route.ts";
+
+  it("adds a type import for NextRequest and a value import for NextResponse", () => {
+    const code = [
+      "export async function POST(request: NextRequest) {",
+      "  const body = await request.json();",
+      "  return NextResponse.json({ ok: true, body });",
+      "}",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code, ROUTE_PATH);
+
+    expect(result.addedNextServerSymbols).toEqual(["NextRequest", "NextResponse"]);
+    expect(result.code).toContain('import type { NextRequest } from "next/server";');
+    expect(result.code).toContain('import { NextResponse } from "next/server";');
+  });
+
+  it("does not add redirect for NextResponse.redirect", () => {
+    const code = [
+      "export async function GET(request: NextRequest) {",
+      '  return NextResponse.redirect(new URL("/", request.url));',
+      "}",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code, ROUTE_PATH);
+
+    expect(result.addedNavigationSymbols).toEqual([]);
+    expect(result.code).not.toContain("next/navigation");
+  });
+
+  it("leaves an already imported route handler untouched", () => {
+    const code = [
+      'import type { NextRequest } from "next/server";',
+      'import { NextResponse } from "next/server";',
+      "export async function GET(request: NextRequest) {",
+      "  return NextResponse.json({ url: request.url });",
+      "}",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code, ROUTE_PATH);
+
+    expect(result.addedNextServerSymbols).toEqual([]);
+    expect(result.code).toBe(code);
+  });
+
+  it("never adds a symbol the file does not use", () => {
+    const code = [
+      "export async function GET() {",
+      "  return NextResponse.json({ ok: true });",
+      "}",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code, ROUTE_PATH);
+
+    expect(result.addedNextServerSymbols).toEqual(["NextResponse"]);
+    expect(result.code).not.toContain("NextRequest");
+  });
+
+  it("does not touch pages outside app/api", () => {
+    const code = [
+      "export default function Page() {",
+      "  return <div>{String(NextResponse)}</div>;",
+      "}",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code, "app/about/page.tsx");
+
+    expect(result.addedNextServerSymbols).toEqual([]);
+    expect(result.code).not.toContain("next/server");
+  });
+
+  it("is idempotent", () => {
+    const code = [
+      "export async function POST(request: NextRequest) {",
+      "  return NextResponse.json(await request.json());",
+      "}",
+    ].join("\n");
+
+    const first = fixReactAndNavigationImports(code, ROUTE_PATH);
+    const second = fixReactAndNavigationImports(first.code, ROUTE_PATH);
+
+    expect(second.fixed).toBe(false);
+    expect(second.code).toBe(first.code);
+  });
+});

@@ -27,6 +27,7 @@ import { buildCompleteProject } from "../export/project-scaffold";
 import { PLACEHOLDER_API_ROUTE } from "../export/project-scaffold";
 import { collectRequiredUiComponents } from "../export/project-scaffold-ui-reader";
 import { repairGeneratedFiles } from "../autofix/repair-generated-files";
+import { applyPreviewOnlyRulesToFiles } from "./preview-only-files";
 
 type RuntimeFile = {
   name: string;
@@ -367,6 +368,8 @@ async function runStartPreviewSession(
   // Försök först `updatePreviewHostSession` (semantiskt korrekt: byter
   // ut filer i en levande preview-session + restartar Next dev). Om host:en
   // svarar 404 (sessionen är död) faller vi tillbaka till start-pathen.
+  const previewFiles = applyPreviewOnlyRulesToFiles(generatedFiles);
+
   if (cid && vid && options?.forceRestart !== true) {
     const sess = await getActivePreviewSessionAsync(cid);
     if (sess?.previewSessionId && sess.versionId !== vid) {
@@ -375,10 +378,10 @@ async function runStartPreviewSession(
       let updateFiles: CodeFile[];
       try {
         updateFiles = skipRepairForUpdate
-          ? generatedFiles
-          : repairGeneratedFiles(generatedFiles).files;
+          ? previewFiles
+          : repairGeneratedFiles(previewFiles).files;
       } catch {
-        updateFiles = generatedFiles;
+        updateFiles = previewFiles;
       }
       const runtimeForUpdate: RuntimeFile[] = skipScaffoldForUpdate
         ? updateFiles.map((f) => ({ name: f.path, content: f.content }))
@@ -470,10 +473,10 @@ async function runStartPreviewSession(
   const skipProjectScaffold = options?.skipProjectScaffold === true;
   let filesForProject: CodeFile[];
   if (skipRepair) {
-    filesForProject = generatedFiles;
+    filesForProject = previewFiles;
   } else {
     try {
-      filesForProject = repairGeneratedFiles(generatedFiles).files;
+      filesForProject = repairGeneratedFiles(previewFiles).files;
     } catch (err) {
       return {
         ok: false,

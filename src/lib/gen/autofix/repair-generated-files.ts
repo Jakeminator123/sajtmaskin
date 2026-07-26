@@ -274,7 +274,7 @@ export function repairGeneratedFiles(files: CodeFile[]): {
 
     // Consolidated React default + hooks + next/navigation pass (E5). Emits
     // one FixEntry per flavor that fired so telemetry IDs stay stable.
-    const consolidated = fixReactAndNavigationImports(content);
+    const consolidated = fixReactAndNavigationImports(content, file.path);
     if (consolidated.fixed) {
       content = consolidated.code;
       if (consolidated.consolidatedReactBindings.length > 0) {
@@ -306,6 +306,14 @@ export function repairGeneratedFiles(files: CodeFile[]): {
           fixer: "nextjs-navigation-import-fixer",
           category: "mechanical",
           description: `Added missing next/navigation imports: ${consolidated.addedNavigationSymbols.join(", ")}`,
+          file: file.path,
+        });
+      }
+      if (consolidated.addedNextServerSymbols.length > 0) {
+        fixes.push({
+          fixer: "nextjs-navigation-import-fixer",
+          category: "mechanical",
+          description: `Added missing next/server imports: ${consolidated.addedNextServerSymbols.join(", ")}`,
           file: file.path,
         });
       }

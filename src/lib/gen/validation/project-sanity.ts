@@ -1,6 +1,7 @@
 import type { PreflightIssueCategory } from "@/lib/gen/stream/preflight-contract";
 import type { CodeFile } from "@/lib/gen/parser";
 import { isRuntimeProvidedImport } from "@/lib/gen/autofix/runtime-imports";
+import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
 
 export interface SanityIssue {
   file: string;
@@ -101,6 +102,7 @@ function normalizePackageName(source: string): string {
 
 function isBuiltinPackage(pkg: string): boolean {
   if (BUILTIN_PACKAGES.has(pkg)) return true;
+  if (isNodeCoreModule(pkg)) return true;
   for (const builtin of BUILTIN_PACKAGES) {
     if (builtin.endsWith(":")) {
       if (pkg.startsWith(builtin)) return true;
@@ -469,6 +471,18 @@ export function runProjectSanityChecks(
         ...Object.keys(pkgJson.optionalDependencies ?? {}),
       ]);
 
+      for (const declared of declaredPackages) {
+        if (!isNodeCoreModule(declared)) continue;
+        issues.push(
+          createSanityIssue(
+            "package.json",
+            "error",
+            `"${declared}" is declared as a dependency in package.json but is a Node core module — no such package exists on npm and the install will fail`,
+            "dependency_install_failure",
+          ),
+        );
+      }
+
       if (!scaffoldCovers) {
         for (const [pkg, importers] of importedPackages.entries()) {
           if (declaredPackages.has(pkg)) continue;
@@ -477,7 +491,7 @@ export function runProjectSanityChecks(
             createSanityIssue(
               "package.json",
               "error",
-              `Imported third-party package "${pkg}" is used in code but not pinned in package.json (${importerPreview})`,
+              `Package "${pkg}" is imported in ${importerPreview} but is missing from the dependencies in package.json`,
               "dependency_install_failure",
             ),
           );

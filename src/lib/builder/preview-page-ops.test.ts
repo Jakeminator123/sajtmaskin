@@ -3,6 +3,7 @@ import {
   buildAddNavLinkOps,
   buildNewPageContent,
   buildRemoveNavLinkOps,
+  countStructuralErrors,
   defaultLabelForRoute,
   detectAppDir,
   findRouteFilePaths,
@@ -652,3 +653,73 @@ const navItems = [
     }
   });
 });
+
+describe("buildAddNavLinkOps — parse guard", () => {
+  it("leaves a file untouched when the insertion would break it", () => {
+    const content = [
+      "export function SiteHeader() {",
+      `  const legacy = "<a href='/gammal'>Gammal</a>";`,
+      "  return <nav>{legacy}</nav>;",
+      "}",
+    ].join("\n");
+    const files = [{ name: "components/site-header.tsx", content }];
+
+    const result = buildAddNavLinkOps(files, "/kontakt", "Kontakt");
+
+    expect(result.navUpdated).toBe(false);
+    expect(result.ops).toEqual([]);
+  });
+
+  it("rejects a mutation the injected parse-error counter rejects", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `const navItems = [
+  { label: "Home", href: "/" },
+];`,
+      },
+    ];
+
+    const accepted = buildAddNavLinkOps(files, "/kontakt", "Kontakt", () => 0);
+    expect(accepted.navUpdated).toBe(true);
+
+    let call = 0;
+    const rejected = buildAddNavLinkOps(files, "/kontakt", "Kontakt", () => {
+      call += 1;
+      return call === 1 ? 0 : 1;
+    });
+    expect(rejected.navUpdated).toBe(false);
+    expect(rejected.ops).toEqual([]);
+  });
+
+  it("still inserts into a healthy nav file", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: [
+          "export function SiteHeader() {",
+          "  return (",
+          "    <nav>",
+          `      <a href="/om">Om</a>`,
+          "    </nav>",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ];
+
+    const result = buildAddNavLinkOps(files, "/kontakt", "Kontakt");
+
+    expect(result.navUpdated).toBe(true);
+  });
+});
+
+describe("countStructuralErrors", () => {
+  it("counts unbalanced brackets, quotes and JSX tags", () => {
+    expect(countStructuralErrors(`<nav><a href="/">Hem</a></nav>`)).toBe(0);
+    expect(countStructuralErrors(`<nav><a href="/">Hem</a>`)).toBe(1);
+    expect(countStructuralErrors(`const a = { b: 1;`)).toBe(1);
+    expect(countStructuralErrors(`const a = "unterminated`)).toBe(1);
+  });
+});
+

@@ -318,11 +318,29 @@ const relativeImportFix: SuspenseRule = {
 };
 
 /**
+ * `canonical` = repairs that belong in the saved artefact (the generation
+ * stream runs these). `preview` = canonical plus the strips that only make
+ * sense inside the preview VM and must never be persisted.
+ */
+export type SuspenseRuleScope = "canonical" | "preview";
+
+/**
+ * Rules that comment out imports the preview VM cannot run (`next/og`,
+ * `next/headers`, `server-only`, `ImageResponse`). They destroy working code,
+ * so they run on the copy shipped to the preview host — never on the copy
+ * `finalizeAndSaveVersion` persists, where `project-sanity` rejects the
+ * `(stripped for preview compatibility)` marker as a structure failure.
+ */
+export function createPreviewOnlyRules(): SuspenseRule[] {
+  return [nextOgStrip, forbiddenImportStrip];
+}
+
+/**
  * Build a fresh rule set. Called per-stream so stateful rules
  * (like duplicate-import-fix) start with a clean slate.
  */
-export function createDefaultRules(): SuspenseRule[] {
-  return [
+export function createDefaultRules(scope: SuspenseRuleScope = "canonical"): SuspenseRule[] {
+  const canonical: SuspenseRule[] = [
     shadcnImportFix,
     lucideIconFix,
     radixImportFix,
@@ -331,11 +349,32 @@ export function createDefaultRules(): SuspenseRule[] {
     tailwindClassFix,
     createDuplicateImportRule(),
     missingExportFix,
-    nextOgStrip,
     imageSrcFix,
-    forbiddenImportStrip,
     jsxAttributeFix,
     relativeImportFix,
   ];
+  return scope === "preview" ? [...canonical, ...createPreviewOnlyRules()] : canonical;
+}
+
+/**
+ * Apply the preview-only rules to a whole file that has already been through
+ * the canonical lane — the preview lane's entry point for persisted files.
+ */
+export function applyPreviewOnlyRules(content: string): string {
+  const rules = createPreviewOnlyRules();
+  return content
+    .split("\n")
+    .map((line) => {
+      let result = line;
+      for (const rule of rules) {
+        try {
+          result = rule.transform(result, {});
+        } catch {
+          // Rule failed — keep the line unchanged rather than corrupt the file.
+        }
+      }
+      return result;
+    })
+    .join("\n");
 }
 

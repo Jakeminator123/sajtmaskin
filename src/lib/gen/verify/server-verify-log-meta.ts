@@ -31,12 +31,21 @@ export type ServerRepairOutcome =
   | "fixer_noop"
   | "no_context";
 
-/** Loop-nivåns early-stop-orsaker som outcome-resolvern förstår. */
+/**
+ * Loop-nivåns early-stop-orsaker som outcome-resolvern förstår.
+ *
+ * `blocker_regression` = passet införde ett blockerande preflight-fel som inte
+ * fanns före passet, så ändringen rullades tillbaka. `blocker_unresolved` =
+ * samma blockerande fel fanns kvar efter två pass, så loopen stannade i stället
+ * för att köra ett tredje identiskt varv.
+ */
 export type ServerRepairEarlyStop =
   | "fixer_noop"
   | "no_improvement"
   | "time_budget_exceeded"
-  | "superseded";
+  | "superseded"
+  | "blocker_regression"
+  | "blocker_unresolved";
 
 type ResolveServerRepairOutcomeParams = {
   method: "deterministic" | "llm";

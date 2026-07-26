@@ -1,6 +1,7 @@
 import type { AutoFixEntry } from "./pipeline";
 import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
+import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
 
 const PACKAGE_SOURCE_PATTERN = String.raw`((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))`;
 
@@ -268,12 +269,14 @@ export function normalizePackageName(source: string): string {
 }
 
 /**
- * Packages the preview/VM runtime already ships, so they are never pinned into
- * the generated `package.json`. Exported for the dossier-dependency coverage
- * invariant (`dep-completer.test.ts`) and the pre-VM module classifier.
+ * Packages the preview/VM runtime already ships — plus Node core modules, which
+ * have no npm package at all — so they are never pinned into the generated
+ * `package.json`. Exported for the dossier-dependency coverage invariant
+ * (`dep-completer.test.ts`) and the pre-VM module classifier.
  */
 export function isBuiltinPackage(pkg: string): boolean {
   if (BUILTIN_PACKAGES.has(pkg)) return true;
+  if (isNodeCoreModule(pkg)) return true;
   for (const b of BUILTIN_PACKAGES) {
     if (pkg.startsWith(`${b}/`)) return true;
   }

@@ -29,6 +29,7 @@ import {
   resolveFinalGateVerifyBudget,
   resolveServerRepairEarlyStopReason,
 } from "./server-repair-policy";
+import { collectRepairBlockers, introducedRepairBlockers } from "./repair-blockers";
 import type { ReasoningEffort } from "@/lib/gen/engine";
 
 export type RepairMethod = "deterministic" | "llm";
@@ -38,6 +39,8 @@ export type RepairEarlyStopReason =
   | "no_improvement"
   | "time_budget_exceeded"
   | "superseded"
+  | "blocker_regression"
+  | "blocker_unresolved"
   | null;
 
 export type { RepairFailedOutput } from "./repair-loop/diagnostics-parser";
@@ -81,6 +84,14 @@ export type RunRepairLoopResult<TPayload = unknown> = {
   improvedSyntax: boolean;
   noContext: boolean;
   errorManifest: RepairErrorManifest;
+  /**
+   * Blocking preflight findings a repair pass created that did not exist
+   * before it. Set only when the pass was rolled back
+   * (`earlyStopReason: "blocker_regression"`).
+   */
+  introducedBlockers?: string[];
+  /** Blocking findings still present after two repair rounds. */
+  unresolvedBlockers?: string[];
 };
 
 export type RunRepairLoopParams<TPayload = unknown> = {
@@ -704,6 +715,12 @@ export async function runRepairLoop<TPayload = unknown>(
   let bestErrorCount = syntaxResult.errors.length;
   let llmPasses = 0;
   let earlyStopReason: RepairEarlyStopReason = null;
+  // Blocking preflight findings per pass. A pass that trades one blocker for a
+  // new one is rolled back; a blocker that survives two passes stops the loop
+  // instead of buying a third identical round.
+  let introducedBlockers: string[] = [];
+  let unresolvedBlockers: string[] = [];
+  const blockerPassCount = new Map<string, number>();
 
   // Fas 3 (bättre mål för repair-LLM:en): the ORIGINATING gate diagnostics
   // (tsc/build/lint) as structured `file:line:col` primary lines with the
@@ -984,6 +1001,26 @@ export async function runRepairLoop<TPayload = unknown>(
     });
     content = reFixed.fixedContent;
     syntaxResult = await validateGeneratedCode(content);
+
+    const blockersAfterPass = collectRepairBlockers(content);
+    const introduced = introducedRepairBlockers(
+      collectRepairBlockers(contentBeforePass),
+      blockersAfterPass,
+    );
+    if (introduced.length > 0) {
+      introducedBlockers = introduced;
+      content = contentBeforePass;
+      syntaxResult = await validateGeneratedCode(content);
+      earlyStopReason = "blocker_regression";
+      break;
+    }
+    const persisting = new Set<string>();
+    for (const key of blockersAfterPass) {
+      const seenInPasses = (blockerPassCount.get(key) ?? 0) + 1;
+      blockerPassCount.set(key, seenInPasses);
+      if (seenInPasses >= 2) persisting.add(key);
+    }
+
     const groupedAfterFix = buildGroupedRepairErrorContext(params.failedOutputs, {
       syntaxErrors: syntaxResult.errors,
       projectContent: content,
@@ -1023,6 +1060,11 @@ export async function runRepairLoop<TPayload = unknown>(
         break;
       }
       earlyStopReason = stopReason;
+      break;
+    }
+    if (persisting.size > 0) {
+      unresolvedBlockers = [...persisting].sort();
+      earlyStopReason = "blocker_unresolved";
       break;
     }
     // Gate-class second pass (Task 6): a syntax-clean but gate-red result does
@@ -1128,6 +1170,8 @@ export async function runRepairLoop<TPayload = unknown>(
         improvedSyntax: 0 < initialSyntaxErrorCount,
         noContext: false,
         errorManifest: finalErrorManifest,
+        introducedBlockers,
+        unresolvedBlockers,
       };
     }
   }
@@ -1162,5 +1206,7 @@ export async function runRepairLoop<TPayload = unknown>(
     improvedSyntax: finalSyntaxResult.errors.length < initialSyntaxErrorCount,
     noContext: false,
     errorManifest: finalErrorManifest,
+    introducedBlockers,
+    unresolvedBlockers,
   };
 }
