@@ -118,6 +118,34 @@ describe("runQuickEdit — base-version lease (M#qe1)", () => {
   });
 });
 
+// Spår 05, steg 3: inspektorns textändring får aldrig skriva om basversionen.
+// Den ska landa som en immutabel minorversion med majorn som förälder.
+describe("runQuickEdit — textändring blir en ny minorversion", () => {
+  it("persisterar en quick_edit-minor med basen som förälder och lämnar basen orörd", async () => {
+    const result = await runQuickEdit(runParams());
+
+    expect(result).toMatchObject({ ok: true, versionId: "ver_new" });
+    const [, , filesJson, options] =
+      addAssistantMessageAndCreateDraftVersion.mock.calls[0] ?? [];
+    expect(options).toMatchObject({
+      editKind: "quick_edit",
+      parentVersionId: "ver_base",
+      lifecycleStage: "design",
+    });
+    // Den nya versionen bär den ändrade filen ...
+    expect(JSON.parse(filesJson as string)).toEqual([
+      expect.objectContaining({
+        path: "app/page.tsx",
+        content: "export default function P(){return <div>new</div>}",
+      }),
+    ]);
+    // ... och basversionens rad rörs inte: enbart minorn får previewUrl skriven.
+    expect(baseFiles[0].content).toBe("export default function P(){return <div>old</div>}");
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_new", expect.any(String));
+    expect(updateVersionPreviewUrl).not.toHaveBeenCalledWith("ver_base", expect.anything());
+  });
+});
+
 describe("runQuickEdit — previewUrl persist logging (M#qe2)", () => {
   it("logs a warning when the previewUrl persist fails instead of swallowing", async () => {
     updateVersionPreviewUrl.mockRejectedValue(new Error("write timeout"));

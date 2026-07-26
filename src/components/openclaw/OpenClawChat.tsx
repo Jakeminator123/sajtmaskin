@@ -182,8 +182,21 @@ export function OpenClawChat() {
     toggle();
   };
 
+  // Buildern har en chatinput i skärmens nederkant på mobil (knappraden wrappar
+  // dit vid riktig mobilbredd). Bubblan måste sitta ovanför den, annars täcker
+  // den Skicka.
+  const sharesBottomEdgeWithInput = pathname?.startsWith("/builder") ?? false;
+
   return (
-    <div className="pointer-events-none fixed inset-x-3 bottom-3 z-50 flex flex-col items-stretch gap-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end">
+    <div
+      className={cn(
+        "pointer-events-none fixed inset-x-3 z-50 flex flex-col items-stretch gap-3 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end",
+        // Buildern äger nederkanten på mobil: chatinputens Skicka-knapp ligger
+        // längst ned till höger och låg tidigare under bubblan. Lyft bubblan
+        // ovanför inputraden — desktop (sm+) har egen kolumn och rörs inte.
+        sharesBottomEdgeWithInput ? "bottom-28" : "bottom-3",
+      )}
+    >
       {showRouteTeaser ? (
         <div className="pointer-events-auto hidden w-full max-w-88 self-end overflow-hidden rounded-[1.75rem] border border-cyan-400/20 bg-slate-950/90 text-slate-50 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl sm:block">
           <div className="bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.26),transparent_42%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.22),transparent_38%)] px-4 py-4">
@@ -234,8 +247,15 @@ export function OpenClawChat() {
         className={cn(
           "origin-bottom-right self-end overflow-hidden transition-all duration-200 ease-out",
           isOpen
-            ? "pointer-events-auto max-h-[min(640px,calc(100vh-5rem))] scale-100 opacity-100"
+            ? "pointer-events-auto scale-100 opacity-100"
             : "max-h-0 scale-95 opacity-0",
+          // Panelen får aldrig växa förbi skärmen — den lyfta bubblan äter
+          // extra höjd i buildern på mobil.
+          isOpen && sharesBottomEdgeWithInput
+            ? "max-h-[min(640px,calc(100vh-13rem))] sm:max-h-[min(640px,calc(100vh-5rem))]"
+            : isOpen
+              ? "max-h-[min(640px,calc(100vh-5rem))]"
+              : null,
         )}
       >
         <OpenClawChatPanel onClose={close} content={content.panel} isOpen={isOpen} />

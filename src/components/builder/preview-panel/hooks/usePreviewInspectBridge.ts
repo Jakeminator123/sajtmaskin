@@ -16,16 +16,20 @@ import {
   type RefObject,
   type SetStateAction,
 } from "react";
-import { toast } from "sonner";
 
-type BridgeRect = { x: number; y: number; width: number; height: number };
+export type BridgeRect = { x: number; y: number; width: number; height: number };
 
 /** Untrusted payload som det injicerade scriptet postar upp. */
-type BridgeElement = {
+export type BridgeElement = {
   tag?: string;
   id?: string | null;
   className?: string | null;
   text?: string | null;
+  /** Elementets egna textnoder (inte barnens) — grunden för klassificeringen. */
+  ownText?: string | null;
+  childElementCount?: number;
+  src?: string | null;
+  alt?: string | null;
   ariaLabel?: string | null;
   role?: string | null;
   href?: string | null;
@@ -35,6 +39,22 @@ type BridgeElement = {
   viewport?: { w: number; h: number };
   /** Faktisk klickpunkt i viewport-koordinater (B-fix #164/#197). */
   click?: { x?: number; y?: number };
+};
+
+/** Ett valt element med sin kodträff — allt menyn behöver för att öppna. */
+export type BridgePick = {
+  element: BridgeElement & { tag: string };
+  match: RegistryMatch | null;
+  rect: BridgeRect | null;
+  click: { x: number; y: number };
+  viewport: { w: number; h: number };
+};
+
+/** Elementen som en uppdragen rektangel täcker. */
+export type BridgeRegion = {
+  rect: BridgeRect;
+  viewport: { w: number; h: number };
+  elements: Array<{ element: BridgeElement & { tag: string }; match: RegistryMatch | null }>;
 };
 
 function originForUrl(url: string | null): string | null {
@@ -47,10 +67,63 @@ function originForUrl(url: string | null): string | null {
   }
 }
 
+function matchForElement(
+  registry: JsxElementRegistryItem[],
+  element: BridgeElement,
+): RegistryMatch | null {
+  return matchCapturedElement(registry, {
+    tag: element.tag,
+    id: element.id,
+    className: element.className,
+    text: element.text,
+    selector: element.selector,
+  });
+}
+
+/**
+ * Lägger en punkt i chatten för ett valt element — samma nyttolast som
+ * inspektorn alltid har skickat. Ligger utanför hooken eftersom det numera är
+ * ETT av menyvalen och inte längre det enda som händer vid ett klick.
+ */
+export function dispatchBridgeInspectPoint(pick: BridgePick, previewUrl: string | null): void {
+  const { element, match, rect, click, viewport } = pick;
+  const vw = viewport.w || rect?.width || 1;
+  const vh = viewport.h || rect?.height || 1;
+  const xPercent = Number(((click.x / vw) * 100).toFixed(2));
+  const yPercent = Number(((click.y / vh) * 100).toFixed(2));
+  const matchHint = match ? ` → ${match.item.filePath}:${match.item.lineNumber}` : "";
+
+  dispatchInspectCaptureEvent({
+    id: `bridge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    demoUrl: previewUrl || "",
+    xPercent,
+    yPercent,
+    viewportWidth: Math.round(vw),
+    viewportHeight: Math.round(vh),
+    pointSummary: `Bridge: <${element.tag}> vid ${xPercent}%/${yPercent}%${element.text ? ` "${element.text.slice(0, 60)}"` : ""}${matchHint}`,
+    element: {
+      tag: element.tag,
+      id: element.id ?? null,
+      className: element.className ?? null,
+      text: element.text ?? null,
+      ariaLabel: element.ariaLabel ?? null,
+      role: element.role ?? null,
+      href: element.href ?? null,
+      selector: element.selector ?? null,
+      nearestHeading: element.nearestHeading ?? null,
+    },
+    source: "local",
+  });
+}
+
 /**
  * Bridge-engine: pratar med det injicerade scriptet i preview-iframen via
  * `postMessage`. Ersätter Playwright-vägen (map/capture) för egna/tier-2-previews
  * — koordinat→DOM sker i previewn själv (same-origin mot sig själv).
+ *
+ * Hooken tolkar och verifierar meddelandena men BESLUTAR inget: ett valt
+ * element går vidare till `onPick`, som öppnar elementmenyn. Menyn äger sedan
+ * vad som faktiskt händer (ändra text, byt bild, ta bort, skicka punkt).
  *
  * Inert om `enabled`/`active` är false (map/ai-vägarna orörda). Se
  * `docs/plans/avklarat/2026-06-19-inspector-rendering-arkitektur.md`.
@@ -67,8 +140,16 @@ export function usePreviewInspectBridge(options: {
   fetchFilesForRegistry: () => void | Promise<void>;
   setInspectStatus: Dispatch<SetStateAction<string | null>>;
   setLastCodeMatch: Dispatch<SetStateAction<RegistryMatch | null>>;
-  /** Tie-in: anropas med kod-träffen (om någon) när ett element valts. */
-  onPick?: (match: RegistryMatch | null) => void;
+  /** Tie-in: anropas med elementet och kod-träffen när något valts. */
+  onPick?: (pick: BridgePick) => void;
+  /**
+   * Ny rect för det senast valda elementet (previewen scrollades/ändrade
+   * storlek). Menyn och redigeringsrutan följer med i stället för att ligga
+   * kvar på klickpunkten.
+   */
+  onRect?: (rect: BridgeRect) => void;
+  /** Elementen som en uppdragen rektangel täcker. */
+  onRegion?: (region: BridgeRegion) => void;
   /**
    * A-fix (#164/#197): anropas när bridge-scriptet inte annonserat `ready`
    * inom timeouten efter att inspektionsläget slagits på — previewn saknar
@@ -89,6 +170,8 @@ export function usePreviewInspectBridge(options: {
     setInspectStatus,
     setLastCodeMatch,
     onPick,
+    onRect,
+    onRegion,
     onBridgeUnavailable,
   } = options;
 
@@ -167,7 +250,13 @@ export function usePreviewInspectBridge(options: {
       if (event.origin !== "null" && (!allowed || event.origin !== allowed)) return;
 
       const data = event.data as
-        | { type?: string; source?: string; payload?: BridgeElement }
+        | {
+            type?: string;
+            source?: string;
+            payload?: BridgeElement & {
+              elements?: BridgeElement[];
+            };
+          }
         | null;
       if (!data || typeof data.type !== "string") return;
       // Only accept messages stamped by our injected bridge script — a generated
@@ -194,20 +283,40 @@ export function usePreviewInspectBridge(options: {
         return;
       }
 
+      if (data.type === INSPECT_BRIDGE_MESSAGE.rect) {
+        const rect = data.payload?.rect;
+        if (rect) onRect?.(rect);
+        return;
+      }
+
+      if (data.type === INSPECT_BRIDGE_MESSAGE.region) {
+        const payload = data.payload;
+        const rect = payload?.rect;
+        const raw = Array.isArray(payload?.elements) ? payload.elements : [];
+        if (!rect) return;
+        const elements = raw
+          .filter((item): item is BridgeElement & { tag: string } => Boolean(item?.tag))
+          .map((item) => ({
+            element: item,
+            match: matchForElement(elementRegistryRef.current, item),
+          }));
+        setInspectStatus(`${elements.length} element markerade i ytan.`);
+        onRegion?.({
+          rect,
+          viewport: payload?.viewport ?? { w: rect.width, h: rect.height },
+          elements,
+        });
+        return;
+      }
+
       if (data.type === INSPECT_BRIDGE_MESSAGE.pick) {
         const el = data.payload;
         if (!el?.tag) return;
 
-        const match = matchCapturedElement(elementRegistryRef.current, {
-          tag: el.tag,
-          id: el.id,
-          className: el.className,
-          text: el.text,
-          selector: el.selector,
-        });
+        const match = matchForElement(elementRegistryRef.current, el);
         setLastCodeMatch(match);
 
-        const rect = el.rect;
+        const rect = el.rect ?? null;
         const vw = el.viewport?.w || rect?.width || 1;
         const vh = el.viewport?.h || rect?.height || 1;
         // B-fix (#164/#197): föredra den faktiska klickpunkten från bridge-
@@ -217,40 +326,19 @@ export function usePreviewInspectBridge(options: {
           typeof el.click?.x === "number" ? el.click.x : rect ? rect.x + rect.width / 2 : 0;
         const cy =
           typeof el.click?.y === "number" ? el.click.y : rect ? rect.y + rect.height / 2 : 0;
-        const xPercent = Number(((cx / vw) * 100).toFixed(2));
-        const yPercent = Number(((cy / vh) * 100).toFixed(2));
         const matchHint = match ? ` → ${match.item.filePath}:${match.item.lineNumber}` : "";
 
         setInspectStatus(
           `<${el.tag}>${el.text ? ` "${el.text.slice(0, 50)}"` : ""}${matchHint}`,
         );
 
-        dispatchInspectCaptureEvent({
-          id: `bridge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          demoUrl: previewUrl || "",
-          xPercent,
-          yPercent,
-          viewportWidth: Math.round(vw),
-          viewportHeight: Math.round(vh),
-          pointSummary: `Bridge: <${el.tag}> vid ${xPercent}%/${yPercent}%${el.text ? ` "${el.text.slice(0, 60)}"` : ""}${matchHint}`,
-          element: {
-            tag: el.tag,
-            id: el.id ?? null,
-            className: el.className ?? null,
-            text: el.text ?? null,
-            ariaLabel: el.ariaLabel ?? null,
-            role: el.role ?? null,
-            href: el.href ?? null,
-            selector: el.selector ?? null,
-            nearestHeading: el.nearestHeading ?? null,
-          },
-          source: "local",
+        onPick?.({
+          element: el as BridgeElement & { tag: string },
+          match,
+          rect,
+          click: { x: cx, y: cy },
+          viewport: { w: vw, h: vh },
         });
-
-        toast.success(
-          `Punkt tillagd i chatten: <${el.tag}>${match ? ` i ${match.item.filePath}:${match.item.lineNumber}` : ""}`,
-        );
-        onPick?.(match);
       }
     };
 
@@ -267,5 +355,7 @@ export function usePreviewInspectBridge(options: {
     setLastCodeMatch,
     postMode,
     onPick,
+    onRect,
+    onRegion,
   ]);
 }

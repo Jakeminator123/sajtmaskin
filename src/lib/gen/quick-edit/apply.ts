@@ -3,10 +3,12 @@ import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import {
   isBlockedQuickEditPath,
   isDeletableQuickEditPath,
+  isJsxEditableQuickEditPath,
   isQuickEditSafePath,
   normalizeQuickEditPath,
 } from "./guards";
-import type { QuickEditApplyResult, QuickEditOp } from "./types";
+import { deleteJsxNode, type DeleteJsxNodeFailureReason } from "./delete-jsx-node";
+import type { QuickEditApplyResult, QuickEditFailureReason, QuickEditOp } from "./types";
 
 function countOccurrences(haystack: string, needle: string): number {
   if (!needle) return 0;
@@ -34,6 +36,21 @@ function replaceNthOccurrence(
   }
   if (idx === -1) return haystack;
   return haystack.slice(0, idx) + replacement + haystack.slice(idx + needle.length);
+}
+
+function quickEditReasonForJsxDelete(
+  reason: DeleteJsxNodeFailureReason,
+): QuickEditFailureReason {
+  switch (reason) {
+    case "node_not_found":
+    case "tag_mismatch":
+      return "no_match";
+    case "unsupported_file":
+    case "invalid_locator":
+      return "jsx_delete_unsupported";
+    default:
+      return "jsx_delete_unsafe";
+  }
 }
 
 /**
@@ -87,6 +104,34 @@ export function applyQuickEdits(
       next.delete(path);
       changed.add(path);
       removed.add(path);
+      continue;
+    }
+
+    if (op.kind === "delete_jsx_node") {
+      if (!isJsxEditableQuickEditPath(path)) {
+        return {
+          ok: false,
+          reason: "protected_path",
+          message: `Refusing to edit JSX in protected file: ${path}`,
+        };
+      }
+      const existing = next.get(path);
+      if (!existing) {
+        return { ok: false, reason: "file_not_found", message: `File not found: ${path}` };
+      }
+      const deleted = deleteJsxNode(existing.content, path, {
+        lineNumber: op.lineNumber,
+        tagName: op.tagName,
+      });
+      if (!deleted.ok) {
+        return {
+          ok: false,
+          reason: quickEditReasonForJsxDelete(deleted.reason),
+          message: deleted.message,
+        };
+      }
+      next.set(path, { ...existing, content: deleted.content });
+      changed.add(path);
       continue;
     }
 

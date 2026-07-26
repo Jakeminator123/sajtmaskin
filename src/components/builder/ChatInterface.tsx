@@ -37,9 +37,12 @@ import {
   Layers,
   Loader2,
   Palette,
+  Plus,
+  Search,
   SlidersHorizontal,
   X,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type PromptSourceMeta } from "@/lib/builder/prompt-builder";
@@ -192,11 +195,32 @@ interface ChatInterfaceProps {
   isConfigLocked?: boolean;
   /**
    * P19 Steg 3 — basversions-indikator. When the active (selected) version
-   * differs from the latest version, the composer shows a badge explaining
-   * which base the next follow-up will be sent against. `null` means the
-   * user is on the latest version and no badge is rendered.
+   * differs from the preferred usable version (`selectPreferredEngineVersion`),
+   * the composer shows a badge explaining which base the next follow-up will
+   * be sent against. `null` means the user is on the preferred version and no
+   * badge is rendered. Never hide this when active is newer-but-rejected —
+   * that warning is intentional (false-green if silenced).
    */
-  followUpBaseInfo?: { baseLabel: string; latestLabel: string } | null;
+  followUpBaseInfo?: {
+    baseLabel: string;
+    preferredLabel: string;
+    /** Active is older than preferred, vs newer/rejected (failed/superseded). */
+    kind: "stale-selection" | "rejected-active";
+  } | null;
+  /**
+   * Previewlägena som styrs härifrån: `Lägg till block` och
+   * `Inspektera preview`. Lägena ägs av builderskalet (ömsesidigt uteslutande),
+   * chatpanelen renderar bara knapparna. `null` = ingen preview att styra.
+   */
+  previewModes?: {
+    composerOpen: boolean;
+    onToggleComposer: () => void;
+    composerDisabled?: boolean;
+    inspectAvailable: boolean;
+    inspectOpen: boolean;
+    onToggleInspect: () => void;
+    inspectDisabled?: boolean;
+  } | null;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -257,6 +281,7 @@ export function ChatInterface({
   onDesignThemeChange,
   isConfigLocked = false,
   followUpBaseInfo,
+  previewModes,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -691,8 +716,8 @@ export function ChatInterface({
         // follow-up against the currently active version (see
         // `useSendMessage.ts` — `engineBaseVersionId` is populated from
         // `activeVersionId`). Surface that so the user never assumes they
-        // are on the latest. Uses amber since this is an "attention" state,
-        // not an error state.
+        // are on the preferred usable base. Uses amber since this is an
+        // "attention" state, not an error state.
         <div
           role="status"
           aria-live="polite"
@@ -700,12 +725,22 @@ export function ChatInterface({
           className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200"
         >
           <Layers className="mt-0.5 size-3.5 shrink-0 text-amber-300" aria-hidden="true" />
-          <p>
-            Du redigerar <span className="font-semibold">{followUpBaseInfo.baseLabel}</span> — inte senaste
-            {" "}
-            <span className="font-semibold">{followUpBaseInfo.latestLabel}</span>. Nästa meddelande bygger på
-            denna bas.
-          </p>
+          {followUpBaseInfo.kind === "rejected-active" ? (
+            <p>
+              Du redigerar <span className="font-semibold">{followUpBaseInfo.baseLabel}</span>, som inte
+              gick att bygga. Nästa meddelande bygger på {followUpBaseInfo.baseLabel} — växla till{" "}
+              <span className="font-semibold">{followUpBaseInfo.preferredLabel}</span> om du vill utgå
+              från den senaste som fungerade.
+            </p>
+          ) : (
+            <p>
+              Du redigerar <span className="font-semibold">{followUpBaseInfo.baseLabel}</span>. Det finns
+              en nyare fungerande version (
+              <span className="font-semibold">{followUpBaseInfo.preferredLabel}</span>
+              ). Nästa meddelande bygger på {followUpBaseInfo.baseLabel} — växla om du vill utgå
+              därifrån.
+            </p>
+          )}
         </div>
       )}
       <PromptInput
@@ -786,6 +821,42 @@ export function ChatInterface({
                 </div>
               </PopoverContent>
             </Popover>
+            {previewModes ? (
+              <>
+                <button
+                  type="button"
+                  onClick={previewModes.onToggleComposer}
+                  disabled={previewModes.composerDisabled}
+                  aria-pressed={previewModes.composerOpen}
+                  title="Lägg till färdiga block och innehåll i previewen"
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
+                    previewModes.composerOpen &&
+                      "border-violet-500/60 bg-violet-900/50 text-violet-100",
+                  )}
+                >
+                  <Plus className="size-3" />
+                  {previewModes.composerOpen ? "Stäng block" : "Lägg till block"}
+                </button>
+                {previewModes.inspectAvailable ? (
+                  <button
+                    type="button"
+                    onClick={previewModes.onToggleInspect}
+                    disabled={previewModes.inspectDisabled}
+                    aria-pressed={previewModes.inspectOpen}
+                    title="Klicka på något i previewen för att ändra text, byta bild, ta bort det eller skicka det till chatten"
+                    className={cn(
+                      "inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
+                      previewModes.inspectOpen &&
+                        "border-emerald-500/60 bg-emerald-900/50 text-emerald-100",
+                    )}
+                  >
+                    <Search className="size-3" />
+                    {previewModes.inspectOpen ? "Sluta inspektera" : "Inspektera preview"}
+                  </button>
+                ) : null}
+              </>
+            ) : null}
           </div>
         </PromptInputHeader>
         {(isFigmaInputOpen || figmaUrl.trim()) && (

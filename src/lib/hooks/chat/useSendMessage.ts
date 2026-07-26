@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
+import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type {
   AutoFixPayload,
@@ -166,11 +167,24 @@ export function useSendMessage(
         engineModel,
       });
 
+      // Auto-repair sends (client post-check) carry a `sourceKind: "autofix"`
+      // discriminator. Mirror it onto the optimistic row's uiParts so the
+      // message renders as a collapsed system row (Spår 03 Steg 4) instead of
+      // a user bubble even before the server round-trip confirms it — the
+      // server persists the same marker (see chat-message-stream/handler.ts).
+      const isAutoRepairSend = options.promptSourceMeta?.sourceKind === "autofix";
       setPreviewBuildError?.(null);
       setPreviewProdBuild?.(null);
       setMessages((prev) => [
         ...prev,
-        { id: userMessageId, role: "user", content: messageText },
+        {
+          id: userMessageId,
+          role: "user",
+          content: messageText,
+          uiParts: isAutoRepairSend
+            ? [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }]
+            : undefined,
+        },
         {
           id: assistantMessageId,
           role: "assistant",

@@ -36,6 +36,19 @@ export type QuickEditOp =
        * Essential/structural paths are refused (see `isDeletableQuickEditPath`).
        */
       path: string;
+    }
+  | {
+      kind: "delete_jsx_node";
+      path: string;
+      /**
+       * 1-based line holding the element's opening `<`, as reported by the
+       * preview inspector bridge together with `tagName`. The complete node
+       * (opening tag, children, closing tag) is removed via the AST; the edit
+       * is refused when it would leave the file unparsable.
+       */
+      lineNumber: number;
+      /** Tag at that line. `""`, `"<>"` or `"Fragment"` targets a JSX fragment. */
+      tagName: string;
     };
 
 export type QuickEditFailureReason =
@@ -49,7 +62,11 @@ export type QuickEditFailureReason =
   | "no_change"
   | "integrations_base"
   /** Base version is owned by an active verify/repair lease — retry shortly (M#qe1). */
-  | "base_busy";
+  | "base_busy"
+  /** `delete_jsx_node` against a file/locator that cannot carry a JSX node. */
+  | "jsx_delete_unsupported"
+  /** `delete_jsx_node` would break the component or the file's syntax. */
+  | "jsx_delete_unsafe";
 
 export type QuickEditApplyResult =
   | { ok: true; files: CodeFile[]; changedPaths: string[]; removedPaths: string[] }

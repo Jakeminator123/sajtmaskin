@@ -2,32 +2,19 @@
 
 import {
   AlertCircle,
-  Check,
-  ChevronDown,
   CircleCheck,
-  Code2,
-  ExternalLink,
-  FileText,
-  LayoutGrid,
   Loader2,
   Plus,
-  Redo2,
-  Search,
-  Undo2,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import {
   formatRepairPassProgress,
   type VersionDisplayStatus,
 } from "@/lib/builder/version-status-display";
 import { localizeVerificationSummary } from "@/lib/builder/version-history-status-labels";
-import { PreviewPanelF3Trigger } from "./PreviewPanelF3Trigger";
-import { PreviewPanelDossiers } from "./PreviewPanelDossiers";
 import type { PreviewRouteInfo } from "./preview-route-helpers";
 import { cn } from "@/lib/utils";
 
@@ -35,32 +22,6 @@ interface PreviewPanelChromeProps {
   previewUrl: string | null;
   isOwnEnginePreview: boolean;
   isTier2LivePreview: boolean;
-  inspectorEnabled: boolean;
-  handleToggleInspect: () => void;
-  placementMode: boolean;
-  composerMode: boolean;
-  /**
-   * När true: knappen "Composer" byter copy till "Lägg till" (tabbad panel:
-   * Block/Bläddra/Beskriv). Flag-gated via NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL.
-   * Default false = dagens "Composer"-knapp/yta oförändrad.
-   */
-  addPanelEnabled?: boolean;
-  handleToggleComposer: () => void;
-  composerCanUndo: boolean;
-  composerCanRedo: boolean;
-  composerHistoryBusy: boolean;
-  onComposerUndo: () => void;
-  onComposerRedo: () => void;
-  inspectMode: boolean;
-  handleToggleElementRegistry: () => void;
-  canShowCode: boolean;
-  isViewSwitchPending: boolean;
-  handleToggleCode: () => void;
-  viewMode: "preview" | "code" | "registry";
-  onClear?: (() => void) | null;
-  handleClear: () => void;
-  isLoading: boolean;
-  handleOpenInNewTab: () => void;
   previewBuildError?: { stage: string; message: string } | null;
   previewProdBuild?: { verified: boolean; logSnippet?: string | null } | null;
   previewPending: boolean;
@@ -90,70 +51,12 @@ interface PreviewPanelChromeProps {
   showImagesDisabledWarning: boolean;
   showImagesUnsupportedWarning: boolean;
   showExternalWarning: boolean;
-  /** F3 trigger context — undefined props hide the button. */
-  chatId?: string | null;
-  versionId?: string | null;
-  lifecycleStage?: "design" | "integrations" | null;
-  onF3MissingEnv?: (payload: {
-    parentVersionId: string;
-    projectId?: string | null;
-    chatId?: string | null;
-    missingByIntegration: Array<{ key: string; name: string; missing: string[] }>;
-  }) => void;
-  onF3Status?: (status: {
-    tone: "info" | "warning" | "error" | "success";
-    title: string;
-    description: string;
-  }) => void;
-  /**
-   * Whether the builder shell is busy (creating chat, streaming a previous
-   * generation, loading a template, preparing a prompt). Forwarded to the
-   * F3 trigger so a second click cannot race the first one.
-   */
-  isBusy?: boolean;
-  onF3Ready?: (payload: {
-    parentVersionId: string;
-    requirements: Array<{
-      key: string;
-      name: string;
-      requiredRealEnvKeys: string[];
-    }>;
-  }) => void;
-  onF3ReleaseSettled?: (payload: {
-    versionId: string;
-    selectVersion: boolean;
-  }) => void;
-  /** Forwarded to the Byggblock-panelens katalog-tab. See preview-panel-types.ts. */
-  onRequestDossier?: (payload: { id: string; label: string }) => void;
-  /** Disables catalog rows while a generation streams / a question is pending. */
-  catalogPickDisabled?: boolean;
 }
 
 export function PreviewPanelChrome({
   previewUrl,
   isOwnEnginePreview,
   isTier2LivePreview,
-  inspectorEnabled,
-  handleToggleInspect,
-  placementMode,
-  composerMode,
-  addPanelEnabled = false,
-  handleToggleComposer,
-  composerCanUndo,
-  composerCanRedo,
-  composerHistoryBusy,
-  onComposerUndo,
-  onComposerRedo,
-  inspectMode,
-  handleToggleElementRegistry,
-  canShowCode,
-  isViewSwitchPending,
-  handleToggleCode,
-  viewMode,
-  onClear,
-  handleClear,
-  isLoading,
-  handleOpenInNewTab,
   previewBuildError,
   previewProdBuild,
   previewPending,
@@ -180,56 +83,9 @@ export function PreviewPanelChrome({
   showImagesDisabledWarning,
   showImagesUnsupportedWarning,
   showExternalWarning,
-  chatId,
-  versionId,
-  lifecycleStage,
-  isBusy = false,
-  onF3MissingEnv,
-  onF3Status,
-  onF3Ready,
-  onF3ReleaseSettled,
-  onRequestDossier,
-  catalogPickDisabled = false,
 }: PreviewPanelChromeProps) {
   const [addingPage, setAddingPage] = useState(false);
   const [newPagePath, setNewPagePath] = useState("");
-  // Lightweight "Kod" view-switcher menu. Deliberately not a Radix
-  // DropdownMenu: this repo can't drive Radix pointer-event flows in jsdom
-  // (see SeoOptInPanel.test.tsx), and the existing code-view tests need a
-  // synthetic-click-friendly menu item. The menu itself is portaled to
-  // document.body with fixed positioning so the toolbar wrapper's
-  // overflow-y-auto cannot clip it into the info banner below.
-  const [codeMenuOpen, setCodeMenuOpen] = useState(false);
-  const [codeMenuPosition, setCodeMenuPosition] = useState({ top: 0, right: 0 });
-  const codeMenuTriggerRef = useRef<HTMLButtonElement>(null);
-
-  const handleToggleCodeMenu = () => {
-    if (!codeMenuOpen) {
-      const rect = codeMenuTriggerRef.current?.getBoundingClientRect();
-      if (rect) {
-        setCodeMenuPosition({
-          top: rect.bottom + 4,
-          right: Math.max(0, window.innerWidth - rect.right),
-        });
-      }
-    }
-    setCodeMenuOpen((prev) => !prev);
-  };
-
-  // The menu is portaled with fixed positioning captured once at open time, so
-  // any scroll (incl. the toolbar wrapper's own overflow-y-auto — hence capture)
-  // or resize would leave it detached from the trigger. Close it instead of
-  // letting it drift; the user reopens it in the new position.
-  useEffect(() => {
-    if (!codeMenuOpen) return;
-    const close = () => setCodeMenuOpen(false);
-    window.addEventListener("scroll", close, true);
-    window.addEventListener("resize", close);
-    return () => {
-      window.removeEventListener("scroll", close, true);
-      window.removeEventListener("resize", close);
-    };
-  }, [codeMenuOpen]);
 
   // Synchronous guard so a double Enter/click cannot dispatch two add flows
   // before `pageOpBusy` re-renders (mirrors the ref lock in PreviewPanel).
@@ -249,10 +105,6 @@ export function PreviewPanelChrome({
     }, 0);
   };
 
-  const showF3Trigger =
-    typeof chatId === "string" &&
-    chatId.length > 0 &&
-    lifecycleStage !== "integrations";
   const localizedVersionSummary = localizeVerificationSummary(activeVersionSummary);
   const versionWorkInProgress =
     activeVersionStatus === "generating" ||
@@ -404,229 +256,6 @@ export function PreviewPanelChrome({
         : "text-sky-200/90";
   return (
     <div className="max-h-[40%] shrink-0 overflow-y-auto">
-      <div className="flex items-center justify-end border-b border-gray-800 px-4 py-2">
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-          {showF3Trigger ? (
-            <PreviewPanelF3Trigger
-              chatId={chatId as string}
-              versionId={versionId ?? null}
-              onMissingEnv={onF3MissingEnv}
-              onStatus={onF3Status}
-              onReady={onF3Ready}
-              onReleaseSettled={onF3ReleaseSettled}
-              isBusy={isBusy}
-              className="h-7 bg-violet-600 px-2 text-[12px] text-white hover:bg-violet-500"
-            />
-          ) : null}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleComposer}
-            disabled={!previewUrl || placementMode || inspectMode}
-            title={
-              placementMode
-                ? "Avsluta placering först"
-                : inspectMode
-                  ? "Stäng inspektionsläget först"
-                  : composerMode
-                    ? addPanelEnabled
-                      ? "Stäng Lägg till"
-                      : "Stäng Visual Composer"
-                    : addPanelEnabled
-                      ? "Lägg till block: dra egna block eller bläddra galleriet"
-                      : "Dra sajblock till previewn (startsida)"
-            }
-            className={cn(
-              "text-gray-400 hover:text-white",
-              composerMode && "bg-violet-900/45 text-violet-200 hover:text-violet-100",
-            )}
-          >
-            {addPanelEnabled ? (
-              <Plus className="mr-1 h-4 w-4" />
-            ) : (
-              <LayoutGrid className="mr-1 h-4 w-4" />
-            )}
-            {addPanelEnabled ? "Lägg till" : "Composer"}
-          </Button>
-          {composerMode ? (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onComposerUndo}
-                disabled={
-                  !previewUrl ||
-                  placementMode ||
-                  inspectMode ||
-                  composerHistoryBusy ||
-                  !composerCanUndo
-                }
-                title="Ångra senaste direkta patch i Composer"
-                className="text-gray-400 hover:text-white"
-              >
-                <Undo2 className="mr-1 h-4 w-4" />
-                Ångra
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onComposerRedo}
-                disabled={
-                  !previewUrl ||
-                  placementMode ||
-                  inspectMode ||
-                  composerHistoryBusy ||
-                  !composerCanRedo
-                }
-                title="Gör om senast ångrade direkta patch"
-                className="text-gray-400 hover:text-white"
-              >
-                <Redo2 className="mr-1 h-4 w-4" />
-                Gör om
-              </Button>
-            </>
-          ) : null}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleInspect}
-            disabled={!inspectorEnabled || !previewUrl || placementMode || composerMode}
-            title={
-              !inspectorEnabled
-                ? "Inspector är avstängd via feature flag"
-                : composerMode
-                  ? "Stäng Composer först"
-                  : placementMode
-                    ? "Placering aktiv - avsluta placering först"
-                    : "Markera punkt i preview och skicka till chatten"
-            }
-            className={cn(
-              "text-gray-400 hover:text-white",
-              inspectMode && "bg-emerald-900/50 text-emerald-300 hover:text-emerald-200",
-            )}
-          >
-            <Search className="mr-1 h-4 w-4" />
-            Inspektera preview
-          </Button>
-          <div className="relative">
-            <Button
-              ref={codeMenuTriggerRef}
-              variant="ghost"
-              size="sm"
-              onClick={handleToggleCodeMenu}
-              disabled={!canShowCode || isViewSwitchPending}
-              aria-haspopup="menu"
-              aria-expanded={codeMenuOpen}
-              title={
-                canShowCode
-                  ? "Visa kod — Kodvy eller Elementregister"
-                  : "Ingen kod tillgänglig än"
-              }
-              className={cn(
-                "text-gray-400 hover:text-white",
-                viewMode !== "preview" && "bg-gray-800 text-white hover:text-white",
-              )}
-            >
-              <Code2 className="mr-1 h-4 w-4" />
-              Kod
-              <ChevronDown className="ml-1 h-3.5 w-3.5" />
-            </Button>
-            {codeMenuOpen && typeof document !== "undefined"
-              ? createPortal(
-                  <>
-                    <button
-                      type="button"
-                      aria-hidden="true"
-                      tabIndex={-1}
-                      className="fixed inset-0 z-40 cursor-default"
-                      onClick={() => setCodeMenuOpen(false)}
-                    />
-                    {/* Portalad till body med fixed-position: den gamla inline-menyn
-                        klipptes av toolbar-wrapperns overflow-y-auto och hamnade
-                        "under" info-bandet nedanför. */}
-                    <div
-                      role="menu"
-                      aria-label="Kodvyer"
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") setCodeMenuOpen(false);
-                      }}
-                      style={{
-                        position: "fixed",
-                        top: codeMenuPosition.top,
-                        right: codeMenuPosition.right,
-                      }}
-                      className="z-50 min-w-44 rounded-md border border-gray-800 bg-gray-950 p-1 shadow-md"
-                    >
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setCodeMenuOpen(false);
-                          handleToggleCode();
-                        }}
-                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800"
-                      >
-                        <FileText className="h-4 w-4" />
-                        <span className="flex-1 text-left">Kodvy</span>
-                        {viewMode === "code" ? (
-                          <Check className="h-4 w-4 text-emerald-400" />
-                        ) : null}
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setCodeMenuOpen(false);
-                          handleToggleElementRegistry();
-                        }}
-                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800"
-                      >
-                        <Code2 className="h-4 w-4" />
-                        <span className="flex-1 text-left">Elementregister</span>
-                        {viewMode === "registry" ? (
-                          <Check className="h-4 w-4 text-emerald-400" />
-                        ) : null}
-                      </button>
-                    </div>
-                  </>,
-                  document.body,
-                )
-              : null}
-          </div>
-          {chatId ? (
-            <PreviewPanelDossiers
-              chatId={chatId}
-              versionId={versionId ?? null}
-              lifecycleStage={lifecycleStage ?? null}
-              onRequestDossier={onRequestDossier}
-              catalogPickDisabled={catalogPickDisabled}
-            />
-          ) : null}
-          {previewUrl && onClear ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClear}
-              disabled={isLoading}
-              title="Rensa preview"
-              className="text-gray-400 hover:text-white"
-            >
-              Rensa
-            </Button>
-          ) : null}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleOpenInNewTab}
-            title="Öppna i ny flik"
-            className="text-gray-400 hover:text-white"
-          >
-            <ExternalLink className="mr-1 h-4 w-4" />
-            Öppna
-          </Button>
-        </div>
-      </div>
-
       {previewTruth ? (
         <Alert className={cn("mx-4 mt-2", previewTruthClassName)}>
           {previewTruth.tone === "error" ? (
@@ -694,11 +323,7 @@ export function PreviewPanelChrome({
       ) : null}
 
       {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0 || canManagePages) ? (
-        <div className="border-b border-gray-800 bg-black/30 px-4 py-2">
-          <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-gray-300">
-            <span>Sidor i skapad preview</span>
-            {pageOpBusy ? <Loader2 className="h-3 w-3 animate-spin text-gray-400" /> : null}
-          </div>
+        <div className="border-b border-gray-800 bg-black/30 px-4 py-1">
           <div className="flex flex-wrap items-center gap-1.5">
             {previewRoutesLoading && previewRoutes.length === 0 ? (
               <span className="text-[11px] text-gray-500">Läser routes från versionens filer...</span>
@@ -813,11 +438,16 @@ export function PreviewPanelChrome({
                   type="button"
                   disabled={pageOpBusy}
                   onClick={() => setAddingPage(true)}
-                  title="Lägg till en ny sida"
+                  title={pageOpBusy ? "Uppdaterar sidorna…" : "Lägg till en ny sida"}
                   aria-label="Lägg till en ny sida"
+                  aria-busy={pageOpBusy}
                   className="flex h-6 items-center gap-1 rounded-md border border-dashed border-gray-600 px-2 text-[11px] text-gray-400 hover:border-emerald-600/60 hover:text-emerald-200 disabled:opacity-50"
                 >
-                  <Plus className="h-3 w-3" />
+                  {pageOpBusy ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Plus className="h-3 w-3" />
+                  )}
                   Sida
                 </button>
               )

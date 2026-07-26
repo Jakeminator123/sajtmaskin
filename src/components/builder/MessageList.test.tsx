@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { ChatMessage } from "@/lib/builder/types";
+import { PROMPT_SOURCE_UI_PART_TYPE, type ChatMessage } from "@/lib/builder/types";
 import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
 import { MessageList } from "./MessageList";
 
@@ -684,5 +684,52 @@ describe("MessageList", () => {
     expect(approveButton).toBeTruthy();
     expect(onQuickReply).not.toHaveBeenCalled();
     expect(screen.queryByText("Integrationsbygget fortsätter automatiskt…")).toBeNull();
+  });
+
+  it("renders an auto-repair prompt as a collapsed system row, never with the user's bubble style (Spår 03 Steg 4)", async () => {
+    // The auto-repair prompt is still persisted as a "user" message (needed
+    // for debugging and for every other engine_messages reader), but it
+    // carries the additive `prompt-source` marker so the UI never presents
+    // it as something the user typed.
+    const messages: ChatMessage[] = [
+      {
+        id: "user_normal",
+        role: "user",
+        content: "Gör headern större.",
+      },
+      {
+        id: "user_autofix_1",
+        role: "user",
+        content:
+          "AUTO-FIX REQUEST — TARGETED REPAIR\n\nIssues detected: typecheck failed (exit 1).",
+        uiParts: [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }],
+      },
+      {
+        id: "assistant_autofix_1",
+        role: "assistant",
+        content: "Reparationen är klar.",
+      },
+    ];
+
+    render(<MessageList chatId="chat_autofix" messages={messages} />);
+
+    // A normal user prompt keeps its user bubble styling.
+    const normalRow = screen.getByText("Gör headern större.").closest("[data-role]");
+    expect(normalRow?.getAttribute("data-role")).toBe("user");
+
+    // The repair prompt renders a collapsed status line, not the raw prompt.
+    const repairLabel = await screen.findByText("Automatisk reparation kördes");
+    expect(screen.queryByText(/Issues detected: typecheck failed/)).toBeNull();
+
+    // ...and its row is a system row, never a user bubble.
+    const repairRow = repairLabel.closest("[data-role]");
+    expect(repairRow?.getAttribute("data-role")).toBe("system");
+    expect(repairRow?.getAttribute("data-role")).not.toBe("user");
+
+    // Expanding still surfaces the real prompt for debugging.
+    fireEvent.click(
+      screen.getByRole("button", { name: /Visa den tekniska instruktionen/ }),
+    );
+    expect(screen.getByText(/Issues detected: typecheck failed/)).toBeTruthy();
   });
 });

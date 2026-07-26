@@ -105,6 +105,21 @@ const UNDELETABLE_EXACT = new Set([
   "lib/utils.ts",
 ]);
 
+/**
+ * Paths where a `delete_jsx_node` op may run. Unlike `delete_file`, the
+ * essential app files (`app/page.tsx`, `app/layout.tsx`, …) stay eligible —
+ * removing an element inside them is the primary inspector use case — but
+ * structural config and secrets/lockfiles are refused, mirroring the other ops.
+ * The dialect check (`.tsx`/`.jsx`/`.js`) lives in the AST module.
+ */
+export function isJsxEditableQuickEditPath(rawPath: string): boolean {
+  const normalized = normalizeQuickEditPath(rawPath);
+  if (!isQuickEditSafePath(normalized)) return false;
+  if (isBlockedQuickEditPath(normalized)) return false;
+  if (isStructuralQuickEditPath(normalized)) return false;
+  return true;
+}
+
 export function isDeletableQuickEditPath(rawPath: string): boolean {
   const normalized = normalizeQuickEditPath(rawPath);
   if (!isQuickEditSafePath(normalized)) return false;

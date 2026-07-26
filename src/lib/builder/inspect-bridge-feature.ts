@@ -25,6 +25,14 @@ export const INSPECT_BRIDGE_MESSAGE = {
   pick: "sajtmaskin:inspect:pick",
   /** child → parent: scriptet är laddat och redo */
   ready: "sajtmaskin:inspect:ready",
+  /**
+   * child → parent: ny rect för det senast valda elementet (scroll/resize i
+   * previewen). Utan den skulle menyn och redigeringsrutan bli kvar på
+   * klickpunkten och glida ifrån elementet så fort sidan scrollas.
+   */
+  rect: "sajtmaskin:inspect:rect",
+  /** child → parent: elementen som en uppdragen rektangel täcker */
+  region: "sajtmaskin:inspect:region",
 } as const;
 
 export function isInspectBridgeEnabled(): boolean {

@@ -16,7 +16,9 @@ export function isQuickEditEnabled(): boolean {
 export type QuickEditClientOp =
   | { kind: "replace_content"; path: string; content: string }
   | { kind: "replace_text"; path: string; find: string; replace: string; occurrence?: number }
-  | { kind: "delete_file"; path: string };
+  | { kind: "delete_file"; path: string }
+  /** Inspektorns "ta bort element": AST-borttagning av en komplett JSX-nod. */
+  | { kind: "delete_jsx_node"; path: string; lineNumber: number; tagName: string };
 
 export type QuickEditClientResult =
   | {

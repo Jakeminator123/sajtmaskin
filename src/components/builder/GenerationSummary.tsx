@@ -21,6 +21,50 @@ interface ParsedContent {
 const CODE_BLOCK_RE = /```(\w+)\s+file="([^"]+)"[^\n]*\n([\s\S]*?)```/g;
 const GENERIC_CODE_BLOCK_RE = /```(\w+)?[^\n]*\n([\s\S]*?)```/g;
 const THINKING_RE = /<Thinking>([\s\S]*?)<\/Thinking>/gi;
+const OPEN_FENCE_RE = /```(\w+)?[^\n]*(?:\n|$)/;
+const STREAM_FILE_HEADER_RE = /(?:^|\n)([a-z0-9]+) file="([^"]+)"[^\n]*(?:\n|$)/;
+const FILE_ATTRIBUTE_RE = /file="([^"]+)"/;
+
+interface UnterminatedBlock {
+  index: number;
+  language: string;
+  path: string | null;
+  lineCount: number;
+}
+
+/**
+ * Hittar en kodström som öppnats men aldrig stängts. Kompletta block är redan
+ * bortplockade ur `residual`, så en kvarvarande fence — eller en
+ * `<lang> file="…"`-rad i radbörjan — är per definition en oavslutad svans.
+ */
+function findUnterminatedBlock(residual: string): UnterminatedBlock | null {
+  const fenceMatch = OPEN_FENCE_RE.exec(residual);
+  if (fenceMatch) {
+    const body = residual.slice(fenceMatch.index + fenceMatch[0].length);
+    if (!body.trim()) return null;
+    return {
+      index: fenceMatch.index,
+      language: fenceMatch[1] ?? "",
+      path: FILE_ATTRIBUTE_RE.exec(fenceMatch[0])?.[1] ?? null,
+      lineCount: body.split("\n").length,
+    };
+  }
+
+  const streamMatch = STREAM_FILE_HEADER_RE.exec(residual);
+  if (streamMatch) {
+    const body = residual.slice(streamMatch.index + streamMatch[0].length);
+    if (!body.trim()) return null;
+    const leadingNewline = streamMatch[0].startsWith("\n") ? 1 : 0;
+    return {
+      index: streamMatch.index + leadingNewline,
+      language: streamMatch[1],
+      path: streamMatch[2],
+      lineCount: body.split("\n").length,
+    };
+  }
+
+  return null;
+}
 
 function parseGenerationContent(raw: string): ParsedContent {
   const files: GeneratedFile[] = [];
@@ -44,15 +88,27 @@ function parseGenerationContent(raw: string): ParsedContent {
     totalCodeLines += match[2].split("\n").length;
   }
 
-  const proseText = raw
+  let residual = raw
     .replace(CODE_BLOCK_RE, "")
     .replace(GENERIC_CODE_BLOCK_RE, "")
-    .replace(THINKING_RE, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .replace(THINKING_RE, "");
+
+  const unterminated = findUnterminatedBlock(residual);
+  if (unterminated) {
+    residual = residual.slice(0, unterminated.index);
+    genericCodeBlocks += 1;
+    totalCodeLines += unterminated.lineCount;
+    if (unterminated.path) {
+      files.push({
+        path: unterminated.path,
+        language: unterminated.language,
+        lineCount: unterminated.lineCount,
+      });
+    }
+  }
 
   return {
-    proseText,
+    proseText: residual.replace(/\n{3,}/g, "\n\n").trim(),
     files,
     hasCodeBlocks: genericCodeBlocks > 0,
     genericCodeBlocks,
@@ -103,7 +159,10 @@ export const GenerationSummary = memo(function GenerationSummary({
 
   if (!parsed.hasCodeBlocks && !hasOpenFences) {
     return (
-      <div className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm leading-relaxed text-zinc-100 overflow-hidden wrap-break-word">
+      <div
+        data-testid="generation-summary-prose"
+        className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm leading-relaxed text-zinc-100 overflow-hidden wrap-break-word"
+      >
         {isStreaming ? streamingNotice : content}
       </div>
     );
@@ -157,7 +216,10 @@ export const GenerationSummary = memo(function GenerationSummary({
   return (
     <div className="space-y-2 min-w-0">
       {previewText && (
-        <div className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm leading-relaxed text-zinc-100 whitespace-pre-wrap overflow-hidden wrap-break-word">
+        <div
+          data-testid="generation-summary-prose"
+          className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm leading-relaxed text-zinc-100 whitespace-pre-wrap overflow-hidden wrap-break-word"
+        >
           {previewText}
         </div>
       )}

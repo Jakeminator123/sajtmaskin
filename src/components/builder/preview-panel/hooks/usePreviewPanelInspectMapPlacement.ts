@@ -35,6 +35,9 @@ export function usePreviewPanelInspectMapPlacement(options: {
   placementMode: boolean;
   /** När sann, ladda elementkarta/zoner som för placering (t.ex. Visual Composer) utan chat-picker-läge. */
   composerMode?: boolean;
+  /** Ägs av `usePreviewSurfaceMode` i builderskalet — knappen sitter i chatpanelen. */
+  inspectMode: boolean;
+  setInspectMode: (update: boolean | ((prev: boolean) => boolean)) => void;
   iframeLoading: boolean;
   externalLoading: boolean;
   iframeRef: RefObject<HTMLIFrameElement | null>;
@@ -50,6 +53,8 @@ export function usePreviewPanelInspectMapPlacement(options: {
     versionId,
     placementMode,
     composerMode = false,
+    inspectMode,
+    setInspectMode,
     iframeLoading,
     externalLoading,
     iframeRef,
@@ -62,7 +67,6 @@ export function usePreviewPanelInspectMapPlacement(options: {
 
   const zonesActive = placementMode || Boolean(composerMode);
 
-  const [inspectMode, setInspectMode] = useState(false);
   const [elementMap, setElementMap] = useState<ElementMapItem[]>([]);
   const [elementMapLoading, setElementMapLoading] = useState(false);
   const [inspectorUnavailable, setInspectorUnavailable] = useState(false);
@@ -134,17 +138,25 @@ export function usePreviewPanelInspectMapPlacement(options: {
 
   const handleToggleInspect = useCallback(() => {
     if (!inspectorEnabled || !previewUrl) return;
-    setInspectMode((prev) => {
-      const next = !prev;
-      const requestToken = ++inspectFetchTokenRef.current;
-      if (next) {
-        // plan-02 / STATUS-01-fynd: tidigare `iframe.src = buildPreviewSrc(...)`
-        // här återladdade preview-iframen vid inspect-toggle, vilket nollställde
-        // dess scroll-position och fick användarens sida att "scrolla upp" ~0.5s
-        // efter att Inspektera-knappen aktiverats. Element-map hämtas via
-        // `/api/inspector-element-map` mot `previewUrl` direkt och behöver inte
-        // en ren iframe-state. Den parallella useEffect:en nedan fortsätter
-        // dessutom trigga delayed map-fetch när previewUrl/versionId ändras.
+    setInspectMode((prev) => !prev);
+  }, [inspectorEnabled, previewUrl, setInspectMode]);
+
+  // Sidoeffekterna hänger på lägesbytet, inte på knappen: `inspectMode` ägs av
+  // builderskalet och togglas numera från chatpanelens Verktyg-rad.
+  const appliedInspectModeRef = useRef(inspectMode);
+  useEffect(() => {
+    if (appliedInspectModeRef.current === inspectMode) return;
+    appliedInspectModeRef.current = inspectMode;
+    const requestToken = ++inspectFetchTokenRef.current;
+    if (inspectMode) {
+      // plan-02 / STATUS-01-fynd: tidigare `iframe.src = buildPreviewSrc(...)`
+      // här återladdade preview-iframen vid inspect-toggle, vilket nollställde
+      // dess scroll-position och fick användarens sida att "scrolla upp" ~0.5s
+      // efter att Inspektera-knappen aktiverats. Element-map hämtas via
+      // `/api/inspector-element-map` mot `previewUrl` direkt och behöver inte
+      // en ren iframe-state. Den parallella useEffect:en nedan fortsätter
+      // dessutom trigga delayed map-fetch när previewUrl/versionId ändras.
+      if (previewUrl) {
         void fetchFilesForRegistry();
         if (inspectEngine !== "bridge") {
           // Bridge-engine läser DOMen i previewn själv (postMessage) — ingen
@@ -158,13 +170,12 @@ export function usePreviewPanelInspectMapPlacement(options: {
             }
           });
         }
-      } else {
-        setHoveredMapElement(null);
-        setElementMap([]);
-        setElementMapLoading(false);
       }
-      return next;
-    });
+    } else {
+      setHoveredMapElement(null);
+      setElementMap([]);
+      setElementMapLoading(false);
+    }
     setLastCodeMatch(null);
     setInspectStatus(
       inspectEngine === "bridge"
@@ -172,10 +183,10 @@ export function usePreviewPanelInspectMapPlacement(options: {
         : "Laddar elementkarta...",
     );
   }, [
+    inspectMode,
     previewUrl,
     fetchFilesForRegistry,
     fetchElementMap,
-    inspectorEnabled,
     iframeRef,
     inspectEngine,
     setInspectStatus,
@@ -311,13 +322,13 @@ export function usePreviewPanelInspectMapPlacement(options: {
     setElementMap([]);
     setElementMapLoading(false);
     setHoveredPlacement(null);
-  }, [inspectorEnabled]);
+  }, [inspectorEnabled, setInspectMode]);
 
   useEffect(() => {
     if (!zonesActive) return;
     setInspectMode(false);
     setHoveredMapElement(null);
-  }, [zonesActive]);
+  }, [zonesActive, setInspectMode]);
 
   useEffect(() => {
     if (!zonesActive || !previewUrl || !inspectorEnabled) {

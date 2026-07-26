@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MouseEvent, RefObject } from "react";
+import { useState, type MouseEvent, type RefObject } from "react";
 import { usePreviewPanelInspectMapPlacement } from "./usePreviewPanelInspectMapPlacement";
 import type { InspectEngine } from "../preview-panel-types";
 import type { ElementMapItem } from "@/lib/builder/types";
@@ -21,11 +21,15 @@ function harness(overrides?: {
   const iframeRef = { current: null } as RefObject<HTMLIFrameElement | null>;
   return renderHook(() => {
     overrides?.onRender?.();
+    // `inspectMode` ägs numera av builderskalet; hooken tar emot det som prop.
+    const [inspectMode, setInspectMode] = useState(false);
     return usePreviewPanelInspectMapPlacement({
       inspectorEnabled: true,
       previewUrl: overrides?.previewUrl ?? "https://chat-1.fly.dev/preview",
       versionId: "ver_1",
       placementMode: overrides?.placementMode ?? false,
+      inspectMode,
+      setInspectMode,
       iframeLoading: false,
       externalLoading: false,
       iframeRef,

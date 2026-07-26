@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanel } from "./preview-panel/PreviewPanel";
+import { PreviewCodeViewMenu } from "./preview-panel/PreviewCodeViewMenu";
+import { usePreviewSurfaceMode } from "./preview-panel/usePreviewSurfaceMode";
 import { PreviewPanelFrame } from "./preview-panel/PreviewPanelFrame";
 import {
   SHADCN_ITEM_DND_TYPE,
@@ -39,6 +41,42 @@ function buildPreviewPanelProps(
 
 function renderPreviewPanel(overrides?: Partial<React.ComponentProps<typeof PreviewPanel>>) {
   return render(<PreviewPanel {...buildPreviewPanelProps(overrides)} />);
+}
+
+/**
+ * Verktygen som styr previewytan bor utanför panelen sedan spår 04: `Kod` i
+ * headerns kluster och `Lägg till block` i chatpanelens Verktyg-rad. Harnessen
+ * speglar builderskalet — den äger lägena och renderar den riktiga Kod-menyn.
+ * Composer-triggern är en stand-in för chatpanelens knapp (den täcks av
+ * `ChatInterface.preview-modes.test.tsx`).
+ */
+function PreviewPanelHarness(props: React.ComponentProps<typeof PreviewPanel>) {
+  const surface = usePreviewSurfaceMode({
+    previewUrl: props.previewUrl ?? null,
+    canShowCode: Boolean(props.chatId && props.versionId),
+    inspectorEnabled: true,
+  });
+  return (
+    <>
+      <PreviewCodeViewMenu
+        viewMode={surface.viewMode}
+        canShowCode={surface.canShowCode}
+        isViewSwitchPending={surface.isViewSwitchPending}
+        onToggleCode={surface.toggleCodeView}
+        onToggleElementRegistry={surface.toggleElementRegistry}
+      />
+      <button type="button" onClick={surface.toggleComposer}>
+        Lägg till block
+      </button>
+      <PreviewPanel {...props} surface={surface} />
+    </>
+  );
+}
+
+function renderPreviewPanelWithTools(
+  overrides?: Partial<React.ComponentProps<typeof PreviewPanel>>,
+) {
+  return render(<PreviewPanelHarness {...buildPreviewPanelProps(overrides)} />);
 }
 
 describe("PreviewPanel", () => {
@@ -167,11 +205,11 @@ describe("PreviewPanel", () => {
         via: "stream",
       }),
     );
-    renderPreviewPanel({ onShadcnItemInsert });
+    renderPreviewPanelWithTools({ onShadcnItemInsert });
 
     // Iframen laddar klart → drop-guarden (iframeLoading) släpper.
     fireEvent.load(screen.getByTitle("Preview"));
-    fireEvent.click(screen.getByRole("button", { name: /Composer/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Lägg till block/i }));
 
     const overlay = await screen.findByTestId("composer-drop-overlay");
     fireEvent.drop(overlay, {
@@ -210,10 +248,10 @@ describe("PreviewPanel", () => {
     const onShadcnItemInsert = vi.fn(
       async (): Promise<SendMessageOutcome> => ({ status: "started", via: "stream" }),
     );
-    renderPreviewPanel({ onShadcnItemInsert });
+    renderPreviewPanelWithTools({ onShadcnItemInsert });
 
     fireEvent.load(screen.getByTitle("Preview"));
-    fireEvent.click(screen.getByRole("button", { name: /Composer/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Lägg till block/i }));
 
     const overlay = await screen.findByTestId("composer-drop-overlay");
     fireEvent.drop(overlay, {
@@ -312,7 +350,7 @@ describe("PreviewPanel", () => {
       }),
     );
 
-    renderPreviewPanel();
+    renderPreviewPanelWithTools();
     fireEvent.click(screen.getByRole("button", { name: /^Kod$/i }));
     fireEvent.click(screen.getByRole("menuitem", { name: /Kodvy/i }));
 
@@ -354,7 +392,7 @@ describe("PreviewPanel", () => {
       }),
     );
 
-    renderPreviewPanel();
+    renderPreviewPanelWithTools();
     fireEvent.click(screen.getByRole("button", { name: /^Kod$/i }));
     fireEvent.click(screen.getByRole("menuitem", { name: /Kodvy/i }));
 
@@ -407,7 +445,7 @@ describe("PreviewPanel", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    renderPreviewPanel({ onFilesSaved });
+    renderPreviewPanelWithTools({ onFilesSaved });
     fireEvent.click(screen.getByRole("button", { name: /^Kod$/i }));
     fireEvent.click(screen.getByRole("menuitem", { name: /Kodvy/i }));
 
@@ -475,7 +513,7 @@ describe("PreviewPanel", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    renderPreviewPanel({ onFilesSaved });
+    renderPreviewPanelWithTools({ onFilesSaved });
     fireEvent.click(screen.getByRole("button", { name: /^Kod$/i }));
     fireEvent.click(screen.getByRole("menuitem", { name: /Kodvy/i }));
 

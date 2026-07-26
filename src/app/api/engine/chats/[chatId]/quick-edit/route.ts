@@ -33,6 +33,12 @@ const opSchema = z.union([
     kind: z.literal("delete_file"),
     path: z.string().min(1),
   }),
+  z.object({
+    kind: z.literal("delete_jsx_node"),
+    path: z.string().min(1),
+    lineNumber: z.number().int().positive(),
+    tagName: z.string().max(200),
+  }),
 ]);
 
 const bodySchema = z.object({
@@ -47,6 +53,7 @@ function httpStatusForQuickEditFailure(reason: string): number {
     case "unsafe_path":
     case "protected_path":
     case "empty_ops":
+    case "jsx_delete_unsupported":
       return 400;
     case "ambiguous_match":
     case "base_busy":
@@ -54,6 +61,7 @@ function httpStatusForQuickEditFailure(reason: string): number {
     case "file_not_found":
     case "no_match":
     case "no_base_files":
+    case "jsx_delete_unsafe":
       return 422;
     case "no_change":
       return 200;
