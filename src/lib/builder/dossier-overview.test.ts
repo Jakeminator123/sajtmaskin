@@ -97,7 +97,9 @@ describe("describeDossierStatus", () => {
   });
 
   it("labels planned per stage", () => {
-    expect(describeDossierStatus("planned", "design").label).toBe("Planerad (F2-mockup)");
+    expect(describeDossierStatus("planned", "design").label).toBe(
+      "Planerad — kopplas in i nästa steg",
+    );
     expect(describeDossierStatus("planned", "integrations").label).toBe("Planerad — ej byggd");
   });
 });

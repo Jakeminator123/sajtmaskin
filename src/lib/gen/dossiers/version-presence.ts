@@ -13,10 +13,19 @@
  * shared paths):
  *
  *  - A file path is DISTINCTIVE when exactly one dossier in the pool declares
- *    it (after output-path mapping). Shared helper files like
+ *    it (after output-path mapping) AND it is not part of the scaffold
+ *    baseline. Shared helper files like
  *    `components/integration-config-notice.tsx` (shipped by several hard
  *    dossiers) or the chat route `app/api/chat/route.ts` (openai-chat AND
- *    rag-chat) are never distinctive.
+ *    rag-chat) are never distinctive. Neither is a baseline path
+ *    (`isScaffoldBaselinePath`): `lib/utils.ts`, `app/layout.tsx` and their
+ *    siblings are injected into EVERY version by the platform, so their
+ *    presence says nothing about a dossier — that is exactly how
+ *    `dashboard-charts` came to report itself as built in every site
+ *    (declared `components/lib/utils.ts` → `lib/utils.ts`, declared by no
+ *    other dossier, therefore "distinctive"). The baseline rule holds no
+ *    matter how many dossiers declare the path, so the next manifest cannot
+ *    reintroduce the bug.
  *  - Dossier WITH `role: "server"` files: present ⇔ ALL its server files exist
  *    AND at least one of its present files (any role) is distinctive. Server
  *    files are the functional core and verbatim-protected — a user
@@ -41,6 +50,7 @@
  *  - the F3 empty-generation honesty check in `generation-stream.ts` (don't
  *    claim "no code files" when the parent version already carries them).
  */
+import { isScaffoldBaselinePath } from "../scaffolds/baseline-paths";
 import { getAllDossiers, getDossierInstructions } from "./registry";
 import { isDossierConfigured } from "./select";
 import { resolveSelectedDossiersFromSnapshot } from "./snapshot-selection";
@@ -86,7 +96,9 @@ function dossierFilesPresent(
   const mapped = files.map((file) => ({ role: file.role, path: outputPathFor(file) }));
   const hasDistinctivePresentFile = mapped.some(
     (file) =>
-      presentPaths.has(file.path) && (pathDeclarationCounts.get(file.path) ?? 0) === 1,
+      presentPaths.has(file.path) &&
+      (pathDeclarationCounts.get(file.path) ?? 0) === 1 &&
+      !isScaffoldBaselinePath(file.path),
   );
   const serverFiles = mapped.filter((file) => file.role === "server");
   if (serverFiles.length > 0) {

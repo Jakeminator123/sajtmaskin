@@ -200,6 +200,12 @@ export function useCreateChat(
             : null,
           promptAssistModel: promptAssistModel ?? null,
           promptAssistDeep: promptAssistDeep ?? null,
+          mutedCapabilityLabels: Array.isArray(meta?.mutedCapabilityLabels)
+            ? (meta.mutedCapabilityLabels as string[])
+            : null,
+          fileEvidenceCapabilities: Array.isArray(meta?.fileEvidenceCapabilities)
+            ? (meta.fileEvidenceCapabilities as string[])
+            : null,
           contractDataMode:
             typeof meta?.contractDataMode === "string" ? (meta.contractDataMode as string) : null,
           contractDatabaseProvider:

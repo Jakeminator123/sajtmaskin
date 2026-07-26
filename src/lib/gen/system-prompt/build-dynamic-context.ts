@@ -210,7 +210,7 @@ export function buildDynamicContext(
   parts.push(...renderGenerationModeBlock(isFollowUp));
   parts.push(...renderImportedRepoBlock(options.importedRepoMode));
   parts.push(...renderCustomInstructionsBlock(customInstructions));
-  parts.push(...renderF2ContractBlock(buildSpec));
+  parts.push(...renderF2ContractBlock(buildSpec, options.mutedCapabilities));
   parts.push(...renderBuildIntentBlock(intent));
   parts.push(...renderGenerationProfileBlock(buildSpec));
   parts.push(

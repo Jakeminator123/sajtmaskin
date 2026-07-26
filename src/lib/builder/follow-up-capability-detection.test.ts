@@ -116,6 +116,29 @@ describe("detectFollowUpCapabilities — payments", () => {
   });
 });
 
+describe("detectFollowUpCapabilities — vague access wording", () => {
+  // 2026-07-25 observation session: "en /personal-sida där bara personalen kan
+  // sköta det" made the design round claim both a login and a database. The
+  // phrasing is a hint about who a page is FOR, not a request for a login —
+  // only an explicit ask ("logga in", "konto") may switch on auth.
+  it("does not switch on auth or database for 'bara personalen'", () => {
+    const result = detectFollowUpCapabilities(
+      "koppla på nyhetsbrev via Mailchimp, lägg till en /personal-sida där bara personalen kan sköta det",
+    );
+
+    expect(result.capabilityIds).not.toContain("auth");
+    expect(result.capabilityIds).not.toContain("database");
+  });
+
+  it("still detects auth when the user actually asks for a login", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till inloggning så personalen kan logga in på /personal",
+    );
+
+    expect(result.capabilityIds).toContain("auth");
+  });
+});
+
 describe("detectFollowUpCapabilities — negated capabilities", () => {
   it("does not detect auth or payments when the user explicitly forbids them", () => {
     const result = detectFollowUpCapabilities(

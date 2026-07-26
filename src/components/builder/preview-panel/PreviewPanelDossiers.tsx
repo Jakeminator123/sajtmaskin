@@ -638,7 +638,8 @@ export function PreviewPanelDossiers({
       setPickedEntry(entry);
       onRequestDossier({ id: entry.id, label: entry.label });
       // F2 + hårt byggblock: håll popovern öppen med en kort inline-notis om
-      // att blocket mockas i designläget (speglar "Planerad (F2-mockup)").
+      // att blocket bara ritas som yta i designläget (speglar "Planerad —
+      // kopplas in i nästa steg").
       // Övriga val stänger popovern — meddelandet syns direkt i chatten.
       if (!(stage !== "integrations" && entry.class === "hard")) {
         handleOpenChange(false);
@@ -1089,7 +1090,7 @@ export function PreviewPanelDossiers({
               >
                 Byggblocket &quot;{pickedEntry.label}&quot; läggs till via chatten.
                 {pickedEntry.class === "hard"
-                  ? " Hårda byggblock visas som mockup i designläget och kopplas in på riktigt vid \u201dBygg integrationer\u201d."
+                  ? " Kopplade byggblock ritas bara som yta i designläget och kopplas in på riktigt vid \u201dBygg integrationer\u201d."
                   : null}
               </p>
             ) : null}

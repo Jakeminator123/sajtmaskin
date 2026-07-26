@@ -10,6 +10,7 @@ const selectDossiersForRequest = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const resolveDossiersPresentInVersion = vi.hoisted(() => vi.fn());
 const extractBriefSummaryFromSnapshot = vi.hoisted(() => vi.fn());
+const readMutedCapabilitiesFromSnapshot = vi.hoisted(() => vi.fn(() => [] as string[]));
 const deriveTier3BuildSpecForVersion = vi.hoisted(() => vi.fn());
 const validateTier3Readiness = vi.hoisted(() => vi.fn());
 const mapProviderKeysToDossierCapabilities = vi.hoisted(() => vi.fn());
@@ -69,6 +70,7 @@ vi.mock("@/lib/gen/dossiers/version-presence", () => ({
 
 vi.mock("@/lib/gen/orchestration-snapshot", () => ({
   extractBriefSummaryFromSnapshot,
+  readMutedCapabilitiesFromSnapshot,
 }));
 
 vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
@@ -212,6 +214,7 @@ describe("GET dossiers overview", () => {
     // extra capabilities found" so existing tests exercise the same
     // single-pass path they did before the reconciliation was added.
     extractBriefSummaryFromSnapshot.mockReturnValue(null);
+    readMutedCapabilitiesFromSnapshot.mockReturnValue([]);
     mapProviderKeysToDossierCapabilities.mockReturnValue([]);
     selectDossiersForRequest.mockReturnValue({ selected: [], poolSize: 0, byCapability: {} });
     // Version-presence union defaults to "no version files loaded" so existing
@@ -544,6 +547,32 @@ describe("GET dossiers overview", () => {
     // build spec must not be re-derived (would just reproduce the same
     // empty `requirements` for an extra file read).
     expect(deriveTier3BuildSpecForVersion).toHaveBeenCalledTimes(1);
+  });
+
+  // Spår 01 steg 3: a follow-up ("koppla på Mailchimp") that the design stage
+  // deferred is not in the brief either — without the persisted deferral list
+  // the panel showed nothing at all for an integration the user just asked for.
+  it("surfaces a deferred follow-up capability as planned", async () => {
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
+    extractBriefSummaryFromSnapshot.mockReturnValue(null);
+    readMutedCapabilitiesFromSnapshot.mockReturnValue(["payments"]);
+    selectDossiersForRequest.mockReturnValue({
+      selected: [stripeDossier()],
+      poolSize: 10,
+      byCapability: { payments: ["stripe-checkout"] },
+    });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    expect(selectDossiersForRequest).toHaveBeenCalledWith({
+      requestedCapabilities: ["payments"],
+      configuredEnvKeys: new Set(),
+    });
+    expect(body.dossiers.find((d) => d.id === "stripe-checkout")?.status).toBe("planned");
+    expect(body.counts.planned).toBe(1);
   });
 
   // Canonical version-presence (ai-tool-calling incident): the snapshot floor

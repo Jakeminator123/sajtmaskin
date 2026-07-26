@@ -7,6 +7,7 @@ import type { BuildSpec } from "@/lib/gen/build-spec";
 import type { ContractClarificationQuestion } from "@/lib/gen/contract/clarification";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import { filterRemovedCapabilitiesFromBriefSummary } from "@/lib/gen/capability-removal";
+import { describeCapabilityLabels } from "@/lib/gen/dossiers/registry";
 import type { OrchestrationBase } from "@/lib/gen/orchestrate";
 import type { PreGenerationContractContext } from "@/lib/gen/contract/pre-generation-contracts";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
@@ -197,6 +198,7 @@ export function buildOwnEngineGenerationStreamMeta(
   const requestedCapabilities = orch.dossierRequestedCapabilities ?? [];
   const removedCapabilities = orch.removedCapabilities ?? [];
   const readdedCapabilities = orch.readdedCapabilities ?? [];
+  const mutedCapabilities = orch.mutedCapabilities ?? [];
   const briefSummary = filterRemovedCapabilitiesFromBriefSummary(
     extractBriefSummary(input.metaBrief),
     removedCapabilities,
@@ -237,6 +239,9 @@ export function buildOwnEngineGenerationStreamMeta(
     briefSummary,
     selectedDossierIds,
     requestedCapabilities,
+    mutedCapabilities,
+    mutedCapabilityLabels: describeCapabilityLabels(mutedCapabilities),
+    fileEvidenceCapabilities: orch.fileEvidenceCapabilities ?? [],
     removedCapabilities,
     readdedCapabilities,
     removedDossierIds: orch.removedDossierIds ?? [],

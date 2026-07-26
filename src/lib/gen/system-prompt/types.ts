@@ -146,6 +146,12 @@ export interface DynamicContextOptions {
   /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
   dossierSelection?: DossierSelectionResult | null;
   /**
+   * Integration capabilities the F2 mute removed from this round. Rendered as
+   * an explicit counter-instruction in the F2 contract block so the model
+   * builds the surface instead of hand-rolling the integration.
+   */
+  mutedCapabilities?: string[] | null;
+  /**
    * Prompt-shaping context for dossier blocks. Follow-ups can render selected
    * dossiers in a compact shape when the deterministic files/context already
    * carry the safety contract.

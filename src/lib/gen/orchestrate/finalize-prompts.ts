@@ -160,6 +160,7 @@ export async function finalizeOrchestrationPrompts(
     uiRecipes: base.uiRecipes,
     resolvedVariant,
     dossierSelection: base.dossierSelection,
+    mutedCapabilities: base.mutedCapabilities ?? null,
     dossierPromptContext: {
       generationMode: resolvedMode,
       requestedCapabilityTiers: base.requestedCapabilityTiers ?? null,
