@@ -10,6 +10,12 @@
  * module is reachable from bundles that have no Node builtins available.
  * `node-core-modules.test.ts` diffs it against `Module.builtinModules` so a
  * Node upgrade that adds a module fails a test instead of silently drifting.
+ *
+ * The prefix matters: `sqlite`, `test` and `sea` are core ONLY as `node:sqlite`,
+ * `node:test` and `node:sea`. All three are real npm packages under their bare
+ * names, so treating the bare form as core would make the dep-completer skip
+ * pinning them and preflight reject an explicit dependency — the same class of
+ * false blocker this module exists to remove.
  */
 const NODE_CORE_MODULE_NAMES = [
   "assert",
@@ -40,12 +46,9 @@ const NODE_CORE_MODULE_NAMES = [
   "querystring",
   "readline",
   "repl",
-  "sea",
-  "sqlite",
   "stream",
   "string_decoder",
   "sys",
-  "test",
   "timers",
   "tls",
   "trace_events",
@@ -59,16 +62,26 @@ const NODE_CORE_MODULE_NAMES = [
   "zlib",
 ] as const;
 
+/** Core only WITH the prefix. Bare `sqlite`/`test`/`sea` are npm packages. */
+const PREFIX_ONLY_NODE_CORE_MODULE_NAMES = ["sea", "sqlite", "test"] as const;
+
 export const NODE_CORE_MODULES: ReadonlySet<string> = new Set(NODE_CORE_MODULE_NAMES);
+
+export const PREFIX_ONLY_NODE_CORE_MODULES: ReadonlySet<string> = new Set(
+  PREFIX_ONLY_NODE_CORE_MODULE_NAMES,
+);
 
 /**
  * True for any specifier that resolves to a Node core module, including the
  * `node:` prefix and sub-paths (`node:fs/promises`, `stream/web`,
- * `util/types`).
+ * `util/types`). Mirrors `module.isBuiltin()`, prefix rule included.
  */
 export function isNodeCoreModule(source: string): boolean {
   if (!source) return false;
-  const withoutPrefix = source.startsWith("node:") ? source.slice("node:".length) : source;
+  const prefixed = source.startsWith("node:");
+  const withoutPrefix = prefixed ? source.slice("node:".length) : source;
   const base = withoutPrefix.split("/")[0] ?? "";
-  return NODE_CORE_MODULES.has(base);
+  if (!base) return false;
+  if (NODE_CORE_MODULES.has(base)) return true;
+  return prefixed && PREFIX_ONLY_NODE_CORE_MODULES.has(base);
 }

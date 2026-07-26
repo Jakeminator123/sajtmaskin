@@ -79,6 +79,29 @@ describe("collectRepairBlockers", () => {
     expect(introducedRepairBlockers(before, after).length).toBe(1);
     expect(introducedRepairBlockers(after, after)).toEqual([]);
   });
+
+  // Codex P1 på #623. Båda de här meddelandena räknar upp vad som är fel, och
+  // uppräkningen krymper när felet fixas delvis. Nyckeln måste därför vara
+  // fyndets identitet, inte dess text — annars läses "tre dubletter blev två"
+  // som två nya blockerare och loopen rullar tillbaka riktig framgång.
+  it("does not read a partially reduced duplicate-module blocker as new", () => {
+    const card = "export const Card = () => null;";
+    const three = [
+      file("components/card.ts", card),
+      file("components/card.tsx", card),
+      file("components/card.jsx", card),
+    ].join("\n");
+    const two = [file("components/card.ts", card), file("components/card.tsx", card)].join("\n");
+
+    const before = collectRepairBlockers(three);
+    const after = collectRepairBlockers(two);
+    const duplicates = (keys: Set<string>) => [...keys].filter((k) => k.includes("duplicate-module"));
+
+    expect(duplicates(before)).toHaveLength(3);
+    expect(duplicates(after)).toHaveLength(2);
+    expect(introducedRepairBlockers(before, after)).toEqual([]);
+  });
+
 });
 
 describe("runRepairLoop — a repair must not introduce a new blocker", () => {

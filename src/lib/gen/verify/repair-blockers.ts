@@ -8,6 +8,14 @@ import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
  * removes one blocker but adds another has not repaired anything, it has moved
  * the failure — and the next round then "repairs" the damage it just caused.
  * Only `error` severity counts; warnings never block preview or export.
+ *
+ * The key must be the finding's IDENTITY, not its rendered text. Some messages
+ * enumerate what is wrong ("Duplicate module sources for X: a, b, c") and that
+ * enumeration shrinks as the problem is partially fixed. Keyed on the message,
+ * going from three duplicates to two looks like a new blocker, and the guard
+ * below rolls back genuine progress (Codex P1 on #623). Those findings carry a
+ * `subject`; the message is only a fallback for findings where it already is
+ * the identity.
  */
 export function collectRepairBlockers(projectContent: string): Set<string> {
   let files;
@@ -28,7 +36,9 @@ export function collectRepairBlockers(projectContent: string): Set<string> {
       .filter((issue) => issue.severity === "error")
       .map(
         (issue) =>
-          `${issue.category ?? "unknown"}|${issue.file}|${issue.message.replace(/\s+/g, " ").trim()}`,
+          `${issue.category ?? "unknown"}|${issue.file}|${
+            issue.subject ?? issue.message.replace(/\s+/g, " ").trim()
+          }`,
       ),
   );
 }
