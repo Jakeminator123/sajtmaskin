@@ -64,25 +64,63 @@ export function decideSchemaAction({ pending, checkOnly = false }) {
 /**
  * Renders the unmissable warning block. A single grey line is exactly how the
  * previous WARN got lost, so this is bordered, coloured and lists the fix.
+ * `pending` is optional: an inconclusive run has no known missing set and must
+ * not imply one.
  *
- * @param {{ host: string, pending: string[], color?: string, headline: string, fix: string }} input
+ * @param {{ host: string, pending?: string[], color?: string, headline: string, fix: string }} input
  * @returns {string}
  */
-export function formatSchemaWarning({ host, pending, color = YELLOW, headline, fix }) {
+export function formatSchemaWarning({
+  host,
+  pending = [],
+  color = YELLOW,
+  headline,
+  fix,
+}) {
   const bar = "-".repeat(74);
-  const lines = [
-    "",
-    `${color}${bar}`,
-    `  ${headline}`,
-    `  Database: ${host}`,
-    `  Missing ${pending.length} of ${MIGRATION_ORDER.length} migration(s):`,
-    ...pending.map((f) => `    - ${f}`),
-    "",
-    `  Fix: ${fix}`,
-    `${bar}${RESET}`,
-    "",
-  ];
+  const lines = ["", `${color}${bar}`, `  ${headline}`, `  Database: ${host}`];
+  if (pending.length > 0) {
+    lines.push(
+      `  Missing ${pending.length} of ${MIGRATION_ORDER.length} migration(s):`,
+      ...pending.map((f) => `    - ${f}`),
+    );
+  }
+  lines.push("", `  Fix: ${fix}`, `${bar}${RESET}`, "");
   return lines.join("\n");
+}
+
+/**
+ * SSL config matching `db-init.mjs` and `src/lib/db/client.ts`: `sslmode=disable`
+ * means no TLS at all (the documented local-Postgres setup), otherwise TLS with
+ * certificate verification unless explicitly relaxed. Diverging here would make
+ * the guard fail to connect on exactly the setup it is meant to protect, and a
+ * guard that cannot connect silently protects nothing.
+ *
+ * @param {string} connectionString
+ * @param {{ allowInsecureSsl?: boolean, env?: Record<string, string | undefined> }} [options]
+ * @returns {false | { rejectUnauthorized: boolean }}
+ */
+export function resolveSslConfig(
+  connectionString,
+  { allowInsecureSsl = false, env = process.env } = {},
+) {
+  let sslMode = null;
+  try {
+    sslMode =
+      new URL(connectionString).searchParams.get("sslmode")?.trim().toLowerCase() ||
+      null;
+  } catch {
+    sslMode = null;
+  }
+
+  if (sslMode === "disable") return false;
+
+  return {
+    rejectUnauthorized: !(
+      allowInsecureSsl ||
+      env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() === "false"
+    ),
+  };
 }
 
 function parseArgs(argv) {
@@ -133,10 +171,9 @@ async function main() {
   }
 
   const host = hostOf(connectionString);
-  const rejectUnauthorized = !(
-    opts.allowInsecureSsl ||
-    process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() === "false"
-  );
+  const ssl = resolveSslConfig(connectionString, {
+    allowInsecureSsl: opts.allowInsecureSsl,
+  });
 
   /**
    * Reads the pending set over a connection opened and closed for this call, so
@@ -146,7 +183,7 @@ async function main() {
   async function readPending() {
     const pool = new Pool({
       connectionString: cleanConnectionString(connectionString),
-      ssl: { rejectUnauthorized },
+      ssl,
       max: 1,
       connectionTimeoutMillis: 10_000,
     });
@@ -208,14 +245,23 @@ async function main() {
     shell: process.platform === "win32",
   });
 
-  let stillPending = pending;
+  let stillPending;
   try {
     stillPending = await readPending();
   } catch (err) {
+    // The re-read failed, so we know nothing about the current state. Reporting
+    // the pre-migrate pending list here would claim migrations are missing when
+    // db:migrate may well have applied them — say "unverified" instead.
     const message = err instanceof Error ? err.message : String(err);
-    console.warn(
-      `[db:ensure] Could not re-verify ledger on ${host}: ${message}`,
+    console.error(
+      formatSchemaWarning({
+        host,
+        color: RED,
+        headline: `COULD NOT VERIFY THE RESULT — ledger re-read failed: ${message}`,
+        fix: "npm run db:migrate:check",
+      }),
     );
+    return exitCode(1);
   }
 
   if (stillPending.length === 0) {
