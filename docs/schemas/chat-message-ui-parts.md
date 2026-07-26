@@ -8,7 +8,9 @@ message parts that round-trip through own-engine chat storage.
 Own-engine chat messages are primarily text, but some assistant turns also carry
 structured UI state that the builder needs to restore after reload.
 
-The current stable use case is the Phase 8 planning review card.
+Two part types are stable: the Phase 8 planning review card and the
+prompt-source marker that tells a machine-written prompt apart from something the
+user typed.
 
 ## Storage surfaces
 
@@ -83,6 +85,30 @@ also be the richer pre-normalized `planData` object when that is available.
 restore without recomputing the entire display shape from text.
 - This contract is stable enough for own-engine plan review, but not yet a
 general promise that every streamed tool part will be stored forever.
+
+## Stable prompt-source part contract
+
+A user row whose prompt was written by the builder rather than by the person
+carries a provenance marker:
+
+```ts
+type StoredPromptSourceUiPart = {
+  type: "prompt-source";
+  sourceKind: "autofix";
+};
+```
+
+Owner: `PROMPT_SOURCE_UI_PART_TYPE` and `isAutoRepairPromptMessage()` in
+`src/lib/builder/types.ts`. Written by both the optimistic client row
+(`useSendMessage.ts`) and the persisted server row (`chat-message-stream/handler.ts`),
+so a reload cannot change how the turn reads.
+
+The marker exists because the auto-repair prompt is a technical instruction to the
+model, and rendering it in the user's own bubble made the builder look like it was
+speaking as the user. `MessageList.tsx` renders a marked row as a collapsed system
+row instead. Rows persisted before the marker existed are recognised by their
+`AUTO-FIX REQUEST` content prefix; that fallback is the only reason the prefix is
+still referenced anywhere.
 
 ## Restore rule
 

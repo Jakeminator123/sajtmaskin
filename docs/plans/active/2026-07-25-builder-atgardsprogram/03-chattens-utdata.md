@@ -167,3 +167,35 @@ område).
 | Normaliseringen träffar användarens inklistrade kod | rollen måste kontrolleras i `buildRecentContextMessages`, inte inuti `toContextMessage` — funktionen används av båda rollerna |
 | Kollapsläget gömmer fel som användaren behöver se | låt blockerande status ligga kvar i den tunna raden, inte inne i det kollapsade |
 | Rollmärkningen av reparationsprompter kan bryta befintliga historikkonsumenter | additivt metadatafält är säkrare än en ny roll; verifiera mot alla läsare av `engine_messages` |
+
+## Implementationsbevis (2026-07-26)
+
+Alla fyra steg implementerade. Ingen commit.
+
+| Krav | Status | Bevis |
+|---|---|---|
+| 1 | klar | `GenerationSummary.tsx` — `findUnterminatedBlock` lägger svansen i "Genererat innehåll". Test: `GenerationSummary.test.tsx` (blandat fall, oavslutad fence utan komplett block, kodström utan backticks, prosa med `file="…"`) |
+| 2 | klar | Samma modul räknar den oavslutade filen. Test: "undertalar inte filräknaren vid oavslutad fence" |
+| 3 | klar | `src/lib/builder/openclaw-context-messages.ts` — `compressAssistantCodeBlocks` körs bara på assistentroller. Test: 8 tester, inkl. att användarens egna kodblock behålls |
+| 4 | klar | `resolveFileContext` orörd; befintliga tester gröna |
+| 5 | klar (kod) | `useChatOutputCollapse` + `ChatOutputCollapseBar`, läge per chat i localStorage. Test: `ChatOutputCollapseBar.test.tsx` (6 tester). Klickrundan i webbläsaren återstår |
+| 6 | klar | Raden visar "Bygger …" med spinner medan `isAnyStreaming` är sant. Test: "visar att en generering pågår även när utdata är nedfällt" |
+| 7 | klar | `PROMPT_SOURCE_UI_PART_TYPE` + `AutoRepairMessageRow` — reparationsprompten renderas som systemrad. Test: `MessageList.test.tsx`, "renders an auto-repair prompt as a collapsed system row" |
+
+### Avvikelse — vilken yta som frigörs i steg 3
+
+Planen skriver att "previewpanelen ska ta över den frigjorda **höjden**". Det
+stämmer inte mot layouten: `BuilderShellContent` renderar chatten och previewen
+som **kolumner bredvid varandra** på `lg` (`lg:w-96` respektive `flex-1`), och
+under `lg` som två flikar. Att bara dölja meddelandelistan hade därför frigjort
+höjd i en kolumn där ingenting annat kan växa — previewen hade inte vunnit en
+enda pixel, vilket är hela poängen med önskemålet.
+
+Nedfällt läge flippar i stället kolumnriktningen på `lg`
+(`lg:flex-col-reverse`): previewen tar hela bredden och chatten blir en rad
+längst ned, direkt ovanför inputen. Det är den läsning av Ö9 som faktiskt ger
+previewyta. Under `lg` är flikarna redan ömsesidigt uteslutande, så där ändras
+ingenting utom att utdata kan döljas.
+
+Tipsrutan (`TipCard`) ligger i utdataytan och hade blivit osynlig i nedfällt
+läge — chatten fälls därför upp automatiskt när ett tips öppnas.

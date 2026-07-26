@@ -151,6 +151,17 @@ Del 2 är den som gör att felet inte kan återuppstå för nästa manifest.
 | 6 | Varje kontraktsrad i slutstegen har filbevis eller är märkt Planerad | manuell körning |
 | 7 | "bara personalen" slår inte på `auth`/`database` i F2 | nytt test |
 
+### Bevis (steg 2–5 implementerade 2026-07-26)
+
+| # | Status | Bevis |
+|---|---|---|
+| 2 | Klart | `src/lib/gen/orchestrate/capability-prompt-filter.test.ts` — "selects no dossier that would deliver a file under app/api/" + "tells the model to render the surface without a route or an SDK import" |
+| 3 | Klart (kod + test; manuell körning kvarstår) | `orchestration-snapshot.test.ts` → "deferred integrations (mutedCapabilities)", `helpers.test.ts` → "lists deferred integrations as planned for the next step", dossiers-route-test "surfaces a deferred follow-up capability as planned" |
+| 4 | Klart | `version-presence.test.ts` — "returns [] for a version containing only the scaffold baseline" (+ scaffold-filvarianten) |
+| 5 | Kod klar (acceptanskörning kvarstår) | `components/lib/utils.ts` borttagen ur `dashboard-charts` + baseline-regeln i `version-presence.ts` |
+| 6 | Klart (kod + test; manuell körning kvarstår) | `helpers.test.ts` → "marks contract rows without file evidence as planned" |
+| 7 | Klart | `follow-up-capability-detection.test.ts` → "does not switch on auth or database for 'bara personalen'" |
+
 ## Risker
 
 | Risk | Hantering |
@@ -161,4 +172,11 @@ Del 2 är den som gör att felet inte kan återuppstå för nästa manifest.
 
 ## Ägarbeslut
 
-- **B1:** _(ej beslutat)_
+- **B1:** **Alternativ B** — beslutat 2026-07-26. En namngiven integration i F2 ger
+  **noll integrationskod** plus en synlig förklaring i chatten och i
+  Byggblock-panelen ("Planerad — kopplas in i nästa steg"). Alternativ A
+  (dossierns demoläge i F2) är uppföljning och kräver att verbatim-filer undantas
+  från F2:s strippning; det arbetet överlappar spår 02 steg 2 och tas separat.
+  Motivering: B kan levereras som en ren kontrakts- och presentationsändring utan
+  att röra SDK-deny-listen, dvs. utan att återskapa den trasiga `/api/contact`
+  som `capability-prompt-filter.ts` varnar för.

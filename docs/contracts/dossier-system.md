@@ -241,6 +241,16 @@ IN this chat/version" is owned by `resolveSelectedDossiersWithVersionPresence`
 (`version-presence.ts`): snapshot-derived selection ∪ dossiers whose files are
 actually present in the version (all `role: "server"` files + at least one
 distinctive, non-shared file; client-only dossiers need one distinctive file).
+A **baseline path is never distinctive.** The scaffold fills in `lib/utils.ts`,
+`app/layout.tsx` and the rest of `SCAFFOLD_FILES` for every project regardless of
+selection, so a manifest that declares one of them would make its dossier look
+built in every single site. That is not hypothetical: `dashboard-charts` declared
+`components/lib/utils.ts`, which maps to the baseline `lib/utils.ts`, and reported
+as connected in sites without a single chart (F2, 2026-07-25). The baseline set is
+derived from `SCAFFOLD_FILES` plus every scaffold manifest's files in
+`src/lib/gen/scaffolds/baseline-paths.ts` — derived, not hand-listed, so a new
+scaffold cannot reopen the hole. Locked by `version-presence.test.ts`.
+
 The dossiers panel route, the readiness route, `finalize-design`, the stream
 route's F3 gate and the deploy env gate all read that union — never their own.
 This matters because the snapshot's top-level `requestedCapabilities` is the

@@ -23,6 +23,11 @@ Vid `finalize-design` `412` är serverns `missingByIntegration` fortsatt source 
 
 F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`env-local.ts`) renderar demo-ytan utan riktiga nycklar. Statusmodellen ljuger aldrig om det: `planned` / `blocked-build` / `built-demo` / `built-live` (`DossierStatus` i `dossier-overview.ts`) — "Byggd" utan livenycklar heter alltid "Byggd — demo aktiv".
 
+**Ägarbeslut 2026-07-26 (B1): muten tar bort dossiern ur prompten — den får inte tyst bjuda in ett frihandsbygge.** Tidigare sa muten bara "den här dossiern finns inte", varpå modellen byggde integrationen själv. Utfallet var antingen ett kontaktformulär som låtsades skicka (F1) eller en 198-radig `app/api/mailchimp/route.ts` vars importer deny-listan strippade så att previewen blockerades helt (F6). Kontraktet är nu tvådelat och båda delarna krävs:
+
+1. **Noll integrationskod.** `renderF2ContractBlock` namnger de mutade integrationerna och förbjuder uttryckligen egen route under `app/api/**`, SDK-import och `process.env`-läsning för dem. Ytan ska ritas — formuläret, knappen, listan — men med lokalt `useState` och en demo-toast, aldrig ett låtsat nätverksanrop.
+2. **Synlig uppskjutning.** Uppskjutna capabilities ackumuleras durabelt i orchestration-snapshoten och visas som "Planerad — kopplas in i nästa steg" i både Byggblock-panelen och chattens slutsteg. En capability lämnar listan först när filbevis visar att den levererats, eller när användaren tar bort den. Tyst uppskjutning är samma fel som frihandsbygget: användaren tror att något är kopplat som inte är det.
+
 ## Skyddslager
 
 1. Tool-gate: env-tools exponeras inte i F2.
@@ -33,6 +38,7 @@ F2 ska ändå se ut som en riktig sajt: dossierns `mock`-läge + F2-mock-seed (`
 ## Förbjudet
 
 - Fråga efter env-nycklar i chatten (tool-events, popups, "klistra in nyckel"-meddelanden).
+- Låta F2 producera integrationskod för en mutad capability (egen `app/api/**`-route, SDK-import, `process.env`-läsning) — eller skjuta upp den utan att säga det till användaren.
 - Läsa `missingEnvKeys` som blocker i F2 (demo måste förbli publicerbart).
 - Auto-promotera till F3 baserat på prompt-keywords.
 - Emittera env-tool-events i F2.
