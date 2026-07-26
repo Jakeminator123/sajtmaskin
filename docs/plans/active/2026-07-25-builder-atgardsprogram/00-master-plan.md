@@ -234,9 +234,9 @@ ut i delplan 06 än i defekttabellen ovan antyder.
 
 ## Leveransstatus 2026-07-26
 
-Alla sex spår är implementerade i arbetsträdet. Inget är committat, inget är
-mergat, och acceptanskörningen är inte gjord — därför ligger planfamiljen kvar i
-`active/`.
+Alla sex spår är implementerade och levererade via PR #623. Kvar innan
+planfamiljen får flyttas till `avklarat/`: klickrundorna i kolumnen "Kvar" nedan
+och acceptanskörningen — ingen av dem kan göras utan ögon i en riktig preview.
 
 | Spår | Kod | Tester | Kvar |
 |---|---|---|---|
@@ -258,6 +258,16 @@ reparationens versionsidentitet är samma saknade primitiv.
 levererades, bild-av-ytan gjorde det inte.
 
 Varje spårs plan har en egen evidensruta med filer, tester och avvikelser.
+
+Buggkollen på PR #623 gav två P1 från Codex, båda fixade i PR:en (prefix-only
+Node-built-ins och rollback av partiell blockerarminskning — se
+`node-core-modules.ts` respektive `repair-blockers.ts`), plus ett medium från
+Cursor-bugbot som **inte** är fixat: spår 01:s filbevis för kontraktsraderna
+räknas ur basversionens filer, så en integration som byggs i samma runda märks
+"planerad" trots att den levererades. Loggad som egen rad i
+[`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) med ankare och
+fixriktning; felet pekar åt det ofarliga hållet och träffar bara chattens
+detaljkort, medan Byggblock-panelens status självläker via presence-unionen.
 
 ## Källor
 
