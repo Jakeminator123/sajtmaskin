@@ -13,6 +13,7 @@ import {
   ensureMigrationLedger,
   recordAppliedMigration,
 } from "./migration-ledger.mjs";
+import { resolveSslConfig } from "./db-ssl.mjs";
 import { DB_ENV_VARS, resolveConfiguredDbEnv } from "../../src/lib/db/env";
 
 config({ path: ".env.local" });
@@ -48,13 +49,11 @@ export function resolveConnectionString(
   return resolved.connectionString;
 }
 
-function resolveSsl() {
-  const raw = process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase();
-  if (raw === "false") {
-    return { rejectUnauthorized: false };
-  }
-  return { rejectUnauthorized: true };
-}
+// SSL resolution is shared with the other DB scripts (`./db-ssl.mjs`) so that
+// `sslmode=disable` — the documented local-Postgres setup — means the same thing
+// everywhere. It used to be ignored here, so `db:migrate` failed on SSL against
+// a URL `db:init` connected to fine. Behaviour is unchanged for every other
+// sslmode (prod uses `require`).
 
 async function main() {
   assertSafeWriteTarget({ commandName: "db:migrate", env: process.env });
@@ -71,7 +70,7 @@ async function main() {
   })();
   const pool = new Pool({
     connectionString: cleanUrl,
-    ssl: resolveSsl(),
+    ssl: resolveSslConfig(connStr),
   });
 
   try {

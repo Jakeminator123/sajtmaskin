@@ -11,6 +11,7 @@ import {
   ensureMigrationLedger,
   recordAppliedMigration,
 } from "./migration-ledger.mjs";
+import { resolveSslConfig } from "./db-ssl.mjs";
 
 config({ path: ".env.local" });
 
@@ -32,26 +33,14 @@ if (!connectionString) {
   process.exit(1);
 }
 
-// Parse connection string to handle SSL properly with Supabase pooler
+// SSL is resolved from the ORIGINAL string (shared owner: ./db-ssl.mjs), then
+// sslmode/supa are stripped for Supabase pooler compatibility — pg gets the
+// policy via the `ssl` option, not the URL.
+const sslConfig = resolveSslConfig(connectionString);
+
 const url = new URL(connectionString);
-
-// Check sslmode before removing it from the URL
-const sslMode = url.searchParams.get("sslmode")?.trim().toLowerCase() || null;
-
-// Remove sslmode from search params - we handle it via ssl option
 url.searchParams.delete("sslmode");
 url.searchParams.delete("supa");
-
-// Resolve SSL config: handle sslmode=disable explicitly, otherwise use env var
-let sslConfig;
-if (sslMode === "disable") {
-  sslConfig = false;
-} else {
-  sslConfig = {
-    rejectUnauthorized:
-      process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false",
-  };
-}
 
 const pool = new Pool({
   connectionString: url.toString(),

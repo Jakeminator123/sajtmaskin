@@ -103,6 +103,14 @@ förblir enda ägaren av apply-loopen och prod-skrivskyddet
 (`assertSafeWriteTarget`). Det håller kvar designvalet ovan — DDL sker bara
 från explicita ingångar, inte från en bakgrundsprocess.
 
+**SSL-ägare:** `scripts/db/db-ssl.mjs` (`resolveSslConfig`) avgör hur alla
+db-skript översätter en connection-sträng till `pg`:s `ssl`-option, så
+`sslmode=disable` (lokal Postgres utan TLS) betyder samma sak i `db-init.mjs`,
+`run-migrations.ts` och `ensure-schema.mjs`. Tidigare ignorerade
+`run-migrations.ts` `sslmode` helt, så `db:migrate` failade på SSL mot exakt den
+URL `db:init` anslöt till utan problem. Runtime-motsvarigheten är
+`resolvePoolSslConfig` i `src/lib/db/client.ts`.
+
 **Schema-drift fångas av automatisk test:**
 `src/lib/db/schema-drift.test.ts` kör i `npm run test:ci` och fångar
 när Drizzle-schemat deklarerar ett index/tabell som inte motsvaras av

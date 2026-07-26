@@ -4,11 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MIGRATION_ORDER } from "./migration-order.mjs";
-import {
-  decideSchemaAction,
-  formatSchemaWarning,
-  resolveSslConfig,
-} from "./ensure-schema.mjs";
+import { decideSchemaAction, formatSchemaWarning } from "./ensure-schema.mjs";
 
 // Guards the local-schema safety net: dev must never silently run against a DB
 // that is behind on migrations, and the read-only guard must never write.
@@ -74,61 +70,6 @@ describe("formatSchemaWarning", () => {
     expect(out).toContain("COULD NOT VERIFY THE RESULT");
     expect(out).not.toContain("Missing");
     expect(out).toContain("npm run db:migrate:check");
-  });
-});
-
-// The guard must connect the same way db-init.mjs and src/lib/db/client.ts do.
-// If it diverges it fails to connect on the very setups it protects — and a
-// guard that cannot connect protects nothing while looking installed.
-describe("resolveSslConfig", () => {
-  it("disables TLS entirely for sslmode=disable (documented local Postgres)", () => {
-    expect(
-      resolveSslConfig("postgresql://u:p@localhost:5432/db?sslmode=disable", {
-        env: {},
-      }),
-    ).toBe(false);
-  });
-
-  it("verifies certificates by default", () => {
-    expect(
-      resolveSslConfig("postgresql://u:p@host.pooler.supabase.com:5432/postgres", {
-        env: {},
-      }),
-    ).toEqual({ rejectUnauthorized: true });
-  });
-
-  it("relaxes verification via DB_SSL_REJECT_UNAUTHORIZED=false", () => {
-    expect(
-      resolveSslConfig("postgresql://u:p@host:5432/db", {
-        env: { DB_SSL_REJECT_UNAUTHORIZED: "false" },
-      }),
-    ).toEqual({ rejectUnauthorized: false });
-  });
-
-  it("relaxes verification via --allow-insecure-ssl", () => {
-    expect(
-      resolveSslConfig("postgresql://u:p@host:5432/db", {
-        allowInsecureSsl: true,
-        env: {},
-      }),
-    ).toEqual({ rejectUnauthorized: false });
-  });
-
-  it("keeps sslmode=disable winning over an insecure-verification override", () => {
-    // `disable` means "no TLS", not "TLS without verification" — the flags only
-    // control verification strictness, never whether TLS is used at all.
-    expect(
-      resolveSslConfig("postgresql://u:p@localhost:5432/db?sslmode=disable", {
-        allowInsecureSsl: true,
-        env: { DB_SSL_REJECT_UNAUTHORIZED: "false" },
-      }),
-    ).toBe(false);
-  });
-
-  it("falls back to verifying TLS for an unparseable connection string", () => {
-    expect(resolveSslConfig("not-a-url", { env: {} })).toEqual({
-      rejectUnauthorized: true,
-    });
   });
 });
 

@@ -40,6 +40,7 @@ import {
   diffPendingMigrations,
 } from "./migration-ledger.mjs";
 import { resolveDbConnectionString } from "./db-target-guard.mjs";
+import { resolveSslConfig } from "./db-ssl.mjs";
 
 const RESET = "\x1b[0m";
 const YELLOW = "\x1b[33m";
@@ -87,40 +88,6 @@ export function formatSchemaWarning({
   }
   lines.push("", `  Fix: ${fix}`, `${bar}${RESET}`, "");
   return lines.join("\n");
-}
-
-/**
- * SSL config matching `db-init.mjs` and `src/lib/db/client.ts`: `sslmode=disable`
- * means no TLS at all (the documented local-Postgres setup), otherwise TLS with
- * certificate verification unless explicitly relaxed. Diverging here would make
- * the guard fail to connect on exactly the setup it is meant to protect, and a
- * guard that cannot connect silently protects nothing.
- *
- * @param {string} connectionString
- * @param {{ allowInsecureSsl?: boolean, env?: Record<string, string | undefined> }} [options]
- * @returns {false | { rejectUnauthorized: boolean }}
- */
-export function resolveSslConfig(
-  connectionString,
-  { allowInsecureSsl = false, env = process.env } = {},
-) {
-  let sslMode = null;
-  try {
-    sslMode =
-      new URL(connectionString).searchParams.get("sslmode")?.trim().toLowerCase() ||
-      null;
-  } catch {
-    sslMode = null;
-  }
-
-  if (sslMode === "disable") return false;
-
-  return {
-    rejectUnauthorized: !(
-      allowInsecureSsl ||
-      env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() === "false"
-    ),
-  };
 }
 
 function parseArgs(argv) {
