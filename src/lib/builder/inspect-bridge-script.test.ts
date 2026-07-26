@@ -1,0 +1,39 @@
+import { describe, expect, it } from "vitest";
+import { INSPECT_BRIDGE_MESSAGE } from "./inspect-bridge-feature";
+import { INSPECT_BRIDGE_SCRIPT } from "./inspect-bridge-script";
+
+/**
+ * Scriptet serveras rått som en sträng och kan inte typkontrolleras mot
+ * `INSPECT_BRIDGE_MESSAGE`. Testerna nedan är därför kontraktet: driftar de isär
+ * blir bron tyst i previewen utan att något annat går sönder.
+ */
+describe("INSPECT_BRIDGE_SCRIPT", () => {
+  it("känner till exakt de meddelandetyper som parent-sidan lyssnar på", () => {
+    for (const type of Object.values(INSPECT_BRIDGE_MESSAGE)) {
+      expect(INSPECT_BRIDGE_SCRIPT).toContain(`"${type}"`);
+    }
+  });
+
+  it("skickar upp fälten som klassificeringen behöver", () => {
+    // Egen text (inte barnens) skiljer en literal från en wrapper; `src` och
+    // antalet barn avgör bild- respektive textåtgärden.
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("ownText: ownTextOf(el)");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("childElementCount:");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('src: clean(el.getAttribute && el.getAttribute("src"))');
+  });
+
+  it("lyssnar på drag för rektangelmarkering och följer elementet vid scroll", () => {
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('document.addEventListener("mousedown", onDown, true)');
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('document.addEventListener("mouseup", onUp, true)');
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('window.addEventListener("scroll", onViewportChange, true)');
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("post(T.region,");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("post(T.rect,");
+  });
+
+  it("städar upp allt drag-tillstånd när läget slås av", () => {
+    expect(INSPECT_BRIDGE_SCRIPT).toContain(
+      "lastHover = null; tracked = null; dragStart = null; dragging = false; suppressClick = false;",
+    );
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('document.removeEventListener("mouseup", onUp, true)');
+  });
+});

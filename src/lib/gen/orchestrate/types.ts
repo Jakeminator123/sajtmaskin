@@ -308,6 +308,21 @@ export interface OrchestrationBase {
    * legacy fallbacks; selected dossiers are a subset of this list.
    */
   dossierRequestedCapabilities: string[];
+  /**
+   * Integration capabilities the prompt asked for that the F2 mute removed
+   * from this round (`filterDossierCapabilitiesForPromptWithMutes`). Empty in
+   * F3. Consumed by the F2 contract block (counter-instruction: render the
+   * surface, never the route) and surfaced to the user as
+   * "Planerad — kopplas in i nästa steg" instead of disappearing silently.
+   */
+  mutedCapabilities?: string[];
+  /**
+   * Dossier capabilities with real FILE EVIDENCE in the base version
+   * (`resolveCapabilitiesPresentInVersion` over `previousFilePaths`) — the
+   * same presence primitive the Byggblock panel reads. Lets status surfaces
+   * separate "a contract proposed it" from "a file delivers it".
+   */
+  fileEvidenceCapabilities?: string[];
   /** Explicit integration capabilities removed by this follow-up. */
   removedCapabilities?: string[];
   /**

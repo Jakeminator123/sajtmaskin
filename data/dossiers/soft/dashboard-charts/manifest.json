@@ -6,7 +6,7 @@
   "codeFidelity": "rewritable",
   "complexity": "simple",
   "defaultForCapability": true,
-  "summary": "Use when a generated site needs reusable client-side dashboard chart primitives: a VisActor/VChart React wrapper, a neutral chart card container, a sample line-chart spec, and small formatting/classname helpers. Best for analytics sections or dashboard pages, not full app shells or data backends.",
+  "summary": "Use when a generated site needs reusable client-side dashboard chart primitives: a VisActor/VChart React wrapper, a neutral chart card container, and a sample line-chart spec. Best for analytics sections or dashboard pages, not full app shells or data backends.",
   "summarySv": "Färdiga diagram och grafer för att visa siffror på ett tydligt sätt, till exempel försäljning eller besök över tid. Välj det när sajten behöver en översikt med staplar och kurvor; fungerar helt utan externa tjänster.",
   "envVars": [],
   "dependencies": [
@@ -29,11 +29,6 @@
       "path": "components/lib/visactor-specs.ts",
       "role": "shared",
       "injectionMode": "rewritable"
-    },
-    {
-      "path": "components/lib/utils.ts",
-      "role": "shared",
-      "injectionMode": "rewritable"
     }
   ],
   "exposes": [
@@ -51,25 +46,10 @@
       "name": "salesLineSpec",
       "type": "constant",
       "import": "@/lib/visactor-specs"
-    },
-    {
-      "name": "cn",
-      "type": "function",
-      "import": "@/lib/utils"
-    },
-    {
-      "name": "addThousandsSeparator",
-      "type": "function",
-      "import": "@/lib/utils"
-    },
-    {
-      "name": "numberToPercentage",
-      "type": "function",
-      "import": "@/lib/utils"
     }
   ],
   "lastVerified": "2026-04-18",
   "sourceRepoUrl": "https://github.com/mengxi-ream/visactor-next-template",
-  "notes": "Accepted as a soft, self-contained dashboard chart module. Dropped app/layout-style guidance, the brand icon with a missing @/types/types import, and the generic container to keep the dossier narrow. lastVerified carries the legacy source's verification date until the first preview/generate-test selects this dossier (Codex P1 on PR #422: no false-green for an unpreviewed dependency path).",
+  "notes": "Soft, self-contained chart module. Dropped app/layout guidance, the brand icon (missing @/types/types) and the generic container to keep it narrow. 2026-07-26: dropped components/lib/utils.ts — it mapped to the scaffold-baseline lib/utils.ts, so the dossier reported itself as built in every site; cn comes from the baseline. lastVerified carries the legacy source's date until a preview/generate-test selects this dossier (Codex P1 on PR #422: no false-green for an unpreviewed dependency path).",
   "promptInstructionMode": "selected-sections"
 }

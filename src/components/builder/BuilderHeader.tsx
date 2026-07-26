@@ -63,12 +63,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
-  onApplyAnthropicComparePreset: () => void;
 
   promptAssistModel: string;
   promptAssistDeep: boolean;
@@ -143,11 +142,17 @@ export function BuilderHeader(props: {
   /** Toggles the version-history drawer (desktop only — panel is hidden < lg). */
   onToggleVersions?: () => void;
   isVersionPanelOpen?: boolean;
+
+  /**
+   * Previewens verktygskluster (`Kod`, `Byggblock`, `Bygg integrationer`,
+   * `Rensa`, `Öppna`). Renderas som en avgränsad grupp precis före `Ny chat`.
+   * Ägaren avgör själv när klustret ska finnas — utan preview skickas inget.
+   */
+  previewTools?: ReactNode;
 }) {
   const {
     selectedModelTier,
     onSelectedModelTierChange,
-    onApplyAnthropicComparePreset,
     promptAssistModel: _promptAssistModel,
     promptAssistDeep,
     canUseDeepBrief,
@@ -206,6 +211,7 @@ export function BuilderHeader(props: {
     deployDisabledReason,
     onToggleVersions,
     isVersionPanelOpen = false,
+    previewTools,
   } = props;
 
   const isBusy = isAnyStreaming || isCreatingChat;
@@ -321,18 +327,6 @@ export function BuilderHeader(props: {
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={isConfigLocked}
-              onSelect={(event) => {
-                event.preventDefault();
-                onApplyAnthropicComparePreset();
-              }}
-            >
-              <Bot className="mr-2 h-4 w-4" />
-              Anthropic-jämförelse
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -685,6 +679,8 @@ export function BuilderHeader(props: {
             <span className="hidden sm:inline">Avbryt</span>
           </Button>
         ) : null}
+
+        {previewTools}
 
         <Button
           variant="outline"

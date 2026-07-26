@@ -56,6 +56,8 @@ export interface PreviewPanelF3TriggerProps {
    * stream that the previous click is currently running.
    */
   isBusy?: boolean;
+  /** Ikonläge för headerns verktygskluster — etiketten bärs av tooltip/aria. */
+  iconOnly?: boolean;
 }
 
 type DiagnosticsResponse = {
@@ -91,6 +93,7 @@ export function PreviewPanelF3Trigger({
   onStatus,
   className,
   isBusy = false,
+  iconOnly = false,
 }: PreviewPanelF3TriggerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [productBlocked, setProductBlocked] = useState(false);
@@ -324,6 +327,7 @@ export function PreviewPanelF3Trigger({
               ? "Product Postcheck hittade blockerande F2-previewproblem. Åtgärda dem innan du startar integrationsbygget."
             : "Bygg integrationer — bygger riktig integrationskod. Byggnödvändiga nycklar (t.ex. inloggning) efterfrågas före bygget; övriga (t.ex. Stripe, OpenAI) kör i demo-läge tills du sparar dem under Byggblock."
       }
+      aria-label={iconOnly ? "Bygg integrationer" : undefined}
       className={className}
     >
       {isLoading ? (
@@ -331,7 +335,7 @@ export function PreviewPanelF3Trigger({
       ) : (
         <Wand2 className="h-4 w-4" />
       )}
-      <span className="ml-1.5">Bygg integrationer</span>
+      {iconOnly ? null : <span className="ml-1.5">Bygg integrationer</span>}
     </Button>
   );
 }

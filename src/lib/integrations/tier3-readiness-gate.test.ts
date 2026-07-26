@@ -15,7 +15,14 @@ vi.mock("@/lib/gen/detect-integrations", () => ({ detectIntegrationsFromVersionF
 vi.mock("@/lib/project-env-vars", () => ({
   getStoredProjectEnvVarMap,
 }));
-vi.mock("@/lib/gen/preview/env-local", () => ({ loadPlaceholderKeySet }));
+// Bara `loadPlaceholderKeySet` behöver stubbas. Resten av modulen kommer från
+// originalet, annars faller sviten så fort någon annan del av importkedjan
+// börjar läsa en konstant härifrån (t.ex. `PIPELINE_ENV_LOCAL_MARKER` via
+// export-scaffoldet) — ett fel i mocken, inte i koden som testas.
+vi.mock("@/lib/gen/preview/env-local", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/gen/preview/env-local")>()),
+  loadPlaceholderKeySet,
+}));
 vi.mock("@/lib/db/services/version-errors", () => ({
   getLatestEngineVersionErrorLogForCategory,
 }));

@@ -156,5 +156,42 @@ Beslutet påverkar: knappens etikett, dess stängda läge ("Stäng …"), och to
 
 ## Ägarbeslut
 
-- **B3 (namn på `+ Lägg till`):** _(ej beslutat)_
-- **Ö5-placering (sekundärrad vs `Mer`-meny):** _(ej beslutat)_
+- **B3 (namn på `+ Lägg till`):** **`Lägg till block`** — beslutat 2026-07-26.
+  Stängt läge: `Stäng block`. Tooltip: *"Lägg till färdiga block och innehåll i
+  previewen"*. Namnet valdes framför `Bygg ut`, `Innehåll` och `Sätt in` eftersom
+  det är det enda som säger både verbet och objektet, och eftersom "block" redan
+  är etablerad vokabulär i produkten via Byggblock-panelen.
+- **Ö5-placering (sekundärrad vs `Mer`-meny):** **ikonkluster i headerns högersida**
+  — beslutat 2026-07-26. Ingen sekundärrad (den hade ätit lika mycket höjd som
+  raden vi tar bort) och ingen `Mer`-meny för `Kod`/`Byggblock` (popover i
+  dropdown är en känd fälla). De fem hamnar så här:
+
+  | Kontroll | Ny hemvist |
+  |---|---|
+  | `Kod` | ikonknapp i klustret, popover-innehållet följer med triggern |
+  | `Byggblock` | ikonknapp i klustret, popover-innehållet följer med triggern |
+  | `Öppna` | ikonknapp i klustret |
+  | `Rensa` | ikonknapp i klustret, behåller sitt disabled-villkor |
+  | `Bygg integrationer` | ikonknapp i klustret, `PreviewPanelF3Trigger` flyttas med sina callbacks |
+
+  Klustret ligger som en avgränsad grupp omedelbart före `Ny chat`, ikon-only med
+  tooltip som bär namnet. Hela klustret döljs när `previewUrl` saknas, så headern
+  inte växer innan det finns en preview att styra.
+
+
+## Implementationsbevis (2026-07-26)
+
+Steg 2-6 implementerade. Ingen commit.
+
+| Krav | Status | Bevis |
+|---|---|---|
+| 2 | klar | `usePreviewSurfaceMode.ts` — ett enda `surfaceMode`-fält (`"none" \| "composer" \| "inspect"`) ägt av `BuilderShellContent`. Test: `usePreviewSurfaceMode.test.ts` (6 tester) |
+| 3 | klar | `Lägg till block` / `Inspektera preview` i `ChatInterface`s Verktyg-rad. Test: `ChatInterface.preview-modes.test.tsx` (7 tester, inkl. att previewpanelen saknar dem) |
+| 4 | klar | `BuilderPreviewTools.tsx` — ikonkluster i headern före `Ny chat`. Previewpanelens verktygsrad borttagen |
+| 5 | klar | Etiketten borta, remsan `py-2` → `py-1` |
+| 6 | klar | `pageOpBusy` visas nu som spinner i `+ Sida`-knappen (`aria-busy`) |
+| 7 | klar | `Ångra`/`Gör om` flyttade till composer-overlayens infokort |
+| 8 | klar | Sajtagent-bubblan lyfts till `bottom-28` på `/builder` i mobilbredd |
+| 9 | delvis | ~77 px återvunnen höjd räknat i klasser (49 px verktygsrad + ~28 px sidremsa). Före/efter-skärmbild återstår |
+
+Verifiering: `npx vitest run src/components/builder src/components/openclaw` → 27 filer / 180 tester gröna. `npx eslint` på ändrade filer → rent. `npx tsc --noEmit` → inga fel i spårets filer (kvarvarande fel ligger i `src/lib/gen/preview/preview-only-files.test.ts`, annat spår).

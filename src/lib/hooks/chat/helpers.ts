@@ -741,7 +741,7 @@ function formatEnginePathLabel(enginePath: string | null | undefined): string | 
   return enginePath;
 }
 
-function buildModelInfoSteps(info: ModelInfoData): string[] {
+export function buildModelInfoSteps(info: ModelInfoData): string[] {
   const steps: string[] = [];
   const modelId = info.modelId ? String(info.modelId) : null;
   const modelTier =
@@ -812,17 +812,51 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
       steps.push(`Capabilities: ${active.join(", ")}`);
     }
   }
-  if (typeof info.contractDataMode === "string" && info.contractDataMode.trim()) {
-    steps.push(`Data mode: ${info.contractDataMode}`);
+  if (Array.isArray(info.mutedCapabilityLabels)) {
+    const planned = info.mutedCapabilityLabels
+      .filter((label): label is string => typeof label === "string")
+      .map((label) => label.trim())
+      .filter((label) => label.length > 0);
+    if (planned.length > 0) {
+      steps.push(`Planerad — kopplas in i nästa steg: ${planned.join(", ")}`);
+    }
+  }
+  // Contract rows describe what the pre-generation contract PROPOSED, which is
+  // not the same as what the version contains: a design round that proposes
+  // "Auth: clerk" and then writes no auth code used to read as a delivered
+  // fact. Rows fall back to the same wording the Byggblock panel uses unless
+  // the round's file evidence backs them.
+  const fileEvidence = new Set(
+    (Array.isArray(info.fileEvidenceCapabilities) ? info.fileEvidenceCapabilities : [])
+      .filter((capability): capability is string => typeof capability === "string")
+      .map((capability) => capability.trim().toLowerCase())
+      .filter((capability) => capability.length > 0),
+  );
+  const PLANNED_SUFFIX = " (planerad — kopplas in i nästa steg)";
+  const contractCapabilities = new Set<string>();
+  const contractRow = (label: string, value: string, capability: string): string => {
+    contractCapabilities.add(capability);
+    return `${label}: ${value}${fileEvidence.has(capability) ? "" : PLANNED_SUFFIX}`;
+  };
+  const dataMode =
+    typeof info.contractDataMode === "string" ? info.contractDataMode.trim() : "";
+  if (dataMode) {
+    // Only `persisted`/`mixed` promise a backend. `none` and `mocked` describe
+    // what the round actually delivers, so marking them planned would be the
+    // mirror image of the dishonesty this suffix exists to prevent.
+    const promisesBackend = dataMode === "persisted" || dataMode === "mixed";
+    steps.push(
+      promisesBackend ? contractRow("Data mode", dataMode, "database") : `Data mode: ${dataMode}`,
+    );
   }
   if (typeof info.contractDatabaseProvider === "string" && info.contractDatabaseProvider.trim()) {
-    steps.push(`Databas: ${info.contractDatabaseProvider}`);
+    steps.push(contractRow("Databas", info.contractDatabaseProvider, "database"));
   }
   if (typeof info.contractAuthProvider === "string" && info.contractAuthProvider.trim()) {
-    steps.push(`Auth: ${info.contractAuthProvider}`);
+    steps.push(contractRow("Auth", info.contractAuthProvider, "auth"));
   }
   if (typeof info.contractPaymentProvider === "string" && info.contractPaymentProvider.trim()) {
-    steps.push(`Betalning: ${info.contractPaymentProvider}`);
+    steps.push(contractRow("Betalning", info.contractPaymentProvider, "payments"));
   }
   if (Array.isArray(info.contractIntegrations) && info.contractIntegrations.length > 0) {
     const labels = info.contractIntegrations
@@ -845,7 +879,16 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
       .map((entry) => (typeof entry.key === "string" ? entry.key.trim() : ""))
       .filter(Boolean);
     if (keys.length > 0) {
-      steps.push(`Kontrakt env vars: ${keys.join(", ")}`);
+      // The keys belong to the integrations the rows above named, so they are
+      // delivered only when every one of those capabilities has file evidence.
+      // "Any dossier at all is present" would let an unrelated soft dossier
+      // vouch for a Stripe key that no file in the version reads.
+      const delivered =
+        contractCapabilities.size > 0 &&
+        Array.from(contractCapabilities).every((capability) => fileEvidence.has(capability));
+      steps.push(
+        `Kontrakt env vars: ${keys.join(", ")}${delivered ? "" : PLANNED_SUFFIX}`,
+      );
     }
   }
   if (Array.isArray(info.unresolvedContractDecisions) && info.unresolvedContractDecisions.length > 0) {

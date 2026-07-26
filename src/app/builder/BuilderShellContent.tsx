@@ -5,6 +5,11 @@ import { getLatestPendingReply as getLatestPendingReplyFromTooling } from "@/com
 import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { MessageList } from "@/components/builder/MessageList";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
+import { BuilderPreviewTools } from "@/components/builder/BuilderPreviewTools";
+import { ChatOutputCollapseBar } from "@/components/builder/ChatOutputCollapseBar";
+import { useChatOutputCollapse } from "@/components/builder/useChatOutputCollapse";
+import { usePreviewSurfaceMode } from "@/components/builder/preview-panel/usePreviewSurfaceMode";
+import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import type { ComposerAiFallbackPayload } from "@/components/builder/preview-panel/preview-panel-types";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
@@ -64,6 +69,11 @@ import {
 } from "@/lib/builder/defaults";
 import type { ChatMessage } from "@/lib/builder/types";
 import {
+  buildOpenClawContextMessages,
+  compressAssistantCodeBlocks,
+} from "@/lib/builder/openclaw-context-messages";
+import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
+import {
   readAutofixLocalStorageOnly,
   writeAutofixLocalStorage,
 } from "@/lib/hooks/chat/useAutoFix";
@@ -95,18 +105,11 @@ type ContextMessage = {
   content: string;
 };
 
-function toContextMessage(message: ChatMessage, maxChars: number): ContextMessage {
-  return {
-    role: message.role,
-    content:
-      typeof message.content === "string" ? message.content.slice(0, maxChars) : "[structured]",
-  };
-}
-
 function buildRecentContextMessages(messages: ChatMessage[]): ContextMessage[] {
-  return messages
-    .slice(-CONTEXT_RECENT_MESSAGE_COUNT)
-    .map((message) => toContextMessage(message, CONTEXT_MESSAGE_MAX_CHARS));
+  return buildOpenClawContextMessages(messages, {
+    recentCount: CONTEXT_RECENT_MESSAGE_COUNT,
+    maxChars: CONTEXT_MESSAGE_MAX_CHARS,
+  });
 }
 
 function getLatestCompletedAssistantMessage(messages: ChatMessage[]): ChatMessage | null {
@@ -180,14 +183,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     }).status;
   }, [activeVersionBusStatus, activeVersionIsLatest, activeVersionSummary]);
   // P19 Steg 3 — transparency in follow-up base. When the user is focused
-  // on an older version, the next `sendMessage` carries `engineBaseVersionId
-  // = activeVersionId` (see useSendMessage.ts). Surface that decision in the
-  // chat composer so the user never sends an edit thinking they are on the
-  // latest. The badge prefers human-readable version numbers from the
-  // effective versions list and falls back to a shortened id for rows that
-  // still lack a versionNumber (e.g. brand-new rows seen before the first
-  // refetch).
-  const latestVersionSummary = useMemo(() => {
+  // on a version other than the preferred usable one (`latestVersionId` =
+  // `selectPreferredEngineVersion`), the next `sendMessage` carries
+  // `engineBaseVersionId = activeVersionId` (see useSendMessage.ts). Surface
+  // that decision in the chat composer. Labels prefer human-readable version
+  // numbers and fall back to a shortened id. Distinguish older-selection vs
+  // newer-but-rejected — never hide the banner in the rejected case.
+  const preferredVersionSummary = useMemo(() => {
     if (!vm.latestVersionId) return null;
     return (
       vm.effectiveVersionsList.find(
@@ -207,11 +209,34 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       const id = summary?.versionId || summary?.id || fallbackId;
       return id ? `#${id.slice(0, 6)}` : "okänd";
     };
+    const activeStatus = resolveEngineVersionLifecycleStatus({
+      releaseState: activeVersionSummary?.releaseState ?? null,
+      verificationState: activeVersionSummary?.verificationState ?? null,
+    });
+    const activeNumber =
+      typeof activeVersionSummary?.versionNumber === "number"
+        ? activeVersionSummary.versionNumber
+        : null;
+    const preferredNumber =
+      typeof preferredVersionSummary?.versionNumber === "number"
+        ? preferredVersionSummary.versionNumber
+        : null;
+    const rejectedActive =
+      activeStatus === "failed" ||
+      activeStatus === "superseded" ||
+      (activeNumber != null && preferredNumber != null && activeNumber > preferredNumber);
     return {
       baseLabel: toDisplay(activeVersionSummary, vm.activeVersionId),
-      latestLabel: toDisplay(latestVersionSummary, vm.latestVersionId),
+      preferredLabel: toDisplay(preferredVersionSummary, vm.latestVersionId),
+      kind: rejectedActive ? ("rejected-active" as const) : ("stale-selection" as const),
     };
-  }, [activeVersionIsLatest, activeVersionSummary, latestVersionSummary, vm.activeVersionId, vm.latestVersionId]);
+  }, [
+    activeVersionIsLatest,
+    activeVersionSummary,
+    preferredVersionSummary,
+    vm.activeVersionId,
+    vm.latestVersionId,
+  ]);
   const sendMessage = vm.sendMessage;
 
   // Byggblock-panelen (PreviewPanelDossiers) refetchar sin "inkopplade"-lista
@@ -372,7 +397,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               ],
               recentMessages: buildRecentContextMessages(vm.messages),
               latestUserMessage: latestUser?.content?.slice(0, TIP_USER_MESSAGE_MAX_CHARS) || "",
-              latestAssistantMessage: assistantMessage.content.slice(
+              latestAssistantMessage: compressAssistantCodeBlocks(assistantMessage.content).slice(
                 0,
                 TIP_ASSISTANT_MESSAGE_MAX_CHARS,
               ),
@@ -832,27 +857,74 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     [vm, persistPreviewOverride],
   );
 
-  const handleApplyAnthropicComparePreset = useCallback(() => {
-    vm.setSelectedModelTier("anthropic");
-  }, [
-    vm,
-  ]);
-
   useEffect(() => {
     setEnableAutofix(readAutofixLocalStorageOnly());
   }, []);
+
+  const handleF3MissingEnv = useCallback(
+    (payload: {
+      parentVersionId: string;
+      projectId?: string | null;
+      chatId?: string | null;
+      missingByIntegration: Array<{ key: string; name: string; missing: string[] }>;
+    }) => {
+      // The 412's group/key scope is owned by finalize-design — the client
+      // never re-detects keys. Besides the persistent requirements surface,
+      // focus the affected dossier in the Byggblock popover (owner decision
+      // 2026-07-13). Chat correlation: a slow finalize-response from a previous
+      // chat must not repopulate the surface after a chat switch.
+      if (payload.chatId && payload.chatId !== vm.chatId) return;
+      setF3Requirements(payload);
+      setF3Status(null);
+      openDossiersPanel(payload.missingByIntegration.flatMap((entry) => entry.missing));
+    },
+    [vm.chatId],
+  );
+
+  const handleF3Ready = useCallback(
+    (payload: { parentVersionId: string }) => {
+      // Auto-kick the F3 ("Bygg integrationer") generation as soon as
+      // `/finalize-design` greenlights the F2 version. The server reads
+      // `meta.lifecycleStage` + `meta.parentVersionId` from this send and forks
+      // a new engine_versions row with `lifecycle_stage = "integrations"` and
+      // `parent_version_id` set to the F2 version we just finalized.
+      setF3Requirements(null);
+      void vm.sendMessage("Bygg integrationer nu utifrån den finaliserade designversionen.", {
+        lifecycleStageOverride: "integrations",
+        parentVersionIdOverride: payload.parentVersionId,
+        engineBaseVersionIdOverride: payload.parentVersionId,
+      });
+    },
+    [vm],
+  );
+
+  // Previewens lägen (composer/inspect/vy) har EN ägare här: kontrollerna sitter
+  // i chatpanelens Verktyg-rad och i headern, ytan de styr i previewpanelen.
+  const previewSurface = usePreviewSurfaceMode({
+    previewUrl: vm.currentPreviewUrl,
+    canShowCode: Boolean(vm.chatId && vm.activeVersionId),
+    inspectorEnabled: isBuilderInspectorEnabled(),
+  });
 
   const handleEnableAutofixChange = useCallback((next: boolean) => {
     writeAutofixLocalStorage(next);
     setEnableAutofix(next);
   }, []);
 
+  const chatOutputCollapse = useChatOutputCollapse(vm.chatId);
+  const isChatOutputCollapsed = chatOutputCollapse.isCollapsed && vm.messages.length > 0;
+  // Tipsrutan renderas ovanpå utdataytan. Utan detta hade ett tips som öppnas
+  // medan chatten är nedfälld hamnat i en dold yta och sett ut att försvinna.
+  const expandChatOutput = chatOutputCollapse.expand;
+  useEffect(() => {
+    if (tipPanelOpen) expandChatOutput();
+  }, [tipPanelOpen, expandChatOutput]);
+
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
       <BuilderHeader
         selectedModelTier={vm.selectedModelTier}
         onSelectedModelTierChange={vm.setSelectedModelTier}
-        onApplyAnthropicComparePreset={handleApplyAnthropicComparePreset}
         promptAssistModel={vm.promptAssistModel}
         promptAssistDeep={vm.promptAssistDeep}
         canUseDeepBrief={!vm.chatId}
@@ -921,6 +993,24 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         deployDisabledReason={deployDisabledReason}
         onToggleVersions={vm.handleToggleVersionPanel}
         isVersionPanelOpen={!vm.isVersionPanelCollapsed}
+        previewTools={
+          <BuilderPreviewTools
+            surface={previewSurface}
+            chatId={vm.chatId}
+            versionId={vm.activeVersionId}
+            previewUrl={vm.currentPreviewUrl}
+            lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+            isBusy={isBusy}
+            onClear={handleClearPreview}
+            clearDisabled={isPreviewLoading}
+            onRequestDossier={handleRequestDossier}
+            catalogPickDisabled={catalogPickDisabled}
+            onF3MissingEnv={handleF3MissingEnv}
+            onF3Status={setF3Status}
+            onF3Ready={handleF3Ready}
+            onF3ReleaseSettled={vm.handleDeterministicF3Settled}
+          />
+        }
       />
       <ModelTraceOverlay
         selectedModelTier={vm.selectedModelTier}
@@ -967,12 +1057,23 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      {/* Ö9: nedfälld chat lägger sig som en rad under previewen i stället för
+          som en kolumn bredvid den — det är så previewen får ytan tillbaka.
+          `flex-col-reverse` håller chatten (först i DOM) kvar längst ned. */}
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 overflow-hidden",
+          isChatOutputCollapsed && "lg:flex-col-reverse",
+        )}
+      >
         <div
           id="builder-chat-panel"
           role="tabpanel"
           className={cn(
-            "border-border bg-background min-h-0 w-full flex-col border-r lg:flex lg:w-96",
+            "border-border bg-background min-h-0 w-full flex-col lg:flex",
+            isChatOutputCollapsed
+              ? "lg:w-full lg:shrink-0 lg:border-t"
+              : "border-r lg:w-96",
             mobileTab === "chat" ? "flex" : "hidden",
           )}
         >
@@ -996,7 +1097,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           {/* Ägarbeslut 2026-07-22: ProjectEnvVarsPanel är borttagen — Byggblock-
               popovern (PreviewPanelDossiers) är den enda env-ytan i både F2 och F3. */}
           <ThinkingOverlay isVisible={vm.isAnyStreaming} />
-          <div className="relative min-h-0 flex-1 overflow-hidden">
+          <div
+            id="builder-chat-output"
+            className={cn(
+              "relative min-h-0 flex-1 overflow-hidden",
+              isChatOutputCollapsed && "hidden",
+            )}
+          >
             <MessageList
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
@@ -1020,6 +1127,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onClose={() => setTipPanelOpen(false)}
             />
           </div>
+          {vm.messages.length > 0 ? (
+            <ChatOutputCollapseBar
+              isCollapsed={isChatOutputCollapsed}
+              onToggle={chatOutputCollapse.toggle}
+              messageCount={vm.messages.length}
+              isStreaming={vm.isAnyStreaming}
+            />
+          ) : null}
           <ChatInterface
             chatId={vm.chatId}
             initialPrompt={vm.initialPrompt}
@@ -1036,6 +1151,19 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             onDesignThemeChange={vm.setDesignTheme}
             isConfigLocked={vm.isAnyStreaming}
             followUpBaseInfo={followUpBaseInfo}
+            previewModes={
+              vm.currentPreviewUrl
+                ? {
+                    composerOpen: previewSurface.composerMode,
+                    onToggleComposer: previewSurface.toggleComposer,
+                    composerDisabled: previewSurface.viewMode !== "preview",
+                    inspectAvailable: previewSurface.inspectorEnabled,
+                    inspectOpen: previewSurface.inspectMode,
+                    onToggleInspect: previewSurface.toggleInspect,
+                    inspectDisabled: previewSurface.viewMode !== "preview",
+                  }
+                : null
+            }
           />
           <DeployNameDialog
             open={vm.deployNameDialogOpen}
@@ -1150,7 +1278,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               awaitingInput={vm.isAwaitingInput}
               awaitingInputQuestion={latestPendingReply?.question ?? null}
               awaitingInputOptions={latestPendingReply?.options ?? []}
-              onClear={handleClearPreview}
               onFixPreview={vm.handleFixPreview}
               versionlessAborted={vm.versionlessAborted}
               onRestartGeneration={vm.handleRestartGeneration}
@@ -1159,44 +1286,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onComposerAiFallback={handleComposerAiFallback}
               onShadcnItemInsert={handleShadcnItemInsert}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
-              isBusy={isBusy}
-              onRequestDossier={handleRequestDossier}
-              catalogPickDisabled={catalogPickDisabled}
-              onF3MissingEnv={(payload) => {
-                // The 412's group/key scope is owned by finalize-design — the
-                // client never re-detects keys. Besides the persistent
-                // requirements surface, focus the affected dossier in the
-                // Byggblock popover (owner decision 2026-07-13). Chat
-                // correlation: a slow finalize-response from a previous chat
-                // must not repopulate the surface after a chat switch.
-                if (payload.chatId && payload.chatId !== vm.chatId) return;
-                setF3Requirements(payload);
-                setF3Status(null);
-                openDossiersPanel(
-                  payload.missingByIntegration.flatMap((entry) => entry.missing),
-                );
-              }}
-              onF3Status={(status) => {
-                setF3Status(status);
-              }}
-              onF3Ready={(payload) => {
-                // Auto-kick the F3 ("Bygg integrationer") generation as soon
-                // as `/finalize-design` greenlights the F2 version. The
-                // server reads `meta.lifecycleStage` + `meta.parentVersionId`
-                // from this send and forks a new engine_versions row with
-                // `lifecycle_stage = "integrations"` and `parent_version_id`
-                // set to the F2 version we just finalized.
-                setF3Requirements(null);
-                void vm.sendMessage(
-                  "Bygg integrationer nu utifrån den finaliserade designversionen.",
-                  {
-                    lifecycleStageOverride: "integrations",
-                    parentVersionIdOverride: payload.parentVersionId,
-                    engineBaseVersionIdOverride: payload.parentVersionId,
-                  },
-                );
-              }}
-              onF3ReleaseSettled={vm.handleDeterministicF3Settled}
+              surface={previewSurface}
             />
           </div>
           {/* Versionshistoriken är en riktig drawer: helt dold när den är

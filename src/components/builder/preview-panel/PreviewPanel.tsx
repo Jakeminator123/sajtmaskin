@@ -10,7 +10,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useTransition,
   type DragEvent,
 } from "react";
 import { Button } from "@/components/ui/button";
@@ -42,15 +41,36 @@ import { usePreviewIframe } from "./hooks/usePreviewIframe";
 import { usePreviewPanelCodeDrafts } from "./hooks/usePreviewPanelCodeDrafts";
 import { usePreviewPanelInspectCapture } from "./hooks/usePreviewPanelInspectCapture";
 import { usePreviewPanelInspectMapPlacement } from "./hooks/usePreviewPanelInspectMapPlacement";
-import { usePreviewInspectBridge } from "./hooks/usePreviewInspectBridge";
+import {
+  dispatchBridgeInspectPoint,
+  usePreviewInspectBridge,
+  type BridgePick,
+  type BridgeRect,
+  type BridgeRegion,
+} from "./hooks/usePreviewInspectBridge";
+import {
+  PreviewInspectMenu,
+  PreviewInspectRegionMenu,
+  PreviewInspectTextEditor,
+} from "./PreviewInspectMenu";
+import {
+  buildDeleteElementOps,
+  buildImageEditOps,
+  buildTextEditOps,
+  classifyInspectedElement,
+  describeInspectQuickEditError,
+  validateInspectImageInput,
+  validateInspectTextInput,
+  type InspectElementActions,
+} from "@/lib/builder/inspect-element-actions";
 import { usePreviewPanelCodeFiles } from "./hooks/usePreviewPanelCodeFiles";
 import { usePreviewPanelPreviewRoutes } from "./hooks/usePreviewPanelPreviewRoutes";
 import type {
   ComposerAiFallbackPayload,
   InspectEngine,
   PreviewPanelProps,
-  PreviewViewMode,
 } from "./preview-panel-types";
+import { usePreviewSurfaceMode } from "./usePreviewSurfaceMode";
 import {
   buildExternalRoutePreviewUrl,
   buildOwnEngineRoutePreviewUrl,
@@ -94,6 +114,38 @@ const PreviewPanelInspectorDev = dynamic(
   { ssr: false },
 );
 
+// Bildbytet återanvänder den befintliga mediahanteringen — ingen andra bildväg.
+const MediaDrawer = dynamic(
+  () => import("@/components/media/media-drawer").then((mod) => ({ default: mod.MediaDrawer })),
+  { ssr: false },
+);
+
+/** Elementmenyns lägen: menyn själv, textrutan, eller mediabiblioteket. */
+type InspectMenuMode = "menu" | "text" | "image";
+
+type InspectMenuState = {
+  pick: BridgePick;
+  actions: InspectElementActions;
+  point: { x: number; y: number };
+  rect: BridgeRect | null;
+  bounds: { width: number; height: number };
+  mode: InspectMenuMode;
+};
+
+type InspectRegionState = {
+  point: { x: number; y: number };
+  bounds: { width: number; height: number };
+  region: BridgeRegion;
+};
+
+function describeRegionElement(element: { tag: string; text?: string | null }): string {
+  const text = element.text?.trim();
+  return text ? `${element.tag} — ${text.slice(0, 40)}` : element.tag;
+}
+
+/** Hur många markerade element som skickas som punkter i ett svep. */
+const MAX_REGION_POINTS = 10;
+
 type ComposerPatchHistoryEntry = {
   fileName: string;
   before: string;
@@ -131,7 +183,6 @@ export function PreviewPanel({
   previewUrl,
   onNavigatePreviewUrl,
   isLoading: externalLoading = false,
-  onClear,
   onFixPreview,
   versionlessAborted = false,
   onRestartGeneration,
@@ -161,17 +212,24 @@ export function PreviewPanel({
   onComposerAiFallback,
   onShadcnItemInsert,
   lifecycleStage = null,
-  isBusy = false,
-  onF3MissingEnv,
-  onF3Status,
-  onF3Ready,
-  onF3ReleaseSettled,
-  onRequestDossier,
-  catalogPickDisabled = false,
+  surface: surfaceProp,
 }: PreviewPanelProps) {
-  const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
+  const inspectorEnabled = isBuilderInspectorEnabled();
+  const canShowCode = Boolean(chatId && versionId);
+  // Lägena ägs normalt av builderskalet (kontrollerna sitter i chatpanelen och
+  // headern). Den lokala ägaren finns kvar för isolerad rendering av panelen.
+  const localSurface = usePreviewSurfaceMode({ previewUrl, canShowCode, inspectorEnabled });
+  const surface = surfaceProp ?? localSurface;
+  const {
+    composerMode,
+    setComposerMode,
+    inspectMode,
+    setInspectMode,
+    viewMode,
+    setViewMode,
+    runViewSwitch,
+  } = surface;
   const isCodeView = viewMode !== "preview";
-  const [composerMode, setComposerMode] = useState(false);
   // "Lägg till"-ytan (tabbad panel) — flag-gated via NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL.
   // Läs EFTER mount (initial false) för att undvika SSR/CSR-hydratmismatch, samma
   // mönster som inspect-bridge-flaggan. Flagga av = dagens fristående Composer-palette.
@@ -230,14 +288,20 @@ export function PreviewPanel({
   const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
   const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);
   const { integrationStatus, integrationError } = useIntegrationStatus(previewUrl);
-  const inspectorEnabled = isBuilderInspectorEnabled();
   const bridgeEnabled = inspectorEnabled && isInspectBridgeEnabled();
-  const [isViewSwitchPending, startViewSwitchTransition] = useTransition();
   const [inspectEngine, setInspectEngine] = useState<InspectEngine>(
     bridgeEnabled ? "bridge" : "map",
   );
   const [inspectStatus, setInspectStatus] = useState<string | null>(null);
   const [lastCodeMatch, setLastCodeMatch] = useState<RegistryMatch | null>(null);
+  const [inspectMenu, setInspectMenu] = useState<InspectMenuState | null>(null);
+  const [inspectRegion, setInspectRegion] = useState<InspectRegionState | null>(null);
+  const [inspectEditBusy, setInspectEditBusy] = useState(false);
+  const [inspectEditError, setInspectEditError] = useState<string | null>(null);
+  // Synkron spärr: `inspectEditBusy` hinner inte uppdateras innan ett andra
+  // klick i samma tick, och två parallella snabbändringar skulle grena
+  // versionshistoriken.
+  const inspectEditInFlightRef = useRef(false);
   const [lastAiCostDisplay, setLastAiCostDisplay] = useState<string | null>(null);
   const [totalAiCostUsd, setTotalAiCostUsd] = useState(0);
   const codeScrollRef = useRef<HTMLDivElement | null>(null);
@@ -320,11 +384,11 @@ export function PreviewPanel({
 
   useEffect(() => {
     if (placementMode) setComposerMode(false);
-  }, [placementMode]);
+  }, [placementMode, setComposerMode]);
 
   useEffect(() => {
     if (isCodeView) setComposerMode(false);
-  }, [isCodeView]);
+  }, [isCodeView, setComposerMode]);
 
   useEffect(() => {
     setComposerUndoStack([]);
@@ -340,8 +404,6 @@ export function PreviewPanel({
   }, [composerMode]);
 
   const {
-    inspectMode,
-    setInspectMode,
     elementMap,
     elementMapLoading,
     inspectorUnavailable,
@@ -360,6 +422,8 @@ export function PreviewPanel({
     versionId,
     placementMode: Boolean(placementMode),
     composerMode,
+    inspectMode,
+    setInspectMode,
     iframeLoading,
     externalLoading,
     iframeRef,
@@ -402,15 +466,18 @@ export function PreviewPanel({
     setTotalAiCostUsd,
   });
 
-  const handleBridgePick = useCallback(
-    (match: RegistryMatch | null) => {
-      // Punkten är redan fångad (tillagd i chatten) i bridge-hooken oavsett om en
-      // JSX-registry-match hittades — lämna därför alltid inspect-läget så användaren
-      // ser den nya punkten i stället för att fastna kvar i inspektorn. Endast
-      // vy-bytet till kodvyn kräver en match.
+  // Klick i inspect-läge öppnar elementmenyn i stället för att direkt skicka en
+  // punkt till chatten. Klassificeringen (vad som går att göra) körs mot den
+  // inlästa filen — refen håller den färsk utan att göra handlern instabil.
+  const filesRef = useRef(files);
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
+  const showMatchInCode = useCallback(
+    (match: RegistryMatch) => {
       setInspectMode(false);
-      if (!match) return;
-      startViewSwitchTransition(() => {
+      runViewSwitch(() => {
         setViewMode("registry");
         setSelectedRegistryId(match.item.id);
         setSelectedRegistryLine(match.item.lineNumber);
@@ -419,13 +486,56 @@ export function PreviewPanel({
     },
     [
       setInspectMode,
-      startViewSwitchTransition,
+      runViewSwitch,
       setViewMode,
       setSelectedRegistryId,
       setSelectedRegistryLine,
       setSelectedPath,
     ],
   );
+
+  const handleBridgePick = useCallback((pick: BridgePick) => {
+    const location = pick.match
+      ? { filePath: pick.match.item.filePath, lineNumber: pick.match.item.lineNumber }
+      : null;
+    const fileContent = location
+      ? (findFileNodeByPath(filesRef.current, location.filePath)?.content ?? null)
+      : null;
+    const actions = classifyInspectedElement({
+      element: {
+        tag: pick.element.tag,
+        ownText: pick.element.ownText ?? null,
+        text: pick.element.text ?? null,
+        src: pick.element.src ?? null,
+        childElementCount: pick.element.childElementCount ?? 0,
+      },
+      location,
+      fileContent,
+    });
+    setInspectRegion(null);
+    setInspectEditError(null);
+    setInspectMenu({
+      pick,
+      actions,
+      point: pick.click,
+      rect: pick.rect,
+      bounds: { width: pick.viewport.w, height: pick.viewport.h },
+      mode: "menu",
+    });
+  }, []);
+
+  const handleBridgeRect = useCallback((rect: BridgeRect) => {
+    setInspectMenu((current) => (current ? { ...current, rect } : current));
+  }, []);
+
+  const handleBridgeRegion = useCallback((region: BridgeRegion) => {
+    setInspectMenu(null);
+    setInspectRegion({
+      point: { x: region.rect.x + region.rect.width, y: region.rect.y + region.rect.height },
+      bounds: { width: region.viewport.w, height: region.viewport.h },
+      region,
+    });
+  }, []);
 
   usePreviewInspectBridge({
     enabled: bridgeEnabled,
@@ -438,33 +548,39 @@ export function PreviewPanel({
     setInspectStatus,
     setLastCodeMatch,
     onPick: handleBridgePick,
+    onRect: handleBridgeRect,
+    onRegion: handleBridgeRegion,
     // A-fix (#164/#197): bron annonserade aldrig `ready` → previewn saknar
     // injektionen. Växla till kartmotorn i stället för en inert inspektor.
     onBridgeUnavailable: () => setInspectEngine("map"),
   });
+
+  // Menyn hör till inspect-läget: lämnar man läget (eller previewen byts) ska
+  // ingen meny bli kvar svävande över en yta den inte längre beskriver.
+  useEffect(() => {
+    if (inspectMode) return;
+    setInspectMenu(null);
+    setInspectRegion(null);
+  }, [inspectMode]);
+  useEffect(() => {
+    setInspectMenu(null);
+    setInspectRegion(null);
+  }, [previewUrl, isCodeView]);
 
   const iframeRunbookLines = useMemo(
     () => (iframeError ? previewRunbookLinesForCode(iframeDiagnosticCode) : []),
     [iframeError, iframeDiagnosticCode],
   );
 
-  const canShowCode = Boolean(chatId && versionId);
   const showElementRegistry = viewMode === "registry";
 
-  const handleToggleCode = useCallback(() => {
-    if (!canShowCode) return;
-    startViewSwitchTransition(() => {
-      setViewMode((prev) => (prev === "code" ? "preview" : "code"));
-      setSelectedRegistryId(null);
-      setSelectedRegistryLine(null);
-    });
-  }, [canShowCode, startViewSwitchTransition]);
-
-  const handleToggleComposer = useCallback(() => {
-    if (!previewUrl || placementMode) return;
-    setInspectMode(false);
-    setComposerMode((v) => !v);
-  }, [previewUrl, placementMode, setInspectMode]);
+  // Kodvyn visar filer, inte registerträffar. Vy-bytet ägs av headerns
+  // Kod-meny, så valet nollställs här i stället för i menyn.
+  useEffect(() => {
+    if (viewMode !== "code") return;
+    setSelectedRegistryId(null);
+    setSelectedRegistryLine(null);
+  }, [viewMode]);
 
   const handleComposerDragOver = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
@@ -767,13 +883,6 @@ export function PreviewPanel({
     ],
   );
 
-  const handleToggleElementRegistry = useCallback(() => {
-    if (!canShowCode) return;
-    startViewSwitchTransition(() => {
-      setViewMode((prev) => (prev === "registry" ? "preview" : "registry"));
-    });
-  }, [canShowCode, startViewSwitchTransition]);
-
   const elementRegistry = useMemo(() => buildJsxElementRegistry(files), [files]);
   // Sync ref to latest registry without mutating during render — async inspect callbacks read this.
   useEffect(() => {
@@ -987,14 +1096,180 @@ export function PreviewPanel({
     [chatId, versionId, onFilesSaved, runQuickEditChunked],
   );
 
-  const handleClear = () => {
-    if (!onClear) return;
-    clearPreviewReadyTimer();
-    setIframeLoading(true);
-    setIframeError(false);
-    setIframeErrorMessage(null);
-    onClear();
-  };
+  /**
+   * Snabbändringar skapar en ny minorversion, så den lokalt inlästa filbilden
+   * blir gammal direkt. Utan omläsning skulle nästa klick klassificera mot en
+   * text som redan är utbytt.
+   */
+  const reloadFilesForVersion = useCallback(
+    async (targetVersionId: string) => {
+      if (!chatId) return;
+      try {
+        const { response, data } = await fetchChatVersionFilesJson(chatId, targetVersionId);
+        if (!response.ok || !Array.isArray(data?.files)) return;
+        setFiles(
+          buildFileTree(
+            data.files.map((file) => ({
+              name: file.name,
+              content: file.content ?? "",
+              locked: file.locked,
+            })),
+          ),
+        );
+      } catch {
+        /* best-effort — klassificeringen faller tillbaka på "hittade inte elementet" */
+      }
+    },
+    [chatId, setFiles],
+  );
+
+  /**
+   * Alla direktåtgärder i elementmenyn går genom samma deterministiska väg:
+   * quick-edit → ny minorversion → patchad preview. Ingen modell, ingen kodvy.
+   */
+  const applyInspectorEdit = useCallback(
+    async (ops: QuickEditClientOp[], summary: string): Promise<boolean> => {
+      if (!chatId || !versionId || ops.length === 0) return false;
+      if (inspectEditInFlightRef.current) return false;
+      inspectEditInFlightRef.current = true;
+      setInspectEditBusy(true);
+      setInspectEditError(null);
+      try {
+        const base = composerBaseVersionRef.current ?? versionId;
+        const result = await quickEditChatFiles({
+          chatId,
+          baseVersionId: base,
+          engineLatestKnownVersionId: base,
+          ops,
+          summary,
+        });
+        if (!result.ok) {
+          const message = describeInspectQuickEditError(result);
+          setInspectEditError(message);
+          toast.error(message);
+          return false;
+        }
+        composerBaseVersionRef.current = result.versionId;
+        await reloadFilesForVersion(result.versionId);
+        toast.success(summary);
+        onFilesSaved?.({
+          versionId: result.versionId,
+          previewUrl: result.previewUrl,
+          previewSessionId: result.previewSessionId,
+          previewMode: result.previewMode,
+        });
+        return true;
+      } catch {
+        const message = "Ändringen kunde inte sparas.";
+        setInspectEditError(message);
+        toast.error(message);
+        return false;
+      } finally {
+        inspectEditInFlightRef.current = false;
+        setInspectEditBusy(false);
+      }
+    },
+    [chatId, versionId, onFilesSaved, reloadFilesForVersion],
+  );
+
+  const handleInspectSaveText = useCallback(
+    async (next: string) => {
+      const menu = inspectMenu;
+      if (!menu?.actions.editText.available) return;
+      const invalid = validateInspectTextInput(next);
+      if (invalid) {
+        setInspectEditError(invalid);
+        return;
+      }
+      const ops = buildTextEditOps(menu.actions.editText.target, next);
+      if (ops.length === 0) {
+        setInspectMenu(null);
+        return;
+      }
+      const saved = await applyInspectorEdit(ops, "Texten uppdaterades");
+      if (saved) setInspectMenu(null);
+    },
+    [inspectMenu, applyInspectorEdit],
+  );
+
+  const handleInspectReplaceImage = useCallback(
+    async (url: string) => {
+      const menu = inspectMenu;
+      if (!menu?.actions.replaceImage.available) return;
+      const target = menu.actions.replaceImage.target;
+      const invalid = validateInspectImageInput(url, target.quote);
+      if (invalid) {
+        toast.error(invalid);
+        return;
+      }
+      const ops = buildImageEditOps(target, url);
+      if (ops.length === 0) {
+        setInspectMenu(null);
+        return;
+      }
+      const saved = await applyInspectorEdit(ops, "Bilden byttes ut");
+      setInspectMenu((current) => (saved || !current ? null : { ...current, mode: "menu" }));
+    },
+    [inspectMenu, applyInspectorEdit],
+  );
+
+  const handleInspectDeleteElement = useCallback(async () => {
+    const menu = inspectMenu;
+    if (!menu?.actions.deleteElement.available) return;
+    const saved = await applyInspectorEdit(
+      buildDeleteElementOps(menu.actions.deleteElement.target),
+      "Elementet togs bort",
+    );
+    if (saved) setInspectMenu(null);
+  }, [inspectMenu, applyInspectorEdit]);
+
+  const handleInspectSendPoint = useCallback(() => {
+    const menu = inspectMenu;
+    if (!menu) return;
+    dispatchBridgeInspectPoint(menu.pick, previewUrl);
+    const match = menu.pick.match;
+    toast.success(
+      `Punkt tillagd i chatten: <${menu.pick.element.tag}>${match ? ` i ${match.item.filePath}:${match.item.lineNumber}` : ""}`,
+    );
+    setInspectMenu(null);
+    setInspectMode(false);
+  }, [inspectMenu, previewUrl, setInspectMode]);
+
+  const handleInspectShowInCode = useCallback(() => {
+    const match = inspectMenu?.pick.match;
+    if (!match) return;
+    setInspectMenu(null);
+    showMatchInCode(match);
+  }, [inspectMenu, showMatchInCode]);
+
+  const handleInspectRegionSendPoints = useCallback(() => {
+    const region = inspectRegion?.region;
+    if (!region || region.elements.length === 0) return;
+    const selected = region.elements.slice(0, MAX_REGION_POINTS);
+    for (const entry of selected) {
+      const rect = entry.element.rect ?? null;
+      dispatchBridgeInspectPoint(
+        {
+          element: entry.element,
+          match: entry.match,
+          rect,
+          click: {
+            x: (rect?.x ?? 0) + (rect?.width ?? 0) / 2,
+            y: (rect?.y ?? 0) + (rect?.height ?? 0) / 2,
+          },
+          viewport: region.viewport,
+        },
+        previewUrl,
+      );
+    }
+    toast.success(
+      selected.length === region.elements.length
+        ? `${selected.length} punkter tillagda i chatten.`
+        : `${selected.length} av ${region.elements.length} punkter tillagda i chatten.`,
+    );
+    setInspectRegion(null);
+    setInspectMode(false);
+  }, [inspectRegion, previewUrl, setInspectMode]);
 
   const blobStatus = useMemo(
     () => integrationStatus?.items.find((item) => item.id === "vercel-blob") || null,
@@ -1085,10 +1360,32 @@ export function PreviewPanel({
   const showInspectOverlay =
     inspectorEnabled && inspectMode && !showPlacementOverlay && inspectEngine !== "bridge";
   const shouldRenderInspectorDev = inspectorEnabled && (showPlacementOverlay || showInspectOverlay);
+  // Bildbytet går genom projektets mediabibliotek. Är biblioteket avstängt är
+  // raden gråad med det skälet i stället för att öppna en tom låda.
+  const inspectMenuActions = useMemo(() => {
+    if (!inspectMenu) return null;
+    const actions = inspectMenu.actions;
+    if (actions.replaceImage.available && !isBlobConfigured) {
+      return {
+        ...actions,
+        replaceImage: {
+          available: false as const,
+          reason: "Bildbiblioteket är inte påslaget för det här projektet.",
+        },
+      };
+    }
+    return actions;
+  }, [inspectMenu, isBlobConfigured]);
+  const inspectEditorRect = useMemo(() => {
+    if (!inspectMenu) return null;
+    return (
+      inspectMenu.rect ?? { x: inspectMenu.point.x, y: inspectMenu.point.y, width: 0, height: 0 }
+    );
+  }, [inspectMenu]);
   const handleShowLastCodeMatch = useCallback(() => {
     if (!lastCodeMatch) return;
     setInspectMode(false);
-    startViewSwitchTransition(() => {
+    runViewSwitch(() => {
       setViewMode("registry");
       setSelectedRegistryId(lastCodeMatch.item.id);
       setSelectedRegistryLine(lastCodeMatch.item.lineNumber);
@@ -1096,7 +1393,7 @@ export function PreviewPanel({
     });
   }, [
     lastCodeMatch,
-    startViewSwitchTransition,
+    runViewSwitch,
     setInspectMode,
     setViewMode,
     setSelectedRegistryId,
@@ -1134,27 +1431,6 @@ export function PreviewPanel({
         previewUrl={previewUrl}
         isOwnEnginePreview={isOwnEnginePreview}
         isTier2LivePreview={isTier2LivePreview}
-        inspectorEnabled={inspectorEnabled}
-        handleToggleInspect={handleToggleInspect}
-        placementMode={placementMode}
-        composerMode={composerMode}
-        addPanelEnabled={addPanelEnabled}
-        handleToggleComposer={handleToggleComposer}
-        composerCanUndo={composerUndoStack.length > 0}
-        composerCanRedo={composerRedoStack.length > 0}
-        composerHistoryBusy={composerHistoryBusy}
-        onComposerUndo={() => void handleComposerUndo()}
-        onComposerRedo={() => void handleComposerRedo()}
-        inspectMode={inspectMode}
-        handleToggleElementRegistry={handleToggleElementRegistry}
-        canShowCode={canShowCode}
-        isViewSwitchPending={isViewSwitchPending}
-        handleToggleCode={handleToggleCode}
-        viewMode={viewMode}
-        onClear={onClear}
-        handleClear={handleClear}
-        isLoading={isLoading}
-        handleOpenInNewTab={handleOpenInNewTab}
         previewBuildError={previewBuildError}
         previewProdBuild={previewProdBuild}
         previewPending={previewPending}
@@ -1181,16 +1457,6 @@ export function PreviewPanel({
         showImagesDisabledWarning={showImagesDisabledWarning}
         showImagesUnsupportedWarning={showImagesUnsupportedWarning}
         showExternalWarning={showExternalWarning}
-        chatId={chatId}
-        versionId={versionId}
-        lifecycleStage={lifecycleStage}
-        isBusy={isBusy}
-        onF3MissingEnv={onF3MissingEnv}
-        onF3Status={onF3Status}
-        onF3Ready={onF3Ready}
-        onF3ReleaseSettled={onF3ReleaseSettled}
-        onRequestDossier={onRequestDossier}
-        catalogPickDisabled={catalogPickDisabled}
       />
 
       {isCodeView ? (
@@ -1302,6 +1568,11 @@ export function PreviewPanel({
                   onDrop={(ev) => void handleComposerDrop(ev)}
                   onMouseMove={handlePlacementMouseMove}
                   lastActionLabel={lastComposerActionLabel}
+                  canUndo={composerUndoStack.length > 0}
+                  canRedo={composerRedoStack.length > 0}
+                  historyBusy={composerHistoryBusy}
+                  onUndo={() => void handleComposerUndo()}
+                  onRedo={() => void handleComposerRedo()}
                 />
               ) : null}
               {shouldRenderInspectorDev ? (
@@ -1339,7 +1610,66 @@ export function PreviewPanel({
                   handleToggleInspect={handleToggleInspect}
                 />
               ) : null}
+              {inspectMenu && inspectMenuActions && inspectMenu.mode === "menu" ? (
+                <PreviewInspectMenu
+                  point={inspectMenu.point}
+                  bounds={inspectMenu.bounds}
+                  tag={inspectMenu.pick.element.tag}
+                  actions={inspectMenuActions}
+                  busy={inspectEditBusy}
+                  canShowInCode={Boolean(inspectMenu.pick.match)}
+                  onEditText={() =>
+                    setInspectMenu((current) => (current ? { ...current, mode: "text" } : current))
+                  }
+                  onReplaceImage={() =>
+                    setInspectMenu((current) => (current ? { ...current, mode: "image" } : current))
+                  }
+                  onDeleteElement={() => void handleInspectDeleteElement()}
+                  onSendPointToChat={handleInspectSendPoint}
+                  onShowInCode={handleInspectShowInCode}
+                  onClose={() => setInspectMenu(null)}
+                />
+              ) : null}
+              {inspectMenu &&
+              inspectEditorRect &&
+              inspectMenu.mode === "text" &&
+              inspectMenu.actions.editText.available ? (
+                <PreviewInspectTextEditor
+                  rect={inspectEditorRect}
+                  bounds={inspectMenu.bounds}
+                  initialValue={inspectMenu.actions.editText.target.current}
+                  busy={inspectEditBusy}
+                  error={inspectEditError}
+                  onSave={(next) => void handleInspectSaveText(next)}
+                  onCancel={() =>
+                    setInspectMenu((current) => (current ? { ...current, mode: "menu" } : current))
+                  }
+                />
+              ) : null}
+              {inspectRegion ? (
+                <PreviewInspectRegionMenu
+                  point={inspectRegion.point}
+                  bounds={inspectRegion.bounds}
+                  labels={inspectRegion.region.elements.map((entry) =>
+                    describeRegionElement(entry.element),
+                  )}
+                  onSendToChat={handleInspectRegionSendPoints}
+                  onClose={() => setInspectRegion(null)}
+                />
+              ) : null}
             </PreviewSurface>
+            {inspectMenu?.mode === "image" ? (
+              <MediaDrawer
+                isOpen
+                onClose={() =>
+                  setInspectMenu((current) => (current ? { ...current, mode: "menu" } : current))
+                }
+                onFileSelect={(item) => {
+                  setInspectMenu((current) => (current ? { ...current, mode: "menu" } : current));
+                  void handleInspectReplaceImage(item.url);
+                }}
+              />
+            ) : null}
           </div>
         </div>
       )}

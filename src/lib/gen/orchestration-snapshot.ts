@@ -184,7 +184,44 @@ export function mergePersistedOrchestrationSnapshots(
       (capability) => !readded.has(capability),
     );
   }
+  // Deferred integrations (spår 01 steg 3) accumulate the same way, for the
+  // same reason: the mute is round-scoped, so a plain "gör rubriken större"
+  // round would blank the list and the Byggblock panel would silently forget
+  // the newsletter the user asked for two rounds ago. A capability leaves the
+  // list when it is actually delivered (`fileEvidenceCapabilities` — the F3
+  // build wired it in) or when the user removes it (the durable tombstone).
+  if ("mutedCapabilities" in base || "mutedCapabilities" in next) {
+    const delivered = new Set([
+      ...normalizeCapabilityList(next.fileEvidenceCapabilities),
+      ...normalizeCapabilityList(merged.removedCapabilities),
+    ]);
+    const unionedMuted = new Set([
+      ...normalizeCapabilityList(base.mutedCapabilities),
+      ...normalizeCapabilityList(next.mutedCapabilities),
+    ]);
+    merged.mutedCapabilities = Array.from(unionedMuted).filter(
+      (capability) => !delivered.has(capability),
+    );
+  }
   return merged;
+}
+
+/** Snapshot key holding the deferred ("Planerad") integration capabilities. */
+export const MUTED_CAPABILITIES_SNAPSHOT_KEY = "mutedCapabilities";
+
+/**
+ * Deferred integration capabilities persisted on the snapshot — capabilities
+ * the user asked for that the design stage did not wire in. Read by the
+ * Byggblock overview so they show up as "Planerad — kopplas in i nästa steg"
+ * instead of vanishing with the mute. Always tombstone-filtered.
+ */
+export function readMutedCapabilitiesFromSnapshot(
+  snapshot: Record<string, unknown> | null | undefined,
+): string[] {
+  const removed = new Set(readStringArraySnapshotKey(snapshot, "removedCapabilities"));
+  return readStringArraySnapshotKey(snapshot, MUTED_CAPABILITIES_SNAPSHOT_KEY).filter(
+    (capability) => !removed.has(capability),
+  );
 }
 
 // ── F3 approved integrations (durable approval) ───────────────────────────

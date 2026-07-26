@@ -178,4 +178,24 @@ Stegen är oberoende av varandra och kan tas i valfri ordning av samma agent.
 
 ## Ägarbeslut
 
-- **B2 (Lansering-kortets framtid):** _(ej beslutat)_
+- **B2 (Lansering-kortets framtid):** **Alternativ B** — beslutat 2026-07-26.
+  Kortet renderas bara vid `blocked` eller `warning`. Vid `ready` döljs det helt
+  och `Publicera`-knappen bär den positiva signalen. Klarspråksomskrivningen från
+  alternativ C görs oavsett — den kostar ingenting extra och krävs av
+  `terminology.mdc`. `Publicera`-knappens `deployDisabledReason` måste fortsätta
+  förklara spärren i klarspråk, eftersom kortet inte längre är den enda bäraren.
+
+## Evidence (implementation 2026-07-26)
+
+- F8: `latestLabel` → `preferredLabel` + `kind: stale-selection | rejected-active`;
+  ingen hide-guard. Tester: `explains a rejected active version without calling
+  it senaste`, `still renders when active version number is higher than preferred
+  (regression)`.
+- Ö11: `onApplyAnthropicComparePreset` + menyvalet borttaget. `knip --exports`:
+  inga träffar på Anthropic-/latestLabel-symboler.
+- Ö8/B2: `LaunchReadinessCard` returnerar `null` vid `ready`; klarspråk i
+  readiness route + payload. Snapshot uppdaterad. `deployDisabledReason` läser
+  fortfarande `blockers[0].detail|title` (nu klarspråk).
+- Ej rörda (utanför ownership): `src/lib/gen/preview/diagnostics.ts` (mappas
+  lokalt i readiness-route), `engine-version-lifecycle.ts` deploy-API-meddelanden
+  (readiness använder egen copy, ignorerar `releaseGate.message`).

@@ -50,7 +50,7 @@ import {
   inheritQualityTargetFromPriorVersion,
   resolveBuildIntentPromotion,
 } from "./policy-helpers";
-import { filterDossierCapabilitiesForPrompt } from "./capability-prompt-filter";
+import { filterDossierCapabilitiesForPromptWithMutes } from "./capability-prompt-filter";
 import {
   detectFollowUpRouteDrift,
   emitFollowUpFreezeDrift,
@@ -584,6 +584,13 @@ export async function resolveOrchestrationBase(
   // per environment if the dossier pool is unhealthy.
   let dossierSelection: DossierSelectionResult | null = null;
   let dossierRequestedCapabilities: string[] = [];
+  let mutedCapabilities: string[] = [];
+  // File evidence from the base version — one computation, two consumers: the
+  // F3 capability scope below and the status surfaces that must be able to
+  // tell a contract PROPOSAL apart from a delivered file (spår 01 steg 5).
+  const fileEvidenceCapabilities = resolveCapabilitiesPresentInVersion(
+    input.previousFilePaths ?? [],
+  );
   if (FEATURES.useDossierPipeline && !simpleWebsitePath) {
     try {
       const inferredCapabilityIds =
@@ -608,11 +615,13 @@ export async function resolveOrchestrationBase(
           ...callerProvidedCapabilityIds,
         ]),
       );
-      const mergedCaps = filterDossierCapabilitiesForPrompt({
+      const promptFilter = filterDossierCapabilitiesForPromptWithMutes({
         capabilities: mergedCapsRaw,
         prompt: input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt,
         previewPolicy: buildSpec.previewPolicy,
       });
+      const mergedCaps = promptFilter.capabilities;
+      mutedCapabilities = promptFilter.mutedCapabilities;
       // 5-5 capabilities can-only-grow: restore the FollowUpContract floor so a
       // base-version capability (e.g. an init contact-form) can never be
       // silently filtered away just because this follow-up message doesn't
@@ -658,9 +667,6 @@ export async function resolveOrchestrationBase(
           // evidence yet) → the next round's scope drops the capability again.
           ...f3ApprovedCapabilities,
         ];
-        const fileEvidenceCapabilities = resolveCapabilitiesPresentInVersion(
-          input.previousFilePaths ?? [],
-        );
         const f3Scope = scopeF3DossierCapabilities({
           capabilities: dossierRequestedCapabilities,
           explicitCapabilities,
@@ -748,6 +754,8 @@ export async function resolveOrchestrationBase(
     serializeMode: resolvedSerializeMode,
     uiRecipes,
     dossierRequestedCapabilities,
+    mutedCapabilities,
+    fileEvidenceCapabilities,
     removedCapabilities,
     readdedCapabilities,
     removedDossierIds,

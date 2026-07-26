@@ -7,6 +7,7 @@ vi.mock("@/lib/utils/debug", () => ({
 
 import {
   buildAutoFixPrompt,
+  buildModelInfoSteps,
   buildPromptStrategySteps,
   finalizeStreamStats,
   initStreamStats,
@@ -209,6 +210,73 @@ describe("buildPromptStrategySteps", () => {
 
     expect(steps).not.toContain("Källa: Auto-repair (server-driven)");
     expect(steps).toContain("Typ: followup_technical");
+  });
+});
+
+describe("buildModelInfoSteps — deferred integrations and contract rows", () => {
+  it("lists deferred integrations as planned for the next step", () => {
+    const steps = buildModelInfoSteps({
+      modelId: "gpt-5.5",
+      mutedCapabilityLabels: ["Nyhetsbrev — Mailchimp"],
+    });
+
+    expect(steps).toContain(
+      "Planerad — kopplas in i nästa steg: Nyhetsbrev — Mailchimp",
+    );
+  });
+
+  it("marks contract rows without file evidence as planned", () => {
+    const steps = buildModelInfoSteps({
+      modelId: "gpt-5.5",
+      contractAuthProvider: "clerk",
+      contractDatabaseProvider: "supabase",
+      contractDataMode: "persisted",
+      contractEnvVars: [{ key: "CLERK_SECRET_KEY" }],
+      fileEvidenceCapabilities: [],
+    });
+
+    expect(steps).toContain("Auth: clerk (planerad — kopplas in i nästa steg)");
+    expect(steps).toContain("Databas: supabase (planerad — kopplas in i nästa steg)");
+    expect(steps).toContain("Data mode: persisted (planerad — kopplas in i nästa steg)");
+    expect(steps).toContain(
+      "Kontrakt env vars: CLERK_SECRET_KEY (planerad — kopplas in i nästa steg)",
+    );
+    expect(steps).not.toContain("Auth: clerk");
+  });
+
+  it("keeps a contract row plain when the version actually contains its files", () => {
+    const steps = buildModelInfoSteps({
+      modelId: "gpt-5.5",
+      contractAuthProvider: "clerk",
+      contractDatabaseProvider: "supabase",
+      fileEvidenceCapabilities: ["auth"],
+    });
+
+    expect(steps).toContain("Auth: clerk");
+    expect(steps).toContain("Databas: supabase (planerad — kopplas in i nästa steg)");
+  });
+
+  it("leaves a mocked data mode plain — it is what the round delivers", () => {
+    const steps = buildModelInfoSteps({
+      modelId: "gpt-5.5",
+      contractDataMode: "mocked",
+      fileEvidenceCapabilities: [],
+    });
+
+    expect(steps).toContain("Data mode: mocked");
+  });
+
+  it("does not let an unrelated dossier vouch for the contract env vars", () => {
+    const steps = buildModelInfoSteps({
+      modelId: "gpt-5.5",
+      contractAuthProvider: "clerk",
+      contractEnvVars: [{ key: "CLERK_SECRET_KEY" }],
+      fileEvidenceCapabilities: ["command-palette"],
+    });
+
+    expect(steps).toContain(
+      "Kontrakt env vars: CLERK_SECRET_KEY (planerad — kopplas in i nästa steg)",
+    );
   });
 });
 

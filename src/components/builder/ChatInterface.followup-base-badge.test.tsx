@@ -39,22 +39,27 @@ vi.mock("@/components/media/text-uploader", () => ({
 import { ChatInterface } from "./ChatInterface";
 
 describe("ChatInterface follow-up base badge (P19 Steg 3)", () => {
-  it("does not render the badge when the user is on the latest version", () => {
+  it("does not render the badge when the user is on the preferred version", () => {
     render(<ChatInterface chatId="chat_1" />);
     expect(screen.queryByTestId("followup-base-badge")).toBeNull();
   });
 
-  it("renders the badge with both labels when editing a non-latest base", () => {
+  it("renders the badge with both labels when editing a non-preferred base", () => {
     render(
       <ChatInterface
         chatId="chat_1"
-        followUpBaseInfo={{ baseLabel: "v2", latestLabel: "v5" }}
+        followUpBaseInfo={{
+          baseLabel: "v2",
+          preferredLabel: "v5",
+          kind: "stale-selection",
+        }}
       />,
     );
     const badge = screen.getByTestId("followup-base-badge");
     expect(badge).toBeTruthy();
     expect(badge.textContent).toContain("v2");
     expect(badge.textContent).toContain("v5");
+    expect(badge.textContent).toContain("nyare fungerande version");
     expect(badge.getAttribute("role")).toBe("status");
   });
 
@@ -66,11 +71,56 @@ describe("ChatInterface follow-up base badge (P19 Steg 3)", () => {
     render(
       <ChatInterface
         chatId="chat_1"
-        followUpBaseInfo={{ baseLabel: "#ab12cd", latestLabel: "#ef34gh" }}
+        followUpBaseInfo={{
+          baseLabel: "#ab12cd",
+          preferredLabel: "#ef34gh",
+          kind: "stale-selection",
+        }}
       />,
     );
     const badge = screen.getByTestId("followup-base-badge");
     expect(badge.textContent).toContain("#ab12cd");
     expect(badge.textContent).toContain("#ef34gh");
+  });
+
+  it("explains a rejected active version without calling it senaste", () => {
+    render(
+      <ChatInterface
+        chatId="chat_1"
+        followUpBaseInfo={{
+          baseLabel: "v2",
+          preferredLabel: "v1",
+          kind: "rejected-active",
+        }}
+      />,
+    );
+    const badge = screen.getByTestId("followup-base-badge");
+    expect(badge).toBeTruthy();
+    expect(badge.textContent).toContain("v2");
+    expect(badge.textContent).toContain("v1");
+    expect(badge.textContent).toContain("inte gick att bygga");
+    expect(badge.textContent).toContain("senaste som fungerade");
+    // Must not call the rejected active version "senaste".
+    expect(badge.textContent).not.toMatch(/inte senaste\s+v2/);
+    expect(badge.textContent).not.toMatch(/senaste\s+v2/);
+  });
+
+  it("still renders when active version number is higher than preferred (regression)", () => {
+    // Guard against hiding the banner when active > preferred — that would
+    // silence a legitimate warning while follow-ups keep building on a
+    // rejected base (false-green).
+    render(
+      <ChatInterface
+        chatId="chat_1"
+        followUpBaseInfo={{
+          baseLabel: "v3",
+          preferredLabel: "v1",
+          kind: "rejected-active",
+        }}
+      />,
+    );
+    expect(screen.getByTestId("followup-base-badge")).toBeTruthy();
+    expect(screen.getByTestId("followup-base-badge").textContent).toContain("v3");
+    expect(screen.getByTestId("followup-base-badge").textContent).toContain("v1");
   });
 });

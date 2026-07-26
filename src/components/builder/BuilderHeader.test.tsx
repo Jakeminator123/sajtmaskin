@@ -26,7 +26,6 @@ function baseProps(overrides: Partial<BuilderHeaderProps> = {}): BuilderHeaderPr
   return {
     selectedModelTier: "pro",
     onSelectedModelTierChange: () => {},
-    onApplyAnthropicComparePreset: () => {},
 
     promptAssistModel: "off",
     promptAssistDeep: false,

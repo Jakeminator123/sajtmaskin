@@ -185,12 +185,15 @@ export function describeDossierStatus(
     case "planned":
     default:
       return {
-        label: lifecycleStage === "integrations" ? "Planerad — ej byggd" : "Planerad (F2-mockup)",
+        label:
+          lifecycleStage === "integrations"
+            ? "Planerad — ej byggd"
+            : "Planerad — kopplas in i nästa steg",
         tone: "muted",
         hint:
           lifecycleStage === "integrations"
-            ? "Integrationens riktiga kod är ännu inte wire:ad in i versionen."
-            : "Planerad integration — visas som mockup/demo i F2-previewn. Riktig kod byggs vid \u201dBygg integrationer\u201d.",
+            ? "Integrationens riktiga kod är ännu inte inkopplad i versionen."
+            : "Designsteget ritar bara ytan — knappen eller formuläret syns, men ingen tjänst är inkopplad ännu. Det sker vid \u201dBygg integrationer\u201d.",
       };
   }
 }

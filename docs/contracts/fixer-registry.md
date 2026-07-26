@@ -130,7 +130,7 @@ Lane-kontrakten för fixer-systemet. Målet är tydliga entrypoints per lane, in
 | `mechanical` | `runAutoFix()` i `src/lib/gen/autofix/pipeline.ts` | Under Normalize när kandidatversion byggs | CodeProject-innehåll | Mekaniskt reparerat innehåll + `FixEntry[]` | Kandidatens filer |
 | `static_gate` | `validateAndFix()` + `runFinalizePreflightAll()` | Efter mekanisk lane för gate-signaler | Kandidatens filer | Valideringsresultat/preflight-issues | Ingen kod (bara signaler) |
 | `llm_repair` | `runLlmRepairGate()` (syntax + verifier) | När static-gate har Blocker-residual | Kandidat + fel-sammanfattning | RepairGate-reparerat kandidatinnehåll (eller noop) | Kandidatens filer |
-| `stream_suspense` | `createDefaultRules()` i `src/lib/gen/suspense/default-rules.ts` | Under streamning, rad-för-rad | Stream-rader | Transformerade rader före parse/finalize | Endast stream-buffer/context |
+| `stream_suspense` | `createDefaultRules(scope)` i `src/lib/gen/suspense/default-rules.ts` | Under streamning, rad-för-rad | Stream-rader | Transformerade rader före parse/finalize | Endast stream-buffer/context |
 | `post_merge` | `repairGeneratedFiles()` + `fixTypeOnlyModuleDefaultImports()` | Efter merge/scaffold-preflight | Merged `CodeFile[]` | Reparerat merged filset + fixes | Merged filset |
 | `server_repair` | `runRepairLoop()` i `src/lib/gen/verify/repair-loop.ts` | Efter server-verify/RenderGate-/ReleaseGate-fel | Persistad version + verifierfel | Reparerad serverversion eller early-stop | Persistad version |
 
@@ -140,6 +140,36 @@ Lane-gränser:
 - `repairGeneratedFiles()` är separat post-merge lane; samma fixer-id kan förekomma men taggas `post_merge`.
 - `createDefaultRules()` är enda default-väg till suspense-rules i streaming-lane.
 - Server-repair (`runRepairLoop`) är separat lane men skickar LLM-residual via RepairGate.
+
+### `stream_suspense`: två scope, en gräns som inte får suddas
+
+`createDefaultRules()` tar ett scope. `canonical` är reparationer som hör hemma i
+den sparade artefakten. `preview` är samma regler plus de som kommenterar bort
+importer preview-VM:en inte kan köra (`next/og`, `next/headers`, `server-only`)
+och skriver `(stripped for preview compatibility)`.
+
+De preview-only-reglerna förstör fungerande kod. De får därför bara röra kopian
+som skickas till previewen — aldrig den `finalizeAndSaveVersion` persisterar, där
+`project-sanity` avvisar strippmarkören som ett strukturfel. Båda previewbanorna
+måste applicera dem själva: Fly-hostbanan via `preview-session.ts` och
+same-origin-shimbanan via `buildPreviewHtml`, båda genom
+`src/lib/gen/preview/preview-only-files.ts`. En bana som hoppar över dem kraschar
+på sparade filer med serverimporter; en bana som kör dem för tidigt sparar
+sönderklippt kod. Låst av `preview-only-files.test.ts`.
+
+### `server_repair`: ett pass får inte göra artefakten sämre
+
+Loopen jämför blockerande preflight-fynd före och efter varje pass:
+
+| Utfall | `earlyStopReason` | Vad loopen gör |
+|---|---|---|
+| Passet skapade ett blockerande fel som inte fanns innan | `blocker_regression` | rullar tillbaka till innehållet före passet och stannar |
+| Samma blockerande fel finns kvar efter två pass | `blocker_unresolved` | stannar i stället för ett tredje identiskt varv |
+
+Båda utfallen bär fyndnycklarna vidare (`introducedBlockers` /
+`unresolvedBlockers`) och har egen copy i reparationsroutens svar. Rollbacken
+gäller **bara** när ett nytt fel tillkom; ett kvarstående fel får fortfarande sitt
+andra försök. Ägare: `src/lib/gen/verify/repair-blockers.ts`.
 
 ## Adding a new fixer
 

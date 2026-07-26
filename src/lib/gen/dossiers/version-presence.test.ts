@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { SCAFFOLD_BASELINE_FILE_PATHS } from "../export/project-scaffold";
+import { getAllScaffolds } from "../scaffolds/registry";
 import {
   resolveCapabilitiesPresentInVersion,
   resolveDossierIdsPresentInVersion,
@@ -35,6 +37,27 @@ describe("resolveDossierIdsPresentInVersion", () => {
 
   it("returns [] for empty input", () => {
     expect(resolveDossierIdsPresentInVersion([])).toEqual([]);
+  });
+
+  // The dashboard-charts false positive: a manifest that declares a path the
+  // platform writes into EVERY project (lib/utils.ts) made that dossier look
+  // built everywhere. A baseline path is never evidence, no matter how few
+  // dossiers declare it.
+  it("returns [] for a version containing only the scaffold baseline", () => {
+    expect(resolveDossierIdsPresentInVersion([...SCAFFOLD_BASELINE_FILE_PATHS])).toEqual([]);
+    expect(resolveCapabilitiesPresentInVersion([...SCAFFOLD_BASELINE_FILE_PATHS])).toEqual([]);
+  });
+
+  it("returns [] for a baseline-only version even for the scaffold's own files", () => {
+    const scaffoldPaths = getAllScaffolds().flatMap((scaffold) =>
+      scaffold.files.map((file) => file.path),
+    );
+    expect(
+      resolveDossierIdsPresentInVersion([
+        ...SCAFFOLD_BASELINE_FILE_PATHS,
+        ...scaffoldPaths,
+      ]),
+    ).toEqual([]);
   });
 
   // Relaxed matching (review round 2, impact 5): the user edited/renamed a

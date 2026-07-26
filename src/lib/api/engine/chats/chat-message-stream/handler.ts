@@ -33,6 +33,7 @@ import {
   resolveFollowUpPreviousFiles,
 } from "@/lib/gen/version-manager";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
 import {
   DEFAULT_MODEL_ID,
@@ -702,7 +703,16 @@ export async function handleMessageStreamRequest(
           });
         }
 
-        await chatRepo.addMessage(engineChat.id, "user", message);
+        // Auto-repair prompts are still a real "user" turn for every other
+        // reader of engine_messages (F3-continuation, contract answers,
+        // OpenClaw context, chat history) — only the additive uiParts marker
+        // changes, so those readers keep working unmodified (Spår 03 Steg 4,
+        // risk table: "additivt metadatafält är säkrare än en ny roll").
+        const userUiParts =
+          metaPromptSourceKind === "autofix"
+            ? [{ type: PROMPT_SOURCE_UI_PART_TYPE, sourceKind: "autofix" }]
+            : undefined;
+        await chatRepo.addMessage(engineChat.id, "user", message, undefined, userUiParts);
 
         // PHASE B — atomic F3-marker consume at the persistence boundary
         // (see `consumeF3MarkerPhaseB` for the full contract). True when this

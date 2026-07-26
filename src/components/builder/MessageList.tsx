@@ -42,7 +42,7 @@ import { Streamdown, type Components, type ExtraProps } from "streamdown";
 import { code as streamdownCode } from "@streamdown/code";
 import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
-import type { ChatMessage } from "@/lib/builder/types";
+import { isAutoRepairPromptMessage, type ChatMessage } from "@/lib/builder/types";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
 import {
@@ -460,6 +460,13 @@ const MessageListComponent = ({
           const hasVisibleTooling =
             agentLogItems.length > 0 || compactToolParts.length > 0 || toolParts.length > 0;
           const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
+          const rawMessage = externalMessages[messageIndex];
+          // Auto-repair prompts are a real "user" turn in the DB (see
+          // isAutoRepairPromptMessage) but must never look like something the
+          // user typed (Spår 03 Steg 4) — render them as a collapsed system
+          // row instead of a user bubble.
+          const isAutoRepairPrompt = Boolean(rawMessage && isAutoRepairPromptMessage(rawMessage));
+          const isRepairInProgress = Boolean(messages[messageIndex + 1]?.isStreaming);
 
           return (
             <ConversationItem
@@ -470,7 +477,7 @@ const MessageListComponent = ({
                 message.role === "user" && isStreaming && !hasUserAfterCurrentMessage
               }
             >
-              <Message from={message.role}>
+              <Message from={isAutoRepairPrompt ? "system" : message.role}>
               <MessageContent>
                 {message.role === "assistant" && reasoningPart && (
                   <Reasoning isStreaming={Boolean(message.isStreaming && !textContent)}>
@@ -586,6 +593,8 @@ const MessageListComponent = ({
                   ) : message.isStreaming && !reasoningPart && !hasStructuredParts && !hasVisibleTooling ? (
                     <span className="text-sm text-gray-500">Startar own-engine-ström...</span>
                   ) : null
+                ) : isAutoRepairPrompt ? (
+                  <AutoRepairMessageRow content={textContent} isInProgress={isRepairInProgress} />
                 ) : (
                   <CollapsibleUserMessage content={textContent} />
                 )}
@@ -737,16 +746,6 @@ const MessageListComponent = ({
 export const MessageList = memo(MessageListComponent);
 
 /**
- * CollapsibleUserMessage - Truncates long user messages (especially shadcn/ui block prompts)
- * Shows first few lines with expand button for long technical messages.
- *
- * Special-case: server- och klient-driven autofix-prompter (start med
- * "AUTO-FIX REQUEST — TARGETED REPAIR") är interna repair-instruktioner
- * till modellen och ska ALDRIG renderas som vanlig användarchat-text.
- * De visas som en kompakt status-rad med expanderbart innehåll för
- * felsökning.
- */
-/**
  * Best-effort phase guess for the auto-repair status line.
  *
  * The repair pipeline does not currently emit per-phase SSE events to
@@ -798,47 +797,75 @@ function RepairProgressIndicator() {
   );
 }
 
+/**
+ * Renders an auto-repair prompt (Spår 03 Steg 4) as a collapsed system row —
+ * never as a user bubble, since the user never typed it. Kept expandable so
+ * the actual repair instruction is still available for debugging. While the
+ * repair round is still streaming, a live progress indicator replaces the
+ * static "kördes" label so the user sees that work is in flight.
+ */
+function AutoRepairMessageRow({
+  content,
+  isInProgress,
+}: {
+  content: string;
+  isInProgress: boolean;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const lineCount = content.split("\n").length;
+
+  return (
+    <div className="space-y-2">
+      {isInProgress ? (
+        <RepairProgressIndicator />
+      ) : (
+        <div
+          className="text-muted-foreground bg-muted/40 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs"
+          aria-live="polite"
+        >
+          <span>Automatisk reparation kördes</span>
+        </div>
+      )}
+      {isExpanded ? (
+        <div className="space-y-2">
+          <MessageResponse>
+            <Streamdown
+              plugins={{ code: streamdownCode }}
+              components={STREAMDOWN_PLAIN_COMPONENTS}
+            >
+              {content}
+            </Streamdown>
+          </MessageResponse>
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+          >
+            <ChevronUp className="h-3 w-3" />
+            Dölj den tekniska instruktionen
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setIsExpanded(true)}
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+        >
+          <ChevronDown className="h-3 w-3" />
+          Visa den tekniska instruktionen ({lineCount} rader)
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * CollapsibleUserMessage - Truncates long user messages (especially shadcn/ui block prompts)
+ * Shows first few lines with expand button for long technical messages.
+ */
 function CollapsibleUserMessage({ content }: { content: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const lineCount = content.split("\n").length;
   const charCount = content.length;
-
-  const isAutoFixPrompt = content.trimStart().startsWith("AUTO-FIX REQUEST");
-  if (isAutoFixPrompt) {
-    return (
-      <div className="space-y-2">
-        <RepairProgressIndicator />
-        {isExpanded ? (
-          <div className="space-y-2">
-            <MessageResponse>
-              <Streamdown
-                plugins={{ code: streamdownCode }}
-                components={STREAMDOWN_PLAIN_COMPONENTS}
-              >
-                {content}
-              </Streamdown>
-            </MessageResponse>
-            <button
-              onClick={() => setIsExpanded(false)}
-              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
-            >
-              <ChevronUp className="h-3 w-3" />
-              Dölj teknisk reparations-instruktion
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setIsExpanded(true)}
-            className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
-          >
-            <ChevronDown className="h-3 w-3" />
-            Visa teknisk reparations-instruktion ({lineCount} rader)
-          </button>
-        )}
-      </div>
-    );
-  }
 
   // Check if this is a long technical message (shadcn block prompt pattern)
   const isTechnicalPrompt = content.includes("---") && content.includes("Registry files");

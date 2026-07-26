@@ -4,6 +4,7 @@ import { findPageFile, findCssFiles, findComponentFiles } from "./file-resolutio
 import { normalizePreviewCss, buildPreviewBaseCss } from "./css";
 import { buildPreviewScript } from "./script-builder";
 import { isShimPreviewDisabled } from "./legacy/compatibility-shim";
+import { applyPreviewOnlyRulesToFiles } from "./preview-only-files";
 import {
   INSPECT_BRIDGE_SCRIPT_ROUTE,
   isInspectBridgeEnabled,
@@ -14,7 +15,10 @@ const TAILWIND_CDN_URL = "https://cdn.tailwindcss.com";
 const REACT_UMD_URL = "https://unpkg.com/react@18.3.1/umd/react.production.min.js";
 const REACT_DOM_UMD_URL = "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js";
 
-export function buildPreviewHtml(files: CodeFile[], routePath?: string | null): string | null {
+export function buildPreviewHtml(rawFiles: CodeFile[], routePath?: string | null): string | null {
+  // The shim has no module for `next/headers`, `next/og` or `server-only`, and
+  // the saved artefact keeps those imports since F4 split the rule sets.
+  const files = applyPreviewOnlyRulesToFiles(rawFiles);
   const normalizedRoute = normalizeRoutePath(routePath);
   const pageFile = findPageFile(files, normalizedRoute);
   if (!pageFile) return null;

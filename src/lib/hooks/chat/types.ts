@@ -169,6 +169,17 @@ export type ModelInfoData = {
   scaffoldId?: string | null;
   scaffoldLabel?: string | null;
   capabilities?: Record<string, boolean> | null;
+  /**
+   * Swedish labels for integrations the design round deferred, shown to the
+   * user as "Planerad — kopplas in i nästa steg" so a named service the round
+   * did not wire in is visible instead of silently dropped.
+   */
+  mutedCapabilityLabels?: string[] | null;
+  /**
+   * Dossier capabilities with real file evidence in the version. Contract rows
+   * below are a PROPOSAL; without evidence they render as planned.
+   */
+  fileEvidenceCapabilities?: string[] | null;
   contractDataMode?: string | null;
   contractDatabaseProvider?: string | null;
   contractAuthProvider?: string | null;

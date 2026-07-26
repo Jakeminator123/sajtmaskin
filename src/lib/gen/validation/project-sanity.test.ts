@@ -281,5 +281,30 @@ import { Button } from "@/components/ui/button"
       collisionIssues.some((issue) => issue.file === "hooks/use-reduced-motion.tsx"),
     ).toBe(true);
     expect(result.valid).toBe(false);
+    // Meddelandet räknar upp alla kolliderande sökvägar, så det krymper när en
+    // av dem tas bort. `subject` är fyndets identitet och ändras inte — det är
+    // den reparationsloopens regressionsvakt jämför på (Codex P1 på #623).
+    expect(collisionIssues.every((issue) => issue.subject === "duplicate-module:hooks/use-reduced-motion")).toBe(true);
+  });
+
+  it("gives a missing dependency a subject that survives a shrinking importer list", () => {
+    const importer = (name: string) => ({
+      path: `components/${name}.tsx`,
+      language: "tsx" as const,
+      content: `import { X } from "recharts";\nexport const ${name} = () => X;`,
+    });
+    const pkg = {
+      path: "package.json",
+      language: "json" as const,
+      content: JSON.stringify({ name: "site", dependencies: {} }),
+    };
+
+    const many = runProjectSanityChecks([pkg, importer("a"), importer("b"), importer("c")]);
+    const one = runProjectSanityChecks([pkg, importer("a")]);
+    const subjectOf = (result: { issues: Array<{ subject?: string; message: string }> }) =>
+      result.issues.find((issue) => issue.message.includes("recharts"))?.subject;
+
+    expect(subjectOf(many)).toBe("missing-dependency:recharts");
+    expect(subjectOf(one)).toBe("missing-dependency:recharts");
   });
 });

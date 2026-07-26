@@ -65,7 +65,10 @@ import {
 } from "@/lib/gen/dossiers/version-presence";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { dossierRequiresF3, type SelectedDossier } from "@/lib/gen/dossiers/types";
-import { extractBriefSummaryFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import {
+  extractBriefSummaryFromSnapshot,
+  readMutedCapabilitiesFromSnapshot,
+} from "@/lib/gen/orchestration-snapshot";
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import {
   mapProviderKeysToDossierCapabilities,
@@ -203,9 +206,17 @@ async function buildDossierOverview(
   // array, so legacy/malformed snapshots can carry non-string entries here.
   // Filter to strings before lowercasing — same tolerant pattern as
   // `resolveSelectedDossiersFromSnapshot` — instead of 500:ing the route.
-  const plannedCapabilities = (briefSummary?.requestedCapabilities ?? [])
-    .filter((capability): capability is string => typeof capability === "string")
-    .map((capability) => capability.toLowerCase());
+  // Third planned source (spår 01 steg 3): capabilities the design stage
+  // deliberately deferred. The brief only carries what the INIT prompt asked
+  // for, so a newsletter requested in a follow-up ("koppla på Mailchimp")
+  // showed up nowhere — the mute dropped it from the floor and the user got
+  // no sign that it was registered at all.
+  const plannedCapabilities = [
+    ...(briefSummary?.requestedCapabilities ?? []).filter(
+      (capability): capability is string => typeof capability === "string",
+    ),
+    ...readMutedCapabilitiesFromSnapshot(chat.orchestration_snapshot),
+  ].map((capability) => capability.toLowerCase());
   const detectedCapabilities = provisionalSpec
     ? mapProviderKeysToDossierCapabilities(
         provisionalSpec.requirements.map((requirement) => requirement.key),

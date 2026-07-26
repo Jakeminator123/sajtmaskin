@@ -23,12 +23,26 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     setMode: "sajtmaskin:inspect:set-mode",
     hover: "sajtmaskin:inspect:hover",
     pick: "sajtmaskin:inspect:pick",
-    ready: "sajtmaskin:inspect:ready"
+    ready: "sajtmaskin:inspect:ready",
+    rect: "sajtmaskin:inspect:rect",
+    region: "sajtmaskin:inspect:region"
   };
   var enabled = false;
   var box = null;
+  var selBox = null;
   var lastHover = null;
+  var tracked = null;
+  var marks = [];
+  var dragStart = null;
+  var dragging = false;
+  var suppressClick = false;
+  var rafPending = false;
+  var DRAG_THRESHOLD = 6;
+  var MAX_REGION_CANDIDATES = 400;
+  var MAX_REGION_ELEMENTS = 30;
   var BOX_ID = "__sajtmaskin_inspect_box__";
+  var SEL_ID = "__sajtmaskin_inspect_selection__";
+  var MARK_ATTR = "data-sajtmaskin-inspect-mark";
   function ensureBox() {
     if (box) return box;
     box = document.createElement("div");
@@ -41,7 +55,27 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     (document.body || document.documentElement).appendChild(box);
     return box;
   }
-  function clean(v) { return v ? String(v).replace(/\s+/g, " ").trim().slice(0, 160) : null; }
+  function ensureSelBox() {
+    if (selBox) return selBox;
+    selBox = document.createElement("div");
+    selBox.id = SEL_ID;
+    var s = selBox.style;
+    s.position = "fixed"; s.zIndex = "2147483646"; s.pointerEvents = "none";
+    s.border = "1px dashed #60a5fa"; s.background = "rgba(96,165,250,0.12)";
+    s.display = "none";
+    (document.body || document.documentElement).appendChild(selBox);
+    return selBox;
+  }
+  function cleanMax(v, max) { return v ? String(v).replace(/\s+/g, " ").trim().slice(0, max) : null; }
+  function clean(v) { return cleanMax(v, 160); }
+  function ownTextOf(el) {
+    var out = "";
+    var kids = el && el.childNodes ? el.childNodes : [];
+    for (var i = 0; i < kids.length; i++) {
+      if (kids[i].nodeType === 3) out += kids[i].nodeValue || "";
+    }
+    return cleanMax(out, 400);
+  }
   function cssEscape(v) {
     try { return (window.CSS && CSS.escape) ? CSS.escape(v) : String(v).replace(/[^a-zA-Z0-9_-]/g, "\\$&"); }
     catch (e) { return String(v); }
@@ -76,6 +110,12 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
       id: el.id || null,
       className: (typeof el.className === "string" ? el.className.trim() : "") || null,
       text: clean(el.innerText || el.textContent),
+      // Bara elementets EGNA textnoder. innerText tar med barnens text,
+      // så utan detta ser en wrapper ut som om den hade en egen textliteral.
+      ownText: ownTextOf(el),
+      childElementCount: el.children ? el.children.length : 0,
+      src: clean(el.getAttribute && el.getAttribute("src")),
+      alt: clean(el.getAttribute && el.getAttribute("alt")),
       ariaLabel: clean(el.getAttribute && el.getAttribute("aria-label")),
       role: clean(el.getAttribute && el.getAttribute("role")),
       href: el.tagName === "A" ? clean(el.href) : clean(el.getAttribute && el.getAttribute("href")),
@@ -84,6 +124,14 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
       rect: { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) },
       viewport: { w: window.innerWidth, h: window.innerHeight }
     };
+  }
+  function rectOf(el) {
+    var r = el.getBoundingClientRect();
+    return { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) };
+  }
+  function schedule(fn) {
+    if (window.requestAnimationFrame) window.requestAnimationFrame(fn);
+    else setTimeout(fn, 16);
   }
   function post(type, payload) {
     try { window.parent.postMessage({ type: type, source: "sajtmaskin-inspect", payload: payload }, PARENT || "*"); } catch (e) {}
@@ -95,17 +143,119 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     }
     return stack[0] || null;
   }
+  function clearMarks() {
+    for (var i = 0; i < marks.length; i++) {
+      if (marks[i] && marks[i].parentNode) marks[i].parentNode.removeChild(marks[i]);
+    }
+    marks = [];
+  }
+  function markElements(els) {
+    clearMarks();
+    var host = document.body || document.documentElement;
+    for (var i = 0; i < els.length; i++) {
+      var r = els[i].getBoundingClientRect();
+      var m = document.createElement("div");
+      m.setAttribute(MARK_ATTR, "1");
+      var s = m.style;
+      s.position = "fixed"; s.zIndex = "2147483645"; s.pointerEvents = "none";
+      s.border = "2px solid #60a5fa"; s.background = "rgba(96,165,250,0.10)";
+      s.left = r.left + "px"; s.top = r.top + "px";
+      s.width = r.width + "px"; s.height = r.height + "px";
+      host.appendChild(m);
+      marks.push(m);
+    }
+  }
+  function intersects(r, b) {
+    return r.left < b.x + b.width && r.right > b.x && r.top < b.y + b.height && r.bottom > b.y;
+  }
+  /** Ytterst liggande element vars rect skär rektangeln (inga nästlade dubbletter). */
+  function elementsInRect(b) {
+    var all = document.body ? document.body.querySelectorAll("*") : [];
+    var hits = [];
+    for (var i = 0; i < all.length && hits.length < MAX_REGION_CANDIDATES; i++) {
+      var el = all[i];
+      if (el.id === BOX_ID || el.id === SEL_ID || el.getAttribute(MARK_ATTR)) continue;
+      var t = el.tagName ? el.tagName.toLowerCase() : "";
+      if (t === "script" || t === "style" || t === "link" || t === "meta" || t === "br") continue;
+      var r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      if (!intersects(r, b)) continue;
+      hits.push(el);
+    }
+    var outer = [];
+    for (var j = 0; j < hits.length && outer.length < MAX_REGION_ELEMENTS; j++) {
+      var nested = false;
+      for (var k = 0; k < hits.length; k++) {
+        if (k !== j && hits[k].contains(hits[j])) { nested = true; break; }
+      }
+      if (!nested) outer.push(hits[j]);
+    }
+    return outer;
+  }
+  function postTrackedRect() {
+    if (!enabled || !tracked) return;
+    if (!document.contains(tracked)) { tracked = null; return; }
+    post(T.rect, { rect: rectOf(tracked), viewport: { w: window.innerWidth, h: window.innerHeight } });
+  }
+  function onViewportChange() {
+    if (!enabled || !tracked || rafPending) return;
+    rafPending = true;
+    schedule(function () { rafPending = false; postTrackedRect(); });
+  }
   function onMove(e) {
     if (!enabled) return;
+    if (dragStart) {
+      if (!dragging &&
+        Math.abs(e.clientX - dragStart.x) < DRAG_THRESHOLD &&
+        Math.abs(e.clientY - dragStart.y) < DRAG_THRESHOLD) return;
+      dragging = true;
+      if (box) box.style.display = "none";
+      var sb = ensureSelBox();
+      sb.style.display = "block";
+      sb.style.left = Math.min(dragStart.x, e.clientX) + "px";
+      sb.style.top = Math.min(dragStart.y, e.clientY) + "px";
+      sb.style.width = Math.abs(e.clientX - dragStart.x) + "px";
+      sb.style.height = Math.abs(e.clientY - dragStart.y) + "px";
+      return;
+    }
     var el = pickAt(e.clientX, e.clientY); if (!el) return;
     var r = el.getBoundingClientRect(); var b = ensureBox();
     b.style.display = "block"; b.style.left = r.left + "px"; b.style.top = r.top + "px";
     b.style.width = r.width + "px"; b.style.height = r.height + "px";
     if (el !== lastHover) { lastHover = el; post(T.hover, describe(el)); }
   }
+  function onDown(e) {
+    if (!enabled || e.button !== 0) return;
+    clearMarks();
+    dragStart = { x: e.clientX, y: e.clientY };
+    dragging = false;
+  }
+  function onUp(e) {
+    if (!enabled) { dragStart = null; return; }
+    if (dragging) {
+      var b = {
+        x: Math.min(dragStart.x, e.clientX),
+        y: Math.min(dragStart.y, e.clientY),
+        width: Math.abs(e.clientX - dragStart.x),
+        height: Math.abs(e.clientY - dragStart.y)
+      };
+      var els = elementsInRect(b);
+      var payload = [];
+      for (var i = 0; i < els.length; i++) payload.push(describe(els[i]));
+      markElements(els);
+      tracked = null;
+      post(T.region, { rect: b, elements: payload, viewport: { w: window.innerWidth, h: window.innerHeight } });
+      // Mouseup följs av ett click-event — utan spärren skulle rektangeln
+      // också plocka ett enskilt element och öppna elementmenyn.
+      suppressClick = true;
+    }
+    dragStart = null; dragging = false;
+    if (selBox) selBox.style.display = "none";
+  }
   function onClick(e) {
     if (!enabled) return;
     e.preventDefault(); e.stopPropagation();
+    if (suppressClick) { suppressClick = false; return; }
     var el = pickAt(e.clientX, e.clientY); if (!el) return;
     // Inspect-kluster B (#164/#197): skicka den faktiska KLICKPUNKTEN med i
     // payloaden. Parent räknade tidigare fram elementets mittpunkt från rect,
@@ -113,6 +263,7 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     // klickade t.ex. på en knapp i kanten men punkten hamnade i mitten.
     var d = describe(el);
     if (d) d.click = { x: Math.round(e.clientX), y: Math.round(e.clientY) };
+    tracked = el;
     post(T.pick, d);
   }
   function setEnabled(v) {
@@ -120,13 +271,23 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     if (enabled) {
       ensureBox();
       document.addEventListener("mousemove", onMove, true);
+      document.addEventListener("mousedown", onDown, true);
+      document.addEventListener("mouseup", onUp, true);
       document.addEventListener("click", onClick, true);
+      window.addEventListener("scroll", onViewportChange, true);
+      window.addEventListener("resize", onViewportChange, true);
       document.documentElement.style.cursor = "crosshair";
     } else {
       document.removeEventListener("mousemove", onMove, true);
+      document.removeEventListener("mousedown", onDown, true);
+      document.removeEventListener("mouseup", onUp, true);
       document.removeEventListener("click", onClick, true);
+      window.removeEventListener("scroll", onViewportChange, true);
+      window.removeEventListener("resize", onViewportChange, true);
       if (box) box.style.display = "none";
-      lastHover = null;
+      if (selBox) selBox.style.display = "none";
+      clearMarks();
+      lastHover = null; tracked = null; dragStart = null; dragging = false; suppressClick = false;
       document.documentElement.style.cursor = "";
     }
   }

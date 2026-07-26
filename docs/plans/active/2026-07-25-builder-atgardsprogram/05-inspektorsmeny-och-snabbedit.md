@@ -174,6 +174,26 @@ levereras.
 
 ## Ägarbeslut
 
-- **Bild-av-ytan: iframe-canvas eller preview-host?** _(ej beslutat)_
+- **Bild-av-ytan: iframe-canvas eller preview-host?** **Uttryckligen skjutet** —
+  beslutat 2026-07-26. Steg 6 levererar bara markera-flera-element (ren geometri
+  på data bridgen redan har). Bild-av-ytan kräver antingen ett nytt endpoint på
+  preview-hosten eller en canvas-väg som bryts av cross-origin, och båda är
+  större än resten av spåret tillsammans. DoD rad 7 uppfylls av denna rad; menyn
+  får inte visa åtgärden förrän den finns.
 - ~~Ska snabbeditering skapa ny version?~~ **Avgjort** — ja, immutabel minorversion,
   precis som `quick-edit/service.ts` redan gör. Ingen ändring av identitetsmodellen.
+
+## Evidens
+
+**2026-07-26 — steg 1–6 implementerade i arbetsträdet (ocommittat).** Klassificeringen
+bor i `src/lib/builder/inspect-element-actions.ts`, menyn/overlayen i
+`preview-panel/PreviewInspectMenu.tsx`, och bron postar nu även `rect` (följer
+elementet vid scroll) och `region` (rektangelmarkering). Bildbytet återanvänder
+`components/media/media-drawer`; borttagningen går rakt på den befintliga
+`delete_jsx_node`-operationen. Bild-av-ytan är inte byggd och visas inte i menyn
+(ägarbeslutet ovan). Verifierat: `inspect-element-actions.test.ts` (14),
+`inspect-bridge-script.test.ts` (4), `PreviewInspectMenu.test.tsx` (3), ny
+minorversions-test i `quick-edit/service.test.ts`, hela `src/lib/builder` +
+`src/lib/gen/quick-edit` + `preview-panel` gröna (770 tester), `npx eslint` rent på
+ändrade filer, `npx tsc --noEmit` 0 fel. DoD-rad 1, 2, 3 (UI-delen), 4, 6 och 8
+kräver manuell körning i webbläsaren mot en riktig preview — de är inte livekörda.

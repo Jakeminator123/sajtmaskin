@@ -113,7 +113,7 @@ describe("PreviewPanelDossiers", () => {
     expect(screen.queryByText("Inga byggblock är inkopplade i den här versionen.")).toBeNull();
   });
 
-  it("sends id+label via onRequestDossier when a catalog row is picked and keeps the popover open with an F2-mockup notice for a HARD dossier in design stage", async () => {
+  it("sends id+label via onRequestDossier when a catalog row is picked and keeps the popover open with a design-stage surface-only notice for a HARD dossier", async () => {
     stubFetch({ wired: wiredResponse({ lifecycleStage: "design" }) });
     const onRequestDossier = vi.fn();
 
@@ -137,9 +137,9 @@ describe("PreviewPanelDossiers", () => {
       id: "stripe-checkout",
       label: "Stripe Checkout",
     });
-    // Hard pick in F2: the popover STAYS OPEN and shows the mockup notice.
+    // Hard pick in F2: the popover STAYS OPEN and shows the surface-only notice.
     expect(
-      screen.getByText(/visas som mockup i designläget/i),
+      screen.getByText(/ritas bara som yta i designläget/i),
     ).toBeTruthy();
 
     // One-shot lock: a second click on another row does nothing.

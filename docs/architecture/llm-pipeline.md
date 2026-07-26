@@ -268,4 +268,14 @@ Fast Edit Lane är inte en follow-up-codegen. Den är deterministisk och skapar 
 - Försöker patcha live preview; fallback är full preview start.
 - Ska inte köras på F3/integrations-versioner.
 
+Två ingångar, samma lane: kodvyns spar och inspektorsmenyn i previewen. Menyn
+öppnas vid muspekaren i inspect-läget och erbjuder ändra text, byt bild och ta
+bort element. Klassificeringen (`src/lib/builder/inspect-element-actions.ts`)
+avgör vad som faktiskt går att göra på det utpekade elementet innan menyn ritas —
+ett val som inte går att utföra visas gråat med orsaken i klarspråk, aldrig som ett
+val som tystnar. Text och bild går via `replace_text` med förekomstnummer;
+borttagning går via `delete_jsx_node`, som är AST-baserad och vägrar när
+borttagningen skulle göra filen oparsbar (`jsx_delete_unsafe`) eller när noden inte
+går att adressera (`jsx_delete_unsupported`).
+
 Kodankare: `src/lib/gen/quick-edit/`.

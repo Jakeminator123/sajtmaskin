@@ -451,6 +451,14 @@ const SCAFFOLD_FILES: Record<string, string> = {
   ".gitignore": GITIGNORE,
 };
 
+/**
+ * Paths the baseline fills in for EVERY project, regardless of scaffold or
+ * dossier selection. Derived from {@link SCAFFOLD_FILES} so it cannot drift.
+ * Consumed by `scaffolds/baseline-paths.ts` (dossier file-evidence must never
+ * treat a baseline path as a dossier's own delivery).
+ */
+export const SCAFFOLD_BASELINE_FILE_PATHS: readonly string[] = Object.keys(SCAFFOLD_FILES);
+
 // First line MUST be `PIPELINE_ENV_LOCAL_MARKER` — the env.example builder
 // uses it to tell this pipeline-authored placeholder file apart from a
 // genuinely model-emitted `.env.local` (see env-local.ts for the rationale).

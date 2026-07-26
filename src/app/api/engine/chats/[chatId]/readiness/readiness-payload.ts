@@ -5,14 +5,15 @@ import type { DeployReleaseGateResult } from "@/lib/db/engine-version-lifecycle"
 const SEO_ADVISORY_CODES = {
   "missing-metadata": {
     id: "seo-missing-metadata",
-    title: "SEO: metadata-export saknas.",
+    title: "Sidans titel och beskrivning saknas.",
     detail:
-      "Metadata-export saknas i layout/page. Det blockerar inte deploy, men bör åtgärdas.",
+      "Lägg till metadata i layout eller page. Det stoppar inte publicering, men hjälper i sökresultat.",
   },
   "missing-title": {
     id: "seo-missing-title",
-    title: "SEO: title saknas.",
-    detail: "Metadata saknar title. Det blockerar inte deploy, men bör åtgärdas.",
+    title: "Sidans titel saknas.",
+    detail:
+      "Lägg till en title i metadata. Det stoppar inte publicering, men hjälper i sökresultat.",
   },
 } as const;
 
@@ -76,6 +77,9 @@ export function buildSeoAdvisoriesFromMeta(meta: unknown): ChatReadinessItem[] {
  * `failed`/`draft`/`repair_available` blockeras redan av lifecycle-blockern —
  * gate-blockern läggs bara till när ingen lifecycle-blocker redan finns
  * (typiskt F3 `verifying`/`repairing`, som annars bara blir en warning).
+ *
+ * User-facing copy is plain Swedish — do not surface `releaseGate.message`
+ * (it may contain internal vocabulary). Technical detail stays in logs / DB.
  */
 export function buildReleaseGateBlocker(
   releaseGate: DeployReleaseGateResult,
@@ -86,10 +90,9 @@ export function buildReleaseGateBlocker(
   if (hasLifecycleBlocker) return null;
   return {
     id: "release-gate-not-green",
-    title: "Integrationsversionen (F3) har inte passerat ReleaseGate ännu.",
+    title: "Integrationerna är inte klara att publicera ännu.",
     detail:
-      releaseGate.message ||
-      "Publicering blockeras tills versionen är grön (typecheck + build + lint). Verifiera om och publicera när versionen är grön.",
+      "Vänta tills kontrollerna är klara, eller kör om byggandet av integrationer innan du publicerar.",
     severity: "blocker",
     action: "versions",
   };

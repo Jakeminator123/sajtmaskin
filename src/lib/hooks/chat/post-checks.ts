@@ -945,6 +945,8 @@ type ServerRepairResult = {
     | "no_improvement"
     | "time_budget_exceeded"
     | "superseded"
+    | "blocker_regression"
+    | "blocker_unresolved"
     | null;
   status?: "completed" | "repair_available" | "skipped" | "request_failed" | "superseded";
   reason?: string | null;

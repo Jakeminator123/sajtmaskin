@@ -559,6 +559,12 @@ export async function handleSseStream(
               scaffoldId: typeof meta.scaffoldId === "string" ? meta.scaffoldId : null,
               scaffoldLabel: typeof meta.scaffoldLabel === "string" ? meta.scaffoldLabel : null,
               capabilities: meta.capabilities && typeof meta.capabilities === "object" ? meta.capabilities as Record<string, boolean> : null,
+              mutedCapabilityLabels: Array.isArray(meta.mutedCapabilityLabels)
+                ? (meta.mutedCapabilityLabels as string[])
+                : null,
+              fileEvidenceCapabilities: Array.isArray(meta.fileEvidenceCapabilities)
+                ? (meta.fileEvidenceCapabilities as string[])
+                : null,
               contractDataMode:
                 typeof meta.contractDataMode === "string" ? meta.contractDataMode : null,
               contractDatabaseProvider:

@@ -76,7 +76,46 @@ export function renderCustomInstructionsBlock(customInstructions?: string): stri
 // to avoid. F3 ("Bygg integrationer" / fidelity3) is when integrations are wired
 // in — and only when the user has clicked that button.
 // See `.cursor/rules/env-flow-f2-mute.mdc`.
-export function renderF2ContractBlock(buildSpec: BuildSpec | null | undefined): string[] {
+/**
+ * Counter-instruction for capabilities the F2 mute removed from this round
+ * (`OrchestrationBase.mutedCapabilities`).
+ *
+ * The mute drops the dossier from the prompt but says nothing about what the
+ * model should do instead — so a prompt that names a service ("Mailchimp")
+ * made the model hand-build `app/api/mailchimp/route.ts` (198 lines), whose
+ * imports the F2 SDK deny-list then stripped, which blocked the preview
+ * entirely. Naming the muted capabilities makes the rule concrete instead of
+ * a generic "no backend": build the surface, never the route.
+ */
+function renderF2MutedCapabilitiesLines(
+  mutedCapabilities: readonly string[] | null | undefined,
+): string[] {
+  const muted = Array.from(
+    new Set(
+      (mutedCapabilities ?? [])
+        .filter((capability): capability is string => typeof capability === "string")
+        .map((capability) => capability.trim().toLowerCase())
+        .filter((capability) => capability.length > 0),
+    ),
+  );
+  if (muted.length === 0) return [];
+  return [
+    `**Deferred integrations in THIS round: ${muted.join(", ")}.**`,
+    "",
+    "The user asked for these by name (possibly naming a vendor such as Mailchimp, Resend or Stripe). They are deferred to the integration stage, so for each one:",
+    "",
+    "- Do NOT create any file under `app/api/**` for it — no route handler, no webhook, no server action that talks to the service.",
+    "- Do NOT import its SDK or client library, and do NOT read its `process.env` keys.",
+    "- DO render the full, beautiful surface the user would see (subscribe field, form, list, button) with local `useState` and a Swedish demo toast, e.g. `toast.success(\"Tack! Anmälan sparas när tjänsten kopplas in.\")`.",
+    "- Do NOT claim in UI copy that the service is connected. The builder tells the user separately that it is planned for the next step.",
+    "",
+  ];
+}
+
+export function renderF2ContractBlock(
+  buildSpec: BuildSpec | null | undefined,
+  mutedCapabilities?: readonly string[] | null,
+): string[] {
   if (buildSpec?.previewPolicy === "fidelity3") return [];
   return [
     "## Generation Stage: F2 / Design (HARD CONTRACT)",
@@ -103,6 +142,7 @@ export function renderF2ContractBlock(buildSpec: BuildSpec | null | undefined): 
     "- Payments UIs: render a beautiful checkout summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i F3 — klicka 'Bygg integrationer' i previewpanelen.\" No Stripe, no API call.",
     "- Search: client-side `Array.filter()` over the inline mock data.",
     "",
+    ...renderF2MutedCapabilitiesLines(mutedCapabilities),
     "Why: the user will click **\"Bygg integrationer\"** in the preview panel when they want to lift the site to F3 / integrations stage. THAT is when real keys, SDKs and API routes get wired in — by a separate generation pass with a separate prompt that explicitly asks for it. Right now, your job is to make the visual frontend perfect.",
     "",
   ];

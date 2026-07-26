@@ -10,7 +10,7 @@
 - Render `VisactorChart` only from client-rendered UI or inside client component trees.
 - Wrap charts in `ChartCard` to provide a title, description, actions, and consistent spacing.
 - Import `salesLineSpec` only as a starter example; map real project data into your own chart specs.
-- Use `addThousandsSeparator` and `numberToPercentage` for simple KPI formatting.
+- Format KPI numbers with `Intl.NumberFormat` in the host component; this dossier ships no formatting helpers.
 
 # UX rules
 

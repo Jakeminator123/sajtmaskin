@@ -203,15 +203,17 @@ Programmet ska inte svälla. Följande är uttryckligen utanför:
 - Att göra `/personal`-mönstret till en produktfunktion. Prompten var ett test,
   inte en kravspec.
 
-## Öppna ägarbeslut
+## Ägarbeslut — avgjorda 2026-07-26
 
-Tre saker kan inte avgöras av en agent. De blockerar respektive delplan.
+Alla fem beslut är fattade och skrivna in i respektive delplan.
 
-| # | Beslut | Blockerar | Alternativ |
+| # | Beslut | Utfall | Delplan |
 |---|---|---|---|
-| B1 | Vad ska hända när en F2-prompt namnger en integration? | 01 | (a) släpp in dossierns demoläge i F2, (b) generera ingen integrationskod + förklara, (c) höj till F3 automatiskt |
-| B2 | Ska "Lansering"-kortet finnas kvar? | 06 | (a) bort helt, (b) bara vid blockerare, (c) behåll men skriv om |
-| B3 | Vad ska "+ Lägg till" heta? | 04 | Ö3 är öppen; namnet styr copy i tre ytor |
+| B1 | Vad ska hända när en F2-prompt namnger en integration? | **(b)** noll integrationskod + synlig förklaring. (a) är uppföljning, inte del av programmet. | 01 |
+| B2 | Ska "Lansering"-kortet finnas kvar? | **(b)** bara vid `blocked`/`warning`, plus klarspråksomskrivning oavsett | 06 |
+| B3 | Vad ska "+ Lägg till" heta? | **`Lägg till block`** (stängt läge: `Stäng block`) | 04 |
+| Ö5 | Sekundärrad eller `Mer`-meny för de fem? | **Ikonkluster i headerns högersida**, före `Ny chat`; popovers följer sina triggers | 04 |
+| Ö10b | Bild-av-ytan: iframe-canvas eller preview-host? | **Skjutet.** Bara markera-flera-element levereras. | 05 |
 
 ## Rättelser efter granskning
 
@@ -229,6 +231,43 @@ med en rättelseruta kvar på plats så att ingen återinför felet.
 Rättelse fyra är den viktigaste: den vände en föreslagen fix från false-green till
 ett språkfel, och den är anledningen till att F8:s allvar och åtgärd ser annorlunda
 ut i delplan 06 än i defekttabellen ovan antyder.
+
+## Leveransstatus 2026-07-26
+
+Alla sex spår är implementerade och levererade via PR #623. Kvar innan
+planfamiljen får flyttas till `avklarat/`: klickrundorna i kolumnen "Kvar" nedan
+och acceptanskörningen — ingen av dem kan göras utan ögon i en riktig preview.
+
+| Spår | Kod | Tester | Kvar |
+|---|---|---|---|
+| 01 integrationstrohet | klar | `capability-prompt-filter`, `version-presence`, `orchestration-snapshot`, `helpers`, `follow-up-capability-detection`, `dossiers/route` | — |
+| 02 reparation och preflight | klar | `node-core-modules`, `preview-only-files`, `react-import-consolidated`, `repair-loop.blockers`, `preview-page-ops`, `default-rules` | — |
+| 03 chattens utdata | klar | `GenerationSummary`, `openclaw-context-messages`, `ChatOutputCollapseBar`, `MessageList` | DoD 5–6: klickrunda i buildern |
+| 04 verktygsrad och previewyta | klar | `usePreviewSurfaceMode`, `ChatInterface.preview-modes`, `PreviewPanel` | DoD 3–9: klickrunda, inkl. mobilviewport och före/efter-bild |
+| 05 inspektorsmeny | klar | `inspect-element-actions`, `inspect-bridge-script`, `PreviewInspectMenu`, `quick-edit/service` | DoD 1, 2, 4, 6, 8 + UI-halvan av 3: klickrunda mot riktig preview |
+| 06 status, copy och menyval | klar | `LaunchReadinessCard`, `readiness-payload`, `dossier-overview` | — |
+
+Defekterna: **F1–F9 stängda** och arkiverade i
+[`backlog-arkiv-2026-07-25.md`](../../avklarat/bug-swarm/backlog-arkiv-2026-07-25.md).
+**F10 är medvetet inte fixad här** — den är konsoliderad in i innehållsrevisions-raden
+i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) som punkt (d), eftersom
+reparationens versionsidentitet är samma saknade primitiv.
+
+Önskemålen: Ö1–Ö9 och Ö11 levererade, Ö10 levererad i kod. **Ö10b (bild av ytan)
+är uttryckligen skjuten** av ägarbeslutet i spår 05 — markera-flera-element
+levererades, bild-av-ytan gjorde det inte.
+
+Varje spårs plan har en egen evidensruta med filer, tester och avvikelser.
+
+Buggkollen på PR #623 gav två P1 från Codex, båda fixade i PR:en (prefix-only
+Node-built-ins och rollback av partiell blockerarminskning — se
+`node-core-modules.ts` respektive `repair-blockers.ts`), plus ett medium från
+Cursor-bugbot som **inte** är fixat: spår 01:s filbevis för kontraktsraderna
+räknas ur basversionens filer, så en integration som byggs i samma runda märks
+"planerad" trots att den levererades. Loggad som egen rad i
+[`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) med ankare och
+fixriktning; felet pekar åt det ofarliga hållet och träffar bara chattens
+detaljkort, medan Byggblock-panelens status självläker via presence-unionen.
 
 ## Källor
 

@@ -6,8 +6,45 @@ import {
   mergePersistedOrchestrationSnapshots,
   prependOrchestrationContinuityToFollowUp,
   readF3ApprovedFromSnapshot,
+  readMutedCapabilitiesFromSnapshot,
   sanitizeOrchestrationSnapshotForStorage,
 } from "./orchestration-snapshot";
+
+describe("deferred integrations (mutedCapabilities)", () => {
+  it("survives a later round that defers nothing", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedCapabilities: ["newsletter-subscribe"] },
+      { mutedCapabilities: [] },
+    );
+
+    expect(readMutedCapabilitiesFromSnapshot(merged)).toEqual([
+      "newsletter-subscribe",
+    ]);
+  });
+
+  it("clears once the integration is actually delivered in the version", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedCapabilities: ["newsletter-subscribe"] },
+      { mutedCapabilities: [], fileEvidenceCapabilities: ["newsletter-subscribe"] },
+    );
+
+    expect(readMutedCapabilitiesFromSnapshot(merged)).toEqual([]);
+  });
+
+  it("clears when the user removed the integration", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedCapabilities: ["payments"] },
+      { mutedCapabilities: [], removedCapabilities: ["payments"] },
+    );
+
+    expect(readMutedCapabilitiesFromSnapshot(merged)).toEqual([]);
+  });
+
+  it("reads nothing from a snapshot that never deferred anything", () => {
+    expect(readMutedCapabilitiesFromSnapshot({})).toEqual([]);
+    expect(readMutedCapabilitiesFromSnapshot(null)).toEqual([]);
+  });
+});
 
 describe("sanitizeOrchestrationSnapshotForStorage", () => {
   it("drops sensitive key names", () => {

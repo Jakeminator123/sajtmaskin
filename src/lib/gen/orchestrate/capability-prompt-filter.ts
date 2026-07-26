@@ -55,12 +55,37 @@ export function getF2MutedIntegrationCapabilities(): Set<string> {
   return caps;
 }
 
+export interface DossierCapabilityPromptFilterResult {
+  /** Capabilities that survive the filter and reach dossier selection. */
+  capabilities: string[];
+  /**
+   * Capabilities dropped by the F2 integration-mute specifically (NOT the
+   * carousel/3D prompt gates or the money-flow dedup — those are "the user
+   * never asked for this", while a mute is "the user asked, we defer it").
+   *
+   * Spår 01 steg 2-3: the F2 contract renders a counter-instruction from this
+   * list (build the surface, never the route), and the builder surfaces the
+   * same list to the user as "Planerad — kopplas in i nästa steg" instead of
+   * letting the mute be silent.
+   */
+  mutedCapabilities: string[];
+}
+
 export function filterDossierCapabilitiesForPrompt(params: {
   capabilities: string[];
   prompt: string;
   previewPolicy: BuildSpec["previewPolicy"];
 }): string[] {
+  return filterDossierCapabilitiesForPromptWithMutes(params).capabilities;
+}
+
+export function filterDossierCapabilitiesForPromptWithMutes(params: {
+  capabilities: string[];
+  prompt: string;
+  previewPolicy: BuildSpec["previewPolicy"];
+}): DossierCapabilityPromptFilterResult {
   const f2MutedIntegrationCapabilities = getF2MutedIntegrationCapabilities();
+  const mutedCapabilities: string[] = [];
   // Alias-normalize BEFORE the mute check (test-sync finding 2026-07-22): a
   // legacy snapshot can still carry `supabase-auth`, which must hit the F2
   // mute as `auth` — checking the raw id would let the legacy alias bypass
@@ -88,6 +113,7 @@ export function filterDossierCapabilitiesForPrompt(params: {
       params.previewPolicy !== "fidelity3" &&
       f2MutedIntegrationCapabilities.has(capability)
     ) {
+      mutedCapabilities.push(capability);
       return false;
     }
     if (capability === "carousel" && !explicitlyRequestsCarousel(params.prompt)) {
@@ -138,5 +164,5 @@ export function filterDossierCapabilitiesForPrompt(params: {
   ) {
     result = result.filter((capability) => capability !== "payments");
   }
-  return result;
+  return { capabilities: result, mutedCapabilities };
 }

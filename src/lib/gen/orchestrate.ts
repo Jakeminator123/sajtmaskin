@@ -15,7 +15,11 @@ export type {
   OrchestrationBase,
   OrchestrationInput,
 } from "./orchestrate/types";
-export { filterDossierCapabilitiesForPrompt } from "./orchestrate/capability-prompt-filter";
+export {
+  filterDossierCapabilitiesForPrompt,
+  filterDossierCapabilitiesForPromptWithMutes,
+} from "./orchestrate/capability-prompt-filter";
+export type { DossierCapabilityPromptFilterResult } from "./orchestrate/capability-prompt-filter";
 export type {
   FollowUpCapabilityFloorDecision,
   FollowUpCapabilityFloorInput,

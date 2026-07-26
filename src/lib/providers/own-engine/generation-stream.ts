@@ -109,6 +109,17 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
   thinking: boolean;
   removedCapabilities?: string[];
   readdedCapabilities?: string[];
+  /**
+   * Integration capabilities the F2 mute deferred this round. Persisted onto
+   * the orchestration snapshot so the Byggblock panel and the chat's final
+   * steps can show them as "Planerad — kopplas in i nästa steg" instead of
+   * the mute being invisible to the user.
+   */
+  mutedCapabilities?: string[];
+  /** Swedish user-facing names for `mutedCapabilities` (dossier labels). */
+  mutedCapabilityLabels?: string[];
+  /** Dossier capabilities with real file evidence in the base version. */
+  fileEvidenceCapabilities?: string[];
   removedDossierIds?: string[];
   f3ApprovedCapabilities?: string[];
   f3ApprovedProviders?: string[];

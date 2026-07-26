@@ -1,6 +1,6 @@
 "use client";
 
-import { GripVertical, LayoutGrid } from "lucide-react";
+import { GripVertical, LayoutGrid, Redo2, Undo2 } from "lucide-react";
 import type { DragEvent, DragEventHandler, MouseEventHandler } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -149,6 +149,11 @@ export function PreviewPanelComposerOverlay(props: {
   isDraggingBlock: boolean;
   hoveredPlacement: HoveredPlacement | null;
   lastActionLabel?: string | null;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  historyBusy?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
   onDragOver: DragEventHandler<HTMLDivElement>;
   onDragLeave: () => void;
   onDrop: DragEventHandler<HTMLDivElement>;
@@ -161,6 +166,11 @@ export function PreviewPanelComposerOverlay(props: {
     isDraggingBlock,
     hoveredPlacement,
     lastActionLabel,
+    canUndo = false,
+    canRedo = false,
+    historyBusy = false,
+    onUndo,
+    onRedo,
     onDragOver,
     onDragLeave,
     onDrop,
@@ -203,6 +213,30 @@ export function PreviewPanelComposerOverlay(props: {
           <p className="mt-1.5 text-violet-200/95">
             Senaste handling: <span className="font-medium text-violet-100">{lastActionLabel}</span>
           </p>
+        ) : null}
+        {onUndo && onRedo ? (
+          <div className="pointer-events-auto mt-2 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onUndo}
+              disabled={historyBusy || !canUndo}
+              title="Ångra senaste direkta patch"
+              className="inline-flex h-6 items-center gap-1 rounded border border-violet-800/70 px-2 text-[11px] text-violet-100 hover:bg-violet-900/60 disabled:opacity-40"
+            >
+              <Undo2 className="h-3 w-3" />
+              Ångra
+            </button>
+            <button
+              type="button"
+              onClick={onRedo}
+              disabled={historyBusy || !canRedo}
+              title="Gör om senast ångrade direkta patch"
+              className="inline-flex h-6 items-center gap-1 rounded border border-violet-800/70 px-2 text-[11px] text-violet-100 hover:bg-violet-900/60 disabled:opacity-40"
+            >
+              <Redo2 className="h-3 w-3" />
+              Gör om
+            </button>
+          </div>
         ) : null}
       </div>
     </>

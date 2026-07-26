@@ -1,12 +1,22 @@
 import type { PreflightIssueCategory } from "@/lib/gen/stream/preflight-contract";
 import type { CodeFile } from "@/lib/gen/parser";
 import { isRuntimeProvidedImport } from "@/lib/gen/autofix/runtime-imports";
+import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
 
 export interface SanityIssue {
   file: string;
   severity: "error" | "warning";
   message: string;
   category?: PreflightIssueCategory;
+  /**
+   * Stable identity for findings whose message enumerates things that shrink as
+   * the problem is partially fixed — the duplicate-module list, the importer
+   * preview. Without it, going from three duplicates to two reads as a brand
+   * new finding, and the repair loop's regression guard rolls back real
+   * progress (Codex P1 on #623). Set it whenever the message is not a stable
+   * identity for the finding; `repair-blockers.ts` prefers it over the message.
+   */
+  subject?: string;
 }
 
 export interface SanityResult {
@@ -60,8 +70,11 @@ function createSanityIssue(
   severity: "error" | "warning",
   message: string,
   category: PreflightIssueCategory,
+  subject?: string,
 ): SanityIssue {
-  return { file, severity, message, category };
+  return subject === undefined
+    ? { file, severity, message, category }
+    : { file, severity, message, category, subject };
 }
 
 function fileExists(fileMap: Map<string, CodeFile>, basePath: string): boolean {
@@ -101,6 +114,7 @@ function normalizePackageName(source: string): string {
 
 function isBuiltinPackage(pkg: string): boolean {
   if (BUILTIN_PACKAGES.has(pkg)) return true;
+  if (isNodeCoreModule(pkg)) return true;
   for (const builtin of BUILTIN_PACKAGES) {
     if (builtin.endsWith(":")) {
       if (pkg.startsWith(builtin)) return true;
@@ -369,6 +383,7 @@ export function runProjectSanityChecks(
           "error",
           `Duplicate module sources for "${stem}": ${sortedPaths.join(", ")}. Bundler resolution is non-deterministic — keep exactly one extension per module.`,
           "code_structure_failure",
+          `duplicate-module:${stem}`,
         ),
       );
     }
@@ -469,6 +484,18 @@ export function runProjectSanityChecks(
         ...Object.keys(pkgJson.optionalDependencies ?? {}),
       ]);
 
+      for (const declared of declaredPackages) {
+        if (!isNodeCoreModule(declared)) continue;
+        issues.push(
+          createSanityIssue(
+            "package.json",
+            "error",
+            `"${declared}" is declared as a dependency in package.json but is a Node core module — no such package exists on npm and the install will fail`,
+            "dependency_install_failure",
+          ),
+        );
+      }
+
       if (!scaffoldCovers) {
         for (const [pkg, importers] of importedPackages.entries()) {
           if (declaredPackages.has(pkg)) continue;
@@ -477,8 +504,9 @@ export function runProjectSanityChecks(
             createSanityIssue(
               "package.json",
               "error",
-              `Imported third-party package "${pkg}" is used in code but not pinned in package.json (${importerPreview})`,
+              `Package "${pkg}" is imported in ${importerPreview} but is missing from the dependencies in package.json`,
               "dependency_install_failure",
+              `missing-dependency:${pkg}`,
             ),
           );
         }

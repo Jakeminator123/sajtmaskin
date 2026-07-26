@@ -159,6 +159,28 @@ export function getDossiersByCapability(capability: string): DossierEntry[] {
   return getAllDossiers().filter((d) => d.capability.toLowerCase() === cap);
 }
 
+/**
+ * Swedish, user-facing names for capability ids — the manifest `label` of the
+ * capability's default dossier ("newsletter-subscribe" → "Nyhetsbrev —
+ * Mailchimp"). Lets a status surface name a deferred integration without a
+ * second, hand-maintained translation table drifting from the manifests.
+ * Falls back to the raw id when no dossier claims the capability.
+ */
+export function describeCapabilityLabels(capabilities: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const raw of capabilities) {
+    if (typeof raw !== "string") continue;
+    const capability = raw.trim().toLowerCase();
+    if (capability.length === 0 || seen.has(capability)) continue;
+    seen.add(capability);
+    const candidates = getDossiersByCapability(capability);
+    const preferred = candidates.find((d) => d.defaultForCapability) ?? candidates[0];
+    labels.push(preferred?.label ?? capability);
+  }
+  return labels;
+}
+
 /** Read instructions.md for a dossier; mtime-cached. Returns "" if missing. */
 export function getDossierInstructions(klass: DossierClass, id: string): string {
   const path = join(ROOT, klass, id, "instructions.md");

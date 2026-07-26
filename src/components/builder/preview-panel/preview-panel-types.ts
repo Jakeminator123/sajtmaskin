@@ -6,6 +6,7 @@ import type { VersionDisplayStatus } from "@/lib/builder/version-status-display"
 import type { AlternatePreviewUrls } from "@/lib/gen/preview/preview-url-classifier";
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
 import type { PreviewIssuePayload } from "./iframe-diagnostics";
+import type { PreviewSurfaceState } from "./usePreviewSurfaceMode";
 
 export type CaptureResponse = {
   success?: boolean;
@@ -55,6 +56,7 @@ export interface PreviewPanelProps {
   alternatePreviewUrls?: AlternatePreviewUrls;
   onNavigatePreviewUrl?: (url: string) => void;
   isLoading?: boolean;
+  /** Rensa-knappen bor i headerns verktygskluster; panelen kallar den inte själv. */
   onClear?: () => void;
   onFixPreview?: () => void;
   /**
@@ -134,63 +136,18 @@ export interface PreviewPanelProps {
    */
   onShadcnItemInsert?: ShadcnInsertHandler;
   /**
-   * F2 vs F3 stage of the active version. Controls visibility of the
-   * "Bygg integrationer" (F3 trigger) button in the preview chrome. F2 (`design`)
-   * shows the button; F3 (`integrations`) hides it (already in F3).
+   * F2 vs F3 stage of the active version. Styr `+/- Sida`-kontrollerna
+   * (F3 tar inte quick-edit). "Bygg integrationer" och Byggblock-popovern
+   * bor numera i headerns verktygskluster (`BuilderPreviewTools`).
    * See `.cursor/rules/env-flow-f2-mute.mdc`.
    */
   lifecycleStage?: EngineVersionLifecycleStage | null;
   /**
-   * Whether the builder shell is busy (creating chat, streaming a previous
-   * generation, loading a template, preparing a prompt). Forwarded down to
-   * `PreviewPanelF3Trigger` so a second "Bygg integrationer" click cannot race the
-   * F3 stream that the previous click is currently running.
+   * Previewens lägen (composer/inspect/vy) ägs av builderskalet eftersom
+   * kontrollerna sitter i chatpanelen och headern. Utelämnas den skapar
+   * panelen en egen lokal ägare — bara för isolerad rendering (tester).
    */
-  isBusy?: boolean;
-  /** Called when F3 trigger reports missing tier-3 env keys. */
-  onF3MissingEnv?: (payload: {
-    parentVersionId: string;
-    projectId?: string | null;
-    chatId?: string | null;
-    missingByIntegration: Array<{ key: string; name: string; missing: string[] }>;
-  }) => void;
-  /** Persistent, non-modal status for normal F3 trigger states. */
-  onF3Status?: (status: {
-    tone: "info" | "warning" | "error" | "success";
-    title: string;
-    description: string;
-  }) => void;
-  /** Called when F3 readiness check passes. */
-  onF3Ready?: (payload: {
-    parentVersionId: string;
-    requirements: Array<{
-      key: string;
-      name: string;
-      requiredRealEnvKeys: string[];
-    }>;
-  }) => void;
-  /** Refreshes versions/status/readiness after deterministic ReleaseGate settles. */
-  onF3ReleaseSettled?: (payload: {
-    versionId: string;
-    selectVersion: boolean;
-  }) => void;
-  /**
-   * Called when the user picks a dossier from the Byggblock-panelens
-   * katalog-tab ("Bläddra katalog"). Threaded down to
-   * `PreviewPanelDossiers` so selecting a catalog row can send a normal
-   * chat message (`vm.sendMessage`) instead of duplicating the send path.
-   * The id feeds the deterministic `(id: …)`-marker in the prompt (see
-   * `buildAddDossierMessage`); the label keeps sibling-keyword
-   * disambiguation working.
-   */
-  onRequestDossier?: (payload: { id: string; label: string }) => void;
-  /**
-   * True when a catalog pick must wait: a generation is streaming (sending
-   * would abort it — useSendMessage cancels the active stream) or an
-   * unanswered pending question exists (a pick would silently dismiss it).
-   * Rows are disabled with a short Swedish hint while true.
-   */
-  catalogPickDisabled?: boolean;
+  surface?: PreviewSurfaceState;
 }
 
 /** Payload när Visual Composer inte kan patcha `app/page.tsx` säkert (t.ex. `after-hero`). */
