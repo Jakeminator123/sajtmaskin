@@ -33,6 +33,27 @@ Set-Location ..\sajtmaskin
 git worktree remove ..\sajtmaskin-feat-X
 ```
 
+### Delar du `node_modules` via junction: ta bort länken FÖRE worktreen
+
+En färsk worktree saknar `node_modules`. Att länka den till huvudcheckoutens
+sparar flera minuters `npm ci` — men `git worktree remove --force` **följer
+junctionen och tömmer länkens mål**, alltså huvudcheckoutens `node_modules`.
+Symptomet kommer senare och ser ut som ett trasigt repo:
+`ERR_MODULE_NOT_FOUND: Cannot find package 'dotenv'`. (Inträffade 2026-07-27.)
+
+```powershell
+# skapa
+cmd /c mklink /J node_modules C:\Users\jakem\Desktop\sajtmaskin\node_modules
+
+# städa — ordningen är hela poängen
+cmd /c rmdir node_modules            # tar bort LÄNKEN, rör inte målet
+Set-Location ..\sajtmaskin
+git worktree remove ..\sajtmaskin-feat-X
+```
+
+Har det redan hänt: `npm ci` i huvudcheckouten återställer (~4 min). Inget
+spårat innehåll går förlorat — `node_modules` är gitignorerad.
+
 ## Flera agenter samtidigt
 
 Delad checkout = **en** HEAD, **ett** index, **ett** working tree. Körs flera agenter parallellt:
