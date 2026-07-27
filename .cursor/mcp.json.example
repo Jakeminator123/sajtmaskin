@@ -15,7 +15,11 @@
     },
     "supabase": {
       "url": "https://mcp.supabase.com/mcp?project_ref=yubbckduwblyrbnlglwf&read_only=true",
-      "note": "Hostad Supabase MCP, scoped till sajtmaskin-projektet + read-only. OAuth i Cursor första gången."
+      "note": "DEV-projektet (yubbckduwblyrbnlglwf, eu-north-1) — read-only. Kanonisk dev/prod-identitet: config/db-targets.json. Svara ALDRIG på en prod-fråga härifrån; använd supabase-prod."
+    },
+    "supabase-prod": {
+      "url": "https://mcp.supabase.com/mcp?project_ref=egcitvwgettkftkyzbvn&read_only=true",
+      "note": "PROD-projektet (egcitvwgettkftkyzbvn, us-east-1) — read-only. Bara för att läsa prod-schema/rader vid felsökning. Ingen destruktiv SQL."
     },
     "v0": {
       "url": "https://mcp.v0.dev"
