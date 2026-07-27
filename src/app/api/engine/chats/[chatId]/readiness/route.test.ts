@@ -122,6 +122,37 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     createEngineVersionErrorLogs.mockResolvedValue(undefined);
   });
 
+  // A1: the readiness poll is one of the four reads that 500:ed 29 times during
+  // the 2026-07-13 pool exhaustion. A transient failure must be retryable.
+  it("degrades to a retryable 503 + Retry-After on a transient DB failure", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    getEngineChatByIdForRequest.mockRejectedValue(
+      new Error("timeout exceeded when trying to connect"),
+    );
+
+    const { req, ctx } = readinessRequest();
+    const res = await GET(req, ctx);
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Retry-After")).toBe("3");
+    const body = (await res.json()) as { code?: string; retryable?: boolean };
+    expect(body.code).toBe("db_unavailable");
+    expect(body.retryable).toBe(true);
+    warn.mockRestore();
+  });
+
+  it("still returns 500 for a non-transient failure", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    getEngineChatByIdForRequest.mockRejectedValue(new TypeError("bad readiness input"));
+
+    const { req, ctx } = readinessRequest();
+    const res = await GET(req, ctx);
+
+    expect(res.status).toBe(500);
+    expect(res.headers.get("Retry-After")).toBeNull();
+    error.mockRestore();
+  });
+
   it("blocks canDeploy for an F3 version that has not passed ReleaseGate (verifying)", async () => {
     getPreferredVersion.mockResolvedValue({
       id: "ver_1",

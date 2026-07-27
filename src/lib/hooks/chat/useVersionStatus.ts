@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { pollBackoffDelayMs, pollRetryAfterMs } from "@/lib/hooks/poll-backoff";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
 
 /**
@@ -19,7 +20,9 @@ import type { VersionStatus } from "@/lib/logging/event-bus-types";
  * Single-writer-per-surface: each surface has exactly one status
  * channel, no "halvt byte" between the two.
  *
- * Polling cadence is intentionally light (default 4s). It stops once the
+ * Polling cadence is intentionally light (default 4s), pauses while the tab is
+ * hidden, and backs off exponentially while the endpoint is failing (A2 —
+ * honouring `Retry-After` from a degraded 503). It stops once the
  * projection is STABLE — `done` AND its `eventCount` unchanged vs the
  * previous fetch — rather than on the first `done`. The client
  * product-postcheck flow runs *after* finalize and can emit a late
@@ -57,6 +60,17 @@ const DEFAULT_MAX_NON_TERMINAL_POLL_MS = 15 * 60_000;
 
 type FetchResponseOk = { ok: true; versionId: string; status: VersionStatus };
 type FetchResponseErr = { ok: false; error: string };
+
+/**
+ * One completed poll. `ok: false` covers both a failed response and a thrown
+ * fetch, and drives the backoff; `retryAfterMs` carries the server's hint from
+ * a degraded 503 (see `transientDbResponseIfRetryable`).
+ */
+type FetchOutcome = {
+  status: VersionStatus | null;
+  ok: boolean;
+  retryAfterMs: number | null;
+};
 
 type FetchState = {
   status: VersionStatus | null;
@@ -128,7 +142,7 @@ export function useVersionStatus(params: {
 
     const url = `${engineChatBaseUrl(chatId)}/version-status?versionId=${encodeURIComponent(versionId)}`;
 
-    async function fetchOnce(): Promise<VersionStatus | null> {
+    async function fetchOnce(): Promise<FetchOutcome> {
       try {
         const res = await fetch(url, { cache: "no-store" });
         const data = (await res.json()) as FetchResponseOk | FetchResponseErr;
@@ -137,12 +151,12 @@ export function useVersionStatus(params: {
             const message = "error" in data ? data.error : `HTTP ${res.status}`;
             setState({ status: null, loading: false, error: message });
           }
-          return null;
+          return { status: null, ok: false, retryAfterMs: pollRetryAfterMs(res) };
         }
         if (!cancelled && lastKeyRef.current === key) {
           setState({ status: data.status, loading: false, error: null });
         }
-        return data.status;
+        return { status: data.status, ok: true, retryAfterMs: null };
       } catch (err) {
         if (!cancelled && lastKeyRef.current === key) {
           setState({
@@ -151,11 +165,9 @@ export function useVersionStatus(params: {
             error: err instanceof Error ? err.message : "Network error",
           });
         }
-        return null;
+        return { status: null, ok: false, retryAfterMs: null };
       }
     }
-
-    let intervalId: number | undefined;
     // Safety cap: stop after at most this many `done` confirmation polls
     // even if `eventCount` never settles, so a projection whose count
     // keeps changing can never poll forever. Stability is normally
@@ -222,30 +234,125 @@ export function useVersionStatus(params: {
       return doneConfirmPolls >= MAX_DONE_CONFIRM_POLLS;
     };
 
-    void fetchOnce().then((status) => {
+    // A2: the poll is a self-scheduling timeout chain rather than a fixed
+    // `setInterval`, so a failing endpoint can be given a longer next delay
+    // (exponential backoff + `Retry-After`) and a hidden tab can skip polling
+    // entirely. A healthy poll still ticks at exactly `pollIntervalMs`.
+    const pollingEnabled = pollIntervalMs > 0;
+    let timeoutId: number | undefined;
+    let consecutiveErrors = 0;
+    let stopped = false;
+    let resumeWhenVisible = false;
+
+    const clearPendingTick = () => {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
+    };
+
+    const documentHidden = () =>
+      typeof document !== "undefined" && document.visibilityState === "hidden";
+
+    // Nothing else serialises the ticks, so a quick hide/show (or a resume
+    // landing on top of the mount fetch) could otherwise run two polls at once
+    // — doubling load on the very route A2 protects and letting the two
+    // `shouldStopPolling` calls mutate the shared stability state out of order.
+    let inFlight = false;
+    const fetchGuarded = async (): Promise<FetchOutcome | null> => {
+      if (inFlight) return null;
+      inFlight = true;
+      try {
+        return await fetchOnce();
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const nextDelayMs = (outcome: FetchOutcome) =>
+      outcome.ok
+        ? pollIntervalMs
+        : Math.max(
+            pollBackoffDelayMs(pollIntervalMs, consecutiveErrors),
+            outcome.retryAfterMs ?? 0,
+          );
+
+    const scheduleNextTick = (delayMs: number) => {
+      clearPendingTick();
+      if (cancelled || stopped || lastKeyRef.current !== key) return;
+      // A hidden tab has nothing to render — park the loop and let
+      // `visibilitychange` restart it, so a backgrounded builder stops
+      // contributing to the pool pressure that caused the 500-storm.
+      if (documentHidden()) {
+        resumeWhenVisible = true;
+        return;
+      }
+      timeoutId = window.setTimeout(() => void runTick(), delayMs);
+    };
+
+    // Codex P2 #1 guard: a poll started under this key can resolve after
+    // cleanup or after the (chatId/versionId/refreshNonce) key changed.
+    // `shouldStopPolling` mutates the shared `prevEventCountRef`, so a stale
+    // in-flight poll must never reach it — otherwise it corrupts the new key's
+    // stability tracking.
+    const runTick = async () => {
+      if (cancelled || stopped || lastKeyRef.current !== key) return;
+      // The tab may have been hidden after this tick was armed — park instead
+      // of firing, so a backgrounded builder never polls at all.
+      if (documentHidden()) {
+        clearPendingTick();
+        resumeWhenVisible = true;
+        return;
+      }
+      const outcome = await fetchGuarded();
+      // A poll is already running; it schedules the next tick when it lands.
+      if (outcome === null) return;
       if (cancelled || lastKeyRef.current !== key) return;
-      if (pollIntervalMs <= 0) return;
-      if (shouldStopPolling(status)) return;
-      intervalId = window.setInterval(async () => {
-        const next = await fetchOnce();
-        // Codex P2 #1 guard: a poll started under this key can resolve
-        // after cleanup or after the (chatId/versionId/refreshNonce) key
-        // changed. `shouldStopPolling` mutates the shared
-        // `prevEventCountRef`, so a stale in-flight poll must never reach
-        // it — otherwise it corrupts the new key's stability tracking.
-        // Mirrors the same guard the initial fetch already uses below.
-        if (cancelled || lastKeyRef.current !== key) return;
-        if (shouldStopPolling(next) && intervalId !== undefined) {
-          window.clearInterval(intervalId);
-          intervalId = undefined;
-        }
-      }, pollIntervalMs);
+      if (shouldStopPolling(outcome.status)) {
+        stopped = true;
+        clearPendingTick();
+        return;
+      }
+      consecutiveErrors = outcome.ok ? 0 : consecutiveErrors + 1;
+      scheduleNextTick(nextDelayMs(outcome));
+    };
+
+    const handleVisibilityChange = () => {
+      if (cancelled || stopped || lastKeyRef.current !== key) return;
+      if (documentHidden()) {
+        // Cancel an armed tick right away rather than letting it fire once more.
+        clearPendingTick();
+        resumeWhenVisible = true;
+        return;
+      }
+      if (!resumeWhenVisible) return;
+      resumeWhenVisible = false;
+      // Cleared so the resumed tick can never race a leftover timeout.
+      clearPendingTick();
+      void runTick();
+    };
+
+    if (pollingEnabled && typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
+
+    void fetchGuarded().then((outcome) => {
+      if (outcome === null) return;
+      if (cancelled || lastKeyRef.current !== key) return;
+      if (!pollingEnabled) return;
+      if (shouldStopPolling(outcome.status)) {
+        stopped = true;
+        return;
+      }
+      consecutiveErrors = outcome.ok ? 0 : 1;
+      scheduleNextTick(nextDelayMs(outcome));
     });
 
     return () => {
       cancelled = true;
-      if (intervalId !== undefined) {
-        window.clearInterval(intervalId);
+      clearPendingTick();
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
       }
     };
   }, [chatId, versionId, pollIntervalMs, refreshNonce, maxNonTerminalMs]);

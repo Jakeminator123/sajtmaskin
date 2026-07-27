@@ -16,7 +16,7 @@ kopiera inte dess kö hit.
 
 | Spår | Plan | Läge | Nästa steg |
 | --- | --- | --- | --- |
-| Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | Brus + mallfix levererade (C1, C2, D1/#578); **kärnan öppen** | A1 + A2: mjuk degradering på läs-routerna och klient-backoff — det som dödar 500-stormen |
+| Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | Brus + mallfix (C1, C2, D1/#578) samt **A1 + A2** levererade — 500-stormens självförstärkning är stängd | A3: mät `pg_stat_activity` innan poolstorleken ändras; sedan B (error-log-retry) + A4 (redeploy-paus) |
 | Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | Oimplementerad; absorberade stabiliseringsplanens PR 5 | Väntar på tre ägarbeslut (se nedan) innan additiv migration |
 | Dossier/UI-ownership (chatt-yta) | [`2026-07-13-dossier-ui-ownership-kontrakt.md`](2026-07-13-dossier-ui-ownership-kontrakt.md) | Helt öppen — inget adapt-eller-ersätt-kontrakt finns i kod | Kontrakt i dossier-injektionen + regressionstestet som låser incidentsekvensen |
 | Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | 10 små oberoende rader | Plocka fritt; R1 (ReleaseGate-bannern) har en öppen fråga till ägaren |

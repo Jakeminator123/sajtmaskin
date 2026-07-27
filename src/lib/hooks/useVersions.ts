@@ -1,15 +1,11 @@
+import { useCallback, useMemo, useRef } from "react";
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-
-const fetcher = async (url: string) => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const message = (err && (err.error || err.message)) || `HTTP ${res.status}`;
-    throw new Error(message);
-  }
-  return res.json();
-};
+import {
+  createPollErrorRetry,
+  pollJsonFetcher,
+  swrRefreshIntervalMs,
+} from "@/lib/hooks/poll-backoff";
 
 interface UseVersionsOptions {
   /** Enable frequent polling (e.g., during generation). Default: false */
@@ -75,32 +71,63 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
     idleRefreshIntervalMs = 60000,
   } = options;
 
+  // A2: consecutive failures stretch the cadence instead of hammering a
+  // starved endpoint at the healthy interval. Reset on the first success.
+  const consecutiveErrorsRef = useRef(0);
+  const lastErrorRef = useRef<unknown>(null);
+  // Polling cadence is decided per-tick based on the most recent payload's
+  // `chatStatus`, not just the caller's `isGenerating` hint. This is what stops
+  // the "polling forever on a versionless dead chat" bug — once the server
+  // reports status=aborted+!hasVersion, the interval drops to 0 (off).
+  //
+  // Memoised because SWR keeps `refreshInterval` in its polling effect's
+  // dependency list: a new identity per render restarts the timer before it
+  // elapses, so a re-rendering builder would stop polling entirely.
+  const resolveRefreshInterval = useCallback(
+    (latest: unknown): number => {
+      const chatStatus = (latest as { chatStatus?: ChatRunStatus } | undefined)?.chatStatus ?? null;
+      if (shouldStopPolling(chatStatus)) return 0;
+      if (pauseWhileGenerating && isGenerating) return 0;
+      const base = isGenerating ? generatingRefreshIntervalMs : idleRefreshIntervalMs;
+      return swrRefreshIntervalMs(base, consecutiveErrorsRef.current, lastErrorRef.current);
+    },
+    [isGenerating, pauseWhileGenerating, generatingRefreshIntervalMs, idleRefreshIntervalMs],
+  );
+  // SWR skips interval-driven revalidation while the cache holds an error and
+  // uses this lane instead, so the backoff (and the server's `Retry-After`)
+  // has to be applied here to have any effect after a degraded 503.
+  const onErrorRetry = useMemo(
+    () => createPollErrorRetry(isGenerating ? generatingRefreshIntervalMs : idleRefreshIntervalMs),
+    [isGenerating, generatingRefreshIntervalMs, idleRefreshIntervalMs],
+  );
   const { data, error, isLoading, mutate } = useSWR(
     enabled && chatId ? `${engineChatBaseUrl(chatId)}/versions` : null,
-    fetcher,
+    pollJsonFetcher,
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
-      // Polling cadence is decided per-tick based on the most recent
-      // payload's `chatStatus`, not just the caller's `isGenerating` hint.
-      // This is what stops the "polling forever on a versionless dead
-      // chat" bug — once the server reports status=aborted+!hasVersion,
-      // refreshInterval drops to 0 (off) on the next tick.
-      refreshInterval: (latest) => {
-        const chatStatus = (latest as { chatStatus?: ChatRunStatus } | undefined)?.chatStatus ?? null;
-        if (shouldStopPolling(chatStatus)) return 0;
-        if (pauseWhileGenerating && isGenerating) return 0;
-        return isGenerating ? generatingRefreshIntervalMs : idleRefreshIntervalMs;
+      onSuccess: () => {
+        consecutiveErrorsRef.current = 0;
+        lastErrorRef.current = null;
       },
+      onError: (err: unknown) => {
+        consecutiveErrorsRef.current += 1;
+        lastErrorRef.current = err;
+      },
+      refreshInterval: resolveRefreshInterval,
+      onErrorRetry,
       // Keep repeated UI triggers from stampeding the same endpoint.
       dedupingInterval: 10000,
     },
   );
 
-  const chatStatus: ChatRunStatus | null = (data?.chatStatus as ChatRunStatus | undefined) ?? null;
+  const payload = data as
+    | { versions?: unknown[]; chatStatus?: ChatRunStatus }
+    | undefined;
+  const chatStatus: ChatRunStatus | null = payload?.chatStatus ?? null;
 
   return {
-    versions: data?.versions || [],
+    versions: payload?.versions || [],
     chatStatus,
     isLoading,
     isError: error,

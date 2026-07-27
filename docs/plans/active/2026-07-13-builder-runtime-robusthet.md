@@ -21,19 +21,19 @@ kosmetiska brus-fel (CSP-eval report-only, font-403 i preview) och en
 **scaffold-lint-bugg** (`use-reduced-motion`) som fällde ReleaseGate på lint för *varje*
 genererad sajt.
 
-**Nuläge:** brus-felen och scaffold-buggen är åtgärdade (C1, C2, D1). Kärnan i A är kvar.
-Stycket ovan beskriver incidenten, inte dagens kodläge — statustabellen nedan är sanningen.
+**Nuläge:** brus-felen och scaffold-buggen är åtgärdade (C1, C2, D1), och A1+A2 —
+den självförstärkande delen av 500-stormen — är levererade. Kvar i A är pool-mätningen
+(A3) och redeploy-pausen (A4). Stycket ovan beskriver incidenten, inte dagens kodläge —
+statustabellen nedan är sanningen.
 
 Pool-tuning kräver mätning (motsatta fixar för motsatta fel) — se A3.
 
-## Status 2026-07-27 (kodverifierad mot master `3b419115`)
-
-Brus-delen och mallfixen är levererade; **hela kärnan i A är fortfarande öppen.**
+## Status 2026-07-27 (kodverifierad mot master `3b419115`, A1+A2 levererade samma dag)
 
 | Punkt | Läge | Bevis |
 |---|---|---|
-| A1 mjuk degradering (503 + `Retry-After`) | **öppen** | alla fyra läs-routerna kastar 500: `version-status/route.ts:194-202`, `readiness/route.ts:557-562`, `versions/route.ts:187-190`, `dossiers/route.ts:437-442` |
-| A2 klient-backoff + visibility-paus | **öppen** | `useVersionStatus.ts:42,229` fast 4 s `setInterval`; `useChatReadiness.ts:42-50`, `useVersions.ts:78-97` utan fel-backoff |
+| A1 mjuk degradering (503 + `Retry-After`) | **klar** | `src/lib/db/transient-error.ts` + `src/lib/api/transient-db-response.ts`, inkopplad först i `catch` på alla fyra läs-routerna; route-tester i `version-status/route.test.ts` + `readiness/route.test.ts` låser 503 för transient och 500 för allt annat |
+| A2 klient-backoff + visibility-paus | **klar** | `src/lib/hooks/poll-backoff.ts` (exponentiell backoff + jitter + `Retry-After`), använd av `useVersionStatus.ts` (timeout-kedja i st.f. `setInterval`, pausar på dold flik), `useChatReadiness.ts` och `useVersions.ts`; tester i `poll-backoff.test.ts` + `useVersionStatus.test.ts` |
 | A3 pool-tuning | **öppen** | `client.ts:148-154` — default fortfarande 3 |
 | A4 redeploy-tålighet | **öppen** | saknas i samtliga tre hooks |
 | B error-log 503-retry | **öppen** | `post-checks.ts:43-63` — en fetch, ingen `Retry-After` |
@@ -58,16 +58,24 @@ Brus-delen och mallfixen är levererade; **hela kärnan i A är fortfarande öpp
 
 ### Åtgärder
 
-- **A1 — Mjuk degradering på läs-routerna:** vid connect-timeout/transient DB-fel, returnera
-  **503 + `Retry-After`** (eller `{ ok:true, pending:true }` / last-known) i stället för 500,
-  på `version-status`, `readiness`, `versions`, `dossiers`. Då kan klienten backa av i stället
-  för att tolka det som permanent fel.
-  *Motivering:* dessa är idempotenta pollar; en transient poolbrist ska inte se ut som en
-  hård 500-krasch i konsollen och ska inte spamma Sentry/loggar.
-- **A2 — Klient-backoff:** exponential backoff (+ jitter) på fel i `useVersionStatus`,
-  `useChatReadiness`, `useVersions`. Pausa polling när fliken är dold (`visibilitychange`).
-  *Motivering:* 4s-hammer × flera endpoints × flera versioner = självförvållad poolbrist,
-  särskilt precis efter en redeploy när instanser är kalla.
+- **A1 — Mjuk degradering på läs-routerna: LEVERERAD 2026-07-27.** Vid transient DB-fel
+  (connect-timeout, tappad connection, pooler-kapacitet, låskonflikt) svarar
+  `version-status`, `readiness`, `versions` och `dossiers` nu **503 + `Retry-After: 3`** med
+  `{ ok: false, code: "db_unavailable", retryable: true }`. Klassificeringen är avsiktligt
+  smal (`isTransientDbError`): konfigurations-, schema- och query-fel ger fortfarande 500,
+  annars blir ett hårt fel en oändlig klient-retry. Kontraktet är dokumenterat i
+  [`data-layer.md`](../../contracts/data-layer.md) § Transienta DB-fel.
+- **A2 — Klient-backoff: LEVERERAD 2026-07-27.** `poll-backoff.ts` ger exponentiell backoff
+  med jitter och respekterar serverns `Retry-After`; alla tre hookarna nollställer vid första
+  lyckade poll. `useVersionStatus` bytte `setInterval` mot en självschemaläggande
+  timeout-kedja (annars kan delayen inte varieras) och pausar helt medan fliken är dold —
+  SWR-hookarna pausar redan vid dold flik via `refreshWhenHidden: false`.
+  Wall-clock-backstoppet (`maxNonTerminalMs`) gäller oförändrat, så en oåtkomlig endpoint
+  slutar polla i stället för att backa av i evighet.
+  Två fällor värda att minnas (båda hittade av bugbot-passet på diffen): SWR har
+  `refreshInterval` i sin effekt-deps, så callbacken måste memoiseras annars startas
+  timern om vid varje render; och SWR hoppar över intervall-pollning när cachen har ett
+  fel, så backoffen måste också in i `onErrorRetry`-banan för att ha någon effekt.
 - **A3 — Pool-tuning (mät först):** felet var connect-timeout (inte `EMAXCONNSESSION`) →
   riktningen är att **höja** `POSTGRES_POOL_MAX` (t.ex. 3→5–8) på appen. **Men** höj inte
   blint: fler instanser × högre max kan i stället ge `EMAXCONNSESSION` mot poolerns tak.
@@ -124,12 +132,11 @@ beteende vid snabba versionsbyten (mildras av backoff i A2).
 
 | Fas | Innehåll | Risk | Hävstång |
 |---|---|---|---|
-| 1 | **A1 + A2** mjuk degradering + klient-backoff | Medel | Hög — dödar 500-stormen i UI:t |
-| 2 | **A3** pool-mätning + ev. höjning | Låg (mät först) | Medel |
-| 3 | **B** error-log-retry; **A4** redeploy-paus | Låg | Medel |
-| 4 | **D2** verifier-täckning | Låg | Låg-medel |
+| 1 | **A3** pool-mätning + ev. höjning | Låg (mät först) | Medel |
+| 2 | **B** error-log-retry; **A4** redeploy-paus | Låg | Medel |
+| 3 | **D2** verifier-täckning | Låg | Låg-medel |
 
-Levererat och därmed ur kön: D1 (#578), C1, C2 — se statustabellen överst.
+Levererat och därmed ur kön: A1, A2 (2026-07-27), D1 (#578), C1, C2 — se statustabellen överst.
 
 ## Explicit icke-mål
 

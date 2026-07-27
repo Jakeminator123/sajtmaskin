@@ -71,6 +71,42 @@ describe("GET version-status (engine)", () => {
     expect(body.error).toMatch(/versionId/);
   });
 
+  // A1: a pool connect-timeout during a redeploy must not look like a permanent
+  // 500 — the client would keep polling at full cadence and deepen the outage.
+  it("degrades to a retryable 503 + Retry-After on a transient DB failure", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    getEngineVersionForChatByIdForRequest.mockRejectedValue(
+      new Error("timeout exceeded when trying to connect"),
+    );
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Retry-After")).toBe("3");
+    const body = (await res.json()) as { ok: boolean; code?: string; retryable?: boolean };
+    expect(body.ok).toBe(false);
+    expect(body.code).toBe("db_unavailable");
+    expect(body.retryable).toBe(true);
+    warn.mockRestore();
+  });
+
+  it("still returns 500 for a non-transient failure", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    getEngineVersionForChatByIdForRequest.mockRejectedValue(new TypeError("bad projection"));
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(500);
+    expect(res.headers.get("Retry-After")).toBeNull();
+    error.mockRestore();
+  });
+
   it("returns 404 when the version is not scoped to the chat", async () => {
     getEngineVersionForChatByIdForRequest.mockResolvedValue(null);
     const res = await GET(
