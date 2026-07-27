@@ -1012,10 +1012,20 @@ export async function handleSseStream(
               deliverPreviewUrl(effectiveDoneDemo, versionIdFromStream);
             }
             const awaitingInput = Boolean(doneData.awaitingInput);
+            // Plan-läget avslutar medvetet utan version och utan preview —
+            // planen ÄR resultatet. Räknades den inte som återfunnen artefakt
+            // tog empty-output-grenen nedan över och visade "Genereringen
+            // avslutades utan version eller preview." med en `break`, så
+            // plan-kortet aldrig monterades och "Plan skapad!" aldrig nåddes.
+            // Gäller bara planer utan blockerare; med blockerare är
+            // `awaitingInput` redan sant.
+            const hasPlanArtifact =
+              typeof doneData.planArtifact === "object" && doneData.planArtifact !== null;
             const hasRecoveredArtifact =
               awaitingInput ||
               Boolean(resolvedVersionId) ||
-              Boolean(effectiveDoneDemo);
+              Boolean(effectiveDoneDemo) ||
+              hasPlanArtifact;
             const emptyGenerationReason =
               typeof doneData.reason === "string" && doneData.reason.trim().length > 0
                 ? doneData.reason.trim()

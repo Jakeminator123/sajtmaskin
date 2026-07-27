@@ -245,6 +245,45 @@ describe("handleSseStream", () => {
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
   });
 
+  // Plan-läget avslutar utan version och utan preview — planen är resultatet.
+  // Utan planArtifact i `hasRecoveredArtifact` tog empty-output-grenen över och
+  // visade ett fel för en fullt lyckad plan.
+  it("behandlar en plan utan blockerare som lyckad i stället för tom generering", async () => {
+    const planArtifact = {
+      goal: "Koppla på nyhetsbrev",
+      scope: ["components/newsletter-signup-form.tsx"],
+      steps: [{ title: "Lägg till formulär", description: "I sidfoten", phase: "build" }],
+      blockers: [],
+      assumptions: ["Mailchimp-nycklar kommer senare"],
+    };
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: "Här är planen." }, "");
+        onEvent("done", { chatId: "chat_1", planMode: true, planArtifact, versionId: null }, "");
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    const result = await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(result.chatIdFromStream).toBe("chat_1");
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith("Plan skapad!");
+    // Planen ska monteras som eget uiPart, inte skrivas över av felmeddelandet.
+    expect(store.getMessages()[0]?.uiParts?.some((part) => part.type === "plan")).toBe(true);
+    expect(store.getMessages()[0]?.content).toContain("Här är planen.");
+    expect(store.getMessages()[0]?.isStreaming).toBe(false);
+    // Ingen version finns, så inga versionsberoende efterkontroller ska köras.
+    expect(runPostGenerationChecks).not.toHaveBeenCalled();
+    expect(spies.onGenerationComplete).toHaveBeenCalled();
+  });
+
   // C1/C3 (empty-output tool feedback fix, prod chat e298da50): a done event
   // with `awaitingInput: true` + `awaitingInputPrompt` must surface that
   // prompt as the assistant message content and skip the generic
