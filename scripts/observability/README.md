@@ -76,9 +76,13 @@ sparas — default **10**, `--max-logs` överstyr.
   Minsta bucket är en minut, och `group_by=user_id` betyder organisationens
   medlem — inte Sajtmaskins `users.id`.
 - **D-ID mäter credits, inte tokens.** Saldot är ett nuläge, inte körningens pris.
-- Kostnaden per rad är exakt för `llm_usage`-rader, som bär
-  `cached_input_tokens` sedan #613. För äldre rader utan det fältet prissätts
-  input som ocachad, vilket gör siffran till en **övre** gräns.
+- **Kostnaden är alltid en uppskattning.** `llm_usage`-rader bär
+  `cached_input_tokens` sedan #613, så cachade tokens prissätts till cache-taxan
+  i stället för full input — det tar bort en av överskattningarna, men gör inte
+  siffran exakt. `config/ai_models/pricing.json` flaggar vissa taxor som
+  `estimated`, och varken kontext-upliften (>272K tokens) eller det regionala
+  10 %-påslaget modelleras. Rader utan `cached_input_tokens` prissätts som helt
+  ocachade och är därför en **övre** gräns.
 
 ### Säkerhet
 
