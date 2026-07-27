@@ -570,6 +570,57 @@ describe("useVersionStatus — A2 backoff and hidden-tab pause", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  // Nothing else serialises the ticks: a hide/show landing on top of an
+  // unresolved poll must not launch a parallel one, or the resumed builder
+  // doubles the load on the endpoint A2 exists to relieve.
+  it("does not start a second poll while one is still in flight", async () => {
+    let visibility: DocumentVisibilityState = "visible";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+
+    let releaseFetch!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseFetch = resolve;
+    });
+    const fetchMock = vi.fn(async () => {
+      await gate;
+      return okResponse();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderStatus();
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Hide and show again while that first fetch is still unresolved.
+    visibility = "hidden";
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await flushMicrotasks();
+    });
+    visibility = "visible";
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Once it lands it schedules the next tick itself — no wakeup is lost.
+    await act(async () => {
+      releaseFetch();
+      await flushMicrotasks();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("pauses polling while the tab is hidden and resumes on visibilitychange", async () => {
     let visibility: DocumentVisibilityState = "hidden";
     Object.defineProperty(document, "visibilityState", {

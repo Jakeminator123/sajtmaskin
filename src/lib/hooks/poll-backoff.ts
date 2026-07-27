@@ -139,6 +139,30 @@ export function pollErrorRetryDelayMs(
 }
 
 /**
+ * Run `resume` now, or — if the tab is hidden — the first time it becomes
+ * visible again.
+ *
+ * SWR's error-retry lane has no visibility gate of its own (neither does its
+ * default `onErrorRetry`), and both polled SWR hooks set
+ * `revalidateOnFocus: false`, so simply skipping a hidden retry would strand
+ * the hook in its error state until the key changed. Parking on
+ * `visibilitychange` keeps a backgrounded builder off the starved endpoint
+ * without losing the wakeup. The listener is one-shot.
+ */
+export function runWhenVisible(resume: () => void): void {
+  if (typeof document === "undefined" || document.visibilityState !== "hidden") {
+    resume();
+    return;
+  }
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "hidden") return;
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    resume();
+  };
+  document.addEventListener("visibilitychange", onVisibilityChange);
+}
+
+/**
  * Replacement for SWR's default `onErrorRetry`.
  *
  * SWR's own retry lane ignores `Retry-After`, so a degraded 503 from
@@ -158,6 +182,9 @@ export function createPollErrorRetry(baseMs: number) {
   ): void => {
     const maxRetryCount = config.errorRetryCount;
     if (maxRetryCount !== undefined && opts.retryCount > maxRetryCount) return;
-    setTimeout(() => revalidate(opts), pollErrorRetryDelayMs(baseMs, opts.retryCount, error));
+    setTimeout(
+      () => runWhenVisible(() => revalidate(opts)),
+      pollErrorRetryDelayMs(baseMs, opts.retryCount, error),
+    );
   };
 }

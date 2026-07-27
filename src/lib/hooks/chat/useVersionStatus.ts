@@ -254,6 +254,21 @@ export function useVersionStatus(params: {
     const documentHidden = () =>
       typeof document !== "undefined" && document.visibilityState === "hidden";
 
+    // Nothing else serialises the ticks, so a quick hide/show (or a resume
+    // landing on top of the mount fetch) could otherwise run two polls at once
+    // — doubling load on the very route A2 protects and letting the two
+    // `shouldStopPolling` calls mutate the shared stability state out of order.
+    let inFlight = false;
+    const fetchGuarded = async (): Promise<FetchOutcome | null> => {
+      if (inFlight) return null;
+      inFlight = true;
+      try {
+        return await fetchOnce();
+      } finally {
+        inFlight = false;
+      }
+    };
+
     const nextDelayMs = (outcome: FetchOutcome) =>
       outcome.ok
         ? pollIntervalMs
@@ -289,7 +304,9 @@ export function useVersionStatus(params: {
         resumeWhenVisible = true;
         return;
       }
-      const outcome = await fetchOnce();
+      const outcome = await fetchGuarded();
+      // A poll is already running; it schedules the next tick when it lands.
+      if (outcome === null) return;
       if (cancelled || lastKeyRef.current !== key) return;
       if (shouldStopPolling(outcome.status)) {
         stopped = true;
@@ -319,7 +336,8 @@ export function useVersionStatus(params: {
       document.addEventListener("visibilitychange", handleVisibilityChange);
     }
 
-    void fetchOnce().then((outcome) => {
+    void fetchGuarded().then((outcome) => {
+      if (outcome === null) return;
       if (cancelled || lastKeyRef.current !== key) return;
       if (!pollingEnabled) return;
       if (shouldStopPolling(outcome.status)) {

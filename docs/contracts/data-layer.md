@@ -188,6 +188,12 @@ retryable: true }` i stället för `500`:
   ersätter `useChatReadiness`/`useVersions` den banan med
   `createPollErrorRetry` — annars skulle backoffen och `Retry-After` inte ha
   någon effekt alls efter en 503, utan SWR:s default-kadens gälla.
+- **Dold flik gäller även retry-banan.** Varken SWR:s default-`onErrorRetry`
+  eller dess retry-event har någon visibility-spärr, och båda hookarna kör
+  `revalidateOnFocus: false` — att bara hoppa över en retry hade därför låst
+  hooken i felläge. `runWhenVisible` parkerar i stället retryn på
+  `visibilitychange`, så en bakgrundsflik slutar belasta den svältande poolen
+  utan att tappa uppvakningen.
 
 Bakgrund: prod-incidenten 2026-07-13 (29× `500` på just dessa routes under en
 redeploy med hård polling).

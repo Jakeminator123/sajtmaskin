@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * A2 regression coverage for the SWR-backed pollers (`useChatReadiness`,
@@ -55,6 +55,11 @@ beforeEach(() => {
     isLoading: false,
     mutate: vi.fn(),
   });
+});
+
+afterEach(() => {
+  // Drop any per-test `visibilityState` stub so the jsdom default returns.
+  Reflect.deleteProperty(document, "visibilityState");
 });
 
 describe("useChatReadiness — SWR poll config", () => {
@@ -126,6 +131,39 @@ describe("useChatReadiness — SWR poll config", () => {
     vi.advanceTimersByTime(2_000);
     expect(revalidate).toHaveBeenCalledWith({ retryCount: 1 });
 
+    vi.useRealTimers();
+  });
+
+  // The retry lane has no visibility gate of its own — neither does SWR's
+  // default — and `revalidateOnFocus: false` means nothing would wake it back
+  // up either. A hidden builder must park, not keep hitting a starved DB.
+  it("parks the retry while the tab is hidden and resumes when it returns", () => {
+    vi.useFakeTimers();
+    let visibility: DocumentVisibilityState = "hidden";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+
+    renderHook(() => useChatReadiness("chat_1", "ver_1"));
+    const revalidate = vi.fn();
+
+    lastConfig().onErrorRetry?.(
+      new PollFetchError("db unavailable", 503, 3_000),
+      "/readiness",
+      {},
+      revalidate,
+      { retryCount: 1 },
+    );
+
+    vi.advanceTimersByTime(10 * 60_000);
+    expect(revalidate).not.toHaveBeenCalled();
+
+    visibility = "visible";
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(revalidate).toHaveBeenCalledWith({ retryCount: 1 });
+
+    visibility = "visible";
     vi.useRealTimers();
   });
 
