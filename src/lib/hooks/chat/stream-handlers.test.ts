@@ -311,6 +311,81 @@ describe("handleSseStream", () => {
     expect(store.getMessages()[0]?.uiParts?.some((part) => part.type === "plan")).toBe(false);
   });
 
+  // Codex på #629: en icke-tom steg-array är inte samma sak som en plan.
+  // `parsePlanResponse` accepterar vilket JSON-objekt som helst och serverns
+  // resolver berikar bara ytligt, så steg utan titel/beskrivning eller med en
+  // `phase` utanför enumet når klienten orörda — och faller sedan bort i
+  // `normalizePlanArtifact`, vilket ger ett tomt kort under "Plan skapad!".
+  it.each([
+    ["helt tomma steg", [{}]],
+    ["steg med ogiltig fas", [{ title: "Bygg", description: "Något", phase: "implementation" }]],
+  ])("räknar inte %s som en lyckad plan", async (_label, steps) => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            planMode: true,
+            planArtifact: { goal: "Koppla på nyhetsbrev", steps, blockers: [] },
+            versionId: null,
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(
+      "Genereringen avslutades utan version eller preview.",
+    );
+    expect(store.getMessages()[0]?.uiParts?.some((part) => part.type === "plan")).toBe(false);
+  });
+
+  // Motprovet: en blockerare som överlever normaliseringen ÄR substans, så en
+  // plan som bara ställer frågor får inte hamna i empty-output-grenen.
+  it("räknar en giltig blockerare som en plan även utan steg", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            planMode: true,
+            planArtifact: {
+              goal: "Koppla på nyhetsbrev",
+              steps: [],
+              blockers: [{ kind: "integration", question: "Vilken e-posttjänst?" }],
+            },
+            versionId: null,
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(store.getMessages()[0]?.uiParts?.some((part) => part.type === "plan")).toBe(true);
+  });
+
   // C1/C3 (empty-output tool feedback fix, prod chat e298da50): a done event
   // with `awaitingInput: true` + `awaitingInputPrompt` must surface that
   // prompt as the assistant message content and skip the generic

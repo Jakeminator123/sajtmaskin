@@ -24,6 +24,7 @@ import {
   recordStreamText,
 } from "./helpers";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
+import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
 import { runPostGenerationChecks } from "./post-checks";
 import {
   F3_APPROVAL_NOTHING_TO_BUILD_REASON,
@@ -1020,21 +1021,22 @@ export async function handleSseStream(
             // Gäller bara planer utan blockerare; med blockerare är
             // `awaitingInput` redan sant.
             //
-            // Kräver SUBSTANS, inte bara ett objekt: `plan-mode-stream.ts`
-            // skickar `resolvePlanArtifact(...) ?? {}`, så fältet finns även när
-            // planeraren inte producerade något parsbart. Ett tomt `{}` går
-            // dessutom igenom `normalizePlanArtifact` (goal defaultar till
-            // "Plan"), så det hade blivit ett tomt kort plus "Plan skapad!" på
-            // en misslyckad körning — falsk grönt. Ett steg eller en blockerare
-            // är minimum för att kalla det en plan.
+            // Kräver substans som ÖVERLEVER normaliseringen, inte bara en
+            // icke-tom array: `plan-mode-stream.ts` skickar
+            // `resolvePlanArtifact(...) ?? {}` och serverns resolver berikar
+            // bara ytligt, så `{ steps: [{}] }` — eller steg vars `phase` inte
+            // är ett giltigt enumvärde — når hit orört. `normalizePlanArtifact`
+            // släpper varje steg utan titel/beskrivning/giltig fas och varje
+            // blockerare utan kind/question, men defaultar `goal` till "Plan"
+            // och returnerar alltså ett objekt ändå. Räknades arraylängden
+            // rått blev en misslyckad planering "Plan skapad!" plus ett tomt
+            // kort — falsk grönt. Detta är samma normalisering som
+            // `BuildPlanCard` renderar ur, så toasten och kortet kan inte säga
+            // emot varandra.
             const hasPlanArtifact = (() => {
-              const artifact = doneData.planArtifact;
-              if (typeof artifact !== "object" || artifact === null) return false;
-              const { steps, blockers } = artifact as Record<string, unknown>;
-              return (
-                (Array.isArray(steps) && steps.length > 0) ||
-                (Array.isArray(blockers) && blockers.length > 0)
-              );
+              const plan = normalizePlanArtifact(doneData.planArtifact);
+              if (!plan) return false;
+              return plan.steps.length > 0 || plan.blockers.length > 0;
             })();
             const hasRecoveredArtifact =
               awaitingInput ||
