@@ -10,14 +10,19 @@ source: /logg-session prod (chat 747636c8, 2026-07-13) + explore-subagent kodlä
 
 ## TL;DR
 
-Under den senaste prod-sessionen kom en skur av **29× HTTP 500** (05:55–05:57 UTC) på de
-pollade läs-routerna (`version-status`, `readiness`, `versions`, `dossiers`), alla med
+**Incidenten som motiverade planen (prod-session 2026-07-13):** en skur av
+**29× HTTP 500** (05:55–05:57 UTC) på de pollade läs-routerna (`version-status`,
+`readiness`, `versions`, `dossiers`), alla med
 `timeout exceeded when trying to connect` (DB-poolen tog slut). Sammanfallande orsaker:
 (1) en **prod-redeploy mitt i körningen** (commit #514, 05:43 UTC) som bytte ut instanser,
 (2) **hård klient-polling utan backoff**, (3) liten per-instans-pool (default **3**). Ingen
-av läs-routerna degraderar mjukt — de kastar 500. Utöver det: ett par kosmetiska brus-fel
-(CSP-eval report-only, font-403 i preview) och en **scaffold-lint-bugg** (`use-reduced-motion`)
-som får *varje* genererad sajt att fälla ReleaseGate på lint.
+av läs-routerna degraderade mjukt — de kastade 500. Samma session visade dessutom ett par
+kosmetiska brus-fel (CSP-eval report-only, font-403 i preview) och en
+**scaffold-lint-bugg** (`use-reduced-motion`) som fällde ReleaseGate på lint för *varje*
+genererad sajt.
+
+**Nuläge:** brus-felen och scaffold-buggen är åtgärdade (C1, C2, D1). Kärnan i A är kvar.
+Stycket ovan beskriver incidenten, inte dagens kodläge — statustabellen nedan är sanningen.
 
 Pool-tuning kräver mätning (motsatta fixar för motsatta fel) — se A3.
 
