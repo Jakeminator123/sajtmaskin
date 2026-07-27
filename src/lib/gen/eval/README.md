@@ -145,7 +145,7 @@ Baserat på baseline från 2026-03-18 (`gpt-5.3-codex`, 15 prompts; full suite �
 
 ## Felsökning
 
-- `preflight=failed_env` → eval stoppade före LLM-kostnad eftersom DB-env saknas. Sätt `POSTGRES_URL` / `STORAGE_POSTGRES_URL` eller kör `npm run env:pull` först.
+- `preflight=failed_env` → eval stoppade före LLM-kostnad eftersom DB-env saknas. Sätt `POSTGRES_URL` / `STORAGE_POSTGRES_URL` eller kör `npm run env:pull` först. DB:n behövs för att codegen-vägens scaffold-scoring läser `generation_telemetry`. I CI får `Eval Baseline Update` prod-databasen via `POSTGRES_URL_PROD` (läsande — se workflow-kommentaren); saknas secreten failar jobbet med den orsaken i st.f. att rapportera alla scenarier som `PASS → FAIL`.
 - `OPENAI_API_KEY missing` → exporta i shell eller lägg i `.env.local`.
 - Eval failar på en specifik prompt utan tydlig orsak → kör med en eller två prompts: importera `runEval` direkt och passa `{ prompts: [EVAL_PROMPTS[0]] }`.
 - Baseline-jämförelsen saknar prompts → en ny prompt har lagts till i `prompts.ts` men baseline är gammal. Det är OK — `compareWithBaseline` skippar prompts som saknas i baseline. Kör `eval:baseline` när du är klar att flytta över.
