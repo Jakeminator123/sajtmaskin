@@ -24,7 +24,10 @@ import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rateLimit";
 import { deleteBlob, uploadBlob } from "@/lib/vercel/blob-service";
-import { captureThumbnailScreenshot } from "@/lib/projects/thumbnail-capture";
+import {
+  captureThumbnailScreenshot,
+  isTransientCaptureAbort,
+} from "@/lib/projects/thumbnail-capture";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -283,6 +286,21 @@ async function handlePOST(
 
     return NextResponse.json({ success: true, thumbnailPath: uploaded.url });
   } catch (error) {
+    // Previewen navigerade om (eller deadline slog till) mitt i captureringen.
+    // Thumbnailen är kosmetisk och klienten är fire-and-forget, så ett race får
+    // inte rapporteras som serverfel — det gjorde att en helt frisk körning såg
+    // ut att ha ett 502 i observability (observerat i prod 2026-07-27).
+    // Svaret är fortfarande `success: false`: ingen thumbnail sparades.
+    if (isTransientCaptureAbort(error)) {
+      console.info(
+        "[API] Thumbnail capture skipped — preview moved during capture:",
+        error instanceof Error ? error.message : error,
+      );
+      return NextResponse.json(
+        { success: false, skipped: true, reason: "capture_interrupted" },
+        { status: 200 },
+      );
+    }
     console.error("[API] Thumbnail capture failed:", error);
     return NextResponse.json(
       {

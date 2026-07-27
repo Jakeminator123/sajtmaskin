@@ -14,9 +14,12 @@ vi.mock("@sparticuz/chromium", () => ({
   default: { args: [], executablePath: async () => "/tmp/chromium", headless: true },
 }));
 
-const { buildCaptureRequestGate, assertFinalUrlAllowed, captureThumbnailScreenshot } = await import(
-  "./thumbnail-capture"
-);
+const {
+  buildCaptureRequestGate,
+  assertFinalUrlAllowed,
+  captureThumbnailScreenshot,
+  isTransientCaptureAbort,
+} = await import("./thumbnail-capture");
 
 // Bugbot high (PR #426): the page-level request gate must block redirect/JS
 // navigations to internal hosts — the route's pre-check only covers the
@@ -87,6 +90,35 @@ describe("assertFinalUrlAllowed", () => {
   });
 });
 
+// Ett race mot en kosmetisk bild får inte rapporteras som 5xx. Klassificeringen
+// måste skilja "previewen rörde sig" från äkta fel som ska synas som 502.
+describe("isTransientCaptureAbort", () => {
+  it("känner igen att sidan/kontexten stängdes under captureringen", () => {
+    expect(
+      isTransientCaptureAbort(
+        new Error(
+          'Thumbnail capture failed at stage "screenshot": page.screenshot: Target page, context or browser has been closed',
+        ),
+      ),
+    ).toBe(true);
+    expect(isTransientCaptureAbort(new Error("Target closed"))).toBe(true);
+    expect(isTransientCaptureAbort(new Error("Page has been closed"))).toBe(true);
+    expect(
+      isTransientCaptureAbort(new Error("Navigation to https://site.fly.dev was interrupted")),
+    ).toBe(true);
+    expect(isTransientCaptureAbort(new Error("Execution context was destroyed"))).toBe(true);
+  });
+
+  it("klassificerar inte äkta fel som övergående", () => {
+    expect(isTransientCaptureAbort(new Error("net::ERR_TIMED_OUT"))).toBe(false);
+    expect(isTransientCaptureAbort(new Error("browser did not start"))).toBe(false);
+    expect(
+      isTransientCaptureAbort(new Error("Thumbnail capture navigated off the allowlist: evil.example")),
+    ).toBe(false);
+    expect(isTransientCaptureAbort(undefined)).toBe(false);
+  });
+});
+
 // Codex P1 (PR #593): the new screenshot deadline and the stage-tagged error
 // wrapper are prod failure-mode mitigations, so they need coverage — the tests
 // above only exercise the pure helpers, not captureThumbnailScreenshot itself.
@@ -148,6 +180,30 @@ describe("captureThumbnailScreenshot", () => {
     expect(err?.message).toMatch(/stage "launch"/);
     expect(err?.message).toContain("browser did not start");
     expect(err?.cause).toBe(cause);
+  });
+
+  it("flaggar ett skott som dog av att previewen navigerade om som övergående", async () => {
+    // Exakt prod-meddelandet från 2026-07-27, inklusive stage-wrappern.
+    const page = makeFakePage({
+      screenshot: vi
+        .fn()
+        .mockRejectedValue(
+          new Error("page.screenshot: Target page, context or browser has been closed"),
+        ),
+    });
+    const browser = makeFakeBrowser(page);
+    launchMock.mockResolvedValue(browser);
+
+    const err = await captureThumbnailScreenshot("https://site.fly.dev/x", {
+      isFinalUrlAllowed: () => true,
+    }).then(
+      () => undefined,
+      (e: unknown) => e as Error,
+    );
+
+    expect(err?.message).toMatch(/stage "screenshot"/);
+    expect(isTransientCaptureAbort(err)).toBe(true);
+    expect(browser.close).toHaveBeenCalledTimes(1);
   });
 
   it('wraps a navigation failure with stage "navigate" and still closes the browser', async () => {
