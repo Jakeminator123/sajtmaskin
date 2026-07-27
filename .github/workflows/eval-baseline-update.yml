@@ -60,11 +60,6 @@ concurrency:
 jobs:
   refresh-baseline:
     runs-on: ubuntu-latest
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
-      DB_SSL_REJECT_UNAUTHORIZED: "false"
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -76,7 +71,15 @@ jobs:
       # reported `PASS -> FAIL` plus a `preflight_env` blocking check — the
       # eval's own env preflight failing, which reads like a quality collapse
       # instead of a misconfigured job. Fail with the actual reason instead.
+      #
+      # Credentials are scoped per step rather than to the job (Codex P1 on
+      # #631): a job-level `env:` hands the production DSN to `npm ci` (and its
+      # postinstall scripts) and to the third-party create-pull-request action,
+      # none of which need it. Only these three steps do.
       - name: Verify required secrets are present
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
         run: |
           missing=""
           if [ -z "$OPENAI_API_KEY" ]; then
@@ -106,12 +109,18 @@ jobs:
       # against an empty telemetry history. Sanitized output — never credentials.
       - name: Verify prod DB identity (db-targets guard)
         run: node scripts/db/check-db-env-target.mjs --expect=prod
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
 
       # Single combined invocation: cli.ts always runs the eval + comparison;
       # `--gate` exits 1 on regression BEFORE the baseline write happens, and
       # `--save-baseline` writes only if we got past --gate. One run = one
       # OpenAI billing event (instead of three back-to-back runs).
       - name: Run eval + gate (and save baseline unless dry-run)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
+          DB_SSL_REJECT_UNAUTHORIZED: "false"
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             npx tsx src/lib/gen/eval/cli.ts --gate
@@ -119,16 +128,22 @@ jobs:
             npx tsx src/lib/gen/eval/cli.ts --gate --save-baseline
           fi
 
+      # `saveBaseline()` rewrites timestamp + per-prompt timings on every run, so
+      # `git diff --quiet` would always report a change and the documented
+      # no-op path could never happen (Codex P2 on #631). Compare the OUTCOME
+      # instead: scores, pass/fail, blocking checks, file counts and the
+      # non-timing summary fields.
       - name: Detect baseline change
         id: diff
         if: ${{ github.event.inputs.dry_run != 'true' }}
         shell: bash
         run: |
-          if git diff --quiet -- src/lib/gen/eval/eval-baseline.json; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No baseline change to commit."
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
+          baseline=src/lib/gen/eval/eval-baseline.json
+          git show "HEAD:$baseline" > /tmp/eval-baseline-previous.json
+          changed=$(node scripts/eval/baseline-meaningful-change.mjs /tmp/eval-baseline-previous.json "$baseline")
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          if [ "$changed" = "false" ]; then
+            echo "Baseline outcome unchanged (only run timestamp/timings differ) — no PR."
           fi
 
       - name: Open PR with refreshed baseline
