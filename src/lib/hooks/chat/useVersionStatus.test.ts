@@ -530,6 +530,46 @@ describe("useVersionStatus — A2 backoff and hidden-tab pause", () => {
     expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
   });
 
+  it("does not fire a tick that was armed before the tab went hidden", async () => {
+    let visibility: DocumentVisibilityState = "visible";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+
+    const fetchMock = vi.fn(async () => okResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderStatus();
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // The next tick is already scheduled at this point. Hiding the tab must
+    // cancel it, not let it fire once more.
+    visibility = "hidden";
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(POLL * 5);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    visibility = "visible";
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // Exactly one poll per interval after resuming — no duplicate loop.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("pauses polling while the tab is hidden and resumes on visibilitychange", async () => {
     let visibility: DocumentVisibilityState = "hidden";
     Object.defineProperty(document, "visibilityState", {

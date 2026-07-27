@@ -1,7 +1,11 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { pollJsonFetcher, swrRefreshIntervalMs } from "@/lib/hooks/poll-backoff";
+import {
+  createPollErrorRetry,
+  pollJsonFetcher,
+  swrRefreshIntervalMs,
+} from "@/lib/hooks/poll-backoff";
 
 interface UseVersionsOptions {
   /** Enable frequent polling (e.g., during generation). Default: false */
@@ -89,6 +93,13 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
     },
     [isGenerating, pauseWhileGenerating, generatingRefreshIntervalMs, idleRefreshIntervalMs],
   );
+  // SWR skips interval-driven revalidation while the cache holds an error and
+  // uses this lane instead, so the backoff (and the server's `Retry-After`)
+  // has to be applied here to have any effect after a degraded 503.
+  const onErrorRetry = useMemo(
+    () => createPollErrorRetry(isGenerating ? generatingRefreshIntervalMs : idleRefreshIntervalMs),
+    [isGenerating, generatingRefreshIntervalMs, idleRefreshIntervalMs],
+  );
   const { data, error, isLoading, mutate } = useSWR(
     enabled && chatId ? `${engineChatBaseUrl(chatId)}/versions` : null,
     pollJsonFetcher,
@@ -104,6 +115,7 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
         lastErrorRef.current = err;
       },
       refreshInterval: resolveRefreshInterval,
+      onErrorRetry,
       // Keep repeated UI triggers from stampeding the same endpoint.
       dedupingInterval: 10000,
     },

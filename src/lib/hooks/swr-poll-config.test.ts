@@ -20,6 +20,13 @@ type CapturedConfig = {
   refreshInterval?: unknown;
   onSuccess?: () => void;
   onError?: (err: unknown) => void;
+  onErrorRetry?: (
+    error: unknown,
+    key: string,
+    config: { errorRetryCount?: number },
+    revalidate: (opts: { retryCount: number }) => void,
+    opts: { retryCount: number },
+  ) => void;
 };
 
 const useSWRMock = vi.hoisted(() => vi.fn());
@@ -93,6 +100,48 @@ describe("useChatReadiness — SWR poll config", () => {
   it("stays off without a versionId", () => {
     renderHook(() => useChatReadiness("chat_1", null));
     expect(callRefreshInterval(lastConfig())).toBe(0);
+  });
+
+  // SWR skips interval-driven revalidation while the cache holds an error, so
+  // the retry lane is where the pacing after a degraded 503 actually happens.
+  // Without an own `onErrorRetry` the whole A2 backoff would be dead code for
+  // this hook.
+  it("retries through its own error lane, never faster than Retry-After", () => {
+    vi.useFakeTimers();
+    renderHook(() => useChatReadiness("chat_1", "ver_1"));
+    const config = lastConfig();
+    const revalidate = vi.fn();
+
+    config.onErrorRetry?.(
+      new PollFetchError("db unavailable", 503, 30_000),
+      "/readiness",
+      {},
+      revalidate,
+      { retryCount: 1 },
+    );
+
+    // SWR's own lane would have retried after 2.5–7.5s; the server asked for 30s.
+    vi.advanceTimersByTime(29_000);
+    expect(revalidate).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(2_000);
+    expect(revalidate).toHaveBeenCalledWith({ retryCount: 1 });
+
+    vi.useRealTimers();
+  });
+
+  it("stops retrying at an explicit errorRetryCount cap", () => {
+    vi.useFakeTimers();
+    renderHook(() => useChatReadiness("chat_1", "ver_1"));
+    const revalidate = vi.fn();
+
+    lastConfig().onErrorRetry?.(new Error("network"), "/readiness", { errorRetryCount: 2 }, revalidate, {
+      retryCount: 3,
+    });
+
+    vi.advanceTimersByTime(10 * 60_000);
+    expect(revalidate).not.toHaveBeenCalled();
+
+    vi.useRealTimers();
   });
 });
 

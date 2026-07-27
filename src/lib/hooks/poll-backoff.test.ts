@@ -4,6 +4,7 @@ import {
   POLL_BACKOFF_MAX_MS,
   PollFetchError,
   pollBackoffDelayMs,
+  pollErrorRetryDelayMs,
   pollJsonFetcher,
   pollRetryAfterMs,
   swrRefreshIntervalMs,
@@ -71,6 +72,28 @@ describe("swrRefreshIntervalMs", () => {
 
   it("backs off on its own when there is no hint", () => {
     expect(swrRefreshIntervalMs(10_000, 3, new Error("network"))).toBeGreaterThanOrEqual(40_000);
+  });
+});
+
+describe("pollErrorRetryDelayMs", () => {
+  it("starts below the healthy idle cadence so a blip recovers quickly", () => {
+    // Idle readiness polls every 30s; the first retry must not wait that long.
+    expect(pollErrorRetryDelayMs(30_000, 1, null)).toBeLessThanOrEqual(6_500);
+  });
+
+  it("doubles per retry and stays capped", () => {
+    const first = pollErrorRetryDelayMs(30_000, 1, null);
+    const third = pollErrorRetryDelayMs(30_000, 3, null);
+    expect(third).toBeGreaterThan(first);
+    expect(pollErrorRetryDelayMs(30_000, 30, null)).toBeLessThanOrEqual(
+      POLL_BACKOFF_MAX_MS * 1.25,
+    );
+  });
+
+  it("never retries sooner than the server asked", () => {
+    expect(
+      pollErrorRetryDelayMs(30_000, 1, new PollFetchError("db unavailable", 503, 12_000)),
+    ).toBe(12_000);
   });
 });
 

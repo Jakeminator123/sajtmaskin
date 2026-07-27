@@ -72,6 +72,10 @@ Pool-tuning kräver mätning (motsatta fixar för motsatta fel) — se A3.
   SWR-hookarna pausar redan vid dold flik via `refreshWhenHidden: false`.
   Wall-clock-backstoppet (`maxNonTerminalMs`) gäller oförändrat, så en oåtkomlig endpoint
   slutar polla i stället för att backa av i evighet.
+  Två fällor värda att minnas (båda hittade av bugbot-passet på diffen): SWR har
+  `refreshInterval` i sin effekt-deps, så callbacken måste memoiseras annars startas
+  timern om vid varje render; och SWR hoppar över intervall-pollning när cachen har ett
+  fel, så backoffen måste också in i `onErrorRetry`-banan för att ha någon effekt.
 - **A3 — Pool-tuning (mät först):** felet var connect-timeout (inte `EMAXCONNSESSION`) →
   riktningen är att **höja** `POSTGRES_POOL_MAX` (t.ex. 3→5–8) på appen. **Men** höj inte
   blint: fler instanser × högre max kan i stället ge `EMAXCONNSESSION` mot poolerns tak.

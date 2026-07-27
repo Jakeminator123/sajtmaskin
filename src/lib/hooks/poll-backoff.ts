@@ -100,6 +100,11 @@ export async function pollJsonFetcher(url: string): Promise<unknown> {
 /**
  * Poll cadence for an SWR hook: the caller's healthy interval, stretched by
  * backoff while the endpoint is failing. `0` (polling off) stays off.
+ *
+ * Note that SWR's interval poller **skips** revalidation entirely while the
+ * cache holds an error and hands recovery to its error-retry lane, so this
+ * mainly governs the healthy cadence. The actual retry pacing after a failure
+ * lives in {@link createPollErrorRetry}.
  */
 export function swrRefreshIntervalMs(
   baseMs: number,
@@ -112,4 +117,47 @@ export function swrRefreshIntervalMs(
   const retryAfterMs =
     lastError instanceof PollFetchError ? (lastError.retryAfterMs ?? 0) : 0;
   return Math.max(backedOff, retryAfterMs);
+}
+
+/**
+ * Where an error-retry starts before doubling. Deliberately shorter than the
+ * healthy idle cadence (15–60 s): a transient blip should recover quickly, it
+ * just must not recover *at full polling speed*.
+ */
+export const POLL_ERROR_RETRY_BASE_MS = 5_000;
+
+/** Delay before SWR's next error-retry: backoff, but never below `Retry-After`. */
+export function pollErrorRetryDelayMs(
+  baseMs: number,
+  retryCount: number,
+  error: unknown,
+): number {
+  const base = Math.min(baseMs > 0 ? baseMs : POLL_ERROR_RETRY_BASE_MS, POLL_ERROR_RETRY_BASE_MS);
+  const backedOff = pollBackoffDelayMs(base, Math.max(retryCount, 1));
+  const retryAfterMs = error instanceof PollFetchError ? (error.retryAfterMs ?? 0) : 0;
+  return Math.max(backedOff, retryAfterMs);
+}
+
+/**
+ * Replacement for SWR's default `onErrorRetry`.
+ *
+ * SWR's own retry lane ignores `Retry-After`, so a degraded 503 from
+ * `transientDbResponseIfRetryable` would be retried on SWR's schedule (2.5–7.5 s
+ * for the first attempt) instead of the 3 s the server asked for — and, more to
+ * the point, the pacing would live in a different place than the rest of A2.
+ * The `errorRetryCount` guard mirrors SWR's default so an explicit cap still
+ * works; unset (our case) means keep retrying, as before.
+ */
+export function createPollErrorRetry(baseMs: number) {
+  return (
+    error: unknown,
+    _key: string,
+    config: { errorRetryCount?: number },
+    revalidate: (opts: { retryCount: number }) => void,
+    opts: { retryCount: number },
+  ): void => {
+    const maxRetryCount = config.errorRetryCount;
+    if (maxRetryCount !== undefined && opts.retryCount > maxRetryCount) return;
+    setTimeout(() => revalidate(opts), pollErrorRetryDelayMs(baseMs, opts.retryCount, error));
+  };
 }

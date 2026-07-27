@@ -1,7 +1,11 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { pollJsonFetcher, swrRefreshIntervalMs } from "@/lib/hooks/poll-backoff";
+import {
+  createPollErrorRetry,
+  pollJsonFetcher,
+  swrRefreshIntervalMs,
+} from "@/lib/hooks/poll-backoff";
 import type { ChatReadiness } from "@/lib/chat-readiness";
 
 type UseChatReadinessOptions = {
@@ -48,6 +52,13 @@ export function useChatReadiness(
       ),
     [baseRefreshInterval],
   );
+  // SWR skips interval-driven revalidation while the cache holds an error and
+  // uses this lane instead, so the backoff (and the server's `Retry-After`)
+  // has to be applied here to have any effect after a degraded 503.
+  const onErrorRetry = useMemo(
+    () => createPollErrorRetry(baseRefreshInterval),
+    [baseRefreshInterval],
+  );
   const { data, error, isLoading, mutate } = useSWR(
     chatId ? `${engineChatBaseUrl(chatId)}/readiness${query}` : null,
     pollJsonFetcher,
@@ -63,6 +74,7 @@ export function useChatReadiness(
         lastErrorRef.current = err;
       },
       refreshInterval: resolveRefreshInterval,
+      onErrorRetry,
       dedupingInterval: 10000,
     },
   );

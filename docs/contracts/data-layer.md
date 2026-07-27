@@ -183,6 +183,11 @@ retryable: true }` i stället för `500`:
   med jitter + respekt för `Retry-After`) används av `useVersionStatus`,
   `useChatReadiness` och `useVersions`. `useVersionStatus` pausar dessutom
   pollningen medan fliken är dold.
+- **Obs för SWR-hookarna:** SWR hoppar över intervall-pollning så länge cachen
+  håller ett fel och sköter återhämtningen i sin `onErrorRetry`-bana. Därför
+  ersätter `useChatReadiness`/`useVersions` den banan med
+  `createPollErrorRetry` — annars skulle backoffen och `Retry-After` inte ha
+  någon effekt alls efter en 503, utan SWR:s default-kadens gälla.
 
 Bakgrund: prod-incidenten 2026-07-13 (29× `500` på just dessa routes under en
 redeploy med hård polling).

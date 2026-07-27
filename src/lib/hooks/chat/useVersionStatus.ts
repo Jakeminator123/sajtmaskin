@@ -282,6 +282,13 @@ export function useVersionStatus(params: {
     // stability tracking.
     const runTick = async () => {
       if (cancelled || stopped || lastKeyRef.current !== key) return;
+      // The tab may have been hidden after this tick was armed — park instead
+      // of firing, so a backgrounded builder never polls at all.
+      if (documentHidden()) {
+        clearPendingTick();
+        resumeWhenVisible = true;
+        return;
+      }
       const outcome = await fetchOnce();
       if (cancelled || lastKeyRef.current !== key) return;
       if (shouldStopPolling(outcome.status)) {
@@ -295,8 +302,16 @@ export function useVersionStatus(params: {
 
     const handleVisibilityChange = () => {
       if (cancelled || stopped || lastKeyRef.current !== key) return;
-      if (!resumeWhenVisible || documentHidden()) return;
+      if (documentHidden()) {
+        // Cancel an armed tick right away rather than letting it fire once more.
+        clearPendingTick();
+        resumeWhenVisible = true;
+        return;
+      }
+      if (!resumeWhenVisible) return;
       resumeWhenVisible = false;
+      // Cleared so the resumed tick can never race a leftover timeout.
+      clearPendingTick();
       void runTick();
     };
 
