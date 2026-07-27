@@ -21,6 +21,12 @@ fällde F3-verifieringen. Förslaget: ett **adapt-eller-ersätt-kontrakt** så e
 Detta är **plan + regressionstest-spec, ingen implementation.** Ingen bred refaktor i
 incidentarbetet.
 
+> **Status 2026-07-27 (kodverifierad mot master `3b419115`):** fortfarande helt öppen.
+> Inget adapt-eller-ersätt-kontrakt finns i `select.ts` (som bara dedupar `ai-chat` mot
+> `ai-tool-calling`, `:143-152`), inte i verbatim-/injektionspolicyn och inte i
+> follow-up-kontraktet. Regressionstestet nedan är inte skrivet. Backlog-raden
+> **M#dchat1** är öppen.
+
 ## Bevis (denna incident)
 
 Verifierat mot prod-DB (`engine_versions.files_json`, `engine_messages`, `orchestration_snapshot`):

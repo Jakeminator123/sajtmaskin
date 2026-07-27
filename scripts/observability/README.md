@@ -65,8 +65,13 @@ sparas — default **10**, `--max-logs` överstyr.
   enskild körning. En version med flera telemetri-rader (retry/repair) flaggas
   som möjlig dubbelräkning i `tokens.notes`.
 - **Tokensumman är en undre gräns.** Bara LLM-anrop som loggar usage räknas.
-  `tokens.json` → `coverage.unmeasuredPhases` listar resten. Planen för att täcka
-  dem: [`docs/plans/active/2026-07-24-genlogg-och-tokenmatning.md`](../../docs/plans/active/2026-07-24-genlogg-och-tokenmatning.md).
+  `tokens.json` → `coverage.unmeasuredPhases` listar resten. Sedan `llm_usage`
+  (#613) täcks Deep Brief, verifier, RepairGate, embeddings, intent-klassificerare
+  och prompt assist. Kvar omätt: de sekundära ytorna (wizard, audit, analyze,
+  transcribe, inspector), Sajtagenten (OpenClaw-gatewayen kör utanför appen) och
+  D-ID (credits, inte tokens). Om de ska mätas är ett öppet produktbeslut — se
+  [`docs/plans/active/README.md`](../../docs/plans/active/README.md)
+  § Väntar på ägarbeslut.
 - **OpenAI:s org-siffra kan inte attribueras per körning eller slutanvändare.**
   Minsta bucket är en minut, och `group_by=user_id` betyder organisationens
   medlem — inte Sajtmaskins `users.id`.
