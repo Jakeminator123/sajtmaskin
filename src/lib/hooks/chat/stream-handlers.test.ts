@@ -284,6 +284,33 @@ describe("handleSseStream", () => {
     expect(spies.onGenerationComplete).toHaveBeenCalled();
   });
 
+  // Bugbot på #629: plan-mode-stream skickar `resolvePlanArtifact(...) ?? {}`,
+  // så fältet finns även när planeraren inte producerade något parsbart. Ett tomt
+  // artefaktobjekt får inte räknas som en plan — då hade en misslyckad körning
+  // visat "Plan skapad!" och ett tomt kort.
+  it("räknar inte ett tomt planArtifact som en lyckad plan", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("done", { chatId: "chat_1", planMode: true, planArtifact: {}, versionId: null }, "");
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith(
+      "Genereringen avslutades utan version eller preview.",
+    );
+    expect(store.getMessages()[0]?.uiParts?.some((part) => part.type === "plan")).toBe(false);
+  });
+
   // C1/C3 (empty-output tool feedback fix, prod chat e298da50): a done event
   // with `awaitingInput: true` + `awaitingInputPrompt` must surface that
   // prompt as the assistant message content and skip the generic

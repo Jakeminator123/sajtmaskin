@@ -1019,8 +1019,23 @@ export async function handleSseStream(
             // plan-kortet aldrig monterades och "Plan skapad!" aldrig nåddes.
             // Gäller bara planer utan blockerare; med blockerare är
             // `awaitingInput` redan sant.
-            const hasPlanArtifact =
-              typeof doneData.planArtifact === "object" && doneData.planArtifact !== null;
+            //
+            // Kräver SUBSTANS, inte bara ett objekt: `plan-mode-stream.ts`
+            // skickar `resolvePlanArtifact(...) ?? {}`, så fältet finns även när
+            // planeraren inte producerade något parsbart. Ett tomt `{}` går
+            // dessutom igenom `normalizePlanArtifact` (goal defaultar till
+            // "Plan"), så det hade blivit ett tomt kort plus "Plan skapad!" på
+            // en misslyckad körning — falsk grönt. Ett steg eller en blockerare
+            // är minimum för att kalla det en plan.
+            const hasPlanArtifact = (() => {
+              const artifact = doneData.planArtifact;
+              if (typeof artifact !== "object" || artifact === null) return false;
+              const { steps, blockers } = artifact as Record<string, unknown>;
+              return (
+                (Array.isArray(steps) && steps.length > 0) ||
+                (Array.isArray(blockers) && blockers.length > 0)
+              );
+            })();
             const hasRecoveredArtifact =
               awaitingInput ||
               Boolean(resolvedVersionId) ||
