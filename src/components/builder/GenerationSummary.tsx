@@ -23,47 +23,76 @@ const GENERIC_CODE_BLOCK_RE = /```(\w+)?[^\n]*\n([\s\S]*?)```/g;
 const THINKING_RE = /<Thinking>([\s\S]*?)<\/Thinking>/gi;
 const OPEN_FENCE_RE = /```(\w+)?[^\n]*(?:\n|$)/;
 const STREAM_FILE_HEADER_RE = /(?:^|\n)([a-z0-9]+) file="([^"]+)"[^\n]*(?:\n|$)/;
+const TAIL_FILE_HEADER_RE = /(?:^|\n)(?:```)?([a-z0-9]+) file="([^"]+)"[^\n]*(?:\n|$)/g;
 const FILE_ATTRIBUTE_RE = /file="([^"]+)"/;
 
-interface UnterminatedBlock {
+interface TailStart {
   index: number;
   language: string;
   path: string | null;
-  lineCount: number;
 }
 
 /**
- * Hittar en kodström som öppnats men aldrig stängts. Kompletta block är redan
- * bortplockade ur `residual`, så en kvarvarande fence — eller en
- * `<lang> file="…"`-rad i radbörjan — är per definition en oavslutad svans.
+ * Hittar där en oavslutad kodsvans börjar. Kompletta block är redan bortplockade
+ * ur `residual`, så en kvarvarande fence — eller en `<lang> file="…"`-rad i
+ * radbörjan — är per definition en oavslutad svans.
+ *
+ * Båda formerna prövas och den som ligger TIDIGAST vinner. Att returnera på
+ * fence-träffen först lät en kvarglömd fence längre ner i strömmen flytta
+ * klippet framåt, så all ofenced kod däremellan blev kvar som prosa — en rå
+ * kodvägg i chatten (observerat i prod 2026-07-27: stream-header på index 1,
+ * kvarglömd fence på index 20 879).
  */
-function findUnterminatedBlock(residual: string): UnterminatedBlock | null {
+function findTailStart(residual: string): TailStart | null {
+  const candidates: TailStart[] = [];
+
   const fenceMatch = OPEN_FENCE_RE.exec(residual);
-  if (fenceMatch) {
-    const body = residual.slice(fenceMatch.index + fenceMatch[0].length);
-    if (!body.trim()) return null;
-    return {
+  if (fenceMatch && residual.slice(fenceMatch.index + fenceMatch[0].length).trim()) {
+    candidates.push({
       index: fenceMatch.index,
       language: fenceMatch[1] ?? "",
       path: FILE_ATTRIBUTE_RE.exec(fenceMatch[0])?.[1] ?? null,
-      lineCount: body.split("\n").length,
-    };
+    });
   }
 
   const streamMatch = STREAM_FILE_HEADER_RE.exec(residual);
-  if (streamMatch) {
-    const body = residual.slice(streamMatch.index + streamMatch[0].length);
-    if (!body.trim()) return null;
-    const leadingNewline = streamMatch[0].startsWith("\n") ? 1 : 0;
-    return {
-      index: streamMatch.index + leadingNewline,
+  if (streamMatch && residual.slice(streamMatch.index + streamMatch[0].length).trim()) {
+    candidates.push({
+      index: streamMatch.index + (streamMatch[0].startsWith("\n") ? 1 : 0),
       language: streamMatch[1],
       path: streamMatch[2],
-      lineCount: body.split("\n").length,
-    };
+    });
   }
 
-  return null;
+  if (candidates.length === 0) return null;
+  return candidates.reduce((earliest, candidate) =>
+    candidate.index < earliest.index ? candidate : earliest,
+  );
+}
+
+/**
+ * Räknar upp varje fil i den avklippta svansen. En svans kan innehålla flera
+ * filer när fence-parningen hamnat ur fas, och då ska det kollapsade kortet
+ * rapportera alla — inte bara den första.
+ */
+function collectTailFiles(tail: string): GeneratedFile[] {
+  const re = new RegExp(TAIL_FILE_HEADER_RE.source, TAIL_FILE_HEADER_RE.flags);
+  const headers: { start: number; end: number; language: string; path: string }[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(tail)) !== null) {
+    headers.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      language: match[1],
+      path: match[2],
+    });
+  }
+
+  return headers.map((header, i) => ({
+    path: header.path,
+    language: header.language,
+    lineCount: tail.slice(header.end, headers[i + 1]?.start ?? tail.length).split("\n").length,
+  }));
 }
 
 function parseGenerationContent(raw: string): ParsedContent {
@@ -93,16 +122,20 @@ function parseGenerationContent(raw: string): ParsedContent {
     .replace(GENERIC_CODE_BLOCK_RE, "")
     .replace(THINKING_RE, "");
 
-  const unterminated = findUnterminatedBlock(residual);
-  if (unterminated) {
-    residual = residual.slice(0, unterminated.index);
-    genericCodeBlocks += 1;
-    totalCodeLines += unterminated.lineCount;
-    if (unterminated.path) {
+  const tailStart = findTailStart(residual);
+  if (tailStart) {
+    const tail = residual.slice(tailStart.index);
+    residual = residual.slice(0, tailStart.index);
+    const tailFiles = collectTailFiles(tail);
+    genericCodeBlocks += Math.max(1, tailFiles.length);
+    totalCodeLines += tail.split("\n").length;
+    if (tailFiles.length > 0) {
+      files.push(...tailFiles);
+    } else if (tailStart.path) {
       files.push({
-        path: unterminated.path,
-        language: unterminated.language,
-        lineCount: unterminated.lineCount,
+        path: tailStart.path,
+        language: tailStart.language,
+        lineCount: tail.split("\n").length,
       });
     }
   }
