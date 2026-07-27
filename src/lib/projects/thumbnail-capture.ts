@@ -34,6 +34,28 @@ const SCREENSHOT_TIMEOUT_MS = 15_000;
 
 export const THUMBNAIL_VIEWPORT = { width: 1200, height: 750 } as const;
 
+/**
+ * Playwright-meddelanden som betyder att sidan, kontexten eller browsern
+ * försvann under captureringen — previewen navigerade om mitt i skottet, eller
+ * funktionens deadline dödade processen. Det är ett race mot en kosmetisk
+ * bild, inte ett serverfel, och ska därför inte rapporteras som 5xx.
+ */
+const TRANSIENT_ABORT_PATTERNS: readonly RegExp[] = [
+  /target (?:page, context or browser|closed)/i,
+  /(?:page|context|browser) has been closed/i,
+  /navigation (?:to [^\s]+ )?(?:is |was )?interrupted/i,
+  /execution context was destroyed/i,
+];
+
+/**
+ * Sant för avbrott som beror på att previewen rörde sig under captureringen.
+ * Matchar mot hela meddelandet, så den stage-taggade wrappern nedan fungerar.
+ */
+export function isTransientCaptureAbort(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return TRANSIENT_ABORT_PATTERNS.some((pattern) => pattern.test(message));
+}
+
 async function launchBrowser(): Promise<Browser> {
   if (IS_SERVERLESS) {
     const chromium = (await import("@sparticuz/chromium")).default;

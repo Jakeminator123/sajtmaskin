@@ -24,6 +24,7 @@ import {
   recordStreamText,
 } from "./helpers";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
+import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
 import { runPostGenerationChecks } from "./post-checks";
 import {
   F3_APPROVAL_NOTHING_TO_BUILD_REASON,
@@ -1012,10 +1013,36 @@ export async function handleSseStream(
               deliverPreviewUrl(effectiveDoneDemo, versionIdFromStream);
             }
             const awaitingInput = Boolean(doneData.awaitingInput);
+            // Plan-läget avslutar medvetet utan version och utan preview —
+            // planen ÄR resultatet. Räknades den inte som återfunnen artefakt
+            // tog empty-output-grenen nedan över och visade "Genereringen
+            // avslutades utan version eller preview." med en `break`, så
+            // plan-kortet aldrig monterades och "Plan skapad!" aldrig nåddes.
+            // Gäller bara planer utan blockerare; med blockerare är
+            // `awaitingInput` redan sant.
+            //
+            // Kräver substans som ÖVERLEVER normaliseringen, inte bara en
+            // icke-tom array: `plan-mode-stream.ts` skickar
+            // `resolvePlanArtifact(...) ?? {}` och serverns resolver berikar
+            // bara ytligt, så `{ steps: [{}] }` — eller steg vars `phase` inte
+            // är ett giltigt enumvärde — når hit orört. `normalizePlanArtifact`
+            // släpper varje steg utan titel/beskrivning/giltig fas och varje
+            // blockerare utan kind/question, men defaultar `goal` till "Plan"
+            // och returnerar alltså ett objekt ändå. Räknades arraylängden
+            // rått blev en misslyckad planering "Plan skapad!" plus ett tomt
+            // kort — falsk grönt. Detta är samma normalisering som
+            // `BuildPlanCard` renderar ur, så toasten och kortet kan inte säga
+            // emot varandra.
+            const hasPlanArtifact = (() => {
+              const plan = normalizePlanArtifact(doneData.planArtifact);
+              if (!plan) return false;
+              return plan.steps.length > 0 || plan.blockers.length > 0;
+            })();
             const hasRecoveredArtifact =
               awaitingInput ||
               Boolean(resolvedVersionId) ||
-              Boolean(effectiveDoneDemo);
+              Boolean(effectiveDoneDemo) ||
+              hasPlanArtifact;
             const emptyGenerationReason =
               typeof doneData.reason === "string" && doneData.reason.trim().length > 0
                 ? doneData.reason.trim()

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFollowUpBriefFromSnapshot,
   buildFollowUpContract,
+  buildPersistedOrchestrationSnapshot,
   extractBriefSummaryFromSnapshot,
   mergePersistedOrchestrationSnapshots,
   prependOrchestrationContinuityToFollowUp,
@@ -64,6 +65,178 @@ describe("sanitizeOrchestrationSnapshotForStorage", () => {
     const note = out.note as string;
     expect(note.endsWith("…")).toBe(true);
     expect(note.length).toBe(12_001);
+  });
+});
+
+/**
+ * Stream-meta i den ordning `own-engine-build-session.ts` bygger den, med de
+ * stora nästlade payloadsen (`buildSpec`, `briefSummary`, kontraktsarrayerna)
+ * före capability-signalerna. Nyckelbudgeten i sanitizern delas över all
+ * nästling, så en realistisk körning hinner spräcka den innan den når
+ * `mutedCapabilities` och framåt.
+ */
+function realisticStreamMeta(): Record<string, unknown> {
+  return {
+    modelId: "claude-opus-4-8",
+    modelTier: "anthropic",
+    buildProfileId: "anthropic",
+    buildProfileLabel: "Anthropic",
+    enginePath: "own-engine",
+    thinking: true,
+    imageGenerations: 0,
+    scaffoldId: "restaurant",
+    scaffoldSelection: {
+      scaffoldId: "restaurant",
+      variantId: "warm-editorial",
+      score: 0.82,
+      reason: "keyword match",
+      source: "embedding",
+    },
+    capabilities: ["contact-form"],
+    contractDataMode: "static",
+    contractDatabaseProvider: null,
+    contractPaymentProvider: null,
+    contractIntegrations: Array.from({ length: 3 }, (_, i) => ({
+      key: `integration-${i}`,
+      provider: `provider-${i}`,
+      required: true,
+      status: "pending",
+    })),
+    contractEnvVars: Array.from({ length: 4 }, (_, i) => ({
+      key: `ENV_KEY_${i}`,
+      enforcement: "feature-runtime",
+      required: true,
+    })),
+    unresolvedContractDecisions: Array.from({ length: 2 }, (_, i) => ({
+      key: `decision-${i}`,
+      question: "which provider",
+      options: ["a", "b"],
+    })),
+    promptStrategy: "full",
+    promptType: "follow-up",
+    promptSource: "user",
+    promptBudgetTarget: 12_000,
+    promptOriginalLength: 900,
+    promptOptimizedLength: 850,
+    promptReductionRatio: 0.94,
+    promptStrategyReason: "short prompt",
+    promptComplexityScore: 3,
+    buildSpec: {
+      qualityTarget: "fidelity2",
+      routes: Array.from({ length: 4 }, (_, i) => ({
+        path: `/route-${i}`,
+        kind: "page",
+        title: `Route ${i}`,
+      })),
+      requirements: Array.from({ length: 6 }, (_, i) => ({
+        key: `requirement-${i}`,
+        provider: `provider-${i}`,
+        tier: 3,
+        envKeys: [`ENV_${i}`],
+        files: [`app/api/route-${i}/route.ts`],
+        label: `Requirement ${i}`,
+      })),
+      envKeys: ["RESEND_API_KEY", "EMAIL_FROM"],
+    },
+    systemPromptLength: 42_000,
+    briefApplied: true,
+    briefSummary: {
+      summary: "Restaurang i Göteborg",
+      requestedCapabilities: ["contact-form"],
+      domain: "restaurant",
+      sections: Array.from({ length: 5 }, (_, i) => ({
+        type: "hero",
+        heading: `Rubrik ${i}`,
+        bullets: ["a", "b"],
+      })),
+    },
+    selectedDossierIds: ["resend-contact-form"],
+    requestedCapabilities: ["contact-form"],
+    mutedCapabilities: ["newsletter-subscribe"],
+    mutedCapabilityLabels: ["Nyhetsbrev — Mailchimp"],
+    fileEvidenceCapabilities: ["contact-form"],
+    removedCapabilities: ["payments"],
+    readdedCapabilities: [],
+    removedDossierIds: [],
+    f3ApprovedCapabilities: ["contact-form"],
+    f3ApprovedProviders: ["resend"],
+    customInstructionsLength: 0,
+    variantId: "warm-editorial",
+    lineageHash: "abc123",
+  };
+}
+
+describe("capability-signalnycklar överlever nyckelbudgeten (spår 01 steg 3)", () => {
+  it("behåller mutedCapabilities trots stora nästlade payloads före den", () => {
+    const out = buildPersistedOrchestrationSnapshot({
+      streamMeta: realisticStreamMeta(),
+      versionId: "version-1",
+      chatId: "chat-1",
+    });
+
+    // Utan skydd tar 80-nyckelsbudgeten slut i buildSpec/briefSummary och
+    // loopen `break`:ar tyst, så Byggblock-panelen aldrig får se "Planerad".
+    expect(readMutedCapabilitiesFromSnapshot(out)).toEqual(["newsletter-subscribe"]);
+  });
+
+  it("behåller borttagnings-tombstonen så en borttagen integration inte återuppstår", () => {
+    const out = buildPersistedOrchestrationSnapshot({
+      streamMeta: realisticStreamMeta(),
+      versionId: "version-1",
+      chatId: "chat-1",
+    });
+
+    expect(out.removedCapabilities).toEqual(["payments"]);
+  });
+
+  it("behåller övriga capability-signaler som konsumenterna läser", () => {
+    const out = buildPersistedOrchestrationSnapshot({
+      streamMeta: realisticStreamMeta(),
+      versionId: "version-1",
+      chatId: "chat-1",
+    });
+
+    expect(out.fileEvidenceCapabilities).toEqual(["contact-form"]);
+    expect(out.requestedCapabilities).toEqual(["contact-form"]);
+    expect(out.selectedDossierIds).toEqual(["resend-contact-form"]);
+    expect(out.f3ApprovedCapabilities).toEqual(["contact-form"]);
+    expect(out.f3ApprovedProviders).toEqual(["resend"]);
+  });
+
+  it("bär en uppskjuten integration hela vägen skriv → merge → läs", () => {
+    // Rutans egen enhetstest mockar `readMutedCapabilitiesFromSnapshot`, så
+    // den kunde aldrig se att skriv-sidan tappade nyckeln. Detta test kör hela
+    // kedjan med de riktiga funktionerna.
+    const initMeta = {
+      ...realisticStreamMeta(),
+      mutedCapabilities: [],
+      mutedCapabilityLabels: [],
+    };
+    const initSnapshot = buildPersistedOrchestrationSnapshot({
+      streamMeta: initMeta,
+      versionId: "version-1",
+      chatId: "chat-1",
+    });
+    const followUpSnapshot = buildPersistedOrchestrationSnapshot({
+      streamMeta: realisticStreamMeta(),
+      versionId: "version-2",
+      chatId: "chat-1",
+    });
+
+    const merged = mergePersistedOrchestrationSnapshots(initSnapshot, followUpSnapshot);
+
+    expect(readMutedCapabilitiesFromSnapshot(merged)).toEqual(["newsletter-subscribe"]);
+  });
+
+  it("skriver inte capability-signalerna två gånger", () => {
+    const out = buildPersistedOrchestrationSnapshot({
+      streamMeta: realisticStreamMeta(),
+      versionId: "version-1",
+      chatId: "chat-1",
+    });
+
+    const occurrences = Object.keys(out).filter((key) => key === "mutedCapabilities");
+    expect(occurrences).toHaveLength(1);
   });
 });
 

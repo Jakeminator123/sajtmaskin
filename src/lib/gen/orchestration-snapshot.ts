@@ -20,9 +20,46 @@ const PROTECTED_TOP_LEVEL_KEYS = [
 ] as const;
 const PROTECTED_TOP_LEVEL_KEY_SET = new Set<string>(PROTECTED_TOP_LEVEL_KEYS as readonly string[]);
 
+/**
+ * Capability-signaler som styr Byggblock-status ("Planerad"), den durable
+ * borttagnings-tombstonen och F3-godkännanden.
+ *
+ * De ligger sent i stream-metan — efter `buildSpec`, `briefSummary` och
+ * kontraktsarrayerna — och nyckelbudgeten nedan delas över all nästling. På en
+ * realistisk körning tog budgeten slut inne i de stora payloadsen, loopen
+ * `break`:ade tyst, och signalerna nådde aldrig databasen: Byggblock tappade
+ * "Planerad" (observerat i prod 2026-07-27) och en borttagen integration kunde
+ * återuppstå eftersom tombstonen försvann. Skyddas därför utanför budgeten,
+ * begränsade som string-arrayer.
+ */
+const PROTECTED_CAPABILITY_SIGNAL_KEYS = [
+  "mutedCapabilities",
+  "removedCapabilities",
+  "readdedCapabilities",
+  "fileEvidenceCapabilities",
+  "requestedCapabilities",
+  "selectedDossierIds",
+  "removedDossierIds",
+  "f3ApprovedCapabilities",
+  "f3ApprovedProviders",
+] as const;
+const MAX_PROTECTED_ARRAY_LEN = 40;
+
 function truncateString(s: string): string {
   if (s.length <= MAX_STRING) return s;
   return `${s.slice(0, MAX_STRING)}…`;
+}
+
+/**
+ * Returnerar en begränsad string-array, eller `null` när värdet inte är en
+ * array — då får den vanliga budgetstyrda loopen hantera det i stället.
+ */
+function sanitizeProtectedStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  return value
+    .filter((entry): entry is string => typeof entry === "string")
+    .slice(0, MAX_PROTECTED_ARRAY_LEN)
+    .map(truncateString);
 }
 
 export function sanitizeOrchestrationSnapshotForStorage(
@@ -34,6 +71,7 @@ export function sanitizeOrchestrationSnapshotForStorage(
   const out: Record<string, unknown> = {};
   // Keep stable top-level identity fields even when large nested payloads
   // (for example buildSpec/integrations) consume the key budget.
+  const capabilitySignalsWritten = new Set<string>();
   if (depth === 0) {
     for (const key of PROTECTED_TOP_LEVEL_KEYS) {
       if (!(key in input)) continue;
@@ -47,10 +85,18 @@ export function sanitizeOrchestrationSnapshotForStorage(
         out[key] = value;
       }
     }
+    for (const key of PROTECTED_CAPABILITY_SIGNAL_KEYS) {
+      if (!(key in input)) continue;
+      const list = sanitizeProtectedStringArray(input[key]);
+      if (!list) continue;
+      out[key] = list;
+      capabilitySignalsWritten.add(key);
+    }
   }
   if (keyCount.n > MAX_KEYS) return out;
   for (const [k, v] of Object.entries(input)) {
     if (depth === 0 && PROTECTED_TOP_LEVEL_KEY_SET.has(k)) continue;
+    if (depth === 0 && capabilitySignalsWritten.has(k)) continue;
     if (keyCount.n > MAX_KEYS) break;
     if (SENSITIVE_KEY_SUBSTR.test(k)) continue;
     keyCount.n += 1;

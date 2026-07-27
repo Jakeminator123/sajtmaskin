@@ -61,6 +61,15 @@ Invariants:
   Panel (dossiers-routen), readiness, finalize-design, stream-F3-gaten och
   deploy-env-gaten läser ALLA samma resolver — ingen konsument gör en egen
   union, så panel och gates kan inte säga emot varandra.
+- Capability-signaler som ska överleva till nästa runda måste ligga i
+  `PROTECTED_CAPABILITY_SIGNAL_KEYS` (`orchestration-snapshot.ts`).
+  Snapshot-sanitizern har en nyckelbudget som delas över all nästling och som
+  `break`:ar tyst när den tar slut, och signalerna ligger efter de stora
+  payloadsen (`buildSpec`, `briefSummary`, kontraktsarrayerna) i stream-metan.
+  En ny signal som inte skyddas nås därför aldrig av budgeten på en riktig
+  körning — den försvinner utan felmeddelande, vilket 2026-07-27 tappade både
+  `mutedCapabilities` (Byggblock visade `planned: 0`) och tombstonen
+  `removedCapabilities` (borttagen integration kunde återuppstå).
 
 ## Scaffoldkontrakt
 

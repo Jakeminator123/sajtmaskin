@@ -24,7 +24,12 @@ vi.mock("@/lib/data/redis", () => ({ deleteCache }));
 vi.mock("@/lib/ssrf-guard", () => ({ isDisallowedHost, hostResolvesToPrivate }));
 vi.mock("@/lib/rateLimit", () => ({ withRateLimit }));
 vi.mock("@/lib/vercel/blob-service", () => ({ uploadBlob, deleteBlob }));
-vi.mock("@/lib/projects/thumbnail-capture", () => ({ captureThumbnailScreenshot }));
+// Bara captureringen mockas — `isTransientCaptureAbort` körs på riktigt så
+// rutans 502-vs-200-beslut testas mot den faktiska klassificeringen.
+vi.mock("@/lib/projects/thumbnail-capture", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/projects/thumbnail-capture")>()),
+  captureThumbnailScreenshot,
+}));
 
 const { POST } = await import("./route");
 
@@ -250,6 +255,28 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     );
     expect(res.status).toBe(502);
     expect(setProjectThumbnail).not.toHaveBeenCalled();
+  });
+
+  it("svarar 200 utan 502 när previewen navigerade om mitt i captureringen", async () => {
+    // Prod 2026-07-27: previewen bytte route under skottet, vilket gav ett 502
+    // i observability trots att körningen i övrigt var frisk. Thumbnailen är
+    // kosmetisk, så ett race får inte se ut som ett serverfel.
+    captureThumbnailScreenshot.mockRejectedValue(
+      new Error(
+        'Thumbnail capture failed at stage "screenshot": page.screenshot: Target page, context or browser has been closed',
+      ),
+    );
+    const res = await POST(thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }), routeParams);
+
+    expect(res.status).toBe(200);
+    // Ingen falsk grönt: ingen thumbnail sparades.
+    await expect(res.json()).resolves.toMatchObject({
+      success: false,
+      skipped: true,
+      reason: "capture_interrupted",
+    });
+    expect(setProjectThumbnail).not.toHaveBeenCalled();
+    expect(uploadBlob).not.toHaveBeenCalled();
   });
 
   it("returns 500 and deletes uploaded blob when DB persist returns null", async () => {
