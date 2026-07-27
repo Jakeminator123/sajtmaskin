@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { pollJsonFetcher, swrRefreshIntervalMs } from "@/lib/hooks/poll-backoff";
@@ -71,6 +71,24 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
   // starved endpoint at the healthy interval. Reset on the first success.
   const consecutiveErrorsRef = useRef(0);
   const lastErrorRef = useRef<unknown>(null);
+  // Polling cadence is decided per-tick based on the most recent payload's
+  // `chatStatus`, not just the caller's `isGenerating` hint. This is what stops
+  // the "polling forever on a versionless dead chat" bug — once the server
+  // reports status=aborted+!hasVersion, the interval drops to 0 (off).
+  //
+  // Memoised because SWR keeps `refreshInterval` in its polling effect's
+  // dependency list: a new identity per render restarts the timer before it
+  // elapses, so a re-rendering builder would stop polling entirely.
+  const resolveRefreshInterval = useCallback(
+    (latest: unknown): number => {
+      const chatStatus = (latest as { chatStatus?: ChatRunStatus } | undefined)?.chatStatus ?? null;
+      if (shouldStopPolling(chatStatus)) return 0;
+      if (pauseWhileGenerating && isGenerating) return 0;
+      const base = isGenerating ? generatingRefreshIntervalMs : idleRefreshIntervalMs;
+      return swrRefreshIntervalMs(base, consecutiveErrorsRef.current, lastErrorRef.current);
+    },
+    [isGenerating, pauseWhileGenerating, generatingRefreshIntervalMs, idleRefreshIntervalMs],
+  );
   const { data, error, isLoading, mutate } = useSWR(
     enabled && chatId ? `${engineChatBaseUrl(chatId)}/versions` : null,
     pollJsonFetcher,
@@ -85,18 +103,7 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
         consecutiveErrorsRef.current += 1;
         lastErrorRef.current = err;
       },
-      // Polling cadence is decided per-tick based on the most recent
-      // payload's `chatStatus`, not just the caller's `isGenerating` hint.
-      // This is what stops the "polling forever on a versionless dead
-      // chat" bug — once the server reports status=aborted+!hasVersion,
-      // refreshInterval drops to 0 (off) on the next tick.
-      refreshInterval: (latest): number => {
-        const chatStatus = (latest as { chatStatus?: ChatRunStatus } | undefined)?.chatStatus ?? null;
-        if (shouldStopPolling(chatStatus)) return 0;
-        if (pauseWhileGenerating && isGenerating) return 0;
-        const base = isGenerating ? generatingRefreshIntervalMs : idleRefreshIntervalMs;
-        return swrRefreshIntervalMs(base, consecutiveErrorsRef.current, lastErrorRef.current);
-      },
+      refreshInterval: resolveRefreshInterval,
       // Keep repeated UI triggers from stampeding the same endpoint.
       dedupingInterval: 10000,
     },

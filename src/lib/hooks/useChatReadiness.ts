@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useCallback, useRef } from "react";
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { pollJsonFetcher, swrRefreshIntervalMs } from "@/lib/hooks/poll-backoff";
@@ -35,6 +35,19 @@ export function useChatReadiness(
   // starved endpoint at the healthy interval. Reset on the first success.
   const consecutiveErrorsRef = useRef(0);
   const lastErrorRef = useRef<unknown>(null);
+  // SWR keeps `refreshInterval` in its polling effect's dependency list, so a
+  // fresh function identity on every render would restart the timer before it
+  // ever elapses — a re-rendering builder would then stop polling entirely.
+  // Memoise on the cadence itself and read the failure state through refs.
+  const resolveRefreshInterval = useCallback(
+    (): number =>
+      swrRefreshIntervalMs(
+        baseRefreshInterval,
+        consecutiveErrorsRef.current,
+        lastErrorRef.current,
+      ),
+    [baseRefreshInterval],
+  );
   const { data, error, isLoading, mutate } = useSWR(
     chatId ? `${engineChatBaseUrl(chatId)}/readiness${query}` : null,
     pollJsonFetcher,
@@ -49,12 +62,7 @@ export function useChatReadiness(
         consecutiveErrorsRef.current += 1;
         lastErrorRef.current = err;
       },
-      refreshInterval: (): number =>
-        swrRefreshIntervalMs(
-          baseRefreshInterval,
-          consecutiveErrorsRef.current,
-          lastErrorRef.current,
-        ),
+      refreshInterval: resolveRefreshInterval,
       dedupingInterval: 10000,
     },
   );
