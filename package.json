@@ -223,7 +223,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@ai-sdk/react": "3.0.235",
+    "@ai-sdk/react": "3.0.237",
     "@eslint/eslintrc": "^0.4.3",
     "@eslint/js": "^9.39.2",
     "@modelcontextprotocol/sdk": "^1.25.3",
@@ -243,13 +243,13 @@
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
-    "eslint-config-next": "16.2.10",
+    "eslint-config-next": "16.2.12",
     "eslint-config-prettier": "^10.1.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.7.0",
     "jsdom": "^28.1.0",
     "playwright": "^1.58.2",
-    "prettier": "^3.9.5",
+    "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "tsx": "^4.20.5",
     "vitest": "^4.0.18"
