@@ -126,6 +126,23 @@ export function findLinkedEntries(worktreePath, io = {}) {
   return linked;
 }
 
+/**
+ * Entries that make `git worktree remove` refuse without `--force`.
+ *
+ * Checked BEFORE any link is detached: a wrapper must never be less safe than
+ * the command it wraps. Detaching first would discard an untracked root-level
+ * link that raw git would have preserved by refusing the whole removal.
+ *
+ * @param {string} porcelainStatus output of `git status --porcelain`
+ * @returns {string[]} human-readable entries, empty when the worktree is clean
+ */
+export function parseDirtyEntries(porcelainStatus) {
+  return porcelainStatus
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 /** Remove a link without following it. Junctions are directories; file symlinks are not. */
 function removeLink(linkPath) {
   try {
@@ -188,6 +205,19 @@ function commandRemove(targetPath, { force }) {
   if (!plan.ok) {
     console.error(`[worktree] ${plan.reason}`);
     process.exit(1);
+  }
+
+  if (!force) {
+    const dirty = parseDirtyEntries(git(["-C", plan.worktreePath, "status", "--porcelain"]));
+    if (dirty.length > 0) {
+      console.error(
+        `[worktree] ${plan.worktreePath} has uncommitted or untracked content. ` +
+          "Refusing, exactly as `git worktree remove` would, and leaving all links attached:\n" +
+          dirty.map((entry) => `  ${entry}`).join("\n") +
+          "\n[worktree] Commit or rescue it (`git stash push -u -m ...`), or rerun with --force if you have decided to discard it.",
+      );
+      process.exit(1);
+    }
   }
 
   const links = findLinkedEntries(plan.worktreePath);

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   findLinkedEntries,
   findMainWorktree,
+  parseDirtyEntries,
   parseWorktreeList,
   resolveTargetWorktree,
 } from "./worktree.mjs";
@@ -80,6 +81,23 @@ describe("findMainWorktree", () => {
 
   it("returns null when no main entry exists", () => {
     expect(findMainWorktree([{ path: FEATURE, isMain: false }])).toBeNull();
+  });
+});
+
+describe("parseDirtyEntries", () => {
+  it("treats an empty status as clean", () => {
+    expect(parseDirtyEntries("")).toEqual([]);
+    expect(parseDirtyEntries("\n\n")).toEqual([]);
+  });
+
+  // Regression: detaching links before this check made the wrapper LESS safe
+  // than raw `git worktree remove`, which refuses on an untracked root-level
+  // link instead of silently discarding it.
+  it("reports untracked and modified entries", () => {
+    expect(parseDirtyEntries("?? my-link\n M src/app/page.tsx\n")).toEqual([
+      "?? my-link",
+      "M src/app/page.tsx",
+    ]);
   });
 });
 

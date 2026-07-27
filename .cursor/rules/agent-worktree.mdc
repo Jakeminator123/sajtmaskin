@@ -40,6 +40,10 @@ Kommandot kopplar loss eventuella länkar **innan** det kör
 som inte är en registrerad worktree. Ett bart `git worktree remove` är bara
 säkert när du vet att worktreen saknar länkar — och det vet du sällan.
 
+Utan `--force` vägrar det också om worktreen har ocommittat eller ospårat
+innehåll, precis som `git worktree remove` gör, och lämnar då länkarna orörda.
+Rädda i så fall med `git stash push -u -m ...` innan du kör om.
+
 ### Varför: junction-fällan
 
 En färsk worktree saknar `node_modules`. Att länka den till huvudcheckoutens
