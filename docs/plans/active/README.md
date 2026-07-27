@@ -1,28 +1,37 @@
 # Aktiva planer
 
-Den här filen är en tunn router till arbete som fortfarande kan styra nya
-ändringar. Levererad status, avslutade checklistor och beslutshistorik hör till
-[`../avklarat/`](../avklarat/), [`../archived/`](../archived/) eller git.
+Router till arbete som fortfarande kan styra nya ändringar. Levererad status,
+avslutade checklistor och beslutshistorik hör till [`../avklarat/`](../avklarat/),
+[`../archived/`](../archived/) eller git.
 
-Planlivscykeln ägs av
+Hela ytan kodverifierades mot master `3b419115` den **2026-07-27**. Sex planer
+vars kärna var levererad togs bort och indexerades i
+[`../avklarat/README.md`](../avklarat/README.md); deras svansar samlades i
+restlistan nedan. Planlivscykeln ägs av
 [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle.mdc). Defekter och
 repro-status ägs av [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md);
 kopiera inte dess kö hit.
 
 ## Pågående spår
 
-| Spår | Plan | Nästa beslut eller leverans |
-| --- | --- | --- |
-| Preview-/verifieringslivscykel | [`2026-07-preview-verification-lifecycle-simplification.md`](2026-07-preview-verification-lifecycle-simplification.md) | Levereras i PR: reload-dedup, icke-blockerande verify-UX, en F3-ägare, neutral supersede. Follow-up: runtime-ready-ombyggnad. |
-| Verify/F3/domän-stabilisering | [`2026-07-13-stabilisering-verify-f3-doman-plan.md`](2026-07-13-stabilisering-verify-f3-doman-plan.md) | Slutför planens kvarvarande review-, invalidation- och canary-punkter. |
-| Användarsajtens env-yta | [`2026-07-13-anvandarsajt-env-konsolidering.md`](2026-07-13-anvandarsajt-env-konsolidering.md) | Kräver produktbeslut eftersom förslaget påverkar F2:s env-policy. |
-| Builder-status och UI-brus | [`2026-07-13-builder-status-ui-declutter.md`](2026-07-13-builder-status-ui-declutter.md) | Avgränsa copy och presentation från runtime-gates. |
-| Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | DB-backoff, CSP/fontbrus och scaffold-lint ska levereras separat. |
-| Dossier/UI-ownership | [`2026-07-13-dossier-ui-ownership-kontrakt.md`](2026-07-13-dossier-ui-ownership-kontrakt.md) | Lås att en dossier inte skapar en konkurrerande användaryta. |
-| Körningslogg + tokenmätning | [`2026-07-24-genlogg-och-tokenmatning.md`](2026-07-24-genlogg-och-tokenmatning.md) | Steg 2 (`llm_usage` + instrumentering) mergad 2026-07-25 (#613); steg 1 (lokalt insamlingsskript) ligger i #609. Kvar: steg 3 — vad mätningen ska användas till (per-token-kredit? Sajtagentens och D-ID:s förbrukning?). |
-| Innehållsrevision för verifieringskvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | Väntar på ägarbeslut (3 punkter): additiv migration + statuskontrakt som låter verdikt/kvitto säga vilket innehåll de gäller. Konsoliderar 3 backlog-rader. |
-| Backoffice Byggstenar (scaffold/variant/byggblock/mall) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | Etappleverans med ägargodkännande mellan varje steg. Fas A klar (hub, verb-namn, spara-läge repo/lokalt/prod, jargon bakom expandrar). Nästa: egen liten PR för baseline-backupen (dataförlust på ospårade filer), sedan Fas B → C → D-förslag. |
-| Backoffice-stringens | [`2026-07-08-backoffice-stringens-plan.md`](2026-07-08-backoffice-stringens-plan.md) | Kärnan implementerad 2026-07-21 (6 grupper, konsoliderade sidor, backup/Återställning); kvar: P2-städ (subprocess-helpers, terminologi-svep, fler tester). Refresh-handoff arkiverad. |
+| Spår | Plan | Läge | Nästa steg |
+| --- | --- | --- | --- |
+| Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | Brus + mallfix levererade (C1, C2, D1/#578); **kärnan öppen** | A1 + A2: mjuk degradering på läs-routerna och klient-backoff — det som dödar 500-stormen |
+| Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | Oimplementerad; absorberade stabiliseringsplanens PR 5 | Väntar på tre ägarbeslut (se nedan) innan additiv migration |
+| Dossier/UI-ownership (chatt-yta) | [`2026-07-13-dossier-ui-ownership-kontrakt.md`](2026-07-13-dossier-ui-ownership-kontrakt.md) | Helt öppen — inget adapt-eller-ersätt-kontrakt finns i kod | Kontrakt i dossier-injektionen + regressionstestet som låser incidentsekvensen |
+| Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | 10 små oberoende rader | Plocka fritt; R1 (ReleaseGate-bannern) har en öppen fråga till ägaren |
+| Backoffice (Byggstenar + stringens-städ) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | Fas A klar (#615); etapp 2–7 öppna | Baseline-backupen först — den är dataförlust på ospårade filer |
+
+## Väntar på ägarbeslut (kan inte kodas innan)
+
+| Fråga | Var |
+| --- | --- |
+| Ska en revisions-mismatch bli fail-closed direkt, eller bara vid mismatch **plus** ett blockerande verdikt? | [innehållsrevision § Beslutspunkter](2026-07-25-innehallsrevision-verifieringskvitton.md) |
+| Ska `files_revision` vara innehållshash eller monoton räknare? | samma |
+| Levereras steg 1–2 separat från steg 3? (planens rekommendation: ja) | samma |
+| Noll UI-spår av en underkänd ReleaseGate, eller en diskret "se diagnostik"-länk? | [restlistan R1](2026-07-27-restlista-builder-f3-env.md) |
+| Fas D: egna workload-poster i `config/ai_models/manifest.json` — godkänns förslaget? | [Byggstenar Fas D](2026-07-24-backoffice-byggstenar/aktiviteter/04-fas-d-ai-modellval.md) |
+| Vad ska tokenmätningen användas till? Per-token-kredit i stället för fast pris per åtgärd? Ska Sajtagentens (OpenClaw) förbrukning rapporteras tillbaka, och D-ID:s credits läsas före/efter i appen? Ska sekundära ytor (wizard, audit, analyze, transcribe, inspector) instrumenteras? | steg 1–2 levererade (#609/#613); mätningens gränser dokumenteras i [`scripts/observability/README.md`](../../../scripts/observability/README.md) |
 
 ## Andra aktiva sanningar
 
@@ -33,7 +42,9 @@ kopiera inte dess kö hit.
 
 ## När en plan är klar
 
-Flytta planen till `../avklarat/` om den levererats och fortfarande har
-referensvärde. Flytta den till `../archived/` om den är parkerad eller ersatt.
-Radera rena arbetsanteckningar när git-historiken räcker. Uppdatera denna router
-i samma PR.
+Väv in den som en rad i [`../avklarat/README.md`](../avklarat/README.md) och
+radera detaljfilen — git är fullständigt arkiv. Behåll den som egen fil bara om
+källkod, contract-doc eller ett stabilitetstest citerar den. Flytta till
+`../archived/` om den är parkerad eller ersatt. Lämna aldrig kvar en plan i
+`active/` för en handfull svansar: lyft svansarna till restlistan och radera
+planen. Uppdatera denna router i samma PR.

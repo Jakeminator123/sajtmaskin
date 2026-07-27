@@ -59,20 +59,30 @@ sparas — default **10**, `--max-logs` överstyr.
 
 - **Två scope, aldrig blandade.** Körningens summa (`tokens.byModel`/`totals`)
   räknar bara rader som bär versionens `version_id` —
-  `generation_telemetry` idag, `llm_usage` när steg 2 finns. Chat-summan
+  `generation_telemetry` och `llm_usage` (sedan #613). Chat-summan
   (`tokens.chat`) tar allt hämtat och redovisas separat, eftersom
   `engine_generation_logs` saknar `version_id` och därför inte kan knytas till en
   enskild körning. En version med flera telemetri-rader (retry/repair) flaggas
   som möjlig dubbelräkning i `tokens.notes`.
 - **Tokensumman är en undre gräns.** Bara LLM-anrop som loggar usage räknas.
-  `tokens.json` → `coverage.unmeasuredPhases` listar resten. Planen för att täcka
-  dem: [`docs/plans/active/2026-07-24-genlogg-och-tokenmatning.md`](../../docs/plans/active/2026-07-24-genlogg-och-tokenmatning.md).
+  `tokens.json` → `coverage.unmeasuredPhases` listar resten. Sedan `llm_usage`
+  (#613) täcks Deep Brief, verifier, RepairGate, embeddings, intent-klassificerare
+  och prompt assist. Kvar omätt: de sekundära ytorna (wizard, audit, analyze,
+  transcribe, inspector), Sajtagenten (OpenClaw-gatewayen kör utanför appen) och
+  D-ID (credits, inte tokens). Om de ska mätas är ett öppet produktbeslut — se
+  [`docs/plans/active/README.md`](../../docs/plans/active/README.md)
+  § Väntar på ägarbeslut.
 - **OpenAI:s org-siffra kan inte attribueras per körning eller slutanvändare.**
   Minsta bucket är en minut, och `group_by=user_id` betyder organisationens
   medlem — inte Sajtmaskins `users.id`.
 - **D-ID mäter credits, inte tokens.** Saldot är ett nuläge, inte körningens pris.
-- Kostnaden per rad är en **övre** gräns så länge `cached_input_tokens` inte
-  loggas (input prissätts som ocachad).
+- **Kostnaden är alltid en uppskattning.** `llm_usage`-rader bär
+  `cached_input_tokens` sedan #613, så cachade tokens prissätts till cache-taxan
+  i stället för full input — det tar bort en av överskattningarna, men gör inte
+  siffran exakt. `config/ai_models/pricing.json` flaggar vissa taxor som
+  `estimated`, och varken kontext-upliften (>272K tokens) eller det regionala
+  10 %-påslaget modelleras. Rader utan `cached_input_tokens` prissätts som helt
+  ocachade och är därför en **övre** gräns.
 
 ### Säkerhet
 

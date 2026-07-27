@@ -10,10 +10,14 @@ source: Kodläsning (backoffice/pages/*, shared.py, tester, domain-map) + ägar-
 
 > **Varför denna fil finns i repot:** arbetet levereras i etapper med
 > ägargodkännande mellan varje. Kördokumentet ska överleva dator-, användar- och
-> agentbyte, så nästa agent kan fortsätta utan att gissa. Fas A-resultatet är
-> också sammanfattat i
-> [`../2026-07-08-backoffice-stringens-plan.md`](../2026-07-08-backoffice-stringens-plan.md)
-> (den äldre, bredare backoffice-planen).
+> agentbyte, så nästa agent kan fortsätta utan att gissa.
+>
+> **Denna fil äger hela backoffice-spåret sedan 2026-07-27.** Den äldre,
+> bredare stringensplanen (2026-07-08) är raderad: kärnan levererades 2026-07-21
+> och är indexerad i [`../../avklarat/README.md`](../../avklarat/README.md), medan
+> dess kvarvarande P2-städ ligger som
+> [`aktiviteter/05-p2-stringens-stad.md`](aktiviteter/05-p2-stringens-stad.md).
+> Tidigare dokumenterades Fas A på båda ställena — nu bara här.
 
 ## Problemet (ägarens ord)
 
@@ -47,6 +51,7 @@ faktiskt påverkar**, så ägaren vågar inte ändra något.
 | 3 | **Fas B** — trygg create/edit för scaffold + variant | [`aktiviteter/02-fas-b-scaffold-variant.md`](aktiviteter/02-fas-b-scaffold-variant.md) | Ej påbörjad |
 | 4 | **Fas C** — Byggblock i samma språk + skapa från grunden | [`aktiviteter/03-fas-c-byggblock.md`](aktiviteter/03-fas-c-byggblock.md) | Ej påbörjad |
 | 5–6 | **Fas D** — AI-modellval via manifestet | [`aktiviteter/04-fas-d-ai-modellval.md`](aktiviteter/04-fas-d-ai-modellval.md) | Kräver ägarens OK på förslaget först |
+| 7 | **P2-städ** — resterna från stringensplanen | [`aktiviteter/05-p2-stringens-stad.md`](aktiviteter/05-p2-stringens-stad.md) | Ej påbörjad — sist, eller plocka rader när en sida ändå rörs |
 
 ### Så tar en ny agent över
 

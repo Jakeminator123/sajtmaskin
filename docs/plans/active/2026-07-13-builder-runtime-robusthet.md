@@ -19,8 +19,24 @@ av läs-routerna degraderar mjukt — de kastar 500. Utöver det: ett par kosmet
 (CSP-eval report-only, font-403 i preview) och en **scaffold-lint-bugg** (`use-reduced-motion`)
 som får *varje* genererad sajt att fälla ReleaseGate på lint.
 
-Detta är en **plan, ingen implementation.** Pool-tuning kräver mätning (motsatta fixar för
-motsatta fel) — se A3.
+Pool-tuning kräver mätning (motsatta fixar för motsatta fel) — se A3.
+
+## Status 2026-07-27 (kodverifierad mot master `3b419115`)
+
+Brus-delen och mallfixen är levererade; **hela kärnan i A är fortfarande öppen.**
+
+| Punkt | Läge | Bevis |
+|---|---|---|
+| A1 mjuk degradering (503 + `Retry-After`) | **öppen** | alla fyra läs-routerna kastar 500: `version-status/route.ts:194-202`, `readiness/route.ts:557-562`, `versions/route.ts:187-190`, `dossiers/route.ts:437-442` |
+| A2 klient-backoff + visibility-paus | **öppen** | `useVersionStatus.ts:42,229` fast 4 s `setInterval`; `useChatReadiness.ts:42-50`, `useVersions.ts:78-97` utan fel-backoff |
+| A3 pool-tuning | **öppen** | `client.ts:148-154` — default fortfarande 3 |
+| A4 redeploy-tålighet | **öppen** | saknas i samtliga tre hooks |
+| B error-log 503-retry | **öppen** | `post-checks.ts:43-63` — en fetch, ingen `Retry-After` |
+| B quality-gate 409 | **klar (by design)** | resume-lane med bounded retry: `post-checks.ts:528-544` |
+| C1 CSP eval | **klar** | `instrumentation-client.ts:11` `z.config({ jitless: true })` |
+| C2 preview font 403 | **klar** | `preview-host/src/runtime.js:2155-2161`, `:2229-2235` |
+| D1 scaffold `use-reduced-motion` | **klar** (#578) | `project-scaffold.ts:377-404` `useSyncExternalStore` + test `project-scaffold.test.ts:315-332` |
+| D2 verifier-täckning för `string \| undefined` | **öppen** | inget reply-mönster i `openai-chat/instructions.md`, ingen TS2345-täckning i verify/autofix |
 
 ## A. DB-pool-500-storm (P1 — det som "sabbade" i UI:t)
 
@@ -78,41 +94,19 @@ beteende vid snabba versionsbyten (mildras av backoff i A2).
   `src/instrumentation-client.ts` sätter `z.config({ jitless: true })` innan appens klientkod
   körs. Servern behåller JIT (ingen CSP i Node). `src/app/api/csp-report/route.ts` (30–51)
   tystar fortfarande kvarvarande prod-eval-rapporter → 204.
-- **C2 — Preview font 403** (`/__nextjs_font/geist-latin.woff2`): preview-host-proxyns
-  Origin-strip för Next 16 `blockCrossSiteDEV` träffar inte alltid (`preview-host/src/runtime.js`
-  2127–2139). *Åtgärd:* härda Origin/Referer-fallback så `/__nextjs_font/*` proxas korrekt.
-  Kosmetiskt (font faller tillbaka), men bullrigt. `font-import-fixer.ts` byter redan
-  Geist→Inter som bandage.
+- **C2 — Preview font 403: ÅTGÄRDAD.** Origin/Referer-fallbacken är härdad
+  (`preview-host/src/runtime.js:2155-2161` Referer-fallback, `:2229-2235` Origin-strip för
+  `/_next/*` och `/__nextjs*`), så `/__nextjs_font/*` proxas korrekt. `font-import-fixer.ts`
+  byter fortfarande Geist→Inter som extra bandage.
 
 ## D. Genererad kodkvalitet — scaffold-lint-buggen (hög hävstång)
 
-`use-reduced-motion` i **scaffold-baslinjen** anropar `setState` synkront i en `useEffect`
-→ `react-hooks/set-state-in-effect`. **Precisering efter bevisrunda:** filen ligger i
-`SCAFFOLD_FILES` och injiceras i **alla** scaffolds, och regeln flaggade den faktiskt i den
-här körningens F3-lint (`hooks/use-reduced-motion.ts:13:5`, användarens egen logg). Men lint
-gate:ar **bara i F3-verify-lanen**, inte i varje F2-generering — så det blir en ReleaseGate-
-blocker först när användaren kör "Bygg integrationer", inte "i varje genererad sajt". Värdet
-kvarstår: fixar man baslinjen försvinner ett återkommande F3-lint-fel för alla scaffolds.
-
-```347:366:src/lib/gen/export/project-scaffold.ts
-export function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const query = window.matchMedia(REDUCED_MOTION_QUERY);
-    setReduced(query.matches);
-    // ...
-  }, []);
-  return reduced;
-}
-```
-
-- **D1 — Skriv om baslinje-hooken** så den inte sätter state synkront i effekt (t.ex.
-  `useSyncExternalStore`, eller lazy `useState`-init för första matchen + subscribe för
-  ändringar). Injiceras via `SCAFFOLD_FILES` i alla scaffolds.
-  *Motivering:* detta är **vår** mall, inte LLM-output. Fixen tar bort ett återkommande
-  ReleaseGate-lint-fel för **alla** framtida sajter — direkt koppling till din
-  "ReleaseGate underkände lint"-observation.
+- **D1 — ÅTGÄRDAD 2026-07-22 (#578).** Baslinje-hooken satte `setState` synkront i en
+  `useEffect` → `react-hooks/set-state-in-effect`, en ERROR i `eslint-config-next` som
+  hårdblockerade F3:s ReleaseGate-lint för **alla** scaffolds (filen ligger i
+  `SCAFFOLD_FILES`). Den är omskriven till `useSyncExternalStore`
+  (`project-scaffold.ts:377-404`) — lint-ren, SSR-säker och testlåst i
+  `project-scaffold.test.ts:315-332`.
 - **D2 — `chatbot-widget.tsx`-felen** (TS2345 `data.reply: string | undefined`, plus
   set-state-in-effect) är **own-engine-genererad** kod, inte en mall (bekräftat: finns inte
   i dossiers/scaffolds). Rätt hävstång här är verifier/RepairGate + prompt-kvalitet, inte en
@@ -121,15 +115,16 @@ export function useReducedMotion(): boolean {
   (capability `ai-chat` — incidentens dossier, jfr M#dchat1) instruktioner styr mot ett
   typsäkert svarsmönster. Lägre prioritet / annan lever.
 
-## Föreslagen ordning
+## Föreslagen ordning (kvarvarande)
 
 | Fas | Innehåll | Risk | Hävstång |
 |---|---|---|---|
-| 1 | **D1** scaffold `use-reduced-motion`-fix (+ test) | Låg | Hög — tar bort återkommande lint-fel |
-| 2 | **A1 + A2** mjuk degradering + klient-backoff | Medel | Hög — dödar 500-stormen i UI:t |
-| 3 | **A3** pool-mätning + ev. höjning | Låg (mät först) | Medel |
-| 4 | **B** error-log-retry; **A4** redeploy-paus | Låg | Medel |
-| 5 | **C1/C2** brus-städ; **D2** verifier-täckning | Låg | Låg-medel |
+| 1 | **A1 + A2** mjuk degradering + klient-backoff | Medel | Hög — dödar 500-stormen i UI:t |
+| 2 | **A3** pool-mätning + ev. höjning | Låg (mät först) | Medel |
+| 3 | **B** error-log-retry; **A4** redeploy-paus | Låg | Medel |
+| 4 | **D2** verifier-täckning | Låg | Låg-medel |
+
+Levererat och därmed ur kön: D1 (#578), C1, C2 — se statustabellen överst.
 
 ## Explicit icke-mål
 

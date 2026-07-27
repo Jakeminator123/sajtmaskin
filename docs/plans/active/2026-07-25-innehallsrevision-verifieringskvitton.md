@@ -3,7 +3,7 @@ status: active
 owner: unassigned
 created: 2026-07-25
 topic: Innehållsrevision på `engine_versions` — så att varje verdikt/kvitto (quality gate, promote-guard, runtime-ready, statusbadge) kan säga VILKET innehåll det gäller i stället för bara vilket versionId
-source: Re-triage 2026-07-25 av tre backlog-rader (Codex P1/P2 på #352 + M#pv4) — kodverifierat mot master `6b459ede`, PR #607
+source: Re-triage 2026-07-25 av tre backlog-rader (Codex P1/P2 på #352 + M#pv4) — kodverifierat mot master `6b459ede`, PR #607. Absorberade 2026-07-27 stabiliseringsplanens PR 5 (verification-invalidation som revisionskontrakt) — samma saknade primitiv, se § "Invalidering hör hemma här".
 ---
 
 # Innehållsrevision för verifieringskvitton
@@ -66,6 +66,20 @@ Skillnaden mellan typerna spelar roll för *hur* man fixar:
 Testlåsta invarianter (PR #607): `version-status-display.test.ts` ("user edit
 invalidates the promoted claim") och `promote-guard.test.ts` ("treats a stale
 passed signal identically to no signal").
+
+## Invalidering hör hemma här (absorberat 2026-07-27)
+
+Stabiliseringsplanen 2026-07-13 hade en egen punkt "PR 5 — verification-invalidation
+som ett revisionskontrakt": invalidering ska atomiskt träffa DB-state,
+bus-projektion och telemetrisignal **för samma innehållsrevision**. Den planen är
+i övrigt levererad (PR 1–3, #517–#519) och raderad; PR 5 flyttades hit eftersom
+den beskriver exakt samma lucka från andra hållet.
+
+Kodläget 2026-07-27: `invalidateVerification` nollställer DB-state
+(`version-files.ts:63-70`) men rör varken bus-projektionen eller telemetrisignalen.
+Det går inte att fixa atomiskt utan primitiven nedan — "samma innehållsrevision"
+förutsätter att en innehållsrevision finns. Ägare vid genomförande:
+`chat-repository-pg.ts` + `stale-verification.ts` + promote-guard-läsningen.
 
 ## Varför de tidigare per-rad-förslagen inte fungerar
 
