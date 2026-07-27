@@ -30,10 +30,21 @@ git worktree add ..\sajtmaskin-feat-X -b feat/X
 Set-Location ..\sajtmaskin-feat-X
 # jobba, testa, commit/push vid OK
 Set-Location ..\sajtmaskin
-git worktree remove ..\sajtmaskin-feat-X
+npm run worktree:remove -- ..\sajtmaskin-feat-X
 ```
 
-### Delar du `node_modules` via junction: ta bort länken FÖRE worktreen
+### Städa alltid med `npm run worktree:remove`
+
+Kommandot kopplar loss eventuella länkar **innan** det kör
+`git worktree remove`, och vägrar köra mot huvudcheckouten eller mot en katalog
+som inte är en registrerad worktree. Ett bart `git worktree remove` är bara
+säkert när du vet att worktreen saknar länkar — och det vet du sällan.
+
+Utan `--force` vägrar det också om worktreen har ocommittat eller ospårat
+innehåll, precis som `git worktree remove` gör, och lämnar då länkarna orörda.
+Rädda i så fall med `git stash push -u -m ...` innan du kör om.
+
+### Varför: junction-fällan
 
 En färsk worktree saknar `node_modules`. Att länka den till huvudcheckoutens
 sparar flera minuters `npm ci` — men `git worktree remove --force` **följer
@@ -42,14 +53,12 @@ Symptomet kommer senare och ser ut som ett trasigt repo:
 `ERR_MODULE_NOT_FOUND: Cannot find package 'dotenv'`. (Inträffade 2026-07-27.)
 
 ```powershell
-# skapa
-cmd /c mklink /J node_modules C:\Users\jakem\Desktop\sajtmaskin\node_modules
-
-# städa — ordningen är hela poängen
-cmd /c rmdir node_modules            # tar bort LÄNKEN, rör inte målet
-Set-Location ..\sajtmaskin
-git worktree remove ..\sajtmaskin-feat-X
+npm run worktree:link -- ..\sajtmaskin-feat-X     # junction till huvudcheckoutens node_modules
+npm run worktree:remove -- ..\sajtmaskin-feat-X   # kopplar loss länken först, sedan git worktree remove
 ```
+
+Måste du göra det för hand är ordningen hela poängen: `cmd /c rmdir node_modules`
+(tar bort LÄNKEN, rör inte målet) **före** `git worktree remove`.
 
 Har det redan hänt: `npm ci` i huvudcheckouten återställer (~4 min). Inget
 spårat innehåll går förlorat — `node_modules` är gitignorerad.

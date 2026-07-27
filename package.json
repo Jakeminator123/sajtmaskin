@@ -117,6 +117,8 @@
     "db:push": "node scripts/db/db-push.mjs",
     "db:generate": "npx drizzle-kit generate",
     "vercel:link": "vercel link",
+    "worktree:link": "node scripts/cursor/worktree.mjs link",
+    "worktree:remove": "node scripts/cursor/worktree.mjs remove",
     "env:status": "node scripts/dev/run-python.mjs scripts/env/manage_env.py status",
     "env:audit": "node scripts/dev/run-python.mjs scripts/env/manage_env.py audit",
     "env:audit:strict": "node scripts/dev/run-python.mjs scripts/env/manage_env.py audit --strict",
