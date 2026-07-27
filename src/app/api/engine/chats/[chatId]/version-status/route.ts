@@ -27,6 +27,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { transientDbResponseIfRetryable } from "@/lib/api/transient-db-response";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
@@ -192,6 +193,11 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       status,
     });
   } catch (err) {
+    // A1: a pool connect-timeout during a redeploy is transient — answer 503 +
+    // Retry-After so `useVersionStatus` backs off instead of treating it as a
+    // permanent 500 and polling on at full cadence.
+    const degraded = transientDbResponseIfRetryable(err, "[version-status] GET");
+    if (degraded) return degraded;
     console.error("[version-status] GET", err);
     return NextResponse.json<VersionStatusApiResponse>(
       {

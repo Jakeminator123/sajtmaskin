@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { transientDbResponseIfRetryable } from "@/lib/api/transient-db-response";
 import { withRateLimit } from "@/lib/rateLimit";
 import {
   getLatestVersion,
@@ -555,6 +556,10 @@ async function handleGET(request: Request, ctx: { params: Promise<{ chatId: stri
       readiness,
     });
   } catch (error) {
+    // A1: transient pool/connection failures degrade to a retryable 503 so the
+    // SWR poller backs off instead of surfacing a hard 500.
+    const degraded = transientDbResponseIfRetryable(error, "[API] readiness");
+    if (degraded) return degraded;
     console.error("[API] Failed to build chat readiness:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error" },

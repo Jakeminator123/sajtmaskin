@@ -354,6 +354,42 @@ describe("useVersionStatus — perpetual-spinner client backstop", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
+  it("counts wall-clock while backing off, so an unreachable endpoint still trips the cap", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error("Failed to fetch");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: POLL,
+        maxNonTerminalMs: 2_500,
+      }),
+    );
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBe("Failed to fetch");
+
+    // Backed-off retries are slower than the healthy cadence, but the cap is
+    // wall-clock — so the loop still terminates instead of retrying forever.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL * 20);
+    });
+    const callsAtCap = fetchMock.mock.calls.length;
+    expect(callsAtCap).toBeLessThan(20);
+    expect(result.current.error).toBe("verification_status_timeout");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL * 20);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(callsAtCap);
+  });
+
   it("never trips the cap once the projection reaches a terminal phase", async () => {
     const failed = vs({ phase: "failed", done: false, verifierOutcome: "failed", eventCount: 2 });
     const fetchMock = sequenceFetch([failed]);
@@ -380,5 +416,155 @@ describe("useVersionStatus — perpetual-spinner client backstop", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.current.error).toBeNull();
     expect(result.current.status?.phase).toBe("failed");
+  });
+});
+
+/**
+ * A2 (builder runtime-robusthet) — the poll must stop amplifying an outage.
+ *
+ * The 2026-07-13 incident was self-inflicted: a redeploy starved the pg pool,
+ * every read 500:ed, and this hook kept polling at a fixed 4s interval against
+ * the exact resource that was already out of connections. So a failing poll now
+ * backs off (honouring `Retry-After` from the route's degraded 503) and a hidden
+ * tab stops polling altogether.
+ */
+describe("useVersionStatus — A2 backoff and hidden-tab pause", () => {
+  const spinning = vs({ phase: "verifying", done: false, eventCount: 1 });
+
+  function okResponse() {
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: async () => ({ ok: true, versionId: "v1", status: spinning }),
+    } as unknown as Response;
+  }
+
+  function degraded503() {
+    return {
+      ok: false,
+      status: 503,
+      headers: new Headers({ "Retry-After": "3" }),
+      json: async () => ({
+        ok: false,
+        error: "Databasen svarar inte just nu. Försöker igen om en stund.",
+        code: "db_unavailable",
+        retryable: true,
+      }),
+    } as unknown as Response;
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("waits for the server's Retry-After after a degraded 503, then resumes the normal cadence", async () => {
+    // [503] -> [ok] -> [ok] ...
+    let call = 0;
+    const fetchMock = vi.fn(async () => {
+      call += 1;
+      return call === 1 ? degraded503() : okResponse();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderStatus();
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toContain("Databasen svarar inte");
+
+    // Retry-After: 3 → the healthy 1000ms tick must NOT fire.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL * 2);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // At 3s the retry lands and succeeds.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.error).toBeNull();
+
+    // A successful poll resets the backoff → back to the 1s cadence.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("stretches the delay per consecutive failure instead of hammering at full cadence", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error("Failed to fetch");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderHook(() =>
+      useVersionStatus({
+        chatId: "c1",
+        versionId: "v1",
+        pollIntervalMs: POLL,
+        // Keep the wall-clock backstop out of this assertion.
+        maxNonTerminalMs: 10 * 60_000,
+      }),
+    );
+
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // A fixed 1s interval would fetch ~16 times in 15s. With doubling
+    // (1s, 2s, 4s, 8s + jitter) it is a handful.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL * 15);
+    });
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(5);
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it("pauses polling while the tab is hidden and resumes on visibilitychange", async () => {
+    let visibility: DocumentVisibilityState = "hidden";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+
+    const fetchMock = vi.fn(async () => okResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderStatus();
+
+    // The mount fetch still runs — the UI needs one read to render.
+    await act(async () => {
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // While hidden, no further polling regardless of elapsed time.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL * 20);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Back in the foreground → immediate refresh, then normal cadence.
+    visibility = "visible";
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      await flushMicrotasks();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

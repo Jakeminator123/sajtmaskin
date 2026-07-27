@@ -52,6 +52,7 @@
  * reports status, it never asks the chat for env keys.
  */
 import { NextResponse } from "next/server";
+import { transientDbResponseIfRetryable } from "@/lib/api/transient-db-response";
 import { withRateLimit } from "@/lib/rateLimit";
 import {
   getEngineChatByIdForRequest,
@@ -435,6 +436,10 @@ async function handleGET(request: Request, ctx: { params: Promise<{ chatId: stri
     }
     return NextResponse.json(result.response);
   } catch (error) {
+    // A1: transient pool/connection failures degrade to a retryable 503 so the
+    // SWR poller backs off instead of surfacing a hard 500.
+    const degraded = transientDbResponseIfRetryable(error, "[API] dossiers");
+    if (degraded) return degraded;
     console.error("[API] Failed to build dossier overview:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error" },

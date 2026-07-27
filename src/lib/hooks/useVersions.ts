@@ -1,15 +1,7 @@
+import { useRef } from "react";
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-
-const fetcher = async (url: string) => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const message = (err && (err.error || err.message)) || `HTTP ${res.status}`;
-    throw new Error(message);
-  }
-  return res.json();
-};
+import { pollJsonFetcher, swrRefreshIntervalMs } from "@/lib/hooks/poll-backoff";
 
 interface UseVersionsOptions {
   /** Enable frequent polling (e.g., during generation). Default: false */
@@ -75,32 +67,48 @@ export function useVersions(chatId: string | null, options: UseVersionsOptions =
     idleRefreshIntervalMs = 60000,
   } = options;
 
+  // A2: consecutive failures stretch the cadence instead of hammering a
+  // starved endpoint at the healthy interval. Reset on the first success.
+  const consecutiveErrorsRef = useRef(0);
+  const lastErrorRef = useRef<unknown>(null);
   const { data, error, isLoading, mutate } = useSWR(
     enabled && chatId ? `${engineChatBaseUrl(chatId)}/versions` : null,
-    fetcher,
+    pollJsonFetcher,
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
+      onSuccess: () => {
+        consecutiveErrorsRef.current = 0;
+        lastErrorRef.current = null;
+      },
+      onError: (err: unknown) => {
+        consecutiveErrorsRef.current += 1;
+        lastErrorRef.current = err;
+      },
       // Polling cadence is decided per-tick based on the most recent
       // payload's `chatStatus`, not just the caller's `isGenerating` hint.
       // This is what stops the "polling forever on a versionless dead
       // chat" bug — once the server reports status=aborted+!hasVersion,
       // refreshInterval drops to 0 (off) on the next tick.
-      refreshInterval: (latest) => {
+      refreshInterval: (latest): number => {
         const chatStatus = (latest as { chatStatus?: ChatRunStatus } | undefined)?.chatStatus ?? null;
         if (shouldStopPolling(chatStatus)) return 0;
         if (pauseWhileGenerating && isGenerating) return 0;
-        return isGenerating ? generatingRefreshIntervalMs : idleRefreshIntervalMs;
+        const base = isGenerating ? generatingRefreshIntervalMs : idleRefreshIntervalMs;
+        return swrRefreshIntervalMs(base, consecutiveErrorsRef.current, lastErrorRef.current);
       },
       // Keep repeated UI triggers from stampeding the same endpoint.
       dedupingInterval: 10000,
     },
   );
 
-  const chatStatus: ChatRunStatus | null = (data?.chatStatus as ChatRunStatus | undefined) ?? null;
+  const payload = data as
+    | { versions?: unknown[]; chatStatus?: ChatRunStatus }
+    | undefined;
+  const chatStatus: ChatRunStatus | null = payload?.chatStatus ?? null;
 
   return {
-    versions: data?.versions || [],
+    versions: payload?.versions || [],
     chatStatus,
     isLoading,
     isError: error,

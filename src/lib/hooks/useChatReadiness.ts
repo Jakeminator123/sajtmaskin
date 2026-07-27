@@ -1,16 +1,8 @@
+import { useRef } from "react";
 import useSWR from "swr";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { pollJsonFetcher, swrRefreshIntervalMs } from "@/lib/hooks/poll-backoff";
 import type { ChatReadiness } from "@/lib/chat-readiness";
-
-const fetcher = async (url: string) => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const message = (err && (err.error || err.message)) || `HTTP ${res.status}`;
-    throw new Error(message);
-  }
-  return res.json();
-};
 
 type UseChatReadinessOptions = {
   isGenerating?: boolean;
@@ -31,7 +23,7 @@ export function useChatReadiness(
     idleRefreshIntervalMs = 30000,
   } = options;
   const query = versionId ? `?versionId=${encodeURIComponent(versionId)}` : "";
-  const refreshInterval =
+  const baseRefreshInterval =
     !versionId
       ? 0
       : pauseWhileGenerating && isGenerating
@@ -39,19 +31,38 @@ export function useChatReadiness(
         : isGenerating
           ? generatingRefreshIntervalMs
           : idleRefreshIntervalMs;
+  // A2: consecutive failures stretch the cadence instead of hammering a
+  // starved endpoint at the healthy interval. Reset on the first success.
+  const consecutiveErrorsRef = useRef(0);
+  const lastErrorRef = useRef<unknown>(null);
   const { data, error, isLoading, mutate } = useSWR(
     chatId ? `${engineChatBaseUrl(chatId)}/readiness${query}` : null,
-    fetcher,
+    pollJsonFetcher,
     {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
-      refreshInterval,
+      onSuccess: () => {
+        consecutiveErrorsRef.current = 0;
+        lastErrorRef.current = null;
+      },
+      onError: (err: unknown) => {
+        consecutiveErrorsRef.current += 1;
+        lastErrorRef.current = err;
+      },
+      refreshInterval: (): number =>
+        swrRefreshIntervalMs(
+          baseRefreshInterval,
+          consecutiveErrorsRef.current,
+          lastErrorRef.current,
+        ),
       dedupingInterval: 10000,
     },
   );
 
+  const payload = data as { readiness?: ChatReadiness } | undefined;
+
   return {
-    readiness: (data?.readiness as ChatReadiness | undefined) ?? null,
+    readiness: payload?.readiness ?? null,
     isLoading,
     isError: error,
     mutate,

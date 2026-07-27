@@ -164,6 +164,29 @@ pgbouncer). Pool-storleken anpassas efter typ av connection:
 
 Override via `POSTGRES_POOL_MAX` om du vet vad du gör.
 
+### Transienta DB-fel på pollade läs-routes
+
+Blir poolen tom (t.ex. under en redeploy när instanser byts ut) kastar
+`pg` `timeout exceeded when trying to connect`. De fyra pollade läs-routerna
+— `version-status`, `readiness`, `versions`, `dossiers` — svarar då
+**`503` + `Retry-After: 3`** med `{ ok: false, code: "db_unavailable",
+retryable: true }` i stället för `500`:
+
+- `src/lib/db/transient-error.ts` (`isTransientDbError`) avgör vad som är
+  transient: connection-klassade SQLSTATE-koder, socket-errno, poolerns
+  kapacitetsfel och lås-/serialiseringskonflikter. Konfigurationsfel,
+  schemafel och vanliga query-buggar är **inte** transienta och fortsätter ge
+  `500` — annars förvandlas ett hårt fel till en oändlig klient-retry.
+- `src/lib/api/transient-db-response.ts` gör översättningen; routerna anropar
+  den först i sin `catch`.
+- Klienten backar av: `src/lib/hooks/poll-backoff.ts` (exponentiell backoff
+  med jitter + respekt för `Retry-After`) används av `useVersionStatus`,
+  `useChatReadiness` och `useVersions`. `useVersionStatus` pausar dessutom
+  pollningen medan fliken är dold.
+
+Bakgrund: prod-incidenten 2026-07-13 (29× `500` på just dessa routes under en
+redeploy med hård polling).
+
 ## Redis — vad cachas och varför
 
 ### Två klienter, samma databas

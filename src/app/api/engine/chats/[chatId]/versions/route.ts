@@ -16,6 +16,7 @@ import {
 } from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
+import { transientDbResponseIfRetryable } from "@/lib/api/transient-db-response";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
 import { readAll } from "@/lib/logging/event-bus";
 import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
@@ -185,6 +186,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       chatStatus: buildChatRunStatus(engineChat?.id ?? chatId, false),
     });
   } catch (err) {
+    // A1: transient pool/connection failures degrade to a retryable 503 so the
+    // SWR poller backs off instead of surfacing a hard 500.
+    const degraded = transientDbResponseIfRetryable(err, "[API] versions");
+    if (degraded) return degraded;
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 },
