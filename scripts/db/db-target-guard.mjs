@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "fs";
+import { extractSupabaseProjectRef, loadDbTargets } from "./check-db-env-target.mjs";
 
 const CONNECTION_KEYS = [
   "POSTGRES_URL",
@@ -51,6 +52,7 @@ function toComparableTarget(urlValue) {
       host: url.hostname,
       port: url.port || "5432",
       database: url.pathname.replace(/^\//, "") || "postgres",
+      projectRef: extractSupabaseProjectRef(urlValue)?.ref ?? null,
     };
   } catch {
     return null;
@@ -61,9 +63,57 @@ function sameTarget(left, right) {
   return !!left && !!right && left.host === right.host && left.port === right.port && left.database === right.database;
 }
 
+/**
+ * `dev` / `prod` for a target whose Supabase project ref is listed in
+ * `config/db-targets.json`, otherwise null.
+ *
+ * Resolved lazily and defensively: this module is imported by every plain-node
+ * DB script, so a missing or malformed targets file must degrade to "no label"
+ * rather than throw at import time and take down an unrelated read command.
+ *
+ * @param {{ projectRef?: string | null } | null} target
+ * @returns {"dev" | "prod" | null}
+ */
+export function resolveDbEnvironmentName(target) {
+  if (!target?.projectRef) return null;
+  let targets;
+  try {
+    targets = loadDbTargets();
+  } catch {
+    return null;
+  }
+  for (const name of ["dev", "prod"]) {
+    if (targets[name]?.projectRef === target.projectRef) return name;
+  }
+  return null;
+}
+
+/**
+ * Sanitized one-line target identity, prefixed with the environment when the
+ * project ref is a known one.
+ *
+ * The prefix is the point: `warnIfProdLikeReadTarget` can only ever say "this
+ * IS production" (it compares against the pulled prod snapshot), so a command
+ * reading the DEV database printed a bare hostname and looked exactly like a
+ * successful prod read to anyone who does not know the regions by heart. That
+ * is how an operator ends up trusting an answer from the wrong database.
+ */
 export function summarizeTarget(target) {
   if (!target) return "unknown";
-  return `${target.host}:${target.port}/${target.database}`;
+  const identity = `${target.host}:${target.port}/${target.database}`;
+  const environment = resolveDbEnvironmentName(target);
+  return environment ? `[${environment.toUpperCase()}] ${identity}` : identity;
+}
+
+/**
+ * Labelled, sanitized identity for a raw connection string — the form a
+ * command should print when it announces which database it is about to read.
+ *
+ * @param {string | undefined} urlValue
+ * @returns {string} e.g. `[PROD] aws-1-us-east-1.pooler.supabase.com:6543/postgres`
+ */
+export function summarizeConnectionString(urlValue) {
+  return summarizeTarget(toComparableTarget(normalizeEnvUrl(urlValue)));
 }
 
 export function inspectExplicitDbTargets(currentUrl, productionUrl) {

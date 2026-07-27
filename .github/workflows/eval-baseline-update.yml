@@ -14,7 +14,17 @@ name: Eval Baseline Update
 # not daily.
 #
 # Required secrets:
-#   - OPENAI_API_KEY  → consumed by the eval LLM calls.
+#   - OPENAI_API_KEY    → consumed by the eval LLM calls.
+#   - POSTGRES_URL_PROD → the eval's codegen path reads `generation_telemetry`
+#     for scaffold scoring/retry, so `runEval` refuses to spend LLM tokens
+#     without a database (`resolveEvalEnvironment`, runner.ts). Production is
+#     the deliberate target: the eval is READ-ONLY (it persists no chat or
+#     version, spends no credits and boots no preview VM — see
+#     `src/lib/gen/eval/README.md`), and scaffold scoring is only meaningful
+#     against real generation history, which dev does not have. The write
+#     guard is left unset on purpose: no `DB_ALLOW_PROD_LIKE_WRITE` here, so
+#     anything that ever tried to WRITE to prod from this job would fail
+#     rather than silently mutate production.
 #
 # Behavior:
 #   1. Run a SINGLE `cli.ts` invocation with `--gate` (and `--save-baseline`
@@ -52,6 +62,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
+      DB_SSL_REJECT_UNAUTHORIZED: "false"
 
     steps:
       - name: Checkout repository
@@ -59,10 +71,22 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify OPENAI_API_KEY is present
+      # Both secrets are checked BEFORE install/codegen. A missing
+      # POSTGRES_URL used to surface as a full red run where every scenario
+      # reported `PASS -> FAIL` plus a `preflight_env` blocking check — the
+      # eval's own env preflight failing, which reads like a quality collapse
+      # instead of a misconfigured job. Fail with the actual reason instead.
+      - name: Verify required secrets are present
         run: |
+          missing=""
           if [ -z "$OPENAI_API_KEY" ]; then
-            echo "::error::OPENAI_API_KEY secret is not configured. Add it under Repo Settings -> Secrets and variables -> Actions."
+            missing="$missing OPENAI_API_KEY"
+          fi
+          if [ -z "$POSTGRES_URL" ]; then
+            missing="$missing POSTGRES_URL_PROD"
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::Missing secret(s):$missing. Add them under Repo Settings -> Secrets and variables -> Actions."
             exit 1
           fi
 
@@ -74,6 +98,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Same dev/prod identity guard the prod-migration job uses: verify the
+      # secret actually resolves to the prod Supabase project in
+      # `config/db-targets.json` before the run spends LLM tokens. A secret
+      # silently repointed at dev would otherwise produce a baseline scored
+      # against an empty telemetry history. Sanitized output — never credentials.
+      - name: Verify prod DB identity (db-targets guard)
+        run: node scripts/db/check-db-env-target.mjs --expect=prod
 
       # Single combined invocation: cli.ts always runs the eval + comparison;
       # `--gate` exits 1 on regression BEFORE the baseline write happens, and

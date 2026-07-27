@@ -17,7 +17,11 @@
 import fs from "node:fs";
 import { config } from "dotenv";
 import pg from "pg";
-import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
+import {
+  normalizeEnvUrl,
+  summarizeConnectionString,
+  warnIfProdLikeReadTarget,
+} from "./db-target-guard.mjs";
 import { formatLogTimestamp, LOG_TIMESTAMP_NOTE } from "./log-timestamp.mjs";
 
 const useProd = process.argv.includes("--prod");
@@ -90,7 +94,7 @@ function line(label, value) {
 }
 
 try {
-  console.log(`db:latest -> ${url.hostname}/${url.pathname.replace(/^\//, "") || "postgres"}`);
+  console.log(`db:latest -> ${summarizeConnectionString(cs)}`);
   console.log(LOG_TIMESTAMP_NOTE);
 
   if (!(await tableExists("engine_versions"))) {

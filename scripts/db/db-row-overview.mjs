@@ -10,7 +10,11 @@
  */
 import { config } from "dotenv";
 import pg from "pg";
-import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs";
+import {
+  normalizeEnvUrl,
+  summarizeConnectionString,
+  warnIfProdLikeReadTarget,
+} from "./db-target-guard.mjs";
 
 config({ path: ".env.local" });
 warnIfProdLikeReadTarget({ commandName: "db:rows" });
@@ -76,8 +80,7 @@ function quoteTable(name) {
 }
 
 try {
-  const hostPreview = `${url.hostname} / db=${url.pathname?.replace(/^\//, "") || "default"}`;
-  console.log("db_row_overview:", hostPreview);
+  console.log("db_row_overview:", summarizeConnectionString(cs));
   console.log("table\texists\tapprox_rows");
 
   for (const table of TABLES) {
