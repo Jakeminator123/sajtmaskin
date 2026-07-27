@@ -198,6 +198,23 @@ export const siteBriefSchema = z.object({
   }),
 });
 
+/**
+ * Fallback-schemat är medvetet tolerant — varje fält har ett `.default()` så en
+ * osäker modell kan utelämna det. Men OpenAI:s strikta structured outputs kräver
+ * att `required` listar VARJE nyckel i `properties`, och Zods `.default()` gör
+ * fältet optional i det genererade JSON-schemat. Fjorton av femton toppnycklar
+ * och `bullets` i sektionsobjektet hamnade därför utanför `required`, så OpenAI
+ * avvisade schemat med 422 "Missing 'bullets'" innan modellen ens svarade:
+ * säkerhetsnätet fanns bara på pappret (observerat i prod 2026-07-27).
+ *
+ * Fallbacken skickas därför i icke-strikt läge. Toleransen är hela poängen med
+ * schemat, så det är inställningen som ska ge sig — inte schemat. Nyckeln
+ * ignoreras av andra leverantörer, så samma objekt kan användas på båda vägarna.
+ */
+export const SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS = {
+  openai: { strictJsonSchema: false },
+} as const;
+
 export const simplifiedBriefSchema = z.object({
   projectTitle: z.string(),
   brandName: z.string().default(""),
@@ -602,6 +619,7 @@ export async function generateSiteBriefObject(
           maxRetries: 1,
           maxOutputTokens: Math.min(outputTokenCap, 40_960),
           abortSignal,
+          providerOptions: SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS,
           ...getTemperatureConfig(normalizedModel, temperature),
         });
         usedSimplified = true;
@@ -695,6 +713,7 @@ export async function generateSiteBriefObject(
         maxRetries: 1,
         maxOutputTokens: Math.min(outputTokenCap, 40_960),
         abortSignal,
+        providerOptions: SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS,
         ...getTemperatureConfig(normalizedModel, temperature),
       });
       usedSimplified = true;

@@ -1,11 +1,43 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   briefRequestSchema,
   buildBriefTrace,
+  SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS,
   simplifiedBriefSchema,
   siteBriefSchema,
 } from "./site-brief-generation";
 import { getTemperatureConfig } from "./direct-model";
+
+/**
+ * Alla objektnycklar i JSON-schemat som INTE ligger i sitt `required` — exakt
+ * det OpenAI:s strikta läge avvisar. Går igenom nästlade objekt och arrayer, så
+ * `bullets` inne i ett sektionsobjekt hittas också.
+ */
+function optionalJsonSchemaPaths(schema: z.ZodType): string[] {
+  const json = z.toJSONSchema(schema, { io: "input", unrepresentable: "any" }) as Record<
+    string,
+    unknown
+  >;
+  const found: string[] = [];
+
+  const walk = (node: unknown, path: string): void => {
+    if (!node || typeof node !== "object") return;
+    const record = node as Record<string, unknown>;
+    const properties = record.properties as Record<string, unknown> | undefined;
+    if (properties) {
+      const required = new Set(Array.isArray(record.required) ? (record.required as string[]) : []);
+      for (const key of Object.keys(properties)) {
+        if (!required.has(key)) found.push(path ? `${path}.${key}` : key);
+        walk(properties[key], path ? `${path}.${key}` : key);
+      }
+    }
+    if (record.items) walk(record.items, `${path}[]`);
+  };
+
+  walk(json, "");
+  return found;
+}
 
 describe("siteBriefSchema", () => {
   it("accepts canonical init signals consumed by orchestration", () => {
@@ -84,6 +116,27 @@ describe("siteBriefSchema", () => {
     expect(parsed.qualityBar).toBe("clean");
     expect(parsed.seasonalHints).toEqual([]);
     expect(parsed.requestedCapabilities).toEqual([]);
+  });
+
+  // Prod 2026-07-27: /api/ai/brief svarade 422 "Missing 'bullets'" när
+  // fallbacken användes. OpenAI:s strikta structured outputs kräver att
+  // `required` listar varje nyckel i `properties`, och `.default()` gör fältet
+  // optional — så fallbacken kunde aldrig lyckas mot OpenAI.
+  it("dokumenterar att toleransen gör schemat oförenligt med strikt läge", () => {
+    const optional = optionalJsonSchemaPaths(simplifiedBriefSchema);
+
+    expect(optional).toContain("pages[].sections[].bullets");
+    expect(optional).toContain("requestedCapabilities");
+  });
+
+  it("håller fallbacken användbar: antingen alla fält required, eller icke-strikt läge", () => {
+    // Invarianten överlever båda framtida riktningar — gör man schemat
+    // helt-required får flaggan tas bort, och tar man bort flaggan måste
+    // schemat först göras strict-safe. Ett enda villkor, alltid utvärderat.
+    const strictSafe = optionalJsonSchemaPaths(simplifiedBriefSchema).length === 0;
+    const sentNonStrict = SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS.openai.strictJsonSchema === false;
+
+    expect(strictSafe || sentNonStrict).toBe(true);
   });
 
   it("keeps request defaults for the HTTP brief entrypoint", () => {
