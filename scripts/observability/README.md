@@ -59,7 +59,7 @@ sparas — default **10**, `--max-logs` överstyr.
 
 - **Två scope, aldrig blandade.** Körningens summa (`tokens.byModel`/`totals`)
   räknar bara rader som bär versionens `version_id` —
-  `generation_telemetry` idag, `llm_usage` när steg 2 finns. Chat-summan
+  `generation_telemetry` och `llm_usage` (sedan #613). Chat-summan
   (`tokens.chat`) tar allt hämtat och redovisas separat, eftersom
   `engine_generation_logs` saknar `version_id` och därför inte kan knytas till en
   enskild körning. En version med flera telemetri-rader (retry/repair) flaggas
@@ -76,8 +76,9 @@ sparas — default **10**, `--max-logs` överstyr.
   Minsta bucket är en minut, och `group_by=user_id` betyder organisationens
   medlem — inte Sajtmaskins `users.id`.
 - **D-ID mäter credits, inte tokens.** Saldot är ett nuläge, inte körningens pris.
-- Kostnaden per rad är en **övre** gräns så länge `cached_input_tokens` inte
-  loggas (input prissätts som ocachad).
+- Kostnaden per rad är exakt för `llm_usage`-rader, som bär
+  `cached_input_tokens` sedan #613. För äldre rader utan det fältet prissätts
+  input som ocachad, vilket gör siffran till en **övre** gräns.
 
 ### Säkerhet
 

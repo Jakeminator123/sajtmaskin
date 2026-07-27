@@ -3,7 +3,7 @@ status: active
 owner: unassigned
 created: 2026-07-27
 topic: Backoffice — kvarvarande P2-städ från stringensplanen (subprocess-helpers, statisk-referens-badge, testluckor, terminologi, filstorlek)
-source: Stringensplanen 2026-07-08 (raderad; kärnan levererad 2026-07-21 och indexerad i ../../avklarat/README.md) + kodverifiering 2026-07-27 mot master 3b419115
+source: Stringensplanen 2026-07-08 (raderad; kärnan levererad 2026-07-21 och indexerad i docs/plans/avklarat/README.md) + kodverifiering 2026-07-27 mot master 3b419115
 ---
 
 # Etapp 7 — P2-städ från stringensplanen
