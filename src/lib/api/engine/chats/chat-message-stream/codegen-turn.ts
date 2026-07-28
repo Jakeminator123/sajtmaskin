@@ -46,11 +46,11 @@ import {
   buildPreGenerationContractGateParams,
 } from "@/lib/own-engine/session/own-engine-build-session";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
-import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import { createSSEHeaders } from "@/lib/streaming";
 import { debugLog } from "@/lib/utils/debug";
 import { buildEngineStreamResponse } from "../stream-error-response";
+import { resolveConfiguredEnvKeys } from "../configured-env-keys";
 import type { createCommitCreditsOnce } from "../credits-handler";
 import { buildFollowUpOrchestrationInput } from "../follow-up-orchestration-input";
 import { buildBoundedChatHistory } from "../follow-up-history";
@@ -250,17 +250,8 @@ export async function runCodegenTurn(params: {
   const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
   // fix-isconfigured: resolve the project's stored env keys so the
   // hard-dossier `configured` prompt signal reflects the PROJECT'S env,
-  // not the platform process.env. `getStoredProjectEnvVarMap` only
-  // returns keys with a real (non-empty, decryptable) value.
-  const configuredEnvKeys = engineChat.project_id
-    ? new Set(
-        Object.keys(
-          await getStoredProjectEnvVarMap(engineChat.project_id).catch(
-            () => ({}) as Record<string, string>,
-          ),
-        ),
-      )
-    : new Set<string>();
+  // not the platform process.env.
+  const configuredEnvKeys = await resolveConfiguredEnvKeys(engineChat.project_id);
   // P32 Fas B next step: external-fetch needs web-search integration
   // before it can short-circuit safely; keep it on normal codegen for now.
   const orchestrationInput = buildFollowUpOrchestrationInput({

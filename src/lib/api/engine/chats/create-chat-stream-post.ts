@@ -25,6 +25,7 @@ import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
 import { shouldRunServerAutoBrief } from "@/lib/builder/server-auto-brief-policy";
 import { tryGenerateServerAutoBrief, type BriefTrace } from "@/lib/builder/site-brief-generation";
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
+import { resolveConfiguredEnvKeys } from "./configured-env-keys";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogStartNewSite } from "@/lib/logging/devLog";
 import { debugLog } from "@/lib/utils/debug";
@@ -692,6 +693,22 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         // the tier from it via ownModelIdToCanonicalModelId.
         const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
 
+        // Resolved here (and reused below for `createChat`) because the
+        // orchestration input needs the project's stored env keys — see
+        // `configuredEnvKeys` further down. Tenant-checked, so a foreign
+        // project id resolves to null and contributes no keys.
+        const projectIdForChat = await resolveAppProjectIdForRequest(
+          req,
+          { appProjectId: metaAppProjectId, projectId },
+          { sessionId },
+        );
+        // Restlistan R6: init körs ofta på ett projekt som redan har sparade
+        // nycklar (ny chat i samma projekt), så en tom mängd ljög om
+        // `configured` och lät Kopplade byggblock rendera sin okonfigurerade
+        // placeholder-UI. Läs projektets env-karta i stället — men aldrig
+        // `undefined`, som skulle falla tillbaka på plattformens process.env.
+        const configuredEnvKeys = await resolveConfiguredEnvKeys(projectIdForChat);
+
         const orchestrationInput = {
           prompt: optimizedMessage,
           rawPrompt: message,
@@ -737,13 +754,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           // actually generates (e.g. Opus 4.8's larger window on the anthropic
           // tier), not the tier build-default.
           engineModelId: generatorModel,
-          // fix-isconfigured: init runs on a fresh project with no stored env
-          // keys yet, so the hard-dossier `configured` signal is empty (render
-          // the unconfigured placeholder UI). An empty set — never `undefined`
-          // — so we do NOT fall back to reading the platform process.env (which
-          // would wrongly mark a dossier "configured" from Sajtmaskin's own
-          // keys). Real project keys are picked up on the next follow-up round.
-          configuredEnvKeys: new Set<string>(),
+          configuredEnvKeys,
         };
         const orchestrationStartedAt = Date.now();
         const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
@@ -780,11 +791,6 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           fallback: false,
         });
 
-        const projectIdForChat = await resolveAppProjectIdForRequest(
-          req,
-          { appProjectId: metaAppProjectId, projectId },
-          { sessionId },
-        );
         if (!projectIdForChat) {
           return attachSessionCookie(
             NextResponse.json(
