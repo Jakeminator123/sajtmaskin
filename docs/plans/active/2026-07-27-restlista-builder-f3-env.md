@@ -29,6 +29,7 @@ Raderna nedan är de som återstår.
 | R8 | Inga beteendetester per Kopplad dossier | saknas — bara manifest-/validate-/select-tester | Mock mountar utan krasch per hard-dossier + aktiverings-E2E (dossier etapp 7.3-residual) |
 | R9 | `merge:ready` invalideras inte av ny botkommentar | `review-window.yml:12-22` väntar på botar men bär ingen SHA; sign-off-format i `pr-merge-review-gate.mdc:58-65` | Sign-off bär head-SHA + timestamp; ny botkommentar efter sign-off tar bort labeln |
 | R10 | Single-canary aldrig körd | saknas | En prod-kontroll: Byggblock-val → F2 → follow-up → F3 → release-status |
+| R11 | Ownership-kontraktet är instruktion, inte grind | `dossiers.ts` (`renderCapabilitySurfaceOwnership`) instruerar; `finalize-merge.ts` kan inte radera en LLM-byggd konkurrent | **Ägarbeslut** (se detalj nedan): låt modellen deklarera ersatta paths och radera dem i finalize, eller acceptera prompt-prevention + Advisory som slutläge |
 
 ## Detaljer där raden inte räcker
 
@@ -49,6 +50,31 @@ ett annat lager än R5 (som gäller `.env.local`-scaffoldingen), men samma tema:
 seedar mer env än sajten använder. Tar du R5, läs den raden först — de kan visa sig
 vara en leverans.
 
+### R11 — varför den inte är en fix utan ett beslut
+
+Dossier/UI-ownership-planen levererades 2026-07-28 (#640) som prompt-kontrakt plus
+en Advisory som gör ett kvarlämnat anrop upptäckbart — se
+[`../avklarat/README.md`](../avklarat/README.md) § Dossier/UI-ownership. Det som
+återstår är enda halvan pipelinen inte kan garantera i dag: **att faktiskt ta bort
+en konkurrerande yta modellen byggde i en tidigare runda.**
+
+Kodläget: `mergeVersionFilesWithWarnings` (`version-manager.ts`) lägger föregående
+version som bas och låter nya filer skriva över den, så en fil som inte re-emitteras
+lever vidare. Enda deterministiska raderingsvägen är
+`removeExplicitlyRemovedDossierFiles` (`finalize-merge.ts`), som bara släpper
+**dossier-ägda** paths för dossiers användaren uttryckligen tagit bort. En
+LLM-byggd `app/api/ai-chat/route.ts` matchar ingen av dem.
+
+De två vägarna, och varför de är ett ägarbeslut:
+
+| Väg | Innebär | Risk |
+|---|---|---|
+| Modellen deklarerar ersatta paths (t.ex. ett `REPLACES:`-direktiv som finalize raderar) | Nytt **utdataprotokoll** mellan modell och finalize | En felaktig deklaration raderar användarens filer — dataförlust, inte bara brus |
+| Acceptera prompt-prevention + Advisory | Ingen ny mekanik | En envis modell kan fortfarande lämna två ytor; vi ser det i diagnostiken i stället för att stoppa det |
+
+Enligt `workflow.mdc` pausar en agent vid arkitekturbeslut och möjlig dataförlust,
+så valet ligger hos ägaren. Backlog-raden är omtriagerad M#dchat1.
+
 ### R9 — avgränsning
 
 Detta är process, inte produkt. Implementeras som lättviktigt checkjobb eller
@@ -64,6 +90,7 @@ Inget nytt governance-lager (jfr `project-phase-priorities.mdc`).
 | R8 | nya tester gröna + `npx vitest run` på berörd svit |
 | R7, R10 | prod-observation, ingen kodgrind |
 | R9 | workflow-körning på en test-PR |
+| R11 | ägarbeslut först; vid raderingsvägen krävs test som visar att bara deklarerade paths försvinner |
 
 ## Explicit icke-mål
 
