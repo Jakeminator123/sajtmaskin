@@ -483,6 +483,19 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     );
   }, [vm.activeVersionId]);
 
+  // Same drift rule for the status row: a verdict describes one version, so it
+  // must not linger over another one the user selected afterwards — its
+  // "Visa diagnostik" link would then open a different version's log (bugbot on
+  // #640). Outcomes with no version of their own (e.g. "no version yet") are
+  // kept until the chat changes.
+  useEffect(() => {
+    setF3Status((current) =>
+      current?.versionId && vm.activeVersionId && current.versionId !== vm.activeVersionId
+        ? null
+        : current,
+    );
+  }, [vm.activeVersionId]);
+
   useEffect(() => {
     setF3Requirements(null);
     setF3Status(null);
@@ -1095,7 +1108,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <F3StatusSurface
               status={f3Status}
               chatId={vm.chatId}
-              versionId={vm.activeVersionId}
+              versionId={f3Status.versionId ?? null}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             />
           ) : null}

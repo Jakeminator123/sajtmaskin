@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { F3RequirementsSurface, F3StatusSurface } from "./F3RequirementsSurface";
 
@@ -105,5 +105,28 @@ describe("F3StatusSurface", () => {
     expect(
       screen.getByRole("status", { name: /status för integrationsbygge/i }).textContent,
     ).toContain("ReleaseGate behöver åtgärdas");
+  });
+
+  // The verdict describes one version; the link must open THAT version's log,
+  // not whatever is selected when the user reads the row (bugbot on #640).
+  it("loads diagnostics for the version the verdict judged", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ success: true, logs: [], summary: null }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <F3StatusSurface
+        status={{ ...failedStatus, versionId: "ver_f3" }}
+        chatId="chat_1"
+        versionId="ver_f3"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /visa diagnostik/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/versions/ver_f3/error-log"),
+        expect.anything(),
+      );
+    });
   });
 });

@@ -17,6 +17,13 @@ export type F3BuilderStatus = {
   tone: "info" | "warning" | "error" | "success";
   title: string;
   description: string;
+  /**
+   * The version this verdict is about, when there is one. The diagnostics link
+   * must open THAT version's log — opening whatever happens to be selected
+   * would show a green F2 design behind a red ReleaseGate line (bugbot on
+   * #640). Null when the outcome precedes any version (e.g. "no version yet").
+   */
+  versionId?: string | null;
 };
 
 interface F3RequirementsSurfaceProps {

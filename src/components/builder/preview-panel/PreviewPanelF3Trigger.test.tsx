@@ -55,6 +55,9 @@ describe("PreviewPanelF3Trigger", () => {
         title: "Nyare designversion finns",
         description:
           "En nyare designversion finns. Välj den senaste versionen innan du bygger integrationer.",
+        // The verdict names the version it judged so the builder's status row
+        // opens THAT version's diagnostics (bugbot on #640).
+        versionId: "ver_old",
       });
     });
     expect(onReady).not.toHaveBeenCalled();
@@ -242,11 +245,15 @@ describe("PreviewPanelF3Trigger", () => {
       tone: "info",
       title: "ReleaseGate startar",
       description: "Kontrollerar den deterministiska F3-versionen innan promotion.",
+      versionId: "ver_f2",
     });
+    // The promoted F3 fork is the version the gate judged — not the F2 base
+    // the run started from.
     expect(onStatus).toHaveBeenCalledWith({
       tone: "success",
       title: "ReleaseGate godkänd",
       description: expect.stringContaining("exakt samma filer"),
+      versionId: "ver_f3",
     });
 
     vi.unstubAllGlobals();
@@ -306,6 +313,7 @@ describe("PreviewPanelF3Trigger", () => {
       tone: "success",
       title: "Integrationsbygget startar",
       description: "F3 byggs nu utifrån den finaliserade designversionen.",
+      versionId: "ver_f2",
     });
     vi.unstubAllGlobals();
   });
