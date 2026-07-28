@@ -43,9 +43,11 @@ import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
 import {
   dispatchVersionStatusRefreshed,
   F3_REQUIREMENTS_EVENT,
+  F3_STATUS_EVENT,
   openDossiersPanel,
   PROJECT_ENV_VARS_UPDATED_EVENT,
   readF3RequirementsDetail,
+  readF3StatusDetail,
   readProjectEnvVarsUpdatedDetail,
   requestF3Rebuild,
   subtractSavedKeysFromF3Requirements,
@@ -518,6 +520,27 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     window.addEventListener(F3_REQUIREMENTS_EVENT, handleRequirements);
     return () =>
       window.removeEventListener(F3_REQUIREMENTS_EVENT, handleRequirements);
+  }, [vm.chatId]);
+
+  // The chat-stream lane runs its own nested finalize (409
+  // `f3_deterministic_release_required`) and has no `onStatus` callback, so its
+  // ReleaseGate verdict arrives as an event. Without this the row — and its
+  // diagnostics link — only ever appeared for the preview-button lane (bugbot
+  // on #640).
+  useEffect(() => {
+    const handleStatus = (event: Event) => {
+      const detail = readF3StatusDetail(event);
+      if (!detail) return;
+      if (detail.chatId && detail.chatId !== vm.chatId) return;
+      setF3Status({
+        tone: detail.tone,
+        title: detail.title,
+        description: detail.description,
+        versionId: detail.versionId ?? null,
+      });
+    };
+    window.addEventListener(F3_STATUS_EVENT, handleStatus);
+    return () => window.removeEventListener(F3_STATUS_EVENT, handleStatus);
   }, [vm.chatId]);
 
   // Keys saved anywhere (Byggblock inline inputs, kravytan, env-panelen)

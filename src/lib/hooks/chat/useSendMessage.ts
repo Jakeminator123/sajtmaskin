@@ -27,7 +27,7 @@ import { resolveInboundPreviewUrl } from "@/lib/api/preview-url-contract";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
-import { dispatchF3Requirements } from "@/lib/builder/project-env-events";
+import { dispatchF3Requirements, dispatchF3Status } from "@/lib/builder/project-env-events";
 
 export function useSendMessage(
   params: ChatMessagingParams,
@@ -543,14 +543,25 @@ export function useSendMessage(
                     ? `ReleaseGate underkände: ${failed}.`
                     : "ReleaseGate blev inte godkänd. Se versionsdiagnostiken.";
                 // Restlistan R1: inget toast-larm för ett underkänt ReleaseGate.
-                // Verdiktet står i chattmeddelandet ovan och detaljerna i
-                // versionsdiagnostiken — en toast ovanpå det är bara brus.
+                // Verdiktet står i chattmeddelandet ovan, och den diskreta
+                // statusraden bär länken till versionsdiagnostiken — den här
+                // lanen har ingen `onStatus`-callback, så den går via eventet.
                 debugLog("engine", "ReleaseGate underkänd", {
                   chatId,
                   versionId: release.versionId,
                   failedChecks: release.failedChecks,
                   promoteError: release.promoteError ?? null,
                   retryable: release.retryable,
+                });
+                dispatchF3Status({
+                  chatId,
+                  versionId: release.versionId,
+                  tone: release.promoteError || release.retryable ? "warning" : "error",
+                  title:
+                    release.promoteError || release.retryable
+                      ? "ReleaseGate väntar på ett nytt försök"
+                      : "ReleaseGate behöver åtgärdas",
+                  description: content,
                 });
               }
             } else if (release.kind === "missing_env") {
