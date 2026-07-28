@@ -60,12 +60,13 @@ const F2_HEADER = `# ───────────────────�
 # inte göra något — preview-VM:en bootar med interna placeholders.
 #
 # När du är redo att koppla på riktiga integrationer klickar du på
-# "Bygg integrationer" — då får du en env-panel där du fyller i bara de nycklar
-# som faktiskt behövs (t.ex. STRIPE_SECRET_KEY, RESEND_API_KEY).
+# "Bygg integrationer" — då pekas du till Byggblock i previewen, där du
+# fyller i bara de nycklar som faktiskt behövs (t.ex. STRIPE_SECRET_KEY,
+# RESEND_API_KEY).
 #
 # Allt nedan auto-regenereras vid varje generering. Egna ändringar i
 # DEN HÄR filen skrivs över — fyll i .env.local lokalt istället, och
-# använd env-panelen i builder:n för värden som ska persistenta i Sajtmaskin.
+# använd Byggblock i builder:n för värden som ska persistenta i Sajtmaskin.
 `;
 
 const F3_HEADER = `# ─────────────────────────────────────────────────────────────────────
@@ -75,28 +76,28 @@ const F3_HEADER = `# ───────────────────�
 # Next.js läser INTE den här filen. Det är en hjälpkommentar som listar
 # vilka env-variabler din sajt behöver. Tier-3-stubbar är bortskalade
 # här — varje rad nedan som SAKNAR värde är något du måste fylla i
-# via env-panelen i builderns högerspalt eller (lokalt) i .env.local
+# via Byggblock i previewens verktygsrad eller (lokalt) i .env.local
 # innan sajten kan publiceras.
 #
-# Värden från env-panelen mergas in automatiskt vid nästa generering.
+# Värden från Byggblock mergas in automatiskt vid nästa generering.
 # Vill du köra lokalt: kopiera till .env.local och fyll i där.
 `;
 
 const SECTION_HEADERS: Record<EnvVarProvenance, string> = {
   user:
-    "# ── Dina ifyllda värden (env-panelen) ──────────────────────────\n" +
+    "# ── Dina ifyllda värden (Byggblock) ────────────────────────────\n" +
     "# Mergas in från projektets sparade env-variabler.",
   generated:
     "# ── Värden modellen själv satte ────────────────────────────────\n" +
     "# Lades in av kod-genereringen. Skrivs över om du sätter värden\n" +
-    "# i env-panelen.",
+    "# under Byggblock.",
   "project-preview":
     "# ── Stabila projekt-tokens (auto) ───────────────────────────────\n" +
     "# Härleds från projekt-id, oförändrade mellan körningar.",
   "tier3-stub":
     "# ── Tier-3 placeholders (auto, bara F2) ─────────────────────────\n" +
     "# Bootar projektet med fake-värden så det går att klicka runt.\n" +
-    "# Skalas bort i F3 — då måste riktiga värden fyllas i via panelen.",
+    "# Skalas bort i F3 — då måste riktiga värden fyllas i via Byggblock.",
   harmless:
     "# ── Säkra placeholders (auto, OK i F3 också) ────────────────────\n" +
     "# Test/publishable-nycklar och generiska secrets — inte hemliga.",
@@ -120,13 +121,13 @@ const DOSSIER_SCOPE_HEADER_F2 =
   "# ── Nycklar för valda byggblock (demo-värden i F2) ─────────────\n" +
   "# De här dossier:erna deklarerar nycklar utan auto-placeholder.\n" +
   "# I F2 fylls de med demo-värden (…_placeholder_preview_not_real) så\n" +
-  "# preview funkar utan riktiga nycklar. Byt till riktiga värden i\n" +
-  "# builderns env-panel när du klickar \"Bygg integrationer\" (F3).";
+  "# preview funkar utan riktiga nycklar. Byt till riktiga värden under\n" +
+  "# Byggblock när du klickar \"Bygg integrationer\" (F3).";
 
 const DOSSIER_SCOPE_HEADER_F3 =
-  "# ── Nycklar för valda byggblock (fyll i via env-panelen) ───────\n" +
+  "# ── Nycklar för valda byggblock (fyll i via Byggblock) ─────────\n" +
   "# De här dossier:erna deklarerar nycklar utan auto-placeholder.\n" +
-  "# Fyll i riktiga värden i builderns env-panel (eller lokalt i .env.local).";
+  "# Fyll i riktiga värden under Byggblock (eller lokalt i .env.local).";
 
 /**
  * Opt-in dossier env scope. When provided (preflight always sends it),
