@@ -246,6 +246,139 @@ function resolveInstructionMode(
   return "compact";
 }
 
+const SOURCE_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"] as const;
+
+/** `@/components/chat-panel` → `components/chat-panel` (project-relative). */
+function exposesImportToProjectPath(importSpec: string): string | null {
+  if (!importSpec.startsWith("@/")) return null;
+  const path = importSpec.slice(2).replace(/\\/g, "/");
+  return path.length > 0 ? path : null;
+}
+
+function projectPathPresent(paths: ReadonlySet<string>, projectPath: string): boolean {
+  const candidates = [projectPath, `src/${projectPath}`];
+  for (const candidate of candidates) {
+    if (paths.has(candidate)) return true;
+    for (const ext of SOURCE_EXTENSIONS) {
+      if (paths.has(`${candidate}${ext}`)) return true;
+      if (paths.has(`${candidate}/index${ext}`)) return true;
+    }
+  }
+  return false;
+}
+
+interface OwnedSurface {
+  dossierId: string;
+  dossierLabel: string;
+  capability: string;
+  /** `exposes` component names the dossier owns for this capability. */
+  componentNames: string[];
+  /** Import specifier the rest of the project must use. */
+  importSpec: string;
+  /** Server contract paths (verbatim routes/middleware) in project form. */
+  serverPaths: string[];
+}
+
+/**
+ * Capability-surface ownership for a dossier that is being ADDED to a project
+ * which does not yet contain its UI.
+ *
+ * Incident this closes (chat `747636c8`, 2026-07-13): the model built its own
+ * `components/chatbot-widget.tsx` + `app/api/ai-chat/route.ts` in F2. A later
+ * follow-up selected the `openai-chat` dossier for the same `ai-chat`
+ * capability — and nothing told the model that the dossier now OWNS that
+ * surface. The page ended up with two chat implementations and two routes, and
+ * the hand-rolled one carried the `string | undefined` type error that failed
+ * F3's ReleaseGate.
+ *
+ * The block is emit-time prevention, which is what the pipeline can actually
+ * guarantee: the model decides what it writes. It cannot delete a file the
+ * previous version already has — follow-up merge carries previous files
+ * forward and only `removeExplicitlyRemovedDossierFiles` drops paths, and only
+ * for dossiers the user explicitly removed. So the instruction is "route the
+ * existing surface through the dossier's contract and stop calling your own
+ * endpoint", not "delete it". A leftover unused route is then flagged by
+ * `runProjectSanityChecks`' dangling-API-reference check if anything still
+ * points at it.
+ */
+function renderCapabilitySurfaceOwnership(
+  dossierSel: DossierSelectionResult,
+  opts: DossierRenderOptions,
+): string[] {
+  if (opts.generationMode !== "followUp") return [];
+  const previousPaths = new Set(
+    (opts.previousFilePaths ?? []).map((path) => path.replace(/\\/g, "/").replace(/^\.\//, "")),
+  );
+  if (previousPaths.size === 0) return [];
+
+  const owned: OwnedSurface[] = [];
+  for (const sel of dossierSel.selected) {
+    const entry = sel.entry;
+    const components = (entry.exposes ?? []).filter((expose) => expose.type === "component");
+    if (components.length === 0) continue;
+    for (const expose of components) {
+      const projectPath = exposesImportToProjectPath(expose.import);
+      if (!projectPath) continue;
+      // Already materialized in the project → the dossier owns the surface
+      // already and re-stating ownership is noise.
+      if (projectPathPresent(previousPaths, projectPath)) continue;
+      const serverPaths = (entry.files ?? [])
+        .filter((file) => file.role === "server")
+        .map((file) => mapDossierPathToOutput(file.path).replace(/\\/g, "/"));
+      const existing = owned.find(
+        (candidate) => candidate.dossierId === entry.id && candidate.importSpec === expose.import,
+      );
+      if (existing) {
+        existing.componentNames.push(expose.name);
+        continue;
+      }
+      owned.push({
+        dossierId: entry.id,
+        dossierLabel: entry.label,
+        capability: entry.capability,
+        componentNames: [expose.name],
+        importSpec: expose.import,
+        serverPaths,
+      });
+    }
+  }
+  if (owned.length === 0) return [];
+
+  const parts: string[] = [
+    "## Capability Surface Ownership — one owner per capability",
+    "",
+    "The dossier(s) below are being added to a project that does not yet contain their UI. From this round on the dossier OWNS that capability's surface. If you built your own version of it in an earlier round, exactly ONE implementation may be live when you are done.",
+    "",
+  ];
+  for (const surface of owned) {
+    parts.push(
+      `- **${surface.dossierLabel}** \`${surface.dossierId}\` (capability: ${surface.capability}) owns ${surface.componentNames
+        .map((name) => `\`${name}\``)
+        .join(", ")} from \`${surface.importSpec}\`${
+        surface.serverPaths.length > 0
+          ? `, served by ${surface.serverPaths.map((path) => `\`${path}\``).join(", ")}`
+          : ""
+      }.`,
+    );
+  }
+  parts.push(
+    "",
+    "Pick exactly one of these, per capability:",
+    "",
+    "- **Adapt** — keep the existing UI the user already saw, but point it at the dossier's server contract (the route path above) and stop calling the endpoint you wrote yourself. Re-emit the changed component in this round.",
+    "- **Replace** — emit the dossier's component as the owner and re-emit the page/layout so the earlier component is no longer imported or rendered anywhere.",
+    "",
+    "Never leave both live. Two components rendering the same capability, or a component calling your own endpoint while the dossier's route also exists, is a defect: the user sees one surface but the other one carries its own bugs into the F3 verification.",
+    "",
+    "Two hard rules for either choice:",
+    "",
+    "- Every component must call a route that EXISTS in your output. Do not leave a `fetch(\"/api/…\")` pointing at a path you removed or never emitted.",
+    "- Do not add a second route under `app/api/**` for a capability whose dossier already ships one.",
+    "",
+  );
+  return parts;
+}
+
 export function renderDossierBlocks(
   dossierSel: DossierSelectionResult | null | undefined,
   opts: DossierRenderOptions = {},
@@ -402,6 +535,8 @@ export function renderDossierBlocks(
       parts.push("");
     }
   }
+  parts.push(...renderCapabilitySurfaceOwnership(dossierSel, opts));
+
   if (skippedExistingFiles.length > 0) {
     parts.push(
       "## Dossier Verbatim Files Already in Project",

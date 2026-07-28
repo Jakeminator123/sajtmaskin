@@ -159,4 +159,41 @@ describe("resolvePreviewEnvLayers", () => {
     expect(provenance.STRIPE_SECRET_KEY).toBeUndefined();
     expect(provenance.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY).toBe("harmless");
   });
+
+  // Restlistan R3: the F2 dossier-mock seed must never mask a value the user
+  // actually stored (or the model emitted) — a demo value that overwrites a real
+  // key would render "Byggd — demo aktiv" for a dossier that is in fact live.
+  it("lets user and generated values beat the F2 dossier-mock seed", async () => {
+    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
+      OPENAI_API_KEY: "sk_user_real",
+    });
+    const { merged, provenance } = await resolvePreviewEnvLayers({
+      appProjectId: "proj_test",
+      generatedEnvLocal: "EMAIL_FROM=hej@exempel.se",
+      selectedDossierEnvKeys: ["OPENAI_API_KEY", "EMAIL_FROM", "CONTACT_EMAIL_TO"],
+    });
+
+    expect(merged.OPENAI_API_KEY).toBe("sk_user_real");
+    expect(provenance.OPENAI_API_KEY).toBe("user");
+    expect(merged.EMAIL_FROM).toBe("hej@exempel.se");
+    expect(provenance.EMAIL_FROM).toBe("generated");
+    // Only the key without any real value gets the deterministic mock stub.
+    expect(merged.CONTACT_EMAIL_TO).toBeTruthy();
+    expect(merged.CONTACT_EMAIL_TO).not.toBe("sk_user_real");
+    expect(provenance.CONTACT_EMAIL_TO).toBe("tier3-stub");
+  });
+
+  it("never seeds dossier-mock values in F3 (lifecycleStage='integrations')", async () => {
+    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({});
+    const { merged } = await resolvePreviewEnvLayers({
+      appProjectId: "proj_test",
+      generatedEnvLocal: null,
+      lifecycleStage: "integrations",
+      selectedDossierEnvKeys: ["CONTACT_EMAIL_TO"],
+    });
+
+    expect(merged.CONTACT_EMAIL_TO).toBeUndefined();
+  });
 });

@@ -15,6 +15,19 @@ interface FileExplorerProps {
   error?: string | null;
 }
 
+/**
+ * Speglar `PROJECT_ENV_FILE_PATH` i `@/lib/gen/preview/project-env-file`, som
+ * inte kan importeras hit (den modulen läser placeholder-kataloger från disk).
+ */
+const PROJECT_ENV_DOC_PATHS = new Set(["env.example", "./env.example"]);
+
+const PROJECT_ENV_DOC_HINT =
+  "Auto-genererad dokumentation. Regenereras vid varje generering — egna ändringar skrivs över, och riktiga värden sparas under Byggblock, inte här.";
+
+function isProjectEnvDocPath(path: string): boolean {
+  return PROJECT_ENV_DOC_PATHS.has(path.trim());
+}
+
 function FileTreeItem({
   node,
   onFileSelect,
@@ -29,6 +42,7 @@ function FileTreeItem({
   const [isExpanded, setIsExpanded] = useState(depth < 2);
   const isSelected = selectedPath === node.path;
   const isFolder = node.type === "folder";
+  const isEnvDoc = !isFolder && isProjectEnvDocPath(node.path);
 
   const handleClick = () => {
     if (isFolder) {
@@ -62,6 +76,7 @@ function FileTreeItem({
           isSelected && "bg-primary/10 text-primary",
         )}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        title={isEnvDoc ? PROJECT_ENV_DOC_HINT : undefined}
       >
         {isFolder ? (
           <>
@@ -83,6 +98,14 @@ function FileTreeItem({
           </>
         )}
         <span className="truncate">{node.name}</span>
+        {isEnvDoc && (
+          <span
+            aria-label={PROJECT_ENV_DOC_HINT}
+            className="text-muted-foreground border-border/70 ml-auto shrink-0 rounded border px-1 text-[10px] leading-4 font-normal"
+          >
+            auto
+          </span>
+        )}
       </Button>
       {isFolder && isExpanded && node.children && (
         <div>

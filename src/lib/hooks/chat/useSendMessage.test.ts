@@ -12,6 +12,7 @@ import type {
 
 const handleSseStream = vi.hoisted(() => vi.fn());
 const dispatchF3Requirements = vi.hoisted(() => vi.fn());
+const dispatchF3Status = vi.hoisted(() => vi.fn());
 const toast = vi.hoisted(() => {
   const fn = vi.fn();
   return Object.assign(fn, {
@@ -29,6 +30,7 @@ vi.mock("./post-checks-fetch", () => ({ triggerImageMaterialization: vi.fn() }))
 vi.mock("./post-checks-preview", () => ({ readPreviewPreflight: vi.fn(() => null) }));
 vi.mock("@/lib/builder/project-env-events", () => ({
   dispatchF3Requirements,
+  dispatchF3Status,
 }));
 vi.mock("@/lib/utils/debug", () => ({
   debugLog: vi.fn(),
@@ -389,6 +391,63 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     expect(messagesBox.current.at(-1)?.content).toContain(
       "exakt samma filer",
     );
+  });
+
+  // Restlistan R1: den underkända ReleaseGate-toasten är borta. Den här lanen
+  // har ingen `onStatus`-callback, så verdiktet måste nå den diskreta
+  // statusraden via eventet — annars säger chattexten "se versionsdiagnostiken"
+  // utan att någon länk dit finns (bugbot på #639).
+  it("routes a failed ReleaseGate from the stream lane to the status row instead of a toast", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/stream")) {
+        return jsonResponse(409, {
+          error: "f3_deterministic_release_required",
+          ready: false,
+          parentVersionId: "ver_f2_parent",
+        });
+      }
+      if (url.endsWith("/finalize-design")) {
+        return jsonResponse(200, {
+          ready: true,
+          action: "deterministic_release",
+          parentVersionId: "ver_f2_parent",
+          versionId: "ver_f3_exact",
+          gateRequired: true,
+          releaseState: "draft",
+          verificationState: "pending",
+        });
+      }
+      if (url.endsWith("/quality-gate")) {
+        return jsonResponse(200, {
+          passed: false,
+          promoted: false,
+          vmGatePassed: false,
+          checks: [
+            { check: "typecheck", passed: false },
+            { check: "build", passed: true },
+            { check: "lint", passed: true },
+          ],
+        });
+      }
+      return jsonResponse(404, { error: "unexpected" });
+    });
+    const { result } = createHarness({ activeVersionId: "ver_f2_parent" });
+
+    await send(result, "Bygg integrationer nu.", {
+      lifecycleStageOverride: "integrations",
+      parentVersionIdOverride: "ver_f2_parent",
+      engineBaseVersionIdOverride: "ver_f2_parent",
+    });
+
+    expect(dispatchF3Status).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat_1",
+        versionId: "ver_f3_exact",
+        tone: "error",
+        title: "ReleaseGate behöver åtgärdas",
+      }),
+    );
+    expect(toast.warning).not.toHaveBeenCalledWith("ReleaseGate behöver åtgärdas.");
   });
 
   it("surfaces a direct F3 stream 412 in the persistent requirements surface", async () => {

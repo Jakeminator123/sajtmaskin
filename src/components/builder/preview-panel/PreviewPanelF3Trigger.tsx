@@ -129,6 +129,12 @@ export function PreviewPanelF3Trigger({
 
   const runF3Flow = useCallback(async (requestedVersionId?: string | null) => {
     const targetVersionId = requestedVersionId ?? versionId;
+    // Every outcome carries the version it judged, so the builder's status row
+    // can open THAT version's diagnostics instead of whatever is selected when
+    // the user reads it (bugbot on #639). Defaults to the version this run
+    // targeted; the deterministic-release branches pass the F3 fork instead.
+    const reportStatus = (status: F3BuilderStatus, judgedVersionId?: string | null) =>
+      onStatus?.({ ...status, versionId: judgedVersionId ?? targetVersionId ?? null });
     // Guard the programmatic (retry-event) path: without a version the finalize
     // body would be `{}` and the server can't anchor the F3 step; while busy or
     // already loading a second finalize could race the in-flight request. The
@@ -136,7 +142,7 @@ export function PreviewPanelF3Trigger({
     // event), but a silent return leaves the user without feedback — surface
     // the condition persistently in the builder instead.
     if (isBusy || isLoading) {
-      onStatus?.({
+      reportStatus({
         tone: "warning",
         title: "Integrationsbygget väntar",
         description: "Vänta tills den pågående körningen är klar innan du bygger integrationer igen.",
@@ -144,7 +150,7 @@ export function PreviewPanelF3Trigger({
       return;
     }
     if (!targetVersionId) {
-      onStatus?.({
+      reportStatus({
         tone: "warning",
         title: "Ingen aktiv version än",
         description: "Vänta tills första versionen är skapad innan du bygger integrationer.",
@@ -152,7 +158,7 @@ export function PreviewPanelF3Trigger({
       return;
     }
     if (productBlocked) {
-      onStatus?.({
+      reportStatus({
         tone: "warning",
         title: "Integrationsbygget är spärrat av Product Postcheck",
         description: "Åtgärda blockerande F2-previewproblem innan du bygger integrationer.",
@@ -166,7 +172,7 @@ export function PreviewPanelF3Trigger({
         chatId,
         parentVersionId: targetVersionId,
         onDeterministicReleaseStarted: () => {
-          onStatus?.({
+          reportStatus({
             tone: "info",
             title: "ReleaseGate startar",
             description: "Kontrollerar den deterministiska F3-versionen innan promotion.",
@@ -186,11 +192,11 @@ export function PreviewPanelF3Trigger({
       }
 
       if (result.kind === "llm_ready") {
-        onStatus?.({
+        reportStatus({
           tone: "success",
           title: "Integrationsbygget startar",
           description: "F3 byggs nu utifrån den finaliserade designversionen.",
-        });
+        }, result.parentVersionId);
         onReady?.({
           parentVersionId: result.parentVersionId,
           requirements: result.requirements,
@@ -200,7 +206,7 @@ export function PreviewPanelF3Trigger({
 
       if (result.kind === "error") {
         const stale = result.reason === "stale_design_version";
-        onStatus?.({
+        reportStatus({
           tone: stale || result.retryable ? "warning" : "error",
           title: stale
             ? "Nyare designversion finns"
@@ -217,32 +223,32 @@ export function PreviewPanelF3Trigger({
         selectVersion: !result.superseded,
       });
       if (result.ok) {
-        onStatus?.({
+        reportStatus({
           tone: "success",
           title: result.alreadyPromoted ? "ReleaseGate var redan godkänd" : "ReleaseGate godkänd",
           description:
             "F3-versionen använder exakt samma filer och visuella fallback som F2.",
-        });
+        }, result.versionId);
         return;
       }
       if (result.superseded) {
-        onStatus?.({
+        reportStatus({
           tone: "warning",
           title: "F3-versionen ersattes av en nyare version",
           description: "ReleaseGate ändrade ingen äldre version.",
-        });
+        }, result.versionId);
         return;
       }
       if (result.promoteError || result.retryable) {
-        onStatus?.({
+        reportStatus({
           tone: "warning",
           title: "ReleaseGate väntar på ett nytt försök",
           description: result.message ?? "Försök igen när den pågående kontrollen är klar.",
-        });
+        }, result.versionId);
         return;
       }
       const failedChecks = result.failedChecks.join(", ");
-      onStatus?.({
+      reportStatus({
         tone: "error",
         title: "ReleaseGate behöver åtgärdas",
         description: result.promotionBlocked
@@ -252,9 +258,9 @@ export function PreviewPanelF3Trigger({
               ? `Underkända kontroller: ${failedChecks}.`
               : "F3-versionen blev inte godkänd. Se versionsdiagnostiken."
             : "F3-versionen blev inte promotad.",
-      });
+      }, result.versionId);
     } catch (err) {
-      onStatus?.({
+      reportStatus({
         tone: "error",
         title: "F3-kontrollen misslyckades",
         description:

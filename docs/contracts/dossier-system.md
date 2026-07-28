@@ -153,6 +153,14 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 
 **Verbatim enforcement is two-layered.** The prompt block is layer 1; layer 2 is post-merge: `applyDossierVerbatimPolicy()` (`src/lib/gen/dossiers/verbatim-policy.ts`, called from `finalize-merge.ts`) restores any verbatim dossier file the LLM drifted from back to the canonical dossier source. On follow-ups, verbatim files already present in the project are listed under `## Dossier Verbatim Files Already in Project` instead of being re-rendered in full.
 
+## Capability surface ownership (one owner per capability)
+
+A dossier that `exposes` a UI component owns that capability's surface. When a follow-up adds such a dossier to a project whose previous version does **not** contain the exposed component, `renderDossierBlocks` emits `## Capability Surface Ownership` (`src/lib/gen/system-prompt/sections/dossiers.ts`): the dossier's component, its import specifier and its server route are named, and the model must pick **adapt** (point the existing surface at the dossier's route) or **replace** (make the dossier component the owner) — never leave two live.
+
+The block is emit-time prevention, which is the part the pipeline can guarantee: follow-up merge (`mergeVersionFilesWithWarnings`) carries previous files forward, and the only deterministic deletion path is `removeExplicitlyRemovedDossierFiles`, which drops dossier-owned paths for dossiers the user explicitly removed. So the contract tells the model to stop *calling* the competing endpoint rather than to delete it, and `runProjectSanityChecks` flags any component still pointing at an API path no route handler serves (Advisory).
+
+Incident this closes: chat `747636c8` (2026-07-13) built its own `components/chatbot-widget.tsx` + `app/api/ai-chat/route.ts` in F2, then added the `openai-chat` dossier for the same `ai-chat` capability. Nothing declared ownership, the page ended up with two chat implementations, and the hand-rolled one carried the `TS2345` that failed the F3 ReleaseGate.
+
 ## Manifest schema (7 required + optional)
 
 ```json

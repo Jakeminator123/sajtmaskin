@@ -21,11 +21,12 @@ kosmetiska brus-fel (CSP-eval report-only, font-403 i preview) och en
 **scaffold-lint-bugg** (`use-reduced-motion`) som fällde ReleaseGate på lint för *varje*
 genererad sajt.
 
-**Nuläge:** brus-felen och scaffold-buggen är åtgärdade (C1, C2, D1), A1+A2 — den
+**Nuläge:** brus-felen och scaffold-buggen är åtgärdade (C1, C2, D1, D2), A1+A2 — den
 självförstärkande delen av 500-stormen — är levererade, spår B är stängt, och A3:s
 **mätning** finns nu i kod (ratten är medvetet orörd tills prod-siffror finns). Kvar:
-A4 (redeploy-paus), att läsa A3-mätningen vid nästa pool-händelse, och D2. Stycket ovan
-beskriver incidenten, inte dagens kodläge — statustabellen nedan är sanningen.
+**bara A4** (redeploy-paus) och att läsa A3-mätningen vid nästa pool-händelse i prod.
+Stycket ovan beskriver incidenten, inte dagens kodläge — statustabellen nedan är
+sanningen.
 
 Pool-tuning kräver mätning (motsatta fixar för motsatta fel) — se A3.
 
@@ -42,7 +43,7 @@ Pool-tuning kräver mätning (motsatta fixar för motsatta fel) — se A3.
 | C1 CSP eval | **klar** | `instrumentation-client.ts:11` `z.config({ jitless: true })` |
 | C2 preview font 403 | **klar** | `preview-host/src/runtime.js:2155-2161`, `:2229-2235` |
 | D1 scaffold `use-reduced-motion` | **klar** (#578) | `project-scaffold.ts:377-404` `useSyncExternalStore` + test `project-scaffold.test.ts:315-332` |
-| D2 verifier-täckning för `string \| undefined` | **öppen** | inget reply-mönster i `openai-chat/instructions.md`, ingen TS2345-täckning i verify/autofix |
+| D2 verifier-täckning för `string \| undefined` | **klar** (#639) | `openai-chat/instructions.md` § Ownership and response contract förbjuder ett egenhändigt `{ reply }`-endpoint och kräver narrowing; TS2345 fångas redan av `warm-typecheck.ts` → RepairGate (LLM-lanen — v8 i incidenten fixade just det felet). Ingen deterministisk TS2345-fixer: `?? ""` ändrar semantik, se motiveringen i D2 nedan |
 
 ## A. DB-pool-500-storm (P1 — det som "sabbade" i UI:t)
 
@@ -152,13 +153,26 @@ av backoff i A2).
   `SCAFFOLD_FILES`). Den är omskriven till `useSyncExternalStore`
   (`project-scaffold.ts:377-404`) — lint-ren, SSR-säker och testlåst i
   `project-scaffold.test.ts:315-332`.
-- **D2 — `chatbot-widget.tsx`-felen** (TS2345 `data.reply: string | undefined`, plus
-  set-state-in-effect) är **own-engine-genererad** kod, inte en mall (bekräftat: finns inte
-  i dossiers/scaffolds). Rätt hävstång här är verifier/RepairGate + prompt-kvalitet, inte en
-  mallfix. *Åtgärd:* säkerställ att RenderGate/autofix fångar den vanliga
-  `string | undefined`-till-`string`-klassen och att `openai-chat`-dossierns
-  (capability `ai-chat` — incidentens dossier, jfr M#dchat1) instruktioner styr mot ett
-  typsäkert svarsmönster. Lägre prioritet / annan lever.
+- **D2 — ÅTGÄRDAD 2026-07-28 (#639).** `chatbot-widget.tsx`-felen (TS2345
+  `data.reply: string | undefined`, plus set-state-in-effect) är
+  **own-engine-genererad** kod, inte en mall (bekräftat: finns inte i
+  dossiers/scaffolds). Rätt hävstång var därför prompt-kvalitet plus
+  RepairGate-täckning, inte en mallfix.
+
+  *Levererat:* `openai-chat/instructions.md` har ett ownership-/svarskontrakt —
+  responsen är AI SDK:s UI-message-stream, ett egenhändigt
+  `{ reply: "..." }`-endpoint är förbjudet, och ett värde som typas
+  `string | undefined` ska narrowas innan det används. Samma runda gav
+  capability-ytans ownership-block i follow-up-prompten (jfr M#dchat1) som är
+  varför den konkurrerande widgeten uppstod alls.
+
+  *Ingen deterministisk TS2345-fixer, medvetet:* felklassen fångas redan —
+  `warm-typecheck.ts` parsar `TS2345` och skickar residualen till RepairGate,
+  och i incidenten var det precis den lanen som lagade felet i v8. En mekanisk
+  fixer skulle behöva gissa mellan `?? ""`, early-return och en riktig
+  narrowing; `?? ""` **ändrar semantik** (ett tomt svar blir en tom sträng i
+  st.f. ett fel), vilket är sämre än att låta LLM-lanen läsa koden. Jfr
+  `pipeline-rules.mdc`: färre fix-ingångar, inte fler.
 
 ## Föreslagen ordning (kvarvarande)
 
@@ -166,10 +180,10 @@ av backoff i A2).
 |---|---|---|---|
 | 1 | **A3 steg 2** — läs pool-siffrorna vid nästa pool-händelse i prod, vrid sedan `POSTGRES_POOL_MAX` | Låg (mätningen finns) | Medel |
 | 2 | **A4** redeploy-paus | Låg | Medel |
-| 3 | **D2** verifier-täckning | Låg | Låg-medel |
 
 Levererat och därmed ur kön: A1, A2 (2026-07-27), A3:s mätning + B (2026-07-28), D1 (#578),
-C1, C2 — se statustabellen överst.
+D2 (#639), C1, C2 — se statustabellen överst. När A4 landar är den här planen klar: A3 steg 2
+är en prod-observation, ingen kodrad, och hör då till restlistan.
 
 ## Explicit icke-mål
 
@@ -182,4 +196,5 @@ C1, C2 — se statustabellen överst.
 Bygget i sig gick bra (4/4 genereringar `success`, preview-VM frisk). Det du såg var
 **inte** en generationskrasch utan (i) 500-stormen ovan under redeploy + hård polling, och
 (ii) v4/v5:s äkta lint/typecheck-fel i `chatbot-widget.tsx`. D1 + A1/A2 adresserar det
-återkommande; D2 adresserar den enskilda widget-buggen.
+återkommande; D2 adresserar den enskilda widget-buggen — och ownership-kontraktet i #639
+adresserar varför widgeten fanns kvar bredvid dossierns chatt-yta alls.

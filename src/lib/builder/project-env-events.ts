@@ -59,6 +59,57 @@ export function requestF3Rebuild(versionId?: string | null): void {
   );
 }
 
+/**
+ * F3 outcome for the builder's discrete status row, dispatched from a lane that
+ * has no access to the builder's state. The preview-panel trigger calls
+ * `onStatus` directly; the chat-stream lane (`useSendMessage`, nested
+ * finalize on a 409) has to go through this event.
+ *
+ * Fields mirror `F3BuilderStatus`; `versionId` is the version the verdict
+ * judged, so the row's diagnostics link opens that version's log.
+ */
+export type F3StatusDetail = {
+  tone: "info" | "warning" | "error" | "success";
+  title: string;
+  description: string;
+  versionId?: string | null;
+  /** Chat the verdict belongs to — a late event from a previous chat is ignored. */
+  chatId?: string | null;
+};
+
+export const F3_STATUS_EVENT = "sajtmaskin:f3-status";
+
+export function dispatchF3Status(detail: F3StatusDetail): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<F3StatusDetail>(F3_STATUS_EVENT, { detail }));
+}
+
+export function readF3StatusDetail(event: Event): F3StatusDetail | null {
+  const detail = (event as CustomEvent<F3StatusDetail>).detail;
+  if (
+    !detail ||
+    typeof detail.title !== "string" ||
+    typeof detail.description !== "string" ||
+    (detail.tone !== "info" &&
+      detail.tone !== "warning" &&
+      detail.tone !== "error" &&
+      detail.tone !== "success")
+  ) {
+    return null;
+  }
+  return {
+    tone: detail.tone,
+    title: detail.title,
+    description: detail.description,
+    versionId:
+      typeof detail.versionId === "string" && detail.versionId.trim()
+        ? detail.versionId.trim()
+        : null,
+    chatId:
+      typeof detail.chatId === "string" && detail.chatId.trim() ? detail.chatId.trim() : null,
+  };
+}
+
 export type F3RequirementsDetail = {
   parentVersionId: string;
   projectId?: string | null;

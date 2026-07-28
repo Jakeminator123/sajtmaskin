@@ -307,4 +307,121 @@ import { Button } from "@/components/ui/button"
     expect(subjectOf(many)).toBe("missing-dependency:recharts");
     expect(subjectOf(one)).toBe("missing-dependency:recharts");
   });
+
+  describe("dangling internal API references", () => {
+    const pkg: CodeFile = {
+      path: "package.json",
+      language: "json",
+      content: JSON.stringify({ name: "site", dependencies: {} }),
+    };
+    const danglingIssues = (files: CodeFile[]) =>
+      runProjectSanityChecks(files).issues.filter((issue) =>
+        issue.subject?.startsWith("dangling-api-route:"),
+      );
+
+    // Incidenten (chat 747636c8, 2026-07-13): den LLM-byggda chattwidgeten
+    // fortsatte anropa sin egen `/api/ai-chat` efter att openai-chat-dossiern
+    // tagit över ytan med `/api/chat`. Panelen renderade fint och 404:ade på
+    // varje skickat meddelande — previewen kunde inte visa felet.
+    it("flags a component calling a route that no handler serves", () => {
+      const issues = danglingIssues([
+        pkg,
+        {
+          path: "components/chatbot-widget.tsx",
+          language: "tsx",
+          content: [
+            '"use client";',
+            "export function ChatbotWidget() {",
+            '  const send = () => fetch("/api/ai-chat", { method: "POST" });',
+            "  return <button onClick={send}>Skicka</button>;",
+            "}",
+          ].join("\n"),
+        },
+        {
+          path: "app/api/chat/route.ts",
+          language: "ts",
+          content: "export async function POST() {\n  return new Response('ok');\n}",
+        },
+      ]);
+
+      expect(issues).toHaveLength(1);
+      expect(issues[0].file).toBe("components/chatbot-widget.tsx");
+      expect(issues[0].severity).toBe("warning");
+      expect(issues[0].subject).toBe("dangling-api-route:/api/ai-chat");
+    });
+
+    it("accepts literal, dynamic, catch-all and route-group handlers", () => {
+      const issues = danglingIssues([
+        pkg,
+        {
+          path: "components/data-panel.tsx",
+          language: "tsx",
+          content: [
+            'const a = fetch("/api/chat");',
+            'const b = fetch("/api/posts/42");',
+            'const c = fetch("/api/files/a/b/c");',
+            'const d = fetch("/api/newsletter/");',
+            'const e = fetch("/api/placeholder");',
+            'const f = fetch("/api/chat?stream=1");',
+            "export const Panel = () => null;",
+          ].join("\n"),
+        },
+        { path: "app/api/chat/route.ts", language: "ts", content: "export const POST = () => null;" },
+        {
+          path: "app/api/posts/[id]/route.ts",
+          language: "ts",
+          content: "export const GET = () => null;",
+        },
+        {
+          path: "app/api/files/[...path]/route.ts",
+          language: "ts",
+          content: "export const GET = () => null;",
+        },
+        {
+          path: "app/(marketing)/api/newsletter/route.ts",
+          language: "ts",
+          content: "export const POST = () => null;",
+        },
+      ]);
+
+      expect(issues).toEqual([]);
+    });
+
+    it("skips interpolated paths and commented-out calls", () => {
+      const issues = danglingIssues([
+        pkg,
+        {
+          path: "components/loader.tsx",
+          language: "tsx",
+          content: [
+            "const base = (id: string) => fetch(`/api/${id}/detail`);",
+            '// fetch("/api/legacy-endpoint")',
+            "export const Loader = () => null;",
+          ].join("\n"),
+        },
+      ]);
+
+      expect(issues).toEqual([]);
+    });
+
+    it("never blocks the build on its own", () => {
+      const result = runProjectSanityChecks([
+        pkg,
+        {
+          path: "components/widget.tsx",
+          language: "tsx",
+          content: 'export const Widget = () => fetch("/api/nowhere");',
+        },
+      ]);
+
+      expect(
+        result.issues.some((issue) => issue.subject === "dangling-api-route:/api/nowhere"),
+      ).toBe(true);
+      expect(
+        result.issues.filter((issue) => issue.severity === "error").every(
+          (issue) => !issue.subject?.startsWith("dangling-api-route:"),
+        ),
+      ).toBe(true);
+    });
+  });
 });

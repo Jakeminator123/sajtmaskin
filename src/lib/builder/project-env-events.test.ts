@@ -4,6 +4,7 @@ import {
   F3_REBUILD_REQUEST_EVENT,
   openDossiersPanel,
   readDossiersPanelOpenDetail,
+  readF3StatusDetail,
   readProjectEnvVarsUpdatedDetail,
   requestF3Rebuild,
   subtractSavedKeysFromF3Requirements,
@@ -124,5 +125,46 @@ describe("readProjectEnvVarsUpdatedDetail action", () => {
       eventWith({ projectId: "proj_1", envKeys: ["K"], action: "deleted" }),
     );
     expect(parsed?.action).toBe("deleted");
+  });
+});
+
+// The chat-stream lane has no `onStatus` callback, so the F3 verdict reaches
+// the builder's discrete status row through this event (bugbot on #639).
+describe("readF3StatusDetail", () => {
+  function eventWith(detail: unknown): Event {
+    return new CustomEvent("sajtmaskin:f3-status", { detail });
+  }
+
+  it("reads a full verdict including the judged version", () => {
+    const parsed = readF3StatusDetail(
+      eventWith({
+        tone: "error",
+        title: "ReleaseGate behöver åtgärdas",
+        description: "Underkända kontroller: typecheck.",
+        versionId: " ver_f3 ",
+        chatId: "chat_1",
+      }),
+    );
+    expect(parsed).toEqual({
+      tone: "error",
+      title: "ReleaseGate behöver åtgärdas",
+      description: "Underkända kontroller: typecheck.",
+      versionId: "ver_f3",
+      chatId: "chat_1",
+    });
+  });
+
+  it("normalizes a missing version and chat to null rather than dropping the verdict", () => {
+    const parsed = readF3StatusDetail(
+      eventWith({ tone: "warning", title: "T", description: "D" }),
+    );
+    expect(parsed?.versionId).toBeNull();
+    expect(parsed?.chatId).toBeNull();
+  });
+
+  it("rejects malformed payloads", () => {
+    expect(readF3StatusDetail(eventWith(null))).toBeNull();
+    expect(readF3StatusDetail(eventWith({ tone: "nope", title: "T", description: "D" }))).toBeNull();
+    expect(readF3StatusDetail(eventWith({ tone: "error", description: "D" }))).toBeNull();
   });
 });

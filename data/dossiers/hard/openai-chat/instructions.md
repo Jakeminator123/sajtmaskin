@@ -21,6 +21,26 @@ Do not use it for:
 3. **Re-style the panel freely.** Avatars, layout, colors, message rendering, autoscroll behavior — all rewritable. Only the `route.ts` file must stay verbatim (the streaming protocol depends on the exact response format).
 4. Configure the **system prompt** in `route.ts` to match the site's persona — this is the single most important integration step. Generic `You are a helpful assistant` is a sign of incomplete adaptation.
 
+# Ownership and response contract
+
+This dossier owns the chat surface for the `ai-chat` capability. When it is
+added to a project that already has a chat widget you built yourself in an
+earlier round, exactly one implementation may be live afterwards: either point
+your existing UI at `/api/chat` (the dossier's route) or replace it with
+`<ChatPanel />`. Never keep both, and never add a second chat endpoint next to
+`app/api/chat/route.ts`.
+
+The response contract is the AI SDK **UI-message stream**, consumed by `useChat`
+— not a JSON envelope. Do not hand-roll an endpoint that answers
+`{ reply: "..." }` and do not read `data.reply` on the client: `useChat` gives
+you `messages` with typed parts, so there is no optional string to unwrap.
+
+If your own code does read a value that TypeScript types as
+`string | undefined`, narrow it before use (`if (!value) return;` or
+`value ?? ""`). Passing it straight into a `string` parameter is the exact
+`TS2345` that fails the F3 build — a hand-rolled `data.reply` was how it
+happened in production (chat `747636c8`, 2026-07-13).
+
 # Mock/demo mode
 
 `mock: canned`. The `route.ts` handler detects when there is no real

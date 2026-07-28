@@ -227,6 +227,134 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
     expect(text).not.toContain("## Dossier Files To Emit Verbatim");
   });
 
+  // Incidenten (chat 747636c8, 2026-07-13): F2 byggde en egen
+  // `components/chatbot-widget.tsx` + `app/api/ai-chat/route.ts`. En follow-up
+  // valde openai-chat för samma `ai-chat`-capability, och inget sa åt modellen
+  // att dossiern nu äger ytan — sidan fick två chattimplementationer och den
+  // egna bar typfelet som fällde F3.
+  describe("capability surface ownership (M#dchat1)", () => {
+    const openaiChatSelection: DossierSelectionResult = {
+      poolSize: 1,
+      byCapability: { "ai-chat": ["openai-chat"] },
+      selected: [
+        {
+          reason: "capability-match",
+          configured: true,
+          entry: {
+            class: "hard",
+            id: "openai-chat",
+            label: "AI-chatt — OpenAI",
+            capability: "ai-chat",
+            codeFidelity: "rewritable",
+            complexity: "medium",
+            defaultForCapability: true,
+            summary: "Streaming chat assistant powered by OpenAI.",
+            envVars: [],
+            dependencies: [],
+            files: [
+              { path: "components/chat-panel.tsx", role: "client", injectionMode: "rewritable" },
+              {
+                path: "components/api/chat/route.ts",
+                role: "server",
+                injectionMode: "verbatim",
+              },
+            ],
+            exposes: [
+              { name: "ChatPanel", type: "component", import: "@/components/chat-panel" },
+            ],
+            lastVerified: "2026-04-20",
+          },
+        },
+      ],
+    };
+
+    it("claims the surface when the dossier UI is new to an existing project", () => {
+      const text = renderDossierBlocks(openaiChatSelection, {
+        generationMode: "followUp",
+        previousFilePaths: [
+          "app/page.tsx",
+          "components/chatbot-widget.tsx",
+          "app/api/ai-chat/route.ts",
+        ],
+      }).join("\n");
+
+      expect(text).toContain("## Capability Surface Ownership — one owner per capability");
+      expect(text).toContain("`openai-chat`");
+      expect(text).toContain("capability: ai-chat");
+      expect(text).toContain("`ChatPanel`");
+      expect(text).toContain("`@/components/chat-panel`");
+      // The dossier's server contract must be named — "adapt" means pointing
+      // the existing widget at THIS route, not at its own endpoint.
+      expect(text).toContain("`app/api/chat/route.ts`");
+      expect(text).toContain("Never leave both live.");
+      expect(text).toContain("must call a route that EXISTS in your output");
+    });
+
+    it("stays silent once the dossier UI is already in the project", () => {
+      const text = renderDossierBlocks(openaiChatSelection, {
+        generationMode: "followUp",
+        previousFilePaths: ["app/page.tsx", "components/chat-panel.tsx", "app/api/chat/route.ts"],
+      }).join("\n");
+
+      expect(text).not.toContain("## Capability Surface Ownership");
+    });
+
+    it("stays silent on init — there is no earlier surface to own", () => {
+      const text = renderDossierBlocks(openaiChatSelection, {
+        generationMode: "init",
+        previousFilePaths: ["app/page.tsx"],
+      }).join("\n");
+
+      expect(text).not.toContain("## Capability Surface Ownership");
+    });
+
+    it("stays silent for a follow-up with no previous files threaded", () => {
+      const text = renderDossierBlocks(openaiChatSelection, {
+        generationMode: "followUp",
+        previousFilePaths: null,
+      }).join("\n");
+
+      expect(text).not.toContain("## Capability Surface Ownership");
+    });
+
+    it("ignores dossiers that expose no UI component", () => {
+      const serverOnly: DossierSelectionResult = {
+        poolSize: 1,
+        byCapability: { analytics: ["plausible-analytics"] },
+        selected: [
+          {
+            reason: "capability-match",
+            configured: true,
+            entry: {
+              class: "hard",
+              id: "plausible-analytics",
+              label: "Plausible Analytics",
+              capability: "analytics",
+              codeFidelity: "verbatim",
+              complexity: "simple",
+              defaultForCapability: true,
+              summary: "Privacy-friendly analytics script.",
+              envVars: [],
+              dependencies: [],
+              files: [],
+              exposes: [
+                { name: "trackEvent", type: "function", import: "@/lib/analytics" },
+              ],
+              lastVerified: "2026-04-30",
+            },
+          },
+        ],
+      };
+
+      const text = renderDossierBlocks(serverOnly, {
+        generationMode: "followUp",
+        previousFilePaths: ["app/page.tsx"],
+      }).join("\n");
+
+      expect(text).not.toContain("## Capability Surface Ownership");
+    });
+  });
+
   it("still emits full verbatim blocks on init even with previousFilePaths set", () => {
     const realSelection: DossierSelectionResult = {
       poolSize: 1,
