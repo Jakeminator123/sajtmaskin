@@ -1,4 +1,5 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
+import { parseRetryAfterMs } from "@/lib/builder/preview-bootstrap-retry";
 import type { UiMessagePart } from "@/lib/builder/types";
 import { DESIGN_PREVIEW_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
@@ -30,6 +31,16 @@ import type {
 } from "./types";
 import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck";
 
+/** Extra försök efter det första, bara vid en retryable 503. */
+const ERROR_LOG_RETRY_ATTEMPTS = 2;
+/** Väntetid när 503:an kommer utan `Retry-After`. */
+const ERROR_LOG_RETRY_FALLBACK_MS = 1_000;
+/**
+ * Tak för hur länge vi lyder ett `Retry-After`. Resume-lanen **väntar** på det
+ * här anropet, så en orimlig header får inte hålla F3-lyftet i minuter.
+ */
+const ERROR_LOG_RETRY_MAX_MS = 5_000;
+
 /**
  * Exported for the resume-verify lane (`useResumePendingVerification`), which
  * mirrors this lane's tail and must persist the SAME log rows — notably the
@@ -39,6 +50,14 @@ import type { ProductPostcheckResult } from "@/lib/gen/verify/product-postcheck"
  * Returns whether the write verifiably succeeded (2xx). The normal lane
  * stays fire-and-forget, but the resume lane must fail closed when a
  * product-BLOCKER row could not be persisted (Codex P1 round 4).
+ *
+ * **Retryar på 503 (spår B).** Routen degraderar medvetet till
+ * `503 row_contention` + `Retry-After` när verify/lease håller `FOR UPDATE` på
+ * raden (`error-log/route.ts`). Utan retry blev degraderingen ett tyst
+ * fel med dubbel ironi: loggen *om* ett fel försvann. Värre för resume-lanen,
+ * som tolkar `false` som "kunde inte spara blockeraren" och då failar closed på
+ * en övergående låskonflikt. Bara 503 retryas — 4xx ändrar sig inte av att
+ * frågas igen, och ett nätverksfel är best-effort.
  */
 export async function persistVersionErrorLogs(params: {
   chatId: string;
@@ -47,20 +66,29 @@ export async function persistVersionErrorLogs(params: {
 }): Promise<boolean> {
   const { chatId, versionId, logs } = params;
   if (!logs.length) return true;
-  try {
-    const res = await fetch(
-      `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
-      {
+  const url = `${engineChatBaseUrl(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`;
+
+  for (let attempt = 0; attempt <= ERROR_LOG_RETRY_ATTEMPTS; attempt += 1) {
+    let res: Response;
+    try {
+      res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ logs }),
-      },
+      });
+    } catch {
+      // Best-effort only
+      return false;
+    }
+    if (res.ok) return true;
+    if (res.status !== 503 || attempt === ERROR_LOG_RETRY_ATTEMPTS) return false;
+    const waitMs = Math.min(
+      parseRetryAfterMs(res.headers, ERROR_LOG_RETRY_FALLBACK_MS),
+      ERROR_LOG_RETRY_MAX_MS,
     );
-    return res.ok;
-  } catch {
-    // Best-effort only
-    return false;
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
+  return false;
 }
 
 async function validateImages(params: {
