@@ -69,9 +69,8 @@ sparas — default **10**, `--max-logs` överstyr.
   (#613) täcks Deep Brief, verifier, RepairGate, embeddings, intent-klassificerare
   och prompt assist. Kvar omätt: de sekundära ytorna (wizard, audit, analyze,
   transcribe, inspector), Sajtagenten (OpenClaw-gatewayen kör utanför appen) och
-  D-ID (credits, inte tokens). Om de ska mätas är ett öppet produktbeslut — se
-  [`docs/plans/active/README.md`](../../docs/plans/active/README.md)
-  § Väntar på ägarbeslut.
+  D-ID (credits, inte tokens). **Beslutat 2026-07-28:** det är avsiktligt — se
+  "Vad mätningen är till för" nedan.
 - **OpenAI:s org-siffra kan inte attribueras per körning eller slutanvändare.**
   Minsta bucket är en minut, och `group_by=user_id` betyder organisationens
   medlem — inte Sajtmaskins `users.id`.
@@ -83,6 +82,21 @@ sparas — default **10**, `--max-logs` överstyr.
   `estimated`, och varken kontext-upliften (>272K tokens) eller det regionala
   10 %-påslaget modelleras. Rader utan `cached_input_tokens` prissätts som helt
   ocachade och är därför en **övre** gräns.
+
+### Vad mätningen är till för (beslut 2026-07-28)
+
+Tokenmätningens steg 1–2 är levererade (#609/#613). Steg 3 var frågan "vad ska
+mätningen användas till?". Beslut av agent på ägarens delegation; vänd det fritt,
+men skriv om detta stycke då.
+
+| Fråga | Beslut | Varför |
+|---|---|---|
+| Ska diamonds bli per-token i stället för fast pris per åtgärd? | **Nej.** Fast pris per åtgärd står kvar. Mätningen är ett **internt kostnads- och modellvalsunderlag**, inte en debiteringsgrund. | Siffran är enligt gränserna ovan en undre gräns med `estimated`-taxor — man kan inte fakturera på ett tal vars egen dokumentation säger att det är ofullständigt. Dessutom kan användaren inte förutse tokenkostnaden innan hon skickar, och priset skulle bli en funktion av ett modellval vi byter ofta. |
+| Ska sekundära ytor (wizard, audit, analyze, transcribe, inspector) instrumenteras? | **Inte som eget projekt.** I stället en stående regel: **en yta som drar diamonds ska logga `llm_usage` i samma PR som den börjar dra dem.** | De omätta ytorna är operatörs-/backofficeverktyg. Att mäta dem nu ökar täckningsprocenten men ändrar inget beslut. Regeln fångar dem automatiskt den dag de blir användarbetalda — utan att någon behöver komma ihåg en backlog-rad. |
+| Ska OpenClaw-förbrukning rapporteras tillbaka, och D-ID:s credits läsas före/efter i appen? | **Skjuts upp.** Båda fortsätter redovisas **separat** (de finns redan i `/logg`), aldrig invävda i körningens tokensumma. | OpenClaw kör utanför appen och D-ID mäter credits, inte tokens. Att slå ihop dem till ett tal blandar två enheter och gör summan mindre sann, inte mer komplett. Vill man ha en gemensam kostnadsbild ska den byggas som en kostnadsvy i valuta — inte genom att tokenfältet får betyda flera saker. |
+
+Konsekvens för `coverage.unmeasuredPhases`: den är en **avsiktlig** lista, inte en
+restlista. Låt den vara olistad täckning tills en yta börjar debitera.
 
 ### Säkerhet
 

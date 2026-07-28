@@ -6,12 +6,29 @@ topic: Backoffice Fas D — AI-modellval för wizard-persona och byggblocks-kura
 source: config/ai_models/manifest.json + backoffice/wizard_support.py + scripts/dossiers/curate-from-reference.ts + ägar-/coachbeslut 2026-07-24
 ---
 
-# Etapp 5–6 — Fas D: AI-modellval (kräver ägarens OK på förslaget innan kod)
+# Etapp 5–6 — Fas D: AI-modellval (förslaget GODKÄNT 2026-07-28)
 
 Master-plan: [`../00-master-plan.md`](../00-master-plan.md).
 **Körs sist**, efter Fas B och C. Detta är den enda etappen som ändrar faktiskt
-beteende (vilken modell som anropas), inte bara yta — därför ska förslaget nedan
-godkännas **innan** en rad kod skrivs.
+beteende (vilken modell som anropas), inte bara yta — därför krävde förslaget
+nedan ett godkännande innan kod.
+
+**Beslut 2026-07-28: förslaget godkänns som det står — tre separata
+workload-poster, inga sammanslagningar.** (Beslut av agent på ägarens
+delegation; vänd det fritt, men skriv om detta stycke då.)
+
+Två saker beslutet uttryckligen säger nej till:
+
+- **Slå inte ihop `..._persona` och `..._guide`.** De har olika krav: personan
+  behöver vision (stillbild + kodutdrag), guiden är ren text. En gemensam post
+  tvingar en billig Q&A att köras på en vision-modell och gör vision-gatingen
+  meningslös — olika modellbehov är själva skälet att ha två workloads.
+- **Låt inte wizarden läsa `analyze_presentation_vision`.** Fällan som beskrivs
+  nedan är hela poängen med att registrera egna poster; genvägen skulle koppla
+  två orelaterade features till samma modellbeslut.
+
+Fallback-stycket längst ned gäller därmed inte längre som väg framåt — det står
+kvar bara som förklaring till varför en dokumenterad hårdkodning vore sämre.
 
 ## Problem
 
@@ -30,7 +47,7 @@ men ingen av dessa ytor läser det.
 läsa den; då ärver wizarden en annan funktions modellbeslut och båda ändras av
 misstag när någon rör den ena.
 
-## Förslag som ska godkännas (steg 5)
+## Förslaget (godkänt 2026-07-28, steg 5)
 
 Registrera **egna** workload-poster i `config/ai_models/manifest.json` så manifestet
 förblir ägare:
@@ -38,7 +55,7 @@ förblir ägare:
 | Föreslaget `id` | Roll | `codeEntry` | Föreslagen `defaultModel` |
 |---|---|---|---|
 | `backoffice_scaffold_wizard_persona` | Persona som läser mall (stillbild + kodutdrag) och skriver variant-/scaffold-utkast | `backoffice/wizard_support.py`, `backoffice/pages/scaffold_wizard.py` | **`gpt-4o`** (vision-kapabel, repo-beprövad) — med `gpt-5.5` som operatörsval i UI:t |
-| `backoffice_scaffold_wizard_guide` *(kan slås ihop med ovan om ägaren föredrar en post)* | Kort Q&A-guide i wizard-stegen (ren text) | `backoffice/pages/scaffold_wizard.py` | **`gpt-5.4-mini`** (billig, ingen vision behövs) |
+| `backoffice_scaffold_wizard_guide` | Kort Q&A-guide i wizard-stegen (ren text) | `backoffice/pages/scaffold_wizard.py` | **`gpt-5.4-mini`** (billig, ingen vision behövs) |
 | `backoffice_dossier_curation` | AI-utkast till byggblocks-manifest ur ett template-reference-repo | `scripts/dossiers/curate-from-reference.ts` | **`gpt-5.5`** (uppgradering från `gpt-4o-mini`, som är legacy) |
 
 Fält som ska sättas per post (mönster från befintliga poster):
@@ -55,9 +72,11 @@ Fält som ska sättas per post (mönster från befintliga poster):
    `docs/generated/models.generated.md`)? Uppdatera projektionen i samma PR.
 3. `npm run docs:check` måste vara grön efteråt.
 
-**Fallback om ägaren säger nej till nya poster:** behåll dagens tuple i
-`wizard_support.py`, men dokumentera i en kommentar *varför* den inte läser
-manifestet — så nästa agent inte "fixar" det till att ärva fel workload.
+**Förkastat alternativ (behållet som varning):** att låta dagens tuple i
+`wizard_support.py` stå kvar med en kommentar om varför den inte läser
+manifestet. Det bevarar två sanningar om modellval och lämnar nästa agent med en
+kommentar i stället för ett kontrakt — vilket är just hur `analyze_presentation_vision`-
+fällan uppstår. Egna poster valdes i stället.
 
 ## Genomförande (steg 6, efter godkännande)
 

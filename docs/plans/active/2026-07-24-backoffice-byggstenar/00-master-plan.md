@@ -50,7 +50,7 @@ faktiskt påverkar**, så ägaren vågar inte ändra något.
 | 2 | **Baseline-backup** — dataförlust, egen liten PR | [`aktiviteter/01-baseline-backup.md`](aktiviteter/01-baseline-backup.md) | Ej påbörjad — **ta denna först** |
 | 3 | **Fas B** — trygg create/edit för scaffold + variant | [`aktiviteter/02-fas-b-scaffold-variant.md`](aktiviteter/02-fas-b-scaffold-variant.md) | Ej påbörjad |
 | 4 | **Fas C** — Byggblock i samma språk + skapa från grunden | [`aktiviteter/03-fas-c-byggblock.md`](aktiviteter/03-fas-c-byggblock.md) | Ej påbörjad |
-| 5–6 | **Fas D** — AI-modellval via manifestet | [`aktiviteter/04-fas-d-ai-modellval.md`](aktiviteter/04-fas-d-ai-modellval.md) | Kräver ägarens OK på förslaget först |
+| 5–6 | **Fas D** — AI-modellval via manifestet | [`aktiviteter/04-fas-d-ai-modellval.md`](aktiviteter/04-fas-d-ai-modellval.md) | Förslaget **godkänt 2026-07-28** (tre separata workload-poster) — kör efter Fas C |
 | 7 | **P2-städ** — resterna från stringensplanen | [`aktiviteter/05-p2-stringens-stad.md`](aktiviteter/05-p2-stringens-stad.md) | Ej påbörjad — sist, eller plocka rader när en sida ändå rörs |
 
 ### Så tar en ny agent över
@@ -59,7 +59,8 @@ faktiskt påverkar**, så ägaren vågar inte ändra något.
 2. Kör bara den etappen, i **en egen PR** mot `master`, och stanna för ägarens granskning.
 3. Uppdatera statuskolumnen ovan i samma PR som etappen levereras.
 4. Rör inte senare etapper i förbigående — särskilt inte Fas D, som ändrar
-   modellval och kräver ägarens godkännande av förslaget innan kod.
+   modellval. Förslaget är godkänt (2026-07-28), men Fas D körs ändå **sist**,
+   efter Fas B och C.
 
 ## Fas A — vad som landade (klar)
 
@@ -133,14 +134,16 @@ Design (korrigerad efter granskning):
 * **Sist:** "Skapa byggblock från grunden" — strict-schema grönt före skrivning,
   aldrig överskrivning av befintlig katalog, följt av `npm run dossiers:validate-all`.
 
-## Etapp 5–6 — Fas D (kräver ägarens OK på förslaget)
+## Etapp 5–6 — Fas D (förslaget godkänt 2026-07-28)
 
-Förslag som ska godkännas innan kod: egna workload-poster i
-`config/ai_models/manifest.json` (`backoffice_scaffold_wizard_persona`,
-`backoffice_dossier_curation`) med id, placering, `defaultModel` och ev.
-schema-/validatorändring redovisat. Fallback: behåll dagens tuple i
-`wizard_support.py` och dokumentera varför. Vision-gating behålls oavsett:
-bilder skickas bara till modeller som posten pekar ut som vision-kapabla.
+Godkänt: **tre** egna workload-poster i `config/ai_models/manifest.json` —
+`backoffice_scaffold_wizard_persona` (vision, `gpt-4o`),
+`backoffice_scaffold_wizard_guide` (text, `gpt-5.4-mini`) och
+`backoffice_dossier_curation` (`gpt-5.5`). Persona och guide ska **inte** slås
+ihop: olika modellbehov är själva skälet till två poster. Fallbacken (behåll
+tupeln i `wizard_support.py` och dokumentera varför) är därmed förkastad.
+Vision-gating behålls oavsett: bilder skickas bara till modeller som posten pekar
+ut som vision-kapabla.
 Övrigt i D: guidens hårdkodade `gpt-4o` ersätts av manifest-värdet, skärpt
 persona-kontrakt (utan att röra schema/validering), och `--model=<id>` med
 manifest-default i `scripts/dossiers/curate-from-reference.ts` i stället för

@@ -21,8 +21,9 @@ server-repair (`targetVersionId`-rewrite) och av autofix. Det gör att en
 verdikt-läsare kan få ett svar som beskriver ett *tidigare* innehåll utan att
 kunna upptäcka det.
 
-Detta är **plan, ingen implementation.** Kräver ägarbeslut: additiv migration +
-ändrat statuskontrakt.
+Detta är **plan, ingen implementation** — men de tre beslutspunkterna längst ned
+är avgjorda 2026-07-28, så steg 1–2 är arbetsbara: innehållshash + additiv
+migration, inget ändrat läsarbeteende förrän mismatch-frekvensen är mätt.
 
 ## Vilka bugg-typer primitiven förklarar
 
@@ -140,12 +141,47 @@ render-first-fönstret.
 inte längre besvarar en fråga om revision N+1 · docs-sync mot
 `docs/schemas/orchestration-signal-contract.md`.
 
-## Beslutspunkter (ägaren)
+## Beslutspunkter — BESLUTADE 2026-07-28
 
-1. Ska steg 3 ändra fail-open till fail-closed vid **mismatch**, eller bara vid
-   mismatch *plus* ett explicit blockerande verdikt? (Avgör om detta kan ge nya
-   false-red.)
-2. Ska `files_revision` vara en hash av innehållet eller en monoton räknare?
-   (Hash upptäcker även "ändrad och återställd"; räknare är billigare.)
-3. Levereras steg 1–2 separat från steg 3? (Rekommendation: ja — steg 1–2 är
-   rent additiva och kan mätas i prod innan något beteende ändras.)
+Besluten togs av agent på ägarens uttryckliga delegation ("kör på med ditt
+omdöme som beslutstagare", 2026-07-28). De är därmed arbetsbara, inte
+ratificerade av ägaren i detalj — vänd dem fritt, men skriv om detta stycke då.
+
+### 1. Mismatch alene gör inte gaten fail-closed
+
+**Beslut: mismatch *plus* ett explicit blockerande verdikt.** En mismatch utan
+blockerande verdikt behandlas som "ingen gate körd för detta innehåll", vilket
+är dagens fail-open.
+
+*Varför:* en mismatch-only-spärr byter en false-green mot en false-red, och
+false-red är dyrare i det här skedet — den stoppar legitima publiceringar för en
+användare som inte gjort något fel, och vi har ingen mätning på hur ofta
+mismatch faktiskt inträffar. `project-phase-priorities.mdc` säger uttryckligen
+att fungerande end-to-end går före nya spärrar. Steg 3 ska därför göra
+mismatchen **synlig** (telemetri) innan den görs blockerande; visar mätningen
+att mismatch är sällsynt och alltid korrelerar med verklig skada kan beslutet
+skärpas då — det är en envägsdörr bara om vi bygger fel först.
+
+### 2. `files_revision` är en innehållshash
+
+**Beslut: hash av normaliserad `files_json`.**
+
+*Varför:* en monoton räknare kräver att varje skrivare koordinerar inkrementet,
+och vi har tre oberoende skrivvägar (`updateVersionFiles`, `saveRepairedFiles`,
+finalize-runnern) plus en rewrite-väg via `targetVersionId`. En räknare som
+missas av en väg blir tyst fel — exakt den klass vi försöker stänga. En hash
+härleds ur innehållet självt och kan inte hamna ur fas. Den upptäcker dessutom
+"ändrad och återställd", vilket en räknare felaktigt rapporterar som ny
+revision. Kostnaden (~120 KB SHA-256) är försumbar mot skrivningen den ändå gör.
+
+Hasha **normaliserad** form (sorterade nycklar), inte rå sträng, och testlås
+determinismen — annars blir hashen instabil av JSON-nyckelordning.
+
+### 3. Steg 1–2 levereras separat från steg 3
+
+**Beslut: ja.** Steg 1–2 är rent additiva: kolumner sätts och verdikt stämplas,
+men ingen läsare ändrar beteende. Det ger en period där mismatch-frekvensen kan
+mätas i prod utan risk, vilket är precis den mätning beslut 1 väntar på.
+
+*Konsekvens:* steg 3 ska inte påbörjas förrän steg 1–2 legat i prod tillräckligt
+länge för att svara på "hur ofta är revisionen mismatchad vid ett verdiktläsning?"
