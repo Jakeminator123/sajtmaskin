@@ -164,6 +164,40 @@ pgbouncer). Pool-storleken anpassas efter typ av connection:
 
 Override via `POSTGRES_POOL_MAX` om du vet vad du gör.
 
+#### Mät innan du vrider `POSTGRES_POOL_MAX`
+
+Poolstorlek är **samtidighet, inte hastighet**, och de två felen som drabbar
+oss kräver **motsatta** fixar. Att gissa gör alltså aktivt skada. Mät båda
+sidorna först:
+
+| Sida | Fel det ger | Var siffran finns | Vad den säger |
+|---|---|---|---|
+| **Appens egen pool** (per serverless-instans) | `timeout exceeded when trying to connect` | appens loggar: 503-raden från [`transient-db-response.ts`](../../src/lib/api/transient-db-response.ts) bär `[pool=3/3 idle=0 waiting=7 at-ceiling]` | `at-ceiling` ⇒ instansen kunde inte lämna ut en klient ur sitt eget `max` ⇒ riktningen är att **höja** |
+| **Server/pooler** | `EMAXCONNSESSION: max clients reached` | `npm run db:health` → `connections` (`total`, `usable_connections`, `headroom`, `used_pct`) | lite `headroom` ⇒ fler instanser × högre max slår i taket i stället ⇒ **höj inte**, gå på `POSTGRES_URL_NON_POOLING` för långlivade vägar eller höj poolerns tak |
+
+Två fällor i läsningen av dessa siffror, båda funna av bugbot-passet på diffen:
+
+- **`waiting` under-rapporterar.** `pg` plockar bort den timeoutade requesten ur
+  kön innan felet når loggen, så ködjupet kan vara `0` exakt när vi skriver
+  raden. Läs därför `at-ceiling` som signalen och `waiting` som bekräftande
+  bevis (andra väntade också) — en tom kö motbevisar ingenting.
+- **`headroom` räknas mot hela instansen.** `max_connections` är ett servertak,
+  så andra databaser och bakgrundsprocesser äter av samma budget;
+  `usable_connections` drar dessutom av `superuser_reserved_connections`.
+  `this_database` visas separat. Räknade man bara vår databas blev utrymmet för
+  generöst (mätt på dev: 7 mot 13 faktiska sessioner, `headroom` 53 i stället
+  för 44) — och för generöst är den riktning som gör skada här.
+
+Den vanliga felslutsatsen: `pg_stat_activity` kan se **helt frisk** ut samtidigt
+som appen kastar connect-timeouts. Felet uppstår i `pg.Pool` på klientsidan,
+innan Postgres ens tillfrågas — serversidan har inget att visa. Mät därför
+aldrig bara serversidan. (Bakgrund: prod-incidenten 2026-07-13 hade **0×**
+`EMAXCONNSESSION`, vilket är just det som pekar på den lokala poolen.)
+
+Siffrorna i appens pool existerar bara medan requesten lever, så de kan inte
+hämtas i efterhand — de måste ha loggats när det hände. Det är hela skälet att
+503-raden bär dem.
+
 ### Transienta DB-fel på pollade läs-routes
 
 Blir poolen tom (t.ex. under en redeploy när instanser byts ut) kastar

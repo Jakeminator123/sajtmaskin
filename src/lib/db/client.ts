@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
 import { resolveConfiguredDbEnv } from "./env";
+import { registerDbPool } from "./pool-stats";
 
 const MISSING_DB_MESSAGE =
   "Missing database connection string. Set POSTGRES_URL, POSTGRES_URL_NON_POOLING, STORAGE_POSTGRES_URL, or STORAGE_POSTGRES_URL_NON_POOLING.";
@@ -190,14 +191,28 @@ export function resolveConnectTimeoutMs(): number {
  */
 type GlobalWithPool = typeof globalThis & {
   __sajtmaskinPgPool__?: Pool | null;
+  __sajtmaskinPgPoolMax__?: number;
 };
 const globalForPool = globalThis as GlobalWithPool;
+
+// Hoisted out of the Pool literal so the ceiling can be reported alongside the
+// live counts (A3): "waiting=7" only means saturation if you know the max.
+//
+// Cached on `globalThis` next to the pool itself, and deliberately so: the
+// cached pool keeps the `max` it was constructed with. Re-resolving from env on
+// a re-evaluation (dev Fast Refresh after editing POSTGRES_POOL_MAX) would
+// report a ceiling the live pool does not have — and a too-high ceiling makes
+// `saturated` read false at the real limit, i.e. the measurement would lie
+// exactly when it matters.
+const poolMax = (globalForPool.__sajtmaskinPgPoolMax__ ??= connectionString
+  ? resolvePoolMax(connectionString)
+  : 0);
 
 const pool = (globalForPool.__sajtmaskinPgPool__ ??= connectionString
   ? new Pool({
       connectionString: cleanConnectionString(connectionString),
       ssl: resolvePoolSslConfig(connectionString),
-      max: resolvePoolMax(connectionString),
+      max: poolMax,
       idleTimeoutMillis: resolveIdleTimeoutMs(connectionString),
       connectionTimeoutMillis: resolveConnectTimeoutMs(),
       // TCP keep-alive: utan den kan en anslutning som poolern tyst släppt
@@ -206,6 +221,10 @@ const pool = (globalForPool.__sajtmaskinPgPool__ ??= connectionString
       keepAlive: true,
     })
   : null);
+
+// A3: make saturation of THIS instance's pool observable. The counts are only
+// meaningful next to the ceiling, so both travel together.
+registerDbPool(pool, poolMax);
 
 // Log pool errors for debugging (they don't throw by default).
 // Tag EMAXCONNSESSION specifically so a regression of SAJ-7 (B1) is easy

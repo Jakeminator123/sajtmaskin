@@ -4,7 +4,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: docs/schemas/strict/control-plane-registry.schema.json sha256:987fbb1e44c71f91 -->
-<!-- source-fingerprint: docs/schemas/strict/db-health-check-report.schema.json sha256:43533b32f161fd82 -->
+<!-- source-fingerprint: docs/schemas/strict/db-health-check-report.schema.json sha256:cf2768d09f0d3090 -->
 <!-- source-fingerprint: docs/schemas/strict/db-perf-indexes-audit-line.schema.json sha256:19bda2322c4e4ede -->
 <!-- source-fingerprint: docs/schemas/strict/domain-rules.schema.json sha256:fade2032ef57bc1c -->
 <!-- source-fingerprint: docs/schemas/strict/dossier-stub-created.schema.json sha256:8ac54956f4a9a386 -->

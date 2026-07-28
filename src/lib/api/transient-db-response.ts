@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { formatDbPoolStats } from "@/lib/db/pool-stats";
 import {
   isTransientDbError,
   TRANSIENT_DB_RETRY_AFTER_SECONDS,
@@ -31,8 +32,16 @@ export function transientDbResponseIfRetryable(
 
   // Warn, not error: this is an expected degradation (redeploy, pool pressure),
   // and logging it as an error is exactly the Sentry noise the 503 removes.
+  //
+  // The pool counts ride along because they are the only evidence that
+  // separates the two opposite fixes (A3): saturation of this instance's own
+  // pool argues for raising `POSTGRES_POOL_MAX`, a healthy local pool points at
+  // the pooler or the network instead. They are unrecoverable after the fact —
+  // the numbers are gone the moment the request ends.
+  const poolStats = formatDbPoolStats();
   console.warn(
-    `${logLabel} transient DB failure → 503 (retry in ${TRANSIENT_DB_RETRY_AFTER_SECONDS}s):`,
+    `${logLabel} transient DB failure → 503 (retry in ${TRANSIENT_DB_RETRY_AFTER_SECONDS}s)` +
+      `${poolStats ? ` [${poolStats}]` : ""}:`,
     error instanceof Error ? error.message : error,
   );
 

@@ -8,6 +8,8 @@ import { saveProjectData, updateProject } from "@/lib/project-client";
 import { useCallback, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
+import { persistVersionErrorLogs as persistVersionErrorLogsShared } from "@/lib/hooks/chat/post-checks";
+import type { VersionErrorLogPayload } from "@/lib/hooks/chat/types";
 import { readPreviewUrl } from "@/lib/api/preview-url-contract";
 import { debugLog } from "@/lib/utils/debug";
 
@@ -126,29 +128,29 @@ export function useBuilderDeployActions({
     }
   }, [domainQuery, setDomainResults, setIsDomainSearching]);
 
+  /**
+   * Positionsargument-wrapper runt den delade skrivaren. Detta var tidigare en
+   * egen `fetch` mot samma route som inte ens läste `res.ok` — så routens
+   * medvetna `503 row_contention` blev ett tyst tappat kvitto här, och
+   * spår B:s retry hade bara täckt hälften av skrivarna.
+   */
   const persistVersionErrorLogs = useCallback(
     async (
       errChatId: string,
       versionId: string,
-      logs: Array<{
-        level: "info" | "warning" | "error";
-        category?: string | null;
-        message: string;
-        meta?: Record<string, unknown> | null;
-      }>,
+      logs: VersionErrorLogPayload[],
     ) => {
-      if (!logs.length) return;
-      try {
-        await fetch(
-          `${engineChatBaseUrl(errChatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ logs }),
-          },
-        );
-      } catch (error) {
-        debugLog("builder", "Failed to persist version error logs", error);
+      const stored = await persistVersionErrorLogsShared({
+        chatId: errChatId,
+        versionId,
+        logs,
+      });
+      if (!stored) {
+        debugLog("builder", "Failed to persist version error logs", {
+          chatId: errChatId,
+          versionId,
+          logCount: logs.length,
+        });
       }
     },
     [],

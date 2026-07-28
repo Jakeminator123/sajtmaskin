@@ -8,6 +8,9 @@
  *   - tables[]          (för varje förväntad tabell):
  *       name, exists, row_count_estimate, row_count_exact,
  *       has_pk, indexes[], expected_indexes_present, latency_ms
+ *   - connections       (pg_stat_activity: total (hela instansen) + this_database,
+ *                        usable_connections, headroom — serversidans utrymme
+ *                        inför A3-poolbeslutet; best-effort, fäller aldrig `ok`)
  *   - missing_indexes[] (förväntade men ej skapade — viktigt!)
  *   - extra_indexes[]   (finns i DB men inte deklarerade i schema.ts)
  *   - summary           (counts + samlad latens)
@@ -304,6 +307,68 @@ async function timed(fn) {
   }
 }
 
+/**
+ * Serversidans anslutningsutrymme — hälften av A3-mätningen.
+ *
+ * Den andra hälften (mättnad i appens egen `pg.Pool`) syns bara i appens loggar,
+ * se `src/lib/db/pool-stats.ts`. Denna siffra svarar på den motsatta frågan:
+ * finns det utrymme att alls höja `POSTGRES_POOL_MAX`, eller ligger vi nära
+ * taket så att fler instanser × högre max skulle ge `EMAXCONNSESSION` i stället?
+ *
+ * Best-effort: fel här får aldrig fälla `out.ok` — det är en diagnostik, inte
+ * ett hälsokrav.
+ *
+ * `state` är NULL för andra rollers sessioner om rollen saknar
+ * `pg_read_all_stats`, så `state_hidden` redovisas separat i stället för att
+ * tysta en partiell siffra som om den vore hel.
+ */
+async function getConnectionStats() {
+  const probe = await timed(() =>
+    pool.query(
+      // `total` är AVSIKTLIGT hela instansen, inte bara vår databas:
+      // `max_connections` är ett servertak, så andra databaser och
+      // bakgrundsprocesser (NULL `datname`) äter av samma budget. Filtrerar man
+      // bort dem blir `headroom` för generöst — och det är just den riktning som
+      // gör skada, eftersom siffran används för att avgöra om
+      // `POSTGRES_POOL_MAX` kan höjas.
+      `SELECT
+         count(*)::int                                                   AS total,
+         count(*) FILTER (WHERE datname = current_database())::int        AS this_database,
+         count(*) FILTER (WHERE state = 'active')::int                    AS active,
+         count(*) FILTER (WHERE state = 'idle')::int                      AS idle,
+         count(*) FILTER (WHERE state IS NULL)::int                       AS state_hidden,
+         current_setting('max_connections')::int                          AS max_connections,
+         current_setting('superuser_reserved_connections')::int           AS superuser_reserved
+       FROM pg_stat_activity`,
+    ),
+  );
+  if (probe.error) {
+    return { ok: false, error: probe.error, latency_ms: probe.latency_ms };
+  }
+  const row = probe.result.rows[0] ?? {};
+  const total = row.total ?? 0;
+  const max = row.max_connections ?? 0;
+  const reserved = row.superuser_reserved ?? 0;
+  // Reserverade slots kan appen inte använda, så de räknas bort. Konservativt
+  // med flit: bättre att rapportera för lite utrymme än för mycket.
+  const usable = max > 0 ? Math.max(max - reserved, 0) : 0;
+  return {
+    ok: true,
+    error: null,
+    latency_ms: probe.latency_ms,
+    total,
+    this_database: row.this_database ?? 0,
+    active: row.active ?? 0,
+    idle: row.idle ?? 0,
+    state_hidden: row.state_hidden ?? 0,
+    max_connections: max,
+    superuser_reserved: reserved,
+    usable_connections: usable,
+    headroom: usable > 0 ? usable - total : null,
+    used_pct: usable > 0 ? Math.round((total / usable) * 1000) / 10 : null,
+  };
+}
+
 async function getTableInfo(name) {
   const exists = await pool.query(
     `SELECT 1 FROM information_schema.tables WHERE table_name = $1 AND table_schema = 'public' LIMIT 1`,
@@ -445,6 +510,8 @@ async function run() {
     process.exit(1);
   }
 
+  const connectionStats = await getConnectionStats();
+
   const tables = [];
   const allMissingIndexes = [];
 
@@ -513,6 +580,7 @@ async function run() {
     target: redactConnectionString(connectionString),
     is_prod_like: inspection.isProdLike,
     connection: { ok: true, latency_ms: connTest.latency_ms, error: null },
+    connections: connectionStats,
     summary: {
       total_tables_expected: EXPECTED_TABLES.length,
       total_tables_present: tables.filter((t) => t.exists).length,

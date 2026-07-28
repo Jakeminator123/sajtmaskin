@@ -21,22 +21,23 @@ kosmetiska brus-fel (CSP-eval report-only, font-403 i preview) och en
 **scaffold-lint-bugg** (`use-reduced-motion`) som fällde ReleaseGate på lint för *varje*
 genererad sajt.
 
-**Nuläge:** brus-felen och scaffold-buggen är åtgärdade (C1, C2, D1), och A1+A2 —
-den självförstärkande delen av 500-stormen — är levererade. Kvar i A är pool-mätningen
-(A3) och redeploy-pausen (A4). Stycket ovan beskriver incidenten, inte dagens kodläge —
-statustabellen nedan är sanningen.
+**Nuläge:** brus-felen och scaffold-buggen är åtgärdade (C1, C2, D1), A1+A2 — den
+självförstärkande delen av 500-stormen — är levererade, spår B är stängt, och A3:s
+**mätning** finns nu i kod (ratten är medvetet orörd tills prod-siffror finns). Kvar:
+A4 (redeploy-paus), att läsa A3-mätningen vid nästa pool-händelse, och D2. Stycket ovan
+beskriver incidenten, inte dagens kodläge — statustabellen nedan är sanningen.
 
 Pool-tuning kräver mätning (motsatta fixar för motsatta fel) — se A3.
 
-## Status 2026-07-27 (kodverifierad mot master `3b419115`, A1+A2 levererade samma dag)
+## Status 2026-07-28 (A1+A2 levererade 07-27; A3-mätning + B levererade 07-28)
 
 | Punkt | Läge | Bevis |
 |---|---|---|
 | A1 mjuk degradering (503 + `Retry-After`) | **klar** | `src/lib/db/transient-error.ts` + `src/lib/api/transient-db-response.ts`, inkopplad först i `catch` på alla fyra läs-routerna; route-tester i `version-status/route.test.ts` + `readiness/route.test.ts` låser 503 för transient och 500 för allt annat |
 | A2 klient-backoff + visibility-paus | **klar** | `src/lib/hooks/poll-backoff.ts` (exponentiell backoff + jitter + `Retry-After`), använd av `useVersionStatus.ts` (timeout-kedja i st.f. `setInterval`, pausar på dold flik), `useChatReadiness.ts` och `useVersions.ts`; tester i `poll-backoff.test.ts` + `useVersionStatus.test.ts` |
-| A3 pool-tuning | **öppen** | `client.ts:148-154` — default fortfarande 3 |
+| A3 pool-tuning | **mätning klar, ratten orörd** | `src/lib/db/pool-stats.ts` + 503-raden i `transient-db-response.ts` (appsidan), `db-health-check.mjs` → `connections` (serversidan); tester i `pool-stats.test.ts`. Default fortfarande 3 — höjs först när prod-siffror finns |
 | A4 redeploy-tålighet | **öppen** | saknas i samtliga tre hooks |
-| B error-log 503-retry | **öppen** | `post-checks.ts:43-63` — en fetch, ingen `Retry-After` |
+| B error-log 503-retry | **klar** | `post-checks.ts` retryar 503 med `Retry-After` (tak 5 s, 2 försök); duplikat-skrivaren i `useBuilderDeployActions.ts` delegerar nu dit i stället för att ignorera svaret; tester i `post-checks-error-log-retry.test.ts` |
 | B quality-gate 409 | **klar (by design)** | resume-lane med bounded retry: `post-checks.ts:528-544` |
 | C1 CSP eval | **klar** | `instrumentation-client.ts:11` `z.config({ jitless: true })` |
 | C2 preview font 403 | **klar** | `preview-host/src/runtime.js:2155-2161`, `:2229-2235` |
@@ -76,11 +77,31 @@ Pool-tuning kräver mätning (motsatta fixar för motsatta fel) — se A3.
   `refreshInterval` i sin effekt-deps, så callbacken måste memoiseras annars startas
   timern om vid varje render; och SWR hoppar över intervall-pollning när cachen har ett
   fel, så backoffen måste också in i `onErrorRetry`-banan för att ha någon effekt.
-- **A3 — Pool-tuning (mät först):** felet var connect-timeout (inte `EMAXCONNSESSION`) →
-  riktningen är att **höja** `POSTGRES_POOL_MAX` (t.ex. 3→5–8) på appen. **Men** höj inte
-  blint: fler instanser × högre max kan i stället ge `EMAXCONNSESSION` mot poolerns tak.
-  Mät `pg_stat_activity` och vilket fel som faktiskt loggas innan ratten vrids. Poolstorlek
-  = samtidighet, inte hastighet. (Bakgrund: backlog M#db1 + `src/lib/db/client.ts`.)
+- **A3 — Pool-tuning: MÄTNINGEN LEVERERAD 2026-07-28, ratten orörd.** Felet var
+  connect-timeout (inte `EMAXCONNSESSION`) → riktningen är att **höja**
+  `POSTGRES_POOL_MAX` (t.ex. 3→5–8). **Men** höj inte blint: fler instanser × högre max
+  kan i stället ge `EMAXCONNSESSION` mot poolerns tak. Poolstorlek = samtidighet, inte
+  hastighet. (Bakgrund: backlog M#db1 + `src/lib/db/client.ts`.)
+
+  **Rättelse av planens egen mätinstruktion:** "mät `pg_stat_activity`" mäter fel sida.
+  `timeout exceeded when trying to connect` kastas av `pg.Pool` medan den väntar på en
+  klient ur **instansens egen pool** — Postgres tillfrågas aldrig, så serversidan kan se
+  helt frisk ut samtidigt. Mätningen är därför tvåsidig:
+
+  | Sida | Var | Vad den avgör |
+  |---|---|---|
+  | Appens pool | `src/lib/db/pool-stats.ts`, loggad i 503-raden: `[pool=3/3 idle=0 waiting=7 at-ceiling]` | `at-ceiling` ⇒ höj |
+  | Server/pooler | `npm run db:health` → `connections` (`total`/`usable_connections`/`headroom`) | lite headroom ⇒ höj **inte**, flytta långlivade vägar till non-pooling |
+
+  Två läsfällor, båda funna av bugbot-passet: `waiting` kan vara 0 när felet
+  loggas (pg dequeuear den timeoutade requesten först), så `at-ceiling` är
+  signalen; och `headroom` måste räknas mot hela instansen — bara vår databas gav
+  53 i stället för 44 på dev.
+
+  Siffrorna i appens pool går inte att hämta i efterhand — därför loggas de när felet
+  inträffar. Nästa steg är att **läsa** dem vid nästa pool-händelse i prod och först då
+  vrida ratten. Kontrakt: [`data-layer.md`](../../contracts/data-layer.md)
+  § Mät innan du vrider `POSTGRES_POOL_MAX`.
 - **A4 — Redeploy-tålighet:** överväg att pausa/förlänga klient-polling en kort stund vid
   detekterad ny deployment (t.ex. version-mismatch), så en prod-deploy mitt i en session
   inte ger en 500-skur medan nya instanser värms upp.
@@ -89,13 +110,24 @@ Pool-tuning kräver mätning (motsatta fixar för motsatta fel) — se A3.
 
 | Symptom | Status | Bedömning |
 |---|---|---|
-| `POST …/error-log` → **503** `row_contention` | Avsiktlig degradering vid FK-lås-contention (`version-errors.ts` 128–167, `Retry-After: 3`) | Behåll — men klient `persistVersionErrorLogs` (`post-checks.ts` 43–63) **retryar inte** på 503 |
+| `POST …/error-log` → **503** `row_contention` | Avsiktlig degradering vid FK-lås-contention (`version-errors.ts` 128–167, `Retry-After: 3`) | Behåll. Klientens uteblivna retry är **åtgärdad 2026-07-28** |
 | `POST …/quality-gate` → **409** | `version_busy` / readiness-konflikt (superseded är **200**, inte 409) | Klient hanterar via resume-lane (max 3 försök). Din 409-skur = snabb-klickande mellan versioner |
 
-**Åtgärd (liten):** låt `persistVersionErrorLogs` respektera `Retry-After` och göra 1–2
-retries vid 503. *Motivering:* annars tappas felloggen tyst vid contention (dubbel-ironi:
-loggen om felet blir själv ett tyst fel). 409 kräver ingen kodändring — det är förväntat
-beteende vid snabba versionsbyten (mildras av backoff i A2).
+**ÅTGÄRDAD 2026-07-28.** `persistVersionErrorLogs` respekterar nu `Retry-After` och gör
+två extra försök vid 503, med ett eget tak på 5 s eftersom resume-lanen **väntar** på
+svaret. Bara 503 retryas — 4xx ändrar sig inte av att frågas igen och nätverksfel är
+best-effort.
+
+*Varför det spelade roll:* utan retry tappades felloggen tyst vid contention (dubbel
+ironi: loggen *om* ett fel blev själv ett tyst fel), och resume-lanen tolkade `false` som
+"blockeraren kunde inte sparas" → fail-closed på en övergående låskonflikt.
+
+*Fynd på vägen:* `useBuilderDeployActions.ts` hade en **egen** kopia av skrivaren som inte
+ens läste `res.ok`, så en retry bara i `post-checks.ts` hade täckt hälften av
+skrivvägarna. Kopian delegerar nu till den delade funktionen.
+
+409 krävde ingen kodändring — det är förväntat beteende vid snabba versionsbyten (mildras
+av backoff i A2).
 
 ## C. Kosmetiskt brus (lågprio)
 
@@ -132,11 +164,12 @@ beteende vid snabba versionsbyten (mildras av backoff i A2).
 
 | Fas | Innehåll | Risk | Hävstång |
 |---|---|---|---|
-| 1 | **A3** pool-mätning + ev. höjning | Låg (mät först) | Medel |
-| 2 | **B** error-log-retry; **A4** redeploy-paus | Låg | Medel |
+| 1 | **A3 steg 2** — läs pool-siffrorna vid nästa pool-händelse i prod, vrid sedan `POSTGRES_POOL_MAX` | Låg (mätningen finns) | Medel |
+| 2 | **A4** redeploy-paus | Låg | Medel |
 | 3 | **D2** verifier-täckning | Låg | Låg-medel |
 
-Levererat och därmed ur kön: A1, A2 (2026-07-27), D1 (#578), C1, C2 — se statustabellen överst.
+Levererat och därmed ur kön: A1, A2 (2026-07-27), A3:s mätning + B (2026-07-28), D1 (#578),
+C1, C2 — se statustabellen överst.
 
 ## Explicit icke-mål
 
