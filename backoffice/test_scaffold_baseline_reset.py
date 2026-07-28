@@ -168,6 +168,54 @@ class BaselineResetTests(unittest.TestCase):
             "backup failed → the restore must not have run either",
         )
 
+    def test_non_ascii_filenames_are_backed_up(self) -> None:
+        """Swedish filenames must not fall through the backup pass.
+
+        Git's default `core.quotePath` would report `rädd.txt` as
+        `"r\\303\\244dd.txt"`, and `text=True` without an explicit encoding would
+        decode git's UTF-8 as cp1252 on Swedish Windows. Both produce a path that
+        does not exist, so the file was silently skipped by the backup pass and
+        then deleted for real by `git restore` / the unlink loop.
+        """
+        untracked = self.scaffolds / "rädd-ospårad.txt"
+        untracked.write_text("ospårad\n", encoding="utf-8")
+        staged = self.scaffolds / "ändrad-stagead.txt"
+        staged.write_text("stagead\n", encoding="utf-8")
+        _git(self.repo, "add", "--", "src/lib/gen/scaffolds/ändrad-stagead.txt")
+
+        sl._factory_reset_to_baseline(self.ctx)
+
+        for rel, content in (
+            ("src/lib/gen/scaffolds/rädd-ospårad.txt", "ospårad\n"),
+            ("src/lib/gen/scaffolds/ändrad-stagead.txt", "stagead\n"),
+        ):
+            backups = self._backups_for(rel)
+            self.assertEqual(len(backups), 1, f"expected one snapshot of {rel}, got {backups}")
+            self.assertEqual(backups[0].read_text(encoding="utf-8"), content)
+
+        self.assertFalse(untracked.exists())
+        self.assertFalse(staged.exists())
+
+    def test_missing_listed_file_aborts_instead_of_skipping(self) -> None:
+        """A path git listed but that is not on disk must abort, not be skipped.
+
+        That is the shape any future quoting/encoding gap takes, and skipping it
+        is what made the recovery promise false.
+        """
+        keep = self.scaffolds / "keep.txt"
+        keep.write_text("must-survive\n", encoding="utf-8")
+
+        def fake_run_git(ctx, args, *, timeout: int = 60):  # noqa: ANN001, ARG001
+            if args[:1] == ["ls-files"]:
+                return 0, "src/lib/gen/scaffolds/does-not-exist.txt"
+            return 0, ""
+
+        with mock.patch.object(sl, "_run_git", side_effect=fake_run_git):
+            with self.assertRaises(RuntimeError):
+                sl._factory_reset_to_baseline(self.ctx)
+
+        self.assertTrue(keep.exists(), "abort must not delete anything")
+
     def test_a_later_backup_failure_leaves_earlier_files_alone(self) -> None:
         """Why the snapshot pass is separate from the delete pass.
 

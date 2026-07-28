@@ -2314,12 +2314,28 @@ BASELINE_PATHS = (
 
 
 def _run_git(ctx: BackofficeContext, args: list[str], *, timeout: int = 60) -> tuple[int, str]:
+    """Run git and return (exit code, combined output).
+
+    Two encoding decisions matter because the baseline reset turns this output
+    into filesystem paths it then deletes:
+
+    * `core.quotePath=false` — git's default C-quotes non-ASCII names, so
+      `rädd.txt` would come back as `"r\\303\\244dd.txt"`. A quoted path does not
+      exist on disk, and the caller would then look for the wrong file.
+    * `encoding="utf-8"` — `text=True` alone decodes with the locale encoding
+      (cp1252 on Swedish Windows), which turns git's UTF-8 bytes into mojibake
+      and again produces a path that does not exist.
+
+    Either mistake made the backup pass silently skip a file that the following
+    `git restore` then deleted for real.
+    """
     result = subprocess.run(
-        ["git", *args],
+        ["git", "-c", "core.quotePath=false", *args],
         capture_output=True,
         cwd=str(ctx.repo_root),
         env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         text=True,
+        encoding="utf-8",
         timeout=timeout,
         check=False,
     )
@@ -2399,8 +2415,15 @@ def _factory_reset_to_baseline(ctx: BackofficeContext) -> list[str]:
     doomed = drift["added_since_tag"] + drift["untracked"]
     for rel in doomed:
         target = ctx.repo_root / rel
+        # Fail closed rather than skip. Every path here was just listed by git as
+        # an existing file, so "not a file" means we are looking at the wrong
+        # path (a quoting/encoding gap) or something moved under us. Skipping
+        # would let the restore below delete a file we promised was backed up.
         if not target.is_file():
-            continue
+            raise RuntimeError(
+                f"Hittade inte filen {rel} som git listade som avvikande — avbryter. "
+                "Inget raderades och ingen återställning gjordes."
+            )
         if backup_file(target, ctx.repo_root) is None:
             raise RuntimeError(
                 f"Kunde inte säkerhetskopiera {rel} — avbryter. "
