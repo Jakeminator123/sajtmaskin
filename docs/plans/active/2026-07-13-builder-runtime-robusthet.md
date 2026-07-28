@@ -90,8 +90,13 @@ Pool-tuning kräver mätning (motsatta fixar för motsatta fel) — se A3.
 
   | Sida | Var | Vad den avgör |
   |---|---|---|
-  | Appens pool | `src/lib/db/pool-stats.ts`, loggad i 503-raden: `[pool=3/3 idle=0 waiting=7 saturated]` | `waiting > 0` vid fullt tak ⇒ höj |
-  | Server/pooler | `npm run db:health` → `connections` (`total`/`max_connections`/`headroom`) | lite headroom ⇒ höj **inte**, flytta långlivade vägar till non-pooling |
+  | Appens pool | `src/lib/db/pool-stats.ts`, loggad i 503-raden: `[pool=3/3 idle=0 waiting=7 at-ceiling]` | `at-ceiling` ⇒ höj |
+  | Server/pooler | `npm run db:health` → `connections` (`total`/`usable_connections`/`headroom`) | lite headroom ⇒ höj **inte**, flytta långlivade vägar till non-pooling |
+
+  Två läsfällor, båda funna av bugbot-passet: `waiting` kan vara 0 när felet
+  loggas (pg dequeuear den timeoutade requesten först), så `at-ceiling` är
+  signalen; och `headroom` måste räknas mot hela instansen — bara vår databas gav
+  53 i stället för 44 på dev.
 
   Siffrorna i appens pool går inte att hämta i efterhand — därför loggas de när felet
   inträffar. Nästa steg är att **läsa** dem vid nästa pool-händelse i prod och först då

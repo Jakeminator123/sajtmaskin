@@ -61,7 +61,7 @@ describe("transientDbResponseIfRetryable", () => {
     );
 
     expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining("[pool=3/3 idle=0 waiting=7 saturated]"),
+      expect.stringContaining("[pool=3/3 idle=0 waiting=7 at-ceiling]"),
       expect.anything(),
     );
   });

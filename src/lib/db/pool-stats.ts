@@ -9,7 +9,13 @@
  * `max: 3`. Mäter man bara serversidan svarar man på en annan fråga och kan
  * dra poolstorleken åt fel håll.
  *
- * `waiting > 0` är det direkta beviset att den lokala poolen är flaskhalsen.
+ * **`atCeiling` är den bärande signalen, inte `waiting`.** Att `pg.Pool` just
+ * kastat en connect-timeout betyder att den inte kunde lämna ut en klient — men
+ * den timeoutade requesten är redan **borttagen ur kön** när felet når oss, så
+ * `waiting` kan läsa 0 i exakt det ögonblick vi loggar. `waiting > 0` är därför
+ * bekräftande bevis (andra väntar också), aldrig ett villkor: en tom kö
+ * *motbevisar* ingenting.
+ *
  * Serversidans utrymme — skälet att inte höja `max` blint, eftersom fler
  * instanser × högre max kan slå i poolerns tak i stället — mäts separat av
  * `scripts/db/db-health-check.mjs` → `connections`.
@@ -33,10 +39,14 @@ export type DbPoolStats = {
   /** Klienter poolen håller just nu (lediga + utlånade). */
   total: number;
   idle: number;
-  /** Requests som står i kö för en ledig klient. Allt över 0 är mättnad. */
+  /**
+   * Requests som står i kö för en ledig klient **just nu**. Under-rapporterar
+   * vid en connect-timeout: den som timeoutade är redan ur kön. Bekräftande
+   * bevis, inte ett villkor.
+   */
   waiting: number;
-  /** Poolen är vid sitt tak **och** någon står i kö. */
-  saturated: boolean;
+  /** Poolen är vid sitt tak och kan inte lämna ut ännu en klient. */
+  atCeiling: boolean;
 };
 
 let registeredPool: PoolLike | null = null;
@@ -57,17 +67,17 @@ export function getDbPoolStats(): DbPoolStats | null {
     total,
     idle,
     waiting,
-    saturated: waiting > 0 && total >= registeredMax,
+    atCeiling: registeredMax > 0 && total >= registeredMax,
   };
 }
 
 /**
- * Kompakt form för en loggrad: `pool=3/3 idle=0 waiting=7 saturated`.
+ * Kompakt form för en loggrad: `pool=3/3 idle=0 waiting=7 at-ceiling`.
  * Tom sträng när ingen pool är registrerad, så anropare kan konkatenera
  * utan att först kolla.
  */
 export function formatDbPoolStats(stats: DbPoolStats | null = getDbPoolStats()): string {
   if (!stats) return "";
-  const suffix = stats.saturated ? " saturated" : "";
+  const suffix = stats.atCeiling ? " at-ceiling" : "";
   return `pool=${stats.total}/${stats.max} idle=${stats.idle} waiting=${stats.waiting}${suffix}`;
 }
