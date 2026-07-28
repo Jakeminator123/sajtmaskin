@@ -108,7 +108,7 @@ describe("F3StatusSurface", () => {
   });
 
   // The verdict describes one version; the link must open THAT version's log,
-  // not whatever is selected when the user reads the row (bugbot on #640).
+  // not whatever is selected when the user reads the row (bugbot on #639).
   it("loads diagnostics for the version the verdict judged", async () => {
     const fetchMock = vi.fn(async () => Response.json({ success: true, logs: [], summary: null }));
     vi.stubGlobal("fetch", fetchMock);

@@ -52,7 +52,7 @@ vara en leverans.
 
 ### R11 — varför den inte är en fix utan ett beslut
 
-Dossier/UI-ownership-planen levererades 2026-07-28 (#640) som prompt-kontrakt plus
+Dossier/UI-ownership-planen levererades 2026-07-28 (#639) som prompt-kontrakt plus
 en Advisory som gör ett kvarlämnat anrop upptäckbart — se
 [`../avklarat/README.md`](../avklarat/README.md) § Dossier/UI-ownership. Det som
 återstår är enda halvan pipelinen inte kan garantera i dag: **att faktiskt ta bort

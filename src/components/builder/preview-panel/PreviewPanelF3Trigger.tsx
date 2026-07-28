@@ -131,7 +131,7 @@ export function PreviewPanelF3Trigger({
     const targetVersionId = requestedVersionId ?? versionId;
     // Every outcome carries the version it judged, so the builder's status row
     // can open THAT version's diagnostics instead of whatever is selected when
-    // the user reads it (bugbot on #640). Defaults to the version this run
+    // the user reads it (bugbot on #639). Defaults to the version this run
     // targeted; the deterministic-release branches pass the F3 fork instead.
     const reportStatus = (status: F3BuilderStatus, judgedVersionId?: string | null) =>
       onStatus?.({ ...status, versionId: judgedVersionId ?? targetVersionId ?? null });

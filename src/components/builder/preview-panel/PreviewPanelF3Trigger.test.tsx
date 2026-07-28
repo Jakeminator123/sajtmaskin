@@ -56,7 +56,7 @@ describe("PreviewPanelF3Trigger", () => {
         description:
           "En nyare designversion finns. Välj den senaste versionen innan du bygger integrationer.",
         // The verdict names the version it judged so the builder's status row
-        // opens THAT version's diagnostics (bugbot on #640).
+        // opens THAT version's diagnostics (bugbot on #639).
         versionId: "ver_old",
       });
     });

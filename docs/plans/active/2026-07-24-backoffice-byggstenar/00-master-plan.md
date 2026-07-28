@@ -47,7 +47,7 @@ faktiskt påverkar**, så ägaren vågar inte ändra något.
 | # | Etapp | Aktivitetsdokument (ta ett i taget) | Status |
 |---|---|---|---|
 | 1 | **Fas A** — navigation, hub, språk, spara-läge | *(sammanfattad nedan)* | **Klar 2026-07-24**, PR #615 |
-| 2 | **Baseline-backup** — dataförlust, egen liten PR | [`aktiviteter/01-baseline-backup.md`](aktiviteter/01-baseline-backup.md) | Ej påbörjad — **ta denna först** |
+| 2 | **Baseline-backup** — dataförlust, egen liten PR | *(sammanfattad nedan)* | **Klar 2026-07-28** — snapshot före restoren |
 | 3 | **Fas B** — trygg create/edit för scaffold + variant | [`aktiviteter/02-fas-b-scaffold-variant.md`](aktiviteter/02-fas-b-scaffold-variant.md) | Ej påbörjad |
 | 4 | **Fas C** — Byggblock i samma språk + skapa från grunden | [`aktiviteter/03-fas-c-byggblock.md`](aktiviteter/03-fas-c-byggblock.md) | Ej påbörjad |
 | 5–6 | **Fas D** — AI-modellval via manifestet | [`aktiviteter/04-fas-d-ai-modellval.md`](aktiviteter/04-fas-d-ai-modellval.md) | Förslaget **godkänt 2026-07-28** (tre separata workload-poster) — kör efter Fas C |
@@ -90,24 +90,37 @@ Gamla `?nav=`-slugs (`scaffolds`, `scaffold-lifecycle`, `wizard`, `dossiers`,
 `scaffold-performance` …) och de gamla sidnamnen resolverar fortfarande — det är
 testat och ska aldrig tas bort.
 
-## Etapp 2 — baseline-backup (nästa, egen PR)
+## Etapp 2 — baseline-backup: vad som landade (klar 2026-07-28)
 
 **Fyndet:** `_factory_reset_to_baseline` i `backoffice/pages/scaffold_lifecycle.py`
-raderar filer som tillkommit efter baselinen — inklusive **ospårade** — utan att
-säkerhetskopiera dem. Spårade filer finns kvar i git-historiken; ospårade finns
+raderade filer som tillkommit efter baselinen — inklusive **ospårade** — utan att
+säkerhetskopiera dem. Spårade filer finns kvar i git-historiken; ospårade fanns
 varken där eller i backup-lagret, alltså helt oåterkalleliga.
 
-Design (korrigerad efter granskning):
+Varje dömd fil snapshotas nu till `data/backoffice/backups/files/` och syns i
+sidan **Återställning**, fail-closed: kan en snapshot inte tas händer ingenting.
+Ingen tredje bekräftelse tillkom (friktion var inte problemet), `BASELINE_PATHS`
+och `BASELINE_TAG` är orörda.
 
-* Bekräftelsen finns redan (kryssruta + exakt taggnamn + lista över avvikande filer) —
-  **lägg inte till en tredje bekräftelse**; problemet är återställbarhet, inte friktion.
-* Ordningen `git restore` → radera är redan säker och behålls.
-* Det som saknas är **backup före `unlink`**, med samma fail-closed-mönster som
-  scaffold-raderingen redan använder (`backup_* is None → avbryt utan att radera`).
-* Ospårade filer täcks särskilt.
-* Tester: backup sker före `unlink`, och misslyckad backup avbryter utan radering.
-* Sidoeffekt i samma PR: Start-sidans copy "git är alltid det yttersta skyddsnätet"
-  är osann för ospårade filer och ska formuleras om.
+**Tre rättelser mot den ursprungliga designen — värda att minnas:**
+
+| Antagande i planen | Verkligheten |
+|---|---|
+| Backup **före `unlink`** räcker | Nej. `git restore --staged --worktree` raderar själv spårade sökvägar som inte finns i taggen, så en staged-men-ocommittad fil är redan borta när loopen körs (innehållet finns då bara som dangling blob). Snapshot-passet ligger därför **före restoren**. Det bryter inte den transaktionella ordningen — restoren körs fortfarande före varje radering — och fail-closed blir starkare: avbrott innan något alls hänt. |
+| En saknad fil kan hoppas över | Nej, det gör återställningslöftet falskt. Varje sökväg git listat som avvikande **måste** finnas; annars avbryts hela åtgärden. |
+| Git-output kan användas som sökväg rakt av | Nej. `core.quotePath` C-citerar `rädd.txt` till `"r\303\244dd.txt"`, och `text=True` utan explicit encoding avkodar UTF-8 som cp1252 på svensk Windows. Båda ger en sökväg som inte finns → filen hoppades över och raderades ändå. `_run_git` sätter nu `-c core.quotePath=false` + `encoding="utf-8"`. |
+
+Copy i samma PR: baseline-fliken säger nu att filerna kan rullas tillbaka, och
+Start-sidans "git är alltid det yttersta skyddsnätet" (osant för ospårade filer)
+är omskriven.
+
+**Utanför scope, medvetet:** ocommittade *ändringar* i spårade filer, som
+restoren också återställer. Det är vad en fabriksåterställning är till för och
+UI:t varnar för det; bara raderingarna var oåterkalleliga.
+
+Grind: `backoffice/test_scaffold_baseline_reset.py` — 8 tester (de 3 tidigare
+oförändrade). Det icke-ASCII-fallet är verifierat att falla utan
+`quotePath`-fixen.
 
 ## Etapp 3 — Fas B (efter etapp 2)
 

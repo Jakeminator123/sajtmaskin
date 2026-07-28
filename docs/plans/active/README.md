@@ -7,7 +7,7 @@ avslutade checklistor och beslutshistorik hör till [`../avklarat/`](../avklarat
 Hela ytan kodverifierades mot master `3b419115` den **2026-07-27**. Sex planer
 vars kärna var levererad togs bort och indexerades i
 [`../avklarat/README.md`](../avklarat/README.md); deras svansar samlades i
-restlistan nedan. **2026-07-28 (#639, #640)** gick samma väg för restlistans
+restlistan nedan. **2026-07-28 (#639)** gick samma väg för restlistans
 R1–R4 + R6 och för dossier/UI-ownership-planen, vars enda kvarvarande halva är
 ett ägarbeslut (restlistans R11). Planlivscykeln ägs av
 [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle.mdc). Defekter och
@@ -18,10 +18,10 @@ kopiera inte dess kö hit.
 
 | Spår | Plan | Läge | Nästa steg |
 | --- | --- | --- | --- |
-| Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | C1, C2, D1/#578, **A1 + A2**, **A3:s mätning**, **B** och **D2**/#640 levererade — bara A4 är kod som återstår | Läs pool-siffrorna vid nästa pool-händelse i prod och vrid först då `POSTGRES_POOL_MAX`; sedan A4 (redeploy-paus), som stänger planen |
+| Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | C1, C2, D1/#578, **A1 + A2**, **A3:s mätning**, **B** och **D2**/#639 levererade — bara A4 är kod som återstår | Läs pool-siffrorna vid nästa pool-händelse i prod och vrid först då `POSTGRES_POOL_MAX`; sedan A4 (redeploy-paus), som stänger planen |
 | Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | Oimplementerad; absorberade stabiliseringsplanens PR 5. De tre besluten är tagna 2026-07-28 → **inte längre blockerad** | Steg 1–2: `files_revision` som DB-genererad `md5(files_json)` (ingen skrivare rörs; `files_updated_at` struken), stämpla verdikten. Steg 3 väntar på mätdata |
 | Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | R1–R4 + R6 levererade 2026-07-28 (#639); fem rader kvar | Plocka fritt bland R7–R10. R5 är blockerad tills verbatim-exportvägen trådar env-scope |
-| Backoffice (Byggstenar + stringens-städ) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | Fas A klar (#615); etapp 2–7 öppna | Baseline-backupen först — den är dataförlust på ospårade filer |
+| Backoffice (Byggstenar + stringens-städ) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | Fas A klar (#615), baseline-backupen klar 2026-07-28 — dataförlustrisken är stängd; etapp 3–7 öppna | Fas B (trygg create/edit för scaffold + variant) |
 
 ## Ägarbeslut — avgjorda 2026-07-28
 

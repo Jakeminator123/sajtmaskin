@@ -43,7 +43,7 @@ Pool-tuning kräver mätning (motsatta fixar för motsatta fel) — se A3.
 | C1 CSP eval | **klar** | `instrumentation-client.ts:11` `z.config({ jitless: true })` |
 | C2 preview font 403 | **klar** | `preview-host/src/runtime.js:2155-2161`, `:2229-2235` |
 | D1 scaffold `use-reduced-motion` | **klar** (#578) | `project-scaffold.ts:377-404` `useSyncExternalStore` + test `project-scaffold.test.ts:315-332` |
-| D2 verifier-täckning för `string \| undefined` | **klar** (#640) | `openai-chat/instructions.md` § Ownership and response contract förbjuder ett egenhändigt `{ reply }`-endpoint och kräver narrowing; TS2345 fångas redan av `warm-typecheck.ts` → RepairGate (LLM-lanen — v8 i incidenten fixade just det felet). Ingen deterministisk TS2345-fixer: `?? ""` ändrar semantik, se motiveringen i D2 nedan |
+| D2 verifier-täckning för `string \| undefined` | **klar** (#639) | `openai-chat/instructions.md` § Ownership and response contract förbjuder ett egenhändigt `{ reply }`-endpoint och kräver narrowing; TS2345 fångas redan av `warm-typecheck.ts` → RepairGate (LLM-lanen — v8 i incidenten fixade just det felet). Ingen deterministisk TS2345-fixer: `?? ""` ändrar semantik, se motiveringen i D2 nedan |
 
 ## A. DB-pool-500-storm (P1 — det som "sabbade" i UI:t)
 
@@ -153,7 +153,7 @@ av backoff i A2).
   `SCAFFOLD_FILES`). Den är omskriven till `useSyncExternalStore`
   (`project-scaffold.ts:377-404`) — lint-ren, SSR-säker och testlåst i
   `project-scaffold.test.ts:315-332`.
-- **D2 — ÅTGÄRDAD 2026-07-28 (#640).** `chatbot-widget.tsx`-felen (TS2345
+- **D2 — ÅTGÄRDAD 2026-07-28 (#639).** `chatbot-widget.tsx`-felen (TS2345
   `data.reply: string | undefined`, plus set-state-in-effect) är
   **own-engine-genererad** kod, inte en mall (bekräftat: finns inte i
   dossiers/scaffolds). Rätt hävstång var därför prompt-kvalitet plus
@@ -182,7 +182,7 @@ av backoff i A2).
 | 2 | **A4** redeploy-paus | Låg | Medel |
 
 Levererat och därmed ur kön: A1, A2 (2026-07-27), A3:s mätning + B (2026-07-28), D1 (#578),
-D2 (#640), C1, C2 — se statustabellen överst. När A4 landar är den här planen klar: A3 steg 2
+D2 (#639), C1, C2 — se statustabellen överst. När A4 landar är den här planen klar: A3 steg 2
 är en prod-observation, ingen kodrad, och hör då till restlistan.
 
 ## Explicit icke-mål
@@ -196,5 +196,5 @@ D2 (#640), C1, C2 — se statustabellen överst. När A4 landar är den här pla
 Bygget i sig gick bra (4/4 genereringar `success`, preview-VM frisk). Det du såg var
 **inte** en generationskrasch utan (i) 500-stormen ovan under redeploy + hård polling, och
 (ii) v4/v5:s äkta lint/typecheck-fel i `chatbot-widget.tsx`. D1 + A1/A2 adresserar det
-återkommande; D2 adresserar den enskilda widget-buggen — och ownership-kontraktet i #640
+återkommande; D2 adresserar den enskilda widget-buggen — och ownership-kontraktet i #639
 adresserar varför widgeten fanns kvar bredvid dossierns chatt-yta alls.

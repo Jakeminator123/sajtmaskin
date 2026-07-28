@@ -488,7 +488,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // Same drift rule for the status row: a verdict describes one version, so it
   // must not linger over another one the user selected afterwards — its
   // "Visa diagnostik" link would then open a different version's log (bugbot on
-  // #640). Outcomes with no version of their own (e.g. "no version yet") are
+  // #639). Outcomes with no version of their own (e.g. "no version yet") are
   // kept until the chat changes.
   useEffect(() => {
     setF3Status((current) =>
@@ -526,7 +526,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // `f3_deterministic_release_required`) and has no `onStatus` callback, so its
   // ReleaseGate verdict arrives as an event. Without this the row — and its
   // diagnostics link — only ever appeared for the preview-button lane (bugbot
-  // on #640).
+  // on #639).
   useEffect(() => {
     const handleStatus = (event: Event) => {
       const detail = readF3StatusDetail(event);

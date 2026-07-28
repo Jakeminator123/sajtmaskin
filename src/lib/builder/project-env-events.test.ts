@@ -129,7 +129,7 @@ describe("readProjectEnvVarsUpdatedDetail action", () => {
 });
 
 // The chat-stream lane has no `onStatus` callback, so the F3 verdict reaches
-// the builder's discrete status row through this event (bugbot on #640).
+// the builder's discrete status row through this event (bugbot on #639).
 describe("readF3StatusDetail", () => {
   function eventWith(detail: unknown): Event {
     return new CustomEvent("sajtmaskin:f3-status", { detail });

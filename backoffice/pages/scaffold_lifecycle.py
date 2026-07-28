@@ -2314,12 +2314,28 @@ BASELINE_PATHS = (
 
 
 def _run_git(ctx: BackofficeContext, args: list[str], *, timeout: int = 60) -> tuple[int, str]:
+    """Run git and return (exit code, combined output).
+
+    Two encoding decisions matter because the baseline reset turns this output
+    into filesystem paths it then deletes:
+
+    * `core.quotePath=false` — git's default C-quotes non-ASCII names, so
+      `rädd.txt` would come back as `"r\\303\\244dd.txt"`. A quoted path does not
+      exist on disk, and the caller would then look for the wrong file.
+    * `encoding="utf-8"` — `text=True` alone decodes with the locale encoding
+      (cp1252 on Swedish Windows), which turns git's UTF-8 bytes into mojibake
+      and again produces a path that does not exist.
+
+    Either mistake made the backup pass silently skip a file that the following
+    `git restore` then deleted for real.
+    """
     result = subprocess.run(
-        ["git", *args],
+        ["git", "-c", "core.quotePath=false", *args],
         capture_output=True,
         cwd=str(ctx.repo_root),
         env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         text=True,
+        encoding="utf-8",
         timeout=timeout,
         check=False,
     )
@@ -2375,9 +2391,45 @@ def _factory_reset_to_baseline(ctx: BackofficeContext) -> list[str]:
     (unlink → restore) permanently deleted files-added-since-baseline if the
     restore step then failed. Files not present at the tag are untouched by
     restore, so they are deleted only after a clean restore.
+
+    Every file that is about to disappear is snapshotted into the backup layer
+    before ANY of it happens — before the restore, not just before the unlink
+    loop. `git restore --staged --worktree` removes tracked paths that do not
+    exist at the tag, so a staged-but-uncommitted add is already gone by the
+    time the unlink loop runs, and its content survives only as a dangling blob.
+    The pre-restore pass is the one moment where every doomed file still exists
+    on disk. Fail-closed: no snapshot → nothing is touched at all (same pattern
+    as the variant deletion above).
+
+    Deliberately out of scope: uncommitted *modifications* to tracked files,
+    which the restore also reverts. Those are what a factory reset is for and
+    the UI warns about them; only the deletes were unrecoverable.
     """
     log: list[str] = []
     drift = _baseline_drift(ctx)
+
+    # 0) Snapshot everything that is about to disappear, before touching
+    #    anything. Tracked adds could in principle be dug out of git history;
+    #    the untracked ones exist nowhere else, which is what made this the one
+    #    genuinely unrecoverable action in the backoffice.
+    doomed = drift["added_since_tag"] + drift["untracked"]
+    for rel in doomed:
+        target = ctx.repo_root / rel
+        # Fail closed rather than skip. Every path here was just listed by git as
+        # an existing file, so "not a file" means we are looking at the wrong
+        # path (a quoting/encoding gap) or something moved under us. Skipping
+        # would let the restore below delete a file we promised was backed up.
+        if not target.is_file():
+            raise RuntimeError(
+                f"Hittade inte filen {rel} som git listade som avvikande — avbryter. "
+                "Inget raderades och ingen återställning gjordes."
+            )
+        if backup_file(target, ctx.repo_root) is None:
+            raise RuntimeError(
+                f"Kunde inte säkerhetskopiera {rel} — avbryter. "
+                "Inget raderades och ingen återställning gjordes."
+            )
+        log.append(f"säkerhetskopierade {rel}")
 
     # 1) Restore tracked scaffold surfaces to the baseline (index + worktree)
     #    FIRST — a failure here is then a no-op, not a partial/unrecoverable
@@ -2392,9 +2444,10 @@ def _factory_reset_to_baseline(ctx: BackofficeContext) -> list[str]:
         raise RuntimeError(f"git restore misslyckades (inget raderades): {output}")
     log.append(f"git restore --source {BASELINE_TAG} --staged --worktree klar")
 
-    # 2) Delete files ADDED after the baseline (not present at the tag, so the
-    #    restore above leaves them). Safe now that the restore has succeeded.
-    for rel in drift["added_since_tag"] + drift["untracked"]:
+    # 2) Delete whatever the restore left behind — untracked files are not part
+    #    of the tag's tree, so restore ignores them. Every one of them already
+    #    has a snapshot from step 0.
+    for rel in doomed:
         target = ctx.repo_root / rel
         if target.is_file():
             target.unlink()
@@ -2475,6 +2528,11 @@ def _render_baseline_tab(ctx: BackofficeContext) -> None:
             "agenter/personer inte hunnit committa. Åtgärden återställer även git-indexet "
             "(staging) för dessa ytor i den checkout backoffice körs i. Dubbelkolla listan "
             "ovan först."
+        )
+        st.info(
+            "Filerna som raderas säkerhetskopieras först och kan rullas tillbaka från "
+            "sidan **Återställning**. Kan en säkerhetskopia inte tas avbryts hela "
+            "åtgärden utan att något raderas."
         )
         with st.form("baseline_reset_form"):
             acknowledge = st.checkbox(

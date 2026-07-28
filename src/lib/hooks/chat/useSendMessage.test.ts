@@ -396,7 +396,7 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
   // Restlistan R1: den underkända ReleaseGate-toasten är borta. Den här lanen
   // har ingen `onStatus`-callback, så verdiktet måste nå den diskreta
   // statusraden via eventet — annars säger chattexten "se versionsdiagnostiken"
-  // utan att någon länk dit finns (bugbot på #640).
+  // utan att någon länk dit finns (bugbot på #639).
   it("routes a failed ReleaseGate from the stream lane to the status row instead of a toast", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (url.endsWith("/stream")) {

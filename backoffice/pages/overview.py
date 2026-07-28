@@ -39,10 +39,10 @@ def render(ctx: BackofficeContext) -> None:
     )
     st.success(
         "**Tryggt att experimentera:** de vanliga redigeringsvyerna säkerhetskopierar "
-        "den gamla filversionen före en sparning, och git är alltid det yttersta "
-        "skyddsnätet för spårade filer. Blev något fel — öppna **Återställning** och "
-        "rulla tillbaka. Redigerbara vyer validerar dessutom mot schema före skrivning "
-        "där schema finns."
+        "den gamla filversionen före en sparning. Git täcker spårade filer; **ospårade** "
+        "filer skyddas av backup-lagret, som nu tas även före fabriksåterställningen till "
+        "scaffold-baselinen. Blev något fel — öppna **Återställning** och rulla tillbaka. "
+        "Redigerbara vyer validerar dessutom mot schema före skrivning där schema finns."
     )
     nav_link_button("→ Öppna Återställning", "Återställning", key="overview_goto_restore")
 
