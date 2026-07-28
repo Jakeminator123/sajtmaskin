@@ -191,6 +191,108 @@ function moduleStemFromPath(path: string): string | null {
   return null;
 }
 
+/**
+ * Internal API paths the runtime provides even when no `route.ts` is in the
+ * generated file set: `buildCompleteProject` injects the placeholder image
+ * route, and the preview host serves it for verbatim repos too.
+ */
+const RUNTIME_PROVIDED_API_PATHS = new Set(["/api/placeholder"]);
+
+/** Literal `"/api/..."` strings — interpolated paths are deliberately skipped. */
+const INTERNAL_API_LITERAL_RE = /["'`](\/api\/[^"'`\s?#]*)["'`]/g;
+const APP_ROUTE_HANDLER_RE = /^(?:src\/)?app\/(.+)\/route\.(?:ts|tsx|js|jsx)$/;
+
+function isCommentLine(line: string): boolean {
+  const trimmed = line.trimStart();
+  return trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*");
+}
+
+function normalizeApiPath(path: string): string {
+  const withoutTrailingSlash = path.length > 1 ? path.replace(/\/+$/, "") : path;
+  return withoutTrailingSlash || "/";
+}
+
+/**
+ * Route patterns the file tree actually serves, as segment arrays. Route groups
+ * (`(marketing)`) and parallel/intercepting segments carry no URL segment, so
+ * they are dropped; `[param]`, `[...slug]` and `[[...slug]]` stay as patterns.
+ */
+function collectApiRoutePatterns(files: CodeFile[]): string[][] {
+  const patterns: string[][] = [];
+  for (const file of files) {
+    const match = file.path.replace(/\\/g, "/").match(APP_ROUTE_HANDLER_RE);
+    if (!match) continue;
+    const segments = match[1]
+      .split("/")
+      .filter((segment) => segment.length > 0 && !segment.startsWith("("));
+    if (segments[0] !== "api") continue;
+    patterns.push(segments);
+  }
+  return patterns;
+}
+
+function routePatternMatches(pattern: string[], segments: string[]): boolean {
+  for (let i = 0; i < pattern.length; i++) {
+    const patternSegment = pattern[i];
+    const isOptionalCatchAll = patternSegment.startsWith("[[...");
+    const isCatchAll = isOptionalCatchAll || patternSegment.startsWith("[...");
+    if (isCatchAll) {
+      const rest = segments.length - i;
+      return isOptionalCatchAll ? rest >= 0 : rest >= 1;
+    }
+    if (i >= segments.length) return false;
+    if (patternSegment.startsWith("[") && patternSegment.endsWith("]")) continue;
+    if (patternSegment !== segments[i]) return false;
+  }
+  return segments.length === pattern.length;
+}
+
+/**
+ * Internal API paths a component references but that no route handler in the
+ * file set serves. The incident this closes (chat `747636c8`): an LLM-built
+ * chat widget kept calling its own `/api/ai-chat` after the `openai-chat`
+ * dossier took over the surface with `/api/chat`, so the panel rendered fine
+ * and 404'd on every send — a false-green the preview could not show.
+ *
+ * Warning severity on purpose: only literal paths are inspected, but a
+ * `next.config` rewrite or a proxy could still serve a path with no local
+ * handler, and a false `error` here would block an otherwise shippable build.
+ */
+function collectDanglingInternalApiReferences(files: CodeFile[]): SanityIssue[] {
+  const patterns = collectApiRoutePatterns(files);
+  const issues: SanityIssue[] = [];
+  const seen = new Set<string>();
+
+  for (const file of files) {
+    if (!file.path.match(/\.(tsx?|jsx?)$/)) continue;
+    if (APP_ROUTE_HANDLER_RE.test(file.path.replace(/\\/g, "/"))) continue;
+    for (const line of file.content.split(/\r?\n/)) {
+      if (isCommentLine(line)) continue;
+      for (const match of line.matchAll(INTERNAL_API_LITERAL_RE)) {
+        const raw = match[1];
+        if (raw.includes("${")) continue;
+        const apiPath = normalizeApiPath(raw);
+        if (RUNTIME_PROVIDED_API_PATHS.has(apiPath)) continue;
+        const segments = apiPath.split("/").filter(Boolean);
+        if (patterns.some((pattern) => routePatternMatches(pattern, segments))) continue;
+        const key = `${file.path}|${apiPath}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        issues.push(
+          createSanityIssue(
+            file.path,
+            "warning",
+            `References the internal API path "${apiPath}" but no route handler serves it (expected app/${segments.join("/")}/route.ts). The call will 404 at runtime.`,
+            "non_blocking_quality_warning",
+            `dangling-api-route:${apiPath}`,
+          ),
+        );
+      }
+    }
+  }
+  return issues;
+}
+
 function collectImportedPackages(files: CodeFile[]): Map<string, Set<string>> {
   const imported = new Map<string, Set<string>>();
   for (const file of files) {
@@ -359,6 +461,9 @@ export function runProjectSanityChecks(
       }
     }
   }
+
+  // 3e. Components calling an internal API path with no route handler.
+  issues.push(...collectDanglingInternalApiReferences(files));
 
   // 3c. Duplicate module stems with different source extensions
   //     (e.g. `hooks/use-reduced-motion.ts` + `.tsx`). Bundler resolver
