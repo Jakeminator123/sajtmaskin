@@ -8,9 +8,10 @@ source: Kodverifiering 2026-07-27 mot master `3b419115` av fyra read-only-agente
 
 # Restlista: builder-UI, F3-scope och env-klarhet
 
-Varje rad här är **liten, oberoende och färdigutredd**. Ingen av dem kräver
-ägarbeslut utom R1:s öppna fråga. Ta en eller flera i samma PR — de delar inte
-kod och behöver ingen inbördes ordning.
+Varje rad här är **liten, oberoende och färdigutredd**, och R1:s tidigare öppna
+fråga är avgjord 2026-07-28 (diskret diagnostik-länk — se detaljen nedan). Inget
+i listan väntar längre på ägarbeslut. Ta en eller flera i samma PR — de delar
+inte kod och behöver ingen inbördes ordning.
 
 De kommer från fyra planer vars kärna är levererad. Kärnleveranserna finns som
 rader i [`../avklarat/README.md`](../avklarat/README.md); bara resterna lever
@@ -20,7 +21,7 @@ här.
 
 | # | Rest | Ägarfil (kodverifierad 2026-07-27) | Åtgärd |
 |---|---|---|---|
-| R1 | ReleaseGate-bannern lever kvar | `F3RequirementsSurface.tsx:41-59` (`F3StatusSurface`), monterad `BuilderShellContent.tsx:1096`; toast `useSendMessage.ts:545` | Ta bort banner-ytan, nedgradera toasten till tyst logg-rad |
+| R1 | ReleaseGate-bannern lever kvar | `F3RequirementsSurface.tsx:41-59` (`F3StatusSurface`), monterad `BuilderShellContent.tsx:1096`; toast `useSendMessage.ts:545` | Ta bort banner-ytan, ersätt med diskret länk till `VersionDiagnosticsDialog`, nedgradera toasten till tyst logg-rad (beslut 2026-07-28) |
 | R2 | `env.example` ser redigerbar ut | `FileExplorer.tsx:55-86` — ingen markering | Badge/rad som säger auto-genererad, icke-kanonisk värdekälla |
 | R3 | Ingen testlåsning av att `user`-värden slår mock i F2 | `env-local.ts:305-318` gör rätt, `env-local.test.ts` saknar fallet | Test: `selectedDossierEnvKeys` + användarsatt värde → mock-seed skippas |
 | R4 | Parallell env-editor kvar efter 412 | `F3RequirementsSurface.tsx:94-134,165-183` postar mot samma API som Byggblock | Deep-linka till Byggblock i stället för egen inline-editor |
@@ -46,9 +47,21 @@ riktig deploy-spärr fortfarande syns när användaren faktiskt försöker publi
 och rör inte `VersionDiagnosticsDialog` eller `error-log`-API — det är dit
 informationen flyttas.
 
-**Öppen fråga (ägaren):** noll UI-spår av en underkänd ReleaseGate, eller en
-diskret "se diagnostik"-länk utan den stora bannern? Originalplanens
-rekommendation var diskret länk.
+**BESLUTAT 2026-07-28: diskret "se diagnostik"-länk**, inte noll spår. (Beslut
+av agent på ägarens delegation — vänd det fritt, men skriv om detta stycke då.)
+
+*Varför inte noll spår:* en underkänd ReleaseGate är ett faktum om sajten, och
+att radera varje spår av den gör UI:t **osant** — användaren ser en yta som inte
+nämner att verifieringen sa nej, vilket är samma false-green-klass vi jagar i
+verdikt-lagret. Poängen med declutter-planen var att bannern var för **stor och
+larmig** för något som oftast inte kräver handling, inte att informationen var
+felaktig.
+
+*Så därför:* ta bort banner-ytan (`F3StatusSurface`), behåll en diskret länk in
+till `VersionDiagnosticsDialog` — samma ställe informationen redan finns — och
+nedgradera toasten till en tyst logg-rad. Readiness-blockern står kvar orörd, så
+en riktig deploy-spärr syns fortfarande när användaren faktiskt försöker
+publicera.
 
 ### R4 — varför editorn är en rest, inte en bugg
 

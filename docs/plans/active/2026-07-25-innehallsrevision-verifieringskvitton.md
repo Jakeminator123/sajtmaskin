@@ -21,8 +21,10 @@ server-repair (`targetVersionId`-rewrite) och av autofix. Det gör att en
 verdikt-läsare kan få ett svar som beskriver ett *tidigare* innehåll utan att
 kunna upptäcka det.
 
-Detta är **plan, ingen implementation.** Kräver ägarbeslut: additiv migration +
-ändrat statuskontrakt.
+Detta är **plan, ingen implementation** — men beslutspunkterna längst ned är
+avgjorda 2026-07-28, så steg 1–2 är arbetsbara: `files_revision` som
+DB-genererad hash (ingen skrivare rörs), inget ändrat läsarbeteende förrän
+frekvensen av känd mismatch är mätt.
 
 ## Vilka bugg-typer primitiven förklarar
 
@@ -100,15 +102,15 @@ verkningslösa eller skadliga, och en framtida agent ska inte bygga dem:
 Gemensamt: alla tre försöker kompensera för avsaknaden av en innehållsidentitet
 i ett enskilt lager. Det går inte — identiteten måste finnas i datan.
 
-## Skiss (för beslut, ej beslutad)
+## Skiss (besluten nedan gäller; detaljerna är fortfarande skiss)
 
 **Steg 1 — primitiven (additiv migration).**
-`engine_versions` får `files_revision text` (stabil hash av `files_json`) och
-`files_updated_at timestamptz`. Sätts av **varje** `files_json`-skrivare:
-`updateVersionFiles`, `saveRepairedFiles`, finalize-runnern. Additivt +
-`IF NOT EXISTS` enligt repots prod-migrationsmönster; gamla rader får `null`
-och ska behandlas som "okänd revision" → nuvarande fail-open-beteende
-(back-compat: template-import, rollback, legacy).
+`engine_versions` får `files_revision text GENERATED ALWAYS AS (md5(files_json))
+STORED`. **Ingen skrivare rörs** — se beslut 2 för varför app-sidig stämpling
+avvisades. En `STORED`-kolumn backfillas vid `ADD COLUMN`, så *alla* befintliga
+rader får en revision direkt; det finns därför ingen `null`-revision att
+back-compat:a på versionssidan (bara på verdiktsidan, tills steg 2 kört).
+`files_updated_at` ingår inte — se beslut 2.
 
 **Steg 2 — stämpla verdikten.**
 `generation_telemetry` får `files_revision` på raden gate:n faktiskt bedömde.
@@ -117,6 +119,8 @@ Preview-sessionen bär revisionen den bootat. Bus-events bär den vid emit.
 **Steg 3 — läsarna jämför.**
 `getLatestQualityGateResultForVersion` → hämta senaste rad **för aktuell
 revision**; ingen matchning = `null` (= "ingen gate körd för detta innehåll").
+Jämförelsen är symmetrisk: ett mismatchat `failed` kastas precis som ett
+mismatchat `passed` (beslut 1a).
 `recordPreviewRuntimeOutcomeForVersion` stämplar bara rader vars revision
 matchar det VM:en servar. `confirmedPreviewReadyVersionIds` nycklas på revision.
 `reconcileTerminalDbState` får revisionen och kan degradera ett terminalt
@@ -127,10 +131,11 @@ render-first-fönstret.
 
 | Risk | Hantering |
 |---|---|
-| Hash-kostnad på varje files-skrivning (~120 KB) | Billig jämfört med skrivningen själv; mät innan/efter |
-| `null`-revision på gamla rader tolkas som mismatch → blockerar legitima promotes | Explicit regel: `null` = okänd = nuvarande fail-open, aldrig blockerande |
-| Steg 3 gör tidigare fail-open-vägar strikta → nya false-red | Leverera steg 1–2 först (rent additivt, inget beteende ändras), steg 3 bakom flagga med telemetri på hur ofta mismatch inträffar |
-| Hash-instabilitet (nyckelordning i JSON) | Hasha normaliserad form, inte rå sträng; testlås determinismen |
+| Hash-kostnad på varje files-skrivning (~120 KB) | Billig jämfört med skrivningen själv; nu dessutom Postgres-sidig (`md5`) i stället för ett extra app-steg |
+| **Tabellomskrivning** vid `ADD COLUMN … GENERATED … STORED` (`ACCESS EXCLUSIVE`) | Mät `engine_versions`-storleken i **prod** före migrationen; är den för tung → `BEFORE INSERT OR UPDATE`-trigger i stället (också oglömbar, ingen omskrivning) |
+| Verdikt utan revision (rader skrivna före steg 2) tolkas som mismatch → blockerar legitima promotes | Explicit regel: revision saknas = okänd = nuvarande fail-open, aldrig blockerande. Bara **känd** mismatch blockerar (beslut 1b) |
+| Steg 3 gör tidigare fail-open-vägar strikta → nya false-red | Leverera steg 1–2 först (rent additivt, inget beteende ändras), steg 3 bakom flagga med telemetri på hur ofta känd mismatch inträffar |
+| Någon "förenar" `files_revision` (md5) med `hashFilesJson` (sha256) och antar lika värden | Beslut 2 säger uttryckligen att de är två mekanismer för två jobb; testlås gärna att repair-bindningen fortsatt använder sha256 |
 
 ## Verifiering
 
@@ -140,12 +145,98 @@ render-first-fönstret.
 inte längre besvarar en fråga om revision N+1 · docs-sync mot
 `docs/schemas/orchestration-signal-contract.md`.
 
-## Beslutspunkter (ägaren)
+## Beslutspunkter — BESLUTADE 2026-07-28
 
-1. Ska steg 3 ändra fail-open till fail-closed vid **mismatch**, eller bara vid
-   mismatch *plus* ett explicit blockerande verdikt? (Avgör om detta kan ge nya
-   false-red.)
-2. Ska `files_revision` vara en hash av innehållet eller en monoton räknare?
-   (Hash upptäcker även "ändrad och återställd"; räknare är billigare.)
-3. Levereras steg 1–2 separat från steg 3? (Rekommendation: ja — steg 1–2 är
-   rent additiva och kan mätas i prod innan något beteende ändras.)
+Besluten togs av agent på ägarens uttryckliga delegation ("kör på med ditt
+omdöme som beslutstagare", 2026-07-28). De är därmed arbetsbara, inte
+ratificerade av ägaren i detalj — vänd dem fritt, men skriv om detta stycke då.
+
+### 1. Ett verdikt med annan revision kastas — i båda riktningar
+
+Frågan var felställd, vilket Codex-review på PR #637 visade. Den blandade två
+saker som måste avgöras var för sig.
+
+**1a. Är ett mismatchat verdikt ett svar? Nej — beslut: det kastas, oavsett
+riktning.** Det är inte ett policyval utan definitionen av primitiven: ett
+verdikt beskriver revision N och kan inte uttala sig om N+1. Det gäller symmetriskt:
+
+- ett `passed` från N får inte grönmarkera N+1 (bugg-typ 1 och 2), och
+- ett `failed` från N får inte **blockera** ett korrigerat N+1 (bugg-typ 4).
+
+Mitt första beslut ("mismatch *plus* blockerande verdikt") bevarade av misstag
+bugg-typ 4 — precis den false-red planen listar som ett fel att stänga. Det är
+struket.
+
+**1b. Vad händer när inget giltigt verdikt finns?** Här är det verkliga valet,
+och det beror på om revisionen är *känd*:
+
+| Läge | Beslut | Varför |
+|---|---|---|
+| **Känd mismatch** — verdiktet bär en revision, den skiljer sig från innehållets | Versionen räknas som **overifierad/pending**; gaten måste köras om innan promote | Vi *vet* att innehållet bytts och att ingen gate sett det nya. Att ändå släppa igenom är en false-green med känd orsak, och det är just vad primitiven byggs för. |
+| **Okänd revision** — verdiktet saknar revision (rad skriven före steg 2) | Dagens **fail-open**, aldrig blockerande | Back-compat. Att tolka "vet inte" som "underkänt" gör varje gammal rad till en spärr. Ligger redan som explicit regel i risktabellen ovan. |
+
+Fail-closed gäller alltså **bara känd mismatch**, vilket är en liten och
+välmotiverad yta — inte en bred ny spärr (jfr `project-phase-priorities.mdc`).
+Steg 2 mäter ändå hur ofta känd mismatch inträffar, så steg 3 kan uppskatta
+sprängradien innan den slår på.
+
+### 2. `files_revision` är en innehållshash — **genererad av databasen**
+
+**Beslut: hash, och den beräknas i Postgres, inte i applikationen.**
+
+Hash slår räknare av samma skäl som förut: en räknare kräver att varje skrivare
+koordinerar ett inkrement, och en skrivare som missar det blir ett tyst fel —
+exakt den klass vi försöker stänga. En hash härleds ur innehållet självt och kan
+inte hamna ur fas. Den upptäcker dessutom "ändrad och återställd".
+
+**Men själva stämplingen får inte ligga i skrivarna.** Codex-review på #637
+visade att planens skrivar-inventering (`updateVersionFiles`,
+`saveRepairedFiles`, finalize-runnern) är ofullständig. Kodverifierat 2026-07-28
+skriver **minst fem** vägar `files_json` direkt:
+
+| Väg | Fil |
+|---|---|
+| `updateVersionFiles` | `chat-repository/version-files.ts` |
+| `saveRepairedFiles` | `chat-repository/repair.ts` |
+| **`acceptRepair`** (saknades i planen) | `chat-repository/repair.ts` — ersätter `files_json` **samtidigt som den promotar** |
+| `insertDraftVersionRow` / `createDraftVersion` | `chat-repository/versions.ts` |
+| `addAssistantMessageAndUpdateVersion` | `chat-repository/versions.ts` |
+
+Att inventera fem skrivare och lita på att nästa PR minns den sjätte är att
+bygga samma buggklass en nivå upp. **Därför: `files_revision` blir en
+`GENERATED ALWAYS AS (md5(files_json)) STORED`-kolumn.** Ingen skrivare ändras,
+och en framtida sjätte skrivare kan inte glömma något.
+
+Verifierat mot Postgres-katalogen (`pg_proc.provolatile`) 2026-07-28: `md5(text)`
+är `IMMUTABLE` och duger i en genererad kolumn, medan `convert_to(text,name)` är
+bara `STABLE` — så `sha256(convert_to(files_json,'UTF8'))` går **inte** att
+använda där. Valet står alltså mellan "kan inte glömmas" (md5, DB-genererad) och
+"samma värde som befintliga `hashFilesJson`" (sha256, app-sidan). Vi väljer det
+förra: md5 vs sha256 spelar ingen roll för en ändringsdetektor — detta är ingen
+säkerhetsgräns, och en kollision skulle ge en utebliven omkörning, inte
+korruption — medan "glömbar" är precis felet vi stänger.
+
+**Lämna `hashFilesJson` (sha256) i fred.** Den äger repair-revisionsbindningen
+(`baseFilesHash`) och fortsätter göra det. De är två mekanismer för två jobb;
+slå inte ihop dem och antag inte att värdena är lika.
+
+**`files_updated_at` stryks ur steg 1.** `now()` är volatil och kan inte
+genereras, så kolumnen skulle kräva antingen en trigger eller just den
+per-skrivar-disciplin vi nyss avskaffade — för noll funktionell vinst, eftersom
+revisionen alene svarar på frågan "gäller verdiktet det här innehållet?".
+Behöver någon en tidsstämpel för felsökning senare: lägg till en trigger då.
+
+**Preflight före migrationen:** `ADD COLUMN … GENERATED … STORED` skriver om
+tabellen och tar `ACCESS EXCLUSIVE`. `engine_versions` har stora
+`files_json`-rader, så mät tabellstorleken i **prod** först. Är omskrivningen
+för tung: använd en `BEFORE INSERT OR UPDATE`-trigger i stället — den är också
+oglömbar och kräver ingen omskrivning.
+
+### 3. Steg 1–2 levereras separat från steg 3
+
+**Beslut: ja.** Steg 1–2 är rent additiva: kolumner sätts och verdikt stämplas,
+men ingen läsare ändrar beteende. Det ger en period där mismatch-frekvensen kan
+mätas i prod utan risk, vilket är precis den mätning beslut 1 väntar på.
+
+*Konsekvens:* steg 3 ska inte påbörjas förrän steg 1–2 legat i prod tillräckligt
+länge för att svara på "hur ofta är revisionen mismatchad vid ett verdiktläsning?"

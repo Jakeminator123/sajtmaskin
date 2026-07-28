@@ -17,21 +17,25 @@ kopiera inte dess kö hit.
 | Spår | Plan | Läge | Nästa steg |
 | --- | --- | --- | --- |
 | Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | Brus + mallfix (C1, C2, D1/#578) samt **A1 + A2** levererade — 500-stormens självförstärkning är stängd | A3: mät `pg_stat_activity` innan poolstorleken ändras; sedan B (error-log-retry) + A4 (redeploy-paus) |
-| Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | Oimplementerad; absorberade stabiliseringsplanens PR 5 | Väntar på tre ägarbeslut (se nedan) innan additiv migration |
+| Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | Oimplementerad; absorberade stabiliseringsplanens PR 5. De tre besluten är tagna 2026-07-28 → **inte längre blockerad** | Steg 1–2: `files_revision` som DB-genererad `md5(files_json)` (ingen skrivare rörs; `files_updated_at` struken), stämpla verdikten. Steg 3 väntar på mätdata |
 | Dossier/UI-ownership (chatt-yta) | [`2026-07-13-dossier-ui-ownership-kontrakt.md`](2026-07-13-dossier-ui-ownership-kontrakt.md) | Helt öppen — inget adapt-eller-ersätt-kontrakt finns i kod | Kontrakt i dossier-injektionen + regressionstestet som låser incidentsekvensen |
-| Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | 10 små oberoende rader | Plocka fritt; R1 (ReleaseGate-bannern) har en öppen fråga till ägaren |
+| Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | 10 små oberoende rader, inga öppna frågor kvar | Plocka fritt; R1 har nu ett beslut (diskret diagnostik-länk) |
 | Backoffice (Byggstenar + stringens-städ) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | Fas A klar (#615); etapp 2–7 öppna | Baseline-backupen först — den är dataförlust på ospårade filer |
 
-## Väntar på ägarbeslut (kan inte kodas innan)
+## Ägarbeslut — avgjorda 2026-07-28
 
-| Fråga | Var |
-| --- | --- |
-| Ska en revisions-mismatch bli fail-closed direkt, eller bara vid mismatch **plus** ett blockerande verdikt? | [innehållsrevision § Beslutspunkter](2026-07-25-innehallsrevision-verifieringskvitton.md) |
-| Ska `files_revision` vara innehållshash eller monoton räknare? | samma |
-| Levereras steg 1–2 separat från steg 3? (planens rekommendation: ja) | samma |
-| Noll UI-spår av en underkänd ReleaseGate, eller en diskret "se diagnostik"-länk? | [restlistan R1](2026-07-27-restlista-builder-f3-env.md) |
-| Fas D: egna workload-poster i `config/ai_models/manifest.json` — godkänns förslaget? | [Byggstenar Fas D](2026-07-24-backoffice-byggstenar/aktiviteter/04-fas-d-ai-modellval.md) |
-| Vad ska tokenmätningen användas till? Per-token-kredit i stället för fast pris per åtgärd? Ska Sajtagentens (OpenClaw) förbrukning rapporteras tillbaka, och D-ID:s credits läsas före/efter i appen? Ska sekundära ytor (wizard, audit, analyze, transcribe, inspector) instrumenteras? | steg 1–2 levererade (#609/#613); mätningens gränser dokumenteras i [`scripts/observability/README.md`](../../../scripts/observability/README.md) |
+Kön "väntar på ägarbeslut" är tom. Besluten togs av agent på ägarens uttryckliga
+delegation och står i sin respektive plan med motivering — de är arbetsbara, inte
+detaljratificerade. Vänd ett beslut fritt, men gör det där det står, inte här.
+
+| Fråga | Beslut | Var motiveringen står |
+| --- | --- | --- |
+| Fail-closed vid revisions-mismatch? | Mismatchat verdikt **kastas i båda riktningar**; bara **känd** mismatch blockerar promote, saknad revision är fail-open | [innehållsrevision § Beslutspunkter](2026-07-25-innehallsrevision-verifieringskvitton.md) |
+| `files_revision`: hash eller räknare? | **Hash, genererad av Postgres** (`md5(files_json)`) — ingen skrivare kan glömma den | samma |
+| Steg 1–2 separat från steg 3? | **Ja** — additivt först, beteende sen | samma |
+| ReleaseGate-bannern: noll spår eller diskret länk? | **Diskret diagnostik-länk** (noll spår gör UI:t osant) | [restlistan R1](2026-07-27-restlista-builder-f3-env.md) |
+| Fas D: egna workload-poster i manifestet? | **Godkänt** — tre separata poster, ingen sammanslagning | [Byggstenar Fas D](2026-07-24-backoffice-byggstenar/aktiviteter/04-fas-d-ai-modellval.md) |
+| Vad ska tokenmätningen användas till? | Internt kostnadsunderlag, **inte** debitering: diamonds förblir fast pris per åtgärd; sekundära ytor mäts när de börjar debitera; OpenClaw/D-ID redovisas separat | [`scripts/observability/README.md`](../../../scripts/observability/README.md) § Vad mätningen är till för |
 
 ## Andra aktiva sanningar
 
