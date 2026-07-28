@@ -47,7 +47,7 @@ faktiskt påverkar**, så ägaren vågar inte ändra något.
 | # | Etapp | Aktivitetsdokument (ta ett i taget) | Status |
 |---|---|---|---|
 | 1 | **Fas A** — navigation, hub, språk, spara-läge | *(sammanfattad nedan)* | **Klar 2026-07-24**, PR #615 |
-| 2 | **Baseline-backup** — dataförlust, egen liten PR | [`aktiviteter/01-baseline-backup.md`](aktiviteter/01-baseline-backup.md) | Ej påbörjad — **ta denna först** |
+| 2 | **Baseline-backup** — dataförlust, egen liten PR | [`aktiviteter/01-baseline-backup.md`](aktiviteter/01-baseline-backup.md) | **Klar 2026-07-28** — snapshot före restoren (se rättelsen i aktivitetsfilen) |
 | 3 | **Fas B** — trygg create/edit för scaffold + variant | [`aktiviteter/02-fas-b-scaffold-variant.md`](aktiviteter/02-fas-b-scaffold-variant.md) | Ej påbörjad |
 | 4 | **Fas C** — Byggblock i samma språk + skapa från grunden | [`aktiviteter/03-fas-c-byggblock.md`](aktiviteter/03-fas-c-byggblock.md) | Ej påbörjad |
 | 5–6 | **Fas D** — AI-modellval via manifestet | [`aktiviteter/04-fas-d-ai-modellval.md`](aktiviteter/04-fas-d-ai-modellval.md) | Förslaget **godkänt 2026-07-28** (tre separata workload-poster) — kör efter Fas C |

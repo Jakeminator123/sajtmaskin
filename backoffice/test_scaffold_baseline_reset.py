@@ -110,6 +110,94 @@ class BaselineResetTests(unittest.TestCase):
 
         self.assertTrue(keep.exists(), "restore failed → nothing may be deleted")
 
+    def _backups_for(self, rel: str) -> list[Path]:
+        bdir = self.repo / "data" / "backoffice" / "backups" / "files" / rel
+        return sorted(bdir.glob("*.bak")) if bdir.is_dir() else []
+
+    def test_backup_taken_before_delete(self) -> None:
+        """Both doomed kinds get a snapshot with their pre-reset content.
+
+        The untracked file is the one that existed nowhere else, which is what
+        made the reset unrecoverable. The staged-but-uncommitted add matters too
+        and is the subtle one: `git restore --staged --worktree` deletes it
+        itself, before the unlink loop ever sees it — so the snapshot has to be
+        taken before the restore, not merely before the unlink.
+        """
+        untracked = self.scaffolds / "untracked.txt"
+        untracked.write_text("scratch\n", encoding="utf-8")
+        staged = self.scaffolds / "staged.txt"
+        staged.write_text("staged\n", encoding="utf-8")
+        _git(self.repo, "add", "src/lib/gen/scaffolds/staged.txt")
+
+        sl._factory_reset_to_baseline(self.ctx)
+
+        for rel, content in (
+            ("src/lib/gen/scaffolds/untracked.txt", "scratch\n"),
+            ("src/lib/gen/scaffolds/staged.txt", "staged\n"),
+        ):
+            backups = self._backups_for(rel)
+            self.assertEqual(len(backups), 1, f"expected one snapshot of {rel}, got {backups}")
+            self.assertEqual(
+                backups[0].read_text(encoding="utf-8"),
+                content,
+                f"snapshot of {rel} must hold the pre-delete content",
+            )
+
+        self.assertFalse(untracked.exists(), "file should still be gone from the worktree")
+        self.assertFalse(staged.exists(), "file should still be gone from the worktree")
+
+    def test_backup_failure_aborts_without_deleting_or_restoring(self) -> None:
+        """Fail-closed: no snapshot → nothing happens at all, restore included."""
+        modified = self.scaffolds / "base.txt"
+        modified.write_text("v2-experiment\n", encoding="utf-8")
+        untracked = self.scaffolds / "untracked.txt"
+        untracked.write_text("scratch\n", encoding="utf-8")
+        staged = self.scaffolds / "staged.txt"
+        staged.write_text("staged\n", encoding="utf-8")
+        _git(self.repo, "add", "src/lib/gen/scaffolds/staged.txt")
+
+        with mock.patch.object(sl, "backup_file", return_value=None):
+            with self.assertRaises(RuntimeError):
+                sl._factory_reset_to_baseline(self.ctx)
+
+        self.assertTrue(untracked.exists(), "backup failed → nothing may be deleted")
+        self.assertTrue(staged.exists(), "backup failed → nothing may be deleted")
+        self.assertEqual(
+            modified.read_text(encoding="utf-8"),
+            "v2-experiment\n",
+            "backup failed → the restore must not have run either",
+        )
+
+    def test_a_later_backup_failure_leaves_earlier_files_alone(self) -> None:
+        """Why the snapshot pass is separate from the delete pass.
+
+        A per-file backup-then-delete loop would already have destroyed the
+        first file when the second one's snapshot fails. The whole surface must
+        still be intact instead.
+        """
+        first = self.scaffolds / "aaa-first.txt"
+        first.write_text("first\n", encoding="utf-8")
+        second = self.scaffolds / "zzz-second.txt"
+        second.write_text("second\n", encoding="utf-8")
+
+        real_backup = sl.backup_file
+        calls: list[str] = []
+
+        def flaky_backup(path, repo_root=None):  # noqa: ANN001
+            calls.append(Path(path).name)
+            # Fail on the LAST file, after the first one was already snapshotted.
+            if Path(path).name == "zzz-second.txt":
+                return None
+            return real_backup(path, repo_root)
+
+        with mock.patch.object(sl, "backup_file", side_effect=flaky_backup):
+            with self.assertRaises(RuntimeError):
+                sl._factory_reset_to_baseline(self.ctx)
+
+        self.assertIn("aaa-first.txt", calls)
+        self.assertTrue(first.exists(), "an earlier file must not be deleted already")
+        self.assertTrue(second.exists(), "the failing file must not be deleted")
+
 
 if __name__ == "__main__":
     unittest.main()

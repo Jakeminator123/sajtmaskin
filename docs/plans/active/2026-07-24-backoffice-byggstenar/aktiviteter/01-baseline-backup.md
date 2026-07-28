@@ -6,12 +6,32 @@ topic: Backoffice — fabriksåterställningen säkerhetskopierar innan den rade
 source: Kodläsning backoffice/pages/scaffold_lifecycle.py + Codex/coach-granskning av PR #615
 ---
 
-# Etapp 2 — baseline-backup före radering (egen liten PR)
+# Etapp 2 — baseline-backup före radering (LEVERERAD 2026-07-28)
 
-**Ta denna först.** Den är oberoende av UI-arbetet i Fas B/C och ska levereras som
-en **egen, liten PR** — ett skyddsnät ska inte vänta på att en UI-omläggning blir klar.
+Levererad som egen liten PR, oberoende av UI-arbetet i Fas B/C.
 
 Master-plan: [`../00-master-plan.md`](../00-master-plan.md).
+
+## Rättelse: snapshoten måste tas före `git restore`, inte före `unlink`
+
+Planen nedan utgick från att båda filkategorierna raderas av unlink-loopen. Det
+stämmer inte för `added_since_tag`: **`git restore --staged --worktree` raderar
+själv spårade sökvägar som inte finns i taggen**, så en staged-men-ocommittad
+fil är redan borta när loopen körs — dess innehåll finns då bara som en
+dangling blob. En backup "före unlink" hade alltså missat just den kategorin
+tyst, och testet nedan fann det direkt (0 snapshots av `staged.txt`).
+
+Snapshot-passet ligger därför **först av allt**, före restoren. Det bryter inte
+mot "ändra inte ordningen restore → radera": en backup är ingen radering, och
+restoren körs fortfarande före varje unlink. Fail-closed blir dessutom starkare
+än planerat — en misslyckad backup avbryter innan *någonting* hänt, inte bara
+innan raderingen.
+
+**Kvar utanför scope (medvetet):** ocommittade *ändringar* i spårade filer, som
+restoren också återställer. De är vad en fabriksåterställning är till för och
+UI:t varnar för dem; bara raderingarna var oåterkalleliga. Vill man täcka även
+dem är det ett eget beslut — det skulle betyda en snapshot per ändrad fil vid
+varje återställning.
 
 ## Problem (verifierat i master)
 
@@ -73,11 +93,13 @@ oåterkallelig. Det är den enda riktiga dataförlusten i backoffice idag.
 
 Befintliga tre tester ska passera oförändrade. Lägg till:
 
+Levererat (alla sex gröna, `npm run backoffice:test` → 129 OK):
+
 | Test | Assertion |
 |---|---|
-| `test_backup_taken_before_delete` | Efter `_factory_reset_to_baseline` finns `.bak` under `data/backoffice/backups/files/<rel>/` för **både** `untracked.txt` och `staged.txt`, med originalinnehållet — och filerna är borta från arbetsträdet |
-| `test_backup_failure_aborts_without_deleting` | `mock.patch.object(sl, "backup_file", return_value=None)` → `RuntimeError`, **ingen** fil raderad |
-| (valfritt) `test_backup_runs_before_unlink` | Ordningsbevis: en `side_effect` som loggar anropsordningen, eller att backupen finns kvar även när `unlink` mockas att kasta |
+| `test_backup_taken_before_delete` | `.bak` under `data/backoffice/backups/files/<rel>/` för **både** `untracked.txt` och `staged.txt` med originalinnehållet, och filerna borta från arbetsträdet. `staged.txt` är fallet som fångade restore-ordningen |
+| `test_backup_failure_aborts_without_deleting_or_restoring` | `backup_file → None` ger `RuntimeError`, ingen fil raderad **och** den modifierade filen är oåterställd — beviset att avbrottet sker före restoren |
+| `test_a_later_backup_failure_leaves_earlier_files_alone` | En backup som failar på sista filen lämnar den första orörd — visar varför snapshot-passet är skilt från radera-passet |
 
 Testerna kallar funktionen med `ctx = SimpleNamespace(repo_root=tmp)` — **kräv inga
 andra `ctx`-fält** i den nya koden.
