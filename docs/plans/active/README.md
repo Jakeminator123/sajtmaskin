@@ -30,8 +30,8 @@ detaljratificerade. Vänd ett beslut fritt, men gör det där det står, inte h�
 
 | Fråga | Beslut | Var motiveringen står |
 | --- | --- | --- |
-| Fail-closed vid revisions-mismatch? | Bara mismatch **plus** blockerande verdikt — mät mismatch-frekvensen först | [innehållsrevision § Beslutspunkter](2026-07-25-innehallsrevision-verifieringskvitton.md) |
-| `files_revision`: hash eller räknare? | **Innehållshash** av normaliserad form | samma |
+| Fail-closed vid revisions-mismatch? | Mismatchat verdikt **kastas i båda riktningar**; bara **känd** mismatch blockerar promote, saknad revision är fail-open | [innehållsrevision § Beslutspunkter](2026-07-25-innehallsrevision-verifieringskvitton.md) |
+| `files_revision`: hash eller räknare? | **Hash, genererad av Postgres** (`md5(files_json)`) — ingen skrivare kan glömma den | samma |
 | Steg 1–2 separat från steg 3? | **Ja** — additivt först, beteende sen | samma |
 | ReleaseGate-bannern: noll spår eller diskret länk? | **Diskret diagnostik-länk** (noll spår gör UI:t osant) | [restlistan R1](2026-07-27-restlista-builder-f3-env.md) |
 | Fas D: egna workload-poster i manifestet? | **Godkänt** — tre separata poster, ingen sammanslagning | [Byggstenar Fas D](2026-07-24-backoffice-byggstenar/aktiviteter/04-fas-d-ai-modellval.md) |
