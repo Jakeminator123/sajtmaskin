@@ -19,6 +19,7 @@
         "target",
         "is_prod_like",
         "connection",
+        "connections",
         "summary",
         "tables",
         "missing_indexes",
@@ -44,6 +45,7 @@
           "description": "true om aktuell DB-target matchar `.env.vercel.production.pulled` — UI:t markerar med ⚠️."
         },
         "connection": { "$ref": "#/definitions/connectionStatus" },
+        "connections": { "$ref": "#/definitions/connectionStats" },
         "summary": { "$ref": "#/definitions/summary" },
         "tables": {
           "type": "array",
@@ -119,6 +121,39 @@
         "ok": { "type": "boolean" },
         "latency_ms": { "type": "number", "minimum": 0 },
         "error": { "type": ["string", "null"] }
+      }
+    },
+    "connectionStats": {
+      "description": "Serversidans anslutningsutrymme ur pg_stat_activity — hälften av A3-mätningen inför ett `POSTGRES_POOL_MAX`-beslut (den andra hälften, appens egen poolmättnad, syns bara i appens loggar via src/lib/db/pool-stats.ts). Best-effort: `ok: false` med `error` fäller aldrig rapportens `ok`, så båda grenarna hör till en giltig fullReport.",
+      "type": "object",
+      "required": ["ok", "latency_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "boolean" },
+        "error": { "type": ["string", "null"] },
+        "latency_ms": { "type": "number", "minimum": 0 },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Backends på HELA instansen, inte bara vår databas: `max_connections` är ett servertak, så andra databaser och bakgrundsprocesser äter av samma budget."
+        },
+        "this_database": { "type": "integer", "minimum": 0 },
+        "active": { "type": "integer", "minimum": 0 },
+        "idle": { "type": "integer", "minimum": 0 },
+        "state_hidden": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Sessioner vars `state` är NULL för oss (rollen saknar `pg_read_all_stats`). Redovisas separat så `active`/`idle` inte läses som hela sanningen."
+        },
+        "max_connections": { "type": "integer", "minimum": 0 },
+        "superuser_reserved": { "type": "integer", "minimum": 0 },
+        "usable_connections": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "`max_connections` minus reserverade slots — det appen faktiskt kan använda."
+        },
+        "headroom": { "type": ["integer", "null"] },
+        "used_pct": { "type": ["number", "null"] }
       }
     },
     "summary": {

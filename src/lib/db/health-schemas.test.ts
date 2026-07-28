@@ -50,6 +50,21 @@ describe("db-health-check-report.schema.json", () => {
       target: "postgresql://postgres.x:***@host.example.com:5432/postgres",
       is_prod_like: false,
       connection: { ok: true, latency_ms: 475, error: null },
+      connections: {
+        ok: true,
+        error: null,
+        latency_ms: 16,
+        total: 13,
+        this_database: 7,
+        active: 1,
+        idle: 4,
+        state_hidden: 8,
+        max_connections: 60,
+        superuser_reserved: 3,
+        usable_connections: 57,
+        headroom: 44,
+        used_pct: 22.8,
+      },
       summary: {
         total_tables_expected: 31,
         total_tables_present: 31,
@@ -115,6 +130,7 @@ describe("db-health-check-report.schema.json", () => {
       target: "postgresql://postgres.x:***@host.example.com:5432/postgres",
       is_prod_like: false,
       connection: { ok: true, latency_ms: 200, error: null },
+      connections: { ok: true, error: null, latency_ms: 12, total: 4, this_database: 4, active: 1, idle: 3, state_hidden: 0, max_connections: 100, superuser_reserved: 3, usable_connections: 97, headroom: 93, used_pct: 4.1 },
       summary: {
         total_tables_expected: 31,
         total_tables_present: 30,
@@ -130,6 +146,62 @@ describe("db-health-check-report.schema.json", () => {
     };
     const ok = validateDbHealth(fixture);
     expect(ok, fmt(validateDbHealth.errors)).toBe(true);
+  });
+
+  // `connections` är best-effort: en misslyckad pg_stat_activity-probe får inte
+  // fälla rapporten, så den grenen måste också vara en giltig fullReport.
+  // Annars vore diagnostiken en ny anledning till rött.
+  it("validerar full-rapport där connections-proben failade", () => {
+    const fixture = {
+      ok: true,
+      timestamp: "2026-07-28T10:00:00.000Z",
+      target: "postgresql://postgres.x:***@host.example.com:5432/postgres",
+      is_prod_like: false,
+      connection: { ok: true, latency_ms: 200, error: null },
+      connections: {
+        ok: false,
+        error: "permission denied for view pg_stat_activity",
+        latency_ms: 8,
+      },
+      summary: {
+        total_tables_expected: 1,
+        total_tables_present: 1,
+        total_tables_missing: 0,
+        total_table_probe_failures: 0,
+        total_rows_estimate: 0,
+        total_indexes_missing: 0,
+        total_indexes_extra: 0,
+      },
+      tables: [{ name: "engine_messages", exists: false }],
+      missing_indexes: [],
+      extra_indexes: [],
+    };
+    const ok = validateDbHealth(fixture);
+    expect(ok, fmt(validateDbHealth.errors)).toBe(true);
+  });
+
+  it("avvisar connections med okänt fält (additionalProperties strict)", () => {
+    const fixture = {
+      ok: true,
+      timestamp: "2026-07-28T10:00:00.000Z",
+      target: "x",
+      is_prod_like: false,
+      connection: { ok: true, latency_ms: 1, error: null },
+      connections: { ok: true, latency_ms: 1, total: 1, surprise_field: 1 },
+      summary: {
+        total_tables_expected: 0,
+        total_tables_present: 0,
+        total_tables_missing: 0,
+        total_table_probe_failures: 0,
+        total_rows_estimate: 0,
+        total_indexes_missing: 0,
+        total_indexes_extra: 0,
+      },
+      tables: [],
+      missing_indexes: [],
+      extra_indexes: [],
+    };
+    expect(validateDbHealth(fixture)).toBe(false);
   });
 
   it("validerar fatal-error-payload (med stack)", () => {
@@ -149,6 +221,9 @@ describe("db-health-check-report.schema.json", () => {
       target: "x",
       is_prod_like: false,
       connection: { ok: true, latency_ms: 1, error: null },
+      // Giltig, så testet fortsätter falla på skräpfälten nedan och inte på ett
+      // saknat obligatoriskt fält.
+      connections: { ok: true, latency_ms: 1, total: 1 },
       summary: {
         total_tables_expected: 1,
         total_tables_present: 1,
