@@ -20,7 +20,7 @@ kopiera inte dess kö hit.
 | Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | Oimplementerad; absorberade stabiliseringsplanens PR 5. De tre besluten är tagna 2026-07-28 → **inte längre blockerad** | Steg 1–2: `files_revision` som DB-genererad `md5(files_json)` (ingen skrivare rörs; `files_updated_at` struken), stämpla verdikten. Steg 3 väntar på mätdata |
 | Dossier/UI-ownership (chatt-yta) | [`2026-07-13-dossier-ui-ownership-kontrakt.md`](2026-07-13-dossier-ui-ownership-kontrakt.md) | Helt öppen — inget adapt-eller-ersätt-kontrakt finns i kod | Kontrakt i dossier-injektionen + regressionstestet som låser incidentsekvensen |
 | Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | 10 små oberoende rader, inga öppna frågor kvar | Plocka fritt; R1 har nu ett beslut (diskret diagnostik-länk) |
-| Backoffice (Byggstenar + stringens-städ) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | Fas A klar (#615); etapp 2–7 öppna | Baseline-backupen först — den är dataförlust på ospårade filer |
+| Backoffice (Byggstenar + stringens-städ) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | Fas A klar (#615), baseline-backupen klar 2026-07-28 — dataförlustrisken är stängd; etapp 3–7 öppna | Fas B (trygg create/edit för scaffold + variant) |
 
 ## Ägarbeslut — avgjorda 2026-07-28
 

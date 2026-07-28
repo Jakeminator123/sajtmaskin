@@ -9,7 +9,8 @@ source: Kodläsning backoffice/pages/scaffold_lifecycle.py + scaffolds.py + äga
 # Etapp 3 — Fas B: trygg create/edit för scaffold + variant
 
 Master-plan: [`../00-master-plan.md`](../00-master-plan.md).
-**Förutsätter** att etapp 2 ([`01-baseline-backup.md`](01-baseline-backup.md)) är mergad.
+Etapp 2 (baseline-backupen) är mergad 2026-07-28 — sammanfattad i master-planen —
+så förutsättningen är uppfylld.
 Stanna och visa ägaren när fasen är klar — Fas C startar först efter godkännande.
 
 ## Mål
