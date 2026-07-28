@@ -1,9 +1,14 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { F3RequirementsSurface } from "./F3RequirementsSurface";
+import { F3RequirementsSurface, F3StatusSurface } from "./F3RequirementsSurface";
+
+vi.mock("@/lib/builder/project-env-events", () => ({
+  openDossiersPanel: vi.fn(),
+}));
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 describe("F3RequirementsSurface", () => {
@@ -24,8 +29,6 @@ describe("F3RequirementsSurface", () => {
     render(
       <F3RequirementsSurface
         projectId="project_1"
-        chatId="chat_1"
-        versionId="ver_design"
         missingByIntegration={missingByIntegration}
         onRetry={vi.fn()}
       />,
@@ -34,42 +37,31 @@ describe("F3RequirementsSurface", () => {
     expect(screen.getByRole("region", { name: /krav för integrationsbygge/i })).toBeTruthy();
     expect(screen.getByText("Stripe")).toBeTruthy();
     expect(screen.getByText("Resend")).toBeTruthy();
-    expect(screen.getByLabelText("STRIPE_SECRET_KEY")).toBeTruthy();
-    expect(screen.getByLabelText("RESEND_API_KEY")).toBeTruthy();
+    expect(screen.getByText("STRIPE_SECRET_KEY")).toBeTruthy();
+    expect(screen.getByText("RESEND_API_KEY")).toBeTruthy();
     expect(screen.queryByText("EXTRA_KEY")).toBeNull();
   });
 
-  it("saves only entered server-provided keys through the project env-vars API", async () => {
+  it("deep-links to Byggblock instead of running a second env editor (R4)", async () => {
+    const { openDossiersPanel } = await import("@/lib/builder/project-env-events");
     const fetchMock = vi.fn(async () => Response.json({ success: true }));
     vi.stubGlobal("fetch", fetchMock);
 
     render(
       <F3RequirementsSurface
         projectId="project_1"
-        chatId="chat_1"
-        versionId="ver_design"
         missingByIntegration={missingByIntegration}
         onRetry={vi.fn()}
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("STRIPE_SECRET_KEY"), {
-      target: { value: "secret-value" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /spara 1 nyckel/i }));
+    // No inputs of its own — Byggblock owns env entry.
+    expect(screen.queryByLabelText("STRIPE_SECRET_KEY")).toBeNull();
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/v0/projects/project_1/env-vars",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({
-            vars: [{ key: "STRIPE_SECRET_KEY", value: "secret-value", sensitive: true }],
-            upsert: true,
-          }),
-        }),
-      );
-    });
+    fireEvent.click(screen.getByRole("button", { name: /öppna byggblock/i }));
+
+    expect(openDossiersPanel).toHaveBeenCalledWith(["STRIPE_SECRET_KEY", "RESEND_API_KEY"]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("offers an explicit retry without closing the persistent surface", () => {
@@ -77,8 +69,6 @@ describe("F3RequirementsSurface", () => {
     render(
       <F3RequirementsSurface
         projectId="project_1"
-        chatId="chat_1"
-        versionId="ver_design"
         missingByIntegration={missingByIntegration}
         onRetry={onRetry}
       />,
@@ -88,5 +78,32 @@ describe("F3RequirementsSurface", () => {
 
     expect(onRetry).toHaveBeenCalledOnce();
     expect(screen.getByRole("region", { name: /krav för integrationsbygge/i })).toBeTruthy();
+  });
+});
+
+describe("F3StatusSurface", () => {
+  const failedStatus = {
+    tone: "error" as const,
+    title: "ReleaseGate behöver åtgärdas",
+    description: "Underkända kontroller: lint.",
+  };
+
+  it("keeps the verdict visible but as a discrete line with a diagnostics link (R1)", () => {
+    render(<F3StatusSurface status={failedStatus} chatId="chat_1" versionId="ver_1" />);
+
+    const row = screen.getByRole("status", { name: /status för integrationsbygge/i });
+    expect(row.textContent).toContain("ReleaseGate behöver åtgärdas");
+    // No banner box — the row carries no alert border/background.
+    expect(row.className).not.toContain("border");
+    expect(screen.getByRole("button", { name: /visa diagnostik/i })).toBeTruthy();
+  });
+
+  it("omits the diagnostics link when there is no version to diagnose", () => {
+    render(<F3StatusSurface status={failedStatus} chatId="chat_1" versionId={null} />);
+
+    expect(screen.queryByRole("button", { name: /visa diagnostik/i })).toBeNull();
+    expect(
+      screen.getByRole("status", { name: /status för integrationsbygge/i }).textContent,
+    ).toContain("ReleaseGate behöver åtgärdas");
   });
 });

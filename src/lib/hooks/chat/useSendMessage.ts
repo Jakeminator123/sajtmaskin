@@ -542,7 +542,16 @@ export function useSendMessage(
                   : failed
                     ? `ReleaseGate underkände: ${failed}.`
                     : "ReleaseGate blev inte godkänd. Se versionsdiagnostiken.";
-                toast.warning("ReleaseGate behöver åtgärdas.");
+                // Restlistan R1: inget toast-larm för ett underkänt ReleaseGate.
+                // Verdiktet står i chattmeddelandet ovan och detaljerna i
+                // versionsdiagnostiken — en toast ovanpå det är bara brus.
+                debugLog("engine", "ReleaseGate underkänd", {
+                  chatId,
+                  versionId: release.versionId,
+                  failedChecks: release.failedChecks,
+                  promoteError: release.promoteError ?? null,
+                  retryable: release.retryable,
+                });
               }
             } else if (release.kind === "missing_env") {
               dispatchF3Requirements({

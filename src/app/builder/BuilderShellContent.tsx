@@ -1085,15 +1085,20 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           {visibleF3Requirements ? (
             <F3RequirementsSurface
               projectId={visibleF3Requirements.projectId ?? vm.appProjectId}
-              chatId={vm.chatId}
-              versionId={visibleF3Requirements.parentVersionId}
               missingByIntegration={visibleF3Requirements.missingByIntegration}
               onRetry={() =>
                 requestF3Rebuild(visibleF3Requirements.parentVersionId)
               }
             />
           ) : null}
-          {f3Status ? <F3StatusSurface status={f3Status} /> : null}
+          {f3Status ? (
+            <F3StatusSurface
+              status={f3Status}
+              chatId={vm.chatId}
+              versionId={vm.activeVersionId}
+              lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+            />
+          ) : null}
           {/* Ägarbeslut 2026-07-22: ProjectEnvVarsPanel är borttagen — Byggblock-
               popovern (PreviewPanelDossiers) är den enda env-ytan i både F2 och F3. */}
           <ThinkingOverlay isVisible={vm.isAnyStreaming} />
