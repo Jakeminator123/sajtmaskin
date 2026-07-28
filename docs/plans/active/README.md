@@ -19,7 +19,7 @@ kopiera inte dess kö hit.
 | Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | C1, C2, D1/#578, **A1 + A2**, **A3:s mätning** och **B** levererade — 500-stormens självförstärkning är stängd och poolmättnaden är mätbar | Läs pool-siffrorna vid nästa pool-händelse i prod och vrid först då `POSTGRES_POOL_MAX`; sedan A4 (redeploy-paus) |
 | Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | Oimplementerad; absorberade stabiliseringsplanens PR 5. De tre besluten är tagna 2026-07-28 → **inte längre blockerad** | Steg 1–2: `files_revision` som DB-genererad `md5(files_json)` (ingen skrivare rörs; `files_updated_at` struken), stämpla verdikten. Steg 3 väntar på mätdata |
 | Dossier/UI-ownership (chatt-yta) | [`2026-07-13-dossier-ui-ownership-kontrakt.md`](2026-07-13-dossier-ui-ownership-kontrakt.md) | Helt öppen — inget adapt-eller-ersätt-kontrakt finns i kod | Kontrakt i dossier-injektionen + regressionstestet som låser incidentsekvensen |
-| Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | 10 små oberoende rader, inga öppna frågor kvar | Plocka fritt; R1 har nu ett beslut (diskret diagnostik-länk) |
+| Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | R1–R4 + R6 levererade 2026-07-28 (#639); fem rader kvar | Plocka fritt bland R7–R10. R5 är blockerad tills verbatim-exportvägen trådar env-scope |
 | Backoffice (Byggstenar + stringens-städ) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | Fas A klar (#615); etapp 2–7 öppna | Baseline-backupen först — den är dataförlust på ospårade filer |
 
 ## Ägarbeslut — avgjorda 2026-07-28
@@ -33,7 +33,7 @@ detaljratificerade. Vänd ett beslut fritt, men gör det där det står, inte h�
 | Fail-closed vid revisions-mismatch? | Mismatchat verdikt **kastas i båda riktningar**; bara **känd** mismatch blockerar promote, saknad revision är fail-open | [innehållsrevision § Beslutspunkter](2026-07-25-innehallsrevision-verifieringskvitton.md) |
 | `files_revision`: hash eller räknare? | **Hash, genererad av Postgres** (`md5(files_json)`) — ingen skrivare kan glömma den | samma |
 | Steg 1–2 separat från steg 3? | **Ja** — additivt först, beteende sen | samma |
-| ReleaseGate-bannern: noll spår eller diskret länk? | **Diskret diagnostik-länk** (noll spår gör UI:t osant) | [restlistan R1](2026-07-27-restlista-builder-f3-env.md) |
+| ReleaseGate-bannern: noll spår eller diskret länk? | **Diskret diagnostik-länk** (noll spår gör UI:t osant) — implementerad 2026-07-28 (#639) | [`../avklarat/README.md`](../avklarat/README.md) § Restlistan |
 | Fas D: egna workload-poster i manifestet? | **Godkänt** — tre separata poster, ingen sammanslagning | [Byggstenar Fas D](2026-07-24-backoffice-byggstenar/aktiviteter/04-fas-d-ai-modellval.md) |
 | Vad ska tokenmätningen användas till? | Internt kostnadsunderlag, **inte** debitering: diamonds förblir fast pris per åtgärd; sekundära ytor mäts när de börjar debitera; OpenClaw/D-ID redovisas separat | [`scripts/observability/README.md`](../../../scripts/observability/README.md) § Vad mätningen är till för |
 
