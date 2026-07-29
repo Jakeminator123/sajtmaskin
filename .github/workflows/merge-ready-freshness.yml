@@ -60,8 +60,6 @@ jobs:
           # Tolererar em-dash, en-dash, bindestreck eller inget skiljetecken —
           # en giltig triage ska inte tappa labeln på typografi.
           SIGNOFF_PATTERN: 'merge:ready[[:space:]]*(—|–|-|:)?[[:space:]]*sha:'
-          # Klockskev mellan sign-off-författaren och runnern.
-          CLOCK_SKEW_SECONDS: "120"
         run: |
           set -euo pipefail
 
@@ -112,11 +110,16 @@ jobs:
               now_epoch=$(date -u +%s)
               if [ -n "$signoff_sha" ] && [ "$signoff_sha" != "$HEAD_SHA" ]; then
                 REASON="sign-off sha (${signoff_sha:0:7}) != head (${HEAD_SHA:0:7})"
-              elif [ "$signoff_epoch" -gt "$((now_epoch + CLOCK_SKEW_SECONDS))" ]; then
-                # Utan taket räcker ett framtidsdaterat `at:` för att göra varje
-                # kommande bot-fynd "inte nyare än sign-off" — labeln skulle
-                # överleva för alltid. Fältet är författarstyrd fritext.
-                REASON="sign-off at: (${signoff_at}) ligger i framtiden — ogiltig"
+              elif [ "$signoff_epoch" -gt "$now_epoch" ]; then
+                # Ingen skev-tolerans, med flit. Workflowen kör alltid EFTER
+                # både sign-offen och händelsen, så ett ärligt `at:` kan aldrig
+                # ligga framför runnerns klocka. Varje sekund tolerans blir
+                # däremot ett lika långt blindfönster: ett bot-fynd som landar
+                # inom det jämförs mot en sign-off-tid som ännu inte inträffat
+                # och räknas som äldre, så labeln överlever ett fynd den skulle
+                # ha rivits av. En författare med fel klocka förlorar labeln en
+                # gång och signerar om — billigt mot ett tyst missat fynd.
+                REASON="sign-off at: (${signoff_at}) ligger i framtiden — ordningen mot bot-fyndet går inte att avgöra"
               elif [ "$signoff_epoch" -gt 0 ] && [ -n "${EVENT_AT:-}" ]; then
                 event_epoch=$(date -u -d "$EVENT_AT" +%s 2>/dev/null || echo 0)
                 if [ "$event_epoch" -gt 0 ] && [ "$event_epoch" -le "$signoff_epoch" ]; then
