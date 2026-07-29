@@ -263,6 +263,52 @@ export function createOwnEngineGenerationStream(
         safeEnqueue(enc.encode(formatSSEEvent("progress", { step: event, ...data })));
       };
 
+      /**
+       * Set when the run failed because OUR account or the provider failed —
+       * a revoked key, a spent quota, a capacity response — as opposed to the
+       * model answering nothing. Only the no-version charge paths below read
+       * it; a run that still delivered a recovered version charges normally
+       * through post-finalize.
+       *
+       * Prod 2026-07-28: a revoked `OPENAI_API_KEY` failed every generation
+       * for ~10 hours. Each attempt charged the user for zero output and left
+       * no row in `engine_generation_logs`, so the outage was invisible
+       * outside Vercel's logs.
+       */
+      let providerFault: { message: string; code: string | null } | null = null;
+
+      const commitCreditsUnlessProviderFault = async () => {
+        if (!providerFault) {
+          await commitCredits();
+          return;
+        }
+        warnLog("engine", "Credits not charged — provider fault produced no version", {
+          chatId,
+          code: providerFault.code,
+          message: providerFault.message,
+        });
+        // Make the failure visible where generations are counted. Without this
+        // row the run exists only as an `engine_chats` entry, which reads as
+        // "user never generated" rather than "generation was impossible".
+        await chatRepo
+          .logGeneration(
+            chatId,
+            engineModel,
+            {},
+            Date.now() - engineStartedAt,
+            false,
+            providerFault.code
+              ? `${providerFault.message} (${providerFault.code})`
+              : providerFault.message,
+          )
+          .catch((err: unknown) => {
+            warnLog("engine", "Could not persist provider-fault generation log", {
+              chatId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
+      };
+
       const finishWithoutVersion = async (
         reason: string,
         options?: { userMessage?: string; awaitingInput?: boolean; awaitingInputPrompt?: string },
@@ -305,7 +351,7 @@ export function createOwnEngineGenerationStream(
           message: options?.userMessage ?? null,
         });
         devLogFinalizeSite();
-        await commitCredits();
+        await commitCreditsUnlessProviderFault();
       };
 
       const handleEmptyGeneration = async (reason: string, error: EmptyGenerationError) => {
@@ -510,7 +556,7 @@ export function createOwnEngineGenerationStream(
             "Genereringen stoppades innan version skapades eftersom en eller flera filer såg ut som partiel snippet-output.",
         });
         devLogFinalizeSite();
-        await commitCredits();
+        await commitCreditsUnlessProviderFault();
       };
 
       safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: chatId })));
@@ -731,6 +777,11 @@ export function createOwnEngineGenerationStream(
                   { ...(data ?? {}), message: rawMsg },
                   rawMsg,
                 );
+                // The pipeline already classified this once; trust its verdict
+                // when present so a fault cannot be lost in re-wrapping.
+                if (classified.providerFault || data?.providerFault === true) {
+                  providerFault = { message: classified.userMessage, code: classified.code };
+                }
                 fallbackVerificationSummary = `Återställd ofullständig version efter streamfel: ${classified.userMessage}`;
                 safeEnqueue(
                   enc.encode(
@@ -757,6 +808,9 @@ export function createOwnEngineGenerationStream(
       } catch (error) {
         console.error("Engine streaming error:", error);
         const classified = classifyProviderError(error, "Engine streaming failed");
+        if (classified.providerFault) {
+          providerFault = { message: classified.userMessage, code: classified.code };
+        }
         fallbackVerificationSummary = `Återställd ofullständig version efter streamfel: ${classified.userMessage}`;
         safeEnqueue(
           enc.encode(
@@ -854,7 +908,7 @@ export function createOwnEngineGenerationStream(
                 }),
               ),
             );
-            await commitCredits();
+            await commitCreditsUnlessProviderFault();
           }
         }
         safeClose();

@@ -7,11 +7,34 @@ import { formatSSEEvent } from "@/lib/streaming";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { debugLog } from "@/lib/utils/debug";
+import { classifyProviderError } from "@/lib/providers/own-engine/provider-error-messages";
 
 export interface StreamMeta {
   chatId?: string;
   versionId?: string;
   [key: string]: unknown;
+}
+
+/**
+ * Build the `error` SSE payload for a failed provider call.
+ *
+ * The classifier owns the mapping (`provider-error-messages.ts`); this only
+ * shapes the event. Emitting `code`/`permanent`/`providerFault` instead of a
+ * bare message is what lets the outer engine stream tell an account problem
+ * (revoked key, spent quota) apart from the model simply answering nothing —
+ * a distinction the credit charge depends on.
+ */
+function providerErrorPayload(
+  err: unknown,
+  fallback = "Stream error",
+): { message: string } & Record<string, unknown> {
+  const classified = classifyProviderError(err, fallback);
+  return {
+    message: classified.userMessage,
+    ...(classified.code ? { code: classified.code } : {}),
+    ...(classified.permanent ? { permanent: true } : {}),
+    ...(classified.providerFault ? { providerFault: true } : {}),
+  };
 }
 
 /**
@@ -231,6 +254,11 @@ export function createCodeGenSSEStream(
       let sawContentEvent = false;
       let abortedByProvider = false;
       let truncatedByLength = false;
+      /**
+       * Sant så snart strömmen sagt VARFÖR den föll. Klienten behåller bara
+       * det sista error-eventet, så en generisk rad efteråt raderar diagnosen.
+       */
+      let providerErrorEmitted = false;
       let accumulatedThinking = "";
       let reasoningHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
       const reportAccumulatedThinking = () => {
@@ -556,14 +584,16 @@ export function createCodeGenSSEStream(
               break;
             }
 
-            case "error":
+            case "error": {
               ensureGenerationStarted();
-              enqueue(
-                createBuilderStreamEvent("error", {
-                  message: part.error instanceof Error ? part.error.message : "Stream error",
-                }),
-              );
+              // Forward the provider's own verdict (code/status/fault), not
+              // just a message string. Downstream reads `providerFault` to
+              // decide whether the run may spend the user's credits, and the
+              // mapped message keeps raw key material out of the chat.
+              providerErrorEmitted = true;
+              enqueue(createBuilderStreamEvent("error", providerErrorPayload(part.error)));
               break;
+            }
 
             case "abort": {
               // AI SDK 5+ emits an explicit `abort` part when the provider
@@ -647,13 +677,15 @@ export function createCodeGenSSEStream(
               phase: "empty-output",
             }),
           );
-          enqueue(
-            createBuilderStreamEvent("error", {
-              message: sawContentEvent
-                ? "Provider avbröt strömmen innan svaret var klart — försök igen eller byt modell."
-                : "Provider avbröt strömmen — försök igen eller byt modell.",
-            }),
-          );
+          if (!providerErrorEmitted) {
+            enqueue(
+              createBuilderStreamEvent("error", {
+                message: sawContentEvent
+                  ? "Provider avbröt strömmen innan svaret var klart — försök igen eller byt modell."
+                  : "Provider avbröt strömmen — försök igen eller byt modell.",
+              }),
+            );
+          }
         } else if (!sawContentEvent && toolCallCounts.size === 0) {
           enqueue(
             createBuilderStreamEvent("progress", {
@@ -661,12 +693,19 @@ export function createCodeGenSSEStream(
               phase: "empty-output",
             }),
           );
-          enqueue(
-            createBuilderStreamEvent("error", {
-              message:
-                "Model produced no text events (silent output). No code was emitted for this run.",
-            }),
-          );
+          // Bara när vi inte redan vet VARFÖR strömmen var tom. Klienten
+          // behåller det sista error-eventet och kastar det på ett
+          // versionslöst `done` (`stream-handlers.ts`), så en generisk rad
+          // efter en diagnos skriver över diagnosen — och användaren blir av
+          // med beskedet att API-nyckeln var ogiltig. (Codex P1 på #641.)
+          if (!providerErrorEmitted) {
+            enqueue(
+              createBuilderStreamEvent("error", {
+                message:
+                  "Model produced no text events (silent output). No code was emitted for this run.",
+              }),
+            );
+          }
         }
 
         const usage = await result.usage;
@@ -724,11 +763,7 @@ export function createCodeGenSSEStream(
           reason: "stream_error",
         });
         try {
-          enqueue(
-            createBuilderStreamEvent("error", {
-              message: err instanceof Error ? err.message : "Generation failed",
-            }),
-          );
+          enqueue(createBuilderStreamEvent("error", providerErrorPayload(err, "Generation failed")));
         } catch {
           // controller may already be closed
         }

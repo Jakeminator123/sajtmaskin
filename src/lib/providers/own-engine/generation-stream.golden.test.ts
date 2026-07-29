@@ -5,6 +5,7 @@ import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 
 const finalizeAndSaveVersionMock = vi.hoisted(() => vi.fn());
 const addMessageMock = vi.hoisted(() => vi.fn());
+const logGenerationMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/client", () => ({
   db: new Proxy({}, { get() { return vi.fn(); } }),
@@ -14,6 +15,7 @@ vi.mock("@/lib/db/client", () => ({
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addMessage: addMessageMock,
   failVersionVerification: vi.fn(),
+  logGeneration: logGenerationMock,
 }));
 
 vi.mock("@/lib/gen/stream/finalize-version", () => ({
@@ -122,6 +124,8 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     finalizeAndSaveVersionMock.mockResolvedValue(mockFinalizeResult);
     addMessageMock.mockReset();
     addMessageMock.mockResolvedValue(null);
+    logGenerationMock.mockReset();
+    logGenerationMock.mockResolvedValue(null);
     commitCredits.mockClear();
     commitCredits.mockResolvedValue(undefined);
   });
@@ -842,5 +846,107 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     const persistArgs = addMessageMock.mock.calls[0] as unknown[];
     expect(String(persistArgs[2])).toContain("Integrationsbygget avslutades");
     expect(persistArgs[4]).toBeUndefined();
+  });
+
+  // ── Provider fault: our account failed, so the user does not pay ──────────
+  // Prod 2026-07-28: a revoked OPENAI_API_KEY made every generation end with
+  // no version. Each attempt still charged credits and wrote no generation
+  // row, so the outage was invisible outside Vercel's logs.
+  function providerFaultParams(
+    chatId: string,
+    errorPayload: Record<string, unknown>,
+  ): Parameters<typeof createOwnEngineGenerationStream>[0] {
+    return {
+      chatId,
+      pipelineStream: pipelineStreamFromSsePayload(formatSSEEvent("error", errorPayload)),
+      meta: {
+        modelId: "gpt-5.4",
+        modelTier: "pro",
+        buildProfileId: "default",
+        buildProfileLabel: "Default",
+        enginePath: "own-engine",
+        thinking: false,
+      },
+      engineModel: "gpt-5.4",
+      optimizedMessage: "build me a page",
+      engineIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "standard",
+        previewPolicy: "fidelity2",
+        verificationPolicy: "standard",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 48_000,
+          refsChars: 24_000,
+          systemContextChars: 96_000,
+        },
+      } as Parameters<typeof createOwnEngineGenerationStream>[0]["buildSpec"],
+      routePlan: null,
+      resolvedScaffold: null,
+      urlMap: {},
+      commitCredits,
+    };
+  }
+
+  it("a provider fault (revoked key) charges no credits and leaves a failed generation row", async () => {
+    const out = createOwnEngineGenerationStream(
+      providerFaultParams("chat_bad_key", {
+        message: "Ogiltig API-nyckel hos provider.",
+        code: "invalid_api_key",
+        permanent: true,
+        providerFault: true,
+      }),
+    );
+
+    const events = await collectSseEvents(out);
+
+    const errorData = events.find((e) => e.event === "error")?.data as Record<string, unknown>;
+    expect(errorData.message).toMatch(/Ogiltig/);
+
+    expect(commitCredits).not.toHaveBeenCalled();
+    expect(logGenerationMock).toHaveBeenCalledTimes(1);
+    const [loggedChatId, loggedModel, , , success, message] = logGenerationMock.mock
+      .calls[0] as unknown[];
+    expect(loggedChatId).toBe("chat_bad_key");
+    expect(loggedModel).toBe("gpt-5.4");
+    expect(success).toBe(false);
+    expect(String(message)).toContain("invalid_api_key");
+  });
+
+  it("infers the fault from a bare 401 even when the pipeline forwarded no flag", async () => {
+    const out = createOwnEngineGenerationStream(
+      providerFaultParams("chat_bare_401", {
+        message: "Incorrect API key provided: sk-proj-***",
+        status: 401,
+      }),
+    );
+
+    await collectSseEvents(out);
+
+    expect(commitCredits).not.toHaveBeenCalled();
+    expect(logGenerationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("still charges when the model itself answered nothing (no provider fault)", async () => {
+    const out = createOwnEngineGenerationStream(
+      providerFaultParams("chat_silent_model", {
+        message: "Model produced no text events (silent output).",
+      }),
+    );
+
+    await collectSseEvents(out);
+
+    // The model ran against real input and burned tokens — that is the user's
+    // generation, however disappointing. Only OUR failures are free.
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+    expect(logGenerationMock).not.toHaveBeenCalled();
   });
 });

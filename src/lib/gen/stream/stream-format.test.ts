@@ -9,6 +9,7 @@ type StreamPart = {
   textDelta?: string;
   reasoning?: string;
   reasoningDelta?: string;
+  error?: unknown;
   toolName?: string;
   toolCallId?: string;
   args?: Record<string, unknown>;
@@ -224,6 +225,81 @@ describe("createCodeGenSSEStream", () => {
       ),
     ).toBe(true);
     expect(events.at(-1)?.event).toBe("done");
+  });
+
+  // Prod 2026-07-28: a revoked OPENAI_API_KEY surfaced as a bare message
+  // string, so nothing downstream could tell an account failure apart from a
+  // model that answered nothing — and the user was charged for it.
+  it("forwards the provider's verdict (code + fault) on an error part, not just a message", async () => {
+    const apiError = Object.assign(new Error("Incorrect API key provided: sk-proj-***abcd"), {
+      statusCode: 401,
+    });
+
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "error", error: apiError },
+      { type: "finish" },
+    ]);
+
+    const errorEvent = events.find(
+      (event) =>
+        event.event === "error" &&
+        typeof event.data === "object" &&
+        event.data !== null &&
+        (event.data as Record<string, unknown>).providerFault === true,
+    );
+
+    expect(errorEvent).toBeDefined();
+    const data = errorEvent?.data as Record<string, unknown>;
+    expect(String(data.message)).toMatch(/Ogiltig API-nyckel/);
+    expect(data.permanent).toBe(true);
+    // The raw provider text echoes the key's tail — it must not reach the chat.
+    expect(String(data.message)).not.toMatch(/sk-proj/);
+  });
+
+  // Codex P1 on #641: the diagnosis above is worthless if the generic
+  // empty-output error follows it. The client keeps only the LAST error event
+  // and throws it on the versionless `done`, so a trailing generic line
+  // silently replaces "your API key is invalid" with "no text events".
+  it("does not bury the provider diagnosis under the generic empty-output error", async () => {
+    const apiError = Object.assign(new Error("Incorrect API key provided"), { statusCode: 401 });
+
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "error", error: apiError },
+      { type: "finish" },
+    ]);
+
+    const errorEvents = events.filter((event) => event.event === "error");
+    expect(errorEvents).toHaveLength(1);
+
+    const last = errorEvents.at(-1)?.data as Record<string, unknown>;
+    expect(String(last.message)).toMatch(/Ogiltig API-nyckel/);
+    expect(String(last.message)).not.toMatch(/no text events/i);
+
+    // The phase itself is still reported — only the competing error is gone.
+    expect(
+      events.some(
+        (event) =>
+          event.event === "progress" &&
+          (event.data as Record<string, unknown>).phase === "empty-output",
+      ),
+    ).toBe(true);
+  });
+
+  it("still explains a genuinely silent stream when no provider error was seen", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "reasoning-start" },
+      { type: "reasoning-end" },
+      { type: "finish" },
+    ]);
+
+    const errorEvents = events.filter((event) => event.event === "error");
+    expect(errorEvents).toHaveLength(1);
+    expect(String((errorEvents[0]?.data as Record<string, unknown>).message)).toMatch(
+      /no text events/i,
+    );
   });
 
   it("emits generation done progress with stream timing metrics", async () => {

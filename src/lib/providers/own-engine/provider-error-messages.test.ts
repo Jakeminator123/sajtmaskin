@@ -50,4 +50,63 @@ describe("classifyProviderError (B3)", () => {
     expect(result.userMessage).toBe("boom");
     expect(result.permanent).toBe(false);
   });
+
+  // Prod 2026-07-28: a revoked OPENAI_API_KEY reached users as the AI SDK's
+  // English "No output generated" wrapper, because the 401 sat one `cause`
+  // level down. Nothing told them the key was the problem.
+  it("reads status through the cause chain (AI SDK NoOutputGeneratedError wrapper)", () => {
+    const apiError = Object.assign(new Error("Incorrect API key provided: sk-proj-***"), {
+      statusCode: 401,
+    });
+    const wrapper = Object.assign(new Error("No output generated. Check the stream for errors."), {
+      cause: apiError,
+    });
+
+    const result = classifyProviderError(wrapper, "Engine streaming failed");
+
+    expect(result.userMessage).toMatch(/Ogiltig API-nyckel/);
+    expect(result.permanent).toBe(true);
+    expect(result.providerFault).toBe(true);
+    // The raw provider text echoes the key prefix — it must not become the
+    // user-facing message.
+    expect(result.userMessage).not.toMatch(/sk-proj/);
+  });
+
+  it("reads a provider code nested two causes deep", () => {
+    const inner = Object.assign(new Error("quota"), { code: "insufficient_quota" });
+    const middle = Object.assign(new Error("wrapped"), { cause: inner });
+    const outer = Object.assign(new Error("wrapped twice"), { cause: middle });
+
+    const result = classifyProviderError(outer);
+
+    expect(result.code).toBe("insufficient_quota");
+    expect(result.providerFault).toBe(true);
+  });
+
+  it("does not spin on a self-referencing cause", () => {
+    const looping = new Error("loop") as Error & { cause?: unknown };
+    looping.cause = looping;
+
+    const result = classifyProviderError(looping);
+
+    expect(result.userMessage).toBe("loop");
+    expect(result.providerFault).toBe(false);
+  });
+
+  it("maps 429 to a retryable provider fault", () => {
+    const result = classifyProviderError({ status: 429 });
+    expect(result.userMessage).toMatch(/rate limit/i);
+    expect(result.permanent).toBe(false);
+    expect(result.providerFault).toBe(true);
+  });
+
+  it("treats an over-long request as the user's scope, not a provider fault", () => {
+    const result = classifyProviderError({ code: "context_length_exceeded" });
+    expect(result.providerFault).toBe(false);
+  });
+
+  it("leaves unmapped errors chargeable (no false provider fault)", () => {
+    const result = classifyProviderError({ status: 418, message: "I am a teapot" });
+    expect(result.providerFault).toBe(false);
+  });
 });
