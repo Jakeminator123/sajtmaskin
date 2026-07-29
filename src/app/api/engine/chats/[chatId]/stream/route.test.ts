@@ -81,6 +81,10 @@ vi.mock("@/lib/db/schema", () => ({
 vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
   eq: vi.fn(),
+  sql: (strings: TemplateStringsArray) => ({
+    op: "sql",
+    text: strings?.join?.("") ?? "",
+  }),
 }));
 
 vi.mock("@/lib/rateLimit", () => ({

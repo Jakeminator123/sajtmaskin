@@ -646,6 +646,20 @@ export const engineVersions = pgTable(
      * deploy-readiness queries don't need to re-read orchestration state.
      */
     lifecycleStage: text("lifecycle_stage").notNull().default("design"),
+    /**
+     * Innehållsidentitet: md5 av `files_json`, **genererad av Postgres**.
+     *
+     * `versionId` säger vilken rad ett verdikt gäller, inte vilket innehåll —
+     * samma rad skrivs om av user-edit, server-repair och autofix. Den här
+     * kolumnen gör frågan "gäller verdiktet innehållet som ligger här nu?"
+     * besvarbar.
+     *
+     * Genererad och därför skrivskyddad: ingen av de fem vägar som skriver
+     * `files_json` kan glömma att uppdatera den. Dela inte ihop den med
+     * `hashFilesJson` (sha256), som äger repair-revisionsbindningen — två
+     * mekanismer för två jobb, och värdena är olika.
+     */
+    filesRevision: text("files_revision").generatedAlwaysAs(sql`md5(files_json)`),
     createdAt: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -801,6 +815,15 @@ export const generationTelemetry = pgTable(
     previewSuccess: boolean("preview_success"),
     previewBlockingReason: text("preview_blocking_reason"),
     qualityGateResult: text("quality_gate_result"),
+    /**
+     * Innehållsrevisionen verdiktet på den här raden faktiskt bedömde
+     * (`engine_versions.files_revision` vid skrivtillfället).
+     *
+     * `null` = okänd revision (rader skrivna före kolumnen fanns). Okänd är
+     * uttryckligen INTE samma sak som mismatch: en läsare ska behandla den som
+     * dagens fail-open, aldrig som en spärr. Se planens beslut 1b.
+     */
+    filesRevision: text("files_revision"),
     deployResult: text("deploy_result"),
     durationMs: integer("duration_ms"),
     promptTokens: integer("prompt_tokens"),

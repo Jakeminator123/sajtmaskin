@@ -2,7 +2,7 @@
 status: active
 owner: unassigned
 created: 2026-07-25
-topic: Innehållsrevision på `engine_versions` — så att varje verdikt/kvitto (quality gate, promote-guard, runtime-ready, statusbadge) kan säga VILKET innehåll det gäller i stället för bara vilket versionId
+topic: Innehållsrevision på `engine_versions` — så att varje verdikt/kvitto (quality gate, promote-guard, runtime-ready, statusbadge) kan säga VILKET innehåll det gäller i stället för bara vilket versionId. Steg 1–2 levererade 2026-07-29; steg 3 väntar på mätdata.
 source: Re-triage 2026-07-25 av tre backlog-rader (Codex P1/P2 på #352 + M#pv4) — kodverifierat mot master `6b459ede`, PR #607. Absorberade 2026-07-27 stabiliseringsplanens PR 5 (verification-invalidation som revisionskontrakt) — samma saknade primitiv, se § "Invalidering hör hemma här".
 ---
 
@@ -10,21 +10,16 @@ source: Re-triage 2026-07-25 av tre backlog-rader (Codex P1/P2 på #352 + M#pv4)
 
 ## TL;DR
 
-`engine_versions` har **ingen** `updated_at` och **ingen** hash av `files_json`
-(`src/lib/db/schema.ts:609-650`). Därför kan inget lager i systemet svara på frågan:
+`versionId` är **inte** en innehållsidentitet: samma rad kan skrivas om av
+user-edit (`/files`), server-repair (`targetVersionId`-rewrite) och autofix.
+Utan en hash av `files_json` kan ett verdikt beskriva ett *tidigare* innehåll
+utan att någon läsare upptäcker det.
 
-> "Gäller det här verdiktet/kvittot det innehåll som ligger i `files_json` **nu**?"
-
-Alla verdikt hängs i stället på `versionId` — men `versionId` är **inte** en
-innehållsidentitet: samma rad kan skrivas om av user-edit (`/files`), av
-server-repair (`targetVersionId`-rewrite) och av autofix. Det gör att en
-verdikt-läsare kan få ett svar som beskriver ett *tidigare* innehåll utan att
-kunna upptäcka det.
-
-Detta är **plan, ingen implementation** — men beslutspunkterna längst ned är
-avgjorda 2026-07-28, så steg 1–2 är arbetsbara: `files_revision` som
-DB-genererad hash (ingen skrivare rörs), inget ändrat läsarbeteende förrän
-frekvensen av känd mismatch är mätt.
+**Steg 1–2 levererade 2026-07-29** (migration `add-files-revision.sql`):
+`engine_versions.files_revision` är DB-genererad `md5(files_json)`, och
+`generation_telemetry.files_revision` stämplas via subselect vid INSERT. Inget
+läsarbeteende har ändrats — det är steg 3, som väntar på mätdata om hur ofta
+känd mismatch inträffar i prod.
 
 ## Vilka bugg-typer primitiven förklarar
 
@@ -102,21 +97,16 @@ verkningslösa eller skadliga, och en framtida agent ska inte bygga dem:
 Gemensamt: alla tre försöker kompensera för avsaknaden av en innehållsidentitet
 i ett enskilt lager. Det går inte — identiteten måste finnas i datan.
 
-## Skiss (besluten nedan gäller; detaljerna är fortfarande skiss)
+## Leveransstatus
 
-**Steg 1 — primitiven (additiv migration).**
-`engine_versions` får `files_revision text GENERATED ALWAYS AS (md5(files_json))
-STORED`. **Ingen skrivare rörs** — se beslut 2 för varför app-sidig stämpling
-avvisades. En `STORED`-kolumn backfillas vid `ADD COLUMN`, så *alla* befintliga
-rader får en revision direkt; det finns därför ingen `null`-revision att
-back-compat:a på versionssidan (bara på verdiktsidan, tills steg 2 kört).
-`files_updated_at` ingår inte — se beslut 2.
+| Steg | Status | Vad |
+|---|---|---|
+| 1 — primitiv | **Levererad 2026-07-29** | `engine_versions.files_revision TEXT GENERATED ALWAYS AS (md5(files_json)) STORED` via `add-files-revision.sql`. Prod-preflight: 133 rader / 48 kB heap → STORED-omskrivning OK, trigger-variant behövs inte. |
+| 2 — stämpla verdikt | **Levererad 2026-07-29** | `generation_telemetry.files_revision` + subselect i `createGenerationTelemetryRecord` (anroparen kan inte glömma). Preview-session/bus-events bär **inte** revisionen ännu — det hör till steg 3:s läsare. |
+| 3 — läsarna jämför | Öppen | Väntar på mätdata (beslut 3). Se skissen nedan. |
 
-**Steg 2 — stämpla verdikten.**
-`generation_telemetry` får `files_revision` på raden gate:n faktiskt bedömde.
-Preview-sessionen bär revisionen den bootat. Bus-events bär den vid emit.
+## Skiss för steg 3 (väntar på mätdata)
 
-**Steg 3 — läsarna jämför.**
 `getLatestQualityGateResultForVersion` → hämta senaste rad **för aktuell
 revision**; ingen matchning = `null` (= "ingen gate körd för detta innehåll").
 Jämförelsen är symmetrisk: ett mismatchat `failed` kastas precis som ett

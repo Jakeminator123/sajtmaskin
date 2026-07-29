@@ -8,6 +8,12 @@ vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
   eq: vi.fn(),
   gte: vi.fn(),
+  // schema.ts evaluates `sql`md5(files_json)`` at import time for
+  // generatedAlwaysAs — keep a stub so the mock does not break module load.
+  sql: (strings: TemplateStringsArray) => ({
+    op: "sql",
+    text: strings?.join?.("") ?? "",
+  }),
 }));
 
 vi.mock("./scaffold-search", () => ({

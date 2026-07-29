@@ -60,6 +60,10 @@ export const MIGRATION_ORDER = [
   // `SET TIME ZONE` in client.ts, which both triggered the pg client.query()
   // overlap warning and was unreliable behind Supavisor transaction pooling.
   "set-role-timezone-utc.sql",
+  // Innehållsrevision: DB-genererad md5 av files_json på engine_versions, och
+  // den revision ett verdikt bedömde på generation_telemetry. Additiv — ingen
+  // läsare ändrar beteende förrän planens steg 3.
+  "add-files-revision.sql",
 ];
 
 /**

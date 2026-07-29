@@ -42,6 +42,10 @@ vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
   eq: vi.fn(),
   or: vi.fn(),
+  sql: (strings: TemplateStringsArray) => ({
+    op: "sql",
+    text: strings?.join?.("") ?? "",
+  }),
 }));
 
 vi.mock("@/lib/gen/engine", () => ({
