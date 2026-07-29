@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, dbConfigured } from "@/lib/db/client";
@@ -330,6 +331,14 @@ export async function getLatestQualityGateResultForVersion(
  * `assessedFilesJson` is the promotable repaired content (what `acceptRepair`
  * will write into `files_json`). Without it the row would be stamped with the
  * pre-repair base revision — the verdict would name the content that failed.
+ *
+ * A version can receive a **replacement** repair before acceptance, so an
+ * existing `preflight_passed` is only a duplicate when it describes the same
+ * content. Skipping on the result alone would leave repair B promoted while the
+ * newest pass still names repair A (Codex P1 on #646) — the same false mismatch
+ * this function exists to avoid. The comparison hash is app-side; if it ever
+ * disagreed with Postgres' `md5()` the effect is an extra pass row, never a
+ * missing one.
  */
 export async function recordRepairPassedQualityGate(
   versionId: string,
@@ -339,7 +348,13 @@ export async function recordRepairPassedQualityGate(
     const rows = await getTelemetryForVersion(versionId);
     const prior = rows[0];
     if (!prior) return;
-    if (prior.qualityGateResult === "preflight_passed") return;
+    if (prior.qualityGateResult === "preflight_passed") {
+      const assessedRevision =
+        assessedFilesJson != null
+          ? createHash("md5").update(assessedFilesJson, "utf8").digest("hex")
+          : null;
+      if (assessedRevision === null || prior.filesRevision === assessedRevision) return;
+    }
     await createGenerationTelemetryRecord({
       chatId: prior.chatId,
       versionId,
