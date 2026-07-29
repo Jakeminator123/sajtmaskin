@@ -42,6 +42,26 @@ export type UpdateTelemetryRecord = Partial<
   }
 >;
 
+/**
+ * Innehållsrevisionen som gällde när verdiktet skrevs, hämtad i samma
+ * INSERT — inte av anroparen.
+ *
+ * Anropar-sidig stämpling vore samma glömbarhets-bugg som planen stängde på
+ * versionssidan: nästa nya telemetri-anropare skulle tyst skriva `null`, och
+ * `null` betyder "okänd revision", vilket är fail-open. En subselect kan
+ * ingen anropare glömma.
+ *
+ * Fönstret mellan att grinden läste filerna och att raden skrivs är skyddat av
+ * files_json-leasen (#507), som hindrar samtidiga skrivningar under
+ * verifiering — så subselecten ser det innehåll grinden faktiskt bedömde.
+ * Saknas versionen (eller raden är versionslös) blir revisionen `null`, alltså
+ * dagens beteende.
+ */
+function currentFilesRevision(versionId: string | null | undefined) {
+  if (!versionId) return null;
+  return sql<string | null>`(SELECT files_revision FROM engine_versions WHERE id = ${versionId})`;
+}
+
 export async function createGenerationTelemetryRecord(record: CreateTelemetryRecord) {
   assertDbConfigured();
   const id = nanoid();
@@ -51,6 +71,7 @@ export async function createGenerationTelemetryRecord(record: CreateTelemetryRec
       id,
       chatId: record.chatId,
       versionId: record.versionId ?? null,
+      filesRevision: currentFilesRevision(record.versionId),
       scaffoldId: record.scaffoldId ?? null,
       scaffoldAlternatives: record.scaffoldAlternatives ?? null,
       scaffoldSelectionMethod: record.scaffoldSelectionMethod ?? null,

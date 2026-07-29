@@ -471,6 +471,11 @@ const schemaQueries = [
   `ALTER TABLE engine_versions ALTER COLUMN lifecycle_stage SET NOT NULL`,
   `CREATE INDEX IF NOT EXISTS engine_versions_parent_version_id_idx ON engine_versions(parent_version_id)`,
   `CREATE INDEX IF NOT EXISTS engine_versions_lifecycle_stage_idx ON engine_versions(lifecycle_stage)`,
+  // Innehållsrevision: genererad kolumn, så ingen files_json-skrivare kan
+  // glömma att stämpla den. Se src/lib/db/migrations/add-files-revision.sql.
+  `ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS files_revision TEXT GENERATED ALWAYS AS (md5(files_json)) STORED`,
+  `ALTER TABLE generation_telemetry ADD COLUMN IF NOT EXISTS files_revision TEXT`,
+  `CREATE INDEX IF NOT EXISTS idx_generation_telemetry_version_revision ON generation_telemetry(version_id, files_revision)`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE NOT NULL`,
   `ALTER TABLE users ALTER COLUMN diamonds SET DEFAULT 50`,
   `ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE`,
