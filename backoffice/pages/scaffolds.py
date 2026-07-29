@@ -20,6 +20,7 @@ from backoffice.shared import (
     _escape_ts_string,
     extract_ts_string_array_field,
     extract_ts_string_field,
+    field_label,
     read_json,
     read_text,
     render_building_blocks_nav,
@@ -183,27 +184,29 @@ def _render_editor(ctx: BackofficeContext, picked: dict[str, Any]) -> None:
     edit_col1, edit_col2 = st.columns(2)
     with edit_col1:
         new_tags_str = st.text_area(
-            "Tags (en per rad) — matchningssignaler",
+            field_label("tags", hint="en per rad"),
             value="\n".join(picked["tags"]),
             height=150,
             key=f"tags_{selected_id}",
+            help="Matchningssignaler: orden matchern väger scaffolden mot.",
         )
         all_intents = ["website", "app", "template"]
         new_intents = st.multiselect(
-            "Allowed Build Intents — vilka byggen scaffolden får användas för",
+            field_label("allowedBuildIntents"),
             options=all_intents,
             default=[i for i in picked["allowedBuildIntents"] if i in all_intents],
             key=f"intents_{selected_id}",
+            help="Vilka byggen scaffolden får användas för.",
         )
     with edit_col2:
         new_hints_str = st.text_area(
-            "Prompt Hints (en per rad) — instruktioner till own-engine",
+            field_label("promptHints", hint="en per rad"),
             value="\n".join(picked["promptHints"]),
             height=150,
             key=f"hints_{selected_id}",
         )
         new_checklist_str = st.text_area(
-            "Quality Checklist (en per rad) — kvalitetskrav",
+            field_label("qualityChecklist", hint="en per rad"),
             value="\n".join(picked["qualityChecklist"]),
             height=150,
             key=f"checklist_{selected_id}",

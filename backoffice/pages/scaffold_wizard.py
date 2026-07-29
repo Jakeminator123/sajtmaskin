@@ -31,6 +31,7 @@ from backoffice.pages.scaffold_lifecycle import (
 )
 from backoffice.shared import (
     BackofficeContext,
+    field_label,
     get_all_manifests,
     read_json,
     render_building_blocks_nav,
@@ -360,7 +361,7 @@ def _render_step_review(ctx: BackofficeContext) -> None:
         st.warning(
             "Inga runtime-scaffolds hittades i `src/lib/gen/scaffolds/` — wizarden "
             "behöver minst en befintlig scaffold (som mål för varianten eller som "
-            "klonkälla). Återställ scaffold-ytorna via **Scaffolds & varianter** → Baseline."
+            "klonkälla). Återställ scaffold-ytorna via **Scaffolds & varianter** → Farlig zon."
         )
         if st.button("← Till steg 1", key="swz_review_empty_back"):
             _goto(0)
@@ -394,15 +395,15 @@ def _render_step_review(ctx: BackofficeContext) -> None:
             help="Garanterar att den nya scaffolden använder samma stack och paket.",
         )
         scaffold_label = st.text_input(
-            "Scaffold-label", value=str(scaffold_draft.get("label", "")), key="swz_sc_label"
+            field_label("label"), value=str(scaffold_draft.get("label", "")), key="swz_sc_label"
         )
         scaffold_id = st.text_input(
-            "Scaffold-ID (kebab-case)",
+            "Scaffold-ID (`id`, kebab-case)",
             value=_slugify(scaffold_label) if scaffold_label else "",
             key="swz_sc_id",
         )
         scaffold_description = st.text_area(
-            "Scaffold-beskrivning (engelska)",
+            field_label("description", hint="engelska"),
             value=str(scaffold_draft.get("description", "")),
             height=70,
             key="swz_sc_desc",
@@ -412,7 +413,7 @@ def _render_step_review(ctx: BackofficeContext) -> None:
             site_kind_options = [""] + list(SITE_KIND_OPTIONS)
             draft_site_kind = str(scaffold_draft.get("siteKind", ""))
             site_kind = st.selectbox(
-                "Site Kind",
+                field_label("siteKind"),
                 site_kind_options,
                 index=site_kind_options.index(draft_site_kind)
                 if draft_site_kind in site_kind_options
@@ -423,7 +424,7 @@ def _render_step_review(ctx: BackofficeContext) -> None:
             complexity_options = [""] + list(COMPLEXITY_OPTIONS)
             draft_complexity = str(scaffold_draft.get("complexity", ""))
             complexity = st.selectbox(
-                "Complexity",
+                field_label("complexity"),
                 complexity_options,
                 index=complexity_options.index(draft_complexity)
                 if draft_complexity in complexity_options
@@ -431,28 +432,31 @@ def _render_step_review(ctx: BackofficeContext) -> None:
                 key="swz_sc_complexity",
             )
         intents = st.multiselect(
-            "Allowed Build Intents",
+            field_label("allowedBuildIntents"),
             options=list(BUILD_INTENT_OPTIONS),
             default=["website"],
             key="swz_sc_intents",
         )
         tags_text = st.text_area(
-            "Tags (en per rad)", value=_lines(scaffold_draft.get("tags")), height=90, key="swz_sc_tags"
+            field_label("tags", hint="en per rad"),
+            value=_lines(scaffold_draft.get("tags")),
+            height=90,
+            key="swz_sc_tags",
         )
         sc_hints_text = st.text_area(
-            "Prompt Hints (minst 2 rader)",
+            field_label("promptHints", hint="minst 2 rader"),
             value=_lines(scaffold_draft.get("promptHints")),
             height=90,
             key="swz_sc_hints",
         )
         sc_quality_text = st.text_area(
-            "Quality Checklist (minst 3 rader)",
+            field_label("qualityChecklist", hint="minst 3 rader"),
             value=_lines(scaffold_draft.get("qualityChecklist")),
             height=90,
             key="swz_sc_quality",
         )
         sc_upgrades_text = st.text_area(
-            "Research Upgrade Targets (minst 1 rad)",
+            field_label("upgradeTargets", hint="minst 1 rad"),
             value=_lines(scaffold_draft.get("upgradeTargets")),
             height=70,
             key="swz_sc_upgrades",
@@ -483,58 +487,58 @@ def _render_step_review(ctx: BackofficeContext) -> None:
 
     st.markdown("#### Variant (det visuella uttrycket)")
     variant_label = st.text_input(
-        "Label", value=str(variant_draft.get("label", "")), key="swz_v_label"
+        field_label("label"), value=str(variant_draft.get("label", "")), key="swz_v_label"
     )
     variant_id = st.text_input(
-        "Variant-ID (kebab-case)",
+        "Variant-ID (`id`, kebab-case)",
         value=str(variant_draft.get("id", "")) or _slugify(variant_label),
         key="swz_v_id",
     )
     variant_description = st.text_area(
-        "Description",
+        field_label("description"),
         value=str(variant_draft.get("description", "")),
         height=80,
         key="swz_v_desc",
     )
     signature_motif = st.text_input(
-        "Signature Motif (en fras, 10–120 tecken)",
+        field_label("signatureMotif", hint="en fras, 10–120 tecken"),
         value=str(variant_draft.get("signatureMotif", "")),
         key="swz_v_motif",
     )
     color_options = ["light", "dark", "either"]
     draft_color = str(variant_draft.get("colorMode", "either"))
     color_mode = st.selectbox(
-        "Color Mode",
+        field_label("colorMode"),
         color_options,
         index=color_options.index(draft_color) if draft_color in color_options else 2,
         key="swz_v_color",
     )
     keywords_text = st.text_area(
-        "Keywords (en per rad, minst 3)",
+        field_label("keywords", hint="en per rad, minst 3"),
         value=_lines(variant_draft.get("keywords")),
         height=110,
         key="swz_v_keywords",
     )
     fonts_text = st.text_area(
-        "Font Pairings (`Heading | Body` per rad)",
+        field_label("fontPairings", hint="`Rubrik | Brödtext` per rad"),
         value=_font_lines(variant_draft.get("fontPairings")),
         height=80,
         key="swz_v_fonts",
     )
     hints_text = st.text_area(
-        "Prompt Hints (en per rad, specifika visuella direktiv)",
+        field_label("promptHints", hint="en per rad, specifika visuella direktiv"),
         value=_lines(variant_draft.get("promptHints")),
         height=90,
         key="swz_v_hints",
     )
     tokens_text = st.text_area(
-        "Theme Tokens (`token = värde` per rad, oklch för färger)",
+        field_label("themeTokens", hint="`token = värde` per rad, oklch för färger"),
         value=_token_lines(variant_draft.get("themeTokens")),
         height=120,
         key="swz_v_tokens",
     )
     default_variant = st.checkbox(
-        "Default-variant",
+        field_label("default"),
         value=new_scaffold,
         key="swz_v_default",
         help="En ny scaffolds startvariant bör vara default. Konvention: exakt en default per scaffold.",
@@ -609,6 +613,119 @@ def _build_variant_payload(ctx: BackofficeContext, draft: dict[str, Any]) -> tup
     return payload, None
 
 
+def _planned_writes(draft: dict[str, Any]) -> list[str]:
+    """Repo-relativa sökvägar som "Skapa nu" skriver — inget annat rörs.
+
+    Spegling av :func:`_apply` (och, för ny scaffold,
+    ``scaffold_lifecycle._create_scaffold``) så steg 4 kan säga vad som händer
+    *innan* checklistan, inte bara efteråt. Ren funktion utan Streamlit, så
+    listan kan grindas i test mot vad koden faktiskt skriver.
+    """
+    variant = draft.get("variant") or {}
+    scaffold_id = str(variant.get("scaffoldId", "")).strip() or "<scaffold>"
+    variant_id = str(variant.get("id", "")).strip() or "<variant>"
+
+    paths: list[str] = []
+    if draft.get("mode") == "new-scaffold":
+        clone_from = str((draft.get("scaffold") or {}).get("cloneFrom", "")).strip()
+        cloned = f" (klonas från `{clone_from}`)" if clone_from else ""
+        paths += [
+            f"src/lib/gen/scaffolds/{scaffold_id}/manifest.ts",
+            f"src/lib/gen/scaffolds/{scaffold_id}/files/{cloned}",
+            "src/lib/gen/scaffolds/types.ts",
+            "src/lib/gen/scaffolds/registry.ts",
+            "src/lib/gen/scaffolds/scaffold-embedding-locale.ts",
+            "docs/schemas/strict/scaffold-variant.schema.json",
+        ]
+    paths.append(f"config/scaffold-variants/{scaffold_id}/{variant_id}.json")
+    return paths
+
+
+def _autorun_writes(draft: dict[str, Any]) -> list[dict[str, str]]:
+    """Filer som efter-stegen skriver om direkt efter "Skapa nu".
+
+    "Skapa nu" sätter ``swz_autorun``, och nästa render kör
+    :func:`_post_create_steps` automatiskt. Stegen är alltså en del av
+    sparningen även om de ligger i separata npm-skript — utelämnas de här säger
+    rutan "det här kommer att skrivas" och räknar ändå inte upp allt som skrivs.
+
+    Sökvägarna är lästa ur skripten, inte gissade:
+
+    * ``scaffolds:variant-patterns`` → ``auto-curate-variant-patterns.ts``
+      skriver ``writeFileSync(ref.filePath, …)``, alltså variantfilen själv
+      (``--only`` gör att bara den nyss skapade varianten rörs).
+    * ``scaffolds:variant-embeddings`` → ``generate-variant-embeddings.ts``
+      skriver ``OUTPUT_PATH``, dvs
+      ``config/scaffold-variants/_index/variant-embeddings.json``, och bygger om
+      hela indexet från samtliga varianter.
+    * ``scaffolds:validate`` kör vitest och skriver ingenting.
+
+    Båda skrivstegen har ``needs_api`` och hoppas över utan ``OPENAI_API_KEY``,
+    så anroparen måste säga vilket fall som gäller.
+    `backoffice/test_scaffold_lifecycle_ui.py` grindar listan mot skriptens
+    faktiska ``writeFileSync``-mål.
+    """
+    variant = draft.get("variant") or {}
+    scaffold_id = str(variant.get("scaffoldId", "")).strip() or "<scaffold>"
+    variant_id = str(variant.get("id", "")).strip() or "<variant>"
+
+    return [
+        {
+            "path": f"config/scaffold-variants/{scaffold_id}/{variant_id}.json",
+            "script": "scaffolds:variant-patterns",
+            "source": "scripts/scaffolds/auto-curate-variant-patterns.ts",
+            "note": "variantfilen skrivs om med `signaturePatterns` (bara din variant)",
+        },
+        {
+            "path": "config/scaffold-variants/_index/variant-embeddings.json",
+            "script": "scaffolds:variant-embeddings",
+            "source": "scripts/scaffolds/generate-variant-embeddings.ts",
+            "note": "hela matchningsindexet byggs om, inte bara din variant",
+        },
+    ]
+
+
+def _render_planned_writes(draft: dict[str, Any], *, autorun: bool) -> None:
+    """"Vad kommer att skrivas?" — filerna och spara-läget, före checklistan.
+
+    ``autorun`` = finns ``OPENAI_API_KEY``. Efter-stegen körs automatiskt efter
+    skapandet men bara med nyckel, så villkoret skrivs ut i båda fallen: rutan
+    får varken lova skrivningar som inte sker eller dölja dem som sker.
+    """
+    st.markdown("#### Vad kommer att skrivas?")
+
+    st.markdown("**Guiden skriver:**")
+    for path in _planned_writes(draft):
+        st.markdown(f"- `{path}`")
+    st.caption(
+        "Spara-läge `repo`: filer i repot. Produktionen påverkas först när ändringen "
+        "committas och mergas till `master`. Befintliga filer säkerhetskopieras "
+        "(se **Återställning**). Inget av detta skrivs förrän checklistan nedan är grön."
+    )
+
+    autorun_rows = _autorun_writes(draft)
+    if autorun:
+        st.markdown(
+            "**Efter-stegen skriver dessutom om** — `OPENAI_API_KEY` finns, så guiden "
+            "startar dem automatiskt direkt efter skapandet:"
+        )
+        for row in autorun_rows:
+            st.markdown(f"- `{row['path']}` — {row['note']} (`{row['script']}`)")
+        st.caption(
+            "Samma spara-läge `repo` — även dessa filer ligger i repot och når produktionen "
+            "först via commit + merge till `master`. Stannar kedjan på ett rött steg skrivs "
+            "de senare filerna inte."
+        )
+    else:
+        st.markdown(
+            "**Efter-stegen skrivs inte nu** — ingen `OPENAI_API_KEY` i miljön, så "
+            "designmönster och matchning hoppas över. Med nyckel skrivs även dessa om "
+            "(spara-läge `repo`):"
+        )
+        for row in autorun_rows:
+            st.markdown(f"- `{row['path']}` — {row['note']} (`{row['script']}`)")
+
+
 def _run_checks(ctx: BackofficeContext, draft: dict[str, Any]) -> tuple[list[dict[str, str]], dict[str, Any] | None]:
     """Return (checklist rows, variant payload if buildable)."""
     checks: list[dict[str, str]] = []
@@ -626,8 +743,11 @@ def _run_checks(ctx: BackofficeContext, draft: dict[str, Any]) -> tuple[list[dic
     scaffold_id = str(variant.get("scaffoldId", ""))
 
     add("Variant-ID är kebab-case", bool(kebab.fullmatch(variant_id)), variant_id or "(saknas)")
-    add("Label ifylld", bool(str(variant.get("label", "")).strip()))
-    add("Signature Motif ifylld", bool(str(variant.get("signatureMotif", "")).strip()))
+    add(f"{field_label('label')} ifyllt", bool(str(variant.get("label", "")).strip()))
+    add(
+        f"{field_label('signatureMotif')} ifyllt",
+        bool(str(variant.get("signatureMotif", "")).strip()),
+    )
 
     payload, build_error = _build_variant_payload(ctx, draft)
     add("Variantfälten kan tolkas", payload is not None, build_error or "")
@@ -636,7 +756,7 @@ def _run_checks(ctx: BackofficeContext, draft: dict[str, Any]) -> tuple[list[dic
         add("Scaffold-ID är kebab-case", bool(kebab.fullmatch(scaffold_id)), scaffold_id or "(saknas)")
         existing_ids = {str(m.get("id", "")) for m in get_all_manifests(ctx)}
         add("Scaffold-ID är ledigt", scaffold_id not in existing_ids and bool(scaffold_id))
-        add("Scaffold-label ifylld", bool(str(scaffold.get("label", "")).strip()))
+        add("Scaffold-namn ifyllt", bool(str(scaffold.get("label", "")).strip()))
         add("Scaffold-beskrivning ifylld", bool(str(scaffold.get("description", "")).strip()))
         add("Minst ett build intent", bool(scaffold.get("intents")))
         hint_count = len([l for l in str(scaffold.get("hintsText", "")).splitlines() if l.strip()])
@@ -777,6 +897,8 @@ def _render_step_validate(ctx: BackofficeContext) -> None:
         "Skapa-knappen är låst tills alla kontroller är gröna. Skapandet använder samma "
         "transaktionslogik som **Scaffolds & varianter** (rollback vid fel)."
     )
+
+    _render_planned_writes(draft, autorun=bool(wiz.get_openai_api_key()))
 
     checks, payload = _run_checks(ctx, draft)
     st.dataframe(pd.DataFrame(checks), width="stretch", hide_index=True)
@@ -1008,7 +1130,7 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
     st.divider()
     st.caption(
         "Kvar manuellt: granska diffen och committa när du är nöjd. Ångra allt? Fliken "
-        "**Baseline** i **Scaffolds & varianter** återställer till `scaffold-baseline-v1`."
+        "**Farlig zon** i **Scaffolds & varianter** återställer till `scaffold-baseline-v1`."
     )
     if st.button("Skapa en till variant / börja om"):
         for key in (
@@ -1066,7 +1188,7 @@ def render(ctx: BackofficeContext) -> None:
         )
         st.markdown(
             "- Fabriksåterställning av scaffold-ytorna finns i "
-            "**Scaffolds & varianter** → Baseline."
+            "**Scaffolds & varianter** → Farlig zon."
         )
         render_where_panel(PAGE_NAME, domain_map)
     _render_progress()
