@@ -7,11 +7,34 @@ import { formatSSEEvent } from "@/lib/streaming";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import { debugLog } from "@/lib/utils/debug";
+import { classifyProviderError } from "@/lib/providers/own-engine/provider-error-messages";
 
 export interface StreamMeta {
   chatId?: string;
   versionId?: string;
   [key: string]: unknown;
+}
+
+/**
+ * Build the `error` SSE payload for a failed provider call.
+ *
+ * The classifier owns the mapping (`provider-error-messages.ts`); this only
+ * shapes the event. Emitting `code`/`permanent`/`providerFault` instead of a
+ * bare message is what lets the outer engine stream tell an account problem
+ * (revoked key, spent quota) apart from the model simply answering nothing —
+ * a distinction the credit charge depends on.
+ */
+function providerErrorPayload(
+  err: unknown,
+  fallback = "Stream error",
+): { message: string } & Record<string, unknown> {
+  const classified = classifyProviderError(err, fallback);
+  return {
+    message: classified.userMessage,
+    ...(classified.code ? { code: classified.code } : {}),
+    ...(classified.permanent ? { permanent: true } : {}),
+    ...(classified.providerFault ? { providerFault: true } : {}),
+  };
 }
 
 /**
@@ -556,14 +579,15 @@ export function createCodeGenSSEStream(
               break;
             }
 
-            case "error":
+            case "error": {
               ensureGenerationStarted();
-              enqueue(
-                createBuilderStreamEvent("error", {
-                  message: part.error instanceof Error ? part.error.message : "Stream error",
-                }),
-              );
+              // Forward the provider's own verdict (code/status/fault), not
+              // just a message string. Downstream reads `providerFault` to
+              // decide whether the run may spend the user's credits, and the
+              // mapped message keeps raw key material out of the chat.
+              enqueue(createBuilderStreamEvent("error", providerErrorPayload(part.error)));
               break;
+            }
 
             case "abort": {
               // AI SDK 5+ emits an explicit `abort` part when the provider
@@ -724,11 +748,7 @@ export function createCodeGenSSEStream(
           reason: "stream_error",
         });
         try {
-          enqueue(
-            createBuilderStreamEvent("error", {
-              message: err instanceof Error ? err.message : "Generation failed",
-            }),
-          );
+          enqueue(createBuilderStreamEvent("error", providerErrorPayload(err, "Generation failed")));
         } catch {
           // controller may already be closed
         }
