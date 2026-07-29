@@ -49,6 +49,13 @@ vi.mock("./promote-guard", () => ({
   assertPromoteAllowed: vi.fn(async () => ({ allowed: true, reason: null })),
 }));
 
+const recordRepairPassedQualityGate = vi.hoisted(() =>
+  vi.fn(async (_versionId: string, _assessedFilesJson?: string | null) => undefined),
+);
+vi.mock("./services/generation-telemetry", () => ({
+  recordRepairPassedQualityGate,
+}));
+
 import { saveRepairedFiles } from "./chat-repository-pg";
 import { hashFilesJson } from "./repair-files-payload";
 
@@ -127,5 +134,26 @@ describe("saveRepairedFiles — base-bound write + stale-base distinction (#260 
     const res = await saveRepairedFiles("ver-1", "   ", "summary", "run-1", BASE_A);
     expect(res.status).toBe("failed");
     expect(updateSet.value).toBeUndefined();
+  });
+
+  /**
+   * #642-fyndet (Bugbot/Codex/Vercel): passet gäller den reparerade kandidaten,
+   * men `files_json` håller fortfarande basen som föll. Stämplas versionens
+   * nuvarande revision arkiveras verdiktet under fel innehåll.
+   */
+  it("stamps the quality-gate pass with the promotable repaired content, not the pre-repair base", async () => {
+    updateRowCount.value = 1;
+    currentFilesJson.value = BASE_A;
+
+    await saveRepairedFiles("ver-1", REPAIRED, "summary", "run-1", BASE_A);
+
+    expect(recordRepairPassedQualityGate).toHaveBeenCalledTimes(1);
+    const [versionId, assessedFilesJson] = recordRepairPassedQualityGate.mock.calls[0]!;
+    expect(versionId).toBe("ver-1");
+    // Exakt det `acceptRepair` senare skriver till files_json — inte kuvertet,
+    // inte basen.
+    expect(assessedFilesJson).toBe(JSON.stringify(JSON.parse(REPAIRED)));
+    expect(assessedFilesJson).not.toContain("baseFilesHash");
+    expect(assessedFilesJson).not.toBe(BASE_A);
   });
 });

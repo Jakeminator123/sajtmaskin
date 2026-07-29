@@ -18,9 +18,9 @@ vi.mock("@/lib/gen/version-manager", () => ({
 vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
   checkTier3ReadinessForVersion: vi.fn(),
 }));
-const logTier3MissingEnvBlocked = vi.hoisted(() => vi.fn(async () => undefined));
+const logTier3MissingEnvBlockedDetached = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/integrations/log-tier3-missing-env", () => ({
-  logTier3MissingEnvBlocked,
+  logTier3MissingEnvBlockedDetached,
 }));
 vi.mock("@/lib/gen/orchestration-snapshot", () => ({
   // Both fields: the real reader always returns them, and the approve path maps
@@ -277,7 +277,7 @@ describe("runF3ReadinessGate — R7 missing-env observation", () => {
     expect(result).toBeInstanceOf(Response);
     if (!(result instanceof Response)) throw new Error("unreachable");
     expect(result.status).toBe(412);
-    expect(logTier3MissingEnvBlocked).toHaveBeenCalledWith(
+    expect(logTier3MissingEnvBlockedDetached).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: CHAT_ID,
         versionId: "v-preferred",

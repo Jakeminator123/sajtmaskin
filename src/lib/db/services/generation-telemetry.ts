@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db, dbConfigured } from "@/lib/db/client";
@@ -33,6 +34,12 @@ export type CreateTelemetryRecord = {
   scaffoldRetryUsed?: boolean;
   scaffoldRetrySuggested?: string | null;
   meta?: Record<string, unknown> | null;
+  /**
+   * The exact `files_json` content the verdict assessed, when that is NOT what
+   * the version row currently holds. Only the repair lane needs it — see
+   * {@link currentFilesRevision}.
+   */
+  assessedFilesJson?: string | null;
 };
 
 export type UpdateTelemetryRecord = Partial<
@@ -56,10 +63,23 @@ export type UpdateTelemetryRecord = Partial<
  * verifiering — så subselecten ser det innehåll grinden faktiskt bedömde.
  * Saknas versionen (eller raden är versionslös) blir revisionen `null`, alltså
  * dagens beteende.
+ *
+ * **Undantaget är repair-lanen.** Där ligger kandidaten i `repaired_files_json`
+ * medan `files_json` fortfarande håller den bas som föll, så en subselect skulle
+ * arkivera ett `preflight_passed` under fel innehåll (Bugbot/Codex/Vercel på
+ * #642). Anroparen skickar då `assessedFilesJson` och revisionen räknas med
+ * samma `md5()` som den genererade kolumnen — inte app-sidigt — så värdena är
+ * jämförbara per konstruktion.
  */
-function currentFilesRevision(versionId: string | null | undefined) {
-  if (!versionId) return null;
-  return sql<string | null>`(SELECT files_revision FROM engine_versions WHERE id = ${versionId})`;
+function resolveFilesRevision(record: {
+  versionId?: string | null;
+  assessedFilesJson?: string | null;
+}) {
+  if (record.assessedFilesJson != null) {
+    return sql<string>`md5(${record.assessedFilesJson})`;
+  }
+  if (!record.versionId) return null;
+  return sql<string | null>`(SELECT files_revision FROM engine_versions WHERE id = ${record.versionId})`;
 }
 
 export async function createGenerationTelemetryRecord(record: CreateTelemetryRecord) {
@@ -71,7 +91,7 @@ export async function createGenerationTelemetryRecord(record: CreateTelemetryRec
       id,
       chatId: record.chatId,
       versionId: record.versionId ?? null,
-      filesRevision: currentFilesRevision(record.versionId),
+      filesRevision: resolveFilesRevision(record),
       scaffoldId: record.scaffoldId ?? null,
       scaffoldAlternatives: record.scaffoldAlternatives ?? null,
       scaffoldSelectionMethod: record.scaffoldSelectionMethod ?? null,
@@ -307,20 +327,40 @@ export async function getLatestQualityGateResultForVersion(
  * Best-effort: inherits `chatId`/`model` from the version's latest telemetry
  * row so model/cost analytics stay coherent. If no prior telemetry exists the
  * guard already fails open, so we simply skip. Never throws.
+ *
+ * `assessedFilesJson` is the promotable repaired content (what `acceptRepair`
+ * will write into `files_json`). Without it the row would be stamped with the
+ * pre-repair base revision — the verdict would name the content that failed.
+ *
+ * A version can receive a **replacement** repair before acceptance, so an
+ * existing `preflight_passed` is only a duplicate when it describes the same
+ * content. Skipping on the result alone would leave repair B promoted while the
+ * newest pass still names repair A (Codex P1 on #646) — the same false mismatch
+ * this function exists to avoid. The comparison hash is app-side; if it ever
+ * disagreed with Postgres' `md5()` the effect is an extra pass row, never a
+ * missing one.
  */
 export async function recordRepairPassedQualityGate(
   versionId: string,
+  assessedFilesJson?: string | null,
 ): Promise<void> {
   try {
     const rows = await getTelemetryForVersion(versionId);
     const prior = rows[0];
     if (!prior) return;
-    if (prior.qualityGateResult === "preflight_passed") return;
+    if (prior.qualityGateResult === "preflight_passed") {
+      const assessedRevision =
+        assessedFilesJson != null
+          ? createHash("md5").update(assessedFilesJson, "utf8").digest("hex")
+          : null;
+      if (assessedRevision === null || prior.filesRevision === assessedRevision) return;
+    }
     await createGenerationTelemetryRecord({
       chatId: prior.chatId,
       versionId,
       model: prior.model,
       qualityGateResult: "preflight_passed",
+      assessedFilesJson: assessedFilesJson ?? null,
       meta: { source: "server-repair-pass" },
     });
   } catch (err) {

@@ -7,6 +7,7 @@
  * Uses `createEngineVersionErrorLogs` directly (not the build-error bus)
  * so an expected gate denial does not look like a pipeline crash.
  */
+import { after } from "next/server";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 
 export const F3_READINESS_MISSING_ENV_CATEGORY = "f3-readiness:missing-env";
@@ -55,8 +56,8 @@ export function formatTier3MissingEnvMessage(
 }
 
 /**
- * Persist a durable observation of a 412 missing-env gate. Safe to call
- * with `void …().catch(() => {})` at each 412 callsite.
+ * Persist a durable observation of a 412 missing-env gate. Awaitable — the
+ * 412 callsites use {@link logTier3MissingEnvBlockedDetached} instead.
  */
 export async function logTier3MissingEnvBlocked(
   params: LogTier3MissingEnvParams,
@@ -97,5 +98,28 @@ export async function logTier3MissingEnvBlocked(
       "[f3-readiness] Failed to persist missing-env observation (best-effort):",
       err instanceof Error ? err.message : err,
     );
+  }
+}
+
+/**
+ * Schedule the observation without delaying the 412 response.
+ *
+ * A bare `void logTier3MissingEnvBlocked(...)` before `return` is not enough on
+ * serverless: the invocation can freeze the moment the response is returned, and
+ * the detached INSERT then dies silently — the same failure mode that lost
+ * `preview_url` writes (see `keepWriteAlive` in `observability/llm-usage.ts`).
+ * `after()` hands the promise to the platform instead.
+ *
+ * Outside a request scope (scripts, tests) `after()` throws; there is no
+ * invocation that can freeze there, so plain fire-and-forget is correct.
+ */
+export function logTier3MissingEnvBlockedDetached(
+  params: LogTier3MissingEnvParams,
+): void {
+  const pending = logTier3MissingEnvBlocked(params);
+  try {
+    after(pending);
+  } catch {
+    void pending;
   }
 }
