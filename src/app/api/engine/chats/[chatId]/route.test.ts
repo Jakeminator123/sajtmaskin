@@ -69,6 +69,10 @@ vi.mock("drizzle-orm", () => ({
   and: vi.fn(),
   desc: vi.fn(),
   eq: vi.fn(),
+  sql: (strings: TemplateStringsArray) => ({
+    op: "sql",
+    text: strings?.join?.("") ?? "",
+  }),
 }));
 
 import { GET } from "./route";

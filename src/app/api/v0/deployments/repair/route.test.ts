@@ -23,6 +23,10 @@ vi.mock("@/lib/db/schema", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: (_col: unknown, value: unknown) => value,
+  sql: (strings: TemplateStringsArray) => ({
+    op: "sql",
+    text: strings?.join?.("") ?? "",
+  }),
 }));
 
 vi.mock("@/lib/rateLimit", () => ({
