@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { META_MAX_STRING, truncateMetaStrings } from "./dump-logs-meta.mjs";
+import { META_MAX_DEPTH, META_MAX_STRING, truncateMetaStrings } from "./dump-logs-meta.mjs";
+
+/** Bygger `{ a: { a: … { a: leaf } } }` med `depth` nivåer objekt runt `leaf`. */
+function nest(leaf: unknown, depth: number): unknown {
+  let current = leaf;
+  for (let i = 0; i < depth; i += 1) current = { a: current };
+  return current;
+}
 
 describe("truncateMetaStrings", () => {
   /**
@@ -41,6 +48,27 @@ describe("truncateMetaStrings", () => {
     };
 
     expect(result.items[0]?.log).toContain("[trunkerad, 2000 tecken]");
+  });
+
+  /**
+   * Att lämna subträdet orört vid djupgränsen släppte igenom både okapade
+   * strängar och obegränsat djup vidare till `JSON.stringify` i `dump-logs.mjs`
+   * (Codex-fynd 2026-07-29).
+   */
+  it("ersätter för djupa subträd med en sentinel i stället för att släppa dem vidare", () => {
+    const deep = nest({ log: "z".repeat(12_000) }, META_MAX_DEPTH);
+
+    const serialized = JSON.stringify(truncateMetaStrings(deep));
+
+    expect(serialized).not.toContain("z".repeat(META_MAX_STRING + 1));
+    expect(serialized).toContain("trunkerat objekt");
+    expect(serialized.length).toBeLessThan(500);
+  });
+
+  it("kapar strängar precis ovanför djupgränsen", () => {
+    const atLimit = nest("w".repeat(2_000), META_MAX_DEPTH);
+
+    expect(JSON.stringify(truncateMetaStrings(atLimit))).toContain("[trunkerad, 2000 tecken]");
   });
 
   it("släpper igenom null och primitiver oförändrade", () => {

@@ -15,7 +15,7 @@
 /** Längre strängvärden i `meta` kapas. Räcker för R7:s nyckelnamn med marginal. */
 export const META_MAX_STRING = 500;
 
-/** Skydd mot patologiskt djupa payloads; djupare nivåer lämnas orörda. */
+/** Djupare nivåer ersätts av en sentinel i stället för att följas. */
 export const META_MAX_DEPTH = 6;
 
 /**
@@ -27,8 +27,14 @@ export function truncateMetaStrings(value, depth = 0) {
     if (value.length <= META_MAX_STRING) return value;
     return `${value.slice(0, META_MAX_STRING)}… [trunkerad, ${value.length} tecken]`;
   }
-  if (value === null || typeof value !== "object" || depth >= META_MAX_DEPTH) {
-    return value;
+  if (value === null || typeof value !== "object") return value;
+  if (depth >= META_MAX_DEPTH) {
+    // Sentinel, inte subträdet orört: annars passerar varje sträng under
+    // djupgränsen okapad och ett patologiskt djupt värde når `JSON.stringify`
+    // i `dump-logs.mjs` med hela sitt djup (Codex-fynd 2026-07-29).
+    return Array.isArray(value)
+      ? `[trunkerad array på djup ${depth} — poster: ${value.length}]`
+      : `[trunkerat objekt på djup ${depth} — nycklar: ${Object.keys(value).length}]`;
   }
   if (Array.isArray(value)) {
     return value.map((entry) => truncateMetaStrings(entry, depth + 1));
