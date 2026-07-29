@@ -109,4 +109,50 @@ describe("classifyProviderError (B3)", () => {
     const result = classifyProviderError({ status: 418, message: "I am a teapot" });
     expect(result.providerFault).toBe(false);
   });
+
+  // Granskning 2026-07-29: att ta första FUNNA koden lät en transportkod på
+  // wrappern dölja en mappad kvot-kod längre in — körningen debiterades då som
+  // ett vanligt fel i stället för provider-fault.
+  it("prefers a mapped code over an outer transport code", () => {
+    const inner = Object.assign(new Error("quota"), { code: "insufficient_quota" });
+    const outer = Object.assign(new Error("socket hang up"), {
+      code: "UND_ERR_SOCKET",
+      cause: inner,
+    });
+
+    const result = classifyProviderError(outer);
+
+    expect(result.code).toBe("insufficient_quota");
+    expect(result.providerFault).toBe(true);
+  });
+
+  it("prefers a mapped status over an outer unmapped one", () => {
+    const inner = Object.assign(new Error("unauthorized"), { status: 401 });
+    const outer = Object.assign(new Error("gateway"), { status: 418, cause: inner });
+
+    const result = classifyProviderError(outer);
+
+    expect(result.userMessage).toMatch(/Ogiltig API-nyckel/);
+    expect(result.providerFault).toBe(true);
+  });
+
+  it("still reports the outermost code when nothing maps", () => {
+    const inner = Object.assign(new Error("inner"), { code: "also_unknown" });
+    const outer = Object.assign(new Error("outer"), { code: "unknown_code", cause: inner });
+
+    expect(classifyProviderError(outer).code).toBe("unknown_code");
+  });
+
+  // En prototypnyckel gav en truthy icke-mappning, så `userMessage` blev
+  // `undefined` fast typen lovade en sträng.
+  it.each(["constructor", "toString", "hasOwnProperty", "__proto__"])(
+    "does not treat the prototype key %s as a mapping",
+    (code) => {
+      const result = classifyProviderError({ code, message: "raw provider text" });
+
+      expect(typeof result.userMessage).toBe("string");
+      expect(result.userMessage).toBe("raw provider text");
+      expect(result.providerFault).toBe(false);
+    },
+  );
 });

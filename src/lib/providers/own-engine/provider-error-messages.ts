@@ -79,10 +79,15 @@ function errorChain(err: unknown, maxDepth = 5): object[] {
 }
 
 /**
- * Extract a likely provider error code from arbitrary error shapes
- * (AI SDK wraps differently per provider). Returns null when none found.
+ * Every provider error code in the chain, outermost first.
+ *
+ * A list rather than the first hit: the outer wrapper often carries a transport
+ * code of its own (`UND_ERR_SOCKET`, `ECONNRESET`), and returning that would
+ * hide a mapped `insufficient_quota` sitting one `cause` deeper — the run would
+ * then be billed as a normal failure instead of a provider fault.
  */
-function extractProviderCode(err: unknown): string | null {
+function providerCodeCandidates(err: unknown): string[] {
+  const codes: string[] = [];
   for (const node of errorChain(err)) {
     const e = node as {
       code?: unknown;
@@ -90,20 +95,36 @@ function extractProviderCode(err: unknown): string | null {
       data?: { error?: { code?: unknown } };
     };
     for (const c of [e.code, e.error?.code, e.data?.error?.code]) {
-      if (typeof c === "string" && c.trim()) return c.trim();
+      if (typeof c === "string" && c.trim()) codes.push(c.trim());
     }
   }
-  return null;
+  return codes;
 }
 
-function extractStatus(err: unknown): number | null {
+/** Same reasoning as {@link providerCodeCandidates}, for HTTP statuses. */
+function providerStatusCandidates(err: unknown): number[] {
+  const statuses: number[] = [];
   for (const node of errorChain(err)) {
     const e = node as { status?: unknown; statusCode?: unknown; response?: { status?: unknown } };
     for (const v of [e.status, e.statusCode, e.response?.status]) {
-      if (typeof v === "number" && Number.isFinite(v)) return v;
+      if (typeof v === "number" && Number.isFinite(v)) statuses.push(v);
     }
   }
-  return null;
+  return statuses;
+}
+
+/**
+ * `Object.hasOwn`, never a bare index: a provider code of `constructor` or
+ * `toString` would otherwise hit `Object.prototype` and return a truthy
+ * non-mapping, so `mapped.sv` would be `undefined` and the user would lose the
+ * message entirely while the type claimed a string.
+ */
+function lookupMapping<K extends string | number>(
+  table: Record<K, Mapping>,
+  key: K | null,
+): Mapping | null {
+  if (key === null) return null;
+  return Object.hasOwn(table, key) ? table[key] : null;
 }
 
 function extractMessage(err: unknown, fallback: string): string {
@@ -126,29 +147,34 @@ export function classifyProviderError(
   fallback = "Engine generation failed",
 ): ProviderErrorClassification {
   const rawMessage = extractMessage(err, fallback);
-  const code = extractProviderCode(err);
-  if (code) {
-    const mapped = CODE_TO_USER_MESSAGE[code];
-    if (mapped) {
-      return {
-        userMessage: mapped.sv,
-        code,
-        permanent: mapped.permanent,
-        providerFault: mapped.providerFault === true,
-      };
-    }
+
+  // Prefer a code we can actually map over merely the first one found, then
+  // fall back to the outermost code for reporting.
+  const codes = providerCodeCandidates(err);
+  const mappedCode = codes.find((c) => Object.hasOwn(CODE_TO_USER_MESSAGE, c)) ?? null;
+  const code = mappedCode ?? codes[0] ?? null;
+
+  const codeMapping = lookupMapping(CODE_TO_USER_MESSAGE, mappedCode);
+  if (codeMapping) {
+    return {
+      userMessage: codeMapping.sv,
+      code,
+      permanent: codeMapping.permanent,
+      providerFault: codeMapping.providerFault === true,
+    };
   }
-  const status = extractStatus(err);
-  if (status !== null) {
-    const mapped = STATUS_TO_USER_MESSAGE[status];
-    if (mapped) {
-      return {
-        userMessage: mapped.sv,
-        code,
-        permanent: mapped.permanent,
-        providerFault: mapped.providerFault === true,
-      };
-    }
+
+  const statuses = providerStatusCandidates(err);
+  const mappedStatus = statuses.find((s) => Object.hasOwn(STATUS_TO_USER_MESSAGE, s)) ?? null;
+  const statusMapping = lookupMapping(STATUS_TO_USER_MESSAGE, mappedStatus);
+  if (statusMapping) {
+    return {
+      userMessage: statusMapping.sv,
+      code,
+      permanent: statusMapping.permanent,
+      providerFault: statusMapping.providerFault === true,
+    };
   }
+
   return { userMessage: rawMessage, code, permanent: false, providerFault: false };
 }
