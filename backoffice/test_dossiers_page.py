@@ -243,6 +243,271 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
         self.assertEqual(self._read_capability(), "cms")
 
 
+class SwedishLabelCoverageTests(unittest.TestCase):
+    """C6-etikettgrinden: varje `_class`- och `mock`-värde har en svensk
+    etikett (ingen tom sträng). Mock-värdena läses ur strict-schemat så ett
+    nytt enum-värde i schemat fäller testet tills etiketten finns."""
+
+    def test_every_class_value_has_swedish_label(self) -> None:
+        for klass in ("hard", "soft"):
+            self.assertTrue(
+                dossiers_page.CLASS_LABELS.get(klass, "").strip(),
+                f"_class-värdet {klass!r} saknar svensk etikett",
+            )
+
+    def test_every_mock_enum_value_has_swedish_label(self) -> None:
+        schema = json.loads(
+            dossiers_page.STRICT_SCHEMA_PATH.read_text(encoding="utf-8")
+        )
+        mock_values = schema["properties"]["mock"]["enum"]
+        self.assertTrue(mock_values)
+        for value in mock_values:
+            self.assertTrue(
+                dossiers_page.MOCK_LABELS.get(value, "").strip(),
+                f"mock-värdet {value!r} saknar svensk etikett",
+            )
+
+    def test_labels_keep_the_technical_value_in_parentheses(self) -> None:
+        self.assertEqual(dossiers_page.class_label("hard"), "Kopplad (hard)")
+        self.assertEqual(dossiers_page.class_label("soft"), "Fristående (soft)")
+        self.assertIn("(seed)", dossiers_page.mock_label("seed"))
+        # Utelämnat mock-fält räknas som `none`, precis som i runtime.
+        self.assertIn("(none)", dossiers_page.mock_label(None))
+
+    def test_unknown_values_render_raw_instead_of_guessing(self) -> None:
+        self.assertEqual(dossiers_page.class_label("weird"), "weird")
+        self.assertEqual(dossiers_page.mock_label("weird"), "weird")
+
+    def test_field_labels_cover_the_dossier_form_fields(self) -> None:
+        from backoffice.shared import field_label
+
+        for key in (
+            "id",
+            "label",
+            "capability",
+            "summary",
+            "summarySv",
+            "codeFidelity",
+            "complexity",
+            "defaultForCapability",
+            "mock",
+            "lastVerified",
+        ):
+            self.assertIn(f"(`{key}`)", field_label(key))
+
+
+class MocklessExceptionParityTests(unittest.TestCase):
+    def test_parsed_exceptions_match_canonical_ts_list(self) -> None:
+        # Kanonisk källa: MOCKLESS_CAPABILITY_EXCEPTIONS i
+        # src/lib/gen/dossiers/validate-manifest.ts. Ändras listan där ska
+        # detta test fällas så Python-läsaren verifieras mot nya innehållet.
+        self.assertEqual(
+            dossiers_page._load_mockless_capability_exceptions(),
+            frozenset({"analytics", "error-tracking"}),
+        )
+
+
+class CreateDossierSkeletonTests(unittest.TestCase):
+    """C5/C6-grinden: skelettet passerar strict-schemat, ogiltig indata
+    skriver ingenting, och en befintlig katalog skrivs aldrig över."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo_root = Path(self._tmp.name)
+        self.dossier_root = self.repo_root / "data" / "dossiers"
+        patches = [
+            mock.patch.object(dossiers_page, "REPO_ROOT", self.repo_root),
+            mock.patch.object(dossiers_page, "DOSSIER_ROOT", self.dossier_root),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+
+    def _create(self, target_class: str = "hard", target_id: str = "acme-maps", **overrides):
+        kwargs: dict[str, object] = {
+            "label": "Acme Maps",
+            "capability": "map-display",
+            "summary": "An interactive map building block used to exercise the skeleton tests.",
+            "mock": "visual",
+        }
+        kwargs.update(overrides)
+        return dossiers_page._create_dossier_skeleton(target_class, target_id, **kwargs)
+
+    def _assert_nothing_written(self) -> None:
+        self.assertFalse(
+            self.dossier_root.exists(),
+            "fail-closed bruten: något skrevs trots ogiltig indata",
+        )
+
+    def test_valid_skeleton_is_written_and_passes_strict_schema(self) -> None:
+        ok, msg = self._create()
+        self.assertTrue(ok, msg)
+        target = self.dossier_root / "hard" / "acme-maps"
+        manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
+        # Grinden i C6: det genererade manifestet är grönt mot det RIKTIGA
+        # strict-schemat (STRICT_SCHEMA_PATH pekar på repots schema).
+        from backoffice.shared import validate_json_against_schema
+
+        self.assertEqual(
+            validate_json_against_schema(manifest, dossiers_page.STRICT_SCHEMA_PATH), []
+        )
+        self.assertEqual(manifest["id"], "acme-maps")
+        self.assertEqual(manifest["mock"], "visual")
+        instructions = (target / "instructions.md").read_text(encoding="utf-8")
+        # De två H1-rubriker som `dossiers:validate-all` kräver.
+        self.assertIn("# When to use", instructions)
+        self.assertIn("# How to integrate", instructions)
+
+    def test_invalid_id_is_rejected_before_any_write(self) -> None:
+        for bad_id in ("Not Kebab", "a", "-leading", "trailing-", "a" * 61, ""):
+            ok, msg = self._create(target_id=bad_id)
+            self.assertFalse(ok, bad_id)
+            self.assertIn("kebab-case", msg)
+        self._assert_nothing_written()
+
+    def test_invalid_capability_is_rejected_before_any_write(self) -> None:
+        for bad_cap in ("Not Kebab", "x", "a" * 61):
+            ok, msg = self._create(capability=bad_cap)
+            self.assertFalse(ok, bad_cap)
+            self.assertIn("kebab-case", msg)
+        self._assert_nothing_written()
+
+    def test_invalid_class_is_rejected_before_any_write(self) -> None:
+        ok, msg = self._create(target_class="medium")
+        self.assertFalse(ok)
+        self.assertIn("Ogiltig klass", msg)
+        self._assert_nothing_written()
+
+    def test_hard_without_demo_mode_is_rejected(self) -> None:
+        for mock_value in (None, "none"):
+            ok, msg = self._create(capability="payments", mock=mock_value)
+            self.assertFalse(ok, str(mock_value))
+            self.assertIn("demoläge", msg.lower())
+        self._assert_nothing_written()
+
+    def test_hard_exception_capability_may_skip_demo_mode(self) -> None:
+        ok, msg = self._create(
+            target_id="acme-analytics", capability="analytics", mock=None
+        )
+        self.assertTrue(ok, msg)
+        manifest = json.loads(
+            (self.dossier_root / "hard" / "acme-analytics" / "manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertNotIn("mock", manifest)
+
+    def test_soft_skeleton_needs_no_demo_mode(self) -> None:
+        ok, msg = self._create(target_class="soft", target_id="faq-block", mock=None)
+        self.assertTrue(ok, msg)
+        self.assertTrue(
+            (self.dossier_root / "soft" / "faq-block" / "manifest.json").is_file()
+        )
+
+    def test_strict_schema_failure_blocks_creation(self) -> None:
+        # summary < 30 tecken passerar den lätta pre-checken (fältet finns) men
+        # fälls av strict-schemats minLength — beviset för att strict-schemat
+        # är grönt FÖRE skrivning.
+        ok, msg = self._create(summary="too short")
+        self.assertFalse(ok)
+        self.assertIn("Strict-schema", msg)
+        self._assert_nothing_written()
+
+    def test_existing_directory_is_never_overwritten(self) -> None:
+        target = self.dossier_root / "hard" / "acme-maps"
+        target.mkdir(parents=True)
+        sentinel = target / "manifest.json"
+        sentinel.write_text('{"id": "original"}', encoding="utf-8")
+        ok, msg = self._create()
+        self.assertFalse(ok)
+        self.assertIn("finns redan", msg)
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), '{"id": "original"}')
+        self.assertFalse((target / "instructions.md").exists())
+
+
+class ApplyManifestFieldEditsTests(unittest.TestCase):
+    """C4-grinden: fält-formulärets skrivväg går genom samma fail-closed-kedja
+    (_validate_manifest → strict-schema → backup + skriv)."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo_root = Path(self._tmp.name)
+        target = self.repo_root / "data" / "dossiers" / "hard" / "acme-cms"
+        target.mkdir(parents=True)
+        self.manifest_path = target / "manifest.json"
+        self.original = {
+            "id": "acme-cms",
+            "label": "Acme CMS",
+            "capability": "cms",
+            "codeFidelity": "rewritable",
+            "complexity": "simple",
+            "summary": "A CMS building block used for exercising the field-edit tests.",
+            "lastVerified": "2026-07-12",
+        }
+        self.manifest_path.write_text(json.dumps(self.original), encoding="utf-8")
+        patch = mock.patch.object(dossiers_page, "REPO_ROOT", self.repo_root)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def _saved(self) -> dict:
+        return json.loads(self.manifest_path.read_text(encoding="utf-8"))
+
+    def test_valid_edit_is_saved(self) -> None:
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            self.manifest_path,
+            {
+                "label": "Acme CMS v2",
+                "complexity": "medium",
+                "mock": "seed",
+                "summarySv": "Ett CMS-byggblock för svenska katalogtexten.",
+            },
+        )
+        self.assertTrue(ok, msg)
+        saved = self._saved()
+        self.assertEqual(saved["label"], "Acme CMS v2")
+        self.assertEqual(saved["complexity"], "medium")
+        self.assertEqual(saved["mock"], "seed")
+
+    def test_none_removes_an_optional_field(self) -> None:
+        ok, _ = dossiers_page._apply_manifest_field_edits(
+            self.manifest_path, {"mock": "seed"}
+        )
+        self.assertTrue(ok)
+        ok, _ = dossiers_page._apply_manifest_field_edits(
+            self.manifest_path, {"mock": None}
+        )
+        self.assertTrue(ok)
+        self.assertNotIn("mock", self._saved())
+
+    def test_light_validation_failure_is_fail_closed(self) -> None:
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            self.manifest_path, {"complexity": "gigantic"}
+        )
+        self.assertFalse(ok)
+        self.assertIn("Validering misslyckades", msg)
+        self.assertEqual(self._saved(), self.original)
+
+    def test_strict_schema_failure_is_fail_closed(self) -> None:
+        # summarySv < 20 tecken passerar den lätta pre-checken men fälls av
+        # strict-schemats minLength.
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            self.manifest_path, {"summarySv": "för kort"}
+        )
+        self.assertFalse(ok)
+        self.assertIn("Strict-schema", msg)
+        self.assertEqual(self._saved(), self.original)
+
+    def test_unreadable_manifest_is_fail_closed(self) -> None:
+        self.manifest_path.write_text("{trasig json", encoding="utf-8")
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            self.manifest_path, {"label": "Ny"}
+        )
+        self.assertFalse(ok)
+        self.assertIn("Kunde inte läsa", msg)
+
+
 class PromoteProspectCapabilityGateTests(unittest.TestCase):
     """Capability-match-gaten i `_promote_prospect` (backlog A#14, #419):
     ett utkast vars manifest.capability driftat från plan-postens

@@ -1702,6 +1702,15 @@ FIELD_LABELS: dict[str, str] = {
     "sourceTemplateIds": "Inspirationskällor",
     "referenceScaffoldIds": "Referens-scaffolds",
     "default": "Standardvariant",
+    # Dossier-/byggblocksfält (Fas C) — svenska UI-ord ur docs/architecture/glossary.md.
+    "id": "Tekniskt ID",
+    "capability": "Funktion",
+    "summary": "Sammanfattning",
+    "summarySv": "Svensk katalogtext",
+    "codeFidelity": "Kodtrohet",
+    "defaultForCapability": "Standardval",
+    "mock": "Demoläge",
+    "lastVerified": "Senast verifierad",
 }
 
 
