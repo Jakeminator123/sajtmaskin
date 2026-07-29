@@ -107,11 +107,17 @@ i ett enskilt lager. Det går inte — identiteten måste finnas i datan.
 
 **Två luckor som steg 3 måste hantera** (djupgranskning 2026-07-29):
 
-1. **Verdikt som landar via UPDATE får aldrig någon revision.** `updateTelemetryRecord`
-   (`generation-telemetry.ts:106-117`) stämplar inte, så `previewSuccess` och
-   `deployResult` är fortfarande revisionslösa — inklusive runtime-ready-kvittot
-   (M#pv4) som är bugg-typ 2 i tabellen överst. Steg 2 täcker alltså INSERT-vägen,
-   inte UPDATE-vägen.
+1. **Verdikt som landar via UPDATE bär rätt kolumn men fel bevis.**
+   `updateTelemetryRecord` (`generation-telemetry.ts:126-137`) rör inte
+   `files_revision`, så raden behåller den revision den fick vid INSERT — den är
+   alltså *inte* revisionslös. Defekten (M#pv4, bugg-typ 2 överst) är en annan:
+   `previewSuccess`/`deployResult` stämplas på **senaste raden för versionen**
+   utan att någon visar att den radens revision är det innehåll VM:en faktiskt
+   servade. **Fällan för steg 3:** lös det inte genom att stämpla om revisionen
+   vid UPDATE. Det skriver bara dagens innehåll över gårdagens bevis och
+   tillverkar precis den falska matchning planen finns för att upptäcka.
+   Kvittot måste bära den bedömda revisionen med sig och matchas, inte
+   omstämplas. (Codex på #653.)
 2. **Subselecten läser `files_json` vid skrivtillfället, inte vid gate-läsningen.**
    Skrivs innehållet om i fönstret däremellan stämplas verdiktet med en revision
    det aldrig såg — och ser då ut att *matcha*, alltså fail-open åt fel håll.
@@ -137,18 +143,39 @@ reparerade innehållet, och mismatch-frekvensen beslut 3 väntar på hade mätts
 fel. Mätningen nedan är alltså trovärdig först för rader skrivna efter #646.
 
 **Så mäts frekvensen** (read-only mot prod, ingen kodgrind finns — det var en
-lucka i steg 2:s formulering "steg 2 mäter"):
+lucka i steg 2:s formulering "steg 2 mäter").
+
+Mät över **samma rad som läsaren skulle välja**, inte över all historik:
+`getLatestQualityGateResultForVersion` tar senaste raden per version
+(`generation-telemetry.ts:307-312`). Räknar man varje stämplad rad blir varje
+ersatt repair-varv en permanent mismatch, och siffran växer med historiken i
+stället för att beskriva hur ofta en *läsning* skulle träffa fel — vilket är den
+fråga beslut 3 väntar på. (Codex på #653.)
 
 ```sql
-SELECT count(*) AS stamplade,
-       count(*) FILTER (WHERE t.files_revision IS DISTINCT FROM v.files_revision) AS mismatch
-  FROM generation_telemetry t
-  JOIN engine_versions v ON v.id = t.version_id
- WHERE t.files_revision IS NOT NULL;
+WITH senaste AS (
+  SELECT DISTINCT ON (t.version_id)
+         t.version_id, t.files_revision, t.quality_gate_result
+    FROM generation_telemetry t
+   WHERE t.version_id IS NOT NULL
+   ORDER BY t.version_id, t.created_at DESC
+)
+SELECT count(*) FILTER (WHERE s.files_revision IS NOT NULL) AS stamplade,
+       count(*) FILTER (
+         WHERE s.files_revision IS NOT NULL
+           AND s.files_revision IS DISTINCT FROM v.files_revision
+       ) AS mismatch,
+       count(*) FILTER (
+         WHERE s.quality_gate_result IS NOT NULL
+           AND s.files_revision IS DISTINCT FROM v.files_revision
+       ) AS mismatch_med_verdikt
+  FROM senaste s
+  JOIN engine_versions v ON v.id = s.version_id;
 ```
 
-2026-07-29 gav den `2 / 0` — för litet underlag för ett beslut, och rader
-skrivna före #646 kan bära repair-lanens felstämplade revision.
+Den enklare varianten (alla stämplade rader) gav `2 / 0` den 2026-07-29 — för
+litet underlag för ett beslut oavsett, och rader skrivna före #646 kan bära
+repair-lanens felstämplade revision.
 
 ## Skiss för steg 3 (väntar på mätdata)
 
