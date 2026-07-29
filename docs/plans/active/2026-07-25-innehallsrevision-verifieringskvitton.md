@@ -104,6 +104,8 @@ i ett enskilt lager. Det går inte — identiteten måste finnas i datan.
 | 1 — primitiv | **Levererad 2026-07-29** | `engine_versions.files_revision TEXT GENERATED ALWAYS AS (md5(files_json)) STORED` via `add-files-revision.sql`. Prod-preflight: 133 rader / 48 kB heap → STORED-omskrivning OK, trigger-variant behövs inte. |
 | 2 — stämpla verdikt | **Levererad 2026-07-29, med två kända luckor** | `generation_telemetry.files_revision` + subselect i `createGenerationTelemetryRecord` (anroparen kan inte glömma). Preview-session/bus-events bär **inte** revisionen ännu — det hör till steg 3:s läsare. |
 
+| 3 — läsarna jämför | Öppen | Väntar på mätdata (beslut 3). Skiss längre ner. |
+
 **Två luckor som steg 3 måste hantera** (djupgranskning 2026-07-29):
 
 1. **Verdikt som landar via UPDATE får aldrig någon revision.** `updateTelemetryRecord`
@@ -117,7 +119,6 @@ i ett enskilt lager. Det går inte — identiteten måste finnas i datan.
    Files_json-leasen (#507) täcker fönstret när ett jobb kör, men inte annars.
    Repair-lanens variant av samma fel är åtgärdad i #646 (explicit `assessedFilesJson`);
    samma mönster är rätt lösning här om steg 3 behöver hårdare garanti.
-| 3 — läsarna jämför | Öppen | Väntar på mätdata (beslut 3). Skiss längre ner. |
 
 **Prod-verifierat 2026-07-29** (read-only mot prod-DB): kolumnen finns som
 `GENERATED ALWAYS ... md5(files_json)`, 135/135 versioner har revision,
