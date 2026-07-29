@@ -67,8 +67,8 @@ jobs:
             REASON="ny commit (${HEAD_SHA:0:7}) — gör om buggkollen och sätt merge:ready igen"
           else
             # Bot-event: ta bort bara om händelsen är nyare än sign-off `at:`.
-            body=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq .body // "")
-            comments=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" --jq '.[].body' 2>/dev/null || true)
+            body=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.body // ""')
+            comments=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" --jq '.[].body // empty' 2>/dev/null || true)
             haystack=$(printf '%s\n%s\n' "$body" "$comments")
             signoff_line=$(printf '%s\n' "$haystack" | grep -E 'merge:ready[[:space:]]*—[[:space:]]*sha:' | tail -n1 || true)
             if [ -z "$signoff_line" ]; then
