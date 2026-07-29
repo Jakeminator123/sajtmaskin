@@ -2,7 +2,7 @@
 status: active
 owner: unassigned
 created: 2026-07-27
-topic: Restlista — små, oberoende svansar som blev kvar när fyra nästan-levererade planer konsoliderades. R1–R4 + R6 levererade 2026-07-28 (#639), R7/R10/R11 klara 2026-07-29; kvar är env-scope i export, dossier-beteendetester och review-freshness
+topic: Restlista — små, oberoende svansar som blev kvar när fyra nästan-levererade planer konsoliderades. R1–R4 + R6 levererade 2026-07-28 (#639), R7/R9/R10/R11 klara 2026-07-29; kvar är env-scope i export och dossier-beteendetester
 source: Kodverifiering 2026-07-27 mot master `3b419115` av fyra read-only-agenter. Ersätter svansarna i de raderade planerna 2026-07-13-builder-status-ui-declutter.md, 2026-07-13-anvandarsajt-env-konsolidering.md och 2026-07-13-stabilisering-verify-f3-doman-plan.md (§ 6, § 7, PR 4) — kärnan i de tre är levererad och indexerad i ../avklarat/README.md
 ---
 
@@ -31,6 +31,8 @@ canaryn bevisade och vad den avslöjade.
 `engine_version_error_logs` (`category=f3-readiness:missing-env`) med
 `meta.missingByIntegration`; `/logg` läser `meta` via `dump-logs --kinds=errors`.
 
+**R9 levererad 2026-07-29** — `merge-ready-freshness.yml` + sign-off med `at:`.
+
 Raderna nedan är de som återstår.
 
 ## Restrader
@@ -39,7 +41,6 @@ Raderna nedan är de som återstår.
 |---|---|---|---|
 | R5 | `.env.local` faller tillbaka till hela dossier-katalogen | `project-scaffold.ts:688-689` (`selectedKeys === undefined`) | Ta bort fallbacken när alla vägar trådar scope |
 | R8 | Inga beteendetester per Kopplad dossier | saknas — bara manifest-/validate-/select-tester | Mock mountar utan krasch per hard-dossier + aktiverings-E2E (dossier etapp 7.3-residual) |
-| R9 | `merge:ready` invalideras inte av ny botkommentar | `review-window.yml:12-22` väntar på botar men bär ingen SHA; sign-off-format i `pr-merge-review-gate.mdc:58-65` | Sign-off bär head-SHA + timestamp; ny botkommentar efter sign-off tar bort labeln |
 
 ## Detaljer där raden inte räcker
 
@@ -124,12 +125,14 @@ side på alla tre 412-vägar (`finalize-design`, `quality-gate`, F3-stream) via
 `logTier3MissingEnvBlocked` → `engine_version_error_logs`. `/logg` får
 `missingByIntegration` genom `meta` i `dump-logs --kinds=errors`.
 
-### R9 — avgränsning
+### R9 — levererad 2026-07-29
 
-Detta är process, inte produkt. Implementeras som lättviktigt checkjobb eller
-utökning av `review-window.yml`, och speglas i
-[`pr-merge-review-gate.mdc`](../../../.cursor/rules/pr-merge-review-gate.mdc).
-Inget nytt governance-lager (jfr `project-phase-priorities.mdc`).
+Separat workflow `.github/workflows/merge-ready-freshness.yml` tar bort
+`merge:ready` vid ny commit (`synchronize`) och vid bot-review/inline som är
+nyare än sign-off-fältet `at:`. Sign-off-formatet i
+[`pr-merge-review-gate.mdc`](../../../.cursor/rules/pr-merge-review-gate.mdc)
+kräver nu `sha:` (40 tecken) + `at:` (ISO8601 UTC). Ingen ny required check —
+bara label-invalidation.
 
 ## Verifiering
 
@@ -137,7 +140,6 @@ Inget nytt governance-lager (jfr `project-phase-priorities.mdc`).
 |---|---|
 | R5 | `npm run typecheck` + `npm run test:followup-contract` + export/verify-svitarna |
 | R8 | nya tester gröna + `npx vitest run` på berörd svit |
-| R9 | workflow-körning på en test-PR |
 
 ## Explicit icke-mål
 

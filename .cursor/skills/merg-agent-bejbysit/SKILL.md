@@ -288,7 +288,7 @@ vidare till nästa PR i kön i stället för att vänta.
 Sign-off-raden:
 
 ```
-merge:ready — sha: <hela 40-teckens head-SHA>, bugkoll: <bugbot|codex|manual>, triage: <n fixat / n loggat / n avfärdat>, P0/P1: 0
+merge:ready — sha: <hela 40-teckens head-SHA>, at: <ISO8601 UTC>, bugkoll: <bugbot|codex|manual>, triage: <n fixat / n loggat / n avfärdat>, P0/P1: 0
 ```
 
 `--admin` behövs för ägarens egna PR:er (kan inte självgodkännas) — aldrig som

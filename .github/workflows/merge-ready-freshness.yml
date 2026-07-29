@@ -1,0 +1,99 @@
+name: merge-ready-freshness
+
+# Restlista R9 — ta bort `merge:ready` när head byts eller en bot postar
+# review/inline-fynd efter författarens sign-off.
+#
+# Separat från review-window.yml (read-only väntan). Ingen ny required check
+# och ingen verdict-triage — bara mekanisk label-invalidation.
+
+on:
+  pull_request:
+    types: [synchronize]
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  invalidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: >
+      github.event_name == 'pull_request' ||
+      (
+        github.event.sender.type == 'Bot' &&
+        github.event.sender.login != 'dependabot[bot]' &&
+        github.event.sender.login != 'github-actions[bot]' &&
+        github.event.sender.login != 'vercel[bot]'
+      ) ||
+      contains(fromJSON('["chatgpt-codex-connector","cursor[bot]","gitguardian[bot]"]'), github.event.sender.login)
+
+    steps:
+      - name: Remove stale merge:ready
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          SENDER: ${{ github.event.sender.login }}
+          REVIEW_AT: ${{ github.event.review.submitted_at }}
+          COMMENT_AT: ${{ github.event.comment.created_at }}
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          if [ "$EVENT_NAME" = "pull_request_review" ]; then
+            EVENT_AT="${REVIEW_AT:-}"
+          elif [ "$EVENT_NAME" = "pull_request_review_comment" ]; then
+            EVENT_AT="${COMMENT_AT:-}"
+          else
+            EVENT_AT=""
+          fi
+
+          labels=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '[.labels[].name] | join(",")')
+          case ",$labels," in
+            *,merge:ready,*) ;;
+            *)
+              echo "Ingen merge:ready — no-op"
+              exit 0
+              ;;
+          esac
+
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            REASON="ny commit (${HEAD_SHA:0:7}) — gör om buggkollen och sätt merge:ready igen"
+          else
+            # Bot-event: ta bort bara om händelsen är nyare än sign-off `at:`.
+            body=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq .body // "")
+            comments=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" --jq '.[].body' 2>/dev/null || true)
+            haystack=$(printf '%s\n%s\n' "$body" "$comments")
+            signoff_line=$(printf '%s\n' "$haystack" | grep -E 'merge:ready[[:space:]]*—[[:space:]]*sha:' | tail -n1 || true)
+            if [ -z "$signoff_line" ]; then
+              echo "Label finns men sign-off-rad saknas — tar bort labeln"
+              REASON="merge:ready utan giltig sign-off-rad"
+            else
+              signoff_sha=$(printf '%s' "$signoff_line" | sed -nE 's/.*sha:[[:space:]]*([0-9a-f]{40}).*/\1/p' | head -n1)
+              signoff_at=$(printf '%s' "$signoff_line" | sed -nE 's/.*at:[[:space:]]*([0-9T:Z.+-]+).*/\1/p' | head -n1)
+              if [ -n "$signoff_sha" ] && [ "$signoff_sha" != "$HEAD_SHA" ]; then
+                REASON="sign-off sha (${signoff_sha:0:7}) != head (${HEAD_SHA:0:7})"
+              elif [ -n "$signoff_at" ] && [ -n "${EVENT_AT:-}" ]; then
+                signoff_epoch=$(date -u -d "$signoff_at" +%s 2>/dev/null || echo 0)
+                event_epoch=$(date -u -d "$EVENT_AT" +%s 2>/dev/null || echo 0)
+                if [ "$event_epoch" -gt 0 ] && [ "$signoff_epoch" -gt 0 ] && [ "$event_epoch" -le "$signoff_epoch" ]; then
+                  echo "Bot-händelse (${EVENT_AT}) är inte nyare än sign-off (${signoff_at}) — behåller labeln"
+                  exit 0
+                fi
+                REASON="bot (${SENDER}) efter sign-off — läs fynden, triagera, sätt merge:ready igen"
+              else
+                # Saknas at:-fält: konservativt — bot efter label tas som stale.
+                REASON="bot (${SENDER}) medan merge:ready satt (saknar at: i sign-off) — läs fynden och signera om"
+              fi
+            fi
+          fi
+
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "merge:ready"
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "♻️ \`merge:ready\` borttagen automatiskt: ${REASON}."
+          echo "Removed merge:ready on PR #${PR_NUMBER}: ${REASON}"
