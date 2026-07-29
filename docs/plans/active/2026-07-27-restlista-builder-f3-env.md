@@ -12,9 +12,10 @@ Varje rad här är **liten, oberoende och färdigutredd**. Inget i listan vänta
 ägarbeslut. Ta en eller flera i samma PR — de delar inte kod och behöver ingen
 inbördes ordning.
 
-De kommer från fyra planer vars kärna är levererad. Kärnleveranserna finns som
-rader i [`../avklarat/README.md`](../avklarat/README.md); bara resterna lever
-här.
+De kommer från fem planer vars kärna är levererad (fyra ursprungliga plus
+builder-runtime-planen, vars två sista rader flyttades hit 2026-07-29).
+Kärnleveranserna finns som rader i
+[`../avklarat/README.md`](../avklarat/README.md); bara resterna lever här.
 
 **Levererat 2026-07-28 (#639):** R1, R2, R3, R4 och R6 — se
 [`../avklarat/README.md`](../avklarat/README.md) för raden och git för diffen.
