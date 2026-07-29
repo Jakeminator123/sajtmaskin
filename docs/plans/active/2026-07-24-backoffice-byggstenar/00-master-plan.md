@@ -51,7 +51,7 @@ faktiskt påverkar**, så ägaren vågar inte ändra något.
 | 1 | **Fas A** — navigation, hub, språk, spara-läge | *(sammanfattad nedan)* | **Klar 2026-07-24**, PR #615 |
 | 2 | **Baseline-backup** — dataförlust, egen liten PR | *(sammanfattad nedan)* | **Klar 2026-07-28** — snapshot före restoren |
 | 3 | **Fas B** — trygg create/edit för scaffold + variant | *(levererad — sammanfattad nedan, aktivitetsfilen raderad)* | **Klar 2026-07-29**, PR #649 |
-| 4 | **Fas C** — Byggblock i samma språk + skapa från grunden | *(levererad — sammanfattad nedan, aktivitetsfilen raderad)* | **Klar 2026-07-29**, PR #654 |
+| 4 | **Fas C** — Byggblock i samma språk + skapa från grunden | *(levererad — sammanfattad nedan, aktivitetsfilen raderad)* | **Kod klar 2026-07-29**, PR #654 — **manuellt UI-varv kvar**, se etapp 4 nedan |
 | 5–6 | **Fas D** — AI-modellval via manifestet | [`aktiviteter/04-fas-d-ai-modellval.md`](aktiviteter/04-fas-d-ai-modellval.md) | Förslaget **godkänt 2026-07-28** (tre separata workload-poster) — **enda kvarvarande fas**, kör nu |
 | 7 | **P2-städ** — resterna från stringensplanen | [`aktiviteter/05-p2-stringens-stad.md`](aktiviteter/05-p2-stringens-stad.md) | **Delvis:** P2-1 klar (#647), P2-3 klar (#650). Kvar: P2-2, P2-4, P2-5, P2-6 |
 
@@ -86,8 +86,18 @@ Etapper vars filer inte överlappar får köras parallellt i egna worktrees —
    modellval. Förslaget är godkänt (2026-07-28), men Fas D körs ändå **sist**,
    efter Fas B och C.
 
-**Kvar när detta skrivs (2026-07-29):** Fas D + P2-2, P2-4, P2-5, P2-6. Allt
-annat i planen är levererat och mergat.
+**Kvar när detta skrivs (2026-07-29):**
+
+1. **Fas C:s manuella UI-varv** — skapa ett testbyggblock via UI:t, kör
+   `npm run dossiers:validate-all`, radera det och bekräfta zip-snapshoten i
+   **Återställning**. Koden är mergad men detta acceptanskriterium är **inte**
+   verifierat, och statiska tester kan inte nå renderingsfel som dubbla
+   widget-nycklar. Gör det i en separat worktree så huvudcheckouten hålls ren.
+2. **Fas D** — AI-modellval via manifestet (förslaget godkänt 2026-07-28).
+3. **P2-2, P2-4, P2-5, P2-6** i
+   [`aktiviteter/05-p2-stringens-stad.md`](aktiviteter/05-p2-stringens-stad.md).
+
+Allt annat i planen är levererat och mergat.
 
 ## Fas A — vad som landade (klar)
 
