@@ -254,6 +254,11 @@ export function createCodeGenSSEStream(
       let sawContentEvent = false;
       let abortedByProvider = false;
       let truncatedByLength = false;
+      /**
+       * Sant så snart strömmen sagt VARFÖR den föll. Klienten behåller bara
+       * det sista error-eventet, så en generisk rad efteråt raderar diagnosen.
+       */
+      let providerErrorEmitted = false;
       let accumulatedThinking = "";
       let reasoningHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
       const reportAccumulatedThinking = () => {
@@ -585,6 +590,7 @@ export function createCodeGenSSEStream(
               // just a message string. Downstream reads `providerFault` to
               // decide whether the run may spend the user's credits, and the
               // mapped message keeps raw key material out of the chat.
+              providerErrorEmitted = true;
               enqueue(createBuilderStreamEvent("error", providerErrorPayload(part.error)));
               break;
             }
@@ -671,13 +677,15 @@ export function createCodeGenSSEStream(
               phase: "empty-output",
             }),
           );
-          enqueue(
-            createBuilderStreamEvent("error", {
-              message: sawContentEvent
-                ? "Provider avbröt strömmen innan svaret var klart — försök igen eller byt modell."
-                : "Provider avbröt strömmen — försök igen eller byt modell.",
-            }),
-          );
+          if (!providerErrorEmitted) {
+            enqueue(
+              createBuilderStreamEvent("error", {
+                message: sawContentEvent
+                  ? "Provider avbröt strömmen innan svaret var klart — försök igen eller byt modell."
+                  : "Provider avbröt strömmen — försök igen eller byt modell.",
+              }),
+            );
+          }
         } else if (!sawContentEvent && toolCallCounts.size === 0) {
           enqueue(
             createBuilderStreamEvent("progress", {
@@ -685,12 +693,19 @@ export function createCodeGenSSEStream(
               phase: "empty-output",
             }),
           );
-          enqueue(
-            createBuilderStreamEvent("error", {
-              message:
-                "Model produced no text events (silent output). No code was emitted for this run.",
-            }),
-          );
+          // Bara när vi inte redan vet VARFÖR strömmen var tom. Klienten
+          // behåller det sista error-eventet och kastar det på ett
+          // versionslöst `done` (`stream-handlers.ts`), så en generisk rad
+          // efter en diagnos skriver över diagnosen — och användaren blir av
+          // med beskedet att API-nyckeln var ogiltig. (Codex P1 på #641.)
+          if (!providerErrorEmitted) {
+            enqueue(
+              createBuilderStreamEvent("error", {
+                message:
+                  "Model produced no text events (silent output). No code was emitted for this run.",
+              }),
+            );
+          }
         }
 
         const usage = await result.usage;

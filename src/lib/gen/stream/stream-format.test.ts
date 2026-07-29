@@ -257,6 +257,51 @@ describe("createCodeGenSSEStream", () => {
     expect(String(data.message)).not.toMatch(/sk-proj/);
   });
 
+  // Codex P1 on #641: the diagnosis above is worthless if the generic
+  // empty-output error follows it. The client keeps only the LAST error event
+  // and throws it on the versionless `done`, so a trailing generic line
+  // silently replaces "your API key is invalid" with "no text events".
+  it("does not bury the provider diagnosis under the generic empty-output error", async () => {
+    const apiError = Object.assign(new Error("Incorrect API key provided"), { statusCode: 401 });
+
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "error", error: apiError },
+      { type: "finish" },
+    ]);
+
+    const errorEvents = events.filter((event) => event.event === "error");
+    expect(errorEvents).toHaveLength(1);
+
+    const last = errorEvents.at(-1)?.data as Record<string, unknown>;
+    expect(String(last.message)).toMatch(/Ogiltig API-nyckel/);
+    expect(String(last.message)).not.toMatch(/no text events/i);
+
+    // The phase itself is still reported — only the competing error is gone.
+    expect(
+      events.some(
+        (event) =>
+          event.event === "progress" &&
+          (event.data as Record<string, unknown>).phase === "empty-output",
+      ),
+    ).toBe(true);
+  });
+
+  it("still explains a genuinely silent stream when no provider error was seen", async () => {
+    const events = await collectEvents([
+      { type: "start" },
+      { type: "reasoning-start" },
+      { type: "reasoning-end" },
+      { type: "finish" },
+    ]);
+
+    const errorEvents = events.filter((event) => event.event === "error");
+    expect(errorEvents).toHaveLength(1);
+    expect(String((errorEvents[0]?.data as Record<string, unknown>).message)).toMatch(
+      /no text events/i,
+    );
+  });
+
   it("emits generation done progress with stream timing metrics", async () => {
     const events = await collectEvents([
       { type: "start" },
