@@ -33,6 +33,7 @@ import {
   summarizeTarget,
 } from "./db-target-guard.mjs";
 import { mergeEnvFileOverProcess } from "./env-merge.mjs";
+import { truncateMetaStrings } from "./dump-logs-meta.mjs";
 import { formatLogTimestamp, LOG_TIMESTAMP_NOTE } from "./log-timestamp.mjs";
 
 const argv = process.argv.slice(2);
@@ -141,7 +142,10 @@ const KIND_SPECS = {
     chatColumn: "chat_id",
     // `meta` carries structured payloads (R7: f3-readiness:missing-env →
     // missingByIntegration) so /logg can reconstruct the requirements surface.
+    // The column is shared, so long strings are truncated on the way out — see
+    // `dump-logs-meta.mjs` for why.
     columns: ["id", "chat_id", "version_id", "level", "category", "message", "meta", "created_at"],
+    sanitizeRow: (row) => ({ ...row, meta: truncateMetaStrings(row.meta) }),
   },
   chats: {
     table: "engine_chats",
@@ -240,7 +244,7 @@ try {
     // dump. Matters for multi-kind pulls (e.g. /logg) that span optional tables.
     try {
       const res = await client.query(sql, params);
-      data[kind] = res.rows;
+      data[kind] = spec.sanitizeRow ? res.rows.map(spec.sanitizeRow) : res.rows;
       counts[kind] = res.rows.length;
     } catch (kindErr) {
       data[kind] = [];

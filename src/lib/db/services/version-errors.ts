@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, notInArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { getScaffoldById } from "@/lib/gen/scaffolds";
@@ -16,6 +16,18 @@ type VersionErrorLogPayload = {
   message: string;
   meta?: Record<string, unknown> | null;
 };
+
+/**
+ * Kategorier som repair-pass-prunet aldrig får röra.
+ *
+ * Prunet (`pruneStaleVersionErrorLogs`) städar *pipeline-diagnostik* från
+ * äldre repair-pass och läser `meta.repairPassIndex`, där en saknad nyckel
+ * betyder pass 0. En **gate-observation** beskriver inget repair-pass alls och
+ * sätter därför aldrig fältet — utan det här undantaget räknas den som pass 0
+ * och raderas vid nästa rena follow-up på samma version. Det träffade R7:s
+ * missing-env-rad, vars enda syfte är att vara durabel (granskning 2026-07-29).
+ */
+export const PRUNE_EXEMPT_CATEGORIES = ["f3-readiness:missing-env"] as const;
 
 type EngineScaffoldContext = {
   scaffoldId: string;
@@ -239,6 +251,7 @@ export async function getLatestEngineVersionErrorLogForCategory(
  *
  * This prune is best-effort:
  *  - only deletes rows with strictly lower `meta.repairPassIndex`
+ *  - never touches {@link PRUNE_EXEMPT_CATEGORIES}
  *  - never throws (callers wrap in try/catch and rely on devLog telemetry)
  *
  * Returns the number of rows deleted so the caller can log
@@ -266,6 +279,12 @@ export async function pruneStaleVersionErrorLogs(
           sql`COALESCE((${engineVersionErrorLogs.meta}->>'repairPassIndex')::int, 0)`,
           currentRepairPassIndex,
         ),
+        // COALESCE, inte en naken NOT IN: `category` är nullable och
+        // `NULL NOT IN (...)` är NULL, vilket skulle låta varje
+        // kategorilös rad överleva — en tyst beteendeändring.
+        notInArray(sql`COALESCE(${engineVersionErrorLogs.category}, '')`, [
+          ...PRUNE_EXEMPT_CATEGORIES,
+        ]),
       ),
     )
     .returning({ id: engineVersionErrorLogs.id });

@@ -59,13 +59,22 @@ vi.mock("@/lib/db/schema", () => ({
   engineVersionErrorLogs: {
     id: "engine_version_error_logs.id",
     version_id: "engine_version_error_logs.version_id",
+    category: "engine_version_error_logs.category",
     meta: "engine_version_error_logs.meta",
     created_at: "engine_version_error_logs.created_at",
   },
 }));
 
+vi.mock("next/server", () => ({ after: vi.fn() }));
+
+import { PgDialect } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db/client";
-import { createEngineVersionErrorLogs, pruneStaleVersionErrorLogs } from "./version-errors";
+import { F3_READINESS_MISSING_ENV_CATEGORY } from "@/lib/integrations/log-tier3-missing-env";
+import {
+  createEngineVersionErrorLogs,
+  PRUNE_EXEMPT_CATEGORIES,
+  pruneStaleVersionErrorLogs,
+} from "./version-errors";
 
 describe("pruneStaleVersionErrorLogs", () => {
   beforeEach(() => {
@@ -111,6 +120,33 @@ describe("pruneStaleVersionErrorLogs", () => {
     const result = await pruneStaleVersionErrorLogs("v-42", Number.NaN);
     expect(result).toBe(0);
     expect(whereSpy).not.toHaveBeenCalled();
+  });
+
+  /**
+   * En gate-observation beskriver inget repair-pass och sätter därför aldrig
+   * `meta.repairPassIndex`. Utan undantaget räknas den som pass 0 och raderas
+   * vid nästa rena follow-up — vilket träffade R7:s missing-env-rad, vars enda
+   * syfte är att vara durabel (granskning 2026-07-29).
+   */
+  it("undantar gate-observationer från prunet", async () => {
+    deletedRows.mockReturnValue([]);
+    await pruneStaleVersionErrorLogs("v-42", 2);
+
+    const where = whereSpy.mock.calls[0]?.[0];
+    const { sql, params } = new PgDialect().sqlToQuery(where as never);
+    // COALESCE runt category, inte ett naket NOT IN: `category` är nullable och
+    // `NULL NOT IN (...)` är NULL, vilket skulle spara varje kategorilös rad.
+    expect(sql.toLowerCase()).toContain("coalesce($5, '') not in");
+    expect(params).toContain(F3_READINESS_MISSING_ENV_CATEGORY);
+  });
+
+  /**
+   * Undantagslistan är en literal i version-errors.ts (att importera R7:s
+   * konstant där hade blivit ett cirkelberoende). Låset här gör att de två
+   * inte kan glida isär tyst.
+   */
+  it("undantagslistan täcker R7:s kategori", () => {
+    expect(PRUNE_EXEMPT_CATEGORIES).toContain(F3_READINESS_MISSING_ENV_CATEGORY);
   });
 });
 

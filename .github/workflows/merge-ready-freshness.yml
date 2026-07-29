@@ -1,7 +1,7 @@
 name: merge-ready-freshness
 
 # Restlista R9 — ta bort `merge:ready` när head byts eller en bot postar
-# review/inline-fynd efter författarens sign-off.
+# review/inline/kommentar-fynd efter författarens sign-off.
 #
 # Separat från review-window.yml (read-only väntan). Ingen ny required check
 # och ingen verdict-triage — bara mekanisk label-invalidation.
@@ -13,6 +13,11 @@ on:
     types: [submitted]
   pull_request_review_comment:
     types: [created]
+  # Codex-sammanfattningar, GitGuardian och bugbot-summeringar landar som
+  # vanliga PR-kommentarer, inte som reviews. Utan den här triggern överlever
+  # labeln precis de fynden (granskning 2026-07-29).
+  issue_comment:
+    types: [created]
 
 permissions:
   pull-requests: write
@@ -22,15 +27,24 @@ jobs:
   invalidate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # `vercel[bot]` är avsiktligt tillåten på review-vägarna: Vercel Agent
+    # Review postar riktiga logikfynd som review-kommentarer (bevisat på #642
+    # och #643). Dess deploy-brus är däremot *issue*-kommentarer, så det är
+    # bara där den filtreras bort.
     if: >
       github.event_name == 'pull_request' ||
       (
         github.event.sender.type == 'Bot' &&
         github.event.sender.login != 'dependabot[bot]' &&
         github.event.sender.login != 'github-actions[bot]' &&
-        github.event.sender.login != 'vercel[bot]'
-      ) ||
-      contains(fromJSON('["chatgpt-codex-connector","cursor[bot]","gitguardian[bot]"]'), github.event.sender.login)
+        (
+          github.event_name != 'issue_comment' ||
+          (
+            github.event.issue.pull_request != null &&
+            github.event.sender.login != 'vercel[bot]'
+          )
+        )
+      )
 
     steps:
       - name: Remove stale merge:ready
@@ -41,20 +55,34 @@ jobs:
           SENDER: ${{ github.event.sender.login }}
           REVIEW_AT: ${{ github.event.review.submitted_at }}
           COMMENT_AT: ${{ github.event.comment.created_at }}
+          PR_FROM_PULL: ${{ github.event.pull_request.number }}
+          PR_FROM_ISSUE: ${{ github.event.issue.number }}
+          # Tolererar em-dash, en-dash, bindestreck eller inget skiljetecken —
+          # en giltig triage ska inte tappa labeln på typografi.
+          SIGNOFF_PATTERN: 'merge:ready[[:space:]]*(—|–|-|:)?[[:space:]]*sha:'
+          # Klockskev mellan sign-off-författaren och runnern.
+          CLOCK_SKEW_SECONDS: "120"
         run: |
           set -euo pipefail
 
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-          if [ "$EVENT_NAME" = "pull_request_review" ]; then
-            EVENT_AT="${REVIEW_AT:-}"
-          elif [ "$EVENT_NAME" = "pull_request_review_comment" ]; then
-            EVENT_AT="${COMMENT_AT:-}"
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            PR_NUMBER="${PR_FROM_ISSUE}"
           else
-            EVENT_AT=""
+            PR_NUMBER="${PR_FROM_PULL}"
           fi
 
-          labels=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '[.labels[].name] | join(",")')
+          case "$EVENT_NAME" in
+            pull_request_review) EVENT_AT="${REVIEW_AT:-}" ;;
+            pull_request_review_comment|issue_comment) EVENT_AT="${COMMENT_AT:-}" ;;
+            *) EVENT_AT="" ;;
+          esac
+
+          # En hämtning: `issue_comment` bär ingen head-sha i payloaden, och att
+          # alltid läsa den från API:t håller alla event-vägar lika.
+          pr_json=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")
+          HEAD_SHA=$(printf '%s' "$pr_json" | jq -r '.head.sha')
+          labels=$(printf '%s' "$pr_json" | jq -r '[.labels[].name] | join(",")')
+
           case ",$labels," in
             *,merge:ready,*) ;;
             *)
@@ -67,22 +95,31 @@ jobs:
             REASON="ny commit (${HEAD_SHA:0:7}) — gör om buggkollen och sätt merge:ready igen"
           else
             # Bot-event: ta bort bara om händelsen är nyare än sign-off `at:`.
-            body=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.body // ""')
+            body=$(printf '%s' "$pr_json" | jq -r '.body // ""')
             comments=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" --jq '.[].body // empty' 2>/dev/null || true)
             haystack=$(printf '%s\n%s\n' "$body" "$comments")
-            signoff_line=$(printf '%s\n' "$haystack" | grep -E 'merge:ready[[:space:]]*—[[:space:]]*sha:' | tail -n1 || true)
+            signoff_line=$(printf '%s\n' "$haystack" | grep -E "$SIGNOFF_PATTERN" | tail -n1 || true)
             if [ -z "$signoff_line" ]; then
               echo "Label finns men sign-off-rad saknas — tar bort labeln"
               REASON="merge:ready utan giltig sign-off-rad"
             else
               signoff_sha=$(printf '%s' "$signoff_line" | sed -nE 's/.*sha:[[:space:]]*([0-9a-f]{40}).*/\1/p' | head -n1)
               signoff_at=$(printf '%s' "$signoff_line" | sed -nE 's/.*at:[[:space:]]*([0-9T:Z.+-]+).*/\1/p' | head -n1)
+              signoff_epoch=0
+              if [ -n "$signoff_at" ]; then
+                signoff_epoch=$(date -u -d "$signoff_at" +%s 2>/dev/null || echo 0)
+              fi
+              now_epoch=$(date -u +%s)
               if [ -n "$signoff_sha" ] && [ "$signoff_sha" != "$HEAD_SHA" ]; then
                 REASON="sign-off sha (${signoff_sha:0:7}) != head (${HEAD_SHA:0:7})"
-              elif [ -n "$signoff_at" ] && [ -n "${EVENT_AT:-}" ]; then
-                signoff_epoch=$(date -u -d "$signoff_at" +%s 2>/dev/null || echo 0)
+              elif [ "$signoff_epoch" -gt "$((now_epoch + CLOCK_SKEW_SECONDS))" ]; then
+                # Utan taket räcker ett framtidsdaterat `at:` för att göra varje
+                # kommande bot-fynd "inte nyare än sign-off" — labeln skulle
+                # överleva för alltid. Fältet är författarstyrd fritext.
+                REASON="sign-off at: (${signoff_at}) ligger i framtiden — ogiltig"
+              elif [ "$signoff_epoch" -gt 0 ] && [ -n "${EVENT_AT:-}" ]; then
                 event_epoch=$(date -u -d "$EVENT_AT" +%s 2>/dev/null || echo 0)
-                if [ "$event_epoch" -gt 0 ] && [ "$signoff_epoch" -gt 0 ] && [ "$event_epoch" -le "$signoff_epoch" ]; then
+                if [ "$event_epoch" -gt 0 ] && [ "$event_epoch" -le "$signoff_epoch" ]; then
                   echo "Bot-händelse (${EVENT_AT}) är inte nyare än sign-off (${signoff_at}) — behåller labeln"
                   exit 0
                 fi
