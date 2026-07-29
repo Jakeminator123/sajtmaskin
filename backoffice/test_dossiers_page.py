@@ -606,6 +606,20 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
         self.assertIn("acme-cms-lite", msg)
         self.assertNotIn("defaultForCapability", self._saved())
 
+    def test_non_boolean_sibling_flag_does_not_count_as_default(self) -> None:
+        # Valideraren räknar strikt `=== true`. En sträng (möjlig via
+        # rå-JSON-vägen) får inte göra grinden strängare än CI.
+        self._write_manifest(
+            "soft", "acme-cms-strang", "cms", defaultForCapability="false", mock="seed"
+        )
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            self.manifest_path,
+            {"mock": "seed", "defaultForCapability": True},
+            dossier_class="hard",
+        )
+        self.assertTrue(ok, msg)
+        self.assertTrue(self._saved()["defaultForCapability"])
+
     def test_keeping_your_own_default_flag_is_allowed(self) -> None:
         # Sig själv räknas inte som syskon — annars kunde en dossier som redan
         # är Standardval aldrig redigeras igen.

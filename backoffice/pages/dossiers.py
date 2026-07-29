@@ -198,7 +198,12 @@ def _existing_default_for_capability(capability: str, *, exclude: Path) -> str |
             except OSError:
                 pass
             data = _load_json(manifest_path) or {}
-            if not data.get("defaultForCapability"):
+            # `is not True` och inte falsy-koll: valideraren räknar strikt
+            # `defaultForCapability === true` (`scripts/dossiers/validate-all.ts`),
+            # och rå-JSON-vägen kan ha lagt en sträng där. `"false"` är truthy i
+            # Python, så en falsy-koll hade gjort grinden strängare än CI och
+            # vägrat ett legitimt Standardval.
+            if data.get("defaultForCapability") is not True:
                 continue
             if str(data.get("capability") or "").strip().lower() == cap:
                 return f"{class_dir}/{manifest_path.parent.name}"
