@@ -476,14 +476,25 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
 
 
 def _apply_manifest_field_edits(
-    manifest_path: Path, updates: dict[str, Any]
+    manifest_path: Path, updates: dict[str, Any], *, dossier_class: str
 ) -> tuple[bool, str]:
     """Patcha de trygga fälten i ett befintligt manifest (C4). Pure (ingen
     Streamlit) så skrivvägen är enhetstestbar. Samma fail-closed-kedja som
     rå-JSON-editorn: ``_validate_manifest`` → strict-schema → ``_save_json``
     (backup + skriv). ``None`` som värde tar bort ett valfritt fält
     (`summarySv`, `mock`, `defaultForCapability`). Inget skrivs om någon av
-    valideringarna faller."""
+    valideringarna faller.
+
+    ``dossier_class`` är obligatorisk och keyword-only därför att den sista
+    grinden behöver den: en Kopplad (hard) dossier får inte sparas utan
+    demoläge om capabilityn inte står på ``MOCKLESS_CAPABILITY_EXCEPTIONS``.
+    Samma regel som :func:`_create_dossier_skeleton` — utan den kunde
+    skapa-vägen vägra ett tillstånd som redigera-vägen sedan skrev, och
+    resultatet fällde ``npm run dossiers:validate-all`` i stället. Varken
+    strict-schemat eller ``_validate_manifest`` fångar det, eftersom ``mock``
+    är valfritt för båda. Ett redan trasigt manifest kan alltså inte sparas
+    vidare utan att demoläget sätts i samma formulär; rå-JSON-editorn är kvar
+    som medveten undantagsväg."""
     manifest = _load_json(manifest_path)
     if not manifest:
         return False, f"Kunde inte läsa `{manifest_path}` (saknad eller ogiltig JSON)."
@@ -506,6 +517,16 @@ def _apply_manifest_field_edits(
             "Strict-schema (samma regler som runtime/CI) misslyckades — sparade inte:\n"
             + "\n".join(f"- {e}" for e in schema_errors)
         )
+    if dossier_class == "hard":
+        mock_value = str(manifest.get("mock") or "").strip() or None
+        capability = str(manifest.get("capability") or "").strip()
+        exceptions = _load_mockless_capability_exceptions()
+        if (mock_value is None or mock_value == "none") and capability not in exceptions:
+            return False, (
+                "En Kopplad (hard) dossier måste ha ett demoläge (`mock` ≠ `none`) "
+                f"— funktionen `{capability}` står inte på undantagslistan "
+                f"({', '.join(sorted(exceptions))}). Sparade inte."
+            )
     _save_json(manifest_path, manifest)
     return True, ""
 
@@ -569,6 +590,12 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
                 index=mock_index,
                 format_func=mock_label,
             )
+            if chosen["_class"] == "hard":
+                st.caption(
+                    "`none` godtas bara för funktioner på undantagslistan "
+                    f"(`{'`, `'.join(sorted(_load_mockless_capability_exceptions()))}`) "
+                    "— annars vägrar sparningen, precis som i skapa-formuläret."
+                )
             submitted = st.form_submit_button("Spara fält", type="primary")
         if submitted:
             if not edited_label.strip():
@@ -585,7 +612,9 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
                     if edited_default
                     else (False if "defaultForCapability" in manifest else None),
                 }
-                ok, msg = _apply_manifest_field_edits(manifest_path, updates)
+                ok, msg = _apply_manifest_field_edits(
+                    manifest_path, updates, dossier_class=chosen["_class"]
+                )
                 if ok:
                     st.success(f"Sparat {manifest_path.relative_to(REPO_ROOT)}")
                     st.cache_data.clear()

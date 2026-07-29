@@ -428,31 +428,39 @@ class CreateDossierSkeletonTests(unittest.TestCase):
 
 class ApplyManifestFieldEditsTests(unittest.TestCase):
     """C4-grinden: fält-formulärets skrivväg går genom samma fail-closed-kedja
-    (_validate_manifest → strict-schema → backup + skriv)."""
+    (_validate_manifest → strict-schema → demoläges-regeln → backup + skriv)."""
 
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.repo_root = Path(self._tmp.name)
-        target = self.repo_root / "data" / "dossiers" / "hard" / "acme-cms"
-        target.mkdir(parents=True)
-        self.manifest_path = target / "manifest.json"
-        self.original = {
-            "id": "acme-cms",
-            "label": "Acme CMS",
-            "capability": "cms",
-            "codeFidelity": "rewritable",
-            "complexity": "simple",
-            "summary": "A CMS building block used for exercising the field-edit tests.",
-            "lastVerified": "2026-07-12",
-        }
-        self.manifest_path.write_text(json.dumps(self.original), encoding="utf-8")
+        self.manifest_path = self._write_manifest("hard", "acme-cms", "cms")
+        self.original = json.loads(self.manifest_path.read_text(encoding="utf-8"))
         patch = mock.patch.object(dossiers_page, "REPO_ROOT", self.repo_root)
         patch.start()
         self.addCleanup(patch.stop)
 
-    def _saved(self) -> dict:
-        return json.loads(self.manifest_path.read_text(encoding="utf-8"))
+    def _write_manifest(
+        self, dossier_class: str, dossier_id: str, capability: str, **extra: object
+    ) -> Path:
+        target = self.repo_root / "data" / "dossiers" / dossier_class / dossier_id
+        target.mkdir(parents=True)
+        path = target / "manifest.json"
+        manifest = {
+            "id": dossier_id,
+            "label": "Acme CMS",
+            "capability": capability,
+            "codeFidelity": "rewritable",
+            "complexity": "simple",
+            "summary": "A CMS building block used for exercising the field-edit tests.",
+            "lastVerified": "2026-07-12",
+            **extra,
+        }
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        return path
+
+    def _saved(self, path: Path | None = None) -> dict:
+        return json.loads((path or self.manifest_path).read_text(encoding="utf-8"))
 
     def test_valid_edit_is_saved(self) -> None:
         ok, msg = dossiers_page._apply_manifest_field_edits(
@@ -463,6 +471,7 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
                 "mock": "seed",
                 "summarySv": "Ett CMS-byggblock för svenska katalogtexten.",
             },
+            dossier_class="hard",
         )
         self.assertTrue(ok, msg)
         saved = self._saved()
@@ -471,19 +480,47 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
         self.assertEqual(saved["mock"], "seed")
 
     def test_none_removes_an_optional_field(self) -> None:
-        ok, _ = dossiers_page._apply_manifest_field_edits(
-            self.manifest_path, {"mock": "seed"}
+        # Fristående (soft) dossier: demoläget är valfritt, så borttagningen
+        # visar att ``None`` faktiskt plockar bort fältet.
+        path = self._write_manifest("soft", "acme-tabell", "data-table")
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            path, {"mock": "seed"}, dossier_class="soft"
         )
-        self.assertTrue(ok)
-        ok, _ = dossiers_page._apply_manifest_field_edits(
-            self.manifest_path, {"mock": None}
+        self.assertTrue(ok, msg)
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            path, {"mock": None}, dossier_class="soft"
         )
-        self.assertTrue(ok)
-        self.assertNotIn("mock", self._saved())
+        self.assertTrue(ok, msg)
+        self.assertNotIn("mock", self._saved(path))
+
+    def test_hard_may_not_lose_its_demolage(self) -> None:
+        # Samma regel som skapa-formuläret: utan den kunde redigera-vägen
+        # skriva ett tillstånd som `npm run dossiers:validate-all` fäller.
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            self.manifest_path, {"mock": "seed"}, dossier_class="hard"
+        )
+        self.assertTrue(ok, msg)
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            self.manifest_path, {"mock": None}, dossier_class="hard"
+        )
+        self.assertFalse(ok)
+        self.assertIn("demoläge", msg)
+        self.assertEqual(self._saved()["mock"], "seed")
+
+    def test_hard_on_the_exception_list_may_have_no_demolage(self) -> None:
+        # Undantagslistan läses ur validate-manifest.ts — samma källa som
+        # skapa-vägen och runtime.
+        capability = sorted(dossiers_page._load_mockless_capability_exceptions())[0]
+        path = self._write_manifest("hard", "acme-matning", capability)
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            path, {"label": "Acme Mätning"}, dossier_class="hard"
+        )
+        self.assertTrue(ok, msg)
+        self.assertNotIn("mock", self._saved(path))
 
     def test_light_validation_failure_is_fail_closed(self) -> None:
         ok, msg = dossiers_page._apply_manifest_field_edits(
-            self.manifest_path, {"complexity": "gigantic"}
+            self.manifest_path, {"complexity": "gigantic"}, dossier_class="hard"
         )
         self.assertFalse(ok)
         self.assertIn("Validering misslyckades", msg)
@@ -493,7 +530,7 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
         # summarySv < 20 tecken passerar den lätta pre-checken men fälls av
         # strict-schemats minLength.
         ok, msg = dossiers_page._apply_manifest_field_edits(
-            self.manifest_path, {"summarySv": "för kort"}
+            self.manifest_path, {"summarySv": "för kort"}, dossier_class="hard"
         )
         self.assertFalse(ok)
         self.assertIn("Strict-schema", msg)
@@ -502,7 +539,7 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
     def test_unreadable_manifest_is_fail_closed(self) -> None:
         self.manifest_path.write_text("{trasig json", encoding="utf-8")
         ok, msg = dossiers_page._apply_manifest_field_edits(
-            self.manifest_path, {"label": "Ny"}
+            self.manifest_path, {"label": "Ny"}, dossier_class="hard"
         )
         self.assertFalse(ok)
         self.assertIn("Kunde inte läsa", msg)
