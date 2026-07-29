@@ -9,7 +9,9 @@ vars kärna var levererad togs bort och indexerades i
 [`../avklarat/README.md`](../avklarat/README.md); deras svansar samlades i
 restlistan nedan. **2026-07-28 (#639)** gick samma väg för restlistans
 R1–R4 + R6 och för dossier/UI-ownership-planen, vars enda kvarvarande halva är
-ett ägarbeslut (restlistans R11). Planlivscykeln ägs av
+ett ägarbeslut (restlistans R11). **2026-07-29** gick builder-runtime-planen
+samma väg: kärnan är levererad och indexerad, och dess två sista rader lever
+som restlistans R12–R13. Planlivscykeln ägs av
 [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle.mdc). Defekter och
 repro-status ägs av [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md);
 kopiera inte dess kö hit.
@@ -18,9 +20,8 @@ kopiera inte dess kö hit.
 
 | Spår | Plan | Läge | Nästa steg |
 | --- | --- | --- | --- |
-| Builder-runtimeens robusthet | [`2026-07-13-builder-runtime-robusthet.md`](2026-07-13-builder-runtime-robusthet.md) | C1, C2, D1/#578, **A1 + A2**, **A3:s mätning**, **B** och **D2**/#639 levererade — bara A4 är kod som återstår | Läs pool-siffrorna vid nästa pool-händelse i prod och vrid först då `POSTGRES_POOL_MAX`; sedan A4 (redeploy-paus), som stänger planen |
-| Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | **Steg 1–2 levererade 2026-07-29** (DB-genererad `files_revision` + telemetri-stämpel). Steg 3 väntar på mätdata | Låt steg 1–2 ligga i prod, mät hur ofta känd mismatch skulle träffat; därefter steg 3 (läsarna jämför) |
-| Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | R1–R4 + R6 (#639), R7 + R9 + R10 + R11 klara 2026-07-29; två rader kvar (R5/R8) | R8. R5 är blockerad tills verbatim-exportvägen trådar env-scope |
+| Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | **Steg 1–2 levererade 2026-07-29** (DB-genererad `files_revision` + telemetri-stämpel), prod-verifierat 2026-07-29: 135/135 versioner har revision, telemetrin stämplas. Steg 3 väntar på mätdata | Repair-pass-stämplingen (som mätte fel) är åtgärdad i #646. Samla mismatch-frekvens med SQL:en i planen, sedan steg 3 (läsarna jämför) |
+| Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | R1–R4 + R6 (#639), R7 + R9 + R10 + R11 klara 2026-07-29; fyra rader kvar (R5/R8 + R12/R13 från builder-runtime) | R8 och R12. R5 är blockerad tills verbatim-exportvägen trådar env-scope; R13 är en prod-observation |
 | Backoffice (Byggstenar + stringens-städ) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | Fas A klar (#615), baseline-backupen klar 2026-07-28 — dataförlustrisken är stängd; etapp 3–7 öppna | Fas B (trygg create/edit för scaffold + variant) |
 
 ## Ägarbeslut — avgjorda 2026-07-28

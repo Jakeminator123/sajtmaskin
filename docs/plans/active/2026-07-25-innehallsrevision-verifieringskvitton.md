@@ -102,8 +102,80 @@ i ett enskilt lager. Det går inte — identiteten måste finnas i datan.
 | Steg | Status | Vad |
 |---|---|---|
 | 1 — primitiv | **Levererad 2026-07-29** | `engine_versions.files_revision TEXT GENERATED ALWAYS AS (md5(files_json)) STORED` via `add-files-revision.sql`. Prod-preflight: 133 rader / 48 kB heap → STORED-omskrivning OK, trigger-variant behövs inte. |
-| 2 — stämpla verdikt | **Levererad 2026-07-29** | `generation_telemetry.files_revision` + subselect i `createGenerationTelemetryRecord` (anroparen kan inte glömma). Preview-session/bus-events bär **inte** revisionen ännu — det hör till steg 3:s läsare. |
-| 3 — läsarna jämför | Öppen | Väntar på mätdata (beslut 3). Se skissen nedan. |
+| 2 — stämpla verdikt | **Levererad 2026-07-29, med två kända luckor** | `generation_telemetry.files_revision` + subselect i `createGenerationTelemetryRecord` (anroparen kan inte glömma). Preview-session/bus-events bär **inte** revisionen ännu — det hör till steg 3:s läsare. |
+| 3 — läsarna jämför | Öppen | Väntar på mätdata (beslut 3). Skiss längre ner. |
+
+**Två luckor som steg 3 måste hantera** (djupgranskning 2026-07-29):
+
+1. **Verdikt som landar via UPDATE bär rätt kolumn men fel bevis.**
+   `updateTelemetryRecord` (`generation-telemetry.ts:126-137`) rör inte
+   `files_revision`, så raden behåller den revision den fick vid INSERT — den är
+   alltså *inte* revisionslös. Defekten (M#pv4, bugg-typ 2 överst) är en annan:
+   `previewSuccess`/`deployResult` stämplas på **senaste raden för versionen**
+   utan att någon visar att den radens revision är det innehåll VM:en faktiskt
+   servade. **Fällan för steg 3:** lös det inte genom att stämpla om revisionen
+   vid UPDATE. Det skriver bara dagens innehåll över gårdagens bevis och
+   tillverkar precis den falska matchning planen finns för att upptäcka.
+   Kvittot måste bära den bedömda revisionen med sig och matchas, inte
+   omstämplas. (Codex på #653.)
+2. **Subselecten läser `files_json` vid skrivtillfället, inte vid gate-läsningen.**
+   Skrivs innehållet om i fönstret däremellan stämplas verdiktet med en revision
+   det aldrig såg — och ser då ut att *matcha*, alltså fail-open åt fel håll.
+   Files_json-leasen (#507) täcker fönstret när ett jobb kör, men inte annars.
+   Repair-lanens variant av samma fel är åtgärdad i #646 (explicit `assessedFilesJson`);
+   samma mönster är rätt lösning här om steg 3 behöver hårdare garanti.
+
+**Prod-verifierat 2026-07-29** (read-only mot prod-DB): kolumnen finns som
+`GENERATED ALWAYS ... md5(files_json)`, 135/135 versioner har revision,
+telemetrin stämplas (2/2 rader efter deployen) och indexet
+`idx_generation_telemetry_version_revision` finns. Steg 1–2 lever alltså skarpt.
+
+**Repair-pass-stämplingen var fel och är åtgärdad (#646).**
+`recordRepairPassedQualityGate` stämplade den **pre-repair** basens revision på
+ett `preflight_passed` som gällde kandidaten i `repaired_files_json` — tre
+externa botar flaggade det på #642 utan att det triagerades. Nu skickar
+`saveRepairedFiles` det promotbara innehållet (avkodat ur samma payload den just
+lagrade) och revisionen räknas med `md5()` i Postgres. Dedupen jämför revision,
+inte bara resultat, så ett **ersättande** repair-varv före acceptance stämplar
+om i stället för att tystna. Det spelade roll för den här planen på två sätt:
+steg 3 hade annars fått både en false-green på basen och en false-red på det
+reparerade innehållet, och mismatch-frekvensen beslut 3 väntar på hade mätts
+fel. Mätningen nedan är alltså trovärdig först för rader skrivna efter #646.
+
+**Så mäts frekvensen** (read-only mot prod, ingen kodgrind finns — det var en
+lucka i steg 2:s formulering "steg 2 mäter").
+
+Mät över **samma rad som läsaren skulle välja**, inte över all historik:
+`getLatestQualityGateResultForVersion` tar senaste raden per version
+(`generation-telemetry.ts:307-312`). Räknar man varje stämplad rad blir varje
+ersatt repair-varv en permanent mismatch, och siffran växer med historiken i
+stället för att beskriva hur ofta en *läsning* skulle träffa fel — vilket är den
+fråga beslut 3 väntar på. (Codex på #653.)
+
+```sql
+WITH senaste AS (
+  SELECT DISTINCT ON (t.version_id)
+         t.version_id, t.files_revision, t.quality_gate_result
+    FROM generation_telemetry t
+   WHERE t.version_id IS NOT NULL
+   ORDER BY t.version_id, t.created_at DESC
+)
+SELECT count(*) FILTER (WHERE s.files_revision IS NOT NULL) AS stamplade,
+       count(*) FILTER (
+         WHERE s.files_revision IS NOT NULL
+           AND s.files_revision IS DISTINCT FROM v.files_revision
+       ) AS mismatch,
+       count(*) FILTER (
+         WHERE s.quality_gate_result IS NOT NULL
+           AND s.files_revision IS DISTINCT FROM v.files_revision
+       ) AS mismatch_med_verdikt
+  FROM senaste s
+  JOIN engine_versions v ON v.id = s.version_id;
+```
+
+Den enklare varianten (alla stämplade rader) gav `2 / 0` den 2026-07-29 — för
+litet underlag för ett beslut oavsett, och rader skrivna före #646 kan bära
+repair-lanens felstämplade revision.
 
 ## Skiss för steg 3 (väntar på mätdata)
 
