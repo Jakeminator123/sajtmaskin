@@ -2,7 +2,7 @@
 status: active
 owner: unassigned
 created: 2026-07-27
-topic: Restlista — små, oberoende svansar som blev kvar när fyra nästan-levererade planer konsoliderades. R1–R4 + R6 levererade 2026-07-28 (#639), R10 körd och R11 avgjord 2026-07-29; kvar är env-scope i export, F3-observation, dossier-beteendetester och review-freshness
+topic: Restlista — små, oberoende svansar som blev kvar när fyra nästan-levererade planer konsoliderades. R1–R4 + R6 levererade 2026-07-28 (#639), R7/R10/R11 klara 2026-07-29; kvar är env-scope i export, dossier-beteendetester och review-freshness
 source: Kodverifiering 2026-07-27 mot master `3b419115` av fyra read-only-agenter. Ersätter svansarna i de raderade planerna 2026-07-13-builder-status-ui-declutter.md, 2026-07-13-anvandarsajt-env-konsolidering.md och 2026-07-13-stabilisering-verify-f3-doman-plan.md (§ 6, § 7, PR 4) — kärnan i de tre är levererad och indexerad i ../avklarat/README.md
 ---
 
@@ -27,6 +27,10 @@ och raden lever som policy i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG
 **R10 körd 2026-07-29** — se [§ R10](#r10--körd-2026-07-29-prod-canary) för vad
 canaryn bevisade och vad den avslöjade.
 
+**R7 levererad 2026-07-29** — 412 missing-env persisteras som
+`engine_version_error_logs` (`category=f3-readiness:missing-env`) med
+`meta.missingByIntegration`; `/logg` läser `meta` via `dump-logs --kinds=errors`.
+
 Raderna nedan är de som återstår.
 
 ## Restrader
@@ -34,7 +38,6 @@ Raderna nedan är de som återstår.
 | # | Rest | Ägarfil (kodverifierad 2026-07-27) | Åtgärd |
 |---|---|---|---|
 | R5 | `.env.local` faller tillbaka till hela dossier-katalogen | `project-scaffold.ts:688-689` (`selectedKeys === undefined`) | Ta bort fallbacken när alla vägar trådar scope |
-| R7 | Ingen koppling från observerad F3-körning till dess kravlista | saknas (`capture-and-triage`-todo från stabiliseringsplanen) | Knyt observerad 412 till `chatId`/`versionId`/`missingByIntegration` |
 | R8 | Inga beteendetester per Kopplad dossier | saknas — bara manifest-/validate-/select-tester | Mock mountar utan krasch per hard-dossier + aktiverings-E2E (dossier etapp 7.3-residual) |
 | R9 | `merge:ready` invalideras inte av ny botkommentar | `review-window.yml:12-22` väntar på botar men bär ingen SHA; sign-off-format i `pr-merge-review-gate.mdc:58-65` | Sign-off bär head-SHA + timestamp; ny botkommentar efter sign-off tar bort labeln |
 
@@ -114,13 +117,12 @@ inte publiceras eftersom ReleaseGate var röd, vilket är korrekt beteende men
 lämnar deploy-vägen oobserverad. Nästa canary bör köras på en prompt utan
 integrationer, så release blir grön och publiceringssteget faktiskt nås.
 
-### R7 — vad canaryn gav
+### R7 — levererad 2026-07-29
 
-Körningen producerade exakt den koppling R7 efterfrågar, men manuellt: ett rött
-ReleaseGate-verdikt vars kravlista (`RESEND_API_KEY`, `DATABASE_URL`,
-`EMAIL_FROM`, `CONTACT_EMAIL_TO`) syntes i kravytan, med `chatId` och `versionId`
-i URL respektive dialog. Det som saknas är att **spara** den kopplingen så den
-går att läsa i efterhand utan en öppen browser. Raden står kvar.
+Canaryn 2026-07-29 visade kopplingen manuellt i browsern. Nu sparas den server-
+side på alla tre 412-vägar (`finalize-design`, `quality-gate`, F3-stream) via
+`logTier3MissingEnvBlocked` → `engine_version_error_logs`. `/logg` får
+`missingByIntegration` genom `meta` i `dump-logs --kinds=errors`.
 
 ### R9 — avgränsning
 
@@ -135,7 +137,6 @@ Inget nytt governance-lager (jfr `project-phase-priorities.mdc`).
 |---|---|
 | R5 | `npm run typecheck` + `npm run test:followup-contract` + export/verify-svitarna |
 | R8 | nya tester gröna + `npx vitest run` på berörd svit |
-| R7 | prod-observation, ingen kodgrind |
 | R9 | workflow-körning på en test-PR |
 
 ## Explicit icke-mål

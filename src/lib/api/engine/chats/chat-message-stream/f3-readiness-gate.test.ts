@@ -18,6 +18,10 @@ vi.mock("@/lib/gen/version-manager", () => ({
 vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
   checkTier3ReadinessForVersion: vi.fn(),
 }));
+const logTier3MissingEnvBlocked = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("@/lib/integrations/log-tier3-missing-env", () => ({
+  logTier3MissingEnvBlocked,
+}));
 vi.mock("@/lib/gen/orchestration-snapshot", () => ({
   // Both fields: the real reader always returns them, and the approve path maps
   // over `capabilities` (f3-approve-round.ts), so a providers-only stub throws
@@ -242,5 +246,46 @@ describe("runF3ReadinessGate — deterministic release reports user-row persiste
 
     expect(body.error).toBe("f3_deterministic_release_required");
     expect(body.userTurnPersisted).toBe(false);
+  });
+});
+
+describe("runF3ReadinessGate — R7 missing-env observation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("persists a durable observation before returning 412", async () => {
+    vi.mocked(resolveChatPreferredVersionId).mockResolvedValue("v-preferred");
+    vi.mocked(checkTier3ReadinessForVersion).mockResolvedValue({
+      ok: false,
+      reason: "missing_env",
+      readiness: {
+        ready: false,
+        missingByIntegration: [
+          { key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] },
+        ],
+      },
+    } as unknown as Awaited<ReturnType<typeof checkTier3ReadinessForVersion>>);
+
+    const result = await runF3ReadinessGate(
+      gateParams({
+        parsedMeta: makeParsedMeta("v-preferred"),
+        metaEngineBaseVersionId: null,
+      }),
+    );
+
+    expect(result).toBeInstanceOf(Response);
+    if (!(result instanceof Response)) throw new Error("unreachable");
+    expect(result.status).toBe(412);
+    expect(logTier3MissingEnvBlocked).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: CHAT_ID,
+        versionId: "v-preferred",
+        source: "stream",
+        missingByIntegration: [
+          { key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] },
+        ],
+      }),
+    );
   });
 });

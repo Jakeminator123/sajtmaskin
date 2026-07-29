@@ -13,6 +13,7 @@ import {
   hasRequiredRealBuildKeys,
   type Tier3BuildSpec,
 } from "@/lib/integrations/tier3-build-spec";
+import { logTier3MissingEnvBlocked } from "@/lib/integrations/log-tier3-missing-env";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog } from "@/lib/utils/debug";
 import type { ParsedChatRequestMeta } from "../parse-chat-request-meta";
@@ -175,6 +176,14 @@ export async function runF3ReadinessGate(params: {
             chatId,
             versionId: gateVersionId,
             missingByIntegration: gate.readiness.missingByIntegration,
+          });
+          // R7: durable observation for /logg — best-effort, never blocks 412.
+          void logTier3MissingEnvBlocked({
+            chatId,
+            versionId: gateVersionId,
+            projectId: engineChat.project_id ?? null,
+            missingByIntegration: gate.readiness.missingByIntegration,
+            source: "stream",
           });
           return attachSessionCookie(
             NextResponse.json(

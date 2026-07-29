@@ -12,6 +12,7 @@ import {
   getRequestUserId,
 } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import { logTier3MissingEnvBlocked } from "@/lib/integrations/log-tier3-missing-env";
 import { dbConfigured } from "@/lib/db/client";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
@@ -474,6 +475,18 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           preloadedFiles: codeFiles,
         });
         if (!readiness.ok && readiness.reason === "missing_env") {
+          // R7: durable observation for /logg — best-effort, never blocks 412.
+          // Prefer parent (design) version id; fall back to the F3 fork.
+          const observationVersionId = parentVersionId ?? internalVersionId;
+          void logTier3MissingEnvBlocked({
+            chatId,
+            versionId: observationVersionId,
+            projectId: scopedVersion.chat.project_id ?? null,
+            missingByIntegration: readiness.readiness.missingByIntegration,
+            source: "quality-gate",
+            f3VersionId: internalVersionId,
+            lockTimeoutMs: QUALITY_GATE_ERROR_LOG_LOCK_TIMEOUT_MS,
+          });
           return NextResponse.json(
             {
               error: "tier3_env_not_ready",

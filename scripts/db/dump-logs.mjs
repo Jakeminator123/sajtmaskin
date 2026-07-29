@@ -139,7 +139,9 @@ const KIND_SPECS = {
   errors: {
     table: "engine_version_error_logs",
     chatColumn: "chat_id",
-    columns: ["id", "chat_id", "version_id", "level", "category", "message", "created_at"],
+    // `meta` carries structured payloads (R7: f3-readiness:missing-env →
+    // missingByIntegration) so /logg can reconstruct the requirements surface.
+    columns: ["id", "chat_id", "version_id", "level", "category", "message", "meta", "created_at"],
   },
   chats: {
     table: "engine_chats",
