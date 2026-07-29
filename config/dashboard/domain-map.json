@@ -207,6 +207,8 @@
       "canonicalPaths": [
         "backoffice/pages/scaffold_wizard.py",
         "backoffice/wizard_support.py",
+        "config/ai_models/manifest.json",
+        "backoffice/ai_workloads.py",
         "src/lib/templates/template-blob-manifest.json",
         "config/scaffold-variants/",
         "data/scaffold-wizard-drafts/"
@@ -502,7 +504,9 @@
         "data/dossiers/",
         "data/dossiers/_index/capability-map.json",
         "backoffice/pages/dossiers.py",
-        "scripts/dossiers/"
+        "scripts/dossiers/",
+        "backoffice/ai_workloads.py",
+        "config/ai_models/manifest.json"
       ],
       "docsPaths": [
         "docs/contracts/dossier-system.md",

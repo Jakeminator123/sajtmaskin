@@ -38,6 +38,7 @@ from typing import Any
 
 import streamlit as st
 
+from backoffice.ai_workloads import WORKLOAD_DOSSIER_CURATION, resolve_model_choices
 from backoffice.shared import (
     backup_file,
     backup_tree,
@@ -1100,7 +1101,13 @@ def _list_template_refs() -> list[str]:
     return sorted(d.name for d in TEMPLATE_REFS_ROOT.iterdir() if d.is_dir())
 
 
-def _run_curate(reference_id: str, target_class: str, target_id: str) -> tuple[bool, str]:
+def _run_curate(
+    reference_id: str, target_class: str, target_id: str, model: str = ""
+) -> tuple[bool, str]:
+    """Kör kurations-skriptet. ``model`` skickas bara vidare när operatören valt
+    ett id; utan flagga använder skriptet manifestets `defaultModel` för
+    workloaden `backoffice_dossier_curation` (Fas D). Ett id skriptet inte
+    känner igen fälls där, före LLM-anropet."""
     cmd = [
         "npx",
         "tsx",
@@ -1109,6 +1116,8 @@ def _run_curate(reference_id: str, target_class: str, target_id: str) -> tuple[b
         f"--class={target_class}",
         f"--id={target_id}",
     ]
+    if model.strip():
+        cmd.append(f"--model={model.strip()}")
     try:
         result = subprocess.run(
             cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, check=False, timeout=300,
@@ -1271,6 +1280,20 @@ def _section_curate() -> None:
     with cols[2]:
         suggested = ref_id.replace("_", "-").replace(" ", "-").lower() if ref_id else ""
         target_id = st.text_input("Ny dossier-id", value=suggested)
+    # Modellvalen ägs av manifestet (workload `backoffice_dossier_curation`),
+    # inte av den här sidan och inte av en hårdkodad rad i skriptet.
+    curation_models = resolve_model_choices(REPO_ROOT, WORKLOAD_DOSSIER_CURATION)
+    curation_model = st.selectbox(
+        "Modell för kurationen",
+        list(curation_models),
+        key="curate_model",
+        help=(
+            "Kommer ur `config/ai_models/manifest.json` → workload "
+            f"`{WORKLOAD_DOSSIER_CURATION}`: första valet är dess `defaultModel`, "
+            "resten dess `fallbackModels`. Skickas som `--model=` till "
+            "`scripts/dossiers/curate-from-reference.ts`."
+        ),
+    )
     if st.button("🤖 Kurera utkast", type="primary"):
         if not target_id:
             st.error("Ange ett ID för den nya dossiern.")
@@ -1288,7 +1311,7 @@ def _section_curate() -> None:
             )
             return
         with st.spinner("Kör kurations-skriptet…"):
-            ok, output = _run_curate(ref_id, target_class, target_id)
+            ok, output = _run_curate(ref_id, target_class, target_id, curation_model)
         override_failed = False
         if ok and decided_capability:
             override_ok, override_msg = _apply_capability_override(target_class, target_id, decided_capability)

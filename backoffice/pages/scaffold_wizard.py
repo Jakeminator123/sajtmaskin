@@ -17,6 +17,12 @@ from typing import Any
 import streamlit as st
 
 from backoffice import wizard_support as wiz
+from backoffice.ai_workloads import (
+    WORKLOAD_SCAFFOLD_WIZARD_GUIDE,
+    WORKLOAD_SCAFFOLD_WIZARD_PERSONA,
+    model_supports_vision,
+    resolve_model_choices,
+)
 from backoffice.pages.scaffold_lifecycle import (
     BUILD_INTENT_OPTIONS,
     COMPLEXITY_OPTIONS,
@@ -115,8 +121,14 @@ def _render_progress() -> None:
 
 
 def _render_guide(ctx: BackofficeContext, step_context: str) -> None:
-    """Interaktiv AI-guide: operatören kan ställa frågor om aktuellt steg."""
+    """Interaktiv AI-guide: operatören kan ställa frågor om aktuellt steg.
+
+    Modellen kommer ur `config/ai_models/manifest.json`
+    (`backoffice_scaffold_wizard_guide`) — guiden är ren text och har därför en
+    egen, billigare post än persona-analysen.
+    """
     api_key = wiz.get_openai_api_key()
+    guide_models = resolve_model_choices(ctx.repo_root, WORKLOAD_SCAFFOLD_WIZARD_GUIDE)
     with st.expander("🤝 Fråga guiden (AI) om det här steget", expanded=False):
         if not api_key:
             st.caption(
@@ -129,12 +141,25 @@ def _render_guide(ctx: BackofficeContext, step_context: str) -> None:
             key=f"swz_guide_q_{_step()}",
             placeholder="T.ex. Vad är skillnaden på scaffold och variant?",
         )
+        # Väljaren ligger inne i guidens egen expander, inte i en nästlad
+        # teknik-expander: Streamlit tillåter inte expander i expander
+        # (StreamlitAPIException). Den här expandern är redan opt-in, så
+        # default-ytan förblir ren.
+        guide_model = st.selectbox(
+            "Modell för guiden (teknik)",
+            list(guide_models),
+            key=f"swz_guide_model_{_step()}",
+            help=(
+                "Kommer ur manifest-posten `backoffice_scaffold_wizard_guide`: "
+                "första valet är dess `defaultModel`, resten dess `fallbackModels`."
+            ),
+        )
         if st.button("Fråga", key=f"swz_guide_btn_{_step()}") and question.strip():
             try:
                 with st.spinner("Guiden funderar…"):
                     answer = wiz.ask_guide(
                         api_key=api_key,
-                        model="gpt-4o",
+                        model=guide_model,
                         step_context=step_context,
                         question=question.strip(),
                     )
@@ -255,7 +280,32 @@ def _render_step_persona(ctx: BackofficeContext) -> None:
         height=110,
         key=f"swz_persona_prompt_{persona_name}",
     )
-    model = st.selectbox("Modell", list(wiz.WIZARD_MODEL_CHOICES), key="swz_model")
+    # Modellvalen kommer ur `config/ai_models/manifest.json`
+    # (`backoffice_scaffold_wizard_persona`) — ingen hårdkodad lista här.
+    persona_models = resolve_model_choices(ctx.repo_root, WORKLOAD_SCAFFOLD_WIZARD_PERSONA)
+    model = st.selectbox("Modell", list(persona_models), key="swz_model")
+    vision_capable = model_supports_vision(
+        ctx.repo_root, WORKLOAD_SCAFFOLD_WIZARD_PERSONA, model
+    )
+    still_url = str(template.get("stillImageUrl", "")).strip()
+    if not still_url:
+        st.caption(
+            "Mallen har ingen stillbild — personan bedömer bara metadata och "
+            "kodutdrag, oavsett modell."
+        )
+    elif vision_capable:
+        st.caption(
+            f"`{model}` är märkt vision-kapabel i modellmanifestet — mallens "
+            "stillbild skickas med."
+        )
+    else:
+        st.warning(
+            f"`{model}` är **inte** märkt vision-kapabel i modellmanifestet "
+            "(`config/ai_models/manifest.json` → "
+            f"`{WORKLOAD_SCAFFOLD_WIZARD_PERSONA}.visionModels`). Stillbilden skickas "
+            "därför **inte** — personan bedömer bara metadata och kodutdrag. "
+            "Välj en vision-modell om du vill att bilden ska räknas."
+        )
     include_code = st.checkbox(
         "Ladda ner zippen och låt personan läsa nyckel-filer (package.json, layout, page, CSS)",
         value=True,
@@ -289,6 +339,7 @@ def _render_step_persona(ctx: BackofficeContext) -> None:
                     template_meta=template,
                     repo_summary=repo_summary,
                     scaffold_options=scaffold_options,
+                    vision_capable=vision_capable,
                 )
             st.session_state["swz_analysis"] = analysis
             draft_record = {
@@ -296,6 +347,7 @@ def _render_step_persona(ctx: BackofficeContext) -> None:
                 "templateTitle": template.get("title"),
                 "persona": persona_name,
                 "model": model,
+                "visionUsed": bool(vision_capable and still_url),
                 "analysis": analysis,
             }
             saved = wiz.save_draft(ctx.repo_root, draft_record)
