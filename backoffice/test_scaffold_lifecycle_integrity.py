@@ -10,10 +10,16 @@ state that later fails ``npm run scaffolds:validate``
   * the neutral starter variant is auto-populated with valid signaturePatterns;
   * delete prunes the ``variant-embeddings.json`` index so no stale entry remains;
   * the wizard new-scaffold path runs the Blob ``sourceTemplateIds`` check.
+
+Fas B (2026-07-29) added :class:`CreateScaffoldValidationTests`: the tab
+reorganisation moved the create form to another tab, and only the labels were
+supposed to change. These guards fail if a future edit quietly drops one of the
+save-time rules along the way.
 """
 
 from __future__ import annotations
 
+import inspect
 import json
 import tempfile
 import unittest
@@ -246,6 +252,37 @@ class DeadSourceTemplateTests(unittest.TestCase):
             sl._dead_source_template_ids(self.ctx, payload),
             ["definitely-not-a-real-blob-id"],
         )
+
+
+class CreateScaffoldValidationTests(unittest.TestCase):
+    """Skapa-scaffold-reglerna överlevde tabbomläggningen i Fas B.
+
+    Reglerna sitter i formulärflödet (``_render_create_scaffold``) och kan inte
+    anropas utan Streamlit-runtime, så grinden läser koden. Faller ett av de här
+    testerna har någon tagit bort en spärr, inte bara skrivit om en etikett.
+    """
+
+    def setUp(self) -> None:
+        self.source = inspect.getsource(sl._render_create_scaffold)
+
+    def test_scaffold_id_must_be_kebab_case(self) -> None:
+        self.assertIn(r're.fullmatch(r"[a-z][a-z0-9-]*", scaffold_id)', self.source)
+
+    def test_minimum_row_counts_are_enforced(self) -> None:
+        for guard in (
+            "len(prompt_hints) < 2",
+            "len(quality_checklist) < 3",
+            "len(upgrade_targets) < 1",
+        ):
+            self.assertIn(guard, self.source, f"spärren `{guard}` är borta")
+
+    def test_start_variant_is_still_mandatory(self) -> None:
+        self.assertIn("if not create_start_variant:", self.source)
+        self.assertIn("måste ha minst en variant", self.source)
+
+    def test_duplicate_and_empty_fields_are_still_rejected(self) -> None:
+        self.assertIn("finns redan", self.source)
+        self.assertIn("if not allowed_build_intents:", self.source)
 
 
 class WizardNewScaffoldBlobCheckTests(unittest.TestCase):
