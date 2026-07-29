@@ -2,7 +2,7 @@
 status: active
 owner: unassigned
 created: 2026-07-27
-topic: Restlista — små, oberoende svansar som blev kvar när fyra nästan-levererade planer konsoliderades. R1–R4 + R6 levererade 2026-07-28 (#639), R7/R9/R10/R11 klara 2026-07-29; kvar är env-scope i export och dossier-beteendetester
+topic: Restlista — små, oberoende svansar som blev kvar när fem nästan-levererade planer konsoliderades. R1–R4 + R6 levererade 2026-07-28 (#639), R7/R9/R10/R11 klara 2026-07-29; kvar är env-scope i export, dossier-beteendetester samt builder-runtimens två sista rader (R12 redeploy-paus, R13 pool-ratten)
 source: Kodverifiering 2026-07-27 mot master `3b419115` av fyra read-only-agenter. Ersätter svansarna i de raderade planerna 2026-07-13-builder-status-ui-declutter.md, 2026-07-13-anvandarsajt-env-konsolidering.md och 2026-07-13-stabilisering-verify-f3-doman-plan.md (§ 6, § 7, PR 4) — kärnan i de tre är levererad och indexerad i ../avklarat/README.md
 ---
 
@@ -33,6 +33,11 @@ canaryn bevisade och vad den avslöjade.
 
 **R9 levererad 2026-07-29** — `merge-ready-freshness.yml` + sign-off med `at:`.
 
+**R12–R13 inflyttade 2026-07-29** — builder-runtime-planens två sista rader (A4
+redeploy-paus, A3 steg 2 pool-ratten). Planen är i övrigt levererad och
+indexerad i [`../avklarat/README.md`](../avklarat/README.md) § Builder
+runtime-robusthet; svansarna bor här i stället för i en egen plan.
+
 Raderna nedan är de som återstår.
 
 ## Restrader
@@ -41,6 +46,8 @@ Raderna nedan är de som återstår.
 |---|---|---|---|
 | R5 | `.env.local` faller tillbaka till hela dossier-katalogen | `project-scaffold.ts:688-689` (`selectedKeys === undefined`) | Ta bort fallbacken när alla vägar trådar scope |
 | R8 | Inga beteendetester per Kopplad dossier | saknas — bara manifest-/validate-/select-tester | Mock mountar utan krasch per hard-dossier + aktiverings-E2E (dossier etapp 7.3-residual) |
+| R12 | Ingen redeploy-tålighet i pollningen — en prod-deploy mitt i en session ger en 500-skur medan nya instanser värms upp | saknas i `useVersionStatus.ts`, `useChatReadiness.ts`, `useVersions.ts` | Pausa/förläng klient-polling en kort stund vid detekterad ny deployment (t.ex. version-mismatch). Var A4 i builder-runtime-planen |
+| R13 | `POSTGRES_POOL_MAX` är fortfarande 3 — mätningen finns, ratten är orörd | `src/lib/db/client.ts:147-154`; mätsidorna är `pool-stats.ts` (app) + `db:health` → `connections` (server) | **Prod-observation, ingen kodrad.** Läs `[pool=n/n idle=… waiting=… at-ceiling]` i 503-raden vid nästa pool-händelse; `at-ceiling` ⇒ höj, lite `headroom` ⇒ höj inte utan flytta långlivade vägar till non-pooling. Var A3 steg 2 |
 
 ## Detaljer där raden inte räcker
 
@@ -140,6 +147,8 @@ bara label-invalidation.
 |---|---|
 | R5 | `npm run typecheck` + `npm run test:followup-contract` + export/verify-svitarna |
 | R8 | nya tester gröna + `npx vitest run` på berörd svit |
+| R12 | `npm run typecheck` + hook-tester (`useVersionStatus.test.ts`, `poll-backoff.test.ts`) |
+| R13 | Prod-observation — ingen kodgrind. Notera pool-raden och `db:health`-siffran i planraden innan ratten vrids |
 
 ## Explicit icke-mål
 

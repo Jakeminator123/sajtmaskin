@@ -102,8 +102,53 @@ i ett enskilt lager. Det går inte — identiteten måste finnas i datan.
 | Steg | Status | Vad |
 |---|---|---|
 | 1 — primitiv | **Levererad 2026-07-29** | `engine_versions.files_revision TEXT GENERATED ALWAYS AS (md5(files_json)) STORED` via `add-files-revision.sql`. Prod-preflight: 133 rader / 48 kB heap → STORED-omskrivning OK, trigger-variant behövs inte. |
-| 2 — stämpla verdikt | **Levererad 2026-07-29** | `generation_telemetry.files_revision` + subselect i `createGenerationTelemetryRecord` (anroparen kan inte glömma). Preview-session/bus-events bär **inte** revisionen ännu — det hör till steg 3:s läsare. |
-| 3 — läsarna jämför | Öppen | Väntar på mätdata (beslut 3). Se skissen nedan. |
+| 2 — stämpla verdikt | **Levererad 2026-07-29, med två kända luckor** | `generation_telemetry.files_revision` + subselect i `createGenerationTelemetryRecord` (anroparen kan inte glömma). Preview-session/bus-events bär **inte** revisionen ännu — det hör till steg 3:s läsare. |
+
+**Två luckor som steg 3 måste hantera** (djupgranskning 2026-07-29):
+
+1. **Verdikt som landar via UPDATE får aldrig någon revision.** `updateTelemetryRecord`
+   (`generation-telemetry.ts:106-117`) stämplar inte, så `previewSuccess` och
+   `deployResult` är fortfarande revisionslösa — inklusive runtime-ready-kvittot
+   (M#pv4) som är bugg-typ 2 i tabellen överst. Steg 2 täcker alltså INSERT-vägen,
+   inte UPDATE-vägen.
+2. **Subselecten läser `files_json` vid skrivtillfället, inte vid gate-läsningen.**
+   Skrivs innehållet om i fönstret däremellan stämplas verdiktet med en revision
+   det aldrig såg — och ser då ut att *matcha*, alltså fail-open åt fel håll.
+   Files_json-leasen (#507) täcker fönstret när ett jobb kör, men inte annars.
+   Repair-lanens variant av samma fel är åtgärdad i #646 (explicit `assessedFilesJson`);
+   samma mönster är rätt lösning här om steg 3 behöver hårdare garanti.
+| 3 — läsarna jämför | Öppen | Väntar på mätdata (beslut 3). Skiss längre ner. |
+
+**Prod-verifierat 2026-07-29** (read-only mot prod-DB): kolumnen finns som
+`GENERATED ALWAYS ... md5(files_json)`, 135/135 versioner har revision,
+telemetrin stämplas (2/2 rader efter deployen) och indexet
+`idx_generation_telemetry_version_revision` finns. Steg 1–2 lever alltså skarpt.
+
+**Repair-pass-stämplingen var fel och är åtgärdad (#646).**
+`recordRepairPassedQualityGate` stämplade den **pre-repair** basens revision på
+ett `preflight_passed` som gällde kandidaten i `repaired_files_json` — tre
+externa botar flaggade det på #642 utan att det triagerades. Nu skickar
+`saveRepairedFiles` det promotbara innehållet (avkodat ur samma payload den just
+lagrade) och revisionen räknas med `md5()` i Postgres. Dedupen jämför revision,
+inte bara resultat, så ett **ersättande** repair-varv före acceptance stämplar
+om i stället för att tystna. Det spelade roll för den här planen på två sätt:
+steg 3 hade annars fått både en false-green på basen och en false-red på det
+reparerade innehållet, och mismatch-frekvensen beslut 3 väntar på hade mätts
+fel. Mätningen nedan är alltså trovärdig först för rader skrivna efter #646.
+
+**Så mäts frekvensen** (read-only mot prod, ingen kodgrind finns — det var en
+lucka i steg 2:s formulering "steg 2 mäter"):
+
+```sql
+SELECT count(*) AS stamplade,
+       count(*) FILTER (WHERE t.files_revision IS DISTINCT FROM v.files_revision) AS mismatch
+  FROM generation_telemetry t
+  JOIN engine_versions v ON v.id = t.version_id
+ WHERE t.files_revision IS NOT NULL;
+```
+
+2026-07-29 gav den `2 / 0` — för litet underlag för ett beslut, och rader
+skrivna före #646 kan bära repair-lanens felstämplade revision.
 
 ## Skiss för steg 3 (väntar på mätdata)
 
