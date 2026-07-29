@@ -170,6 +170,19 @@ def _schema_enum(field: str, fallback: tuple[str, ...]) -> tuple[str, ...]:
     return values or fallback
 
 
+def is_default_for_capability(manifest: dict[str, Any] | None) -> bool:
+    """Strikt ``defaultForCapability is True`` — samma regel som valideraren.
+
+    ``scripts/dossiers/validate-all.ts:117`` räknar bara ``=== true``, och
+    rå-JSON-vägens medvetet lättare kedja kan lägga en sträng i fältet.
+    ``"false"`` är truthy i Python, så en falsy-koll gör UI:t och grindarna
+    osanna åt olika håll: listan visar en bock som CI inte ser, och kryssrutan
+    renderas ikryssad så nästa sparning skriver ett äkta ``true``. Läs fältet
+    genom denna hjälpare, aldrig med en rå truthiness-koll.
+    """
+    return (manifest or {}).get("defaultForCapability") is True
+
+
 def _existing_default_for_capability(capability: str, *, exclude: Path) -> str | None:
     """``<klass>/<id>`` för det byggblock som redan är Standardval, om något.
 
@@ -198,12 +211,7 @@ def _existing_default_for_capability(capability: str, *, exclude: Path) -> str |
             except OSError:
                 pass
             data = _load_json(manifest_path) or {}
-            # `is not True` och inte falsy-koll: valideraren räknar strikt
-            # `defaultForCapability === true` (`scripts/dossiers/validate-all.ts`),
-            # och rå-JSON-vägen kan ha lagt en sträng där. `"false"` är truthy i
-            # Python, så en falsy-koll hade gjort grinden strängare än CI och
-            # vägrat ett legitimt Standardval.
-            if data.get("defaultForCapability") is not True:
+            if not is_default_for_capability(data):
                 continue
             if str(data.get("capability") or "").strip().lower() == cap:
                 return f"{class_dir}/{manifest_path.parent.name}"
@@ -445,7 +453,7 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
             "id": d.get("id"),
             "Klass": class_label(d["_class"]),
             "Funktion": d.get("capability"),
-            "Standardval": "✓" if d.get("defaultForCapability") else "",
+            "Standardval": "✓" if is_default_for_capability(d) else "",
             "Demoläge": mock_label(d.get("mock")) if d["_class"] == "hard" else "—",
             "Kodtrohet": d.get("codeFidelity"),
             "Komplexitet": d.get("complexity"),
@@ -591,7 +599,7 @@ def _apply_manifest_field_edits(
                 f"— funktionen `{capability}` står inte på undantagslistan "
                 f"({', '.join(sorted(exceptions))}). Sparade inte."
             )
-    if manifest.get("defaultForCapability"):
+    if is_default_for_capability(manifest):
         taken = _existing_default_for_capability(capability, exclude=manifest_path)
         if taken:
             return False, (
@@ -655,7 +663,7 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
             )
             edited_default = st.checkbox(
                 field_label("defaultForCapability", hint="vinner när flera byggblock delar funktion"),
-                value=bool(manifest.get("defaultForCapability")),
+                value=is_default_for_capability(manifest),
             )
             edited_mock = st.selectbox(
                 field_label("mock", hint="hur ytan fungerar i preview utan riktig nyckel"),
@@ -840,13 +848,13 @@ def _render_delete_body(dossiers: list[dict[str, Any]]) -> None:
             "ur poolen; kontrollera referenser (brief-prompt, follow-up-vokabulär, "
             "capability-inference)."
         )
-    if chosen.get("defaultForCapability") and siblings:
+    if is_default_for_capability(chosen) and siblings:
         default_line = (
             "detta är funktionens **Standardval** — flagga ett syskon som nytt "
             "standardval, annars stoppar `dossiers:validate-all` "
             "(mock-fallback-invarianten kräver en upplösbar default)."
         )
-    elif chosen.get("defaultForCapability"):
+    elif is_default_for_capability(chosen):
         default_line = "detta är Standardval, men hela funktionen försvinner med det."
     else:
         default_line = "ingen standardvals-flytt behövs (byggblocket är inte Standardval)."
@@ -1132,6 +1140,9 @@ def _apply_capability_override(target_class: str, target_id: str, capability: st
     # true, och mot en BEFINTLIG capability med redan flaggad default skulle
     # det ge dubbla defaults (stoppas först i validate-all). Tvinga false;
     # default-flytt är ett medvetet kuratorsbeslut i Redigera-tabben.
+    # Medvetet rå truthiness-koll och inte is_default_for_capability: här ska
+    # varje icke-boolean värde normaliseras till False, inte läsas som "är
+    # standardval".
     if manifest.get("defaultForCapability"):
         manifest["defaultForCapability"] = False
     errors = _validate_manifest(manifest)

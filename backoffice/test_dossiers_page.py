@@ -296,6 +296,29 @@ class SwedishLabelCoverageTests(unittest.TestCase):
             self.assertIn(f"(`{key}`)", field_label(key))
 
 
+class IsDefaultForCapabilityTests(unittest.TestCase):
+    """Strikt `is True`, samma regel som scripts/dossiers/validate-all.ts:117.
+    Läses fältet med en rå truthiness-koll blir UI:t osant mot CI: en sträng från
+    rå-JSON-vägen ger en bock listan visar men valideraren inte ser, och en
+    ikryssad ruta vars nästa sparning skriver ett äkta `true`."""
+
+    def test_only_boolean_true_counts(self) -> None:
+        self.assertTrue(
+            dossiers_page.is_default_for_capability({"defaultForCapability": True})
+        )
+        for value in ("false", "true", 1, "1", [], {}, None, False, 0):
+            self.assertFalse(
+                dossiers_page.is_default_for_capability(
+                    {"defaultForCapability": value}
+                ),
+                repr(value),
+            )
+
+    def test_missing_field_and_missing_manifest_are_false(self) -> None:
+        self.assertFalse(dossiers_page.is_default_for_capability({}))
+        self.assertFalse(dossiers_page.is_default_for_capability(None))
+
+
 class SchemaEnumParityTests(unittest.TestCase):
     """Editorns val-listor ska komma ur strict-schemat, inte ur en handskriven
     kopia som driftar tyst när schemat får ett nytt värde."""
