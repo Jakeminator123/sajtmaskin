@@ -4,6 +4,40 @@ Repots tester körs med [Vitest](https://vitest.dev). Den fulla sviten (`npm run
 körs på varje PR och push via [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 Ovanpå den finns en **kuraterad, snabb stabilitets-lane**.
 
+## Vilka CI-jobb blockerar faktiskt merge
+
+Ett jobb som failar hårt är inte samma sak som ett jobb som **hindrar merge** — det senare
+kräver att jobbnamnet står som required status check i master-rulesetet. Tabellen är den
+kanoniska bilden av skillnaden (verifierad mot rulesetet `Protect master` 2026-07-29):
+
+| Jobb | Failar hårt? | Required (blockerar merge)? |
+| --- | --- | --- |
+| `quality` | Ja | **Ja** |
+| `backoffice-tests` | Ja | **Ja** |
+| `schema-drift` | Ja | **Ja** |
+| `review-window` | Håller pending | **Ja** |
+| `build` | Ja | Nej — nytt jobb 2026-07-29, required är ett separat rulesetbeslut |
+| `preview-host-guards` | Ja | Nej |
+| `dead-code` (orphan-filgrind) | Ja | Nej |
+| `db-blob-sync` | Ja | Nej — och på PR körs den utan credentials (ren script-smoke) |
+| `stability` | Nej (`continue-on-error`) | Nej |
+
+De fyra icke-required jobben som ändå failar hårt syns röda på PR:en men stoppas bara av
+agent-/människodisciplin. Det är ett medvetet men **öppet** läge: se raden om CI-grindarnas
+required-status i [`BUG-SWARM-BACKLOG.md`](../BUG-SWARM-BACKLOG.md) → "Beslut & policy".
+
+## Build-grinden
+
+`build`-jobbet kör `npm run build` (som i sin tur kör `prebuild`: `preflight:common` +
+`scaffolds:embeddings:check`) **utan secrets**. Det finns för att `next build` annars inte
+körs någonstans före merge: preview-deployer är avstängda i
+[`vercel.json`](../vercel.json) (`deploymentEnabled` bara för `master`), så första riktiga
+bygget av en ändring var prod-deployen efter merge. typecheck och lint täcker inte
+build-tidsfel som route-config, RSC-gränser eller prerender-fel.
+
+Bygget är verifierat nyckelfritt — behöver det plötsligt en secret är det en regression i
+env-hanteringen, inte ett skäl att ge jobbet credentials.
+
 ## `test:stability` — stabilitets-lane
 
 En liten, snabb lane som låser **större buggar och UX-invarianter** — inte en bred
@@ -56,7 +90,12 @@ Dokumentation verifieras bottom-up i samma `quality`-jobb som kodkontrakten:
 | Aktiva dokumentationslänkar | Blockerar brutna relativa paths i aktiva Markdown-ytor; historiska källfiler ligger utanför den blockerande mängden | `npm run docs:links` |
 | Terminologi-ownership | Blockerar parallella glossary-paths, dubletter och uttryckligen förbjudna legacyalias | `npm run check:terms:contract` |
 | Generator-/guardtester | Blockerar regressioner i docs-generatorer och kontroller | `npm run docs:test` |
+| Bug-backloggens format | Blockerar avbockade `[x]`-rader kvar i Aktiv kö och rader som motsäger sin egen status | `npm run check:bug-backlog` |
 | Bred termtäckning | Rådgivande signal; historikytor ingår inte | `npm run check:terms` |
+
+Bug-backlog-checken låg tidigare inuti `preflight:common` och därmed även i Vercels
+`prebuild` — en bokföringsmiss i en markdown-fil kunde alltså fälla **prod-bygget** (hänt:
+#368). Den är blockerande på PR precis som förut, men ligger utanför build-kedjan.
 
 Ändra först den kanoniska ägaren. Kör därefter eventuell generator och sist
 kontrollerna. Redigera inte en generated-fil manuellt för att få CI grön.

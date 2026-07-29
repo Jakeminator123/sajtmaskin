@@ -70,7 +70,7 @@ Minimal fix: <1 mening>
    - **Fixade i svepet:** om en rad i `## Aktiv kö` adresserades → **flytta** den till arkivet (`docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`) som `[x]` med commit/PR-ref. Bocka inte av på plats.
    - **Nya bekräftade defekter:** lägg en `[ ]`-rad i `## Aktiv kö` (källa `M#<n>`) med fil-ankare, per `/buggrapport`-formatet.
    - **Visade sig vara val/repro:** flytta till `## Beslut & policy` eller `## Behöver repro` i stället.
-   - Skriv aldrig "FIXAD" i prosan på en `[ ]`-rad (preflighten `check-bug-backlog.mjs` failar på motsägelsen).
+   - Skriv aldrig "FIXAD" i prosan på en `[ ]`-rad (`npm run check:bug-backlog` failar på motsägelsen).
    - Detta är den löpande sanningsmekanismen — backloggen får aldrig driva ur fas med koden.
 8. Verifiera med minsta relevanta set:
    - Alltid vid TS-kod: `npm run typecheck`
