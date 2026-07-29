@@ -6,6 +6,7 @@ manifest-sammanfattning utan Streamlit-runtime eller nätverk.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import subprocess
 import tempfile
@@ -14,6 +15,20 @@ from pathlib import Path
 from unittest import mock
 
 from backoffice.pages import templates_blob as tb
+
+
+def _is_node_argv0(argv0: str) -> bool:
+    """True for bare ``node`` or a PATH entry whose stem is ``node`` (P2-1)."""
+    return Path(argv0).stem.lower() == "node"
+
+
+def _assert_missing_node_error(testcase: unittest.TestCase, message: str) -> None:
+    err = message.lower()
+    testcase.assertIn("node", err)
+    testcase.assertTrue(
+        any(token in err for token in ("saknas", "finns inte", "path", "not found")),
+        msg=f"expected a missing-node error, got: {message!r}",
+    )
 
 
 class DefaultSourceTests(unittest.TestCase):
@@ -54,10 +69,10 @@ class RunUploaderTests(unittest.TestCase):
         fake = mock.Mock(returncode=0, stdout="scanned 3", stderr="")
         with mock.patch.object(tb.subprocess, "run", return_value=fake) as run:
             result = tb._run_uploader(self.repo, "C:/mallar", upload=False)
-        args = run.call_args.args[0]
-        self.assertEqual(args[0], "node")
-        self.assertEqual(args[1], str(self.script))
-        self.assertEqual(args[2], "--source=C:/mallar")
+        args = list(run.call_args.args[0])
+        self.assertTrue(_is_node_argv0(args[0]), msg=f"argv0={args[0]!r}")
+        self.assertEqual(args.index(str(self.script)), 1)
+        self.assertIn("--source=C:/mallar", args)
         self.assertNotIn("--upload", args)
         self.assertNotIn("--write-catalog", args)
         self.assertTrue(result["ok"])
@@ -68,7 +83,8 @@ class RunUploaderTests(unittest.TestCase):
         fake = mock.Mock(returncode=0, stdout="uploaded", stderr="warn")
         with mock.patch.object(tb.subprocess, "run", return_value=fake) as run:
             result = tb._run_uploader(self.repo, "/src", upload=True)
-        args = run.call_args.args[0]
+        args = list(run.call_args.args[0])
+        self.assertTrue(_is_node_argv0(args[0]), msg=f"argv0={args[0]!r}")
         self.assertIn("--upload", args)
         self.assertIn("--write-catalog", args)
         self.assertTrue(result["ok"])
@@ -93,12 +109,24 @@ class RunUploaderTests(unittest.TestCase):
         self.assertIn(str(tb._TIMEOUT_S), result["error"])
 
     def test_missing_node_returns_error(self) -> None:
+        """Godkänn både tidig PATH-miss (P2-1) och FileNotFoundError från subprocess."""
         with mock.patch.object(
             tb.subprocess, "run", side_effect=FileNotFoundError("node")
-        ):
-            result = tb._run_uploader(self.repo, "/src", upload=True)
+        ) as run:
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(mock.patch("shutil.which", return_value=None))
+                for name in ("_resolve_node_command", "resolve_node_command", "which"):
+                    if hasattr(tb, name):
+                        stack.enter_context(
+                            mock.patch.object(tb, name, return_value=None)
+                        )
+                result = tb._run_uploader(self.repo, "/src", upload=True)
         self.assertFalse(result["ok"])
-        self.assertIn("`node` saknas", result["error"])
+        _assert_missing_node_error(self, result["error"])
+        self.assertTrue(
+            run.call_count in (0, 1),
+            msg=f"unexpected subprocess call count: {run.call_count}",
+        )
 
 
 class LoadManifestSummaryTests(unittest.TestCase):

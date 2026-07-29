@@ -7,6 +7,7 @@ UI-kolumnrubriker som "Quality gate"/"Autofix".
 
 from __future__ import annotations
 
+import contextlib
 import json
 import subprocess
 import tempfile
@@ -16,6 +17,24 @@ from pathlib import Path
 from unittest import mock
 
 from backoffice.pages import generation_history as gh
+
+
+def _is_node_argv0(argv0: str) -> bool:
+    """True for bare ``node`` or an absolute PATH entry whose stem is ``node``.
+
+    Accepts ``node``, ``node.exe``, ``node.cmd``, ``/usr/bin/node``,
+    ``C:\\Program Files\\nodejs\\node.exe`` — pathlib strips the suffix.
+    """
+    return Path(argv0).stem.lower() == "node"
+
+
+def _assert_missing_node_error(testcase: unittest.TestCase, message: str) -> None:
+    err = message.lower()
+    testcase.assertIn("node", err)
+    testcase.assertTrue(
+        any(token in err for token in ("saknas", "finns inte", "path", "not found")),
+        msg=f"expected a missing-node error, got: {message!r}",
+    )
 
 
 class PreviewLabelTests(unittest.TestCase):
@@ -149,11 +168,14 @@ class RunHistoryTests(unittest.TestCase):
         fake = mock.Mock(returncode=0, stdout=json.dumps(payload), stderr="")
         with mock.patch.object(gh.subprocess, "run", return_value=fake) as run:
             result = gh._run_history(self.repo, ["--limit=5"])
-        args = run.call_args.args[0]
-        self.assertEqual(args[0], "node")
-        self.assertEqual(args[1], str(self.script))
-        self.assertEqual(args[2], "--json")
-        self.assertEqual(args[3], "--limit=5")
+        args = list(run.call_args.args[0])
+        # argv0 may be bare "node" (today) or an absolute which()-path (P2-1).
+        self.assertTrue(_is_node_argv0(args[0]), msg=f"argv0={args[0]!r}")
+        script_idx = args.index(str(self.script))
+        self.assertEqual(script_idx, 1, msg="node binary must precede the script path")
+        self.assertIn("--json", args)
+        self.assertIn("--limit=5", args)
+        self.assertLess(args.index("--json"), args.index("--limit=5"))
         self.assertEqual(result, payload)
 
     def test_empty_stdout_uses_stderr_as_error(self) -> None:
@@ -183,11 +205,29 @@ class RunHistoryTests(unittest.TestCase):
         self.assertIn(str(gh._TIMEOUT_S), result["error"])
 
     def test_missing_node_returns_error(self) -> None:
+        """Godkänn både tidig PATH-miss (P2-1) och FileNotFoundError från subprocess.
+
+        Tvingar PATH-miss via ``shutil.which`` / ev. resolve-helper så testet
+        inte bara råkar passera för att lokal node finns installerad.
+        """
         with mock.patch.object(
             gh.subprocess, "run", side_effect=FileNotFoundError("node")
-        ):
-            result = gh._run_history(self.repo, [])
-        self.assertIn("`node` saknas", result["error"])
+        ) as run:
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(mock.patch("shutil.which", return_value=None))
+                for name in ("_resolve_node_command", "resolve_node_command", "which"):
+                    if hasattr(gh, name):
+                        stack.enter_context(
+                            mock.patch.object(gh, name, return_value=None)
+                        )
+                result = gh._run_history(self.repo, [])
+        self.assertIn("error", result)
+        _assert_missing_node_error(self, result["error"])
+        # Antingen tidig retur (run orörd) eller FileNotFoundError-vägen.
+        self.assertTrue(
+            run.call_count in (0, 1),
+            msg=f"unexpected subprocess call count: {run.call_count}",
+        )
 
 
 if __name__ == "__main__":

@@ -18,10 +18,16 @@ from unittest import mock
 from backoffice.pages import projects_admin as pa
 
 
+def _is_node_argv0(argv0: str) -> bool:
+    """True for bare ``node`` or a PATH entry whose stem is ``node`` (P2-1)."""
+    return Path(argv0).stem.lower() == "node"
+
+
 class BuildCommandTests(unittest.TestCase):
     def test_dry_run_all_test_users(self) -> None:
         cmd = pa._build_command("all_test_users", 4, "", "", apply_mode=False)
-        self.assertEqual(cmd[0], "node")
+        # Builder returnerar idag literal "node"; acceptera även resolved PATH.
+        self.assertTrue(_is_node_argv0(cmd[0]), msg=f"argv0={cmd[0]!r}")
         self.assertEqual(cmd[1], pa._SCRIPT_REL)
         self.assertIn("--keep", cmd)
         self.assertEqual(cmd[cmd.index("--keep") + 1], "4")
@@ -223,7 +229,10 @@ class RunScriptTests(unittest.TestCase):
         self.assertFalse(kwargs["shell"])
         self.assertEqual(result["exitCode"], 0)
         self.assertEqual(result["summary"], summary)
-        self.assertIn("node script.mjs", result["command"])
+        # Echo of the argv we passed in — first token is node-ish, script present.
+        cmd_parts = result["command"].split()
+        self.assertTrue(_is_node_argv0(cmd_parts[0]), msg=result["command"])
+        self.assertIn("script.mjs", result["command"])
         self.assertIn("startedAt", result)
         self.assertIn("finishedAt", result)
         self.assertIsInstance(result["elapsedSec"], float)
@@ -237,13 +246,15 @@ class RunScriptTests(unittest.TestCase):
         self.assertEqual(result["stdout"], "partial")
 
     def test_missing_binary_sets_exit_minus_two(self) -> None:
+        # _run_script tar emot färdig argv — testar FileNotFoundError-hanteraren,
+        # inte PATH-lookup. Feltexten ska nämna binären.
         with mock.patch.object(
             pa.subprocess, "run", side_effect=FileNotFoundError("node")
         ):
             result = pa._run_script(self.ctx, ["node", "x.mjs"])
         self.assertEqual(result["exitCode"], -2)
         self.assertIn("Saknar binär", result["stderr"])
-        self.assertIn("node", result["stderr"])
+        self.assertIn("node", result["stderr"].lower())
 
 
 if __name__ == "__main__":
