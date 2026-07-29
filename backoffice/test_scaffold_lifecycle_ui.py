@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import ast
 import inspect
+import json
+import re
 import textwrap
 import unittest
 from unittest import mock
@@ -86,6 +88,59 @@ LABEL_SURFACES = (
     "backoffice/pages/scaffolds.py",
     "backoffice/pages/scaffold_wizard.py",
 )
+
+# Autorun-kedjan är en del av sparningen: "Skapa nu" sätter `swz_autorun` och
+# nästa render kör `_post_create_steps` automatiskt. Skrivplanen listade först
+# bara wizardens egna filer, så `variant-embeddings.json` skrevs om utan att
+# nämnas — rutan lovade "det här skrivs" och räknade inte upp allt.
+#
+# Raderna nedan binder varje npm-nyckel till skriptet, till symbolen som skickas
+# till `writeFileSync` och till konstanterna som ger symbolen sin sökväg. Ett
+# test som bara letade efter strängen `variant-embeddings.json` i UI:t hade
+# tystnat den dag skriptet bytte utdata; det här faller i stället.
+AUTORUN_WRITE_SOURCES: dict[str, dict] = {
+    "scaffolds:variant-patterns": {
+        "source": "scripts/scaffolds/auto-curate-variant-patterns.ts",
+        "write_targets": {"ref.filePath"},
+        "path_constants": (
+            'const VARIANTS_ROOT = resolve(WORKSPACE_ROOT, "config", "scaffold-variants")',
+            "const scaffoldDir = join(VARIANTS_ROOT, scaffoldEntry.name)",
+            "filePath: join(scaffoldDir, fileEntry.name)",
+        ),
+        "path": "config/scaffold-variants/cafe-site/warm-clay.json",
+    },
+    "scaffolds:variant-embeddings": {
+        "source": "scripts/scaffolds/generate-variant-embeddings.ts",
+        "write_targets": {"OUTPUT_PATH"},
+        "path_constants": (
+            'const VARIANTS_ROOT = resolve(WORKSPACE_ROOT, "config", "scaffold-variants")',
+            'const INDEX_DIR = join(VARIANTS_ROOT, "_index")',
+            'const OUTPUT_PATH = join(INDEX_DIR, "variant-embeddings.json")',
+        ),
+        "path": "config/scaffold-variants/_index/variant-embeddings.json",
+    },
+}
+
+# Steg 3 i kedjan kör vitest och skriver inget. Undantaget är explicit och
+# kontrolleras mot package.json, så det inte kan bli en glugg om kommandot byts.
+READ_ONLY_AUTORUN_SCRIPTS = {"scaffolds:validate"}
+
+WRITE_CALL_RE = re.compile(r"write(?:FileSync|File)\(\s*([A-Za-z_$][\w.$]*)")
+
+
+def _npm_scripts() -> dict[str, str]:
+    return json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))["scripts"]
+
+
+def _npm_script_names(command: tuple[str, ...]) -> list[str]:
+    """`("npm", "run", "x", "--", "--only=y")` → `["x"]`."""
+    parts = list(command)
+    return [parts[index + 1] for index, part in enumerate(parts) if part == "run"]
+
+
+def _write_targets(rel_source: str) -> set[str]:
+    text = (REPO_ROOT / rel_source).read_text(encoding="utf-8")
+    return set(WRITE_CALL_RE.findall(text))
 
 
 def _function_ast(func) -> ast.FunctionDef:
@@ -372,6 +427,73 @@ class PlannedWritesTests(unittest.TestCase):
             source.index("_run_checks("),
             "sammanfattningen ska stå före checklistan, inte efter",
         )
+
+    def test_autorun_chain_output_is_part_of_the_plan(self) -> None:
+        """Regressionen Codex hittade: skrivningen skedde, raden fanns inte."""
+        planned = {row["path"] for row in sw._autorun_writes(self._draft("new-variant"))}
+        for script, expected in AUTORUN_WRITE_SOURCES.items():
+            self.assertIn(
+                expected["path"],
+                planned,
+                f"{script} skriver {expected['path']} men skrivplanen nämner den inte",
+            )
+
+    def test_plan_rows_match_what_the_scripts_actually_write(self) -> None:
+        """Varje rad pekar på skriptet som skriver den — och skriptet skriver dit."""
+        rows = {row["script"]: row for row in sw._autorun_writes(self._draft("new-variant"))}
+        for script, expected in AUTORUN_WRITE_SOURCES.items():
+            row = rows.get(script)
+            self.assertIsNotNone(row, f"{script} saknas i skrivplanen")
+            self.assertEqual(row["source"], expected["source"])
+            self.assertEqual(
+                _write_targets(expected["source"]),
+                expected["write_targets"],
+                f"{expected['source']} skriver till andra mål än planen räknar med — "
+                "uppdatera _autorun_writes",
+            )
+            source_text = (REPO_ROOT / expected["source"]).read_text(encoding="utf-8")
+            for constant in expected["path_constants"]:
+                self.assertIn(
+                    constant,
+                    source_text,
+                    f"{expected['source']} byggde sökvägen annorlunda — "
+                    f"kontrollera att planen fortfarande säger {expected['path']}",
+                )
+
+    def test_every_writing_step_in_the_chain_is_accounted_for(self) -> None:
+        """Ny autorun-skrivare får inte kunna smyga in utan att redovisas."""
+        listed = {row["script"] for row in sw._autorun_writes(self._draft("new-variant"))}
+        npm_scripts = _npm_scripts()
+        for step in sw._post_create_steps("warm-clay"):
+            for name in _npm_script_names(step["command"]):
+                self.assertIn(name, npm_scripts, f"{name} finns inte i package.json")
+                if name in READ_ONLY_AUTORUN_SCRIPTS:
+                    self.assertIn(
+                        "vitest run",
+                        npm_scripts[name],
+                        f"{name} är undantaget som läsande men kör något annat nu",
+                    )
+                    continue
+                self.assertIn(
+                    name,
+                    listed,
+                    f"{name} körs av autorun-kedjan men redovisas inte i skrivplanen",
+                )
+
+    def test_condition_is_stated_whether_or_not_the_key_exists(self) -> None:
+        """Utan nyckel skrivs autorun-filerna inte — rutan får inte lova dem."""
+        for autorun in (True, False):
+            with mock.patch.object(sw.st, "markdown") as markdown, mock.patch.object(
+                sw.st, "caption"
+            ):
+                sw._render_planned_writes(self._draft("new-variant"), autorun=autorun)
+            rendered = "\n".join(str(call[0][0]) for call in markdown.call_args_list)
+            self.assertIn("OPENAI_API_KEY", rendered, "villkoret ska stå i rutan")
+            self.assertIn("config/scaffold-variants/_index/variant-embeddings.json", rendered)
+            if autorun:
+                self.assertIn("automatiskt", rendered)
+            else:
+                self.assertIn("skrivs inte", rendered)
 
 
 if __name__ == "__main__":

@@ -641,9 +641,60 @@ def _planned_writes(draft: dict[str, Any]) -> list[str]:
     return paths
 
 
-def _render_planned_writes(draft: dict[str, Any]) -> None:
-    """"Vad kommer att skrivas?" — filerna och spara-läget, före checklistan."""
+def _autorun_writes(draft: dict[str, Any]) -> list[dict[str, str]]:
+    """Filer som efter-stegen skriver om direkt efter "Skapa nu".
+
+    "Skapa nu" sätter ``swz_autorun``, och nästa render kör
+    :func:`_post_create_steps` automatiskt. Stegen är alltså en del av
+    sparningen även om de ligger i separata npm-skript — utelämnas de här säger
+    rutan "det här kommer att skrivas" och räknar ändå inte upp allt som skrivs.
+
+    Sökvägarna är lästa ur skripten, inte gissade:
+
+    * ``scaffolds:variant-patterns`` → ``auto-curate-variant-patterns.ts``
+      skriver ``writeFileSync(ref.filePath, …)``, alltså variantfilen själv
+      (``--only`` gör att bara den nyss skapade varianten rörs).
+    * ``scaffolds:variant-embeddings`` → ``generate-variant-embeddings.ts``
+      skriver ``OUTPUT_PATH``, dvs
+      ``config/scaffold-variants/_index/variant-embeddings.json``, och bygger om
+      hela indexet från samtliga varianter.
+    * ``scaffolds:validate`` kör vitest och skriver ingenting.
+
+    Båda skrivstegen har ``needs_api`` och hoppas över utan ``OPENAI_API_KEY``,
+    så anroparen måste säga vilket fall som gäller.
+    `backoffice/test_scaffold_lifecycle_ui.py` grindar listan mot skriptens
+    faktiska ``writeFileSync``-mål.
+    """
+    variant = draft.get("variant") or {}
+    scaffold_id = str(variant.get("scaffoldId", "")).strip() or "<scaffold>"
+    variant_id = str(variant.get("id", "")).strip() or "<variant>"
+
+    return [
+        {
+            "path": f"config/scaffold-variants/{scaffold_id}/{variant_id}.json",
+            "script": "scaffolds:variant-patterns",
+            "source": "scripts/scaffolds/auto-curate-variant-patterns.ts",
+            "note": "variantfilen skrivs om med `signaturePatterns` (bara din variant)",
+        },
+        {
+            "path": "config/scaffold-variants/_index/variant-embeddings.json",
+            "script": "scaffolds:variant-embeddings",
+            "source": "scripts/scaffolds/generate-variant-embeddings.ts",
+            "note": "hela matchningsindexet byggs om, inte bara din variant",
+        },
+    ]
+
+
+def _render_planned_writes(draft: dict[str, Any], *, autorun: bool) -> None:
+    """"Vad kommer att skrivas?" — filerna och spara-läget, före checklistan.
+
+    ``autorun`` = finns ``OPENAI_API_KEY``. Efter-stegen körs automatiskt efter
+    skapandet men bara med nyckel, så villkoret skrivs ut i båda fallen: rutan
+    får varken lova skrivningar som inte sker eller dölja dem som sker.
+    """
     st.markdown("#### Vad kommer att skrivas?")
+
+    st.markdown("**Guiden skriver:**")
     for path in _planned_writes(draft):
         st.markdown(f"- `{path}`")
     st.caption(
@@ -651,6 +702,28 @@ def _render_planned_writes(draft: dict[str, Any]) -> None:
         "committas och mergas till `master`. Befintliga filer säkerhetskopieras "
         "(se **Återställning**). Inget av detta skrivs förrän checklistan nedan är grön."
     )
+
+    autorun_rows = _autorun_writes(draft)
+    if autorun:
+        st.markdown(
+            "**Efter-stegen skriver dessutom om** — `OPENAI_API_KEY` finns, så guiden "
+            "startar dem automatiskt direkt efter skapandet:"
+        )
+        for row in autorun_rows:
+            st.markdown(f"- `{row['path']}` — {row['note']} (`{row['script']}`)")
+        st.caption(
+            "Samma spara-läge `repo` — även dessa filer ligger i repot och når produktionen "
+            "först via commit + merge till `master`. Stannar kedjan på ett rött steg skrivs "
+            "de senare filerna inte."
+        )
+    else:
+        st.markdown(
+            "**Efter-stegen skrivs inte nu** — ingen `OPENAI_API_KEY` i miljön, så "
+            "designmönster och matchning hoppas över. Med nyckel skrivs även dessa om "
+            "(spara-läge `repo`):"
+        )
+        for row in autorun_rows:
+            st.markdown(f"- `{row['path']}` — {row['note']} (`{row['script']}`)")
 
 
 def _run_checks(ctx: BackofficeContext, draft: dict[str, Any]) -> tuple[list[dict[str, str]], dict[str, Any] | None]:
@@ -825,7 +898,7 @@ def _render_step_validate(ctx: BackofficeContext) -> None:
         "transaktionslogik som **Scaffolds & varianter** (rollback vid fel)."
     )
 
-    _render_planned_writes(draft)
+    _render_planned_writes(draft, autorun=bool(wiz.get_openai_api_key()))
 
     checks, payload = _run_checks(ctx, draft)
     st.dataframe(pd.DataFrame(checks), width="stretch", hide_index=True)
