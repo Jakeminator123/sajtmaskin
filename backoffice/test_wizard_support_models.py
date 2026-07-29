@@ -44,6 +44,10 @@ ALL_WORKLOADS = (
     aw.WORKLOAD_DOSSIER_CURATION,
 )
 
+# Vilken av de två anropsvägarna ett budget-test gäller.
+_PERSONA = "persona"
+_GUIDE = "guide"
+
 
 class WorkloadRegistrationTests(unittest.TestCase):
     def test_all_three_workloads_exist(self) -> None:
@@ -353,6 +357,124 @@ class VisionGatingTests(unittest.TestCase):
             wiz._post_openai_chat = original  # type: ignore[assignment]
         parts = captured[0]["messages"][1]["content"]
         self.assertFalse(any(part.get("type") == "image_url" for part in parts))
+
+
+class ReasoningTokenBudgetTests(unittest.TestCase):
+    """Vercel Agent Review på #656: guidens default gick från `gpt-4o` till
+    `gpt-5.4-mini` i Fas D, men taket låg kvar på 500 `max_completion_tokens`.
+    Reasoning-tokens räknas mot samma tak, så tänkandet kunde äta hela budgeten
+    → tomt `content` → RuntimeError, alltså en guide som var trasig by default."""
+
+    def _payload_for(self, fn, model: str) -> dict:
+        captured: list[dict] = []
+
+        def fake_post(payload, api_key, *, timeout=180):  # noqa: ANN001, ARG001
+            captured.append(payload)
+            return json.dumps({"recommendation": "new-variant"}) if fn is _PERSONA else "svar"
+
+        original = wiz._post_openai_chat
+        wiz._post_openai_chat = fake_post  # type: ignore[assignment]
+        try:
+            if fn is _PERSONA:
+                wiz.run_persona_analysis(
+                    api_key="sk-test",
+                    model=model,
+                    persona_prompt="p",
+                    template_meta={"id": "t"},
+                    repo_summary=None,
+                    scaffold_options=[],
+                    vision_capable=False,
+                )
+            else:
+                wiz.ask_guide(
+                    api_key="sk-test", model=model, step_context="ctx", question="fråga?"
+                )
+        finally:
+            wiz._post_openai_chat = original  # type: ignore[assignment]
+        return captured[0]
+
+    def test_guide_gets_headroom_on_the_manifest_default(self) -> None:
+        default_model = aw.resolve_default_model(REPO_ROOT, aw.WORKLOAD_SCAFFOLD_WIZARD_GUIDE)
+        self.assertTrue(
+            wiz._is_reasoning_model(default_model),
+            "testet förutsätter att guidens default är en reasoning-modell",
+        )
+        reasoning = self._payload_for(_GUIDE, default_model)
+        classic = self._payload_for(_GUIDE, "gpt-4o")
+        self.assertGreater(
+            reasoning["max_completion_tokens"], classic["max_completion_tokens"]
+        )
+        self.assertEqual(classic["max_completion_tokens"], 500)
+
+    def test_persona_gets_headroom_when_the_operator_picks_a_reasoning_model(self) -> None:
+        reasoning_choices = [
+            m
+            for m in aw.resolve_model_choices(REPO_ROOT, aw.WORKLOAD_SCAFFOLD_WIZARD_PERSONA)
+            if wiz._is_reasoning_model(m)
+        ]
+        self.assertTrue(reasoning_choices, "persona-posten erbjuder ingen reasoning-modell")
+        reasoning = self._payload_for(_PERSONA, reasoning_choices[0])
+        classic = self._payload_for(_PERSONA, "gpt-4o")
+        self.assertGreater(
+            reasoning["max_completion_tokens"], classic["max_completion_tokens"]
+        )
+        # Reasoning-modeller får inte heller någon custom temperature (HTTP 400).
+        self.assertNotIn("temperature", reasoning)
+        self.assertIn("temperature", classic)
+
+
+class StillImageHttpsGateTests(unittest.TestCase):
+    """Cursor-bugbot (medium) på #656: UI:t sa "stillbilden skickas med" för en
+    URL som anropet tystar bort, eftersom https-kravet bara fanns i anropet."""
+
+    def test_only_https_urls_count_as_usable(self) -> None:
+        for raw, expected in (
+            ("https://blob.example/still.png", "https://blob.example/still.png"),
+            ("http://blob.example/still.png", ""),
+            ("/relativ/still.png", ""),
+            ("  https://blob.example/x.png  ", "https://blob.example/x.png"),
+            ("", ""),
+            (None, ""),
+        ):
+            with self.subTest(raw=raw):
+                self.assertEqual(
+                    wiz.usable_still_image_url({"stillImageUrl": raw}), expected
+                )
+
+    def test_no_image_is_attached_for_a_non_https_url(self) -> None:
+        captured: list[dict] = []
+
+        def fake_post(payload, api_key, *, timeout=180):  # noqa: ANN001, ARG001
+            captured.append(payload)
+            return json.dumps({"recommendation": "new-variant"})
+
+        original = wiz._post_openai_chat
+        wiz._post_openai_chat = fake_post  # type: ignore[assignment]
+        try:
+            wiz.run_persona_analysis(
+                api_key="sk-test",
+                model="gpt-4o",
+                persona_prompt="p",
+                template_meta={"id": "t", "stillImageUrl": "http://insecure/still.png"},
+                repo_summary=None,
+                scaffold_options=[],
+                vision_capable=True,
+            )
+        finally:
+            wiz._post_openai_chat = original  # type: ignore[assignment]
+        parts = captured[0]["messages"][1]["content"]
+        self.assertFalse(any(p.get("type") == "image_url" for p in parts))
+        text = next(p["text"] for p in parts if p.get("type") == "text")
+        self.assertIn("Ingen stillbild bifogad", text)
+
+    def test_the_wizard_page_uses_the_shared_helper(self) -> None:
+        """Sidan får inte ha sin egen tolkning av "finns det en bild?" — det var
+        just avvikelsen som gjorde rutan osann."""
+        page = (REPO_ROOT / "backoffice" / "pages" / "scaffold_wizard.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("wiz.usable_still_image_url(template)", page)
+        self.assertNotIn('still_url = str(template.get("stillImageUrl"', page)
 
 
 class PersonaContractTests(unittest.TestCase):

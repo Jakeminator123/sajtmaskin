@@ -245,6 +245,18 @@ def get_openai_api_key() -> str | None:
     return key or None
 
 
+def usable_still_image_url(template_meta: dict[str, Any]) -> str:
+    """Mallens stillbild om den går att skicka till OpenAI, annars tom sträng.
+
+    Bara `https://` duger: API:t hämtar bilden själv, så en relativ sökväg eller
+    en `http://`-URL når den inte. **Enda** stället där kravet avgörs, så UI:t
+    inte kan säga "stillbilden skickas med" om en URL som anropet tystar bort
+    (Cursor-bugbot, medium, på #656).
+    """
+    url = str(template_meta.get("stillImageUrl", "") or "").strip()
+    return url if url.startswith("https://") else ""
+
+
 def _post_openai_chat(payload: dict[str, Any], api_key: str, *, timeout: int = 180) -> str:
     request = urllib.request.Request(
         OPENAI_CHAT_URL,
@@ -295,6 +307,21 @@ def _is_reasoning_model(model: str) -> bool:
     temperature (custom values return HTTP 400)."""
     m = model.strip().lower()
     return m.startswith(("gpt-5", "o1", "o3", "o4"))
+
+
+# Reasoning-modeller räknar sina DOLDA reasoning-tokens mot
+# `max_completion_tokens`. En budget som räckte för gpt-4o kan därför konsumeras
+# helt av tänkandet innan ett enda synligt tecken skrivs — svaret blir tomt
+# `content` och `_post_openai_chat` kastar. Det slog till direkt av Fas D:
+# guidens default gick från gpt-4o till gpt-5.4-mini med samma 500-tak
+# (Vercel Agent Review på #656). Faktorn ger plats för resonemanget; det synliga
+# svaret är fortfarande kort.
+_REASONING_TOKEN_HEADROOM = 4
+
+
+def _completion_budget(model: str, visible_tokens: int) -> int:
+    """Budget för `max_completion_tokens` givet önskad synlig svarslängd."""
+    return visible_tokens * _REASONING_TOKEN_HEADROOM if _is_reasoning_model(model) else visible_tokens
 
 
 def _chat_payload(
@@ -348,8 +375,8 @@ def run_persona_analysis(
         for option in scaffold_options
     )
     user_parts: list[dict[str, Any]] = []
-    still_url = str(template_meta.get("stillImageUrl", "")).strip()
-    send_image = vision_capable and still_url.startswith("https://")
+    still_url = usable_still_image_url(template_meta)
+    send_image = vision_capable and bool(still_url)
 
     summary_lines = [
         f"Mall (v0-mall i Vercel Blob): {template_meta.get('title', '?')}",
@@ -406,7 +433,7 @@ def run_persona_analysis(
             {"role": "system", "content": persona_prompt.strip() + "\n\n" + _OUTPUT_CONTRACT},
             {"role": "user", "content": user_parts},
         ],
-        max_tokens=2000,
+        max_tokens=_completion_budget(model, 2000),
         temperature=0.6,
         response_format={"type": "json_object"},
     )
@@ -421,7 +448,13 @@ def ask_guide(
     question: str,
 ) -> str:
     """Small interactive helper: answers operator questions about the current
-    wizard step in plain Swedish."""
+    wizard step in plain Swedish.
+
+    Svaret ska vara kort (max 6 meningar), men budgeten skalas för
+    reasoning-modeller — se :data:`_REASONING_TOKEN_HEADROOM`. Guidens
+    manifest-default är en gpt-5-modell, så utan skalningen kunde tänkandet äta
+    hela taket och lämna ett tomt svar.
+    """
     payload = _chat_payload(
         model=model,
         messages=[
@@ -436,7 +469,7 @@ def ask_guide(
             },
             {"role": "user", "content": question},
         ],
-        max_tokens=500,
+        max_tokens=_completion_budget(model, 500),
         temperature=0.4,
     )
     return _post_openai_chat(payload, api_key).strip()

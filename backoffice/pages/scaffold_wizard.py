@@ -286,11 +286,19 @@ def _render_step_persona(ctx: BackofficeContext) -> None:
     vision_capable = model_supports_vision(
         ctx.repo_root, WORKLOAD_SCAFFOLD_WIZARD_PERSONA, model
     )
-    still_url = str(template.get("stillImageUrl", "")).strip()
+    # Samma https-krav som anropet faktiskt tillämpar — annars kan rutan påstå
+    # att bilden skickas medan `run_persona_analysis` tystar bort den.
+    still_url = wiz.usable_still_image_url(template)
+    raw_still = str(template.get("stillImageUrl", "") or "").strip()
     if not still_url:
         st.caption(
-            "Mallen har ingen stillbild — personan bedömer bara metadata och "
-            "kodutdrag, oavsett modell."
+            "Mallen har ingen stillbild som kan skickas"
+            + (
+                f" (`{raw_still[:60]}` är inte en `https://`-URL, och OpenAI hämtar bilden själv)"
+                if raw_still
+                else ""
+            )
+            + " — personan bedömer bara metadata och kodutdrag, oavsett modell."
         )
     elif vision_capable:
         st.caption(
