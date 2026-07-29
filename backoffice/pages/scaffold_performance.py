@@ -30,6 +30,7 @@ import pandas as pd
 import streamlit as st
 
 from backoffice.shared import BackofficeContext
+from backoffice.subprocess_runners import resolve_node_command
 
 
 _SCRIPT_REL = "scripts/db/scaffold-scores.mjs"
@@ -55,9 +56,18 @@ def _run_scaffold_scores(repo_root) -> ScoresPayload:
             warnings=[],
             error=f"Script saknas: {script_path}",
         )
+    node = resolve_node_command()
+    if node is None:
+        return ScoresPayload(
+            lookback_days=0,
+            generated_at="",
+            scaffolds=[],
+            warnings=[],
+            error="`node` saknas på PATH",
+        )
     try:
         result = subprocess.run(
-            ["node", str(script_path), "--json"],
+            [*node, str(script_path), "--json"],
             cwd=str(repo_root),
             capture_output=True,
             text=True,

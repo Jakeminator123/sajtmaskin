@@ -14,7 +14,6 @@ det lyckades.
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -24,7 +23,7 @@ from typing import Any
 
 import streamlit as st
 
-from backoffice.shared import BackofficeContext
+from backoffice.shared import BackofficeContext, resolve_command
 
 
 @dataclass(frozen=True)
@@ -145,23 +144,6 @@ def _save_state(ctx: BackofficeContext, state: dict[str, Any]) -> None:
     )
 
 
-def _resolve_command(command: tuple[str, ...]) -> list[str]:
-    """Resolva första argumentet via PATH (PATHEXT på Windows).
-
-    Utan detta kraschar `subprocess.run([...npm...], shell=False)` på Windows
-    med FileNotFoundError eftersom `npm` är en `.cmd`-shim. `shutil.which`
-    respekterar PATHEXT och hittar `npm.cmd`/`npm.exe` automatiskt.
-    Faller tillbaka till originalkommandot om PATH-lookup misslyckas så
-    felet ändå rapporteras (snarare än att vi tyst byter binär).
-    """
-    if not command:
-        return []
-    resolved = shutil.which(command[0])
-    if not resolved:
-        return list(command)
-    return [resolved, *command[1:]]
-
-
 def _run_script(ctx: BackofficeContext, script: HealthScript) -> dict[str, Any]:
     started_iso = datetime.now(timezone.utc).isoformat()
     started = time.time()
@@ -170,7 +152,7 @@ def _run_script(ctx: BackofficeContext, script: HealthScript) -> dict[str, Any]:
     exit_code: int = -99
     try:
         proc = subprocess.run(
-            _resolve_command(script.command),
+            resolve_command(script.command),
             cwd=str(ctx.repo_root),
             capture_output=True,
             text=True,

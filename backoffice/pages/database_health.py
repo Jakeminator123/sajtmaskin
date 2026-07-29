@@ -22,7 +22,6 @@ SVÅRT att råka klicka apply (text-ruta + checkbox). Skriptet är säkert
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 import time
 from typing import Any
@@ -37,6 +36,7 @@ from backoffice.shared import (
     render_save_scope,
     render_where_panel,
 )
+from backoffice.subprocess_runners import resolve_node_command
 
 _DEFAULT_TIMEOUT_S = 60
 _PERF_INDEX_TIMEOUT_S = 300  # CREATE INDEX kan ta tid på stora tabeller
@@ -46,17 +46,8 @@ _SNAPSHOT_REL = "data/observability/db-health-snapshots.ndjson"
 _PERF_AUDIT_REL = "data/observability/db-perf-indexes-runs.ndjson"
 
 
-def _resolve_node_command() -> tuple[str, ...] | None:
-    """Hitta `node` på PATH (Windows-vänligt — `shutil.which` hanterar .cmd/.exe)."""
-    for cand in ("node",):
-        path = shutil.which(cand)
-        if path:
-            return (path,)
-    return None
-
-
 def _run_health_check(ctx: BackofficeContext, *, snapshot: bool, exact_count: bool) -> dict[str, Any]:
-    node = _resolve_node_command()
+    node = resolve_node_command()
     if node is None:
         return {
             "ok": False,
@@ -106,7 +97,7 @@ def _run_health_check(ctx: BackofficeContext, *, snapshot: bool, exact_count: bo
 
 def _run_perf_indexes(ctx: BackofficeContext, *, reason: str, dry_run: bool) -> dict[str, Any]:
     """Kör add-performance-indexes.mjs med audit-reason. Returnerar parsed result."""
-    node = _resolve_node_command()
+    node = resolve_node_command()
     if node is None:
         return {"ok": False, "error": "node finns inte på PATH."}
 

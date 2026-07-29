@@ -13,7 +13,6 @@ Snapshots → `data/observability/redis-health-snapshots.ndjson` (ND-JSON), graf
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 import time
 from typing import Any
@@ -22,22 +21,16 @@ import pandas as pd
 import streamlit as st
 
 from backoffice.observability_io import load_tail_ndjson
-from backoffice.shared import read_json, render_where_panel
-
-from backoffice.shared import BackofficeContext
+from backoffice.shared import BackofficeContext, read_json, render_where_panel
+from backoffice.subprocess_runners import resolve_node_command
 
 _DEFAULT_TIMEOUT_S = 30
 _HEALTH_SCRIPT_REL = "scripts/db/redis-health-check.mjs"
 _SNAPSHOT_REL = "data/observability/redis-health-snapshots.ndjson"
 
 
-def _resolve_node_command() -> tuple[str, ...] | None:
-    path = shutil.which("node")
-    return (path,) if path else None
-
-
 def _run_redis_check(ctx: BackofficeContext, *, snapshot: bool) -> dict[str, Any]:
-    node = _resolve_node_command()
+    node = resolve_node_command()
     if node is None:
         return {"ok": False, "error": "node finns inte på PATH."}
 

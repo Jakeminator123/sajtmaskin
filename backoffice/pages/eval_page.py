@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -19,17 +18,10 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from backoffice.shared import BackofficeContext, read_json
+from backoffice.shared import BackofficeContext, read_json, resolve_command
 
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
-
-
-def _resolve_command(command: tuple[str, ...]) -> list[str]:
-    if not command:
-        return []
-    resolved = shutil.which(command[0])
-    return [resolved, *command[1:]] if resolved else list(command)
 
 
 def _load_env_file(path: Path, env: dict[str, str]) -> None:
@@ -248,7 +240,7 @@ def _run_eval_command(
     exit_code = -99
     try:
         proc = subprocess.run(
-            _resolve_command(command),
+            resolve_command(command),
             cwd=str(ctx.repo_root),
             capture_output=True,
             text=True,

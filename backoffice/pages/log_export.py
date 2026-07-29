@@ -31,6 +31,7 @@ from backoffice.shared import (
     render_save_scope,
     render_where_panel,
 )
+from backoffice.subprocess_runners import resolve_node_command
 
 _DUMP_SCRIPT_REL = "scripts/db/dump-logs.mjs"
 _PROD_ENV_FILE = ".env.vercel.production.pulled"
@@ -54,10 +55,6 @@ _KIND_LABELS: dict[str, tuple[str, str]] = {
 _DEFAULT_KINDS = ["prompts", "generations", "versions", "telemetry", "errors"]
 
 
-def _resolve_cmd(name: str) -> str | None:
-    return shutil.which(name)
-
-
 def _run_dump(
     ctx: BackofficeContext,
     *,
@@ -67,7 +64,7 @@ def _run_dump(
     chat_id: str | None,
     allow_insecure_ssl: bool = True,
 ) -> dict[str, Any]:
-    node = _resolve_cmd("node")
+    node = resolve_node_command()
     if node is None:
         return {"error": "`node` saknas på PATH."}
     script = ctx.repo_root / _DUMP_SCRIPT_REL
@@ -75,7 +72,7 @@ def _run_dump(
         return {"error": f"Script saknas: {script}"}
 
     args = [
-        node,
+        *node,
         str(script),
         "--json",
         f"--env={env_file}",
@@ -114,7 +111,8 @@ def _run_dump(
 
 
 def _run_vercel_pull(ctx: BackofficeContext) -> dict[str, Any]:
-    vercel = _resolve_cmd("vercel")
+    # vercel är inte samma mönster som node-probning — behåll enkel which.
+    vercel = shutil.which("vercel")
     if vercel is None:
         return {"ok": False, "error": "`vercel` CLI saknas på PATH (npm i -g vercel)."}
     args = [
