@@ -52,22 +52,23 @@ describe("logTier3MissingEnvBlocked", () => {
     });
 
     expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
-    const [payloads, options] = createEngineVersionErrorLogs.mock.calls[0] ?? [];
-    expect(options).toBeUndefined();
-    expect(payloads).toEqual([
-      expect.objectContaining({
-        chatId: "chat_1",
-        versionId: "ver_1",
-        level: "info",
-        category: F3_READINESS_MISSING_ENV_CATEGORY,
-        meta: expect.objectContaining({
-          error: "tier3_env_not_ready",
-          source: "finalize-design",
-          projectId: "proj_1",
-          missingByIntegration,
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          chatId: "chat_1",
+          versionId: "ver_1",
+          level: "info",
+          category: F3_READINESS_MISSING_ENV_CATEGORY,
+          meta: expect.objectContaining({
+            error: "tier3_env_not_ready",
+            source: "finalize-design",
+            projectId: "proj_1",
+            missingByIntegration,
+          }),
         }),
-      }),
-    ]);
+      ],
+      undefined,
+    );
   });
 
   it("no-ops without chat/version ids", async () => {
@@ -89,12 +90,15 @@ describe("logTier3MissingEnvBlocked", () => {
       source: "quality-gate",
       lockTimeoutMs: 3000,
     });
-    const [, options] = createEngineVersionErrorLogs.mock.calls[0] ?? [];
-    expect(options).toEqual({ lockTimeoutMs: 3000 });
-    const payloads = createEngineVersionErrorLogs.mock.calls[0]?.[0] as Array<{
-      meta?: { f3VersionId?: string | null };
-    }>;
-    expect(payloads?.[0]?.meta?.f3VersionId).toBe("ver_f3");
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          versionId: "ver_parent",
+          meta: expect.objectContaining({ f3VersionId: "ver_f3" }),
+        }),
+      ],
+      { lockTimeoutMs: 3000 },
+    );
   });
 
   it("swallows persist failures", async () => {
