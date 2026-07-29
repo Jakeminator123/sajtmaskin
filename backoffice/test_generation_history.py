@@ -1,8 +1,11 @@
 """Enhetstester för icke-trivial logik i backoffice/pages/generation_history.py.
 
 Fokus: preview-etiketter (M#pv1 cutoff), tidstolkning, kortning och
-read-only Node-script-wrapper (mockad subprocess). Asserterar inte på
-UI-kolumnrubriker som "Quality gate"/"Autofix".
+read-only Node-script-wrapper (mockad subprocess).
+
+Sedan P2-4 grindas även kolumnrubrikerna, men bara via modulens konstanter — de
+gamla legacy-orden ("Quality gate", "Autofix", "Syntax-fixer") får inte komma
+tillbaka som fria strängar, och DB-nycklarna ska vara oförändrade.
 """
 
 from __future__ import annotations
@@ -228,6 +231,50 @@ class RunHistoryTests(unittest.TestCase):
             run.call_count in (0, 1),
             msg=f"unexpected subprocess call count: {run.call_count}",
         )
+
+
+class GlossaryColumnHeaderTests(unittest.TestCase):
+    """P2-4: sidan pratade legacy ("Quality gate", "Autofix", "Syntax-fixer") medan
+    resten av repot använder glossaryns kontrollbegrepp."""
+
+    ROWS = [
+        {
+            "created_at": "2026-07-29T10:00:00Z",
+            "quality_gate_result": "passed",
+            "autofix_applied": True,
+            "syntax_fixer_used": False,
+            "preview_success": True,
+        }
+    ]
+
+    def test_recent_table_uses_glossary_headers(self) -> None:
+        columns = list(gh._recent_dataframe(self.ROWS).columns)
+        self.assertIn(gh.COLUMN_QUALITY_GATE, columns)
+        self.assertIn(gh.COLUMN_NORMALIZE, columns)
+        for legacy in ("Quality gate", "Autofix", "Syntax-fixer"):
+            self.assertNotIn(legacy, columns, f"legacy-rubriken {legacy!r} är tillbaka")
+
+    def test_legend_maps_each_column_to_its_db_key(self) -> None:
+        """Rubrikbytet får inte göra det svårare att hitta telemetri-kolumnen:
+        DB-nycklarna behåller sina namn (terminology.mdc) och legenden säger vilken
+        rubrik som är vilken nyckel."""
+        for db_key in ("quality_gate_result", "autofix_applied", "syntax_fixer_used"):
+            self.assertIn(db_key, gh.GATE_COLUMN_LEGEND)
+        # Grinden bär två tier-namn eftersom samma kolumn används av båda.
+        self.assertIn("RenderGate", gh.GATE_COLUMN_LEGEND)
+        self.assertIn("ReleaseGate", gh.GATE_COLUMN_LEGEND)
+
+    def test_no_legacy_header_literal_left_in_the_code(self) -> None:
+        """Bara koden granskas — kommentaren som förklarar bytet nämner
+        legacy-orden med flit, och att förbjuda det vore att förbjuda historiken."""
+        code_lines = [
+            line
+            for line in Path(gh.__file__).read_text(encoding="utf-8").splitlines()
+            if not line.lstrip().startswith("#")
+        ]
+        code = "\n".join(code_lines)
+        for legacy in ('"Quality gate"', '"Autofix"', '"Syntax-fixer"'):
+            self.assertNotIn(legacy, code, f"{legacy} kvar som fri sträng i koden")
 
 
 if __name__ == "__main__":

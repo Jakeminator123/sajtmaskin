@@ -42,7 +42,6 @@ from backoffice.shared import (
     read_json,
     render_building_blocks_nav,
     render_save_scope,
-    render_where_panel,
     run_repo_command,
     tech_details,
     write_json,
@@ -141,10 +140,10 @@ def _render_guide(ctx: BackofficeContext, step_context: str) -> None:
             key=f"swz_guide_q_{_step()}",
             placeholder="T.ex. Vad är skillnaden på scaffold och variant?",
         )
-        # Väljaren ligger inne i guidens egen expander, inte i en nästlad
-        # teknik-expander: Streamlit tillåter inte expander i expander
-        # (StreamlitAPIException). Den här expandern är redan opt-in, så
-        # default-ytan förblir ren.
+        # Väljaren ligger direkt i guidens egen expander, inte i en nästlad
+        # teknik-expander: den här expandern är redan opt-in, så default-ytan
+        # förblir ren, och ett extra klick för en enda selectbox kostar mer än
+        # det ger.
         guide_model = st.selectbox(
             "Modell för guiden (teknik)",
             list(guide_models),
@@ -1205,7 +1204,6 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("Guide: ny scaffold eller variant (AI)")
     render_building_blocks_nav(PAGE_NAME)
     st.markdown(
@@ -1242,7 +1240,6 @@ def render(ctx: BackofficeContext) -> None:
             "- Fabriksåterställning av scaffold-ytorna finns i "
             "**Scaffolds & varianter** → Farlig zon."
         )
-        render_where_panel(PAGE_NAME, domain_map)
     _render_progress()
 
     step = _step()

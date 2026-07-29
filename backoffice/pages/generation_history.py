@@ -32,6 +32,30 @@ from backoffice.subprocess_runners import resolve_node_command
 _SCRIPT_REL = "scripts/db/generation-history.mjs"
 _TIMEOUT_S = 60
 
+# Kolumnrubriker enligt `docs/architecture/glossary.md` (P2-4). Tabellerna hette
+# tidigare "Quality gate", "Autofix" och "Syntax-fixer" — legacy-ord som beskriver
+# samma sak som glossaryns kontrollbegrepp och som fick sidan att prata ett annat
+# språk än resten av repot. DB-kolumnerna (`quality_gate_result`,
+# `autofix_applied`, `syntax_fixer_used`) behåller sina namn, precis som
+# terminology.mdc kräver: bara UI-texten byts.
+#
+# Grinden får inte heta RenderGate eller ReleaseGate rakt av — samma
+# `quality_gate_result` bär F2-gaten (RenderGate) och F3-gaten (ReleaseGate), och
+# vilken det är avgörs av Stage-kolumnen på raden. Rubriken är därför neutral och
+# legenden nedan säger vilket värde som är vilket.
+COLUMN_QUALITY_GATE = "Kvalitetsgrind"
+COLUMN_NORMALIZE = "Normalize"
+COLUMN_REPAIR_GATE = "RepairGate"
+
+GATE_COLUMN_LEGEND = (
+    f"**{COLUMN_QUALITY_GATE}** = RenderGate när Stage är `design`/F2, ReleaseGate när "
+    "Stage är `integrations`/F3 (DB: `quality_gate_result`) · "
+    f"**{COLUMN_NORMALIZE}** = mekaniska, deterministiska fixar kördes "
+    "(DB: `autofix_applied`) · "
+    f"**{COLUMN_REPAIR_GATE}** = LLM-repair behövdes efter dem "
+    "(DB: `syntax_fixer_used`)."
+)
+
 
 def _run_history(repo_root, extra_args: list[str]) -> dict[str, Any]:
     """Kör generation-history.mjs read-only och returnerar parsad JSON.
@@ -132,10 +156,10 @@ def _recent_dataframe(rows: list[dict[str, Any]]) -> pd.DataFrame:
                 "Model": r.get("model") or "—",
                 "Intent": r.get("build_intent") or "—",
                 "Preview": _preview_label(r.get("preview_success"), r.get("created_at")),
-                "Quality gate": r.get("quality_gate_result") or "—",
+                COLUMN_QUALITY_GATE: r.get("quality_gate_result") or "—",
                 "Deploy": r.get("deploy_result") or "—",
                 "Retry": r.get("retry_count"),
-                "Autofix": "ja" if r.get("autofix_applied") else "nej",
+                COLUMN_NORMALIZE: "ja" if r.get("autofix_applied") else "nej",
                 "Preflight E/W": f"{r.get('preflight_error_count', 0)}/{r.get('preflight_warning_count', 0)}",
                 "Blocking": _short(r.get("preview_blocking_reason"), 40) or "—",
                 "Filer": r.get("file_count"),
@@ -199,11 +223,11 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
                         "Model": t.get("model") or "—",
                         "Intent": t.get("build_intent") or "—",
                         "Preview": _preview_label(t.get("preview_success"), t.get("created_at")),
-                        "Quality gate": t.get("quality_gate_result") or "—",
+                        COLUMN_QUALITY_GATE: t.get("quality_gate_result") or "—",
                         "Deploy": t.get("deploy_result") or "—",
                         "Retry": t.get("retry_count"),
-                        "Autofix": "ja" if t.get("autofix_applied") else "nej",
-                        "Syntax-fixer": "ja" if t.get("syntax_fixer_used") else "nej",
+                        COLUMN_NORMALIZE: "ja" if t.get("autofix_applied") else "nej",
+                        COLUMN_REPAIR_GATE: "ja" if t.get("syntax_fixer_used") else "nej",
                         "Preflight E/W": f"{t.get('preflight_error_count', 0)}/{t.get('preflight_warning_count', 0)}",
                         "Blocking": _short(t.get("preview_blocking_reason"), 40) or "—",
                     }
@@ -213,6 +237,7 @@ def _render_chat_detail(ctx: BackofficeContext, chat_id: str) -> None:
             hide_index=True,
             use_container_width=True,
         )
+        st.caption(GATE_COLUMN_LEGEND)
 
     error_logs = payload.get("errorLogs") or []
     st.markdown(f"#### Fel/warnings ({len(error_logs)})")
@@ -306,6 +331,7 @@ def render(ctx: BackofficeContext) -> None:
     st.subheader("Senaste genereringar")
     df = _recent_dataframe(rows)
     st.dataframe(df.drop(columns=["chat_id"]), hide_index=True, use_container_width=True)
+    st.caption(GATE_COLUMN_LEGEND)
 
     st.divider()
     st.subheader("Detaljer per chatt")

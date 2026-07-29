@@ -21,7 +21,7 @@ import pandas as pd
 import streamlit as st
 
 from backoffice.observability_io import load_tail_ndjson
-from backoffice.shared import BackofficeContext, read_json, render_where_panel
+from backoffice.shared import BackofficeContext
 from backoffice.subprocess_runners import resolve_node_command
 
 _DEFAULT_TIMEOUT_S = 30
@@ -83,13 +83,6 @@ def render(ctx: BackofficeContext) -> None:
         "Self-test skriver/läser/raderar en hälsonyckel — i övrigt inga mutationer."
     )
 
-    # "Var ligger detta?"-panel — speglar mönstret från andra sidor.
-    domain_map = (
-        read_json(ctx.domain_map_json)
-        if ctx.domain_map_json.is_file()
-        else {"pages": {}, "repoSiblings": {}}
-    )
-    render_where_panel("Redis-hälsa", domain_map)
 
     # BUG-FIX 2026-04-24 (rapport från test-agenter): tidigare versioner av
     # denna sida lät det se ut som "är Redis OK?" rent generellt. I själva

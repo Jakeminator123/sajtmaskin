@@ -419,7 +419,7 @@
       ]
     },
     "Generation History": {
-      "summary": "Read-only genererings-historik per användarsida + vad varje steg gjorde (scaffold, model, retry/autofix, preflight, quality gate, preview-utfall). Kör scripts/db/generation-history.mjs via subprocess read-only mot DB:n som .env.local pekar på. Källor: generation_telemetry, engine_versions, engine_version_error_logs, engine_generation_logs.",
+      "summary": "Read-only genererings-historik per användarsida + vad varje steg gjorde (scaffold, model, retry/Normalize, preflight, RenderGate/ReleaseGate, preview-utfall). Kör scripts/db/generation-history.mjs via subprocess read-only mot DB:n som .env.local pekar på. Källor: generation_telemetry, engine_versions, engine_version_error_logs, engine_generation_logs.",
       "canonicalPaths": [
         "backoffice/pages/generation_history.py",
         "scripts/db/generation-history.mjs",

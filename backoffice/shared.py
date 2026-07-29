@@ -772,6 +772,46 @@ def render_save_scope(
         st.info(body)
 
 
+# Text som är handskriven i Python och INTE läses ur kod/disk/DB/API ser
+# likadan ut som live-data i Streamlit — samma rubriker, samma punktlistor. En
+# operatör som läser en beskrivning av F2/F3-livscykeln har inget sätt att se om
+# den speglar koden idag eller skrevs för tre månader sedan. Badgen säger det
+# rakt ut (P2-2), med en pekare till ytan som äger sanningen.
+STATIC_REFERENCE_BADGE = "Statisk referens — senast uppdaterad manuellt"
+
+
+def render_static_reference(*, source: str = "", note: str = "") -> None:
+    """Märk ett avsnitt som handskriven referenstext, inte läst data.
+
+    Använd den **bara** när avsnittet inte läser disk, DB eller API. Läser
+    sidan värdena live (som `orchestration.py`, som parsar TS-filer vid varje
+    rendering) är badgen osann och ska inte sättas — skriv i stället i captionen
+    var värdena kommer ifrån.
+
+    ``source`` pekar ut den yta som äger sanningen (doc, kontrakt eller kodfil)
+    så läsaren vet vad texten ska kontrolleras mot.
+
+    ``st.badge`` finns i nyare Streamlit men inte i hela intervallet som
+    `requirements.backoffice.txt` tillåter (`>=1.49`). Saknas den renderas samma
+    text som fet markdown-rad i st.f. att sidan kraschar på ett API som inte
+    finns — märkningen är viktigare än chip-utseendet.
+    """
+    badge = getattr(st, "badge", None)
+    if callable(badge):
+        badge(STATIC_REFERENCE_BADGE, icon="📄", color="orange")
+    else:
+        st.markdown(f"📄 **{STATIC_REFERENCE_BADGE}**")
+    tail = ""
+    if source:
+        tail = f" Kontrollera mot `{source}` innan du litar på den."
+    if note:
+        tail += f" {note}"
+    st.caption(
+        "Texten nedan är skriven för hand i backoffice-koden — den läses inte ur "
+        "koden och kan därför ligga efter." + tail
+    )
+
+
 def tech_details(label: str = "Visa tekniska detaljer", *, expanded: bool = False):
     """Standard collapsed expander for jargon (paths, schemas, script names).
 

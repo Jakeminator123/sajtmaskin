@@ -25,7 +25,6 @@ from backoffice.shared import (
     read_text,
     render_building_blocks_nav,
     render_save_scope,
-    render_where_panel,
     tech_details,
     write_text,
 )
@@ -240,7 +239,6 @@ def _render_editor(ctx: BackofficeContext, picked: dict[str, Any]) -> None:
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("Scaffolds: titta & justera")
     render_building_blocks_nav(PAGE_NAME)
     st.markdown(
@@ -270,7 +268,6 @@ def render(ctx: BackofficeContext) -> None:
             f"`scaffold-embeddings.json` ({'finns' if embeddings_path.is_file() else 'saknas'})"
         )
         st.markdown("- Validera efter ändring: `npm run scaffolds:validate`")
-        render_where_panel(PAGE_NAME, domain_map)
 
     _render_termguide()
     _render_mental_model(ctx)

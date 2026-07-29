@@ -45,10 +45,8 @@ from backoffice.shared import (
     confirm_by_typing,
     danger_zone,
     field_label,
-    read_json,
     render_building_blocks_nav,
     render_save_scope,
-    render_where_panel,
     run_repo_command,
     tech_details,
     validate_json_against_schema,
@@ -1957,11 +1955,6 @@ def render(ctx) -> None:
         "funktioner briefen ber om."
     )
     render_save_scope("repo", paths=("data/dossiers/hard/", "data/dossiers/soft/"))
-    domain_map = (
-        read_json(ctx.domain_map_json)
-        if getattr(ctx, "domain_map_json", None) and ctx.domain_map_json.is_file()
-        else {"pages": {}}
-    )
     with tech_details():
         st.markdown("- Disk: `data/dossiers/{hard|soft}/<id>/manifest.json`")
         st.markdown("- Strict-schema: `docs/schemas/strict/dossier.schema.json`")
@@ -1971,7 +1964,6 @@ def render(ctx) -> None:
             "(byggs om i Kontroller-tabben)"
         )
         st.markdown("- Validera efter ändring: `npm run dossiers:validate-all`")
-        render_where_panel(PAGE_NAME, domain_map)
 
     dossiers = _walk_all_dossiers()
     # Fem tabbar (Fas C, tidigare nio). OBS: st.tabs kör ALLA tab-bodies vid

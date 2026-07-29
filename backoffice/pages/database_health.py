@@ -32,9 +32,7 @@ import streamlit as st
 from backoffice.observability_io import load_tail_ndjson
 from backoffice.shared import (
     BackofficeContext,
-    read_json,
     render_save_scope,
-    render_where_panel,
 )
 from backoffice.subprocess_runners import resolve_node_command
 
@@ -160,14 +158,6 @@ def render(ctx: BackofficeContext) -> None:
         "saknade index). APPLY kräver motivering + bekräftelse + audit-logg."
     )
 
-    # "Var ligger detta?"-panel — speglar mönstret från overview.py så
-    # canonical paths från config/dashboard/domain-map.json blir synliga.
-    domain_map = (
-        read_json(ctx.domain_map_json)
-        if ctx.domain_map_json.is_file()
-        else {"pages": {}, "repoSiblings": {}}
-    )
-    render_where_panel("Databashälsa", domain_map)
     render_save_scope(
         "prod",
         note="Hälsokollen är read-only. **APPLY-flödet skapar index i databasen "

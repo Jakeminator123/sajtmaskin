@@ -51,7 +51,7 @@ import pandas as pd
 import streamlit as st
 
 from backoffice.observability_io import load_tail_ndjson
-from backoffice.shared import BackofficeContext, read_json, render_where_panel
+from backoffice.shared import BackofficeContext
 
 PAGE_NAME = "Selection Rationale (read-only)"
 
@@ -507,11 +507,7 @@ def _render_dossier_note(ctx: BackofficeContext) -> None:
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = (
-        read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
-    )
     st.header("Selection Rationale — varför valdes detta? (read-only)")
-    render_where_panel(PAGE_NAME, domain_map)
 
     st.caption(
         "Fokuserad lins som svarar på **varför** en scaffold/variant/dossier "

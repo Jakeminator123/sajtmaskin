@@ -24,7 +24,6 @@ from backoffice.shared import (
     read_text,
     render_building_blocks_nav,
     render_save_scope,
-    render_where_panel,
     tech_details,
     validate_json_against_schema,
     write_json,
@@ -2621,7 +2620,6 @@ def _render_pipeline_tools(ctx: BackofficeContext) -> None:
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     manifests = get_all_manifests(ctx)
     scaffold_ids = [str(manifest.get("id", "")).strip() for manifest in manifests if manifest.get("id")]
     variants = _load_variants(ctx)
@@ -2655,7 +2653,6 @@ def render(ctx: BackofficeContext) -> None:
             "`scaffold-embedding-locale.ts`; misslyckas något rullas allt tillbaka."
         )
         st.markdown("- Validera efter ändring: `npm run scaffolds:validate`")
-        render_where_panel(PAGE_NAME, domain_map)
 
     # Post-action-noten ligger utanför tabbarna: create/edit/delete bor numera i
     # var sin tabb, och `st.rerun()` landar alltid på den första. Renderades noten
