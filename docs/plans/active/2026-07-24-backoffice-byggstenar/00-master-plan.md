@@ -8,9 +8,11 @@ source: Kodläsning (backoffice/pages/*, shared.py, tester, domain-map) + ägar-
 
 # Backoffice Byggstenar — kördokument
 
-> **Varför denna fil finns i repot:** arbetet levereras i etapper med
-> ägargodkännande mellan varje. Kördokumentet ska överleva dator-, användar- och
-> agentbyte, så nästa agent kan fortsätta utan att gissa.
+> **Varför denna fil finns i repot:** arbetet levereras i etapper, en PR per
+> etapp. Ursprungligen med ägargodkännande mellan varje; sedan 2026-07-29 är
+> stoppen delegerade (se § *Mandatändring*), men etappindelningen står kvar.
+> Kördokumentet ska överleva dator-, användar- och agentbyte, så nästa agent kan
+> fortsätta utan att gissa.
 >
 > **Denna fil äger hela backoffice-spåret sedan 2026-07-27.** Den äldre,
 > bredare stringensplanen (2026-07-08) är raderad: kärnan levererades 2026-07-21
@@ -34,7 +36,7 @@ faktiskt påverkar**, så ägaren vågar inte ändra något.
 | Spara-läge är acceptanskriterium | Varje redigerings-/skapayta säger i **default-ytan**: `repo` (fil i repot, prod först vid merge till `master`) · `local` (gitignorerat) · `prod` (påverkar produktion direkt) |
 | Hubben äger bara byggstens-modellen | Start-Översikt = karta över alla vyer (länkar till hubben) · Control Plane = filägarskap per beslut (rörs inte) · hubben renderar förklaringar **ur docs**, ingen prosa-kopia i Python |
 | Fas D separat och sist | Modellval ändrar beteende, inte bara yta. Wizarden får **inte** ärva workloaden `analyze_presentation_vision` (den hör till `src/app/api/analyze-presentation/route.ts`) |
-| Etappleverans | En PR per etapp, stopp för ägarens granskning mellan etapperna |
+| Etappleverans | En PR per etapp. Ursprungligen med stopp för ägarens granskning mellan etapperna; **sedan 2026-07-29 delegerat** — se nedan |
 | Terminologi | UI-label **Byggblock**; kod-id `dossier` kvar i paths/routes/API |
 
 ## Etappordning (ägarens beslut 2026-07-24)
@@ -53,10 +55,28 @@ faktiskt påverkar**, så ägaren vågar inte ändra något.
 | 5–6 | **Fas D** — AI-modellval via manifestet | [`aktiviteter/04-fas-d-ai-modellval.md`](aktiviteter/04-fas-d-ai-modellval.md) | Förslaget **godkänt 2026-07-28** (tre separata workload-poster) — kör efter Fas C |
 | 7 | **P2-städ** — resterna från stringensplanen | [`aktiviteter/05-p2-stringens-stad.md`](aktiviteter/05-p2-stringens-stad.md) | Ej påbörjad — sist, eller plocka rader när en sida ändå rörs |
 
+### Mandatändring 2026-07-29 — granskningsstoppen är delegerade
+
+Ägaren har delegerat genomförandet av resterande etapper: **kör hela planen utan
+att stanna mellan etapperna.** Kedjan ovan gäller fortfarande som beroendeordning,
+men grinden mellan etapperna är nu bot-koll + merge
+([`pr-merge-review-gate.mdc`](../../../../.cursor/rules/pr-merge-review-gate.mdc))
+i stället för ägarens ögon. Fas D:s förslag var redan godkänt 2026-07-28, så
+inget väntar på beslut.
+
+Två saker som delegeringen **inte** ändrade: beroendeordningen (Fas C bygger på
+Fas B:s `danger_zone`/`confirm_by_typing`; Fas D körs sist eftersom den ändrar
+beteende) och kravet att varje etapp levereras i en egen PR med grön grind.
+Etapper vars filer inte överlappar får köras parallellt i egna worktrees —
+`shared.py` är den vanligaste kollisionspunkten, så låt en etapp åt gången äga den.
+
 ### Så tar en ny agent över
 
 1. Läs det här dokumentet (beslut + etappordning), sedan **ett** aktivitetsdokument.
-2. Kör bara den etappen, i **en egen PR** mot `master`, och stanna för ägarens granskning.
+2. Kör bara den etappen, i **en egen PR** mot `master`. Sedan mandatändringen
+   2026-07-29 behöver du inte stanna för ägarens granskning — men merge-grinden
+   (`pr-merge-review-gate.mdc`: bot-koll, 7-min-fönstret, `merge:ready`) gäller
+   oavkortat.
 3. Uppdatera statuskolumnen ovan i samma PR som etappen levereras.
 4. Rör inte senare etapper i förbigående — särskilt inte Fas D, som ändrar
    modellval. Förslaget är godkänt (2026-07-28), men Fas D körs ändå **sist**,
@@ -127,7 +147,10 @@ oförändrade). Det icke-ASCII-fallet är verifierat att falla utan
 * Tabbar i `scaffold_lifecycle.py` → `Titta / Skapa / Ändra / Farlig zon / Underhåll`
   (alla `_render_*`-funktioner behåller namn och signatur så befintliga tester gäller).
 * `danger_zone()` + `confirm_by_typing()` läggs i `shared.py` först här, där de används.
-* Svenska fältnamn med teknisk nyckel i parentes, identiska på båda ytorna:
+  Scaffold-radering och baseline har redan typad bekräftelse (ren refaktor);
+  variant-radering har bara en checkbox och **får** den i Fas B.
+* Svenska fältnamn med teknisk nyckel i parentes, identiska på alla tre ytorna
+  (`scaffold_lifecycle.py`, `scaffolds.py` och — tillagt 2026-07-29 — `scaffold_wizard.py`):
   Namn (`label`), Beskrivning (`description`), Matchord (`tags`), Instruktioner till
   own-engine (`promptHints`), Kvalitetskrav (`qualityChecklist`), Får användas för
   (`allowedBuildIntents`), Typ av sajt (`siteKind`), Komplexitet (`complexity`),
@@ -175,6 +198,11 @@ hårdkodad `gpt-4o-mini`.
 
 Fas A-utfall: 123 backoffice-tester (108 → +15), 12/12 scaffold-kontrakt,
 27/27 byggblock, docs-grindar och control-plane-check gröna.
+
+**Aktuell baslinje att mäta mot: 131 gröna backoffice-tester på master
+`cf7bfcbd` (2026-07-29).** Siffran 123 ovan är Fas A:s historiska utfall — den
+har vuxit av etapp 2 och av arbete utanför det här spåret, så jämför alltid mot
+en färsk körning, inte mot ett tal i ett plandokument.
 
 ## Kör backoffice lokalt (och i Cloud-agent-VM)
 

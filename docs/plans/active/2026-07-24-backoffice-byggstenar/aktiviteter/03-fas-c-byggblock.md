@@ -10,7 +10,10 @@ source: Kodläsning backoffice/pages/dossiers.py + docs/contracts/dossier-system
 
 Master-plan: [`../00-master-plan.md`](../00-master-plan.md).
 **Förutsätter** att Fas B ([`02-fas-b-scaffold-variant.md`](02-fas-b-scaffold-variant.md))
-är godkänd. Stanna och visa ägaren när fasen är klar.
+är **mergad** — Fas C konsumerar dess `danger_zone`/`confirm_by_typing` i
+`shared.py`. Sedan mandatändringen 2026-07-29 (master-planen § *Mandatändring*)
+är det ett kodberoende, inte ett godkännandeberoende, och du behöver inte stanna
+för ägaren när fasen är klar.
 
 ## Nuläge
 

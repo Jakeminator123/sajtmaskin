@@ -11,7 +11,10 @@ source: Kodläsning backoffice/pages/scaffold_lifecycle.py + scaffolds.py + äga
 Master-plan: [`../00-master-plan.md`](../00-master-plan.md).
 Etapp 2 (baseline-backupen) är mergad 2026-07-28 — sammanfattad i master-planen —
 så förutsättningen är uppfylld.
-Stanna och visa ägaren när fasen är klar — Fas C startar först efter godkännande.
+Sedan mandatändringen 2026-07-29 (master-planen § *Mandatändring*) behöver du
+**inte** stanna för ägarens granskning när fasen är klar. Fas C startar när Fas B
+är **mergad** — beroendet är `danger_zone`/`confirm_by_typing` i `shared.py`, inte
+ett godkännande.
 
 ## Mål
 
@@ -49,10 +52,24 @@ används här — ingen död kod):
 Radering av variant/scaffold ska ligga inuti `danger_zone` med samma
 säkerhetskopieringslöfte som redan gäller (`backup_tree` före katalogradering).
 
-## B3 — samma svenska fältnamn på båda ytorna
+**Vad som faktiskt är nytt per yta (kodläst 2026-07-29):** scaffold-radering
+(`scaffold_lifecycle.py:2258`) och baseline-fliken (`:2541`) har redan typad
+bekräftelse — för dem är detta en ren refaktor till helpern, semantiken är
+oförändrad. `_render_delete_variant` (`:1395`) har däremot **bara en checkbox**,
+så där tillkommer typad bekräftelse: en medveten friktionsökning på den enda
+destruktiva ytan som saknar den. Det motsäger inte etapp 2:s slutsats att
+"friktion var inte problemet" — den handlade om att *inte* lägga en tredje
+bekräftelse ovanpå två befintliga, inte om att lämna en yta utan sin första.
 
-Gäller `scaffold_lifecycle.py` (skapa/ändra) **och** `scaffolds.py` (editorn), så
-det inte längre finns två språk för samma fält. Teknisk nyckel i parentes:
+## B3 — samma svenska fältnamn på alla tre ytorna
+
+Gäller `scaffold_lifecycle.py` (skapa/ändra), `scaffolds.py` (editorn) **och**
+`scaffold_wizard.py` (guiden), så det inte längre finns två språk för samma fält.
+Wizarden var utelämnad i den första versionen av det här dokumentet, men har kvar
+exakt samma engelska etiketter (`Allowed Build Intents`, `Prompt Hints`,
+`Quality Checklist`, `Signature Motif`, `Color Mode`, `Font Pairings`,
+`Theme Tokens` — verifierat 2026-07-29). Utan den blir löftet osant, och
+wizarden rörs ändå i B4. Teknisk nyckel i parentes:
 
 | Idag | Nytt |
 |---|---|
@@ -74,6 +91,9 @@ det inte längre finns två språk för samma fält. Teknisk nyckel i parentes:
 Ändra **inte** valideringsreglerna (kebab-case-krav, minsta antal rader, tvingad
 startvariant, `_SIG_MIN_*`) — bara etiketterna och hjälptexterna.
 
+Kanonisk källa för de svenska orden är `docs/architecture/glossary.md`; hitta
+inte på nya.
+
 ## B4 — wizarden som rekommenderad väg
 
 * `Vad kommer att skrivas?`-sammanfattning före checklistan i steg 4 (filer + spara-läge).
@@ -84,12 +104,19 @@ startvariant, `_SIG_MIN_*`) — bara etiketterna och hjälptexterna.
 
 * Utöka `backoffice/test_scaffold_lifecycle_integrity.py`: create-scaffold-valideringen
   (kebab-case, minsta antal rader, tvingad startvariant) står kvar efter omläggningen.
-* Nytt/utökat test som asserterar att radering ligger bakom typad bekräftelse.
+* Nytt/utökat test som asserterar att **alla tre** destruktiva ytorna (variant,
+  scaffold, baseline) ligger bakom typad bekräftelse — variantytan är den som
+  faktiskt ändras, de andra två är regressionsskydd för refaktorn.
 * Om `danger_zone`/`confirm_by_typing` blir rena funktioner: enhetstesta dem.
+
+Baslinje att mäta mot: **131 gröna backoffice-tester** på master `cf7bfcbd`
+(`npm run backoffice:test`).
 
 ## B6 — opt-in, endast på ägarens begäran
 
-Alternativ 2: flytta variant-CRUD ur `scaffold_lifecycle.py` (2 594 rader) till
+Alternativ 2: flytta variant-CRUD ur `scaffold_lifecycle.py` (2 675 rader per
+2026-07-29 — filen växte av baseline-backupen, så mät själv i stället för att
+lita på ett radantal i ett plandokument) till
 `backoffice/pages/scaffold_variants.py` med egen menypost. Kräver att privata
 helpers som testerna importerar följer med. **Gör inte detta ospecificerat.**
 
@@ -109,5 +136,7 @@ kodändringar, annars serveras gamla moduler.
 
 * Menyn och tabbarna svarar på *var tittar jag / var ändrar jag / var skapar jag*.
 * Skapa scaffold **och** variant fungerar end-to-end via UI med validering + backup.
-* Allt destruktivt ligger i en uttalad farlig zon med typad bekräftelse.
-* Samma fältnamn på båda ytorna; inga ändrade valideringsregler.
+* Allt destruktivt ligger i en uttalad farlig zon med typad bekräftelse — inklusive
+  variant-radering, som tidigare bara hade en checkbox.
+* Samma fältnamn på **alla tre** ytorna (`scaffold_lifecycle.py`, `scaffolds.py`,
+  `scaffold_wizard.py`); inga ändrade valideringsregler.
