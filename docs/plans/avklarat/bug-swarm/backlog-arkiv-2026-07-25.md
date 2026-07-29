@@ -2,6 +2,12 @@
 
 > Flyttade rader från [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) efter riktad tvåradsleverans 2026-07-25 (branch `cursor/warm-cache-sdk-och-sendmessage-outcome-2150`, mot master `1cd8f547`). Båda raderna var P3 och båda var "kniviga" i den mening att de krävde ett vägval snarare än en självklar patch — warm-cache-raden hade tre konkurrerande linjer och `sendMessage`-raden rörde hela caller-kedjan. Filen har sedan fyllts på med en P1-rad som stängdes 2026-07-26 och med de nio defekter som åtgärdsprogrammet efter observationssessionen 2026-07-25 stängde samma dag (egna sektioner nedan). Äldre historik: [`backlog-arkiv-2026-07-24.md`](backlog-arkiv-2026-07-24.md) · [`backlog-arkiv-2026-07-22.md`](backlog-arkiv-2026-07-22.md) · [`backlog-arkiv-2026-07-02.md`](backlog-arkiv-2026-07-02.md) · [`backlog-arkiv-2026-06-27.md`](backlog-arkiv-2026-06-27.md) · [`backlog-arkiv-2026-06-24.md`](backlog-arkiv-2026-06-24.md).
 
+## Fixade 2026-07-29
+
+| Klar | Status | Prio | Fynd | Källa | Fix-referens |
+| --- | --- | --- | --- | --- | --- |
+| [x] | Fixad | P2 | Sign-off/merge-freshness: `review-window` väntar bara in botar utan verdict; #494 mergades 55 s efter Codex-P1 med stale sign-off. | Extern coach-review (#494) | Restlista R9 (#644): `.github/workflows/merge-ready-freshness.yml` tar bort `merge:ready` vid ny commit och bot-review/inline nyare än sign-off `at:`; sign-off kräver `sha:` + `at:` (`pr-merge-review-gate.mdc`). |
+
 ## Fixade 2026-07-25
 
 | Klar | Status | Prio | Fynd | Källa | Fix-referens |
