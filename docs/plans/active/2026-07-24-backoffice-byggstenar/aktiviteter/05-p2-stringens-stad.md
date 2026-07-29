@@ -25,7 +25,7 @@ blockerar Fas B/C/D. Master-plan: [`../00-master-plan.md`](../00-master-plan.md)
 | P2-3 | Testluckor på icke-trivial logik | saknas för `projects_admin.py` (destruktiv → högst prio), `templates_blob.py`, `generation_history.py` (`_preview_label`); `test_observability_io.py` testar `load_tail_ndjson` men inte Prometheus-parsern | Lägg tester, börja med den destruktiva ytan |
 | P2-4 | Terminologi-drift i UI-text | `generation_history.py:131,134` "Quality gate"/"Autofix"; `ai_models.py:149` "kodgeneratorn" | Byt mot glossary-termer (RenderGate/ReleaseGate/Normalize/RepairGate, own-engine) |
 | P2-5 | `render_where_panel` bara på 23 av 36 sidor | saknas bl.a. i `generation_history.py`, `observability.py`, `projects_admin.py` | Gör den till standardrad i sidmallen i stället för opt-in |
-| P2-6 | `scaffold_lifecycle.py` är 2617 rader i en fil | — | Överväg uppdelning **när filen ändå rörs** i Fas B; ingen fristående refaktor |
+| P2-6 | `scaffold_lifecycle.py` är 2 675 rader i en fil (2026-07-29) | — | Överväg uppdelning **när filen ändå rörs** i Fas B; ingen fristående refaktor |
 
 ## Överlapp att inte missa
 
