@@ -11,7 +11,10 @@ source: Kodläsning backoffice/pages/scaffold_lifecycle.py + scaffolds.py + äga
 Master-plan: [`../00-master-plan.md`](../00-master-plan.md).
 Etapp 2 (baseline-backupen) är mergad 2026-07-28 — sammanfattad i master-planen —
 så förutsättningen är uppfylld.
-Stanna och visa ägaren när fasen är klar — Fas C startar först efter godkännande.
+Sedan mandatändringen 2026-07-29 (master-planen § *Mandatändring*) behöver du
+**inte** stanna för ägarens granskning när fasen är klar. Fas C startar när Fas B
+är **mergad** — beroendet är `danger_zone`/`confirm_by_typing` i `shared.py`, inte
+ett godkännande.
 
 ## Mål
 
@@ -133,5 +136,7 @@ kodändringar, annars serveras gamla moduler.
 
 * Menyn och tabbarna svarar på *var tittar jag / var ändrar jag / var skapar jag*.
 * Skapa scaffold **och** variant fungerar end-to-end via UI med validering + backup.
-* Allt destruktivt ligger i en uttalad farlig zon med typad bekräftelse.
-* Samma fältnamn på båda ytorna; inga ändrade valideringsregler.
+* Allt destruktivt ligger i en uttalad farlig zon med typad bekräftelse — inklusive
+  variant-radering, som tidigare bara hade en checkbox.
+* Samma fältnamn på **alla tre** ytorna (`scaffold_lifecycle.py`, `scaffolds.py`,
+  `scaffold_wizard.py`); inga ändrade valideringsregler.

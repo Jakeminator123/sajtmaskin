@@ -8,9 +8,11 @@ source: Kodläsning (backoffice/pages/*, shared.py, tester, domain-map) + ägar-
 
 # Backoffice Byggstenar — kördokument
 
-> **Varför denna fil finns i repot:** arbetet levereras i etapper med
-> ägargodkännande mellan varje. Kördokumentet ska överleva dator-, användar- och
-> agentbyte, så nästa agent kan fortsätta utan att gissa.
+> **Varför denna fil finns i repot:** arbetet levereras i etapper, en PR per
+> etapp. Ursprungligen med ägargodkännande mellan varje; sedan 2026-07-29 är
+> stoppen delegerade (se § *Mandatändring*), men etappindelningen står kvar.
+> Kördokumentet ska överleva dator-, användar- och agentbyte, så nästa agent kan
+> fortsätta utan att gissa.
 >
 > **Denna fil äger hela backoffice-spåret sedan 2026-07-27.** Den äldre,
 > bredare stringensplanen (2026-07-08) är raderad: kärnan levererades 2026-07-21
