@@ -22,7 +22,7 @@ kopiera inte dess kö hit.
 | --- | --- | --- | --- |
 | Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | **Steg 1–2 levererade 2026-07-29** (DB-genererad `files_revision` + telemetri-stämpel), prod-verifierat 2026-07-29: 135/135 versioner har revision, telemetrin stämplas. Steg 3 väntar på mätdata | Repair-pass-stämplingen (som mätte fel) är åtgärdad i #646. Samla mismatch-frekvens med SQL:en i planen, sedan steg 3 (läsarna jämför) |
 | Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | R1–R4 + R6 (#639), R7 + R9 + R10 + R11 klara 2026-07-29; fyra rader kvar (R5/R8 + R12/R13 från builder-runtime) | R8 och R12. R5 är blockerad tills verbatim-exportvägen trådar env-scope; R13 är en prod-observation |
-| Backoffice (Byggstenar + stringens-städ) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | Fas A klar (#615), baseline-backupen klar 2026-07-28 — dataförlustrisken är stängd; etapp 3–7 öppna | Fas B (trygg create/edit för scaffold + variant) |
+| Backoffice (Byggstenar + stringens-städ) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | **Fas A–C + baseline-backup levererade** (#615, #640, #649, #654) och P2-1/P2-3 klara (#647, #650). Kvar: Fas D + P2-2/P2-4/P2-5/P2-6 | **Fas D** (AI-modellval via manifestet — förslaget godkänt 2026-07-28, ändrar beteende och körs därför sist) |
 
 ## Ägarbeslut — avgjorda 2026-07-28
 
