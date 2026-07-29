@@ -27,6 +27,7 @@ import pandas as pd
 import streamlit as st
 
 from backoffice.shared import BackofficeContext
+from backoffice.subprocess_runners import resolve_node_command
 
 _SCRIPT_REL = "scripts/db/generation-history.mjs"
 _TIMEOUT_S = 60
@@ -40,9 +41,12 @@ def _run_history(repo_root, extra_args: list[str]) -> dict[str, Any]:
     script_path = repo_root / _SCRIPT_REL
     if not script_path.exists():
         return {"error": f"Script saknas: {script_path}"}
+    node = resolve_node_command()
+    if node is None:
+        return {"error": "`node` saknas på PATH"}
     try:
         result = subprocess.run(
-            ["node", str(script_path), "--json", *extra_args],
+            [*node, str(script_path), "--json", *extra_args],
             cwd=str(repo_root),
             capture_output=True,
             text=True,
