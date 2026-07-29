@@ -1684,10 +1684,34 @@ def _create_dossier_skeleton(
             f"Katalogen finns redan: `{rel}` — ett befintligt byggblock skrivs "
             "aldrig över härifrån."
         )
-    (target_dir / "manifest.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    (target_dir / "instructions.md").write_text(_INSTRUCTIONS_STUB, encoding="utf-8")
+    try:
+        (target_dir / "manifest.json").write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        (target_dir / "instructions.md").write_text(_INSTRUCTIONS_STUB, encoding="utf-8")
+    except OSError as exc:
+        # Rulla tillbaka katalogen vi själva just skapade. Utan detta lämnar ett
+        # avbrott mellan de två skrivningarna ett halvskrivet byggblock kvar, och
+        # eftersom en befintlig katalog aldrig skrivs över blockeras id:t för
+        # gott. Bara våra egna två filer tas bort, och `rmdir` vägrar en icke-tom
+        # katalog — rollbacken kan alltså inte radera något annat.
+        for name in ("manifest.json", "instructions.md"):
+            try:
+                (target_dir / name).unlink(missing_ok=True)
+            except OSError:
+                pass
+        try:
+            target_dir.rmdir()
+        except OSError:
+            return False, (
+                f"Skrivningen misslyckades ({exc}) och `{rel}` kunde inte städas "
+                "bort automatiskt. Ta bort katalogen manuellt innan du försöker "
+                "igen — annars rapporteras id:t som upptaget."
+            )
+        return False, (
+            f"Skrivningen misslyckades ({exc}) — `{rel}` rullades tillbaka och "
+            "ingenting ligger kvar på disk."
+        )
     return True, (
         f"Skapade `{rel}/manifest.json` + `instructions.md`-stub.\n\n"
         "Nästa steg: fyll i instructions.md (rubrikerna är obligatoriska), lägg "

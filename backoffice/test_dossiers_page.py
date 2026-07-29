@@ -425,6 +425,26 @@ class CreateDossierSkeletonTests(unittest.TestCase):
         self.assertEqual(sentinel.read_text(encoding="utf-8"), '{"id": "original"}')
         self.assertFalse((target / "instructions.md").exists())
 
+    def test_failed_write_rolls_back_instead_of_blocking_the_id(self) -> None:
+        # Ett avbrott mellan de två skrivningarna får inte lämna en katalog kvar:
+        # den skulle rapporteras som "finns redan" vid nästa försök och därmed
+        # låsa id:t för ett byggblock som aldrig blev skapat.
+        original_write_text = Path.write_text
+
+        def failing_second_write(self: Path, *args: object, **kwargs: object):
+            if self.name == "instructions.md":
+                raise OSError("simulerat diskfel")
+            return original_write_text(self, *args, **kwargs)  # type: ignore[arg-type]
+
+        with mock.patch.object(Path, "write_text", failing_second_write):
+            ok, msg = self._create()
+        self.assertFalse(ok)
+        self.assertIn("simulerat diskfel", msg)
+        self.assertFalse((self.dossier_root / "hard" / "acme-maps").exists())
+        # Och id:t är fortfarande ledigt.
+        ok, msg = self._create()
+        self.assertTrue(ok, msg)
+
 
 class ApplyManifestFieldEditsTests(unittest.TestCase):
     """C4-grinden: fält-formulärets skrivväg går genom samma fail-closed-kedja
