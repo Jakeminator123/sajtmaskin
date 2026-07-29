@@ -244,6 +244,25 @@ describe("POST quality-gate", () => {
     });
     expect(runQualityGateChecks).not.toHaveBeenCalled();
     expect(promoteVersion).not.toHaveBeenCalled();
+    // R7: durable observation hangs on the design parent, not the F3 fork.
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          chatId: "chat-1",
+          versionId: "ver-f2",
+          category: "f3-readiness:missing-env",
+          level: "info",
+          meta: expect.objectContaining({
+            source: "quality-gate",
+            f3VersionId: "ver-f3",
+            missingByIntegration: [
+              { key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] },
+            ],
+          }),
+        }),
+      ],
+      expect.objectContaining({ lockTimeoutMs: expect.any(Number) }),
+    );
   });
 
   it("keeps direct integrationsBuild behind the F2 parent Product Postcheck", async () => {

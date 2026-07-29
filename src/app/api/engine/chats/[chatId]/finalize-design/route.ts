@@ -34,6 +34,7 @@ import {
   checkTier3ReadinessForVersion,
 } from "@/lib/integrations/tier3-readiness-gate";
 import { hasRequiredRealBuildKeys } from "@/lib/integrations/tier3-build-spec";
+import { logTier3MissingEnvBlocked } from "@/lib/integrations/log-tier3-missing-env";
 
 export const runtime = "nodejs";
 
@@ -168,6 +169,14 @@ export async function POST(
     }
 
     if (!gate.ok && gate.reason === "missing_env") {
+      // R7: durable observation for /logg — best-effort, never blocks 412.
+      void logTier3MissingEnvBlocked({
+        chatId,
+        versionId: baseVersion.id,
+        projectId: chat.project_id ?? null,
+        missingByIntegration: gate.readiness.missingByIntegration,
+        source: "finalize-design",
+      });
       return NextResponse.json(
         {
           ready: false,

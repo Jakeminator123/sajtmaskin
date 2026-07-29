@@ -7,6 +7,7 @@ const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() => vi.fn());
 const createDraftVersion = vi.hoisted(() => vi.fn());
 const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
+const logTier3MissingEnvBlocked = vi.hoisted(() => vi.fn(async () => undefined));
 
 vi.mock("@/lib/tenant", () => ({
   getEngineChatByIdForRequest,
@@ -22,6 +23,10 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 
 vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
   checkTier3ReadinessForVersion,
+}));
+
+vi.mock("@/lib/integrations/log-tier3-missing-env", () => ({
+  logTier3MissingEnvBlocked,
 }));
 
 import { POST } from "./route";
@@ -349,6 +354,16 @@ describe("POST finalize-design", () => {
       ],
     });
     expect(body.action).toBeUndefined();
+    expect(logTier3MissingEnvBlocked).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat_1",
+        versionId: "ver_current",
+        source: "finalize-design",
+        missingByIntegration: [
+          { key: "clerk", name: "Clerk", missing: ["CLERK_SECRET_KEY"] },
+        ],
+      }),
+    );
   });
 
   it("preserves the gated F3 stream path when a required build key is ready", async () => {

@@ -165,7 +165,8 @@ Bedömning: <lyckad / delvis / misslyckad> — <1–2 meningar varför>
 | Prompt/brief | build_intent, model_tier | prompt_logs |
 | Generering | tokens, duration, success | engine_generation_logs |
 | Telemetri | retry_count, autofix, quality_gate, preview_success, preflight_errors | generation_telemetry |
-| Pipeline-fel | level/category/message (topp 5) | engine_version_error_logs |
+| Pipeline-fel | level/category/message (+ `meta` när relevant) | engine_version_error_logs |
+| F3 env-readiness | `category=f3-readiness:missing-env` → `meta.missingByIntegration` | engine_version_error_logs |
 | OpenClaw-fynd | severity/build_result/repair_outcome | oc_debug_findings (+ [BUGGFYND]) |
 | Deploy | status, url | deployments |
 | Vercel build | pass/fail + felrad | MCP get_deployment_build_logs |
