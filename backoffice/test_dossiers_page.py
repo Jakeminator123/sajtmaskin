@@ -296,6 +296,32 @@ class SwedishLabelCoverageTests(unittest.TestCase):
             self.assertIn(f"(`{key}`)", field_label(key))
 
 
+class SchemaEnumParityTests(unittest.TestCase):
+    """Editorns val-listor ska komma ur strict-schemat, inte ur en handskriven
+    kopia som driftar tyst när schemat får ett nytt värde."""
+
+    def _schema_enum(self, field: str) -> tuple[str, ...]:
+        schema = json.loads(
+            dossiers_page.STRICT_SCHEMA_PATH.read_text(encoding="utf-8")
+        )
+        return tuple(schema["properties"][field]["enum"])
+
+    def test_options_match_the_strict_schema(self) -> None:
+        self.assertEqual(dossiers_page._MOCK_OPTIONS, self._schema_enum("mock"))
+        self.assertEqual(
+            dossiers_page._COMPLEXITY_OPTIONS, self._schema_enum("complexity")
+        )
+
+    def test_unreadable_schema_falls_back_instead_of_emptying_the_form(self) -> None:
+        with mock.patch.object(
+            dossiers_page, "STRICT_SCHEMA_PATH", Path("saknas-helt.json")
+        ):
+            self.assertEqual(
+                dossiers_page._schema_enum("mock", dossiers_page._MOCK_FALLBACK),
+                dossiers_page._MOCK_FALLBACK,
+            )
+
+
 class MocklessExceptionParityTests(unittest.TestCase):
     def test_parsed_exceptions_match_canonical_ts_list(self) -> None:
         # Kanonisk källa: MOCKLESS_CAPABILITY_EXCEPTIONS i
@@ -425,6 +451,25 @@ class CreateDossierSkeletonTests(unittest.TestCase):
         self.assertEqual(sentinel.read_text(encoding="utf-8"), '{"id": "original"}')
         self.assertFalse((target / "instructions.md").exists())
 
+    def test_second_default_for_the_same_capability_blocks_creation(self) -> None:
+        existing = self.dossier_root / "soft" / "acme-map-lite"
+        existing.mkdir(parents=True)
+        (existing / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "id": "acme-map-lite",
+                    "capability": "map-display",
+                    "defaultForCapability": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+        ok, msg = self._create(default_for_capability=True)
+        self.assertFalse(ok)
+        self.assertIn("Standardval", msg)
+        self.assertIn("acme-map-lite", msg)
+        self.assertFalse((self.dossier_root / "hard" / "acme-maps").exists())
+
     def test_failed_write_rolls_back_instead_of_blocking_the_id(self) -> None:
         # Ett avbrott mellan de två skrivningarna får inte lämna en katalog kvar:
         # den skulle rapporteras som "finns redan" vid nästa försök och därmed
@@ -454,11 +499,18 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.repo_root = Path(self._tmp.name)
+        self.dossier_root = self.repo_root / "data" / "dossiers"
         self.manifest_path = self._write_manifest("hard", "acme-cms", "cms")
         self.original = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-        patch = mock.patch.object(dossiers_page, "REPO_ROOT", self.repo_root)
-        patch.start()
-        self.addCleanup(patch.stop)
+        # DOSSIER_ROOT måste med: Standardval-grinden scannar syskonmanifest på
+        # disk, och utan patchen skulle den läsa repots riktiga pool.
+        patches = [
+            mock.patch.object(dossiers_page, "REPO_ROOT", self.repo_root),
+            mock.patch.object(dossiers_page, "DOSSIER_ROOT", self.dossier_root),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
 
     def _write_manifest(
         self, dossier_class: str, dossier_id: str, capability: str, **extra: object
@@ -537,6 +589,36 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
         )
         self.assertTrue(ok, msg)
         self.assertNotIn("mock", self._saved(path))
+
+    def test_second_default_for_the_same_capability_is_refused(self) -> None:
+        # Kors-manifest-kravet syns bara för dossiers:validate-all; varken
+        # strict-schemat eller _validate_manifest ser syskonen.
+        self._write_manifest(
+            "soft", "acme-cms-lite", "cms", defaultForCapability=True, mock="seed"
+        )
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            self.manifest_path,
+            {"mock": "seed", "defaultForCapability": True},
+            dossier_class="hard",
+        )
+        self.assertFalse(ok)
+        self.assertIn("Standardval", msg)
+        self.assertIn("acme-cms-lite", msg)
+        self.assertNotIn("defaultForCapability", self._saved())
+
+    def test_keeping_your_own_default_flag_is_allowed(self) -> None:
+        # Sig själv räknas inte som syskon — annars kunde en dossier som redan
+        # är Standardval aldrig redigeras igen.
+        path = self._write_manifest(
+            "soft", "acme-enda", "search", defaultForCapability=True
+        )
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            path,
+            {"label": "Acme Enda", "defaultForCapability": True},
+            dossier_class="soft",
+        )
+        self.assertTrue(ok, msg)
+        self.assertTrue(self._saved(path)["defaultForCapability"])
 
     def test_light_validation_failure_is_fail_closed(self) -> None:
         ok, msg = dossiers_page._apply_manifest_field_edits(

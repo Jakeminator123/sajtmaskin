@@ -146,6 +146,65 @@ def _load_mockless_capability_exceptions() -> frozenset[str]:
     return found or _MOCKLESS_FALLBACK
 
 
+_COMPLEXITY_FALLBACK = ("simple", "medium", "advanced")
+_MOCK_FALLBACK = ("canned", "seed", "success", "visual", "none")
+
+
+def _schema_enum(field: str, fallback: tuple[str, ...]) -> tuple[str, ...]:
+    """Enum-värdena för ett manifestfält, lästa ur strict-schemat.
+
+    ``docs/schemas/strict/dossier.schema.json`` äger enum:arna. En handskriven
+    kopia i UI:t driftar tyst så fort schemat får ett nytt värde — formuläret
+    slutar erbjuda det utan att något fäller — så listorna läses därifrån.
+    Kan schemat inte läsas används fallbacken, så formulären aldrig blir tomma.
+    Pariteten grindas i ``backoffice/test_dossiers_page.py``.
+    """
+    try:
+        schema = json.loads(STRICT_SCHEMA_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return fallback
+    field_schema = (schema.get("properties") or {}).get(field) or {}
+    values = tuple(
+        str(v) for v in (field_schema.get("enum") or []) if str(v).strip()
+    )
+    return values or fallback
+
+
+def _existing_default_for_capability(capability: str, *, exclude: Path) -> str | None:
+    """``<klass>/<id>`` för det byggblock som redan är Standardval, om något.
+
+    Unikheten är ett **kors-manifest**-krav som bara
+    ``npm run dossiers:validate-all`` kontrollerar (`defaultForCapability
+    uniqueness`) — varken strict-schemat eller ``_validate_manifest`` ser
+    syskonen, eftersom båda validerar ett manifest i taget. Utan denna
+    scanning kan en sparning lämna poolen i ett läge där två byggblock gör
+    anspråk på samma funktion, och felet syns först i CI eller vid selektion.
+    """
+    cap = capability.strip().lower()
+    if not cap:
+        return None
+    try:
+        exclude_resolved = exclude.resolve()
+    except OSError:
+        exclude_resolved = exclude
+    for class_dir in ("hard", "soft"):
+        root = DOSSIER_ROOT / class_dir
+        if not root.is_dir():
+            continue
+        for manifest_path in sorted(root.glob("*/manifest.json")):
+            try:
+                if manifest_path.resolve() == exclude_resolved:
+                    continue
+            except OSError:
+                pass
+            data = _load_json(manifest_path) or {}
+            if not data.get("defaultForCapability"):
+                continue
+            if str(data.get("capability") or "").strip().lower() == cap:
+                return f"{class_dir}/{manifest_path.parent.name}"
+    return None
+
+
 def _load_json(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
@@ -517,9 +576,9 @@ def _apply_manifest_field_edits(
             "Strict-schema (samma regler som runtime/CI) misslyckades — sparade inte:\n"
             + "\n".join(f"- {e}" for e in schema_errors)
         )
+    capability = str(manifest.get("capability") or "").strip()
     if dossier_class == "hard":
         mock_value = str(manifest.get("mock") or "").strip() or None
-        capability = str(manifest.get("capability") or "").strip()
         exceptions = _load_mockless_capability_exceptions()
         if (mock_value is None or mock_value == "none") and capability not in exceptions:
             return False, (
@@ -527,12 +586,21 @@ def _apply_manifest_field_edits(
                 f"— funktionen `{capability}` står inte på undantagslistan "
                 f"({', '.join(sorted(exceptions))}). Sparade inte."
             )
+    if manifest.get("defaultForCapability"):
+        taken = _existing_default_for_capability(capability, exclude=manifest_path)
+        if taken:
+            return False, (
+                f"`{taken}` är redan Standardval för funktionen `{capability}` — "
+                "två byggblock kan inte vara det samtidigt (det fälls av "
+                "`npm run dossiers:validate-all`). Ta bort Standardval där först. "
+                "Sparade inte."
+            )
     _save_json(manifest_path, manifest)
     return True, ""
 
 
-_COMPLEXITY_OPTIONS = ("simple", "medium", "advanced")
-_MOCK_OPTIONS = ("canned", "seed", "success", "visual", "none")
+_COMPLEXITY_OPTIONS = _schema_enum("complexity", _COMPLEXITY_FALLBACK)
+_MOCK_OPTIONS = _schema_enum("mock", _MOCK_FALLBACK)
 
 
 def _section_edit(dossiers: list[dict[str, Any]]) -> None:
@@ -1671,6 +1739,17 @@ def _create_dossier_skeleton(
 
     target_dir = DOSSIER_ROOT / target_class / target_id
     rel = f"data/dossiers/{target_class}/{target_id}"
+    if default_for_capability:
+        taken = _existing_default_for_capability(
+            capability, exclude=target_dir / "manifest.json"
+        )
+        if taken:
+            return False, (
+                f"`{taken}` är redan Standardval för funktionen `{capability}` — "
+                "två byggblock kan inte vara det samtidigt (det fälls av "
+                "`npm run dossiers:validate-all`). Skapa byggblocket utan "
+                "Standardval, eller ta bort det där först. Inget skapades."
+            )
     if target_dir.exists():
         return False, (
             f"Katalogen finns redan: `{rel}` — ett befintligt byggblock skrivs "
@@ -1756,7 +1835,9 @@ def _section_create_from_scratch() -> None:
         cols = st.columns(2)
         with cols[0]:
             complexity = st.selectbox(
-                field_label("complexity"), list(_COMPLEXITY_OPTIONS), index=1
+                field_label("complexity"),
+                list(_COMPLEXITY_OPTIONS),
+                index=1 if len(_COMPLEXITY_OPTIONS) > 1 else 0,
             )
         with cols[1]:
             code_fidelity = st.selectbox(
@@ -1782,7 +1863,8 @@ def _section_create_from_scratch() -> None:
             mock_choice = st.selectbox(
                 field_label("mock", hint="obligatoriskt för Kopplade byggblock"),
                 list(_MOCK_OPTIONS),
-                index=_MOCK_OPTIONS.index("visual"),
+                # Enum:arna kommer från schemat, så "visual" kan inte antas finnas.
+                index=_MOCK_OPTIONS.index("visual") if "visual" in _MOCK_OPTIONS else 0,
                 format_func=mock_label,
             )
             st.caption(
