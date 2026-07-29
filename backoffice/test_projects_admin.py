@@ -26,6 +26,8 @@ def _is_node_argv0(argv0: str) -> bool:
 class BuildCommandTests(unittest.TestCase):
     def test_dry_run_all_test_users(self) -> None:
         cmd = pa._build_command("all_test_users", 4, "", "", apply_mode=False)
+        self.assertIsNotNone(cmd)
+        assert cmd is not None
         # Builder returnerar idag literal "node"; acceptera även resolved PATH.
         self.assertTrue(_is_node_argv0(cmd[0]), msg=f"argv0={cmd[0]!r}")
         self.assertEqual(cmd[1], pa._SCRIPT_REL)
@@ -38,6 +40,8 @@ class BuildCommandTests(unittest.TestCase):
 
     def test_apply_mode_appends_apply_flag(self) -> None:
         cmd = pa._build_command("all_test_users", 0, "", "", apply_mode=True)
+        self.assertIsNotNone(cmd)
+        assert cmd is not None
         self.assertIn("--apply", cmd)
         self.assertEqual(cmd[-1], "--apply")
 
@@ -45,6 +49,8 @@ class BuildCommandTests(unittest.TestCase):
         cmd = pa._build_command(
             "specific_email", 2, "  Admin@Example.com  ", "", apply_mode=False
         )
+        self.assertIsNotNone(cmd)
+        assert cmd is not None
         self.assertIn("--user", cmd)
         self.assertEqual(cmd[cmd.index("--user") + 1], "Admin@Example.com")
         self.assertNotIn("--all-test-users", cmd)
@@ -54,24 +60,46 @@ class BuildCommandTests(unittest.TestCase):
         cmd = pa._build_command(
             "specific_user_id", 1, "", "  user_abc  ", apply_mode=True
         )
+        self.assertIsNotNone(cmd)
+        assert cmd is not None
         self.assertIn("--user-id", cmd)
         self.assertEqual(cmd[cmd.index("--user-id") + 1], "user_abc")
         self.assertIn("--apply", cmd)
         self.assertNotIn("--all-test-users", cmd)
 
-    def test_empty_specific_email_falls_back_to_all_test_users(self) -> None:
-        """Tom specifik email → --all-test-users (inte --user '')."""
-        cmd = pa._build_command("specific_email", 3, "   ", "", apply_mode=False)
-        self.assertIn("--all-test-users", cmd)
-        self.assertNotIn("--user", cmd)
+    def test_empty_specific_email_returns_none_not_all_users(self) -> None:
+        """Tom specifik email → inget kommando (aldrig --all-test-users)."""
+        for blank in ("", "   ", "\t"):
+            with self.subTest(blank=repr(blank)):
+                cmd = pa._build_command(
+                    "specific_email", 3, blank, "", apply_mode=False
+                )
+                self.assertIsNone(cmd)
+                apply_cmd = pa._build_command(
+                    "specific_email", 3, blank, "", apply_mode=True
+                )
+                self.assertIsNone(apply_cmd)
 
-    def test_empty_specific_user_id_falls_back_to_all_test_users(self) -> None:
-        cmd = pa._build_command("specific_user_id", 3, "", "\t", apply_mode=False)
-        self.assertIn("--all-test-users", cmd)
-        self.assertNotIn("--user-id", cmd)
+    def test_empty_specific_user_id_returns_none_not_all_users(self) -> None:
+        for blank in ("", "   ", "\t"):
+            with self.subTest(blank=repr(blank)):
+                cmd = pa._build_command(
+                    "specific_user_id", 3, "", blank, apply_mode=False
+                )
+                self.assertIsNone(cmd)
+                apply_cmd = pa._build_command(
+                    "specific_user_id", 3, "", blank, apply_mode=True
+                )
+                self.assertIsNone(apply_cmd)
+
+    def test_unknown_scope_returns_none(self) -> None:
+        self.assertIsNone(
+            pa._build_command("everyone", 1, "a@x.com", "u1", apply_mode=False)
+        )
 
     def test_keep_is_coerced_to_int_string(self) -> None:
         cmd = pa._build_command("all_test_users", 7, "", "", apply_mode=False)
+        assert cmd is not None
         self.assertEqual(cmd[cmd.index("--keep") + 1], "7")
 
 
