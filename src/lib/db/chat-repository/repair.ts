@@ -96,7 +96,16 @@ export async function saveRepairedFiles(
   // reads the *current* (repaired) signal instead of the stale finalize
   // `verifier_failed`/`preflight_failed` that flagged the pre-repair content —
   // otherwise `acceptRepair`'s guard would wedge a legitimately-fixed row.
-  await recordRepairPassedQualityGate(versionId);
+  //
+  // Decode the payload we just stored rather than reusing `repairedFilesJson`:
+  // that is byte-for-byte what `acceptRepair` will promote into `files_json`,
+  // so `md5()` of it equals the generated `files_revision` the version gets on
+  // acceptance. Passing the raw argument instead would risk a whitespace/
+  // key-order drift through the envelope round-trip.
+  await recordRepairPassedQualityGate(
+    versionId,
+    decodeRepairedFilesPayload(storedPayload)?.filesJson ?? null,
+  );
   const version = await getStoredVersion(versionId);
   return { status: "saved", version };
 }

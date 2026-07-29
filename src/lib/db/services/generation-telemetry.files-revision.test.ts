@@ -55,4 +55,26 @@ describe("createGenerationTelemetryRecord — innehållsrevision", () => {
     expect(insertCapture.values?.versionId).toBeNull();
     expect(insertCapture.values?.filesRevision).toBeNull();
   });
+
+  /**
+   * Repair-lanen bedömer `repaired_files_json` medan `files_json` fortfarande
+   * håller basen som föll. Subselecten skulle då arkivera passet under fel
+   * innehåll (Bugbot/Codex/Vercel på #642).
+   */
+  it("hashar det bedömda innehållet i stället för versionens bas när repair skickar det", async () => {
+    await createGenerationTelemetryRecord({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      model: "gpt-5.4",
+      qualityGateResult: "preflight_passed",
+      assessedFilesJson: '[{"path":"app/page.tsx","content":"fixed"}]',
+      meta: { source: "server-repair-pass" },
+    });
+
+    const rendered = JSON.stringify(insertCapture.values?.filesRevision);
+    expect(rendered).toContain("md5");
+    expect(rendered).toContain("fixed");
+    // Ingen uppslagning mot versionens nuvarande (pre-repair) innehåll.
+    expect(rendered).not.toContain("engine_versions");
+  });
 });

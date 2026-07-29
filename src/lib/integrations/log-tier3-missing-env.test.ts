@@ -1,15 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn(async () => null));
+const after = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/version-errors", () => ({
   createEngineVersionErrorLogs,
 }));
 
+vi.mock("next/server", () => ({ after }));
+
 import {
   F3_READINESS_MISSING_ENV_CATEGORY,
   formatTier3MissingEnvMessage,
   logTier3MissingEnvBlocked,
+  logTier3MissingEnvBlockedDetached,
 } from "./log-tier3-missing-env";
 
 describe("formatTier3MissingEnvMessage", () => {
@@ -111,5 +115,65 @@ describe("logTier3MissingEnvBlocked", () => {
         source: "stream",
       }),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("logTier3MissingEnvBlockedDetached", () => {
+  beforeEach(() => {
+    createEngineVersionErrorLogs.mockReset();
+    createEngineVersionErrorLogs.mockResolvedValue(null);
+    after.mockReset();
+  });
+
+  /**
+   * The 412 callsites return immediately after scheduling. Without `after()`
+   * a serverless invocation can freeze before the INSERT runs, and the old
+   * tests could not see that: they mocked this module and only asserted that
+   * it had been called.
+   */
+  it("hands the pending write to after() so the invocation stays alive", async () => {
+    logTier3MissingEnvBlockedDetached({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      missingByIntegration: [{ key: "resend", name: "Resend", missing: ["RESEND_API_KEY"] }],
+      source: "finalize-design",
+    });
+
+    expect(after).toHaveBeenCalledTimes(1);
+    const registered = after.mock.calls[0]?.[0] as Promise<void> | undefined;
+    expect(registered).toBeInstanceOf(Promise);
+    await expect(registered).resolves.toBeUndefined();
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+  });
+
+  it("still writes when after() is unavailable (no request scope)", async () => {
+    after.mockImplementation(() => {
+      throw new Error("after() outside request scope");
+    });
+
+    expect(() =>
+      logTier3MissingEnvBlockedDetached({
+        chatId: "chat_1",
+        versionId: "ver_1",
+        missingByIntegration: [],
+        source: "stream",
+      }),
+    ).not.toThrow();
+
+    await vi.waitFor(() => expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1));
+  });
+
+  it("never rejects the registered promise when the write fails", async () => {
+    createEngineVersionErrorLogs.mockRejectedValueOnce(new Error("db down"));
+
+    logTier3MissingEnvBlockedDetached({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      missingByIntegration: [],
+      source: "quality-gate",
+    });
+
+    const registered = after.mock.calls[0]?.[0] as Promise<void> | undefined;
+    await expect(registered).resolves.toBeUndefined();
   });
 });

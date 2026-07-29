@@ -12,7 +12,7 @@ import {
   getRequestUserId,
 } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
-import { logTier3MissingEnvBlocked } from "@/lib/integrations/log-tier3-missing-env";
+import { logTier3MissingEnvBlockedDetached } from "@/lib/integrations/log-tier3-missing-env";
 import { dbConfigured } from "@/lib/db/client";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import {
@@ -478,7 +478,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           // R7: durable observation for /logg — best-effort, never blocks 412.
           // Prefer parent (design) version id; fall back to the F3 fork.
           const observationVersionId = parentVersionId ?? internalVersionId;
-          void logTier3MissingEnvBlocked({
+          logTier3MissingEnvBlockedDetached({
             chatId,
             versionId: observationVersionId,
             projectId: scopedVersion.chat.project_id ?? null,

@@ -7,7 +7,7 @@ const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() => vi.fn());
 const createDraftVersion = vi.hoisted(() => vi.fn());
 const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
-const logTier3MissingEnvBlocked = vi.hoisted(() => vi.fn(async () => undefined));
+const logTier3MissingEnvBlockedDetached = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/tenant", () => ({
   getEngineChatByIdForRequest,
@@ -26,7 +26,7 @@ vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
 }));
 
 vi.mock("@/lib/integrations/log-tier3-missing-env", () => ({
-  logTier3MissingEnvBlocked,
+  logTier3MissingEnvBlockedDetached,
 }));
 
 import { POST } from "./route";
@@ -354,7 +354,7 @@ describe("POST finalize-design", () => {
       ],
     });
     expect(body.action).toBeUndefined();
-    expect(logTier3MissingEnvBlocked).toHaveBeenCalledWith(
+    expect(logTier3MissingEnvBlockedDetached).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: "chat_1",
         versionId: "ver_current",
