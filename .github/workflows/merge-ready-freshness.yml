@@ -47,6 +47,20 @@ jobs:
       )
 
     steps:
+      # Beslutslogiken ligger i `scripts/ci/merge-ready-freshness.mjs` så den
+      # kan enhetstestas — bash inuti YAML kan den inte (Codex P1 på #652).
+      #
+      # Utan `ref:`, med flit: checkouten följer då samma ref som workflowen
+      # själv kördes från. På `pull_request` är det PR:ens merge-commit, på
+      # review-/kommentarvägarna default-branchen. Att pinna till
+      # default-branchen såg säkrare ut men bröt `pull_request`-vägen för den
+      # PR som inför skriptet — workflowen kom från PR:en, skriptet fanns bara
+      # där, och node föll på ENOENT. Något skydd gav det inte heller: en
+      # `pull_request`-körning använder redan PR:ens egen workflow-fil.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       - name: Remove stale merge:ready
         env:
           GH_TOKEN: ${{ github.token }}
@@ -57,11 +71,6 @@ jobs:
           COMMENT_AT: ${{ github.event.comment.created_at }}
           PR_FROM_PULL: ${{ github.event.pull_request.number }}
           PR_FROM_ISSUE: ${{ github.event.issue.number }}
-          # Tolererar em-dash, en-dash, bindestreck eller inget skiljetecken —
-          # en giltig triage ska inte tappa labeln på typografi.
-          SIGNOFF_PATTERN: 'merge:ready[[:space:]]*(—|–|-|:)?[[:space:]]*sha:'
-          # Klockskev mellan sign-off-författaren och runnern.
-          CLOCK_SKEW_SECONDS: "120"
         run: |
           set -euo pipefail
 
@@ -77,58 +86,38 @@ jobs:
             *) EVENT_AT="" ;;
           esac
 
-          # En hämtning: `issue_comment` bär ingen head-sha i payloaden, och att
-          # alltid läsa den från API:t håller alla event-vägar lika.
+          # `issue_comment` bär ingen head-sha i payloaden, så alla event-vägar
+          # läser PR:en från API:t i stället.
           pr_json=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")
           HEAD_SHA=$(printf '%s' "$pr_json" | jq -r '.head.sha')
-          labels=$(printf '%s' "$pr_json" | jq -r '[.labels[].name] | join(",")')
 
-          case ",$labels," in
-            *,merge:ready,*) ;;
-            *)
-              echo "Ingen merge:ready — no-op"
-              exit 0
-              ;;
-          esac
+          # `created_at` per kommentar följer med: sign-offens tidpunkt tas från
+          # GitHub, inte från det författarstyrda `at:`-fältet.
+          comments_json=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq '.[] | {body: (.body // ""), createdAt: .created_at}' 2>/dev/null | jq -s '.' || echo '[]')
 
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            REASON="ny commit (${HEAD_SHA:0:7}) — gör om buggkollen och sätt merge:ready igen"
-          else
-            # Bot-event: ta bort bara om händelsen är nyare än sign-off `at:`.
-            body=$(printf '%s' "$pr_json" | jq -r '.body // ""')
-            comments=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" --jq '.[].body // empty' 2>/dev/null || true)
-            haystack=$(printf '%s\n%s\n' "$body" "$comments")
-            signoff_line=$(printf '%s\n' "$haystack" | grep -E "$SIGNOFF_PATTERN" | tail -n1 || true)
-            if [ -z "$signoff_line" ]; then
-              echo "Label finns men sign-off-rad saknas — tar bort labeln"
-              REASON="merge:ready utan giltig sign-off-rad"
-            else
-              signoff_sha=$(printf '%s' "$signoff_line" | sed -nE 's/.*sha:[[:space:]]*([0-9a-f]{40}).*/\1/p' | head -n1)
-              signoff_at=$(printf '%s' "$signoff_line" | sed -nE 's/.*at:[[:space:]]*([0-9T:Z.+-]+).*/\1/p' | head -n1)
-              signoff_epoch=0
-              if [ -n "$signoff_at" ]; then
-                signoff_epoch=$(date -u -d "$signoff_at" +%s 2>/dev/null || echo 0)
-              fi
-              now_epoch=$(date -u +%s)
-              if [ -n "$signoff_sha" ] && [ "$signoff_sha" != "$HEAD_SHA" ]; then
-                REASON="sign-off sha (${signoff_sha:0:7}) != head (${HEAD_SHA:0:7})"
-              elif [ "$signoff_epoch" -gt "$((now_epoch + CLOCK_SKEW_SECONDS))" ]; then
-                # Utan taket räcker ett framtidsdaterat `at:` för att göra varje
-                # kommande bot-fynd "inte nyare än sign-off" — labeln skulle
-                # överleva för alltid. Fältet är författarstyrd fritext.
-                REASON="sign-off at: (${signoff_at}) ligger i framtiden — ogiltig"
-              elif [ "$signoff_epoch" -gt 0 ] && [ -n "${EVENT_AT:-}" ]; then
-                event_epoch=$(date -u -d "$EVENT_AT" +%s 2>/dev/null || echo 0)
-                if [ "$event_epoch" -gt 0 ] && [ "$event_epoch" -le "$signoff_epoch" ]; then
-                  echo "Bot-händelse (${EVENT_AT}) är inte nyare än sign-off (${signoff_at}) — behåller labeln"
-                  exit 0
-                fi
-                REASON="bot (${SENDER}) efter sign-off — läs fynden, triagera, sätt merge:ready igen"
-              else
-                # Saknas at:-fält: konservativt — bot efter label tas som stale.
-                REASON="bot (${SENDER}) medan merge:ready satt (saknar at: i sign-off) — läs fynden och signera om"
-              fi
-            fi
+          payload=$(jq -n \
+            --arg eventName "$EVENT_NAME" \
+            --arg headSha "$HEAD_SHA" \
+            --arg eventAt "${EVENT_AT:-}" \
+            --argjson pr "$pr_json" \
+            --argjson comments "$comments_json" \
+            '{
+              eventName: $eventName,
+              headSha: $headSha,
+              eventAt: $eventAt,
+              labels: [$pr.labels[].name],
+              prBody: ($pr.body // ""),
+              comments: $comments
+            }')
+
+          decision=$(printf '%s' "$payload" | node scripts/ci/merge-ready-freshness.mjs)
+          ACTION=$(printf '%s' "$decision" | cut -f1)
+          REASON=$(printf '%s' "$decision" | cut -f2-)
+
+          if [ "$ACTION" != "remove" ]; then
+            echo "Behåller merge:ready — ${REASON}"
+            exit 0
           fi
 
           gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "merge:ready"
