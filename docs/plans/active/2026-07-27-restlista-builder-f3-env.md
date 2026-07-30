@@ -46,7 +46,7 @@ Raderna nedan är de som återstår.
 | # | Rest | Ägarfil (kodverifierad 2026-07-27) | Åtgärd |
 |---|---|---|---|
 | R5 | `.env.local` faller tillbaka till hela dossier-katalogen | `project-scaffold.ts:688-689` (`selectedKeys === undefined`) | Ta bort fallbacken när alla vägar trådar scope |
-| R8 | Inga beteendetester per Kopplad dossier | saknas — bara manifest-/validate-/select-tester | Mock mountar utan krasch per hard-dossier + aktiverings-E2E (dossier etapp 7.3-residual) |
+| R8 | **Halvvägs 2026-07-30:** monteringsdelen levererad, aktiverings-E2E kvar | `dossier-client-mount.test.tsx` (grind + monteringsfall) | Kvar: **aktiverings-E2E** — att en Kopplad dossier faktiskt byter från demoläge till skarpt läge när en riktig nyckel sparas. Se [§ R8-detaljen](#r8--monteringsdelen-levererad-2026-07-30) |
 | R12 | Ingen redeploy-tålighet i pollningen — en prod-deploy mitt i en session ger en 500-skur medan nya instanser värms upp | saknas i `useVersionStatus.ts`, `useChatReadiness.ts`, `useVersions.ts` | Pausa/förläng klient-polling en kort stund vid detekterad ny deployment (t.ex. version-mismatch). Var A4 i builder-runtime-planen |
 | R13 | `POSTGRES_POOL_MAX` är fortfarande 3 — mätningen finns, ratten är orörd | `src/lib/db/client.ts:147-154`; mätsidorna är `pool-stats.ts` (app) + `db:health` → `connections` (server) | **Prod-observation, ingen kodrad.** Läs `[pool=n/n idle=… waiting=… at-ceiling]` i 503-raden vid nästa pool-händelse; `at-ceiling` ⇒ höj, lite `headroom` ⇒ höj inte utan flytta långlivade vägar till non-pooling. Var A3 steg 2 |
 
@@ -126,6 +126,42 @@ inte publiceras eftersom ReleaseGate var röd, vilket är korrekt beteende men
 lämnar deploy-vägen oobserverad. Nästa canary bör köras på en prompt utan
 integrationer, så release blir grön och publiceringssteget faktiskt nås.
 
+### R8 — monteringsdelen levererad 2026-07-30
+
+Raden sa "inga beteendetester per Kopplad dossier". Det var för hårt:
+`dossier-config-fallback.test.tsx` täckte redan fyra dossiers. Den **verkliga**
+luckan var att ingenting *tvingade* nästa dossier att få något — vilka som var
+otestade stod som prosa i en kommentar, och en kommentar driftar.
+
+Ny `src/lib/gen/dossiers/dossier-client-mount.test.tsx` gör täckningen härledd i
+stället för uppräknad: den läser varje hard-manifest, plockar ut alla renderbara
+(`client` + `shared`) `.tsx`-filer och kräver att var och en står i **exakt en**
+av två listor — monterad, eller undantagen med ett utskrivet skäl. En ny
+komponent utan post fäller testet med sökvägen i felet.
+
+**Grinden bevisade sig medan den skrevs** — den hittade sex ytor som ingen
+listat: `sanity-config-notice` och stripes `integration-config-notice` (båda
+`role: "shared"`, så en grind på bara `client` hade tystat två redan testade
+ytor), plus fyra helt otäckta: tre `db-config-notice` och resends
+`integration-config-notice`.
+
+Två saker föll ut som var värda mer än monteringarna själva:
+
+| Fynd | Varför det spelar roll |
+|---|---|
+| `shared` måste räknas som renderbar | De rena presentationsnotiserna saknar `"use client"` med flit (inga hooks, funkar som server-komponenter) men renderar en användarsynlig setup-yta. En grind på bara `client` missar dem |
+| De duplicerade notiserna är byte-identiska — men inget höll dem så | Duplikatet **är** arkitekturen (en dossier får inte importera ur en annan, annars kan capability B inte levereras utan A). Divergens är det inte: driftar en kopia isär får två sajter olika demo-copy för samma läge. En kopie-vakt kräver nu byte-identitet per familj |
+
+Samtidigt rättades ett sakfel av samma klass som #658:
+`subscription-config-notice.tsx` påstod i sin doc-kommentar `mock: "none" —
+billing cannot be meaningfully mocked`, medan manifestet säger `visual`. Texten
+var från före 2026-07-22, när subscriptions flyttades av undantagslistan.
+
+**Kvar av R8:** aktiverings-E2E. Monteringsdelen bevisar demoläget; den bevisar
+inte att en dossier *byter* till skarpt läge när en riktig nyckel sparas. Det
+kräver en riktig nyckel eller en trovärdig provider-stub och hör därför inte
+till samma svit.
+
 ### R7 — levererad 2026-07-29
 
 Canaryn 2026-07-29 visade kopplingen manuellt i browsern. Nu sparas den server-
@@ -147,7 +183,7 @@ bara label-invalidation.
 | Rest | Minsta verifiering |
 |---|---|
 | R5 | `npm run typecheck` + `npm run test:followup-contract` + export/verify-svitarna |
-| R8 | nya tester gröna + `npx vitest run` på berörd svit |
+| R8 | nya tester gröna + `npx vitest run` på berörd svit. Monteringsdelen klar 2026-07-30; kvarvarande rad är aktiverings-E2E |
 | R12 | `npm run typecheck` + hook-tester (`useVersionStatus.test.ts`, `poll-backoff.test.ts`) |
 | R13 | Prod-observation — ingen kodgrind. Notera pool-raden och `db:health`-siffran i planraden innan ratten vrids |
 
