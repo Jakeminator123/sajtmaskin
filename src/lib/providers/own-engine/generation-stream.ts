@@ -291,8 +291,12 @@ export function createOwnEngineGenerationStream(
        * `generation_telemetry` is the same table other decisions are measured
        * from — innehållsrevisionens steg 3 counts mismatch frequency out of it.
        *
-       * Credits are unchanged in both branches: no version was created, which
-       * is precisely what this guard exists for.
+       * The same rule governs credits (ägarbeslut 2026-07-30, credit-halvan):
+       * a run that ended as designed charges like any other run that ended that
+       * way. Skipping the charge would price two identical user-visible outcomes
+       * differently based on a blip the user never saw. The guard below withholds
+       * credits only for the runs it was built for — the ones that produced
+       * nothing BECAUSE the provider or our account failed.
        */
       const commitCreditsUnlessProviderFault = async (options?: {
         endedAsDesigned?: boolean;
@@ -302,11 +306,12 @@ export function createOwnEngineGenerationStream(
           return;
         }
         if (options?.endedAsDesigned) {
-          warnLog("engine", "Provider fault survived — run ended as designed, no failure row", {
+          warnLog("engine", "Provider fault survived — run ended as designed, charging normally", {
             chatId,
             code: providerFault.code,
             message: providerFault.message,
           });
+          await commitCredits();
           return;
         }
         warnLog("engine", "Credits not charged — provider fault produced no version", {
