@@ -200,8 +200,8 @@ fönstret, gör en dokumenterad manuell slutgranskning av diffen och notera båd
 ## Steg 4 — merga
 
 **`merge:ready` är författarens godkännande, inte mergarens.** Grinden är en
-tvåpartskontroll: författaragenten sätter labeln och sign-off-raden när dess
-bugg-efterkontroll är klar, och mergaren *verifierar* dem. Sätter mergaren själv
+tvåpartskontroll: författaragenten skriver sign-off-raden och sätter sedan labeln
+när dess bugg-efterkontroll är klar, och mergaren *verifierar* dem. Sätter mergaren själv
 labeln kollapsar kontrollen till en part — samma blindfläck som `Author-is-merger`
 finns till för att stoppa.
 
