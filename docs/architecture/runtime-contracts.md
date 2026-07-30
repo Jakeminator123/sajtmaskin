@@ -144,6 +144,15 @@ Invariants:
   med outcome `superseded_by_newer_version`, inte jobba-klart-och-kastas.
   Lease släpps alltid.
 - `resolveServerRepairOutcome` är enda ägaren av repair-outcome-strängar.
+- Starta aldrig en repair som en annan policy förbjuder att lyckas. Konkret:
+  F2 strippar tier-3-SDK-importer med flit (`tier3-sdk-guard-fixer`) och
+  `deterministic-import-repair` vägrar lägga tillbaka dem i F2 — därför
+  suppimeras verifier-fynd om saknad tier-3-import i F2
+  (`suppressTier3StrippedImportFindings`). Utan den blev det en loop: guarden
+  tog bort, verifier larmade som om det vore en bugg, RepairGate brände ett
+  LLM-anrop och rapporterade `still-failing`. Prod 2026-07-22→29 visar samma
+  fynd på `app/api/contact/route.ts` vecka efter vecka. I F3 är SDK:n
+  installerad, så där är samma fynd ett äkta fel och suppimeras inte.
 
 ## Mätning av kontroll-lagren
 

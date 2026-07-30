@@ -34,6 +34,7 @@ import {
   formatVerifierFindingsAsFixerErrors,
   parseUndefinedJsxSymbolFinding,
   runVerifierPass,
+  suppressTier3StrippedImportFindings,
 } from "@/lib/gen/verify/verifier-pass";
 import { runDeterministicImportRepair } from "@/lib/gen/autofix/deterministic-import-repair";
 import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
@@ -191,16 +192,25 @@ export async function runVerifierPhase(params: {
     // is confirmed by re-running the deterministic `checkUndefinedJsxSymbols`
     // scan, and only confirmed-resolved findings are dropped — the residue
     // (ambiguous names, non-import findings) still reaches the LLM fixer.
-    let findings = rawFindings;
-    if (rawFindings.blocking.length > 0) {
+    // F2 strips tier-3 SDK imports by policy, so a finding about that missing
+    // import describes the policy, not a defect. Drop it before it becomes a
+    // Blocker and burns a repair call that policy forbids from succeeding.
+    // `rawFindings` stays untouched above so the devLog keeps the true
+    // pre-policy counts.
+    const policyFindings = suppressTier3StrippedImportFindings(rawFindings, {
+      previewPolicy: params.buildSpec?.previewPolicy,
+    });
+
+    let findings = policyFindings;
+    if (policyFindings.blocking.length > 0) {
       try {
-        const importable = rawFindings.blocking
+        const importable = policyFindings.blocking
           .map((finding) => ({
             finding,
             ref: parseUndefinedJsxSymbolFinding(finding),
           }))
           .filter(
-            (entry): entry is { finding: (typeof rawFindings.blocking)[number]; ref: { file: string; symbol: string } } =>
+            (entry): entry is { finding: (typeof policyFindings.blocking)[number]; ref: { file: string; symbol: string } } =>
               entry.ref !== null,
           );
         if (importable.length > 0) {
@@ -228,8 +238,8 @@ export async function runVerifierPhase(params: {
               contentForVersion = repair.content;
               const resolvedFindings = new Set(resolved.map(({ finding }) => finding));
               findings = {
-                ...rawFindings,
-                blocking: rawFindings.blocking.filter(
+                ...policyFindings,
+                blocking: policyFindings.blocking.filter(
                   (finding) => !resolvedFindings.has(finding),
                 ),
               };

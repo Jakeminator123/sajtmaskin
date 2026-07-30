@@ -10,6 +10,7 @@ import { toAnthropicEffort } from "@/lib/gen/engine";
 import { getOpenAIModel, isAnthropicModel } from "@/lib/gen/models";
 import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
 import { isBuildBreakingImportFindingId } from "@/lib/gen/preview/should-start-preview";
+import { isTier3SdkModule } from "@/lib/integrations/tier3-sdk-deny";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import type { CanonicalModelId } from "@/lib/models/catalog";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
@@ -263,6 +264,69 @@ export function suppressValidInPageAnchorNavigationFindings(
   const shouldKeep = (finding: { id: string; detail: string }) =>
     finding.id !== "navigation-placeholder-actions" ||
     !isValidInPageHashNavigationFinding(finding.detail, files);
+
+  return {
+    blocking: findings.blocking.filter(shouldKeep),
+    quality: findings.quality.filter(shouldKeep),
+  };
+}
+
+// Quoted module specifier inside a verifier detail: `resend`, "stripe",
+// '@supabase/supabase-js'. The verifier writes prose, so the specifier is the
+// only machine-checkable token we can trust here.
+const DETAIL_QUOTED_SPECIFIER_RE = /[`'"]([@\w][\w@./-]*)[`'"]/g;
+
+// Conventional default-export constructor names for tier-3 SDKs, for the
+// details that name the symbol but not the module ("has no `Resend` import").
+// Deliberately tiny and unambiguous — each entry is re-checked against the
+// deny-list at match time, so removing a module from the deny-list also
+// disarms its symbol here.
+const TIER3_SDK_SYMBOL_MODULES: ReadonlyMap<string, string> = new Map([
+  ["Resend", "resend"],
+  ["Stripe", "stripe"],
+  ["OpenAI", "openai"],
+  ["Anthropic", "@anthropic-ai/sdk"],
+]);
+
+function mentionsTier3Sdk(detail: string): boolean {
+  DETAIL_QUOTED_SPECIFIER_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = DETAIL_QUOTED_SPECIFIER_RE.exec(detail)) !== null) {
+    const token = match[1];
+    if (isTier3SdkModule(token)) return true;
+    const mapped = TIER3_SDK_SYMBOL_MODULES.get(token);
+    if (mapped && isTier3SdkModule(mapped)) return true;
+  }
+  return false;
+}
+
+/**
+ * F2 strips tier-3 SDK imports on purpose (`tier3-sdk-guard-fixer`), and the
+ * deterministic import repair refuses to add them back in F2. The verifier
+ * does not know that, so it reads the result as a bug and reports "uses
+ * `new Resend(apiKey)` but has no `Resend` import" as a Blocker — which then
+ * burns an LLM repair call that cannot succeed, because re-adding the import
+ * is exactly what the policy forbids.
+ *
+ * Prod (2026-07-22 → 07-29) shows this loop repeating on essentially every F2
+ * site with a contact form: same file, same finding, `still-failing` from the
+ * verifier fixer each time.
+ *
+ * So in F2 a missing tier-3 SDK import is the expected end state, not a
+ * defect: drop those findings. F3 is where the SDK is actually installed and
+ * a missing import IS a real error, so nothing is suppressed there.
+ */
+export function suppressTier3StrippedImportFindings(
+  findings: VerifierFindings,
+  options: { previewPolicy?: string | null } = {},
+): VerifierFindings {
+  if (options.previewPolicy === "fidelity3") return findings;
+
+  const shouldKeep = (finding: { id: string; detail: string }) => {
+    const mentionsImport = /import/i.test(finding.id) || /import/i.test(finding.detail);
+    if (!mentionsImport) return true;
+    return !mentionsTier3Sdk(finding.detail);
+  };
 
   return {
     blocking: findings.blocking.filter(shouldKeep),
