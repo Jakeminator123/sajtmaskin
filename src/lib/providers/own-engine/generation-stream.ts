@@ -277,9 +277,36 @@ export function createOwnEngineGenerationStream(
        */
       let providerFault: { message: string; code: string | null } | null = null;
 
-      const commitCreditsUnlessProviderFault = async () => {
+      /**
+       * `endedAsDesigned` marks the terminal states the run CHOSE rather than
+       * fell into: the model made a blocking tool call and we are asking the
+       * user something. That matters because the flag above outlives the event
+       * that set it — the `error` case only breaks its `switch`, so the stream
+       * keeps reading, and a transient 429 early in the run is still recorded
+       * when the run later ends exactly the way it was supposed to.
+       *
+       * A generation row must describe the OUTCOME, not the worst moment along
+       * the way (ägarbeslut 2026-07-30). Filing `success=false` with the
+       * provider's message for a run that ended as designed is a false-red, and
+       * `generation_telemetry` is the same table other decisions are measured
+       * from — innehållsrevisionens steg 3 counts mismatch frequency out of it.
+       *
+       * Credits are unchanged in both branches: no version was created, which
+       * is precisely what this guard exists for.
+       */
+      const commitCreditsUnlessProviderFault = async (options?: {
+        endedAsDesigned?: boolean;
+      }) => {
         if (!providerFault) {
           await commitCredits();
+          return;
+        }
+        if (options?.endedAsDesigned) {
+          warnLog("engine", "Provider fault survived — run ended as designed, no failure row", {
+            chatId,
+            code: providerFault.code,
+            message: providerFault.message,
+          });
           return;
         }
         warnLog("engine", "Credits not charged — provider fault produced no version", {
@@ -351,7 +378,7 @@ export function createOwnEngineGenerationStream(
           message: options?.userMessage ?? null,
         });
         devLogFinalizeSite();
-        await commitCreditsUnlessProviderFault();
+        await commitCreditsUnlessProviderFault({ endedAsDesigned: awaitingInput });
       };
 
       const handleEmptyGeneration = async (reason: string, error: EmptyGenerationError) => {
