@@ -167,14 +167,14 @@ Incident this closes: chat `747636c8` (2026-07-13) built its own `components/cha
 {
   "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
   "id": "stripe-checkout",
-  "mock": "none",
-  "label": "Stripe Checkout",
+  "mock": "visual",
+  "label": "Betalning — Stripe",
   "capability": "payments",
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Hosted Stripe Checkout for one-time and subscription payments. …",
-  "envVars": [{"key": "STRIPE_SECRET_KEY", "required": true, "enforcement": "build", "purpose": "API auth"}],
+  "envVars": [{"key": "STRIPE_SECRET_KEY", "required": true, "enforcement": "feature-runtime", "purpose": "API auth"}],
   "dependencies": ["stripe", "@stripe/stripe-js"],
   "files": [
     {"path": "components/checkout-button.tsx", "role": "client", "injectionMode": "verbatim"},
