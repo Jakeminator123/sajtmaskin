@@ -24,7 +24,7 @@ kopiera inte dess kö hit.
 | Spår | Plan | Läge | Nästa steg |
 | --- | --- | --- | --- |
 | Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | **Steg 1–2 levererade 2026-07-29** (DB-genererad `files_revision` + telemetri-stämpel), prod-verifierat 2026-07-29: 135/135 versioner har revision, telemetrin stämplas. **Mätningen körd 2026-07-30** — 0 kända mismatchar på 5 stämplade rader av 113 läsbara. Steg 3 väntar inte längre på mätdata | Stäng **P1:an** (ingen Postgres-backad test för `files_revision`) och bygg sedan steg 3 bakom flagga — ett frekvensunderlag ligger veckor bort vid ~5 stämplade rader/dygn, medan sprängradien är strukturellt liten |
-| Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | R1–R4 + R6 (#639), R7 + R9 + R10 + R11 klara 2026-07-29; fyra rader kvar (R5/R8 + R12/R13 från builder-runtime) | R8 och R12. R5 är blockerad tills verbatim-exportvägen trådar env-scope; R13 är en prod-observation |
+| Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | Fyra rader kvar efter att R8:s monteringsdel landade 2026-07-30 (#659). Levererad historik är trimmad ur planen och lever i [`../avklarat/README.md`](../avklarat/README.md) | **R8:s aktiverings-E2E** är den enda raden som kan tas mekaniskt. R5 och R12 är blockerade på annat än tid (exportvägens env-scope respektive en saknad deployment-identitetssignal); R13 är en prod-observation |
 
 ## Ägarbeslut — ratificerade 2026-07-30
 
