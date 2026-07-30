@@ -935,6 +935,48 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(logGenerationMock).toHaveBeenCalledTimes(1);
   });
 
+  it("a SURVIVED fault does not file a failure row when the run ends awaiting input", async () => {
+    // The `error` case only breaks its own switch, so the stream keeps reading:
+    // a transient 429 early in the run is still recorded when the model then
+    // makes a blocking tool call and the run ends the way it was designed to.
+    // Filing `success=false` with the provider's message there is a false-red —
+    // a generation row describes the outcome, not the worst moment along the
+    // way (ägarbeslut 2026-07-30).
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_survived_429", null),
+    );
+    const params = providerFaultParams("chat_survived_429", {});
+    const out = createOwnEngineGenerationStream({
+      ...params,
+      pipelineStream: pipelineStreamFromSsePayload(
+        formatSSEEvent("error", {
+          message: "Modellen är överbelastad just nu.",
+          code: "rate_limit_exceeded",
+          providerFault: true,
+        }) +
+          formatSSEEvent("tool-call", {
+            toolName: "suggestIntegration",
+            args: { provider: "stripe", name: "Stripe", envVars: ["STRIPE_SECRET_KEY"] },
+          }) +
+          formatSSEEvent("done", { promptTokens: 2, completionTokens: 1 }),
+      ),
+    });
+
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    // The run reached the terminal state it was supposed to.
+    expect(doneData.versionId).toBeNull();
+    expect(doneData.awaitingInput).toBe(true);
+    // No row claiming the run failed on the provider.
+    expect(logGenerationMock).not.toHaveBeenCalled();
+    // Credits stay unchanged: no version was created, which is exactly what
+    // the provider-fault guard exists for. Only the false claim was the bug.
+    expect(commitCredits).not.toHaveBeenCalled();
+  });
+
   it("still charges when the model itself answered nothing (no provider fault)", async () => {
     const out = createOwnEngineGenerationStream(
       providerFaultParams("chat_silent_model", {

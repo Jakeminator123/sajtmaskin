@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  describeRemovalFailure,
   findLinkedEntries,
   findMainWorktree,
   parseDirtyEntries,
@@ -140,5 +141,50 @@ describe("findLinkedEntries", () => {
         },
       }),
     ).toEqual([]);
+  });
+});
+
+describe("describeRemovalFailure", () => {
+  const failure = (over: Partial<Parameters<typeof describeRemovalFailure>[0]> = {}) =>
+    describeRemovalFailure({
+      worktreePath: FEATURE,
+      detachedLinks: [`${FEATURE}/node_modules`],
+      stillRegistered: false,
+      message: "error: failed to delete '...': Permission denied",
+      ...over,
+    });
+
+  // The reason this message exists: a raw stacktrace right after
+  // "unlinked … (target untouched)" reads like the junction trap fired and the
+  // shared node_modules was just emptied. It was not — detaching runs first.
+  it("leads with the shared node_modules being safe when links were detached", () => {
+    const lines = failure().split("\n");
+    expect(lines[0]).toContain("SAFE");
+    expect(lines[0]).toContain("detached before the removal");
+  });
+
+  it("says nothing about links when there were none to detach", () => {
+    expect(failure({ detachedLinks: [] })).not.toContain("SAFE");
+  });
+
+  it("separates the actual failure from the junction question", () => {
+    expect(failure()).toContain("What failed is the directory removal itself");
+    expect(failure()).toContain("Permission denied");
+  });
+
+  // Observed twice: git drops the metadata BEFORE the directory delete fails,
+  // so the worktree is gone from `git worktree list` and an empty folder stays.
+  it("gives prune + manual-delete steps when git already dropped the worktree", () => {
+    const text = failure({ stillRegistered: false });
+    expect(text).toContain("git worktree prune");
+    expect(text).toContain("Remove-Item");
+    expect(text).toContain(FEATURE);
+  });
+
+  it("tells the user to just rerun when git still tracks the worktree", () => {
+    const text = failure({ stillRegistered: true });
+    expect(text).toContain("nothing is half-removed");
+    expect(text).toContain("rerun this command");
+    expect(text).not.toContain("git worktree prune");
   });
 });

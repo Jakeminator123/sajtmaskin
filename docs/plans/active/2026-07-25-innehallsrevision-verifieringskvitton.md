@@ -103,7 +103,7 @@ i ett enskilt lager. Det går inte — identiteten måste finnas i datan.
 |---|---|---|
 | 1 — primitiv | **Levererad 2026-07-29** | `engine_versions.files_revision TEXT GENERATED ALWAYS AS (md5(files_json)) STORED` via `add-files-revision.sql`. Prod-preflight: 133 rader / 48 kB heap → STORED-omskrivning OK, trigger-variant behövs inte. |
 | 2 — stämpla verdikt | **Levererad 2026-07-29, med två kända luckor** | `generation_telemetry.files_revision` + subselect i `createGenerationTelemetryRecord` (anroparen kan inte glömma). Preview-session/bus-events bär **inte** revisionen ännu — det hör till steg 3:s läsare. |
-| 3 — läsarna jämför | Öppen | Väntar på mätdata (beslut 3). Skiss längre ner. |
+| 3 — läsarna jämför | Öppen — **inte längre blockerad av mätningen** | Mätningen är körd 2026-07-30 (0 kända mismatchar på 5 stämplade rader av 113 läsbara) och visar att ett frekvensunderlag ligger veckor bort, medan sprängradien är strukturellt liten. Kvar: stäng P1:an om saknad Postgres-backad test, bygg sedan bakom flagga. Skiss längre ner. |
 
 **Två luckor som steg 3 måste hantera** (djupgranskning 2026-07-29):
 
@@ -173,9 +173,50 @@ SELECT count(*) FILTER (WHERE s.files_revision IS NOT NULL) AS stamplade,
   JOIN engine_versions v ON v.id = s.version_id;
 ```
 
-Den enklare varianten (alla stämplade rader) gav `2 / 0` den 2026-07-29 — för
-litet underlag för ett beslut oavsett, och rader skrivna före #646 kan bära
-repair-lanens felstämplade revision.
+### Mätningen är körd — utfall 2026-07-30
+
+Read-only mot prod (`[PROD] aws-1-us-east-1…`, identiteten verifierad mot
+`config/db-targets.json` innan frågan kördes), med SQL:en ovan:
+
+| Mått | Värde |
+|---|---|
+| Versioner totalt / med `files_revision` | 141 / 141 |
+| Telemetrirader med `version_id` / av dem stämplade | 122 / **5** |
+| Läsarens rad per version (den `getLatestQualityGateResultForVersion` väljer) | 113 |
+| Av dem stämplade | **5** |
+| **Känd mismatch** | **0** |
+| Mismatch med verdikt | 0 |
+
+**Slutsatsen är inte "mismatch är sällsynt" — underlaget räcker inte till det
+påståendet.** Fem stämplade rader är för få för en frekvens. Det mätningen
+faktiskt avgör är något annat och mer användbart: **hur länge det är rimligt att
+vänta.** Stämplingen började vid deployen 2026-07-29 och har gett ~5 rader per
+dygn, så ett underlag som kan bära ett frekvenspåstående ligger veckor bort vid
+nuvarande trafik. Beslut 3:s formulering "vänta på mätdata" är alltså i praktiken
+"vänta obestämt".
+
+Samtidigt visar samma siffror att **sprängradien för steg 3 är strukturellt
+liten, oberoende av frekvensen**: 108 av 113 läsbara rader saknar revision och
+faller därför under beslut 1b:s fail-open-regel — de kan per definition inte
+blockera något. Den strikta vägen kan bara någonsin aktiveras på de stämplade
+raderna, och den mängden växer bara framåt.
+
+Det gör valet för steg 3 till ett annat än planen antog. Antingen väntar man på
+en frekvens som dröjer veckor, eller så bygger man steg 3 nu bakom flaggan som
+risktabellen redan föreskriver och läser frekvensen ur den telemetrin i stället.
+**Rekommendation: det senare** — mätningen som beslut 3 väntade på kan göras av
+steg 3 självt, till skillnad från idag där ingen läsare jämför alls. Kvar som
+ägarbeslut: att faktiskt släppa flaggan.
+
+**Före steg 3 måste dock P1:an i
+[`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) stängas** —
+`files_revision`-kontraktet har ingen Postgres-backad test, bara en mock som
+stringifierar ett Drizzle-SQL-objekt. Att bygga jämförande läsare ovanpå en
+primitiv vars lagrade värde ingen grind verifierar är fel ordning: prod-siffran
+141/141 är ett kvitto, inte en grind.
+
+Den tidigare noteringen (`2 / 0` den 2026-07-29, räknat över alla stämplade
+rader i stället för läsarens rad) är ersatt av tabellen ovan.
 
 ## Skiss för steg 3 (väntar på mätdata)
 
