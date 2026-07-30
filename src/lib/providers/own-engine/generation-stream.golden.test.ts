@@ -935,7 +935,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(logGenerationMock).toHaveBeenCalledTimes(1);
   });
 
-  it("a SURVIVED fault does not file a failure row when the run ends awaiting input", async () => {
+  it("a SURVIVED fault charges normally and files no failure row when the run ends awaiting input", async () => {
     // The `error` case only breaks its own switch, so the stream keeps reading:
     // a transient 429 early in the run is still recorded when the model then
     // makes a blocking tool call and the run ends the way it was designed to.
@@ -972,9 +972,11 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(doneData.awaitingInput).toBe(true);
     // No row claiming the run failed on the provider.
     expect(logGenerationMock).not.toHaveBeenCalled();
-    // Credits stay unchanged: no version was created, which is exactly what
-    // the provider-fault guard exists for. Only the false claim was the bug.
-    expect(commitCredits).not.toHaveBeenCalled();
+    // Charged like every other awaiting-input round. The survived blip is
+    // invisible to the user, so it must not change the price (ägarbeslut
+    // 2026-07-30, credit-halvan) — the guard withholds credits only when the
+    // provider fault is why the run produced nothing.
+    expect(commitCredits).toHaveBeenCalledTimes(1);
   });
 
   it("still charges when the model itself answered nothing (no provider fault)", async () => {
