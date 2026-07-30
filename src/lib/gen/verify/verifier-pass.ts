@@ -288,16 +288,44 @@ const TIER3_SDK_SYMBOL_MODULES: ReadonlyMap<string, string> = new Map([
   ["Anthropic", "@anthropic-ai/sdk"],
 ]);
 
-function mentionsTier3Sdk(detail: string): boolean {
+/**
+ * A quoted token that plausibly names an npm module rather than a file, a
+ * local alias or an identifier. Package names are lowercase, so this also
+ * keeps PascalCase symbols (`Resend`) out of the module buckets — those are
+ * resolved through `TIER3_SDK_SYMBOL_MODULES` instead.
+ */
+function looksLikeModuleSpecifier(token: string): boolean {
+  if (/\.(t|j)sx?$|\.json$/i.test(token)) return false;
+  if (token.startsWith("./") || token.startsWith("../") || token.startsWith("@/")) {
+    return false;
+  }
+  return /^[a-z@][\w@./-]*$/.test(token);
+}
+
+/**
+ * True when the finding is EXCLUSIVELY about tier-3 SDK imports. A detail that
+ * also names a non-tier-3 module ("NextResponse from `next/server` and z from
+ * `zod` are missing, plus `resend`") must NOT be suppressed — dropping it
+ * wholesale would lose the legitimate `zod`/`next/server` error along with the
+ * policy-expected one.
+ */
+function isTier3OnlyImportFinding(detail: string): boolean {
   DETAIL_QUOTED_SPECIFIER_RE.lastIndex = 0;
+  let sawTier3 = false;
+  let sawOtherModule = false;
   let match: RegExpExecArray | null;
   while ((match = DETAIL_QUOTED_SPECIFIER_RE.exec(detail)) !== null) {
     const token = match[1];
-    if (isTier3SdkModule(token)) return true;
-    const mapped = TIER3_SDK_SYMBOL_MODULES.get(token);
-    if (mapped && isTier3SdkModule(mapped)) return true;
+    const mappedFromSymbol = TIER3_SDK_SYMBOL_MODULES.get(token);
+    if (mappedFromSymbol && isTier3SdkModule(mappedFromSymbol)) {
+      sawTier3 = true;
+      continue;
+    }
+    if (!looksLikeModuleSpecifier(token)) continue;
+    if (isTier3SdkModule(token)) sawTier3 = true;
+    else sawOtherModule = true;
   }
-  return false;
+  return sawTier3 && !sawOtherModule;
 }
 
 /**
@@ -325,7 +353,7 @@ export function suppressTier3StrippedImportFindings(
   const shouldKeep = (finding: { id: string; detail: string }) => {
     const mentionsImport = /import/i.test(finding.id) || /import/i.test(finding.detail);
     if (!mentionsImport) return true;
-    return !mentionsTier3Sdk(finding.detail);
+    return !isTier3OnlyImportFinding(finding.detail);
   };
 
   return {

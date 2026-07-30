@@ -388,10 +388,16 @@ export async function runVerifierPhase(params: {
             VERIFIER_RERUN_TIMEOUT_MS,
           );
           try {
-            const rerunFindings = await runVerifierPass(contentForVersion, {
-              resolvedTier: verifierTier,
-              abortSignal: rerunAbort.signal,
-            });
+            // Same policy filter as the first pass — without it a tier-3
+            // finding that F2 suppressed up front would reappear here and
+            // block the version after an otherwise successful fix.
+            const rerunFindings = suppressTier3StrippedImportFindings(
+              await runVerifierPass(contentForVersion, {
+                resolvedTier: verifierTier,
+                abortSignal: rerunAbort.signal,
+              }),
+              { previewPolicy: params.buildSpec?.previewPolicy },
+            );
             rerunDurationMs = Date.now() - rerunStartedAt;
             rerunBlockingCount = rerunFindings.blocking.length;
             verifierBlockingFindings = rerunFindings.blocking.slice(0, 5);

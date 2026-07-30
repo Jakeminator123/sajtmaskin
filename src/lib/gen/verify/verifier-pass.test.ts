@@ -881,6 +881,25 @@ describe("suppressTier3StrippedImportFindings", () => {
     expect(findings.blocking).toHaveLength(1);
   });
 
+  it("keeps a finding that mixes a tier-3 SDK with a real non-tier-3 import error", () => {
+    const findings = suppressTier3StrippedImportFindings(
+      {
+        blocking: [
+          {
+            id: "missing-imports",
+            detail:
+              "app/api/contact/route.ts is missing imports: `Resend` from `resend` and `z` from `zod`.",
+          },
+        ],
+        quality: [],
+      },
+      { previewPolicy: "fidelity2" },
+    );
+
+    // Dropping this wholesale would take the legitimate zod error with it.
+    expect(findings.blocking).toHaveLength(1);
+  });
+
   it("leaves findings that are not about imports alone, even when they name an SDK", () => {
     const findings = suppressTier3StrippedImportFindings(
       {
