@@ -2,6 +2,21 @@
 
 Snabbreferens för dossier-systemet (v2). Full spec: `docs/contracts/dossier-system.md`.
 
+## Tre axlar — svara på rätt fråga
+
+Ingen av dem följer av någon annan. Full tabell + exempel:
+[`dossier-system.md` § Tre oberoende axlar](../contracts/dossier-system.md#tre-oberoende-axlar-läs-denna-innan-du-drar-en-slutsats-om-en-dossier).
+
+| Axel | Fråga | Källa |
+|---|---|---|
+| Kopplad / Fristående | Behövs externa nycklar? | mappen `hard/` vs `soft/` |
+| Demoläge (`mock`) | Hur ser F2 ut utan nyckel? | manifestfältet på den **valda** dossiern |
+| Kräver F3 | Byggs den riktiga integrationen i eget steg? | `dossierRequiresF3()` — build-nyckel **eller** serverfil |
+
+Vanligaste felslutet: "Kopplad ⇒ kräver F3". `vercel-analytics` är Kopplad och
+ändå klar i designläget; `resend-contact-form` har inga build-nycklar men kräver
+F3 för sin serverfil.
+
 ## Embeddings — finns det några?
 
 **Nej.** Det nya dossier-systemet använder **inga embeddings alls**. Urvalet är deterministic:
@@ -35,6 +50,24 @@ Sätt i `.env.local` lokalt eller via `vercel env add SAJTMASKIN_DOSSIER_PIPELIN
 4. Lägg ev. komponentfiler under `<id>/components/`.
 5. Kör `npm run dossiers:validate-all` — CI-blockerande. Obs mock-invarianten (per-dossier sedan 2026-07-12): **varje** hard-dossier måste ha `mock ≠ none` (eller capabilityn stå i `MOCKLESS_CAPABILITY_EXCEPTIONS`) — se `docs/contracts/dossier-system.md` § CI-invariant.
 6. Backoffice → "Dossiers" → "Capability map" → "Bygg om" så `_index/capability-map.json` uppdateras.
+
+### A2. Ny leverantör under en BEFINTLIG capability
+
+Billigaste vägen — ingen ändring i urvalskoden behövs:
+
+1. Ny mapp med **samma `capability`** som syskonet, `defaultForCapability: false`.
+2. `relevanceKeywords: ["klarna", …]` — det är hela mekanismen för "användaren
+   bad uttryckligen om den här leverantören".
+3. `mock ≠ none` (garantin gäller per dossier — väljs din leverantör är det din
+   fallback besökaren ser).
+4. Lägg monteringsfallet i `src/lib/gen/dossiers/dossier-client-mount.test.tsx`
+   för varje renderbar `client`/`shared`-komponent, annars fäller
+   täckningsgrinden.
+
+Tidsåtgång: manifest + instruktioner under en timme; **degraderingskoden** (att
+komponenten monterar utan nyckel och visar en ärlig notis) är det egentliga
+arbetet. Full checklista + vad en ny *capability* kostar extra:
+[`dossier-system.md` § Ny LEVERANTÖR](../contracts/dossier-system.md#ny-leverantör-under-en-befintlig-capability-den-billiga-vägen).
 
 ### B. AI-kuration från ett klonat upstream-repo
 

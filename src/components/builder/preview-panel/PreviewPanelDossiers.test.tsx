@@ -34,16 +34,22 @@ function catalogResponse(overrides: Partial<DossierCatalogResponse> = {}): Dossi
             class: "hard",
             summary: "Stripe-baserad checkout.",
             envVarCount: 2,
+            requiresF3: true,
+            mock: "visual",
             groupId: "commerce",
             groupLabel: "Betalning & handel",
           },
           {
+            // Kopplad MEN F2-klar (feature-runtime-nycklar, inga serverfiler)
+            // — beviset för att hard/soft inte kan härledas till F2/F3.
             id: "klarna-checkout",
             label: "Klarna Checkout",
             capability: "payments",
             class: "hard",
             summary: "Klarna-baserad checkout.",
             envVarCount: 1,
+            requiresF3: false,
+            mock: "visual",
             groupId: "commerce",
             groupLabel: "Betalning & handel",
           },
@@ -215,6 +221,65 @@ describe("PreviewPanelDossiers", () => {
     // The catalog tab's content is not shown by default when something is
     // already wired.
     expect(screen.queryByText("Stripe Checkout")).toBeNull();
+  });
+
+  // De tre axlarna (hard/soft, demoläge, F2/F3) är oberoende. Panelen visade
+  // förut bara den första och lät användaren gissa resten: en Kopplad dossier
+  // såg ut att kräva F3 även när den var klar i designläget, och demoläget —
+  // det enda som säger vad besökaren faktiskt ser utan nycklar — syntes inte
+  // alls. Katalogen visar F3-kravet FÖRE valet, raden efter valet.
+  it("visar alla tre axlarna: Kopplad/Fristående, Kräver F3 och demoläget", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
+        dossiers: [
+          {
+            id: "postgres-drizzle",
+            label: "Databas — Postgres",
+            class: "hard",
+            capability: "database",
+            summary: "Postgres via Drizzle.",
+            complexity: "medium",
+            requiresF3: true,
+            mock: "seed",
+            configured: false,
+            dependencies: [],
+            envVars: [],
+            status: "built-demo",
+            missingKeys: [],
+            missingLiveKeys: ["POSTGRES_URL"],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const row = await screen.findByText("Databas — Postgres");
+    expect(screen.getByText("Kopplad")).toBeTruthy();
+    expect(screen.getByText("Kräver F3")).toBeTruthy();
+    // Demoläget bor i den expanderade raden (där det finns plats för det).
+    expect(screen.queryByText(/Demoläge: Medskickad demo-data/)).toBeNull();
+    fireEvent.click(row);
+    expect(screen.getByText(/Demoläge: Medskickad demo-data/)).toBeTruthy();
+  });
+
+  it("sätter INGEN Kräver F3-badge på ett kopplat byggblock som är klart i designläget", async () => {
+    stubFetch({ wired: wiredResponse() /* total: 0 → katalog-tabben */ });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    await screen.findByText("Klarna Checkout");
+    // Båda katalograderna är Kopplade; bara Stripe kräver F3.
+    expect(screen.getAllByText("Kopplad")).toHaveLength(2);
+    expect(screen.getAllByText("Kräver F3")).toHaveLength(1);
   });
 
   // Owner decision 2026-07-13 (replaces the old catalog/status-only lock):

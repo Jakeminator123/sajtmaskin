@@ -10,6 +10,8 @@
  * cache-friendly (static filesystem data).
  */
 
+import type { DossierMockMode } from "@/lib/gen/dossiers/types";
+
 export interface DossierCatalogEntry {
   id: string;
   label: string;
@@ -19,6 +21,15 @@ export interface DossierCatalogEntry {
   /** Swedish catalog description (manifest `summarySv`); fallback: `summary`. */
   summarySv?: string;
   envVarCount: number;
+  /**
+   * Canonical F2/F3 signal from `dossierRequiresF3()` (build-enforced env key
+   * OR a `role: "server"` file). Carried into the catalog so the user can see
+   * BEFORE picking that the real integration lands in "Bygg integrationer" —
+   * hard/soft does not answer that question (`dossier-axes.ts`).
+   */
+  requiresF3: boolean;
+  /** Manifest `mock`; omitted = `none`, same as runtime reads it. */
+  mock?: DossierMockMode;
   groupId: string;
   groupLabel: string;
 }

@@ -9,6 +9,7 @@ temporär katalogstruktur med monkeypatchade modulkonstanter.
 from __future__ import annotations
 
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -354,6 +355,86 @@ class MocklessExceptionParityTests(unittest.TestCase):
             dossiers_page._load_mockless_capability_exceptions(),
             frozenset({"analytics", "error-tracking"}),
         )
+
+
+class RequiresF3Tests(unittest.TestCase):
+    """Tredje axeln: kräver byggblocket ett eget F3-steg? Den följer varken av
+    Kopplad/Fristående eller av demoläget — vanligaste felslutet i systemet."""
+
+    def test_build_enforced_key_requires_f3(self) -> None:
+        manifest = {"envVars": [{"key": "K", "enforcement": "build"}]}
+        self.assertTrue(dossiers_page.requires_f3(manifest))
+
+    def test_omitted_enforcement_counts_as_build(self) -> None:
+        # Samma default som DossierEnvVarEnforcement i types.ts.
+        self.assertTrue(dossiers_page.requires_f3({"envVars": [{"key": "K"}]}))
+
+    def test_server_file_requires_f3_even_without_build_keys(self) -> None:
+        manifest = {
+            "envVars": [{"key": "K", "enforcement": "feature-runtime"}],
+            "files": [{"path": "components/api/contact/route.ts", "role": "server"}],
+        }
+        self.assertTrue(dossiers_page.requires_f3(manifest))
+
+    def test_hard_dossier_can_be_done_in_f2(self) -> None:
+        # Kopplad + demoläge, men varken build-nyckel eller serverfil
+        # (analytics-mönstret) ⇒ inget F3-steg behövs.
+        manifest = {
+            "envVars": [{"key": "K", "enforcement": "warn-only"}],
+            "files": [{"path": "components/analytics.tsx", "role": "client"}],
+            "mock": "none",
+        }
+        self.assertFalse(dossiers_page.requires_f3(manifest))
+
+    def test_missing_and_malformed_fields_do_not_crash(self) -> None:
+        self.assertFalse(dossiers_page.requires_f3({}))
+        self.assertFalse(dossiers_page.requires_f3({"envVars": None, "files": None}))
+        self.assertFalse(dossiers_page.requires_f3({"envVars": ["rå-sträng"]}))
+
+
+class RequiresF3ParityTests(unittest.TestCase):
+    """Paritetsgrind mot den kanoniska TS-regeln.
+
+    ``requires_f3`` är en medveten spegling av ``dossierRequiresF3()`` i
+    ``src/lib/gen/dossiers/types.ts`` (listvyn ska inte behöva ett Node-anrop
+    per rendering). En regel som bor i två skrivvägar är bara en regel så
+    länge något håller ihop dem — ändras TS-villkoren ska detta test fällas
+    och tvinga fram en uppdatering här.
+    """
+
+    def _helper_body(self) -> str:
+        path = (
+            dossiers_page.REPO_ROOT / "src" / "lib" / "gen" / "dossiers" / "types.ts"
+        )
+        text = path.read_text(encoding="utf-8")
+        start = text.index("export function dossierRequiresF3")
+        return text[start:]
+
+    def test_ts_rule_still_has_exactly_the_two_mirrored_clauses(self) -> None:
+        body = self._helper_body()
+        self.assertIn('(env.enforcement ?? "build") === "build"', body)
+        self.assertIn('file.role === "server"', body)
+
+
+class MockLabelParityTests(unittest.TestCase):
+    """Kuratorn och slutanvändaren ska läsa SAMMA ord för samma manifestvärde.
+
+    Etiketterna finns i två språk (Python-listan här, ``MOCK_MODE_LABELS`` i
+    ``src/lib/builder/dossier-axes.ts`` som builder-panelen använder). Driftar
+    de isär beskriver backoffice och produkten samma demoläge olika.
+    """
+
+    def _ts_labels(self) -> dict[str, str]:
+        path = dossiers_page.REPO_ROOT / "src" / "lib" / "builder" / "dossier-axes.ts"
+        text = path.read_text(encoding="utf-8")
+        block = re.search(
+            r"const MOCK_MODE_LABELS[^=]*=\s*\{(.*?)\};", text, re.DOTALL
+        )
+        assert block is not None, "MOCK_MODE_LABELS hittades inte i dossier-axes.ts"
+        return dict(re.findall(r'^\s*([a-zA-Z]+):\s*"([^"]+)"', block.group(1), re.MULTILINE))
+
+    def test_swedish_mock_labels_match_the_builder_panel(self) -> None:
+        self.assertEqual(dossiers_page.MOCK_LABELS, self._ts_labels())
 
 
 class CreateDossierSkeletonTests(unittest.TestCase):

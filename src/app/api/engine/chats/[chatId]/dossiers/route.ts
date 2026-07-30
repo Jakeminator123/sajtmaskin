@@ -379,6 +379,7 @@ async function buildDossierOverview(
       summarySv: entry.summarySv,
       complexity: entry.complexity,
       requiresF3,
+      mock: entry.mock,
       configured: selected.configured,
       dependencies: entry.dependencies ?? [],
       envVars: (entry.envVars ?? []).map((env) => ({

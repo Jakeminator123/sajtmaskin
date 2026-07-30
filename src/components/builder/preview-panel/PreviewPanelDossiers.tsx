@@ -32,6 +32,11 @@ import {
   DOSSIER_GROUP_ORDER,
   resolveDossierGroup,
 } from "@/lib/builder/dossier-groups";
+import {
+  describeDossierClass,
+  describeDossierMockMode,
+  describeF3Requirement,
+} from "@/lib/builder/dossier-axes";
 import { cn } from "@/lib/utils";
 
 export interface PreviewPanelDossiersProps {
@@ -74,6 +79,27 @@ const ENFORCEMENT_LABEL: Record<
   "feature-runtime": "vid användning",
   "warn-only": "valfri",
 };
+
+/**
+ * Presentation-only heading tooltip. The group buckets rows for reading; it
+ * never influences which dossier the pipeline picks (that is the capability).
+ */
+const GROUP_HEADING_TITLE =
+  "Bara en rubrik för läsbarhet — gruppen påverkar aldrig vilket byggblock som väljs. Det gör funktionen (capability) som briefen ber om.";
+
+/** Amber "Kräver F3" badge — the axis hard/soft does NOT answer. */
+function RequiresF3Badge() {
+  const descriptor = describeF3Requirement(true);
+  return (
+    <Badge
+      variant="outline"
+      className="shrink-0 border-violet-500/40 bg-violet-500/10 text-[9px] text-violet-200"
+      title={descriptor.hint}
+    >
+      {descriptor.label}
+    </Badge>
+  );
+}
 
 /**
  * Toolbar "Byggblock" popover: the primary user surface for selecting,
@@ -669,7 +695,9 @@ export function PreviewPanelDossiers({
   }, [freshData]);
 
   const renderRow = (entry: DossierOverviewEntry) => {
-    const descriptor = describeDossierStatus(entry.status, stage);
+    const descriptor = describeDossierStatus(entry.status, stage, entry.class);
+    const classDescriptor = describeDossierClass(entry.class);
+    const mockDescriptor = describeDossierMockMode(entry.mock);
     const isExpanded = expandedId === entry.id;
     return (
       <li key={entry.id} className="rounded-md border border-gray-800 bg-black/20">
@@ -695,22 +723,22 @@ export function PreviewPanelDossiers({
               {resolveDossierGroup(entry.capability).label}
             </span>
           </span>
+          {/* Tre oberoende axlar, i den ordning de betyder något för
+              användaren: behöver den nycklar → byggs den i F3 → var i flödet
+              står den nu. Ingen av dem kan härledas ur någon annan. */}
           <Badge
             variant="outline"
             className={cn(
-              "text-[9px]",
+              "shrink-0 text-[9px]",
               entry.class === "hard"
                 ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
                 : "border-gray-600/50 bg-gray-500/10 text-gray-300",
             )}
-            title={
-              entry.class === "hard"
-                ? "Hårt byggblock — kräver riktiga nycklar"
-                : "Mjukt byggblock — självförsörjande, kräver inga externa nycklar"
-            }
+            title={classDescriptor.hint}
           >
-            {entry.class === "hard" ? "Hård" : "Mjuk"}
+            {classDescriptor.label}
           </Badge>
+          {entry.requiresF3 ? <RequiresF3Badge /> : null}
           <Badge
             variant="outline"
             className={cn("text-[10px]", TONE_BADGE_CLASS[descriptor.tone])}
@@ -723,11 +751,18 @@ export function PreviewPanelDossiers({
           <div className="space-y-2 border-t border-gray-800 px-2.5 py-2 text-[11px] text-gray-300">
             <p className="text-gray-400">{entry.summarySv ?? entry.summary}</p>
             <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-500">
-              <span className="rounded bg-gray-800/60 px-1.5 py-0.5">
+              <span className="rounded bg-gray-800/60 px-1.5 py-0.5" title={classDescriptor.hint}>
                 {entry.class === "hard"
                   ? "Kopplad (kräver extern tjänst/nycklar)"
                   : "Fristående (inga nycklar behövs)"}
               </span>
+              {/* Demoläget är den enda av de tre axlarna som säger vad
+                  besökaren faktiskt ser innan nycklarna finns. */}
+              {entry.class === "hard" ? (
+                <span className="rounded bg-gray-800/60 px-1.5 py-0.5" title={mockDescriptor.hint}>
+                  Demoläge: {mockDescriptor.label}
+                </span>
+              ) : null}
               <span className="rounded bg-gray-800/60 px-1.5 py-0.5">
                 Komplexitet: {entry.complexity}
               </span>
@@ -915,7 +950,7 @@ export function PreviewPanelDossiers({
           </span>
           {freshData ? (
             <span className="text-[10px] text-gray-500">
-              {freshData.counts.hard} hård · {freshData.counts.soft} mjuk
+              {freshData.counts.hard} kopplade · {freshData.counts.soft} fristående
             </span>
           ) : null}
         </div>
@@ -960,7 +995,10 @@ export function PreviewPanelDossiers({
             <div className="space-y-3">
               {groupedDossiers.map(({ group, rows }) => (
                 <div key={group.id} className="space-y-1.5">
-                  <p className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase">
+                  <p
+                    className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase"
+                    title={GROUP_HEADING_TITLE}
+                  >
                     {group.label}
                   </p>
                   <ul className="space-y-1.5">{rows.map(renderRow)}</ul>
@@ -1069,8 +1107,8 @@ export function PreviewPanelDossiers({
 
           {freshData && !freshData.versionFilesAvailable ? (
             <p className="mt-2 border-t border-gray-800 px-1 pt-2 text-[10px] text-gray-500">
-              Byggstatus kunde inte läsas (versionens filer saknas) — hård-status
-              visas som ej byggd tills filerna finns.
+              Byggstatus kunde inte läsas (versionens filer saknas) — kopplade
+              byggblock visas som ej byggda tills filerna finns.
             </p>
           ) : null}
             </div>
@@ -1118,7 +1156,10 @@ export function PreviewPanelDossiers({
                 <div className="space-y-3">
                   {(catalogData?.groups ?? []).map((group) => (
                     <div key={group.id} className="space-y-1.5">
-                      <p className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase">
+                      <p
+                        className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase"
+                        title={GROUP_HEADING_TITLE}
+                      >
                         {group.label}
                       </p>
                       <ul className="space-y-1.5">
@@ -1143,7 +1184,7 @@ export function PreviewPanelDossiers({
                                 className="flex w-full items-start gap-2 rounded-md border border-gray-800 bg-black/20 px-2.5 py-2 text-left hover:bg-gray-800/40 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 <span className="min-w-0 flex-1">
-                                  <span className="flex items-center gap-1.5">
+                                  <span className="flex flex-wrap items-center gap-1.5">
                                     <span className="truncate text-[12px] font-medium text-gray-100">
                                       {entry.label}
                                     </span>
@@ -1155,9 +1196,14 @@ export function PreviewPanelDossiers({
                                           ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
                                           : "border-gray-600/50 bg-gray-500/10 text-gray-300",
                                       )}
+                                      title={describeDossierClass(entry.class).hint}
                                     >
-                                      {entry.class === "hard" ? "Kopplad" : "Fristående"}
+                                      {describeDossierClass(entry.class).label}
                                     </Badge>
+                                    {/* Kräver F3 måste synas FÖRE valet — det
+                                        är den axeln som avgör när användaren
+                                        får den riktiga funktionen. */}
+                                    {entry.requiresF3 ? <RequiresF3Badge /> : null}
                                   </span>
                                   <span className="mt-0.5 block truncate text-[10px] text-gray-500">
                                     {entry.summarySv ?? entry.summary}

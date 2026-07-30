@@ -7,7 +7,7 @@
  * share it without pulling server-only code into the client bundle.
  */
 
-import type { SelectedDossier } from "@/lib/gen/dossiers/types";
+import type { DossierMockMode, SelectedDossier } from "@/lib/gen/dossiers/types";
 
 /**
  * Hard-dossier status model (PR 1 av Byggblock-ägarbeslutet 2026-07-13).
@@ -62,6 +62,12 @@ export interface DossierOverviewEntry {
   summarySv?: string;
   complexity: "simple" | "medium" | "advanced";
   requiresF3: boolean;
+  /**
+   * Manifest `mock` — how the surface behaves in F2 without a real key.
+   * Omitted = `none`, same as runtime. Independent of both `class` and
+   * `requiresF3`; see `dossier-axes.ts`.
+   */
+  mock?: DossierMockMode;
   configured: boolean;
   dependencies: string[];
   envVars: DossierOverviewEnvVar[];
@@ -152,17 +158,27 @@ export interface DossierStatusDescriptor {
 /**
  * Human-facing status label + tone for a dossier row. Kept here (not in the
  * component) so the route's status enum and the UI copy stay in one place.
+ *
+ * `dossierClass` is optional but matters for `self-contained`: the route sets
+ * that status from `!requiresF3`, which a KOPPLAD (hard) dossier can also
+ * reach (e.g. the analytics dossiers — warn-only keys, no server file). Saying
+ * "inga externa nycklar behövs" about a dossier that does have keys is simply
+ * false, so the hard variant gets its own honest wording.
  */
 export function describeDossierStatus(
   status: DossierStatus,
   lifecycleStage: "design" | "integrations",
+  dossierClass?: "hard" | "soft",
 ): DossierStatusDescriptor {
   switch (status) {
     case "self-contained":
       return {
         label: "Inkopplad",
         tone: "neutral",
-        hint: "Självförsörjande byggblock — inga externa nycklar behövs.",
+        hint:
+          dossierClass === "hard"
+            ? "Kräver ingen \u201dBygg integrationer\u201d-runda. Nycklarna är valfria — utan dem stänger funktionen av sig själv."
+            : "Självförsörjande byggblock — inga externa nycklar behövs.",
       };
     case "built-live":
       return {

@@ -112,6 +112,33 @@ demo-bar capability (DB, CMS, e-post, AI, betalning, inloggning …) ska i
 stället få ett riktigt `mock`-läge. Nya behov blir nya capabilities i en
 befintlig grupp, inte en ny grupp.
 
+## Tre oberoende axlar (läs denna innan du drar en slutsats om en dossier)
+
+Systemets vanligaste feltolkning är att de tre axlarna nedan svarar på
+varandra. Det gör de inte — **ingen av dem kan härledas ur någon av de andra.**
+
+| Axel | Frågan den svarar på | Kanonisk ägare | Var användaren ser den |
+|---|---|---|---|
+| **Kopplad / Fristående** (`hard`/`soft`) | Behövs en extern tjänst med nycklar? | mappen `data/dossiers/{hard,soft}/` | Badge på varje rad i Byggblock-panelen + `Klass`-kolumnen i backoffice |
+| **Demoläge** (`mock`) | Hur beter sig ytan i F2/preview *utan* riktig nyckel? | manifestfältet `mock` på den **valda** dossiern | Chip i den expanderade raden ("Demoläge: …") + `Demoläge`-kolumnen i backoffice |
+| **Kräver F3** | Måste den riktiga integrationen byggas i ett eget steg? | [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) — `enforcement: "build"` **eller** `role: "server"` | Badge "Kräver F3" i panelens båda flikar + `Kräver F3`-kolumnen i backoffice |
+
+Konkreta kombinationer som visar oberoendet:
+
+| Dossier | Kopplad? | Demoläge | Kräver F3? | Varför |
+|---|---|---|---|---|
+| `stripe-checkout` | Ja | `visual` | Ja | Serverfil (`/api/checkout-session`) — inte nyckeln; `STRIPE_SECRET_KEY` är `feature-runtime` |
+| `clerk-auth` | Ja | `visual` | Ja | Enda kvarvarande `enforcement: "build"` — trasig inloggning är värre än demo-friktion |
+| `vercel-analytics` | Ja | `none` | **Nej** | `warn-only`-nyckel + bara klientfil ⇒ klar redan i designläget |
+| `embla-carousel` | Nej | — | Nej | Fristående, bara npm |
+
+Följden av detta: **läs aldrig av "Kopplad" som "kräver F3"**, och läs aldrig av
+`mock` som en fas-signal. Vokabulären för alla tre axlarna bor på ett ställe
+per språk — [`src/lib/builder/dossier-axes.ts`](../../src/lib/builder/dossier-axes.ts)
+(produkt-UI) och `MOCK_LABELS`/`requires_f3` i
+[`backoffice/pages/dossiers.py`](../../backoffice/pages/dossiers.py) (kurator-UI);
+pariteten mellan dem grindas i `backoffice/test_dossiers_page.py`.
+
 ### F2/F3-gräns: dossier-kontraktet är signalen (kanonisk)
 
 Samma dossier kan spänna över F2 och F3 — det är inte två separata dossiers och det finns ingen extra `hard/soft/visual`-taxonomi som styr fasen:
@@ -350,6 +377,40 @@ Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to ren
 
 The script is intentionally one-at-a-time. Batch promotion was the source of pool-quality problems in the legacy pipeline.
 
+### Ny LEVERANTÖR under en befintlig capability (den billiga vägen)
+
+Att lägga Klarna bredvid Stripe, eller MySQL bredvid Postgres, kräver **ingen
+kodändring i urvalet**: `select.ts` hittar syskonet via capabilityn, och
+`relevanceKeywords` är hela mekanismen för "användaren bad uttryckligen om
+Klarna". Checklista:
+
+1. `data/dossiers/hard/<provider-id>/manifest.json` med **samma `capability`**
+   som syskonet, `defaultForCapability: false` (befintlig default behåller
+   tie-breaken) och `relevanceKeywords: ["klarna", …]` — högprecisa ord, max 12.
+2. `mock ≠ none` — garantin gäller **per dossier**, inte per capability. Väljs
+   din leverantör via ett nyckelord är det *din* fallback besökaren ser.
+3. `instructions.md` (minst `When to use` + `How to integrate`) och
+   komponentfilerna under `components/`.
+4. `npm run dossiers:validate-all` (CI-blockerande) och backoffice → Capability
+   map → "Bygg om".
+
+**Hur svårt är det?** Metadata-delen är liten — manifest + instruktioner tar
+under en timme och rör ingen delad kod. Arbetet ligger i två andra saker:
+
+| Del | Varför den kostar |
+|---|---|
+| Degraderingskoden (demoläget) | Komponenten måste montera **utan** nyckel, känna igen placeholders, aldrig göra ett riktigt provider-anrop och visa en ärlig notis. Det är kontraktets acceptanskriterium, inte ett manifestfält. |
+| Monteringstestet | Varje renderbar `client`/`shared`-`.tsx` i en hard-dossier måste stå i `MOUNTED` eller `UNMOUNTABLE` i [`dossier-client-mount.test.tsx`](../../src/lib/gen/dossiers/dossier-client-mount.test.tsx) — annars fäller täckningsgrinden med sökvägen i felmeddelandet. |
+| Delade notis-filer | Kopior som `integration-config-notice.tsx` måste vara byte-identiska per familj (en dossier får aldrig importera ur en annan). Kopie-vakten i samma testfil håller dem lika. |
+
+En **ny capability** (inte bara en ny leverantör) kostar tre saker till:
+en rad i [`dossier-groups.ts`](../../src/lib/builder/dossier-groups.ts) (annars
+fäller `dossier-groups.test.ts` — den läser capabilities ur manifesten, inte ur
+den genererade capability-mapen), ett ord i brief-promptens capability-lista
+(`src/lib/builder/site-brief-generation.ts`) och ett ställningstagande om
+capabilityn behöver stå i `MOCKLESS_CAPABILITY_EXCEPTIONS` (nästan aldrig — en
+demo-bar capability ska ha ett riktigt `mock`-läge).
+
 ## Validation (canonical validator + capability-map status)
 
 The **canonical** manifest validator is the Node/AJV `validateDossierManifest()`
@@ -390,6 +451,15 @@ view only** (backoffice + curation tooling); the runtime registry walks
 (the former `dossiers:capability-map:check` drift-gate was removed as maintenance
 tax). Regenerate on demand with `npm run dossiers:capability-map:write` or the
 backoffice "Capability map" tab's "Bygg om" button when curating.
+
+Because there is no freshness gate, **no guarantee may depend on the file being
+current**. The group-coverage test (`dossier-groups.test.ts`) and the follow-up
+vocabulary test therefore read the live pool through `getAllDossiers()` — a new
+dossier whose capability lacks a group mapping fails there immediately, instead
+of hiding behind a stale projection until someone clicks "Bygg om". What still
+reads the file is only what the file itself owns: its internal `groups`-view
+consistency, and the backoffice group view (which warns when the view looks
+stale).
 
 Since etapp 5 (2026-07-12) the generated file also carries a top-level
 **`groups`** field: `{ "<group-id>": { "label": "<svensk label>", "capabilities":

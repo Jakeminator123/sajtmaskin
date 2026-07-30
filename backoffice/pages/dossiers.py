@@ -113,6 +113,33 @@ def mock_label(mock: str | None) -> str:
     return f"{label} ({value})" if label else str(value)
 
 
+def requires_f3(manifest: dict[str, Any]) -> bool:
+    """Kräver byggblocket ett eget F3-steg ("Bygg integrationer")?
+
+    Spegling av ``dossierRequiresF3()`` i ``src/lib/gen/dossiers/types.ts``,
+    som är den kanoniska källan. Två regler, båda måste vara falska för att
+    byggblocket ska vara klart redan i designläget:
+
+    1. en ``envVars``-post med ``enforcement: "build"`` (default när fältet
+       utelämnas), eller
+    2. en ``files``-post med ``role: "server"``.
+
+    Regeln bor i två skrivvägar (TS + Python) därför att listvyn inte ska
+    behöva ett Node-anrop per rendering; pariteten mot TS-källan grindas i
+    ``backoffice/test_dossiers_page.py``. Ändra alltid TS först.
+
+    **Obs:** detta är en egen axel — den följer varken av Kopplad/Fristående
+    eller av demoläget.
+    """
+    for env in manifest.get("envVars") or []:
+        if isinstance(env, dict) and (env.get("enforcement") or "build") == "build":
+            return True
+    for file_entry in manifest.get("files") or []:
+        if isinstance(file_entry, dict) and file_entry.get("role") == "server":
+            return True
+    return False
+
+
 # Dokumenterat fallback-par (docs/contracts/dossier-system.md) om TS-filen
 # inte kan tolkas. Paritet mot den kanoniska källan grindas i
 # backoffice/test_dossiers_page.py.
@@ -454,6 +481,7 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
             "Funktion": d.get("capability"),
             "Standardval": "✓" if is_default_for_capability(d) else "",
             "Demoläge": mock_label(d.get("mock")) if d["_class"] == "hard" else "—",
+            "Kräver F3": "✓" if requires_f3(d) else "",
             "Kodtrohet": d.get("codeFidelity"),
             "Komplexitet": d.get("complexity"),
             "Nycklar": len(d.get("envVars") or []),
@@ -468,7 +496,11 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
     st.caption(
         "**Standardval** = vinner när flera byggblock delar samma funktion. "
         "**Demoläge** = hur ett Kopplat byggblock ser ut i preview utan riktig "
-        "nyckel. Leverantörssyskon = flera byggblock under samma funktion."
+        "nyckel. **Kräver F3** = den riktiga integrationen byggs i ett eget "
+        "steg (byggnödvändig nyckel eller serverfil) — det följer *inte* av "
+        "Kopplad/Fristående, och ett Kopplat byggblock kan mycket väl vara "
+        "klart redan i designläget. Leverantörssyskon = flera byggblock under "
+        "samma funktion."
     )
 
     groups = _load_group_view()
