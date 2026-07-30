@@ -218,7 +218,7 @@ primitiv vars lagrade värde ingen grind verifierar är fel ordning: prod-siffra
 Den tidigare noteringen (`2 / 0` den 2026-07-29, räknat över alla stämplade
 rader i stället för läsarens rad) är ersatt av tabellen ovan.
 
-## Skiss för steg 3 (väntar på mätdata)
+## Skiss för steg 3 (mätningen är körd — se utfallet ovan)
 
 `getLatestQualityGateResultForVersion` → hämta senaste rad **för aktuell
 revision**; ingen matchning = `null` (= "ingen gate körd för detta innehåll").
