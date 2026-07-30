@@ -90,6 +90,10 @@ vi.mock("@/lib/gen/verify/verifier-pass", () => ({
   // pre-fix behaviour has its own focused suite in `verifier-phase.test.ts`.
   parseUndefinedJsxSymbolFinding: () => null,
   checkUndefinedJsxSymbols: () => [],
+  // Tier-3 policy filter — inert here (identity) so these tests keep asserting
+  // the unfiltered verifier→repair flow. Its own behaviour is covered in
+  // `verifier-pass.test.ts`.
+  suppressTier3StrippedImportFindings: <T,>(findings: T) => findings,
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
