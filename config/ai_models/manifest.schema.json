@@ -397,6 +397,7 @@
           "authEnv": { "type": "array", "items": { "type": "string" } },
           "defaultModel": { "type": "string" },
           "fallbackModels": { "type": "array", "items": { "type": "string" } },
+          "visionModels": { "type": "array", "items": { "type": "string" } },
           "envOverrides": { "type": "object", "additionalProperties": { "type": "string" } },
           "tokenBudget": {
             "type": "object",

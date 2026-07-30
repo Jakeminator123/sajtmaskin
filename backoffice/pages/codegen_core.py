@@ -6,7 +6,6 @@ from backoffice.shared import (
     BackofficeContext,
     read_env_flag,
     read_json,
-    render_where_panel,
     validate_json_against_schema,
     write_env_flag,
     write_json,
@@ -124,9 +123,7 @@ def _section_defer_init_routes(ctx: BackofficeContext) -> None:
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("Core Manifest (codegen-core-manifest.json)")
-    render_where_panel("Codegen core", domain_map)
 
     st.info(
         "Styr ordningen och urvalet av **Core Rules**-fragment som konkateneras "

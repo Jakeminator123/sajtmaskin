@@ -23,7 +23,6 @@ from backoffice.shared import (
     read_json,
     read_route_maxduration_literals,
     read_text,
-    render_where_panel,
     validate_manifest_or_error,
     write_json,
     write_phase_thinking,
@@ -146,7 +145,7 @@ def _render_generator_chain(
         "Latens i vanliga website-flöden styrs inte bara av vald modell, utan också av `BuildSpec`: `qualityTarget`, `contextPolicy`, deep-brief-gating och `reasoning_effort`."
     )
 
-    st.markdown("### Byggprofiler (själva kodgeneratorn)")
+    st.markdown("### Byggprofiler (own-engine, den som skriver sajtens kod)")
     profile_labels = {
         "fast": "Fast / Snabb",
         "pro": "Pro / Lagom",
@@ -911,9 +910,7 @@ def _render_manifest_json(ctx: BackofficeContext, man_path, manifest: dict[str, 
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("config/ai_models")
-    render_where_panel("ai_models", domain_map)
     man_path = ctx.config_dir / "ai_models" / "manifest.json"
     manifest = read_json(man_path)
     st.info(

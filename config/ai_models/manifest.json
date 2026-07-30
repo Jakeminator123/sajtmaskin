@@ -1155,6 +1155,67 @@
       "defaultModel": "gpt-4o"
     },
     {
+      "id": "backoffice_scaffold_wizard_persona",
+      "title": "Backoffice scaffold wizard — persona draft (vision)",
+      "description": "OpenAI chat.completions persona that reads a v0-mall still image plus in-memory zip excerpts and writes a scaffold-/variant draft in the backoffice wizard. Images are only sent to the ids listed in visionModels; every other id gets the text-only prompt.",
+      "invocation": "openai_chat_completions",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "backoffice/wizard_support.py",
+        "backoffice/pages/scaffold_wizard.py"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
+      "defaultModel": "gpt-4o",
+      "fallbackModels": [
+        "gpt-5.5"
+      ],
+      "visionModels": [
+        "gpt-4o",
+        "gpt-5.5"
+      ],
+      "notes": "Own entry on purpose: the wizard must NOT inherit analyze_presentation_vision, which belongs to the body-language feature in src/app/api/analyze-presentation/route.ts. Sharing it would tie two unrelated features to one model decision. Kept separate from backoffice_scaffold_wizard_guide because this path needs vision and the guide does not."
+    },
+    {
+      "id": "backoffice_scaffold_wizard_guide",
+      "title": "Backoffice scaffold wizard — step guide (text only)",
+      "description": "Short Swedish Q&A helper inside the wizard steps. Text only, no images — a cheap model is enough, which is why it is not merged with backoffice_scaffold_wizard_persona.",
+      "invocation": "openai_chat_completions",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "backoffice/wizard_support.py",
+        "backoffice/pages/scaffold_wizard.py"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
+      "defaultModel": "gpt-5.4-mini",
+      "fallbackModels": [
+        "gpt-5.5",
+        "gpt-4o"
+      ]
+    },
+    {
+      "id": "backoffice_dossier_curation",
+      "title": "Backoffice dossier (byggblock) curation from a template reference",
+      "description": "OpenAI chat.completions with a json_schema response that drafts a dossier manifest + instructions.md from a cloned template-reference repo. The draft is always hand-reviewed before it goes live.",
+      "invocation": "openai_chat_completions",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "scripts/dossiers/curate-from-reference.ts",
+        "backoffice/pages/dossiers.py"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
+      "defaultModel": "gpt-5.5",
+      "fallbackModels": [
+        "gpt-5.4-mini"
+      ],
+      "notes": "Replaces the hardcoded gpt-4o-mini in curate-from-reference.ts. The script takes --model=<id> and rejects an id that is not defaultModel or one of fallbackModels BEFORE the LLM call."
+    },
+    {
       "id": "match_classifier",
       "title": "Small-LLM match classifier",
       "description": "Tiny generateObject classifier used by manifest-gated matchStrategy='small-llm' matching points (first wired point: follow-up intent classification). Minimal tokens, short timeout. Fail-safe: any error/timeout falls back to the deterministic keyword/embedding result, so this never runs unless a matching point is explicitly set to small-llm.",

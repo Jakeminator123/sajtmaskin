@@ -17,19 +17,31 @@
  *
  * Behavior:
  *   - Reads README.md, package.json, .env.example, and a sample of source files.
- *   - Calls OpenAI gpt-4o-mini with a structured prompt to produce a v2 manifest.
+ *   - Calls the model from `config/ai_models/manifest.json`
+ *     (`backoffice_dossier_curation`) with a structured prompt to produce a v2
+ *     manifest. `--model=<id>` picks another id from the same entry; an id the
+ *     entry does not list is rejected BEFORE the network call.
  *   - Writes a draft. Will refuse to overwrite an existing dossier unless --force.
  *
- * Cost: ~$0.01-0.05 per dossier. Latency: ~10-30s.
+ * Cost/latency depend on the picked model. The old hardcoded `gpt-4o-mini` ran
+ * ~$0.01-0.05 and ~10-30s per dossier; the manifest default is now a reasoning
+ * model, so expect a higher cost and a longer run (the backoffice caller allows
+ * up to 300s).
  *
  * NOTE: This is the *only* dossier script. The legacy 16-script pipeline
  * was archived 2026-04-20 to archive/dossiers-legacy-2026-04-20/scripts/.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import OpenAI from "openai";
 
+import {
+  getWorkloadDefaultModelFromManifest,
+  getWorkloadFallbackModelsFromManifest,
+} from "../../src/lib/ai-models/load-manifest";
+import { getTemperatureConfig } from "../../src/lib/builder/direct-model";
 import { validateDossierManifest } from "../../src/lib/gen/dossiers/validate-manifest";
 
 const REPO_ROOT = resolve(process.cwd());
@@ -37,15 +49,57 @@ const REFERENCES_ROOT = join(REPO_ROOT, "data", "template-references", "repos");
 const METADATA_ROOT = join(REPO_ROOT, "data", "template-references", "_metadata");
 const DOSSIERS_ROOT = join(REPO_ROOT, "data", "dossiers");
 
+/** Manifest entry that owns this script's model choice (Fas D). */
+export const CURATION_WORKLOAD_ID = "backoffice_dossier_curation";
+
 interface Args {
   reference: string;
   class: "hard" | "soft";
   id: string;
   force: boolean;
+  model: string;
 }
 
-function parseArgs(argv: string[]): Args {
+/**
+ * Model ids this script accepts: the workload's `defaultModel` first, then its
+ * `fallbackModels`. The manifest owns the choice — no hardcoded id here.
+ */
+export function allowedCurationModels(): readonly string[] {
+  const preferred = getWorkloadDefaultModelFromManifest(CURATION_WORKLOAD_ID);
+  const fallbacks = getWorkloadFallbackModelsFromManifest(CURATION_WORKLOAD_ID);
+  const ordered = [...(preferred ? [preferred] : []), ...fallbacks].filter(
+    (id) => id.trim().length > 0,
+  );
+  return [...new Set(ordered)];
+}
+
+/**
+ * Resolve `--model=<id>` against the manifest entry. An unknown id fails here —
+ * before the OpenAI call — so a typo costs nothing instead of a ~30s request
+ * that either 404s on the model or, worse, silently runs on the wrong one.
+ */
+export function resolveCurationModel(requested: string | undefined): string {
+  const allowed = allowedCurationModels();
+  if (allowed.length === 0) {
+    throw new Error(
+      `config/ai_models/manifest.json has no models for workload "${CURATION_WORKLOAD_ID}" — ` +
+        "add a defaultModel there instead of hardcoding one here.",
+    );
+  }
+  const wanted = (requested ?? "").trim();
+  if (!wanted) return allowed[0];
+  if (!allowed.includes(wanted)) {
+    throw new Error(
+      `--model=${wanted} is not listed for workload "${CURATION_WORKLOAD_ID}" in ` +
+        `config/ai_models/manifest.json. Allowed: ${allowed.join(", ")}`,
+    );
+  }
+  return wanted;
+}
+
+export function parseArgs(argv: string[]): Args {
   const args: Partial<Args> = { force: false };
+  let requestedModel: string | undefined;
   for (const a of argv.slice(2)) {
     if (a === "--force") args.force = true;
     else if (a.startsWith("--reference=")) args.reference = a.slice("--reference=".length);
@@ -54,6 +108,7 @@ function parseArgs(argv: string[]): Args {
       if (v !== "hard" && v !== "soft") throw new Error(`--class must be 'hard' or 'soft' (got: ${v})`);
       args.class = v;
     } else if (a.startsWith("--id=")) args.id = a.slice("--id=".length);
+    else if (a.startsWith("--model=")) requestedModel = a.slice("--model=".length);
   }
   if (!args.reference) throw new Error("--reference=<id> is required");
   if (!args.class) throw new Error("--class=hard|soft is required");
@@ -61,6 +116,7 @@ function parseArgs(argv: string[]): Args {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(args.id)) {
     throw new Error(`--id must be kebab-case (got: ${args.id})`);
   }
+  args.model = resolveCurationModel(requestedModel);
   return args as Args;
 }
 
@@ -235,7 +291,7 @@ Source material:
 ${sourcesBlock}`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: args.model,
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },
@@ -321,7 +377,11 @@ ${sourcesBlock}`;
         },
       },
     },
-    temperature: 0.2,
+    // Reasoning models (the gpt-5 family) reject a custom temperature with a
+    // HTTP 400, so the rule lives with its canonical owner instead of a fourth
+    // copy: getTemperatureConfig returns {} for those ids and {temperature}
+    // for classic ones. Relevant since the manifest default is a gpt-5 id.
+    ...getTemperatureConfig(args.model, 0.2),
   });
 
   const content = response.choices[0]?.message?.content;
@@ -378,6 +438,7 @@ async function main() {
 
   console.log(`[curate] reference=${args.reference} class=${args.class} id=${args.id}`);
   console.log(`[curate] sources: ${sources.length} file(s) sampled`);
+  console.log(`[curate] model=${args.model} (workload ${CURATION_WORKLOAD_ID})`);
   console.log(`[curate] calling OpenAI…`);
 
   const t0 = Date.now();
@@ -402,7 +463,23 @@ async function main() {
   console.log(`[curate] DONE — review the draft and edit before relying on it.`);
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+// Only run when invoked directly, so the regression test can import
+// parseArgs/resolveCurationModel without starting a curation run. Same
+// URL-string comparison as normalize-legacy-prospect.ts (robust across Windows
+// backslash/drive-letter differences).
+function isInvokedDirectly(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(entry).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isInvokedDirectly()) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

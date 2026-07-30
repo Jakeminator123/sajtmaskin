@@ -11,7 +11,10 @@ restlistan nedan. **2026-07-28 (#639)** gick samma väg för restlistans
 R1–R4 + R6 och för dossier/UI-ownership-planen, vars enda kvarvarande halva är
 ett ägarbeslut (restlistans R11). **2026-07-29** gick builder-runtime-planen
 samma väg: kärnan är levererad och indexerad, och dess två sista rader lever
-som restlistans R12–R13. Planlivscykeln ägs av
+som restlistans R12–R13. **Samma dag stängdes backoffice-spåret helt:** alla sju
+etapper i Byggstenar-planen är levererade, Fas C:s manuella UI-varv är kört och
+P2-6 avfärdad med skäl — plankatalogen är därför raderad och initiativet är en
+rad i [`../avklarat/README.md`](../avklarat/README.md). Planlivscykeln ägs av
 [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle.mdc). Defekter och
 repro-status ägs av [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md);
 kopiera inte dess kö hit.
@@ -22,8 +25,6 @@ kopiera inte dess kö hit.
 | --- | --- | --- | --- |
 | Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | **Steg 1–2 levererade 2026-07-29** (DB-genererad `files_revision` + telemetri-stämpel), prod-verifierat 2026-07-29: 135/135 versioner har revision, telemetrin stämplas. Steg 3 väntar på mätdata | Repair-pass-stämplingen (som mätte fel) är åtgärdad i #646. Samla mismatch-frekvens med SQL:en i planen, sedan steg 3 (läsarna jämför) |
 | Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | R1–R4 + R6 (#639), R7 + R9 + R10 + R11 klara 2026-07-29; fyra rader kvar (R5/R8 + R12/R13 från builder-runtime) | R8 och R12. R5 är blockerad tills verbatim-exportvägen trådar env-scope; R13 är en prod-observation |
-| Backoffice (Byggstenar + stringens-städ) | [`2026-07-24-backoffice-byggstenar/00-master-plan.md`](2026-07-24-backoffice-byggstenar/00-master-plan.md) | Fas A klar (#615), baseline-backupen klar 2026-07-28 — dataförlustrisken är stängd; etapp 3–7 öppna | Fas B (trygg create/edit för scaffold + variant) |
-
 ## Ägarbeslut — avgjorda 2026-07-28
 
 Kön "väntar på ägarbeslut" är tom. Utom den sista raden togs besluten av agent på
@@ -37,7 +38,7 @@ inte här.
 | `files_revision`: hash eller räknare? | **Hash, genererad av Postgres** (`md5(files_json)`) — ingen skrivare kan glömma den | samma |
 | Steg 1–2 separat från steg 3? | **Ja** — additivt först, beteende sen | samma |
 | ReleaseGate-bannern: noll spår eller diskret länk? | **Diskret diagnostik-länk** (noll spår gör UI:t osant) — implementerad 2026-07-28 (#639) | [`../avklarat/README.md`](../avklarat/README.md) § Restlistan |
-| Fas D: egna workload-poster i manifestet? | **Godkänt** — tre separata poster, ingen sammanslagning | [Byggstenar Fas D](2026-07-24-backoffice-byggstenar/aktiviteter/04-fas-d-ai-modellval.md) |
+| Fas D: egna workload-poster i manifestet? | **Godkänt** — tre separata poster, ingen sammanslagning. **Levererat 2026-07-29**; posternas `notes`-fält i `config/ai_models/manifest.json` bär numera motiveringen | [`../avklarat/README.md`](../avklarat/README.md) § Backoffice Byggstenar |
 | Vad ska tokenmätningen användas till? | Internt kostnadsunderlag, **inte** debitering: diamonds förblir fast pris per åtgärd; sekundära ytor mäts när de börjar debitera; OpenClaw/D-ID redovisas separat | [`scripts/observability/README.md`](../../../scripts/observability/README.md) § Vad mätningen är till för |
 | Ska en LLM-byggd konkurrerande yta raderas automatiskt när en dossier tar över samma capability? (R11) | **Nej** — prompt-prevention + Advisory är slutläget. Beslut av **ägaren själv** 2026-07-28: ett `REPLACES:`-utdataprotokoll skulle radera användarfiler vid felaktig deklaration, alltså dataförlust mot mindre brus | [restlistan § R11](2026-07-27-restlista-builder-f3-env.md) + [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) § Beslut & policy |
 

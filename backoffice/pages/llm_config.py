@@ -14,16 +14,13 @@ from backoffice.shared import (
     phase_routing_defaults,
     read_json,
     read_text,
-    render_where_panel,
     resolve_phase_models_for_dashboard,
     summarize_tier_models,
 )
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("LLM-faser & runtime-sanning")
-    render_where_panel("LLM-faser & runtime-sanning", domain_map)
 
     st.info(
         "**Var sanningen lever:** `config/ai_models/manifest.json` är navet för standardmodeller och workloads "

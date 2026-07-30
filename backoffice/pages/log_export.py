@@ -27,9 +27,7 @@ import streamlit as st
 
 from backoffice.shared import (
     BackofficeContext,
-    read_json,
     render_save_scope,
-    render_where_panel,
 )
 from backoffice.subprocess_runners import resolve_node_command
 
@@ -156,13 +154,6 @@ def render(ctx: BackofficeContext) -> None:
         "och ladda ner som JSON/CSV. **Read-only** (SELECT). Kan peka mot dev "
         "(`.env.local`) eller produktion (`.env.vercel.production.pulled`)."
     )
-
-    domain_map = (
-        read_json(ctx.domain_map_json)
-        if ctx.domain_map_json.is_file()
-        else {"pages": {}, "repoSiblings": {}}
-    )
-    render_where_panel("Logg-export", domain_map)
     render_save_scope(
         "prod",
         note="Exporten är read-only (SELECT), men kan läsa **produktionsdatabasen** "

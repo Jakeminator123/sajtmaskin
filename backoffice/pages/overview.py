@@ -9,7 +9,6 @@ from backoffice.shared import (
     BackofficeContext,
     nav_link_button,
     read_json,
-    render_where_panel,
 )
 
 
@@ -105,4 +104,3 @@ def render(ctx: BackofficeContext) -> None:
         for name, blurb in (domain_map.get("repoSiblings") or {}).items():
             st.markdown(f"**`{name}/`** — {blurb}")
 
-    render_where_panel("Översikt", domain_map)

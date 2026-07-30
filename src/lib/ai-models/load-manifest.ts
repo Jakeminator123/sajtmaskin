@@ -211,6 +211,14 @@ const workloadSchema = z.object({
   authEnv: z.array(z.string()),
   defaultModel: z.string().optional(),
   fallbackModels: z.array(z.string()).optional(),
+  /**
+   * Subset of `defaultModel` + `fallbackModels` that may receive images. A
+   * workload without this key has no vision path; callers must then send text
+   * only. Declared here so the field is a contract instead of a convention —
+   * Zod strips unknown keys, so an undeclared field would vanish for TS callers
+   * while Python read it, and the two surfaces would drift silently.
+   */
+  visionModels: z.array(z.string()).optional(),
   envOverrides: z.record(z.string(), z.string()).optional(),
   tokenBudget: tokenBudgetSchema.optional(),
   notes: z.string().optional(),

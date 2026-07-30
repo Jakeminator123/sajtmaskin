@@ -234,6 +234,35 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(m.workloads.some((w) => w.id === "post_generation_polish")).toBe(false);
   });
 
+  it("documents the three backoffice AI workloads as separate entries (Fas D)", () => {
+    // The wizard persona (vision), the wizard guide (text) and dossier curation
+    // are deliberately THREE entries: merging persona+guide would force a cheap
+    // Q&A onto a vision model and make the vision gate meaningless. None of them
+    // may be analyze_presentation_vision, which belongs to the body-language
+    // feature in src/app/api/analyze-presentation/route.ts.
+    const m = getAiModelsManifest();
+    const persona = m.workloads.find((w) => w.id === "backoffice_scaffold_wizard_persona");
+    const guide = m.workloads.find((w) => w.id === "backoffice_scaffold_wizard_guide");
+    const curation = m.workloads.find((w) => w.id === "backoffice_dossier_curation");
+
+    for (const entry of [persona, guide, curation]) {
+      expect(entry?.defaultModel).toBeTruthy();
+      expect(entry?.authEnv).toEqual(["OPENAI_API_KEY"]);
+    }
+    expect(persona?.defaultModel).not.toBe(guide?.defaultModel);
+
+    // visionModels must survive the Zod parse (an undeclared key would be
+    // stripped here while Python still read it — silent drift between surfaces).
+    expect(persona?.visionModels?.length).toBeGreaterThan(0);
+    expect(persona?.visionModels).toContain(persona?.defaultModel);
+    expect(guide?.visionModels).toBeUndefined();
+    // Every vision id must also be selectable, or it is dead configuration.
+    const offered = new Set([persona?.defaultModel, ...(persona?.fallbackModels ?? [])]);
+    for (const id of persona?.visionModels ?? []) expect(offered.has(id)).toBe(true);
+
+    expect(curation?.codeEntry).toContain("scripts/dossiers/curate-from-reference.ts");
+  });
+
   it("exposes the matchStrategy switch defaulting every point to its current method (B2.0 fas 6)", () => {
     // Every wired matching point defaults to the method used today, so the
     // switch is a no-op until explicitly changed.
