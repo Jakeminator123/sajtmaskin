@@ -43,6 +43,7 @@
     "SAJTMASKIN_PREVIEW_PATCH_LANE",
     "SAJTMASKIN_PRE_VM_TYPECHECK",
     "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
+    "SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_SHADCN_RESOLVER_SEARCH",
@@ -215,6 +216,7 @@
     "SAJTMASKIN_PRE_VM_TYPECHECK",
     "SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT",
     "SAJTMASKIN_PROMPT_DUMP",
+    "SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS",
     "SAJTMASKIN_SCAFFOLD_EMBED_VS_KEYWORD_BIAS",
     "SAJTMASKIN_SCAFFOLD_KEYWORD_MATCH",
     "SAJTMASKIN_SHADCN_RESOLVER_SEARCH",
@@ -1238,6 +1240,12 @@
         "production"
       ],
       "notes": "Feature flag for post-generation verifier pass. Explicitly set on all three Vercel targets so verifier runs the same way locally (.env.local), on preview deploys, and on production."
+    },
+    {
+      "key": "SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [],
+      "notes": "Rollout valve: downgrades unresolved local imports from error to warning in runProjectSanityChecks, so preview ships instead of blocking. Default (unset) is strict. Leave unset — while on it hides the most common failure class in generated code. Source: src/lib/gen/validation/project-sanity.ts."
     },
     {
       "key": "SAJTMASKIN_DOSSIER_PIPELINE",

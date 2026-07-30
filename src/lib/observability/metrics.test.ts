@@ -5,7 +5,6 @@ import {
   getPrometheusMetrics,
   incBriefCache,
   incEarlyStop,
-  incFixerCall,
   observePhase,
   incIngressEvent,
   incPartialFileRepair,
@@ -75,30 +74,6 @@ describe("observability/metrics", () => {
     );
   });
 
-  it("counts fixer calls partitioned by fixer + outcome", async () => {
-    incFixerCall("react-import-fixer", "applied");
-    incFixerCall("react-import-fixer", "applied");
-    incFixerCall("react-import-fixer", "noop");
-
-    const text = await getPrometheusMetrics();
-    expect(text).toContain("sajtmaskin_fixer_call_total");
-    expect(text).toMatch(
-      /sajtmaskin_fixer_call_total\{[^}]*fixer="react-import-fixer"[^}]*outcome="applied"[^}]*\}\s+2/,
-    );
-    expect(text).toMatch(
-      /sajtmaskin_fixer_call_total\{[^}]*outcome="noop"[^}]*\}\s+1/,
-    );
-  });
-
-  it("defaults fixer outcome to 'applied' when omitted", async () => {
-    incFixerCall("dep-completer");
-    const values = await getCounterValues("sajtmaskin_fixer_call_total");
-    const match = values.find(
-      (v) => v.labels.fixer === "dep-completer" && v.labels.outcome === "applied",
-    );
-    expect(match?.value).toBe(1);
-  });
-
   it("records blocking verifier findings by finding_id", async () => {
     incVerifierBlocking("navigation-placeholder-actions");
     const text = await getPrometheusMetrics();
@@ -126,14 +101,20 @@ describe("observability/metrics", () => {
   });
 
   it("resets custom counters back to zero via resetMetricsForTest", async () => {
-    incFixerCall("react-import-fixer", "applied");
-    let values = await getCounterValues("sajtmaskin_fixer_call_total");
-    expect(values.find((v) => v.labels.fixer === "react-import-fixer")?.value).toBe(1);
+    incVerifierBlocking("navigation-placeholder-actions");
+    let values = await getCounterValues("sajtmaskin_verifier_blocking_total");
+    expect(
+      values.find(
+        (v) => v.labels.finding_id === "navigation-placeholder-actions",
+      )?.value,
+    ).toBe(1);
 
     resetMetricsForTest();
 
-    values = await getCounterValues("sajtmaskin_fixer_call_total");
-    const after = values.find((v) => v.labels.fixer === "react-import-fixer");
+    values = await getCounterValues("sajtmaskin_verifier_blocking_total");
+    const after = values.find(
+      (v) => v.labels.finding_id === "navigation-placeholder-actions",
+    );
     // After reset the label combination is no longer present (or value is 0).
     expect(after?.value ?? 0).toBe(0);
   });

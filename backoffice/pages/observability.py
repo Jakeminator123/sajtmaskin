@@ -441,16 +441,15 @@ def render(ctx: BackofficeContext) -> None:
     # Counter tables
     # ------------------------------------------------------------------
 
-    st.subheader("Fixer calls")
-    fixer_df = _counter_dataframe(
-        sajtmaskin_series,
-        "sajtmaskin_fixer_call_total",
-        ("fixer", "outcome"),
+    st.info(
+        "Per-fixer statistik finns inte här. Prometheus-räknarna nedan är "
+        "in-memory per serverless-instans och nollställs när instansen "
+        "återvinns, så de duger för spot-koll men inte för "
+        "\"vilken fixer bär sin vikt?\". Den frågan besvaras durabelt ur "
+        "`generation_telemetry.meta->'autofix'->'fixers'` — kör "
+        "`node scripts/db/control-stats.mjs --json` och läs `fixersByName`.",
+        icon=":material/query_stats:",
     )
-    if fixer_df.empty:
-        st.caption("No fixer calls observed yet.")
-    else:
-        st.dataframe(fixer_df, hide_index=True, width="stretch")
 
     st.subheader("Verifier blocking findings")
     verifier_df = _counter_dataframe(

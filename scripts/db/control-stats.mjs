@@ -169,6 +169,24 @@ try {
        )`,
   );
 
+  // 4b) Deterministisk autofix: vilken enskild fixer ingriper, och hur ofta?
+  // Kompletterar 4) som bara ger aggregat (safe/risky). Utan den har varje
+  // enskild fixer varit omojlig att vardera - man har sett ATT autofix kor,
+  // inte VILKEN av de ~50 fixarna som bar sin vikt. `versions` = antal
+  // versioner dar fixern ingrep (viktigare an `n`, som ar totala fixar och
+  // domineras av enstaka korningar med manga traffar i samma fil).
+  out.fixersByName = await safe(
+    "fixersByName",
+    `SELECT f->>'fixer' AS fixer,
+            f->>'category' AS category,
+            SUM(COALESCE((f->>'count')::int, 0))::int AS n,
+            COUNT(DISTINCT t.version_id)::int AS versions
+     FROM generation_telemetry t,
+          jsonb_array_elements(t.meta->'autofix'->'fixers') f
+     WHERE t.created_at > ${W}
+     GROUP BY 1,2 ORDER BY versions DESC, n DESC LIMIT 60`,
+  );
+
   // 5) Preflight-issues per kategori (vilken typ av kodfel preflighten hittar).
   out.preflightIssueCategories = await safe(
     "preflightIssueCategories",

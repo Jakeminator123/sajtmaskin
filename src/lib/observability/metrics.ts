@@ -72,7 +72,6 @@ type MetricsBundle = {
   register: prom.Registry;
   phaseDuration: prom.Histogram<string>;
   promptToDone: prom.Histogram<string>;
-  fixerCall: prom.Counter<string>;
   verifierBlocking: prom.Counter<string>;
   partialFileRepair: prom.Counter<string>;
   earlyStop: prom.Counter<string>;
@@ -114,13 +113,6 @@ function initMetrics(): MetricsBundle {
       "until the SSE `done` event is emitted (or the stream errors/aborts).",
     labelNames: ["outcome", "kind"],
     buckets: PROMPT_TO_DONE_BUCKETS_MS,
-    registers: [register],
-  });
-
-  const fixerCall = new prom.Counter({
-    name: "sajtmaskin_fixer_call_total",
-    help: "Total number of autofix invocations, partitioned by fixer + outcome.",
-    labelNames: ["fixer", "outcome"],
     registers: [register],
   });
 
@@ -168,7 +160,6 @@ function initMetrics(): MetricsBundle {
     register,
     phaseDuration,
     promptToDone,
-    fixerCall,
     verifierBlocking,
     partialFileRepair,
     earlyStop,
@@ -223,13 +214,6 @@ export async function observePhase<T>(
       { ...(params.attrs ?? {}), kind: params.kind },
     );
   }
-}
-
-export function incFixerCall(
-  fixerName: string,
-  outcome: "applied" | "noop" | "error" = "applied",
-): void {
-  metrics.fixerCall.inc({ fixer: fixerName, outcome });
 }
 
 export function incVerifierBlocking(findingId: string): void {
@@ -300,7 +284,6 @@ export function getPrometheusMetrics(): Promise<string> {
 export function resetMetricsForTest(): void {
   metrics.phaseDuration.reset();
   metrics.promptToDone.reset();
-  metrics.fixerCall.reset();
   metrics.verifierBlocking.reset();
   metrics.partialFileRepair.reset();
   metrics.earlyStop.reset();

@@ -18,7 +18,7 @@ import type {
   FinalizeStepTelemetryMap,
   FinalizeSyntaxResult,
 } from "./types";
-import type { AutofixRiskSummary } from "./pre-phases";
+import type { AutofixFixerSummary, AutofixRiskSummary } from "./pre-phases";
 
 export async function persistTelemetryRecord(params: {
   chatId: string;
@@ -54,6 +54,17 @@ export async function persistTelemetryRecord(params: {
   autoFixWarningCount: number;
   autoFixDependencyCount: number;
   autoFixRisk: AutofixRiskSummary;
+  /**
+   * Per-fixer utfall för den här körningen (`summarizeAutofixFixers`).
+   * Persisteras i `meta.autofix.fixers` så frågan "vilken fixer ingriper
+   * faktiskt, och hur ofta?" går att besvara med SQL i efterhand. Utan den
+   * fanns bara `fixCount` (hur många fixar totalt) och `riskyFixerIds` (vilka
+   * riskklassade fixers som rörde koden, utan antal) — vilket gjorde det
+   * omöjligt att se vilka av de ~50 fixarna som bär sin vikt. Ephemer
+   * event-bus/devLog-data överlever inte serverless, så DB är enda durabla
+   * ytan. Tom lista skrivs INTE (samma meta-hygien som `selectedDossierIds`).
+   */
+  autoFixFixers?: AutofixFixerSummary[];
   verifierBlocked: boolean;
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
   preflightIssueCount: number;
@@ -95,6 +106,7 @@ export async function persistTelemetryRecord(params: {
     autoFixWarningCount,
     autoFixDependencyCount,
     autoFixRisk,
+    autoFixFixers,
     verifierBlocked,
     verifierBlockingFindings,
     preflightIssueCount,
@@ -118,6 +130,9 @@ export async function persistTelemetryRecord(params: {
         safeFixCount: autoFixRisk.safeFixCount,
         riskyFixCount: autoFixRisk.riskyFixCount,
         riskyFixerIds: autoFixRisk.riskyFixerIds,
+        ...(autoFixFixers && autoFixFixers.length > 0
+          ? { fixers: autoFixFixers }
+          : {}),
       },
       preflight: {
         previewBlocked: hasPreviewBlockingPreflightErrors,

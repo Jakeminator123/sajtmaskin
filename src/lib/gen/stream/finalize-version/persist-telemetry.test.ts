@@ -76,3 +76,54 @@ describe("persistTelemetryRecord — dossier-val (Fas 0)", () => {
     expect(arg.meta).not.toHaveProperty("selectedDossierIds");
   });
 });
+
+describe("persistTelemetryRecord — per-fixer-utfall", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createGenerationTelemetryRecord.mockResolvedValue({ id: "tel_1" });
+  });
+
+  it("skriver meta.autofix.fixers så varje fixer går att följa upp i efterhand", async () => {
+    await persistTelemetryRecord(
+      makeParams({
+        autoFixFixCount: 5,
+        autoFixFixers: [
+          {
+            fixer: "react-import-fixer",
+            category: "mechanical",
+            lane: "mechanical",
+            count: 3,
+            files: ["app/page.tsx"],
+          },
+          { fixer: "llm-syntax-fixer", category: "llm", count: 2 },
+        ],
+      }),
+    );
+
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.autofix.fixers).toEqual([
+      {
+        fixer: "react-import-fixer",
+        category: "mechanical",
+        lane: "mechanical",
+        count: 3,
+        files: ["app/page.tsx"],
+      },
+      { fixer: "llm-syntax-fixer", category: "llm", count: 2 },
+    ]);
+    // Aggregatet ska finnas kvar — `fixers` kompletterar, ersätter inte.
+    expect(arg.meta.autofix.fixCount).toBe(5);
+  });
+
+  it("utelämnar fixers när ingen fixer ingrep (håller meta jämförbart över tid)", async () => {
+    await persistTelemetryRecord(makeParams({ autoFixFixers: [] }));
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.autofix).not.toHaveProperty("fixers");
+  });
+
+  it("utelämnar fixers när anroparen inte skickar med dem alls", async () => {
+    await persistTelemetryRecord(makeParams());
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.autofix).not.toHaveProperty("fixers");
+  });
+});
