@@ -169,6 +169,10 @@ export function useCreateChat(
             router.replace(`/builder?${p.toString()}`);
           }
           toast.success("Återansluter till pågående skapning");
+          // Chatten finns — Byggval är förbrukat av den ursprungliga
+          // skapningen (som läste storen synkront). Rensa så nästa nya chat
+          // inte ärver gamla val.
+          resetInitBuildChoices();
         } else {
           toast("En skapning med samma prompt pågår redan. Vänta en stund och försök igen.");
         }
@@ -590,6 +594,11 @@ export function useCreateChat(
             }
             const data = await fallbackRes.json();
             await handleNonStreamingCreate(data);
+            // Lyckad skapning via fallback — samma konsumtion som happy path.
+            if (pendingBriefRef?.current) {
+              pendingBriefRef.current = null;
+            }
+            resetInitBuildChoices();
             return true;
           } catch (fallbackErr) {
             if (isClientInitiatedAbort(fallbackErr, fallbackController)) {
