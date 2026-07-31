@@ -21,6 +21,27 @@ import {
 
 const BRIEF_SOURCE_DYNAMIC_INSTRUCTIONS = "dynamic_instructions";
 
+/**
+ * N4/A2 (2026-07-31): Deep Brief runs before the chat exists (no message to
+ * attach a status row to yet — see the P22 init-only guard below), so its
+ * progress can't go through chat-state props. `toast.loading` used to carry
+ * it, but the toast surface was invisible (see `sonner.tsx` — A1 root
+ * cause). Dispatch a window event instead; `ChatInterface`'s already-shipped
+ * "Förbereder prompt..." status row (rendered right under the composer, i.e.
+ * in the chat panel itself) listens and shows the real phase text. Actual
+ * *errors* stay on `toast` (A3) — they're system events, not flow status.
+ */
+export const INIT_BRIEF_STATUS_EVENT = "sajtmaskin:init-brief-status";
+
+export type InitBriefStatusDetail = { status: string | null };
+
+function dispatchInitBriefStatus(status: string | null): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<InitBriefStatusDetail>(INIT_BRIEF_STATUS_EVENT, { detail: { status } }),
+  );
+}
+
 export function useInitBrief(params: PromptAssistConfig) {
   const { model, deep, imageGenerations, buildIntent, themeColors } = params;
 
@@ -96,9 +117,7 @@ export function useInitBrief(params: PromptAssistConfig) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), PROMPT_ASSIST_TIMEOUT_MS);
       try {
-        toast.loading("Skapar brief och dynamiska instruktioner innan own-engine startar...", {
-          id: "sajtmaskin:dynamic-instructions",
-        });
+        dispatchInitBriefStatus("Skapar brief och dynamiska instruktioner innan own-engine startar…");
 
         const res = await fetch("/api/ai/brief", {
           method: "POST",
@@ -139,9 +158,7 @@ export function useInitBrief(params: PromptAssistConfig) {
           debugLog("AI", "Dynamic instructions completed (brief only, addendum skipped)", {
             durationMs: Date.now() - startedAt,
           });
-          toast.success("Brief klar — own-engine kan starta.", {
-            id: "sajtmaskin:dynamic-instructions",
-          });
+          dispatchInitBriefStatus("Brief klar — own-engine kan starta.");
           return "";
         }
 
@@ -158,9 +175,7 @@ export function useInitBrief(params: PromptAssistConfig) {
           outputLength: addendum.length,
         });
 
-        toast.success("Brief klar — own-engine kan starta.", {
-          id: "sajtmaskin:dynamic-instructions",
-        });
+        dispatchInitBriefStatus("Brief klar — own-engine kan starta.");
 
         return (
           addendum.trim() ||
@@ -207,6 +222,7 @@ export function useInitBrief(params: PromptAssistConfig) {
         });
       } finally {
         clearTimeout(timeoutId);
+        dispatchInitBriefStatus(null);
       }
     },
     [model, deep, imageGenerations, buildIntent, themeColors],

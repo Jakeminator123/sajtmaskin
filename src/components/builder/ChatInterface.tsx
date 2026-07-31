@@ -42,6 +42,7 @@ import {
   type InspectCapturedElement,
   type InspectCaptureEventDetail,
 } from "@/lib/builder/inspect-events";
+import { INIT_BRIEF_STATUS_EVENT, type InitBriefStatusDetail } from "@/lib/hooks/useInitBrief";
 import { toast } from "sonner";
 
 type MessageOptions = {
@@ -287,6 +288,24 @@ export function ChatInterface({
   const inputDisabled = isSending || isBusy;
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
+
+  // N4/A2: Deep Brief-statusen ("Skapar brief...", "Brief klar...") kommer
+  // som ett window-event från useInitBrief.ts — den körs innan chatten (och
+  // därmed AgentLogCard) ens finns, så den kan inte gå via chat-state/props.
+  // Faller tillbaka till den generiska texten nedan om inget event hunnit
+  // komma (t.ex. prompt-assist av).
+  const [initBriefStatus, setInitBriefStatus] = useState<string | null>(null);
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<InitBriefStatusDetail>).detail;
+      setInitBriefStatus(typeof detail?.status === "string" ? detail.status : null);
+    };
+    window.addEventListener(INIT_BRIEF_STATUS_EVENT, handler as EventListener);
+    return () => window.removeEventListener(INIT_BRIEF_STATUS_EVENT, handler as EventListener);
+  }, []);
+  useEffect(() => {
+    if (!isPreparingPrompt) setInitBriefStatus(null);
+  }, [isPreparingPrompt]);
 
   const handleInputChange = (value: string) => {
     setInput(value);
@@ -944,7 +963,7 @@ export function ChatInterface({
           {showPreparingPrompt && (
             <div className="text-muted-foreground flex items-center gap-2 text-xs">
               <Loader2 className="size-3.5 animate-spin" />
-              Förbereder prompt...
+              {initBriefStatus ?? "Förbereder prompt..."}
             </div>
           )}
           <div className="flex items-end justify-between gap-2">
