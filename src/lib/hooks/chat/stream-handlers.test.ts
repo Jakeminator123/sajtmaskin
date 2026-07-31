@@ -574,6 +574,7 @@ describe("handleSseStream", () => {
             previewUrl: "https://preview.example",
             previewSessionId: "sb_1",
             previewTier: 2,
+            runtimeConfirmed: false,
           },
           "",
         );
@@ -596,8 +597,16 @@ describe("handleSseStream", () => {
       .find((message) => message.id === "assistant_1")
       ?.uiParts?.find(
         (part) => (part as { type?: string }).type === "tool:engine-preview",
-      ) as { state?: string } | undefined;
+      ) as { state?: string; output?: { phase?: string; steps?: unknown } } | undefined;
     expect(readyPreviewProgress?.state).toBe("output-available");
+    expect(readyPreviewProgress?.output?.phase).toBe("boot-queued");
+    expect(
+      Array.isArray(readyPreviewProgress?.output?.steps)
+        ? readyPreviewProgress.output.steps
+        : [],
+    ).toContain(
+      "Preview-sessionen är skapad. Miljön fortsätter starta i previewytan.",
+    );
   });
 
   it("does not set iframe URL from done when previewUrl is compatibility shim only", async () => {

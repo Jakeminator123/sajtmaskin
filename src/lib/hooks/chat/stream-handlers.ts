@@ -440,6 +440,14 @@ export async function handleSseStream(
       if (phase === "starting") {
         return ["Startar tier-2-preview (VM) ..."];
       }
+      if (phase === "boot-queued") {
+        return [
+          "Preview-sessionen är skapad. Miljön fortsätter starta i previewytan.",
+        ];
+      }
+      if (phase === "ready") {
+        return ["Live-preview är klar."];
+      }
       if (phase === "build-verified") {
         return ["Production build (npm run build) lyckades i verifierings-VM — separat från dev-preview."];
       }
@@ -467,7 +475,8 @@ export async function handleSseStream(
     const completed =
       phase === "passed" ||
       phase === "done" ||
-      (step === "preview" && (phase === "ready" || phase === "build-verified"));
+      (step === "preview" &&
+        (phase === "boot-queued" || phase === "ready" || phase === "build-verified"));
     const failed =
       phase === "error" ||
       phase === "gave-up" ||
@@ -940,7 +949,15 @@ export async function handleSseStream(
             }
 
             if (previewUrl && Object.keys(tierMeta).length > 0 && pb === undefined) {
-              appendProgressPart("preview", "ready", tierMeta);
+              const runtimeConfirmed =
+                typeof previewData.runtimeConfirmed === "boolean"
+                  ? previewData.runtimeConfirmed
+                  : undefined;
+              appendProgressPart(
+                "preview",
+                runtimeConfirmed === false ? "boot-queued" : "ready",
+                { ...tierMeta, ...(runtimeConfirmed === undefined ? {} : { runtimeConfirmed }) },
+              );
             }
             break;
           }
