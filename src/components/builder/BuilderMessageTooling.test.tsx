@@ -180,6 +180,19 @@ describe("StructuredToolParts", () => {
     expect(screen.getByLabelText("Steget misslyckades")).toBeTruthy();
   });
 
+  it("keeps failure status visible in the collapsed completed header", () => {
+    render(
+      <AgentLogCard
+        items={[{ label: "Preview kunde inte starta.", failed: true }]}
+        isActive={false}
+      />,
+    );
+
+    expect(screen.getByLabelText("Ett byggsteg misslyckades")).toBeTruthy();
+    expect(screen.getByText("Slutsteg (1) · fel")).toBeTruthy();
+    expect(screen.getByText("Fel upptäcktes — visa detaljer")).toBeTruthy();
+  });
+
   it("ignores stale pipeline progress after the message stream ends but keeps client post-checks", () => {
     const staleGeneration = {
       type: "tool",

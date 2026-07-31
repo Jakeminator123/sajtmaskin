@@ -433,11 +433,16 @@ const MessageListComponent = ({
             ? []
             : toolParts.filter((part) => isActionableToolPart(part.tool));
           const agentLogItems = showStructuredParts ? [] : buildAgentLogItemsFromTooling(toolParts);
-          const activeAgentLogLabel = showStructuredParts || hasUserAfterCurrentMessage
+          const measuredActiveAgentLogLabel = showStructuredParts || hasUserAfterCurrentMessage
             ? null
             : getActiveAgentLogLabel(toolParts, {
                 includePipelineProgress: Boolean(message.isStreaming),
               });
+          const latestFailedAgentLogLabel = message.isStreaming
+            ? [...agentLogItems].reverse().find((item) => item.failed)?.label ?? null
+            : null;
+          const activeAgentLogLabel =
+            measuredActiveAgentLogLabel ?? latestFailedAgentLogLabel;
           const currentTurnIsActive =
             !hasUserAfterCurrentMessage &&
             Boolean(message.isStreaming || activeAgentLogLabel);
