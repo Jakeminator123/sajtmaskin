@@ -13,8 +13,9 @@ alwaysApply: false
 | `npm run dev:clean` | rensa Next-cache + start |
 | `npm run typecheck` | TypeScript-check |
 | `npm run lint` | ESLint |
-| `npm run test:ci` | hela Vitest-sviten |
+| `npm run test:ci` | hela Vitest-sviten (körs **utan** databas, med flit) |
 | `npm run test:focused` | snabb kärnsubset |
+| `npm run test:postgres` | DB-backade kontrakt (`*.postgres.test.ts`) mot en riktig dev-Postgres. Skippas utan `POSTGRES_URL`; vägrar prod. Se [`docs/testing.md`](../../docs/testing.md) |
 | `npm run devtest` | typecheck + scaffold/dossier/test/lint |
 | `npm run backoffice` | starta Streamlit-backoffice |
 | `npm run scaffolds:validate` | validera scaffold-manifests |
