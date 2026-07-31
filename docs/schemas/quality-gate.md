@@ -631,6 +631,23 @@ Ingen migration: `deploy_result`-kolumnen finns redan och dossier-val lagras i
 befintlig `meta` (jsonb). Tomma dossier-listor skrivs inte → historiska rader
 utan nyckeln = "ingen dossier".
 
+## Telemetri-fält: `variant_id` (scaffold-variant per generation)
+
+`generation_telemetry.variant_id` (kolumn, text nullable; migration
+`add-generation-telemetry-variant-id.sql`) är den orchestrate-låsta
+scaffold-varianten (stilriktningen) för generationen, t.ex. `corporate-grid`.
+
+| Läge | Betyder |
+|---|---|
+| `"<variant-id>"` | Varianten som `finalizeOrchestrationPrompts` låste — samma värde som `orchestrationStreamMeta.variantId` / snapshotens `variantId`. |
+| `null` | Rad skriven före kolumnen fanns, legacy-snapshot utan variant, eller eval/synthetisk körning. |
+
+Skrivs av `persistTelemetryRecord` (finalize) och ärvs av repair-raden i
+`recordRepairPassedQualityGate` (samma princip som `chatId`/`model`). Innan
+kolumnen fanns var enda källan `engine_chats.orchestration_snapshot.variantId`,
+som bara håller chattens *senaste* tillstånd — per-version-historik och
+fördelningsanalys över tid var omöjlig.
+
 ## Telemetri-fält: ärlig `preview_success` (M#pv1)
 
 `generation_telemetry.preview_success` (kolumn `boolean` nullable) är en

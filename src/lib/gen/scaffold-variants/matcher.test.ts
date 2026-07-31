@@ -60,6 +60,48 @@ describe("pickScaffoldVariant", () => {
   });
 });
 
+describe("pickScaffoldVariant — tie-break vid nollpoäng", () => {
+  // Avsiktligt nonsens: prompten får inte träffa något variant-keyword och
+  // inga färglägesord (dark/light-boosten). Testet gäller nollpoängsvägen.
+  const zeroHitPrompt = "Xyzzy plugh snarfblatt kwyjibo";
+
+  it("roterar över hela variantfältet, inte bara de fyra första alfabetiskt", () => {
+    const allIds = getVariantsForScaffold("landing-page").map((variant) => variant.id);
+    const picked = new Set<string>();
+    for (let i = 0; i < 12 * allIds.length; i += 1) {
+      const variant = pickScaffoldVariant({
+        prompt: zeroHitPrompt,
+        scaffoldId: "landing-page",
+        generationMode: "init",
+        sessionSeed: `seed-${i}`,
+      });
+      if (variant) picked.add(variant.id);
+    }
+    // Före fixen var poolen exakt de 4 första i bokstavsordning
+    // (asymmetric-stack, bold-startup, corporate-grid, editorial-lux).
+    expect(picked.size).toBeGreaterThan(4);
+    for (const id of picked) {
+      expect(allIds).toContain(id);
+    }
+  });
+
+  it("är deterministisk för samma prompt + seed", () => {
+    const first = pickScaffoldVariant({
+      prompt: zeroHitPrompt,
+      scaffoldId: "landing-page",
+      generationMode: "init",
+      sessionSeed: "stable-seed",
+    });
+    const second = pickScaffoldVariant({
+      prompt: zeroHitPrompt,
+      scaffoldId: "landing-page",
+      generationMode: "init",
+      sessionSeed: "stable-seed",
+    });
+    expect(first?.id).toBe(second?.id);
+  });
+});
+
 describe("lockedVariantForFollowUp (P22)", () => {
   // Använd en faktisk variant från registry så testet inte beror på en mock.
   const landingVariants = getVariantsForScaffold("landing-page");

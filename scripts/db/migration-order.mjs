@@ -67,6 +67,9 @@ export const MIGRATION_ORDER = [
   // Inbox för inkommande OpenAI plattforms-webhooks (POST /api/webhooks/openai).
   // Fristående CREATE — inga beroenden på andra tabeller.
   "add-openai-webhook-events.sql",
+  // Scaffold-variant (stilriktning) per generation — samma selektionsyta som
+  // scaffold_selection_*. Additiv ALTER; basen skapas tidigare i ordningen.
+  "add-generation-telemetry-variant-id.sql",
 ];
 
 /**

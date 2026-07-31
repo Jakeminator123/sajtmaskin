@@ -127,3 +127,32 @@ describe("persistTelemetryRecord — per-fixer-utfall", () => {
     expect(arg.meta.autofix).not.toHaveProperty("fixers");
   });
 });
+
+describe("persistTelemetryRecord — variant_id", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createGenerationTelemetryRecord.mockResolvedValue({ id: "tel_1" });
+  });
+
+  it("trådar orchestrationStreamMeta.variantId till telemetriraden", async () => {
+    await persistTelemetryRecord(
+      makeParams({ orchestrationStreamMeta: { variantId: "corporate-grid" } }),
+    );
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.variantId).toBe("corporate-grid");
+  });
+
+  it("skriver null när meta saknar variantId (legacy-snapshot/eval)", async () => {
+    await persistTelemetryRecord(makeParams({ orchestrationStreamMeta: null }));
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.variantId).toBeNull();
+  });
+
+  it("normaliserar tom/whitespace-variantId till null", async () => {
+    await persistTelemetryRecord(
+      makeParams({ orchestrationStreamMeta: { variantId: "   " } }),
+    );
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.variantId).toBeNull();
+  });
+});
