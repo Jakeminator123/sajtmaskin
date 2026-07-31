@@ -1,5 +1,7 @@
 import * as prom from "prom-client";
 
+import type { ContentRevisionSurface } from "@/lib/gen/verify/content-revision";
+
 /**
  * Canonical pipeline phase names observed via {@link recordPhaseDuration}.
  * Note: `pre_vm_typecheck` was merged into `validate_syntax` in 2026-04-20 W3
@@ -77,6 +79,7 @@ type MetricsBundle = {
   earlyStop: prom.Counter<string>;
   ingressEvent: prom.Counter<string>;
   briefCache: prom.Counter<string>;
+  contentRevisionMismatch: prom.Counter<string>;
 };
 
 declare global {
@@ -156,6 +159,16 @@ function initMetrics(): MetricsBundle {
     registers: [register],
   });
 
+  const contentRevisionMismatch = new prom.Counter({
+    name: "sajtmaskin_content_revision_mismatch_total",
+    help:
+      "Innehållsrevision steg 3: antal gånger en läsare hittade en KÄND mismatch " +
+      "(verdiktet/kvittot bär en revision som inte är innehållets), partitionerat " +
+      "på yta och verdikt. Okänd revision räknas inte — den är fail-open.",
+    labelNames: ["surface", "verdict"],
+    registers: [register],
+  });
+
   const bundle: MetricsBundle = {
     register,
     phaseDuration,
@@ -165,6 +178,7 @@ function initMetrics(): MetricsBundle {
     earlyStop,
     ingressEvent,
     briefCache,
+    contentRevisionMismatch,
   };
 
   globalThis.__sajtmaskinMetricsRegistry = bundle;
@@ -253,6 +267,24 @@ export function incIngressEvent(
 }
 
 /**
+ * Innehållsrevision steg 3: en läsare avvisade ett verdikt/kvitto vars revision
+ * bevisligen inte är innehållets. Detta är mätunderlaget flaggan
+ * (`SAJTMASKIN_CONTENT_REVISION_GATE`) finns för att samla in — okänd revision
+ * räknas medvetet INTE, eftersom den är fail-open och inte en mismatch.
+ *
+ * `verdict` hålls lågkardinell (gate-resultatsträngen eller `""`) så
+ * Prometheus-label-setet förblir stabilt.
+ */
+export function incContentRevisionMismatch(
+  surface: ContentRevisionSurface,
+  attrs?: { verdict?: string | null },
+): void {
+  const verdict =
+    typeof attrs?.verdict === "string" && attrs.verdict.length > 0 ? attrs.verdict : "";
+  metrics.contentRevisionMismatch.inc({ surface, verdict });
+}
+
+/**
  * Observe the end-to-end "prompt → done" duration in milliseconds. `kind`
  * distinguishes the initial chat-creation stream from follow-up streams;
  * `outcome` separates successful `done` emissions from client aborts and
@@ -289,4 +321,5 @@ export function resetMetricsForTest(): void {
   metrics.earlyStop.reset();
   metrics.ingressEvent.reset();
   metrics.briefCache.reset();
+  metrics.contentRevisionMismatch.reset();
 }

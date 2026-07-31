@@ -119,6 +119,12 @@ Första fallet är `files_revision` (`scripts/db/files-revision-contract.postgre
 kolumnen är `GENERATED ALWAYS AS (md5(files_json)) STORED`, så en mock kan bevisa
 att Drizzle *formulerar* en subselect men aldrig att Postgres räknar om värdet.
 
+Andra fallet är läsarsidan av samma primitiv
+(`scripts/db/content-revision-readers.postgres.test.ts`): revisionsgrinden i
+kvittots UPDATE och verdikt-läsarens radval. Den bevisar också att Postgres'
+`md5()` och Nodes `createHash("md5")` ger samma värde — antagandet hela
+jämförelsen står på, och något en mock aldrig kan visa.
+
 ### Varför en egen lane och inte bara en env-variabel
 
 `test:ci` körs **medvetet utan databas**, och flera tester verifierar just att

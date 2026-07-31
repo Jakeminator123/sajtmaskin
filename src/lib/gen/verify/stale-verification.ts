@@ -21,6 +21,7 @@
  */
 import { STALE_VERIFICATION_TIMEOUT_MS } from "@/lib/gen/defaults";
 import type { VersionStatus } from "@/lib/logging/event-bus-types";
+import { isKnownRevisionMismatch, shortRevision } from "./content-revision";
 
 /**
  * Verification states that keep a status surface in a non-terminal (spinning)
@@ -63,6 +64,70 @@ export function isTimedOutVerificationState(
 }
 
 /**
+ * Innehållsrevisionerna en terminal status kan jämföras mot (steg 3).
+ *
+ * Anroparen skickar dem BARA när flaggan
+ * (`SAJTMASKIN_CONTENT_REVISION_GATE`) är på — den här modulen är ren och läser
+ * ingen env. Utan dem är `reconcileTerminalDbState` bit-för-bit dagens funktion.
+ */
+export type ContentRevisionContext = {
+  /** Revisionen det terminala verdiktet beskriver (senaste telemetri-raden). */
+  verdictRevision?: string | null;
+  /** Revisionen versionsraden håller nu (`engine_versions.files_revision`). */
+  currentRevision?: string | null;
+};
+
+/**
+ * Bugg-typ 3 i innehållsrevisionsplanen: ett terminalt bus-verdikt kan beskriva
+ * ett äldre innehåll (klassiskt fall: user-edit via `/files` skriver om
+ * `files_json` men bussen är per-instans in-memory och behåller sitt `done`).
+ *
+ * Fixen är en **degradering, inte en fasändring** — och det är hela poängen. Att
+ * låta DB-`pending` degradera ett terminalt `done` var det avfärdade förslag 2 i
+ * planen: bus-`done` + DB-`pending` är OCKSÅ det normala render-first-läget
+ * mellan finalize och bakgrundsverify, så varje normal generation skulle flappa
+ * tillbaka till spinner. Revisionen skiljer fallen: i render-first-fönstret är
+ * verdiktets revision fortfarande innehållets, så det här är en no-op. Bara en
+ * BEVISAD mismatch degraderar, och fasen lämnas orörd så klientens
+ * terminal-detektering (och därmed poll-stoppet) inte påverkas.
+ *
+ * Effekten i UI:t går via befintlig false-green-vakt: en degraderad `done`
+ * mappas av `mapVersionStatusToDisplay` till `degraded` (amber "Degraderad",
+ * aldrig grön "Klar"/"Publicerad"), och ett terminalt `failed` förblir rött men
+ * bär noten som förklarar att verdiktet gäller ett äldre innehåll — att måla om
+ * ett rött verdikt till neutralt vore false-green-riktningen.
+ */
+function withStaleRevisionDegradation(
+  status: VersionStatus,
+  contentRevision?: ContentRevisionContext,
+): VersionStatus {
+  if (!contentRevision) return status;
+  if (status.phase !== "done" && status.phase !== "failed") return status;
+  if (!isKnownRevisionMismatch(contentRevision.verdictRevision, contentRevision.currentRevision)) {
+    return status;
+  }
+  if (status.degradations.some((d) => d.kind === "stale_content_revision")) return status;
+  return {
+    ...status,
+    degradations: [
+      ...status.degradations,
+      {
+        kind: "stale_content_revision",
+        message:
+          `Statusen gäller ett äldre innehåll (verdikt ${shortRevision(
+            contentRevision.verdictRevision,
+          )}, filer ${shortRevision(contentRevision.currentRevision)}) — ` +
+          "kör verifieringen igen för ett verdikt om det som ligger nu.",
+        meta: {
+          verdictRevision: contentRevision.verdictRevision ?? null,
+          currentRevision: contentRevision.currentRevision ?? null,
+        },
+      },
+    ],
+  };
+}
+
+/**
  * Reconcile a bus-derived `VersionStatus` with the authoritative DB
  * `verification_state` so a stuck spinner always resolves. Only ever moves a
  * NON-terminal bus phase to a terminal one — never the reverse, and never
@@ -85,8 +150,24 @@ export function isTimedOutVerificationState(
  * `repair_available` is intentionally left to the bus: its accept-prompt is
  * surfaced by the readiness/versions surfaces, not this projection, and the
  * client-side poll cap is the ultimate backstop for that rarer case.
+ *
+ * `contentRevision` (steg 3, flagg-gated hos anroparen) låter en terminal status
+ * som beskriver ett äldre innehåll degraderas — se
+ * {@link withStaleRevisionDegradation}. Utan argumentet är beteendet oförändrat.
  */
 export function reconcileTerminalDbState(
+  status: VersionStatus,
+  dbVerificationState: string | null | undefined,
+  dbReleaseState?: string | null,
+  contentRevision?: ContentRevisionContext,
+): VersionStatus {
+  return withStaleRevisionDegradation(
+    reconcileTerminalDbStateInner(status, dbVerificationState, dbReleaseState),
+    contentRevision,
+  );
+}
+
+function reconcileTerminalDbStateInner(
   status: VersionStatus,
   dbVerificationState: string | null | undefined,
   dbReleaseState?: string | null,

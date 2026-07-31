@@ -40,7 +40,13 @@ import {
   resolveGateFailureSummaryFromLogs,
 } from "@/lib/gen/verify/gate-failure-summary";
 import type { VersionErrorLog } from "@/lib/db/services/shared";
-import { reconcileTerminalDbState } from "@/lib/gen/verify/stale-verification";
+import {
+  reconcileTerminalDbState,
+  type ContentRevisionContext,
+} from "@/lib/gen/verify/stale-verification";
+import { isContentRevisionGateEnabled } from "@/lib/gen/verify/content-revision";
+import { getLatestQualityGateSignalForVersion } from "@/lib/db/services/generation-telemetry";
+import { incContentRevisionMismatch } from "@/lib/observability/metrics";
 import {
   RECONCILED_PROMOTE_SUMMARY,
   settleStaleVerificationIfNeeded,
@@ -176,6 +182,27 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
         ? selectVersionStatus(readAll(dbVersion.id))
         : busStatus;
 
+    // Innehållsrevision steg 3 (flagg-gated): en TERMINAL bus-status kan beskriva
+    // ett äldre innehåll — user-edit via `/files` skriver om `files_json` medan
+    // bussen (per-instans in-memory) behåller sitt `done`. Läs verdiktets revision
+    // bara i det läget: en icke-terminal status är ändå ingen "Klar"-claim, och
+    // terminala statusar slutar pollas av `useVersionStatus`, så detta är inte den
+    // heta 4s-vägen. Read-only och best-effort — ett läsfel får aldrig fälla
+    // statussvaret, det bara uteblir degraderingen.
+    let contentRevision: ContentRevisionContext | undefined;
+    const busTerminal =
+      effectiveBusStatus.phase === "done" || effectiveBusStatus.phase === "failed";
+    if (busTerminal && isContentRevisionGateEnabled()) {
+      const signal = await getLatestQualityGateSignalForVersion(dbVersion.id).catch(() => null);
+      if (signal?.revisionMatch === "stale") {
+        incContentRevisionMismatch("status_projection", { verdict: signal.result });
+        contentRevision = {
+          verdictRevision: signal.verdictRevision,
+          currentRevision: signal.contentRevision,
+        };
+      }
+    }
+
     // Read-only reconcile: map an ALREADY-terminal DB state (failed/passed) onto
     // a still-spinning bus so a died-mid-verify job can't tick forever. Safe
     // no-op when the DB is non-terminal (e.g. a pending design preview), so this
@@ -185,6 +212,7 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       effectiveBusStatus,
       dbVersion.verification_state,
       dbVersion.release_state,
+      contentRevision,
     );
 
     return NextResponse.json<VersionStatusApiResponse>({

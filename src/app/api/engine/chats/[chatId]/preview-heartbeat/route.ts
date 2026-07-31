@@ -10,8 +10,8 @@ import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-teleme
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import {
-  hasConfirmedPreviewReadyOnInstance,
   recordPreviewRuntimeOutcomeForVersion,
+  shouldVerifyPreviewRuntimeReceipt,
 } from "@/lib/db/services/generation-telemetry";
 import type { PreviewHeartbeatApiJson } from "@/lib/gen/preview/preview-contract";
 
@@ -98,19 +98,24 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       // steady-state heartbeats add no host or DB traffic. Scheduled via
       // `after()` so the stamp never delays the heartbeat response;
       // best-effort + monotonic + atomic inside the writer.
-      if (!hasConfirmedPreviewReadyOnInstance(versionId)) {
-        after(async () => {
-          try {
-            const resumed = await tryResumeTier2Runtime(session);
-            if (resumed) {
-              await recordPreviewRuntimeOutcomeForVersion(versionId, true);
-            }
-          } catch {
-            // Best-effort: a failed receipt check must never surface —
-            // the next heartbeat retries.
+      //
+      // The confirmed-check moved INSIDE `after()` because it is revision-scoped
+      // with the content-revision gate on (a same-version rewrite must be
+      // re-verified — the cache half of M#pv4) and therefore async. The request
+      // path stays DB-free either way, and the gate still prevents both the host
+      // call and the DB write.
+      after(async () => {
+        try {
+          if (!(await shouldVerifyPreviewRuntimeReceipt(versionId))) return;
+          const resumed = await tryResumeTier2Runtime(session);
+          if (resumed) {
+            await recordPreviewRuntimeOutcomeForVersion(versionId, true);
           }
-        });
-      }
+        } catch {
+          // Best-effort: a failed receipt check must never surface —
+          // the next heartbeat retries.
+        }
+      });
 
       logPreviewLifecycleTelemetry({
         kind: "heartbeat",

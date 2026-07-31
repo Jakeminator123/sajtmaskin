@@ -4,10 +4,39 @@ import { describe, expect, it, vi } from "vitest";
 // DB client (which throws at import time without a connection string). Every
 // test below injects its own reader, so this mock's value is never used.
 vi.mock("./services/generation-telemetry", () => ({
-  getLatestQualityGateResultForVersion: vi.fn(async () => null),
+  getLatestQualityGateSignalForVersion: vi.fn(async () => ({
+    result: null,
+    revisionMatch: "unknown" as const,
+    verdictRevision: null,
+    contentRevision: null,
+  })),
 }));
 
 import { assertPromoteAllowed } from "./promote-guard";
+import type { QualityGateSignal } from "./services/generation-telemetry";
+
+const REVISION_N = "1".repeat(32);
+const REVISION_N_PLUS_1 = "2".repeat(32);
+
+/** Verdikt som beskriver revision N medan innehållet är N+1 — känd mismatch. */
+function staleSignal(result: string | null): QualityGateSignal {
+  return {
+    result,
+    revisionMatch: "stale",
+    verdictRevision: REVISION_N,
+    contentRevision: REVISION_N_PLUS_1,
+  };
+}
+
+/** Verdikt som beskriver exakt det innehåll som ska promotas. */
+function currentSignal(result: string | null): QualityGateSignal {
+  return {
+    result,
+    revisionMatch: "current",
+    verdictRevision: REVISION_N_PLUS_1,
+    contentRevision: REVISION_N_PLUS_1,
+  };
+}
 
 describe("assertPromoteAllowed (false-green promotion guard)", () => {
   it("blocks promotion when the finalize verifier failed", async () => {
@@ -116,5 +145,93 @@ describe("assertPromoteAllowed (false-green promotion guard)", () => {
     expect(staleFailed.allowed).toBe(false);
     const afterFreshGate = await assertPromoteAllowed("ver-1", async () => "preflight_passed");
     expect(afterFreshGate.allowed).toBe(true);
+  });
+});
+
+/**
+ * Innehållsrevision steg 3 (flaggad hos läsaren, se
+ * `generation-telemetry.content-revision.test.ts`). Guarden får en signal som
+ * bär revisionsläget — här matas det in direkt, så testerna beskriver GUARDENS
+ * beslut, inte DB-läsningen.
+ */
+describe("assertPromoteAllowed — verdikt för en annan innehållsrevision", () => {
+  it("ett passed för revision N grönmarkerar inte N+1 (bugg-typ 1 och 2)", async () => {
+    const decision = await assertPromoteAllowed("ver-1", async () =>
+      staleSignal("preflight_passed"),
+    );
+
+    expect(decision.allowed).toBe(false);
+    if (!decision.allowed) {
+      expect("indeterminate" in decision && decision.indeterminate).toBe(true);
+      expect("staleRevision" in decision && decision.staleRevision).toBe(true);
+      expect(decision.reason).toContain("another content revision");
+    }
+  });
+
+  it("ett failed för revision N blockerar inte terminalt N+1 heller — samma retrybara läge (bugg-typ 4)", async () => {
+    // Symmetrin i beslut 1a: mismatchen kastar verdiktet i BÅDA riktningar.
+    // Skillnaden mot ett äkta `verifier_failed` är avgörande: `indeterminate`
+    // betyder "kör gaten igen", inte "versionen är underkänd" — så en
+    // watchdog (`promoteVersionIfUnleased`) settlar inte raden terminalt.
+    const decision = await assertPromoteAllowed("ver-1", async () =>
+      staleSignal("verifier_failed"),
+    );
+
+    expect(decision.allowed).toBe(false);
+    if (!decision.allowed) {
+      expect("indeterminate" in decision && decision.indeterminate).toBe(true);
+      expect("signal" in decision).toBe(false);
+    }
+  });
+
+  it("mismatch är retrybar oavsett onReadError — det är inte ett läsfel", async () => {
+    const withDefault = await assertPromoteAllowed("ver-1", async () =>
+      staleSignal("preflight_passed"),
+    );
+    const withFailClosed = await assertPromoteAllowed(
+      "ver-1",
+      async () => staleSignal("preflight_passed"),
+      { onReadError: "indeterminate" },
+    );
+
+    expect(withDefault.allowed).toBe(false);
+    expect(withFailClosed.allowed).toBe(false);
+  });
+
+  it("en färsk gate för det nya innehållet släpper igenom promoten", async () => {
+    const decision = await assertPromoteAllowed("ver-1", async () =>
+      currentSignal("preflight_passed"),
+    );
+    expect(decision.allowed).toBe(true);
+  });
+
+  it("ett matchande failed blockerar fortfarande explicit (inte indeterminate)", async () => {
+    const decision = await assertPromoteAllowed("ver-1", async () =>
+      currentSignal("verifier_failed"),
+    );
+    expect(decision.allowed).toBe(false);
+    if (!decision.allowed) {
+      expect("signal" in decision && decision.signal).toBe("verifier_failed");
+      expect("indeterminate" in decision).toBe(false);
+    }
+  });
+
+  it("okänd revision är fail-open — en rad från före steg 2 spärrar ingenting", async () => {
+    const decision = await assertPromoteAllowed("ver-1", async () => ({
+      result: "preflight_passed",
+      revisionMatch: "unknown" as const,
+      verdictRevision: null,
+      contentRevision: null,
+    }));
+    expect(decision.allowed).toBe(true);
+  });
+
+  it("en läsare som svarar med en ren sträng behandlas som okänd revision (back-compat)", async () => {
+    // Alla äldre callsites/tester injicerar `string | null`. De ska bete sig
+    // exakt som förut, alltså aldrig träffa mismatch-grenen.
+    expect((await assertPromoteAllowed("ver-1", async () => "preflight_passed")).allowed).toBe(
+      true,
+    );
+    expect((await assertPromoteAllowed("ver-1", async () => null)).allowed).toBe(true);
   });
 });
