@@ -15,6 +15,35 @@ jobs:
   quality:
     runs-on: ubuntu-latest
 
+    # Efemär Postgres för de DB-backade kontraktstesterna (t.ex.
+    # `scripts/db/files-revision-contract.postgres.test.ts`). Föds och dör med
+    # jobbet, så inget delat tillstånd och ingen secret behövs.
+    #
+    # Varför INTE dev-Supabase här: varje PR skulle skriva rader i en delad
+    # databas, två samtidiga PR:er kan kollidera, och testet blir beroende av
+    # att en extern tjänst är uppe. Testet självt vägrar dessutom allt utom en
+    # dev-target — se `check-db-env-target.mjs` — och en lokal Postgres räknas
+    # som dev.
+    # `trust` i stället för ett lösenord: containern är efemär och nås bara över
+    # localhost inuti jobbet, så det finns inget att skydda — och ett inbäddat
+    # lösenord i en committad fil är ett hardcoded-credential-mönster som
+    # GitGuardian (korrekt) flaggade på första försöket. Utan lösenord finns
+    # ingen hemlighet i filen alls, vilket är en riktig lösning i stället för
+    # ett undantag i skannern.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: sajtmaskin_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -34,8 +63,35 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # `POSTGRES_URL` sätts medvetet BARA på de två DB-stegen nedan, aldrig på
+      # jobbnivå: standard-sviten körs utan databas, och flera tester verifierar
+      # att appen degraderar snyggt när den saknas. En jobbnivå-variabel hade
+      # ändrat förutsättningen för dem tyst.
       - name: Test
         run: npm run test:ci
+
+      # Applicerar schema + alla migrationer i MIGRATION_ORDER, inklusive
+      # add-files-revision.sql, mot den efemära databasen.
+      - name: Initiera testdatabasen
+        if: ${{ !cancelled() }}
+        env:
+          # `sslmode=disable` = ingen TLS mot service-containern (resolveSslConfig
+          # i scripts/db/db-ssl.mjs äger den tolkningen).
+          POSTGRES_URL: postgresql://postgres@localhost:5432/sajtmaskin_test?sslmode=disable
+        run: npm run db:init
+
+      # DB-backade kontraktstester (files_revision m.fl.). Egen lane, så de kan
+      # inte påverka `test:ci` och vice versa.
+      #
+      # `REQUIRE_POSTGRES_TESTS=1` gör att ett HOPP räknas som fel här. Utan den
+      # skulle en försvunnen databas ge "skipped" → exit 0 → grön grind som inte
+      # bevisat något, alltså precis den false-green testet finns för att stänga.
+      - name: DB-backade kontraktstester
+        if: ${{ !cancelled() }}
+        env:
+          POSTGRES_URL: postgresql://postgres@localhost:5432/sajtmaskin_test?sslmode=disable
+          REQUIRE_POSTGRES_TESTS: "1"
+        run: npm run test:postgres
 
       # Grandmaster 5-7: the follow-up CONTRACT invariants (5-3/5-3b scaffold+route
       # freeze/clamp, 5-5 capability floor) are deterministic hard contracts — promote

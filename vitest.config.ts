@@ -10,6 +10,20 @@ import path from "path";
  */
 export const STABILITY_TEST_GLOBS = ["**/*.stability.test.{ts,tsx}"];
 
+/**
+ * Postgres-lane-filer: `*.postgres.test.ts` körs ENBART av
+ * `npm run test:postgres` (egen config: `vitest.postgres.config.ts`), mot en
+ * riktig databas.
+ *
+ * Varför de exkluderas här i stället för att bara skippa sig själva: de kräver
+ * `POSTGRES_URL` i processen, och standard-sviten körs medvetet UTAN databas.
+ * Flera tester verifierar att appen degraderar snyggt när DB saknas — sätter man
+ * en URL för hela `test:ci` ändras förutsättningen för dem tyst. Egen lane
+ * håller den skiljelinjen tydlig i stället för att låta en env-variabel avgöra
+ * vad hundratals tester tror om världen.
+ */
+export const POSTGRES_TEST_GLOBS = ["**/*.postgres.test.ts"];
+
 /** Delade exclude-globs (vendor-/build-träd) som båda lane-configarna använder. */
 export const SHARED_TEST_EXCLUDE = [
   "node_modules/**",
@@ -50,6 +64,6 @@ export default defineConfig({
       "tests/**/*.{test,spec}.{ts,tsx}",
       "scripts/**/*.{test,spec}.ts",
     ],
-    exclude: [...SHARED_TEST_EXCLUDE, ...STABILITY_TEST_GLOBS],
+    exclude: [...SHARED_TEST_EXCLUDE, ...STABILITY_TEST_GLOBS, ...POSTGRES_TEST_GLOBS],
   },
 });
