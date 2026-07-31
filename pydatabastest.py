@@ -173,7 +173,7 @@ EXPECTED_TABLES: Tuple[str, ...] = EMPTY_TABLES + PRESERVED_TABLES + CACHE_TABLE
 
 # Tables created by db:init migrations that are not part of the post-restart
 # classification but are legitimate (acknowledged so they do not raise a WARN).
-KNOWN_EXTRA_TABLES: Tuple[str, ...] = ("error_log_events",)
+KNOWN_EXTRA_TABLES: Tuple[str, ...] = ("error_log_events", "openai_webhook_events")
 
 # Infra tables that are ALLOWED to exist but are NOT required (unlike
 # KNOWN_EXTRA_TABLES, which must exist in both DBs). The migration ledger
