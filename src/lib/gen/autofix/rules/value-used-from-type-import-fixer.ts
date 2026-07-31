@@ -30,64 +30,16 @@
  */
 
 import type { FixEntry } from "../types";
+import { bindingNameOf, classifyOccurrence, escapeRegex } from "./type-value-position";
 
 const TYPE_IMPORT_RE =
   /^(\s*)import\s+type\s+\{\s*([^}]+?)\s*\}\s+from\s+(['"][^'"]+['"]);?\s*$/gm;
-
-const VALUE_NEW_RE = /\bnew\s*$/;
-const VALUE_TYPEOF_RE = /\btypeof\s+$/;
-const TYPE_PRECEDER_RE =
-  /(?:[:,|&?]|\b(?:as|satisfies|extends|implements|keyof))\s*$/;
 
 type FixResult = {
   code: string;
   fixed: boolean;
   fixes: FixEntry[];
 };
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-type Classification = "type" | "value" | "unknown";
-
-/**
- * Classify a single occurrence of `symbol` at offset `idx` in `code`.
- * Same heuristic as `type-only-import-fixer.ts#classifyOccurrence` — we want
- * symmetric semantics so the two fixers never disagree on the same binding.
- */
-function classifyOccurrence(
-  code: string,
-  idx: number,
-  len: number,
-): Classification {
-  const before = code.slice(Math.max(0, idx - 32), idx);
-  const after = code.slice(idx + len, idx + len + 24);
-
-  if (VALUE_NEW_RE.test(before)) return "value";
-  if (VALUE_TYPEOF_RE.test(before)) return "value";
-
-  if (/^\s*\(/.test(after)) return "value"; // X(...)
-  if (/^\s*\./.test(after)) return "value"; // X.member
-  if (/^\s*=[^=>]/.test(after)) return "value";
-
-  if (/<\s*$/.test(before)) {
-    if (/^\s+\w+\s*=/.test(after)) return "value"; // <X attr=
-    if (/^\s*\/\s*>/.test(after)) return "value"; // <X/>
-    if (/^\s*>/.test(after)) {
-      const past = after.slice(after.indexOf(">") + 1);
-      if (/^\s*([;,)\]}|&]|$)/.test(past)) return "type";
-      if (/^\s*[<{a-zA-Z0-9]/.test(past)) return "value";
-      return "unknown";
-    }
-    if (/^\s*[,|&]/.test(after)) return "type";
-    return "unknown";
-  }
-
-  if (TYPE_PRECEDER_RE.test(before)) return "type";
-
-  return "unknown";
-}
 
 /** True if any reference to `symbol` in `code` looks like a value usage. */
 function isUsedAsValue(code: string, symbol: string): boolean {
@@ -98,14 +50,6 @@ function isUsedAsValue(code: string, symbol: string): boolean {
     if (verdict === "value") return true;
   }
   return false;
-}
-
-function bindingNameOf(specifier: string): string {
-  const aliasMatch = specifier.match(
-    /^[A-Za-z_$][\w$]*\s+as\s+([A-Za-z_$][\w$]*)\s*$/,
-  );
-  if (aliasMatch) return aliasMatch[1];
-  return specifier.trim();
 }
 
 /**

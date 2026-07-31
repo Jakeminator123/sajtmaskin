@@ -15,7 +15,9 @@ const {
 const {
   applyRuntimePatch,
   buildPreviewUrl,
+  cleanupPackageCaches,
   cleanupPreviewHostStorage,
+  describePackageCacheStorage,
   destroyChatWorkspace,
   findSessionByChatId,
   getRuntimeStateForChat,
@@ -196,8 +198,45 @@ function describeStorageState() {
         bytes: getPathSizeBytes(verifyWorkspacesDir),
         human: formatBytes(getPathSizeBytes(verifyWorkspacesDir)),
       },
+      packageCacheDir: describePackageCacheStorageSafely(),
     },
+    // Top-level breakdown of the volume. Without this, a full disk whose bytes
+    // sit outside the three known paths (an orphaned dir, lost+found after a
+    // crash) can only be diagnosed over `fly ssh`.
+    dataDirChildren: describeDataDirChildren(dataDir),
   };
+}
+
+function describePackageCacheStorageSafely() {
+  try {
+    const cache = describePackageCacheStorage();
+    return {
+      ...cache,
+      human: formatBytes(cache.bytes),
+      maxHuman: cache.maxBytes === null ? null : formatBytes(cache.maxBytes),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function describeDataDirChildren(dataDir) {
+  try {
+    return fs
+      .readdirSync(dataDir, { withFileTypes: true })
+      .map((entry) => {
+        const bytes = getPathSizeBytes(path.join(dataDir, entry.name));
+        return {
+          name: entry.name,
+          kind: entry.isDirectory() ? "dir" : "file",
+          bytes,
+          human: formatBytes(bytes),
+        };
+      })
+      .sort((a, b) => b.bytes - a.bytes);
+  } catch {
+    return [];
+  }
 }
 
 function json(res, statusCode, payload) {
@@ -918,8 +957,22 @@ async function routeRequest(req, res) {
   if (req.method === "POST" && url.pathname === "/admin/cleanup") {
     if (!checkApiKey(req, res)) return;
     try {
+      // `?purgeCaches=1` drops the package cache regardless of its size. This
+      // is the operator's escape hatch for a disk-full host: it reclaims the
+      // one directory that ordinary cleanup deliberately keeps warm.
+      const purgeCaches = url.searchParams.get("purgeCaches") === "1";
+      const cachePurge = purgeCaches ? await cleanupPackageCaches({ force: true }) : null;
       const result = await cleanupPreviewHostStorage();
-      return json(res, 200, { cleaned: true, ...result });
+      return json(res, 200, {
+        cleaned: true,
+        ...result,
+        ...(cachePurge
+          ? {
+              forcedCachePurge: true,
+              forcedCachePurgeBytes: cachePurge.cacheBytesBefore,
+            }
+          : {}),
+      });
     } catch (error) {
       return json(res, 500, {
         error: "cleanup_failed",

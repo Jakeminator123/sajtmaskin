@@ -72,6 +72,30 @@ const MEMBER_ACCESS_CASE = `import type { config } from "@/lib/config";
 const apiUrl = config.apiUrl;
 `;
 
+// Empirical case from 2026-07-31 (chat 6fb29f8a..., version 636e2aca...).
+// The sanity-cms dossier's seed-fallback file imported its two seed collections
+// with `import type` and then spread them into an exported object literal. The
+// bare `:` before each binding read as a type annotation, so the fixer left the
+// file alone and the verifier reported it as a blocking runtime break.
+const SEED_CONTENT_OBJECT_LITERAL_CASE = `import type { allCategories, blogPosts } from "@/lib/blog-data";
+export const seedContent = {
+  mode: "preview-seed",
+  description:
+    "Lokalt demoarkiv för F2-förhandsvisningen. Ett riktigt CMS kan kopplas in i integrationssteget.",
+  posts: blogPosts,
+  categories: allCategories,
+} as const;
+`;
+
+// The mirror of the case above: the same `key: Binding` shape inside a type
+// body must stay type-only, or the two import fixers start fighting.
+const INTERFACE_MEMBER_CASE = `import type { BlogPost } from "@/lib/blog-data";
+
+export interface Archive {
+  posts: BlogPost;
+}
+`;
+
 describe("fixValueUsedFromTypeImport", () => {
   it("converts the empirical /showcase case (JSX + data value) back to value import", () => {
     const { code, fixed, fixes } = fixValueUsedFromTypeImport(
@@ -85,6 +109,22 @@ describe("fixValueUsedFromTypeImport", () => {
       'import { Building2, Camera, Car as CarFront } from "lucide-react";',
     );
     expect(code).not.toContain("import type { Building2");
+  });
+
+  it("converts the empirical seed-content case (object-literal property values)", () => {
+    const { code, fixed } = fixValueUsedFromTypeImport(
+      SEED_CONTENT_OBJECT_LITERAL_CASE,
+      "lib/sanity/seed-content.ts",
+    );
+    expect(fixed).toBe(true);
+    expect(code).toContain('import { allCategories, blogPosts } from "@/lib/blog-data";');
+    expect(code).not.toContain("import type { allCategories");
+  });
+
+  it("leaves an interface member as a type import", () => {
+    const result = fixValueUsedFromTypeImport(INTERFACE_MEMBER_CASE, "lib/archive.ts");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(INTERFACE_MEMBER_CASE);
   });
 
   it("converts when binding is used as JSX tag", () => {
@@ -143,10 +183,12 @@ describe("fixValueUsedFromTypeImport", () => {
     expect(second.code).toBe(first.code);
   });
 
-  // The prod gap: bindings used ONLY as object-literal values (`{ icon: X }`).
-  // The leading `:` makes `classifyOccurrence` read them as a type annotation,
-  // so the heuristic alone never flips them — yet tsc reports TS1361. The
-  // diagnostic-driven caller passes the confirmed symbols to force the flip.
+  // Bindings used ONLY as object-literal values (`{ icon: X }`). The leading
+  // `:` used to read as a type annotation, so the heuristic left these alone
+  // and only the diagnostic-driven caller could flip them — which meant the
+  // fix never arrived when the verify lane failed before typecheck ran (a
+  // disk-full install, 2026-07-31). The classifier now checks the enclosing
+  // block: an object literal is a value position, an interface body is not.
   const OBJECT_VALUE_ONLY_CASE = `import type { PawPrint, MoonStar } from "lucide-react";
 
 const motifs = [
@@ -155,12 +197,13 @@ const motifs = [
 ];
 `;
 
-  it("heuristic alone does NOT flip an object-literal-only value usage", () => {
-    const result = fixValueUsedFromTypeImport(
+  it("flips an object-literal-only value usage from the heuristic alone", () => {
+    const { code, fixed } = fixValueUsedFromTypeImport(
       OBJECT_VALUE_ONLY_CASE,
       "components/motif-selector.tsx",
     );
-    expect(result.fixed).toBe(false);
+    expect(fixed).toBe(true);
+    expect(code).toContain('import { PawPrint, MoonStar } from "lucide-react";');
   });
 
   it("flips object-literal-only usage when the TS1361 symbol is confirmed", () => {

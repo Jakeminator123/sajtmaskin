@@ -20,6 +20,15 @@ swap_size_mb = 2048
   PREVIEW_BASE_URL = "https://vm-fly-jakem.fly.dev"
   PREVIEW_SESSION_TTL_MS = "7200000"
   PREVIEW_HOST_DATA_DIR = "/data"
+  # Package caches belong on the mounted volume, never the rootfs. The rootfs
+  # is a ~8 GB ephemeral layer that no cleanup path reclaims; npm's default
+  # cache (/root/.npm) filled it to 0 bytes free on 2026-07-31 and every
+  # preview boot then died with ENOSPC (npm exit 228) while /data still had
+  # 17 GB free. runtime.js sets the same values per spawned install; this entry
+  # covers anything that runs outside that path and documents the invariant.
+  NPM_CONFIG_CACHE = "/data/package-caches/npm"
+  PNPM_STORE_DIR = "/data/package-caches/pnpm"
+  YARN_CACHE_FOLDER = "/data/package-caches/yarn"
   PREVIEW_HOST_RUNTIME_READY_MAX_MS = "600000"
   # Fast Edit Lane Fas 4: proxy Next dev HMR WebSocket to the runtime (true hot
   # reload, no iframe refresh). Reversible: set to "false" (or remove) + redeploy

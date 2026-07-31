@@ -4,6 +4,7 @@ import {
   buildRoutePlan,
   deduplicateLocaleAlternateRoutes,
   detectExplicitPageCount,
+  findLocaleSupersededRoutes,
   findMissingPlannedRoutes,
   parseRoutePlanFromUnknown,
 } from "./route-plan";
@@ -553,6 +554,41 @@ describe("deduplicateLocaleAlternateRoutes", () => {
     expect(
       deduplicateLocaleAlternateRoutes(["/", "/contact/", "/kontakt"], "sv"),
     ).toEqual(["/", "/kontakt"]);
+  });
+});
+
+// Regression: the blog scaffold ships `/blog`, the Swedish plan settles on
+// `/blogg`, and the model emits `app/blogg/**`. Both used to survive into the
+// finished project, leaving `/blog` and `/blog/[slug]` with nothing linking to
+// them (2026-07-31 — the user saw six pages, three unreachable).
+describe("findLocaleSupersededRoutes", () => {
+  it("supersedes the scaffold's /blog when the model emitted /blogg", () => {
+    expect(findLocaleSupersededRoutes(["/", "/blogg", "/blogg/[slug]"], "sv")).toEqual([
+      "/blog",
+    ]);
+  });
+
+  it("supersedes every alternate the model replaced, not just the first", () => {
+    expect(findLocaleSupersededRoutes(["/", "/om", "/blogg"], "sv")).toEqual([
+      "/about",
+      "/blog",
+    ]);
+  });
+
+  it("supersedes nothing when the model kept the English route", () => {
+    expect(findLocaleSupersededRoutes(["/", "/blog", "/blog/[slug]"], "sv")).toEqual([]);
+  });
+
+  it("never supersedes when the model deliberately emitted both variants", () => {
+    expect(findLocaleSupersededRoutes(["/", "/blog", "/blogg"], "sv")).toEqual([]);
+  });
+
+  it("supersedes the Swedish variant for an English locale", () => {
+    expect(findLocaleSupersededRoutes(["/", "/contact"], "en")).toEqual(["/kontakt"]);
+  });
+
+  it("returns nothing for a project with no locale-alternate routes", () => {
+    expect(findLocaleSupersededRoutes(["/", "/meny", "/galleri"], "sv")).toEqual([]);
   });
 });
 

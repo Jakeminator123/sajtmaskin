@@ -627,8 +627,13 @@ export default function Page() {
     const repaired = repairGeneratedFiles(files);
     const file = repaired.files.find((f) => f.path === "components/foreign-type.tsx");
 
+    // The point of this case: the lucide rule must not invent a
+    // `lucide-react` import for a symbol that already has a source module.
     expect(file?.content).not.toContain('from "lucide-react"');
-    expect(file?.content).toContain('import type { PawPrint } from "@/lib/motifs"');
+    expect(file?.content).toContain('from "@/lib/motifs"');
+    // `icon: PawPrint` is a value use, so the general value-used-from-type
+    // fixer correctly drops `type` here — leaving it would be TS1361.
+    expect(file?.content).toContain('import { PawPrint } from "@/lib/motifs"');
   });
 });
 

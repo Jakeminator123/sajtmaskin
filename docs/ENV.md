@@ -149,6 +149,7 @@ Praktisk rekommendation:
 - Sätt `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens env och samma secret som `PREVIEW_HOST_API_KEY` på preview-hosten
 - Sätt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
 - Låt `PREVIEW_HOST_DATA_DIR=/data` leva på host-sidan (`fly.toml` / Fly-env), inte i repo-rotens `.env.local`
+- Låt paketcacherna ligga på den monterade volymen: `NPM_CONFIG_CACHE=/data/package-caches/npm` (plus `PNPM_STORE_DIR` / `YARN_CACHE_FOLDER`) i `fly.toml`. Fly-maskinens rootfs är ett litet efemärt lager (~8 GB) som ingen städrutin återvinner — npm:s default (`/root/.npm`) fyllde det till 0 byte fritt 2026-07-31, varpå varje preview-boot dog med `ENOSPC` medan `/data` fortfarande hade 17 GB kvar. `runtime.js` sätter samma värden per install, och cachen städas nu av `cleanupPreviewHostStorage`. Storleksgränsen styrs av `PREVIEW_HOST_PACKAGE_CACHE_MAX_BYTES` (default 6 GB; 0 = obegränsat). Akut tömning: `POST /admin/cleanup?purgeCaches=1`. Diskläget syns i `GET /admin/storage`.
 - Låt `SAJTMASKIN_PREVIEW_DISABLE_HMR=true` (default) ligga på host-sidan; ändra bara om du behöver hot-reload mellan kod-ändringar i en pågående preview-VM
 
 När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host som den aktiva tier-2-vägen.

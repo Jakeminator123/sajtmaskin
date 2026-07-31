@@ -57,6 +57,39 @@ export function dedupePlannedRoutesInPlaceByLocale<T extends { path: string; req
 }
 
 /**
+ * Locale-alternate routes that a scaffold still ships but the generation has
+ * already replaced with the project-locale variant.
+ *
+ * `dedupePlannedRoutesInPlaceByLocale` only cleans the PLAN. The scaffold's own
+ * files are materialized separately, so a Swedish build kept `app/blog/**` from
+ * the blog scaffold even after the plan settled on `/blogg` and the model
+ * emitted `app/blogg/**`. The result was a site with both `/blog` and `/blogg`,
+ * where only the Swedish pair was linked from the header — the user saw six
+ * pages, three of them unreachable (2026-07-31).
+ *
+ * Returns the superseded paths (e.g. `["/blog"]`), and only when the kept
+ * variant was actually emitted — a scaffold page is never dropped on the guess
+ * that something else will replace it.
+ */
+export function findLocaleSupersededRoutes(
+  emittedRoutePaths: readonly string[],
+  locale: string,
+): string[] {
+  const lc = (locale ?? "sv").toLowerCase();
+  const keepKey: "sv" | "en" = lc.startsWith("sv") ? "sv" : "en";
+  const dropKey: "sv" | "en" = keepKey === "sv" ? "en" : "sv";
+  const emitted = new Set(emittedRoutePaths.map((path) => normalizeRoutePath(path)));
+
+  const superseded: string[] = [];
+  for (const pair of LOCALE_ROUTE_PAIRS) {
+    if (!emitted.has(pair[keepKey])) continue;
+    if (emitted.has(pair[dropKey])) continue; // model deliberately emitted both
+    superseded.push(pair[dropKey]);
+  }
+  return superseded;
+}
+
+/**
  * Path-list flavour of locale-alternate dedupe. Returns a fresh array with
  * collapsed duplicates and preserves the input order.
  */

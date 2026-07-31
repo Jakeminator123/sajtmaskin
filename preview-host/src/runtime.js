@@ -45,6 +45,33 @@ const RUNTIME_OUTPUT_LINE_MAX = 500;
 const RUNTIME_OUTPUT_EXIT_TAIL = 30;
 const WORKSPACES_DIR = path.join(getDataDir(), "workspaces");
 const VERIFY_WORKSPACES_DIR = path.join(getDataDir(), "verify-workspaces");
+// Package-manager caches live on the mounted volume, not the Fly rootfs.
+//
+// The rootfs is a small ephemeral layer (~8 GB) that nothing in this service
+// ever reclaimed, while `/data` is the 20 GB volume the cleanup loop already
+// owns. npm defaults its cache to `$HOME/.npm` (= `/root/.npm` on the VM), so
+// every install of every generated project appended tarballs to the rootfs
+// until it hit 0 bytes free — after which EVERY `npm install` died with
+// `ENOSPC` (exit 228) and no preview could boot. `cleanupPreviewHostStorage()`
+// could not help: it only reclaims `/data`, which still had 17 GB free.
+// Pointing the caches at the volume puts them under the same budget and the
+// same janitor. See `PACKAGE_CACHE_MAX_BYTES` for the size bound.
+const PACKAGE_CACHE_DIR = path.join(getDataDir(), "package-caches");
+const NPM_CACHE_DIR = path.join(PACKAGE_CACHE_DIR, "npm");
+const PNPM_STORE_DIR = path.join(PACKAGE_CACHE_DIR, "pnpm");
+const YARN_CACHE_DIR = path.join(PACKAGE_CACHE_DIR, "yarn");
+// Upper bound for the whole package-cache tree. A warm cache makes installs
+// much faster, so we keep it — but an unbounded one is what filled the rootfs.
+// Exceeding this drops the cache wholesale on the next cleanup pass; npm
+// simply refetches. 0 or negative disables the bound.
+const PACKAGE_CACHE_MAX_BYTES = parseInt(
+  process.env.PREVIEW_HOST_PACKAGE_CACHE_MAX_BYTES ?? `${6 * 1024 * 1024 * 1024}`,
+  10,
+);
+// npm writes a debug log per failed run to `$npm_config_logs_dir` (default
+// `<cache>/_logs`). Cap it so a crash-looping boot cannot spend the volume on
+// logs of its own failures.
+const NPM_LOGS_MAX_FILES = 20;
 
 // Inspector-bridge (opt-in): injicera bridge-scriptet i HTML-svar BARA när
 // klienten ber om det via `?inspect=1` OCH app-origin är konfigurerad. App-origin
@@ -318,8 +345,29 @@ const ENV_ALLOWLIST = new Set([
 ]);
 const ENV_ALLOWLIST_PREFIXES = ["NEXT_PUBLIC_"];
 
+/**
+ * Creates the package-cache directories on the volume. Best-effort: if the
+ * volume is unavailable the install still runs, it just falls back to the
+ * package manager's own default location.
+ */
+function ensurePackageCacheDirs() {
+  for (const dir of [NPM_CACHE_DIR, PNPM_STORE_DIR, YARN_CACHE_DIR]) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch {
+      // best-effort
+    }
+  }
+}
+
 function sanitizedEnv(overrides = {}) {
   const out = {};
+  // Keep every package manager's cache on the mounted volume (see
+  // PACKAGE_CACHE_DIR). Set before the allowlist copy so an explicitly
+  // provided NPM_CONFIG_CACHE in the host env still wins.
+  out.NPM_CONFIG_CACHE = NPM_CACHE_DIR;
+  out.PNPM_STORE_DIR = PNPM_STORE_DIR;
+  out.YARN_CACHE_FOLDER = YARN_CACHE_DIR;
   // pnpm 10+/11 blocks dependency build scripts by default (strictDepBuilds),
   // so `pnpm install` exits non-zero with ERR_PNPM_IGNORED_BUILDS for any
   // package that ships an install script — including @tailwindcss/oxide,
@@ -494,6 +542,24 @@ function resolveInstallCommand(filesJson) {
   };
 }
 
+function isNoSpaceInstallFailure(output) {
+  const text = String(output || "");
+  if (!text.trim()) return false;
+  return /ENOSPC|no space left on device|insufficient space/i.test(text);
+}
+
+function formatByteCount(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
 function isPeerDependencyInstallFailure(output) {
   const text = String(output || "");
   if (!text.trim()) return false;
@@ -518,6 +584,7 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
 }
 
 async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
+  ensurePackageCacheDirs();
   // Generated projects keep TypeScript/ESLint in devDependencies. Force every
   // package manager to include them even when the host itself runs with
   // NODE_ENV=production; ReleaseGate must never depend on ambient host mode.
@@ -544,7 +611,7 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
     };
   };
 
-  const primary = await runAttempt(install.command);
+  let primary = await runAttempt(install.command);
   if (primary.exitCode === 0) {
     return {
       passed: true,
@@ -553,6 +620,39 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
       output: install.successLabel,
       usedFallback: false,
       peerConflictDetected: false,
+    };
+  }
+
+  // A disk-full install is not a project error and retrying the same command
+  // unchanged just reproduces it. Reclaim the package cache — the one thing on
+  // this host that grows without bound — and try once more. Without this the
+  // VM stays wedged for every chat until someone redeploys it by hand.
+  if (isNoSpaceInstallFailure(primary.output)) {
+    const purge = await cleanupPackageCaches({ force: true });
+    const retryStartedAt = Date.now();
+    const retried = await runAttempt(install.command);
+    if (retried.exitCode === 0) {
+      return {
+        passed: true,
+        exitCode: 0,
+        durationMs: primary.durationMs + (Date.now() - retryStartedAt),
+        output: [
+          install.successLabel,
+          `[quality-warning] Disk was full; reclaimed ${formatByteCount(purge.cacheBytesBefore)} of package cache and reinstalled.`,
+        ].join("\n"),
+        usedFallback: false,
+        peerConflictDetected: false,
+      };
+    }
+    primary = {
+      ...retried,
+      durationMs: primary.durationMs + retried.durationMs,
+      clippedOutput: [
+        `[disk-full] Reclaimed ${formatByteCount(purge.cacheBytesBefore)} of package cache and retried; still out of space.`,
+        `The preview VM's filesystem is full. Free space on the host (see GET /admin/storage) — this is not a fault in the generated project.`,
+        "",
+        retried.clippedOutput || "",
+      ].join("\n"),
     };
   }
 
@@ -1343,12 +1443,21 @@ async function runVerifyJob(params) {
             peerConflictDetected: false,
           }
         : await verifyInstallRunner(workspaceDir, install);
+      // A disk-full install is a host problem, not a defect in the generated
+      // project. Marking it `code`/repairable (the default for a failed check)
+      // sent the app's repair loop off to "fix" `npm error code ENOSPC` in the
+      // user's source — an entire LLM repair pass spent on something no code
+      // change can affect, ending in a red "Verifiering misslyckades".
+      const installDiskFull =
+        !installResult.passed && isNoSpaceInstallFailure(installResult.output);
       results.push(
         pushResult({
           check: "install",
           passed: installResult.passed,
           exitCode: installResult.exitCode,
           durationMs: installResult.durationMs,
+          repairable: installResult.passed ? false : !installDiskFull,
+          failureKind: installResult.passed ? null : installDiskFull ? "tooling" : "code",
           output:
             installResult.passed
               ? installResult.output || install.successLabel
@@ -2596,6 +2705,79 @@ async function stopStaleRuntimes(nowMs) {
   };
 }
 
+function directorySizeBytes(targetPath) {
+  let total = 0;
+  const stack = [targetPath];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let entries;
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(full);
+        continue;
+      }
+      try {
+        total += fs.statSync(full).size;
+      } catch {
+        // best-effort
+      }
+    }
+  }
+  return total;
+}
+
+/**
+ * Keeps the package-cache tree inside its budget and trims npm's debug logs.
+ *
+ * `force` drops the whole cache regardless of size — used by the ENOSPC retry
+ * path, where reclaiming space matters more than a warm cache.
+ */
+async function cleanupPackageCaches({ force = false } = {}) {
+  const result = { purgedCache: false, cacheBytesBefore: 0, removedNpmLogs: 0 };
+  if (!fs.existsSync(PACKAGE_CACHE_DIR)) return result;
+
+  result.cacheBytesBefore = directorySizeBytes(PACKAGE_CACHE_DIR);
+  const overBudget =
+    PACKAGE_CACHE_MAX_BYTES > 0 && result.cacheBytesBefore > PACKAGE_CACHE_MAX_BYTES;
+  if (force || overBudget) {
+    try {
+      await removeDirWithRetries(PACKAGE_CACHE_DIR);
+      result.purgedCache = true;
+    } catch {
+      // best-effort
+    }
+    ensurePackageCacheDirs();
+    return result;
+  }
+
+  // Under budget: still trim npm's `_logs` so a crash-loop cannot grow it
+  // without bound (one debug log per failed install).
+  const logsDir = path.join(NPM_CACHE_DIR, "_logs");
+  try {
+    const files = fs
+      .readdirSync(logsDir)
+      .map((name) => ({ name, full: path.join(logsDir, name) }))
+      .sort((a, b) => (a.name < b.name ? 1 : -1));
+    for (const file of files.slice(NPM_LOGS_MAX_FILES)) {
+      try {
+        fs.rmSync(file.full, { force: true });
+        result.removedNpmLogs += 1;
+      } catch {
+        // best-effort
+      }
+    }
+  } catch {
+    // no logs dir yet
+  }
+  return result;
+}
+
 async function cleanupPreviewHostStorage() {
   const nowMs = Date.now();
   const staleRuntimeCleanup = await stopStaleRuntimes(nowMs);
@@ -2663,10 +2845,14 @@ async function cleanupPreviewHostStorage() {
     WORKSPACES_DIR,
     activeWorkspaceEntries,
   );
+  const cacheResult = await cleanupPackageCaches();
 
   return {
     freedVerifyEntries: verifyResult.freedEntries,
     freedWorkspaceEntries: workspaceResult.freedEntries,
+    purgedPackageCache: cacheResult.purgedCache,
+    packageCacheBytesBefore: cacheResult.cacheBytesBefore,
+    removedNpmLogs: cacheResult.removedNpmLogs,
     removedSessions,
     removedLogs,
     removedMappings,
@@ -2687,6 +2873,10 @@ async function withNoSpaceCleanupRetry(run, options = {}) {
     if (typeof options.onRetry === "function") {
       await options.onRetry(error);
     }
+    // Drop the package cache outright before retrying. The ordinary cleanup
+    // only reclaims stale sessions/workspaces, which is useless when the cache
+    // itself is what filled the disk.
+    await cleanupPackageCaches({ force: true });
     await cleanupPreviewHostStorage();
     return run();
   }
@@ -2713,8 +2903,21 @@ module.exports = {
   stopRuntimeForSession,
   sweepIdleRuntimes,
   cleanupPreviewHostStorage,
+  cleanupPackageCaches,
+  describePackageCacheStorage() {
+    return {
+      dir: PACKAGE_CACHE_DIR,
+      exists: fs.existsSync(PACKAGE_CACHE_DIR),
+      bytes: directorySizeBytes(PACKAGE_CACHE_DIR),
+      maxBytes: PACKAGE_CACHE_MAX_BYTES > 0 ? PACKAGE_CACHE_MAX_BYTES : null,
+    };
+  },
   __testing: {
     bootRuntimeForSession,
+    isNoSpaceInstallFailure,
+    sanitizedEnv,
+    PACKAGE_CACHE_DIR,
+    NPM_CACHE_DIR,
     dependencyFingerprint,
     DEPENDENCY_INSTALL_POLICY,
     VERIFY_COMMANDS,

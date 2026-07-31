@@ -17,6 +17,7 @@
 import { createRequire } from "node:module";
 import { EventEmitter } from "node:events";
 import {
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -457,6 +458,60 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("_next asset path matches the Next-internal matcher", NEXT_INTERNAL_ROOT_PATH_RE.test("/_next/static/media/x.woff2"));
   check("plain site route does NOT match the matcher", !NEXT_INTERNAL_ROOT_PATH_RE.test("/om/kontakt"));
   check("chatId-prefixed path does NOT match the matcher", !NEXT_INTERNAL_ROOT_PATH_RE.test("/7e8f51e0-abc/__nextjs_font/geist-latin.woff2"));
+}
+
+// Disk budget: package caches must live on the mounted volume, and a disk-full
+// install must be recognised as such. Before this, npm cached into the Fly
+// rootfs (`/root/.npm`) — a layer no cleanup path reclaims — and filled it to 0
+// bytes free, after which every preview boot died with ENOSPC while `/data`
+// still had 17 GB free (2026-07-31).
+{
+  const { isNoSpaceInstallFailure, sanitizedEnv, PACKAGE_CACHE_DIR, NPM_CACHE_DIR } =
+    runtime.__testing;
+
+  check(
+    "package cache dir is inside the data volume",
+    PACKAGE_CACHE_DIR.startsWith(dataDir),
+  );
+
+  const env = sanitizedEnv();
+  check("npm cache env points at the volume", env.NPM_CONFIG_CACHE === NPM_CACHE_DIR);
+  check("pnpm store env points at the volume", String(env.PNPM_STORE_DIR).startsWith(dataDir));
+  check("yarn cache env points at the volume", String(env.YARN_CACHE_FOLDER).startsWith(dataDir));
+
+  check(
+    "npm ENOSPC output is recognised as disk-full",
+    isNoSpaceInstallFailure("npm error code ENOSPC\nnpm error syscall write"),
+  );
+  check(
+    "plain-text no-space message is recognised",
+    isNoSpaceInstallFailure("Error: no space left on device"),
+  );
+  check(
+    "an ordinary dependency failure is NOT disk-full",
+    !isNoSpaceInstallFailure("npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve"),
+  );
+  check("empty output is NOT disk-full", !isNoSpaceInstallFailure(""));
+
+  // Forced purge must empty the cache tree but leave the directories usable.
+  mkdirSync(join(NPM_CACHE_DIR, "_cacache"), { recursive: true });
+  writeFileSync(join(NPM_CACHE_DIR, "_cacache", "blob.bin"), "x".repeat(2048));
+  const purge = await runtime.cleanupPackageCaches({ force: true });
+  check("forced purge reports the reclaimed size", purge.cacheBytesBefore >= 2048);
+  check("forced purge removed the cached blob", !existsSync(join(NPM_CACHE_DIR, "_cacache", "blob.bin")));
+  check("forced purge recreated the cache dir", existsSync(NPM_CACHE_DIR));
+
+  // A small cache is under budget and must be kept warm.
+  writeFileSync(join(NPM_CACHE_DIR, "small.bin"), "y".repeat(64));
+  const keep = await runtime.cleanupPackageCaches();
+  check("cache under budget is not purged", keep.purgedCache === false);
+  check("cache under budget survives cleanup", existsSync(join(NPM_CACHE_DIR, "small.bin")));
+
+  // Storage reporting must surface the cache so a full disk is diagnosable
+  // from `GET /admin/storage` instead of requiring `fly ssh`.
+  const described = runtime.describePackageCacheStorage();
+  check("storage report includes the cache dir", described.dir === PACKAGE_CACHE_DIR);
+  check("storage report includes a byte count", Number.isFinite(described.bytes));
 }
 
 rmSync(dataDir, { recursive: true, force: true });
