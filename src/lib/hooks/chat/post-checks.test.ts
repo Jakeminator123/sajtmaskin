@@ -126,6 +126,56 @@ describe("runPostGenerationChecks", () => {
     runProjectSanityChecks.mockReturnValue({ valid: true, issues: [] });
   });
 
+  it("publishes an active post-check row before waiting for file and preview checks", async () => {
+    const store = createMessageStore();
+    const files = buildHealthyFiles();
+    let releaseFiles!: () => void;
+    const blockedFiles = new Promise<Response>((resolve) => {
+      releaseFiles = () => resolve(jsonResponse({ files }));
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/files?versionId=ver_1")) return blockedFiles;
+        if (url.includes("/versions")) {
+          return jsonResponse({
+            versions: [{ id: "ver_1", versionId: "ver_1", lifecycleStage: "design" }],
+          });
+        }
+        if (url.includes("/validate-images")) return jsonResponse({});
+        if (url.includes("/product-postcheck")) {
+          return jsonResponse({ skipped: true, warnings: [] });
+        }
+        if (url.includes("/error-log")) return jsonResponse({ ok: true });
+        if (url.includes("/quality-gate")) {
+          return jsonResponse({ error: "Preview host not configured" }, 501);
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      }),
+    );
+
+    const runPromise = runPostGenerationChecks({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      demoUrl: null,
+      assistantMessageId: "assistant_1",
+      setMessages: store.setMessages,
+    });
+
+    const pendingPostCheck = getToolPart("Post-check", store);
+    expect(pendingPostCheck?.state).toBe("input-streaming");
+    expect((pendingPostCheck?.output as { steps?: unknown }).steps).toEqual([
+      "Efterkontrollerar filer och preview.",
+    ]);
+
+    releaseFiles();
+    await runPromise;
+
+    expect(getToolPart("Post-check", store)?.state).toBe("output-available");
+  });
+
   it("classifies preview-blocked runs as preflight preview failures", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();
