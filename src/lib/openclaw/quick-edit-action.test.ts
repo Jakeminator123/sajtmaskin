@@ -186,6 +186,19 @@ describe("parseOpenClawMessage — apply_quick_edit action", () => {
     expect(validation.ok).toBe(true);
   });
 
+  it("normalizes backslash paths to forward slashes at parse time", () => {
+    const validation = validateOpenClawApplyQuickEditAction({
+      type: "apply_quick_edit",
+      ops: [
+        { kind: "replace_content", path: "components\\footer.tsx", content: "x" },
+      ],
+    });
+    expect(validation.ok).toBe(true);
+    if (validation.ok) {
+      expect(validation.action.ops[0]?.path).toBe("components/footer.tsx");
+    }
+  });
+
   it("rejects oversized total content across ops", () => {
     const half = "a".repeat(Math.ceil(OPENCLAW_QUICK_EDIT_MAX_TOTAL_CHARS / 2) + 1);
     const raw = {

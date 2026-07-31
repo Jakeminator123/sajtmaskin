@@ -19,6 +19,7 @@ import {
   isBlockedQuickEditPath,
   isDeletableQuickEditPath,
   isStructuralQuickEditPath,
+  normalizeQuickEditPath,
 } from "@/lib/gen/quick-edit/guards";
 
 const QUICK_EDIT_ACTION_TYPE = "apply_quick_edit";
@@ -110,7 +111,12 @@ function parseQuickEditOp(value: unknown, index: number): OpenClawQuickEditOp | 
     return `${position} har okänd op-typ "${kind || "?"}". Tillåtna: replace_content, replace_text, delete_file.`;
   }
 
-  const rawPath = typeof candidate.path === "string" ? candidate.path.trim() : "";
+  // Normalisera EN gång vid parse (backslash → "/", trim) så att alla
+  // konsumenter — kortets fillista, existens-kollen mot files-API:t och
+  // servern — ser samma form (Bugbot: rå backslash-path klarade säkerhets-
+  // kollen men missade existens-matchningen mot forward-slash-namn).
+  const rawPath =
+    typeof candidate.path === "string" ? normalizeQuickEditPath(candidate.path) : "";
   if (!rawPath) {
     return `${position} (${kind}) saknar sökväg.`;
   }
