@@ -1,5 +1,11 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import {
+  INIT_BUILD_CHOICES_EVENT,
+  buildInitBuildChoicesMeta,
+  type InitBuildChoices,
+  type InitBuildChoicesEventDetail,
+} from "@/lib/builder/init-build-choices";
 import { resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/prompt-assist";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
@@ -90,6 +96,20 @@ export function useCreateChat(
   const createChatInFlightRef = useRef(false);
   const pendingCreateKeyRef = useRef<string | null>(null);
 
+  // Byggval (init controls): preview-panelens välkomstläge dispatchar sina
+  // val strukturerat (samma window-event-mönster som prompt-prefill). Senaste
+  // valen ligger i en ref och appliceras på nästa create — rensas efter
+  // lyckad skapning så en senare ny chat inte ärver gamla val.
+  const initBuildChoicesRef = useRef<InitBuildChoices | null>(null);
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<InitBuildChoicesEventDetail>).detail;
+      initBuildChoicesRef.current = detail?.choices ?? null;
+    };
+    window.addEventListener(INIT_BUILD_CHOICES_EVENT, handler);
+    return () => window.removeEventListener(INIT_BUILD_CHOICES_EVENT, handler);
+  }, []);
+
   const createNewChat = useCallback(
     async (initialMessage: string, options: MessageOptions = {}, systemPromptOverride?: string) => {
       if (isCreatingChat || createChatInFlightRef.current) return false;
@@ -99,8 +119,26 @@ export function useCreateChat(
       }
 
       const effectiveSystemPrompt = systemPromptOverride ?? systemPrompt;
-      const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
-      const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
+      const baseScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
+      const baseScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
+
+      // Byggval (init controls): strukturerade signaler för denna skapning.
+      // Sajttypsvalet blir manuellt scaffold-val ENDAST när varken explicit
+      // override eller header-valet redan pekat ut en scaffold — prioritet:
+      // explicit override > header-manual > Byggval > auto.
+      const initChoicesMeta = initBuildChoicesRef.current
+        ? buildInitBuildChoicesMeta(initBuildChoicesRef.current)
+        : null;
+      let effectiveScaffoldMode = baseScaffoldMode;
+      let effectiveScaffoldId = baseScaffoldId;
+      if (
+        initChoicesMeta?.scaffoldId &&
+        (baseScaffoldMode ?? "auto") === "auto" &&
+        !baseScaffoldId
+      ) {
+        effectiveScaffoldMode = "manual";
+        effectiveScaffoldId = initChoicesMeta.scaffoldId;
+      }
 
       const createKey = buildCreateChatKey(
         initialMessage,
@@ -401,6 +439,12 @@ export function useCreateChat(
         if (designThemePreset) promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;
         if (paletteState?.selections?.length) promptMeta.palette = paletteState;
+        if (initChoicesMeta?.pageCountHint) {
+          promptMeta.pageCountHint = initChoicesMeta.pageCountHint;
+        }
+        if (initChoicesMeta?.styleKeywordsHint?.length) {
+          promptMeta.styleKeywordsHint = initChoicesMeta.styleKeywordsHint;
+        }
         if (options.planMode) promptMeta.planMode = true;
         if (options.promptSourceMeta) {
           promptMeta.promptSourceKind = options.promptSourceMeta.sourceKind;
@@ -503,6 +547,9 @@ export function useCreateChat(
         if (pendingBriefRef?.current) {
           pendingBriefRef.current = null;
         }
+        // Byggval consumed — clear on success (same retry rationale as brief)
+        // so a later new chat in the same session starts from auto.
+        initBuildChoicesRef.current = null;
       } catch (error) {
         if (isClientInitiatedAbort(error, streamController)) {
           debugLog("AI", "Create chat stream aborted by client");

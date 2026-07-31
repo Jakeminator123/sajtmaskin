@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_INIT_BUILD_CHOICES,
+  SITE_TYPE_SCAFFOLD_IDS,
+  buildInitBuildChoicesMeta,
   composeInitBuildChoicesText,
   type InitBuildChoices,
 } from "./init-build-choices";
+import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
 import { upsertKeyedPromptBlock } from "./prompt-prefill-event";
 import { detectExplicitPageCount } from "@/lib/gen/route-plan";
 import {
@@ -106,6 +109,47 @@ describe("composeInitBuildChoicesText", () => {
     // pickScaffoldVariant — the style fragment must stay color-neutral.
     const text = composeInitBuildChoicesText(withChoices({ style: "minimal" }));
     expect(text).not.toMatch(/\b(?:ren|clean|light|ljus|airy)\b/i);
+  });
+});
+
+describe("buildInitBuildChoicesMeta (nivå 2 — strukturerade signaler)", () => {
+  it("returns an empty object when everything is auto", () => {
+    expect(buildInitBuildChoicesMeta(DEFAULT_INIT_BUILD_CHOICES)).toEqual({});
+  });
+
+  it("maps every site-type choice to a scaffold id that resolves in the registry", () => {
+    for (const [siteType, scaffoldId] of Object.entries(SITE_TYPE_SCAFFOLD_IDS)) {
+      expect(getScaffoldById(scaffoldId)?.id, `siteType=${siteType}`).toBe(scaffoldId);
+      const meta = buildInitBuildChoicesMeta(
+        withChoices({ siteType: siteType as InitBuildChoices["siteType"] }),
+      );
+      expect(meta.scaffoldId).toBe(scaffoldId);
+    }
+  });
+
+  it("clamps the page-count hint to the slider range", () => {
+    expect(buildInitBuildChoicesMeta(withChoices({ pageCount: 3 })).pageCountHint).toBe(3);
+    expect(buildInitBuildChoicesMeta(withChoices({ pageCount: 99 })).pageCountHint).toBe(6);
+    expect(buildInitBuildChoicesMeta(withChoices({ pageCount: 0 })).pageCountHint).toBeUndefined();
+  });
+
+  it("collects style and color-mode keywords within the server-side caps", () => {
+    const meta = buildInitBuildChoicesMeta(
+      withChoices({ style: "warm", colorMode: "dark" }),
+    );
+    expect(meta.styleKeywordsHint).toBeDefined();
+    expect(meta.styleKeywordsHint!.length).toBeGreaterThan(0);
+    // promptMetaSchema caps: max 8 entries, max 40 chars each.
+    expect(meta.styleKeywordsHint!.length).toBeLessThanOrEqual(8);
+    for (const keyword of meta.styleKeywordsHint!) {
+      expect(keyword.length).toBeLessThanOrEqual(40);
+      expect(keyword.trim()).toBe(keyword);
+      expect(keyword.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("omits style keywords when style and color mode are auto", () => {
+    expect(buildInitBuildChoicesMeta(withChoices({ pageCount: 2 })).styleKeywordsHint).toBeUndefined();
   });
 });
 

@@ -101,6 +101,86 @@ const COLOR_MODE_FRAGMENTS: Record<Exclude<ColorModeChoice, "auto">, string> = {
   dark: "Använd mörk färgskala (dark mode).",
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+// Level 2: structured wiring. The choices are ALSO sent as structured
+// request-meta so the pipeline does not depend on prompt-text heuristics:
+//  - siteType   → meta.scaffoldMode "manual" + meta.scaffoldId
+//  - pageCount  → meta.pageCountHint (route plan prefers it over regex)
+//  - style/colorMode → meta.styleKeywordsHint (variant matching)
+// The prompt block above stays as the user-visible artifact; the structured
+// signals are authoritative and point the same way.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** Scaffold ids per site-type choice (must resolve in the scaffold registry). */
+export const SITE_TYPE_SCAFFOLD_IDS: Record<Exclude<SiteTypeChoice, "auto">, string> = {
+  landing: "landing-page",
+  portfolio: "portfolio",
+  blog: "blog",
+  shop: "ecommerce",
+  dashboard: "dashboard",
+};
+
+// English tokens matching variant `keywords` in config/scaffold-variants/**
+// (pickScaffoldVariant compares style keywords against variant keywords).
+const STYLE_KEYWORD_HINTS: Record<Exclude<StyleChoice, "auto">, string[]> = {
+  warm: ["warm", "lokal", "community", "friendly"],
+  corporate: ["corporate", "professional", "b2b", "trust"],
+  bold: ["bold", "startup", "launch", "momentum"],
+  editorial: ["editorial", "elegant", "magazine", "premium"],
+  minimal: ["minimal", "typography", "studio", "clean"],
+};
+
+// Feeds the embedding text in pickScaffoldVariantAsync; the deterministic
+// colorMode boost still comes from the prompt block ("mörk"/"ljus"/dark/light).
+const COLOR_MODE_KEYWORD_HINTS: Record<Exclude<ColorModeChoice, "auto">, string[]> = {
+  light: ["light mode"],
+  dark: ["dark mode"],
+};
+
+export interface InitBuildChoicesMeta {
+  scaffoldId?: string;
+  pageCountHint?: number;
+  styleKeywordsHint?: string[];
+}
+
+/** Structured request-meta signals for the current choices ({} when all auto). */
+export function buildInitBuildChoicesMeta(choices: InitBuildChoices): InitBuildChoicesMeta {
+  const meta: InitBuildChoicesMeta = {};
+  if (choices.siteType !== "auto") {
+    meta.scaffoldId = SITE_TYPE_SCAFFOLD_IDS[choices.siteType];
+  }
+  if (choices.pageCount >= 1) {
+    meta.pageCountHint = Math.min(Math.trunc(choices.pageCount), MAX_PAGE_COUNT_CHOICE);
+  }
+  const styleKeywords = [
+    ...(choices.style !== "auto" ? STYLE_KEYWORD_HINTS[choices.style] : []),
+    ...(choices.colorMode !== "auto" ? COLOR_MODE_KEYWORD_HINTS[choices.colorMode] : []),
+  ];
+  if (styleKeywords.length > 0) {
+    meta.styleKeywordsHint = styleKeywords;
+  }
+  return meta;
+}
+
+/**
+ * Cross-panel event carrying the CURRENT choices (structured), consumed by
+ * `useCreateChat` — same window-event pattern as `prompt-prefill-event.ts`.
+ */
+export const INIT_BUILD_CHOICES_EVENT = "sajtmaskin:init-build-choices";
+
+export interface InitBuildChoicesEventDetail {
+  choices: InitBuildChoices;
+}
+
+export function dispatchInitBuildChoices(choices: InitBuildChoices): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<InitBuildChoicesEventDetail>(INIT_BUILD_CHOICES_EVENT, {
+      detail: { choices },
+    }),
+  );
+}
+
 /**
  * Compose the Swedish prompt block for the current choices. Returns "" when
  * every control is on auto (the keyed prefill then removes the block).

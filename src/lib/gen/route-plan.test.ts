@@ -574,6 +574,51 @@ describe("detectExplicitPageCount", () => {
   });
 });
 
+describe("buildRoutePlan — structured pageCountHint (Byggval)", () => {
+  it("applies the hint without any page-count text in the prompt", () => {
+    const plan = buildRoutePlan({
+      prompt: "En hemsida om en arkad.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+      pageCountHint: 3,
+    });
+    expect(plan.siteType).not.toBe("one-page");
+    expect(plan.explicitPageCount).toBe(3);
+  });
+
+  it("prefers the structured hint over prompt-text detection", () => {
+    const plan = buildRoutePlan({
+      prompt: "En hemsida om en arkad. 5 sidor.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+      pageCountHint: 2,
+    });
+    expect(plan.explicitPageCount).toBe(2);
+  });
+
+  it("trims optional routes down to the hinted count", () => {
+    const plan = buildRoutePlan({
+      prompt: "Snickerifirma med kontakt, tjänster, blogg och priser.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+      pageCountHint: 2,
+    });
+    expect(plan.routes.length).toBe(2);
+    expect(plan.routes.some((r) => r.path === "/")).toBe(true);
+    expect(plan.reason).toMatch(/trimmed/i);
+  });
+
+  it("ignores out-of-range hints and falls back to prompt detection", () => {
+    const plan = buildRoutePlan({
+      prompt: "En hemsida om en arkad. 3 sidor.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+      pageCountHint: 50,
+    });
+    expect(plan.explicitPageCount).toBe(3);
+  });
+});
+
 describe("buildRoutePlan — explicit page count", () => {
   it("elevates siteType from one-page when user says '3 sidor'", () => {
     const plan = buildRoutePlan({

@@ -76,6 +76,9 @@ export async function finalizeOrchestrationPrompts(
       brief,
       resolvedMode,
       input.sessionSeed,
+      // Byggval (init controls): structured style keywords participate in
+      // the fresh pick. No-op on follow-ups (persisted/locked variant wins).
+      input.styleKeywordsHint,
     ));
 
   // ── 5-3 freeze-enforcement (variant) ──

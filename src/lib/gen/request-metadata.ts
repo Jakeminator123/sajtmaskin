@@ -292,6 +292,39 @@ export function extractAppProjectIdFromMeta(meta: unknown): string {
   return asTrimmedString(meta.appProjectId);
 }
 
+/**
+ * Byggval (init controls): structured page-count hint. Clamped to the same
+ * 1–20 range as `detectExplicitPageCount` so a malformed client can never
+ * push the route plan outside what prompt text is allowed to.
+ */
+export function extractPageCountHintFromMeta(meta: unknown): number | null {
+  if (!isRecord(meta)) return null;
+  const raw = meta.pageCountHint;
+  if (typeof raw !== "number" || !Number.isInteger(raw)) return null;
+  return raw >= 1 && raw <= 20 ? raw : null;
+}
+
+/**
+ * Byggval (init controls): structured style keywords for scaffold-variant
+ * matching. Trimmed, deduped and capped to 8 entries of max 40 chars.
+ */
+export function extractStyleKeywordsHintFromMeta(meta: unknown): string[] {
+  if (!isRecord(meta) || !Array.isArray(meta.styleKeywordsHint)) return [];
+  const seen = new Set<string>();
+  const keywords: string[] = [];
+  for (const entry of meta.styleKeywordsHint) {
+    if (typeof entry !== "string") continue;
+    const trimmed = entry.trim();
+    if (!trimmed || trimmed.length > 40) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    keywords.push(trimmed);
+    if (keywords.length >= 8) break;
+  }
+  return keywords;
+}
+
 export function extractScaffoldSettingsFromMeta(meta: unknown): {
   scaffoldMode: "auto" | "manual" | "off";
   scaffoldId: string | null;

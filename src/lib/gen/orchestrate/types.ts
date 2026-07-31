@@ -76,6 +76,18 @@ export interface OrchestrationInput {
   buildIntent: BuildIntent;
   scaffoldMode?: "auto" | "manual" | "off";
   scaffoldId?: string | null;
+  /**
+   * Byggval (init controls): structured page-count hint (1–20). Takes
+   * precedence over `detectExplicitPageCount(prompt)` in `buildRoutePlan`.
+   * Init-only — follow-up callers never set it (route freeze owns page
+   * structure on follow-ups).
+   */
+  pageCountHint?: number | null;
+  /**
+   * Byggval (init controls): structured style keywords merged with the
+   * brief-derived keywords in scaffold-variant matching. Init-only.
+   */
+  styleKeywordsHint?: string[];
   brief?: Record<string, unknown> | null;
   themeColors?: ThemeColors | null;
   imageGenerations?: boolean;

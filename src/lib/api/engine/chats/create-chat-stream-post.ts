@@ -240,7 +240,16 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           ? getScaffoldById(parsedMeta.scaffoldId)
           : matchScaffold(message, metaBuildIntent as BuildIntent | null);
       const preMatchVariant = preMatchScaffold
-        ? pickScaffoldVariant({ prompt: message, scaffoldId: preMatchScaffold.id })
+        ? pickScaffoldVariant({
+            prompt: message,
+            scaffoldId: preMatchScaffold.id,
+            // Byggval (init controls): structured style keywords steer the
+            // keyword pre-match so brief hints and the pinned variant agree
+            // with the user's chosen style.
+            styleKeywords: parsedMeta.styleKeywordsHint.length
+              ? parsedMeta.styleKeywordsHint
+              : undefined,
+          })
         : null;
       const variantHints = buildVariantHintsForBrief(preMatchScaffold, preMatchVariant);
       const variantHintsText = variantHints
@@ -732,6 +741,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,
+          // Byggval (init controls): structured hints — page count wins over
+          // prompt-text regex in buildRoutePlan; style keywords merge into
+          // scaffold-variant matching.
+          pageCountHint: parsedMeta.pageCountHint,
+          styleKeywordsHint: parsedMeta.styleKeywordsHint.length
+            ? parsedMeta.styleKeywordsHint
+            : undefined,
           brief: metaBrief,
           themeColors: metaThemeColors,
           imageGenerations: resolvedImageGenerations,

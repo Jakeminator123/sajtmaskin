@@ -7,6 +7,7 @@ import {
   INIT_BUILD_CHOICES_PREFILL_KEY,
   MAX_PAGE_COUNT_CHOICE,
   composeInitBuildChoicesText,
+  dispatchInitBuildChoices,
   type ColorModeChoice,
   type ComplexityChoice,
   type InitBuildChoices,
@@ -112,6 +113,9 @@ export function PreviewPanelInitControls() {
       replaceKey: INIT_BUILD_CHOICES_PREFILL_KEY,
       skipFocus: true,
     });
+    // Nivå 2: samma val skickas strukturerat till create-chat (scaffold,
+    // sidantal, stil-keywords) — prompt-stycket ovan är den synliga ytan.
+    dispatchInitBuildChoices(next);
   };
 
   const pageCountLabel =
