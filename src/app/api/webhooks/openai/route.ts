@@ -9,10 +9,9 @@ export const runtime = "nodejs";
 
 /**
  * Receiver for OpenAI platform webhooks (see `src/lib/openai-webhooks.ts`).
- * Registered dashboard URLs `/recevie-openai-webhook` / `/receive-openai-webhook`
- * are rewritten here (next.config.ts). Verified events land in
- * `openai_webhook_events` (surfaced via `dump-logs.mjs --kinds=openai` /
- * backoffice Logg-export).
+ * This path is the endpoint URL registered in the OpenAI dashboard
+ * (Settings → Webhooks). Verified events land in `openai_webhook_events`
+ * (surfaced via `dump-logs.mjs --kinds=openai` / backoffice Logg-export).
  */
 export async function POST(req: Request) {
   const secret = process.env.OPENAI_WEBHOOK;
