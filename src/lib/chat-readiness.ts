@@ -58,6 +58,19 @@ export type ChatReadinessInfo = {
    * Components self-disable when missing; surfaced for diagnostics, not as a blocker.
    */
   warnOnlyKeys?: string[];
+  /**
+   * True when "Bygg integrationer" (`/finalize-design`) would take the
+   * `llm_ready` path — i.e. at least one detected integration has a required
+   * real build key (`hasRequiredRealBuildKeys(spec)`), so the click spends a
+   * `prompt.refine` LLM round (~4–6 diamonds). False means the deterministic
+   * exact-file ReleaseGate fork (0 diamonds). Owned HERE (Ö4a): the UI must not
+   * re-derive the branch from `buildBlockingKeys` — that subset of
+   * `missingEnvKeys` goes empty once the user configures a build key, which
+   * would wrongly predict the free path even though `hasRequiredRealBuildKeys`
+   * stays true. Undefined = readiness has not (yet) resolved it (no version /
+   * files unavailable) → UI shows an honest conditional-cost tooltip.
+   */
+  hasRealBuildIntegrations?: boolean;
 };
 
 export type ChatReadiness = {
