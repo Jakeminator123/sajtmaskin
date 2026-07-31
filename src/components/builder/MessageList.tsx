@@ -30,6 +30,7 @@ import {
   hasUserMessageAfter as hasUserMessageAfterFromTooling,
   isActionableToolPart,
   buildAgentLogItems as buildAgentLogItemsFromTooling,
+  getActiveAgentLogLabel,
 } from "@/components/builder/BuilderMessageTooling";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import {
@@ -427,10 +428,23 @@ const MessageListComponent = ({
           const toolParts = message.parts.filter(
             (p): p is Extract<MessagePart, { type: "tool" }> => p.type === "tool",
           );
+          const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
           const compactToolParts = showStructuredParts
             ? []
             : toolParts.filter((part) => isActionableToolPart(part.tool));
           const agentLogItems = showStructuredParts ? [] : buildAgentLogItemsFromTooling(toolParts);
+          const activeAgentLogLabel = showStructuredParts || hasUserAfterCurrentMessage
+            ? null
+            : getActiveAgentLogLabel(toolParts, {
+                includePipelineProgress: Boolean(message.isStreaming),
+              });
+          const currentTurnIsActive =
+            !hasUserAfterCurrentMessage &&
+            Boolean(message.isStreaming || activeAgentLogLabel);
+          const showAgentLogActivity =
+            !showStructuredParts &&
+            message.role === "assistant" &&
+            (currentTurnIsActive || agentLogItems.length > 0);
           const planParts = showStructuredParts
             ? message.parts.filter(
                 (p): p is Extract<MessagePart, { type: "plan" }> => p.type === "plan",
@@ -458,8 +472,7 @@ const MessageListComponent = ({
             showStructuredParts &&
             (toolParts.length > 0 || planParts.length > 0 || sources.length > 0);
           const hasVisibleTooling =
-            agentLogItems.length > 0 || compactToolParts.length > 0 || toolParts.length > 0;
-          const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
+            showAgentLogActivity || compactToolParts.length > 0 || toolParts.length > 0;
           const rawMessage = externalMessages[messageIndex];
           // Auto-repair prompts are a real "user" turn in the DB (see
           // isAutoRepairPromptMessage) but must never look like something the
@@ -501,9 +514,13 @@ const MessageListComponent = ({
                     />
                   )}
 
-                {!showStructuredParts &&
-                  message.role === "assistant" &&
-                  agentLogItems.length > 0 && <AgentLogCard items={agentLogItems} />}
+                {showAgentLogActivity && (
+                  <AgentLogCard
+                    items={agentLogItems}
+                    activeLabel={activeAgentLogLabel}
+                    isActive={currentTurnIsActive}
+                  />
+                )}
 
                 {!showStructuredParts &&
                   message.role === "assistant" &&

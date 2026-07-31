@@ -476,6 +476,13 @@ describe("handleSseStream", () => {
       logSnippet: "Error: failed",
     });
     expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://sandbox.example");
+    const failedPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string } | undefined;
+    expect(failedPreviewProgress?.state).toBe("output-error");
   });
 
   it("does not set preview iframe on empty preview-ready (build_only) but records prod build", async () => {
@@ -529,6 +536,13 @@ describe("handleSseStream", () => {
       logSnippet: undefined,
     });
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
+    const verifiedPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string } | undefined;
+    expect(verifiedPreviewProgress?.state).toBe("output-available");
   });
 
   it("clears prod-build banner when preview-ready omits prodBuildVerified (preview_host tier-2)", async () => {
@@ -560,6 +574,7 @@ describe("handleSseStream", () => {
             previewUrl: "https://preview.example",
             previewSessionId: "sb_1",
             previewTier: 2,
+            runtimeConfirmed: false,
           },
           "",
         );
@@ -577,6 +592,21 @@ describe("handleSseStream", () => {
 
     expect(setPreviewProdBuild).toHaveBeenCalledWith(null);
     expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://preview.example");
+    const readyPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string; output?: { phase?: string; steps?: unknown } } | undefined;
+    expect(readyPreviewProgress?.state).toBe("output-available");
+    expect(readyPreviewProgress?.output?.phase).toBe("boot-queued");
+    expect(
+      Array.isArray(readyPreviewProgress?.output?.steps)
+        ? readyPreviewProgress.output.steps
+        : [],
+    ).toContain(
+      "Preview-sessionen är skapad. Miljön fortsätter starta i previewytan.",
+    );
   });
 
   it("does not set iframe URL from done when previewUrl is compatibility shim only", async () => {
@@ -685,6 +715,14 @@ describe("handleSseStream", () => {
           "",
         );
         onEvent(
+          "progress",
+          {
+            step: "preview",
+            phase: "starting",
+          },
+          "",
+        );
+        onEvent(
           "build-error",
           {
             stage: "install",
@@ -701,6 +739,18 @@ describe("handleSseStream", () => {
     await handleSseStream(new Response(null), ctx, new AbortController().signal);
 
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
+    const failedPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string; output?: { steps?: unknown } } | undefined;
+    expect(failedPreviewProgress?.state).toBe("output-error");
+    expect(
+      Array.isArray(failedPreviewProgress?.output?.steps)
+        ? failedPreviewProgress.output.steps
+        : [],
+    ).toContain("Live-preview kunde inte starta: npm failed");
   });
 
   // Regression (2026-07 preview-lifecycle simplification, punkt 1): the old
@@ -883,6 +933,53 @@ describe("handleSseStream", () => {
         expect.stringContaining("Generering klar (2.1s)."),
         expect.stringContaining("reasoning 1.2s, output 0.9s."),
       ]),
+    );
+  });
+
+  it("renders a friendly live status when model reasoning takes longer than usual", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "progress",
+          {
+            step: "generation",
+            phase: "reasoning-slow",
+            elapsedMs: 30_500,
+          },
+          "",
+        );
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: null,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    const assistant = store.getMessages().find((message) => message.id === "assistant_1");
+    const progress = (assistant?.uiParts ?? []).find(
+      (part) => (part as { type?: string }).type === "tool:engine-generation",
+    ) as { output?: { steps?: unknown } } | undefined;
+    expect(Array.isArray(progress?.output?.steps) ? progress.output.steps : []).toContain(
+      "Modellen analyserar fortfarande uppgiften (31s).",
     );
   });
 });

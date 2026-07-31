@@ -260,6 +260,17 @@ export async function handleSseStream(
       if (phase === "reasoning") {
         return ["Modellen analyserar uppgiften innan första synliga outputen kommer."];
       }
+      if (phase === "reasoning-slow") {
+        const elapsedMs =
+          typeof payload.elapsedMs === "number" && Number.isFinite(payload.elapsedMs)
+            ? payload.elapsedMs
+            : null;
+        return [
+          elapsedMs !== null
+            ? `Modellen analyserar fortfarande uppgiften (${formatSeconds(elapsedMs)}).`
+            : "Modellen analyserar fortfarande uppgiften.",
+        ];
+      }
       if (phase === "awaiting-output") {
         return ["Väntar på första kod- eller textoutput från modellen."];
       }
@@ -440,6 +451,14 @@ export async function handleSseStream(
       if (phase === "starting") {
         return ["Startar tier-2-preview (VM) ..."];
       }
+      if (phase === "boot-queued") {
+        return [
+          "Preview-sessionen är skapad. Miljön fortsätter starta i previewytan.",
+        ];
+      }
+      if (phase === "ready") {
+        return ["Live-preview är klar."];
+      }
       if (phase === "build-verified") {
         return ["Production build (npm run build) lyckades i verifierings-VM — separat från dev-preview."];
       }
@@ -448,21 +467,37 @@ export async function handleSseStream(
           "Production build misslyckades i verifierings-VM. Dev-server-preview kan ändå vara användbar.",
         ];
       }
+      if (phase === "error") {
+        const message =
+          typeof payload.message === "string" && payload.message.trim()
+            ? payload.message.trim()
+            : null;
+        return [
+          message
+            ? `Live-preview kunde inte starta: ${message}`
+            : "Live-preview kunde inte starta.",
+        ];
+      }
     }
     return [`${getProgressToolName(step)}: ${phase}`];
   };
 
   const appendProgressPart = (step: string, phase: string, payload: Record<string, unknown> = {}) => {
+    const completed =
+      phase === "passed" ||
+      phase === "done" ||
+      (step === "preview" &&
+        (phase === "boot-queued" || phase === "ready" || phase === "build-verified"));
+    const failed =
+      phase === "error" ||
+      phase === "gave-up" ||
+      phase === "reverted" ||
+      (step === "preview" && phase === "build-failed");
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: `tool:engine-${step}` as const,
       toolName: getProgressToolName(step),
       toolCallId: `progress:${step}`,
-      state:
-        phase === "passed" || phase === "done"
-          ? "output-available"
-          : phase === "error" || phase === "gave-up" || phase === "reverted"
-            ? "output-error"
-            : "input-streaming",
+      state: completed ? "output-available" : failed ? "output-error" : "input-streaming",
       output: {
         step,
         phase,
@@ -925,7 +960,15 @@ export async function handleSseStream(
             }
 
             if (previewUrl && Object.keys(tierMeta).length > 0 && pb === undefined) {
-              appendProgressPart("preview", "ready", tierMeta);
+              const runtimeConfirmed =
+                typeof previewData.runtimeConfirmed === "boolean"
+                  ? previewData.runtimeConfirmed
+                  : undefined;
+              appendProgressPart(
+                "preview",
+                runtimeConfirmed === false ? "boot-queued" : "ready",
+                { ...tierMeta, ...(runtimeConfirmed === undefined ? {} : { runtimeConfirmed }) },
+              );
             }
             break;
           }
@@ -938,7 +981,7 @@ export async function handleSseStream(
               stage,
               message,
             });
-            appendProgressPart("build-error", "error", { stage, message });
+            appendProgressPart("preview", "error", { stage, message });
             toast.error(
               `Live-preview gick inte [${stage}]: ${message.slice(0, 400)}. Ingen live-preview förrän VM-previewn lyckas.`,
             );

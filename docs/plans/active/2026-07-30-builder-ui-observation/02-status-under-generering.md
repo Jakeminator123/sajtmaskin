@@ -80,6 +80,21 @@ och `src/lib/gen/`.
 
 Utfallet avgör om B3 är möjlig eller om den ska strykas.
 
+**Inventerat 2026-07-31.** Builder-kontraktet strömmar redan riktiga
+`progress`-event från codegen och framåt:
+
+- generation: `start`, `reasoning`, `reasoning-slow`, `awaiting-output`,
+  `streaming`, `tool`, `done`,
+- finalize: `url_expand`, `autofix`, `validate_syntax`,
+  `materialize_images`, `verifier`, `parse_merge_preflight`,
+- preview: `starting`, `preview-ready` och explicita byggfel,
+- efterkontroller: klientägda tool-parts med pågående/slutförd state.
+
+Deep Brief och serverorkestrering sker däremot före att SSE-svaret öppnas.
+De kan därför inte visas som mätta delsteg i nuvarande transport. En full
+barometer från brief till preview kräver early-SSE; UI:t får tills dess bara
+säga den ärliga samlingsstatusen att byggunderlaget förbereds.
+
 ### B2. "Tänker just nu"-panel (går att bygga oavsett B1)
 
 En panel i chatten under pågående körning med:
@@ -91,6 +106,20 @@ En panel i chatten under pågående körning med:
 
 När körningen är klar fälls panelen ihop till den befintliga
 `Slutsteg (N) — visa detaljer`.
+
+**Levererad 2026-07-31 i `feat/live-generation-activity`:**
+
+- `AgentLogCard` är automatiskt öppen medan ett stream- eller tool-steg pågår,
+  visar den senaste mätta statusraden, spinner och tidräknare,
+- före första SSE-eventet visas den begränsade, sanna statusen
+  "Förbereder byggunderlag och startar own-engine",
+- färdiga steg får kvitto och aktuell rad markeras som pågående,
+- panelen fälls ihop till `Slutsteg (N)` när allt arbete är klart,
+- den tidigare raden med roterande produktfakta är borttagen så den inte
+  konkurrerar med faktisk runtime-status.
+
+Filantal tickar inte under codegen eftersom strömmen saknar ett sådant event;
+antalet blir känt först i finalize. UI:t gissar därför inte.
 
 ### B3. Fasbarometer (endast om B1 ger riktiga event)
 
