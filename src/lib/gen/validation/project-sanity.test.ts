@@ -436,6 +436,29 @@ import { Button } from "@/components/ui/button"
       expect(issues).toEqual([]);
     });
 
+    // Svärm-verifierat fynd 2026-07-31: teckenklassen uteslöt `?`/`#` utan att
+    // konsumera dem, så hela literalen `"/api/missing?x=1"` föll utanför regexen
+    // och en saknad route med query/hash gav aldrig någon varning (falskt grönt).
+    it("flags a dangling route even when the literal carries a query or hash", () => {
+      const issues = danglingIssues([
+        pkg,
+        {
+          path: "components/search-panel.tsx",
+          language: "tsx",
+          content: [
+            'const a = fetch("/api/missing?x=1");',
+            "const b = fetch(`/api/also-missing#section`);",
+            "export const Panel = () => null;",
+          ].join("\n"),
+        },
+      ]);
+
+      expect(issues.map((issue) => issue.subject).sort()).toEqual([
+        "dangling-api-route:/api/also-missing",
+        "dangling-api-route:/api/missing",
+      ]);
+    });
+
     it("skips interpolated paths and commented-out calls", () => {
       const issues = danglingIssues([
         pkg,

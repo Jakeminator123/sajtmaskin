@@ -198,8 +198,13 @@ function moduleStemFromPath(path: string): string | null {
  */
 const RUNTIME_PROVIDED_API_PATHS = new Set(["/api/placeholder"]);
 
-/** Literal `"/api/..."` strings — interpolated paths are deliberately skipped. */
-const INTERNAL_API_LITERAL_RE = /["'`](\/api\/[^"'`\s?#]*)["'`]/g;
+/**
+ * Literal `"/api/..."` strings — interpolated paths are deliberately skipped.
+ * Query/hash suffixes (`/api/x?y=1`, `/api/x#frag`) are consumed outside the
+ * capture group so the path still matches; previously the literal was skipped
+ * entirely and a dangling `/api/missing?x=1` produced no warning at all.
+ */
+const INTERNAL_API_LITERAL_RE = /["'`](\/api\/[^"'`\s?#]*)(?:[?#][^"'`]*)?["'`]/g;
 const APP_ROUTE_HANDLER_RE = /^(?:src\/)?app\/(.+)\/route\.(?:ts|tsx|js|jsx)$/;
 
 /**

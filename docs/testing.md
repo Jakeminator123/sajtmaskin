@@ -16,7 +16,8 @@ Den fulla sviten körs **utan databas**, med flit — se `test:postgres` nedan.
 
 Ett jobb som failar hårt är inte samma sak som ett jobb som **hindrar merge** — det senare
 kräver att jobbnamnet står som required status check i master-rulesetet. Tabellen är den
-kanoniska bilden av skillnaden (verifierad mot rulesetet `Protect master` 2026-07-29):
+kanoniska bilden av skillnaden (verifierad mot rulesetet `Protect master` 2026-07-31 via
+`gh api repos/.../rules/branches/master`):
 
 | Jobb | Failar hårt? | Required (blockerar merge)? |
 | --- | --- | --- |
@@ -24,13 +25,13 @@ kanoniska bilden av skillnaden (verifierad mot rulesetet `Protect master` 2026-0
 | `backoffice-tests` | Ja | **Ja** |
 | `schema-drift` | Ja | **Ja** |
 | `review-window` | Håller pending | **Ja** |
-| `build` | Ja | Nej — nytt jobb 2026-07-29, required är ett separat rulesetbeslut |
+| `build` | Ja | **Ja** — tillagd i rulesetet 2026-07-30 (#660) |
 | `preview-host-guards` | Ja | Nej |
 | `dead-code` (orphan-filgrind) | Ja | Nej |
 | `db-blob-sync` | Ja | Nej — och på PR körs den utan credentials (ren script-smoke) |
 | `stability` | Nej (`continue-on-error`) | Nej |
 
-De fyra icke-required jobben som ändå failar hårt syns röda på PR:en men stoppas bara av
+De tre icke-required jobben som ändå failar hårt syns röda på PR:en men stoppas bara av
 agent-/människodisciplin. Det är ett medvetet men **öppet** läge: se raden om CI-grindarnas
 required-status i [`BUG-SWARM-BACKLOG.md`](../BUG-SWARM-BACKLOG.md) → "Beslut & policy".
 

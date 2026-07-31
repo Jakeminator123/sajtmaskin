@@ -508,6 +508,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     );
   }, [vm.activeVersionId]);
 
+  // The effect above only runs when the ACTIVE version changes. A late status
+  // event for another version (e.g. a slow ReleaseGate verdict landing after
+  // the user switched back to an older version) would otherwise render on top
+  // of the wrong version until the next switch. Gate at render time instead of
+  // dropping the event on arrival: a verdict for a version that is activated a
+  // moment later (the fresh-build lane from #639) becomes visible as soon as
+  // `vm.activeVersionId` catches up.
+  const visibleF3Status =
+    f3Status?.versionId && vm.activeVersionId && f3Status.versionId !== vm.activeVersionId
+      ? null
+      : f3Status;
+
   useEffect(() => {
     setF3Requirements(null);
     setF3Status(null);
@@ -1137,11 +1149,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               }
             />
           ) : null}
-          {f3Status ? (
+          {visibleF3Status ? (
             <F3StatusSurface
-              status={f3Status}
+              status={visibleF3Status}
               chatId={vm.chatId}
-              versionId={f3Status.versionId ?? null}
+              versionId={visibleF3Status.versionId ?? null}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             />
           ) : null}

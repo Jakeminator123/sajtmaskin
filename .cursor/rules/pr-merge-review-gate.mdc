@@ -137,7 +137,7 @@ Självgranskning räcker inte när författaren själv mergar:
 
 ## GitHub-verklighet (verifierat 2026-07-08)
 
-"Protect master"-ruleset kräver **1 review + code-owner-review** (`@Jakeminator123` via `.github/CODEOWNERS`) **och required status checks** `quality`, `backoffice-tests`, `schema-drift` (tillagda 2026-07-08) samt `review-window` (workflow tillagd 2026-07-11, tvingar 7-min/bot-fönstret — läggs till som required check i rulesetet via GitHub-API i samma rollout, ligger inte i repo-diffen):
+"Protect master"-ruleset kräver **1 review + code-owner-review** (`@Jakeminator123` via `.github/CODEOWNERS`) **och required status checks** `quality`, `backoffice-tests`, `schema-drift` (tillagda 2026-07-08), `review-window` (workflow tillagd 2026-07-11, tvingar 7-min/bot-fönstret — läggs till som required check i rulesetet via GitHub-API i samma rollout, ligger inte i repo-diffen) samt `build` (tillagd 2026-07-30 via #660, verifierad mot rulesetet 2026-07-31):
 
 - Extern PR (t.ex. `chgenberg`) blockeras tills Jake godkänt — det är rulesetens syfte.
 - Jakes egna PR:er kan inte självgodkännas → mergas via `gh pr merge --admin` (admin bypassar **allt**, inklusive required checks). Avsett — men bara **efter** att merge-grinden i `auto-merge-automation.mdc` är uppfylld (grönt + bugbot-pass + extern buggkoll + PR ≥ 7 min). `--admin` är inte en genväg förbi granskning.

@@ -1111,7 +1111,10 @@ export async function runFinalizePreflight({
         const mechanicalResult = await runAutoFix(mergedProjectContent, {
           chatId,
           model: _model,
-          previewPolicy: undefined,
+          // Thread the version's real policy: with `undefined` the tier-3 SDK
+          // guard in the autofix pipeline treats the project as F2 and can
+          // strip genuine integration imports from an F3 (fidelity3) build.
+          previewPolicy: buildSpec?.previewPolicy,
         });
         mergedProjectContent = mechanicalResult.fixedContent;
         mergedSyntax = await validateGeneratedCode(mergedProjectContent);
