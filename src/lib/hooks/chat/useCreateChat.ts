@@ -7,6 +7,7 @@ import {
   resetInitBuildChoices,
 } from "@/lib/builder/init-build-choices";
 import { resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/prompt-assist";
+import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
@@ -398,7 +399,19 @@ export function useCreateChat(
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
         );
-        return Boolean(resolvedVersionId || resolvedDemoUrl || previewPending);
+        // Spegla SSE-vägens hasRecoveredArtifact exakt: version, preview,
+        // awaiting-input eller plan-artefakt. previewPending räknas INTE —
+        // det gör den inte på SSE-vägen heller.
+        const planArtifact = normalizePlanArtifact(data.planArtifact);
+        const hasPlanArtifact = Boolean(
+          planArtifact && (planArtifact.steps.length > 0 || planArtifact.blockers.length > 0),
+        );
+        return Boolean(
+          resolvedVersionId ||
+            resolvedDemoUrl ||
+            data.awaitingInput === true ||
+            hasPlanArtifact,
+        );
       };
 
       let requestBody: Record<string, unknown> | null = null;
