@@ -92,8 +92,64 @@ utrymme. Det utrymmet får vi ändå via ikon-only.
 igång ett riktigt integrationsbygge. Välj en annan accent eller lägre mättnad så
 hierarkin står kvar.
 
-**Ö4:** ägarens mening om "Bygg integrationer" bröts mitt i ("… är"). Fråga vad
-som saknades innan den knappen rörs.
+### Ö4 avgjord 2026-07-31 — det var en fråga, inte ett krav
+
+Ägaren klargjorde att den avbrutna meningen var **en fråga om vad knappen gör**,
+inte ett önskemål om att ändra den. Frågan är besvarad (flödet kartlagt i kod
+2026-07-31), så **inget blockerar Del C längre**.
+
+Men svaret avslöjade två saker som hör hit, eftersom de är copy-/UX-problem på
+just den knappen:
+
+**Ö4a — samma knapp gör två helt olika saker, och du ser inte vilken.**
+`/finalize-design` grenar på `hasRequiredRealBuildKeys(gate.spec)`
+(`finalize-design/route.ts:212`):
+
+| Väg | Vad som händer | Kostnad | Tid |
+|---|---|---|---|
+| `deterministic_release` | F2-filerna kopieras **byte för byte** till en F3-rad. Ingen LLM, ingen chatt | **0 diamonds** | ~30–60 s |
+| `llm_ready` | Auto-skickat chattmeddelande → LLM bygger riktig integrationskod | **4–6 diamonds** (`prompt.refine`) | ~1–3 min |
+
+Knappen ser identisk ut i båda fallen. Den deterministiska vägen är dessutom
+kontraintuitivt namngiven: den *bygger inga integrationer*, den stämplar om
+filerna och kör ReleaseGate.
+
+**Krav när Del C rörs:** knappens `title`/`aria-label` ska säga vad klicket
+kostar. Men **försök inte härleda vägen ur `useChatReadiness`** — signalen finns
+inte där (kodverifierat 2026-07-31):
+
+- `ChatReadinessInfo` (`chat-readiness.ts:26-61`) bär platta nyckellistor, inte
+  det booleanvärde `/finalize-design` grenar på.
+- `buildBlockingKeys` ser närmast ut att duga men gör det inte: det är en
+  delmängd av **`missingEnvKeys`**. En byggnyckel som redan är *konfigurerad*
+  syns alltså inte där, fast den fortfarande gör `hasRequiredRealBuildKeys`
+  sann → tom lista betyder **inte** deterministisk väg. Fältets egen kommentar
+  varnar dessutom för att resolvern defaultar allt till `build` när
+  dossier-metadata saknas, så det spretar i båda riktningarna.
+
+Två hållbara vägar, i preferensordning:
+
+1. **Flytta signalen till sin ägare.** Låt readiness (eller ett litet eget svar)
+   bära samma boolean som `hasRequiredRealBuildKeys(gate.spec)` räknar ut, och
+   låt UI:t läsa den. Det följer signal-gaten i
+   [`terminology.mdc`](../../../../.cursor/rules/terminology.mdc) — ändra ägaren,
+   inte fem konsumenter som gissar ur platta listor.
+2. **Sluta förutsäga.** Skriv den villkorade kostnaden rakt ut: "0 eller 4–6
+   diamonds beroende på om integrationerna kräver riktiga nycklar". Sämre, men
+   ärligt, och oändligt bättre än dagens tystnad.
+
+Vad du än väljer: **härled inte vägen ur `buildBlockingKeys`.** Det ger en
+tooltip som ljuger i exakt det fall användaren redan fyllt i sina nycklar.
+
+**Ö4b — förslagsrundan debiterar två gånger för det som känns som en handling.**
+Första LLM-rundan kan svara med `suggestIntegration` i stället för kod: en fråga
+med snabbsvaren "Godkänn förslag" / "Avvisa". Godkännandet startar en **ny**
+stream, som debiteras igen. Båda rundorna brände riktiga tokens, så avgiften är
+försvarbar — problemet är att ingenting säger det i förväg.
+
+**Detta är inte en UI-rad i denna fil.** Det är en förväntans-/prisfråga och
+loggas som egen rad i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md).
+Bygg ingen lösning här.
 
 ## Del D — Lägesknapparna blir symboler (N9)
 
@@ -242,7 +298,8 @@ avgöra utan text.
 - Fäll-ned-kontrollen är en flik och statusen syns fortfarande i nedfällt läge.
 - Nedfälld chatt är en centrerad box — **bara chatten**, inte hela bandet (Ö3).
 - Previewverktygen följer ett bestämt ikonspråk. "Rensa preview" finns kvar som
-  ikon (Ö5). **`Ö4` är fortfarande öppen — rör inte "Bygg integrationer".**
+  ikon (Ö5), och "Bygg integrationer" säger vilken väg den tar och vad den
+  kostar (Ö4a).
 - Lägesknapparna är ikon-only med bevarad a11y och avläsbart läge.
 - Lansering-panelen döljs helt bara i det **tomma** projektet (`no-version` utan
   några versioner) och är kollapsad i övriga lägen (Del F). Inga rådgivande rader
