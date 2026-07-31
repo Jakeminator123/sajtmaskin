@@ -527,6 +527,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           buildIntent: engineIntent,
           scaffoldMode: parsedMeta.scaffoldMode,
           scaffoldId: parsedMeta.scaffoldId,
+          // Byggval (init controls): spegla huvudflödet så plan-läge får
+          // samma route-plan och variantmatchning som vanlig init.
+          pageCountHint: parsedMeta.pageCountHint,
+          styleKeywordsHint: parsedMeta.styleKeywordsHint.length
+            ? parsedMeta.styleKeywordsHint
+            : undefined,
           brief: effectiveBrief,
           themeColors: parsedMeta.themeColors,
           promptStrategyMeta: strategyMeta,
