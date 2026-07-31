@@ -177,4 +177,63 @@ describe("compareWithBaseline", () => {
       },
     ]);
   });
+
+  it("reports blocking checks as available for a baseline that tracks them", () => {
+    const comparison = compareWithBaseline(makeReport(), makeBaseline());
+    expect(comparison.blockingCheckComparison).toBe("available");
+  });
+
+  describe("legacy baseline saved before blocking-check tracking (2026-04-03)", () => {
+    /**
+     * The shape of `eval-baseline.json` as saved 2026-03-18: no
+     * `blockingChecks` per result and no blocking fields in `summary`.
+     */
+    function makeLegacyBaseline(): EvalBaseline {
+      return {
+        timestamp: "2026-03-18T03:03:00.947Z",
+        model: "gpt-5.3-codex",
+        results: [
+          { promptId: "coffee-shop", totalScore: 0.94, passed: true, fileCount: 5, generationTimeMs: 58_831 },
+          { promptId: "dashboard", totalScore: 0.88, passed: true, fileCount: 6, generationTimeMs: 60_000 },
+        ],
+        summary: { total: 2, passed: 2, avgScore: 0.91, avgTimeMs: 59_415 },
+      };
+    }
+
+    it("does NOT manufacture new blocking checks out of a missing field", () => {
+      // Regression lock: `blockingChecks ?? []` used to make every current
+      // blocker look newly added, which turned an invalid-API-key run into a
+      // page of "New Blocking Checks" across every scenario.
+      const comparison = compareWithBaseline(makeReport(), makeLegacyBaseline());
+
+      expect(comparison.blockingCheckComparison).toBe("unavailable-legacy-baseline");
+      expect(comparison.blockingCheckRegressions).toEqual([]);
+      expect(comparison.blockingCheckImprovements).toEqual([]);
+    });
+
+    it("still reports the score and PASS/FAIL deltas, which ARE comparable", () => {
+      const comparison = compareWithBaseline(makeReport(), makeLegacyBaseline());
+
+      expect(comparison.passRegressions).toEqual([
+        { promptId: "coffee-shop", baselinePassed: true, currentPassed: false },
+      ]);
+      expect(comparison.regressions.map((r) => r.promptId)).toEqual(["coffee-shop", "dashboard"]);
+      expect(comparison.gateResult).toBe("fail");
+    });
+
+    it("does not escalate to warning on the blocking diff alone", () => {
+      // A run that only *gained* blockers, with scores and PASS/FAIL held
+      // steady, must stay `pass` against a legacy baseline — the blocker delta
+      // is unknown, and unknown is not a regression.
+      const report = makeReport();
+      report.results[0] = { ...report.results[0], passed: true, totalScore: 0.94, blockingChecks: ["tier2-readiness"] };
+      report.results[1] = { ...report.results[1], passed: true, totalScore: 0.88, blockingChecks: ["required-files"] };
+      report.summary = { ...report.summary, passed: 2, avgScore: 0.91 };
+
+      const comparison = compareWithBaseline(report, makeLegacyBaseline());
+
+      expect(comparison.blockingCheckRegressions).toEqual([]);
+      expect(comparison.gateResult).toBe("pass");
+    });
+  });
 });

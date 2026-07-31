@@ -13,17 +13,42 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
+function describeBaselineAge(timestamp: string): string {
+  const saved = Date.parse(timestamp);
+  if (Number.isNaN(saved)) return timestamp;
+  const days = Math.floor((Date.now() - saved) / (24 * 60 * 60 * 1000));
+  return `${timestamp} (${days} days old)`;
+}
+
 function formatComparison(
   comparison: BaselineComparison,
+  baseline: { timestamp: string; model: string },
+  currentModel: string,
 ): string {
   const lines: string[] = [
     "",
     "## Baseline comparison",
     "",
+    // Print WHAT is being compared against, not just the delta. A baseline from
+    // a different model or months back explains a uniform drop far better than
+    // the numbers do, and nothing surfaced it before.
+    `Baseline: ${describeBaselineAge(baseline.timestamp)}, model \`${baseline.model}\``,
+    `Current run model: \`${currentModel}\``,
     `Overall avg score delta: ${pct(comparison.overallDelta)}`,
     `Gate result: ${comparison.gateResult.toUpperCase()}`,
     "",
   ];
+
+  if (comparison.blockingCheckComparison === "unavailable-legacy-baseline") {
+    lines.push(
+      "> **Blocking-check comparison skipped.** This baseline predates blocking-check",
+      "> tracking (added 2026-04-03), so which blockers are *new* cannot be derived —",
+      "> diffing against the missing field would report every current blocker as added.",
+      "> Score and PASS/FAIL deltas above are still comparable. Save a fresh baseline",
+      "> to re-enable it.",
+      "",
+    );
+  }
 
   if (comparison.regressions.length > 0) {
     lines.push("### Regressions", "");
@@ -166,7 +191,7 @@ async function main(): Promise<void> {
   const baseline = await loadBaseline();
   if (baseline) {
     const comparison = compareWithBaseline(report, baseline);
-    console.log(formatComparison(comparison));
+    console.log(formatComparison(comparison, baseline, report.model));
 
     if (gateMode && comparison.gateResult === "fail") {
       console.error("Gate failed: regression detected.");
