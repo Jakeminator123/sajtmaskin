@@ -28,6 +28,8 @@ const PREVIEW_KIND_ICONS: Record<ComponentPreviewKind, typeof CircleHelp> = {
   other: CircleHelp,
 };
 
+const IMAGE_ERROR_LABEL = "Förhandsbilden kunde inte laddas";
+
 const PREVIEW_KIND_LABELS: Record<ComponentPreviewKind, string> = {
   inputs: "Inmatning",
   forms: "Formulär",
@@ -60,7 +62,10 @@ export function RegistryItemThumb({
 }: {
   src: string | null | undefined;
   alt: string;
-  /** Sätt för detaljvyns större yta ("Ingen förhandsbild"); utelämnad = bara ikon. */
+  /**
+   * Sätt för detaljvyns större yta; utelämnad = bara ikon. Texten gäller
+   * posten utan bild-URL — ett misslyckat hämtningsförsök skriver sin egen.
+   */
   fallbackLabel?: string;
   previewKind?: ComponentPreviewKind;
   iconKey?: ComponentPreviewKind;
@@ -88,11 +93,12 @@ export function RegistryItemThumb({
   if (hasImageLoadFailure) {
     return (
       <div
-        className="flex flex-col items-center gap-1 text-zinc-600"
+        className="flex flex-col items-center gap-1 text-amber-600/80"
         data-testid="registry-thumbnail-load-error"
+        title={IMAGE_ERROR_LABEL}
       >
         <ImageOff className="h-6 w-6" aria-hidden />
-        {fallbackLabel ? <span className="text-[10px]">{fallbackLabel}</span> : null}
+        {fallbackLabel ? <span className="text-[10px]">{IMAGE_ERROR_LABEL}</span> : null}
       </div>
     );
   }

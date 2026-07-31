@@ -43,4 +43,21 @@ describe("RegistryItemThumb", () => {
     expect(screen.queryByTestId("registry-thumbnail-kind-data")).toBeNull();
     expect(screen.queryByAltText("Chart Bar")).toBeNull();
   });
+
+  it("säger att hämtningen misslyckades, inte att bilden saknas", () => {
+    render(
+      <RegistryItemThumb
+        src="https://ui.example/chart-bar-light.png"
+        alt="Chart Bar"
+        previewKind="data"
+        iconKey="data"
+        fallbackLabel="Ingen förhandsbild"
+      />,
+    );
+
+    fireEvent.error(screen.getByAltText("Chart Bar"));
+
+    expect(screen.getByText("Förhandsbilden kunde inte laddas")).toBeTruthy();
+    expect(screen.queryByText("Ingen förhandsbild")).toBeNull();
+  });
 });
