@@ -369,6 +369,94 @@ export function mergeMissingDependenciesIntoPackageJson(
   return { packageJson: nextPackageJson, mergedCount };
 }
 
+const PROJECT_CODE_FILE_RE = /\.(?:tsx?|jsx?|mjs|cjs)$/i;
+
+/**
+ * Deterministic project-wide dependency completion for imported repos
+ * (v0 templates / ZIP / GitHub imports).
+ *
+ * Imported repos skip `buildCompleteProject` (verbatim policy — no baseline
+ * force-pins, no scaffold deps), so a follow-up that introduces a new import
+ * (e.g. `@clerk/nextjs`) without emitting `package.json` used to leave the
+ * template's own `package.json` untouched. The preview host fingerprints only
+ * `package.json` + lockfiles, so install was skipped and the runtime 500:ade
+ * on the missing module (prod chat 0d52e5c9, 2026-07-31).
+ *
+ * This helper scans every code file for third-party imports and merges the
+ * ones with a KNOWN version pin into the project's EXISTING `package.json`.
+ * It never touches already-declared versions (dependencies or
+ * devDependencies), so template framework majors and lockfile identities stay
+ * intact. Unknown packages are reported but never pinned — guessing "latest"
+ * for an arbitrary specifier could break an install that currently works.
+ */
+export function completeProjectDependencies<
+  T extends { path: string; content: string },
+>(
+  files: T[],
+): {
+  files: T[];
+  pinnedDependencies: Record<string, string>;
+  unknownPackages: string[];
+} {
+  const pkgIdx = files.findIndex((file) => file.path === "package.json");
+  if (pkgIdx === -1) {
+    return { files, pinnedDependencies: {}, unknownPackages: [] };
+  }
+
+  let pkg: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(files[pkgIdx].content) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { files, pinnedDependencies: {}, unknownPackages: [] };
+    }
+    pkg = parsed as Record<string, unknown>;
+  } catch {
+    return { files, pinnedDependencies: {}, unknownPackages: [] };
+  }
+
+  const declared = new Set([
+    ...Object.keys(toDependencyRecord(pkg.dependencies)),
+    ...Object.keys(toDependencyRecord(pkg.devDependencies)),
+  ]);
+
+  const collected: Record<string, string> = {};
+  const unknown = new Set<string>();
+  for (const file of files) {
+    if (!PROJECT_CODE_FILE_RE.test(file.path)) continue;
+    const result = runDepCompleter(file.content);
+    for (const [name, version] of Object.entries(result.dependencies)) {
+      if (declared.has(name)) continue;
+      collected[name] = version;
+    }
+    for (const name of result.unknownPackages) {
+      if (!declared.has(name)) unknown.add(name);
+    }
+  }
+
+  if (Object.keys(collected).length === 0) {
+    return { files, pinnedDependencies: {}, unknownPackages: [...unknown] };
+  }
+
+  const { packageJson, mergedCount } = mergeMissingDependenciesIntoPackageJson(
+    pkg,
+    collected,
+  );
+  if (mergedCount === 0) {
+    return { files, pinnedDependencies: {}, unknownPackages: [...unknown] };
+  }
+
+  const nextFiles = [...files];
+  nextFiles[pkgIdx] = {
+    ...files[pkgIdx],
+    content: JSON.stringify(packageJson, null, 2),
+  };
+  return {
+    files: nextFiles,
+    pinnedDependencies: collected,
+    unknownPackages: [...unknown],
+  };
+}
+
 /**
  * Scan code for third-party import sources and produce a dependency list.
  */

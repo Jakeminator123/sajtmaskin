@@ -15,6 +15,7 @@ import {
   type RoutePlan,
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
+import { completeProjectDependencies } from "@/lib/gen/autofix/dep-completer";
 import { capDegeneratePayload, detectDegenerateFiles } from "@/lib/gen/verify/degeneracy-guard";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
@@ -1371,11 +1372,40 @@ export async function runFinalizePreflight({
             projectEnvLocalOptions,
           ),
         ).files;
+    let importedRepoPinnedDependencies: string[] = [];
     if (importedRepoMode) {
+      // Verbatim assembly must still be installable: a follow-up that
+      // introduces a new import (e.g. `@clerk/nextjs`) without emitting
+      // `package.json` leaves the template's own manifest untouched, the
+      // preview host's dependency fingerprint (package.json + lockfiles)
+      // stays identical, install is skipped and the runtime 500s on the
+      // missing module (prod chat 0d52e5c9, 2026-07-31). Pin missing KNOWN
+      // packages into the template's existing package.json — never touch
+      // declared versions, framework majors or lockfile identity.
+      const depCompletion = completeProjectDependencies(completeProjectFiles);
+      importedRepoPinnedDependencies = Object.keys(
+        depCompletion.pinnedDependencies,
+      );
+      if (importedRepoPinnedDependencies.length > 0) {
+        completeProjectFiles = depCompletion.files;
+        preflightIssues.push(
+          createIssue(
+            "package.json",
+            "warning",
+            `Pinned ${importedRepoPinnedDependencies.length} missing ${
+              importedRepoPinnedDependencies.length === 1
+                ? "dependency"
+                : "dependencies"
+            } in the imported template's package.json: ${importedRepoPinnedDependencies.join(", ")}.`,
+            "non_blocking_quality_warning",
+          ),
+        );
+      }
       devLogAppend("in-progress", {
         type: "preflight.imported-repo.assembly-skipped",
         chatId,
         fileCount: completeProjectFiles.length,
+        pinnedDependencies: importedRepoPinnedDependencies,
       });
     }
     // Final degenerate-payload guard (Codex #322): the ASSEMBLED project — not

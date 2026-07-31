@@ -5,6 +5,7 @@ import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import {
   buildDossierDeclaredVersions,
+  completeProjectDependencies,
   isBuiltinPackage,
   KNOWN_PACKAGES,
   mergeMissingDependenciesIntoPackageJson,
@@ -487,5 +488,88 @@ describe("dep-completer", () => {
     const result = runDepCompleter('import MiniSearch from "minisearch";\nvoid MiniSearch;\n');
     expect(result.dependencies.minisearch).toBe(resolveExportableVersion("minisearch"));
     expect(result.unknownPackages).not.toContain("minisearch");
+  });
+});
+
+// Regression suite for the imported-repo dependency gap (prod chat 0d52e5c9,
+// 2026-07-31): a follow-up added `@clerk/nextjs` imports without emitting
+// package.json — the template's own manifest stayed untouched, the preview
+// host skipped install (fingerprint unchanged) and the runtime 500:ade.
+describe("completeProjectDependencies", () => {
+  const templatePackageJson = JSON.stringify({
+    name: "aether-template",
+    dependencies: { next: "14.2.0", react: "^18" },
+    devDependencies: { typescript: "^5" },
+  });
+
+  it("pins a missing known package imported by a code file into package.json", () => {
+    const result = completeProjectDependencies([
+      { path: "package.json", content: templatePackageJson },
+      {
+        path: "middleware.ts",
+        content:
+          'import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";\n',
+      },
+    ]);
+
+    expect(result.pinnedDependencies["@clerk/nextjs"]).toBe(
+      KNOWN_PACKAGES["@clerk/nextjs"],
+    );
+    const pkg = JSON.parse(
+      result.files.find((f) => f.path === "package.json")!.content,
+    ) as { dependencies: Record<string, string> };
+    expect(pkg.dependencies["@clerk/nextjs"]).toBe(KNOWN_PACKAGES["@clerk/nextjs"]);
+    // Existing template pins stay verbatim — no baseline force-pins.
+    expect(pkg.dependencies.next).toBe("14.2.0");
+    expect(pkg.dependencies.react).toBe("^18");
+  });
+
+  it("does not pin packages already declared in dependencies or devDependencies", () => {
+    const result = completeProjectDependencies([
+      { path: "package.json", content: templatePackageJson },
+      { path: "app/page.tsx", content: 'import ts from "typescript";\nimport React from "react";\n' },
+    ]);
+
+    expect(result.pinnedDependencies).toEqual({});
+    expect(result.files.find((f) => f.path === "package.json")!.content).toBe(
+      templatePackageJson,
+    );
+  });
+
+  it("reports unknown packages without pinning a guessed version", () => {
+    const result = completeProjectDependencies([
+      { path: "package.json", content: templatePackageJson },
+      { path: "lib/x.ts", content: 'import weird from "some-unknown-npm-thing";\n' },
+    ]);
+
+    expect(result.unknownPackages).toContain("some-unknown-npm-thing");
+    expect(result.pinnedDependencies).toEqual({});
+    expect(result.files.find((f) => f.path === "package.json")!.content).toBe(
+      templatePackageJson,
+    );
+  });
+
+  it("ignores import-looking text in non-code files", () => {
+    const result = completeProjectDependencies([
+      { path: "package.json", content: templatePackageJson },
+      { path: "README.md", content: 'import { z } from "zod";\n' },
+      { path: "pnpm-lock.yaml", content: 'import { z } from "zod";\n' },
+    ]);
+
+    expect(result.pinnedDependencies).toEqual({});
+  });
+
+  it("is a no-op without a package.json or with invalid JSON", () => {
+    const noPkg = completeProjectDependencies([
+      { path: "middleware.ts", content: 'import { clerkMiddleware } from "@clerk/nextjs/server";\n' },
+    ]);
+    expect(noPkg.pinnedDependencies).toEqual({});
+
+    const badPkg = completeProjectDependencies([
+      { path: "package.json", content: "{ not json" },
+      { path: "middleware.ts", content: 'import { clerkMiddleware } from "@clerk/nextjs/server";\n' },
+    ]);
+    expect(badPkg.pinnedDependencies).toEqual({});
+    expect(badPkg.files.find((f) => f.path === "package.json")!.content).toBe("{ not json");
   });
 });

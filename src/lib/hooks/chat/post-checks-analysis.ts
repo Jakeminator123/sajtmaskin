@@ -421,7 +421,29 @@ export function buildPostCheckBaseline(params: {
     })),
     { scaffoldBaselineCoversPackageJson: true },
   );
-  const sanityIssues = sanity.issues;
+  // Mirror the server's imported-repo sanity policy (finalize-preflight.ts →
+  // runFinalizePreflightAll): imported v0/ZIP/GitHub templates ship stock
+  // files (e.g. shadcn `components/ui/command.tsx` without DialogTitle) that
+  // violate own-engine scaffold contracts the user never touched. The server
+  // preflight downgrades those errors to warnings, but this client pass used
+  // to re-run sanity WITHOUT the downgrade — `project_sanity_errors` then
+  // failed readiness and stranded the version in draft/pending (prod chat
+  // 0d52e5c9, 2026-07-31). Same chat-level signal as the server:
+  // any version with edit_kind="imported_repo" in the history.
+  const importedRepoMode = versions.some(
+    (entry) => entry.editKind === "imported_repo",
+  );
+  const sanityIssues = importedRepoMode
+    ? sanity.issues.map((issue) =>
+        issue.severity === "error"
+          ? {
+              ...issue,
+              severity: "warning" as const,
+              category: "non_blocking_quality_warning" as const,
+            }
+          : issue,
+      )
+    : sanity.issues;
   const sanityErrors = sanityIssues.filter((issue) => issue.severity === "error");
   const sanityWarnings = sanityIssues.filter((issue) => issue.severity === "warning");
 

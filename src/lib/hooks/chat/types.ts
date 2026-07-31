@@ -146,6 +146,12 @@ export type VersionEntry = {
   verificationSummary?: string | null;
   /** `"design"` (F2) or `"integrations"` (F3) — from `engine_versions.lifecycle_stage`. */
   lifecycleStage?: string | null;
+  /**
+   * Provenance from `engine_versions.edit_kind` (`quick_edit`, `imported_repo`,
+   * `restore`, or null for normal generated rows). Post-checks read it to
+   * mirror the server's imported-repo sanity policy.
+   */
+  editKind?: string | null;
   hasPendingRepair?: boolean;
   repairAvailableAt?: string | null;
   promotedAt?: string | null;

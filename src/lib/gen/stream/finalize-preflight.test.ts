@@ -880,6 +880,63 @@ describe("runFinalizePreflight", () => {
     expect(JSON.parse(persistedPkg!.content).dependencies.next).toBe("14.2.3");
   });
 
+  it("imported-repo mode: pins a missing known dependency into the template's own package.json", async () => {
+    // Regression (prod chat 0d52e5c9, 2026-07-31): a follow-up added
+    // `@clerk/nextjs` imports without emitting package.json. Verbatim mode
+    // skipped every dependency merge, the preview host's fingerprint
+    // (package.json + lockfiles) stayed unchanged, install was skipped and
+    // the runtime 500:ade on the missing module. Imported-repo finalize must
+    // pin missing KNOWN packages while leaving the template's declared
+    // versions untouched.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    runProjectSanityChecks.mockReturnValue({ valid: true, issues: [] });
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_imported_missing_dep",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+        {
+          path: "middleware.ts",
+          content:
+            'import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";\n' +
+            "export default clerkMiddleware();\n",
+          language: "ts",
+        },
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            dependencies: { next: "14.2.3", react: "18.3.1", "react-dom": "18.3.1" },
+            scripts: { dev: "next dev" },
+          }),
+          language: "json",
+        },
+      ]),
+      importedRepoMode: true,
+    });
+
+    const persistedPkg = (JSON.parse(result.filesJson) as Array<{ path: string; content: string }>)
+      .find((f) => f.path === "package.json");
+    expect(persistedPkg).toBeDefined();
+    const parsedPkg = JSON.parse(persistedPkg!.content) as {
+      dependencies: Record<string, string>;
+    };
+    // The missing import got pinned — package.json content changes, so the
+    // preview host's dependency fingerprint changes and install re-runs.
+    expect(parsedPkg.dependencies["@clerk/nextjs"]).toMatch(/^\^?\d/);
+    // Template's own pins stay verbatim.
+    expect(parsedPkg.dependencies.next).toBe("14.2.3");
+    expect(parsedPkg.dependencies.react).toBe("18.3.1");
+    // The pin is reported as a non-blocking informational issue.
+    const pinIssue = result.preflightIssues.find(
+      (i) => i.file === "package.json" && /Pinned 1 missing dependency/.test(i.message),
+    );
+    expect(pinIssue?.severity).toBe("warning");
+    expect(result.previewStart.canStartPreview).toBe(true);
+    // Still no scaffold assembly in verbatim mode.
+    expect(buildCompleteProject).not.toHaveBeenCalled();
+  });
+
   it("does not flag a composed home route that delegates to a real local component", async () => {
     // Regression: prod chat bb918df9 (version 103e60b5) shipped a thin
     // `app/page.tsx` that delegated its whole body to `<PalmaGuide />`.
