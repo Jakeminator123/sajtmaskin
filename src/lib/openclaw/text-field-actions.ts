@@ -46,7 +46,7 @@ export interface OpenClawRequestRepairAction {
 
 /**
  * Debug-mode only: OpenClaw confirms an arming handshake and creates a bounded
- * autonomy mandate (Mode A). The client gates this on OPENCLAW.debugEnabled and
+ * autonomy mandate (Mode A). The client gates this on OPENCLAW.editEnabled and
  * sets the mandate in the store; outside debug it is ignored.
  */
 export interface OpenClawStartBugHuntAction {

@@ -14,9 +14,12 @@ interface OpenClawState {
   isStreaming: boolean;
   scopeKey: string;
   avatarMode: boolean;
-  /** Server-reported OC_DEBUG state (from /api/openclaw/health). Gates the
-   * armed-autonomy auto-send path on the client. Default false. */
+  /** Server-reported OC_DEBUG state (from /api/openclaw/health) — read side
+   * (debug context). Default false. */
   debugEnabled: boolean;
+  /** Server-reported OC_EDIT state (from /api/openclaw/health) — act side.
+   * Gates the armed-autonomy auto-send path on the client. Default false. */
+  editEnabled: boolean;
   /** Active "armed autonomy" mandate (Mode A), or null when OpenClaw is passive. */
   armedMandate: ArmedMandate | null;
 
@@ -30,6 +33,7 @@ interface OpenClawState {
   clearMessages: () => void;
   setAvatarMode: (v: boolean) => void;
   setDebugEnabled: (v: boolean) => void;
+  setEditEnabled: (v: boolean) => void;
   setArmedMandate: (mandate: ArmedMandate | null) => void;
 }
 
@@ -40,6 +44,7 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   scopeKey: "global",
   avatarMode: true,
   debugEnabled: false,
+  editEnabled: false,
   armedMandate: null,
 
   toggle: () => set((s) => ({ isOpen: !s.isOpen })),
@@ -73,5 +78,6 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   clearMessages: () => set({ messages: [] }),
   setAvatarMode: (v) => set({ avatarMode: v }),
   setDebugEnabled: (v) => set({ debugEnabled: v }),
+  setEditEnabled: (v) => set({ editEnabled: v }),
   setArmedMandate: (mandate) => set({ armedMandate: mandate }),
 }));

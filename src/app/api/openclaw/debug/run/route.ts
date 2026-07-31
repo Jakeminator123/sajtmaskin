@@ -29,7 +29,10 @@ export const maxDuration = 800;
  * Gated trigger for the OpenClaw debug-mode bug-hunt (Mode B).
  *
  * Hard gates (defense in depth):
- *  - `OPENCLAW.debugEnabled` (OC_DEBUG, production-safeguarded) must be on.
+ *  - `OPENCLAW.debugEnabled` (OC_DEBUG) must be on — the bug-hunt reads debug
+ *    context and findings.
+ *  - `OPENCLAW.editEnabled` (OC_EDIT) must be on — the run drives real
+ *    follow-up generations, i.e. it EDITS (its own minted) user sites.
  *  - the OWNER gate: `OC_DEBUG_RUN_TOKEN` must be set AND the request must send a
  *    matching `x-oc-debug-token` header (constant-time compared). This is the
  *    operator secret — not mere header presence.
@@ -76,7 +79,16 @@ export async function POST(req: Request) {
   return withRateLimit(req, "openclaw:debug-run", async () => {
     if (!OPENCLAW.debugEnabled) {
       return NextResponse.json(
-        { error: "OpenClaw debug-mode is disabled (set OC_DEBUG; not allowed in production without OC_DEBUG_ALLOW_PROD)." },
+        { error: "OpenClaw debug-mode is disabled (set OC_DEBUG)." },
+        { status: 403 },
+      );
+    }
+
+    // The bug-hunt run drives real follow-up generations — that is an edit
+    // action, so the act gate must be open too.
+    if (!OPENCLAW.editEnabled) {
+      return NextResponse.json(
+        { error: "OpenClaw edit-mode is disabled (set OC_EDIT to allow the bug-hunt to drive generations)." },
         { status: 403 },
       );
     }

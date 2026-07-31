@@ -93,6 +93,7 @@ export interface OpenClawStatus {
   surfaceStatus: string;
   blockers: string[];
   debugEnabled: boolean;
+  editEnabled: boolean;
   upstream?: number;
   error?: string;
   healthEndpoint?: string;

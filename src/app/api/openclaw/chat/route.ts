@@ -118,17 +118,28 @@ Håll dig till kort, tydlig vägledning. Använd bara djup kodgranskning när an
 }
 
 /**
- * Debug-mode (OC_DEBUG) system instructions. Unlocks armed autonomy (Mode A):
- * OpenClaw still reasons first and never builds unprompted, but after an
- * explicit arming directive it may fill the builder prompt and click send for a
- * bounded number of follow-ups. Also tells it how to use the extra debug context
- * (full code, persisted findings, read-only Sajtmaskin source) to reason about
- * where the PLATFORM itself is buggy. OpenClaw never edits Sajtmaskin's code.
+ * Debug-mode (OC_DEBUG) system instructions — READ side only. Tells the model
+ * how to use the extra debug context (full code, persisted findings, read-only
+ * Sajtmaskin source) to reason about where the PLATFORM itself is buggy.
+ * OpenClaw never edits Sajtmaskin's code. Acting (armed autonomy) is a separate
+ * prompt gated by OC_EDIT.
  */
 function buildDebugSystemPrompt(): string {
   return `Internt läge: DEBUG (OC_DEBUG på).
 
-Du har nu utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.
+Du har nu utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.`;
+}
+
+/**
+ * Edit-mode (OC_EDIT) system instructions — ACT side. Unlocks armed autonomy
+ * (Mode A): OpenClaw still reasons first and never builds unprompted, but after
+ * an explicit arming directive it may fill the builder prompt and click send
+ * for a bounded number of follow-ups. Every edit runs through the ordinary
+ * builder pipeline (own-engine -> verify -> preview); there is no direct write
+ * path to preview-host/Fly or to Sajtmaskin's own code.
+ */
+function buildEditSystemPrompt(): string {
+  return `Internt läge: EDIT (OC_EDIT på) — armerad autonomi.
 
 Armerad autonomi (gör detta först efter att användaren uttryckligen ber om det):
 - Du bygger ALDRIG en sajt oombett. Resonera först.
@@ -141,7 +152,8 @@ Armerad autonomi (gör detta först efter att användaren uttryckligen ber om de
 {"type":"fill_text_field","target":"builder.chat.primary","value":"Din follow-up-prompt","submit":true}
 </openclaw-action>
 - Skicka EN follow-up i taget, vänta in resultatet, läs fynden och välj nästa suspekta steg. Respektera mandatets antal. Om användaren skriver "stopp" – sluta omedelbart och skicka inga fler.
-- "submit":true respekteras bara i debug-läge med ett aktivt mandat; annars fylls fältet men skickas inte.`;
+- "submit":true respekteras bara i redigeringsläge med ett aktivt mandat; annars fylls fältet men skickas inte.
+- Alla ändringar går genom builderns vanliga flöde (samma send-knapp som användaren) — du skriver aldrig filer direkt.`;
 }
 
 const OPENCLAW_DEBUG_FINDINGS_MAX = 12;
@@ -209,6 +221,10 @@ export async function POST(req: NextRequest) {
 
     if (debug) {
       messages.push({ role: "system", content: buildDebugSystemPrompt() });
+    }
+
+    if (OPENCLAW.editEnabled) {
+      messages.push({ role: "system", content: buildEditSystemPrompt() });
     }
 
     if (BUILDER_PROMPT_TIPS) {
