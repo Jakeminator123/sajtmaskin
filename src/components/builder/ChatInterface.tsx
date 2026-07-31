@@ -29,10 +29,11 @@ import {
   Loader2,
   Plus,
   Search,
+  SearchX,
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { builderModeToggleClassName } from "@/lib/builder/icon-language";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type PromptSourceMeta } from "@/lib/builder/prompt-builder";
@@ -778,15 +779,18 @@ export function ChatInterface({
                   onClick={previewModes.onToggleComposer}
                   disabled={previewModes.composerDisabled}
                   aria-pressed={previewModes.composerOpen}
+                  aria-label={previewModes.composerOpen ? "Stäng block" : "Lägg till block"}
                   title="Lägg till färdiga block och innehåll i previewen"
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
-                    previewModes.composerOpen &&
-                      "border-violet-500/60 bg-violet-900/50 text-violet-100",
-                  )}
+                  className={builderModeToggleClassName(previewModes.composerOpen, "violet")}
                 >
-                  <Plus className="size-3" />
-                  {previewModes.composerOpen ? "Stäng block" : "Lägg till block"}
+                  {/* Ikon-only (Del D): av/på bärs av färg + aria-pressed. Öppet
+                      läge byter dessutom ikon (Plus → X) så läget syns på en
+                      skärmdump utan text. */}
+                  {previewModes.composerOpen ? (
+                    <X className="size-3" />
+                  ) : (
+                    <Plus className="size-3" />
+                  )}
                 </button>
                 {previewModes.inspectAvailable ? (
                   <button
@@ -794,15 +798,17 @@ export function ChatInterface({
                     onClick={previewModes.onToggleInspect}
                     disabled={previewModes.inspectDisabled}
                     aria-pressed={previewModes.inspectOpen}
+                    aria-label={
+                      previewModes.inspectOpen ? "Sluta inspektera" : "Inspektera preview"
+                    }
                     title="Klicka på något i previewen för att ändra text, byta bild, ta bort det eller skicka det till chatten"
-                    className={cn(
-                      "inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
-                      previewModes.inspectOpen &&
-                        "border-emerald-500/60 bg-emerald-900/50 text-emerald-100",
-                    )}
+                    className={builderModeToggleClassName(previewModes.inspectOpen, "emerald")}
                   >
-                    <Search className="size-3" />
-                    {previewModes.inspectOpen ? "Sluta inspektera" : "Inspektera preview"}
+                    {previewModes.inspectOpen ? (
+                      <SearchX className="size-3" />
+                    ) : (
+                      <Search className="size-3" />
+                    )}
                   </button>
                 ) : null}
               </>
