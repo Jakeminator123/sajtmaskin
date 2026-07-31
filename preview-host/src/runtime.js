@@ -510,7 +510,7 @@ function sharedPackageManagerCacheEnv() {
   }
   return {
     NPM_CONFIG_CACHE: npmCacheDir,
-    PNPM_CONFIG_STORE_DIR: pnpmStoreDir,
+    NPM_CONFIG_STORE_DIR: pnpmStoreDir,
     YARN_CACHE_FOLDER: yarnCacheDir,
   };
 }

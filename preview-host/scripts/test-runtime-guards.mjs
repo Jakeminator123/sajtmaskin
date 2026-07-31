@@ -280,12 +280,12 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check(
     "install cache uses the shared data volume",
     cacheEnv.NPM_CONFIG_CACHE === join(dataDir, "npm-cache") &&
-      cacheEnv.PNPM_CONFIG_STORE_DIR === join(dataDir, "pnpm-store") &&
+      cacheEnv.NPM_CONFIG_STORE_DIR === join(dataDir, "pnpm-store") &&
       cacheEnv.YARN_CACHE_FOLDER === join(dataDir, "yarn-cache"),
   );
   check(
     "install cache directories exist before install",
-    [cacheEnv.NPM_CONFIG_CACHE, cacheEnv.PNPM_CONFIG_STORE_DIR, cacheEnv.YARN_CACHE_FOLDER].every(
+    [cacheEnv.NPM_CONFIG_CACHE, cacheEnv.NPM_CONFIG_STORE_DIR, cacheEnv.YARN_CACHE_FOLDER].every(
       (cachePath) => lstatSync(cachePath).isDirectory(),
     ),
   );
