@@ -61,15 +61,36 @@ class Sample:
 
 _LABEL_RE = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"')
 
+# Prometheus exposition escapes exactly these three (0.0.4 spec).
+_LABEL_ESCAPES = {"\\": "\\", '"': '"', "n": "\n"}
+_LABEL_ESCAPE_RE = re.compile(r"\\(.)", re.DOTALL)
+
+
+def _unescape_label_value(raw: str) -> str:
+    """Un-escape a label value in ONE left-to-right pass.
+
+    Chained ``str.replace`` calls cannot do this: they rescan the output of the
+    previous call, so an escape sequence the first pass *produced* gets consumed
+    by a later one. Concretely ``\\\\n`` in the exposition means "escaped
+    backslash, then the letter n" and must decode to a backslash followed by
+    ``n`` — but ``.replace(r"\\\\", "\\\\")`` first turns it into ``\\n``, which
+    ``.replace(r"\\n", "\\n")`` then reads as a real newline. A single regex pass
+    consumes each backslash together with the character it escapes, so nothing it
+    emits can be re-read as an escape.
+
+    Undefined sequences keep their backslash: the spec defines no others, and
+    preserving the input beats inventing a decoding.
+    """
+    return _LABEL_ESCAPE_RE.sub(
+        lambda match: _LABEL_ESCAPES.get(match.group(1), "\\" + match.group(1)),
+        raw,
+    )
+
 
 def _parse_labels(label_text: str) -> dict[str, str]:
     out: dict[str, str] = {}
     for match in _LABEL_RE.finditer(label_text):
-        raw = match.group(2)
-        # Prometheus exposition escapes \\, \" and \n; un-escape them.
-        out[match.group(1)] = (
-            raw.replace(r"\\", "\\").replace(r"\"", '"').replace(r"\n", "\n")
-        )
+        out[match.group(1)] = _unescape_label_value(match.group(2))
     return out
 
 

@@ -134,6 +134,27 @@ class ParseLabelsTests(unittest.TestCase):
         # Exposition ``path="C:\\tmp"`` → label value ``C:\tmp``.
         self.assertEqual(obs._parse_labels(r'path="C:\\tmp"'), {"path": "C:\\tmp"})
 
+    def test_escaped_backslash_before_n_is_not_a_newline(self) -> None:
+        """Ordningsregression: ``\\\\n`` är backslash + bokstaven n, inte nyrad.
+
+        Kedjade ``replace``-anrop läste om sin egen utdata: ``\\\\n`` blev först
+        ``\\n`` och sedan en riktig radbrytning. Ett litteralt ``\\n`` i datan
+        tolkades alltså som nyrad.
+        """
+        self.assertEqual(
+            obs._parse_labels(r'path="C:\\next"'),
+            {"path": "C:\\next"},
+        )
+        self.assertNotIn("\n", obs._parse_labels(r'path="C:\\next"')["path"])
+
+    def test_escaped_backslash_before_quote_escape(self) -> None:
+        # ``\\\"`` = escaped backslash, then an escaped quote → ``\"``.
+        self.assertEqual(obs._parse_labels(r'msg="a\\\"b"'), {"msg": 'a\\"b'})
+
+    def test_undefined_escape_keeps_its_backslash(self) -> None:
+        # The spec defines only \\, \" and \n — preserve anything else verbatim.
+        self.assertEqual(obs._parse_labels(r'msg="a\tb"'), {"msg": "a\\tb"})
+
 
 class ParsePrometheusTextTests(unittest.TestCase):
     def test_empty_and_comments_only(self) -> None:
