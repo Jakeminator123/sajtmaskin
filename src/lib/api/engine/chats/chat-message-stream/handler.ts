@@ -121,6 +121,7 @@ export async function handleMessageStreamRequest(
         imageGenerations,
         system,
         meta,
+        promptSource,
       } =
         validationResult.data;
       const requestAttachments = normalizeRequestAttachments(attachments);
@@ -511,13 +512,17 @@ export async function handleMessageStreamRequest(
 
         // Delta-brief for clear-redesign follow-ups (see
         // `runClearRedesignDeltaBriefPhase` — also writes back to
-        // `parsedMeta.brief`).
-        metaBrief = await runClearRedesignDeltaBriefPhase({
+        // `parsedMeta.brief`). The phase may skip its LLM pass for an
+        // OpenClaw-prepared prompt (`promptSource: "openclaw-prepared"`,
+        // OC_EDIT-gated) — `skipReason` is telemetry-only.
+        const deltaBriefPhase = await runClearRedesignDeltaBriefPhase({
           chatId,
           engineChat,
           followUpIntent,
           hasFollowUpBase,
           followUpIntentMessage,
+          message,
+          requestPromptSource: typeof promptSource === "string" ? promptSource : null,
           metaScaffoldMode,
           metaScaffoldId,
           metaBuildIntent,
@@ -526,6 +531,7 @@ export async function handleMessageStreamRequest(
           req,
           parsedMeta,
         });
+        metaBrief = deltaBriefPhase.brief;
 
         if (hasFollowUpBase) {
           const followUpFileContext = buildFollowUpFileContextDecision({
@@ -759,6 +765,7 @@ export async function handleMessageStreamRequest(
           metaEngineBaseVersionId,
           parsedMeta,
           metaBrief,
+          deltaBriefSkipReason: deltaBriefPhase.skipReason,
           hasPersistedBrief,
           resolvedModelId,
           resolvedModelTier,

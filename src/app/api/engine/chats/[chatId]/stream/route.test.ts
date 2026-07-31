@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const delegatedPost = vi.hoisted(() => vi.fn());
 
@@ -207,6 +207,24 @@ vi.mock("@/lib/models/phase-routing", () => ({
 vi.mock("@/lib/builder/site-brief-generation", () => ({
   tryGenerateServerAutoBrief: vi.fn(async () => null),
 }));
+
+// OpenClaw prepared-prompt fast lane: controllable OC_EDIT act gate. Only
+// `OPENCLAW.editEnabled` is overridden — the rest of the real config module is
+// kept as-is so unrelated consumers behave exactly like production.
+const openClawEditEnabled = vi.hoisted(() => ({ value: false }));
+
+vi.mock("@/lib/config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/config")>();
+  return {
+    ...actual,
+    OPENCLAW: {
+      ...actual.OPENCLAW,
+      get editEnabled() {
+        return openClawEditEnabled.value;
+      },
+    },
+  };
+});
 
 vi.mock("@/lib/api/preview-url-contract", () => ({
   previewUrlField: (url: string | null | undefined) => ({
@@ -440,6 +458,7 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
 
 import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { buildFollowUpBriefFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import { devLogAppend } from "@/lib/logging/devLog";
 import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 
@@ -1786,6 +1805,156 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     };
     expect(orchestrationInput.brief).toEqual(deltaBrief);
     expect(orchestrationInput.brief).not.toEqual(buildFollowUpBriefFromSnapshot(snapshot));
+  });
+
+  // ── OpenClaw prepared-prompt fast lane (delta-brief skip) ────────────────
+  // A follow-up tagged `promptSource: "openclaw-prepared"` may skip the
+  // clear-redesign delta-brief LLM pass — ONLY when the server act gate
+  // (OPENCLAW.editEnabled / OC_EDIT) is on AND the prompt passes the
+  // deterministic structure check. Everything else runs today's path.
+  describe("OpenClaw prepared-prompt fast lane", () => {
+    // Classifies as clear-redesign (keyword classifier runs for real) AND
+    // passes the structure validator (≥200 chars, ≥2 sections, ≥3 bullets).
+    const preparedRedesignPrompt = [
+      "Gör om från grunden med mörk editorial stil och ny layout.",
+      "",
+      "Mål:",
+      "- Ny visuell identitet med mörk bakgrund och stor typografi",
+      "- Tydligare fokus på byråns senaste projekt",
+      "",
+      "Sektioner:",
+      "- Hero med stort namn och kort positionering",
+      "- Projektgrid med tre utvalda case och hovringseffekt",
+      "- Kontaktband med e-post och sociala länkar",
+      "",
+      "Design:",
+      "- Serif-rubriker, sans-serif brödtext och generös luft",
+    ].join("\n");
+
+    const chatWithLockedScaffold = {
+      id: "chat_1",
+      project_id: "app_proj_1",
+      scaffold_id: "scaffold_locked",
+      messages: [],
+      orchestration_snapshot: {
+        briefSummary: {
+          projectTitle: "SNAPSHOT_BASE_BRIEF",
+          requestedCapabilities: ["contact-form"],
+        },
+      },
+    };
+
+    /** safeParse mock that ALSO forwards the top-level promptSource tag. */
+    function mockParseWithPromptSource() {
+      sendMessageSchemaSafeParse.mockImplementationOnce(
+        (body: Record<string, unknown>) => ({
+          success: true,
+          data: {
+            message: typeof body.message === "string" ? body.message : "",
+            attachments: [],
+            modelId: "test-model-id",
+            thinking: true,
+            imageGenerations: true,
+            system: "",
+            designSystemId: null,
+            promptSource:
+              typeof body.promptSource === "string" ? body.promptSource : undefined,
+            meta: {
+              appProjectId: "app_proj_1",
+            },
+          },
+        }),
+      );
+    }
+
+    function postPrepared(message: string, promptSource?: string) {
+      return POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            promptSource ? { message, promptSource } : { message },
+          ),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+    }
+
+    beforeEach(() => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce(chatWithLockedScaffold);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Redesigned</main>" } },
+          { event: "done", data: { promptTokens: 9, completionTokens: 15 } },
+        ]),
+      );
+    });
+
+    afterEach(() => {
+      openClawEditEnabled.value = false;
+    });
+
+    it("skips the delta-brief LLM pass for a tagged structured prompt when OC_EDIT is on", async () => {
+      openClawEditEnabled.value = true;
+      mockParseWithPromptSource();
+
+      const response = await postPrepared(preparedRedesignPrompt, "openclaw-prepared");
+
+      expect(response.status).toBe(200);
+      // The ONLY skipped step is the delta-brief LLM pass…
+      expect(tryGenerateServerAutoBrief).not.toHaveBeenCalled();
+      // …the rest of the turn runs unchanged: orchestration + generation…
+      expect(resolveOrchestrationBase).toHaveBeenCalled();
+      expect(createGenerationPipeline).toHaveBeenCalled();
+      // …and the existing follow-up timeline event carries the skip reason.
+      const followupEvent = vi
+        .mocked(devLogAppend)
+        .mock.calls.find(
+          ([, entry]) =>
+            (entry as { type?: string }).type === "comm.request.followup",
+        )?.[1] as Record<string, unknown> | undefined;
+      expect(followupEvent?.briefSkipReason).toBe("openclaw_prepared");
+    });
+
+    it("runs the normal delta-brief pass when the tag is present but OC_EDIT is off", async () => {
+      openClawEditEnabled.value = false;
+      mockParseWithPromptSource();
+
+      const response = await postPrepared(preparedRedesignPrompt, "openclaw-prepared");
+
+      expect(response.status).toBe(200);
+      expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
+      const followupEvent = vi
+        .mocked(devLogAppend)
+        .mock.calls.find(
+          ([, entry]) =>
+            (entry as { type?: string }).type === "comm.request.followup",
+        )?.[1] as Record<string, unknown> | undefined;
+      expect(followupEvent?.briefSkipReason).toBeUndefined();
+    });
+
+    it("fails open to the normal delta-brief pass when the tagged prompt is unstructured", async () => {
+      openClawEditEnabled.value = true;
+      mockParseWithPromptSource();
+
+      const response = await postPrepared(
+        "Gör om från grunden med mörk editorial stil och ny layout.",
+        "openclaw-prepared",
+      );
+
+      expect(response.status).toBe(200);
+      expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
+    });
+
+    it("runs the normal delta-brief pass without the tag even when OC_EDIT is on", async () => {
+      openClawEditEnabled.value = true;
+      // Default safeParse mock — no promptSource forwarded.
+
+      const response = await postPrepared(preparedRedesignPrompt);
+
+      expect(response.status).toBe(200);
+      expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("keeps using the snapshot brief for a neutral follow-up (no F1 regression)", async () => {

@@ -4,6 +4,7 @@
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
+import { OPENCLAW } from "@/lib/config";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 import {
@@ -18,9 +19,24 @@ import {
 import { matchScaffold } from "@/lib/gen/scaffolds/matcher";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
+import {
+  isOpenClawPreparedPromptStructured,
+  OPENCLAW_PREPARED_PROMPT_SOURCE,
+} from "@/lib/openclaw/prepared-prompt";
 import { shouldIgnorePersistedScaffoldForMatch } from "@/lib/providers/own-engine/follow-up-clarification";
 import { debugLog } from "@/lib/utils/debug";
 import type { ParsedChatRequestMeta } from "../parse-chat-request-meta";
+
+export interface ClearRedesignDeltaBriefPhaseResult {
+  /** Generated delta-brief (also written back to `parsedMeta.brief`), or null. */
+  brief: Record<string, unknown> | null;
+  /**
+   * `"openclaw_prepared"` when the delta-brief LLM pass was deliberately
+   * skipped by the OpenClaw prepared-prompt fast lane. Additive telemetry
+   * field for the existing `comm.request.followup` timeline event.
+   */
+  skipReason: "openclaw_prepared" | null;
+}
 
 /**
  * Delta-brief: generate a fresh brief for clear-redesign follow-ups
@@ -28,6 +44,16 @@ import type { ParsedChatRequestMeta } from "../parse-chat-request-meta";
  *
  * Returns the generated delta-brief (also written back to
  * `parsedMeta.brief` — 5-4/F1) or `null` when skipped/failed.
+ *
+ * OpenClaw prepared-prompt fast lane (opt-in, OC_EDIT-gated): when the
+ * request body carries `promptSource: "openclaw-prepared"` AND the server's
+ * act gate (`OPENCLAW.editEnabled`) is on AND the prompt passes the
+ * deterministic structure check, the LLM pass is skipped and the prepared
+ * prompt itself is the brief/spec input downstream (orchestration keeps the
+ * non-style snapshot fallback for continuity — same lane as a failed
+ * delta-brief, minus the LLM round). Every other step of the follow-up turn
+ * (intent classification, freeze, versioning, verification) is unchanged.
+ * Any failed condition falls open to today's LLM path.
  */
 export async function runClearRedesignDeltaBriefPhase(params: {
   chatId: string;
@@ -35,6 +61,11 @@ export async function runClearRedesignDeltaBriefPhase(params: {
   followUpIntent: FollowUpIntentMode;
   hasFollowUpBase: boolean;
   followUpIntentMessage: string;
+  /** The raw message of the CURRENT turn (may differ from
+   * `followUpIntentMessage` on contract-gate retries). */
+  message: string;
+  /** Top-level `promptSource` from the request body, or null. */
+  requestPromptSource: string | null;
   metaScaffoldMode: ScaffoldMode;
   metaScaffoldId: string | null;
   metaBuildIntent: string | null;
@@ -43,13 +74,15 @@ export async function runClearRedesignDeltaBriefPhase(params: {
   req: Request;
   /** Mutated in place: a generated delta-brief is routed into orchestration. */
   parsedMeta: ParsedChatRequestMeta;
-}): Promise<Record<string, unknown> | null> {
+}): Promise<ClearRedesignDeltaBriefPhaseResult> {
   const {
     chatId,
     engineChat,
     followUpIntent,
     hasFollowUpBase,
     followUpIntentMessage,
+    message,
+    requestPromptSource,
     metaScaffoldMode,
     metaScaffoldId,
     metaBuildIntent,
@@ -60,6 +93,29 @@ export async function runClearRedesignDeltaBriefPhase(params: {
   } = params;
   let metaBrief: Record<string, unknown> | null = null;
   if (followUpIntent === "clear-redesign" && hasFollowUpBase) {
+    // OpenClaw prepared-prompt fast lane. The tag only counts when the brief
+    // target is the message that was actually sent this turn — on a
+    // contract-gate retry `followUpIntentMessage` is the ORIGINAL gated
+    // request (not what the tag was set for), so that case falls open.
+    if (requestPromptSource === OPENCLAW_PREPARED_PROMPT_SOURCE) {
+      if (
+        OPENCLAW.editEnabled &&
+        followUpIntentMessage === message &&
+        isOpenClawPreparedPromptStructured(followUpIntentMessage)
+      ) {
+        // Same outcome owner as the generated/failed logs below — the skip is
+        // recorded with its reason instead of a silent no-call.
+        debugLog("orchestration", "Delta-brief skipped or failed for clear-redesign follow-up", {
+          chatId,
+          durationMs: 0,
+          reason: "openclaw_prepared",
+          promptLength: followUpIntentMessage.length,
+        });
+        return { brief: null, skipReason: "openclaw_prepared" };
+      }
+      // Edit gate off, indirect message or unstructured prompt → fail open
+      // to the normal delta-brief LLM pass below.
+    }
     const persistedScaffoldIdForDelta = engineChat.scaffold_id;
     const deltaIgnoreScaffold = shouldIgnorePersistedScaffoldForMatch({
       hasPreviousFiles: true,
@@ -122,8 +178,9 @@ export async function runClearRedesignDeltaBriefPhase(params: {
       debugLog("orchestration", "Delta-brief skipped or failed for clear-redesign follow-up", {
         chatId,
         durationMs: Date.now() - deltaBriefStartedAt,
+        reason: "generation_failed",
       });
     }
   }
-  return metaBrief;
+  return { brief: metaBrief, skipReason: null };
 }

@@ -38,6 +38,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type PromptSourceMeta } from "@/lib/builder/prompt-builder";
 import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import {
+  resolveOpenClawPreparedPromptSource,
+  type OpenClawPreparedPromptSource,
+} from "@/lib/openclaw/prepared-prompt";
+import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import {
   INSPECT_CAPTURE_EVENT,
   type InspectCapturedElement,
   type InspectCaptureEventDetail,
@@ -49,6 +54,8 @@ type MessageOptions = {
   attachmentPrompt?: string;
   planMode?: boolean;
   promptSourceMeta?: PromptSourceMeta;
+  /** OpenClaw prepared-prompt fast lane — see `prepared-prompt.ts`. */
+  promptSource?: OpenClawPreparedPromptSource;
 };
 
 type FigmaPreviewResponse = {
@@ -595,11 +602,26 @@ export function ChatInterface({
     try {
       const payload = await buildMessagePayload(baseMessage);
       if (!payload.finalMessage.trim()) return;
+      // OpenClaw prepared-prompt fast lane: tag a follow-up send whose FINAL
+      // message is exactly what OpenClaw filled into this composer (edit gate
+      // on, no user edits, no appended Figma/inspect blocks or attachments).
+      // Init sends never tag — the lane only skips the follow-up delta-brief.
+      const openClawState = useOpenClawStore.getState();
+      const openClawPromptSource = chatId
+        ? resolveOpenClawPreparedPromptSource({
+            editEnabled: openClawState.editEnabled,
+            preparedFill: openClawState.preparedFill,
+            message: payload.finalMessage,
+            hasAttachments: Boolean(payload.finalAttachments?.length),
+            attachmentPrompt: payload.attachmentPrompt,
+          })
+        : null;
       const msgOpts: MessageOptions = {
         attachments: payload.finalAttachments,
         attachmentPrompt: payload.attachmentPrompt,
         planMode: options.planMode,
         promptSourceMeta: options.promptSourceMeta,
+        promptSource: openClawPromptSource ?? undefined,
       };
       if (!chatId) {
         if (!onCreateChat) return;
@@ -623,6 +645,11 @@ export function ChatInterface({
         setFigmaUrl("");
         setFigmaInputOpen(false);
         setInspectPoints([]);
+        // The draft that carried the OpenClaw fill is consumed — drop the
+        // prepared-fill marker so a LATER identical draft can't inherit it.
+        if (openClawState.preparedFill) {
+          useOpenClawStore.getState().setPreparedFill(null);
+        }
       }
     } finally {
       setIsSending(false);
