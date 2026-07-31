@@ -91,7 +91,7 @@ export function ContactForm({ subjectPrefix, className }: ContactFormProps) {
           </p>
           {state.demo && (
             <p className="mt-3 rounded-md border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              Demo: meddelandet skickades inte på riktigt. Riktig e-post aktiveras när sajten kopplas till Resend under &quot;Bygg integrationer&quot;.
+              Demo: meddelandet skickades inte på riktigt. Riktig e-post aktiveras när Resend-nycklarna sparas under &quot;Byggblock&quot; i byggaren.
             </p>
           )}
         </div>
