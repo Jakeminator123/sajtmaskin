@@ -15,14 +15,19 @@ Del av [`00-master-plan.md`](00-master-plan.md).
 
 ## Målbild
 
+**Rättad 2026-07-31: Tema ingår inte längre här.** PR #680 flyttade
+temaväljaren till Byggval-reglagen i preview-panelens välkomstläge i stället
+(ägarbeslut) — se `src/components/builder/ChatInterface.tsx` (kommentaren vid
+"Avancerat"-popovern) och `src/components/builder/preview-panel/PreviewPanelInitControls.tsx`.
+Steg 1 nedan är därmed överspelat och ska inte göras.
+
 ```text
 … Mer
 ├── Projekt
 │   └── Spara projekt
 ├── Inställningar
 │   ├── Scaffold          (flyttad: låg tidigare som egen sub direkt i Mer)
-│   ├── Tema              (flyttad: låg i "Avancerat"-popovern vid chatinputen)
-│   ├── Modell            (flyttad: låg som egen knapp i headern)
+│   ├── Byggmodell        (flyttad: låg som egen knapp i headern)
 │   └── Generering / Inmatning / Instruktioner   (befintliga, oförändrade)
 └── Importera och exportera
     ├── Importera (GitHub eller ZIP)   (platt — hanterar båda källorna, Ö2)
@@ -43,18 +48,20 @@ Del av [`00-master-plan.md`](00-master-plan.md).
 
 ## Steg
 
-### Steg 1 — Tema flyttas från chatinputen till headern (N1)
+### Steg 1 — ÖVERSPELAT (N1), gör inte detta
 
-1. Läs tema-blocket i `ChatInterface.tsx` (~763–801) och kartlägg vilka props och
-   vilket state temaväljaren behöver (värde, `onChange`, etiketter).
-2. Lyft det state/prop-paret till samma ägare som redan matar `BuilderHeader`
-   (följ hur `selectedModelTier` / `onSelectedModelTierChange` trådas — samma väg).
-3. Rendera temaväljaren som `DropdownMenuSub` **inuti** `Inställningar`-subbens
-   `DropdownMenuSubContent`.
-4. Ta bort temaknappen ur "Avancerat"-popovern. Kontrollera att popovern har kvar
-   meningsfullt innehåll (plan-delen) — är den tom efter flytten, ta bort hela
-   popovern i stället för att lämna en tom knapp.
-5. Sätt samma spärr som syskonen: `disabled={isConfigLocked}`.
+**PR #680 flyttade redan temaväljaren** — men till Byggval-reglagen i
+preview-panelens välkomstläge (`PreviewPanelInitControls.tsx`), inte till
+headerns Inställningar som denna plan ursprungligen föreslog. Ägarbeslut
+2026-07-31, dokumenterat i en kodkommentar vid "Avancerat"-popovern i
+`ChatInterface.tsx`. Bygg inte en tema-sub under Inställningar.
+
+Kvarstående delfråga från samma steg (fortfarande relevant): "Avancerat"-
+popovern i `ChatInterface.tsx` innehöll tidigare både tema och "Plan"-knappen.
+Efter #680:s flytt är temat borta och popovern bär bara "Plan" kvar — bedöm om
+den enda-knapps-popovern är meningslöst tunn och förenkla i så fall
+(motsvarande "ta bort en tom popover" i andemening, om än inte bokstavligen
+tom).
 
 ### Steg 2 — Scaffold blir sub-sub under Inställningar (N1)
 
@@ -112,14 +119,16 @@ npx vitest run src/components/builder
 npm run lint
 ```
 
-Manuellt i buildern: öppna Mer → Inställningar och bekräfta att Scaffold, Tema
-och Modell går att nå och att valen slår igenom på nästa generering. Verifiera
-att allt är låst (gråat) medan en generering pågår.
+Manuellt i buildern: öppna Mer → Inställningar och bekräfta att Scaffold och
+Modell går att nå och att valen slår igenom på nästa generering. Verifiera att
+allt är låst (gråat) medan en generering pågår.
 
 ## Klart när
 
 - Headern har inga lösa Modell-/Scaffold-kontroller kvar.
-- "Avancerat"-popovern har ingen temaknapp (och är borttagen om den blev tom).
+- "Avancerat"-popovern innehåller inte en meningslös enda-knapps-popover
+  (bedömt och åtgärdat 2026-07-31, se Steg 1 ovan — temat i sig lever redan i
+  Byggval-reglagen sedan PR #680, inget kvar att göra med det här).
 - GitHub-**exporten** ligger under en egen undermeny; import och ZIP är platta.
 - `assistStatusSummary` syns fortfarande någonstans efter modellflytten.
 
