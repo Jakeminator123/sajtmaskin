@@ -267,6 +267,7 @@ vi.mock("@/lib/gen/agent-tools", () => ({
 vi.mock("@/lib/gen/request-metadata", () => ({
   extractAppProjectIdFromMeta: () => "app_proj_1",
   extractBriefFromMeta: () => null,
+  extractComplexityHintFromMeta: () => null,
   extractDesignThemePresetFromMeta: () => null,
   extractPageCountHintFromMeta: () => null,
   extractPaletteStateFromMeta: () => null,
