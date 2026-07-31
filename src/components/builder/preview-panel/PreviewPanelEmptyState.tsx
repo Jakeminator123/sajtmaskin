@@ -14,6 +14,7 @@ import {
   type VersionDisplayStatus,
 } from "@/lib/builder/version-status-display";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
+import type { DesignTheme } from "@/lib/builder/theme-presets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PreviewPanelInitControls } from "./PreviewPanelInitControls";
@@ -22,6 +23,10 @@ import { cn } from "@/lib/utils";
 interface PreviewPanelEmptyStateProps {
   chatId: string | null;
   versionId: string | null;
+  /** Färgtema-preset till Byggval-reglagen (flyttad från Avancerat). */
+  designTheme?: DesignTheme;
+  onDesignThemeChange?: (theme: DesignTheme) => void;
+  themeLocked?: boolean;
   externalLoading: boolean;
   awaitingInput: boolean;
   awaitingInputQuestion?: string | null;
@@ -49,6 +54,9 @@ interface PreviewPanelEmptyStateProps {
 export function PreviewPanelEmptyState({
   chatId,
   versionId,
+  designTheme,
+  onDesignThemeChange,
+  themeLocked = false,
   externalLoading,
   awaitingInput,
   awaitingInputQuestion,
@@ -184,11 +192,15 @@ export function PreviewPanelEmptyState({
             Vad vill du bygga?
           </h2>
           <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
-            Beskriv din sajt i chatten till vänster. Gör gärna några byggval nedan — de läggs
-            till i din prompt och styr första versionen.
+            Beskriv din sajt i chatten till vänster. Gör gärna några byggval nedan — de styr
+            första versionen.
           </p>
 
-          <PreviewPanelInitControls />
+          <PreviewPanelInitControls
+            designTheme={designTheme}
+            onDesignThemeChange={onDesignThemeChange}
+            themeLocked={themeLocked}
+          />
 
           <p className="text-muted-foreground/70 mt-6 inline-flex items-center gap-1.5 text-xs">
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />

@@ -53,10 +53,6 @@ import {
   subtractSavedKeysFromF3Requirements,
 } from "@/lib/builder/project-env-events";
 import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
-import {
-  PROMPT_PREFILL_EVENT,
-  type PromptPrefillEventDetail,
-} from "@/lib/builder/prompt-prefill-event";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import {
   buildShadcnInsertMessage,
@@ -335,21 +331,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [f3Status, setF3Status] = useState<F3BuilderStatus | null>(null);
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
 
-  // Prefill från preview-panelens välkomstläge fyller chattens input — på
-  // mobil ligger inputen bakom Chat-tabben, så byt tab så användaren ser den
-  // ifyllda prompten direkt. No-op på desktop (chatten är alltid synlig).
-  // Keyed prefill (Byggval-reglagen, `replaceKey` satt) undantas: den
-  // dispatchas på varje reglage-ändring och skulle rycka mobilanvändaren
-  // bort från reglagen mitt i justeringen.
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent<PromptPrefillEventDetail>).detail;
-      if (detail?.replaceKey) return;
-      setMobileTab("chat");
-    };
-    window.addEventListener(PROMPT_PREFILL_EVENT, handler);
-    return () => window.removeEventListener(PROMPT_PREFILL_EVENT, handler);
-  }, []);
+  // (Prompt-prefill-lyssnaren togs bort 2026-07-31: Byggval-reglagen skriver
+  // inte längre i chattens input, och exempel-chipsen försvann med #673.)
   const [githubExportOpen, setGithubExportOpen] = useState(false);
   const [enableAutofix, setEnableAutofix] = useState(true);
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
@@ -1198,9 +1181,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             isPreparingPrompt={vm.isPreparingPrompt}
             mediaEnabled={vm.mediaEnabled}
             continuePlanMode={Boolean(latestPendingReply?.planMode)}
-            designTheme={vm.designTheme}
-            onDesignThemeChange={vm.setDesignTheme}
-            isConfigLocked={vm.isAnyStreaming}
             followUpBaseInfo={followUpBaseInfo}
             previewModes={
               vm.currentPreviewUrl
@@ -1300,6 +1280,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <PreviewPanel
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
+              designTheme={vm.designTheme}
+              onDesignThemeChange={vm.setDesignTheme}
+              themeLocked={vm.isAnyStreaming}
               previewUrl={vm.currentPreviewUrl}
               alternatePreviewUrls={vm.activeVersionAlternatePreview}
               previewBuildError={vm.previewBuildError}

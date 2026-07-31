@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   INIT_BUILD_CHOICES_EVENT,
+  buildInitBuildChoicesInstructions,
   buildInitBuildChoicesMeta,
   type InitBuildChoices,
   type InitBuildChoicesEventDetail,
@@ -118,7 +119,7 @@ export function useCreateChat(
         return false;
       }
 
-      const effectiveSystemPrompt = systemPromptOverride ?? systemPrompt;
+      const baseSystemPrompt = systemPromptOverride ?? systemPrompt;
       const baseScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
       const baseScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
 
@@ -129,6 +130,18 @@ export function useCreateChat(
       const initChoicesMeta = initBuildChoicesRef.current
         ? buildInitBuildChoicesMeta(initBuildChoicesRef.current)
         : null;
+      // Komplexitet/färgläge/ton saknar dedikerade pipeline-fält och åker
+      // som svenska direktiv i custom-instructions-kanalen (body.system →
+      // customInstructions → dynamic context) — aldrig i chattens input.
+      // Medveten bieffekt: ett aktivt val räknas som custom system prompt
+      // och stänger av simple-website-fastlanen (klassificeraren läser
+      // hasCustomSystem) — rimligt, valet ÄR en medveten konfiguration.
+      const initChoicesInstructions = initBuildChoicesRef.current
+        ? buildInitBuildChoicesInstructions(initBuildChoicesRef.current)
+        : "";
+      const effectiveSystemPrompt = [baseSystemPrompt?.trim(), initChoicesInstructions]
+        .filter(Boolean)
+        .join("\n\n");
       let effectiveScaffoldMode = baseScaffoldMode;
       let effectiveScaffoldId = baseScaffoldId;
       if (
