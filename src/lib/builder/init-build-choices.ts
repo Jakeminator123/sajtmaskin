@@ -84,12 +84,16 @@ const STYLE_FRAGMENTS: Record<Exclude<StyleChoice, "auto">, string> = {
   corporate: "Stil: corporate och professionell.",
   bold: "Stil: bold startup-energi.",
   editorial: "Stil: editorial, som ett magasin.",
-  minimal: "Stil: minimal och ren design.",
+  // Obs: inte "ren design" — "ren" är en light-boost-token i variantmatchern
+  // och skulle skeva mot ljusa varianter även när Färgläge står på auto/mörkt.
+  minimal: "Stil: minimal och avskalad design.",
 };
 
+// Matcherns boost-regex kräver ordgräns runt "mörk"/"ljus" ("mörkt" matchar
+// INTE `\bmörk\b`), så fragmenten använder grundformen + engelsk token.
 const COLOR_MODE_FRAGMENTS: Record<Exclude<ColorModeChoice, "auto">, string> = {
-  light: "Använd ett ljust färgtema.",
-  dark: "Använd ett mörkt färgtema.",
+  light: "Använd ljus färgskala (light mode).",
+  dark: "Använd mörk färgskala (dark mode).",
 };
 
 /**

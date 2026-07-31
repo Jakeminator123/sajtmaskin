@@ -53,7 +53,10 @@ import {
   subtractSavedKeysFromF3Requirements,
 } from "@/lib/builder/project-env-events";
 import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
-import { PROMPT_PREFILL_EVENT } from "@/lib/builder/prompt-prefill-event";
+import {
+  PROMPT_PREFILL_EVENT,
+  type PromptPrefillEventDetail,
+} from "@/lib/builder/prompt-prefill-event";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import {
   buildShadcnInsertMessage,
@@ -332,11 +335,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [f3Status, setF3Status] = useState<F3BuilderStatus | null>(null);
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
 
-  // Exempelprompt-chip i preview-panelens välkomstläge fyller chattens input —
-  // på mobil ligger inputen bakom Chat-tabben, så byt tab så användaren ser
-  // den ifyllda prompten direkt. No-op på desktop (chatten är alltid synlig).
+  // Prefill från preview-panelens välkomstläge fyller chattens input — på
+  // mobil ligger inputen bakom Chat-tabben, så byt tab så användaren ser den
+  // ifyllda prompten direkt. No-op på desktop (chatten är alltid synlig).
+  // Keyed prefill (Byggval-reglagen, `replaceKey` satt) undantas: den
+  // dispatchas på varje reglage-ändring och skulle rycka mobilanvändaren
+  // bort från reglagen mitt i justeringen.
   useEffect(() => {
-    const handler = () => setMobileTab("chat");
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<PromptPrefillEventDetail>).detail;
+      if (detail?.replaceKey) return;
+      setMobileTab("chat");
+    };
     window.addEventListener(PROMPT_PREFILL_EVENT, handler);
     return () => window.removeEventListener(PROMPT_PREFILL_EVENT, handler);
   }, []);

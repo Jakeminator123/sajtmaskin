@@ -57,8 +57,22 @@ describe("composeInitBuildChoicesText", () => {
   });
 
   it("includes the dark/light tokens the variant matcher boosts on", () => {
-    expect(composeInitBuildChoicesText(withChoices({ colorMode: "dark" }))).toMatch(/mörkt/i);
-    expect(composeInitBuildChoicesText(withChoices({ colorMode: "light" }))).toMatch(/ljust/i);
+    // The matcher boost regex is word-boundary based ("mörkt" does NOT match
+    // \bmörk\b), so the fragments must carry the base form and/or the
+    // English token.
+    const dark = composeInitBuildChoicesText(withChoices({ colorMode: "dark" }));
+    expect(dark).toMatch(/\bmörk\b/i);
+    expect(dark).toMatch(/\bdark\b/i);
+    const light = composeInitBuildChoicesText(withChoices({ colorMode: "light" }));
+    expect(light).toMatch(/\bljus\b/i);
+    expect(light).toMatch(/\blight\b/i);
+  });
+
+  it("does not leak light-boost tokens from the minimal style", () => {
+    // "ren"/"clean"/"light"/"ljus"/"airy" boost light variants in
+    // pickScaffoldVariant — the style fragment must stay color-neutral.
+    const text = composeInitBuildChoicesText(withChoices({ style: "minimal" }));
+    expect(text).not.toMatch(/\b(?:ren|clean|light|ljus|airy)\b/i);
   });
 });
 
