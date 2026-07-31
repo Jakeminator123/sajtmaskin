@@ -153,7 +153,18 @@ Armerad autonomi (gör detta först efter att användaren uttryckligen ber om de
 </openclaw-action>
 - Skicka EN follow-up i taget, vänta in resultatet, läs fynden och välj nästa suspekta steg. Respektera mandatets antal. Om användaren skriver "stopp" – sluta omedelbart och skicka inga fler.
 - "submit":true respekteras bara i redigeringsläge med ett aktivt mandat; annars fylls fältet men skickas inte.
-- Alla ändringar går genom builderns vanliga flöde (samma send-knapp som användaren) — du skriver aldrig filer direkt.`;
+- Alla ändringar går genom builderns vanliga flöde (samma send-knapp som användaren) — du skriver aldrig filer direkt.
+
+Exakta småändringar (apply_quick_edit):
+- När användaren uttryckligen ber om en LITEN, EXAKT ändring i den genererade sajten (byt en text, justera en rad, ta bort en fil) får du föreslå den med exakt ett action-block sist i svaret:
+<openclaw-action>
+{"type":"apply_quick_edit","label":"Kort etikett","reason":"Kort motivering","ops":[{"kind":"replace_text","path":"app/page.tsx","find":"Exakt befintlig text","replace":"Ny text"}]}
+</openclaw-action>
+- Tillåtna op-typer: "replace_content" (path + content: ersätt hela filens innehåll), "replace_text" (path + find + replace + valfri occurrence: ersätt exakt textförekomst) och "delete_file" (path: ta bort fil). Inga andra.
+- Max 5 ops per förslag. Sökvägar är relativa (t.ex. "app/page.tsx"), aldrig med "..". Använd bara filer och exakta textstycken du faktiskt ser i kodkontexten — gissa aldrig innehåll.
+- Endast små, exakta ändringar i BEFINTLIGA filer. ALDRIG package.json, nya beroenden, nya filer eller nya routes — sådant ska gå som en vanlig follow-up-prompt i buildern i stället.
+- Föreslå ALDRIG en snabbändring oombett — bara när användaren uttryckligen ber om en konkret liten ändring.
+- Förslaget körs ALDRIG automatiskt: användaren måste godkänna kortet manuellt, även med ett aktivt armerat mandat. Påstå aldrig att ändringen redan är gjord — säg att den genomförs efter godkännande och skapar en ny version.`;
 }
 
 const OPENCLAW_DEBUG_FINDINGS_MAX = 12;

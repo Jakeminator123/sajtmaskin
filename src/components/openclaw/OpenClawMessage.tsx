@@ -12,6 +12,14 @@ import {
   type OpenClawRequestRepairAction,
   type OpenClawStartBugHuntAction,
 } from "@/lib/openclaw/text-field-actions";
+import {
+  describeOpenClawQuickEditOp,
+  type OpenClawApplyQuickEditAction,
+} from "@/lib/openclaw/quick-edit-action";
+import {
+  describeQuickEditHardError,
+  quickEditChatFiles,
+} from "@/lib/builder/engine-files-patch";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
@@ -126,6 +134,14 @@ export function OpenClawMessage({
         {!isUser && action?.type === "start_bug_hunt" ? (
           <OpenClawStartBugHuntCard
             key="start_bug_hunt"
+            action={action}
+            editEnabled={editEnabled}
+          />
+        ) : null}
+
+        {!isUser && action?.type === "apply_quick_edit" ? (
+          <OpenClawQuickEditCard
+            key="apply_quick_edit"
             action={action}
             editEnabled={editEnabled}
           />
@@ -508,6 +524,153 @@ function OpenClawRepairRequestCard({ action }: { action: OpenClawRequestRepairAc
         {actionState === "failed" ? (
           <p className="text-xs text-rose-300">
             {actionError ?? "Kunde inte starta reparationen."}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Godkännandekort för `apply_quick_edit`: Sajtagenten föreslår små exakta
+ * filändringar som körs genom den befintliga Fast Edit Lane-klienten
+ * (`quickEditChatFiles`) FÖRST när användaren godkänner.
+ *
+ * Medveten v1-begränsning: kortet exekverar ALDRIG automatiskt — inte ens
+ * när ett armerat mandat (Mode A) är aktivt. Mandatet auktoriserar bara
+ * auto-send av builder-prompter genom den vanliga pipelinen; direkta
+ * filändringar kräver alltid ett manuellt klick på Godkänn.
+ */
+function OpenClawQuickEditCard({
+  action,
+  editEnabled,
+}: {
+  action: OpenClawApplyQuickEditAction;
+  editEnabled: boolean;
+}) {
+  const [actionState, setActionState] = useState<
+    "pending" | "working" | "applied" | "declined" | "failed"
+  >("pending");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [applied, setApplied] = useState<{ versionId: string; changedFiles: string[] } | null>(
+    null,
+  );
+  const target = readActiveBuilderTarget();
+  const actionLabel = action.label || "Liten kodändring på sajten";
+
+  if (!editEnabled) {
+    return (
+      <div className="min-w-0 rounded-2xl border border-white/10 bg-slate-900/70 p-3 text-slate-100">
+        <p className="text-xs leading-5 text-slate-300">
+          Redigeringsläge är av — aktivera OC_EDIT för att kunna godkänna snabbändringar.
+        </p>
+      </div>
+    );
+  }
+
+  const handleApprove = async () => {
+    const current = readActiveBuilderTarget();
+    if (!current) {
+      setActionState("failed");
+      setActionError("Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.");
+      return;
+    }
+    setActionState("working");
+    setActionError(null);
+
+    // Kör ops:en genom Fast Edit Lane med den aktiva versionen som bas.
+    // `engineLatestKnownVersionId` = samma version så serverns stale-base-
+    // guard kan avvisa när en nyare version redan finns (samma trade-off som
+    // patchEngineChatFile dokumenterar för kodvyn).
+    const result = await quickEditChatFiles({
+      chatId: current.chatId,
+      baseVersionId: current.versionId,
+      engineLatestKnownVersionId: current.versionId,
+      ops: action.ops,
+      summary: action.label,
+    });
+
+    if (!result.ok) {
+      setActionState("failed");
+      setActionError(describeQuickEditHardError(result));
+      return;
+    }
+    setApplied({ versionId: result.versionId, changedFiles: result.changedFiles });
+    setActionState("applied");
+  };
+
+  const handleDecline = () => {
+    setActionState("declined");
+    setActionError(null);
+  };
+
+  return (
+    <div className="min-w-0 rounded-2xl border border-emerald-400/20 bg-slate-900/70 p-3 text-slate-100">
+      <p className="text-[11px] font-medium tracking-[0.16em] text-emerald-200/80 uppercase">
+        Snabbändringsförslag
+      </p>
+      <p className="mt-1 text-sm font-semibold text-white">{actionLabel}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-300">
+        {target
+          ? "Jag genomför ändringen först när du godkänner. Den skapar en ny version och uppdaterar förhandsvisningen."
+          : "Öppna en version i buildern först — snabbändringar kan bara genomföras där."}
+      </p>
+      {action.reason ? (
+        <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
+          {action.reason}
+        </div>
+      ) : null}
+      <ul className="mt-2 space-y-1 rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 text-slate-200">
+        {action.ops.map((op, index) => (
+          <li key={`${op.kind}:${op.path}:${index}`} className="flex min-w-0 items-baseline gap-2">
+            <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-300">
+              {describeOpenClawQuickEditOp(op)}
+            </span>
+            <span className="min-w-0 truncate font-mono text-[11px] text-slate-100">{op.path}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {actionState === "pending" ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void handleApprove()}
+              disabled={!target}
+              className="rounded-full bg-emerald-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Godkänn och genomför
+            </button>
+            <button
+              type="button"
+              onClick={handleDecline}
+              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
+            >
+              Avböj
+            </button>
+          </>
+        ) : null}
+
+        {actionState === "working" ? (
+          <p className="text-xs text-slate-300">Genomför ändringen…</p>
+        ) : null}
+
+        {actionState === "applied" ? (
+          <p className="text-xs text-emerald-300">
+            Klart — ny version skapad ({applied?.versionId}).{" "}
+            {applied && applied.changedFiles.length > 0
+              ? `Ändrade filer: ${applied.changedFiles.join(", ")}`
+              : "Inga filer rapporterades ändrade."}
+          </p>
+        ) : null}
+
+        {actionState === "declined" ? (
+          <p className="text-xs text-slate-300">Förslaget avböjdes.</p>
+        ) : null}
+
+        {actionState === "failed" ? (
+          <p className="text-xs text-rose-300">
+            {actionError ?? "Kunde inte genomföra ändringen."}
           </p>
         ) : null}
       </div>
