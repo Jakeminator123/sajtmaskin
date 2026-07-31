@@ -114,12 +114,32 @@ Knappen ser identisk ut i båda fallen. Den deterministiska vägen är dessutom
 kontraintuitivt namngiven: den *bygger inga integrationer*, den stämplar om
 filerna och kör ReleaseGate.
 
-**Krav när Del C rörs:** knappens `title`/`aria-label` ska säga vilken väg som
-gäller och vad den kostar. Grenvillkoret avgörs server-side, men samma
-env-underlag finns redan klientsidan via `useChatReadiness` — härled därifrån i
-stället för att POSTa för att få veta. Blir det inte tillförlitligt: skriv då
-åtminstone att kostnaden är **0 eller 4–6 diamonds beroende på om nycklar krävs**,
-i stället för att vara tyst om saken.
+**Krav när Del C rörs:** knappens `title`/`aria-label` ska säga vad klicket
+kostar. Men **försök inte härleda vägen ur `useChatReadiness`** — signalen finns
+inte där (kodverifierat 2026-07-31):
+
+- `ChatReadinessInfo` (`chat-readiness.ts:26-61`) bär platta nyckellistor, inte
+  det booleanvärde `/finalize-design` grenar på.
+- `buildBlockingKeys` ser närmast ut att duga men gör det inte: det är en
+  delmängd av **`missingEnvKeys`**. En byggnyckel som redan är *konfigurerad*
+  syns alltså inte där, fast den fortfarande gör `hasRequiredRealBuildKeys`
+  sann → tom lista betyder **inte** deterministisk väg. Fältets egen kommentar
+  varnar dessutom för att resolvern defaultar allt till `build` när
+  dossier-metadata saknas, så det spretar i båda riktningarna.
+
+Två hållbara vägar, i preferensordning:
+
+1. **Flytta signalen till sin ägare.** Låt readiness (eller ett litet eget svar)
+   bära samma boolean som `hasRequiredRealBuildKeys(gate.spec)` räknar ut, och
+   låt UI:t läsa den. Det följer signal-gaten i
+   [`terminology.mdc`](../../../../.cursor/rules/terminology.mdc) — ändra ägaren,
+   inte fem konsumenter som gissar ur platta listor.
+2. **Sluta förutsäga.** Skriv den villkorade kostnaden rakt ut: "0 eller 4–6
+   diamonds beroende på om integrationerna kräver riktiga nycklar". Sämre, men
+   ärligt, och oändligt bättre än dagens tystnad.
+
+Vad du än väljer: **härled inte vägen ur `buildBlockingKeys`.** Det ger en
+tooltip som ljuger i exakt det fall användaren redan fyllt i sina nycklar.
 
 **Ö4b — förslagsrundan debiterar två gånger för det som känns som en handling.**
 Första LLM-rundan kan svara med `suggestIntegration` i stället för kod: en fråga

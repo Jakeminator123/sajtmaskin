@@ -38,7 +38,7 @@ Verkliga öppna defekter. Detta är den enda listan att jobba ur. Canvasen visar
 >
 > Granskningen kostade tio bot-fynd att triagera och gav en generell lärdom: varje fix i den här kedjan hittade nästa lager. Prunet upptäcktes först när `after()`-fixen fanns, tidsstämpel-hålet först när skev-toleransen fanns. Räkna med att en säkerhetsgrind behöver mer än ett varv.
 >
-> **Buggkollen på åtgärdsprogrammets PR (#623)** gav tre fynd: två P1 från Codex fixade i PR:en (prefix-only Node-built-ins, rollback av partiell blockerarminskning) och ett medium från Cursor-bugbot som ligger som **första raden nedan** — kontraktsradernas filbevis är basversionens, inte rundans. Det loggades i st.f. att fixas eftersom felet pekar åt det ofarliga hållet (understryker en leverans) och bara träffar chattens detaljkort; den riktiga fixen kräver att filbevis räknas om efter finalize.
+> **Buggkollen på åtgärdsprogrammets PR (#623)** gav tre fynd: två P1 från Codex fixade i PR:en (prefix-only Node-built-ins, rollback av partiell blockerarminskning) och ett medium från Cursor-bugbot som ligger nedan som raden **"Kontraktsradernas filbevis är basversionens, inte rundans"** (referens by namn, inte position: nya rader läggs överst, så "första raden nedan" pekade fel redan efter #665). Det loggades i st.f. att fixas eftersom felet pekar åt det ofarliga hållet (understryker en leverans) och bara träffar chattens detaljkort; den riktiga fixen kräver att filbevis räknas om efter finalize.
 
 | Klar | Status | Prio | Fynd | Källa | Beslut / nästa steg |
 | --- | --- | --- | --- | --- | --- |
