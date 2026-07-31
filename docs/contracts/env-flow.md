@@ -66,6 +66,18 @@ harmless  →  tier3-stub  →  project-preview  →  user  →  generated
 Read at runtime via
 [`src/lib/ai-models/load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts).
 
+**Catalog scoping (preview `.env.local`):** the two catalog layers (`harmless`
++ `tier3-stub`) are filtered to project-relevant keys before merging, via
+[`src/lib/gen/preview/relevant-env-keys.ts`](../../src/lib/gen/preview/relevant-env-keys.ts):
+a catalog key is kept only when its name appears in a project file, an imported
+SDK reads it internally (e.g. `@vercel/postgres` → `POSTGRES_URL`, Clerk,
+next-auth), or a selected dossier declares it. Env artifacts (`.env*`,
+`env.example`) are excluded from the scan so old catalog dumps cannot defeat
+the filter. A plain landing page therefore no longer boots with the full
+~55-key catalog. The scan is fail-open: callers that cannot supply files
+(`scopePlaceholdersToFiles` omitted) keep the full catalogs, and the
+`project-preview`/`user`/`generated` layers are never filtered.
+
 **F2 dossier-mock-seed (design only):** on top of the layers above, F2 seeds a
 deterministic stub (`dossierMockPreviewEnvValue` → `<key>_placeholder_preview_not_real`)
 for every selected dossier env key still unset after the real layers — even keys
