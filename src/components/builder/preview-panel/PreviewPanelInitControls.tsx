@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import {
-  DEFAULT_INIT_BUILD_CHOICES,
   MAX_PAGE_COUNT_CHOICE,
-  dispatchInitBuildChoices,
+  getCurrentInitBuildChoices,
+  setCurrentInitBuildChoices,
   type ColorModeChoice,
   type ComplexityChoice,
   type InitBuildChoices,
@@ -148,30 +148,23 @@ export function PreviewPanelInitControls({
   onDesignThemeChange,
   themeLocked = false,
 }: PreviewPanelInitControlsProps) {
-  const [choices, setChoices] = useState<InitBuildChoices>(DEFAULT_INIT_BUILD_CHOICES);
+  // State initieras från den delade storen: panelen av-/ommonteras när
+  // välkomstläget döljs under en skapning, och vid en MISSLYCKAD skapning
+  // ska den ommonterade panelen visa användarens tidigare val (storen
+  // nollställs bara av useCreateChat vid lyckad skapning). Store + UI kan
+  // därmed aldrig desynka. (Mobil-tabbarna CSS-gömmer panelerna utan
+  // avmontering. Temat bor i shell-state och överlever medvetet.)
+  const [choices, setChoices] = useState<InitBuildChoices>(() => getCurrentInitBuildChoices());
   // Senaste valen i en ref: updatern hålls ren (Strict Mode kan köra
   // updaters dubbelt) OCH två snabba ändringar i samma render-batch kan
   // inte skriva över varandra via en stale render-scoped `choices`.
-  const latestChoicesRef = useRef<InitBuildChoices>(DEFAULT_INIT_BUILD_CHOICES);
-
-  // UI:t är source of truth för de strukturerade signalerna: när panelen
-  // avmonteras (välkomstläget stängs) nollställs lyssnarens ref i
-  // useCreateChat. Utan detta kunde en misslyckad skapning lämna kvar gamla
-  // val i ref:en medan en ommonterad panel visar Auto — nästa send hade då
-  // applicerat val användaren inte längre ser. (Mobil-tabbarna CSS-gömmer
-  // panelerna utan avmontering, så val överlever tabbyten. Temat berörs
-  // inte: det bor i shell-state och överlever medvetet.)
-  useEffect(() => {
-    return () => {
-      dispatchInitBuildChoices(DEFAULT_INIT_BUILD_CHOICES);
-    };
-  }, []);
+  const latestChoicesRef = useRef<InitBuildChoices>(choices);
 
   const applyChoices = (partial: Partial<InitBuildChoices>) => {
     const next = { ...latestChoicesRef.current, ...partial };
     latestChoicesRef.current = next;
     setChoices(next);
-    dispatchInitBuildChoices(next);
+    setCurrentInitBuildChoices(next);
   };
 
   const pageCountLabel =

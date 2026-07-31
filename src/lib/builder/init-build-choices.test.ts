@@ -6,6 +6,9 @@ import {
   SITE_TYPE_SCAFFOLD_IDS,
   buildInitBuildChoicesInstructions,
   buildInitBuildChoicesMeta,
+  getCurrentInitBuildChoices,
+  resetInitBuildChoices,
+  setCurrentInitBuildChoices,
   type InitBuildChoices,
 } from "./init-build-choices";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
@@ -87,5 +90,21 @@ describe("buildInitBuildChoicesInstructions (custom-instructions-kanalen)", () =
   it("emits a single directive when only one choice is active", () => {
     const text = buildInitBuildChoicesInstructions(withChoices({ tone: "warm" }));
     expect(text).toBe("Ton i texterna: varm och personlig.");
+  });
+});
+
+describe("init build choices store (delad källa panel ↔ useCreateChat)", () => {
+  it("round-trips set → get and resets to defaults", () => {
+    try {
+      const chosen = withChoices({ siteType: "blog", pageCount: 2, tone: "playful" });
+      setCurrentInitBuildChoices(chosen);
+      // Samma värde som panelen skrev är det useCreateChat läser — och det
+      // en ommonterad panel initierar sin state från efter misslyckad skapning.
+      expect(getCurrentInitBuildChoices()).toEqual(chosen);
+      resetInitBuildChoices();
+      expect(getCurrentInitBuildChoices()).toEqual(DEFAULT_INIT_BUILD_CHOICES);
+    } finally {
+      resetInitBuildChoices();
+    }
   });
 });

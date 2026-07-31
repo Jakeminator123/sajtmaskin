@@ -535,6 +535,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             : undefined,
           brief: effectiveBrief,
           themeColors: parsedMeta.themeColors,
+          // Samma paritet för custom instructions (bär även Byggvals
+          // komplexitet/färgläge/ton-direktiv) — annars planerar plan-läget
+          // utan direktiv som codegen sedan får.
+          customInstructions: trimmedSystemPrompt || undefined,
           promptStrategyMeta: strategyMeta,
           // Bug 04#3 (2026-04-22 audit): plan mode skickade tidigare inte
           // engineModelId/lifecycleStage. Det gav divergent BuildSpec mellan

@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  INIT_BUILD_CHOICES_EVENT,
   buildInitBuildChoicesInstructions,
   buildInitBuildChoicesMeta,
-  type InitBuildChoices,
-  type InitBuildChoicesEventDetail,
+  getCurrentInitBuildChoices,
+  resetInitBuildChoices,
 } from "@/lib/builder/init-build-choices";
 import { resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/prompt-assist";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
@@ -97,20 +96,6 @@ export function useCreateChat(
   const createChatInFlightRef = useRef(false);
   const pendingCreateKeyRef = useRef<string | null>(null);
 
-  // Byggval (init controls): preview-panelens välkomstläge dispatchar sina
-  // val strukturerat (samma window-event-mönster som prompt-prefill). Senaste
-  // valen ligger i en ref och appliceras på nästa create — rensas efter
-  // lyckad skapning så en senare ny chat inte ärver gamla val.
-  const initBuildChoicesRef = useRef<InitBuildChoices | null>(null);
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent<InitBuildChoicesEventDetail>).detail;
-      initBuildChoicesRef.current = detail?.choices ?? null;
-    };
-    window.addEventListener(INIT_BUILD_CHOICES_EVENT, handler);
-    return () => window.removeEventListener(INIT_BUILD_CHOICES_EVENT, handler);
-  }, []);
-
   const createNewChat = useCallback(
     async (initialMessage: string, options: MessageOptions = {}, systemPromptOverride?: string) => {
       if (isCreatingChat || createChatInFlightRef.current) return false;
@@ -123,29 +108,27 @@ export function useCreateChat(
       const baseScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
       const baseScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
 
-      // Byggval (init controls): strukturerade signaler för denna skapning.
+      // Byggval (init controls): strukturerade signaler för denna skapning,
+      // lästa från den delade storen (samma källa som panelens UI-state).
       // Sajttypsvalet blir manuellt scaffold-val ENDAST när varken explicit
       // override eller header-valet redan pekat ut en scaffold — prioritet:
       // explicit override > header-manual > Byggval > auto.
-      const initChoicesMeta = initBuildChoicesRef.current
-        ? buildInitBuildChoicesMeta(initBuildChoicesRef.current)
-        : null;
+      const activeInitChoices = getCurrentInitBuildChoices();
+      const initChoicesMeta = buildInitBuildChoicesMeta(activeInitChoices);
       // Komplexitet/färgläge/ton saknar dedikerade pipeline-fält och åker
       // som svenska direktiv i custom-instructions-kanalen (body.system →
       // customInstructions → dynamic context) — aldrig i chattens input.
       // Medveten bieffekt: ett aktivt val räknas som custom system prompt
       // och stänger av simple-website-fastlanen (klassificeraren läser
       // hasCustomSystem) — rimligt, valet ÄR en medveten konfiguration.
-      const initChoicesInstructions = initBuildChoicesRef.current
-        ? buildInitBuildChoicesInstructions(initBuildChoicesRef.current)
-        : "";
+      const initChoicesInstructions = buildInitBuildChoicesInstructions(activeInitChoices);
       const effectiveSystemPrompt = [baseSystemPrompt?.trim(), initChoicesInstructions]
         .filter(Boolean)
         .join("\n\n");
       let effectiveScaffoldMode = baseScaffoldMode;
       let effectiveScaffoldId = baseScaffoldId;
       if (
-        initChoicesMeta?.scaffoldId &&
+        initChoicesMeta.scaffoldId &&
         (baseScaffoldMode ?? "auto") === "auto" &&
         !baseScaffoldId
       ) {
@@ -169,6 +152,9 @@ export function useCreateChat(
           promptAssistModel,
           promptAssistDeep,
           paletteState,
+          // Byggval-hints skiljer jobb åt även när text/system är identiska.
+          pageCountHint: initChoicesMeta.pageCountHint ?? null,
+          styleKeywordsHint: initChoicesMeta.styleKeywordsHint ?? null,
         },
       );
       const existingLock = getActiveCreateChatLock(createKey);
@@ -452,10 +438,10 @@ export function useCreateChat(
         if (designThemePreset) promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;
         if (paletteState?.selections?.length) promptMeta.palette = paletteState;
-        if (initChoicesMeta?.pageCountHint) {
+        if (initChoicesMeta.pageCountHint) {
           promptMeta.pageCountHint = initChoicesMeta.pageCountHint;
         }
-        if (initChoicesMeta?.styleKeywordsHint?.length) {
+        if (initChoicesMeta.styleKeywordsHint?.length) {
           promptMeta.styleKeywordsHint = initChoicesMeta.styleKeywordsHint;
         }
         if (options.planMode) promptMeta.planMode = true;
@@ -561,8 +547,9 @@ export function useCreateChat(
           pendingBriefRef.current = null;
         }
         // Byggval consumed — clear on success (same retry rationale as brief)
-        // so a later new chat in the same session starts from auto.
-        initBuildChoicesRef.current = null;
+        // so a later new chat in the same session starts from auto. The
+        // welcome panel re-reads the store on its next mount, so UI follows.
+        resetInitBuildChoices();
       } catch (error) {
         if (isClientInitiatedAbort(error, streamController)) {
           debugLog("AI", "Create chat stream aborted by client");

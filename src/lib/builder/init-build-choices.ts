@@ -156,22 +156,29 @@ export function buildInitBuildChoicesInstructions(choices: InitBuildChoices): st
   return directives.join(" ");
 }
 
-/**
- * Cross-panel event carrying the CURRENT choices (structured), consumed by
- * `useCreateChat` — window-event pattern så panelen slipper prop-trådas
- * genom hela buildershellet.
- */
-export const INIT_BUILD_CHOICES_EVENT = "sajtmaskin:init-build-choices";
+// ─────────────────────────────────────────────────────────────────────────
+// Delad store (modul-singleton) — EN källa för aktuella val.
+//
+// Både panelen (skriver + initierar sin state härifrån) och `useCreateChat`
+// (läser vid skapning, nollställer vid lyckad skapning) använder samma
+// värde. Det gör att valen överlever att välkomstpanelen av-/ommonteras
+// under en misslyckad skapning (panelen återfår dem vid remount), och att
+// UI och skickade signaler aldrig kan desynka — tidigare event+ref-lösning
+// hade båda felmoderna. Ingen re-render behövs utanför panelen, så en
+// modulvariabel räcker (builder-ytan är en singleton-sida).
+// ─────────────────────────────────────────────────────────────────────────
 
-export interface InitBuildChoicesEventDetail {
-  choices: InitBuildChoices;
+let currentInitBuildChoices: InitBuildChoices = DEFAULT_INIT_BUILD_CHOICES;
+
+export function getCurrentInitBuildChoices(): InitBuildChoices {
+  return currentInitBuildChoices;
 }
 
-export function dispatchInitBuildChoices(choices: InitBuildChoices): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent<InitBuildChoicesEventDetail>(INIT_BUILD_CHOICES_EVENT, {
-      detail: { choices },
-    }),
-  );
+export function setCurrentInitBuildChoices(choices: InitBuildChoices): void {
+  currentInitBuildChoices = choices;
+}
+
+/** Called by useCreateChat after a successful create (choices consumed). */
+export function resetInitBuildChoices(): void {
+  currentInitBuildChoices = DEFAULT_INIT_BUILD_CHOICES;
 }
