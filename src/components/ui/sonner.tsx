@@ -26,15 +26,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
-          // A1 (2026-07-31): appens --popover/--border-tokens är råa
-          // "H S% L%"-tripplar avsedda att användas inuti hsl(...) (se
-          // tailwind.config.cjs → colors.popover/border). sonner's egen CSS
-          // konsumerar --normal-bg/-text/-border direkt som färgvärden
-          // (`background: var(--normal-bg)`), så utan hsl()-wrappern blev
-          // värdet en ogiltig CSS-färg som webbläsaren ignorerade — toasten
-          // fick transparent bakgrund men behöll sin (ljusa) textfärg, dvs
-          // "osynlig ruta med vit text". --radius är redan ett giltigt
-          // längdvärde och behöver ingen wrapper.
+          // --popover/--border är råa "H S% L%"-tripplar, men sonner
+          // konsumerar dessa variabler direkt som färgvärden
+          // (`background: var(--normal-bg)`). Utan hsl()-wrappern blir de
+          // ogiltiga och bakgrunden faller till transparent. --radius är
+          // redan ett giltigt längdvärde.
           "--normal-bg": "hsl(var(--popover))",
           "--normal-text": "hsl(var(--popover-foreground))",
           "--normal-border": "hsl(var(--border))",

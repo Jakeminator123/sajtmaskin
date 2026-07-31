@@ -75,7 +75,7 @@ describe("useInitBrief — follow-up guard (P22)", () => {
 });
 
 describe("useInitBrief — A2: flödesstatus går via window-event, inte toast", () => {
-  it("dispatchar in-progress- och klar-status, och kallar aldrig toast.loading/toast.success", async () => {
+  it("dispatchar in-progress-status och nollställer den, utan toast.loading/toast.success", async () => {
     const { result } = renderHook(() =>
       useInitBrief({
         model: "openai/gpt-4.1",
@@ -108,7 +108,7 @@ describe("useInitBrief — A2: flödesstatus går via window-event, inte toast",
 
     expect(statuses[0]).toBe("Skapar brief och dynamiska instruktioner innan own-engine startar…");
     expect(statuses.at(-1)).toBeNull();
-    expect(statuses.some((status) => status === "Brief klar — own-engine kan starta.")).toBe(true);
+    expect(statuses).toHaveLength(2);
     expect(toast.loading).not.toHaveBeenCalled();
     expect(toast.success).not.toHaveBeenCalled();
   });

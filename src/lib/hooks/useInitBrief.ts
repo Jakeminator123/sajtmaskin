@@ -22,14 +22,10 @@ import {
 const BRIEF_SOURCE_DYNAMIC_INSTRUCTIONS = "dynamic_instructions";
 
 /**
- * N4/A2 (2026-07-31): Deep Brief runs before the chat exists (no message to
- * attach a status row to yet — see the P22 init-only guard below), so its
- * progress can't go through chat-state props. `toast.loading` used to carry
- * it, but the toast surface was invisible (see `sonner.tsx` — A1 root
- * cause). Dispatch a window event instead; `ChatInterface`'s already-shipped
- * "Förbereder prompt..." status row (rendered right under the composer, i.e.
- * in the chat panel itself) listens and shows the real phase text. Actual
- * *errors* stay on `toast` (A3) — they're system events, not flow status.
+ * Flödesstatusen visas i chattens "Förbereder prompt"-rad, som lever bara så
+ * länge `isPreparingPrompt` är sant. Ett avslutande "klar"-läge kan därför
+ * aldrig hinna renderas — statusen är in-progress eller ingenting alls.
+ * Fel går fortfarande via `toast`: de är systemhändelser, inte flödesstatus.
  */
 export const INIT_BRIEF_STATUS_EVENT = "sajtmaskin:init-brief-status";
 
@@ -158,7 +154,6 @@ export function useInitBrief(params: PromptAssistConfig) {
           debugLog("AI", "Dynamic instructions completed (brief only, addendum skipped)", {
             durationMs: Date.now() - startedAt,
           });
-          dispatchInitBriefStatus("Brief klar — own-engine kan starta.");
           return "";
         }
 
@@ -174,8 +169,6 @@ export function useInitBrief(params: PromptAssistConfig) {
           durationMs: Date.now() - startedAt,
           outputLength: addendum.length,
         });
-
-        dispatchInitBriefStatus("Brief klar — own-engine kan starta.");
 
         return (
           addendum.trim() ||
