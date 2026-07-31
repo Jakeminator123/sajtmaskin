@@ -521,14 +521,19 @@ async function buildEngineReadiness(
   // (`hasRequiredRealBuildKeys(gate.spec)`), härledd ur EXAKT samma bas — samma
   // `selectedDossiers` + samma redan inlästa `files` som `checkTier3ReadinessForVersion`
   // använder — så "Bygg integrationer"-knappens tooltip kan säga vilken väg klicket
-  // tar utan att gissa ur platta nyckellistor. Fel härledning failar mot false
-  // (deterministisk väg påstås) — men UI:t behandlar `undefined` som "vet ej".
+  // tar utan att gissa ur platta nyckellistor.
+  //
+  // En spec som inte går att härleda ger `undefined`, aldrig `false`: samma
+  // `null` får `checkTier3ReadinessForVersion` att svara
+  // `version_files_unavailable`, vilket `/finalize-design` returnerar som 409.
+  // `false` hade alltså lovat den gratis deterministiska vägen för ett klick
+  // som i själva verket felar. Bara en härledd spec får uttala sig.
   let hasRealBuildIntegrations: boolean | undefined;
   try {
     const tier3Spec = await deriveTier3BuildSpecForVersion(version.id, selectedDossiers, {
       preloadedFiles: files,
     });
-    hasRealBuildIntegrations = tier3Spec ? hasRequiredRealBuildKeys(tier3Spec) : false;
+    hasRealBuildIntegrations = tier3Spec ? hasRequiredRealBuildKeys(tier3Spec) : undefined;
   } catch {
     hasRealBuildIntegrations = undefined;
   }

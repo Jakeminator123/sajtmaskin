@@ -67,8 +67,10 @@ export type ChatReadinessInfo = {
    * re-derive the branch from `buildBlockingKeys` — that subset of
    * `missingEnvKeys` goes empty once the user configures a build key, which
    * would wrongly predict the free path even though `hasRequiredRealBuildKeys`
-   * stays true. Undefined = readiness has not (yet) resolved it (no version /
-   * files unavailable) → UI shows an honest conditional-cost tooltip.
+   * stays true. Undefined = readiness could not resolve it (no version, or the
+   * build spec could not be derived — the same `null` that makes the shared
+   * gate answer `version_files_unavailable`, i.e. a 409 rather than a free
+   * build) → UI shows an honest conditional-cost tooltip instead of a promise.
    */
   hasRealBuildIntegrations?: boolean;
 };
