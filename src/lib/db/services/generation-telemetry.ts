@@ -236,6 +236,12 @@ export async function recordDeployResultForVersion(
  */
 const confirmedPreviewReadyRevisions = new Map<string, Set<string>>();
 const CONFIRMED_PREVIEW_READY_CACHE_MAX = 500;
+/**
+ * Per version: bara de senaste revisionerna behövs. En version kan skrivas om
+ * många gånger (user-edit, repair), och bara den nuvarande revisionen kan
+ * kortsluta något — så ett obegränsat set vore ren tillväxt.
+ */
+const CONFIRMED_PREVIEW_READY_REVISIONS_PER_VERSION = 8;
 /** Cache-nyckel när ingen revision är känd (flagga av, eller okänd revision). */
 const UNKNOWN_REVISION_CACHE_KEY = "unknown";
 
@@ -243,6 +249,11 @@ function rememberConfirmedPreviewReady(versionId: string, revisionKey: string): 
   const existing = confirmedPreviewReadyRevisions.get(versionId);
   if (existing) {
     existing.add(revisionKey);
+    while (existing.size > CONFIRMED_PREVIEW_READY_REVISIONS_PER_VERSION) {
+      const oldest = existing.values().next().value;
+      if (oldest === undefined) break;
+      existing.delete(oldest);
+    }
     return;
   }
   if (confirmedPreviewReadyRevisions.size >= CONFIRMED_PREVIEW_READY_CACHE_MAX) {
