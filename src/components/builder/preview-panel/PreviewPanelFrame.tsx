@@ -48,6 +48,12 @@ const LOADING_OVERLAY_DEBOUNCE_MS = 350;
 // tar längre än normal). Tvingar bort overlayen efter denna tid oavsett
 // state — det är bättre att visa innehållet (även halvfärdig preview)
 // än att låta spinnern hänga kvar för evigt.
+//
+// N6/Del C (2026-07-31): att sluta snurra är rätt, men att bli helt tyst är
+// fel — en kall preview-host-boot (>6s) gav tidigare en tom svart yta som
+// ser visuellt identisk ut med en trasig preview. `showSlowBootNotice`
+// nedan ersätter tystnaden med en diskret rad efter capen, utan att röra
+// själva hard-cap-tiden eller -logiken.
 const LOADING_OVERLAY_HARD_CAP_MS = 6_000;
 
 // Hur länge "klicka för att fokusera"-ledtråden visas innan den auto-göms,
@@ -98,6 +104,11 @@ export function PreviewPanelFrame({
 
   const topBarVisible = isLoading && !hardCapReached;
   const overlayVisible = isLoading && debounceElapsed && !hardCapReached;
+  // Efter hard-capen slutar overlayen snurra, men laddningen kan fortfarande
+  // pågå i bakgrunden (iframens onLoad har bara inte fyrat än). Ärlig,
+  // icke-blockerande rad i stället för tystnad — se kommentaren vid
+  // LOADING_OVERLAY_HARD_CAP_MS.
+  const showSlowBootNotice = isLoading && hardCapReached;
 
   // Tangentbordsspel (t.ex. snake) lyssnar på `window` inne i iframen och får
   // aldrig piltangenter förrän iframen har fokus. Inget i buildern fokuserar
@@ -181,6 +192,31 @@ export function PreviewPanelFrame({
           <div className="text-center">
             <Loader2 className="text-primary mx-auto mb-2 h-6 w-6 animate-spin" />
             <p className="text-muted-foreground text-xs">Laddar...</p>
+          </div>
+        </div>
+      ) : null}
+
+      {showSlowBootNotice && !iframeError ? (
+        <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-3 py-1.5 text-[11px] text-zinc-200 shadow-lg backdrop-blur-sm">
+            <Loader2 className="text-primary h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+            <span>Previewn tar längre tid än vanligt — startar miljön…</span>
+            <button
+              type="button"
+              onClick={handleOpenInNewTab}
+              className="shrink-0 underline underline-offset-2 hover:text-white"
+            >
+              Öppna i ny flik
+            </button>
+            {onFixPreview ? (
+              <button
+                type="button"
+                onClick={onFixPreview}
+                className="shrink-0 underline underline-offset-2 hover:text-white"
+              >
+                Reparera
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}
