@@ -476,6 +476,13 @@ describe("handleSseStream", () => {
       logSnippet: "Error: failed",
     });
     expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://sandbox.example");
+    const failedPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string } | undefined;
+    expect(failedPreviewProgress?.state).toBe("output-error");
   });
 
   it("does not set preview iframe on empty preview-ready (build_only) but records prod build", async () => {
@@ -529,6 +536,13 @@ describe("handleSseStream", () => {
       logSnippet: undefined,
     });
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
+    const verifiedPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string } | undefined;
+    expect(verifiedPreviewProgress?.state).toBe("output-available");
   });
 
   it("clears prod-build banner when preview-ready omits prodBuildVerified (preview_host tier-2)", async () => {
@@ -577,6 +591,13 @@ describe("handleSseStream", () => {
 
     expect(setPreviewProdBuild).toHaveBeenCalledWith(null);
     expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://preview.example");
+    const readyPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string } | undefined;
+    expect(readyPreviewProgress?.state).toBe("output-available");
   });
 
   it("does not set iframe URL from done when previewUrl is compatibility shim only", async () => {

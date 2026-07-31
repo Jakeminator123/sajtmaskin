@@ -453,16 +453,20 @@ export async function handleSseStream(
   };
 
   const appendProgressPart = (step: string, phase: string, payload: Record<string, unknown> = {}) => {
+    const completed =
+      phase === "passed" ||
+      phase === "done" ||
+      (step === "preview" && (phase === "ready" || phase === "build-verified"));
+    const failed =
+      phase === "error" ||
+      phase === "gave-up" ||
+      phase === "reverted" ||
+      (step === "preview" && phase === "build-failed");
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: `tool:engine-${step}` as const,
       toolName: getProgressToolName(step),
       toolCallId: `progress:${step}`,
-      state:
-        phase === "passed" || phase === "done"
-          ? "output-available"
-          : phase === "error" || phase === "gave-up" || phase === "reverted"
-            ? "output-error"
-            : "input-streaming",
+      state: completed ? "output-available" : failed ? "output-error" : "input-streaming",
       output: {
         step,
         phase,
