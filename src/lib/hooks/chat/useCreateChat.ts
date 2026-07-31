@@ -169,10 +169,11 @@ export function useCreateChat(
             router.replace(`/builder?${p.toString()}`);
           }
           toast.success("Återansluter till pågående skapning");
-          // Chatten finns — Byggval är förbrukat av den ursprungliga
-          // skapningen (som läste storen synkront). Rensa så nästa nya chat
-          // inte ärver gamla val.
-          resetInitBuildChoices();
+          // Ingen store-reset här: den URSPRUNGLIGA skapningen läste storen
+          // synkront och äger livscykeln — den nollställer själv när (och
+          // bara när) den gav en riktig artefakt. En eager reset vid
+          // reconnect kunde annars tömma valen medan originalet fortfarande
+          // streamar eller slutade tomt.
         } else {
           toast("En skapning med samma prompt pågår redan. Vänta en stund och försök igen.");
         }
@@ -215,7 +216,10 @@ export function useCreateChat(
       ]);
       setIsCreatingChat(true);
 
-      const handleNonStreamingCreate = async (data: Record<string, unknown>) => {
+      // Returnerar true när svaret bar en riktig artefakt (version/preview) —
+      // samma gate som SSE-vägens hasRecoveredArtifact, så Byggval-storen
+      // behandlas lika oavsett transport.
+      const handleNonStreamingCreate = async (data: Record<string, unknown>): Promise<boolean> => {
         const meta =
           data?.meta && typeof data.meta === "object"
             ? (data.meta as Record<string, unknown>)
@@ -394,6 +398,7 @@ export function useCreateChat(
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
         );
+        return Boolean(resolvedVersionId || resolvedDemoUrl || previewPending);
       };
 
       let requestBody: Record<string, unknown> | null = null;
@@ -549,7 +554,7 @@ export function useCreateChat(
           createProducedArtifact = streamResult.hasRecoveredArtifact;
         } else {
           const data = await response.json();
-          await handleNonStreamingCreate(data);
+          createProducedArtifact = await handleNonStreamingCreate(data);
         }
         // Brief consumed by server — clear only on success so retries can reuse it.
         if (pendingBriefRef?.current) {
@@ -600,12 +605,14 @@ export function useCreateChat(
               );
             }
             const data = await fallbackRes.json();
-            await handleNonStreamingCreate(data);
+            const fallbackProducedArtifact = await handleNonStreamingCreate(data);
             // Lyckad skapning via fallback — samma konsumtion som happy path.
             if (pendingBriefRef?.current) {
               pendingBriefRef.current = null;
             }
-            resetInitBuildChoices();
+            if (fallbackProducedArtifact) {
+              resetInitBuildChoices();
+            }
             return true;
           } catch (fallbackErr) {
             if (isClientInitiatedAbort(fallbackErr, fallbackController)) {

@@ -198,10 +198,14 @@ function scoreVariant(
 
   score += keywordHits * 3;
   if (keywordHits >= 2) score += keywordHits * 2;
-  if (variant.colorMode === "dark" && /\b(dark|mörk|noir|black|svart|terminal)\b/i.test(promptLower)) {
+  // Färglägesboosten läser prompt + strukturerade style/tone-keywords: Byggval
+  // skickar "dark mode"/"light mode" via styleKeywordsHint i stället för
+  // prompt-text, och brief-keywords kan bära samma signal.
+  const colorSignalText = [promptLower, ...styleKeywordsLower, ...toneKeywordsLower].join(" ");
+  if (variant.colorMode === "dark" && /\b(dark|mörk|noir|black|svart|terminal)\b/i.test(colorSignalText)) {
     score += 2;
   }
-  if (variant.colorMode === "light" && /\b(light|ljus|airy|clean|ren)\b/i.test(promptLower)) {
+  if (variant.colorMode === "light" && /\b(light|ljus|airy|clean|ren)\b/i.test(colorSignalText)) {
     score += 1;
   }
 
