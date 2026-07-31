@@ -43,6 +43,20 @@ på toast-elementet (`li[data-sonner-toast]`). Ägarens DOM-utdrag visade
 Skriv ned vilket det var i denna fil. Bygg inte om placeringen för att dölja en
 CSS-bugg som även drabbar fel-toasts.
 
+**Fastställt 2026-07-31: CSS-bugg, inte positions-/z-index-problem.**
+`globals.css`/`tailwind.config.cjs` definierar `--popover`, `--popover-foreground`
+och `--border` som råa "H S% L%"-tripplar (t.ex. `--popover: 220 14% 12%;`) —
+avsedda att användas inuti `hsl(...)` (`bg-popover` kompilerar till
+`hsl(var(--popover))`). `sonner.tsx` satte i stället sina egna
+`--normal-bg`/`--normal-text`/`--normal-border`-variabler till dessa värden
+**owrappade** (`"--normal-bg": "var(--popover)"`), och sonners egen stilmall
+(`node_modules/sonner/dist/styles.css`) konsumerar dem direkt som färgvärden
+(`background: var(--normal-bg)`). Resultatet blev en ogiltig CSS-färg som
+webbläsaren ignorerar — bakgrunden föll tillbaka till transparent medan texten
+(ärvd ljus sidfärg) förblev läsbar. Exakt "ett typ osynligt fält med vit text".
+Åtgärdat genom att `hsl()`-wrappa de tre värdena i `sonner.tsx`; `--border-radius`
+behövde ingen ändring (`--radius` är redan ett giltigt längdvärde).
+
 ### A2. Flytta flödesstatus till chatten
 
 Init-brief-statusen hör hemma där blicken är. Publicera den som en statusrad i
@@ -53,10 +67,27 @@ streamande AI-bubblan.
 `useInitBrief.ts` ska alltså rapportera status till chat-state i stället för att
 kalla `toast` direkt.
 
+**Levererat 2026-07-31.** Deep Brief körs innan chatten (och därmed
+`AgentLogCard`/den streamande AI-bubblan) ens finns — se P22-guarden i
+`useInitBrief.ts`, `forceDeepBrief` är init-only. Det finns alltså inget
+meddelande att fästa en `AgentLogCard` vid ännu. Den redan levererade ytan som
+faktiskt täcker exakt det här fönstret är den befintliga "Förbereder
+prompt..."-statusraden i `ChatInterface.tsx` (renderas direkt under
+composern, dvs i chattpanelen, styrd av `isPreparingPrompt`). `useInitBrief.ts`
+kallar inte längre `toast.loading`/`toast.success` för flödesstatus — den
+dispatchar ett window-event (`INIT_BRIEF_STATUS_EVENT`) som `ChatInterface.tsx`
+lyssnar på och visar i den befintliga raden i stället för den generiska texten.
+Ingen ny parallell statusyta — samma statusrad, riktigare text.
+
 ### A3. Behåll toasten för systemhändelser
 
 Toasten är rätt yta för sådant som händer **utanför** chattflödet: fel, sparat,
 publicerat. Fixa bakgrunden (A1) och låt de ligga kvar. Riv inte ut sonner.
+
+**Levererat 2026-07-31.** Fel-vägarna i `useInitBrief.ts` (timeout, parse-fel,
+generiskt fel, ogiltig modell) kallar fortfarande `toast.error`/`toast` precis
+som förut — bara de två *flödesstatus*-anropen (`toast.loading`/`toast.success`)
+flyttade till A2:s statusrad.
 
 ## Del B — Levande chattlogg (N4, delfråga 2)
 
@@ -121,13 +152,25 @@ När körningen är klar fälls panelen ihop till den befintliga
 Filantal tickar inte under codegen eftersom strömmen saknar ett sådant event;
 antalet blir känt först i finalize. UI:t gissar därför inte.
 
-### B3. Fasbarometer (endast om B1 ger riktiga event)
+### B3. Fasbarometer (endast om B1 ger riktiga event) — STRUKEN 2026-07-31
 
 Stegad indikator: brief → plan → generering → normalize → RenderGate → klar,
 med aktiv fas markerad. **Lägg in preview-VM-bootet som en egen synlig fas** —
 se del C, det är i dag ett dolt väntesteg som ser ut som att inget händer.
 
 Saknas eventen: hoppa över B3 och notera i denna fil varför. Fejka inte faser.
+
+**Struken, byggs inte.** B1:s inventering (ovan) är entydig: Deep Brief och
+serverorkestrering sker **innan SSE-svaret öppnas** — de kan därför inte visas
+som mätta delsteg i nuvarande transport. En barometer som ändå ritade ut
+brief/plan-stegen skulle gissa utifrån väggklocka precis som
+`RepairProgressIndicator` redan gör (kodkommentar 749–760: "the phase shown
+will lag reality") — dvs se ut som riktig telemetri men vara påhitt. Det är
+false-green mot användaren och uttryckligen förbjudet av spelreglerna i
+`00-master-plan.md` ("Visa aldrig en fas som inte mäts"). En hederlig
+barometer förutsätter early-SSE (event redan innan brief/orkestrering startar)
+— utanför scope för denna städning. B2 (redan levererad) täcker det som *går*
+att mäta ärligt.
 
 ## Del C — Preview-overlayen är tvetydig (N6)
 
@@ -152,6 +195,17 @@ finns för att inte låsa en halvfärdig preview bakom en evig spinner.
 
 Hänger ihop med B3: preview-boot bör vara en synlig fas, inte ett tyst glapp.
 
+**Levererat 2026-07-31.** `PreviewPanelFrame.tsx` visar nu en diskret,
+icke-blockerande rad ("Previewn tar längre tid än vanligt — startar miljön…")
+med "Öppna i ny flik"- och "Reparera"-länkar när `isLoading` är sant och
+hard-capen är nådd. Den försvinner så fort laddningen faktiskt blir klar
+(`isLoading` → false) och visas aldrig samtidigt som fel-overlayen (samma
+"error wins"-princip som `VersionMismatchOverlay` redan följer). `hardCapReached`/
+`LOADING_OVERLAY_HARD_CAP_MS` är oförändrade — bara det tysta glappet efteråt
+är stängt. B3 (den riktiga fasbarometern med preview-boot som egen fas) är
+struken ovan; den här raden är den ärliga, icke-mätta ersättningen för just
+preview-overlayens tysta försvinnande.
+
 ## Risker
 
 | Risk | Hantering |
@@ -175,9 +229,15 @@ svart läge.
 
 ## Klart när
 
-- Init-brief-statusen syns i chatten, inte som osynlig toast.
-- Orsaken till den osynliga toasten är fastställd och åtgärdad (A1).
-- Chattloggen visar pågående arbete med animation, och `Slutsteg` finns kvar.
-- B1:s inventering står nedskriven här, och B3 är antingen byggd på riktiga
-  event eller struken med motivering.
-- En preview som tar >6 s säger något, i stället för att bli tyst svart.
+- [x] Init-brief-statusen syns i chatten, inte som osynlig toast. (A2, 2026-07-31)
+- [x] Orsaken till den osynliga toasten är fastställd och åtgärdad (A1, 2026-07-31).
+- [x] Chattloggen visar pågående arbete med animation, och `Slutsteg` finns kvar.
+      (B2, levererat i #681/#686 — se ovan.)
+- [x] B1:s inventering står nedskriven här, och B3 är antingen byggd på riktiga
+      event eller struken med motivering. (Struken 2026-07-31, se B3 ovan.)
+- [x] En preview som tar >6 s säger något, i stället för att bli tyst svart.
+      (Del C, 2026-07-31.)
+
+Alla punkter klara. Filen raderas enligt `plan-lifecycle.mdc` — git-historiken
+(`git log --follow -- docs/plans/active/2026-07-30-builder-ui-observation/02-status-under-generering.md`)
+är det fullständiga arkivet.
