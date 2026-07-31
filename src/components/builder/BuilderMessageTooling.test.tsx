@@ -1,13 +1,74 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
+  AgentLogCard,
   buildAgentLogItems,
   CompactToolParts,
+  getActiveAgentLogLabel,
   isActionableToolPart,
   StructuredToolParts,
 } from "./BuilderMessageTooling";
 
 describe("StructuredToolParts", () => {
+  it("shows the current measured activity while work is running and collapses when done", async () => {
+    const items = [
+      { label: "Startar own-engine-strömmen." },
+      { label: "Validerar genererad kod." },
+    ];
+    const { rerender } = render(
+      <AgentLogCard
+        items={items}
+        activeLabel="Validerar genererad kod."
+        isActive
+      />,
+    );
+
+    expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
+    expect(screen.getAllByText("Validerar genererad kod.").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Pågår")).toBeTruthy();
+
+    rerender(<AgentLogCard items={items} isActive={false} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Slutsteg (2)")).toBeTruthy();
+      expect(screen.queryByText("Pågår")).toBeNull();
+    });
+  });
+
+  it("shows an honest pre-stream activity before the first SSE event arrives", () => {
+    render(<AgentLogCard items={[]} isActive />);
+
+    expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
+    expect(
+      screen.getAllByText("Förbereder byggunderlag och startar own-engine.").length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  it("resolves the latest input-streaming tool step as current activity", () => {
+    expect(
+      getActiveAgentLogLabel([
+        {
+          type: "tool",
+          tool: {
+            type: "tool:engine-generation",
+            state: "output-available",
+            output: { steps: ["Generering klar."] },
+          },
+        } as never,
+        {
+          type: "tool",
+          tool: {
+            type: "tool:engine-autofix",
+            state: "input-streaming",
+            output: {
+              steps: ["Mekanisk autofix startad.", "Kontrollerar importer."],
+            },
+          },
+        } as never,
+      ]),
+    ).toBe("Kontrollerar importer.");
+  });
+
   it("extracts detailed server-repair steps for the agent log", () => {
     expect(
       buildAgentLogItems([

@@ -14,6 +14,36 @@ vi.mock("@streamdown/code", () => ({
 }));
 
 describe("MessageList", () => {
+  it("renders current engine progress prominently while the assistant is streaming", () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "assistant_live_progress",
+        role: "assistant",
+        content: "",
+        isStreaming: true,
+        uiParts: [
+          {
+            type: "tool:engine-validate_syntax",
+            toolName: "Validering (syntax + typecheck)",
+            toolCallId: "progress:validate_syntax",
+            state: "input-streaming",
+            output: {
+              steps: ["Validerar genererad kod (pass 1)."],
+            },
+          },
+        ],
+      },
+    ];
+
+    render(<MessageList chatId="chat_live_progress" messages={messages} isStreaming />);
+
+    expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
+    expect(
+      screen.getAllByText("Validerar genererad kod (pass 1).").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Pågår")).toBeTruthy();
+  });
+
   it("renders suggestIntegration approvals inline in compact mode without opening reply dialog", async () => {
     // Ägarbeslut 2026-07-03: integrations-/env-frågor ska stanna inline
     // i chatten (compact cards) och inte driva plan-dialogen.

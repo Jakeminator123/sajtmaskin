@@ -30,6 +30,7 @@ import {
   hasUserMessageAfter as hasUserMessageAfterFromTooling,
   isActionableToolPart,
   buildAgentLogItems as buildAgentLogItemsFromTooling,
+  getActiveAgentLogLabel,
 } from "@/components/builder/BuilderMessageTooling";
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import {
@@ -431,6 +432,13 @@ const MessageListComponent = ({
             ? []
             : toolParts.filter((part) => isActionableToolPart(part.tool));
           const agentLogItems = showStructuredParts ? [] : buildAgentLogItemsFromTooling(toolParts);
+          const activeAgentLogLabel = showStructuredParts
+            ? null
+            : getActiveAgentLogLabel(toolParts);
+          const showAgentLogActivity =
+            !showStructuredParts &&
+            message.role === "assistant" &&
+            (message.isStreaming || Boolean(activeAgentLogLabel) || agentLogItems.length > 0);
           const planParts = showStructuredParts
             ? message.parts.filter(
                 (p): p is Extract<MessagePart, { type: "plan" }> => p.type === "plan",
@@ -458,7 +466,7 @@ const MessageListComponent = ({
             showStructuredParts &&
             (toolParts.length > 0 || planParts.length > 0 || sources.length > 0);
           const hasVisibleTooling =
-            agentLogItems.length > 0 || compactToolParts.length > 0 || toolParts.length > 0;
+            showAgentLogActivity || compactToolParts.length > 0 || toolParts.length > 0;
           const hasUserAfterCurrentMessage = hasUserMessageAfterFromTooling(messages, messageIndex);
           const rawMessage = externalMessages[messageIndex];
           // Auto-repair prompts are a real "user" turn in the DB (see
@@ -501,9 +509,13 @@ const MessageListComponent = ({
                     />
                   )}
 
-                {!showStructuredParts &&
-                  message.role === "assistant" &&
-                  agentLogItems.length > 0 && <AgentLogCard items={agentLogItems} />}
+                {showAgentLogActivity && (
+                  <AgentLogCard
+                    items={agentLogItems}
+                    activeLabel={activeAgentLogLabel}
+                    isActive={Boolean(message.isStreaming || activeAgentLogLabel)}
+                  />
+                )}
 
                 {!showStructuredParts &&
                   message.role === "assistant" &&

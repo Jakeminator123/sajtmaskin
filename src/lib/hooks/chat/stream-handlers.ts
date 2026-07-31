@@ -249,6 +249,17 @@ export async function handleSseStream(
       if (phase === "reasoning") {
         return ["Modellen analyserar uppgiften innan första synliga outputen kommer."];
       }
+      if (phase === "reasoning-slow") {
+        const elapsedMs =
+          typeof payload.elapsedMs === "number" && Number.isFinite(payload.elapsedMs)
+            ? payload.elapsedMs
+            : null;
+        return [
+          elapsedMs !== null
+            ? `Modellen analyserar fortfarande uppgiften (${formatSeconds(elapsedMs)}).`
+            : "Modellen analyserar fortfarande uppgiften.",
+        ];
+      }
       if (phase === "awaiting-output") {
         return ["Väntar på första kod- eller textoutput från modellen."];
       }

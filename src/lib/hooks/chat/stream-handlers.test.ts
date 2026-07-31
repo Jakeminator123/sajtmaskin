@@ -885,4 +885,51 @@ describe("handleSseStream", () => {
       ]),
     );
   });
+
+  it("renders a friendly live status when model reasoning takes longer than usual", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "progress",
+          {
+            step: "generation",
+            phase: "reasoning-slow",
+            elapsedMs: 30_500,
+          },
+          "",
+        );
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: null,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    const assistant = store.getMessages().find((message) => message.id === "assistant_1");
+    const progress = (assistant?.uiParts ?? []).find(
+      (part) => (part as { type?: string }).type === "tool:engine-generation",
+    ) as { output?: { steps?: unknown } } | undefined;
+    expect(Array.isArray(progress?.output?.steps) ? progress.output.steps : []).toContain(
+      "Modellen analyserar fortfarande uppgiften (31s).",
+    );
+  });
 });

@@ -35,7 +35,6 @@ import {
 import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
 import { DomainManager } from "@/components/builder/DomainManager";
 import { GitHubExportDialog } from "@/components/builder/GitHubExportDialog";
-import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuth, useAuthStore } from "@/lib/auth/auth-store";
@@ -1159,7 +1158,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           ) : null}
           {/* Ägarbeslut 2026-07-22: ProjectEnvVarsPanel är borttagen — Byggblock-
               popovern (PreviewPanelDossiers) är den enda env-ytan i både F2 och F3. */}
-          <ThinkingOverlay isVisible={vm.isAnyStreaming} />
           <div
             id="builder-chat-output"
             className={cn(
