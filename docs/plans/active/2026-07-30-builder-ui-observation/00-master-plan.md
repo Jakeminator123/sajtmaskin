@@ -32,17 +32,19 @@ agenter jobbar samtidigt (se [`agent-worktree.mdc`](../../../../.cursor/rules/ag
 3. **03** — layout + ikonspråk, medelrisk (tester låser texter).
 4. **02** — störst, och den enda som kan behöva nya SSE-event.
 
-## Öppna frågor som ägaren måste svara på
+## Ägarfrågor — Ö1, Ö2, Ö3 och Ö5 besvarade 2026-07-31
 
-Dessa **blockerar** delar av arbetet. Fråga innan du bygger runt dem.
+Fyra av fem är avgjorda. Besluten står i sin egen fil; tabellen är index.
 
-| # | Fråga | Var den bor |
-|---|---|---|
-| Ö1 | Ska modellväljaren **flyttas** in i Inställningar eller **dupliceras** (genväg kvar i headern)? Ägaren sa "hela denna ska gå in" → tolkat som flytt | 01 |
-| Ö2 | Ska "Ladda ner som ZIP" ligga kvar platt, eller in under "GitHub"? Ägaren nämnde bara de två GitHub-valen | 01 |
-| Ö3 | Ska den centrerade boxen i nedfällt läge omfatta **hela** det nedre bandet (inkl. Lansering/blockerar-panelen) eller bara chatten? | 03 |
-| Ö4 | Vad skulle meningen om "Bygg integrationer" ha blivit? Ägarens text bröts mitt i ("… är") | 03 |
-| Ö5 | Får "Rensa preview" tas bort trots att den är enda manuella vägen att riva en hängande preview-session? | 03 |
+| # | Fråga | Beslut | Detalj |
+|---|---|---|---|
+| Ö1 | Modellväljaren: flytta eller duplicera? | **Flytta helt in** i Inställningar. Ingen genväg och ingen kompakt etikett kvar i headern | [01](01-meny-konsolidering.md) |
+| Ö2 | "Ladda ner som ZIP" under GitHub? | **Nej — ZIP och importvalet ligger kvar platt.** Bara *export* hamnar under GitHub-subben | [01](01-meny-konsolidering.md) |
+| Ö3 | Omfattar den centrerade boxen hela nedre bandet? | **Nej — bara chatten centreras.** Lansering-panelen behandlas separat, se nedan | [03](03-chattyta-och-ikonsprak.md) |
+| Ö4 | Vad skulle meningen om "Bygg integrationer" ha blivit? | **Fortfarande öppen** — ägarens text bröts mitt i ("… är"). Rör inte knappen förrän den är besvarad | [03](03-chattyta-och-ikonsprak.md) |
+| Ö5 | Får "Rensa preview" tas bort? | **Nej — knappen behålls**, men görs ikon-only. Kodverifierat att automatisk städning inte täcker fallet | [03](03-chattyta-och-ikonsprak.md) |
+
+**Ö6 tillkom när Ö3 besvarades:** ägaren vill att Lansering-/blockerar-panelen tas bort eller görs mer anonym, och delegerade beslutet. Avgjort — se [03 § Del F](03-chattyta-och-ikonsprak.md#del-f--lansering-panelen-blir-diskret-ö6).
 
 ## Gemensamma spelregler för alla fyra filerna
 
