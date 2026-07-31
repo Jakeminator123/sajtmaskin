@@ -138,6 +138,55 @@ import { Button } from "@/components/ui/button"
     expect(result.issues.some((issue) => issue.message.includes("missing DialogTitle"))).toBe(true);
   });
 
+  it("flags root-relative image paths that no file in the project serves", () => {
+    const result = runProjectSanityChecks([
+      { path: "package.json", language: "json", content: '{"dependencies":{}}' },
+      {
+        path: "components/hero-section.tsx",
+        language: "tsx",
+        content: [
+          'import Image from "next/image";',
+          "export function HeroSection() {",
+          '  return <Image src="/images/hero-sky.jpg" alt="Sky" width={1200} height={600} priority />;',
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    const issue = result.issues.find((entry) => entry.subject?.includes("/images/hero-sky.jpg"));
+    expect(issue?.severity).toBe("warning");
+    expect(issue?.file).toBe("components/hero-section.tsx");
+    expect(result.valid).toBe(true);
+  });
+
+  it("accepts local images that the project actually ships, the placeholder route and remote hosts", () => {
+    const result = runProjectSanityChecks([
+      { path: "package.json", language: "json", content: '{"dependencies":{}}' },
+      { path: "public/logo.svg", language: "svg", content: "<svg />" },
+      {
+        path: "components/gallery.tsx",
+        language: "tsx",
+        content: [
+          'import Image from "next/image";',
+          "export function Gallery({ slug }: { slug: string }) {",
+          "  return (",
+          "    <div>",
+          '      <Image src="/logo.svg" alt="Logo" width={64} height={64} />',
+          '      <Image src="/placeholder.svg?width=800&height=600&text=Workshop" alt="Workshop" width={800} height={600} />',
+          '      <Image src="https://images.unsplash.com/photo-1506905925346.jpg" alt="Remote" width={800} height={600} unoptimized />',
+          "      <Image src={`/uploads/${slug}.png`} alt=\"Dynamic\" width={64} height={64} />",
+          "    </div>",
+          "  );",
+          "}",
+        ].join("\n"),
+      },
+    ]);
+
+    expect(
+      result.issues.filter((entry) => entry.subject?.startsWith("dangling-static-asset:")),
+    ).toEqual([]);
+  });
+
   it("allows warning severity for unresolved imports behind env flag", () => {
     process.env.SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS = "true";
     const result = runProjectSanityChecks([
