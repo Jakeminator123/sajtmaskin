@@ -8,6 +8,7 @@ import {
 } from "@/lib/builder/init-build-choices";
 import { resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/prompt-assist";
 import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
+import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
@@ -399,16 +400,21 @@ export function useCreateChat(
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
         );
-        // Spegla SSE-vägens hasRecoveredArtifact exakt: version, preview,
+        // Spegla SSE-vägens hasRecoveredArtifact: version, KANONISK preview
+        // (shim-URL:er räknas inte som riktig artefakt där heller),
         // awaiting-input eller plan-artefakt. previewPending räknas INTE —
         // det gör den inte på SSE-vägen heller.
         const planArtifact = normalizePlanArtifact(data.planArtifact);
         const hasPlanArtifact = Boolean(
           planArtifact && (planArtifact.steps.length > 0 || planArtifact.blockers.length > 0),
         );
+        const canonicalDemoUrl =
+          resolvedDemoUrl && !isCompatibilityShimPreviewUrl(resolvedDemoUrl)
+            ? resolvedDemoUrl
+            : null;
         return Boolean(
           resolvedVersionId ||
-            resolvedDemoUrl ||
+            canonicalDemoUrl ||
             data.awaitingInput === true ||
             hasPlanArtifact,
         );
