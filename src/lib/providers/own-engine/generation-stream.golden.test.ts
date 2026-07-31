@@ -993,4 +993,58 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(commitCredits).toHaveBeenCalledTimes(1);
     expect(logGenerationMock).not.toHaveBeenCalled();
   });
+
+  // ── A stream that dies must say so ────────────────────────────────────────
+  // The last-resort `done` in the finally block used to carry no `reason` and no
+  // progress event at all: the client got "klart" with a null versionId and the
+  // logs held nothing to explain the round — while the credit was still charged.
+  it("gives the client a reason when the pipeline ends without a done event", async () => {
+    const out = createOwnEngineGenerationStream(
+      providerFaultParams("chat_no_done", {
+        message: "Model produced no text events (silent output).",
+      }),
+    );
+
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    expect(doneData.versionId).toBeNull();
+    expect(doneData.reason).toBe("stream_ended_empty_output");
+    expect(doneData.awaitingInput).toBe(false);
+
+    const progress = events
+      .filter((e) => e.event === "progress")
+      .map((e) => e.data as Record<string, unknown>);
+    expect(progress).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          step: "generation",
+          phase: "empty-output",
+          reason: "stream_ended_empty_output",
+        }),
+      ]),
+    );
+    // Charging semantics are unchanged by the added reason.
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+  });
+
+  it("distinguishes 'content arrived but no version was saved' from an empty round", async () => {
+    // Content streamed, then finalize threw for a non-empty reason and the
+    // fallback finalize threw too. Same terminal state, different cause — the
+    // reason is the only thing that tells them apart in the logs.
+    finalizeAndSaveVersionMock.mockRejectedValue(new Error("persist exploded"));
+    const params = providerFaultParams("chat_finalize_threw", {});
+    const out = createOwnEngineGenerationStream({
+      ...params,
+      pipelineStream: pipelineStreamFromSsePayload(
+        formatSSEEvent("content", { text: '```tsx file="app/page.tsx"\nexport default 1\n```' }),
+      ),
+    });
+
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    expect(doneData.versionId).toBeNull();
+    expect(doneData.reason).toBe("stream_ended_without_version");
+  });
 });

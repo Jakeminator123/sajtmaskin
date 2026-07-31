@@ -813,6 +813,8 @@ export async function runRepairLoop<TPayload = unknown>(
     const originalMaxTokens = params.fixerMaxTokens ?? AUTOFIX_MAX_OUTPUT_TOKENS;
     const reducedMaxTokens = Math.max(1, Math.floor(originalMaxTokens * 0.5));
     let fixerAttemptCount = 0;
+    /** The exact string handed to the last fixer attempt — the only honest baseline for "did the model change anything". */
+    let lastFixerInput: string | null = null;
     // Fas 3 (RepairGate): the loop's LLM calls go through the SAME
     // `runLlmRepairGate` as every finalize repair lane — one port, one
     // ledger. A shared ledger (threaded from finalize via the caller)
@@ -825,6 +827,7 @@ export async function runRepairLoop<TPayload = unknown>(
     ): Promise<FixerResult> => {
       const activeBundle = bundleOverride ?? targetedBundle;
       const activeFixerInput = activeBundle?.contentForFixer ?? content;
+      lastFixerInput = activeFixerInput;
       const gate = await runLlmRepairGate({
         content: activeFixerInput,
         errors: attemptErrors,
@@ -1027,12 +1030,18 @@ export async function runRepairLoop<TPayload = unknown>(
     });
     errorManifest = groupedAfterFix.errorManifest;
     // The LLM "changed something" when either the raw output differs from
-    // the targeted input we handed it OR the post-autofix content differs
-    // from what the loop had at the top of this iteration. Either signal
-    // means the model did not regurgitate the same bytes verbatim.
-    const fixerInputForPass = activeBundle?.contentForFixer ?? content;
-    const contentChanged =
-      fixerOutput !== fixerInputForPass || content !== contentBeforePass;
+    // the exact input we handed it OR the post-autofix content differs from
+    // what the loop had at the top of this iteration. Either signal means the
+    // model did not regurgitate the same bytes verbatim.
+    //
+    // Compare against `lastFixerInput`, not the merged output: with targeted
+    // repair (the default) `fixerOutput` is the merged FULL project while the
+    // input was a PARTIAL bundle, so the old comparison was between two
+    // different formats and therefore always unequal — the `no_improvement`
+    // stop was dead code and an echoing model bought another paid pass.
+    const fixerEchoedInput =
+      lastFixerInput !== null && fixerResult.fixedContent === lastFixerInput;
+    const contentChanged = !fixerEchoedInput || content !== contentBeforePass;
     const stopReason = resolveServerRepairEarlyStopReason({
       fixerProducedOutput: true,
       errorsBefore,

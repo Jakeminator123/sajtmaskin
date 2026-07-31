@@ -164,7 +164,11 @@ Kodankare:
 Follow-up är en deltaoperation. Standardläget är bevarande:
 
 - scaffold fryses om inte redesign uttryckligen låser upp matchning
-- variant fryses för att undvika visuell drift
+- variant fryses för att undvika visuell drift — men följer scaffoldens
+  upplåsning: samma signal som släpper scaffold-rematchen
+  (`clear-redesign` ELLER `ignorePersistedScaffoldForMatch`, t.ex. "gör om hela
+  sajten") släpper också variantlåset, annars renderas den nymatchade
+  scaffolden i just den stil användaren bad om att byta
 - routes är ett floor, inte ett ceiling
 - capabilities får växa men ska inte tyst tappas (can-only-grow). Golvet körs i ALLA follow-up-rundor; i F3-bygget (`integrations`) FILTRERAR därefter ett scope-steg det restaurerade setet — se F3-capability-scope nedan.
 - high-value UI-element ska inte tappas utan tydlig anledning

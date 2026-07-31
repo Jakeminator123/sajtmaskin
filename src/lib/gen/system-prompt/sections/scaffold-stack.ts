@@ -33,6 +33,18 @@ export function renderScaffoldVariantBlock(
     if (effectiveVariant.description) {
       compactLines.push(`- **Variant purpose:** ${effectiveVariant.description}`);
     }
+    // The compact block runs on every non-redesign follow-up — i.e. most rounds.
+    // Dropping the anti-patterns entirely meant the style guardrails only ever
+    // reached the model on init, so a follow-up could drift straight into the
+    // patterns the variant exists to avoid. Two lines is enough to keep the
+    // guardrail without paying for the full block.
+    const compactAntiPatterns = effectiveVariant.signaturePatterns?.antiPatterns ?? [];
+    if (compactAntiPatterns.length > 0) {
+      compactLines.push(
+        "- **Still avoid (variant anti-patterns):** " +
+          compactAntiPatterns.slice(0, 2).join("; "),
+      );
+    }
     compactLines.push(
       "- Follow-up delta rule: preserve existing visual language unless the user explicitly asks for redesign.",
       "",

@@ -930,17 +930,20 @@ export function createOwnEngineGenerationStream(
           }
 
           if (!didSendDone) {
-            safeEnqueue(
-              enc.encode(
-                formatSSEEvent("done", {
-                  chatId,
-                  versionId: null,
-                  messageId: null,
-                  ...previewUrlField(null),
-                }),
-              ),
+            // Sista utvägen: strömmen tog slut utan att någon version
+            // persisterades. Tidigare skickades ett `done` helt utan `reason`
+            // och utan progress-event, så klienten och loggarna fick "klart"
+            // utan att någonstans säga vad som hände — trots att krediten
+            // debiterades. `finishWithoutVersion` ger samma debitering men med
+            // reason, progress-event och devlog-rad. `awaitingInput: false`:
+            // hit kommer vi bara när strömmen dog, inte när modellen bad om
+            // input (den vägen skickar sitt eget done).
+            await finishWithoutVersion(
+              accumulatedContent
+                ? "stream_ended_without_version"
+                : "stream_ended_empty_output",
+              { awaitingInput: false },
             );
-            await commitCreditsUnlessProviderFault();
           }
         }
         safeClose();

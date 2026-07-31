@@ -176,6 +176,50 @@ describe("runRepairLoop — non-promoted outcome is never silent (M#sr0)", () =>
     expect(runLlmFixer).toHaveBeenCalledTimes(2);
   });
 
+  // Targeted repair (the DEFAULT) used to compare the merged FULL project
+  // against the PARTIAL bundle handed to the fixer — two different formats, so
+  // `contentChanged` was always true and the `no_improvement` stop was dead
+  // code. An echoing model therefore bought a paid pass per remaining budget
+  // slot instead of stopping after the first no-op.
+  it("stops after one pass when the fixer echoes its input back under targeted repair", async () => {
+    const standalonePage = file(
+      "app/page.tsx",
+      `export default function Page() {\n  return <main><h1>Acme</h1></main>;\n}`,
+    );
+    const untouchedHero = file(
+      "components/hero.tsx",
+      `export function Hero() {\n  return <section>Hero</section>;\n}`,
+    );
+    // Echo the exact input: a model that regurgitates the bundle verbatim.
+    runLlmFixer.mockImplementation(async (content: string) => ({
+      fixedContent: content,
+      fixedFiles: ["app/page.tsx"],
+      missingFiles: [],
+      incompleteFiles: [],
+      partial: false,
+      success: true,
+      aborted: false,
+      durationMs: 1,
+    }));
+
+    const result = await runRepairLoop({
+      initialContent: `${standalonePage}\n\n${untouchedHero}`,
+      failedOutputs: [gateFailure],
+      contextLines: [],
+      maxLlmPasses: 3,
+      llmTimeoutMs: 1_000,
+      // Targeted repair ON — this is the default in production.
+      enableTargetedRepair: true,
+      onAttemptPromotion: async () => ({ promoted: false }),
+    });
+
+    // The discriminating assertion: one pass, not one per remaining budget slot.
+    // (`earlyStopReason` ends up null here because the deterministic pre-pass
+    // did make progress — that branch rewrites `no_improvement` to null.)
+    expect(runLlmFixer).toHaveBeenCalledTimes(1);
+    expect(result.llmPasses).toBe(1);
+  });
+
   it("keeps earlyStopReason null when the repair actually converges (no regression)", async () => {
     runLlmFixer.mockResolvedValue(fixerSucceedsWithChange);
 
