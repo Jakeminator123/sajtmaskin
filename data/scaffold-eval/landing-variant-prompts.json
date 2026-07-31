@@ -122,5 +122,125 @@
     "prompt": "Landing page for a product-led growth startup ready to scale with high-velocity launch messaging.",
     "expectedVariant": "bold-startup",
     "rationale": "product + growth + scale + launch + startup — bold-startup keywords"
+  },
+  {
+    "id": "asymmetric_stack_01",
+    "prompt": "Bygg en landningssida för en liten designstudio med experimentell, typografidriven layout och asymmetriska sektioner.",
+    "expectedVariant": "asymmetric-stack",
+    "rationale": "designstudio + experimentell + typografidriven + asymmetrisk — asymmetric-stack keywords"
+  },
+  {
+    "id": "asymmetric_stack_02",
+    "prompt": "Create a landing page for an indie creative agency with a handmade feel, oversized typography and off-grid layout.",
+    "expectedVariant": "asymmetric-stack",
+    "rationale": "indie + creative-agency + handmade + off-grid — asymmetric-stack keywords"
+  },
+  {
+    "id": "asymmetric_stack_03",
+    "prompt": "Landing page for an experimental art collective with vertical scroll rhythm and alternating typography blocks.",
+    "expectedVariant": "asymmetric-stack",
+    "rationale": "experimental + vertical + scroll-rhythm + alternating — asymmetric-stack keywords"
+  },
+  {
+    "id": "asymmetric_stack_04",
+    "prompt": "Sida för en kreativ studio som vill kännas handgjord snarare än mall — stora typografiblock och medveten asymmetri.",
+    "expectedVariant": "asymmetric-stack",
+    "rationale": "studio + handgjord (handmade) + typografi + asymmetri — asymmetric-stack riktning"
+  },
+  {
+    "id": "futuristic_investment_01",
+    "prompt": "Landningssida för en riskkapitalfond med mörkt futuristiskt tema och 3D-effekter.",
+    "expectedVariant": "futuristic-investment-landing",
+    "rationale": "riskkapital + futuristisk + dark theme + 3D — futuristic-investment keywords"
+  },
+  {
+    "id": "futuristic_investment_02",
+    "prompt": "Create a futuristic investment platform landing page with dark theme, gold particles and 3D effects.",
+    "expectedVariant": "futuristic-investment-landing",
+    "rationale": "futuristic + investment + dark theme + 3D effects — futuristic-investment keywords"
+  },
+  {
+    "id": "futuristic_investment_03",
+    "prompt": "Bygg en sida för en fintech-startup inom investering och kapitalförvaltning med innovativ, tech-driven känsla.",
+    "expectedVariant": "futuristic-investment-landing",
+    "rationale": "fintech + investering + kapital + innovation + tech — futuristic-investment keywords"
+  },
+  {
+    "id": "futuristic_investment_04",
+    "prompt": "Landing page for a crypto investment fund with dark futuristic tech aesthetics.",
+    "expectedVariant": "futuristic-investment-landing",
+    "rationale": "investment + dark + futuristic + tech — futuristic-investment keywords"
+  },
+  {
+    "id": "hero_fullbleed_01",
+    "prompt": "Bygg en filmisk landningssida för ett resmål med bilder i helskärm och mycket atmosfär.",
+    "expectedVariant": "hero-fullbleed-bg",
+    "rationale": "filmisk + helskärm + atmosfär — hero-fullbleed-bg keywords"
+  },
+  {
+    "id": "hero_fullbleed_02",
+    "prompt": "Create an immersive full-bleed hero landing page for a boutique hotel experience with cinematic imagery.",
+    "expectedVariant": "hero-fullbleed-bg",
+    "rationale": "immersive + full-bleed + experience + cinematic — hero-fullbleed-bg keywords"
+  },
+  {
+    "id": "hero_fullbleed_03",
+    "prompt": "Landing page for a lifestyle campaign where the hero is a fullscreen video with a centered CTA.",
+    "expectedVariant": "hero-fullbleed-bg",
+    "rationale": "lifestyle + campaign + fullscreen + hero-video + centered-hero — hero-fullbleed-bg keywords"
+  },
+  {
+    "id": "hero_fullbleed_04",
+    "prompt": "Sida för en fotografs kampanj med stor hero-bild i helskärm, filmisk känsla och minimal text ovanpå.",
+    "expectedVariant": "hero-fullbleed-bg",
+    "rationale": "kampanj + helskärm + hero-bild + filmisk — hero-fullbleed-bg keywords"
+  },
+  {
+    "id": "minimalist_mag_01",
+    "prompt": "Bygg en minimalistisk landningssida för ett digitalt magasin med stark typografi och mycket white-space.",
+    "expectedVariant": "minimalist-mag",
+    "rationale": "minimalistisk + magasin + typography + white-space — minimalist-mag keywords"
+  },
+  {
+    "id": "minimalist_mag_02",
+    "prompt": "Create a Swiss-style minimal magazine landing page with an oversized lead headline and a sparse story index.",
+    "expectedVariant": "minimalist-mag",
+    "rationale": "swiss + minimal + magazine — minimalist-mag keywords"
+  },
+  {
+    "id": "minimalist_mag_03",
+    "prompt": "Sida för en tidskrift om arkitektur med ren, typografidriven design och få bilder.",
+    "expectedVariant": "minimalist-mag",
+    "rationale": "tidskrift + typografi + design — minimalist-mag keywords"
+  },
+  {
+    "id": "minimalist_mag_04",
+    "prompt": "Landing page for a modern design publication with editorial typography and generous white-space.",
+    "expectedVariant": "minimalist-mag",
+    "rationale": "modern + design + publication + editorial + typography + white-space — minimalist-mag keywords"
+  },
+  {
+    "id": "warm_editorial_01",
+    "prompt": "Bygg en varm landningssida för en tidning med berättelser, långläsning och community-känsla.",
+    "expectedVariant": "warm-editorial",
+    "rationale": "warm + tidning + berättelser + community — warm-editorial keywords"
+  },
+  {
+    "id": "warm_editorial_02",
+    "prompt": "Create a warm editorial landing page for a storytelling publishing platform with featured stories.",
+    "expectedVariant": "warm-editorial",
+    "rationale": "warm + editorial + story + publishing — warm-editorial keywords"
+  },
+  {
+    "id": "warm_editorial_03",
+    "prompt": "Sida för en tidning om lokal kultur med varma färger, artiklar och gemenskap.",
+    "expectedVariant": "warm-editorial",
+    "rationale": "tidning + gemenskap + varm — warm-editorial keywords"
+  },
+  {
+    "id": "warm_editorial_04",
+    "prompt": "Landing page for a community magazine with warm tones, story highlights and a CMS-backed article feed.",
+    "expectedVariant": "warm-editorial",
+    "rationale": "community + magazine + warm + story + cms — warm-editorial keywords"
   }
 ]

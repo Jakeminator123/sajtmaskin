@@ -169,6 +169,25 @@ function buildVariantSeedKey(input: PickScaffoldVariantInput): string {
  */
 const VARIANT_EMBEDDING_MIN_SCORE = 0.25;
 
+/**
+ * Ordgräns-mönster med svensk böjningstolerans: för keywords ≥ 4 tecken får
+ * stammen följas av upp till 4 extra bokstäver, så "natur" träffar
+ * "naturen"/"naturens", "skog" träffar "skogen"/"skogarna" och "kafé" träffar
+ * "kaféet". Korta keywords ("eco", "law", "b2b") förblir exakta ord, och
+ * taket på 4 hindrar breda felträffar ("product" träffar inte
+ * "productivity"). Sammansättningar täcks medvetet inte
+ * ("trädgårdsplanering" kräver eget keyword) — precision före recall.
+ * Exporterad för test.
+ */
+export function buildKeywordWordPattern(keyword: string): RegExp {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const inflectionSuffix = keyword.length >= 4 ? "\\p{L}{0,4}" : "";
+  return new RegExp(
+    `(?:^|[^\\p{L}\\p{N}])${escaped}${inflectionSuffix}(?:[^\\p{L}\\p{N}]|$)`,
+    "iu",
+  );
+}
+
 function scoreVariant(
   variant: ScaffoldVariant,
   promptLower: string,
@@ -186,10 +205,7 @@ function scoreVariant(
   let keywordHits = 0;
   for (const keyword of variant.keywords) {
     const lower = keyword.toLowerCase();
-    const wordBoundary = new RegExp(
-      `(?:^|[^\\p{L}\\p{N}])${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[^\\p{L}\\p{N}]|$)`,
-      "iu",
-    );
+    const wordBoundary = buildKeywordWordPattern(lower);
     if (wordBoundary.test(promptLower)) {
       keywordHits += 1;
       continue;
