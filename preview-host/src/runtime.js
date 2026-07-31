@@ -494,6 +494,27 @@ function resolveInstallCommand(filesJson) {
   };
 }
 
+function sharedPackageManagerCacheEnv() {
+  const dataDir = getDataDir();
+  const npmCacheDir = path.join(dataDir, "npm-cache");
+  const pnpmStoreDir = path.join(dataDir, "pnpm-store");
+  const yarnCacheDir = path.join(dataDir, "yarn-cache");
+  try {
+    // The cache is shared across chat workspaces on the volume, so repeat installs mostly hit cache.
+    ensureDir(npmCacheDir);
+    ensureDir(pnpmStoreDir);
+    ensureDir(yarnCacheDir);
+  } catch {
+    // Best-effort only: keep package-manager defaults if the volume is unavailable.
+    return {};
+  }
+  return {
+    NPM_CONFIG_CACHE: npmCacheDir,
+    PNPM_CONFIG_STORE_DIR: pnpmStoreDir,
+    YARN_CACHE_FOLDER: yarnCacheDir,
+  };
+}
+
 function isPeerDependencyInstallFailure(output) {
   const text = String(output || "");
   if (!text.trim()) return false;
@@ -525,6 +546,7 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
     NODE_ENV: "development",
     NPM_CONFIG_PRODUCTION: "false",
     NPM_CONFIG_OMIT: "",
+    ...sharedPackageManagerCacheEnv(),
   });
   const runAttempt = async (command) => {
     const startedAt = Date.now();
@@ -2722,6 +2744,7 @@ module.exports = {
     inspectProjectLintSetup,
     projectOwnsLintSetup,
     resolveInstallCommand,
+    sharedPackageManagerCacheEnv,
     tryShareNodeModules,
     workspaceDirForChat,
     dependencyStatePathForWorkspace,
