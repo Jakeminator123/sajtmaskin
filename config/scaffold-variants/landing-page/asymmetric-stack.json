@@ -2,7 +2,7 @@
   "id": "asymmetric-stack",
   "scaffoldId": "landing-page",
   "label": "Asymmetric Stack",
-  "description": "Vertical, scroll-rhythm landing page that abandons the split-hero entirely. Uses oversized typography blocks anchored to alternating sides of the viewport, floating illustrations or product fragments that overlap section boundaries, and a tall column rhythm — for design studios, creative agencies, indie products, and anything that wants to feel made by hand rather than templated. The hero is a tall typography block, not a 60/40 grid.",
+  "description": "Vertical, scroll-rhythm landing page built from oversized typography blocks anchored to alternating sides of the viewport, floating collage fragments that overlap section boundaries, and a tall column rhythm. The hero is a tall typography block with deliberate empty space beside it — for design studios, creative agencies, indie products, and anything that wants to feel made by hand rather than templated.",
   "keywords": [
     "asymmetric",
     "stack",
@@ -19,7 +19,10 @@
     "byrå",
     "studio-portfolio",
     "creative",
-    "designstudio"
+    "designstudio",
+    "asymmetri",
+    "typografi",
+    "handgjord"
   ],
   "fontPairings": [
     {
@@ -35,10 +38,10 @@
       "body": "DM Sans"
     }
   ],
-  "signatureMotif": "alternating left/right typography blocks, floating fragments bleed across boundaries, vertical rhythm not hero-split",
+  "signatureMotif": "alternating left/right typography blocks, floating fragments across boundaries, tall rhythm with deliberate space",
   "colorMode": "light",
   "promptHints": [
-    "Build the hero as a tall vertical typography block, NOT a left-text/right-image grid. Anchor the headline hard to one side (left or right), let the opposite side breathe with empty space, and place a small illustration or product fragment floating asymmetrically across the boundary into the next section.",
+    "Build the hero as a tall vertical typography block: anchor the headline hard to one side (left or right), let the opposite side breathe with empty space, and place a small illustration or product fragment floating asymmetrically across the boundary into the next section.",
     "Use the whole page as a scroll-rhythm composition: each section anchors typography to the opposite side from the section above (left → right → left → right). This creates a zig-zag reading path that feels designed by hand.",
     "Floating elements (small illustrations, photo fragments, sticky badges) should overlap section boundaries — bottom of section #1 contains the top half of an element whose bottom half sits inside section #2. This visually stitches the page together vertically."
   ],

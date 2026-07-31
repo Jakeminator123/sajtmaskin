@@ -6,7 +6,12 @@
  *
  *   npm run db:latest                # senaste sidan (läser .env.local)
  *   npm run db:latest -- --limit 3   # tre senaste
- *   npm run db:latest -- --prod      # läs RIKTIGA prod-DB (.env.vercel.production.pulled)
+ *   npm run db:latest:prod           # läs RIKTIGA prod-DB (.env.vercel.production.pulled)
+ *
+ * OBS: skriv INTE `npm run db:latest -- --prod` — npm expanderar `--prod`
+ * till sin egen `--production`-flagga (även efter `--`), argumentet når
+ * aldrig skriptet och du läser tyst DEV-databasen. Använd alias:et
+ * `db:latest:prod` eller kör `node scripts/db/latest-site.mjs --prod` direkt.
  *
  * Ingen skrivning. Läser POSTGRES_URL (eller alias) från .env.local som standard.
  * --prod läser .env.vercel.production.pulled i stället och tillåter self-signed
@@ -145,7 +150,7 @@ try {
                 preview_success, preview_blocking_reason, quality_gate_result,
                 deploy_result, duration_ms, prompt_tokens, completion_tokens,
                 file_count, scaffold_selection_method, scaffold_selection_confidence,
-                user_feedback
+                variant_id, user_feedback
          from generation_telemetry
          where version_id = $1
          order by created_at desc
@@ -174,6 +179,7 @@ try {
         line("fileCount", t.file_count);
         line("scaffoldSelectionMethod", t.scaffold_selection_method);
         line("scaffoldSelectionConfidence", t.scaffold_selection_confidence);
+        line("variantId", t.variant_id);
         line("userFeedback", t.user_feedback);
       }
     }

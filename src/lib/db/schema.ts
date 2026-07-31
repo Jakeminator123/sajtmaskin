@@ -801,6 +801,12 @@ export const generationTelemetry = pgTable(
     scaffoldSelectionMethod: text("scaffold_selection_method"),
     scaffoldSelectionConfidence: text("scaffold_selection_confidence"),
     briefInfluencedSelection: boolean("brief_influenced_selection").default(false).notNull(),
+    /**
+     * Scaffold-variant (stilriktning) som orkestreringen låste för den här
+     * generationen, t.ex. `corporate-grid`. `null` = rad skriven före
+     * kolumnen fanns, eller körning utan variant (legacy-snapshot, eval).
+     */
+    variantId: text("variant_id"),
     model: text("model").notNull(),
     modelTier: text("model_tier"),
     buildIntent: text("build_intent"),

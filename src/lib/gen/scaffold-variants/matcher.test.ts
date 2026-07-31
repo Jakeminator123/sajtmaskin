@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { lockedVariantForFollowUp, pickScaffoldVariant } from "./matcher";
+import {
+  buildKeywordWordPattern,
+  lockedVariantForFollowUp,
+  pickScaffoldVariant,
+} from "./matcher";
 import { getVariantsForScaffold } from "./registry";
 
 describe("pickScaffoldVariant", () => {
@@ -45,6 +49,20 @@ describe("pickScaffoldVariant", () => {
     expect(withDarkHint?.id).toBe("streetwear-bold");
   });
 
+  it("väljer nature-flow för svensk skogsprompt via böjda keywords", () => {
+    // Regressionsfall från prod 2026-07-31: "springa i skogen på Vindö" gav
+    // 0 keyword-träffar (skogen ≠ forest) och landade i corporate-grid via
+    // den gamla alfabetiska tie-breaken. Med "skog" som keyword + suffix-
+    // tolerans ska nature-flow vinna deterministiskt (enda positiva poängen).
+    const variant = pickScaffoldVariant({
+      prompt: "En hemsida om att springa i skogen på Vindö",
+      scaffoldId: "landing-page",
+      generationMode: "init",
+      sessionSeed: "seed-skog",
+    });
+    expect(variant?.id).toBe("nature-flow");
+  });
+
   it("does not escape the selected scaffold's variant pool", () => {
     const variant = pickScaffoldVariant({
       prompt: "Create a dark terminal-style developer product landing page",
@@ -57,6 +75,77 @@ describe("pickScaffoldVariant", () => {
 
     expect(variant?.scaffoldId).toBe("app-shell");
     expect(variant?.id).toBe("immersive-dark");
+  });
+});
+
+describe("buildKeywordWordPattern — svensk böjningstolerans", () => {
+  it("träffar bestämd form och plural för keywords ≥ 4 tecken", () => {
+    expect(buildKeywordWordPattern("natur").test("en sida om naturen")).toBe(true);
+    expect(buildKeywordWordPattern("skog").test("springa i skogen")).toBe(true);
+    expect(buildKeywordWordPattern("skog").test("skogarna på vindö")).toBe(true);
+    expect(buildKeywordWordPattern("kafé").test("kaféet i göteborg")).toBe(true);
+    expect(buildKeywordWordPattern("salong").test("salongen bokar online")).toBe(true);
+  });
+
+  it("håller korta keywords exakta och cappar suffixet till 4 bokstäver", () => {
+    expect(buildKeywordWordPattern("eco").test("ecosystem tooling")).toBe(false);
+    expect(buildKeywordWordPattern("law").test("mow the lawn")).toBe(false);
+    expect(buildKeywordWordPattern("product").test("productivity suite")).toBe(false);
+    expect(buildKeywordWordPattern("green").test("greenhouse gases")).toBe(false);
+  });
+
+  it("kräver att keywordet inleder ordet (sammansättningar täcks inte)", () => {
+    expect(buildKeywordWordPattern("tidning").test("en kulturtidning")).toBe(false);
+    expect(buildKeywordWordPattern("tidning").test("en tidning om kultur")).toBe(true);
+  });
+
+  it("fras-keywords matchas ordagrant utan suffixtolerans", () => {
+    expect(buildKeywordWordPattern("dark theme").test("with dark theme enabled")).toBe(true);
+    expect(buildKeywordWordPattern("dark theme").test("a dark themed site")).toBe(false);
+    expect(buildKeywordWordPattern("white-space").test("generous white-space")).toBe(true);
+    expect(buildKeywordWordPattern("white-space").test("white-spaced layout")).toBe(false);
+  });
+});
+
+describe("pickScaffoldVariant — tie-break vid nollpoäng", () => {
+  // Avsiktligt nonsens: prompten får inte träffa något variant-keyword och
+  // inga färglägesord (dark/light-boosten). Testet gäller nollpoängsvägen.
+  const zeroHitPrompt = "Xyzzy plugh snarfblatt kwyjibo";
+
+  it("roterar över hela variantfältet, inte bara de fyra första alfabetiskt", () => {
+    const allIds = getVariantsForScaffold("landing-page").map((variant) => variant.id);
+    const picked = new Set<string>();
+    for (let i = 0; i < 12 * allIds.length; i += 1) {
+      const variant = pickScaffoldVariant({
+        prompt: zeroHitPrompt,
+        scaffoldId: "landing-page",
+        generationMode: "init",
+        sessionSeed: `seed-${i}`,
+      });
+      if (variant) picked.add(variant.id);
+    }
+    // Före fixen var poolen exakt de 4 första i bokstavsordning
+    // (asymmetric-stack, bold-startup, corporate-grid, editorial-lux).
+    expect(picked.size).toBeGreaterThan(4);
+    for (const id of picked) {
+      expect(allIds).toContain(id);
+    }
+  });
+
+  it("är deterministisk för samma prompt + seed", () => {
+    const first = pickScaffoldVariant({
+      prompt: zeroHitPrompt,
+      scaffoldId: "landing-page",
+      generationMode: "init",
+      sessionSeed: "stable-seed",
+    });
+    const second = pickScaffoldVariant({
+      prompt: zeroHitPrompt,
+      scaffoldId: "landing-page",
+      generationMode: "init",
+      sessionSeed: "stable-seed",
+    });
+    expect(first?.id).toBe(second?.id);
   });
 });
 
