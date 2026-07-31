@@ -162,6 +162,7 @@
     "OC_REPO_READ_TOKEN",
     "OC_REPO_SLUG",
     "OPENAI_ADMIN_KEY",
+    "OPENAI_WEBHOOK",
     "OPENCLAW_GATEWAY_TOKEN",
     "OPENCLAW_GATEWAY_URL",
     "OPENCLAW_REVIEW_REASONING_EFFORT",
@@ -346,6 +347,16 @@
         "production"
       ],
       "notes": "Required for the default own-engine path."
+    },
+    {
+      "key": "OPENAI_WEBHOOK",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "notes": "Standard Webhooks signing secret (whsec_…) for inbound OpenAI platform webhooks on POST /api/webhooks/openai. Verified events are stored in openai_webhook_events. OpenAI only fires these for background/batch/fine-tuning jobs — not for the pipeline's synchronous calls."
     },
     {
       "key": "AUDIT_WEB_SEARCH",

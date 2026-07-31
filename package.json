@@ -59,6 +59,7 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "test:stability": "npm run db:schema-drift && vitest run --passWithNoTests -c vitest.stability.config.ts",
+    "test:postgres": "vitest run -c vitest.postgres.config.ts",
     "test:followup-contract": "vitest run -c vitest.stability.config.ts src/lib/gen/followup-freeze.stability.test.ts src/lib/gen/followup-capabilities.stability.test.ts",
     "test:focused": "vitest run src/components/builder/BuilderMessageTooling.test.tsx src/lib/hooks/chat/helpers.test.ts src/lib/hooks/chat/post-checks.test.ts src/lib/hooks/chat/stream-handlers.test.ts src/lib/gen/stream/finalize-version.test.ts src/lib/gen/post-process/image-materializer.test.ts src/lib/gen/verify/preview-quality-gate.test.ts src/lib/gen/verify/server-verify.test.ts src/lib/providers/own-engine/generation-stream-post-finalize.test.ts src/lib/gen/eval/runner.test.ts src/lib/gen/eval/baseline.test.ts src/lib/gen/eval/scorecard.test.ts src/app/api/engine/chats/[chatId]/quality-gate/route.test.ts src/lib/integrations/tier3-build-spec.test.ts src/lib/gen/preview/warm-typecheck.test.ts src/lib/gen/autofix/rules/tier3-sdk-guard-fixer.test.ts",
     "test:deploy-smoke:e2e": "playwright test -c playwright.deploy-smoke.config.ts",
@@ -185,6 +186,7 @@
     "date-fns": "^4.4.0",
     "drizzle-orm": "^0.45.1",
     "embla-carousel-react": "^8.6.0",
+    "esbuild": "^0.25.12",
     "framer-motion": "^12.42.2",
     "input-otp": "^1.4.2",
     "ioredis": "^5.9.2",
@@ -243,6 +245,7 @@
     "@types/three": "^0.185.1",
     "@vitejs/plugin-react": "^5.1.4",
     "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.4",
@@ -251,6 +254,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.7.0",
     "jsdom": "^28.1.0",
+    "nodemon": "^3.1.14",
     "playwright": "^1.58.2",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.7.2",
@@ -266,6 +270,6 @@
     "@vercel/remix-builder": {
       "path-to-regexp": "6.3.0"
     },
-    "esbuild": "^0.25.0"
+    "esbuild": "$esbuild"
   }
 }

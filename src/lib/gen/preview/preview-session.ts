@@ -424,6 +424,10 @@ async function runStartPreviewSession(
         generatedEnvLocal: priorEnvLocal,
         lifecycleStage: options?.lifecycleStage,
         selectedDossierEnvKeys: options?.selectedDossierEnvKeys,
+        // Scope placeholder catalogs to keys this project actually uses
+        // (.env.local is already spliced out; env artifacts are excluded
+        // from the scan inside the builder).
+        scopePlaceholdersToFiles: runtimeForUpdate,
       });
       runtimeForUpdate.push({ name: envLocalPath, content: envBody });
       const updatePayload = Object.fromEntries(
@@ -520,6 +524,8 @@ async function runStartPreviewSession(
     generatedEnvLocal: priorEnvLocal,
     lifecycleStage: options?.lifecycleStage,
     selectedDossierEnvKeys: options?.selectedDossierEnvKeys,
+    // Same catalog scoping as the update path above.
+    scopePlaceholdersToFiles: runtimeFiles,
   });
   runtimeFiles.push({ name: envLocalPath, content: envBody });
 

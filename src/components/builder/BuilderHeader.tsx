@@ -272,17 +272,22 @@ export function BuilderHeader(props: {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {<><DropdownMenu>
+        <DropdownMenu>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={isConfigLocked}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isConfigLocked}
+                    aria-label={`Byggmodell: ${modelButtonLabel}. Välj en annan modell`}
+                    title={`Byggmodell: ${modelButtonLabel}`}
+                  >
                     <Bot className="h-4 w-4" />
                     <span className="hidden max-w-[220px] truncate sm:inline">
                       Modell: {modelButtonLabel}
                     </span>
-                    
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -666,7 +671,7 @@ export function BuilderHeader(props: {
               Exportera till GitHub
             </DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu></>}
+        </DropdownMenu>
 
         {isBusy ? (
           <Button
@@ -838,7 +843,7 @@ export function BuilderHeader(props: {
           if (deploymentStatus === "building") {
             return (
               <div className="flex items-center gap-1">
-                <Button size="sm" variant="outline" disabled>
+                <Button size="sm" variant="outline" disabled aria-label="Bygger publiceringen">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="hidden sm:inline">Bygger...</span>
                 </Button>
@@ -891,6 +896,8 @@ export function BuilderHeader(props: {
                   variant="outline"
                   className="border-green-500 text-green-600"
                   onClick={() => window.open(liveHref, "_blank", "noopener,noreferrer")}
+                  aria-label="Publicerad — öppna den live-publicerade sajten i ny flik"
+                  title="Öppna den publicerade sajten"
                 >
                   <Globe className="h-4 w-4" />
                   <span className="hidden sm:inline">Publicerad</span>
@@ -924,6 +931,7 @@ export function BuilderHeader(props: {
                         }
                         disabled={!canDeploy || isBusy || isDeploying}
                         className="relative"
+                        aria-label={label}
                       >
                         {isDeploying ? (
                           <Loader2 className="h-4 w-4 animate-spin" />

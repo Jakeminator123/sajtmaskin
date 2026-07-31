@@ -198,9 +198,31 @@ function moduleStemFromPath(path: string): string | null {
  */
 const RUNTIME_PROVIDED_API_PATHS = new Set(["/api/placeholder"]);
 
-/** Literal `"/api/..."` strings — interpolated paths are deliberately skipped. */
-const INTERNAL_API_LITERAL_RE = /["'`](\/api\/[^"'`\s?#]*)["'`]/g;
+/**
+ * Literal `"/api/..."` strings — interpolated paths are deliberately skipped.
+ * Query/hash suffixes (`/api/x?y=1`, `/api/x#frag`) are consumed outside the
+ * capture group so the path still matches; previously the literal was skipped
+ * entirely and a dangling `/api/missing?x=1` produced no warning at all.
+ */
+const INTERNAL_API_LITERAL_RE = /["'`](\/api\/[^"'`\s?#]*)(?:[?#][^"'`]*)?["'`]/g;
 const APP_ROUTE_HANDLER_RE = /^(?:src\/)?app\/(.+)\/route\.(?:ts|tsx|js|jsx)$/;
+
+/**
+ * Root-relative asset paths the runtime serves even when no matching file is
+ * in the generated set: the scaffold's `next.config` rewrites
+ * `/placeholder.svg` to the injected `/api/placeholder` route.
+ */
+const RUNTIME_PROVIDED_ASSET_PATHS = new Set(["/placeholder.svg"]);
+
+/**
+ * Literal root-relative image paths (`"/images/hero.jpg"`, `"/logo.svg?v=2"`).
+ * Protocol-relative sources (`//cdn.example.com/a.jpg`) are excluded by the
+ * negative lookahead; interpolated paths are filtered by the caller.
+ */
+const LOCAL_IMAGE_ASSET_LITERAL_RE =
+  /["'`](\/(?!\/)[^"'`\s?#]*\.(?:png|jpe?g|webp|avif|gif|svg))(?:[?#][^"'`]*)?["'`]/gi;
+
+const PUBLIC_ASSET_PATH_RE = /^(?:src\/)?public\/(.+)$/;
 
 function isCommentLine(line: string): boolean {
   const trimmed = line.trimStart();
@@ -285,6 +307,61 @@ function collectDanglingInternalApiReferences(files: CodeFile[]): SanityIssue[] 
             `References the internal API path "${apiPath}" but no route handler serves it (expected app/${segments.join("/")}/route.ts). The call will 404 at runtime.`,
             "non_blocking_quality_warning",
             `dangling-api-route:${apiPath}`,
+          ),
+        );
+      }
+    }
+  }
+  return issues;
+}
+
+/** URL paths served straight from the generated `public/` directory. */
+function collectPublicAssetUrls(files: CodeFile[]): Set<string> {
+  const urls = new Set<string>();
+  for (const file of files) {
+    const match = file.path.replace(/\\/g, "/").match(PUBLIC_ASSET_PATH_RE);
+    if (match) urls.add(`/${match[1]}`);
+  }
+  return urls;
+}
+
+/**
+ * Root-relative image paths that no file in the project serves. Generation
+ * emits text, so it can never produce the `public/images/hero.jpg` a model
+ * invents alongside `<Image src="/images/hero.jpg">` — every such reference
+ * 404s on the preview host and leaves a visibly broken section. Observed on
+ * a preview whose page requested six local `/images/*.jpg` files, none of
+ * which existed.
+ *
+ * Warning severity on purpose, mirroring the dangling-API check above: only
+ * literal paths are inspected, and a rewrite or an asset added outside the
+ * generated file set could still serve the path, so a false `error` would
+ * block an otherwise shippable build.
+ */
+function collectDanglingStaticAssetReferences(files: CodeFile[]): SanityIssue[] {
+  const publicUrls = collectPublicAssetUrls(files);
+  const issues: SanityIssue[] = [];
+  const seen = new Set<string>();
+
+  for (const file of files) {
+    if (!file.path.match(/\.(tsx?|jsx?)$/)) continue;
+    for (const line of file.content.split(/\r?\n/)) {
+      if (isCommentLine(line)) continue;
+      for (const match of line.matchAll(LOCAL_IMAGE_ASSET_LITERAL_RE)) {
+        const assetPath = match[1];
+        if (assetPath.includes("${")) continue;
+        if (RUNTIME_PROVIDED_ASSET_PATHS.has(assetPath)) continue;
+        if (publicUrls.has(assetPath)) continue;
+        const key = `${file.path}|${assetPath}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        issues.push(
+          createSanityIssue(
+            file.path,
+            "warning",
+            `References the local image "${assetPath}" but nothing in the project serves it (expected public${assetPath}). Generation cannot emit binary assets — use an images.unsplash.com URL or /placeholder.svg?width=…&height=…&text=… instead. The image will 404 at runtime.`,
+            "non_blocking_quality_warning",
+            `dangling-static-asset:${assetPath}`,
           ),
         );
       }
@@ -464,6 +541,9 @@ export function runProjectSanityChecks(
 
   // 3e. Components calling an internal API path with no route handler.
   issues.push(...collectDanglingInternalApiReferences(files));
+
+  // 3f. Components pointing at a local image the project never ships.
+  issues.push(...collectDanglingStaticAssetReferences(files));
 
   // 3c. Duplicate module stems with different source extensions
   //     (e.g. `hooks/use-reduced-motion.ts` + `.tsx`). Bundler resolver

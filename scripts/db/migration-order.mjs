@@ -64,6 +64,9 @@ export const MIGRATION_ORDER = [
   // den revision ett verdikt bedömde på generation_telemetry. Additiv — ingen
   // läsare ändrar beteende förrän planens steg 3.
   "add-files-revision.sql",
+  // Inbox för inkommande OpenAI plattforms-webhooks (POST /api/webhooks/openai).
+  // Fristående CREATE — inga beroenden på andra tabeller.
+  "add-openai-webhook-events.sql",
 ];
 
 /**

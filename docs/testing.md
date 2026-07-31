@@ -2,13 +2,22 @@
 
 Repots tester körs med [Vitest](https://vitest.dev). Den fulla sviten (`npm run test:ci`)
 körs på varje PR och push via [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
-Ovanpå den finns en **kuraterad, snabb stabilitets-lane**.
+Ovanpå den finns två smalare lanes:
+
+| Lane | Kommando | Filnamn | Blockerar merge? |
+|---|---|---|---|
+| Full svit | `npm run test:ci` | `*.test.ts(x)` | **Ja** (`quality`) |
+| Stabilitet | `npm run test:stability` | `*.stability.test.ts(x)` | Nej — warn-only |
+| DB-backad | `npm run test:postgres` | `*.postgres.test.ts` | **Ja** (steg i `quality`) |
+
+Den fulla sviten körs **utan databas**, med flit — se `test:postgres` nedan.
 
 ## Vilka CI-jobb blockerar faktiskt merge
 
 Ett jobb som failar hårt är inte samma sak som ett jobb som **hindrar merge** — det senare
 kräver att jobbnamnet står som required status check i master-rulesetet. Tabellen är den
-kanoniska bilden av skillnaden (verifierad mot rulesetet `Protect master` 2026-07-29):
+kanoniska bilden av skillnaden (verifierad mot rulesetet `Protect master` 2026-07-31 via
+`gh api repos/.../rules/branches/master`):
 
 | Jobb | Failar hårt? | Required (blockerar merge)? |
 | --- | --- | --- |
@@ -16,13 +25,13 @@ kanoniska bilden av skillnaden (verifierad mot rulesetet `Protect master` 2026-0
 | `backoffice-tests` | Ja | **Ja** |
 | `schema-drift` | Ja | **Ja** |
 | `review-window` | Håller pending | **Ja** |
-| `build` | Ja | Nej — nytt jobb 2026-07-29, required är ett separat rulesetbeslut |
+| `build` | Ja | **Ja** — tillagd i rulesetet 2026-07-30 (#660) |
 | `preview-host-guards` | Ja | Nej |
 | `dead-code` (orphan-filgrind) | Ja | Nej |
 | `db-blob-sync` | Ja | Nej — och på PR körs den utan credentials (ren script-smoke) |
 | `stability` | Nej (`continue-on-error`) | Nej |
 
-De fyra icke-required jobben som ändå failar hårt syns röda på PR:en men stoppas bara av
+De tre icke-required jobben som ändå failar hårt syns röda på PR:en men stoppas bara av
 agent-/människodisciplin. Det är ett medvetet men **öppet** läge: se raden om CI-grindarnas
 required-status i [`BUG-SWARM-BACKLOG.md`](../BUG-SWARM-BACKLOG.md) → "Beslut & policy".
 
@@ -99,6 +108,59 @@ Bug-backlog-checken låg tidigare inuti `preflight:common` och därmed även i V
 
 Ändra först den kanoniska ägaren. Kör därefter eventuell generator och sist
 kontrollerna. Redigera inte en generated-fil manuellt för att få CI grön.
+
+## `test:postgres` — DB-backad lane (riktig databas)
+
+En tredje lane för kontrakt som **bara** kan bevisas mot en riktig Postgres:
+DB-genererade kolumner, triggers, index och SQL som en mock per definition inte
+kan verifiera. Filnamn: `<namn>.postgres.test.ts`.
+
+Första fallet är `files_revision` (`scripts/db/files-revision-contract.postgres.test.ts`):
+kolumnen är `GENERATED ALWAYS AS (md5(files_json)) STORED`, så en mock kan bevisa
+att Drizzle *formulerar* en subselect men aldrig att Postgres räknar om värdet.
+
+### Varför en egen lane och inte bara en env-variabel
+
+`test:ci` körs **medvetet utan databas**, och flera tester verifierar just att
+appen degraderar snyggt när den saknas. Sätter man `POSTGRES_URL` för hela
+`quality`-jobbet ändras förutsättningen för dem tyst. Lanen håller den
+skiljelinjen i konfigurationen i stället för i en miljövariabel.
+`vitest.config.ts` exkluderar globen; `vitest.postgres.config.ts` kör bara den.
+
+### Säkerhet — dessa tester SKRIVER rader
+
+| Skydd | Mekanism |
+|---|---|
+| Vägrar allt utom en dev-target | Repots egen `scripts/db/check-db-env-target.mjs` (`expect: "dev"`). En prod-URL ger SKIP, inga skrivningar |
+| Skippar rent utan databas (lokalt) | Utvecklare utan `.env.local` får inte ett rött test för en databas de inte har |
+| Städar efter sig | Skriv allt under en `engine_chats`-rad och radera den i `afterAll` — resten hänger i `ON DELETE CASCADE` |
+
+### Två spärrar mot false-green
+
+Vitest avslutar med **0** för skippade tester, så en försvunnen databas i CI hade
+gett en grön grind utan att något bevisats. Därför:
+
+| Spärr | Vad den stoppar |
+|---|---|
+| `REQUIRE_POSTGRES_TESTS=1` (sätts i CI) | Ett **hopp** räknas som fel i stället för att passera tyst |
+| **Inget** `--passWithNoTests` på lanen | En **omdöpt eller borttagen** fil faller på "No test files found". Filens egen grind kan bara larma om filen faktiskt laddas |
+
+Stability-lanen har `--passWithNoTests` eftersom den legitimt kan vara tom. Den
+här lanen får inte vara det — kopiera inte flaggan hit.
+
+### Var databasen kommer ifrån
+
+| Läge | Databas |
+|---|---|
+| Lokalt | Dev-Supabase via `.env.local` (testet laddar filen självt) |
+| CI (`quality`-jobbet) | Efemär `postgres:16`-service som föds och dör med jobbet, `POSTGRES_HOST_AUTH_METHOD=trust` (inget lösenord i en committad fil), följd av `npm run db:init` |
+
+Dev-Supabase används **inte** i CI: varje PR hade skrivit i en delad databas och
+samtidiga PR:er kunnat kollidera.
+
+```powershell
+npm run test:postgres    # kräver en dev-POSTGRES_URL, annars skippas den
+```
 
 ## Skriva en stabilitetstest
 

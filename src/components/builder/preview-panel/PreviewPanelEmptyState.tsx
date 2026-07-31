@@ -14,29 +14,10 @@ import {
   type VersionDisplayStatus,
 } from "@/lib/builder/version-status-display";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
-import { dispatchPromptPrefill } from "@/lib/builder/prompt-prefill-event";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PreviewPanelInitControls } from "./PreviewPanelInitControls";
 import { cn } from "@/lib/utils";
-
-/** Klickbara exempelprompter i välkomst-läget — fyller chattens input. */
-const EXAMPLE_PROMPTS = [
-  {
-    label: "Frisörsalong med bokning",
-    prompt:
-      "En modern sajt för min frisörsalong i Göteborg med prislista, öppettider och en tydlig boka tid-knapp.",
-  },
-  {
-    label: "Konsult-landningssida",
-    prompt:
-      "En professionell landningssida för min konsultverksamhet inom ekonomi, med tjänster, referenser och kontaktformulär.",
-  },
-  {
-    label: "Fotograf-portfolio",
-    prompt:
-      "En portfolio för en fotograf med bildgalleri, om-sida och prisexempel för bröllop och företagsfoto.",
-  },
-] as const;
 
 interface PreviewPanelEmptyStateProps {
   chatId: string | null;
@@ -187,7 +168,8 @@ export function PreviewPanelEmptyState({
             : AlertCircle;
 
   // Välkomst-läget (ingen chat/version ännu) är ett riktigt onboarding-steg:
-  // förklara nästa steg och erbjud exempelprompter — inte bara en tom yta.
+  // Byggval-reglagen låter användaren styra typ, sidantal, komplexitet, stil
+  // och färgläge — valen skrivs in som ett eget stycke i chattens input.
   const showWelcome =
     isInitialEmpty && !previewBuildError && !awaitingInput && !previewPending;
 
@@ -202,41 +184,11 @@ export function PreviewPanelEmptyState({
             Vad vill du bygga?
           </h2>
           <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
-            Beskriv din sajt i chatten till vänster så genererar vi en första version med
-            live-förhandsvisning här. Du kan sedan förfina den steg för steg.
+            Beskriv din sajt i chatten till vänster. Gör gärna några byggval nedan — de läggs
+            till i din prompt och styr första versionen.
           </p>
 
-          <ol className="text-muted-foreground mx-auto mb-7 grid max-w-sm gap-2 text-left text-sm">
-            {[
-              "Beskriv företaget och vad sajten ska göra",
-              "Få en förhandsvisning på ca 2 minuter",
-              "Justera med följdfrågor och publicera",
-            ].map((step, i) => (
-              <li key={step} className="flex items-start gap-3">
-                <span className="bg-secondary text-foreground mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
-                  {i + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-
-          <p className="text-muted-foreground/80 mb-2.5 text-xs font-medium tracking-wide uppercase">
-            Eller börja från ett exempel
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {EXAMPLE_PROMPTS.map((example) => (
-              <button
-                key={example.label}
-                type="button"
-                onClick={() => dispatchPromptPrefill(example.prompt)}
-                className="border-border/60 bg-secondary/40 text-foreground hover:border-primary/40 hover:bg-secondary/70 rounded-full border px-3.5 py-1.5 text-xs transition-colors"
-                title={example.prompt}
-              >
-                {example.label}
-              </button>
-            ))}
-          </div>
+          <PreviewPanelInitControls />
 
           <p className="text-muted-foreground/70 mt-6 inline-flex items-center gap-1.5 text-xs">
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
