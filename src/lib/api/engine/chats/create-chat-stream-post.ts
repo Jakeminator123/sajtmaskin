@@ -539,6 +539,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           // komplexitet/färgläge/ton-direktiv) — annars planerar plan-läget
           // utan direktiv som codegen sedan får.
           customInstructions: trimmedSystemPrompt || undefined,
+          // Pinna samma pre-match-variant som huvudflödet (pre-matchen läser
+          // styleKeywordsHint) så plan-orkestreringen inte async-väljer en
+          // annan variant än brief-hints/codegen.
+          persistedVariantId: preMatchVariant?.id ?? null,
           promptStrategyMeta: strategyMeta,
           // Bug 04#3 (2026-04-22 audit): plan mode skickade tidigare inte
           // engineModelId/lifecycleStage. Det gav divergent BuildSpec mellan

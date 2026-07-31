@@ -84,7 +84,9 @@ const STYLE_KEYWORD_HINTS: Record<Exclude<StyleChoice, "auto">, string[]> = {
   corporate: ["corporate", "professional", "b2b", "trust"],
   bold: ["bold", "startup", "launch", "momentum"],
   editorial: ["editorial", "elegant", "magazine", "premium"],
-  minimal: ["minimal", "typography", "studio", "clean"],
+  // Obs: inte "clean" — den boostar ljus-taggade varianter och skulle kunna
+  // trumfa ett mörkt färgläge (samma skäl som "ren" ströks ur promptspåret).
+  minimal: ["minimal", "typography", "studio", "white-space"],
 };
 
 // "dark mode"/"light mode" feed both the embedding text and the keyword

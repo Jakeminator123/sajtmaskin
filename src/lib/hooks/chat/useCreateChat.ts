@@ -508,8 +508,12 @@ export function useCreateChat(
         }
 
         const contentType = response.headers.get("content-type") || "";
+        // Byggval nollställs bara vid en GENUINT lyckad skapning: SSE-vägen
+        // kan lösa utan throw men med tom generation (ingen version/preview/
+        // plan/awaiting-input) — då bevaras valen till nästa försök.
+        let createProducedArtifact = true;
         if (contentType.includes("text/event-stream")) {
-          await handleSseStream(
+          const streamResult = await handleSseStream(
             response,
             {
               streamType: "create",
@@ -542,6 +546,7 @@ export function useCreateChat(
             },
             streamController.signal,
           );
+          createProducedArtifact = streamResult.hasRecoveredArtifact;
         } else {
           const data = await response.json();
           await handleNonStreamingCreate(data);
@@ -553,7 +558,9 @@ export function useCreateChat(
         // Byggval consumed — clear on success (same retry rationale as brief)
         // so a later new chat in the same session starts from auto. The
         // welcome panel re-reads the store on its next mount, so UI follows.
-        resetInitBuildChoices();
+        if (createProducedArtifact) {
+          resetInitBuildChoices();
+        }
       } catch (error) {
         if (isClientInitiatedAbort(error, streamController)) {
           debugLog("AI", "Create chat stream aborted by client");

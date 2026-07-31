@@ -92,9 +92,20 @@ export async function handleSseStream(
   response: Response,
   ctx: StreamContext,
   signal: AbortSignal,
-): Promise<{ streamQuality: StreamQualitySignal; chatIdFromStream: string | null }> {
+): Promise<{
+  streamQuality: StreamQualitySignal;
+  chatIdFromStream: string | null;
+  /**
+   * True när done-eventet bar en riktig artefakt (version, preview,
+   * plan-artefakt eller awaiting-input). False vid tomma/failade
+   * generationer — Byggval-storen ska då INTE nollställas (valen bevaras
+   * till nästa försök).
+   */
+  hasRecoveredArtifact: boolean;
+}> {
   let chatIdFromStream: string | null = null;
   let versionIdFromStream: string | null = null;
+  let recoveredArtifactSignal = false;
   let linkedProjectIdFromStream: string | null = null;
   let accumulatedThinking = "";
   let accumulatedContent = "";
@@ -1043,6 +1054,7 @@ export async function handleSseStream(
               Boolean(resolvedVersionId) ||
               Boolean(effectiveDoneDemo) ||
               hasPlanArtifact;
+            recoveredArtifactSignal = hasRecoveredArtifact;
             const emptyGenerationReason =
               typeof doneData.reason === "string" && doneData.reason.trim().length > 0
                 ? doneData.reason.trim()
@@ -1382,5 +1394,5 @@ export async function handleSseStream(
     });
   }
 
-  return { streamQuality, chatIdFromStream };
+  return { streamQuality, chatIdFromStream, hasRecoveredArtifact: recoveredArtifactSignal };
 }
