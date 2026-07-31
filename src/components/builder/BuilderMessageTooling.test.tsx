@@ -44,6 +44,22 @@ describe("StructuredToolParts", () => {
     ).toBeGreaterThanOrEqual(1);
   });
 
+  it("uses a neutral handoff status between measured phases instead of repeating pre-stream copy", () => {
+    render(
+      <AgentLogCard
+        items={[{ label: "Generering klar. Startar efterkontroller och slutsteg." }]}
+        isActive
+      />,
+    );
+
+    expect(
+      screen.getAllByText("Fortsätter med nästa byggsteg.").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.queryByText("Förbereder byggunderlag och startar own-engine."),
+    ).toBeNull();
+  });
+
   it("resolves the latest input-streaming tool step as current activity", () => {
     expect(
       getActiveAgentLogLabel([

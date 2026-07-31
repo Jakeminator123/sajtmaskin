@@ -158,6 +158,7 @@ type ServerRepairSummary = {
 };
 
 const PRE_STREAM_ACTIVITY = "Förbereder byggunderlag och startar own-engine.";
+const BETWEEN_PHASES_ACTIVITY = "Fortsätter med nästa byggsteg.";
 
 export function AgentLogCard({
   items,
@@ -200,7 +201,9 @@ function AgentLogCardContent({
     return () => window.clearInterval(timer);
   }, [isActive]);
 
-  const currentLabel = activeLabel?.trim() || PRE_STREAM_ACTIVITY;
+  const currentLabel =
+    activeLabel?.trim() ||
+    (items.length === 0 ? PRE_STREAM_ACTIVITY : BETWEEN_PHASES_ACTIVITY);
   const matchingActiveIndex = isActive
     ? items.map((item) => item.label).lastIndexOf(currentLabel)
     : -1;
