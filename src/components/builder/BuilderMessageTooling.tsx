@@ -19,7 +19,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ToolUIPart } from "ai";
 import {
   PostCheckPanel,
@@ -169,6 +169,23 @@ export function AgentLogCard({
   activeLabel?: string | null;
   isActive?: boolean;
 }) {
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const activeStartedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+    if (activeStartedAtRef.current === null) {
+      activeStartedAtRef.current = Date.now();
+    }
+    const timer = window.setInterval(() => {
+      const startedAt = activeStartedAtRef.current;
+      if (startedAt !== null) {
+        setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+      }
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [isActive]);
+
   if (items.length === 0 && !isActive) return null;
   return (
     <AgentLogCardContent
@@ -176,6 +193,7 @@ export function AgentLogCard({
       items={items}
       activeLabel={activeLabel}
       isActive={isActive}
+      elapsedSeconds={elapsedSeconds}
     />
   );
 }
@@ -184,22 +202,14 @@ function AgentLogCardContent({
   items,
   activeLabel,
   isActive,
+  elapsedSeconds,
 }: {
   items: AgentLogItem[];
   activeLabel?: string | null;
   isActive: boolean;
+  elapsedSeconds: number;
 }) {
   const [open, setOpen] = useState(isActive);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-
-  useEffect(() => {
-    if (!isActive) return undefined;
-    const startedAt = Date.now();
-    const timer = window.setInterval(() => {
-      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
-    }, 1_000);
-    return () => window.clearInterval(timer);
-  }, [isActive]);
 
   const currentLabel =
     activeLabel?.trim() ||
@@ -678,7 +688,7 @@ export function getActiveAgentLogLabel(toolParts: ToolPart[]): string | null {
     const latestStep = steps.at(-1)?.trim();
     if (latestStep) return latestStep;
     const { toolTitle } = resolveToolLabels(tool);
-    return `${toolTitle} pågår.`;
+    return `${toolTitle} • ${getToolStateLabel(tool.state)}`;
   }
   return null;
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   AgentLogCard,
@@ -60,6 +60,39 @@ describe("StructuredToolParts", () => {
     ).toBeNull();
   });
 
+  it("keeps the elapsed timer across the handoff from stream to post-check work", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-31T12:00:00Z"));
+    try {
+      const items = [{ label: "Genererar innehåll och filer från prompten." }];
+      const { rerender } = render(
+        <AgentLogCard
+          items={items}
+          activeLabel="Genererar innehåll och filer från prompten."
+          isActive
+        />,
+      );
+
+      act(() => vi.advanceTimersByTime(2_100));
+      expect(screen.getByText("2s")).toBeTruthy();
+
+      rerender(<AgentLogCard items={items} isActive={false} />);
+      act(() => vi.advanceTimersByTime(5_000));
+      rerender(
+        <AgentLogCard
+          items={items}
+          activeLabel="RenderGate • Förbereder"
+          isActive
+        />,
+      );
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(screen.getByText("8s")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("resolves the latest input-streaming tool step as current activity", () => {
     expect(
       getActiveAgentLogLabel([
@@ -83,6 +116,24 @@ describe("StructuredToolParts", () => {
         } as never,
       ]),
     ).toBe("Kontrollerar importer.");
+  });
+
+  it("uses the same pending label for an empty streaming tool in header and log", () => {
+    const toolParts = [
+      {
+        type: "tool",
+        tool: {
+          type: "tool:quality-gate",
+          toolName: "Quality gate",
+          state: "input-streaming",
+        },
+      } as never,
+    ];
+
+    expect(getActiveAgentLogLabel(toolParts)).toBe("Quality gate • Förbereder");
+    expect(buildAgentLogItems(toolParts)).toEqual([
+      { label: "Quality gate • Förbereder" },
+    ]);
   });
 
   it("extracts detailed server-repair steps for the agent log", () => {
