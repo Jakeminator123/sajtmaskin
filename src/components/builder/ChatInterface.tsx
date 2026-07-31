@@ -332,7 +332,21 @@ export function ChatInterface({
     if (chatId) return;
     if (!initialPrompt) return;
     if (prefilledPromptRef.current === initialPrompt) return;
-    if (input.trim()) return;
+    const trimmed = input.trim();
+    if (trimmed) {
+      // Byggval-block är inte användartext: hann reglagen dispatcha före den
+      // här effekten (landing → builder) får landing-prompten inte tappas.
+      // Består inputen enbart av keyed prefill-block prependas prompten;
+      // annars har användaren skrivit själv och vi rör ingenting.
+      let residual = input;
+      for (const block of keyedPrefillBlocksRef.current.values()) {
+        if (block) residual = residual.replace(block, "");
+      }
+      if (residual.trim()) return;
+      setInput(`${initialPrompt.trimEnd()}\n\n${trimmed}`);
+      prefilledPromptRef.current = initialPrompt;
+      return;
+    }
     setInput(initialPrompt);
     prefilledPromptRef.current = initialPrompt;
   }, [chatId, initialPrompt, input]);

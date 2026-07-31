@@ -100,14 +100,15 @@ function ChoiceChipRow<T extends string>({
 export function PreviewPanelInitControls() {
   const [choices, setChoices] = useState<InitBuildChoices>(DEFAULT_INIT_BUILD_CHOICES);
 
+  // Side effect utanför state-updatern (updaters ska vara rena — Strict Mode
+  // kan köra dem dubbelt). Snabba sekventiella ändringar rör olika fält eller
+  // samma slider-fält, så en merge från senaste render räcker.
   const applyChoices = (partial: Partial<InitBuildChoices>) => {
-    setChoices((prev) => {
-      const next = { ...prev, ...partial };
-      dispatchPromptPrefill(composeInitBuildChoicesText(next), {
-        replaceKey: INIT_BUILD_CHOICES_PREFILL_KEY,
-        skipFocus: true,
-      });
-      return next;
+    const next = { ...choices, ...partial };
+    setChoices(next);
+    dispatchPromptPrefill(composeInitBuildChoicesText(next), {
+      replaceKey: INIT_BUILD_CHOICES_PREFILL_KEY,
+      skipFocus: true,
     });
   };
 
