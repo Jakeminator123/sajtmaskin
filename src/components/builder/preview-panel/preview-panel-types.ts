@@ -1,6 +1,7 @@
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
 import type { ShadcnInsertHandler } from "@/lib/builder/shadcn-insert";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
+import type { DesignTheme } from "@/lib/builder/theme-presets";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
 import type { AlternatePreviewUrls } from "@/lib/gen/preview/preview-url-classifier";
@@ -50,6 +51,15 @@ export type PreviewIframeMessage = {
 export interface PreviewPanelProps {
   chatId: string | null;
   versionId: string | null;
+  /**
+   * Färgtema-preset till Byggval-reglagen i välkomstläget (flyttad från
+   * Avancerat 2026-07-31). Delar shell-state med genereringen (`designTheme`
+   * → `themeColors`). Endast använd av empty-state-ytan.
+   */
+  designTheme?: DesignTheme;
+  onDesignThemeChange?: (theme: DesignTheme) => void;
+  /** Låser temavalet under streaming (motsvarar gamla `isConfigLocked`). */
+  themeLocked?: boolean;
   /** Active preview URL (iframe target); not the API JSON field name. */
   previewUrl: string | null;
   /** Tier 1 + tier 2 URLs stored on the active version — se `docs/architecture/llm-pipeline.md`. */

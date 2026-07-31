@@ -27,7 +27,7 @@ function isPlaceholderValue(value: string | undefined | null): boolean {
 const DEMO_REPLY =
   "Hej! Jag är en demo-assistent och svarar med ett förhandsvisat exempel just nu — " +
   "det här är inte ett riktigt AI-svar. Så här kommer chatten att kännas och se ut. " +
-  "När sajten kopplas till en riktig nyckel under \"Bygg integrationer\" svarar jag på riktigt utifrån din fråga.";
+  "När en riktig OpenAI-nyckel sparas under \"Byggblock\" i byggaren (och sajten publiceras om) svarar jag på riktigt utifrån din fråga.";
 
 /**
  * Stream a canned reply using the same UI message stream protocol the client's

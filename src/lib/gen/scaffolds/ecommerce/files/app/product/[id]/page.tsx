@@ -30,6 +30,32 @@ const products: Record<string, { name: string; price: string; description: strin
     image: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=1000&h=1000&fit=crop",
     bullets: ["Kundfavorit", "Snabb support", "Säker checkout"],
   },
+  // Ids 4-6 finns i /products och i kategorisidorna. Utan dem här träffade
+  // varje klick på de produkterna notFound().
+  "4": {
+    name: "[Produktnamn 4]",
+    price: "[Pris]",
+    description: "Kort produktbeskrivning som lyfter fram passform och material.",
+    category: "[Kategori 1]",
+    image: "https://images.unsplash.com/photo-1560343090-f0409e92791a?w=1000&h=1000&fit=crop",
+    bullets: ["Snabb leverans", "14 dagars returrätt", "Trygg betalning"],
+  },
+  "5": {
+    name: "[Produktnamn 5]",
+    price: "[Pris]",
+    description: "Kort produktbeskrivning för en bästsäljare kunderna återkommer till.",
+    category: "[Kategori 2]",
+    image: "https://images.unsplash.com/photo-1484704849700-f032a568e944?w=1000&h=1000&fit=crop",
+    bullets: ["Bästsäljare", "Premiumkvalitet", "Fri frakt över [Belopp]"],
+  },
+  "6": {
+    name: "[Produktnamn 6]",
+    price: "[Pris]",
+    description: "Kort produktbeskrivning som kombinerar funktion och stil.",
+    category: "[Kategori 3]",
+    image: "https://images.unsplash.com/photo-1617038220319-276d3cfab638?w=1000&h=1000&fit=crop",
+    bullets: ["Kundfavorit", "Snabb support", "Säker checkout"],
+  },
 };
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -77,6 +103,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Object.entries(products)
             .filter(([productId]) => productId !== id)
+            .slice(0, 3)
             .map(([productId, item]) => (
               <Link key={productId} href={`/product/${productId}`}>
                 <Card className="transition-shadow hover:shadow-md">

@@ -25,6 +25,16 @@ export interface LockedVariantForFollowUpInput {
   intent: FollowUpIntentMode;
   scaffoldId: string | null | undefined;
   priorVariantId: string | null | undefined;
+  /**
+   * The scaffold-side redesign unlock (`ignorePersistedScaffoldForMatch`).
+   * Some full-redesign phrasings ("gör om hela sajten") unlock the scaffold via
+   * the supplement patterns in `follow-up-clarification.ts` while the intent
+   * classifier still reports `neutral`. Without this input the variant stayed
+   * pinned to the old look, so the user got a rematched scaffold rendered in the
+   * exact style they asked to replace. Optional/back-compat: absent = locked as
+   * before.
+   */
+  scaffoldUnlocked?: boolean;
 }
 
 /**
@@ -37,6 +47,7 @@ export interface LockedVariantForFollowUpInput {
  *
  * Returnerar `null` när:
  *  - intent === 'clear-redesign'
+ *  - `scaffoldUnlocked` (scaffold-sidans redesign-unlock) är satt
  *  - prior-id eller scaffold-id saknas
  *  - prior-id inte längre resolvar i registret
  *
@@ -47,9 +58,10 @@ export interface LockedVariantForFollowUpInput {
 export function lockedVariantForFollowUp(
   input: LockedVariantForFollowUpInput,
 ): ScaffoldVariant | null {
-  if (input.intent === "clear-redesign") {
+  if (input.intent === "clear-redesign" || input.scaffoldUnlocked === true) {
     console.info("[scaffold-variant] variant_lock_skip", {
-      reason: "clear_redesign_intent",
+      reason:
+        input.intent === "clear-redesign" ? "clear_redesign_intent" : "scaffold_unlocked_for_match",
       chatId: input.chatId ?? null,
       scaffoldId: input.scaffoldId ?? null,
       priorVariantId: input.priorVariantId ?? null,
@@ -127,7 +139,10 @@ function applyEvalBlocklist(
   scaffoldId: string | null | undefined,
 ): ScaffoldVariant[] {
   if (!scaffoldId) return variants;
-  const blocked = getBlockedVariantIds(scaffoldId);
+  const blocked = getBlockedVariantIds(
+    scaffoldId,
+    variants.map((variant) => variant.id),
+  );
   if (blocked.size === 0) return variants;
   const filtered = variants.filter((variant) => !blocked.has(variant.id));
   return filtered.length > 0 ? filtered : variants;
@@ -198,10 +213,14 @@ function scoreVariant(
 
   score += keywordHits * 3;
   if (keywordHits >= 2) score += keywordHits * 2;
-  if (variant.colorMode === "dark" && /\b(dark|mörk|noir|black|svart|terminal)\b/i.test(promptLower)) {
+  // Färglägesboosten läser prompt + strukturerade style/tone-keywords: Byggval
+  // skickar "dark mode"/"light mode" via styleKeywordsHint i stället för
+  // prompt-text, och brief-keywords kan bära samma signal.
+  const colorSignalText = [promptLower, ...styleKeywordsLower, ...toneKeywordsLower].join(" ");
+  if (variant.colorMode === "dark" && /\b(dark|mörk|noir|black|svart|terminal)\b/i.test(colorSignalText)) {
     score += 2;
   }
-  if (variant.colorMode === "light" && /\b(light|ljus|airy|clean|ren)\b/i.test(promptLower)) {
+  if (variant.colorMode === "light" && /\b(light|ljus|airy|clean|ren)\b/i.test(colorSignalText)) {
     score += 1;
   }
 

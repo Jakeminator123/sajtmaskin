@@ -70,6 +70,48 @@ describe("follow-up clarification intent classification", () => {
     expect(classifyFollowUpIntent("snyggare färgschema")).not.toBe("clear-redesign");
   });
 
+  // QW-hover (prod chat 0d52e5c9, 2026-07-31): en hover-mikrointeraktion med
+  // fokuspunkter klassades som clear-redesign via verb+noun-kombon
+  // ("ändra" + "färger") och skrev om hela den importerade templaten.
+  it("does NOT escalate an interaction-scoped color edit to clear-redesign (QW-hover)", () => {
+    const prodPrompt =
+      "Om jag hoovrar över dena ytavill jag att färgerna på text och ikoner ska ändra färger\n\n" +
+      "Användarens markerade fokuspunkter i preview:\n" +
+      "Källa: https://vm-fly-jakem.fly.dev/0d52e5c9\n" +
+      "- Punkt 1: x=49.4%, y=319.0%, viewport=1322x1170\n" +
+      "Prioritera ändringar nära dessa punkter.";
+
+    expect(classifyFollowUpIntent(prodPrompt)).toBe("clear-refine");
+  });
+
+  it("does NOT escalate hover/click/scroll-scoped design combos to clear-redesign (QW-hover)", () => {
+    expect(classifyFollowUpIntent("när man hovrar över kortet ska färgerna ändras")).not.toBe(
+      "clear-redesign",
+    );
+    expect(classifyFollowUpIntent("byt bakgrundsfärg när man klickar på knappen")).not.toBe(
+      "clear-redesign",
+    );
+    expect(
+      classifyFollowUpIntent("change the theme colors on hover for the nav links"),
+    ).not.toBe("clear-redesign");
+  });
+
+  it("suppresses the verb+noun combo when focus points are attached, without breaking explicit redesigns (QW-hover)", () => {
+    const focusBlock =
+      "\n\nAnvändarens markerade fokuspunkter i preview:\n- Punkt 1: x=10%, y=20%";
+    // Svag kombo + fokuspunkt → riktad edit, inte redesign.
+    expect(classifyFollowUpIntent(`ändra färgerna här${focusBlock}`)).not.toBe(
+      "clear-redesign",
+    );
+    // Explicit redesign-fras trumfar alltid dämpningen.
+    expect(classifyFollowUpIntent(`gör om hela layouten${focusBlock}`)).toBe(
+      "clear-redesign",
+    );
+    expect(
+      classifyFollowUpIntent("gör om hela layouten, och vid klick ska menyn öppnas"),
+    ).toBe("clear-redesign");
+  });
+
   // 2026-04-22 audit (rapport 05 + 06): Unicode-\b + "byt"-token regressionskydd.
   // Innan fixen: ASCII `\b` matchade inte före `ä/ö/å`, så "Ändra rubriken…"
   // föll till `neutral`. Nu plockas det upp som en riktig refine-prompt via

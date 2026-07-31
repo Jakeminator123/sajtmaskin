@@ -2,8 +2,10 @@ import {
   extractAppProjectIdFromMeta,
   extractBriefFromMeta,
   extractDesignThemePresetFromMeta,
+  extractPageCountHintFromMeta,
   extractPaletteStateFromMeta,
   extractScaffoldSettingsFromMeta,
+  extractStyleKeywordsHintFromMeta,
   extractThemeColorsFromMeta,
 } from "@/lib/gen/request-metadata";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
@@ -35,6 +37,10 @@ export interface ParsedChatRequestMeta {
   appProjectId: string | null;
   scaffoldMode: ScaffoldMode;
   scaffoldId: string | null;
+  /** Byggval (init controls): structured page-count hint (1–20) for the route plan. */
+  pageCountHint: number | null;
+  /** Byggval (init controls): structured style keywords for variant matching. */
+  styleKeywordsHint: string[];
   themeColors: ThemeColors | null;
   brief: Record<string, unknown> | null;
   designThemePreset: string | null;
@@ -82,6 +88,8 @@ export function parseChatRequestMeta(meta: unknown): ParsedChatRequestMeta {
     appProjectId: extractAppProjectIdFromMeta(meta),
     scaffoldMode,
     scaffoldId,
+    pageCountHint: extractPageCountHintFromMeta(meta),
+    styleKeywordsHint: extractStyleKeywordsHintFromMeta(meta),
     themeColors: extractThemeColorsFromMeta(meta),
     brief: extractBriefFromMeta(meta),
     designThemePreset: extractDesignThemePresetFromMeta(meta),

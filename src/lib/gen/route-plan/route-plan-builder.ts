@@ -35,8 +35,14 @@ export function buildRoutePlan(params: {
    * Pass "en" (or any non-sv locale) to keep English route variants instead.
    */
   locale?: string;
+  /**
+   * Byggval (init controls): structured page-count hint. Takes precedence
+   * over `detectExplicitPageCount(prompt)` when both are present. Same
+   * 1–20 range as the prompt-text path; out-of-range values are ignored.
+   */
+  pageCountHint?: number | null;
 }): RoutePlan {
-  const { prompt, buildIntent, brief, resolvedScaffold, generationMode, existingRoutePaths = [], locale = "sv" } = params;
+  const { prompt, buildIntent, brief, resolvedScaffold, generationMode, existingRoutePaths = [], locale = "sv", pageCountHint = null } = params;
   const routes: PlannedRoute[] = [];
   const briefRoutes = buildRoutesFromBrief(brief);
   const hasBriefRoutes = briefRoutes.length > 0;
@@ -158,8 +164,16 @@ export function buildRoutePlan(params: {
 
   // Compute explicit page-count cap upfront so scaffold defaults respect it
   // (e.g. "snickerifirma 2 sidor" should not trigger ecommerce auto-adding
-  // /products + /cart on top of the brief's 2 pages).
-  const earlyExplicitPageCount = detectExplicitPageCount(prompt);
+  // /products + /cart on top of the brief's 2 pages). The structured Byggval
+  // hint wins over prompt-text detection when both are present.
+  const structuredPageCount =
+    typeof pageCountHint === "number" &&
+    Number.isInteger(pageCountHint) &&
+    pageCountHint >= 1 &&
+    pageCountHint <= 20
+      ? pageCountHint
+      : null;
+  const earlyExplicitPageCount = structuredPageCount ?? detectExplicitPageCount(prompt);
   const pathsBeforeScaffoldDefaults = new Set(
     routes.map((route) => normalizeRoutePath(route.path)),
   );

@@ -409,6 +409,8 @@ export async function resolveOrchestrationBase(
     generationMode: resolvedMode,
     existingRoutePaths,
     locale: resolvedLocale,
+    // Byggval (init controls): structured hint wins over prompt-text regex.
+    pageCountHint: input.pageCountHint ?? null,
   });
 
   // ── 5-6 freeze-enforcement (route) — HARD CLAMP + explicit route-removal ──

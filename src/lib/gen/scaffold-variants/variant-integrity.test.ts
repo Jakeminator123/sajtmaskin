@@ -117,16 +117,30 @@ describe("scaffold-variant integrity", () => {
     ).toEqual([]);
   });
 
-  it("each scaffold has at most one default variant", () => {
+  it("each scaffold has exactly one default variant", () => {
     const defaultsByScaffold = new Map<string, string[]>();
     for (const { variant } of variantFiles) {
-      if (variant.default !== true) continue;
       const scaffoldId = String(variant.scaffoldId ?? "");
       const list = defaultsByScaffold.get(scaffoldId) ?? [];
-      list.push(String(variant.id ?? ""));
+      if (variant.default === true) list.push(String(variant.id ?? ""));
       defaultsByScaffold.set(scaffoldId, list);
     }
-    const conflicts = [...defaultsByScaffold.entries()].filter(([, ids]) => ids.length > 1);
-    expect(conflicts, "convention: exactly one default per scaffold").toEqual([]);
+    // "At most one" left the zero-default case green, and a scaffold with no
+    // default silently falls back to the first alphabetically sorted variant in
+    // `getDefaultVariantForScaffold` — a design direction chosen by filename.
+    const wrong = [...defaultsByScaffold.entries()].filter(([, ids]) => ids.length !== 1);
+    expect(wrong, "convention: exactly one default variant per scaffold").toEqual([]);
+  });
+
+  it("every variant declares at least one sourceTemplateId", () => {
+    // The dead-id check above iterates the array, so an EMPTY array passed
+    // silently — a variant with no provenance at all was never flagged.
+    const withoutSource = variantFiles
+      .filter(({ variant }) => (variant.sourceTemplateIds ?? []).length === 0)
+      .map(({ relPath }) => relPath);
+    expect(
+      withoutSource,
+      "variants must cite the v0-mall(ar) they were derived from",
+    ).toEqual([]);
   });
 });

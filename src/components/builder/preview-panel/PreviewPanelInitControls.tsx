@@ -3,17 +3,21 @@
 import { useRef, useState } from "react";
 
 import {
-  DEFAULT_INIT_BUILD_CHOICES,
-  INIT_BUILD_CHOICES_PREFILL_KEY,
   MAX_PAGE_COUNT_CHOICE,
-  composeInitBuildChoicesText,
+  getCurrentInitBuildChoices,
+  setCurrentInitBuildChoices,
   type ColorModeChoice,
   type ComplexityChoice,
   type InitBuildChoices,
   type SiteTypeChoice,
   type StyleChoice,
+  type ToneChoice,
 } from "@/lib/builder/init-build-choices";
-import { dispatchPromptPrefill } from "@/lib/builder/prompt-prefill-event";
+import {
+  DESIGN_THEME_OPTIONS,
+  THEME_PRESETS,
+  type DesignTheme,
+} from "@/lib/builder/theme-presets";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
@@ -42,17 +46,39 @@ const STYLE_OPTIONS: Array<{ value: StyleChoice; label: string }> = [
   { value: "minimal", label: "Minimal" },
 ];
 
+const TONE_OPTIONS: Array<{ value: ToneChoice; label: string }> = [
+  { value: "auto", label: "Auto" },
+  { value: "professional", label: "Professionell" },
+  { value: "warm", label: "Varm" },
+  { value: "playful", label: "Lekfull" },
+];
+
 const COLOR_MODE_OPTIONS: Array<{ value: ColorModeChoice; label: string }> = [
   { value: "auto", label: "Auto" },
   { value: "light", label: "Ljust" },
   { value: "dark", label: "Mörkt" },
 ];
 
+// "Av" först så temaraden följer samma vänster-är-neutralt-mönster som
+// övriga rader ("Auto" först).
+const THEME_CHIP_OPTIONS: Array<{ value: DesignTheme; label: string }> = [
+  { value: "off", label: "Av" },
+  ...DESIGN_THEME_OPTIONS.filter((option) => option.value !== "off"),
+];
+
+function themeSwatchColor(theme: DesignTheme): string | null {
+  if (theme === "off" || theme === "custom") return null;
+  return THEME_PRESETS[theme]?.primary ?? null;
+}
+
 interface ChoiceChipRowProps<T extends string> {
   label: string;
   options: Array<{ value: T; label: string }>;
   value: T;
   onChange: (value: T) => void;
+  disabled?: boolean;
+  /** Optional swatch color per option (theme chips). */
+  swatchFor?: (value: T) => string | null;
 }
 
 function ChoiceChipRow<T extends string>({
@@ -60,6 +86,8 @@ function ChoiceChipRow<T extends string>({
   options,
   value,
   onChange,
+  disabled = false,
+  swatchFor,
 }: ChoiceChipRowProps<T>) {
   return (
     <div>
@@ -69,19 +97,28 @@ function ChoiceChipRow<T extends string>({
       <div className="flex flex-wrap gap-1.5">
         {options.map((option) => {
           const selected = option.value === value;
+          const swatch = swatchFor?.(option.value) ?? null;
           return (
             <button
               key={option.value}
               type="button"
               aria-pressed={selected}
+              disabled={disabled}
               onClick={() => onChange(option.value)}
               className={cn(
-                "rounded-full border px-3 py-1 text-xs transition-colors",
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors disabled:pointer-events-none disabled:opacity-50",
                 selected
                   ? "border-primary/60 bg-primary/15 text-foreground"
                   : "border-border/60 bg-secondary/40 text-muted-foreground hover:border-primary/40 hover:bg-secondary/70 hover:text-foreground",
               )}
             >
+              {swatch ? (
+                <span
+                  aria-hidden="true"
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: swatch }}
+                />
+              ) : null}
               {option.label}
             </button>
           );
@@ -91,27 +128,43 @@ function ChoiceChipRow<T extends string>({
   );
 }
 
+interface PreviewPanelInitControlsProps {
+  /** Färgtema-preset (flyttad hit från Avancerat) — delar shell-state med genereringen. */
+  designTheme?: DesignTheme;
+  onDesignThemeChange?: (theme: DesignTheme) => void;
+  /** Låser temavalet under streaming (samma villkor som gamla Avancerat-väljaren). */
+  themeLocked?: boolean;
+}
+
 /**
- * Byggval — the init controls shown in the welcome state. Every change
- * upserts one Swedish prompt block into the chat input (keyed prefill), so
- * the user's own text is never overwritten and the block never duplicates.
- * Level 1 wiring: prompt text only — see `init-build-choices.ts`.
+ * Byggval — the init controls shown in the welcome state. Every choice is
+ * wired structurally (request-meta + custom-instructions channel) via
+ * `dispatchInitBuildChoices` → `useCreateChat`; nothing is written into the
+ * visible chat input. The theme row edits the shared `designTheme` shell
+ * state directly (same signal the old Avancerat picker used).
  */
-export function PreviewPanelInitControls() {
-  const [choices, setChoices] = useState<InitBuildChoices>(DEFAULT_INIT_BUILD_CHOICES);
+export function PreviewPanelInitControls({
+  designTheme,
+  onDesignThemeChange,
+  themeLocked = false,
+}: PreviewPanelInitControlsProps) {
+  // State initieras från den delade storen: panelen av-/ommonteras när
+  // välkomstläget döljs under en skapning, och vid en MISSLYCKAD skapning
+  // ska den ommonterade panelen visa användarens tidigare val (storen
+  // nollställs bara av useCreateChat vid lyckad skapning). Store + UI kan
+  // därmed aldrig desynka. (Mobil-tabbarna CSS-gömmer panelerna utan
+  // avmontering. Temat bor i shell-state och överlever medvetet.)
+  const [choices, setChoices] = useState<InitBuildChoices>(() => getCurrentInitBuildChoices());
   // Senaste valen i en ref: updatern hålls ren (Strict Mode kan köra
   // updaters dubbelt) OCH två snabba ändringar i samma render-batch kan
   // inte skriva över varandra via en stale render-scoped `choices`.
-  const latestChoicesRef = useRef<InitBuildChoices>(DEFAULT_INIT_BUILD_CHOICES);
+  const latestChoicesRef = useRef<InitBuildChoices>(choices);
 
   const applyChoices = (partial: Partial<InitBuildChoices>) => {
     const next = { ...latestChoicesRef.current, ...partial };
     latestChoicesRef.current = next;
     setChoices(next);
-    dispatchPromptPrefill(composeInitBuildChoicesText(next), {
-      replaceKey: INIT_BUILD_CHOICES_PREFILL_KEY,
-      skipFocus: true,
-    });
+    setCurrentInitBuildChoices(next);
   };
 
   const pageCountLabel =
@@ -164,6 +217,24 @@ export function PreviewPanelInitControls() {
         value={choices.style}
         onChange={(style) => applyChoices({ style })}
       />
+
+      <ChoiceChipRow
+        label="Ton"
+        options={TONE_OPTIONS}
+        value={choices.tone}
+        onChange={(tone) => applyChoices({ tone })}
+      />
+
+      {onDesignThemeChange ? (
+        <ChoiceChipRow
+          label="Tema"
+          options={THEME_CHIP_OPTIONS}
+          value={designTheme ?? "off"}
+          onChange={(theme) => onDesignThemeChange(theme)}
+          disabled={themeLocked}
+          swatchFor={themeSwatchColor}
+        />
+      ) : null}
 
       <ChoiceChipRow
         label="Färgläge"

@@ -28,7 +28,18 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^brief-locked design values$/i, priority: 94, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },
   { match: /^file surface budget$/i, priority: 91, required: true },
-  { match: /^scaffold variant \(this generation\)$/i, priority: 91 },
+  // The variant block carries the locked design direction (tokens, signature
+  // patterns, antiPatterns). At priority 91 without `required` it was still
+  // DROPPED outright under a tight budget — `buildBudgetedSystemPrompt` only
+  // truncates required blocks — which silently returned the generation to a
+  // style-less default while telemetry still reported the picked variant.
+  { match: /^scaffold variant \(this generation\)$/i, priority: 91, required: true },
+  // Brief "Must Have" is explicit user intent and the ownership block is what
+  // keeps two dossiers from emitting the same surface. Both used to fall through
+  // to the default (priority 60, prunable), i.e. they were among the FIRST
+  // blocks dropped when the budget got tight.
+  { match: /^must have$/i, priority: 88, required: true },
+  { match: /^capability surface ownership/i, priority: 87, required: true },
   { match: /^design priority$/i, priority: 89, required: true },
   { match: /^scaffold$/i, priority: 90, required: true },
   { match: /^scaffold:\s/i, priority: 90, required: true },

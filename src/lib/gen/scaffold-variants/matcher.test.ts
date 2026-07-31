@@ -29,6 +29,22 @@ describe("pickScaffoldVariant", () => {
     expect(variant?.id).toBe("editorial-serif");
   });
 
+  it("applies the dark color-mode boost from structured style keywords (Byggval)", () => {
+    // Byggval skickar "dark mode" via styleKeywordsHint i stället för
+    // prompt-text — boosten måste läsa styleKeywords, inte bara prompten.
+    const neutralPrompt = "Bygg en sajt för min verksamhet";
+    const withDarkHint = pickScaffoldVariant({
+      prompt: neutralPrompt,
+      scaffoldId: "ecommerce",
+      styleKeywords: ["bold", "dark mode"],
+      generationMode: "init",
+      sessionSeed: "seed-color-1",
+    });
+    // streetwear-bold är enda dark-varianten under ecommerce; "bold" (3p)
+    // + dark-boost (2p) ska vinna deterministiskt över ljusa kandidater.
+    expect(withDarkHint?.id).toBe("streetwear-bold");
+  });
+
   it("does not escape the selected scaffold's variant pool", () => {
     const variant = pickScaffoldVariant({
       prompt: "Create a dark terminal-style developer product landing page",
@@ -123,5 +139,33 @@ describe("lockedVariantForFollowUp (P22)", () => {
       priorVariantId: "this-variant-does-not-exist",
     });
     expect(result).toBeNull();
+  });
+
+  it("releases the lock when the scaffold was unlocked for rematch, even on neutral intent", () => {
+    // "gör om hela sajten" unlocks the scaffold via the supplement patterns in
+    // follow-up-clarification.ts while the intent classifier still says
+    // `neutral`. Keeping the variant locked there gave the user a rematched
+    // scaffold rendered in the exact style they asked to replace.
+    if (!priorVariantId) throw new Error("No landing-page variants registered");
+    const result = lockedVariantForFollowUp({
+      chatId: "chat-x",
+      intent: "neutral",
+      scaffoldId: "landing-page",
+      priorVariantId,
+      scaffoldUnlocked: true,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("keeps the lock when the scaffold is NOT unlocked (default)", () => {
+    if (!priorVariantId) throw new Error("No landing-page variants registered");
+    const result = lockedVariantForFollowUp({
+      chatId: "chat-x",
+      intent: "neutral",
+      scaffoldId: "landing-page",
+      priorVariantId,
+      scaffoldUnlocked: false,
+    });
+    expect(result?.id).toBe(priorVariantId);
   });
 });

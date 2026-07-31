@@ -240,7 +240,16 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           ? getScaffoldById(parsedMeta.scaffoldId)
           : matchScaffold(message, metaBuildIntent as BuildIntent | null);
       const preMatchVariant = preMatchScaffold
-        ? pickScaffoldVariant({ prompt: message, scaffoldId: preMatchScaffold.id })
+        ? pickScaffoldVariant({
+            prompt: message,
+            scaffoldId: preMatchScaffold.id,
+            // Byggval (init controls): structured style keywords steer the
+            // keyword pre-match so brief hints and the pinned variant agree
+            // with the user's chosen style.
+            styleKeywords: parsedMeta.styleKeywordsHint.length
+              ? parsedMeta.styleKeywordsHint
+              : undefined,
+          })
         : null;
       const variantHints = buildVariantHintsForBrief(preMatchScaffold, preMatchVariant);
       const variantHintsText = variantHints
@@ -518,8 +527,22 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           buildIntent: engineIntent,
           scaffoldMode: parsedMeta.scaffoldMode,
           scaffoldId: parsedMeta.scaffoldId,
+          // Byggval (init controls): spegla huvudflödet så plan-läge får
+          // samma route-plan och variantmatchning som vanlig init.
+          pageCountHint: parsedMeta.pageCountHint,
+          styleKeywordsHint: parsedMeta.styleKeywordsHint.length
+            ? parsedMeta.styleKeywordsHint
+            : undefined,
           brief: effectiveBrief,
           themeColors: parsedMeta.themeColors,
+          // Samma paritet för custom instructions (bär även Byggvals
+          // komplexitet/färgläge/ton-direktiv) — annars planerar plan-läget
+          // utan direktiv som codegen sedan får.
+          customInstructions: trimmedSystemPrompt || undefined,
+          // Pinna samma pre-match-variant som huvudflödet (pre-matchen läser
+          // styleKeywordsHint) så plan-orkestreringen inte async-väljer en
+          // annan variant än brief-hints/codegen.
+          persistedVariantId: preMatchVariant?.id ?? null,
           promptStrategyMeta: strategyMeta,
           // Bug 04#3 (2026-04-22 audit): plan mode skickade tidigare inte
           // engineModelId/lifecycleStage. Det gav divergent BuildSpec mellan
@@ -732,6 +755,13 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,
+          // Byggval (init controls): structured hints — page count wins over
+          // prompt-text regex in buildRoutePlan; style keywords merge into
+          // scaffold-variant matching.
+          pageCountHint: parsedMeta.pageCountHint,
+          styleKeywordsHint: parsedMeta.styleKeywordsHint.length
+            ? parsedMeta.styleKeywordsHint
+            : undefined,
           brief: metaBrief,
           themeColors: metaThemeColors,
           imageGenerations: resolvedImageGenerations,

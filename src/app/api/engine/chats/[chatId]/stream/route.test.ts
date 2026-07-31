@@ -268,11 +268,13 @@ vi.mock("@/lib/gen/request-metadata", () => ({
   extractAppProjectIdFromMeta: () => "app_proj_1",
   extractBriefFromMeta: () => null,
   extractDesignThemePresetFromMeta: () => null,
+  extractPageCountHintFromMeta: () => null,
   extractPaletteStateFromMeta: () => null,
   extractScaffoldSettingsFromMeta: () => ({
     scaffoldMode: "auto",
     scaffoldId: null,
   }),
+  extractStyleKeywordsHintFromMeta: () => [],
   extractThemeColorsFromMeta: () => null,
   normalizeRequestAttachments: (attachments: unknown[] | undefined) => attachments ?? [],
   summarizeDesignReferences: () => [],

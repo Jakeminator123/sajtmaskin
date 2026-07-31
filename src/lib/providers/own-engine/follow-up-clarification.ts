@@ -116,6 +116,38 @@ function hasRedesignVerbNounCombo(message: string): boolean {
 }
 
 /**
+ * Fokuspunkts-blocket som klienten appendar när användaren pekat ut element
+ * i previewn (ChatInterface.tsx `buildFocusPointBlock`). Närvaron är en stark
+ * riktad-edit-signal — användaren pekar på ETT ställe.
+ */
+const FOLLOW_UP_FOCUS_POINT_MARKER = "Användarens markerade fokuspunkter i preview:";
+
+/**
+ * Interaktions-scopade prompts ("när jag hovrar …", "vid klick …") beskriver
+ * micro-interaktioner på befintliga element — aldrig en helsajtsredesign.
+ * `h[oå]o?vr` täcker hovra/hovrar och vanliga felstavningar ("hoovrar").
+ */
+// Unicode-aware look-arounds (se kommentar vid FOLLOW_UP_DESIGN_PIN_PATTERNS).
+const FOLLOW_UP_INTERACTION_SCOPE_PATTERNS: RegExp[] = [
+  /(?<![\p{L}\p{N}_])(?:h[oå]o?vr\w*|hover(?:ing|s)?|mouse\s*over|muspekar\w*)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:klick\w*|click\w*|scroll\w*)(?![\p{L}\p{N}_])/iu,
+];
+
+/**
+ * QW-hover (prod chat 0d52e5c9, 2026-07-31): "…vill jag att färgerna på text
+ * och ikoner ska ändra färger" vid hover + fokuspunkter klassades som
+ * `clear-redesign` via verb+noun-kombon ("ändra" + "färger") och skrev om
+ * hela templaten aggressivt. Kombon är en SVAG signal och får inte ensam
+ * eskalera en interaktions-scopad eller element-utpekad prompt till redesign.
+ * Explicita redesign-fraser ({@link FOLLOW_UP_REDESIGN_PATTERNS}) påverkas
+ * inte av den här dämpningen.
+ */
+function hasTargetedInteractionScope(message: string): boolean {
+  if (message.includes(FOLLOW_UP_FOCUS_POINT_MARKER)) return true;
+  return FOLLOW_UP_INTERACTION_SCOPE_PATTERNS.some((re) => re.test(message));
+}
+
+/**
  * High-precision phrases where we should re-run scaffold resolution even if
  * {@link classifyFollowUpIntent} returns neutral (e.g. user vocabulary differs).
  */
@@ -237,7 +269,11 @@ export function classifyFollowUpIntent(message: string): FollowUpIntentMode {
   if (!suppressRedesign && FOLLOW_UP_REDESIGN_PATTERNS.some((pattern) => pattern.test(trimmed))) {
     return "clear-redesign";
   }
-  if (!suppressRedesign && hasRedesignVerbNounCombo(trimmed)) {
+  if (
+    !suppressRedesign &&
+    !hasTargetedInteractionScope(trimmed) &&
+    hasRedesignVerbNounCombo(trimmed)
+  ) {
     return "clear-redesign";
   }
   if (!suppressRedesign && looksLikeDetailedNewSiteBrief(trimmed)) {

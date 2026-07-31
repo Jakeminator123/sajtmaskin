@@ -22,21 +22,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { DESIGN_THEME_OPTIONS, type DesignTheme } from "@/lib/builder/theme-presets";
-import {
   ChevronDown,
   FileText,
   ImageIcon,
   Layers,
   Loader2,
-  Palette,
   Plus,
   Search,
   SlidersHorizontal,
@@ -52,11 +42,6 @@ import {
   type InspectCapturedElement,
   type InspectCaptureEventDetail,
 } from "@/lib/builder/inspect-events";
-import {
-  PROMPT_PREFILL_EVENT,
-  upsertKeyedPromptBlock,
-  type PromptPrefillEventDetail,
-} from "@/lib/builder/prompt-prefill-event";
 import { toast } from "sonner";
 
 type MessageOptions = {
@@ -184,16 +169,6 @@ interface ChatInterfaceProps {
   isPreparingPrompt?: boolean;
   mediaEnabled?: boolean;
   continuePlanMode?: boolean;
-  /** Färgtema (design tokens) som skickas till genereringen. Renderas i
-   * "Avancerat"-overlayn ovanför chatinputen när båda props finns. */
-  designTheme?: DesignTheme;
-  onDesignThemeChange?: (theme: DesignTheme) => void;
-  /**
-   * True medan en generering streamar. Speglar headerns tidigare
-   * `isConfigLocked` (= isAnyStreaming) så tema-väljaren bara låses under
-   * streaming — inte under chat-skapande/prompt-prep som `isBusy` gör.
-   */
-  isConfigLocked?: boolean;
   /**
    * P19 Steg 3 — basversions-indikator. When the active (selected) version
    * differs from the preferred usable version (`selectPreferredEngineVersion`),
@@ -278,16 +253,10 @@ export function ChatInterface({
   isPreparingPrompt = false,
   mediaEnabled = false,
   continuePlanMode = false,
-  designTheme,
-  onDesignThemeChange,
-  isConfigLocked = false,
   followUpBaseInfo,
   previewModes,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
-  // Senast insatta block per prefill-nyckel (Byggval-reglagen) så nästa
-  // dispatch kan byta ut sitt eget stycke i stället för att duplicera det.
-  const keyedPrefillBlocksRef = useRef<Map<string, string>>(new Map());
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -313,8 +282,6 @@ export function ChatInterface({
     [isFigmaInputOpen, onFigmaInputOpenChange],
   );
 
-  const currentThemeLabel =
-    DESIGN_THEME_OPTIONS.find((option) => option.value === designTheme)?.label ?? "Av";
   const hasUploading = files.some((file) => file.status === "uploading");
   const hasSuccessFiles = files.some((file) => file.status === "success");
   const inputDisabled = isSending || isBusy;
@@ -332,21 +299,7 @@ export function ChatInterface({
     if (chatId) return;
     if (!initialPrompt) return;
     if (prefilledPromptRef.current === initialPrompt) return;
-    const trimmed = input.trim();
-    if (trimmed) {
-      // Byggval-block är inte användartext: hann reglagen dispatcha före den
-      // här effekten (landing → builder) får landing-prompten inte tappas.
-      // Består inputen enbart av keyed prefill-block prependas prompten;
-      // annars har användaren skrivit själv och vi rör ingenting.
-      let residual = input;
-      for (const block of keyedPrefillBlocksRef.current.values()) {
-        if (block) residual = residual.replace(block, "");
-      }
-      if (residual.trim()) return;
-      setInput(`${initialPrompt.trimEnd()}\n\n${trimmed}`);
-      prefilledPromptRef.current = initialPrompt;
-      return;
-    }
+    if (input.trim()) return;
     setInput(initialPrompt);
     prefilledPromptRef.current = initialPrompt;
   }, [chatId, initialPrompt, input]);
@@ -355,9 +308,6 @@ export function ChatInterface({
     const prevChatId = lastChatIdRef.current;
     if (!prevChatId && chatId) {
       setInput("");
-      // Inputen töms — glöm keyed prefill-block (Byggval) så ett senare
-      // välkomstläge inte försöker byta ut ett block som inte längre finns.
-      keyedPrefillBlocksRef.current.clear();
       setFiles([]);
       setFigmaUrl("");
       setFigmaInputOpen(false);
@@ -556,33 +506,9 @@ export function ChatInterface({
     return () => window.removeEventListener(INSPECT_CAPTURE_EVENT, handler as EventListener);
   }, [uploadInspectPreview]);
 
-  // Prefill från preview-panelens empty state fyller chattens input
-  // (skickar INTE automatiskt — användaren får redigera och trycka Enter).
-  // Utan `replaceKey` ersätts hela inputen (exempelprompter). Med
-  // `replaceKey` upsertas texten som ett eget stycke (Byggval-reglagen):
-  // föregående block för samma nyckel byts ut, användarens egen text rörs
-  // inte, och tom text tar bort blocket.
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent<PromptPrefillEventDetail>).detail;
-      if (typeof detail?.text !== "string") return;
-      if (detail.replaceKey) {
-        const key = detail.replaceKey;
-        const nextBlock = detail.text.trim();
-        setInput((prev) => {
-          const previousBlock = keyedPrefillBlocksRef.current.get(key);
-          keyedPrefillBlocksRef.current.set(key, nextBlock);
-          return upsertKeyedPromptBlock(prev, previousBlock, nextBlock);
-        });
-        return;
-      }
-      if (!detail.text.trim()) return;
-      setInput(detail.text);
-      onPromptAssistModeReset?.();
-    };
-    window.addEventListener(PROMPT_PREFILL_EVENT, handler);
-    return () => window.removeEventListener(PROMPT_PREFILL_EVENT, handler);
-  }, [onPromptAssistModeReset]);
+  // (Prompt-prefill-lyssnaren togs bort 2026-07-31: Byggval-reglagen går
+  // strukturerat via INIT_BUILD_CHOICES_EVENT → useCreateChat och skriver
+  // aldrig i chattens input; exempel-chipsen försvann med #673.)
 
   const handlePlanRequest = async () => {
     if (inputDisabled) return;
@@ -821,39 +747,8 @@ export function ChatInterface({
                     <FileText className="h-4 w-4" />
                     Plan
                   </Button>
-                  {onDesignThemeChange && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="justify-start"
-                          disabled={isConfigLocked}
-                          title="Färgtema som skickas till genereringen (design tokens)"
-                        >
-                          <Palette className="h-4 w-4" />
-                          <span className="max-w-[140px] truncate">
-                            Tema: {currentThemeLabel}
-                          </span>
-                          <ChevronDown className="ml-auto h-3 w-3 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-56">
-                        <DropdownMenuLabel>Färgtema</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup
-                          value={designTheme ?? "off"}
-                          onValueChange={(v) => onDesignThemeChange(v as DesignTheme)}
-                        >
-                          {DESIGN_THEME_OPTIONS.map((option) => (
-                            <DropdownMenuRadioItem key={option.value} value={option.value}>
-                              {option.label}
-                            </DropdownMenuRadioItem>
-                          ))}
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                  {/* Tema-väljaren flyttade till Byggval-reglagen i preview-
+                      panelens välkomstläge 2026-07-31 (ägarbeslut). */}
                 </div>
               </PopoverContent>
             </Popover>
