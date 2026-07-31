@@ -1,0 +1,96 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  DEFAULT_INIT_BUILD_CHOICES,
+  composeInitBuildChoicesText,
+  type InitBuildChoices,
+} from "./init-build-choices";
+import { upsertKeyedPromptBlock } from "./prompt-prefill-event";
+import { detectExplicitPageCount } from "@/lib/gen/route-plan";
+
+function withChoices(partial: Partial<InitBuildChoices>): InitBuildChoices {
+  return { ...DEFAULT_INIT_BUILD_CHOICES, ...partial };
+}
+
+describe("composeInitBuildChoicesText", () => {
+  it("returns empty string when everything is auto", () => {
+    expect(composeInitBuildChoicesText(DEFAULT_INIT_BUILD_CHOICES)).toBe("");
+  });
+
+  it("produces a page-count phrase that detectExplicitPageCount parses", () => {
+    for (const pageCount of [1, 3, 6]) {
+      const text = composeInitBuildChoicesText(withChoices({ pageCount }));
+      expect(detectExplicitPageCount(text)).toBe(pageCount);
+    }
+  });
+
+  it("uses singular 'sida' for one page", () => {
+    expect(composeInitBuildChoicesText(withChoices({ pageCount: 1 }))).toContain("1 sida.");
+  });
+
+  it("includes scaffold keywords for site-type choices", () => {
+    // Tokens verified against src/lib/gen/scaffolds/keyword-banks.ts.
+    expect(composeInitBuildChoicesText(withChoices({ siteType: "portfolio" }))).toMatch(
+      /\bportfolio\b/i,
+    );
+    expect(composeInitBuildChoicesText(withChoices({ siteType: "shop" }))).toMatch(
+      /\bwebbshop\b/i,
+    );
+    expect(composeInitBuildChoicesText(withChoices({ siteType: "dashboard" }))).toMatch(
+      /\bdashboard\b/i,
+    );
+  });
+
+  it("includes variant keyword tokens with word boundaries for styles", () => {
+    // pickScaffoldVariant matches keywords with word boundaries, so the
+    // exact tokens must appear as standalone words.
+    const cases: Array<[InitBuildChoices["style"], RegExp]> = [
+      ["warm", /(?:^|[^\p{L}\p{N}])lokal(?:[^\p{L}\p{N}]|$)/iu],
+      ["corporate", /(?:^|[^\p{L}\p{N}])corporate(?:[^\p{L}\p{N}]|$)/iu],
+      ["bold", /(?:^|[^\p{L}\p{N}])bold(?:[^\p{L}\p{N}]|$)/iu],
+      ["editorial", /(?:^|[^\p{L}\p{N}])editorial(?:[^\p{L}\p{N}]|$)/iu],
+      ["minimal", /(?:^|[^\p{L}\p{N}])minimal(?:[^\p{L}\p{N}]|$)/iu],
+    ];
+    for (const [style, pattern] of cases) {
+      expect(composeInitBuildChoicesText(withChoices({ style }))).toMatch(pattern);
+    }
+  });
+
+  it("includes the dark/light tokens the variant matcher boosts on", () => {
+    expect(composeInitBuildChoicesText(withChoices({ colorMode: "dark" }))).toMatch(/mörkt/i);
+    expect(composeInitBuildChoicesText(withChoices({ colorMode: "light" }))).toMatch(/ljust/i);
+  });
+});
+
+describe("upsertKeyedPromptBlock", () => {
+  it("appends to existing user text as a new paragraph", () => {
+    expect(upsertKeyedPromptBlock("Min frisörsalong.", undefined, "Sajten ska ha 3 sidor.")).toBe(
+      "Min frisörsalong.\n\nSajten ska ha 3 sidor.",
+    );
+  });
+
+  it("replaces the previous block instead of stacking duplicates", () => {
+    const first = upsertKeyedPromptBlock("Min salong.", undefined, "Sajten ska ha 2 sidor.");
+    const second = upsertKeyedPromptBlock(first, "Sajten ska ha 2 sidor.", "Sajten ska ha 4 sidor.");
+    expect(second).toBe("Min salong.\n\nSajten ska ha 4 sidor.");
+  });
+
+  it("removes the block when next text is empty", () => {
+    const withBlock = upsertKeyedPromptBlock("Min salong.", undefined, "Stil: minimal och ren design.");
+    expect(upsertKeyedPromptBlock(withBlock, "Stil: minimal och ren design.", "")).toBe(
+      "Min salong.",
+    );
+  });
+
+  it("leaves a hand-edited previous block alone and appends", () => {
+    const edited = "Min salong.\n\nSajten ska ha 2 sidor och en karta.";
+    expect(upsertKeyedPromptBlock(edited, "Sajten ska ha 2 sidor.", "Sajten ska ha 3 sidor.")).toBe(
+      `${edited}\n\nSajten ska ha 3 sidor.`,
+    );
+  });
+
+  it("works when the input is empty", () => {
+    expect(upsertKeyedPromptBlock("", undefined, "Sajten är en blogg.")).toBe("Sajten är en blogg.");
+    expect(upsertKeyedPromptBlock("", undefined, "")).toBe("");
+  });
+});

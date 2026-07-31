@@ -54,6 +54,7 @@ import {
 } from "@/lib/builder/inspect-events";
 import {
   PROMPT_PREFILL_EVENT,
+  upsertKeyedPromptBlock,
   type PromptPrefillEventDetail,
 } from "@/lib/builder/prompt-prefill-event";
 import { toast } from "sonner";
@@ -284,6 +285,9 @@ export function ChatInterface({
   previewModes,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
+  // Senast insatta block per prefill-nyckel (Byggval-reglagen) så nästa
+  // dispatch kan byta ut sitt eget stycke i stället för att duplicera det.
+  const keyedPrefillBlocksRef = useRef<Map<string, string>>(new Map());
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -535,12 +539,27 @@ export function ChatInterface({
     return () => window.removeEventListener(INSPECT_CAPTURE_EVENT, handler as EventListener);
   }, [uploadInspectPreview]);
 
-  // Exempelprompter från preview-panelens empty state fyller chattens input
+  // Prefill från preview-panelens empty state fyller chattens input
   // (skickar INTE automatiskt — användaren får redigera och trycka Enter).
+  // Utan `replaceKey` ersätts hela inputen (exempelprompter). Med
+  // `replaceKey` upsertas texten som ett eget stycke (Byggval-reglagen):
+  // föregående block för samma nyckel byts ut, användarens egen text rörs
+  // inte, och tom text tar bort blocket.
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<PromptPrefillEventDetail>).detail;
-      if (typeof detail?.text !== "string" || !detail.text.trim()) return;
+      if (typeof detail?.text !== "string") return;
+      if (detail.replaceKey) {
+        const key = detail.replaceKey;
+        const nextBlock = detail.text.trim();
+        setInput((prev) => {
+          const previousBlock = keyedPrefillBlocksRef.current.get(key);
+          keyedPrefillBlocksRef.current.set(key, nextBlock);
+          return upsertKeyedPromptBlock(prev, previousBlock, nextBlock);
+        });
+        return;
+      }
+      if (!detail.text.trim()) return;
       setInput(detail.text);
       onPromptAssistModeReset?.();
     };
