@@ -129,6 +129,10 @@ export const serverSchema = z.object({
 
   // AI – Direct OpenAI (Responses API)
   OPENAI_API_KEY: z.string().optional(),
+  /** Standard Webhooks-signeringssecret (whsec_…) för inkommande OpenAI
+   *  plattforms-webhooks på POST /api/webhooks/openai (kvitton för
+   *  background-/batch-jobb — inte pipelines synkrona anrop). */
+  OPENAI_WEBHOOK: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
   /** Fail fast when required generated template/scaffold artifacts are missing or empty outside test. */
   SAJTMASKIN_STRICT_GENERATED_ARTIFACTS: z.string().optional(),

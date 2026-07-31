@@ -49,6 +49,7 @@ _KIND_LABELS: dict[str, tuple[str, str]] = {
     "oc": ("OpenClaw-fynd (oc_debug_findings)", "Bug-hunt (Mode B): severity, build_result, repair_outcome."),
     "ragevents": ("RAG-events (error_log_events)", "Durabel fault/fix-telemetri: fault, fix_text, result."),
     "deploys": ("Deploys (deployments)", "Vercel-deploy per sajt: deployment/project-id, url, status."),
+    "openai": ("OpenAI-webhooks (openai_webhook_events)", "Verifierade plattforms-webhooks: event-typ, status, payload."),
 }
 _DEFAULT_KINDS = ["prompts", "generations", "versions", "telemetry", "errors"]
 
