@@ -134,7 +134,15 @@ beteendet bit-för-bit dagens, inklusive att inga extra DB-läsningar sker).
 
 Docs: `docs/schemas/quality-gate.md` (promote-guard + `preview_success`),
 `docs/schemas/orchestration-signal-contract.md` (signallager + observation 5),
-`docs/ENV.md` (flaggan).
+`docs/architecture/glossary.md` (termen), `docs/ENV.md` (flaggan),
+`docs/testing.md` (DB-lanens andra fall).
+
+Grind för läsarsidan: `scripts/db/content-revision-readers.postgres.test.ts` kör
+mot riktig Postgres i `quality`-jobbets DB-lane. Den bevisar det en mock inte kan:
+att revisionsgrinden är giltig SQL som pekar på rätt rad, och att Postgres' `md5()`
+och Nodes `createHash("md5")` ger samma värde — antagandet hela jämförelsen står
+på. Ett av dess test dokumenterar dessutom den **buggiga** utgången med flaggan av,
+så det syns exakt vad flaggan ändrar.
 
 ## Kvar att göra
 
@@ -185,8 +193,9 @@ egen leverans i `src/lib/gen/preview/session-store.ts` + `preview-session.ts`.
 `generation-telemetry.record-preview`, `content-revision`, `stale-verification`,
 `version-status-display`, `version-status/route`, `preview-heartbeat/route`,
 `chat-repository-pg.accept-repair`, `repair-files-payload`) ·
-`npm run test:postgres` för `files-revision-contract.postgres.test.ts` (kräver
-dev-DB).
+`npm run test:postgres` för `files-revision-contract.postgres.test.ts` +
+`content-revision-readers.postgres.test.ts` (kräver dev-DB; CI kör lanen mot en
+efemär Postgres).
 
 ## Beslutspunkter — BESLUTADE 2026-07-28
 
