@@ -136,6 +136,50 @@ describe("StructuredToolParts", () => {
     ]);
   });
 
+  it("marks a failed tool so the log never stamps an error as done", () => {
+    expect(
+      buildAgentLogItems([
+        {
+          type: "tool",
+          tool: {
+            type: "tool:engine-preview",
+            toolName: "Preview",
+            state: "output-error",
+          },
+        } as never,
+      ]),
+    ).toEqual([{ label: "Preview • Fel", failed: true }]);
+
+    expect(
+      buildAgentLogItems([
+        {
+          type: "tool",
+          tool: {
+            type: "tool:engine-preview",
+            toolName: "Preview",
+            state: "output-error",
+            output: { steps: ["Startar preview.", "Bygget misslyckades."] },
+          },
+        } as never,
+      ]),
+    ).toEqual([
+      { label: "Startar preview." },
+      { label: "Bygget misslyckades.", failed: true },
+    ]);
+  });
+
+  it("renders a warning icon instead of a checkmark for a failed step", () => {
+    render(
+      <AgentLogCard
+        items={[{ label: "Bygget misslyckades.", failed: true }]}
+        activeLabel="Försöker igen."
+        isActive
+      />,
+    );
+
+    expect(screen.getByLabelText("Steget misslyckades")).toBeTruthy();
+  });
+
   it("ignores stale pipeline progress after the message stream ends but keeps client post-checks", () => {
     const staleGeneration = {
       type: "tool",

@@ -13,7 +13,7 @@ import { hasToolData, type AIElementsMessage, type MessagePart } from "@/lib/bui
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { isGenericIntegrationName, resolveIntegrationDisplayName } from "@/lib/integrations/suggestion-display";
 import { cn } from "@/lib/utils";
-import { Check, ChevronDown, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Loader2 } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -81,6 +81,8 @@ export type EnvRequirementHint = {
 
 type AgentLogItem = {
   label: string;
+  /** Satt bara när steget faktiskt felade, så en bock aldrig hamnar på ett fel. */
+  failed?: boolean;
 };
 
 type ToolQuestionPrompt = {
@@ -297,6 +299,11 @@ function AgentLogCardContent({
                     <Loader2
                       className="text-primary mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin"
                       aria-hidden
+                    />
+                  ) : item.failed ? (
+                    <AlertTriangle
+                      className="text-destructive mt-0.5 h-3.5 w-3.5 shrink-0"
+                      aria-label="Steget misslyckades"
                     />
                   ) : (
                     <Check
@@ -665,12 +672,18 @@ export function buildAgentLogItems(toolParts: ToolPart[]) {
     const { toolTitle } = resolveToolLabels(tool);
     const steps = extractToolSteps(tool);
 
+    const toolFailed = toolState === "output-error";
+
     if (steps.length > 0) {
-      steps.forEach((step) => {
-        items.push({ label: step });
+      steps.forEach((step, stepIndex) => {
+        const isLastStep = stepIndex === steps.length - 1;
+        items.push(
+          toolFailed && isLastStep ? { label: step, failed: true } : { label: step },
+        );
       });
     } else {
-      items.push({ label: `${toolTitle} • ${getToolStateLabel(toolState)}` });
+      const label = `${toolTitle} • ${getToolStateLabel(toolState)}`;
+      items.push(toolFailed ? { label, failed: true } : { label });
     }
   });
 
