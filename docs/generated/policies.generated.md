@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:56997d8f88dd55fa -->
+<!-- source-fingerprint: config/env-policy.json sha256:148731b2be39d467 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:40181cc99930d580 -->
 
@@ -78,9 +78,9 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `NODE_ENV`                                           | `vercel_managed`       | —                                      | No            | Yes          |
 | `OC_DEBUG`                                           | `optional_runtime`     | `development`, `preview`               | No            | No           |
-| `OC_DEBUG_ALLOW_PROD`                                | `optional_runtime`     | —                                      | No            | No           |
 | `OC_DEBUG_RUN_TOKEN`                                 | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_DEBUGG`                                          | `optional_runtime`     | `development`, `preview`               | No            | No           |
+| `OC_EDIT`                                            | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_REPO_READ_TOKEN`                                 | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_REPO_SLUG`                                       | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OPENAI_ADMIN_KEY`                                   | `local_only`           | —                                      | No            | No           |

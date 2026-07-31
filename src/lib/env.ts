@@ -109,15 +109,20 @@ export const serverSchema = z.object({
   // OpenClaw (Sajtagenten)
   OPENCLAW_GATEWAY_URL: z.string().optional(),
   OPENCLAW_GATEWAY_TOKEN: z.string().optional(),
-  /** OpenClaw debug-mode gate. Affirmative (1/true/yes/y/on) unlocks privileged
-   * debug context + armed bug-hunt autonomy. Default off; blocked in production
-   * unless OC_DEBUG_ALLOW_PROD is also affirmative. Read via OPENCLAW.debugEnabled. */
+  /** OpenClaw debug-mode gate — the SINGLE flag for the read/diagnostics side
+   * (full generated code, persisted findings, read-only Sajtmaskin repo-context).
+   * Affirmative (1/true/yes/y/on) enables it in every environment, production
+   * included (the former OC_DEBUG_ALLOW_PROD double-gate was removed 2026-07-31).
+   * Does NOT authorize editing — that is OC_EDIT. Read via OPENCLAW.debugEnabled. */
   OC_DEBUG: z.string().optional(),
   /** Alias for OC_DEBUG (the user types "OC_DEBUGG=y"). Either key unlocks debug-mode. */
   OC_DEBUGG: z.string().optional(),
-  /** Escape hatch to allow OC_DEBUG in production. Default unset = debug-mode never
-   * activates in production even if OC_DEBUG is affirmative. */
-  OC_DEBUG_ALLOW_PROD: z.string().optional(),
+  /** OpenClaw edit gate — the flag for the acting/editing side: armed autonomy
+   * (fill builder prompt + auto-send follow-ups) and the Mode B bug-hunt run
+   * route. Edits always go through the ordinary builder pipeline (own-engine →
+   * verify → preview), never directly against preview-host/Fly. Default off.
+   * Read via OPENCLAW.editEnabled. */
+  OC_EDIT: z.string().optional(),
   /** Read-only GitHub token (contents:read) used by the debug repo-context reader so
    * OpenClaw can understand where the Sajtmaskin platform itself is buggy. No write/PR scope. */
   OC_REPO_READ_TOKEN: z.string().optional(),
