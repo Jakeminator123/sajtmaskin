@@ -233,6 +233,95 @@ describe("OpenClawQuickEditCard — execution", () => {
     });
   });
 
+  it("blocks replace_content on a file missing from the version (no silent file create)", async () => {
+    useOpenClawStore.setState({ editEnabled: true });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ files: [{ name: "app/page.tsx" }] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      render(
+        <OpenClawMessage
+          msg={{
+            id: "msg-rc",
+            role: "assistant",
+            timestamp: Date.now(),
+            content: [
+              "Förslag.",
+              "<openclaw-action>",
+              JSON.stringify({
+                type: "apply_quick_edit",
+                label: "Ny fil",
+                ops: [{ kind: "replace_content", path: "components/new-file.tsx", content: "x" }],
+              }),
+              "</openclaw-action>",
+            ].join("\n"),
+          }}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Godkänn och genomför" }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Filen finns inte i versionen: components\/new-file\.tsx/)).toBeTruthy();
+      });
+      expect(quickEditMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("lets replace_content through when the file exists and fails closed when the list cannot be fetched", async () => {
+    useOpenClawStore.setState({ editEnabled: true });
+    const existingFileAction = JSON.stringify({
+      type: "apply_quick_edit",
+      label: "Uppdatera sidan",
+      ops: [{ kind: "replace_content", path: "app/page.tsx", content: "export default 1;" }],
+    });
+    const message = (id: string): Msg => ({
+      id,
+      role: "assistant",
+      timestamp: Date.now(),
+      content: ["Förslag.", "<openclaw-action>", existingFileAction, "</openclaw-action>"].join("\n"),
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ files: [{ name: "app/page.tsx" }] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    quickEditMock.mockResolvedValue({
+      ok: true,
+      versionId: "v-2",
+      changedFiles: ["app/page.tsx"],
+      previewUrl: null,
+      previewSessionId: null,
+      previewMode: null,
+    });
+
+    try {
+      const { unmount } = render(<OpenClawMessage msg={message("msg-ok")} />);
+      fireEvent.click(screen.getByRole("button", { name: "Godkänn och genomför" }));
+      await waitFor(() => {
+        expect(quickEditMock).toHaveBeenCalledTimes(1);
+      });
+      unmount();
+
+      // Fail-closed: fillistan går inte att hämta → ingen ändring genomförs.
+      quickEditMock.mockClear();
+      fetchMock.mockRejectedValue(new Error("network"));
+      render(<OpenClawMessage msg={message("msg-fail")} />);
+      fireEvent.click(screen.getByRole("button", { name: "Godkänn och genomför" }));
+      await waitFor(() => {
+        expect(screen.getByText(/Kunde inte verifiera versionens filer/)).toBeTruthy();
+      });
+      expect(quickEditMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("declines without calling quickEditChatFiles", () => {
     useOpenClawStore.setState({ editEnabled: true });
     render(<OpenClawMessage msg={quickEditMessage()} />);

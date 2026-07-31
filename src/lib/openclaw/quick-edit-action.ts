@@ -17,6 +17,7 @@
 
 import {
   isBlockedQuickEditPath,
+  isDeletableQuickEditPath,
   isStructuralQuickEditPath,
 } from "@/lib/gen/quick-edit/guards";
 
@@ -155,6 +156,12 @@ function parseQuickEditOp(value: unknown, index: number): OpenClawQuickEditOp | 
     };
   }
 
+  // delete_file: använd serverns fulla raderingspredikat (säker + ej blockad +
+  // ej strukturell + ej nödvändig projektfil som app/page.tsx), så ett förslag
+  // som servern ändå skulle vägra aldrig når godkännandekortet (Bugbot).
+  if (!isDeletableQuickEditPath(rawPath)) {
+    return `${position} vill ta bort en skyddad eller nödvändig fil ("${rawPath}") — det går inte via snabbändring.`;
+  }
   return { kind: "delete_file", path: rawPath };
 }
 

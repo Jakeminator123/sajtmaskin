@@ -161,6 +161,31 @@ describe("parseOpenClawMessage — apply_quick_edit action", () => {
     expect(validation.ok).toBe(true);
   });
 
+  // delete_file använder serverns fulla raderingspredikat: nödvändiga
+  // projektfiler (app/page.tsx m.fl.) ska stoppas redan i förfiltret i
+  // stället för att faila efter godkännande (Bugbot).
+  it.each(["app/page.tsx", "app/layout.tsx", "src/app/globals.css", "next-env.d.ts"])(
+    "rejects delete_file on essential project file %s",
+    (path) => {
+      const validation = validateOpenClawApplyQuickEditAction({
+        type: "apply_quick_edit",
+        ops: [{ kind: "delete_file", path }],
+      });
+      expect(validation.ok).toBe(false);
+      if (!validation.ok) {
+        expect(validation.error).toContain("skyddad eller nödvändig fil");
+      }
+    },
+  );
+
+  it("still allows delete_file on an ordinary component", () => {
+    const validation = validateOpenClawApplyQuickEditAction({
+      type: "apply_quick_edit",
+      ops: [{ kind: "delete_file", path: "components/unused.tsx" }],
+    });
+    expect(validation.ok).toBe(true);
+  });
+
   it("rejects oversized total content across ops", () => {
     const half = "a".repeat(Math.ceil(OPENCLAW_QUICK_EDIT_MAX_TOTAL_CHARS / 2) + 1);
     const raw = {

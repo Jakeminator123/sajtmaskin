@@ -579,6 +579,47 @@ function OpenClawQuickEditCard({
     setActionState("working");
     setActionError(null);
 
+    // Kontraktsvakt (Bugbot): replace_content på en okänd path skulle SKAPA en
+    // ny fil server-side, men OC-kontraktet lovar "endast befintliga filer".
+    // Verifiera därför mot versionens fillista innan något skrivs. Fail-closed:
+    // kan listan inte hämtas genomförs ingen ändring.
+    const replaceContentPaths = action.ops
+      .filter((op) => op.kind === "replace_content")
+      .map((op) => op.path);
+    if (replaceContentPaths.length > 0) {
+      let existingPaths: Set<string> | null = null;
+      try {
+        const res = await fetch(
+          `${engineChatBaseUrl(current.chatId)}/files?versionId=${encodeURIComponent(current.versionId)}`,
+        );
+        const data = (await res.json().catch(() => null)) as {
+          files?: Array<{ name?: unknown }>;
+        } | null;
+        if (res.ok && Array.isArray(data?.files)) {
+          existingPaths = new Set(
+            data.files
+              .map((f) => (typeof f.name === "string" ? f.name : ""))
+              .filter(Boolean),
+          );
+        }
+      } catch {
+        // fail-closed nedan
+      }
+      if (!existingPaths) {
+        setActionState("failed");
+        setActionError("Kunde inte verifiera versionens filer — försök igen om en stund.");
+        return;
+      }
+      const missing = replaceContentPaths.filter((path) => !existingPaths.has(path));
+      if (missing.length > 0) {
+        setActionState("failed");
+        setActionError(
+          `Filen finns inte i versionen: ${missing.join(", ")}. Nya filer kan inte skapas via snabbändring — använd en vanlig follow-up-prompt i stället.`,
+        );
+        return;
+      }
+    }
+
     // Kör ops:en genom Fast Edit Lane med den aktiva versionen som bas.
     // `engineLatestKnownVersionId` = samma version så serverns stale-base-
     // guard kan avvisa när en nyare version redan finns (samma trade-off som
