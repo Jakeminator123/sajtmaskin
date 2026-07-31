@@ -528,11 +528,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           scaffoldMode: parsedMeta.scaffoldMode,
           scaffoldId: parsedMeta.scaffoldId,
           // Byggval (init controls): spegla huvudflödet så plan-läge får
-          // samma route-plan och variantmatchning som vanlig init.
+          // samma route-plan, variantmatchning och BuildSpec som vanlig init.
           pageCountHint: parsedMeta.pageCountHint,
           styleKeywordsHint: parsedMeta.styleKeywordsHint.length
             ? parsedMeta.styleKeywordsHint
             : undefined,
+          complexityHint: parsedMeta.complexityHint,
           brief: effectiveBrief,
           themeColors: parsedMeta.themeColors,
           // Samma paritet för custom instructions (bär även Byggvals
@@ -757,11 +758,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           scaffoldId: metaScaffoldId,
           // Byggval (init controls): structured hints — page count wins over
           // prompt-text regex in buildRoutePlan; style keywords merge into
-          // scaffold-variant matching.
+          // scaffold-variant matching; complexity biases BuildSpec.
           pageCountHint: parsedMeta.pageCountHint,
           styleKeywordsHint: parsedMeta.styleKeywordsHint.length
             ? parsedMeta.styleKeywordsHint
             : undefined,
+          complexityHint: parsedMeta.complexityHint,
           brief: metaBrief,
           themeColors: metaThemeColors,
           imageGenerations: resolvedImageGenerations,

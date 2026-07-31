@@ -1,6 +1,7 @@
 import {
   extractAppProjectIdFromMeta,
   extractBriefFromMeta,
+  extractComplexityHintFromMeta,
   extractDesignThemePresetFromMeta,
   extractPageCountHintFromMeta,
   extractPaletteStateFromMeta,
@@ -41,6 +42,8 @@ export interface ParsedChatRequestMeta {
   pageCountHint: number | null;
   /** Byggval (init controls): structured style keywords for variant matching. */
   styleKeywordsHint: string[];
+  /** Byggval (init controls): structured complexity choice for BuildSpec. */
+  complexityHint: "simple" | "medium" | "complex" | null;
   themeColors: ThemeColors | null;
   brief: Record<string, unknown> | null;
   designThemePreset: string | null;
@@ -90,6 +93,7 @@ export function parseChatRequestMeta(meta: unknown): ParsedChatRequestMeta {
     scaffoldId,
     pageCountHint: extractPageCountHintFromMeta(meta),
     styleKeywordsHint: extractStyleKeywordsHintFromMeta(meta),
+    complexityHint: extractComplexityHintFromMeta(meta),
     themeColors: extractThemeColorsFromMeta(meta),
     brief: extractBriefFromMeta(meta),
     designThemePreset: extractDesignThemePresetFromMeta(meta),

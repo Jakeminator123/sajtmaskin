@@ -22,7 +22,11 @@ import type {
   PreGenerationContractContext,
 } from "../contract/pre-generation-contracts";
 import type { OrchestrationContract } from "../orchestration-contract";
-import type { BuildSpec, BuildSpecQualityTarget } from "../build-spec";
+import type {
+  BuildSpec,
+  BuildSpecComplexityHint,
+  BuildSpecQualityTarget,
+} from "../build-spec";
 import type { ShadcnUiRecipe } from "../data/shadcn-ui-recipes";
 import type { DossierSelectionResult } from "../dossiers";
 import type { FollowUpContract } from "../orchestration-snapshot";
@@ -88,6 +92,12 @@ export interface OrchestrationInput {
    * brief-derived keywords in scaffold-variant matching. Init-only.
    */
   styleKeywordsHint?: string[];
+  /**
+   * Byggval (init controls): structured complexity choice, forwarded to
+   * `deriveBuildSpec` (`complex` → premium-golv + heavy context-bias,
+   * `simple` → lättare context-bias, `medium` → no-op). Init-only.
+   */
+  complexityHint?: BuildSpecComplexityHint | null;
   brief?: Record<string, unknown> | null;
   themeColors?: ThemeColors | null;
   imageGenerations?: boolean;

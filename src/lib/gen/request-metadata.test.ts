@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildUserPromptContent,
+  extractComplexityHintFromMeta,
   extractPageCountHintFromMeta,
   extractStyleKeywordsHintFromMeta,
   isVideoRequestAttachment,
@@ -117,6 +118,21 @@ describe("extractPageCountHintFromMeta (Byggval)", () => {
     expect(extractPageCountHintFromMeta({ pageCountHint: "3" })).toBeNull();
     expect(extractPageCountHintFromMeta({})).toBeNull();
     expect(extractPageCountHintFromMeta(null)).toBeNull();
+  });
+});
+
+describe("extractComplexityHintFromMeta (Byggval)", () => {
+  it("accepts exactly the three enum values", () => {
+    expect(extractComplexityHintFromMeta({ complexityHint: "simple" })).toBe("simple");
+    expect(extractComplexityHintFromMeta({ complexityHint: "medium" })).toBe("medium");
+    expect(extractComplexityHintFromMeta({ complexityHint: "complex" })).toBe("complex");
+  });
+
+  it("rejects everything else", () => {
+    expect(extractComplexityHintFromMeta({ complexityHint: "auto" })).toBeNull();
+    expect(extractComplexityHintFromMeta({ complexityHint: 3 })).toBeNull();
+    expect(extractComplexityHintFromMeta({})).toBeNull();
+    expect(extractComplexityHintFromMeta(null)).toBeNull();
   });
 });
 

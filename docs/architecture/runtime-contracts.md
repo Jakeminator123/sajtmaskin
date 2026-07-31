@@ -15,6 +15,7 @@ Invariants:
 - `contextPolicy` och tokenbudget styr Dynamic Context, inte godtyckliga promptlängder.
 - `routeRealization` ska göra multipage/init hanterbart utan att dölja routes.
 - `capabilityFlags` ska bära capability-heaviness så downstream inte räknar om.
+- `complexityHint` (Byggval, init-only) får golva `qualityTarget` uppåt och bias:a `contextPolicy` — men aldrig demota quality under vad routes/integrationer kräver.
 
 ## Promptkontrakt
 

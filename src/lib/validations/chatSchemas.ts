@@ -50,6 +50,8 @@ const promptMetaSchema = z
     pageCountHint: z.number().int().min(1).max(20).optional(),
     /** Byggval (init controls): structured style keywords for variant matching. */
     styleKeywordsHint: z.array(z.string().trim().min(1).max(40)).max(8).optional(),
+    /** Byggval (init controls): structured complexity choice for BuildSpec. */
+    complexityHint: z.enum(["simple", "medium", "complex"]).optional(),
   })
   .partial()
   .passthrough();
