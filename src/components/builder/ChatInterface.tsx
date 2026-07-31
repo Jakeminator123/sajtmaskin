@@ -355,6 +355,9 @@ export function ChatInterface({
     const prevChatId = lastChatIdRef.current;
     if (!prevChatId && chatId) {
       setInput("");
+      // Inputen töms — glöm keyed prefill-block (Byggval) så ett senare
+      // välkomstläge inte försöker byta ut ett block som inte längre finns.
+      keyedPrefillBlocksRef.current.clear();
       setFiles([]);
       setFigmaUrl("");
       setFigmaInputOpen(false);

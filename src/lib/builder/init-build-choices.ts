@@ -66,9 +66,11 @@ export const MAX_PAGE_COUNT_CHOICE = 6;
 // the matchers scan for (word-boundary matching — "minimalistisk" would NOT
 // hit the keyword "minimal").
 const SITE_TYPE_FRAGMENTS: Record<Exclude<SiteTypeChoice, "auto">, string> = {
-  landing: "Sajten är en landningssida (hemsida för företaget).",
-  portfolio: "Sajten är en portfolio.",
-  blog: "Sajten är en blogg.",
+  // Scaffold-matchern kräver ≥2 keyword-träffar (MIN_SCORE) för ett aktivt
+  // val, så fragmenten bär flera bank-tokens: hemsida + webbplats + företag.
+  landing: "Sajten är en landningssida — en hemsida/webbplats för ett företag.",
+  portfolio: "Sajten är en portfolio med personlig presentation.",
+  blog: "Sajten är en blogg med artiklar och inlägg.",
   shop: "Sajten är en webbshop med produkter och varukorg.",
   dashboard: "Sajten är en dashboard med statistik och tabeller.",
 };
@@ -83,7 +85,10 @@ const STYLE_FRAGMENTS: Record<Exclude<StyleChoice, "auto">, string> = {
   warm: "Stil: varm och lokal community-känsla.",
   corporate: "Stil: corporate och professionell.",
   bold: "Stil: bold startup-energi.",
-  editorial: "Stil: editorial, som ett magasin.",
+  // Obs: inte "magasin" — "editorial" + "magasin" är BÅDA blog-scaffold-tokens
+  // och två träffar (MIN_SCORE) skulle kunna flippa scaffoldvalet till blog
+  // när stilen väljs utan sajttyp. En ensam blog-token är under tröskeln.
+  editorial: "Stil: editorial med elegant typografi, som en tidning.",
   // Obs: inte "ren design" — "ren" är en light-boost-token i variantmatchern
   // och skulle skeva mot ljusa varianter även när Färgläge står på auto/mörkt.
   minimal: "Stil: minimal och avskalad design.",

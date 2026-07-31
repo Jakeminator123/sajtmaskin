@@ -7,6 +7,26 @@ import {
 } from "./init-build-choices";
 import { upsertKeyedPromptBlock } from "./prompt-prefill-event";
 import { detectExplicitPageCount } from "@/lib/gen/route-plan";
+import {
+  BLOG_KEYWORDS,
+  DASHBOARD_KEYWORDS,
+  ECOMMERCE_KEYWORDS,
+  LANDING_KEYWORDS,
+  PORTFOLIO_KEYWORDS,
+} from "@/lib/gen/scaffolds/keyword-banks";
+
+/** Mirrors `countKeywordMatches` in src/lib/gen/scaffolds/matcher.ts. */
+function countBankHits(text: string, keywords: readonly string[]): number {
+  const lower = text.toLowerCase();
+  return keywords.reduce((count, keyword) => {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, "iu");
+    return count + (pattern.test(lower) ? 1 : 0);
+  }, 0);
+}
+
+/** matchScaffold requires MIN_SCORE = 2 to pick a specific scaffold. */
+const SCAFFOLD_MIN_SCORE = 2;
 
 function withChoices(partial: Partial<InitBuildChoices>): InitBuildChoices {
   return { ...DEFAULT_INIT_BUILD_CHOICES, ...partial };
@@ -28,17 +48,30 @@ describe("composeInitBuildChoicesText", () => {
     expect(composeInitBuildChoicesText(withChoices({ pageCount: 1 }))).toContain("1 sida.");
   });
 
-  it("includes scaffold keywords for site-type choices", () => {
-    // Tokens verified against src/lib/gen/scaffolds/keyword-banks.ts.
-    expect(composeInitBuildChoicesText(withChoices({ siteType: "portfolio" }))).toMatch(
-      /\bportfolio\b/i,
-    );
-    expect(composeInitBuildChoicesText(withChoices({ siteType: "shop" }))).toMatch(
-      /\bwebbshop\b/i,
-    );
-    expect(composeInitBuildChoicesText(withChoices({ siteType: "dashboard" }))).toMatch(
-      /\bdashboard\b/i,
-    );
+  it("gives every site-type choice enough bank hits to clear MIN_SCORE", () => {
+    // A single keyword hit is below matchScaffold's MIN_SCORE and would make
+    // the control a no-op on sparse prompts.
+    const cases: Array<[InitBuildChoices["siteType"], readonly string[]]> = [
+      ["landing", LANDING_KEYWORDS],
+      ["portfolio", PORTFOLIO_KEYWORDS],
+      ["blog", BLOG_KEYWORDS],
+      ["shop", ECOMMERCE_KEYWORDS],
+      ["dashboard", DASHBOARD_KEYWORDS],
+    ];
+    for (const [siteType, bank] of cases) {
+      const text = composeInitBuildChoicesText(withChoices({ siteType }));
+      expect(countBankHits(text, bank), `siteType=${siteType}`).toBeGreaterThanOrEqual(
+        SCAFFOLD_MIN_SCORE,
+      );
+    }
+  });
+
+  it("keeps the editorial style below the blog-scaffold threshold", () => {
+    // "editorial" alone is also a blog-scaffold token; a second one (e.g.
+    // "magasin") would reach MIN_SCORE and flip scaffold selection to blog
+    // when the user picked only a style.
+    const text = composeInitBuildChoicesText(withChoices({ style: "editorial" }));
+    expect(countBankHits(text, BLOG_KEYWORDS)).toBeLessThan(SCAFFOLD_MIN_SCORE);
   });
 
   it("includes variant keyword tokens with word boundaries for styles", () => {
