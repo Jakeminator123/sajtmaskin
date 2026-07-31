@@ -44,6 +44,39 @@ describe("MessageList", () => {
     expect(screen.getByText("Pågår")).toBeTruthy();
   });
 
+  it("never leaves an older turn active after the user starts a newer generation", () => {
+    const messages: ChatMessage[] = [
+      { id: "user_old", role: "user", content: "Bygg första versionen." },
+      {
+        id: "assistant_old",
+        role: "assistant",
+        content: "Första versionen är klar.",
+        isStreaming: false,
+        uiParts: [
+          {
+            type: "tool:quality-gate",
+            toolName: "Quality gate",
+            toolCallId: "quality-gate:old",
+            state: "input-streaming",
+          },
+        ],
+      },
+      { id: "user_new", role: "user", content: "Gör nästa ändring." },
+      {
+        id: "assistant_new",
+        role: "assistant",
+        content: "",
+        isStreaming: true,
+        uiParts: [],
+      },
+    ];
+
+    render(<MessageList chatId="chat_newer_turn" messages={messages} isStreaming />);
+
+    expect(screen.getAllByText("Arbetar med din sajt")).toHaveLength(1);
+    expect(screen.getByText("Slutsteg (1)")).toBeTruthy();
+  });
+
   it("renders suggestIntegration approvals inline in compact mode without opening reply dialog", async () => {
     // Ägarbeslut 2026-07-03: integrations-/env-frågor ska stanna inline
     // i chatten (compact cards) och inte driva plan-dialogen.

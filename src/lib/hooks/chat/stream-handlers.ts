@@ -448,6 +448,17 @@ export async function handleSseStream(
           "Production build misslyckades i verifierings-VM. Dev-server-preview kan ändå vara användbar.",
         ];
       }
+      if (phase === "error") {
+        const message =
+          typeof payload.message === "string" && payload.message.trim()
+            ? payload.message.trim()
+            : null;
+        return [
+          message
+            ? `Live-preview kunde inte starta: ${message}`
+            : "Live-preview kunde inte starta.",
+        ];
+      }
     }
     return [`${getProgressToolName(step)}: ${phase}`];
   };
@@ -942,7 +953,7 @@ export async function handleSseStream(
               stage,
               message,
             });
-            appendProgressPart("build-error", "error", { stage, message });
+            appendProgressPart("preview", "error", { stage, message });
             toast.error(
               `Live-preview gick inte [${stage}]: ${message.slice(0, 400)}. Ingen live-preview förrän VM-previewn lyckas.`,
             );

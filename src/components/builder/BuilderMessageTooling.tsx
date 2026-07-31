@@ -677,13 +677,25 @@ export function buildAgentLogItems(toolParts: ToolPart[]) {
   return items;
 }
 
-export function getActiveAgentLogLabel(toolParts: ToolPart[]): string | null {
+export function getActiveAgentLogLabel(
+  toolParts: ToolPart[],
+  options: { includePipelineProgress?: boolean } = {},
+): string | null {
+  const includePipelineProgress = options.includePipelineProgress !== false;
   for (let index = toolParts.length - 1; index >= 0; index -= 1) {
     const tool = toolParts[index]?.tool as Partial<ToolUIPart> & {
       type?: string;
       input?: unknown;
     };
     if (tool?.state !== "input-streaming") continue;
+    const toolType = String(tool.type ?? "");
+    if (
+      !includePipelineProgress &&
+      toolType.startsWith("tool:engine-") &&
+      toolType !== "tool:engine-preview"
+    ) {
+      continue;
+    }
     const steps = extractToolSteps(tool);
     const latestStep = steps.at(-1)?.trim();
     if (latestStep) return latestStep;

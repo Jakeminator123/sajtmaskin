@@ -136,6 +136,37 @@ describe("StructuredToolParts", () => {
     ]);
   });
 
+  it("ignores stale pipeline progress after the message stream ends but keeps client post-checks", () => {
+    const staleGeneration = {
+      type: "tool",
+      tool: {
+        type: "tool:engine-generation",
+        toolName: "Generering",
+        state: "input-streaming",
+        output: { steps: ["Genererar innehåll och filer från prompten."] },
+      },
+    } as never;
+    const activeQualityGate = {
+      type: "tool",
+      tool: {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        state: "input-streaming",
+      },
+    } as never;
+
+    expect(
+      getActiveAgentLogLabel([staleGeneration], {
+        includePipelineProgress: false,
+      }),
+    ).toBeNull();
+    expect(
+      getActiveAgentLogLabel([staleGeneration, activeQualityGate], {
+        includePipelineProgress: false,
+      }),
+    ).toBe("Quality gate • Förbereder");
+  });
+
   it("extracts detailed server-repair steps for the agent log", () => {
     expect(
       buildAgentLogItems([

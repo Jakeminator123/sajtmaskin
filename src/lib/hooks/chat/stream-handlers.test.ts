@@ -706,6 +706,14 @@ describe("handleSseStream", () => {
           "",
         );
         onEvent(
+          "progress",
+          {
+            step: "preview",
+            phase: "starting",
+          },
+          "",
+        );
+        onEvent(
           "build-error",
           {
             stage: "install",
@@ -722,6 +730,18 @@ describe("handleSseStream", () => {
     await handleSseStream(new Response(null), ctx, new AbortController().signal);
 
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
+    const failedPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string; output?: { steps?: unknown } } | undefined;
+    expect(failedPreviewProgress?.state).toBe("output-error");
+    expect(
+      Array.isArray(failedPreviewProgress?.output?.steps)
+        ? failedPreviewProgress.output.steps
+        : [],
+    ).toContain("Live-preview kunde inte starta: npm failed");
   });
 
   // Regression (2026-07 preview-lifecycle simplification, punkt 1): the old
