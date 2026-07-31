@@ -140,8 +140,17 @@ listan har ingen annan yta.
 
 Villkoret är smalare än "no-version är enda posten": dölj bara när `blockers`
 är exakt `[no-version]`, `warnings` är tom **och chatten inte har någon version
-alls**. Kortet behöver alltså veta om det finns versioner (en `hasAnyVersion`-prop
-från shellens `vm.versions`, som redan matar `VersionHistory`).
+alls**. Kortet behöver alltså en `hasAnyVersion`-prop.
+
+**Härled den ur `vm.effectiveVersionsList`, inte ur `vm.versions`.** Det är
+`effectiveVersionsList` som matar `VersionHistory`
+(`BuilderShellContent.tsx:1346`), och den är `versionsList` **plus**
+`chat.latestVersion` när den inte redan finns i listan
+(`useBuilderDerivedState.ts:72-96`). Skillnaden är inte akademisk: listan kan vara
+icke-tom medan `vm.versions` fortfarande är tom, t.ex. medan versions-SWR:en
+laddar på en chat som redan har en `latestVersion`. Läser man `vm.versions` döljs
+kortet alltså under laddningen — och det är exakt det handlingsbara fallet i
+tabellen nedan som då göms.
 
 **Varför just det villkoret, och inte det bredare.** `no-version` uppstår i två
 olika lägen som ser identiska ut i payloaden:
@@ -212,6 +221,7 @@ Skriv ned regeln här när den är satt, så nästa yta inte uppfinner en egen.
 | Preview-sessioner läcker när "Rensa preview" försvinner | **Avvärjd** — knappen behålls (Ö5, kodverifierat) |
 | Rådgivande readiness-rader tappar sin enda yta när panelen görs diskret | Del F2 — kollapsad, inte borttagen |
 | "Dölj vid `no-version`" förenklas senare till att gömma även det handlingsbara fallet (versioner finns, ingen vald) | Del F1 kräver `hasAnyVersion` i villkoret, och test 2 i testlistan fäller just den förenklingen |
+| `hasAnyVersion` läses ur `vm.versions` → kortet döljs medan versions-SWR:en laddar på en chat som har `latestVersion` | Del F1 — källan ska vara `vm.effectiveVersionsList`. Lägg testet med tom `versions` men satt `chat.latestVersion` |
 | Två tester låser knapptexter och går sönder | `ChatOutputCollapseBar.test.tsx`, `ChatInterface.preview-modes.test.tsx` |
 
 ## Verifiering
