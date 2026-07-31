@@ -25,10 +25,10 @@ Del av [`00-master-plan.md`](00-master-plan.md).
 │   ├── Modell            (flyttad: låg som egen knapp i headern)
 │   └── Generering / Inmatning / Instruktioner   (befintliga, oförändrade)
 └── Importera och exportera
+    ├── Importera (GitHub eller ZIP)   (platt — hanterar båda källorna, Ö2)
     ├── GitHub
-    │   ├── Importera
     │   └── Exportera till GitHub
-    └── Ladda ner som ZIP     ← se Ö2
+    └── Ladda ner som ZIP              (platt, Ö2)
 ```
 
 ## Utgångsläge (kodverifierat 2026-07-30)
@@ -66,7 +66,10 @@ Del av [`00-master-plan.md`](00-master-plan.md).
 
 ### Steg 3 — Modellväljaren flyttas in (N2)
 
-**Läs Ö1 i masterplanen först** — flytt eller genväg är ett ägarbeslut.
+**Ö1 besvarad 2026-07-31: flytta helt in.** Ingen genväg och ingen kompakt
+etikett kvar i headern — ägaren accepterar att vald byggprofil syns först ett
+klick in. Punkt 3 nedan är därmed avgjord, men **punkt 2 gäller oförändrat**:
+`assistStatusSummary` får inte försvinna med triggern.
 
 1. Flytta menyinnehållet 296–330 (label "Byggmodell", hjälp-tooltip,
    `DropdownMenuRadioGroup` över `MODEL_TIER_OPTIONS`) till en `DropdownMenuSub`
@@ -75,9 +78,8 @@ Del av [`00-master-plan.md`](00-master-plan.md).
    saker: vald byggmodell **och** `assistStatusSummary` (prompt-assist-status).
    Försvinner triggern försvinner den enda ytan där assist-statusen syns.
    Lägg den som en `DropdownMenuLabel` eller hjälprad inne i den nya subben.
-3. **Headern tappar den enda synliga indikatorn på vald profil.** Antingen
-   behålls en kompakt etikett i headern, eller så accepteras att profilen syns
-   först ett klick in. Beslut = Ö1.
+3. Headern tappar den enda synliga indikatorn på vald profil. **Accepterat**
+   (Ö1) — bygg ingen ersättningsetikett.
 4. Behåll `disabled={isConfigLocked}`.
 
 ### Steg 4 — GitHub-gruppen (N3)
@@ -85,12 +87,12 @@ Del av [`00-master-plan.md`](00-master-plan.md).
 1. Skapa en `DropdownMenuSub` med etiketten **GitHub** under labeln
    "Importera och exportera".
 2. Flytta in importsteget (632–641) och exportsteget (658–667).
-3. **Namnkrock:** importvalet heter "Importera (GitHub eller ZIP)" och hanterar
-   båda källorna. Under en GitHub-rubrik blir det missvisande. Välj ett:
-   - döp om till "Importera" inne i subben (enklast, men ZIP-importen göms under GitHub), eller
-   - låt importvalet ligga kvar platt och ha **bara** export under GitHub.
-   Lyft frågan till ägaren om du är osäker — det är en ren produktfråga.
-4. "Ladda ner som ZIP" (642–657): se Ö2.
+3. **Namnkrocken är avgjord (Ö2, 2026-07-31): importvalet ligger kvar platt.**
+   "Importera (GitHub eller ZIP)" hanterar båda källorna, så det får inte gömmas
+   under en GitHub-rubrik — då blir ZIP-importen oåtkomlig för den som letar
+   efter den. Under GitHub-subben ligger alltså **bara export**.
+4. **"Ladda ner som ZIP" (642–657) ligger också kvar platt** (Ö2). ZIP-vägarna
+   hör ihop med varandra, inte med GitHub.
 5. Behåll varje items egen spärr (`isBusy`, `!chatId || !activeVersionId`) —
    flytta dem inte upp till sub-triggern, då tappas per-item-logiken.
 
@@ -118,5 +120,8 @@ att allt är låst (gråat) medan en generering pågår.
 
 - Headern har inga lösa Modell-/Scaffold-kontroller kvar.
 - "Avancerat"-popovern har ingen temaknapp (och är borttagen om den blev tom).
-- GitHub-valen ligger under en gemensam undermeny.
-- Ö1 och Ö2 är besvarade och besluten står i denna fil.
+- GitHub-**exporten** ligger under en egen undermeny; import och ZIP är platta.
+- `assistStatusSummary` syns fortfarande någonstans efter modellflytten.
+
+Ö1 och Ö2 är besvarade (2026-07-31) och besluten står ovan — inget kvarvarande
+ägarbeslut i denna fil.
