@@ -15,7 +15,7 @@ export const maxDuration = 30;
 const DEMO_REPLY =
   'Hej! Det här är ett förhandsvisat demo-svar — RAG-chatten är i demo-läge och söker inte i era dokument ännu. ' +
   'Så här kommer assistenten att kännas när den är igång. ' +
-  'När sajten kopplas till en riktig OpenAI-nyckel och en pgvector-databas under "Bygg integrationer" svarar jag på riktigt, grundat i ert indexerade innehåll.';
+  'När en riktig OpenAI-nyckel och en pgvector-databas sparas under "Byggblock" i byggaren (och sajten publiceras om) svarar jag på riktigt, grundat i ert indexerade innehåll.';
 
 /**
  * Demo/mock mode (mock: canned): stream a canned reply over the same

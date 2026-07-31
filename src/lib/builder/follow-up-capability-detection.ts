@@ -109,6 +109,14 @@ const BEYOND_DOSSIER_MARKERS: Record<string, RegExp[]> = {
 const ADD_VERB_PATTERNS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:lägg(?:er|de)?\s+till|infoga(?:r|de)?|inkludera(?:r|de)?|skapa(?:r|de)?|bygg(?:er|de)?|gör|designa(?:r|de)?|implementera(?:r|de)?|aktivera(?:r|de)?|koppla(?:r|de)?\s+(?:på|in))(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:vi\s+)?(?:vill\s+ha|behöver|önskar|ska\s+(?:ha|kunna)|borde\s+ha|måste\s+ha)(?![\p{L}\p{N}_])/iu,
+  // V2 word order (prod 2026-07-31, "springa"-sajten): "Denna ska jag kunna
+  // klicka på…" — subjektet hamnar MELLAN "ska" och "kunna", så
+  // `ska\s+(?:ha|kunna)` ovan missar den vanligaste talspråksformen.
+  /(?<![\p{L}\p{N}_])ska(?:ll)?\s+(?:jag|vi|man|du|ni|hen|hon|han|den|det|de|besökar(?:e|na)|användar(?:e|na)|kunder(?:na)?)\s+(?:ha|kunna|få)(?![\p{L}\p{N}_])/iu,
+  // Artigt önskeläge: "jag skulle vilja ha/sätta in/koppla …" är add-intent.
+  // Kräver ett efterföljande add-verb så "skulle vilja ändra" (refine) inte
+  // öppnar grinden.
+  /(?<![\p{L}\p{N}_])skulle\s+vilja\s+(?:ha|kunna|lägga\s+till|sätta\s+in|koppla|bygga|skapa|aktivera|integrera|testa|prova)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:ha\s+(?:en|ett|några))(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:koppla\s+på)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:add|include|build|create|implement|set\s+up|wire\s+up|hook\s+up|enable|integrate)(?![\p{L}\p{N}_])/iu,
@@ -127,6 +135,39 @@ const REFINE_OR_MOVE_VERB_PATTERNS: RegExp[] = [
 
 function hasRefineOrMoveVerb(message: string): boolean {
   return REFINE_OR_MOVE_VERB_PATTERNS.some((re) => re.test(message));
+}
+
+/**
+ * Explicit credential mention ("openai-api-key", "min api-nyckel", "secret
+ * key"). A user who talks about an API key is wiring an INTEGRATION — never a
+ * pure layout/refine edit — so the mention opens the detection gate even when
+ * every add-verb is missing or misspelled.
+ *
+ * Concrete failure that motivated this (prod 2026-07-31, "springa"-sajten):
+ *
+ *   "Jag vil ah en 'sko' som är som en ikon för en chatbot. … Jag har en
+ *    openai-api-key so mjag sean skulle vilja sätta in i produktion …"
+ *
+ *   Typos ("vil ah" för "vill ha") gjorde att inget add-verb träffade, gate:n
+ *   stängde detektionen, `openai-chat`-dossiern injicerades aldrig — och
+ *   modellen frihandsgenererade en hårdkodad demo-chatbot utan `/api/chat`.
+ *   Användaren sparade sedan en riktig nyckel + körde F3 + publicerade, men
+ *   sajten saknade själva serverintegrationen så chatten kunde aldrig fungera.
+ *
+ * Precision: gate-öppning är inte detektion — vokabulären måste fortfarande
+ * träffa en capability-substantiv, så "byt ut api-nyckeln" (ingen capability)
+ * detekterar fortfarande ingenting.
+ */
+const INTEGRATION_CREDENTIAL_CUE_PATTERNS: RegExp[] = [
+  // "api-key" / "api key" / "api-nyckel(n)" — bindestreck ingår inte i
+  // look-behind-klassen, så provider-prefix ("openai-api-key") matchar också.
+  /(?<![\p{L}\p{N}_])api[-\s]?(?:key(?:s)?|nyck(?:el(?:n|ar|arna)?|lar(?:na)?))(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])apikey(?:s)?(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:secret|access)[-\s]?(?:key|token)(?![\p{L}\p{N}_])/iu,
+];
+
+function hasIntegrationCredentialCue(message: string): boolean {
+  return INTEGRATION_CREDENTIAL_CUE_PATTERNS.some((re) => re.test(message));
 }
 
 /**
@@ -283,11 +324,15 @@ export function detectFollowUpCapabilities(
   // detection trigger ("byt ut den mot en kaffekopp" has no add verb and
   // no refine verb that the existing pipeline tolerates, but is plainly
   // a capability-modify request and must reach the dossier branch).
+  // Credential-cue (2026-07-31): an explicit API-key mention is integration
+  // intent and opens the gate even when stavfel gömmer varje add-verb — se
+  // INTEGRATION_CREDENTIAL_CUE_PATTERNS ovan för det konkreta prod-fallet.
   const allowDetection =
     options?.mode === "init" ||
     addVerbPresent ||
     (veryShortNounOnly && !refineOrMoveVerbPresent) ||
-    modifyReferenceMatches.length > 0;
+    modifyReferenceMatches.length > 0 ||
+    hasIntegrationCredentialCue(trimmed);
   if (!allowDetection) {
     return {
       capabilities: [],
