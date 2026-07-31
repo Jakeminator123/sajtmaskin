@@ -193,6 +193,25 @@ describe("StructuredToolParts", () => {
     expect(screen.getByText("Fel upptäcktes — visa detaljer")).toBeTruthy();
   });
 
+  it("keeps an earlier failure visible while a later post-check is active", () => {
+    render(
+      <AgentLogCard
+        items={[
+          { label: "Preview kunde inte starta.", failed: true },
+          { label: "Efterkontrollerar filer och preview." },
+        ]}
+        activeLabel="Efterkontrollerar filer och preview."
+        isActive
+      />,
+    );
+
+    expect(screen.getByText("Arbetar vidare efter fel")).toBeTruthy();
+    expect(screen.getByLabelText("Ett byggsteg misslyckades")).toBeTruthy();
+    expect(
+      screen.getAllByText("Efterkontrollerar filer och preview.").length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+
   it("ignores stale pipeline progress after the message stream ends but keeps client post-checks", () => {
     const staleGeneration = {
       type: "tool",

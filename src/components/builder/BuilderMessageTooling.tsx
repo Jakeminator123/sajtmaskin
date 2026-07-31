@@ -228,7 +228,7 @@ function AgentLogCardContent({
   const hasFailures = items.some((item) => item.failed);
   const activeItemFailed =
     activeItemIndex >= 0 && visibleItems[activeItemIndex]?.failed === true;
-  const surfaceFailure = activeItemFailed || (!isActive && hasFailures);
+  const surfaceFailure = hasFailures;
 
   return (
     <Collapsible
@@ -267,7 +267,9 @@ function AgentLogCardContent({
             {isActive
               ? activeItemFailed
                 ? "Ett byggsteg misslyckades"
-                : "Arbetar med din sajt"
+                : hasFailures
+                  ? "Arbetar vidare efter fel"
+                  : "Arbetar med din sajt"
               : `Slutsteg (${items.length})${hasFailures ? " · fel" : ""}`}
             {isActive ? (
               <span className="text-muted-foreground font-normal tabular-nums">
