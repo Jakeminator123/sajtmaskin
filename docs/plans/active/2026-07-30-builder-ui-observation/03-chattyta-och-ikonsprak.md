@@ -136,13 +136,30 @@ bara när det finns något att säga. Det ägaren såg var `no-version`-läget.
 Därför faller "radera" på planens egen regel: rådgivande rader och multi-spärr-
 listan har ingen annan yta.
 
-### F1 — `no-version` som enda post: dölj kortet helt
+### F1 — `no-version` i ett **tomt** projekt: dölj kortet helt
 
-Är `blockers` exakt `[no-version]` och `warnings` tom, rendera `null`. Den
-disablade Publicera-knappen säger redan samma sak i sin tooltip ("Välj eller
-generera en version först.", `BuilderShellContent.tsx:310-311`). Det är
-**dubblering, inte gömd status** — och det är exakt den vy ägaren reagerade på,
-eftersom den möter varje ny chat innan något genererats.
+Villkoret är smalare än "no-version är enda posten": dölj bara när `blockers`
+är exakt `[no-version]`, `warnings` är tom **och chatten inte har någon version
+alls**. Kortet behöver alltså veta om det finns versioner (en `hasAnyVersion`-prop
+från shellens `vm.versions`, som redan matar `VersionHistory`).
+
+**Varför just det villkoret, och inte det bredare.** `no-version` uppstår i två
+olika lägen som ser identiska ut i payloaden:
+
+| Läge | Är meddelandet handlingsbart? | Beslut |
+|---|---|---|
+| Inga versioner finns — nytt projekt, inget genererat | **Nej.** Att ett tomt projekt inte kan publiceras är självklart ur att buildern är tom. Det finns ingen åtgärd att upptäcka | Dölj |
+| Versioner finns, men ingen är vald (t.ex. efter rensning) | **Ja** — "välj en i versionslistan" är en konkret åtgärd | Behåll som kollapsad rad (F2) |
+
+Motiveringen är alltså **att raden saknar handlingsvärde i det tomma läget**, inte
+att den syns lika bra någon annanstans. Publicera-knappens tooltip säger sakligt
+samma sak ("Välj eller generera en version först.",
+`BuilderShellContent.tsx:310-311`), men en hover-tooltip är *inte* en likvärdig
+ersättning för en alltid synlig yta — så det argumentet duger inte som skäl att
+dölja något handlingsbart. Det är därför bara det tomma läget som döljs.
+
+Detta är den vy ägaren reagerade på: den möter varje ny chat innan något
+genererats.
 
 ### F2 — alla andra lägen: kollapsad rad som default
 
@@ -167,8 +184,14 @@ något stängbart är en gömd spärr.
 `LaunchReadinessCard.test.tsx` (rad 42–46, 66) matchar på "Blockerar publicering"
 och "Rekommendationer — blockerar inte", och det finns en **snapshot**
 (`__snapshots__/LaunchReadinessCard.test.tsx.snap`) med "Lansering" och "1 spärr".
-Lägg till ett fall för F1 (`no-version` ensam → inget renderas) och ett för
-kollapsat/expanderat läge.
+
+Tre nya fall behövs, och det andra är det som skiljer F1 från en slarvig version:
+
+1. `no-version` ensam **utan** versioner → inget renderas.
+2. `no-version` ensam **med** versioner → kollapsad rad renderas ändå. Utan detta
+   test skulle en framtida förenkling till "dölj alltid vid no-version" glida
+   igenom och gömma ett handlingsbart meddelande.
+3. Kollapsat vs. expanderat läge för ett flerspärrsfall.
 
 ## Del E — Ett gemensamt ikonspråk
 
@@ -187,7 +210,8 @@ Skriv ned regeln här när den är satt, så nästa yta inte uppfinner en egen.
 | Blockerarstatus göms när chatten fälls ned | Del A punkt 2 — kravet är explicit i komponentens kodkommentar |
 | Ikon-only utan `aria-label` → knappar blir namnlösa för skärmläsare | Del A/D — a11y-attribut i samma commit som texten tas bort |
 | Preview-sessioner läcker när "Rensa preview" försvinner | **Avvärjd** — knappen behålls (Ö5, kodverifierat) |
-| Rådgivande readiness-rader tappar sin enda yta när panelen görs diskret | Del F2 — kollapsad, inte borttagen. Bara `no-version`-läget döljs helt, och det är dubblering av Publicera-tooltipen |
+| Rådgivande readiness-rader tappar sin enda yta när panelen görs diskret | Del F2 — kollapsad, inte borttagen |
+| "Dölj vid `no-version`" förenklas senare till att gömma även det handlingsbara fallet (versioner finns, ingen vald) | Del F1 kräver `hasAnyVersion` i villkoret, och test 2 i testlistan fäller just den förenklingen |
 | Två tester låser knapptexter och går sönder | `ChatOutputCollapseBar.test.tsx`, `ChatInterface.preview-modes.test.tsx` |
 
 ## Verifiering
@@ -210,6 +234,7 @@ avgöra utan text.
 - Previewverktygen följer ett bestämt ikonspråk. "Rensa preview" finns kvar som
   ikon (Ö5). **`Ö4` är fortfarande öppen — rör inte "Bygg integrationer".**
 - Lägesknapparna är ikon-only med bevarad a11y och avläsbart läge.
-- Lansering-panelen döljs helt när `no-version` är enda posten, och är kollapsad
-  i övriga lägen (Del F). Inga rådgivande rader har tappat sin enda yta.
+- Lansering-panelen döljs helt bara i det **tomma** projektet (`no-version` utan
+  några versioner) och är kollapsad i övriga lägen (Del F). Inga rådgivande rader
+  och inget handlingsbart meddelande har tappat sin enda yta.
 - Ikonspråksregeln (del E) står nedskriven i denna fil.
