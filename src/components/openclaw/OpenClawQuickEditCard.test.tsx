@@ -5,6 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawMessage } from "./OpenClawMessage";
 import { useOpenClawStore, type OpenClawMessage as Msg } from "@/lib/openclaw/openclaw-store";
 import { quickEditChatFiles } from "@/lib/builder/engine-files-patch";
+import {
+  QUICK_EDIT_APPLIED_EVENT_NAME,
+  readQuickEditAppliedEventPayload,
+} from "@/lib/builder/quick-edit-applied-event";
 
 // Mocka ENDAST nätverksklienten — describeQuickEditHardError förblir den
 // riktiga översättningen så testerna låser den svenska felcopyn.
@@ -143,6 +147,58 @@ describe("OpenClawQuickEditCard — execution", () => {
         { kind: "delete_file", path: "components/unused.tsx" },
       ],
     });
+  });
+
+  it("dispatches the quick-edit-applied window event so the builder syncs to the new version", async () => {
+    useOpenClawStore.setState({ editEnabled: true });
+    quickEditMock.mockResolvedValue({
+      ok: true,
+      versionId: "v-2",
+      changedFiles: ["app/page.tsx"],
+      previewUrl: "https://vm.example/p/abc",
+      previewSessionId: "psid-1",
+      previewMode: "dev_only",
+    });
+    const handler = vi.fn();
+    window.addEventListener(QUICK_EDIT_APPLIED_EVENT_NAME, handler as EventListener);
+
+    try {
+      render(<OpenClawMessage msg={quickEditMessage()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Godkänn och genomför" }));
+
+      await waitFor(() => {
+        expect(handler).toHaveBeenCalledTimes(1);
+      });
+      const event = handler.mock.calls[0]?.[0] as Event;
+      expect(readQuickEditAppliedEventPayload(event)).toEqual({
+        chatId: "chat-1",
+        versionId: "v-2",
+        previewUrl: "https://vm.example/p/abc",
+        previewSessionId: "psid-1",
+        previewMode: "dev_only",
+      });
+    } finally {
+      window.removeEventListener(QUICK_EDIT_APPLIED_EVENT_NAME, handler as EventListener);
+    }
+  });
+
+  it("does not dispatch the quick-edit-applied event on failure", async () => {
+    useOpenClawStore.setState({ editEnabled: true });
+    quickEditMock.mockResolvedValue({ ok: false, error: "stale_base_version" });
+    const handler = vi.fn();
+    window.addEventListener(QUICK_EDIT_APPLIED_EVENT_NAME, handler as EventListener);
+
+    try {
+      render(<OpenClawMessage msg={quickEditMessage()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Godkänn och genomför" }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/En nyare version finns redan/)).toBeTruthy();
+      });
+      expect(handler).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(QUICK_EDIT_APPLIED_EVENT_NAME, handler as EventListener);
+    }
   });
 
   it("translates stale_base_version to the Swedish reload copy", async () => {

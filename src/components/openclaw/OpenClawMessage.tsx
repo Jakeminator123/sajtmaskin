@@ -20,6 +20,7 @@ import {
   describeQuickEditHardError,
   quickEditChatFiles,
 } from "@/lib/builder/engine-files-patch";
+import { dispatchQuickEditAppliedEvent } from "@/lib/builder/quick-edit-applied-event";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
@@ -595,6 +596,18 @@ function OpenClawQuickEditCard({
       setActionError(describeQuickEditHardError(result));
       return;
     }
+    // Sync the builder (Bugbot P1): without this the builder keeps the
+    // superseded base selected — the version list misses the new v.x row and
+    // the NEXT quick edit gets a stale_base_version 409. The controller's
+    // handleFilesSaved listener selects the new version and threads the
+    // preview-session meta (no-restart fast path).
+    dispatchQuickEditAppliedEvent({
+      chatId: current.chatId,
+      versionId: result.versionId,
+      previewUrl: result.previewUrl,
+      previewSessionId: result.previewSessionId,
+      previewMode: result.previewMode,
+    });
     setApplied({ versionId: result.versionId, changedFiles: result.changedFiles });
     setActionState("applied");
   };
