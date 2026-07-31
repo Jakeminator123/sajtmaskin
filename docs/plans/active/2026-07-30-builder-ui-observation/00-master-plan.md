@@ -32,16 +32,17 @@ agenter jobbar samtidigt (se [`agent-worktree.mdc`](../../../../.cursor/rules/ag
 3. **03** — layout + ikonspråk, medelrisk (tester låser texter).
 4. **02** — störst, och den enda som kan behöva nya SSE-event.
 
-## Ägarfrågor — Ö1, Ö2, Ö3 och Ö5 besvarade 2026-07-31
+## Ägarfrågor — alla besvarade 2026-07-31
 
-Fyra av fem är avgjorda. Besluten står i sin egen fil; tabellen är index.
+**Inget ägarbeslut blockerar längre.** Besluten står i sin egen fil; tabellen är
+index.
 
 | # | Fråga | Beslut | Detalj |
 |---|---|---|---|
 | Ö1 | Modellväljaren: flytta eller duplicera? | **Flytta helt in** i Inställningar. Ingen genväg och ingen kompakt etikett kvar i headern | [01](01-meny-konsolidering.md) |
 | Ö2 | "Ladda ner som ZIP" under GitHub? | **Nej — ZIP och importvalet ligger kvar platt.** Bara *export* hamnar under GitHub-subben | [01](01-meny-konsolidering.md) |
 | Ö3 | Omfattar den centrerade boxen hela nedre bandet? | **Nej — bara chatten centreras.** Lansering-panelen behandlas separat, se nedan | [03](03-chattyta-och-ikonsprak.md) |
-| Ö4 | Vad skulle meningen om "Bygg integrationer" ha blivit? | **Fortfarande öppen** — ägarens text bröts mitt i ("… är"). Rör inte knappen förrän den är besvarad | [03](03-chattyta-och-ikonsprak.md) |
+| Ö4 | Vad skulle meningen om "Bygg integrationer" ha blivit? | **Det var en fråga om vad knappen gör, inte ett krav** — besvarad 2026-07-31. Två copy-krav föll ut: knappen ska säga vilken av sina två vägar den tar och vad den kostar (Ö4a). Förslagsrundans dubbeldebitering (Ö4b) är loggad i backloggen, inte här | [03](03-chattyta-och-ikonsprak.md) |
 | Ö5 | Får "Rensa preview" tas bort? | **Nej — knappen behålls**, men görs ikon-only. Kodverifierat att automatisk städning inte täcker fallet | [03](03-chattyta-och-ikonsprak.md) |
 
 **Ö6 tillkom när Ö3 besvarades:** ägaren vill att Lansering-/blockerar-panelen tas bort eller görs mer anonym, och delegerade beslutet. Avgjort — se [03 § Del F](03-chattyta-och-ikonsprak.md#del-f--lansering-panelen-blir-diskret-ö6).

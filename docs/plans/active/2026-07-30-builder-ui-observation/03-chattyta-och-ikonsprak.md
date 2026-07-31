@@ -92,8 +92,44 @@ utrymme. Det utrymmet får vi ändå via ikon-only.
 igång ett riktigt integrationsbygge. Välj en annan accent eller lägre mättnad så
 hierarkin står kvar.
 
-**Ö4:** ägarens mening om "Bygg integrationer" bröts mitt i ("… är"). Fråga vad
-som saknades innan den knappen rörs.
+### Ö4 avgjord 2026-07-31 — det var en fråga, inte ett krav
+
+Ägaren klargjorde att den avbrutna meningen var **en fråga om vad knappen gör**,
+inte ett önskemål om att ändra den. Frågan är besvarad (flödet kartlagt i kod
+2026-07-31), så **inget blockerar Del C längre**.
+
+Men svaret avslöjade två saker som hör hit, eftersom de är copy-/UX-problem på
+just den knappen:
+
+**Ö4a — samma knapp gör två helt olika saker, och du ser inte vilken.**
+`/finalize-design` grenar på `hasRequiredRealBuildKeys(gate.spec)`
+(`finalize-design/route.ts:212`):
+
+| Väg | Vad som händer | Kostnad | Tid |
+|---|---|---|---|
+| `deterministic_release` | F2-filerna kopieras **byte för byte** till en F3-rad. Ingen LLM, ingen chatt | **0 diamonds** | ~30–60 s |
+| `llm_ready` | Auto-skickat chattmeddelande → LLM bygger riktig integrationskod | **4–6 diamonds** (`prompt.refine`) | ~1–3 min |
+
+Knappen ser identisk ut i båda fallen. Den deterministiska vägen är dessutom
+kontraintuitivt namngiven: den *bygger inga integrationer*, den stämplar om
+filerna och kör ReleaseGate.
+
+**Krav när Del C rörs:** knappens `title`/`aria-label` ska säga vilken väg som
+gäller och vad den kostar. Grenvillkoret avgörs server-side, men samma
+env-underlag finns redan klientsidan via `useChatReadiness` — härled därifrån i
+stället för att POSTa för att få veta. Blir det inte tillförlitligt: skriv då
+åtminstone att kostnaden är **0 eller 4–6 diamonds beroende på om nycklar krävs**,
+i stället för att vara tyst om saken.
+
+**Ö4b — förslagsrundan debiterar två gånger för det som känns som en handling.**
+Första LLM-rundan kan svara med `suggestIntegration` i stället för kod: en fråga
+med snabbsvaren "Godkänn förslag" / "Avvisa". Godkännandet startar en **ny**
+stream, som debiteras igen. Båda rundorna brände riktiga tokens, så avgiften är
+försvarbar — problemet är att ingenting säger det i förväg.
+
+**Detta är inte en UI-rad i denna fil.** Det är en förväntans-/prisfråga och
+loggas som egen rad i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md).
+Bygg ingen lösning här.
 
 ## Del D — Lägesknapparna blir symboler (N9)
 
@@ -242,7 +278,8 @@ avgöra utan text.
 - Fäll-ned-kontrollen är en flik och statusen syns fortfarande i nedfällt läge.
 - Nedfälld chatt är en centrerad box — **bara chatten**, inte hela bandet (Ö3).
 - Previewverktygen följer ett bestämt ikonspråk. "Rensa preview" finns kvar som
-  ikon (Ö5). **`Ö4` är fortfarande öppen — rör inte "Bygg integrationer".**
+  ikon (Ö5), och "Bygg integrationer" säger vilken väg den tar och vad den
+  kostar (Ö4a).
 - Lägesknapparna är ikon-only med bevarad a11y och avläsbart läge.
 - Lansering-panelen döljs helt bara i det **tomma** projektet (`no-version` utan
   några versioner) och är kollapsad i övriga lägen (Del F). Inga rådgivande rader
