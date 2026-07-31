@@ -98,6 +98,13 @@ describe("buildKeywordWordPattern — svensk böjningstolerans", () => {
     expect(buildKeywordWordPattern("tidning").test("en kulturtidning")).toBe(false);
     expect(buildKeywordWordPattern("tidning").test("en tidning om kultur")).toBe(true);
   });
+
+  it("fras-keywords matchas ordagrant utan suffixtolerans", () => {
+    expect(buildKeywordWordPattern("dark theme").test("with dark theme enabled")).toBe(true);
+    expect(buildKeywordWordPattern("dark theme").test("a dark themed site")).toBe(false);
+    expect(buildKeywordWordPattern("white-space").test("generous white-space")).toBe(true);
+    expect(buildKeywordWordPattern("white-space").test("white-spaced layout")).toBe(false);
+  });
 });
 
 describe("pickScaffoldVariant — tie-break vid nollpoäng", () => {

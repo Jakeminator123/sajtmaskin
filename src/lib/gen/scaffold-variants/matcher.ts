@@ -181,7 +181,12 @@ const VARIANT_EMBEDDING_MIN_SCORE = 0.25;
  */
 export function buildKeywordWordPattern(keyword: string): RegExp {
   const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const inflectionSuffix = keyword.length >= 4 ? "\\p{L}{0,4}" : "";
+  // Böjningstoleransen gäller bara en-ords-keywords. För fraser ("dark
+  // theme", "white-space") skulle suffixet tyst töja sista ledet ("dark
+  // themed") — fraser matchas ordagrant (bugbot-fynd 2026-07-31).
+  const isSingleWord = !/[\s-]/.test(keyword);
+  const inflectionSuffix =
+    isSingleWord && keyword.length >= 4 ? "\\p{L}{0,4}" : "";
   return new RegExp(
     `(?:^|[^\\p{L}\\p{N}])${escaped}${inflectionSuffix}(?:[^\\p{L}\\p{N}]|$)`,
     "iu",
