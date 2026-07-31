@@ -271,6 +271,17 @@ export async function runPostGenerationChecks(params: {
   const toolCallId = `post-check:${versionId}`;
   const controller = new AbortController();
 
+  appendToolPartToMessage(setMessages, assistantMessageId, {
+    type: "tool:post-check",
+    toolName: "Post-check",
+    toolCallId,
+    state: "input-streaming",
+    input: { chatId, versionId },
+    output: {
+      steps: ["Efterkontrollerar filer och preview."],
+    },
+  });
+
   try {
     const [currentFiles, versions] = await Promise.all([
       fetchChatFiles(chatId, versionId, controller.signal, true),

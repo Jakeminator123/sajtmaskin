@@ -225,6 +225,10 @@ function AgentLogCardContent({
       : items;
   const activeItemIndex =
     isActive && matchingActiveIndex === -1 ? visibleItems.length - 1 : matchingActiveIndex;
+  const hasFailures = items.some((item) => item.failed);
+  const activeItemFailed =
+    activeItemIndex >= 0 && visibleItems[activeItemIndex]?.failed === true;
+  const surfaceFailure = hasFailures;
 
   return (
     <Collapsible
@@ -232,17 +236,27 @@ function AgentLogCardContent({
       onOpenChange={setOpen}
       className={cn(
         "mb-3 overflow-hidden rounded-lg border transition-colors",
-        isActive ? "border-primary/35 bg-primary/5" : "border-border bg-muted/30",
+        surfaceFailure
+          ? "border-destructive/35 bg-destructive/5"
+          : isActive
+            ? "border-primary/35 bg-primary/5"
+            : "border-border bg-muted/30",
       )}
     >
       <CollapsibleTrigger className="hover:bg-muted/40 flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors">
         <span
           className={cn(
             "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
-            isActive ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+            surfaceFailure
+              ? "bg-destructive/15 text-destructive"
+              : isActive
+                ? "bg-primary/15 text-primary"
+                : "bg-muted text-muted-foreground",
           )}
         >
-          {isActive ? (
+          {surfaceFailure ? (
+            <AlertTriangle className="h-3.5 w-3.5" aria-label="Ett byggsteg misslyckades" />
+          ) : isActive ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           ) : (
             <Check className="h-3.5 w-3.5" aria-hidden />
@@ -250,7 +264,13 @@ function AgentLogCardContent({
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2 text-xs font-semibold">
-            {isActive ? "Arbetar med din sajt" : `Slutsteg (${items.length})`}
+            {isActive
+              ? activeItemFailed
+                ? "Ett byggsteg misslyckades"
+                : hasFailures
+                  ? "Arbetar vidare efter fel"
+                  : "Arbetar med din sajt"
+              : `Slutsteg (${items.length})${hasFailures ? " · fel" : ""}`}
             {isActive ? (
               <span className="text-muted-foreground font-normal tabular-nums">
                 {elapsedSeconds}s
@@ -264,7 +284,13 @@ function AgentLogCardContent({
             )}
             aria-live="polite"
           >
-            {isActive ? currentLabel : open ? "Dölj detaljer" : "Visa detaljer"}
+            {isActive
+              ? currentLabel
+              : open
+                ? "Dölj detaljer"
+                : hasFailures
+                  ? "Fel upptäcktes — visa detaljer"
+                  : "Visa detaljer"}
           </span>
         </span>
         <ChevronDown
@@ -290,20 +316,22 @@ function AgentLogCardContent({
                   key={`agent-${index}`}
                   className={cn(
                     "flex items-start gap-2 rounded-md px-2 py-1.5 transition-colors",
-                    itemIsActive
-                      ? "bg-primary/10 text-foreground"
-                      : "text-muted-foreground",
+                    item.failed
+                      ? "bg-destructive/10 text-destructive"
+                      : itemIsActive
+                        ? "bg-primary/10 text-foreground"
+                        : "text-muted-foreground",
                   )}
                 >
-                  {itemIsActive ? (
-                    <Loader2
-                      className="text-primary mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin"
-                      aria-hidden
-                    />
-                  ) : item.failed ? (
+                  {item.failed ? (
                     <AlertTriangle
                       className="text-destructive mt-0.5 h-3.5 w-3.5 shrink-0"
                       aria-label="Steget misslyckades"
+                    />
+                  ) : itemIsActive ? (
+                    <Loader2
+                      className="text-primary mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin"
+                      aria-hidden
                     />
                   ) : (
                     <Check
@@ -312,7 +340,11 @@ function AgentLogCardContent({
                     />
                   )}
                   <span className="min-w-0 flex-1">{item.label}</span>
-                  {itemIsActive ? (
+                  {item.failed ? (
+                    <span className="text-destructive shrink-0 text-[10px] font-medium uppercase tracking-wide">
+                      Fel
+                    </span>
+                  ) : itemIsActive ? (
                     <span className="text-primary shrink-0 text-[10px] font-medium uppercase tracking-wide">
                       Pågår
                     </span>

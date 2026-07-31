@@ -44,6 +44,36 @@ describe("MessageList", () => {
     expect(screen.getByText("Pågår")).toBeTruthy();
   });
 
+  it("surfaces a terminal tool error in the live header while the stream continues", () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "assistant_live_error",
+        role: "assistant",
+        content: "",
+        isStreaming: true,
+        uiParts: [
+          {
+            type: "tool:engine-preview",
+            toolName: "Live-preview",
+            toolCallId: "progress:preview",
+            state: "output-error",
+            output: {
+              steps: ["Live-preview kunde inte starta: npm failed"],
+            },
+          },
+        ],
+      },
+    ];
+
+    render(<MessageList chatId="chat_live_error" messages={messages} isStreaming />);
+
+    expect(screen.getByText("Ett byggsteg misslyckades")).toBeTruthy();
+    expect(
+      screen.getAllByText("Live-preview kunde inte starta: npm failed").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Fortsätter med nästa byggsteg.")).toBeNull();
+  });
+
   it("never leaves an older turn active after the user starts a newer generation", () => {
     const messages: ChatMessage[] = [
       { id: "user_old", role: "user", content: "Bygg första versionen." },
