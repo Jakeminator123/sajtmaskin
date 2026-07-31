@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+const PROTECTED_POLICY_PATHS = [
+  "package.json",
+  "package-lock.json",
+  "tsconfig.json",
+  "next.config.mjs",
+  "tailwind.config.ts",
+  ".env.local",
+  "config/.env.production",
+  "certs/server.pem",
+];
+
 import { parseOpenClawMessage } from "./text-field-actions";
 import {
   OPENCLAW_QUICK_EDIT_MAX_OPS,
@@ -124,6 +135,30 @@ describe("parseOpenClawMessage — apply_quick_edit action", () => {
       ops: [{ kind: "delete_file", path: "..\\escape.tsx" }],
     });
     expect(validation.ok).toBe(false);
+  });
+
+  // Policy-stopp (Bugbot): OC-lanen är striktare än serverns guards — struktur-/
+  // beroendefiler (som kodvyn medvetet tillåter) och secrets/lockfiler får
+  // aldrig nå ett godkännandekort från Sajtagenten.
+  it.each(PROTECTED_POLICY_PATHS)("rejects protected policy path %s", (path) => {
+    const raw = {
+      type: "apply_quick_edit",
+      ops: [{ kind: "replace_content", path, content: "x" }],
+    };
+    const validation = validateOpenClawApplyQuickEditAction(raw);
+    expect(validation.ok).toBe(false);
+    if (!validation.ok) {
+      expect(validation.error).toContain("skyddad fil");
+    }
+    expect(parseOpenClawMessage(wrapAction(JSON.stringify(raw))).action).toBeNull();
+  });
+
+  it("still allows ordinary app files next to the policy stop", () => {
+    const validation = validateOpenClawApplyQuickEditAction({
+      type: "apply_quick_edit",
+      ops: [{ kind: "replace_text", path: "app/page.tsx", find: "a", replace: "b" }],
+    });
+    expect(validation.ok).toBe(true);
   });
 
   it("rejects oversized total content across ops", () => {

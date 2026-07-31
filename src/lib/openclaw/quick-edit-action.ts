@@ -15,6 +15,11 @@
  * stale_base_version, base_busy m.fl.) och är alltid sista ordet.
  */
 
+import {
+  isBlockedQuickEditPath,
+  isStructuralQuickEditPath,
+} from "@/lib/gen/quick-edit/guards";
+
 const QUICK_EDIT_ACTION_TYPE = "apply_quick_edit";
 
 /** Hårt tak: max antal ops per föreslagen action. */
@@ -110,6 +115,15 @@ function parseQuickEditOp(value: unknown, index: number): OpenClawQuickEditOp | 
   }
   if (!isOpenClawQuickEditSafePath(rawPath)) {
     return `${position} har ogiltig sökväg "${rawPath}". Sökvägar ska vara relativa och utan "..".`;
+  }
+  // Policy-stopp (Bugbot): OC-lanens kontrakt är STRIKTARE än serverns guards.
+  // Kodvyn tillåter medvetet package.json/tsconfig/*.config.* (användarstyrt,
+  // routas till full restart), men Sajtagentens förslag får aldrig röra
+  // struktur-/beroendefiler — och secrets/lockfiler stoppas alltid. Utan det
+  // här förfiltret skulle ett (t.ex. prompt-injicerat) förslag mot package.json
+  // rendera ett godkännandekort som UI-kontraktet påstår inte kan finnas.
+  if (isBlockedQuickEditPath(rawPath) || isStructuralQuickEditPath(rawPath)) {
+    return `${position} rör en skyddad fil ("${rawPath}") — struktur-/beroende-/secretsfiler får inte ändras via snabbändring. Använd en vanlig follow-up-prompt i stället.`;
   }
 
   if (kind === "replace_content") {
