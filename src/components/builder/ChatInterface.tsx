@@ -20,18 +20,7 @@ import { MediaDrawer } from "@/components/media/media-drawer";
 import { TextUploader } from "@/components/media/text-uploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  ChevronDown,
-  FileText,
-  ImageIcon,
-  Layers,
-  Loader2,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { FileText, ImageIcon, Layers, Loader2, Plus, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -257,7 +246,6 @@ export function ChatInterface({
   previewModes,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
@@ -717,41 +705,22 @@ export function ChatInterface({
             Verktyg
           </p>
           <div className="flex flex-wrap gap-1.5">
-            <Popover open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-                  title="Avancerade verktyg: plan och färgtema"
-                >
-                  <SlidersHorizontal className="size-3" />
-                  Avancerat
-                  <ChevronDown className="size-3 opacity-50" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="start" side="top" className="w-64 p-3">
-                <p className="text-muted-foreground mb-2 text-[11px] font-medium">Avancerat</p>
-                <div className="flex flex-col gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="justify-start"
-                    onClick={() => {
-                      setIsAdvancedOpen(false);
-                      void handlePlanRequest();
-                    }}
-                    disabled={inputDisabled || !input.trim()}
-                    title="Gör en plan eller PRD innan kod"
-                  >
-                    <FileText className="h-4 w-4" />
-                    Plan
-                  </Button>
-                  {/* Tema-väljaren flyttade till Byggval-reglagen i preview-
-                      panelens välkomstläge 2026-07-31 (ägarbeslut). */}
-                </div>
-              </PopoverContent>
-            </Popover>
+            {/* "Avancerat"-popovern togs bort 2026-07-31: efter att
+                temaväljaren flyttade till Byggval-reglagen (ägarbeslut,
+                se preview-panelens välkomstläge) blev popovern en
+                enda-knapps-meny som bara gömde "Plan" bakom ett extra
+                klick. Plan renderas nu som en vanlig verktygsknapp,
+                samma mönster som de andra Verktyg-radsknapparna nedan. */}
+            <button
+              type="button"
+              onClick={() => void handlePlanRequest()}
+              disabled={inputDisabled || !input.trim()}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+              title="Gör en plan eller PRD innan kod"
+            >
+              <FileText className="size-3" />
+              Plan
+            </button>
             {previewModes ? (
               <>
                 <button
