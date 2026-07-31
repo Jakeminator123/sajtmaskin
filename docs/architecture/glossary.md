@@ -8,7 +8,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 |---|---|
 | own-engine | Sajtmaskins egna codegen-flöde för buildern. |
 | Init | Första riktiga genereringen i en chat. Väljer grund. |
-| Byggval | Init-reglagen i preview-panelens välkomstläge (typ av sajt, antal sidor, komplexitet, stil, färgläge). UI-copy på svenska; kodidentifierare engelska (`InitBuildChoices`, `PreviewPanelInitControls`). Nivå 1: valen skrivs som ett eget prompt-stycke via keyed prefill och tolkas av befintliga heuristiker (sidantal-regex, scaffold-/variant-keywords, colorMode-boost) — ingen ny strukturerad kanal. |
+| Byggval | Init-reglagen i preview-panelens välkomstläge (typ av sajt, antal sidor max 3, komplexitet, stil, ton, tema, färgläge). UI-copy på svenska; kodidentifierare engelska (`InitBuildChoices`, `PreviewPanelInitControls`). Helt strukturerad wiring — skriver ALDRIG i chattens input: sajttyp → `meta.scaffoldMode/scaffoldId`, sidantal → `meta.pageCountHint` (route-planen föredrar den framför sidantal-regexen), stil/färgläge → `meta.styleKeywordsHint` (variantmatchning), komplexitet/färgläge/ton → svenska direktiv i custom-instructions-kanalen (`body.system`), tema → befintliga `designTheme`/`themeColors` (flyttad från Avancerat 2026-07-31). Init-only — follow-ups fryser scaffold/variant/routes som vanligt. |
 | Follow-up | Delta på befintlig version. Ska bevara grund om inte användaren ändrar den. |
 | Deep Brief | Init-brief: strukturerad sajtbrief före orkestrering. |
 | Snapshot-Brief | Kompakt follow-up-brief från tidigare orchestration snapshot. |

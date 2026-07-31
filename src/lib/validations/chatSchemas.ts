@@ -46,6 +46,10 @@ const promptMetaSchema = z
     promptSourceKind: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     promptSourceTechnical: z.boolean().optional(),
     promptSourcePreservePayload: z.boolean().optional(),
+    /** Byggval (init controls): structured page-count hint for the route plan. */
+    pageCountHint: z.number().int().min(1).max(20).optional(),
+    /** Byggval (init controls): structured style keywords for variant matching. */
+    styleKeywordsHint: z.array(z.string().trim().min(1).max(40)).max(8).optional(),
   })
   .partial()
   .passthrough();

@@ -115,6 +115,10 @@ export type CreateChatKeyJobFields = {
   promptAssistDeep?: boolean;
   /** Serialized palette / theme snapshot (caller passes stable JSON-able value). */
   paletteState?: unknown;
+  /** Byggval: structured page-count hint — distinct hints are distinct jobs. */
+  pageCountHint?: number | null;
+  /** Byggval: structured style keywords — distinct hints are distinct jobs. */
+  styleKeywordsHint?: string[] | null;
 };
 
 function stablePaletteFingerprint(paletteState: unknown): string {
@@ -163,6 +167,8 @@ export function buildCreateChatKey(
     `promptAssistModel:${job?.promptAssistModel ?? ""}`,
     `promptAssistDeep:${job?.promptAssistDeep ? "1" : "0"}`,
     `palette:${stablePaletteFingerprint(job?.paletteState)}`,
+    `pageCountHint:${job?.pageCountHint ?? ""}`,
+    `styleKeywordsHint:${(job?.styleKeywordsHint ?? []).join("|")}`,
   ].join("::");
   return hashString(fingerprint);
 }

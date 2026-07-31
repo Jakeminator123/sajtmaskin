@@ -180,6 +180,9 @@ function composerDropStatusLabel(
 export function PreviewPanel({
   chatId,
   versionId,
+  designTheme,
+  onDesignThemeChange,
+  themeLocked = false,
   previewUrl,
   onNavigatePreviewUrl,
   isLoading: externalLoading = false,
@@ -1407,6 +1410,9 @@ export function PreviewPanel({
       <PreviewPanelEmptyState
         chatId={chatId}
         versionId={versionId}
+        designTheme={designTheme}
+        onDesignThemeChange={onDesignThemeChange}
+        themeLocked={themeLocked}
         versionlessAborted={versionlessAborted}
         onRestartGeneration={onRestartGeneration}
         externalLoading={externalLoading}

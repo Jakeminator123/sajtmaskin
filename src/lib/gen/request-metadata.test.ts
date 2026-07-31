@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildUserPromptContent,
+  extractPageCountHintFromMeta,
+  extractStyleKeywordsHintFromMeta,
   isVideoRequestAttachment,
   normalizeRequestAttachments,
   type RequestAttachment,
@@ -98,5 +100,39 @@ describe("buildUserPromptContent — attached media", () => {
     expect(normalized).toHaveLength(1);
     expect(normalized[0].url).toBe(`${BLOB}/a.jpg`);
     expect(normalized[0].size).toBe(1234);
+  });
+});
+
+describe("extractPageCountHintFromMeta (Byggval)", () => {
+  it("accepts integers in the 1–20 range", () => {
+    expect(extractPageCountHintFromMeta({ pageCountHint: 3 })).toBe(3);
+    expect(extractPageCountHintFromMeta({ pageCountHint: 1 })).toBe(1);
+    expect(extractPageCountHintFromMeta({ pageCountHint: 20 })).toBe(20);
+  });
+
+  it("rejects out-of-range, non-integer and malformed values", () => {
+    expect(extractPageCountHintFromMeta({ pageCountHint: 0 })).toBeNull();
+    expect(extractPageCountHintFromMeta({ pageCountHint: 21 })).toBeNull();
+    expect(extractPageCountHintFromMeta({ pageCountHint: 2.5 })).toBeNull();
+    expect(extractPageCountHintFromMeta({ pageCountHint: "3" })).toBeNull();
+    expect(extractPageCountHintFromMeta({})).toBeNull();
+    expect(extractPageCountHintFromMeta(null)).toBeNull();
+  });
+});
+
+describe("extractStyleKeywordsHintFromMeta (Byggval)", () => {
+  it("trims, dedupes case-insensitively and caps at 8", () => {
+    expect(
+      extractStyleKeywordsHintFromMeta({
+        styleKeywordsHint: [" warm ", "Warm", "lokal", 42, "", "a".repeat(41)],
+      }),
+    ).toEqual(["warm", "lokal"]);
+    const many = Array.from({ length: 12 }, (_, i) => `kw${i}`);
+    expect(extractStyleKeywordsHintFromMeta({ styleKeywordsHint: many })).toHaveLength(8);
+  });
+
+  it("returns empty array for malformed meta", () => {
+    expect(extractStyleKeywordsHintFromMeta({ styleKeywordsHint: "warm" })).toEqual([]);
+    expect(extractStyleKeywordsHintFromMeta(null)).toEqual([]);
   });
 });
