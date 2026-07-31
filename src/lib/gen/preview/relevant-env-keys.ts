@@ -103,6 +103,25 @@ const IMPLICIT_ENV_KEY_RULES: readonly ImplicitEnvKeyRule[] = [
     pattern: /@supabase\//,
     keys: ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"],
   },
+  {
+    // `new OpenAI()` reads OPENAI_API_KEY internally and THROWS at
+    // construction when it is missing — module-scope clients crash the boot.
+    pattern: /["']openai["']/,
+    keys: ["OPENAI_API_KEY"],
+  },
+  {
+    // `new Resend()` falls back to RESEND_API_KEY and throws when absent.
+    pattern: /["']resend["']/,
+    keys: ["RESEND_API_KEY"],
+  },
+  {
+    // stripe-node requires an explicit key argument (usually written as
+    // `process.env.STRIPE_SECRET_KEY`, which the name scan catches), but the
+    // stubs are kept whenever the SDK is present as a cheap crash guard for
+    // indirect key plumbing the scan cannot see.
+    pattern: /(?:["']stripe["']|@stripe\/)/,
+    keys: ["STRIPE_SECRET_KEY", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
+  },
 ];
 
 /**

@@ -70,6 +70,24 @@ describe("collectRelevantPreviewEnvKeys", () => {
     expect(keep.has("REDIS_URL")).toBe(true);
   });
 
+  it("keeps stubs for SDKs that read their key internally at construction", () => {
+    const keep = collectRelevantPreviewEnvKeys({
+      files: [
+        { name: "lib/ai.ts", content: 'import OpenAI from "openai";\nconst ai = new OpenAI();' },
+        {
+          name: "package.json",
+          content: '{ "dependencies": { "resend": "^4.0.0", "stripe": "^16.0.0" } }',
+        },
+      ],
+      catalogKeys: [...CATALOG],
+    });
+    expect(keep.has("OPENAI_API_KEY")).toBe(true);
+    expect(keep.has("RESEND_API_KEY")).toBe(true);
+    expect(keep.has("STRIPE_SECRET_KEY")).toBe(true);
+    expect(keep.has("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY")).toBe(true);
+    expect(keep.has("MONGODB_URI")).toBe(false);
+  });
+
   it("detects next-auth via import specifier (AUTH_SECRET is read internally)", () => {
     const keep = collectRelevantPreviewEnvKeys({
       files: [
