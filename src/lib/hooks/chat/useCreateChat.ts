@@ -117,8 +117,9 @@ export function useCreateChat(
       // explicit override > header-manual > Byggval > auto.
       const activeInitChoices = getCurrentInitBuildChoices();
       const initChoicesMeta = buildInitBuildChoicesMeta(activeInitChoices);
-      // Komplexitet/färgläge/ton saknar dedikerade pipeline-fält och åker
-      // som svenska direktiv i custom-instructions-kanalen (body.system →
+      // Komplexitet går strukturerat (meta.complexityHint → BuildSpec) OCH
+      // som sektionsdirektiv; färgläge/ton saknar pipeline-fält och åker som
+      // svenska direktiv i custom-instructions-kanalen (body.system →
       // customInstructions → dynamic context) — aldrig i chattens input.
       // Medveten bieffekt: ett aktivt val räknas som custom system prompt
       // och stänger av simple-website-fastlanen (klassificeraren läser
@@ -471,6 +472,9 @@ export function useCreateChat(
         }
         if (initChoicesMeta.styleKeywordsHint?.length) {
           promptMeta.styleKeywordsHint = initChoicesMeta.styleKeywordsHint;
+        }
+        if (initChoicesMeta.complexityHint) {
+          promptMeta.complexityHint = initChoicesMeta.complexityHint;
         }
         if (options.planMode) promptMeta.planMode = true;
         if (options.promptSourceMeta) {

@@ -10,10 +10,12 @@
  *   prompt-text regex (`detectExplicitPageCount`).
  * - Style / color mode → `meta.styleKeywordsHint` into scaffold-variant
  *   matching (keyword + embedding).
+ * - Complexity → `meta.complexityHint` into `deriveBuildSpec` (`complex`
+ *   floors qualityTarget at premium + heavy context-bias; `simple` biases
+ *   context lighter) AND a Swedish section-count directive (below).
  * - Complexity / color mode / tone → Swedish LLM directives appended to the
  *   custom-instructions channel (`body.system` → `customInstructions` →
- *   dynamic context). No dedicated pipeline field exists for these yet;
- *   the channel is structured (never touches the visible chat input).
+ *   dynamic context) — structured, never touches the visible chat input.
  *
  * The theme preset control (färgpreset) is NOT part of this module — it
  * reuses the existing `designTheme`/`themeColors` shell state directly.
@@ -100,6 +102,8 @@ export interface InitBuildChoicesMeta {
   scaffoldId?: string;
   pageCountHint?: number;
   styleKeywordsHint?: string[];
+  /** Mirrors `BuildSpecComplexityHint` on the server. */
+  complexityHint?: "simple" | "medium" | "complex";
 }
 
 /** Structured request-meta signals for the current choices ({} when all auto). */
@@ -117,6 +121,9 @@ export function buildInitBuildChoicesMeta(choices: InitBuildChoices): InitBuildC
   ];
   if (styleKeywords.length > 0) {
     meta.styleKeywordsHint = styleKeywords;
+  }
+  if (choices.complexity !== "auto") {
+    meta.complexityHint = choices.complexity;
   }
   return meta;
 }
@@ -139,10 +146,11 @@ const TONE_DIRECTIVES: Record<Exclude<ToneChoice, "auto">, string> = {
 };
 
 /**
- * LLM directives for the choices that lack a dedicated structured pipeline
- * field (complexity, color mode, tone). Appended to the custom-instructions
- * channel by `useCreateChat` — never written into the visible chat input.
- * Returns "" when none of these choices is active.
+ * Swedish LLM directives complementing the structured signals: complexity
+ * carries the section-count language the LLM needs (BuildSpec only carries
+ * budgets/quality), color mode and tone lack pipeline fields entirely.
+ * Appended to the custom-instructions channel by `useCreateChat` — never
+ * written into the visible chat input. Returns "" when none is active.
  */
 export function buildInitBuildChoicesInstructions(choices: InitBuildChoices): string {
   const directives: string[] = [];

@@ -547,6 +547,9 @@ export async function resolveOrchestrationBase(
     // model's input context window. Was implemented in build-spec but
     // never wired — 1M-window models silently used 200k-baseline budgets.
     modelContextWindowTokens: getModelContextWindowTokens(input.engineModelId),
+    // Byggval (init controls): strukturerat komplexitetsval → quality-golv
+    // och context-bias i deriveBuildSpec.
+    complexityHint: input.complexityHint ?? null,
   });
   const buildSpec = inheritQualityTargetFromPriorVersion(
     input.chatId,

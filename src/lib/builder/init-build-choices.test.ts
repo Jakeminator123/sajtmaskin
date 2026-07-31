@@ -59,11 +59,16 @@ describe("buildInitBuildChoicesMeta (strukturerade signaler)", () => {
     expect(buildInitBuildChoicesMeta(withChoices({ pageCount: 2 })).styleKeywordsHint).toBeUndefined();
   });
 
-  it("does not leak tone or complexity into the structured meta", () => {
-    // Ton/komplexitet går via custom-instructions-kanalen, inte meta.
+  it("maps complexity to complexityHint but keeps tone out of the meta", () => {
+    // Komplexitet är strukturerad (BuildSpec); ton går enbart via
+    // custom-instructions-kanalen.
     expect(
       buildInitBuildChoicesMeta(withChoices({ tone: "playful", complexity: "complex" })),
-    ).toEqual({});
+    ).toEqual({ complexityHint: "complex" });
+    expect(buildInitBuildChoicesMeta(withChoices({ complexity: "simple" }))).toEqual({
+      complexityHint: "simple",
+    });
+    expect(buildInitBuildChoicesMeta(withChoices({ tone: "warm" }))).toEqual({});
   });
 });
 

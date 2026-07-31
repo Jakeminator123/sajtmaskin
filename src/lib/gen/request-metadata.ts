@@ -305,6 +305,19 @@ export function extractPageCountHintFromMeta(meta: unknown): number | null {
 }
 
 /**
+ * Byggval (init controls): structured complexity choice for BuildSpec
+ * (`complex` → premium-golv + heavy context-bias; `simple` → lättare
+ * context-bias; `medium` → recorded no-op).
+ */
+export function extractComplexityHintFromMeta(
+  meta: unknown,
+): "simple" | "medium" | "complex" | null {
+  if (!isRecord(meta)) return null;
+  const raw = meta.complexityHint;
+  return raw === "simple" || raw === "medium" || raw === "complex" ? raw : null;
+}
+
+/**
  * Byggval (init controls): structured style keywords for scaffold-variant
  * matching. Trimmed, deduped and capped to 8 entries of max 40 chars.
  */

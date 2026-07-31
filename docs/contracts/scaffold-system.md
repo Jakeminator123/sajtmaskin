@@ -145,7 +145,7 @@ Källprioritet: brief pages > scaffold defaults > prompt patterns. Output: `Rout
 Auth, Payment, Database, Env vars, Integrations. Output: `contracts[]`, `unresolvedDecisions[]`, `confirmedAnswers[]`.
 
 ### STEG 7 — Build Spec (`src/lib/gen/build-spec/`)
-`contextPolicy` (`light` / `normal` / `heavy`), `qualityTarget`, `previewPolicy`, `verificationPolicy`, `tokenBudgets.{scaffoldChars, scaffoldTokens}`. Se [llm-pipeline.md](../architecture/llm-pipeline.md) § FAS 2 för token-budget-tabellen.
+`contextPolicy` (`light` / `normal` / `heavy`), `qualityTarget`, `previewPolicy`, `verificationPolicy`, `tokenBudgets.{scaffoldChars, scaffoldTokens}`. Se [llm-pipeline.md](../architecture/llm-pipeline.md) § FAS 2 för token-budget-tabellen. Byggvals `complexityHint` (init-only) deltar: `complex` golvar `qualityTarget` på premium och ger +2 i context-score, `simple` ger −1 (demotar aldrig quality — multipage-/signal-promotions vinner).
 
 ### STEG 8 — Orchestration Contract (`orchestration-contract.ts`)
 Binder scaffold + routes + validering till `OrchestrationContract { scaffoldToRoute, generationToValidate }`.

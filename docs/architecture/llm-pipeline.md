@@ -14,7 +14,8 @@ Målet i Fas 1 är att bygga ett rent underlag till orkestreringen.
 
 - Raw prompt är användarens text.
 - Init kan få Deep Brief och variant pre-match.
-- Follow-up får Snapshot-Brief och tidigare orchestration snapshot.
+- Init kan även bära **Byggval** (init-reglagen i preview-panelens välkomstläge) som strukturerade request-meta-signaler: `scaffoldMode/scaffoldId` (sajttyp), `pageCountHint` (vinner över sidantal-regexen i route-planen), `styleKeywordsHint` (variantmatchning) och `complexityHint` (BuildSpec). Komplexitet/färgläge/ton skickar dessutom svenska direktiv via custom-instructions-kanalen — aldrig via chattens input. Medvetet beslut: ingen global hård sidgräns på servern — reglaget cappar på 3, men explicit prompt-text ("5 sidor") respekteras fortfarande.
+- Follow-up får Snapshot-Brief och tidigare orchestration snapshot. Byggval-hintarna är init-only — follow-up-frysen äger scaffold/variant/routes.
 - Build intent, generation mode, follow-up intent och requested capabilities ska bestämmas innan prompten byggs.
 
 Kodankare:
