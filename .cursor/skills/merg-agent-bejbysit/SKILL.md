@@ -194,9 +194,11 @@ förbjudet. Utan en egen rutt fastnar de för alltid.
 
 Merge-agenten mergar dem därför **inte** på eget initiativ — rapportera dem som
 egen rad i svepet (`#N dependabot — väntar på ägarbeslut`). Har ägaren uttryckligen
-bett dig ta dem: kör `bugbot`-subagenten på diffen, kontrollera att `quality` är
-grön (den fångar baseline-pinnade paket) och signera med
-`bugkoll: bugbot (dependabot, ingen författaragent — ägaren delegerade)`.
+bett dig ta dem: kör `bugbot`-subagenten på diffen och kontrollera att `quality` är
+grön (den fångar baseline-pinnade paket). Signera sedan som vanligt enligt Steg 4 —
+**hela** `merge:ready`-raden som PR-kommentar först, labeln sedan — med
+`bugkoll: bugbot (dependabot, ingen författaragent — ägaren delegerade)`. Ett löst
+`bugkoll:`-fragment är ingen sign-off och skulle rivas av freshness-grinden.
 
 Labeln `dependabot-patch-safe` betyder bara att workflowen klassat uppdateringen
 som patch + icke-core. Den är metadata, inte ett godkännande.
