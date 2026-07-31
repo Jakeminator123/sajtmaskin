@@ -12,9 +12,10 @@
  *     --limit=50 [--chat=<chatId>]
  *
  * Kinds: prompts, generations, versions, telemetry, llmusage, errors, chats,
- *   oc        -> oc_debug_findings   (OpenClaw bug-hunt Mode B findings)
- *   ragevents -> error_log_events    (durable fault/fix RAG telemetry)
- *   deploys   -> deployments         (Vercel deploy row: ids + url + status)
+ *   oc        -> oc_debug_findings      (OpenClaw bug-hunt Mode B findings)
+ *   ragevents -> error_log_events       (durable fault/fix RAG telemetry)
+ *   deploys   -> deployments            (Vercel deploy row: ids + url + status)
+ *   openai    -> openai_webhook_events  (inbound OpenAI platform webhook receipts)
  *
  * Env source: pass `--env=<path>` to choose which dotenv file to load. For
  * production logs, pull the prod env first:
@@ -186,6 +187,17 @@ const KIND_SPECS = {
       "id", "chat_id", "version_id", "vercel_deployment_id", "vercel_project_id",
       "inspector_url", "url", "domain", "status", "created_at", "updated_at",
     ],
+  },
+  openai: {
+    table: "openai_webhook_events",
+    // OpenAI events carry no chatId — correlation goes via object_id
+    // (resp_…/batch_…) once a caller runs jobs in background mode.
+    chatColumn: null,
+    columns: [
+      "id", "event_id", "event_type", "object_id", "event_created_at",
+      "payload", "created_at",
+    ],
+    sanitizeRow: (row) => ({ ...row, payload: truncateMetaStrings(row.payload) }),
   },
 };
 

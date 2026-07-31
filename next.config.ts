@@ -115,6 +115,17 @@ const nextConfig: NextConfig = {
         source: "/placeholder.svg",
         destination: "/api/placeholder",
       },
+      // OpenAI platform webhooks: the endpoint URL registered in the OpenAI
+      // dashboard aliases the canonical API route. Both spellings are kept —
+      // the original registration used "recevie".
+      {
+        source: "/recevie-openai-webhook",
+        destination: "/api/webhooks/openai",
+      },
+      {
+        source: "/receive-openai-webhook",
+        destination: "/api/webhooks/openai",
+      },
     ];
   },
   // Cross-Origin Isolation headers required for WebContainer (SharedArrayBuffer)

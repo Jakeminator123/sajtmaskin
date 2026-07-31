@@ -691,6 +691,7 @@ const ALL_TABLES = [
   "error_log_events",
   "oc_debug_findings",
   "llm_usage",
+  "openai_webhook_events",
 ];
 
 async function applySqlMigrations() {
