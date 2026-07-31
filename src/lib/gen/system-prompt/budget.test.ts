@@ -33,6 +33,27 @@ describe("splitContextIntoBudgetBlocks — AI SDK version contract", () => {
   });
 });
 
+// Only `required` blocks are truncated under token pressure — everything else is
+// dropped whole. These three carried the locked design direction, the user's
+// explicit must-haves, and the one-owner-per-capability rule, yet were all
+// droppable (the latter two sat at the default priority 60, i.e. first in line).
+describe("splitContextIntoBudgetBlocks — brief and variant guardrails survive pruning", () => {
+  it.each([
+    ["## Scaffold Variant (this generation)\n\n- Tokens: dark", "scaffold variant (this generation)", 91],
+    ["## Must Have\n\n- Bokningsformulär på startsidan", "must have", 88],
+    [
+      "## Capability Surface Ownership — one owner per capability\n\n- auth → supabase-auth",
+      "capability surface ownership — one owner per capability",
+      87,
+    ],
+  ])("keeps %s required", (context, title, priority) => {
+    const [block] = splitContextIntoBudgetBlocks(context);
+    expect(block?.title.toLowerCase()).toBe(title);
+    expect(block?.required).toBe(true);
+    expect(block?.priority).toBe(priority);
+  });
+});
+
 describe("splitContextIntoBudgetBlocks — F3 build plan", () => {
   it("keeps the file-derived integration plan required under token pressure", () => {
     const [block] = splitContextIntoBudgetBlocks(

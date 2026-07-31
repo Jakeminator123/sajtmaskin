@@ -83,4 +83,68 @@ describe("inferScaffoldRetrySuggestion", () => {
 
     expect(suggestion).toBeNull();
   });
+
+  it("treats auth-pages as an app scaffold (no bogus app-shell-mismatch pivot)", async () => {
+    // `APP_SCAFFOLD_IDS` used to be a hand-maintained set of ids that omitted
+    // auth-pages even though its manifest declares `siteKind: "app"`. An `app`
+    // build that legitimately matched auth-pages was therefore classified as
+    // app-shell-mismatch with confidence "high" and pushed away from the right
+    // scaffold on the first blocking preflight.
+    const authPages = getScaffoldById("auth-pages");
+    expect(authPages?.siteKind).toBe("app");
+
+    const suggestion = await inferScaffoldRetrySuggestion({
+      prompt: "Bygg inloggning, registrering och glömt lösenord för vår app.",
+      buildIntent: "app",
+      resolvedScaffold: authPages!,
+      preflightIssues: [
+        {
+          file: "app/login/page.tsx",
+          severity: "error",
+          message: "Duplicate route file app/login/page.tsx",
+          category: "code_structure_failure",
+        },
+      ],
+      previewBlockingReason: null,
+      finalizedFilesForPreview: [
+        {
+          path: "app/login/page.tsx",
+          language: "tsx",
+          content: "export default function Page() { return <main />; }",
+        },
+      ],
+    });
+
+    expect(suggestion?.failureType).not.toBe("app-shell-mismatch");
+  });
+
+  it("still flags a marketing scaffold as app-shell-mismatch on an app build", async () => {
+    const landing = getScaffoldById("landing-page");
+    expect(landing?.siteKind).not.toBe("app");
+
+    const suggestion = await inferScaffoldRetrySuggestion({
+      prompt: "Bygg ett internt verktyg med tabeller och inställningar.",
+      buildIntent: "app",
+      resolvedScaffold: landing!,
+      preflightIssues: [
+        {
+          file: "app/page.tsx",
+          severity: "error",
+          message: "Duplicate route file app/page.tsx",
+          category: "code_structure_failure",
+        },
+      ],
+      previewBlockingReason: null,
+      finalizedFilesForPreview: [
+        {
+          path: "app/page.tsx",
+          language: "tsx",
+          content: "export default function Page() { return <main />; }",
+        },
+      ],
+    });
+
+    expect(suggestion?.failureType).toBe("app-shell-mismatch");
+    expect(suggestion?.suggestedScaffoldId).toBe("app-shell");
+  });
 });

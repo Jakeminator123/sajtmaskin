@@ -54,6 +54,12 @@ export async function finalizeOrchestrationPrompts(
   // och låser till `persistedVariantId`. Om en framtida caller skickar in
   // `clear-redesign` släpper helpern loss matchern så att en ny stilriktning
   // kan väljas.
+  // Samma unlock-signal som scaffold-sidan: `clear-redesign` ELLER
+  // `ignorePersistedScaffoldForMatch` (supplement-mönstren, t.ex.
+  // "gör om hela sajten").
+  const variantLockReleased =
+    resolvedMode === "followUp" &&
+    (input.followUpIntent === "clear-redesign" || input.ignorePersistedScaffoldForMatch === true);
   const lockedVariant =
     resolvedMode === "followUp"
       ? lockedVariantForFollowUp({
@@ -61,11 +67,16 @@ export async function finalizeOrchestrationPrompts(
           intent: input.followUpIntent ?? "neutral",
           scaffoldId: scaffoldIdForVariant,
           priorVariantId: input.persistedVariantId,
+          scaffoldUnlocked: input.ignorePersistedScaffoldForMatch === true,
         })
       : null;
+  // Utan `!variantLockReleased` band den här fallbacken omedelbart tillbaka den
+  // gamla varianten som låset just släppte — en redesign fick alltså rematchad
+  // scaffold men identisk stil. Fallbacken finns kvar för init-vägen (variant
+  // redan vald och persistad före första codegen).
   const persistedVariant =
     lockedVariant ??
-    (input.persistedVariantId && scaffoldIdForVariant
+    (!variantLockReleased && input.persistedVariantId && scaffoldIdForVariant
       ? getVariantById(scaffoldIdForVariant, input.persistedVariantId)
       : null);
   let resolvedVariant =
@@ -86,6 +97,7 @@ export async function finalizeOrchestrationPrompts(
   const variantFreeze = enforceFollowUpVariantFreeze({
     resolvedMode,
     followUpIntent: input.followUpIntent,
+    ignorePersistedScaffoldForMatch: input.ignorePersistedScaffoldForMatch === true,
     contractVariantId: input.followUpContract?.variantId ?? null,
     resolvedVariantId: resolvedVariant?.id ?? null,
   });

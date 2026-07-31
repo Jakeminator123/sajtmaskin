@@ -124,4 +124,32 @@ describe("lockedVariantForFollowUp (P22)", () => {
     });
     expect(result).toBeNull();
   });
+
+  it("releases the lock when the scaffold was unlocked for rematch, even on neutral intent", () => {
+    // "gör om hela sajten" unlocks the scaffold via the supplement patterns in
+    // follow-up-clarification.ts while the intent classifier still says
+    // `neutral`. Keeping the variant locked there gave the user a rematched
+    // scaffold rendered in the exact style they asked to replace.
+    if (!priorVariantId) throw new Error("No landing-page variants registered");
+    const result = lockedVariantForFollowUp({
+      chatId: "chat-x",
+      intent: "neutral",
+      scaffoldId: "landing-page",
+      priorVariantId,
+      scaffoldUnlocked: true,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("keeps the lock when the scaffold is NOT unlocked (default)", () => {
+    if (!priorVariantId) throw new Error("No landing-page variants registered");
+    const result = lockedVariantForFollowUp({
+      chatId: "chat-x",
+      intent: "neutral",
+      scaffoldId: "landing-page",
+      priorVariantId,
+      scaffoldUnlocked: false,
+    });
+    expect(result?.id).toBe(priorVariantId);
+  });
 });
