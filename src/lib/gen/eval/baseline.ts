@@ -1,5 +1,13 @@
 import type { EvalReport } from "./runner";
 
+/**
+ * `blockingChecks` and the two blocking `summary` fields are **optional on
+ * purpose**: they were introduced 2026-04-03 and a baseline saved before that
+ * does not have them. `loadBaseline` casts parsed JSON without validating, so
+ * declaring them required made the type lie about what is on disk — and the
+ * comparison below then read `undefined` through a `?? []` and reported every
+ * current blocker as newly added. See `baselineTracksBlockingChecks`.
+ */
 export type EvalBaseline = {
   timestamp: string;
   model: string;
@@ -7,7 +15,7 @@ export type EvalBaseline = {
     promptId: string;
     totalScore: number;
     passed: boolean;
-    blockingChecks: string[];
+    blockingChecks?: string[];
     fileCount: number;
     generationTimeMs: number;
   }>;
@@ -16,10 +24,23 @@ export type EvalBaseline = {
     passed: number;
     avgScore: number;
     avgTimeMs: number;
-    blockingFailures: number;
-    blockingCheckCounts: Record<string, number>;
+    blockingFailures?: number;
+    blockingCheckCounts?: Record<string, number>;
   };
 };
+
+/**
+ * Did the run that produced this baseline record blocking checks at all?
+ *
+ * A legacy baseline cannot answer "which blockers are new", so the honest
+ * output is "unknown" rather than a diff against an empty set. Without this
+ * distinction a stale baseline manufactures a full page of "New Blocking
+ * Checks" on every run, which is exactly how the 2026-03-18 baseline made an
+ * invalid-API-key run look like a 15-scenario quality collapse.
+ */
+export function baselineTracksBlockingChecks(baseline: EvalBaseline): boolean {
+  return baseline.results.some((result) => Array.isArray(result.blockingChecks));
+}
 
 export async function saveBaseline(report: EvalReport): Promise<void> {
   const fs = await import("fs/promises");
@@ -87,11 +108,18 @@ export function compareWithBaseline(
     promptId: string;
     removed: string[];
   }>;
+  /**
+   * `"unavailable-legacy-baseline"` means the baseline predates blocking-check
+   * tracking, so the two blocking arrays above are empty because the answer is
+   * unknown — not because nothing changed.
+   */
+  blockingCheckComparison: "available" | "unavailable-legacy-baseline";
   overallDelta: number;
   gateResult: "pass" | "fail" | "warning";
 } {
   const baselineByPrompt = new Map(baseline.results.map((r) => [r.promptId, r]));
   const currentByPrompt = new Map(report.results.map((r) => [r.promptId, r]));
+  const tracksBlockingChecks = baselineTracksBlockingChecks(baseline);
 
   const regressions: Array<{
     promptId: string;
@@ -159,6 +187,11 @@ export function compareWithBaseline(
       });
     }
 
+    // Skip entirely on a legacy baseline: diffing against a missing field
+    // would report every current blocker as added. Score and PASS/FAIL deltas
+    // above stay intact — those ARE comparable across baseline versions.
+    if (!tracksBlockingChecks) continue;
+
     const baselineBlocking = new Set(baselineResult.blockingChecks ?? []);
     const currentBlocking = new Set(current.blockingChecks ?? []);
     const added = [...currentBlocking].filter((check) => !baselineBlocking.has(check));
@@ -197,6 +230,9 @@ export function compareWithBaseline(
     passImprovements,
     blockingCheckRegressions,
     blockingCheckImprovements,
+    blockingCheckComparison: tracksBlockingChecks
+      ? "available"
+      : "unavailable-legacy-baseline",
     overallDelta,
     gateResult,
   };
