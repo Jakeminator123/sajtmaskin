@@ -817,6 +817,126 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   );
 }
 
+// Disk budget: package caches must live on the mounted volume, and a disk-full
+// install must be recognised as such. Before this, npm cached into the Fly
+// rootfs (`/root/.npm`) — a layer no cleanup path reclaims — and filled it to 0
+// bytes free, after which every preview boot died with ENOSPC while `/data`
+// still had 17 GB free (2026-07-31).
+{
+  const { isNoSpaceInstallFailure, sanitizedEnv, PACKAGE_CACHE_DIR, NPM_CACHE_DIR } =
+    runtime.__testing;
+
+  check(
+    "package cache dir is inside the data volume",
+    PACKAGE_CACHE_DIR.startsWith(dataDir),
+  );
+
+  // Each key below is the one its tool actually reads. Getting the NAME wrong
+  // fails silently — the tool just keeps using its rootfs default — so these
+  // assertions are the only thing standing between a typo and a wedged VM.
+  // `PNPM_STORE_DIR` (no CONFIG) and a bare `YARN_CACHE_FOLDER` were exactly
+  // that mistake: pnpm reads PNPM_CONFIG_*, and Yarn Berry's default global
+  // cache overrides cacheFolder entirely.
+  const env = sanitizedEnv();
+  check("npm cache env points at the volume", env.NPM_CONFIG_CACHE === NPM_CACHE_DIR);
+  check(
+    "pnpm store env uses the PNPM_CONFIG_ prefix pnpm actually reads",
+    String(env.PNPM_CONFIG_STORE_DIR).startsWith(dataDir),
+  );
+  check("yarn classic cache env points at the volume", String(env.YARN_CACHE_FOLDER).startsWith(dataDir));
+  check(
+    "yarn berry global folder points at the volume",
+    String(env.YARN_GLOBAL_FOLDER).startsWith(dataDir),
+  );
+  check("corepack home points at the volume", String(env.COREPACK_HOME).startsWith(dataDir));
+  check("XDG data home points at the volume", String(env.XDG_DATA_HOME).startsWith(dataDir));
+  check("XDG cache home points at the volume", String(env.XDG_CACHE_HOME).startsWith(dataDir));
+  check(
+    "no cache env var still points at the rootfs home",
+    !Object.entries(env)
+      .filter(([key]) => /CACHE|STORE_DIR|COREPACK|XDG/.test(key))
+      .some(([, value]) => /^\/root\//.test(String(value))),
+  );
+
+  check(
+    "npm ENOSPC output is recognised as disk-full",
+    isNoSpaceInstallFailure("npm error code ENOSPC\nnpm error syscall write"),
+  );
+  check(
+    "plain-text no-space message is recognised",
+    isNoSpaceInstallFailure("Error: no space left on device"),
+  );
+  check(
+    "an ordinary dependency failure is NOT disk-full",
+    !isNoSpaceInstallFailure("npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve"),
+  );
+  check("empty output is NOT disk-full", !isNoSpaceInstallFailure(""));
+
+  // Forced purge must empty the cache tree but leave the directories usable.
+  mkdirSync(join(NPM_CACHE_DIR, "_cacache"), { recursive: true });
+  writeFileSync(join(NPM_CACHE_DIR, "_cacache", "blob.bin"), "x".repeat(2048));
+  const purge = await runtime.cleanupPackageCaches({ force: true });
+  check("forced purge reports the reclaimed size", purge.cacheBytesBefore >= 2048);
+  check("forced purge removed the cached blob", !existsSync(join(NPM_CACHE_DIR, "_cacache", "blob.bin")));
+  check("forced purge recreated the cache dir", existsSync(NPM_CACHE_DIR));
+
+  // A small cache is under budget and must be kept warm.
+  writeFileSync(join(NPM_CACHE_DIR, "small.bin"), "y".repeat(64));
+  const keep = await runtime.cleanupPackageCaches();
+  check("cache under budget is not purged", keep.purgedCache === false);
+  check("cache under budget survives cleanup", existsSync(join(NPM_CACHE_DIR, "small.bin")));
+
+  // Storage reporting must surface the cache so a full disk is diagnosable
+  // from `GET /admin/storage` instead of requiring `fly ssh`.
+  const described = await runtime.describePackageCacheStorage();
+  check("storage report includes the cache dir", described.dir === PACKAGE_CACHE_DIR);
+  check("storage report includes a byte count", Number.isFinite(described.bytes));
+  const reused = await runtime.describePackageCacheStorage({ knownBytes: 4242 });
+  check("storage report can reuse an already-measured size", reused.bytes === 4242);
+
+  // The size walk is async by construction (`fsp.readdir` / `fsp.lstat`). A
+  // timer-based "did the event loop tick" assertion is flaky: on a fast CI
+  // host a one-file tree completes as a chain of already-resolved microtasks
+  // before a 1 ms interval ever fires, even though the walk never blocked.
+  // Assert the contract we can actually observe — it returns a Promise and a
+  // correct byte count — and leave the non-blocking property to code review
+  // of the `await fsp.*` body.
+  writeFileSync(join(NPM_CACHE_DIR, "loop.bin"), "z".repeat(1024));
+  const measuredPromise = runtime.directorySizeBytes(PACKAGE_CACHE_DIR);
+  check(
+    "directory size walk returns a Promise",
+    typeof measuredPromise?.then === "function",
+  );
+  const measured = await measuredPromise;
+  check("directory size walk returns a byte count", measured >= 1024);
+
+  // A purge requested from outside an install (background sweep, admin
+  // endpoint) must take the install slot, or it can `rm -rf` the cache out from
+  // under an in-flight `npm install` and fail it with a bogus ENOENT.
+  const { runInInstallSlot } = runtime.__testing;
+  const order = [];
+  const slowInstall = runInInstallSlot(async () => {
+    order.push("install:start");
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    order.push("install:end");
+  });
+  const purgeDuringInstall = runtime.cleanupPackageCaches({ force: true }).then(() => {
+    order.push("purge");
+  });
+  await Promise.all([slowInstall, purgeDuringInstall]);
+  check(
+    "external cache purge waits for the in-flight install",
+    order.join(",") === "install:start,install:end,purge",
+  );
+
+  // ...while the ENOSPC path inside an install purges WITHOUT the slot, since
+  // it already holds it. Queuing there would deadlock the whole VM.
+  const inSlot = await runInInstallSlot(async () =>
+    runtime.__testing.cleanupPackageCachesUnqueued({ force: true }),
+  );
+  check("in-slot purge completes without deadlocking", inSlot.purgedCache === true);
+}
+
 rmSync(dataDir, { recursive: true, force: true });
 
 if (failures > 0) {

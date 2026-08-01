@@ -345,7 +345,12 @@ function BrowseCard({
       }
     >
       <div className="flex aspect-video items-center justify-center overflow-hidden bg-zinc-900/80">
-        <RegistryItemThumb src={thumb} alt={item.title} />
+        <RegistryItemThumb
+          src={thumb}
+          alt={item.title}
+          previewKind={item.previewKind}
+          iconKey={item.iconKey}
+        />
       </div>
       <div className="space-y-0.5 px-2 py-1.5">
         <div className="truncate text-[11px] font-medium text-violet-100">{item.title}</div>
@@ -431,7 +436,13 @@ function BrowseDetailView({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <div className="mb-3 flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-violet-900/50 bg-zinc-900/80">
-          <RegistryItemThumb src={thumb} alt={item.title} fallbackLabel="Ingen förhandsbild" />
+          <RegistryItemThumb
+            src={thumb}
+            alt={item.title}
+            fallbackLabel="Ingen förhandsbild"
+            previewKind={item.previewKind}
+            iconKey={item.iconKey}
+          />
         </div>
         <h3 className="text-sm font-semibold text-violet-100">{item.title}</h3>
         <p className="mt-0.5 font-mono text-[10px] text-zinc-500">{item.name}</p>
