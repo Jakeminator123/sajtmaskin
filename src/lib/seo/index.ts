@@ -120,7 +120,12 @@ export async function runSeoPublishPass(
     let llmSkippedReason: string | null = null;
 
     if (options.copyModelId) {
-      const copy = await improveSeoCopyWithLlm(working, before, {
+      // Re-audit first: the deterministic step can fill a missing title or
+      // description from the brand, and driving the copy pass off the stale
+      // `before` audit would spend a model call rewriting a field that is
+      // already correct — and overwrite what the brand just supplied.
+      const afterDeterministic = auditProjectSeo(toAuditFiles(working));
+      const copy = await improveSeoCopyWithLlm(working, afterDeterministic, {
         modelId: options.copyModelId,
         brand: options.brand,
         language: options.language,

@@ -135,24 +135,38 @@ export function applyDeterministicSeoImprovements(
   //    uses. Relocating beats teaching the injector about roots: it keeps one
   //    owner for the templates.
   const appRoot = resolveAppRoot(working);
+  const existingPaths = new Set(working.map((f) => f.name));
   const injected = applySeoToProjectFiles(working, {
     siteUrl: options.siteUrl,
     brand: options.brand,
   });
   const relocate = (path: string) =>
     appRoot === "src/app" && path.startsWith("app/") ? `src/${path}` : path;
+  // The injector decides "already present?" on the `app/…` key alone, so a
+  // project holding `src/app/robots.ts` looks empty to it and it injects
+  // `app/robots.ts`. Relocating that to `src/app/robots.ts` would then put TWO
+  // entries with the same name in the deploy payload — including the one step
+  // 1 just rewrote — and nothing downstream dedupes them, so which content
+  // ships is undefined. Drop the injected copy: the project's own file stays
+  // the single owner of the path.
+  const collided = new Set(
+    injected.injected.filter((path) => relocate(path) !== path && existingPaths.has(relocate(path))),
+  );
   working = injected.applied
-    ? injected.files.map((file) =>
-        injected.injected.includes(file.name)
-          ? { name: relocate(file.name), content: file.content }
-          : file,
-      )
+    ? injected.files
+        .filter((file) => !collided.has(file.name))
+        .map((file) =>
+          injected.injected.includes(file.name)
+            ? { name: relocate(file.name), content: file.content }
+            : file,
+        )
     : working;
 
   for (const path of injected.injected) {
     // A rewritten placeholder is already reported above; reporting it again as
-    // "added" would double-count one change.
-    if (placeholderPaths.has(path)) continue;
+    // "added" would double-count one change. A dropped collision was never
+    // added at all.
+    if (placeholderPaths.has(path) || collided.has(path)) continue;
     const findingId =
       path.includes("robots") ? "missing-robots" : path.includes("sitemap") ? "missing-sitemap" : "missing-open-graph";
     improvements.push({

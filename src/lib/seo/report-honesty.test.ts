@@ -11,7 +11,7 @@
 import { describe, expect, it } from "vitest";
 
 import { auditProjectSeo } from "./audit";
-import { dropUnresolvedImprovements } from "./index";
+import { dropUnresolvedImprovements, runSeoPublishPass } from "./index";
 import type { SeoFindingId, SeoImprovement } from "./types";
 
 function improvement(findingId: SeoFindingId, file: string): SeoImprovement {
@@ -106,6 +106,39 @@ describe("h1 genom komponenter", () => {
     ]);
     expect(findings).toHaveLength(1);
     expect(findings[0].file).toBe("app/page.tsx");
+  });
+});
+
+describe("src/app-projekt får inte dubbla metadata-rutter", () => {
+  it("injicerar ingen andra robots när projektet redan har en under src/app", async () => {
+    // Injektorn avgör "finns redan?" på nyckeln `app/robots.ts` och ser därför
+    // inte `src/app/robots.ts`. Utan spärren hamnade båda i deploy-nyttolasten
+    // med samma namn, och ingenting nedströms deduplicerar.
+    const files = [
+      {
+        name: "src/app/layout.tsx",
+        content:
+          'export const metadata = { title: "En tillräckligt lång sidtitel här", description: "En beskrivning som är lagom lång för att passera granskningens minimikrav på tecken." };\nexport default function L() { return <html><body /></html>; }',
+      },
+      { name: "src/app/page.tsx", content: "<h1>Hej</h1>" },
+      {
+        name: "src/app/robots.ts",
+        content:
+          'const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://example.com";\nexport default function robots() { return { rules: { userAgent: "*", allow: "/" }, sitemap: `${siteUrl}/sitemap.xml` }; }',
+      },
+    ];
+
+    const { files: shipped } = await runSeoPublishPass(files, {
+      siteUrl: "https://klippoteket.se",
+    });
+
+    const names = shipped.map((f) => f.name);
+    expect(names.filter((n) => n.endsWith("robots.ts"))).toEqual(["src/app/robots.ts"]);
+    expect(names).not.toContain("app/robots.ts");
+    expect(new Set(names).size).toBe(names.length);
+    // Och den kvarvarande filen är den omskrivna, inte platshållaren.
+    const robots = shipped.find((f) => f.name === "src/app/robots.ts")!;
+    expect(robots.content).not.toContain("https://example.com");
   });
 });
 
