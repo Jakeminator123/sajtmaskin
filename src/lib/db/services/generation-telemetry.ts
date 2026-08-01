@@ -345,12 +345,22 @@ export async function recordPreviewRuntimeOutcomeForVersion(
     // does — no read-check-write window): the subselect is re-evaluated at
     // execution time, so a content rewrite that commits between our pre-read and
     // this UPDATE cannot make a mismatched row the target.
-    const revisionMatchesContent = sql`(
-      ${generationTelemetry.filesRevision} IS NULL
-      OR ${generationTelemetry.filesRevision} = (
+    //
+    // When the caller told us what the VM actually booted we match against THAT
+    // revision (bound as a parameter), not the version's current row: the row
+    // may have advanced to N+1 while the VM still serves N, and a receipt for N
+    // must land on the N row. The subselect stays for the fallback where nobody
+    // told us — then "current content" is the only proxy we have.
+    const contentRevisionExpr =
+      bootedRevision !== null
+        ? sql`${bootedRevision}`
+        : sql`(
         SELECT ${engineVersions.filesRevision} FROM ${engineVersions}
         WHERE ${engineVersions.id} = ${versionId}
-      )
+      )`;
+    const revisionMatchesContent = sql`(
+      ${generationTelemetry.filesRevision} IS NULL
+      OR ${generationTelemetry.filesRevision} = ${contentRevisionExpr}
     )`;
     const targetRowIdForVersion = gateEnabled
       ? sql`(
