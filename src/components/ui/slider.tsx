@@ -11,6 +11,8 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledBy,
   ...props
 }: React.ComponentProps<typeof SliderPrimitive.Root>) {
   const _values = React.useMemo(
@@ -49,10 +51,26 @@ function Slider({
           )}
         />
       </SliderPrimitive.Track>
+      {/* Namnet hör hemma på tummen, inte på roten: Radix sätter
+          `role="slider"` på Thumb, medan Root renderas som en roll-lös
+          `<span>` där ARIA-namn varken exponeras för skärmläsare eller är
+          tillåtet (ARIA 1.2 förbjuder namn på `generic`). Ett `aria-label`
+          som spreadas till Root ger därför axe-felet aria-input-field-name på
+          tummen. Vid flera tummar numreras namnet så de går att skilja åt. */}
       {Array.from({ length: _values.length }, (_, index) => (
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
+          // Nycklarna utelämnas helt när vi saknar namn: Radix sätter egna
+          // Minimum/Maximum-namn på flertumssliders och spreadar sedan våra
+          // props, så ett explicit `undefined` hade rensat dem.
+          {...(ariaLabel
+            ? {
+                "aria-label":
+                  _values.length > 1 ? `${ariaLabel} (${index + 1})` : ariaLabel,
+              }
+            : {})}
+          {...(ariaLabelledBy ? { "aria-labelledby": ariaLabelledBy } : {})}
           className="block size-4 shrink-0 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
         />
       ))}
