@@ -96,6 +96,88 @@ describe("serializeScaffoldForPrompt", () => {
     expect(out).toContain("### FileContract: components/login-form.tsx");
   });
 
+  function nestedRouteScaffold(files: ScaffoldManifest["files"]): ScaffoldManifest {
+    return {
+      id: "blog",
+      label: "Nested route scaffold",
+      description: "A scaffold used to verify nested route ranking.",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: [],
+      files: [
+        { path: "app/layout.tsx", content: "export default function Layout(){ return null; }" },
+        { path: "app/globals.css", content: ".root { color: red; }" },
+        { path: "app/page.tsx", content: "export default function HomePage(){ return null; }" },
+        ...files,
+      ],
+    };
+  }
+
+  it("keeps a nested route page over a generic component when slots run out", () => {
+    const scaffold = nestedRouteScaffold([
+      { path: "app/blog/page.tsx", content: "export default function BlogIndex(){ return null; }" },
+      { path: "components/non-critical.tsx", content: "NON_CRITICAL_PAYLOAD\n".repeat(20) },
+    ]);
+
+    // `light` selects 4 files, so the nested page and the component compete.
+    const out = serializeScaffoldForPrompt(scaffold, "structural", {
+      maxChars: 22_000,
+      contextPolicy: "light",
+    });
+
+    expect(out).toContain("### FileContract: app/blog/page.tsx");
+    expect(out).not.toContain("### FileContract: components/non-critical.tsx");
+    expect(out).not.toContain("NON_CRITICAL_PAYLOAD");
+  });
+
+  it("renders nested route pages before generic components so budget cuts hit components first", () => {
+    const scaffold = nestedRouteScaffold([
+      { path: "app/blog/page.tsx", content: "export default function BlogIndex(){ return null; }" },
+      { path: "components/site-header.tsx", content: "export const SiteHeader = () => null;" },
+    ]);
+
+    const out = serializeScaffoldForPrompt(scaffold, "structural", {
+      maxChars: 22_000,
+      contextPolicy: "normal",
+    });
+
+    const nestedPageIdx = out.indexOf("### FileContract: app/blog/page.tsx");
+    const componentIdx = out.indexOf("### FileContract: components/site-header.tsx");
+    expect(nestedPageIdx).toBeGreaterThan(-1);
+    expect(componentIdx).toBeGreaterThan(-1);
+    expect(nestedPageIdx).toBeLessThan(componentIdx);
+  });
+
+  it("keeps a nested layout over a generic component when slots run out", () => {
+    const scaffold = nestedRouteScaffold([
+      { path: "app/blog/layout.tsx", content: "export default function BlogLayout(){ return null; }" },
+      { path: "components/non-critical.tsx", content: "NON_CRITICAL_PAYLOAD\n".repeat(20) },
+    ]);
+
+    const out = serializeScaffoldForPrompt(scaffold, "structural", {
+      maxChars: 22_000,
+      contextPolicy: "light",
+    });
+
+    expect(out).toContain('```tsx file="app/blog/layout.tsx"');
+    expect(out).not.toContain("NON_CRITICAL_PAYLOAD");
+  });
+
+  it("ranks a static nested route page over a dynamic-segment page", () => {
+    const scaffold = nestedRouteScaffold([
+      { path: "app/blog/page.tsx", content: "export default function BlogIndex(){ return null; }" },
+      { path: "app/blog/[slug]/page.tsx", content: "export default function BlogPost(){ return null; }" },
+    ]);
+
+    const out = serializeScaffoldForPrompt(scaffold, "structural", {
+      maxChars: 22_000,
+      contextPolicy: "light",
+    });
+
+    expect(out).toContain("### FileContract: app/blog/page.tsx");
+    expect(out).not.toContain("### FileContract: app/blog/[slug]/page.tsx");
+  });
+
   it("renders a route-page as excerpt by default and shrinks Critical Scaffold Files", () => {
     const scaffold: ScaffoldManifest = {
       id: "landing-page",

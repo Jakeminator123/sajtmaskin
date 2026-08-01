@@ -77,18 +77,61 @@ describe("PreviewInspectMenu", () => {
     expect((screen.getByRole("menuitem", { name: /Visa i koden/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("visar ingen åtgärd för att ta en bild av ytan efter en rektangelmarkering", () => {
+  // Ägarbeslut Ö10b (2026-07-26) sköt bild-av-ytan och ett test låste fast att
+  // knappen inte fanns. Beslutet är omvänt: ägaren beställde funktionen
+  // uttryckligen 2026-08-01, så testerna nedan låser fast den i stället.
+  it("erbjuder bild av ytan när bildfångst är tillgänglig", () => {
+    const onSendImageToChat = vi.fn();
     render(
       <PreviewInspectRegionMenu
         point={{ x: 200, y: 200 }}
         bounds={bounds}
         labels={["h1 — Rubrik", "p — Brödtext"]}
         onSendToChat={vi.fn()}
+        onSendImageToChat={onSendImageToChat}
         onClose={vi.fn()}
       />,
     );
 
     expect(screen.getByText("2 element markerade")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /bild av ytan/i }));
+    expect(onSendImageToChat).toHaveBeenCalledTimes(1);
+  });
+
+  it("döljer bildåtgärden när inspektorn inte kan ta bilder", () => {
+    // Utan inspektor-backend finns ingen bild att hämta, och en knapp som
+    // alltid failar är sämre än ingen knapp.
+    render(
+      <PreviewInspectRegionMenu
+        point={{ x: 200, y: 200 }}
+        bounds={bounds}
+        labels={["h1 — Rubrik"]}
+        onSendToChat={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
     expect(screen.queryByRole("button", { name: /bild av ytan/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /Skicka elementen/ })).toBeTruthy();
+  });
+
+  it("spärrar bildknappen medan bilden tas, så en dubbelklickning inte ger två fångster", () => {
+    const onSendImageToChat = vi.fn();
+    render(
+      <PreviewInspectRegionMenu
+        point={{ x: 200, y: 200 }}
+        bounds={bounds}
+        labels={["h1 — Rubrik"]}
+        onSendToChat={vi.fn()}
+        onSendImageToChat={onSendImageToChat}
+        imagePending
+        onClose={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: /Tar bild/ }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect(onSendImageToChat).not.toHaveBeenCalled();
   });
 });

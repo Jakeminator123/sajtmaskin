@@ -46,7 +46,7 @@ import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { resolveFinalizePathPolicy } from "./policy";
-import { runAutofixPrePhase, runUrlExpandPhase } from "./pre-phases";
+import { runAutofixPrePhase, runUrlExpandPhase, summarizeAutofixFixers } from "./pre-phases";
 import {
   buildAndPersistPreflightLogs,
   maybeFailVersionVerification,
@@ -380,6 +380,17 @@ export async function finalizeAndSaveVersion(
     repairScopeId,
   });
   contentForVersion = fastPathContent;
+  // Post-merge lane (`repairGeneratedFiles` in finalize-preflight) previously
+  // only reached the ephemeral devLog — invisible in prod telemetry, so a
+  // post-merge fixer that mutated persisted files could not be traced
+  // afterwards (layout-provider-fixer, prod chat e8bd3ba6 2026-08-01). Merge
+  // its per-fixer summary into the durable `meta.autofix.fixers` surface.
+  // Note: `fixCount`/risk counters intentionally stay Normalize-lane-only so
+  // the verifier trigger semantics are unchanged.
+  const allAutoFixFixers = [
+    ...autoFixFixers,
+    ...summarizeAutofixFixers(preflightResult.postMergeFixes ?? []),
+  ];
   const effectiveVerifierBlockingFindings = [
     ...previewBlockingWarnings.map((warning) => ({
       id: "autofix-preview-blocking",
@@ -476,7 +487,7 @@ export async function finalizeAndSaveVersion(
     riskyFixCount: autoFixRisk.riskyFixCount,
     riskyFixerIds: autoFixRisk.riskyFixerIds,
     previewBlockingWarnings: previewBlockingWarnings.length,
-    fixers: autoFixFixers,
+    fixers: allAutoFixFixers,
   });
   emitBusEvent({
     t: "version.syntax.pass",
@@ -678,7 +689,7 @@ export async function finalizeAndSaveVersion(
     autoFixWarningCount,
     autoFixDependencyCount,
     autoFixRisk,
-    autoFixFixers,
+    autoFixFixers: allAutoFixFixers,
     verifierBlocked,
     verifierBlockingFindings: effectiveVerifierBlockingFindings,
     preflightIssueCount: preflightIssues.length,

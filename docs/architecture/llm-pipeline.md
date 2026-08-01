@@ -109,7 +109,7 @@ Typisk ordning i runtime:
 3. syntax/esbuild körs; när syntax är ren kan warm-tsc köras. Warm-cachen ser
    inte dossier-egna SDK:er (VM:en installerar dem senare), så olösbara
    modul-diagnostiker för dossier-deklarerade paket släpps i st.f. att gissa —
-   se [`warm-cache-setup.md`](../howto/warm-cache-setup.md). Warm ESLint är
+   se [`warm-cache-setup.md`](../runbooks/warm-cache-setup.md). Warm ESLint är
    endast opt-in lokal diagnostik och ingår inte i finalize/RepairGate.
 4. deterministisk diagnostikdriven import-repair
    (`autofix/deterministic-import-repair.ts`: kända imports, egna komponenter,

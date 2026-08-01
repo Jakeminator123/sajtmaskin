@@ -68,7 +68,7 @@ describe("v0 chat compatibility boundary", () => {
   it("rejects active callers but ignores historical documentation", async () => {
     const errors = await run({
       "src/lib/client.ts": 'fetch("/api/v0/chats/123")',
-      "docs/archive/old.md": "`/api/v0/chats/123`",
+      "docs/plans/archived/old.md": "`/api/v0/chats/123`",
     });
     expect(errors).toEqual([
       "src/lib/client.ts:1: active caller targets removed /api/v0/chats boundary",

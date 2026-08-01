@@ -218,7 +218,7 @@ export async function runPreVmTypecheck(
     // normal unprovisioned case and already warned about by the caller.)
     if (existsSync(cacheDir)) {
       console.warn(
-        `[warm-typecheck] Warm cache at ${cacheDir} is stale — ${cacheProblem}. Treating it as cold; run \`npm run provision:warm-cache\` (see docs/howto/warm-cache-setup.md).`,
+        `[warm-typecheck] Warm cache at ${cacheDir} is stale — ${cacheProblem}. Treating it as cold; run \`npm run provision:warm-cache\` (see docs/runbooks/warm-cache-setup.md).`,
       );
     }
     return coldResult;

@@ -11,7 +11,7 @@ import {
 } from "@/lib/gen/preview/preview-url-classifier";
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
 
-export type UsePreviewSessionParams = {
+type UsePreviewSessionParams = {
   chatId: string | null;
   activeVersionId: string | null;
   /**
