@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   describeRemovalFailure,
@@ -186,5 +186,115 @@ describe("describeRemovalFailure", () => {
     expect(text).toContain("nothing is half-removed");
     expect(text).toContain("rerun this command");
     expect(text).not.toContain("git worktree prune");
+  });
+});
+
+/**
+ * Nästlade junctions — regression för 2026-08-01.
+ *
+ * Skyddet fanns, men scanningen stannade på djup 1. En `preview-host/node_modules`
+ * som skapats för hand med `mklink /J` var därmed osynlig: den kopplades aldrig
+ * loss, och `git worktree remove` följde den in i huvudcheckouten och tömde den
+ * riktiga katalogen.
+ */
+describe("findLinkedEntries — nästlade länkar", () => {
+  type Entry = { name: string; link?: boolean; dir?: boolean };
+
+  /** Trädmedveten io: readdir/lstat svarar per sökväg, inte platt. */
+  const treeIo = (tree: Record<string, Entry[]>) => {
+    const key = (p: string) => resolve(p).toLowerCase();
+    const indexed = Object.fromEntries(
+      Object.entries(tree).map(([path, entries]) => [key(path), entries]),
+    );
+    return {
+      readdir: (p: string) => {
+        const entries = indexed[key(p)];
+        if (!entries) throw new Error(`ENOENT ${p}`);
+        return entries.map((e) => e.name);
+      },
+      lstat: (p: string) => {
+        const entry = indexed[key(dirname(p))]?.find((e) => e.name === basename(p));
+        if (!entry) throw new Error(`ENOENT ${p}`);
+        return {
+          isSymbolicLink: () => entry.link === true,
+          isDirectory: () => entry.dir === true,
+        };
+      },
+    };
+  };
+
+  it("hittar en junctionad preview-host/node_modules på djup 2", () => {
+    const linked = findLinkedEntries(
+      FEATURE,
+      treeIo({
+        [FEATURE]: [
+          { name: "node_modules", link: true },
+          { name: "preview-host", dir: true },
+          { name: "src", dir: true },
+        ],
+        [join(FEATURE, "preview-host")]: [{ name: "node_modules", link: true }],
+        [join(FEATURE, "src")]: [],
+      }),
+    );
+
+    expect(linked).toHaveLength(2);
+    expect(linked.some((p) => p === join(FEATURE, "node_modules"))).toBe(true);
+    expect(linked.some((p) => p === join(FEATURE, "preview-host", "node_modules"))).toBe(true);
+  });
+
+  // Leaf-regeln är det som håller walken billig: en RIKTIG node_modules
+  // (~765 paket) får aldrig gås igenom, bara kontrolleras om den är en länk.
+  it("går aldrig in i en riktig node_modules", () => {
+    const linked = findLinkedEntries(
+      FEATURE,
+      treeIo({
+        [FEATURE]: [{ name: "node_modules", dir: true }],
+        // Skulle scanningen descenda hit vore länken med i resultatet.
+        [join(FEATURE, "node_modules")]: [{ name: "some-package", link: true }],
+      }),
+    );
+
+    expect(linked).toEqual([]);
+  });
+
+  it("går inte in i .git", () => {
+    const linked = findLinkedEntries(
+      FEATURE,
+      treeIo({
+        [FEATURE]: [{ name: ".git", dir: true }],
+        [join(FEATURE, ".git")]: [{ name: "worktrees", link: true }],
+      }),
+    );
+
+    expect(linked).toEqual([]);
+  });
+
+  it("slutar descenda vid djuptaket", () => {
+    const linked = findLinkedEntries(
+      FEATURE,
+      treeIo({
+        [FEATURE]: [{ name: "a", dir: true }],
+        [join(FEATURE, "a")]: [{ name: "b", dir: true }],
+        [join(FEATURE, "a", "b")]: [{ name: "c", dir: true }],
+        [join(FEATURE, "a", "b", "c")]: [{ name: "too-deep", link: true }],
+      }),
+    );
+
+    expect(linked).toEqual([]);
+  });
+
+  it("hoppar över en underkatalog som inte går att läsa i stället för att kasta", () => {
+    const linked = findLinkedEntries(
+      FEATURE,
+      treeIo({
+        [FEATURE]: [
+          { name: "node_modules", link: true },
+          { name: "unreadable", dir: true },
+        ],
+        // "unreadable" saknas i trädet -> readdir kastar.
+      }),
+    );
+
+    expect(linked).toEqual([join(FEATURE, "node_modules")]);
   });
 });
