@@ -6,7 +6,7 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
-const { randomUUID } = require("node:crypto");
+const { createHash, randomUUID } = require("node:crypto");
 const {
   getDataDir,
   getStoreFilePath,
@@ -151,6 +151,49 @@ function getPreviewStatusSessionId(pathname) {
     return "";
   }
   return parts[2] ?? "";
+}
+
+function getPreviewFilesManifestSessionId(pathname) {
+  const parts = pathname.split("/").filter(Boolean);
+  if (
+    parts.length !== 4 ||
+    parts[0] !== "preview" ||
+    parts[1] !== "session" ||
+    parts[3] !== "files-manifest"
+  ) {
+    return "";
+  }
+  return parts[2] ?? "";
+}
+
+/**
+ * Sentinel for a stored entry that cannot be hashed (validation only ever
+ * stores strings, so this is defensive). It is deliberately not a sha256 hex
+ * digest: the app can never mistake it for "unchanged", so such a path is
+ * always rewritten or removed by the patch instead of silently kept.
+ */
+const UNHASHABLE_FILE_MARKER = "unhashable";
+
+/**
+ * Content-hash manifest of the file set the host currently holds for a session
+ * (`session.filesJson` — the same set a boot writes into the workspace).
+ *
+ * Returned by the read-only `files-manifest` route so the app can diff a new
+ * version against what is actually live and send only the changed paths to
+ * `/preview/session/patch` instead of a full `/update` + restart. Hashes (not
+ * contents) keep the response small; the app never needs the old bytes.
+ */
+function buildSessionFilesManifest(session) {
+  const files = {};
+  const source =
+    session.filesJson && typeof session.filesJson === "object" ? session.filesJson : {};
+  for (const [relPath, content] of Object.entries(source)) {
+    files[relPath] =
+      typeof content === "string"
+        ? createHash("sha256").update(content, "utf8").digest("hex")
+        : UNHASHABLE_FILE_MARKER;
+  }
+  return files;
 }
 
 /**
@@ -430,6 +473,7 @@ async function routeRequest(req, res) {
         "POST /preview/verify",
         "GET /preview/session/:id",
         "GET /preview/session/:previewSessionId/status",
+        "GET /preview/session/:previewSessionId/files-manifest",
         "GET /preview/sandbox/:previewSessionId/status (legacy path)",
         "GET /preview/logs/:previewSessionId",
         "GET /admin/sessions",
@@ -507,6 +551,38 @@ async function routeRequest(req, res) {
       versionId: latest.versionId,
       status: latest.status,
       sessionExpiresAt: latest.sessionExpiresAt,
+    });
+  }
+
+  const filesManifestSessionId = getPreviewFilesManifestSessionId(url.pathname);
+  if (req.method === "GET" && filesManifestSessionId) {
+    // Read-only by design: unlike `/status` this never queues a boot, so the
+    // app can ask "what is live right now?" without changing runtime state.
+    const session = findSessionByPreviewSessionId(readStoreSync(), filesManifestSessionId);
+    if (!session || !isSessionUsable(session, Date.now())) {
+      return json(res, 404, {
+        error: "session_not_found",
+        message: "No active preview session for this previewSessionId.",
+      });
+    }
+    const runtimeState = getRuntimeStateForChat(getSessionChatId(session));
+    const files = buildSessionFilesManifest(session);
+    return json(res, 200, {
+      ok: true,
+      previewSessionId: session.previewSessionId,
+      chatId: getSessionChatId(session),
+      versionId: session.versionId,
+      status: session.status,
+      // Same public-running rule as `/status`: a prewarm skeleton (or a session
+      // whose real replacement has not passed readiness yet) is never reported
+      // as running, so the app cannot patch a skeleton workspace.
+      running:
+        runtimeState.running &&
+        session.prewarm !== true &&
+        session.prewarmReplacementPending !== true,
+      hashAlgorithm: "sha256",
+      fileCount: Object.keys(files).length,
+      files,
     });
   }
 
@@ -714,13 +790,19 @@ async function routeRequest(req, res) {
       // closes that TOCTOU window: if the live session no longer points at the
       // base the patch was derived from, refuse the merge (without mutating) so
       // the caller does a full (re)start instead of writing a hybrid file set.
-      if (
-        validated.expectedBaseVersionId &&
-        typeof session.versionId === "string" &&
-        session.versionId &&
-        session.versionId !== validated.expectedBaseVersionId
-      ) {
-        return { type: "base_mismatch", currentVersionId: session.versionId };
+      //
+      // STRICT equality, not "differs from": a session with NO version at all
+      // (prewarm skeleton, a store row written by an older host build, a
+      // rolled-back patch) is not evidence that the base matches — it is
+      // evidence that we do not know what is live. Merging a partial diff into
+      // an unknown workspace is exactly the hybrid-file-set failure this check
+      // exists to prevent, so a missing version is refused with the same 409.
+      if (validated.expectedBaseVersionId) {
+        const liveVersionId =
+          typeof session.versionId === "string" ? session.versionId.trim() : "";
+        if (!liveVersionId || liveVersionId !== validated.expectedBaseVersionId) {
+          return { type: "base_mismatch", currentVersionId: liveVersionId || null };
+        }
       }
       // Finding #3 (FEL-5): snapshot the fields we are about to advance so a
       // failed workspace write (e.g. ENOSPC in the hot-patch path) can be rolled
@@ -784,8 +866,9 @@ async function routeRequest(req, res) {
     if (patchOutcome.type === "base_mismatch") {
       return json(res, 409, {
         error: "base_mismatch",
-        message:
-          "Preview session has advanced past the expected base version; refusing partial patch.",
+        message: patchOutcome.currentVersionId
+          ? "Preview session has advanced past the expected base version; refusing partial patch."
+          : "Preview session has no known version; refusing partial patch.",
         versionId: patchOutcome.currentVersionId,
       });
     }
