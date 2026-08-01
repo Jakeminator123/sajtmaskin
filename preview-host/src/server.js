@@ -5,7 +5,7 @@ const { URL } = require("node:url");
 const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
-const { randomUUID } = require("node:crypto");
+const { createHash, randomUUID } = require("node:crypto");
 const {
   getDataDir,
   getStoreFilePath,
@@ -144,6 +144,39 @@ function getPreviewStatusSessionId(pathname) {
     return "";
   }
   return parts[2] ?? "";
+}
+
+function getPreviewFilesManifestSessionId(pathname) {
+  const parts = pathname.split("/").filter(Boolean);
+  if (
+    parts.length !== 4 ||
+    parts[0] !== "preview" ||
+    parts[1] !== "session" ||
+    parts[3] !== "files-manifest"
+  ) {
+    return "";
+  }
+  return parts[2] ?? "";
+}
+
+/**
+ * Content-hash manifest of the file set the host currently holds for a session
+ * (`session.filesJson` — the same set a boot writes into the workspace).
+ *
+ * Returned by the read-only `files-manifest` route so the app can diff a new
+ * version against what is actually live and send only the changed paths to
+ * `/preview/session/patch` instead of a full `/update` + restart. Hashes (not
+ * contents) keep the response small; the app never needs the old bytes.
+ */
+function buildSessionFilesManifest(session) {
+  const files = {};
+  const source =
+    session.filesJson && typeof session.filesJson === "object" ? session.filesJson : {};
+  for (const [relPath, content] of Object.entries(source)) {
+    if (typeof content !== "string") continue;
+    files[relPath] = createHash("sha256").update(content, "utf8").digest("hex");
+  }
+  return files;
 }
 
 function describeStorageState() {
@@ -373,6 +406,7 @@ async function routeRequest(req, res) {
         "POST /preview/verify",
         "GET /preview/session/:id",
         "GET /preview/session/:previewSessionId/status",
+        "GET /preview/session/:previewSessionId/files-manifest",
         "GET /preview/sandbox/:previewSessionId/status (legacy path)",
         "GET /preview/logs/:previewSessionId",
         "GET /admin/sessions",
@@ -450,6 +484,38 @@ async function routeRequest(req, res) {
       versionId: latest.versionId,
       status: latest.status,
       sessionExpiresAt: latest.sessionExpiresAt,
+    });
+  }
+
+  const filesManifestSessionId = getPreviewFilesManifestSessionId(url.pathname);
+  if (req.method === "GET" && filesManifestSessionId) {
+    // Read-only by design: unlike `/status` this never queues a boot, so the
+    // app can ask "what is live right now?" without changing runtime state.
+    const session = findSessionByPreviewSessionId(readStoreSync(), filesManifestSessionId);
+    if (!session || !isSessionUsable(session, Date.now())) {
+      return json(res, 404, {
+        error: "session_not_found",
+        message: "No active preview session for this previewSessionId.",
+      });
+    }
+    const runtimeState = getRuntimeStateForChat(getSessionChatId(session));
+    const files = buildSessionFilesManifest(session);
+    return json(res, 200, {
+      ok: true,
+      previewSessionId: session.previewSessionId,
+      chatId: getSessionChatId(session),
+      versionId: session.versionId,
+      status: session.status,
+      // Same public-running rule as `/status`: a prewarm skeleton (or a session
+      // whose real replacement has not passed readiness yet) is never reported
+      // as running, so the app cannot patch a skeleton workspace.
+      running:
+        runtimeState.running &&
+        session.prewarm !== true &&
+        session.prewarmReplacementPending !== true,
+      hashAlgorithm: "sha256",
+      fileCount: Object.keys(files).length,
+      files,
     });
   }
 
