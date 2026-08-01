@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:e7d27b5dc3def921 -->
+<!-- source-fingerprint: config/env-policy.json sha256:3f1835d3339ba026 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:40181cc99930d580 -->
 
@@ -78,9 +78,9 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `NODE_ENV`                                           | `vercel_managed`       | —                                      | No            | Yes          |
 | `OC_DEBUG`                                           | `optional_runtime`     | `development`, `preview`               | No            | No           |
-| `OC_DEBUG_ALLOW_PROD`                                | `optional_runtime`     | —                                      | No            | No           |
 | `OC_DEBUG_RUN_TOKEN`                                 | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_DEBUGG`                                          | `optional_runtime`     | `development`, `preview`               | No            | No           |
+| `OC_EDIT`                                            | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_REPO_READ_TOKEN`                                 | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_REPO_SLUG`                                       | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OPENAI_ADMIN_KEY`                                   | `local_only`           | —                                      | No            | No           |
@@ -101,6 +101,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_BLOCKING_ESLINT`                         | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS`            | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_BRANDED_LIVE_URLS`                       | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `SAJTMASKIN_CONTENT_REVISION_GATE`                   | `optional_runtime`     | `development`, `preview`               | Yes           | No           |
 | `SAJTMASKIN_DEFAULT_THINKING`                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT`              | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_DEV_LOG`                                 | `local_only`           | —                                      | No            | Yes          |

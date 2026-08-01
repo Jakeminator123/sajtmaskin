@@ -334,20 +334,24 @@ export const OPENCLAW = {
     return this.enabled && this.tokenConfigured && this.implementationFlagEnabled;
   },
   /**
-   * Debug-mode gate. When affirmative (OC_DEBUG or OC_DEBUGG), OpenClaw gets
-   * privileged debug context (full code + findings + repo-context) and may run
-   * the armed bug-hunt autonomy. Hard production safeguard: never active in
-   * production unless OC_DEBUG_ALLOW_PROD is also affirmative, so a stray prod
-   * env value can't silently arm an autonomous loop.
+   * Debug-mode gate — READ side only. When affirmative (OC_DEBUG or OC_DEBUGG),
+   * OpenClaw gets privileged debug context (full code + findings + repo-context)
+   * in every environment, production included. The former OC_DEBUG_ALLOW_PROD
+   * double-gate was removed 2026-07-31: OC_DEBUG is the single read gate.
+   * Acting (armed autonomy / auto-send) is gated separately by OC_EDIT.
    */
   get debugEnabled(): boolean {
-    const requested =
-      isAffirmativeEnvValue(env.OC_DEBUG) || isAffirmativeEnvValue(env.OC_DEBUGG);
-    if (!requested) return false;
-    if (RUNTIME_ENVIRONMENT === "production" && !isAffirmativeEnvValue(env.OC_DEBUG_ALLOW_PROD)) {
-      return false;
-    }
-    return true;
+    return isAffirmativeEnvValue(env.OC_DEBUG) || isAffirmativeEnvValue(env.OC_DEBUGG);
+  },
+  /**
+   * Edit gate — ACT side. When affirmative (OC_EDIT), OpenClaw may drive edits
+   * of USER SITES, exclusively through the ordinary builder pipeline (armed
+   * autonomy fills the builder prompt and clicks the same send button the user
+   * would; Mode B drives the same follow-up generation server-side). Never a
+   * direct write path against preview-host/Fly or Sajtmaskin's own code.
+   */
+  get editEnabled(): boolean {
+    return isAffirmativeEnvValue(env.OC_EDIT);
   },
   /** Read-only GitHub token for the debug repo-context reader (contents:read). */
   get repoReadToken(): string {

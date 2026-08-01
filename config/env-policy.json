@@ -158,8 +158,8 @@
     "NEXT_PUBLIC_TYPESENSE_SEARCH_ONLY_API_KEY",
     "OC_DEBUG",
     "OC_DEBUGG",
-    "OC_DEBUG_ALLOW_PROD",
     "OC_DEBUG_RUN_TOKEN",
+    "OC_EDIT",
     "OC_REPO_READ_TOKEN",
     "OC_REPO_SLUG",
     "OPENAI_ADMIN_KEY",
@@ -479,6 +479,15 @@
         "production"
       ],
       "notes": "When true/1, init generations may still plan multiple routes but should fully realize only the primary route while extra planned routes start as lightweight shells. Default off."
+    },
+    {
+      "key": "SAJTMASKIN_CONTENT_REVISION_GATE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "Opt-in, default off. Lets the verdict/receipt readers compare generation_telemetry.files_revision against engine_versions.files_revision instead of trusting versionId. On: the promote guard discards a verdict describing another revision (symmetrically, both passed and failed) and answers retryable indeterminate rather than terminal failed; the runtime-ready receipt only stamps rows whose revision matches the served content; a terminal bus status describing older content is degraded in /version-status. An unknown revision is never blocking — only a known mismatch is. Frequency is measured via sajtmaskin_content_revision_mismatch_total. Production is deliberately NOT a recommended target yet: releasing the flag is an owner decision, preview first. Source: src/lib/gen/verify/content-revision.ts."
     },
     {
       "key": "SAJTMASKIN_DISABLE_QUALITY_GATE",
@@ -892,7 +901,7 @@
         "development",
         "preview"
       ],
-      "notes": "OpenClaw debug-mode gate (alias OC_DEBUGG). Affirmative (1/true/yes/y/on) unlocks privileged debug context (full generated code + findings + read-only Sajtmaskin repo-context) and armed bug-hunt autonomy. Default off. Hard safeguard: never activates in production unless OC_DEBUG_ALLOW_PROD is also affirmative. Read via OPENCLAW.debugEnabled (src/lib/config.ts)."
+      "notes": "OpenClaw debug-mode gate (alias OC_DEBUGG) — the SINGLE flag for the READ side. Affirmative (1/true/yes/y/on) unlocks privileged debug context (full generated code + findings + read-only Sajtmaskin repo-context) in every environment, production included (the OC_DEBUG_ALLOW_PROD double-gate was removed 2026-07-31). Does NOT authorize editing/armed autonomy — that is OC_EDIT. Default off. Read via OPENCLAW.debugEnabled (src/lib/config.ts)."
     },
     {
       "key": "OC_DEBUGG",
@@ -904,10 +913,13 @@
       "notes": "Alias for OC_DEBUG. Either key unlocks OpenClaw debug-mode."
     },
     {
-      "key": "OC_DEBUG_ALLOW_PROD",
+      "key": "OC_EDIT",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": [],
-      "notes": "Escape hatch required to let OC_DEBUG activate in production. Default unset = debug-mode is force-disabled in production regardless of OC_DEBUG. Keep unset unless you explicitly intend privileged OpenClaw debug autonomy on the prod tenant."
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "OpenClaw edit gate — the ACT side. Affirmative (1/true/yes/y/on) lets OpenClaw drive edits of USER SITES, exclusively through the ordinary builder pipeline: armed autonomy (user arms a bounded mandate, OpenClaw fills the builder prompt and clicks the same send button the user would) and the Mode B bug-hunt run route (which additionally requires OC_DEBUG + OC_DEBUG_RUN_TOKEN). Never a direct write path to preview-host/Fly or Sajtmaskin's own code. Default off; enable in production deliberately. Read via OPENCLAW.editEnabled (src/lib/config.ts)."
     },
     {
       "key": "OC_DEBUG_RUN_TOKEN",

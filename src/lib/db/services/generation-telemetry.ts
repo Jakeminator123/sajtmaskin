@@ -20,6 +20,8 @@ export type CreateTelemetryRecord = {
   scaffoldSelectionMethod?: string | null;
   scaffoldSelectionConfidence?: string | null;
   briefInfluencedSelection?: boolean;
+  /** Orchestrate-låst scaffold-variant för generationen (t.ex. `corporate-grid`). */
+  variantId?: string | null;
   model: string;
   modelTier?: string | null;
   buildIntent?: string | null;
@@ -104,6 +106,7 @@ export async function createGenerationTelemetryRecord(record: CreateTelemetryRec
       scaffoldSelectionMethod: record.scaffoldSelectionMethod ?? null,
       scaffoldSelectionConfidence: record.scaffoldSelectionConfidence ?? null,
       briefInfluencedSelection: record.briefInfluencedSelection ?? false,
+      variantId: record.variantId ?? null,
       model: record.model,
       modelTier: record.modelTier ?? null,
       buildIntent: record.buildIntent ?? null,
@@ -553,6 +556,9 @@ export async function recordRepairPassedQualityGate(
       chatId: prior.chatId,
       versionId,
       model: prior.model,
+      // Ärv varianten från raden som repareras så repair-raden förblir
+      // attribuerbar i variant-analyser (samma princip som chatId/model).
+      variantId: prior.variantId ?? null,
       qualityGateResult: "preflight_passed",
       assessedFilesJson: assessedFilesJson ?? null,
       meta: { source: "server-repair-pass" },

@@ -25,7 +25,7 @@ import { useSmoothText } from "./useSmoothText";
 
 /**
  * Per-message dedup for armed auto-send (Bugbot). The armed card auto-submits on
- * mount, but the card can remount (debugEnabled flips after the health check, a
+ * mount, but the card can remount (editEnabled flips after the health check, a
  * parent re-render, or the manual→armed card swap). A mount-scoped ref alone
  * would let the SAME assistant `submit:true` action fire again and spend extra
  * mandate steps. This module-scoped set records message ids that have already
@@ -42,7 +42,7 @@ export function OpenClawMessage({
   streaming?: boolean;
 }) {
   const isUser = msg.role === "user";
-  const debugEnabled = useOpenClawStore((s) => s.debugEnabled);
+  const editEnabled = useOpenClawStore((s) => s.editEnabled);
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
   const parsed = parseOpenClawMessage(msg.content);
   const action = !isUser ? parsed.action : null;
@@ -52,10 +52,10 @@ export function OpenClawMessage({
   const isTyping = !isUser && (streaming || displayedContent.length < parsed.visibleContent.length);
   const shouldRenderBubble = Boolean(parsed.visibleContent) || !action;
 
-  // Armed-autonomy gate (Mode A): only auto-send when OC_DEBUG is on AND the
-  // user has armed a still-active mandate AND the action explicitly asked to
-  // submit. Otherwise a `submit:true` action degrades to the normal manual fill
-  // suggestion (fill but never send) — defense in depth.
+  // Armed-autonomy gate (Mode A): only auto-send when OC_EDIT (the act gate) is
+  // on AND the user has armed a still-active mandate AND the action explicitly
+  // asked to submit. Otherwise a `submit:true` action degrades to the normal
+  // manual fill suggestion (fill but never send) — defense in depth.
   //
   // Bind to the CURRENT mandate (Codex P2): an older assistant action authored
   // BEFORE the active mandate was armed must never auto-send when the user later
@@ -66,7 +66,7 @@ export function OpenClawMessage({
     !isUser &&
     action?.type === "fill_text_field" &&
     action.submit === true &&
-    debugEnabled &&
+    editEnabled &&
     isMandateActive(armedMandate) &&
     !!armedMandate &&
     // Only a `followups` mandate authorizes auto-send (Bugbot). A `review_next`
@@ -127,7 +127,7 @@ export function OpenClawMessage({
           <OpenClawStartBugHuntCard
             key="start_bug_hunt"
             action={action}
-            debugEnabled={debugEnabled}
+            editEnabled={editEnabled}
           />
         ) : null}
       </div>
@@ -220,18 +220,18 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
  */
 function OpenClawStartBugHuntCard({
   action,
-  debugEnabled,
+  editEnabled,
 }: {
   action: OpenClawStartBugHuntAction;
-  debugEnabled: boolean;
+  editEnabled: boolean;
 }) {
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
 
-  if (!debugEnabled) {
+  if (!editEnabled) {
     return (
       <div className="min-w-0 rounded-2xl border border-white/10 bg-slate-900/70 p-3 text-slate-100">
         <p className="text-xs leading-5 text-slate-300">
-          Debug-läge är av — armerad autonomi är inaktiverad. (Aktivera OC_DEBUG.)
+          Redigeringsläge är av — armerad autonomi är inaktiverad. (Aktivera OC_EDIT.)
         </p>
       </div>
     );
@@ -262,7 +262,7 @@ function OpenClawStartBugHuntCard({
 }
 
 /**
- * Armed-autonomy auto-send card (Mode A). Rendered only when OC_DEBUG is on and
+ * Armed-autonomy auto-send card (Mode A). Rendered only when OC_EDIT is on and
  * a user-armed mandate is active. On mount it fills the builder prompt, waits
  * for the real send button to become enabled, clicks it, and consumes one step
  * of the mandate. OpenClaw never writes files — it drives the same visible send

@@ -54,9 +54,16 @@ describe("variant eval blocklist — staleness guard", () => {
     expect(blocked.size).toBe(0);
   });
 
-  it("is stale against the live registry today (the committed report predates 3 variants)", () => {
+  it("dagens committade rapport täcker hela registret — blocklistan är aktiv", () => {
+    // Rapporten regenererades 2026-07-31 (40 prompts, alla live-varianter).
+    // Landar en ny variant utan omkörd eval blir rapporten stale igen och
+    // detta test rött — kör då om `npx tsx scripts/scaffolds/eval-landing-variants.ts`
+    // i stället för att försvaga assertionen.
     const liveIds = getVariantsForScaffold("landing-page").map((variant) => variant.id);
-    expect(liveIds.length).toBeGreaterThan(evaluatedIds.length);
-    expect(getBlockedVariantIds("landing-page", liveIds).size).toBe(0);
+    const unevaluated = liveIds.filter((id) => !evaluatedIds.includes(id));
+    expect(unevaluated).toEqual([]);
+    expect([...getBlockedVariantIds("landing-page", liveIds)].sort()).toEqual(
+      [...(report.candidatesForRemoval ?? [])].sort(),
+    );
   });
 });

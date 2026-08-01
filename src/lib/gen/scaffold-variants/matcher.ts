@@ -12,14 +12,6 @@ import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 
-/**
- * Bakåtkompatibilitets-alias. Den ursprungliga lokala typen är borttagen;
- * matchern lutar sig nu mot den delade `FollowUpIntentMode` i
- * `src/lib/gen/follow-up-intent-types.ts`. Aliasen ligger kvar i fall
- * något test eller framtida konsument importerar det gamla namnet.
- */
-export type LockedVariantFollowUpIntent = FollowUpIntentMode;
-
 export interface LockedVariantForFollowUpInput {
   chatId?: string | null;
   intent: FollowUpIntentMode;
@@ -177,6 +169,30 @@ function buildVariantSeedKey(input: PickScaffoldVariantInput): string {
  */
 const VARIANT_EMBEDDING_MIN_SCORE = 0.25;
 
+/**
+ * Ordgräns-mönster med svensk böjningstolerans: för keywords ≥ 4 tecken får
+ * stammen följas av upp till 4 extra bokstäver, så "natur" träffar
+ * "naturen"/"naturens", "skog" träffar "skogen"/"skogarna" och "kafé" träffar
+ * "kaféet". Korta keywords ("eco", "law", "b2b") förblir exakta ord, och
+ * taket på 4 hindrar breda felträffar ("product" träffar inte
+ * "productivity"). Sammansättningar täcks medvetet inte
+ * ("trädgårdsplanering" kräver eget keyword) — precision före recall.
+ * Exporterad för test.
+ */
+export function buildKeywordWordPattern(keyword: string): RegExp {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Böjningstoleransen gäller bara en-ords-keywords. För fraser ("dark
+  // theme", "white-space") skulle suffixet tyst töja sista ledet ("dark
+  // themed") — fraser matchas ordagrant (bugbot-fynd 2026-07-31).
+  const isSingleWord = !/[\s-]/.test(keyword);
+  const inflectionSuffix =
+    isSingleWord && keyword.length >= 4 ? "\\p{L}{0,4}" : "";
+  return new RegExp(
+    `(?:^|[^\\p{L}\\p{N}])${escaped}${inflectionSuffix}(?:[^\\p{L}\\p{N}]|$)`,
+    "iu",
+  );
+}
+
 function scoreVariant(
   variant: ScaffoldVariant,
   promptLower: string,
@@ -194,10 +210,7 @@ function scoreVariant(
   let keywordHits = 0;
   for (const keyword of variant.keywords) {
     const lower = keyword.toLowerCase();
-    const wordBoundary = new RegExp(
-      `(?:^|[^\\p{L}\\p{N}])${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[^\\p{L}\\p{N}]|$)`,
-      "iu",
-    );
+    const wordBoundary = buildKeywordWordPattern(lower);
     if (wordBoundary.test(promptLower)) {
       keywordHits += 1;
       continue;
@@ -246,10 +259,17 @@ export function pickScaffoldVariant(
     .sort((a, b) => b.score - a.score || a.variant.id.localeCompare(b.variant.id));
 
   const topScore = ranked[0]?.score ?? 0;
+  // Vid nollpoäng finns ingen rankning att bevara: `ranked` är då sorterad
+  // enbart på variant-id, så `slice(0, 4)` gjorde bara de fyra första
+  // varianterna i bokstavsordning nåbara. Under `landing-page` kunde t.ex.
+  // hero-fullbleed-bg, nature-flow och warm-editorial ALDRIG väljas för
+  // prompts utan keyword-träff (vanligt för svenska prompts — "skogen"
+  // matchar inte "forest"). Rotera i stället över hela kandidatfältet;
+  // seed-hashen håller valet deterministiskt per prompt/session.
   const topCandidates =
     topScore > 0
       ? ranked.filter((entry) => entry.score > 0).slice(0, 4)
-      : ranked.slice(0, 4);
+      : ranked;
 
   const hash = hashSeed(buildVariantSeedKey(input));
   return topCandidates[hash % topCandidates.length]?.variant ?? variants[0] ?? null;

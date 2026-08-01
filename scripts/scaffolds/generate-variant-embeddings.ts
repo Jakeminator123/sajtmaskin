@@ -102,9 +102,11 @@ function buildEmbeddingText(v: Variant): string {
     if (v.signaturePatterns.motifs.length > 0) {
       lines.push(`Signature motifs: ${v.signaturePatterns.motifs.join("; ")}`);
     }
-    if (v.signaturePatterns.antiPatterns.length > 0) {
-      lines.push(`Avoid: ${v.signaturePatterns.antiPatterns.join("; ")}`);
-    }
+    // antiPatterns utelämnas AVSIKTLIGT: embeddings hanterar inte negationer.
+    // "Never use a left-text + right-image grid" tillförde ändå grid-tokens,
+    // så varianter drog till sig prompts för precis det de förbjuder (t.ex.
+    // nature-flows "avoid perfectly symmetrical…" vann asymmetri-prompts i
+    // 2026-07-31-evalen). Embeddingen ska beskriva vad varianten ÄR.
   }
   return lines.join("\n");
 }

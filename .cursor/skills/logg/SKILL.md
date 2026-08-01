@@ -81,8 +81,13 @@ Kopiera checklistan och bocka av:
 ### 1. Hitta senaste genererade sajten
 
 ```powershell
-npm run db:latest -- --prod
+npm run db:latest:prod
 ```
+
+> OBS: skriv INTE `npm run db:latest -- --prod`. npm expanderar `--prod` till sin
+> egen `--production`-flagga (även efter `--`), argumentet når aldrig skriptet
+> och du läser tyst DEV-databasen. Alias:et ovan (eller
+> `node scripts/db/latest-site.mjs --prod`) är den säkra vägen.
 
 Plocka ut `chatId`, `versionId`, `projectId`, `model`, `scaffoldId`, `previewUrl`,
 `created_at` och telemetri-blocket. Spara `created_at` — det blir tidsfönstret för Vercel.

@@ -182,6 +182,15 @@ export async function persistTelemetryRecord(params: {
     const briefInfluencedSelection =
       scaffoldSelection?.briefContextApplied === true;
 
+    // Orchestrate-låst scaffold-variant för den här körningen. Samma källa
+    // som runnerns autofix-läsning (`orchestrationStreamMeta.variantId`);
+    // null för legacy-snapshots, eval och repair-only-vägar.
+    const variantId =
+      typeof orchestrationStreamMeta?.variantId === "string" &&
+      orchestrationStreamMeta.variantId.trim().length > 0
+        ? orchestrationStreamMeta.variantId
+        : null;
+
     const telemetryRecord = await createGenerationTelemetryRecord({
       chatId,
       versionId,
@@ -189,6 +198,7 @@ export async function persistTelemetryRecord(params: {
       scaffoldSelectionMethod,
       scaffoldSelectionConfidence,
       briefInfluencedSelection,
+      variantId,
       model,
       buildIntent: buildIntent ?? null,
       retryCount: repairPassIndex,

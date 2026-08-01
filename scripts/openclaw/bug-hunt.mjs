@@ -8,7 +8,7 @@
  * loop (no serverless total-timeout) and a Ctrl+C kill-switch.
  *
  * Requirements:
- *   - The target app has OC_DEBUG enabled (and OC_DEBUG_ALLOW_PROD if prod).
+ *   - The target app has OC_DEBUG and OC_EDIT enabled (the run route requires both).
  *   - You pass an authenticated owner session so generated chats belong to the
  *     owner / a dedicated debug tenant (never run against real user tenants).
  *
