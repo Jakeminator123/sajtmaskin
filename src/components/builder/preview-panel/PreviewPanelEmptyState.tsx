@@ -213,7 +213,9 @@ export function PreviewPanelEmptyState({
             themeLocked={themeLocked}
           />
 
-          <p className="text-muted-foreground/70 mt-6 inline-flex items-center gap-1.5 text-xs">
+          {/* Full opacitet: /70 mot builder-bakgrunden gav ~3.7:1 och föll på
+              WCAG 2 AA (4.5:1) i Vercel-toolbarens a11y-kontroll. */}
+          <p className="text-muted-foreground mt-6 inline-flex items-center gap-1.5 text-xs">
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             Skriv i chatten till vänster för att starta
           </p>

@@ -198,7 +198,9 @@ export function PreviewPanelInitControls({
           value={[choices.pageCount]}
           onValueChange={([pageCount]) => applyChoices({ pageCount: pageCount ?? 0 })}
         />
-        <div className="text-muted-foreground/60 mt-1 flex justify-between text-[10px]">
+        {/* Full opacitet: /60 gav ~3.2:1 mot builder-bakgrunden och föll på
+            WCAG 2 AA (4.5:1) i Vercel-toolbarens a11y-kontroll. */}
+        <div className="text-muted-foreground mt-1 flex justify-between text-[10px]">
           <span>Auto</span>
           <span>{MAX_PAGE_COUNT_CHOICE}</span>
         </div>

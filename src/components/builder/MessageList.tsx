@@ -395,7 +395,7 @@ const MessageListComponent = ({
 
   if (!chatId && messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-gray-500">
+      <div className="text-muted-foreground flex h-full flex-col items-center justify-center">
         <MessageSquare className="mb-3 h-10 w-10" />
         <p className="text-sm" suppressHydrationWarning>Ingen chat vald ännu</p>
       </div>
@@ -404,7 +404,7 @@ const MessageListComponent = ({
 
   if (messages.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-gray-500">
+      <div className="text-muted-foreground flex h-full flex-col items-center justify-center">
         <MessageSquare className="mb-3 h-10 w-10" />
         <p className="text-sm" suppressHydrationWarning>Inga meddelanden ännu</p>
       </div>
