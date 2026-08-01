@@ -262,6 +262,14 @@ export function mergePersistedOrchestrationSnapshots(
       ...normalizeCapabilityList(next.selectedDossierIds),
       ...normalizeCapabilityList(merged.removedDossierIds),
     ]);
+    // Den durabla capability-tombstonen måste städa här också, precis som den
+    // gör för `mutedCapabilities` ovan. Tar användaren bort en capability INNAN
+    // några filer hunnit byggas finns inget `removedDossierIds` att filtrera
+    // på, så id:t skulle överleva borttagningen — och när capability:n läggs
+    // tillbaka läser `resolvePendingIntegrationDossiers` det gamla id:t och
+    // bygger tyst just det syskon användaren nyss tog bort, i stället för
+    // capability-defaulten.
+    const removedCapabilitySet = new Set(normalizeCapabilityList(merged.removedCapabilities));
     const nextMutedIds = normalizeCapabilityList(next.mutedDossierIds);
     const replacedCapabilities = new Set(
       nextMutedIds
@@ -275,9 +283,11 @@ export function mergePersistedOrchestrationSnapshots(
       },
     );
     const unionedMutedIds = new Set([...retainedBaseIds, ...nextMutedIds]);
-    merged.mutedDossierIds = Array.from(unionedMutedIds).filter(
-      (dossierId) => !deliveredOrRemoved.has(dossierId),
-    );
+    merged.mutedDossierIds = Array.from(unionedMutedIds).filter((dossierId) => {
+      if (deliveredOrRemoved.has(dossierId)) return false;
+      const capability = getDossierById(dossierId)?.capability.toLowerCase();
+      return !capability || !removedCapabilitySet.has(capability);
+    });
   }
   return merged;
 }

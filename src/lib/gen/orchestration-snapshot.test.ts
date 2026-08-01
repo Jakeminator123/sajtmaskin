@@ -69,6 +69,31 @@ describe("deferred provider identity (mutedDossierIds)", () => {
       "postgres-drizzle",
     ]);
   });
+
+  it("städas av capability-tombstonen även utan removedDossierIds", () => {
+    // Tas capability:n bort INNAN några filer byggts finns inget
+    // removedDossierIds att filtrera på. Utan tombstone-filtret överlever id:t
+    // och bygger tyst tillbaka just det syskon användaren tog bort.
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas", "stripe-checkout"] },
+      { removedCapabilities: ["database"] },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["stripe-checkout"]);
+  });
+
+  it("släpper tillbaka syskonet när capability:n uttryckligen läggs till igen", () => {
+    const removed = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas"] },
+      { removedCapabilities: ["database"] },
+    );
+    const readded = mergePersistedOrchestrationSnapshots(removed, {
+      readdedCapabilities: ["database"],
+      mutedDossierIds: ["mongodb-atlas"],
+    });
+
+    expect(readMutedDossierIdsFromSnapshot(readded)).toEqual(["mongodb-atlas"]);
+  });
 });
 
 describe("sanitizeOrchestrationSnapshotForStorage", () => {
