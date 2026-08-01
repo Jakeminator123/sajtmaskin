@@ -381,6 +381,32 @@ describe("recordPreviewRuntimeOutcomeForVersion — bootad revision framför DB-
     expect(updateCalls.count).toBe(1);
   });
 
+  it("satsen jämför mot den BOOTADE revisionen, inte mot versionens nuvarande rad", async () => {
+    versionRows.value = [{ filesRevision: REVISION_REWRITTEN }];
+
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true, {
+      bootedFilesRevision: REVISION_BOOTED,
+    });
+
+    const { sql, params } = renderWhere();
+    // Den bootade revisionen är bunden som parameter…
+    expect(params).toContain(REVISION_BOOTED);
+    // …och subselecten mot versionens NUVARANDE innehåll används inte, annars
+    // väljer satsen en annan rad än JS-sidans revisionslogik.
+    expect(sql).not.toContain("engine_versions");
+    expect(params).not.toContain(REVISION_REWRITTEN);
+  });
+
+  it("utan bootad revision står subselecten mot versionens innehåll kvar", async () => {
+    versionRows.value = [{ filesRevision: REVISION_REWRITTEN }];
+
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true);
+
+    const { sql } = renderWhere();
+    expect(sql).toContain("engine_versions");
+    expect(sql).toContain("files_revision");
+  });
+
   it("cachen nycklas på den bootade revisionen — samma boot stämplas inte om", async () => {
     await recordPreviewRuntimeOutcomeForVersion("ver_1", true, {
       bootedFilesRevision: REVISION_BOOTED,

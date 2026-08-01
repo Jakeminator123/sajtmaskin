@@ -51,9 +51,6 @@ const EXCLUDE_REL = new Set(
 );
 
 const HISTORICAL_PREFIXES = [
-  "docs/archive/",
-  "docs/audits/",
-  "docs/old/",
   "docs/plans/archived/",
   "docs/plans/avklarat/",
 ];

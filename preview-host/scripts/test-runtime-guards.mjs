@@ -517,6 +517,30 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("overlay HTML is detected as a build error", htmlLooksLikeBuildError(overlayHtml) === true);
   check("normal HTML is not a build error", htmlLooksLikeBuildError(goodHtml) === false);
 
+  // A HEALTHY preview whose content legitimately renders error prose (error
+  // dashboards, log viewers, monitoring UIs — the kind of v0 project this host
+  // serves) must NOT be flagged: generic phrases only count alongside a Next
+  // dev-overlay structural marker.
+  const errorDashboardHtml =
+    "<!doctype html><html><head><title>Error Dashboard</title></head><body><main><h1>Incidents</h1><ul><li>Unhandled Runtime Error &mdash; 12 events</li><li>Module not found &mdash; 3 events</li></ul><p>Cannot find module errors are trending down. 0 Build Errors today.</p></main></body></html>";
+  check(
+    "healthy error-dashboard content is NOT a build error",
+    htmlLooksLikeBuildError(errorDashboardHtml) === false,
+  );
+  check(
+    "generic error prose alongside a Next overlay marker IS a build error",
+    htmlLooksLikeBuildError(
+      "<!doctype html><html><body><div data-nextjs-dialog>Unhandled Runtime Error</div></body></html>",
+    ) === true,
+  );
+  check(
+    "the Next compiler prose alone is a build error",
+    htmlLooksLikeBuildError(
+      "<!doctype html><html><body><h1>Failed to compile</h1><pre>./app/page.tsx</pre></body></html>",
+    ) === true,
+  );
+  check("empty HTML is not a build error", htmlLooksLikeBuildError("") === false);
+
   async function withServer(html, fn) {
     const server = createServer((_req, res) => {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -554,6 +578,17 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     }
   });
   check("waitForReady accepts a real ready page", goodResolved === true);
+
+  let dashboardResolved = false;
+  await withServer(errorDashboardHtml, async (url) => {
+    try {
+      await waitForReady(url);
+      dashboardResolved = true;
+    } catch {
+      dashboardResolved = false;
+    }
+  });
+  check("waitForReady accepts a healthy page that renders error prose", dashboardResolved === true);
 }
 
 // 12. PM-safe dependency postcondition: prefer the package manager's own view,
@@ -857,6 +892,51 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
       .filter(([key]) => /CACHE|STORE_DIR|COREPACK|XDG/.test(key))
       .some(([, value]) => /^\/root\//.test(String(value))),
   );
+
+  // Allowlist-kopieringen lät en ÄRVD cache-variabel vinna över den beräknade
+  // sökvägen. `NPM_CONFIG_CACHE=/root/.npm` är npm:s egen default och lätt att
+  // ärva från en basbild eller ett `fly secrets`-misstag — och då är hela
+  // volym-fixen ovan verkningslös utan att något test märkte det, eftersom
+  // sviten körs utan variabeln satt.
+  {
+    const prior = process.env.NPM_CONFIG_CACHE;
+    // `npm run` injicerar sin egen konfiguration som `npm_config_*` i GEMENER.
+    // Windows env-namn är skiftlägesokänsliga men BEHÅLLER det skiftläge som
+    // sattes först, så en tilldelning till `NPM_CONFIG_CACHE` här skulle dyka
+    // upp som `npm_config_cache` i `Object.entries` och missa allowlisten —
+    // varpå testet nedan hade blivit grönt utan att bevisa någonting. Radera
+    // först, så äger vi skiftläget.
+    const setCache = (value) => {
+      delete process.env.NPM_CONFIG_CACHE;
+      process.env.NPM_CONFIG_CACHE = value;
+    };
+    try {
+      setCache("/root/.npm");
+      check(
+        "an inherited cache path outside the volume is ignored",
+        sanitizedEnv().NPM_CONFIG_CACHE === NPM_CACHE_DIR,
+      );
+
+      // Men en ärvd sökväg som ligger PÅ volymen är ett legitimt val (t.ex.
+      // fly.toml:s egen rad) och ska respekteras.
+      const onVolume = join(dataDir, "package-caches", "npm-custom");
+      setCache(onVolume);
+      check(
+        "an inherited cache path inside the volume is respected",
+        sanitizedEnv().NPM_CONFIG_CACHE === onVolume,
+      );
+
+      // En syskonmapp med samma prefix ligger INTE i volymen.
+      setCache(`${dataDir}-elsewhere`);
+      check(
+        "a sibling path that merely shares the prefix is ignored",
+        sanitizedEnv().NPM_CONFIG_CACHE === NPM_CACHE_DIR,
+      );
+    } finally {
+      delete process.env.NPM_CONFIG_CACHE;
+      if (prior !== undefined) process.env.NPM_CONFIG_CACHE = prior;
+    }
+  }
 
   check(
     "npm ENOSPC output is recognised as disk-full",

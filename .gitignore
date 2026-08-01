@@ -173,7 +173,7 @@ yarn-debug.log*
 pnpm-debug.log*
 mcp-monitoring-report.txt
 # logs/ innehåller runtime-artefakter (NDJSON/CSV/JSON som växer per körning).
-# Capping/retention sker i src/lib/logging/generation-log-writer.ts:
+# Capping/retention styrs av src/lib/logging/generation-log-writer/constants.ts:
 #   - generationslogg/<run>/   max 5 mappar
 #   - site-observability/<chat>/ history cap 5 rader/chat + max 5 chat-mappar (LRU)
 #   - generationslogg/_unrouted/<bucket>/ max 5 mappar (LRU)

@@ -13,10 +13,19 @@ const nextConfig: NextConfig = {
   // NFT may miss in serverless traces. Force-include runtime assets for the
   // thumbnail capture route so Chromium can launch on Vercel.
   outputFileTracingIncludes: {
-    "/api/projects/*/thumbnail": [
-      "./node_modules/playwright-core/browsers.json",
-      "./node_modules/@sparticuz/chromium/bin/**",
-    ],
+      "/api/projects/*/thumbnail": [
+        "./node_modules/playwright-core/browsers.json",
+        "./node_modules/@sparticuz/chromium/bin/**",
+      ],
+      // Inspector-capture startar samma Chromium som miniatyrerna och är en
+      // EGEN serverless-funktion — den behöver därför sin egen spårningspost.
+      // Utan den tappar NFT binären och funktionen dör vid browser-launch, med
+      // 502 i prod trots grönt bygge (Codex P1 på #729). Enhetstesten mockar
+      // `executablePath` och kan inte fånga det.
+      "/api/inspector-capture": [
+        "./node_modules/playwright-core/browsers.json",
+        "./node_modules/@sparticuz/chromium/bin/**",
+      ],
     // @sajtmaskin registry route reads committed block TSX files at request
     // time (same fs pattern as loadScaffoldFiles); force-include them so NFT
     // never drops them from the serverless trace. Key is a glob — "/r/*"

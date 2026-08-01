@@ -36,6 +36,7 @@ function makeArgs(
     setSelectedVersionId: vi.fn(),
     setIsDeploying: vi.fn(),
     setDomainManagerOpen: vi.fn(),
+    setSeoReport: vi.fn(),
     setLastDeployVercelProjectId: vi.fn(),
     setActiveDeploymentId: vi.fn(),
     setDomainResults: vi.fn(),

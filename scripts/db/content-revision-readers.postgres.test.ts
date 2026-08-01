@@ -298,6 +298,39 @@ describe.skipIf(!target.url)("innehållsrevision steg 3 mot riktig Postgres", ()
       expect(repair?.preview_success).toBeNull();
     });
 
+    it("kvittot landar på den revision VM:en BOOTADE, även när raden hunnit vidare", async () => {
+      process.env.SAJTMASKIN_CONTENT_REVISION_GATE = "true";
+      const versionId = await createVersion(FILES_BASE);
+      // Raden för innehållet VM:en bootade (N)…
+      await telemetry.createGenerationTelemetryRecord({
+        chatId,
+        versionId,
+        model: "test-model",
+        qualityGateResult: "preflight_passed",
+      });
+      // …och sedan hinner innehållet vidare till N+1 med en egen rad, medan
+      // VM:en fortfarande servar N.
+      await rewriteVersionFiles(versionId, FILES_EDITED);
+      await telemetry.createGenerationTelemetryRecord({
+        chatId,
+        versionId,
+        model: "test-model",
+        qualityGateResult: "preflight_passed",
+      });
+
+      await telemetry.recordPreviewRuntimeOutcomeForVersion(versionId, true, {
+        bootedFilesRevision: md5(FILES_BASE),
+      });
+
+      const rows = await readTelemetry(versionId);
+      const booted = rows.find((r) => r.files_revision === md5(FILES_BASE));
+      const advanced = rows.find((r) => r.files_revision === md5(FILES_EDITED));
+      expect(booted?.preview_success).toBe(true);
+      // Utan den bundna revisionen jämför satsen mot versionens NUVARANDE
+      // innehåll och stämplar den här raden i stället — kvitto för fel innehåll.
+      expect(advanced?.preview_success).toBeNull();
+    });
+
     it("dokumenterar dagens beteende med flaggan av: kvittot landar på nyaste raden (M#pv4)", async () => {
       const versionId = await createVersion(FILES_BASE);
       await seedBaseAndRepairRows(versionId);

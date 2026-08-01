@@ -37,3 +37,9 @@ files_envvars
 
 # Lokal IDE-MCP-config (kan hålla tokens; mall: .cursor/mcp.json.example)
 .cursor/mcp.json
+
+# Undantag från "upprepa inte .gitignore" ovan: .eslintcache ÄR gitignorerad och
+# därmed redan oindexerad, men den raden gäller indexering. Den här filen
+# blockerar LÄSNING, och det är poängen här — cachen är en flera megabyte stor
+# enradig JSON som förstör kontexten för den agent som råkar öppna den.
+.eslintcache

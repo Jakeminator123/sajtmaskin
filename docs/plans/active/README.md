@@ -26,8 +26,8 @@ kopiera inte dess kö hit.
 
 | Spår | Plan | Läge | Nästa steg |
 | --- | --- | --- | --- |
-| Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | **Steg 1–2 levererade 2026-07-29**, grinden för primitiven stängd i #674, och **steg 3 levererat 2026-07-31 bakom flaggan `SAJTMASKIN_CONTENT_REVISION_GATE` (default av)**: promote-guard, runtime-kvitto och statusprojektion jämför nu revision, med räknaren `sajtmaskin_content_revision_mismatch_total` som mätunderlag | **Ägarbeslut: släpp flaggan** — preview först, läs räknaren via `/api/metrics`, sedan prod. Två residualer i planen: `/versions`-listan trådar inte revisionen (fixen är en `DISTINCT ON`-fråga per chat, inte N+1 i en pollad listväg), och kvittot härleder "det VM:en servar" ur versionens revision i stället för ur preview-sessionen |
-| Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | Fyra rader kvar efter att R8:s monteringsdel landade 2026-07-30 (#659). Levererad historik är trimmad ur planen och lever i [`../avklarat/README.md`](../avklarat/README.md) | **R8:s aktiverings-E2E** är den enda raden som kan tas mekaniskt. R5 och R12 är blockerade på annat än tid (exportvägens env-scope respektive en saknad deployment-identitetssignal); R13 är en prod-observation |
+| Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | Sex rader kvar 2026-08-01: fyra sedan tidigare plus innehållsrevisionens svansar R14–R15 (planen upplöstes när kärnan — steg 1–3, #642/#674/#693 — indexerades i [`../avklarat/README.md`](../avklarat/README.md)) | **R8:s aktiverings-E2E** och **R15** kan tas mekaniskt. **R14 är ägarbeslutet: släpp `SAJTMASKIN_CONTENT_REVISION_GATE`** (preview först, läs räknaren, sedan prod — recept i planfilen). R5 och R12 är blockerade på annat än tid; R13 är en prod-observation |
+| Sanering och uppdelning (10 steg) | [`2026-08-01-sanering-och-uppdelning/00-master-plan.md`](2026-08-01-sanering-och-uppdelning/00-master-plan.md) | Plan skriven 2026-08-01, kodverifierad baseline mot master `c3a9273d0` (öppna PR:ar, backlog-räkning, knip, blob-svep av historiken). Inget steg påbörjat | **Steg 0: mergestyr #708 → #706 → #707**, därefter de sex false-green-fixarna ([`01-false-green.md`](2026-08-01-sanering-och-uppdelning/01-false-green.md)). Historik-omskrivningen (steg 8) och `_parkering/`-raderingen kräver ägar-OK |
 
 ## Ägarbeslut — ratificerade 2026-07-30
 
@@ -38,7 +38,7 @@ säger något annat, men gör det där motiveringen står, inte här.
 
 | Fråga | Beslut | Var motiveringen står |
 | --- | --- | --- |
-| Fail-closed vid revisions-mismatch? | Mismatchat verdikt **kastas i båda riktningar**; bara **känd** mismatch blockerar promote, saknad revision är fail-open | [innehållsrevision § Beslutspunkter](2026-07-25-innehallsrevision-verifieringskvitton.md) |
+| Fail-closed vid revisions-mismatch? | Mismatchat verdikt **kastas i båda riktningar**; bara **känd** mismatch blockerar promote, saknad revision är fail-open | [`../avklarat/README.md`](../avklarat/README.md) § Innehållsrevision (plantexten i git) |
 | `files_revision`: hash eller räknare? | **Hash, genererad av Postgres** (`md5(files_json)`) — ingen skrivare kan glömma den | samma |
 | Steg 1–2 separat från steg 3? | **Ja** — additivt först, beteende sen | samma |
 | ReleaseGate-bannern: noll spår eller diskret länk? | **Diskret diagnostik-länk** (noll spår gör UI:t osant) — implementerad 2026-07-28 (#639) | [`../avklarat/README.md`](../avklarat/README.md) § Restlistan |
@@ -50,8 +50,8 @@ säger något annat, men gör det där motiveringen står, inte här.
 ## Andra aktiva sanningar
 
 - Buggar och policybeslut: [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md)
-- Dokumentationskonsolideringens status:
-  [`documentation-audit-2026-07-13.md`](../../audits/documentation-audit-2026-07-13.md)
+- Stoppunkter för städning och telemetrikravet före route-radering:
+  [`../../documentation-lifecycle.md`](../../documentation-lifecycle.md)
 - Stabil arkitektur och kontrakt: [`../../README.md`](../../README.md)
 
 ## När en plan är klar

@@ -66,7 +66,8 @@ import {
   seoPreferencesSchema,
 } from "@/lib/projects/preferences-schema";
 import { resolveDeploySeoOptions } from "./resolve-seo";
-import { applySeoToProjectFiles } from "@/lib/gen/scaffolds/seo-defaults";
+import { runSeoPublishPass } from "@/lib/seo";
+import { resolveSeoCopyModelId, toSeoReportPayload } from "./seo-publish";
 import { isGeneratedEnvLocalPath } from "@/lib/gen/export/strip-env-local-for-zip";
 import { buildEnvDegradationWarnings } from "./env-degradation-warnings";
 import {
@@ -941,15 +942,48 @@ export async function POST(req: Request) {
         // before the Vercel call so the deploy gets the enriched files.
         // No-op when `resolvedSeoOptions` is null → deploy-files identical
         // to today.
-        const seoApplyResult = resolvedSeoOptions
-          ? applySeoToProjectFiles(fixedFiles, resolvedSeoOptions)
-          : { applied: false as const, files: fixedFiles, source: "explicit-noop" as const, siteUrl: null, injected: [] as string[], enriched: [] as string[] };
-        if (seoApplyResult.applied) {
-          console.info("[deploy] SEO injected", {
+        //
+        // The pass audits the files first and lets the findings decide what to
+        // change, so the report we return describes real edits rather than the
+        // fact that an injector ran. `runSeoPublishPass` never throws — a
+        // failure ships the files untouched, because SEO must not be able to
+        // block a publish.
+        const seoPass =
+          resolvedSeoOptions && resolvedSeoOptions.siteUrl
+            ? await runSeoPublishPass(fixedFiles, {
+                siteUrl: resolvedSeoOptions.siteUrl,
+                brand: resolvedSeoOptions.brand ?? undefined,
+                copyModelId: resolveSeoCopyModelId(),
+              })
+            : null;
+        const seoApplyResult = seoPass
+          ? {
+              applied: seoPass.report.improvements.length > 0,
+              files: seoPass.files,
+              source: "override" as const,
+              siteUrl: resolvedSeoOptions?.siteUrl ?? null,
+              injected: seoPass.report.improvements
+                .filter((i) => i.change.startsWith("Lade till"))
+                .map((i) => i.file),
+              enriched: seoPass.report.improvements
+                .filter((i) => !i.change.startsWith("Lade till"))
+                .map((i) => i.file),
+            }
+          : {
+              applied: false as const,
+              files: fixedFiles,
+              source: "explicit-noop" as const,
+              siteUrl: null,
+              injected: [] as string[],
+              enriched: [] as string[],
+            };
+        if (seoPass) {
+          console.info("[deploy] SEO pass", {
             siteUrl: seoApplyResult.siteUrl,
-            source: seoApplyResult.source,
-            injected: seoApplyResult.injected,
-            enriched: seoApplyResult.enriched,
+            scoreBefore: seoPass.report.before.score,
+            scoreAfter: seoPass.report.after.score,
+            improvements: seoPass.report.improvements.length,
+            remaining: seoPass.report.remaining.length,
           });
           devLogAppend("latest", {
             type: "site.deploy.seo-applied",
@@ -960,9 +994,11 @@ export async function POST(req: Request) {
             source: seoApplyResult.source,
             injected: seoApplyResult.injected,
             enriched: seoApplyResult.enriched,
+            scoreBefore: seoPass.report.before.score,
+            scoreAfter: seoPass.report.after.score,
           });
         }
-        const filesForDeploy = seoApplyResult.applied ? seoApplyResult.files : fixedFiles;
+        const filesForDeploy = seoPass ? seoPass.files : fixedFiles;
 
         const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
         const imageAssets = await materializeImagesInTextFiles({
@@ -1110,6 +1146,9 @@ export async function POST(req: Request) {
                 enriched: seoApplyResult.enriched,
               }
             : { applied: false },
+          // The full audit → improve → re-audit story, so the UI can show what
+          // was reviewed and what actually changed rather than a bare boolean.
+          seoReport: seoPass ? toSeoReportPayload(seoPass.report) : null,
         });
       } catch (deployErr) {
         // Pengaväg: vi debiterade före Vercel-anropet — refundera BARA om

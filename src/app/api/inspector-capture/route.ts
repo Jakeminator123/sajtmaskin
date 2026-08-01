@@ -1,20 +1,51 @@
 import { NextResponse } from "next/server";
-import type { Page } from "playwright";
+import type { Page } from "playwright-core";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rateLimit";
+import {
+  applyCaptureRequestGate,
+  assertFinalUrlAllowed,
+  launchCaptureBrowser,
+} from "@/lib/capture/browser";
+import {
+  assertPreviewUrlAllowed,
+  isAllowedCaptureUrl,
+} from "@/lib/capture/preview-allowlist";
+import { clipFromRegion, parseCaptureRegion, type CaptureRegion } from "./capture-region";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const IS_SERVERLESS = Boolean(process.env.VERCEL);
+// Samma budget som miniatyr-routen: en kallstartad Chromium plus navigering
+// och settle ligger långt över Vercels default på 10 s.
+export const maxDuration = 60;
 
 const NAVIGATION_TIMEOUT_MS = 25_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
+/**
+ * Egen deadline för skottet. Utan den kan Playwrights default (30 s) plus
+ * navigering och settle passera `maxDuration`, och funktionen dödas mitt i
+ * bilden — vilket bara syns som "Target page, context or browser has been
+ * closed".
+ */
+const SCREENSHOT_TIMEOUT_MS = 15_000;
 const DEFAULT_CROP_WIDTH = 420;
 const DEFAULT_CROP_HEIGHT = 280;
+/**
+ * Bilden måste kunna laddas upp igen.
+ *
+ * Klienten gör om `previewDataUrl` till en fil och postar den till
+ * `/api/media/upload`, som avvisar allt över 4 MB. En lossless PNG av en stor
+ * markerad yta i 2× skala passerar det med marginal, och användaren såg då
+ * bilden lokalt medan modellen aldrig fick den (Codex P1 på #729). Taket ligger
+ * under 4 MB så base64-omkodningen och svarsbudgeten också håller.
+ */
+const MAX_CAPTURE_BYTES = 3 * 1024 * 1024;
+/** Över den här ytan är 2× skala inte värt storleken. */
+const MAX_FULL_SCALE_CLIP_PIXELS = 1_200 * 900;
+/** Faller PNG:en över taket kodas den om som JPEG i den här ordningen. */
+const JPEG_FALLBACK_QUALITIES = [82, 60] as const;
 
 type CaptureRequest = {
   url: string;
@@ -24,7 +55,20 @@ type CaptureRequest = {
   viewportHeight: number;
   cropWidth?: number;
   cropHeight?: number;
+  region?: CaptureRegion;
+  /**
+   * Previewens scroll-läge när användaren markerade.
+   *
+   * Koordinaterna vi får är viewport-relativa, och den här routen laddar
+   * sidan på nytt — alltid vid scroll 0. Utan att rulla tillbaka hit beskär
+   * vi toppen av dokumentet och påstår att det är den markerade ytan.
+   */
+  scrollX?: number;
+  scrollY?: number;
 };
+
+/** Låt lat-laddat innehåll hinna måla efter att vi rullat. */
+const SCROLL_SETTLE_MS = 220;
 
 type CapturedElement = {
   tag: string;
@@ -372,14 +416,37 @@ function parseBody(body: unknown): CaptureRequest | null {
   if (!url) return null;
   if (!Number.isFinite(xPercent) || !Number.isFinite(yPercent)) return null;
   if (!Number.isFinite(viewportWidth) || !Number.isFinite(viewportHeight)) return null;
-  return { url, xPercent, yPercent, viewportWidth, viewportHeight, cropWidth, cropHeight };
+  return {
+    url,
+    xPercent,
+    yPercent,
+    viewportWidth,
+    viewportHeight,
+    cropWidth,
+    cropHeight,
+    region: parseCaptureRegion(obj.region),
+    scrollX: Number.isFinite(toNumber(obj.scrollX)) ? toNumber(obj.scrollX) : undefined,
+    scrollY: Number.isFinite(toNumber(obj.scrollY)) ? toNumber(obj.scrollY) : undefined,
+  };
 }
 
+/**
+ * Capture kräver inloggning, inte bara en session.
+ *
+ * En gäst-session släpptes tidigare in här, men bilden är oanvändbar för den:
+ * klienten laddar upp `previewDataUrl` till `/api/media/upload`, som kräver
+ * `getCurrentUser` och 401:ar för samma gäst. Resultatet var en bild som syntes
+ * lokalt medan modellen aldrig fick den. Att kräva inloggning stänger dessutom
+ * halva proxy-ytan: gäst-`x-session-id` är klientkontrollerat och kunde roteras
+ * fritt (Codex P1 på #729, ägarbeslut 2026-08-01).
+ */
 async function requireInspectorIdentity(req: Request): Promise<Response | null> {
   const user = await getCurrentUser(req);
-  const sessionId = getSessionIdFromRequest(req);
-  if (!user && !sessionId) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Logga in för att skicka en bild av previewen." },
+      { status: 401 },
+    );
   }
   return null;
 }
@@ -418,6 +485,16 @@ async function handlePOST(req: Request) {
   if (!["http:", "https:"].includes(target.protocol)) {
     return NextResponse.json({ success: false, error: "Endast http/https stöds." }, { status: 400 });
   }
+  // Samma allowlist som miniatyrvägen. SSRF-kontrollen nedan avvisar bara
+  // privata värdar, så utan den här raden fotograferar routen vilken PUBLIK
+  // adress som helst — en screenshot-proxy i prod (Codex P1 på #729).
+  const allowlistDecision = assertPreviewUrlAllowed(target, "Inspector-capture");
+  if (!allowlistDecision.ok) {
+    return NextResponse.json(
+      { success: false, error: allowlistDecision.error },
+      { status: allowlistDecision.status },
+    );
+  }
   if (isDisallowedHost(target.hostname) || (await hostResolvesToPrivate(target.hostname))) {
     return NextResponse.json({ success: false, error: "Otillåten host för capture." }, { status: 403 });
   }
@@ -432,61 +509,148 @@ async function handlePOST(req: Request) {
   const cropWidth = clamp(Math.round(parsed.cropWidth ?? DEFAULT_CROP_WIDTH), 120, viewportWidth);
   const cropHeight = clamp(Math.round(parsed.cropHeight ?? DEFAULT_CROP_HEIGHT), 90, viewportHeight);
 
-  if (IS_SERVERLESS) {
-    return NextResponse.json(
-      { success: false, error: "Inspector capture is not available in serverless (local Playwright fallback is unsupported here)." },
-      { status: 503 },
-    );
-  }
+  // Ytan är känd redan här — den beror bara på payloaden — så skalan kan väljas
+  // innan sidan laddas i stället för att upptäckas som en för stor bild efteråt.
+  const regionClip = parsed.region
+    ? clipFromRegion(parsed.region, viewportWidth, viewportHeight)
+    : null;
+  const plannedClipPixels = regionClip
+    ? regionClip.width * regionClip.height
+    : cropWidth * cropHeight;
+  const deviceScaleFactor = plannedClipPixels > MAX_FULL_SCALE_CLIP_PIXELS ? 1 : 2;
 
-  const { chromium } = await import("playwright");
-  let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
+  let browser: Awaited<ReturnType<typeof launchCaptureBrowser>> | null = null;
   try {
-    browser = await chromium.launch({ headless: true });
+    // Delad startpunkt med projektminiatyrerna. Tidigare importerades
+    // `playwright` rakt av — en devDependency — och routen svarade därför 503
+    // så fort `process.env.VERCEL` fanns. Bildvägen i inspektorn var alltså
+    // lokal-bara och död i prod, inklusive den punktbild som funnits längst.
+    browser = await launchCaptureBrowser();
     const page = await browser.newPage({
       viewport: { width: viewportWidth, height: viewportHeight },
-      deviceScaleFactor: 2,
+      deviceScaleFactor,
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+      // Service worker-requests går förbi interception, så de blockeras helt
+      // (en capture behöver dem aldrig).
+      serviceWorkers: "block",
     });
+
+    // Nu när routen faktiskt kör i prod måste den bära samma SSRF-skydd som
+    // miniatyrvägen: värdkontrollen ovan gäller bara den första URL:en, och
+    // Chromium får aldrig nå metadata-endpoints eller interna tjänster.
+    await applyCaptureRequestGate(page);
 
     await page.goto(target.toString(), {
       waitUntil: "domcontentloaded",
       timeout: NAVIGATION_TIMEOUT_MS,
     });
     await waitForStabilizedPage(page);
+
+    // Rulla till samma position som previewen stod i. Allt nedanför beror på
+    // det: `describePoint` slår upp elementet med viewport-koordinater, och
+    // Playwrights `clip` är viewport-relativ när `fullPage` är av. Utan det
+    // här steget beskriver och fotograferar vi sidans topp oavsett vad
+    // användaren tittade på.
+    const scrollX = Math.max(0, Math.round(parsed.scrollX ?? 0));
+    const scrollY = Math.max(0, Math.round(parsed.scrollY ?? 0));
+    if (scrollX > 0 || scrollY > 0) {
+      await page
+        .evaluate(
+          ([x, y]) => window.scrollTo(x, y),
+          [scrollX, scrollY] as const,
+        )
+        .catch(() => undefined);
+      await page.waitForTimeout(SCROLL_SETTLE_MS).catch(() => undefined);
+    }
+
     const pointDetails = await describePoint(page, centerX, centerY);
     const resolvedCenterX = clamp(Math.round(pointDetails.resolvedX), 0, viewportWidth);
     const resolvedCenterY = clamp(Math.round(pointDetails.resolvedY), 0, viewportHeight);
-    const clipX = clamp(Math.round(resolvedCenterX - cropWidth / 2), 0, Math.max(0, viewportWidth - cropWidth));
-    const clipY = clamp(Math.round(resolvedCenterY - cropHeight / 2), 0, Math.max(0, viewportHeight - cropHeight));
-    await drawCaptureOverlay(page, resolvedCenterX, resolvedCenterY, xPercent, yPercent);
 
-    const previewBuffer = await page.screenshot({
+    // A dragged region is its own answer: clip exactly what the user outlined
+    // and draw nothing on top. The point path needs a crosshair because a
+    // 420x280 crop around a coordinate does not otherwise say which pixel was
+    // meant — but here the crop IS the selection, and an overlay would only
+    // obscure the thing the user is asking about. The region also must not be
+    // recentred on `resolvedX/Y`: that snaps to an element, which is right for
+    // a click and wrong for a rectangle the user drew themselves.
+    const clip = regionClip
+      ? regionClip
+      : {
+          x: clamp(
+            Math.round(resolvedCenterX - cropWidth / 2),
+            0,
+            Math.max(0, viewportWidth - cropWidth),
+          ),
+          y: clamp(
+            Math.round(resolvedCenterY - cropHeight / 2),
+            0,
+            Math.max(0, viewportHeight - cropHeight),
+          ),
+          width: cropWidth,
+          height: cropHeight,
+        };
+    if (!regionClip) {
+      await drawCaptureOverlay(page, resolvedCenterX, resolvedCenterY, xPercent, yPercent);
+    }
+
+    // Grinden ovan släpper igenom vilken PUBLIK värd som helst, så en
+    // redirect eller en JS-navigering kan ha flyttat huvudramen bort från
+    // previewen. Att bara pinna mot `target.hostname` räckte inte: den värden
+    // valde anroparen själv, så kontrollen godkände en URL som aldrig hörde till
+    // previewen. Slutlig URL prövas därför mot samma allowlist som den första.
+    assertFinalUrlAllowed(
+      page.url(),
+      (finalUrl) => isAllowedCaptureUrl(finalUrl, "Inspector-capture"),
+      "Inspector capture",
+    );
+
+    let previewBuffer = await page.screenshot({
       type: "png",
       omitBackground: false,
-      clip: { x: clipX, y: clipY, width: cropWidth, height: cropHeight },
+      clip,
+      timeout: SCREENSHOT_TIMEOUT_MS,
     });
-    const previewDataUrl = `data:image/png;base64,${previewBuffer.toString("base64")}`;
+    let previewMimeType = "image/png";
+    for (const quality of JPEG_FALLBACK_QUALITIES) {
+      if (previewBuffer.byteLength <= MAX_CAPTURE_BYTES) break;
+      previewBuffer = await page.screenshot({
+        type: "jpeg",
+        quality,
+        clip,
+        timeout: SCREENSHOT_TIMEOUT_MS,
+      });
+      previewMimeType = "image/jpeg";
+    }
+    if (previewBuffer.byteLength > MAX_CAPTURE_BYTES) {
+      // Hellre ett ärligt fel än en bild som ser ut att fungera och sedan
+      // avvisas av uppladdningen utan att modellen får något.
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Den markerade ytan blev för stor att skicka. Markera ett mindre område.",
+        },
+        { status: 413 },
+      );
+    }
+    const previewDataUrl = `data:${previewMimeType};base64,${previewBuffer.toString("base64")}`;
 
     return NextResponse.json({
       success: true,
       source: "local" as const,
       capturedUrl: page.url(),
       previewDataUrl,
-      previewMimeType: "image/png",
+      previewMimeType,
       xPercent,
       yPercent,
       viewportWidth,
       viewportHeight,
-      pointSummary: pointDetails.pointSummary,
+      pointSummary: regionClip
+        ? `Markerad yta ${clip.width}×${clip.height} px vid x ${xPercent.toFixed(1)}% • y ${yPercent.toFixed(1)}%`
+        : pointDetails.pointSummary,
       element: pointDetails.element,
-      clip: {
-        x: clipX,
-        y: clipY,
-        width: cropWidth,
-        height: cropHeight,
-      },
+      clip,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown capture error";

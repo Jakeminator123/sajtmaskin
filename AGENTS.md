@@ -45,7 +45,15 @@ Servrar, projekt-id:n, OAuth och 403-felsökning: [`local-tooling-mcp.mdc`](.cur
 
 ## Review guidelines
 
-PR-författaren äger bugg-efterkontrollen. Kör ett **Cursor Bugbot-pass** på egen diff (`bugbot`-subagent, `readonly: true`) före PR **och** före push till master — samma pass täcker både för-filter och efterkontroll för den head-SHA:n. Det finns **ingen** `bugbot run` CLI i repot; använd `review-bugbot`-skillen eller subagenten. Saknas Bugbot: gör en dokumenterad manuell diff-review i stället.
+PR-författaren äger bugg-efterkontrollen. Kör ett **Cursor Bugbot-pass** på egen diff (`bugbot`-subagent, `readonly: true`) före PR **och** före push till master — samma pass täcker både för-filter och efterkontroll för den head-SHA:n. Det finns **ingen** `bugbot run` CLI i repot; använd `review-bugbot`-skillen eller subagenten.
+
+**Faller Bugbot bort, gå nedåt i stegen — hoppa inte direkt till manuell review.** Den GitHub-integrerade Bugbot:en delar teamets budget och svarar `Bugbot couldn't run - usage limit reached` när den är slut. Att budgeten är slut på GitHub betyder **inte** att passet ska utebli: den lokala `bugbot`-subagenten är en egen väg och ska köras då.
+
+1. GitHub-integrerad Bugbot på PR:en (gratis oberoende ögon när budgeten räcker).
+2. Är den slut eller utebliven → **berörd agent kör Cursor Bugbot-passet lokalt** (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`).
+3. Först om även det misslyckas → strukturerad manuell diff-granskning med fil- och radreferenser.
+
+Dokumentera alltid i PR:en vilket steg som användes: `bugbot` (GitHub), `bugbot-local` (subagent) eller `manual local bug review`. Samma värde går i `bugkoll:`-fältet i `merge:ready`-sign-offen.
 
 Utöver den generella P0/P1-listan, flagga som **P1**:
 

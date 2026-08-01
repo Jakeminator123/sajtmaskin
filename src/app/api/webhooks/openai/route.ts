@@ -48,10 +48,21 @@ export async function POST(req: Request) {
   try {
     const result = await insertOpenAiWebhookEvent(event, body);
     if (result === "db_unconfigured") {
+      // 503, not 200. A missing database is a configuration state we can come
+      // back from — the deploy that lacks `POSTGRES_URL` gets one, or traffic
+      // moves to an instance that has it — but only if the event still exists
+      // to come back to. Acking it spends OpenAI's single delivery on a write
+      // that never happened, and there is no queue, blob or replay path behind
+      // this endpoint: the event is simply gone, with a `console.warn` as the
+      // only trace. `Retry-After` keeps the redelivery backoff honest rather
+      // than letting it hammer an instance that cannot store anything.
       console.warn(
-        `[openai-webhook] DB unconfigured — dropped ${event.eventType} (${event.eventId})`,
+        `[openai-webhook] DB unconfigured — asking for redelivery of ${event.eventType} (${event.eventId})`,
       );
-      return NextResponse.json({ ok: true, stored: false });
+      return NextResponse.json(
+        { error: "Storage unavailable", stored: false, retry: true },
+        { status: 503, headers: { "Retry-After": "60" } },
+      );
     }
     return NextResponse.json({ ok: true, stored: result === "inserted" });
   } catch (err) {
