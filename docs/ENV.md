@@ -94,6 +94,8 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 
 `.vercel/.env.*.local` från `vercel env pull` är **snapshot**, inte kanon.
 
+Env-pull-scripten (`npm run env:pull`, `npm run env:pull:prod-snapshot`) och `npm run vercel:link` kör Vercel-CLI:n via `npx --yes vercel@58` — ingen global `vercel`-installation krävs, och alla maskiner får samma major-version. CLI:n är medvetet **inte** en devDependency (tungt paket som bara används av lokala engångs-script).
+
 ---
 
 ## Databas: dev/prod-identitet (kanonisk mappning)
