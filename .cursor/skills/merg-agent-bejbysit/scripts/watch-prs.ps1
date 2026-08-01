@@ -216,10 +216,16 @@ for ($i = 1; $i -le $Cycles; $i++) {
     $summary += "#$n=$state/$ageText"
 
     $signed = $(if ($pr.Signed) { "label:merge:ready" } else { "OSIGNERAD" })
-    if ($state -eq "failed") { Announce "$n/$sha/failed" "FAILED #$n" $i }
-    elseif (@($pr.Blocked).Count -gt 0) {
+    # BLOCKED före FAILED. Kommentaren vid `Blocked` ovan säger att en
+    # stopp-label väger tyngre, men ordningen här gjorde motsatsen: en PR med
+    # do-not-merge OCH röd CI larmade FAILED, vilket väcker en agent till
+    # CI-felsökning på en PR som väntar på ett medvetet ägarbeslut. Röd CI är
+    # dessutom ofta en följd av att arbetet medvetet parkerats. Larmnyckeln
+    # bär läget, så en PR som senare bara är röd får sitt FAILED-larm då.
+    if (@($pr.Blocked).Count -gt 0) {
       Announce "$n/$sha/blocked" ("BLOCKED #$n (" + (@($pr.Blocked) -join ",") + ")") $i
     }
+    elseif ($state -eq "failed") { Announce "$n/$sha/failed" "FAILED #$n" $i }
     elseif ($state -eq "green" -and $age -ge $MinutesMature -and $ignoredPrs -notcontains $n) {
       # Signaturläget ingår i nyckeln: när författaren sätter merge:ready UTAN
       # ny commit ändras varken SHA eller läge, och utan detta hade larmet tystats
