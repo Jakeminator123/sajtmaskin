@@ -525,16 +525,31 @@ describe("collectFollowUpClarificationAnswer", () => {
     ).toBeNull();
   });
 
-  it("does NOT consume when a later user message already answered the question", () => {
+  it("does NOT consume when a DIFFERENT later user message superseded the question", () => {
     const messages = [
       ...buildMarkerMessages(),
-      { role: "user" as const, content: "Layout och design", ui_parts: null },
+      { role: "user" as const, content: "Gör footern blå i stället", ui_parts: null },
       { role: "assistant" as const, content: "Klart!", ui_parts: null },
     ];
 
     expect(
       collectFollowUpClarificationAnswer(messages, "Layout och design"),
     ).toBeNull();
+  });
+
+  it("consumes again when the identical reply was already persisted (failed codegen → retry)", () => {
+    // Retry-semantik (bugbot på denna diff): handlern persisterar user-raden
+    // före codegen, så en failad generering lämnar alternativtexten i
+    // historiken. En identisk re-send ska fortfarande återfå originalprompten.
+    const messages = [
+      ...buildMarkerMessages(),
+      { role: "user" as const, content: "Layout och design", ui_parts: null },
+      { role: "assistant" as const, content: "Klart!", ui_parts: null },
+    ];
+
+    const result = collectFollowUpClarificationAnswer(messages, "Layout och design");
+    expect(result?.consumed).toBe(true);
+    expect(result?.sourceUserMessage).toBe(originalPrompt);
   });
 
   it("ignores contract-clarification markers (separate flow)", () => {
@@ -655,5 +670,61 @@ describe("classifyFollowUpClarificationAnswerIntent", () => {
     );
     expect(result).not.toMatch(/^ambiguous-/);
     expect(result).toBe("neutral");
+  });
+});
+
+describe("collectFollowUpClarificationAnswer — retry efter persisterad svarsrad", () => {
+  const marker = (question: string, options: string[], sourceUserMessage: string) => ({
+    role: "assistant" as const,
+    content: question,
+    ui_parts: [
+      {
+        type: "tool:awaiting-input",
+        output: {
+          question,
+          options,
+          kind: "scope",
+          blocking: true,
+          reason: "followup_redesign_ambiguous",
+          awaitingInput: true,
+          followUpClarification: true,
+          sourceUserMessage,
+        },
+      },
+    ],
+  });
+
+  const original = "Fixa hydration-felet i src/app/page.tsx enligt felmeddelandet i konsolen";
+  const options = [
+    "Förfina nuvarande design",
+    "Gör en tydlig redesign i samma projekt",
+    "Starta om från en ny grund",
+  ];
+
+  it("konsumerar igen när en identisk svarsrad redan persisterats (failad codegen → retry)", () => {
+    const messages = [
+      { role: "user" as const, content: original, ui_parts: null },
+      marker("Vill du förfina eller göra en redesign?", options, original),
+      // Turn 2 persisterade user-raden men genereringen föll — retry skickar samma alternativ.
+      { role: "user" as const, content: "Förfina nuvarande design", ui_parts: null },
+    ];
+    const result = collectFollowUpClarificationAnswer(messages, "Förfina nuvarande design");
+    expect(result).toEqual({
+      sourceUserMessage: original,
+      question: "Vill du förfina eller göra en redesign?",
+      answer: "Förfina nuvarande design",
+      consumed: true,
+    });
+  });
+
+  it("konsumerar inte när ett ANNAT user-meddelande kommit efter markören", () => {
+    const messages = [
+      { role: "user" as const, content: original, ui_parts: null },
+      marker("Vill du förfina eller göra en redesign?", options, original),
+      { role: "user" as const, content: "Gör footern blå", ui_parts: null },
+    ];
+    expect(
+      collectFollowUpClarificationAnswer(messages, "Förfina nuvarande design"),
+    ).toBeNull();
   });
 });

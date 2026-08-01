@@ -460,9 +460,21 @@ export function collectFollowUpClarificationAnswer(
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (!message) continue;
-    // A user message after the clarification means the question was already
-    // answered (or superseded) in an earlier turn — nothing pending.
-    if (message.role === "user") return null;
+    // A DIFFERENT user message after the clarification means the question was
+    // superseded — nothing pending. A user message IDENTICAL to the current
+    // reply is a prior attempt of the same answer (the handler persists the
+    // user row before codegen, so a failed/retried generation leaves the
+    // option text in history — bugbot on this diff): skip it so the retry
+    // still recovers the original prompt instead of re-orchestrating the bare
+    // option. Trade-off, mirrored from how rare it is: re-sending the exact
+    // option string after a SUCCESSFUL turn also re-consumes the marker and
+    // re-attaches the original request — coherent (same instruction, same
+    // scope) and far less harmful than the lost-instructions failure.
+    if (message.role === "user") {
+      const content = typeof message.content === "string" ? message.content.trim() : "";
+      if (content.toLowerCase() === reply.toLowerCase()) continue;
+      return null;
+    }
     if (message.role !== "assistant") continue;
     const marker = readFollowUpClarificationMarker(message);
     if (!marker) continue;
