@@ -4,6 +4,7 @@ import {
   readMutedDossierIdsFromSnapshot,
 } from "@/lib/gen/orchestration-snapshot";
 import {
+  isPlannedDossierCoveredByModelBuiltBlock,
   preferPendingIntegrationDossiers,
   resolvePendingIntegrationDossiers,
 } from "./pending-integrations";
@@ -108,5 +109,51 @@ describe("provider-specific pending integration dossiers", () => {
         removedDossierIds: ["stripe-checkout"],
       }),
     ).toEqual([]);
+  });
+});
+
+// M#li6 (prod 2026-08-01, chat 7a4d609f): en modellbyggd chattpost och den
+// F2-uppskjutna openai-chat-dossiern visades som separata Byggblock — tre
+// poster för två funktioner. Ett byggt block som täcker samma capability (or
+// samma vendor via env-överlapp) ska ge EN post, inte två.
+describe("isPlannedDossierCoveredByModelBuiltBlock (M#li6)", () => {
+  it("supersedes a planned dossier when a model-built block has the same capability", () => {
+    expect(
+      isPlannedDossierCoveredByModelBuiltBlock({
+        planned: { capability: "payments", envKeys: ["STRIPE_SECRET_KEY"] },
+        modelBuiltBlocks: [{ capability: "payments", envKeys: [] }],
+      }),
+    ).toBe(true);
+  });
+
+  it("supersedes across capability keys when env surfaces overlap (openai prod case)", () => {
+    expect(
+      isPlannedDossierCoveredByModelBuiltBlock({
+        planned: { capability: "ai-chat", envKeys: ["OPENAI_API_KEY"] },
+        modelBuiltBlocks: [
+          { capability: "ai-tool-calling", envKeys: ["OPENAI_API_KEY"] },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps a planned dossier when neither capability nor env surface overlaps", () => {
+    expect(
+      isPlannedDossierCoveredByModelBuiltBlock({
+        planned: { capability: "newsletter", envKeys: ["MAILCHIMP_API_KEY"] },
+        modelBuiltBlocks: [
+          { capability: "ai-tool-calling", envKeys: ["OPENAI_API_KEY"] },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps every planned dossier when no model-built block exists", () => {
+    expect(
+      isPlannedDossierCoveredByModelBuiltBlock({
+        planned: { capability: "ai-chat", envKeys: ["OPENAI_API_KEY"] },
+        modelBuiltBlocks: [],
+      }),
+    ).toBe(false);
   });
 });

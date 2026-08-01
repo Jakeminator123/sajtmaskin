@@ -29,6 +29,7 @@ export {
 
 export { resolvePendingIntegrationDossiers } from "./pending-integrations";
 export { preferPendingIntegrationDossiers } from "./pending-integrations";
+export { isPlannedDossierCoveredByModelBuiltBlock } from "./pending-integrations";
 
 export { defaultInjectionMode, dossierRequiresF3 } from "./types";
 export type {

@@ -39,9 +39,12 @@ vi.mock("@/lib/gen/dossiers/snapshot-selection", () => ({
   resolveSelectedDossiersFromSnapshot,
 }));
 
-vi.mock("@/lib/gen/dossiers/select", () => ({
-  selectDossiersForRequest,
-}));
+vi.mock("@/lib/gen/dossiers/select", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/dossiers/select")>();
+  // Keep the real `isDossierConfigured` (pure) — `pending-integrations.ts`
+  // calls it when the snapshot carries exact muted dossier ids (M#li6 test).
+  return { ...actual, selectDossiersForRequest };
+});
 
 vi.mock("@/lib/gen/version-manager", () => ({
   getVersionFiles,
@@ -219,6 +222,7 @@ describe("GET dossiers overview", () => {
     // single-pass path they did before the reconciliation was added.
     extractBriefSummaryFromSnapshot.mockReturnValue(null);
     readMutedCapabilitiesFromSnapshot.mockReturnValue([]);
+    readMutedDossierIdsFromSnapshot.mockReturnValue([]);
     mapProviderKeysToDossierCapabilities.mockReturnValue([]);
     selectDossiersForRequest.mockReturnValue({ selected: [], poolSize: 0, byCapability: {} });
     // Version-presence union defaults to "no version files loaded" so existing
@@ -430,6 +434,44 @@ describe("GET dossiers overview", () => {
     expect(aiTool?.status).toBe("built-demo");
     expect(body.counts.builtLive).toBe(0);
     expect(body.counts.builtDemo).toBe(1);
+  });
+
+  // M#li6 (prod 2026-08-01, chat 7a4d609f): after the follow-up "lägg till
+  // AI-chatbot", F2-mute deferred openai-chat (pending → "Planerad") while a
+  // model-built chat block was already detected in the version's code
+  // ("AI-assistent med verktyg", built) — three posts for two functions. The
+  // planned post must be superseded by the model-built coverage: ONE post,
+  // not two. The pending SIGNAL itself is untouched (view-level filter).
+  it("hides a planned pending dossier already covered by a model-built block (M#li6)", async () => {
+    const openaiRequirement = {
+      key: "openai",
+      name: "OpenAI",
+      provider: "openai",
+      requiredRealEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+      warnOnlyEnvKeys: [],
+      buildInstructions: [],
+      setupGuide: "",
+      hasConfigNoticeComponent: true,
+    };
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    // F2 deferred the openai-chat dossier (real registry entry: capability
+    // ai-chat, env OPENAI_API_KEY — same vendor surface as the built block).
+    readMutedDossierIdsFromSnapshot.mockReturnValue(["openai-chat"]);
+    getVersionFiles.mockResolvedValue([
+      { path: "components/ai-chat-widget.tsx", content: "// client mock widget" },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    expect(body.dossiers.map((d) => d.id)).toEqual(["ai-tool-calling-chat"]);
+    expect(body.counts.total).toBe(1);
+    expect(body.counts.planned).toBe(0);
   });
 
   // M#li1, model-built fallback: an implementation the model wrote itself

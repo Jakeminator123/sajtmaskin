@@ -65,6 +65,7 @@ import {
   resolveSelectedDossiersWithVersionPresence,
 } from "@/lib/gen/dossiers/version-presence";
 import {
+  isPlannedDossierCoveredByModelBuiltBlock,
   preferPendingIntegrationDossiers,
   resolvePendingIntegrationDossiers,
 } from "@/lib/gen/dossiers";
@@ -501,14 +502,48 @@ async function buildDossierOverview(
     };
   });
 
+  // M#li6: hide a "planned" post whose function is already covered by a
+  // MODEL-BUILT block — a built entry (requirement matched in the version's
+  // code) WITHOUT dossier file presence. Coverage join + why dossier-injected
+  // built blocks are excluded (provider migration): see
+  // `isPlannedDossierCoveredByModelBuiltBlock`. View-level only — the
+  // pending signal itself is untouched, so "Bygg integrationer" still knows
+  // what F2 deferred.
+  const modelBuiltBlocks = dossiers
+    .filter(
+      (d) =>
+        (d.status === "built-live" ||
+          d.status === "built-demo" ||
+          d.status === "blocked-build") &&
+        !presentDossierIds.has(d.id),
+    )
+    .map((d) => ({
+      capability: d.capability,
+      envKeys: d.envVars.map((env) => env.key),
+    }));
+  const visibleDossiers =
+    modelBuiltBlocks.length === 0
+      ? dossiers
+      : dossiers.filter(
+          (d) =>
+            d.status !== "planned" ||
+            !isPlannedDossierCoveredByModelBuiltBlock({
+              planned: {
+                capability: d.capability,
+                envKeys: d.envVars.map((env) => env.key),
+              },
+              modelBuiltBlocks,
+            }),
+        );
+
   const counts = {
-    total: dossiers.length,
-    hard: dossiers.filter((d) => d.class === "hard").length,
-    soft: dossiers.filter((d) => d.class === "soft").length,
-    builtLive: dossiers.filter((d) => d.status === "built-live").length,
-    builtDemo: dossiers.filter((d) => d.status === "built-demo").length,
-    blockedBuild: dossiers.filter((d) => d.status === "blocked-build").length,
-    planned: dossiers.filter((d) => d.status === "planned").length,
+    total: visibleDossiers.length,
+    hard: visibleDossiers.filter((d) => d.class === "hard").length,
+    soft: visibleDossiers.filter((d) => d.class === "soft").length,
+    builtLive: visibleDossiers.filter((d) => d.status === "built-live").length,
+    builtDemo: visibleDossiers.filter((d) => d.status === "built-demo").length,
+    blockedBuild: visibleDossiers.filter((d) => d.status === "blocked-build").length,
+    planned: visibleDossiers.filter((d) => d.status === "planned").length,
   };
 
   return {
@@ -520,7 +555,7 @@ async function buildDossierOverview(
       lifecycleStage,
       versionFilesAvailable,
       counts,
-      dossiers,
+      dossiers: visibleDossiers,
     },
   };
 }
