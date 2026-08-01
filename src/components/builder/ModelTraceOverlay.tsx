@@ -47,6 +47,7 @@ function buildPerTierPhaseMatrix(): PerTierPhaseMatrixRow[] {
         modelId,
         thinking: thinkingCfg?.thinking ?? false,
         reasoningEffort: thinkingCfg?.reasoningEffort ?? "medium",
+        reasoningMode: thinkingCfg?.reasoningMode,
       });
     }
   }
@@ -61,7 +62,7 @@ function PerTierPhaseMatrix() {
 
   return (
     <details className="rounded-lg border border-white/10 bg-white/3 p-2">
-      <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
+      <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
         Tier × Phase Matrix
       </summary>
       <div className="mt-2 overflow-x-auto">
@@ -70,10 +71,7 @@ function PerTierPhaseMatrix() {
             <tr className="text-left text-slate-400">
               <th className="border-b border-white/10 px-1.5 py-1 font-medium">tier \\ phase</th>
               {MATRIX_PHASES.map((phase) => (
-                <th
-                  key={phase}
-                  className="border-b border-white/10 px-1.5 py-1 font-medium"
-                >
+                <th key={phase} className="border-b border-white/10 px-1.5 py-1 font-medium">
                   {phase}
                 </th>
               ))}
@@ -103,10 +101,7 @@ function PerTierPhaseMatrix() {
                     );
                   }
                   return (
-                    <td
-                      key={phase}
-                      className="border-b border-white/5 px-1.5 py-1 text-slate-300"
-                    >
+                    <td key={phase} className="border-b border-white/5 px-1.5 py-1 text-slate-300">
                       <div className="font-mono break-all">{row.modelId}</div>
                       <div className="mt-0.5 flex flex-wrap gap-1 text-[9px] text-slate-400">
                         <span
@@ -122,6 +117,11 @@ function PerTierPhaseMatrix() {
                         <span className="rounded border border-white/10 bg-white/5 px-1">
                           re:{row.reasoningEffort}
                         </span>
+                        {row.reasoningMode && (
+                          <span className="rounded border border-white/10 bg-white/5 px-1">
+                            mode:{row.reasoningMode}
+                          </span>
+                        )}
                       </div>
                     </td>
                   );
@@ -164,8 +164,13 @@ function boolLabel(value: boolean) {
 }
 
 export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
-  const { selectedModelTier, promptAssistModel, promptAssistDeep, enableThinking, canUseDeepBrief } =
-    props;
+  const {
+    selectedModelTier,
+    promptAssistModel,
+    promptAssistDeep,
+    enableThinking,
+    canUseDeepBrief,
+  } = props;
   const [isVisible, setIsVisible] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -258,7 +263,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
       <div className="pointer-events-auto w-full rounded-xl border border-white/10 bg-slate-950/95 text-slate-100 shadow-2xl backdrop-blur">
         <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
           <div>
-            <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-slate-400">
+            <p className="text-[11px] font-semibold tracking-[0.18em] text-slate-400 uppercase">
               Model Trace
             </p>
             <p className="text-xs text-slate-300">
@@ -379,11 +384,16 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                 </section>
 
                 <section className="rounded-lg border border-white/10 bg-white/3 p-2">
-                  <p className="mb-2 text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
+                  <p className="mb-2 text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
                     Provider Auth
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <span className={cn("rounded-full border px-2 py-1", statusChipClass(snapshot.auth.openai))}>
+                    <span
+                      className={cn(
+                        "rounded-full border px-2 py-1",
+                        statusChipClass(snapshot.auth.openai),
+                      )}
+                    >
                       OpenAI key: {snapshot.auth.openai ? "set" : "missing"}
                     </span>
                     <span
@@ -411,17 +421,20 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                 ) : null}
 
                 <details className="rounded-lg border border-white/10 bg-white/3 p-2">
-                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
+                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
                     Active Routes
                   </summary>
                   <div className="mt-2 space-y-2">
                     {snapshot.routes.map((route) => (
-                      <div key={route.key} className="rounded-md border border-white/10 px-2 py-1.5">
+                      <div
+                        key={route.key}
+                        className="rounded-md border border-white/10 px-2 py-1.5"
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-slate-100">{route.label}</span>
                           <span
                             className={cn(
-                              "rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide",
+                              "rounded-full border px-2 py-0.5 text-[10px] tracking-wide uppercase",
                               route.active
                                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
                                 : "border-white/10 bg-white/4 text-slate-400",
@@ -440,12 +453,15 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                 <PerTierPhaseMatrix />
 
                 <details className="rounded-lg border border-white/10 bg-white/3 p-2">
-                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
+                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
                     Build Profiles
                   </summary>
                   <div className="mt-2 space-y-2">
                     {snapshot.buildProfiles.map((profile) => (
-                      <div key={profile.id} className="rounded-md border border-white/10 px-2 py-1.5">
+                      <div
+                        key={profile.id}
+                        className="rounded-md border border-white/10 px-2 py-1.5"
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-slate-100">
                             {profile.uiLabel} ({profile.id})
@@ -467,12 +483,15 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                 </details>
 
                 <details className="rounded-lg border border-white/10 bg-white/3 p-2">
-                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
+                  <summary className="cursor-pointer text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
                     Prompt Assist Options
                   </summary>
                   <div className="mt-2 space-y-2">
                     {snapshot.promptAssistOptions.map((option) => (
-                      <div key={option.value} className="rounded-md border border-white/10 px-2 py-1.5">
+                      <div
+                        key={option.value}
+                        className="rounded-md border border-white/10 px-2 py-1.5"
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-slate-100">{option.label}</span>
                           <span className="text-slate-400">{providerLabel(option.provider)}</span>
@@ -504,7 +523,7 @@ export function ModelTraceOverlay(props: ModelTraceOverlayProps) {
                 </details>
 
                 <section className="rounded-lg border border-white/10 bg-white/3 p-2 text-slate-300">
-                  <p className="mb-1 text-[11px] font-semibold tracking-[0.14em] uppercase text-slate-400">
+                  <p className="mb-1 text-[11px] font-semibold tracking-[0.14em] text-slate-400 uppercase">
                     Notes
                   </p>
                   <ul className="space-y-1">

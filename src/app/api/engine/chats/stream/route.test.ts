@@ -170,7 +170,7 @@ vi.mock("@/lib/db/services/prompt-logs", () => ({
 vi.mock("@/lib/models/selection", () => ({
   resolveModelSelection: () => ({
     modelId: "test-model-id",
-    modelTier: "fast",
+    modelTier: "premium",
   }),
   resolveEngineModelId: () => "gpt-5.4",
 }));
@@ -180,8 +180,10 @@ vi.mock("@/lib/models/catalog", () => ({
   DEFAULT_OWN_MODEL_ID: "gpt-5.4",
   MODEL_LABELS: {
     "test-tier": "Test Tier",
+    premium: "Premium",
   },
   canonicalModelIdToOwnModelId: () => "gpt-5.4",
+  aliasRetiredModelId: (value: string) => value,
   getBuildProfileId: () => "profile-test",
   isCanonicalModelId: () => false,
 }));
@@ -384,12 +386,8 @@ async function readSseEvents(response: Response) {
   const blocks = body.trim().split("\n\n").filter(Boolean);
 
   return blocks.map((block) => {
-    const eventLine = block
-      .split("\n")
-      .find((line) => line.startsWith("event:"));
-    const dataLine = block
-      .split("\n")
-      .find((line) => line.startsWith("data:"));
+    const eventLine = block.split("\n").find((line) => line.startsWith("event:"));
+    const dataLine = block.split("\n").find((line) => line.startsWith("data:"));
 
     return {
       event: eventLine?.slice("event:".length).trim() ?? "",
@@ -934,12 +932,7 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     );
 
     expect(response.status).toBe(200);
-    expect(createChat).toHaveBeenCalledWith(
-      "app_proj_1",
-      "gpt-5.4",
-      "SYSTEM",
-      "scaffold_1",
-    );
+    expect(createChat).toHaveBeenCalledWith("app_proj_1", "gpt-5.4", "SYSTEM", "scaffold_1");
   });
 
   it("returns awaiting-input done output for tool-only empty generations", async () => {

@@ -1,7 +1,7 @@
 import { streamText } from "ai";
 
 import { AUTOFIX_MAX_OUTPUT_TOKENS } from "../defaults";
-import type { ReasoningEffort } from "../engine";
+import type { ReasoningEffort, ReasoningMode } from "../engine";
 import { toAnthropicEffort } from "../engine";
 import { getOpenAIModel, isAnthropicModel } from "../models";
 import { parseCodeProject, serializeCodeProject, type CodeFile } from "../parser";
@@ -105,25 +105,51 @@ function balancedDelimiters(src: string): boolean {
       continue;
     }
     if (inSingle) {
-      if (c === "\\") { i++; continue; }
+      if (c === "\\") {
+        i++;
+        continue;
+      }
       if (c === "'") inSingle = false;
       continue;
     }
     if (inDouble) {
-      if (c === "\\") { i++; continue; }
+      if (c === "\\") {
+        i++;
+        continue;
+      }
       if (c === '"') inDouble = false;
       continue;
     }
     if (inBacktick) {
-      if (c === "\\") { i++; continue; }
+      if (c === "\\") {
+        i++;
+        continue;
+      }
       if (c === "`") inBacktick = false;
       continue;
     }
-    if (c === "/" && next === "/") { inLineComment = true; i++; continue; }
-    if (c === "/" && next === "*") { inBlockComment = true; i++; continue; }
-    if (c === "'") { inSingle = true; continue; }
-    if (c === '"') { inDouble = true; continue; }
-    if (c === "`") { inBacktick = true; continue; }
+    if (c === "/" && next === "/") {
+      inLineComment = true;
+      i++;
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      inBlockComment = true;
+      i++;
+      continue;
+    }
+    if (c === "'") {
+      inSingle = true;
+      continue;
+    }
+    if (c === '"') {
+      inDouble = true;
+      continue;
+    }
+    if (c === "`") {
+      inBacktick = true;
+      continue;
+    }
     if (c === "{") brace++;
     else if (c === "}") brace--;
     else if (c === "(") paren++;
@@ -147,6 +173,7 @@ export async function runLlmFixer(
     model?: string;
     thinking?: boolean;
     reasoningEffort?: ReasoningEffort;
+    reasoningMode?: ReasoningMode;
     maxTokens?: number;
     requiredFiles?: string[];
     abortSignal?: AbortSignal;
@@ -182,7 +209,10 @@ export async function runLlmFixer(
             },
           }
         : {
-            openai: { reasoningEffort: options?.reasoningEffort ?? "medium" },
+            openai: {
+              reasoningEffort: options?.reasoningEffort ?? "medium",
+              ...(options?.reasoningMode ? { reasoningMode: options.reasoningMode } : {}),
+            },
           };
     }
 
@@ -225,9 +255,7 @@ export async function runLlmFixer(
     // Pre-merge completeness check. If the LLM returned partial files,
     // exclude them so we don't corrupt the project with truncated code.
     const originalProject = parseCodeProject(content);
-    const originalByPath = new Map(
-      originalProject.files.map((f) => [f.path.trim(), f.content]),
-    );
+    const originalByPath = new Map(originalProject.files.map((f) => [f.path.trim(), f.content]));
     const { incomplete } = validateCompleteFiles(originalByPath, fixedProject.files);
     const incompletePathSet = new Set(incomplete.map((i) => i.path));
     const acceptedFixedFiles = fixedProject.files.filter(
@@ -247,9 +275,7 @@ export async function runLlmFixer(
     }
 
     const mergedContent = mergeFixedFiles(content, acceptedFixedFiles);
-    const fixedPaths = [
-      ...new Set(acceptedFixedFiles.map((f) => f.path.trim()).filter(Boolean)),
-    ];
+    const fixedPaths = [...new Set(acceptedFixedFiles.map((f) => f.path.trim()).filter(Boolean))];
     const requiredFiles = [
       ...new Set((options?.requiredFiles ?? []).map((f) => f.trim()).filter(Boolean)),
     ];
@@ -258,13 +284,10 @@ export async function runLlmFixer(
       requiredFiles.length === 0
         ? []
         : requiredFiles.filter((filePath) => !fixedPathSet.has(filePath));
-    const allRequiredFilesAddressed =
-      requiredFiles.length === 0 || missingFiles.length === 0;
+    const allRequiredFilesAddressed = requiredFiles.length === 0 || missingFiles.length === 0;
     // partial = either some required files weren't addressed, or some
     // returned files were rejected as incomplete.
-    const partial =
-      (fixedPaths.length > 0 && !allRequiredFilesAddressed) ||
-      incomplete.length > 0;
+    const partial = (fixedPaths.length > 0 && !allRequiredFilesAddressed) || incomplete.length > 0;
     // success requires all required files AND no incomplete-file rejections.
     const success = fixedPaths.length > 0 && allRequiredFilesAddressed && incomplete.length === 0;
 
@@ -280,8 +303,7 @@ export async function runLlmFixer(
     };
   } catch (err) {
     const isAbort =
-      err instanceof Error &&
-      (err.name === "AbortError" || /aborted/i.test(err.message));
+      err instanceof Error && (err.name === "AbortError" || /aborted/i.test(err.message));
     const message = err instanceof Error ? err.message : String(err);
     if (!usageRecorded) {
       // Avbrott/timeout/providerfel: strömmen hann kosta tokens även om ingen
@@ -290,9 +312,7 @@ export async function runLlmFixer(
       recordLlmUsage({
         phase: "fixer",
         model: resolvedModelIdForUsage,
-        usage: streamResult
-          ? await Promise.resolve(streamResult.usage).catch(() => null)
-          : null,
+        usage: streamResult ? await Promise.resolve(streamResult.usage).catch(() => null) : null,
         durationMs: Math.round(performance.now() - start),
         ok: false,
         errorCode: isAbort ? "llm_fixer_aborted" : "llm_fixer_failed",

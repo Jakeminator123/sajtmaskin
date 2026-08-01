@@ -4,7 +4,9 @@
 
 Prompt assist använder **`provider/model`**-format, t.ex.:
 
-- `openai/gpt-5.5`
+- `openai/gpt-5.6-sol` (default)
+- `openai/gpt-5.6-terra`
+- `openai/gpt-5.6-luna`
 - `anthropic/claude-opus-4.8`
 - `anthropic-direct/claude-opus-4-8` (direktlista med API-format i suffix)
 
@@ -14,7 +16,7 @@ Tillåtna värden kommer från **`manifest.json` → `promptAssist.allowed`** vi
 
 `PromptAssistProvider` i `src/lib/builder/prompt-assist/` är `"openai" | "anthropic"`. Tidigare hette OpenAI-grenen `"gateway"` — den etiketten är borttagen ur typen och all runtime-kod sedan Fas 1 världsklass. HTTP-scheman i `/api/ai/brief` och `/api/ai/chat` accepterar fortfarande `"gateway"` i request-body under en övergångsperiod och normaliserar det till `"openai"` server-side.
 
-Anropet går till [`createDirectModel`](../../src/lib/builder/direct-model.ts), som använder **`OPENAI_API_KEY`** för `openai/*` och **`ANTHROPIC_API_KEY`** för `anthropic/*`.
+Anropet går till [`createDirectModel`](../../src/lib/builder/direct-model.ts), som använder **`OPENAI_API_KEY`** för `openai/*` och **`ANTHROPIC_API_KEY`** för `anthropic/*`. GPT-5.6 väljer AI SDK:s Responses-provider uttryckligen.
 
 ## Standard assist / polish
 

@@ -43,10 +43,7 @@ const EMPTY_VERIFIER_FINDINGS: VerifierFindings = {
  * Finding ids that we always want surfaced as `blocking` even if the model
  * placed them in `quality`. Keeps the contract stable when prompt drifts.
  */
-const FORCE_BLOCKING_IDS = new Set<string>([
-  "navigation-placeholder-actions",
-  "footer-dead-links",
-]);
+const FORCE_BLOCKING_IDS = new Set<string>(["navigation-placeholder-actions", "footer-dead-links"]);
 
 /**
  * True when a quality-bucketed finding must be promoted to `blocking`.
@@ -95,9 +92,7 @@ export function formatVerifierFindingsAsFixerErrors(
       if (bullets.length > 0) {
         for (const bullet of bullets) {
           const filePathMatch = bullet.match(/^([A-Za-z0-9_./@-]+\.\w{1,5})\s*[:\u2014\-]/);
-          const prefix = filePathMatch
-            ? `${filePathMatch[1]}:1:1 `
-            : "verifier:1:1 ";
+          const prefix = filePathMatch ? `${filePathMatch[1]}:1:1 ` : "verifier:1:1 ";
           lines.push(`${prefix}[verifier:${f.id}] ${bullet}`);
         }
         continue;
@@ -393,7 +388,8 @@ function buildVerifierPromptSnippetFromFiles(files: CodeFile[], charsPerFile: nu
 const MOTION_REDUCE_HIDDEN = `motion-reduce` + `:hidden`;
 const CANVAS_WITH_CLASSNAME_RE =
   /<Canvas\b[^>]*className\s*=\s*(?:"[^"]*"|'[^']*'|`[^`]*`|\{[^}]*\})/g;
-const R3F_IMPORT_RE = /from\s+["']@react-three\/fiber["']|import\s*\(\s*["']@react-three\/fiber["']\s*\)/;
+const R3F_IMPORT_RE =
+  /from\s+["']@react-three\/fiber["']|import\s*\(\s*["']@react-three\/fiber["']\s*\)/;
 const JSX_CANVAS_RE = /<Canvas\b/;
 // R3F usage signals for split-out scene children that don't own `<Canvas>` or
 // the import themselves: R3F intrinsic primitives (`<mesh>`, `<group>`, …),
@@ -514,11 +510,7 @@ function stripCommentsAndStrings(source: string): string {
  *  3. Otherwise: neutral "import or replace" — NO react-three hint (it used to
  *     be emitted unconditionally and misled the fixer, prod chat 8bf59f13).
  */
-export function buildUndefinedJsxDetail(
-  path: string,
-  name: string,
-  fileUsesR3F: boolean,
-): string {
+export function buildUndefinedJsxDetail(path: string, name: string, fileUsesR3F: boolean): string {
   const htmlTag = resolveHtmlInterfaceTag(name);
   if (htmlTag) {
     return `${path}: \`<${name} />\` is a DOM interface type, not a JSX component. Replace it with the lowercase HTML tag \`<${htmlTag}>\` and keep the same props/children. Do NOT import a library or introduce a new component to satisfy \`${name}\`.`;
@@ -606,8 +598,7 @@ export function checkUndefinedJsxSymbols(
     // `,`, `!`, `&`, `|`, `?`, `:`, `[` or line start — same tradeoff as the
     // sibling regex in `dom-builtin-jsx-fixer.ts` (keyword-abutting JSX like
     // `return<Foo/>` is not matched; formatted LLM output never emits that).
-    const JSX_OPENING_TAG =
-      /(?<![A-Za-z0-9_$.])<([A-Z][A-Za-z0-9_$]*)(?:\.[A-Za-z0-9_$]+)*[\s/>]/g;
+    const JSX_OPENING_TAG = /(?<![A-Za-z0-9_$.])<([A-Z][A-Za-z0-9_$]*)(?:\.[A-Za-z0-9_$]+)*[\s/>]/g;
     let match: RegExpExecArray | null;
     while ((match = JSX_OPENING_TAG.exec(scrubbed)) !== null) {
       const name = match[1];
@@ -638,7 +629,8 @@ function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
   const declared = new Set<string>();
 
   // Named imports: `import { A, B as C, D } from "..."` (supports multi-line).
-  const NAMED_IMPORT_RE = /import\s+(?:[A-Za-z_$][\w$]*\s*,\s*)?\{([\s\S]*?)\}\s*from\s+['"][^'"]+['"]/g;
+  const NAMED_IMPORT_RE =
+    /import\s+(?:[A-Za-z_$][\w$]*\s*,\s*)?\{([\s\S]*?)\}\s*from\s+['"][^'"]+['"]/g;
   let m: RegExpExecArray | null;
   while ((m = NAMED_IMPORT_RE.exec(scrubbedSource)) !== null) {
     const body = m[1];
@@ -653,7 +645,8 @@ function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
   }
 
   // Default / namespace / side-effect-only imports.
-  const DEFAULT_IMPORT_RE = /import\s+([A-Za-z_$][\w$]*)(?:\s*,\s*(?:\{[\s\S]*?\}|\*\s+as\s+[A-Za-z_$][\w$]*))?\s+from\s+['"][^'"]+['"]/g;
+  const DEFAULT_IMPORT_RE =
+    /import\s+([A-Za-z_$][\w$]*)(?:\s*,\s*(?:\{[\s\S]*?\}|\*\s+as\s+[A-Za-z_$][\w$]*))?\s+from\s+['"][^'"]+['"]/g;
   while ((m = DEFAULT_IMPORT_RE.exec(scrubbedSource)) !== null) {
     if (m[1]) declared.add(m[1]);
   }
@@ -663,7 +656,8 @@ function collectDeclaredIdentifiers(scrubbedSource: string): Set<string> {
   }
 
   // Top-level-ish declarations: function, class, const/let/var NAME.
-  const FN_DECL_RE = /\b(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)/g;
+  const FN_DECL_RE =
+    /\b(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)/g;
   while ((m = FN_DECL_RE.exec(scrubbedSource)) !== null) {
     if (m[1]) declared.add(m[1]);
   }
@@ -906,7 +900,9 @@ export async function runVerifierPass(
     quality: [],
   };
 
-  const hasKey = Boolean(process.env.OPENAI_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim());
+  const hasKey = Boolean(
+    process.env.OPENAI_API_KEY?.trim() || process.env.ANTHROPIC_API_KEY?.trim(),
+  );
   if (!hasKey) {
     return recordOnExit(deterministic);
   }
@@ -960,7 +956,12 @@ Use those exact ids so downstream tooling can recognise them.`;
           },
         }
       : {
-          openai: { reasoningEffort: thinkingConfig.reasoningEffort },
+          openai: {
+            reasoningEffort: thinkingConfig.reasoningEffort,
+            ...(thinkingConfig.reasoningMode
+              ? { reasoningMode: thinkingConfig.reasoningMode }
+              : {}),
+          },
         };
   }
 
@@ -1017,7 +1018,10 @@ Use those exact ids so downstream tooling can recognise them.`;
       });
     }
     if (isNonRetryableProviderError(err)) {
-      console.warn("[verifier-pass] Non-retryable provider error, skipping:", summariseProviderError(err));
+      console.warn(
+        "[verifier-pass] Non-retryable provider error, skipping:",
+        summariseProviderError(err),
+      );
     } else {
       console.warn("[verifier-pass] Non-fatal error, skipping:", err);
     }
@@ -1047,8 +1051,18 @@ const NON_RETRYABLE_PROVIDER_CODES = new Set([
 
 function isNonRetryableProviderError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
-  const e = err as { status?: number; statusCode?: number; code?: string; data?: { error?: { code?: string } } };
-  const status = typeof e.status === "number" ? e.status : typeof e.statusCode === "number" ? e.statusCode : undefined;
+  const e = err as {
+    status?: number;
+    statusCode?: number;
+    code?: string;
+    data?: { error?: { code?: string } };
+  };
+  const status =
+    typeof e.status === "number"
+      ? e.status
+      : typeof e.statusCode === "number"
+        ? e.statusCode
+        : undefined;
   const code = typeof e.code === "string" ? e.code : e.data?.error?.code;
   if (status && [401, 402, 403].includes(status)) return true;
   if (status === 429 && code && NON_RETRYABLE_PROVIDER_CODES.has(code)) return true;

@@ -3,8 +3,8 @@ import { CREDIT_COST_BREAKDOWN, getCreditCost } from "./pricing";
 
 describe("CREDIT_COST_BREAKDOWN (pricing UI single source)", () => {
   it("matches getCreditCost for every displayed row", () => {
-    expect(CREDIT_COST_BREAKDOWN.generateMini).toBe(
-      getCreditCost("prompt.create", { modelId: "fast" }),
+    expect(CREDIT_COST_BREAKDOWN.generatePremium).toBe(
+      getCreditCost("prompt.create", { modelId: "premium" }),
     );
     expect(CREDIT_COST_BREAKDOWN.generatePro).toBe(
       getCreditCost("prompt.create", { modelId: "pro" }),
@@ -12,8 +12,8 @@ describe("CREDIT_COST_BREAKDOWN (pricing UI single source)", () => {
     expect(CREDIT_COST_BREAKDOWN.generateMax).toBe(
       getCreditCost("prompt.create", { modelId: "max" }),
     );
-    expect(CREDIT_COST_BREAKDOWN.refineMini).toBe(
-      getCreditCost("prompt.refine", { modelId: "fast" }),
+    expect(CREDIT_COST_BREAKDOWN.refinePremium).toBe(
+      getCreditCost("prompt.refine", { modelId: "premium" }),
     );
     expect(CREDIT_COST_BREAKDOWN.refinePro).toBe(
       getCreditCost("prompt.refine", { modelId: "pro" }),
@@ -27,10 +27,8 @@ describe("CREDIT_COST_BREAKDOWN (pricing UI single source)", () => {
     expect(CREDIT_COST_BREAKDOWN.deploy).toBe(getCreditCost("deploy.production"));
   });
 
-  it("locks the corrected generate/refine Mini costs (regression: UI hardcoded stale 5/3)", () => {
-    expect(CREDIT_COST_BREAKDOWN.generateMini).toBe(10);
-    expect(CREDIT_COST_BREAKDOWN.refineMini).toBe(6);
-    expect(CREDIT_COST_BREAKDOWN.generateMini).not.toBe(5);
-    expect(CREDIT_COST_BREAKDOWN.refineMini).not.toBe(3);
+  it("locks the Premium generate/refine costs", () => {
+    expect(CREDIT_COST_BREAKDOWN.generatePremium).toBe(10);
+    expect(CREDIT_COST_BREAKDOWN.refinePremium).toBe(6);
   });
 });

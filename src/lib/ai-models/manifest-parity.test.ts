@@ -26,7 +26,11 @@ import {
   resolveHarmlessPlaceholdersPath,
   resolveTier3StubPlaceholdersPath,
 } from "@/lib/ai-models/load-generated-site-placeholders";
-import { canonicalModelIdToOwnModelId, DEFAULT_OWN_MODEL_ID, QUALITY_TO_OPENAI_MODEL } from "@/lib/models/catalog";
+import {
+  canonicalModelIdToOwnModelId,
+  DEFAULT_OWN_MODEL_ID,
+  QUALITY_TO_OPENAI_MODEL,
+} from "@/lib/models/catalog";
 import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
   INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
@@ -72,8 +76,11 @@ describe("config/ai_models/manifest.json parity", () => {
       expect(isPromptAssistModelAllowed(id)).toBe(true);
     }
 
-    // The new #221 ids must remain present alongside the back-compat ones.
+    // Current defaults must remain present alongside the back-compat ones.
     for (const id of [
+      "openai/gpt-5.6-sol",
+      "openai/gpt-5.6-terra",
+      "openai/gpt-5.6-luna",
       "openai/gpt-5.5",
       "anthropic/claude-opus-4.8",
       "anthropic-direct/claude-opus-4-8",
@@ -84,10 +91,7 @@ describe("config/ai_models/manifest.json parity", () => {
 
     // Sonnet 4.6 was retired from the allow-list but persisted selections must
     // still pass via aliasRetiredModelId() — never 400 on /api/ai/chat or brief.
-    for (const id of [
-      "anthropic/claude-sonnet-4.6",
-      "anthropic-direct/claude-sonnet-4-6",
-    ]) {
+    for (const id of ["anthropic/claude-sonnet-4.6", "anthropic-direct/claude-sonnet-4-6"]) {
       expect(allowed.models).not.toContain(id);
       expect(isPromptAssistModelAllowed(id)).toBe(true);
     }
@@ -95,27 +99,33 @@ describe("config/ai_models/manifest.json parity", () => {
 
   it("build profile defaults in manifest match getters", () => {
     const m = getAiModelsManifest();
-    expect(getBuildProfileDefaultOwnEngineModel("fast")).toBe(m.buildProfiles.defaults.fast);
+    expect(getBuildProfileDefaultOwnEngineModel("premium")).toBe(m.buildProfiles.defaults.premium);
     expect(getBuildProfileDefaultOwnEngineModel("pro")).toBe(m.buildProfiles.defaults.pro);
     expect(getBuildProfileDefaultOwnEngineModel("max")).toBe(m.buildProfiles.defaults.max);
     expect(getBuildProfileDefaultOwnEngineModel("codex")).toBe(m.buildProfiles.defaults.codex);
-    expect(getBuildProfileDefaultOwnEngineModel("anthropic")).toBe(m.buildProfiles.defaults.anthropic);
+    expect(getBuildProfileDefaultOwnEngineModel("anthropic")).toBe(
+      m.buildProfiles.defaults.anthropic,
+    );
     expect(DEFAULT_OWN_MODEL_ID).toBe(m.buildProfiles.defaults.max);
   });
 
   it("catalog tier resolution matches manifest when SAJTMASKIN_MODEL_* are unset", () => {
     const keys = [
-      "SAJTMASKIN_MODEL_FAST",
+      "SAJTMASKIN_MODEL_PREMIUM",
       "SAJTMASKIN_MODEL_PRO",
       "SAJTMASKIN_MODEL_MAX",
       "SAJTMASKIN_MODEL_CODEX",
       "SAJTMASKIN_MODEL_ANTHROPIC",
     ] as const;
     if (keys.some((k) => process.env[k]?.trim())) return;
-    expect(canonicalModelIdToOwnModelId("fast")).toBe(getBuildProfileDefaultOwnEngineModel("fast"));
+    expect(canonicalModelIdToOwnModelId("premium")).toBe(
+      getBuildProfileDefaultOwnEngineModel("premium"),
+    );
     expect(canonicalModelIdToOwnModelId("pro")).toBe(getBuildProfileDefaultOwnEngineModel("pro"));
     expect(canonicalModelIdToOwnModelId("max")).toBe(getBuildProfileDefaultOwnEngineModel("max"));
-    expect(canonicalModelIdToOwnModelId("codex")).toBe(getBuildProfileDefaultOwnEngineModel("codex"));
+    expect(canonicalModelIdToOwnModelId("codex")).toBe(
+      getBuildProfileDefaultOwnEngineModel("codex"),
+    );
     expect(canonicalModelIdToOwnModelId("anthropic")).toBe(
       getBuildProfileDefaultOwnEngineModel("anthropic"),
     );
@@ -145,7 +155,7 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(briefing.serverAutoOpenAI).toBeTruthy();
     expect(briefing.serverAutoAnthropic).toBeTruthy();
 
-    expect(phaseRouting.fast.planner).toBeTruthy();
+    expect(phaseRouting.premium.planner).toBeTruthy();
     expect(phaseRouting.pro.verifier).toBeTruthy();
     expect(phaseRouting.max.fixer).toBeTruthy();
 
@@ -194,7 +204,7 @@ describe("config/ai_models/manifest.json parity", () => {
 
   it("per-tier policy overrides, when present, cover all 5 tiers (validate-only)", () => {
     const m = getAiModelsManifest();
-    const tiers = ["fast", "pro", "max", "codex", "anthropic"] as const;
+    const tiers = ["premium", "pro", "max", "codex", "anthropic"] as const;
 
     if (m.perTierTimeouts) {
       for (const tier of tiers) {

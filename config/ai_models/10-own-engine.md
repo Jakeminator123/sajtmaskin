@@ -1,14 +1,18 @@
 # Own engine (byggprofiler)
 
-## Profiler, etiketter och «Tänker» (GPT-5.5)
+## Profiler, etiketter och Premium (GPT-5.6 Sol)
 
+- **Intern nyckel `premium`** heter **`Premium`** i buildern och kör
+  **`gpt-5.6-sol` i alla faser**. Planner kör `reasoningEffort: "max"` och
+  generator `xhigh`; båda använder Responses API och `reasoningMode: "pro"`.
+  `gpt-5.6-terra` och `gpt-5.6-luna` är valbara per fas i backoffice.
 - **Intern nyckel `max`** (i kod och `manifest.json`) är **inte** engelska «Max» i UI. I buildern heter den **`Tänker`** och mappar standard till **`gpt-5.5`** (`buildProfiles.defaults.max`).
 - **`codex`** är en **egen** byggprofil (standardmodell `gpt-5.3-codex` enligt manifest — samma modell-id som `pro`, men med codex-tirets högre reasoning-effort i fasrouting). Inte samma som `max` (GPT-5.5). Vardagsläge för stark resonemangsmodell är `max` / GPT-5.5.
-- **`thinking` i SSE:** [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts) skickar `thinking: true` som standard från chat-strömmen. För **OpenAI**-modeller sätts `providerOptions.openai.reasoningEffort: "high"` när `thinking` är på, så resonemang kan streamas som `thinking`-händelser via [`stream-format.ts`](../../src/lib/gen/stream/stream-format.ts). **Anthropic**-grenen sätter inte samma OpenAI-specifika `reasoningEffort`, men SSE-pipelinen kan fortfarande mappa modellens resonemang beroende på SDK-stöd.
+- **`thinking` i SSE:** [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts) skickar fasens `reasoningEffort` och valfria `reasoningMode` när thinking är på. GPT-5.6 väljer uttryckligen AI SDK:s Responses-provider, eftersom `reasoningMode` inte är en Chat Completions-kontroll.
 
 ## Flöde
 
-1. Användaren väljer **byggprofil** (`fast`, `pro`, `max`, `codex`, `anthropic`) i UI.
+1. Användaren väljer **byggprofil** (`premium`, `pro`, `max`, `codex`, `anthropic`) i UI. Äldre `fast` normaliseras till `premium` vid inputgränsen.
 2. `canonicalModelIdToOwnModelId` i [`src/lib/models/catalog.ts`](../../src/lib/models/catalog.ts) mappar profilen till en **konkret modellsträng** (t.ex. `gpt-5.5` eller `claude-opus-4.8`).
 3. [`src/lib/gen/engine.ts`](../../src/lib/gen/engine.ts) anropar `streamText` med modellen från [`getOpenAIModel`](../../src/lib/gen/models.ts) (namnet är historiskt — även Anthropic går här).
 

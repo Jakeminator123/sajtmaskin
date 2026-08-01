@@ -223,15 +223,14 @@ export function BuilderHeader(props: {
       ? "Av"
       : scaffoldMode === "auto"
         ? "Auto"
-        : SCAFFOLD_CLIENT_LIST.find((scaffold) => scaffold.id === scaffoldId)?.label ?? "Välj";
+        : (SCAFFOLD_CLIENT_LIST.find((scaffold) => scaffold.id === scaffoldId)?.label ?? "Välj");
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
-  const assistStatusSummary = promptAssistDeep && canUseDeepBrief
-    ? "Deep Brief aktiv"
-    : "Assist aktiv";
+  const assistStatusSummary =
+    promptAssistDeep && canUseDeepBrief ? "Deep Brief aktiv" : "Assist aktiv";
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();
@@ -385,7 +384,7 @@ export function BuilderHeader(props: {
                           </TooltipTrigger>
                           <TooltipContent side="left" className="max-w-xs">
                             <p className="text-xs">
-                              Byggprofiler: Snabb, Lagom, Tänker, Kod Max och Anthropic. Varje
+                              Byggprofiler: Premium, Lagom, Tänker, Kod Max och Anthropic. Varje
                               profil väljer en konkret modell i den egna motorn. Förbättra nedan är
                               separat och används till promptförbättring, mallval och designbrief
                               innan första bygget.
@@ -421,44 +420,28 @@ export function BuilderHeader(props: {
                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Generering</DropdownMenuLabel>
-                {/* Fast-tier (gpt-5.4-fast) does not support reasoning deltas
-                in the manifest — server-side phase routing already forces
-                thinking=false for this tier. We mirror that here so the
-                user gets immediate feedback instead of toggling a setting
-                that has no effect. */}
-                {(() => {
-                  const thinkingUnsupportedForTier = selectedModelTier === "fast";
-                  return (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div>
-                            <DropdownMenuCheckboxItem
-                              checked={enableThinking && !thinkingUnsupportedForTier}
-                              onCheckedChange={onEnableThinkingChange}
-                              disabled={isConfigLocked || thinkingUnsupportedForTier}
-                            >
-                              <Wand2 className="mr-2 h-4 w-4" />
-                              Resonemang
-                              {thinkingUnsupportedForTier && (
-                                <span className="text-muted-foreground ml-2 text-xs">
-                                  (ej i Snabb)
-                                </span>
-                              )}
-                            </DropdownMenuCheckboxItem>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="left" className="max-w-xs">
-                          <p className="text-xs">
-                            {thinkingUnsupportedForTier
-                              ? "Snabb-modellen stödjer inte resonemang. Välj Lagom eller Tänker för att aktivera resonemang."
-                              : "Aktiverar mer resonemang i AI-svaret. Ger högre kvalitet men kan ta längre tid."}
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  );
-                })()}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <DropdownMenuCheckboxItem
+                          checked={enableThinking}
+                          onCheckedChange={onEnableThinkingChange}
+                          disabled={isConfigLocked}
+                        >
+                          <Wand2 className="mr-2 h-4 w-4" />
+                          Resonemang
+                        </DropdownMenuCheckboxItem>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-xs">
+                      <p className="text-xs">
+                        Aktiverar provider-reasoning. Premium använder GPT-5.6 Sol med xhigh/max och
+                        pro-läge enligt fasinställningarna.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
                 <TooltipProvider>
                   <Tooltip>
@@ -741,8 +724,8 @@ export function BuilderHeader(props: {
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-sm text-xs">
                 <p>
-                  Kunde inte hämta publiceringsstatus efter omladdning. Publiceringsknappen kan
-                  visa fel läge tills du försöker igen.
+                  Kunde inte hämta publiceringsstatus efter omladdning. Publiceringsknappen kan visa
+                  fel läge tills du försöker igen.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -755,7 +738,10 @@ export function BuilderHeader(props: {
             inte alltid inspectorUrl). */}
         {deploymentStatus === "error" ? (
           <div className="flex items-center gap-1.5">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden />
+            <AlertTriangle
+              className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400"
+              aria-hidden
+            />
             <div className="flex flex-col leading-tight">
               <span className="text-xs font-medium text-red-600 dark:text-red-400">
                 Publiceringen misslyckades
@@ -765,7 +751,7 @@ export function BuilderHeader(props: {
                   href={deploymentInspectorUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-muted-foreground text-[11px] underline underline-offset-2 hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground text-[11px] underline underline-offset-2"
                 >
                   Visa byggloggar
                 </a>
@@ -799,9 +785,8 @@ export function BuilderHeader(props: {
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-sm text-xs">
                 <p>
-                  Publiceringen misslyckades i bygget. Kör en automatisk fix mot den
-                  failade versionen — granska och acceptera reparationen, publicera
-                  sedan om.
+                  Publiceringen misslyckades i bygget. Kör en automatisk fix mot den failade
+                  versionen — granska och acceptera reparationen, publicera sedan om.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -874,7 +859,7 @@ export function BuilderHeader(props: {
                 // version is the one that was just published.
                 activeVersionId
               : liveDeploymentUrl
-                ? liveDeploymentVersionId ?? null
+                ? (liveDeploymentVersionId ?? null)
                 : sessionReadyUrl
                   ? activeVersionId
                   : null;
@@ -1007,7 +992,9 @@ export function BuilderHeader(props: {
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => onCustomInstructionsChange(getDefaultCustomInstructions(scaffoldMode))}
+                onClick={() =>
+                  onCustomInstructionsChange(getDefaultCustomInstructions(scaffoldMode))
+                }
                 disabled={isBusy || isDefaultInstructions}
               >
                 Använd standard
