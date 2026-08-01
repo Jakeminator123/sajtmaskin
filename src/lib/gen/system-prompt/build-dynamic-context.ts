@@ -67,6 +67,7 @@ import {
   renderScaffoldContextBlock,
   renderScaffoldResearchBlock,
   renderScaffoldVariantBlock,
+  renderVariantTemplateInspirationBlock,
   renderToolkitBlock,
 } from "./sections/scaffold-stack";
 import {
@@ -231,6 +232,13 @@ export function buildDynamicContext(
       compact: compactFollowUpContext,
     }),
   );
+  if (!compactFollowUpContext) {
+    parts.push(
+      ...renderVariantTemplateInspirationBlock(
+        options.variantTemplateInspiration,
+      ),
+    );
+  }
   parts.push(...renderDesignPriorityBlock());
 
   // ── Import Rules & Known Pitfalls live in config/prompt-core/01-behavioral-contract.md

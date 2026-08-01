@@ -11,7 +11,10 @@ import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { BuildSpec } from "../build-spec";
 import type { PreGenerationContractContext } from "../contract/pre-generation-contracts";
-import type { ScaffoldVariant } from "../scaffold-variants";
+import type {
+  ScaffoldVariant,
+  VariantTemplateInspiration,
+} from "../scaffold-variants";
 import type { RoutePlan } from "../route-plan";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import type { PromptBudgetBlock } from "../tokens";
@@ -106,6 +109,8 @@ export interface DynamicContextOptions {
   capabilityHints?: string;
   resolvedScaffold?: ScaffoldManifest | null;
   resolvedVariant?: ScaffoldVariant | null;
+  /** One allowlisted complete-project reference selected from the variant. */
+  variantTemplateInspiration?: VariantTemplateInspiration | null;
   routePlan?: RoutePlan | null;
   preGenerationContracts?: PreGenerationContractContext | null;
   /** File-derived F3 build plan from the selected parent version. */

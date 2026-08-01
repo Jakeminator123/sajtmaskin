@@ -11,6 +11,7 @@ import { createHash } from "node:crypto";
 
 import type { OrchestrationBase } from "./orchestrate";
 import type { BuildSpec } from "./build-spec";
+import type { RequestAttachment } from "./request-metadata";
 import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-prompt";
 import {
   buildPromptSizeMetrics,
@@ -38,6 +39,10 @@ export interface GenerationInputPackage extends OrchestrationBase {
   promptSize: PromptSizeMetrics;
   /** Chosen scaffold variant for this generation. */
   variantId: string | null;
+  /** The one complete-project Blob reference selected for the variant. */
+  variantTemplateId: string | null;
+  /** Style-only vision attachment corresponding to `variantTemplateId`. */
+  variantTemplateReferenceAttachments: RequestAttachment[];
   /** SHA-256 of deterministic inputs for lineage tracking. */
   lineageHash: string;
 }
@@ -67,6 +72,7 @@ export function computeLineageHash(pkg: {
   componentPalette?: unknown;
   designReferences?: unknown;
   variantId?: string | null;
+  variantTemplateId?: string | null;
 }): string {
   const h = createHash("sha256");
   h.update(pkg.userPrompt);
@@ -82,6 +88,7 @@ export function computeLineageHash(pkg: {
   h.update(JSON.stringify(pkg.componentPalette ?? null));
   h.update(JSON.stringify(pkg.designReferences ?? null));
   h.update(pkg.variantId ?? "");
+  h.update(pkg.variantTemplateId ?? "");
   return h.digest("hex");
 }
 
@@ -112,6 +119,7 @@ export function serializePackageForDump(
     dynamicContextBlocks: pkg.dynamicContextBlocks,
     promptSize: pkg.promptSize,
     variantId: pkg.variantId,
+    variantTemplateId: pkg.variantTemplateId,
   };
 }
 

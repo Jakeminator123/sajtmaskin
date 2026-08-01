@@ -28,7 +28,7 @@ when generating code.
 | File | Size | What it is |
 |------|------|-----------|
 | `scaffold-embeddings.json` | ~2 MB | OpenAI vectors for the 9 scaffolds. Used by `searchScaffolds()` when semantic fallback is needed. |
-| `scaffold-research.generated.json` | ~1 MB | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, `referenceTemplates`). Historically built from the external template-library pipeline (now deprecated). Treated as a legacy snapshot until rebuild path is rewired. |
+| `scaffold-research.generated.json` | ~1 MB | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, legacy `referenceTemplates`). Historically built from the removed external template-library pipeline. Runtime renders checklist/upgrade targets but no longer renders the legacy template list. |
 
 ## Indexed files (readable by agents)
 
@@ -56,6 +56,6 @@ when generating code.
 
 ## Regeneration Notes
 
-- `scaffold-research.generated.json` was historically rebuilt by `scripts/template-library/build-template-library.ts`. That script + its `template-library:*` npm targets are deprecated/removed (see `registry.ts` header). Treat the file as a legacy snapshot until the dossier-based research path replaces it.
+- `scaffold-research.generated.json` was historically rebuilt by `scripts/template-library/build-template-library.ts`. That script + its `template-library:*` npm targets are removed (see `registry.ts` header). Treat `referenceTemplates` as retained legacy data, not runtime prompt input; current variant inspiration comes from one allowlisted Blob template via `scaffold-variants/template-inspiration.ts`.
 - `scaffold-embeddings.json` is rebuilt by `npm run scaffolds:embeddings` (`scripts/embeddings/generate-scaffold-embeddings.ts`).
 - If scaffold research changes, regenerate embeddings too so semantic matching uses the same merged scaffold data as runtime.

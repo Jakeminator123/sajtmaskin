@@ -7,6 +7,7 @@ import {
   extractStyleKeywordsHintFromMeta,
   isVideoRequestAttachment,
   normalizeRequestAttachments,
+  VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
   type RequestAttachment,
 } from "./request-metadata";
 
@@ -37,6 +38,31 @@ describe("buildUserPromptContent — attached media", () => {
       const imagePart = content.find((p) => p.type === "image");
       expect(imagePart && imagePart.type === "image" ? imagePart.image : "").toBe(
         `${BLOB}/john-hampus.jpg`,
+      );
+    }
+  });
+
+  it("passes a variant template still to vision without exposing it as an embeddable asset", () => {
+    const referenceUrl = `${BLOB}/template-still.jpg`;
+    const content = buildUserPromptContent("Bygg sajten", [
+      {
+        type: "system_reference",
+        url: referenceUrl,
+        filename: "template-style-reference.jpg",
+        mimeType: "image/jpeg",
+        purpose: VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
+      },
+    ]);
+
+    expect(Array.isArray(content)).toBe(true);
+    const text = textOf(content);
+    expect(text).toContain("Variant template style reference");
+    expect(text).toContain("do not embed");
+    expect(text).not.toContain(referenceUrl);
+    expect(text).not.toContain("use these exact assets");
+    if (Array.isArray(content)) {
+      expect(content.some((part) => part.type === "image" && part.image === referenceUrl)).toBe(
+        true,
       );
     }
   });

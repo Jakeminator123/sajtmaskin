@@ -12,6 +12,9 @@ export type RequestAttachment = {
   purpose?: string;
 };
 
+export const VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE =
+  "variant-template-style-reference";
+
 type UserPromptContent =
   | string
   | Array<{ type: "text"; text: string } | { type: "image"; image: string; mediaType?: string }>;
@@ -70,6 +73,12 @@ function isVideoAttachment(attachment: RequestAttachment): boolean {
   return /\.(mp4|webm|mov|m4v|avi)(\?|#|$)/i.test(source);
 }
 
+function isVariantTemplateStyleReference(
+  attachment: RequestAttachment,
+): boolean {
+  return attachment.purpose === VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE;
+}
+
 /** MIME type for an attachment (filename/url fallback). */
 export function getRequestAttachmentMediaType(
   attachment: RequestAttachment,
@@ -90,7 +99,10 @@ function formatNonImageAttachmentDescriptors(attachments: RequestAttachment[]): 
   // explicit "embed with the exact URL" instructions). This block covers the
   // remaining document/reference files (PDF, text, etc.).
   const nonVisual = attachments.filter(
-    (a) => !isImageAttachment(a) && !isVideoAttachment(a),
+    (a) =>
+      !isVariantTemplateStyleReference(a) &&
+      !isImageAttachment(a) &&
+      !isVideoAttachment(a),
   );
   if (nonVisual.length === 0) return "";
 
@@ -166,8 +178,11 @@ function getVisualReferenceAttachments(
  * "Attached media wins" rule in config/prompt-core/04-coding-direction.md).
  */
 function formatEmbeddableMediaReferences(attachments: RequestAttachment[]): string {
-  const images = attachments.filter((a) => isImageAttachment(a));
-  const videos = attachments.filter((a) => isVideoAttachment(a));
+  const embeddable = attachments.filter(
+    (attachment) => !isVariantTemplateStyleReference(attachment),
+  );
+  const images = embeddable.filter((a) => isImageAttachment(a));
+  const videos = embeddable.filter((a) => isVideoAttachment(a));
   if (images.length === 0 && videos.length === 0) return "";
 
   const describe = (a: RequestAttachment, fallback: string): string[] => {
@@ -205,6 +220,24 @@ function formatEmbeddableMediaReferences(attachments: RequestAttachment[]): stri
   return lines.join("\n").trimEnd();
 }
 
+function formatVariantTemplateStyleReferences(
+  attachments: RequestAttachment[],
+): string {
+  const references = attachments.filter(
+    (attachment) =>
+      isVariantTemplateStyleReference(attachment) &&
+      isImageAttachment(attachment),
+  );
+  if (references.length === 0) return "";
+
+  return [
+    "## Variant template style reference (system-selected — do not embed)",
+    "",
+    "One reference image is supplied on the vision channel. Inspect it for visual hierarchy, density, spacing rhythm, composition, and interaction cues only.",
+    "Do NOT embed the reference image or its URL in the generated project. Do NOT copy its brand, text, logos, or assets. Adapt the visual ideas to the user's brief and the selected scaffold.",
+  ].join("\n");
+}
+
 export function buildUserPromptContent(
   prompt: string,
   attachments?: RequestAttachment[],
@@ -213,7 +246,13 @@ export function buildUserPromptContent(
   const trimmed = prompt.trimEnd();
   const mediaReferenceBlock = formatEmbeddableMediaReferences(list);
   const descriptorBlock = formatNonImageAttachmentDescriptors(list);
-  const textPrompt = [trimmed, mediaReferenceBlock, descriptorBlock]
+  const styleReferenceBlock = formatVariantTemplateStyleReferences(list);
+  const textPrompt = [
+    trimmed,
+    mediaReferenceBlock,
+    descriptorBlock,
+    styleReferenceBlock,
+  ]
     .filter((section) => section.length > 0)
     .join("\n\n");
 

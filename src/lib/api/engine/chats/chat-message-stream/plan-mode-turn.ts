@@ -188,7 +188,10 @@ export async function runPlanModeTurn(params: {
     plannerReasoningEffort: plannerSettings.reasoningEffort,
     abortSignal: req.signal,
     chatHistory: planChatHistory,
-    referenceAttachments: requestAttachments,
+    referenceAttachments: [
+      ...planOrchestration.variantTemplateReferenceAttachments,
+      ...requestAttachments,
+    ],
   });
 
   return attachSessionCookie(withPromptToDoneMetricResponse(createOwnEnginePlanModeResponse({

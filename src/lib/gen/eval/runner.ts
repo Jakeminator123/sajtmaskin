@@ -389,6 +389,8 @@ async function evaluatePrompt(
     model,
     thinking: false,
     maxTokens: ENGINE_MAX_OUTPUT_TOKENS,
+    referenceAttachments:
+      generationInput.variantTemplateReferenceAttachments,
   });
 
   const content = await collectSSEContent(stream);

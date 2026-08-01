@@ -565,7 +565,10 @@ export async function runCodegenTurn(params: {
         userMessage: followUpIntentMessage,
         isFollowUp: hasFollowUpBase,
       }),
-      referenceAttachments: requestAttachments,
+      referenceAttachments: [
+        ...finalized.variantTemplateReferenceAttachments,
+        ...requestAttachments,
+      ],
     },
     meta: buildOwnEngineGenerationStreamMeta({
       routeVariant: "follow-up",

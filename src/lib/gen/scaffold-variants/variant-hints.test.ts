@@ -15,6 +15,7 @@ const baseVariant: ScaffoldVariant = {
   signatureMotif: "warm tints, rounded surfaces, and softly layered cards",
   colorMode: "light",
   promptHints: ["Prioritize opening hours."],
+  sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"],
   themeTokens: {
     background: "oklch(0.985 0.012 82)",
     foreground: "oklch(0.24 0.02 42)",
@@ -53,6 +54,20 @@ describe("buildVariantHintsForBrief", () => {
     );
     expect(hints?.fontPairings.length).toBe(2);
     expect(hints?.fontPairings[1]).toEqual({ heading: "Lora", body: "Karla" });
+  });
+
+  it("exposes only one eligible complete-project reference", () => {
+    const hints = buildVariantHintsForBrief(
+      baseScaffold as ScaffoldManifest,
+      baseVariant,
+    );
+    expect(hints?.sourceTemplate).toMatchObject({
+      id: "8QhCJAwn16K",
+      category: "landing-pages",
+    });
+    expect(formatVariantHintsForPrompt(hints!)).toContain(
+      "Curated full-project reference",
+    );
   });
 
   it("returns null themeTokens when variant has no theme block", () => {

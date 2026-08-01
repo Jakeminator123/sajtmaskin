@@ -123,9 +123,20 @@ Skriptet läser bara `package.json` + struktur + `process.env`-referenser ur var
 
 | Begrepp | Vad | Var | Används av |
 |---|---|---|---|
-| **Template (v0-mall)** | Färdig sajt-ZIP, importeras **verbatim** | Vercel Blob (`template-blob-manifest.json`) | `/templates`, Mallar-tab, `POST /api/template` |
+| **Template (v0-mall)** | Färdig sajt-ZIP; importeras **verbatim** när användaren väljer den, eller används som begränsad variant-inspiration | Vercel Blob (`template-blob-manifest.json`) | `/templates`, Mallar-tab, `POST /api/template`, own-engine init |
 | **Scaffold** | Runtime-startpunkt för fritext-generering | `src/lib/gen/scaffolds/` | own-engine init |
 | **Dossier** | Capability-modul som injiceras i own-engine-prompten | `data/dossiers/{hard,soft}/` | dossier-pipelinen (`select.ts`) |
 | **Template-referens** | Klonat upstream-repo, input till dossier-kuration | `data/template-references/` | `dossiers:curate` |
 
 Dossiers har inga kategorier, inga thumbnails och syns aldrig i template-galleriet. Template-referenser hör till dossier-systemet trots namnet. `/api/v0/` = API-versionering, inte den externa v0-providern.
+
+### Variant-inspiration från Blob
+
+Fritextgenerering importerar inte en template verbatim. Den valda scaffold-
+varianten får i stället välja högst en av sina `sourceTemplateIds`, och bara om
+manifestkategorin tydligt avser ett helt projekt. Stillbilden skickas till
+modellens visionkanal men markeras som icke-inbäddningsbar. Ett litet utdrag av
+huvudsida, direkt använd komponent och global CSS/layout läses ur samma ZIP.
+Detta återanvänder Blob-arkivet; den historiska klonade repo-cache-mappen behövs
+inte. Se `src/lib/gen/scaffold-variants/template-inspiration.ts` för allowlist,
+storleksgränser och fail-open-beteende.

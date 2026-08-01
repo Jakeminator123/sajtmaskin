@@ -259,13 +259,13 @@ External references may inform a scaffold, but runtime scaffolds should remain:
 - free from unnecessary external infrastructure assumptions
 - equipped with `qualityChecklist` (>= 3 items) and `promptHints` (>= 2 items)
 
-## ~~Structural References~~ (avvecklad 2026-04-17)
+## Structural template inspiration
 
-**Status:** Borttagen från runtime. Tidigare körde `selectVariantStructuralFiles()` + `selectCapabilityStructuralFiles()` när `SAJTMASKIN_VARIANT_STRUCTURAL_FILES=true` och injicerade kod-excerpter under `## Structural References (this variant)` i system-prompten. Hela template-library-pipen (inklusive `resolveTemplateGuidance` + env-flagga `SAJTMASKIN_RUNTIME_TEMPLATE_GUIDANCE`) avvecklades 2026-04-17.
+**Legacy-status:** Det gamla flödet med `selectVariantStructuralFiles()` + `selectCapabilityStructuralFiles()`, klonade externa repos, `template-library` och env-flaggorna avvecklades 2026-04-17 och är fortsatt borta.
 
 **Ersättare:** Per-integration- och stilexempel hanteras nu av dossier-pipen v2 i `data/dossiers/{hard,soft}/<id>/`. `data/dossiers/_index/capability-map.json` är en genererad backoffice-view (inte runtime-källa) — runtime walkar `hard/` + `soft/` direkt och matchar via deterministisk capability-regel. Aktivt via `SAJTMASKIN_DOSSIER_PIPELINE` (default på; sätt `false`/`0` för opt-out). Se [`docs/llm/dossier-selection-flow.md`](../llm/dossier-selection-flow.md) för urvalsflödet och [`docs/contracts/dossier-system.md`](../contracts/dossier-system.md) för full spec.
 
-**För scaffold-variants:** stilbeskrivning sker via `signaturePatterns` (layouts/motifs/antiPatterns) per variant i `config/scaffold-variants/<scaffold>/<variant>.json`. Renderas i `## Scaffold Variant`-blocket av `src/lib/gen/system-prompt/`. Se `../contracts/scaffold-system.md` för full inventarium.
+**Nuvarande variantväg (2026-08-01):** `src/lib/gen/scaffold-variants/template-inspiration.ts` väljer högst en komplett sajt/app från variantens Blob-id:n. Stillbilden går till visionkanalen som style-only och dess URL får inte bli ett genererat asset. Samma Blob-ZIP kan bidra med högst tre frontendfiler och högst 9 000 utdragstecken; paketmanifest, lockfiler, backend och binära assets tas inte med. Läsningen är fail-open. `signaturePatterns` fortsätter bära variantens kuraterade layouts/motifs/antiPatterns i `## Scaffold Variant`, medan den valda mallen ligger separat i `## Variant Template Inspiration`.
 
 ## Font handling
 
@@ -276,4 +276,3 @@ Font pairings remain prompt-level guidance; scaffold starter files default to In
 ## Archived docs
 
 Older scaffold schema notes may exist in git under `docs/plans/avklarat/` (see `docs/plans/avklarat/README.md`).
-

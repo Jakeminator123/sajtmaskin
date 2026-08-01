@@ -1,6 +1,6 @@
 # Scaffold-systemet
 
-**Senast uppdaterad:** 2026-07-22 (30 variants; `sourceTemplateIds` remappade till riktiga v0-mall-Blob-id:n + integritetsgrind). **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
+**Senast uppdaterad:** 2026-08-01 (30 variants; en allowlistad Blob-template kan användas som init-inspiration). **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
 
 Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar med dossiers. Rent kontrakt finns i [`../schemas/scaffold-contract.md`](../schemas/scaffold-contract.md).
 
@@ -35,7 +35,7 @@ Per scaffold finns en eller flera variants med design-axes (label, description, 
 
 **Variant-kvalitet:** `corporate-grid` (landing-page) och `base-nextjs`-varianterna är handredigerade referenser.
 
-**`sourceTemplateIds` (sedan 2026-07-22):** alla variants pekar på **riktiga v0-mall-Blob-id:n** i `src/lib/templates/template-blob-manifest.json` (legacy-slugs från den borttagna external-template-pipelinen remappades i en engångskörning, `scripts/scaffolds/remap-variant-source-templates.mjs`). Fältet är fortsatt en proveniens-etikett — ingen mallkod injiceras — men id:na är nu upplösbara i backoffice och verifieras av integritetsgrinden nedan.
+**`sourceTemplateIds`:** alla variants pekar på **riktiga v0-mall-Blob-id:n** i `src/lib/templates/template-blob-manifest.json` (legacy-slugs från den borttagna external-template-pipelinen remappades 2026-07-22). Listan är en ordnad kandidatpool; init-runtime väljer **högst en** mall via `template-inspiration.ts`. Tillåtna helprojektskategorier är `landing-pages`, `website-templates`, `apps-and-games`, `dashboards`, `login-and-sign-up`, `e-commerce` och `blog-and-portfolio`. `ai`, `animations`, `components`, `layouts` och `design-systems` väljs inte. Den valda stillbilden skickas som style-only visionreferens och ZIP:en ger högst tre, totalt 9 000 tecken långa frontendutdrag (huvudsida, direkt komponent, global CSS/layout). Scaffold, brief, routes och kontrakt äger fortfarande implementationen; mallens brand, assets, paketversioner, routes och backend antas aldrig. Om Blob-läsningen misslyckas fortsätter genereringen utan kodutdrag.
 
 **Integritetsgrind:** `src/lib/gen/scaffold-variants/variant-integrity.test.ts` (körs i `npm run scaffolds:validate` + test-sviten) blockerar halvfärdiga variants: saknade/tunna `signaturePatterns`, döda `sourceTemplateIds`, embeddings-index som inte matchar variant-setet, samt fler än en default per scaffold.
 
@@ -85,12 +85,15 @@ Prompt / Deep Brief
 |---|---|---|
 | Scaffold | `src/lib/gen/scaffolds/<id>/manifest.ts` + `files/` | Startstruktur, routes, baseline-filer, checklistor |
 | Variant | `config/scaffold-variants/<scaffoldId>/<variantId>.json` | Visuellt uttryck: motif, fontpar, theme tokens, prompt hints |
+| Variant-template | En allowlistad Blob-ZIP + stillbild vald från variantens `sourceTemplateIds` | Init-inspiration: stilbild + begränsad frontendstruktur, aldrig projektägare |
 | Dossier | `data/dossiers/{hard,soft}/<id>/` | Capability-bunden referens/instruktion, validerad mot strict schema |
 | Research/embeddings | Genererade artefakter under `src/lib/gen/scaffolds/` och `config/scaffold-variants/_index/` | Stöd för matchning och prioritering, inte ny sanningskälla |
 
 Legacy external-template/template-library-flöden är historik. Kontraktsdokumentet
 och skripten togs bort ur repot 2026-07-09 — arkivkopia finns i syskonmappen
 `../gamla-skript-till-scaffolds/` utanför repot och i git-historiken (`4ba06d96e`).
+Den nya en-template-vägen läser den redan befintliga Blob-ZIP:en direkt och
+återinför därför inte den gamla repo-cache-/template-library-mappen.
 
 ---
 
@@ -292,6 +295,11 @@ Ny path läggs ENDAST i `SCAFFOLD_PROTECTED_PATHS`-set:et i `protected-paths.ts`
 ## 8. Variant signature patterns
 
 Sedan 2026-04-17 ersätter `signaturePatterns` (konkreta layouts/motifs/antiPatterns) de fyra borttagna guidance-fälten. Fylls i av `scripts/scaffolds/auto-curate-variant-patterns.ts` (GPT-5.4 + Zod). Renderas i `## Scaffold Variant`-blocket.
+
+Sedan 2026-08-01 renderas scaffoldens legacy-lista `research.referenceTemplates`
+inte längre i prompten. Variantens enda valda Blob-referens renderas i stället i
+`## Variant Template Inspiration`; det förhindrar att flera historiska och
+oidentifierade referenser konkurrerar med den aktiva mallen.
 
 ### Embedding-driven variant pick
 
