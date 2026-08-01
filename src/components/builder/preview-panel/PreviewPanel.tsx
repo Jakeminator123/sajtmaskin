@@ -1009,23 +1009,35 @@ export function PreviewPanel({
         const pagePath = pageFilePathForRoute(route, appDir);
         const label = defaultLabelForRoute(route);
         const nav = buildAddNavLinkOps(files, route, label);
-        const result = await quickEditChatFiles({
-          chatId,
-          baseVersionId: versionId,
-          // Forward the active version as the latest-known signal so the server's
-          // stale-base 409 fires if another writer advanced the chat head.
-          engineLatestKnownVersionId: versionId,
-          ops: [
-            { kind: "replace_content", path: pagePath, content: buildNewPageContent(route, label) },
-            ...nav.ops,
-          ],
-          summary: `La till sidan ${route}`,
-        });
+        const pageOp: QuickEditClientOp = {
+          kind: "replace_content",
+          path: pagePath,
+          content: buildNewPageContent(route, label),
+        };
+        const runOps = (ops: QuickEditClientOp[]) =>
+          quickEditChatFiles({
+            chatId,
+            baseVersionId: versionId,
+            // Forward the active version as the latest-known signal so the server's
+            // stale-base 409 fires if another writer advanced the chat head.
+            engineLatestKnownVersionId: versionId,
+            ops,
+            summary: `La till sidan ${route}`,
+          });
+        let result = await runOps([pageOp, ...nav.ops]);
+        let navLinked = nav.navUpdated;
+        if (!result.ok && result.reason === "parse_regression" && nav.ops.length > 0) {
+          // The server's syntax gate rejected the menu rewrite. The page itself
+          // is independent of it, so create the page without the link instead of
+          // dropping the whole action.
+          navLinked = false;
+          result = await runOps([pageOp]);
+        }
         if (!result.ok) {
           toast.error(result.error || "Kunde inte skapa sidan.");
           return;
         }
-        if (nav.navUpdated) {
+        if (navLinked) {
           toast.success(`Sidan ${route} skapades och länkades i menyn.`);
         } else {
           toast.message(`Sidan ${route} skapades`, {

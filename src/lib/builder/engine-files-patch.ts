@@ -42,8 +42,16 @@ export async function quickEditChatFiles(params: {
   engineLatestKnownVersionId?: string;
   ops: QuickEditClientOp[];
   summary?: string;
+  /**
+   * Set to `false` only for content a PERSON typed (the code view's save
+   * button): the server otherwise refuses an op set that leaves a file with
+   * more syntax errors than it had, and a half-finished manual edit must still
+   * be savable. Machine-authored ops leave this on.
+   */
+  guardSyntax?: boolean;
 }): Promise<QuickEditClientResult> {
-  const { chatId, baseVersionId, engineLatestKnownVersionId, ops, summary } = params;
+  const { chatId, baseVersionId, engineLatestKnownVersionId, ops, summary, guardSyntax } =
+    params;
   try {
     const response = await fetch(`${engineChatBaseUrl(chatId)}/quick-edit`, {
       method: "POST",
@@ -52,6 +60,7 @@ export async function quickEditChatFiles(params: {
         ...(baseVersionId ? { baseVersionId } : {}),
         ...(engineLatestKnownVersionId ? { engineLatestKnownVersionId } : {}),
         ...(summary ? { summary } : {}),
+        ...(guardSyntax === false ? { guardSyntax: false } : {}),
         ops,
       }),
     });
@@ -171,6 +180,10 @@ export async function patchEngineChatFile(params: {
       baseVersionId: versionId,
       engineLatestKnownVersionId,
       ops: [{ kind: "replace_content", path: fileName, content }],
+      // Human-authored content: keep the legacy "save whatever is in the
+      // editor" behaviour of `PATCH /files` instead of refusing a file the
+      // user has not finished writing.
+      guardSyntax: false,
     });
     if (result.ok) {
       return {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { countParseErrors } from "@/lib/gen/autofix/rules/import-binding-ast";
 import {
   buildAddNavLinkOps,
   buildNewPageContent,
@@ -389,6 +390,33 @@ describe("buildAddNavLinkOps", () => {
     if (result.ops[0]?.kind === "replace_content") {
       expect(result.ops[0].content).toContain('href: "/kontakt"');
       expect(result.ops[0].content).toContain('label: "Kontakt"');
+      expect(countParseErrors(result.ops[0].content, "components/site-header.tsx")).toBe(0);
+    }
+  });
+
+  // Prod regression 2026-08-01 (chat 435baa63): when the template entry was
+  // already followed by a comma the new entry was joined with a bare space —
+  // `{ … } { … },` — and the preview build died on the header. The structural
+  // counter cannot see a missing comma, so the broken file shipped to preview.
+  it("separates the new entry with a comma when one already follows the template entry", () => {
+    const files = [
+      {
+        name: "components/site-header.tsx",
+        content: `const navLinks = [
+  { href: "/#bonor", label: "Bönor" },
+  { href: "/#om", label: "Om oss" },
+];`,
+      },
+    ];
+    const result = buildAddNavLinkOps(files, "/jojo", "Jojo");
+    expect(result.navUpdated).toBe(true);
+    if (result.ops[0]?.kind === "replace_content") {
+      const { content } = result.ops[0];
+      expect(content).toContain(
+        '{ href: "/#bonor", label: "Bönor" }, { label: "Jojo", href: "/jojo" },',
+      );
+      expect(content).not.toMatch(/\}\s+\{/);
+      expect(countParseErrors(content, "components/site-header.tsx")).toBe(0);
     }
   });
 

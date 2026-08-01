@@ -66,7 +66,9 @@ export type QuickEditFailureReason =
   /** `delete_jsx_node` against a file/locator that cannot carry a JSX node. */
   | "jsx_delete_unsupported"
   /** `delete_jsx_node` would break the component or the file's syntax. */
-  | "jsx_delete_unsafe";
+  | "jsx_delete_unsafe"
+  /** A machine-authored op left a file less parseable than it was (syntax gate). */
+  | "parse_regression";
 
 export type QuickEditApplyResult =
   | { ok: true; files: CodeFile[]; changedPaths: string[]; removedPaths: string[] }
