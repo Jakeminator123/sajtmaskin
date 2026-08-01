@@ -9,10 +9,8 @@ import {
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
-import {
-  hasConfirmedPreviewReadyOnInstance,
-  recordPreviewRuntimeOutcomeForVersion,
-} from "@/lib/db/services/generation-telemetry";
+import { hasConfirmedPreviewReadyOnInstance } from "@/lib/db/services/generation-telemetry";
+import { applyPreviewReadinessOutcome } from "@/lib/gen/preview/readiness-stamp";
 import type { PreviewHeartbeatApiJson } from "@/lib/gen/preview/preview-contract";
 
 const bodySchema = z.object({
@@ -102,8 +100,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         after(async () => {
           try {
             const resumed = await tryResumeTier2Runtime(session);
+            // Readiness ≠ liveness (req A5): only stamp `preview_success` from the
+            // host `readinessState` verdict (ready → true, failed → false + log a
+            // build-error row for RepairGate, starting → no stamp). Version
+            // binding is exact — the session↔versionId equality check above
+            // already returned `session_mismatch` otherwise.
             if (resumed) {
-              await recordPreviewRuntimeOutcomeForVersion(versionId, true);
+              await applyPreviewReadinessOutcome({ chatId, versionId, resumed });
             }
           } catch {
             // Best-effort: a failed receipt check must never surface —

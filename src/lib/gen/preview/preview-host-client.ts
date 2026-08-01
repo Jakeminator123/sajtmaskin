@@ -148,10 +148,54 @@ async function retryPreviewHostRequestAfterCleanup<T extends { ok: boolean; mess
   return execute();
 }
 
+/** Host readiness verdict recorded by `waitForReady` (preview-host runtime.js). */
+export type PreviewHostReadinessState = "starting" | "ready" | "failed";
+
+/**
+ * Regenerated lockfile returned once by the host after a stale-lockfile
+ * reconcile (non-frozen install). The app persists it back into the version
+ * files and clears the `.sajtmaskin/lockfile-stale.json` marker.
+ */
+export type PreviewHostRegeneratedLockfile = { path: string; content: string };
+
+export type PreviewHostStatusResult = {
+  previewSessionId: string;
+  primaryUrl: string;
+  /**
+   * `waitForReady` verdict for this exact session/version, or `null` when the
+   * host omitted it (older preview-host deploy — callers then fall back to the
+   * legacy "running = ready" contract for backwards compatibility).
+   */
+  readinessState: PreviewHostReadinessState | null;
+  /** HTTP-ready + no Next build-error overlay. `false` while `starting`/`failed`. */
+  httpReady: boolean;
+  /** Human-readable failure reason when `readinessState === "failed"`. */
+  readinessError: string | null;
+  regeneratedLockfile: PreviewHostRegeneratedLockfile | null;
+};
+
+function readReadinessStateFromHostBody(
+  body: Record<string, unknown>,
+): PreviewHostReadinessState | null {
+  const raw = body.readinessState;
+  return raw === "starting" || raw === "ready" || raw === "failed" ? raw : null;
+}
+
+function readRegeneratedLockfileFromHostBody(
+  body: Record<string, unknown>,
+): PreviewHostRegeneratedLockfile | null {
+  const raw = body.regeneratedLockfile;
+  if (!raw || typeof raw !== "object") return null;
+  const path = nonEmptyString((raw as Record<string, unknown>).path);
+  const content = (raw as Record<string, unknown>).content;
+  if (!path || typeof content !== "string") return null;
+  return { path, content };
+}
+
 export async function fetchPreviewHostStatus(
   previewSessionId: string,
   opts?: { expectedVersionId?: string | null },
-): Promise<{ previewSessionId: string; primaryUrl: string } | null> {
+): Promise<PreviewHostStatusResult | null> {
   const base = getPreviewHostBaseUrl();
   const id = previewSessionId.trim();
   if (!base || !id) return null;
@@ -185,7 +229,19 @@ export async function fetchPreviewHostStatus(
     if (expectedVersionId && hostVersionId && hostVersionId !== expectedVersionId) {
       return null;
     }
-    return { previewSessionId: sid, primaryUrl: url };
+    // Readiness ≠ process liveness (req A5). The object is returned even when
+    // readiness is `failed` (process alive but serving a build-error overlay) so
+    // status/heartbeat callers can stamp `preview_success=false` + fire repair
+    // instead of a false-green. `null` readinessState = legacy host → callers
+    // fall back to treating `running` as ready.
+    return {
+      previewSessionId: sid,
+      primaryUrl: url,
+      readinessState: readReadinessStateFromHostBody(body),
+      httpReady: body.httpReady === true,
+      readinessError: nonEmptyString(body.readinessError),
+      regeneratedLockfile: readRegeneratedLockfileFromHostBody(body),
+    };
   } catch {
     return null;
   }

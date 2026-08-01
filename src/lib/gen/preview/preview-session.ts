@@ -329,7 +329,11 @@ async function runStartPreviewSession(
       // Snabb-resume: samma versionId betyder att host troligen redan
       // har korrekta filer + warm Next dev. Bara verifiera och returnera.
       const resumed = await tryResumeTier2Runtime(sess);
-      if (resumed) {
+      // Readiness ≠ liveness (req A5): a session whose host `readinessState` is
+      // "failed" (process alive, Next build-error overlay) must NOT resume as a
+      // healthy preview — fall through to destroy + re-pin so the fresh boot can
+      // re-run install/repair instead of surfacing the broken overlay as live.
+      if (resumed && resumed.readinessState !== "failed") {
         await touchPreviewSessionAsync({
           chatId: cid,
           previewSessionId: resumed.previewSessionId,
@@ -345,9 +349,10 @@ async function runStartPreviewSession(
             previewMode: resolvedMode,
             fidelityTier: 2,
             startOutcome: "resumed",
-            // Confirmed runtime-ready: tryResumeTier2Runtime only returns a
-            // session when preview-host `/status` reported `running: true`.
-            runtimeReady: true,
+            // Runtime-ready only when the host confirms HTTP readiness (no build
+            // overlay). Legacy hosts omit `readinessState` (null) → keep the
+            // prior "running = ready" contract.
+            runtimeReady: resumed.readinessState !== "starting",
             tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };

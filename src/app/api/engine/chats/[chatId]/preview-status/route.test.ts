@@ -272,6 +272,69 @@ describe("GET preview-status (engine)", () => {
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
 
+  it("returns build_error + stamps preview_success=false when host readiness failed (req A4/A5)", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_1",
+      previewUrl: "https://preview.example",
+      versionId: "v1",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+    });
+    tryResumeTier2Runtime.mockResolvedValue({
+      previewSessionId: "ps_1",
+      primaryUrl: "https://live.example",
+      readinessState: "failed",
+      httpReady: false,
+      readinessError: "Module not found: Can't resolve 'radix-ui'",
+      regeneratedLockfile: null,
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string; reason?: string; readinessError?: string };
+    expect(body.status).toBe("build_error");
+    expect(body.reason).toBe("build_error_overlay");
+    expect(body.readinessError).toContain("radix-ui");
+    // The false-stamp is scheduled via after() (never blocks the response).
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+    expect(afterCallbacks.value.length).toBe(1);
+    await runAfterCallbacks();
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false);
+  });
+
+  it("returns starting (no stamp) while host readiness is still starting", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_1",
+      previewUrl: "https://preview.example",
+      versionId: "v1",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+    });
+    tryResumeTier2Runtime.mockResolvedValue({
+      previewSessionId: "ps_1",
+      primaryUrl: "https://live.example",
+      readinessState: "starting",
+      httpReady: false,
+      readinessError: null,
+      regeneratedLockfile: null,
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string };
+    expect(body.status).toBe("starting");
+    await runAfterCallbacks();
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+  });
+
   it("does NOT stamp preview_success on version_mismatch (session bound to another version)", async () => {
     getActivePreviewSessionAsync.mockResolvedValue({
       previewSessionId: "ps_server",

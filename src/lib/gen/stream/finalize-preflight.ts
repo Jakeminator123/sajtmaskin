@@ -15,7 +15,11 @@ import {
   type RoutePlan,
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
-import { completeProjectDependencies } from "@/lib/gen/autofix/dep-completer";
+import {
+  completeProjectDependencies,
+  detectLockfilePackageManager,
+  markLockfileStaleInFiles,
+} from "@/lib/gen/autofix/dep-completer";
 import { capDegeneratePayload, detectDegenerateFiles } from "@/lib/gen/verify/degeneracy-guard";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
@@ -1388,6 +1392,21 @@ export async function runFinalizePreflight({
       );
       if (importedRepoPinnedDependencies.length > 0) {
         completeProjectFiles = depCompletion.files;
+        // Stale-lockfile protocol: we just mutated package.json while the
+        // template still carries its own lockfile. Mark it stale so the preview
+        // host runs one non-frozen install (otherwise a frozen install against
+        // warm node_modules answers "Already up to date" and never installs the
+        // newly-pinned dep — the radix-ui incident). Only when a lockfile is
+        // actually present; a fresh install regenerates from scratch otherwise.
+        const lockfilePackageManager =
+          detectLockfilePackageManager(completeProjectFiles);
+        if (lockfilePackageManager) {
+          completeProjectFiles = markLockfileStaleInFiles(completeProjectFiles, {
+            reason: `dep-completer pinned ${importedRepoPinnedDependencies.length} dependency/-ies: ${importedRepoPinnedDependencies.join(", ")}`,
+            packageManager: lockfilePackageManager,
+            makeFile: (path, content) => ({ path, content, language: "json" }),
+          });
+        }
         preflightIssues.push(
           createIssue(
             "package.json",

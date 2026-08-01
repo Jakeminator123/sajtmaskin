@@ -12,7 +12,10 @@ import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
 import { getVersionById } from "@/lib/db/chat-repository-pg";
-import { recordPreviewRuntimeOutcomeForVersion } from "@/lib/db/services/generation-telemetry";
+import {
+  applyPreviewReadinessOutcome,
+  decidePreviewReadinessOutcome,
+} from "@/lib/gen/preview/readiness-stamp";
 
 const BOOT_GRACE_MS = 90_000;
 
@@ -170,34 +173,58 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         return NextResponse.json(body);
       }
 
-      // M#pv1: canonical runtime-ready receipt on the SUSPECT/RECOVERY path —
-      // the host just reported `running: true` for the session pinned to exactly
-      // this versionId (session↔version equality checked above, and
-      // `tryResumeTier2Runtime` re-verifies versionId host-side). NOTE (PR #377
-      // runda 3): this route only fires from `handlePreviewSessionSuspect` +
-      // VersionHistory's SWR poll — the NORMAL-boot receipt lives in
-      // `POST /preview-heartbeat` (fires every ~25s while the iframe is live).
+      // M#pv1 + req A5: readiness receipt on the SUSPECT/RECOVERY path. The host
+      // reported `running: true` for the session pinned to exactly this versionId
+      // (session↔version equality checked above, and `tryResumeTier2Runtime`
+      // re-verifies versionId host-side). But `running` ≠ HTTP-ready — the host
+      // `readinessState` verdict decides `preview_success`:
+      //   ready    → stamp true; starting → no stamp; failed → stamp false + log
+      //              a build-error row so RepairGate can fire.
       // Scheduled via `after()` (same pattern as repair/analytics routes) so a
       // saturated DB pool can never delay the user-visible status response —
       // the stamp runs post-response. Monotonic + atomic + best-effort inside
       // the writer (single conditional UPDATE, never throws, `true` terminal),
       // and its per-instance confirmed-cache makes repeat polls DB-free.
+      const readinessDecision = decidePreviewReadinessOutcome(resumed);
       after(async () => {
-        await recordPreviewRuntimeOutcomeForVersion(versionId, true);
+        await applyPreviewReadinessOutcome({ chatId, versionId, resumed });
       });
 
+      if (readinessDecision.previewSuccess === false) {
+        const body: PreviewStatusApiJson = {
+          ok: true,
+          status: "build_error",
+          previewSessionId: resumed.previewSessionId,
+          previewUrl: resumed.primaryUrl,
+          versionId: sessionVid,
+          sessionExpiresAt: sessionSoftExpiryAt(session),
+          reason: "build_error_overlay",
+          readinessError: readinessDecision.buildError,
+        };
+        logPreviewLifecycleTelemetry({
+          kind: "preview_status",
+          chatId,
+          status: "stopped",
+          versionId,
+          previewSessionId: resumed.previewSessionId,
+        });
+        return NextResponse.json(body);
+      }
+
+      const stillStarting = readinessDecision.previewSuccess === null;
       const body: PreviewStatusApiJson = {
         ok: true,
-        status: "running",
+        status: stillStarting ? "starting" : "running",
         previewSessionId: resumed.previewSessionId,
         previewUrl: resumed.primaryUrl,
         versionId: sessionVid,
         sessionExpiresAt: sessionSoftExpiryAt(session),
+        ...(stillStarting ? { reason: "boot_grace_period" as const } : {}),
       };
       logPreviewLifecycleTelemetry({
         kind: "preview_status",
         chatId,
-        status: "running",
+        status: stillStarting ? "starting" : "running",
         versionId,
         previewSessionId: resumed.previewSessionId,
       });

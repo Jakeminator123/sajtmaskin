@@ -5,9 +5,13 @@ import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import {
   buildDossierDeclaredVersions,
+  buildStaleLockfileMarkerContent,
   completeProjectDependencies,
+  detectLockfilePackageManager,
   isBuiltinPackage,
   KNOWN_PACKAGES,
+  LOCKFILE_STALE_MARKER_PATH,
+  markLockfileStaleInFiles,
   mergeMissingDependenciesIntoPackageJson,
   parseManifestDependencySpec,
   resolveCapabilityDependencies,
@@ -571,5 +575,81 @@ describe("completeProjectDependencies", () => {
     ]);
     expect(badPkg.pinnedDependencies).toEqual({});
     expect(badPkg.files.find((f) => f.path === "package.json")!.content).toBe("{ not json");
+  });
+});
+
+describe("stale-lockfile marker contract (req A2)", () => {
+  it("detects the package manager from the lockfile present", () => {
+    expect(detectLockfilePackageManager([{ path: "pnpm-lock.yaml" }])).toBe("pnpm");
+    expect(detectLockfilePackageManager([{ path: "yarn.lock" }])).toBe("yarn");
+    expect(detectLockfilePackageManager([{ path: "package-lock.json" }])).toBe("npm");
+  });
+
+  it("returns null when no lockfile is present (fresh install regenerates anyway)", () => {
+    expect(detectLockfilePackageManager([{ path: "package.json" }])).toBeNull();
+  });
+
+  it("emits a host-readable sentinel body", () => {
+    const parsed = JSON.parse(
+      buildStaleLockfileMarkerContent({ reason: "pinned radix-ui", packageManager: "pnpm" }),
+    ) as { reason: string; packageManager: string; mutatedAt: string };
+    expect(parsed.reason).toBe("pinned radix-ui");
+    expect(parsed.packageManager).toBe("pnpm");
+    expect(typeof parsed.mutatedAt).toBe("string");
+  });
+
+  it("adds the sentinel file exactly once (idempotent replace)", () => {
+    const base = [
+      { path: "package.json", content: "{}" },
+      { path: "pnpm-lock.yaml", content: "old" },
+    ];
+    const once = markLockfileStaleInFiles(base, {
+      reason: "r1",
+      packageManager: "pnpm",
+      makeFile: (path, content) => ({ path, content }),
+    });
+    expect(once.filter((f) => f.path === LOCKFILE_STALE_MARKER_PATH)).toHaveLength(1);
+
+    const twice = markLockfileStaleInFiles(once, {
+      reason: "r2",
+      packageManager: "pnpm",
+      makeFile: (path, content) => ({ path, content }),
+    });
+    expect(twice.filter((f) => f.path === LOCKFILE_STALE_MARKER_PATH)).toHaveLength(1);
+    const marker = JSON.parse(
+      twice.find((f) => f.path === LOCKFILE_STALE_MARKER_PATH)!.content,
+    ) as { reason: string };
+    expect(marker.reason).toBe("r2");
+  });
+});
+
+// Regression 6 (building block): a broken imported template — one that imports a
+// package it never declared — gets that dependency pinned by the same
+// dep-completer the /template first-preview path runs, and (because a lockfile
+// is present) the stale marker is added. The preview host then runs one
+// non-frozen install + a readiness gate, so the template can no longer reach
+// preview as "healthy" with an undeclared import.
+describe("imported template dependency completion + stale marker (req A1)", () => {
+  it("pins an undeclared import and marks the pnpm lockfile stale", () => {
+    const files = [
+      { path: "package.json", content: '{"name":"t","dependencies":{}}' },
+      { path: "pnpm-lock.yaml", content: "lockfileVersion: '9.0'\n" },
+      { path: "app/page.tsx", content: 'import { z } from "zod";\nexport default function P(){return null;}\n' },
+    ];
+    const completed = completeProjectDependencies(files);
+    expect(Object.keys(completed.pinnedDependencies)).toContain("zod");
+
+    const pm = detectLockfilePackageManager(completed.files);
+    expect(pm).toBe("pnpm");
+    const marked = markLockfileStaleInFiles(completed.files, {
+      reason: "pinned zod on import",
+      packageManager: pm!,
+      makeFile: (path, content) => ({ path, content }),
+    });
+    expect(marked.some((f) => f.path === LOCKFILE_STALE_MARKER_PATH)).toBe(true);
+    const pkg = JSON.parse(
+      marked.find((f) => f.path === "package.json")!.content,
+    ) as { dependencies?: Record<string, string> };
+    expect(pkg.dependencies?.zod).toBeTruthy();
   });
 });

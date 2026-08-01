@@ -440,9 +440,23 @@ async function routeRequest(req, res) {
       runtimeState.running &&
       latest.prewarm !== true &&
       latest.prewarmReplacementPending !== true;
+    // Readiness ≠ process running. `running` stays process-liveness (legacy
+    // contract), but `httpReady` means the page actually answered without a
+    // Next build-error overlay / HTTP 500 (host `waitForReady` verdict recorded
+    // as `readinessState`). The app keys `preview_success` off `httpReady` /
+    // `readinessState`, not mere liveness. Prewarm skeletons have no readiness
+    // state → report ready when running so their status is unchanged.
+    const readinessState =
+      typeof latest.readinessState === "string" ? latest.readinessState : null;
+    const httpReady =
+      publicRunning && (latest.prewarm === true || readinessState === "ready");
     return json(res, 200, {
       ok: true,
       running: publicRunning,
+      httpReady,
+      readinessState,
+      readinessError:
+        typeof latest.readinessError === "string" ? latest.readinessError : null,
       previewSessionId: latest.previewSessionId,
       /** @legacy External alias for older Sajtmaskin app deployments. */
       sandboxId: latest.previewSessionId,
@@ -450,6 +464,14 @@ async function routeRequest(req, res) {
       versionId: latest.versionId,
       status: latest.status,
       sessionExpiresAt: latest.sessionExpiresAt,
+      // One-shot lockfile round-trip: after a stale-lockfile reconcile the host
+      // returns the regenerated lockfile so the app can persist it into the
+      // version files and clear the stale marker.
+      ...(latest.regeneratedLockfile &&
+      typeof latest.regeneratedLockfile.path === "string" &&
+      typeof latest.regeneratedLockfile.content === "string"
+        ? { regeneratedLockfile: latest.regeneratedLockfile }
+        : {}),
     });
   }
 

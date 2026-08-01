@@ -441,7 +441,219 @@ const INSTALL_TIMEOUT_MS = parseInt(
   10,
 );
 
+// Stale-lockfile protocol (prod incident 2026-07-31, chat 0d52e5c9 → radix-ui):
+// när Normalize/dep-completer muterar `package.json` medan en låsfil finns kvar
+// blir låsfilen inaktuell. Ett `pnpm install --frozen-lockfile` mot warm
+// node_modules kan då svara "Already up to date" (exit 0) UTAN att installera
+// det nya beroendet, och den nya fingerprinten skrivs ändå → runtime 500:ar för
+// evigt på Next Build Error-overlayn. Appen markerar därför en muterad låsfil
+// som inaktuell via denna sentinel i projektfilerna; host:en kör då EN
+// icke-frozen install (som får uppdatera låsfilen) och skickar den regenererade
+// låsfilen tillbaka så appen kan persistera den i `engine_versions.files_json`.
+// Detta är INTE "radera låsfilen som generell fix" — låsfilen behålls och
+// regenereras, bara frozen-läget hoppas över för exakt denna install.
+const LOCKFILE_STALE_MARKER_PATH = ".sajtmaskin/lockfile-stale.json";
+
+const PACKAGE_MANAGER_LOCKFILES = {
+  pnpm: ["pnpm-lock.yaml", "pnpm-lock.yml"],
+  yarn: ["yarn.lock"],
+  npm: ["package-lock.json"],
+};
+
+const PACKAGE_MANAGER_LIST_COMMAND = {
+  pnpm: "pnpm ls --depth 0 --json",
+  yarn: "yarn list --depth=0 --json",
+  npm: "npm ls --depth=0 --json",
+};
+
+function detectPackageManager(filesJson) {
+  if (
+    typeof filesJson?.["pnpm-lock.yaml"] === "string" ||
+    typeof filesJson?.["pnpm-lock.yml"] === "string"
+  ) {
+    return "pnpm";
+  }
+  if (typeof filesJson?.["yarn.lock"] === "string") return "yarn";
+  return "npm";
+}
+
+function readStaleLockfileMarker(filesJson) {
+  const raw = filesJson?.[LOCKFILE_STALE_MARKER_PATH];
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    const packageManager =
+      parsed.packageManager === "pnpm" ||
+      parsed.packageManager === "yarn" ||
+      parsed.packageManager === "npm"
+        ? parsed.packageManager
+        : null;
+    return {
+      reason: typeof parsed.reason === "string" ? parsed.reason : "lockfile marked stale",
+      packageManager,
+      mutatedAt: typeof parsed.mutatedAt === "string" ? parsed.mutatedAt : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read the regenerated lockfile from the workspace for a package manager,
+ * preferring the primary lockfile name. Returns `{ path, content }` or null.
+ */
+function readRegeneratedLockfile(workspaceDir, packageManager) {
+  const names = PACKAGE_MANAGER_LOCKFILES[packageManager] ?? [];
+  for (const name of names) {
+    try {
+      const content = fs.readFileSync(path.join(workspaceDir, name), "utf8");
+      if (typeof content === "string" && content.length > 0) {
+        return { path: name, content };
+      }
+    } catch {
+      // Try next candidate.
+    }
+  }
+  return null;
+}
+
+/**
+ * Direct dependency graph declared in package.json — `dependencies` +
+ * `devDependencies`. `optionalDependencies` and `peerDependencies` are skipped
+ * on purpose (they may legitimately be absent from the installed graph). Used
+ * by the install postcondition so a package-manager "exit 0" that installed
+ * NOTHING (stale-lockfile "Already up to date") still fails closed.
+ */
+function requiredDirectDependencies(filesJson) {
+  const raw = filesJson?.["package.json"];
+  if (typeof raw !== "string") return [];
+  try {
+    const pkg = JSON.parse(raw);
+    if (!pkg || typeof pkg !== "object") return [];
+    const names = new Set();
+    for (const bucket of ["dependencies", "devDependencies"]) {
+      const map = pkg[bucket];
+      if (map && typeof map === "object" && !Array.isArray(map)) {
+        for (const [name, version] of Object.entries(map)) {
+          // Skip workspace:/link:/file: specifiers — those resolve to local
+          // paths the `ls` view lists inconsistently across managers.
+          if (typeof version === "string" && /^(workspace|link|file):/.test(version)) {
+            continue;
+          }
+          if (name.trim()) names.add(name.trim());
+        }
+      }
+    }
+    return [...names];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Parse the direct dependency NAMES the package manager reports as installed
+ * from its `ls`/`list --json` output. Best-effort across pnpm/npm/yarn — the
+ * shapes differ. Returns a Set, or null when the output was unparseable (the
+ * caller then falls back to a filesystem probe rather than false-failing).
+ */
+function collectInstalledDirectDepNames(rawOutput, packageManager) {
+  const output = String(rawOutput || "").trim();
+  if (!output) return null;
+  const names = new Set();
+  const addFromDepMap = (map) => {
+    if (map && typeof map === "object" && !Array.isArray(map)) {
+      for (const key of Object.keys(map)) names.add(key);
+    }
+  };
+  // yarn classic emits newline-delimited JSON (`{type:"tree",...}`); npm/pnpm
+  // emit a single JSON document. Try whole-document first, then line-by-line.
+  const tryParse = (text) => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return undefined;
+    }
+  };
+  const ingest = (parsed) => {
+    if (!parsed) return;
+    if (Array.isArray(parsed)) {
+      for (const entry of parsed) ingest(entry);
+      return;
+    }
+    if (typeof parsed !== "object") return;
+    addFromDepMap(parsed.dependencies);
+    addFromDepMap(parsed.devDependencies);
+    // yarn classic tree: { type:"tree", data:{ trees:[{ name:"pkg@1.2.3" }] } }
+    if (parsed.type === "tree" && parsed.data && Array.isArray(parsed.data.trees)) {
+      for (const tree of parsed.data.trees) {
+        const label = typeof tree?.name === "string" ? tree.name : "";
+        if (!label) continue;
+        const at = label.lastIndexOf("@");
+        const name = at > 0 ? label.slice(0, at) : label;
+        if (name) names.add(name);
+      }
+    }
+  };
+  const whole = tryParse(output);
+  if (whole !== undefined) {
+    ingest(whole);
+  } else {
+    for (const line of output.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) continue;
+      const parsed = tryParse(trimmed);
+      if (parsed !== undefined) ingest(parsed);
+    }
+  }
+  void packageManager;
+  return names.size > 0 ? names : null;
+}
+
+/**
+ * Install postcondition (prod incident 2026-07-31): after `install` exits 0,
+ * confirm the declared direct dependency graph is actually present. Prefers the
+ * package manager's OWN view (`pnpm ls`/`npm ls`/`yarn list --json`); only when
+ * that output is unparseable does it fall back to a `node_modules/<pkg>`
+ * probe — never as the sole signal (ESM/exports/optional make existsSync
+ * unreliable). Fails closed if a required direct dep is missing.
+ */
+async function verifyInstalledDependencies(workspaceDir, filesJson, options = {}) {
+  const required = requiredDirectDependencies(filesJson);
+  if (required.length === 0) {
+    return { ok: true, missing: [], checkedWith: "none", required };
+  }
+  const packageManager = options.packageManager || detectPackageManager(filesJson);
+  const commandRunner =
+    typeof options.commandRunner === "function" ? options.commandRunner : runShellCommand;
+  const listCommand = PACKAGE_MANAGER_LIST_COMMAND[packageManager];
+  let installedNames = null;
+  try {
+    const result = await commandRunner(listCommand, {
+      cwd: workspaceDir,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: sanitizedEnv({ NODE_ENV: "development" }),
+      timeoutMs: 60_000,
+      timeoutLabel: `Dependency postcondition (${listCommand})`,
+    });
+    installedNames = collectInstalledDirectDepNames(result.output, packageManager);
+  } catch {
+    installedNames = null;
+  }
+  if (installedNames) {
+    const missing = required.filter((name) => !installedNames.has(name));
+    return { ok: missing.length === 0, missing, checkedWith: `${packageManager}-ls`, required };
+  }
+  // PM view unusable → filesystem fallback (secondary signal only).
+  const missing = required.filter(
+    (name) => !fs.existsSync(path.join(workspaceDir, "node_modules", ...name.split("/"))),
+  );
+  return { ok: missing.length === 0, missing, checkedWith: "node_modules-fallback", required };
+}
+
 function resolveInstallCommand(filesJson) {
+  const packageManager = detectPackageManager(filesJson);
+  const lockfileStale = readStaleLockfileMarker(filesJson) !== null;
   const hasPnpmLock =
     typeof filesJson?.["pnpm-lock.yaml"] === "string" ||
     typeof filesJson?.["pnpm-lock.yml"] === "string";
@@ -450,6 +662,22 @@ function resolveInstallCommand(filesJson) {
     // packages like @tailwindcss/oxide, plus esbuild/sharp) ship as
     // optionalDependencies; skipping them leaves Tailwind v4 without its
     // musl `.node` on the Alpine VM and the dev server crash-loops on boot.
+    //
+    // Stale lockfile → run WITHOUT --frozen-lockfile as the primary command so
+    // the newly-pinned dependency is actually installed and the lockfile is
+    // regenerated (frozen would say "Already up to date" and install nothing).
+    if (lockfileStale) {
+      return {
+        command: "pnpm install --no-frozen-lockfile --prod=false",
+        successLabel: "pnpm install passed.",
+        logLabel: "pnpm install --no-frozen-lockfile --prod=false (stale lockfile)",
+        fallbackCommand: "pnpm install --no-frozen-lockfile --prod=false",
+        fallbackLogLabel: "pnpm install --no-frozen-lockfile --prod=false",
+        alwaysAllowFallback: true,
+        packageManager,
+        lockfileStale,
+      };
+    }
     return {
       command: "pnpm install --frozen-lockfile --prod=false",
       successLabel: "pnpm install passed.",
@@ -457,6 +685,8 @@ function resolveInstallCommand(filesJson) {
       fallbackCommand: "pnpm install --no-frozen-lockfile --prod=false",
       fallbackLogLabel: "pnpm install --no-frozen-lockfile --prod=false",
       alwaysAllowFallback: true,
+      packageManager,
+      lockfileStale,
     };
   }
   const hasYarnLock = typeof filesJson?.["yarn.lock"] === "string";
@@ -465,24 +695,43 @@ function resolveInstallCommand(filesJson) {
     // Do not pass Yarn Classic's `--production=false`: Yarn Berry/4 rejects
     // that flag. The install runner forces NODE_ENV=development instead,
     // which keeps devDependencies for Classic while Berry installs them by
-    // default.
+    // default. Stale lockfile → drop --frozen-lockfile so yarn may update it.
     return {
-      command: "yarn install --frozen-lockfile",
+      command: lockfileStale ? "yarn install" : "yarn install --frozen-lockfile",
       successLabel: "yarn install passed.",
-      logLabel: "yarn install --frozen-lockfile",
+      logLabel: lockfileStale ? "yarn install (stale lockfile)" : "yarn install --frozen-lockfile",
       fallbackCommand: "yarn install",
       fallbackLogLabel: "yarn install",
       alwaysAllowFallback: true,
+      packageManager,
+      lockfileStale,
     };
   }
   const hasPackageLock = typeof filesJson?.["package-lock.json"] === "string";
   if (hasPackageLock) {
+    // Stale lockfile → `npm install` (not `npm ci`): ci fails outright when the
+    // lockfile disagrees with package.json, and even when it does not, it never
+    // updates the lockfile. `npm install` reconciles and regenerates it.
+    if (lockfileStale) {
+      return {
+        command: "npm install --no-audit --include=dev",
+        successLabel: "npm install passed.",
+        logLabel: "npm install --no-audit --include=dev (stale lockfile)",
+        fallbackCommand: "npm install --no-audit --include=dev --legacy-peer-deps",
+        fallbackLogLabel: "npm install --no-audit --include=dev --legacy-peer-deps",
+        alwaysAllowFallback: true,
+        packageManager,
+        lockfileStale,
+      };
+    }
     return {
       command: "npm ci --no-audit --include=dev",
       successLabel: "npm ci passed.",
       logLabel: "npm ci --no-audit --include=dev",
       fallbackCommand: "npm ci --no-audit --include=dev --legacy-peer-deps",
       fallbackLogLabel: "npm ci --no-audit --include=dev --legacy-peer-deps",
+      packageManager,
+      lockfileStale,
     };
   }
   return {
@@ -491,6 +740,8 @@ function resolveInstallCommand(filesJson) {
     logLabel: "npm install --no-audit --include=dev",
     fallbackCommand: "npm install --no-audit --include=dev --legacy-peer-deps",
     fallbackLogLabel: "npm install --no-audit --include=dev --legacy-peer-deps",
+    packageManager,
+    lockfileStale,
   };
 }
 
@@ -1000,6 +1251,43 @@ function responseHeadersLookLikeHtmlDocument(res) {
   );
 }
 
+// Next.js dev serves an HTTP 200 HTML page for build/compile errors (the
+// full-screen "Build Error" / "Failed to compile" overlay, and the
+// module-not-found error). That page HAS visible text, so the plain
+// "meaningful visible text" check below would ACCEPT it as ready — the exact
+// false-green behind the radix-ui incident (readiness ≠ HTTP-ready). Detect the
+// overlay so readiness rejects it instead of stamping preview_success.
+const NEXT_BUILD_ERROR_SIGNATURES = [
+  /Build Error/i,
+  /Failed to compile/i,
+  /Module not found/i,
+  /This error occurred during the build process/i,
+  /__NEXT_ERROR_OVERLAY__/i,
+  /nextjs-portal/i,
+  /Unhandled Runtime Error/i,
+  /Cannot find module/i,
+];
+
+function extractBuildErrorMessage(html) {
+  const preMatch = html.match(/<pre[^>]*>([\s\S]{0,400}?)<\/pre>/i);
+  if (preMatch) {
+    const text = preMatch[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    if (text) return text.slice(0, 300);
+  }
+  const titleMatch = html.match(/<title[^>]*>([\s\S]{0,200}?)<\/title>/i);
+  if (titleMatch) {
+    const text = titleMatch[1].replace(/\s+/g, " ").trim();
+    if (text) return text.slice(0, 200);
+  }
+  return "Next.js build error overlay";
+}
+
+function htmlLooksLikeBuildError(html) {
+  const text = String(html || "");
+  if (!text) return false;
+  return NEXT_BUILD_ERROR_SIGNATURES.some((re) => re.test(text));
+}
+
 function htmlBodyHasMeaningfulVisibleText(html) {
   let snippet = html;
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
@@ -1012,10 +1300,18 @@ function htmlBodyHasMeaningfulVisibleText(html) {
   return visible.trim().length >= READINESS_EMPTY_BODY_MIN_CHARS;
 }
 
+// A persistent Next build-error overlay never clears on its own (the code is
+// broken), so once we have seen it consistently we fail readiness fast instead
+// of burning the full 180s deadline. A brief overlay during first compile is
+// tolerated (HMR can clear it), hence the streak.
+const READINESS_MAX_BUILD_ERROR_RETRIES = 4;
+
 async function waitForReady(url) {
   const deadline = Date.now() + READINESS_MAX_MS;
   let lastError = "";
   let emptyBodyStreak = 0;
+  let buildErrorStreak = 0;
+  let lastBuildErrorMessage = "";
   while (Date.now() < deadline) {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 90_000);
@@ -1028,11 +1324,30 @@ async function waitForReady(url) {
       });
       if (!responseHeadersLookLikeHtmlDocument(res)) {
         emptyBodyStreak = 0;
+        buildErrorStreak = 0;
         lastError = `HTTP ${res.status}`;
         await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));
         continue;
       }
       const text = await res.text();
+      // Readiness ≠ process running: a Next build-error overlay is HTTP 200
+      // HTML with visible text but is NOT a ready page. Reject it (and fail
+      // fast once it looks persistent) so preview_success is never stamped on
+      // a page that is really showing a build error.
+      if (htmlLooksLikeBuildError(text)) {
+        buildErrorStreak += 1;
+        emptyBodyStreak = 0;
+        lastBuildErrorMessage = extractBuildErrorMessage(text);
+        lastError = `Next.js build error overlay: ${lastBuildErrorMessage}`;
+        if (buildErrorStreak >= READINESS_MAX_BUILD_ERROR_RETRIES) {
+          throw new Error(
+            `Runtime is serving a Next.js build error overlay (not ready): ${lastBuildErrorMessage}`,
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));
+        continue;
+      }
+      buildErrorStreak = 0;
       if (htmlBodyHasMeaningfulVisibleText(text)) {
         return;
       }
@@ -1045,7 +1360,13 @@ async function waitForReady(url) {
         return;
       }
     } catch (err) {
+      // A thrown build-error-overlay verdict is terminal — propagate it rather
+      // than treating it like a transient fetch error and looping to timeout.
+      if (err instanceof Error && /build error overlay/i.test(err.message)) {
+        throw err;
+      }
       emptyBodyStreak = 0;
+      buildErrorStreak = 0;
       lastError = err instanceof Error ? err.message : String(err);
     } finally {
       clearTimeout(tid);
@@ -1236,7 +1557,7 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
       previewSessionId,
       `Skipping npm install; dependency fingerprint unchanged (${fingerprint.slice(0, 12)}).`,
     );
-    return;
+    return { installed: false, skipped: true };
   }
   const priorFingerprint =
     priorDeps && typeof priorDeps.fingerprint === "string"
@@ -1246,8 +1567,26 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
     previewSessionId,
     `Dependency fingerprint changed (prior=${priorFingerprint}, next=${fingerprint.slice(0, 12)}); installing with ${install.logLabel}.`,
   );
-  const installResult = await runInstallCommandWithFallback(workspaceDir, install);
+  const installResult = await bootInstallRunner(workspaceDir, install);
   if (installResult.passed) {
+    // Postcondition BEFORE stamping the fingerprint: a package manager can exit
+    // 0 while installing nothing (stale-lockfile "Already up to date"). Confirm
+    // the declared direct dependency graph is actually present; only then write
+    // the fingerprint, so a failed postcondition leaves the state untouched and
+    // the next boot re-runs install instead of skipping on a false "installed".
+    const postcondition = await verifyInstalledDependencies(workspaceDir, filesJson, {
+      packageManager: install.packageManager,
+      commandRunner: bootPostconditionRunner ?? undefined,
+    });
+    if (!postcondition.ok) {
+      await appendRuntimeLog(
+        previewSessionId,
+        `${install.logLabel} exited 0 but the dependency postcondition failed (checked via ${postcondition.checkedWith}): missing ${postcondition.missing.join(", ")}. Not stamping dependency fingerprint so the next boot re-runs install.`,
+      );
+      throw new Error(
+        `Dependency postcondition failed after install: missing ${postcondition.missing.join(", ")} (checked via ${postcondition.checkedWith}).`,
+      );
+    }
     fs.writeFileSync(
       dependencyStatePathForWorkspace(workspaceDir),
       JSON.stringify({ fingerprint }, null, 2),
@@ -1268,7 +1607,21 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
     } else {
       await appendRuntimeLog(previewSessionId, `${install.logLabel} completed.`);
     }
-    return;
+    // Stale lockfile was reconciled by the non-frozen install above: read the
+    // regenerated lockfile so the caller can persist it back into the version
+    // files and clear the stale marker (closing the loop — never "delete the
+    // lockfile forever").
+    if (install.lockfileStale) {
+      const regeneratedLockfile = readRegeneratedLockfile(workspaceDir, install.packageManager);
+      if (regeneratedLockfile) {
+        await appendRuntimeLog(
+          previewSessionId,
+          `Regenerated ${regeneratedLockfile.path} after non-frozen install; returning it for persistence and clearing the stale marker.`,
+        );
+        return { installed: true, packageManager: install.packageManager, regeneratedLockfile, staleCleared: true };
+      }
+    }
+    return { installed: true, packageManager: install.packageManager };
   }
 
   await appendRuntimeLog(
@@ -1282,6 +1635,11 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
 
 let verifyInstallRunner = runInstallCommandWithFallback;
 let verifyCommandRunner = runShellCommand;
+// Injectable runners for the LIVE-boot install path (`runInstallCommand`), so
+// the guard tests can drive the stale-lockfile / postcondition / fingerprint
+// flow without a real package manager. Production uses the real runners.
+let bootInstallRunner = runInstallCommandWithFallback;
+let bootPostconditionRunner = null;
 
 async function runVerifyJob(params) {
   const { verifyId, chatId, versionId, filesJson, checks } = params;
@@ -1692,11 +2050,19 @@ async function bootRuntimeForSession(session, options = {}) {
 
   try {
     const chatId = getSessionChatId(session);
+    const isPrewarm = session.prewarm === true;
     const runBoot = async () => {
       const workspaceDir = writeWorkspaceFiles(chatId, session.filesJson);
       patchNextConfigForPreviewBasePath(workspaceDir);
       const runtimePort = await resolvePortForChat(chatId, Number(session.runtimePort));
-      await runInstallCommand(workspaceDir, session.previewSessionId, session.filesJson);
+      // Install (+ stale-lockfile reconcile + dependency postcondition). Throws
+      // on install/postcondition failure → outer catch sets status "error", so
+      // a broken dependency graph never reaches a running preview.
+      const installOutcome = await runInstallCommand(
+        workspaceDir,
+        session.previewSessionId,
+        session.filesJson,
+      );
       await spawnDevServer(session, workspaceDir, runtimePort);
 
       await updateSessionById(session.sessionId, (stored) => {
@@ -1704,27 +2070,59 @@ async function bootRuntimeForSession(session, options = {}) {
         stored.status = "warm_project";
         stored.runtimePort = runtimePort;
         stored.updatedAt = nowIso();
+        // Readiness is not yet confirmed (page not proven build-error-free).
+        // Prewarm skeletons keep today's stateless behaviour.
+        if (!isPrewarm) {
+          stored.readinessState = "starting";
+          stored.readinessError = null;
+        }
+        // Surface the regenerated lockfile so the app can persist it and clear
+        // the stale marker (`/status` returns these fields).
+        if (installOutcome && installOutcome.regeneratedLockfile) {
+          stored.regeneratedLockfile = installOutcome.regeneratedLockfile;
+          stored.lockfileStaleCleared = true;
+        }
       });
 
       const readiness = waitForReady(
         `http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`,
       );
-      if (session.prewarmReplacementPending === true && session.prewarm !== true) {
-        // A real version replacing a prewarm skeleton stays non-public until
-        // the replacement itself answers readiness. Only this successful,
-        // version-matched transition may clear the host-side traffic hold.
-        await readiness;
-        await updateSessionById(session.sessionId, (stored) => {
-          if (stored.versionId !== session.versionId || stored.prewarm === true) return;
-          stored.prewarmReplacementPending = false;
-          stored.status = "warm_project";
-          stored.runtimePort = runtimePort;
-          stored.updatedAt = nowIso();
-        });
-        await appendRuntimeLog(
-          session.previewSessionId,
-          `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
-        );
+      // Record the readiness OUTCOME into the session for non-prewarm boots.
+      // Previously the normal path fired readiness fire-and-forget and only
+      // logged, so an async boot failure after HTTP 201 (build-error overlay)
+      // never reached the app / RepairGate. Now `readinessState` flips to
+      // "ready"/"failed" and `/status` exposes it → the app stamps
+      // preview_success accordingly and can fire the build-error repair path.
+      if (!isPrewarm) {
+        void readiness
+          .then(() =>
+            updateSessionById(session.sessionId, (stored) => {
+              if (stored.versionId !== session.versionId) return;
+              stored.readinessState = "ready";
+              stored.readinessError = null;
+              stored.updatedAt = nowIso();
+            }),
+          )
+          .then(() =>
+            appendRuntimeLog(
+              session.previewSessionId,
+              `Runtime ready on http://${LOOPBACK}:${runtimePort}. Preview available at ${session.previewUrl}.`,
+            ),
+          )
+          .catch((err) => {
+            const message = err instanceof Error ? err.message : "unknown readiness failure";
+            return updateSessionById(session.sessionId, (stored) => {
+              if (stored.versionId !== session.versionId) return;
+              stored.readinessState = "failed";
+              stored.readinessError = message;
+              stored.updatedAt = nowIso();
+            }).then(() =>
+              appendRuntimeLog(
+                session.previewSessionId,
+                `Readiness failed (runtime process alive but page not ready): ${message}`,
+              ),
+            );
+          });
       } else {
         void readiness
           .then(() =>
@@ -1739,6 +2137,22 @@ async function bootRuntimeForSession(session, options = {}) {
               `Readiness probe timed out but runtime is still running: ${err instanceof Error ? err.message : "unknown"}`,
             ),
           );
+      }
+
+      if (session.prewarmReplacementPending === true && !isPrewarm) {
+        // A real version replacing a prewarm skeleton stays non-public until
+        // the replacement itself answers readiness. Only this successful,
+        // version-matched transition may clear the host-side traffic hold. If
+        // readiness rejects (e.g. build-error overlay) this rethrows into the
+        // outer catch, which sets status "error" and keeps the hold in place.
+        await readiness;
+        await updateSessionById(session.sessionId, (stored) => {
+          if (stored.versionId !== session.versionId || stored.prewarm === true) return;
+          stored.prewarmReplacementPending = false;
+          stored.status = "warm_project";
+          stored.runtimePort = runtimePort;
+          stored.updatedAt = nowIso();
+        });
       }
 
       return { runtimePort };
@@ -1757,14 +2171,22 @@ async function bootRuntimeForSession(session, options = {}) {
       },
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
     await updateSessionById(session.sessionId, (stored) => {
       if (stored.versionId !== session.versionId) return;
       stored.status = "error";
+      // Install / postcondition / readiness failure is a hard boot failure —
+      // mark readiness failed (unless prewarm) so `/status` reports it and the
+      // app stamps preview_success=false + can trigger the repair path.
+      if (session.prewarm !== true) {
+        stored.readinessState = "failed";
+        stored.readinessError = message;
+      }
       stored.updatedAt = nowIso();
     });
     await appendRuntimeLog(
       session.previewSessionId,
-      `Runtime boot failed: ${error instanceof Error ? error.message : "unknown error"}`,
+      `Runtime boot failed: ${message}`,
     );
     const tracked = runtimeChildren.get(session.sessionId);
     if (tracked) {
@@ -2722,6 +3144,16 @@ module.exports = {
     inspectProjectLintSetup,
     projectOwnsLintSetup,
     resolveInstallCommand,
+    LOCKFILE_STALE_MARKER_PATH,
+    readStaleLockfileMarker,
+    detectPackageManager,
+    requiredDirectDependencies,
+    collectInstalledDirectDepNames,
+    verifyInstalledDependencies,
+    readRegeneratedLockfile,
+    htmlLooksLikeBuildError,
+    waitForReady,
+    runInstallCommand,
     tryShareNodeModules,
     workspaceDirForChat,
     dependencyStatePathForWorkspace,
@@ -2775,6 +3207,16 @@ module.exports = {
         typeof params.commandRunner === "function"
           ? params.commandRunner
           : runShellCommand;
+    },
+    setBootInstallRunnersForTesting(params = {}) {
+      bootInstallRunner =
+        typeof params.installRunner === "function"
+          ? params.installRunner
+          : runInstallCommandWithFallback;
+      bootPostconditionRunner =
+        typeof params.postconditionCommandRunner === "function"
+          ? params.postconditionCommandRunner
+          : null;
     },
   },
 };

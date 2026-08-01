@@ -17,6 +17,7 @@
 import { createRequire } from "node:module";
 import { EventEmitter } from "node:events";
 import {
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -457,6 +458,265 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("_next asset path matches the Next-internal matcher", NEXT_INTERNAL_ROOT_PATH_RE.test("/_next/static/media/x.woff2"));
   check("plain site route does NOT match the matcher", !NEXT_INTERNAL_ROOT_PATH_RE.test("/om/kontakt"));
   check("chatId-prefixed path does NOT match the matcher", !NEXT_INTERNAL_ROOT_PATH_RE.test("/7e8f51e0-abc/__nextjs_font/geist-latin.woff2"));
+}
+
+// 10. Stale-lockfile protocol (prod incident 2026-07-31, radix-ui): when the
+//     app marks a mutated lockfile stale, resolveInstallCommand must run the
+//     package manager WITHOUT frozen-lockfile as the PRIMARY command so the
+//     newly-pinned dependency is actually installed and the lockfile updated.
+{
+  const { resolveInstallCommand, readStaleLockfileMarker, LOCKFILE_STALE_MARKER_PATH } =
+    runtime.__testing;
+  const staleMarker = JSON.stringify({
+    reason: "dep-completer pinned radix-ui",
+    packageManager: "pnpm",
+    mutatedAt: new Date().toISOString(),
+  });
+  const pnpmStale = resolveInstallCommand({
+    "package.json": "{}",
+    "pnpm-lock.yaml": "lockfileVersion: 9",
+    [LOCKFILE_STALE_MARKER_PATH]: staleMarker,
+  });
+  check("stale pnpm lock installs WITHOUT --frozen-lockfile", /--no-frozen-lockfile/.test(pnpmStale.command));
+  check("stale pnpm lock never runs frozen as primary", !/\s--frozen-lockfile/.test(pnpmStale.command));
+  check("stale pnpm lock is flagged for lockfile capture", pnpmStale.lockfileStale === true && pnpmStale.packageManager === "pnpm");
+
+  const npmStale = resolveInstallCommand({
+    "package.json": "{}",
+    "package-lock.json": "{}",
+    [LOCKFILE_STALE_MARKER_PATH]: staleMarker,
+  });
+  check("stale npm lock uses `npm install` not `npm ci`", /^npm install/.test(npmStale.command) && !/npm ci/.test(npmStale.command));
+
+  const yarnStale = resolveInstallCommand({
+    "package.json": "{}",
+    "yarn.lock": "",
+    [LOCKFILE_STALE_MARKER_PATH]: staleMarker,
+  });
+  check("stale yarn lock drops --frozen-lockfile", !/--frozen-lockfile/.test(yarnStale.command));
+
+  // Non-stale keeps today's frozen behaviour.
+  const pnpmFresh = resolveInstallCommand({ "package.json": "{}", "pnpm-lock.yaml": "lockfileVersion: 9" });
+  check("fresh pnpm lock still runs frozen", /--frozen-lockfile/.test(pnpmFresh.command) && pnpmFresh.lockfileStale === false);
+
+  check("stale marker parses shape", readStaleLockfileMarker({ [LOCKFILE_STALE_MARKER_PATH]: staleMarker })?.packageManager === "pnpm");
+  check("absent stale marker is null", readStaleLockfileMarker({ "package.json": "{}" }) === null);
+}
+
+// 11. Readiness ≠ process running: the Next build-error overlay is HTTP 200
+//     HTML with visible text, so waitForReady must REJECT it instead of
+//     accepting it as ready (the false-green behind the incident).
+{
+  const { htmlLooksLikeBuildError, waitForReady } = runtime.__testing;
+  const { createServer } = await import("node:http");
+  const overlayHtml =
+    "<!doctype html><html><head><title>Build Error</title></head><body><nextjs-portal></nextjs-portal><pre>Module not found: Can't resolve 'radix-ui'</pre></body></html>";
+  const goodHtml =
+    "<!doctype html><html><head><title>My site</title></head><body><main><h1>Welcome to the homepage</h1><p>Lots of real visible content here for readiness.</p></main></body></html>";
+
+  check("overlay HTML is detected as a build error", htmlLooksLikeBuildError(overlayHtml) === true);
+  check("normal HTML is not a build error", htmlLooksLikeBuildError(goodHtml) === false);
+
+  async function withServer(html, fn) {
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(html);
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address();
+    try {
+      return await fn(`http://127.0.0.1:${port}/`);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  }
+
+  let overlayRejected = false;
+  let overlayMessage = "";
+  await withServer(overlayHtml, async (url) => {
+    try {
+      await waitForReady(url);
+    } catch (err) {
+      overlayRejected = true;
+      overlayMessage = err instanceof Error ? err.message : String(err);
+    }
+  });
+  check("waitForReady rejects a persistent build-error overlay", overlayRejected === true);
+  check("waitForReady rejection names the build error", /build error overlay/i.test(overlayMessage));
+
+  let goodResolved = false;
+  await withServer(goodHtml, async (url) => {
+    try {
+      await waitForReady(url);
+      goodResolved = true;
+    } catch {
+      goodResolved = false;
+    }
+  });
+  check("waitForReady accepts a real ready page", goodResolved === true);
+}
+
+// 12. PM-safe dependency postcondition: prefer the package manager's own view,
+//     fail closed when a declared direct dep is missing from the installed graph.
+{
+  const { verifyInstalledDependencies, collectInstalledDirectDepNames } = runtime.__testing;
+  const filesJson = {
+    "package.json": JSON.stringify({
+      dependencies: { next: "15.0.0", react: "18", "radix-ui": "^1" },
+      devDependencies: { typescript: "5" },
+    }),
+    "package-lock.json": "{}",
+  };
+  const wsDir = join(dataDir, "postcond-ws");
+  mkdirSync(wsDir, { recursive: true });
+
+  const lsWithAll = JSON.stringify({
+    dependencies: { next: { version: "15" }, react: { version: "18" }, "radix-ui": { version: "1" } },
+    devDependencies: { typescript: { version: "5" } },
+  });
+  const lsMissingRadix = JSON.stringify({
+    dependencies: { next: { version: "15" }, react: { version: "18" } },
+    devDependencies: { typescript: { version: "5" } },
+  });
+
+  const okResult = await verifyInstalledDependencies(wsDir, filesJson, {
+    packageManager: "npm",
+    commandRunner: async () => ({ exitCode: 0, output: lsWithAll, timedOut: false }),
+  });
+  check("postcondition passes when all direct deps present (PM view)", okResult.ok === true && okResult.checkedWith === "npm-ls");
+
+  const missingResult = await verifyInstalledDependencies(wsDir, filesJson, {
+    packageManager: "npm",
+    commandRunner: async () => ({ exitCode: 1, output: lsMissingRadix, timedOut: false }),
+  });
+  check("postcondition fails closed when a direct dep is missing", missingResult.ok === false && missingResult.missing.includes("radix-ui"));
+
+  check(
+    "collectInstalledDirectDepNames parses pnpm array shape",
+    collectInstalledDirectDepNames(JSON.stringify([{ dependencies: { "radix-ui": { version: "1" } } }]), "pnpm")?.has("radix-ui") === true,
+  );
+  check(
+    "collectInstalledDirectDepNames parses yarn tree shape",
+    collectInstalledDirectDepNames('{"type":"tree","data":{"trees":[{"name":"radix-ui@1.0.0"}]}}', "yarn")?.has("radix-ui") === true,
+  );
+}
+
+// 13. REPRO (old behavior false-greened): warm node_modules + stale pnpm lock +
+//     a newly pinned dep. runInstallCommand must (a) NOT stamp the dependency
+//     fingerprint when install exits 0 but the dep is still missing, and (b)
+//     stamp it AND return the regenerated lockfile only after the postcondition
+//     confirms the dep is present. On master, install exit 0 stamped the
+//     fingerprint unconditionally → the missing dep was cached as "installed".
+{
+  const {
+    runInstallCommand,
+    dependencyStatePathForWorkspace,
+    setBootInstallRunnersForTesting,
+    LOCKFILE_STALE_MARKER_PATH,
+  } = runtime.__testing;
+
+  const filesJson = {
+    "package.json": JSON.stringify({
+      dependencies: { next: "15.0.0", react: "18", "react-dom": "18", "radix-ui": "^1" },
+    }),
+    "pnpm-lock.yaml": "lockfileVersion: 9\n# stale: missing radix-ui\n",
+    [LOCKFILE_STALE_MARKER_PATH]: JSON.stringify({
+      reason: "dep-completer pinned radix-ui",
+      packageManager: "pnpm",
+      mutatedAt: new Date().toISOString(),
+    }),
+  };
+
+  // (a) install exits 0 but installs nothing (the stale-lockfile bug) → the
+  //     postcondition catches the still-missing dep and the fingerprint is NOT
+  //     written, so the next boot re-runs install (no false green).
+  {
+    const wsDir = join(dataDir, "repro-falsegreen");
+    mkdirSync(join(wsDir, "node_modules"), { recursive: true }); // warm modules
+    setBootInstallRunnersForTesting({
+      installRunner: async () => ({
+        passed: true,
+        exitCode: 0,
+        durationMs: 1,
+        output: "Already up to date",
+        usedFallback: false,
+        peerConflictDetected: false,
+      }),
+      // PM view reports radix-ui is NOT installed (install did nothing).
+      postconditionCommandRunner: async () => ({
+        exitCode: 0,
+        output: JSON.stringify({
+          dependencies: { next: { version: "15" }, react: { version: "18" }, "react-dom": { version: "18" } },
+        }),
+        timedOut: false,
+      }),
+    });
+    let threw = false;
+    try {
+      await runInstallCommand(wsDir, "ps_repro_a", filesJson);
+    } catch {
+      threw = true;
+    } finally {
+      setBootInstallRunnersForTesting();
+    }
+    check("repro(a): install exit 0 but missing dep throws", threw === true);
+    check(
+      "repro(a): dependency fingerprint NOT written on failed postcondition",
+      !existsSync(dependencyStatePathForWorkspace(wsDir)),
+    );
+  }
+
+  // (b) the fix: the non-frozen install actually installs radix-ui and
+  //     regenerates the lockfile → postcondition passes, fingerprint is stamped,
+  //     and the regenerated lockfile is returned for persistence.
+  {
+    const wsDir = join(dataDir, "repro-fixed");
+    mkdirSync(join(wsDir, "node_modules"), { recursive: true });
+    setBootInstallRunnersForTesting({
+      installRunner: async (workspaceDir) => {
+        // Simulate a real non-frozen install: materialize the dep + rewrite lock.
+        mkdirSync(join(workspaceDir, "node_modules", "radix-ui"), { recursive: true });
+        writeFileSync(
+          join(workspaceDir, "pnpm-lock.yaml"),
+          "lockfileVersion: 9\n# regenerated: includes radix-ui\n",
+          "utf8",
+        );
+        return {
+          passed: true,
+          exitCode: 0,
+          durationMs: 1,
+          output: "pnpm install passed.",
+          usedFallback: false,
+          peerConflictDetected: false,
+        };
+      },
+      postconditionCommandRunner: async () => ({
+        exitCode: 0,
+        output: JSON.stringify({
+          dependencies: {
+            next: { version: "15" },
+            react: { version: "18" },
+            "react-dom": { version: "18" },
+            "radix-ui": { version: "1" },
+          },
+        }),
+        timedOut: false,
+      }),
+    });
+    let outcome = null;
+    try {
+      outcome = await runInstallCommand(wsDir, "ps_repro_b", filesJson);
+    } finally {
+      setBootInstallRunnersForTesting();
+    }
+    check("repro(b): fingerprint written only after postcondition passes", existsSync(dependencyStatePathForWorkspace(wsDir)));
+    check("repro(b): regenerated lockfile returned for persistence", outcome?.regeneratedLockfile?.path === "pnpm-lock.yaml");
+    check(
+      "repro(b): regenerated lockfile content reflects the reinstall",
+      /regenerated: includes radix-ui/.test(outcome?.regeneratedLockfile?.content ?? ""),
+    );
+    check("repro(b): stale marker cleared flag set", outcome?.staleCleared === true);
+  }
 }
 
 rmSync(dataDir, { recursive: true, force: true });

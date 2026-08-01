@@ -473,7 +473,14 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     });
 
     const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
-    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+    expect(result).toEqual({
+      previewSessionId: "ps_1",
+      primaryUrl: "https://live.example",
+      readinessState: null,
+      httpReady: false,
+      readinessError: null,
+      regeneratedLockfile: null,
+    });
   });
 
   it("refuses to resume when the host serves a different version (no stale/white iframe)", async () => {
@@ -500,7 +507,14 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     });
 
     const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
-    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+    expect(result).toEqual({
+      previewSessionId: "ps_1",
+      primaryUrl: "https://live.example",
+      readinessState: null,
+      httpReady: false,
+      readinessError: null,
+      regeneratedLockfile: null,
+    });
   });
 
   it("does not gate when no expected version is provided (back-compat)", async () => {
@@ -514,7 +528,75 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     });
 
     const result = await fetchPreviewHostStatus("ps_1");
-    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+    expect(result).toEqual({
+      previewSessionId: "ps_1",
+      primaryUrl: "https://live.example",
+      readinessState: null,
+      httpReady: false,
+      readinessError: null,
+      regeneratedLockfile: null,
+    });
+  });
+
+  it("surfaces readinessState=ready + httpReady from the host body", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      httpReady: true,
+      readinessState: "ready",
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result).toMatchObject({
+      readinessState: "ready",
+      httpReady: true,
+      readinessError: null,
+    });
+  });
+
+  it("surfaces readinessState=failed + readinessError (running but build-error overlay)", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      httpReady: false,
+      readinessState: "failed",
+      readinessError: "Module not found: Can't resolve 'radix-ui'",
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result).toMatchObject({
+      readinessState: "failed",
+      httpReady: false,
+      readinessError: "Module not found: Can't resolve 'radix-ui'",
+    });
+  });
+
+  it("surfaces the regenerated lockfile after a stale-lockfile reconcile", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      httpReady: true,
+      readinessState: "ready",
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+      regeneratedLockfile: { path: "pnpm-lock.yaml", content: "lockfileVersion: '9.0'\n" },
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result?.regeneratedLockfile).toEqual({
+      path: "pnpm-lock.yaml",
+      content: "lockfileVersion: '9.0'\n",
+    });
   });
 });
 
