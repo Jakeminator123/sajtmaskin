@@ -15,6 +15,7 @@ import {
   type RoutePlan,
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
+import type { FixEntry } from "@/lib/gen/autofix/types";
 import {
   completeProjectDependencies,
   detectLockfilePackageManager,
@@ -122,6 +123,14 @@ export interface RunFinalizePreflightResult {
   previewBlockingReason: string | null;
   previewStart: PreviewStartContract;
   unresolvedImportFallbackUsed: boolean;
+  /**
+   * Fixes from the post-merge `repairGeneratedFiles()` lane that mutated the
+   * PERSISTED files. Previously these only reached the ephemeral devLog, so a
+   * post-merge fixer that broke a site (layout-provider-fixer, prod chat
+   * e8bd3ba6 2026-08-01) was invisible in prod telemetry. The finalize runner
+   * merges these into `generation_telemetry.meta.autofix.fixers`.
+   */
+  postMergeFixes: FixEntry[];
 }
 
 function inferCodeFenceLanguage(path: string): string {
@@ -962,6 +971,7 @@ export async function runFinalizePreflight({
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
   let unresolvedImportFallbackUsed = false;
+  let postMergeFixes: FixEntry[] = [];
   let previewStart = buildPreviewStartContract({
     issues: [],
     finalizedPreviewFileCount: 0,
@@ -1077,6 +1087,7 @@ export async function runFinalizePreflight({
       ? { files: finalFiles, fixes: [] }
       : repairGeneratedFiles(finalFiles);
     finalFiles = repairResult.files;
+    postMergeFixes = repairResult.fixes;
     if (repairResult.fixes.length > 0) {
       nextFilesJson = JSON.stringify(finalFiles);
       devLogAppend("in-progress", {
@@ -1675,5 +1686,6 @@ export async function runFinalizePreflight({
     previewBlockingReason,
     previewStart,
     unresolvedImportFallbackUsed,
+    postMergeFixes,
   };
 }
