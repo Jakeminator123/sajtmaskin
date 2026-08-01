@@ -245,6 +245,56 @@ describe("handleSseStream", () => {
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
   });
 
+  // Row A/B (bug-swarm 2026-08-01): innehåll som strömmades till chatten men
+  // aldrig blev en version är inte "tom utdata". Användaren ser texten, så
+  // feltoasten "inget kom tillbaka" och empty-output-fasen får inte fyra —
+  // progresspart:en ska i stället spegla serverns reason.
+  it("skippar feltoasten och empty-output-fasen när innehåll strömmades men ingen version sparades", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: "<main>Här är sajten du bad om</main>" }, "");
+        onEvent(
+          "done",
+          { chatId: "chat_1", versionId: null, reason: "stream_ended_without_version" },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    const result = await handleSseStream(
+      new Response(null),
+      ctx,
+      new AbortController().signal,
+    );
+
+    expect(result.chatIdFromStream).toBe("chat_1");
+    // Ingen riktig artefakt — Byggval-reset i useCreateChat ska inte luras.
+    expect(result.hasRecoveredArtifact).toBe(false);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(spies.onGenerationComplete).not.toHaveBeenCalled();
+    expect(runPostGenerationChecks).not.toHaveBeenCalled();
+    // Den strömmade texten behålls som meddelandeinnehåll.
+    expect(store.getMessages()[0]?.content).toContain("Här är sajten du bad om");
+    expect(store.getMessages()[0]?.isStreaming).toBe(false);
+    const generationPart = (store.getMessages()[0]?.uiParts ?? []).find(
+      (part) => (part as { type?: string }).type === "tool:engine-generation",
+    ) as { output?: { phase?: string; reason?: string; steps?: unknown } } | undefined;
+    expect(generationPart?.output?.phase).toBe("stream-without-version");
+    expect(generationPart?.output?.reason).toBe("stream_ended_without_version");
+    expect(
+      Array.isArray(generationPart?.output?.steps) ? generationPart.output.steps : [],
+    ).toContain(
+      "Innehåll strömmades till chatten men kunde inte sparas som version. Texten ovan finns kvar.",
+    );
+  });
+
   // Plan-läget avslutar utan version och utan preview — planen är resultatet.
   // Utan planArtifact i `hasRecoveredArtifact` tog empty-output-grenen över och
   // visade ett fel för en fullt lyckad plan.

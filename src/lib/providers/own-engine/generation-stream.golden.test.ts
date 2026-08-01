@@ -1024,14 +1024,25 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
         }),
       ]),
     );
+    // A genuinely empty round keeps the empty_generation devlog label —
+    // `site.stream_without_version` is reserved for streamed-but-unsaved.
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "site.empty_generation",
+        reason: "stream_ended_empty_output",
+      }),
+    );
     // Charging semantics are unchanged by the added reason.
     expect(commitCredits).toHaveBeenCalledTimes(1);
   });
 
   it("distinguishes 'content arrived but no version was saved' from an empty round", async () => {
     // Content streamed, then finalize threw for a non-empty reason and the
-    // fallback finalize threw too. Same terminal state, different cause — the
-    // reason is the only thing that tells them apart in the logs.
+    // fallback finalize threw too. Same terminal state, different cause — and
+    // the whole reporting chain (reason, progress phase, devlog type) must
+    // tell them apart: the user SAW text in the chat, so neither the UI nor
+    // the logs may call the round "empty output".
     finalizeAndSaveVersionMock.mockRejectedValue(new Error("persist exploded"));
     const params = providerFaultParams("chat_finalize_threw", {});
     const out = createOwnEngineGenerationStream({
@@ -1046,5 +1057,34 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
 
     expect(doneData.versionId).toBeNull();
     expect(doneData.reason).toBe("stream_ended_without_version");
+
+    const progress = events
+      .filter((e) => e.event === "progress")
+      .map((e) => e.data as Record<string, unknown>);
+    expect(progress).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          step: "generation",
+          phase: "stream-without-version",
+          reason: "stream_ended_without_version",
+        }),
+      ]),
+    );
+    expect(progress).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ phase: "empty-output" })]),
+    );
+
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "site.stream_without_version",
+        chatId: "chat_finalize_threw",
+        reason: "stream_ended_without_version",
+      }),
+    );
+    expect(devLogAppend).not.toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({ type: "site.empty_generation" }),
+    );
   });
 });

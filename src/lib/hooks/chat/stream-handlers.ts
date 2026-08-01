@@ -281,6 +281,11 @@ export async function handleSseStream(
       if (phase === "empty-output") {
         return ["Genereringen avslutades utan användbar kod eller preview-artifact."];
       }
+      if (phase === "stream-without-version") {
+        return [
+          "Innehåll strömmades till chatten men kunde inte sparas som version. Texten ovan finns kvar.",
+        ];
+      }
       if (phase === "tool") {
         const toolName = typeof payload.toolName === "string" ? payload.toolName.trim() : "";
         return [
@@ -1146,6 +1151,27 @@ export async function handleSseStream(
             }
 
             if (!awaitingInput && !hasRecoveredArtifact) {
+              // Strömmad assistenttext som nådde chatten är inte "ingenting":
+              // när innehåll finns (eller servern uttryckligen sa
+              // `stream_ended_without_version`) får varken feltoasten eller
+              // empty-output-fasen påstå att inget kom tillbaka. Medvetet
+              // INTE inbakat i `hasRecoveredArtifact` — den signalen betyder
+              // "riktig artefakt" och styr bl.a. Byggval-reset i
+              // useCreateChat, där strömmad text utan version inte ska räknas.
+              const hasStreamedContent =
+                accumulatedContent.trim().length > 0 ||
+                emptyGenerationReason === "stream_ended_without_version";
+              if (hasStreamedContent) {
+                appendProgressPart("generation", "stream-without-version", {
+                  reason: emptyGenerationReason,
+                });
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
+                  ),
+                );
+                break;
+              }
               appendProgressPart("generation", "empty-output", { reason: emptyGenerationReason });
               const explicitFailureMessage =
                 pendingStreamErrorMessage ||
