@@ -36,7 +36,21 @@ vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
 // receipt point — it verifies `running:true` with one host status call and
 // stamps preview_success=true via the monotonic writer, scheduled via after().
 const tryResumeTier2Runtime = vi.hoisted(() => vi.fn());
-const fetchPreviewHostReadinessVerdict = vi.hoisted(() => vi.fn(async () => null));
+const fetchPreviewHostReadinessVerdict = vi.hoisted(() =>
+  vi.fn<
+    (
+      previewSessionId: string,
+      opts?: { expectedVersionId?: string | null },
+    ) => Promise<{
+      running: boolean;
+      versionId: string | null;
+      readinessState: "starting" | "ready" | "failed" | null;
+      readinessError: string | null;
+      httpReady: boolean;
+      regeneratedLockfile: { path: string; content: string } | null;
+    } | null>
+  >(async () => null),
+);
 const recordPreviewRuntimeOutcomeForVersion = vi.hoisted(() =>
   vi.fn<(versionId: string, previewSuccess: boolean) => Promise<void>>(async () => undefined),
 );
