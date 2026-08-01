@@ -511,6 +511,73 @@ describe("GET dossiers overview", () => {
     expect(body.counts.builtLive).toBe(1);
   });
 
+  // Bugbot on the M#li1 fix: `NEXT_PUBLIC_OPENAI_API_KEY` contains
+  // `OPENAI_API_KEY` as a substring — a client-exposed key in an API route
+  // is exactly NOT server evidence, so substring matches must not count.
+  it("rejects a NEXT_PUBLIC_-prefixed superstring of the env key as server evidence", async () => {
+    const openaiRequirement = {
+      key: "openai",
+      name: "OpenAI",
+      provider: "openai",
+      requiredRealEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+      warnOnlyEnvKeys: [],
+      buildInstructions: [],
+      setupGuide: "",
+      hasConfigNoticeComponent: true,
+    };
+    getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "app/api/chat/route.ts",
+        content: "const key = process.env.NEXT_PUBLIC_OPENAI_API_KEY;\n",
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+  });
+
+  // Bugbot on the M#li1 fix: EVERY manifest server file must be present
+  // (version-presence's all-files rule) — a partially injected integration
+  // whose surviving route is a keyless mock must not report built-live.
+  it("caps a partially injected dossier (one of two server files) at built-demo", async () => {
+    const twoServerFileStripe = stripeDossier();
+    twoServerFileStripe.entry.files = [
+      { path: "components/api/checkout-session/route.ts", role: "server" },
+      { path: "components/api/stripe-webhook/route.ts", role: "server" },
+    ];
+    getStoredProjectEnvVarMap.mockResolvedValue({ STRIPE_SECRET_KEY: "sk_live_real" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([twoServerFileStripe]);
+    // Only the first server file survived injection, and its content is a
+    // mock that never reads the secret key — no fallback evidence either.
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "app/api/checkout-session/route.ts",
+        content: "export async function POST() { return Response.json({ ok: true }); }\n",
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
+    expect(stripe?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+  });
+
   // Codex P2 on #525: with the F3 placeholder opt-in (`allowPlaceholdersInF3`)
   // the readiness gate clears `missingKeys` for placeholder-covered BUILD
   // keys — the build may proceed — but the dossier is NOT live: live always

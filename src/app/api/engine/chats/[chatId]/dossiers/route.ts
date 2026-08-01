@@ -146,11 +146,15 @@ const API_ROUTE_PATH_RE = /^app\/api\/(?:.*\/)?route\.(?:ts|tsx|js|jsx|mjs|cjs)$
  * published site 404'd on `POST /api/chat`. "Live" therefore requires that
  * the server side of the block demonstrably exists in the version's files:
  *
- *  - dossier-injected entry: at least one of the manifest's `role: "server"`
- *    files (mapped to its output path) is present in the version, OR
+ *  - dossier-injected entry: EVERY manifest `role: "server"` file (mapped to
+ *    its output path) is present in the version — same all-files rule as
+ *    `version-presence`; a partially injected integration is not "live", OR
  *  - model-built entry (matched via env-key overlap, code under other
  *    paths): at least one API route file (`app/api/xx/route.*`) in the
- *    version references one of the dossier's env keys.
+ *    version references one of the dossier's env keys as a standalone
+ *    identifier (substring match would let `NEXT_PUBLIC_OPENAI_API_KEY`
+ *    count as evidence for `OPENAI_API_KEY` — a client-exposed key is
+ *    exactly NOT server evidence).
  *
  * Entries whose manifest declares no server files (client-only providers,
  * e.g. analytics) are exempt — there is nothing server-side to evidence.
@@ -178,17 +182,28 @@ function hasServerFileEvidence(
       : [],
   );
   const presentPaths = new Set(files.map((file) => file.path));
-  if (serverPaths.some((path) => presentPaths.has(path))) return true;
+  if (serverPaths.every((path) => presentPaths.has(path))) return true;
 
   const envKeys = (entry.envVars ?? [])
     .map((env) => env.key)
     .filter((key): key is string => typeof key === "string" && key.length > 0);
   if (envKeys.length === 0) return false;
+  const keyPatterns = envKeys.map(envKeyIdentifierPattern);
   return files.some(
     (file) =>
       API_ROUTE_PATH_RE.test(file.path) &&
-      envKeys.some((key) => file.content.includes(key)),
+      keyPatterns.some((pattern) => pattern.test(file.content)),
   );
+}
+
+/**
+ * Match an env key as a standalone identifier: no `[A-Za-z0-9_]` directly
+ * before or after (explicit class, not `\b`/`\w` — see unicode-regex.mdc).
+ * Keys come from dossier manifests but are escaped defensively.
+ */
+function envKeyIdentifierPattern(key: string): RegExp {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])`);
 }
 
 type OverviewResult =
