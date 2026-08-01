@@ -119,12 +119,14 @@ export function hasExplicitAddRouteIntent(prompt: string): boolean {
 /**
  * Explicit named-page intents where the user states a PAGE title, e.g.
  * `en ny sida som ska heta "Bilder"` / `a new page called Gallery`.
- * Bare copy edits (`Rubriken ska heta "…"`, `named "…"`) must NOT match.
+ * Bare copy edits (`Rubriken ska heta "…"`, `login page called from…`)
+ * must NOT match — English requires create/new intent before called/named.
  */
 const EXPLICIT_NAMED_PAGE_PATTERNS: RegExp[] = [
   /(?:ny\s+)?(?:sida|page|route)\s+som\s+ska\s+heta\s+["«»“”]?([^"'«»“”.\n,;]+)/giu,
   /(?:create|add|make)\s+(?:a\s+)?(?:new\s+)?(?:page|route)\s+(?:called|named)\s+["«»“”]?([^"'«»“”.\n,;]+)/giu,
-  /(?:new\s+)?(?:page|route)\s+(?:called|named)\s+["«»“”]?([^"'«»“”.\n,;]+)/giu,
+  /new\s+(?:page|route)\s+(?:called|named)\s+["«»“”]?([^"'«»“”.\n,;]+)/giu,
+  /(?:page|route)\s+that\s+should\s+be\s+(?:called|named)\s+["«»“”]?([^"'«»“”.\n,;]+)/giu,
 ];
 
 export type ExplicitNamedPage = {

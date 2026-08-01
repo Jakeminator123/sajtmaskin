@@ -271,6 +271,37 @@ describe("buildRoutePlan", () => {
     }
   });
 
+  it("does not treat incidental English page called phrasing as a new page", () => {
+    const prompt = "Fix the login page called from the navbar";
+    expect(extractExplicitNamedPages(prompt)).toEqual([]);
+    expect(hasExplicitAddRouteIntent(prompt)).toBe(false);
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt,
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+    expect(plan.routes.some((r) => r.path === "/from")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/login")).toBe(false);
+  });
+
+  it("extracts English create/new page called|named intents", () => {
+    expect(extractExplicitNamedPages('create a page named "Gallery"')).toEqual([
+      { name: "Gallery", path: "/gallery" },
+    ]);
+    expect(extractExplicitNamedPages('new page called "Images"')).toEqual([
+      { name: "Images", path: "/images" },
+    ]);
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: 'create a page named "Gallery"',
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((r) => r.path === "/gallery")).toBe(true);
+  });
+
   it("neutralizeExplicitPageNameLiterals does not strip short names inside other words", () => {
     const out = neutralizeExplicitPageNameLiterals(
       'Skapa en sida som ska heta "Art". This is part of our contact page.',
