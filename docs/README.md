@@ -20,6 +20,7 @@ policies kan äga olika beslut.
 | Hur felsöker jag preview?        | [`runbooks/preview-white-screen.md`](runbooks/preview-white-screen.md)   |
 | Kör jag i en Cursor Cloud-pod?   | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)       |
 | Hur jobbar flera agenter samtidigt? | [`runbooks/git-worktree.md`](runbooks/git-worktree.md)                |
+| Hur provisionerar jag warm-cachen? | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)          |
 | Vilka planer är aktiva?          | [`plans/README.md`](plans/README.md)                                     |
 
 [`audits/documentation-audit-2026-07-13.md`](audits/documentation-audit-2026-07-13.md)
