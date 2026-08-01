@@ -92,17 +92,27 @@ function wrapBodyContentWithProvider(
   providerTag: string,
   attrs: string,
 ): string | null {
-  const bodyOpenMatch = content.match(/<body\b[^>]*>/);
-  if (!bodyOpenMatch || bodyOpenMatch.index === undefined) return null;
+  // Line-anchored on purpose (Bugbot on #709): a bare /<body…>/ also matches
+  // prose in comments ("// the <body> element…") and would splice the provider
+  // into the comment. In a real root layout the JSX tags start their own lines,
+  // while comment mentions carry a `//`, `*` or `{/*` prefix and never match.
+  const bodyOpenMatch = /^[ \t]*<body\b[^>]*>/m.exec(content);
+  if (!bodyOpenMatch) return null;
   const openEnd = bodyOpenMatch.index + bodyOpenMatch[0].length;
-  const closeIdx = content.lastIndexOf("</body>");
+
+  let bodyCloseMatch: RegExpExecArray | null = null;
+  for (const match of content.matchAll(/^([ \t]*)<\/body>/gm)) {
+    bodyCloseMatch = match;
+  }
+  if (!bodyCloseMatch) return null;
+  const closeIdx = bodyCloseMatch.index + bodyCloseMatch[1]!.length;
   if (closeIdx <= openEnd) return null;
 
   const opening = attrs ? `<${providerTag} ${attrs}>` : `<${providerTag}>`;
   const closing = `</${providerTag}>`;
   // Indentation of the `</body>` line drives the inserted lines so the
   // result stays readable for follow-up prompts that echo file contents.
-  const closeIndent = content.slice(0, closeIdx).match(/\n([ \t]*)$/)?.[1] ?? "      ";
+  const closeIndent = bodyCloseMatch[1]!;
   const innerIndent = `${closeIndent}  `;
   const inner = content.slice(openEnd, closeIdx).replace(/\s+$/, "");
 

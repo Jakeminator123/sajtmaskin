@@ -137,6 +137,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     expect(result.fixes).toHaveLength(0);
   });
 
+  it("ignores <body> mentions in comments and wraps the real JSX tag", () => {
+    const layoutFile: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import "./globals.css";
+
+// The <body> element carries the theme class via suppressHydrationWarning.
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  {/* the <body> below is the real one */}
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body className="min-h-screen">
+        <main>{children}</main>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([layoutFile, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+
+    expect(result.fixes).toHaveLength(1);
+    // The comment lines stay intact…
+    expect(layout).toContain("// The <body> element carries the theme class");
+    expect(layout).toContain("{/* the <body> below is the real one */}");
+    // …and the provider wraps the JSX body content, not comment text.
+    expect(layout).toMatch(/<body className="min-h-screen">\s*<ThemeProvider attribute="class"/);
+    expect(layout.indexOf("</ThemeProvider>")).toBeLessThan(layout.indexOf("</body>"));
+  });
+
   it("skips injection when the layout has no <body> section", () => {
     const layoutFile: CodeFile = {
       path: "app/layout.tsx",
