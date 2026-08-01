@@ -1,19 +1,32 @@
 import { NextResponse } from "next/server";
-import type { Page } from "playwright";
+import type { Page } from "playwright-core";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rateLimit";
+import {
+  applyCaptureRequestGate,
+  assertFinalUrlAllowed,
+  launchCaptureBrowser,
+} from "@/lib/capture/browser";
 import { clipFromRegion, parseCaptureRegion, type CaptureRegion } from "./capture-region";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const IS_SERVERLESS = Boolean(process.env.VERCEL);
+// Samma budget som miniatyr-routen: en kallstartad Chromium plus navigering
+// och settle ligger långt över Vercels default på 10 s.
+export const maxDuration = 60;
 
 const NAVIGATION_TIMEOUT_MS = 25_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
+/**
+ * Egen deadline för skottet. Utan den kan Playwrights default (30 s) plus
+ * navigering och settle passera `maxDuration`, och funktionen dödas mitt i
+ * bilden — vilket bara syns som "Target page, context or browser has been
+ * closed".
+ */
+const SCREENSHOT_TIMEOUT_MS = 15_000;
 const DEFAULT_CROP_WIDTH = 420;
 const DEFAULT_CROP_HEIGHT = 280;
 
@@ -457,23 +470,27 @@ async function handlePOST(req: Request) {
   const cropWidth = clamp(Math.round(parsed.cropWidth ?? DEFAULT_CROP_WIDTH), 120, viewportWidth);
   const cropHeight = clamp(Math.round(parsed.cropHeight ?? DEFAULT_CROP_HEIGHT), 90, viewportHeight);
 
-  if (IS_SERVERLESS) {
-    return NextResponse.json(
-      { success: false, error: "Inspector capture is not available in serverless (local Playwright fallback is unsupported here)." },
-      { status: 503 },
-    );
-  }
-
-  const { chromium } = await import("playwright");
-  let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
+  let browser: Awaited<ReturnType<typeof launchCaptureBrowser>> | null = null;
   try {
-    browser = await chromium.launch({ headless: true });
+    // Delad startpunkt med projektminiatyrerna. Tidigare importerades
+    // `playwright` rakt av — en devDependency — och routen svarade därför 503
+    // så fort `process.env.VERCEL` fanns. Bildvägen i inspektorn var alltså
+    // lokal-bara och död i prod, inklusive den punktbild som funnits längst.
+    browser = await launchCaptureBrowser();
     const page = await browser.newPage({
       viewport: { width: viewportWidth, height: viewportHeight },
       deviceScaleFactor: 2,
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+      // Service worker-requests går förbi interception, så de blockeras helt
+      // (en capture behöver dem aldrig).
+      serviceWorkers: "block",
     });
+
+    // Nu när routen faktiskt kör i prod måste den bära samma SSRF-skydd som
+    // miniatyrvägen: värdkontrollen ovan gäller bara den första URL:en, och
+    // Chromium får aldrig nå metadata-endpoints eller interna tjänster.
+    await applyCaptureRequestGate(page);
 
     await page.goto(target.toString(), {
       waitUntil: "domcontentloaded",
@@ -529,10 +546,22 @@ async function handlePOST(req: Request) {
       await drawCaptureOverlay(page, resolvedCenterX, resolvedCenterY, xPercent, yPercent);
     }
 
+    // Grinden ovan släpper igenom vilken PUBLIK värd som helst, så en
+    // redirect eller en JS-navigering kan ha flyttat huvudramen bort från
+    // previewen. Den sida som faktiskt fotograferas måste vara samma värd som
+    // anroparen bad om.
+    assertFinalUrlAllowed(
+      page.url(),
+      (finalUrl) =>
+        ["http:", "https:"].includes(finalUrl.protocol) && finalUrl.hostname === target.hostname,
+      "Inspector capture",
+    );
+
     const previewBuffer = await page.screenshot({
       type: "png",
       omitBackground: false,
       clip,
+      timeout: SCREENSHOT_TIMEOUT_MS,
     });
     const previewDataUrl = `data:image/png;base64,${previewBuffer.toString("base64")}`;
 

@@ -18,9 +18,17 @@
  * the screenshot is taken (audit A#6).
  */
 import type { Browser } from "playwright-core";
-import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
+import {
+  applyCaptureRequestGate,
+  assertFinalUrlAllowed as assertCaptureFinalUrlAllowed,
+  buildCaptureRequestGate,
+  launchCaptureBrowser,
+} from "@/lib/capture/browser";
 
-const IS_SERVERLESS = Boolean(process.env.VERCEL);
+// Startpunkten och SSRF-grinden bor numera i `@/lib/capture/browser` så
+// inspector-capture kan använda exakt samma. Re-exporten håller den här
+// modulens befintliga API intakt.
+export { buildCaptureRequestGate };
 
 const NAVIGATION_TIMEOUT_MS = 25_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
@@ -56,45 +64,6 @@ export function isTransientCaptureAbort(error: unknown): boolean {
   return TRANSIENT_ABORT_PATTERNS.some((pattern) => pattern.test(message));
 }
 
-async function launchBrowser(): Promise<Browser> {
-  if (IS_SERVERLESS) {
-    const chromium = (await import("@sparticuz/chromium")).default;
-    const { chromium: pw } = await import("playwright-core");
-    return pw.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
-  }
-  // Local dev: full playwright (devDependency) ships its own Chromium.
-  const { chromium: pw } = await import("playwright");
-  return pw.launch({ headless: true }) as unknown as Browser;
-}
-
-/**
- * Per-capture request gate: allows only http(s) requests to hosts that pass
- * the public-host SSRF guard. Verdicts are cached per host so each host is
- * DNS-checked once per capture.
- * @internal exported for tests.
- */
-export function buildCaptureRequestGate(): (requestUrl: string) => Promise<boolean> {
-  const hostVerdicts = new Map<string, boolean>();
-  return async (requestUrl: string): Promise<boolean> => {
-    try {
-      const parsed = new URL(requestUrl);
-      if (!["http:", "https:"].includes(parsed.protocol)) return false;
-      const cached = hostVerdicts.get(parsed.hostname);
-      if (cached !== undefined) return cached;
-      const allowed =
-        !isDisallowedHost(parsed.hostname) && !(await hostResolvesToPrivate(parsed.hostname));
-      hostVerdicts.set(parsed.hostname, allowed);
-      return allowed;
-    } catch {
-      return false;
-    }
-  };
-}
-
 /**
  * Throws unless the final main-frame URL passes the caller's allowlist. The
  * per-request gate only enforces the public-host SSRF guard, so a redirect or
@@ -107,17 +76,7 @@ export function assertFinalUrlAllowed(
   finalUrl: string,
   isAllowed: (url: URL) => boolean,
 ): void {
-  let parsed: URL;
-  try {
-    parsed = new URL(finalUrl);
-  } catch {
-    throw new Error(`Thumbnail capture ended on an unparseable URL: ${finalUrl}`);
-  }
-  if (!isAllowed(parsed)) {
-    throw new Error(
-      `Thumbnail capture navigated off the allowlist: ${parsed.hostname || finalUrl}`,
-    );
-  }
+  assertCaptureFinalUrlAllowed(finalUrl, isAllowed, "Thumbnail capture");
 }
 
 /**
@@ -134,7 +93,7 @@ export async function captureThumbnailScreenshot(
   // failure is rethrown with the stage so the route log pinpoints it.
   let stage = "launch";
   try {
-    browser = await launchBrowser();
+    browser = await launchCaptureBrowser();
     stage = "new-page";
     const page = await browser.newPage({
       viewport: { ...THUMBNAIL_VIEWPORT },
@@ -156,18 +115,7 @@ export async function captureThumbnailScreenshot(
     //    followed inside one interception. Fulfilling the raw 3xx makes the
     //    browser issue the next hop as a NEW request, which goes through this
     //    handler (and the host gate) again.
-    const gate = buildCaptureRequestGate();
-    await page.context().route("**/*", async (route) => {
-      try {
-        if (!(await gate(route.request().url()))) {
-          return await route.abort("blockedbyclient");
-        }
-        const response = await route.fetch({ maxRedirects: 0 });
-        return await route.fulfill({ response });
-      } catch {
-        return route.abort("failed").catch(() => undefined);
-      }
-    });
+    await applyCaptureRequestGate(page);
 
     stage = "navigate";
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
