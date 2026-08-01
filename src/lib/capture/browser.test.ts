@@ -98,6 +98,38 @@ describe("buildCaptureRequestGate", () => {
   });
 });
 
+describe("applyCaptureRequestGate", () => {
+  function fakePage() {
+    const route = vi.fn();
+    const routeWebSocket = vi.fn();
+    const context = { route, routeWebSocket };
+    return { page: { context: () => context } as never, route, routeWebSocket };
+  }
+
+  it("stänger WebSocket-kanalen, som request-grinden inte täcker", async () => {
+    // `context.route` interceptar inte WebSockets, så utan detta kunde
+    // fotograferad kod nå interna tjänster trots grinden nedan.
+    const { page, routeWebSocket } = fakePage();
+    const { applyCaptureRequestGate } = await import("./browser");
+
+    await applyCaptureRequestGate(page);
+
+    expect(routeWebSocket).toHaveBeenCalledWith("**/*", expect.any(Function));
+    const close = vi.fn();
+    routeWebSocket.mock.calls[0][1]({ close });
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("registrerar request-grinden för all övrig trafik", async () => {
+    const { page, route } = fakePage();
+    const { applyCaptureRequestGate } = await import("./browser");
+
+    await applyCaptureRequestGate(page);
+
+    expect(route).toHaveBeenCalledWith("**/*", expect.any(Function));
+  });
+});
+
 describe("assertFinalUrlAllowed", () => {
   it("släpper igenom en URL som klarar allowlisten", async () => {
     const { assertFinalUrlAllowed } = await import("./browser");

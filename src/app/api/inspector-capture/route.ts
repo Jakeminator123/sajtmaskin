@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Page } from "playwright-core";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rateLimit";
@@ -10,6 +9,10 @@ import {
   assertFinalUrlAllowed,
   launchCaptureBrowser,
 } from "@/lib/capture/browser";
+import {
+  assertPreviewUrlAllowed,
+  isAllowedCaptureUrl,
+} from "@/lib/capture/preview-allowlist";
 import { clipFromRegion, parseCaptureRegion, type CaptureRegion } from "./capture-region";
 
 export const runtime = "nodejs";
@@ -29,6 +32,20 @@ const NETWORK_IDLE_TIMEOUT_MS = 8_000;
 const SCREENSHOT_TIMEOUT_MS = 15_000;
 const DEFAULT_CROP_WIDTH = 420;
 const DEFAULT_CROP_HEIGHT = 280;
+/**
+ * Bilden måste kunna laddas upp igen.
+ *
+ * Klienten gör om `previewDataUrl` till en fil och postar den till
+ * `/api/media/upload`, som avvisar allt över 4 MB. En lossless PNG av en stor
+ * markerad yta i 2× skala passerar det med marginal, och användaren såg då
+ * bilden lokalt medan modellen aldrig fick den (Codex P1 på #729). Taket ligger
+ * under 4 MB så base64-omkodningen och svarsbudgeten också håller.
+ */
+const MAX_CAPTURE_BYTES = 3 * 1024 * 1024;
+/** Över den här ytan är 2× skala inte värt storleken. */
+const MAX_FULL_SCALE_CLIP_PIXELS = 1_200 * 900;
+/** Faller PNG:en över taket kodas den om som JPEG i den här ordningen. */
+const JPEG_FALLBACK_QUALITIES = [82, 60] as const;
 
 type CaptureRequest = {
   url: string;
@@ -413,11 +430,23 @@ function parseBody(body: unknown): CaptureRequest | null {
   };
 }
 
+/**
+ * Capture kräver inloggning, inte bara en session.
+ *
+ * En gäst-session släpptes tidigare in här, men bilden är oanvändbar för den:
+ * klienten laddar upp `previewDataUrl` till `/api/media/upload`, som kräver
+ * `getCurrentUser` och 401:ar för samma gäst. Resultatet var en bild som syntes
+ * lokalt medan modellen aldrig fick den. Att kräva inloggning stänger dessutom
+ * halva proxy-ytan: gäst-`x-session-id` är klientkontrollerat och kunde roteras
+ * fritt (Codex P1 på #729, ägarbeslut 2026-08-01).
+ */
 async function requireInspectorIdentity(req: Request): Promise<Response | null> {
   const user = await getCurrentUser(req);
-  const sessionId = getSessionIdFromRequest(req);
-  if (!user && !sessionId) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Logga in för att skicka en bild av previewen." },
+      { status: 401 },
+    );
   }
   return null;
 }
@@ -456,6 +485,16 @@ async function handlePOST(req: Request) {
   if (!["http:", "https:"].includes(target.protocol)) {
     return NextResponse.json({ success: false, error: "Endast http/https stöds." }, { status: 400 });
   }
+  // Samma allowlist som miniatyrvägen. SSRF-kontrollen nedan avvisar bara
+  // privata värdar, så utan den här raden fotograferar routen vilken PUBLIK
+  // adress som helst — en screenshot-proxy i prod (Codex P1 på #729).
+  const allowlistDecision = assertPreviewUrlAllowed(target, "Inspector-capture");
+  if (!allowlistDecision.ok) {
+    return NextResponse.json(
+      { success: false, error: allowlistDecision.error },
+      { status: allowlistDecision.status },
+    );
+  }
   if (isDisallowedHost(target.hostname) || (await hostResolvesToPrivate(target.hostname))) {
     return NextResponse.json({ success: false, error: "Otillåten host för capture." }, { status: 403 });
   }
@@ -470,6 +509,16 @@ async function handlePOST(req: Request) {
   const cropWidth = clamp(Math.round(parsed.cropWidth ?? DEFAULT_CROP_WIDTH), 120, viewportWidth);
   const cropHeight = clamp(Math.round(parsed.cropHeight ?? DEFAULT_CROP_HEIGHT), 90, viewportHeight);
 
+  // Ytan är känd redan här — den beror bara på payloaden — så skalan kan väljas
+  // innan sidan laddas i stället för att upptäckas som en för stor bild efteråt.
+  const regionClip = parsed.region
+    ? clipFromRegion(parsed.region, viewportWidth, viewportHeight)
+    : null;
+  const plannedClipPixels = regionClip
+    ? regionClip.width * regionClip.height
+    : cropWidth * cropHeight;
+  const deviceScaleFactor = plannedClipPixels > MAX_FULL_SCALE_CLIP_PIXELS ? 1 : 2;
+
   let browser: Awaited<ReturnType<typeof launchCaptureBrowser>> | null = null;
   try {
     // Delad startpunkt med projektminiatyrerna. Tidigare importerades
@@ -479,7 +528,7 @@ async function handlePOST(req: Request) {
     browser = await launchCaptureBrowser();
     const page = await browser.newPage({
       viewport: { width: viewportWidth, height: viewportHeight },
-      deviceScaleFactor: 2,
+      deviceScaleFactor,
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
       // Service worker-requests går förbi interception, så de blockeras helt
@@ -526,8 +575,8 @@ async function handlePOST(req: Request) {
     // obscure the thing the user is asking about. The region also must not be
     // recentred on `resolvedX/Y`: that snaps to an element, which is right for
     // a click and wrong for a rectangle the user drew themselves.
-    const clip = parsed.region
-      ? clipFromRegion(parsed.region, viewportWidth, viewportHeight)
+    const clip = regionClip
+      ? regionClip
       : {
           x: clamp(
             Math.round(resolvedCenterX - cropWidth / 2),
@@ -542,40 +591,62 @@ async function handlePOST(req: Request) {
           width: cropWidth,
           height: cropHeight,
         };
-    if (!parsed.region) {
+    if (!regionClip) {
       await drawCaptureOverlay(page, resolvedCenterX, resolvedCenterY, xPercent, yPercent);
     }
 
     // Grinden ovan släpper igenom vilken PUBLIK värd som helst, så en
     // redirect eller en JS-navigering kan ha flyttat huvudramen bort från
-    // previewen. Den sida som faktiskt fotograferas måste vara samma värd som
-    // anroparen bad om.
+    // previewen. Att bara pinna mot `target.hostname` räckte inte: den värden
+    // valde anroparen själv, så kontrollen godkände en URL som aldrig hörde till
+    // previewen. Slutlig URL prövas därför mot samma allowlist som den första.
     assertFinalUrlAllowed(
       page.url(),
-      (finalUrl) =>
-        ["http:", "https:"].includes(finalUrl.protocol) && finalUrl.hostname === target.hostname,
+      (finalUrl) => isAllowedCaptureUrl(finalUrl, "Inspector-capture"),
       "Inspector capture",
     );
 
-    const previewBuffer = await page.screenshot({
+    let previewBuffer = await page.screenshot({
       type: "png",
       omitBackground: false,
       clip,
       timeout: SCREENSHOT_TIMEOUT_MS,
     });
-    const previewDataUrl = `data:image/png;base64,${previewBuffer.toString("base64")}`;
+    let previewMimeType = "image/png";
+    for (const quality of JPEG_FALLBACK_QUALITIES) {
+      if (previewBuffer.byteLength <= MAX_CAPTURE_BYTES) break;
+      previewBuffer = await page.screenshot({
+        type: "jpeg",
+        quality,
+        clip,
+        timeout: SCREENSHOT_TIMEOUT_MS,
+      });
+      previewMimeType = "image/jpeg";
+    }
+    if (previewBuffer.byteLength > MAX_CAPTURE_BYTES) {
+      // Hellre ett ärligt fel än en bild som ser ut att fungera och sedan
+      // avvisas av uppladdningen utan att modellen får något.
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Den markerade ytan blev för stor att skicka. Markera ett mindre område.",
+        },
+        { status: 413 },
+      );
+    }
+    const previewDataUrl = `data:${previewMimeType};base64,${previewBuffer.toString("base64")}`;
 
     return NextResponse.json({
       success: true,
       source: "local" as const,
       capturedUrl: page.url(),
       previewDataUrl,
-      previewMimeType: "image/png",
+      previewMimeType,
       xPercent,
       yPercent,
       viewportWidth,
       viewportHeight,
-      pointSummary: parsed.region
+      pointSummary: regionClip
         ? `Markerad yta ${clip.width}×${clip.height} px vid x ${xPercent.toFixed(1)}% • y ${yPercent.toFixed(1)}%`
         : pointDetails.pointSummary,
       element: pointDetails.element,

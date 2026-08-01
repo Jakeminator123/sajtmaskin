@@ -68,6 +68,13 @@ export function buildCaptureRequestGate(): (requestUrl: string) => Promise<boole
  */
 export async function applyCaptureRequestGate(page: Page): Promise<void> {
   const gate = buildCaptureRequestGate();
+  // `route()` interceptar inte WebSocket-uppkopplingar — Playwright har en egen
+  // `routeWebSocket` för den trafiken. Utan den kunde fotograferad kod öppna
+  // `ws://`/`wss://` mot interna eller metadata-nära tjänster från den betrodda
+  // serverless-runtimen, trots att grinden nedan påstår motsatsen, och att
+  // blockera service workers stänger inte den kanalen (Codex P1 på #729). En
+  // capture behöver aldrig en WebSocket, så de stängs direkt.
+  await page.context().routeWebSocket("**/*", (ws) => ws.close());
   await page.context().route("**/*", async (route) => {
     try {
       if (!(await gate(route.request().url()))) {
