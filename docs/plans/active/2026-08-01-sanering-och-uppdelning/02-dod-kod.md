@@ -61,6 +61,11 @@ lokala engångs-scripts, inte CI.
 Egen PR med uppdaterad lockfil + full CI (`quality`, `backoffice-tests`,
 `schema-drift`, `build`).
 
+**Status 2026-08-01: levererad i PR #717** (scripten kör `npx --yes vercel@58`;
+knip: 0 oanvända devDeps, 0 olistade binärer). Obs: backoffice-knappen
+"Hämta prod-env" (`backoffice/pages/log_export.py`) kräver fortfarande en
+global `vercel` via `shutil.which` — medvetet utanför scope.
+
 ## Spår C — exportytan (267 exports / 649 typer)
 
 Massradering är fel verktyg: knip ger falska positiva på dynamiskt laddad kod
