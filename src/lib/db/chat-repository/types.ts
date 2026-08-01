@@ -37,6 +37,8 @@ export interface Version {
   message_id: string | null;
   version_number: number;
   files_json: string;
+  /** DB-generated md5 identity for the current `files_json` contents. */
+  files_revision: string | null;
   repaired_files_json: string | null;
   preview_url: string | null;
   release_state: EngineVersionReleaseState;

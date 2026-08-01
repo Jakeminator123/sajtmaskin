@@ -192,6 +192,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         previewPolicy,
         verificationPolicy,
         versionIdForSession: versionRow.id,
+        filesRevisionForSession: versionRow.files_revision,
         // F3 versions strip tier3-stub layer; F2 keeps it for boot.
         lifecycleStage:
           versionRow.lifecycle_stage === "integrations" ? "integrations" : "design",
@@ -264,7 +265,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       if (sr.runtimeReady) {
         const confirmedVersionId = versionRow.id;
         after(async () => {
-          await recordPreviewRuntimeOutcomeForVersion(confirmedVersionId, true);
+          if (sr.filesRevision) {
+            await recordPreviewRuntimeOutcomeForVersion(confirmedVersionId, true, {
+              bootedFilesRevision: sr.filesRevision,
+            });
+          } else {
+            await recordPreviewRuntimeOutcomeForVersion(confirmedVersionId, true);
+          }
         });
       }
 

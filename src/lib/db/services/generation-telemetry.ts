@@ -289,13 +289,21 @@ export function resetConfirmedPreviewReadyCacheForTests(): void {
  * this instance has ALREADY confirmed — a never-confirmed version answers `true`
  * without touching the DB, exactly as before.
  */
-export async function shouldVerifyPreviewRuntimeReceipt(versionId: string): Promise<boolean> {
+export async function shouldVerifyPreviewRuntimeReceipt(
+  versionId: string,
+  opts?: PreviewRuntimeOutcomeOptions,
+): Promise<boolean> {
   if (!versionId) return false;
   if (!confirmedPreviewReadyRevisions.has(versionId)) return true;
   if (!isContentRevisionGateEnabled()) {
     return !hasConfirmedPreviewReady(versionId, UNKNOWN_REVISION_CACHE_KEY);
   }
-  const currentRevision = await getVersionFilesRevision(versionId).catch(() => null);
+  const bootedRevision =
+    typeof opts?.bootedFilesRevision === "string" && opts.bootedFilesRevision.trim()
+      ? opts.bootedFilesRevision.trim()
+      : null;
+  const currentRevision =
+    bootedRevision ?? (await getVersionFilesRevision(versionId).catch(() => null));
   return !hasConfirmedPreviewReady(
     versionId,
     currentRevision ?? UNKNOWN_REVISION_CACHE_KEY,

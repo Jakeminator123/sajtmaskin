@@ -302,6 +302,7 @@ export async function generateOwnEngineSiteFromPrompt(
       chatId: chat.id,
       appProjectId: projectId,
       versionIdForSession: finalized.version.id,
+      filesRevisionForSession: finalized.version.files_revision,
       // Våg 2: seed F2 preview `.env.local` with stubs for the selected
       // dossiers' env keys so the dossier UI renders its demo/mock mode.
       selectedDossierEnvKeys: finalized.selectedDossierEnvKeys,

@@ -323,6 +323,14 @@ function isFailedPrewarmTraffic(state) {
   );
 }
 
+function isFailedRuntimeTraffic(state) {
+  return Boolean(
+    state?.session &&
+      state.session.status === "error" &&
+      state.session.readinessState === "failed",
+  );
+}
+
 async function proxyPreviewRequest(req, res, pathname, search = "") {
   let info = routeInfoFromPathname(pathname);
   if (!info) return false;
@@ -353,6 +361,10 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
       });
     }
     sendRuntimeStartingPage(res, state.session);
+    return true;
+  }
+  if (isFailedRuntimeTraffic(state)) {
+    sendHeldPreviewErrorPage(res, state.session);
     return true;
   }
   if (state.running && state.runtimePort) {
@@ -420,6 +432,10 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
       });
     }
     refuseHeldPreviewUpgrade(socket, failed);
+    return true;
+  }
+  if (isFailedRuntimeTraffic(state)) {
+    refuseHeldPreviewUpgrade(socket, true);
     return true;
   }
   if (hmrSilencedForRequest() && isHmrPath(info.restPath)) {
@@ -562,6 +578,14 @@ proxy.on("error", (err, req, res) => {
       const session = findSessionByChatId(readStoreSync(), info.chatId);
       if (session) {
         const state = getRuntimeStateForChat(info.chatId);
+        if (isFailedRuntimeTraffic(state)) {
+          const wrote = sendHeldPreviewErrorPage(res, state.session);
+          if (!wrote && !res.writableEnded) {
+            if (typeof res.destroy === "function") res.destroy();
+            else res.end();
+          }
+          return;
+        }
         // Köa EN restart-boot (dedupad mot pågående boot via `!state.booting`).
         // `restart: true` täcker båda fallen den tidigare split-logiken missade:
         //  - en levande-men-resettande zombie: `bootRuntimeForSession` stoppar

@@ -16,6 +16,8 @@ export type PreviewSessionEntry = {
   previewUrl: string;
   /** When set, reuse is only attempted if the requested preview matches this version. */
   versionId: string | null;
+  /** DB-generated revision of the exact files sent to the preview host. */
+  filesRevision: string | null;
   createdAt: number;
   lastUsedAt: number;
   /** Which tier-2 backend created this session. */
@@ -60,11 +62,13 @@ function parsePreviewSessionJson(raw: string): PreviewSessionEntry | null {
     let versionId: string | null = null;
     if (typeof o.versionId === "string") versionId = o.versionId.trim() ? o.versionId.trim() : null;
     else if (o.versionId !== null && o.versionId !== undefined) return null;
+    const filesRevision = nonEmptyString(o.filesRevision);
     const tier2Provider = parseTier2Provider(o.tier2Provider);
     return {
       previewSessionId,
       previewUrl,
       versionId,
+      filesRevision,
       createdAt,
       lastUsedAt,
       ...(tier2Provider ? { tier2Provider } : {}),
@@ -100,6 +104,7 @@ async function writePreviewSessionToRedis(chatId: string, entry: PreviewSessionE
         previewSessionId: entry.previewSessionId,
         previewUrl: entry.previewUrl,
         versionId: entry.versionId,
+        filesRevision: entry.filesRevision,
         createdAt: entry.createdAt,
         lastUsedAt: entry.lastUsedAt,
         ...(entry.tier2Provider ? { tier2Provider: entry.tier2Provider } : {}),
@@ -131,6 +136,7 @@ export type TouchPreviewSessionParams = {
   previewSessionId: string;
   previewUrl: string;
   versionId?: string | null;
+  filesRevision?: string | null;
   now?: number;
   tier2Provider?: Tier2Provider;
 };
@@ -160,10 +166,17 @@ export function touchPreviewSession(params: TouchPreviewSessionParams): void {
       ? params.versionId.trim()
       : null;
   const tier2Provider = resolveTier2ProviderForTouch(params, prev);
+  const samePinnedContent =
+    prev?.previewSessionId === params.previewSessionId && prev.versionId === versionId;
+  const filesRevision =
+    params.filesRevision === undefined && samePinnedContent
+      ? prev.filesRevision
+      : nonEmptyString(params.filesRevision);
   sessions.set(params.chatId, {
     previewSessionId: params.previewSessionId,
     previewUrl: params.previewUrl,
     versionId,
+    filesRevision,
     createdAt: prev?.previewSessionId === params.previewSessionId ? prev.createdAt : now,
     lastUsedAt: now,
     tier2Provider,

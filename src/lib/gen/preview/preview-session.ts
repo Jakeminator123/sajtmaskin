@@ -65,6 +65,8 @@ export interface PreviewSessionResult {
    * here means "not yet confirmed ready" (pending), NOT "failed".
    */
   runtimeReady: boolean;
+  /** DB revision of the exact file set pinned to this preview session. */
+  filesRevision: string | null;
   /** Telemetry / UI hints for the tier-2 provider. */
   tier2Meta?: PreviewSessionTier2Meta;
 }
@@ -160,6 +162,7 @@ export type TryPatchPreviewSessionResult =
 export async function tryPatchPreviewSession(params: {
   chatId: string;
   versionId: string;
+  filesRevision?: string | null;
   changedFiles: Record<string, string>;
   removedPaths?: string[];
   /**
@@ -207,6 +210,7 @@ export async function tryPatchPreviewSession(params: {
       previewSessionId: patched.previewSessionId,
       previewUrl: patched.previewUrl,
       versionId,
+      filesRevision: params.filesRevision,
       tier2Provider: "preview_host",
     });
     return {
@@ -255,6 +259,7 @@ async function tryFollowUpPatchLane(params: {
   /** Version the live session is pinned to (the base we diff against). */
   baseVersionId: string | null;
   versionId: string;
+  filesRevision: string | null;
   updatePayload: Record<string, string>;
   previewMode: PreviewSessionMode;
 }): Promise<PreviewSessionResult | null> {
@@ -319,6 +324,7 @@ async function tryFollowUpPatchLane(params: {
     previewSessionId: patched.previewSessionId,
     previewUrl: patched.previewUrl,
     versionId: params.versionId,
+    filesRevision: params.filesRevision,
     tier2Provider: "preview_host",
   });
   logPreviewLifecycleTelemetry({
@@ -344,6 +350,7 @@ async function tryFollowUpPatchLane(params: {
     // modes have only queued a boot. Not a per-version runtime-ready receipt —
     // heartbeat/status confirms it, exactly as for the update path (M#pv1).
     runtimeReady: false,
+    filesRevision: params.filesRevision,
     tier2Meta: { tier2Provider: "preview_host" },
   };
 }
@@ -365,6 +372,8 @@ export type StartPreviewSessionOptions = {
    * session still points at a running runtime (avoids duplicate boots on reopen / bootstrap).
    */
   versionIdForSession?: string | null;
+  /** DB revision captured when this version's files are sent to the host. */
+  filesRevisionForSession?: string | null;
   /**
    * Skip `repairGeneratedFiles` when files already went through finalize preflight repair
    * (`filesJson` from DB / own-engine stream). Use `false` when parsing from raw `contentForVersion`.
@@ -446,6 +455,11 @@ async function runStartPreviewSession(
       ? options.versionIdForSession.trim()
       : null;
   const hostVersionId = vid;
+  const filesRevision =
+    typeof options?.filesRevisionForSession === "string" &&
+    options.filesRevisionForSession.trim()
+      ? options.filesRevisionForSession.trim()
+      : null;
 
   if (cid && options?.forceRestart) {
     // forceRestart is the user's signal that the previous preview session should
@@ -455,7 +469,14 @@ async function runStartPreviewSession(
 
   if (cid && vid && options?.forceRestart !== true) {
     const sess = await getActivePreviewSessionAsync(cid);
-    if (sess?.versionId === vid && sess.previewSessionId) {
+    const samePinnedContent =
+      sess?.versionId === vid &&
+      // Older session entries have no revision. When the caller now knows the
+      // revision, treat that unknown pointer as stale and resend the files;
+      // otherwise a same-version repair rewrite (N -> N+1) could resume a VM
+      // still serving N and then falsely relabel it as N+1.
+      (!filesRevision || sess.filesRevision === filesRevision);
+    if (samePinnedContent && sess.previewSessionId) {
       // Snabb-resume: samma versionId betyder att host troligen redan
       // har korrekta filer + warm Next dev. Bara verifiera och returnera.
       const resumed = await tryResumeTier2Runtime(sess);
@@ -469,6 +490,7 @@ async function runStartPreviewSession(
           previewSessionId: resumed.previewSessionId,
           previewUrl: resumed.primaryUrl,
           versionId: vid,
+          filesRevision: filesRevision ?? sess.filesRevision,
           tier2Provider: "preview_host",
         });
         return {
@@ -486,6 +508,7 @@ async function runStartPreviewSession(
             // mere liveness. The heartbeat/status receipt path stamps once the
             // host reports a real `ready`.
             runtimeReady: resumed.readinessState === "ready" && resumed.httpReady !== false,
+            filesRevision: filesRevision ?? sess.filesRevision,
             tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };
@@ -510,7 +533,10 @@ async function runStartPreviewSession(
 
   if (cid && vid && options?.forceRestart !== true) {
     const sess = await getActivePreviewSessionAsync(cid);
-    if (sess?.previewSessionId && sess.versionId !== vid) {
+    const sessionContentMismatch =
+      sess?.versionId !== vid ||
+      Boolean(filesRevision && sess.filesRevision !== filesRevision);
+    if (sess?.previewSessionId && sessionContentMismatch) {
       const skipRepairForUpdate = options?.skipRepair === true;
       const skipScaffoldForUpdate = options?.skipProjectScaffold === true;
       let updateFiles: CodeFile[];
@@ -579,6 +605,7 @@ async function runStartPreviewSession(
         previewSessionId: sess.previewSessionId,
         baseVersionId: sess.versionId,
         versionId: vid,
+        filesRevision,
         updatePayload,
         previewMode: resolvedMode,
       });
@@ -596,6 +623,7 @@ async function runStartPreviewSession(
           previewSessionId: updated.previewSessionId,
           previewUrl: updated.previewUrl,
           versionId: vid,
+          filesRevision,
           tier2Provider: "preview_host",
         });
         return {
@@ -610,6 +638,7 @@ async function runStartPreviewSession(
             // Next dev — the update response returns before that boot is
             // serving, so the runtime is NOT yet confirmed ready.
             runtimeReady: false,
+            filesRevision,
             tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };
@@ -731,6 +760,7 @@ async function runStartPreviewSession(
     previewSessionId: started.previewSessionId,
     previewUrl: started.previewUrl,
     versionId: vid,
+    filesRevision,
     tier2Provider: "preview_host",
   });
   return {
@@ -746,8 +776,8 @@ async function runStartPreviewSession(
       // confirmed ready. `preview_success` stays pending (null) until a real
       // runtime-ready receipt arrives (M#pv1).
       runtimeReady: false,
+      filesRevision,
       tier2Meta: { tier2Provider: "preview_host" },
     },
   };
 }
-
