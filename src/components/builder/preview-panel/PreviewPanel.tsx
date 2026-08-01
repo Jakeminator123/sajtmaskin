@@ -1428,6 +1428,7 @@ export function PreviewPanel({
         activeVersionIsLatest={activeVersionIsLatest}
         activeVersionRepairPassIndex={activeVersionRepairPassIndex}
         onFixPreview={onFixPreview}
+        isGenerating={isGenerating}
       />
     );
   }

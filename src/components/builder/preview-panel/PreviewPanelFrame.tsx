@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode, type RefObject } from "react";
 import { AlertCircle, ExternalLink, Loader2, MousePointerClick } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRepairBlocked } from "@/lib/builder/repair-blocked";
 
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
 import { VersionMismatchOverlay } from "./VersionMismatchOverlay";
@@ -122,9 +123,12 @@ export function PreviewPanelFrame({
   //
   // Grinden är inte kosmetik: pågår en generering är det inte VM:en som är
   // trög, och raden skulle då erbjuda "Reparera" — ett klick som startar en
-  // ANDRA generering, kostar diamonds och ger versionsrace.
+  // ANDRA generering, kostar diamonds och ger versionsrace. `repairBlocked`
+  // täcker även en deterministisk /finalize-design, som kör helt utan
+  // chat-stream och därför inte syns i `isGenerating`.
+  const repairBlocked = useRepairBlocked(isGenerating);
   const showSlowBootNotice =
-    isLoading && hardCapReached && !externalLoading && !isGenerating;
+    isLoading && hardCapReached && !externalLoading && !repairBlocked;
 
   // Tangentbordsspel (t.ex. snake) lyssnar på `window` inne i iframen och får
   // aldrig piltangenter förrän iframen har fokus. Inget i buildern fokuserar
@@ -228,7 +232,7 @@ export function PreviewPanelFrame({
               <button
                 type="button"
                 onClick={onFixPreview}
-                disabled={externalLoading || isGenerating}
+                disabled={externalLoading || repairBlocked}
                 className="shrink-0 underline underline-offset-2 hover:text-white disabled:pointer-events-none disabled:opacity-40"
               >
                 Reparera

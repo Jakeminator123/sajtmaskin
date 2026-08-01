@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PreviewPanelFrame } from "./PreviewPanelFrame";
+import { beginF3Finalize, resetF3FinalizeActivity } from "@/lib/builder/repair-blocked";
 
 const SLOW_BOOT_TEXT = "Previewn tar längre tid än vanligt — startar miljön…";
 
@@ -23,6 +24,10 @@ function renderFrame(props: Partial<React.ComponentProps<typeof PreviewPanelFram
     />,
   );
 }
+
+afterEach(() => {
+  resetF3FinalizeActivity();
+});
 
 describe("PreviewPanelFrame — N6/Del C: ärligt läge efter hard-capen", () => {
   it("visar spinner-overlayen innan hard-capen och byter till en diskret rad efter", () => {
@@ -115,6 +120,63 @@ describe("PreviewPanelFrame — N6/Del C: ärligt läge efter hard-capen", () =>
       expect(screen.queryByText(SLOW_BOOT_TEXT)).toBeNull();
       expect(screen.queryByRole("button", { name: "Reparera" })).toBeNull();
       expect(onFixPreview).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // En deterministisk /finalize-design (F3) kör utan chat-stream, så
+  // `isGenerating` är falsk hela vägen. Utan den delade signalen skulle raden
+  // erbjuda "Reparera" mitt i en pågående F3-körning.
+  it("erbjuder aldrig en ny reparation medan en deterministisk /finalize-design kör", () => {
+    vi.useFakeTimers();
+    const onFixPreview = vi.fn();
+    const release = beginF3Finalize();
+    try {
+      renderFrame({
+        isLoading: true,
+        externalLoading: false,
+        isGenerating: false,
+        onFixPreview,
+      });
+      act(() => vi.advanceTimersByTime(6_100));
+
+      expect(screen.queryByText(SLOW_BOOT_TEXT)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Reparera" })).toBeNull();
+      expect(onFixPreview).not.toHaveBeenCalled();
+    } finally {
+      act(() => release());
+      vi.useRealTimers();
+    }
+  });
+
+  it("släpper fram raden igen så fort finalize-körningen är klar", () => {
+    vi.useFakeTimers();
+    try {
+      const release = beginF3Finalize();
+      const { rerender } = renderFrame({ isLoading: true });
+      act(() => vi.advanceTimersByTime(6_100));
+      expect(screen.queryByText(SLOW_BOOT_TEXT)).toBeNull();
+
+      act(() => release());
+      rerender(
+        <PreviewPanelFrame
+          isLoading
+          externalLoading={false}
+          isGenerating={false}
+          iframeError={false}
+          iframeErrorMessage={null}
+          iframeDiagnosticCode={null}
+          iframeRunbookLines={[]}
+          handleOpenInNewTab={vi.fn()}
+          previewSrc="https://preview.example/ver_1"
+          iframeRef={{ current: null }}
+          handleIframeLoad={vi.fn()}
+          handleIframeError={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText(SLOW_BOOT_TEXT)).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }
