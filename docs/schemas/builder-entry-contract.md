@@ -9,6 +9,7 @@ Primary code sources:
 
 - `src/app/builder/useBuilderState.ts`
 - `src/app/builder/useBuilderPageController.ts`
+- `src/app/builder/page-controller/useBuilderEntryHydration.ts`
 - `src/app/builder/useBuilderEffects.ts`
 - `src/app/builder/useBuilderPromptActions.ts`
 - `src/lib/builder/defaults.ts`

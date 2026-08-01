@@ -184,7 +184,7 @@ async function runWarmTscPass(
       // provisioned. Warn loudly so this never reads as "typecheck ran".
       if (result.skipped === "cache_cold") {
         console.warn(
-          `[warm-typecheck] SAJTMASKIN_PRE_VM_TYPECHECK/F3-force is active but the warm cache is COLD for scaffold "${opts.resolvedScaffold?.id ?? "unknown"}" — the blocking typecheck was skipped (fail-open). Run \`npm run provision:warm-cache\` (see docs/howto/warm-cache-setup.md).`,
+          `[warm-typecheck] SAJTMASKIN_PRE_VM_TYPECHECK/F3-force is active but the warm cache is COLD for scaffold "${opts.resolvedScaffold?.id ?? "unknown"}" — the blocking typecheck was skipped (fail-open). Run \`npm run provision:warm-cache\` (see docs/runbooks/warm-cache-setup.md).`,
         );
       }
       return {

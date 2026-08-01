@@ -61,7 +61,7 @@ export function shouldStartPreviewBootstrapPost(params: {
   return true;
 }
 
-export type UseBuilderVmPreviewParams = {
+type UseBuilderVmPreviewParams = {
   isAuthenticated: boolean;
   chatId: string | null;
   appProjectId: string | null;

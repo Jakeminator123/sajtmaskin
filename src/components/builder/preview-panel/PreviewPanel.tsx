@@ -66,10 +66,12 @@ import {
 import { usePreviewPanelCodeFiles } from "./hooks/usePreviewPanelCodeFiles";
 import { usePreviewPanelPreviewRoutes } from "./hooks/usePreviewPanelPreviewRoutes";
 import type {
+  CaptureResponse,
   ComposerAiFallbackPayload,
   InspectEngine,
   PreviewPanelProps,
 } from "./preview-panel-types";
+import { dispatchInspectCaptureEvent } from "@/lib/builder/inspect-events";
 import { usePreviewSurfaceMode } from "./usePreviewSurfaceMode";
 import {
   buildExternalRoutePreviewUrl,
@@ -300,6 +302,7 @@ export function PreviewPanel({
   const [lastCodeMatch, setLastCodeMatch] = useState<RegistryMatch | null>(null);
   const [inspectMenu, setInspectMenu] = useState<InspectMenuState | null>(null);
   const [inspectRegion, setInspectRegion] = useState<InspectRegionState | null>(null);
+  const [regionImagePending, setRegionImagePending] = useState(false);
   const [inspectEditBusy, setInspectEditBusy] = useState(false);
   const [inspectEditError, setInspectEditError] = useState<string | null>(null);
   // Synkron spärr: `inspectEditBusy` hinner inte uppdateras innan ett andra
@@ -1275,6 +1278,81 @@ export function PreviewPanel({
     setInspectMode(false);
   }, [inspectRegion, previewUrl, setInspectMode]);
 
+  /**
+   * Bild av den uppdragna ytan, bifogad i chatten.
+   *
+   * Punktvägen finns redan och tar en fast 420×280-ruta runt en koordinat.
+   * Den duger för "vad är det här elementet?" men inte för "titta på den här
+   * ytan": användaren har redan sagt exakt vilken yta som menas genom att dra
+   * rutan, och den avgränsningen är hela poängen. Regionen skickas därför i
+   * procent till samma route, som klipper precis den och hoppar över
+   * hårkorset — bilden ÄR markeringen.
+   */
+  const handleInspectRegionSendImage = useCallback(async () => {
+    const state = inspectRegion;
+    if (!state || !previewUrl || regionImagePending) return;
+    const { rect, viewport, scroll } = state.region;
+    if (viewport.w <= 0 || viewport.h <= 0) return;
+
+    const captureId = `region-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const centerXPercent = Number((((rect.x + rect.width / 2) / viewport.w) * 100).toFixed(2));
+    const centerYPercent = Number((((rect.y + rect.height / 2) / viewport.h) * 100).toFixed(2));
+
+    setRegionImagePending(true);
+    try {
+      const response = await fetch("/api/inspector-capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: previewUrl,
+          xPercent: centerXPercent,
+          yPercent: centerYPercent,
+          viewportWidth: Math.round(viewport.w),
+          viewportHeight: Math.round(viewport.h),
+          // Rektangeln är viewport-relativ, så fångsten måste rulla dit först
+          // — annars fotograferar den sidans topp och kallar det markeringen.
+          scrollX: scroll.x,
+          scrollY: scroll.y,
+          region: {
+            xPercent: Number(((rect.x / viewport.w) * 100).toFixed(2)),
+            yPercent: Number(((rect.y / viewport.h) * 100).toFixed(2)),
+            widthPercent: Number(((rect.width / viewport.w) * 100).toFixed(2)),
+            heightPercent: Number(((rect.height / viewport.h) * 100).toFixed(2)),
+          },
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as CaptureResponse | null;
+
+      if (!response.ok || !data?.previewDataUrl) {
+        toast.error(data?.error || "Kunde inte ta bild av ytan.");
+        return;
+      }
+
+      dispatchInspectCaptureEvent({
+        id: captureId,
+        demoUrl: previewUrl,
+        xPercent: centerXPercent,
+        yPercent: centerYPercent,
+        viewportWidth: Math.round(viewport.w),
+        viewportHeight: Math.round(viewport.h),
+        capturedUrl: data.capturedUrl,
+        previewDataUrl: data.previewDataUrl,
+        pointSummary:
+          data.pointSummary ??
+          `Markerad yta ${Math.round(rect.width)}×${Math.round(rect.height)} px`,
+        clip: data.clip,
+        source: data.source,
+      });
+      toast.success("Bild av ytan tillagd i chatten.");
+      setInspectRegion(null);
+      setInspectMode(false);
+    } catch {
+      toast.error("Nätverksfel när bilden skulle tas.");
+    } finally {
+      setRegionImagePending(false);
+    }
+  }, [inspectRegion, previewUrl, regionImagePending, setInspectMode]);
+
   const blobStatus = useMemo(
     () => integrationStatus?.items.find((item) => item.id === "vercel-blob") || null,
     [integrationStatus],
@@ -1664,6 +1742,10 @@ export function PreviewPanel({
                     describeRegionElement(entry.element),
                   )}
                   onSendToChat={handleInspectRegionSendPoints}
+                  onSendImageToChat={
+                    inspectorEnabled ? () => void handleInspectRegionSendImage() : undefined
+                  }
+                  imagePending={regionImagePending}
                   onClose={() => setInspectRegion(null)}
                 />
               ) : null}

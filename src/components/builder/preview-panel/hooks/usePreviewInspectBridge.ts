@@ -56,6 +56,14 @@ export type BridgePick = {
 export type BridgeRegion = {
   rect: BridgeRect;
   viewport: { w: number; h: number };
+  /**
+   * Previewens scroll-läge när rektangeln drogs.
+   *
+   * `rect` är viewport-relativ. En konsument som återskapar sidan någon
+   * annanstans (bildfångsten laddar den på nytt, alltid vid scroll 0) måste
+   * rulla hit först, annars pekar rektangeln på fel del av dokumentet.
+   */
+  scroll: { x: number; y: number };
   elements: Array<{ element: BridgeElement & { tag: string }; match: RegistryMatch | null }>;
 };
 
@@ -263,6 +271,7 @@ export function usePreviewInspectBridge(options: {
             source?: string;
             payload?: BridgeElement & {
               elements?: BridgeElement[];
+              scroll?: { x?: number; y?: number };
             };
           }
         | null;
@@ -312,6 +321,10 @@ export function usePreviewInspectBridge(options: {
         onRegion?.({
           rect,
           viewport: payload?.viewport ?? { w: rect.width, h: rect.height },
+          scroll: {
+            x: Math.max(0, Math.round(Number(payload?.scroll?.x) || 0)),
+            y: Math.max(0, Math.round(Number(payload?.scroll?.y) || 0)),
+          },
           elements,
         });
         return;

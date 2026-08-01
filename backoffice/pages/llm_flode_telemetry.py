@@ -388,7 +388,7 @@ def _render_warm_pass_block(events: list[dict[str, Any]], key: str, title: str) 
         st.warning(
             f"{len(flagged)} finalize(s) hade flaggan PÅ men kall warm-cache "
             f"(scaffolds: {', '.join(scaffolds)}). Passet skippades fail-open — "
-            "kör `npm run provision:warm-cache` (se docs/howto/warm-cache-setup.md)."
+            "kör `npm run provision:warm-cache` (se docs/runbooks/warm-cache-setup.md)."
         )
 
 

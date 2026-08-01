@@ -50,6 +50,7 @@ const createPreGenerationContractGateReadableStream = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() =>
   vi.fn(async (): Promise<Array<{ id: string }>> => []),
 );
+const updateChatScaffoldId = vi.hoisted(() => vi.fn());
 const readyF3GateResult = {
   ok: true,
   spec: {
@@ -268,6 +269,11 @@ vi.mock("@/lib/gen/plan/prompt", () => ({
 }));
 
 vi.mock("@/lib/gen/plan/review", () => ({
+  buildPlanModeAssistantMessage: vi.fn(() => ({
+    content: "plan",
+    uiParts: undefined,
+    kind: "plan",
+  })),
   buildPlanSummaryMessage: vi.fn(),
   buildPlanUiPart: vi.fn(),
   enrichPlanArtifactForReview: vi.fn(),
@@ -320,7 +326,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateChatProjectId,
   addMessage,
   createChat: vi.fn(),
-  updateChatScaffoldId: vi.fn(),
+  updateChatScaffoldId,
   failVersionVerification,
   getVersionById,
   getVersionsByChat,
@@ -532,6 +538,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
   beforeEach(async () => {
     vi.clearAllMocks();
     addMessage.mockResolvedValue(null);
+    updateChatScaffoldId.mockResolvedValue(true);
     failVersionVerification.mockResolvedValue(null);
     createPromptLog.mockResolvedValue(undefined);
     buildFileContext.mockReset();
@@ -906,6 +913,61 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
   });
 
+  // M#gs2: a gate-only exit rematched on an INCOMPLETE prompt. Persisting that
+  // match would make the answering turn read it as `persistedScaffoldId` and
+  // skip the rematch, so the unfinished guess would stick for the whole chat.
+  it("does NOT persist the rematched scaffold when the contract gate aborts the round", async () => {
+    buildContractClarificationQuestion.mockReturnValueOnce({
+      kind: "auth",
+      question: "Vilken autentisering ska vi bygga mot innan vi går vidare?",
+      options: ["Ingen auth ännu", "Clerk"],
+      blocking: true,
+      reason: "Auth krävs men provider är inte vald ännu.",
+    });
+    createPreGenerationContractGateReadableStream.mockReturnValueOnce(
+      buildPipelineStream([{ event: "done", data: {} }]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveOrchestrationBase).toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(updateChatScaffoldId).not.toHaveBeenCalled();
+  });
+
+  it("persists the rematched scaffold once the contract gate lets the round through", async () => {
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Updated follow-up</main>" } },
+        { event: "done", data: {} },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateChatScaffoldId).toHaveBeenCalledWith("chat_1", "scaffold_1");
+  });
+
   it("does NOT prewarm a plan-mode follow-up", async () => {
     computePlanModePlannerPrompts.mockReturnValueOnce({
       planPreamble: "PLAN",
@@ -953,6 +1015,54 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(prepareGenerationContext).toHaveBeenCalled();
     expect(createGenerationPipeline).not.toHaveBeenCalled();
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
+  });
+
+  // Kreditgrinden ligger före prompt-loggen och före user-raden, så ett avslag
+  // i plan-läget lämnade tidigare INGET durabelt spår — en av de öppna
+  // kandidaterna bakom prod-chatten 785c8d7a. Se `plan-mode-trace.ts`.
+  it("spårar kreditgrindens avslag för en plan-lägestur", async () => {
+    prepareCredits.mockResolvedValueOnce({
+      ok: false,
+      cost: 12,
+      response: new Response(JSON.stringify({ error: "insufficient_credits" }), {
+        status: 402,
+        headers: { "Content-Type": "application/json" },
+      }),
+    });
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: { appProjectId: "app_proj_1", planMode: true },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Planera nästa iteration." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(402);
+    await vi.waitFor(() => {
+      expect(createPromptLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "plan_mode_credit_gate_rejected",
+          chatId: "chat_1",
+          meta: expect.objectContaining({ planMode: true, status: 402, cost: 12 }),
+        }),
+      );
+    });
+    expect(prepareGenerationContext).not.toHaveBeenCalled();
   });
 
   it("passes engineBaseVersionId from meta into follow-up base resolution", async () => {
