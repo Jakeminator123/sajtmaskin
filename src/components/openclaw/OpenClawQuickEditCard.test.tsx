@@ -322,6 +322,42 @@ describe("OpenClawQuickEditCard — execution", () => {
     }
   });
 
+  it("guards against double-click: two rapid approvals run quickEditChatFiles once", async () => {
+    useOpenClawStore.setState({ editEnabled: true });
+    let resolveQuickEdit: ((value: Awaited<ReturnType<typeof quickEditChatFiles>>) => void) | null =
+      null;
+    quickEditMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveQuickEdit = resolve;
+        }),
+    );
+    render(<OpenClawMessage msg={quickEditMessage()} />);
+
+    const approve = screen.getByRole("button", { name: "Godkänn och genomför" });
+    fireEvent.click(approve);
+    fireEvent.click(approve);
+
+    await waitFor(() => {
+      expect(quickEditMock).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      resolveQuickEdit?.({
+        ok: true,
+        versionId: "v-2",
+        changedFiles: ["app/page.tsx"],
+        previewUrl: null,
+        previewSessionId: null,
+        previewMode: null,
+      });
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/Klart — ny version skapad/)).toBeTruthy();
+    });
+    expect(quickEditMock).toHaveBeenCalledTimes(1);
+  });
+
   it("declines without calling quickEditChatFiles", () => {
     useOpenClawStore.setState({ editEnabled: true });
     render(<OpenClawMessage msg={quickEditMessage()} />);

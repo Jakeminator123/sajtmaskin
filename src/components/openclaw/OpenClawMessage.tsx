@@ -558,6 +558,10 @@ function OpenClawQuickEditCard({
   );
   const target = readActiveBuilderTarget();
   const actionLabel = action.label || "Liten kodändring på sajten";
+  // Synkron dubbelklicksvakt (Bugbot): setActionState döljer knapparna först
+  // efter re-render, så två snabba klick kan annars starta överlappande
+  // POST:ar mot samma bas (forkad historik / förvirrande stale_base_version).
+  const approveInFlightRef = useRef(false);
 
   if (!editEnabled) {
     return (
@@ -570,15 +574,25 @@ function OpenClawQuickEditCard({
   }
 
   const handleApprove = async () => {
-    const current = readActiveBuilderTarget();
-    if (!current) {
-      setActionState("failed");
-      setActionError("Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.");
-      return;
-    }
-    setActionState("working");
-    setActionError(null);
+    if (approveInFlightRef.current) return;
+    approveInFlightRef.current = true;
+    try {
+      const current = readActiveBuilderTarget();
+      if (!current) {
+        setActionState("failed");
+        setActionError("Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.");
+        return;
+      }
+      setActionState("working");
+      setActionError(null);
 
+      await runApprovedOps(current);
+    } finally {
+      approveInFlightRef.current = false;
+    }
+  };
+
+  const runApprovedOps = async (current: { chatId: string; versionId: string }) => {
     // Kontraktsvakt (Bugbot): replace_content på en okänd path skulle SKAPA en
     // ny fil server-side, men OC-kontraktet lovar "endast befintliga filer".
     // Verifiera därför mot versionens fillista innan något skrivs. Fail-closed:
