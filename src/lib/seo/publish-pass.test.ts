@@ -11,7 +11,7 @@
 import { describe, expect, it } from "vitest";
 
 import { auditProjectSeo, PLACEHOLDER_SITE_URL } from "./audit";
-import { addHtmlLang } from "./improve";
+import { addHtmlLang, resolveHtmlLang } from "./improve";
 import { keepOnlyRealChanges, runSeoPublishPass } from "./index";
 
 const SITE_URL = "https://klippoteket.se";
@@ -139,6 +139,73 @@ describe("keepOnlyRealChanges", () => {
       [{ findingId: "missing-robots", file: "app/robots.ts", change: "…", by: "deterministic" }],
     );
     expect(kept).toHaveLength(1);
+  });
+});
+
+describe("src/app routing", () => {
+  it("rewrites a src/app placeholder in place instead of deleting it", async () => {
+    // Deleting and letting the injector re-create the file would write
+    // `app/robots.ts` next to a removed `src/app/robots.ts` — Next.js reads
+    // neither, so the site would end up with no metadata route at all while
+    // the post-pass audit looked clean.
+    const files = [
+      { name: "src/app/layout.tsx", content: LAYOUT },
+      { name: "src/app/page.tsx", content: "<h1>Klippoteket</h1>" },
+      { name: "src/app/robots.ts", content: BASELINE_ROBOTS },
+      { name: "src/app/sitemap.ts", content: BASELINE_SITEMAP },
+    ];
+    const { files: shipped } = await runSeoPublishPass(files, { siteUrl: SITE_URL });
+
+    const robots = shipped.find((f) => f.name === "src/app/robots.ts");
+    expect(robots, "src/app/robots.ts must survive the pass").toBeDefined();
+    expect(robots?.content).toContain(SITE_URL);
+    expect(robots?.content).not.toContain(PLACEHOLDER_SITE_URL);
+    expect(shipped.find((f) => f.name === "src/app/sitemap.ts")?.content).toContain(SITE_URL);
+  });
+
+  it("injects into src/app rather than creating a second app directory", async () => {
+    // Next.js refuses a project with both `app/` and `src/app/`. Writing the
+    // injector's hardcoded `app/robots.ts` next to `src/app/` would break the
+    // build of a site that was merely missing a sitemap.
+    const files = [
+      { name: "src/app/layout.tsx", content: LAYOUT },
+      { name: "src/app/page.tsx", content: "<h1>Klippoteket</h1>" },
+    ];
+    const { files: shipped, report } = await runSeoPublishPass(files, { siteUrl: SITE_URL });
+
+    expect(shipped.some((f) => f.name.startsWith("app/"))).toBe(false);
+    expect(shipped.find((f) => f.name === "src/app/robots.ts")?.content).toContain(SITE_URL);
+    expect(shipped.find((f) => f.name === "src/app/sitemap.ts")).toBeDefined();
+    expect(report.improvements.every((i) => !i.file.startsWith("app/"))).toBe(true);
+  });
+});
+
+describe("resolveHtmlLang", () => {
+  it("prefers an explicit language", () => {
+    expect(resolveHtmlLang("en", "sv_SE")).toBe("en");
+  });
+
+  it("falls back to the brand locale, converted to BCP-47", () => {
+    // Brand locale allows the Open Graph underscore form; `lang` does not.
+    expect(resolveHtmlLang(undefined, "en_US")).toBe("en-US");
+    expect(resolveHtmlLang(undefined, "en-GB")).toBe("en-GB");
+  });
+
+  it("falls back to Swedish only when nothing says otherwise", () => {
+    expect(resolveHtmlLang(undefined, undefined)).toBe("sv");
+    expect(resolveHtmlLang(undefined, "   ")).toBe("sv");
+  });
+});
+
+describe("brand locale reaches html lang", () => {
+  it("does not stamp lang=sv on an English-branded site", async () => {
+    const { files: shipped } = await runSeoPublishPass(baselineProject(), {
+      siteUrl: SITE_URL,
+      brand: { locale: "en_US" },
+    });
+    const layout = shipped.find((f) => f.name === "app/layout.tsx");
+    expect(layout?.content).toContain('<html lang="en-US"');
+    expect(layout?.content).not.toContain('<html lang="sv"');
   });
 });
 

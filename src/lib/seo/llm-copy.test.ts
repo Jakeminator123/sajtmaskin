@@ -8,9 +8,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const generateObjectMock = vi.hoisted(() => vi.fn());
+const createDirectModelMock = vi.hoisted(() => vi.fn((id: string) => ({ id })));
 
 vi.mock("ai", () => ({ generateObject: generateObjectMock }));
-vi.mock("@/lib/gen/models", () => ({ getOpenAIModel: (id: string) => ({ id }) }));
+vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel: createDirectModelMock }));
 vi.mock("@/lib/observability/llm-usage", () => ({ recordLlmUsage: vi.fn() }));
 
 const { improveSeoCopyWithLlm, replaceMetadataString } = await import("./llm-copy");
@@ -60,6 +61,19 @@ describe("improveSeoCopyWithLlm", () => {
     expect(result.improvements).toHaveLength(2);
     expect(result.improvements.every((i) => i.by === "llm")).toBe(true);
     expect(result.skippedReason).toBeNull();
+  });
+
+  it("builds the model through the provider-aware factory", async () => {
+    // The manifest stores `openai/gpt-5.2`. `getOpenAIModel` would forward
+    // that verbatim as a model NAME, so every call would fail and the pass
+    // would silently degrade to no rewrite — invisible unless asserted here.
+    generateObjectMock.mockResolvedValue({
+      object: { title: "En tillräckligt lång sidtitel här", description: "En beskrivning som är lagom lång för att passera granskningens minimikrav på antal tecken." },
+      usage: {},
+    });
+    const files = project();
+    await improveSeoCopyWithLlm(files, auditOf(files), { modelId: "openai/gpt-5.2" });
+    expect(createDirectModelMock).toHaveBeenCalledWith("openai/gpt-5.2");
   });
 
   it("does nothing when the audit found no copy problem", async () => {

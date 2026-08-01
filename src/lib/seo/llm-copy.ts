@@ -15,7 +15,7 @@
 
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getOpenAIModel } from "@/lib/gen/models";
+import { createDirectModel } from "@/lib/builder/direct-model";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import type { ProjectTextFile } from "@/lib/gen/scaffolds/seo-defaults";
 import type { SeoBrand } from "@/lib/projects/preferences-schema";
@@ -113,7 +113,10 @@ export async function improveSeoCopyWithLlm(
   const startedAt = Date.now();
   try {
     const result = await generateObject({
-      model: getOpenAIModel(options.modelId),
+      // `createDirectModel` parses the manifest's `provider/model` form.
+      // `getOpenAIModel` would forward `openai/gpt-5.2` verbatim as a model
+      // name, so every call would fail and silently degrade to no rewrite.
+      model: createDirectModel(options.modelId),
       schema: SeoCopySchema,
       system: [
         "Du skriver SEO-metadata för en svensk webbplats.",
