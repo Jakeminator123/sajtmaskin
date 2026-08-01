@@ -494,37 +494,6 @@ function resolveInstallCommand(filesJson) {
   };
 }
 
-function sharedPackageManagerCacheEnv() {
-  const dataDir = getDataDir();
-  const npmCacheDir = path.join(dataDir, "npm-cache");
-  const pnpmStoreDir = path.join(dataDir, "pnpm-store");
-  const yarnCacheDir = path.join(dataDir, "yarn-cache");
-  const yarnGlobalDir = path.join(dataDir, "yarn-global");
-  try {
-    // The cache is shared across chat workspaces on the volume, so repeat installs mostly hit cache.
-    ensureDir(npmCacheDir);
-    ensureDir(pnpmStoreDir);
-    ensureDir(yarnCacheDir);
-    ensureDir(yarnGlobalDir);
-  } catch {
-    // Best-effort only: keep package-manager defaults if the volume is unavailable.
-    return {};
-  }
-  return {
-    NPM_CONFIG_CACHE: npmCacheDir,
-    // pnpm 11 stopped reading npm_config_*; it wants PNPM_CONFIG_* (same
-    // convention as PNPM_CONFIG_DANGEROUSLY_ALLOW_ALL_BUILDS in sanitizedEnv).
-    // Keep the npm_config_ variant for older pnpm; npm itself ignores store-dir.
-    NPM_CONFIG_STORE_DIR: pnpmStoreDir,
-    PNPM_CONFIG_STORE_DIR: pnpmStoreDir,
-    // Yarn Classic honors YARN_CACHE_FOLDER; Yarn Berry defaults to
-    // enableGlobalCache=true and caches under globalFolder instead, so point
-    // that at the volume too.
-    YARN_CACHE_FOLDER: yarnCacheDir,
-    YARN_GLOBAL_FOLDER: yarnGlobalDir,
-  };
-}
-
 function isPeerDependencyInstallFailure(output) {
   const text = String(output || "");
   if (!text.trim()) return false;
@@ -556,7 +525,6 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
     NODE_ENV: "development",
     NPM_CONFIG_PRODUCTION: "false",
     NPM_CONFIG_OMIT: "",
-    ...sharedPackageManagerCacheEnv(),
   });
   const runAttempt = async (command) => {
     const startedAt = Date.now();
@@ -2754,7 +2722,6 @@ module.exports = {
     inspectProjectLintSetup,
     projectOwnsLintSetup,
     resolveInstallCommand,
-    sharedPackageManagerCacheEnv,
     tryShareNodeModules,
     workspaceDirForChat,
     dependencyStatePathForWorkspace,

@@ -208,7 +208,6 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     classifyLintResult,
     inspectProjectLintSetup,
     resolveInstallCommand,
-    sharedPackageManagerCacheEnv,
   } = runtime.__testing;
   check("verify commands never invoke npx", Object.values(VERIFY_COMMANDS).every((cmd) => !/\bnpx\b/.test(cmd)));
   check("lint command resolves project-local eslint", /node_modules\/eslint\/bin\/eslint\.js/.test(VERIFY_COMMANDS.lint));
@@ -275,30 +274,6 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
         resolveInstallCommand({ "yarn.lock": "" }).fallbackCommand,
       ].join(" "),
     ),
-  );
-  const cacheEnv = sharedPackageManagerCacheEnv();
-  check(
-    "install cache uses the shared data volume",
-    cacheEnv.NPM_CONFIG_CACHE === join(dataDir, "npm-cache") &&
-      cacheEnv.NPM_CONFIG_STORE_DIR === join(dataDir, "pnpm-store") &&
-      cacheEnv.YARN_CACHE_FOLDER === join(dataDir, "yarn-cache"),
-  );
-  check(
-    "pnpm 11 store env matches the npm_config variant",
-    cacheEnv.PNPM_CONFIG_STORE_DIR === cacheEnv.NPM_CONFIG_STORE_DIR,
-  );
-  check(
-    "yarn berry global folder lives on the shared data volume",
-    cacheEnv.YARN_GLOBAL_FOLDER === join(dataDir, "yarn-global"),
-  );
-  check(
-    "install cache directories exist before install",
-    [
-      cacheEnv.NPM_CONFIG_CACHE,
-      cacheEnv.NPM_CONFIG_STORE_DIR,
-      cacheEnv.YARN_CACHE_FOLDER,
-      cacheEnv.YARN_GLOBAL_FOLDER,
-    ].every((cachePath) => lstatSync(cachePath).isDirectory()),
   );
   check(
     "verify commands only use installed project-local tooling",
