@@ -39,6 +39,13 @@ runtime.queueRuntimeBoot = (chatId, options = {}) => queuedBoots.push({ chatId, 
 // mutable outcome instead of being reassigned mid-run.
 let nextPatchOutcome = { mode: "patched", reason: null };
 runtime.applyRuntimePatch = () => nextPatchOutcome;
+// The readiness re-probe does real HTTP against the dev port; stub it and
+// record the arguments instead. Must be assigned BEFORE the server require,
+// which destructures it.
+const readinessProbes = [];
+runtime.probeReadinessAfterPatch = async (args) => {
+  readinessProbes.push(args);
+};
 const { createServer } = require("../src/server.js");
 const server = createServer();
 server.listen(0, "127.0.0.1");
@@ -145,6 +152,25 @@ try {
   assert.equal(statusAfterPatch.body.versionId, "ver_2");
   assert.equal(statusAfterPatch.body.running, true);
 
+  // Readiness is a per-version verdict, and a hot patch advances the version
+  // without booting — so the previous boot's "ready" must not survive it. The
+  // flip happens inside the same store-lock mutation as the version advance,
+  // and a fresh version-bound probe is what resolves it.
+  {
+    const patchedSession = store.readStoreSync().sessions[started.body.sessionId];
+    assert.equal(
+      patchedSession.readinessState,
+      "starting",
+      "hot patch must reset readiness for the new version",
+    );
+    assert.equal(patchedSession.readinessError, null, "stale readiness error must be cleared");
+    const probe = readinessProbes[readinessProbes.length - 1];
+    assert.ok(probe, "a hot patch must start a new readiness probe");
+    assert.equal(probe.versionId, "ver_2", "the probe must be bound to the patched version");
+    assert.equal(probe.sessionId, started.body.sessionId);
+    assert.equal(probe.previewSessionId, previewSessionId);
+  }
+
   // Version binding (a): a patch that fails mid-way must never leave the host
   // claiming the new version. The session rolls back to its pre-patch snapshot
   // so /status, the manifest and a later resume all still say ver_2 — a
@@ -158,6 +184,20 @@ try {
   });
   assert.equal(failedPatch.status, 500);
   assert.equal(failedPatch.body.error, "patch_failed");
+  // Readiness is part of the rollback snapshot: a patch whose workspace write
+  // never landed must not leave the session advertising readiness for a version
+  // it does not serve. And no probe may be started for it.
+  {
+    const probesBefore = readinessProbes.length;
+    const rolledBack = store.readStoreSync().sessions[started.body.sessionId];
+    assert.equal(rolledBack.versionId, "ver_2");
+    assert.equal(
+      rolledBack.readinessState,
+      "starting",
+      "rollback must restore the pre-patch readiness state",
+    );
+    assert.equal(probesBefore, readinessProbes.length, "a failed patch must not probe readiness");
+  }
   nextPatchOutcome = { mode: "patched", reason: null };
 
   const afterFailure = await manifestFor(previewSessionId);

@@ -27,11 +27,18 @@ export type PreviewStatusReason =
   | "session_bound_to_other_version"
   | "preview_session_id_mismatch"
   | "provider_not_running_or_unreachable"
-  | "boot_grace_period";
+  | "boot_grace_period"
+  | "build_error_overlay";
 
 export type PreviewStatusApiJson = {
   ok: boolean;
-  status: "running" | "stopped" | "starting" | "missing" | "version_mismatch";
+  status:
+    | "running"
+    | "stopped"
+    | "starting"
+    | "missing"
+    | "version_mismatch"
+    | "build_error";
   previewSessionId: string | null;
   previewUrl: string | null;
   versionId: string | null;
@@ -39,6 +46,8 @@ export type PreviewStatusApiJson = {
   reason?: PreviewStatusReason;
   mismatchDirection?: "session_newer" | "session_older" | "unknown";
   message?: string;
+  /** Host `waitForReady` failure detail when `status === "build_error"`. */
+  readinessError?: string | null;
 };
 
 /** `POST /api/engine/chats/[chatId]/preview-heartbeat` (v0 route is compat). */

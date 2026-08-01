@@ -15,6 +15,7 @@ const {
 } = require("./store.js");
 const {
   applyRuntimePatch,
+  probeReadinessAfterPatch,
   buildPreviewUrl,
   cleanupPackageCaches,
   cleanupPreviewHostStorage,
@@ -541,9 +542,23 @@ async function routeRequest(req, res) {
       runtimeState.running &&
       latest.prewarm !== true &&
       latest.prewarmReplacementPending !== true;
+    // Readiness ≠ process running. `running` stays process-liveness (legacy
+    // contract), but `httpReady` means the page actually answered without a
+    // Next build-error overlay / HTTP 500 (host `waitForReady` verdict recorded
+    // as `readinessState`). The app keys `preview_success` off `httpReady` /
+    // `readinessState`, not mere liveness. Prewarm skeletons have no readiness
+    // state → report ready when running so their status is unchanged.
+    const readinessState =
+      typeof latest.readinessState === "string" ? latest.readinessState : null;
+    const httpReady =
+      publicRunning && (latest.prewarm === true || readinessState === "ready");
     return json(res, 200, {
       ok: true,
       running: publicRunning,
+      httpReady,
+      readinessState,
+      readinessError:
+        typeof latest.readinessError === "string" ? latest.readinessError : null,
       previewSessionId: latest.previewSessionId,
       /** @legacy External alias for older Sajtmaskin app deployments. */
       sandboxId: latest.previewSessionId,
@@ -551,6 +566,14 @@ async function routeRequest(req, res) {
       versionId: latest.versionId,
       status: latest.status,
       sessionExpiresAt: latest.sessionExpiresAt,
+      // One-shot lockfile round-trip: after a stale-lockfile reconcile the host
+      // returns the regenerated lockfile so the app can persist it into the
+      // version files and clear the stale marker.
+      ...(latest.regeneratedLockfile &&
+      typeof latest.regeneratedLockfile.path === "string" &&
+      typeof latest.regeneratedLockfile.content === "string"
+        ? { regeneratedLockfile: latest.regeneratedLockfile }
+        : {}),
     });
   }
 
@@ -817,6 +840,10 @@ async function routeRequest(req, res) {
         changeClass: session.changeClass,
         updatedAt: session.updatedAt,
         sessionExpiresAt: session.sessionExpiresAt,
+        // Readiness belongs in the snapshot for the same reason versionId does:
+        // it describes a version, and this mutation advances the version.
+        readinessState: session.readinessState,
+        readinessError: session.readinessError,
       };
       const replacingPrewarm =
         session.prewarm === true || session.prewarmReplacementPending === true;
@@ -839,6 +866,16 @@ async function routeRequest(req, res) {
       }
       session.filesJson = base;
       session.status = replacingPrewarm ? "starting" : "warm_project";
+      // Atomic with the version advance, in the same store-lock mutation: the
+      // readiness verdict on the session describes the OLD version's boot, and
+      // keeping it would let the app read "ready" for files Next has not even
+      // compiled yet. Clearing the old error at the same time means a version
+      // that failed once does not drag its message onto its successor. The
+      // probe kicked off after the workspace write resolves it.
+      if (!replacingPrewarm) {
+        session.readinessState = "starting";
+        session.readinessError = null;
+      }
       session.lastAction = "patch";
       session.startOutcome = "resumed";
       session.changeClass = "light";
@@ -852,6 +889,7 @@ async function routeRequest(req, res) {
       return {
         type: "ok",
         sessionId: session.sessionId,
+        previewSessionId: session.previewSessionId,
         chatId: getSessionChatId(session),
         replacingPrewarm,
         rollback,
@@ -903,6 +941,18 @@ async function routeRequest(req, res) {
       return json(res, 500, {
         error: "patch_failed",
         message: patchResult.reason ?? "Preview-host failed to apply the patch.",
+      });
+    }
+    if (patchResult.mode === "patched") {
+      // Hot patch = no boot, so nothing else would ever re-evaluate readiness
+      // for the version we just pinned. Fire-and-forget (the response must not
+      // wait out a 180s readiness deadline); every write inside is bound to
+      // this exact version.
+      void probeReadinessAfterPatch({
+        chatId: patchOutcome.chatId,
+        sessionId: patchOutcome.sessionId,
+        previewSessionId: patchOutcome.previewSessionId,
+        versionId: validated.versionId,
       });
     }
     const latest = findSessionById(readStoreSync(), patchOutcome.sessionId);

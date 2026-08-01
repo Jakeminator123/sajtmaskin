@@ -36,6 +36,21 @@ vi.mock("@/lib/gen/preview/lifecycle-telemetry", () => ({
 // receipt point — it verifies `running:true` with one host status call and
 // stamps preview_success=true via the monotonic writer, scheduled via after().
 const tryResumeTier2Runtime = vi.hoisted(() => vi.fn());
+const fetchPreviewHostReadinessVerdict = vi.hoisted(() =>
+  vi.fn<
+    (
+      previewSessionId: string,
+      opts?: { expectedVersionId?: string | null },
+    ) => Promise<{
+      running: boolean;
+      versionId: string | null;
+      readinessState: "starting" | "ready" | "failed" | null;
+      readinessError: string | null;
+      httpReady: boolean;
+      regeneratedLockfile: { path: string; content: string } | null;
+    } | null>
+  >(async () => null),
+);
 const recordPreviewRuntimeOutcomeForVersion = vi.hoisted(() =>
   vi.fn<(versionId: string, previewSuccess: boolean) => Promise<void>>(async () => undefined),
 );
@@ -43,6 +58,10 @@ const hasConfirmedPreviewReadyOnInstance = vi.hoisted(() => vi.fn(() => false));
 
 vi.mock("@/lib/gen/preview/tier2-resume", () => ({
   tryResumeTier2Runtime,
+}));
+
+vi.mock("@/lib/gen/preview/preview-host-client", () => ({
+  fetchPreviewHostReadinessVerdict,
 }));
 
 vi.mock("@/lib/db/services/generation-telemetry", () => ({
@@ -159,6 +178,10 @@ describe("POST preview-heartbeat", () => {
     tryResumeTier2Runtime.mockResolvedValue({
       previewSessionId: "ps1",
       primaryUrl: "https://live.example",
+      readinessState: "ready",
+      httpReady: true,
+      readinessError: null,
+      regeneratedLockfile: null,
     });
 
     const res = await POST(
@@ -227,5 +250,91 @@ describe("POST preview-heartbeat", () => {
     expect(afterCallbacks.value.length).toBe(0);
     expect(tryResumeTier2Runtime).not.toHaveBeenCalled();
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+  });
+});
+
+// Heartbeaten är den kvittopunkt som bevisligen fyrar på varje normal boot.
+// När processen aldrig kom upp svarar resume-vägen `null` — och då var
+// /preview-status den enda ytan som någonsin stämplade felet. Heartbeaten läser
+// nu samma readiness-verdikt, så de två ytorna är överens.
+describe("POST preview-heartbeat — readiness-failure utan levande process", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    afterCallbacks.value = [];
+    isTier2PreviewConfigured.mockReturnValue(true);
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "c1" });
+    hasConfirmedPreviewReadyOnInstance.mockReturnValue(false);
+    tryResumeTier2Runtime.mockResolvedValue(null);
+    fetchPreviewHostReadinessVerdict.mockResolvedValue(null);
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps1",
+      previewUrl: "https://x.example",
+      versionId: "v1",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+    });
+  });
+
+  async function heartbeat() {
+    return POST(
+      new Request("http://localhost/api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "v1", previewSessionId: "ps1", viewerId: "tab1" }),
+      }),
+      { params: Promise.resolve({ chatId: "c1" }) },
+    );
+  }
+
+  it("stämplar preview_success=false när hosten har ett failed-verdikt", async () => {
+    fetchPreviewHostReadinessVerdict.mockResolvedValue({
+      running: false,
+      versionId: "v1",
+      readinessState: "failed",
+      readinessError: "postcondition failed",
+      httpReady: false,
+      regeneratedLockfile: null,
+    });
+
+    await heartbeat();
+    await runAfterCallbacks();
+
+    expect(fetchPreviewHostReadinessVerdict).toHaveBeenCalledWith("ps1", {
+      expectedVersionId: "v1",
+    });
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false);
+  });
+
+  it("stämplar ingenting när hosten bara säger starting", async () => {
+    fetchPreviewHostReadinessVerdict.mockResolvedValue({
+      running: false,
+      versionId: "v1",
+      readinessState: "starting",
+      readinessError: null,
+      httpReady: false,
+      regeneratedLockfile: null,
+    });
+
+    await heartbeat();
+    await runAfterCallbacks();
+
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+  });
+
+  it("frågar inte efter något verdikt när resume redan gav ett", async () => {
+    tryResumeTier2Runtime.mockResolvedValue({
+      previewSessionId: "ps1",
+      primaryUrl: "https://x.example",
+      readinessState: "ready",
+      httpReady: true,
+      readinessError: null,
+      regeneratedLockfile: null,
+    });
+
+    await heartbeat();
+    await runAfterCallbacks();
+
+    expect(fetchPreviewHostReadinessVerdict).not.toHaveBeenCalled();
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", true);
   });
 });
