@@ -164,6 +164,7 @@ export async function runQuickEdit(params: {
   const patch = await tryPatchPreviewSession({
     chatId: params.chatId,
     versionId: newVersionId,
+    filesRevision: persisted.version.files_revision,
     expectedBaseVersionId: baseVersion.id,
     changedFiles,
     removedPaths: applied.removedPaths.length > 0 ? applied.removedPaths : undefined,
@@ -180,6 +181,7 @@ export async function runQuickEdit(params: {
       chatId: params.chatId,
       appProjectId: params.appProjectId,
       versionIdForSession: newVersionId,
+      filesRevisionForSession: persisted.version.files_revision,
       lifecycleStage,
       skipRepair: true,
       skipProjectScaffold: true,

@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+
 import {
   runPreVmEslint,
   formatEslintIssuesForDiagnostics,
@@ -100,7 +101,7 @@ describe("runPreVmEslint", () => {
     }
   });
 
-  it("runs when cache is warm with eslint.config.mjs (spawn may fail fail-open)", async () => {
+  it("runs fail-open when a warm cache cannot execute eslint", async () => {
     process.env.SAJTMASKIN_BLOCKING_ESLINT = "true";
     const cacheDir = makeCacheDir("warm-cache");
     mkdirSync(join(cacheDir, "node_modules"), { recursive: true });
@@ -110,15 +111,24 @@ describe("runPreVmEslint", () => {
         scaffoldId: "landing-page",
         files: [{ path: "app/page.tsx", content: "export default () => null;", language: "tsx" }],
         cacheDirOverride: cacheDir,
+        spawnSyncOverride: (() => ({
+          status: 2,
+          signal: null,
+          output: [null, "", "eslint unavailable in isolated test cache"],
+          pid: 1,
+          stdout: "",
+          stderr: "eslint unavailable in isolated test cache",
+        })) as unknown as typeof import("node:child_process").spawnSync,
       });
       // Without a real eslint install the spawn will typically fail the gate
       // with `eslint_unavailable` (exit != 0 + no parseable output). The
       // contract: fail-open, never throw, and remain local diagnostics only.
       expect(result.ok).toBe(true);
+      expect(result.skipped).toBe("eslint_unavailable");
     } finally {
       rmSync(cacheDir, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });
 
 describe("formatEslintIssuesForDiagnostics", () => {

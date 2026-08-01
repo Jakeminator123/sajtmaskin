@@ -107,7 +107,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       // call and the DB write.
       after(async () => {
         try {
-          if (!(await shouldVerifyPreviewRuntimeReceipt(versionId))) return;
+          const shouldVerify = session.filesRevision
+            ? await shouldVerifyPreviewRuntimeReceipt(versionId, {
+                bootedFilesRevision: session.filesRevision,
+              })
+            : await shouldVerifyPreviewRuntimeReceipt(versionId);
+          if (!shouldVerify) return;
           const resumed = await tryResumeTier2Runtime(session);
           // Readiness ≠ liveness (req A5): only stamp `preview_success` from the
           // host `readinessState` verdict (ready → true, failed → false + log a
@@ -115,7 +120,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           // binding is exact — the session↔versionId equality check above
           // already returned `session_mismatch` otherwise.
           if (resumed) {
-            await applyPreviewReadinessOutcome({ chatId, versionId, resumed });
+            await applyPreviewReadinessOutcome({
+              chatId,
+              versionId,
+              bootedFilesRevision: session.filesRevision,
+              resumed,
+            });
             return;
           }
           // `null` also covers "the process never started" — where the host
@@ -126,7 +136,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             expectedVersionId: versionId,
           });
           if (verdict?.readinessState === "failed") {
-            await applyPreviewReadinessOutcome({ chatId, versionId, resumed: verdict });
+            await applyPreviewReadinessOutcome({
+              chatId,
+              versionId,
+              bootedFilesRevision: session.filesRevision,
+              resumed: verdict,
+            });
           }
         } catch {
           // Best-effort: a failed receipt check must never surface —

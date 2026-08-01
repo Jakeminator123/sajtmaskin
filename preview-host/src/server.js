@@ -783,6 +783,13 @@ async function routeRequest(req, res) {
         session.readinessState = "starting";
         session.readinessError = null;
       }
+      // An explicit update is a new boot attempt even when the caller rewrites
+      // the same version id (for example after the files revision advances in
+      // place). Reset the clean-exit budget here, atomically with the content
+      // mutation. The runtime cannot infer this from `status`: normal updates
+      // intentionally use `warm_project` while their workspace is prepared.
+      session.runtimeCleanExitVersionId = validated.versionId;
+      session.runtimeCleanExitTimestamps = [];
       session.lastAction = "update";
       session.startOutcome = "resumed";
       session.updatedAt = nowIso();

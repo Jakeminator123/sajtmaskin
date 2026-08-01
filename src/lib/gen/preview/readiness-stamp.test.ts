@@ -169,6 +169,23 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
   });
 
+  it("binds the receipt to the revision captured by the preview session", async () => {
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      bootedFilesRevision: "revision-booted",
+      resumed: {
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: true,
+      },
+    });
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", true, {
+      bootedFilesRevision: "revision-booted",
+    });
+  });
+
   it("does not stamp while starting", async () => {
     await applyPreviewReadinessOutcome({
       chatId: "chat_1",

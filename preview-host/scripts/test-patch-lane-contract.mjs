@@ -255,6 +255,11 @@ try {
     const seeded = store.readStoreSync();
     seeded.sessions[started.body.sessionId].readinessState = "ready";
     seeded.sessions[started.body.sessionId].readinessError = "stale error from ver_2";
+    seeded.sessions[started.body.sessionId].runtimeCleanExitVersionId = "ver_2";
+    seeded.sessions[started.body.sessionId].runtimeCleanExitTimestamps = [
+      Date.now() - 2_000,
+      Date.now() - 1_000,
+    ];
     store.writeStoreAtomicSync(seeded);
 
     const updated = await request("/preview/session/update", {
@@ -276,6 +281,12 @@ try {
       null,
       "update must clear the previous version's readiness error",
     );
+    assert.equal(updatedSession.runtimeCleanExitVersionId, "ver_6");
+    assert.deepEqual(
+      updatedSession.runtimeCleanExitTimestamps,
+      [],
+      "an explicit update must receive a fresh clean-exit budget",
+    );
     const statusAfterUpdate = await request(
       `/preview/session/${encodeURIComponent(previewSessionId)}/status`,
     );
@@ -287,6 +298,30 @@ try {
       "a session whose version just advanced is not http-ready",
     );
     assert.equal(statusAfterUpdate.body.readinessError, null);
+
+    // Rewriting the SAME version is also explicit repair work. This is the
+    // files-revision-only path used when a mutable version id is persisted
+    // again, so it must not inherit two prior exits and fail on its first boot.
+    const sameVersionSeed = store.readStoreSync();
+    sameVersionSeed.sessions[started.body.sessionId].runtimeCleanExitVersionId = "ver_6";
+    sameVersionSeed.sessions[started.body.sessionId].runtimeCleanExitTimestamps = [
+      Date.now() - 2_000,
+      Date.now() - 1_000,
+    ];
+    store.writeStoreAtomicSync(sameVersionSeed);
+    const sameVersionUpdate = await request("/preview/session/update", {
+      previewSessionId,
+      versionId: "ver_6",
+      filesJson: { "app/page.tsx": `${PAGE_V2}\n// repair` },
+    });
+    assert.equal(sameVersionUpdate.status, 200);
+    const afterSameVersionUpdate = store.readStoreSync().sessions[started.body.sessionId];
+    assert.equal(afterSameVersionUpdate.runtimeCleanExitVersionId, "ver_6");
+    assert.deepEqual(
+      afterSameVersionUpdate.runtimeCleanExitTimestamps,
+      [],
+      "same-version update must reset the clean-exit budget",
+    );
   }
 
   // A stored entry that is not a string still gets listed, with a marker that

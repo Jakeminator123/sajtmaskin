@@ -44,6 +44,24 @@ const RUNTIME_IDLE_STOP_MS = parseInt(
 const RUNTIME_OUTPUT_RING_MAX = 60;
 const RUNTIME_OUTPUT_LINE_MAX = 500;
 const RUNTIME_OUTPUT_EXIT_TAIL = 30;
+// A dev server may exit with code 0 even though it never became ready (for
+// example when Next mutates the dependency set during boot). Proxy traffic
+// would otherwise restart it forever and each boot would overwrite readiness
+// back to `starting`. Three unexpected clean exits for the same session+version
+// within two minutes are therefore terminal until an explicit start/update
+// retries the session.
+const RUNTIME_CLEAN_EXIT_LIMIT = 3;
+const RUNTIME_CLEAN_EXIT_WINDOW_MS = 2 * 60 * 1000;
+
+function classifyRuntimeCleanExitLoop({ timestamps, now = Date.now() }) {
+  const recent = (Array.isArray(timestamps) ? timestamps : [])
+    .filter((value) => Number.isFinite(value) && now - value <= RUNTIME_CLEAN_EXIT_WINDOW_MS)
+    .concat(now);
+  return {
+    timestamps: recent,
+    failed: recent.length >= RUNTIME_CLEAN_EXIT_LIMIT,
+  };
+}
 const WORKSPACES_DIR = path.join(getDataDir(), "workspaces");
 const VERIFY_WORKSPACES_DIR = path.join(getDataDir(), "verify-workspaces");
 // Package-manager caches live on the mounted volume, not the Fly rootfs.
@@ -2276,16 +2294,45 @@ async function spawnDevServer(session, workspaceDir, runtimePort) {
   child.once("exit", async (code, signal) => {
     runtimeChildren.delete(session.sessionId);
     if (tracked.ignoreExit) return;
+    const outputTail = tracked.recentOutput.slice(-RUNTIME_OUTPUT_EXIT_TAIL).join("\n");
+    let cleanExitLoopDetected = false;
     await updateSessionById(session.sessionId, (stored) => {
       if (stored.versionId !== session.versionId) return;
-      stored.status = "stopped";
+      if (code === 0 && signal == null) {
+        const priorTimestamps =
+          stored.runtimeCleanExitVersionId === session.versionId &&
+          Array.isArray(stored.runtimeCleanExitTimestamps)
+            ? stored.runtimeCleanExitTimestamps
+            : [];
+        const next = classifyRuntimeCleanExitLoop({
+          timestamps: priorTimestamps,
+          now: Date.now(),
+        });
+        stored.runtimeCleanExitVersionId = session.versionId;
+        stored.runtimeCleanExitTimestamps = next.timestamps;
+        cleanExitLoopDetected = next.failed;
+      }
+      stored.status = cleanExitLoopDetected ? "error" : "stopped";
       stored.stoppedAt = nowIso();
+      if (cleanExitLoopDetected) {
+        stored.readinessState = "failed";
+        stored.readinessError = [
+          `Preview runtime exited cleanly ${RUNTIME_CLEAN_EXIT_LIMIT} times within ${Math.round(RUNTIME_CLEAN_EXIT_WINDOW_MS / 1000)} seconds before readiness completed.`,
+          outputTail ? `Last Next.js output:\n${outputTail}` : "No Next.js output was captured.",
+        ].join("\n");
+      }
       stored.updatedAt = nowIso();
     });
     await appendRuntimeLog(
       session.previewSessionId,
       `Runtime exited (code=${code ?? "null"}, signal=${signal ?? "null"}).`,
     );
+    if (cleanExitLoopDetected) {
+      await appendRuntimeLog(
+        session.previewSessionId,
+        `Runtime clean-exit restart limit reached for version ${session.versionId}; readiness marked failed.`,
+      );
+    }
     // (D) Endast vid onormal exit (krasch/boot-fel) — rena stopp sätter
     // `ignoreExit` och returnerar ovan, så hibernate/destroy/restart dumpar inget.
     if (tracked.recentOutput.length > 0) {
@@ -2323,6 +2370,15 @@ async function bootRuntimeForSession(session, options = {}) {
 
   await updateSessionById(session.sessionId, (stored) => {
     stored.status = "starting";
+    // A start request writes `starting` before it queues the boot. Treat that
+    // as an explicit retry and give the same version a fresh exit budget.
+    // Update requests reset the budget atomically in their route mutation
+    // because normal updates use `warm_project` here. Proxy-driven recovery
+    // starts from `stopped` and preserves the counter.
+    if (session.status === "starting") {
+      stored.runtimeCleanExitVersionId = session.versionId;
+      stored.runtimeCleanExitTimestamps = [];
+    }
     stored.updatedAt = nowIso();
   });
 
@@ -2879,6 +2935,14 @@ function isFailedPrewarmTraffic(state) {
   );
 }
 
+function isFailedRuntimeTraffic(state) {
+  return Boolean(
+    state?.session &&
+      state.session.status === "error" &&
+      state.session.readinessState === "failed",
+  );
+}
+
 async function proxyPreviewRequest(req, res, pathname, search = "") {
   let info = routeInfoFromPathname(pathname);
   if (!info) return false;
@@ -2909,6 +2973,10 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
       });
     }
     sendRuntimeStartingPage(res, state.session);
+    return true;
+  }
+  if (isFailedRuntimeTraffic(state)) {
+    sendHeldPreviewErrorPage(res, state.session);
     return true;
   }
   if (state.running && state.runtimePort) {
@@ -2976,6 +3044,10 @@ async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
       });
     }
     refuseHeldPreviewUpgrade(socket, failed);
+    return true;
+  }
+  if (isFailedRuntimeTraffic(state)) {
+    refuseHeldPreviewUpgrade(socket, true);
     return true;
   }
   if (hmrSilencedForRequest() && isHmrPath(info.restPath)) {
@@ -3183,6 +3255,14 @@ proxy.on("error", (err, req, res) => {
       const session = findSessionByChatId(readStoreSync(), info.chatId);
       if (session) {
         const state = getRuntimeStateForChat(info.chatId);
+        if (isFailedRuntimeTraffic(state)) {
+          const wrote = sendHeldPreviewErrorPage(res, state.session);
+          if (!wrote && !res.writableEnded) {
+            if (typeof res.destroy === "function") res.destroy();
+            else res.end();
+          }
+          return;
+        }
         // Köa EN restart-boot (dedupad mot pågående boot via `!state.booting`).
         // `restart: true` täcker båda fallen den tidigare split-logiken missade:
         //  - en levande-men-resettande zombie: `bootRuntimeForSession` stoppar
@@ -3542,6 +3622,9 @@ module.exports = {
   directorySizeBytes,
   __testing: {
     bootRuntimeForSession,
+    classifyRuntimeCleanExitLoop,
+    RUNTIME_CLEAN_EXIT_LIMIT,
+    RUNTIME_CLEAN_EXIT_WINDOW_MS,
     isNoSpaceInstallFailure,
     probeReadinessAfterPatch,
     sanitizedEnv,

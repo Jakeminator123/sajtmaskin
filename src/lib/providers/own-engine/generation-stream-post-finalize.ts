@@ -202,6 +202,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
   // This replaces the old finalize-time `!hasPreviewBlockingPreflightErrors`
   // false-green, which claimed success before the runtime was ever attempted.
   let previewRuntimeOutcome: boolean | null = previewBlocked ? false : null;
+  let bootedFilesRevision: string | null = finalized.version.files_revision;
 
   // `done` confirms that version persistence/finalize finished. Live preview is a separate
   // post-done phase and only becomes canonical on `preview-ready` (or explicit GET status/routes).
@@ -353,6 +354,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
           previewPolicy: buildSpec.previewPolicy,
           verificationPolicy: buildSpec.verificationPolicy,
           versionIdForSession: finalized.version.id,
+          filesRevisionForSession: finalized.version.files_revision,
           // F3 previews must strip tier3-stub placeholders so missing real
           // env vars surface as a runtime failure instead of being silently
           // backfilled with `sk_test_...`-style stubs.
@@ -397,6 +399,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
       });
       if (previewSessionResult.ok) {
         const sr = previewSessionResult.result;
+        bootedFilesRevision = sr.filesRevision;
         // Only a confirmed runtime-ready receipt (resume-verified `running:true`)
         // counts as success. A freshly-created/updated session has only queued
         // the boot, so it stays pending (null) until confirmed elsewhere.
@@ -597,10 +600,13 @@ export async function runOwnEngineStreamPostFinalize(params: {
   // throws). Pending (null) is left as the finalize writer wrote it, so the row
   // honestly reads "unconfirmed" rather than a premature green.
   if (previewRuntimeOutcome !== null && dbConfigured) {
-    await recordPreviewRuntimeOutcomeForVersion(
-      finalized.version.id,
-      previewRuntimeOutcome,
-    );
+    if (bootedFilesRevision) {
+      await recordPreviewRuntimeOutcomeForVersion(finalized.version.id, previewRuntimeOutcome, {
+        bootedFilesRevision,
+      });
+    } else {
+      await recordPreviewRuntimeOutcomeForVersion(finalized.version.id, previewRuntimeOutcome);
+    }
   }
 
   const serverVerifyDecision = resolvePostFinalizeServerVerifyDecision({

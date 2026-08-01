@@ -40,6 +40,7 @@ describe("preview-session-store async + Redis", () => {
       previewSessionId: "ps-1",
       previewUrl: "https://preview.vercel.run",
       versionId: "ver-a",
+      filesRevision: "rev-a",
       now: 5_000,
     });
     resetPreviewSessionStoreForTests();
@@ -47,6 +48,7 @@ describe("preview-session-store async + Redis", () => {
     expect(entry).not.toBeNull();
     expect(entry?.previewSessionId).toBe("ps-1");
     expect(entry?.versionId).toBe("ver-a");
+    expect(entry?.filesRevision).toBe("rev-a");
   });
 
   it("clearPreviewSessionAsync removes Redis entry", async () => {
@@ -85,6 +87,7 @@ describe("preview-session-store async + Redis", () => {
       previewSessionId: "ps-write",
       previewUrl: "https://preview.example/c-write",
       versionId: "ver-write",
+      filesRevision: "rev-write",
       now: 1000,
     });
 
@@ -96,6 +99,7 @@ describe("preview-session-store async + Redis", () => {
       previewSessionId: "ps-write",
       previewUrl: "https://preview.example/c-write",
       versionId: "ver-write",
+      filesRevision: "rev-write",
     });
     expect(parsed.sandboxId).toBeUndefined();
     expect(parsed.sandboxUrl).toBeUndefined();

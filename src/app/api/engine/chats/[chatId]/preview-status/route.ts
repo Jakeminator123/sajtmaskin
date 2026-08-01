@@ -165,7 +165,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         if (verdict?.readinessState === "failed") {
           const failureDecision = decidePreviewReadinessOutcome(verdict);
           after(async () => {
-            await applyPreviewReadinessOutcome({ chatId, versionId, resumed: verdict });
+            await applyPreviewReadinessOutcome({
+              chatId,
+              versionId,
+              bootedFilesRevision: session.filesRevision,
+              resumed: verdict,
+            });
           });
           const body: PreviewStatusApiJson = {
             ok: true,
@@ -223,7 +228,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       // and its per-instance confirmed-cache makes repeat polls DB-free.
       const readinessDecision = decidePreviewReadinessOutcome(resumed);
       after(async () => {
-        await applyPreviewReadinessOutcome({ chatId, versionId, resumed });
+        await applyPreviewReadinessOutcome({
+          chatId,
+          versionId,
+          bootedFilesRevision: session.filesRevision,
+          resumed,
+        });
       });
 
       if (readinessDecision.previewSuccess === false) {

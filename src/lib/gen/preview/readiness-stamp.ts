@@ -76,6 +76,7 @@ export function decidePreviewReadinessOutcome(
 export async function applyPreviewReadinessOutcome(params: {
   chatId: string;
   versionId: string;
+  bootedFilesRevision?: string | null;
   resumed: Pick<
     PreviewHostStatusResult,
     "readinessState" | "readinessError" | "regeneratedLockfile" | "httpReady"
@@ -87,7 +88,14 @@ export async function applyPreviewReadinessOutcome(params: {
       "@/lib/db/services/generation-telemetry"
     );
     if (decision.previewSuccess !== null) {
-      await recordPreviewRuntimeOutcomeForVersion(params.versionId, decision.previewSuccess);
+      const revision = params.bootedFilesRevision?.trim() || null;
+      if (revision) {
+        await recordPreviewRuntimeOutcomeForVersion(params.versionId, decision.previewSuccess, {
+          bootedFilesRevision: revision,
+        });
+      } else {
+        await recordPreviewRuntimeOutcomeForVersion(params.versionId, decision.previewSuccess);
+      }
     }
     // Once-per-version failure log (Bugbot HIGH): heartbeat (~25s) and
     // preview-status (~15s) both poll and both re-stamp `failed` — but only a

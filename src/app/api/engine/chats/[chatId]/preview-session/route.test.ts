@@ -372,6 +372,7 @@ describe("POST preview-session (engine)", () => {
         startOutcome: "resumed",
         // Resume-verified: host /status reported running:true for this version.
         runtimeReady: true,
+        filesRevision: "revision-booted",
         tier2Meta: { tier2Provider: "preview_host" },
       },
     });
@@ -392,7 +393,9 @@ describe("POST preview-session (engine)", () => {
     expect(afterCallbacks.value.length).toBe(2);
     // …and stamps with the exact version binding when after() runs.
     await runAfterCallbacks();
-    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("ver_1", true);
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("ver_1", true, {
+      bootedFilesRevision: "revision-booted",
+    });
   });
 
   it("does NOT stamp preview_success for a freshly-queued (unconfirmed) boot", async () => {
@@ -447,4 +450,3 @@ describe("POST preview-session (engine)", () => {
     expect(updateVersionPreviewUrl).not.toHaveBeenCalled();
   });
 });
-
