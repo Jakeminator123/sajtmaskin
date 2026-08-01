@@ -1330,6 +1330,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 vm.setCurrentPreviewUrl(url);
               }}
               isLoading={isPreviewLoading}
+              isGenerating={isBusy}
               imageGenerationsEnabled={vm.enableImageGenerations}
               imageGenerationsSupported={vm.isImageGenerationsSupported}
               isBlobConfigured={vm.isMediaEnabled}

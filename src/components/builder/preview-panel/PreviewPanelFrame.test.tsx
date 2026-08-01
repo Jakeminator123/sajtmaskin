@@ -9,6 +9,7 @@ function renderFrame(props: Partial<React.ComponentProps<typeof PreviewPanelFram
     <PreviewPanelFrame
       isLoading={props.isLoading ?? true}
       externalLoading={props.externalLoading ?? false}
+      isGenerating={props.isGenerating ?? false}
       iframeError={props.iframeError ?? false}
       iframeErrorMessage={props.iframeErrorMessage ?? null}
       iframeDiagnosticCode={props.iframeDiagnosticCode ?? null}
@@ -93,15 +94,22 @@ describe("PreviewPanelFrame — N6/Del C: ärligt läge efter hard-capen", () =>
     }
   });
 
-  // `isLoading` är `externalLoading || iframeLoading` i PreviewPanel, så utan
-  // den här grinden dyker raden upp mitt i en pågående generering och erbjuder
-  // "Reparera" — ett klick som startar en ANDRA generering (`handleFixPreview`
-  // skickar en autofix-tur direkt), kostar diamonds och ger versionsrace.
-  it("erbjuder aldrig en ny reparation medan appen redan genererar", () => {
+  // Raden får aldrig erbjuda "Reparera" mitt i en generering — `handleFixPreview`
+  // skickar en autofix-tur direkt, alltså en ANDRA debiterad körning och ett
+  // versionsrace. Grinden måste vara `isGenerating`, INTE `externalLoading`:
+  // den senare slutar vara sann så fort en live tier-2-preview finns
+  // (`shouldBlockPreviewWithLoadingOverlay`), även medan codegen strömmar — så
+  // vid en follow-up på en chat som redan visar en preview är den falsk.
+  it("erbjuder aldrig en ny reparation medan appen genererar, ens med preview på skärmen", () => {
     vi.useFakeTimers();
     const onFixPreview = vi.fn();
     try {
-      renderFrame({ isLoading: true, externalLoading: true, onFixPreview });
+      renderFrame({
+        isLoading: true,
+        externalLoading: false,
+        isGenerating: true,
+        onFixPreview,
+      });
       act(() => vi.advanceTimersByTime(6_100));
 
       expect(screen.queryByText(SLOW_BOOT_TEXT)).toBeNull();
@@ -112,10 +120,22 @@ describe("PreviewPanelFrame — N6/Del C: ärligt läge efter hard-capen", () =>
     }
   });
 
+  it("håller raden borta även när den blockerande overlayen täcker previewn", () => {
+    vi.useFakeTimers();
+    try {
+      renderFrame({ isLoading: true, externalLoading: true });
+      act(() => vi.advanceTimersByTime(6_100));
+
+      expect(screen.queryByText(SLOW_BOOT_TEXT)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("visar raden när det bara är iframen som är trög", () => {
     vi.useFakeTimers();
     try {
-      renderFrame({ isLoading: true, externalLoading: false });
+      renderFrame({ isLoading: true, externalLoading: false, isGenerating: false });
       act(() => vi.advanceTimersByTime(6_100));
 
       expect(screen.getByText(SLOW_BOOT_TEXT)).toBeTruthy();

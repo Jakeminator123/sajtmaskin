@@ -9,13 +9,15 @@ import { VersionMismatchOverlay } from "./VersionMismatchOverlay";
 
 export interface PreviewPanelFrameProps {
   isLoading: boolean;
-  /**
-   * Sant när *appen* arbetar (skapar chat, streamar, väntar på preview) till
-   * skillnad från när bara iframen inte laddat klart. `isLoading` slår ihop
-   * båda, men slow-boot-raden nedan gäller enbart en trög VM-start — den får
-   * inte dyka upp mitt i en pågående generering och erbjuda en ny.
-   */
+  /** Sant när den blockerande overlayen täcker previewn (se `shouldBlockPreviewWithLoadingOverlay`). */
   externalLoading?: boolean;
+  /**
+   * Sant när appen arbetar med en generering. Slow-boot-raden nedan gäller
+   * enbart en trög VM-start och får inte erbjuda en ny generering mitt i en
+   * pågående. `externalLoading` duger INTE som grind: den slutar vara sann så
+   * fort en live tier-2-preview finns, även medan codegen fortfarande strömmar.
+   */
+  isGenerating?: boolean;
   iframeError: boolean;
   iframeErrorMessage: string | null;
   iframeDiagnosticCode: string | null;
@@ -71,6 +73,7 @@ const FOCUS_HINT_TIMEOUT_MS = 7_000;
 export function PreviewPanelFrame({
   isLoading,
   externalLoading = false,
+  isGenerating = false,
   iframeError,
   iframeErrorMessage,
   iframeDiagnosticCode,
@@ -117,10 +120,11 @@ export function PreviewPanelFrame({
   // icke-blockerande rad i stället för tystnad — se kommentaren vid
   // LOADING_OVERLAY_HARD_CAP_MS.
   //
-  // `!externalLoading` är inte kosmetik: pågår en generering är det inte VM:en
-  // som är trög, och raden skulle då erbjuda "Reparera" — ett klick som startar
-  // en ANDRA generering, kostar diamonds och ger versionsrace.
-  const showSlowBootNotice = isLoading && hardCapReached && !externalLoading;
+  // Grinden är inte kosmetik: pågår en generering är det inte VM:en som är
+  // trög, och raden skulle då erbjuda "Reparera" — ett klick som startar en
+  // ANDRA generering, kostar diamonds och ger versionsrace.
+  const showSlowBootNotice =
+    isLoading && hardCapReached && !externalLoading && !isGenerating;
 
   // Tangentbordsspel (t.ex. snake) lyssnar på `window` inne i iframen och får
   // aldrig piltangenter förrän iframen har fokus. Inget i buildern fokuserar
@@ -224,7 +228,7 @@ export function PreviewPanelFrame({
               <button
                 type="button"
                 onClick={onFixPreview}
-                disabled={externalLoading}
+                disabled={externalLoading || isGenerating}
                 className="shrink-0 underline underline-offset-2 hover:text-white disabled:pointer-events-none disabled:opacity-40"
               >
                 Reparera

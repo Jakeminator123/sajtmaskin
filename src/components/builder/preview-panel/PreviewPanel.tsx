@@ -186,6 +186,7 @@ export function PreviewPanel({
   previewUrl,
   onNavigatePreviewUrl,
   isLoading: externalLoading = false,
+  isGenerating = false,
   onFixPreview,
   versionlessAborted = false,
   onRestartGeneration,
@@ -1550,6 +1551,7 @@ export function PreviewPanel({
             <PreviewSurface
               isLoading={isLoading}
               externalLoading={externalLoading}
+              isGenerating={isGenerating}
               iframeError={iframeError}
               iframeErrorMessage={iframeErrorMessage}
               iframeDiagnosticCode={iframeDiagnosticCode}
