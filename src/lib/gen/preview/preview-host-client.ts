@@ -220,13 +220,19 @@ export async function fetchPreviewHostStatus(
     // see preview-host/src/server.js). Without checking it, a session pinned to
     // version X can resume "running" against a VM still serving an older build —
     // the builder then shows a stale/white iframe as if it were live for X. When
-    // the caller knows the expected version and the host reports a *different*
-    // one, treat the session as not resumable so the caller re-pins (re-create /
-    // update) instead of surfacing a stale preview. Only rejects when BOTH ids
-    // are known — older hosts that omit `versionId` keep the prior behaviour.
+    // the caller knows the expected version, the host must ECHO that exact
+    // version for the session to be resumable — otherwise the caller re-pins
+    // (re-create / update) instead of surfacing a stale preview.
+    //
+    // A MISSING `versionId` is refused too. The host always echoes the version
+    // its session is pinned to (`/status` in preview-host/src/server.js), so
+    // silence is not agreement — it is the absence of an answer, and resuming on
+    // it is the same false-green as resuming on a mismatch. Same fail-safe rule
+    // the host applies to `expectedBaseVersionId` on the patch route, where a
+    // session with no known version is refused with 409.
     const expectedVersionId = opts?.expectedVersionId?.trim();
     const hostVersionId = nonEmptyString(body.versionId);
-    if (expectedVersionId && hostVersionId && hostVersionId !== expectedVersionId) {
+    if (expectedVersionId && hostVersionId !== expectedVersionId) {
       return null;
     }
     // Readiness ≠ process liveness (req A5). The object is returned even when
@@ -292,11 +298,15 @@ export async function fetchPreviewHostReadinessVerdict(
     if (!res.ok) return null;
     const body = (await res.json()) as Record<string, unknown>;
     if (body.ok !== true) return null;
-    // Same version binding as the resume path: a verdict that belongs to a
-    // DIFFERENT version must never be attributed to the caller's version.
+    // Same version binding as the resume path, including the missing-echo case:
+    // a verdict is only usable if the host says WHICH version it describes. An
+    // unattributed verdict is worse than no verdict — stamping it would either
+    // mark preview_success for a version we never saw confirmed or fire
+    // RepairGate on another version's failure. Callers that pass no expectation
+    // still get the verdict verbatim (with `versionId: null`).
     const expectedVersionId = opts?.expectedVersionId?.trim();
     const hostVersionId = nonEmptyString(body.versionId);
-    if (expectedVersionId && hostVersionId && hostVersionId !== expectedVersionId) {
+    if (expectedVersionId && hostVersionId !== expectedVersionId) {
       return null;
     }
     return {
