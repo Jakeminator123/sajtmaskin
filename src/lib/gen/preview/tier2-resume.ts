@@ -1,4 +1,7 @@
-import { fetchPreviewHostStatus } from "./preview-host-client";
+import {
+  fetchPreviewHostStatus,
+  type PreviewHostStatusResult,
+} from "./preview-host-client";
 import type { PreviewSessionEntry } from "./session-store";
 
 /**
@@ -11,7 +14,7 @@ import type { PreviewSessionEntry } from "./session-store";
  */
 export async function tryResumeTier2Runtime(
   entry: PreviewSessionEntry,
-): Promise<{ previewSessionId: string; primaryUrl: string } | null> {
+): Promise<PreviewHostStatusResult | null> {
   return fetchPreviewHostStatus(entry.previewSessionId, {
     expectedVersionId: entry.versionId,
   });

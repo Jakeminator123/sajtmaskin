@@ -85,5 +85,12 @@ export const sendMessageSchema = z.object({
   thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
   designSystemId: z.string().optional(),
+  /**
+   * OpenClaw prepared-prompt fast lane: `"openclaw-prepared"` marks a
+   * follow-up whose message is EXACTLY what OpenClaw filled into the builder
+   * composer (client-tagged only when OC_EDIT is on). Loose string on purpose
+   * — an unknown value must fail open to the normal path, never 400.
+   */
+  promptSource: z.string().max(40).optional(),
   meta: promptMetaSchema.optional(),
 });

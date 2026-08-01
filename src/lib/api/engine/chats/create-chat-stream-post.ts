@@ -970,11 +970,18 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         // primary init/create path — the chat is created, credits already
         // passed the `prompt.create` gate above, and heavy codegen streaming is
         // about to start. Warm the preview host now so `npm install` overlaps
-        // LLM streaming. Fire-and-forget + self-gating (flag / tier-2 / dedup);
-        // never blocks or throws. Only the own-engine generation path reaches
-        // here (plan-mode and the contract-clarification gate return earlier and
-        // do not generate a site yet). See src/lib/gen/preview/preview-prewarm.ts.
-        void prewarmPreviewSession(engineChat.id, { leaseKey: prewarmLeaseKey });
+        // LLM streaming. Orchestration has already resolved above, so pass the
+        // selected scaffold id — the skeleton's `package.json` is built from
+        // that scaffold's own dependencies instead of the generic baseline
+        // (higher fingerprint-hit rate at finalize). Fire-and-forget +
+        // self-gating (flag / tier-2 / dedup); never blocks or throws. Only the
+        // own-engine generation path reaches here (plan-mode and the
+        // contract-clarification gate return earlier and do not generate a
+        // site yet). See src/lib/gen/preview/preview-prewarm.ts.
+        void prewarmPreviewSession(engineChat.id, {
+          leaseKey: prewarmLeaseKey,
+          scaffoldId: resolvedScaffold?.id ?? null,
+        });
         devLogAppend("in-progress", {
           type: "contracts.inferred",
           chatId: engineChat.id,

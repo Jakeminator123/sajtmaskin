@@ -12,6 +12,10 @@ import {
   writeChatGenerationSettings,
 } from "@/lib/builder/chat-generation-settings";
 import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
+import {
+  QUICK_EDIT_APPLIED_EVENT_NAME,
+  readQuickEditAppliedEventPayload,
+} from "@/lib/builder/quick-edit-applied-event";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
   canExposeEnginePreview,
@@ -513,13 +517,17 @@ export function useBuilderPageController() {
     previewBootstrapDoneKeysRef: vmPreview.previewBootstrapDoneKeysRef,
     setForcedPreviewRestartKey: vmPreview.setForcedPreviewRestartKey,
     setPreviewBootstrapRetryNonce: vmPreview.setPreviewBootstrapRetryNonce,
-    onRecoverFailed: ({ reason }) => {
+    onRecoverFailed: ({ reason, detail }) => {
       setPreviewBuildError({
-        stage: "preview-recover",
+        stage: reason === "build_error" ? "preview-build-error" : "preview-recover",
         message:
-          reason === "status_unavailable"
-            ? "Live-preview kunde inte verifieras mot servern efter flera försök."
-            : "Live-preview kunde inte återansluta efter flera försök.",
+          reason === "build_error"
+            ? detail?.trim()
+              ? `Live-preview stoppade på ett byggfel: ${detail.trim()}`
+              : "Live-preview stoppade på ett byggfel — koden kompilerar inte. En omstart hjälper inte; åtgärda felet."
+            : reason === "status_unavailable"
+              ? "Live-preview kunde inte verifieras mot servern efter flera försök."
+              : "Live-preview kunde inte återansluta efter flera försök.",
       });
       setPreviewPending(false);
     },
@@ -1809,6 +1817,22 @@ export function useBuilderPageController() {
       vmPreview,
     ],
   );
+
+  // OpenClaws apply_quick_edit-kort lever utanför builderns props-kedja och
+  // broar sitt Fast Edit Lane-resultat hit via window-event (samma mönster som
+  // sajtmaskin:auto-fix). Utan synken behåller buildern den ersatta basen och
+  // nästa snabbändring får stale_base_version (Bugbot 2026-08-01).
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const payload = readQuickEditAppliedEventPayload(event);
+      if (!payload || payload.chatId !== chatId) return;
+      handleFilesSaved(payload);
+    };
+    window.addEventListener(QUICK_EDIT_APPLIED_EVENT_NAME, handler as EventListener);
+    return () => {
+      window.removeEventListener(QUICK_EDIT_APPLIED_EVENT_NAME, handler as EventListener);
+    };
+  }, [chatId, handleFilesSaved]);
 
   // Auto-start generation for the packaged `kostnadsfri` handoff from the
   // landing page. `freeform` (fritext) deliberately does NOT auto-start

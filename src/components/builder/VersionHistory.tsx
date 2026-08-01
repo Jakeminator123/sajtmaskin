@@ -898,7 +898,13 @@ export function VersionHistory({
                             className:
                               "border-slate-500/40 bg-slate-500/10 text-slate-700 dark:text-slate-300",
                           }
-                        : null;
+                        : runtimeStatusForRow === "build_error"
+                          ? {
+                              label: "VM byggfel",
+                              className:
+                                "border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300",
+                            }
+                          : null;
             const lifecycleSummary = resolveVersionHistorySummary(
               lifecycleDisplay,
               version.verificationSummary,
@@ -988,7 +994,9 @@ export function VersionHistory({
                                     ? "Preview-VM startar — `npm install` + `next dev` kör i bakgrunden. Vanligtvis 30–90 s vid kall start."
                                     : runtimeStatusForRow === "stopped"
                                       ? "Preview-VM är stoppad. Starta en ny preview-session från knappraden för att återanvända versionen."
-                                      : "Preview-VM körs (Next.js dev-server svarar)."
+                                      : runtimeStatusForRow === "build_error"
+                                        ? "Preview-VM startade men sidan svarar med ett byggfel (Next.js build error / HTTP 500). En omstart hjälper inte — koden måste åtgärdas."
+                                        : "Preview-VM körs (Next.js dev-server svarar)."
                             }
                           >
                             {runtimeBadge.label}

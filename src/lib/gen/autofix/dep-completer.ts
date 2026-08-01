@@ -6,6 +6,87 @@ import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
 const PACKAGE_SOURCE_PATTERN = String.raw`((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))`;
 
 /**
+ * Stale-lockfile protocol (prod incident 2026-07-31, chat 0d52e5c9 → radix-ui).
+ *
+ * When we mutate `package.json` (pin a missing dependency) while a lockfile
+ * exists, the lockfile is now inaccurate. The preview host must run its package
+ * manager WITHOUT `--frozen-lockfile` once (otherwise `pnpm install
+ * --frozen-lockfile` against warm `node_modules` answers "Already up to date",
+ * exit 0, installs nothing, and the new dependency fingerprint is stamped →
+ * runtime shows a Next build-error overlay forever). We signal that by writing
+ * this sentinel into the project files; the host reads it, runs one non-frozen
+ * install, regenerates the lockfile, and returns it so it can be persisted back
+ * into `engine_versions.files_json` (clearing this marker in the same write).
+ *
+ * This is NOT "delete the lockfile as a general fix" — the lockfile is kept and
+ * regenerated; only the frozen mode is skipped for exactly one install.
+ *
+ * The path + JSON shape are a cross-process contract with
+ * `preview-host/src/runtime.js` (`LOCKFILE_STALE_MARKER_PATH`,
+ * `readStaleLockfileMarker`). Keep both sides in sync.
+ */
+export const LOCKFILE_STALE_MARKER_PATH = ".sajtmaskin/lockfile-stale.json";
+
+export type LockfilePackageManager = "pnpm" | "yarn" | "npm";
+
+/**
+ * Detect which package manager's lockfile the file set carries, or null when
+ * there is no lockfile (nothing to mark stale — a fresh `install` regenerates
+ * from scratch anyway).
+ */
+export function detectLockfilePackageManager<T extends { path: string }>(
+  files: readonly T[],
+): LockfilePackageManager | null {
+  const paths = new Set(files.map((f) => f.path.replace(/\\/g, "/")));
+  if (paths.has("pnpm-lock.yaml") || paths.has("pnpm-lock.yml")) return "pnpm";
+  if (paths.has("yarn.lock")) return "yarn";
+  if (paths.has("package-lock.json")) return "npm";
+  return null;
+}
+
+/** Build the stale-lockfile sentinel JSON body (host-readable shape). */
+export function buildStaleLockfileMarkerContent(params: {
+  reason: string;
+  packageManager: LockfilePackageManager;
+  mutatedAt?: string;
+}): string {
+  return JSON.stringify(
+    {
+      reason: params.reason,
+      packageManager: params.packageManager,
+      mutatedAt: params.mutatedAt ?? new Date().toISOString(),
+    },
+    null,
+    2,
+  );
+}
+
+/**
+ * Add (or replace) the stale-lockfile sentinel in a file set. Returns a new
+ * array; the original is not mutated. Callers only invoke this when they both
+ * mutated `package.json` AND a lockfile is present (see
+ * {@link detectLockfilePackageManager}).
+ */
+export function markLockfileStaleInFiles<T extends { path: string; content: string }>(
+  files: readonly T[],
+  params: { reason: string; packageManager: LockfilePackageManager; makeFile: (path: string, content: string) => T },
+): T[] {
+  const content = buildStaleLockfileMarkerContent({
+    reason: params.reason,
+    packageManager: params.packageManager,
+  });
+  const idx = files.findIndex(
+    (f) => f.path.replace(/\\/g, "/") === LOCKFILE_STALE_MARKER_PATH,
+  );
+  if (idx >= 0) {
+    const next = [...files];
+    next[idx] = params.makeFile(LOCKFILE_STALE_MARKER_PATH, content);
+    return next;
+  }
+  return [...files, params.makeFile(LOCKFILE_STALE_MARKER_PATH, content)];
+}
+
+/**
  * Static dependency sources in generated code. Supports:
  * - `import x from "pkg"`
  * - `import "pkg/styles.css"`

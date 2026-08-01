@@ -10,9 +10,10 @@ import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-teleme
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
 import {
-  recordPreviewRuntimeOutcomeForVersion,
-  shouldVerifyPreviewRuntimeReceipt,
-} from "@/lib/db/services/generation-telemetry";
+  fetchPreviewHostReadinessVerdict,
+} from "@/lib/gen/preview/preview-host-client";
+import { shouldVerifyPreviewRuntimeReceipt } from "@/lib/db/services/generation-telemetry";
+import { applyPreviewReadinessOutcome } from "@/lib/gen/preview/readiness-stamp";
 import type { PreviewHeartbeatApiJson } from "@/lib/gen/preview/preview-contract";
 
 const bodySchema = z.object({
@@ -108,8 +109,24 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         try {
           if (!(await shouldVerifyPreviewRuntimeReceipt(versionId))) return;
           const resumed = await tryResumeTier2Runtime(session);
+          // Readiness ≠ liveness (req A5): only stamp `preview_success` from the
+          // host `readinessState` verdict (ready → true, failed → false + log a
+          // build-error row for RepairGate, starting → no stamp). Version
+          // binding is exact — the session↔versionId equality check above
+          // already returned `session_mismatch` otherwise.
           if (resumed) {
-            await recordPreviewRuntimeOutcomeForVersion(versionId, true);
+            await applyPreviewReadinessOutcome({ chatId, versionId, resumed });
+            return;
+          }
+          // `null` also covers "the process never started" — where the host
+          // still holds a `failed` readiness verdict. Without this the only
+          // surface that ever stamps that failure is a /preview-status poll
+          // the builder may not make. Same version binding as above.
+          const verdict = await fetchPreviewHostReadinessVerdict(session.previewSessionId, {
+            expectedVersionId: versionId,
+          });
+          if (verdict?.readinessState === "failed") {
+            await applyPreviewReadinessOutcome({ chatId, versionId, resumed: verdict });
           }
         } catch {
           // Best-effort: a failed receipt check must never surface —

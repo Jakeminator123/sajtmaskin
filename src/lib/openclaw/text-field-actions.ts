@@ -1,3 +1,8 @@
+import {
+  parseOpenClawApplyQuickEditAction,
+  type OpenClawApplyQuickEditAction,
+} from "./quick-edit-action";
+
 const OPENCLAW_ACTION_CLOSE_TAG = "</openclaw-action>";
 const OPENCLAW_TEXT_FIELD_SELECTOR = "[data-openclaw-text-target]";
 const OPENCLAW_SEND_TARGET_SELECTOR = "[data-openclaw-send-target]";
@@ -59,7 +64,8 @@ export interface OpenClawStartBugHuntAction {
 export type OpenClawAction =
   | OpenClawFillTextFieldAction
   | OpenClawRequestRepairAction
-  | OpenClawStartBugHuntAction;
+  | OpenClawStartBugHuntAction
+  | OpenClawApplyQuickEditAction;
 
 export interface ParsedOpenClawMessage {
   visibleContent: string;
@@ -211,6 +217,7 @@ function parseOpenClawAction(value: unknown): OpenClawAction | null {
   if (type === "fill_text_field") return parseOpenClawFillTextFieldAction(value);
   if (type === "request_repair") return parseOpenClawRequestRepairAction(value);
   if (type === "start_bug_hunt") return parseOpenClawStartBugHuntAction(value);
+  if (type === "apply_quick_edit") return parseOpenClawApplyQuickEditAction(value);
   return null;
 }
 

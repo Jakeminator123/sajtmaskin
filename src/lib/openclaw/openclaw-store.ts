@@ -1,11 +1,16 @@
 import { create } from "zustand";
 import type { ArmedMandate } from "@/lib/openclaw/debug/armed-mandate";
+import type { OpenClawPreparedFill } from "@/lib/openclaw/prepared-prompt";
 
 export interface OpenClawMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  /** Builder-mål (chatt + version) som var aktivt när turen SKICKADES — dvs.
+   * den kontext modellen faktiskt såg. Quick-edit-kortet binder sina ops hit
+   * så ett förslag aldrig tyst appliceras mot en annan version (Bugbot). */
+  builderTarget?: { chatId: string; versionId: string } | null;
 }
 
 interface OpenClawState {
@@ -22,6 +27,12 @@ interface OpenClawState {
   editEnabled: boolean;
   /** Active "armed autonomy" mandate (Mode A), or null when OpenClaw is passive. */
   armedMandate: ArmedMandate | null;
+  /** Last successful OpenClaw `fill_text_field` against the builder composer.
+   * Recorded only when `editEnabled` is true; the composer compares it against
+   * the outgoing message to tag unedited sends as `openclaw-prepared` (see
+   * `prepared-prompt.ts`). Cleared on scope change and after the draft that
+   * carried it is sent. */
+  preparedFill: OpenClawPreparedFill | null;
 
   toggle: () => void;
   open: () => void;
@@ -35,6 +46,7 @@ interface OpenClawState {
   setDebugEnabled: (v: boolean) => void;
   setEditEnabled: (v: boolean) => void;
   setArmedMandate: (mandate: ArmedMandate | null) => void;
+  setPreparedFill: (fill: OpenClawPreparedFill | null) => void;
 }
 
 export const useOpenClawStore = create<OpenClawState>()((set) => ({
@@ -46,6 +58,7 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   debugEnabled: false,
   editEnabled: false,
   armedMandate: null,
+  preparedFill: null,
 
   toggle: () => set((s) => ({ isOpen: !s.isOpen })),
   open: () => set({ isOpen: true }),
@@ -62,6 +75,8 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
             // A mandate is scoped to one builder context — drop it on scope change
             // so autonomy never leaks across chats/sites.
             armedMandate: null,
+            // Same scoping: a prepared fill belongs to one composer context.
+            preparedFill: null,
           },
     ),
 
@@ -80,4 +95,5 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   setDebugEnabled: (v) => set({ debugEnabled: v }),
   setEditEnabled: (v) => set({ editEnabled: v }),
   setArmedMandate: (mandate) => set({ armedMandate: mandate }),
+  setPreparedFill: (fill) => set({ preparedFill: fill }),
 }));

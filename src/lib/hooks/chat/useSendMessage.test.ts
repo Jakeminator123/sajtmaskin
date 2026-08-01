@@ -305,6 +305,42 @@ describe("useSendMessage 5-2 stale-base gate (client half)", () => {
     expect(meta.engineLatestKnownVersionId).toBeUndefined();
   });
 
+  // OpenClaw prepared-prompt fast lane: the composer-resolved tag must reach
+  // the follow-up stream request body as a TOP-LEVEL `promptSource` field
+  // (not meta — the prompt-log meta already has a different promptSource key).
+  it("forwards options.promptSource as a top-level body field", async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+
+    const { result } = createHarness();
+
+    await send(result, "Mål:\n- Ny hero\n- Mörkt tema", {
+      promptSource: "openclaw-prepared",
+    });
+
+    expect(capturedBody?.promptSource).toBe("openclaw-prepared");
+    const meta = (capturedBody?.meta ?? {}) as Record<string, unknown>;
+    expect(meta.promptSource).toBeUndefined();
+  });
+
+  it("omits the promptSource body field when the option is not set", async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(null, { status: 200 });
+    });
+    handleSseStream.mockResolvedValue(undefined);
+
+    const { result } = createHarness();
+
+    await send(result, "Uppdatera CTA-knappen");
+
+    expect(capturedBody).not.toBeNull();
+    expect("promptSource" in (capturedBody ?? {})).toBe(false);
+  });
+
   // C2 (empty-output tool feedback fix): verifies the UI→server leg of the
   // "Bygg integrationer" chain — `BuilderShellContent.onF3Ready` calls
   // `sendMessage(..., { lifecycleStageOverride: "integrations", ... })`, and

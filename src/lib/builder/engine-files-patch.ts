@@ -106,8 +106,11 @@ export type PatchEngineChatFileResult =
  * returns the optimistic-concurrency 409 as the bare token
  * `stale_base_version` (no readable sentence); every other decline already
  * carries a human-readable `error` from the quick-edit engine.
+ *
+ * Exported so other quick-edit callers (OpenClaws `apply_quick_edit`-kort)
+ * shares exactly one Swedish translation of the hard failure tokens.
  */
-function describeQuickEditHardError(result: { error: string; reason?: string }): string {
+export function describeQuickEditHardError(result: { error: string; reason?: string }): string {
   if (result.error === "stale_base_version") {
     return "En nyare version finns redan. Ladda om för att fortsätta från den senaste versionen.";
   }

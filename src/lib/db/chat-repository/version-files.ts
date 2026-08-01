@@ -28,6 +28,17 @@ export async function updateVersionFiles(
      */
     invalidateVerification?: boolean;
     /**
+     * Keep the cached tier-2 `previewUrl` instead of nulling it. Default `false`
+     * so every existing caller keeps the P19 invalidation (a file mutation must
+     * boot a fresh VM rather than reuse the stale URL). Set `true` ONLY for a
+     * write that changes `files_json` WITHOUT changing what the running VM
+     * serves — e.g. the one-shot stale-lockfile reconcile
+     * ({@link persistRegeneratedLockfileForVersion}), which just records the
+     * lockfile the host already installed. Nulling the URL there would desync
+     * the builder from a live session that is still valid (Bugbot HIGH).
+     */
+    preservePreviewUrl?: boolean;
+    /**
      * Set by a verify/repair caller that OWNS the active version lease (the
      * `runId` returned by {@link acquireVersionLease}). The write is then bound
      * — atomically, in the UPDATE's WHERE — to this run still holding the
@@ -47,6 +58,19 @@ export async function updateVersionFiles(
      * `files_json` writer has the escape hatch instead of being fail-closed.
      */
     holderRunId?: string;
+    /**
+     * The EXACT `files_json` string this write was computed from. When set, the
+     * UPDATE is bound — in the same statement — to `files_json` still equalling
+     * it, so a concurrent writer that advanced the row in the meantime is never
+     * silently overwritten; the UPDATE simply matches no row and returns
+     * `false`.
+     *
+     * Required for read-modify-write callers such as
+     * `persistRegeneratedLockfileForVersion`, which reads the file list, edits
+     * two entries and writes the whole array back: without the guard a repair or
+     * user edit landing in that window is lost wholesale.
+     */
+    expectedFilesJson?: string;
   },
 ): Promise<boolean> {
   const baseValues = {
@@ -56,7 +80,11 @@ export async function updateVersionFiles(
     // short-circuiting to `startOutcome: "reused_url"` and showing the
     // previous snapshot. Without this, file mutations via /files were
     // silently masked by the stale URL (P19 ingress point 1).
-    previewUrl: null,
+    //
+    // `preservePreviewUrl` opts out for writes that DON'T change what the VM
+    // serves (stale-lockfile reconcile): keep the URL so a live session stays
+    // bound (Bugbot HIGH).
+    ...(options?.preservePreviewUrl ? {} : { previewUrl: null }),
     repairedFilesJson: null,
     repairAvailableAt: null,
   };
@@ -130,7 +158,7 @@ export async function updateVersionFiles(
       jobsExist = true;
     }
   }
-  const where = holderRunId
+  const leaseWhere = holderRunId
     ? versionWriteWhere(versionId, holderRunId)
     : jobsExist
       ? and(
@@ -138,6 +166,12 @@ export async function updateVersionFiles(
           sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`,
         )
       : eq(engineVersions.id, versionId);
+  // Compare-and-swap on the caller's base snapshot (same idiom as
+  // `saveRepairedFiles`): atomic with the write, no extra column, no migration.
+  const where =
+    options?.expectedFilesJson != null
+      ? and(leaseWhere, sql`${engineVersions.filesJson} = ${options.expectedFilesJson}`)
+      : leaseWhere;
 
   const lockTimeoutMs = options?.lockTimeoutMs;
   if (typeof lockTimeoutMs === "number" && Number.isFinite(lockTimeoutMs) && lockTimeoutMs > 0) {
