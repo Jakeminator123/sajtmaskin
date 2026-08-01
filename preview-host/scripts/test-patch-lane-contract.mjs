@@ -34,7 +34,10 @@ process.env.PREVIEW_BASE_URL = "http://127.0.0.1:0000";
 const runtime = require("../src/runtime.js");
 const queuedBoots = [];
 runtime.queueRuntimeBoot = (chatId, options = {}) => queuedBoots.push({ chatId, options });
-runtime.applyRuntimePatch = () => ({ mode: "patched", reason: null });
+// server.js destructures applyRuntimePatch at require time, so the stub reads a
+// mutable outcome instead of being reassigned mid-run.
+let nextPatchOutcome = { mode: "patched", reason: null };
+runtime.applyRuntimePatch = () => nextPatchOutcome;
 const { createServer } = require("../src/server.js");
 const server = createServer();
 server.listen(0, "127.0.0.1");
@@ -130,6 +133,61 @@ try {
   assert.equal(afterPatch.body.fileCount, 2);
   assert.equal(afterPatch.body.files["app/page.tsx"], sha256(PAGE_V2));
   assert.equal(afterPatch.body.files["app/about/page.tsx"], undefined);
+
+  // Version binding (b): a /status poll after the patch must report the NEW
+  // version, otherwise the app's version-pinned resume would refuse a session
+  // that is in fact serving the patched revision.
+  const statusAfterPatch = await request(
+    `/preview/session/${encodeURIComponent(previewSessionId)}/status`,
+  );
+  assert.equal(statusAfterPatch.status, 200);
+  assert.equal(statusAfterPatch.body.versionId, "ver_2");
+  assert.equal(statusAfterPatch.body.running, true);
+
+  // Version binding (a): a patch that fails mid-way must never leave the host
+  // claiming the new version. The session rolls back to its pre-patch snapshot
+  // so /status, the manifest and a later resume all still say ver_2 — a
+  // half-applied revision can never approve ver_3.
+  nextPatchOutcome = { mode: "error", reason: "ENOSPC simulated" };
+  const failedPatch = await request("/preview/session/patch", {
+    previewSessionId,
+    versionId: "ver_3",
+    expectedBaseVersionId: "ver_2",
+    files: { "app/nyhet/page.tsx": "export default function N(){return <main>N</main>;}" },
+  });
+  assert.equal(failedPatch.status, 500);
+  assert.equal(failedPatch.body.error, "patch_failed");
+  nextPatchOutcome = { mode: "patched", reason: null };
+
+  const afterFailure = await manifestFor(previewSessionId);
+  assert.equal(afterFailure.body.versionId, "ver_2", "failed patch must not claim ver_3");
+  assert.equal(afterFailure.body.files["app/nyhet/page.tsx"], undefined);
+  assert.equal(afterFailure.body.fileCount, 2);
+  const statusAfterFailure = await request(
+    `/preview/session/${encodeURIComponent(previewSessionId)}/status`,
+  );
+  assert.equal(statusAfterFailure.body.versionId, "ver_2");
+  // And the rolled-back base is still the only base a patch may build on.
+  const patchOnRolledBackBase = await request("/preview/session/patch", {
+    previewSessionId,
+    versionId: "ver_4",
+    expectedBaseVersionId: "ver_3",
+    files: { "app/page.tsx": PAGE_V2 },
+  });
+  assert.equal(patchOnRolledBackBase.status, 409);
+  assert.equal(patchOnRolledBackBase.body.error, "base_mismatch");
+  assert.equal((await manifestFor(previewSessionId)).body.versionId, "ver_2");
+
+  // A stored entry that is not a string still gets listed, with a marker that
+  // can never equal a sha256 digest — the app must then rewrite or remove that
+  // path rather than treat a missing entry as "not on the host".
+  const store = require("../src/store.js");
+  const storeData = store.readStoreSync();
+  storeData.sessions[started.body.sessionId].filesJson["public/logo.bin"] = 42;
+  store.writeStoreAtomicSync(storeData);
+  const withUnhashable = await manifestFor(previewSessionId);
+  assert.equal(withUnhashable.body.files["public/logo.bin"], "unhashable");
+  assert.doesNotMatch(withUnhashable.body.files["public/logo.bin"], /^[0-9a-f]{64}$/);
 
   runtime.__testing.clearRuntimeStateForTesting("chat-manifest", started.body.sessionId);
 

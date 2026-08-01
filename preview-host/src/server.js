@@ -160,6 +160,14 @@ function getPreviewFilesManifestSessionId(pathname) {
 }
 
 /**
+ * Sentinel for a stored entry that cannot be hashed (validation only ever
+ * stores strings, so this is defensive). It is deliberately not a sha256 hex
+ * digest: the app can never mistake it for "unchanged", so such a path is
+ * always rewritten or removed by the patch instead of silently kept.
+ */
+const UNHASHABLE_FILE_MARKER = "unhashable";
+
+/**
  * Content-hash manifest of the file set the host currently holds for a session
  * (`session.filesJson` — the same set a boot writes into the workspace).
  *
@@ -173,8 +181,10 @@ function buildSessionFilesManifest(session) {
   const source =
     session.filesJson && typeof session.filesJson === "object" ? session.filesJson : {};
   for (const [relPath, content] of Object.entries(source)) {
-    if (typeof content !== "string") continue;
-    files[relPath] = createHash("sha256").update(content, "utf8").digest("hex");
+    files[relPath] =
+      typeof content === "string"
+        ? createHash("sha256").update(content, "utf8").digest("hex")
+        : UNHASHABLE_FILE_MARKER;
   }
   return files;
 }
