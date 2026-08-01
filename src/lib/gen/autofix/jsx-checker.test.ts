@@ -1,5 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { runJsxChecker } from "./jsx-checker";
+import type { CodeFile } from "@/lib/gen/parser";
+import { runJsxChecker, type JsxCheckerProjectExports } from "./jsx-checker";
+import {
+  buildProjectDefaultExportIndex,
+  buildProjectExportIndex,
+} from "./common-import-fixer";
+import { checkCrossFileImports } from "./rules/cross-file-import-checker";
+import { runAutoFix } from "./pipeline";
+
+/** Same indexes the autofix pipeline threads into the checker. */
+function projectExportsFor(
+  files: Array<Pick<CodeFile, "path" | "content">>,
+): JsxCheckerProjectExports {
+  const codeFiles: CodeFile[] = files.map((file) => ({
+    language: "tsx",
+    ...file,
+  }));
+  return {
+    exportIndex: buildProjectExportIndex(codeFiles),
+    defaultExportsByName: buildProjectDefaultExportIndex(codeFiles),
+  };
+}
 
 describe("runJsxChecker", () => {
   it("does not add lucide Group when Group is imported via import type from three", () => {
@@ -517,15 +538,123 @@ export default function Page<T>() {
     );
   });
 
-  it("still inserts a generated import for a real self-closing JSX component (regression)", () => {
+  // M#gs1: the checker used to fabricate `@/components/<kebab>` for every
+  // unresolved PascalCase tag. `cross-file-import-checker` then materialised a
+  // placeholder module for the made-up path, so the build went green while the
+  // component rendered nothing. An import is now only generated when exactly
+  // one own project file exports the name.
+  it("imports a real self-closing JSX component from its unique DEFAULT export", () => {
+    const code = `
+export default function Page() {
+  return <MyWidget className="p-4" />;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(
+      code,
+      "app/page.tsx",
+      projectExportsFor([
+        {
+          path: "components/my-widget.tsx",
+          content: "export default function MyWidget() {\n  return <div />;\n}\n",
+        },
+      ]),
+    );
+    expect(out).toContain('import MyWidget from "@/components/my-widget"');
+    expect(fixes.some((f) => f.description?.includes("<MyWidget>"))).toBe(true);
+  });
+
+  it("imports a JSX component from its unique NAMED export", () => {
+    const code = `
+export default function Page() {
+  return <Reveal>hej</Reveal>;
+}
+`.trim();
+    const { code: out, fixes } = runJsxChecker(
+      code,
+      "app/page.tsx",
+      projectExportsFor([
+        {
+          path: "components/reveal.tsx",
+          content: "export function Reveal() {\n  return <div />;\n}\n",
+        },
+      ]),
+    );
+    expect(out).toContain('import { Reveal } from "@/components/reveal"');
+    expect(fixes.some((f) => f.description?.includes("<Reveal>"))).toBe(true);
+  });
+
+  it("adds no import for an unknown symbol and leaves nothing for the stub creator", () => {
+    const page = `
+export default function Page() {
+  return <MyWidget className="p-4" />;
+}
+`.trim();
+    const projectFiles: CodeFile[] = [
+      {
+        path: "components/other-widget.tsx",
+        content: "export default function OtherWidget() {\n  return <div />;\n}\n",
+        language: "tsx",
+      },
+    ];
+    const { code: out, fixes, warnings } = runJsxChecker(
+      page,
+      "app/page.tsx",
+      projectExportsFor(projectFiles),
+    );
+
+    expect(out).not.toMatch(/@\/components\/my-widget/);
+    expect(fixes.some((f) => f.description?.includes("<MyWidget>"))).toBe(false);
+    expect(
+      warnings.some((w) => w.includes("Left <MyWidget> unimported")),
+    ).toBe(true);
+
+    // The honest error survives to the verifier: with no fabricated import
+    // path, cross-file-import-checker has nothing to stub.
+    const result = checkCrossFileImports([
+      ...projectFiles,
+      { path: "app/page.tsx", content: out, language: "tsx" },
+    ]);
+    expect(result.files.some((f) => f.path === "components/my-widget.tsx")).toBe(
+      false,
+    );
+    expect(result.fixes).toHaveLength(0);
+  });
+
+  it("adds no import for an AMBIGUOUS symbol exported by two project files", () => {
+    const code = `
+export default function Page() {
+  return <Reveal>hej</Reveal>;
+}
+`.trim();
+    const { code: out, warnings } = runJsxChecker(
+      code,
+      "app/page.tsx",
+      projectExportsFor([
+        {
+          path: "components/reveal.tsx",
+          content: "export function Reveal() {\n  return <div />;\n}\n",
+        },
+        {
+          path: "components/fx/reveal.tsx",
+          content: "export function Reveal() {\n  return <span />;\n}\n",
+        },
+      ]),
+    );
+    expect(out).not.toMatch(/@\/components\/(fx\/)?reveal/);
+    expect(warnings.some((w) => w.includes("Left <Reveal> unimported"))).toBe(
+      true,
+    );
+  });
+
+  it("adds no component import when the pipeline passes no export index", () => {
     const code = `
 export default function Page() {
   return <MyWidget className="p-4" />;
 }
 `.trim();
     const { code: out, fixes } = runJsxChecker(code, "app/page.tsx");
-    expect(out).toContain('import MyWidget from "@/components/my-widget"');
-    expect(fixes.some((f) => f.description?.includes("<MyWidget>"))).toBe(true);
+    expect(out).not.toMatch(/@\/components\/my-widget/);
+    expect(fixes.some((f) => f.description?.includes("<MyWidget>"))).toBe(false);
   });
 
   it("still reports (and preview-blocks) a genuine tag mismatch in an R3F-critical file", () => {
@@ -551,6 +680,39 @@ export default function Retro3dScene() {
       warnings.some((w) =>
         w.includes("preview-blocking: Tag mismatch for <Group>"),
       ),
+    ).toBe(true);
+  });
+});
+
+/**
+ * The unique-match rule only holds in prod if `runAutoFix` actually threads the
+ * project's export indexes into the checker, so pin the wiring end to end.
+ */
+describe("runAutoFix — jsx-checker component imports", () => {
+  function fence(path: string, content: string): string {
+    return "```tsx file=\"" + path + "\"\n" + content + "\n```";
+  }
+
+  it("imports the uniquely exported component and leaves the unknown one alone", async () => {
+    const content = [
+      fence(
+        "components/hero-banner.tsx",
+        "export default function HeroBanner() {\n  return <div>hero</div>;\n}",
+      ),
+      fence(
+        "app/page.tsx",
+        "export default function Page() {\n  return (\n    <main>\n      <HeroBanner />\n      <GhostWidget />\n    </main>\n  );\n}",
+      ),
+    ].join("\n\n");
+
+    const result = await runAutoFix(content);
+
+    expect(result.fixedContent).toContain(
+      'import HeroBanner from "@/components/hero-banner"',
+    );
+    expect(result.fixedContent).not.toMatch(/@\/components\/ghost-widget/);
+    expect(
+      result.warnings.some((w) => w.includes("Left <GhostWidget> unimported")),
     ).toBe(true);
   });
 });

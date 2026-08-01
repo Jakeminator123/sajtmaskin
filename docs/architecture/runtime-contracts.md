@@ -169,8 +169,8 @@ nollställs när instansen återvinns — de duger för spot-koll, aldrig för
 
 | Lager | Durabel signal |
 |---|---|
-| Normalize, per fixer | `generation_telemetry.meta->'autofix'->'fixers'` — `{fixer, category, count, files}` per version |
-| Normalize, aggregat | `generation_telemetry.autofix_applied`, `meta.autofix.fixCount`, `safeFixCount`/`riskyFixCount`/`riskyFixerIds` |
+| Normalize + post_merge, per fixer | `generation_telemetry.meta->'autofix'->'fixers'` — `{fixer, category, lane, count, files}` per version (post_merge-lanen inkluderad sedan 2026-08-01; tidigare bara devLog) |
+| Normalize, aggregat | `generation_telemetry.autofix_applied`, `meta.autofix.fixCount`, `safeFixCount`/`riskyFixCount`/`riskyFixerIds` (Normalize-lanen enbart) |
 | RepairGate (syntax) | `generation_telemetry.syntax_fixer_used` |
 | RepairGate (verifier / repair-loop) | `error_log_events.fixer` + `.result` (`fixed` / `still-failing` / `noop`) |
 | Verifier-fynd | `engine_version_error_logs` category `quality-gate:verifier-blocking` |

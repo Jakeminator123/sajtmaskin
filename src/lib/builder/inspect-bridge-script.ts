@@ -254,7 +254,15 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
       for (var i = 0; i < els.length; i++) payload.push(describe(els[i]));
       markElements(els);
       tracked = null;
-      post(T.region, { rect: b, elements: payload, viewport: { w: window.innerWidth, h: window.innerHeight } });
+      // Rektangeln är i VIEWPORT-koordinater. Skicka med sidans scroll-läge:
+      // den som sedan ska fotografera ytan laddar sidan på nytt vid scroll 0
+      // och måste rulla tillbaka hit, annars beskär den fel del av dokumentet.
+      post(T.region, {
+        rect: b,
+        elements: payload,
+        viewport: { w: window.innerWidth, h: window.innerHeight },
+        scroll: { x: Math.round(window.scrollX), y: Math.round(window.scrollY) }
+      });
       // Mouseup följs av ett click-event — utan spärren skulle rektangeln
       // också plocka ett enskilt element och öppna elementmenyn.
       suppressClick = true;

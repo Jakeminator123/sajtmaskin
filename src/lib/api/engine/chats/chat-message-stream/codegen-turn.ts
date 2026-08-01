@@ -339,17 +339,6 @@ export async function runCodegenTurn(params: {
     buildIntent: engineIntent,
     context: preGenerationContracts,
   });
-  // Imported-repo chats never persist a scaffold id — the repo is the
-  // project, and a pinned scaffold would poison every later follow-up.
-  if (
-    resolvedScaffold &&
-    !importedRepoMode &&
-    (!persistedScaffoldId || ignorePersistedScaffoldForMatch)
-  ) {
-    try {
-      await chatRepo.updateChatScaffoldId(chatId, resolvedScaffold.id);
-    } catch { /* best-effort persist */ }
-  }
   devLogAppend("in-progress", {
     type: "contracts.inferred",
     chatId,
@@ -478,6 +467,20 @@ export async function runCodegenTurn(params: {
       }),
       { headers: createSSEHeaders() },
     ));
+  }
+  // Persisted only AFTER the contract gate let the round through: a gate-only
+  // exit matched on an INCOMPLETE prompt, and pinning that match would make
+  // the next turn treat it as `persistedScaffoldId` and skip the rematch.
+  // Imported-repo chats never persist a scaffold id — the repo is the
+  // project, and a pinned scaffold would poison every later follow-up.
+  if (
+    resolvedScaffold &&
+    !importedRepoMode &&
+    (!persistedScaffoldId || ignorePersistedScaffoldForMatch)
+  ) {
+    try {
+      await chatRepo.updateChatScaffoldId(chatId, resolvedScaffold.id);
+    } catch { /* best-effort persist */ }
   }
   const finalizePromptStartedAt = Date.now();
   const finalized = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);

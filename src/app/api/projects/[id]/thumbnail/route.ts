@@ -20,7 +20,10 @@ import {
   setProjectThumbnail,
 } from "@/lib/db/services/projects";
 import { deleteCache } from "@/lib/data/redis";
-import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
+import {
+  assertPreviewUrlAllowed,
+  isAllowedCaptureUrl,
+} from "@/lib/capture/preview-allowlist";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rateLimit";
 import { deleteBlob, uploadBlob } from "@/lib/vercel/blob-service";
@@ -57,85 +60,6 @@ function ownerCacheSegments(userId: string | null, sessionId: string | null): st
     sessionId ? `session:${sessionId}` : null,
   ].filter((value): value is string => Boolean(value));
   return segments.length > 0 ? Array.from(new Set(segments)) : ["anonymous"];
-}
-
-function normalizePathPrefix(pathname: string): string {
-  if (!pathname || pathname === "/") return "/";
-  return pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
-}
-
-function pathIsUnderPrefix(pathname: string, prefix: string): boolean {
-  if (prefix === "/") return true;
-  return pathname === prefix || pathname.startsWith(`${prefix}/`);
-}
-
-function normalizeHostname(hostname: string): string {
-  return hostname.trim().toLowerCase().replace(/^\./, "").replace(/\.$/, "");
-}
-
-/**
- * Extra allowlist entries are matched as EXACT hostnames, never as suffixes.
- * The env var is a suffix list for client-side iframe detection, but a suffix
- * like the documented "fly.dev" covers every public *.fly.dev app — an
- * attacker-controlled Fly app would pass a suffix match and reach the
- * server-side Chromium capture (Codex P1 on PR #435). Operators running
- * multiple preview hosts must list each exact hostname.
- */
-function configuredThumbnailAllowlistHosts(): string[] {
-  const raw = process.env.NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES?.trim();
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((entry) => normalizeHostname(entry))
-    .filter(Boolean);
-}
-
-type PreviewAllowlistDecision =
-  | { ok: true }
-  | { ok: false; status: number; error: string };
-
-/**
- * Thumbnails are captured server-side (Chromium in a trusted runtime). Restrict
- * caller-supplied preview URLs to the configured preview-host origin (+ path
- * prefix), with an explicit operator list of exact alternate hostnames.
- */
-function assertPreviewUrlAllowed(target: URL): PreviewAllowlistDecision {
-  const previewHostBase = getPreviewHostBaseUrl();
-  if (!previewHostBase) {
-    return {
-      ok: false,
-      status: 503,
-      error: "Thumbnail-capture är inte konfigurerad (saknar preview-host-bas).",
-    };
-  }
-
-  let previewHostBaseUrl: URL;
-  try {
-    previewHostBaseUrl = new URL(previewHostBase);
-  } catch {
-    return {
-      ok: false,
-      status: 503,
-      error: "Thumbnail-capture är inte konfigurerad (ogiltig preview-host-bas).",
-    };
-  }
-
-  const sameOrigin = target.origin === previewHostBaseUrl.origin;
-  const requiredPathPrefix = normalizePathPrefix(previewHostBaseUrl.pathname);
-  if (sameOrigin && pathIsUnderPrefix(target.pathname, requiredPathPrefix)) {
-    return { ok: true };
-  }
-
-  const targetHost = normalizeHostname(target.hostname);
-  if (configuredThumbnailAllowlistHosts().some((host) => host === targetHost)) {
-    return { ok: true };
-  }
-
-  return {
-    ok: false,
-    status: 403,
-    error: "Otillåten preview-URL för thumbnail-capture.",
-  };
 }
 
 export async function POST(req: NextRequest, ctx: RouteParams) {
@@ -200,7 +124,7 @@ async function handlePOST(
       return NextResponse.json({ success: false, error: "Endast http/https stöds." }, { status: 400 });
     }
 
-    const allowlistDecision = assertPreviewUrlAllowed(target);
+    const allowlistDecision = assertPreviewUrlAllowed(target, "Thumbnail-capture");
     if (!allowlistDecision.ok) {
       return NextResponse.json(
         { success: false, error: allowlistDecision.error },
@@ -219,8 +143,7 @@ async function handlePOST(
     // can still land on an arbitrary PUBLIC site — the final main-frame URL
     // must pass the same allowlist as the initial URL (audit A#6).
     const buffer = await captureThumbnailScreenshot(target.toString(), {
-      isFinalUrlAllowed: (finalUrl) =>
-        ["http:", "https:"].includes(finalUrl.protocol) && assertPreviewUrlAllowed(finalUrl).ok,
+      isFinalUrlAllowed: (finalUrl) => isAllowedCaptureUrl(finalUrl, "Thumbnail-capture"),
     });
 
     // Unique filename per capture: Vercel Blob rejects overwrites of an

@@ -148,7 +148,7 @@ Lane-kontrakten för fixer-systemet. Målet är tydliga entrypoints per lane, in
 Lane-gränser:
 
 - `runAutoFix()` är entrypoint för Normalize-lanen; den producerar lane-taggade `FixEntry` (`mechanical`).
-- `repairGeneratedFiles()` är separat post-merge lane; samma fixer-id kan förekomma men taggas `post_merge`.
+- `repairGeneratedFiles()` är separat post-merge lane; samma fixer-id kan förekomma men taggas `post_merge`. Fixar från finalize-preflight-anropet persisteras i `generation_telemetry.meta.autofix.fixers` (sedan 2026-08-01); anropen i preview-/exportvägarna loggar fortsatt bara till devLog.
 - `createDefaultRules()` är enda default-väg till suspense-rules i streaming-lane.
 - Server-repair (`runRepairLoop`) är separat lane men skickar LLM-residual via RepairGate.
 
