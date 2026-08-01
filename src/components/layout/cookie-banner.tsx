@@ -74,7 +74,9 @@ export function CookieBanner() {
 
   return (
     <>
-      <aside
+      {/* `div`, inte `aside`: `role="dialog"` är inte tillåtet på ett element
+          med den implicita rollen `complementary` (axe: aria-allowed-role). */}
+      <div
         role="dialog"
         aria-label="Cookie-inställningar"
         className="border-border/60 bg-card/95 fixed bottom-4 left-4 z-40 w-[calc(100vw-2rem)] max-w-sm rounded-xl border p-4 shadow-2xl backdrop-blur-md"
@@ -118,7 +120,7 @@ export function CookieBanner() {
             Spela istället
           </button>
         </div>
-      </aside>
+      </div>
 
       {showGame && (
         <CookieGameModal
