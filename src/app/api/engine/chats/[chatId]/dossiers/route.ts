@@ -338,6 +338,8 @@ async function buildDossierOverview(
 
   const requirements = spec?.requirements ?? [];
 
+  const pendingDossierIds = new Set(pendingDossiers.map((pending) => pending.entry.id));
+
   const dossiers: DossierOverviewEntry[] = selectedDossiers.map((selected) => {
     const { entry } = selected;
     const requiresF3 = dossierRequiresF3(entry);
@@ -365,7 +367,16 @@ async function buildDossierOverview(
 
     let status: DossierStatus;
     let missingKeys: string[] = [];
-    if (!requiresF3) {
+    if (pendingDossierIds.has(entry.id)) {
+      // Uppskjuten av F2-muten och ännu inte i versionens filer. Måste prövas
+      // FÖRE `requiresF3`: en klient-bara provider (analytics) uppfyller inte
+      // `dossierRequiresF3`, så den hade annars fallit rakt in i
+      // `self-contained` och panelen sagt "Inkopplad" om en fil som
+      // /finalize-design inte skrivit än — grönt utan verklig verifiering.
+      // `resolvePendingIntegrationDossiers` utesluter redan allt med
+      // filnärvaro, så en pending-post kan aldrig vara byggd.
+      status = "planned";
+    } else if (!requiresF3) {
       status = "self-contained";
     } else {
       const matched = matchRequirementForDossier(envKeys, requirements);

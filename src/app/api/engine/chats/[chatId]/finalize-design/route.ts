@@ -33,7 +33,10 @@ import {
   getVersionsByChat,
 } from "@/lib/db/chat-repository-pg";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { resolvePendingIntegrationDossiers } from "@/lib/gen/dossiers";
+import {
+  getDossiersByCapability,
+  resolvePendingIntegrationDossiers,
+} from "@/lib/gen/dossiers";
 import {
   checkTier3ReadinessForVersion,
 } from "@/lib/integrations/tier3-readiness-gate";
@@ -224,11 +227,24 @@ export async function POST(
       const pendingCapabilities = Array.from(
         new Set(pendingDossiers.map((selected) => selected.entry.capability)),
       );
+      // Godkännandet ERSÄTTER tidigare val för samma capability. Selektionen
+      // tillåter bara ett syskon per capability, så ett kvarliggande
+      // `postgres-drizzle` (godkänt förut, aldrig levererat) skulle mata
+      // `dossierProviderHints` samtidigt som det nyvalda `mongodb-atlas` — och
+      // vid dubbelträff föredrar `pickForCapability` defaulten, alltså byggs
+      // fel provider. Peka ut syskonen så unionen får släppa dem.
+      const approvedIds = new Set(pendingDossierIds);
+      const supersededDossierIds = pendingCapabilities.flatMap((capability) =>
+        getDossiersByCapability(capability)
+          .map((sibling) => sibling.id)
+          .filter((id) => !approvedIds.has(id)),
+      );
       try {
         const persisted = await appendF3ApprovedToSnapshot(
           chat.id,
           pendingCapabilities,
           pendingDossierIds,
+          supersededDossierIds,
         );
         if (!persisted) throw new Error("approval snapshot was not updated");
       } catch (error) {

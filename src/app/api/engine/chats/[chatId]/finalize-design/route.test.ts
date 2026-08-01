@@ -291,11 +291,17 @@ describe("POST finalize-design", () => {
       },
     });
     expect(body.action).toBeUndefined();
+    // Fjärde argumentet ersätter tidigare val för samma capability: syskonen
+    // till det godkända id:t pekas ut så en gammal, aldrig levererad approval
+    // inte ligger kvar och vinner över det nya valet i dossierProviderHints.
     expect(appendF3ApprovedToSnapshot).toHaveBeenCalledWith(
       "chat_1",
       ["payments"],
       ["stripe-checkout"],
+      expect.not.arrayContaining(["stripe-checkout"]),
     );
+    const supersededArg = appendF3ApprovedToSnapshot.mock.calls[0]?.[3] as string[];
+    expect(Array.isArray(supersededArg)).toBe(true);
     expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
       expect.objectContaining({
         pendingApprovedDossierIds: ["stripe-checkout"],
