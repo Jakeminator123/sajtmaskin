@@ -66,6 +66,14 @@ refaktormål).
 | `src/components/modals/audit-modal.tsx` | 1 127 | |
 | `src/lib/api/engine/chats/create-chat-stream-post.ts` | 1 065 | Rörs av false-green-fix 2 — synka |
 
+## Status 2026-08-01
+
+Levererat: **#1 `useBuilderPageController`** (PR #724 — 2 041 → 917 rader,
+14 ansvarshooks, hook-ordningen mekaniskt verifierad) och
+**#4 `generation-log-writer`** (PR #722 — fasad på 25 rader + 12 moduler,
+artefakt-diff mot master: 67/67 identiska loggfiler). runtime.js-delningen
+pågår (Fable-agent). Övriga ej påbörjade.
+
 ## Klart-kriterium
 
 Ingen fil i `src/`, `preview-host/` eller `backoffice/` över ~1 200 rader

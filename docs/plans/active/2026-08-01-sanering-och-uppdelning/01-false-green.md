@@ -24,6 +24,17 @@ test som låser beteendet** (pipeline-ändring utan test = P1).
 | 5 | RepairGate klarar inte kolliderande importer (prod-chat `85f8db72`) | P2 | deterministiska lanes i `src/lib/gen/autofix/` + `verify/repair-loop.ts` | Testfall för de tre feltyperna: saknad värdeimport, `import type` som används som värde, TS2440-kollision |
 | 6 | Plan-lägets follow-up-turer kan sluta i total tystnad (prod-chat `785c8d7a`) | P2 | `src/lib/api/engine/chats/chat-message-stream/plan-mode-turn.ts` (`persistAssistantSummary`) + klientens sändväg | Test: icke-plan-svar persisteras; instrumentera de tre "hål"-kandidaterna (credit-gate-402, job-kö/stream-lock) innan fix |
 
+## Status 2026-08-01 (samma dag som planen — parallella cloudagenter)
+
+| # | PR | Läge |
+|---|---|---|
+| 1 (P1) | #718 | Levererad — unik-träff-regel + ärligt fel, M#gs1 arkiverad |
+| 2 | #720 | Levererad — skrivningen flyttad efter grinden på båda vägarna, M#gs2 arkiverad |
+| 3 | #715 | Levererad — nästlade `page.tsx`/`layout.tsx` rankas över komponenter, M#gs6 arkiverad |
+| 4 | #712 | Levererad — completeness-koll i `runQualityGateChecks`; install-fail behåller sitt röda verdikt |
+| 5 | — | Pågår (Fable-agent, deterministisk kollisionsreparation) |
+| 6 | #723 | PR öppnad, slutrapport väntas |
+
 ## Ordningens logik
 
 1–2 är init-flödets sanning (P1 först). 3–4 skyddar prompt→verdikt-kedjan.

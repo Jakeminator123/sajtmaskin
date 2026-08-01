@@ -45,6 +45,15 @@ egen liten PR med `node scripts/docs/check-active-doc-links.mjs` +
 |---|---|
 | `_parkering/` (38 filer, ~117 KiB) | Medveten parkeringsyta (`repo-router.mdc:35`) med referenser från **runtime-kod**: `src/lib/builder/dossier-groups.ts:17`, `follow-up-capability-vocabulary.ts:71,398`, plus `docs/contracts/dossier-system.md:54`, `docs/llm/dossier-selection-flow.md:179` och exclude-poster i `tsconfig.json`/`knip.json`/`.vscode/`/`.cursorindexingignore`/tre check-scripts. Radering kräver beslutet "utfasade dossiers lever enbart i git" + migrering av alla ovanstående. Föreslå det som egen fråga när våg 1–3 är klara |
 
+## Status 2026-08-01
+
+Våg 1 levererad i **PR #713**, våg 2 i **PR #721** (oberoende mergebara —
+våg 2 probade att den är grön utan våg 1). Tre sökvägar i våg 2-tabellen ovan
+låg fel och korrigerades av agenten: `validate-and-fix.ts` bor i
+`src/lib/gen/autofix/`, `check-warm-cache.mjs` i `scripts/dev/`,
+`warm-cache-scaffolds.json` i `scripts/`. Kvar: våg 3 (archived/ +
+bug-swarm-snapshots) och `_parkering/`-ägarfrågan.
+
 ## Klart-kriterium
 
 Våg 1–3 mergade; `_parkering/`-frågan ställd och besvarad. `npm run hygiene`
