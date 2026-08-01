@@ -75,6 +75,7 @@ import {
   renderDossierBlocks,
 } from "./sections/dossiers";
 import {
+  renderExistingRoutePagesBlock,
   renderLucideIconsReminderBlock,
   renderRequiredImportsChecklistBlock,
   renderRoutePlanBlock,
@@ -279,6 +280,16 @@ export function buildDynamicContext(
       userPrompt,
       resolvedScaffold,
       ragContext,
+    }),
+  );
+  // Follow-up route-drift guard: existing `app/**/page.tsx` routes rendered
+  // as an explicit no-duplicate / no-unrequested-pages contract, right after
+  // the route plan so the model reads "planned paths" and "already existing
+  // pages" together. Init renders nothing (no previous version).
+  parts.push(
+    ...renderExistingRoutePagesBlock({
+      isFollowUp,
+      previousFilePaths: options.previousFilePaths ?? null,
     }),
   );
   parts.push(...renderScaffoldProtectedPathsBlock());

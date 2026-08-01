@@ -188,6 +188,7 @@ export async function finalizeOrchestrationPrompts(
     variantTemplateInspiration,
     dossierSelection: base.dossierSelection,
     mutedCapabilities: base.mutedCapabilities ?? null,
+    previousFilePaths: input.previousFilePaths ?? null,
     dossierPromptContext: {
       generationMode: resolvedMode,
       requestedCapabilityTiers: base.requestedCapabilityTiers ?? null,

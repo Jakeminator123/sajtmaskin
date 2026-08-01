@@ -47,6 +47,12 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^layout & theme files/i, priority: 85 },
   { match: /^import reference/i, priority: 75 },
   { match: /^route plan$/i, priority: 90, required: true },
+  // Follow-up route-drift guard (existing pages + no-duplicate contract).
+  // Short block; high priority but not `required` — required blocks get
+  // truncated instead of dropped, and a truncated route list would be worse
+  // than no list (the model could read absence of a route as license to
+  // recreate it). Follows the pattern of other small non-required sections.
+  { match: /^existing route pages/i, priority: 88 },
   { match: /^scaffold-default files$/i, priority: 90, required: true },
   { match: /^required imports checklist$/i, priority: 83 },
   { match: /^your toolkit$/i, priority: 85, required: true },
