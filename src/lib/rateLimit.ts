@@ -51,6 +51,9 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "domains:link": { maxRequests: 10, windowMs: 60 * 1000 },
   "domains:verify": { maxRequests: 15, windowMs: 60 * 1000 },
   "domains:check": { maxRequests: 20, windowMs: 60 * 1000 },
+  // Every accepted POST reserves a domain name and creates a Stripe session,
+  // so a loose bucket would let one client park a lot of names at once.
+  "domains:purchase": { maxRequests: 8, windowMs: 60 * 1000 },
   "domains:whois": { maxRequests: 30, windowMs: 60 * 1000 },
   "download:create": { maxRequests: 10, windowMs: 60 * 1000 },
   "chat:create": { maxRequests: 15, windowMs: 60 * 1000 },

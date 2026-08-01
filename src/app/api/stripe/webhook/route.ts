@@ -10,6 +10,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createTransaction, getTransactionByStripeSession } from "@/lib/db/services/transactions";
 import { getUserById } from "@/lib/db/services/users";
 import { SECRETS } from "@/lib/config";
+import { fulfilDomainOrder } from "@/lib/domains/fulfilment";
+import {
+  markDomainOrderExpired,
+  markDomainOrderPaid,
+  getDomainOrderByStripeSession,
+} from "@/lib/db/services/domain-orders";
 import Stripe from "stripe";
 
 // Initialize Stripe
@@ -46,6 +52,14 @@ export async function POST(req: NextRequest) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+
+      // Domain purchases share this endpoint but not the credits ledger: they
+      // settle against `domain_orders`, so they must branch off BEFORE the
+      // transaction lookup below (which would otherwise find nothing, treat the
+      // session as new, and try to credit diamonds for a domain).
+      if (session.metadata?.kind === "domain_purchase") {
+        return handleDomainPurchaseCompleted(session);
+      }
 
       // Check if already processed (idempotency)
       const existingTransaction = await getTransactionByStripeSession(session.id);
@@ -128,6 +142,19 @@ export async function POST(req: NextRequest) {
       break;
     }
 
+    case "checkout.session.expired": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.kind === "domain_purchase") {
+        // Release the name. Without this the reservation would only lapse via
+        // the TTL sweep, which runs when someone next tries to buy that exact
+        // domain — so an abandoned checkout could sit on a name for a while.
+        await markDomainOrderExpired(session.id).catch((err) =>
+          console.error("[Stripe/webhook] Could not expire domain order:", err),
+        );
+      }
+      break;
+    }
+
     case "payment_intent.payment_failed": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       console.info(
@@ -143,4 +170,60 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+/**
+ * Settle a paid domain order.
+ *
+ * Idempotency is carried by the conditional `pending_payment → paid` update:
+ * only the first delivery gets a row back, so only the first delivery reaches
+ * the registrar. A redelivery finds the order already past `pending_payment`,
+ * gets `null`, and answers 200 so Stripe stops retrying something that is
+ * already done.
+ *
+ * 500 is reserved for states a retry could actually fix — everything else
+ * (unknown session, already handled, refunded) is a delivered outcome and must
+ * not be re-sent.
+ */
+async function handleDomainPurchaseCompleted(
+  session: Stripe.Checkout.Session,
+): Promise<NextResponse> {
+  const paymentIntent =
+    typeof session.payment_intent === "string" ? session.payment_intent : null;
+
+  let order;
+  try {
+    order = await markDomainOrderPaid(session.id, paymentIntent);
+  } catch (error) {
+    console.error("[Stripe/webhook] Could not mark domain order paid:", error);
+    return NextResponse.json({ error: "domain_order_update_failed" }, { status: 500 });
+  }
+
+  if (!order) {
+    const existing = await getDomainOrderByStripeSession(session.id).catch(() => null);
+    if (existing) {
+      console.info("[Stripe/webhook] Domain order already handled:", existing.id);
+      return NextResponse.json({ received: true, alreadyHandled: true });
+    }
+    // A signed session we have no order for cannot be fixed by retrying.
+    console.error("[Stripe/webhook] No domain order for session:", session.id);
+    return NextResponse.json({ received: true, ignored: "unknown_domain_order" });
+  }
+
+  try {
+    const outcome = await fulfilDomainOrder(order);
+    console.info(
+      "[Stripe/webhook] Domain order",
+      order.id,
+      "fulfilment outcome:",
+      outcome.status,
+    );
+    return NextResponse.json({ received: true, outcome: outcome.status });
+  } catch (error) {
+    // The charge already succeeded and the order is `registering`. Answer 200
+    // so Stripe does not redeliver into a claimed order that would then be
+    // rejected as "already handled" — the row carries the state for triage.
+    console.error("[Stripe/webhook] Domain fulfilment threw for order", order.id, error);
+    return NextResponse.json({ received: true, outcome: "fulfilment_error" });
+  }
 }

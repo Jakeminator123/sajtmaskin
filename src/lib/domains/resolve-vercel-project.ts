@@ -75,3 +75,38 @@ export async function resolveVercelProjectForChat(
     error: "Sajten måste publiceras innan en domän kan kopplas.",
   };
 }
+
+export type ChatProjectContext =
+  | { ok: true; appProjectId: string; vercelProjectId: string | null }
+  | { ok: false; status: 404 | 409; error: string };
+
+/**
+ * Tenant-guarded project context that does NOT require a published site.
+ *
+ * Buying a domain and pointing a domain at a deployment are different moments:
+ * people reserve a name before the site is finished, and forcing a publish
+ * first would either block a legitimate purchase or push them to a competitor
+ * for the name they already decided on. The Vercel project is therefore
+ * optional here — fulfilment attaches the domain when it exists and the user
+ * links it from the UI when it appears later.
+ */
+export async function resolveChatProjectContext(
+  req: Request,
+  chatId: string,
+  options?: { sessionId?: string },
+): Promise<ChatProjectContext> {
+  const engineChat = await getEngineChatByIdForRequest(req, chatId, options);
+  if (!engineChat) {
+    return { ok: false, status: 404, error: "Chatten hittades inte." };
+  }
+  const appProjectId =
+    typeof engineChat.project_id === "string" ? engineChat.project_id.trim() : "";
+  if (!appProjectId) {
+    return { ok: false, status: 409, error: "Chatten saknar ett projekt." };
+  }
+  const linked =
+    (await getProjectById(appProjectId).catch(() => null))?.vercel_project_id?.trim() || null;
+  const deployed =
+    (await getLatestVercelProjectIdForChat(chatId).catch(() => null))?.trim() || null;
+  return { ok: true, appProjectId, vercelProjectId: deployed ?? linked };
+}

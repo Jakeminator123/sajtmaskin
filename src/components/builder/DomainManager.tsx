@@ -23,8 +23,10 @@ import {
   RefreshCw,
   Search,
   Server,
+  ShoppingCart,
 } from "lucide-react";
 import type { DomainSearchResult } from "./DomainSearchDialog";
+import { DomainPriceLabel } from "./domain-price-label";
 
 type DnsRecord = {
   type: string;
@@ -55,7 +57,75 @@ type VerifyResult = {
   }>;
 };
 
-type DomainManagerStep = "search" | "connect" | "verify";
+type DomainManagerStep = "search" | "connect" | "verify" | "purchase";
+
+type DomainOrderStatus = {
+  id: string;
+  domain: string;
+  status: string;
+  priceSek: number | null;
+  currency: string | null;
+  linkedToProject: boolean;
+  failureReason: string | null;
+};
+
+/**
+ * Order states the customer should keep seeing a spinner for. Everything else
+ * is terminal and gets a definitive message — a purchase must never leave the
+ * customer watching an indeterminate spinner over a real charge.
+ */
+const IN_FLIGHT_ORDER_STATUSES = new Set(["pending_payment", "paid", "registering"]);
+
+function describeOrderStatus(order: DomainOrderStatus): {
+  tone: "pending" | "success" | "error";
+  title: string;
+  detail: string;
+} {
+  switch (order.status) {
+    case "registered":
+      return {
+        tone: "success",
+        title: `${order.domain} är din`,
+        detail: order.linkedToProject
+          ? "Domänen är registrerad och kopplad till din sajt. DNS kan ta någon timme att slå igenom."
+          : "Domänen är registrerad. Koppla den till din sajt när den är publicerad.",
+      };
+    case "refunded":
+      return {
+        tone: "error",
+        title: "Köpet gick inte igenom — pengarna är återbetalda",
+        detail:
+          "Registreringen misslyckades efter betalningen, så beloppet har återbetalats till ditt kort. Du kan försöka igen.",
+      };
+    case "registration_failed":
+      return {
+        tone: "error",
+        title: "Köpet fastnade",
+        detail:
+          "Betalningen gick igenom men registreringen misslyckades och kunde inte återbetalas automatiskt. Kontakta oss så löser vi det manuellt.",
+      };
+    case "expired":
+    case "canceled":
+      return {
+        tone: "error",
+        title: "Köpet avbröts",
+        detail: "Ingen betalning genomfördes. Domänen är fri att söka på igen.",
+      };
+    case "paid":
+    case "registering":
+      return {
+        tone: "pending",
+        title: "Registrerar domänen",
+        detail: "Betalningen är mottagen. Vi registrerar domänen hos registraren nu.",
+      };
+    default:
+      return {
+        tone: "pending",
+        title: "Väntar på betalning",
+        detail: "Slutför betalningen i Stripe-fönstret för att fortsätta.",
+      };
+  }
+}
 
 type DomainManagerProps = {
   open: boolean;
@@ -85,7 +155,7 @@ function ProviderBadge({ provider }: { provider: DomainSearchResult["provider"] 
   return (
     <Badge variant="secondary" className="gap-1 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-400">
       <Globe className="h-2.5 w-2.5" />
-      DNS
+      {provider === "none" ? "Okänd" : "DNS"}
     </Badge>
   );
 }
@@ -104,7 +174,11 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
   const [verifyStatus, setVerifyStatus] = useState<VerifyResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [orderStatus, setOrderStatus] = useState<DomainOrderStatus | null>(null);
   const verifyIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const orderIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Request-token for the fire-and-forget background save. Bumped on every
   // dialog reset so a slow save from a previous link cannot land after the
   // dialog has been closed/reopened and write a warning onto newer state.
@@ -136,9 +210,16 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
       setSaveWarning(null);
       setVerifyStatus(null);
       setIsVerifying(false);
+      setIsPurchasing(false);
+      setPurchaseError(null);
+      setOrderStatus(null);
       if (verifyIntervalRef.current) {
         clearInterval(verifyIntervalRef.current);
         verifyIntervalRef.current = null;
+      }
+      if (orderIntervalRef.current) {
+        clearInterval(orderIntervalRef.current);
+        orderIntervalRef.current = null;
       }
     }
   }, [open]);
@@ -147,6 +228,9 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
     return () => {
       if (verifyIntervalRef.current) {
         clearInterval(verifyIntervalRef.current);
+      }
+      if (orderIntervalRef.current) {
+        clearInterval(orderIntervalRef.current);
       }
     };
   }, []);
@@ -182,6 +266,76 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
     setLinkError(null);
     setStep("connect");
   }, []);
+
+  /**
+   * Poll one order until it reaches a terminal state.
+   *
+   * The registrar call happens in the Stripe webhook, not in the browser's
+   * request, so the tab that comes back from Stripe genuinely does not know
+   * the outcome yet. Polling is what turns "you paid, good luck" into a
+   * definite answer.
+   */
+  const startOrderPolling = useCallback((orderId: string) => {
+    if (orderIntervalRef.current) clearInterval(orderIntervalRef.current);
+
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          `/api/domains/purchase?orderId=${encodeURIComponent(orderId)}`,
+        );
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.order) return;
+        setOrderStatus(data.order as DomainOrderStatus);
+        if (!IN_FLIGHT_ORDER_STATUSES.has(data.order.status) && orderIntervalRef.current) {
+          clearInterval(orderIntervalRef.current);
+          orderIntervalRef.current = null;
+        }
+      } catch (err) {
+        console.error("[DomainManager] Order poll failed:", err);
+      }
+    };
+
+    void poll();
+    orderIntervalRef.current = setInterval(poll, 4000);
+  }, []);
+
+  // Coming back from Stripe: the redirect carries the order id, so the dialog
+  // resumes on the purchase step instead of dropping the customer on a blank
+  // search with no trace of the payment they just made.
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+    const orderId = new URLSearchParams(window.location.search).get("domainOrder");
+    if (!orderId) return;
+    setStep("purchase");
+    startOrderPolling(orderId);
+  }, [open, startOrderPolling]);
+
+  const handlePurchase = useCallback(
+    async (domain: string) => {
+      if (!chatId) {
+        setPurchaseError("Chatten saknas — kan inte köpa domän härifrån.");
+        return;
+      }
+      setIsPurchasing(true);
+      setPurchaseError(null);
+      try {
+        const res = await fetch("/api/domains/purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ domain, chatId }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.url) {
+          throw new Error(data?.error || "Kunde inte starta köpet.");
+        }
+        window.location.href = data.url as string;
+      } catch (err) {
+        setPurchaseError(err instanceof Error ? err.message : "Kunde inte starta köpet.");
+        setIsPurchasing(false);
+      }
+    },
+    [chatId],
+  );
 
   const startVerifyPolling = useCallback(
     (domain: string) => {
@@ -321,15 +475,65 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
             {step === "search" && "Hitta eller koppla domän"}
             {step === "connect" && "Koppla domän"}
             {step === "verify" && "Verifiera domän"}
+            {step === "purchase" && "Domänköp"}
           </DialogTitle>
           <DialogDescription>
             {step === "search" && "Sök efter en domän att koppla till din sajt."}
             {step === "connect" && `Koppla ${selectedDomain?.domain} till ditt projekt.`}
             {step === "verify" && "Verifiera att DNS-inställningarna är korrekta."}
+            {step === "purchase" && "Status för ditt domänköp."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Purchase status (returning from Stripe) */}
+          {step === "purchase" && (
+            <div className="border-border rounded-lg border p-4">
+              {orderStatus ? (
+                (() => {
+                  const described = describeOrderStatus(orderStatus);
+                  return (
+                    <>
+                      <div className="flex items-start gap-2">
+                        {described.tone === "pending" && (
+                          <Loader2 className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                        )}
+                        {described.tone === "success" && (
+                          <CheckCircle2 className="text-brand-teal mt-0.5 h-4 w-4 shrink-0" />
+                        )}
+                        {described.tone === "error" && (
+                          <span className="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-red-400" />
+                        )}
+                        <div>
+                          <p className="font-semibold">{described.title}</p>
+                          <p className="text-muted-foreground mt-1 text-sm">
+                            {described.detail}
+                          </p>
+                        </div>
+                      </div>
+                      {orderStatus.priceSek != null && (
+                        <p className="text-muted-foreground mt-3 text-xs">
+                          {orderStatus.domain} · {orderStatus.priceSek}{" "}
+                          {orderStatus.currency ?? "SEK"}/år
+                        </p>
+                      )}
+                    </>
+                  );
+                })()
+              ) : (
+                <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Hämtar status för ditt köp...
+                </div>
+              )}
+              <Separator className="my-3" />
+              <Button variant="outline" className="w-full" onClick={() => setStep("search")}>
+                <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+                Tillbaka till domänsök
+              </Button>
+            </div>
+          )}
+
           {/* Step 1: Search */}
           {step === "search" && (
             <>
@@ -386,10 +590,21 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
                       <div className="flex items-center gap-2">
                         {r.available === true && (
                           <>
-                            {r.price != null && (
-                              <span className="text-muted-foreground text-xs">
-                                {r.price} {r.currency}/år
-                              </span>
+                            <DomainPriceLabel result={r} />
+                            {r.purchasable && (
+                              <Button
+                                size="sm"
+                                onClick={() => handlePurchase(r.domain)}
+                                disabled={isPurchasing || !chatId}
+                                className="h-7 text-xs"
+                              >
+                                {isPurchasing ? (
+                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                ) : (
+                                  <ShoppingCart className="mr-1 h-3 w-3" />
+                                )}
+                                Köp
+                              </Button>
                             )}
                             <Button
                               size="sm"
@@ -411,6 +626,12 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {purchaseError && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400">
+                  {purchaseError}
                 </div>
               )}
 
@@ -441,11 +662,7 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
                     <p className="font-semibold">{selectedDomain.domain}</p>
                     <div className="mt-1 flex items-center gap-2">
                       <ProviderBadge provider={selectedDomain.provider} />
-                      {selectedDomain.price != null && (
-                        <span className="text-muted-foreground text-xs">
-                          {selectedDomain.price} {selectedDomain.currency}/år
-                        </span>
-                      )}
+                      <DomainPriceLabel result={selectedDomain} />
                     </div>
                   </div>
                   {selectedDomain.available === true && (
@@ -455,20 +672,53 @@ export function DomainManager({ open, onClose, chatId, deploymentId }: DomainMan
                   )}
                 </div>
 
-                {selectedDomain.purchaseUrl && (
+                {selectedDomain.available === true && selectedDomain.purchasable && (
                   <>
                     <Separator className="my-3" />
                     <p className="text-muted-foreground text-xs">
-                      Domänen behöver köpas först. Klicka nedan för att köpa, sedan kan du koppla den.
+                      Domänen är ledig och behöver köpas först. Du betalar med kort och vi
+                      registrerar den åt dig.
                     </p>
-                    <a
-                      href={selectedDomain.purchaseUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-brand-teal hover:text-brand-teal/80 mt-2 inline-flex items-center gap-1 text-sm font-medium"
+                    {purchaseError && (
+                      <div className="mt-2 rounded-md border border-red-200 bg-red-50 p-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-400">
+                        {purchaseError}
+                      </div>
+                    )}
+                    <Button
+                      onClick={() => handlePurchase(selectedDomain.domain)}
+                      disabled={isPurchasing || !chatId}
+                      className="mt-2 w-full"
                     >
-                      Köp domän <ExternalLink className="h-3.5 w-3.5" />
-                    </a>
+                      {isPurchasing ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ShoppingCart className="mr-2 h-4 w-4" />
+                      )}
+                      Köp {selectedDomain.domain}
+                      {selectedDomain.price != null ? ` — ${selectedDomain.price} kr/år` : ""}
+                    </Button>
+                  </>
+                )}
+
+                {selectedDomain.available === true && !selectedDomain.purchasable && (
+                  <>
+                    <Separator className="my-3" />
+                    <p className="text-muted-foreground text-xs">
+                      {selectedDomain.purchaseBlockedReason === "no_binding_price"
+                        ? "Vi har inget bindande pris för den här domänen, så den går inte att köpa här. Priset ovan är en uppskattning."
+                        : "Den här domänen går inte att köpa via Sajtmaskin ännu."}
+                      {" Köp den hos en registrar och koppla den sedan här."}
+                    </p>
+                    {selectedDomain.purchaseUrl && (
+                      <a
+                        href={selectedDomain.purchaseUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brand-teal hover:text-brand-teal/80 mt-2 inline-flex items-center gap-1 text-sm font-medium"
+                      >
+                        Köp hos registrar <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
                   </>
                 )}
 
