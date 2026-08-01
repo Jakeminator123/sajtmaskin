@@ -472,6 +472,54 @@ describe("fixReactAndNavigationImports — duplicate react import consolidation"
     expect(second.code).toBe(first.code);
   });
 
+  // A TYPE-ONLY binding of `React` is not a value binding: dropping the
+  // namespace line here would leave `React.useState` bound to a type-only
+  // import (runtime + TS2693 breakage). The consolidator must keep the
+  // namespace import — the file's only VALUE binding of React.
+  it("keeps `import * as React` when the only colliding React binding is `import type`", () => {
+    const code = [
+      'import type { ComponentType as React } from "react";',
+      'import * as React from "react";',
+      "const el = React.createElement('div');",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.consolidatedReactBindings).toEqual([]);
+    expect(result.code).toContain('import * as React from "react";');
+    expect(result.code).toContain('import type { ComponentType as React } from "react";');
+  });
+
+  it("keeps `import * as React` when the collision is an inline `type` specifier", () => {
+    const code = [
+      'import { type ComponentType as React } from "react";',
+      'import * as React from "react";',
+      "const el = React.createElement('div');",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.consolidatedReactBindings).toEqual([]);
+    expect(result.code).toContain('import * as React from "react";');
+    expect(result.code).toContain('import { type ComponentType as React } from "react";');
+  });
+
+  it("still drops the namespace line when a real VALUE default import exists beside type specs", () => {
+    const code = [
+      'import React from "react";',
+      'import type { ComponentType } from "react";',
+      'import * as React from "react";',
+      "const el = React.createElement('div');",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.code).not.toContain("import * as React");
+    expect(countIn(reactImportLines(result.code), "React")).toBe(1);
+    expect(reactImportLines(result.code)).toContain("ComponentType");
+  });
+
   it("leaves a namespace import beside a single disjoint value import untouched", () => {
     const code = [
       'import * as React from "react";',

@@ -424,10 +424,17 @@ export function consolidateReactImports(code: string): { code: string; deduped: 
   // prod 2026-08-01, template chats cb529c3c + d9cab01d). The value import
   // carries the file's other react bindings and `React.…` still resolves
   // through it, so the namespace line is the one that goes.
+  // Type-only bindings (`import type { X as React }` / inline `type X as React`)
+  // do NOT provide a value binding, so they must never cause the namespace line
+  // — the only VALUE binding of that name — to be dropped.
   const valueLocals = new Set<string>();
   for (const k of valuePositions) {
+    if (parsed[k].isTypeOnly) continue;
     if (parsed[k].default) valueLocals.add(parsed[k].default!);
-    for (const s of parsed[k].specs) valueLocals.add(s.local);
+    for (const s of parsed[k].specs) {
+      if (s.isType) continue;
+      valueLocals.add(s.local);
+    }
   }
   const droppedNamespaceLines = new Set<number>();
   const droppedNamespaceNames: string[] = [];

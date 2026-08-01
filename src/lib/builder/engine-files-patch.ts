@@ -171,8 +171,15 @@ export async function patchEngineChatFile(params: {
    * forking history.
    */
   engineLatestKnownVersionId?: string;
+  /**
+   * Forwarded to `quickEditChatFiles`. Pass `false` ONLY for content a PERSON
+   * typed (the code view's save button) — machine-authored callers (undo/redo,
+   * composer drop) must leave this unset so the server's syntax guard stays on.
+   */
+  guardSyntax?: boolean;
 }): Promise<PatchEngineChatFileResult> {
-  const { chatId, versionId, fileName, content, engineLatestKnownVersionId } = params;
+  const { chatId, versionId, fileName, content, engineLatestKnownVersionId, guardSyntax } =
+    params;
 
   if (isQuickEditEnabled()) {
     const result = await quickEditChatFiles({
@@ -180,10 +187,7 @@ export async function patchEngineChatFile(params: {
       baseVersionId: versionId,
       engineLatestKnownVersionId,
       ops: [{ kind: "replace_content", path: fileName, content }],
-      // Human-authored content: keep the legacy "save whatever is in the
-      // editor" behaviour of `PATCH /files` instead of refusing a file the
-      // user has not finished writing.
-      guardSyntax: false,
+      guardSyntax,
     });
     if (result.ok) {
       return {
