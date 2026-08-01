@@ -13,6 +13,8 @@ const sparticuzLaunch = vi.hoisted(() => vi.fn());
 const localLaunch = vi.hoisted(() => vi.fn());
 const isDisallowedHost = vi.hoisted(() => vi.fn());
 const hostResolvesToPrivate = vi.hoisted(() => vi.fn());
+const getPreviewHostBaseUrl = vi.hoisted(() => vi.fn());
+const fetchWithPinnedDns = vi.hoisted(() => vi.fn());
 
 vi.mock("@sparticuz/chromium", () => ({
   default: {
@@ -23,8 +25,14 @@ vi.mock("@sparticuz/chromium", () => ({
 vi.mock("playwright-core", () => ({ chromium: { launch: sparticuzLaunch } }));
 vi.mock("playwright", () => ({ chromium: { launch: localLaunch } }));
 vi.mock("@/lib/ssrf-guard", () => ({ isDisallowedHost, hostResolvesToPrivate }));
+// Allowlisten körs på riktigt — det är den som avgör vilken hämtningsväg en
+// värd får — men preview-hostens bas kommer från env, så bara den mockas.
+vi.mock("@/lib/gen/preview/tier2-config", () => ({ getPreviewHostBaseUrl }));
+vi.mock("@/lib/capture/pinned-fetch", () => ({ fetchWithPinnedDns }));
 
 const ORIGINAL_VERCEL = process.env.VERCEL;
+const ALLOWLIST_ENV_KEY = "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES";
+const ORIGINAL_ALLOWLIST = process.env[ALLOWLIST_ENV_KEY];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -33,11 +41,20 @@ beforeEach(() => {
   localLaunch.mockResolvedValue({ id: "local" });
   isDisallowedHost.mockReturnValue(false);
   hostResolvesToPrivate.mockResolvedValue(false);
+  getPreviewHostBaseUrl.mockReturnValue("https://site.fly.dev/p");
+  fetchWithPinnedDns.mockResolvedValue({
+    status: 200,
+    headers: { "content-type": "image/png" },
+    body: Buffer.from("pinned-bytes"),
+  });
+  delete process.env[ALLOWLIST_ENV_KEY];
 });
 
 afterEach(() => {
   if (ORIGINAL_VERCEL === undefined) delete process.env.VERCEL;
   else process.env.VERCEL = ORIGINAL_VERCEL;
+  if (ORIGINAL_ALLOWLIST === undefined) delete process.env[ALLOWLIST_ENV_KEY];
+  else process.env[ALLOWLIST_ENV_KEY] = ORIGINAL_ALLOWLIST;
 });
 
 describe("launchCaptureBrowser", () => {
@@ -118,6 +135,28 @@ describe("applyCaptureRequestGate", () => {
     return { close, connectToServer };
   }
 
+  async function runRequestHandler(url: string) {
+    const { page, route } = fakePage();
+    const { applyCaptureRequestGate } = await import("./browser");
+    await applyCaptureRequestGate(page);
+
+    const fetch = vi.fn().mockResolvedValue({ id: "playwright-response" });
+    const fulfill = vi.fn().mockResolvedValue(undefined);
+    const abort = vi.fn().mockResolvedValue(undefined);
+    await route.mock.calls[0][1]({
+      request: () => ({
+        url: () => url,
+        method: () => "GET",
+        allHeaders: async () => ({ "x-from-browser": "1" }),
+        postDataBuffer: () => null,
+      }),
+      fetch,
+      fulfill,
+      abort,
+    });
+    return { fetch, fulfill, abort };
+  }
+
   it("låter previewens egen WebSocket gå fram", async () => {
     // Att stänga alla WS hade brutit hydreringen, och en capture av SSR-DOM
     // beskär en annan sida än den användaren markerade i.
@@ -142,6 +181,25 @@ describe("applyCaptureRequestGate", () => {
     expect((await wsVerdict("inte-en-url")).close).toHaveBeenCalledTimes(1);
   });
 
+  it("stänger en WebSocket mot en publik värd utanför allowlisten", async () => {
+    // `ws.connectToServer()` slår upp namnet på nytt och tar ingen adress, så
+    // en angriparkontrollerad zon kan svara publikt vid grinden och privat vid
+    // uppkopplingen. Adressen går inte att pinna här — värden måste därför vara
+    // en vi styr DNS för.
+    const { close, connectToServer } = await wsVerdict("wss://angripare.example/socket");
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(connectToServer).not.toHaveBeenCalled();
+  });
+
+  it("låter en WebSocket mot en operatörslistad värd gå fram", async () => {
+    process.env[ALLOWLIST_ENV_KEY] = "preview-two.example";
+    const { close, connectToServer } = await wsVerdict("wss://preview-two.example/socket");
+
+    expect(connectToServer).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+  });
+
   it("registrerar request-grinden för all övrig trafik", async () => {
     const { page, route } = fakePage();
     const { applyCaptureRequestGate } = await import("./browser");
@@ -149,6 +207,53 @@ describe("applyCaptureRequestGate", () => {
     await applyCaptureRequestGate(page);
 
     expect(route).toHaveBeenCalledWith("**/*", expect.any(Function));
+  });
+
+  it("låter preview-hostens egen trafik gå via Playwrights hämtning", async () => {
+    // Operatören styr den zonen, så det finns ingen rebinding att skydda mot —
+    // och sidans egen trafik ska inte byta hämtningsväg i onödan.
+    const { fetch, fulfill } = await runRequestHandler("https://site.fly.dev/p/app.js");
+
+    expect(fetch).toHaveBeenCalledWith({ maxRedirects: 0 });
+    expect(fulfill).toHaveBeenCalledWith({ response: { id: "playwright-response" } });
+    expect(fetchWithPinnedDns).not.toHaveBeenCalled();
+  });
+
+  it("hämtar en tredjepartsresurs med pinnad adress i stället för route.fetch", async () => {
+    // Kärnan i fixen: `route.fetch()` slår upp värden på nytt i Playwrights
+    // egen Node-stack, så en subresurs från en angriparkontrollerad zon kunde
+    // landa på en privat adress efter att grinden sagt ja.
+    const { fetch, fulfill } = await runRequestHandler("https://cdn.angripare.example/bild.png");
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(fetchWithPinnedDns).toHaveBeenCalledWith("https://cdn.angripare.example/bild.png", {
+      method: "GET",
+      headers: { "x-from-browser": "1" },
+      body: null,
+    });
+    expect(fulfill).toHaveBeenCalledWith({
+      status: 200,
+      headers: { "content-type": "image/png" },
+      body: Buffer.from("pinned-bytes"),
+    });
+  });
+
+  it("avbryter innan hämtning när värdgrinden säger nej", async () => {
+    hostResolvesToPrivate.mockResolvedValue(true);
+    const { fetch, fulfill, abort } = await runRequestHandler("http://169.254.169.254/latest");
+
+    expect(abort).toHaveBeenCalledWith("blockedbyclient");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(fetchWithPinnedDns).not.toHaveBeenCalled();
+    expect(fulfill).not.toHaveBeenCalled();
+  });
+
+  it("avbryter requesten när den pinnade hämtningen blockerar adressen", async () => {
+    fetchWithPinnedDns.mockRejectedValue(new Error("Pinned fetch blocked"));
+    const { fulfill, abort } = await runRequestHandler("https://cdn.angripare.example/bild.png");
+
+    expect(abort).toHaveBeenCalledWith("failed");
+    expect(fulfill).not.toHaveBeenCalled();
   });
 });
 

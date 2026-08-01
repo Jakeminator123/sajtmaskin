@@ -62,8 +62,11 @@ function isPrivateIpv6(host: string): boolean {
 }
 
 /** True if a single resolved IP literal is private/internal. Handles
- *  IPv4-mapped IPv6 (`::ffff:a.b.c.d`) by checking the embedded v4. */
-function isResolvedAddressPrivate(address: string): boolean {
+ *  IPv4-mapped IPv6 (`::ffff:a.b.c.d`) by checking the embedded v4.
+ *
+ *  Exported for connect-time pinning (`@/lib/capture/pinned-fetch`), which must
+ *  judge the exact address a socket is about to connect to — not a hostname. */
+export function isResolvedAddressPrivate(address: string): boolean {
   const version = net.isIP(address);
   if (version === 4) return isPrivateIpv4(address);
   if (version === 6) {
@@ -82,10 +85,12 @@ function isResolvedAddressPrivate(address: string): boolean {
  * through — the classic DNS-based SSRF hole (BUG-SWARM G#40). Literal IPs are
  * already covered by `isDisallowedHost`, so we only resolve real names.
  *
- * NOTE: a residual TOCTOU window remains — `fetch` re-resolves at connect time
- * and the record could flip (DNS rebinding) between this check and the actual
- * connection. Closing that fully needs connect-time IP pinning (follow-up); this
- * closes the common static-resolution hole that the routes are exposed to today.
+ * NOTE: this is a check on a NAME, so a residual TOCTOU window remains — the
+ * caller re-resolves at connect time and the record could flip (DNS rebinding)
+ * between this check and the actual connection. Callers that hand the name to
+ * something which resolves it again must pin the address instead: see
+ * `@/lib/capture/pinned-fetch`, which validates and connects to the same
+ * record. Use this only as a cheap pre-filter on top of that.
  */
 export async function hostResolvesToPrivate(hostname: string): Promise<boolean> {
   const host = normalizeHost(hostname);

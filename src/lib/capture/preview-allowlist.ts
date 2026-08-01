@@ -100,3 +100,33 @@ export function assertPreviewUrlAllowed(
 export function isAllowedCaptureUrl(url: URL, label?: string): boolean {
   return ["http:", "https:"].includes(url.protocol) && assertPreviewUrlAllowed(url, label).ok;
 }
+
+/**
+ * Sant för värdar vars DNS-zon operatören själv styr: preview-hostens egen värd
+ * och de exakta värdnamn operatören listat.
+ *
+ * Skillnaden mot `assertPreviewUrlAllowed` är avsiktlig — här prövas bara
+ * VÄRDEN, inte protokoll eller path-prefix. Anroparna frågar två saker som inte
+ * har med den fotograferade URL:en att göra:
+ *
+ *  - Kan en angripare styra vad det här namnet slår upp till? Nej för de här
+ *    värdarna, så DNS rebinding är inte en risk mot dem.
+ *  - Får previewens egen WebSocket kopplas upp? Hydreringen sker över
+ *    dev-serverns socket, som ligger på preview-hostens värd men kan ligga
+ *    utanför sidans path-prefix.
+ */
+export function isTrustedCaptureDnsHost(hostname: string): boolean {
+  const host = normalizeHostname(hostname);
+  if (!host) return false;
+
+  const previewHostBase = getPreviewHostBaseUrl();
+  if (previewHostBase) {
+    try {
+      if (normalizeHostname(new URL(previewHostBase).hostname) === host) return true;
+    } catch {
+      // Ogiltig bas rapporteras redan som 503 av `assertPreviewUrlAllowed`.
+    }
+  }
+
+  return configuredPreviewAllowlistHosts().some((entry) => entry === host);
+}
