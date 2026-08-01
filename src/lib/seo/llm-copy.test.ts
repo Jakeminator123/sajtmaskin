@@ -115,6 +115,26 @@ describe("improveSeoCopyWithLlm", () => {
     expect(result.skippedReason).toBe("empty_copy");
     expect(result.files[0].content).toBe(LAYOUT);
   });
+
+  it("behåller den ena halvan när bara den andra kom tillbaka tom", async () => {
+    // Schemat frågar alltid efter båda fälten, så ett svar kan vara helt rätt
+    // för det granskningen flaggade och tomt för det andra. Att kasta hela
+    // svaret då tappar en verklig fix.
+    generateObjectMock.mockResolvedValue({
+      object: { title: "Klippoteket — frisör i Uppsala med drop-in", description: "" },
+      usage: {},
+    });
+    const files = project();
+    const result = await improveSeoCopyWithLlm(files, auditOf(files), { modelId: "openai/x" });
+
+    expect(result.skippedReason).toBeNull();
+    expect(result.improvements).toHaveLength(1);
+    expect(result.improvements[0].findingId).toContain("title");
+    const layout = result.files.find((f) => f.name === "app/layout.tsx")!;
+    expect(layout.content).toContain("Klippoteket — frisör i Uppsala med drop-in");
+    // Den tomma halvan rör inte den befintliga beskrivningen.
+    expect(layout.content).toContain('description: "Frisör."');
+  });
 });
 
 describe("språkstyrning", () => {

@@ -157,16 +157,23 @@ export async function improveSeoCopyWithLlm(
 
     const title = result.object.title.trim();
     const description = result.object.description.trim();
-    if (!title || !description) {
-      return { ...unchanged, skippedReason: "empty_copy" };
-    }
 
     let content = layout.content;
     const improvements: SeoImprovement[] = [];
     const titleFinding = copyFindings.find((f) => f.id.startsWith("title"));
     const descriptionFinding = copyFindings.find((f) => f.id.startsWith("description"));
 
-    if (titleFinding) {
+    // Judge the two fields separately. The schema always asks for both, so a
+    // reply can be exactly right for the field the audit flagged and empty for
+    // the one it did not — rejecting the whole reply then throws away a real
+    // fix over a field we were never going to write.
+    const usableTitle = titleFinding && title ? title : null;
+    const usableDescription = descriptionFinding && description ? description : null;
+    if (!usableTitle && !usableDescription) {
+      return { ...unchanged, skippedReason: "empty_copy" };
+    }
+
+    if (usableTitle && titleFinding) {
       const next = writeMetadataString(content, "title", title);
       if (next !== content) {
         content = next;
@@ -178,7 +185,7 @@ export async function improveSeoCopyWithLlm(
         });
       }
     }
-    if (descriptionFinding) {
+    if (usableDescription && descriptionFinding) {
       const next = writeMetadataString(content, "description", description);
       if (next !== content) {
         content = next;
