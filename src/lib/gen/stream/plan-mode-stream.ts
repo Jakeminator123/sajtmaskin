@@ -226,13 +226,13 @@ export function createPlanModeStream(params: {
           }
         }
       } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Plan generation failed";
+        // Utan detta ser persist-callbacken och exit-klassningen turen som
+        // felfri, och krediterna committas trots att strömmen kastade.
+        upstreamErrorMessage = message;
         if (!controllerClosed) {
-          safeEnqueue(
-            createBuilderStreamEvent("error", {
-              message:
-                error instanceof Error ? error.message : "Plan generation failed",
-            }),
-          );
+          safeEnqueue(createBuilderStreamEvent("error", { message }));
         }
       } finally {
         try {
