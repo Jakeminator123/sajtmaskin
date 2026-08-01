@@ -178,6 +178,14 @@ async function fulfilDomainOrderInner(
     );
     registrarOrderId = result.registrarOrderId;
   } catch (err) {
+    // KNOWN GAP, unreachable today (the registrar call cannot succeed — see
+    // `registrar/vercel-registrar.ts`). `markRegistrarCalled()` above records
+    // that we dispatched, but this branch still refunds EVERY exception. A
+    // request that reached the registrar and then lost its response (timeout,
+    // socket reset) would hand the customer both the domain and their money
+    // back. Post-dispatch failures must be treated as UNKNOWN and reconciled
+    // against the registrar before any refund; only pre-dispatch failures are
+    // safely refundable. Must be closed together with the registrar endpoint.
     const message = err instanceof Error ? err.message : "unknown registrar error";
     console.error(`[domains/fulfil] Registration failed for ${domain}:`, err);
     const refunded = await refundOrder(order, `registration_failed: ${message}`);

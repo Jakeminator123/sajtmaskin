@@ -5,6 +5,33 @@
  * credential check. Pricing is harmless to run with a token present, but
  * placing a real order is not, and a token that exists for deploys should not
  * imply consent to spend money on the owner's registrar account.
+ *
+ * ---------------------------------------------------------------------------
+ * `register()` IS AN UNFINISHED SKELETON — DO NOT ENABLE THE FLAG IN PROD.
+ *
+ * Search, pricing, Stripe Checkout, the order table and the compensation path
+ * are complete and exercised by tests. The last hop is not. Two independent
+ * reviews of #706 found the same thing, and it is written down here rather
+ * than fixed because finishing it needs a product decision, not a patch:
+ *
+ *  1. `buyDomain` posts to `/v5/domains/buy`, which belongs to the retired
+ *     Domains API family (sunset November 2025). The current endpoint is
+ *     `POST /v1/registrar/domains/{domain}/buy`.
+ *  2. That endpoint additionally requires `contactInformation` — the
+ *     registrant's name, address and country. Sajtmaskin never collects any
+ *     registrant data, and there is nowhere to read it from. Adding it is a
+ *     UI, storage and GDPR decision, not a client-library change.
+ *
+ * So a paid purchase would fail at the registrar step even with a valid token.
+ * Nothing can be charged today because the flag is off by default — but note
+ * that "development/preview only" is a RECOMMENDATION in `config/env-policy
+ * .json`, not a code guard: `FEATURES.useDomainPurchase` checks the flag and a
+ * Stripe key, nothing about `NODE_ENV`. Setting it in production would take
+ * effect. Before it is ever turned on, both points above must be closed and
+ * the compensation path re-tested against a real registrar response. See the
+ * note in `fulfilment.ts` about ambiguous post-dispatch failures, which
+ * becomes reachable the moment this works.
+ * ---------------------------------------------------------------------------
  */
 
 import {
