@@ -151,6 +151,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_LIVE_SITE_DOMAIN: z.string().optional(),
   /** Fast Edit Lane hot patch (server): when `"true"`, a quick edit pushes changed files into the live preview VM workspace without restarting Next dev. Read via `isPreviewPatchLaneEnabled` in `src/lib/gen/preview/preview-session.ts`. Default off. */
   SAJTMASKIN_PREVIEW_PATCH_LANE: z.string().optional(),
+  /** Innehållsrevision steg 3: when `"true"`, verdict/receipt readers compare `files_revision` instead of trusting `versionId` (promote-guard, preview-ready receipt + cache, terminal status projection). Known mismatch only; unknown revision stays fail-open. Read via `isContentRevisionGateEnabled` in `src/lib/gen/verify/content-revision.ts`. Default off. */
+  SAJTMASKIN_CONTENT_REVISION_GATE: z.string().optional(),
   /** Canonical server-side default for own-engine reasoning/thinking when the client omits an explicit toggle. */
   SAJTMASKIN_DEFAULT_THINKING: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),

@@ -28,6 +28,7 @@
     "SAJTMASKIN_AUTO_REPAIR_BUILD_ERROR",
     "SAJTMASKIN_BLOCKING_ESLINT",
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
+    "SAJTMASKIN_CONTENT_REVISION_GATE",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_DISABLE_QUALITY_GATE",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
@@ -184,6 +185,7 @@
     "SAJTMASKIN_BRIEF_MODEL",
     "SAJTMASKIN_BUILDER_INSPECTOR",
     "SAJTMASKIN_BRANDED_LIVE_URLS",
+    "SAJTMASKIN_CONTENT_REVISION_GATE",
     "SAJTMASKIN_DEFAULT_THINKING",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
@@ -477,6 +479,15 @@
         "production"
       ],
       "notes": "When true/1, init generations may still plan multiple routes but should fully realize only the primary route while extra planned routes start as lightweight shells. Default off."
+    },
+    {
+      "key": "SAJTMASKIN_CONTENT_REVISION_GATE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "Opt-in, default off. Lets the verdict/receipt readers compare generation_telemetry.files_revision against engine_versions.files_revision instead of trusting versionId. On: the promote guard discards a verdict describing another revision (symmetrically, both passed and failed) and answers retryable indeterminate rather than terminal failed; the runtime-ready receipt only stamps rows whose revision matches the served content; a terminal bus status describing older content is degraded in /version-status. An unknown revision is never blocking — only a known mismatch is. Frequency is measured via sajtmaskin_content_revision_mismatch_total. Production is deliberately NOT a recommended target yet: releasing the flag is an owner decision, preview first. Source: src/lib/gen/verify/content-revision.ts."
     },
     {
       "key": "SAJTMASKIN_DISABLE_QUALITY_GATE",

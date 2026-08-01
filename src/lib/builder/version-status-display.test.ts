@@ -243,6 +243,37 @@ describe("mapVersionStatusToDisplay — user edit invalidates the promoted claim
   it("never derives promoted from a terminal bus alone (no releaseState)", () => {
     expect(mapVersionStatusToDisplay(status({ phase: "done" }), LATEST).status).toBe("ready");
   });
+
+  // Innehållsrevision steg 3: residualen ovan ("Klar" är stale w.r.t. editen)
+  // stängs när revisionen bevisar mismatchen — `reconcileTerminalDbState`
+  // injicerar `stale_content_revision` och den befintliga false-green-vakten gör
+  // resten. Ingen ny mappningsregel behövs, vilket är hela poängen.
+  it("a stale-content-revision degradation collapses the Klar-claim to degraded", () => {
+    const staleDone = status({
+      phase: "done",
+      degradations: [
+        {
+          kind: "stale_content_revision",
+          message: "Statusen gäller ett äldre innehåll",
+          meta: null,
+        },
+      ],
+    });
+
+    const afterEdit = mapVersionStatusToDisplay(staleDone, {
+      isLatest: true,
+      releaseState: "draft",
+    });
+    expect(afterEdit.status).toBe("degraded");
+    expect(afterEdit.status).not.toBe("ready");
+    expect(afterEdit.degraded).toBe(true);
+
+    // Och den kan inte heller läsas som "Publicerad" om release_state råkar
+    // ligga kvar på promoted (t.ex. en väg som inte nollställer).
+    expect(
+      mapVersionStatusToDisplay(staleDone, { isLatest: true, releaseState: "promoted" }).status,
+    ).toBe("degraded");
+  });
 });
 
 describe("repair pass progress", () => {

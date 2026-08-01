@@ -29,6 +29,7 @@ Det här är en **schema-/kontraktsöversikt**, inte full arkitekturtext. För f
 | Dossier stream meta | exakt dossierlista + canonical capability-lista för finalize/autofix | `src/lib/gen/orchestrate.ts`, `src/lib/own-engine/session/own-engine-build-session.ts`, `src/lib/gen/stream/finalize-version/runner.ts` | `dossierRequestedCapabilities`, `dossierSelection.selected[]` | `selectedDossierIds` + `requestedCapabilities` i stream-meta | om bara selected capabilities sparas blir fallback-replay ofullständig; `selectedDossierIds` är primär policykälla och capability-listan är legacy/autofix-fallback |
 | F3 build plan | filhärledd integration/spec från den exakta parent-versionen | `tier3-readiness-gate.ts`, `chat-message-stream/f3-readiness-gate.ts`, `system-prompt/sections/session-contracts.ts` | parent-versionens filer + snapshot/dossiers + explicit godkända providers i aktuell runda | `tier3BuildSpec` i F3 Dynamic Context; current approvals adderas, övriga prompt-kontrakt är fallback när filspec saknas/tom | gate-fel degraderar till legacy-fallback; fel parent blockeras av befintlig mismatch-/tenant-gate |
 | Post-check analysis | route mismatch, sanity errors, Link-/use()-missbruk + advisory SEO-scan (endast error-log-rad; analytics/editorial/business-reviews borttagna 2026-07-23) | `src/lib/hooks/chat/post-checks-analysis.ts` | genererade filer + preflight/version context | strukturerade findings | bra site men fel readiness-/warning-semantik |
+| Innehållsrevision (verdikt-/kvittoläsning) | om ett verdikt, kvitto eller en statusclaim gäller det innehåll som ligger i `files_json` NU | `src/lib/gen/verify/content-revision.ts`, `src/lib/db/services/generation-telemetry.ts`, `src/lib/db/promote-guard.ts`, `src/lib/gen/verify/stale-verification.ts` | `generation_telemetry.files_revision` (revisionen verdiktet bedömde) + `engine_versions.files_revision` (DB-genererad `md5(files_json)`) | `RevisionMatch`: `current` (verdiktet är ett svar) · `unknown` (ingen revision → fail-open) · `stale` (känd mismatch → overifierat) | Bakom flaggan `SAJTMASKIN_CONTENT_REVISION_GATE` (default av). Utan jämförelse kan ett verdikt för revision N läsas som svar om N+1 (false-green) eller blockera N+1 (false-red). Fallgropar: (a) stämpla ALDRIG om `files_revision` vid UPDATE — då skrivs dagens innehåll över gårdagens bevis och mismatchen blir osynlig; (b) `files_revision` (md5) är inte `hashFilesJson` (sha256), som äger repair-revisionsbindningen — värdena är per konstruktion olika |
 | Finalize preflight cross-checks | saknade planerade routes + deterministisk href↔route-check | `src/lib/gen/stream/finalize-preflight.ts`, `src/lib/gen/verify/href-route-cross-check.ts` (sedan 2026-04-21) | merged files + `routePlan` + `actualRoutePaths` | `non_blocking_quality_warning`-rader i `engine_version_error_logs` + devLog `href-route.cross-check` | LLM emitterar `href="/blog/${slug}"` mot faktisk route `/blogg/[slug]` → mismatch flaggas med Levenshtein-suggestion. Hrefen normaliseras till pathname (query/hash strippas via `pathnameOnly()`) före matchning så `/about?ref=nav`, `/about#cta` och rena same-page-länkar (`/#hero`, `/?ref=nav`) inte triggar falska warnings |
 
 ## Viktiga observationer
@@ -69,6 +70,38 @@ Capability-lagret används nu också som en follow-up-signal:
 3. defaults/fallbacks
 4. confirmed answers/clarifications
 
+### 5. Ett verdikt gäller ett innehåll, inte ett `versionId`
+
+Samma `engine_versions`-rad skrivs om av user-edit (`/files`), server-repair
+(`targetVersionId`-rewrite) och autofix. `versionId` är alltså ingen
+innehållsidentitet, och därför kan inget lager svara på "gäller det här kvittot
+filerna som ligger nu?" utan en innehållsrevision.
+
+Primitiven finns sedan 2026-07-29: `engine_versions.files_revision` är
+DB-genererad (`md5(files_json)`, `GENERATED ALWAYS ... STORED` — ingen skrivare
+kan glömma den) och `generation_telemetry.files_revision` bär den revision
+verdiktet faktiskt bedömde. Jämförelsen är flaggad
+(`SAJTMASKIN_CONTENT_REVISION_GATE`, default av) och har tre lägen:
+
+| Läge | Betyder | Effekt |
+|---|---|---|
+| `current` | verdiktets revision ÄR innehållets | verdiktet är ett svar (dagens semantik) |
+| `unknown` | revision saknas på någon sida (rad före steg 2, versionslös rad, flagga av) | dagens fail-open, aldrig blockerande |
+| `stale` | båda revisionerna kända och olika | **känd mismatch**: "ingen gate har körts för det här innehållet" |
+
+Konsekvenserna per läsare: promote-guarden svarar retrybart `indeterminate`
+(`staleRevision`) i stället för att släppa igenom eller terminal-faila — symmetriskt
+för `passed` och `failed`; runtime-ready-kvittot stämplar bara rader vars revision
+matchar innehållet VM:en servar (och cachen nycklas på revision); en terminal
+bus-status som beskriver äldre innehåll degraderas i `/version-status`
+(`stale_content_revision` → amber "Degraderad", aldrig grön "Klar"). Frekvensen av
+känd mismatch mäts via `sajtmaskin_content_revision_mismatch_total{surface,verdict}`.
+
+Två saker får inte göras: stämpla om `files_revision` på en befintlig
+telemetrirad (det tillverkar en falsk matchning), och antag inte att
+`files_revision` (md5) och `hashFilesJson` (sha256, repair-revisionsbindningens
+`baseFilesHash`) har samma värde.
+
 ## Kodsanning
 
 Om detta dokument och koden skulle motsäga varandra gäller alltid koden. Primära sanningsfiler:
@@ -83,6 +116,7 @@ Om detta dokument och koden skulle motsäga varandra gäller alltid koden. Prim�
 - `src/lib/gen/build-spec/` (post-OMTAG-03 package)
 - `src/lib/gen/system-prompt/` (post-OMTAG-03 package)
 - `src/lib/hooks/chat/post-checks-analysis.ts`
+- `src/lib/gen/verify/content-revision.ts` (innehållsrevisionens flagga + klassificering)
 
 ## När detta dokument uppdateras
 

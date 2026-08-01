@@ -54,7 +54,12 @@ const fetchPreviewHostReadinessVerdict = vi.hoisted(() =>
 const recordPreviewRuntimeOutcomeForVersion = vi.hoisted(() =>
   vi.fn<(versionId: string, previewSuccess: boolean) => Promise<void>>(async () => undefined),
 );
-const hasConfirmedPreviewReadyOnInstance = vi.hoisted(() => vi.fn(() => false));
+// Innehållsrevision steg 3: the confirmed-check is revision-scoped (and therefore
+// async), so the route asks the writer inside `after()` instead of gating the
+// scheduling itself. Same effect — no host call, no DB write once confirmed.
+const shouldVerifyPreviewRuntimeReceipt = vi.hoisted(() =>
+  vi.fn<(versionId: string) => Promise<boolean>>(async () => true),
+);
 
 vi.mock("@/lib/gen/preview/tier2-resume", () => ({
   tryResumeTier2Runtime,
@@ -65,7 +70,7 @@ vi.mock("@/lib/gen/preview/preview-host-client", () => ({
 }));
 
 vi.mock("@/lib/db/services/generation-telemetry", () => ({
-  hasConfirmedPreviewReadyOnInstance,
+  shouldVerifyPreviewRuntimeReceipt,
   recordPreviewRuntimeOutcomeForVersion,
 }));
 
@@ -95,7 +100,7 @@ describe("POST preview-heartbeat", () => {
     afterCallbacks.value = [];
     isTier2PreviewConfigured.mockReturnValue(true);
     getEngineChatByIdForRequest.mockResolvedValue({ id: "c1" });
-    hasConfirmedPreviewReadyOnInstance.mockReturnValue(false);
+    shouldVerifyPreviewRuntimeReceipt.mockResolvedValue(true);
     tryResumeTier2Runtime.mockResolvedValue(null);
   });
 
@@ -228,7 +233,7 @@ describe("POST preview-heartbeat", () => {
   });
 
   it("skips host verification entirely once the version is confirmed on this instance (no recurring traffic)", async () => {
-    hasConfirmedPreviewReadyOnInstance.mockReturnValue(true);
+    shouldVerifyPreviewRuntimeReceipt.mockResolvedValue(false);
     getActivePreviewSessionAsync.mockResolvedValue({
       previewSessionId: "ps1",
       previewUrl: "https://x.example",
@@ -247,7 +252,10 @@ describe("POST preview-heartbeat", () => {
     );
 
     expect(((await res.json()) as { ok: boolean }).ok).toBe(true);
-    expect(afterCallbacks.value.length).toBe(0);
+    // The receipt work is scheduled, but the confirmed-check inside it stops
+    // before the host call and the DB write — the traffic that actually costs.
+    await runAfterCallbacks();
+    expect(shouldVerifyPreviewRuntimeReceipt).toHaveBeenCalledWith("v1");
     expect(tryResumeTier2Runtime).not.toHaveBeenCalled();
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
@@ -263,7 +271,7 @@ describe("POST preview-heartbeat — readiness-failure utan levande process", ()
     afterCallbacks.value = [];
     isTier2PreviewConfigured.mockReturnValue(true);
     getEngineChatByIdForRequest.mockResolvedValue({ id: "c1" });
-    hasConfirmedPreviewReadyOnInstance.mockReturnValue(false);
+    shouldVerifyPreviewRuntimeReceipt.mockResolvedValue(true);
     tryResumeTier2Runtime.mockResolvedValue(null);
     fetchPreviewHostReadinessVerdict.mockResolvedValue(null);
     getActivePreviewSessionAsync.mockResolvedValue({
