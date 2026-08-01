@@ -1049,6 +1049,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             onF3Status={setF3Status}
             onF3Ready={handleF3Ready}
             onF3ReleaseSettled={vm.handleDeterministicF3Settled}
+            f3RequiresRealBuildKeys={
+              vm.deployReadiness?.info?.hasRealBuildIntegrations ?? null
+            }
           />
         }
       />
@@ -1121,6 +1124,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             readiness={vm.deployReadiness}
             isLoading={vm.isDeployReadinessLoading}
             lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+            hasAnyVersion={vm.effectiveVersionsList.length > 0}
           />
           {visibleF3Requirements ? (
             <F3RequirementsSurface
@@ -1171,15 +1175,24 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onClose={() => setTipPanelOpen(false)}
             />
           </div>
-          {vm.messages.length > 0 ? (
-            <ChatOutputCollapseBar
-              isCollapsed={isChatOutputCollapsed}
-              onToggle={chatOutputCollapse.toggle}
-              messageCount={vm.messages.length}
-              isStreaming={vm.isAnyStreaming}
-            />
-          ) : null}
-          <ChatInterface
+          {/* Ö3/Del B: i nedfällt läge centreras BARA chatten (fliken + inputen)
+              som en box i mitten — inte Lansering-panelen (Del F) ovanför. På
+              smal skärm ger `w-full` full bredd så boxen inte blir en remsa. */}
+          <div
+            className={cn(
+              "flex flex-col",
+              isChatOutputCollapsed && "mx-auto w-full max-w-2xl",
+            )}
+          >
+            {vm.messages.length > 0 ? (
+              <ChatOutputCollapseBar
+                isCollapsed={isChatOutputCollapsed}
+                onToggle={chatOutputCollapse.toggle}
+                messageCount={vm.messages.length}
+                isStreaming={vm.isAnyStreaming}
+              />
+            ) : null}
+            <ChatInterface
             chatId={vm.chatId}
             initialPrompt={vm.initialPrompt}
             onCreateChat={vm.requestCreateChat}
@@ -1206,6 +1219,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 : null
             }
           />
+          </div>
           <DeployNameDialog
             open={vm.deployNameDialogOpen}
             deployName={vm.deployNameInput}
@@ -1316,6 +1330,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 vm.setCurrentPreviewUrl(url);
               }}
               isLoading={isPreviewLoading}
+              isGenerating={isBusy}
               imageGenerationsEnabled={vm.enableImageGenerations}
               imageGenerationsSupported={vm.isImageGenerationsSupported}
               isBlobConfigured={vm.isMediaEnabled}

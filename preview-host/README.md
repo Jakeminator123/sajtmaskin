@@ -56,6 +56,7 @@ Starta därefter tjänsten med `npm start` och verifiera `GET /health`.
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
 - `GET /preview/session/:previewSessionId/status`
+- `GET /preview/session/:previewSessionId/files-manifest`
 - `GET /preview/logs/:previewSessionId`
 - `POST /preview/verify`
 - `GET /health`

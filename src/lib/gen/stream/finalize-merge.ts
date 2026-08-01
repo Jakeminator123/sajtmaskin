@@ -10,6 +10,10 @@ import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { applyDossierVerbatimPolicy } from "@/lib/gen/dossiers/verbatim-policy";
 import { mapDossierPathToOutput } from "@/lib/gen/dossiers/output-path";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
+import {
+  extractAppRoutePathsFromFilePaths,
+  findSupersededScaffoldRoutes,
+} from "@/lib/gen/route-plan";
 
 interface ImportFix {
   file: string;
@@ -201,6 +205,24 @@ export function removeExplicitlyRemovedDossierFiles(params: {
  * defaults since LLMs emit them inconsistently and they rarely cause
  * brand-leak bugs.
  */
+/**
+ * True when `filePath` is an App Router file living under one of `routePaths`
+ * (e.g. `app/blog/page.tsx` and `app/blog/[slug]/page.tsx` for `/blog`).
+ * Handles both `app/` and `src/app/` layouts.
+ */
+export function isUnderRoutePath(
+  filePath: string,
+  routePaths: readonly string[],
+): boolean {
+  if (routePaths.length === 0) return false;
+  const normalized = filePath.replace(/\\/g, "/").replace(/^src\//, "");
+  if (!normalized.startsWith("app/")) return false;
+  const relative = `/${normalized.slice("app/".length)}`;
+  return routePaths.some(
+    (route) => relative === route || relative.startsWith(`${route}/`),
+  );
+}
+
 const LLM_ONLY_PATHS: ReadonlySet<string> = new Set([
   "app/page.tsx",
   "src/app/page.tsx",
@@ -384,10 +406,22 @@ export function mergeGeneratedProjectFiles({
     // from the safe set; the LLM-only set is tracked separately so the
     // caller knows when the LLM forgot to emit an essential file.
     const llmOnlyScaffoldPaths: string[] = [];
+    // Drop scaffold pages whose locale-alternate the model already emitted
+    // (scaffold `/blog` vs generated `/blogg`, or the reverse). Keeping both
+    // leaves the scaffold's copy in the project with nothing linking to it.
+    const supersededRoutes = findSupersededScaffoldRoutes(
+      extractAppRoutePathsFromFilePaths(generatedFiles.map((file) => file.path)),
+      extractAppRoutePathsFromFilePaths(resolvedScaffold.files.map((file) => file.path)),
+    );
+    const supersededScaffoldPaths: string[] = [];
     const scaffoldBase = resolvedScaffold.files
       .filter((file) => {
         if (isLlmOnlyPath(file.path)) {
           llmOnlyScaffoldPaths.push(file.path);
+          return false;
+        }
+        if (isUnderRoutePath(file.path, supersededRoutes)) {
+          supersededScaffoldPaths.push(file.path);
           return false;
         }
         return true;
@@ -397,6 +431,14 @@ export function mergeGeneratedProjectFiles({
         content: file.content,
         language: "tsx" as const,
       }));
+    if (supersededScaffoldPaths.length > 0) {
+      devLogAppend("in-progress", {
+        type: "scaffold-locale-superseded",
+        chatId,
+        supersededRoutes,
+        droppedPaths: supersededScaffoldPaths,
+      });
+    }
 
     const mergeResult = mergeVersionFilesWithWarnings(scaffoldBase, generatedFiles);
     const mergedFiles = mergeResult.files;

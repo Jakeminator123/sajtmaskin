@@ -18,6 +18,7 @@ import type { DesignTheme } from "@/lib/builder/theme-presets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PreviewPanelInitControls } from "./PreviewPanelInitControls";
+import { useRepairBlocked } from "@/lib/builder/repair-blocked";
 import { cn } from "@/lib/utils";
 
 interface PreviewPanelEmptyStateProps {
@@ -40,6 +41,12 @@ interface PreviewPanelEmptyStateProps {
   /** Latest repair pass index (0 when none), for bounded "Reparerar (X/2)" copy. */
   activeVersionRepairPassIndex?: number;
   onFixPreview?: (() => void) | null;
+  /**
+   * Sant när appen redan arbetar med en generering. Samma grind som i
+   * `PreviewPanelFrame`: "Försök reparera preview" startar en ny debiterad
+   * körning, så den får inte erbjudas mitt i en pågående.
+   */
+  isGenerating?: boolean;
   /**
    * P0 stream-abort recovery (2026-04-26). True when the most recent
    * generation/repair stream for this chat died before any version was
@@ -69,9 +76,12 @@ export function PreviewPanelEmptyState({
   activeVersionIsLatest = true,
   activeVersionRepairPassIndex = 0,
   onFixPreview,
+  isGenerating = false,
   versionlessAborted = false,
   onRestartGeneration,
 }: PreviewPanelEmptyStateProps) {
+  // Täcker både pågående generering och deterministisk /finalize-design.
+  const repairBlocked = useRepairBlocked(isGenerating);
   const isInitialEmpty = !chatId && !versionId && !externalLoading;
   const normalizedAwaitingQuestion =
     typeof awaitingInputQuestion === "string" && awaitingInputQuestion.trim()
@@ -159,6 +169,7 @@ export function PreviewPanelEmptyState({
     !versionlessAborted &&
       onFixPreview &&
       !externalLoading &&
+      !repairBlocked &&
       !isInitialEmpty &&
       !awaitingInput &&
       !previewPending,
@@ -247,7 +258,11 @@ export function PreviewPanelEmptyState({
         </Button>
       ) : null}
       {showFixAction ? (
-        <Button className="mt-4" onClick={onFixPreview!} disabled={externalLoading}>
+        <Button
+          className="mt-4"
+          onClick={onFixPreview!}
+          disabled={externalLoading || repairBlocked}
+        >
           Försök reparera preview
         </Button>
       ) : null}

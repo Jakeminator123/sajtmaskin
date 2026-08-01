@@ -222,6 +222,7 @@ For `version_mismatch`, `versionId` is the preview-session-bound version. Option
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
 - `GET /preview/session/:previewSessionId/status`
+- `GET /preview/session/:previewSessionId/files-manifest` (Fast Edit Lane — read-only content hashes)
 - `GET /preview/sandbox/:previewSessionId/status` (legacy path alias)
 - `GET /preview/logs/:previewSessionId`
 
@@ -338,8 +339,80 @@ A dependency/config-critical change (`package.json`, lockfiles, `next.config.*`,
 restart.
 
 App side: `patchPreviewHostSession` in `src/lib/gen/preview/preview-host-client.ts`,
-gated by `SAJTMASKIN_PREVIEW_PATCH_LANE` via `tryPatchPreviewSession` in
-`src/lib/gen/preview/preview-session.ts`.
+gated by `SAJTMASKIN_PREVIEW_PATCH_LANE` via `tryPatchPreviewSession` (quick edits)
+and the follow-up lane in `src/lib/gen/preview/preview-session.ts`.
+
+#### Live file manifest (`GET /preview/session/:previewSessionId/files-manifest`)
+
+The read side of the patch lane: a sha256-per-path view of the file set the host
+currently holds for the session (`session.filesJson` — the same set a boot writes
+into the workspace). It exists so the app can answer "what is live right now?"
+before deciding between `patch` and `update`, without shipping file contents back.
+
+- Read-only: unlike `/status` it never queues a boot.
+- `404 session_not_found` for an unknown, destroyed or expired session.
+- Response: `ok`, `previewSessionId`, `chatId`, `versionId`, `status`, `running`,
+  `hashAlgorithm` (`"sha256"`), `fileCount`, `files` (`path -> sha256 hex`).
+- `running` uses the same prewarm-aware rule as `/status`, so an unclaimed prewarm
+  skeleton is never reported as patchable.
+
+App side: `fetchPreviewHostFilesManifest` in
+`src/lib/gen/preview/preview-host-client.ts`. Any non-200 (including a
+preview-host deployed before this route existed) yields `null`, and every caller
+falls back to the full update path.
+
+#### Follow-up generations on the patch lane
+
+A follow-up generation (new `versionId` on a live session) used to always call
+`POST /preview/session/update` with the whole file set, which restarts Next dev
+and pays a first compile even for a text-only change. `startPreviewSession`
+(`src/lib/gen/preview/preview-session.ts`) now builds the same update payload and
+then tries the patch lane first. It patches **only** when all of these hold —
+otherwise it logs the reason and runs the untouched update path:
+
+| Condition | Fallback reason |
+|---|---|
+| `SAJTMASKIN_PREVIEW_PATCH_LANE` is on | `patch_lane_disabled` |
+| The app's session pointer knows the base version | `unknown_base_version` |
+| The host returned a manifest | `manifest_unavailable` |
+| The host reports `running: true` | `runtime_not_running` |
+| The manifest's `versionId` equals the app's base version | `host_version_mismatch` |
+| Diff is non-empty, non-structural and within 200 files / 4 MB | `no_changes`, `empty_host_manifest`, `structural_change`, `diff_too_large` |
+| The host accepted the patch (`expectedBaseVersionId` re-checked under its lock) | `host_patch_failed` |
+| The patch response echoes the NEW `versionId` | `host_version_not_recorded` |
+
+Diff rules (`planPreviewPatch` in `src/lib/gen/preview/preview-patch-plan.ts`):
+content differs or path is new → `files`; path is on the host but absent from the
+new version → `removedPaths`. Applying that patch onto the host's stored set
+reproduces exactly what `update` would have written, so deletions can never
+linger. Structural paths reuse `isStructuralQuickEditPath`, the app-side mirror of
+the host's restart rule, and cover removals as well as edits — a changed
+`.env.local` (env-panel edit, F2→F3) therefore always takes the update path.
+
+A patched follow-up returns `startOutcome: "resumed"` with `runtimeReady: false`:
+a hot patch inherits the previous boot's readiness receipt, so it never stamps a
+per-version runtime-ready receipt (M#pv1). Lane choice is logged as
+`[telemetry:preview-lifecycle] kind=preview_followup_lane` with `lane`,
+`patchMode`, `changedFiles`, `removedPaths` and `durationMs`.
+
+**Version binding (an old revision may never approve a new version).** Session,
+`versionId` and the revision actually booted/patched stay bound:
+
+1. A successful patch pins the NEW `versionId` on the host session, and both
+   `/status` and `files-manifest` report it from that same store record.
+2. A patch that fails mid-way (e.g. ENOSPC in the workspace write) rolls the
+   session back to its pre-patch snapshot and returns `500 patch_failed`, so the
+   host never claims a version whose files did not land.
+3. The app only advances its session pointer after the patch response echoes the
+   new `versionId`; otherwise the full `update` path re-pins it.
+4. Resume stays version-pinned: `tryResumeTier2Runtime` → `fetchPreviewHostStatus`
+   with `expectedVersionId`, so a VM still serving another revision returns `null`
+   and the session is rebuilt instead of being surfaced as ready.
+
+Regression coverage: `preview-host/scripts/test-patch-lane-contract.mjs` (host
+rollback, `/status` + manifest after patch, refused stale base) and
+`src/lib/gen/preview/preview-session.test.ts` (patch → resume only on a matching
+host version, stale host forces a rebuild, update remains the authority).
 
 When preview-host runs outside local development, all `/preview/*` routes require
 auth via the shared preview-host key:

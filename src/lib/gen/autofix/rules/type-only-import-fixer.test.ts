@@ -140,10 +140,26 @@ describe("fixTypeOnlyImports", () => {
     expect(result.code).toBe(MEMBER_ACCESS_VALUE_CASE);
   });
 
-  it("does NOT convert symbols referenced by `typeof` (typeof requires a value)", () => {
+  // `typeof X` in a TYPE QUERY is a compile-time reference, so `import type`
+  // is legal there — verified against tsc (`--strict --isolatedModules`) rather
+  // than assumed. This test previously asserted the opposite on the belief that
+  // "typeof requires a value"; that only holds for `typeof` in an EXPRESSION,
+  // which the AST classifier tells apart. The mirror fixer must agree, or the
+  // two would convert the same import back and forth forever.
+  it("converts a symbol referenced only by `typeof` in a type query", () => {
     const result = fixTypeOnlyImports(TYPEOF_VALUE_CASE, "lib/types.ts");
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import type { schema } from "@/lib/schema";');
+  });
+
+  it("does NOT convert a symbol referenced by `typeof` in an expression", () => {
+    const runtimeTypeof = `import { schema } from "@/lib/schema";
+
+export const kind = typeof schema;
+`;
+    const result = fixTypeOnlyImports(runtimeTypeof, "lib/kind.ts");
     expect(result.fixed).toBe(false);
-    expect(result.code).toBe(TYPEOF_VALUE_CASE);
+    expect(result.code).toBe(runtimeTypeof);
   });
 
   it("does NOT convert symbols used with `new`", () => {
@@ -188,5 +204,26 @@ export default function Motifs() {
     expect(result.fixed).toBe(false);
     expect(result.code).toBe(LUCIDE_ICON_VALUE_CASE);
     expect(result.code).toContain('import { PawPrint, Leaf } from "lucide-react";');
+  });
+});
+
+// Spegelvänd shadowing: en lokal deklaration med samma namn gör referensen
+// tvetydig, och att demotera importen till `import type` raderar den vid
+// bygget. Blir den lokala deklarationen sedan borttagen (eller är den ett rent
+// namnkrock) står filen utan sitt runtime-beroende och sidan vitnar.
+describe("fixTypeOnlyImports — lokal shadowing blockerar demoteringen", () => {
+  const SHADOWED_INTERFACE_CASE = `import { Theme } from "@/lib/theme";
+
+export type Props = { theme: Theme };
+
+export interface Theme {
+  name: string;
+}
+`;
+
+  it("demoterar inte när en lokal interface-deklaration skuggar namnet", () => {
+    const result = fixTypeOnlyImports(SHADOWED_INTERFACE_CASE, "lib/props.ts");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(SHADOWED_INTERFACE_CASE);
   });
 });
