@@ -649,6 +649,11 @@ export function PreviewPanel({
         // that base as the latest-known signal so the server's stale-base 409
         // fires when another writer advanced the chat head past it.
         engineLatestKnownVersionId: base,
+        // History restore, not new machine content: the snapshot is a state
+        // the file has already been in (possibly a deliberately saved broken
+        // draft from the code view). Gating it would strand the user with no
+        // way back — and unlike the composer drop there is no AI fallback.
+        guardSyntax: false,
       });
       if (!saved.ok) {
         toast.error(saved.error);
@@ -686,6 +691,8 @@ export function PreviewPanel({
         // See handleComposerUndo: chain off the latest composer version (FEL-2)
         // and forward it as the latest-known signal for the stale-base 409.
         engineLatestKnownVersionId: base,
+        // History restore — same rationale as handleComposerUndo above.
+        guardSyntax: false,
       });
       if (!saved.ok) {
         toast.error(saved.error);
