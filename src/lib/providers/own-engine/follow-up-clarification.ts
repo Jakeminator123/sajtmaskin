@@ -1,4 +1,5 @@
 import { previewUrlField } from "@/lib/api/preview-url-contract";
+import { FOCUS_POINT_MARKER as FOLLOW_UP_FOCUS_POINT_MARKER } from "@/lib/builder/focus-point-prompt";
 import { formatSSEEvent } from "@/lib/streaming";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import { hasNegatedRedesignIntent } from "@/lib/builder/prompt-negation";
@@ -114,13 +115,6 @@ function hasRedesignVerbNounCombo(message: string): boolean {
   const hasNoun = FOLLOW_UP_REDESIGN_NOUN_PATTERNS.some((re) => re.test(message));
   return hasNoun;
 }
-
-/**
- * Fokuspunkts-blocket som klienten appendar när användaren pekat ut element
- * i previewn (ChatInterface.tsx `buildFocusPointBlock`). Närvaron är en stark
- * riktad-edit-signal — användaren pekar på ETT ställe.
- */
-const FOLLOW_UP_FOCUS_POINT_MARKER = "Användarens markerade fokuspunkter i preview:";
 
 /**
  * Interaktions-scopade prompts ("när jag hovrar …", "vid klick …") beskriver

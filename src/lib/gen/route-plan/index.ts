@@ -13,6 +13,11 @@ export { buildRoutePlan } from "./route-plan-builder";
 export { findMissingPlannedRoutes } from "./route-plan-verify";
 
 export { deduplicateLocaleAlternateRoutes } from "./locale-dedupe";
-export { collectExplicitRouteRemovals, detectExplicitPageCount } from "./planning-helpers";
+export {
+  collectExplicitRouteRemovals,
+  detectExplicitPageCount,
+  extractExplicitNamedPages,
+  hasExplicitAddRouteIntent,
+} from "./planning-helpers";
 export { extractAppRoutePathsFromFilePaths, normalizeRoutePath } from "./path-utils";
 export { routePatternToRegex } from "./route-matchers";

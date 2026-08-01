@@ -35,6 +35,8 @@ export type BridgeElement = {
   href?: string | null;
   selector?: string | null;
   nearestHeading?: string | null;
+  /** From `data-sajtmaskin-source` when the preview annotates DOM nodes. */
+  sourcePath?: string | null;
   rect?: BridgeRect;
   viewport?: { w: number; h: number };
   /** Faktisk klickpunkt i viewport-koordinater (B-fix #164/#197). */
@@ -91,7 +93,11 @@ export function dispatchBridgeInspectPoint(pick: BridgePick, previewUrl: string 
   const vh = viewport.h || rect?.height || 1;
   const xPercent = Number(((click.x / vw) * 100).toFixed(2));
   const yPercent = Number(((click.y / vh) * 100).toFixed(2));
-  const matchHint = match ? ` → ${match.item.filePath}:${match.item.lineNumber}` : "";
+  const sourcePath = match?.item.filePath || element.sourcePath || null;
+  const sourceLine = match?.item.lineNumber ?? null;
+  const matchHint = sourcePath
+    ? ` → ${sourcePath}${sourceLine != null ? `:${sourceLine}` : ""}`
+    : "";
 
   dispatchInspectCaptureEvent({
     id: `bridge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -111,6 +117,8 @@ export function dispatchBridgeInspectPoint(pick: BridgePick, previewUrl: string 
       href: element.href ?? null,
       selector: element.selector ?? null,
       nearestHeading: element.nearestHeading ?? null,
+      sourcePath,
+      sourceLine,
     },
     source: "local",
   });

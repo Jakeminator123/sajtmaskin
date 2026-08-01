@@ -1,4 +1,5 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { escapeRegexLiteral } from "@/lib/utils/unicode-word-boundary";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import { APP_ROUTE_PATTERNS, type RoutePatternEntry, WEBSITE_ROUTE_PATTERNS } from "./route-patterns";
 import { normalizeRoutePath } from "./path-utils";
@@ -113,6 +114,63 @@ export function collectExplicitRouteRemovals(
 
 export function hasExplicitAddRouteIntent(prompt: string): boolean {
   return EXPLICIT_ADD_ROUTE_PATTERNS.some((pattern) => pattern.test(prompt));
+}
+
+/**
+ * Explicit named-page intents where the user states the page title, e.g.
+ * `en ny sida som ska heta "Bilder"` / `a new page called Gallery`.
+ * These win over keyword patterns and focus-point link text.
+ */
+const EXPLICIT_NAMED_PAGE_PATTERNS: RegExp[] = [
+  /(?:sida|page|route)\s+som\s+ska\s+heta\s+["«»“”]?([^"'«»“”.\n,;]+)/giu,
+  /ska\s+heta\s+["«»“”]([^"'«»“”]+)["«»“”]/giu,
+  /(?:page|route)\s+(?:called|named)\s+["«»“”]?([^"'«»“”.\n,;]+)/giu,
+  /(?:called|named)\s+["«»“”]([^"'«»“”]+)["«»“”]/giu,
+];
+
+export type ExplicitNamedPage = {
+  name: string;
+  path: string;
+};
+
+function cleanExplicitPageName(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^["'«»“”]+|["'«»“”]+$/g, "")
+    .replace(/\s+/g, " ")
+    .slice(0, 48);
+}
+
+export function extractExplicitNamedPages(prompt: string): ExplicitNamedPage[] {
+  if (!prompt) return [];
+  const seenPaths = new Set<string>();
+  const out: ExplicitNamedPage[] = [];
+  for (const pattern of EXPLICIT_NAMED_PAGE_PATTERNS) {
+    pattern.lastIndex = 0;
+    for (const match of prompt.matchAll(pattern)) {
+      const name = cleanExplicitPageName(match[1] ?? "");
+      if (!name || name.length < 2) continue;
+      const path = inferPathFromPageName(name);
+      if (path === "/" || seenPaths.has(path)) continue;
+      seenPaths.add(path);
+      out.push({ name, path });
+    }
+  }
+  return out;
+}
+
+/** Remove already-resolved explicit page-name literals before keyword matching. */
+export function neutralizeExplicitPageNameLiterals(
+  prompt: string,
+  names: string[],
+): string {
+  let out = prompt;
+  for (const name of names) {
+    const trimmed = name.trim();
+    if (trimmed.length < 2) continue;
+    out = out.replace(new RegExp(escapeRegexLiteral(trimmed), "giu"), " ");
+  }
+  return out;
 }
 
 /**

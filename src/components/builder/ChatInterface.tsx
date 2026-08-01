@@ -37,6 +37,7 @@ import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type PromptSourceMeta } from "@/lib/builder/prompt-builder";
 import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
+import { buildInspectPointsPrompt } from "@/lib/builder/focus-point-prompt";
 import {
   INSPECT_CAPTURE_EVENT,
   type InspectCapturedElement,
@@ -113,45 +114,6 @@ function getExtensionFromDataUrl(dataUrl?: string): string {
   if (mime === "image/webp") return "webp";
   if (mime === "image/gif") return "gif";
   return "png";
-}
-
-function buildInspectPointsPrompt(points: InspectPointToken[]): string {
-  if (!points.length) return "";
-  const sourceUrls = Array.from(new Set(points.map((point) => point.demoUrl).filter(Boolean)));
-  const lines = points.map((point, index) => {
-    const imagePart = point.filename ? `, bildfil: ${point.filename}` : "";
-    const base = `- Punkt ${index + 1}: x=${point.xPercent.toFixed(1)}%, y=${point.yPercent.toFixed(1)}%, viewport=${Math.round(point.viewportWidth)}x${Math.round(point.viewportHeight)}${imagePart}`;
-    const extras: string[] = [];
-    if (point.pointSummary) extras.push(`  - Sammanfattning: ${point.pointSummary}`);
-    if (point.capturedUrl && point.capturedUrl !== point.demoUrl) {
-      extras.push(`  - Slutlig capture-URL: ${point.capturedUrl}`);
-    }
-    if (point.element) {
-      const elementParts = [
-        point.element.tag ? `<${point.element.tag}>` : null,
-        point.element.id ? `#${point.element.id}` : null,
-        point.element.className ? `.${point.element.className.split(/\s+/).slice(0, 3).join(".")}` : null,
-      ].filter(Boolean);
-      if (elementParts.length > 0) {
-        extras.push(`  - DOM-träff: ${elementParts.join(" ")}`);
-      }
-      if (point.element.selector) extras.push(`  - CSS-selector: ${point.element.selector}`);
-      if (point.element.nearestHeading) extras.push(`  - Närmaste rubrik: ${point.element.nearestHeading}`);
-      if (point.element.text) extras.push(`  - Träff-text: ${point.element.text}`);
-      if (point.element.ariaLabel) extras.push(`  - Aria-label: ${point.element.ariaLabel}`);
-    }
-    if (point.clip) {
-      extras.push(`  - Bildutsnitt: x=${point.clip.x}, y=${point.clip.y}, w=${point.clip.width}, h=${point.clip.height}`);
-    }
-    if (point.source) {
-      extras.push(`  - Capture-källa: ${point.source}`);
-    }
-    return [base, ...extras].join("\n");
-  });
-  const sourcePart = sourceUrls.length
-    ? `\nKälla: ${sourceUrls.join(" | ")}`
-    : "";
-  return `Användarens markerade fokuspunkter i preview:${sourcePart}\n${lines.join("\n")}\nPrioritera ändringar nära dessa punkter. Om informationen krockar med resten av sidan, utgå från punktens DOM-träff/selector före antaganden.`;
 }
 
 interface ChatInterfaceProps {

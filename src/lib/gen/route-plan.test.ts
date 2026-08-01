@@ -200,6 +200,41 @@ describe("buildRoutePlan", () => {
     expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
   });
 
+  it("maps Swedish bilder/galleri keywords to /bilder with unicode word boundaries", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Vi behöver en bilder-sida och ett galleri för foton.",
+    });
+    expect(plan.routes.some((r) => r.path === "/bilder")).toBe(true);
+  });
+
+  it("maps English gallery/images keywords to /gallery", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Add a gallery page for product images.",
+    });
+    expect(plan.routes.some((r) => r.path === "/gallery")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/bilder")).toBe(false);
+  });
+
+  it("explicit page name wins over focus-point PORTFOLIO text (no /work)", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: [
+        'Skapa en ny sida som ska heta "Bilder".',
+        "",
+        "Användarens markerade fokuspunkter i preview:",
+        "- Punkt 1: x=12.0%, y=8.0%",
+        "  - Träff-text: PORTFOLIO",
+        "  - href: #portfolio",
+      ].join("\n"),
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((r) => r.path === "/bilder")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/work")).toBe(false);
+  });
+
   it("merges brief routes with prompt-requested additions instead of early returning brief only", () => {
     const plan = buildRoutePlan({
       ...websiteBase,
