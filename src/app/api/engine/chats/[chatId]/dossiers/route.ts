@@ -64,6 +64,10 @@ import {
   resolveDossiersPresentInVersion,
   resolveSelectedDossiersWithVersionPresence,
 } from "@/lib/gen/dossiers/version-presence";
+import {
+  preferPendingIntegrationDossiers,
+  resolvePendingIntegrationDossiers,
+} from "@/lib/gen/dossiers";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { dossierRequiresF3, type SelectedDossier } from "@/lib/gen/dossiers/types";
 import {
@@ -176,10 +180,28 @@ async function buildDossierOverview(
   // snapshot floor dropped its capability AND the provider-key→capability
   // mapping resolves the wrong dossier (`openai` → `ai-chat` default, never
   // `ai-tool-calling`).
-  const initialSelectedDossiers = resolveSelectedDossiersWithVersionPresence({
+  const snapshotAndPresenceDossiers = resolveSelectedDossiersWithVersionPresence({
     snapshot: chat.orchestration_snapshot,
     versionFiles,
     configuredEnvKeys,
+  });
+  const pendingDossiers = resolvePendingIntegrationDossiers({
+    snapshot: chat.orchestration_snapshot as Record<string, unknown> | null,
+    versionFiles,
+    configuredEnvKeys,
+  });
+  // Preserve the provider-specific pending identity captured in F2. The older
+  // capability-only reconciliation below remains as a legacy fallback.
+  const presentInVersionDossiers = versionFiles
+    ? resolveDossiersPresentInVersion(versionFiles, configuredEnvKeys)
+    : [];
+  const presentDossierIds = new Set(
+    presentInVersionDossiers.map((selected) => selected.entry.id),
+  );
+  const initialSelectedDossiers = preferPendingIntegrationDossiers({
+    selected: snapshotAndPresenceDossiers,
+    pending: pendingDossiers,
+    preserveDossierIds: presentDossierIds,
   });
 
   const lifecycleStage =
@@ -251,14 +273,15 @@ async function buildDossierOverview(
   // under `database`). Re-union the presence entries (dedupe by id) so file
   // evidence always survives reconciliation. Presence is computed from the
   // already-loaded files — no extra read.
-  const presentInVersionDossiers = versionFiles
-    ? resolveDossiersPresentInVersion(versionFiles, configuredEnvKeys)
-    : [];
   const selectedById = new Map<string, SelectedDossier>();
   for (const selected of [...capabilitySelectedDossiers, ...presentInVersionDossiers]) {
     if (!selectedById.has(selected.entry.id)) selectedById.set(selected.entry.id, selected);
   }
-  const selectedDossiers = Array.from(selectedById.values());
+  const selectedDossiers = preferPendingIntegrationDossiers({
+    selected: Array.from(selectedById.values()),
+    pending: pendingDossiers,
+    preserveDossierIds: presentDossierIds,
+  });
 
   // Re-derive the spec (against the same preloaded files) only when a
   // FILE-based source grew the set beyond what the provisional pass saw —
@@ -315,6 +338,8 @@ async function buildDossierOverview(
 
   const requirements = spec?.requirements ?? [];
 
+  const pendingDossierIds = new Set(pendingDossiers.map((pending) => pending.entry.id));
+
   const dossiers: DossierOverviewEntry[] = selectedDossiers.map((selected) => {
     const { entry } = selected;
     const requiresF3 = dossierRequiresF3(entry);
@@ -342,7 +367,16 @@ async function buildDossierOverview(
 
     let status: DossierStatus;
     let missingKeys: string[] = [];
-    if (!requiresF3) {
+    if (pendingDossierIds.has(entry.id)) {
+      // Uppskjuten av F2-muten och ännu inte i versionens filer. Måste prövas
+      // FÖRE `requiresF3`: en klient-bara provider (analytics) uppfyller inte
+      // `dossierRequiresF3`, så den hade annars fallit rakt in i
+      // `self-contained` och panelen sagt "Inkopplad" om en fil som
+      // /finalize-design inte skrivit än — grönt utan verklig verifiering.
+      // `resolvePendingIntegrationDossiers` utesluter redan allt med
+      // filnärvaro, så en pending-post kan aldrig vara byggd.
+      status = "planned";
+    } else if (!requiresF3) {
       status = "self-contained";
     } else {
       const matched = matchRequirementForDossier(envKeys, requirements);
@@ -387,6 +421,7 @@ async function buildDossierOverview(
         required: env.required,
         enforcement: env.enforcement ?? "build",
         purpose: env.purpose,
+        setupUrl: env.setupUrl,
         hasRealValue: hasRealEnvValue(env.key),
         placeholderCovered: placeholderKeySet.has(env.key),
       })),

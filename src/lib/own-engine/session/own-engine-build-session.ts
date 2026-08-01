@@ -199,6 +199,7 @@ export function buildOwnEngineGenerationStreamMeta(
   const removedCapabilities = orch.removedCapabilities ?? [];
   const readdedCapabilities = orch.readdedCapabilities ?? [];
   const mutedCapabilities = orch.mutedCapabilities ?? [];
+  const mutedDossierIds = orch.mutedDossierIds ?? [];
   const briefSummary = filterRemovedCapabilitiesFromBriefSummary(
     extractBriefSummary(input.metaBrief),
     removedCapabilities,
@@ -240,6 +241,7 @@ export function buildOwnEngineGenerationStreamMeta(
     selectedDossierIds,
     requestedCapabilities,
     mutedCapabilities,
+    mutedDossierIds,
     mutedCapabilityLabels: describeCapabilityLabels(mutedCapabilities),
     fileEvidenceCapabilities: orch.fileEvidenceCapabilities ?? [],
     removedCapabilities,

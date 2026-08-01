@@ -14,15 +14,15 @@ No embeddings. No fuzzy matching. No category boost. No domain veto. What the br
 
 ```
 data/dossiers/
-  hard/<id>/manifest.json   # needs external secrets (Stripe, OpenAI, Postgres)
-  soft/<id>/manifest.json   # self-contained (UI sections, R3F 3D, FAQ accordion)
+  hard/<id>/manifest.json   # provider-coupled (Stripe, OpenAI, Postgres, analytics)
+  soft/<id>/manifest.json   # self-contained; npm deps are allowed
   _index/capability-map.json   # generated view: capability → [ids] + groups (dossier-grupp)
 ```
 
-| Class | When to use | Behavior |
-|---|---|---|
-| `hard` | The dossier needs external secrets to run (API keys, DB URLs). | Selection marks `configured: true\|false` per project (see the selection algorithm below). A hard dossier is **always** injected regardless; when its keys are missing the codegen LLM is told how the dossier degrades — its declarative `mock` mode (see below) drives a working demo surface, and `mock: "none"` falls back to a discreet configuration banner. |
-| `soft` | Self-contained — only `npm` deps, no external accounts. | Always considered configured. |
+| Class  | When to use                                                                                                                                                            | Behavior                                                                                                                                                                                                      |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hard` | Provider-coupled: depends on an external service or its runtime contract. It may have secrets, public config, SDK/server files, or a client-only provider integration. | Selection marks `configured: true\|false` per project (see the selection algorithm below). Missing values follow the dossier's `mock`/enforcement contract. `hard` does **not** by itself mean "requires F3". |
+| `soft` | Self-contained in the generated project: no external provider/account/secret. npm dependencies are allowed.                                                            | Always considered configured.                                                                                                                                                                                 |
 
 Hard dossiers whose runtime crashes on missing/placeholder keys should additionally **key-gate themselves in the shipped files** — e.g. `clerk-auth/components/middleware.ts` only constructs `clerkMiddleware` when the keys are structurally valid and otherwise degrades to `NextResponse.next()` (placeholder keys must never 500 the whole preview). The `configured` flag from selection is a prompt signal, not a runtime guard — it is never wired to any gate.
 
@@ -37,18 +37,18 @@ capability via kanonisk mappning i
 [`src/lib/builder/dossier-groups.ts`](../../src/lib/builder/dossier-groups.ts)
 (`resolveDossierGroup`) — inget nytt manifestfält, ingen runtime-/selektionspåverkan.
 
-| # | Grupp-id | Svensk label | Capabilities |
-|---|---|---|---|
-| 1 | `data-content` | Data & innehåll | `database`, `cms` |
-| 2 | `auth` | Inloggning & konton | `auth` (en capability — clerk-auth default, supabase-auth leverantörssyskon) |
-| 3 | `commerce` | Betalning & handel | `payments`, `subscriptions` |
-| 4 | `contact` | Kontakt & utskick | `contact-form`, `newsletter-subscribe` |
-| 5 | `ai` | AI | `ai-chat`, `ai-tool-calling`, `rag-chat`, `image-generation` |
-| 6 | `search-maps` | Sök & karta | `site-search`, `map-display`, `command-palette` |
-| 7 | `media` | Media & galleri | `gallery-lightbox`, `carousel` |
-| 8 | `interactive` | Interaktivt & 3D | `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts` |
-| 9 | `ops` | Realtid & drift | `realtime`, `analytics`, `error-tracking` |
-| 10 | `other` | Övrigt | (fångstnät för omappade capabilities) |
+| #   | Grupp-id       | Svensk label        | Capabilities                                                                 |
+| --- | -------------- | ------------------- | ---------------------------------------------------------------------------- |
+| 1   | `data-content` | Data & innehåll     | `database`, `cms`                                                            |
+| 2   | `auth`         | Inloggning & konton | `auth` (en capability — clerk-auth default, supabase-auth leverantörssyskon) |
+| 3   | `commerce`     | Betalning & handel  | `payments`, `subscriptions`                                                  |
+| 4   | `contact`      | Kontakt & utskick   | `contact-form`, `newsletter-subscribe`                                       |
+| 5   | `ai`           | AI                  | `ai-chat`, `ai-tool-calling`, `rag-chat`, `image-generation`                 |
+| 6   | `search-maps`  | Sök & karta         | `site-search`, `map-display`, `command-palette`                              |
+| 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`                                               |
+| 8   | `interactive`  | Interaktivt & 3D    | `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`            |
+| 9   | `ops`          | Realtid & drift     | `realtime`, `analytics`, `error-tracking`                                    |
+| 10  | `other`        | Övrigt              | (fångstnät för omappade capabilities)                                        |
 
 > **Taxonomi-omtag 2026-07-22 (ägarbeslut):** elva soft-dossiers parkerades
 > (`_parkering/dossiers-utfasade-2026-07-22/` — rena innehållssektioner och
@@ -62,9 +62,9 @@ capability via kanonisk mappning i
 > (`supabase-auth` → `auth` med dossier-pin, `command-search` →
 > `command-palette`) så gamla snapshots fortsätter selektera rätt.
 
-**Fallback-principen:** demo-*mönstret* (seed-data, canned-svar, fejkad
+**Fallback-principen:** demo-_mönstret_ (seed-data, canned-svar, fejkad
 success) är gemensamt per capability, men garantin gäller **per dossier**:
-runtime läser alltid den *valda* dossierns eget `mock`-fält — väljs en
+runtime läser alltid den _valda_ dossierns eget `mock`-fält — väljs en
 icke-default provider via `relevanceKeywords` (t.ex. "mongodb" →
 `mongodb-atlas`) används den dossierns mock-läge. Därför kräver kontraktet
 (ägarbeslut 2026-07-12, skärpning av det ursprungliga capability-beslutet B3)
@@ -82,9 +82,9 @@ via `npm run dossiers:validate-all` och implementeras av
 provider under t.ex. `payments` ärver undantaget). Default-upplösningen är
 avsiktligt **strängare än runtime-selektionen**: CI godkänner den enda dossiern
 med `defaultForCapability: true`, eller — om ingen är flaggad — capabilityns
-*enda* dossier. Flera hard-dossiers utan flaggad default är ett CI-fel här
+_enda_ dossier. Flera hard-dossiers utan flaggad default är ett CI-fel här
 (ingen upplösbar standard-demo), medan `select.ts` i det läget tyst väljer
-första dossiern i id-ordning; flera *flaggade* defaults ägs av
+första dossiern i id-ordning; flera _flaggade_ defaults ägs av
 `defaultForCapability`-unikhetskontrollen. **Obs:** detta är en
 metadata-invariant — beteendegarantin (monterar utan krasch, känner igen
 placeholders, gör inga riktiga provider-anrop, visar ärlig config-notis)
@@ -102,10 +102,10 @@ interaktiva ytan renderas fullt ut och handlingen öppnar en ärlig
 demo-notis/modal i stället för att utföra den riktiga operationen (aldrig
 fejkade sessioner, debiteringar eller transport).
 
-| Capability | Varför undantagen |
-|---|---|
-| `analytics` | Fire-and-forget-beacons har ingen visuell yta att mocka; nycklar är `warn-only` och komponenten self-disablar. |
-| `error-tracking` | Som analytics — ingen användarsynlig demo; self-disablar utan DSN. |
+| Capability       | Varför undantagen                                                                                              |
+| ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| `analytics`      | Fire-and-forget-beacons har ingen visuell yta att mocka; nycklar är `warn-only` och komponenten self-disablar. |
+| `error-tracking` | Som analytics — ingen användarsynlig demo; self-disablar utan DSN.                                             |
 
 Att lägga till en capability här är ett kontraktsbeslut, inte en genväg: en
 demo-bar capability (DB, CMS, e-post, AI, betalning, inloggning …) ska i
@@ -117,20 +117,20 @@ befintlig grupp, inte en ny grupp.
 Systemets vanligaste feltolkning är att de tre axlarna nedan svarar på
 varandra. Det gör de inte — **ingen av dem kan härledas ur någon av de andra.**
 
-| Axel | Frågan den svarar på | Kanonisk ägare | Var användaren ser den |
-|---|---|---|---|
-| **Kopplad / Fristående** (`hard`/`soft`) | Behövs en extern tjänst med nycklar? | mappen `data/dossiers/{hard,soft}/` | Badge på varje rad i Byggblock-panelen + `Klass`-kolumnen i backoffice |
-| **Demoläge** (`mock`) | Hur beter sig ytan i F2/preview *utan* riktig nyckel? | manifestfältet `mock` på den **valda** dossiern | Chip i den expanderade raden ("Demoläge: …") + `Demoläge`-kolumnen i backoffice |
-| **Kräver F3** | Måste den riktiga integrationen byggas i ett eget steg? | [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) — `enforcement: "build"` **eller** `role: "server"` | Badge "Kräver F3" i panelens båda flikar + `Kräver F3`-kolumnen i backoffice |
+| Axel                                     | Frågan den svarar på                                         | Kanonisk ägare                                                                                                   | Var användaren ser den                                                          |
+| ---------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **Kopplad / Fristående** (`hard`/`soft`) | Är implementationen provider-kopplad eller självförsörjande? | mappen `data/dossiers/{hard,soft}/`                                                                              | Badge på varje rad i Byggblock-panelen + `Klass`-kolumnen i backoffice          |
+| **Demoläge** (`mock`)                    | Hur beter sig ytan i F2/preview _utan_ riktig nyckel?        | manifestfältet `mock` på den **valda** dossiern                                                                  | Chip i den expanderade raden ("Demoläge: …") + `Demoläge`-kolumnen i backoffice |
+| **Kräver F3**                            | Måste den riktiga integrationen byggas i ett eget steg?      | [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) — `enforcement: "build"` **eller** `role: "server"` | Badge "Kräver F3" i panelens båda flikar + `Kräver F3`-kolumnen i backoffice    |
 
 Konkreta kombinationer som visar oberoendet:
 
-| Dossier | Kopplad? | Demoläge | Kräver F3? | Varför |
-|---|---|---|---|---|
-| `stripe-checkout` | Ja | `visual` | Ja | Serverfil (`/api/checkout-session`) — inte nyckeln; `STRIPE_SECRET_KEY` är `feature-runtime` |
-| `clerk-auth` | Ja | `visual` | Ja | Enda kvarvarande `enforcement: "build"` — trasig inloggning är värre än demo-friktion |
-| `vercel-analytics` | Ja | `none` | **Nej** | `warn-only`-nyckel + bara klientfil ⇒ klar redan i designläget |
-| `embla-carousel` | Nej | — | Nej | Fristående, bara npm |
+| Dossier            | Kopplad? | Demoläge | Kräver F3? | Varför                                                                                       |
+| ------------------ | -------- | -------- | ---------- | -------------------------------------------------------------------------------------------- |
+| `stripe-checkout`  | Ja       | `visual` | Ja         | Serverfil (`/api/checkout-session`) — inte nyckeln; `STRIPE_SECRET_KEY` är `feature-runtime` |
+| `clerk-auth`       | Ja       | `visual` | Ja         | Enda kvarvarande `enforcement: "build"` — trasig inloggning är värre än demo-friktion        |
+| `vercel-analytics` | Ja       | `none`   | **Nej**    | `warn-only`-nyckel + bara klientfil ⇒ klar redan i designläget                               |
+| `embla-carousel`   | Nej      | —        | Nej        | Fristående, bara npm                                                                         |
 
 Följden av detta: **läs aldrig av "Kopplad" som "kräver F3"**, och läs aldrig av
 `mock` som en fas-signal. Vokabulären för alla tre axlarna bor på ett ställe
@@ -144,7 +144,7 @@ pariteten mellan dem grindas i `backoffice/test_dossiers_page.py`.
 Samma dossier kan spänna över F2 och F3 — det är inte två separata dossiers och det finns ingen extra `hard/soft/visual`-taxonomi som styr fasen:
 
 - **F2 (design)** renderar en klient-/demo-/placeholder-safe version (visuell mockup).
-- **F3 (integrations)** aktiverar den riktiga integrationen (riktiga env-värden krävs).
+- **F3 (integrations)** installerar den riktiga provider-/serverkoden; env-enforcement avgör om ett riktigt värde krävs före build eller om demo/self-disable får leva vidare.
 
 **Kanonisk signal i dagens kod** för "kräver F3" är dossierns eget kontrakt, via helpern [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) (enda källan). Två regler:
 
@@ -155,26 +155,26 @@ Samma dossier kan spänna över F2 och F3 — det är inte två separata dossier
 
 ### Mock/demo-läge (`mock`) — hur en hard-dossier ser ut i F2 utan riktig nyckel
 
-Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/types.ts)) beskriver hur en hard-dossier gör sin **visuella yta** funktionell i F2/preview när nyckeln saknas *eller* är en preview-stub. Fältet driver dels dossierns egen komponentkod (den emitterade användarsajtens degraderingsväg), dels en promptrad till codegen-LLM:n via `describeMockMode` ([`system-prompt/sections/dossiers.ts`](../../src/lib/gen/system-prompt/sections/dossiers.ts)) så modellen förlitar sig på den inbyggda fallbacken i stället för att hitta på en egen.
+Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/types.ts)) beskriver hur en hard-dossier gör sin **visuella yta** funktionell i F2/preview när nyckeln saknas _eller_ är en preview-stub. Fältet driver dels dossierns egen komponentkod (den emitterade användarsajtens degraderingsväg), dels en promptrad till codegen-LLM:n via `describeMockMode` ([`system-prompt/sections/dossiers.ts`](../../src/lib/gen/system-prompt/sections/dossiers.ts)) så modellen förlitar sig på den inbyggda fallbacken i stället för att hitta på en egen.
 
-| `mock` | Beteende utan riktig nyckel | Exempel-dossiers |
-|---|---|---|
-| `canned` | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar, bildgenerering ger en deterministisk platshållarbild). Riktiga vägen återupptas när en riktig nyckel sätts. | `openai-chat`, `ai-tool-calling-chat`, `fal-image-generation`, `rag-chat` |
-| `seed` | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps. | `postgres-drizzle`, `neon-postgres`, `mongodb-atlas` |
-| `success` | Mutations-endpoints returnerar en fejkad success + en demo-notis (`demo: true`) så formulär går igenom i F2 utan att koppla providern. | `resend-contact-form`, `mailchimp-newsletter` |
-| `visual` (nytt 2026-07-22) | Den interaktiva ytan renderas fullt ut (betalknapp, inloggningsknappar, live-widget) och **handlingen** öppnar en ärlig demo-notis/modal i stället för att utföra den riktiga operationen — aldrig fejkade sessioner, debiteringar eller transport. Riktiga backend aktiveras när leverantörsvärden sparas. Exempel: stripe-checkouts `CheckoutButton` är klickbar och öppnar "Demoläge — ingen riktig betalning"-modalen; clerk-auths knappar öppnar "Inloggning i demoläge"-dialogen. | `stripe-checkout`, `clerk-auth`, `supabase-auth`, `paddle-billing`, `ably-realtime` |
-| `none` (default vid utelämnat) | Ingen användarsynlig demo-yta alls → komponenten self-disablar (analytics/error-tracking) eller visar en diskret konfigurationsbanner. | `vercel-analytics`, `plausible-analytics`, `sentry-error-tracking` |
+| `mock`                         | Beteende utan riktig nyckel                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Exempel-dossiers                                                                    |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `canned`                       | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar, bildgenerering ger en deterministisk platshållarbild). Riktiga vägen återupptas när en riktig nyckel sätts.                                                                                                                                                                                                                                                                    | `openai-chat`, `ai-tool-calling-chat`, `fal-image-generation`, `rag-chat`           |
+| `seed`                         | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps.                                                                                                                                  | `postgres-drizzle`, `neon-postgres`, `mongodb-atlas`                                |
+| `success`                      | Mutations-endpoints returnerar en fejkad success + en demo-notis (`demo: true`) så formulär går igenom i F2 utan att koppla providern.                                                                                                                                                                                                                                                                                                                                                  | `resend-contact-form`, `mailchimp-newsletter`                                       |
+| `visual` (nytt 2026-07-22)     | Den interaktiva ytan renderas fullt ut (betalknapp, inloggningsknappar, live-widget) och **handlingen** öppnar en ärlig demo-notis/modal i stället för att utföra den riktiga operationen — aldrig fejkade sessioner, debiteringar eller transport. Riktiga backend aktiveras när leverantörsvärden sparas. Exempel: stripe-checkouts `CheckoutButton` är klickbar och öppnar "Demoläge — ingen riktig betalning"-modalen; clerk-auths knappar öppnar "Inloggning i demoläge"-dialogen. | `stripe-checkout`, `clerk-auth`, `supabase-auth`, `paddle-billing`, `ably-realtime` |
+| `none` (default vid utelämnat) | Ingen användarsynlig demo-yta alls → komponenten self-disablar (analytics/error-tracking) eller visar en diskret konfigurationsbanner.                                                                                                                                                                                                                                                                                                                                                  | `vercel-analytics`, `plausible-analytics`, `sentry-error-tracking`                  |
 
-Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvVars` och skeppas aldrig till en riktig deploy. En dossier som fått en *riktig* primärnyckel men har platshållare på en sekundärnyckel tar den ärliga setup-vägen (t.ex. `resend-contact-form`: riktig `RESEND_API_KEY` men placeholder `EMAIL_FROM`/`CONTACT_EMAIL_TO` → `503 email-not-configured` + `IntegrationConfigNotice`), aldrig ett riktigt anrop med fejkad config.
+Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvVars` och skeppas aldrig till en riktig deploy. En dossier som fått en _riktig_ primärnyckel men har platshållare på en sekundärnyckel tar den ärliga setup-vägen (t.ex. `resend-contact-form`: riktig `RESEND_API_KEY` men placeholder `EMAIL_FROM`/`CONTACT_EMAIL_TO` → `503 email-not-configured` + `IntegrationConfigNotice`), aldrig ett riktigt anrop med fejkad config.
 
 **Satt på 15 av 18 hard-dossiers (sedan 2026-07-22 med `visual` för betalning/inloggning/prenumeration/realtid).** De tre analytics-dossiererna (`vercel-analytics`, `sentry-error-tracking`, `plausible-analytics`) utelämnar fältet → `none`; det är korrekt eftersom deras nycklar är `warn-only` (komponenten self-disablar helt utan visuell yta att mocka) och capabilities `analytics`/`error-tracking` står på undantagslistan. Att **varje** hard-dossier i en icke-undantagen capability har `mock ≠ none` är **CI-tvingat** (per-dossier sedan 2026-07-12) — se **Fallback-principen** i grupp-sektionen ovan (`findMissingMockFallbacks` i `validate-manifest.ts`).
 
 ## Two code-fidelities (per-dossier default + per-file override)
 
-| Fidelity | When | Effect on prompt |
-|---|---|---|
-| `verbatim` | Integration glue where paraphrasing breaks the integration: webhook signing, OAuth callbacks, SDK init, middleware. | The file is rendered into the system prompt under `## Dossier Files To Emit Verbatim`. The codegen LLM **must** emit it byte-exact in its CodeProject output. |
-| `rewritable` | UI components, layout patterns, render glue the LLM should adapt to the project. | The file is described via compact manifest-derived guidance in the prompt (see `promptInstructionMode` below) and the codegen LLM may paraphrase freely. |
+| Fidelity     | When                                                                                                                | Effect on prompt                                                                                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `verbatim`   | Integration glue where paraphrasing breaks the integration: webhook signing, OAuth callbacks, SDK init, middleware. | The file is rendered into the system prompt under `## Dossier Files To Emit Verbatim`. The codegen LLM **must** emit it byte-exact in its CodeProject output. |
+| `rewritable` | UI components, layout patterns, render glue the LLM should adapt to the project.                                    | The file is described via compact manifest-derived guidance in the prompt (see `promptInstructionMode` below) and the codegen LLM may paraphrase freely.      |
 
 The dossier-level `codeFidelity` is the default. Individual files can override via `files[].injectionMode`.
 
@@ -184,7 +184,7 @@ The dossier-level `codeFidelity` is the default. Individual files can override v
 
 A dossier that `exposes` a UI component owns that capability's surface. When a follow-up adds such a dossier to a project whose previous version does **not** contain the exposed component, `renderDossierBlocks` emits `## Capability Surface Ownership` (`src/lib/gen/system-prompt/sections/dossiers.ts`): the dossier's component, its import specifier and its server route are named, and the model must pick **adapt** (point the existing surface at the dossier's route) or **replace** (make the dossier component the owner) — never leave two live.
 
-The block is emit-time prevention, which is the part the pipeline can guarantee: follow-up merge (`mergeVersionFilesWithWarnings`) carries previous files forward, and the only deterministic deletion path is `removeExplicitlyRemovedDossierFiles`, which drops dossier-owned paths for dossiers the user explicitly removed. So the contract tells the model to stop *calling* the competing endpoint rather than to delete it, and `runProjectSanityChecks` flags any component still pointing at an API path no route handler serves (Advisory).
+The block is emit-time prevention, which is the part the pipeline can guarantee: follow-up merge (`mergeVersionFilesWithWarnings`) carries previous files forward, and the only deterministic deletion path is `removeExplicitlyRemovedDossierFiles`, which drops dossier-owned paths for dossiers the user explicitly removed. So the contract tells the model to stop _calling_ the competing endpoint rather than to delete it, and `runProjectSanityChecks` flags any component still pointing at an API path no route handler serves (Advisory).
 
 Incident this closes: chat `747636c8` (2026-07-13) built its own `components/chatbot-widget.tsx` + `app/api/ai-chat/route.ts` in F2, then added the `openai-chat` dossier for the same `ai-chat` capability. Nothing declared ownership, the page ended up with two chat implementations, and the hand-rolled one carried the `TS2345` that failed the F3 ReleaseGate.
 
@@ -201,39 +201,58 @@ Incident this closes: chat `747636c8` (2026-07-13) built its own `components/cha
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Hosted Stripe Checkout for one-time and subscription payments. …",
-  "envVars": [{"key": "STRIPE_SECRET_KEY", "required": true, "enforcement": "feature-runtime", "purpose": "API auth"}],
+  "envVars": [
+    {
+      "key": "STRIPE_SECRET_KEY",
+      "required": true,
+      "enforcement": "feature-runtime",
+      "purpose": "API auth",
+      "setupUrl": "https://docs.stripe.com/keys"
+    }
+  ],
   "dependencies": ["stripe", "@stripe/stripe-js"],
   "files": [
-    {"path": "components/checkout-button.tsx", "role": "client", "injectionMode": "verbatim"},
-    {"path": "components/integration-config-notice.tsx", "role": "shared", "injectionMode": "verbatim"},
-    {"path": "components/api/checkout-session/route.ts", "role": "server", "injectionMode": "verbatim"}
+    { "path": "components/checkout-button.tsx", "role": "client", "injectionMode": "verbatim" },
+    {
+      "path": "components/integration-config-notice.tsx",
+      "role": "shared",
+      "injectionMode": "verbatim"
+    },
+    {
+      "path": "components/api/checkout-session/route.ts",
+      "role": "server",
+      "injectionMode": "verbatim"
+    }
   ],
-  "exposes": [{"name": "CheckoutButton", "type": "component", "import": "@/components/checkout-button"}],
+  "exposes": [
+    { "name": "CheckoutButton", "type": "component", "import": "@/components/checkout-button" }
+  ],
   "lastVerified": "2026-04-20",
   "sourceRepoUrl": "https://github.com/..."
 }
 ```
 
-| Field | Required | Purpose |
-|---|---|---|
-| `id` | ✓ | Kebab-case, must match the directory name. |
-| `label` | ✓ | Human label for backoffice. |
-| `capability` | ✓ | Single kebab-case capability (matched against `brief.requestedCapabilities`). |
-| `codeFidelity` | ✓ | `verbatim` or `rewritable` (default for files). |
-| `complexity` | ✓ | `simple` / `medium` / `advanced`. |
-| `summary` | ✓ | 1-3 sentences. Used in prompt + backoffice. |
-| `lastVerified` | ✓ | ISO date YYYY-MM-DD when a human last validated the dossier. |
-| `defaultForCapability` | optional (default `false`) | Tie-breaker when two dossiers share the same capability. |
-| `relevanceKeywords` | optional | Provider-specific keywords/phrases (max 12) marking an EXPLICIT ask for this dossier when several share one capability — e.g. `"mongodb"` on `mongodb-atlas` under `database`. A prompt hit overrides the `defaultForCapability` pick (Unicode word-boundary match, hyphen counts as part of the word). Keep high-precision; generic nouns belong in the follow-up capability vocabulary. |
-| `envVars` | optional | External secrets needed at runtime. Each entry takes optional `enforcement` (P31): `"build"` (default — required for F3 build), `"feature-runtime"` (UI shows banner / popup at runtime, F3 reports as warning not blocker), or `"warn-only"` (component self-disables on empty value). See [glossary](../architecture/glossary.md). |
-| `dependencies` | optional | npm packages added to `package.json`. |
-| `files` | optional | Files injected into the project. Per-file `injectionMode` overrides dossier `codeFidelity`. |
-| `exposes` | optional | Symbols the codegen LLM may import. |
-| `sourceRepoUrl` | optional | Pointer to the upstream reference (typically under `data/template-references/`). |
-| `notes` | optional | Curator-only free text (drafts from `dossiers:curate`); never reaches the prompt. Remove once validated. |
-| `promptInstructionMode` | optional | How much of `instructions.md` reaches the prompt: `compact` (default — manifest-derived summary), `selected-sections`, or `full`. |
-| `mock` | optional | How the dossier renders its visual surface in F2/preview without a real key: `canned` / `seed` / `success` / `visual` / `none`. Omitted = `none`. Drives the dossier's own degradation code + a codegen-prompt hint. See the **Mock/demo-läge** section above. |
-| `summarySv` | optional | Swedish catalog description shown to END USERS (builder Byggblock panel + backoffice). Never reaches the codegen prompt — the English `summary` owns that surface. UI falls back to `summary` when omitted. |
+| Field                   | Required                   | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                    | ✓                          | Kebab-case, must match the directory name.                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `label`                 | ✓                          | Human label for backoffice.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `capability`            | ✓                          | Single kebab-case capability (matched against `brief.requestedCapabilities`).                                                                                                                                                                                                                                                                                                                                                                                           |
+| `codeFidelity`          | ✓                          | `verbatim` or `rewritable` (default for files).                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `complexity`            | ✓                          | `simple` / `medium` / `advanced`.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `summary`               | ✓                          | 1-3 sentences. Used in prompt + backoffice.                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `lastVerified`          | ✓                          | ISO date YYYY-MM-DD for the latest completed human acceptance pass; for an explicitly `unverified` draft it remains only the imported source date. Cadence is owned by `config/dossier-verification-policy.json`.                                                                                                                                                                                                                                                       |
+| `verificationStatus`    | optional                   | `"accepted"` or `"unverified"`. `unverified` always fails the dedicated evidence/freshness gate regardless of date. Omitted remains backward-compatible with existing accepted manifests; all new AI/backoffice drafts are written as `unverified`.                                                                                                                                                                                                                     |
+| `defaultForCapability`  | optional (default `false`) | Tie-breaker when two dossiers share the same capability.                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `relevanceKeywords`     | optional                   | Provider-specific keywords/phrases (max 12) marking an EXPLICIT ask for this dossier when several share one capability — e.g. `"mongodb"` on `mongodb-atlas` under `database`. A prompt hit overrides the `defaultForCapability` pick (Unicode word-boundary match, hyphen counts as part of the word). Keep high-precision; generic nouns belong in the follow-up capability vocabulary.                                                                               |
+| `envVars`               | optional                   | External configuration needed at runtime. Each entry takes optional `enforcement` (P31): `"build"` (default — requires a real value or catalog-approved placeholder for F3), `"feature-runtime"` (UI shows banner / popup at runtime, F3 reports as warning not blocker), or `"warn-only"` (component self-disables on empty value), plus optional `setupUrl` to an official provider page for obtaining that exact value. See [glossary](../architecture/glossary.md). |
+| `dependencies`          | optional                   | npm packages added to `package.json`.                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `files`                 | optional                   | Files injected into the project. Per-file `injectionMode` overrides dossier `codeFidelity`.                                                                                                                                                                                                                                                                                                                                                                             |
+| `exposes`               | optional                   | Symbols the codegen LLM may import.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `sourceRepoUrl`         | optional                   | Provenance pointer to the upstream implementation/reference. Never use it as the user's provider-setup link; that belongs on `envVars[].setupUrl`.                                                                                                                                                                                                                                                                                                                      |
+| `notes`                 | optional                   | Curator-only free text (drafts from `dossiers:curate`); never reaches the prompt. Remove once validated.                                                                                                                                                                                                                                                                                                                                                                |
+| `promptInstructionMode` | optional                   | How much of `instructions.md` reaches the prompt: `compact` (default — manifest-derived summary), `selected-sections`, or `full`.                                                                                                                                                                                                                                                                                                                                       |
+| `mock`                  | optional                   | How the dossier renders its visual surface in F2/preview without a real key: `canned` / `seed` / `success` / `visual` / `none`. Omitted = `none`. Drives the dossier's own degradation code + a codegen-prompt hint. See the **Mock/demo-läge** section above.                                                                                                                                                                                                          |
+| `summarySv`             | optional                   | Swedish catalog description shown to END USERS (builder Byggblock panel + backoffice). Never reaches the codegen prompt — the English `summary` owns that surface. UI falls back to `summary` when omitted.                                                                                                                                                                                                                                                             |
 
 ## `instructions.md` template
 
@@ -241,18 +260,23 @@ Every dossier ships with a Markdown file. Five standard sections — CI (`dossie
 
 ```markdown
 # When to use
+
 [1-3 bullets where this dossier is the right pick]
 
 # How to integrate
+
 [Numbered steps: import, env, mount-point]
 
 # UX rules
+
 [Feedback, validation, mobile, accessibility]
 
 # Avoid
+
 [Concrete don'ts that the LLM might naively try]
 
 # Verification
+
 [Manual smoke checks the developer can run]
 ```
 
@@ -293,15 +317,19 @@ floor of the MOST RECENT round and legitimately SHRINKS after an F3 build (the
 next design round re-mutes integration capabilities): that shrink is intended,
 and file presence is what keeps a built integration visible/enforced through it.
 
-**F3 deterministic-release backstop + approve-injection exception (BB#f3det1).**
-When the stream route's F3 gate finds the parent version's file-derived spec has
-no required real build keys (`hasRequiredRealBuildKeys(gate.spec) === false`), it
-normally refuses a general LLM round and returns `f3_deterministic_release_required`
-(409, PR #493) — finalize-design should instead create an exact-file integrations
-fork and run ReleaseGate without codegen. That deterministic policy only holds for
-a no-build-key parent **without new providers**. An APPROVE-continuation is
-exempted (falls through to the real LLM/dossier round, the "F3 utan nycklar
-installerar vilande integrationskod" goal) in three cases:
+**F3 pending-dossier contract + deterministic backstop (BB#f3det1).**
+F2 persists both deferred capability ids (`mutedCapabilities`) and exact
+provider-specific dossier ids (`mutedDossierIds`). `finalize-design` resolves
+those ids, subtracts dossiers with actual version presence, and treats every
+remaining id as real F3 work. It persists capability + exact dossier id as a
+durable approval and starts the LLM/dossier round even when the dossier has no
+required real build key. The generic button message therefore cannot swap a
+provider sibling back to the capability default.
+
+An exact-file integrations fork + ReleaseGate without codegen is allowed only
+when **no pending dossier remains** and the existing file-derived build spec has
+no reason to run a general LLM build. An APPROVE-continuation remains exempted
+from the deterministic backstop in three legacy/interactive cases:
 
 1. **Dossier-backed provider, DOSSIER-ID granularity** (Codex P1 on #503): an
    approved provider maps via `mapProviderKeysToBackingDossierIds` (strict
@@ -350,14 +378,14 @@ instead of becoming a dangling module import.
 Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to render three blocks:
 
 - `## Available Dossiers` — compact list of selected dossiers.
-- `## Selected Dossier Instructions` — per-dossier runtime instructions, rendered per `promptInstructionMode`: `compact` (default; manifest-derived summary), `selected-sections`, or `full` (the whole `instructions.md`). The full file is thus NOT injected by default.
+- `## Selected Dossier Instructions` — per-dossier runtime instructions, rendered per `promptInstructionMode`: `compact` (default; manifest-derived summary plus class, `requiresF3`, mock, env enforcement and compact env purpose), `selected-sections`, or `full` (the whole `instructions.md`). The full file is thus NOT injected by default. Instructions-only behavioral dossiers should use `selected-sections`; otherwise their actual rules never reach codegen.
 - `## Dossier Files To Emit Verbatim` — files whose effective injection mode is `verbatim`. Resolution: per-file `files[].injectionMode` overrides the dossier-level `codeFidelity`. So a `rewritable` dossier can still mark one file as `verbatim` (or vice-versa). On follow-ups, verbatim files already in the project render as pointers under `## Dossier Verbatim Files Already in Project`.
 
 ## Adding a new dossier
 
 ### Manually
 
-1. Decide class: `hard` (needs secrets) or `soft` (self-contained).
+1. Decide class: `hard` (provider/service-coupled) or `soft` (self-contained without an external provider; npm dependencies are allowed).
 2. Create `data/dossiers/<class>/<id>/manifest.json` matching the schema.
 3. Write `data/dossiers/<class>/<id>/instructions.md` with the five sections.
 4. Place files under `data/dossiers/<class>/<id>/components/...` matching `files[].path`.
@@ -373,9 +401,51 @@ Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to ren
    ```
 3. The script samples README, `package.json`, `.env.example`, and ~6 source files, then calls GPT to produce a draft `manifest.json` + `instructions.md`.
 4. Review the draft in the backoffice Dossiers page (Redigera tab) and fix anything wrong before relying on it.
-5. Bump `lastVerified` and remove the `notes` field once you've validated the dossier against a real preview build.
+5. Complete the acceptance checklist below. Only then bump `lastVerified` and remove the `notes` field.
 
 The script is intentionally one-at-a-time. Batch promotion was the source of pool-quality problems in the legacy pipeline.
+
+### Re-verification and acceptance evidence
+
+`config/dossier-verification-policy.json` is the canonical cadence policy.
+`npm run dossiers:check-freshness` warns inside the configured warning window and fails
+when a dossier is stale, has an invalid date, or claims a future verification.
+It also fails every dossier marked `verificationStatus: "unverified"`, even if
+its imported source date is recent. The dedicated scheduled maintenance
+workflow runs this as a blocking evidence check; ordinary schema validation
+does not pretend the current legacy backlog is accepted.
+Provider-coupled (`hard`) dossiers expire sooner than self-contained (`soft`)
+dossiers because provider APIs, SDKs and webhook contracts drift faster.
+
+Do **not** bump `lastVerified` just to make CI green. A completed pass means:
+
+1. the dossier materializes and production-builds without provider secrets;
+2. its F2 mock/seed/visual path remains usable and honest with missing or
+   placeholder values;
+3. for a hard dossier, the primary F3 flow works with credentials from a
+   dedicated provider sandbox/test account;
+4. a missing/invalid key takes the documented calm error or degraded path and
+   never leaks a provider response or secret;
+5. if the dossier ships a webhook route, signature rejection and one valid
+   sandbox event have both been exercised;
+6. official `envVars[].setupUrl` links still lead to the page where each value
+   can be obtained, and dependency/API usage still matches current official
+   provider documentation.
+
+The weekly [dossier-acceptance workflow](../../.github/workflows/dossier-acceptance.yml)
+automates the first, keyless layer for **every hard dossier**. It materializes
+the exact dossier files on the common generated-project scaffold, merges the
+canonical export baseline and manifest dependency ranges, installs from
+scratch, runs `tsc --noEmit`, then runs a production build with only the
+pipeline's harmless preview placeholders. The same workflow checks every
+resolved dependency range against npm and runs the evidence/freshness gate.
+
+This is build acceptance, not proof that Clerk login, Stripe checkout or a
+provider webhook actually completed. The credentialed provider/webhook layer
+stays explicit until the repository has isolated sandbox accounts and narrowly
+scoped secrets for that provider; a skipped or unavailable live test is never
+treated as green evidence. Materialize one case locally with
+`npm run dossiers:acceptance:materialize -- --id=<id> --out=<empty-dir>`.
 
 ### Ny LEVERANTÖR under en befintlig capability (den billiga vägen)
 
@@ -388,7 +458,7 @@ Klarna". Checklista:
    som syskonet, `defaultForCapability: false` (befintlig default behåller
    tie-breaken) och `relevanceKeywords: ["klarna", …]` — högprecisa ord, max 12.
 2. `mock ≠ none` — garantin gäller **per dossier**, inte per capability. Väljs
-   din leverantör via ett nyckelord är det *din* fallback besökaren ser.
+   din leverantör via ett nyckelord är det _din_ fallback besökaren ser.
 3. `instructions.md` (minst `When to use` + `How to integrate`) och
    komponentfilerna under `components/`.
 4. `npm run dossiers:validate-all` (CI-blockerande) och backoffice → Capability
@@ -397,11 +467,11 @@ Klarna". Checklista:
 **Hur svårt är det?** Metadata-delen är liten — manifest + instruktioner tar
 under en timme och rör ingen delad kod. Arbetet ligger i två andra saker:
 
-| Del | Varför den kostar |
-|---|---|
-| Degraderingskoden (demoläget) | Komponenten måste montera **utan** nyckel, känna igen placeholders, aldrig göra ett riktigt provider-anrop och visa en ärlig notis. Det är kontraktets acceptanskriterium, inte ett manifestfält. |
-| Monteringstestet | Varje renderbar `client`/`shared`-`.tsx` i en hard-dossier måste stå i `MOUNTED` eller `UNMOUNTABLE` i [`dossier-client-mount.test.tsx`](../../src/lib/gen/dossiers/dossier-client-mount.test.tsx) — annars fäller täckningsgrinden med sökvägen i felmeddelandet. |
-| Delade notis-filer | Kopior som `integration-config-notice.tsx` måste vara byte-identiska per familj (en dossier får aldrig importera ur en annan). Kopie-vakten i samma testfil håller dem lika. |
+| Del                           | Varför den kostar                                                                                                                                                                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Degraderingskoden (demoläget) | Komponenten måste montera **utan** nyckel, känna igen placeholders, aldrig göra ett riktigt provider-anrop och visa en ärlig notis. Det är kontraktets acceptanskriterium, inte ett manifestfält.                                                                  |
+| Monteringstestet              | Varje renderbar `client`/`shared`-`.tsx` i en hard-dossier måste stå i `MOUNTED` eller `UNMOUNTABLE` i [`dossier-client-mount.test.tsx`](../../src/lib/gen/dossiers/dossier-client-mount.test.tsx) — annars fäller täckningsgrinden med sökvägen i felmeddelandet. |
+| Delade notis-filer            | Kopior som `integration-config-notice.tsx` måste vara byte-identiska per familj (en dossier får aldrig importera ur en annan). Kopie-vakten i samma testfil håller dem lika.                                                                                       |
 
 En **ny capability** (inte bara en ny leverantör) kostar tre saker till:
 en rad i [`dossier-groups.ts`](../../src/lib/builder/dossier-groups.ts) (annars
@@ -421,7 +491,13 @@ in [`src/lib/gen/dossiers/validate-manifest.ts`](../../src/lib/gen/dossiers/vali
 - **CI** — `npm run dossiers:validate-all` (blocking) plus exposes/import-closure,
   `defaultForCapability` uniqueness, the hard-capability mock-fallback invariant
   (`findMissingMockFallbacks`; see the grupp-section's **Fallback-principen**),
-  instructions headings, SDK version pins and the module-level SDK-init rule (below).
+  instructions headings, deterministic dependency ranges, explicit SDK
+  `apiVersion` pins and the module-level SDK-init rule (below). The dependency
+  check covers every manifest package even when there are zero explicit
+  `apiVersion` literals, so "0 pins checked" is no longer the only drift signal.
+  Verification evidence/freshness is a separate blocking maintenance
+  lane because explicit legacy-unverified dossiers must stay visible as debt,
+  never be laundered into a green manifest-validation result.
 - **Curation** — `dossiers:curate` validates the AI draft with the same function.
 
 **Module-level SDK-init rule (B5-standard, 2026-07-03):** dossier code must not
@@ -440,7 +516,7 @@ tests exercising the 503 → notice path (see
 **Documented divergence:** the backoffice save path (`backoffice/pages/dossiers.py`,
 `_validate_manifest`) does a lighter Python pre-check (required fields + enum
 values) so the editor can give instant feedback without a Node round-trip. It is
-intentionally a *subset* — a manifest can pass the Python pre-check and still be
+intentionally a _subset_ — a manifest can pass the Python pre-check and still be
 rejected by the canonical Node/AJV validator in CI. Treat the Node validator as
 source of truth; always run `npm run dossiers:validate-all` after editing a
 manifest in the backoffice.
@@ -480,18 +556,18 @@ Set `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) in any environment to skip doss
 
 ## Files at a glance
 
-| Path | Role |
-|---|---|
-| `data/dossiers/hard/<id>/`, `data/dossiers/soft/<id>/` | Manifests + instructions + components |
-| `data/dossiers/_index/capability-map.json` | Generated view: `capabilities` + `groups` (backoffice + tooling) |
-| `data/template-references/repos/<reference>/` | Cloned upstream repos (input to AI curation) |
-| `data/template-references/_metadata/<reference>.github.json` | GitHub stars + last-pushed metadata for ranking |
-| `src/lib/gen/dossiers/registry.ts` | Disk reader + mtime cache |
-| `src/lib/gen/dossiers/select.ts` | Deterministic capability-driven selection |
-| `src/lib/gen/dossiers/version-presence.ts` | Canonical "which dossiers are IN this version" resolver (server files + ≥1 distinctive file; se § Version-presence union) + `resolveSelectedDossiersWithVersionPresence` — the snapshot ∪ presence union shared by panel, readiness, finalize-design, F3-gate and deploy. |
-| `src/lib/gen/dossiers/types.ts` | `DossierEntry`, `SelectedDossier`, `DossierSelectionResult` |
-| `src/lib/gen/system-prompt/` | Renders the three dossier blocks into the system prompt |
-| `scripts/dossiers/curate-from-reference.ts` | AI-curation script (single dossier from a cloned reference repo). The model comes from `config/ai_models/manifest.json` → workload `backoffice_dossier_curation`; `--model=<id>` picks another id from that entry and an unlisted id is rejected before the LLM call |
-| `scripts/dossiers/inventory-legacy.mjs`, `normalize-legacy-prospect.ts`, `validate-all.ts`, `regenerate-capability-map.ts` | Legacy-import chain (PR #419): inventory a legacy v1 archive → LLM-normalize to v2 draft → validate promoted pool → rebuild the capability-map view. Backoffice UI: "Legacy-import" tab in `dossiers.py`. |
-| `backoffice/pages/dossiers.py` | Backoffice UI: browse (incl. grupperad kategorivy), edit, delete (checklista + id-bekräftelse), curate (inom vald kategori), rebuild capability-map via TS-scriptet |
-| Old 96-dossier v1 pool, 16-script pipeline, scaffold-recommendations, embeddings | Gitignored local archive (`/archive/` in `.gitignore`), not guaranteed present on every checkout. Legacy-import material (prospects, normalization reports, drafts) lives outside the repo — see the archived handoff `docs/plans/avklarat/2026-07-08-dossier-legacy-import.md` for the remaining curated-promotion follow-ups. |
+| Path                                                                                                                       | Role                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/dossiers/hard/<id>/`, `data/dossiers/soft/<id>/`                                                                     | Manifests + instructions + components                                                                                                                                                                                                                                                                                           |
+| `data/dossiers/_index/capability-map.json`                                                                                 | Generated view: `capabilities` + `groups` (backoffice + tooling)                                                                                                                                                                                                                                                                |
+| `data/template-references/repos/<reference>/`                                                                              | Cloned upstream repos (input to AI curation)                                                                                                                                                                                                                                                                                    |
+| `data/template-references/_metadata/<reference>.github.json`                                                               | GitHub stars + last-pushed metadata for ranking                                                                                                                                                                                                                                                                                 |
+| `src/lib/gen/dossiers/registry.ts`                                                                                         | Disk reader + mtime cache                                                                                                                                                                                                                                                                                                       |
+| `src/lib/gen/dossiers/select.ts`                                                                                           | Deterministic capability-driven selection                                                                                                                                                                                                                                                                                       |
+| `src/lib/gen/dossiers/version-presence.ts`                                                                                 | Canonical "which dossiers are IN this version" resolver (server files + ≥1 distinctive file; se § Version-presence union) + `resolveSelectedDossiersWithVersionPresence` — the snapshot ∪ presence union shared by panel, readiness, finalize-design, F3-gate and deploy.                                                       |
+| `src/lib/gen/dossiers/types.ts`                                                                                            | `DossierEntry`, `SelectedDossier`, `DossierSelectionResult`                                                                                                                                                                                                                                                                     |
+| `src/lib/gen/system-prompt/`                                                                                               | Renders the three dossier blocks into the system prompt                                                                                                                                                                                                                                                                         |
+| `scripts/dossiers/curate-from-reference.ts`                                                                                | AI-curation script (single dossier from a cloned reference repo). The model comes from `config/ai_models/manifest.json` → workload `backoffice_dossier_curation`; `--model=<id>` picks another id from that entry and an unlisted id is rejected before the LLM call                                                            |
+| `scripts/dossiers/inventory-legacy.mjs`, `normalize-legacy-prospect.ts`, `validate-all.ts`, `regenerate-capability-map.ts` | Legacy-import chain (PR #419): inventory a legacy v1 archive → LLM-normalize to v2 draft → validate promoted pool → rebuild the capability-map view. Backoffice UI: "Legacy-import" tab in `dossiers.py`.                                                                                                                       |
+| `backoffice/pages/dossiers.py`                                                                                             | Backoffice UI: browse (incl. grupperad kategorivy), edit, delete (checklista + id-bekräftelse), curate (inom vald kategori), rebuild capability-map via TS-scriptet                                                                                                                                                             |
+| Old 96-dossier v1 pool, 16-script pipeline, scaffold-recommendations, embeddings                                           | Gitignored local archive (`/archive/` in `.gitignore`), not guaranteed present on every checkout. Legacy-import material (prospects, normalization reports, drafts) lives outside the repo — see the archived handoff `docs/plans/avklarat/2026-07-08-dossier-legacy-import.md` for the remaining curated-promotion follow-ups. |

@@ -39,6 +39,7 @@ import {
   type ShadcnUiRecipe,
 } from "../data/shadcn-ui-recipes";
 import {
+  isExplicitDossierChoice,
   resolveCapabilitiesPresentInVersion,
   resolveDossiersPresentInVersion,
   selectDossiersForRequest,
@@ -590,6 +591,7 @@ export async function resolveOrchestrationBase(
   let dossierSelection: DossierSelectionResult | null = null;
   let dossierRequestedCapabilities: string[] = [];
   let mutedCapabilities: string[] = [];
+  let mutedDossierIds: string[] = [];
   // File evidence from the base version — one computation, two consumers: the
   // F3 capability scope below and the status surfaces that must be able to
   // tell a contract PROPOSAL apart from a delivered file (spår 01 steg 5).
@@ -627,6 +629,29 @@ export async function resolveOrchestrationBase(
       });
       const mergedCaps = promptFilter.capabilities;
       mutedCapabilities = promptFilter.mutedCapabilities;
+      // F2 must defer the integration code, but it must not forget WHICH
+      // provider-specific sibling the user selected. Resolve the muted subset
+      // against the same raw prompt now and persist only its dossier ids; F3
+      // can later use those ids as deterministic selection pins without ever
+      // injecting the dossiers into F2.
+      if (mutedCapabilities.length > 0) {
+        // Bara VAL, aldrig defaults. Snapshot-mergen tolkar varje id här som
+        // "användaren valde det här syskonet nu" och låter det ersätta ett
+        // tidigare syskon för samma capability. En neutral uppföljning ("gör
+        // rubriken större") bär ingen providerhint, men capability-floor:en
+        // håller kvar `database` — så en ofiltrerad selektion hade skickat
+        // capability-defaulten `postgres-drizzle` och tyst skrivit över ett
+        // tidigare valt `mongodb-atlas`. Ett utelämnat id är ofarligt: F3
+        // faller tillbaka på `mutedCapabilities` och därmed på samma default.
+        mutedDossierIds = selectDossiersForRequest({
+          requestedCapabilities: mutedCapabilities,
+          disableBriefFallback: true,
+          promptText: input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt,
+          configuredEnvKeys: input.configuredEnvKeys,
+        })
+          .selected.filter((selected) => isExplicitDossierChoice(selected.reason))
+          .map((selected) => selected.entry.id);
+      }
       // 5-5 capabilities can-only-grow: restore the FollowUpContract floor so a
       // base-version capability (e.g. an init contact-form) can never be
       // silently filtered away just because this follow-up message doesn't
@@ -760,6 +785,7 @@ export async function resolveOrchestrationBase(
     uiRecipes,
     dossierRequestedCapabilities,
     mutedCapabilities,
+    mutedDossierIds,
     fileEvidenceCapabilities,
     removedCapabilities,
     readdedCapabilities,

@@ -339,6 +339,12 @@ export interface OrchestrationBase {
    */
   mutedCapabilities?: string[];
   /**
+   * Exact provider-specific dossiers deferred by the F2 mute. Unlike
+   * `mutedCapabilities`, this preserves sibling identity (`mongodb-atlas`
+   * versus the `database` default) until the explicit F3 build.
+   */
+  mutedDossierIds?: string[];
+  /**
    * Dossier capabilities with real FILE EVIDENCE in the base version
    * (`resolveCapabilitiesPresentInVersion` over `previousFilePaths`) — the
    * same presence primitive the Byggblock panel reads. Lets status surfaces

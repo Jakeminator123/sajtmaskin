@@ -1,0 +1,5 @@
+{
+  "hardMaxAgeDays": 120,
+  "softMaxAgeDays": 180,
+  "warningWindowDays": 30
+}

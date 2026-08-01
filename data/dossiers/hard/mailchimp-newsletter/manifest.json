@@ -14,12 +14,14 @@
       "key": "MAILCHIMP_API_KEY",
       "required": true,
       "enforcement": "feature-runtime",
+      "setupUrl": "https://mailchimp.com/developer/marketing/guides/quick-start/",
       "purpose": "Mailchimp REST API key. Mailchimp → Account & Billing → Extras → API keys. Format '<hex>-us21' where suffix = data-center id. Tagged 'feature-runtime': when missing or a preview stub the route returns a demo success (mock: success) instead of subscribing, so F3 build does not crash."
     },
     {
       "key": "MAILCHIMP_AUDIENCE_ID",
       "required": true,
       "enforcement": "feature-runtime",
+      "setupUrl": "https://mailchimp.com/developer/marketing/guides/create-your-first-audience/",
       "purpose": "ID of the audience (formerly 'list') new subscribers are added to. Find it in Mailchimp under Audience → Settings → Audience name and defaults. Same 503-fallback pattern as MAILCHIMP_API_KEY."
     },
     {

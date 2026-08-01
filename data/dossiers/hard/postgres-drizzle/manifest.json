@@ -84,6 +84,7 @@
     }
   ],
   "lastVerified": "2026-04-17",
+  "verificationStatus": "unverified",
   "sourceRepoUrl": "https://github.com/drizzle-team/drizzle-orm",
   "notes": "Core database dossier (default for capability 'database'). Schema + seed data are rewrite targets for the app domain. Legacy import wave 2: lazy getDb()/getPool() (never module-level), schema path fixed for v2 emission, users/posts example schema removed, F2 seed-fallback contract added. lastVerified carries the legacy source's date until the first preview/generate-test selects this dossier (no-false-green, same rule as PR #422/#430).",
   "promptInstructionMode": "selected-sections"

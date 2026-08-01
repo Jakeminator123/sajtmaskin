@@ -8,6 +8,7 @@ import {
   prependOrchestrationContinuityToFollowUp,
   readF3ApprovedFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
+  readMutedDossierIdsFromSnapshot,
   sanitizeOrchestrationSnapshotForStorage,
 } from "./orchestration-snapshot";
 
@@ -44,6 +45,54 @@ describe("deferred integrations (mutedCapabilities)", () => {
   it("reads nothing from a snapshot that never deferred anything", () => {
     expect(readMutedCapabilitiesFromSnapshot({})).toEqual([]);
     expect(readMutedCapabilitiesFromSnapshot(null)).toEqual([]);
+  });
+});
+
+describe("deferred provider identity (mutedDossierIds)", () => {
+  it("survives a neutral F2 follow-up", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas"] },
+      { mutedDossierIds: [] },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["mongodb-atlas"]);
+  });
+
+  it("replaces an older sibling when the user changes provider", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas", "stripe-checkout"] },
+      { mutedDossierIds: ["postgres-drizzle"] },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual([
+      "stripe-checkout",
+      "postgres-drizzle",
+    ]);
+  });
+
+  it("städas av capability-tombstonen även utan removedDossierIds", () => {
+    // Tas capability:n bort INNAN några filer byggts finns inget
+    // removedDossierIds att filtrera på. Utan tombstone-filtret överlever id:t
+    // och bygger tyst tillbaka just det syskon användaren tog bort.
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas", "stripe-checkout"] },
+      { removedCapabilities: ["database"] },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["stripe-checkout"]);
+  });
+
+  it("släpper tillbaka syskonet när capability:n uttryckligen läggs till igen", () => {
+    const removed = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas"] },
+      { removedCapabilities: ["database"] },
+    );
+    const readded = mergePersistedOrchestrationSnapshots(removed, {
+      readdedCapabilities: ["database"],
+      mutedDossierIds: ["mongodb-atlas"],
+    });
+
+    expect(readMutedDossierIdsFromSnapshot(readded)).toEqual(["mongodb-atlas"]);
   });
 });
 

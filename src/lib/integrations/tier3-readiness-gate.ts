@@ -19,6 +19,7 @@ import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 import {
   deriveTier3BuildSpec,
+  deriveTier3BuildSpecForDossierIds,
   deriveTier3BuildSpecForProviderKeys,
   mapProviderKeysToBackingDossierIds,
   validateTier3Readiness,
@@ -27,7 +28,11 @@ import {
   type Tier3ReadinessReport,
 } from "@/lib/integrations/tier3-build-spec";
 import { getDossierById } from "@/lib/gen/dossiers/registry";
-import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
+import { preferPendingIntegrationDossiers } from "@/lib/gen/dossiers/pending-integrations";
+import {
+  resolveDossiersPresentInVersion,
+  resolveSelectedDossiersWithVersionPresence,
+} from "@/lib/gen/dossiers/version-presence";
 import type {
   PlanContracts,
   PlanIntegrationContract,
@@ -309,6 +314,8 @@ export async function checkTier3ReadinessForVersion(params: {
    * with `missing_env` before credits/codegen.
    */
   pendingApprovedProviderKeys?: readonly string[];
+  /** Exact planned dossier ids approved by the F2 → F3 transition. */
+  pendingApprovedDossierIds?: readonly string[];
 }): Promise<Tier3GateResult> {
   if (
     await isProductPostcheckBlocked(
@@ -321,9 +328,29 @@ export async function checkTier3ReadinessForVersion(params: {
     params.preloadedFiles !== undefined
       ? params.preloadedFiles
       : await getVersionFiles(params.versionId);
-  const selectedDossiers = resolveSelectedDossiersWithVersionPresence({
+  const snapshotAndPresenceDossiers = resolveSelectedDossiersWithVersionPresence({
     snapshot: params.orchestrationSnapshot,
     versionFiles,
+  });
+  const pendingDossiers = (params.pendingApprovedDossierIds ?? []).flatMap(
+    (dossierId): SelectedDossier[] => {
+      const entry = getDossierById(dossierId);
+      return entry
+        ? [{ entry, reason: "relevance-keyword", configured: false }]
+        : [];
+    },
+  );
+  const presentDossierIds = new Set(
+    versionFiles
+      ? resolveDossiersPresentInVersion(versionFiles).map(
+          (selected) => selected.entry.id,
+        )
+      : [],
+  );
+  const selectedDossiers = preferPendingIntegrationDossiers({
+    selected: snapshotAndPresenceDossiers,
+    pending: pendingDossiers,
+    preserveDossierIds: presentDossierIds,
   });
   const spec = await deriveTier3BuildSpecForVersion(
     params.versionId,
@@ -342,7 +369,13 @@ export async function checkTier3ReadinessForVersion(params: {
           deriveTier3BuildSpecForProviderKeys(normalizedPendingApproved),
         )
       : { requirements: [] };
-  const readinessSpec = mergeBuildSpecs(spec, pendingApprovalSpec);
+  const pendingDossierSpec = deriveTier3BuildSpecForDossierIds(
+    params.pendingApprovedDossierIds ?? [],
+  );
+  const readinessSpec = mergeBuildSpecs(
+    mergeBuildSpecs(spec, pendingApprovalSpec),
+    pendingDossierSpec,
+  );
   if (readinessSpec.requirements.length === 0) {
     return { ok: true, spec };
   }
@@ -361,7 +394,7 @@ export async function checkTier3ReadinessForVersion(params: {
     placeholderEnvKeys: loadPlaceholderKeySet(),
   });
   if (!readiness.ready) {
-    return { ok: false, reason: "missing_env", spec, readiness };
+    return { ok: false, reason: "missing_env", spec: readinessSpec, readiness };
   }
-  return { ok: true, spec };
+  return { ok: true, spec: readinessSpec };
 }
