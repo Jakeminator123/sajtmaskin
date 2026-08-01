@@ -1025,19 +1025,24 @@ export function PreviewPanel({
             summary: `La till sidan ${route}`,
           });
         let result = await runOps([pageOp, ...nav.ops]);
-        let navLinked = nav.navUpdated;
+        let navRejected = false;
         if (!result.ok && result.reason === "parse_regression" && nav.ops.length > 0) {
           // The server's syntax gate rejected the menu rewrite. The page itself
           // is independent of it, so create the page without the link instead of
           // dropping the whole action.
-          navLinked = false;
+          navRejected = true;
           result = await runOps([pageOp]);
         }
         if (!result.ok) {
           toast.error(result.error || "Kunde inte skapa sidan.");
           return;
         }
-        if (navLinked) {
+        if (navRejected) {
+          toast.message(`Sidan ${route} skapades`, {
+            description:
+              "Menyn kunde inte uppdateras automatiskt utan att koden gick sönder — be i chatten att länka sidan.",
+          });
+        } else if (nav.navUpdated) {
           toast.success(`Sidan ${route} skapades och länkades i menyn.`);
         } else {
           toast.message(`Sidan ${route} skapades`, {
