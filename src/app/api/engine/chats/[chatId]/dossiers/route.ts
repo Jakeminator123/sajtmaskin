@@ -197,9 +197,17 @@ function hasServerFileEvidence(
     );
   if (envKeys.length === 0) return false;
   const keyPatterns = envKeys.map(envKeyIdentifierPattern);
+  // Heuristic: the route must both name the key as a standalone identifier
+  // AND actually read `process.env` — covers `process.env.KEY`, bracket
+  // access and destructuring, while a mock whose only mention of the key is
+  // a comment/string (and never touches process.env) stays demo. Known
+  // residual: a comment mention alongside an unrelated `process.env` read
+  // still passes — accepted; this is a view-level status heuristic and the
+  // conservative direction (under-reporting) is preserved elsewhere.
   return files.some(
     (file) =>
       API_ROUTE_PATH_RE.test(file.path) &&
+      file.content.includes("process.env") &&
       keyPatterns.some((pattern) => pattern.test(file.content)),
   );
 }

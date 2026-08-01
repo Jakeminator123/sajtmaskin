@@ -547,6 +547,42 @@ describe("GET dossiers overview", () => {
     expect(body.counts.builtLive).toBe(0);
   });
 
+  // Bugbot on the M#li1 fix: a route whose only mention of the key is a
+  // comment (and that never reads process.env) is a mock, not wiring.
+  it("rejects a comment-only key mention without any process.env read as server evidence", async () => {
+    const openaiRequirement = {
+      key: "openai",
+      name: "OpenAI",
+      provider: "openai",
+      requiredRealEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+      warnOnlyEnvKeys: [],
+      buildInstructions: [],
+      setupGuide: "",
+      hasConfigNoticeComponent: true,
+    };
+    getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "app/api/chat/route.ts",
+        content:
+          "// TODO: wire OPENAI_API_KEY later\nexport async function POST() { return Response.json({ reply: 'canned' }); }\n",
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+  });
+
   // Bugbot on the M#li1 fix: warn-only and NEXT_PUBLIC_* keys are
   // client-exposed/cosmetic — a route reading only those proves no server
   // wiring, so they must not count as fallback evidence.
