@@ -5,6 +5,7 @@ import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rateLimit";
+import { clipFromRegion, parseCaptureRegion, type CaptureRegion } from "./capture-region";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,20 @@ type CaptureRequest = {
   viewportHeight: number;
   cropWidth?: number;
   cropHeight?: number;
+  region?: CaptureRegion;
+  /**
+   * Previewens scroll-läge när användaren markerade.
+   *
+   * Koordinaterna vi får är viewport-relativa, och den här routen laddar
+   * sidan på nytt — alltid vid scroll 0. Utan att rulla tillbaka hit beskär
+   * vi toppen av dokumentet och påstår att det är den markerade ytan.
+   */
+  scrollX?: number;
+  scrollY?: number;
 };
+
+/** Låt lat-laddat innehåll hinna måla efter att vi rullat. */
+const SCROLL_SETTLE_MS = 220;
 
 type CapturedElement = {
   tag: string;
@@ -372,7 +386,18 @@ function parseBody(body: unknown): CaptureRequest | null {
   if (!url) return null;
   if (!Number.isFinite(xPercent) || !Number.isFinite(yPercent)) return null;
   if (!Number.isFinite(viewportWidth) || !Number.isFinite(viewportHeight)) return null;
-  return { url, xPercent, yPercent, viewportWidth, viewportHeight, cropWidth, cropHeight };
+  return {
+    url,
+    xPercent,
+    yPercent,
+    viewportWidth,
+    viewportHeight,
+    cropWidth,
+    cropHeight,
+    region: parseCaptureRegion(obj.region),
+    scrollX: Number.isFinite(toNumber(obj.scrollX)) ? toNumber(obj.scrollX) : undefined,
+    scrollY: Number.isFinite(toNumber(obj.scrollY)) ? toNumber(obj.scrollY) : undefined,
+  };
 }
 
 async function requireInspectorIdentity(req: Request): Promise<Response | null> {
@@ -455,17 +480,59 @@ async function handlePOST(req: Request) {
       timeout: NAVIGATION_TIMEOUT_MS,
     });
     await waitForStabilizedPage(page);
+
+    // Rulla till samma position som previewen stod i. Allt nedanför beror på
+    // det: `describePoint` slår upp elementet med viewport-koordinater, och
+    // Playwrights `clip` är viewport-relativ när `fullPage` är av. Utan det
+    // här steget beskriver och fotograferar vi sidans topp oavsett vad
+    // användaren tittade på.
+    const scrollX = Math.max(0, Math.round(parsed.scrollX ?? 0));
+    const scrollY = Math.max(0, Math.round(parsed.scrollY ?? 0));
+    if (scrollX > 0 || scrollY > 0) {
+      await page
+        .evaluate(
+          ([x, y]) => window.scrollTo(x, y),
+          [scrollX, scrollY] as const,
+        )
+        .catch(() => undefined);
+      await page.waitForTimeout(SCROLL_SETTLE_MS).catch(() => undefined);
+    }
+
     const pointDetails = await describePoint(page, centerX, centerY);
     const resolvedCenterX = clamp(Math.round(pointDetails.resolvedX), 0, viewportWidth);
     const resolvedCenterY = clamp(Math.round(pointDetails.resolvedY), 0, viewportHeight);
-    const clipX = clamp(Math.round(resolvedCenterX - cropWidth / 2), 0, Math.max(0, viewportWidth - cropWidth));
-    const clipY = clamp(Math.round(resolvedCenterY - cropHeight / 2), 0, Math.max(0, viewportHeight - cropHeight));
-    await drawCaptureOverlay(page, resolvedCenterX, resolvedCenterY, xPercent, yPercent);
+
+    // A dragged region is its own answer: clip exactly what the user outlined
+    // and draw nothing on top. The point path needs a crosshair because a
+    // 420x280 crop around a coordinate does not otherwise say which pixel was
+    // meant — but here the crop IS the selection, and an overlay would only
+    // obscure the thing the user is asking about. The region also must not be
+    // recentred on `resolvedX/Y`: that snaps to an element, which is right for
+    // a click and wrong for a rectangle the user drew themselves.
+    const clip = parsed.region
+      ? clipFromRegion(parsed.region, viewportWidth, viewportHeight)
+      : {
+          x: clamp(
+            Math.round(resolvedCenterX - cropWidth / 2),
+            0,
+            Math.max(0, viewportWidth - cropWidth),
+          ),
+          y: clamp(
+            Math.round(resolvedCenterY - cropHeight / 2),
+            0,
+            Math.max(0, viewportHeight - cropHeight),
+          ),
+          width: cropWidth,
+          height: cropHeight,
+        };
+    if (!parsed.region) {
+      await drawCaptureOverlay(page, resolvedCenterX, resolvedCenterY, xPercent, yPercent);
+    }
 
     const previewBuffer = await page.screenshot({
       type: "png",
       omitBackground: false,
-      clip: { x: clipX, y: clipY, width: cropWidth, height: cropHeight },
+      clip,
     });
     const previewDataUrl = `data:image/png;base64,${previewBuffer.toString("base64")}`;
 
@@ -479,14 +546,11 @@ async function handlePOST(req: Request) {
       yPercent,
       viewportWidth,
       viewportHeight,
-      pointSummary: pointDetails.pointSummary,
+      pointSummary: parsed.region
+        ? `Markerad yta ${clip.width}×${clip.height} px vid x ${xPercent.toFixed(1)}% • y ${yPercent.toFixed(1)}%`
+        : pointDetails.pointSummary,
       element: pointDetails.element,
-      clip: {
-        x: clipX,
-        y: clipY,
-        width: cropWidth,
-        height: cropHeight,
-      },
+      clip,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown capture error";

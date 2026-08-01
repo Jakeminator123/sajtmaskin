@@ -1,12 +1,26 @@
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import type { AutoFixEntry } from "./pipeline";
+import { resolveOwnComponentImports } from "./deterministic-import-repair";
 import {
   countParseErrors,
   isDenylistedStubDefaultName,
   JS_BUILTIN_GLOBAL_NAMES,
 } from "./rules/import-binding-ast";
 import { classifyShadcnLucideCollisionUsage } from "./rules/lucide-misuse-fixer";
+
+/**
+ * The project's own export indexes, threaded in from the autofix pipeline so a
+ * generated component import can be checked against what the project actually
+ * exports. Absent (standalone callers, unknown file path) means "cannot verify"
+ * — and then no component import is generated at all.
+ */
+export interface JsxCheckerProjectExports {
+  /** Named exports: symbol → alias import path(s). `buildProjectExportIndex`. */
+  exportIndex: Map<string, string[]>;
+  /** Default exports: symbol → alias import path(s). `buildProjectDefaultExportIndex`. */
+  defaultExportsByName: Map<string, string[]>;
+}
 
 /**
  * Single-line import matcher. Multiline imports are normalised first
@@ -223,13 +237,6 @@ function extractUsedComponents(code: string): Set<string> {
   return used;
 }
 
-function pascalToKebab(name: string): string {
-  return name
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .replace(/([A-Z])([A-Z][a-z])/g, "$1-$2")
-    .toLowerCase();
-}
-
 function extractLocalDeclarations(code: string): Set<string> {
   const decls = new Set<string>();
   const FUNC_RE = /(?:function|const|let|var)\s+([A-Z]\w*)\s*[=(]/g;
@@ -349,15 +356,72 @@ function isNonJsxImportSurface(filePath: string | undefined): boolean {
   return /\.[cm]?[tj]s$/.test(normalized);
 }
 
+function unresolvedComponentWarning(name: string): string {
+  return `Left <${name}> unimported — no unique own-project export found (the undefined-jsx-symbol lane owns it)`;
+}
+
+/**
+ * Resolve the residue: PascalCase JSX symbols that are neither lucide icons
+ * nor shadcn components. Only an import backed by exactly ONE matching export
+ * in the project's own files is added — the same unique-match rule
+ * `fixMissingLocalSymbolImports` and `runDeterministicImportRepair` already
+ * apply.
+ *
+ * M#gs1: this branch used to fabricate `import <Name> from
+ * "@/components/<kebab>"` for every unresolved symbol without asking the
+ * export index. At finalize, `cross-file-import-checker` then materialised a
+ * placeholder module for that made-up path, so the build went green while the
+ * component rendered nothing — a false green instead of an honest
+ * `Module not found`. An unresolved symbol is now left unimported so the
+ * `undefined-jsx-symbol` verifier lane reports it.
+ */
+function resolveGenericComponentImports(params: {
+  code: string;
+  filePath: string | undefined;
+  names: string[];
+  projectExports: JsxCheckerProjectExports | undefined;
+}): { code: string; fixes: AutoFixEntry[]; warnings: string[] } {
+  const { code, filePath, names, projectExports } = params;
+  if (!projectExports || !filePath) {
+    return {
+      code,
+      fixes: [],
+      warnings: names.map(unresolvedComponentWarning),
+    };
+  }
+
+  const resolved = resolveOwnComponentImports({
+    code,
+    filePath,
+    missingNames: new Set(names),
+    exportIndex: projectExports.exportIndex,
+    defaultExportsByName: projectExports.defaultExportsByName,
+  });
+
+  const addedNames = new Set(resolved.added.map((addition) => addition.name));
+  return {
+    code: resolved.code,
+    fixes: resolved.added.map((addition) => ({
+      fixer: "jsx-checker",
+      description: `Added missing import for <${addition.name}> from ${addition.module}`,
+    })),
+    warnings: names
+      .filter((name) => !addedNames.has(name))
+      .map(unresolvedComponentWarning),
+  };
+}
+
 /**
  * Fix missing component imports:
  * - Lucide icons → merge into existing lucide-react import or add new one
  * - shadcn/ui components → import from correct @/components/ui/... path
- * - Other → default import from @/components/kebab-case-name
+ * - Other → import from the project's own file only when exactly one of them
+ *   exports the name (see `resolveGenericComponentImports`)
  */
 function fixMissingImports(
   code: string,
   filePath?: string,
+  projectExports?: JsxCheckerProjectExports,
 ): {
   code: string;
   fixes: AutoFixEntry[];
@@ -475,22 +539,20 @@ function fixMissingImports(
     });
   }
 
-  for (const name of genericNames) {
-    const insertIdx = findLastImportLine(lines) + 1;
-    const kebab = pascalToKebab(name);
-    lines.splice(
-      insertIdx,
-      0,
-      `import ${name} from "@/components/${kebab}"`,
-    );
-    fixes.push({
-      fixer: "jsx-checker",
-      description: `Added missing import for <${name}>`,
-      line: insertIdx + 1,
-    });
+  if (genericNames.length === 0) {
+    return { code: lines.join("\n"), fixes, warnings };
   }
 
-  return { code: lines.join("\n"), fixes, warnings };
+  const generic = resolveGenericComponentImports({
+    code: lines.join("\n"),
+    filePath,
+    names: genericNames,
+    projectExports,
+  });
+  fixes.push(...generic.fixes);
+  warnings.push(...generic.warnings);
+
+  return { code: generic.code, fixes, warnings };
 }
 
 /**
@@ -566,6 +628,7 @@ function isHookFilePath(filePath: string | undefined): boolean {
 export function runJsxChecker(
   code: string,
   filePath?: string,
+  projectExports?: JsxCheckerProjectExports,
 ): {
   code: string;
   fixes: AutoFixEntry[];
@@ -604,7 +667,7 @@ export function runJsxChecker(
     ),
   );
 
-  const importResult = fixMissingImports(code, filePath);
+  const importResult = fixMissingImports(code, filePath, projectExports);
   let currentCode = importResult.code;
   fixes.push(...importResult.fixes);
   warnings.push(...importResult.warnings);

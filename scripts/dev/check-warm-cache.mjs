@@ -143,7 +143,7 @@ function main() {
     console.error(
       "[warm-cache:smoke] FAILED — one or more scaffolds are cold. " +
         "The pre-VM typecheck/eslint passes will silently skip (cache_cold) for those. " +
-        "Fix: `npm run provision:warm-cache` (see docs/howto/warm-cache-setup.md).",
+        "Fix: `npm run provision:warm-cache` (see docs/runbooks/warm-cache-setup.md).",
     );
     process.exit(1);
   }
