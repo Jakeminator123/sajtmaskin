@@ -261,7 +261,8 @@ def render(ctx: BackofficeContext) -> None:
         value=True,
         help=(
             "Supabase-poolern uppfattas ofta som självsignerad i den här miljön "
-            "(se AGENTS.md: DB_SSL_REJECT_UNAUTHORIZED=false). Lämna ikryssad om du "
+            "(se docs/runbooks/cursor-cloud-agent.md: DB_SSL_REJECT_UNAUTHORIZED=false). "
+            "Lämna ikryssad om du "
             "får 'self-signed certificate in certificate chain'."
         ),
         key="log_export_ssl",

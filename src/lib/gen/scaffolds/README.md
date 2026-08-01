@@ -1,6 +1,6 @@
-# Runtime Scaffolds (partially cursorignored)
+# Runtime Scaffolds (large JSON kept out of the index)
 
-Large generated JSON is cursorignored. Overview: [`../README.md`](../README.md) · Product terms: `.cursor/rules/terminology.mdc` (runtime **scaffold** vs builderns **Mallar** / `src/lib/templates` vs runtime **`template-library`** vs **Vercel-mall** research).
+Large generated JSON sits in `.cursorindexingignore` — out of semantic search, still readable with `@`/Read. Overview: [`../README.md`](../README.md) · Product terms: `.cursor/rules/terminology.mdc` (runtime **scaffold** vs builderns **Mallar** / `src/lib/templates` vs runtime **`template-library`** vs **Vercel-mall** research).
 
 ## What Lives Here
 

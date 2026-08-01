@@ -25,7 +25,7 @@ Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar 
 > Historisk not (2026-04-23, OMTAG fas 2·B / M1): den tidigare marketing-scaffolden
 > för multi-section brand storytelling slogs ihop med `landing-page`. Dess två
 > varianter (`warm-editorial`, `minimalist-mag`) flyttades till landing-page. Se
-> `docs/architecture/glossary.md` § Legacy för detaljer.
+> `docs/architecture/glossary.md` § "Legacy / undvik i ny text" för detaljer.
 
 ### Variant-detaljer (sammanfattning)
 
@@ -49,7 +49,7 @@ Den tidigare marketing-scaffolden för multi-section brand storytelling slogs
 ihop med `landing-page` i OMTAG fas 2·B / M1. `LANDING_KEYWORDS` absorberade
 det gamla `CONTENT_KEYWORDS`-banket, och de två varianterna
 (`warm-editorial`, `minimalist-mag`) flyttades till `landing-page`. Se
-`docs/architecture/glossary.md` § Legacy.
+`docs/architecture/glossary.md` § "Legacy / undvik i ny text".
 
 ### 2.2 `dashboard` ↔ `app-shell`
 

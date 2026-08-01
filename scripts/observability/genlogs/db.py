@@ -78,7 +78,8 @@ def connect(target: PostgresTarget, *, verify_tls: bool = False, timeout_s: int 
         ssl_context = ssl.create_default_context()
         if not verify_tls:
             # Supabase-poolern uppfattas som självsignerad i det här repot
-            # (samma skäl som DB_SSL_REJECT_UNAUTHORIZED=false i AGENTS.md).
+            # (samma skäl som DB_SSL_REJECT_UNAUTHORIZED=false i
+            # docs/runbooks/cursor-cloud-agent.md).
             ssl_context.check_hostname = False
             ssl_context.verify_mode = ssl.CERT_NONE
     try:

@@ -1,0 +1,90 @@
+# .cursorindexingignore = utanför semantisk sökning, MEN fortfarande läsbar.
+#
+# Skillnad mot .cursorignore: filer här indexeras inte och dyker inte upp i
+# kodbas-sökning, men agenten kan fortfarande öppna dem med @ eller Read när
+# de faktiskt behövs (t.ex. vid felsökning av en körning). .cursorignore
+# blockerar läsningen helt och är reserverad för secrets.
+#
+# Cursor exkluderar redan .gitignore + en inbyggd default-lista (binärer,
+# media som *.mp4/*.png, lockfiles, node_modules, .next, __pycache__ …).
+# Raderna nedan täcker det som INTE fångas av det — främst stora artefakter
+# som är spårade i git, plus lokala dumpar man vill kunna läsa men aldrig
+# söka i.
+#
+# Indexera fortsatt: docs/plans/avklarat/ (historik ska vara sökbar).
+
+# --- Build & cache (backup; normalt redan via .gitignore) ---
+node_modules
+.next
+out
+.cache
+dist
+build
+coverage
+playwright-report
+test-results
+__pycache__
+.venv
+venv
+.git
+.eslintcache
+tsconfig.tsbuildinfo
+next-env.d.ts
+package-lock.json
+
+# --- Tunga genererade artefakter (spårade i git → ej täckta av .gitignore) ---
+src/lib/templates/template-embeddings.json
+src/lib/templates/template-blob-manifest.json
+src/lib/templates/templates.json
+src/lib/gen/scaffolds/scaffold-embeddings.json
+src/lib/gen/scaffolds/scaffold-research.generated.json
+config/scaffold-variants/_index/variant-embeddings.json
+data/dossiers/_index/dossier-embeddings.json
+
+# --- Körnings-, eval- och promptdumpar (läsbara vid felsökning) ---
+data/eval-runs/**
+data/prompt-dumps/**
+data/runs/**
+data/gen-logs/**
+data/observability/error-log-tfidf-*.json
+logs/**
+
+# --- Dossier-pipeline (lokal mutable/generated data) ---
+data/dossiers/_raw/playwright-catalog-light.json
+data/dossiers/_raw/_enriched/**
+data/dossiers/_raw/_curation-queue.md
+data/dossiers/_raw/_import-summary.json
+data/dossiers/_raw/*/skiss.json
+data/dossiers/_index/master.json
+data/dossiers/_index/by-category.json
+data/dossiers/_repo-cache/**
+data/dossiers/*/_removed/**
+
+# --- Template references / lokala arkiv ---
+data/template-references/repos/**
+data/template-references/_metadata/**
+templates_v0/
+
+# --- Cursor session / automation / migration ---
+.cursor/automation/runs/
+.cursor/automation/archive/
+.cursor/automation/input/
+.cursor/migration-archive/
+# .cursor/swarms/ utelämnad med flit: .gitignore täcker fynd-filerna redan,
+# och README.md är undantagen där för att förbli sökbar.
+
+# --- Media (redan i Cursors default-lista; explicit för tydlighet) ---
+public/video/
+public/images/
+
+# --- Lokal scratch / parkering ---
+scratch-*.mjs
+manual_log/
+input_files_for_cursor/
+.preprompt_history.json
+DOM_dev_tols.txt
+chat_till_vanster.txt
+eval-output/
+output/generations/
+_parkering/
+/publicerings-material/

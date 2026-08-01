@@ -106,9 +106,10 @@ Guidelines:
 - Treat scaffold artifacts as runtime/build-time helpers, not disposable scratch output.
 - Do not hand-edit them as a normal workflow. Prefer regenerating them from the
   scripts documented in `scripts/README.md`.
-- Keeping them in `.cursorignore` is about search/indexing cost, not about
-  forbidding access. Read them directly when a task actually depends on their
-  structure or contents.
+- Keeping them in `.cursorindexingignore` is about search/indexing cost, not
+  about forbidding access. Read them directly when a task actually depends on
+  their structure or contents. (`.cursorignore` would block the read outright —
+  it is reserved for secrets.)
 - When you only need orientation, prefer this README plus
   `docs/architecture/code-map.md` over opening the full JSON artifacts.
 

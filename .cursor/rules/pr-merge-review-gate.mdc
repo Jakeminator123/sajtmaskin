@@ -133,7 +133,7 @@ Självgranskning räcker inte när författaren själv mergar:
 - Är agenten som mergar **samma** agent som skapade PR:en, räknas inte "jag läste min egen diff igen" som granskning — `bugbot`-subagent-passet är minimum, särskilt på protected paths.
 - Mergar en **annan** agent: kör inte om författarens efterkontroll — verifiera att den är dokumenterad i PR:en, att checks är gröna och att inga P0/P1 står öppna.
 - Dokumentera vald väg i slutrapporten: `bugbot` (Cursor-subagent) eller `manual local bug review`.
-- Full guide: [`AGENTS.md`](../../AGENTS.md) → "Review guidelines".
+- Den här filen är den fulla guiden; [`AGENTS.md`](../../AGENTS.md) → "Review guidelines" är bara ingången.
 
 ## GitHub-verklighet (verifierat 2026-07-08)
 

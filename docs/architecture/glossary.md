@@ -91,7 +91,14 @@ Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nyck
 
 | Säg inte bara | Skriv hellre |
 |---|---|
+| generatorn / v0-motorn | `own-engine` |
 | brief | `Deep Brief` eller `Snapshot-Brief` |
+| scaffold family / style direction | `Scaffold Variant` |
+| kategori / grupp (om capability) | `Dossier-grupp` för UI-bucketen; `Capability` är det som styr selektionen |
+| mock / mockup / fallback (om dossier-demo) | `Demoläge` (manifestfältet `mock`) |
+| hård / mjuk dossier (i user-synlig copy) | `Kopplad` (hard) / `Fristående` (soft) |
+| dossier (i user-synlig UI-copy) | `Byggblock` — kodidentifierare och routes behåller `dossier` |
+| dashboard (om adminytan) | `backoffice/` eller `sajtmaskin_backoffice.py` |
 | context | `Dynamic Context` när promptblocket avses |
 | contracts | `Contract Plan` eller `Orchestration Contract` |
 | quality gate | `RenderGate` för F2 eller `ReleaseGate` för F3 |
@@ -113,11 +120,36 @@ Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nyck
 | Undvik | Använd |
 |---|---|
 | AI Gateway | Direkt provider / modellregistry |
+| prompt-static | `Core Rules` |
+| tier 2 / tier 3 (om produktläge) | F2 (`fidelity2`) / F3 (`fidelity3`) |
+| `command-search` | `command-palette` (capability-id sedan 2026-07-22) |
+| `supabase-auth` som capability | `auth` — `supabase-auth` är dossier-/leverantörs-id under den |
+| mallar / templates om runtime-startpunkter | `Scaffold` |
+| "templates" om capability-moduler | `Dossier` — Template (v0-mall) är ett separat system |
 | Vercel Sandbox som preview | VM / `preview_host` |
 | `demoUrl` för own-engine preview | `previewUrl` |
 | Spec-first-kedjan | Deep Brief + orchestration |
 | Directive Cascade | Core Rules + Dynamic Context + signalägare |
 | `serverVerify` som quality-gate-lane | `RenderGate` (`designPreview`) eller `ReleaseGate` (`integrationsBuild`) |
+
+## Fas-skillnad
+
+- **Init** = ny artifact graph. Full Deep Brief, scaffold/variant/dossier/route-plan från scratch.
+- **Follow-up** = delta på existerande graph. Snapshot-Brief, fryst scaffold/variant/routes utom `clear-redesign`.
+- **F2** = design/preview. **F3** = integrationer/build, explicit användarval.
+
+## Agent- och modellplan
+
+Fyra olika sorters "agent" och "modell" blandas lätt ihop:
+
+| Aktör | Vad det är |
+|---|---|
+| Extern coach/LLM | Användarens externa ChatGPT/LLM-råd. Inte automatiskt en repo-aktör. |
+| Cursor/IDE-agent | Bygger repot via `.cursor/**` + `Task`-subagenter. Modellnamn = Cursor-slug:ar. |
+| GitHub/Vercel-botar | Codex-review, checks, Vercel deploy-preview. Codex-review ≠ Sajtmaskins `verifier`-fas; Vercel "Ready" = deploy-status, inte kodkvalitet. |
+| Sajtmaskins produktmodeller | own-engine, prompt-assist, Deep Brief, verifier, embeddings. Styrs av `config/ai_models/manifest.json` + `src/lib/models/`; id-format `gpt-5.5`, `claude-opus-4.8`. |
+
+Gissa aldrig slug, modell-id eller botstatus — fråga vid oklarhet. Användarens vardagsspråk ("agent", "modell", "review") är löst; tolka via kontext, lås inte ett casual ord till en exakt definition.
 
 ## Förvaltning av ordlistan
 
@@ -135,3 +167,10 @@ behålla dokumenterade legacy-namn.
 Ändra en term i ordningen: faktisk owner och semantik → denna glossary →
 dictionary-seed vid behov → agentregler och aktiva docs. Skapa inte ett andra
 terminologiregistry för runtime.
+
+**Signal-gate:** ny signal? Hitta canonical source först. Ändra ägaren, inte fem
+konsumenter.
+
+Kontrollbegreppen här styr hur agenter skriver i docs och PR-text. Befintliga
+kodidentifierare, filnamn, telemetri-nycklar, event-typer, enum-värden och
+DB-strängar behåller sina legacy-namn.

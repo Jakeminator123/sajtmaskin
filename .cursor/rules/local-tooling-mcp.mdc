@@ -1,6 +1,6 @@
 ---
-description: "Lokal MCP/Git/Vercel/Supabase/shadcn-setup för Cursor på denna maskin + worktrees. Följ vid tooling, deploy-loggar, DB-introspekt eller ny worktree."
-alwaysApply: true
+description: "Lokal MCP/Git/Vercel/Supabase/shadcn-setup för Cursor på denna maskin. Läs vid MCP-problem, Vercel-deploy/loggar, Supabase-introspektion, shadcn-registry eller ny worktree utan MCP-config."
+alwaysApply: false
 ---
 
 # Lokal tooling (MCP / Git / Vercel / Supabase)

@@ -14,6 +14,12 @@ alwaysApply: true
 - Före PR-skapande **och** före push till master: kör ett **Cursor Bugbot-pass på egen diff** (bugbot-subagent, `readonly: true`) — samma pass som bugg-efterkontrollen, kört en gång. `/granska`-svärmen är numera valfri (se `.cursor/commands/granska.md`), inte längre krav.
 - `gh pr merge --admin` bara när merge-grinden i `auto-merge-automation.mdc` är uppfylld (alla required checks gröna — inkl. `review-window` som tvingar 7-min/bot-fönstret — + bugbot-pass kört på diffen + minst en extern buggkoll + PR ≥ 7 min). Aldrig som genväg förbi röda/väntande checks eller utebliven granskning. Obs: `--admin` överstyr även `review-window`, så verifiera PR-åldern manuellt då.
 
+## Ignore-filer
+
+Agenten får redigera `.gitignore`, `.cursorignore` och `.cursorindexingignore` utan att fråga. Cursors filverktyg vägrar skriva `.cursorignore` — använd PowerShell (`[System.IO.File]::WriteAllText`, LF + UTF-8 utan BOM). Rör aldrig secrets-mönstren i `.cursorignore`.
+
+`.cursorignore` blockerar agentens **läsning** (`Permission denied`), inte bara indexering — den är bara för secrets. Sådant som bara är stort/brusigt hör hemma i `.cursorindexingignore` (osökbart men läsbart). `.gitignore` + Cursors default-lista exkluderas redan från indexet; upprepa inte dem.
+
 ## Branch-modell — master är trunk
 
 - **`master` är slutmålet.** Allt arbete ska till slut nå `master` — men bara när grinden är grön (allt är som det ska). `master` är den slutgiltiga, enda långlivade branchen och ska alltid vara grön och deploybar.

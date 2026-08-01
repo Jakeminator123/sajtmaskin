@@ -6,7 +6,7 @@ Parkeringsyta för filer och mappar du vill jobba med **senare** men inte ha lig
 
 | Aspekt | Status | Styrs av |
 |---|---|---|
-| Cursor AI-index (semantisk sökning) | **Av** | `.cursorignore` (`_parkering/`) |
+| Cursor AI-index (semantisk sökning) | **Av** | `.cursorindexingignore` (`_parkering/`) |
 | Filbevakare (live filändringar i editorn) | **Av** | `.vscode/settings.json` -> `files.watcherExclude` |
 | Sök (Ctrl+Shift+F) | **Av** | `.vscode/settings.json` -> `search.exclude` |
 | Git | **På** (spåras normalt) | - |
