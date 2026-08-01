@@ -39,6 +39,7 @@ import {
   type ShadcnUiRecipe,
 } from "../data/shadcn-ui-recipes";
 import {
+  isExplicitDossierChoice,
   resolveCapabilitiesPresentInVersion,
   resolveDossiersPresentInVersion,
   selectDossiersForRequest,
@@ -634,12 +635,22 @@ export async function resolveOrchestrationBase(
       // can later use those ids as deterministic selection pins without ever
       // injecting the dossiers into F2.
       if (mutedCapabilities.length > 0) {
+        // Bara VAL, aldrig defaults. Snapshot-mergen tolkar varje id här som
+        // "användaren valde det här syskonet nu" och låter det ersätta ett
+        // tidigare syskon för samma capability. En neutral uppföljning ("gör
+        // rubriken större") bär ingen providerhint, men capability-floor:en
+        // håller kvar `database` — så en ofiltrerad selektion hade skickat
+        // capability-defaulten `postgres-drizzle` och tyst skrivit över ett
+        // tidigare valt `mongodb-atlas`. Ett utelämnat id är ofarligt: F3
+        // faller tillbaka på `mutedCapabilities` och därmed på samma default.
         mutedDossierIds = selectDossiersForRequest({
           requestedCapabilities: mutedCapabilities,
           disableBriefFallback: true,
           promptText: input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt,
           configuredEnvKeys: input.configuredEnvKeys,
-        }).selected.map((selected) => selected.entry.id);
+        })
+          .selected.filter((selected) => isExplicitDossierChoice(selected.reason))
+          .map((selected) => selected.entry.id);
       }
       // 5-5 capabilities can-only-grow: restore the FollowUpContract floor so a
       // base-version capability (e.g. an init contact-form) can never be

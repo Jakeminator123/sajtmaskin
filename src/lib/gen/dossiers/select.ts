@@ -316,6 +316,18 @@ function pickForCapability(
   return { entry: sorted[0], reason: "default-fallback" };
 }
 
+/**
+ * Sant när valet speglar ett faktiskt VAL, inte capability-defaulten.
+ *
+ * Anropare som PERSISTERAR syskonidentitet måste filtrera på detta. Ett
+ * persisterat default-id går inte att skilja från "användaren valde det här
+ * syskonet", så det skriver över ett tidigare uttryckligt val nästa gång
+ * capability:n råkar följa med utan providerhint i prompten.
+ */
+export function isExplicitDossierChoice(reason: SelectedDossier["reason"]): boolean {
+  return reason === "relevance-keyword" || reason === "dependency-pin";
+}
+
 export function selectDossiersForRequest(
   opts: SelectDossiersOptions,
 ): DossierSelectionResult {

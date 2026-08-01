@@ -13,6 +13,7 @@ export type { DossierExposesInfo } from "./registry";
 
 export {
   selectDossiersForRequest,
+  isExplicitDossierChoice,
   expandDependentCapabilities,
   normalizeCapabilityId,
   isDossierConfigured,
