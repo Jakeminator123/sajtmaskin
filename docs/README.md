@@ -23,10 +23,6 @@ policies kan äga olika beslut.
 | Hur provisionerar jag warm-cachen? | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)          |
 | Vilka planer är aktiva?          | [`plans/README.md`](plans/README.md)                                     |
 
-[`audits/documentation-audit-2026-07-13.md`](audits/documentation-audit-2026-07-13.md)
-är en punktrevision och ett beslutsunderlag för dokumentationskonsolideringen.
-Den är historisk analys, inte runtime source of truth.
-
 Full terminologi finns tills vidare i
 [`architecture/glossary.md`](architecture/glossary.md). Regler för
 dokumentationslivscykeln finns i

@@ -28,9 +28,11 @@ describe("active documentation link checks", () => {
   it("excludes historical Markdown surfaces from the blocking active set", () => {
     expect(isActiveMarkdown("docs/contracts/build-spec.md")).toBe(true);
     expect(isActiveMarkdown("README.md")).toBe(true);
-    expect(isActiveMarkdown("docs/archive/old.md")).toBe(false);
+    expect(isActiveMarkdown("docs/plans/archived/old.md")).toBe(false);
     expect(isActiveMarkdown("docs/plans/avklarat/old.md")).toBe(false);
-    expect(isActiveMarkdown("docs/audits/snapshot.md")).toBe(false);
+    expect(isActiveMarkdown("_parkering/snapshot.md")).toBe(false);
+    expect(isActiveMarkdown("docs/audits/snapshot.md")).toBe(true);
+    expect(isActiveMarkdown("docs/archive/old.md")).toBe(true);
   });
 
   it("resolves root-relative and document-relative targets", () => {
@@ -49,7 +51,7 @@ describe("active documentation link checks", () => {
       ["README.md", "[Docs](docs/README.md)"],
       ["docs/README.md", "[Directory](contracts/) [Missing](contracts/missing.md) [App route](/builder/demo)"],
       ["docs/contracts/guide.md", "# Guide"],
-      ["docs/archive/old.md", "[Historical missing](gone.md)"],
+      ["docs/plans/archived/old.md", "[Historical missing](gone.md)"],
     ]);
 
     const failures = await checkActiveDocLinks({
