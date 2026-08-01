@@ -4,7 +4,11 @@
  * `src/lib/gen/orchestrate.ts` (structural split, no behavior change).
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { getVariantById } from "../scaffold-variants";
+import {
+  buildVariantTemplateReferenceAttachments,
+  getVariantById,
+  resolveVariantTemplateInspiration,
+} from "../scaffold-variants";
 import { resolveScaffoldVariant } from "./scaffold-variant-resolver";
 import { lockedVariantForFollowUp } from "../scaffold-variants/matcher";
 import {
@@ -118,6 +122,13 @@ export async function finalizeOrchestrationPrompts(
     }
   }
 
+  const variantTemplateInspiration =
+    resolvedMode === "init" && input.importedRepoMode !== true
+      ? await resolveVariantTemplateInspiration(resolvedVariant)
+      : null;
+  const variantTemplateReferenceAttachments =
+    buildVariantTemplateReferenceAttachments(variantTemplateInspiration);
+
   // ── Dossier capability vs final selection diff (v2 — capability-driven) ──
   // Logs which REQUESTED capabilities resolved to dossiers and which did not.
   // Uses the RUNTIME requested list (`base.dossierRequestedCapabilities` =
@@ -174,6 +185,7 @@ export async function finalizeOrchestrationPrompts(
     chatId: input.chatId ?? null,
     uiRecipes: base.uiRecipes,
     resolvedVariant,
+    variantTemplateInspiration,
     dossierSelection: base.dossierSelection,
     mutedCapabilities: base.mutedCapabilities ?? null,
     dossierPromptContext: {
@@ -193,5 +205,7 @@ export async function finalizeOrchestrationPrompts(
     dynamicContextPruning: dynamic.pruning,
     dynamicContextBlocks: dynamic.blocks,
     variantId: dynamic.variantId,
+    variantTemplateId: variantTemplateInspiration?.templateId ?? null,
+    variantTemplateReferenceAttachments,
   };
 }

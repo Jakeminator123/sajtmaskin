@@ -32,6 +32,7 @@ import type { DossierSelectionResult } from "../dossiers";
 import type { FollowUpContract } from "../orchestration-snapshot";
 import type { RequestKindClass } from "../request-kind";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
+import type { RequestAttachment } from "../request-metadata";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -417,4 +418,6 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
+  variantTemplateId: string | null;
+  variantTemplateReferenceAttachments: RequestAttachment[];
 }

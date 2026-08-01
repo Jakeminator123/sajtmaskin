@@ -556,6 +556,8 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
         keptBlockKeys: ["build_intent_website"],
       },
       dynamicContextBlocks: [],
+      // Spridd med `...` i plan-mode-grenen — utelämnad blir den `undefined` och kastar.
+      variantTemplateReferenceAttachments: [],
     });
     resolveOrchestrationBase.mockResolvedValue({
       resolvedScaffold: {
@@ -617,6 +619,8 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
         keptBlockKeys: ["build_intent_website"],
       },
       dynamicContextBlocks: [],
+      variantTemplateId: null,
+      variantTemplateReferenceAttachments: [],
     });
     createChat.mockResolvedValue({ id: "engine_chat_1" });
     addMessage.mockResolvedValue(undefined);

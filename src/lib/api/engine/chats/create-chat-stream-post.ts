@@ -577,6 +577,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           plannerThinking: plannerSettings.thinking,
           plannerReasoningEffort: plannerSettings.reasoningEffort,
           abortSignal: req.signal,
+          referenceAttachments: [
+            ...planOrchestration.variantTemplateReferenceAttachments,
+            ...requestAttachments,
+          ],
         });
 
         const projectIdForChat = await resolveAppProjectIdForRequest(
@@ -1034,7 +1038,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               userMessage: message,
               isFollowUp: false,
             }),
-            referenceAttachments: requestAttachments,
+            referenceAttachments: [
+              ...finalized.variantTemplateReferenceAttachments,
+              ...requestAttachments,
+            ],
           },
           meta: buildOwnEngineGenerationStreamMeta({
             routeVariant: "new-chat",
@@ -1097,4 +1104,3 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
     }),
   );
 }
-

@@ -34,6 +34,7 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   // truncates required blocks — which silently returned the generation to a
   // style-less default while telemetry still reported the picked variant.
   { match: /^scaffold variant \(this generation\)$/i, priority: 91, required: true },
+  { match: /^variant template inspiration$/i, priority: 84 },
   // Brief "Must Have" is explicit user intent and the ownership block is what
   // keeps two dossiers from emitting the same surface. Both used to fall through
   // to the default (priority 60, prunable), i.e. they were among the FIRST

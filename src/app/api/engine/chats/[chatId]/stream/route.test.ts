@@ -699,6 +699,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         keptBlockKeys: ["build_intent_website"],
       },
       dynamicContextBlocks: [],
+      // Spridd med `...` i plan-mode-turn — utelämnad blir den `undefined` och kastar.
+      variantTemplateReferenceAttachments: [],
     });
     resolveOrchestrationBase.mockResolvedValue({
       resolvedScaffold: {
@@ -760,6 +762,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         keptBlockKeys: ["build_intent_website"],
       },
       dynamicContextBlocks: [],
+      variantTemplateId: null,
+      variantTemplateReferenceAttachments: [],
     });
     finalizeOrHandleEmptyGeneration.mockResolvedValue({
       version: { id: "ver_2" },
