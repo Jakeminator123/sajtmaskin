@@ -340,3 +340,98 @@ describe("shouldVerifyPreviewRuntimeReceipt", () => {
     expect(await shouldVerifyPreviewRuntimeReceipt("ver_1")).toBe(true);
   });
 });
+
+/**
+ * Vad VM:n faktiskt kör, inte vad DB-raden råkar hålla just nu.
+ *
+ * Versionsraden kan avancera till N+1 (repair-accept, användarredigering) medan
+ * VM:n fortfarande serverar N. Läser kvittot DB:ns nuvarande revision som proxy
+ * blir ett kvitto för N jämfört mot N+1 — och stämplar då antingen fel rad
+ * eller ingen alls. Anroparen som äger sessionen vet vad som bootades och
+ * skickar det explicit.
+ */
+describe("recordPreviewRuntimeOutcomeForVersion — bootad revision framför DB-proxyn", () => {
+  beforeEach(() => {
+    updateSet.value = undefined;
+    updateWhere.value = undefined;
+    updateCalls.count = 0;
+    updateResult.rowCount = 1;
+    updateResult.reject = false;
+    selectRows.value = [];
+    selectRows.count = 0;
+    versionRows.value = [];
+    versionRows.count = 0;
+    process.env.SAJTMASKIN_CONTENT_REVISION_GATE = "true";
+    resetConfirmedPreviewReadyCacheForTests();
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    delete process.env.SAJTMASKIN_CONTENT_REVISION_GATE;
+  });
+
+  it("VM=N medan DB=N+1: den bootade revisionen används och DB-proxyn läses aldrig", async () => {
+    versionRows.value = [{ filesRevision: REVISION_REWRITTEN }];
+
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true, {
+      bootedFilesRevision: REVISION_BOOTED,
+    });
+
+    expect(versionRows.count).toBe(0);
+    expect(updateCalls.count).toBe(1);
+  });
+
+  it("cachen nycklas på den bootade revisionen — samma boot stämplas inte om", async () => {
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true, {
+      bootedFilesRevision: REVISION_BOOTED,
+    });
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true, {
+      bootedFilesRevision: REVISION_BOOTED,
+    });
+
+    expect(updateCalls.count).toBe(1);
+  });
+
+  it("en faktisk uppdatering till N+1 är en ny boot och stämplas separat", async () => {
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true, {
+      bootedFilesRevision: REVISION_BOOTED,
+    });
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true, {
+      bootedFilesRevision: REVISION_REWRITTEN,
+    });
+
+    expect(updateCalls.count).toBe(2);
+  });
+
+  it("en samtidig DB-ändring påverkar inte kvittot när den bootade revisionen är känd", async () => {
+    versionRows.value = [{ filesRevision: REVISION_BOOTED }];
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true, {
+      bootedFilesRevision: REVISION_BOOTED,
+    });
+    // DB hinner skrivas om mellan de två kvittona; VM:n kör fortfarande samma.
+    versionRows.value = [{ filesRevision: REVISION_REWRITTEN }];
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true, {
+      bootedFilesRevision: REVISION_BOOTED,
+    });
+
+    expect(updateCalls.count).toBe(1);
+    expect(versionRows.count).toBe(0);
+  });
+
+  it("utan bootad revision faller den tillbaka till DB-läsningen (dokumenterad degradering)", async () => {
+    versionRows.value = [{ filesRevision: REVISION_REWRITTEN }];
+
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true);
+
+    expect(versionRows.count).toBe(1);
+    expect(updateCalls.count).toBe(1);
+  });
+
+  it("tom sträng räknas som okänd och faller tillbaka", async () => {
+    versionRows.value = [{ filesRevision: REVISION_REWRITTEN }];
+
+    await recordPreviewRuntimeOutcomeForVersion("ver_1", true, { bootedFilesRevision: "  " });
+
+    expect(versionRows.count).toBe(1);
+  });
+});

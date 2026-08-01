@@ -180,3 +180,98 @@ describe("getLatestQualityGateSignalForVersion — flaggan AV", () => {
     expect(signal.result).toBe("preflight_passed");
   });
 });
+
+/**
+ * Företrädesordningen mellan rader: den NYASTE raden avgör först.
+ *
+ * En revisionslös nyaste rad är `unknown`, och okänt behåller dagens
+ * "senaste rad vinner". Att i det läget hämta upp en ÄLDRE rad som råkar
+ * matcha innehållet vore att låta ett äldre verdikt gå före ett nyare på ett
+ * antagande revisionen inte stöder — och det i BÅDA verdiktriktningarna
+ * (ett gammalt passed får inte grönmåla, ett gammalt failed får inte blockera).
+ */
+describe("getLatestQualityGateSignalForVersion — nyaste revisionslösa rad har företräde", () => {
+  beforeEach(() => {
+    process.env.SAJTMASKIN_CONTENT_REVISION_GATE = "true";
+    telemetryRows.value = [];
+    versionRows.value = [{ filesRevision: REVISION_N_PLUS_1 }];
+    versionRows.reads = 0;
+  });
+
+  afterEach(() => {
+    delete process.env.SAJTMASKIN_CONTENT_REVISION_GATE;
+  });
+
+  it("nyaste raden saknar revision → okänd vinner över en äldre matchande PASSED", async () => {
+    telemetryRows.value = [
+      telemetryRow("verifier_failed", null),
+      telemetryRow("preflight_passed", REVISION_N_PLUS_1),
+    ];
+
+    const signal = await getLatestQualityGateSignalForVersion("ver_1");
+
+    expect(signal.revisionMatch).toBe("unknown");
+    expect(signal.result).toBe("verifier_failed");
+  });
+
+  it("nyaste raden saknar revision → okänd vinner över en äldre matchande FAILED", async () => {
+    telemetryRows.value = [
+      telemetryRow("preflight_passed", null),
+      telemetryRow("verifier_failed", REVISION_N_PLUS_1),
+    ];
+
+    const signal = await getLatestQualityGateSignalForVersion("ver_1");
+
+    expect(signal.revisionMatch).toBe("unknown");
+    expect(signal.result).toBe("preflight_passed");
+  });
+
+  it("nyaste raden matchar innehållet → den är svaret, äldre rader läses inte om", async () => {
+    telemetryRows.value = [
+      telemetryRow("preflight_passed", REVISION_N_PLUS_1),
+      telemetryRow("verifier_failed", REVISION_N_PLUS_1),
+    ];
+
+    const signal = await getLatestQualityGateSignalForVersion("ver_1");
+
+    expect(signal.revisionMatch).toBe("current");
+    expect(signal.result).toBe("preflight_passed");
+  });
+
+  it("nyaste raden är känd mismatch → en äldre rad som beskriver innehållet får svara", async () => {
+    telemetryRows.value = [
+      telemetryRow("verifier_failed", REVISION_N),
+      telemetryRow("preflight_passed", REVISION_N_PLUS_1),
+    ];
+
+    const signal = await getLatestQualityGateSignalForVersion("ver_1");
+
+    expect(signal.revisionMatch).toBe("current");
+    expect(signal.result).toBe("preflight_passed");
+  });
+
+  it("bara mismatchade rader → känd mismatch, inget svar om innehållet", async () => {
+    telemetryRows.value = [
+      telemetryRow("preflight_passed", REVISION_N),
+      telemetryRow("verifier_failed", REVISION_N),
+    ];
+
+    const signal = await getLatestQualityGateSignalForVersion("ver_1");
+
+    expect(signal.revisionMatch).toBe("stale");
+    expect(signal.contentRevision).toBe(REVISION_N_PLUS_1);
+  });
+
+  it("promotedFilesJson jämförs mot det innehåll som faktiskt promotas, inte mot radens", async () => {
+    const promoted = '[{"path":"app/page.tsx","content":"promoted"}]';
+    telemetryRows.value = [telemetryRow("preflight_passed", md5(promoted))];
+
+    const signal = await getLatestQualityGateSignalForVersion("ver_1", {
+      promotedFilesJson: promoted,
+    });
+
+    expect(signal.revisionMatch).toBe("current");
+    // Ingen uppslagning av versionens nuvarande revision behövdes.
+    expect(versionRows.reads).toBe(0);
+  });
+});

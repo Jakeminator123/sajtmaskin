@@ -302,19 +302,40 @@ export async function shouldVerifyPreviewRuntimeReceipt(versionId: string): Prom
   );
 }
 
+export type PreviewRuntimeOutcomeOptions = {
+  /**
+   * The revision the preview VM ACTUALLY booted or was patched to — i.e. the
+   * `files_revision` of the content that was sent to the host, captured at send
+   * time by the caller that owns the session.
+   *
+   * Pass it whenever it is known. The DB fallback below reads the version's
+   * CURRENT revision, and that is a proxy, not the truth: the row can advance
+   * to N+1 (repair accept, user edit) while the VM still serves N, and then a
+   * receipt for N would be matched against N+1 and either stamp the wrong row
+   * or be discarded as a mismatch. The fallback stays only because not every
+   * caller has the session in hand yet; it is a degradation, not the contract.
+   */
+  bootedFilesRevision?: string | null;
+};
+
 export async function recordPreviewRuntimeOutcomeForVersion(
   versionId: string,
   previewSuccess: boolean,
+  opts?: PreviewRuntimeOutcomeOptions,
 ): Promise<void> {
   try {
     if (!versionId || !dbConfigured) return;
     const gateEnabled = isContentRevisionGateEnabled();
-    // The revision the VM is serving for this session: the version's CURRENT
-    // content. A repair candidate lives in `repaired_files_json` until
-    // acceptance, so its telemetry row is provably not what booted.
-    const currentRevision = gateEnabled
-      ? await getVersionFilesRevision(versionId).catch(() => null)
-      : null;
+    const bootedRevision =
+      typeof opts?.bootedFilesRevision === "string" && opts.bootedFilesRevision.trim()
+        ? opts.bootedFilesRevision.trim()
+        : null;
+    // The revision the VM is serving for this session. Prefer what the caller
+    // observed at boot/patch time; only fall back to the version's current
+    // content when nobody told us (see PreviewRuntimeOutcomeOptions).
+    const currentRevision = !gateEnabled
+      ? null
+      : (bootedRevision ?? (await getVersionFilesRevision(versionId).catch(() => null)));
     const revisionKey = currentRevision ?? UNKNOWN_REVISION_CACHE_KEY;
     // Confirmed ready for this content on this instance: any further stamp is a
     // guaranteed no-op (`true` is terminal), so skip the DB round-trip entirely.
@@ -458,11 +479,12 @@ export type QualityGateSignalOptions = {
  * beteende: senaste radens `quality_gate_result`, alltid `revisionMatch:
  * "unknown"`, ingen extra DB-läsning.
  *
- * **Med flaggan på** väljs den senaste raden vars revision är innehållets. Finns
- * ingen sådan rad men den senaste raden bär en revision (≠ innehållets) är det en
- * känd mismatch: "ingen gate har körts för det här innehållet". Saknar den
- * senaste raden revision helt är läget okänt och dagens rad returneras — okänt
- * får aldrig blockera.
+ * **Med flaggan på** avgör den NYASTE raden först: saknar den revision är läget
+ * okänt och den raden returneras (okänt får aldrig blockera, och ett äldre
+ * verdikt får aldrig gå före ett nyare på ett antagande); bär den innehållets
+ * revision är den svaret. Är den en känd mismatch letas en äldre rad som
+ * faktiskt beskriver innehållet — finns ingen är det en känd mismatch: "ingen
+ * gate har körts för det här innehållet".
  */
 export async function getLatestQualityGateSignalForVersion(
   versionId: string,
@@ -485,6 +507,29 @@ export async function getLatestQualityGateSignalForVersion(
       : await getVersionFilesRevision(versionId);
   if (!contentRevision) return legacySignal;
 
+  // Ordningen är regeln, inte en optimering. Den NYASTE raden avgör först:
+  //
+  //  - saknar den revision är läget `unknown`, och okänt behåller dagens
+  //    "senaste rad vinner"-svar (beslut 1b). Att i det läget leta upp en
+  //    ÄLDRE rad som råkar matcha innehållet vore att låta ett äldre verdikt
+  //    gå före ett nyare på ett antagande revisionen inte stöder — precis den
+  //    sortens tysta omtolkning gaten finns för att undvika.
+  //  - bär den innehållets revision är den svaret.
+  //
+  // Först när den nyaste raden är en KÄND mismatch är det meningsfullt att
+  // fråga om någon äldre rad faktiskt beskriver innehållet.
+  const latestMatch = classifyRevisionMatch(latest.filesRevision, contentRevision);
+  if (latestMatch === "unknown") {
+    return { ...legacySignal, contentRevision };
+  }
+  if (latestMatch === "current") {
+    return {
+      result: latest.qualityGateResult ?? null,
+      revisionMatch: "current",
+      verdictRevision: latest.filesRevision ?? null,
+      contentRevision,
+    };
+  }
   const matching = rows.find(
     (row) => classifyRevisionMatch(row.filesRevision, contentRevision) === "current",
   );
@@ -495,10 +540,6 @@ export async function getLatestQualityGateSignalForVersion(
       verdictRevision: matching.filesRevision ?? null,
       contentRevision,
     };
-  }
-  if (classifyRevisionMatch(latest.filesRevision, contentRevision) !== "stale") {
-    // Senaste raden saknar revision → okänd, inte mismatch (beslut 1b).
-    return { ...legacySignal, contentRevision };
   }
   return {
     result: latest.qualityGateResult ?? null,
