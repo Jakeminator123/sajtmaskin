@@ -8,6 +8,7 @@ function renderFrame(props: Partial<React.ComponentProps<typeof PreviewPanelFram
   return render(
     <PreviewPanelFrame
       isLoading={props.isLoading ?? true}
+      externalLoading={props.externalLoading ?? false}
       iframeError={props.iframeError ?? false}
       iframeErrorMessage={props.iframeErrorMessage ?? null}
       iframeDiagnosticCode={props.iframeDiagnosticCode ?? null}
@@ -87,6 +88,37 @@ describe("PreviewPanelFrame — N6/Del C: ärligt läge efter hard-capen", () =>
       );
 
       expect(screen.queryByText(SLOW_BOOT_TEXT)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // `isLoading` är `externalLoading || iframeLoading` i PreviewPanel, så utan
+  // den här grinden dyker raden upp mitt i en pågående generering och erbjuder
+  // "Reparera" — ett klick som startar en ANDRA generering (`handleFixPreview`
+  // skickar en autofix-tur direkt), kostar diamonds och ger versionsrace.
+  it("erbjuder aldrig en ny reparation medan appen redan genererar", () => {
+    vi.useFakeTimers();
+    const onFixPreview = vi.fn();
+    try {
+      renderFrame({ isLoading: true, externalLoading: true, onFixPreview });
+      act(() => vi.advanceTimersByTime(6_100));
+
+      expect(screen.queryByText(SLOW_BOOT_TEXT)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Reparera" })).toBeNull();
+      expect(onFixPreview).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("visar raden när det bara är iframen som är trög", () => {
+    vi.useFakeTimers();
+    try {
+      renderFrame({ isLoading: true, externalLoading: false });
+      act(() => vi.advanceTimersByTime(6_100));
+
+      expect(screen.getByText(SLOW_BOOT_TEXT)).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }

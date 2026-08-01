@@ -9,6 +9,13 @@ import { VersionMismatchOverlay } from "./VersionMismatchOverlay";
 
 export interface PreviewPanelFrameProps {
   isLoading: boolean;
+  /**
+   * Sant när *appen* arbetar (skapar chat, streamar, väntar på preview) till
+   * skillnad från när bara iframen inte laddat klart. `isLoading` slår ihop
+   * båda, men slow-boot-raden nedan gäller enbart en trög VM-start — den får
+   * inte dyka upp mitt i en pågående generering och erbjuda en ny.
+   */
+  externalLoading?: boolean;
   iframeError: boolean;
   iframeErrorMessage: string | null;
   iframeDiagnosticCode: string | null;
@@ -63,6 +70,7 @@ const FOCUS_HINT_TIMEOUT_MS = 7_000;
 
 export function PreviewPanelFrame({
   isLoading,
+  externalLoading = false,
   iframeError,
   iframeErrorMessage,
   iframeDiagnosticCode,
@@ -108,7 +116,11 @@ export function PreviewPanelFrame({
   // pågå i bakgrunden (iframens onLoad har bara inte fyrat än). Ärlig,
   // icke-blockerande rad i stället för tystnad — se kommentaren vid
   // LOADING_OVERLAY_HARD_CAP_MS.
-  const showSlowBootNotice = isLoading && hardCapReached;
+  //
+  // `!externalLoading` är inte kosmetik: pågår en generering är det inte VM:en
+  // som är trög, och raden skulle då erbjuda "Reparera" — ett klick som startar
+  // en ANDRA generering, kostar diamonds och ger versionsrace.
+  const showSlowBootNotice = isLoading && hardCapReached && !externalLoading;
 
   // Tangentbordsspel (t.ex. snake) lyssnar på `window` inne i iframen och får
   // aldrig piltangenter förrän iframen har fokus. Inget i buildern fokuserar
@@ -197,10 +209,10 @@ export function PreviewPanelFrame({
       ) : null}
 
       {showSlowBootNotice && !iframeError ? (
-        <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center">
-          <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-3 py-1.5 text-[11px] text-zinc-200 shadow-lg backdrop-blur-sm">
+        <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-3">
+          <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-2xl border border-white/10 bg-black/70 px-3 py-1.5 text-[11px] text-zinc-200 shadow-lg backdrop-blur-sm">
             <Loader2 className="text-primary h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
-            <span>Previewn tar längre tid än vanligt — startar miljön…</span>
+            <span className="min-w-0">Previewn tar längre tid än vanligt — startar miljön…</span>
             <button
               type="button"
               onClick={handleOpenInNewTab}
@@ -212,7 +224,8 @@ export function PreviewPanelFrame({
               <button
                 type="button"
                 onClick={onFixPreview}
-                className="shrink-0 underline underline-offset-2 hover:text-white"
+                disabled={externalLoading}
+                className="shrink-0 underline underline-offset-2 hover:text-white disabled:pointer-events-none disabled:opacity-40"
               >
                 Reparera
               </button>

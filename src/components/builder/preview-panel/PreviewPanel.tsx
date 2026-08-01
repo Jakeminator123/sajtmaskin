@@ -1549,6 +1549,7 @@ export function PreviewPanel({
           <div className="relative min-h-0 min-w-0 flex-1">
             <PreviewSurface
               isLoading={isLoading}
+              externalLoading={externalLoading}
               iframeError={iframeError}
               iframeErrorMessage={iframeErrorMessage}
               iframeDiagnosticCode={iframeDiagnosticCode}
