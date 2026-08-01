@@ -26,6 +26,9 @@ export {
   resolveSelectedDossiersWithVersionPresence,
 } from "./version-presence";
 
+export { resolvePendingIntegrationDossiers } from "./pending-integrations";
+export { preferPendingIntegrationDossiers } from "./pending-integrations";
+
 export { defaultInjectionMode, dossierRequiresF3 } from "./types";
 export type {
   DossierClass,

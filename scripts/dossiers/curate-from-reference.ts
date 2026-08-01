@@ -181,11 +181,12 @@ interface DraftManifest {
   complexity: "simple" | "medium" | "advanced";
   defaultForCapability: boolean;
   summary: string;
-  envVars?: { key: string; required: boolean; purpose: string }[];
+  envVars?: { key: string; required: boolean; purpose: string; setupUrl?: string }[];
   dependencies?: string[];
   files?: { path: string; role: "client" | "server" | "shared"; injectionMode?: "verbatim" | "rewritable" }[];
   exposes?: { name: string; type: "component" | "function" | "hook" | "constant"; import: string }[];
   lastVerified: string;
+  verificationStatus?: "accepted" | "unverified";
   sourceRepoUrl?: string;
   notes?: string;
 }
@@ -225,6 +226,9 @@ function assertCurationOutput(
   // Coerce id before validation so the caller's --id argument wins over the
   // LLM's guess and the kebab-case regex check passes consistently.
   (root.manifest as Record<string, unknown>).id = expectedId;
+  // AI curation creates a draft, never acceptance evidence. A human may flip
+  // this only after the dossier acceptance checklist has been completed.
+  (root.manifest as Record<string, unknown>).verificationStatus = "unverified";
   const result = validateDossierManifest(root.manifest, { expectedId, class: klass });
   if (!result.valid) {
     throw new Error(
@@ -255,11 +259,12 @@ async function callLLM(args: Args, sources: { name: string; body: string }[]): P
   "defaultForCapability": false,
   "mock": "canned" | "seed" | "success" | "none",
   "summary": "<1-3 sentences: what it does + when to use it>",
-  "envVars": [{"key":"FOO","required":true,"purpose":"<concrete reason>"}],
+  "envVars": [{"key":"FOO","required":true,"purpose":"<concrete reason>","setupUrl":"<official provider URL when known>"}],
   "dependencies": ["..."],
   "files": [{"path":"components/<...>","role":"client|server|shared","injectionMode":"verbatim|rewritable"}],
   "exposes": [{"name":"X","type":"component","import":"@/components/x"}],
   "lastVerified": "${today}",
+  "verificationStatus": "unverified",
   "sourceRepoUrl": "<url if known>"
 }
 
@@ -338,6 +343,7 @@ ${sourcesBlock}`;
                       key: { type: "string" },
                       required: { type: "boolean" },
                       purpose: { type: "string" },
+                      setupUrl: { type: "string" },
                     },
                   },
                 },
@@ -369,6 +375,7 @@ ${sourcesBlock}`;
                   },
                 },
                 lastVerified: { type: "string" },
+                verificationStatus: { type: "string", enum: ["unverified"] },
                 sourceRepoUrl: { type: "string" },
               },
             },

@@ -13,6 +13,7 @@
     {
       "key": "OPENAI_API_KEY",
       "required": true,
+      "setupUrl": "https://platform.openai.com/api-keys",
       "purpose": "Authenticates the OpenAI provider used by the chat route. Create an API key in the OpenAI dashboard and expose it only to the server runtime.",
       "enforcement": "feature-runtime"
     }
@@ -31,6 +32,7 @@
   ],
   "exposes": [],
   "lastVerified": "2026-04-17",
+  "verificationStatus": "unverified",
   "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-preview-roundtrips",
   "notes": "Only the App Router API route is kept (legacy client components mixed AI SDK majors / missing template files). Route lives at /api/assistant so it never collides with openai-chat's verbatim /api/chat. REWRITABLE (Codex P1 PR #430): the whole point is replacing the demo tools with project tools, which verbatim-policy would revert — instructions.md carries the must-keep contract (key guard, zod schemas, step limit). lastVerified = legacy source date until first preview-test.",
   "promptInstructionMode": "selected-sections"

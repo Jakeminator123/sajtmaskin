@@ -8,6 +8,7 @@
 import { debugLog } from "@/lib/utils/debug";
 import {
   defaultInjectionMode,
+  dossierRequiresF3,
   getDossierFileContent,
   type DossierEntry,
   type DossierSelectionResult,
@@ -132,9 +133,13 @@ function renderCompactDossierInstructions(
   const envVars = (sel.entry.envVars ?? [])
     .map((envVar) => {
       const required = envVar.required ? "required" : "optional";
-      return `${envVar.key} (${required})`;
+      const enforcement = envVar.enforcement ?? "build";
+      const purpose = envVar.purpose.trim();
+      const compactPurpose =
+        purpose.length > 180 ? `${purpose.slice(0, 177).trimEnd()}…` : purpose;
+      return `${envVar.key} (${required}; ${enforcement}) — ${compactPurpose}`;
     })
-    .join(", ");
+    .join("; ");
   const configuredLine =
     sel.entry.class === "hard"
       ? sel.configured
@@ -148,7 +153,7 @@ function renderCompactDossierInstructions(
     `- ${sel.entry.summary}`,
     configuredLine,
     ...(sel.entry.class === "hard" ? [`- ${describeMockMode(sel.entry.mock)}`] : []),
-    `- Capability: \`${sel.entry.capability}\`; code fidelity: ${sel.entry.codeFidelity}.`,
+    `- Capability: \`${sel.entry.capability}\`; class: ${sel.entry.class}; requires F3: ${dossierRequiresF3(sel.entry) ? "yes" : "no"}; code fidelity: ${sel.entry.codeFidelity}.`,
     dependencies ? `- Dependencies if used: ${dependencies}.` : "- Dependencies: none beyond the scaffold baseline.",
     envVars ? `- Env vars: ${envVars}.` : "- Env vars: none.",
     exposed ? `- Preserve exposed import(s): ${exposed}.` : "- No exposed imports.",

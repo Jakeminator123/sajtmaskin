@@ -9,8 +9,10 @@ const resolveSelectedDossiersFromSnapshot = vi.hoisted(() => vi.fn());
 const selectDossiersForRequest = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const resolveDossiersPresentInVersion = vi.hoisted(() => vi.fn());
+const resolveDossierIdsPresentInVersion = vi.hoisted(() => vi.fn(() => [] as string[]));
 const extractBriefSummaryFromSnapshot = vi.hoisted(() => vi.fn());
 const readMutedCapabilitiesFromSnapshot = vi.hoisted(() => vi.fn(() => [] as string[]));
+const readMutedDossierIdsFromSnapshot = vi.hoisted(() => vi.fn(() => [] as string[]));
 const deriveTier3BuildSpecForVersion = vi.hoisted(() => vi.fn());
 const validateTier3Readiness = vi.hoisted(() => vi.fn());
 const mapProviderKeysToDossierCapabilities = vi.hoisted(() => vi.fn());
@@ -47,6 +49,7 @@ vi.mock("@/lib/gen/version-manager", () => ({
 
 vi.mock("@/lib/gen/dossiers/version-presence", () => ({
   resolveDossiersPresentInVersion,
+  resolveDossierIdsPresentInVersion,
   // Mirrors the real union owner: snapshot-derived ∪ presence, deduped by id.
   // Lets existing tests keep driving behavior via the two lower-level mocks.
   resolveSelectedDossiersWithVersionPresence: (params: {
@@ -71,6 +74,7 @@ vi.mock("@/lib/gen/dossiers/version-presence", () => ({
 vi.mock("@/lib/gen/orchestration-snapshot", () => ({
   extractBriefSummaryFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
+  readMutedDossierIdsFromSnapshot,
 }));
 
 vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
@@ -569,6 +573,7 @@ describe("GET dossiers overview", () => {
 
     expect(selectDossiersForRequest).toHaveBeenCalledWith({
       requestedCapabilities: ["payments"],
+      disableBriefFallback: true,
       configuredEnvKeys: new Set(),
     });
     expect(body.dossiers.find((d) => d.id === "stripe-checkout")?.status).toBe("planned");

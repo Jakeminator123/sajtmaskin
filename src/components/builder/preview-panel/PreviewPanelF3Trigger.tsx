@@ -60,7 +60,8 @@ export interface PreviewPanelF3TriggerProps {
   iconOnly?: boolean;
   /**
    * Ö4a: vilken väg `/finalize-design` tar för den aktiva versionen, buren av
-   * readiness (`info.hasRealBuildIntegrations` = `hasRequiredRealBuildKeys(spec)`).
+   * readiness (`info.hasRealBuildIntegrations` = pending dossier OR
+   * `hasRequiredRealBuildKeys(spec)`).
    * `true` → `llm_ready` (LLM-runda, ~4–6 diamonds); `false` → `deterministic_release`
    * (0 diamonds); `null`/`undefined` → okänd → ärlig villkorad kostnad i tooltipen.
    * Härleds ALDRIG ur `buildBlockingKeys` här (den ljuger när nyckeln redan är ifylld).

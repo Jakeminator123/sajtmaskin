@@ -8,6 +8,7 @@ import {
   prependOrchestrationContinuityToFollowUp,
   readF3ApprovedFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
+  readMutedDossierIdsFromSnapshot,
   sanitizeOrchestrationSnapshotForStorage,
 } from "./orchestration-snapshot";
 
@@ -44,6 +45,29 @@ describe("deferred integrations (mutedCapabilities)", () => {
   it("reads nothing from a snapshot that never deferred anything", () => {
     expect(readMutedCapabilitiesFromSnapshot({})).toEqual([]);
     expect(readMutedCapabilitiesFromSnapshot(null)).toEqual([]);
+  });
+});
+
+describe("deferred provider identity (mutedDossierIds)", () => {
+  it("survives a neutral F2 follow-up", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas"] },
+      { mutedDossierIds: [] },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["mongodb-atlas"]);
+  });
+
+  it("replaces an older sibling when the user changes provider", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas", "stripe-checkout"] },
+      { mutedDossierIds: ["postgres-drizzle"] },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual([
+      "stripe-checkout",
+      "postgres-drizzle",
+    ]);
   });
 });
 

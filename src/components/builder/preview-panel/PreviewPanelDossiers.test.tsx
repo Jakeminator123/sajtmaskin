@@ -306,6 +306,7 @@ describe("PreviewPanelDossiers", () => {
                 required: true,
                 enforcement: "build",
                 purpose: "Server-side Stripe auth.",
+                setupUrl: "https://docs.stripe.com/keys",
                 hasRealValue: false,
                 placeholderCovered: false,
               },
@@ -332,6 +333,10 @@ describe("PreviewPanelDossiers", () => {
     });
     expect(screen.getByLabelText("Värde för STRIPE_SECRET_KEY")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Spara och aktivera/i })).toBeTruthy();
+    expect(screen.getByText("Server-side Stripe auth.")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Hämta värde/i }).getAttribute("href"),
+    ).toBe("https://docs.stripe.com/keys");
   });
 
   // Regression (owner spec PR 1): saving a key goes straight to the canonical

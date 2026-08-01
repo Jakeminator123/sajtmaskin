@@ -219,16 +219,21 @@ bevaras när ett fortsatt valt Byggblock också äger dem.
 
 F3 ska triggas explicit, t.ex. via finalize-design-flöde. Prompten ska inte auto-promota till F3 bara för att den nämner Stripe, auth eller databas.
 
-**Deterministisk F3 utan build-nycklar:** `buildBlockingKeys` är en
-säkerhetsgate per env-nyckel, inte ett capability-register. Om samtliga valda
-Byggblocks F3-krav har tomma `requiredRealEnvKeys` skapar `finalize-design` en
-ny `integrations`-version med byte-för-byte samma `files_json` som den valda
-F2-basen och `parent_version_id = <F2>`. Ingen LLM/codegen körs. ReleaseGate
-verifierar och promotar den nya F3-raden; F2-raden och dess visuella fallback
-lämnas orörda. Finns minst en required build-nyckel används den befintliga
-412-/F3-LLM-vägen oförändrad.
+**Planerad dossier utlöser F3-codegen:** `buildBlockingKeys` är en env-gate,
+inte ett register över arbete som återstår. F2 persisterar därför både
+`mutedCapabilities` och provider-exakta `mutedDossierIds`. `finalize-design`
+subtraherar dossier-filbevis; finns någon planerad dossier kvar godkänns dess
+capability + dossier-id durabelt och F3-LLM-rundan körs även när alla nycklar är
+`feature-runtime`/`warn-only`. Dossier-id:t återanvänds som selection-hint så
+ett generiskt knappmeddelande inte faller tillbaka till ett providersyskons
+default.
 
-**Demo-läge i F2:** en F2-preview ska se trovärdig ut utan riktiga nycklar. Varje hard-dossier deklarerar ett `mock`-läge (`canned`/`seed`/`success`/`none`, se [`dossier-system.md`](../contracts/dossier-system.md)) som driver dossierns egen degraderingskod, och finalize seedar valda dossiers env-nycklar med deterministiska stub-värden i preview-`.env.local` (`env-local.ts`) så UI:t renderar. Stubbarna persisteras aldrig och når aldrig en deploy. Ärlig publiceringsgrind: deploy-409 (`DEPLOY_MISSING_ENV`) blockerar bara på `buildBlockingKeys` i F3 (efter #468 enbart `clerk-auth`s nycklar), F2 förblir demo-publicerbart; `feature-runtime`/placeholder surfar som icke-blockerande `EnvDegradationWarning`. Detaljer: [`env-flow.md`](../contracts/env-flow.md), [`ENV.md`](../ENV.md).
+**Deterministisk F3 när inget återstår att bygga:** bara om inga planerade
+dossier-filer saknas och den filhärledda specen inte kräver en generell
+LLM-runda skapar `finalize-design` en ny `integrations`-version med byte-för-byte
+samma `files_json` som F2-basen. ReleaseGate körs utan codegen; F2 lämnas orörd.
+
+**Demo-läge i F2:** en F2-preview ska se trovärdig ut utan riktiga nycklar. Varje hard-dossier deklarerar ett `mock`-läge (`canned`/`seed`/`success`/`visual`/`none`, se [`dossier-system.md`](../contracts/dossier-system.md)) som driver dossierns egen degraderingskod, och finalize seedar valda dossiers env-nycklar med deterministiska stub-värden i preview-`.env.local` (`env-local.ts`) så UI:t renderar. Stubbarna persisteras aldrig och når aldrig en deploy. Ärlig publiceringsgrind: deploy-409 (`DEPLOY_MISSING_ENV`) blockerar bara på `buildBlockingKeys` i F3 (efter #468 enbart `clerk-auth`s nycklar), F2 förblir demo-publicerbart; `feature-runtime`/placeholder surfar som icke-blockerande `EnvDegradationWarning`. Detaljer: [`env-flow.md`](../contracts/env-flow.md), [`ENV.md`](../ENV.md).
 
 ### ReleaseGate → publicera-lås
 
@@ -282,8 +287,8 @@ parkerades 2026-07-22 — vanligt frihandsinnehåll numera).
 **F3-build-plan från basversionen:** stream-routens auktoritativa readiness-gate
 detekterar integrationer och valda Byggblock från den exakta parent-versionens
 filer. Samma `Tier3BuildSpec` trådas vidare till systempromptens build-plan;
-explicit godkända providers från den aktuella rundan läggs till eftersom de
-ännu inte kan ha filbevis. Övriga `preGenerationContracts` används bara som
+planerade exakta dossier-id:n och explicit godkända providers läggs till eftersom
+de ännu inte kan ha filbevis. Övriga `preGenerationContracts` används bara som
 fallback när filspec saknas eller är tom. Därmed kan inte ett driftat
 promptkontrakt dölja befintliga integrationer eller återinflatera spekulativa.
 

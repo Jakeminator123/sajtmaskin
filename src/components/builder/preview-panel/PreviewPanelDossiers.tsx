@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Boxes, ChevronRight, KeyRound, Loader2 } from "lucide-react";
+import { Boxes, ChevronRight, ExternalLink, KeyRound, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -799,6 +799,20 @@ export function PreviewPanelDossiers({
                           >
                             {valueState.label}
                           </Badge>
+                        </span>
+                        <span className="flex items-start justify-between gap-2 text-[10px] text-gray-400">
+                          <span>{env.purpose}</span>
+                          {env.setupUrl ? (
+                            <a
+                              href={env.setupUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex shrink-0 items-center gap-1 text-sky-300 hover:text-sky-200"
+                            >
+                              Hämta värde
+                              <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                            </a>
+                          ) : null}
                         </span>
                         {/* Write-only masked input for keys without a stored
                             real value — available in both F2 and F3 (owner

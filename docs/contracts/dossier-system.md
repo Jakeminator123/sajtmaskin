@@ -14,15 +14,15 @@ No embeddings. No fuzzy matching. No category boost. No domain veto. What the br
 
 ```
 data/dossiers/
-  hard/<id>/manifest.json   # needs external secrets (Stripe, OpenAI, Postgres)
-  soft/<id>/manifest.json   # self-contained (UI sections, R3F 3D, FAQ accordion)
+  hard/<id>/manifest.json   # provider-coupled (Stripe, OpenAI, Postgres, analytics)
+  soft/<id>/manifest.json   # self-contained; npm deps are allowed
   _index/capability-map.json   # generated view: capability → [ids] + groups (dossier-grupp)
 ```
 
 | Class | When to use | Behavior |
 |---|---|---|
-| `hard` | The dossier needs external secrets to run (API keys, DB URLs). | Selection marks `configured: true\|false` per project (see the selection algorithm below). A hard dossier is **always** injected regardless; when its keys are missing the codegen LLM is told how the dossier degrades — its declarative `mock` mode (see below) drives a working demo surface, and `mock: "none"` falls back to a discreet configuration banner. |
-| `soft` | Self-contained — only `npm` deps, no external accounts. | Always considered configured. |
+| `hard` | Provider-coupled: depends on an external service or its runtime contract. It may have secrets, public config, SDK/server files, or a client-only provider integration. | Selection marks `configured: true\|false` per project (see the selection algorithm below). Missing values follow the dossier's `mock`/enforcement contract. `hard` does **not** by itself mean "requires F3". |
+| `soft` | Self-contained in the generated project: no external provider/account/secret. npm dependencies are allowed. | Always considered configured. |
 
 Hard dossiers whose runtime crashes on missing/placeholder keys should additionally **key-gate themselves in the shipped files** — e.g. `clerk-auth/components/middleware.ts` only constructs `clerkMiddleware` when the keys are structurally valid and otherwise degrades to `NextResponse.next()` (placeholder keys must never 500 the whole preview). The `configured` flag from selection is a prompt signal, not a runtime guard — it is never wired to any gate.
 
@@ -119,7 +119,7 @@ varandra. Det gör de inte — **ingen av dem kan härledas ur någon av de andr
 
 | Axel | Frågan den svarar på | Kanonisk ägare | Var användaren ser den |
 |---|---|---|---|
-| **Kopplad / Fristående** (`hard`/`soft`) | Behövs en extern tjänst med nycklar? | mappen `data/dossiers/{hard,soft}/` | Badge på varje rad i Byggblock-panelen + `Klass`-kolumnen i backoffice |
+| **Kopplad / Fristående** (`hard`/`soft`) | Är implementationen provider-kopplad eller självförsörjande? | mappen `data/dossiers/{hard,soft}/` | Badge på varje rad i Byggblock-panelen + `Klass`-kolumnen i backoffice |
 | **Demoläge** (`mock`) | Hur beter sig ytan i F2/preview *utan* riktig nyckel? | manifestfältet `mock` på den **valda** dossiern | Chip i den expanderade raden ("Demoläge: …") + `Demoläge`-kolumnen i backoffice |
 | **Kräver F3** | Måste den riktiga integrationen byggas i ett eget steg? | [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) — `enforcement: "build"` **eller** `role: "server"` | Badge "Kräver F3" i panelens båda flikar + `Kräver F3`-kolumnen i backoffice |
 
@@ -144,7 +144,7 @@ pariteten mellan dem grindas i `backoffice/test_dossiers_page.py`.
 Samma dossier kan spänna över F2 och F3 — det är inte två separata dossiers och det finns ingen extra `hard/soft/visual`-taxonomi som styr fasen:
 
 - **F2 (design)** renderar en klient-/demo-/placeholder-safe version (visuell mockup).
-- **F3 (integrations)** aktiverar den riktiga integrationen (riktiga env-värden krävs).
+- **F3 (integrations)** installerar den riktiga provider-/serverkoden; env-enforcement avgör om ett riktigt värde krävs före build eller om demo/self-disable får leva vidare.
 
 **Kanonisk signal i dagens kod** för "kräver F3" är dossierns eget kontrakt, via helpern [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) (enda källan). Två regler:
 
@@ -201,7 +201,7 @@ Incident this closes: chat `747636c8` (2026-07-13) built its own `components/cha
   "complexity": "medium",
   "defaultForCapability": true,
   "summary": "Hosted Stripe Checkout for one-time and subscription payments. …",
-  "envVars": [{"key": "STRIPE_SECRET_KEY", "required": true, "enforcement": "feature-runtime", "purpose": "API auth"}],
+  "envVars": [{"key": "STRIPE_SECRET_KEY", "required": true, "enforcement": "feature-runtime", "purpose": "API auth", "setupUrl": "https://docs.stripe.com/keys"}],
   "dependencies": ["stripe", "@stripe/stripe-js"],
   "files": [
     {"path": "components/checkout-button.tsx", "role": "client", "injectionMode": "verbatim"},
@@ -222,14 +222,15 @@ Incident this closes: chat `747636c8` (2026-07-13) built its own `components/cha
 | `codeFidelity` | ✓ | `verbatim` or `rewritable` (default for files). |
 | `complexity` | ✓ | `simple` / `medium` / `advanced`. |
 | `summary` | ✓ | 1-3 sentences. Used in prompt + backoffice. |
-| `lastVerified` | ✓ | ISO date YYYY-MM-DD when a human last validated the dossier. |
+| `lastVerified` | ✓ | ISO date YYYY-MM-DD for the latest completed human acceptance pass; for an explicitly `unverified` draft it remains only the imported source date. Cadence is owned by `config/dossier-verification-policy.json`. |
+| `verificationStatus` | optional | `"accepted"` or `"unverified"`. `unverified` always fails the dedicated evidence/freshness gate regardless of date. Omitted remains backward-compatible with existing accepted manifests; all new AI/backoffice drafts are written as `unverified`. |
 | `defaultForCapability` | optional (default `false`) | Tie-breaker when two dossiers share the same capability. |
 | `relevanceKeywords` | optional | Provider-specific keywords/phrases (max 12) marking an EXPLICIT ask for this dossier when several share one capability — e.g. `"mongodb"` on `mongodb-atlas` under `database`. A prompt hit overrides the `defaultForCapability` pick (Unicode word-boundary match, hyphen counts as part of the word). Keep high-precision; generic nouns belong in the follow-up capability vocabulary. |
-| `envVars` | optional | External secrets needed at runtime. Each entry takes optional `enforcement` (P31): `"build"` (default — required for F3 build), `"feature-runtime"` (UI shows banner / popup at runtime, F3 reports as warning not blocker), or `"warn-only"` (component self-disables on empty value). See [glossary](../architecture/glossary.md). |
+| `envVars` | optional | External configuration needed at runtime. Each entry takes optional `enforcement` (P31): `"build"` (default — requires a real value or catalog-approved placeholder for F3), `"feature-runtime"` (UI shows banner / popup at runtime, F3 reports as warning not blocker), or `"warn-only"` (component self-disables on empty value), plus optional `setupUrl` to an official provider page for obtaining that exact value. See [glossary](../architecture/glossary.md). |
 | `dependencies` | optional | npm packages added to `package.json`. |
 | `files` | optional | Files injected into the project. Per-file `injectionMode` overrides dossier `codeFidelity`. |
 | `exposes` | optional | Symbols the codegen LLM may import. |
-| `sourceRepoUrl` | optional | Pointer to the upstream reference (typically under `data/template-references/`). |
+| `sourceRepoUrl` | optional | Provenance pointer to the upstream implementation/reference. Never use it as the user's provider-setup link; that belongs on `envVars[].setupUrl`. |
 | `notes` | optional | Curator-only free text (drafts from `dossiers:curate`); never reaches the prompt. Remove once validated. |
 | `promptInstructionMode` | optional | How much of `instructions.md` reaches the prompt: `compact` (default — manifest-derived summary), `selected-sections`, or `full`. |
 | `mock` | optional | How the dossier renders its visual surface in F2/preview without a real key: `canned` / `seed` / `success` / `visual` / `none`. Omitted = `none`. Drives the dossier's own degradation code + a codegen-prompt hint. See the **Mock/demo-läge** section above. |
@@ -293,15 +294,19 @@ floor of the MOST RECENT round and legitimately SHRINKS after an F3 build (the
 next design round re-mutes integration capabilities): that shrink is intended,
 and file presence is what keeps a built integration visible/enforced through it.
 
-**F3 deterministic-release backstop + approve-injection exception (BB#f3det1).**
-When the stream route's F3 gate finds the parent version's file-derived spec has
-no required real build keys (`hasRequiredRealBuildKeys(gate.spec) === false`), it
-normally refuses a general LLM round and returns `f3_deterministic_release_required`
-(409, PR #493) — finalize-design should instead create an exact-file integrations
-fork and run ReleaseGate without codegen. That deterministic policy only holds for
-a no-build-key parent **without new providers**. An APPROVE-continuation is
-exempted (falls through to the real LLM/dossier round, the "F3 utan nycklar
-installerar vilande integrationskod" goal) in three cases:
+**F3 pending-dossier contract + deterministic backstop (BB#f3det1).**
+F2 persists both deferred capability ids (`mutedCapabilities`) and exact
+provider-specific dossier ids (`mutedDossierIds`). `finalize-design` resolves
+those ids, subtracts dossiers with actual version presence, and treats every
+remaining id as real F3 work. It persists capability + exact dossier id as a
+durable approval and starts the LLM/dossier round even when the dossier has no
+required real build key. The generic button message therefore cannot swap a
+provider sibling back to the capability default.
+
+An exact-file integrations fork + ReleaseGate without codegen is allowed only
+when **no pending dossier remains** and the existing file-derived build spec has
+no reason to run a general LLM build. An APPROVE-continuation remains exempted
+from the deterministic backstop in three legacy/interactive cases:
 
 1. **Dossier-backed provider, DOSSIER-ID granularity** (Codex P1 on #503): an
    approved provider maps via `mapProviderKeysToBackingDossierIds` (strict
@@ -350,14 +355,14 @@ instead of becoming a dangling module import.
 Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to render three blocks:
 
 - `## Available Dossiers` — compact list of selected dossiers.
-- `## Selected Dossier Instructions` — per-dossier runtime instructions, rendered per `promptInstructionMode`: `compact` (default; manifest-derived summary), `selected-sections`, or `full` (the whole `instructions.md`). The full file is thus NOT injected by default.
+- `## Selected Dossier Instructions` — per-dossier runtime instructions, rendered per `promptInstructionMode`: `compact` (default; manifest-derived summary plus class, `requiresF3`, mock, env enforcement and compact env purpose), `selected-sections`, or `full` (the whole `instructions.md`). The full file is thus NOT injected by default. Instructions-only behavioral dossiers should use `selected-sections`; otherwise their actual rules never reach codegen.
 - `## Dossier Files To Emit Verbatim` — files whose effective injection mode is `verbatim`. Resolution: per-file `files[].injectionMode` overrides the dossier-level `codeFidelity`. So a `rewritable` dossier can still mark one file as `verbatim` (or vice-versa). On follow-ups, verbatim files already in the project render as pointers under `## Dossier Verbatim Files Already in Project`.
 
 ## Adding a new dossier
 
 ### Manually
 
-1. Decide class: `hard` (needs secrets) or `soft` (self-contained).
+1. Decide class: `hard` (provider/service-coupled) or `soft` (self-contained without an external provider; npm dependencies are allowed).
 2. Create `data/dossiers/<class>/<id>/manifest.json` matching the schema.
 3. Write `data/dossiers/<class>/<id>/instructions.md` with the five sections.
 4. Place files under `data/dossiers/<class>/<id>/components/...` matching `files[].path`.
@@ -373,9 +378,41 @@ Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to ren
    ```
 3. The script samples README, `package.json`, `.env.example`, and ~6 source files, then calls GPT to produce a draft `manifest.json` + `instructions.md`.
 4. Review the draft in the backoffice Dossiers page (Redigera tab) and fix anything wrong before relying on it.
-5. Bump `lastVerified` and remove the `notes` field once you've validated the dossier against a real preview build.
+5. Complete the acceptance checklist below. Only then bump `lastVerified` and remove the `notes` field.
 
 The script is intentionally one-at-a-time. Batch promotion was the source of pool-quality problems in the legacy pipeline.
+
+### Re-verification and acceptance evidence
+
+`config/dossier-verification-policy.json` is the canonical cadence policy.
+`npm run dossiers:check-freshness` warns inside the configured warning window and fails
+when a dossier is stale, has an invalid date, or claims a future verification.
+It also fails every dossier marked `verificationStatus: "unverified"`, even if
+its imported source date is recent. The dedicated scheduled maintenance
+workflow runs this as a blocking evidence check; ordinary schema validation
+does not pretend the current legacy backlog is accepted.
+Provider-coupled (`hard`) dossiers expire sooner than self-contained (`soft`)
+dossiers because provider APIs, SDKs and webhook contracts drift faster.
+
+Do **not** bump `lastVerified` just to make CI green. A completed pass means:
+
+1. the dossier materializes and production-builds without provider secrets;
+2. its F2 mock/seed/visual path remains usable and honest with missing or
+   placeholder values;
+3. for a hard dossier, the primary F3 flow works with credentials from a
+   dedicated provider sandbox/test account;
+4. a missing/invalid key takes the documented calm error or degraded path and
+   never leaks a provider response or secret;
+5. if the dossier ships a webhook route, signature rejection and one valid
+   sandbox event have both been exercised;
+6. official `envVars[].setupUrl` links still lead to the page where each value
+   can be obtained, and dependency/API usage still matches current official
+   provider documentation.
+
+The scheduled dossier-acceptance workflow automates the first, keyless layer.
+The credentialed provider/webhook layer stays explicit until the repository has
+isolated sandbox accounts and narrowly scoped secrets for that provider; a
+skipped or unavailable live test is never treated as green evidence.
 
 ### Ny LEVERANTÖR under en befintlig capability (den billiga vägen)
 
@@ -421,7 +458,10 @@ in [`src/lib/gen/dossiers/validate-manifest.ts`](../../src/lib/gen/dossiers/vali
 - **CI** — `npm run dossiers:validate-all` (blocking) plus exposes/import-closure,
   `defaultForCapability` uniqueness, the hard-capability mock-fallback invariant
   (`findMissingMockFallbacks`; see the grupp-section's **Fallback-principen**),
-  instructions headings, SDK version pins and the module-level SDK-init rule (below).
+  instructions headings, SDK version pins and the module-level SDK-init rule
+  (below). Verification evidence/freshness is a separate blocking maintenance
+  lane because explicit legacy-unverified dossiers must stay visible as debt,
+  never be laundered into a green manifest-validation result.
 - **Curation** — `dossiers:curate` validates the AI draft with the same function.
 
 **Module-level SDK-init rule (B5-standard, 2026-07-03):** dossier code must not

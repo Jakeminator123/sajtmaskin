@@ -14,12 +14,14 @@
       "key": "STRIPE_SECRET_KEY",
       "required": true,
       "enforcement": "feature-runtime",
+      "setupUrl": "https://docs.stripe.com/keys",
       "purpose": "Server-side Stripe API authentication. Find it in the Stripe dashboard under Developers > API keys. Tagged 'feature-runtime' (like resend-contact-form): the checkout-session route instantiates the Stripe client lazily AFTER the env guard, so a missing key degrades to 503 'payments-not-configured' + IntegrationConfigNotice instead of blocking the F3 build or crashing the deploy."
     },
     {
       "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
       "required": true,
       "enforcement": "warn-only",
+      "setupUrl": "https://docs.stripe.com/keys",
       "purpose": "Client-side Stripe.js initialization. Safe to expose; the secret key is never sent to the browser. Tagged 'warn-only' because the publishable key is in the harmless placeholder set and a missing real value only disables the checkout button gracefully."
     }
   ],

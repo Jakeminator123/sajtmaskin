@@ -7,7 +7,7 @@ iteration. F3 prioriterar riktiga integrationer, build och deploybarhet.
 | ---------------- | ------------------------------------------- | --------------------------------- |
 | Syfte            | Design och preview                          | Integration, build och deploy     |
 | Start            | Normalt läge för generation                 | Explicit användarhandling         |
-| Data/integration | Mock eller ofarlig placeholder får användas | Riktiga providers och env-värden  |
+| Data/integration | Demo eller ofarlig placeholder får användas | Riktig provider-kod; riktiga värden när de finns, annars ärlig degradering enligt enforcement |
 | Gate             | RenderGate (`designPreview`)                | ReleaseGate (`integrationsBuild`) |
 | Resultat         | Itererbar designversion                     | Separat integrationsversion       |
 
@@ -33,18 +33,41 @@ F2-fallbacken ska:
 - aldrig persistera previewvärden som riktiga projektvärden,
 - aldrig användas som bevis på release-readiness.
 
+## Vad "Bygg integrationer" gör
+
+Klicket utgår från den valda F2-versionen och läser vilka Byggblock som kräver
+F3, planerades i F2 och ännu saknar filbevis. F2 har sparat både capability och
+exakt dossier-id, så `database` + MongoDB fortsätter som `mongodb-atlas` i F3.
+
+1. Product Postcheck och versionens filer kontrolleras.
+2. Parent-versionens redan byggda integrationer och de planerade dossier-id:na
+   blir en gemensam `Tier3BuildSpec`.
+3. Build-enforced nycklar valideras. Projektvärden används när de finns;
+   katalogens tillåtna placeholders kan bära demoläge. En build-nyckel utan
+   vare sig riktigt värde eller tillåten placeholder stoppar före codegen.
+4. Finns minst ett planerat, obyggt Byggblock låses dess capability + exakta
+   dossier-id i snapshoten och en F3-LLM-runda bygger provider-koden, server-
+   routes och UI-wiring mot den oförändrade F2-basen.
+5. Den nya `integrations`-versionen måste passera ReleaseGate.
+
+Om inga planerade integrationer återstår och ingen annan integration kräver en
+LLM-runda skapas i stället en byte-för-byte F3-fork och bara ReleaseGate körs.
+Den deterministiska vägen betyder alltså "inget återstår att bygga", inte
+"nycklarna råkar vara feature-runtime".
+
 ## Riktiga integrationer i F3
 
-F3 använder projektets riktiga env-värden och integrationernas serverfiler.
+F3 installerar integrationernas riktiga provider-/serverkod. Projektets riktiga
+env-värden används när de finns; `feature-runtime` och `warn-only` får fortfarande
+degradera ärligt till demo/self-disable tills värdet sparas i Byggblock-panelen.
 Dossiermanifestens enforcement avgör vilka saknade nycklar som blockerar build.
 ReleaseGate kör den ordnade lane som ägs av
 `config/ai_models/manifest.json#qualityGateTiers` och
 `src/lib/gen/verify/quality-gate-checks.ts`, plus relevanta
 env-/capabilitykrav.
 
-Om inga build-blocking nycklar behövs skapas ändå en separat
-`integrations`-version. F2-versionen ska inte muteras eller märkas som F3 i
-efterhand.
+Det skapas alltid en separat `integrations`-version. F2-versionen muteras eller
+märks aldrig om till F3 i efterhand.
 
 ## RenderGate och ReleaseGate
 

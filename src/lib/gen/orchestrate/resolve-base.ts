@@ -590,6 +590,7 @@ export async function resolveOrchestrationBase(
   let dossierSelection: DossierSelectionResult | null = null;
   let dossierRequestedCapabilities: string[] = [];
   let mutedCapabilities: string[] = [];
+  let mutedDossierIds: string[] = [];
   // File evidence from the base version — one computation, two consumers: the
   // F3 capability scope below and the status surfaces that must be able to
   // tell a contract PROPOSAL apart from a delivered file (spår 01 steg 5).
@@ -627,6 +628,19 @@ export async function resolveOrchestrationBase(
       });
       const mergedCaps = promptFilter.capabilities;
       mutedCapabilities = promptFilter.mutedCapabilities;
+      // F2 must defer the integration code, but it must not forget WHICH
+      // provider-specific sibling the user selected. Resolve the muted subset
+      // against the same raw prompt now and persist only its dossier ids; F3
+      // can later use those ids as deterministic selection pins without ever
+      // injecting the dossiers into F2.
+      if (mutedCapabilities.length > 0) {
+        mutedDossierIds = selectDossiersForRequest({
+          requestedCapabilities: mutedCapabilities,
+          disableBriefFallback: true,
+          promptText: input.rawPrompt ?? input.capabilitiesPrompt ?? input.prompt,
+          configuredEnvKeys: input.configuredEnvKeys,
+        }).selected.map((selected) => selected.entry.id);
+      }
       // 5-5 capabilities can-only-grow: restore the FollowUpContract floor so a
       // base-version capability (e.g. an init contact-form) can never be
       // silently filtered away just because this follow-up message doesn't
@@ -760,6 +774,7 @@ export async function resolveOrchestrationBase(
     uiRecipes,
     dossierRequestedCapabilities,
     mutedCapabilities,
+    mutedDossierIds,
     fileEvidenceCapabilities,
     removedCapabilities,
     readdedCapabilities,

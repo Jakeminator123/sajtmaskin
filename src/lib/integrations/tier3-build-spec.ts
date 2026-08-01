@@ -477,6 +477,75 @@ export function deriveTier3BuildSpecForProviderKeys(
   });
 }
 
+/**
+ * Build F3 requirements from exact provider-specific dossier ids. This is the
+ * bridge used by the F2 → F3 button: planned dossiers have no file evidence
+ * yet, so provider detection cannot discover them from the parent version.
+ */
+export function deriveTier3BuildSpecForDossierIds(
+  dossierIds: readonly string[],
+): Tier3BuildSpec {
+  const byId = new Map(getAllDossiers().map((entry) => [entry.id, entry]));
+  const requirements: Tier3IntegrationRequirement[] = [];
+  const seen = new Set<string>();
+
+  for (const rawId of dossierIds) {
+    const dossierId = typeof rawId === "string" ? rawId.trim().toLowerCase() : "";
+    if (!dossierId || seen.has(dossierId)) continue;
+    seen.add(dossierId);
+    const entry = byId.get(dossierId);
+    if (!entry) continue;
+
+    const placeholderOkEnvKeys: string[] = [];
+    const requiredRealEnvKeys: string[] = [];
+    const featureRuntimeEnvKeys: string[] = [];
+    const warnOnlyEnvKeys: string[] = [];
+    for (const env of entry.envVars ?? []) {
+      const { harmless } = partitionEnvKeysByTier([env.key]);
+      if (harmless.includes(env.key)) {
+        placeholderOkEnvKeys.push(env.key);
+        continue;
+      }
+      switch (env.enforcement ?? "build") {
+        case "feature-runtime":
+          featureRuntimeEnvKeys.push(env.key);
+          break;
+        case "warn-only":
+          warnOnlyEnvKeys.push(env.key);
+          break;
+        default:
+          if (env.required !== false) requiredRealEnvKeys.push(env.key);
+          else warnOnlyEnvKeys.push(env.key);
+      }
+    }
+
+    requirements.push({
+      key: entry.id,
+      name: entry.label,
+      provider: entry.id,
+      requiredRealEnvKeys,
+      placeholderOkEnvKeys,
+      featureRuntimeEnvKeys,
+      warnOnlyEnvKeys,
+      buildInstructions: [
+        `Use the injected \`${entry.id}\` dossier as the implementation contract.`,
+        "Wire its exposed UI into the existing design and connect every shipped server route end-to-end.",
+        "Preserve the F2 layout and graceful not-configured/demo state while activating the real provider path.",
+      ],
+      setupGuide: (entry.envVars ?? [])
+        .map((env) => env.purpose)
+        .filter(Boolean)
+        .join(" "),
+      hasConfigNoticeComponent: (entry.files ?? []).some((file) =>
+        CONFIG_NOTICE_FILE_RE.test(file.path),
+      ),
+    });
+  }
+
+  requirements.sort((a, b) => a.key.localeCompare(b.key));
+  return { requirements };
+}
+
 function findRegistryDefinitionByProviderKey(
   raw: string,
 ): IntegrationDefinition | undefined {

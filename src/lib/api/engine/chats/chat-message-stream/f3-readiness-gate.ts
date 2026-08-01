@@ -6,6 +6,10 @@ import { NextResponse } from "next/server";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { readF3ApprovedFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import {
+  getDossierById,
+  resolveDossierIdsPresentInVersion,
+} from "@/lib/gen/dossiers";
 import type { CodeFile } from "@/lib/gen/parser";
 import { resolveChatPreferredVersionId } from "@/lib/gen/version-manager";
 import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
@@ -163,6 +167,15 @@ export async function runF3ReadinessGate(params: {
                   : persistedApproved.providers;
               })()
             : [];
+        const persistedApprovedDossierIds = readF3ApprovedFromSnapshot(
+          (engineChat.orchestration_snapshot as Record<string, unknown> | null) ?? null,
+        ).providers.filter((provider) => Boolean(getDossierById(provider)));
+        const parentDossierIds = new Set(
+          resolveDossierIdsPresentInVersion(previousFiles.map((file) => file.path)),
+        );
+        const pendingApprovedDossierIds = persistedApprovedDossierIds.filter(
+          (dossierId) => !parentDossierIds.has(dossierId),
+        );
         // Dossier scoping (snapshot ∪ version-presence) resolves inside
         // the gate — one owner shared with the readiness/dossiers routes.
         const gate = await checkTier3ReadinessForVersion({
@@ -170,6 +183,7 @@ export async function runF3ReadinessGate(params: {
           orchestrationSnapshot: engineChat.orchestration_snapshot,
           projectId: engineChat.project_id ?? null,
           pendingApprovedProviderKeys,
+          pendingApprovedDossierIds,
         });
         if (!gate.ok && gate.reason === "missing_env") {
           debugLog("orchestration", "F3 stream gated on env readiness (412)", {
@@ -233,7 +247,10 @@ export async function runF3ReadinessGate(params: {
         }
         fileDerivedTier3BuildSpec =
           gate.spec.requirements.length > 0 ? gate.spec : null;
-        if (!hasRequiredRealBuildKeys(gate.spec)) {
+        if (
+          !hasRequiredRealBuildKeys(gate.spec) &&
+          pendingApprovedDossierIds.length === 0
+        ) {
           // BB#f3det1: an approve-continuation whose approved providers
           // still need dossier injection (their dossier files are NOT
           // already present in the parent version) must run the real LLM

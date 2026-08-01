@@ -41,6 +41,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
 The component reads `process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN` at build time (Next.js inlines it into the client bundle because of the `NEXT_PUBLIC_` prefix). When the value is empty or whitespace the component renders `null` so missing config never breaks the build or pollutes dev consoles.
 
+# UX rules
+
+- Analytics is infrastructure, not a visible page feature. Mount it once and do not add dashboard, consent, or status UI to the public site.
+- Missing configuration must be silent for visitors: omit the script and keep the rest of the site unchanged.
+- Keep the script non-blocking so analytics never delays the main content.
+
+# Avoid
+
+- Do not claim that Plausible is active when `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` is missing.
+- Do not expose Plausible dashboard credentials or invent a secret API key; this dossier only needs the public site domain and optional script host.
+- Do not add duplicate tracking scripts per route or mix Plausible with another analytics provider unless the user explicitly asks for both.
+
 # API contract
 
 ```tsx
@@ -72,7 +84,7 @@ declare function PlausibleAnalytics(): JSX.Element | null;
 | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | yes | The script tag's `data-domain` attribute is read client-side; the value is non-secret by design (Plausible's dashboard auth is separate). |
 | `NEXT_PUBLIC_PLAUSIBLE_API_HOST` | no | Optional override for self-hosted instances. Defaults to `https://plausible.io`. Same non-secret reasoning. |
 
-The placeholder system in `config/ai_models/40-harmless-placeholders.env.txt` should treat both keys as **harmless** (they are public-facing strings, not secrets) so F2 preview boots without configuration. F3 ("Bygg integrationer") still requires `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` to be a real domain before deployment.
+The placeholder system in `config/ai_models/40-harmless-placeholders.env.txt` should treat both keys as **harmless** (they are public-facing strings, not secrets) so F2 preview boots without configuration. A missing real domain does not block F3; the component self-disables and the builder reports the optional configuration state.
 
 # Verification checklist (per `lastVerified`)
 

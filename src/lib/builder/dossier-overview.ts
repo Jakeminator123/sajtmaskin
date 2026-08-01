@@ -18,8 +18,8 @@ import type { DossierMockMode, SelectedDossier } from "@/lib/gen/dossiers/types"
  *   surface as per-key badges, never as blocked-build — the finalize gate
  *   only validates detected integrations (+ pending approved providers).
  * - `blocked-build` — the readiness gate reports a `build`-enforced key
- *   without a real value for a DETECTED integration. "Bygg integrationer"
- *   would 412 before credits (#517).
+ *   without either a real value or an approved placeholder for a DETECTED
+ *   integration. "Bygg integrationer" would 412 before credits (#517).
  * - `built-demo` — real integration code is in the version but at least one
  *   `feature-runtime` key lacks a real value → the shipped demo fallback
  *   (canned/seed/success) is what actually runs.
@@ -38,6 +38,7 @@ export interface DossierOverviewEnvVar {
   required: boolean;
   enforcement: "build" | "feature-runtime" | "warn-only";
   purpose: string;
+  setupUrl?: string;
   /**
    * True when the user has stored a non-empty real value for this key
    * (`project_data.meta.projectEnvVars`). Lets the UI show "Ifylld" without a
@@ -73,8 +74,9 @@ export interface DossierOverviewEntry {
   envVars: DossierOverviewEnvVar[];
   status: DossierStatus;
   /**
-   * Missing BUILD-enforced real env keys (the F3-blocking set — same scope
-   * as the 412 gate's `missingByIntegration`). Non-empty ⇒ `blocked-build`.
+   * BUILD-enforced env keys lacking both a real value and placeholder coverage
+   * (the F3-blocking set — same scope as the 412 gate's
+   * `missingByIntegration`). Non-empty ⇒ `blocked-build`.
    */
   missingKeys: string[];
   /**
@@ -139,6 +141,7 @@ export function selectedDossiersFromOverview(
         key: env.key,
         required: env.required,
         purpose: env.purpose,
+        setupUrl: env.setupUrl,
         enforcement: env.enforcement,
       })),
       lastVerified: dossier.lastVerified,

@@ -116,6 +116,8 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
    * the mute being invisible to the user.
    */
   mutedCapabilities?: string[];
+  /** Provider-specific dossier ids deferred by the F2 mute. */
+  mutedDossierIds?: string[];
   /** Swedish user-facing names for `mutedCapabilities` (dossier labels). */
   mutedCapabilityLabels?: string[];
   /** Dossier capabilities with real file evidence in the base version. */

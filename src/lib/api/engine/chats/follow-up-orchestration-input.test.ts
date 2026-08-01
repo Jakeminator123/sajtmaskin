@@ -233,6 +233,22 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     expect(emptyProviders.dossierProviderHints).toBeUndefined();
   });
 
+  it("reuses the exact dossier id persisted by the Bygg integrationer transition", () => {
+    const input = buildFollowUpOrchestrationInput(
+      baseParams({
+        mode: "codegen",
+        parsedMeta: { ...followUpMeta(), lifecycleStage: "integrations" },
+        orchestrationSnapshot: {
+          f3ApprovedCapabilities: ["database"],
+          f3ApprovedProviders: ["mongodb-atlas"],
+        },
+      }),
+    );
+
+    expect(input.dossierProviderHints).toEqual(["mongodb-atlas"]);
+    expect(input.followUpContract?.f3ApprovedProviders).toEqual(["mongodb-atlas"]);
+  });
+
   it("importedRepoMode forces scaffoldMode off and threads the flag (v0-template follow-ups)", () => {
     const params = baseParams({ importedRepoMode: true });
 

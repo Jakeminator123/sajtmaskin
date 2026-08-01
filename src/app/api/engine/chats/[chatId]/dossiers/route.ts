@@ -64,6 +64,10 @@ import {
   resolveDossiersPresentInVersion,
   resolveSelectedDossiersWithVersionPresence,
 } from "@/lib/gen/dossiers/version-presence";
+import {
+  preferPendingIntegrationDossiers,
+  resolvePendingIntegrationDossiers,
+} from "@/lib/gen/dossiers";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { dossierRequiresF3, type SelectedDossier } from "@/lib/gen/dossiers/types";
 import {
@@ -176,10 +180,28 @@ async function buildDossierOverview(
   // snapshot floor dropped its capability AND the provider-key→capability
   // mapping resolves the wrong dossier (`openai` → `ai-chat` default, never
   // `ai-tool-calling`).
-  const initialSelectedDossiers = resolveSelectedDossiersWithVersionPresence({
+  const snapshotAndPresenceDossiers = resolveSelectedDossiersWithVersionPresence({
     snapshot: chat.orchestration_snapshot,
     versionFiles,
     configuredEnvKeys,
+  });
+  const pendingDossiers = resolvePendingIntegrationDossiers({
+    snapshot: chat.orchestration_snapshot as Record<string, unknown> | null,
+    versionFiles,
+    configuredEnvKeys,
+  });
+  // Preserve the provider-specific pending identity captured in F2. The older
+  // capability-only reconciliation below remains as a legacy fallback.
+  const presentInVersionDossiers = versionFiles
+    ? resolveDossiersPresentInVersion(versionFiles, configuredEnvKeys)
+    : [];
+  const presentDossierIds = new Set(
+    presentInVersionDossiers.map((selected) => selected.entry.id),
+  );
+  const initialSelectedDossiers = preferPendingIntegrationDossiers({
+    selected: snapshotAndPresenceDossiers,
+    pending: pendingDossiers,
+    preserveDossierIds: presentDossierIds,
   });
 
   const lifecycleStage =
@@ -251,14 +273,15 @@ async function buildDossierOverview(
   // under `database`). Re-union the presence entries (dedupe by id) so file
   // evidence always survives reconciliation. Presence is computed from the
   // already-loaded files — no extra read.
-  const presentInVersionDossiers = versionFiles
-    ? resolveDossiersPresentInVersion(versionFiles, configuredEnvKeys)
-    : [];
   const selectedById = new Map<string, SelectedDossier>();
   for (const selected of [...capabilitySelectedDossiers, ...presentInVersionDossiers]) {
     if (!selectedById.has(selected.entry.id)) selectedById.set(selected.entry.id, selected);
   }
-  const selectedDossiers = Array.from(selectedById.values());
+  const selectedDossiers = preferPendingIntegrationDossiers({
+    selected: Array.from(selectedById.values()),
+    pending: pendingDossiers,
+    preserveDossierIds: presentDossierIds,
+  });
 
   // Re-derive the spec (against the same preloaded files) only when a
   // FILE-based source grew the set beyond what the provisional pass saw —
@@ -387,6 +410,7 @@ async function buildDossierOverview(
         required: env.required,
         enforcement: env.enforcement ?? "build",
         purpose: env.purpose,
+        setupUrl: env.setupUrl,
         hasRealValue: hasRealEnvValue(env.key),
         placeholderCovered: placeholderKeySet.has(env.key),
       })),
