@@ -696,7 +696,13 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
       "mis-paired JSX tag always breaks parsing). This stops false " +
       "preview-blocking findings on valid 3D/R3F shapes the count regexes " +
       "mis-read (nested self-closing in props, `=>` in props, imported types " +
-      "in generic position) — prod incident retro-3D 'Monster 3D'.",
+      "in generic position) — prod incident retro-3D 'Monster 3D'. Component " +
+      "imports for the non-lucide/non-shadcn residue require exactly one " +
+      "matching export in the project's own files (same unique-match rule as " +
+      "`fixMissingLocalSymbolImports`); an unresolved symbol is left " +
+      "unimported for the `undefined-jsx-symbol` lane instead of getting a " +
+      "made-up `@/components/<kebab>` path that the stub creator would then " +
+      "hide behind a placeholder module (M#gs1).",
   },
   {
     id: "dep-completer",
