@@ -106,18 +106,40 @@ describe("applyCaptureRequestGate", () => {
     return { page: { context: () => context } as never, route, routeWebSocket };
   }
 
-  it("stänger WebSocket-kanalen, som request-grinden inte täcker", async () => {
-    // `context.route` interceptar inte WebSockets, så utan detta kunde
-    // fotograferad kod nå interna tjänster trots grinden nedan.
+  async function wsVerdict(url: string) {
     const { page, routeWebSocket } = fakePage();
     const { applyCaptureRequestGate } = await import("./browser");
-
     await applyCaptureRequestGate(page);
-
     expect(routeWebSocket).toHaveBeenCalledWith("**/*", expect.any(Function));
+
     const close = vi.fn();
-    routeWebSocket.mock.calls[0][1]({ close });
+    const connectToServer = vi.fn();
+    await routeWebSocket.mock.calls[0][1]({ url: () => url, close, connectToServer });
+    return { close, connectToServer };
+  }
+
+  it("låter previewens egen WebSocket gå fram", async () => {
+    // Att stänga alla WS hade brutit hydreringen, och en capture av SSR-DOM
+    // beskär en annan sida än den användaren markerade i.
+    const { close, connectToServer } = await wsVerdict("wss://site.fly.dev/_next/webpack-hmr");
+
+    expect(connectToServer).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("stänger en WebSocket mot en värd som pekar inåt", async () => {
+    // `context.route` interceptar inte WebSockets, så utan den här kanalen kunde
+    // fotograferad kod nå interna tjänster trots request-grinden.
+    hostResolvesToPrivate.mockResolvedValue(true);
+    const { close, connectToServer } = await wsVerdict("ws://169.254.169.254/latest");
+
     expect(close).toHaveBeenCalledTimes(1);
+    expect(connectToServer).not.toHaveBeenCalled();
+  });
+
+  it("stänger en uppkoppling som inte är ws(s) eller inte går att tolka", async () => {
+    expect((await wsVerdict("http://site.fly.dev/x")).close).toHaveBeenCalledTimes(1);
+    expect((await wsVerdict("inte-en-url")).close).toHaveBeenCalledTimes(1);
   });
 
   it("registrerar request-grinden för all övrig trafik", async () => {

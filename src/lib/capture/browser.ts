@@ -39,18 +39,25 @@ export async function launchCaptureBrowser(): Promise<Browser> {
  * SSRF-kontrollen. Utfallet cachas per värd, så varje värd DNS-slås upp en
  * gång per capture.
  */
-export function buildCaptureRequestGate(): (requestUrl: string) => Promise<boolean> {
+export function buildCaptureHostGate(): (hostname: string) => Promise<boolean> {
   const hostVerdicts = new Map<string, boolean>();
+  return async (hostname: string): Promise<boolean> => {
+    const cached = hostVerdicts.get(hostname);
+    if (cached !== undefined) return cached;
+    const allowed = !isDisallowedHost(hostname) && !(await hostResolvesToPrivate(hostname));
+    hostVerdicts.set(hostname, allowed);
+    return allowed;
+  };
+}
+
+export function buildCaptureRequestGate(
+  hostAllowed: (hostname: string) => Promise<boolean> = buildCaptureHostGate(),
+): (requestUrl: string) => Promise<boolean> {
   return async (requestUrl: string): Promise<boolean> => {
     try {
       const parsed = new URL(requestUrl);
       if (!["http:", "https:"].includes(parsed.protocol)) return false;
-      const cached = hostVerdicts.get(parsed.hostname);
-      if (cached !== undefined) return cached;
-      const allowed =
-        !isDisallowedHost(parsed.hostname) && !(await hostResolvesToPrivate(parsed.hostname));
-      hostVerdicts.set(parsed.hostname, allowed);
-      return allowed;
+      return await hostAllowed(parsed.hostname);
     } catch {
       return false;
     }
@@ -67,14 +74,32 @@ export function buildCaptureRequestGate(): (requestUrl: string) => Promise<boole
  * nästa hopp som en NY request, som går genom grinden igen.
  */
 export async function applyCaptureRequestGate(page: Page): Promise<void> {
-  const gate = buildCaptureRequestGate();
+  // En värdgrind delas av båda kanalerna, så en värd DNS-slås upp en gång per
+  // capture oavsett om den nås över HTTP eller WebSocket.
+  const hostAllowed = buildCaptureHostGate();
+  const gate = buildCaptureRequestGate(hostAllowed);
   // `route()` interceptar inte WebSocket-uppkopplingar — Playwright har en egen
   // `routeWebSocket` för den trafiken. Utan den kunde fotograferad kod öppna
   // `ws://`/`wss://` mot interna eller metadata-nära tjänster från den betrodda
-  // serverless-runtimen, trots att grinden nedan påstår motsatsen, och att
-  // blockera service workers stänger inte den kanalen (Codex P1 på #729). En
-  // capture behöver aldrig en WebSocket, så de stängs direkt.
-  await page.context().routeWebSocket("**/*", (ws) => ws.close());
+  // serverless-runtimen, och att blockera service workers stänger inte den
+  // kanalen (Codex P1 på #729). Att stänga ALLA WebSockets går däremot inte:
+  // previewen hydreras via dev-serverns socket, och en capture som fotograferar
+  // SSR-DOM beskär en annan sida än den användaren markerade i. WebSockets går
+  // därför genom samma värdgrind som allt annat.
+  await page.context().routeWebSocket("**/*", async (ws) => {
+    let hostname: string | null = null;
+    try {
+      const parsed = new URL(ws.url());
+      if (["ws:", "wss:"].includes(parsed.protocol)) hostname = parsed.hostname;
+    } catch {
+      hostname = null;
+    }
+    if (hostname && (await hostAllowed(hostname))) {
+      ws.connectToServer();
+      return;
+    }
+    ws.close();
+  });
   await page.context().route("**/*", async (route) => {
     try {
       if (!(await gate(route.request().url()))) {
