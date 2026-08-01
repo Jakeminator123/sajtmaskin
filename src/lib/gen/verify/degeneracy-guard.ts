@@ -16,8 +16,11 @@
  * Deterministic + pure so it can be unit-tested without any pipeline plumbing.
  * Conservative thresholds: real generated source files top out ~100–150 KB and
  * never repeat a substantial line dozens of times, so a legitimate project is
- * never flagged.
+ * never flagged. Binary assets are judged separately (see
+ * `maxBinaryAssetBytes`) — they are carried template content, not model output.
  */
+
+import { isNonTextContentFile } from "@/lib/gen/context/file-context-builder";
 
 export interface DegeneracyResult {
   degenerate: boolean;
@@ -32,14 +35,18 @@ export interface DegeneracyThresholds {
   /** A single source file above this byte size is treated as degenerate. */
   maxSingleFileBytes: number;
   /**
-   * Total bytes across ALL files above this is degenerate — catches bloat split
-   * across several sub-`maxSingleFileBytes` files (Codex #322 P2).
+   * Total bytes across ALL source files above this is degenerate — catches bloat
+   * split across several sub-`maxSingleFileBytes` files (Codex #322 P2).
    */
   maxTotalProjectBytes: number;
   /** Only "substantial" lines (>= this length, trimmed) count for repetition. */
   minRepeatLineLength: number;
   /** A substantial line repeated >= this many times in one file is degenerate. */
   maxLineRepeats: number;
+  /** A single binary asset (base64 image/font/video) above this is degenerate. */
+  maxBinaryAssetBytes: number;
+  /** Total bytes across ALL files — source and assets share one payload budget. */
+  maxTotalPayloadBytes: number;
 }
 
 export const DEFAULT_DEGENERACY_THRESHOLDS: DegeneracyThresholds = {
@@ -56,6 +63,13 @@ export const DEFAULT_DEGENERACY_THRESHOLDS: DegeneracyThresholds = {
   // 120 is far above anything legitimate code/data emits for a 40+ char line;
   // the incident repeated its signature 1024x.
   maxLineRepeats: 120,
+  // Binary assets are not model output — an imported template legitimately ships
+  // a multi-hundred-KB icon or hero image. Both ceilings mirror the preview-host
+  // payload contract (`preview-host/src/validate.js`): anything the preview would
+  // accept must not be called degenerate here, and anything it would refuse must
+  // not be persisted as a bootable version.
+  maxBinaryAssetBytes: 2 * 1024 * 1024,
+  maxTotalPayloadBytes: 12 * 1024 * 1024,
 };
 
 const CLEAN: DegeneracyResult = {
@@ -66,6 +80,10 @@ const CLEAN: DegeneracyResult = {
   repeatedLine: null,
   repeatCount: null,
 };
+
+function languageOf(file: { language?: unknown }): string {
+  return typeof file.language === "string" ? file.language : "";
+}
 
 function byteLength(value: string): number {
   try {
@@ -80,26 +98,66 @@ function byteLength(value: string): number {
  * the FIRST offending file so the caller gets a concrete, named reason.
  */
 export function detectDegenerateFiles(
-  files: ReadonlyArray<{ path?: unknown; content?: unknown }>,
+  files: ReadonlyArray<{ path?: unknown; content?: unknown; language?: unknown }>,
   thresholds: DegeneracyThresholds = DEFAULT_DEGENERACY_THRESHOLDS,
 ): DegeneracyResult {
   if (!Array.isArray(files) || files.length === 0) return CLEAN;
-  let totalBytes = 0;
+  let totalSourceBytes = 0;
+  let totalPayloadBytes = 0;
   for (const file of files) {
     const path = typeof file.path === "string" ? file.path : "";
     const content = typeof file.content === "string" ? file.content : "";
     if (!content) continue;
 
     const sizeBytes = byteLength(content);
-    totalBytes += sizeBytes;
-    if (totalBytes > thresholds.maxTotalProjectBytes) {
+
+    // Everything counts against the payload ceiling — source and assets share
+    // one budget at the preview host, so a version that passes here must be
+    // one the host can actually boot.
+    totalPayloadBytes += sizeBytes;
+    if (totalPayloadBytes > thresholds.maxTotalPayloadBytes) {
       return {
         degenerate: true,
-        reason: `Total project size ${Math.round(totalBytes / 1024)} KB exceeds the ${Math.round(
+        reason: `Total payload ${Math.round(totalPayloadBytes / 1024)} KB exceeds the ${Math.round(
+          thresholds.maxTotalPayloadBytes / 1024,
+        )} KB ceiling (the preview host refuses the payload above this).`,
+        file: path || null,
+        sizeBytes: totalPayloadBytes,
+        repeatedLine: null,
+        repeatCount: null,
+      };
+    }
+
+    // Binary assets (base64 blobs from an imported template/ZIP) are carried
+    // content, not model output: the source ceilings and the self-repetition
+    // heuristic say nothing about them. Judging a 1.8 MB `apple-icon.png` by the
+    // 750 KB source ceiling failed whole versions over a file the preview host
+    // accepts (prod 2026-08-01, chat cb529c3c).
+    if (isNonTextContentFile({ path, content, language: languageOf(file) })) {
+      if (sizeBytes > thresholds.maxBinaryAssetBytes) {
+        return {
+          degenerate: true,
+          reason: `Binary asset ${path || "(unknown)"} is ${Math.round(sizeBytes / 1024)} KB, over the ${Math.round(
+            thresholds.maxBinaryAssetBytes / 1024,
+          )} KB asset ceiling (the preview host refuses the payload above this).`,
+          file: path || null,
+          sizeBytes,
+          repeatedLine: null,
+          repeatCount: null,
+        };
+      }
+      continue;
+    }
+
+    totalSourceBytes += sizeBytes;
+    if (totalSourceBytes > thresholds.maxTotalProjectBytes) {
+      return {
+        degenerate: true,
+        reason: `Total project size ${Math.round(totalSourceBytes / 1024)} KB exceeds the ${Math.round(
           thresholds.maxTotalProjectBytes / 1024,
         )} KB project ceiling (oversized/degenerate output spread across files).`,
         file: path || null,
-        sizeBytes: totalBytes,
+        sizeBytes: totalSourceBytes,
         repeatedLine: null,
         repeatCount: null,
       };
@@ -158,7 +216,7 @@ export function detectDegenerateProjectJson(
   }
   if (!Array.isArray(parsed)) return CLEAN;
   return detectDegenerateFiles(
-    parsed as Array<{ path?: unknown; content?: unknown }>,
+    parsed as Array<{ path?: unknown; content?: unknown; language?: unknown }>,
     thresholds,
   );
 }
