@@ -370,6 +370,40 @@ describe("handleSseStream", () => {
     expect(store.getMessages()[0]?.uiParts?.some((part) => part.type === "plan")).toBe(true);
   });
 
+  // Bugbot på MVP-svepet (pass 4): plan-läge som strömmar prosa men inte får
+  // en substansplan är ett medvetet planner-text-utfall (servern persisterar
+  // prosan) — inte ett codegen-persist-fel. Ingen "kunde inte sparas som
+  // version"-fas, ingen toast, och completion-hooken körs.
+  it("behandlar plan-prosa utan substansplan som lugn avslutning, inte stream-without-version", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: "Bygget är klart, men previewen svarar inte." }, "");
+        onEvent("done", { chatId: "chat_1", planMode: true, planArtifact: {}, versionId: null }, "");
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(toast.error).not.toHaveBeenCalled();
+    const message = store.getMessages()[0];
+    expect(message?.content).toContain("Bygget är klart");
+    expect(message?.isStreaming).toBe(false);
+    const progressPart = message?.uiParts?.find(
+      (part) => part.type === "tool:engine-generation",
+    ) as { output?: { phase?: string } } | undefined;
+    expect(progressPart?.output?.phase).not.toBe("stream-without-version");
+    expect(spies.onGenerationComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: "chat_1" }),
+    );
+  });
+
   // Bugbot på #629: plan-mode-stream skickar `resolvePlanArtifact(...) ?? {}`,
   // så fältet finns även när planeraren inte producerade något parsbart. Ett tomt
   // artefaktobjekt får inte räknas som en plan — då hade en misslyckad körning

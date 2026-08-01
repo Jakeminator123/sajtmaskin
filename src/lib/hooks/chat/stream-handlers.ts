@@ -1163,6 +1163,21 @@ export async function handleSseStream(
                 accumulatedContent.trim().length > 0 ||
                 emptyGenerationReason === "stream_ended_without_version";
               if (hasStreamedContent) {
+                if (doneData.planMode === true) {
+                  // Plan-läge utan substansplan: servern persisterar prosan
+                  // som planner-text — ett medvetet utfall, inte ett
+                  // persist-fel. Ingen codegen-fas ("kunde inte sparas som
+                  // version" vore lögn) och ingen toast; texten är
+                  // resultatet. Completion-hooken körs som på den lyckade
+                  // planvägen så UI:t inte fastnar i genererings-läge.
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
+                    ),
+                  );
+                  onGenerationComplete?.({ chatId: nextId });
+                  break;
+                }
                 appendProgressPart("generation", "stream-without-version", {
                   reason: emptyGenerationReason,
                 });
