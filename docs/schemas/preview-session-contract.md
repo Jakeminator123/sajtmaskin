@@ -395,6 +395,25 @@ per-version runtime-ready receipt (M#pv1). Lane choice is logged as
 `[telemetry:preview-lifecycle] kind=preview_followup_lane` with `lane`,
 `patchMode`, `changedFiles`, `removedPaths` and `durationMs`.
 
+**Version binding (an old revision may never approve a new version).** Session,
+`versionId` and the revision actually booted/patched stay bound:
+
+1. A successful patch pins the NEW `versionId` on the host session, and both
+   `/status` and `files-manifest` report it from that same store record.
+2. A patch that fails mid-way (e.g. ENOSPC in the workspace write) rolls the
+   session back to its pre-patch snapshot and returns `500 patch_failed`, so the
+   host never claims a version whose files did not land.
+3. The app only advances its session pointer after the patch response echoes the
+   new `versionId`; otherwise the full `update` path re-pins it.
+4. Resume stays version-pinned: `tryResumeTier2Runtime` → `fetchPreviewHostStatus`
+   with `expectedVersionId`, so a VM still serving another revision returns `null`
+   and the session is rebuilt instead of being surfaced as ready.
+
+Regression coverage: `preview-host/scripts/test-patch-lane-contract.mjs` (host
+rollback, `/status` + manifest after patch, refused stale base) and
+`src/lib/gen/preview/preview-session.test.ts` (patch → resume only on a matching
+host version, stale host forces a rebuild, update remains the authority).
+
 When preview-host runs outside local development, all `/preview/*` routes require
 auth via the shared preview-host key:
 
