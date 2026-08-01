@@ -25,14 +25,24 @@ async function insertDraftVersionRow(
     parentVersionId?: string | null;
     /** Fast Edit Lane provenance ("quick_edit") or null for normal versions. */
     editKind?: string | null;
+    /**
+     * Selected dossiers' declared env keys (F2 preview mock-seed contract).
+     * Stored as jsonb; null/omitted when the generation selected no dossier
+     * with env keys. See `engineVersions.selectedDossierEnvKeys` in schema.ts.
+     */
+    selectedDossierEnvKeys?: string[] | null;
   },
 ): Promise<Version> {
   const id = uuid();
+  const selectedDossierEnvKeysJson =
+    Array.isArray(params.selectedDossierEnvKeys) && params.selectedDossierEnvKeys.length > 0
+      ? JSON.stringify(params.selectedDossierEnvKeys)
+      : null;
 
   for (let attempt = 0; attempt < MAX_VERSION_INSERT_RETRIES; attempt++) {
     try {
       await executor.execute(
-        sql`INSERT INTO engine_versions (id, chat_id, message_id, version_number, files_json, repaired_files_json, preview_url, release_state, verification_state, verification_summary, repair_available_at, promoted_at, lifecycle_stage, parent_version_id, edit_kind, created_at)
+        sql`INSERT INTO engine_versions (id, chat_id, message_id, version_number, files_json, repaired_files_json, preview_url, release_state, verification_state, verification_summary, repair_available_at, promoted_at, lifecycle_stage, parent_version_id, edit_kind, selected_dossier_env_keys, created_at)
             VALUES (
               ${id},
               ${params.chatId},
@@ -49,6 +59,7 @@ async function insertDraftVersionRow(
               ${params.lifecycleStage ?? "design"},
               ${params.parentVersionId ?? null},
               ${params.editKind ?? null},
+              ${selectedDossierEnvKeysJson}::jsonb,
               NOW()
             )`,
       );
@@ -84,6 +95,12 @@ export async function addAssistantMessageAndCreateDraftVersion(
     /** Fast Edit Lane provenance ("quick_edit") or null for normal versions. */
     editKind?: string | null;
     /**
+     * Selected dossiers' declared env keys, persisted on the version row so
+     * later preview (re)starts rebuild the F2 mock-seed `.env.local` surface.
+     * Null/omitted when empty.
+     */
+    selectedDossierEnvKeys?: string[] | null;
+    /**
      * Concatenated reasoning captured from the stream for this
      * assistant message. Persisted on the row so the builder UI can
      * re-show the "thinking" panel after an F5 refresh.
@@ -91,8 +108,16 @@ export async function addAssistantMessageAndCreateDraftVersion(
     thinking?: string | null;
   } = {},
 ): Promise<{ message: Message; version: Version }> {
-  const { tokenCount, uiParts, previewUrl, lifecycleStage, parentVersionId, editKind, thinking } =
-    options;
+  const {
+    tokenCount,
+    uiParts,
+    previewUrl,
+    lifecycleStage,
+    parentVersionId,
+    editKind,
+    selectedDossierEnvKeys,
+    thinking,
+  } = options;
   return db.transaction(async (tx) => {
     const messageId = uuid();
     await tx.insert(engineMessages).values({
@@ -118,6 +143,7 @@ export async function addAssistantMessageAndCreateDraftVersion(
       lifecycleStage,
       parentVersionId,
       editKind,
+      selectedDossierEnvKeys,
     });
 
     const msgRows = await tx.select().from(engineMessages).where(eq(engineMessages.id, messageId)).limit(1);
@@ -201,6 +227,12 @@ export async function createDraftVersion(
     parentVersionId?: string | null;
     /** Provenance marker, e.g. "imported_repo" for verbatim v0-template imports. */
     editKind?: string | null;
+    /**
+     * Selected dossiers' declared env keys — copied from the parent version by
+     * the deterministic F3 fork so the row carries the same preview env
+     * contract as its F2 base (the mock-seed itself only runs in F2/design).
+     */
+    selectedDossierEnvKeys?: string[] | null;
   },
 ): Promise<Version> {
   return insertDraftVersionRow(db, {
@@ -211,6 +243,7 @@ export async function createDraftVersion(
     lifecycleStage: lifecycle?.stage,
     parentVersionId: lifecycle?.parentVersionId,
     editKind: lifecycle?.editKind,
+    selectedDossierEnvKeys: lifecycle?.selectedDossierEnvKeys,
   });
 }
 

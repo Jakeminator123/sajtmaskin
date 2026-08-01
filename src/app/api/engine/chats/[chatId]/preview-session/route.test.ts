@@ -361,6 +361,68 @@ describe("POST preview-session (engine)", () => {
     });
   });
 
+  // Bug-swarm 2026-08-01 (dossier-env rehydrering): a force restart rebuilds
+  // `.env.local` from scratch (isPipelineAuthoredEnvLocal strips the
+  // pipeline-authored file), so the route must re-supply the dossier env keys
+  // persisted on the version row — otherwise the F2 demo/mock mode that the
+  // first post-finalize boot seeded silently disappears.
+  it("passes the version row's persisted selected_dossier_env_keys to startPreviewSession on force restart", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: {
+        id: "ver_1",
+        preview_url: null,
+        files_json: "{}",
+        lifecycle_stage: "design",
+        selected_dossier_env_keys: ["STRIPE_SECRET_KEY", "EMAIL_FROM"],
+      },
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver_1", forceRestart: true }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(startPreviewSession).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        forceRestart: true,
+        lifecycleStage: "design",
+        selectedDossierEnvKeys: ["STRIPE_SECRET_KEY", "EMAIL_FROM"],
+      }),
+    );
+  });
+
+  it("omits selectedDossierEnvKeys when the version row has none persisted (legacy/null rows)", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: {
+        id: "ver_1",
+        preview_url: null,
+        files_json: "{}",
+        selected_dossier_env_keys: null,
+      },
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver_1", forceRestart: true }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    expect(startPreviewSession).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ selectedDossierEnvKeys: undefined }),
+    );
+  });
+
   it("stamps preview_success=true when the session resolved via the resume-verified path (M#pv1)", async () => {
     startPreviewSession.mockResolvedValue({
       ok: true,

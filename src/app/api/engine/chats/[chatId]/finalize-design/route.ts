@@ -317,6 +317,14 @@ export async function POST(
             {
               stage: "integrations",
               parentVersionId: baseVersion.id,
+              // Copy the F2 base's persisted dossier env keys for consistency
+              // with the exact-file fork. Harmless on an F3 row: the mock-seed
+              // only runs for design-stage previews.
+              selectedDossierEnvKeys:
+                Array.isArray(baseVersion.selected_dossier_env_keys) &&
+                baseVersion.selected_dossier_env_keys.length > 0
+                  ? baseVersion.selected_dossier_env_keys
+                  : null,
             },
           ));
       } catch (error) {

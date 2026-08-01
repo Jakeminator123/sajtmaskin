@@ -660,6 +660,18 @@ export const engineVersions = pgTable(
      * mekanismer för två jobb, och värdena är olika.
      */
     filesRevision: text("files_revision").generatedAlwaysAs(sql`md5(files_json)`),
+    /**
+     * Env keys declared by the dossiers selected for the generation that
+     * produced this version (deduped; null when none). Preview/F2-only
+     * mock-seed contract: `startPreviewSession` threads these into
+     * `resolvePreviewEnvLayers`, which stub-seeds each still-unset key in the
+     * preview `.env.local` so the dossier UI renders its demo/mock mode —
+     * `lifecycleStage === "design"` only. Persisted so force-restart
+     * (`POST /preview-session`) and the quick-edit preview fallback rebuild
+     * the same env surface as the first post-finalize boot. Never shipped to
+     * F3/deploy env vars — the seed layer is stripped in F3.
+     */
+    selectedDossierEnvKeys: jsonb("selected_dossier_env_keys").$type<string[] | null>(),
     createdAt: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({

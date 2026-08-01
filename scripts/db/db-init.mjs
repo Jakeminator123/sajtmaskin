@@ -476,6 +476,9 @@ const schemaQueries = [
   // migrationen add-files-revision.sql — den tabellen skapas först där, så
   // ALTER här skulle krascha en tom db:init före applySqlMigrations.
   `ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS files_revision TEXT GENERATED ALWAYS AS (md5(files_json)) STORED`,
+  // Dossier-env rehydrering: valda dossiers env-nycklar per version (F2
+  // preview mock-seed). Kanonisk migration: add-engine-version-selected-dossier-env-keys.sql.
+  `ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS selected_dossier_env_keys JSONB`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE NOT NULL`,
   `ALTER TABLE users ALTER COLUMN diamonds SET DEFAULT 50`,
   `ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE`,

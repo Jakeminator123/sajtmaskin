@@ -88,6 +88,15 @@ export async function runQuickEdit(params: {
   // Integrations bases are declined above, so a quick-edit child is always a
   // design-stage minor version.
   const lifecycleStage: "design" | "integrations" = "design";
+  // Dossier-env rehydrering: a quick edit changes files, never the dossier
+  // selection, so the minor inherits the base version's persisted env keys.
+  // Without this, the fallback preview (re)start below would rebuild
+  // `.env.local` without the F2 mock-seed and demo mode would silently vanish.
+  const selectedDossierEnvKeys =
+    Array.isArray(baseVersion.selected_dossier_env_keys) &&
+    baseVersion.selected_dossier_env_keys.length > 0
+      ? baseVersion.selected_dossier_env_keys
+      : null;
 
   // M#qe1: take the per-version lease on the BASE version around the persist,
   // so a minor is never created from a base that a concurrent server-verify /
@@ -125,6 +134,7 @@ export async function runQuickEdit(params: {
         editKind: "quick_edit",
         parentVersionId,
         lifecycleStage,
+        selectedDossierEnvKeys,
       },
     );
   } finally {
@@ -183,6 +193,9 @@ export async function runQuickEdit(params: {
       versionIdForSession: newVersionId,
       filesRevisionForSession: persisted.version.files_revision,
       lifecycleStage,
+      // Inherited from the base version so the rebuilt `.env.local` keeps the
+      // F2 dossier mock-seed (demo mode) the first boot had.
+      selectedDossierEnvKeys: selectedDossierEnvKeys ?? undefined,
       skipRepair: true,
       skipProjectScaffold: true,
     });
