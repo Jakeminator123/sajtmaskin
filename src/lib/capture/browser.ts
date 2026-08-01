@@ -16,6 +16,8 @@
 
 import type { Browser, Page } from "playwright-core";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
+import { isTrustedCaptureDnsHost } from "@/lib/capture/preview-allowlist";
+import { fetchWithPinnedDns } from "@/lib/capture/pinned-fetch";
 
 const IS_SERVERLESS = Boolean(process.env.VERCEL);
 
@@ -38,6 +40,10 @@ export async function launchCaptureBrowser(): Promise<Browser> {
  * Per-capture-grind: släpper bara igenom http(s) mot värdar som klarar
  * SSRF-kontrollen. Utfallet cachas per värd, så varje värd DNS-slås upp en
  * gång per capture.
+ *
+ * Grinden prövar ett NAMN och är därför bara ett förfilter — den kan inte veta
+ * vilken adress som sedan ansluts. Skyddet mot att svaret kommer från en annan
+ * adress än den granskade ligger i `fetchWithPinnedDns`.
  */
 export function buildCaptureHostGate(): (hostname: string) => Promise<boolean> {
   const hostVerdicts = new Map<string, boolean>();
@@ -84,8 +90,14 @@ export async function applyCaptureRequestGate(page: Page): Promise<void> {
   // serverless-runtimen, och att blockera service workers stänger inte den
   // kanalen (Codex P1 på #729). Att stänga ALLA WebSockets går däremot inte:
   // previewen hydreras via dev-serverns socket, och en capture som fotograferar
-  // SSR-DOM beskär en annan sida än den användaren markerade i. WebSockets går
-  // därför genom samma värdgrind som allt annat.
+  // SSR-DOM beskär en annan sida än den användaren markerade i.
+  //
+  // Värdgrinden räcker inte här. `ws.connectToServer()` slår upp namnet på nytt
+  // och tar ingen adress, så en angriparkontrollerad zon kan svara publikt vid
+  // grinden och privat vid uppkopplingen — samma rebinding som på HTTP-vägen,
+  // fast utan möjlighet att pinna adressen. WebSockets begränsas därför till de
+  // värdar operatören själv styr DNS för, vilket är precis vad hydreringen
+  // behöver och inget mer.
   await page.context().routeWebSocket("**/*", async (ws) => {
     let hostname: string | null = null;
     try {
@@ -94,7 +106,7 @@ export async function applyCaptureRequestGate(page: Page): Promise<void> {
     } catch {
       hostname = null;
     }
-    if (hostname && (await hostAllowed(hostname))) {
+    if (hostname && isTrustedCaptureDnsHost(hostname) && (await hostAllowed(hostname))) {
       ws.connectToServer();
       return;
     }
@@ -102,11 +114,27 @@ export async function applyCaptureRequestGate(page: Page): Promise<void> {
   });
   await page.context().route("**/*", async (route) => {
     try {
-      if (!(await gate(route.request().url()))) {
+      const request = route.request();
+      const requestUrl = request.url();
+      if (!(await gate(requestUrl))) {
         return await route.abort("blockedbyclient");
       }
-      const response = await route.fetch({ maxRedirects: 0 });
-      return await route.fulfill({ response });
+      // Preview-hostens egen värd behåller Playwrights hämtning: operatören
+      // styr den zonen, så det finns ingen rebinding att skydda mot, och
+      // sidans egen trafik (dokument, chunkar, RSC-payloads, kakor) fortsätter
+      // gå genom den väg som redan är beprövad i prod.
+      if (isTrustedCaptureDnsHost(new URL(requestUrl).hostname)) {
+        const response = await route.fetch({ maxRedirects: 0 });
+        return await route.fulfill({ response });
+      }
+      // Allt annat är tredjepartsresurser vars DNS vi inte styr — de hämtas mot
+      // den adress som faktiskt granskades.
+      const pinned = await fetchWithPinnedDns(requestUrl, {
+        method: request.method(),
+        headers: await request.allHeaders(),
+        body: request.postDataBuffer(),
+      });
+      return await route.fulfill(pinned);
     } catch {
       return route.abort("failed").catch(() => undefined);
     }

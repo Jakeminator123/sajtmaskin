@@ -105,3 +105,37 @@ describe("isAllowedCaptureUrl", () => {
     expect(isAllowedCaptureUrl(new URL("ws://preview.sajtmaskin.dev/p/a"))).toBe(false);
   });
 });
+
+describe("isTrustedCaptureDnsHost", () => {
+  it("litar på preview-hostens egen värd", async () => {
+    const { isTrustedCaptureDnsHost } = await import("./preview-allowlist");
+    expect(isTrustedCaptureDnsHost("preview.sajtmaskin.dev")).toBe(true);
+  });
+
+  it("bryr sig inte om path-prefixet", async () => {
+    // Hydreringens socket ligger på preview-hostens värd men kan ligga utanför
+    // sidans path-prefix — den måste ändå räknas som betrodd.
+    const { isTrustedCaptureDnsHost } = await import("./preview-allowlist");
+    expect(isTrustedCaptureDnsHost("PREVIEW.sajtmaskin.dev.")).toBe(true);
+  });
+
+  it("litar inte på en godtycklig publik värd", async () => {
+    // Det är dessa vi inte styr DNS för, och därför måste pinna adressen mot.
+    const { isTrustedCaptureDnsHost } = await import("./preview-allowlist");
+    expect(isTrustedCaptureDnsHost("cdn.angripare.example")).toBe(false);
+    expect(isTrustedCaptureDnsHost("")).toBe(false);
+  });
+
+  it("litar på operatörslistan som EXAKT värd, aldrig som suffix", async () => {
+    process.env[ENV_KEY] = "preview-two.example";
+    const { isTrustedCaptureDnsHost } = await import("./preview-allowlist");
+    expect(isTrustedCaptureDnsHost("preview-two.example")).toBe(true);
+    expect(isTrustedCaptureDnsHost("angripare.preview-two.example")).toBe(false);
+  });
+
+  it("litar inte på något när preview-host-basen saknas eller är trasig", async () => {
+    getPreviewHostBaseUrl.mockReturnValue("inte-en-url");
+    const { isTrustedCaptureDnsHost } = await import("./preview-allowlist");
+    expect(isTrustedCaptureDnsHost("preview.sajtmaskin.dev")).toBe(false);
+  });
+});
