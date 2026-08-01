@@ -26,7 +26,19 @@ type CaptureRequest = {
   cropWidth?: number;
   cropHeight?: number;
   region?: CaptureRegion;
+  /**
+   * Previewens scroll-läge när användaren markerade.
+   *
+   * Koordinaterna vi får är viewport-relativa, och den här routen laddar
+   * sidan på nytt — alltid vid scroll 0. Utan att rulla tillbaka hit beskär
+   * vi toppen av dokumentet och påstår att det är den markerade ytan.
+   */
+  scrollX?: number;
+  scrollY?: number;
 };
+
+/** Låt lat-laddat innehåll hinna måla efter att vi rullat. */
+const SCROLL_SETTLE_MS = 220;
 
 type CapturedElement = {
   tag: string;
@@ -383,6 +395,8 @@ function parseBody(body: unknown): CaptureRequest | null {
     cropWidth,
     cropHeight,
     region: parseCaptureRegion(obj.region),
+    scrollX: Number.isFinite(toNumber(obj.scrollX)) ? toNumber(obj.scrollX) : undefined,
+    scrollY: Number.isFinite(toNumber(obj.scrollY)) ? toNumber(obj.scrollY) : undefined,
   };
 }
 
@@ -466,6 +480,24 @@ async function handlePOST(req: Request) {
       timeout: NAVIGATION_TIMEOUT_MS,
     });
     await waitForStabilizedPage(page);
+
+    // Rulla till samma position som previewen stod i. Allt nedanför beror på
+    // det: `describePoint` slår upp elementet med viewport-koordinater, och
+    // Playwrights `clip` är viewport-relativ när `fullPage` är av. Utan det
+    // här steget beskriver och fotograferar vi sidans topp oavsett vad
+    // användaren tittade på.
+    const scrollX = Math.max(0, Math.round(parsed.scrollX ?? 0));
+    const scrollY = Math.max(0, Math.round(parsed.scrollY ?? 0));
+    if (scrollX > 0 || scrollY > 0) {
+      await page
+        .evaluate(
+          ([x, y]) => window.scrollTo(x, y),
+          [scrollX, scrollY] as const,
+        )
+        .catch(() => undefined);
+      await page.waitForTimeout(SCROLL_SETTLE_MS).catch(() => undefined);
+    }
+
     const pointDetails = await describePoint(page, centerX, centerY);
     const resolvedCenterX = clamp(Math.round(pointDetails.resolvedX), 0, viewportWidth);
     const resolvedCenterY = clamp(Math.round(pointDetails.resolvedY), 0, viewportHeight);

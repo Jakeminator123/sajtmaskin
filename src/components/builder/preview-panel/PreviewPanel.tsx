@@ -1291,7 +1291,7 @@ export function PreviewPanel({
   const handleInspectRegionSendImage = useCallback(async () => {
     const state = inspectRegion;
     if (!state || !previewUrl || regionImagePending) return;
-    const { rect, viewport } = state.region;
+    const { rect, viewport, scroll } = state.region;
     if (viewport.w <= 0 || viewport.h <= 0) return;
 
     const captureId = `region-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1309,6 +1309,10 @@ export function PreviewPanel({
           yPercent: centerYPercent,
           viewportWidth: Math.round(viewport.w),
           viewportHeight: Math.round(viewport.h),
+          // Rektangeln är viewport-relativ, så fångsten måste rulla dit först
+          // — annars fotograferar den sidans topp och kallar det markeringen.
+          scrollX: scroll.x,
+          scrollY: scroll.y,
           region: {
             xPercent: Number(((rect.x / viewport.w) * 100).toFixed(2)),
             yPercent: Number(((rect.y / viewport.h) * 100).toFixed(2)),
