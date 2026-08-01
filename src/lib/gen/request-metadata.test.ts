@@ -128,6 +128,24 @@ describe("buildUserPromptContent — attached media", () => {
     expect(normalized[0].url).toBe(`${BLOB}/a.jpg`);
     expect(normalized[0].size).toBe(1234);
   });
+
+  it("normalizeRequestAttachments låter inte en klient sätta systemreferens-markören", () => {
+    // Markören är serverreserverad. Går den igenom klassas användarbilden som
+    // systemreferens och utesluts ur URL-textblocket — modellen ser bilden men
+    // saknar adressen och hittar på en lokal /media/-sökväg.
+    const normalized = normalizeRequestAttachments([
+      {
+        url: `${BLOB}/mine.jpg`,
+        mimeType: "image/jpeg",
+        purpose: VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
+      },
+    ]);
+
+    expect(normalized[0].purpose).toBeUndefined();
+    expect(textOf(buildUserPromptContent("bygg en sajt", normalized))).toContain(
+      `${BLOB}/mine.jpg`,
+    );
+  });
 });
 
 describe("extractPageCountHintFromMeta (Byggval)", () => {

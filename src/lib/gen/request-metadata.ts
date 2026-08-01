@@ -137,7 +137,14 @@ export function normalizeRequestAttachments(input: unknown): RequestAttachment[]
       if (!url) return null;
       const filename = asTrimmedString(value.filename);
       const mimeType = asTrimmedString(value.mimeType);
-      const purpose = asTrimmedString(value.purpose);
+      // Markören är serverreserverad — pipelinen sätter den på sina egna
+      // stilreferenser. Släpps en klientsatt variant igenom kan en användarbild
+      // maskera sig som systemreferens och därmed uteslutas ur URL-textblocket:
+      // modellen ser bilden på visionkanalen men får aldrig adressen, och
+      // hittar då på en lokal /media/-sökväg i stället för att bädda in den.
+      const rawPurpose = asTrimmedString(value.purpose);
+      const purpose =
+        rawPurpose === VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE ? undefined : rawPurpose;
       const type = asTrimmedString(value.type);
       const size =
         typeof value.size === "number" && Number.isFinite(value.size) && value.size >= 0
