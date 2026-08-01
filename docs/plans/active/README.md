@@ -50,8 +50,8 @@ säger något annat, men gör det där motiveringen står, inte här.
 ## Andra aktiva sanningar
 
 - Buggar och policybeslut: [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md)
-- Dokumentationskonsolideringens status:
-  [`documentation-audit-2026-07-13.md`](../../audits/documentation-audit-2026-07-13.md)
+- Stoppunkter för städning och telemetrikravet före route-radering:
+  [`../../documentation-lifecycle.md`](../../documentation-lifecycle.md)
 - Stabil arkitektur och kontrakt: [`../../README.md`](../../README.md)
 
 ## När en plan är klar
