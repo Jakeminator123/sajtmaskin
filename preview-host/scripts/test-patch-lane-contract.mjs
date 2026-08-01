@@ -31,6 +31,7 @@ process.env.PREVIEW_HOST_DATA_DIR = dataDir;
 process.env.HOST = "127.0.0.1";
 process.env.PREVIEW_BASE_URL = "http://127.0.0.1:0000";
 
+const store = require("../src/store.js");
 const runtime = require("../src/runtime.js");
 const queuedBoots = [];
 runtime.queueRuntimeBoot = (chatId, options = {}) => queuedBoots.push({ chatId, options });
@@ -181,7 +182,6 @@ try {
   // A stored entry that is not a string still gets listed, with a marker that
   // can never equal a sha256 digest — the app must then rewrite or remove that
   // path rather than treat a missing entry as "not on the host".
-  const store = require("../src/store.js");
   const storeData = store.readStoreSync();
   storeData.sessions[started.body.sessionId].filesJson["public/logo.bin"] = 42;
   store.writeStoreAtomicSync(storeData);
