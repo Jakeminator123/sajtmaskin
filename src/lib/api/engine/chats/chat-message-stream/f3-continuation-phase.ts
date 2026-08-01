@@ -342,9 +342,18 @@ export async function consumeF3MarkerPhaseB(params: {
       // Best-effort like the other F3 close-out messages: the design round
       // must not fail because the notice write failed. (Reject replies never
       // reach Phase B — `handleF3RejectClose` returns earlier.)
-      await chatRepo
-        .addMessage(engineChat.id, "assistant", F3_CONTINUATION_DESIGN_ROUND_NOTICE)
-        .catch(() => null);
+      //
+      // Only when THIS request's atomic consume was confirmed: an
+      // unconfirmed consume means a racing request (e.g. an approve in
+      // another tab) already claimed the marker — an F3 build round may be
+      // running, so claiming "integrationsläget avslutades" here could be
+      // false. Mirrors the reject path, which switches to neutral race copy
+      // when its consume loses. The round still runs as design either way.
+      if (markerConsumeConfirmed) {
+        await chatRepo
+          .addMessage(engineChat.id, "assistant", F3_CONTINUATION_DESIGN_ROUND_NOTICE)
+          .catch(() => null);
+      }
       devLogAppend("in-progress", {
         type: "f3.unrelated_reply_design_round_notice",
         chatId,

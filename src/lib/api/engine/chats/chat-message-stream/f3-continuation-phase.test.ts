@@ -100,7 +100,7 @@ describe("consumeF3MarkerPhaseB — unrelated ('Annat') reply (M#li5)", () => {
     );
   });
 
-  it("persists the notice even when the marker consume lost the race (round still runs as F2)", async () => {
+  it("skips the notice when the marker consume lost the race (a racing approve may own an F3 round)", async () => {
     vi.mocked(chatRepo.consumeF3ContinuationMarker).mockResolvedValue(false);
     const result = await consumeF3MarkerPhaseB({
       f3ContinuationDecision: makeDecision("unrelated"),
@@ -109,8 +109,11 @@ describe("consumeF3MarkerPhaseB — unrelated ('Annat') reply (M#li5)", () => {
       parsedMeta: makeParsedMeta(),
     });
 
+    // The round still runs as design, but this request did not end the
+    // integrations flow — claiming so could be false during an approve race
+    // (mirrors the reject path's neutral race copy).
     expect(result).toBe(false);
-    expect(chatRepo.addMessage).toHaveBeenCalledWith(
+    expect(chatRepo.addMessage).not.toHaveBeenCalledWith(
       CHAT_ID,
       "assistant",
       F3_CONTINUATION_DESIGN_ROUND_NOTICE,
