@@ -93,36 +93,80 @@ export function findMainWorktree(worktrees) {
 }
 
 /**
- * Depth-1 entries of the worktree that are links rather than real directories.
+ * A directory named `node_modules` is where the scan STOPS, never where it
+ * continues. It is still checked for being a link — that is the whole point —
+ * but it is never entered, so the ~765-package tree this mechanism exists to
+ * avoid copying is also never walked. `.git` is excluded for the same reason.
+ */
+const LINK_SCAN_LEAF_DIRS = new Set(["node_modules", ".git"]);
+
+/**
+ * Belt-and-braces bound on repo layout, not a performance measure — the leaf
+ * rule above is what keeps the walk cheap. Depth 2 covers
+ * `<sub-project>/node_modules`; the extra level is headroom.
+ */
+const LINK_SCAN_MAX_DEPTH = 3;
+
+/**
+ * Every link inside the worktree that must be detached before
+ * `git worktree remove` runs.
  *
- * Depth 1 is deliberate: the only link anyone creates is `node_modules` at the
- * root, and descending into a real `node_modules` would cost more than the
- * `npm ci` this whole mechanism exists to avoid.
+ * The scan used to stop at depth 1, reasoning that the only junction anyone
+ * creates is `node_modules` at the root. That stopped being true once
+ * sub-projects needed their own linked `node_modules` (see
+ * {@link NESTED_NODE_MODULES}). On 2026-08-01 a hand-made
+ * `preview-host/node_modules` junction was invisible here: detaching skipped
+ * it, and `git worktree remove` then followed it into the main checkout and
+ * emptied the real directory — the exact failure the depth-1 scan was written
+ * to prevent, one level down.
+ *
+ * Nested links are now created by {@link commandLink} rather than by hand, and
+ * found here, so the two halves stay in step.
  *
  * @param {string} worktreePath
- * @param {{ readdir?: (p: string) => string[], lstat?: (p: string) => { isSymbolicLink: () => boolean } }} [io]
+ * @param {{ readdir?: (p: string) => string[], lstat?: (p: string) => { isSymbolicLink: () => boolean, isDirectory?: () => boolean } }} [io]
  * @returns {string[]} absolute paths
  */
 export function findLinkedEntries(worktreePath, io = {}) {
   const readdir = io.readdir ?? ((p) => readdirSync(p));
   const lstat = io.lstat ?? ((p) => lstatSync(p));
 
-  let entries;
-  try {
-    entries = readdir(worktreePath);
-  } catch {
-    return [];
-  }
-
   const linked = [];
-  for (const entry of entries) {
-    const full = join(worktreePath, entry);
+
+  const walk = (dir, depth) => {
+    let entries;
     try {
-      if (lstat(full).isSymbolicLink()) linked.push(full);
+      entries = readdir(dir);
     } catch {
-      // A racing delete is not our problem — it is already gone.
+      return;
     }
-  }
+
+    for (const entry of entries) {
+      const full = join(dir, entry);
+      let stats;
+      try {
+        stats = lstat(full);
+      } catch {
+        // A racing delete is not our problem — it is already gone.
+        continue;
+      }
+      // Order matters: a junction reports as a link, so a LINKED node_modules
+      // is collected here and never reaches the leaf rule below.
+      if (stats.isSymbolicLink()) {
+        linked.push(full);
+        continue;
+      }
+      if (
+        depth < LINK_SCAN_MAX_DEPTH &&
+        !LINK_SCAN_LEAF_DIRS.has(entry) &&
+        stats.isDirectory?.()
+      ) {
+        walk(full, depth + 1);
+      }
+    }
+  };
+
+  walk(worktreePath, 1);
   return linked;
 }
 
@@ -223,6 +267,30 @@ function listWorktrees() {
   return parseWorktreeList(git(["worktree", "list", "--porcelain"]));
 }
 
+/**
+ * Sub-projects that carry their own `node_modules` and therefore get their own
+ * junction alongside the root one.
+ *
+ * `preview-host` has a separate dependency set, so
+ * `npm --prefix preview-host run test:guards` dies with MODULE_NOT_FOUND in a
+ * fresh worktree unless this is linked too. It used to be created by hand with
+ * `mklink /J` — which is precisely how the 2026-08-01 incident happened, since
+ * a hand-made link is one the remove path never knew to detach. Creating it
+ * here is what makes {@link findLinkedEntries} sufficient rather than merely
+ * broader.
+ */
+const NESTED_NODE_MODULES = ["preview-host"];
+
+/** `true` when the path exists, without following it. */
+function pathExists(candidate) {
+  try {
+    lstatSync(candidate);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function commandLink(targetPath) {
   const worktrees = listWorktrees();
   const plan = resolveTargetWorktree({ targetPath, worktrees });
@@ -240,19 +308,35 @@ function commandLink(targetPath) {
   const linkPath = join(plan.worktreePath, "node_modules");
   const source = join(mainWorktree, "node_modules");
 
-  try {
-    if (lstatSync(linkPath)) {
-      console.error(
-        `[worktree] ${linkPath} already exists. Remove it first if you want to relink.`,
-      );
-      process.exit(1);
-    }
-  } catch {
-    // Missing is the expected happy path.
+  if (pathExists(linkPath)) {
+    console.error(
+      `[worktree] ${linkPath} already exists. Remove it first if you want to relink.`,
+    );
+    process.exit(1);
   }
 
   symlinkSync(source, linkPath, "junction");
   console.log(`[worktree] linked ${linkPath} -> ${source}`);
+
+  // Best-effort by design: a missing sub-project or an already-present link is
+  // not a reason to fail a link that otherwise succeeded. Skipping is safe —
+  // what is NOT safe is a link nobody records, which is why these are created
+  // here instead of by hand.
+  for (const project of NESTED_NODE_MODULES) {
+    const nestedLink = join(plan.worktreePath, project, "node_modules");
+    const nestedSource = join(mainWorktree, project, "node_modules");
+    if (pathExists(nestedLink)) {
+      console.log(`[worktree] skipped ${nestedLink} — already exists.`);
+      continue;
+    }
+    if (!pathExists(nestedSource)) {
+      console.log(`[worktree] skipped ${project}/node_modules — ${nestedSource} does not exist.`);
+      continue;
+    }
+    symlinkSync(nestedSource, nestedLink, "junction");
+    console.log(`[worktree] linked ${nestedLink} -> ${nestedSource}`);
+  }
+
   console.log(
     "[worktree] IMPORTANT: tear this worktree down with `npm run worktree:remove -- <path>`, " +
       "never a bare `git worktree remove` — that follows the junction and empties the shared node_modules.",
