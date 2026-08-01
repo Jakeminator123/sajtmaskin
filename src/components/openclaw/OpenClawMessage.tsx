@@ -556,7 +556,13 @@ function OpenClawQuickEditCard({
   const [applied, setApplied] = useState<{ versionId: string; changedFiles: string[] } | null>(
     null,
   );
-  const target = readActiveBuilderTarget();
+  // Bind förslaget till versionen som var aktiv när kortet först renderades
+  // (= när Sajtagenten skrev förslaget mot den kod den såg). Ett godkännande
+  // långt senare får INTE tyst appliceras mot en nyare bas (Bugbot): ops:en
+  // skickas med förslagets version som bas + engineLatestKnownVersionId, så
+  // serverns stale-base-guard svarar 409 om huvudet hunnit flytta — samma
+  // svenska copy som kodvyn ("En nyare version finns redan...").
+  const [target] = useState(() => readActiveBuilderTarget());
   const actionLabel = action.label || "Liten kodändring på sajten";
   // Synkron dubbelklicksvakt (Bugbot): setActionState döljer knapparna först
   // efter re-render, så två snabba klick kan annars starta överlappande
@@ -577,8 +583,7 @@ function OpenClawQuickEditCard({
     if (approveInFlightRef.current) return;
     approveInFlightRef.current = true;
     try {
-      const current = readActiveBuilderTarget();
-      if (!current) {
+      if (!target) {
         setActionState("failed");
         setActionError("Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.");
         return;
@@ -586,7 +591,7 @@ function OpenClawQuickEditCard({
       setActionState("working");
       setActionError(null);
 
-      await runApprovedOps(current);
+      await runApprovedOps(target);
     } finally {
       approveInFlightRef.current = false;
     }
@@ -634,10 +639,10 @@ function OpenClawQuickEditCard({
       }
     }
 
-    // Kör ops:en genom Fast Edit Lane med den aktiva versionen som bas.
+    // Kör ops:en genom Fast Edit Lane med FÖRSLAGETS version som bas.
     // `engineLatestKnownVersionId` = samma version så serverns stale-base-
-    // guard kan avvisa när en nyare version redan finns (samma trade-off som
-    // patchEngineChatFile dokumenterar för kodvyn).
+    // guard avvisar med 409 när chatten hunnit få en nyare version sedan
+    // förslaget skrevs (samma trade-off som patchEngineChatFile dokumenterar).
     const result = await quickEditChatFiles({
       chatId: current.chatId,
       baseVersionId: current.versionId,
