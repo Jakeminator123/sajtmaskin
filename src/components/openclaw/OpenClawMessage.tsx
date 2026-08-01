@@ -557,9 +557,14 @@ function OpenClawQuickEditCard({
   // får inte tyst appliceras mot en annan bas: ops:en skickas med förslagets
   // version som bas + engineLatestKnownVersionId, så serverns stale-base-guard
   // svarar 409 om huvudet hunnit flytta (samma svenska copy som kodvyn).
-  // Fallback: saknades builder-kontext vid send (t.ex. mitt i laddning) läses
-  // målet live VARJE render så knappen inte fastnar avstängd för alltid.
-  const target = builderTarget ?? readActiveBuilderTarget();
+  //
+  // Fallback utan send-tidens mål (Bugbot rond 9): builder-kontexten muterar
+  // window utan att OpenClaw-panelen re-renderar, så en render-ögonblicksbild
+  // vore både för pessimistisk (knappen fastnar avstängd) och för optimistisk
+  // (stale bas vid klick). Därför: hint-texten använder render-läsningen, men
+  // knappen är alltid klickbar och SJÄLVA målet löses om vid klicktillfället —
+  // samma mönster som reparationskortet. Saknas mål då: tydligt fel, inget körs.
+  const renderTarget = builderTarget ?? readActiveBuilderTarget();
   const actionLabel = action.label || "Liten kodändring på sajten";
   // Synkron dubbelklicksvakt (Bugbot): setActionState döljer knapparna först
   // efter re-render, så två snabba klick kan annars starta överlappande
@@ -580,7 +585,9 @@ function OpenClawQuickEditCard({
     if (approveInFlightRef.current) return;
     approveInFlightRef.current = true;
     try {
-      if (!target) {
+      // Send-tidens mål vinner; annars klicktidens live-läsning (rond 9).
+      const effectiveTarget = builderTarget ?? readActiveBuilderTarget();
+      if (!effectiveTarget) {
         setActionState("failed");
         setActionError("Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.");
         return;
@@ -588,7 +595,7 @@ function OpenClawQuickEditCard({
       setActionState("working");
       setActionError(null);
 
-      await runApprovedOps(target);
+      await runApprovedOps(effectiveTarget);
     } finally {
       approveInFlightRef.current = false;
     }
@@ -681,9 +688,9 @@ function OpenClawQuickEditCard({
       </p>
       <p className="mt-1 text-sm font-semibold text-white">{actionLabel}</p>
       <p className="mt-1 text-xs leading-5 text-slate-300">
-        {target
+        {renderTarget
           ? "Jag genomför ändringen först när du godkänner. Den skapar en ny version och uppdaterar förhandsvisningen."
-          : "Öppna en version i buildern först — snabbändringar kan bara genomföras där."}
+          : "Kräver en öppen version i buildern — godkännandet kontrollerar detta."}
       </p>
       {action.reason ? (
         <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
@@ -730,7 +737,6 @@ function OpenClawQuickEditCard({
             <button
               type="button"
               onClick={() => void handleApprove()}
-              disabled={!target}
               className="rounded-full bg-emerald-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Godkänn och genomför

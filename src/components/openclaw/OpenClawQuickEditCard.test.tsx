@@ -107,16 +107,18 @@ describe("OpenClawQuickEditCard — gating", () => {
     expect(screen.getByRole("button", { name: "Godkänn och genomför" })).toBeTruthy();
   });
 
-  it("disables approval when no active builder version is available", () => {
+  it("fails with a clear message when no builder version exists at approval", async () => {
     delete window.__SITEMASKIN_CONTEXT;
     useOpenClawStore.setState({ editEnabled: true });
     render(<OpenClawMessage msg={quickEditMessage()} />);
 
-    expect(screen.getByText(/Öppna en version i buildern först/)).toBeTruthy();
-    const approve = screen.getByRole("button", {
-      name: "Godkänn och genomför",
-    }) as HTMLButtonElement;
-    expect(approve.disabled).toBe(true);
+    expect(screen.getByText(/Kräver en öppen version i buildern/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Godkänn och genomför" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Ingen aktiv version hittades/)).toBeTruthy();
+    });
+    expect(quickEditMock).not.toHaveBeenCalled();
   });
 });
 
@@ -359,25 +361,34 @@ describe("OpenClawQuickEditCard — execution", () => {
     );
   });
 
-  it("falls back to the live builder target when the message carries none (button recovers after load)", async () => {
+  it("resolves the live builder target at CLICK time when the message carries none", async () => {
     useOpenClawStore.setState({ editEnabled: true });
     delete window.__SITEMASKIN_CONTEXT;
-    const msg = quickEditMessage();
-    const { rerender } = render(<OpenClawMessage msg={msg} />);
+    quickEditMock.mockResolvedValue({
+      ok: true,
+      versionId: "v-2",
+      changedFiles: ["app/page.tsx"],
+      previewUrl: null,
+      previewSessionId: null,
+      previewMode: null,
+    });
+    render(<OpenClawMessage msg={quickEditMessage()} />);
 
-    const disabledApprove = screen.getByRole("button", {
-      name: "Godkänn och genomför",
-    }) as HTMLButtonElement;
-    expect(disabledApprove.disabled).toBe(true);
-
-    // Builder-kontexten blir tillgänglig efter laddning → knappen ska vakna.
+    // Builder-kontexten blir tillgänglig EFTER render, utan att panelen
+    // re-renderar (window-mutation) — klicket ska ändå hitta målet live.
     window.__SITEMASKIN_CONTEXT = { chatId: "chat-1", activeVersionId: "v-1" };
-    rerender(<OpenClawMessage msg={{ ...msg }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Godkänn och genomför" }));
 
-    const approve = screen.getByRole("button", {
-      name: "Godkänn och genomför",
-    }) as HTMLButtonElement;
-    expect(approve.disabled).toBe(false);
+    await waitFor(() => {
+      expect(quickEditMock).toHaveBeenCalledTimes(1);
+    });
+    expect(quickEditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat-1",
+        baseVersionId: "v-1",
+        engineLatestKnownVersionId: "v-1",
+      }),
+    );
   });
 
   it("guards against double-click: two rapid approvals run quickEditChatFiles once", async () => {
