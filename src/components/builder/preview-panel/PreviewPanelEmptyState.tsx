@@ -15,6 +15,7 @@ import {
 } from "@/lib/builder/version-status-display";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import type { DesignTheme } from "@/lib/builder/theme-presets";
+import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PreviewPanelInitControls } from "./PreviewPanelInitControls";
@@ -82,7 +83,15 @@ export function PreviewPanelEmptyState({
 }: PreviewPanelEmptyStateProps) {
   // Täcker både pågående generering och deterministisk /finalize-design.
   const repairBlocked = useRepairBlocked(isGenerating);
-  const isInitialEmpty = !chatId && !versionId && !externalLoading;
+  // A template entry (`?templateId=...`) is never a blank onboarding start:
+  // the template already decides site type/pages/style, and the chat is being
+  // initialized in the background. Until `chatId` hydrates, show the loading
+  // state instead of the Byggval onboarding controls. `useSearchParams` is
+  // null outside a router context (e.g. component tests), which safely
+  // disables this branch there.
+  const searchParams = useSearchParams();
+  const pendingTemplateInit = Boolean(searchParams?.get("templateId")) && !chatId;
+  const isInitialEmpty = !chatId && !versionId && !externalLoading && !pendingTemplateInit;
   const normalizedAwaitingQuestion =
     typeof awaitingInputQuestion === "string" && awaitingInputQuestion.trim()
       ? awaitingInputQuestion.trim()
@@ -132,6 +141,8 @@ export function PreviewPanelEmptyState({
         : activeStatusTitle ??
           (previewPending
             ? "Startar VM-preview"
+            : pendingTemplateInit
+              ? "Läser in mallen"
             : awaitingInput
               ? "AI väntar på ditt svar"
               : isInitialEmpty
@@ -150,6 +161,8 @@ export function PreviewPanelEmptyState({
         : activeStatusSubtitle ??
           (previewPending
             ? "Sajten startar och visas så snart den är klar."
+            : pendingTemplateInit
+              ? "Mallen importeras och förhandsvisningen öppnas strax."
             : awaitingInput
               ? "AI behöver ditt svar innan nästa preview kan genereras."
               : externalLoading
@@ -171,6 +184,8 @@ export function PreviewPanelEmptyState({
       !externalLoading &&
       !repairBlocked &&
       !isInitialEmpty &&
+      // No chat exists yet during a template init — nothing to repair.
+      !pendingTemplateInit &&
       !awaitingInput &&
       !previewPending,
   );
@@ -178,7 +193,7 @@ export function PreviewPanelEmptyState({
     ? AlertCircle
     : versionlessAborted
       ? RotateCcw
-      : previewPending
+      : previewPending || pendingTemplateInit
         ? Loader2
         : awaitingInput
           ? MessageCircleQuestion
@@ -226,7 +241,9 @@ export function PreviewPanelEmptyState({
 
   return (
     <div className="text-muted-foreground flex h-full flex-col items-center justify-center bg-black/20 px-6 text-center">
-      <EmptyIcon className={cn("mb-4 h-12 w-12", previewPending && "animate-spin")} />
+      <EmptyIcon
+        className={cn("mb-4 h-12 w-12", (previewPending || pendingTemplateInit) && "animate-spin")}
+      />
       <p className="text-foreground mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
         {title}
       </p>
