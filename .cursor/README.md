@@ -37,6 +37,7 @@ Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler ko
 | [sok-index-fallback.mdc](rules/sok-index-fallback.mdc)             | 0 träffar i Glob/Grep betyder inte att filen saknas — verifiera med Read                                                     |
 | [svenska-tech-synonymer.mdc](rules/svenska-tech-synonymer.mdc)     | Kort parentesförklaring första gången ett otydligt tech-ord används                                                          |
 | [terminology.mdc](rules/terminology.mdc)                           | Snabb förväxlingstabell; kanonisk ordlista är `docs/architecture/glossary.md`                                                |
+| [ui-restraint.mdc](rules/ui-restraint.mdc)                         | Inga nya varningar, barer, badges eller pills i produkt-UI:t utan uttrycklig begäran från ägaren                             |
 | [workflow.mdc](rules/workflow.mdc)                                 | Git, filstruktur, städning, verifiering — hur ändringar utförs                                                               |
 
 ### Glob-triggrade (aktiveras vid relevanta filer)

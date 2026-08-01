@@ -5,8 +5,8 @@ import { useSyncExternalStore } from "react";
 /**
  * Kanonisk "får en reparation startas nu?"-signal för buildern.
  *
- * Alla Reparera-ytor (slow-boot-raden i `PreviewPanelFrame`, "Försök reparera
- * preview" i `PreviewPanelEmptyState`) startar en NY debiterad körning via
+ * Alla Reparera-ytor (t.ex. "Försök reparera preview" i
+ * `PreviewPanelEmptyState`) startar en NY debiterad körning via
  * `handleFixPreview`. Klickas de medan appen redan kör något som avancerar
  * versionen blir följden dubbeldebitering och versionsrace.
  *

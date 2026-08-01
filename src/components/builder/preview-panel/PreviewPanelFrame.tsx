@@ -3,22 +3,12 @@
 import { useCallback, useEffect, useState, type ReactNode, type RefObject } from "react";
 import { AlertCircle, ExternalLink, Loader2, MousePointerClick } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRepairBlocked } from "@/lib/builder/repair-blocked";
 
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
 import { VersionMismatchOverlay } from "./VersionMismatchOverlay";
 
 export interface PreviewPanelFrameProps {
   isLoading: boolean;
-  /** Sant när den blockerande overlayen täcker previewn (se `shouldBlockPreviewWithLoadingOverlay`). */
-  externalLoading?: boolean;
-  /**
-   * Sant när appen arbetar med en generering. Slow-boot-raden nedan gäller
-   * enbart en trög VM-start och får inte erbjuda en ny generering mitt i en
-   * pågående. `externalLoading` duger INTE som grind: den slutar vara sann så
-   * fort en live tier-2-preview finns, även medan codegen fortfarande strömmar.
-   */
-  isGenerating?: boolean;
   iframeError: boolean;
   iframeErrorMessage: string | null;
   iframeDiagnosticCode: string | null;
@@ -59,11 +49,8 @@ const LOADING_OVERLAY_DEBOUNCE_MS = 350;
 // state — det är bättre att visa innehållet (även halvfärdig preview)
 // än att låta spinnern hänga kvar för evigt.
 //
-// N6/Del C (2026-07-31): att sluta snurra är rätt, men att bli helt tyst är
-// fel — en kall preview-host-boot (>6s) gav tidigare en tom svart yta som
-// ser visuellt identisk ut med en trasig preview. `showSlowBootNotice`
-// nedan ersätter tystnaden med en diskret rad efter capen, utan att röra
-// själva hard-cap-tiden eller -logiken.
+// Obs (ägarbeslut 2026-08-01): efter capen är ytan medvetet tyst. Den
+// tidigare "slow boot"-raden (N6/Del C) togs bort — se ui-restraint.mdc.
 const LOADING_OVERLAY_HARD_CAP_MS = 6_000;
 
 // Hur länge "klicka för att fokusera"-ledtråden visas innan den auto-göms,
@@ -73,8 +60,6 @@ const FOCUS_HINT_TIMEOUT_MS = 7_000;
 
 export function PreviewPanelFrame({
   isLoading,
-  externalLoading = false,
-  isGenerating = false,
   iframeError,
   iframeErrorMessage,
   iframeDiagnosticCode,
@@ -103,32 +88,22 @@ export function PreviewPanelFrame({
     const hardCapId = window.setTimeout(() => {
       setHardCapReached(true);
     }, LOADING_OVERLAY_HARD_CAP_MS);
-    // Cleanup handles both (a) isLoading → false and (b) unmount. Resetting
-    // the flags here — rather than in the effect body — prepares for the
-    // next rising edge without cascading renders on the current one.
+    // Cleanup handles (a) isLoading → false, (b) ny previewSrc och (c) unmount.
+    // Resetting the flags here — rather than in the effect body — prepares for
+    // the next rising edge without cascading renders on the current one.
+    // `previewSrc` är med i deps så en NY laddning (route-byte medan isLoading
+    // förblir sann) re-armar debounce/hard-cap i stället för att ärva en
+    // förbrukad cap och bli helt tyst (Bugbot-fynd 2026-08-01).
     return () => {
       window.clearTimeout(debounceId);
       window.clearTimeout(hardCapId);
       setDebounceElapsed(false);
       setHardCapReached(false);
     };
-  }, [isLoading]);
+  }, [isLoading, previewSrc]);
 
   const topBarVisible = isLoading && !hardCapReached;
   const overlayVisible = isLoading && debounceElapsed && !hardCapReached;
-  // Efter hard-capen slutar overlayen snurra, men laddningen kan fortfarande
-  // pågå i bakgrunden (iframens onLoad har bara inte fyrat än). Ärlig,
-  // icke-blockerande rad i stället för tystnad — se kommentaren vid
-  // LOADING_OVERLAY_HARD_CAP_MS.
-  //
-  // Grinden är inte kosmetik: pågår en generering är det inte VM:en som är
-  // trög, och raden skulle då erbjuda "Reparera" — ett klick som startar en
-  // ANDRA generering, kostar diamonds och ger versionsrace. `repairBlocked`
-  // täcker även en deterministisk /finalize-design, som kör helt utan
-  // chat-stream och därför inte syns i `isGenerating`.
-  const repairBlocked = useRepairBlocked(isGenerating);
-  const showSlowBootNotice =
-    isLoading && hardCapReached && !externalLoading && !repairBlocked;
 
   // Tangentbordsspel (t.ex. snake) lyssnar på `window` inne i iframen och får
   // aldrig piltangenter förrän iframen har fokus. Inget i buildern fokuserar
@@ -212,32 +187,6 @@ export function PreviewPanelFrame({
           <div className="text-center">
             <Loader2 className="text-primary mx-auto mb-2 h-6 w-6 animate-spin" />
             <p className="text-muted-foreground text-xs">Laddar...</p>
-          </div>
-        </div>
-      ) : null}
-
-      {showSlowBootNotice && !iframeError ? (
-        <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-3">
-          <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-2xl border border-white/10 bg-black/70 px-3 py-1.5 text-[11px] text-zinc-200 shadow-lg backdrop-blur-sm">
-            <Loader2 className="text-primary h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
-            <span className="min-w-0">Previewn tar längre tid än vanligt — startar miljön…</span>
-            <button
-              type="button"
-              onClick={handleOpenInNewTab}
-              className="shrink-0 underline underline-offset-2 hover:text-white"
-            >
-              Öppna i ny flik
-            </button>
-            {onFixPreview ? (
-              <button
-                type="button"
-                onClick={onFixPreview}
-                disabled={externalLoading || repairBlocked}
-                className="shrink-0 underline underline-offset-2 hover:text-white disabled:pointer-events-none disabled:opacity-40"
-              >
-                Reparera
-              </button>
-            ) : null}
           </div>
         </div>
       ) : null}
