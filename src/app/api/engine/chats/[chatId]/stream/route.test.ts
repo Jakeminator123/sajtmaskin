@@ -1927,6 +1927,202 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(orchestrationInput.brief).not.toEqual(buildFollowUpBriefFromSnapshot(snapshot));
   });
 
+  // Prod chat e8bd3ba6: a follow-up scope clarification threw away the user's
+  // original detailed prompt. Turn 1 stops on the clarification and persists a
+  // `followUpClarification` marker with the source prompt; turn 2 (the
+  // quick-reply option) must rebuild the generation prompt from BOTH the
+  // original request and the chosen option — and must not stop on a second
+  // clarification.
+  describe("follow-up scope clarification retry (prod chat e8bd3ba6)", () => {
+    const originalDetailedPrompt =
+      "Bygg bort felet där sidan laddas om två gånger vid start på vår sajt. " +
+      "Det verkar vara ett hydration-problem i Next.js: konsolen visar en hydration mismatch " +
+      "när man öppnar den första gången, och innehållet blinkar till innan det stabiliserar sig.";
+    const clarificationQuestion =
+      "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?";
+    const chosenOption = "Förfina nuvarande design";
+
+    it("turn 1: stops on the clarification and persists the marker with the source prompt", async () => {
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: originalDetailedPrompt }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(createGenerationPipeline).not.toHaveBeenCalled();
+
+      const events = await readSseEvents(response);
+      expect(events.find((event) => event.event === "done")?.data).toMatchObject({
+        awaitingInput: true,
+        awaitingInputPrompt: clarificationQuestion,
+        reason: "followup_redesign_ambiguous",
+      });
+
+      // The assistant clarification row carries the machine-readable marker
+      // + the ORIGINAL prompt so the answering turn can recover it.
+      const assistantCall = addMessage.mock.calls.find((call) => call[1] === "assistant");
+      expect(assistantCall?.[2]).toBe(clarificationQuestion);
+      const uiPart = (assistantCall?.[4] as Array<Record<string, unknown>>)?.[0];
+      expect(uiPart).toMatchObject({
+        type: "tool:awaiting-input",
+        output: expect.objectContaining({
+          followUpClarification: true,
+          sourceUserMessage: originalDetailedPrompt,
+          options: expect.arrayContaining([chosenOption]),
+        }),
+      });
+    });
+
+    it("turn 2: the quick-reply option rebuilds the prompt from the ORIGINAL request and does not re-ask", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: null,
+        orchestration_snapshot: null,
+        // History as persisted by turn 1: the original follow-up, then the
+        // clarification question with the followUpClarification marker.
+        messages: [
+          { role: "user", content: originalDetailedPrompt },
+          {
+            role: "assistant",
+            content: clarificationQuestion,
+            ui_parts: [
+              {
+                type: "tool:awaiting-input",
+                toolName: "Klargörande fråga",
+                state: "approval-requested",
+                output: {
+                  question: clarificationQuestion,
+                  options: [
+                    chosenOption,
+                    "Gör en tydlig redesign i samma projekt",
+                    "Starta om från en ny grund",
+                  ],
+                  kind: "scope",
+                  blocking: true,
+                  reason: "followup_redesign_ambiguous",
+                  awaitingInput: true,
+                  followUpClarification: true,
+                  sourceUserMessage: originalDetailedPrompt,
+                },
+              },
+            ],
+          },
+        ],
+      });
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Hydration fixed</main>" } },
+          { event: "done", data: { promptTokens: 9, completionTokens: 15 } },
+        ]),
+      );
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: chosenOption }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      // The turn must generate — never stop on a second clarification.
+      expect(createGenerationPipeline).toHaveBeenCalledTimes(1);
+      const events = await readSseEvents(response);
+      expect(
+        events.find(
+          (event) =>
+            event.event === "tool-call" &&
+            (event.data as { toolName?: string })?.toolName === "askClarifyingQuestion",
+        ),
+      ).toBeUndefined();
+      expect(events.find((event) => event.event === "done")?.data).not.toMatchObject({
+        awaitingInput: true,
+      });
+
+      // The generation prompt carries BOTH the original detailed request and
+      // the chosen scope option (Question + Answer wrapper).
+      const pipelinePrompt = (
+        createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string }
+      ).prompt;
+      expect(pipelinePrompt).toContain("## Follow-up Scope Clarification Answer");
+      expect(pipelinePrompt).toContain(`Question: ${clarificationQuestion}`);
+      expect(pipelinePrompt).toContain(`Answer: ${chosenOption}`);
+      expect(pipelinePrompt).toContain(originalDetailedPrompt);
+
+      // The user turn persisted is what the user actually sent (the option).
+      const userCall = addMessage.mock.calls.find((call) => call[1] === "user");
+      expect(userCall?.[2]).toBe(chosenOption);
+    });
+
+    it("turn 2 negative: a free-typed different reply is a NEW prompt, not a clarification answer", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: null,
+        orchestration_snapshot: null,
+        messages: [
+          { role: "user", content: originalDetailedPrompt },
+          {
+            role: "assistant",
+            content: clarificationQuestion,
+            ui_parts: [
+              {
+                type: "tool:awaiting-input",
+                output: {
+                  question: clarificationQuestion,
+                  options: [
+                    chosenOption,
+                    "Gör en tydlig redesign i samma projekt",
+                    "Starta om från en ny grund",
+                  ],
+                  kind: "scope",
+                  blocking: true,
+                  reason: "followup_redesign_ambiguous",
+                  awaitingInput: true,
+                  followUpClarification: true,
+                  sourceUserMessage: originalDetailedPrompt,
+                },
+              },
+            ],
+          },
+        ],
+      });
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>New edit</main>" } },
+          { event: "done", data: { promptTokens: 9, completionTokens: 15 } },
+        ]),
+      );
+      const freeTypedPrompt = "Byt hero-bilden till en elefant";
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: freeTypedPrompt }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(createGenerationPipeline).toHaveBeenCalledTimes(1);
+      const pipelinePrompt = (
+        createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string }
+      ).prompt;
+      // The free-typed message runs as its own prompt — no clarification-answer
+      // wrapper, no smuggled-in original request.
+      expect(pipelinePrompt).not.toContain("## Follow-up Scope Clarification Answer");
+      expect(pipelinePrompt).toContain(freeTypedPrompt);
+      expect(pipelinePrompt).not.toContain(originalDetailedPrompt);
+    });
+  });
+
   // ── OpenClaw prepared-prompt fast lane (delta-brief skip) ────────────────
   // A follow-up tagged `promptSource: "openclaw-prepared"` may skip the
   // clear-redesign delta-brief LLM pass — ONLY when the server act gate

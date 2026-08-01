@@ -42,7 +42,9 @@ import {
 import { resolveModelSelection } from "@/lib/models/selection";
 import { wrapStreamForPromptToDoneMetric } from "@/lib/observability/prompt-to-done-stream";
 import {
+  FOLLOW_UP_CLARIFICATION_ANSWER_HEADING,
   buildAwaitingClarificationStream,
+  collectFollowUpClarificationAnswer,
   persistFollowUpClarification,
   resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
@@ -243,6 +245,15 @@ export async function handleMessageStreamRequest(
         const metaPromptAssistMode = parsedMeta.promptAssistMode;
         const designReferences = summarizeDesignReferences(requestAttachments);
         const contractAnswerContext = collectConfirmedContractAnswers(engineChat.messages, message);
+        // Scope-clarification retry (prod chat e8bd3ba6): when the previous
+        // turn stopped on a follow-up scope clarification and the current
+        // message is one of its quick-reply options, recover the ORIGINAL
+        // detailed request — the option text alone must never become the
+        // whole generation prompt.
+        const followUpClarificationAnswer = collectFollowUpClarificationAnswer(
+          engineChat.messages,
+          message,
+        );
 
         if (metaAppProjectId && engineChat.project_id !== metaAppProjectId) {
           // IDOR guard: the caller can request a re-mapping to any
@@ -272,7 +283,11 @@ export async function handleMessageStreamRequest(
         }
 
         const promptOrchestration = orchestratePromptMessage({
-          message,
+          // On a consumed scope-clarification answer, orchestrate the ORIGINAL
+          // request so the follow-up wrapping below carries the user's detailed
+          // instructions as the "Requested Changes" body (the chosen option is
+          // re-attached in the clarification-answer wrapper further down).
+          message: followUpClarificationAnswer?.sourceUserMessage ?? message,
           buildMethod: metaBuildMethod,
           buildIntent: metaBuildIntent,
           isFirstPrompt: false,
@@ -416,16 +431,21 @@ export async function handleMessageStreamRequest(
 
         const skipIntentClassification =
           metaPromptSourcePreservePayload || metaPromptSourceTechnical;
-        // Contract-gate retries send a short answer as the current message.
-        // Classify intent against the original gated request so clear-redesign
-        // keeps its delta-brief/scaffold-unlock semantics on turn 2.
+        // Contract-gate retries and scope-clarification answers send a short
+        // reply as the current message. Classify intent against the original
+        // gated request so clear-redesign keeps its delta-brief/scaffold-unlock
+        // semantics on turn 2.
         const followUpIntentMessage =
           contractAnswerContext.currentReplyWasConsumed &&
           contractAnswerContext.consumedReplyContext?.sourceUserMessage
             ? contractAnswerContext.consumedReplyContext.sourceUserMessage
-            : message;
+            : (followUpClarificationAnswer?.sourceUserMessage ?? message);
+        // A consumed clarification answer must never stop the turn again with
+        // a new scope question — the user just answered one.
         const skipFollowUpClarification =
-          skipIntentClassification || contractAnswerContext.currentReplyWasConsumed;
+          skipIntentClassification ||
+          contractAnswerContext.currentReplyWasConsumed ||
+          followUpClarificationAnswer !== null;
         // Backoffice 2.0 fas 6: strategy-aware classification. Default
         // manifest config is "keyword", so this resolves to the exact same
         // deterministic result as before; only an explicit `small-llm` opt-in
@@ -612,6 +632,25 @@ export async function handleMessageStreamRequest(
               optimizedMessage,
             ].join("\n");
           }
+        }
+
+        if (followUpClarificationAnswer) {
+          // Mirror of the contract-answer wrapper: the trailing body is the
+          // ORIGINAL request (already orchestrated + follow-up-wrapped above),
+          // so the LLM sees both the detailed instructions and the chosen
+          // scope option.
+          optimizedMessage = wrapWithSection({
+            heading: FOLLOW_UP_CLARIFICATION_ANSWER_HEADING,
+            introLines: [
+              "The user is answering the previous scope clarification question about their follow-up request.",
+              `Question: ${followUpClarificationAnswer.question}`,
+              `Answer: ${followUpClarificationAnswer.answer}`,
+              "",
+              "Apply the user's original request below with this confirmed scope. Do not ask the same clarification again.",
+            ],
+            divider: true,
+            trailingBody: optimizedMessage,
+          });
         }
 
         optimizedMessage = await appendHydratedTextAttachmentExcerpts(

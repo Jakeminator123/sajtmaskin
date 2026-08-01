@@ -4,6 +4,7 @@ import { formatSSEEvent } from "@/lib/streaming";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import { hasNegatedRedesignIntent } from "@/lib/builder/prompt-negation";
 import { type FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
+import type { Message } from "@/lib/db/chat-repository-pg";
 
 export type { FollowUpIntentMode };
 
@@ -376,11 +377,107 @@ export async function persistFollowUpClarification(params: {
         blocking: true,
         reason: clarification.reason,
         awaitingInput: true,
+        // Machine-readable retry marker (prod chat e8bd3ba6): the next turn's
+        // collectFollowUpClarificationAnswer() recovers the ORIGINAL follow-up
+        // prompt when the user answers with a quick-reply option — otherwise
+        // the short option text becomes the whole generation prompt.
+        // Deliberately NOT `contractClarification` (would be consumed by
+        // collectConfirmedContractAnswers) and NOT `f3Continuation` — same
+        // marker discipline as buildF3AwaitingInputUiPart.
+        followUpClarification: true,
+        sourceUserMessage: message,
       },
     }]);
   } catch {
     // Best effort persistence only.
   }
+}
+
+/**
+ * Heading for the wrapped retry prompt once a follow-up scope clarification
+ * has been answered. Lives next to the clarification contract it belongs to;
+ * deliberately distinct from `PROMPT_WRAPPER_HEADINGS.contractClarificationAnswer`
+ * so the two clarification flows stay tellable-apart in prompt dumps.
+ */
+export const FOLLOW_UP_CLARIFICATION_ANSWER_HEADING =
+  "## Follow-up Scope Clarification Answer";
+
+export type FollowUpClarificationAnswerContext = {
+  /** The original detailed follow-up request that triggered the clarification. */
+  sourceUserMessage: string;
+  question: string;
+  /** The quick-reply option the user chose. */
+  answer: string;
+  consumed: true;
+};
+
+function readFollowUpClarificationMarker(
+  message: Pick<Message, "ui_parts">,
+): { question: string; options: string[]; sourceUserMessage: string } | null {
+  const parts = Array.isArray(message.ui_parts) ? message.ui_parts : [];
+  for (const part of parts) {
+    if (!part || typeof part !== "object") continue;
+    if ((part as { type?: unknown }).type !== "tool:awaiting-input") continue;
+    const output = (part as { output?: unknown }).output;
+    if (!output || typeof output !== "object") continue;
+    const record = output as Record<string, unknown>;
+    if (record.followUpClarification !== true) continue;
+    const question =
+      typeof record.question === "string" ? record.question.trim() : "";
+    const sourceUserMessage =
+      typeof record.sourceUserMessage === "string"
+        ? record.sourceUserMessage.trim()
+        : "";
+    const options = Array.isArray(record.options)
+      ? record.options
+          .map((option) => (typeof option === "string" ? option.trim() : ""))
+          .filter(Boolean)
+      : [];
+    if (!question || !sourceUserMessage || options.length === 0) continue;
+    return { question, options, sourceUserMessage };
+  }
+  return null;
+}
+
+/**
+ * Mirror of `collectConfirmedContractAnswers` for follow-up SCOPE
+ * clarifications ({@link persistFollowUpClarification}). Finds the latest
+ * assistant message carrying the `followUpClarification` marker with no user
+ * message after it (same pending semantics as `getLatestPendingReply` /
+ * `hasUserMessageAfter` in BuilderMessageTooling), and treats `currentReply`
+ * as the clarification answer ONLY when it matches one of the persisted
+ * options (trimmed, case-insensitive — the client sends the option verbatim).
+ * A free-typed different reply is a NEW prompt and must not be consumed.
+ */
+export function collectFollowUpClarificationAnswer(
+  messages: Array<Pick<Message, "role" | "content" | "ui_parts">>,
+  currentReply?: string | null,
+): FollowUpClarificationAnswerContext | null {
+  const reply = typeof currentReply === "string" ? currentReply.trim() : "";
+  if (!reply) return null;
+  if (!Array.isArray(messages)) return null;
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message) continue;
+    // A user message after the clarification means the question was already
+    // answered (or superseded) in an earlier turn — nothing pending.
+    if (message.role === "user") return null;
+    if (message.role !== "assistant") continue;
+    const marker = readFollowUpClarificationMarker(message);
+    if (!marker) continue;
+    const matchedOption = marker.options.find(
+      (option) => option.toLowerCase() === reply.toLowerCase(),
+    );
+    if (!matchedOption) return null;
+    return {
+      sourceUserMessage: marker.sourceUserMessage,
+      question: marker.question,
+      answer: matchedOption,
+      consumed: true,
+    };
+  }
+  return null;
 }
 
 export function buildAwaitingClarificationStream(params: {

@@ -6,7 +6,9 @@ import { deriveBuildSpec } from "@/lib/gen/build-spec";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import {
   classifyFollowUpIntent,
+  collectFollowUpClarificationAnswer,
   hasDesignFollowUpSignal,
+  persistFollowUpClarification,
   resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
 } from "./follow-up-clarification";
@@ -444,5 +446,163 @@ describe("follow-up signal regression matrix (3D / game / refine / modify)", () 
     expect(detection.capabilityIds).toContain("visual-3d");
     expect(detection.referencesExistingCapability).toBe(true);
     expect(detection.modifyReferenceMatches).toContain("pricken");
+  });
+});
+
+// Prod chat e8bd3ba6: the quick-reply answer to a follow-up scope
+// clarification became the WHOLE next prompt — the user's original detailed
+// follow-up was thrown away. The collector below recovers it from the
+// persisted `followUpClarification` marker.
+describe("collectFollowUpClarificationAnswer", () => {
+  const originalPrompt =
+    "Kan du fixa felet där sidan laddas om två gånger vid start? Det känns som ett hydration-problem i Next.js som behöver åtgärdas ordentligt.";
+  const question = "Vad vill du att jag fokuserar på i nästa ändring?";
+  const options = [
+    "Layout och design",
+    "Text och innehåll",
+    "Ny sektion eller sida",
+    "Tydlig redesign",
+  ];
+
+  function buildMarkerMessages() {
+    return [
+      { role: "user" as const, content: originalPrompt, ui_parts: null },
+      {
+        role: "assistant" as const,
+        content: question,
+        ui_parts: [
+          {
+            type: "tool:awaiting-input",
+            toolName: "Klargörande fråga",
+            state: "approval-requested",
+            output: {
+              question,
+              options,
+              kind: "scope",
+              blocking: true,
+              reason: "followup_edit_underspecified",
+              awaitingInput: true,
+              followUpClarification: true,
+              sourceUserMessage: originalPrompt,
+            },
+          },
+        ],
+      },
+    ];
+  }
+
+  it("consumes a quick-reply option and returns the original source prompt", () => {
+    const result = collectFollowUpClarificationAnswer(
+      buildMarkerMessages(),
+      "Layout och design",
+    );
+
+    expect(result).toEqual({
+      sourceUserMessage: originalPrompt,
+      question,
+      answer: "Layout och design",
+      consumed: true,
+    });
+  });
+
+  it("matches options with trimming and case-insensitivity (client sends verbatim)", () => {
+    const result = collectFollowUpClarificationAnswer(
+      buildMarkerMessages(),
+      "  tydlig redesign  ",
+    );
+
+    expect(result?.answer).toBe("Tydlig redesign");
+    expect(result?.sourceUserMessage).toBe(originalPrompt);
+  });
+
+  it("does NOT consume a free-typed reply that is not one of the options (new prompt)", () => {
+    expect(
+      collectFollowUpClarificationAnswer(
+        buildMarkerMessages(),
+        "Gör hero-sektionen större och byt bakgrundsbilden",
+      ),
+    ).toBeNull();
+  });
+
+  it("does NOT consume when a later user message already answered the question", () => {
+    const messages = [
+      ...buildMarkerMessages(),
+      { role: "user" as const, content: "Layout och design", ui_parts: null },
+      { role: "assistant" as const, content: "Klart!", ui_parts: null },
+    ];
+
+    expect(
+      collectFollowUpClarificationAnswer(messages, "Layout och design"),
+    ).toBeNull();
+  });
+
+  it("ignores contract-clarification markers (separate flow)", () => {
+    const messages = [
+      { role: "user" as const, content: originalPrompt, ui_parts: null },
+      {
+        role: "assistant" as const,
+        content: "Vilken auth?",
+        ui_parts: [
+          {
+            type: "tool:awaiting-input",
+            output: {
+              contractClarification: true,
+              kind: "auth",
+              question: "Vilken auth?",
+              options: ["Ingen auth ännu", "Clerk"],
+              blocking: true,
+              reason: "auth",
+            },
+          },
+        ],
+      },
+    ];
+
+    expect(
+      collectFollowUpClarificationAnswer(messages, "Ingen auth ännu"),
+    ).toBeNull();
+  });
+
+  it("returns null for an empty current reply", () => {
+    expect(collectFollowUpClarificationAnswer(buildMarkerMessages(), "")).toBeNull();
+    expect(collectFollowUpClarificationAnswer(buildMarkerMessages(), null)).toBeNull();
+  });
+
+  it("roundtrips: persistFollowUpClarification writes a marker the collector can consume", async () => {
+    const clarification = resolveFollowUpClarification("Kan du förbättra den lite?");
+    expect(clarification).not.toBeNull();
+
+    const persisted: Array<{
+      role: string;
+      content: string;
+      uiParts?: Array<Record<string, unknown>>;
+    }> = [];
+    await persistFollowUpClarification({
+      chatId: "chat_1",
+      message: originalPrompt,
+      clarification: clarification!,
+      addMessage: async (_chatId, role, content, _parent, uiParts) => {
+        persisted.push({ role, content, uiParts });
+        return null;
+      },
+    });
+
+    expect(persisted).toHaveLength(2);
+    const messages = persisted.map((entry) => ({
+      role: entry.role as "user" | "assistant",
+      content: entry.content,
+      ui_parts: entry.uiParts ?? null,
+    }));
+    const result = collectFollowUpClarificationAnswer(
+      messages,
+      clarification!.options[0],
+    );
+
+    expect(result).toEqual({
+      sourceUserMessage: originalPrompt,
+      question: clarification!.question,
+      answer: clarification!.options[0],
+      consumed: true,
+    });
   });
 });
