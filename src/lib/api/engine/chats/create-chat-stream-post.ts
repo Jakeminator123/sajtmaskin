@@ -842,11 +842,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         }
         if (contractClarification) {
           const contractGateDbStartedAt = Date.now();
+          // No scaffold id on the gate-only exit: the match was made on an
+          // INCOMPLETE prompt, and a pinned `scaffold_id` would make the
+          // answering turn read it as `persistedScaffoldId` and skip the
+          // rematch — the first, unfinished guess would stick for the whole
+          // chat. The scaffold is persisted first when a round actually
+          // generates (own-engine path below / `codegen-turn.ts`).
           const engineChat = await chatRepo.createChat(
             projectIdForChat,
             engineModel,
-            undefined,
-            resolvedScaffold?.id,
           );
           await chatRepo.addMessage(engineChat.id, "user", message);
           setLlmUsageContext({ chatId: engineChat.id });

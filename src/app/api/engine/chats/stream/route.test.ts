@@ -865,6 +865,83 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
   });
 
+  // M#gs2: the gate matched on an INCOMPLETE prompt. Pinning that match on the
+  // chat row would make the answering turn read it as `persistedScaffoldId` and
+  // skip the rematch, so the unfinished guess would stick for the whole chat.
+  it("does NOT pin the scaffold on the chat when the create/init contract gate aborts the round", async () => {
+    buildContractClarificationQuestion.mockReturnValueOnce({
+      kind: "auth",
+      question: "Vilken autentisering ska vi bygga mot innan vi går vidare?",
+      options: ["Ingen auth ännu", "Clerk"],
+      blocking: true,
+      reason: "Auth krävs men provider är inte vald ännu.",
+    });
+    createPreGenerationContractGateReadableStream.mockReturnValueOnce(
+      buildPipelineStream([{ event: "done", data: {} }]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Bygg en medlemssajt med inloggning." }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(createChat).toHaveBeenCalledTimes(1);
+    const [projectIdArg, modelArg, , scaffoldIdArg] = createChat.mock.calls[0] ?? [];
+    expect(projectIdArg).toBe("app_proj_1");
+    expect(modelArg).toBe("gpt-5.4");
+    expect(scaffoldIdArg ?? null).toBeNull();
+    // The provisional match is still reported on the gate stream (timeline
+    // observability) — it is just not written to the chat row.
+    expect(createPreGenerationContractGateReadableStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resolvedScaffold: expect.objectContaining({ id: "scaffold_1" }),
+      }),
+    );
+  });
+
+  it("pins the scaffold on the chat when the create/init round actually generates", async () => {
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Pinned scaffold</main>" } },
+        { event: "done", data: {} },
+      ]),
+    );
+    finalizeOrHandleEmptyGeneration.mockResolvedValue({
+      version: { id: "ver_pin" },
+      messageId: "msg_pin",
+      previewUrl: null,
+      preflight: {
+        previewBlocked: false,
+        verificationBlocked: false,
+        previewBlockingReason: null,
+      },
+      contentForVersion: "<main>Pinned scaffold</main>",
+      rejectedShrinks: [],
+      rejectedStructural: [],
+      crossFileStubs: [],
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Bygg en enkel landningssida." }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(createChat).toHaveBeenCalledWith(
+      "app_proj_1",
+      "gpt-5.4",
+      "SYSTEM",
+      "scaffold_1",
+    );
+  });
+
   it("returns awaiting-input done output for tool-only empty generations", async () => {
     createGenerationPipeline.mockReturnValue(
       buildPipelineStream([

@@ -382,11 +382,26 @@ function packageCacheEnv() {
   };
 }
 
+/**
+ * Cache-pekande variabler som MÅSTE landa på volymen.
+ *
+ * Vilket värde som helst utanför datakatalogen återskapar exakt den bugg
+ * `PACKAGE_CACHE_DIR` finns för att stänga.
+ */
+const CACHE_ENV_KEYS = new Set(Object.keys(packageCacheEnv()));
+
+/** Ligger `value` inuti datakatalogen (och inte bara i en syskonmapp med samma prefix)? */
+function isInsideDataDir(value) {
+  if (typeof value !== "string" || !value.trim()) return false;
+  const dataDir = path.resolve(getDataDir());
+  const resolved = path.resolve(value.trim());
+  return resolved === dataDir || resolved.startsWith(dataDir + path.sep);
+}
+
 function sanitizedEnv(overrides = {}) {
   const out = {};
   // Keep every package manager's cache on the mounted volume (see
-  // PACKAGE_CACHE_DIR). Set before the allowlist copy so an explicitly
-  // provided NPM_CONFIG_CACHE in the host env still wins.
+  // PACKAGE_CACHE_DIR).
   Object.assign(out, packageCacheEnv());
   // pnpm 10+/11 blocks dependency build scripts by default (strictDepBuilds),
   // so `pnpm install` exits non-zero with ERR_PNPM_IGNORED_BUILDS for any
@@ -402,6 +417,21 @@ function sanitizedEnv(overrides = {}) {
       ENV_ALLOWLIST.has(key) ||
       ENV_ALLOWLIST_PREFIXES.some((prefix) => key.startsWith(prefix))
     ) {
+      // En ärvd cache-variabel får inte flytta cachen av volymen. Den var
+      // tidigare tillåten att vinna över `packageCacheEnv()`, vilket gör hela
+      // fixen ovan verkningslös: `NPM_CONFIG_CACHE=/root/.npm` i host-miljön
+      // (npm:s egen default, lätt att ärva från en basbild eller ett
+      // `fly secrets`-misstag) lägger tillbaka varje tarball på den efemära
+      // rootfs:en. Janitorn städar bara datakatalogen, så disken fylls tyst
+      // tills varje `npm install` dör med ENOSPC — medan volymen har gott om
+      // plats. Ett värde inuti volymen respekteras fortfarande; allt annat
+      // ignoreras till förmån för den beräknade sökvägen.
+      if (CACHE_ENV_KEYS.has(key) && !isInsideDataDir(value)) {
+        console.warn(
+          `[runtime] Ignoring ${key}=${value} — cache must live under ${getDataDir()}; using ${out[key]}`,
+        );
+        continue;
+      }
       out[key] = value;
     }
   }
