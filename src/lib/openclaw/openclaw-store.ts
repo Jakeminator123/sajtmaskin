@@ -7,6 +7,10 @@ export interface OpenClawMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  /** Builder-mål (chatt + version) som var aktivt när turen SKICKADES — dvs.
+   * den kontext modellen faktiskt såg. Quick-edit-kortet binder sina ops hit
+   * så ett förslag aldrig tyst appliceras mot en annan version (Bugbot). */
+  builderTarget?: { chatId: string; versionId: string } | null;
 }
 
 interface OpenClawState {

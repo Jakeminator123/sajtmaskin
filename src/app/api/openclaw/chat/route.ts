@@ -11,6 +11,7 @@ import {
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
+import { buildOpenClawPreviewLogBlock } from "@/lib/openclaw/preview-log-context";
 import { resolveReviewReasoningEffort, DEFAULT_DEBUG_EFFORT } from "@/lib/openclaw/review-tuning";
 import {
   buildOpenClawRepoContextBlock,
@@ -127,7 +128,7 @@ Håll dig till kort, tydlig vägledning. Använd bara djup kodgranskning när an
 function buildDebugSystemPrompt(): string {
   return `Internt läge: DEBUG (OC_DEBUG på).
 
-Du har nu utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.`;
+Du har nu utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]), händelseloggen från förhandsvisningens VM ([PREVIEW-LOGG]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.`;
 }
 
 /**
@@ -154,7 +155,18 @@ Armerad autonomi (gör detta först efter att användaren uttryckligen ber om de
 - Skicka EN follow-up i taget, vänta in resultatet, läs fynden och välj nästa suspekta steg. Respektera mandatets antal. Om användaren skriver "stopp" – sluta omedelbart och skicka inga fler.
 - "submit":true respekteras bara i redigeringsläge med ett aktivt mandat; annars fylls fältet men skickas inte.
 - Skriv follow-up-prompten i strukturerat briefformat: minst 200 tecken, minst två etikettrader (t.ex. "Mål:", "Sektioner:", "Design:") och minst tre punktrader ("- ..."). Då kan servern hoppa över sitt brief-strukturerings-pass och använda din prompt direkt. Exempel på value: "Gör om hero-sektionen.\\n\\nMål:\\n- <effekt>\\n\\nSektioner:\\n- <sektion + innehåll>\\n- <sektion + innehåll>\\n\\nDesign:\\n- <stil/tema>"
-- Alla ändringar går genom builderns vanliga flöde (samma send-knapp som användaren) — du skriver aldrig filer direkt.`;
+- Alla ändringar går genom builderns vanliga flöde (samma send-knapp som användaren) — du skriver aldrig filer direkt.
+
+Exakta småändringar (apply_quick_edit):
+- När användaren uttryckligen ber om en LITEN, EXAKT ändring i den genererade sajten (byt en text, justera en rad, ta bort en fil) får du föreslå den med exakt ett action-block sist i svaret:
+<openclaw-action>
+{"type":"apply_quick_edit","label":"Kort etikett","reason":"Kort motivering","ops":[{"kind":"replace_text","path":"app/page.tsx","find":"Exakt befintlig text","replace":"Ny text"}]}
+</openclaw-action>
+- Tillåtna op-typer: "replace_content" (path + content: ersätt hela filens innehåll), "replace_text" (path + find + replace + valfri occurrence: ersätt exakt textförekomst) och "delete_file" (path: ta bort fil). Inga andra.
+- Max 5 ops per förslag. Sökvägar är relativa (t.ex. "app/page.tsx"), aldrig med "..". Använd bara filer och exakta textstycken du faktiskt ser i kodkontexten — gissa aldrig innehåll.
+- Endast små, exakta ändringar i BEFINTLIGA filer. ALDRIG package.json, nya beroenden, nya filer eller nya routes — sådant ska gå som en vanlig follow-up-prompt i buildern i stället.
+- Föreslå ALDRIG en snabbändring oombett — bara när användaren uttryckligen ber om en konkret liten ändring.
+- Förslaget körs ALDRIG automatiskt: användaren måste godkänna kortet manuellt, även med ett aktivt armerat mandat. Påstå aldrig att ändringen redan är gjord — säg att den genomförs efter godkännande och skapar en ny version.`;
 }
 
 const OPENCLAW_DEBUG_FINDINGS_MAX = 12;
@@ -317,6 +329,21 @@ export async function POST(req: NextRequest) {
             ).catch(() => null);
             if (debugBlock) {
               messages.push({ role: "system", content: debugBlock });
+            }
+
+            // Debug-mode: attach the preview-host (Fly VM) event log for the
+            // chat's active preview session, keyed by the OWNERSHIP-VERIFIED
+            // chat id (scopedVersion above proves the requester owns it). The
+            // reviewed version id is passed so the block warns when the
+            // session is pinned to ANOTHER version than the one under review
+            // (Bugbot). Fail-soft + bounded — no session / host error just
+            // omits the block.
+            const previewLogBlock = await buildOpenClawPreviewLogBlock(
+              reviewChatId as string,
+              { reviewedVersionId: scopedVersion.version.id },
+            ).catch(() => null);
+            if (previewLogBlock) {
+              messages.push({ role: "system", content: previewLogBlock });
             }
           }
         }

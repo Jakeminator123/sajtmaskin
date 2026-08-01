@@ -61,6 +61,21 @@ function countLines(content: string): number {
   return content.split("\n").length;
 }
 
+const BINARY_PATH_RE =
+  /(?:^|\/)(?:favicon\.ico|.+\.(?:ico|png|jpe?g|gif|webp|bmp|woff2?|ttf|eot|mp4|webm|pdf|zip|gz))$/i;
+
+/**
+ * Files that must never consume a Current File Contents slot (binary /
+ * base64 blobs / favicon). They may still appear in the file table summary.
+ */
+export function isNonTextContentFile(file: Pick<CodeFile, "path" | "content" | "language">): boolean {
+  if (file.language === "binary") return true;
+  const content = file.content ?? "";
+  if (content.startsWith("base64:")) return true;
+  if (BINARY_PATH_RE.test(file.path.replace(/\\/g, "/"))) return true;
+  return false;
+}
+
 function scoreFilePriority(path: string): number {
   // Imported repos (v0-templates / ZIP imports) often keep the app under
   // `src/` — score those files as if the prefix weren't there so the home
@@ -85,6 +100,8 @@ function buildContentSections(files: CodeFile[], maxChars: number): string {
   let current = sections.join("\n");
 
   for (const file of files) {
+    if (isNonTextContentFile(file)) continue;
+
     const block = [
       `### ${file.path}`,
       "",
@@ -183,17 +200,21 @@ export function buildFileContext(options: FileContextOptions): FileContext {
     for (const path of pinnedFiles) {
       if (seenPaths.has(path)) continue;
       const match = filesByPath.get(path);
-      if (!match) continue;
+      if (!match || isNonTextContentFile(match)) continue;
       pinnedSelection.push(match);
       seenPaths.add(path);
     }
     const remaining = [...files]
-      .filter((f) => !seenPaths.has(f.path))
+      .filter((f) => !seenPaths.has(f.path) && !isNonTextContentFile(f))
       .sort(compareByPriority);
-    const sliceLimit = Math.max(1, maxFilesWithContent, pinnedSelection.length);
-    const prioritizedFiles = [...pinnedSelection, ...remaining].slice(0, sliceLimit);
+    // Fill up to maxFilesWithContent text slots; pinned text files always fit.
+    const textSlotBudget = Math.max(0, maxFilesWithContent);
+    const prioritizedFiles = [
+      ...pinnedSelection,
+      ...remaining.slice(0, Math.max(0, textSlotBudget - pinnedSelection.length)),
+    ];
     const contentBudget = maxChars - summary.length - 2;
-    if (contentBudget > 300) {
+    if (contentBudget > 300 && prioritizedFiles.length > 0) {
       const contentSections = buildContentSections(prioritizedFiles, contentBudget);
       if (contentSections) {
         summary = `${summary}\n\n${contentSections}`;

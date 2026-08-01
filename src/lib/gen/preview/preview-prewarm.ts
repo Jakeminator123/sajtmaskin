@@ -1,7 +1,9 @@
 import { FEATURES } from "@/lib/config";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 import { startPreviewHostSession } from "@/lib/gen/preview/preview-host-client";
-import { buildCompleteProject } from "@/lib/gen/export/project-scaffold";
+import { buildCompleteProject, mergePackageJsonWithBaseline } from "@/lib/gen/export/project-scaffold";
+import { runDepCompleter } from "@/lib/gen/autofix/dep-completer";
+import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
 import type { CodeFile } from "@/lib/gen/parser";
 import { getClientId } from "@/lib/rateLimit";
 import { createHmac } from "node:crypto";
@@ -12,23 +14,36 @@ import { createHmac } from "node:crypto";
  * A brand-new chat's first generation has a COLD preview workspace on the Fly
  * VM, so its first preview boot pays the full `npm install` cost after the LLM
  * has already finished. This module fires a fire-and-forget preview-host boot
- * with the baseline scaffold skeleton at the START of generation, so:
+ * with a scaffold-aware skeleton at the START of generation, so:
  *   1. a sleeping Fly machine wakes up, and
  *   2. `npm install` runs on the VM while the LLM is still streaming.
  *
- * Most generated sites keep the FIXED baseline dependency set
- * (`project-scaffold.ts` PACKAGE_JSON). When the finalize `package.json`
- * (+ any lockfile) is byte-identical to the baseline the prewarm installed,
- * the finalize boot reuses the warm `node_modules` and SKIPS install
+ * Both call sites (`create-chat-stream-post.ts`, `codegen-turn.ts`) fire AFTER
+ * orchestration has resolved, so the selected `ScaffoldId` is already known.
+ * The skeleton's `package.json` is built the SAME way the finalize path builds
+ * its own (`mergePackageJsonWithBaseline` in `project-scaffold.ts`): baseline
+ * deps + whatever `runDepCompleter` detects by scanning code for third-party
+ * imports. The only difference is the code scanned — finalize scans the
+ * model's ACTUAL generated files; prewarm scans the SELECTED SCAFFOLD's own
+ * prompt-shaping files (`gen/scaffolds/<id>/files/`), the best proxy available
+ * before the LLM has produced anything (the model is heavily prompted with
+ * that exact content, so it frequently imports the same third-party packages).
+ * When the model additionally emits no `package.json` of its own, this makes
+ * the finalize `package.json` byte-identical to the one the prewarm installed,
+ * so the finalize boot reuses the warm `node_modules` and SKIPS install
  * (dependency-fingerprint match in `preview-host/src/runtime.js` — the
- * fingerprint hashes the package.json/lockfile bytes). This is BEST-EFFORT,
- * not guaranteed: if the dep-completer adds packages or the model emits a
- * different package.json, the fingerprint differs and install still runs at
- * finalize (the prewarm then mainly served to wake the VM). The
- * prewarm session is keyed by the real `chatId`, so the host reuses the same
- * workspace on the finalize `start`; the prewarm does NOT write the app-side
- * session pointer, so it does not itself surface a URL to the iframe (only the
- * finalize `preview-ready` sets it).
+ * fingerprint hashes the package.json/lockfile bytes; scaffolds ship no
+ * lockfile). This is BEST-EFFORT, not guaranteed: if the dep-completer adds
+ * packages the scaffold sample never imports, or the model emits a different
+ * package.json, the fingerprint still differs and a real install runs at
+ * finalize — but npm reuses most of the already-warm `node_modules`, so it is
+ * still faster than a fully cold install (the prewarm then mainly served to
+ * wake the VM). Without a resolved scaffold id (e.g. imported-repo follow-ups
+ * that never reach this call), the skeleton falls back to the fixed baseline
+ * dependency set exactly like before. The prewarm session is keyed by the real
+ * `chatId`, so the host reuses the same workspace on the finalize `start`; the
+ * prewarm does NOT write the app-side session pointer, so it does not itself
+ * surface a URL to the iframe (only the finalize `preview-ready` sets it).
  *
  * Everything here is best-effort: any failure is swallowed and simply means
  * the site boots the old way (full install after generation). Gated behind
@@ -120,7 +135,29 @@ export function __resetPreviewPrewarmStateForTests(): void {
   prewarmRateLimitUntilByChat.clear();
 }
 
-function skeletonFilesJson(): Record<string, string> {
+/**
+ * Best-effort dependency-fingerprint alignment: scan the SELECTED scaffold's
+ * own prompt-shaping files for third-party imports (`runDepCompleter`, the
+ * same scanner the finalize path runs over the model's actual output) and
+ * merge them onto the baseline `package.json` exactly like
+ * `buildCompleteProject` does when the model emits no `package.json` of its
+ * own (`mergePackageJsonWithBaseline({}, detected)`). Returns `null` for an
+ * unknown/missing scaffold id so the caller keeps the fixed baseline
+ * `package.json` unchanged. Never throws — callers already run inside the
+ * best-effort `try` in {@link prewarmPreviewSession}.
+ */
+function scaffoldAwarePackageJson(scaffoldId?: string | null): string | null {
+  const id = scaffoldId?.trim();
+  if (!id) return null;
+  const scaffold = getScaffoldById(id);
+  if (!scaffold || scaffold.files.length === 0) return null;
+  const allCode = scaffold.files.map((file) => file.content).join("\n");
+  const detected = runDepCompleter(allCode);
+  const merged = mergePackageJsonWithBaseline({}, detected);
+  return JSON.stringify(merged, null, 2);
+}
+
+function skeletonFilesJson(scaffoldId?: string | null): Record<string, string> {
   const skeleton: CodeFile[] = buildCompleteProject([]);
   const filesJson: Record<string, string> = {};
   for (const file of skeleton) {
@@ -128,6 +165,10 @@ function skeletonFilesJson(): Record<string, string> {
   }
   if (!filesJson["app/page.tsx"]) {
     filesJson["app/page.tsx"] = PREWARM_PLACEHOLDER_PAGE;
+  }
+  const scaffoldPackageJson = scaffoldAwarePackageJson(scaffoldId);
+  if (scaffoldPackageJson) {
+    filesJson["package.json"] = scaffoldPackageJson;
   }
   return filesJson;
 }
@@ -140,10 +181,15 @@ function skeletonFilesJson(): Record<string, string> {
  *
  * IMPORTANT: only call this for NEW chats (no existing versions). Follow-ups
  * already have a warm workspace, so prewarming them is wasted work.
+ *
+ * `options.scaffoldId` is the `ScaffoldId` orchestration already resolved for
+ * this generation (`orchestrationBase.resolvedScaffold?.id`) — both call
+ * sites fire after orchestration, so it is available. Optional/unknown ids
+ * fall back to the fixed baseline dependency set (see module doc comment).
  */
 export async function prewarmPreviewSession(
   chatId: string,
-  options?: { leaseKey?: string | null },
+  options?: { leaseKey?: string | null; scaffoldId?: string | null },
 ): Promise<PreviewPrewarmResult> {
   if (!FEATURES.previewPrewarm) return { started: false, reason: "flag_off" };
   if (!chatId) return { started: false, reason: "no_chat" };
@@ -163,7 +209,7 @@ export async function prewarmPreviewSession(
   rememberPrewarmedChat(chatId);
 
   try {
-    const filesJson = skeletonFilesJson();
+    const filesJson = skeletonFilesJson(options?.scaffoldId);
     const res = await startPreviewHostSession({
       chatId,
       versionId: `${chatId}-prewarm`,

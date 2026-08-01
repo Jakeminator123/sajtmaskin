@@ -527,13 +527,19 @@ export async function runCodegenTurn(params: {
   // generation (e.g. after the create-path contract-gate). Fire-and-forget
   // + self-gating (flag / tier-2 / dedup). `hasFollowUpBase` is the
   // authoritative file-backed guard; even an inconsistent empty version
-  // list must not prewarm an established follow-up workspace.
+  // list must not prewarm an established follow-up workspace. Pass the
+  // scaffold orchestration already resolved above so the skeleton's
+  // `package.json` mirrors that scaffold's own dependencies instead of the
+  // generic baseline (higher fingerprint-hit rate at finalize).
   if (
     !hasFollowUpBase &&
     versionsQuerySucceeded &&
     existingVersionsForChat.length === 0
   ) {
-    void prewarmPreviewSession(chatId, { leaseKey: prewarmLeaseKey });
+    void prewarmPreviewSession(chatId, {
+      leaseKey: prewarmLeaseKey,
+      scaffoldId: resolvedScaffold?.id ?? null,
+    });
   }
   const engineStream = createOwnEnginePipelineAndGenerationStream({
     chatId,

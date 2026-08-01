@@ -89,3 +89,70 @@ describe("buildFileContext pinnedFiles (Fix A)", () => {
     expect(matches.length).toBe(1);
   });
 });
+
+describe("buildFileContext binary / favicon exclusion", () => {
+  it("keeps favicon/base64 in the file table but never in Current File Contents", () => {
+    const files: CodeFile[] = [
+      makeFile("app/page.tsx", "/* PAGE_CONTENT */"),
+      makeFile("app/layout.tsx", "/* LAYOUT_CONTENT */"),
+      {
+        path: "app/favicon.ico",
+        language: "binary",
+        content: "base64:AAAA" + "A".repeat(400),
+      },
+      {
+        path: "public/hero.png",
+        language: "binary",
+        content: "base64:BBBB" + "B".repeat(400),
+      },
+      makeFile("components/header.tsx", "/* HEADER_CONTENT */"),
+    ];
+
+    const ctx = buildFileContext({
+      files,
+      includeContents: true,
+      maxFilesWithContent: 6,
+      maxChars: 20_000,
+    });
+
+    expect(ctx.summary).toContain("| app/favicon.ico |");
+    expect(ctx.summary).toContain("| public/hero.png |");
+    expect(ctx.summary).toContain("## Current File Contents");
+    expect(ctx.summary).toContain("### app/page.tsx");
+    expect(ctx.summary).toContain("### components/header.tsx");
+    expect(ctx.summary).not.toContain("### app/favicon.ico");
+    expect(ctx.summary).not.toContain("### public/hero.png");
+    expect(ctx.summary).not.toContain("base64:AAAA");
+    expect(ctx.summary).not.toContain("base64:BBBB");
+  });
+
+  it("does not let a binary file consume a content slot under a tight cap", () => {
+    const files: CodeFile[] = [
+      {
+        path: "app/favicon.ico",
+        language: "binary",
+        content: "base64:FFFF",
+      },
+      makeFile("app/page.tsx", "/* PAGE_SLOT */"),
+      makeFile("app/layout.tsx", "/* LAYOUT_SLOT */"),
+      makeFile("components/a.tsx", "/* A_SLOT */"),
+      makeFile("components/b.tsx", "/* B_SLOT */"),
+      makeFile("components/c.tsx", "/* C_SLOT */"),
+      makeFile("components/d.tsx", "/* D_SLOT */"),
+      makeFile("components/e.tsx", "/* E_SLOT */"),
+    ];
+
+    const ctx = buildFileContext({
+      files,
+      includeContents: true,
+      maxFilesWithContent: 3,
+      maxChars: 20_000,
+    });
+
+    const contentSection = ctx.summary.split("## Current File Contents")[1] ?? "";
+    const contentHeaders = [...contentSection.matchAll(/^### (.+)$/gm)].map((m) => m[1]);
+    expect(contentHeaders).toHaveLength(3);
+    expect(contentHeaders).not.toContain("app/favicon.ico");
+    expect(contentHeaders[0]).toBe("app/page.tsx");
+  });
+});

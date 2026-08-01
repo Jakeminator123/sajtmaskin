@@ -56,18 +56,32 @@ similar past builds` i system-prompten för både init och follow-up när
 
 När `SAJTMASKIN_PREVIEW_PREWARM` är explicit aktiverad kan en ny chats första
 riktiga codegen-körning samtidigt väcka preview-hosten och starta en
-baseline-installation. Det är en best-effort latensoptimering, inte en
+installation. Det är en best-effort latensoptimering, inte en
 preview-klar-signal: ingen preview-URL eller app-side sessionpekare publiceras
 före finalize. Plan-mode, kontraktsklargörande och vanliga follow-ups hoppar över
-förvärmningen. Hosten accepterar prewarm endast för en oägd chat och en aktiv
-kanonisk rate-limit-subject-lease; sena prewarm-anrop kan därför aldrig nedgradera
-en riktig version. Lease-HMAC kräver konfigurerad preview-host API-nyckel; annars
-skippar appen optional prewarm. Skelettet hålls bakom hostens auto-refreshande
-HTTP-sida och alla WS-upgrades nekas tills riktig replacement passerat readiness.
-Misslyckat övertagande ger stabil 503 tills explicit retry; bootfel behåller
-lease-cooldown mot install-spray. Normal credit commit/refund ändras inte.
-Preview-host måste deployas och verifieras före appen; flaggan är default av och
-aktiveras inte av denna ändring. Se `docs/ENV.md` och
+förvärmningen. Skelettets `package.json` byggs numera scaffold-medvetet:
+orkestreringen har redan valt `ScaffoldId` innan prewarm anropas, så
+`prewarmPreviewSession` skannar den valda scaffoldens egna
+prompt-filer (`gen/scaffolds/<id>/files/`) med samma `mergePackageJsonWithBaseline`
++ dep-completer-mekanism som finalize-vägen kör över modellens riktiga output —
+samma dependency-källa, olika kod. Matchar modellens genererade kod scaffoldens
+importer (vanligt, då modellen prompt:as med exakt det innehållet) och emitterar
+modellen ingen egen `package.json`, blir finalize-filen byte-identisk med den
+prewarm installerade och hostens fingerprint-jämförelse (paket.json/lockfiles)
+träffar → installationen skippas. Vid mismatch (dep-completer eller modellen
+lägger till paket scaffolden inte importerar) körs en riktig install vid
+finalize, men npm återanvänder det redan varma `node_modules` — fortfarande en
+vinst. Utan känd scaffold-id faller skelettet tillbaka till den fasta baslinjen
+(oförändrat från tidigare). Hosten accepterar prewarm endast för en oägd chat
+och en aktiv kanonisk rate-limit-subject-lease; sena prewarm-anrop kan därför
+aldrig nedgradera en riktig version. Lease-HMAC kräver konfigurerad
+preview-host API-nyckel; annars skippar appen optional prewarm. Skelettet
+hålls bakom hostens auto-refreshande HTTP-sida och alla WS-upgrades nekas
+tills riktig replacement passerat readiness. Misslyckat övertagande ger
+stabil 503 tills explicit retry; bootfel behåller lease-cooldown mot
+install-spray. Normal credit commit/refund ändras inte. Preview-host måste
+deployas och verifieras före appen; flaggan är default av och aktiveras inte
+av denna ändring. Se `docs/ENV.md` och
 `docs/schemas/preview-session-contract.md`.
 
 Kodankare:
@@ -137,6 +151,20 @@ Typisk ordning i runtime:
 Viktig ordningsregel: Normalize, verifier och preflight ligger före persist.
 VM-gaten (RenderGate/ReleaseGate) ligger efter persist och arbetar på den
 sparade versionen.
+
+**Follow-up-preview: patch före full update.** Steg 10 för en follow-up (ny
+version på en levande session) bygger fortfarande hela update-payloaden, men
+försöker först Fast Edit Lane: appen hämtar hostens filmanifest
+(`GET /preview/session/:id/files-manifest`, sha256 per path), diffar payloaden mot
+det och skickar bara ändrade filer + `removedPaths` till
+`POST /preview/session/patch` — ingen omstart av Next dev. Patchen körs bara när
+hosten kör, servar exakt den basversion sessionspekaren påstår, och diffen är
+liten och saknar strukturella paths (`package.json`, lockfiles, `next.config.*`,
+`tsconfig*`, `.env*`, postcss/tailwind). Allt annat — inklusive uteblivet
+manifest från en äldre host — faller tillbaka till `POST /preview/session/update`
+med full payload och omstart, dvs. exakt tidigare beteende. Valet loggas som
+`kind=preview_followup_lane` (`lane=patch|update` + orsak). Kontrakt och
+fallback-tabell: [`../schemas/preview-session-contract.md`](../schemas/preview-session-contract.md).
 
 **Dossier-scopade env-artefakter:** under finalize genereras/uppdateras både
 projektets `env.example` och pipeline-ägda `.env.local` från valda dossiers
