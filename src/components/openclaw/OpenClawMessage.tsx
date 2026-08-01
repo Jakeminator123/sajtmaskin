@@ -25,6 +25,7 @@ import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
+import { OPENCLAW_BUILDER_CHAT_TARGET } from "@/lib/openclaw/prepared-prompt";
 import { useOpenClawStore, type OpenClawMessage as Msg } from "@/lib/openclaw/openclaw-store";
 import {
   consumeMandateStep,
@@ -42,6 +43,19 @@ import { useSmoothText } from "./useSmoothText";
  * auto-sent in this session, so each action auto-sends at most once.
  */
 const consumedArmedSends = new Set<string>();
+
+/**
+ * Record a successful builder-composer fill so the composer can tag an
+ * UNEDITED send of exactly this content as `promptSource: "openclaw-prepared"`
+ * (see `prepared-prompt.ts`). Only when the act gate (OC_EDIT → store
+ * `editEnabled`) is on — without it the fast-lane tag must never be set.
+ */
+function recordOpenClawPreparedFill(action: OpenClawFillTextFieldAction) {
+  const { editEnabled, setPreparedFill } = useOpenClawStore.getState();
+  if (!editEnabled) return;
+  if (action.target !== OPENCLAW_BUILDER_CHAT_TARGET) return;
+  setPreparedFill({ target: OPENCLAW_BUILDER_CHAT_TARGET, value: action.value });
+}
 
 export function OpenClawMessage({
   msg,
@@ -169,6 +183,7 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
       setActionError(result.error ?? "Kunde inte fylla fältet.");
       return;
     }
+    recordOpenClawPreparedFill(action);
     setActionState("approved");
     setActionError(null);
   };
@@ -326,6 +341,7 @@ function OpenClawArmedSendCard({
         setError(fill.error ?? "Kunde inte fylla fältet.");
         return;
       }
+      recordOpenClawPreparedFill(action);
       timer = setTimeout(trySend, 100);
     };
 

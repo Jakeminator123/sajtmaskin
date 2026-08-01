@@ -78,6 +78,13 @@ export async function runCodegenTurn(params: {
   metaEngineBaseVersionId: string | null;
   parsedMeta: ParsedChatRequestMeta;
   metaBrief: Record<string, unknown> | null;
+  /**
+   * `"structured_prompt"` when the clear-redesign delta-brief LLM pass was
+   * skipped by the OpenClaw prepared-prompt fast lane (see
+   * `delta-brief-phase.ts`). Surfaced as an additive `briefSkipReason` field
+   * on the existing `comm.request.followup` timeline event.
+   */
+  deltaBriefSkipReason: "structured_prompt" | null;
   hasPersistedBrief: boolean;
   resolvedModelId: CanonicalModelId;
   resolvedModelTier: CanonicalModelId;
@@ -132,6 +139,7 @@ export async function runCodegenTurn(params: {
     metaEngineBaseVersionId,
     parsedMeta,
     metaBrief,
+    deltaBriefSkipReason,
     hasPersistedBrief,
     resolvedModelId,
     resolvedModelTier,
@@ -422,6 +430,10 @@ export async function runCodegenTurn(params: {
     imageGenerations: resolvedImageGenerations,
     followUpIntent,
     baseVersionId: metaEngineBaseVersionId,
+    // OpenClaw prepared-prompt fast lane: additive skip marker on the
+    // EXISTING follow-up request event (no new signal surface) so the
+    // timeline shows that the delta-brief pass was skipped and why.
+    ...(deltaBriefSkipReason ? { briefSkipReason: deltaBriefSkipReason } : {}),
   });
   if (contractClarification) {
     const assistantQuestion = await chatRepo.addMessage(

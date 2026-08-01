@@ -154,6 +154,7 @@ Armerad autonomi (gör detta först efter att användaren uttryckligen ber om de
 </openclaw-action>
 - Skicka EN follow-up i taget, vänta in resultatet, läs fynden och välj nästa suspekta steg. Respektera mandatets antal. Om användaren skriver "stopp" – sluta omedelbart och skicka inga fler.
 - "submit":true respekteras bara i redigeringsläge med ett aktivt mandat; annars fylls fältet men skickas inte.
+- Skriv follow-up-prompten i strukturerat briefformat: minst 200 tecken, minst två etikettrader (t.ex. "Mål:", "Sektioner:", "Design:") och minst tre punktrader ("- ..."). Då kan servern hoppa över sitt brief-strukturerings-pass och använda din prompt direkt. Exempel på value: "Gör om hero-sektionen.\\n\\nMål:\\n- <effekt>\\n\\nSektioner:\\n- <sektion + innehåll>\\n- <sektion + innehåll>\\n\\nDesign:\\n- <stil/tema>"
 - Alla ändringar går genom builderns vanliga flöde (samma send-knapp som användaren) — du skriver aldrig filer direkt.
 
 Exakta småändringar (apply_quick_edit):

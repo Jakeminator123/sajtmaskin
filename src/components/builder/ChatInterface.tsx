@@ -37,6 +37,11 @@ import { type PromptSourceMeta } from "@/lib/builder/prompt-builder";
 import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import { buildInspectPointsPrompt } from "@/lib/builder/focus-point-prompt";
 import {
+  resolveOpenClawPreparedPromptSource,
+  type OpenClawPreparedPromptSource,
+} from "@/lib/openclaw/prepared-prompt";
+import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import {
   INSPECT_CAPTURE_EVENT,
   type InspectCapturedElement,
   type InspectCaptureEventDetail,
@@ -49,6 +54,8 @@ type MessageOptions = {
   attachmentPrompt?: string;
   planMode?: boolean;
   promptSourceMeta?: PromptSourceMeta;
+  /** OpenClaw prepared-prompt fast lane — see `prepared-prompt.ts`. */
+  promptSource?: OpenClawPreparedPromptSource;
 };
 
 type FigmaPreviewResponse = {
@@ -573,11 +580,26 @@ export function ChatInterface({
     try {
       const payload = await buildMessagePayload(baseMessage);
       if (!payload.finalMessage.trim()) return;
+      // OpenClaw prepared-prompt fast lane: tag a follow-up send whose FINAL
+      // message is exactly what OpenClaw filled into this composer (edit gate
+      // on, no user edits, no appended Figma/inspect blocks or attachments).
+      // Init sends never tag — the lane only skips the follow-up delta-brief.
+      const openClawState = useOpenClawStore.getState();
+      const openClawPromptSource = chatId
+        ? resolveOpenClawPreparedPromptSource({
+            editEnabled: openClawState.editEnabled,
+            preparedFill: openClawState.preparedFill,
+            message: payload.finalMessage,
+            hasAttachments: Boolean(payload.finalAttachments?.length),
+            attachmentPrompt: payload.attachmentPrompt,
+          })
+        : null;
       const msgOpts: MessageOptions = {
         attachments: payload.finalAttachments,
         attachmentPrompt: payload.attachmentPrompt,
         planMode: options.planMode,
         promptSourceMeta: options.promptSourceMeta,
+        promptSource: openClawPromptSource ?? undefined,
       };
       if (!chatId) {
         if (!onCreateChat) return;
@@ -594,6 +616,14 @@ export function ChatInterface({
         // i tråden i stället och utkastet rensas — annars finns den på två
         // ställen och ett omsänd kan dubblera turen (bugbot på #610).
         if (outcome.status === "rejected" && !outcome.turnRecorded) return;
+      }
+      // The fill was consumed by THIS send (tagged or not) — drop the marker
+      // unconditionally so a later send can't inherit it. Deliberately outside
+      // the clearDraft-branch (Bugbot): plan-läge skickar med clearDraft:false,
+      // och markören fick inte överleva dit — ett senare codegen-utskick med
+      // samma text ska ta normalvägen, inte ärva taggen.
+      if (openClawState.preparedFill) {
+        useOpenClawStore.getState().setPreparedFill(null);
       }
       if (options.clearDraft !== false) {
         setInput("");
