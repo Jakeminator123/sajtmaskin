@@ -5,6 +5,7 @@ const startPreviewHostSession = vi.hoisted(() => vi.fn());
 const destroyPreviewHostSession = vi.hoisted(() => vi.fn());
 const patchPreviewHostSession = vi.hoisted(() => vi.fn());
 const fetchPreviewHostFilesManifest = vi.hoisted(() => vi.fn());
+const fetchPreviewHostStatus = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const logPreviewLifecycleTelemetry = vi.hoisted(() => vi.fn());
 
@@ -19,6 +20,7 @@ vi.mock("@/lib/data/redis", () => ({
 vi.mock("@/lib/gen/preview/preview-host-client", () => ({
   destroyPreviewHostSession,
   fetchPreviewHostFilesManifest,
+  fetchPreviewHostStatus,
   patchPreviewHostSession,
   startPreviewHostSession,
   updatePreviewHostSession,
@@ -61,6 +63,7 @@ afterEach(() => {
   destroyPreviewHostSession.mockReset();
   patchPreviewHostSession.mockReset();
   fetchPreviewHostFilesManifest.mockReset();
+  fetchPreviewHostStatus.mockReset();
   buildCompleteProject.mockReset();
   logPreviewLifecycleTelemetry.mockReset();
 });
@@ -493,6 +496,8 @@ describe("startPreviewSession follow-up Fast Edit Lane", () => {
   it("falls back to a full update when the host did not pin the new versionId", async () => {
     const livePayload = await primeLiveSession("version-a", [file("app/page.tsx", PAGE_V1)]);
     mockManifest("version-a", livePayload);
+    // Host answered 200 but its session still reports the OLD version: the
+    // version binding is not guaranteed, so the full update must re-pin it.
     mockPatchOk("version-a");
     mockUpdateOk();
 
@@ -500,9 +505,70 @@ describe("startPreviewSession follow-up Fast Edit Lane", () => {
 
     expect(patchPreviewHostSession).toHaveBeenCalledOnce();
     expect(updatePreviewHostSession).toHaveBeenCalledOnce();
+    // The update path stays the authority for the binding: it sends the new
+    // version and it is what advances the app-side session pointer.
+    expect(updatePreviewHostSession.mock.calls[0]?.[0]?.versionId).toBe("version-b");
+    expect(getActivePreviewSession("chat-patch")?.versionId).toBe("version-b");
     expect(logPreviewLifecycleTelemetry).toHaveBeenCalledWith(
       expect.objectContaining({ lane: "update", reason: "host_version_not_recorded" }),
     );
+  });
+
+  // Version/revision binding: preview session + versionId + the revision that
+  // was actually patched must stay bound. A VM that never received the patch
+  // can never "approve" (report ready for) the new version.
+  it("resumes a patched version only while the host still reports that exact version", async () => {
+    const livePayload = await primeLiveSession("version-a", [file("app/page.tsx", PAGE_V1)]);
+    mockManifest("version-a", livePayload);
+    mockPatchOk("version-b");
+    await runFollowUp("version-b", [file("app/page.tsx", PAGE_V2)]);
+    expect(getActivePreviewSession("chat-patch")?.versionId).toBe("version-b");
+
+    // Reopen/bootstrap for the same version -> resume branch.
+    fetchPreviewHostStatus.mockResolvedValueOnce({
+      previewSessionId: "ps-live",
+      primaryUrl: PREVIEW_URL,
+    });
+    const reopened = await runFollowUp("version-b", [file("app/page.tsx", PAGE_V2)]);
+
+    expect(fetchPreviewHostStatus).toHaveBeenCalledWith("ps-live", {
+      expectedVersionId: "version-b",
+    });
+    expect(reopened.ok).toBe(true);
+    if (reopened.ok) {
+      expect(reopened.result.startOutcome).toBe("resumed");
+      expect(reopened.result.runtimeReady).toBe(true);
+    }
+    expect(startPreviewHostSession).not.toHaveBeenCalled();
+  });
+
+  it("never lets a stale VM approve the patched version — a mismatched host forces a rebuild", async () => {
+    const livePayload = await primeLiveSession("version-a", [file("app/page.tsx", PAGE_V1)]);
+    mockManifest("version-a", livePayload);
+    mockPatchOk("version-b");
+    await runFollowUp("version-b", [file("app/page.tsx", PAGE_V2)]);
+
+    // The host is serving some other revision, so the version-pinned status
+    // check returns null (see fetchPreviewHostStatus version pinning).
+    fetchPreviewHostStatus.mockResolvedValueOnce(null);
+    destroyPreviewHostSession.mockResolvedValueOnce({ ok: true, destroyed: true });
+    startPreviewHostSession.mockResolvedValueOnce({
+      ok: true,
+      previewSessionId: "ps-fresh",
+      previewUrl: PREVIEW_URL,
+      startOutcome: "recreated",
+    });
+
+    const reopened = await runFollowUp("version-b", [file("app/page.tsx", PAGE_V2)]);
+
+    expect(reopened.ok).toBe(true);
+    if (reopened.ok) {
+      // No stale "ready" receipt: the session is rebuilt instead of resumed.
+      expect(reopened.result.startOutcome).toBe("recreated");
+      expect(reopened.result.runtimeReady).toBe(false);
+    }
+    expect(destroyPreviewHostSession).toHaveBeenCalledWith({ previewSessionId: "ps-live" });
+    expect(startPreviewHostSession).toHaveBeenCalledOnce();
   });
 
   it("never touches the host manifest when the patch lane flag is off", async () => {
