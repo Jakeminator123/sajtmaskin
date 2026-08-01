@@ -343,6 +343,158 @@ export function Carousel() {
     expect(result.content).toContain("export function Carousel");
   });
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Prod chat 85f8db72 (frisörsalong, 2026-07-29): tre import-/symbolfel som
+  // repair-flödet skulle klara utan LLM men inte gjorde. F2 v1 föll på
+  // Resend-utan-import + type-only `sv` använd som värde; F3 v2 föll på
+  // TS2440 CircleDot (import vs lokal deklaration, använd i JSX ovanför).
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it("flips an inline `{ type sv }` specifier used as a value (TS1361, prod 85f8db72)", () => {
+    const f = "components/booking-form.tsx";
+    const content = file(
+      f,
+      `"use client";
+
+import { format, type sv } from "date-fns";
+
+export function BookingForm({ date }: { date: Date }) {
+  return <p>{format(date, "PPP", { locale: sv })}</p>;
+}`,
+    );
+    const result = runDeterministicImportRepair(content, [
+      diag(
+        f,
+        "'sv' cannot be used as a value because it was imported using 'import type'.",
+      ),
+    ]);
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS1361");
+    expect(result.content).toContain('import { format, sv } from "date-fns"');
+    expect(result.content).not.toContain("type sv");
+  });
+
+  it("flips a type-only import reported as TS2693 (type-only in the module's typings)", () => {
+    const f = "components/booking-form.tsx";
+    const content = file(
+      f,
+      `"use client";
+
+import { format } from "date-fns";
+import type { sv } from "date-fns/locale";
+
+export function BookingForm({ date }: { date: Date }) {
+  return <p>{format(date, "PPP", { locale: sv })}</p>;
+}`,
+    );
+    const result = runDeterministicImportRepair(content, [
+      diag(f, "'sv' only refers to a type, but is being used as a value here."),
+    ]);
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2693");
+    expect(result.handledCodes).not.toContain("TS1361");
+    expect(result.content).toContain('import { sv } from "date-fns/locale"');
+    expect(result.content).not.toContain("import type { sv }");
+  });
+
+  it("leaves a TS2693 without any type-only import for the LLM (local interface)", () => {
+    const f = "lib/models.ts";
+    const content = file(
+      f,
+      `interface Booking { id: string }
+
+export const b = new Booking();`,
+    );
+    const result = runDeterministicImportRepair(content, [
+      diag(f, "'Booking' only refers to a type, but is being used as a value here."),
+    ]);
+
+    expect(result.fixed).toBe(false);
+    expect(result.handledCodes).toEqual([]);
+    expect(result.content).toBe(content);
+  });
+
+  it("drops a compiler-confirmed import-vs-local conflict used in JSX above the declaration (TS2440, prod 85f8db72)", () => {
+    const f = "components/booking-form.tsx";
+    const content = file(
+      f,
+      `"use client";
+
+import { Calendar as CalendarIcon, Clock, Scissors, CircleDot } from "lucide-react";
+
+export function BookingForm() {
+  return (
+    <div>
+      <CircleDot className="h-4 w-4" />
+      <Clock />
+      <Scissors />
+      <CalendarIcon />
+    </div>
+  );
+}
+
+function CircleDot({ className }: { className?: string }) {
+  return <span className={className}>*</span>;
+}`,
+    );
+    const result = runDeterministicImportRepair(content, [
+      diag(f, "Import declaration conflicts with local declaration of 'CircleDot'."),
+    ]);
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2440");
+    expect(result.content).toContain(
+      'import { Calendar as CalendarIcon, Clock, Scissors } from "lucide-react"',
+    );
+    expect(result.content).toContain("function CircleDot");
+
+    // Idempotent: a second run on the fixed content changes nothing.
+    const again = runDeterministicImportRepair(result.content, [
+      diag(f, "Import declaration conflicts with local declaration of 'CircleDot'."),
+    ]);
+    expect(again.fixed).toBe(false);
+    expect(again.content).toBe(result.content);
+  });
+
+  it("leaves an ambiguous TS2440 (no detectable local value declaration) untouched", () => {
+    const f = "components/widget.tsx";
+    const content = file(
+      f,
+      `import { CircleDot } from "lucide-react";
+
+export function Widget({ CircleDot: dot }: { CircleDot?: string }) {
+  return <span>{dot}<CircleDot /></span>;
+}`,
+    );
+    const result = runDeterministicImportRepair(content, [
+      diag(f, "Import declaration conflicts with local declaration of 'CircleDot'."),
+    ]);
+
+    expect(result.fixed).toBe(false);
+    expect(result.handledCodes).toEqual([]);
+    expect(result.content).toBe(content);
+  });
+
+  it("drops an import colliding with a local TYPE only when the import is never value-used (TS2440)", () => {
+    const f = "components/vehicle.tsx";
+    const content = file(
+      f,
+      `import ShowcaseVehicle from "@/components/showcase-vehicle";
+
+export type ShowcaseVehicle = { make: string };`,
+    );
+    const result = runDeterministicImportRepair(content, [
+      diag(f, "Import declaration conflicts with local declaration of 'ShowcaseVehicle'."),
+    ]);
+
+    expect(result.fixed).toBe(true);
+    expect(result.handledCodes).toContain("TS2440");
+    expect(result.content).not.toContain('from "@/components/showcase-vehicle"');
+    expect(result.content).toContain("export type ShowcaseVehicle");
+  });
+
   it("dedupes a duplicate identifier import (TS2300)", () => {
     const f = "components/star-row.tsx";
     const content = file(

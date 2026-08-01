@@ -380,3 +380,87 @@ export function render(Icon: () => string) {
     expect(result.code).toContain('import { Badge } from "@/components/ui/badge";');
   });
 });
+
+// Inline-specifier-formen (prod chat 85f8db72, 2026-07-29): booking-form
+// type-only-importerade `sv` och använde det som `locale:`-värde. Bara
+// statement-formen (`import type { … }`) täcktes, så reparationen gav upp.
+describe("fixValueUsedFromTypeImport — inline `{ type X }`-specifier", () => {
+  const INLINE_TYPE_VALUE_CASE = `"use client";
+
+import { format, type sv } from "date-fns";
+
+export function BookingForm({ date }: { date: Date }) {
+  return <p>{format(date, "PPP", { locale: sv })}</p>;
+}
+`;
+
+  const INLINE_TYPE_ONLY_CASE = `import { useState, type FC } from "react";
+
+export const Page: FC = () => {
+  const [n] = useState(0);
+  return <span>{n}</span>;
+};
+`;
+
+  const INLINE_ALIAS_CASE = `import { format, type Locale as AppLocale } from "date-fns";
+
+export const locale = AppLocale;
+export const label = format(new Date(), "PPP");
+`;
+
+  it("tar bort `type`-nyckelordet från exakt den värde-använda specifiern", () => {
+    const { code, fixed, convertedSymbols } = fixValueUsedFromTypeImport(
+      INLINE_TYPE_VALUE_CASE,
+      "components/booking-form.tsx",
+    );
+    expect(fixed).toBe(true);
+    expect(convertedSymbols).toEqual(["sv"]);
+    expect(code).toContain('import { format, sv } from "date-fns";');
+    expect(code).not.toContain("type sv");
+  });
+
+  it("tar bort `type` för compiler-bekräftad symbol (forceValueSymbols)", () => {
+    const { code, fixed } = fixValueUsedFromTypeImport(
+      INLINE_TYPE_VALUE_CASE,
+      "components/booking-form.tsx",
+      new Set(["sv"]),
+    );
+    expect(fixed).toBe(true);
+    expect(code).toContain('import { format, sv } from "date-fns";');
+  });
+
+  it("lämnar en genuint type-only inline-specifier orörd", () => {
+    const result = fixValueUsedFromTypeImport(
+      INLINE_TYPE_ONLY_CASE,
+      "app/page.tsx",
+    );
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(INLINE_TYPE_ONLY_CASE);
+  });
+
+  it("hanterar aliasade inline-specifiers (`type X as Y`)", () => {
+    const { code, fixed, convertedSymbols } = fixValueUsedFromTypeImport(
+      INLINE_ALIAS_CASE,
+      "lib/locale.ts",
+    );
+    expect(fixed).toBe(true);
+    expect(convertedSymbols).toEqual(["AppLocale"]);
+    expect(code).toContain(
+      'import { format, Locale as AppLocale } from "date-fns";',
+    );
+  });
+
+  it("är idempotent på inline-formen", () => {
+    const first = fixValueUsedFromTypeImport(
+      INLINE_TYPE_VALUE_CASE,
+      "components/booking-form.tsx",
+    );
+    expect(first.fixed).toBe(true);
+    const second = fixValueUsedFromTypeImport(
+      first.code,
+      "components/booking-form.tsx",
+    );
+    expect(second.fixed).toBe(false);
+    expect(second.code).toBe(first.code);
+  });
+});
