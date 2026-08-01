@@ -398,6 +398,32 @@ export function buildProjectModuleExportIndex(files: CodeFile[]): ModuleExportIn
   return index;
 }
 
+/**
+ * Default-export index: exported name → alias import path(s) of the own-project
+ * files that default-export it.
+ *
+ * `buildProjectExportIndex` only sees NAMED exports, so `components/reveal.tsx`
+ * with `export default function Reveal` is invisible there. Same file filter
+ * (`isIndexableSharedFile`) as the named index, so `app/` pages and the shadcn
+ * lane stay out. Consumers must only inject an import when a name maps to
+ * exactly ONE module — a name exported by several files is ambiguous and is
+ * left for the repair loop.
+ */
+export function buildProjectDefaultExportIndex(files: CodeFile[]): Map<string, string[]> {
+  const index = new Map<string, string[]>();
+
+  for (const [path, entry] of buildProjectModuleExportIndex(files)) {
+    if (!entry.hasDefault || !entry.defaultName) continue;
+    if (!isIndexableSharedFile(path)) continue;
+    const modulePath = toAliasImportPath(path);
+    const bucket = index.get(entry.defaultName) ?? [];
+    if (!bucket.includes(modulePath)) bucket.push(modulePath);
+    index.set(entry.defaultName, bucket);
+  }
+
+  return index;
+}
+
 export function fixMissingLocalSymbolImports(
   code: string,
   filePath: string,

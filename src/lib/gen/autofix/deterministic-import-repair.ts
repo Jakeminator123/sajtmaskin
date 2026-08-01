@@ -51,12 +51,11 @@ import {
 } from "./rules/ts2304-known-import-fixer";
 import { fixValueUsedFromTypeImport } from "./rules/value-used-from-type-import-fixer";
 import {
+  buildProjectDefaultExportIndex,
   buildProjectExportIndex,
-  buildProjectModuleExportIndex,
   fixImportedDeclarationConflicts,
   fixMissingLocalSymbolImports,
   insertImportAfterDirectives,
-  isIndexableSharedFile,
   toAliasImportPath,
 } from "./common-import-fixer";
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
@@ -187,8 +186,12 @@ function collectImportedBindingNames(code: string, filePath: string): Set<string
  * (cross-file-checker/stub downstream) — normalize never creates new silent
  * stubs. No component registry — just the classification
  * known library vs own file vs unknown.
+ *
+ * Exported because `jsx-checker`'s `fixMissingImports` resolves its PascalCase
+ * JSX residue through the exact same unique-match rule instead of fabricating
+ * an `@/components/<kebab>` path (M#gs1).
  */
-function resolveOwnComponentImports(params: {
+export function resolveOwnComponentImports(params: {
   code: string;
   filePath: string;
   missingNames: ReadonlySet<string>;
@@ -455,16 +458,7 @@ export function runDeterministicImportRepair(
       let defaultExportsByName: Map<string, string[]> | null = null;
       if (ownComponentResidualByFile.size > 0) {
         exportIndex = buildProjectExportIndex(project.files);
-        defaultExportsByName = new Map<string, string[]>();
-        const moduleIndex = buildProjectModuleExportIndex(project.files);
-        for (const [path, entry] of moduleIndex) {
-          if (!entry.hasDefault || !entry.defaultName) continue;
-          if (!isIndexableSharedFile(path)) continue;
-          const modulePath = toAliasImportPath(path);
-          const bucket = defaultExportsByName.get(entry.defaultName) ?? [];
-          if (!bucket.includes(modulePath)) bucket.push(modulePath);
-          defaultExportsByName.set(entry.defaultName, bucket);
-        }
+        defaultExportsByName = buildProjectDefaultExportIndex(project.files);
       }
 
       const fixedFiles = project.files.map((file) => {

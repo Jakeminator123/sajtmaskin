@@ -52,6 +52,7 @@ UI Recipes replace the old local `data/shadcn-examples/` cache and the old `## C
 |---|---|---|
 | **DaisyUI** | Evaluate as optional mode | Adds a parallel styling paradigm (CSS component classes + 35 themes). Not compatible with current `@theme inline` strategy without migration. Good for prototyping or alternative style tracks. |
 | **Flowbite** | Inspiration/fallback only | Overlaps heavily with shadcn. Not first choice given existing shadcn/radix/tailwind stack. |
+| **`shadcn/registry` program API** | Evaluated 2026-07-22, not adopted | The `./registry` subpath is not isolated from the CLI: it re-exports a shared chunk that statically imports `@babel/core`, `ts-morph`, `execa`, `prompts`, `ora` and icon packages that are not installed — tens of MB of CLI toolchain plus `Module not found` risk inside a serverless route. Registry index/item fetching, style fallback and caching already work over plain HTTP in `src/lib/shadcn/registry-service.ts`, so no `shadcn` runtime dependency is added. Revisit only if shadcn publishes a lighter, CLI-free registry subpath; taking it in would require a runtime `dependency`, a `serverExternalPackages` entry with a verified `next build`, the missing icon peers, and a function bundle-size measurement. |
 
 ## Unresolved import severity
 
