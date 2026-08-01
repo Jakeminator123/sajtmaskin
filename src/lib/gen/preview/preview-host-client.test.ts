@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   describePreviewHostHttpFailure,
+  fetchPreviewHostFilesManifest,
   fetchPreviewHostReadinessVerdict,
   fetchPreviewHostStatus,
   isPreviewHostDiskFullMessage,
@@ -598,6 +599,71 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
       path: "pnpm-lock.yaml",
       content: "lockfileVersion: '9.0'\n",
     });
+  });
+});
+
+describe("fetchPreviewHostFilesManifest", () => {
+  function stubManifest(body: Record<string, unknown>, status = 200) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        new Response(JSON.stringify(body), {
+          status,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  }
+
+  const validBody = {
+    ok: true,
+    previewSessionId: "ps_1",
+    versionId: "v3",
+    running: true,
+    hashAlgorithm: "sha256",
+    files: { "app/page.tsx": "a".repeat(64) },
+  };
+
+  it("parses the host manifest", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest(validBody);
+
+    const result = await fetchPreviewHostFilesManifest("ps_1");
+    expect(result).toEqual({
+      previewSessionId: "ps_1",
+      versionId: "v3",
+      running: true,
+      files: { "app/page.tsx": "a".repeat(64) },
+    });
+  });
+
+  it("returns null on 404 so an older preview-host simply falls back to update", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest({ error: "not_found" }, 404);
+
+    expect(await fetchPreviewHostFilesManifest("ps_1")).toBeNull();
+  });
+
+  it("refuses a manifest hashed with anything but sha256", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest({ ...validBody, hashAlgorithm: "blake3" });
+
+    expect(await fetchPreviewHostFilesManifest("ps_1")).toBeNull();
+  });
+
+  it("refuses a manifest with a non-string hash entry", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest({ ...validBody, files: { "app/page.tsx": 42 } });
+
+    expect(await fetchPreviewHostFilesManifest("ps_1")).toBeNull();
+  });
+
+  it("reports a null versionId when the host session is unpinned", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest({ ...validBody, versionId: null });
+
+    const result = await fetchPreviewHostFilesManifest("ps_1");
+    expect(result?.versionId).toBeNull();
   });
 });
 
