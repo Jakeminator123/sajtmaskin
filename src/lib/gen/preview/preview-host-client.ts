@@ -247,6 +247,71 @@ export async function fetchPreviewHostStatus(
   }
 }
 
+/**
+ * The readiness half of `/status`, readable even when the runtime process is
+ * NOT alive.
+ *
+ * {@link fetchPreviewHostStatus} answers "can this session be resumed?" and so
+ * returns `null` the moment `running` is false. That is right for resuming and
+ * wrong for diagnosis: a boot that dies during install/postcondition records
+ * `readinessState: "failed"` on the host and leaves `running: false`. Read
+ * through the resume path only, that boot looks like an idle/stopped session —
+ * so `preview_success` was never stamped false, no error row was written, and
+ * RepairGate never fired for a preview that provably cannot come up.
+ *
+ * This function exists to close that hole without loosening the resume
+ * contract. `running` is returned verbatim so callers can still tell the two
+ * apart.
+ */
+export type PreviewHostReadinessVerdict = Pick<
+  PreviewHostStatusResult,
+  "readinessState" | "readinessError" | "regeneratedLockfile" | "httpReady"
+> & {
+  running: boolean;
+  /** Version the host says this session is pinned to, or `null` if unknown. */
+  versionId: string | null;
+};
+
+export async function fetchPreviewHostReadinessVerdict(
+  previewSessionId: string,
+  opts?: { expectedVersionId?: string | null },
+): Promise<PreviewHostReadinessVerdict | null> {
+  const base = getPreviewHostBaseUrl();
+  const id = previewSessionId.trim();
+  if (!base || !id) return null;
+  try {
+    const res = await fetch(
+      `${base}/preview/session/${encodeURIComponent(id)}/status`,
+      {
+        method: "GET",
+        headers: { ...previewHostAuthHeaders() },
+        cache: "no-store",
+        signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+      },
+    );
+    if (!res.ok) return null;
+    const body = (await res.json()) as Record<string, unknown>;
+    if (body.ok !== true) return null;
+    // Same version binding as the resume path: a verdict that belongs to a
+    // DIFFERENT version must never be attributed to the caller's version.
+    const expectedVersionId = opts?.expectedVersionId?.trim();
+    const hostVersionId = nonEmptyString(body.versionId);
+    if (expectedVersionId && hostVersionId && hostVersionId !== expectedVersionId) {
+      return null;
+    }
+    return {
+      running: body.running === true,
+      versionId: hostVersionId,
+      readinessState: readReadinessStateFromHostBody(body),
+      httpReady: body.httpReady === true,
+      readinessError: nonEmptyString(body.readinessError),
+      regeneratedLockfile: readRegeneratedLockfileFromHostBody(body),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export type PreviewHostStartOk = {
   ok: true;
   previewUrl: string;

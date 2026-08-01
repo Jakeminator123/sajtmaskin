@@ -10,6 +10,7 @@ import {
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
+import { fetchPreviewHostReadinessVerdict } from "@/lib/gen/preview/preview-host-client";
 import type { PreviewStatusApiJson } from "@/lib/gen/preview/preview-contract";
 import { getVersionById } from "@/lib/db/chat-repository-pg";
 import {
@@ -151,6 +152,41 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
 
       const resumed = await tryResumeTier2Runtime(session);
       if (!resumed) {
+        // A boot can fail BEFORE the dev process ever comes up (install error,
+        // failed postcondition, readiness deadline). The host records
+        // `readinessState: "failed"` and leaves `running: false` — which the
+        // resume path reports as `null`, i.e. indistinguishable from an idle or
+        // unreachable session. Read the readiness half directly so a provably
+        // dead preview still stamps `preview_success=false`, writes its error
+        // row and reaches RepairGate instead of quietly reading as "stopped".
+        const verdict = await fetchPreviewHostReadinessVerdict(session.previewSessionId, {
+          expectedVersionId: sessionVid,
+        }).catch(() => null);
+        if (verdict?.readinessState === "failed") {
+          const failureDecision = decidePreviewReadinessOutcome(verdict);
+          after(async () => {
+            await applyPreviewReadinessOutcome({ chatId, versionId, resumed: verdict });
+          });
+          const body: PreviewStatusApiJson = {
+            ok: true,
+            status: "build_error",
+            previewSessionId: session.previewSessionId,
+            previewUrl: session.previewUrl,
+            versionId: sessionVid,
+            sessionExpiresAt: sessionSoftExpiryAt(session),
+            reason: "build_error_overlay",
+            readinessError: failureDecision.buildError,
+          };
+          logPreviewLifecycleTelemetry({
+            kind: "preview_status",
+            chatId,
+            status: "stopped",
+            versionId,
+            previewSessionId: session.previewSessionId,
+          });
+          return NextResponse.json(body);
+        }
+
         const booting = isWithinBootGrace(session, now);
         const status = booting ? "starting" : "stopped";
         const reason = booting ? "boot_grace_period" : "provider_not_running_or_unreachable";

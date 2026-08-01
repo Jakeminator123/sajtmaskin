@@ -157,9 +157,14 @@ export async function persistRegeneratedLockfileForVersion(
 ): Promise<boolean> {
   if (!versionId || persistedLockfileVersionIds.has(versionId)) return false;
   try {
-    const { getVersionFiles } = await import("@/lib/gen/version-manager");
-    const files = await getVersionFiles(versionId);
-    if (!files) return false;
+    // Snapshot, not just the parsed files: the raw `files_json` string is the
+    // compare-and-swap token for the write below. This is a read-modify-write
+    // of the WHOLE file array, so without it a repair or user edit that lands
+    // between the read and the write is overwritten wholesale.
+    const { getVersionFilesSnapshot } = await import("@/lib/gen/version-manager");
+    const snapshot = await getVersionFilesSnapshot(versionId);
+    if (!snapshot) return false;
+    const files = snapshot.files;
     const markerPath = LOCKFILE_STALE_MARKER_PATH;
     const lockfilePath = regeneratedLockfile.path.replace(/\\/g, "/");
     const hasMarker = files.some((f) => f.path.replace(/\\/g, "/") === markerPath);
@@ -188,7 +193,11 @@ export async function persistRegeneratedLockfileForVersion(
     const { updateVersionFiles } = await import("@/lib/db/chat-repository-pg");
     const wrote = await updateVersionFiles(versionId, JSON.stringify(next), {
       preservePreviewUrl: true,
+      expectedFilesJson: snapshot.filesJson,
     });
+    // Deliberately NOT marking the guard on a CAS miss: the row moved under us,
+    // so the reconcile has not happened and a later poll should retry against
+    // the new base. Marking it here would drop the lockfile silently.
     if (wrote) persistedLockfileVersionIds.add(versionId);
     return wrote;
   } catch (err) {

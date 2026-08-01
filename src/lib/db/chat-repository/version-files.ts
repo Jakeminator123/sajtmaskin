@@ -58,6 +58,19 @@ export async function updateVersionFiles(
      * `files_json` writer has the escape hatch instead of being fail-closed.
      */
     holderRunId?: string;
+    /**
+     * The EXACT `files_json` string this write was computed from. When set, the
+     * UPDATE is bound — in the same statement — to `files_json` still equalling
+     * it, so a concurrent writer that advanced the row in the meantime is never
+     * silently overwritten; the UPDATE simply matches no row and returns
+     * `false`.
+     *
+     * Required for read-modify-write callers such as
+     * `persistRegeneratedLockfileForVersion`, which reads the file list, edits
+     * two entries and writes the whole array back: without the guard a repair or
+     * user edit landing in that window is lost wholesale.
+     */
+    expectedFilesJson?: string;
   },
 ): Promise<boolean> {
   const baseValues = {
@@ -145,7 +158,7 @@ export async function updateVersionFiles(
       jobsExist = true;
     }
   }
-  const where = holderRunId
+  const leaseWhere = holderRunId
     ? versionWriteWhere(versionId, holderRunId)
     : jobsExist
       ? and(
@@ -153,6 +166,12 @@ export async function updateVersionFiles(
           sql`NOT EXISTS (SELECT 1 FROM engine_version_jobs j WHERE j.version_id = ${versionId} AND j.status = 'running' AND j.lease_expires_at > now())`,
         )
       : eq(engineVersions.id, versionId);
+  // Compare-and-swap on the caller's base snapshot (same idiom as
+  // `saveRepairedFiles`): atomic with the write, no extra column, no migration.
+  const where =
+    options?.expectedFilesJson != null
+      ? and(leaseWhere, sql`${engineVersions.filesJson} = ${options.expectedFilesJson}`)
+      : leaseWhere;
 
   const lockTimeoutMs = options?.lockTimeoutMs;
   if (typeof lockTimeoutMs === "number" && Number.isFinite(lockTimeoutMs) && lockTimeoutMs > 0) {

@@ -185,3 +185,48 @@ describe("updateVersionFiles — version-lease guard (P1 files_json false-green-
     expect(sql).not.toContain("engine_version_jobs");
   });
 });
+
+// Compare-and-swap: en läs-ändra-skriv-anropare (stale-lockfile-reconcilen)
+// skriver hela filarrayen tillbaka. Utan bindning till exakt den bas den läste
+// skulle en reparation eller användarredigering som landar i fönstret skrivas
+// över i sin helhet — och anroparen skulle ändå tro att skrivningen lyckades.
+describe("updateVersionFiles — compare-and-swap på basen (expectedFilesJson)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updateSet.value = undefined;
+    updateWhere.value = undefined;
+    updateRowCount.value = 1;
+    regclassOid.value = "12345";
+    probeRows.value = [];
+  });
+
+  it("binder UPDATE:ns WHERE till basen — atomiskt, i samma sats", async () => {
+    await updateVersionFiles("ver_1", FILES, { expectedFilesJson: FILES });
+
+    const where = renderWhere();
+    expect(where).toContain("files_json");
+    expect(where).toContain("=");
+    // Lease-grinden ska finnas kvar bredvid CAS:en, inte ersättas av den.
+    expect(where).toContain("engine_version_jobs");
+  });
+
+  it("lämnar WHERE orört när ingen bas anges (bakåtkompatibelt)", async () => {
+    await updateVersionFiles("ver_1", FILES);
+
+    const where = renderWhere();
+    expect(where).toContain("engine_version_jobs");
+    expect(where).not.toContain("files_json");
+  });
+
+  it("returnerar false när basen hunnit ändras (0 rader, ingen tyst överskrivning)", async () => {
+    updateRowCount.value = 0;
+    probeRows.value = [];
+
+    const wrote = await updateVersionFiles("ver_1", FILES, {
+      expectedFilesJson: FILES,
+      lockTimeoutMs: 2_000,
+    });
+
+    expect(wrote).toBe(false);
+  });
+});

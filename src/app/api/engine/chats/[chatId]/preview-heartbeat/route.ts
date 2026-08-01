@@ -9,6 +9,7 @@ import {
 import { logPreviewLifecycleTelemetry } from "@/lib/gen/preview/lifecycle-telemetry";
 import { isTier2PreviewConfigured } from "@/lib/gen/preview/tier2-config";
 import { tryResumeTier2Runtime } from "@/lib/gen/preview/tier2-resume";
+import { fetchPreviewHostReadinessVerdict } from "@/lib/gen/preview/preview-host-client";
 import { hasConfirmedPreviewReadyOnInstance } from "@/lib/db/services/generation-telemetry";
 import { applyPreviewReadinessOutcome } from "@/lib/gen/preview/readiness-stamp";
 import type { PreviewHeartbeatApiJson } from "@/lib/gen/preview/preview-contract";
@@ -107,6 +108,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             // already returned `session_mismatch` otherwise.
             if (resumed) {
               await applyPreviewReadinessOutcome({ chatId, versionId, resumed });
+              return;
+            }
+            // `null` also covers "the process never started" — where the host
+            // still holds a `failed` readiness verdict. Without this the only
+            // surface that ever stamps that failure is a /preview-status poll
+            // the builder may not make. Same version binding as above.
+            const verdict = await fetchPreviewHostReadinessVerdict(session.previewSessionId, {
+              expectedVersionId: versionId,
+            });
+            if (verdict?.readinessState === "failed") {
+              await applyPreviewReadinessOutcome({ chatId, versionId, resumed: verdict });
             }
           } catch {
             // Best-effort: a failed receipt check must never surface —

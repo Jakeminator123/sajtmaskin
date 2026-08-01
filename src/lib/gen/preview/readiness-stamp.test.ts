@@ -6,17 +6,28 @@ const recordPreviewRuntimeOutcomeForVersion = vi.hoisted(() =>
 const createEngineVersionErrorLogs = vi.hoisted(() =>
   vi.fn<(payloads: unknown[], opts?: unknown) => Promise<unknown[]>>(async () => []),
 );
-const getVersionFiles = vi.hoisted(() =>
-  vi.fn<(versionId: string) => Promise<Array<{ path: string; content: string; language?: string }> | null>>(
-    async () => null,
-  ),
+type StoredFile = { path: string; content: string; language?: string };
+const getVersionFilesSnapshot = vi.hoisted(() =>
+  vi.fn<
+    (versionId: string) => Promise<{
+      files: StoredFile[];
+      filesJson: string;
+      lifecycleStage: "design" | "integrations";
+    } | null>
+  >(async () => null),
 );
+/** Mirror the production snapshot contract: filesJson IS the parsed files. */
+const snapshotOf = (files: StoredFile[]) => ({
+  files,
+  filesJson: JSON.stringify(files),
+  lifecycleStage: "design" as const,
+});
 const updateVersionFiles = vi.hoisted(() =>
   vi.fn<
     (
       versionId: string,
       filesJson: string,
-      options?: { preservePreviewUrl?: boolean },
+      options?: { preservePreviewUrl?: boolean; expectedFilesJson?: string },
     ) => Promise<boolean>
   >(async () => true),
 );
@@ -28,7 +39,7 @@ vi.mock("@/lib/db/services/version-errors", () => ({
   createEngineVersionErrorLogs,
 }));
 vi.mock("@/lib/gen/version-manager", () => ({
-  getVersionFiles,
+  getVersionFilesSnapshot,
 }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateVersionFiles,
@@ -204,11 +215,13 @@ describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-
   });
 
   it("writes the regenerated lockfile and drops the stale marker", async () => {
-    getVersionFiles.mockResolvedValueOnce([
-      { path: "package.json", content: "{}", language: "json" },
-      { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
-      { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
-    ]);
+    getVersionFilesSnapshot.mockResolvedValueOnce(
+      snapshotOf([
+        { path: "package.json", content: "{}", language: "json" },
+        { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
+        { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
+      ]),
+    );
 
     const wrote = await persistRegeneratedLockfileForVersion("v1", {
       path: "pnpm-lock.yaml",
@@ -224,11 +237,13 @@ describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-
   });
 
   it("preserves the active previewUrl (does NOT null the live session) — Bugbot HIGH", async () => {
-    getVersionFiles.mockResolvedValueOnce([
-      { path: "package.json", content: "{}", language: "json" },
-      { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
-      { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
-    ]);
+    getVersionFilesSnapshot.mockResolvedValueOnce(
+      snapshotOf([
+        { path: "package.json", content: "{}", language: "json" },
+        { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
+        { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
+      ]),
+    );
 
     await persistRegeneratedLockfileForVersion("v1", {
       path: "pnpm-lock.yaml",
@@ -246,10 +261,12 @@ describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-
   });
 
   it("skips (no churn) when the stale marker is already gone", async () => {
-    getVersionFiles.mockResolvedValueOnce([
-      { path: "package.json", content: "{}", language: "json" },
-      { path: "pnpm-lock.yaml", content: "OK", language: "yaml" },
-    ]);
+    getVersionFilesSnapshot.mockResolvedValueOnce(
+      snapshotOf([
+        { path: "package.json", content: "{}", language: "json" },
+        { path: "pnpm-lock.yaml", content: "OK", language: "yaml" },
+      ]),
+    );
 
     const wrote = await persistRegeneratedLockfileForVersion("v1", {
       path: "pnpm-lock.yaml",
@@ -261,13 +278,59 @@ describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-
   });
 
   it("is guarded once per version per instance", async () => {
-    getVersionFiles.mockResolvedValue([
-      { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
-      { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
-    ]);
+    getVersionFilesSnapshot.mockResolvedValue(
+      snapshotOf([
+        { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
+        { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
+      ]),
+    );
 
     await persistRegeneratedLockfileForVersion("v1", { path: "pnpm-lock.yaml", content: "NEW" });
     await persistRegeneratedLockfileForVersion("v1", { path: "pnpm-lock.yaml", content: "NEW" });
     expect(updateVersionFiles).toHaveBeenCalledTimes(1);
+  });
+
+  // Read-modify-write of the WHOLE file array: without a compare-and-swap a
+  // repair or user edit landing between the read and the write is overwritten
+  // wholesale, and the caller would still record the reconcile as done.
+  it("binder skrivningen till exakt den bas den läste (CAS)", async () => {
+    const files = [
+      { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
+      { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
+    ];
+    const snapshot = snapshotOf(files);
+    getVersionFilesSnapshot.mockResolvedValueOnce(snapshot);
+
+    await persistRegeneratedLockfileForVersion("v1", { path: "pnpm-lock.yaml", content: "NEW" });
+
+    const [, , options] = updateVersionFiles.mock.calls[0] as [
+      string,
+      string,
+      { expectedFilesJson?: string } | undefined,
+    ];
+    expect(options?.expectedFilesJson).toBe(snapshot.filesJson);
+  });
+
+  it("markerar inte reconcilen som gjord när CAS missar — en senare poll får försöka igen", async () => {
+    const snapshot = snapshotOf([
+      { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
+      { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
+    ]);
+    getVersionFilesSnapshot.mockResolvedValue(snapshot);
+    updateVersionFiles.mockResolvedValueOnce(false);
+
+    const first = await persistRegeneratedLockfileForVersion("v1", {
+      path: "pnpm-lock.yaml",
+      content: "NEW",
+    });
+    expect(first).toBe(false);
+
+    // Guard-fri: nästa poll ska försöka igen mot den nya basen.
+    const second = await persistRegeneratedLockfileForVersion("v1", {
+      path: "pnpm-lock.yaml",
+      content: "NEW",
+    });
+    expect(second).toBe(true);
+    expect(updateVersionFiles).toHaveBeenCalledTimes(2);
   });
 });

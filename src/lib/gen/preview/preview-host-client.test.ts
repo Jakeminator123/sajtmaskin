@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   describePreviewHostHttpFailure,
+  fetchPreviewHostReadinessVerdict,
   fetchPreviewHostStatus,
   isPreviewHostDiskFullMessage,
   LEASE_HOLDING_ROUTE_MAX_DURATION_S,
@@ -638,5 +639,75 @@ describe("resolvePreviewHostVerifyTimeoutMs (#286 per-call verify cap)", () => {
     expect(resolvePreviewHostVerifyTimeoutMs(-5_000)).toBe(1);
     expect(resolvePreviewHostVerifyTimeoutMs(Number.NaN)).toBe(staticMs);
     expect(resolvePreviewHostVerifyTimeoutMs(Number.POSITIVE_INFINITY)).toBe(staticMs);
+  });
+});
+
+// En boot som dör före dev-processen (install-fel, misslyckad postcondition,
+// readiness-deadline) lämnar `running:false` men `readinessState:"failed"`.
+// Resume-vägen svarar null där — den frågar "går sessionen att återuppta?" —
+// så utan denna avläsning stämplas aldrig preview_success=false och RepairGate
+// får aldrig veta att previewn bevisligen inte kan komma upp.
+describe("fetchPreviewHostReadinessVerdict — läser verdikt även utan levande process", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL;
+  });
+
+  function stubStatus(body: Record<string, unknown>) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  }
+
+  it("returnerar failed-verdiktet när processen aldrig startade", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: false,
+      httpReady: false,
+      readinessState: "failed",
+      readinessError: "npm error code ENOSPC",
+      versionId: "v3",
+      previewSessionId: "ps_1",
+    });
+
+    const verdict = await fetchPreviewHostReadinessVerdict("ps_1", { expectedVersionId: "v3" });
+
+    expect(verdict).toMatchObject({
+      running: false,
+      readinessState: "failed",
+      readinessError: "npm error code ENOSPC",
+      versionId: "v3",
+    });
+  });
+
+  it("returnerar null när hosten pratar om en annan version", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: false,
+      readinessState: "failed",
+      readinessError: "boom",
+      versionId: "v2",
+      previewSessionId: "ps_1",
+    });
+
+    expect(await fetchPreviewHostReadinessVerdict("ps_1", { expectedVersionId: "v3" })).toBeNull();
+  });
+
+  it("returnerar null när hosten inte svarar ok", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({ ok: false });
+    expect(await fetchPreviewHostReadinessVerdict("ps_1")).toBeNull();
+  });
+
+  it("returnerar null utan konfigurerad host", async () => {
+    expect(await fetchPreviewHostReadinessVerdict("ps_1")).toBeNull();
   });
 });
