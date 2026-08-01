@@ -22,9 +22,13 @@ import type { DossierMockMode, SelectedDossier } from "@/lib/gen/dossiers/types"
  *   integration. "Bygg integrationer" would 412 before credits (#517).
  * - `built-demo` — real integration code is in the version but at least one
  *   `feature-runtime` key lacks a real value → the shipped demo fallback
- *   (canned/seed/success) is what actually runs.
- * - `built-live` — code is in the version and every build/feature-runtime
- *   key has a stored real value.
+ *   (canned/seed/success) is what actually runs. Also the cap (M#li1) when
+ *   the block lacks server-side file evidence in the version (manifest
+ *   server file or an API route referencing its env keys) — filled keys
+ *   alone never make a client-side mock "live".
+ * - `built-live` — code is in the version, every build/feature-runtime key
+ *   has a stored real value, AND the server side is evidenced in the
+ *   version's files.
  */
 export type DossierStatus =
   | "self-contained"

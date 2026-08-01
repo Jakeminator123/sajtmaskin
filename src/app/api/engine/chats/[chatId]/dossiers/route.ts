@@ -69,7 +69,12 @@ import {
   resolvePendingIntegrationDossiers,
 } from "@/lib/gen/dossiers";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { dossierRequiresF3, type SelectedDossier } from "@/lib/gen/dossiers/types";
+import { mapDossierPathToOutput } from "@/lib/gen/dossiers/output-path";
+import {
+  dossierRequiresF3,
+  type DossierEntry,
+  type SelectedDossier,
+} from "@/lib/gen/dossiers/types";
 import {
   extractBriefSummaryFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
@@ -124,6 +129,65 @@ function matchRequirementForDossier(
     }
   }
   return best;
+}
+
+/** Normalize a version file path for comparison (mirrors version-presence). */
+function normalizeProjectPath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
+}
+
+const API_ROUTE_PATH_RE = /^app\/api\/(?:.*\/)?route\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
+
+/**
+ * M#li1: server-side FILE EVIDENCE gate for `built-live`. Env presence alone
+ * proved false in prod (2026-08-01, chat 7a4d609f): a client-only mock chat
+ * widget plus a stored OPENAI_API_KEY showed "Byggd — live" while the
+ * published site 404'd on `POST /api/chat`. "Live" therefore requires that
+ * the server side of the block demonstrably exists in the version's files:
+ *
+ *  - dossier-injected entry: at least one of the manifest's `role: "server"`
+ *    files (mapped to its output path) is present in the version, OR
+ *  - model-built entry (matched via env-key overlap, code under other
+ *    paths): at least one API route file (`app/api/xx/route.*`) in the
+ *    version references one of the dossier's env keys.
+ *
+ * Entries whose manifest declares no server files (client-only providers,
+ * e.g. analytics) are exempt — there is nothing server-side to evidence.
+ * Documented conservative choice: a model-built block whose server routes
+ * reference none of the dossier's env keys stays `built-demo` — honest
+ * under-reporting beats claiming "live" for a client-side mock.
+ */
+function hasServerFileEvidence(
+  entry: DossierEntry,
+  versionFiles: ReadonlyArray<{ path?: unknown; content?: unknown }> | null,
+): boolean {
+  const serverPaths = (entry.files ?? [])
+    .filter((file) => file.role === "server")
+    .map((file) => normalizeProjectPath(mapDossierPathToOutput(file.path)));
+  if (serverPaths.length === 0) return true;
+
+  const files = (versionFiles ?? []).flatMap((file) =>
+    typeof file.path === "string" && file.path.trim().length > 0
+      ? [
+          {
+            path: normalizeProjectPath(file.path),
+            content: typeof file.content === "string" ? file.content : "",
+          },
+        ]
+      : [],
+  );
+  const presentPaths = new Set(files.map((file) => file.path));
+  if (serverPaths.some((path) => presentPaths.has(path))) return true;
+
+  const envKeys = (entry.envVars ?? [])
+    .map((env) => env.key)
+    .filter((key): key is string => typeof key === "string" && key.length > 0);
+  if (envKeys.length === 0) return false;
+  return files.some(
+    (file) =>
+      API_ROUTE_PATH_RE.test(file.path) &&
+      envKeys.some((key) => file.content.includes(key)),
+  );
 }
 
 type OverviewResult =
@@ -396,8 +460,13 @@ async function buildDossierOverview(
         if (missingKeys.length > 0) {
           status = "blocked-build";
         } else {
+          // M#li1: live requires real env values AND server-side file
+          // evidence (see `hasServerFileEvidence`) — a requirement matched
+          // from client-only code with filled keys is demo, not live.
           status =
-            missingLiveKeys.length > 0 || buildKeysWithoutRealValue.length > 0
+            missingLiveKeys.length > 0 ||
+            buildKeysWithoutRealValue.length > 0 ||
+            !hasServerFileEvidence(entry, versionFiles)
               ? "built-demo"
               : "built-live";
         }
