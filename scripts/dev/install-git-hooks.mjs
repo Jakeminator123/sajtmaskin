@@ -13,7 +13,9 @@
  *
  * Symmetrin hookarna ger: prod får migrationer när kod pushas till master, dev
  * får dem när master dras hem. Drift uppstår vid `git pull`/`git checkout`, så
- * det är där den ska botas.
+ * det är där den ska botas — därav tre hooks och inte en: en merge-pull, ett
+ * grenbyte och en rebase-pull är tre olika vägar hem, och bara den första ger
+ * `post-merge`.
  *
  * Hookarna kör aldrig DDL själva — de anropar `ensure-schema.mjs`, som i sin tur
  * delegerar till `run-migrations.ts`. Där bor prod-skrivskyddet
@@ -41,17 +43,26 @@ export const HOOK_VERSION = 1;
  * Varje hook är tyst i normalfallet och avbryter aldrig git-kommandot:
  * `--soft` ger alltid exit 0, `--quiet-ok` skriver inget när allt är i synk.
  *
- * @param {"post-merge" | "post-checkout"} hookName
+ * @param {"post-merge" | "post-checkout" | "post-rewrite"} hookName
  * @returns {string}
  */
 export function renderHookScript(hookName) {
   // post-checkout får (prevHEAD, newHEAD, branchFlag). branchFlag=0 betyder att
   // ENSTAKA FILER checkats ut, inte ett grenbyte — då kan inga nya migrationer
   // ha tillkommit och hooken ska inte kosta något.
-  const guard =
-    hookName === "post-checkout"
-      ? '# Bara grenbyten (arg 3 = 1), inte fil-utcheckningar.\nif [ "$3" != "1" ]; then exit 0; fi\n'
-      : "";
+  //
+  // post-rewrite finns för `git pull --rebase`, som är en helt egen väg: den
+  // kör aldrig post-merge, och rebase med merge-backenden (default sedan git
+  // 2.26) ger inget palitligt post-checkout heller. post-rewrite kors med
+  // "rebase" eller "amend" som arg 1 — bara rebase kan ha hamtat hem nya
+  // migrationer, en amend kan det inte.
+  const guards = {
+    "post-checkout":
+      '# Bara grenbyten (arg 3 = 1), inte fil-utcheckningar.\nif [ "$3" != "1" ]; then exit 0; fi\n',
+    "post-rewrite":
+      '# Bara rebase (git pull --rebase), inte commit --amend.\nif [ "$1" != "rebase" ]; then exit 0; fi\n',
+  };
+  const guard = guards[hookName] ?? "";
 
   return `#!/bin/sh
 # ${HOOK_MARKER} v${HOOK_VERSION} (${hookName}: db-schema-sync)
@@ -129,7 +140,7 @@ function main() {
   const conflicts = [];
   let written = 0;
 
-  for (const hookName of ["post-merge", "post-checkout"]) {
+  for (const hookName of ["post-merge", "post-checkout", "post-rewrite"]) {
     const target = join(hooksDir, hookName);
     const desired = renderHookScript(hookName);
     const existing = existsSync(target) ? readFileSync(target, "utf8") : null;

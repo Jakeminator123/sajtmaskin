@@ -37,6 +37,21 @@ describe("renderHookScript", () => {
   it("post-merge har ingen grenflagga att titta på", () => {
     expect(renderHookScript("post-merge")).not.toContain('"$3"');
   });
+
+  // `git pull --rebase` kör aldrig post-merge, och rebase med merge-backenden
+  // (default sedan git 2.26) ger inget pålitligt post-checkout. Utan
+  // post-rewrite är rebase-pull en blind fläck — den vanligaste vägen hem för
+  // den som har pull.rebase=true.
+  it("post-rewrite kör bara för rebase, inte för commit --amend", () => {
+    const script = renderHookScript("post-rewrite");
+    expect(script).toContain('if [ "$1" != "rebase" ]; then exit 0; fi');
+    expect(script).toContain("scripts/db/ensure-schema.mjs --soft --quiet-ok");
+  });
+
+  it("varje hook har sin egen grind — ingen ärver en annans", () => {
+    expect(renderHookScript("post-rewrite")).not.toContain('"$3"');
+    expect(renderHookScript("post-checkout")).not.toContain('"$1" != "rebase"');
+  });
 });
 
 describe("decideHookInstall", () => {
