@@ -547,10 +547,17 @@ describe("startPreviewSession follow-up Fast Edit Lane", () => {
     await runFollowUp("version-b", [file("app/page.tsx", PAGE_V2)]);
     expect(getActivePreviewSession("chat-patch")?.versionId).toBe("version-b");
 
-    // Reopen/bootstrap for the same version -> resume branch.
+    // Reopen/bootstrap for the same version -> resume branch. The host confirms
+    // BOTH the version and readiness: since the readiness contract landed,
+    // liveness alone is no longer a runtime-ready receipt (an unknown or
+    // `starting` verdict is pending, never success).
     fetchPreviewHostStatus.mockResolvedValueOnce({
       previewSessionId: "ps-live",
       primaryUrl: PREVIEW_URL,
+      readinessState: "ready",
+      httpReady: true,
+      readinessError: null,
+      regeneratedLockfile: null,
     });
     const reopened = await runFollowUp("version-b", [file("app/page.tsx", PAGE_V2)]);
 
