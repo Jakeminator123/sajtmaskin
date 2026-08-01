@@ -179,6 +179,32 @@ try {
   assert.equal(patchOnRolledBackBase.body.error, "base_mismatch");
   assert.equal((await manifestFor(previewSessionId)).body.versionId, "ver_2");
 
+  // A session with NO known version is unknown ground, not a silent match: the
+  // check is strict equality, so a missing version is refused with the same 409
+  // rather than letting a partial diff merge into a workspace we cannot
+  // identify.
+  {
+    const missingVersionStore = store.readStoreSync();
+    missingVersionStore.sessions[started.body.sessionId].versionId = null;
+    store.writeStoreAtomicSync(missingVersionStore);
+  }
+  const patchOnUnknownBase = await request("/preview/session/patch", {
+    previewSessionId,
+    versionId: "ver_5",
+    expectedBaseVersionId: "ver_2",
+    files: { "app/page.tsx": PAGE_V2 },
+  });
+  assert.equal(patchOnUnknownBase.status, 409);
+  assert.equal(patchOnUnknownBase.body.error, "base_mismatch");
+  assert.equal(patchOnUnknownBase.body.versionId, null);
+  assert.match(patchOnUnknownBase.body.message, /no known version/i);
+  {
+    const restoredStore = store.readStoreSync();
+    restoredStore.sessions[started.body.sessionId].versionId = "ver_2";
+    store.writeStoreAtomicSync(restoredStore);
+  }
+  assert.equal((await manifestFor(previewSessionId)).body.versionId, "ver_2");
+
   // A stored entry that is not a string still gets listed, with a marker that
   // can never equal a sha256 digest — the app must then rewrite or remove that
   // path rather than treat a missing entry as "not on the host".

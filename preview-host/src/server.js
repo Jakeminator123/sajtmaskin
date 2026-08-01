@@ -733,13 +733,19 @@ async function routeRequest(req, res) {
       // closes that TOCTOU window: if the live session no longer points at the
       // base the patch was derived from, refuse the merge (without mutating) so
       // the caller does a full (re)start instead of writing a hybrid file set.
-      if (
-        validated.expectedBaseVersionId &&
-        typeof session.versionId === "string" &&
-        session.versionId &&
-        session.versionId !== validated.expectedBaseVersionId
-      ) {
-        return { type: "base_mismatch", currentVersionId: session.versionId };
+      //
+      // STRICT equality, not "differs from": a session with NO version at all
+      // (prewarm skeleton, a store row written by an older host build, a
+      // rolled-back patch) is not evidence that the base matches — it is
+      // evidence that we do not know what is live. Merging a partial diff into
+      // an unknown workspace is exactly the hybrid-file-set failure this check
+      // exists to prevent, so a missing version is refused with the same 409.
+      if (validated.expectedBaseVersionId) {
+        const liveVersionId =
+          typeof session.versionId === "string" ? session.versionId.trim() : "";
+        if (!liveVersionId || liveVersionId !== validated.expectedBaseVersionId) {
+          return { type: "base_mismatch", currentVersionId: liveVersionId || null };
+        }
       }
       // Finding #3 (FEL-5): snapshot the fields we are about to advance so a
       // failed workspace write (e.g. ENOSPC in the hot-patch path) can be rolled
@@ -803,8 +809,9 @@ async function routeRequest(req, res) {
     if (patchOutcome.type === "base_mismatch") {
       return json(res, 409, {
         error: "base_mismatch",
-        message:
-          "Preview session has advanced past the expected base version; refusing partial patch.",
+        message: patchOutcome.currentVersionId
+          ? "Preview session has advanced past the expected base version; refusing partial patch."
+          : "Preview session has no known version; refusing partial patch.",
         versionId: patchOutcome.currentVersionId,
       });
     }

@@ -51,7 +51,7 @@ import {
   touchPreviewSessionAsync,
 } from "./session-store";
 import { hashPreviewFileContent } from "./preview-patch-plan";
-import { startPreviewSession } from "./preview-session";
+import { startPreviewSession, tryPatchPreviewSession } from "./preview-session";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -608,5 +608,84 @@ describe("startPreviewSession follow-up Fast Edit Lane", () => {
     expect(logPreviewLifecycleTelemetry).toHaveBeenCalledWith(
       expect.objectContaining({ lane: "update", reason: "patch_lane_disabled" }),
     );
+  });
+});
+
+// Strikt versionsbindning: patchvägen får bara röra en session vars pekare ÄR
+// den bas diffen härleddes ur. Både "pekar på en annan version" och "har ingen
+// version alls" är samma sak för en partiell patch — vi vet inte vad som ligger
+// i workspacet, och att merga in en delmängd ger ett hybrid-filset med en
+// preview-URL som ser giltig ut.
+describe("tryPatchPreviewSession — strikt bas-versionsbindning", () => {
+  beforeEach(() => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    process.env.SAJTMASKIN_PREVIEW_PATCH_LANE = "true";
+  });
+
+  it("patchar när den lagrade pekaren är exakt den förväntade basen", async () => {
+    await touchPreviewSessionAsync({
+      chatId: "chat-strict",
+      previewSessionId: "ps-strict",
+      previewUrl: "https://preview-host.example.com/chat-strict",
+      versionId: "version-base",
+      tier2Provider: "preview_host",
+    });
+    patchPreviewHostSession.mockResolvedValueOnce({
+      ok: true,
+      previewSessionId: "ps-strict",
+      previewUrl: "https://preview-host.example.com/chat-strict",
+      hostVersionId: "version-next",
+      patchMode: "patched",
+    });
+
+    const result = await tryPatchPreviewSession({
+      chatId: "chat-strict",
+      versionId: "version-next",
+      changedFiles: { "app/page.tsx": "x" },
+      expectedBaseVersionId: "version-base",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(patchPreviewHostSession).toHaveBeenCalledOnce();
+  });
+
+  it("vägrar när den lagrade pekaren är en annan version", async () => {
+    await touchPreviewSessionAsync({
+      chatId: "chat-strict",
+      previewSessionId: "ps-strict",
+      previewUrl: "https://preview-host.example.com/chat-strict",
+      versionId: "version-other",
+      tier2Provider: "preview_host",
+    });
+
+    const result = await tryPatchPreviewSession({
+      chatId: "chat-strict",
+      versionId: "version-next",
+      changedFiles: { "app/page.tsx": "x" },
+      expectedBaseVersionId: "version-base",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "base_mismatch" });
+    expect(patchPreviewHostSession).not.toHaveBeenCalled();
+  });
+
+  it("vägrar när sessionen saknar version helt — okänd mark är inte en träff", async () => {
+    await touchPreviewSessionAsync({
+      chatId: "chat-strict",
+      previewSessionId: "ps-strict",
+      previewUrl: "https://preview-host.example.com/chat-strict",
+      versionId: "",
+      tier2Provider: "preview_host",
+    });
+
+    const result = await tryPatchPreviewSession({
+      chatId: "chat-strict",
+      versionId: "version-next",
+      changedFiles: { "app/page.tsx": "x" },
+      expectedBaseVersionId: "version-base",
+    });
+
+    expect(result).toEqual({ ok: false, reason: "base_mismatch" });
+    expect(patchPreviewHostSession).not.toHaveBeenCalled();
   });
 });

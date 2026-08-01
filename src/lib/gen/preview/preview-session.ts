@@ -183,8 +183,13 @@ export async function tryPatchPreviewSession(params: {
   if (!sess?.previewSessionId) {
     return { ok: false, reason: "no_session" };
   }
+  // STRICT: the stored pointer must BE the expected base, not merely "not a
+  // different one". A session without a version is unknown ground, and merging
+  // a partial diff into unknown ground is the hybrid-file-set bug — so it bails
+  // to a full (re)start just like a real mismatch. The host re-checks the same
+  // rule under its store lock and answers 409.
   const expectedBase = params.expectedBaseVersionId?.trim();
-  if (expectedBase && sess.versionId && sess.versionId !== expectedBase) {
+  if (expectedBase && sess.versionId?.trim() !== expectedBase) {
     return { ok: false, reason: "base_mismatch" };
   }
   const patched = await patchPreviewHostSession({
