@@ -798,3 +798,82 @@ describe("buildRoutePlan — explicit page count", () => {
     expect(plan.routes.length).toBeLessThanOrEqual(1);
   });
 });
+
+// Regression: en fri instruktion har varken komma eller punkt mellan titeln och
+// resten av meningen, så den girige svansen slukade hela satsen och skapade
+// `/bilder-och-lanka-den-i-headern`. Obundna namn kapas nu vid första
+// konjunktionen/prepositionen; citerade namn lämnas hela.
+describe("extractExplicitNamedPages — obundna namn kapas vid satsgräns", () => {
+  const websiteBase = {
+    buildIntent: "website" as const,
+    resolvedScaffold: null,
+    brief: undefined as undefined,
+  };
+
+  it("stannar vid svenskt 'och' i stället för att sluka hela instruktionen", () => {
+    expect(
+      extractExplicitNamedPages("Skapa en sida som ska heta Bilder och länka den i headern"),
+    ).toEqual([{ name: "Bilder", path: "/bilder" }]);
+  });
+
+  it("stannar vid engelskt 'and'", () => {
+    expect(
+      extractExplicitNamedPages("create a page called Gallery and link it in the header"),
+    ).toEqual([{ name: "Gallery", path: "/gallery" }]);
+  });
+
+  it.each([
+    ["samt", "Skapa en ny sida som ska heta Priser samt visa den i menyn", "/priser"],
+    ["eller", "Skapa en sida som ska heta Kontakt eller Support", "/kontakt"],
+    ["med", "Skapa en sida som ska heta Tjänster med tre sektioner", "/tjanster"],
+    ["på", "Skapa en sida som ska heta Om på svenska", "/om"],
+    ["som", "Skapa en sida som ska heta Blogg som listar inlägg", "/blogg"],
+  ])("kapar vid svensk konjunktion/preposition '%s'", (_word, prompt, expected) => {
+    expect(extractExplicitNamedPages(prompt).map((page) => page.path)).toEqual([expected]);
+  });
+
+  it.each([
+    ["with", "create a page called Pricing with three tiers", "/pricing"],
+    ["that", "create a page called Blog that lists posts", "/blog"],
+    ["in", "create a page called About in the footer", "/about"],
+    ["then", "create a page called Team then style it", "/team"],
+  ])("kapar vid engelsk konjunktion/preposition '%s'", (_word, prompt, expected) => {
+    expect(extractExplicitNamedPages(prompt).map((page) => page.path)).toEqual([expected]);
+  });
+
+  it("behåller ett citerat flerordsnamn i sin helhet", () => {
+    expect(
+      extractExplicitNamedPages('Skapa en sida som ska heta "Bilder och video" och länka den'),
+    ).toEqual([{ name: "Bilder och video", path: "/bilder-och-video" }]);
+  });
+
+  it("behåller ett citerat engelskt flerordsnamn", () => {
+    expect(
+      extractExplicitNamedPages('create a page called "Our Work and Cases" and link it'),
+    ).toEqual([{ name: "Our Work and Cases", path: "/our-work-and-cases" }]);
+  });
+
+  it("behåller en inledande artikel — den är en del av titeln, inte en satsgräns", () => {
+    expect(extractExplicitNamedPages("create a page called The Team")).toEqual([
+      { name: "The Team", path: "/the-team" },
+    ]);
+  });
+
+  it("bundar ett obundet namn till några få ord", () => {
+    const [page] = extractExplicitNamedPages(
+      "Skapa en sida som ska heta Alfa Beta Gamma Delta Epsilon Zeta",
+    );
+    expect(page?.name.split(" ")).toHaveLength(4);
+  });
+
+  it("planerar /bilder — inte den slukade varianten — för hela instruktionen", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Skapa en sida som ska heta Bilder och länka den i headern",
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((route) => route.path === "/bilder")).toBe(true);
+    expect(plan.routes.some((route) => route.path.startsWith("/bilder-och"))).toBe(false);
+  });
+});
