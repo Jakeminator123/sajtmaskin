@@ -44,6 +44,7 @@ import { wrapStreamForPromptToDoneMetric } from "@/lib/observability/prompt-to-d
 import {
   FOLLOW_UP_CLARIFICATION_ANSWER_HEADING,
   buildAwaitingClarificationStream,
+  classifyFollowUpClarificationAnswerIntent,
   collectFollowUpClarificationAnswer,
   persistFollowUpClarification,
   resolveFollowUpClarification,
@@ -452,7 +453,17 @@ export async function handleMessageStreamRequest(
         // takes the LLM path (with fail-safe fallback to the same keyword
         // classifier). See follow-up-intent-router.ts.
         const followUpIntent = hasFollowUpBase && !skipIntentClassification
-          ? await classifyFollowUpIntentWithStrategy(followUpIntentMessage)
+          ? followUpClarificationAnswer
+            ? // The chosen quick-reply carries the intent the original prompt
+              // lacked ("Gör en tydlig redesign …" → clear-redesign). Classify
+              // answer-first so delta-brief/scaffold-unlock still fire, while
+              // capability detection and the wrapper below keep reading the
+              // original detailed request.
+              classifyFollowUpClarificationAnswerIntent(
+                followUpClarificationAnswer.answer,
+                followUpClarificationAnswer.sourceUserMessage,
+              )
+            : await classifyFollowUpIntentWithStrategy(followUpIntentMessage)
           : "neutral";
         // Plan 06 (2026-04-24): detect dossier-mappable capabilities in the
         // follow-up text so `selectDossiersForRequest` actually sees the

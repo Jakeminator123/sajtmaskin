@@ -431,7 +431,14 @@ export async function finalizeAndSaveVersion(
         targetVersionId,
         contentForVersion,
         filesJson,
-        { thinking: thinkingForPersist },
+        {
+          thinking: thinkingForPersist,
+          // COALESCE-backfill: a repair never rewrites an existing selection,
+          // but a legacy NULL row gets this run's keys so later restarts keep
+          // the F2 mock-seed.
+          selectedDossierEnvKeysBackfill:
+            selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
+        },
       )
     : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson, {
         lifecycleStage: buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design",

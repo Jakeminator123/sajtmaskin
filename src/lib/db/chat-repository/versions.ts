@@ -168,9 +168,22 @@ export async function addAssistantMessageAndUpdateExistingVersion(
     uiParts?: Record<string, unknown>[] | null;
     /** See `addAssistantMessageAndCreateDraftVersion` for semantics. */
     thinking?: string | null;
+    /**
+     * Backfill-only dossier env keys: written with COALESCE so an existing
+     * non-null selection is NEVER overwritten (a repair rewrites files, not
+     * the dossier selection), but a legacy NULL row created before the
+     * column existed gets the repair run's computed keys — otherwise a
+     * later force-restart/quick-edit fallback on that row drops the F2
+     * mock-seed. Null/omitted = leave the column untouched.
+     */
+    selectedDossierEnvKeysBackfill?: string[] | null;
   } = {},
 ): Promise<{ message: Message; version: Version }> {
-  const { tokenCount, uiParts, thinking } = options;
+  const { tokenCount, uiParts, thinking, selectedDossierEnvKeysBackfill } = options;
+  const backfillJson =
+    Array.isArray(selectedDossierEnvKeysBackfill) && selectedDossierEnvKeysBackfill.length > 0
+      ? JSON.stringify(selectedDossierEnvKeysBackfill)
+      : null;
   return db.transaction(async (tx) => {
     const messageId = uuid();
     await tx.insert(engineMessages).values({
@@ -198,6 +211,11 @@ export async function addAssistantMessageAndUpdateExistingVersion(
         verificationState: "pending" as EngineVersionVerificationState,
         verificationSummary: null,
         promotedAt: null,
+        ...(backfillJson !== null
+          ? {
+              selectedDossierEnvKeys: sql`COALESCE(${engineVersions.selectedDossierEnvKeys}, ${backfillJson}::jsonb)`,
+            }
+          : {}),
       })
       .where(and(eq(engineVersions.id, versionId), eq(engineVersions.chatId, chatId)));
     if ((result.rowCount ?? 0) === 0) {

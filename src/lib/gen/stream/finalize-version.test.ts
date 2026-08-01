@@ -450,6 +450,63 @@ export default function Page() {
       );
     });
 
+    it("persists selected dossier env keys on the create path (dossier-env rehydrering)", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent: BASIC_GENERATED_CONTENT,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        orchestrationStreamMeta: { requestedCapabilities: ["payments"] },
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
+      expect(call?.[3]).toEqual(
+        expect.objectContaining({
+          selectedDossierEnvKeys: expect.arrayContaining(["STRIPE_SECRET_KEY"]),
+        }),
+      );
+    });
+
+    it("backfills selected dossier env keys on the repair path (COALESCE — never overwrites)", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent: BASIC_GENERATED_CONTENT,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        orchestrationStreamMeta: { requestedCapabilities: ["payments"] },
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+        targetVersionId: "ver_existing",
+      });
+
+      expect(addAssistantMessageAndUpdateExistingVersion).toHaveBeenCalledTimes(1);
+      const call = addAssistantMessageAndUpdateExistingVersion.mock.calls[0];
+      expect(call?.[4]).toEqual(
+        expect.objectContaining({
+          selectedDossierEnvKeysBackfill: expect.arrayContaining(["STRIPE_SECRET_KEY"]),
+        }),
+      );
+    });
+
+    it("passes selectedDossierEnvKeysBackfill: null on the repair path without dossiers", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent: BASIC_GENERATED_CONTENT,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+        targetVersionId: "ver_existing",
+      });
+
+      const call = addAssistantMessageAndUpdateExistingVersion.mock.calls[0];
+      expect(call?.[4]).toEqual(
+        expect.objectContaining({ selectedDossierEnvKeysBackfill: null }),
+      );
+    });
+
     it("passes thinking: null when no reasoning was collected", async () => {
       await finalizeAndSaveVersion({
         accumulatedContent:

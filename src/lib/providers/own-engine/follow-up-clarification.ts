@@ -480,6 +480,31 @@ export function collectFollowUpClarificationAnswer(
   return null;
 }
 
+/**
+ * Intent for the turn that CONSUMES a scope-clarification answer. The chosen
+ * quick-reply option carries intent the original (ambiguous) prompt lacked —
+ * "Gör en tydlig redesign i samma projekt" must classify `clear-redesign`
+ * exactly as it did when the option text was the whole message, otherwise
+ * delta-brief/scaffold-unlock never run despite the user's explicit choice.
+ * Precedence: a clear signal in the answer wins; otherwise a clear signal in
+ * the original prompt; never an `ambiguous-*` mode — the user just resolved
+ * the ambiguity, and the consuming turn skips re-clarification.
+ * Deterministic by design (the options are a fixed set), so this deliberately
+ * bypasses the small-llm strategy router.
+ */
+export function classifyFollowUpClarificationAnswerIntent(
+  answer: string,
+  sourceUserMessage: string,
+): FollowUpIntentMode {
+  const isClear = (mode: FollowUpIntentMode) =>
+    mode !== "neutral" && mode !== "ambiguous-redesign" && mode !== "ambiguous-followup";
+  const fromAnswer = classifyFollowUpIntent(answer);
+  if (isClear(fromAnswer)) return fromAnswer;
+  const fromSource = classifyFollowUpIntent(sourceUserMessage);
+  if (isClear(fromSource)) return fromSource;
+  return "neutral";
+}
+
 export function buildAwaitingClarificationStream(params: {
   chatId: string;
   clarification: FollowUpClarification;

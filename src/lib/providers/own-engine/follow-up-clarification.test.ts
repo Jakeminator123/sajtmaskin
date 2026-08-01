@@ -5,6 +5,7 @@ import { inferPreGenerationContracts } from "@/lib/gen/contract/pre-generation-c
 import { deriveBuildSpec } from "@/lib/gen/build-spec";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import {
+  classifyFollowUpClarificationAnswerIntent,
   classifyFollowUpIntent,
   collectFollowUpClarificationAnswer,
   hasDesignFollowUpSignal,
@@ -604,5 +605,55 @@ describe("collectFollowUpClarificationAnswer", () => {
       answer: clarification!.options[0],
       consumed: true,
     });
+  });
+});
+
+describe("classifyFollowUpClarificationAnswerIntent", () => {
+  const ambiguousRedesignPrompt = "Jag vill ha en ny hemsida, kan du bygga om den?";
+
+  it("answer-first: redesign-alternativet ger clear-redesign trots ambiguous originalprompt", () => {
+    expect(
+      classifyFollowUpClarificationAnswerIntent(
+        "Gör en tydlig redesign i samma projekt",
+        ambiguousRedesignPrompt,
+      ),
+    ).toBe("clear-redesign");
+  });
+
+  it("answer-first: 'Starta om från en ny grund' ger clear-redesign", () => {
+    expect(
+      classifyFollowUpClarificationAnswerIntent(
+        "Starta om från en ny grund",
+        ambiguousRedesignPrompt,
+      ),
+    ).toBe("clear-redesign");
+  });
+
+  it("answer-first: 'Förfina nuvarande design' ger clear-refine", () => {
+    expect(
+      classifyFollowUpClarificationAnswerIntent(
+        "Förfina nuvarande design",
+        ambiguousRedesignPrompt,
+      ),
+    ).toBe("clear-refine");
+  });
+
+  it("faller tillbaka på originalprompten när svaret är neutralt", () => {
+    // "Layout och design" klassar neutral; originalet bär refine-signal.
+    expect(
+      classifyFollowUpClarificationAnswerIntent(
+        "Layout och design",
+        "Byt hero-bilden och förbättra texten",
+      ),
+    ).toBe("clear-refine");
+  });
+
+  it("returnerar aldrig ambiguous — resolverad fråga får inte återuppstå", () => {
+    const result = classifyFollowUpClarificationAnswerIntent(
+      "Ny sektion eller sida",
+      ambiguousRedesignPrompt,
+    );
+    expect(result).not.toMatch(/^ambiguous-/);
+    expect(result).toBe("neutral");
   });
 });
