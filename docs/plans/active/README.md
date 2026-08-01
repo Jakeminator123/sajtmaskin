@@ -14,7 +14,10 @@ samma väg: kärnan är levererad och indexerad, och dess två sista rader lever
 som restlistans R12–R13. **Samma dag stängdes backoffice-spåret helt:** alla sju
 etapper i Byggstenar-planen är levererade, Fas C:s manuella UI-varv är kört och
 P2-6 avfärdad med skäl — plankatalogen är därför raderad och initiativet är en
-rad i [`../avklarat/README.md`](../avklarat/README.md). Planlivscykeln ägs av
+rad i [`../avklarat/README.md`](../avklarat/README.md). **2026-07-31 stängdes
+builder-UI-familjen från prod-observationen på samma sätt:** alla fyra
+uppgiftsfiler är levererade, så plankatalogen är raderad och initiativet är en
+rad i indexet. Planlivscykeln ägs av
 [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle.mdc). Defekter och
 repro-status ägs av [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md);
 kopiera inte dess kö hit.
@@ -25,7 +28,6 @@ kopiera inte dess kö hit.
 | --- | --- | --- | --- |
 | Innehållsrevision för verdikt och kvitton | [`2026-07-25-innehallsrevision-verifieringskvitton.md`](2026-07-25-innehallsrevision-verifieringskvitton.md) | **Steg 1–2 levererade 2026-07-29** (DB-genererad `files_revision` + telemetri-stämpel), prod-verifierat 2026-07-29: 135/135 versioner har revision, telemetrin stämplas. **Mätningen körd 2026-07-30** — 0 kända mismatchar på 5 stämplade rader av 113 läsbara. Steg 3 väntar inte längre på mätdata | Stäng **P1:an** (ingen Postgres-backad test för `files_revision`) och bygg sedan steg 3 bakom flagga — ett frekvensunderlag ligger veckor bort vid ~5 stämplade rader/dygn, medan sprängradien är strukturellt liten |
 | Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | Fyra rader kvar efter att R8:s monteringsdel landade 2026-07-30 (#659). Levererad historik är trimmad ur planen och lever i [`../avklarat/README.md`](../avklarat/README.md) | **R8:s aktiverings-E2E** är den enda raden som kan tas mekaniskt. R5 och R12 är blockerade på annat än tid (exportvägens env-scope respektive en saknad deployment-identitetssignal); R13 är en prod-observation |
-| Builder-UI från prod-observation | [`2026-07-30-builder-ui-observation/`](2026-07-30-builder-ui-observation/00-master-plan.md) | Nio observationer (N1–N9) från en live prod-körning, uppdelade i fyra oberoende uppgiftsfiler. Inget påbörjat i kod, men **Ö1/Ö2/Ö3/Ö5 + det delegerade Ö6 är avgjorda 2026-07-31** | **01 och 03 är nu byggbara.** Kvar: **Ö4** (ägarens mening om "Bygg integrationer" bröts mitt i) — rör inte den knappen förrän den är besvarad. Fil 04 börjar med en mätning, inte kod |
 
 ## Ägarbeslut — ratificerade 2026-07-30
 

@@ -10,6 +10,7 @@ import {
   type ShadcnInsertHandler,
   type ShadcnInsertSelection,
 } from "@/lib/builder/shadcn-insert";
+import { resolveShadcnComponentMetadata } from "@/lib/builder/shadcn-component-metadata";
 import { RegistryItemThumb } from "./RegistryItemThumb";
 
 /**
@@ -250,6 +251,10 @@ function DescribeCandidateCard({
   onDragEnd?: () => void;
 }) {
   const title = candidate.title || candidate.name;
+  // `previewLight` sätts bara för det officiella registret, så community-träffar
+  // har aldrig en bild. Metadatan härleds här i st.f. att bäras av
+  // `DescribeCandidate` — samma rena funktion som `registry-service` använder.
+  const metadata = resolveShadcnComponentMetadata(candidate.name, candidate.description);
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!draggable) return;
     e.dataTransfer.setData(SHADCN_ITEM_DND_TYPE, serializeShadcnDragPayload(toSelection(candidate)));
@@ -265,7 +270,12 @@ function DescribeCandidateCard({
       title={draggable ? "Dra till previewn för att välja placering" : undefined}
     >
       <div className="flex aspect-video items-center justify-center overflow-hidden bg-zinc-900/80">
-        <RegistryItemThumb src={candidate.previewLight} alt={title} />
+        <RegistryItemThumb
+          src={candidate.previewLight}
+          alt={title}
+          previewKind={metadata.previewKind}
+          iconKey={metadata.iconKey}
+        />
       </div>
       <div className="space-y-1 px-2 py-1.5">
         <div className="flex items-baseline justify-between gap-2">

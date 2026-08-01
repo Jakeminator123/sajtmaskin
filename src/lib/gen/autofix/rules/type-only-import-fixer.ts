@@ -25,16 +25,10 @@
  */
 
 import type { FixEntry } from "../types";
+import { bindingNameOf, indexIdentifierUsage, isUsedOnlyAsType } from "./type-value-position";
 
 const IMPORT_RE =
   /^(\s*)import\s+\{\s*([^}]+?)\s*\}\s+from\s+(['"][^'"]+['"]);?\s*$/gm;
-
-const VALUE_NEW_RE = /\bnew\s*$/;
-const VALUE_TYPEOF_RE = /\btypeof\s+$/;
-// Type-position preceders excluding `<`, which gets its own JSX-vs-generic
-// disambiguation below.
-const TYPE_PRECEDER_RE =
-  /(?:[:,|&?]|\b(?:as|satisfies|extends|implements|keyof))\s*$/;
 
 type FixResult = {
   code: string;
@@ -42,95 +36,10 @@ type FixResult = {
   fixes: FixEntry[];
 };
 
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-type Classification = "type" | "value" | "unknown";
-
-/**
- * Classify a single occurrence of `symbol` at offset `idx` in `code`.
- *
- * Conservative: returns `"unknown"` when the surrounding context does not
- * unambiguously indicate type-vs-value. Callers treat `"unknown"` as a
- * stop-signal (no conversion).
- */
-function classifyOccurrence(
-  code: string,
-  idx: number,
-  len: number,
-): Classification {
-  const before = code.slice(Math.max(0, idx - 32), idx);
-  const after = code.slice(idx + len, idx + len + 24);
-
-  // Strong value indicators (preceded by).
-  if (VALUE_NEW_RE.test(before)) return "value";
-  if (VALUE_TYPEOF_RE.test(before)) return "value";
-
-  // Strong value indicators (followed by).
-  if (/^\s*\(/.test(after)) return "value"; // X(...)
-  if (/^\s*\./.test(after)) return "value"; // X.member
-  // Bare `=` (assignment) but not `==`/`===`/`=>`.
-  if (/^\s*=[^=>]/.test(after)) return "value";
-
-  // `<` precedes — could be JSX `<Component …>` OR a type generic
-  // `Wrapper<TypeArg>`. Disambiguate by what follows the symbol.
-  if (/<\s*$/.test(before)) {
-    if (/^\s+\w+\s*=/.test(after)) return "value"; // <X attr=
-    if (/^\s*\/\s*>/.test(after)) return "value"; // <X/>
-    if (/^\s*>/.test(after)) {
-      // <X> — examine character past the `>`.
-      const past = after.slice(after.indexOf(">") + 1);
-      // Type-position terminators after the close: ; , ) ] } | & or end.
-      if (/^\s*([;,)\]}|&]|$)/.test(past)) return "type";
-      // Otherwise treat as JSX content (text, child element, mustache).
-      if (/^\s*[<{a-zA-Z0-9]/.test(past)) return "value";
-      return "unknown";
-    }
-    // <X followed by `,` (multi type arg `<X, Y>`) or `|`/`&` (union/inter
-    // in conditional types). All type positions.
-    if (/^\s*[,|&]/.test(after)) return "type";
-    return "unknown";
-  }
-
-  // Other type-position preceders.
-  if (TYPE_PRECEDER_RE.test(before)) return "type";
-
-  return "unknown";
-}
-
-/**
- * Heuristically classify whether `symbol` is referenced only in TypeScript
- * type positions in `code`. Conservative: returns false if any reference
- * looks like a value usage OR if any reference cannot be classified.
- */
-function isUsedOnlyAsType(code: string, symbol: string): boolean {
-  const usageRe = new RegExp(`\\b${escapeRegex(symbol)}\\b`, "g");
-  let usageCount = 0;
-  let typeUsageCount = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = usageRe.exec(code)) !== null) {
-    usageCount += 1;
-    const verdict = classifyOccurrence(code, match.index, symbol.length);
-    if (verdict === "value") return false;
-    if (verdict === "unknown") return false;
-    typeUsageCount += 1;
-  }
-
-  return usageCount > 0 && typeUsageCount === usageCount;
-}
-
-function bindingNameOf(specifier: string): string {
-  // `Foo` or `Foo as Bar` — only the local binding (`Bar`) is referenced.
-  const aliasMatch = specifier.match(/^[A-Za-z_$][\w$]*\s+as\s+([A-Za-z_$][\w$]*)\s*$/);
-  if (aliasMatch) return aliasMatch[1];
-  return specifier.trim();
-}
-
 export function fixTypeOnlyImports(code: string, filePath: string): FixResult {
   if (!code.includes("import")) return { code, fixed: false, fixes: [] };
 
+  const usage = indexIdentifierUsage(code, filePath);
   const replacements: Array<{ start: number; end: number; text: string }> = [];
   const convertedSymbols: string[] = [];
   let match: RegExpExecArray | null;
@@ -168,11 +77,8 @@ export function fixTypeOnlyImports(code: string, filePath: string): FixResult {
     if (specifierTokens.some((s) => /^type\s/.test(s))) continue;
 
     const bindings = specifierTokens.map(bindingNameOf);
-    const restOfCode = code.slice(0, start) + code.slice(end);
 
-    const allTypeOnly = bindings.every((binding) =>
-      isUsedOnlyAsType(restOfCode, binding),
-    );
+    const allTypeOnly = bindings.every((binding) => isUsedOnlyAsType(usage, binding));
     if (!allTypeOnly) continue;
 
     const newImport = `${indent}import type { ${specifierBlob.trim()} } from ${source};`;

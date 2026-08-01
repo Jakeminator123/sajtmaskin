@@ -91,6 +91,29 @@ export type PreviewLifecycleTelemetryEvent =
       chatId: string;
       versionId?: string;
       detail?: string;
+    }
+  | {
+      /**
+       * Which lane a follow-up version took to reach the live preview:
+       * `patch` (Fast Edit Lane — only the changed files, no Next dev restart)
+       * or `update` (full file-set replacement + restart). `reason` names the
+       * fallback cause for `update`, so the patch-lane hit rate and the reasons
+       * it is skipped are both queryable from one event.
+       */
+      kind: "preview_followup_lane";
+      chatId: string;
+      versionId?: string | null;
+      baseVersionId?: string | null;
+      lane: "patch" | "update";
+      /** Why the update lane was chosen (always set for `lane: "update"`). */
+      reason?: string;
+      /** Free-text context: host message on a failed patch, or its `patchReason`. */
+      detail?: string;
+      /** Host-reported patch outcome; only set for `lane: "patch"`. */
+      patchMode?: "patched" | "restarted" | "booted";
+      changedFiles?: number;
+      removedPaths?: number;
+      durationMs?: number;
     };
 
 const PREFIX = "[telemetry:preview-lifecycle]";
@@ -112,6 +135,17 @@ function buildPreviewTelemetrySummary(event: PreviewLifecycleTelemetryEvent): st
   if ("outcome" in event) parts.push(`outcome=${event.outcome}`);
   if ("startOutcome" in event) parts.push(`outcome=${event.startOutcome}`);
   if ("stage" in event) parts.push(`stage=${event.stage}`);
+  if ("lane" in event) parts.push(`lane=${event.lane}`);
+  if ("patchMode" in event && event.patchMode) parts.push(`patchMode=${event.patchMode}`);
+  if ("changedFiles" in event && event.changedFiles !== undefined) {
+    parts.push(`changed=${event.changedFiles}`);
+  }
+  if ("removedPaths" in event && event.removedPaths !== undefined) {
+    parts.push(`removed=${event.removedPaths}`);
+  }
+  if ("durationMs" in event && event.durationMs !== undefined) {
+    parts.push(`durationMs=${event.durationMs}`);
+  }
   if ("failureCode" in event && event.failureCode) parts.push(`code=${event.failureCode}`);
   if ("reason" in event && event.reason) parts.push(`reason=${event.reason}`);
   if ("detail" in event && event.detail) parts.push(`detail=${event.detail.slice(0, 90)}`);

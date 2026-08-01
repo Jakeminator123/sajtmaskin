@@ -4,8 +4,9 @@ const http = require("node:http");
 const { URL } = require("node:url");
 const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
+const fsp = require("node:fs/promises");
 const path = require("node:path");
-const { randomUUID } = require("node:crypto");
+const { createHash, randomUUID } = require("node:crypto");
 const {
   getDataDir,
   getStoreFilePath,
@@ -15,8 +16,12 @@ const {
 const {
   applyRuntimePatch,
   buildPreviewUrl,
+  cleanupPackageCaches,
   cleanupPreviewHostStorage,
+  describePackageCacheStorage,
   destroyChatWorkspace,
+  directorySizeBytes,
+  PACKAGE_CACHE_DIR,
   findSessionByChatId,
   getRuntimeStateForChat,
   getSessionChatId,
@@ -44,6 +49,9 @@ const {
   resetPrewarmLeases,
 } = require("./prewarm-leases.js");
 const { sendRootPlaceholderSvg } = require("./placeholder-svg.js");
+
+/** Directory name of the package cache inside `/data`, for the single-walk lookup. */
+const PACKAGE_CACHE_DIR_NAME = path.basename(PACKAGE_CACHE_DIR);
 
 const PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
 const HOST = process.env.HOST ?? "0.0.0.0";
@@ -86,19 +94,18 @@ function formatBytes(bytes) {
   return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
-function getPathSizeBytes(targetPath) {
+async function getPathSizeBytes(targetPath) {
   try {
-    const stats = fs.statSync(targetPath);
-    if (stats.isFile()) return stats.size;
-    if (!stats.isDirectory()) return 0;
-    let total = 0;
-    for (const entry of fs.readdirSync(targetPath)) {
-      total += getPathSizeBytes(path.join(targetPath, entry));
-    }
-    return total;
+    const stats = await fsp.lstat(targetPath);
+    if (!stats.isDirectory()) return stats.size;
+    return await directorySizeBytes(targetPath);
   } catch {
     return 0;
   }
+}
+
+function describeSize(bytes, exists) {
+  return { exists, bytes, human: formatBytes(bytes) };
 }
 
 function readFilesystemUsage(targetPath) {
@@ -146,13 +153,72 @@ function getPreviewStatusSessionId(pathname) {
   return parts[2] ?? "";
 }
 
-function describeStorageState() {
+function getPreviewFilesManifestSessionId(pathname) {
+  const parts = pathname.split("/").filter(Boolean);
+  if (
+    parts.length !== 4 ||
+    parts[0] !== "preview" ||
+    parts[1] !== "session" ||
+    parts[3] !== "files-manifest"
+  ) {
+    return "";
+  }
+  return parts[2] ?? "";
+}
+
+/**
+ * Sentinel for a stored entry that cannot be hashed (validation only ever
+ * stores strings, so this is defensive). It is deliberately not a sha256 hex
+ * digest: the app can never mistake it for "unchanged", so such a path is
+ * always rewritten or removed by the patch instead of silently kept.
+ */
+const UNHASHABLE_FILE_MARKER = "unhashable";
+
+/**
+ * Content-hash manifest of the file set the host currently holds for a session
+ * (`session.filesJson` — the same set a boot writes into the workspace).
+ *
+ * Returned by the read-only `files-manifest` route so the app can diff a new
+ * version against what is actually live and send only the changed paths to
+ * `/preview/session/patch` instead of a full `/update` + restart. Hashes (not
+ * contents) keep the response small; the app never needs the old bytes.
+ */
+function buildSessionFilesManifest(session) {
+  const files = {};
+  const source =
+    session.filesJson && typeof session.filesJson === "object" ? session.filesJson : {};
+  for (const [relPath, content] of Object.entries(source)) {
+    files[relPath] =
+      typeof content === "string"
+        ? createHash("sha256").update(content, "utf8").digest("hex")
+        : UNHASHABLE_FILE_MARKER;
+  }
+  return files;
+}
+
+/**
+ * Snapshot of what occupies the host's disks.
+ *
+ * Async and single-pass by design. The volume is walked exactly ONCE — every
+ * reported path is derived from that walk instead of re-traversing:
+ * `/data`'s own total is the sum of its children, and the workspace / verify /
+ * package-cache entries are those same children looked up by name. The earlier
+ * version called a synchronous walker per path (twice per entry, since `bytes`
+ * and `human` each invoked it) and then walked every child on top, so a
+ * multi-GB cache meant traversing tens of GB of metadata, synchronously, while
+ * the process was also proxying live previews.
+ */
+async function describeStorageState() {
   const dataDir = getDataDir();
   const workspacesDir = path.join(dataDir, "workspaces");
   const verifyWorkspacesDir = path.join(dataDir, "verify-workspaces");
   const storeFilePath = getStoreFilePath();
   const rootFilesystem = readFilesystemUsage("/");
   const dataFilesystem = readFilesystemUsage(dataDir);
+  const children = await describeDataDirChildren(dataDir);
+  const bytesByChild = new Map(children.map((child) => [child.name, child.bytes]));
+  const childBytes = (dir) => bytesByChild.get(path.basename(dir)) ?? 0;
+  const dataDirBytes = children.reduce((sum, child) => sum + child.bytes, 0);
   const store = readStoreSync();
   const nowMs = Date.now();
   const activeLeaseExpiries = Object.values(store.prewarmLeases)
@@ -176,28 +242,62 @@ function describeStorageState() {
       maxEntries: MAX_PREWARM_LEASES,
     },
     paths: {
-      dataDir: {
-        exists: fs.existsSync(dataDir),
-        bytes: getPathSizeBytes(dataDir),
-        human: formatBytes(getPathSizeBytes(dataDir)),
-      },
-      storeFilePath: {
-        exists: fs.existsSync(storeFilePath),
-        bytes: getPathSizeBytes(storeFilePath),
-        human: formatBytes(getPathSizeBytes(storeFilePath)),
-      },
-      workspacesDir: {
-        exists: fs.existsSync(workspacesDir),
-        bytes: getPathSizeBytes(workspacesDir),
-        human: formatBytes(getPathSizeBytes(workspacesDir)),
-      },
-      verifyWorkspacesDir: {
-        exists: fs.existsSync(verifyWorkspacesDir),
-        bytes: getPathSizeBytes(verifyWorkspacesDir),
-        human: formatBytes(getPathSizeBytes(verifyWorkspacesDir)),
-      },
+      dataDir: describeSize(dataDirBytes, fs.existsSync(dataDir)),
+      storeFilePath: describeSize(
+        childBytes(storeFilePath),
+        fs.existsSync(storeFilePath),
+      ),
+      workspacesDir: describeSize(
+        childBytes(workspacesDir),
+        fs.existsSync(workspacesDir),
+      ),
+      verifyWorkspacesDir: describeSize(
+        childBytes(verifyWorkspacesDir),
+        fs.existsSync(verifyWorkspacesDir),
+      ),
+      packageCacheDir: await describePackageCacheStorageSafely(bytesByChild),
     },
+    // Top-level breakdown of the volume. Without this, a full disk whose bytes
+    // sit outside the three known paths (an orphaned dir, lost+found after a
+    // crash) can only be diagnosed over `fly ssh`.
+    dataDirChildren: children,
   };
+}
+
+async function describePackageCacheStorageSafely(bytesByChild) {
+  try {
+    // Reuse the size from the volume walk instead of walking the cache again;
+    // it is by far the largest and most file-dense directory on the host.
+    const cache = await describePackageCacheStorage({
+      knownBytes: bytesByChild?.get(PACKAGE_CACHE_DIR_NAME),
+    });
+    return {
+      ...cache,
+      human: formatBytes(cache.bytes),
+      maxHuman: cache.maxBytes === null ? null : formatBytes(cache.maxBytes),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function describeDataDirChildren(dataDir) {
+  try {
+    const entries = await fsp.readdir(dataDir, { withFileTypes: true });
+    const children = [];
+    for (const entry of entries) {
+      const bytes = await getPathSizeBytes(path.join(dataDir, entry.name));
+      children.push({
+        name: entry.name,
+        kind: entry.isDirectory() ? "dir" : "file",
+        bytes,
+        human: formatBytes(bytes),
+      });
+    }
+    return children.sort((a, b) => b.bytes - a.bytes);
+  } catch {
+    return [];
+  }
 }
 
 function json(res, statusCode, payload) {
@@ -373,6 +473,7 @@ async function routeRequest(req, res) {
         "POST /preview/verify",
         "GET /preview/session/:id",
         "GET /preview/session/:previewSessionId/status",
+        "GET /preview/session/:previewSessionId/files-manifest",
         "GET /preview/sandbox/:previewSessionId/status (legacy path)",
         "GET /preview/logs/:previewSessionId",
         "GET /admin/sessions",
@@ -450,6 +551,38 @@ async function routeRequest(req, res) {
       versionId: latest.versionId,
       status: latest.status,
       sessionExpiresAt: latest.sessionExpiresAt,
+    });
+  }
+
+  const filesManifestSessionId = getPreviewFilesManifestSessionId(url.pathname);
+  if (req.method === "GET" && filesManifestSessionId) {
+    // Read-only by design: unlike `/status` this never queues a boot, so the
+    // app can ask "what is live right now?" without changing runtime state.
+    const session = findSessionByPreviewSessionId(readStoreSync(), filesManifestSessionId);
+    if (!session || !isSessionUsable(session, Date.now())) {
+      return json(res, 404, {
+        error: "session_not_found",
+        message: "No active preview session for this previewSessionId.",
+      });
+    }
+    const runtimeState = getRuntimeStateForChat(getSessionChatId(session));
+    const files = buildSessionFilesManifest(session);
+    return json(res, 200, {
+      ok: true,
+      previewSessionId: session.previewSessionId,
+      chatId: getSessionChatId(session),
+      versionId: session.versionId,
+      status: session.status,
+      // Same public-running rule as `/status`: a prewarm skeleton (or a session
+      // whose real replacement has not passed readiness yet) is never reported
+      // as running, so the app cannot patch a skeleton workspace.
+      running:
+        runtimeState.running &&
+        session.prewarm !== true &&
+        session.prewarmReplacementPending !== true,
+      hashAlgorithm: "sha256",
+      fileCount: Object.keys(files).length,
+      files,
     });
   }
 
@@ -657,13 +790,19 @@ async function routeRequest(req, res) {
       // closes that TOCTOU window: if the live session no longer points at the
       // base the patch was derived from, refuse the merge (without mutating) so
       // the caller does a full (re)start instead of writing a hybrid file set.
-      if (
-        validated.expectedBaseVersionId &&
-        typeof session.versionId === "string" &&
-        session.versionId &&
-        session.versionId !== validated.expectedBaseVersionId
-      ) {
-        return { type: "base_mismatch", currentVersionId: session.versionId };
+      //
+      // STRICT equality, not "differs from": a session with NO version at all
+      // (prewarm skeleton, a store row written by an older host build, a
+      // rolled-back patch) is not evidence that the base matches — it is
+      // evidence that we do not know what is live. Merging a partial diff into
+      // an unknown workspace is exactly the hybrid-file-set failure this check
+      // exists to prevent, so a missing version is refused with the same 409.
+      if (validated.expectedBaseVersionId) {
+        const liveVersionId =
+          typeof session.versionId === "string" ? session.versionId.trim() : "";
+        if (!liveVersionId || liveVersionId !== validated.expectedBaseVersionId) {
+          return { type: "base_mismatch", currentVersionId: liveVersionId || null };
+        }
       }
       // Finding #3 (FEL-5): snapshot the fields we are about to advance so a
       // failed workspace write (e.g. ENOSPC in the hot-patch path) can be rolled
@@ -727,8 +866,9 @@ async function routeRequest(req, res) {
     if (patchOutcome.type === "base_mismatch") {
       return json(res, 409, {
         error: "base_mismatch",
-        message:
-          "Preview session has advanced past the expected base version; refusing partial patch.",
+        message: patchOutcome.currentVersionId
+          ? "Preview session has advanced past the expected base version; refusing partial patch."
+          : "Preview session has no known version; refusing partial patch.",
         versionId: patchOutcome.currentVersionId,
       });
     }
@@ -918,8 +1058,22 @@ async function routeRequest(req, res) {
   if (req.method === "POST" && url.pathname === "/admin/cleanup") {
     if (!checkApiKey(req, res)) return;
     try {
+      // `?purgeCaches=1` drops the package cache regardless of its size. This
+      // is the operator's escape hatch for a disk-full host: it reclaims the
+      // one directory that ordinary cleanup deliberately keeps warm.
+      const purgeCaches = url.searchParams.get("purgeCaches") === "1";
+      const cachePurge = purgeCaches ? await cleanupPackageCaches({ force: true }) : null;
       const result = await cleanupPreviewHostStorage();
-      return json(res, 200, { cleaned: true, ...result });
+      return json(res, 200, {
+        cleaned: true,
+        ...result,
+        ...(cachePurge
+          ? {
+              forcedCachePurge: true,
+              forcedCachePurgeBytes: cachePurge.cacheBytesBefore,
+            }
+          : {}),
+      });
     } catch (error) {
       return json(res, 500, {
         error: "cleanup_failed",
@@ -941,7 +1095,7 @@ async function routeRequest(req, res) {
     if (!checkApiKey(req, res)) return;
     return json(res, 200, {
       ok: true,
-      storage: describeStorageState(),
+      storage: await describeStorageState(),
     });
   }
 

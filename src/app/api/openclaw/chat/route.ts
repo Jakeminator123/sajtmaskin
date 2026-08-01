@@ -11,6 +11,7 @@ import {
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
+import { buildOpenClawPreviewLogBlock } from "@/lib/openclaw/preview-log-context";
 import { resolveReviewReasoningEffort, DEFAULT_DEBUG_EFFORT } from "@/lib/openclaw/review-tuning";
 import {
   buildOpenClawRepoContextBlock,
@@ -127,7 +128,7 @@ Håll dig till kort, tydlig vägledning. Använd bara djup kodgranskning när an
 function buildDebugSystemPrompt(): string {
   return `Internt läge: DEBUG (OC_DEBUG på).
 
-Du har nu utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.`;
+Du har nu utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]), händelseloggen från förhandsvisningens VM ([PREVIEW-LOGG]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.`;
 }
 
 /**
@@ -316,6 +317,21 @@ export async function POST(req: NextRequest) {
             ).catch(() => null);
             if (debugBlock) {
               messages.push({ role: "system", content: debugBlock });
+            }
+
+            // Debug-mode: attach the preview-host (Fly VM) event log for the
+            // chat's active preview session, keyed by the OWNERSHIP-VERIFIED
+            // chat id (scopedVersion above proves the requester owns it). The
+            // reviewed version id is passed so the block warns when the
+            // session is pinned to ANOTHER version than the one under review
+            // (Bugbot). Fail-soft + bounded — no session / host error just
+            // omits the block.
+            const previewLogBlock = await buildOpenClawPreviewLogBlock(
+              reviewChatId as string,
+              { reviewedVersionId: scopedVersion.version.id },
+            ).catch(() => null);
+            if (previewLogBlock) {
+              messages.push({ role: "system", content: previewLogBlock });
             }
           }
         }

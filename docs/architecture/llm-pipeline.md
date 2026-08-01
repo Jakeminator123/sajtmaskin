@@ -138,6 +138,20 @@ Viktig ordningsregel: Normalize, verifier och preflight ligger före persist.
 VM-gaten (RenderGate/ReleaseGate) ligger efter persist och arbetar på den
 sparade versionen.
 
+**Follow-up-preview: patch före full update.** Steg 10 för en follow-up (ny
+version på en levande session) bygger fortfarande hela update-payloaden, men
+försöker först Fast Edit Lane: appen hämtar hostens filmanifest
+(`GET /preview/session/:id/files-manifest`, sha256 per path), diffar payloaden mot
+det och skickar bara ändrade filer + `removedPaths` till
+`POST /preview/session/patch` — ingen omstart av Next dev. Patchen körs bara när
+hosten kör, servar exakt den basversion sessionspekaren påstår, och diffen är
+liten och saknar strukturella paths (`package.json`, lockfiles, `next.config.*`,
+`tsconfig*`, `.env*`, postcss/tailwind). Allt annat — inklusive uteblivet
+manifest från en äldre host — faller tillbaka till `POST /preview/session/update`
+med full payload och omstart, dvs. exakt tidigare beteende. Valet loggas som
+`kind=preview_followup_lane` (`lane=patch|update` + orsak). Kontrakt och
+fallback-tabell: [`../schemas/preview-session-contract.md`](../schemas/preview-session-contract.md).
+
 **Dossier-scopade env-artefakter:** under finalize genereras/uppdateras både
 projektets `env.example` och pipeline-ägda `.env.local` från valda dossiers
 env-krav (`dossierEnvScope`), så bara relevanta nycklar tas med i stället för en

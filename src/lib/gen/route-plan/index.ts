@@ -12,7 +12,10 @@ export { getRoutePlanPrimarySource, parseRoutePlanFromUnknown } from "./route-pl
 export { buildRoutePlan } from "./route-plan-builder";
 export { findMissingPlannedRoutes } from "./route-plan-verify";
 
-export { deduplicateLocaleAlternateRoutes } from "./locale-dedupe";
+export {
+  deduplicateLocaleAlternateRoutes,
+  findSupersededScaffoldRoutes,
+} from "./locale-dedupe";
 export {
   collectExplicitRouteRemovals,
   detectExplicitPageCount,

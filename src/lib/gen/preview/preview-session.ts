@@ -11,11 +11,13 @@ import {
 } from "@/lib/gen/preview/env-local";
 import {
   destroyPreviewHostSession,
+  fetchPreviewHostFilesManifest,
   patchPreviewHostSession,
   startPreviewHostSession,
   updatePreviewHostSession,
   type PreviewHostPatchMode,
 } from "@/lib/gen/preview/preview-host-client";
+import { planPreviewPatch } from "@/lib/gen/preview/preview-patch-plan";
 import {
   clearPreviewSessionAsync,
   getActivePreviewSessionAsync,
@@ -181,8 +183,13 @@ export async function tryPatchPreviewSession(params: {
   if (!sess?.previewSessionId) {
     return { ok: false, reason: "no_session" };
   }
+  // STRICT: the stored pointer must BE the expected base, not merely "not a
+  // different one". A session without a version is unknown ground, and merging
+  // a partial diff into unknown ground is the hybrid-file-set bug — so it bails
+  // to a full (re)start just like a real mismatch. The host re-checks the same
+  // rule under its store lock and answers 409.
   const expectedBase = params.expectedBaseVersionId?.trim();
-  if (expectedBase && sess.versionId && sess.versionId !== expectedBase) {
+  if (expectedBase && sess.versionId?.trim() !== expectedBase) {
     return { ok: false, reason: "base_mismatch" };
   }
   const patched = await patchPreviewHostSession({
@@ -216,6 +223,129 @@ export async function tryPatchPreviewSession(params: {
     return { ok: false, reason: "base_mismatch", message: patched.message };
   }
   return { ok: false, reason: "host_error", message: patched.message };
+}
+
+/**
+ * Fast Edit Lane for a FOLLOW-UP generation (new versionId on a live session).
+ *
+ * The full `/update` path replaces every file and makes preview-host restart
+ * Next dev, so each follow-up pays a boot + first compile even when only page
+ * content changed. When the host can tell us exactly what it is holding, the
+ * same change can be pushed as a partial `/preview/session/patch` that writes
+ * only the changed paths into the live workspace.
+ *
+ * Strictly an optimisation with a single fallback: return `null` and the caller
+ * runs the untouched `/update` path, i.e. today's behaviour. It is only taken
+ * when all of these hold:
+ *
+ * 1. the patch lane flag is on,
+ * 2. the host still serves the exact base version our session pointer claims
+ *    (`files-manifest` reports `versionId` + `running`),
+ * 3. the diff has no structural/dependency path and is small enough
+ *    ({@link planPreviewPatch}),
+ * 4. the host accepts the patch under its own base-version lock and echoes the
+ *    NEW versionId back, so `/status` and resume stay correct.
+ *
+ * `updatePayload` must be the exact payload `/update` would have sent — the
+ * patch is a strict subset of it, so a patched VM ends up with the same files.
+ */
+async function tryFollowUpPatchLane(params: {
+  chatId: string;
+  previewSessionId: string;
+  /** Version the live session is pinned to (the base we diff against). */
+  baseVersionId: string | null;
+  versionId: string;
+  updatePayload: Record<string, string>;
+  previewMode: PreviewSessionMode;
+}): Promise<PreviewSessionResult | null> {
+  const startedAt = Date.now();
+  const fallBackToUpdate = (reason: string, detail?: string): null => {
+    logPreviewLifecycleTelemetry({
+      kind: "preview_followup_lane",
+      chatId: params.chatId,
+      versionId: params.versionId,
+      baseVersionId: params.baseVersionId,
+      lane: "update",
+      reason,
+      ...(detail ? { detail } : {}),
+      durationMs: Math.max(0, Date.now() - startedAt),
+    });
+    return null;
+  };
+
+  if (!isPreviewPatchLaneEnabled()) return fallBackToUpdate("patch_lane_disabled");
+  if (!params.baseVersionId) return fallBackToUpdate("unknown_base_version");
+
+  const manifest = await fetchPreviewHostFilesManifest(params.previewSessionId);
+  // No manifest = older host without the route, an unusable session, or a
+  // network blip. All of them mean "we do not know what is live" -> update.
+  if (!manifest) return fallBackToUpdate("manifest_unavailable");
+  if (!manifest.running) return fallBackToUpdate("runtime_not_running");
+  if (manifest.versionId !== params.baseVersionId) {
+    return fallBackToUpdate("host_version_mismatch", `host=${manifest.versionId ?? "none"}`);
+  }
+
+  const plan = planPreviewPatch({
+    hostFileHashes: manifest.files,
+    nextFiles: params.updatePayload,
+  });
+  if (!plan.ok) return fallBackToUpdate(plan.reason);
+
+  const patched = await patchPreviewHostSession({
+    previewSessionId: params.previewSessionId,
+    versionId: params.versionId,
+    files: plan.changedFiles,
+    ...(plan.removedPaths.length > 0 ? { removedPaths: plan.removedPaths } : {}),
+    // Re-checked under the host store lock: a session that advanced between the
+    // manifest read and the write is refused (409) instead of merging our diff
+    // into a workspace it was never derived from.
+    expectedBaseVersionId: params.baseVersionId,
+  });
+  if (!patched.ok) return fallBackToUpdate("host_patch_failed", patched.message);
+  if (patched.hostVersionId !== params.versionId) {
+    // STRICT: the host must positively confirm it pinned the NEW version. A
+    // missing echo (older host build, stripped field) is treated exactly like
+    // a mismatch — otherwise the app would record a version the host never
+    // acknowledged and resume/`/status` would disagree with reality. Let the
+    // full update re-pin it instead.
+    return fallBackToUpdate(
+      "host_version_not_recorded",
+      `host=${patched.hostVersionId ?? "none"}`,
+    );
+  }
+
+  await touchPreviewSessionAsync({
+    chatId: params.chatId,
+    previewSessionId: patched.previewSessionId,
+    previewUrl: patched.previewUrl,
+    versionId: params.versionId,
+    tier2Provider: "preview_host",
+  });
+  logPreviewLifecycleTelemetry({
+    kind: "preview_followup_lane",
+    chatId: params.chatId,
+    versionId: params.versionId,
+    baseVersionId: params.baseVersionId,
+    lane: "patch",
+    patchMode: patched.patchMode,
+    ...(patched.patchReason ? { detail: patched.patchReason } : {}),
+    changedFiles: Object.keys(plan.changedFiles).length,
+    removedPaths: plan.removedPaths.length,
+    durationMs: Math.max(0, Date.now() - startedAt),
+  });
+  return {
+    previewUrl: patched.previewUrl,
+    previewSessionId: patched.previewSessionId,
+    previewMode: params.previewMode,
+    fidelityTier: 2,
+    startOutcome: "resumed",
+    // A hot patch inherits the PREVIOUS boot's readiness receipt: Next dev is
+    // alive but has not recompiled the new files yet, and `restarted`/`booted`
+    // modes have only queued a boot. Not a per-version runtime-ready receipt —
+    // heartbeat/status confirms it, exactly as for the update path (M#pv1).
+    runtimeReady: false,
+    tier2Meta: { tier2Provider: "preview_host" },
+  };
 }
 
 export type StartPreviewSessionOptions = {
@@ -433,6 +563,20 @@ async function runStartPreviewSession(
       const updatePayload = Object.fromEntries(
         runtimeForUpdate.map((f) => [f.name, f.content]),
       );
+      // Fast Edit Lane first: push only what actually differs from the live VM
+      // and skip the Next dev restart. Any doubt -> `null` -> the full update
+      // below (unchanged behaviour).
+      const patchedResult = await tryFollowUpPatchLane({
+        chatId: cid,
+        previewSessionId: sess.previewSessionId,
+        baseVersionId: sess.versionId,
+        versionId: vid,
+        updatePayload,
+        previewMode: resolvedMode,
+      });
+      if (patchedResult) {
+        return { ok: true, result: patchedResult };
+      }
       const updated = await updatePreviewHostSession({
         previewSessionId: sess.previewSessionId,
         versionId: vid,
