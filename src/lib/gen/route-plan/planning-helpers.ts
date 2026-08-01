@@ -1,5 +1,5 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { escapeRegexLiteral } from "@/lib/utils/unicode-word-boundary";
+import { escapeRegexLiteral, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import { APP_ROUTE_PATTERNS, type RoutePatternEntry, WEBSITE_ROUTE_PATTERNS } from "./route-patterns";
 import { normalizeRoutePath } from "./path-utils";
@@ -168,7 +168,8 @@ export function neutralizeExplicitPageNameLiterals(
   for (const name of names) {
     const trimmed = name.trim();
     if (trimmed.length < 2) continue;
-    out = out.replace(new RegExp(escapeRegexLiteral(trimmed), "giu"), " ");
+    // Unicode word boundaries so short names like "Art" do not match inside "part".
+    out = out.replace(uWordRegex(escapeRegexLiteral(trimmed), "giu"), " ");
   }
   return out;
 }

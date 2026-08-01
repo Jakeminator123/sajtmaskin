@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getScaffoldById } from "./scaffolds/registry";
+import { neutralizeExplicitPageNameLiterals } from "./route-plan/planning-helpers";
 import {
   buildRoutePlan,
   deduplicateLocaleAlternateRoutes,
@@ -233,6 +234,28 @@ describe("buildRoutePlan", () => {
     });
     expect(plan.routes.some((r) => r.path === "/bilder")).toBe(true);
     expect(plan.routes.some((r) => r.path === "/work")).toBe(false);
+  });
+
+  it("neutralizeExplicitPageNameLiterals does not strip short names inside other words", () => {
+    const out = neutralizeExplicitPageNameLiterals(
+      'Skapa en sida som ska heta "Art". This is part of our contact page.',
+      ["Art"],
+    );
+    expect(out).toContain("part");
+    expect(out).toMatch(/contact/i);
+    expect(out).not.toMatch(/(?<![\p{L}\p{N}_])Art(?![\p{L}\p{N}_])/u);
+  });
+
+  it("explicit short page name Art does not break unrelated keyword routes", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt:
+        'Skapa en ny sida som ska heta "Art". Add a contact page as part of the site.',
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((r) => r.path === "/art")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(true);
   });
 
   it("merges brief routes with prompt-requested additions instead of early returning brief only", () => {

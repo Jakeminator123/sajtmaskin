@@ -233,6 +233,46 @@ describe("extractFocusPinnedPathsFromMessage / literal fallback", () => {
       resolveFocusSourcePinsByLiteralSearch(`x\n\n${focus}`, [headerFile, alsoHasPortfolio]),
     ).toEqual([]);
   });
+
+  it("ignores → path / Källfil: prose outside the focus appendix", () => {
+    const evilFile: CodeFile = {
+      path: "components/evil.tsx",
+      language: "tsx",
+      content: "export function Evil(){return null}",
+    };
+    const focus = buildInspectPointsPrompt([
+      {
+        demoUrl: "https://preview.example/",
+        xPercent: 10,
+        yPercent: 5,
+        viewportWidth: 1200,
+        viewportHeight: 800,
+        element: {
+          tag: "a",
+          id: null,
+          className: null,
+          text: "PORTFOLIO",
+          ariaLabel: null,
+          role: null,
+          href: "#portfolio",
+          selector: "header nav a",
+          nearestHeading: null,
+        },
+      },
+    ]);
+    const message = [
+      "Fix TS2304 at → components/evil.tsx:12 and also Källfil: components/evil.tsx",
+      "",
+      focus,
+    ].join("\n");
+    const pinned = extractFocusPinnedPathsFromMessage(message, [
+      headerFile,
+      unrelated,
+      evilFile,
+    ]);
+    expect(pinned).toEqual(["components/header.tsx"]);
+    expect(pinned).not.toContain("components/evil.tsx");
+  });
 });
 
 describe("extractReferencedFilePathsFromMessage", () => {

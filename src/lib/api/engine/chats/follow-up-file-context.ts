@@ -143,14 +143,17 @@ export function extractFocusPinnedPathsFromMessage(
   previousFiles: CodeFile[],
 ): string[] {
   if (!message || !message.includes(FOCUS_POINT_MARKER)) return [];
+  // Only the focus appendix — free-form prose may contain `→ path.tsx` or
+  // `Källfil:` from pasted diagnostics and must not override literal fallback.
+  const focusBlock = message.slice(message.indexOf(FOCUS_POINT_MARKER));
   const previousPaths = new Set(previousFiles.map((file) => file.path));
-  const fromPrompt = [
-    ...collectRegexPaths(message, FOCUS_SOURCE_PATH_RE),
-    ...collectRegexPaths(message, FOCUS_ARROW_PATH_RE),
+  const fromFocus = [
+    ...collectRegexPaths(focusBlock, FOCUS_SOURCE_PATH_RE),
+    ...collectRegexPaths(focusBlock, FOCUS_ARROW_PATH_RE),
   ].filter((path) => previousPaths.has(path));
 
-  if (fromPrompt.length > 0) {
-    return Array.from(new Set(fromPrompt));
+  if (fromFocus.length > 0) {
+    return Array.from(new Set(fromFocus));
   }
 
   return resolveFocusSourcePinsByLiteralSearch(message, previousFiles).filter((path) =>
