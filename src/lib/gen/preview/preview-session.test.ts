@@ -346,7 +346,7 @@ describe("startPreviewSession follow-up Fast Edit Lane", () => {
     });
   }
 
-  function mockPatchOk(hostVersionId: string, patchMode = "patched") {
+  function mockPatchOk(hostVersionId: string | null, patchMode = "patched") {
     patchPreviewHostSession.mockResolvedValue({
       ok: true,
       previewSessionId: "ps-live",
@@ -511,6 +511,29 @@ describe("startPreviewSession follow-up Fast Edit Lane", () => {
     expect(getActivePreviewSession("chat-patch")?.versionId).toBe("version-b");
     expect(logPreviewLifecycleTelemetry).toHaveBeenCalledWith(
       expect.objectContaining({ lane: "update", reason: "host_version_not_recorded" }),
+    );
+  });
+
+  it("falls back to a full update when the host echoes NO versionId at all", async () => {
+    const livePayload = await primeLiveSession("version-a", [file("app/page.tsx", PAGE_V1)]);
+    mockManifest("version-a", livePayload);
+    // Host answered 200 but without any versionId echo (older host build or a
+    // stripped field). Silence is NOT confirmation: the strict binding guard
+    // must treat it like a mismatch and let the full update re-pin.
+    mockPatchOk(null);
+    mockUpdateOk();
+
+    await runFollowUp("version-b", [file("app/page.tsx", PAGE_V2)]);
+
+    expect(patchPreviewHostSession).toHaveBeenCalledOnce();
+    expect(updatePreviewHostSession).toHaveBeenCalledOnce();
+    expect(getActivePreviewSession("chat-patch")?.versionId).toBe("version-b");
+    expect(logPreviewLifecycleTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lane: "update",
+        reason: "host_version_not_recorded",
+        detail: "host=none",
+      }),
     );
   });
 

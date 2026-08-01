@@ -297,11 +297,16 @@ async function tryFollowUpPatchLane(params: {
     expectedBaseVersionId: params.baseVersionId,
   });
   if (!patched.ok) return fallBackToUpdate("host_patch_failed", patched.message);
-  if (patched.hostVersionId && patched.hostVersionId !== params.versionId) {
-    // The host did not pin the new version, so resume/`/status` would keep
-    // reporting the old one. Let the full update re-pin it rather than writing
-    // a session pointer the host disagrees with.
-    return fallBackToUpdate("host_version_not_recorded", `host=${patched.hostVersionId}`);
+  if (patched.hostVersionId !== params.versionId) {
+    // STRICT: the host must positively confirm it pinned the NEW version. A
+    // missing echo (older host build, stripped field) is treated exactly like
+    // a mismatch — otherwise the app would record a version the host never
+    // acknowledged and resume/`/status` would disagree with reality. Let the
+    // full update re-pin it instead.
+    return fallBackToUpdate(
+      "host_version_not_recorded",
+      `host=${patched.hostVersionId ?? "none"}`,
+    );
   }
 
   await touchPreviewSessionAsync({
