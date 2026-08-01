@@ -28,6 +28,17 @@ export async function updateVersionFiles(
      */
     invalidateVerification?: boolean;
     /**
+     * Keep the cached tier-2 `previewUrl` instead of nulling it. Default `false`
+     * so every existing caller keeps the P19 invalidation (a file mutation must
+     * boot a fresh VM rather than reuse the stale URL). Set `true` ONLY for a
+     * write that changes `files_json` WITHOUT changing what the running VM
+     * serves — e.g. the one-shot stale-lockfile reconcile
+     * ({@link persistRegeneratedLockfileForVersion}), which just records the
+     * lockfile the host already installed. Nulling the URL there would desync
+     * the builder from a live session that is still valid (Bugbot HIGH).
+     */
+    preservePreviewUrl?: boolean;
+    /**
      * Set by a verify/repair caller that OWNS the active version lease (the
      * `runId` returned by {@link acquireVersionLease}). The write is then bound
      * — atomically, in the UPDATE's WHERE — to this run still holding the
@@ -56,7 +67,11 @@ export async function updateVersionFiles(
     // short-circuiting to `startOutcome: "reused_url"` and showing the
     // previous snapshot. Without this, file mutations via /files were
     // silently masked by the stale URL (P19 ingress point 1).
-    previewUrl: null,
+    //
+    // `preservePreviewUrl` opts out for writes that DON'T change what the VM
+    // serves (stale-lockfile reconcile): keep the URL so a live session stays
+    // bound (Bugbot HIGH).
+    ...(options?.preservePreviewUrl ? {} : { previewUrl: null }),
     repairedFilesJson: null,
     repairAvailableAt: null,
   };

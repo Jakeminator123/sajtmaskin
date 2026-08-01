@@ -12,7 +12,13 @@ const getVersionFiles = vi.hoisted(() =>
   ),
 );
 const updateVersionFiles = vi.hoisted(() =>
-  vi.fn<(versionId: string, filesJson: string) => Promise<boolean>>(async () => true),
+  vi.fn<
+    (
+      versionId: string,
+      filesJson: string,
+      options?: { preservePreviewUrl?: boolean },
+    ) => Promise<boolean>
+  >(async () => true),
 );
 
 vi.mock("@/lib/db/services/generation-telemetry", () => ({
@@ -215,6 +221,28 @@ describe("persistRegeneratedLockfileForVersion (regression 1 — lockfile round-
     const parsed = JSON.parse(filesJson) as Array<{ path: string; content: string }>;
     expect(parsed.find((f) => f.path === LOCKFILE_STALE_MARKER_PATH)).toBeUndefined();
     expect(parsed.find((f) => f.path === "pnpm-lock.yaml")?.content).toBe("NEW");
+  });
+
+  it("preserves the active previewUrl (does NOT null the live session) — Bugbot HIGH", async () => {
+    getVersionFiles.mockResolvedValueOnce([
+      { path: "package.json", content: "{}", language: "json" },
+      { path: "pnpm-lock.yaml", content: "OLD", language: "yaml" },
+      { path: LOCKFILE_STALE_MARKER_PATH, content: "{}", language: "json" },
+    ]);
+
+    await persistRegeneratedLockfileForVersion("v1", {
+      path: "pnpm-lock.yaml",
+      content: "NEW",
+    });
+
+    // The lockfile write must not clear the cached tier-2 URL: the running VM
+    // still serves the same site, so the builder must stay bound to it.
+    const [, , options] = updateVersionFiles.mock.calls[0] as [
+      string,
+      string,
+      { preservePreviewUrl?: boolean } | undefined,
+    ];
+    expect(options?.preservePreviewUrl).toBe(true);
   });
 
   it("skips (no churn) when the stale marker is already gone", async () => {

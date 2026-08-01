@@ -144,8 +144,11 @@ const failedPreviewVersionIds = new Set<string>();
  * frozen path again. Idempotent + guarded per version per instance; skips
  * silently when the marker is already gone (nothing to reconcile).
  *
- * NOTE: `updateVersionFiles` invalidates the cached preview URL by design; the
- * host reuses the same session for the chat so the next poll re-pins quickly.
+ * Preview binding (Bugbot HIGH): this write changes `files_json` but NOT what
+ * the running VM serves — the host already installed from the regenerated
+ * lockfile. It therefore passes `preservePreviewUrl: true` so a live/starting
+ * session stays bound and the builder doesn't desync (nulling the URL would
+ * have forced a needless re-boot on the first poll that returns a lockfile).
  * This is a rare one-time event (only right after a stale-lockfile reconcile).
  */
 export async function persistRegeneratedLockfileForVersion(
@@ -183,7 +186,9 @@ export async function persistRegeneratedLockfileForVersion(
       });
     }
     const { updateVersionFiles } = await import("@/lib/db/chat-repository-pg");
-    const wrote = await updateVersionFiles(versionId, JSON.stringify(next));
+    const wrote = await updateVersionFiles(versionId, JSON.stringify(next), {
+      preservePreviewUrl: true,
+    });
     if (wrote) persistedLockfileVersionIds.add(versionId);
     return wrote;
   } catch (err) {

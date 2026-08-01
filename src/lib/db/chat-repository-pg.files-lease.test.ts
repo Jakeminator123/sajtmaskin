@@ -134,6 +134,22 @@ describe("updateVersionFiles — version-lease guard (P1 files_json false-green-
     expect(set.previewUrl).toBeNull();
   });
 
+  it("preservePreviewUrl keeps the cached previewUrl (does NOT null it) — Bugbot HIGH lockfile-persist", async () => {
+    // The stale-lockfile reconcile writes files_json without changing what the
+    // VM serves, so the cached tier-2 URL must survive: no `previewUrl` key in
+    // the SET at all (leaves the column untouched) rather than `previewUrl:null`.
+    updateRowCount.value = 1;
+    const ok = await updateVersionFiles("ver-1", FILES, { preservePreviewUrl: true });
+    expect(ok).toBe(true);
+
+    const set = updateSet.value as Record<string, unknown>;
+    expect("previewUrl" in set).toBe(false);
+    // Still writes the files + clears repair fields as before.
+    expect(set.filesJson).toBe(FILES);
+    expect(set.repairedFilesJson).toBeNull();
+    expect(set.repairAvailableAt).toBeNull();
+  });
+
   it("(d) lets the LEASE HOLDER's own write through (matching runId) — WHERE guards on EXISTS run_id", async () => {
     updateRowCount.value = 1;
     const ok = await updateVersionFiles("ver-1", FILES, { holderRunId: "run-1" });
