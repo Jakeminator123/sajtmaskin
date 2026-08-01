@@ -117,7 +117,7 @@ describe("ChatInterface prepared-fill marker", () => {
   it("keeps the marker when the send was rejected without being recorded (retry may re-tag)", async () => {
     const onSendMessage = vi.fn(async () => ({
       status: "rejected" as const,
-      reason: "stale_base_version",
+      reason: "stale_base_version" as const,
       turnRecorded: false,
     }));
     armPreparedFill();
