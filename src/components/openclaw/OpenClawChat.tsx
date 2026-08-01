@@ -272,7 +272,11 @@ export function OpenClawChat() {
             ? "border-border bg-muted text-muted-foreground hover:bg-muted/90"
             : "border-cyan-400/30 bg-slate-950 text-slate-50 shadow-cyan-950/40 hover:-translate-y-0.5",
         )}
-        aria-label={isOpen ? "Stäng chattrutan" : "Öppna chattrutan"}
+        aria-label={
+          // Accessible name must start with the visible text ("Sajtagenten")
+          // so voice control can target the button (axe: label-content-name-mismatch).
+          isOpen ? "Sajtagenten — stäng chattrutan" : "Sajtagenten — öppna chattrutan"
+        }
       >
         {isOpen ? null : (
           <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.18),transparent_38%)]" />

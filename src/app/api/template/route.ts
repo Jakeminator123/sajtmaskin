@@ -215,8 +215,7 @@ async function initializeLocalTemplateProject(params: {
   const categoryTitle = getTemplateCategoryTitle(template);
 
   const chat = await chatRepo.createChat(projectId, String(engineModel));
-  const assistantSummary =
-    "Projektet importerades fran lokal v0-template och ar redo for vidare andringar i buildern.";
+  const assistantSummary = "Välkommen. Här är en template som vi utgår från.";
   const assistantMessage = await chatRepo.addMessage(chat.id, "assistant", assistantSummary);
   const files = toLegacyTemplateFiles(preparedFiles);
   const version = await chatRepo.createDraftVersion(
