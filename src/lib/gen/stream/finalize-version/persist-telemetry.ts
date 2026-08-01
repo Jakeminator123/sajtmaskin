@@ -63,6 +63,11 @@ export async function persistTelemetryRecord(params: {
    * omöjligt att se vilka av de ~50 fixarna som bär sin vikt. Ephemer
    * event-bus/devLog-data överlever inte serverless, så DB är enda durabla
    * ytan. Tom lista skrivs INTE (samma meta-hygien som `selectedDossierIds`).
+   *
+   * Sedan 2026-08-01 ingår även post_merge-lanen (`repairGeneratedFiles` i
+   * finalize-preflight, lane-taggad `post_merge`) — den mutera(de) persistade
+   * filer helt osynligt i prod (layout-provider-fixer, chat e8bd3ba6).
+   * `fixCount`/riskfälten är fortsatt Normalize-lanen enbart.
    */
   autoFixFixers?: AutofixFixerSummary[];
   verifierBlocked: boolean;
