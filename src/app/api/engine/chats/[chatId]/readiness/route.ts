@@ -36,6 +36,8 @@ import {
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
+import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
+import { hasRequiredRealBuildKeys } from "@/lib/integrations/tier3-build-spec";
 import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
@@ -515,6 +517,27 @@ async function buildEngineReadiness(
     warnings.push(...buildSeoAdvisoriesFromMeta(latestSeoWarning.meta));
   }
 
+  // Ö4a: bär samma boolean som `/finalize-design` grenar på
+  // (`hasRequiredRealBuildKeys(gate.spec)`), härledd ur EXAKT samma bas — samma
+  // `selectedDossiers` + samma redan inlästa `files` som `checkTier3ReadinessForVersion`
+  // använder — så "Bygg integrationer"-knappens tooltip kan säga vilken väg klicket
+  // tar utan att gissa ur platta nyckellistor.
+  //
+  // En spec som inte går att härleda ger `undefined`, aldrig `false`: samma
+  // `null` får `checkTier3ReadinessForVersion` att svara
+  // `version_files_unavailable`, vilket `/finalize-design` returnerar som 409.
+  // `false` hade alltså lovat den gratis deterministiska vägen för ett klick
+  // som i själva verket felar. Bara en härledd spec får uttala sig.
+  let hasRealBuildIntegrations: boolean | undefined;
+  try {
+    const tier3Spec = await deriveTier3BuildSpecForVersion(version.id, selectedDossiers, {
+      preloadedFiles: files,
+    });
+    hasRealBuildIntegrations = tier3Spec ? hasRequiredRealBuildKeys(tier3Spec) : undefined;
+  } catch {
+    hasRealBuildIntegrations = undefined;
+  }
+
   return buildReadinessPayload({
     blockers,
     warnings,
@@ -531,6 +554,7 @@ async function buildEngineReadiness(
       buildBlockingKeys,
       featureRuntimeKeys,
       warnOnlyKeys,
+      hasRealBuildIntegrations,
     },
   });
 }

@@ -66,6 +66,14 @@ export interface PreviewPanelProps {
   alternatePreviewUrls?: AlternatePreviewUrls;
   onNavigatePreviewUrl?: (url: string) => void;
   isLoading?: boolean;
+  /**
+   * Sant när appen arbetar med en generering (skapar chat, streamar, laddar
+   * mall, förbereder prompt). Skilt från `isLoading`, som bara säger om den
+   * blockerande overlayen får täcka previewn — den slutar medvetet blocka så
+   * fort en live tier-2-preview finns, även mitt i en stream. Ytor som kan
+   * starta en NY generering måste läsa den här, inte `isLoading`.
+   */
+  isGenerating?: boolean;
   /** Rensa-knappen bor i headerns verktygskluster; panelen kallar den inte själv. */
   onClear?: () => void;
   onFixPreview?: () => void;
