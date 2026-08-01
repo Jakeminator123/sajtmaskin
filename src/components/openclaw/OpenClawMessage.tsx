@@ -688,13 +688,37 @@ function OpenClawQuickEditCard({
           {action.reason}
         </div>
       ) : null}
-      <ul className="mt-2 space-y-1 rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 text-slate-200">
+      {/* Full payload-transparens (Bugbot): användaren ska se exakt VAD som
+          skrivs innan godkännande — inte bara op-typ + fil. Fill-kortet visar
+          hela texten; samma princip här, avgränsat och scrollbart. */}
+      <ul className="mt-2 space-y-2 rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 text-slate-200">
         {action.ops.map((op, index) => (
-          <li key={`${op.kind}:${op.path}:${index}`} className="flex min-w-0 items-baseline gap-2">
-            <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-300">
-              {describeOpenClawQuickEditOp(op)}
-            </span>
-            <span className="min-w-0 truncate font-mono text-[11px] text-slate-100">{op.path}</span>
+          <li key={`${op.kind}:${op.path}:${index}`} className="min-w-0">
+            <div className="flex min-w-0 items-baseline gap-2">
+              <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-300">
+                {describeOpenClawQuickEditOp(op)}
+              </span>
+              <span className="min-w-0 truncate font-mono text-[11px] text-slate-100">
+                {op.path}
+              </span>
+            </div>
+            {op.kind === "replace_text" ? (
+              <div className="mt-1 max-h-32 overflow-x-hidden overflow-y-auto rounded-lg border border-white/10 bg-black/30 p-2 font-mono text-[11px] leading-5 wrap-break-word whitespace-pre-wrap">
+                <span className="text-rose-300/90 line-through">{op.find}</span>
+                <span className="text-slate-400"> → </span>
+                <span className="text-emerald-300/90">{op.replace}</span>
+              </div>
+            ) : null}
+            {op.kind === "replace_content" ? (
+              <details className="mt-1 rounded-lg border border-white/10 bg-black/30 p-2">
+                <summary className="cursor-pointer text-[11px] text-slate-300 select-none">
+                  Visa nytt filinnehåll ({op.content.length} tecken)
+                </summary>
+                <pre className="mt-1 max-h-40 overflow-x-hidden overflow-y-auto font-mono text-[11px] leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
+                  {op.content}
+                </pre>
+              </details>
+            ) : null}
           </li>
         ))}
       </ul>

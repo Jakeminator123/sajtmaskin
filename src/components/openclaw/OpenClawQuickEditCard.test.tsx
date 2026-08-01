@@ -78,6 +78,9 @@ describe("OpenClawQuickEditCard — gating", () => {
     expect(screen.getByText("components/unused.tsx")).toBeTruthy();
     expect(screen.getByText("ersätt text")).toBeTruthy();
     expect(screen.getByText("ta bort fil")).toBeTruthy();
+    // Payload-transparens: exakt find/replace ska synas före godkännande.
+    expect(screen.getByText("Välkomen")).toBeTruthy();
+    expect(screen.getByText("Välkommen")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Godkänn och genomför" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Avböj" })).toBeTruthy();
     expect(quickEditMock).not.toHaveBeenCalled();
