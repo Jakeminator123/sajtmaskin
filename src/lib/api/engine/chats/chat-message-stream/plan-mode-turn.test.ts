@@ -140,6 +140,7 @@ function resetTurnMocks(): void {
   vi.mocked(prepareGenerationContext).mockResolvedValue({
     buildSpec: { qualityTarget: "f2", contextPolicy: "follow-up" },
     resolvedScaffold: null,
+    variantTemplateReferenceAttachments: [],
   } as unknown as Awaited<ReturnType<typeof prepareGenerationContext>>);
 }
 
