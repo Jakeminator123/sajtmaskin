@@ -284,6 +284,37 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     expect(json.readiness?.blockers.map((b) => b.id)).toContain("missing-env");
   });
 
+  // Bugbot on the M#li2 fix: an unsaved chat cannot store keys — the deploy
+  // route 403:ar on the missing project link before the env backstop, so the
+  // F2 blocker must name the project save, not missing env (same guard as
+  // the integrations branch).
+  it("F2: names project-context-missing (not missing-env) for an unsaved chat", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1", project_id: null });
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "pending",
+      release_state: null,
+      verification_summary: null,
+    });
+    resolveEnvRequirementsFromVersionFiles.mockReturnValue({
+      ...emptyEnvRequirements(),
+      requiredEnvKeys: ["MY_SECRET_TOKEN"],
+      missingEnvKeys: ["MY_SECRET_TOKEN"],
+      buildBlockingKeys: ["MY_SECRET_TOKEN"],
+      designDeployBlockingKeys: ["MY_SECRET_TOKEN"],
+    });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(false);
+    const blockerIds = json.readiness?.blockers.map((b) => b.id) ?? [];
+    expect(blockerIds).toContain("project-context-missing");
+    expect(blockerIds).not.toContain("missing-env");
+  });
+
   it("F2: does NOT block on truly-absent feature-runtime keys (Resend, prod 2026-08-01)", async () => {
     getPreferredVersion.mockResolvedValue({
       id: "ver_1",
