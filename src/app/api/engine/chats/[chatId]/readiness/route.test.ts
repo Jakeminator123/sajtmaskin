@@ -22,6 +22,7 @@ const resolveEnvRequirementsFromVersionFiles = vi.hoisted(() => vi.fn());
 const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const resolveSelectedDossiersFromSnapshot = vi.hoisted(() => vi.fn());
 const settleStaleVerificationIfNeeded = vi.hoisted(() => vi.fn());
+const deriveTier3BuildSpecForVersion = vi.hoisted(() => vi.fn());
 const emit = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/client", () => ({ db: {}, dbConfigured: false }));
@@ -67,6 +68,10 @@ vi.mock("@/lib/gen/verify/settle-stale-verification", () => ({
   RECONCILED_PROMOTE_SUMMARY: "Rekoncilierad (test)",
 }));
 
+vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
+  deriveTier3BuildSpecForVersion,
+}));
+
 const { GET } = await import("./route");
 
 function readinessRequest(chatId = "chat_1") {
@@ -94,7 +99,7 @@ type ReadinessBody = {
     status: string;
     blockers: Array<{ id: string }>;
     warnings: Array<{ id: string }>;
-    info: { lifecycleStage?: string | null };
+    info: { lifecycleStage?: string | null; hasRealBuildIntegrations?: boolean };
   };
 };
 
@@ -120,6 +125,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
     getEngineVersionErrorLogs.mockResolvedValue([]);
     createEngineVersionErrorLogs.mockResolvedValue(undefined);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
   });
 
   // A1: the readiness poll is one of the four reads that 500:ed 29 times during
@@ -189,6 +195,47 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
 
     expect(json.readiness?.canDeploy).toBe(true);
     expect(json.readiness?.blockers.map((b) => b.id)).not.toContain("release-gate-not-green");
+  });
+
+  // Ö4a: `hasRealBuildIntegrations` styr vad "Bygg integrationer" LOVAR om
+  // kostnad. En spec som inte går att härleda är samma `null` som får den
+  // delade gaten att svara `version_files_unavailable` → 409 från
+  // `/finalize-design`. Rapporteras den som `false` lovar knappen den gratis
+  // deterministiska vägen för ett klick som felar.
+  it("säger 'vet ej' i stället för 'gratis' när build-specen inte går att härleda", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: null,
+      verification_summary: null,
+    });
+    deriveTier3BuildSpecForVersion.mockResolvedValue(null);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.info.hasRealBuildIntegrations).toBeUndefined();
+  });
+
+  it("rapporterar true när en härledd spec kräver riktiga byggnycklar", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: null,
+      verification_summary: null,
+    });
+    deriveTier3BuildSpecForVersion.mockResolvedValue({
+      requirements: [{ key: "stripe", requiredRealEnvKeys: ["STRIPE_SECRET_KEY"] }],
+    });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.info.hasRealBuildIntegrations).toBe(true);
   });
 
   it("does not release-gate-block an F2 (design) version (soft gate)", async () => {

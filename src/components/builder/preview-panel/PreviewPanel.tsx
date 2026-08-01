@@ -186,6 +186,7 @@ export function PreviewPanel({
   previewUrl,
   onNavigatePreviewUrl,
   isLoading: externalLoading = false,
+  isGenerating = false,
   onFixPreview,
   versionlessAborted = false,
   onRestartGeneration,
@@ -1427,6 +1428,7 @@ export function PreviewPanel({
         activeVersionIsLatest={activeVersionIsLatest}
         activeVersionRepairPassIndex={activeVersionRepairPassIndex}
         onFixPreview={onFixPreview}
+        isGenerating={isGenerating}
       />
     );
   }
@@ -1549,6 +1551,8 @@ export function PreviewPanel({
           <div className="relative min-h-0 min-w-0 flex-1">
             <PreviewSurface
               isLoading={isLoading}
+              externalLoading={externalLoading}
+              isGenerating={isGenerating}
               iframeError={iframeError}
               iframeErrorMessage={iframeErrorMessage}
               iframeDiagnosticCode={iframeDiagnosticCode}

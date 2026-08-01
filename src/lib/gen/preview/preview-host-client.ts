@@ -1,7 +1,7 @@
 import { getPreviewHostBaseUrl } from "./tier2-config";
 import { VERIFY_REPAIR_ROUTE_BUDGET_SECONDS } from "@/lib/gen/defaults";
 
-function previewHostAuthHeaders(): Record<string, string> {
+export function previewHostAuthHeaders(): Record<string, string> {
   const key = process.env.SAJTMASKIN_PREVIEW_HOST_API_KEY?.trim();
   if (!key) return {};
   return { Authorization: `Bearer ${key}` };
@@ -186,6 +186,71 @@ export async function fetchPreviewHostStatus(
       return null;
     }
     return { previewSessionId: sid, primaryUrl: url };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Content-hash manifest of the file set preview-host currently holds for a
+ * session (`GET /preview/session/:previewSessionId/files-manifest`).
+ *
+ * This is the authoritative answer to "what is on the VM right now" — the app
+ * diffs a new version against it to decide whether the Fast Edit Lane can
+ * carry the change (see `planPreviewPatch`). Read-only on the host: it never
+ * queues a boot. `null` means unknown (route missing on an older host, network
+ * error, unusable session) and every caller must then fall back to the full
+ * update path.
+ */
+export type PreviewHostFilesManifest = {
+  previewSessionId: string;
+  /** Version the host session is currently pinned to, or `null` if unset. */
+  versionId: string | null;
+  /** Public running state — same prewarm-aware rule as `/status`. */
+  running: boolean;
+  /** `path -> sha256 hex of the stored content`. */
+  files: Record<string, string>;
+};
+
+export async function fetchPreviewHostFilesManifest(
+  previewSessionId: string,
+): Promise<PreviewHostFilesManifest | null> {
+  const base = getPreviewHostBaseUrl();
+  const id = previewSessionId.trim();
+  if (!base || !id) return null;
+  try {
+    const res = await fetch(
+      `${base}/preview/session/${encodeURIComponent(id)}/files-manifest`,
+      {
+        method: "GET",
+        headers: { ...previewHostAuthHeaders() },
+        cache: "no-store",
+        signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+      },
+    );
+    // 404 also covers a preview-host deployed before this route existed, which
+    // is exactly the "fall back to /update" case — no special handling needed.
+    if (!res.ok) return null;
+    const body = (await res.json()) as Record<string, unknown>;
+    if (body.ok !== true) return null;
+    const sid = readPreviewSessionIdFromHostBody(body);
+    if (!sid) return null;
+    // Only sha256 is understood; a host that switches algorithms must not be
+    // diffed against locally computed sha256 digests.
+    if (nonEmptyString(body.hashAlgorithm) !== "sha256") return null;
+    const rawFiles = body.files;
+    if (!rawFiles || typeof rawFiles !== "object" || Array.isArray(rawFiles)) return null;
+    const files: Record<string, string> = {};
+    for (const [path, hash] of Object.entries(rawFiles as Record<string, unknown>)) {
+      if (typeof hash !== "string" || !hash) return null;
+      files[path] = hash;
+    }
+    return {
+      previewSessionId: sid,
+      versionId: nonEmptyString(body.versionId),
+      running: body.running === true,
+      files,
+    };
   } catch {
     return null;
   }
@@ -503,6 +568,13 @@ export type PreviewHostPatchMode = "patched" | "restarted" | "booted";
 export type PreviewHostPatchOk = PreviewHostStartOk & {
   patchMode: PreviewHostPatchMode;
   patchReason: string | null;
+  /**
+   * `versionId` the host session ends up pinned to after the patch (echoed
+   * from its own store, not from the request). Callers that rely on resume /
+   * `/status` staying correct compare it with the version they sent; `null`
+   * means the host did not report one.
+   */
+  hostVersionId: string | null;
 };
 export type PreviewHostPatchErr = PreviewHostStartErr & {
   sessionMissing?: boolean;
@@ -615,6 +687,7 @@ export async function patchPreviewHostSession(params: {
         startOutcome: "resumed",
         patchMode,
         patchReason,
+        hostVersionId: nonEmptyString(responseBody.versionId),
       };
     } catch (e) {
       const message = e instanceof Error ? e.message : "Preview host patch failed";

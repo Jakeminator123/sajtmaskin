@@ -30,14 +30,10 @@
  */
 
 import type { FixEntry } from "../types";
+import { bindingNameOf, indexIdentifierUsage, isUsedAsValue } from "./type-value-position";
 
 const TYPE_IMPORT_RE =
   /^(\s*)import\s+type\s+\{\s*([^}]+?)\s*\}\s+from\s+(['"][^'"]+['"]);?\s*$/gm;
-
-const VALUE_NEW_RE = /\bnew\s*$/;
-const VALUE_TYPEOF_RE = /\btypeof\s+$/;
-const TYPE_PRECEDER_RE =
-  /(?:[:,|&?]|\b(?:as|satisfies|extends|implements|keyof))\s*$/;
 
 type FixResult = {
   code: string;
@@ -45,78 +41,15 @@ type FixResult = {
   fixes: FixEntry[];
 };
 
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-type Classification = "type" | "value" | "unknown";
-
-/**
- * Classify a single occurrence of `symbol` at offset `idx` in `code`.
- * Same heuristic as `type-only-import-fixer.ts#classifyOccurrence` — we want
- * symmetric semantics so the two fixers never disagree on the same binding.
- */
-function classifyOccurrence(
-  code: string,
-  idx: number,
-  len: number,
-): Classification {
-  const before = code.slice(Math.max(0, idx - 32), idx);
-  const after = code.slice(idx + len, idx + len + 24);
-
-  if (VALUE_NEW_RE.test(before)) return "value";
-  if (VALUE_TYPEOF_RE.test(before)) return "value";
-
-  if (/^\s*\(/.test(after)) return "value"; // X(...)
-  if (/^\s*\./.test(after)) return "value"; // X.member
-  if (/^\s*=[^=>]/.test(after)) return "value";
-
-  if (/<\s*$/.test(before)) {
-    if (/^\s+\w+\s*=/.test(after)) return "value"; // <X attr=
-    if (/^\s*\/\s*>/.test(after)) return "value"; // <X/>
-    if (/^\s*>/.test(after)) {
-      const past = after.slice(after.indexOf(">") + 1);
-      if (/^\s*([;,)\]}|&]|$)/.test(past)) return "type";
-      if (/^\s*[<{a-zA-Z0-9]/.test(past)) return "value";
-      return "unknown";
-    }
-    if (/^\s*[,|&]/.test(after)) return "type";
-    return "unknown";
-  }
-
-  if (TYPE_PRECEDER_RE.test(before)) return "type";
-
-  return "unknown";
-}
-
-/** True if any reference to `symbol` in `code` looks like a value usage. */
-function isUsedAsValue(code: string, symbol: string): boolean {
-  const usageRe = new RegExp(`\\b${escapeRegex(symbol)}\\b`, "g");
-  let match: RegExpExecArray | null;
-  while ((match = usageRe.exec(code)) !== null) {
-    const verdict = classifyOccurrence(code, match.index, symbol.length);
-    if (verdict === "value") return true;
-  }
-  return false;
-}
-
-function bindingNameOf(specifier: string): string {
-  const aliasMatch = specifier.match(
-    /^[A-Za-z_$][\w$]*\s+as\s+([A-Za-z_$][\w$]*)\s*$/,
-  );
-  if (aliasMatch) return aliasMatch[1];
-  return specifier.trim();
-}
-
 /**
  * Convert `import type { … }` → `import { … }` when at least one of the
  * bindings is used in a value position elsewhere in the file.
  *
  * `forceValueSymbols` lets a diagnostic-driven caller (the repair-loop's
- * deterministic import-repair) override the local heuristic for symbols the
- * TypeScript compiler has *already confirmed* are used as values (TS1361). This
- * closes the gap where `classifyOccurrence` misreads an object-literal value
- * (`{ icon: PawPrint }`) as a type annotation because of the leading `:`.
+ * deterministic import-repair) override the local analysis for symbols the
+ * TypeScript compiler has *already confirmed* are used as values (TS1361). It
+ * still matters after the switch to an AST: a file with parse errors yields no
+ * usable analysis, and the compiler's verdict is authoritative regardless.
  */
 export function fixValueUsedFromTypeImport(
   code: string,
@@ -127,6 +60,7 @@ export function fixValueUsedFromTypeImport(
     return { code, fixed: false, fixes: [] };
   }
 
+  const usage = indexIdentifierUsage(code, filePath);
   const replacements: Array<{ start: number; end: number; text: string }> = [];
   const convertedSymbols: string[] = [];
   let match: RegExpExecArray | null;
@@ -148,12 +82,10 @@ export function fixValueUsedFromTypeImport(
     if (specifierTokens.length === 0) continue;
 
     const bindings = specifierTokens.map(bindingNameOf);
-    const restOfCode = code.slice(0, start) + code.slice(end);
 
     const anyValueUse = bindings.some(
       (binding) =>
-        (forceValueSymbols?.has(binding) ?? false) ||
-        isUsedAsValue(restOfCode, binding),
+        (forceValueSymbols?.has(binding) ?? false) || isUsedAsValue(usage, binding),
     );
     if (!anyValueUse) continue;
 
