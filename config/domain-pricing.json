@@ -1,0 +1,23 @@
+{
+  "$schema-note": "Referensdata for domanpriser. Kanonisk agare av markup, valutakurs och de riktpriser som visas nar ingen registrar kan lamna en bindande offert. Las via src/lib/domains/pricing.ts - importera aldrig den har filen direkt fran en route.",
+  "updatedAt": "2026-08-01",
+  "markup": 5,
+  "usdToSek": {
+    "rate": 11,
+    "updatedAt": "2026-08-01",
+    "note": "Fast referenskurs, inte en live-kurs. Anvands bara for att omvandla registrarens USD-offert till en SEK-siffra i UI:t. Debitering sker alltid pa den SEK-summa som last i ordern vid checkout."
+  },
+  "referenceWholesaleSek": {
+    "se": 99,
+    "nu": 99,
+    "com": 40,
+    "net": 40,
+    "org": 40,
+    "io": 133,
+    "app": 50,
+    "dev": 50,
+    "co": 83
+  },
+  "referenceWholesaleFallbackSek": 50,
+  "referenceNote": "Riktvarden i SEK per ar fore pasla, avlasta manuellt. De ar INTE offerter: en domansokning som faller tillbaka pa dem maste markeras som uppskattad, och ett kop far aldrig debiteras pa ett riktvarde."
+}

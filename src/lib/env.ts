@@ -153,6 +153,8 @@ export const serverSchema = z.object({
   SAJTMASKIN_PREVIEW_PATCH_LANE: z.string().optional(),
   /** Innehållsrevision steg 3: when `"true"`, verdict/receipt readers compare `files_revision` instead of trusting `versionId` (promote-guard, preview-ready receipt + cache, terminal status projection). Known mismatch only; unknown revision stays fail-open. Read via `isContentRevisionGateEnabled` in `src/lib/gen/verify/content-revision.ts`. Default off. */
   SAJTMASKIN_CONTENT_REVISION_GATE: z.string().optional(),
+  /** In-app domain purchase: when `"true"`, a domain order may place a REAL registrar order and charge the customer's card. Default off — a Vercel token that exists for deploys must not by itself imply consent to spend money at the registrar. Read via `FEATURES.useDomainPurchase`. */
+  SAJTMASKIN_DOMAIN_PURCHASE: z.string().optional(),
   /** Canonical server-side default for own-engine reasoning/thinking when the client omits an explicit toggle. */
   SAJTMASKIN_DEFAULT_THINKING: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
