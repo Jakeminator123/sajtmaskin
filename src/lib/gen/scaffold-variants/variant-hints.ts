@@ -142,8 +142,14 @@ export function formatVariantHintsForPrompt(hints: VariantHints): string {
     lines.push(`- Signature motifs: ${hints.signatureMotifs.join(" | ")}`);
   }
   if (hints.sourceTemplate) {
+    // Titeln utelämnas medvetet. Den är ofta domänspecifik ("MindSpace Mental
+    // Health Platform"), och det här är BRIEF-steget — där varumärke, målgrupp,
+    // copy och sidplan avgörs, långt innan codegen får sin "bara stil"-regel.
+    // En titel här kan alltså göra referensens bransch mer styrande än
+    // användarens egen, kanske knapphändiga, prompt. Kategorin är en
+    // designgenre, inte ett varumärke, och bär inte samma risk.
     lines.push(
-      `- Curated full-project reference: ${hints.sourceTemplate.title} (${hints.sourceTemplate.category}); code generation may inspect one matching still image and bounded frontend structure later.`,
+      `- Curated full-project reference: a ${hints.sourceTemplate.category} design. Use it for VISUAL properties only (layout, density, spacing, composition). Never adopt its brand, product name, audience, copy or page plan — those follow the user's request alone. Code generation may inspect one matching still image and bounded frontend structure later.`,
     );
   }
   if (hints.themeTokens) {

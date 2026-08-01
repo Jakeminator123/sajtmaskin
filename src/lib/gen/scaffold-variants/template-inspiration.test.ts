@@ -80,6 +80,41 @@ describe("extractVariantTemplateStructuralReferences", () => {
     ).toBeLessThanOrEqual(9_000);
   });
 
+  it("tar hellre ingen komponent än en backend-fil när sidan saknar komponentimport", () => {
+    // Fallbacken valde tidigare den längsta lokala importen rakt av. Här är
+    // den enda importen en server action — den skulle alltså ha skickats in
+    // som "inspiration", tvärtemot kontraktet att bara frontend följer med.
+    const backendOnly: CodeFile[] = [
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        content:
+          'import { saveLead } from "@/lib/actions";\nexport default function Page() { return <main>hej</main>; }',
+      },
+      {
+        path: "lib/actions.ts",
+        language: "ts",
+        content:
+          '"use server";\nimport { db } from "./db";\nexport async function saveLead(input: FormData) { await db.insert(input); }\n'.repeat(
+            20,
+          ),
+      },
+      {
+        path: "app/globals.css",
+        language: "css",
+        content: ":root { --radius: 1rem; }",
+      },
+    ];
+
+    const references = extractVariantTemplateStructuralReferences(backendOnly);
+
+    expect(references.map((reference) => reference.path)).toEqual([
+      "app/page.tsx",
+      "app/globals.css",
+    ]);
+    expect(references.map((reference) => reference.path)).not.toContain("lib/actions.ts");
+  });
+
   it("loads the selected ZIP once and applies the same structural bounds", async () => {
     const loadFiles = vi.fn(async () => ({ files }));
     const inspiration = await resolveVariantTemplateInspiration(

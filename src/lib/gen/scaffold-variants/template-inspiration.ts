@@ -171,6 +171,30 @@ function localImportSpecifiers(content: string): string[] {
   return Array.from(matches, (match) => match[1]).filter(Boolean);
 }
 
+/** Markörer som gör en fil till serverkod oavsett var den ligger. */
+const SERVER_ONLY_MARKERS = [
+  /^\s*["']use server["']/m,
+  /from\s+["']next\/server["']/,
+  /from\s+["']server-only["']/,
+];
+
+/**
+ * Sant bara för filer som bevisligen renderar UI.
+ *
+ * Kravet är positivt bevis, inte frånvaro av misstanke: rätt filändelse, ingen
+ * servermarkör, och faktisk JSX i innehållet. En server action eller ett
+ * datalager passerar inte, och det är hela poängen — inspirationen ska bara
+ * bära frontend.
+ */
+function looksLikeFrontendComponent(file: CodeFile): boolean {
+  const path = normalizedPath(file.path).toLowerCase();
+  if (/(^|\/)api\//.test(path)) return false;
+  const extension = posix.extname(path);
+  if (extension !== ".tsx" && extension !== ".jsx") return false;
+  if (SERVER_ONLY_MARKERS.some((marker) => marker.test(file.content))) return false;
+  return /<[A-Za-z][\w.-]*[\s/>]/.test(file.content);
+}
+
 function resolveImportedFile(primaryPage: CodeFile, files: CodeFile[]): CodeFile | null {
   const byPath = new Map(
     files.map((file) => [normalizedPath(file.path).toLowerCase(), file] as const),
@@ -202,11 +226,17 @@ function resolveImportedFile(primaryPage: CodeFile, files: CodeFile[]): CodeFile
     }
   }
 
+  const longestFirst = (a: CodeFile, b: CodeFile) => b.content.length - a.content.length;
   return (
     candidateFiles
       .filter((file) => /(^|\/)components?\//i.test(normalizedPath(file.path)))
-      .sort((a, b) => b.content.length - a.content.length)[0] ??
-    candidateFiles.sort((a, b) => b.content.length - a.content.length)[0] ??
+      .sort(longestFirst)[0] ??
+    // Fallbacken tog tidigare den längsta lokala importen rakt av. Har sidan
+    // ingen import under `components/` kunde det lika gärna vara en server
+    // action, auth-helper eller datalagerfil — och då hade backendkod hamnat i
+    // "Variant Template Inspiration", tvärtemot kontraktet att bara frontend
+    // följer med. Hellre ingen komponent alls än fel sorts kod.
+    candidateFiles.filter(looksLikeFrontendComponent).sort(longestFirst)[0] ??
     null
   );
 }

@@ -70,6 +70,23 @@ describe("buildVariantHintsForBrief", () => {
     );
   });
 
+  it("läcker inte mallens titel in i brief-prompten", () => {
+    // Brief-steget avgör varumärke, målgrupp, copy och sidplan. En
+    // domänspecifik titel här kan göra referensens bransch mer styrande än
+    // användarens egen prompt — och den får sin "bara stil"-regel först i
+    // codegen, alltså för sent.
+    const hints = buildVariantHintsForBrief(
+      baseScaffold as ScaffoldManifest,
+      baseVariant,
+    );
+    const prompt = formatVariantHintsForPrompt(hints!);
+
+    expect(hints?.sourceTemplate?.title).toBeTruthy();
+    expect(prompt).not.toContain(hints!.sourceTemplate!.title);
+    expect(prompt).toContain("landing-pages design");
+    expect(prompt).toContain("VISUAL properties only");
+  });
+
   it("returns null themeTokens when variant has no theme block", () => {
     const variantNoTokens: ScaffoldVariant = { ...baseVariant, themeTokens: undefined };
     const hints = buildVariantHintsForBrief(

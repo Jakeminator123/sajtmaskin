@@ -167,8 +167,18 @@ function getVisualReferenceAttachments(
   attachments: RequestAttachment[],
   max = 4,
 ): RequestAttachment[] {
-  return attachments
-    .filter((attachment) => isImageAttachment(attachment))
+  const images = attachments.filter((attachment) => isImageAttachment(attachment));
+  // Systemets stilreferens läggs FÖRST i listan av anroparen, men den är det
+  // enda i budgeten som inte är användarens eget innehåll — den är dessutom
+  // märkt "do not embed", så platsen den tar kan aldrig bli en bild i sajten.
+  // Ryms inte allt ska referensen falla bort, aldrig en användarbild.
+  const userImages = images.filter(
+    (attachment) => !isVariantTemplateStyleReference(attachment),
+  );
+  const styleReferences = images.filter((attachment) =>
+    isVariantTemplateStyleReference(attachment),
+  );
+  return [...userImages, ...styleReferences]
     .slice(0, max)
     .map((attachment) => ({
       ...attachment,
@@ -251,9 +261,13 @@ export function buildUserPromptContent(
 ): UserPromptContent {
   const list = attachments ?? [];
   const trimmed = prompt.trimEnd();
+  const visualAttachments = getVisualReferenceAttachments(list);
   const mediaReferenceBlock = formatEmbeddableMediaReferences(list);
   const descriptorBlock = formatNonImageAttachmentDescriptors(list);
-  const styleReferenceBlock = formatVariantTemplateStyleReferences(list);
+  // Härledd ur det som faktiskt ryms i visionbudgeten, inte ur hela listan:
+  // texten säger "One reference image is supplied on the vision channel", och
+  // det får inte stå kvar när referensen trängdes ut av användarens bilder.
+  const styleReferenceBlock = formatVariantTemplateStyleReferences(visualAttachments);
   const textPrompt = [
     trimmed,
     mediaReferenceBlock,
@@ -263,7 +277,6 @@ export function buildUserPromptContent(
     .filter((section) => section.length > 0)
     .join("\n\n");
 
-  const visualAttachments = getVisualReferenceAttachments(list);
   if (visualAttachments.length === 0) return textPrompt;
 
   const parts: Array<

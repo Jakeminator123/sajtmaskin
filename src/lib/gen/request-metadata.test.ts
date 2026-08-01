@@ -129,6 +129,55 @@ describe("buildUserPromptContent — attached media", () => {
     expect(normalized[0].size).toBe(1234);
   });
 
+  it("offrar systemreferensen, inte en användarbild, när budgeten är full", () => {
+    // Anroparen lägger mallbilden först och visionkanalen tar bara fyra bilder.
+    // Med fyra användarbilder måste referensen falla bort — den är en stilhint
+    // som dessutom är märkt "do not embed", så platsen den tar kan aldrig bli
+    // en bild i den genererade sajten.
+    const attachments: RequestAttachment[] = [
+      {
+        url: `${BLOB}/template.png`,
+        mimeType: "image/png",
+        purpose: VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
+      },
+      ...[1, 2, 3, 4].map((n) => ({
+        url: `${BLOB}/user-${n}.jpg`,
+        mimeType: "image/jpeg",
+      })),
+    ];
+
+    const content = buildUserPromptContent("bygg en sajt", attachments);
+    const images = Array.isArray(content)
+      ? content.filter((part) => part.type === "image").map((part) => part.image)
+      : [];
+
+    expect(images).toEqual([1, 2, 3, 4].map((n) => `${BLOB}/user-${n}.jpg`));
+    expect(images).not.toContain(`${BLOB}/template.png`);
+    // Textblocket lovar "One reference image is supplied on the vision
+    // channel" — det får inte stå kvar när referensen inte kom med.
+    expect(textOf(content)).not.toContain("Variant template style reference");
+  });
+
+  it("behåller systemreferensen när det finns plats kvar", () => {
+    const attachments: RequestAttachment[] = [
+      {
+        url: `${BLOB}/template.png`,
+        mimeType: "image/png",
+        purpose: VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
+      },
+      { url: `${BLOB}/user-1.jpg`, mimeType: "image/jpeg" },
+    ];
+
+    const content = buildUserPromptContent("bygg en sajt", attachments);
+    const images = Array.isArray(content)
+      ? content.filter((part) => part.type === "image").map((part) => part.image)
+      : [];
+
+    expect(images).toContain(`${BLOB}/template.png`);
+    expect(images).toContain(`${BLOB}/user-1.jpg`);
+    expect(textOf(content)).toContain("Variant template style reference");
+  });
+
   it("normalizeRequestAttachments låter inte en klient sätta systemreferens-markören", () => {
     // Markören är serverreserverad. Går den igenom klassas användarbilden som
     // systemreferens och utesluts ur URL-textblocket — modellen ser bilden men
