@@ -639,17 +639,20 @@ export function ChatInterface({
         // ställen och ett omsänd kan dubblera turen (bugbot på #610).
         if (outcome.status === "rejected" && !outcome.turnRecorded) return;
       }
+      // The fill was consumed by THIS send (tagged or not) — drop the marker
+      // unconditionally so a later send can't inherit it. Deliberately outside
+      // the clearDraft-branch (Bugbot): plan-läge skickar med clearDraft:false,
+      // och markören fick inte överleva dit — ett senare codegen-utskick med
+      // samma text ska ta normalvägen, inte ärva taggen.
+      if (openClawState.preparedFill) {
+        useOpenClawStore.getState().setPreparedFill(null);
+      }
       if (options.clearDraft !== false) {
         setInput("");
         setFiles([]);
         setFigmaUrl("");
         setFigmaInputOpen(false);
         setInspectPoints([]);
-        // The draft that carried the OpenClaw fill is consumed — drop the
-        // prepared-fill marker so a LATER identical draft can't inherit it.
-        if (openClawState.preparedFill) {
-          useOpenClawStore.getState().setPreparedFill(null);
-        }
       }
     } finally {
       setIsSending(false);
