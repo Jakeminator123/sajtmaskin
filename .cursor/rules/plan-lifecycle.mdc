@@ -20,7 +20,6 @@ Planer dokumenterar arbete, de är inte produkten.
 | `docs/plans/active/<initiativ>/` | endast stora pågående initiativ |
 | `docs/plans/avklarat/` | implementerat och mergat |
 | `docs/plans/archived/` | vilande, parkerat, ersatt, skrotat |
-| `docs/inspiration/` | idéer/lärdomar, inte aktiv plan |
 
 ## Stora initiativ
 
