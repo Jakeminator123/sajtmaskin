@@ -422,6 +422,56 @@ describe("fixReactAndNavigationImports — duplicate react import consolidation"
     expect(second.consolidatedReactBindings).toEqual([]);
   });
 
+  // Prod 2026-08-01 (template chats cb529c3c + d9cab01d): the model emitted
+  // `import React` on line 1 and `import * as React` a few lines down in
+  // app/layout.tsx and friends. TS2300 → typecheck exit 2 → both the edit and
+  // its repair retry failed, so the preview stayed on v1.
+  it("drops `import * as React` when the same file also has a default React import", () => {
+    const code = [
+      'import React from "react";',
+      'import type { Metadata } from "next";',
+      'import * as React from "react";',
+      "",
+      "export default function RootLayout({ children }: { children: React.ReactNode }) {",
+      "  return <html><body>{children}</body></html>;",
+      "}",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.fixed).toBe(true);
+    expect(result.consolidatedReactBindings).toEqual(["React"]);
+    expect(result.code).not.toContain("import * as React");
+    expect(countIn(reactImportLines(result.code), "React")).toBe(1);
+    // Unrelated imports and the component body survive untouched.
+    expect(result.code).toContain('import type { Metadata } from "next";');
+    expect(result.code).toContain("children: React.ReactNode");
+  });
+
+  it("keeps the value import's other bindings when dropping the namespace line", () => {
+    const code = [
+      'import React, { useState } from "react";',
+      'import * as React from "react";',
+      "const [v] = useState(0);",
+      "const el = React.createElement('div');",
+    ].join("\n");
+
+    const result = fixReactAndNavigationImports(code);
+
+    expect(result.code).toContain('import React, { useState } from "react";');
+    expect(result.code).not.toContain("import * as React");
+  });
+
+  it("is idempotent for the default + namespace collision", () => {
+    const code = ['import React from "react";', 'import * as React from "react";'].join("\n");
+
+    const first = fixReactAndNavigationImports(code);
+    expect(first.fixed).toBe(true);
+    const second = fixReactAndNavigationImports(first.code);
+    expect(second.fixed).toBe(false);
+    expect(second.code).toBe(first.code);
+  });
+
   it("leaves a namespace import beside a single disjoint value import untouched", () => {
     const code = [
       'import * as React from "react";',
