@@ -10,11 +10,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createTransaction, getTransactionByStripeSession } from "@/lib/db/services/transactions";
 import { getUserById } from "@/lib/db/services/users";
 import { SECRETS } from "@/lib/config";
-import { fulfilDomainOrder } from "@/lib/domains/fulfilment";
+import { fulfilDomainOrder, refundDomainOrder } from "@/lib/domains/fulfilment";
 import {
   markDomainOrderExpired,
   markDomainOrderPaid,
-  getDomainOrderByStripeSession,
 } from "@/lib/db/services/domain-orders";
 import Stripe from "stripe";
 
@@ -144,11 +143,14 @@ export async function POST(req: NextRequest) {
 
     case "checkout.session.expired": {
       const session = event.data.object as Stripe.Checkout.Session;
-      if (session.metadata?.kind === "domain_purchase") {
+      const expiredOrderId = session.metadata?.domainOrderId;
+      if (session.metadata?.kind === "domain_purchase" && expiredOrderId) {
         // Release the name. Without this the reservation would only lapse via
         // the TTL sweep, which runs when someone next tries to buy that exact
         // domain — so an abandoned checkout could sit on a name for a while.
-        await markDomainOrderExpired(session.id).catch((err) =>
+        // A late `completed` for the same session can still revive the order
+        // (see `markDomainOrderPaid`), so expiring is not a point of no return.
+        await markDomainOrderExpired(expiredOrderId).catch((err) =>
           console.error("[Stripe/webhook] Could not expire domain order:", err),
         );
       }
@@ -190,40 +192,82 @@ async function handleDomainPurchaseCompleted(
 ): Promise<NextResponse> {
   const paymentIntent =
     typeof session.payment_intent === "string" ? session.payment_intent : null;
+  // Keyed on the order id from metadata, not the session id: the session id is
+  // written to the order AFTER Stripe creates the session, so a failure in
+  // that window would otherwise leave a payable session no lookup can match.
+  const orderId = session.metadata?.domainOrderId;
 
-  let order;
+  if (!orderId) {
+    console.error("[Stripe/webhook] Domain session without order id:", session.id);
+    return await refundUnmatchedDomainPayment(paymentIntent, "missing_order_id");
+  }
+
+  let result;
   try {
-    order = await markDomainOrderPaid(session.id, paymentIntent);
+    result = await markDomainOrderPaid(orderId, session.id, paymentIntent);
   } catch (error) {
     console.error("[Stripe/webhook] Could not mark domain order paid:", error);
     return NextResponse.json({ error: "domain_order_update_failed" }, { status: 500 });
   }
 
-  if (!order) {
-    const existing = await getDomainOrderByStripeSession(session.id).catch(() => null);
-    if (existing) {
-      console.info("[Stripe/webhook] Domain order already handled:", existing.id);
-      return NextResponse.json({ received: true, alreadyHandled: true });
-    }
-    // A signed session we have no order for cannot be fixed by retrying.
-    console.error("[Stripe/webhook] No domain order for session:", session.id);
-    return NextResponse.json({ received: true, ignored: "unknown_domain_order" });
+  if (result.outcome === "already_handled") {
+    console.info("[Stripe/webhook] Domain order already handled:", orderId);
+    return NextResponse.json({ received: true, alreadyHandled: true });
+  }
+  if (result.outcome === "not_found") {
+    // A signed session for an order we do not have cannot be fixed by
+    // retrying, but the customer was still charged — refund rather than
+    // silently keep the money.
+    console.error("[Stripe/webhook] No domain order for id:", orderId);
+    return await refundUnmatchedDomainPayment(paymentIntent, "unknown_domain_order");
+  }
+  if (result.outcome === "domain_taken") {
+    // The order had lapsed and someone else legitimately holds the name now.
+    // The database refused to revive it, so the only correct answer is money
+    // back — see `markDomainOrderPaid`.
+    console.warn("[Stripe/webhook] Domain taken before late payment:", orderId);
+    await refundDomainOrder(
+      { id: orderId, stripe_payment_intent: paymentIntent },
+      "domain_taken_before_late_payment",
+    ).catch((err) => console.error("[Stripe/webhook] Refund failed:", err));
+    return NextResponse.json({ received: true, outcome: "refunded" });
   }
 
+  // `fulfilDomainOrder` owns its own compensation: it knows whether an
+  // exception happened before or after the registrar call, which is the only
+  // way to decide between refunding and escalating. It does not throw.
+  const outcome = await fulfilDomainOrder(result.order);
+  console.info(
+    "[Stripe/webhook] Domain order",
+    result.order.id,
+    "fulfilment outcome:",
+    outcome.status,
+  );
+  return NextResponse.json({ received: true, outcome: outcome.status });
+}
+
+/**
+ * A captured payment with no order behind it. There is nothing to deliver, so
+ * the money goes back; failing that we log loudly, because this is the one
+ * shape of the flow that cannot be reconciled from the order table.
+ */
+async function refundUnmatchedDomainPayment(
+  paymentIntent: string | null,
+  reason: string,
+): Promise<NextResponse> {
+  if (!stripe || !paymentIntent) {
+    console.error("[Stripe/webhook] Cannot refund unmatched domain payment:", reason);
+    return NextResponse.json({ received: true, ignored: reason });
+  }
   try {
-    const outcome = await fulfilDomainOrder(order);
-    console.info(
-      "[Stripe/webhook] Domain order",
-      order.id,
-      "fulfilment outcome:",
-      outcome.status,
-    );
-    return NextResponse.json({ received: true, outcome: outcome.status });
-  } catch (error) {
-    // The charge already succeeded and the order is `registering`. Answer 200
-    // so Stripe does not redeliver into a claimed order that would then be
-    // rejected as "already handled" — the row carries the state for triage.
-    console.error("[Stripe/webhook] Domain fulfilment threw for order", order.id, error);
-    return NextResponse.json({ received: true, outcome: "fulfilment_error" });
+    await stripe.refunds.create({
+      payment_intent: paymentIntent,
+      reason: "requested_by_customer",
+    });
+    console.info("[Stripe/webhook] Refunded unmatched domain payment:", reason);
+    return NextResponse.json({ received: true, outcome: "refunded", reason });
+  } catch (err) {
+    console.error("[Stripe/webhook] Refund of unmatched domain payment FAILED:", err);
+    return NextResponse.json({ received: true, ignored: reason, refundFailed: true });
   }
 }

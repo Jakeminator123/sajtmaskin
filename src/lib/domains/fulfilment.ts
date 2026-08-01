@@ -54,7 +54,10 @@ function stripeClient(): Stripe | null {
  * domain order is exactly the thing someone will ask about later and "it
  * failed" is not an answer.
  */
-async function refundOrder(order: DomainOrder, reason: string): Promise<boolean> {
+export async function refundDomainOrder(
+  order: Pick<DomainOrder, "id" | "stripe_payment_intent">,
+  reason: string,
+): Promise<boolean> {
   const stripe = stripeClient();
   if (!stripe || !order.stripe_payment_intent) {
     await markDomainOrderRegistrationFailed(
@@ -81,7 +84,48 @@ async function refundOrder(order: DomainOrder, reason: string): Promise<boolean>
   }
 }
 
+const refundOrder = refundDomainOrder;
+
+/**
+ * Fulfil an order, guaranteeing that a captured payment never ends in silence.
+ *
+ * The wrapper exists because the webhook cannot compensate on our behalf: it
+ * has no safe way to tell whether an exception happened before or after the
+ * registrar call, and refunding after a successful purchase would give a
+ * domain away. Only this function knows, so only this function decides — an
+ * unexpected throw BEFORE the registrar call refunds, and one after it leaves
+ * the order for manual handling with the reason on the row.
+ */
 export async function fulfilDomainOrder(order: DomainOrder): Promise<FulfilmentOutcome> {
+  let registrarCalled = false;
+  try {
+    return await fulfilDomainOrderInner(order, () => {
+      registrarCalled = true;
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown fulfilment error";
+    console.error(`[domains/fulfil] Unexpected failure for order ${order.id}:`, err);
+    if (registrarCalled) {
+      // The domain may well be bought. Refunding here would hand it over for
+      // free, so this is the one path that deliberately keeps the money and
+      // asks a human to look.
+      await markDomainOrderRegistrationFailed(
+        order.id,
+        `post_registration_failure: ${message}`,
+      ).catch(() => undefined);
+      return { status: "needs_manual_handling", reason: message };
+    }
+    const refunded = await refundOrder(order, `fulfilment_error: ${message}`).catch(() => false);
+    return refunded
+      ? { status: "refunded", reason: message }
+      : { status: "needs_manual_handling", reason: message };
+  }
+}
+
+async function fulfilDomainOrderInner(
+  order: DomainOrder,
+  markRegistrarCalled: () => void,
+): Promise<FulfilmentOutcome> {
   const claimed = await claimDomainOrderForRegistration(order.id);
   if (!claimed) return { status: "already_handled" };
 
@@ -127,6 +171,7 @@ export async function fulfilDomainOrder(order: DomainOrder): Promise<FulfilmentO
 
   let registrarOrderId: string | null = null;
   try {
+    markRegistrarCalled();
     const result = await provider.register(
       domain,
       bindingQuoteFromSek(fresh.quote.wholesaleSek, fresh.quote.periodYears ?? 1),

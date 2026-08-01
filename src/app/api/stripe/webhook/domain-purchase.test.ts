@@ -16,14 +16,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = {
-  paidOrder: null as Record<string, unknown> | null,
-  existingOrder: null as Record<string, unknown> | null,
+  markPaidResult: { outcome: "paid", order: { id: "ord_1", domain: "x.com" } } as Record<
+    string,
+    unknown
+  >,
 };
 
 const calls = {
-  fulfil: vi.fn(async () => ({ status: "registered" as const })),
-  markPaid: vi.fn(async () => state.paidOrder),
+  fulfil: vi.fn<() => Promise<{ status: string; reason?: string }>>(async () => ({
+    status: "registered",
+  })),
+  markPaid: vi.fn(async () => state.markPaidResult),
   markExpired: vi.fn(async () => undefined),
+  refundOrder: vi.fn(async () => true),
+  refundCreate: vi.fn(async () => ({ id: "re_1" })),
   createTransaction: vi.fn(async () => ({})),
   getTransactionByStripeSession: vi.fn(async () => null),
 };
@@ -34,6 +40,9 @@ vi.mock("stripe", () => ({
   default: class FakeStripe {
     webhooks = {
       constructEvent: () => constructedEvent,
+    };
+    refunds = {
+      create: (...args: unknown[]) => calls.refundCreate(...(args as [])),
     };
     static errors = { StripeError: class extends Error {} };
   },
@@ -55,12 +64,12 @@ vi.mock("@/lib/db/services/users", () => ({
 
 vi.mock("@/lib/domains/fulfilment", () => ({
   fulfilDomainOrder: (...args: unknown[]) => calls.fulfil(...(args as [])),
+  refundDomainOrder: (...args: unknown[]) => calls.refundOrder(...(args as [])),
 }));
 
 vi.mock("@/lib/db/services/domain-orders", () => ({
   markDomainOrderPaid: (...args: unknown[]) => calls.markPaid(...(args as [])),
   markDomainOrderExpired: (...args: unknown[]) => calls.markExpired(...(args as [])),
-  getDomainOrderByStripeSession: async () => state.existingOrder,
 }));
 
 const { POST } = await import("./route");
@@ -89,10 +98,11 @@ function domainSessionEvent(type: string, sessionId = "cs_domain_1") {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  state.paidOrder = { id: "ord_1", domain: "x.com" };
-  state.existingOrder = null;
-  calls.markPaid.mockImplementation(async () => state.paidOrder);
-  calls.fulfil.mockImplementation(async () => ({ status: "registered" as const }));
+  state.markPaidResult = { outcome: "paid", order: { id: "ord_1", domain: "x.com" } };
+  calls.markPaid.mockImplementation(async () => state.markPaidResult);
+  calls.fulfil.mockImplementation(async () => ({ status: "registered" }));
+  calls.refundOrder.mockImplementation(async () => true);
+  calls.refundCreate.mockImplementation(async () => ({ id: "re_1" }));
 });
 
 describe("stripe webhook — domain purchase", () => {
@@ -112,8 +122,7 @@ describe("stripe webhook — domain purchase", () => {
 
   it("treats a redelivered event as already handled and does not fulfil twice", async () => {
     // Second delivery: the conditional update matches nothing.
-    state.paidOrder = null;
-    state.existingOrder = { id: "ord_1", status: "registered" };
+    state.markPaidResult = { outcome: "already_handled" };
     constructedEvent = domainSessionEvent("checkout.session.completed");
 
     const res = await POST(webhookRequest() as never);
@@ -124,19 +133,64 @@ describe("stripe webhook — domain purchase", () => {
     expect(calls.fulfil).not.toHaveBeenCalled();
   });
 
-  it("does not ask Stripe to retry a session it has no order for", async () => {
-    state.paidOrder = null;
-    state.existingOrder = null;
+  it("refunds instead of pocketing a payment for an order it cannot find", async () => {
+    state.markPaidResult = { outcome: "not_found" };
     constructedEvent = domainSessionEvent("checkout.session.completed");
 
     const res = await POST(webhookRequest() as never);
     const body = await res.json();
 
-    // A signed session with no matching order cannot be fixed by retrying, so
-    // a 500 would just generate noise for hours.
+    // Retrying cannot conjure the order, but the customer WAS charged — the
+    // money has to go back rather than sit unreconciled.
     expect(res.status).toBe(200);
-    expect(body.ignored).toBe("unknown_domain_order");
+    expect(body.outcome).toBe("refunded");
+    expect(calls.refundCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ payment_intent: "pi_1" }),
+    );
     expect(calls.fulfil).not.toHaveBeenCalled();
+  });
+
+  it("refunds a late payment whose name someone else already took", async () => {
+    // The order lapsed, another customer bought the name, and the database
+    // refused to revive it. Selling it twice is impossible; keeping the money
+    // must be too.
+    state.markPaidResult = { outcome: "domain_taken" };
+    constructedEvent = domainSessionEvent("checkout.session.completed");
+
+    const res = await POST(webhookRequest() as never);
+    const body = await res.json();
+    expect(body.outcome).toBe("refunded");
+    expect(calls.refundOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ord_1", stripe_payment_intent: "pi_1" }),
+      "domain_taken_before_late_payment",
+    );
+    expect(calls.fulfil).not.toHaveBeenCalled();
+  });
+
+  it("refunds a domain session that carries no order id", async () => {
+    constructedEvent = {
+      id: "evt_x",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_domain_x",
+          payment_intent: "pi_x",
+          metadata: { kind: "domain_purchase" },
+        },
+      },
+    };
+    const res = await POST(webhookRequest() as never);
+    const body = await res.json();
+    expect(body.outcome).toBe("refunded");
+    expect(calls.refundCreate).toHaveBeenCalled();
+  });
+
+  it("marks the order paid keyed on the order id, not the session id", async () => {
+    // Keying on the session id would miss an order whose session id never got
+    // persisted — a payable session no lookup could match.
+    constructedEvent = domainSessionEvent("checkout.session.completed");
+    await POST(webhookRequest() as never);
+    expect(calls.markPaid).toHaveBeenCalledWith("ord_1", "cs_domain_1", "pi_1");
   });
 
   it("asks Stripe to retry when the paid-marking itself failed", async () => {
@@ -155,22 +209,25 @@ describe("stripe webhook — domain purchase", () => {
     const res = await POST(webhookRequest() as never);
 
     expect(res.status).toBe(200);
-    expect(calls.markExpired).toHaveBeenCalledWith("cs_domain_2");
+    expect(calls.markExpired).toHaveBeenCalledWith("ord_1");
     expect(calls.fulfil).not.toHaveBeenCalled();
   });
 
-  it("swallows a fulfilment crash rather than inviting a redelivery", async () => {
-    // The charge succeeded and the order is already claimed as `registering`.
-    // A 500 would make Stripe redeliver into an order no one can claim again.
-    calls.fulfil.mockImplementationOnce(async () => {
-      throw new Error("boom");
-    });
+  it("reports the fulfilment outcome verbatim instead of compensating itself", async () => {
+    // The webhook must NOT try to refund on its own: only `fulfilDomainOrder`
+    // knows whether the registrar was already called, and refunding after a
+    // successful purchase would hand the domain over for free.
+    calls.fulfil.mockImplementationOnce(async () => ({
+      status: "needs_manual_handling",
+      reason: "post_registration_failure",
+    }));
     constructedEvent = domainSessionEvent("checkout.session.completed");
 
     const res = await POST(webhookRequest() as never);
     const body = await res.json();
     expect(res.status).toBe(200);
-    expect(body.outcome).toBe("fulfilment_error");
+    expect(body.outcome).toBe("needs_manual_handling");
+    expect(calls.refundCreate).not.toHaveBeenCalled();
   });
 
   it("still credits diamonds for an ordinary credits session", async () => {

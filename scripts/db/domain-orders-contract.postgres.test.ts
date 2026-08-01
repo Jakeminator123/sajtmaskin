@@ -161,6 +161,32 @@ describe.skipIf(!target.url)("domänköpets idempotenskontrakt mot riktig Postgr
     ).resolves.toBeTruthy();
   });
 
+  it("låter en utgången order återupplivas när namnet är fritt", async () => {
+    // En sen `checkout.session.completed` betyder att kunden faktiskt betalade.
+    // Har ingen annan tagit namnet ska ordern kunna gå tillbaka till `paid` i
+    // stället för att pengarna blir kvar utan leverans.
+    const revivable = `dotest-${runTag}-revive.example`;
+    const id = await insertOrder({ domain: revivable, status: "expired" });
+    await pool.query("update domain_orders set status = 'paid' where id = $1", [id]);
+    const { rows } = await pool.query<{ status: string }>(
+      "select status from domain_orders where id = $1",
+      [id],
+    );
+    expect(rows[0].status).toBe("paid");
+  });
+
+  it("vägrar återuppliva en utgången order när någon annan hunnit ta namnet", async () => {
+    // Det är databasen som avgör, inte applikationskoden: indexet gör det
+    // omöjligt att sälja samma namn två gånger, så webhooken kan lita på
+    // felet och återbetala i stället.
+    const contested = `dotest-${runTag}-contested.example`;
+    const lapsed = await insertOrder({ domain: contested, status: "expired" });
+    await insertOrder({ domain: contested, status: "registered" });
+    await expect(
+      pool.query("update domain_orders set status = 'paid' where id = $1", [lapsed]),
+    ).rejects.toMatchObject({ code: UNIQUE_VIOLATION });
+  });
+
   it("avvisar två ordrar för samma Stripe-session", async () => {
     const sessionId = `cs_test_${runTag}`;
     await insertOrder({

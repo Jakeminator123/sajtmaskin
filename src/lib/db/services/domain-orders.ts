@@ -17,7 +17,7 @@ import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { domainOrders } from "@/lib/db/schema";
-import { LIVE_DOMAIN_ORDER_STATUSES as LIVE_STATUSES } from "@/lib/domains/order-status";
+import type { DomainOrderStatus as DomainOrderStatusType } from "@/lib/domains/order-status";
 import { assertDbConfigured } from "./shared";
 
 export type DomainOrder = typeof domainOrders.$inferSelect;
@@ -149,46 +149,62 @@ export async function getDomainOrderById(
   return rows[0] ?? null;
 }
 
-export async function getDomainOrderByStripeSession(
-  sessionId: string,
-): Promise<DomainOrder | null> {
-  assertDbConfigured();
-  const rows = await db
-    .select()
-    .from(domainOrders)
-    .where(eq(domainOrders.stripe_session_id, sessionId))
-    .limit(1);
-  return rows[0] ?? null;
-}
+/** Outcome of trying to move an order to `paid`. */
+export type MarkPaidResult =
+  | { outcome: "paid"; order: DomainOrder }
+  /** Already `paid` or further along — a redelivered webhook. */
+  | { outcome: "already_handled" }
+  /** No such order. */
+  | { outcome: "not_found" }
+  /**
+   * The order had lapsed AND another live order now holds the name, so the
+   * database refused to revive it. The payment must be refunded.
+   */
+  | { outcome: "domain_taken" };
 
 /**
- * `pending_payment` → `paid`. Returns the row only for the caller that won.
+ * Move an order to `paid`, keyed by ORDER ID rather than session id.
  *
- * A redelivered `checkout.session.completed` finds the order already `paid`
- * (or further along), updates nothing and gets `null` — which the webhook
- * treats as "already handled", not as an error.
+ * Keying on the order id (carried in Stripe metadata) removes a hole: the
+ * session id is written to the row after the Checkout session is created, so a
+ * failure in that window would leave a payable session no lookup could match.
+ * The session id is written here instead, as part of the same statement that
+ * accepts the payment.
+ *
+ * A lapsed order is revived rather than abandoned. `expired`/`canceled` mean
+ * "we stopped waiting", not "the customer did not pay" — and a late
+ * `checkout.session.completed` says they did. Whether reviving is allowed is
+ * decided by the database: moving back into a live status re-enters the
+ * partial unique index, so if another customer legitimately took the name in
+ * the meantime the UPDATE fails and we refund instead of selling it twice.
  */
 export async function markDomainOrderPaid(
+  orderId: string,
   sessionId: string,
   paymentIntentId: string | null,
-): Promise<DomainOrder | null> {
+): Promise<MarkPaidResult> {
   assertDbConfigured();
-  const rows = await db
-    .update(domainOrders)
-    .set({
-      status: "paid",
-      stripe_payment_intent: paymentIntentId,
-      paid_at: new Date(),
-      updated_at: new Date(),
-    })
-    .where(
-      and(
-        eq(domainOrders.stripe_session_id, sessionId),
-        eq(domainOrders.status, "pending_payment"),
-      ),
-    )
-    .returning();
-  return rows[0] ?? null;
+  const revivable: DomainOrderStatusType[] = ["pending_payment", "expired", "canceled"];
+  try {
+    const rows = await db
+      .update(domainOrders)
+      .set({
+        status: "paid",
+        stripe_session_id: sessionId,
+        stripe_payment_intent: paymentIntentId,
+        paid_at: new Date(),
+        updated_at: new Date(),
+        failure_reason: null,
+      })
+      .where(and(eq(domainOrders.id, orderId), inArray(domainOrders.status, revivable)))
+      .returning();
+    if (rows[0]) return { outcome: "paid", order: rows[0] };
+  } catch (error) {
+    if (isUniqueViolation(error)) return { outcome: "domain_taken" };
+    throw error;
+  }
+  const existing = await getDomainOrderById(orderId);
+  return existing ? { outcome: "already_handled" } : { outcome: "not_found" };
 }
 
 /**
@@ -258,17 +274,12 @@ export async function markDomainOrderRefunded(
 }
 
 /** Stripe told us the checkout window closed unpaid — release the name. */
-export async function markDomainOrderExpired(sessionId: string): Promise<void> {
+export async function markDomainOrderExpired(orderId: string): Promise<void> {
   assertDbConfigured();
   await db
     .update(domainOrders)
     .set({ status: "expired", failure_reason: "checkout_expired", updated_at: new Date() })
-    .where(
-      and(
-        eq(domainOrders.stripe_session_id, sessionId),
-        eq(domainOrders.status, "pending_payment"),
-      ),
-    );
+    .where(and(eq(domainOrders.id, orderId), eq(domainOrders.status, "pending_payment")));
 }
 
 export async function setDomainAddedToProject(
@@ -280,21 +291,4 @@ export async function setDomainAddedToProject(
     .update(domainOrders)
     .set({ domain_added_to_project: added, updated_at: new Date() })
     .where(eq(domainOrders.id, orderId));
-}
-
-export async function listLiveDomainOrdersForUser(
-  userId: string,
-  limit = 20,
-): Promise<DomainOrder[]> {
-  assertDbConfigured();
-  return db
-    .select()
-    .from(domainOrders)
-    .where(
-      and(
-        eq(domainOrders.user_id, userId),
-        inArray(domainOrders.status, [...LIVE_STATUSES]),
-      ),
-    )
-    .limit(limit);
 }

@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const dbState = {
   claimSucceeds: true,
+  claimThrows: false,
 };
 
 const calls = {
@@ -32,7 +33,10 @@ const providerState = {
 };
 
 vi.mock("@/lib/db/services/domain-orders", () => ({
-  claimDomainOrderForRegistration: async () => dbState.claimSucceeds,
+  claimDomainOrderForRegistration: async () => {
+    if (dbState.claimThrows) throw new Error("db down");
+    return dbState.claimSucceeds;
+  },
   markDomainOrderRegistered: (...args: unknown[]) => {
     calls.markRegistered(...args);
     return Promise.resolve();
@@ -122,6 +126,7 @@ function orderFixture(overrides: Partial<TestOrder> = {}): TestOrder {
 beforeEach(() => {
   vi.clearAllMocks();
   dbState.claimSucceeds = true;
+  dbState.claimThrows = false;
   providerState.id = "vercel";
   providerState.canRegister = true;
   providerState.available = true;
@@ -229,6 +234,32 @@ describe("fulfilDomainOrder", () => {
     });
     expect(calls.markRegistered).toHaveBeenCalled();
     expect(calls.refundCreate).not.toHaveBeenCalled();
+  });
+
+  it("refunds when an unexpected error hits before the registrar is called", async () => {
+    // The webhook cannot compensate for this — it has no way to know whether
+    // the registrar ran. Nothing was bought here, so the money goes back.
+    dbState.claimThrows = true;
+    const outcome = await fulfilDomainOrder(orderFixture());
+    expect(outcome.status).toBe("refunded");
+    expect(calls.register).not.toHaveBeenCalled();
+    expect(calls.refundCreate).toHaveBeenCalled();
+  });
+
+  it("never refunds after the registrar call, even on an unexpected error", async () => {
+    // The domain may already be bought. Refunding would hand it over for free,
+    // so this is the one path that deliberately keeps the money and escalates.
+    calls.markRegistered.mockImplementationOnce(() => {
+      throw new Error("db down after purchase");
+    });
+    const outcome = await fulfilDomainOrder(orderFixture());
+    expect(outcome.status).toBe("needs_manual_handling");
+    expect(calls.register).toHaveBeenCalledTimes(1);
+    expect(calls.refundCreate).not.toHaveBeenCalled();
+    expect(calls.markFailed).toHaveBeenCalledWith(
+      "ord_1",
+      expect.stringContaining("post_registration_failure"),
+    );
   });
 
   it("refunds when no configured provider can fulfil the order", async () => {
