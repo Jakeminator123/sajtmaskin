@@ -529,6 +529,28 @@ const FAULT_FIX_TYPES: Record<string, (e: StoredGenerationEntry) => FaultFixRow 
     ...EMPTY_CONTEXT_COLS,
     resolved: "false",
   }),
+  // Systerraden till site.empty_generation: innehåll strömmades till chatten
+  // men ingen version kunde persisteras (reason `stream_ended_without_version`).
+  "site.stream_without_version": (e) => ({
+    ts: faultFixTimestamp(e),
+    phase: "phase-3",
+    step: "Finalize",
+    severity: "error",
+    createdBy: "generator",
+    fixedBy: "-",
+    modelTier: "-",
+    problem: readString(e.data.message) || "Innehåll strömmades men ingen version sparades",
+    action: "Persist misslyckades efter strömmat innehåll",
+    model: readString(e.data.model) || "-",
+    provider: readString(e.data.provider) || "-",
+    pass: "-",
+    outcome: "Ingen version",
+    chatId: "-",
+    versionId: "-",
+    lineageHash: "-",
+    ...EMPTY_CONTEXT_COLS,
+    resolved: "false",
+  }),
   "site.partial_file_output": (e) => ({
     ts: faultFixTimestamp(e),
     phase: "phase-3",

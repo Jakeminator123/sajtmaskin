@@ -4,6 +4,7 @@ import {
   type BuilderStreamEvent,
   type BuilderToolCallPayload,
 } from "@/lib/gen/stream/builder-stream-contract";
+import { planArtifactHasSubstance } from "@/lib/gen/plan/review";
 import { parseSSEBuffer } from "@/lib/gen/stream/sse-parser";
 import { formatSSEEvent } from "@/lib/streaming";
 
@@ -17,6 +18,11 @@ type PlanArtifact = Record<string, unknown>;
  * som "blev det en plan?".
  */
 export type PlanModeResolvedContext = {
+  /**
+   * True bara när artifacten har substans (`planArtifactHasSubstance`):
+   * planner-utdata som parsas till ett tomt objekt (t.ex. `{}`) ska
+   * persisteras som prosa, inte som en påhittad plansummering.
+   */
   hasPlanArtifact: boolean;
   /** Ackumulerad text från planner-strömmens `content`-event. */
   accumulatedContent: string;
@@ -250,7 +256,7 @@ export function createPlanModeStream(params: {
 
       await onResolved?.(planData, hasBlockers, accumulatedContent);
       await persistAssistantSummary(planData, hasBlockers, {
-        hasPlanArtifact: resolvedPlanArtifact !== null,
+        hasPlanArtifact: planArtifactHasSubstance(resolvedPlanArtifact),
         accumulatedContent,
         upstreamErrorMessage,
       });

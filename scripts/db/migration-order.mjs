@@ -76,6 +76,10 @@ export const MIGRATION_ORDER = [
   // ett eget CREATE TABLE IF NOT EXISTS så en databas som aldrig kört db-init
   // också får tabellen.
   "add-domain-purchase-orders.sql",
+  // Dossier-env rehydrering: valda dossiers env-nycklar persisteras per
+  // version så force-restart/quick-edit-fallback bygger samma F2 mock-seedade
+  // .env.local som första boot. Additiv nullable jsonb; basen skapas tidigare.
+  "add-engine-version-selected-dossier-env-keys.sql",
 ];
 
 /**

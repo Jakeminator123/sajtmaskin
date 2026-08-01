@@ -1,0 +1,18 @@
+-- Dossier-env rehydrering (bug-swarm 2026-08-01): persist the env keys the
+-- selected dossiers declared for the generation that produced a version.
+--
+-- Finalize threads `selectedDossierEnvKeys` into the FIRST preview boot so
+-- the F2 `.env.local` stub-seeds each key and the dossier UI renders its
+-- demo/mock mode. But the selection only lived in the in-memory finalize
+-- result: a force restart (`POST /preview-session`) or the quick-edit preview
+-- fallback rebuilt `.env.local` from scratch WITHOUT the keys, and demo mode
+-- silently disappeared. Persisting the selection on the version row lets
+-- every later preview (re)start rebuild the same env surface as the first
+-- boot.
+--
+-- Preview/F2-only contract: the mock-seed in `resolvePreviewEnvLayers` only
+-- runs for `lifecycleStage === "design"`; F3 strips the stub layer, and the
+-- keys are never shipped to deploy env vars. jsonb string array, nullable —
+-- NULL means "legacy row or no dossier declared env keys" and changes no
+-- reader behaviour (same fail-open as before this column existed).
+ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS selected_dossier_env_keys JSONB;

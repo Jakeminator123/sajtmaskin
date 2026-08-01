@@ -1,0 +1,33 @@
+---
+description: "MVP-fas: stabilitet före coolhet — inga helt nya features, ytor eller integrationer utan uttrycklig begäran från ägaren."
+alwaysApply: true
+---
+
+# MVP-frys: stabilitet före coolhet
+
+Sajtmaskin är i slutfasen mot MVP (ägarbeslut 2026-08-01). Tills ägaren
+uttryckligen förklarar MVP:n levererad gäller:
+
+- **Inga helt nya features** — nya produktytor, integrationer, dossiers,
+  scaffolds, agentförmågor eller "smarta" mekanismer byggs bara på uttrycklig
+  begäran om exakt den saken. Att en idé känns hjälpsam är inte en begäran.
+- **Stabilitet före coolhet** — stå mellan en tråkig, robust fix och en
+  elegant ny abstraktion: ta den tråkiga. Befintliga kontrakt härdas,
+  ersätts inte.
+- **Bredda inte scope mitt i en PR** — en fix-PR som "passar på" att bygga
+  nytt är ett scope-brott, inte en bonus. Nya idéer skrivs som förslag i
+  svaret eller som backlograd, inte som kod.
+
+## Alltid tillåtet (ingen frys på detta)
+
+- Bekräftade defekter och rader ur `BUG-SWARM-BACKLOG.md § Aktiv kö`.
+- Grundhygien enligt `project-phase-priorities.mdc` (secrets, cross-tenant,
+  dataförlust, tyst korruption).
+- Tester som låser en konkret fixad bugg eller ett nytt litet kontrakt
+  (se `docs/delivery-bias.md`).
+- Docs-synk som speglar runtime.
+
+## Syskonregler
+
+UI-ytor specifikt: `ui-restraint.mdc`. Säkerhets-/governance-lager:
+`project-phase-priorities.mdc § Undvik utan explicit scope`.

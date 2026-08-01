@@ -196,6 +196,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         // F3 versions strip tier3-stub layer; F2 keeps it for boot.
         lifecycleStage:
           versionRow.lifecycle_stage === "integrations" ? "integrations" : "design",
+        // Dossier-env rehydrering: the keys the finalize run persisted on this
+        // version row, so a (force) restart rebuilds the same F2 mock-seeded
+        // `.env.local` as the first post-finalize boot. F2/design-only inside
+        // the env builder; F3 ignores them.
+        selectedDossierEnvKeys:
+          Array.isArray(versionRow.selected_dossier_env_keys) &&
+          versionRow.selected_dossier_env_keys.length > 0
+            ? versionRow.selected_dossier_env_keys
+            : undefined,
         skipRepair: true,
         // DB files are finalize-preflighted and include scaffold baseline.
         skipProjectScaffold: true,

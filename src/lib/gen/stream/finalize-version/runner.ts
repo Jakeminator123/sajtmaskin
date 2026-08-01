@@ -414,18 +414,38 @@ export async function finalizeAndSaveVersion(
     typeof params.accumulatedThinking === "string" && params.accumulatedThinking.length > 0
       ? params.accumulatedThinking
       : null;
+  // Våg 2 + dossier-env rehydrering: the selected dossiers' declared env keys,
+  // deduped. Threaded into the first preview boot (FinalizeResult) AND
+  // persisted on the version row, so a later force-restart or quick-edit
+  // preview fallback rebuilds the same F2 mock-seeded `.env.local` surface.
+  const selectedDossierEnvKeys = Array.from(
+    new Set(
+      selectedDossiers.flatMap((dossier) =>
+        (dossier.envVars ?? []).map((envVar) => envVar.key),
+      ),
+    ),
+  );
   const { message: assistantMsg, version: initialVersion } = targetVersionId
     ? await chatRepo.addAssistantMessageAndUpdateExistingVersion(
         chatId,
         targetVersionId,
         contentForVersion,
         filesJson,
-        { thinking: thinkingForPersist },
+        {
+          thinking: thinkingForPersist,
+          // COALESCE-backfill: a repair never rewrites an existing selection,
+          // but a legacy NULL row gets this run's keys so later restarts keep
+          // the F2 mock-seed.
+          selectedDossierEnvKeysBackfill:
+            selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
+        },
       )
     : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson, {
         lifecycleStage: buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design",
         parentVersionId: lifecycleParentVersionId ?? null,
         thinking: thinkingForPersist,
+        // Null when empty — the column means "no dossier declared env keys".
+        selectedDossierEnvKeys: selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
       });
   let version = initialVersion;
   const finalizeRunId = repairPassIndex > 0 ? `repair-${repairPassIndex}` : undefined;
@@ -812,12 +832,8 @@ export async function finalizeAndSaveVersion(
     // Våg 2: the selected dossiers' declared env keys, so the F2 preview
     // `.env.local` can seed a stub for each and the dossier UI renders its
     // demo/mock mode. Deduped; empty when no dossier declares env vars.
-    selectedDossierEnvKeys: Array.from(
-      new Set(
-        selectedDossiers.flatMap((dossier) =>
-          (dossier.envVars ?? []).map((envVar) => envVar.key),
-        ),
-      ),
-    ),
+    // Also persisted on the version row (see the persist step above) so
+    // restarts rebuild the same surface.
+    selectedDossierEnvKeys,
   };
 }

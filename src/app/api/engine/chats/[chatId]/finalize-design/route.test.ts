@@ -231,7 +231,41 @@ describe("POST finalize-design", () => {
       {
         stage: "integrations",
         parentVersionId: "ver_current",
+        // No keys persisted on the F2 base in this fixture → explicit null.
+        selectedDossierEnvKeys: null,
       },
+    );
+  });
+
+  // Dossier-env rehydrering: the exact-file F3 fork copies the F2 base's
+  // persisted dossier env keys so the row carries the same preview env
+  // contract (harmless on F3 — the mock-seed only runs in design stage).
+  it("copies the F2 base's persisted selected_dossier_env_keys onto the deterministic F3 fork", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: {
+        id: "ver_current",
+        chat_id: "chat_1",
+        lifecycle_stage: "design",
+        files_json: '[{"path":"app/page.tsx","content":"F2 exact"}]',
+        selected_dossier_env_keys: ["STRIPE_SECRET_KEY", "EMAIL_FROM"],
+      },
+    });
+
+    const res = await POST(request({ versionId: "ver_current" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(createDraftVersion).toHaveBeenCalledWith(
+      "chat_1",
+      null,
+      expect.any(String),
+      undefined,
+      expect.objectContaining({
+        stage: "integrations",
+        parentVersionId: "ver_current",
+        selectedDossierEnvKeys: ["STRIPE_SECRET_KEY", "EMAIL_FROM"],
+      }),
     );
   });
 

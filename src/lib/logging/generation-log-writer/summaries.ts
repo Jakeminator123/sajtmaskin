@@ -16,6 +16,7 @@ export function buildHighlights(entries: StoredGenerationEntry[]): string[] {
       type === "syntax-validation.gave-up" ||
       type === "preflight.version.failed" ||
       type === "site.empty_generation" ||
+      type === "site.stream_without_version" ||
       type === "site.partial_file_output" ||
       type === "site.awaiting_input"
     ) {
