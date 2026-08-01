@@ -32,6 +32,12 @@ Följdändringar i samma PR: uppdatera
 blocken använder. Verifiering: `npm run typecheck` + `npx vitest run src/app/api`
 + grep på varje borttaget exportnamn ⇒ 0 träffar.
 
+**Status 2026-08-01: levererad i PR #714** (−517 rader netto; redis.ts 937 → 422).
+Liten uppföljning kvar: `scripts/db/redis-health-check.mjs` och
+`backoffice/pages/redis_health.py` räknar fortfarande nyckel-buckets för de nu
+döda prefixen (harmlöst — visar 0 när gamla nycklar TTL:at ut ≤ 7 dagar). Städa
+bucket-listorna i en egen liten PR.
+
 ## PR B — devDependencies + `vercel`-beslut
 
 Ta bort (grep-verifierat oanvända, inga config-referenser):
