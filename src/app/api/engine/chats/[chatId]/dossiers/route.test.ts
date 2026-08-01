@@ -547,6 +547,52 @@ describe("GET dossiers overview", () => {
     expect(body.counts.builtLive).toBe(0);
   });
 
+  // Bugbot on the M#li1 fix: warn-only and NEXT_PUBLIC_* keys are
+  // client-exposed/cosmetic — a route reading only those proves no server
+  // wiring, so they must not count as fallback evidence.
+  it("rejects an API route reading only a warn-only NEXT_PUBLIC_ key as server evidence", async () => {
+    const openaiRequirement = {
+      key: "openai",
+      name: "OpenAI",
+      provider: "openai",
+      requiredRealEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+      warnOnlyEnvKeys: [],
+      buildInstructions: [],
+      setupGuide: "",
+      hasConfigNoticeComponent: true,
+    };
+    const dossier = aiToolCallingDossier();
+    dossier.entry.envVars = [
+      ...(dossier.entry.envVars ?? []),
+      {
+        key: "NEXT_PUBLIC_APP_URL",
+        required: false,
+        enforcement: "warn-only",
+        purpose: "Public site URL for links.",
+      },
+    ];
+    getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([dossier]);
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "app/api/chat/route.ts",
+        content: "const url = process.env.NEXT_PUBLIC_APP_URL;\n",
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+  });
+
   // Bugbot on the M#li1 fix: EVERY manifest server file must be present
   // (version-presence's all-files rule) — a partially injected integration
   // whose surviving route is a keyless mock must not report built-live.

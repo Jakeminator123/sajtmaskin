@@ -184,9 +184,17 @@ function hasServerFileEvidence(
   const presentPaths = new Set(files.map((file) => file.path));
   if (serverPaths.every((path) => presentPaths.has(path))) return true;
 
+  // Only keys that MEAN server wiring count as fallback evidence:
+  // `warn-only` keys and `NEXT_PUBLIC_*` keys are client-exposed/cosmetic —
+  // a route reading only `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` proves no
+  // server-side integration (Bugbot on the M#li1 fix).
   const envKeys = (entry.envVars ?? [])
+    .filter((env) => (env.enforcement ?? "build") !== "warn-only")
     .map((env) => env.key)
-    .filter((key): key is string => typeof key === "string" && key.length > 0);
+    .filter(
+      (key): key is string =>
+        typeof key === "string" && key.length > 0 && !key.startsWith("NEXT_PUBLIC_"),
+    );
   if (envKeys.length === 0) return false;
   const keyPatterns = envKeys.map(envKeyIdentifierPattern);
   return files.some(
