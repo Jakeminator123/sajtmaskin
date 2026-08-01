@@ -344,6 +344,12 @@ function renderScaffoldFileBlock(file: ScaffoldFile): {
   }
 }
 
+// Order is the ranking: earlier pattern wins in `scoreCriticalFile`. Nested
+// route files sit above `components/` because route pages are `llm-owned` and
+// `mustEmit: true` (see `buildFileContract`) — an omitted page.tsx is a page
+// the model never emits, while an omitted component keeps its scaffold default.
+// Static nested routes rank above dynamic ones (`[slug]`): a route plan asks
+// for `/blog` far more often than for a detail template.
 const CRITICAL_PATH_PATTERNS = [
   /^app\/layout\.tsx$/,
   /^src\/app\/layout\.tsx$/,
@@ -354,6 +360,10 @@ const CRITICAL_PATH_PATTERNS = [
   /^package\.json$/,
   /^tailwind\.config\./,
   /^next\.config\./,
+  /^(?:src\/)?app\/(?:[^[\]/]+\/)+page\.tsx$/,
+  /^(?:src\/)?app\/.+\/page\.tsx$/,
+  /^(?:src\/)?app\/(?:[^[\]/]+\/)+layout\.tsx$/,
+  /^(?:src\/)?app\/.+\/layout\.tsx$/,
   /^components\//,
   /^src\/components\//,
 ];
