@@ -126,6 +126,28 @@ export function buildPlanUiPart(
   };
 }
 
+/**
+ * "Riktig plan"-predikatet för persist-beslutet. `normalizePlanArtifact`
+ * defaultar `goal` till "Plan" och returnerar ett objekt även för `{}`, så
+ * "gick att parsa som JSON" räcker inte — ett substanslöst objekt får inte
+ * äta upp planner-prosan vid reload. Substans = minst ett normaliserat steg,
+ * en blockerare (clarification-fråga — awaiting-input-planer förblir planer),
+ * en sida eller en scope-rad; summeringen och plan-kortet bygger på exakt de
+ * fälten. Jfr klientens check i `stream-handlers.ts`.
+ */
+export function planArtifactHasSubstance(
+  planData: Record<string, unknown> | null,
+): boolean {
+  const plan = normalizePlanArtifact(planData);
+  if (!plan) return false;
+  return (
+    plan.steps.length > 0 ||
+    plan.blockers.length > 0 ||
+    plan.pages.length > 0 ||
+    plan.scope.length > 0
+  );
+}
+
 /** Vilken gren som byggde plan-lägets persisterade assistentrad. */
 export type PlanModeAssistantMessageKind =
   | "plan"
@@ -154,7 +176,10 @@ const MAX_PLANNER_TEXT_CHARS = 8_000;
 export function buildPlanModeAssistantMessage(params: {
   planData: Record<string, unknown> | null;
   hasBlockers: boolean;
-  /** True när turen löste ut ett plan-artifact (tool-call eller parsad JSON). */
+  /**
+   * True när turen löste ut ett plan-artifact MED substans (tool-call eller
+   * parsad JSON som passerar `planArtifactHasSubstance`).
+   */
   hasPlanArtifact: boolean;
   /** Ackumulerad `content`-text från planner-strömmen. */
   plannerText: string;
