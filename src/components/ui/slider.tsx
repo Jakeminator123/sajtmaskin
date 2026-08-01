@@ -61,10 +61,16 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
-          aria-label={
-            !ariaLabel ? undefined : _values.length > 1 ? `${ariaLabel} (${index + 1})` : ariaLabel
-          }
-          aria-labelledby={ariaLabelledBy}
+          // Nycklarna utelämnas helt när vi saknar namn: Radix sätter egna
+          // Minimum/Maximum-namn på flertumssliders och spreadar sedan våra
+          // props, så ett explicit `undefined` hade rensat dem.
+          {...(ariaLabel
+            ? {
+                "aria-label":
+                  _values.length > 1 ? `${ariaLabel} (${index + 1})` : ariaLabel,
+              }
+            : {})}
+          {...(ariaLabelledBy ? { "aria-labelledby": ariaLabelledBy } : {})}
           className="block size-4 shrink-0 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
         />
       ))}
