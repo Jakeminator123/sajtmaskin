@@ -513,13 +513,17 @@ export function useBuilderPageController() {
     previewBootstrapDoneKeysRef: vmPreview.previewBootstrapDoneKeysRef,
     setForcedPreviewRestartKey: vmPreview.setForcedPreviewRestartKey,
     setPreviewBootstrapRetryNonce: vmPreview.setPreviewBootstrapRetryNonce,
-    onRecoverFailed: ({ reason }) => {
+    onRecoverFailed: ({ reason, detail }) => {
       setPreviewBuildError({
-        stage: "preview-recover",
+        stage: reason === "build_error" ? "preview-build-error" : "preview-recover",
         message:
-          reason === "status_unavailable"
-            ? "Live-preview kunde inte verifieras mot servern efter flera försök."
-            : "Live-preview kunde inte återansluta efter flera försök.",
+          reason === "build_error"
+            ? detail?.trim()
+              ? `Live-preview stoppade på ett byggfel: ${detail.trim()}`
+              : "Live-preview stoppade på ett byggfel — koden kompilerar inte. En omstart hjälper inte; åtgärda felet."
+            : reason === "status_unavailable"
+              ? "Live-preview kunde inte verifieras mot servern efter flera försök."
+              : "Live-preview kunde inte återansluta efter flera försök.",
       });
       setPreviewPending(false);
     },
