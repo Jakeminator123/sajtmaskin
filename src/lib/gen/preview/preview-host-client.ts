@@ -1,7 +1,7 @@
 import { getPreviewHostBaseUrl } from "./tier2-config";
 import { VERIFY_REPAIR_ROUTE_BUDGET_SECONDS } from "@/lib/gen/defaults";
 
-function previewHostAuthHeaders(): Record<string, string> {
+export function previewHostAuthHeaders(): Record<string, string> {
   const key = process.env.SAJTMASKIN_PREVIEW_HOST_API_KEY?.trim();
   if (!key) return {};
   return { Authorization: `Bearer ${key}` };

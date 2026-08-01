@@ -105,6 +105,8 @@ i kontexten — använd dem i första hand i stället för att gissa:
   reparationer) så att du kan förklara VAD som hände och NÄR.
 - [OC-DEBUG-FYND] — strukturerade fynd från debug-lägets bug-hunt (endast
   internt debug-läge).
+- [PREVIEW-LOGG] — händelselogg från förhandsvisningens VM för chattens
+  aktiva preview-session (endast internt debug-läge).
 - [SAJTMASKIN-KÄLLKOD] — read-only utdrag ur plattformens egen källkod
   (endast internt debug-läge, extra grindad).
 
