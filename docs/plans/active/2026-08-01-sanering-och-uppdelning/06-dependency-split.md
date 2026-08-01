@@ -25,15 +25,30 @@ Knips 22 "oanvända dependencies" (Radix, TanStack, form-, animations- och
 UI-paket, `date-fns`, `canvas-confetti`, …) är därför **inte** raderbara som
 grupp — de är rollen 2-paket som saknar statiska imports.
 
+## Inventering — GENOMFÖRD 2026-08-01 (read-only-agent, ~90 % säkerhet)
+
+Ingen av de 22 har statisk app-import (appens UI kör unified `radix-ui`, inte
+`@radix-ui/react-*`). Preview läser dem **inte** från `node_modules`:
+shim-previewen kör CDN + inline-shims (`legacy/shims.ts`,
+`build-preview-document.ts`), och F2-VM:en installerar från den *genererade*
+sajtens package.json. Enda install-konsumenten är **warm-cache-typechecken**
+(`provision-warm-cache` symlink:ar repo-`node_modules` för pre-VM `tsc`).
+
+| Klass | Paket | Åtgärd |
+|---|---|---|
+| **(c) säkra att flytta till katalog-JSON direkt** | alla individuella `@radix-ui/react-*` (11 st), `@react-three/rapier`, `@xyflow/react`, `tokenlens` | Versionerna finns redan i `SHADCN_FALLBACK_VERSIONS`/`KNOWN_PACKAGES`/prefix-regler/dossier-manifest |
+| **(b) install måste kvar** (warm-cache typecheckar dem som icke-dossier-imports — borttag ⇒ kvarstående TS2307 ⇒ falsk repair) | `@hookform/resolvers`, `@tanstack/react-table`, `@tanstack/react-virtual`, `canvas-confetti`, `date-fns`, `react-error-boundary`, `react-intersection-observer` | Versionen kan flyttas till JSON, men installen kvarstår tills warm-cache-strategin ändras (utökad generated-only-lista eller egen typecheck-`node_modules`) |
+| **Död direkt-dep** | `ms` | Kan raderas rakt av — finns inte ens i generator-katalogerna. Ta i egen liten PR **efter** att devDeps-PR:en (#717) mergat, annars lockfil-konflikt |
+
+Två bifynd att ta med i splitten: (1) `tokenlens` och `@xyflow/react` tipsas av
+AI-elements-katalogen men saknas i `KNOWN_PACKAGES` — exportvägen kan missa
+versionspin, lägg till dem när katalog-JSON:en införs. (2)
+`project-scaffold-baseline-parity.test.ts:146-151` läser rapier-versionen ur
+package.json — testet uppdateras i samma PR som flytten.
+
 ## Arbetsgång
 
-1. **Inventering (läs-only, en tabell i denna fil):** för varje av de 22 +
-   övriga gränsfall, klassa:
-   - (a) importeras statiskt av appen ⇒ roll 1,
-   - (b) del av preview-modulkartan / warm-cache som kräver installerad kod
-     ⇒ måste stanna som installerad dependency (roll 2-installerad),
-   - (c) förekommer bara som versionssträng i generator-katalogen ⇒ kan
-     flyttas till **data** (roll 2-deklarativ).
+1. ~~Inventering~~ **klar** — se tabellen ovan.
 2. **Deklarativ katalog:** flytta (c)-paketens versioner till en JSON-katalog
    (t.ex. `config/generated-site-dependencies.json`) som `dep-completer`/
    `dependency-utils`/`project-scaffold` läser. Då slutar appens
