@@ -211,9 +211,21 @@ export function indexIdentifierUsage(code: string, filePath: string): UsageIndex
   };
 }
 
-/** True when at least one reference to `name` survives into emitted JavaScript. */
+/**
+ * True when `name` has at least one reference that survives into emitted
+ * JavaScript **and** no reference was ambiguous.
+ *
+ * The `unknown` guard mirrors {@link isUsedOnlyAsType}: a local declaration
+ * that reuses the imported name means the value reference most likely belongs
+ * to the SHADOW, not to the import. Promoting the import on that evidence
+ * pulls a runtime dependency into a file that never wanted one — and if the
+ * module has side effects, it runs them. The compiler-confirmed override
+ * (`forceValueSymbols` in the fixer) is unaffected: TS1361 is proof, whereas
+ * this function only ever makes a local guess.
+ */
 export function isUsedAsValue(index: UsageIndex, name: string): boolean {
-  return index.usageOf(name).value > 0;
+  const usage = index.usageOf(name);
+  return usage.value > 0 && usage.unknown === 0;
 }
 
 /**

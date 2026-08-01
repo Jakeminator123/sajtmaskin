@@ -206,3 +206,24 @@ export default function Motifs() {
     expect(result.code).toContain('import { PawPrint, Leaf } from "lucide-react";');
   });
 });
+
+// Spegelvänd shadowing: en lokal deklaration med samma namn gör referensen
+// tvetydig, och att demotera importen till `import type` raderar den vid
+// bygget. Blir den lokala deklarationen sedan borttagen (eller är den ett rent
+// namnkrock) står filen utan sitt runtime-beroende och sidan vitnar.
+describe("fixTypeOnlyImports — lokal shadowing blockerar demoteringen", () => {
+  const SHADOWED_INTERFACE_CASE = `import { Theme } from "@/lib/theme";
+
+export type Props = { theme: Theme };
+
+export interface Theme {
+  name: string;
+}
+`;
+
+  it("demoterar inte när en lokal interface-deklaration skuggar namnet", () => {
+    const result = fixTypeOnlyImports(SHADOWED_INTERFACE_CASE, "lib/props.ts");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(SHADOWED_INTERFACE_CASE);
+  });
+});

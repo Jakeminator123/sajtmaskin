@@ -334,11 +334,16 @@ function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
+// Asynchronous on purpose: this process also proxies every live preview, and
+// the biggest tree it deletes is the package cache (several GB across hundreds
+// of thousands of _cacache shards). A recursive `rmSync` there blocks the event
+// loop for seconds, freezing every in-flight preview request — on the very code
+// path that runs when the disk is already full.
 async function removeDirWithRetries(dirPath) {
   let lastError = null;
   for (let i = 0; i < 5; i += 1) {
     try {
-      fs.rmSync(dirPath, { recursive: true, force: true });
+      await fsp.rm(dirPath, { recursive: true, force: true });
       return;
     } catch (error) {
       lastError = error;
@@ -2858,13 +2863,12 @@ async function cleanupPackageCachesUnqueued({ force = false } = {}) {
   // without bound (one debug log per failed install).
   const logsDir = path.join(NPM_CACHE_DIR, "_logs");
   try {
-    const files = fs
-      .readdirSync(logsDir)
+    const files = (await fsp.readdir(logsDir))
       .map((name) => ({ name, full: path.join(logsDir, name) }))
       .sort((a, b) => (a.name < b.name ? 1 : -1));
     for (const file of files.slice(NPM_LOGS_MAX_FILES)) {
       try {
-        fs.rmSync(file.full, { force: true });
+        await fsp.rm(file.full, { force: true });
         result.removedNpmLogs += 1;
       } catch {
         // best-effort

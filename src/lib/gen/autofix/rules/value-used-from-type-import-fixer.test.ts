@@ -333,3 +333,50 @@ export default function Page() {
     expect(second.code).toBe(first.code);
   });
 });
+
+// Lokal shadowing: en deklaration i filen återanvänder det importerade namnet,
+// så värdereferensen pekar med all sannolikhet på SKUGGAN, inte på importen.
+// Att ändå promota `import type` till en värdeimport drar in ett
+// runtime-beroende (och kör modulens sidoeffekter) i en fil som aldrig bad om
+// det. Analysen räknar därför skuggan som `unknown`, och `unknown` blockerar.
+describe("fixValueUsedFromTypeImport — lokal shadowing blockerar konverteringen", () => {
+  const SHADOWED_CONST_CASE = `import type { Badge } from "@/components/ui/badge";
+
+export function List() {
+  const Badge = () => <span />;
+  return <Badge />;
+}
+`;
+
+  const SHADOWED_PARAM_CASE = `import type { Icon } from "@/lib/icons";
+
+export function render(Icon: () => string) {
+  return Icon();
+}
+`;
+
+  it("konverterar inte när ett lokalt const skuggar det importerade namnet", () => {
+    const result = fixValueUsedFromTypeImport(SHADOWED_CONST_CASE, "app/list.tsx");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(SHADOWED_CONST_CASE);
+  });
+
+  it("konverterar inte när en parameter skuggar det importerade namnet", () => {
+    const result = fixValueUsedFromTypeImport(SHADOWED_PARAM_CASE, "lib/render.ts");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(SHADOWED_PARAM_CASE);
+  });
+
+  // Escape-hatchen ska överleva grinden: TS1361 från kompilatorn är bevis på
+  // att just den importen används som värde, till skillnad från den lokala
+  // gissningen ovan.
+  it("låter compiler-bekräftad TS1361 vinna över skuggningen", () => {
+    const result = fixValueUsedFromTypeImport(
+      SHADOWED_CONST_CASE,
+      "app/list.tsx",
+      new Set(["Badge"]),
+    );
+    expect(result.fixed).toBe(true);
+    expect(result.code).toContain('import { Badge } from "@/components/ui/badge";');
+  });
+});
