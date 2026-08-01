@@ -191,10 +191,14 @@ export function degenerateStubContent(reason: string | null): string {
  * inherited rather than produced by this round) are NEVER stubbed — inherited
  * content is by definition not this round's degenerate output.
  * Only call this once the project is known degenerate; the version is failing,
- * so replacing the bloated content with a marker stub is safe and guarantees a
- * multi-MB `files_json` is never persisted. (A small but self-repetitive file
- * that tripped only the repetition heuristic is left intact — it is blocked,
- * not a persist-size problem.)
+ * so replacing bloated TEXT content with a marker stub is safe and keeps the
+ * text portion of `files_json` under ~1 MB. Binary assets and inherited
+ * (`preservePaths`) content are deliberately NOT held to that guarantee:
+ * a payload can persist up to the preview-host binary budget (12 MB) rather
+ * than risk destroying legitimate template assets — data loss is worse than
+ * DB bloat, and the blocking degeneracy issue still gates preview either way.
+ * (A small but self-repetitive file that tripped only the repetition heuristic
+ * is left intact — it is blocked, not a persist-size problem.)
  */
 export function capDegeneratePayload<
   T extends { path: string; content: string; language?: string },
