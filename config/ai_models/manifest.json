@@ -1229,6 +1229,21 @@
         "OPENAI_API_KEY"
       ],
       "defaultModel": "openai/gpt-5-mini"
+    },
+    {
+      "id": "seo_publish_copy",
+      "title": "SEO copy pass vid publicering",
+      "description": "generateObject som skriver om sidtitel och metabeskrivning nar publiceringens SEO-granskning hittat att de saknas eller ar for korta/langa. Deterministiska SEO-fixar (robots, sitemap, metadataBase, canonical, Open Graph, html lang) kraver ingen modell och kors alltid; den har workloaden ar bara for de tva textfalten. Faller tillbaka pa oforandrad text vid saknad nyckel eller providerfel.",
+      "invocation": "ai_generateObject",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "src/lib/seo/llm-copy.ts",
+        "src/lib/seo/index.ts"
+      ],
+      "authEnv": [
+        "OPENAI_API_KEY"
+      ],
+      "defaultModel": "openai/gpt-5.2"
     }
   ]
 }

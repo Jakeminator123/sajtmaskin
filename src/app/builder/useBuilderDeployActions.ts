@@ -4,6 +4,7 @@ import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog";
 import type { ChatReadiness } from "@/lib/chat-readiness";
 import type { ImageAssetStrategy } from "@/lib/imageAssets";
+import type { SeoReportPayload } from "@/app/api/v0/deployments/seo-publish";
 import { saveProjectData, updateProject } from "@/lib/project-client";
 import { useCallback, useState, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
@@ -38,6 +39,8 @@ type Args = {
   setSelectedVersionId: Dispatch<SetStateAction<string | null>>;
   setIsDeploying: Dispatch<SetStateAction<boolean>>;
   setDomainManagerOpen: Dispatch<SetStateAction<boolean>>;
+  /** Receives the SEO publish report so the shell can show what changed. */
+  setSeoReport: Dispatch<SetStateAction<SeoReportPayload | null>>;
   setLastDeployVercelProjectId: Dispatch<SetStateAction<string | null>>;
   setActiveDeploymentId: Dispatch<SetStateAction<string | null>>;
   setDomainResults: Dispatch<SetStateAction<DomainSearchResult[] | null>>;
@@ -82,6 +85,7 @@ export function useBuilderDeployActions({
   setSelectedVersionId,
   setIsDeploying,
   setDomainManagerOpen,
+  setSeoReport,
   setLastDeployVercelProjectId,
   setActiveDeploymentId,
   setDomainResults,
@@ -341,6 +345,15 @@ export function useBuilderDeployActions({
             { duration: 12000 },
           );
         }
+        // SEO publish report. Only surfaced when the pass actually changed
+        // something — an empty report is the normal case for a site that was
+        // already in order, and a dialog saying "we found nothing" every time
+        // would train people to dismiss it without reading.
+        const seoReport = (data as { seoReport?: SeoReportPayload | null })?.seoReport ?? null;
+        if (seoReport && seoReport.improvementCount > 0) {
+          setSeoReport(seoReport);
+        }
+
         const domainWarnings = Array.isArray(data?.domainWarnings)
           ? data.domainWarnings.filter(
               (warning): warning is string =>
@@ -371,7 +384,7 @@ export function useBuilderDeployActions({
         setIsDeploying(false);
       }
     },
-    [chatId, activeVersionId, deployReadiness, isDeploying, isMediaEnabled, enableBlobMedia, appProjectId, setIsDeploying, setLastDeployVercelProjectId, setActiveDeploymentId, setDomainManagerOpen, persistVersionErrorLogs],
+    [chatId, activeVersionId, deployReadiness, isDeploying, isMediaEnabled, enableBlobMedia, appProjectId, setIsDeploying, setLastDeployVercelProjectId, setActiveDeploymentId, setDomainManagerOpen, setSeoReport, persistVersionErrorLogs],
   );
 
   const handleConfirmDeploy = useCallback(async (
