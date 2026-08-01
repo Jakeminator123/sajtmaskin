@@ -2114,6 +2114,73 @@ describe("POST /api/v0/deployments", () => {
       expect(res.status).toBe(200);
       expect(createVercelDeployment).toHaveBeenCalledTimes(1);
     });
+
+    it("does NOT block an F2 (design) deploy on missing feature-runtime keys (M#li2, prod 2026-08-01)", async () => {
+      mockHappyDeployInfra();
+      // Prod chat 7a4d609f: readiness said `canDeploy:true` with
+      // `missingEnvKeys:["EMAIL_FROM","CONTACT_EMAIL_TO"]` (feature-runtime,
+      // resend-contact-form dossier), but the F2 backstop blocked on the whole
+      // `missingEnvKeys` → 409 `DEPLOY_MISSING_ENV`. The F2 gate now uses the
+      // shared `designDeployBlockingKeys` (build-enforcement subset).
+      //
+      // Fixture reproduces the REAL prod detection path in design stage
+      // (custom-env regex scan is suppressed there): the dossier's server +
+      // client files make version-presence select `resend-contact-form`, the
+      // `resend` import triggers registry detection, and the dossier cluster
+      // enriches it with `EMAIL_FROM`/`CONTACT_EMAIL_TO` (all feature-runtime).
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        chat: { id: "chat_1", project_id: "proj_1" },
+        version: {
+          id: "ver_1",
+          chat_id: "chat_1",
+          lifecycle_stage: "design",
+          verification_state: "pending",
+        },
+      });
+      getVersionFiles.mockResolvedValue([
+        {
+          path: "app/api/contact/route.ts",
+          content:
+            'import { Resend } from "resend";\n' +
+            "export async function POST() {\n" +
+            "  const to = process.env.CONTACT_EMAIL_TO;\n" +
+            "  return Response.json({ to });\n" +
+            "}\n",
+        },
+        {
+          path: "components/contact-form.tsx",
+          content: "export function ContactForm() { return null; }\n",
+        },
+      ]);
+
+      const req = new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      expect(createVercelDeployment).toHaveBeenCalledTimes(1);
+      const json = (await res.json()) as {
+        envWarnings?: Array<{ key: string; reason: string }>;
+        deployReadiness?: { missingEnv: string[] };
+      };
+      // Still surfaced as a warning + in deployReadiness — never silently ok.
+      expect(
+        json.envWarnings?.some(
+          (w) => w.key === "CONTACT_EMAIL_TO" && w.reason === "feature-runtime",
+        ),
+      ).toBe(true);
+      expect(json.deployReadiness?.missingEnv).toContain("CONTACT_EMAIL_TO");
+    });
+
+    // The inclusion side of the F2 backstop (a truly-absent BUILD key still
+    // 409s) cannot be reproduced through real route inputs today: design
+    // suppresses the custom-env scan and every current dossier build key is
+    // placeholder-covered. It is bound at the resolver level instead
+    // (`project-env-resolver.test.ts` → designDeployBlockingKeys) plus the
+    // readiness-route parity test (nonempty set ⇒ `missing-env` blocker).
   });
 
   // BB#deploy2 (granska-svärmen på #469): den initiala statusskrivningen efter

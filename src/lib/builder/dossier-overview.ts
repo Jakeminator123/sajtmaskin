@@ -22,9 +22,13 @@ import type { DossierMockMode, SelectedDossier } from "@/lib/gen/dossiers/types"
  *   integration. "Bygg integrationer" would 412 before credits (#517).
  * - `built-demo` — real integration code is in the version but at least one
  *   `feature-runtime` key lacks a real value → the shipped demo fallback
- *   (canned/seed/success) is what actually runs.
- * - `built-live` — code is in the version and every build/feature-runtime
- *   key has a stored real value.
+ *   (canned/seed/success) is what actually runs. Also the cap (M#li1) when
+ *   the block lacks server-side file evidence in the version (manifest
+ *   server file or an API route referencing its env keys) — filled keys
+ *   alone never make a client-side mock "live".
+ * - `built-live` — code is in the version, every build/feature-runtime key
+ *   has a stored real value, AND the server side is evidenced in the
+ *   version's files.
  */
 export type DossierStatus =
   | "self-contained"
@@ -193,7 +197,10 @@ export function describeDossierStatus(
       return {
         label: "Byggd — demo aktiv",
         tone: "warning",
-        hint: "Riktig integrationskod är inkopplad, men en runtime-nyckel saknas — funktionen kör i demo-läge tills du sparar nyckeln här.",
+        // Two causes share this status (M#li1): a missing runtime key, or
+        // filled keys WITHOUT server-side file evidence in the version — the
+        // copy must not claim the code is wired when the cap was evidence.
+        hint: "Funktionen kör i demo-läge — en runtime-nyckel saknas, eller så är integrationens serverkod inte påvisad i den här versionen ännu.",
       };
     case "blocked-build":
       return {

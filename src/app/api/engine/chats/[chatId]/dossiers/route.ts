@@ -65,11 +65,17 @@ import {
   resolveSelectedDossiersWithVersionPresence,
 } from "@/lib/gen/dossiers/version-presence";
 import {
+  isPlannedDossierCoveredByModelBuiltBlock,
   preferPendingIntegrationDossiers,
   resolvePendingIntegrationDossiers,
 } from "@/lib/gen/dossiers";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { dossierRequiresF3, type SelectedDossier } from "@/lib/gen/dossiers/types";
+import { mapDossierPathToOutput } from "@/lib/gen/dossiers/output-path";
+import {
+  dossierRequiresF3,
+  type DossierEntry,
+  type SelectedDossier,
+} from "@/lib/gen/dossiers/types";
 import {
   extractBriefSummaryFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
@@ -124,6 +130,106 @@ function matchRequirementForDossier(
     }
   }
   return best;
+}
+
+/** Normalize a version file path for comparison (mirrors version-presence). */
+function normalizeProjectPath(path: string): string {
+  return path.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
+}
+
+const API_ROUTE_PATH_RE = /^app\/api\/(?:.*\/)?route\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
+
+/**
+ * M#li1: server-side FILE EVIDENCE gate for `built-live`. Env presence alone
+ * proved false in prod (2026-08-01, chat 7a4d609f): a client-only mock chat
+ * widget plus a stored OPENAI_API_KEY showed "Byggd — live" while the
+ * published site 404'd on `POST /api/chat`. "Live" therefore requires that
+ * the server side of the block demonstrably exists in the version's files:
+ *
+ *  - dossier-injected entry: EVERY manifest `role: "server"` file (mapped to
+ *    its output path) is present in the version — same all-files rule as
+ *    `version-presence`; a PARTIALLY injected integration (some but not all
+ *    server files) is never "live" and never falls through to the
+ *    model-built fallback, OR
+ *  - model-built entry (ZERO manifest server paths present — the model wrote
+ *    its own implementation under other paths): at least one API route file
+ *    (`app/api/xx/route.*`) in the version reads `process.env` and
+ *    references one of the dossier's env keys as a standalone identifier
+ *    (substring match would let `NEXT_PUBLIC_OPENAI_API_KEY` count as
+ *    evidence for `OPENAI_API_KEY` — a client-exposed key is exactly NOT
+ *    server evidence).
+ *
+ * Entries whose manifest declares no server files (client-only providers,
+ * e.g. analytics) are exempt — there is nothing server-side to evidence.
+ * Documented conservative choice: a model-built block whose server routes
+ * reference none of the dossier's env keys stays `built-demo` — honest
+ * under-reporting beats claiming "live" for a client-side mock.
+ */
+function hasServerFileEvidence(
+  entry: DossierEntry,
+  versionFiles: ReadonlyArray<{ path?: unknown; content?: unknown }> | null,
+): boolean {
+  const serverPaths = (entry.files ?? [])
+    .filter((file) => file.role === "server")
+    .map((file) => normalizeProjectPath(mapDossierPathToOutput(file.path)));
+  if (serverPaths.length === 0) return true;
+
+  const files = (versionFiles ?? []).flatMap((file) =>
+    typeof file.path === "string" && file.path.trim().length > 0
+      ? [
+          {
+            path: normalizeProjectPath(file.path),
+            content: typeof file.content === "string" ? file.content : "",
+          },
+        ]
+      : [],
+  );
+  const presentPaths = new Set(files.map((file) => file.path));
+  const presentServerCount = serverPaths.filter((path) => presentPaths.has(path)).length;
+  if (presentServerCount === serverPaths.length) return true;
+  // SOME but not all manifest server files present = partially injected
+  // dossier — never live, and the model-built fallback below must not
+  // resurrect it (a surviving checkout route reading the secret does not
+  // replace the missing webhook route). The fallback is reserved for pure
+  // model-built implementations: ZERO manifest server paths in the version.
+  if (presentServerCount > 0) return false;
+
+  // Only keys that MEAN server wiring count as fallback evidence:
+  // `warn-only` keys and `NEXT_PUBLIC_*` keys are client-exposed/cosmetic —
+  // a route reading only `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` proves no
+  // server-side integration (Bugbot on the M#li1 fix).
+  const envKeys = (entry.envVars ?? [])
+    .filter((env) => (env.enforcement ?? "build") !== "warn-only")
+    .map((env) => env.key)
+    .filter(
+      (key): key is string =>
+        typeof key === "string" && key.length > 0 && !key.startsWith("NEXT_PUBLIC_"),
+    );
+  if (envKeys.length === 0) return false;
+  const keyPatterns = envKeys.map(envKeyIdentifierPattern);
+  // Heuristic: the route must both name the key as a standalone identifier
+  // AND actually read `process.env` — covers `process.env.KEY`, bracket
+  // access and destructuring, while a mock whose only mention of the key is
+  // a comment/string (and never touches process.env) stays demo. Known
+  // residual: a comment mention alongside an unrelated `process.env` read
+  // still passes — accepted; this is a view-level status heuristic and the
+  // conservative direction (under-reporting) is preserved elsewhere.
+  return files.some(
+    (file) =>
+      API_ROUTE_PATH_RE.test(file.path) &&
+      file.content.includes("process.env") &&
+      keyPatterns.some((pattern) => pattern.test(file.content)),
+  );
+}
+
+/**
+ * Match an env key as a standalone identifier: no `[A-Za-z0-9_]` directly
+ * before or after (explicit class, not `\b`/`\w` — see unicode-regex.mdc).
+ * Keys come from dossier manifests but are escaped defensively.
+ */
+function envKeyIdentifierPattern(key: string): RegExp {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?<![A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])`);
 }
 
 type OverviewResult =
@@ -396,8 +502,13 @@ async function buildDossierOverview(
         if (missingKeys.length > 0) {
           status = "blocked-build";
         } else {
+          // M#li1: live requires real env values AND server-side file
+          // evidence (see `hasServerFileEvidence`) — a requirement matched
+          // from client-only code with filled keys is demo, not live.
           status =
-            missingLiveKeys.length > 0 || buildKeysWithoutRealValue.length > 0
+            missingLiveKeys.length > 0 ||
+            buildKeysWithoutRealValue.length > 0 ||
+            !hasServerFileEvidence(entry, versionFiles)
               ? "built-demo"
               : "built-live";
         }
@@ -432,14 +543,48 @@ async function buildDossierOverview(
     };
   });
 
+  // M#li6: hide a "planned" post whose function is already covered by a
+  // MODEL-BUILT block — a built entry (requirement matched in the version's
+  // code) WITHOUT dossier file presence. Coverage join + why dossier-injected
+  // built blocks are excluded (provider migration): see
+  // `isPlannedDossierCoveredByModelBuiltBlock`. View-level only — the
+  // pending signal itself is untouched, so "Bygg integrationer" still knows
+  // what F2 deferred.
+  const modelBuiltBlocks = dossiers
+    .filter(
+      (d) =>
+        (d.status === "built-live" ||
+          d.status === "built-demo" ||
+          d.status === "blocked-build") &&
+        !presentDossierIds.has(d.id),
+    )
+    .map((d) => ({
+      capability: d.capability,
+      envKeys: d.envVars.map((env) => env.key),
+    }));
+  const visibleDossiers =
+    modelBuiltBlocks.length === 0
+      ? dossiers
+      : dossiers.filter(
+          (d) =>
+            d.status !== "planned" ||
+            !isPlannedDossierCoveredByModelBuiltBlock({
+              planned: {
+                capability: d.capability,
+                envKeys: d.envVars.map((env) => env.key),
+              },
+              modelBuiltBlocks,
+            }),
+        );
+
   const counts = {
-    total: dossiers.length,
-    hard: dossiers.filter((d) => d.class === "hard").length,
-    soft: dossiers.filter((d) => d.class === "soft").length,
-    builtLive: dossiers.filter((d) => d.status === "built-live").length,
-    builtDemo: dossiers.filter((d) => d.status === "built-demo").length,
-    blockedBuild: dossiers.filter((d) => d.status === "blocked-build").length,
-    planned: dossiers.filter((d) => d.status === "planned").length,
+    total: visibleDossiers.length,
+    hard: visibleDossiers.filter((d) => d.class === "hard").length,
+    soft: visibleDossiers.filter((d) => d.class === "soft").length,
+    builtLive: visibleDossiers.filter((d) => d.status === "built-live").length,
+    builtDemo: visibleDossiers.filter((d) => d.status === "built-demo").length,
+    blockedBuild: visibleDossiers.filter((d) => d.status === "blocked-build").length,
+    planned: visibleDossiers.filter((d) => d.status === "planned").length,
   };
 
   return {
@@ -451,7 +596,7 @@ async function buildDossierOverview(
       lifecycleStage,
       versionFilesAvailable,
       counts,
-      dossiers,
+      dossiers: visibleDossiers,
     },
   };
 }

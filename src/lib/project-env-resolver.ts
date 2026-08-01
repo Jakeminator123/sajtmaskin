@@ -72,6 +72,17 @@ export type ResolvedProjectEnvRequirements = {
    * `featureRuntimeKeys`.
    */
   warnOnlyKeys: string[];
+  /**
+   * The F2 (`design`) deploy backstop: truly absent keys (`missingEnvKeys`)
+   * whose enforcement is `"build"`. `feature-runtime`/`warn-only` keys only
+   * degrade a single feature at runtime and must never hard-block a demo
+   * publish (product decision: demo sites with an info sign stay
+   * publishable). SHARED derived set: both the deploy route's F2 branch and
+   * the readiness route block on exactly this list, so `canDeploy` cannot
+   * disagree with `POST /api/v0/deployments`. F3 blocks on
+   * `buildBlockingKeys` instead.
+   */
+  designDeployBlockingKeys: string[];
 };
 
 export async function resolveProjectEnv(
@@ -208,6 +219,13 @@ export function resolveEnvRequirementsFromDetected(
     return true;
   });
 
+  // M#li2: the F2 deploy backstop is `missingEnvKeys` restricted to
+  // `build`-enforcement — a truly absent feature-runtime key (e.g. Resend
+  // `EMAIL_FROM`) must degrade with a warning, not 409 the deploy.
+  const designDeployBlockingKeys = missingEnvKeys.filter(
+    (key) => (enforcement.get(key) ?? "build") === "build",
+  );
+
   return {
     detectedIntegrations,
     requiredEnvKeys,
@@ -217,6 +235,7 @@ export function resolveEnvRequirementsFromDetected(
     buildBlockingKeys,
     featureRuntimeKeys,
     warnOnlyKeys,
+    designDeployBlockingKeys,
   };
 }
 

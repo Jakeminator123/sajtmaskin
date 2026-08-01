@@ -72,6 +72,40 @@ export function resolvePendingIntegrationDossiers(params: {
 }
 
 /**
+ * M#li6 (prod 2026-08-01, chat 7a4d609f): after a follow-up asked for an AI
+ * chatbot, the Byggblock panel showed BOTH a model-built chat block
+ * ("AI-assistent med verktyg", detected from the version's code) AND the
+ * F2-deferred dossier ("AI-chatt — OpenAI") as a separate "Planerad" post —
+ * three blocks for two functions. A planned post whose function is already
+ * covered by a MODEL-BUILT block is noise, and rebuilding it in F3 risks a
+ * second chat widget.
+ *
+ * Coverage join: same capability (case-insensitive) OR any env-key overlap.
+ * Any-overlap = same vendor — mirrors `findMatchingCluster` in
+ * `detect-integrations.ts`; this is how `ai-chat` (openai-chat) and
+ * `ai-tool-calling` (ai-tool-calling-chat) unify on `OPENAI_API_KEY` despite
+ * different capability keys.
+ *
+ * Deliberately restricted to MODEL-BUILT coverage (callers pass only built
+ * blocks WITHOUT dossier file presence): a dossier-file-injected built block
+ * must NOT supersede a planned sibling under the same capability — that
+ * coexistence is the provider-migration UX (built postgres + planned
+ * mongodb) guarded by `preferPendingIntegrationDossiers`' preserve rule.
+ */
+export function isPlannedDossierCoveredByModelBuiltBlock(params: {
+  planned: { capability: string; envKeys: readonly string[] };
+  modelBuiltBlocks: ReadonlyArray<{ capability: string; envKeys: readonly string[] }>;
+}): boolean {
+  const plannedCapability = params.planned.capability.trim().toLowerCase();
+  const plannedKeys = new Set(params.planned.envKeys);
+  return params.modelBuiltBlocks.some(
+    (block) =>
+      block.capability.trim().toLowerCase() === plannedCapability ||
+      block.envKeys.some((key) => plannedKeys.has(key)),
+  );
+}
+
+/**
  * Merge a snapshot/presence selection with exact F2-deferred providers.
  *
  * Exact pending identity wins over a snapshot/brief DEFAULT for the same

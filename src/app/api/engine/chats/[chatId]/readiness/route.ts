@@ -472,6 +472,7 @@ async function buildEngineReadiness(
     buildBlockingKeys,
     featureRuntimeKeys,
     warnOnlyKeys,
+    designDeployBlockingKeys,
   } = envRequirements;
 
   if (envGateActive) {
@@ -497,6 +498,27 @@ async function buildEngineReadiness(
 
     if (featureRuntimeKeys.length > 0) {
       warnings.push(buildFeatureRuntimeEnvInfo(featureRuntimeKeys));
+    }
+  } else if (designDeployBlockingKeys.length > 0) {
+    // M#li2 parity: the deploy route's F2 backstop 409:ar (`DEPLOY_MISSING_ENV`)
+    // on exactly this shared set (`designDeployBlockingKeys`, resolver-derived).
+    // Readiness must block the same version — `canDeploy` may never lie.
+    // Feature-runtime/warn-only keys are excluded by the resolver, so the
+    // F2-mute contract (demo publishes stay green) is untouched.
+    if (!chat.project_id) {
+      // Same guard as the integrations branch: without a saved project no
+      // keys can be stored, and the deploy route 403:ar on the missing
+      // project link before it ever reaches the env backstop — a missing-env
+      // blocker would name the wrong obstacle.
+      blockers.push({
+        id: "project-context-missing",
+        title: "Projektet måste sparas innan miljövariabler kan kopplas.",
+        detail: "Spara projektet först så nycklarna kopplas rätt.",
+        severity: "blocker",
+        action: "env",
+      });
+    } else {
+      blockers.push(buildMissingEnvBlocker(designDeployBlockingKeys));
     }
   }
 

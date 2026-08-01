@@ -39,9 +39,12 @@ vi.mock("@/lib/gen/dossiers/snapshot-selection", () => ({
   resolveSelectedDossiersFromSnapshot,
 }));
 
-vi.mock("@/lib/gen/dossiers/select", () => ({
-  selectDossiersForRequest,
-}));
+vi.mock("@/lib/gen/dossiers/select", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/dossiers/select")>();
+  // Keep the real `isDossierConfigured` (pure) — `pending-integrations.ts`
+  // calls it when the snapshot carries exact muted dossier ids (M#li6 test).
+  return { ...actual, selectDossiersForRequest };
+});
 
 vi.mock("@/lib/gen/version-manager", () => ({
   getVersionFiles,
@@ -219,6 +222,7 @@ describe("GET dossiers overview", () => {
     // single-pass path they did before the reconciliation was added.
     extractBriefSummaryFromSnapshot.mockReturnValue(null);
     readMutedCapabilitiesFromSnapshot.mockReturnValue([]);
+    readMutedDossierIdsFromSnapshot.mockReturnValue([]);
     mapProviderKeysToDossierCapabilities.mockReturnValue([]);
     selectDossiersForRequest.mockReturnValue({ selected: [], poolSize: 0, byCapability: {} });
     // Version-presence union defaults to "no version files loaded" so existing
@@ -282,6 +286,11 @@ describe("GET dossiers overview", () => {
     getStoredProjectEnvVarMap.mockResolvedValue({ STRIPE_SECRET_KEY: "sk_live_real" });
     loadPlaceholderKeySet.mockReturnValue(new Set<string>(["STRIPE_SECRET_KEY"]));
     resolveSelectedDossiersFromSnapshot.mockReturnValue([stripeDossier()]);
+    // M#li1: built-live additionally requires server-side file evidence — the
+    // manifest's server file (mapped output path) is in the version.
+    getVersionFiles.mockResolvedValue([
+      { path: "app/api/checkout-session/route.ts", content: "// checkout route" },
+    ]);
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
     validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
 
@@ -360,6 +369,11 @@ describe("GET dossiers overview", () => {
       hasConfigNoticeComponent: true,
     };
     resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    // M#li1: the manifest's server file is in the version, so the only thing
+    // separating demo from live in this test is the stored key.
+    getVersionFiles.mockResolvedValue([
+      { path: "app/api/assistant/route.ts", content: "// assistant route" },
+    ]);
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
     validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
 
@@ -381,6 +395,298 @@ describe("GET dossiers overview", () => {
     expect(aiTool?.status).toBe("built-live");
     expect(aiTool?.missingLiveKeys).toEqual([]);
     expect(body.counts.builtLive).toBe(1);
+  });
+
+  // M#li1 (prod 2026-08-01, chat 7a4d609f): the panel said "Byggd — live"
+  // for an AI block whose "chatbot" was a client-side mock widget with
+  // hardcoded answers — the published site 404'd on POST /api/chat. Filled
+  // env keys alone must never yield built-live: the block needs server-side
+  // file evidence (manifest server file, or an API route referencing its
+  // env keys).
+  it("caps a key-filled block at built-demo when the version has no server file evidence (M#li1)", async () => {
+    const openaiRequirement = {
+      key: "openai",
+      name: "OpenAI",
+      provider: "openai",
+      requiredRealEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+      warnOnlyEnvKeys: [],
+      buildInstructions: [],
+      setupGuide: "",
+      hasConfigNoticeComponent: true,
+    };
+    getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    // The version only contains the client-side mock widget: no manifest
+    // server file (app/api/assistant/route.ts) and no API route at all.
+    getVersionFiles.mockResolvedValue([
+      { path: "components/ai-chat-widget.tsx", content: "// hardcoded canned answers" },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+    expect(body.counts.builtDemo).toBe(1);
+  });
+
+  // M#li6 (prod 2026-08-01, chat 7a4d609f): after the follow-up "lägg till
+  // AI-chatbot", F2-mute deferred openai-chat (pending → "Planerad") while a
+  // model-built chat block was already detected in the version's code
+  // ("AI-assistent med verktyg", built) — three posts for two functions. The
+  // planned post must be superseded by the model-built coverage: ONE post,
+  // not two. The pending SIGNAL itself is untouched (view-level filter).
+  it("hides a planned pending dossier already covered by a model-built block (M#li6)", async () => {
+    const openaiRequirement = {
+      key: "openai",
+      name: "OpenAI",
+      provider: "openai",
+      requiredRealEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+      warnOnlyEnvKeys: [],
+      buildInstructions: [],
+      setupGuide: "",
+      hasConfigNoticeComponent: true,
+    };
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    // F2 deferred the openai-chat dossier (real registry entry: capability
+    // ai-chat, env OPENAI_API_KEY — same vendor surface as the built block).
+    readMutedDossierIdsFromSnapshot.mockReturnValue(["openai-chat"]);
+    getVersionFiles.mockResolvedValue([
+      { path: "components/ai-chat-widget.tsx", content: "// client mock widget" },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    expect(body.dossiers.map((d) => d.id)).toEqual(["ai-tool-calling-chat"]);
+    expect(body.counts.total).toBe(1);
+    expect(body.counts.planned).toBe(0);
+  });
+
+  // M#li1, model-built fallback: an implementation the model wrote itself
+  // (not the dossier's verbatim paths) still counts as live when an API
+  // route in the version references one of the dossier's env keys.
+  it("accepts a model-built API route referencing the dossier's env key as server evidence", async () => {
+    const openaiRequirement = {
+      key: "openai",
+      name: "OpenAI",
+      provider: "openai",
+      requiredRealEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+      warnOnlyEnvKeys: [],
+      buildInstructions: [],
+      setupGuide: "",
+      hasConfigNoticeComponent: true,
+    };
+    getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    // Model-built route at a non-manifest path, reading the dossier's key.
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "app/api/chat/route.ts",
+        content: "const key = process.env.OPENAI_API_KEY;\n",
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool?.status).toBe("built-live");
+    expect(body.counts.builtLive).toBe(1);
+  });
+
+  // Bugbot on the M#li1 fix: `NEXT_PUBLIC_OPENAI_API_KEY` contains
+  // `OPENAI_API_KEY` as a substring — a client-exposed key in an API route
+  // is exactly NOT server evidence, so substring matches must not count.
+  it("rejects a NEXT_PUBLIC_-prefixed superstring of the env key as server evidence", async () => {
+    const openaiRequirement = {
+      key: "openai",
+      name: "OpenAI",
+      provider: "openai",
+      requiredRealEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+      warnOnlyEnvKeys: [],
+      buildInstructions: [],
+      setupGuide: "",
+      hasConfigNoticeComponent: true,
+    };
+    getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "app/api/chat/route.ts",
+        content: "const key = process.env.NEXT_PUBLIC_OPENAI_API_KEY;\n",
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+  });
+
+  // Bugbot on the M#li1 fix: a route whose only mention of the key is a
+  // comment (and that never reads process.env) is a mock, not wiring.
+  it("rejects a comment-only key mention without any process.env read as server evidence", async () => {
+    const openaiRequirement = {
+      key: "openai",
+      name: "OpenAI",
+      provider: "openai",
+      requiredRealEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+      warnOnlyEnvKeys: [],
+      buildInstructions: [],
+      setupGuide: "",
+      hasConfigNoticeComponent: true,
+    };
+    getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "app/api/chat/route.ts",
+        content:
+          "// TODO: wire OPENAI_API_KEY later\nexport async function POST() { return Response.json({ reply: 'canned' }); }\n",
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+  });
+
+  // Bugbot on the M#li1 fix: warn-only and NEXT_PUBLIC_* keys are
+  // client-exposed/cosmetic — a route reading only those proves no server
+  // wiring, so they must not count as fallback evidence.
+  it("rejects an API route reading only a warn-only NEXT_PUBLIC_ key as server evidence", async () => {
+    const openaiRequirement = {
+      key: "openai",
+      name: "OpenAI",
+      provider: "openai",
+      requiredRealEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+      warnOnlyEnvKeys: [],
+      buildInstructions: [],
+      setupGuide: "",
+      hasConfigNoticeComponent: true,
+    };
+    const dossier = aiToolCallingDossier();
+    dossier.entry.envVars = [
+      ...(dossier.entry.envVars ?? []),
+      {
+        key: "NEXT_PUBLIC_APP_URL",
+        required: false,
+        enforcement: "warn-only",
+        purpose: "Public site URL for links.",
+      },
+    ];
+    getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([dossier]);
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "app/api/chat/route.ts",
+        content: "const url = process.env.NEXT_PUBLIC_APP_URL;\n",
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
+    expect(aiTool?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+  });
+
+  // Bugbot on the M#li1 fix: EVERY manifest server file must be present
+  // (version-presence's all-files rule) — a partially injected integration
+  // whose surviving route is a keyless mock must not report built-live.
+  it("caps a partially injected dossier (one of two server files) at built-demo", async () => {
+    const twoServerFileStripe = stripeDossier();
+    twoServerFileStripe.entry.files = [
+      { path: "components/api/checkout-session/route.ts", role: "server" },
+      { path: "components/api/stripe-webhook/route.ts", role: "server" },
+    ];
+    getStoredProjectEnvVarMap.mockResolvedValue({ STRIPE_SECRET_KEY: "sk_live_real" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([twoServerFileStripe]);
+    // Only the first server file survived injection, and its content is a
+    // mock that never reads the secret key — no fallback evidence either.
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "app/api/checkout-session/route.ts",
+        content: "export async function POST() { return Response.json({ ok: true }); }\n",
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
+    expect(stripe?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+  });
+
+  // Bugbot on the M#li1 fix: the model-built fallback must not resurrect a
+  // partially injected dossier — a surviving checkout route that reads the
+  // secret does not replace the missing webhook route.
+  it("keeps a partially injected dossier at built-demo even when the surviving route reads the secret", async () => {
+    const twoServerFileStripe = stripeDossier();
+    twoServerFileStripe.entry.files = [
+      { path: "components/api/checkout-session/route.ts", role: "server" },
+      { path: "components/api/stripe-webhook/route.ts", role: "server" },
+    ];
+    getStoredProjectEnvVarMap.mockResolvedValue({ STRIPE_SECRET_KEY: "sk_live_real" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([twoServerFileStripe]);
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "app/api/checkout-session/route.ts",
+        content: "const stripeKey = process.env.STRIPE_SECRET_KEY;\n",
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
+    expect(stripe?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
   });
 
   // Codex P2 on #525: with the F3 placeholder opt-in (`allowPlaceholdersInF3`)
