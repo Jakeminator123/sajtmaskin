@@ -37,7 +37,10 @@
  *      F3-loop åtgärd 4 — the old "run as F2 follow-up" behavior produced a
  *      silent empty generation and re-asked the same question).
  *  - `"unrelated"` — anything else (design edits, questions, "Annat").
- *      Consume + run the message as a normal F2 follow-up.
+ *      Consume + run the message as a normal F2 follow-up, with an explicit
+ *      one-line notice persisted in the chat
+ *      ({@link F3_CONTINUATION_DESIGN_ROUND_NOTICE}, M#li5) so the handover
+ *      out of the integrations flow is never silent.
  *
  * **Fail-safe rule: when in doubt, NOT F3.** A missed approval costs one
  * click ("Bygg integrationer" again); a false F3 burns credits in the wrong
@@ -152,6 +155,18 @@ export const F3_REJECT_ACK_MESSAGE =
 
 /** `done`-event reason for the calm reject close-out (no generation ran). */
 export const F3_REJECT_ACK_REASON = "f3_reject_acknowledged";
+
+/**
+ * M#li5 (prod 2026-08-01, chat 7a4d609f): an "Annat"/free-text reply to the
+ * pending F3 question runs as a plain design round (F2) — by design (the
+ * fail-safe rule above) — but the chat never said so, so the user believed
+ * they were still in the integrations flow while the tier-3 stub stayed in
+ * place. This one-line assistant notice is persisted when the marker is
+ * consumed by an `"unrelated"` reply, right after the user's message, so the
+ * transition out of F3 is explicit in the chat history.
+ */
+export const F3_CONTINUATION_DESIGN_ROUND_NOTICE =
+  "Den här rundan kördes som designrunda (F2) — svaret tolkades inte som ett godkännande, så integrationsläget avslutades. Kör 'Bygg integrationer' igen när du vill bygga integrationerna (F3).";
 
 /**
  * Honest close-out for an APPROVED round with nothing approvable (review
