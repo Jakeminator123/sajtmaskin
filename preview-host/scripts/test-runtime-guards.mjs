@@ -893,6 +893,51 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
       .some(([, value]) => /^\/root\//.test(String(value))),
   );
 
+  // Allowlist-kopieringen lät en ÄRVD cache-variabel vinna över den beräknade
+  // sökvägen. `NPM_CONFIG_CACHE=/root/.npm` är npm:s egen default och lätt att
+  // ärva från en basbild eller ett `fly secrets`-misstag — och då är hela
+  // volym-fixen ovan verkningslös utan att något test märkte det, eftersom
+  // sviten körs utan variabeln satt.
+  {
+    const prior = process.env.NPM_CONFIG_CACHE;
+    // `npm run` injicerar sin egen konfiguration som `npm_config_*` i GEMENER.
+    // Windows env-namn är skiftlägesokänsliga men BEHÅLLER det skiftläge som
+    // sattes först, så en tilldelning till `NPM_CONFIG_CACHE` här skulle dyka
+    // upp som `npm_config_cache` i `Object.entries` och missa allowlisten —
+    // varpå testet nedan hade blivit grönt utan att bevisa någonting. Radera
+    // först, så äger vi skiftläget.
+    const setCache = (value) => {
+      delete process.env.NPM_CONFIG_CACHE;
+      process.env.NPM_CONFIG_CACHE = value;
+    };
+    try {
+      setCache("/root/.npm");
+      check(
+        "an inherited cache path outside the volume is ignored",
+        sanitizedEnv().NPM_CONFIG_CACHE === NPM_CACHE_DIR,
+      );
+
+      // Men en ärvd sökväg som ligger PÅ volymen är ett legitimt val (t.ex.
+      // fly.toml:s egen rad) och ska respekteras.
+      const onVolume = join(dataDir, "package-caches", "npm-custom");
+      setCache(onVolume);
+      check(
+        "an inherited cache path inside the volume is respected",
+        sanitizedEnv().NPM_CONFIG_CACHE === onVolume,
+      );
+
+      // En syskonmapp med samma prefix ligger INTE i volymen.
+      setCache(`${dataDir}-elsewhere`);
+      check(
+        "a sibling path that merely shares the prefix is ignored",
+        sanitizedEnv().NPM_CONFIG_CACHE === NPM_CACHE_DIR,
+      );
+    } finally {
+      delete process.env.NPM_CONFIG_CACHE;
+      if (prior !== undefined) process.env.NPM_CONFIG_CACHE = prior;
+    }
+  }
+
   check(
     "npm ENOSPC output is recognised as disk-full",
     isNoSpaceInstallFailure("npm error code ENOSPC\nnpm error syscall write"),
