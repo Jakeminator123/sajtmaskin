@@ -1,0 +1,20 @@
+/**
+ * Aktivt builder-mål (chatt + version) ur `window.__SITEMASKIN_CONTEXT`,
+ * som `BuilderShellContent` håller uppdaterad. Delad ägare för OpenClaw-
+ * korten (repair/quick-edit) och send-tidens målbindning i `useOpenClawChat`
+ * — flyttad hit från `OpenClawMessage.tsx` när quick-edit-förslag började
+ * bindas till versionen modellen faktiskt såg (Bugbot 2026-08-01).
+ */
+export interface OpenClawBuilderTarget {
+  chatId: string;
+  versionId: string;
+}
+
+export function readActiveBuilderTarget(): OpenClawBuilderTarget | null {
+  if (typeof window === "undefined") return null;
+  const ctx = window.__SITEMASKIN_CONTEXT;
+  const chatId = typeof ctx?.chatId === "string" ? ctx.chatId : null;
+  const versionId = typeof ctx?.activeVersionId === "string" ? ctx.activeVersionId : null;
+  if (!chatId || !versionId) return null;
+  return { chatId, versionId };
+}

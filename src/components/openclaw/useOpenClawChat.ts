@@ -12,6 +12,7 @@ import {
   parseArmingDirective,
   parseStopDirective,
 } from "@/lib/openclaw/debug/armed-mandate";
+import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
 
 function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -75,6 +76,11 @@ export function useOpenClawChat() {
         role: "assistant",
         content: "",
         timestamp: Date.now(),
+        // Bind svaret till builder-målet som gäller NÄR turen skickas — samma
+        // kontext som `collectOpenClawClientContext()` ger modellen. Quick-
+        // edit-kortet använder detta så ett förslag appliceras mot versionen
+        // modellen såg, inte mot vad som råkar vara aktivt vid godkännandet.
+        builderTarget: readActiveBuilderTarget(),
       });
       activeAssistantIdRef.current = placeholderId;
 
