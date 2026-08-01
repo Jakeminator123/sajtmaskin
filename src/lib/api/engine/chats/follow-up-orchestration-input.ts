@@ -1,5 +1,6 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
+import { stripFocusPointAppendix } from "@/lib/builder/focus-point-prompt";
 import { inferCapabilities } from "@/lib/gen/capability-inference";
 import {
   buildFollowUpBriefFromSnapshot,
@@ -142,10 +143,14 @@ export function buildFollowUpOrchestrationInput(
 
   const importedRepoMode = params.importedRepoMode === true;
 
+  // Keep focus-point metadata on the model prompt / raw message, but do not
+  // let marked link text (e.g. PORTFOLIO) drive keyword route inference.
+  const routePlanPrompt = stripFocusPointAppendix(params.message);
+
   const commonInput: OrchestrationInput = {
     prompt: params.optimizedMessage,
     rawPrompt: params.message,
-    routePlanPrompt: params.message,
+    routePlanPrompt,
     buildSpecPrompt: params.message,
     contractsPrompt: params.message,
     capabilitiesPrompt: params.message,

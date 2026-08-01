@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
+import { FOCUS_POINT_MARKER } from "@/lib/builder/focus-point-prompt";
 
 import {
   buildFollowUpOrchestrationInput,
@@ -120,6 +121,25 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     expect(planInput.generationMode).toBe("followUp");
     expect(planInput.lifecycleStage).toBe("design");
     expect(planInput.engineModelId).toBe("gpt-5.4");
+  });
+
+  it("strips focus-point appendix from routePlanPrompt but keeps it on rawPrompt", () => {
+    const message = [
+      'Skapa en ny sida som ska heta "Bilder".',
+      "",
+      FOCUS_POINT_MARKER,
+      "- Punkt 1: x=10.0%, y=5.0%",
+      "  - Träff-text: PORTFOLIO",
+    ].join("\n");
+    const planInput = buildFollowUpOrchestrationInput(
+      baseParams({ mode: "plan", message, optimizedMessage: message }),
+    );
+
+    expect(planInput.rawPrompt).toContain(FOCUS_POINT_MARKER);
+    expect(planInput.rawPrompt).toContain("PORTFOLIO");
+    expect(planInput.routePlanPrompt).toBe('Skapa en ny sida som ska heta "Bilder".');
+    expect(planInput.routePlanPrompt).not.toContain("PORTFOLIO");
+    expect(planInput.routePlanPrompt).not.toContain(FOCUS_POINT_MARKER);
   });
 
   it("codegen-mode mirrors plan-mode common fields exactly", () => {

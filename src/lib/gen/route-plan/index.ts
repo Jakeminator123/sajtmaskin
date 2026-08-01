@@ -16,6 +16,11 @@ export {
   deduplicateLocaleAlternateRoutes,
   findSupersededScaffoldRoutes,
 } from "./locale-dedupe";
-export { collectExplicitRouteRemovals, detectExplicitPageCount } from "./planning-helpers";
+export {
+  collectExplicitRouteRemovals,
+  detectExplicitPageCount,
+  extractExplicitNamedPages,
+  hasExplicitAddRouteIntent,
+} from "./planning-helpers";
 export { extractAppRoutePathsFromFilePaths, normalizeRoutePath } from "./path-utils";
 export { routePatternToRegex } from "./route-matchers";

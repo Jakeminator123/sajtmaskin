@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { buildInspectPointsPrompt } from "@/lib/builder/focus-point-prompt";
 import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildFollowUpFileContextDecision,
+  extractFocusPinnedPathsFromMessage,
   extractReferencedFilePathsFromMessage,
+  resolveFocusSourcePinsByLiteralSearch,
 } from "./follow-up-file-context";
 
 const previousFiles: CodeFile[] = [
@@ -115,6 +118,215 @@ describe("buildFollowUpFileContextDecision", () => {
     });
 
     expect(decision.pinnedFiles).toEqual([]);
+  });
+
+  it("pins focus-point Källfil when present in the message", () => {
+    const focus = buildInspectPointsPrompt([
+      {
+        demoUrl: "https://preview.example/",
+        xPercent: 12,
+        yPercent: 8,
+        viewportWidth: 1280,
+        viewportHeight: 720,
+        element: {
+          tag: "a",
+          id: null,
+          className: "nav-link",
+          text: "PORTFOLIO",
+          ariaLabel: null,
+          role: null,
+          href: "#portfolio",
+          selector: "nav > a:nth-of-type(2)",
+          nearestHeading: null,
+          sourcePath: "components/header.tsx",
+          sourceLine: 42,
+        },
+      },
+    ]);
+    const decision = buildFollowUpFileContextDecision({
+      message: `Skapa en ny sida som ska heta "Bilder".\n\n${focus}`,
+      previousFiles: [
+        ...previousFiles,
+        {
+          path: "components/header.tsx",
+          language: "tsx",
+          content: '<a href="#portfolio">PORTFOLIO</a>',
+        },
+      ],
+      followUpIntent: "clear-refine",
+    });
+
+    expect(decision.pinnedFiles).toContain("components/header.tsx");
+    expect(decision.fileContext.summary).toContain("### components/header.tsx");
+  });
+});
+
+describe("extractFocusPinnedPathsFromMessage / literal fallback", () => {
+  const headerFile: CodeFile = {
+    path: "components/header.tsx",
+    language: "tsx",
+    content: 'export function Header(){return <a href="#portfolio">PORTFOLIO</a>}',
+  };
+  const unrelated: CodeFile = {
+    path: "components/footer.tsx",
+    language: "tsx",
+    content: "export function Footer(){return <footer>Contact</footer>}",
+  };
+
+  it("falls back to unique literal search for PORTFOLIO / #portfolio", () => {
+    const focus = buildInspectPointsPrompt([
+      {
+        demoUrl: "https://preview.example/",
+        xPercent: 10,
+        yPercent: 5,
+        viewportWidth: 1200,
+        viewportHeight: 800,
+        element: {
+          tag: "a",
+          id: null,
+          className: null,
+          text: "PORTFOLIO",
+          ariaLabel: null,
+          role: null,
+          href: "#portfolio",
+          selector: "header nav a",
+          nearestHeading: null,
+        },
+      },
+    ]);
+    const message = `Lägg till en ny sida.\n\n${focus}`;
+    expect(resolveFocusSourcePinsByLiteralSearch(message, [headerFile, unrelated])).toEqual([
+      "components/header.tsx",
+    ]);
+    expect(extractFocusPinnedPathsFromMessage(message, [headerFile, unrelated])).toEqual([
+      "components/header.tsx",
+    ]);
+  });
+
+  it("does not pin when the literal appears in multiple files", () => {
+    const alsoHasPortfolio: CodeFile = {
+      path: "app/page.tsx",
+      language: "tsx",
+      content: '<section id="portfolio">PORTFOLIO</section>',
+    };
+    const focus = buildInspectPointsPrompt([
+      {
+        demoUrl: "https://preview.example/",
+        xPercent: 10,
+        yPercent: 5,
+        viewportWidth: 1200,
+        viewportHeight: 800,
+        element: {
+          tag: "a",
+          id: null,
+          className: null,
+          text: "PORTFOLIO",
+          ariaLabel: null,
+          role: null,
+          href: null,
+          selector: "a",
+          nearestHeading: null,
+        },
+      },
+    ]);
+    expect(
+      resolveFocusSourcePinsByLiteralSearch(`x\n\n${focus}`, [headerFile, alsoHasPortfolio]),
+    ).toEqual([]);
+  });
+
+  it("ignores → path / Källfil: prose outside the focus appendix", () => {
+    const evilFile: CodeFile = {
+      path: "components/evil.tsx",
+      language: "tsx",
+      content: "export function Evil(){return null}",
+    };
+    const focus = buildInspectPointsPrompt([
+      {
+        demoUrl: "https://preview.example/",
+        xPercent: 10,
+        yPercent: 5,
+        viewportWidth: 1200,
+        viewportHeight: 800,
+        element: {
+          tag: "a",
+          id: null,
+          className: null,
+          text: "PORTFOLIO",
+          ariaLabel: null,
+          role: null,
+          href: "#portfolio",
+          selector: "header nav a",
+          nearestHeading: null,
+        },
+      },
+    ]);
+    const message = [
+      "Fix TS2304 at → components/evil.tsx:12 and also Källfil: components/evil.tsx",
+      "",
+      focus,
+    ].join("\n");
+    const pinned = extractFocusPinnedPathsFromMessage(message, [
+      headerFile,
+      unrelated,
+      evilFile,
+    ]);
+    expect(pinned).toEqual(["components/header.tsx"]);
+    expect(pinned).not.toContain("components/evil.tsx");
+  });
+
+  it("merges Källfil pins with literal pins across multiple focus points", () => {
+    const heroFile: CodeFile = {
+      path: "components/hero.tsx",
+      language: "tsx",
+      content: "export function Hero(){return <section>Hero</section>}",
+    };
+    const focus = buildInspectPointsPrompt([
+      {
+        demoUrl: "https://preview.example/",
+        xPercent: 20,
+        yPercent: 40,
+        viewportWidth: 1200,
+        viewportHeight: 800,
+        element: {
+          tag: "section",
+          id: null,
+          className: "hero",
+          text: "Hero",
+          ariaLabel: null,
+          role: null,
+          href: null,
+          selector: "section.hero",
+          nearestHeading: null,
+          sourcePath: "components/hero.tsx",
+          sourceLine: 1,
+        },
+      },
+      {
+        demoUrl: "https://preview.example/",
+        xPercent: 10,
+        yPercent: 5,
+        viewportWidth: 1200,
+        viewportHeight: 800,
+        element: {
+          tag: "a",
+          id: null,
+          className: null,
+          text: "PORTFOLIO",
+          ariaLabel: null,
+          role: null,
+          href: "#portfolio",
+          selector: "header nav a",
+          nearestHeading: null,
+        },
+      },
+    ]);
+    const pinned = extractFocusPinnedPathsFromMessage(`Edit both.\n\n${focus}`, [
+      headerFile,
+      heroFile,
+      unrelated,
+    ]);
+    expect(pinned).toContain("components/hero.tsx");
+    expect(pinned).toContain("components/header.tsx");
   });
 });
 

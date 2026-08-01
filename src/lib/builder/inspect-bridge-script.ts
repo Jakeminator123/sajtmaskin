@@ -97,6 +97,15 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     return parts.join(" > ") || null;
   }
   function isRoot(el) { var t = el && el.tagName ? el.tagName.toLowerCase() : ""; return t === "html" || t === "body"; }
+  function sourcePathOf(el) {
+    var cur = el;
+    while (cur && cur.nodeType === 1) {
+      var v = cur.getAttribute ? cur.getAttribute("data-sajtmaskin-source") : null;
+      if (v) return cleanMax(v, 240);
+      cur = cur.parentElement;
+    }
+    return null;
+  }
   function describe(el) {
     if (!el) return null;
     var heading = el.closest ? el.closest("h1,h2,h3,h4,h5,h6") : null;
@@ -121,6 +130,7 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
       href: el.tagName === "A" ? clean(el.href) : clean(el.getAttribute && el.getAttribute("href")),
       selector: selectorFor(el),
       nearestHeading: heading ? clean(heading.innerText || heading.textContent) : null,
+      sourcePath: sourcePathOf(el),
       rect: { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) },
       viewport: { w: window.innerWidth, h: window.innerHeight }
     };

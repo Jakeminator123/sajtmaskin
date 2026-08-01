@@ -1,4 +1,5 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { stripFocusPointAppendix } from "@/lib/builder/focus-point-prompt";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import { dedupePlannedRoutesInPlaceByLocale } from "./locale-dedupe";
 import { normalizeRoutePath } from "./path-utils";
@@ -8,7 +9,9 @@ import {
   buildRoutesFromBrief,
   collectExplicitRouteRemovals,
   detectExplicitPageCount,
+  extractExplicitNamedPages,
   hasExplicitAddRouteIntent,
+  neutralizeExplicitPageNameLiterals,
   upsertRoute,
 } from "./planning-helpers";
 import { APP_ROUTE_PATTERNS, WEBSITE_ROUTE_PATTERNS } from "./route-patterns";
@@ -42,7 +45,10 @@ export function buildRoutePlan(params: {
    */
   pageCountHint?: number | null;
 }): RoutePlan {
-  const { prompt, buildIntent, brief, resolvedScaffold, generationMode, existingRoutePaths = [], locale = "sv", pageCountHint = null } = params;
+  const { prompt: rawPrompt, buildIntent, brief, resolvedScaffold, generationMode, existingRoutePaths = [], locale = "sv", pageCountHint = null } = params;
+  // Focus-point appendix identifies *which element* was marked (e.g. link text
+  // PORTFOLIO) — never feed that into keyword route inference.
+  const prompt = stripFocusPointAppendix(rawPrompt);
   const routes: PlannedRoute[] = [];
   const briefRoutes = buildRoutesFromBrief(brief);
   const hasBriefRoutes = briefRoutes.length > 0;
@@ -57,7 +63,9 @@ export function buildRoutePlan(params: {
   const explicitRouteRemovals = useFollowUpFreeze
     ? collectExplicitRouteRemovals(prompt, buildIntent, normalizedExistingPaths)
     : new Set<string>();
-  const explicitAddRouteIntent = hasExplicitAddRouteIntent(prompt);
+  const explicitNamedPages = extractExplicitNamedPages(prompt);
+  const explicitAddRouteIntent =
+    hasExplicitAddRouteIntent(prompt) || explicitNamedPages.length > 0;
   let promptAddedRoutes = false;
 
   const routeNameFromPath = (path: string): string => {
@@ -123,7 +131,21 @@ export function buildRoutePlan(params: {
       promptAddedRoutes = true;
     }
     if (!useFollowUpFreeze || explicitAddRouteIntent) {
-      promptAddedRoutes = applyPromptPatterns(prompt, APP_ROUTE_PATTERNS, routes) || promptAddedRoutes;
+      for (const named of explicitNamedPages) {
+        upsertRoute(routes, {
+          path: named.path,
+          name: named.name,
+          intent: `Implement the explicitly requested ${named.name} page.`,
+          required: true,
+        });
+        promptAddedRoutes = true;
+      }
+      const patternPrompt = neutralizeExplicitPageNameLiterals(
+        prompt,
+        explicitNamedPages.map((page) => page.name),
+      );
+      promptAddedRoutes =
+        applyPromptPatterns(patternPrompt, APP_ROUTE_PATTERNS, routes) || promptAddedRoutes;
     }
   } else {
     if (!useFollowUpFreeze && !hasBriefRoutes) {
@@ -136,7 +158,21 @@ export function buildRoutePlan(params: {
       promptAddedRoutes = true;
     }
     if (!useFollowUpFreeze || explicitAddRouteIntent) {
-      promptAddedRoutes = applyPromptPatterns(prompt, WEBSITE_ROUTE_PATTERNS, routes) || promptAddedRoutes;
+      for (const named of explicitNamedPages) {
+        upsertRoute(routes, {
+          path: named.path,
+          name: named.name,
+          intent: `Implement the explicitly requested ${named.name} page.`,
+          required: true,
+        });
+        promptAddedRoutes = true;
+      }
+      const patternPrompt = neutralizeExplicitPageNameLiterals(
+        prompt,
+        explicitNamedPages.map((page) => page.name),
+      );
+      promptAddedRoutes =
+        applyPromptPatterns(patternPrompt, WEBSITE_ROUTE_PATTERNS, routes) || promptAddedRoutes;
     }
   }
 
