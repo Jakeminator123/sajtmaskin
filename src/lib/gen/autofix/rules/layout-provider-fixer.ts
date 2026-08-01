@@ -155,16 +155,38 @@ function providerIsDirectChildOfBody(content: string): boolean {
  * (persisted by earlier generations — 36 of 60 prod versions in the 14 days
  * before the fix). Strips the legacy wrap back to `{children}` and re-wraps
  * at body level, so an affected site is repaired on its next generation.
+ * When a body-level provider already exists (e.g. a follow-up added one
+ * without removing the old inner wrap — Bugbot on #709), stripping the inner
+ * wrap IS the whole fix; re-wrapping would double-nest the provider.
  */
-function relocateLegacyMidTreeProvider(content: string): string | null {
-  if (!LEGACY_MIDTREE_WRAP_RE.test(content)) return null;
-  if (providerIsDirectChildOfBody(content)) return null;
+function relocateLegacyMidTreeProvider(
+  content: string,
+): { content: string; description: string } | null {
+  const legacyMatch = LEGACY_MIDTREE_WRAP_RE.exec(content);
+  if (!legacyMatch) return null;
+  // The match is itself the body-level provider (new-style output for a body
+  // whose only content is {children}) — correct placement, nothing to heal.
+  if (/<body\b[^>]*>\s*$/.test(content.slice(0, legacyMatch.index))) return null;
+
   const stripped = content.replace(LEGACY_MIDTREE_WRAP_RE, "{children}");
-  return wrapBodyContentWithProvider(
+  if (providerIsDirectChildOfBody(stripped)) {
+    return {
+      content: stripped,
+      description:
+        "Removed legacy nested ThemeProvider wrap in root layout (a body-level provider already exists)",
+    };
+  }
+  const rewrapped = wrapBodyContentWithProvider(
     stripped,
     "ThemeProvider",
     'attribute="class" defaultTheme="system" enableSystem',
   );
+  if (rewrapped === null) return null;
+  return {
+    content: rewrapped,
+    description:
+      "Relocated previously injected ThemeProvider from a nested wrapper to the <body> level in root layout",
+  };
 }
 
 export function fixLayoutProviders(files: CodeFile[]): {
@@ -180,12 +202,11 @@ export function fixLayoutProviders(files: CodeFile[]): {
   // --- ThemeProvider: heal legacy mid-tree injection ---
   const relocated = relocateLegacyMidTreeProvider(content);
   if (relocated !== null) {
-    content = relocated;
+    content = relocated.content;
     fixes.push({
       fixer: "layout-provider-fixer",
       category: "mechanical",
-      description:
-        "Relocated previously injected ThemeProvider from a nested wrapper to the <body> level in root layout",
+      description: relocated.description,
       file: layout.path,
     });
   }

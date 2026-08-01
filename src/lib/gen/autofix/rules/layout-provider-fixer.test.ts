@@ -168,6 +168,36 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     expect(layout.indexOf("</ThemeProvider>")).toBeLessThan(layout.indexOf("</body>"));
   });
 
+  it("handles a <body> tag whose attributes span multiple lines", () => {
+    const layoutFile: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import "./globals.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body
+        className="min-h-screen bg-background text-foreground antialiased"
+        data-theme="base"
+      >
+        <main>{children}</main>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([layoutFile, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+
+    expect(result.fixes).toHaveLength(1);
+    // Provider opens after the multi-line body tag closes, before <main>.
+    expect(layout.indexOf("<ThemeProvider")).toBeGreaterThan(layout.indexOf('data-theme="base"'));
+    expect(layout.indexOf("<ThemeProvider")).toBeLessThan(layout.indexOf("<main>"));
+    expect(layout.indexOf("</ThemeProvider>")).toBeLessThan(layout.indexOf("</body>"));
+  });
+
   it("skips injection when the layout has no <body> section", () => {
     const layoutFile: CodeFile = {
       path: "app/layout.tsx",
@@ -233,6 +263,39 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     const second = fixLayoutProviders([...healthy.files]);
     expect(second.fixes).toHaveLength(0);
     expect(layoutOf(second.files)).toBe(layoutOf(healthy.files));
+  });
+
+  it("strips the inner legacy wrap when a body-level provider already exists", () => {
+    const doubleProvider: CodeFile = {
+      path: "app/layout.tsx",
+      language: "tsx",
+      content: `import "./globals.css";
+import { ThemeProvider } from "next-themes";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="sv" suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <main className="flex-1"><ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            {children}
+          </ThemeProvider></main>
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+`,
+    };
+    const result = fixLayoutProviders([doubleProvider, PKG_WITH_NEXT_THEMES]);
+    const layout = layoutOf(result.files);
+
+    expect(result.fixes).toHaveLength(1);
+    expect(result.fixes[0]!.description).toContain("Removed legacy nested");
+    // Exactly one provider left, at body level, and children back in <main>.
+    expect(layout.match(/<ThemeProvider\b/g)).toHaveLength(1);
+    expect(layout).toMatch(/<body\b[^>]*>\s*<ThemeProvider attribute="class"/);
+    expect(layout).toContain('<main className="flex-1">{children}</main>');
   });
 
   it("does not touch a hand-written provider with different attrs", () => {
