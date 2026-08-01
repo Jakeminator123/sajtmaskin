@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { getScaffoldById } from "./scaffolds/registry";
-import { neutralizeExplicitPageNameLiterals } from "./route-plan/planning-helpers";
+import {
+  extractExplicitNamedPages,
+  hasExplicitAddRouteIntent,
+  neutralizeExplicitPageNameLiterals,
+} from "./route-plan/planning-helpers";
 import {
   buildRoutePlan,
   deduplicateLocaleAlternateRoutes,
@@ -234,6 +238,37 @@ describe("buildRoutePlan", () => {
     });
     expect(plan.routes.some((r) => r.path === "/bilder")).toBe(true);
     expect(plan.routes.some((r) => r.path === "/work")).toBe(false);
+  });
+
+  it('extracts "en ny sida som ska heta Bilder" as /bilder', () => {
+    const named = extractExplicitNamedPages('Skapa en ny sida som ska heta "Bilder".');
+    expect(named).toEqual([{ name: "Bilder", path: "/bilder" }]);
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: 'en ny sida som ska heta "Bilder"',
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((r) => r.path === "/bilder")).toBe(true);
+  });
+
+  it("does not treat copy-edit ska heta as a new page", () => {
+    for (const prompt of [
+      'Rubriken ska heta "Välkommen"',
+      'Knappen ska heta "Skicka"',
+    ]) {
+      expect(extractExplicitNamedPages(prompt)).toEqual([]);
+      expect(hasExplicitAddRouteIntent(prompt)).toBe(false);
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt,
+        generationMode: "followUp",
+        existingRoutePaths: ["/"],
+      });
+      expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+      expect(plan.routes.some((r) => r.path === "/valkommen")).toBe(false);
+      expect(plan.routes.some((r) => r.path === "/skicka")).toBe(false);
+    }
   });
 
   it("neutralizeExplicitPageNameLiterals does not strip short names inside other words", () => {
