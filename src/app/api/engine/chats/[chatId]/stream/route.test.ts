@@ -268,6 +268,11 @@ vi.mock("@/lib/gen/plan/prompt", () => ({
 }));
 
 vi.mock("@/lib/gen/plan/review", () => ({
+  buildPlanModeAssistantMessage: vi.fn(() => ({
+    content: "plan",
+    uiParts: undefined,
+    kind: "plan",
+  })),
   buildPlanSummaryMessage: vi.fn(),
   buildPlanUiPart: vi.fn(),
   enrichPlanArtifactForReview: vi.fn(),
@@ -953,6 +958,54 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(prepareGenerationContext).toHaveBeenCalled();
     expect(createGenerationPipeline).not.toHaveBeenCalled();
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
+  });
+
+  // Kreditgrinden ligger före prompt-loggen och före user-raden, så ett avslag
+  // i plan-läget lämnade tidigare INGET durabelt spår — en av de öppna
+  // kandidaterna bakom prod-chatten 785c8d7a. Se `plan-mode-trace.ts`.
+  it("spårar kreditgrindens avslag för en plan-lägestur", async () => {
+    prepareCredits.mockResolvedValueOnce({
+      ok: false,
+      cost: 12,
+      response: new Response(JSON.stringify({ error: "insufficient_credits" }), {
+        status: 402,
+        headers: { "Content-Type": "application/json" },
+      }),
+    });
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: { appProjectId: "app_proj_1", planMode: true },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Planera nästa iteration." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(402);
+    await vi.waitFor(() => {
+      expect(createPromptLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "plan_mode_credit_gate_rejected",
+          chatId: "chat_1",
+          meta: expect.objectContaining({ planMode: true, status: 402, cost: 12 }),
+        }),
+      );
+    });
+    expect(prepareGenerationContext).not.toHaveBeenCalled();
   });
 
   it("passes engineBaseVersionId from meta into follow-up base resolution", async () => {

@@ -239,6 +239,11 @@ vi.mock("@/lib/gen/url-compress", () => ({
 }));
 
 vi.mock("@/lib/gen/plan/review", () => ({
+  buildPlanModeAssistantMessage: vi.fn(() => ({
+    content: "plan",
+    uiParts: undefined,
+    kind: "plan",
+  })),
   buildPlanSummaryMessage: vi.fn(),
   buildPlanUiPart: vi.fn(),
   enrichPlanArtifactForReview: vi.fn(),

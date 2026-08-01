@@ -76,6 +76,7 @@ import {
 } from "./f3-continuation-phase";
 import { runF3ReadinessGate } from "./f3-readiness-gate";
 import { recordFollowUpPromptLog } from "./follow-up-prompt-log";
+import { recordPlanModeCreditGateRejectedDetached } from "./plan-mode-trace";
 import { runPlanModeTurn } from "./plan-mode-turn";
 
 /** Follow-up chat stream (own-engine). Route files set `runtime` / `maxDuration`. */
@@ -629,6 +630,21 @@ export async function handleMessageStreamRequest(
           sessionId,
         });
         if (!creditCheck.ok) {
+          // Grinden ligger före prompt-loggen och före user-raden, så ett avslag
+          // i plan-läget lämnade tidigare inget durabelt spår alls — en av de
+          // öppna kandidaterna bakom prod-chatten 785c8d7a. Se plan-mode-trace.
+          if (metaPlanMode) {
+            recordPlanModeCreditGateRejectedDetached({
+              chatId,
+              sessionId,
+              userId: usageOwnerId,
+              appProjectId: metaAppProjectId,
+              modelTier: resolvedModelTier,
+              status: creditCheck.response.status,
+              cost: creditCheck.cost,
+              promptChars: message.length,
+            });
+          }
           return attachSessionCookie(creditCheck.response);
         }
         // The host enforces this opaque subject lease before it creates a
@@ -704,6 +720,8 @@ export async function handleMessageStreamRequest(
             requestAttachments,
             commitCreditsOnce,
             promptStartedAt,
+            sessionId,
+            usageOwnerId,
             req,
             attachSessionCookie,
           });

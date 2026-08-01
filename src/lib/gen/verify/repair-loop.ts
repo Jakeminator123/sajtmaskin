@@ -575,8 +575,8 @@ export async function runRepairLoop<TPayload = unknown>(
   // Deterministic, diagnostic-driven import repair (runs BEFORE the LLM fixer).
   // The quality gate that produced `failedOutputs` already ran tsc; its
   // diagnostics name the exact symbol + file for import-only failures
-  // (TS2304/TS2552 missing import, TS1361 import-type-used-as-value, TS2440
-  // import/local conflict, TS2300 duplicate identifier). Resolve those
+  // (TS2304/TS2552 missing import, TS1361/TS2693 import-type-used-as-value,
+  // TS2440 import/local conflict, TS2300 duplicate identifier). Resolve those
   // mechanically and instantly so the deterministic promotion below can pass the
   // gate without a slow (~90s) LLM round-trip. Ambiguous / logic errors are left
   // for the LLM fixer. Shared implementation with the finalize warm-tsc
