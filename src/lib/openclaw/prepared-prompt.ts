@@ -1,13 +1,34 @@
 /**
- * OpenClaw "prepared prompt" fast lane (opt-in, gated on OC_EDIT).
+ * Prepared-prompt fast lane: skip the clear-redesign delta-brief LLM pass when
+ * the prompt ALREADY carries brief structure.
  *
- * When OpenClaw's armed autonomy fills the builder composer
- * (`fill_text_field` → `builder.chat.primary`) and that exact content is
- * sent, the follow-up request is tagged `promptSource: "openclaw-prepared"`.
- * The server may then skip the clear-redesign delta-brief LLM pass
- * (`delta-brief-phase.ts`) — the prompt is already structured, so the extra
- * structuring round is redundant latency + tokens. Every check in here is
- * deterministic (no LLM) and every failure falls open to today's flow.
+ * ## What the lane actually decides
+ *
+ * The delta-brief pass exists to turn free text into a titled-sections +
+ * bullets brief. When the incoming prompt is already written that way, the
+ * pass is pure latency and tokens. So the question the lane answers is a
+ * property of the TEXT — "is this already a brief?" — and it is answered
+ * server-side by {@link isOpenClawPreparedPromptStructured}, deterministically,
+ * with no LLM involved.
+ *
+ * ## The tag is a hint, never a credential
+ *
+ * `promptSource: "openclaw-prepared"` is a plain request-body field, so it is
+ * client-controlled and **carries no authority**. Do not read it as proof that
+ * OpenClaw authored the prompt — there is no signature, nonce or server-side
+ * binding behind it, and adding one would only re-prove what the structure
+ * check already establishes on its own.
+ *
+ * What a forged tag can buy is therefore bounded to exactly one thing: a
+ * prompt that INDEPENDENTLY passes the structure check skips a structuring
+ * round it did not need. It cannot alter intent classification, freeze,
+ * version creation, credits, verification or telemetry — those run unchanged —
+ * and it cannot make an unstructured prompt skip anything. Treat the tag as
+ * "the sender believes this is already a brief; go check", and let the checks
+ * decide.
+ *
+ * `OPENCLAW.editEnabled` gates when the lane is ACTIVE at all (rollout
+ * switch), not who is allowed to use it.
  *
  * NOTE: distinct from the existing `meta.promptSourceKind` (prompt-builder
  * envelope kinds: shadcn/autofix/…) and from `strategyMeta.promptSource`
@@ -15,7 +36,10 @@
  * only ever carries the single value below.
  */
 
-/** Request-body tag value for an OpenClaw-prepared, unedited composer send. */
+/**
+ * Request-body tag value for an unedited composer send that OpenClaw filled.
+ * A hint that the prompt is already brief-shaped — see the trust model above.
+ */
 export const OPENCLAW_PREPARED_PROMPT_SOURCE = "openclaw-prepared" as const;
 
 export type OpenClawPreparedPromptSource = typeof OPENCLAW_PREPARED_PROMPT_SOURCE;

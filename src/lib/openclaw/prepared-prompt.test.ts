@@ -184,3 +184,67 @@ describe("resolveOpenClawPreparedPromptSource (klient-tagbeslut)", () => {
     ).toBeNull();
   });
 });
+
+// Vad en förfalskad tagg kan köpa. Taggen är ett fritt fält i requesten, så
+// den bevisar ingenting — därför måste varje spärr som spelar roll ligga i
+// kontroller klienten inte styr. Testerna nedan är den påståendet i kodform.
+describe("prepared-prompt — taggen är en ledtråd, inte ett intyg", () => {
+  const STRUCTURED = [
+    "Design:",
+    "- Mörk editorial-stil med hög kontrast",
+    "- Serif-rubriker, generöst luftrum",
+    "- Sticky header med genomskinlig bakgrund",
+    "Sektioner:",
+    "- Hero med stort citat",
+    "- Tre utvalda case",
+    "- Kontaktformulär längst ned",
+    "Ton: sparsmakad, redaktionell, inga utropstecken i copyn alls.",
+  ].join("\n");
+
+  it("en spoofad tagg på ostrukturerad text passerar inte validatorn", () => {
+    // Servern grindar på strukturen, inte på taggen: den som ljuger om
+    // ursprunget får ändå inget om texten inte redan är en brief.
+    expect(isOpenClawPreparedPromptStructured("Gör om sajten helt, snyggare och modernare tack.")).toBe(
+      false,
+    );
+  });
+
+  it("en giltig strukturerad prompt passerar oavsett vem som påstås ha skrivit den", () => {
+    expect(isOpenClawPreparedPromptStructured(STRUCTURED)).toBe(true);
+  });
+
+  it("ändrad text bryter tagen — bindningen är innehållet, inte fyllningen", () => {
+    const preparedFill = { target: OPENCLAW_BUILDER_CHAT_TARGET, value: STRUCTURED };
+    expect(
+      resolveOpenClawPreparedPromptSource({
+        editEnabled: true,
+        preparedFill,
+        message: STRUCTURED + "\n- Och lägg till en prislista",
+        hasAttachments: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("replay: en konsumerad fyllning kan inte tagga ett andra utskick av samma text", () => {
+    const preparedFill = { target: OPENCLAW_BUILDER_CHAT_TARGET, value: STRUCTURED };
+    // Första utskicket taggas…
+    expect(
+      resolveOpenClawPreparedPromptSource({
+        editEnabled: true,
+        preparedFill,
+        message: STRUCTURED,
+        hasAttachments: false,
+      }),
+    ).toBe(OPENCLAW_PREPARED_PROMPT_SOURCE);
+    // …och markören släpps av composern efter utskicket (engångs), så nästa
+    // identiska send saknar fyllning och går otaggat.
+    expect(
+      resolveOpenClawPreparedPromptSource({
+        editEnabled: true,
+        preparedFill: null,
+        message: STRUCTURED,
+        hasAttachments: false,
+      }),
+    ).toBeNull();
+  });
+});

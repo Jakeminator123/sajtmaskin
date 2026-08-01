@@ -31,11 +31,15 @@ export interface ClearRedesignDeltaBriefPhaseResult {
   /** Generated delta-brief (also written back to `parsedMeta.brief`), or null. */
   brief: Record<string, unknown> | null;
   /**
-   * `"openclaw_prepared"` when the delta-brief LLM pass was deliberately
-   * skipped by the OpenClaw prepared-prompt fast lane. Additive telemetry
-   * field for the existing `comm.request.followup` timeline event.
+   * `"structured_prompt"` when the delta-brief LLM pass was deliberately
+   * skipped because the prompt already carried brief structure. Named after
+   * what the server VERIFIED, not after who claimed to have sent it — the
+   * request tag is an unauthenticated hint (see `prepared-prompt.ts`), so
+   * naming the outcome after it would put a provenance claim in the telemetry
+   * that nothing checked. Additive field on the existing
+   * `comm.request.followup` timeline event.
    */
-  skipReason: "openclaw_prepared" | null;
+  skipReason: "structured_prompt" | null;
 }
 
 /**
@@ -45,15 +49,24 @@ export interface ClearRedesignDeltaBriefPhaseResult {
  * Returns the generated delta-brief (also written back to
  * `parsedMeta.brief` — 5-4/F1) or `null` when skipped/failed.
  *
- * OpenClaw prepared-prompt fast lane (opt-in, OC_EDIT-gated): when the
- * request body carries `promptSource: "openclaw-prepared"` AND the server's
- * act gate (`OPENCLAW.editEnabled`) is on AND the prompt passes the
- * deterministic structure check, the LLM pass is skipped and the prepared
- * prompt itself is the brief/spec input downstream (orchestration keeps the
- * non-style snapshot fallback for continuity — same lane as a failed
- * delta-brief, minus the LLM round). Every other step of the follow-up turn
- * (intent classification, freeze, versioning, verification) is unchanged.
- * Any failed condition falls open to today's LLM path.
+ * Prepared-prompt fast lane (opt-in, `OPENCLAW.editEnabled` as the rollout
+ * switch): the pass is skipped when the prompt ALREADY carries brief structure
+ * — verified here, server-side, by the deterministic
+ * `isOpenClawPreparedPromptStructured` check. The prepared prompt is then the
+ * brief/spec input downstream (orchestration keeps the non-style snapshot
+ * fallback for continuity — same lane as a failed delta-brief, minus the LLM
+ * round).
+ *
+ * The request's `promptSource` tag only decides whether to LOOK: it is
+ * client-controlled and proves nothing (see `prepared-prompt.ts` → trust
+ * model). Everything that could be abused is guarded by the two checks the
+ * client cannot influence — the structure check, and `followUpIntentMessage
+ * === message` (a contract-gate retry classifies a DIFFERENT message than the
+ * one the tag was set for, so the tag must not carry over to it).
+ *
+ * Every other step of the follow-up turn (intent classification, freeze,
+ * versioning, credits, verification) is unchanged, and any failed condition
+ * falls open to today's LLM path.
  */
 export async function runClearRedesignDeltaBriefPhase(params: {
   chatId: string;
@@ -108,10 +121,10 @@ export async function runClearRedesignDeltaBriefPhase(params: {
         debugLog("orchestration", "Delta-brief skipped or failed for clear-redesign follow-up", {
           chatId,
           durationMs: 0,
-          reason: "openclaw_prepared",
+          reason: "structured_prompt",
           promptLength: followUpIntentMessage.length,
         });
-        return { brief: null, skipReason: "openclaw_prepared" };
+        return { brief: null, skipReason: "structured_prompt" };
       }
       // Edit gate off, indirect message or unstructured prompt → fail open
       // to the normal delta-brief LLM pass below.

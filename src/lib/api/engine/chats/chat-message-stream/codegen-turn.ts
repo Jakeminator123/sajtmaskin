@@ -79,12 +79,12 @@ export async function runCodegenTurn(params: {
   parsedMeta: ParsedChatRequestMeta;
   metaBrief: Record<string, unknown> | null;
   /**
-   * `"openclaw_prepared"` when the clear-redesign delta-brief LLM pass was
+   * `"structured_prompt"` when the clear-redesign delta-brief LLM pass was
    * skipped by the OpenClaw prepared-prompt fast lane (see
    * `delta-brief-phase.ts`). Surfaced as an additive `briefSkipReason` field
    * on the existing `comm.request.followup` timeline event.
    */
-  deltaBriefSkipReason: "openclaw_prepared" | null;
+  deltaBriefSkipReason: "structured_prompt" | null;
   hasPersistedBrief: boolean;
   resolvedModelId: CanonicalModelId;
   resolvedModelTier: CanonicalModelId;

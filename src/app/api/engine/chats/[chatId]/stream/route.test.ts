@@ -1913,7 +1913,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
           ([, entry]) =>
             (entry as { type?: string }).type === "comm.request.followup",
         )?.[1] as Record<string, unknown> | undefined;
-      expect(followupEvent?.briefSkipReason).toBe("openclaw_prepared");
+      expect(followupEvent?.briefSkipReason).toBe("structured_prompt");
     });
 
     it("runs the normal delta-brief pass when the tag is present but OC_EDIT is off", async () => {
