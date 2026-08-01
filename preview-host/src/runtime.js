@@ -1416,6 +1416,53 @@ function applyRuntimePatch(chatId, { files, removedPaths } = {}) {
   return { mode: "patched", reason: null };
 }
 
+/**
+ * Re-probe readiness after a hot patch (HMR), bound to the version that was
+ * patched.
+ *
+ * A hot patch deliberately leaves the dev process alive, so none of the boot
+ * path runs — and readiness is written only by the boot path. The session
+ * therefore keeps the PREVIOUS boot's `readinessState: "ready"` while Next has
+ * not even recompiled the new files yet, and a patch that introduces a build
+ * error stays "ready" forever: a false-green with a preview URL that renders
+ * an overlay.
+ *
+ * The probe is version-bound in BOTH directions. The route flips readiness to
+ * `starting` for the new version before this runs, and every write here is
+ * guarded on `stored.versionId` still being the version we probed — so a slow
+ * result belonging to an older patch can never stamp a newer version.
+ */
+async function probeReadinessAfterPatch({ chatId, sessionId, previewSessionId, versionId }) {
+  const { runtimePort } = getRuntimeStateForChat(chatId);
+  if (!runtimePort || !sessionId || !versionId) return;
+  const url = `http://${LOOPBACK}:${runtimePort}/${encodeURIComponent(chatId)}/`;
+  try {
+    await waitForReady(url);
+    await updateSessionById(sessionId, (stored) => {
+      if (stored.versionId !== versionId) return;
+      stored.readinessState = "ready";
+      stored.readinessError = null;
+      stored.updatedAt = nowIso();
+    });
+    await appendRuntimeLog(
+      previewSessionId,
+      `Readiness confirmed after hot patch (version ${versionId}).`,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown readiness failure";
+    await updateSessionById(sessionId, (stored) => {
+      if (stored.versionId !== versionId) return;
+      stored.readinessState = "failed";
+      stored.readinessError = message;
+      stored.updatedAt = nowIso();
+    });
+    await appendRuntimeLog(
+      previewSessionId,
+      `Readiness failed after hot patch (version ${versionId}): ${message}`,
+    );
+  }
+}
+
 function responseHeadersLookLikeHtmlDocument(res) {
   if (!res.ok) return false;
   const ct = res.headers.get("content-type")?.toLowerCase() ?? "";
@@ -3436,6 +3483,7 @@ module.exports = {
   getSessionChatId,
   queueRuntimeBoot,
   applyRuntimePatch,
+  probeReadinessAfterPatch,
   proxyPreviewRequest,
   proxyPreviewUpgrade,
   findSessionByChatId,
@@ -3470,6 +3518,7 @@ module.exports = {
   __testing: {
     bootRuntimeForSession,
     isNoSpaceInstallFailure,
+    probeReadinessAfterPatch,
     sanitizedEnv,
     runInInstallSlot,
     cleanupPackageCachesUnqueued,
