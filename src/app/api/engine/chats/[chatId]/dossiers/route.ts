@@ -148,13 +148,16 @@ const API_ROUTE_PATH_RE = /^app\/api\/(?:.*\/)?route\.(?:ts|tsx|js|jsx|mjs|cjs)$
  *
  *  - dossier-injected entry: EVERY manifest `role: "server"` file (mapped to
  *    its output path) is present in the version — same all-files rule as
- *    `version-presence`; a partially injected integration is not "live", OR
- *  - model-built entry (matched via env-key overlap, code under other
- *    paths): at least one API route file (`app/api/xx/route.*`) in the
- *    version references one of the dossier's env keys as a standalone
- *    identifier (substring match would let `NEXT_PUBLIC_OPENAI_API_KEY`
- *    count as evidence for `OPENAI_API_KEY` — a client-exposed key is
- *    exactly NOT server evidence).
+ *    `version-presence`; a PARTIALLY injected integration (some but not all
+ *    server files) is never "live" and never falls through to the
+ *    model-built fallback, OR
+ *  - model-built entry (ZERO manifest server paths present — the model wrote
+ *    its own implementation under other paths): at least one API route file
+ *    (`app/api/xx/route.*`) in the version reads `process.env` and
+ *    references one of the dossier's env keys as a standalone identifier
+ *    (substring match would let `NEXT_PUBLIC_OPENAI_API_KEY` count as
+ *    evidence for `OPENAI_API_KEY` — a client-exposed key is exactly NOT
+ *    server evidence).
  *
  * Entries whose manifest declares no server files (client-only providers,
  * e.g. analytics) are exempt — there is nothing server-side to evidence.
@@ -182,7 +185,14 @@ function hasServerFileEvidence(
       : [],
   );
   const presentPaths = new Set(files.map((file) => file.path));
-  if (serverPaths.every((path) => presentPaths.has(path))) return true;
+  const presentServerCount = serverPaths.filter((path) => presentPaths.has(path)).length;
+  if (presentServerCount === serverPaths.length) return true;
+  // SOME but not all manifest server files present = partially injected
+  // dossier — never live, and the model-built fallback below must not
+  // resurrect it (a surviving checkout route reading the secret does not
+  // replace the missing webhook route). The fallback is reserved for pure
+  // model-built implementations: ZERO manifest server paths in the version.
+  if (presentServerCount > 0) return false;
 
   // Only keys that MEAN server wiring count as fallback evidence:
   // `warn-only` keys and `NEXT_PUBLIC_*` keys are client-exposed/cosmetic —

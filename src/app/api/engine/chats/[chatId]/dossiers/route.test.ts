@@ -660,6 +660,35 @@ describe("GET dossiers overview", () => {
     expect(body.counts.builtLive).toBe(0);
   });
 
+  // Bugbot on the M#li1 fix: the model-built fallback must not resurrect a
+  // partially injected dossier — a surviving checkout route that reads the
+  // secret does not replace the missing webhook route.
+  it("keeps a partially injected dossier at built-demo even when the surviving route reads the secret", async () => {
+    const twoServerFileStripe = stripeDossier();
+    twoServerFileStripe.entry.files = [
+      { path: "components/api/checkout-session/route.ts", role: "server" },
+      { path: "components/api/stripe-webhook/route.ts", role: "server" },
+    ];
+    getStoredProjectEnvVarMap.mockResolvedValue({ STRIPE_SECRET_KEY: "sk_live_real" });
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([twoServerFileStripe]);
+    getVersionFiles.mockResolvedValue([
+      {
+        path: "app/api/checkout-session/route.ts",
+        content: "const stripeKey = process.env.STRIPE_SECRET_KEY;\n",
+      },
+    ]);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
+    validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
+
+    const res = await GET(request(), ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as DossierOverviewResponse;
+
+    const stripe = body.dossiers.find((d) => d.id === "stripe-checkout");
+    expect(stripe?.status).toBe("built-demo");
+    expect(body.counts.builtLive).toBe(0);
+  });
+
   // Codex P2 on #525: with the F3 placeholder opt-in (`allowPlaceholdersInF3`)
   // the readiness gate clears `missingKeys` for placeholder-covered BUILD
   // keys — the build may proceed — but the dossier is NOT live: live always
