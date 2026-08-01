@@ -60,6 +60,12 @@ export function toSeoReportPayload(report: SeoPublishReport) {
     improvementCount: report.improvements.length,
     remaining: report.remaining.slice(0, MAX_LISTED).map(toFindingPayload),
     remainingCount: report.remaining.length,
+    // Counted server-side over ALL remaining findings, not just the listed
+    // slice: the client uses it to decide whether the report is worth opening,
+    // and that decision must not change because a project had 21 findings.
+    remainingBlockingCount: report.remaining.filter(
+      (f) => f.severity === "critical" || f.severity === "important",
+    ).length,
     copyPassSkippedReason: report.llmSkippedReason,
   };
 }

@@ -12,6 +12,7 @@
  * publishing?" and its findings have to be actionable by the improver.
  */
 
+import { readMetadataString } from "./metadata-literal";
 import type { SeoAuditResult, SeoFinding, SeoFindingId, SeoSeverity } from "./types";
 
 export interface SeoAuditFile {
@@ -74,6 +75,86 @@ function isPageFile(path: string): boolean {
   return /(^|\/)app\/.*page\.tsx$/.test(path) || /(^|\/)app\/page\.tsx$/.test(path);
 }
 
+/** How many import hops out of a page we follow when looking for its heading. */
+const COMPONENT_FOLLOW_DEPTH = 2;
+
+const LOCAL_IMPORT_RE = /\bfrom\s*["'](\.[^"']*|@\/[^"']*)["']/g;
+
+/** Resolve one import specifier against the files we were handed. */
+function resolveLocalImport(
+  files: SeoAuditFile[],
+  fromPath: string,
+  specifier: string,
+): SeoAuditFile | undefined {
+  const segments = fromPath.split("/").slice(0, -1);
+  let base: string;
+  if (specifier.startsWith("@/")) {
+    base = `src/${specifier.slice(2)}`;
+  } else {
+    const parts = [...segments];
+    for (const part of specifier.split("/")) {
+      if (part === "." || part === "") continue;
+      if (part === "..") parts.pop();
+      else parts.push(part);
+    }
+    base = parts.join("/");
+  }
+  const candidates = [
+    base,
+    `${base}.tsx`,
+    `${base}.ts`,
+    `${base}.jsx`,
+    `${base}.js`,
+    `${base}/index.tsx`,
+    `${base}/index.ts`,
+  ];
+  for (const candidate of candidates) {
+    // `@/…` is `src/…` in a src-rooted project and bare in a flat one, so try
+    // the suffix form too rather than guessing the project's shape.
+    const found =
+      files.find((f) => f.path === candidate) ??
+      files.find((f) => f.path.endsWith(`/${candidate}`)) ??
+      (candidate.startsWith("src/")
+        ? files.find((f) => f.path === candidate.slice(4))
+        : undefined);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/**
+ * Does this page render an `<h1>`, directly or through a component it imports?
+ *
+ * Scanning only `page.tsx` is the obvious implementation and the wrong one:
+ * `export default function Page() { return <HomePage />; }` is an ordinary
+ * shape for generated sites, and flagging it as heading-less produces a defect
+ * the improver cannot fix (fixing it means rewriting JSX) on a page that is
+ * actually fine. We follow local imports a couple of hops instead, which is
+ * cheap because the whole project is already in memory.
+ */
+function pageRendersH1(files: SeoAuditFile[], page: SeoAuditFile): boolean {
+  const seen = new Set<string>([page.path]);
+  let frontier: SeoAuditFile[] = [page];
+  for (let depth = 0; depth <= COMPONENT_FOLLOW_DEPTH; depth += 1) {
+    const next: SeoAuditFile[] = [];
+    for (const file of frontier) {
+      if (/<h1\b/i.test(file.content)) return true;
+      if (depth === COMPONENT_FOLLOW_DEPTH) continue;
+      LOCAL_IMPORT_RE.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = LOCAL_IMPORT_RE.exec(file.content)) !== null) {
+        const target = resolveLocalImport(files, file.path, match[1]);
+        if (!target || seen.has(target.path)) continue;
+        seen.add(target.path);
+        next.push(target);
+      }
+    }
+    if (next.length === 0) break;
+    frontier = next;
+  }
+  return false;
+}
+
 function finding(
   id: SeoFindingId,
   severity: SeoSeverity,
@@ -83,11 +164,16 @@ function finding(
   return { id, severity, file, message, fixable: FIXABLE.has(id) };
 }
 
-/** Pull a single-quoted/double-quoted string value for `key:` out of source. */
+/**
+ * Pull a top-level metadata string value for `key:` out of source.
+ *
+ * `null` means "no literal to judge", which covers two different situations
+ * the caller must keep apart — see {@link readMetadataString}. Length rules
+ * can only apply to a literal; a computed title is none of our business.
+ */
 export function extractMetadataString(source: string, key: string): string | null {
-  const re = new RegExp(`\\b${key}\\s*:\\s*(["'\`])([^"'\`]*)\\1`);
-  const match = source.match(re);
-  return match ? match[2] : null;
+  const read = readMetadataString(source, key);
+  return read.kind === "literal" ? read.value : null;
 }
 
 /**
@@ -127,8 +213,15 @@ export function auditProjectSeo(files: SeoAuditFile[]): SeoAuditResult {
     );
   }
 
-  const title = hasMetadata ? extractMetadataString(layoutContent, "title") : null;
-  if (hasMetadata && title === null) {
+  // A computed title (`title: getTitle()`, a template with a hole) is present
+  // and correct — we simply cannot measure it. Reporting it as missing would
+  // hand the owner a defect they cannot fix and the improver a job it must not
+  // take, so `dynamic` is silence rather than a finding.
+  const titleRead = hasMetadata
+    ? readMetadataString(layoutContent, "title")
+    : ({ kind: "missing" } as const);
+  const title = titleRead.kind === "literal" ? titleRead.value : null;
+  if (hasMetadata && titleRead.kind === "missing") {
     findings.push(
       finding("missing-title", "critical", layoutPath, "Metadata saknar en sidtitel."),
     );
@@ -154,8 +247,11 @@ export function auditProjectSeo(files: SeoAuditFile[]): SeoAuditResult {
     }
   }
 
-  const description = hasMetadata ? extractMetadataString(layoutContent, "description") : null;
-  if (hasMetadata && description === null) {
+  const descriptionRead = hasMetadata
+    ? readMetadataString(layoutContent, "description")
+    : ({ kind: "missing" } as const);
+  const description = descriptionRead.kind === "literal" ? descriptionRead.value : null;
+  if (hasMetadata && descriptionRead.kind === "missing") {
     findings.push(
       finding(
         "missing-description",
@@ -270,7 +366,7 @@ export function auditProjectSeo(files: SeoAuditFile[]): SeoAuditResult {
   const pages = files.filter((f) => isPageFile(f.path));
   for (const page of pages) {
     const h1Count = (page.content.match(/<h1\b/gi) ?? []).length;
-    if (h1Count === 0) {
+    if (h1Count === 0 && !pageRendersH1(files, page)) {
       findings.push(
         finding(
           "missing-h1",

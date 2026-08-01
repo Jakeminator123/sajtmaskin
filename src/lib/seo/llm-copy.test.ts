@@ -14,7 +14,7 @@ vi.mock("ai", () => ({ generateObject: generateObjectMock }));
 vi.mock("@/lib/builder/direct-model", () => ({ createDirectModel: createDirectModelMock }));
 vi.mock("@/lib/observability/llm-usage", () => ({ recordLlmUsage: vi.fn() }));
 
-const { improveSeoCopyWithLlm, replaceMetadataString } = await import("./llm-copy");
+const { improveSeoCopyWithLlm } = await import("./llm-copy");
 const { auditProjectSeo } = await import("./audit");
 
 const LAYOUT = `import type { Metadata } from "next";
@@ -117,23 +117,56 @@ describe("improveSeoCopyWithLlm", () => {
   });
 });
 
-describe("replaceMetadataString", () => {
-  it("escapes quotes so generated copy cannot break the literal", () => {
-    // Swedish marketing copy contains quotes often enough that an unescaped
-    // replacement would eventually ship a layout that does not parse.
-    const out = replaceMetadataString(LAYOUT, "title", 'Vi kallar det "drop-in"');
-    expect(out).toContain('title: "Vi kallar det \\"drop-in\\""');
-    expect(out).not.toContain('title: "Vi kallar det "drop-in""');
+describe("språkstyrning", () => {
+  const longEnough = {
+    title: "Klippoteket — frisör i Uppsala med drop-in",
+    description:
+      "Boka klippning, färgning och styling hos Klippoteket i centrala Uppsala. Drop-in varje vardag.",
+  };
+
+  function systemPrompt() {
+    return String(generateObjectMock.mock.calls[0][0].system);
+  }
+
+  it("ber om sajtens eget språk när varumärket har en annan locale", async () => {
+    // Regression: `<html lang>` följde brand.locale medan prompten var
+    // hårdkodat svensk, så en engelsk sajt fick lang="en-US" och svensk titel.
+    generateObjectMock.mockResolvedValue({ object: longEnough, usage: {} });
+    const files = project();
+    await improveSeoCopyWithLlm(files, auditOf(files), {
+      modelId: "openai/x",
+      brand: { locale: "en_US" },
+    });
+    expect(systemPrompt()).toContain("en-US");
+    expect(systemPrompt()).not.toContain("för en svensk webbplats");
   });
 
-  it("returns the source unchanged when the key is absent", () => {
-    expect(replaceMetadataString("const x = 1;", "title", "Ny")).toBe("const x = 1;");
+  it("faller tillbaka på svenska när ingen locale är satt", async () => {
+    generateObjectMock.mockResolvedValue({ object: longEnough, usage: {} });
+    const files = project();
+    await improveSeoCopyWithLlm(files, auditOf(files), { modelId: "openai/x" });
+    expect(systemPrompt()).toContain("sv");
   });
+});
 
-  it("replaces only the first occurrence", () => {
-    const source = 'const a = { title: "one" };\nconst b = { title: "two" };';
-    const out = replaceMetadataString(source, "title", "ny");
-    expect(out).toContain('title: "ny"');
-    expect(out).toContain('title: "two"');
+describe("modellsvar som inte får bli syntaxfel", () => {
+  it("skriver in en radbrytning som escape i stället för att bryta literalen", async () => {
+    // Detta är buggen: en radbrytning i svaret splitsades in rått och
+    // avslutade stränglitteralen, så layouten inte längre kompilerade.
+    generateObjectMock.mockResolvedValue({
+      object: {
+        title: 'Klippoteket\n"Uppsala"',
+        description:
+          "Boka klippning, färgning och styling hos Klippoteket i centrala Uppsala. Drop-in varje vardag.",
+      },
+      usage: {},
+    });
+    const files = project();
+    const result = await improveSeoCopyWithLlm(files, auditOf(files), { modelId: "openai/x" });
+    const layout = result.files.find((f) => f.name === "app/layout.tsx")!;
+
+    expect(layout.content).toContain('title: "Klippoteket\\n\\"Uppsala\\""');
+    // Ingen ny fysisk rad: filen har exakt lika många rader som innan.
+    expect(layout.content.split("\n")).toHaveLength(LAYOUT.split("\n").length);
   });
 });

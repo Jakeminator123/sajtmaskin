@@ -78,6 +78,30 @@ export function keepOnlyRealChanges(
   });
 }
 
+/**
+ * Drop improvements whose finding survived them.
+ *
+ * A changed file is necessary evidence but not sufficient: the copy pass
+ * rewrites the title whenever the model answers, so a reply that is still 80
+ * characters long changes the file AND leaves `title-too-long` standing. The
+ * report would then list the same defect under both "Åtgärdat" and "Kvar att
+ * göra", which is worse than saying nothing — it claims a fix the owner can
+ * see is not there.
+ *
+ * Matching is per finding id AND file, so a rewrite that trades one defect for
+ * another (`title-too-short` gone, `title-too-long` new) still counts as the
+ * fix it was, with the new defect reported honestly beside it.
+ */
+export function dropUnresolvedImprovements(
+  improvements: ReadonlyArray<SeoImprovement>,
+  remaining: ReadonlyArray<{ id: string; file: string }>,
+): SeoImprovement[] {
+  const stillPresent = new Set(remaining.map((f) => `${f.id}\u0000${f.file}`));
+  return improvements.filter(
+    (improvement) => !stillPresent.has(`${improvement.findingId}\u0000${improvement.file}`),
+  );
+}
+
 export async function runSeoPublishPass(
   files: ReadonlyArray<ProjectTextFile>,
   options: SeoPublishPassOptions,
@@ -99,6 +123,7 @@ export async function runSeoPublishPass(
       const copy = await improveSeoCopyWithLlm(working, before, {
         modelId: options.copyModelId,
         brand: options.brand,
+        language: options.language,
       });
       working = copy.files;
       improvements = [...improvements, ...copy.improvements];
@@ -113,7 +138,10 @@ export async function runSeoPublishPass(
       report: {
         before,
         after,
-        improvements: keepOnlyRealChanges(files, working, improvements),
+        improvements: dropUnresolvedImprovements(
+          keepOnlyRealChanges(files, working, improvements),
+          after.findings,
+        ),
         remaining: after.findings,
         llmSkippedReason,
       },

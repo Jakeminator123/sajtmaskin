@@ -2,10 +2,15 @@
  * Optional LLM pass: rewrite the site's title and description.
  *
  * Scope is deliberately narrow. Title and description are two string literals
- * in one metadata object — the model cannot break the build by getting them
- * wrong, and they are the two fields that decide whether a search result gets
- * clicked. Alt text and heading structure are NOT touched here: fixing those
- * means rewriting JSX, which turns a copy improvement into a build risk.
+ * in one metadata object, and they are the two fields that decide whether a
+ * search result gets clicked. Alt text and heading structure are NOT touched
+ * here: fixing those means rewriting JSX, which turns a copy improvement into
+ * a build risk.
+ *
+ * The model's output is never spliced in as raw source. `writeMetadataString`
+ * encodes it with `JSON.stringify` into the exact literal it targets, so a
+ * reply containing a newline, a quote or `${` becomes text rather than a
+ * syntax error the customer meets as a failed build.
  *
  * Everything degrades to "no change": no API key, a provider error, a refusal,
  * or a reply that fails the schema all leave the deterministic result standing
@@ -17,6 +22,8 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { createDirectModel } from "@/lib/builder/direct-model";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
+import { resolveHtmlLang } from "./improve";
+import { writeMetadataString } from "./metadata-literal";
 import type { ProjectTextFile } from "@/lib/gen/scaffolds/seo-defaults";
 import type { SeoBrand } from "@/lib/projects/preferences-schema";
 import type { SeoAuditResult, SeoImprovement } from "./types";
@@ -46,25 +53,6 @@ export interface SeoCopyResult {
   skippedReason: string | null;
 }
 
-/**
- * Replace a `key: "..."` string literal inside the metadata export.
- *
- * Escapes the replacement so an apostrophe in Swedish copy ("Sveriges bästa
- * däck — vi fixar's") cannot terminate the literal and break the build. Only
- * the FIRST occurrence is replaced: the metadata export is at the top of the
- * layout, and a later `title:` inside page content is not ours to rewrite.
- */
-export function replaceMetadataString(
-  source: string,
-  key: string,
-  value: string,
-): string {
-  const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  const re = new RegExp(`(\\b${key}\\s*:\\s*)(["'\`])([^"'\`]*)\\2`);
-  if (!re.test(source)) return source;
-  return source.replace(re, `$1"${escaped}"`);
-}
-
 function buildSiteContext(files: ReadonlyArray<ProjectTextFile>): string {
   const parts: string[] = [];
   let budget = MAX_CONTEXT_CHARS;
@@ -84,10 +72,29 @@ function buildSiteContext(files: ReadonlyArray<ProjectTextFile>): string {
   return parts.join("\n\n");
 }
 
+/**
+ * Name the target language for the model.
+ *
+ * The same locale already decides `<html lang>`, so deriving the copy language
+ * from it is what keeps the two from contradicting each other — an `en_US`
+ * site used to get a correct `lang="en-US"` and a Swedish title, which tells
+ * Google one thing and the reader another.
+ */
+function describeLanguage(tag: string): string {
+  try {
+    const names = new Intl.DisplayNames(["en"], { type: "language" });
+    const name = names.of(tag);
+    if (name && name !== tag) return `${name} (BCP 47: ${tag})`;
+  } catch {
+    // Intl data for the tag is missing — the tag alone is still unambiguous.
+  }
+  return `BCP 47: ${tag}`;
+}
+
 export async function improveSeoCopyWithLlm(
   files: ReadonlyArray<ProjectTextFile>,
   audit: SeoAuditResult,
-  options: { modelId: string; brand?: SeoBrand },
+  options: { modelId: string; brand?: SeoBrand; language?: string },
 ): Promise<SeoCopyResult> {
   const unchanged: SeoCopyResult = {
     files: files as ProjectTextFile[],
@@ -108,6 +115,7 @@ export async function improveSeoCopyWithLlm(
   const context = buildSiteContext(files);
   if (!context.trim()) return { ...unchanged, skippedReason: "no_content" };
 
+  const language = resolveHtmlLang(options.language, options.brand?.locale);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   const startedAt = Date.now();
@@ -119,8 +127,9 @@ export async function improveSeoCopyWithLlm(
       model: createDirectModel(options.modelId),
       schema: SeoCopySchema,
       system: [
-        "Du skriver SEO-metadata för en svensk webbplats.",
-        "Svara på svenska, i samma ton som sajtens egen text.",
+        "Du skriver SEO-metadata för en webbplats.",
+        `Skriv title och description på detta språk: ${describeLanguage(language)}. Det är sajtens eget språk — översätt inte till svenska.`,
+        "Håll samma ton som sajtens egen text.",
         "title: 15-60 tecken. Namnge verksamheten och vad den gör. Ingen slogan utan innehåll.",
         "description: 50-160 tecken. Konkret nytta plus en anledning att klicka. Inga utropstecken, ingen keyword-staplning.",
         "Bygg bara på det som faktiskt står i koden. Hitta inte på orter, priser, omdömen eller certifieringar.",
@@ -158,7 +167,7 @@ export async function improveSeoCopyWithLlm(
     const descriptionFinding = copyFindings.find((f) => f.id.startsWith("description"));
 
     if (titleFinding) {
-      const next = replaceMetadataString(content, "title", title);
+      const next = writeMetadataString(content, "title", title);
       if (next !== content) {
         content = next;
         improvements.push({
@@ -170,7 +179,7 @@ export async function improveSeoCopyWithLlm(
       }
     }
     if (descriptionFinding) {
-      const next = replaceMetadataString(content, "description", description);
+      const next = writeMetadataString(content, "description", description);
       if (next !== content) {
         content = next;
         improvements.push({
