@@ -1,0 +1,111 @@
+name: Dossier acceptance
+
+on:
+  schedule:
+    - cron: "17 3 * * 2"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      dossiers: ${{ steps.matrix.outputs.dossiers }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Discover hard dossiers
+        id: matrix
+        run: echo "dossiers=$(node scripts/dossiers/list-acceptance-matrix.mjs)" >> "$GITHUB_OUTPUT"
+
+  verification-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      # Intentionally red while any dossier is explicit `unverified`, stale,
+      # future-dated or invalid. Never convert legacy import dates into green
+      # acceptance evidence merely because the date is recent.
+      - name: Require current dossier acceptance evidence
+        run: npm run dossiers:check-freshness
+
+  dependency-registry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Resolve every dossier dependency range on npm
+        run: npm run dossiers:check-dependencies:registry
+
+  keyless-production-build:
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        dossier: ${{ fromJSON(needs.discover.outputs.dossiers) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Materialize keyless generated project
+        env:
+          ACCEPTANCE_ROOT: ${{ runner.temp }}/dossier-${{ matrix.dossier }}
+        run: npx tsx scripts/dossiers/materialize-acceptance-project.ts --id=${{ matrix.dossier }} --out="$ACCEPTANCE_ROOT"
+
+      - name: Install generated-project dependencies
+        env:
+          ACCEPTANCE_ROOT: ${{ runner.temp }}/dossier-${{ matrix.dossier }}
+        run: npm --prefix "$ACCEPTANCE_ROOT" install --no-audit --no-fund
+
+      - name: Typecheck generated project without provider secrets
+        env:
+          ACCEPTANCE_ROOT: ${{ runner.temp }}/dossier-${{ matrix.dossier }}
+        run: npm --prefix "$ACCEPTANCE_ROOT" run typecheck
+
+      - name: Production-build generated project without provider secrets
+        env:
+          ACCEPTANCE_ROOT: ${{ runner.temp }}/dossier-${{ matrix.dossier }}
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm --prefix "$ACCEPTANCE_ROOT" run build
