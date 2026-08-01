@@ -152,8 +152,16 @@ export async function getDomainOrderById(
 /** Outcome of trying to move an order to `paid`. */
 export type MarkPaidResult =
   | { outcome: "paid"; order: DomainOrder }
-  /** Already `paid` or further along — a redelivered webhook. */
-  | { outcome: "already_handled" }
+  /**
+   * Already `paid` or further along — a redelivered webhook.
+   *
+   * The row travels with the outcome because "already paid" is NOT the same as
+   * "already delivered": an invocation that died between the paid-marking and
+   * fulfilment leaves the order sitting at `paid` with nothing registered. The
+   * caller needs the status to tell a genuine duplicate from an interrupted
+   * one.
+   */
+  | { outcome: "already_handled"; order: DomainOrder }
   /** No such order. */
   | { outcome: "not_found" }
   /**
@@ -204,7 +212,7 @@ export async function markDomainOrderPaid(
     throw error;
   }
   const existing = await getDomainOrderById(orderId);
-  return existing ? { outcome: "already_handled" } : { outcome: "not_found" };
+  return existing ? { outcome: "already_handled", order: existing } : { outcome: "not_found" };
 }
 
 /**

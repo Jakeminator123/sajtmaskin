@@ -210,7 +210,15 @@ async function handleDomainPurchaseCompleted(
     return NextResponse.json({ error: "domain_order_update_failed" }, { status: 500 });
   }
 
-  if (result.outcome === "already_handled") {
+  // A redelivery is not proof that fulfilment finished. `markDomainOrderPaid`
+  // answers `already_handled` for every non-revivable status, including a row
+  // that is still `paid` because the first delivery died between the
+  // paid-marking and fulfilment. Returning 200 there would burn Stripe's only
+  // retry and strand a charged customer with no domain and no refund. Resuming
+  // is safe: `fulfilDomainOrder` claims `paid` → `registering` in one
+  // statement, so a genuine duplicate loses the claim and returns without ever
+  // reaching the registrar.
+  if (result.outcome === "already_handled" && result.order.status !== "paid") {
     console.info("[Stripe/webhook] Domain order already handled:", orderId);
     return NextResponse.json({ received: true, alreadyHandled: true });
   }

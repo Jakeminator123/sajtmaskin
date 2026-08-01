@@ -121,8 +121,12 @@ describe("stripe webhook — domain purchase", () => {
   });
 
   it("treats a redelivered event as already handled and does not fulfil twice", async () => {
-    // Second delivery: the conditional update matches nothing.
-    state.markPaidResult = { outcome: "already_handled" };
+    // Second delivery of a run that FINISHED: the conditional update matches
+    // nothing and the row has moved past `paid`.
+    state.markPaidResult = {
+      outcome: "already_handled",
+      order: { id: "ord_1", domain: "x.com", status: "registered" },
+    };
     constructedEvent = domainSessionEvent("checkout.session.completed");
 
     const res = await POST(webhookRequest() as never);
@@ -131,6 +135,29 @@ describe("stripe webhook — domain purchase", () => {
     expect(res.status).toBe(200);
     expect(body.alreadyHandled).toBe(true);
     expect(calls.fulfil).not.toHaveBeenCalled();
+  });
+
+  it("resumes fulfilment when the first delivery died after marking the order paid", async () => {
+    // The dangerous shape: `already_handled` because the row is `paid`, but
+    // nothing was ever registered. Answering 200 here would burn Stripe's
+    // retry and leave the customer charged with no domain and no refund.
+    // Safe to resume — `fulfilDomainOrder` claims `paid` → `registering`
+    // atomically, so a true duplicate loses the claim before the registrar.
+    state.markPaidResult = {
+      outcome: "already_handled",
+      order: { id: "ord_1", domain: "x.com", status: "paid" },
+    };
+    constructedEvent = domainSessionEvent("checkout.session.completed");
+
+    const res = await POST(webhookRequest() as never);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.outcome).toBe("registered");
+    expect(calls.fulfil).toHaveBeenCalledTimes(1);
+    expect(calls.fulfil).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ord_1", status: "paid" }),
+    );
   });
 
   it("refunds instead of pocketing a payment for an order it cannot find", async () => {
