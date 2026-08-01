@@ -104,6 +104,6 @@ Backoffice-sidan **LLM-flöde telemetri** (`backoffice/pages/llm_flode_telemetry
 
 ## Caveats + uppföljning
 
-- **CI/Vercel-provisionering** är out-of-scope för denna how-to. Det kräver antingen (a) en build-step som kör scriptet, eller (b) en prebuilt cache-layer i Vercel-container. Se P34 Fas D-planen för CI-delen.
+- **CI/Vercel-provisionering** är out-of-scope för den här runbooken. Det kräver antingen (a) en build-step som kör scriptet, eller (b) en prebuilt cache-layer i Vercel-container. Se P34 Fas D-planen för CI-delen.
 - **Disk**: symlink-strategin betyder i praktiken noll extra disk per scaffold; men om du någon gång raderar repots `node_modules` går alla cache-symlinks dead. Kör då om provisioneringsscriptet.
 - **Scaffold-version-skew** — vi använder repots deps som superset av scaffoldens. I 99% av fallen stämmer det, men om en scaffold någon gång får en `package.json`-dep som repot inte har, måste `SCAFFOLD_IDS`-flödet ändras till att göra ett riktigt `npm install` per scaffold-dir. Flagga när det inträffar. (Dossier-SDK:er är ett medvetet undantag och hanteras av filtreringen ovan — de installeras aldrig i cachen.)

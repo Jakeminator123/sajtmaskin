@@ -31,8 +31,12 @@ describe("active documentation link checks", () => {
     expect(isActiveMarkdown("docs/plans/archived/old.md")).toBe(false);
     expect(isActiveMarkdown("docs/plans/avklarat/old.md")).toBe(false);
     expect(isActiveMarkdown("_parkering/snapshot.md")).toBe(false);
+  });
+
+  it("no longer exempts the retired audit, archive and old surfaces", () => {
     expect(isActiveMarkdown("docs/audits/snapshot.md")).toBe(true);
     expect(isActiveMarkdown("docs/archive/old.md")).toBe(true);
+    expect(isActiveMarkdown("docs/old/README.md")).toBe(true);
   });
 
   it("resolves root-relative and document-relative targets", () => {
