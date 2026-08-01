@@ -52,6 +52,10 @@ function summarizeChange(changedPaths: string[], explicit?: string): string {
  * No LLM. No scaffold rebuild. The new version is immutable; the parent is the
  * major version (a quick_edit base resolves to its own parent so all minors of
  * a major are grouped together).
+ *
+ * The only verification in this lane is `applyQuickEdits`' syntax gate
+ * (`guardSyntax`) — nothing downstream re-checks a quick edit before it hits
+ * the preview VM.
  */
 export async function runQuickEdit(params: {
   chatId: string;
@@ -60,6 +64,8 @@ export async function runQuickEdit(params: {
   ops: QuickEditOp[];
   appProjectId: string | null;
   summary?: string;
+  /** See `QuickEditApplyOptions.guardSyntax`. Defaults to on. */
+  guardSyntax?: boolean;
 }): Promise<RunQuickEditResult> {
   const { baseVersion } = params;
 
@@ -76,7 +82,9 @@ export async function runQuickEdit(params: {
     };
   }
 
-  const applied = applyQuickEdits(params.baseFiles, params.ops);
+  const applied = applyQuickEdits(params.baseFiles, params.ops, {
+    guardSyntax: params.guardSyntax,
+  });
   if (!applied.ok) {
     return { ok: false, reason: applied.reason, message: applied.message };
   }

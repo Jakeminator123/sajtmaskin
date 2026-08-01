@@ -122,6 +122,10 @@ export function usePreviewPanelCodeFiles(options: {
           // stale-base 409 then fires when another writer advanced the chat head
           // past this base instead of silently forking a minor version.
           engineLatestKnownVersionId: baseVersionId,
+          // Human-authored content: keep the legacy "save whatever is in the
+          // editor" behaviour of `PATCH /files` instead of refusing a file the
+          // user has not finished writing.
+          guardSyntax: false,
         });
         if (!saved.ok) {
           throw new Error(saved.error || "Kunde inte spara filinnehåll");

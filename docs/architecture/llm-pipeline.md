@@ -306,6 +306,14 @@ Fast Edit Lane är inte en follow-up-codegen. Den är deterministisk och skapar 
 - Försöker patcha live preview; fallback är full preview start.
 - Ska inte köras på F3/integrations-versioner.
 
+**Syntaxgrind (enda verifieringen i lanen).** Inget steg nedströms kontrollerar
+en quick edit innan den når preview-VM:en, så `applyQuickEdits` avvisar hela
+op-satsen (`parse_regression`, HTTP 422) när en ändrad fil får *fler*
+parse-fel än den hade — mätt med `countParseErrors` (TS-parsern) server-side.
+Redan trasiga filer får förbli lika trasiga; grinden stoppar bara
+försämringar. Undantag: kodvyns spar-knapp skickar `guardSyntax: false`,
+eftersom en människa måste kunna spara en halvskriven fil.
+
 Två ingångar, samma lane: kodvyns spar och inspektorsmenyn i previewen. Menyn
 öppnas vid muspekaren i inspect-läget och erbjuder ändra text, byt bild och ta
 bort element. Klassificeringen (`src/lib/builder/inspect-element-actions.ts`)
