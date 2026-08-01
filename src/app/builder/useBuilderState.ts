@@ -1,6 +1,7 @@
 "use client";
 
 import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog";
+import type { SeoReportPayload } from "@/app/api/v0/deployments/seo-publish";
 import type { ChatMessage } from "@/lib/builder/types";
 import {
   resolveBuildIntentWithScaffold,
@@ -102,6 +103,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [deployNameError, setDeployNameError] = useState<string | null>(null);
   const [domainSearchOpen, setDomainSearchOpen] = useState(false);
   const [domainManagerOpen, setDomainManagerOpen] = useState(false);
+  const [seoReport, setSeoReport] = useState<SeoReportPayload | null>(null);
   const [domainQuery, setDomainQuery] = useState("");
   const [domainResults, setDomainResults] = useState<DomainSearchResult[] | null>(null);
   const [isDomainSearching, setIsDomainSearching] = useState(false);
@@ -251,6 +253,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setDomainSearchOpen,
     domainManagerOpen,
     setDomainManagerOpen,
+    seoReport,
+    setSeoReport,
     domainQuery,
     setDomainQuery,
     domainResults,

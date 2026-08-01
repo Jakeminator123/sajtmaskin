@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
 import { DomainManager } from "@/components/builder/DomainManager";
+import { SeoReportDialog } from "@/components/builder/SeoReportDialog";
 import { GitHubExportDialog } from "@/components/builder/GitHubExportDialog";
 import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
@@ -1278,6 +1279,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             onClose={() => vm.setDomainManagerOpen(false)}
             chatId={vm.chatId}
             deploymentId={vm.activeDeploymentId ?? vm.liveDeploymentId}
+          />
+
+          <SeoReportDialog
+            report={vm.seoReport}
+            onClose={() => vm.setSeoReport(null)}
           />
 
           <GitHubExportDialog

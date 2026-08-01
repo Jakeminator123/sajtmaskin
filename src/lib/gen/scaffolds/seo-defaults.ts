@@ -165,6 +165,28 @@ function buildSeoFileMap(siteUrl: string): Map<string, string> {
   ]);
 }
 
+/**
+ * Canonical content for an SEO metadata route at an ARBITRARY path.
+ *
+ * The injector above only ever writes the `app/…` variants, because that is
+ * where it creates files. A caller that needs to REWRITE an existing file
+ * cannot use that map directly: the project may route through `src/app/`, and
+ * writing `app/robots.ts` next to a deleted `src/app/robots.ts` would leave the
+ * site with no metadata route Next.js actually reads. This resolves the
+ * template by suffix so the rewrite keeps the file where the project put it.
+ *
+ * Returns `null` for a path that is not an SEO metadata route.
+ */
+export function buildCanonicalSeoFileContent(path: string, siteUrl: string): string | null {
+  const normalized = path.replace(/\\/g, "/");
+  for (const [canonicalPath, content] of buildSeoFileMap(siteUrl)) {
+    if (normalized === canonicalPath || normalized.endsWith(`/${canonicalPath}`)) {
+      return content;
+    }
+  }
+  return null;
+}
+
 function findMetadataObjectRange(layoutContent: string): { start: number; end: number } | null {
   const marker = "export const metadata: Metadata = {";
   const markerIndex = layoutContent.indexOf(marker);
