@@ -33,7 +33,7 @@ test som låser beteendet** (pipeline-ändring utan test = P1).
 | 3 | #715 | Levererad — nästlade `page.tsx`/`layout.tsx` rankas över komponenter, M#gs6 arkiverad |
 | 4 | #712 | Levererad — completeness-koll i `runQualityGateChecks`; install-fail behåller sitt röda verdikt |
 | 5 | #725 | Levererad — TS1361 inline-specifiers, TS2693 (type-only → värdeimport) och TS2440 (kompilator-bekräftade namn släpper gap-guarden) lagas deterministiskt; `Resend`-fallet täcktes redan av known-import-fixern i F3 |
-| 6 | #723 | PR öppnad, slutrapport väntas |
+| 6 | #723 | Levererad — icke-plan-svar persisteras via `buildPlanModeAssistantMessage`; tysta sändningar instrumenterade. Agentens slutrapport uteblev men PR + CI är gröna |
 
 ## Ordningens logik
 

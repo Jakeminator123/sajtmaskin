@@ -69,10 +69,11 @@ refaktormål).
 ## Status 2026-08-01
 
 Levererat: **#1 `useBuilderPageController`** (PR #724 — 2 041 → 917 rader,
-14 ansvarshooks, hook-ordningen mekaniskt verifierad) och
+14 ansvarshooks, hook-ordningen mekaniskt verifierad),
+**#3 `runtime.js`** (PR #727 — fasad + 7 moduler; agenten dog på API-limit
+efter push, PR öppnades från branchen), och
 **#4 `generation-log-writer`** (PR #722 — fasad på 25 rader + 12 moduler,
-artefakt-diff mot master: 67/67 identiska loggfiler). runtime.js-delningen
-pågår (Fable-agent). Övriga ej påbörjade.
+artefakt-diff mot master: 67/67 identiska loggfiler). Övriga ej påbörjade.
 
 ## Klart-kriterium
 
