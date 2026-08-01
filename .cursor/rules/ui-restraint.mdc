@@ -1,0 +1,20 @@
+---
+description: "UI-återhållsamhet: inga nya småvarningar, barer, badges eller visuella element utan uttrycklig begäran från ägaren."
+alwaysApply: true
+---
+
+# UI-återhållsamhet
+
+Lägg **inte** till nya små varningar, statusbarer, badges, räknare, pills, toasts, overlays, hjälprader eller andra visuella element i produktens UI (builder, preview, landing) om ägaren inte **uttryckligen** bett om just det elementet.
+
+Detta gäller även när ändringen känns "hjälpsam" eller kommer ur en observationsplan: en ny yta som ägaren inte bett om är ett scope-brott, inte en förbättring.
+
+## Gör i stället
+
+- Behöver en status synas: återanvänd en **befintlig** statusyta (t.ex. preview-panelens truth bar, versionspanelen, chattens statusrad) i stället för att skapa en ny.
+- Är en ny yta ändå motiverad (t.ex. ett verkligt fel doldes helt): **pausa och fråga** ägaren med en skiss/beskrivning innan den byggs.
+- Ta hellre bort redundanta ytor än lägg till nya — samma information ska inte visas på två ställen samtidigt.
+
+## Bakgrund
+
+2026-08-01 hade flera PR:ar sammantaget infört överlappande statusytor ovanpå preview och i chatten (slow-boot-pill, truth bar, statusrad, räknar-badge) utan att ägaren bett om dem. Ägarbeslut: sådana element kräver explicit begäran.
