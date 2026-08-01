@@ -258,7 +258,7 @@ export function BuilderHeader(props: {
           type="button"
           onClick={onGoHome}
           className="text-xl font-semibold tracking-tight transition-opacity hover:opacity-80"
-          aria-label="Gå till startsidan"
+          aria-label="Sajtmaskin — gå till startsidan"
           title="Till startsidan"
         >
           Sajtmaskin
@@ -289,7 +289,7 @@ export function BuilderHeader(props: {
                   <Button
                     variant="outline"
                     size="sm"
-                    aria-label="Fler åtgärder: spara, inställningar, import och export"
+                    aria-label="Mer — spara, inställningar, import och export"
                     title="Spara, inställningar, import och export"
                   >
                     <MoreHorizontal className="h-4 w-4" />
