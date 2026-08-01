@@ -1,5 +1,7 @@
--- Innehållsrevision (2026-07-29) — steg 1 + 2 ur
--- docs/plans/active/2026-07-25-innehallsrevision-verifieringskvitton.md
+-- Innehållsrevision (2026-07-29) — steg 1 + 2. Initiativet är levererat och
+-- indexerat i docs/plans/avklarat/README.md ("Innehållsrevision för verdikt
+-- och kvitton"); kontraktet ägs av scripts/db/files-revision-contract.postgres.test.ts
+-- + docs/schemas/quality-gate.md.
 --
 -- Problemet: `versionId` är ingen innehållsidentitet. Samma rad skrivs om av
 -- user-edit (/files), server-repair (targetVersionId-rewrite) och autofix, så
