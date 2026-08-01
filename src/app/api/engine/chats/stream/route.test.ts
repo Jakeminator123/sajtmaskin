@@ -698,10 +698,15 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     );
     // Preview prewarm is fired fire-and-forget with the freshly created chat id
     // on the primary init/create path (self-gating on flag/tier-2/dedup inside
-    // the module; default OFF makes it a no-op).
+    // the module; default OFF makes it a no-op). The resolved scaffold id is
+    // threaded through so the prewarm skeleton's package.json can mirror that
+    // scaffold's own dependencies instead of the generic baseline.
     expect(prewarmPreviewSession).toHaveBeenCalledWith(
       "engine_chat_1",
-      expect.objectContaining({ leaseKey: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+      expect.objectContaining({
+        leaseKey: expect.stringMatching(/^[a-f0-9]{64}$/),
+        scaffoldId: "scaffold_1",
+      }),
     );
   });
 

@@ -1101,9 +1101,15 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
     expect(response.status).toBe(200);
     expect(createGenerationPipeline).toHaveBeenCalled();
+    // The resolved scaffold id is threaded through so the prewarm skeleton's
+    // package.json can mirror that scaffold's own dependencies instead of the
+    // generic baseline.
     expect(prewarmPreviewSession).toHaveBeenCalledWith(
       "chat_1",
-      expect.objectContaining({ leaseKey: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+      expect.objectContaining({
+        leaseKey: expect.stringMatching(/^[a-f0-9]{64}$/),
+        scaffoldId: "scaffold_1",
+      }),
     );
   });
 
