@@ -1,0 +1,63 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  HOOK_MARKER,
+  HOOK_VERSION,
+  decideHookInstall,
+  renderHookScript,
+} from "./install-git-hooks.mjs";
+
+// Skyddar dev/prod-symmetrin: prod migreras av CI vid push till master, dev av
+// dessa hooks när master dras hem. Går de sönder tyst är vi tillbaka i "kör mot
+// ett schema koden lämnat bakom sig".
+describe("renderHookScript", () => {
+  it("bär markören så en senare installation känner igen sin egen fil", () => {
+    const script = renderHookScript("post-merge");
+    expect(script).toContain(`${HOOK_MARKER} v${HOOK_VERSION}`);
+  });
+
+  it("kör schema-synken soft och tyst — en hook får aldrig avbryta git", () => {
+    const script = renderHookScript("post-merge");
+    expect(script).toContain("scripts/db/ensure-schema.mjs --soft --quiet-ok");
+    expect(script.trimEnd().endsWith("exit 0")).toBe(true);
+  });
+
+  it("har en escape hatch och står över i CI", () => {
+    const script = renderHookScript("post-merge");
+    expect(script).toContain("SAJTMASKIN_SKIP_DB_HOOKS");
+    expect(script).toContain('[ -n "$CI" ]');
+  });
+
+  it("post-checkout kör bara vid grenbyten, inte vid fil-utcheckning", () => {
+    // Utan grinden skulle varje `git checkout -- <fil>` kosta en DB-rundtur.
+    const script = renderHookScript("post-checkout");
+    expect(script).toContain('if [ "$3" != "1" ]; then exit 0; fi');
+  });
+
+  it("post-merge har ingen grenflagga att titta på", () => {
+    expect(renderHookScript("post-merge")).not.toContain('"$3"');
+  });
+});
+
+describe("decideHookInstall", () => {
+  const desired = renderHookScript("post-merge");
+
+  it("skriver när hooken saknas", () => {
+    expect(decideHookInstall({ existing: null, desired }).action).toBe("write");
+  });
+
+  it("hoppar över när filen redan är exakt vår aktuella", () => {
+    expect(decideHookInstall({ existing: desired, desired }).action).toBe("skip");
+  });
+
+  it("skriver om vår egen hook när den är inaktuell", () => {
+    const outdated = desired.replace(`v${HOOK_VERSION}`, "v0");
+    expect(decideHookInstall({ existing: outdated, desired }).action).toBe("write");
+  });
+
+  it("rör ALDRIG en främmande hook", () => {
+    // Någon annans post-merge får inte försvinna för att vi ville vara hjälpsamma.
+    const foreign = "#!/bin/sh\necho min egen hook\n";
+    expect(decideHookInstall({ existing: foreign, desired }).action).toBe("conflict");
+  });
+});
