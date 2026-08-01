@@ -159,6 +159,10 @@ describe("POST preview-heartbeat", () => {
     tryResumeTier2Runtime.mockResolvedValue({
       previewSessionId: "ps1",
       primaryUrl: "https://live.example",
+      readinessState: "ready",
+      httpReady: true,
+      readinessError: null,
+      regeneratedLockfile: null,
     });
 
     const res = await POST(

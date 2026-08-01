@@ -31,16 +31,20 @@ export type PreviewReadinessDecision = {
 };
 
 export function decidePreviewReadinessOutcome(
-  resumed: Pick<PreviewHostStatusResult, "readinessState" | "readinessError" | "regeneratedLockfile">,
+  resumed: Pick<
+    PreviewHostStatusResult,
+    "readinessState" | "readinessError" | "regeneratedLockfile" | "httpReady"
+  >,
 ): PreviewReadinessDecision {
   const regeneratedLockfile = resumed.regeneratedLockfile ?? null;
   switch (resumed.readinessState) {
     case "ready":
-    case null:
-    case undefined:
-      return { previewSuccess: true, buildError: null, regeneratedLockfile };
-    case "starting":
-      return { previewSuccess: null, buildError: null, regeneratedLockfile };
+      // Stamp true ONLY on a confirmed HTTP-ready verdict. A host that reports
+      // `readinessState: "ready"` but `httpReady: false` is contradictory —
+      // treat it as still pending rather than a false-green.
+      return resumed.httpReady === false
+        ? { previewSuccess: null, buildError: null, regeneratedLockfile }
+        : { previewSuccess: true, buildError: null, regeneratedLockfile };
     case "failed":
       return {
         previewSuccess: false,
@@ -49,8 +53,16 @@ export function decidePreviewReadinessOutcome(
           "Preview failed readiness: the page returned a build error / HTTP 500.",
         regeneratedLockfile,
       };
+    // `null`/`undefined` (host omitted the verdict — legacy deploy or the boot
+    // hasn't recorded readiness yet) and `"starting"` are PENDING, never a
+    // success: process liveness / unknown readiness must NOT stamp
+    // `preview_success=true` (Bugbot finding 1). A later poll with a real
+    // `ready`/`failed` verdict resolves the outcome.
+    case "starting":
+    case null:
+    case undefined:
     default:
-      return { previewSuccess: true, buildError: null, regeneratedLockfile };
+      return { previewSuccess: null, buildError: null, regeneratedLockfile };
   }
 }
 
@@ -66,7 +78,7 @@ export async function applyPreviewReadinessOutcome(params: {
   versionId: string;
   resumed: Pick<
     PreviewHostStatusResult,
-    "readinessState" | "readinessError" | "regeneratedLockfile"
+    "readinessState" | "readinessError" | "regeneratedLockfile" | "httpReady"
   >;
 }): Promise<PreviewReadinessDecision> {
   const decision = decidePreviewReadinessOutcome(params.resumed);

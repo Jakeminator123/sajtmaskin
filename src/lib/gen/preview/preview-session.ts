@@ -349,10 +349,13 @@ async function runStartPreviewSession(
             previewMode: resolvedMode,
             fidelityTier: 2,
             startOutcome: "resumed",
-            // Runtime-ready only when the host confirms HTTP readiness (no build
-            // overlay). Legacy hosts omit `readinessState` (null) → keep the
-            // prior "running = ready" contract.
-            runtimeReady: resumed.readinessState !== "starting",
+            // Runtime-ready ONLY on a confirmed `ready` verdict (Bugbot finding
+            // 1): unknown readiness (host omitted the field / boot hasn't
+            // recorded it yet → null) and `starting` are NOT success, so the
+            // preview-session route must not stamp `preview_success=true` off
+            // mere liveness. The heartbeat/status receipt path stamps once the
+            // host reports a real `ready`.
+            runtimeReady: resumed.readinessState === "ready" && resumed.httpReady !== false,
             tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };

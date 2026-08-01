@@ -228,6 +228,10 @@ describe("GET preview-status (engine)", () => {
     tryResumeTier2Runtime.mockResolvedValue({
       previewSessionId: "ps_1",
       primaryUrl: "https://live.example",
+      readinessState: "ready",
+      httpReady: true,
+      readinessError: null,
+      regeneratedLockfile: null,
     });
 
     const res = await GET(
@@ -318,6 +322,35 @@ describe("GET preview-status (engine)", () => {
       previewSessionId: "ps_1",
       primaryUrl: "https://live.example",
       readinessState: "starting",
+      httpReady: false,
+      readinessError: null,
+      regeneratedLockfile: null,
+    });
+
+    const res = await GET(
+      new Request("http://localhost/api/engine/chats/chat_1/preview-status?versionId=v1"),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string };
+    expect(body.status).toBe("starting");
+    await runAfterCallbacks();
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+  });
+
+  it("does NOT stamp preview_success when host readiness is unknown/null (Bugbot finding 1)", async () => {
+    getActivePreviewSessionAsync.mockResolvedValue({
+      previewSessionId: "ps_1",
+      previewUrl: "https://preview.example",
+      versionId: "v1",
+      createdAt: Date.now(),
+      lastUsedAt: Date.now(),
+    });
+    tryResumeTier2Runtime.mockResolvedValue({
+      previewSessionId: "ps_1",
+      primaryUrl: "https://live.example",
+      readinessState: null,
       httpReady: false,
       readinessError: null,
       regeneratedLockfile: null,

@@ -719,6 +719,104 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   }
 }
 
+// 14. GUARD (Bugbot finding 2): a fingerprint-match skip must NOT ignore the
+//     stale-lockfile marker. A prior boot may have stamped this exact
+//     fingerprint BEFORE the lockfile was marked stale, so a plain
+//     fingerprint-equality early-return would skip the one non-frozen reconcile
+//     forever. With the marker present, runInstallCommand must fall through to
+//     the (non-frozen) install + postcondition even though the fingerprint
+//     matches the prior stamp.
+{
+  const {
+    runInstallCommand,
+    dependencyFingerprint,
+    dependencyStatePathForWorkspace,
+    setBootInstallRunnersForTesting,
+    resolveInstallCommand,
+    LOCKFILE_STALE_MARKER_PATH,
+  } = runtime.__testing;
+
+  const filesJson = {
+    "package.json": JSON.stringify({
+      dependencies: { next: "15.0.0", react: "18", "react-dom": "18", "radix-ui": "^1" },
+    }),
+    "pnpm-lock.yaml": "lockfileVersion: 9\n# stale: missing radix-ui\n",
+    [LOCKFILE_STALE_MARKER_PATH]: JSON.stringify({
+      reason: "dep-completer pinned radix-ui after a prior fingerprint stamp",
+      packageManager: "pnpm",
+      mutatedAt: new Date().toISOString(),
+    }),
+  };
+
+  // Sanity: the marker makes resolveInstallCommand pick the non-frozen path.
+  check(
+    "finding2: stale marker selects the non-frozen install command",
+    resolveInstallCommand(filesJson).lockfileStale === true,
+  );
+
+  const wsDir = join(dataDir, "finding2-stale-skip");
+  mkdirSync(join(wsDir, "node_modules"), { recursive: true }); // warm modules
+  // Pre-stamp the SAME fingerprint a prior boot would have written — this is the
+  // exact condition the plain skip would short-circuit on.
+  writeFileSync(
+    dependencyStatePathForWorkspace(wsDir),
+    JSON.stringify({ fingerprint: dependencyFingerprint(filesJson) }, null, 2),
+    "utf8",
+  );
+
+  let installRan = false;
+  let postconditionRan = false;
+  setBootInstallRunnersForTesting({
+    installRunner: async (workspaceDir) => {
+      installRan = true;
+      mkdirSync(join(workspaceDir, "node_modules", "radix-ui"), { recursive: true });
+      writeFileSync(
+        join(workspaceDir, "pnpm-lock.yaml"),
+        "lockfileVersion: 9\n# regenerated: includes radix-ui\n",
+        "utf8",
+      );
+      return {
+        passed: true,
+        exitCode: 0,
+        durationMs: 1,
+        output: "pnpm install --no-frozen-lockfile passed.",
+        usedFallback: false,
+        peerConflictDetected: false,
+      };
+    },
+    postconditionCommandRunner: async () => {
+      postconditionRan = true;
+      return {
+        exitCode: 0,
+        output: JSON.stringify({
+          dependencies: {
+            next: { version: "15" },
+            react: { version: "18" },
+            "react-dom": { version: "18" },
+            "radix-ui": { version: "1" },
+          },
+        }),
+        timedOut: false,
+      };
+    },
+  });
+
+  let outcome = null;
+  try {
+    outcome = await runInstallCommand(wsDir, "ps_finding2", filesJson);
+  } finally {
+    setBootInstallRunnersForTesting();
+  }
+
+  check("finding2: fingerprint match + stale marker does NOT skip install", installRan === true);
+  check("finding2: postcondition runs on the forced reconcile", postconditionRan === true);
+  check("finding2: install was not reported as skipped", outcome?.skipped !== true);
+  check(
+    "finding2: regenerated lockfile returned for persistence",
+    outcome?.regeneratedLockfile?.path === "pnpm-lock.yaml",
+  );
+}
+
 rmSync(dataDir, { recursive: true, force: true });
 
 if (failures > 0) {

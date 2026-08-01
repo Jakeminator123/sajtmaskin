@@ -1547,17 +1547,32 @@ async function runInstallCommand(workspaceDir, previewSessionId, filesJson) {
   const install = resolveInstallCommand(filesJson);
   const nodeModulesDir = path.join(workspaceDir, "node_modules");
   const priorDeps = readJsonIfExists(dependencyStatePathForWorkspace(workspaceDir));
+  // Stale-lockfile marker forces the reconcile even on a fingerprint match
+  // (Bugbot finding 2): a prior boot may have stamped this exact fingerprint
+  // BEFORE the lockfile was marked stale (e.g. warm node_modules + a
+  // just-pinned dep), so a plain fingerprint-equality skip would ignore the
+  // marker forever and never run the one non-frozen install. When the marker is
+  // present we always fall through to the (non-frozen) install + postcondition;
+  // `runInstallCommand` clears the marker on success by returning the
+  // regenerated lockfile for persistence.
   if (
     fingerprint &&
     priorDeps &&
     priorDeps.fingerprint === fingerprint &&
-    fs.existsSync(nodeModulesDir)
+    fs.existsSync(nodeModulesDir) &&
+    !install.lockfileStale
   ) {
     await appendRuntimeLog(
       previewSessionId,
       `Skipping npm install; dependency fingerprint unchanged (${fingerprint.slice(0, 12)}).`,
     );
     return { installed: false, skipped: true };
+  }
+  if (install.lockfileStale && fingerprint && priorDeps?.fingerprint === fingerprint) {
+    await appendRuntimeLog(
+      previewSessionId,
+      `Dependency fingerprint unchanged (${fingerprint.slice(0, 12)}) but a stale-lockfile marker is present; forcing a non-frozen reconcile with ${install.logLabel} instead of skipping.`,
+    );
   }
   const priorFingerprint =
     priorDeps && typeof priorDeps.fingerprint === "string"
@@ -1665,11 +1680,17 @@ async function runVerifyJob(params) {
       const results = [];
       const install = resolveInstallCommand(filesJson);
       const fingerprint = dependencyFingerprint(filesJson);
-      const shareNodeModulesResult = tryShareNodeModules({
-        sourceWorkspaceDir: workspaceDirForChat(chatId),
-        targetWorkspaceDir: workspaceDir,
-        expectedFingerprint: fingerprint,
-      });
+      // A stale-lockfile marker must force a real (non-frozen) install even in
+      // the verify lane (Bugbot finding 2): reusing the live workspace's
+      // node_modules on a fingerprint match would inherit the same
+      // not-yet-reconciled tree and skip the one corrective install.
+      const shareNodeModulesResult = install.lockfileStale
+        ? { reused: false, reason: "lockfile_stale" }
+        : tryShareNodeModules({
+            sourceWorkspaceDir: workspaceDirForChat(chatId),
+            targetWorkspaceDir: workspaceDir,
+            expectedFingerprint: fingerprint,
+          });
       if (shareNodeModulesResult.reused) {
         results.push(
           pushResult({

@@ -38,18 +38,69 @@ import { LOCKFILE_STALE_MARKER_PATH } from "@/lib/gen/autofix/dep-completer";
 
 describe("decidePreviewReadinessOutcome", () => {
   it("stamps true when the host reports ready", () => {
-    expect(decidePreviewReadinessOutcome({ readinessState: "ready", readinessError: null, regeneratedLockfile: null }))
-      .toMatchObject({ previewSuccess: true, buildError: null });
+    expect(
+      decidePreviewReadinessOutcome({
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: true,
+      }),
+    ).toMatchObject({ previewSuccess: true, buildError: null });
   });
 
-  it("keeps legacy 'running = ready' contract when readinessState is null", () => {
-    expect(decidePreviewReadinessOutcome({ readinessState: null, readinessError: null, regeneratedLockfile: null }))
-      .toMatchObject({ previewSuccess: true });
+  it("stamps true when ready and httpReady is omitted (undefined)", () => {
+    expect(
+      decidePreviewReadinessOutcome({
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: undefined as unknown as boolean,
+      }),
+    ).toMatchObject({ previewSuccess: true });
+  });
+
+  it("does NOT stamp true when ready but httpReady is explicitly false (contradictory)", () => {
+    expect(
+      decidePreviewReadinessOutcome({
+        readinessState: "ready",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: false,
+      }),
+    ).toMatchObject({ previewSuccess: null });
+  });
+
+  it("does NOT stamp true when readinessState is null/unknown (Bugbot finding 1)", () => {
+    expect(
+      decidePreviewReadinessOutcome({
+        readinessState: null,
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: false,
+      }),
+    ).toMatchObject({ previewSuccess: null, buildError: null });
+  });
+
+  it("does NOT stamp true when readinessState is undefined (unknown)", () => {
+    expect(
+      decidePreviewReadinessOutcome({
+        readinessState: undefined as unknown as null,
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: false,
+      }),
+    ).toMatchObject({ previewSuccess: null });
   });
 
   it("leaves telemetry untouched while still starting", () => {
-    expect(decidePreviewReadinessOutcome({ readinessState: "starting", readinessError: null, regeneratedLockfile: null }))
-      .toMatchObject({ previewSuccess: null, buildError: null });
+    expect(
+      decidePreviewReadinessOutcome({
+        readinessState: "starting",
+        readinessError: null,
+        regeneratedLockfile: null,
+        httpReady: false,
+      }),
+    ).toMatchObject({ previewSuccess: null, buildError: null });
   });
 
   it("stamps false + surfaces a build error when readiness failed", () => {
@@ -57,6 +108,7 @@ describe("decidePreviewReadinessOutcome", () => {
       readinessState: "failed",
       readinessError: "Module not found: radix-ui",
       regeneratedLockfile: null,
+      httpReady: false,
     });
     expect(decision.previewSuccess).toBe(false);
     expect(decision.buildError).toContain("radix-ui");
@@ -77,6 +129,7 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
         readinessState: "failed",
         readinessError: "Module not found: Can't resolve 'radix-ui'",
         regeneratedLockfile: null,
+        httpReady: false,
       },
     });
 
@@ -93,7 +146,7 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     await applyPreviewReadinessOutcome({
       chatId: "chat_1",
       versionId: "v1",
-      resumed: { readinessState: "ready", readinessError: null, regeneratedLockfile: null },
+      resumed: { readinessState: "ready", readinessError: null, regeneratedLockfile: null, httpReady: true },
     });
     expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", true);
     expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
@@ -103,9 +156,19 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     await applyPreviewReadinessOutcome({
       chatId: "chat_1",
       versionId: "v1",
-      resumed: { readinessState: "starting", readinessError: null, regeneratedLockfile: null },
+      resumed: { readinessState: "starting", readinessError: null, regeneratedLockfile: null, httpReady: false },
     });
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+  });
+
+  it("does NOT stamp true on unknown readiness (null) — Bugbot finding 1", async () => {
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      resumed: { readinessState: null, readinessError: null, regeneratedLockfile: null, httpReady: false },
+    });
+    expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
+    expect(createEngineVersionErrorLogs).not.toHaveBeenCalled();
   });
 });
 
