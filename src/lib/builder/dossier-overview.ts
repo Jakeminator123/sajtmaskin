@@ -197,7 +197,10 @@ export function describeDossierStatus(
       return {
         label: "Byggd — demo aktiv",
         tone: "warning",
-        hint: "Riktig integrationskod är inkopplad, men en runtime-nyckel saknas — funktionen kör i demo-läge tills du sparar nyckeln här.",
+        // Two causes share this status (M#li1): a missing runtime key, or
+        // filled keys WITHOUT server-side file evidence in the version — the
+        // copy must not claim the code is wired when the cap was evidence.
+        hint: "Funktionen kör i demo-läge — en runtime-nyckel saknas, eller så är integrationens serverkod inte påvisad i den här versionen ännu.",
       };
     case "blocked-build":
       return {
