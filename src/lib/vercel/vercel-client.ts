@@ -161,6 +161,47 @@ export async function checkDomainAvailability(
 }
 
 /**
+ * Buy a domain through the Vercel Registrar (v5).
+ *
+ * UNFINISHED — this endpoint is retired. `/v5/domains/buy` belongs to the old
+ * Domains API family (sunset November 2025); the current call is
+ * `POST /v1/registrar/domains/{domain}/buy`, and it also requires a
+ * `contactInformation` object the app never collects. Reaching this function
+ * therefore fails at the registrar. It stays as the shape the purchase path
+ * expects, gated behind `SAJTMASKIN_DOMAIN_PURCHASE` (off by default), until
+ * registrant handling is decided. Full context: `domains/registrar/vercel-registrar.ts`.
+ *
+ * `expectedPrice` is the wholesale USD figure the caller was quoted; Vercel
+ * rejects the purchase when its own price has moved, which is exactly the
+ * guard we want — a stale quote must fail loudly rather than silently charge a
+ * different amount than the customer approved.
+ *
+ * Throws on any non-2xx so the caller's compensation path (refund) runs.
+ */
+export async function buyDomain(
+  domain: string,
+  expectedPriceUsd: number,
+  opts?: { renew?: boolean; teamId?: string },
+): Promise<{ domain: string; orderId: string | null }> {
+  const query = opts?.teamId ? `?teamId=${encodeURIComponent(opts.teamId)}` : "";
+  const data = await vercelFetch<{
+    domain?: { name?: string; orderId?: string; uid?: string };
+    orderId?: string;
+  }>(`/v5/domains/buy${query}`, {
+    method: "POST",
+    body: JSON.stringify({
+      name: domain,
+      expectedPrice: expectedPriceUsd,
+      renew: opts?.renew ?? false,
+    }),
+  });
+  return {
+    domain: data.domain?.name ?? domain,
+    orderId: data.orderId ?? data.domain?.orderId ?? data.domain?.uid ?? null,
+  };
+}
+
+/**
  * Add a domain to a project
  */
 export async function addDomainToProject(
