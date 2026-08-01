@@ -21,6 +21,7 @@ import {
   quickEditChatFiles,
 } from "@/lib/builder/engine-files-patch";
 import { dispatchQuickEditAppliedEvent } from "@/lib/builder/quick-edit-applied-event";
+import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
@@ -145,6 +146,7 @@ export function OpenClawMessage({
             key="apply_quick_edit"
             action={action}
             editEnabled={editEnabled}
+            builderTarget={msg.builderTarget ?? null}
           />
         ) : null}
       </div>
@@ -385,15 +387,6 @@ function OpenClawArmedSendCard({
   );
 }
 
-function readActiveBuilderTarget(): { chatId: string; versionId: string } | null {
-  if (typeof window === "undefined") return null;
-  const ctx = window.__SITEMASKIN_CONTEXT;
-  const chatId = typeof ctx?.chatId === "string" ? ctx.chatId : null;
-  const versionId = typeof ctx?.activeVersionId === "string" ? ctx.activeVersionId : null;
-  if (!chatId || !versionId) return null;
-  return { chatId, versionId };
-}
-
 /**
  * The client autofix flow only repairs the LATEST version (useAutoFix silently
  * no-ops on an older selected version). Check before dispatch so the card never
@@ -545,9 +538,12 @@ function OpenClawRepairRequestCard({ action }: { action: OpenClawRequestRepairAc
 function OpenClawQuickEditCard({
   action,
   editEnabled,
+  builderTarget,
 }: {
   action: OpenClawApplyQuickEditAction;
   editEnabled: boolean;
+  /** Builder-mål bundet när turen SKICKADES (versionen modellen såg), eller null. */
+  builderTarget: { chatId: string; versionId: string } | null;
 }) {
   const [actionState, setActionState] = useState<
     "pending" | "working" | "applied" | "declined" | "failed"
@@ -556,13 +552,14 @@ function OpenClawQuickEditCard({
   const [applied, setApplied] = useState<{ versionId: string; changedFiles: string[] } | null>(
     null,
   );
-  // Bind förslaget till versionen som var aktiv när kortet först renderades
-  // (= när Sajtagenten skrev förslaget mot den kod den såg). Ett godkännande
-  // långt senare får INTE tyst appliceras mot en nyare bas (Bugbot): ops:en
-  // skickas med förslagets version som bas + engineLatestKnownVersionId, så
-  // serverns stale-base-guard svarar 409 om huvudet hunnit flytta — samma
-  // svenska copy som kodvyn ("En nyare version finns redan...").
-  const [target] = useState(() => readActiveBuilderTarget());
+  // Bind förslaget till versionen som var aktiv när TUREN SKICKADES — det är
+  // den kod modellen faktiskt såg (Bugbot rond 7+8). Ett godkännande senare
+  // får inte tyst appliceras mot en annan bas: ops:en skickas med förslagets
+  // version som bas + engineLatestKnownVersionId, så serverns stale-base-guard
+  // svarar 409 om huvudet hunnit flytta (samma svenska copy som kodvyn).
+  // Fallback: saknades builder-kontext vid send (t.ex. mitt i laddning) läses
+  // målet live VARJE render så knappen inte fastnar avstängd för alltid.
+  const target = builderTarget ?? readActiveBuilderTarget();
   const actionLabel = action.label || "Liten kodändring på sajten";
   // Synkron dubbelklicksvakt (Bugbot): setActionState döljer knapparna först
   // efter re-render, så två snabba klick kan annars starta överlappande

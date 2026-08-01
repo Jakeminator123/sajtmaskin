@@ -325,7 +325,7 @@ describe("OpenClawQuickEditCard — execution", () => {
     }
   });
 
-  it("pins ops to the proposal's version even if the active version changes before approval", async () => {
+  it("pins ops to the version the model saw at send time, not the active one at approval", async () => {
     useOpenClawStore.setState({ editEnabled: true });
     quickEditMock.mockResolvedValue({
       ok: true,
@@ -335,10 +335,17 @@ describe("OpenClawQuickEditCard — execution", () => {
       previewSessionId: null,
       previewMode: null,
     });
-    render(<OpenClawMessage msg={quickEditMessage()} />);
-
-    // En follow-up/reparation flyttar aktiv version efter att förslaget kom.
+    // Aktiv version har hunnit flytta till v-9 — men turen skickades mot v-1.
     window.__SITEMASKIN_CONTEXT = { chatId: "chat-1", activeVersionId: "v-9" };
+    render(
+      <OpenClawMessage
+        msg={{
+          ...quickEditMessage(),
+          builderTarget: { chatId: "chat-1", versionId: "v-1" },
+        }}
+      />,
+    );
+
     fireEvent.click(screen.getByRole("button", { name: "Godkänn och genomför" }));
 
     await waitFor(() => {
@@ -350,6 +357,27 @@ describe("OpenClawQuickEditCard — execution", () => {
         engineLatestKnownVersionId: "v-1",
       }),
     );
+  });
+
+  it("falls back to the live builder target when the message carries none (button recovers after load)", async () => {
+    useOpenClawStore.setState({ editEnabled: true });
+    delete window.__SITEMASKIN_CONTEXT;
+    const msg = quickEditMessage();
+    const { rerender } = render(<OpenClawMessage msg={msg} />);
+
+    const disabledApprove = screen.getByRole("button", {
+      name: "Godkänn och genomför",
+    }) as HTMLButtonElement;
+    expect(disabledApprove.disabled).toBe(true);
+
+    // Builder-kontexten blir tillgänglig efter laddning → knappen ska vakna.
+    window.__SITEMASKIN_CONTEXT = { chatId: "chat-1", activeVersionId: "v-1" };
+    rerender(<OpenClawMessage msg={{ ...msg }} />);
+
+    const approve = screen.getByRole("button", {
+      name: "Godkänn och genomför",
+    }) as HTMLButtonElement;
+    expect(approve.disabled).toBe(false);
   });
 
   it("guards against double-click: two rapid approvals run quickEditChatFiles once", async () => {
