@@ -273,6 +273,61 @@ describe("extractFocusPinnedPathsFromMessage / literal fallback", () => {
     expect(pinned).toEqual(["components/header.tsx"]);
     expect(pinned).not.toContain("components/evil.tsx");
   });
+
+  it("merges Källfil pins with literal pins across multiple focus points", () => {
+    const heroFile: CodeFile = {
+      path: "components/hero.tsx",
+      language: "tsx",
+      content: "export function Hero(){return <section>Hero</section>}",
+    };
+    const focus = buildInspectPointsPrompt([
+      {
+        demoUrl: "https://preview.example/",
+        xPercent: 20,
+        yPercent: 40,
+        viewportWidth: 1200,
+        viewportHeight: 800,
+        element: {
+          tag: "section",
+          id: null,
+          className: "hero",
+          text: "Hero",
+          ariaLabel: null,
+          role: null,
+          href: null,
+          selector: "section.hero",
+          nearestHeading: null,
+          sourcePath: "components/hero.tsx",
+          sourceLine: 1,
+        },
+      },
+      {
+        demoUrl: "https://preview.example/",
+        xPercent: 10,
+        yPercent: 5,
+        viewportWidth: 1200,
+        viewportHeight: 800,
+        element: {
+          tag: "a",
+          id: null,
+          className: null,
+          text: "PORTFOLIO",
+          ariaLabel: null,
+          role: null,
+          href: "#portfolio",
+          selector: "header nav a",
+          nearestHeading: null,
+        },
+      },
+    ]);
+    const pinned = extractFocusPinnedPathsFromMessage(`Edit both.\n\n${focus}`, [
+      headerFile,
+      heroFile,
+      unrelated,
+    ]);
+    expect(pinned).toContain("components/hero.tsx");
+    expect(pinned).toContain("components/header.tsx");
+  });
 });
 
 describe("extractReferencedFilePathsFromMessage", () => {

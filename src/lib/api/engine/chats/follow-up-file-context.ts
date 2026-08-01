@@ -151,14 +151,13 @@ export function extractFocusPinnedPathsFromMessage(
     ...collectRegexPaths(focusBlock, FOCUS_SOURCE_PATH_RE),
     ...collectRegexPaths(focusBlock, FOCUS_ARROW_PATH_RE),
   ].filter((path) => previousPaths.has(path));
-
-  if (fromFocus.length > 0) {
-    return Array.from(new Set(fromFocus));
-  }
-
-  return resolveFocusSourcePinsByLiteralSearch(message, previousFiles).filter((path) =>
-    previousPaths.has(path),
+  // Always merge literal fallback too: a multi-point appendix can mix points
+  // with Källfil and points that only have Träff-text/href.
+  const fromLiteral = resolveFocusSourcePinsByLiteralSearch(message, previousFiles).filter(
+    (path) => previousPaths.has(path),
   );
+
+  return Array.from(new Set([...fromFocus, ...fromLiteral]));
 }
 
 export interface FollowUpFileContextDecision {
