@@ -124,7 +124,13 @@ describe("isTransientCaptureAbort", () => {
 // above only exercise the pure helpers, not captureThumbnailScreenshot itself.
 function makeFakePage(overrides: Record<string, unknown> = {}) {
   return {
-    context: () => ({ route: vi.fn().mockResolvedValue(undefined) }),
+    // Båda kanalerna måste finnas: `applyCaptureRequestGate` grindar numera
+    // WebSockets också, och ett fejk utan `routeWebSocket` failar i
+    // "new-page"-steget i stället för i det steg testet handlar om.
+    context: () => ({
+      route: vi.fn().mockResolvedValue(undefined),
+      routeWebSocket: vi.fn().mockResolvedValue(undefined),
+    }),
     goto: vi.fn().mockResolvedValue(undefined),
     waitForLoadState: vi.fn().mockResolvedValue(undefined),
     evaluate: vi.fn().mockResolvedValue(undefined),
