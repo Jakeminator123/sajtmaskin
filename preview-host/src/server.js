@@ -772,6 +772,17 @@ async function routeRequest(req, res) {
             };
       }
       session.status = replacingPrewarm ? "starting" : "warm_project";
+      // Atomic with the version advance, in the same store-lock mutation (same
+      // rule as /patch): readiness is a per-version verdict. Keeping the old one
+      // would let /status answer "ready" for files this runtime has not compiled
+      // yet, and would let a version that failed once drag its error message
+      // onto its successor. The queued restart writes "starting" as well, but
+      // only after install/spawn — until then the previous boot's verdict is
+      // what the app reads.
+      if (!replacingPrewarm) {
+        session.readinessState = "starting";
+        session.readinessError = null;
+      }
       session.lastAction = "update";
       session.startOutcome = "resumed";
       session.updatedAt = nowIso();

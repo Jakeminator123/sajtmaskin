@@ -245,6 +245,50 @@ try {
   }
   assert.equal((await manifestFor(previewSessionId)).body.versionId, "ver_2");
 
+  // /update is the other route that advances the session's version, and
+  // readiness is a per-version verdict there too. The route only QUEUES a boot,
+  // and the boot writes "starting" after install/spawn — so without the flip in
+  // the same store-lock mutation, /status keeps answering with the previous
+  // version's verdict ("ready" for files Next has not compiled, or an error the
+  // new version never produced) for the whole install window.
+  {
+    const seeded = store.readStoreSync();
+    seeded.sessions[started.body.sessionId].readinessState = "ready";
+    seeded.sessions[started.body.sessionId].readinessError = "stale error from ver_2";
+    store.writeStoreAtomicSync(seeded);
+
+    const updated = await request("/preview/session/update", {
+      previewSessionId,
+      versionId: "ver_6",
+      filesJson: { "app/page.tsx": PAGE_V2 },
+    });
+    assert.equal(updated.status, 200);
+    assert.equal(updated.body.versionId, "ver_6");
+
+    const updatedSession = store.readStoreSync().sessions[started.body.sessionId];
+    assert.equal(
+      updatedSession.readinessState,
+      "starting",
+      "update must reset readiness for the new version",
+    );
+    assert.equal(
+      updatedSession.readinessError,
+      null,
+      "update must clear the previous version's readiness error",
+    );
+    const statusAfterUpdate = await request(
+      `/preview/session/${encodeURIComponent(previewSessionId)}/status`,
+    );
+    assert.equal(statusAfterUpdate.body.versionId, "ver_6");
+    assert.equal(statusAfterUpdate.body.readinessState, "starting");
+    assert.equal(
+      statusAfterUpdate.body.httpReady,
+      false,
+      "a session whose version just advanced is not http-ready",
+    );
+    assert.equal(statusAfterUpdate.body.readinessError, null);
+  }
+
   // A stored entry that is not a string still gets listed, with a marker that
   // can never equal a sha256 digest — the app must then rewrite or remove that
   // path rather than treat a missing entry as "not on the host".

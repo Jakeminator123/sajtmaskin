@@ -499,7 +499,12 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     expect(result).toBeNull();
   });
 
-  it("keeps prior behaviour when the host omits versionId (older deploys)", async () => {
+  // Detta test låste tidigare motsatt beteende ("saknat eko = OK", bakåtkompat
+  // med hostar som inte returnerade versionId). Hosten ekar alltid versionen i
+  // dag, så den motiveringen är förbrukad — det enda mönstret fortfarande
+  // skyddar är false-green: en anropare som VET vilken version den väntar sig
+  // återupptar en session som ingen har bekräftat.
+  it("refuses to resume when the host echoes no versionId at all (silence is not a match)", async () => {
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
     stubStatus({
       ok: true,
@@ -509,14 +514,7 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     });
 
     const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
-    expect(result).toEqual({
-      previewSessionId: "ps_1",
-      primaryUrl: "https://live.example",
-      readinessState: null,
-      httpReady: false,
-      readinessError: null,
-      regeneratedLockfile: null,
-    });
+    expect(result).toBeNull();
   });
 
   it("does not gate when no expected version is provided (back-compat)", async () => {
@@ -765,6 +763,39 @@ describe("fetchPreviewHostReadinessVerdict — läser verdikt även utan levande
     });
 
     expect(await fetchPreviewHostReadinessVerdict("ps_1", { expectedVersionId: "v3" })).toBeNull();
+  });
+
+  it("returnerar null när hosten inte ekar någon version alls", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: false,
+      readinessState: "failed",
+      readinessError: "boom",
+      previewSessionId: "ps_1",
+    });
+
+    // Ett verdikt utan versionsattribution får inte stämplas på anroparens
+    // version: det skulle antingen godkänna en version vi aldrig sett bekräftad
+    // eller trigga RepairGate på ett fel som hör till en annan version.
+    expect(await fetchPreviewHostReadinessVerdict("ps_1", { expectedVersionId: "v3" })).toBeNull();
+  });
+
+  it("returnerar verdiktet när anroparen inte har någon förväntad version", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: false,
+      readinessState: "failed",
+      readinessError: "boom",
+      previewSessionId: "ps_1",
+    });
+
+    expect(await fetchPreviewHostReadinessVerdict("ps_1")).toMatchObject({
+      readinessState: "failed",
+      readinessError: "boom",
+      versionId: null,
+    });
   });
 
   it("returnerar null när hosten inte svarar ok", async () => {
