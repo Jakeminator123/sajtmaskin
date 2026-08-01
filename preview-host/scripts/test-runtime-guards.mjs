@@ -517,6 +517,30 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("overlay HTML is detected as a build error", htmlLooksLikeBuildError(overlayHtml) === true);
   check("normal HTML is not a build error", htmlLooksLikeBuildError(goodHtml) === false);
 
+  // A HEALTHY preview whose content legitimately renders error prose (error
+  // dashboards, log viewers, monitoring UIs — the kind of v0 project this host
+  // serves) must NOT be flagged: generic phrases only count alongside a Next
+  // dev-overlay structural marker.
+  const errorDashboardHtml =
+    "<!doctype html><html><head><title>Error Dashboard</title></head><body><main><h1>Incidents</h1><ul><li>Unhandled Runtime Error &mdash; 12 events</li><li>Module not found &mdash; 3 events</li></ul><p>Cannot find module errors are trending down. 0 Build Errors today.</p></main></body></html>";
+  check(
+    "healthy error-dashboard content is NOT a build error",
+    htmlLooksLikeBuildError(errorDashboardHtml) === false,
+  );
+  check(
+    "generic error prose alongside a Next overlay marker IS a build error",
+    htmlLooksLikeBuildError(
+      "<!doctype html><html><body><div data-nextjs-dialog>Unhandled Runtime Error</div></body></html>",
+    ) === true,
+  );
+  check(
+    "the Next compiler prose alone is a build error",
+    htmlLooksLikeBuildError(
+      "<!doctype html><html><body><h1>Failed to compile</h1><pre>./app/page.tsx</pre></body></html>",
+    ) === true,
+  );
+  check("empty HTML is not a build error", htmlLooksLikeBuildError("") === false);
+
   async function withServer(html, fn) {
     const server = createServer((_req, res) => {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -554,6 +578,17 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     }
   });
   check("waitForReady accepts a real ready page", goodResolved === true);
+
+  let dashboardResolved = false;
+  await withServer(errorDashboardHtml, async (url) => {
+    try {
+      await waitForReady(url);
+      dashboardResolved = true;
+    } catch {
+      dashboardResolved = false;
+    }
+  });
+  check("waitForReady accepts a healthy page that renders error prose", dashboardResolved === true);
 }
 
 // 12. PM-safe dependency postcondition: prefer the package manager's own view,

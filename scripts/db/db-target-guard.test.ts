@@ -1,5 +1,14 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
-import { inspectExplicitDbTargets, normalizeEnvUrl, summarizeTarget } from "./db-target-guard.mjs";
+import {
+  assertSafeWriteTarget,
+  inspectExplicitDbTargets,
+  normalizeEnvUrl,
+  summarizeTarget,
+} from "./db-target-guard.mjs";
 import { loadDbTargets } from "./check-db-env-target.mjs";
 
 // Read from the canonical mapping rather than hardcoding refs, so the test
@@ -69,5 +78,58 @@ describe("db-target-guard", () => {
     );
 
     expect(summarizeTarget(inspection.current)).toBe("localhost:5432/sajtmaskin");
+  });
+});
+
+// Regression: the prod refusal used to depend on `.env.vercel.production.pulled`
+// existing — no snapshot file, no protection, which is precisely the state of a
+// machine that has never pulled prod env. Since the schema-sync git hooks call
+// this on an automatic path (`git pull` -> migrate), identity must come from the
+// registry, not from whether a file happens to be on disk.
+describe("assertSafeWriteTarget — prod identity from the registry", () => {
+  const PROD_URL = `postgresql://postgres.${PROD_REF}:pw@aws-1-us-east-1.pooler.supabase.com:6543/postgres`;
+  const DEV_URL = `postgresql://postgres.${DEV_REF}:pw@aws-1-eu-north-1.pooler.supabase.com:6543/postgres`;
+  // Bara `warn` behövs; guarden rör inget annat på loggern.
+  const silent = { warn: () => {} } as unknown as Console;
+  const envWith = (extra: Record<string, string>) => extra as unknown as NodeJS.ProcessEnv;
+
+  /** Runs from a temp cwd so the repo's own `.env.vercel.production.pulled` is out of reach. */
+  function inNoSnapshotDir<T>(fn: () => T): T {
+    const previous = process.cwd();
+    const dir = mkdtempSync(join(tmpdir(), "db-target-guard-"));
+    try {
+      process.chdir(dir);
+      return fn();
+    } finally {
+      process.chdir(previous);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("refuses a write to prod even when no pulled snapshot exists", () => {
+    inNoSnapshotDir(() => {
+      expect(() =>
+        assertSafeWriteTarget({ env: envWith({ POSTGRES_URL: PROD_URL }), logger: silent }),
+      ).toThrow(/PRODUCTION project in config\/db-targets\.json/);
+    });
+  });
+
+  it("still honours the explicit acknowledgement, so db:migrate:prod and CI keep working", () => {
+    inNoSnapshotDir(() => {
+      expect(() =>
+        assertSafeWriteTarget({
+          env: envWith({ POSTGRES_URL: PROD_URL, DB_ALLOW_PROD_LIKE_WRITE: "1" }),
+          logger: silent,
+        }),
+      ).not.toThrow();
+    });
+  });
+
+  it("lets a dev target through untouched", () => {
+    inNoSnapshotDir(() => {
+      expect(() =>
+        assertSafeWriteTarget({ env: envWith({ POSTGRES_URL: DEV_URL }), logger: silent }),
+      ).not.toThrow();
+    });
   });
 });

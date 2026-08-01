@@ -1480,15 +1480,36 @@ function responseHeadersLookLikeHtmlDocument(res) {
 // "meaningful visible text" check below would ACCEPT it as ready — the exact
 // false-green behind the radix-ui incident (readiness ≠ HTTP-ready). Detect the
 // overlay so readiness rejects it instead of stamping preview_success.
-const NEXT_BUILD_ERROR_SIGNATURES = [
-  /Build Error/i,
+//
+// STRONG signatures are the Next compiler's own prose. They do not appear in
+// healthy pages, so a match anywhere in the document is trusted on its own.
+const NEXT_BUILD_ERROR_STRONG_SIGNATURES = [
   /Failed to compile/i,
-  /Module not found/i,
   /This error occurred during the build process/i,
   /__NEXT_ERROR_OVERLAY__/i,
-  /nextjs-portal/i,
-  /Unhandled Runtime Error/i,
+];
+
+// GENERIC signatures are ordinary English phrases that legitimately appear in
+// real page CONTENT: preview-host serves arbitrary v0/user projects, and error
+// dashboards, log viewers, monitoring UIs and docs routinely render text like
+// "Module not found" or "Unhandled Runtime Error". Matching these anywhere
+// would keep a perfectly healthy preview from ever going live, so they only
+// count together with a structural marker that identifies the response as the
+// Next dev error page.
+const NEXT_BUILD_ERROR_GENERIC_SIGNATURES = [
+  /Build Error/i,
+  /Module not found/i,
   /Cannot find module/i,
+  /Unhandled Runtime Error/i,
+];
+
+const NEXT_DEV_OVERLAY_MARKERS = [
+  /__NEXT_ERROR_OVERLAY__/i,
+  /nextjs-portal/i,
+  /data-nextjs-dialog/i,
+  /data-nextjs-error/i,
+  /nextjs__container_errors/i,
+  /id=["']?__next_error__/i,
 ];
 
 function extractBuildErrorMessage(html) {
@@ -1508,7 +1529,11 @@ function extractBuildErrorMessage(html) {
 function htmlLooksLikeBuildError(html) {
   const text = String(html || "");
   if (!text) return false;
-  return NEXT_BUILD_ERROR_SIGNATURES.some((re) => re.test(text));
+  if (NEXT_BUILD_ERROR_STRONG_SIGNATURES.some((re) => re.test(text))) return true;
+  return (
+    NEXT_BUILD_ERROR_GENERIC_SIGNATURES.some((re) => re.test(text)) &&
+    NEXT_DEV_OVERLAY_MARKERS.some((re) => re.test(text))
+  );
 }
 
 function htmlBodyHasMeaningfulVisibleText(html) {

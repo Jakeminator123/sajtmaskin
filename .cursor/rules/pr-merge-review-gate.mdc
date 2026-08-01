@@ -59,7 +59,7 @@ Oavsett mönster: sov-timern är bara ett **golv, aldrig ett merge-kvitto** — 
 
 Ingen agent mergar en PR utan att författaren först intygat att buggkollen är gjord. Signalen är en **sign-off-rad + en label**, i den ordningen, så mergaren kan verifiera den utan att gissa:
 
-1. PR-agenten skriver sign-off-raden **som PR-kommentar**, **först efter** att bug-efterkontrollen är klar (bugbot/Codex triagerad, inga öppna P0/P1): `merge:ready — sha: <40-tecken head-SHA>, at: <ISO8601 UTC>, bugkoll: <bugbot|manual|codex>, triage: <fixat/loggat/avfärdat>, P0/P1: 0` (exempel: `at: 2026-07-29T02:15:00Z`). Kommentar, inte PR-body: freshness-grinden använder GitHubs `created_at` på kommentaren som tidpunkt, och en body har ingen sådan. `at:`-fältet är läsbarhet för människor — det avgör ingenting, eftersom författarstyrd text inte kan vara ordningsgrund i en säkerhetsgrind.
+1. PR-agenten skriver sign-off-raden **som PR-kommentar**, **först efter** att bug-efterkontrollen är klar (bugbot/Codex triagerad, inga öppna P0/P1): `merge:ready — sha: <40-tecken head-SHA>, at: <ISO8601 UTC>, bugkoll: <bugbot|bugbot-local|manual|codex>, triage: <fixat/loggat/avfärdat>, P0/P1: 0` (exempel: `at: 2026-07-29T02:15:00Z`). Kommentar, inte PR-body: freshness-grinden använder GitHubs `created_at` på kommentaren som tidpunkt, och en body har ingen sådan. `at:`-fältet är läsbarhet för människor — det avgör ingenting, eftersom författarstyrd text inte kan vara ordningsgrund i en säkerhetsgrind.
 2. **Sedan** sätter samma agent labeln: `gh pr edit <n> --add-label "merge:ready"`.
 
    **Ordningen är inte kosmetisk — omvänd ordning fäller grinden mot dig.** `merge-ready-freshness.yml` triggar bland annat på bot-`issue_comment`, och sekunder efter att en PR öppnas postar Codex och Bugbot nästan alltid en kommentar (numera ofta bara "usage limit reached"). Den körningen tar ~20 s och läser PR:ens labels **och** kommentarer från API:t när den väl kommer fram. Sätter du labeln inuti det fönstret, innan sign-off-kommentaren finns, ser körningen en labelad PR utan sign-off och river labeln med skälet "merge:ready utan giltig sign-off-rad" — trots grön grind och oförändrad head-SHA.
@@ -118,8 +118,11 @@ Att merga med kvarvarande P2 **utan** att fixa eller logga dem är ett regelbrot
 **Codex-review (`chatgpt-codex-connector`) kan vara på eller av beroende på credits** (av 2026-07-02, tillbaka 2026-07-08). Vänta aldrig på att den ska dyka upp och räkna inte dess frånvaro som ett gap — men **finns en Codex-review ska den läsas och triageras** (den kan landa strax efter grönt CI). Oavsett Codex är det **agenten som skapade PR:en** som äger bugg-efterkontrollen, före eller direkt efter att PR:en öppnas:
 
 - Spawna `bugbot`-subagenten (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`) eller använd `review-bugbot`-skillen. Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
-- Är Bugbot otillgänglig: gör en strukturerad manuell diff-granskning + repo-verifieringar och dokumentera fynd med fil-/radreferenser.
-- Triagera fynd enligt spårningstabellen ovan (Fixat / Loggat / Avfärdat) och **dokumentera i PR:en** vilken väg som användes (`bugbot` eller `manual local bug review`).
+- **Fallback-stege — hoppa inte över steg 2.** Den GitHub-integrerade Bugbot:en delar teamets budget och postar `Bugbot couldn't run - usage limit reached` när den tar slut (hände 2026-08-01 samtidigt som Codex slog i sitt tak, så #703/#704 stod utan externa ögon). Slut budget på GitHub är **inget skäl att hoppa till manuell review** — den lokala subagenten är en egen väg:
+  1. GitHub-integrerad Bugbot på PR:en.
+  2. Slut/utebliven → **berörd agent kör Cursor Bugbot-passet lokalt** via subagenten ovan.
+  3. Först om även det misslyckas → strukturerad manuell diff-granskning + repo-verifieringar med fil-/radreferenser.
+- Triagera fynd enligt spårningstabellen ovan (Fixat / Loggat / Avfärdat) och **dokumentera i PR:en** vilket steg som användes (`bugbot`, `bugbot-local` eller `manual local bug review`). Samma värde går i `bugkoll:`-fältet i `merge:ready`-sign-offen.
 - P1/High/säkerhet blockerar merge; P2 fixas eller loggas i `BUG-SWARM-BACKLOG.md`.
 
 Den GitHub-integrerade "Cursor Automation: Find critical bugs" kan dessutom sättas att köra på **varje** PR i Cursor-dashboarden som stående skyddsnät.
