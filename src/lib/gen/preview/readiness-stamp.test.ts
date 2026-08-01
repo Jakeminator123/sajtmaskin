@@ -161,6 +161,25 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     expect(recordPreviewRuntimeOutcomeForVersion).not.toHaveBeenCalled();
   });
 
+  it("logs the build-error row only ONCE across repeated failed polls (Bugbot HIGH)", async () => {
+    const failed = {
+      readinessState: "failed" as const,
+      readinessError: "Module not found: radix-ui",
+      regeneratedLockfile: null,
+      httpReady: false,
+    };
+    // Heartbeat (~25s) + preview-status (~15s) both re-stamp `failed` on every
+    // poll; without the per-version guard each would INSERT a new error row.
+    await applyPreviewReadinessOutcome({ chatId: "chat_1", versionId: "v1", resumed: failed });
+    await applyPreviewReadinessOutcome({ chatId: "chat_1", versionId: "v1", resumed: failed });
+    await applyPreviewReadinessOutcome({ chatId: "chat_1", versionId: "v1", resumed: failed });
+
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+    // A DIFFERENT version still gets its own single row.
+    await applyPreviewReadinessOutcome({ chatId: "chat_1", versionId: "v2", resumed: failed });
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(2);
+  });
+
   it("does NOT stamp true on unknown readiness (null) — Bugbot finding 1", async () => {
     await applyPreviewReadinessOutcome({
       chatId: "chat_1",

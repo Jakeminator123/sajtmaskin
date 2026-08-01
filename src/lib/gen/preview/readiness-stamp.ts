@@ -89,7 +89,14 @@ export async function applyPreviewReadinessOutcome(params: {
     if (decision.previewSuccess !== null) {
       await recordPreviewRuntimeOutcomeForVersion(params.versionId, decision.previewSuccess);
     }
-    if (decision.buildError) {
+    // Once-per-version failure log (Bugbot HIGH): heartbeat (~25s) and
+    // preview-status (~15s) both poll and both re-stamp `failed` — but only a
+    // *ready* outcome populates `hasConfirmedPreviewReadyOnInstance`, so without
+    // this guard every failed poll would INSERT another identical error row
+    // forever. Guard the diagnostics write per version per instance so exactly
+    // one build-error row is registered for RepairGate to act on.
+    if (decision.buildError && !failedPreviewVersionIds.has(params.versionId)) {
+      failedPreviewVersionIds.add(params.versionId);
       const { createEngineVersionErrorLogs } = await import(
         "@/lib/db/services/version-errors"
       );
@@ -120,6 +127,15 @@ export async function applyPreviewReadinessOutcome(params: {
 }
 
 const persistedLockfileVersionIds = new Set<string>();
+
+/**
+ * Versions for which a readiness-failure diagnostics row has already been
+ * written on this instance. Prevents heartbeat/status polls from inserting a
+ * duplicate build-error row on every failed poll (Bugbot HIGH) — the false
+ * `preview_success` stamp is monotonic in the writer, but the error-log INSERT
+ * has no such guard on its own.
+ */
+const failedPreviewVersionIds = new Set<string>();
 
 /**
  * One-shot lockfile round-trip (req A2): after the host regenerates a lockfile
@@ -176,7 +192,8 @@ export async function persistRegeneratedLockfileForVersion(
   }
 }
 
-/** Test-only reset of the per-instance persist guard. */
+/** Test-only reset of the per-instance persist + failure-log guards. */
 export function __resetPersistedLockfileGuardForTesting(): void {
   persistedLockfileVersionIds.clear();
+  failedPreviewVersionIds.clear();
 }
