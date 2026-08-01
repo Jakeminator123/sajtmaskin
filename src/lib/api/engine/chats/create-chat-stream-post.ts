@@ -52,10 +52,7 @@ import {
 import { getDossierById } from "@/lib/gen/dossiers";
 import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
 import { compressUrls } from "@/lib/gen/url-compress";
-import {
-  buildPlanSummaryMessage,
-  buildPlanUiPart,
-} from "@/lib/gen/plan/review";
+import { buildPlanModeAssistantMessage } from "@/lib/gen/plan/review";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import {
@@ -653,15 +650,24 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               contentLength: accumulatedContent.length,
             });
           },
-          persistAssistantSummary: async (planData, hasBlockers) => {
+          // Samma persist-kontrakt som follow-up-turen (plan-mode-turn.ts):
+          // en icke-plan-utdata ska persistera sin egen text, inte en påhittad
+          // plansummering.
+          persistAssistantSummary: async (planData, hasBlockers, context) => {
+            const assistantMessage = buildPlanModeAssistantMessage({
+              planData,
+              hasBlockers,
+              hasPlanArtifact: context.hasPlanArtifact,
+              plannerText: context.accumulatedContent,
+              upstreamErrorMessage: context.upstreamErrorMessage,
+            });
             try {
-              const storedPlanPart = buildPlanUiPart(planData);
               await chatRepo.addMessage(
                 plannerChat.id,
                 "assistant",
-                buildPlanSummaryMessage(planData, hasBlockers),
+                assistantMessage.content,
                 undefined,
-                storedPlanPart ? [storedPlanPart] : undefined,
+                assistantMessage.uiParts,
               );
             } catch (error) {
               console.warn("[plan] Failed to persist planner assistant summary:", error);
