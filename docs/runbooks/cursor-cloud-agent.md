@@ -17,6 +17,7 @@ Kanonisk ägare för schema/SSL-mekanik är [`docs/contracts/data-layer.md`](../
 | Service | Command | Notes |
 | ----------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Next.js dev | `node scripts/dev/next-runner.mjs dev` | Starts on port 3000. Bypasses `predev` if DB init already done. Full `npm run dev` runs `predev` first (preflight checks, schema-drift, shadcn sync, db:init). |
+| Preview host | from `preview-host/`: `npm start` (`node src/server.js`) | Separate service on port 8080; materializes generated snapshots into a live preview (F2 render + F3 verify). App points at it via `SAJTMASKIN_PREVIEW_HOST_BASE_URL=http://localhost:8080`. **Has its own `package.json`/lockfile** — the root `npm ci` does NOT install its deps; run `npm ci --prefix preview-host` (or `npm install` in `preview-host/`) once. Only needed for the live-preview step, which also requires a working LLM key. |
 
 ## Gotchas
 
