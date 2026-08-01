@@ -409,6 +409,60 @@ describe("buildDynamicContext", () => {
   });
 
   // ──────────────────────────────────────────────────────────────────
+  // Follow-up route-drift guard (prod 2026-08-01): the model created an
+  // English `/pricing` duplicate + unrequested `/support` next to the
+  // explicitly requested Swedish `/priser`/`/om-oss`. The follow-up prompt
+  // must carry the existing-pages map + no-duplicate contract.
+  // ──────────────────────────────────────────────────────────────────
+  it("renders the existing-route-pages guard on follow-up with previousFilePaths", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Lägg till sidorna /priser och /om-oss",
+      generationMode: "followUp",
+      previousFilePaths: [
+        "app/page.tsx",
+        "app/priser/page.tsx",
+        "app/terms/page.tsx",
+        "components/site-nav.tsx",
+      ],
+      routePlan: {
+        provenance: { primarySource: "prompt", sources: ["prompt"] },
+        siteType: "brochure",
+        reason: "fixture",
+        routes: [
+          { path: "/", name: "Home", intent: "Landing", required: true },
+          { path: "/priser", name: "Priser", intent: "Pricing", required: true },
+        ],
+      },
+    });
+
+    expect(result.context).toContain("## Existing Route Pages (do not duplicate)");
+    expect(result.context).toContain("- `/priser`");
+    expect(result.context).toContain("- `/terms`");
+    expect(result.context).toContain(
+      "Only create NEW pages the user explicitly asked for in this request.",
+    );
+    expect(result.context).toContain(
+      "Never create a route that semantically duplicates an existing or requested page in another language",
+    );
+    const block = result.blocks.find(
+      (candidate) => candidate.title === "Existing Route Pages (do not duplicate)",
+    );
+    expect(block).toMatchObject({ priority: 88, required: false, kept: true });
+  });
+
+  it("does NOT render the existing-route-pages guard on init", () => {
+    const result = buildDynamicContext({
+      intent: "website",
+      userPrompt: "Bygg en hemsida med prissida",
+      generationMode: "init",
+      previousFilePaths: ["app/page.tsx", "app/priser/page.tsx"],
+    });
+
+    expect(result.context).not.toContain("## Existing Route Pages (do not duplicate)");
+  });
+
+  // ──────────────────────────────────────────────────────────────────
   // Capability-hint cleanliness: prompts that are neither 3D nor game
   // MUST NOT emit the 3D / interactive-game capability-hint lines.
   // Reviewers have flagged this several times — it's the single most

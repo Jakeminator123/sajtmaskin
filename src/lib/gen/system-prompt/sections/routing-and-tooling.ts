@@ -10,9 +10,49 @@ import { FEATURES } from "@/lib/config";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import { renderErrorLogRagBlockLines } from "@/lib/gen/rag/error-log-retriever";
 import type { RoutePlan } from "../../route-plan";
+import { extractAppRoutePathsFromFilePaths } from "../../route-plan";
 import type { ScaffoldManifest } from "../../scaffolds/types";
 import type { BuildSpec } from "../../build-spec";
 import { renderRecurringFailuresBlockLines } from "../recurring-failures";
+
+/**
+ * Follow-up only: render the routes that ALREADY exist in the previous
+ * version (every `app/**` / `src/app/**` `page.tsx|jsx`, normalized to route
+ * paths) together with an explicit no-duplicate / no-unrequested-pages
+ * contract.
+ *
+ * Motivation (prod 2026-08-01, imported v0-template): a follow-up that asked
+ * for the NEW pages `/priser` and `/om-oss` also produced `app/pricing/page.tsx`
+ * (an English duplicate of the requested Swedish pricing page) and an
+ * unrequested `app/support/page.tsx`. The Route Plan block lists the planned
+ * canonical paths, but nothing tied "existing pages + explicitly requested
+ * pages" together as a page-creation constraint — and the language-duplicate
+ * rule only rendered in the non-compact branch, which most follow-ups skip.
+ */
+export function renderExistingRoutePagesBlock(params: {
+  isFollowUp: boolean;
+  previousFilePaths?: string[] | null;
+}): string[] {
+  if (!params.isFollowUp) return [];
+  const filePaths = params.previousFilePaths ?? [];
+  if (filePaths.length === 0) return [];
+  const routePaths = extractAppRoutePathsFromFilePaths(filePaths).sort();
+  if (routePaths.length === 0) return [];
+
+  return [
+    "## Existing Route Pages (do not duplicate)",
+    "",
+    "These route pages already exist in the current project (derived from the previous version's `app/**/page.tsx` files):",
+    "",
+    ...routePaths.map((path) => `- \`${path}\``),
+    "",
+    "Page-creation rules for this follow-up:",
+    "- Only create NEW pages the user explicitly asked for in this request.",
+    "- Never create a route that semantically duplicates an existing or requested page in another language (e.g. do NOT add `/pricing` when `/priser` exists or was requested).",
+    "- Do not remove or rename existing routes unless the user explicitly asked for it.",
+    "",
+  ];
+}
 
 export function renderRoutePlanBlock(params: {
   routePlan: RoutePlan | null | undefined;

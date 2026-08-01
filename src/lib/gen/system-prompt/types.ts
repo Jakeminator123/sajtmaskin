@@ -151,6 +151,16 @@ export interface DynamicContextOptions {
   /** Dossier-poolen (legoklossar) selected for this request — opt-in via FEATURES.useDossierPipeline. */
   dossierSelection?: DossierSelectionResult | null;
   /**
+   * All file paths from the previous version (follow-up only). Feeds the
+   * `## Existing Route Pages (do not duplicate)` block: existing App Router
+   * page files (`page.tsx` under `app/` or `src/app/`) are normalized to
+   * route paths and rendered with an explicit no-duplicate /
+   * no-unrequested-pages contract, so a follow-up asking for `/priser`
+   * cannot also grow an English `/pricing` twin or unrequested extra pages
+   * (prod route-drift 2026-08-01).
+   */
+  previousFilePaths?: string[] | null;
+  /**
    * Integration capabilities the F2 mute removed from this round. Rendered as
    * an explicit counter-instruction in the F2 contract block so the model
    * builds the surface instead of hand-rolling the integration.
