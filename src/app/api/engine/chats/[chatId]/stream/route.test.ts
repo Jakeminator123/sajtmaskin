@@ -50,6 +50,7 @@ const createPreGenerationContractGateReadableStream = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() =>
   vi.fn(async (): Promise<Array<{ id: string }>> => []),
 );
+const updateChatScaffoldId = vi.hoisted(() => vi.fn());
 const readyF3GateResult = {
   ok: true,
   spec: {
@@ -325,7 +326,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateChatProjectId,
   addMessage,
   createChat: vi.fn(),
-  updateChatScaffoldId: vi.fn(),
+  updateChatScaffoldId,
   failVersionVerification,
   getVersionById,
   getVersionsByChat,
@@ -537,6 +538,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
   beforeEach(async () => {
     vi.clearAllMocks();
     addMessage.mockResolvedValue(null);
+    updateChatScaffoldId.mockResolvedValue(true);
     failVersionVerification.mockResolvedValue(null);
     createPromptLog.mockResolvedValue(undefined);
     buildFileContext.mockReset();
@@ -909,6 +911,61 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(resolveOrchestrationBase).toHaveBeenCalled();
     expect(createGenerationPipeline).not.toHaveBeenCalled();
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
+  });
+
+  // M#gs2: a gate-only exit rematched on an INCOMPLETE prompt. Persisting that
+  // match would make the answering turn read it as `persistedScaffoldId` and
+  // skip the rematch, so the unfinished guess would stick for the whole chat.
+  it("does NOT persist the rematched scaffold when the contract gate aborts the round", async () => {
+    buildContractClarificationQuestion.mockReturnValueOnce({
+      kind: "auth",
+      question: "Vilken autentisering ska vi bygga mot innan vi går vidare?",
+      options: ["Ingen auth ännu", "Clerk"],
+      blocking: true,
+      reason: "Auth krävs men provider är inte vald ännu.",
+    });
+    createPreGenerationContractGateReadableStream.mockReturnValueOnce(
+      buildPipelineStream([{ event: "done", data: {} }]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveOrchestrationBase).toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(updateChatScaffoldId).not.toHaveBeenCalled();
+  });
+
+  it("persists the rematched scaffold once the contract gate lets the round through", async () => {
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Updated follow-up</main>" } },
+        { event: "done", data: {} },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateChatScaffoldId).toHaveBeenCalledWith("chat_1", "scaffold_1");
   });
 
   it("does NOT prewarm a plan-mode follow-up", async () => {
