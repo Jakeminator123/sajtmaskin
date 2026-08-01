@@ -160,5 +160,3 @@ _parkering/
 # semantisk sökning). Öppna med @ eller Read vid behov.
 src/lib/templates/template-blob-manifest.json
 src/lib/templates/templates.json
-
-config/scaffold-variants/_index/variant-embeddings.json
