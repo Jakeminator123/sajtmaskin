@@ -334,6 +334,42 @@ describe("handleSseStream", () => {
     expect(spies.onGenerationComplete).toHaveBeenCalled();
   });
 
+  // Bugbot på MVP-svepet: serverns persist-beslut räknar pages/scope som
+  // plansubstans (`planArtifactHasSubstance`) — klienten måste använda samma
+  // predikat, annars får en sidplan utan steg fel-toasten trots att servern
+  // sparade en riktig plan.
+  it("behandlar en pages/scope-only-plan (utan steg) som lyckad", async () => {
+    const planArtifact = {
+      goal: "Ny sajtstruktur",
+      scope: ["app/om/page.tsx", "app/kontakt/page.tsx"],
+      pages: [
+        { name: "Om oss", path: "/om" },
+        { name: "Kontakt", path: "/kontakt" },
+      ],
+      steps: [],
+      blockers: [],
+    };
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: "Här är sidplanen." }, "");
+        onEvent("done", { chatId: "chat_1", planMode: true, planArtifact, versionId: null }, "");
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith("Plan skapad!");
+    expect(store.getMessages()[0]?.uiParts?.some((part) => part.type === "plan")).toBe(true);
+  });
+
   // Bugbot på #629: plan-mode-stream skickar `resolvePlanArtifact(...) ?? {}`,
   // så fältet finns även när planeraren inte producerade något parsbart. Ett tomt
   // artefaktobjekt får inte räknas som en plan — då hade en misslyckad körning

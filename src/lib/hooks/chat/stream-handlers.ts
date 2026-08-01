@@ -24,7 +24,7 @@ import {
   recordStreamText,
 } from "./helpers";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
-import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
+import { planArtifactHasSubstance } from "@/lib/gen/plan/review";
 import { runPostGenerationChecks } from "./post-checks";
 import {
   F3_APPROVAL_NOTHING_TO_BUILD_REASON,
@@ -1091,12 +1091,13 @@ export async function handleSseStream(
             // rått blev en misslyckad planering "Plan skapad!" plus ett tomt
             // kort — falsk grönt. Detta är samma normalisering som
             // `BuildPlanCard` renderar ur, så toasten och kortet kan inte säga
-            // emot varandra.
-            const hasPlanArtifact = (() => {
-              const plan = normalizePlanArtifact(doneData.planArtifact);
-              if (!plan) return false;
-              return plan.steps.length > 0 || plan.blockers.length > 0;
-            })();
+            // emot varandra. Substanspredikatet delas med serverns
+            // persist-beslut (`planArtifactHasSubstance` räknar även
+            // pages/scope — en sidplan utan steg är en riktig plan), så
+            // klientens toast kan inte säga emot vad servern sparade.
+            const hasPlanArtifact = planArtifactHasSubstance(
+              (doneData.planArtifact ?? null) as Record<string, unknown> | null,
+            );
             const hasRecoveredArtifact =
               awaitingInput ||
               Boolean(resolvedVersionId) ||
