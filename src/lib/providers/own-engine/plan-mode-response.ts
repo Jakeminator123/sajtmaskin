@@ -5,7 +5,10 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { createSSEHeaders } from "@/lib/streaming";
 import { parsePlanResponse } from "@/lib/gen/plan/prompt";
 import { enrichPlanArtifactForReview } from "@/lib/gen/plan/review";
-import { createPlanModeStream } from "@/lib/gen/stream/plan-mode-stream";
+import {
+  createPlanModeStream,
+  type PlanModeResolvedContext,
+} from "@/lib/gen/stream/plan-mode-stream";
 
 type PlanArtifact = Record<string, unknown>;
 
@@ -31,7 +34,11 @@ export function createOwnEnginePlanModeResponse(params: {
   buildSpec: BuildSpec;
   resolvedScaffold?: ScaffoldManifest | null;
   scaffoldMode: "auto" | "manual" | "off";
-  persistAssistantSummary: (planData: PlanArtifact, hasBlockers: boolean) => Promise<void>;
+  persistAssistantSummary: (
+    planData: PlanArtifact,
+    hasBlockers: boolean,
+    context: PlanModeResolvedContext,
+  ) => Promise<void>;
   buildDonePayload: (planData: PlanArtifact, hasBlockers: boolean) => Record<string, unknown>;
   commitCredits: () => Promise<void>;
   commitCreditsPosition?: "before-done" | "after-done";

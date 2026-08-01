@@ -172,6 +172,7 @@ Bedömning: <lyckad / delvis / misslyckad> — <1–2 meningar varför>
 | Telemetri | retry_count, autofix, quality_gate, preview_success, preflight_errors | generation_telemetry |
 | Pipeline-fel | level/category/message (+ `meta` när relevant) | engine_version_error_logs |
 | F3 env-readiness | `category=f3-readiness:missing-env` → `meta.missingByIntegration` | engine_version_error_logs |
+| Plan-lägets turer | `event=plan_mode_turn_entry` / `plan_mode_turn_exit` (→ `meta.outcome`) · `plan_mode_credit_gate_rejected`. Entry **utan** exit = turen dog tyst mellan planner-start och persistering | prompt_logs |
 | OpenClaw-fynd | severity/build_result/repair_outcome | oc_debug_findings (+ [BUGGFYND]) |
 | Deploy | status, url | deployments |
 | Vercel build | pass/fail + felrad | MCP get_deployment_build_logs |

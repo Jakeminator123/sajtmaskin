@@ -83,6 +83,23 @@ export const QUALITY_GATE_COMMANDS: Record<QualityGateCheck, string> = {
   build: "node ./node_modules/next/dist/bin/next build",
 };
 
+/**
+ * Requested canonical checks that the verify lane never reported back.
+ * Non-canonical entries are ignored: only checks with a gate command
+ * ({@link QUALITY_GATE_COMMANDS}) are ones the lane is expected to run.
+ */
+function missingRequestedChecks(
+  requested: readonly QualityGateCheck[],
+  results: readonly QualityGateCheckResult[],
+): QualityGateCheck[] {
+  const returned = new Set(results.map((result) => result.check));
+  return [...new Set(requested)].filter(
+    (check) =>
+      Object.prototype.hasOwnProperty.call(QUALITY_GATE_COMMANDS, check) &&
+      !returned.has(check),
+  );
+}
+
 function isSafeRelativePath(filePath: string): boolean {
   if (!filePath || filePath.includes("\0")) return false;
   if (filePath.startsWith("/") || filePath.startsWith("\\")) return false;
@@ -169,6 +186,24 @@ export async function runQualityGateChecks(params: {
     throw new QualityGateUnavailableError(verify.message, verify.retryable);
   }
 
+  // Completeness (M#gs8): an `ok:true` response that silently dropped a
+  // requested check would otherwise read as a green RenderGate/ReleaseGate —
+  // every returned row can be `passed` while `typecheck` or `build` never ran.
+  // Only applied while nothing failed: the verify lane legitimately stops early
+  // on a failed install, and that response must keep its (repairable) failure
+  // verdict instead of turning into an infra error. Not retryable: the lane
+  // answered, so an immediate retry against the same host returns the same
+  // incomplete answer.
+  if (!verify.results.some((result) => !result.passed)) {
+    const missing = missingRequestedChecks(params.checks, verify.results);
+    if (missing.length > 0) {
+      throw new QualityGateUnavailableError(
+        `Quality gate returned an incomplete result: ${missing.join(", ")} missing from the verify response.`,
+        false,
+      );
+    }
+  }
+
   return {
     results: verify.results,
     verifyLaneDurationMs: verify.durationMs,
@@ -178,6 +213,13 @@ export async function runQualityGateChecks(params: {
   };
 }
 
+/**
+ * Green only when the returned rows are non-empty and all `passed`. Response
+ * COMPLETENESS (every requested check actually reported back) is enforced
+ * upstream in {@link runQualityGateChecks}, which turns an incomplete verify
+ * response into a `QualityGateUnavailableError` before any caller can read it
+ * as a pass.
+ */
 export function qualityGateAllPassed(results: QualityGateCheckResult[]): boolean {
   return results.length > 0 && results.every((result) => result.passed);
 }

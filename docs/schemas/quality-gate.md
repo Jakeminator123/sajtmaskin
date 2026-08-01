@@ -132,6 +132,17 @@ Verify-lane kan också returnera informativa install-signaler i `results[]`:
 | `install-cache-share` | Verify workspace kopierade `node_modules` från live workspace vid exakt dependency fingerprint + install-policy-match; installationen hoppas då över |
 | `install-peer-fallback` | Peer-konflikt upptäcktes och fallback med `--legacy-peer-deps` användes |
 
+### Svaret måste vara komplett (M#gs8)
+
+`runQualityGateChecks` kräver att **varje begärd** check ovan finns bland
+`results[]`. Saknas någon i ett svar där inget failat behandlas körningen som
+`unavailable` (`QualityGateUnavailableError`, ej retrybar) — samma fail-closed-väg
+som en onåbar verify-lane, i stället för att `qualityGateAllPassed` läser de
+returnerade raderna som "alla passed". Kollen gäller bara när inget failat:
+verify-lanen avbryter medvetet före de kanoniska checkarna när `install` failar,
+och det svaret är redan rött (och ofta repairable), så det behåller sitt
+failure-verdikt.
+
 ## Standardprofiler
 
 Profilerna laddas från `config/ai_models/manifest.json` under
