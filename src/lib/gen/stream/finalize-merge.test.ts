@@ -295,6 +295,40 @@ describe("locale-superseded scaffold routes", () => {
     expect(paths.has("app/blog/page.tsx")).toBe(true);
     expect(paths.has("app/blog/[slug]/page.tsx")).toBe(true);
   });
+
+  // The mirror direction, exercised through the real merge rather than the
+  // helper alone. While the merge asked for superseded routes with a hardcoded
+  // `"sv"`, this case reported nothing and the orphaned `/kontakt` survived.
+  it("drops a Swedish scaffold route when the model emitted the English one", () => {
+    const scaffold = makeScaffold();
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-locale-3",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        { path: "app/page.tsx", content: "export default function Page() { return <h1>Home</h1>; }", language: "tsx" },
+        {
+          path: "app/contact/page.tsx",
+          content: "export default function Contact() { return <h1>Contact</h1>; }",
+          language: "tsx",
+        },
+      ],
+      resolvedScaffold: {
+        ...scaffold,
+        files: [
+          ...scaffold.files,
+          {
+            path: "app/kontakt/page.tsx",
+            content: "export default function Kontakt() { return <h1>Kontakt</h1>; }",
+          },
+        ],
+      } as unknown as ScaffoldManifest,
+      previousFiles: undefined,
+    });
+
+    const paths = new Set((JSON.parse(result.filesJson) as Array<{ path: string }>).map((f) => f.path));
+    expect(paths.has("app/contact/page.tsx")).toBe(true);
+    expect(paths.has("app/kontakt/page.tsx")).toBe(false);
+  });
 });
 
 describe("explicit dossier removal", () => {

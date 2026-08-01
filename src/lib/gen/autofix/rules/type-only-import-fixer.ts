@@ -25,7 +25,7 @@
  */
 
 import type { FixEntry } from "../types";
-import { bindingNameOf, classifyOccurrence, escapeRegex } from "./type-value-position";
+import { bindingNameOf, indexIdentifierUsage, isUsedOnlyAsType } from "./type-value-position";
 
 const IMPORT_RE =
   /^(\s*)import\s+\{\s*([^}]+?)\s*\}\s+from\s+(['"][^'"]+['"]);?\s*$/gm;
@@ -36,31 +36,10 @@ type FixResult = {
   fixes: FixEntry[];
 };
 
-/**
- * Heuristically classify whether `symbol` is referenced only in TypeScript
- * type positions in `code`. Conservative: returns false if any reference
- * looks like a value usage OR if any reference cannot be classified.
- */
-function isUsedOnlyAsType(code: string, symbol: string): boolean {
-  const usageRe = new RegExp(`\\b${escapeRegex(symbol)}\\b`, "g");
-  let usageCount = 0;
-  let typeUsageCount = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = usageRe.exec(code)) !== null) {
-    usageCount += 1;
-    const verdict = classifyOccurrence(code, match.index, symbol.length);
-    if (verdict === "value") return false;
-    if (verdict === "unknown") return false;
-    typeUsageCount += 1;
-  }
-
-  return usageCount > 0 && typeUsageCount === usageCount;
-}
-
 export function fixTypeOnlyImports(code: string, filePath: string): FixResult {
   if (!code.includes("import")) return { code, fixed: false, fixes: [] };
 
+  const usage = indexIdentifierUsage(code, filePath);
   const replacements: Array<{ start: number; end: number; text: string }> = [];
   const convertedSymbols: string[] = [];
   let match: RegExpExecArray | null;
@@ -98,11 +77,8 @@ export function fixTypeOnlyImports(code: string, filePath: string): FixResult {
     if (specifierTokens.some((s) => /^type\s/.test(s))) continue;
 
     const bindings = specifierTokens.map(bindingNameOf);
-    const restOfCode = code.slice(0, start) + code.slice(end);
 
-    const allTypeOnly = bindings.every((binding) =>
-      isUsedOnlyAsType(restOfCode, binding),
-    );
+    const allTypeOnly = bindings.every((binding) => isUsedOnlyAsType(usage, binding));
     if (!allTypeOnly) continue;
 
     const newImport = `${indent}import type { ${specifierBlob.trim()} } from ${source};`;

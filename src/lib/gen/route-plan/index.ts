@@ -14,7 +14,7 @@ export { findMissingPlannedRoutes } from "./route-plan-verify";
 
 export {
   deduplicateLocaleAlternateRoutes,
-  findLocaleSupersededRoutes,
+  findSupersededScaffoldRoutes,
 } from "./locale-dedupe";
 export { collectExplicitRouteRemovals, detectExplicitPageCount } from "./planning-helpers";
 export { extractAppRoutePathsFromFilePaths, normalizeRoutePath } from "./path-utils";

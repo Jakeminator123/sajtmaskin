@@ -149,7 +149,18 @@ Praktisk rekommendation:
 - Sätt `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens env och samma secret som `PREVIEW_HOST_API_KEY` på preview-hosten
 - Sätt `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES=fly.dev`
 - Låt `PREVIEW_HOST_DATA_DIR=/data` leva på host-sidan (`fly.toml` / Fly-env), inte i repo-rotens `.env.local`
-- Låt paketcacherna ligga på den monterade volymen: `NPM_CONFIG_CACHE=/data/package-caches/npm` (plus `PNPM_STORE_DIR` / `YARN_CACHE_FOLDER`) i `fly.toml`. Fly-maskinens rootfs är ett litet efemärt lager (~8 GB) som ingen städrutin återvinner — npm:s default (`/root/.npm`) fyllde det till 0 byte fritt 2026-07-31, varpå varje preview-boot dog med `ENOSPC` medan `/data` fortfarande hade 17 GB kvar. `runtime.js` sätter samma värden per install, och cachen städas nu av `cleanupPreviewHostStorage`. Storleksgränsen styrs av `PREVIEW_HOST_PACKAGE_CACHE_MAX_BYTES` (default 6 GB; 0 = obegränsat). Akut tömning: `POST /admin/cleanup?purgeCaches=1`. Diskläget syns i `GET /admin/storage`.
+- Låt paketcacherna ligga på den monterade volymen. Fly-maskinens rootfs är ett litet efemärt lager (~8 GB) som ingen städrutin återvinner — npm:s default (`/root/.npm`) fyllde det till 0 byte fritt 2026-07-31, varpå varje preview-boot dog med `ENOSPC` medan `/data` fortfarande hade 17 GB kvar. `runtime.js` sätter värdena per install; `fly.toml` sätter samma värden för allt som kör utanför den vägen. **Varje nyckel måste vara den som verktyget faktiskt läser** — fel namn syns inte, verktyget använder bara tyst sin rootfs-default igen:
+
+  | Verktyg | Nyckel | Sökväg |
+  |---|---|---|
+  | npm | `NPM_CONFIG_CACHE` | `/data/package-caches/npm` |
+  | pnpm 11+ | `PNPM_CONFIG_STORE_DIR` (**inte** `PNPM_STORE_DIR` — pnpm läser bara `PNPM_CONFIG_*`) | `/data/package-caches/pnpm` |
+  | Yarn 1 | `YARN_CACHE_FOLDER` | `/data/package-caches/yarn` |
+  | Yarn 2+ | `YARN_GLOBAL_FOLDER` (global cache är default och åsidosätter `cacheFolder`) | `/data/package-caches/yarn-berry` |
+  | Corepack | `COREPACK_HOME` | `/data/package-caches/corepack` |
+  | XDG-fallback | `XDG_DATA_HOME`, `XDG_CACHE_HOME` | `/data/package-caches/xdg-*` |
+
+  Cachen städas av `cleanupPreviewHostStorage` och tar samma kö som installs, så en bakgrundsstädning aldrig river cachen mitt under en pågående install. Storleksgränsen styrs av `PREVIEW_HOST_PACKAGE_CACHE_MAX_BYTES` (default 6 GB; 0 = obegränsat). Akut tömning: `POST /admin/cleanup?purgeCaches=1`. Diskläget syns i `GET /admin/storage` (som numera går igenom volymen en gång, asynkront).
 - Låt `SAJTMASKIN_PREVIEW_DISABLE_HMR=true` (default) ligga på host-sidan; ändra bara om du behöver hot-reload mellan kod-ändringar i en pågående preview-VM
 
 När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host som den aktiva tier-2-vägen.

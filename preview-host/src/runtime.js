@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require("node:fs");
+const fsp = require("node:fs/promises");
 const net = require("node:net");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
@@ -60,6 +61,21 @@ const PACKAGE_CACHE_DIR = path.join(getDataDir(), "package-caches");
 const NPM_CACHE_DIR = path.join(PACKAGE_CACHE_DIR, "npm");
 const PNPM_STORE_DIR = path.join(PACKAGE_CACHE_DIR, "pnpm");
 const YARN_CACHE_DIR = path.join(PACKAGE_CACHE_DIR, "yarn");
+// Yarn Berry (v2+) ignores `cacheFolder` whenever `enableGlobalCache` is on —
+// which is the default in Yarn 4 — and writes to `globalFolder` instead
+// (`~/.yarn/berry`). Redirecting only YARN_CACHE_FOLDER would therefore leave
+// every Berry project's cache on the rootfs.
+const YARN_GLOBAL_DIR = path.join(PACKAGE_CACHE_DIR, "yarn-berry");
+// Corepack downloads the pinned package manager itself (`packageManager` in the
+// generated project's package.json) and caches it under `$HOME/.cache/node/corepack`.
+// The Dockerfile runs `corepack enable`, so this path is live on every install.
+const COREPACK_HOME_DIR = path.join(PACKAGE_CACHE_DIR, "corepack");
+// Belt and braces for anything that resolves its own default through the XDG
+// spec rather than an explicit variable — notably pnpm's default store
+// (`$XDG_DATA_HOME/pnpm/store`), which is what a pnpm build falls back to if
+// its config key is ever wrong again.
+const XDG_DATA_DIR = path.join(PACKAGE_CACHE_DIR, "xdg-data");
+const XDG_CACHE_DIR = path.join(PACKAGE_CACHE_DIR, "xdg-cache");
 // Upper bound for the whole package-cache tree. A warm cache makes installs
 // much faster, so we keep it — but an unbounded one is what filled the rootfs.
 // Exceeding this drops the cache wholesale on the next cleanup pass; npm
@@ -113,6 +129,23 @@ let verifyQueue = Promise.resolve();
 // går nu genom en gemensam kö med concurrency 1; fingerprint-oförändrade boots
 // rör aldrig kön (de skippar install helt).
 let installQueue = Promise.resolve();
+
+/**
+ * Runs `task` in the global install slot: it waits for the in-flight install
+ * and holds off the next one.
+ *
+ * Package-cache purges have to take the same slot as installs. The cache is
+ * shared mutable state, and an `rm -rf` landing between npm's "read tarball
+ * from cache" and "unpack it" fails the install with a bogus ENOENT/EINTEGRITY
+ * that looks like a broken project. The background sweep (every 10 min), the
+ * opportunistic sweep and `POST /admin/cleanup` all run on timers or operator
+ * whim, so without this they were free to fire mid-install.
+ */
+function runInInstallSlot(task) {
+  const next = installQueue.catch(() => undefined).then(task);
+  installQueue = next.catch(() => undefined);
+  return next;
+}
 // Öppna preview-sockets (proxied HMR-WS eller host-hållna stubbar) per chat.
 // En öppen socket ≈ en öppen iframe — idle-reapern stoppar aldrig en runtime
 // som fortfarande har en betraktare, även om sidan inte genererar HTTP-trafik.
@@ -335,7 +368,12 @@ function isNoSpaceError(error) {
 const ENV_ALLOWLIST = new Set([
   "PATH", "HOME", "USER", "SHELL", "LANG", "TERM",
   "NODE_ENV", "NODE_OPTIONS", "NODE_PATH",
-  "NPM_CONFIG_REGISTRY", "NPM_CONFIG_CACHE",
+  "NPM_CONFIG_REGISTRY",
+  // Cache locations: defaults come from packageCacheEnv(); listing them here
+  // lets fly.toml / the host env redirect a cache without a code change.
+  "NPM_CONFIG_CACHE", "PNPM_CONFIG_STORE_DIR",
+  "YARN_CACHE_FOLDER", "YARN_GLOBAL_FOLDER",
+  "COREPACK_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME",
   "HOSTNAME", "PORT",
   "NEXT_TELEMETRY_DISABLED",
   "SAJTMASKIN_PREVIEW_BASE_PATH",
@@ -351,7 +389,15 @@ const ENV_ALLOWLIST_PREFIXES = ["NEXT_PUBLIC_"];
  * package manager's own default location.
  */
 function ensurePackageCacheDirs() {
-  for (const dir of [NPM_CACHE_DIR, PNPM_STORE_DIR, YARN_CACHE_DIR]) {
+  for (const dir of [
+    NPM_CACHE_DIR,
+    PNPM_STORE_DIR,
+    YARN_CACHE_DIR,
+    YARN_GLOBAL_DIR,
+    COREPACK_HOME_DIR,
+    XDG_DATA_DIR,
+    XDG_CACHE_DIR,
+  ]) {
     try {
       fs.mkdirSync(dir, { recursive: true });
     } catch {
@@ -360,14 +406,39 @@ function ensurePackageCacheDirs() {
   }
 }
 
+/**
+ * Every environment variable that moves a package manager's on-disk cache off
+ * the rootfs and onto the volume.
+ *
+ * Each key here is the one the tool actually reads — verified against upstream
+ * docs, because guessing costs a wedged VM:
+ *   - npm      → `NPM_CONFIG_CACHE`
+ *   - pnpm 11+ → `PNPM_CONFIG_STORE_DIR` (pnpm dropped `npm_config_*`, and
+ *                plain `PNPM_STORE_DIR` was never a thing)
+ *   - pnpm <11 → falls back to `$XDG_DATA_HOME/pnpm/store`
+ *   - Yarn 1   → `YARN_CACHE_FOLDER`
+ *   - Yarn 2+  → `YARN_GLOBAL_FOLDER` (global cache is the default and wins
+ *                over `cacheFolder`)
+ *   - Corepack → `COREPACK_HOME`
+ */
+function packageCacheEnv() {
+  return {
+    NPM_CONFIG_CACHE: NPM_CACHE_DIR,
+    PNPM_CONFIG_STORE_DIR: PNPM_STORE_DIR,
+    YARN_CACHE_FOLDER: YARN_CACHE_DIR,
+    YARN_GLOBAL_FOLDER: YARN_GLOBAL_DIR,
+    COREPACK_HOME: COREPACK_HOME_DIR,
+    XDG_DATA_HOME: XDG_DATA_DIR,
+    XDG_CACHE_HOME: XDG_CACHE_DIR,
+  };
+}
+
 function sanitizedEnv(overrides = {}) {
   const out = {};
   // Keep every package manager's cache on the mounted volume (see
   // PACKAGE_CACHE_DIR). Set before the allowlist copy so an explicitly
   // provided NPM_CONFIG_CACHE in the host env still wins.
-  out.NPM_CONFIG_CACHE = NPM_CACHE_DIR;
-  out.PNPM_STORE_DIR = PNPM_STORE_DIR;
-  out.YARN_CACHE_FOLDER = YARN_CACHE_DIR;
+  Object.assign(out, packageCacheEnv());
   // pnpm 10+/11 blocks dependency build scripts by default (strictDepBuilds),
   // so `pnpm install` exits non-zero with ERR_PNPM_IGNORED_BUILDS for any
   // package that ships an install script — including @tailwindcss/oxide,
@@ -576,11 +647,9 @@ async function runInstallCommandWithFallback(workspaceDir, install) {
   // två tunga `npm install` aldrig slåss om VM:ns RAM samtidigt (OOM-mönstret
   // i Fly-loggarna 2026-07-02). Kön håller inga andra lås medan den väntar,
   // så den kan inte deadlocka mot verifyQueue (som bara väntar på den härifrån).
-  const task = installQueue
-    .catch(() => undefined)
-    .then(() => runInstallCommandWithFallbackUnqueued(workspaceDir, install));
-  installQueue = task.catch(() => undefined);
-  return task;
+  return runInInstallSlot(() =>
+    runInstallCommandWithFallbackUnqueued(workspaceDir, install),
+  );
 }
 
 async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
@@ -628,7 +697,9 @@ async function runInstallCommandWithFallbackUnqueued(workspaceDir, install) {
   // this host that grows without bound — and try once more. Without this the
   // VM stays wedged for every chat until someone redeploys it by hand.
   if (isNoSpaceInstallFailure(primary.output)) {
-    const purge = await cleanupPackageCaches({ force: true });
+    // Unqueued: we are inside the install slot already (see the doc comment on
+    // `cleanupPackageCachesUnqueued`).
+    const purge = await cleanupPackageCachesUnqueued({ force: true });
     const retryStartedAt = Date.now();
     const retried = await runAttempt(install.command);
     if (retried.exitCode === 0) {
@@ -2705,14 +2776,27 @@ async function stopStaleRuntimes(nowMs) {
   };
 }
 
-function directorySizeBytes(targetPath) {
+/**
+ * Recursive byte count for a directory tree — asynchronous on purpose.
+ *
+ * This process is also the HTTP proxy that serves every live preview, so a
+ * synchronous walk stalls all of them. The package cache is allowed to reach
+ * several GB spread over hundreds of thousands of small files (npm's `_cacache`
+ * writes one file per tarball plus index shards), which made the old
+ * `readdirSync`/`statSync` version a multi-second event-loop block on the very
+ * code path that reports "is the disk full?".
+ *
+ * Directories are read one at a time: the goal is to yield often, not to
+ * saturate the disk queue with a metadata scan that nothing is waiting on.
+ */
+async function directorySizeBytes(targetPath) {
   let total = 0;
   const stack = [targetPath];
   while (stack.length > 0) {
     const current = stack.pop();
     let entries;
     try {
-      entries = fs.readdirSync(current, { withFileTypes: true });
+      entries = await fsp.readdir(current, { withFileTypes: true });
     } catch {
       continue;
     }
@@ -2723,7 +2807,9 @@ function directorySizeBytes(targetPath) {
         continue;
       }
       try {
-        total += fs.statSync(full).size;
+        // lstat: a symlink must count as the link, never as its target — the
+        // target may live outside the tree (or be counted again inside it).
+        total += (await fsp.lstat(full)).size;
       } catch {
         // best-effort
       }
@@ -2738,11 +2824,23 @@ function directorySizeBytes(targetPath) {
  * `force` drops the whole cache regardless of size — used by the ENOSPC retry
  * path, where reclaiming space matters more than a warm cache.
  */
-async function cleanupPackageCaches({ force = false } = {}) {
+async function cleanupPackageCaches(options = {}) {
+  return runInInstallSlot(() => cleanupPackageCachesUnqueued(options));
+}
+
+/**
+ * Cache cleanup for callers that ALREADY hold the install slot.
+ *
+ * The ENOSPC retry inside `runInstallCommandWithFallbackUnqueued` is the only
+ * such caller: it runs between two install attempts of its own install, so
+ * going through `runInInstallSlot` there would wait on a slot it is itself
+ * holding — a deadlock that would hang the queue for every later boot.
+ */
+async function cleanupPackageCachesUnqueued({ force = false } = {}) {
   const result = { purgedCache: false, cacheBytesBefore: 0, removedNpmLogs: 0 };
   if (!fs.existsSync(PACKAGE_CACHE_DIR)) return result;
 
-  result.cacheBytesBefore = directorySizeBytes(PACKAGE_CACHE_DIR);
+  result.cacheBytesBefore = await directorySizeBytes(PACKAGE_CACHE_DIR);
   const overBudget =
     PACKAGE_CACHE_MAX_BYTES > 0 && result.cacheBytesBefore > PACKAGE_CACHE_MAX_BYTES;
   if (force || overBudget) {
@@ -2904,18 +3002,30 @@ module.exports = {
   sweepIdleRuntimes,
   cleanupPreviewHostStorage,
   cleanupPackageCaches,
-  describePackageCacheStorage() {
+  PACKAGE_CACHE_DIR,
+  /**
+   * `knownBytes` lets a caller that has already measured the tree (the storage
+   * report walks the whole volume once) skip the walk. The cache is the most
+   * file-dense directory on the host, so measuring it twice per request is the
+   * difference between one traversal and two.
+   */
+  async describePackageCacheStorage({ knownBytes } = {}) {
     return {
       dir: PACKAGE_CACHE_DIR,
       exists: fs.existsSync(PACKAGE_CACHE_DIR),
-      bytes: directorySizeBytes(PACKAGE_CACHE_DIR),
+      bytes: Number.isFinite(knownBytes)
+        ? knownBytes
+        : await directorySizeBytes(PACKAGE_CACHE_DIR),
       maxBytes: PACKAGE_CACHE_MAX_BYTES > 0 ? PACKAGE_CACHE_MAX_BYTES : null,
     };
   },
+  directorySizeBytes,
   __testing: {
     bootRuntimeForSession,
     isNoSpaceInstallFailure,
     sanitizedEnv,
+    runInInstallSlot,
+    cleanupPackageCachesUnqueued,
     PACKAGE_CACHE_DIR,
     NPM_CACHE_DIR,
     dependencyFingerprint,

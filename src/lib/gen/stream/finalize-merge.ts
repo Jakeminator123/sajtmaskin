@@ -12,7 +12,7 @@ import { mapDossierPathToOutput } from "@/lib/gen/dossiers/output-path";
 import { partitionGeneratedFilesForProtectedPaths } from "@/lib/gen/scaffolds/protected-paths";
 import {
   extractAppRoutePathsFromFilePaths,
-  findLocaleSupersededRoutes,
+  findSupersededScaffoldRoutes,
 } from "@/lib/gen/route-plan";
 
 interface ImportFix {
@@ -407,11 +407,11 @@ export function mergeGeneratedProjectFiles({
     // caller knows when the LLM forgot to emit an essential file.
     const llmOnlyScaffoldPaths: string[] = [];
     // Drop scaffold pages whose locale-alternate the model already emitted
-    // (scaffold `/blog` vs generated `/blogg`). Keeping both leaves the
-    // scaffold's copy in the project with nothing linking to it.
-    const supersededRoutes = findLocaleSupersededRoutes(
+    // (scaffold `/blog` vs generated `/blogg`, or the reverse). Keeping both
+    // leaves the scaffold's copy in the project with nothing linking to it.
+    const supersededRoutes = findSupersededScaffoldRoutes(
       extractAppRoutePathsFromFilePaths(generatedFiles.map((file) => file.path)),
-      "sv",
+      extractAppRoutePathsFromFilePaths(resolvedScaffold.files.map((file) => file.path)),
     );
     const supersededScaffoldPaths: string[] = [];
     const scaffoldBase = resolvedScaffold.files

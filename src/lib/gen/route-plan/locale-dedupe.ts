@@ -57,8 +57,8 @@ export function dedupePlannedRoutesInPlaceByLocale<T extends { path: string; req
 }
 
 /**
- * Locale-alternate routes that a scaffold still ships but the generation has
- * already replaced with the project-locale variant.
+ * Scaffold routes that the generation has already replaced with their
+ * locale-alternate (`/blog` superseded by an emitted `/blogg`, or the reverse).
  *
  * `dedupePlannedRoutesInPlaceByLocale` only cleans the PLAN. The scaffold's own
  * files are materialized separately, so a Swedish build kept `app/blog/**` from
@@ -67,24 +67,35 @@ export function dedupePlannedRoutesInPlaceByLocale<T extends { path: string; req
  * where only the Swedish pair was linked from the header — the user saw six
  * pages, three of them unreachable (2026-07-31).
  *
- * Returns the superseded paths (e.g. `["/blog"]`), and only when the kept
- * variant was actually emitted — a scaffold page is never dropped on the guess
- * that something else will replace it.
+ * Deliberately locale-FREE: it compares what the model emitted against what the
+ * scaffold ships, in either direction. Deciding from the project locale instead
+ * would need that locale threaded down into the merge (it is not available
+ * there), and any default would silently be wrong half the time — a `sv`
+ * default leaves an English build's superseded Swedish scaffold pages behind,
+ * which is the same orphaned-page bug with the languages swapped.
+ *
+ * A scaffold page is only dropped when its alternate was actually emitted, so
+ * nothing is removed on the guess that something else will replace it. If the
+ * model emitted BOTH variants it meant to, and both stay.
  */
-export function findLocaleSupersededRoutes(
+export function findSupersededScaffoldRoutes(
   emittedRoutePaths: readonly string[],
-  locale: string,
+  scaffoldRoutePaths: readonly string[],
 ): string[] {
-  const lc = (locale ?? "sv").toLowerCase();
-  const keepKey: "sv" | "en" = lc.startsWith("sv") ? "sv" : "en";
-  const dropKey: "sv" | "en" = keepKey === "sv" ? "en" : "sv";
   const emitted = new Set(emittedRoutePaths.map((path) => normalizeRoutePath(path)));
+  const scaffold = new Set(scaffoldRoutePaths.map((path) => normalizeRoutePath(path)));
 
   const superseded: string[] = [];
   for (const pair of LOCALE_ROUTE_PAIRS) {
-    if (!emitted.has(pair[keepKey])) continue;
-    if (emitted.has(pair[dropKey])) continue; // model deliberately emitted both
-    superseded.push(pair[dropKey]);
+    for (const [kept, dropped] of [
+      [pair.sv, pair.en],
+      [pair.en, pair.sv],
+    ] as const) {
+      if (!emitted.has(kept)) continue;
+      if (emitted.has(dropped)) continue; // model deliberately emitted both
+      if (!scaffold.has(dropped)) continue; // scaffold has nothing to supersede
+      superseded.push(dropped);
+    }
   }
   return superseded;
 }

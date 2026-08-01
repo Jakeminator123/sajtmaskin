@@ -4,6 +4,7 @@ const http = require("node:http");
 const { URL } = require("node:url");
 const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
+const fsp = require("node:fs/promises");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const {
@@ -19,6 +20,8 @@ const {
   cleanupPreviewHostStorage,
   describePackageCacheStorage,
   destroyChatWorkspace,
+  directorySizeBytes,
+  PACKAGE_CACHE_DIR,
   findSessionByChatId,
   getRuntimeStateForChat,
   getSessionChatId,
@@ -46,6 +49,9 @@ const {
   resetPrewarmLeases,
 } = require("./prewarm-leases.js");
 const { sendRootPlaceholderSvg } = require("./placeholder-svg.js");
+
+/** Directory name of the package cache inside `/data`, for the single-walk lookup. */
+const PACKAGE_CACHE_DIR_NAME = path.basename(PACKAGE_CACHE_DIR);
 
 const PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
 const HOST = process.env.HOST ?? "0.0.0.0";
@@ -88,19 +94,18 @@ function formatBytes(bytes) {
   return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
-function getPathSizeBytes(targetPath) {
+async function getPathSizeBytes(targetPath) {
   try {
-    const stats = fs.statSync(targetPath);
-    if (stats.isFile()) return stats.size;
-    if (!stats.isDirectory()) return 0;
-    let total = 0;
-    for (const entry of fs.readdirSync(targetPath)) {
-      total += getPathSizeBytes(path.join(targetPath, entry));
-    }
-    return total;
+    const stats = await fsp.lstat(targetPath);
+    if (!stats.isDirectory()) return stats.size;
+    return await directorySizeBytes(targetPath);
   } catch {
     return 0;
   }
+}
+
+function describeSize(bytes, exists) {
+  return { exists, bytes, human: formatBytes(bytes) };
 }
 
 function readFilesystemUsage(targetPath) {
@@ -148,13 +153,29 @@ function getPreviewStatusSessionId(pathname) {
   return parts[2] ?? "";
 }
 
-function describeStorageState() {
+/**
+ * Snapshot of what occupies the host's disks.
+ *
+ * Async and single-pass by design. The volume is walked exactly ONCE — every
+ * reported path is derived from that walk instead of re-traversing:
+ * `/data`'s own total is the sum of its children, and the workspace / verify /
+ * package-cache entries are those same children looked up by name. The earlier
+ * version called a synchronous walker per path (twice per entry, since `bytes`
+ * and `human` each invoked it) and then walked every child on top, so a
+ * multi-GB cache meant traversing tens of GB of metadata, synchronously, while
+ * the process was also proxying live previews.
+ */
+async function describeStorageState() {
   const dataDir = getDataDir();
   const workspacesDir = path.join(dataDir, "workspaces");
   const verifyWorkspacesDir = path.join(dataDir, "verify-workspaces");
   const storeFilePath = getStoreFilePath();
   const rootFilesystem = readFilesystemUsage("/");
   const dataFilesystem = readFilesystemUsage(dataDir);
+  const children = await describeDataDirChildren(dataDir);
+  const bytesByChild = new Map(children.map((child) => [child.name, child.bytes]));
+  const childBytes = (dir) => bytesByChild.get(path.basename(dir)) ?? 0;
+  const dataDirBytes = children.reduce((sum, child) => sum + child.bytes, 0);
   const store = readStoreSync();
   const nowMs = Date.now();
   const activeLeaseExpiries = Object.values(store.prewarmLeases)
@@ -178,38 +199,35 @@ function describeStorageState() {
       maxEntries: MAX_PREWARM_LEASES,
     },
     paths: {
-      dataDir: {
-        exists: fs.existsSync(dataDir),
-        bytes: getPathSizeBytes(dataDir),
-        human: formatBytes(getPathSizeBytes(dataDir)),
-      },
-      storeFilePath: {
-        exists: fs.existsSync(storeFilePath),
-        bytes: getPathSizeBytes(storeFilePath),
-        human: formatBytes(getPathSizeBytes(storeFilePath)),
-      },
-      workspacesDir: {
-        exists: fs.existsSync(workspacesDir),
-        bytes: getPathSizeBytes(workspacesDir),
-        human: formatBytes(getPathSizeBytes(workspacesDir)),
-      },
-      verifyWorkspacesDir: {
-        exists: fs.existsSync(verifyWorkspacesDir),
-        bytes: getPathSizeBytes(verifyWorkspacesDir),
-        human: formatBytes(getPathSizeBytes(verifyWorkspacesDir)),
-      },
-      packageCacheDir: describePackageCacheStorageSafely(),
+      dataDir: describeSize(dataDirBytes, fs.existsSync(dataDir)),
+      storeFilePath: describeSize(
+        childBytes(storeFilePath),
+        fs.existsSync(storeFilePath),
+      ),
+      workspacesDir: describeSize(
+        childBytes(workspacesDir),
+        fs.existsSync(workspacesDir),
+      ),
+      verifyWorkspacesDir: describeSize(
+        childBytes(verifyWorkspacesDir),
+        fs.existsSync(verifyWorkspacesDir),
+      ),
+      packageCacheDir: await describePackageCacheStorageSafely(bytesByChild),
     },
     // Top-level breakdown of the volume. Without this, a full disk whose bytes
     // sit outside the three known paths (an orphaned dir, lost+found after a
     // crash) can only be diagnosed over `fly ssh`.
-    dataDirChildren: describeDataDirChildren(dataDir),
+    dataDirChildren: children,
   };
 }
 
-function describePackageCacheStorageSafely() {
+async function describePackageCacheStorageSafely(bytesByChild) {
   try {
-    const cache = describePackageCacheStorage();
+    // Reuse the size from the volume walk instead of walking the cache again;
+    // it is by far the largest and most file-dense directory on the host.
+    const cache = await describePackageCacheStorage({
+      knownBytes: bytesByChild?.get(PACKAGE_CACHE_DIR_NAME),
+    });
     return {
       ...cache,
       human: formatBytes(cache.bytes),
@@ -220,20 +238,20 @@ function describePackageCacheStorageSafely() {
   }
 }
 
-function describeDataDirChildren(dataDir) {
+async function describeDataDirChildren(dataDir) {
   try {
-    return fs
-      .readdirSync(dataDir, { withFileTypes: true })
-      .map((entry) => {
-        const bytes = getPathSizeBytes(path.join(dataDir, entry.name));
-        return {
-          name: entry.name,
-          kind: entry.isDirectory() ? "dir" : "file",
-          bytes,
-          human: formatBytes(bytes),
-        };
-      })
-      .sort((a, b) => b.bytes - a.bytes);
+    const entries = await fsp.readdir(dataDir, { withFileTypes: true });
+    const children = [];
+    for (const entry of entries) {
+      const bytes = await getPathSizeBytes(path.join(dataDir, entry.name));
+      children.push({
+        name: entry.name,
+        kind: entry.isDirectory() ? "dir" : "file",
+        bytes,
+        human: formatBytes(bytes),
+      });
+    }
+    return children.sort((a, b) => b.bytes - a.bytes);
   } catch {
     return [];
   }
@@ -994,7 +1012,7 @@ async function routeRequest(req, res) {
     if (!checkApiKey(req, res)) return;
     return json(res, 200, {
       ok: true,
-      storage: describeStorageState(),
+      storage: await describeStorageState(),
     });
   }
 

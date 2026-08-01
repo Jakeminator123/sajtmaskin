@@ -96,6 +96,46 @@ export interface Archive {
 }
 `;
 
+// The two shapes that defeat any lookbehind-based classifier. Both have a
+// `key:` immediately to the left of the binding; only the enclosing structure
+// tells them apart, and the enclosing structure is itself nested. The brace
+// walk that preceded the AST got BOTH backwards — it read `nested: {` as a
+// type annotation and the `,` in `Record<string, {` as a value position.
+const NESTED_OBJECT_LITERAL_CASE = `import type { blogPosts } from "@/lib/blog-data";
+
+export const seed = {
+  nested: {
+    posts: blogPosts,
+  },
+};
+`;
+
+const NESTED_TYPE_LITERAL_CASE = `import type { BlogPost } from "@/lib/blog-data";
+
+export type Archive = Record<string, {
+  posts: BlogPost;
+}>;
+`;
+
+// Generic type arguments, tuples and a `typeof` inside a type are all
+// compile-time references. A `typeof` in an EXPRESSION is not — same keyword,
+// opposite answer, which is precisely what the parser resolves for free.
+const GENERIC_AND_TUPLE_TYPE_CASE = `import type { BlogPost, Category } from "@/lib/blog-data";
+
+export type Pair = [BlogPost, Category];
+export type Lookup = Map<string, BlogPost>;
+export type Snapshot = typeof Category;
+`;
+
+// Braces and colons inside strings and comments must not shift the verdict.
+const BRACES_IN_STRINGS_CASE = `import type { blogPosts } from "@/lib/blog-data";
+
+// A comment with a stray brace { posts: BlogPost
+const template = "{ posts: BlogPost }";
+
+export const seed = { posts: blogPosts, template };
+`;
+
 describe("fixValueUsedFromTypeImport", () => {
   it("converts the empirical /showcase case (JSX + data value) back to value import", () => {
     const { code, fixed, fixes } = fixValueUsedFromTypeImport(
@@ -125,6 +165,39 @@ describe("fixValueUsedFromTypeImport", () => {
     const result = fixValueUsedFromTypeImport(INTERFACE_MEMBER_CASE, "lib/archive.ts");
     expect(result.fixed).toBe(false);
     expect(result.code).toBe(INTERFACE_MEMBER_CASE);
+  });
+
+  it("converts a value nested two object literals deep", () => {
+    const { code, fixed } = fixValueUsedFromTypeImport(
+      NESTED_OBJECT_LITERAL_CASE,
+      "lib/seed.ts",
+    );
+    expect(fixed).toBe(true);
+    expect(code).toContain('import { blogPosts } from "@/lib/blog-data";');
+  });
+
+  it("leaves a type nested inside a generic type literal alone", () => {
+    const result = fixValueUsedFromTypeImport(NESTED_TYPE_LITERAL_CASE, "lib/archive.ts");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(NESTED_TYPE_LITERAL_CASE);
+  });
+
+  it("leaves generics, tuples and a type-position `typeof` alone", () => {
+    const result = fixValueUsedFromTypeImport(
+      GENERIC_AND_TUPLE_TYPE_CASE,
+      "lib/archive.ts",
+    );
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(GENERIC_AND_TUPLE_TYPE_CASE);
+  });
+
+  it("ignores braces and colons that only appear in strings and comments", () => {
+    const { code, fixed } = fixValueUsedFromTypeImport(
+      BRACES_IN_STRINGS_CASE,
+      "lib/seed.ts",
+    );
+    expect(fixed).toBe(true);
+    expect(code).toContain('import { blogPosts } from "@/lib/blog-data";');
   });
 
   it("converts when binding is used as JSX tag", () => {

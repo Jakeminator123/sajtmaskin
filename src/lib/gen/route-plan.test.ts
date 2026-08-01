@@ -4,7 +4,7 @@ import {
   buildRoutePlan,
   deduplicateLocaleAlternateRoutes,
   detectExplicitPageCount,
-  findLocaleSupersededRoutes,
+  findSupersededScaffoldRoutes,
   findMissingPlannedRoutes,
   parseRoutePlanFromUnknown,
 } from "./route-plan";
@@ -561,34 +561,47 @@ describe("deduplicateLocaleAlternateRoutes", () => {
 // `/blogg`, and the model emits `app/blogg/**`. Both used to survive into the
 // finished project, leaving `/blog` and `/blog/[slug]` with nothing linking to
 // them (2026-07-31 — the user saw six pages, three unreachable).
-describe("findLocaleSupersededRoutes", () => {
+describe("findSupersededScaffoldRoutes", () => {
   it("supersedes the scaffold's /blog when the model emitted /blogg", () => {
-    expect(findLocaleSupersededRoutes(["/", "/blogg", "/blogg/[slug]"], "sv")).toEqual([
-      "/blog",
-    ]);
+    expect(
+      findSupersededScaffoldRoutes(["/", "/blogg", "/blogg/[slug]"], ["/", "/blog"]),
+    ).toEqual(["/blog"]);
   });
 
   it("supersedes every alternate the model replaced, not just the first", () => {
-    expect(findLocaleSupersededRoutes(["/", "/om", "/blogg"], "sv")).toEqual([
-      "/about",
-      "/blog",
-    ]);
+    expect(
+      findSupersededScaffoldRoutes(["/", "/om", "/blogg"], ["/", "/about", "/blog"]),
+    ).toEqual(["/about", "/blog"]);
   });
 
-  it("supersedes nothing when the model kept the English route", () => {
-    expect(findLocaleSupersededRoutes(["/", "/blog", "/blog/[slug]"], "sv")).toEqual([]);
+  it("supersedes nothing when the model kept the scaffold's own route", () => {
+    expect(
+      findSupersededScaffoldRoutes(["/", "/blog", "/blog/[slug]"], ["/", "/blog"]),
+    ).toEqual([]);
   });
 
   it("never supersedes when the model deliberately emitted both variants", () => {
-    expect(findLocaleSupersededRoutes(["/", "/blog", "/blogg"], "sv")).toEqual([]);
+    expect(findSupersededScaffoldRoutes(["/", "/blog", "/blogg"], ["/", "/blog"])).toEqual(
+      [],
+    );
   });
 
-  it("supersedes the Swedish variant for an English locale", () => {
-    expect(findLocaleSupersededRoutes(["/", "/contact"], "en")).toEqual(["/kontakt"]);
+  // The mirror case. A locale-parameterised version defaulting to `sv` reported
+  // nothing here, so an English build silently kept the orphaned Swedish page.
+  it("supersedes a Swedish scaffold route when the model emitted the English one", () => {
+    expect(findSupersededScaffoldRoutes(["/", "/contact"], ["/", "/kontakt"])).toEqual([
+      "/kontakt",
+    ]);
+  });
+
+  it("supersedes nothing when the scaffold does not ship the alternate", () => {
+    expect(findSupersededScaffoldRoutes(["/", "/blogg"], ["/", "/meny"])).toEqual([]);
   });
 
   it("returns nothing for a project with no locale-alternate routes", () => {
-    expect(findLocaleSupersededRoutes(["/", "/meny", "/galleri"], "sv")).toEqual([]);
+    expect(findSupersededScaffoldRoutes(["/", "/meny", "/galleri"], ["/", "/meny"])).toEqual(
+      [],
+    );
   });
 });
 
