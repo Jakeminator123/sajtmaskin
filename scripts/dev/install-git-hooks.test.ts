@@ -28,6 +28,18 @@ describe("renderHookScript", () => {
     expect(script).toContain('[ -n "$CI" ]');
   });
 
+  // resolveHooksDir hedrar `git config core.hooksPath` utan `--local`, alltså
+  // även en GLOBAL katalog — och den delas med alla andra repon på maskinen.
+  // Utan den här grinden hade hooken kört `node scripts/db/ensure-schema.mjs`
+  // där och spytt module-not-found i orelaterade projekt.
+  it("är en no-op i repon som saknar skriptet (global core.hooksPath)", () => {
+    for (const hook of ["post-merge", "post-checkout", "post-rewrite"] as const) {
+      expect(renderHookScript(hook)).toContain(
+        "[ -f scripts/db/ensure-schema.mjs ] || exit 0",
+      );
+    }
+  });
+
   it("post-checkout kör bara vid grenbyten, inte vid fil-utcheckning", () => {
     // Utan grinden skulle varje `git checkout -- <fil>` kosta en DB-rundtur.
     const script = renderHookScript("post-checkout");

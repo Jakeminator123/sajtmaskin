@@ -33,7 +33,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join, resolve } from "node:path";
 
 export const HOOK_MARKER = "sajtmaskin-managed-hook";
-export const HOOK_VERSION = 1;
+export const HOOK_VERSION = 2;
 
 /**
  * Hook-kroppen. `sh` och inte node-shebang: git kör hooks via sh även på
@@ -75,6 +75,11 @@ export function renderHookScript(hookName) {
 
 # Escape hatch och CI: hookarna finns för lokal utveckling.
 if [ -n "$SAJTMASKIN_SKIP_DB_HOOKS" ] || [ -n "$CI" ]; then exit 0; fi
+
+# Kör bara i ett repo som faktiskt har skriptet. Har utvecklaren en GLOBAL
+# core.hooksPath delas katalogen med alla andra repon, och dar vore det har
+# bara ett module-not-found-brus.
+[ -f scripts/db/ensure-schema.mjs ] || exit 0
 ${guard}
 # Saknas node är det inget fel värt att larma om i en git-hook.
 command -v node >/dev/null 2>&1 || exit 0
