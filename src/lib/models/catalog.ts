@@ -84,6 +84,7 @@ const LEGACY_MODEL_IDS = Object.keys(LEGACY_ALIAS) as (keyof typeof LEGACY_ALIAS
  */
 const RETIRED_MODEL_ALIAS: Record<string, string> = {
   "gpt-5.4-mini": "gpt-5.6-sol",
+  "openai/gpt-5.4-mini": "openai/gpt-5.6-sol",
   "claude-sonnet-4.6": "claude-opus-4.8",
   "claude-sonnet-4-6": "claude-opus-4-8",
   "anthropic/claude-sonnet-4.6": "anthropic/claude-opus-4.8",
@@ -194,8 +195,11 @@ export const QUALITY_TO_OPENAI_MODEL = getQualityToOwnEngineModels() as Record<
 /** Maps the canonical builder profile to an own-engine model ID. */
 export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnModelId {
   const tierMap: Record<CanonicalModelId, string> = {
+    // Prefer SAJTMASKIN_MODEL_PREMIUM, but keep reading the retired
+    // SAJTMASKIN_MODEL_FAST override so existing Vercel/local env still works.
     premium:
       process.env[getBuildProfileEnvKey("premium")]?.trim() ||
+      process.env.SAJTMASKIN_MODEL_FAST?.trim() ||
       getBuildProfileDefaultOwnEngineModel("premium"),
     pro:
       process.env[getBuildProfileEnvKey("pro")]?.trim() ||

@@ -73,4 +73,25 @@ describe("resolveEngineModelId", () => {
     expect(resolveEngineModelId("max")).toBe("gpt-5.5");
     expect(resolveEngineModelId("anthropic")).toBe("claude-opus-4.8");
   });
+
+  it("honors retired SAJTMASKIN_MODEL_FAST when Premium env is unset", () => {
+    const previousPremium = process.env.SAJTMASKIN_MODEL_PREMIUM;
+    const previousFast = process.env.SAJTMASKIN_MODEL_FAST;
+    delete process.env.SAJTMASKIN_MODEL_PREMIUM;
+    process.env.SAJTMASKIN_MODEL_FAST = "gpt-5.5";
+    try {
+      expect(resolveEngineModelId("premium")).toBe("gpt-5.5");
+    } finally {
+      if (previousPremium === undefined) {
+        delete process.env.SAJTMASKIN_MODEL_PREMIUM;
+      } else {
+        process.env.SAJTMASKIN_MODEL_PREMIUM = previousPremium;
+      }
+      if (previousFast === undefined) {
+        delete process.env.SAJTMASKIN_MODEL_FAST;
+      } else {
+        process.env.SAJTMASKIN_MODEL_FAST = previousFast;
+      }
+    }
+  });
 });

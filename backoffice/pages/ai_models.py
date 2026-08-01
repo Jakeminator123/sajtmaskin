@@ -200,12 +200,15 @@ def _render_generator_chain(
                 st.markdown(f"#### {PHASE_LABELS.get(phase, phase)}")
                 c1, c2, c3, c4, c5 = st.columns([1.7, 0.8, 1.0, 1.0, 1.1])
                 with c1:
+                    # Keep unknown/legacy stored ids visible so a save does not
+                    # silently rewrite them to selected_build_model (index 0).
+                    model_choices = list(AVAILABLE_PHASE_MODELS)
+                    if current_model not in model_choices:
+                        model_choices = [current_model, *model_choices]
                     model_value = st.selectbox(
                         "Model",
-                        AVAILABLE_PHASE_MODELS,
-                        index=AVAILABLE_PHASE_MODELS.index(current_model)
-                        if current_model in AVAILABLE_PHASE_MODELS
-                        else 0,
+                        model_choices,
+                        index=model_choices.index(current_model),
                         key=f"cfg_phase_model_{tier}_{phase}",
                         format_func=lambda model_id, _tier=tier: phase_model_display_label(
                             model_id,

@@ -7,6 +7,7 @@ describe("retired cheap model → Premium", () => {
     process.env.SAJTMASKIN_MODEL_PREMIUM = "gpt-5.5";
     try {
       expect(aliasRetiredModelId("gpt-5.4-mini")).toBe("gpt-5.6-sol");
+      expect(aliasRetiredModelId("openai/gpt-5.4-mini")).toBe("openai/gpt-5.6-sol");
       expect(ownModelIdToCanonicalModelId("fast")).toBe("premium");
       expect(ownModelIdToCanonicalModelId("gpt-5.4-mini")).toBe("premium");
       expect(ownModelIdToCanonicalModelId("gpt-5.6-terra")).toBe("premium");
