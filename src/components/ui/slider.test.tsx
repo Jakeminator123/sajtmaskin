@@ -5,10 +5,11 @@ import { Slider } from "./slider";
 
 /**
  * Radix sätter `role="slider"` på Thumb, inte på Root. Ett `aria-label` som
- * spreadas vidare till Root landar därför på en generisk span och ger både
- * axe-felet "ARIA input fields must have an accessible name" (Vercel-toolbaren
- * flaggade det på Byggval-reglaget "Antal sidor") och aria-prohibited-attr.
- * Testerna binder att namnet hamnar på tummen.
+ * spreadas vidare till Root landar därför på en roll-lös `<span>` där det
+ * varken exponeras för skärmläsare eller är tillåtet enligt ARIA 1.2 — och
+ * tummen blir namnlös, vilket ger axe-felet "ARIA input fields must have an
+ * accessible name" (Vercel-toolbaren flaggade det på Byggval-reglaget
+ * "Antal sidor"). Testerna binder att namnet hamnar på tummen.
  */
 describe("Slider — tillgängligt namn", () => {
   it("ger tummen namnet från aria-label", () => {
@@ -50,6 +51,15 @@ describe("Slider — tillgängligt namn", () => {
 
     const thumb = container.querySelector('[data-slot="slider-thumb"]');
     expect(thumb).toBeTruthy();
+    expect(thumb?.getAttribute("aria-label")).toBeNull();
+  });
+
+  // Ett tomt aria-label är värre än inget: attributet renderas, men namnet
+  // blir tomt och axe flaggar tummen ändå. Normaliseras till utelämnat.
+  it("renderar inget tomt aria-label", () => {
+    const { container } = render(<Slider aria-label="" min={0} max={12} value={[3]} />);
+
+    const thumb = container.querySelector('[data-slot="slider-thumb"]');
     expect(thumb?.getAttribute("aria-label")).toBeNull();
   });
 });

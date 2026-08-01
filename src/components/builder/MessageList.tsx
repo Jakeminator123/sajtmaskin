@@ -613,7 +613,7 @@ const MessageListComponent = ({
                       </MessageResponse>
                     )
                   ) : message.isStreaming && !reasoningPart && !hasStructuredParts && !hasVisibleTooling ? (
-                    <span className="text-sm text-gray-500">Startar own-engine-ström...</span>
+                    <span className="text-muted-foreground text-sm">Startar own-engine-ström...</span>
                   ) : null
                 ) : isAutoRepairPrompt ? (
                   <AutoRepairMessageRow content={textContent} isInProgress={isRepairInProgress} />
