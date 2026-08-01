@@ -241,6 +241,9 @@ export async function runPreflightPhase(params: {
     repairScopeId,
     importedRepoMode,
     projectEnvLocalOptions,
+    // Lets the degeneracy cap protect base-identical inherited content from
+    // being stubbed (prod chat 4d6b5546: imported template's 1.3 MB texture).
+    previousFiles,
   });
   filesJson = preflightResult.filesJson;
   // OMTAG 1·05: scaffold-default blocking on LLM-only paths surfaces as a
@@ -368,6 +371,7 @@ export async function runPreflightPhase(params: {
         repairScopeId,
         importedRepoMode,
         projectEnvLocalOptions,
+        previousFiles,
       });
       filesJson = preflightResult.filesJson;
       // OMTAG 1·05: re-check LLM-only paths after the partial-file repair

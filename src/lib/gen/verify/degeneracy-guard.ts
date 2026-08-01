@@ -230,43 +230,91 @@ export function degenerateStubContent(reason: string | null): string {
 /**
  * De-bloat an already-known-degenerate project for persistence. Two steps so a
  * file in the per-file..total gap is not left behind (Bugbot #322):
- *   1. stub EVERY file over `maxSingleFileBytes` (a single multi-MB file, or
- *      the 512KB–1MB range that detection already considers oversized), then
- *   2. stub the LARGEST remaining files until the TOTAL is under
- *      `maxTotalBytes` (bloat split across sub-ceiling files).
+ *   1. stub EVERY individually oversized file, judged against its own ceiling:
+ *      text/source files over `maxSingleFileBytes`, binary/non-text assets
+ *      (per `isNonTextContentFile`: base64 blobs, binary extensions) over
+ *      `maxBinaryAssetBytes` — imported templates legitimately carry
+ *      multi-hundred-KB base64 images, and stubbing one destroys real user
+ *      content (prod chat 4d6b5546: a 1.3 MB texture_earth.jpg was replaced
+ *      with a text stub), then
+ *   2. stub the LARGEST remaining files until each pool's TOTAL is under its
+ *      cap: `maxTotalBytes` for text, `maxBinaryTotalBytes` for binary assets.
+ *      The pools have SEPARATE budgets so source bloat can never evict a
+ *      legitimate binary asset. Binary ceilings mirror the preview-host
+ *      payload contract (`preview-host/src/validate.js`: 2 MB per asset,
+ *      12 MB total payload).
+ * Paths in `preservePaths` (content byte-identical with the base version, i.e.
+ * inherited rather than produced by this round) are NEVER stubbed — inherited
+ * content is by definition not this round's degenerate output.
  * Only call this once the project is known degenerate; the version is failing,
- * so replacing the bloated content with a marker stub is safe and guarantees a
- * multi-MB `files_json` is never persisted. (A small but self-repetitive file
- * that tripped only the repetition heuristic is left intact — it is blocked,
- * not a persist-size problem.)
+ * so replacing bloated TEXT content with a marker stub is safe and keeps the
+ * text portion of `files_json` under ~1 MB. Binary assets and inherited
+ * (`preservePaths`) content are deliberately NOT held to that guarantee:
+ * a payload can persist up to the preview-host binary budget (12 MB) rather
+ * than risk destroying legitimate template assets — data loss is worse than
+ * DB bloat, and the blocking degeneracy issue still gates preview either way.
+ * (A small but self-repetitive file that tripped only the repetition heuristic
+ * is left intact — it is blocked, not a persist-size problem.)
  */
 export function capDegeneratePayload<
   T extends { path: string; content: string; language?: string },
 >(
   files: ReadonlyArray<T>,
   reason: string | null,
-  options: { maxSingleFileBytes?: number; maxTotalBytes?: number } = {},
+  options: {
+    maxSingleFileBytes?: number;
+    maxTotalBytes?: number;
+    maxBinaryAssetBytes?: number;
+    maxBinaryTotalBytes?: number;
+    /** Paths inherited byte-identically from the base version; never stubbed. */
+    preservePaths?: ReadonlySet<string>;
+  } = {},
 ): { files: T[]; stubbedPaths: string[] } {
   const maxSingleFileBytes = options.maxSingleFileBytes ?? 512_000;
   const maxTotalBytes = options.maxTotalBytes ?? 1_000_000;
-  const sized = files.map((file) => ({ file, size: byteLength(file.content ?? "") }));
+  const maxBinaryAssetBytes = options.maxBinaryAssetBytes ?? 2 * 1024 * 1024;
+  const maxBinaryTotalBytes = options.maxBinaryTotalBytes ?? 12 * 1024 * 1024;
+  const preservePaths = options.preservePaths;
+  const sized = files.map((file) => ({
+    file,
+    size: byteLength(file.content ?? ""),
+    binary: isNonTextContentFile({
+      path: file.path,
+      content: file.content ?? "",
+      language: file.language ?? "",
+    }),
+    preserved: preservePaths?.has(file.path) ?? false,
+  }));
   const toStub = new Set<string>();
-  // 1. Every individually oversized file.
-  for (const { file, size } of sized) {
-    if (size > maxSingleFileBytes) toStub.add(file.path);
+  // 1. Every individually oversized file, against its pool's own ceiling.
+  for (const { file, size, binary, preserved } of sized) {
+    if (preserved) continue;
+    if (size > (binary ? maxBinaryAssetBytes : maxSingleFileBytes)) {
+      toStub.add(file.path);
+    }
   }
-  // 2. Largest remaining files until the total is under the cap.
-  let total = sized.reduce(
-    (sum, entry) => sum + (toStub.has(entry.file.path) ? 0 : entry.size),
-    0,
-  );
-  for (const { file, size } of [...sized]
-    .filter((entry) => !toStub.has(entry.file.path))
-    .sort((a, b) => b.size - a.size)) {
-    if (total <= maxTotalBytes) break;
-    toStub.add(file.path);
-    total -= size; // the stub content is negligible
-  }
+  // 2. Largest remaining files until each pool's total is under its cap.
+  //    Preserved files count toward the total but are never candidates, so a
+  //    pool can legitimately stay above its cap when everything left in it is
+  //    inherited content.
+  const capPoolTotal = (
+    pool: ReadonlyArray<(typeof sized)[number]>,
+    maxTotal: number,
+  ): void => {
+    let total = pool.reduce(
+      (sum, entry) => sum + (toStub.has(entry.file.path) ? 0 : entry.size),
+      0,
+    );
+    for (const { file, size } of [...pool]
+      .filter((entry) => !toStub.has(entry.file.path) && !entry.preserved)
+      .sort((a, b) => b.size - a.size)) {
+      if (total <= maxTotal) break;
+      toStub.add(file.path);
+      total -= size; // the stub content is negligible
+    }
+  };
+  capPoolTotal(sized.filter((entry) => !entry.binary), maxTotalBytes);
+  capPoolTotal(sized.filter((entry) => entry.binary), maxBinaryTotalBytes);
   if (toStub.size === 0) return { files: [...files], stubbedPaths: [] };
   const stub = degenerateStubContent(reason);
   return {
