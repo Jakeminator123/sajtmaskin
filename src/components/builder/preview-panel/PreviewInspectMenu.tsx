@@ -280,18 +280,30 @@ export interface PreviewInspectRegionMenuProps {
   bounds: { width: number; height: number };
   labels: string[];
   onSendToChat: () => void;
+  /** Skickar en bild av den markerade ytan. Utelämnas när bildfångst är av. */
+  onSendImageToChat?: () => void;
+  imagePending?: boolean;
   onClose: () => void;
 }
 
 /**
- * Panelen efter en uppdragen rektangel. Ägarbeslut 2026-07-26: bild-av-ytan är
- * skjuten, så den åtgärden finns medvetet inte här.
+ * Panelen efter en uppdragen rektangel.
+ *
+ * Två åtgärder, för de beskriver olika saker: punkterna ger modellen vilka
+ * element som ligger i ytan (och var i koden de bor), bilden ger den hur ytan
+ * faktiskt ser ut. Det senare är det enda sättet att fråga om något man kan se
+ * men inte namnge — "varför ser det här hoptryckt ut?".
+ *
+ * Bild-av-ytan var skjuten av ägarbeslut Ö10b (2026-07-26); beslutet är omvänt
+ * 2026-08-01 på ägarens begäran.
  */
 export function PreviewInspectRegionMenu({
   point,
   bounds,
   labels,
   onSendToChat,
+  onSendImageToChat,
+  imagePending = false,
   onClose,
 }: PreviewInspectRegionMenuProps) {
   useEffect(() => {
@@ -333,13 +345,30 @@ export function PreviewInspectRegionMenu({
           Dra en ruta över det du vill markera.
         </p>
       )}
-      <div className="mt-2 flex items-center justify-end gap-2">
-        <Button size="sm" variant="ghost" onClick={onClose}>
-          Stäng
-        </Button>
-        <Button size="sm" onClick={onSendToChat} disabled={labels.length === 0}>
-          Skicka markeringen till chatten
-        </Button>
+      <div className="mt-2 flex flex-col gap-1.5">
+        {onSendImageToChat ? (
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={onSendImageToChat}
+            disabled={imagePending}
+          >
+            {imagePending ? "Tar bild…" : "Skicka bild av ytan"}
+          </Button>
+        ) : null}
+        <div className="flex items-center justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            Stäng
+          </Button>
+          <Button
+            size="sm"
+            variant={onSendImageToChat ? "outline" : "default"}
+            onClick={onSendToChat}
+            disabled={labels.length === 0}
+          >
+            Skicka elementen
+          </Button>
+        </div>
       </div>
     </div>
   );

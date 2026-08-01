@@ -5,6 +5,7 @@ import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getBuilderInspectorDisabledMessage, isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { hostResolvesToPrivate, isDisallowedHost } from "@/lib/ssrf-guard";
 import { withRateLimit } from "@/lib/rateLimit";
+import { clipFromRegion, parseCaptureRegion, type CaptureRegion } from "./capture-region";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ type CaptureRequest = {
   viewportHeight: number;
   cropWidth?: number;
   cropHeight?: number;
+  region?: CaptureRegion;
 };
 
 type CapturedElement = {
@@ -372,7 +374,16 @@ function parseBody(body: unknown): CaptureRequest | null {
   if (!url) return null;
   if (!Number.isFinite(xPercent) || !Number.isFinite(yPercent)) return null;
   if (!Number.isFinite(viewportWidth) || !Number.isFinite(viewportHeight)) return null;
-  return { url, xPercent, yPercent, viewportWidth, viewportHeight, cropWidth, cropHeight };
+  return {
+    url,
+    xPercent,
+    yPercent,
+    viewportWidth,
+    viewportHeight,
+    cropWidth,
+    cropHeight,
+    region: parseCaptureRegion(obj.region),
+  };
 }
 
 async function requireInspectorIdentity(req: Request): Promise<Response | null> {
@@ -458,14 +469,38 @@ async function handlePOST(req: Request) {
     const pointDetails = await describePoint(page, centerX, centerY);
     const resolvedCenterX = clamp(Math.round(pointDetails.resolvedX), 0, viewportWidth);
     const resolvedCenterY = clamp(Math.round(pointDetails.resolvedY), 0, viewportHeight);
-    const clipX = clamp(Math.round(resolvedCenterX - cropWidth / 2), 0, Math.max(0, viewportWidth - cropWidth));
-    const clipY = clamp(Math.round(resolvedCenterY - cropHeight / 2), 0, Math.max(0, viewportHeight - cropHeight));
-    await drawCaptureOverlay(page, resolvedCenterX, resolvedCenterY, xPercent, yPercent);
+
+    // A dragged region is its own answer: clip exactly what the user outlined
+    // and draw nothing on top. The point path needs a crosshair because a
+    // 420x280 crop around a coordinate does not otherwise say which pixel was
+    // meant — but here the crop IS the selection, and an overlay would only
+    // obscure the thing the user is asking about. The region also must not be
+    // recentred on `resolvedX/Y`: that snaps to an element, which is right for
+    // a click and wrong for a rectangle the user drew themselves.
+    const clip = parsed.region
+      ? clipFromRegion(parsed.region, viewportWidth, viewportHeight)
+      : {
+          x: clamp(
+            Math.round(resolvedCenterX - cropWidth / 2),
+            0,
+            Math.max(0, viewportWidth - cropWidth),
+          ),
+          y: clamp(
+            Math.round(resolvedCenterY - cropHeight / 2),
+            0,
+            Math.max(0, viewportHeight - cropHeight),
+          ),
+          width: cropWidth,
+          height: cropHeight,
+        };
+    if (!parsed.region) {
+      await drawCaptureOverlay(page, resolvedCenterX, resolvedCenterY, xPercent, yPercent);
+    }
 
     const previewBuffer = await page.screenshot({
       type: "png",
       omitBackground: false,
-      clip: { x: clipX, y: clipY, width: cropWidth, height: cropHeight },
+      clip,
     });
     const previewDataUrl = `data:image/png;base64,${previewBuffer.toString("base64")}`;
 
@@ -479,14 +514,11 @@ async function handlePOST(req: Request) {
       yPercent,
       viewportWidth,
       viewportHeight,
-      pointSummary: pointDetails.pointSummary,
+      pointSummary: parsed.region
+        ? `Markerad yta ${clip.width}×${clip.height} px vid x ${xPercent.toFixed(1)}% • y ${yPercent.toFixed(1)}%`
+        : pointDetails.pointSummary,
       element: pointDetails.element,
-      clip: {
-        x: clipX,
-        y: clipY,
-        width: cropWidth,
-        height: cropHeight,
-      },
+      clip,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown capture error";
