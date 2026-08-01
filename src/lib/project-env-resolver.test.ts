@@ -133,3 +133,52 @@ describe("resolveEnvRequirementsFromDetected enforcement buckets (P31 follow-up)
     expect(result.missingEnvKeys).not.toContain("RESEND_API_KEY");
   });
 });
+
+// M#li2 (prod 2026-08-01, chat 7a4d609f): the F2 deploy backstop used the whole
+// `missingEnvKeys`, so truly-absent feature-runtime keys (Resend
+// EMAIL_FROM/CONTACT_EMAIL_TO) 409'd a demo publish that readiness reported as
+// deployable. `designDeployBlockingKeys` is the shared corrected set both the
+// deploy route (F2 branch) and the readiness route block on.
+describe("designDeployBlockingKeys — F2 deploy backstop (M#li2)", () => {
+  it("excludes truly-absent feature-runtime keys (Resend EMAIL_FROM/CONTACT_EMAIL_TO)", () => {
+    const env = envFixture({});
+    const result = resolveEnvRequirementsFromDetected([RESEND_DETECTED], env);
+    // Both keys are truly absent (unconfigured, no placeholder) …
+    expect(result.missingEnvKeys).toEqual(
+      expect.arrayContaining(["EMAIL_FROM", "CONTACT_EMAIL_TO"]),
+    );
+    // … but must NOT hard-block an F2 deploy.
+    expect(result.designDeployBlockingKeys).toEqual([]);
+  });
+
+  it("excludes warn-only keys", () => {
+    const env = envFixture({});
+    const result = resolveEnvRequirementsFromDetected([PLAUSIBLE_DETECTED], env);
+    expect(result.designDeployBlockingKeys).toEqual([]);
+  });
+
+  it("keeps a truly-absent build-enforcement key hard-blocking", () => {
+    const env = envFixture({});
+    const customEnv: DetectedIntegration = {
+      key: "custom-env",
+      name: "Miljövariabler",
+      provider: "custom",
+      intent: "env_vars",
+      envVars: ["MY_SECRET_TOKEN"],
+      envEnforcement: { MY_SECRET_TOKEN: "build" },
+      status: "Kräver konfiguration",
+    };
+    const result = resolveEnvRequirementsFromDetected([customEnv], env);
+    expect(result.designDeployBlockingKeys).toEqual(["MY_SECRET_TOKEN"]);
+  });
+
+  it("excludes tier-3-placeholder-covered build keys in design (bugbot high #461 stays fixed)", () => {
+    const env = envFixture({});
+    const result = resolveEnvRequirementsFromDetected([STRIPE_DETECTED], env);
+    // In design the tier-3 stub covers STRIPE_SECRET_KEY, so it sits in
+    // `buildBlockingKeys` (allowPlaceholdersInF3=false) but not in
+    // `missingEnvKeys` — the F2 backstop must not block on it.
+    expect(result.buildBlockingKeys).toContain("STRIPE_SECRET_KEY");
+    expect(result.designDeployBlockingKeys).toEqual([]);
+  });
+});

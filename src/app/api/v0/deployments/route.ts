@@ -735,8 +735,12 @@ export async function POST(req: Request) {
       //   `feature-runtime`/`warn-only` keys (e.g. Resend `EMAIL_FROM`) that
       //   only degrade a single feature at runtime — blocking on those made
       //   deploy 409 while readiness said `canDeploy:true` (UI/API mismatch).
-      // - F2 (`design`): keep the legacy `missingEnvKeys` backstop (truly
-      //   absent keys, no placeholder). In design, `buildBlockingKeys` also
+      // - F2 (`design`): block on `designDeployBlockingKeys` — the truly
+      //   absent (`missingEnvKeys`) subset with `build` enforcement. The raw
+      //   `missingEnvKeys` backstop also contained `feature-runtime`/
+      //   `warn-only` keys (M#li2: Resend `EMAIL_FROM`/`CONTACT_EMAIL_TO`
+      //   409'd a demo publish that readiness said was deployable). NOTE:
+      //   `buildBlockingKeys` is still wrong for F2 — in design it also
       //   contains tier-3-placeholder-covered keys (allowPlaceholdersInF3 is
       //   always false there), so gating F2 on it would block demo publishes
       //   that must stay publishable (env-flow-f2-mute; bugbot high på #461).
@@ -745,7 +749,7 @@ export async function POST(req: Request) {
       // observability in both stages.
       const envBlockingKeys = envGateActive
         ? envRequirements.buildBlockingKeys
-        : envRequirements.missingEnvKeys;
+        : envRequirements.designDeployBlockingKeys;
       if (envBlockingKeys.length > 0) {
         return NextResponse.json(
           {

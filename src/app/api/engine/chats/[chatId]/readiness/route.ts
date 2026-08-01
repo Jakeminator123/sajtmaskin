@@ -472,6 +472,7 @@ async function buildEngineReadiness(
     buildBlockingKeys,
     featureRuntimeKeys,
     warnOnlyKeys,
+    designDeployBlockingKeys,
   } = envRequirements;
 
   if (envGateActive) {
@@ -498,6 +499,13 @@ async function buildEngineReadiness(
     if (featureRuntimeKeys.length > 0) {
       warnings.push(buildFeatureRuntimeEnvInfo(featureRuntimeKeys));
     }
+  } else if (designDeployBlockingKeys.length > 0) {
+    // M#li2 parity: the deploy route's F2 backstop 409:ar (`DEPLOY_MISSING_ENV`)
+    // on exactly this shared set (`designDeployBlockingKeys`, resolver-derived).
+    // Readiness must block the same version — `canDeploy` may never lie.
+    // Feature-runtime/warn-only keys are excluded by the resolver, so the
+    // F2-mute contract (demo publishes stay green) is untouched.
+    blockers.push(buildMissingEnvBlocker(designDeployBlockingKeys));
   }
 
   const latestPreviewSignal = errorLogs.find(

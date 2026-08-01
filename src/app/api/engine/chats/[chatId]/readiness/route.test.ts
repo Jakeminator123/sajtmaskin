@@ -89,6 +89,7 @@ function emptyEnvRequirements() {
     buildBlockingKeys: [],
     featureRuntimeKeys: [],
     warnOnlyKeys: [],
+    designDeployBlockingKeys: [],
   };
 }
 
@@ -254,6 +255,59 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
 
     expect(json.readiness?.blockers.map((b) => b.id)).not.toContain("release-gate-not-green");
     expect(json.readiness?.canDeploy).toBe(true);
+  });
+
+  // M#li2-paritet: deploy-routens F2-gren 409:ar (`DEPLOY_MISSING_ENV`) på den
+  // delade mängden `designDeployBlockingKeys` — readiness måste blocka samma
+  // version, annars ljuger `canDeploy:true` tills användaren klickar Publicera.
+  it("F2: blocks canDeploy on the shared designDeployBlockingKeys set (M#li2)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "pending",
+      release_state: null,
+      verification_summary: null,
+    });
+    resolveEnvRequirementsFromVersionFiles.mockReturnValue({
+      ...emptyEnvRequirements(),
+      requiredEnvKeys: ["MY_SECRET_TOKEN"],
+      missingEnvKeys: ["MY_SECRET_TOKEN"],
+      buildBlockingKeys: ["MY_SECRET_TOKEN"],
+      designDeployBlockingKeys: ["MY_SECRET_TOKEN"],
+    });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(false);
+    expect(json.readiness?.blockers.map((b) => b.id)).toContain("missing-env");
+  });
+
+  it("F2: does NOT block on truly-absent feature-runtime keys (Resend, prod 2026-08-01)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "pending",
+      release_state: null,
+      verification_summary: null,
+    });
+    // Exactly the observed prod shape: feature-runtime keys land in
+    // `missingEnvKeys` but the resolver excludes them from the shared set.
+    resolveEnvRequirementsFromVersionFiles.mockReturnValue({
+      ...emptyEnvRequirements(),
+      requiredEnvKeys: ["RESEND_API_KEY", "EMAIL_FROM", "CONTACT_EMAIL_TO"],
+      missingEnvKeys: ["EMAIL_FROM", "CONTACT_EMAIL_TO"],
+      featureRuntimeKeys: ["EMAIL_FROM", "CONTACT_EMAIL_TO"],
+      designDeployBlockingKeys: [],
+    });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(true);
+    expect(json.readiness?.blockers.map((b) => b.id)).not.toContain("missing-env");
   });
 
   it("returns 404 when the chat is not owned by the caller", async () => {
