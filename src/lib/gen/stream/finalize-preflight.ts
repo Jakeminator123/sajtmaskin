@@ -94,6 +94,15 @@ export interface RunFinalizePreflightParams {
    */
   projectEnvLocalOptions?: ProjectEnvLocalOptions;
   /**
+   * Base-version files (previous version / imported template) the merged
+   * output was built on. Used ONLY to protect inherited content from the
+   * degeneracy cap: a merged file whose content is byte-identical with the
+   * base version is by definition not this round's degenerate output and must
+   * never be stubbed (prod chat 4d6b5546: an imported template's 1.3 MB
+   * texture was destroyed by the cap on the first follow-up).
+   */
+  previousFiles?: ReadonlyArray<Pick<CodeFile, "path" | "content">>;
+  /**
    * True for verbatim imported-repo edits (v0-template chats). Two effects:
    *
    * 1. Skips the own-engine project assembly (`buildCompleteProject` +
@@ -950,6 +959,25 @@ function collectOrchestrationContractIssues(
   return issues;
 }
 
+/**
+ * Paths whose content is byte-identical with the base version. Inherited
+ * content is not this round's degenerate output, so the degeneracy cap must
+ * never stub it (prod chat 4d6b5546).
+ */
+function collectBaseIdenticalPaths(
+  files: ReadonlyArray<{ path: string; content: string }>,
+  previousContentByPath: ReadonlyMap<string, string>,
+): Set<string> {
+  const paths = new Set<string>();
+  if (previousContentByPath.size === 0) return paths;
+  for (const file of files) {
+    if (previousContentByPath.get(file.path) === file.content) {
+      paths.add(file.path);
+    }
+  }
+  return paths;
+}
+
 export async function runFinalizePreflight({
   chatId,
   model: _model,
@@ -963,8 +991,12 @@ export async function runFinalizePreflight({
   repairScopeId,
   projectEnvLocalOptions,
   importedRepoMode = false,
+  previousFiles,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
   const repairLedger = providedRepairLedger ?? new RepairLedger();
+  const previousContentByPath = new Map(
+    (previousFiles ?? []).map((file) => [file.path, file.content] as const),
+  );
   let nextFilesJson = filesJson;
   const preflightIssues: FinalizePreflightIssue[] = [];
   let preflightFileCount = 0;
@@ -1031,9 +1063,17 @@ export async function runFinalizePreflight({
         // largest until total is under cap) — not just the single named file —
         // so the total-size / split-bloat case is handled here too and the
         // merged-syntax repair below never runs on bloat (Bugbot #322).
-        const capped = capDegeneratePayload(finalFiles, degeneracy.reason);
-        finalFiles = capped.files;
-        nextFilesJson = JSON.stringify(finalFiles);
+        // The cap is binary-aware and skips base-identical inherited content,
+        // so it can legitimately stub NOTHING (e.g. detection flagged an
+        // imported template's large binary asset — prod chat 4d6b5546); the
+        // blocking issue below still gates preview either way.
+        const capped = capDegeneratePayload(finalFiles, degeneracy.reason, {
+          preservePaths: collectBaseIdenticalPaths(finalFiles, previousContentByPath),
+        });
+        if (capped.stubbedPaths.length > 0) {
+          finalFiles = capped.files;
+          nextFilesJson = JSON.stringify(finalFiles);
+        }
         preflightIssues.push(
           createIssue(
             degeneracy.file ?? "preflight",
@@ -1451,6 +1491,12 @@ export async function runFinalizePreflight({
         const capped = capDegeneratePayload(
           completeProjectFiles,
           assembledDegeneracy.reason,
+          {
+            preservePaths: collectBaseIdenticalPaths(
+              completeProjectFiles,
+              previousContentByPath,
+            ),
+          },
         );
         if (capped.stubbedPaths.length > 0) {
           completeProjectFiles = capped.files;

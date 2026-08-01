@@ -937,6 +937,66 @@ describe("runFinalizePreflight", () => {
     expect(buildCompleteProject).not.toHaveBeenCalled();
   });
 
+  it("degeneracy cap never stubs base-identical inherited content (prod chat 4d6b5546)", async () => {
+    // Regression: an imported v0-template carried a large file that the
+    // degeneracy DETECTION flagged on the first follow-up, and the cap then
+    // stubbed it in the persisted version — silent destruction of inherited
+    // template content. `previousFiles` must thread through to the cap so
+    // byte-identical inherited files are protected, while this round's own
+    // oversized output is still stubbed.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const inheritedBig = {
+      path: "data/catalog.ts",
+      content: `export const catalog = "${"x".repeat(900_000)}";`,
+      language: "ts",
+    };
+    const generatedBloat = {
+      path: "components/generated-bloat.tsx",
+      content: "y".repeat(800_000),
+      language: "tsx",
+    };
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_degen_inherited",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            dependencies: { next: "14.2.3", react: "18.3.1", "react-dom": "18.3.1" },
+            scripts: { dev: "next dev" },
+          }),
+          language: "json",
+        },
+        inheritedBig,
+        generatedBloat,
+      ]),
+      importedRepoMode: true,
+      previousFiles: [{ path: inheritedBig.path, content: inheritedBig.content }],
+    });
+
+    const persisted = JSON.parse(result.filesJson) as Array<{
+      path: string;
+      content: string;
+    }>;
+    // Inherited content survives byte-identically.
+    expect(persisted.find((f) => f.path === inheritedBig.path)!.content).toBe(
+      inheritedBig.content,
+    );
+    // This round's own bloat is still stubbed.
+    expect(
+      persisted.find((f) => f.path === generatedBloat.path)!.content.length,
+    ).toBeLessThan(200);
+    // Detection still blocks the version — the cap only prevents destruction.
+    expect(
+      result.preflightIssues.some((i) =>
+        i.message.startsWith("Degenerate output blocked"),
+      ),
+    ).toBe(true);
+    expect(result.previewStart.canStartPreview).toBe(false);
+  });
+
   it("does not flag a composed home route that delegates to a real local component", async () => {
     // Regression: prod chat bb918df9 (version 103e60b5) shipped a thin
     // `app/page.tsx` that delegated its whole body to `<PalmaGuide />`.
