@@ -1,5 +1,5 @@
 ---
-description: "MVP-fas: stabilitet före coolhet — inga helt nya features, ytor eller integrationer utan uttrycklig begäran från ägaren."
+description: "MVP-fas: stabilitet före coolhet — inga nya features, ytor, integrationer eller UI-element (varningar, barer, badges, pills) utan uttrycklig begäran från ägaren."
 alwaysApply: true
 ---
 
@@ -8,15 +8,27 @@ alwaysApply: true
 Sajtmaskin är i slutfasen mot MVP (ägarbeslut 2026-08-01). Tills ägaren
 uttryckligen förklarar MVP:n levererad gäller:
 
-- **Inga helt nya features** — nya produktytor, integrationer, dossiers,
-  scaffolds, agentförmågor eller "smarta" mekanismer byggs bara på uttrycklig
-  begäran om exakt den saken. Att en idé känns hjälpsam är inte en begäran.
+- **Inget nytt utan uttrycklig begäran om exakt den saken** — features,
+  produktytor, integrationer, dossiers, scaffolds, agentförmågor, "smarta"
+  mekanismer, och **visuella element** (varningar, statusbarer, badges,
+  räknare, pills, toasts, overlays, hjälprader) i builder, preview eller
+  landing. Att en idé känns hjälpsam, eller kommer ur en observationsplan,
+  är inte en begäran.
 - **Stabilitet före coolhet** — stå mellan en tråkig, robust fix och en
   elegant ny abstraktion: ta den tråkiga. Befintliga kontrakt härdas,
   ersätts inte.
 - **Bredda inte scope mitt i en PR** — en fix-PR som "passar på" att bygga
   nytt är ett scope-brott, inte en bonus. Nya idéer skrivs som förslag i
   svaret eller som backlograd, inte som kod.
+
+## Behöver en status synas i UI:t
+
+- Återanvänd en **befintlig** yta (preview-panelens truth bar, versionspanelen,
+  chattens statusrad) i stället för att skapa en ny.
+- Är en ny yta ändå motiverad, t.ex. ett verkligt fel doldes helt: **pausa och
+  fråga** ägaren med en skiss först.
+- Ta hellre bort redundanta ytor än lägg till nya — samma information ska inte
+  visas på två ställen samtidigt.
 
 ## Alltid tillåtet (ingen frys på detta)
 
@@ -27,7 +39,10 @@ uttryckligen förklarar MVP:n levererad gäller:
   (se `docs/delivery-bias.md`).
 - Docs-synk som speglar runtime.
 
-## Syskonregler
+## Bakgrund
 
-UI-ytor specifikt: `ui-restraint.mdc`. Säkerhets-/governance-lager:
+2026-08-01 hade flera PR:er sammantaget infört överlappande statusytor ovanpå
+preview och i chatten (slow-boot-pill, truth bar, statusrad, räknar-badge) utan
+att ägaren bett om dem. Ägarbeslut: både nya features och nya UI-ytor kräver
+explicit begäran. Säkerhets-/governance-lagret ligger kvar i
 `project-phase-priorities.mdc § Undvik utan explicit scope`.

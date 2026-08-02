@@ -50,7 +50,7 @@ const LOADING_OVERLAY_DEBOUNCE_MS = 350;
 // än att låta spinnern hänga kvar för evigt.
 //
 // Obs (ägarbeslut 2026-08-01): efter capen är ytan medvetet tyst. Den
-// tidigare "slow boot"-raden (N6/Del C) togs bort — se ui-restraint.mdc.
+// tidigare "slow boot"-raden (N6/Del C) togs bort — se mvp-scope-freeze.mdc.
 const LOADING_OVERLAY_HARD_CAP_MS = 6_000;
 
 // Hur länge "klicka för att fokusera"-ledtråden visas innan den auto-göms,
