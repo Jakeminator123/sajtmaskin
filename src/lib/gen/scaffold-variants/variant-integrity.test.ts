@@ -14,6 +14,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { selectVariantTemplateReference } from "./template-inspiration";
+import { parseVariantTemplateAddendaRegistry } from "./variant-template-addendum";
 
 const ROOT = process.cwd();
 const VARIANTS_ROOT = path.join(ROOT, "config", "scaffold-variants");
@@ -25,6 +26,7 @@ const BLOB_MANIFEST_PATH = path.join(
   "templates",
   "template-blob-manifest.json",
 );
+const TEMPLATE_ADDENDA_PATH = path.join(ROOT, "config", "variant-template-addenda.json");
 
 type RawVariant = {
   id?: string;
@@ -93,6 +95,43 @@ describe("scaffold-variant integrity", () => {
     expect(
       unresolved,
       "variants without runtime-selectable template inspiration",
+    ).toEqual([]);
+  });
+
+  it("every referenced template has a current or explicitly disabled addendum", () => {
+    const manifest = JSON.parse(fs.readFileSync(BLOB_MANIFEST_PATH, "utf-8")) as {
+      templates?: Array<{ id?: string; archiveSha256?: string }>;
+    };
+    const archiveShaById = new Map(
+      (manifest.templates ?? []).flatMap((template) =>
+        template.id && template.archiveSha256
+          ? [[template.id, template.archiveSha256] as const]
+          : [],
+      ),
+    );
+    const addenda = parseVariantTemplateAddendaRegistry(
+      JSON.parse(fs.readFileSync(TEMPLATE_ADDENDA_PATH, "utf-8")) as unknown,
+    );
+    const addendumById = new Map(addenda.templates.map((entry) => [entry.templateId, entry]));
+    const missingOrStale = new Set<string>();
+
+    for (const { variant } of variantFiles) {
+      for (const id of variant.sourceTemplateIds ?? []) {
+        const addendum = addendumById.get(id);
+        if (!addendum) {
+          missingOrStale.add(`${id}: missing`);
+        } else if (
+          addendum.reviewStatus !== "disabled" &&
+          addendum.sourceArchiveSha256 !== archiveShaById.get(id)
+        ) {
+          missingOrStale.add(`${id}: stale sha`);
+        }
+      }
+    }
+
+    expect(
+      [...missingOrStale].sort(),
+      "variant template addenda must cover every cited Blob id; run npm run templates:addenda -- --write",
     ).toEqual([]);
   });
 

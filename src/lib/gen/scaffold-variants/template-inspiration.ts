@@ -7,6 +7,12 @@ import {
 } from "../request-metadata";
 import blobManifestData from "../../templates/template-blob-manifest.json";
 import type { ScaffoldVariant } from "./types";
+import {
+  resolveVariantTemplateAddendum,
+  type VariantTemplateAddendumResolution,
+  type VariantTemplateStructuralReference,
+  warnVariantTemplateAddendumFallback,
+} from "./variant-template-addendum";
 
 export const VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES = [
   "landing-pages",
@@ -48,13 +54,6 @@ type ManifestTemplate = {
   previewFits?: boolean | null;
 };
 
-export type VariantTemplateStructuralReference = {
-  path: string;
-  language: string;
-  reason: "primary-page" | "direct-component" | "global-styles" | "root-layout";
-  excerpt: string;
-};
-
 export type VariantTemplateInspiration = {
   templateId: string;
   title: string;
@@ -65,9 +64,11 @@ export type VariantTemplateInspiration = {
 };
 
 type TemplateFileLoader = (templateId: string) => Promise<{ files: CodeFile[] } | null>;
+type TemplateAddendumLoader = (templateId: string) => VariantTemplateAddendumResolution;
 
 type ResolveVariantTemplateInspirationOptions = {
   includeStructure?: boolean;
+  loadAddendum?: TemplateAddendumLoader;
   loadFiles?: TemplateFileLoader;
   timeoutMs?: number;
 };
@@ -385,8 +386,12 @@ async function loadDefaultStructuralReferences(
   if (cached) return cached;
 
   const pending = (async () => {
-    const { loadLocalV0TemplateFiles } = await import("@/lib/templates/local-v0-template-source");
-    const loaded = await withTimeout(loadLocalV0TemplateFiles(templateId), timeoutMs);
+    const { loadLocalV0TemplateReferenceFiles } =
+      await import("@/lib/templates/local-v0-template-source");
+    const loaded = await withTimeout(
+      loadLocalV0TemplateReferenceFiles(templateId, { timeoutMs }),
+      timeoutMs,
+    );
     return extractVariantTemplateStructuralReferences(loaded?.files ?? []);
   })();
   structuralReferenceCache.set(templateId, pending);
@@ -398,7 +403,10 @@ async function loadDefaultStructuralReferences(
   }
 }
 
-/** Resolve the one selected template and, when enabled, its bounded ZIP excerpts. */
+/**
+ * Resolve one selected template. A SHA-bound, reviewable addendum is preferred;
+ * the bounded ZIP reader remains a fail-open compatibility fallback.
+ */
 export async function resolveVariantTemplateInspiration(
   variant: Pick<ScaffoldVariant, "sourceTemplateIds"> | null | undefined,
   options: ResolveVariantTemplateInspirationOptions = {},
@@ -408,6 +416,14 @@ export async function resolveVariantTemplateInspiration(
 
   const includeStructure = options.includeStructure ?? process.env.NODE_ENV !== "test";
   if (!includeStructure) return { ...selected, structuralReferences: [] };
+
+  const addendum = (options.loadAddendum ?? resolveVariantTemplateAddendum)(selected.templateId);
+  if (addendum.structuralReferences !== null) {
+    return { ...selected, structuralReferences: addendum.structuralReferences };
+  }
+  if (addendum.state === "stale" || addendum.state === "invalid") {
+    warnVariantTemplateAddendumFallback(selected.templateId, addendum);
+  }
 
   try {
     const structuralReferences = options.loadFiles

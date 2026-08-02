@@ -27,5 +27,5 @@ export {
 export type {
   VariantTemplateFullProjectCategory,
   VariantTemplateInspiration,
-  VariantTemplateStructuralReference,
 } from "./template-inspiration";
+export type { VariantTemplateStructuralReference } from "./variant-template-addendum";

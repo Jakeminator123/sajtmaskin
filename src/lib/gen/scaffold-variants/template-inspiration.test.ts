@@ -136,11 +136,57 @@ describe("extractVariantTemplateStructuralReferences", () => {
     const loadFiles = vi.fn(async () => ({ files }));
     const inspiration = await resolveVariantTemplateInspiration(
       { sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"] },
-      { includeStructure: true, loadFiles },
+      {
+        includeStructure: true,
+        loadAddendum: () => ({ state: "missing", structuralReferences: null }),
+        loadFiles,
+      },
     );
 
     expect(loadFiles).toHaveBeenCalledTimes(1);
     expect(loadFiles).toHaveBeenCalledWith("8QhCJAwn16K");
     expect(inspiration?.structuralReferences).toHaveLength(3);
+  });
+
+  it("uses a valid addendum without touching the ZIP loader", async () => {
+    const loadFiles = vi.fn(async () => ({ files }));
+    const structuralReferences = extractVariantTemplateStructuralReferences(files);
+    const inspiration = await resolveVariantTemplateInspiration(
+      { sourceTemplateIds: ["8QhCJAwn16K"] },
+      {
+        includeStructure: true,
+        loadAddendum: () => ({ state: "hit", structuralReferences }),
+        loadFiles,
+      },
+    );
+
+    expect(loadFiles).not.toHaveBeenCalled();
+    expect(inspiration?.structuralReferences).toEqual(structuralReferences);
+  });
+
+  it("uses the committed SHA-bound addendum by default", async () => {
+    const loadFiles = vi.fn(async () => ({ files }));
+    const inspiration = await resolveVariantTemplateInspiration(
+      { sourceTemplateIds: ["8QhCJAwn16K"] },
+      { includeStructure: true, loadFiles },
+    );
+
+    expect(loadFiles).not.toHaveBeenCalled();
+    expect(inspiration?.structuralReferences.length).toBeGreaterThan(0);
+  });
+
+  it("honors an explicitly disabled addendum without falling back to ZIP", async () => {
+    const loadFiles = vi.fn(async () => ({ files }));
+    const inspiration = await resolveVariantTemplateInspiration(
+      { sourceTemplateIds: ["8QhCJAwn16K"] },
+      {
+        includeStructure: true,
+        loadAddendum: () => ({ state: "disabled", structuralReferences: [] }),
+        loadFiles,
+      },
+    );
+
+    expect(loadFiles).not.toHaveBeenCalled();
+    expect(inspiration?.structuralReferences).toEqual([]);
   });
 });
