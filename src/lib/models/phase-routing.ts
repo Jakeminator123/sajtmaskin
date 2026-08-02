@@ -1,10 +1,11 @@
 import type { CanonicalModelId, OwnModelId } from "./catalog";
-import { canonicalModelIdToOwnModelId } from "./catalog";
+import { aliasRetiredModelId, canonicalModelIdToOwnModelId } from "./catalog";
 import {
   getPhaseThinkingFromManifest,
   getPhaseRoutingFromManifest,
   type GenerationPhaseFromManifest,
   type ReasoningEffortFromManifest,
+  type ReasoningModeFromManifest,
 } from "@/lib/ai-models/load-manifest";
 
 /**
@@ -13,17 +14,12 @@ import {
  *
  * Max tier pins **fixer** to gpt-5.3-codex (better at targeted syntax repair
  * than gpt-5.4). Verifier and deploy-assistant also use gpt-5.3-codex for all
- * quality-line tiers. Fast tier uses one model throughout. Anthropic keeps a
- * single model across phases except deploy-assistant.
+ * quality-line tiers. Premium uses GPT-5.6 Sol throughout. Anthropic keeps a
+ * single model across phases.
  */
 const SELECTED_BUILD_MODEL_REF = "selected_build_model";
 
-export type GenerationPhase =
-  | "planner"
-  | "generator"
-  | "fixer"
-  | "verifier"
-  | "deploy-assistant";
+export type GenerationPhase = "planner" | "generator" | "fixer" | "verifier" | "deploy-assistant";
 
 export type PhaseModelOverride = {
   phase: GenerationPhase;
@@ -35,6 +31,7 @@ export type PhaseThinkingOverride = {
   phase: GenerationPhase;
   thinking: boolean;
   reasoningEffort: ReasoningEffortFromManifest;
+  reasoningMode?: ReasoningModeFromManifest;
   reason: string;
 };
 
@@ -59,10 +56,10 @@ export function resolvePhaseModel(
   const baseModel = canonicalModelIdToOwnModelId(selectedTier);
   const phaseRef = resolvePhaseModelRef(selectedTier, phase);
   const selectedBuildModel = phaseRef === SELECTED_BUILD_MODEL_REF;
-  const modelId = (selectedBuildModel ? baseModel : phaseRef) as OwnModelId;
+  const modelId = aliasRetiredModelId(selectedBuildModel ? baseModel : phaseRef) as OwnModelId;
 
-  if (selectedBuildModel && selectedTier === "fast") {
-    return { phase, modelId, reason: "fast-tier-no-downgrade" };
+  if (selectedBuildModel && selectedTier === "premium") {
+    return { phase, modelId, reason: "premium-tier-unified" };
   }
 
   if (selectedBuildModel && selectedTier === "anthropic") {
@@ -97,10 +94,15 @@ export function resolvePhaseThinking(
       `[phase-routing] Tier "${selectedTier}" has no thinking-config for phase "${phase}". Known phases: ${Object.keys(tierConfig).join(", ")}`,
     );
   }
+  const phaseModelId = resolvePhaseModel(selectedTier, phase).modelId;
+  const supportsReasoningMode = phaseModelId.startsWith("gpt-5.6-");
   return {
     phase,
     thinking: config.thinking,
     reasoningEffort: config.reasoningEffort,
+    ...(config.reasoningMode && supportsReasoningMode
+      ? { reasoningMode: config.reasoningMode }
+      : {}),
     reason: "manifest-phase-thinking",
   };
 }

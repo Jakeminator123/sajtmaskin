@@ -30,7 +30,7 @@ import {
   resolveServerRepairEarlyStopReason,
 } from "./server-repair-policy";
 import { collectRepairBlockers, introducedRepairBlockers } from "./repair-blockers";
-import type { ReasoningEffort } from "@/lib/gen/engine";
+import type { ReasoningEffort, ReasoningMode } from "@/lib/gen/engine";
 
 export type RepairMethod = "deterministic" | "llm";
 
@@ -115,6 +115,7 @@ export type RunRepairLoopParams<TPayload = unknown> = {
   fixerModel?: string;
   fixerThinking?: boolean;
   fixerReasoningEffort?: ReasoningEffort;
+  fixerReasoningMode?: ReasoningMode;
   fixerMaxTokens?: number;
   // Återkommande felmönster från tidigare runs i samma chat-session.
   // Anroparen läser via `readRecurringPatternsForChat(chatId)` (i
@@ -214,9 +215,7 @@ function buildImportGraph(content: string): {
   return { dependsOn, importedBy };
 }
 
-function sortManifestByDependencyPriority(
-  manifest: RepairErrorManifest,
-): RepairErrorManifest {
+function sortManifestByDependencyPriority(manifest: RepairErrorManifest): RepairErrorManifest {
   return [...manifest].sort((a, b) => {
     if (b.importedByCount !== a.importedByCount) {
       return b.importedByCount - a.importedByCount;
@@ -239,10 +238,7 @@ function buildRepairErrorManifest(params: {
     : { dependsOn: new Map<string, Set<string>>(), importedBy: new Map<string, Set<string>>() };
   const { dependsOn, importedBy } = graph;
 
-  const pushDiagnostic = (
-    file: string,
-    diagnostic: RepairErrorManifestDiagnostic,
-  ) => {
+  const pushDiagnostic = (file: string, diagnostic: RepairErrorManifestDiagnostic) => {
     const normalizedFile = toPosixPath(file);
     if (!normalizedFile) return;
     if (!diagnosticsByFile.has(normalizedFile)) {
@@ -366,9 +362,7 @@ function resolveImportPath(
   }
   if (!importPath.startsWith(".")) return null;
 
-  const base = path.posix.normalize(
-    path.posix.join(path.posix.dirname(importerPath), importPath),
-  );
+  const base = path.posix.normalize(path.posix.join(path.posix.dirname(importerPath), importPath));
   if (knownFiles.has(base)) return base;
 
   const extCandidates = [
@@ -568,9 +562,11 @@ export async function runRepairLoop<TPayload = unknown>(
   // failure unrelated to those imports would have its valid backend SDK
   // imports (stripe / @clerk/nextjs/server / supabase) stripped here — the
   // same policy the deterministic pre-pass already honours (Codex P1).
-  let content = (await runAutoFix(params.initialContent, {
-    previewPolicy: params.previewPolicy,
-  })).fixedContent;
+  let content = (
+    await runAutoFix(params.initialContent, {
+      previewPolicy: params.previewPolicy,
+    })
+  ).fixedContent;
 
   // Deterministic, diagnostic-driven import repair (runs BEFORE the LLM fixer).
   // The quality gate that produced `failedOutputs` already ran tsc; its
@@ -623,8 +619,7 @@ export async function runRepairLoop<TPayload = unknown>(
   // pre-fix content and discard the LLM's real fix at the final gate (prod
   // "could not resolve after 1 attempt"), and (2) the syntax-clean break would
   // stop after a single pass. Pure-syntax repairs keep their existing behavior.
-  const gateClassFailure =
-    initialSyntaxErrorCount === 0 && params.failedOutputs.length > 0;
+  const gateClassFailure = initialSyntaxErrorCount === 0 && params.failedOutputs.length > 0;
   let errorManifest = buildRepairErrorManifest({
     failedOutputs: params.failedOutputs,
     syntaxErrors: syntaxResult.errors,
@@ -708,8 +703,7 @@ export async function runRepairLoop<TPayload = unknown>(
   // Baseline after deterministic pre-pass (autofix + import-repair). LLM
   // abort/partial must not discard progress measured against THIS snapshot.
   const preLlmBaselineContent = content;
-  const hasDeterministicProgress =
-    importRepair.fixed || content !== params.initialContent;
+  const hasDeterministicProgress = importRepair.fixed || content !== params.initialContent;
 
   let bestContent = content;
   let bestErrorCount = syntaxResult.errors.length;
@@ -727,9 +721,7 @@ export async function runRepairLoop<TPayload = unknown>(
   // TSxxxx codes preserved. Without these, a tsc-origin repair fed the model
   // only esbuild syntax output + secondary context — the model optimized
   // against the wrong signal ("0 errors remain" → gate failed anyway).
-  const originPrimaryDiagnostics = buildStructuredOriginDiagnostics(
-    params.failedOutputs,
-  );
+  const originPrimaryDiagnostics = buildStructuredOriginDiagnostics(params.failedOutputs);
   // Fas 3: notes about previous failed passes so pass > 0 does not repeat the
   // exact patch that already failed. Bounded to the most recent 2 passes.
   const priorAttemptNotes: string[] = [];
@@ -742,6 +734,7 @@ export async function runRepairLoop<TPayload = unknown>(
         fixerModel: params.fixerModel,
         thinking: params.fixerThinking,
         reasoningEffort: params.fixerReasoningEffort,
+        reasoningMode: params.fixerReasoningMode,
       }
     : undefined;
 
@@ -853,9 +846,7 @@ export async function runRepairLoop<TPayload = unknown>(
       bundle: TargetedRepairBundle | null,
     ): Promise<void> => {
       if (!result.partial || result.fixedFiles.length === 0) return;
-      const fixerOutput = bundle
-        ? bundle.mergeBack(result.fixedContent)
-        : result.fixedContent;
+      const fixerOutput = bundle ? bundle.mergeBack(result.fixedContent) : result.fixedContent;
       const reFixed = await runAutoFix(fixerOutput, {
         previewPolicy: params.previewPolicy,
       });
@@ -867,9 +858,7 @@ export async function runRepairLoop<TPayload = unknown>(
       }
     };
 
-    const buildRetryTargetedBundle = (
-      result: FixerResult,
-    ): TargetedRepairBundle | null => {
+    const buildRetryTargetedBundle = (result: FixerResult): TargetedRepairBundle | null => {
       if (params.enableTargetedRepair === false) return null;
       const retryBrokenFiles = [
         ...new Set([
@@ -1039,8 +1028,7 @@ export async function runRepairLoop<TPayload = unknown>(
     // input was a PARTIAL bundle, so the old comparison was between two
     // different formats and therefore always unequal — the `no_improvement`
     // stop was dead code and an echoing model bought another paid pass.
-    const fixerEchoedInput =
-      lastFixerInput !== null && fixerResult.fixedContent === lastFixerInput;
+    const fixerEchoedInput = lastFixerInput !== null && fixerResult.fixedContent === lastFixerInput;
     const contentChanged = !fixerEchoedInput || content !== contentBeforePass;
     const stopReason = resolveServerRepairEarlyStopReason({
       fixerProducedOutput: true,
@@ -1099,9 +1087,7 @@ export async function runRepairLoop<TPayload = unknown>(
   }
 
   const finalSyntaxResult =
-    bestContent === content
-      ? syntaxResult
-      : await validateGeneratedCode(bestContent);
+    bestContent === content ? syntaxResult : await validateGeneratedCode(bestContent);
   const finalErrorManifest = buildRepairErrorManifest({
     failedOutputs: params.failedOutputs,
     syntaxErrors: finalSyntaxResult.errors,
@@ -1126,11 +1112,7 @@ export async function runRepairLoop<TPayload = unknown>(
   // skip the (expensive) final gate — the base-bound save would discard the
   // result anyway. `earlyStopReason` may already be "superseded" from the
   // per-pass check above.
-  if (
-    syntaxClean &&
-    earlyStopReason !== "superseded" &&
-    (await params.shouldAbortSuperseded?.())
-  ) {
+  if (syntaxClean && earlyStopReason !== "superseded" && (await params.shouldAbortSuperseded?.())) {
     earlyStopReason = "superseded";
   }
   if (syntaxClean && earlyStopReason !== "superseded") {

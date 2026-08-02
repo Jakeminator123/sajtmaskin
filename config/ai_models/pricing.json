@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "title": "Sajtmaskin model price table (USD per 1M tokens)",
   "description": "Canonical per-token price DATA (not just prose like 25-pricing.md). Read by scripts/db/generation-cost.mjs and the backoffice 'Generation Cost' page to turn logged token volumes into money. Prices are per 1,000,000 tokens in USD. Always re-verify against the provider pages before budget decisions — providers change prices.",
-  "verifiedAt": "2026-07-09",
+  "verifiedAt": "2026-08-01",
   "sources": [
     {
       "vendor": "OpenAI",
       "url": "https://developers.openai.com/api/docs/pricing",
-      "note": "Standard/batch/flex/priority text-token rates. Verified 2026-07-09."
+      "note": "Standard text-token rates and GPT-5.6 long-context uplift. Verified 2026-08-01."
     },
     {
       "vendor": "OpenAI",
@@ -32,11 +32,50 @@
     "Regional processing (data residency) endpoints add a 10% uplift for models released on/after 2026-03-05 — not modeled here."
   ],
   "models": {
+    "gpt-5.6-sol": {
+      "provider": "openai",
+      "label": "GPT-5.6 Sol",
+      "match": ["gpt-5.6-sol"],
+      "contextThreshold": {
+        "inputTokens": 272000,
+        "aboveMultiplier": { "input": 2, "output": 1.5 }
+      },
+      "tiers": {
+        "standard": { "input": 5, "cachedInput": 0.5, "output": 30 }
+      }
+    },
+    "gpt-5.6-terra": {
+      "provider": "openai",
+      "label": "GPT-5.6 Terra",
+      "match": ["gpt-5.6-terra"],
+      "contextThreshold": {
+        "inputTokens": 272000,
+        "aboveMultiplier": { "input": 2, "output": 1.5 }
+      },
+      "tiers": {
+        "standard": { "input": 2, "cachedInput": 0.2, "output": 12 }
+      }
+    },
+    "gpt-5.6-luna": {
+      "provider": "openai",
+      "label": "GPT-5.6 Luna",
+      "match": ["gpt-5.6-luna"],
+      "contextThreshold": {
+        "inputTokens": 272000,
+        "aboveMultiplier": { "input": 2, "output": 1.5 }
+      },
+      "tiers": {
+        "standard": { "input": 0.2, "cachedInput": 0.02, "output": 1.2 }
+      }
+    },
     "gpt-5.5": {
       "provider": "openai",
       "label": "GPT-5.5",
       "match": ["gpt-5.5"],
-      "contextThreshold": { "inputTokens": 272000, "aboveMultiplier": { "input": 2, "output": 1.5 } },
+      "contextThreshold": {
+        "inputTokens": 272000,
+        "aboveMultiplier": { "input": 2, "output": 1.5 }
+      },
       "tiers": {
         "standard": { "input": 5, "cachedInput": 0.5, "output": 30 },
         "batch": { "input": 2.5, "cachedInput": 0.25, "output": 15 },
@@ -57,7 +96,10 @@
       "provider": "openai",
       "label": "GPT-5.4",
       "match": ["gpt-5.4"],
-      "contextThreshold": { "inputTokens": 272000, "aboveMultiplier": { "input": 2, "output": 1.5 } },
+      "contextThreshold": {
+        "inputTokens": 272000,
+        "aboveMultiplier": { "input": 2, "output": 1.5 }
+      },
       "tiers": {
         "standard": { "input": 2.5, "cachedInput": 0.25, "output": 15 },
         "batch": { "input": 1.25, "cachedInput": 0.13, "output": 7.5 },

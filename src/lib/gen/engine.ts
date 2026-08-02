@@ -3,10 +3,7 @@ import { streamText, type ModelMessage, type ToolSet } from "ai";
 import { ENGINE_MAX_OUTPUT_TOKENS } from "./defaults";
 import { getDefaultThinkingEnabled } from "./default-thinking";
 import { getOpenAIModel, DEFAULT_MODEL, isAnthropicModel } from "./models";
-import {
-  buildUserPromptContent,
-  type RequestAttachment,
-} from "./request-metadata";
+import { buildUserPromptContent, type RequestAttachment } from "./request-metadata";
 import { createCodeGenSSEStream, type StreamMeta } from "./stream/stream-format";
 import {
   assertSystemPromptShape,
@@ -14,20 +11,22 @@ import {
 } from "./system-prompt-assert";
 
 export type { StreamMeta };
-export type ReasoningEffort = "none" | "low" | "medium" | "high";
+export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
+export type ReasoningMode = "standard" | "pro";
 type JsonValue = null | string | number | boolean | JsonObject | JsonValue[];
 type JsonObject = { [key: string]: JsonValue | undefined };
 type ProviderOptionsRecord = Record<string, JsonObject>;
 
-export function toAnthropicEffort(
-  effort: ReasoningEffort,
-): "low" | "medium" | "high" {
+export function toAnthropicEffort(effort: ReasoningEffort): "low" | "medium" | "high" | "max" {
   switch (effort) {
     case "none":
     case "low":
       return "low";
     case "medium":
       return "medium";
+    case "xhigh":
+    case "max":
+      return "max";
     case "high":
     default:
       return "high";
@@ -41,6 +40,7 @@ export interface GenerateOptions {
   chatHistory?: ModelMessage[];
   thinking?: boolean;
   reasoningEffort?: ReasoningEffort;
+  reasoningMode?: ReasoningMode;
   maxTokens?: number;
   abortSignal?: AbortSignal;
   tools?: ToolSet;
@@ -83,6 +83,7 @@ export function generateCode(
     chatHistory,
     thinking,
     reasoningEffort = "high",
+    reasoningMode,
     maxTokens,
     abortSignal,
     tools,
@@ -113,15 +114,16 @@ export function generateCode(
     // at high effort/latency instead of the configured tier. (Codex P2, #283.)
     providerOptions = {
       anthropic: {
-        thinking: resolvedThinking
-          ? { type: "adaptive" as const }
-          : { type: "disabled" as const },
+        thinking: resolvedThinking ? { type: "adaptive" as const } : { type: "disabled" as const },
         effort: toAnthropicEffort(reasoningEffort),
       },
     };
   } else if (resolvedThinking) {
     providerOptions = {
-      openai: { reasoningEffort },
+      openai: {
+        reasoningEffort,
+        ...(reasoningMode ? { reasoningMode } : {}),
+      },
     };
   }
 
@@ -129,10 +131,10 @@ export function generateCode(
   // missing separator, unbalanced fences, etc. before we burn tokens on
   // a poisoned prompt. Soft by default (warns); set
   // `SAJTMASKIN_STRICT_SYSTEM_PROMPT_ASSERT=1` to fail loud.
-  logAndMaybeThrowOnSystemPromptAssert(
-    assertSystemPromptShape(systemPrompt),
-    { chatId: meta?.chatId, phase: "engine.generateCode" },
-  );
+  logAndMaybeThrowOnSystemPromptAssert(assertSystemPromptShape(systemPrompt), {
+    chatId: meta?.chatId,
+    phase: "engine.generateCode",
+  });
 
   const result = streamText({
     model,
@@ -159,6 +161,7 @@ export interface PipelineOptions {
   chatHistory?: GenerateOptions["chatHistory"];
   thinking?: boolean;
   reasoningEffort?: ReasoningEffort;
+  reasoningMode?: ReasoningMode;
   maxTokens?: number;
   abortSignal?: AbortSignal;
   tools?: ToolSet;
@@ -168,9 +171,7 @@ export interface PipelineOptions {
   onAccumulatedThinking?: GenerateOptions["onAccumulatedThinking"];
 }
 
-export function createGenerationPipeline(
-  options: PipelineOptions,
-): ReadableStream<Uint8Array> {
+export function createGenerationPipeline(options: PipelineOptions): ReadableStream<Uint8Array> {
   return generateCode(
     {
       prompt: options.prompt,
@@ -179,6 +180,7 @@ export function createGenerationPipeline(
       chatHistory: options.chatHistory,
       thinking: options.thinking,
       reasoningEffort: options.reasoningEffort,
+      reasoningMode: options.reasoningMode,
       maxTokens: options.maxTokens,
       abortSignal: options.abortSignal,
       tools: options.tools,

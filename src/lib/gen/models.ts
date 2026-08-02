@@ -37,5 +37,13 @@ export function getOpenAIModel(modelId?: string) {
     );
   }
 
-  return createOpenAI({ apiKey })(id);
+  const openai = createOpenAI({ apiKey });
+  // GPT-5.6 reasoningMode (standard/pro), reasoningContext, and the full
+  // reasoning-effort range are Responses API features in @ai-sdk/openai.
+  // Select that provider explicitly so Premium cannot silently fall back to
+  // Chat Completions semantics.
+  if (id.startsWith("gpt-5.6-")) {
+    return openai.responses(id);
+  }
+  return openai(id);
 }

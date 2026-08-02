@@ -576,6 +576,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           planModel,
           plannerThinking: plannerSettings.thinking,
           plannerReasoningEffort: plannerSettings.reasoningEffort,
+          plannerReasoningMode: plannerSettings.reasoningMode,
           abortSignal: req.signal,
           referenceAttachments: [
             ...planOrchestration.variantTemplateReferenceAttachments,

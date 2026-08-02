@@ -42,10 +42,11 @@ export interface ModelTierOption {
 
 export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
-    value: "fast",
-    label: "Snabb",
-    description: "Liten/billig profil. GPT-4.1 för enklare sidor och snabba ändringar.",
-    hint: "billig",
+    value: "premium",
+    label: "Premium",
+    description:
+      "GPT-5.6 Sol i hela byggkedjan. Planner kör max och generator xhigh med thinking i pro-läge.",
+    hint: "högsta kvalitet",
   },
   {
     value: "pro",
@@ -63,8 +64,7 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "codex",
     label: "Kod Max",
-    description:
-      "Separat tung kodmodell (gpt-5.3-codex-max). Använd när du uttryckligen vill codex-varianten — vardagsläge för stark modell är «Tänker» ovan.",
+    description: "Separat tung kodprofil (gpt-5.3-codex) med hög reasoning-effort.",
   },
   {
     value: "anthropic",
@@ -93,6 +93,10 @@ export interface PromptAssistModelOption {
 export const PROMPT_ASSIST_OFF_VALUE = "off";
 
 const PROMPT_ASSIST_LABELS: Record<string, string> = {
+  "openai/gpt-5.6-sol": "OpenAI GPT-5.6 Sol",
+  "openai/gpt-5.6-terra": "OpenAI GPT-5.6 Terra",
+  "openai/gpt-5.6-luna": "OpenAI GPT-5.6 Luna",
+  "openai/gpt-5.5": "OpenAI GPT-5.5",
   "openai/gpt-5.4": "OpenAI GPT-5.4",
   "openai/gpt-5.3-codex": "OpenAI GPT-5.3 Codex",
   "openai/gpt-5.2": "OpenAI GPT-5.2",
@@ -316,4 +320,3 @@ const ALL_DEFAULTS = new Set([
 export function isDefaultCustomInstructions(value: string): boolean {
   return ALL_DEFAULTS.has(value.trim());
 }
-

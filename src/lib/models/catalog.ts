@@ -15,7 +15,7 @@ import {
 import { getBuildProfileEnvKey } from "@/lib/gen/defaults";
 
 /** Internal canonical IDs for the builder's own model profiles. */
-export const CANONICAL_MODEL_IDS = ["fast", "pro", "max", "codex", "anthropic"] as const;
+export const CANONICAL_MODEL_IDS = ["premium", "pro", "max", "codex", "anthropic"] as const;
 
 export type CanonicalModelId = (typeof CANONICAL_MODEL_IDS)[number];
 
@@ -24,9 +24,9 @@ export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
 /**
  * Concrete model IDs for the own engine.
  *
- * `gpt-5.5` and `claude-opus-4.8` are the current full-size defaults; the
- * older `gpt-5.4` / `claude-opus-4.6` IDs are kept so persisted chat/version
- * rows and env overrides that still reference them resolve cleanly.
+ * GPT-5.6 Sol is the Premium default. Terra and Luna are available for
+ * explicit phase routing in backoffice. Older full-size IDs remain for
+ * persisted chat/version rows and environment overrides.
  *
  * `claude-sonnet-4.6` is **retired** (2026-06-28): it is no longer a default
  * or selectable model and is never sent to a provider — any lingering reference
@@ -34,9 +34,11 @@ export const DEFAULT_MODEL_ID: CanonicalModelId = "pro";
  * kept here only so persisted/legacy strings still parse and round-trip.
  */
 export const OWN_MODEL_IDS = [
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
   "gpt-5.5",
   "gpt-5.4",
-  "gpt-5.4-mini",
   "gpt-5.3-codex",
   "gpt-5.2",
   "gpt-4.1",
@@ -55,9 +57,10 @@ export const DEFAULT_OWN_MODEL_ID = getDefaultMaxTierOwnEngineModel() as OwnMode
  * URL params). These are compatibility aliases, not separate active models.
  */
 const LEGACY_ALIAS: Record<string, CanonicalModelId> = {
-  "v0-max-fast": "fast",
-  "v0-1.5-sm": "fast",
-  "v0-max": "fast",
+  fast: "premium",
+  "v0-max-fast": "premium",
+  "v0-1.5-sm": "premium",
+  "v0-max": "premium",
   "v0-1.5-md": "pro",
   "v0-mini": "pro",
   "v0-pro": "pro",
@@ -80,6 +83,8 @@ const LEGACY_MODEL_IDS = Object.keys(LEGACY_ALIAS) as (keyof typeof LEGACY_ALIAS
  * direct-model path can slip the retired id through.
  */
 const RETIRED_MODEL_ALIAS: Record<string, string> = {
+  "gpt-5.4-mini": "gpt-5.6-sol",
+  "openai/gpt-5.4-mini": "openai/gpt-5.6-sol",
   "claude-sonnet-4.6": "claude-opus-4.8",
   "claude-sonnet-4-6": "claude-opus-4-8",
   "anthropic/claude-sonnet-4.6": "anthropic/claude-opus-4.8",
@@ -98,10 +103,7 @@ export function aliasRetiredModelId(value: string | null | undefined): string {
 }
 
 /** Union of every model ID accepted as input (canonical + legacy). */
-export const ACCEPTED_MODEL_IDS = [
-  ...CANONICAL_MODEL_IDS,
-  ...LEGACY_MODEL_IDS,
-] as const;
+export const ACCEPTED_MODEL_IDS = [...CANONICAL_MODEL_IDS, ...LEGACY_MODEL_IDS] as const;
 
 const CANONICAL_SET = new Set<string>(CANONICAL_MODEL_IDS);
 
@@ -110,9 +112,7 @@ export function isCanonicalModelId(value: string): value is CanonicalModelId {
 }
 
 /** Resolve any accepted model ID to its canonical form. */
-export function canonicalizeModelId(
-  value: string | null | undefined,
-): CanonicalModelId | null {
+export function canonicalizeModelId(value: string | null | undefined): CanonicalModelId | null {
   if (!value) return null;
   const trimmed = value.trim();
   if (isCanonicalModelId(trimmed)) return trimmed;
@@ -124,10 +124,26 @@ export function canonicalizeModelId(
 export function ownModelIdToCanonicalModelId(
   value: string | null | undefined,
 ): CanonicalModelId | null {
+  const persistedTier = canonicalizeModelId(value);
+  if (persistedTier) return persistedTier;
+
   const trimmed = aliasRetiredModelId(value);
   if (!trimmed) return null;
+
+  // GPT-5.6 variants belong to Premium even if an env override has changed
+  // since the chat was persisted.
+  if (trimmed.startsWith("gpt-5.6-")) return "premium";
+
   for (const candidate of CANONICAL_MODEL_IDS) {
     if (canonicalModelIdToOwnModelId(candidate) === trimmed) {
+      return candidate;
+    }
+  }
+
+  // Fall back to canonical manifest defaults when live env overrides have
+  // changed since the chat was persisted.
+  for (const candidate of CANONICAL_MODEL_IDS) {
+    if (aliasRetiredModelId(getBuildProfileDefaultOwnEngineModel(candidate)) === trimmed) {
       return candidate;
     }
   }
@@ -136,7 +152,7 @@ export function ownModelIdToCanonicalModelId(
 
 /** User-facing labels for the builder profiles. */
 export const MODEL_LABELS: Record<CanonicalModelId, string> = {
-  fast: "Snabb",
+  premium: "Premium",
   pro: "Lagom",
   max: "Tänker",
   codex: "Kod Max",
@@ -145,9 +161,9 @@ export const MODEL_LABELS: Record<CanonicalModelId, string> = {
 
 export const BUILD_PROFILE_IDS: Record<
   CanonicalModelId,
-  "fast" | "pro" | "max" | "codex" | "anthropic"
+  "premium" | "pro" | "max" | "codex" | "anthropic"
 > = {
-  fast: "fast",
+  premium: "premium",
   pro: "pro",
   max: "max",
   codex: "codex",
@@ -163,10 +179,10 @@ export function getBuildProfileId(modelId: CanonicalModelId): BuildProfileId {
 export type QualityLevel = "light" | "standard" | "pro" | "premium" | "max";
 
 export const QUALITY_TO_MODEL: Record<QualityLevel, CanonicalModelId> = {
-  light: "fast",
+  light: "premium",
   standard: "pro",
   pro: "pro",
-  premium: "max",
+  premium: "premium",
   max: "codex",
 };
 
@@ -179,9 +195,12 @@ export const QUALITY_TO_OPENAI_MODEL = getQualityToOwnEngineModels() as Record<
 /** Maps the canonical builder profile to an own-engine model ID. */
 export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnModelId {
   const tierMap: Record<CanonicalModelId, string> = {
-    fast:
-      process.env[getBuildProfileEnvKey("fast")]?.trim() ||
-      getBuildProfileDefaultOwnEngineModel("fast"),
+    // Prefer SAJTMASKIN_MODEL_PREMIUM, but keep reading the retired
+    // SAJTMASKIN_MODEL_FAST override so existing Vercel/local env still works.
+    premium:
+      process.env[getBuildProfileEnvKey("premium")]?.trim() ||
+      process.env.SAJTMASKIN_MODEL_FAST?.trim() ||
+      getBuildProfileDefaultOwnEngineModel("premium"),
     pro:
       process.env[getBuildProfileEnvKey("pro")]?.trim() ||
       getBuildProfileDefaultOwnEngineModel("pro"),
@@ -198,4 +217,3 @@ export function canonicalModelIdToOwnModelId(modelId: CanonicalModelId): OwnMode
   const raw = tierMap[modelId] ?? getBuildProfileDefaultOwnEngineModel("pro");
   return aliasRetiredModelId(raw) as OwnModelId;
 }
-

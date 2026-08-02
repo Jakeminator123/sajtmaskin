@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:06b220683d99a6bf -->
+<!-- source-fingerprint: config/env-policy.json sha256:8e5963583ff59a4b -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:40181cc99930d580 -->
 
@@ -119,8 +119,8 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_METRICS_TOKEN`                           | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_MODEL_ANTHROPIC`                         | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_MODEL_CODEX`                             | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
-| `SAJTMASKIN_MODEL_FAST`                              | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_MODEL_MAX`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `SAJTMASKIN_MODEL_PREMIUM`                           | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_MODEL_PRO`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_PHASE_FORCE_AUDIT_CHARS`                 | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_PHASE_FORCE_CHARS`                       | `environment_specific` | `production`                           | No            | No           |

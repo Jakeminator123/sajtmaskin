@@ -1047,10 +1047,16 @@ MODEL_LABELS = {
     "openai/gpt-5.5": "OpenAI GPT-5.5",
     "openai/gpt-5.4": "OpenAI GPT-5.4",
     "openai/gpt-5.3-codex": "OpenAI GPT-5.3 Codex",
+    "openai/gpt-5.6-sol": "OpenAI GPT-5.6 Sol",
+    "openai/gpt-5.6-terra": "OpenAI GPT-5.6 Terra",
+    "openai/gpt-5.6-luna": "OpenAI GPT-5.6 Luna",
     "openai/gpt-5.2": "OpenAI GPT-5.2",
     "openai/gpt-5-mini": "OpenAI GPT-5 mini",
     "gpt-4o-mini": "GPT-4o mini (legacy)",
     "gpt-4.1": "GPT-4.1",
+    "gpt-5.6-sol": "GPT-5.6 Sol",
+    "gpt-5.6-terra": "GPT-5.6 Terra",
+    "gpt-5.6-luna": "GPT-5.6 Luna",
     "gpt-5.5": "GPT-5.5",
     "gpt-5-mini": "GPT-5 mini",
     "gpt-5-nano": "GPT-5 nano",
@@ -1070,7 +1076,7 @@ MODEL_LABELS = {
     "selected_build_model": "Följ vald byggprofil (`selected_build_model`)",
 }
 
-BUILD_PROFILE_ORDER = ("fast", "pro", "max", "codex", "anthropic")
+BUILD_PROFILE_ORDER = ("premium", "pro", "max", "codex", "anthropic")
 PHASE_ORDER = (
     "planner",
     "generator",
@@ -1078,15 +1084,18 @@ PHASE_ORDER = (
     "verifier",
     "deploy-assistant",
 )
-REASONING_EFFORT_OPTIONS = ("none", "low", "medium", "high")
+REASONING_EFFORT_OPTIONS = ("none", "low", "medium", "high", "xhigh", "max")
+REASONING_MODE_OPTIONS = ("standard", "pro")
 AVAILABLE_PHASE_MODELS = (
     "selected_build_model",
-    "gpt-4.1",
-    "gpt-5.2",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
     "gpt-5.5",
     "gpt-5.4",
-    "gpt-5.4-mini",
     "gpt-5.3-codex",
+    "gpt-5.2",
+    "gpt-4.1",
     "claude-sonnet-4.6",
     "claude-opus-4.8",
     "claude-opus-4.6",
@@ -1099,12 +1108,12 @@ PHASE_LABELS = {
     "deploy-assistant": "Deploy-assistant",
 }
 DEFAULT_PHASE_THINKING_BY_TIER: dict[str, dict[str, dict[str, Any]]] = {
-    "fast": {
-        "planner": {"thinking": True, "reasoningEffort": "medium"},
-        "generator": {"thinking": True, "reasoningEffort": "medium"},
-        "fixer": {"thinking": False, "reasoningEffort": "medium"},
-        "verifier": {"thinking": False, "reasoningEffort": "medium"},
-        "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
+    "premium": {
+        "planner": {"thinking": True, "reasoningEffort": "max", "reasoningMode": "pro"},
+        "generator": {"thinking": True, "reasoningEffort": "xhigh", "reasoningMode": "pro"},
+        "fixer": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
+        "verifier": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
+        "deploy-assistant": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
     },
     "pro": {
         "planner": {"thinking": True, "reasoningEffort": "medium"},
@@ -1240,13 +1249,19 @@ def phase_thinking_defaults(manifest: dict[str, Any]) -> dict[str, dict[str, dic
                 {"thinking": False, "reasoningEffort": "medium"},
             )
             phase_cfg = tier_stored.get(phase) if isinstance(tier_stored, dict) else {}
-            normalized[phase] = {
+            normalized_phase = {
                 "thinking": bool(phase_cfg.get("thinking", default_cfg["thinking"])),
                 "reasoningEffort": str(
                     phase_cfg.get("reasoningEffort", default_cfg["reasoningEffort"])
                 ).strip()
                 or str(default_cfg["reasoningEffort"]),
             }
+            reasoning_mode = str(
+                phase_cfg.get("reasoningMode", default_cfg.get("reasoningMode", ""))
+            ).strip()
+            if reasoning_mode:
+                normalized_phase["reasoningMode"] = reasoning_mode
+            normalized[phase] = normalized_phase
         result[tier] = normalized
     return result
 
@@ -1257,14 +1272,19 @@ def write_phase_thinking(
     phase: str,
     thinking: bool,
     effort: str,
+    mode: str = "",
 ) -> None:
     phase_routing = manifest.setdefault("phaseRouting", {})
     thinking_by_tier = phase_routing.setdefault("thinkingByTier", {})
     tier_cfg = thinking_by_tier.setdefault(tier, {})
-    tier_cfg[phase] = {
+    phase_cfg = {
         "thinking": bool(thinking),
         "reasoningEffort": (effort or "medium").strip() or "medium",
     }
+    normalized_mode = (mode or "").strip()
+    if normalized_mode:
+        phase_cfg["reasoningMode"] = normalized_mode
+    tier_cfg[phase] = phase_cfg
 
 
 def phase_token_budget_entry(manifest: dict[str, Any], phase: str) -> dict[str, Any]:

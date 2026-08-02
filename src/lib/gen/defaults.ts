@@ -35,13 +35,13 @@ const repairPolicies = getRepairPoliciesFromManifest();
 // All model choices are centralized here. Override via .env.local:
 //
 //   # ── Byggmodeller (kodgenerering, direkt mot OpenAI) ──────────
-//   SAJTMASKIN_MODEL_FAST=gpt-5.4-mini
+//   SAJTMASKIN_MODEL_PREMIUM=gpt-5.6-sol
 //   SAJTMASKIN_MODEL_PRO=gpt-5.3-codex
 //   SAJTMASKIN_MODEL_MAX=gpt-5.5
 //   SAJTMASKIN_MODEL_CODEX=gpt-5.3-codex
 //
 //   # ── Prompt Assist / Brief (provider/model, se config/ai_models) ─
-//   SAJTMASKIN_ASSIST_MODEL=openai/gpt-5.5
+//   SAJTMASKIN_ASSIST_MODEL=openai/gpt-5.6-sol
 //   SAJTMASKIN_POLISH_MODEL=openai/gpt-5.3-codex
 //
 //   # ── Token-gränser ────────────────────────────────────────────
@@ -58,10 +58,7 @@ export const ASSIST_MODEL = readStringEnv(pa.envKeys.assist, pa.defaults.assist)
 export const POLISH_MODEL = readStringEnv(pa.envKeys.polish, pa.defaults.polish);
 
 /** Deep Brief model for `/api/ai/brief` when the caller does not override it. */
-export const BRIEF_MODEL = readStringEnv(
-  briefingEnvKeys.requestModel,
-  briefing.requestModel,
-);
+export const BRIEF_MODEL = readStringEnv(briefingEnvKeys.requestModel, briefing.requestModel);
 
 /** Server auto-brief fallback when OpenAI-class assist is available. */
 export const AUTO_BRIEF_MODEL_OPENAI = readStringEnv(
@@ -132,12 +129,10 @@ export const ASSIST_ROUTE_MAX_DURATION_SECONDS = readIntEnv(
 // move the real ceiling). All lease/verify/watchdog timing derives from this
 // static value so a raised env can never push a client timeout above the actual
 // route budget and skip `finally { releaseVersionLease }` (Codex P1 #284).
-export const VERIFY_REPAIR_ROUTE_BUDGET_SECONDS =
-  rt.verifyRepairRouteMaxDurationSeconds.default;
+export const VERIFY_REPAIR_ROUTE_BUDGET_SECONDS = rt.verifyRepairRouteMaxDurationSeconds.default;
 
 /** Watchdog for versions stuck in `verifying` — aligned with the static repair/quality-gate route budget. */
-export const STALE_VERIFICATION_TIMEOUT_MS =
-  VERIFY_REPAIR_ROUTE_BUDGET_SECONDS * 1000;
+export const STALE_VERIFICATION_TIMEOUT_MS = VERIFY_REPAIR_ROUTE_BUDGET_SECONDS * 1000;
 
 /**
  * Wall-clock reserve (ms) kept below the static repair-route budget so the loop
@@ -202,15 +197,12 @@ export const LLM_FIXER_RETRY_TIMEOUT_MS = readIntEnv(
 );
 
 export const SYNTAX_FIX_MAX_PASSES = repairPolicies.syntaxFixPasses;
-export const DETERMINISTIC_AUTOFIX_MAX_PASSES =
-  repairPolicies.deterministicAutofixPasses;
-export const MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES =
-  repairPolicies.manualRepairRouteLlmPasses;
+export const DETERMINISTIC_AUTOFIX_MAX_PASSES = repairPolicies.deterministicAutofixPasses;
+export const MANUAL_REPAIR_ROUTE_MAX_LLM_PASSES = repairPolicies.manualRepairRouteLlmPasses;
 export const SERVER_REPAIR_MAX_PASSES = repairPolicies.serverRepairPasses;
 export const REPAIR_ACCEPT_TIMEOUT_MINUTES = repairPolicies.repairAcceptTimeoutMinutes;
 export const REPAIR_ACCEPT_TIMEOUT_MS = REPAIR_ACCEPT_TIMEOUT_MINUTES * 60 * 1000;
-export const PARTIAL_FILE_REPAIR_MAX_ATTEMPTS =
-  repairPolicies.partialFileRepairMaxAttempts;
+export const PARTIAL_FILE_REPAIR_MAX_ATTEMPTS = repairPolicies.partialFileRepairMaxAttempts;
 
 export const PROJECT_ANALYZE_DEFAULT_MODEL =
   getWorkloadDefaultModelFromManifest("project_analyze") ?? "gpt-5-mini";
@@ -218,9 +210,8 @@ export const PROJECT_ANALYZE_DEFAULT_MODEL =
 export const AUDIT_STRUCTURED_DEFAULT_MODEL =
   getWorkloadDefaultModelFromManifest("audit_structured") ?? "openai/gpt-5.2";
 
-export const AUDIT_STRUCTURED_FALLBACK_MODELS = getWorkloadFallbackModelsFromManifest(
-  "audit_structured",
-);
+export const AUDIT_STRUCTURED_FALLBACK_MODELS =
+  getWorkloadFallbackModelsFromManifest("audit_structured");
 
 export const ANALYZE_PRESENTATION_DEFAULT_MODEL =
   getWorkloadDefaultModelFromManifest("analyze_presentation") ?? "openai/gpt-5-mini";

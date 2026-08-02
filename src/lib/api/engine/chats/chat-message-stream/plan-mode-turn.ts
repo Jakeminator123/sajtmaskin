@@ -44,10 +44,7 @@ import {
   type PlanModeTurnExitOutcome,
 } from "./plan-mode-trace";
 
-const EXIT_OUTCOME_BY_KIND: Record<
-  PlanModeAssistantMessageKind,
-  PlanModeTurnExitOutcome
-> = {
+const EXIT_OUTCOME_BY_KIND: Record<PlanModeAssistantMessageKind, PlanModeTurnExitOutcome> = {
   plan: "plan_persisted",
   "planner-text": "planner_text_persisted",
   "planner-error": "planner_error_persisted",
@@ -124,12 +121,14 @@ export async function runPlanModeTurn(params: {
   await chatRepo.addMessage(engineChat.id, "user", message);
 
   let planEngineIntent: BuildIntent =
-    metaBuildIntent === "template" ||
-    metaBuildIntent === "website" ||
-    metaBuildIntent === "app"
+    metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
       ? (metaBuildIntent as BuildIntent)
       : "website";
-  if (planEngineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
+  if (
+    planEngineIntent === "website" &&
+    parsedMeta.scaffoldMode === "manual" &&
+    isAppScaffold(parsedMeta.scaffoldId)
+  ) {
     planEngineIntent = "app";
   }
   const planOrchestrationStartedAt = Date.now();
@@ -150,13 +149,10 @@ export async function runPlanModeTurn(params: {
       promptStrategyMeta: promptOrchestration.strategyMeta,
       existingRoutePaths,
       existingShellRoutePaths,
-      previousFilePaths: hasFollowUpBase
-        ? previousFiles.map((file) => file.path)
-        : [],
+      previousFilePaths: hasFollowUpBase ? previousFiles.map((file) => file.path) : [],
       followUpCapabilityDetection,
       followUpIntent,
-      orchestrationSnapshot:
-        engineChat.orchestration_snapshot as Record<string, unknown> | null,
+      orchestrationSnapshot: engineChat.orchestration_snapshot as Record<string, unknown> | null,
       engineModelId: resolveEngineModelId(resolvedModelTier),
     }),
   );
@@ -189,10 +185,7 @@ export async function runPlanModeTurn(params: {
     "POST /api/engine/chats/[chatId]/stream",
   );
   const planChatHistory = buildBoundedChatHistory(engineChat.messages);
-  const plannerSettings = resolvePlanModePlannerSettings(
-    resolvedModelTier,
-    resolvedThinking,
-  );
+  const plannerSettings = resolvePlanModePlannerSettings(resolvedModelTier, resolvedThinking);
   const planModel = plannerSettings.modelId;
   logPlanModeGenerationStart({
     planModel,
@@ -229,6 +222,7 @@ export async function runPlanModeTurn(params: {
     planModel,
     plannerThinking: plannerSettings.thinking,
     plannerReasoningEffort: plannerSettings.reasoningEffort,
+    plannerReasoningMode: plannerSettings.reasoningMode,
     abortSignal: req.signal,
     chatHistory: planChatHistory,
     referenceAttachments: [
@@ -237,70 +231,75 @@ export async function runPlanModeTurn(params: {
     ],
   });
 
-  return attachSessionCookie(withPromptToDoneMetricResponse(createOwnEnginePlanModeResponse({
-    pipelineStream: planPipelineStream,
-    chatId,
-    modelTier: resolvedModelTier,
-    buildProfileId,
-    buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-    thinking: plannerSettings.thinking,
-    promptStrategyMeta: promptOrchestration.strategyMeta,
-    buildSpec: planOrchestration.buildSpec,
-    resolvedScaffold: planResolvedScaffold,
-    scaffoldMode: metaScaffoldMode,
-    persistAssistantSummary: async (planData, hasBlockers, context) => {
-      // Varje planner-tur ska lämna EN assistentrad efter sig, plan eller inte
-      // (prod chat 785c8d7a): utan den försvinner svaret vid reload.
-      const assistantMessage = buildPlanModeAssistantMessage({
-        planData,
-        hasBlockers,
-        hasPlanArtifact: context.hasPlanArtifact,
-        plannerText: context.accumulatedContent,
-        upstreamErrorMessage: context.upstreamErrorMessage,
-      });
-      let persisted = false;
-      let persistError: string | null = null;
-      try {
-        await chatRepo.addMessage(
+  return attachSessionCookie(
+    withPromptToDoneMetricResponse(
+      createOwnEnginePlanModeResponse({
+        pipelineStream: planPipelineStream,
+        chatId,
+        modelTier: resolvedModelTier,
+        buildProfileId,
+        buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+        thinking: plannerSettings.thinking,
+        promptStrategyMeta: promptOrchestration.strategyMeta,
+        buildSpec: planOrchestration.buildSpec,
+        resolvedScaffold: planResolvedScaffold,
+        scaffoldMode: metaScaffoldMode,
+        persistAssistantSummary: async (planData, hasBlockers, context) => {
+          // Varje planner-tur ska lämna EN assistentrad efter sig, plan eller inte
+          // (prod chat 785c8d7a): utan den försvinner svaret vid reload.
+          const assistantMessage = buildPlanModeAssistantMessage({
+            planData,
+            hasBlockers,
+            hasPlanArtifact: context.hasPlanArtifact,
+            plannerText: context.accumulatedContent,
+            upstreamErrorMessage: context.upstreamErrorMessage,
+          });
+          let persisted = false;
+          let persistError: string | null = null;
+          try {
+            await chatRepo.addMessage(
+              chatId,
+              "assistant",
+              assistantMessage.content,
+              undefined,
+              assistantMessage.uiParts,
+            );
+            persisted = true;
+          } catch (error) {
+            persistError = error instanceof Error ? error.message : String(error);
+            console.warn("[plan] Failed to persist planner assistant summary:", error);
+          }
+          await recordPlanModeTurnExit({
+            ...traceOwner,
+            outcome: persisted ? EXIT_OUTCOME_BY_KIND[assistantMessage.kind] : "persist_failed",
+            assistantMessagePersisted: persisted,
+            hasPlanArtifact: context.hasPlanArtifact,
+            hasBlockers,
+            contentChars: context.accumulatedContent.length,
+            upstreamError: context.upstreamErrorMessage,
+            durationMs: Date.now() - promptStartedAt,
+            persistError,
+          });
+        },
+        buildDonePayload: (planData, hasBlockers) => ({
           chatId,
-          "assistant",
-          assistantMessage.content,
-          undefined,
-          assistantMessage.uiParts,
-        );
-        persisted = true;
-      } catch (error) {
-        persistError = error instanceof Error ? error.message : String(error);
-        console.warn("[plan] Failed to persist planner assistant summary:", error);
-      }
-      await recordPlanModeTurnExit({
-        ...traceOwner,
-        outcome: persisted ? EXIT_OUTCOME_BY_KIND[assistantMessage.kind] : "persist_failed",
-        assistantMessagePersisted: persisted,
-        hasPlanArtifact: context.hasPlanArtifact,
-        hasBlockers,
-        contentChars: context.accumulatedContent.length,
-        upstreamError: context.upstreamErrorMessage,
-        durationMs: Date.now() - promptStartedAt,
-        persistError,
-      });
-    },
-    buildDonePayload: (planData, hasBlockers) => ({
-      chatId,
-      versionId: null,
-      messageId: null,
-      ...previewUrlField(null),
-      awaitingInput: hasBlockers,
-      planArtifact: planData,
-      planMode: true,
-    }),
-    commitCredits: commitCreditsOnce,
-    commitCreditsPosition: "before-done",
-    normalizeQuestionToolCallIds: true,
-  }), {
-    kind: "followup",
-    promptStartedAt,
-    signal: req.signal,
-    chatId,
-  }));
+          versionId: null,
+          messageId: null,
+          ...previewUrlField(null),
+          awaitingInput: hasBlockers,
+          planArtifact: planData,
+          planMode: true,
+        }),
+        commitCredits: commitCreditsOnce,
+        commitCreditsPosition: "before-done",
+        normalizeQuestionToolCallIds: true,
+      }),
+      {
+        kind: "followup",
+        promptStartedAt,
+        signal: req.signal,
+        chatId,
+      },
+    ),
+  );
 }

@@ -45,6 +45,8 @@ class SharedManifestParityTests(unittest.TestCase):
                 self.assertIn(phase, thinking[tier])
                 self.assertIn("thinking", thinking[tier][phase])
                 self.assertIn("reasoningEffort", thinking[tier][phase])
+        self.assertEqual(thinking["premium"]["planner"]["reasoningMode"], "pro")
+        self.assertEqual(thinking["premium"]["generator"]["reasoningEffort"], "xhigh")
 
 
 if __name__ == "__main__":

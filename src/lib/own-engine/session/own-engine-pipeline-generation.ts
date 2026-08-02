@@ -67,8 +67,7 @@ export function createOwnEnginePipelineAndGenerationStream(
   });
   const generatorThinking = resolvePhaseThinking(input.resolvedTier, "generator");
   // Server-side enforcement: if the manifest declares the generator phase
-  // does not support reasoning for this tier (e.g. `fast` tier on
-  // gpt-5.4-fast where reasoning is unsupported), force `thinking=false`
+  // does not support reasoning for this tier, force `thinking=false`
   // even when the client requested it. This prevents the provider from
   // silently dropping reasoning deltas, leaving the UI to display an
   // empty "thinking" panel forever.
@@ -84,6 +83,7 @@ export function createOwnEnginePipelineAndGenerationStream(
     model: input.pipeline.model,
     thinking: effectiveThinking,
     reasoningEffort: generatorThinking.reasoningEffort,
+    reasoningMode: generatorThinking.reasoningMode,
     abortSignal: input.pipeline.abortSignal,
     tools,
     maxSteps: input.pipeline.maxSteps ?? 4,

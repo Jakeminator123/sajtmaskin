@@ -43,7 +43,8 @@ export function createDirectModel(model: string): LanguageModel {
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is required for OpenAI models.");
   }
-  return createOpenAI({ apiKey })(modelId);
+  const openai = createOpenAI({ apiKey });
+  return modelId.startsWith("gpt-5.6-") ? openai.responses(modelId) : openai(modelId);
 }
 
 function isReasoningModel(model: string): boolean {

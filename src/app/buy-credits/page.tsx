@@ -248,9 +248,7 @@ function BuyCreditsContent() {
           `/api/stripe/checkout?session_id=${encodeURIComponent(sessionId)}`,
         );
         if (!response.ok) return false;
-        const data = (await response.json().catch(() => null)) as
-          | { credited?: boolean }
-          | null;
+        const data = (await response.json().catch(() => null)) as { credited?: boolean } | null;
         return data?.credited === true;
       } catch {
         return false;
@@ -357,7 +355,7 @@ function BuyCreditsContent() {
           {/* Back link */}
           <Link
             href="/"
-            className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-muted-foreground hover:text-foreground mb-8 inline-flex items-center gap-2 text-sm transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Tillbaka till start
@@ -365,21 +363,21 @@ function BuyCreditsContent() {
 
           {/* ═══ HERO ═══ */}
           <div className="mb-10 text-center">
-            <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+            <h1 className="text-foreground mb-4 text-4xl font-bold tracking-tight sm:text-5xl">
               Priser{" "}
-              <span className="bg-linear-to-r from-brand-teal via-brand-blue to-brand-amber bg-clip-text text-transparent animate-gradient">
+              <span className="from-brand-teal via-brand-blue to-brand-amber animate-gradient bg-linear-to-r bg-clip-text text-transparent">
                 &amp; Tjänster
               </span>
             </h1>
-            <p className="mx-auto max-w-lg text-muted-foreground">
+            <p className="text-muted-foreground mx-auto max-w-lg">
               Köp credits för AI-generering eller få professionell hjälp av SajtStudio med ditt
               webbprojekt.
             </p>
 
             {isAuthenticated && (
-              <div className="mt-6 inline-flex items-center gap-2 rounded-lg border border-border bg-card/80 backdrop-blur-sm px-4 py-2">
+              <div className="border-border bg-card/80 mt-6 inline-flex items-center gap-2 rounded-lg border px-4 py-2 backdrop-blur-sm">
                 <Coins className="text-brand-amber h-4 w-4" />
-                <span className="text-sm text-muted-foreground">
+                <span className="text-muted-foreground text-sm">
                   Ditt saldo:{" "}
                   <span className="text-brand-amber font-semibold">{diamonds} credits</span>
                 </span>
@@ -389,7 +387,7 @@ function BuyCreditsContent() {
 
           {/* Purchase confirmation (verified against real balance, not the URL) */}
           {purchaseState === "confirming" && (
-            <div className="mb-8 flex items-center gap-3 rounded-lg border border-brand-amber/30 bg-brand-amber/5 p-4">
+            <div className="border-brand-amber/30 bg-brand-amber/5 mb-8 flex items-center gap-3 rounded-lg border p-4">
               <Loader2 className="text-brand-amber h-5 w-5 shrink-0 animate-spin" />
               <p className="text-brand-amber text-sm">
                 Bekräftar ditt köp… det tar oftast bara några sekunder.
@@ -397,7 +395,7 @@ function BuyCreditsContent() {
             </div>
           )}
           {purchaseState === "confirmed" && (
-            <div className="mb-8 flex items-center gap-3 rounded-lg border border-brand-teal/30 bg-brand-teal/5 p-4">
+            <div className="border-brand-teal/30 bg-brand-teal/5 mb-8 flex items-center gap-3 rounded-lg border p-4">
               <CheckCircle className="text-brand-teal h-5 w-5 shrink-0" />
               <p className="text-brand-teal text-sm">
                 Tack för ditt köp! Dina credits har lagts till på ditt konto.
@@ -405,593 +403,623 @@ function BuyCreditsContent() {
             </div>
           )}
           {purchaseState === "pending_slow" && (
-            <div className="mb-8 flex items-center gap-3 rounded-lg border border-border bg-card/60 p-4">
+            <div className="border-border bg-card/60 mb-8 flex items-center gap-3 rounded-lg border p-4">
               <Loader2 className="text-muted-foreground h-5 w-5 shrink-0" />
               <p className="text-muted-foreground text-sm">
-                Betalningen registrerades. Det kan ta en liten stund innan saldot uppdateras —
-                ladda om sidan om en stund om det inte redan syns.
+                Betalningen registrerades. Det kan ta en liten stund innan saldot uppdateras — ladda
+                om sidan om en stund om det inte redan syns.
               </p>
             </div>
           )}
 
           <Tabs defaultValue="credits" className="w-full gap-0">
-          {/* ═══ TAB NAVIGATION ═══ */}
-          <div className="mb-10 flex justify-center">
-            <TabsList className="inline-flex h-auto w-auto rounded-lg border border-border bg-card/50 backdrop-blur-sm p-1 gap-1">
-              <TabsTrigger
-                value="credits"
-                className="flex items-center gap-2 rounded-md border-0 px-5 py-2.5 text-sm font-medium shadow-none transition-all data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-brand-teal/20 data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50"
-              >
-                <Sparkles className="h-4 w-4" />
-                AI Credits
-              </TabsTrigger>
-              <TabsTrigger
-                value="studio"
-                className="flex items-center gap-2 rounded-md border-0 px-5 py-2.5 text-sm font-medium shadow-none transition-all data-[state=active]:bg-brand-blue data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-brand-blue/20 data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50"
-              >
-                <Building2 className="h-4 w-4" />
-                SajtStudio Hjälp
-              </TabsTrigger>
-            </TabsList>
-          </div>
+            {/* ═══ TAB NAVIGATION ═══ */}
+            <div className="mb-10 flex justify-center">
+              <TabsList className="border-border bg-card/50 inline-flex h-auto w-auto gap-1 rounded-lg border p-1 backdrop-blur-sm">
+                <TabsTrigger
+                  value="credits"
+                  className="data-[state=active]:bg-brand-teal data-[state=active]:shadow-brand-teal/20 data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50 flex items-center gap-2 rounded-md border-0 px-5 py-2.5 text-sm font-medium shadow-none transition-all data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  AI Credits
+                </TabsTrigger>
+                <TabsTrigger
+                  value="studio"
+                  className="data-[state=active]:bg-brand-blue data-[state=active]:shadow-brand-blue/20 data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50 flex items-center gap-2 rounded-md border-0 px-5 py-2.5 text-sm font-medium shadow-none transition-all data-[state=active]:text-white data-[state=active]:shadow-md data-[state=inactive]:bg-transparent"
+                >
+                  <Building2 className="h-4 w-4" />
+                  SajtStudio Hjälp
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-          {/* ═══════════════════════════════════════════════════════ */}
-          {/* CREDITS TAB                                            */}
-          {/* ═══════════════════════════════════════════════════════ */}
-          <TabsContent value="credits">
-            <div className="animate-fadeIn">
-              {/* Package cards */}
-              <div className="grid gap-6 md:grid-cols-3">
-                {PACKAGES.map((pkg) => (
-                  <Card
-                    key={pkg.id}
-                    className={`relative overflow-hidden transition-all hover-lift ${
-                      pkg.popular
-                        ? "border-brand-teal/50 bg-brand-teal/5 shadow-lg shadow-brand-teal/5"
-                        : "border-border bg-card/80 backdrop-blur-sm"
-                    }`}
-                  >
-                    {/* Popular badge */}
-                    {pkg.popular && (
-                      <div className="absolute -top-px left-0 right-0 h-0.5 bg-linear-to-r from-transparent via-brand-teal to-transparent" />
-                    )}
-
-                    <CardContent className="flex flex-col p-6">
-                      {/* Header */}
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-foreground">{pkg.name}</h3>
-                        {pkg.popular && (
-                          <Badge className="bg-brand-teal/10 text-brand-teal border-brand-teal/30 text-[11px]">
-                            <Star className="h-3 w-3 fill-current mr-0.5" />
-                            Populär
-                          </Badge>
-                        )}
-                        {pkg.savings > 0 && !pkg.popular && (
-                          <Badge variant="secondary" className="text-[11px]">
-                            Spara {pkg.savings}%
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Credit count */}
-                      <div className="flex items-baseline gap-2 mb-1">
-                        <span className="text-4xl font-bold text-foreground">{pkg.diamonds}</span>
-                        <span className="text-muted-foreground text-sm">credits</span>
-                      </div>
-
-                      {/* Price */}
-                      <div className="mb-6">
-                        <span className="text-2xl font-bold text-foreground">{pkg.price} kr</span>
-                        <span className="text-muted-foreground text-xs ml-2">
-                          {(pkg.price / pkg.diamonds).toFixed(1)} kr/credit
-                        </span>
-                      </div>
-
-                      {/* Features */}
-                      <ul className="mb-6 grow space-y-2.5">
-                        <li className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                          <Wand2 className="text-brand-teal h-4 w-4 shrink-0" />
-                          AI-generering &amp; förfining
-                        </li>
-                        <li className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                          <Zap className="text-brand-amber h-4 w-4 shrink-0" />
-                          Aldrig utgångsdatum
-                        </li>
-                        <li className="flex items-center gap-2.5 text-sm text-muted-foreground">
-                          <CheckCircle className="text-brand-teal h-4 w-4 shrink-0" />
-                          Engångsköp – ingen prenumeration
-                        </li>
-                      </ul>
-
-                      {/* Buy button */}
-                      <Button
-                        onClick={() => handlePurchase(pkg.id)}
-                        disabled={isLoading}
-                        className={`h-11 w-full font-medium ${
-                          pkg.popular
-                            ? "bg-brand-teal hover:bg-brand-teal/90 text-white"
-                            : "bg-secondary hover:bg-secondary/80 text-foreground"
-                        }`}
-                      >
-                        {isLoading && selectedPackage === pkg.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <>{isAuthenticated ? "Köp nu" : "Logga in & köp"}</>
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Pricing breakdown */}
-              <div className="mt-16">
-                <h2 className="mb-8 text-xl font-semibold text-foreground text-center">
-                  Vad kostar det?
-                </h2>
-                <div className="grid gap-3 sm:grid-cols-2 max-w-2xl mx-auto">
-                  {[
-                    { label: "Generering (Mini)", cost: CREDIT_COST_BREAKDOWN.generateMini, icon: Wand2, color: "text-brand-teal" },
-                    { label: "Generering (Pro)", cost: CREDIT_COST_BREAKDOWN.generatePro, icon: Wand2, color: "text-brand-teal" },
-                    { label: "Generering (Max)", cost: CREDIT_COST_BREAKDOWN.generateMax, icon: Wand2, color: "text-brand-teal" },
-                    { label: "Förfining (Mini)", cost: CREDIT_COST_BREAKDOWN.refineMini, icon: Zap, color: "text-brand-amber" },
-                    { label: "Förfining (Pro)", cost: CREDIT_COST_BREAKDOWN.refinePro, icon: Zap, color: "text-brand-amber" },
-                    { label: "Förfining (Max)", cost: CREDIT_COST_BREAKDOWN.refineMax, icon: Zap, color: "text-brand-amber" },
-                    {
-                      label: "Wizard-läge",
-                      cost: CREDIT_COST_BREAKDOWN.wizard,
-                      icon: Sparkles,
-                      color: "text-brand-blue",
-                    },
-                    {
-                      label: "Audit (Basic)",
-                      cost: CREDIT_COST_BREAKDOWN.auditBasic,
-                      icon: Globe,
-                      color: "text-brand-warm",
-                    },
-                    {
-                      label: "Audit (Advanced)",
-                      cost: CREDIT_COST_BREAKDOWN.auditAdvanced,
-                      icon: Globe,
-                      color: "text-brand-warm",
-                    },
-                    {
-                      label: "Publicering",
-                      cost: CREDIT_COST_BREAKDOWN.deploy,
-                      icon: ArrowRight,
-                      color: "text-muted-foreground",
-                    },
-                    {
-                      label: "Hosting (per månad)",
-                      cost: 10,
-                      icon: Globe,
-                      color: "text-muted-foreground",
-                    },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="flex items-center justify-between rounded-lg border border-border bg-card/50 px-4 py-2.5"
+            {/* ═══════════════════════════════════════════════════════ */}
+            {/* CREDITS TAB                                            */}
+            {/* ═══════════════════════════════════════════════════════ */}
+            <TabsContent value="credits">
+              <div className="animate-fadeIn">
+                {/* Package cards */}
+                <div className="grid gap-6 md:grid-cols-3">
+                  {PACKAGES.map((pkg) => (
+                    <Card
+                      key={pkg.id}
+                      className={`hover-lift relative overflow-hidden transition-all ${
+                        pkg.popular
+                          ? "border-brand-teal/50 bg-brand-teal/5 shadow-brand-teal/5 shadow-lg"
+                          : "border-border bg-card/80 backdrop-blur-sm"
+                      }`}
                     >
-                      <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <item.icon className={`h-4 w-4 shrink-0 ${item.color}`} />
-                        {item.label}
-                      </span>
-                      <span className="flex items-center gap-1 text-sm font-semibold text-foreground">
-                        <Coins className="h-3.5 w-3.5 text-brand-amber" />
-                        {item.cost}
-                      </span>
-                    </div>
+                      {/* Popular badge */}
+                      {pkg.popular && (
+                        <div className="via-brand-teal absolute -top-px right-0 left-0 h-0.5 bg-linear-to-r from-transparent to-transparent" />
+                      )}
+
+                      <CardContent className="flex flex-col p-6">
+                        {/* Header */}
+                        <div className="mb-4 flex items-center justify-between">
+                          <h3 className="text-foreground text-lg font-semibold">{pkg.name}</h3>
+                          {pkg.popular && (
+                            <Badge className="bg-brand-teal/10 text-brand-teal border-brand-teal/30 text-[11px]">
+                              <Star className="mr-0.5 h-3 w-3 fill-current" />
+                              Populär
+                            </Badge>
+                          )}
+                          {pkg.savings > 0 && !pkg.popular && (
+                            <Badge variant="secondary" className="text-[11px]">
+                              Spara {pkg.savings}%
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Credit count */}
+                        <div className="mb-1 flex items-baseline gap-2">
+                          <span className="text-foreground text-4xl font-bold">{pkg.diamonds}</span>
+                          <span className="text-muted-foreground text-sm">credits</span>
+                        </div>
+
+                        {/* Price */}
+                        <div className="mb-6">
+                          <span className="text-foreground text-2xl font-bold">{pkg.price} kr</span>
+                          <span className="text-muted-foreground ml-2 text-xs">
+                            {(pkg.price / pkg.diamonds).toFixed(1)} kr/credit
+                          </span>
+                        </div>
+
+                        {/* Features */}
+                        <ul className="mb-6 grow space-y-2.5">
+                          <li className="text-muted-foreground flex items-center gap-2.5 text-sm">
+                            <Wand2 className="text-brand-teal h-4 w-4 shrink-0" />
+                            AI-generering &amp; förfining
+                          </li>
+                          <li className="text-muted-foreground flex items-center gap-2.5 text-sm">
+                            <Zap className="text-brand-amber h-4 w-4 shrink-0" />
+                            Aldrig utgångsdatum
+                          </li>
+                          <li className="text-muted-foreground flex items-center gap-2.5 text-sm">
+                            <CheckCircle className="text-brand-teal h-4 w-4 shrink-0" />
+                            Engångsköp – ingen prenumeration
+                          </li>
+                        </ul>
+
+                        {/* Buy button */}
+                        <Button
+                          onClick={() => handlePurchase(pkg.id)}
+                          disabled={isLoading}
+                          className={`h-11 w-full font-medium ${
+                            pkg.popular
+                              ? "bg-brand-teal hover:bg-brand-teal/90 text-white"
+                              : "bg-secondary hover:bg-secondary/80 text-foreground"
+                          }`}
+                        >
+                          {isLoading && selectedPackage === pkg.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>{isAuthenticated ? "Köp nu" : "Logga in & köp"}</>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
-                <p className="mt-4 text-center text-xs text-muted-foreground">
-                  Engångsköp – credits gäller för alltid, ingen prenumeration.
-                </p>
-              </div>
 
-              {/* Payment footer */}
-              <p className="mt-12 text-center text-sm text-muted-foreground">
-                Säker betalning via Stripe. Vi accepterar Visa, Mastercard, Apple Pay &amp; Google
-                Pay.
-              </p>
-            </div>
-          </TabsContent>
-
-          {/* ═══════════════════════════════════════════════════════ */}
-          {/* SAJTSTUDIO TAB                                         */}
-          {/* ═══════════════════════════════════════════════════════ */}
-          <TabsContent value="studio">
-            <div className="animate-fadeIn">
-              {/* Intro */}
-              <div className="text-center mb-10">
-                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-xl bg-brand-blue/10 border border-brand-blue/20">
-                  <Building2 className="text-brand-blue h-8 w-8" />
-                </div>
-                <h2 className="text-2xl font-bold text-foreground mb-3">
-                  SajtStudio – Professionell Webbhjälp
-                </h2>
-                <p className="mx-auto max-w-lg text-muted-foreground">
-                  Behöver du mer än vad AI kan erbjuda? Vårt systerföretag{" "}
-                  <a
-                    href="https://www.sajtmaskin.se"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-brand-blue hover:text-brand-blue/80 inline-flex items-center gap-1 font-medium"
-                  >
-                    SajtStudio
-                    <ExternalLink className="h-3 w-3" />
-                  </a>{" "}
-                  hjälper dig med skräddarsydda webbprojekt – från enklare sajter till avancerad
-                  e-handel.
-                </p>
-              </div>
-
-              {/* Pricing tiers */}
-              <div className="grid gap-4 md:grid-cols-3 mb-12">
-                {STUDIO_TIERS.map((tier, i) => (
-                  <Card
-                    key={tier.name}
-                    className={`border-border bg-card/80 backdrop-blur-sm transition-all hover-lift ${
-                      i === 1 ? "border-brand-blue/30 md:scale-[1.02]" : ""
-                    }`}
-                  >
-                    <CardContent className="p-5">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-foreground">{tier.name}</h3>
-                        {i === 1 && (
-                          <Badge className="bg-brand-blue/10 text-brand-blue border-brand-blue/30 text-[11px]">
-                            Vanligast
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xl font-bold text-foreground mb-2">{tier.range}</p>
-                      <p className="text-sm text-muted-foreground mb-4">{tier.description}</p>
-                      <ul className="space-y-1.5">
-                        {tier.features.map((f) => (
-                          <li
-                            key={f}
-                            className="flex items-center gap-2 text-xs text-muted-foreground"
-                          >
-                            <CheckCircle className="h-3.5 w-3.5 text-brand-blue shrink-0" />
-                            {f}
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* ─── Project inquiry form ─────────────────────────── */}
-              <Card className="border-border bg-card/80 backdrop-blur-sm max-w-2xl mx-auto">
-                <CardContent className="p-6 sm:p-8">
-                  <h3 className="text-lg font-semibold text-foreground mb-1">
-                    Skicka en projektförfrågan
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Fyll i formuläret så återkommer vi med en offert. Alla fält markerade med * är
-                    obligatoriska.
-                  </p>
-
-                  {formSubmitted ? (
-                    /* ─── Success state ─── */
-                    <div className="text-center py-8">
-                      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-teal/10 border border-brand-teal/20">
-                        <CheckCircle className="text-brand-teal h-7 w-7" />
-                      </div>
-                      <h4 className="text-lg font-semibold text-foreground mb-2">
-                        Förfrågan skickad!
-                      </h4>
-                      <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
-                        Ditt mailprogram har öppnats med din förfrågan. Om det inte fungerade, maila
-                        oss direkt.
-                      </p>
-                      <a
-                        href={`mailto:${MAILTO_RECIPIENTS}?subject=${encodeURIComponent("Projektförfrågan via SajtMaskin")}`}
-                        className="text-brand-blue hover:text-brand-blue/80 text-sm font-medium inline-flex items-center gap-1"
+                {/* Pricing breakdown */}
+                <div className="mt-16">
+                  <h2 className="text-foreground mb-8 text-center text-xl font-semibold">
+                    Vad kostar det?
+                  </h2>
+                  <div className="mx-auto grid max-w-2xl gap-3 sm:grid-cols-2">
+                    {[
+                      {
+                        label: "Generering (Premium)",
+                        cost: CREDIT_COST_BREAKDOWN.generatePremium,
+                        icon: Wand2,
+                        color: "text-brand-teal",
+                      },
+                      {
+                        label: "Generering (Pro)",
+                        cost: CREDIT_COST_BREAKDOWN.generatePro,
+                        icon: Wand2,
+                        color: "text-brand-teal",
+                      },
+                      {
+                        label: "Generering (Max)",
+                        cost: CREDIT_COST_BREAKDOWN.generateMax,
+                        icon: Wand2,
+                        color: "text-brand-teal",
+                      },
+                      {
+                        label: "Förfining (Premium)",
+                        cost: CREDIT_COST_BREAKDOWN.refinePremium,
+                        icon: Zap,
+                        color: "text-brand-amber",
+                      },
+                      {
+                        label: "Förfining (Pro)",
+                        cost: CREDIT_COST_BREAKDOWN.refinePro,
+                        icon: Zap,
+                        color: "text-brand-amber",
+                      },
+                      {
+                        label: "Förfining (Max)",
+                        cost: CREDIT_COST_BREAKDOWN.refineMax,
+                        icon: Zap,
+                        color: "text-brand-amber",
+                      },
+                      {
+                        label: "Wizard-läge",
+                        cost: CREDIT_COST_BREAKDOWN.wizard,
+                        icon: Sparkles,
+                        color: "text-brand-blue",
+                      },
+                      {
+                        label: "Audit (Basic)",
+                        cost: CREDIT_COST_BREAKDOWN.auditBasic,
+                        icon: Globe,
+                        color: "text-brand-warm",
+                      },
+                      {
+                        label: "Audit (Advanced)",
+                        cost: CREDIT_COST_BREAKDOWN.auditAdvanced,
+                        icon: Globe,
+                        color: "text-brand-warm",
+                      },
+                      {
+                        label: "Publicering",
+                        cost: CREDIT_COST_BREAKDOWN.deploy,
+                        icon: ArrowRight,
+                        color: "text-muted-foreground",
+                      },
+                      {
+                        label: "Hosting (per månad)",
+                        cost: 10,
+                        icon: Globe,
+                        color: "text-muted-foreground",
+                      },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="border-border bg-card/50 flex items-center justify-between rounded-lg border px-4 py-2.5"
                       >
-                        <Mail className="h-4 w-4" />
-                        {DISPLAY_EMAIL}
-                      </a>
-                      <div className="mt-6">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setFormSubmitted(false);
-                            setFormStep(0);
-                            setFormData({
-                              name: "",
-                              company: "",
-                              email: "",
-                              phone: "",
-                              projectTypes: [],
-                              currentUrl: "",
-                              description: "",
-                              budget: "",
-                              timeline: "",
-                              notes: "",
-                            });
-                          }}
-                          className="text-sm"
+                        <span className="text-muted-foreground flex items-center gap-2 text-sm">
+                          <item.icon className={`h-4 w-4 shrink-0 ${item.color}`} />
+                          {item.label}
+                        </span>
+                        <span className="text-foreground flex items-center gap-1 text-sm font-semibold">
+                          <Coins className="text-brand-amber h-3.5 w-3.5" />
+                          {item.cost}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-muted-foreground mt-4 text-center text-xs">
+                    Engångsköp – credits gäller för alltid, ingen prenumeration.
+                  </p>
+                </div>
+
+                {/* Payment footer */}
+                <p className="text-muted-foreground mt-12 text-center text-sm">
+                  Säker betalning via Stripe. Vi accepterar Visa, Mastercard, Apple Pay &amp; Google
+                  Pay.
+                </p>
+              </div>
+            </TabsContent>
+
+            {/* ═══════════════════════════════════════════════════════ */}
+            {/* SAJTSTUDIO TAB                                         */}
+            {/* ═══════════════════════════════════════════════════════ */}
+            <TabsContent value="studio">
+              <div className="animate-fadeIn">
+                {/* Intro */}
+                <div className="mb-10 text-center">
+                  <div className="bg-brand-blue/10 border-brand-blue/20 mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-xl border">
+                    <Building2 className="text-brand-blue h-8 w-8" />
+                  </div>
+                  <h2 className="text-foreground mb-3 text-2xl font-bold">
+                    SajtStudio – Professionell Webbhjälp
+                  </h2>
+                  <p className="text-muted-foreground mx-auto max-w-lg">
+                    Behöver du mer än vad AI kan erbjuda? Vårt systerföretag{" "}
+                    <a
+                      href="https://www.sajtmaskin.se"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-brand-blue hover:text-brand-blue/80 inline-flex items-center gap-1 font-medium"
+                    >
+                      SajtStudio
+                      <ExternalLink className="h-3 w-3" />
+                    </a>{" "}
+                    hjälper dig med skräddarsydda webbprojekt – från enklare sajter till avancerad
+                    e-handel.
+                  </p>
+                </div>
+
+                {/* Pricing tiers */}
+                <div className="mb-12 grid gap-4 md:grid-cols-3">
+                  {STUDIO_TIERS.map((tier, i) => (
+                    <Card
+                      key={tier.name}
+                      className={`border-border bg-card/80 hover-lift backdrop-blur-sm transition-all ${
+                        i === 1 ? "border-brand-blue/30 md:scale-[1.02]" : ""
+                      }`}
+                    >
+                      <CardContent className="p-5">
+                        <div className="mb-2 flex items-center justify-between">
+                          <h3 className="text-foreground font-semibold">{tier.name}</h3>
+                          {i === 1 && (
+                            <Badge className="bg-brand-blue/10 text-brand-blue border-brand-blue/30 text-[11px]">
+                              Vanligast
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-foreground mb-2 text-xl font-bold">{tier.range}</p>
+                        <p className="text-muted-foreground mb-4 text-sm">{tier.description}</p>
+                        <ul className="space-y-1.5">
+                          {tier.features.map((f) => (
+                            <li
+                              key={f}
+                              className="text-muted-foreground flex items-center gap-2 text-xs"
+                            >
+                              <CheckCircle className="text-brand-blue h-3.5 w-3.5 shrink-0" />
+                              {f}
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* ─── Project inquiry form ─────────────────────────── */}
+                <Card className="border-border bg-card/80 mx-auto max-w-2xl backdrop-blur-sm">
+                  <CardContent className="p-6 sm:p-8">
+                    <h3 className="text-foreground mb-1 text-lg font-semibold">
+                      Skicka en projektförfrågan
+                    </h3>
+                    <p className="text-muted-foreground mb-6 text-sm">
+                      Fyll i formuläret så återkommer vi med en offert. Alla fält markerade med * är
+                      obligatoriska.
+                    </p>
+
+                    {formSubmitted ? (
+                      /* ─── Success state ─── */
+                      <div className="py-8 text-center">
+                        <div className="bg-brand-teal/10 border-brand-teal/20 mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border">
+                          <CheckCircle className="text-brand-teal h-7 w-7" />
+                        </div>
+                        <h4 className="text-foreground mb-2 text-lg font-semibold">
+                          Förfrågan skickad!
+                        </h4>
+                        <p className="text-muted-foreground mx-auto mb-4 max-w-sm text-sm">
+                          Ditt mailprogram har öppnats med din förfrågan. Om det inte fungerade,
+                          maila oss direkt.
+                        </p>
+                        <a
+                          href={`mailto:${MAILTO_RECIPIENTS}?subject=${encodeURIComponent("Projektförfrågan via SajtMaskin")}`}
+                          className="text-brand-blue hover:text-brand-blue/80 inline-flex items-center gap-1 text-sm font-medium"
                         >
-                          Skicka en till
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Step indicators */}
-                      <div className="flex items-center gap-2 mb-8">
-                        {["Kontakt", "Projekt", "Budget"].map((label, i) => (
-                          <button
-                            key={label}
+                          <Mail className="h-4 w-4" />
+                          {DISPLAY_EMAIL}
+                        </a>
+                        <div className="mt-6">
+                          <Button
+                            variant="outline"
                             onClick={() => {
-                              if (i < formStep) setFormStep(i);
+                              setFormSubmitted(false);
+                              setFormStep(0);
+                              setFormData({
+                                name: "",
+                                company: "",
+                                email: "",
+                                phone: "",
+                                projectTypes: [],
+                                currentUrl: "",
+                                description: "",
+                                budget: "",
+                                timeline: "",
+                                notes: "",
+                              });
                             }}
-                            className="flex items-center gap-2 group"
+                            className="text-sm"
                           >
-                            <div
-                              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors ${
-                                i === formStep
-                                  ? "bg-brand-blue text-white"
-                                  : i < formStep
-                                    ? "bg-brand-teal/20 text-brand-teal"
-                                    : "bg-muted text-muted-foreground"
-                              }`}
-                            >
-                              {i < formStep ? <CheckCircle className="h-3.5 w-3.5" /> : i + 1}
-                            </div>
-                            <span
-                              className={`text-xs font-medium hidden sm:block ${
-                                i === formStep
-                                  ? "text-foreground"
-                                  : i < formStep
-                                    ? "text-brand-teal"
-                                    : "text-muted-foreground"
-                              }`}
-                            >
-                              {label}
-                            </span>
-                            {i < 2 && (
-                              <div
-                                className={`w-8 h-px ${i < formStep ? "bg-brand-teal/40" : "bg-border"}`}
-                              />
-                            )}
-                          </button>
-                        ))}
+                            Skicka en till
+                          </Button>
+                        </div>
                       </div>
-
-                      {/* Step 0: Contact */}
-                      {formStep === 0 && (
-                        <div className="space-y-4 animate-fadeIn">
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <div>
-                              <label className="text-sm font-medium text-foreground mb-1.5 block">
-                                Namn *
-                              </label>
-                              <Input
-                                placeholder="Ditt namn"
-                                value={formData.name}
-                                onChange={(e) => updateField("name", e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-foreground mb-1.5 block">
-                                Företag
-                              </label>
-                              <Input
-                                placeholder="Företagsnamn"
-                                value={formData.company}
-                                onChange={(e) => updateField("company", e.target.value)}
-                              />
-                            </div>
-                          </div>
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <div>
-                              <label className="text-sm font-medium text-foreground mb-1.5 block">
-                                E-post *
-                              </label>
-                              <Input
-                                type="email"
-                                placeholder="din@email.se"
-                                value={formData.email}
-                                onChange={(e) => updateField("email", e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-foreground mb-1.5 block">
-                                Telefon
-                              </label>
-                              <Input
-                                type="tel"
-                                placeholder="070-123 45 67"
-                                value={formData.phone}
-                                onChange={(e) => updateField("phone", e.target.value)}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex justify-end pt-2">
-                            <Button
-                              onClick={() => setFormStep(1)}
-                              disabled={!canProceedStep0}
-                              className="bg-brand-blue hover:bg-brand-blue/90 text-white"
+                    ) : (
+                      <>
+                        {/* Step indicators */}
+                        <div className="mb-8 flex items-center gap-2">
+                          {["Kontakt", "Projekt", "Budget"].map((label, i) => (
+                            <button
+                              key={label}
+                              onClick={() => {
+                                if (i < formStep) setFormStep(i);
+                              }}
+                              className="group flex items-center gap-2"
                             >
-                              Nästa
-                              <ArrowRight className="h-4 w-4 ml-1" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Step 1: Project */}
-                      {formStep === 1 && (
-                        <div className="space-y-4 animate-fadeIn">
-                          <div>
-                            <label className="text-sm font-medium text-foreground mb-2 block">
-                              Typ av projekt
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                              {PROJECT_TYPES.map((type) => {
-                                const Icon = type.icon;
-                                const selected = formData.projectTypes.includes(type.id);
-                                return (
-                                  <button
-                                    key={type.id}
-                                    type="button"
-                                    onClick={() => toggleProjectType(type.id)}
-                                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all ${
-                                      selected
-                                        ? "border-brand-blue/50 bg-brand-blue/10 text-brand-blue"
-                                        : "border-border bg-muted/30 text-muted-foreground hover:border-border hover:bg-muted/50"
-                                    }`}
-                                  >
-                                    <Icon className="h-4 w-4" />
-                                    {type.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-medium text-foreground mb-1.5 block">
-                              Nuvarande webbplats (URL)
-                            </label>
-                            <Input
-                              placeholder="https://example.com"
-                              value={formData.currentUrl}
-                              onChange={(e) => updateField("currentUrl", e.target.value)}
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-sm font-medium text-foreground mb-1.5 block">
-                              Beskriv ditt projekt *
-                            </label>
-                            <Textarea
-                              placeholder="Berätta kortfattat vad du behöver – vad vill du uppnå med webbplatsen?"
-                              rows={4}
-                              value={formData.description}
-                              onChange={(e) => updateField("description", e.target.value)}
-                            />
-                          </div>
-
-                          <div className="flex justify-between pt-2">
-                            <Button variant="outline" onClick={() => setFormStep(0)}>
-                              <ArrowLeft className="h-4 w-4 mr-1" />
-                              Tillbaka
-                            </Button>
-                            <Button
-                              onClick={() => setFormStep(2)}
-                              disabled={!canProceedStep1}
-                              className="bg-brand-blue hover:bg-brand-blue/90 text-white"
-                            >
-                              Nästa
-                              <ArrowRight className="h-4 w-4 ml-1" />
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Step 2: Budget & Timeline */}
-                      {formStep === 2 && (
-                        <div className="space-y-4 animate-fadeIn">
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <div>
-                              <label className="text-sm font-medium text-foreground mb-1.5 block">
-                                Budgetram
-                              </label>
-                              <Select
-                                value={formData.budget}
-                                onValueChange={(v) => updateField("budget", v)}
+                              <div
+                                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors ${
+                                  i === formStep
+                                    ? "bg-brand-blue text-white"
+                                    : i < formStep
+                                      ? "bg-brand-teal/20 text-brand-teal"
+                                      : "bg-muted text-muted-foreground"
+                                }`}
                               >
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Välj budget" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="5000-10000">
-                                    Start: 5 000 – 10 000 kr
-                                  </SelectItem>
-                                  <SelectItem value="10000-20000">
-                                    Plus: 10 000 – 20 000 kr
-                                  </SelectItem>
-                                  <SelectItem value="20000-40000">
-                                    Pro: 20 000 – 40 000 kr
-                                  </SelectItem>
-                                  <SelectItem value="40000+">40 000+ kr</SelectItem>
-                                  <SelectItem value="unsure">Vet ej / Flexibel</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-foreground mb-1.5 block">
-                                Önskad tidplan
-                              </label>
-                              <Select
-                                value={formData.timeline}
-                                onValueChange={(v) => updateField("timeline", v)}
+                                {i < formStep ? <CheckCircle className="h-3.5 w-3.5" /> : i + 1}
+                              </div>
+                              <span
+                                className={`hidden text-xs font-medium sm:block ${
+                                  i === formStep
+                                    ? "text-foreground"
+                                    : i < formStep
+                                      ? "text-brand-teal"
+                                      : "text-muted-foreground"
+                                }`}
                               >
-                                <SelectTrigger className="w-full">
-                                  <SelectValue placeholder="Välj tidplan" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="asap">Så snart som möjligt</SelectItem>
-                                  <SelectItem value="1-2months">1-2 månader</SelectItem>
-                                  <SelectItem value="3-6months">3-6 månader</SelectItem>
-                                  <SelectItem value="flexible">Flexibelt</SelectItem>
-                                </SelectContent>
-                              </Select>
+                                {label}
+                              </span>
+                              {i < 2 && (
+                                <div
+                                  className={`h-px w-8 ${i < formStep ? "bg-brand-teal/40" : "bg-border"}`}
+                                />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Step 0: Contact */}
+                        {formStep === 0 && (
+                          <div className="animate-fadeIn space-y-4">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div>
+                                <label className="text-foreground mb-1.5 block text-sm font-medium">
+                                  Namn *
+                                </label>
+                                <Input
+                                  placeholder="Ditt namn"
+                                  value={formData.name}
+                                  onChange={(e) => updateField("name", e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-foreground mb-1.5 block text-sm font-medium">
+                                  Företag
+                                </label>
+                                <Input
+                                  placeholder="Företagsnamn"
+                                  value={formData.company}
+                                  onChange={(e) => updateField("company", e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div>
+                                <label className="text-foreground mb-1.5 block text-sm font-medium">
+                                  E-post *
+                                </label>
+                                <Input
+                                  type="email"
+                                  placeholder="din@email.se"
+                                  value={formData.email}
+                                  onChange={(e) => updateField("email", e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-foreground mb-1.5 block text-sm font-medium">
+                                  Telefon
+                                </label>
+                                <Input
+                                  type="tel"
+                                  placeholder="070-123 45 67"
+                                  value={formData.phone}
+                                  onChange={(e) => updateField("phone", e.target.value)}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end pt-2">
+                              <Button
+                                onClick={() => setFormStep(1)}
+                                disabled={!canProceedStep0}
+                                className="bg-brand-blue hover:bg-brand-blue/90 text-white"
+                              >
+                                Nästa
+                                <ArrowRight className="ml-1 h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
+                        )}
 
-                          <div>
-                            <label className="text-sm font-medium text-foreground mb-1.5 block">
-                              Övrigt / kommentarer
-                            </label>
-                            <Textarea
-                              placeholder="Något annat du vill berätta? Integrationer, speciella önskemål, etc."
-                              rows={3}
-                              value={formData.notes}
-                              onChange={(e) => updateField("notes", e.target.value)}
-                            />
-                          </div>
+                        {/* Step 1: Project */}
+                        {formStep === 1 && (
+                          <div className="animate-fadeIn space-y-4">
+                            <div>
+                              <label className="text-foreground mb-2 block text-sm font-medium">
+                                Typ av projekt
+                              </label>
+                              <div className="flex flex-wrap gap-2">
+                                {PROJECT_TYPES.map((type) => {
+                                  const Icon = type.icon;
+                                  const selected = formData.projectTypes.includes(type.id);
+                                  return (
+                                    <button
+                                      key={type.id}
+                                      type="button"
+                                      onClick={() => toggleProjectType(type.id)}
+                                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all ${
+                                        selected
+                                          ? "border-brand-blue/50 bg-brand-blue/10 text-brand-blue"
+                                          : "border-border bg-muted/30 text-muted-foreground hover:border-border hover:bg-muted/50"
+                                      }`}
+                                    >
+                                      <Icon className="h-4 w-4" />
+                                      {type.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
 
-                          <div className="flex justify-between pt-2">
-                            <Button variant="outline" onClick={() => setFormStep(1)}>
-                              <ArrowLeft className="h-4 w-4 mr-1" />
-                              Tillbaka
-                            </Button>
-                            <Button
-                              onClick={handleFormSubmit}
-                              className="bg-brand-blue hover:bg-brand-blue/90 text-white"
-                            >
-                              <Send className="h-4 w-4 mr-1.5" />
-                              Skicka förfrågan
-                            </Button>
+                            <div>
+                              <label className="text-foreground mb-1.5 block text-sm font-medium">
+                                Nuvarande webbplats (URL)
+                              </label>
+                              <Input
+                                placeholder="https://example.com"
+                                value={formData.currentUrl}
+                                onChange={(e) => updateField("currentUrl", e.target.value)}
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-foreground mb-1.5 block text-sm font-medium">
+                                Beskriv ditt projekt *
+                              </label>
+                              <Textarea
+                                placeholder="Berätta kortfattat vad du behöver – vad vill du uppnå med webbplatsen?"
+                                rows={4}
+                                value={formData.description}
+                                onChange={(e) => updateField("description", e.target.value)}
+                              />
+                            </div>
+
+                            <div className="flex justify-between pt-2">
+                              <Button variant="outline" onClick={() => setFormStep(0)}>
+                                <ArrowLeft className="mr-1 h-4 w-4" />
+                                Tillbaka
+                              </Button>
+                              <Button
+                                onClick={() => setFormStep(2)}
+                                disabled={!canProceedStep1}
+                                className="bg-brand-blue hover:bg-brand-blue/90 text-white"
+                              >
+                                Nästa
+                                <ArrowRight className="ml-1 h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+                        )}
+
+                        {/* Step 2: Budget & Timeline */}
+                        {formStep === 2 && (
+                          <div className="animate-fadeIn space-y-4">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <div>
+                                <label className="text-foreground mb-1.5 block text-sm font-medium">
+                                  Budgetram
+                                </label>
+                                <Select
+                                  value={formData.budget}
+                                  onValueChange={(v) => updateField("budget", v)}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Välj budget" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="5000-10000">
+                                      Start: 5 000 – 10 000 kr
+                                    </SelectItem>
+                                    <SelectItem value="10000-20000">
+                                      Plus: 10 000 – 20 000 kr
+                                    </SelectItem>
+                                    <SelectItem value="20000-40000">
+                                      Pro: 20 000 – 40 000 kr
+                                    </SelectItem>
+                                    <SelectItem value="40000+">40 000+ kr</SelectItem>
+                                    <SelectItem value="unsure">Vet ej / Flexibel</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <label className="text-foreground mb-1.5 block text-sm font-medium">
+                                  Önskad tidplan
+                                </label>
+                                <Select
+                                  value={formData.timeline}
+                                  onValueChange={(v) => updateField("timeline", v)}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Välj tidplan" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="asap">Så snart som möjligt</SelectItem>
+                                    <SelectItem value="1-2months">1-2 månader</SelectItem>
+                                    <SelectItem value="3-6months">3-6 månader</SelectItem>
+                                    <SelectItem value="flexible">Flexibelt</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-foreground mb-1.5 block text-sm font-medium">
+                                Övrigt / kommentarer
+                              </label>
+                              <Textarea
+                                placeholder="Något annat du vill berätta? Integrationer, speciella önskemål, etc."
+                                rows={3}
+                                value={formData.notes}
+                                onChange={(e) => updateField("notes", e.target.value)}
+                              />
+                            </div>
+
+                            <div className="flex justify-between pt-2">
+                              <Button variant="outline" onClick={() => setFormStep(1)}>
+                                <ArrowLeft className="mr-1 h-4 w-4" />
+                                Tillbaka
+                              </Button>
+                              <Button
+                                onClick={handleFormSubmit}
+                                className="bg-brand-blue hover:bg-brand-blue/90 text-white"
+                              >
+                                <Send className="mr-1.5 h-4 w-4" />
+                                Skicka förfrågan
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
           </Tabs>
 
           {/* ═══ CONTACT FOOTER ═══ */}
           <div className="mt-20 text-center">
-            <div className="inline-flex flex-col items-center gap-3 rounded-xl border border-border bg-card/50 backdrop-blur-sm px-8 py-6">
+            <div className="border-border bg-card/50 inline-flex flex-col items-center gap-3 rounded-xl border px-8 py-6 backdrop-blur-sm">
               <div className="flex items-center gap-3">
                 <Mail className="text-brand-blue h-5 w-5" />
-                <span className="text-sm text-muted-foreground">Har du frågor? Kontakta oss:</span>
+                <span className="text-muted-foreground text-sm">Har du frågor? Kontakta oss:</span>
               </div>
               <a
                 href={`mailto:${MAILTO_RECIPIENTS}?subject=${encodeURIComponent("Fråga via SajtMaskin")}`}
-                className="text-lg font-semibold text-brand-blue hover:text-brand-blue/80 transition-colors inline-flex items-center gap-2"
+                className="text-brand-blue hover:text-brand-blue/80 inline-flex items-center gap-2 text-lg font-semibold transition-colors"
               >
                 <span>{DISPLAY_EMAIL}</span>
               </a>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-4 text-xs">
                 <span className="flex items-center gap-1">
                   <Phone className="h-3 w-3" />
                   Vi svarar inom 24h
@@ -1016,8 +1044,8 @@ function BuyCreditsContent() {
 // ─── Loading Fallback ─────────────────────────────────────────────
 function BuyCreditsLoading() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    <div className="bg-background flex min-h-screen items-center justify-center">
+      <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
     </div>
   );
 }

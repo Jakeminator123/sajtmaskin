@@ -35,7 +35,7 @@ export type PricingContext = {
 // ─── Prompt costs by model tier ───────────────────────────────────
 // Base rate: 1 credit ≈ 3 SEK
 const PROMPT_CREATE_COSTS: Record<ModelTier, number> = {
-  fast: 10,
+  premium: 10,
   pro: 7,
   max: 10,
   codex: 10,
@@ -43,7 +43,7 @@ const PROMPT_CREATE_COSTS: Record<ModelTier, number> = {
 };
 
 const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
-  fast: 6,
+  premium: 6,
   pro: 4,
   max: 6,
   codex: 6,
@@ -72,10 +72,10 @@ const OPENCLAW_TIP_COST = 2;
 // The buy-credits page reads these instead of hardcoding numbers, so the
 // displayed "Vad kostar det?" table can never drift from the real charges.
 export const CREDIT_COST_BREAKDOWN = {
-  generateMini: PROMPT_CREATE_COSTS.fast,
+  generatePremium: PROMPT_CREATE_COSTS.premium,
   generatePro: PROMPT_CREATE_COSTS.pro,
   generateMax: PROMPT_CREATE_COSTS.max,
-  refineMini: PROMPT_REFINE_COSTS.fast,
+  refinePremium: PROMPT_REFINE_COSTS.premium,
   refinePro: PROMPT_REFINE_COSTS.pro,
   refineMax: PROMPT_REFINE_COSTS.max,
   wizard: WIZARD_COST,
