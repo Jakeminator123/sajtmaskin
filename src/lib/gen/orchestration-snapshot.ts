@@ -5,6 +5,7 @@
  */
 import type { BuildSpecQualityTarget } from "./build-spec";
 import { filterProvidersForRemovedCapabilities } from "./capability-removal";
+import { getDossierById } from "./dossiers/registry";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "./prompt-wrapper-contract";
 
 const SENSITIVE_KEY_SUBSTR = /pass|secret|token|auth|cookie|credential|apikey|api_key/i;
@@ -34,6 +35,7 @@ const PROTECTED_TOP_LEVEL_KEY_SET = new Set<string>(PROTECTED_TOP_LEVEL_KEYS as 
  */
 const PROTECTED_CAPABILITY_SIGNAL_KEYS = [
   "mutedCapabilities",
+  "mutedDossierIds",
   "removedCapabilities",
   "readdedCapabilities",
   "fileEvidenceCapabilities",
@@ -249,11 +251,50 @@ export function mergePersistedOrchestrationSnapshots(
       (capability) => !delivered.has(capability),
     );
   }
+  // Provider-specific companion to mutedCapabilities. Selection ids are
+  // accumulated across ordinary F2 tweaks, then leave the pending set once a
+  // successful F3 round selected/delivered them or the user removed them. A
+  // newly selected sibling replaces the older sibling for the same capability
+  // ("byt MongoDB mot Postgres"); selection permits only one dossier per
+  // capability, so retaining both would make F3 build two competing providers.
+  if ("mutedDossierIds" in base || "mutedDossierIds" in next) {
+    const deliveredOrRemoved = new Set([
+      ...normalizeCapabilityList(next.selectedDossierIds),
+      ...normalizeCapabilityList(merged.removedDossierIds),
+    ]);
+    // Den durabla capability-tombstonen måste städa här också, precis som den
+    // gör för `mutedCapabilities` ovan. Tar användaren bort en capability INNAN
+    // några filer hunnit byggas finns inget `removedDossierIds` att filtrera
+    // på, så id:t skulle överleva borttagningen — och när capability:n läggs
+    // tillbaka läser `resolvePendingIntegrationDossiers` det gamla id:t och
+    // bygger tyst just det syskon användaren nyss tog bort, i stället för
+    // capability-defaulten.
+    const removedCapabilitySet = new Set(normalizeCapabilityList(merged.removedCapabilities));
+    const nextMutedIds = normalizeCapabilityList(next.mutedDossierIds);
+    const replacedCapabilities = new Set(
+      nextMutedIds
+        .map((dossierId) => getDossierById(dossierId)?.capability.toLowerCase())
+        .filter((capability): capability is string => Boolean(capability)),
+    );
+    const retainedBaseIds = normalizeCapabilityList(base.mutedDossierIds).filter(
+      (dossierId) => {
+        const capability = getDossierById(dossierId)?.capability.toLowerCase();
+        return !capability || !replacedCapabilities.has(capability);
+      },
+    );
+    const unionedMutedIds = new Set([...retainedBaseIds, ...nextMutedIds]);
+    merged.mutedDossierIds = Array.from(unionedMutedIds).filter((dossierId) => {
+      if (deliveredOrRemoved.has(dossierId)) return false;
+      const capability = getDossierById(dossierId)?.capability.toLowerCase();
+      return !capability || !removedCapabilitySet.has(capability);
+    });
+  }
   return merged;
 }
 
 /** Snapshot key holding the deferred ("Planerad") integration capabilities. */
 export const MUTED_CAPABILITIES_SNAPSHOT_KEY = "mutedCapabilities";
+export const MUTED_DOSSIER_IDS_SNAPSHOT_KEY = "mutedDossierIds";
 
 /**
  * Deferred integration capabilities persisted on the snapshot — capabilities
@@ -267,6 +308,16 @@ export function readMutedCapabilitiesFromSnapshot(
   const removed = new Set(readStringArraySnapshotKey(snapshot, "removedCapabilities"));
   return readStringArraySnapshotKey(snapshot, MUTED_CAPABILITIES_SNAPSHOT_KEY).filter(
     (capability) => !removed.has(capability),
+  );
+}
+
+/** Exact provider-specific dossiers deferred by F2, tombstone-filtered. */
+export function readMutedDossierIdsFromSnapshot(
+  snapshot: Record<string, unknown> | null | undefined,
+): string[] {
+  const removed = new Set(readStringArraySnapshotKey(snapshot, "removedDossierIds"));
+  return readStringArraySnapshotKey(snapshot, MUTED_DOSSIER_IDS_SNAPSHOT_KEY).filter(
+    (dossierId) => !removed.has(dossierId),
   );
 }
 

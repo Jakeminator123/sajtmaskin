@@ -24,7 +24,7 @@ import {
   recordStreamText,
 } from "./helpers";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
-import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
+import { planArtifactHasSubstance } from "@/lib/gen/plan/review";
 import { runPostGenerationChecks } from "./post-checks";
 import {
   F3_APPROVAL_NOTHING_TO_BUILD_REASON,
@@ -280,6 +280,11 @@ export async function handleSseStream(
       }
       if (phase === "empty-output") {
         return ["Genereringen avslutades utan användbar kod eller preview-artifact."];
+      }
+      if (phase === "stream-without-version") {
+        return [
+          "Innehåll strömmades till chatten men kunde inte sparas som version. Texten ovan finns kvar.",
+        ];
       }
       if (phase === "tool") {
         const toolName = typeof payload.toolName === "string" ? payload.toolName.trim() : "";
@@ -1086,12 +1091,13 @@ export async function handleSseStream(
             // rått blev en misslyckad planering "Plan skapad!" plus ett tomt
             // kort — falsk grönt. Detta är samma normalisering som
             // `BuildPlanCard` renderar ur, så toasten och kortet kan inte säga
-            // emot varandra.
-            const hasPlanArtifact = (() => {
-              const plan = normalizePlanArtifact(doneData.planArtifact);
-              if (!plan) return false;
-              return plan.steps.length > 0 || plan.blockers.length > 0;
-            })();
+            // emot varandra. Substanspredikatet delas med serverns
+            // persist-beslut (`planArtifactHasSubstance` räknar även
+            // pages/scope — en sidplan utan steg är en riktig plan), så
+            // klientens toast kan inte säga emot vad servern sparade.
+            const hasPlanArtifact = planArtifactHasSubstance(
+              (doneData.planArtifact ?? null) as Record<string, unknown> | null,
+            );
             const hasRecoveredArtifact =
               awaitingInput ||
               Boolean(resolvedVersionId) ||
@@ -1146,6 +1152,42 @@ export async function handleSseStream(
             }
 
             if (!awaitingInput && !hasRecoveredArtifact) {
+              // Strömmad assistenttext som nådde chatten är inte "ingenting":
+              // när innehåll finns (eller servern uttryckligen sa
+              // `stream_ended_without_version`) får varken feltoasten eller
+              // empty-output-fasen påstå att inget kom tillbaka. Medvetet
+              // INTE inbakat i `hasRecoveredArtifact` — den signalen betyder
+              // "riktig artefakt" och styr bl.a. Byggval-reset i
+              // useCreateChat, där strömmad text utan version inte ska räknas.
+              const hasStreamedContent =
+                accumulatedContent.trim().length > 0 ||
+                emptyGenerationReason === "stream_ended_without_version";
+              if (hasStreamedContent) {
+                if (doneData.planMode === true) {
+                  // Plan-läge utan substansplan: servern persisterar prosan
+                  // som planner-text — ett medvetet utfall, inte ett
+                  // persist-fel. Ingen codegen-fas ("kunde inte sparas som
+                  // version" vore lögn) och ingen toast; texten är
+                  // resultatet. Completion-hooken körs som på den lyckade
+                  // planvägen så UI:t inte fastnar i genererings-läge.
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
+                    ),
+                  );
+                  onGenerationComplete?.({ chatId: nextId });
+                  break;
+                }
+                appendProgressPart("generation", "stream-without-version", {
+                  reason: emptyGenerationReason,
+                });
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
+                  ),
+                );
+                break;
+              }
               appendProgressPart("generation", "empty-output", { reason: emptyGenerationReason });
               const explicitFailureMessage =
                 pendingStreamErrorMessage ||

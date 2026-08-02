@@ -52,6 +52,10 @@ function summarizeChange(changedPaths: string[], explicit?: string): string {
  * No LLM. No scaffold rebuild. The new version is immutable; the parent is the
  * major version (a quick_edit base resolves to its own parent so all minors of
  * a major are grouped together).
+ *
+ * The only verification in this lane is `applyQuickEdits`' syntax gate
+ * (`guardSyntax`) — nothing downstream re-checks a quick edit before it hits
+ * the preview VM.
  */
 export async function runQuickEdit(params: {
   chatId: string;
@@ -60,6 +64,8 @@ export async function runQuickEdit(params: {
   ops: QuickEditOp[];
   appProjectId: string | null;
   summary?: string;
+  /** See `QuickEditApplyOptions.guardSyntax`. Defaults to on. */
+  guardSyntax?: boolean;
 }): Promise<RunQuickEditResult> {
   const { baseVersion } = params;
 
@@ -76,7 +82,9 @@ export async function runQuickEdit(params: {
     };
   }
 
-  const applied = applyQuickEdits(params.baseFiles, params.ops);
+  const applied = applyQuickEdits(params.baseFiles, params.ops, {
+    guardSyntax: params.guardSyntax,
+  });
   if (!applied.ok) {
     return { ok: false, reason: applied.reason, message: applied.message };
   }
@@ -88,6 +96,15 @@ export async function runQuickEdit(params: {
   // Integrations bases are declined above, so a quick-edit child is always a
   // design-stage minor version.
   const lifecycleStage: "design" | "integrations" = "design";
+  // Dossier-env rehydrering: a quick edit changes files, never the dossier
+  // selection, so the minor inherits the base version's persisted env keys.
+  // Without this, the fallback preview (re)start below would rebuild
+  // `.env.local` without the F2 mock-seed and demo mode would silently vanish.
+  const selectedDossierEnvKeys =
+    Array.isArray(baseVersion.selected_dossier_env_keys) &&
+    baseVersion.selected_dossier_env_keys.length > 0
+      ? baseVersion.selected_dossier_env_keys
+      : null;
 
   // M#qe1: take the per-version lease on the BASE version around the persist,
   // so a minor is never created from a base that a concurrent server-verify /
@@ -125,6 +142,7 @@ export async function runQuickEdit(params: {
         editKind: "quick_edit",
         parentVersionId,
         lifecycleStage,
+        selectedDossierEnvKeys,
       },
     );
   } finally {
@@ -164,6 +182,7 @@ export async function runQuickEdit(params: {
   const patch = await tryPatchPreviewSession({
     chatId: params.chatId,
     versionId: newVersionId,
+    filesRevision: persisted.version.files_revision,
     expectedBaseVersionId: baseVersion.id,
     changedFiles,
     removedPaths: applied.removedPaths.length > 0 ? applied.removedPaths : undefined,
@@ -180,7 +199,11 @@ export async function runQuickEdit(params: {
       chatId: params.chatId,
       appProjectId: params.appProjectId,
       versionIdForSession: newVersionId,
+      filesRevisionForSession: persisted.version.files_revision,
       lifecycleStage,
+      // Inherited from the base version so the rebuilt `.env.local` keeps the
+      // F2 dossier mock-seed (demo mode) the first boot had.
+      selectedDossierEnvKeys: selectedDossierEnvKeys ?? undefined,
       skipRepair: true,
       skipProjectScaffold: true,
     });

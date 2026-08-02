@@ -171,3 +171,75 @@ describe("applyQuickEdits", () => {
     if (!result.ok) expect(result.reason).toBe("protected_path");
   });
 });
+
+// Prod 2026-08-01 (chat 435baa63): the preview panel's "+" built a nav entry
+// without a separating comma and the Fast Edit Lane published it unchecked —
+// the header crashed the preview build. Nothing downstream verifies a quick
+// edit, so this gate is the only thing between a machine-authored op and the VM.
+describe("applyQuickEdits — syntax gate", () => {
+  const navFile: CodeFile = {
+    path: "components/site-header.tsx",
+    content: `const navLinks = [
+  { href: "/#bonor", label: "Bönor" },
+];
+export function SiteHeader() {
+  return <nav>{navLinks.length}</nav>;
+}
+`,
+    language: "tsx",
+  };
+  const brokenNav = navFile.content.replace(
+    '{ href: "/#bonor", label: "Bönor" },',
+    '{ href: "/#bonor", label: "Bönor" } { label: "Jojo", href: "/jojo" },',
+  );
+
+  it("rejects an op that leaves a source file unparsable", () => {
+    const result = applyQuickEdits(
+      [navFile],
+      [{ kind: "replace_content", path: navFile.path, content: brokenNav }],
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("parse_regression");
+  });
+
+  it("rejects a newly created file that does not parse", () => {
+    const result = applyQuickEdits(baseFiles, [
+      {
+        kind: "replace_content",
+        path: "app/jojo/page.tsx",
+        content: "export default function Page() {\n  return <main>;\n}\n",
+      },
+    ]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("parse_regression");
+  });
+
+  it("lets human-authored saves through when the gate is off", () => {
+    const result = applyQuickEdits(
+      [navFile],
+      [{ kind: "replace_content", path: navFile.path, content: brokenNav }],
+      { guardSyntax: false },
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("allows an edit to an already-broken file as long as it gets no worse", () => {
+    const broken: CodeFile = {
+      path: "app/page.tsx",
+      content: "export default function Page() {\n  return <h1>Hej</h1>;\n",
+      language: "tsx",
+    };
+    const result = applyQuickEdits(
+      [broken],
+      [{ kind: "replace_text", path: broken.path, find: "Hej", replace: "Hejsan" }],
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("ignores paths the TypeScript parser does not cover", () => {
+    const result = applyQuickEdits(baseFiles, [
+      { kind: "replace_content", path: "app/globals.css", content: "body { color: red;" },
+    ]);
+    expect(result.ok).toBe(true);
+  });
+});

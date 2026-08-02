@@ -30,6 +30,7 @@
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
     "SAJTMASKIN_CONTENT_REVISION_GATE",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
+    "SAJTMASKIN_DOMAIN_PURCHASE",
     "SAJTMASKIN_DISABLE_QUALITY_GATE",
     "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
     "SAJTMASKIN_REFUSE_DOSSIER_STUBS",
@@ -188,6 +189,7 @@
     "SAJTMASKIN_CONTENT_REVISION_GATE",
     "SAJTMASKIN_DEFAULT_THINKING",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
+    "SAJTMASKIN_DOMAIN_PURCHASE",
     "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
     "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
     "SAJTMASKIN_DISABLE_QUALITY_GATE",
@@ -405,6 +407,15 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview"],
       "notes": "Opt-in, default off. Lets the verdict/receipt readers compare generation_telemetry.files_revision against engine_versions.files_revision instead of trusting versionId. On: the promote guard discards a verdict describing another revision (symmetrically, both passed and failed) and answers retryable indeterminate rather than terminal failed; the runtime-ready receipt only stamps rows whose revision matches the served content; a terminal bus status describing older content is degraded in /version-status. An unknown revision is never blocking — only a known mismatch is. Frequency is measured via sajtmaskin_content_revision_mismatch_total. Production is deliberately NOT a recommended target yet: releasing the flag is an owner decision, preview first. Source: src/lib/gen/verify/content-revision.ts."
+    },
+    {
+      "key": "SAJTMASKIN_DOMAIN_PURCHASE",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": [
+        "development",
+        "preview"
+      ],
+      "notes": "Opt-in, default off. DO NOT ENABLE YET — the final hop is an unfinished skeleton (owner decision 2026-08-01): buyDomain posts to the retired /v5/domains/buy, and the current POST /v1/registrar/domains/{domain}/buy also requires a contactInformation object (registrant name, address, country) the app never collects, so a paid purchase would fail at the registrar. Search, pricing, Stripe Checkout, the order table and the compensation path ARE finished. When enabled, POST /api/domains/purchase may create a Stripe Checkout session and a paid order may place a REAL order at the registrar on the owner's account. Off = search still works and prices are still shown, but every offer reports purchaseBlockedReason 'purchase_disabled' and the purchase route answers 503. Deliberately separate from VERCEL_TOKEN: a token that exists so deploys work must not by itself authorise spending money at the registrar. Note that development/preview here is a RECOMMENDATION only — the code checks the flag and a Stripe key, never NODE_ENV, so setting it in production would take effect. Source: src/lib/config.ts (FEATURES.useDomainPurchase), src/lib/domains/registrar/vercel-registrar.ts."
     },
     {
       "key": "SAJTMASKIN_DISABLE_QUALITY_GATE",

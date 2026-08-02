@@ -649,6 +649,11 @@ export function PreviewPanel({
         // that base as the latest-known signal so the server's stale-base 409
         // fires when another writer advanced the chat head past it.
         engineLatestKnownVersionId: base,
+        // History restore, not new machine content: the snapshot is a state
+        // the file has already been in (possibly a deliberately saved broken
+        // draft from the code view). Gating it would strand the user with no
+        // way back — and unlike the composer drop there is no AI fallback.
+        guardSyntax: false,
       });
       if (!saved.ok) {
         toast.error(saved.error);
@@ -686,6 +691,8 @@ export function PreviewPanel({
         // See handleComposerUndo: chain off the latest composer version (FEL-2)
         // and forward it as the latest-known signal for the stale-base 409.
         engineLatestKnownVersionId: base,
+        // History restore — same rationale as handleComposerUndo above.
+        guardSyntax: false,
       });
       if (!saved.ok) {
         toast.error(saved.error);
@@ -1009,23 +1016,40 @@ export function PreviewPanel({
         const pagePath = pageFilePathForRoute(route, appDir);
         const label = defaultLabelForRoute(route);
         const nav = buildAddNavLinkOps(files, route, label);
-        const result = await quickEditChatFiles({
-          chatId,
-          baseVersionId: versionId,
-          // Forward the active version as the latest-known signal so the server's
-          // stale-base 409 fires if another writer advanced the chat head.
-          engineLatestKnownVersionId: versionId,
-          ops: [
-            { kind: "replace_content", path: pagePath, content: buildNewPageContent(route, label) },
-            ...nav.ops,
-          ],
-          summary: `La till sidan ${route}`,
-        });
+        const pageOp: QuickEditClientOp = {
+          kind: "replace_content",
+          path: pagePath,
+          content: buildNewPageContent(route, label),
+        };
+        const runOps = (ops: QuickEditClientOp[]) =>
+          quickEditChatFiles({
+            chatId,
+            baseVersionId: versionId,
+            // Forward the active version as the latest-known signal so the server's
+            // stale-base 409 fires if another writer advanced the chat head.
+            engineLatestKnownVersionId: versionId,
+            ops,
+            summary: `La till sidan ${route}`,
+          });
+        let result = await runOps([pageOp, ...nav.ops]);
+        let navRejected = false;
+        if (!result.ok && result.reason === "parse_regression" && nav.ops.length > 0) {
+          // The server's syntax gate rejected the menu rewrite. The page itself
+          // is independent of it, so create the page without the link instead of
+          // dropping the whole action.
+          navRejected = true;
+          result = await runOps([pageOp]);
+        }
         if (!result.ok) {
           toast.error(result.error || "Kunde inte skapa sidan.");
           return;
         }
-        if (nav.navUpdated) {
+        if (navRejected) {
+          toast.message(`Sidan ${route} skapades`, {
+            description:
+              "Menyn kunde inte uppdateras automatiskt utan att koden gick sönder — be i chatten att länka sidan.",
+          });
+        } else if (nav.navUpdated) {
           toast.success(`Sidan ${route} skapades och länkades i menyn.`);
         } else {
           toast.message(`Sidan ${route} skapades`, {
@@ -1629,8 +1653,6 @@ export function PreviewPanel({
           <div className="relative min-h-0 min-w-0 flex-1">
             <PreviewSurface
               isLoading={isLoading}
-              externalLoading={externalLoading}
-              isGenerating={isGenerating}
               iframeError={iframeError}
               iframeErrorMessage={iframeErrorMessage}
               iframeDiagnosticCode={iframeDiagnosticCode}

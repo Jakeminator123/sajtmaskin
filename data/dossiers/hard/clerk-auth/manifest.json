@@ -14,12 +14,14 @@
       "key": "CLERK_SECRET_KEY",
       "required": true,
       "enforcement": "build",
+      "setupUrl": "https://clerk.com/docs/guides/development/clerk-environment-variables",
       "purpose": "Server-side Clerk API authentication. Clerk dashboard → API Keys → Secret keys (sk_test_/sk_live_). Tagged 'build' because auth is non-functional without it. The middleware key-gates itself: missing/placeholder keys degrade to open routes (NextResponse.next()) instead of crashing every request."
     },
     {
       "key": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
       "required": true,
       "enforcement": "build",
+      "setupUrl": "https://clerk.com/docs/guides/development/clerk-environment-variables",
       "purpose": "Client-side Clerk SDK init. Clerk dashboard → API Keys → Publishable keys (pk_test_/pk_live_). Tagged 'build' because auth is non-functional without it. ClerkProviderShell validates the key structurally and renders an 'Auth not configured' banner on missing/placeholder values instead of letting <ClerkProvider> throw."
     },
     {

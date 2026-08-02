@@ -43,6 +43,8 @@ interface FinalizedOrchestrationContextLike {
   dynamicContextPruning: GenerationInputPackage["dynamicContextPruning"];
   dynamicContextBlocks: GenerationInputPackage["dynamicContextBlocks"];
   variantId: string | null;
+  variantTemplateId: string | null;
+  variantTemplateReferenceAttachments: GenerationInputPackage["variantTemplateReferenceAttachments"];
 }
 
 export function buildGenerationInputPackage(
@@ -65,6 +67,7 @@ export function buildGenerationInputPackage(
     componentPalette: input.componentPalette ?? null,
     designReferences: input.designReferences ?? null,
     variantId: finalized.variantId,
+    variantTemplateId: finalized.variantTemplateId,
   });
 
   const promptSize = buildGenerationPromptSize({
@@ -86,6 +89,9 @@ export function buildGenerationInputPackage(
     dynamicContextBlocks: finalized.dynamicContextBlocks,
     promptSize,
     variantId: finalized.variantId,
+    variantTemplateId: finalized.variantTemplateId,
+    variantTemplateReferenceAttachments:
+      finalized.variantTemplateReferenceAttachments,
     lineageHash,
   };
 }
@@ -127,6 +133,7 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
       dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
       dynamicContextLargestBlocks: pkg.promptSize.blocks.largest,
       variantId: pkg.variantId ?? null,
+      variantTemplateId: pkg.variantTemplateId ?? null,
     },
   );
 }

@@ -13,6 +13,7 @@
     {
       "key": "ABLY_API_KEY",
       "required": true,
+      "setupUrl": "https://ably.com/docs/cli/auth/keys/create",
       "purpose": "Server-only Ably API key used by the Next.js auth route to create token requests for browser clients. Get it from the Ably dashboard for the target app; do not expose it with NEXT_PUBLIC_.",
       "enforcement": "feature-runtime"
     }
@@ -65,6 +66,7 @@
     }
   ],
   "lastVerified": "2026-04-18",
+  "verificationStatus": "unverified",
   "notes": "Keep the API key server-only. The auth route returns 503 realtime-not-configured when ABLY_API_KEY is missing OR a preview placeholder, so the integration degrades at feature runtime rather than build time. Demo surface is deterministic (BB#dostax1): RealtimeConfigNotice probes the auth route and renders the honest 'realtid ej kopplad' notice on 503 — codegen only places it next to realtime surfaces. lastVerified carries the legacy source's date until the first preview/generate-test selects this dossier (no-false-green rule, PR #422).",
   "promptInstructionMode": "selected-sections"
 }

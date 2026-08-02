@@ -1783,6 +1783,7 @@ def _create_dossier_skeleton(
         "complexity": complexity,
         "summary": summary.strip(),
         "lastVerified": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "verificationStatus": "unverified",
     }
     if summary_sv.strip():
         manifest["summarySv"] = summary_sv.strip()

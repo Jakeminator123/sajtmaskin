@@ -1,6 +1,10 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import {
+  countParseErrors,
+  isGuardablePath,
+} from "@/lib/gen/autofix/rules/import-binding-ast";
+import {
   isBlockedQuickEditPath,
   isDeletableQuickEditPath,
   isJsxEditableQuickEditPath,
@@ -54,6 +58,54 @@ function quickEditReasonForJsxDelete(
 }
 
 /**
+ * First changed file whose syntax got WORSE, as a typed failure — or null when
+ * the batch is clean. Paths the TypeScript parser does not cover (json, css,
+ * md, binary assets) are skipped, and an already-broken file may stay equally
+ * broken: the gate blocks regressions, it does not demand that a quick edit
+ * repairs damage it did not cause.
+ */
+function findParseRegression(
+  baseContentByPath: Map<string, string>,
+  next: Map<string, CodeFile>,
+  changedPaths: Iterable<string>,
+): Extract<QuickEditApplyResult, { ok: false }> | null {
+  for (const path of changedPaths) {
+    const file = next.get(path);
+    if (!file || !isGuardablePath(path)) continue;
+    const baseContent = baseContentByPath.get(path);
+    const before = baseContent === undefined ? 0 : countParseErrors(baseContent, path);
+    const after = countParseErrors(file.content, path);
+    if (after > before) {
+      return {
+        ok: false,
+        reason: "parse_regression",
+        message: `Edit would leave ${path} unparsable (${after} syntax error${
+          after === 1 ? "" : "s"
+        }).`,
+      };
+    }
+  }
+  return null;
+}
+
+export interface QuickEditApplyOptions {
+  /**
+   * Reject the whole batch when a changed file ends up with more syntax errors
+   * than it started with. ON by default: the Fast Edit Lane deliberately skips
+   * the LLM pipeline and its verification, so a malformed machine-authored edit
+   * otherwise reaches the preview VM unchecked (prod 2026-08-01, chat 435baa63:
+   * a nav-array entry inserted without a separating comma crashed the header
+   * build). The client-side counter in `preview-page-ops` is a bracket/tag
+   * heuristic and cannot see a missing comma — this is the real gate.
+   *
+   * Pass `false` for human-authored content (the code view's save button): a
+   * person may deliberately save a half-finished file, and refusing the write
+   * would throw away text they typed.
+   */
+  guardSyntax?: boolean;
+}
+
+/**
  * Apply deterministic quick edits to a base file set. Pure: no IO, no LLM.
  * Returns the next file set plus the exact list of changed paths, or a typed
  * failure (the caller falls back to the normal flow). Never guesses on
@@ -62,6 +114,7 @@ function quickEditReasonForJsxDelete(
 export function applyQuickEdits(
   baseFiles: CodeFile[],
   ops: QuickEditOp[],
+  options: QuickEditApplyOptions = {},
 ): QuickEditApplyResult {
   if (!Array.isArray(baseFiles) || baseFiles.length === 0) {
     return { ok: false, reason: "no_base_files", message: "No base files to edit." };
@@ -71,8 +124,10 @@ export function applyQuickEdits(
   }
 
   const next = new Map<string, CodeFile>();
+  const baseContentByPath = new Map<string, string>();
   for (const file of baseFiles) {
     next.set(file.path, { ...file });
+    baseContentByPath.set(file.path, file.content);
   }
   const changed = new Set<string>();
   const removed = new Set<string>();
@@ -185,6 +240,11 @@ export function applyQuickEdits(
 
   if (changed.size === 0) {
     return { ok: false, reason: "no_change", message: "No changes were applied." };
+  }
+
+  if (options.guardSyntax !== false) {
+    const regression = findParseRegression(baseContentByPath, next, changed);
+    if (regression) return regression;
   }
 
   return {

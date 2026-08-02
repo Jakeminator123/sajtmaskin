@@ -70,6 +70,16 @@ export const MIGRATION_ORDER = [
   // Scaffold-variant (stilriktning) per generation — samma selektionsyta som
   // scaffold_selection_*. Additiv ALTER; basen skapas tidigare i ordningen.
   "add-generation-telemetry-variant-id.sql",
+  // Domänköp: adopterar den vilande `domain_orders`-tabellen (skapad av
+  // db-init.mjs, utan egen migration) och lägger till orderkolumnerna plus de
+  // två unika index som gör dubbelköp/dubbeldebitering omöjligt. Innehåller
+  // ett eget CREATE TABLE IF NOT EXISTS så en databas som aldrig kört db-init
+  // också får tabellen.
+  "add-domain-purchase-orders.sql",
+  // Dossier-env rehydrering: valda dossiers env-nycklar persisteras per
+  // version så force-restart/quick-edit-fallback bygger samma F2 mock-seedade
+  // .env.local som första boot. Additiv nullable jsonb; basen skapas tidigare.
+  "add-engine-version-selected-dossier-env-keys.sql",
 ];
 
 /**

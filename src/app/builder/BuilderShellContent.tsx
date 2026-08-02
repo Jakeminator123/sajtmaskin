@@ -292,6 +292,21 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const hasPublication = Boolean(
     vm.liveDeploymentUrl || vm.hydratedVercelProjectId || vm.lastDeployVercelProjectId,
   );
+
+  // Returning from Stripe after a domain purchase. The redirect lands on the
+  // builder with `?domainOrder=…`; without this the customer would come back
+  // to an ordinary builder view with no sign that a charge just happened, and
+  // the outcome (registered / refunded) is only knowable by polling the order.
+  // Runs as an effect rather than lazy initial state so SSR and hydration
+  // agree on the closed dialog.
+  const setDomainManagerOpen = vm.setDomainManagerOpen;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).has("domainOrder")) {
+      setDomainManagerOpen(true);
+    }
+  }, [setDomainManagerOpen]);
+
   const deployReadinessBlocker = vm.deployReadiness?.blockers[0] ?? null;
   // Ö1-paritet (A#12): medan readiness laddar (SWR initial load) vet vi inte
   // om servern skulle 409:a — håll knappen disablad i stället för att

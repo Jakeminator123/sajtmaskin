@@ -31,12 +31,14 @@ Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler ko
 | [agent-worktree.mdc](rules/agent-worktree.mdc)                     | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
 | [bash-och-pwsh.mdc](rules/bash-och-pwsh.mdc)                       | PowerShell-syntax först; vanliga hårda felkällor på Windows                                                                  |
 | [git.mdc](rules/git.mdc)                                           | Inga PR:er; commit/push/merge bara på explicit begäran + ignore-filsbefogenhet                                               |
+| [mvp-scope-freeze.mdc](rules/mvp-scope-freeze.mdc)                 | MVP-frys: stabilitet före coolhet — inga helt nya features utan uttrycklig begäran                                           |
 | [project-phase-priorities.mdc](rules/project-phase-priorities.mdc) | Projektprioritet, grundhygien och tooling-säkerhet (dev vs prod Supabase)                                                    |
 | [repo-router.mdc](rules/repo-router.mdc)                           | Snabb repo-router + env/indexering                                                                                           |
 | [response-format.mdc](rules/response-format.mdc)                   | Hur agenten svarar — kort, matris/flöde, svenska vid behov                                                                   |
 | [sok-index-fallback.mdc](rules/sok-index-fallback.mdc)             | 0 träffar i Glob/Grep betyder inte att filen saknas — verifiera med Read                                                     |
 | [svenska-tech-synonymer.mdc](rules/svenska-tech-synonymer.mdc)     | Kort parentesförklaring första gången ett otydligt tech-ord används                                                          |
 | [terminology.mdc](rules/terminology.mdc)                           | Snabb förväxlingstabell; kanonisk ordlista är `docs/architecture/glossary.md`                                                |
+| [ui-restraint.mdc](rules/ui-restraint.mdc)                         | Inga nya varningar, barer, badges eller pills i produkt-UI:t utan uttrycklig begäran från ägaren                             |
 | [workflow.mdc](rules/workflow.mdc)                                 | Git, filstruktur, städning, verifiering — hur ändringar utförs                                                               |
 
 ### Glob-triggrade (aktiveras vid relevanta filer)

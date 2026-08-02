@@ -48,6 +48,9 @@ module.exports = {
   directorySizeBytes: storageCleanup.directorySizeBytes,
   __testing: {
     bootRuntimeForSession: processLifecycle.bootRuntimeForSession,
+    classifyRuntimeCleanExitLoop: processLifecycle.classifyRuntimeCleanExitLoop,
+    RUNTIME_CLEAN_EXIT_LIMIT: processLifecycle.RUNTIME_CLEAN_EXIT_LIMIT,
+    RUNTIME_CLEAN_EXIT_WINDOW_MS: processLifecycle.RUNTIME_CLEAN_EXIT_WINDOW_MS,
     isNoSpaceInstallFailure: packageInstall.isNoSpaceInstallFailure,
     probeReadinessAfterPatch: processLifecycle.probeReadinessAfterPatch,
     sanitizedEnv: shared.sanitizedEnv,

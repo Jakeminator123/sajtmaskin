@@ -482,6 +482,17 @@ export const FEATURES = {
 
   useStripePayments: Boolean(SECRETS.stripeSecretKey),
 
+  /**
+   * In-app domain purchase. Requires Stripe (we charge) AND an explicit opt-in
+   * (we spend at the registrar). Kept separate from `useVercelApi` on purpose:
+   * the deploy token and the mandate to buy domains on the owner's registrar
+   * account are different decisions, and conflating them would turn any
+   * environment that can deploy into one that can place real orders.
+   */
+  useDomainPurchase:
+    Boolean(SECRETS.stripeSecretKey) &&
+    isAffirmativeEnvValue(env.SAJTMASKIN_DOMAIN_PURCHASE),
+
   // NOTE: `usePexels` removed 2026-04-20 (audit §3.7). Had 0 callsites in
   // runtime code — Unsplash is the active stock-image source. To re-enable
   // Pexels: add an integration that reads `SECRETS.pexelsApiKey` directly,

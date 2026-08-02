@@ -186,6 +186,51 @@ describe("engine-files-patch · Fast Edit Lane", () => {
     });
   });
 
+  describe("syntax guard opt-out is caller-controlled, not hardcoded", () => {
+    it("keeps the syntax guard ON by default (no guardSyntax in the request body)", async () => {
+      vi.stubEnv("NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT", "1");
+      stubFetch((call) => {
+        if (call.url.endsWith("/quick-edit")) {
+          return jsonResponse({ ok: true, versionId: "ver_3_1", changedFiles: ["app/page.tsx"] });
+        }
+        throw new Error(`Unexpected fetch: ${call.method} ${call.url}`);
+      });
+
+      const result = await patchEngineChatFile({
+        chatId: "chat_1",
+        versionId: "ver_3",
+        fileName: "app/page.tsx",
+        content: "next",
+      });
+
+      expect(result.ok).toBe(true);
+      const quickEditCall = calls.find((c) => c.url.endsWith("/quick-edit"));
+      expect(quickEditCall?.body).not.toHaveProperty("guardSyntax");
+    });
+
+    it("forwards guardSyntax: false only when the caller opts out (human-authored save)", async () => {
+      vi.stubEnv("NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT", "1");
+      stubFetch((call) => {
+        if (call.url.endsWith("/quick-edit")) {
+          return jsonResponse({ ok: true, versionId: "ver_3_1", changedFiles: ["app/page.tsx"] });
+        }
+        throw new Error(`Unexpected fetch: ${call.method} ${call.url}`);
+      });
+
+      const result = await patchEngineChatFile({
+        chatId: "chat_1",
+        versionId: "ver_3",
+        fileName: "app/page.tsx",
+        content: "next",
+        guardSyntax: false,
+      });
+
+      expect(result.ok).toBe(true);
+      const quickEditCall = calls.find((c) => c.url.endsWith("/quick-edit"));
+      expect(quickEditCall?.body).toMatchObject({ guardSyntax: false });
+    });
+  });
+
   describe("flag off / success", () => {
     it("goes straight to in-place PATCH and never calls /quick-edit when the lane is disabled", async () => {
       vi.stubEnv("NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT", "");

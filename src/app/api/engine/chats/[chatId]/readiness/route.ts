@@ -36,6 +36,7 @@ import {
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
+import { resolvePendingIntegrationDossiers } from "@/lib/gen/dossiers";
 import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
 import { hasRequiredRealBuildKeys } from "@/lib/integrations/tier3-build-spec";
 import {
@@ -517,11 +518,11 @@ async function buildEngineReadiness(
     warnings.push(...buildSeoAdvisoriesFromMeta(latestSeoWarning.meta));
   }
 
-  // Ö4a: bär samma boolean som `/finalize-design` grenar på
-  // (`hasRequiredRealBuildKeys(gate.spec)`), härledd ur EXAKT samma bas — samma
-  // `selectedDossiers` + samma redan inlästa `files` som `checkTier3ReadinessForVersion`
-  // använder — så "Bygg integrationer"-knappens tooltip kan säga vilken väg klicket
-  // tar utan att gissa ur platta nyckellistor.
+  // Ö4a: mirrors the LLM-vs-deterministic branch in `/finalize-design`:
+  // a provider-specific dossier still waiting to be installed OR an already-
+  // present integration with a real build requirement needs the LLM path.
+  // Derived from the same snapshot and preloaded files as the shared gate, so
+  // the "Bygg integrationer" tooltip does not guess from flat key lists.
   //
   // En spec som inte går att härleda ger `undefined`, aldrig `false`: samma
   // `null` får `checkTier3ReadinessForVersion` att svara
@@ -533,7 +534,14 @@ async function buildEngineReadiness(
     const tier3Spec = await deriveTier3BuildSpecForVersion(version.id, selectedDossiers, {
       preloadedFiles: files,
     });
-    hasRealBuildIntegrations = tier3Spec ? hasRequiredRealBuildKeys(tier3Spec) : undefined;
+    const pendingDossiers = resolvePendingIntegrationDossiers({
+      snapshot: chat.orchestration_snapshot as Record<string, unknown> | null,
+      versionFiles: files,
+      configuredEnvKeys: new Set(configuredEnvKeys),
+    });
+    hasRealBuildIntegrations = tier3Spec
+      ? pendingDossiers.length > 0 || hasRequiredRealBuildKeys(tier3Spec)
+      : undefined;
   } catch {
     hasRealBuildIntegrations = undefined;
   }

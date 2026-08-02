@@ -310,7 +310,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       assistantMessage.id,
       versionToRestore.files_json,
       undefined,
-      { editKind: "restore" },
+      {
+        editKind: "restore",
+        // Exact-file copy carries the source version's persisted dossier env
+        // keys, so a preview of the restored draft keeps the F2 mock-seed
+        // (demo mode) the source version's preview had.
+        selectedDossierEnvKeys:
+          Array.isArray(versionToRestore.selected_dossier_env_keys) &&
+          versionToRestore.selected_dossier_env_keys.length > 0
+            ? versionToRestore.selected_dossier_env_keys
+            : null,
+      },
     );
     return NextResponse.json({
       success: true,

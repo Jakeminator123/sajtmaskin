@@ -46,6 +46,7 @@ type ResolvedStatusReason =
   | "staleness_inferred"
   | "awaiting_input"
   | "empty_generation"
+  | "stream_without_version"
   | "partial_file_output"
   | "error_event_seen"
   | null;
@@ -85,6 +86,11 @@ function resolveStatusDetails(
   if (finalType === "site.empty_generation") {
     return { status: "empty_generation", reason: "empty_generation" };
   }
+  // "Innehåll strömmades men ingen version sparades" — samma fel-familj som
+  // partial_file_output (utdata fanns, persist föll), inte empty_generation.
+  if (finalType === "site.stream_without_version") {
+    return { status: "error_signal", reason: "stream_without_version" };
+  }
   if (finalType === "site.partial_file_output") {
     return { status: "error_signal", reason: "partial_file_output" };
   }
@@ -118,7 +124,10 @@ export function buildMeta(entries: StoredGenerationEntry[]): Record<string, unkn
   const verifier = findLatestByType(entries, ["verifier-pass"]);
   const serverVerifyPolicy = findLatestByType(entries, ["server-verify.policy"]);
   const partialOutput = findLatestByType(entries, ["site.partial_file_output"]);
-  const emptyGen = findLatestByType(entries, ["site.empty_generation"]);
+  const emptyGen = findLatestByType(entries, [
+    "site.empty_generation",
+    "site.stream_without_version",
+  ]);
   const persistBlocker = partialOutput ?? emptyGen;
 
   const statusDetails = resolveStatusDetails(entries);

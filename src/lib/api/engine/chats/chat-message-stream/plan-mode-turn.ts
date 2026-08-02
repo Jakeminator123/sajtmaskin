@@ -225,7 +225,10 @@ export async function runPlanModeTurn(params: {
     plannerReasoningMode: plannerSettings.reasoningMode,
     abortSignal: req.signal,
     chatHistory: planChatHistory,
-    referenceAttachments: requestAttachments,
+    referenceAttachments: [
+      ...planOrchestration.variantTemplateReferenceAttachments,
+      ...requestAttachments,
+    ],
   });
 
   return attachSessionCookie(

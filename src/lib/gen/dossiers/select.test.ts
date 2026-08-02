@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { clearDossierRegistryCache, getAllDossiers } from "./registry";
-import { selectDossiersForRequest } from "./select";
+import { isExplicitDossierChoice, selectDossiersForRequest } from "./select";
 
 const ENV_BACKUP = { ...process.env };
 
@@ -498,6 +498,60 @@ describe("selectDossiersForRequest — disableBriefFallback (F3 scope)", () => {
     const ids = result.selected.map((s) => s.entry.id);
     expect(ids).toContain("stripe-checkout");
     expect(ids).not.toContain("openai-chat");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// isExplicitDossierChoice: skiljer ett faktiskt providerval från
+// capability-defaulten. `resolve-base` persisterar bara de förstnämnda som
+// `mutedDossierIds`, eftersom ett persisterat default-id ser ut som ett byte
+// och skriver över ett tidigare val vid nästa neutrala uppföljning.
+// ─────────────────────────────────────────────────────────────────────────
+describe("isExplicitDossierChoice — persisterbar syskonidentitet", () => {
+  it("räknar ett uttryckligt providerval som val", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "lagra produkterna i MongoDB Atlas",
+    });
+
+    expect(result.selected[0]?.entry.id).toBe("mongodb-atlas");
+    expect(isExplicitDossierChoice(result.selected[0].reason)).toBe(true);
+  });
+
+  it("räknar INTE capability-defaulten som val på en neutral uppföljning", () => {
+    // "gör rubriken större" bär ingen providerhint, men capability-floor:en
+    // håller kvar `database`. Utan filtret hade postgres-drizzle persisterats
+    // och skrivit över ett tidigare mongodb-atlas.
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database"],
+      promptText: "gör rubriken större",
+    });
+
+    expect(result.selected[0]?.entry.id).toBe("postgres-drizzle");
+    expect(result.selected[0]?.reason).toBe("capability-match");
+    expect(isExplicitDossierChoice(result.selected[0].reason)).toBe(false);
+  });
+
+  it("räknar en dependency-pin som val — den är ett krav, inte en gissning", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["subscriptions"],
+    });
+    const auth = result.selected.find((s) => s.entry.capability.toLowerCase() === "auth");
+
+    expect(auth?.reason).toBe("dependency-pin");
+    expect(isExplicitDossierChoice(auth!.reason)).toBe(true);
+  });
+
+  it("släpper igenom bara valet när prompten nämner ett syskon av flera capabilities", () => {
+    const result = selectDossiersForRequest({
+      requestedCapabilities: ["database", "payments"],
+      promptText: "lagra produkterna i MongoDB Atlas",
+    });
+    const persisted = result.selected
+      .filter((s) => isExplicitDossierChoice(s.reason))
+      .map((s) => s.entry.id);
+
+    expect(persisted).toEqual(["mongodb-atlas"]);
   });
 });
 

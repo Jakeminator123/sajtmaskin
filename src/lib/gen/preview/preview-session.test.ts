@@ -69,6 +69,43 @@ afterEach(() => {
 });
 
 describe("startPreviewSession update path", () => {
+  it("resends files when the same version id now has a different content revision", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    updatePreviewHostSession.mockResolvedValueOnce({
+      ok: true,
+      previewSessionId: "ps-rewrite",
+      previewUrl: "https://preview-host.example.com/chat-rewrite",
+      startOutcome: "resumed",
+    });
+    await touchPreviewSessionAsync({
+      chatId: "chat-rewrite",
+      previewSessionId: "ps-rewrite",
+      previewUrl: "https://preview-host.example.com/chat-rewrite",
+      versionId: "version-rewritten-in-place",
+      filesRevision: "revision-n",
+      tier2Provider: "preview_host",
+    });
+
+    const result = await startPreviewSession(
+      [{ path: "app/page.tsx", content: "export default () => <main>N+1</main>", language: "typescript" }],
+      {
+        chatId: "chat-rewrite",
+        versionIdForSession: "version-rewritten-in-place",
+        filesRevisionForSession: "revision-n-plus-1",
+        skipProjectScaffold: true,
+        skipRepair: true,
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(fetchPreviewHostStatus).not.toHaveBeenCalled();
+    expect(updatePreviewHostSession).toHaveBeenCalledOnce();
+    expect(getActivePreviewSession("chat-rewrite")).toMatchObject({
+      versionId: "version-rewritten-in-place",
+      filesRevision: "revision-n-plus-1",
+    });
+  });
+
   it("regenerates .env.local when reusing an older preview-host session", async () => {
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
     updatePreviewHostSession.mockResolvedValueOnce({
@@ -648,12 +685,17 @@ describe("tryPatchPreviewSession — strikt bas-versionsbindning", () => {
     const result = await tryPatchPreviewSession({
       chatId: "chat-strict",
       versionId: "version-next",
+      filesRevision: "revision-next",
       changedFiles: { "app/page.tsx": "x" },
       expectedBaseVersionId: "version-base",
     });
 
     expect(result.ok).toBe(true);
     expect(patchPreviewHostSession).toHaveBeenCalledOnce();
+    expect(getActivePreviewSession("chat-strict")).toMatchObject({
+      versionId: "version-next",
+      filesRevision: "revision-next",
+    });
   });
 
   it("vägrar när den lagrade pekaren är en annan version", async () => {

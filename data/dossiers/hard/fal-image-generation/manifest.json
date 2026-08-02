@@ -13,6 +13,7 @@
     {
       "key": "FAL_API_KEY",
       "required": true,
+      "setupUrl": "https://fal.ai/docs/documentation/setting-up/authentication",
       "purpose": "Fal API key used only by the server API route to authenticate image generation requests. Create or copy it from the Fal dashboard/account settings.",
       "enforcement": "feature-runtime"
     }
@@ -56,6 +57,7 @@
     }
   ],
   "lastVerified": "2026-04-18",
+  "verificationStatus": "unverified",
   "sourceRepoUrl": "https://github.com/vercel-labs/vercel-fal-image-generator",
   "notes": "Focused Fal-only extraction; omit template UI, analytics, layout, provider matrices. Route uses `generateImage` from ai v7 (renamed from experimental_generateImage). lastVerified carries the legacy source's date until the first preview/generate-test selects this dossier (no-false-green rule from PR #422).",
   "promptInstructionMode": "compact"

@@ -85,6 +85,54 @@ describe("detectDegenerateFiles", () => {
     expect(detectDegenerateFiles([]).degenerate).toBe(false);
     expect(detectDegenerateFiles([{ path: "x.ts" }]).degenerate).toBe(false);
   });
+
+  // Prod 2026-08-01 (chat cb529c3c): an imported template's 1.8 MB
+  // `public/apple-icon.png` tripped the 750 KB SOURCE ceiling and blocked the
+  // whole version, even though the preview host accepts files up to 2 MB.
+  it("does NOT flag a large binary asset carried by an imported template", () => {
+    const result = detectDegenerateFiles([
+      { path: "app/page.tsx", content: "export default function P(){return null;}" },
+      { path: "public/apple-icon.png", content: `base64:${"A".repeat(1_806_000)}` },
+    ]);
+    expect(result.degenerate).toBe(false);
+  });
+
+  it("still flags a binary asset the preview host would refuse", () => {
+    const result = detectDegenerateFiles([
+      {
+        path: "public/hero.mp4",
+        content: `base64:${"A".repeat(DEFAULT_DEGENERACY_THRESHOLDS.maxBinaryAssetBytes + 1)}`,
+      },
+    ]);
+    expect(result.degenerate).toBe(true);
+    expect(result.file).toBe("public/hero.mp4");
+    expect(result.reason).toContain("asset ceiling");
+  });
+
+  it("flags a payload the preview host would refuse, source and assets combined", () => {
+    const asset = `base64:${"A".repeat(1_900_000)}`;
+    const files = [
+      ...Array.from({ length: 6 }, (_unused, i) => ({
+        path: `public/img-${i}.png`,
+        content: asset,
+      })),
+      { path: "app/page.tsx", content: "b".repeat(700_000) },
+      { path: "app/about/page.tsx", content: "c".repeat(700_000) },
+    ];
+    const result = detectDegenerateFiles(files);
+    expect(result.degenerate).toBe(true);
+    expect(result.reason).toContain("Total payload");
+  });
+
+  it("does not let binary bytes push a normal project over the source ceiling", () => {
+    const files = [
+      { path: "public/a.png", content: `base64:${"A".repeat(1_500_000)}` },
+      { path: "public/b.jpg", content: `base64:${"B".repeat(1_500_000)}` },
+      { path: "app/page.tsx", content: "export default function P(){return null;}" },
+    ];
+    const result = detectDegenerateFiles(files);
+    expect(result.degenerate).toBe(false);
+  });
 });
 
 describe("capDegeneratePayload", () => {

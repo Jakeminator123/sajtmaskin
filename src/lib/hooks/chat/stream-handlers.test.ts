@@ -245,6 +245,56 @@ describe("handleSseStream", () => {
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
   });
 
+  // Row A/B (bug-swarm 2026-08-01): innehåll som strömmades till chatten men
+  // aldrig blev en version är inte "tom utdata". Användaren ser texten, så
+  // feltoasten "inget kom tillbaka" och empty-output-fasen får inte fyra —
+  // progresspart:en ska i stället spegla serverns reason.
+  it("skippar feltoasten och empty-output-fasen när innehåll strömmades men ingen version sparades", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: "<main>Här är sajten du bad om</main>" }, "");
+        onEvent(
+          "done",
+          { chatId: "chat_1", versionId: null, reason: "stream_ended_without_version" },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    const result = await handleSseStream(
+      new Response(null),
+      ctx,
+      new AbortController().signal,
+    );
+
+    expect(result.chatIdFromStream).toBe("chat_1");
+    // Ingen riktig artefakt — Byggval-reset i useCreateChat ska inte luras.
+    expect(result.hasRecoveredArtifact).toBe(false);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(spies.onGenerationComplete).not.toHaveBeenCalled();
+    expect(runPostGenerationChecks).not.toHaveBeenCalled();
+    // Den strömmade texten behålls som meddelandeinnehåll.
+    expect(store.getMessages()[0]?.content).toContain("Här är sajten du bad om");
+    expect(store.getMessages()[0]?.isStreaming).toBe(false);
+    const generationPart = (store.getMessages()[0]?.uiParts ?? []).find(
+      (part) => (part as { type?: string }).type === "tool:engine-generation",
+    ) as { output?: { phase?: string; reason?: string; steps?: unknown } } | undefined;
+    expect(generationPart?.output?.phase).toBe("stream-without-version");
+    expect(generationPart?.output?.reason).toBe("stream_ended_without_version");
+    expect(
+      Array.isArray(generationPart?.output?.steps) ? generationPart.output.steps : [],
+    ).toContain(
+      "Innehåll strömmades till chatten men kunde inte sparas som version. Texten ovan finns kvar.",
+    );
+  });
+
   // Plan-läget avslutar utan version och utan preview — planen är resultatet.
   // Utan planArtifact i `hasRecoveredArtifact` tog empty-output-grenen över och
   // visade ett fel för en fullt lyckad plan.
@@ -282,6 +332,76 @@ describe("handleSseStream", () => {
     // Ingen version finns, så inga versionsberoende efterkontroller ska köras.
     expect(runPostGenerationChecks).not.toHaveBeenCalled();
     expect(spies.onGenerationComplete).toHaveBeenCalled();
+  });
+
+  // Bugbot på MVP-svepet: serverns persist-beslut räknar pages/scope som
+  // plansubstans (`planArtifactHasSubstance`) — klienten måste använda samma
+  // predikat, annars får en sidplan utan steg fel-toasten trots att servern
+  // sparade en riktig plan.
+  it("behandlar en pages/scope-only-plan (utan steg) som lyckad", async () => {
+    const planArtifact = {
+      goal: "Ny sajtstruktur",
+      scope: ["app/om/page.tsx", "app/kontakt/page.tsx"],
+      pages: [
+        { name: "Om oss", path: "/om" },
+        { name: "Kontakt", path: "/kontakt" },
+      ],
+      steps: [],
+      blockers: [],
+    };
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: "Här är sidplanen." }, "");
+        onEvent("done", { chatId: "chat_1", planMode: true, planArtifact, versionId: null }, "");
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith("Plan skapad!");
+    expect(store.getMessages()[0]?.uiParts?.some((part) => part.type === "plan")).toBe(true);
+  });
+
+  // Bugbot på MVP-svepet (pass 4): plan-läge som strömmar prosa men inte får
+  // en substansplan är ett medvetet planner-text-utfall (servern persisterar
+  // prosan) — inte ett codegen-persist-fel. Ingen "kunde inte sparas som
+  // version"-fas, ingen toast, och completion-hooken körs.
+  it("behandlar plan-prosa utan substansplan som lugn avslutning, inte stream-without-version", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: "Bygget är klart, men previewen svarar inte." }, "");
+        onEvent("done", { chatId: "chat_1", planMode: true, planArtifact: {}, versionId: null }, "");
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(toast.error).not.toHaveBeenCalled();
+    const message = store.getMessages()[0];
+    expect(message?.content).toContain("Bygget är klart");
+    expect(message?.isStreaming).toBe(false);
+    const progressPart = message?.uiParts?.find(
+      (part) => part.type === "tool:engine-generation",
+    ) as { output?: { phase?: string } } | undefined;
+    expect(progressPart?.output?.phase).not.toBe("stream-without-version");
+    expect(spies.onGenerationComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: "chat_1" }),
+    );
   });
 
   // Bugbot på #629: plan-mode-stream skickar `resolvePlanArtifact(...) ?? {}`,

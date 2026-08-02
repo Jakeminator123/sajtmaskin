@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { toAnthropicEffort } from "./engine";
 
 async function loadDefaultThinkingModule(env: {
   defaultThinking?: string;
@@ -41,10 +42,7 @@ describe("getDefaultThinkingEnabled", () => {
 });
 
 describe("toAnthropicEffort", () => {
-  it("maps shared reasoning effort levels to supported Anthropic effort levels", async () => {
-    vi.resetModules();
-    const { toAnthropicEffort } = await import("./engine");
-
+  it("maps shared reasoning effort levels to supported Anthropic effort levels", () => {
     expect(toAnthropicEffort("none")).toBe("low");
     expect(toAnthropicEffort("low")).toBe("low");
     expect(toAnthropicEffort("medium")).toBe("medium");

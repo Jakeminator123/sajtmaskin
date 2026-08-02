@@ -18,8 +18,8 @@ import {
   applyMarkupSek,
   customerPriceFromUsd,
   fallbackCustomerPriceSek,
+  referenceWholesaleSek,
   USD_TO_SEK,
-  FALLBACK_VERCEL_COSTS_SEK,
   DOMAIN_PRICE_MARKUP,
 } from "@/lib/domains/pricing";
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const tld = domain.split(".").pop()?.toLowerCase() ?? "com";
 
     if (!isVercelConfigured()) {
-      const wholesaleSek = FALLBACK_VERCEL_COSTS_SEK[tld] ?? 50;
+      const wholesaleSek = referenceWholesaleSek(tld);
       return NextResponse.json({
         success: true,
         domain,
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
     } catch (vercelError) {
       console.error("[API/vercel/domains/price] Vercel API error:", vercelError);
 
-      const wholesaleSek = FALLBACK_VERCEL_COSTS_SEK[tld] ?? 50;
+      const wholesaleSek = referenceWholesaleSek(tld);
       return NextResponse.json({
         success: true,
         domain,

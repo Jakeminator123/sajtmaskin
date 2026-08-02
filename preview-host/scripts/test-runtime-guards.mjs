@@ -100,7 +100,37 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("closed socket releases viewer", activePreviewSocketCount("guard-chat") === 0);
 }
 
-// 5. Per-chat boot serialization (prod-incident 2026-07-03, chat e8420220):
+// 5. Repeated unexpected clean exits are bounded per session+version window.
+//    Before this guard every proxy refresh queued another boot and each boot
+//    rewrote readiness to `starting`, so the app never received a failure.
+{
+  const {
+    classifyRuntimeCleanExitLoop,
+    RUNTIME_CLEAN_EXIT_LIMIT,
+    RUNTIME_CLEAN_EXIT_WINDOW_MS,
+  } = runtime.__testing;
+  let timestamps = [];
+  const startedAt = 1_000_000;
+  for (let index = 0; index < RUNTIME_CLEAN_EXIT_LIMIT; index += 1) {
+    const result = classifyRuntimeCleanExitLoop({
+      timestamps,
+      now: startedAt + index * 1_000,
+    });
+    timestamps = result.timestamps;
+    check(
+      `clean exit ${index + 1} has expected terminal state`,
+      result.failed === (index + 1 >= RUNTIME_CLEAN_EXIT_LIMIT),
+    );
+  }
+  const afterWindow = classifyRuntimeCleanExitLoop({
+    timestamps,
+    now: startedAt + RUNTIME_CLEAN_EXIT_WINDOW_MS + 5_000,
+  });
+  check("clean-exit window expires old attempts", afterWindow.failed === false);
+  check("clean-exit window retains only the new attempt", afterWindow.timestamps.length === 1);
+}
+
+// 6. Per-chat boot serialization (prod-incident 2026-07-03, chat e8420220):
 //    concurrent `restart: true` boots must NEVER run bootRuntimeForSession
 //    concurrently — the old "await existing, then run" released all waiters in
 //    parallel, spawning two dev servers (EADDRINUSE) and orphaning a child

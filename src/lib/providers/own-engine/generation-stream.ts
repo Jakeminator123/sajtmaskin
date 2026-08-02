@@ -116,6 +116,8 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
    * the mute being invisible to the user.
    */
   mutedCapabilities?: string[];
+  /** Provider-specific dossier ids deferred by the F2 mute. */
+  mutedDossierIds?: string[];
   /** Swedish user-facing names for `mutedCapabilities` (dossier labels). */
   mutedCapabilityLabels?: string[];
   /** Dossier capabilities with real file evidence in the base version. */
@@ -348,8 +350,19 @@ export function createOwnEngineGenerationStream(
         didSendDone = true;
         const toolCalls = Array.from(toolCallNames);
         const awaitingInput = options?.awaitingInput ?? sawBlockingToolCall;
+        // "Output existed but could not be saved" är inte samma sak som
+        // "ingen output": när strömmen levererade innehåll men ingen version
+        // persisterades (reason `stream_ended_without_version` från
+        // finally-vägen) får varken progress-fasen eller devloggen kalla det
+        // empty-output — användaren SER ju text i chatten.
+        const streamedWithoutVersion =
+          !awaitingInput && reason === "stream_ended_without_version";
         emitProgress("generation", {
-          phase: awaitingInput ? "awaiting-input" : "empty-output",
+          phase: awaitingInput
+            ? "awaiting-input"
+            : streamedWithoutVersion
+              ? "stream-without-version"
+              : "empty-output",
           reason,
         });
 
@@ -375,7 +388,11 @@ export function createOwnEngineGenerationStream(
         );
 
         devLogAppend("in-progress", {
-          type: awaitingInput ? "site.awaiting_input" : "site.empty_generation",
+          type: awaitingInput
+            ? "site.awaiting_input"
+            : streamedWithoutVersion
+              ? "site.stream_without_version"
+              : "site.empty_generation",
           chatId,
           reason,
           toolCalls,

@@ -531,6 +531,7 @@ export async function POST(req: Request) {
         chatId: chat.id,
         appProjectId: project.id,
         versionIdForSession: version.id,
+        filesRevisionForSession: version.files_revision,
         skipRepair: true,
         // Imported project is already complete (zip source) and should not be scaffold-merged.
         skipProjectScaffold: true,

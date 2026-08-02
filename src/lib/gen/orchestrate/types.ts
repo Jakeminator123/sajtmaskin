@@ -32,6 +32,7 @@ import type { DossierSelectionResult } from "../dossiers";
 import type { FollowUpContract } from "../orchestration-snapshot";
 import type { RequestKindClass } from "../request-kind";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
+import type { RequestAttachment } from "../request-metadata";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -339,6 +340,12 @@ export interface OrchestrationBase {
    */
   mutedCapabilities?: string[];
   /**
+   * Exact provider-specific dossiers deferred by the F2 mute. Unlike
+   * `mutedCapabilities`, this preserves sibling identity (`mongodb-atlas`
+   * versus the `database` default) until the explicit F3 build.
+   */
+  mutedDossierIds?: string[];
+  /**
    * Dossier capabilities with real FILE EVIDENCE in the base version
    * (`resolveCapabilitiesPresentInVersion` over `previousFilePaths`) — the
    * same presence primitive the Byggblock panel reads. Lets status surfaces
@@ -411,4 +418,6 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
+  variantTemplateId: string | null;
+  variantTemplateReferenceAttachments: RequestAttachment[];
 }

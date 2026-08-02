@@ -13,6 +13,7 @@
       "key": "NEXT_PUBLIC_SENTRY_DSN",
       "required": false,
       "enforcement": "warn-only",
+      "setupUrl": "https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/",
       "purpose": "Sentry Data Source Name (e.g. 'https://abc@o12345.ingest.sentry.io/67890'). Sentry → Settings → Projects → Client Keys (DSN). Tagged 'warn-only' because Sentry.init() short-circuits when empty — SDK bundled but inert, no crash."
     },
     {

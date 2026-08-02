@@ -179,6 +179,7 @@ B) If acceptable, produce:
                 "injectionMode": "verbatim"|"rewritable" (optional per-file override)}],
      "exposes": [{"name", "type": "component"|"function"|"hook"|"constant", "import"}],
      "lastVerified": "${today}",
+     "verificationStatus": "unverified",
      "sourceRepoUrl" (optional), "notes" (optional, ≤600 chars, curator-facing),
      "promptInstructionMode": "compact"|"selected-sections"|"full" (optional)
    }
@@ -400,6 +401,9 @@ function writeDraft(
   const manifest = {
     $schema: "../../../../docs/schemas/strict/dossier.schema.json",
     ...(output.manifest as Record<string, unknown>),
+    // A normalized legacy prospect is still a draft. Never inherit or invent
+    // accepted evidence from the source snapshot.
+    verificationStatus: "unverified",
   };
   writeFileSync(join(draftDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf-8");
   writeFileSync(join(draftDir, "instructions.md"), output.instructions ?? "", "utf-8");

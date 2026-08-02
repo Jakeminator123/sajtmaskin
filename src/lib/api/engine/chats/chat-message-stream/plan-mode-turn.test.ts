@@ -140,6 +140,7 @@ function resetTurnMocks(): void {
   vi.mocked(prepareGenerationContext).mockResolvedValue({
     buildSpec: { qualityTarget: "f2", contextPolicy: "follow-up" },
     resolvedScaffold: null,
+    variantTemplateReferenceAttachments: [],
   } as unknown as Awaited<ReturnType<typeof prepareGenerationContext>>);
 }
 
@@ -160,6 +161,48 @@ describe("runPlanModeTurn — persistering av planner-svaret", () => {
     // Den gamla lögnen får inte tillbaka: ingen påhittad plansummering.
     expect(call?.[2]).not.toContain("Plan skapad");
     expect(body).toContain("event: done");
+  });
+
+  it("persisterar prosan när utdatan parsas som JSON men saknar plansubstans", async () => {
+    // `parsePlanResponse` läser ut fenced JSON, och `{}` normaliseras till en
+    // tom plan — den får inte klassas som riktig plan och äta upp prosan.
+    const prose = 'Jag behöver mer info innan jag kan planera.\n```json\n{"steps": []}\n```';
+    await runTurn([
+      { event: "content", data: { text: prose } },
+      { event: "done", data: {} },
+    ]);
+
+    const call = assistantMessageCall();
+    expect(call?.[2]).toBe(prose);
+    expect(call?.[2]).not.toContain("Plan skapad");
+    expect(call?.[4]).toBeUndefined();
+    expect(traceRow(PLAN_MODE_TURN_EXIT_EVENT)?.meta).toMatchObject({
+      outcome: "planner_text_persisted",
+      hasPlanArtifact: false,
+    });
+  });
+
+  it("behåller plan-klassningen för en parsad plan med clarification-blockerare", async () => {
+    // Awaiting-input-planer (frågor via blockers) får INTE omklassas till
+    // planner-text av substanskravet.
+    await runTurn([
+      {
+        event: "content",
+        data: {
+          text: '```json\n{"goal": "Bygg", "blockers": [{"kind": "unclear", "question": "Vilket språk ska sajten ha?"}]}\n```',
+        },
+      },
+      { event: "done", data: {} },
+    ]);
+
+    const call = assistantMessageCall();
+    expect(call?.[2]).toContain("Vilket språk ska sajten ha?");
+    expect(Array.isArray(call?.[4])).toBe(true);
+    expect(traceRow(PLAN_MODE_TURN_EXIT_EVENT)?.meta).toMatchObject({
+      outcome: "plan_persisted",
+      hasPlanArtifact: true,
+      hasBlockers: true,
+    });
   });
 
   it("persiterar en förklaring när planner-turen varken gav plan eller text", async () => {

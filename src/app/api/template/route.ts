@@ -237,6 +237,7 @@ async function initializeLocalTemplateProject(params: {
     chatId: chat.id,
     appProjectId: projectId,
     versionIdForSession: version.id,
+    filesRevisionForSession: version.files_revision,
     skipRepair: true,
     skipProjectScaffold: true,
   });

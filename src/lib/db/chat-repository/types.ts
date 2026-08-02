@@ -37,6 +37,8 @@ export interface Version {
   message_id: string | null;
   version_number: number;
   files_json: string;
+  /** DB-generated md5 identity for the current `files_json` contents. */
+  files_revision: string | null;
   repaired_files_json: string | null;
   preview_url: string | null;
   release_state: EngineVersionReleaseState;
@@ -50,6 +52,14 @@ export interface Version {
   parent_version_id: string | null;
   /** Fast Edit Lane provenance ("quick_edit") or null for normal versions. */
   edit_kind: string | null;
+  /**
+   * Env keys declared by the dossiers selected for the generation that
+   * produced this version (deduped). Preview/F2-only mock-seed contract —
+   * threaded into `startPreviewSession` so restarts rebuild the same
+   * `.env.local` demo-mode surface; never shipped to F3/deploy env vars.
+   * Null for legacy rows and versions without dossier-declared env keys.
+   */
+  selected_dossier_env_keys?: string[] | null;
   created_at: string;
 }
 

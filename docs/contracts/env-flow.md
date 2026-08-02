@@ -88,7 +88,11 @@ lifecycle: F2-only, stripped in F3), is never run in F3, never persisted to
 `projectEnvVars`, and never reaches a deploy. The stub vocabulary matches
 [`stub-env-filter.ts`](../../src/lib/integrations/stub-env-filter.ts) so it is
 never read as evidence of a configured integration. A real user/generated value
-always wins.
+always wins. The key LIST (not the stub values) is persisted per version in
+`engine_versions.selected_dossier_env_keys`, so a preview force-restart
+(`POST /preview-session`) and the quick-edit preview fallback rebuild the same
+mock-seeded `.env.local` as the first post-finalize boot instead of silently
+dropping demo mode.
 
 ## F2 vs F3 — the one rule that matters
 

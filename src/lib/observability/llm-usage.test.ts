@@ -36,6 +36,13 @@ const {
   usageIsEmpty,
 } = await import("./llm-usage");
 
+async function settleRegisteredAfterTasks(): Promise<void> {
+  const tasks = after.mock.calls
+    .map(([task]) => task)
+    .filter((task): task is Promise<unknown> => task instanceof Promise);
+  await Promise.allSettled(tasks);
+}
+
 describe("normalizeUsage", () => {
   it("läser AI SDK 6-formatet", () => {
     expect(
@@ -228,7 +235,8 @@ describe("recordLlmUsageAsync", () => {
     resetLlmUsageWarning();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await settleRegisteredAfterTasks();
     vi.unstubAllEnvs();
   });
 
@@ -294,7 +302,8 @@ describe("attachVersionToPendingUsage", () => {
     dbState.configured = true;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await settleRegisteredAfterTasks();
     vi.unstubAllEnvs();
   });
 
@@ -309,14 +318,14 @@ describe("attachVersionToPendingUsage", () => {
   it("gör ingenting när databasen inte är konfigurerad", async () => {
     dbState.configured = false;
     attachVersionToPendingUsage("chat_1", "ver_1");
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    await settleRegisteredAfterTasks();
     expect(attachVersionToUnassignedLlmUsage).not.toHaveBeenCalled();
   });
 
   it("gör ingenting när chat eller version saknas", async () => {
     attachVersionToPendingUsage("", "ver_1");
     attachVersionToPendingUsage("chat_1", "");
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    await settleRegisteredAfterTasks();
     expect(attachVersionToUnassignedLlmUsage).not.toHaveBeenCalled();
   });
 
@@ -334,7 +343,8 @@ describe("attachChatToPendingUsage", () => {
     dbState.configured = true;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await settleRegisteredAfterTasks();
     vi.unstubAllEnvs();
   });
 
@@ -358,7 +368,8 @@ describe("attachChatToPendingUsage", () => {
         attachChatToPendingUsage("sess_shared", chatId);
       });
     }
-    await vi.waitFor(() => expect(attachChatToUnassignedLlmUsage).toHaveBeenCalledTimes(2));
+    await settleRegisteredAfterTasks();
+    expect(attachChatToUnassignedLlmUsage).toHaveBeenCalledTimes(2);
     // Två scope = två nycklar, så den ena claimen kan inte ta den andras rader.
     expect(keys[0]).toBeTruthy();
     expect(keys[1]).toBeTruthy();
@@ -372,7 +383,7 @@ describe("attachChatToPendingUsage", () => {
   it("gör ingenting utan session eller chat", async () => {
     attachChatToPendingUsage("", "chat_1");
     attachChatToPendingUsage("sess_1", "");
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    await settleRegisteredAfterTasks();
     expect(attachChatToUnassignedLlmUsage).not.toHaveBeenCalled();
   });
 
@@ -390,7 +401,8 @@ describe("flushPendingUsageWrites", () => {
     dbState.configured = true;
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await settleRegisteredAfterTasks();
     vi.unstubAllEnvs();
   });
 
@@ -408,7 +420,6 @@ describe("flushPendingUsageWrites", () => {
     const flush = flushPendingUsageWrites().then(() => {
       flushed = true;
     });
-    await new Promise((resolve) => setTimeout(resolve, 5));
     expect(flushed).toBe(false);
 
     insertGate.resolve?.();
@@ -440,11 +451,11 @@ describe("flushPendingUsageWrites", () => {
     recordLlmUsage({ phase: "brief", model: "gpt-5.5", usage: { inputTokens: 5 } });
     await vi.waitFor(() => expect(createLlmUsageRecord).toHaveBeenCalled());
     attachChatToPendingUsage("sess_1", "chat_1");
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    expect(order).toEqual([]);
+    expect(attachChatToUnassignedLlmUsage).not.toHaveBeenCalled();
 
     insertGate.resolve?.();
-    await vi.waitFor(() => expect(order).toEqual(["insert", "claim"]));
+    await settleRegisteredAfterTasks();
+    expect(order).toEqual(["insert", "claim"]);
   });
 });
 
@@ -456,7 +467,8 @@ describe("skrivningens livstid", () => {
     createLlmUsageRecord.mockResolvedValue({});
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await settleRegisteredAfterTasks();
     vi.unstubAllEnvs();
   });
 
