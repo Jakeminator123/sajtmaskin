@@ -31,7 +31,9 @@ export const VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS = {
 } as const;
 
 type VariantTemplateReviewedFullProjectCategory =
-  (typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS)[keyof typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS];
+  (typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS)[
+    keyof typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS
+  ];
 
 export type VariantTemplateReferenceCategory =
   | VariantTemplateFullProjectCategory
