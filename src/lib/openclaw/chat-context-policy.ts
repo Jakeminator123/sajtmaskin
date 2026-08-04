@@ -81,6 +81,27 @@ const LIGHT_CODE_CONTEXT_TERMS = [
   "current output",
 ] as const;
 
+/** Edit-mode (OC_EDIT): small, concrete change intents — not review/debug. */
+const EDIT_CODE_CONTEXT_TERMS = [
+  "byt",
+  "ändra",
+  "andra",
+  "uppdatera",
+  "justera",
+  "ta bort",
+  "lägg till",
+  "flytta",
+  "rubrik",
+  "text",
+  "färg",
+  "farg",
+  "knapp",
+  "change",
+  "replace",
+  "update",
+  "remove",
+] as const;
+
 const REVIEW_INTENT_TERMS = [
   "granska",
   "review",
@@ -144,8 +165,12 @@ export function decideOpenClawCodeContextMode(params: {
   /** Debug-mode (OC_DEBUG): unlock full code context whenever a chat is open,
    * bypassing the keyword/intent gating so OpenClaw always sees the project. */
   debug?: boolean;
+  /** Edit-mode (OC_EDIT): unlock bounded (manifest/light) code context when the
+   * latest user message expresses a concrete edit intent. Does not bypass to
+   * full — that remains debug-only. */
+  edit?: boolean;
 }): OpenClawCodeContextMode {
-  const { messages, page, chatId, currentCode, debug } = params;
+  const { messages, page, chatId, currentCode, debug, edit } = params;
   const latestUserText = getLatestOpenClawUserText(messages);
   if (!latestUserText) return "none";
 
@@ -161,6 +186,12 @@ export function decideOpenClawCodeContextMode(params: {
   if (debug) {
     if (hasChatId) return "full";
     if (hasCurrentCode) return "light";
+  }
+
+  if (edit && hasAnyTerm(latestUserText, EDIT_CODE_CONTEXT_TERMS)) {
+    if (hasChatId) return "manifest";
+    if (hasCurrentCode) return "light";
+    return "none";
   }
 
   if (hasAnyTerm(latestUserText, FULL_CODE_CONTEXT_TERMS)) {

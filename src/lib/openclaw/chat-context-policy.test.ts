@@ -86,4 +86,43 @@ describe("chat-context-policy", () => {
       }),
     ).toBe("review");
   });
+
+  it("uses manifest mode for edit intents when edit is on and debug is off", () => {
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "byt rubriken" }],
+        page: "builder",
+        chatId: "chat_123",
+        currentCode: "export default function Page() {}",
+        edit: true,
+        debug: false,
+      }),
+    ).toBe("manifest");
+  });
+
+  it("keeps none for edit-looking prompts when both edit and debug are off", () => {
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "byt rubriken" }],
+        page: "builder",
+        chatId: "chat_123",
+        currentCode: "export default function Page() {}",
+        edit: false,
+        debug: false,
+      }),
+    ).toBe("none");
+  });
+
+  it("does not grant code context from edit flag alone without edit intent", () => {
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "Hur fungerar buildern?" }],
+        page: "builder",
+        chatId: "chat_123",
+        currentCode: "export default function Page() {}",
+        edit: true,
+        debug: false,
+      }),
+    ).toBe("none");
+  });
 });
