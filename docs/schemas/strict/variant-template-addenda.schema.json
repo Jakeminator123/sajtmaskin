@@ -71,7 +71,7 @@
         "extractorSha256": {
           "type": "string",
           "pattern": "^[a-f0-9]{64}$",
-          "description": "SHA-256 of the LF-normalized template-inspiration.ts that produced these excerpts. Records are bound to the extractor as well as the input archive, so a changed extraction rule cannot leave stale excerpts cached. Required in practice for generated records; omitted for disabled ones."
+          "description": "SHA-256 over the LF-normalized sources that produce these excerpts (template-inspiration.ts plus local-v0-template-source.ts). Records are bound to the extractor as well as the input archive, so a changed extraction rule cannot leave stale excerpts cached. Required in practice for generated records; omitted for disabled ones."
         },
         "reviewStatus": {
           "type": "string",

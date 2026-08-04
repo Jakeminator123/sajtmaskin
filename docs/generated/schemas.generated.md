@@ -23,7 +23,7 @@
 <!-- source-fingerprint: docs/schemas/strict/site-aborted.schema.json sha256:b97a706a951d3218 -->
 <!-- source-fingerprint: docs/schemas/strict/site-done-telemetry.schema.json sha256:9337a91da1cc0def -->
 <!-- source-fingerprint: docs/schemas/strict/tier3-sdk-deny.schema.json sha256:a23409cd21cf4fce -->
-<!-- source-fingerprint: docs/schemas/strict/variant-template-addenda.schema.json sha256:fe01a59e33dbf00b -->
+<!-- source-fingerprint: docs/schemas/strict/variant-template-addenda.schema.json sha256:35da4a119536d9c2 -->
 
 # Strict schema overview
 

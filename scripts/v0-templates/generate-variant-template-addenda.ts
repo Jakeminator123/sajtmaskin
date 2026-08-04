@@ -220,9 +220,7 @@ async function checkRegistry(
     ) {
       problems.push(`${templateId}: stale addendum sha`);
     } else if (entry.reviewStatus === "generated" && entry.extractorSha256 !== EXTRACTOR_SHA) {
-      problems.push(
-        `${templateId}: produced by a different extractor than the current template-inspiration.ts`,
-      );
+      problems.push(`${templateId}: produced by a different extractor than the current sources`);
     }
   }
   if (problems.length > 0) {

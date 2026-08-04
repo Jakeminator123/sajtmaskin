@@ -156,7 +156,7 @@ describe("scaffold-variant integrity", () => {
 
     expect(
       outdated,
-      "template-inspiration.ts changed since these excerpts were extracted; run npm run templates:addenda -- --write",
+      "the extractor changed since these excerpts were extracted; run npm run templates:addenda -- --write",
     ).toEqual([]);
   });
 
