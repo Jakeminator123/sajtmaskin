@@ -13,7 +13,7 @@ Frusen wave-logg upplöst 2026-08-04. Full historik:
 
 | # | Område | Prio | Nästa steg |
 |---|---|---|---|
-| 1 | VersionHistory badge/overlay visuell verifiering (P25b-rest) | Låg | Visuell QA — [SAJ-23](https://linear.app/sajtmaskin/issue/SAJ-23) |
+| 1 | VersionHistory badge/overlay visuell verifiering (P25b-rest) | Låg | Visuell QA i builder — logga ev. fynd i `BUG-SWARM-BACKLOG.md` (ingen extern tracker) |
 | 4 | Pre-existing test failures (4 på master vid 2026-05-01) | Medel | Egen PR — verifiera om fortfarande öppna |
 | 5–6 | shadcn P20 nivå 2/3 (`registry:block`, `registry:font`) | Låg | Uppströms full format — inte blockerande |
 | 8 | P26-rest PR3–9 (gate-probe, logging, copy, backoffice, dossier re-embed) | Låg–Medel | Individuella PR:er |
