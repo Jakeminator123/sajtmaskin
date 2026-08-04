@@ -194,6 +194,22 @@ export function buildVariantTemplateArchiveShaMap(input: unknown): Map<string, s
   return result;
 }
 
+/**
+ * Deliberately archive-bound only, even though the generator also binds
+ * `generated` records to `extractorSha256`.
+ *
+ * The two bindings guard different boundaries. The archive SHA can drift while
+ * the app is deployed, because the Blob manifest is data the runtime reads — so
+ * runtime has to check it. The extractor hash cannot: the registry is imported
+ * into the bundle from the same commit as the extractor, and the integrity test
+ * in `variant-integrity.test.ts` runs inside the required `quality` check, so a
+ * build where they disagree cannot reach production.
+ *
+ * Do not "complete" this by comparing against a baked-in extractor hash. The
+ * runtime cannot hash source it no longer has, so that constant would have to be
+ * generated — and keeping *it* in sync is the exact staleness class the
+ * fingerprint was added to remove.
+ */
 function resolveVariantTemplateAddendumEntry(
   templateId: string,
   entry: VariantTemplateAddendum | undefined,
