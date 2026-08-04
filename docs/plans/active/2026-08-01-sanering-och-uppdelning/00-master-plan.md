@@ -33,13 +33,13 @@ först, stäng false-green, städa, dela sedan.
 
 | # | Steg | Planfil | Varför i denna ordning |
 |---|---|---|---|
-| 0 | Mergestyr #708 → #706 → #707 (serialisera/rebasea; enda direkta överlappen är `BuilderShellContent.tsx`) | — | Öppna stora PR:ar låser builder-/deploy-filerna som senare ska delas |
-| 1 | Sex false-green-/tystnadsfixar | [`01-false-green.md`](01-false-green.md) | Fel som visar grönt trots trasig sajt går före all städning |
-| 2 | Radera Redis-domänblocken | [`02-dod-kod.md`](02-dod-kod.md) | Verifierat död, isolerad, hundratals rader |
-| 3 | Fem devDependencies + `vercel`-beslut + exportyta | [`02-dod-kod.md`](02-dod-kod.md) | Egen PR med lockfil + full CI |
-| 4 | Dokumentstädning (10 vägar) | [`03-dokumentstadning.md`](03-dokumentstadning.md) | Docs-only, låg risk, men flera vägar kräver länkmigrering först |
-| 5 | Dela `useBuilderPageController` + `PreviewPanel` | [`04-megafiler.md`](04-megafiler.md) | Först efter steg 0 (PR-överlapp) |
-| 6 | Dela preview-host `runtime.js`, `server-verify`, `repair-loop` m.fl. | [`04-megafiler.md`](04-megafiler.md) | En fil per PR |
+| 0 | Mergestyr #708 → #706 → #707 — **klart 2026-08-01** (alla tre mergade) | — | Öppna stora PR:ar låser builder-/deploy-filerna som senare ska delas |
+| 1 | Sex false-green-/tystnadsfixar — **levererade 2026-08-01** (#712, #715, #718, #720, #723, #725); Aktiv kö-arkiveringen slutsynkades 2026-08-05 | [`backlog-arkivet`](../../avklarat/bug-swarm/backlog-arkiv-2026-07-25.md) § Fixade 2026-08-01 | Fel som visar grönt trots trasig sajt går före all städning |
+| 2 | Radera Redis-domänblocken — **levererat i #714** (redis.ts 937 → 422 rader; bucket-städning i health-scripten kvar som egen liten PR) | [`02-dod-kod.md`](02-dod-kod.md) | Verifierat död, isolerad, hundratals rader |
+| 3 | Fem devDependencies + `vercel`-beslut — **levererat i #717**; exportytan (spår C) tas domänvis och pågår | [`02-dod-kod.md`](02-dod-kod.md) | Egen PR med lockfil + full CI |
+| 4 | Dokumentstädning (10 vägar) — **våg 1–2 levererade** (#713, #721); kvar: våg 3 + `_parkering/`-ägarfrågan | [`03-dokumentstadning.md`](03-dokumentstadning.md) | Docs-only, låg risk, men flera vägar kräver länkmigrering först |
+| 5 | Dela `useBuilderPageController` + `PreviewPanel` — **controllern klar** (#724, 2 041 → 917 rader); `PreviewPanel` kvar | [`04-megafiler.md`](04-megafiler.md) | Först efter steg 0 (PR-överlapp) |
+| 6 | Dela preview-host `runtime.js` (**klar**, #727), `generation-log-writer` (**klar**, #722), `server-verify`, `repair-loop` m.fl. | [`04-megafiler.md`](04-megafiler.md) | En fil per PR |
 | 7 | Binärer → Blob/CDN, embeddings → Blob/komprimerad | [`05-repo-storlek.md`](05-repo-storlek.md) | Förutsättning för historik-omskrivningen |
 | 8 | `git filter-repo`-operation (koordinerad, destruktiv — kräver ägar-OK) | [`05-repo-storlek.md`](05-repo-storlek.md) | Sist: kräver att alla PR:ar/worktrees är stängda |
 | 9 | Dependency-split: app-runtime vs generator-katalog vs tooling | [`06-dependency-split.md`](06-dependency-split.md) | Kräver inventering per paket (preview-bundling!) |

@@ -42,9 +42,8 @@ prompt blir en fungerande sajt, hur fort, och till vilken kostnad. Utan den
 
 ## Ordningsregler
 
-- Bygg benchmarken **efter** false-green-fixarna
-  ([`01-false-green.md`](01-false-green.md)) — annars mäter den ett grönt som
-  ljuger.
+- Bygg benchmarken **efter** false-green-fixarna (saneringssteg 1, levererat
+  2026-08-01 — se master-planen) — annars mäter den ett grönt som ljuger.
 - Ingen ny signalkälla utan canonical owner: utfallsdefinitionerna ska läsas
   ur samma telemetri som appen redan skriver, inte en parallell bokföring.
 - Resultatet redovisas i backoffice (befintlig telemetri-sida) — ingen ny yta.
