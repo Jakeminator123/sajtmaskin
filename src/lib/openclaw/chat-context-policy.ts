@@ -81,7 +81,12 @@ const LIGHT_CODE_CONTEXT_TERMS = [
   "current output",
 ] as const;
 
-/** Edit-mode (OC_EDIT): small, concrete change intents — not review/debug. */
+/**
+ * Edit-mode (OC_EDIT): small, concrete change intents — not review/debug.
+ * Matchningen är substring-baserad (se {@link hasAnyTerm}), så termerna måste
+ * tåla att ligga inuti andra ord: bara "text" skulle träffa "kontext" och ge
+ * kodkontext på en ren fråga.
+ */
 const EDIT_CODE_CONTEXT_TERMS = [
   "byt",
   "ändra",
@@ -92,7 +97,6 @@ const EDIT_CODE_CONTEXT_TERMS = [
   "lägg till",
   "flytta",
   "rubrik",
-  "text",
   "färg",
   "farg",
   "knapp",
@@ -188,12 +192,6 @@ export function decideOpenClawCodeContextMode(params: {
     if (hasCurrentCode) return "light";
   }
 
-  if (edit && hasAnyTerm(latestUserText, EDIT_CODE_CONTEXT_TERMS)) {
-    if (hasChatId) return "manifest";
-    if (hasCurrentCode) return "light";
-    return "none";
-  }
-
   if (hasAnyTerm(latestUserText, FULL_CODE_CONTEXT_TERMS)) {
     if (hasChatId) return "full";
     if (hasCurrentCode) return "light";
@@ -201,6 +199,15 @@ export function decideOpenClawCodeContextMode(params: {
   }
 
   if (hasAnyTerm(latestUserText, MANIFEST_CODE_CONTEXT_TERMS)) {
+    if (hasChatId) return "manifest";
+    if (hasCurrentCode) return "light";
+    return "none";
+  }
+
+  // Efter FULL/MANIFEST, aldrig före: edit-läget ger bara avgränsad kontext, så
+  // en prompt som både ber om granskning och en ändring ("granska koden och byt
+  // rubriken") måste behålla sin fulla kontext i stället för att nedgraderas.
+  if (edit && hasAnyTerm(latestUserText, EDIT_CODE_CONTEXT_TERMS)) {
     if (hasChatId) return "manifest";
     if (hasCurrentCode) return "light";
     return "none";

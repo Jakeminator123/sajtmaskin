@@ -126,6 +126,31 @@ describe("chat-context-policy", () => {
     ).toBe("none");
   });
 
+  it("keeps full context for a review prompt that also names an edit", () => {
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "granska koden och byt rubriken" }],
+        page: "builder",
+        chatId: "chat_123",
+        currentCode: "export default function Page() {}",
+        edit: true,
+        debug: false,
+      }),
+    ).toBe("full");
+  });
+
+  it("does not treat a bare mention of kontext as an edit intent", () => {
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "Vad står det i kontexten du fick?" }],
+        page: "builder",
+        chatId: "chat_123",
+        edit: true,
+        debug: false,
+      }),
+    ).toBe("none");
+  });
+
   it("returns none without chatId and without currentCode regardless of prompt", () => {
     const prompts = [
       "Kan du läsa koden och granska hela projektet?",
