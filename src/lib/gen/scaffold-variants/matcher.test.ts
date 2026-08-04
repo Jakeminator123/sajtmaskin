@@ -149,6 +149,69 @@ describe("pickScaffoldVariant — tie-break vid nollpoäng", () => {
   });
 });
 
+describe("pickScaffoldVariant — keyword dominance margin", () => {
+  // corporate-grid träffar många b2b/consulting-keywords (hög score); bold-startup
+  // får också positiva träffar (startup/launch/growth/momentum) och landar i
+  // top-4. Utan dominance-margin roterar seed-hash bort den klara vinnaren —
+  // t.ex. sessionSeed "probe-0" ger bold-startup idag trots lägre score.
+  const dominantPrompt =
+    "Build a professional b2b consulting corporate enterprise agency landing page with startup launch growth momentum";
+
+  it("picks the dominant keyword winner instead of seed-hash rotating it away", () => {
+    // sessionSeed "probe-0" hash-roterar till bold-startup idag trots att
+    // corporate-grid leder klart i keyword-score — dominance-margin ska
+    // låsa vinnaren oavsett seed.
+    const rotatedAwayToday = pickScaffoldVariant({
+      prompt: dominantPrompt,
+      scaffoldId: "landing-page",
+      generationMode: "init",
+      sessionSeed: "probe-0",
+    });
+    expect(rotatedAwayToday?.id).toBe("corporate-grid");
+
+    for (let i = 0; i < 40; i += 1) {
+      const variant = pickScaffoldVariant({
+        prompt: dominantPrompt,
+        scaffoldId: "landing-page",
+        generationMode: "init",
+        sessionSeed: `probe-${i}`,
+      });
+      expect(variant?.id).toBe("corporate-grid");
+    }
+  });
+
+  it("still seed-hash rotates when the keyword score field is even", () => {
+    // editorial + magazine → samma keyword-score för warm-editorial och
+    // minimalist-mag (jämnt fält). Rotationen ska leva kvar.
+    const evenPrompt = "Create an editorial magazine reading site";
+    const first = pickScaffoldVariant({
+      prompt: evenPrompt,
+      scaffoldId: "landing-page",
+      generationMode: "init",
+      sessionSeed: "even-stable",
+    });
+    const second = pickScaffoldVariant({
+      prompt: evenPrompt,
+      scaffoldId: "landing-page",
+      generationMode: "init",
+      sessionSeed: "even-stable",
+    });
+    expect(first?.id).toBe(second?.id);
+
+    const picked = new Set<string>();
+    for (let i = 0; i < 60; i += 1) {
+      const variant = pickScaffoldVariant({
+        prompt: evenPrompt,
+        scaffoldId: "landing-page",
+        generationMode: "init",
+        sessionSeed: `even-${i}`,
+      });
+      if (variant) picked.add(variant.id);
+    }
+    expect(picked.size).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe("lockedVariantForFollowUp (P22)", () => {
   // Använd en faktisk variant från registry så testet inte beror på en mock.
   const landingVariants = getVariantsForScaffold("landing-page");
