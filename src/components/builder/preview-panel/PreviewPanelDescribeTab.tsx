@@ -9,6 +9,7 @@ import {
   SHADCN_ITEM_DND_TYPE,
   type ShadcnInsertHandler,
   type ShadcnInsertSelection,
+  type ShadcnPlacementPicker,
 } from "@/lib/builder/shadcn-insert";
 import { resolveShadcnComponentMetadata } from "@/lib/builder/shadcn-component-metadata";
 import { RegistryItemThumb } from "./RegistryItemThumb";
@@ -34,6 +35,11 @@ export interface PreviewPanelDescribeTabProps {
    * visas korten utan "Lägg till"-knapp aktiv.
    */
   onInsertItem?: ShadcnInsertHandler;
+  /**
+   * Klick-väg: aktivera befintligt placeringsläge innan `onInsertItem`.
+   * Saknas / resolvar `null` → default "Längst ner".
+   */
+  onPickPlacement?: ShadcnPlacementPicker;
   /** Aktiverar Composer-overlayns drop-yta medan ett kandidatkort dras. */
   onDragStart?: () => void;
   onDragEnd?: () => void;
@@ -70,6 +76,7 @@ function errorMessageForStatus(status: number): string {
 export function PreviewPanelDescribeTab({
   disabled = false,
   onInsertItem,
+  onPickPlacement,
   onDragStart,
   onDragEnd,
 }: PreviewPanelDescribeTabProps) {
@@ -125,7 +132,18 @@ export function PreviewPanelDescribeTab({
       setInsertingKey(key);
       setInsertedKey(null);
       try {
-        const outcome = await onInsertItem(toSelection(candidate));
+        const selection = toSelection(candidate);
+        const picked = onPickPlacement ? await onPickPlacement(selection) : null;
+        const outcome = await onInsertItem({
+          ...selection,
+          ...(picked
+            ? {
+                placement: picked.placement,
+                placementLabel: picked.placementLabel,
+                anchorSectionLabel: picked.anchorSectionLabel,
+              }
+            : {}),
+        });
         // Samma ärlighetsregel som Bläddra-kortet: bara ett startat bygge får
         // visa "Skickat". Hanterade avslag (409/412) resolvar utan kast.
         if (outcome.status !== "started") return;
@@ -140,7 +158,7 @@ export function PreviewPanelDescribeTab({
         setInsertingKey(null);
       }
     },
-    [onInsertItem],
+    [onInsertItem, onPickPlacement],
   );
 
   return (

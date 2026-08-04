@@ -10,6 +10,7 @@ import {
   type ShadcnInsertSelection,
 } from "@/lib/builder/shadcn-insert";
 import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
+import type { ComponentCategory } from "@/lib/shadcn/registry-service";
 
 vi.mock("@/lib/hooks/useIntegrationStatus", () => ({
   useIntegrationStatus: () => ({
@@ -25,6 +26,53 @@ vi.mock("sonner", () => ({
     warning: vi.fn(),
   },
 }));
+
+// next/dynamic → React.lazy så InspectorDev (placement-overlay) blir testbar.
+vi.mock("next/dynamic", async () => {
+  const ReactMod = await import("react");
+  return {
+    __esModule: true,
+    default: (loader: () => Promise<{ default: React.ComponentType<unknown> }>) => {
+      const Lazy = ReactMod.lazy(loader);
+      return function DynamicTestWrapper(props: Record<string, unknown>) {
+        return (
+          <ReactMod.Suspense fallback={null}>
+            <Lazy {...props} />
+          </ReactMod.Suspense>
+        );
+      };
+    },
+  };
+});
+
+const { getBlocksByCategory, getComponentsByCategory } = vi.hoisted(() => ({
+  getBlocksByCategory: vi.fn(),
+  getComponentsByCategory: vi.fn(),
+}));
+
+vi.mock("@/lib/shadcn/registry-service", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/shadcn/registry-service")>();
+  return { ...actual, getBlocksByCategory, getComponentsByCategory };
+});
+
+const BROWSE_BLOCK_CATEGORIES: ComponentCategory[] = [
+  {
+    id: "authentication",
+    label: "Authentication",
+    labelSv: "Inloggning",
+    icon: "🔐",
+    items: [
+      {
+        name: "login-01",
+        title: "Login 01",
+        description: "Enkelt inloggningsformulär",
+        category: "authentication",
+        type: "block",
+        lightImageUrl: "https://ui.example/login-01-light.png",
+      },
+    ],
+  },
+];
 
 function buildPreviewPanelProps(
   overrides?: Partial<React.ComponentProps<typeof PreviewPanel>>,
@@ -88,6 +136,8 @@ describe("PreviewPanel", () => {
     // call, which is NOT mocked here → the save rejects, onFilesSaved never
     // fires, and the save-flow waitFor times out (BUG-SWARM #261).
     vi.stubEnv("NEXT_PUBLIC_SAJTMASKIN_QUICK_EDIT", "");
+    getBlocksByCategory.mockResolvedValue(BROWSE_BLOCK_CATEGORIES);
+    getComponentsByCategory.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -194,9 +244,8 @@ describe("PreviewPanel", () => {
     );
   }
 
-  // Codex P1 på #602: drop-grenen i PreviewPanel är enda stället som
-  // konverterar ett draggat registry-kort till ett placerat
-  // onShadcnItemInsert-anrop — lås att placeringsankarna följer med.
+  // Drop-vägen sätter placeringsankare via composer-overlay; klick-vägen
+  // (Bläddra-detaljvy) använder samma fält via befintligt placeringsläge.
   it("forwards placement anchors to onShadcnItemInsert when a registry card drops on the composer overlay", async () => {
     stubDropTestFetch();
     const onShadcnItemInsert = vi.fn(
@@ -264,6 +313,94 @@ describe("PreviewPanel", () => {
       expect(screen.getByTestId("composer-drop-overlay")).toBeTruthy();
     });
     expect(onShadcnItemInsert).not.toHaveBeenCalled();
+  });
+
+  async function openBrowseDetailAndStartInsert(
+    onShadcnItemInsert: (selection: ShadcnInsertSelection) => Promise<SendMessageOutcome>,
+  ) {
+    vi.stubEnv("NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL", "true");
+    stubDropTestFetch();
+    renderPreviewPanelWithTools({ onShadcnItemInsert });
+
+    fireEvent.load(screen.getByTitle("Preview"));
+    fireEvent.click(screen.getByRole("button", { name: /Lägg till block/i }));
+
+    // Add-panelen läser flaggan efter mount.
+    await waitFor(() => screen.getByRole("tab", { name: /Bläddra/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /Bläddra/i }));
+    await waitFor(() => screen.getByText("Login 01"));
+    fireEvent.click(screen.getByText("Login 01"));
+    fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));
+  }
+
+  it("click-path Lägg till i sajten → placeringsläge → insert med ankare", async () => {
+    const onShadcnItemInsert = vi.fn(
+      async (_selection: ShadcnInsertSelection): Promise<SendMessageOutcome> => ({
+        status: "started",
+        via: "stream",
+      }),
+    );
+    await openBrowseDetailAndStartInsert(onShadcnItemInsert);
+
+    const overlay = await screen.findByTestId("placement-overlay");
+    expect(onShadcnItemInsert).not.toHaveBeenCalled();
+
+    // jsdom ger nollstor rect annars — handlePlacementClick tidig-returnerar.
+    overlay.getBoundingClientRect = () =>
+      ({
+        width: 400,
+        height: 600,
+        top: 0,
+        left: 0,
+        bottom: 600,
+        right: 400,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    fireEvent.click(overlay, { clientX: 200, clientY: 40 });
+
+    await waitFor(() => {
+      expect(onShadcnItemInsert).toHaveBeenCalledTimes(1);
+    });
+    // y≈6.7 % utan sectionZones → nearestInsertionPoint = "Längst upp".
+    expect(onShadcnItemInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "login-01",
+        registry: "@shadcn",
+        origin: "browse",
+        placement: "top",
+        placementLabel: "Längst upp",
+      }),
+    );
+  });
+
+  it("click-path Esc under placeringsläge → insert utan ankare (default längst ner)", async () => {
+    const onShadcnItemInsert = vi.fn(
+      async (_selection: ShadcnInsertSelection): Promise<SendMessageOutcome> => ({
+        status: "started",
+        via: "stream",
+      }),
+    );
+    await openBrowseDetailAndStartInsert(onShadcnItemInsert);
+
+    await screen.findByTestId("placement-overlay");
+    expect(onShadcnItemInsert).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(onShadcnItemInsert).toHaveBeenCalledTimes(1);
+    });
+    expect(onShadcnItemInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "login-01",
+        registry: "@shadcn",
+        origin: "browse",
+      }),
+    );
+    expect(onShadcnItemInsert.mock.calls[0]?.[0]?.placement).toBeUndefined();
   });
 
   it("renders version mismatch overlay and exposes retry action", () => {
