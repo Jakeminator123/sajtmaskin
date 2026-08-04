@@ -106,25 +106,48 @@ const BEYOND_DOSSIER_MARKERS: Record<string, RegExp[]> = {
  *   have re-injected dossiers on what is plainly a layout edit. Post-guard:
  *   no add verb, no detection, falls through to `clear-refine` as expected.
  */
-const ADD_VERB_PATTERNS: RegExp[] = [
+/**
+ * STRONG: the user names an action to perform. These survive a refine verb
+ * elsewhere in the message, because "lägg till ett kontaktformulär och flytta
+ * det högst upp" is an add with a placement wish attached — not a layout edit.
+ */
+const STRONG_ADD_VERB_PATTERNS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:lägg(?:er|de)?\s+till|infoga(?:r|de)?|inkludera(?:r|de)?|skapa(?:r|de)?|bygg(?:er|de)?|gör|designa(?:r|de)?|implementera(?:r|de)?|aktivera(?:r|de)?|koppla(?:r|de)?\s+(?:på|in))(?![\p{L}\p{N}_])/iu,
+  // Artigt önskeläge med efterföljande handlingsverb: "jag skulle vilja lägga
+  // till / sätta in / koppla …". Rena önskeformer ligger i WEAK nedan.
+  /(?<![\p{L}\p{N}_])skulle\s+vilja\s+(?:lägga\s+till|sätta\s+in|koppla|bygga|skapa|aktivera|integrera)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:add|include|build|create|implement|set\s+up|wire\s+up|hook\s+up|enable|integrate)(?![\p{L}\p{N}_])/iu,
+];
+
+/**
+ * WEAK: desire and modal forms. The exact same words carry a refine prompt just
+ * as naturally — "Flytta formuläret, det ska jag kunna nå från mobilen" is
+ * plainly a move — so a refine/move verb in the message wins over these.
+ *
+ * The split exists because treating every add-signal as equally strong got the
+ * gate wrong in both directions. Before 2026-08-02 a weak signal alone opened
+ * it, so a layout move re-injected dossier shells (the reported defect). A
+ * first fix let refine veto *all* add verbs, which suppressed plain requests
+ * like "lägg till kortbetalning och byt färg på knappen" — the costlier
+ * direction, since the user then asks for a capability and silently gets none.
+ */
+const WEAK_ADD_VERB_PATTERNS: RegExp[] = [
   /(?<![\p{L}\p{N}_])(?:vi\s+)?(?:vill\s+ha|behöver|önskar|ska\s+(?:ha|kunna)|borde\s+ha|måste\s+ha)(?![\p{L}\p{N}_])/iu,
   // V2 word order (prod 2026-07-31, "springa"-sajten): "Denna ska jag kunna
   // klicka på…" — subjektet hamnar MELLAN "ska" och "kunna", så
   // `ska\s+(?:ha|kunna)` ovan missar den vanligaste talspråksformen.
   /(?<![\p{L}\p{N}_])ska(?:ll)?\s+(?:jag|vi|man|du|ni|hen|hon|han|den|det|de|besökar(?:e|na)|användar(?:e|na)|kunder(?:na)?)\s+(?:ha|kunna|få)(?![\p{L}\p{N}_])/iu,
-  // Artigt önskeläge: "jag skulle vilja ha/sätta in/koppla …" är add-intent.
-  // Kräver ett efterföljande add-verb så "skulle vilja ändra" (refine) inte
-  // öppnar grinden.
-  /(?<![\p{L}\p{N}_])skulle\s+vilja\s+(?:ha|kunna|lägga\s+till|sätta\s+in|koppla|bygga|skapa|aktivera|integrera|testa|prova)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])skulle\s+vilja\s+(?:ha|kunna|testa|prova)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:ha\s+(?:en|ett|några))(?![\p{L}\p{N}_])/iu,
-  /(?<![\p{L}\p{N}_])(?:koppla\s+på)(?![\p{L}\p{N}_])/iu,
-  /(?<![\p{L}\p{N}_])(?:add|include|build|create|implement|set\s+up|wire\s+up|hook\s+up|enable|integrate)(?![\p{L}\p{N}_])/iu,
   /(?<![\p{L}\p{N}_])(?:i\s+want|we\s+want|i\s+need|we\s+need|should\s+have|need\s+to\s+have|needs?\s+a)(?![\p{L}\p{N}_])/iu,
 ];
 
-function hasAddVerb(message: string): boolean {
-  return ADD_VERB_PATTERNS.some((re) => re.test(message));
+function hasStrongAddVerb(message: string): boolean {
+  return STRONG_ADD_VERB_PATTERNS.some((re) => re.test(message));
+}
+
+function hasWeakAddVerb(message: string): boolean {
+  return WEAK_ADD_VERB_PATTERNS.some((re) => re.test(message));
 }
 
 /** Refine / move / change verbs without an add verb suppress detection. */
@@ -313,12 +336,13 @@ export function detectFollowUpCapabilities(
   // re-injection when both signals are present.
   const modifyReferenceMatches = findModifyReferenceMatches(trimmed);
 
-  // See ADD_VERB_PATTERNS for the rationale: refine/move prompts that happen
-  // to mention dossier-mappable nouns ("Move the pricing section above FAQ")
-  // must not be misclassified as capability-add. We require either an add
+  // See the add-verb pattern tables for the rationale: refine/move prompts that
+  // happen to mention dossier-mappable nouns ("Move the pricing section above
+  // FAQ") must not be misclassified as capability-add. We require either an add
   // verb or a very short prompt that *is* the capability noun.
-  const addVerbPresent = hasAddVerb(trimmed);
   const refineOrMoveVerbPresent = hasRefineOrMoveVerb(trimmed);
+  const addVerbPresent =
+    hasStrongAddVerb(trimmed) || (hasWeakAddVerb(trimmed) && !refineOrMoveVerbPresent);
   const veryShortNounOnly = wordCount <= 4;
   // Plan 11 / open-question #12: a modify-reference is itself a strong
   // detection trigger ("byt ut den mot en kaffekopp" has no add verb and

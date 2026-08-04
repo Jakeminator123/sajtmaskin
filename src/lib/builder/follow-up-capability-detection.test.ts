@@ -1312,4 +1312,48 @@ describe("detectFollowUpCapabilities — gate robustness (typos / V2 / credentia
     );
     expect(result.capabilityIds).toEqual([]);
   });
+
+  // Add-verb-vakten måste vinna när refine-verb (`flytta`) och ett nyare
+  // add-mönster (`ska … jag … kunna`) samexisterar — annars klassas en
+  // layout-flytt av befintligt kontaktformulär som capability-add och
+  // dossier-skal återinjiceras.
+  it("does NOT detect capability-add when flytta co-occurs with 'ska jag kunna'", () => {
+    const result = detectFollowUpCapabilities(
+      "Flytta kontaktformulär under footern — det ska jag kunna nå från mobilmenyn",
+    );
+    expect(result.capabilityIds).toEqual([]);
+  });
+
+  // Samma veto med ett annat svagt önskeverb, så fixen inte bara täcker
+  // V2-formen ovan.
+  it("does NOT detect capability-add when flytta co-occurs with 'behöver'", () => {
+    const result = detectFollowUpCapabilities(
+      "Flytta kontaktformuläret, vi behöver det högst upp på sidan",
+    );
+    expect(result.capabilityIds).toEqual([]);
+  });
+
+  // Motprov till de tre ovan. Ett refine-verb får INTE veta ett handlingsverb:
+  // en add med en placeringsönskan är fortfarande en add, och en tyst
+  // uteblivning är dyrare än ett onödigt dossier-skal.
+  it("still detects capability-add when a strong add verb co-occurs with flytta", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till ett kontaktformulär och flytta det högst upp",
+    );
+    expect(result.capabilityIds).toContain("contact-form");
+  });
+
+  it("still detects capability-add when a strong add verb co-occurs with byt", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till kortbetalning och byt färg på knappen",
+    );
+    expect(result.capabilityIds).toContain("payments");
+  });
+
+  it("still detects capability-add for the English add + move combination", () => {
+    const result = detectFollowUpCapabilities(
+      "add a contact form and move the hero above it",
+    );
+    expect(result.capabilityIds).toContain("contact-form");
+  });
 });
