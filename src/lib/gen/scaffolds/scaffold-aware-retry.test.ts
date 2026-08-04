@@ -147,4 +147,73 @@ describe("inferScaffoldRetrySuggestion", () => {
     expect(suggestion?.failureType).toBe("app-shell-mismatch");
     expect(suggestion?.suggestedScaffoldId).toBe("app-shell");
   });
+
+  it("website-intent build on auth-pages must not be classified site-shell-mismatch", async () => {
+    // `auth-pages` has siteKind "app" but declares website in
+    // allowedBuildIntents. site-shell-mismatch must consult that field so a
+    // website build correctly resolved to auth-pages is not pivoted away.
+    const authPages = getScaffoldById("auth-pages");
+    expect(authPages?.siteKind).toBe("app");
+    expect(authPages?.allowedBuildIntents).toContain("website");
+
+    const suggestion = await inferScaffoldRetrySuggestion({
+      prompt: "Bygg login- och registreringssidor till vår hemsida.",
+      buildIntent: "website",
+      resolvedScaffold: authPages!,
+      preflightIssues: [
+        {
+          file: "app/login/page.tsx",
+          severity: "error",
+          message: "Duplicate route file app/login/page.tsx",
+          category: "code_structure_failure",
+        },
+      ],
+      previewBlockingReason:
+        "Automatic preflight blocked preview: app/login/page.tsx: Duplicate route file.",
+      finalizedFilesForPreview: [
+        {
+          path: "app/login/page.tsx",
+          language: "tsx",
+          content: "export default function Page() { return <main />; }",
+        },
+      ],
+    });
+
+    expect(suggestion?.failureType).not.toBe("site-shell-mismatch");
+  });
+
+  it("dashboard on a website build must STILL be site-shell-mismatch", async () => {
+    // Counter-test: dashboard is also siteKind "app", but unlike auth-pages
+    // its allowedBuildIntents is ["app"] only. Removing the entire
+    // site-shell-mismatch branch would make the red test pass for the wrong
+    // reason — this case must keep classifying as site-shell-mismatch.
+    const dashboard = getScaffoldById("dashboard");
+    expect(dashboard?.siteKind).toBe("app");
+    expect(dashboard?.allowedBuildIntents).not.toContain("website");
+
+    const suggestion = await inferScaffoldRetrySuggestion({
+      prompt: "Bygg en hemsida för vår konsultfirma.",
+      buildIntent: "website",
+      resolvedScaffold: dashboard!,
+      preflightIssues: [
+        {
+          file: "app/page.tsx",
+          severity: "error",
+          message: "Duplicate route file app/page.tsx",
+          category: "code_structure_failure",
+        },
+      ],
+      previewBlockingReason:
+        "Automatic preflight blocked preview: app/page.tsx: Duplicate route file.",
+      finalizedFilesForPreview: [
+        {
+          path: "app/page.tsx",
+          language: "tsx",
+          content: "export default function Page() { return <main />; }",
+        },
+      ],
+    });
+
+    expect(suggestion?.failureType).toBe("site-shell-mismatch");
+  });
 });
