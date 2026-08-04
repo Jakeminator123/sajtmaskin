@@ -239,15 +239,55 @@ export function toSafeStringLiteral(value: string): string {
 }
 
 /**
- * Replace a top-level metadata string. Returns the source unchanged when the
- * key is absent or is not a plain literal — overwriting a computed value would
- * delete logic we did not write.
+ * Insert a top-level `key: value` into the metadata object when the key is
+ * absent. The entry goes in as the FIRST property: appending after the last
+ * one would need a separating comma there, and if that property ends in a
+ * trailing `//` comment the comma lands inside the comment and the file no
+ * longer parses.
+ */
+function insertMetadataString(
+  source: string,
+  object: { start: number; end: number },
+  key: string,
+  value: string,
+): string {
+  const open = object.start;
+  const close = object.end - 1;
+  const inner = source.slice(open + 1, close);
+  const literal = toSafeStringLiteral(value);
+  const entry = `${key}: ${literal}`;
+
+  if (inner.trim() === "") {
+    const insertion = `\n  ${entry},\n`;
+    return source.slice(0, open + 1) + insertion + source.slice(close);
+  }
+
+  const indentMatch = /\n(\s+)\S/.exec(source.slice(open, close));
+  const propIndent = indentMatch?.[1] ?? "  ";
+  const rest = source.slice(open + 1);
+  const restOnOwnLine = /^\r?\n/.test(rest);
+
+  return (
+    source.slice(0, open + 1) +
+    `\n${propIndent}${entry},` +
+    (restOnOwnLine ? "" : `\n${propIndent}`) +
+    rest
+  );
+}
+
+/**
+ * Write a top-level metadata string. Replaces an existing plain string literal,
+ * or inserts the key when it is absent. Returns the source unchanged when there
+ * is no metadata object, or when the key exists but is not a plain literal —
+ * overwriting a computed value would delete logic we did not write.
  */
 export function writeMetadataString(source: string, key: string, value: string): string {
   const object = findMetadataObject(source);
   if (!object) return source;
   const valueStart = findTopLevelValueStart(source, object, key);
-  if (valueStart === -1) return source;
+  if (valueStart === -1) {
+    return insertMetadataString(source, object, key, value);
+  }
   const ch = source[valueStart];
   if (!ch || !QUOTES.has(ch)) return source;
   const end = endOfStringLiteral(source, valueStart);
