@@ -170,6 +170,13 @@ function buildVariantSeedKey(input: PickScaffoldVariantInput): string {
 const VARIANT_EMBEDDING_MIN_SCORE = 0.25;
 
 /**
+ * When #1 leads #2 by at least this margin, pick the winner outright instead
+ * of seed-hash rotating among the top pool. Shared by keyword and embedding
+ * paths; keyword scores are integers so any positive gap clears 0.05.
+ */
+const VARIANT_DOMINANT_MARGIN = 0.05;
+
+/**
  * Ordgräns-mönster med svensk böjningstolerans: för keywords ≥ 4 tecken får
  * stammen följas av upp till 4 extra bokstäver, så "natur" träffar
  * "naturen"/"naturens", "skog" träffar "skogen"/"skogarna" och "kafé" träffar
@@ -266,13 +273,26 @@ export function pickScaffoldVariant(
   // prompts utan keyword-träff (vanligt för svenska prompts — "skogen"
   // matchar inte "forest"). Rotera i stället över hela kandidatfältet;
   // seed-hashen håller valet deterministiskt per prompt/session.
-  const topCandidates =
-    topScore > 0
-      ? ranked.filter((entry) => entry.score > 0).slice(0, 4)
-      : ranked;
+  if (topScore <= 0) {
+    const hash = hashSeed(buildVariantSeedKey(input));
+    return ranked[hash % ranked.length]?.variant ?? variants[0] ?? null;
+  }
 
+  // Speglar embedding-vägens dominance-margin: när #1 leder klart över #2
+  // vinner toppen rakt av. Seed-hash-rotation bara när poängfältet är jämnt.
+  const positive = ranked.filter((entry) => entry.score > 0);
+  const top = positive[0]!;
+  if (
+    positive.length === 1 ||
+    top.score - positive[1]!.score >= VARIANT_DOMINANT_MARGIN
+  ) {
+    return top.variant;
+  }
+  const tiedCandidates = positive
+    .filter((entry) => top.score - entry.score < VARIANT_DOMINANT_MARGIN)
+    .slice(0, 4);
   const hash = hashSeed(buildVariantSeedKey(input));
-  return topCandidates[hash % topCandidates.length]?.variant ?? variants[0] ?? null;
+  return tiedCandidates[hash % tiedCandidates.length]?.variant ?? top.variant;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -428,7 +448,6 @@ export async function pickScaffoldVariantAsync(
   // `VARIANT_DOMINANT_MARGIN` för att rotationen ska slå in; annars vinner
   // toppen rakt av. Bevarar variation mellan sessioner när cosine-fältet är
   // jämnt men skyddar dominanta embedding-vinster.
-  const VARIANT_DOMINANT_MARGIN = 0.05;
   const top = qualifying[0]!;
   if (
     qualifying.length === 1 ||
