@@ -29,17 +29,21 @@ export type VariantTemplateFullProjectCategory =
 
 /**
  * Explicitly reviewed complete projects whose gallery category is topical or
- * otherwise too broad to allow as a category. Both the id and category must
- * match, so regenerating the catalog cannot silently broaden this exception.
+ * otherwise too broad to allow as a category. Id, category **and** archive
+ * SHA-256 must all match: the id and category stop a regenerated catalog from
+ * silently broadening the exception, and the SHA stops the reverse — the same
+ * id keeping its reviewed status after the archive behind it was replaced with
+ * different content.
  */
 export const VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS = {
-  h4nibkqysVJ: "ai",
+  h4nibkqysVJ: {
+    category: "ai",
+    archiveSha256: "4bc0cb3cf73ba2e4f98ded19a1240e040d179faecbcf1c41f7037059a040e337",
+  },
 } as const;
 
 type VariantTemplateReviewedFullProjectCategory =
-  (typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS)[
-    keyof typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS
-  ];
+  (typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS)[keyof typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS]["category"];
 
 export type VariantTemplateReferenceCategory =
   | VariantTemplateFullProjectCategory
@@ -50,6 +54,7 @@ type ManifestTemplate = {
   title: string;
   category: string;
   archiveUrl: string;
+  archiveSha256: string | null;
   stillImageUrl: string;
   previewFits?: boolean | null;
 };
@@ -74,8 +79,9 @@ type ResolveVariantTemplateInspirationOptions = {
 };
 
 const FULL_PROJECT_CATEGORY_SET = new Set<string>(VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES);
-const REVIEWED_FULL_PROJECT_CATEGORY_BY_ID: Readonly<Record<string, string>> =
-  VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS;
+const REVIEWED_FULL_PROJECT_BY_ID: Readonly<
+  Record<string, { category: string; archiveSha256: string }>
+> = VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS;
 const MAX_STRUCTURAL_EXCERPT_CHARS = 9_000;
 const DEFAULT_ARCHIVE_TIMEOUT_MS = 15_000;
 const STRUCTURAL_FILE_EXTENSIONS = [".tsx", ".jsx", ".ts", ".js", ".css"];
@@ -98,6 +104,7 @@ function readManifestTemplates(): ManifestTemplate[] {
         title,
         category,
         archiveUrl,
+        archiveSha256: typeof row.archiveSha256 === "string" ? row.archiveSha256.trim() : null,
         stillImageUrl,
         previewFits: typeof row.previewFits === "boolean" ? row.previewFits : null,
       },
@@ -109,12 +116,17 @@ const TEMPLATE_BY_ID = new Map(
   readManifestTemplates().map((template) => [template.id, template] as const),
 );
 
+function isReviewedFullProjectTemplate(template: ManifestTemplate): boolean {
+  const reviewed = REVIEWED_FULL_PROJECT_BY_ID[template.id];
+  if (!reviewed || reviewed.category !== template.category) return false;
+  return template.archiveSha256?.trim().toLowerCase() === reviewed.archiveSha256;
+}
+
 function isFullProjectTemplate(
   template: ManifestTemplate,
 ): template is ManifestTemplate & { category: VariantTemplateReferenceCategory } {
   return (
-    FULL_PROJECT_CATEGORY_SET.has(template.category) ||
-    REVIEWED_FULL_PROJECT_CATEGORY_BY_ID[template.id] === template.category
+    FULL_PROJECT_CATEGORY_SET.has(template.category) || isReviewedFullProjectTemplate(template)
   );
 }
 
@@ -251,16 +263,22 @@ function resolveImportedFile(primaryPage: CodeFile, files: CodeFile[]): CodeFile
   }
 
   const longestFirst = (a: CodeFile, b: CodeFile) => b.content.length - a.content.length;
+  // Fallbacken tog tidigare den längsta lokala importen rakt av. Har sidan
+  // ingen import under `components/` kunde det lika gärna vara en server
+  // action, auth-helper eller datalagerfil — och då hade backendkod hamnat i
+  // "Variant Template Inspiration", tvärtemot kontraktet att bara frontend
+  // följer med. Hellre ingen komponent alls än fel sorts kod.
+  //
+  // Kravet gäller `components/`-grenen också: den mappen innehåller lika ofta
+  // hooks och state-reducers (`components/ui/use-toast.ts`) som faktisk UI, och
+  // en hook utan JSX är ingen visuell inspiration — bara bortkastad
+  // prompt-budget.
+  const frontendCandidates = candidateFiles.filter(looksLikeFrontendComponent);
   return (
-    candidateFiles
+    frontendCandidates
       .filter((file) => /(^|\/)components?\//i.test(normalizedPath(file.path)))
       .sort(longestFirst)[0] ??
-    // Fallbacken tog tidigare den längsta lokala importen rakt av. Har sidan
-    // ingen import under `components/` kunde det lika gärna vara en server
-    // action, auth-helper eller datalagerfil — och då hade backendkod hamnat i
-    // "Variant Template Inspiration", tvärtemot kontraktet att bara frontend
-    // följer med. Hellre ingen komponent alls än fel sorts kod.
-    candidateFiles.filter(looksLikeFrontendComponent).sort(longestFirst)[0] ??
+    [...frontendCandidates].sort(longestFirst)[0] ??
     null
   );
 }
