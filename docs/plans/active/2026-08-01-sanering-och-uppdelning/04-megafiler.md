@@ -75,6 +75,15 @@ efter push, PR öppnades från branchen), och
 **#4 `generation-log-writer`** (PR #722 — fasad på 25 rader + 12 moduler,
 artefakt-diff mot master: 67/67 identiska loggfiler). Övriga ej påbörjade.
 
+## Status 2026-08-04 — filerna växer tillbaka
+
+Omätning mot master: flera kvarvarande targets har **vuxit** sedan planen
+skrevs — `PreviewPanel.tsx` 1 610 → 1 792, `finalize-preflight.ts`
+1 596 → 1 737, `api/audit/route.ts` 1 623 → 1 724, `BuilderMessageTooling.tsx`
+1 542 → 1 627, `scaffold_lifecycle.py` 2 462 → 2 741, `dossiers.py`
+1 848 → 2 025. Utan fortsatta split-PR:ar (eller en radbudget) äts #722/#724/
+#727-vinsten upp av tillväxten.
+
 ## Klart-kriterium
 
 Ingen fil i `src/`, `preview-host/` eller `backoffice/` över ~1 200 rader
