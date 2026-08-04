@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { createHash } from "node:crypto";
 import { access, readFile } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import process from "node:process";
@@ -10,9 +11,13 @@ import blobManifestData from "./template-blob-manifest.json";
 
 const DOWNLOADED_LOG_PATH = resolve(process.cwd(), "templates_v0/out/downloaded.jsonl");
 const MAX_ARCHIVE_BYTES = 50 * 1024 * 1024;
+const MAX_ARCHIVE_ENTRIES = 10_000;
 const MAX_IMPORTED_FILES = 600;
 const MAX_IMPORTED_TEXT_BYTES = 16 * 1024 * 1024;
 const MAX_IMPORTED_BINARY_BYTES = 32 * 1024 * 1024;
+const MAX_REFERENCE_FILES = 600;
+const MAX_REFERENCE_FILE_BYTES = 1024 * 1024;
+const MAX_REFERENCE_TEXT_BYTES = 8 * 1024 * 1024;
 /**
  * Prefix prepended to base64-encoded binary file content so that the preview-host
  * can distinguish text from binary when writing to the workspace filesystem.
@@ -74,6 +79,9 @@ const TEXT_BASENAMES = new Set([
   "pnpm-lock.yml",
   "yarn.lock",
 ]);
+const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
+const REFERENCE_FILE_EXTENSION_PATTERN = /\.(?:tsx|jsx|ts|js|css)$/i;
+const PRIMARY_PAGE_PATTERN = /(^|\/)app\/(?:\([^/]+\)\/)*page\.(?:tsx|jsx|ts|js)$/i;
 
 type DownloadedTemplateRow = {
   templateId?: unknown;
@@ -199,10 +207,18 @@ export async function getLocalV0TemplateSourceById(
     const archivePath = toAbsoluteArchivePath(rowPath);
     if (!(await fileExists(archivePath))) continue;
 
+    // Carry the manifest binding along even for a local cache hit, so the
+    // archive can still be checked against the current Blob SHA and re-fetched
+    // when the cached file is stale.
+    const manifestItem = getBlobManifestItemById(trimmedId);
+
     return {
       templateId: trimmedId,
       sourceKind: "local",
       archivePath,
+      archiveUrl: manifestItem?.archiveUrl,
+      archiveSizeBytes: manifestItem?.archiveSizeBytes ?? null,
+      archiveSha256: manifestItem?.archiveSha256 ?? null,
       sourceSlugs: normalizeStringArray(row.sourceSlugs),
       sourceLabelsSv: normalizeStringArray(row.sourceLabelsSv),
       categoryLabel:
@@ -265,6 +281,37 @@ function looksBinary(buffer: Buffer): boolean {
   return suspicious / sample.length > 0.1;
 }
 
+function declaredUncompressedSize(entry: unknown): number | null {
+  if (!entry || typeof entry !== "object") return null;
+  const data = (entry as { _data?: unknown })._data;
+  if (!data || typeof data !== "object") return null;
+  const size = (data as { uncompressedSize?: unknown }).uncompressedSize;
+  return typeof size === "number" && Number.isFinite(size) && size >= 0 ? size : null;
+}
+
+function referencePathPriority(filePath: string): number {
+  const path = filePath.toLowerCase();
+  if (
+    [
+      "app/page.tsx",
+      "src/app/page.tsx",
+      "app/page.jsx",
+      "src/app/page.jsx",
+      "pages/index.tsx",
+      "src/pages/index.tsx",
+      "pages/index.jsx",
+      "src/pages/index.jsx",
+    ].includes(path)
+  ) {
+    return 0;
+  }
+  if (PRIMARY_PAGE_PATTERN.test(path)) return 1;
+  if (/(^|\/)(?:globals?|global)\.css$/.test(path)) return 2;
+  if (/(^|\/)app\/layout\.(?:tsx|jsx)$/.test(path)) return 3;
+  if (/(^|\/)components?\//.test(path)) return 4;
+  return path.endsWith(".css") ? 5 : 6;
+}
+
 function stripCommonArchiveRoot(paths: string[]): string[] {
   if (paths.length === 0) return paths;
   const segments = paths.map((filePath) => filePath.split("/").filter(Boolean));
@@ -283,8 +330,8 @@ async function readLocalArchiveBuffer(path: string): Promise<Buffer> {
   return buffer;
 }
 
-async function readRemoteArchiveBuffer(url: string): Promise<Buffer> {
-  const response = await fetch(url);
+async function readRemoteArchiveBuffer(url: string, signal?: AbortSignal): Promise<Buffer> {
+  const response = await fetch(url, { signal });
   if (!response.ok) {
     throw new Error(`Template archive fetch failed (${response.status})`);
   }
@@ -303,25 +350,81 @@ async function readRemoteArchiveBuffer(url: string): Promise<Buffer> {
   return buffer;
 }
 
-async function readArchiveBuffer(source: LocalV0TemplateSource): Promise<Buffer> {
+/**
+ * An absent manifest SHA means there is nothing to verify against, so the
+ * pre-existing unverified behaviour stands. A SHA that is *present but
+ * malformed* is a manifest defect, not an opt-out: silently treating it as
+ * absent would turn one corrupt field into an unverified archive read.
+ */
+function normalizeExpectedSha(expected: string | null | undefined): string | null {
+  const normalized = expected?.trim().toLowerCase();
+  if (!normalized) return null;
+  if (!SHA256_HEX_PATTERN.test(normalized)) {
+    throw new Error("Template archive SHA-256 in the Blob manifest is malformed");
+  }
+  return normalized;
+}
+
+function archiveMatchesSha(buffer: Buffer, expectedSha: string | null): boolean {
+  if (!expectedSha) return true;
+  return createHash("sha256").update(buffer).digest("hex") === expectedSha;
+}
+
+/**
+ * Read the template archive and bind it to the Blob manifest SHA-256.
+ *
+ * A local cache hit is never trusted on filename alone: when it does not match
+ * the manifest SHA it is discarded and the Blob archive is fetched and verified
+ * instead, so a stale ZIP from an earlier download cannot reach the prompt.
+ */
+export async function readArchiveBuffer(
+  source: LocalV0TemplateSource,
+  signal?: AbortSignal,
+): Promise<Buffer> {
+  const expectedSha = normalizeExpectedSha(source.archiveSha256);
+
   if (source.sourceKind === "blob") {
     if (!source.archiveUrl) {
       throw new Error("Template Blob archive URL is missing");
     }
-    return readRemoteArchiveBuffer(source.archiveUrl);
+    const remoteBuffer = await readRemoteArchiveBuffer(source.archiveUrl, signal);
+    if (!archiveMatchesSha(remoteBuffer, expectedSha)) {
+      throw new Error("Template archive SHA-256 does not match the Blob manifest");
+    }
+    return remoteBuffer;
   }
 
   if (!source.archivePath) {
     throw new Error("Local template archive path is missing");
   }
-  return readLocalArchiveBuffer(source.archivePath);
+  const localBuffer = await readLocalArchiveBuffer(source.archivePath);
+  if (archiveMatchesSha(localBuffer, expectedSha)) {
+    return localBuffer;
+  }
+
+  if (!source.archiveUrl) {
+    throw new Error("Template archive SHA-256 does not match the Blob manifest");
+  }
+  console.warn(
+    `[local-v0-template-source] Local archive for template ${source.templateId} does not match the Blob manifest SHA-256; re-fetching ${source.archiveUrl}`,
+  );
+  const refetched = await readRemoteArchiveBuffer(source.archiveUrl, signal);
+  if (!archiveMatchesSha(refetched, expectedSha)) {
+    throw new Error("Template archive SHA-256 does not match the Blob manifest");
+  }
+  return refetched;
 }
 
-async function extractImportedFilesFromZip(buffer: Buffer): Promise<CodeFile[]> {
+export async function extractV0TemplateArchiveFiles(buffer: Buffer): Promise<CodeFile[]> {
   const zip = await JSZip.loadAsync(buffer);
   const rawEntries = Object.values(zip.files)
     .filter((entry) => !entry.dir)
     .map((entry) => entry.name);
+  if (rawEntries.length > MAX_ARCHIVE_ENTRIES) {
+    throw new Error(
+      `Too many entries in template archive (${rawEntries.length} > ${MAX_ARCHIVE_ENTRIES})`,
+    );
+  }
   const normalizedEntries = stripCommonArchiveRoot(rawEntries);
 
   const files: CodeFile[] = [];
@@ -368,6 +471,75 @@ async function extractImportedFilesFromZip(buffer: Buffer): Promise<CodeFile[]> 
   return files;
 }
 
+/**
+ * Extract only bounded frontend source candidates for variant inspiration.
+ *
+ * Unlike a complete template import, this path deliberately ignores package
+ * manifests, lockfiles, assets and binary files. Declared ZIP sizes are checked
+ * before decompression where JSZip exposes them, and every file plus the total
+ * output has a hard bound. The caller still applies the stricter 3-file/9k
+ * prompt budget.
+ */
+export async function extractV0TemplateReferenceFiles(buffer: Buffer): Promise<CodeFile[]> {
+  const zip = await JSZip.loadAsync(buffer);
+  const rawEntries = Object.values(zip.files)
+    .filter((entry) => !entry.dir)
+    .map((entry) => entry.name);
+  if (rawEntries.length > MAX_ARCHIVE_ENTRIES) {
+    throw new Error(
+      `Too many entries in template archive (${rawEntries.length} > ${MAX_ARCHIVE_ENTRIES})`,
+    );
+  }
+  const normalizedEntries = stripCommonArchiveRoot(rawEntries);
+  const candidates = rawEntries
+    .flatMap((originalName, index) => {
+      const safePath = normalizeImportedPath(normalizedEntries[index] ?? "");
+      if (
+        !safePath ||
+        !REFERENCE_FILE_EXTENSION_PATTERN.test(safePath) ||
+        /(^|\/)api\//i.test(safePath)
+      ) {
+        return [];
+      }
+      return [{ originalName, safePath, entry: zip.files[originalName] }];
+    })
+    .sort(
+      (a, b) =>
+        referencePathPriority(a.safePath) - referencePathPriority(b.safePath) ||
+        a.safePath.localeCompare(b.safePath),
+    );
+
+  const files: CodeFile[] = [];
+  let totalTextBytes = 0;
+  for (const candidate of candidates) {
+    if (files.length >= MAX_REFERENCE_FILES) break;
+    const declaredSize = declaredUncompressedSize(candidate.entry);
+    if (
+      (declaredSize !== null && declaredSize > MAX_REFERENCE_FILE_BYTES) ||
+      (declaredSize !== null && totalTextBytes + declaredSize > MAX_REFERENCE_TEXT_BYTES)
+    ) {
+      continue;
+    }
+
+    const contentBuffer = Buffer.from(await candidate.entry.async("uint8array"));
+    if (
+      contentBuffer.byteLength > MAX_REFERENCE_FILE_BYTES ||
+      totalTextBytes + contentBuffer.byteLength > MAX_REFERENCE_TEXT_BYTES ||
+      looksBinary(contentBuffer)
+    ) {
+      continue;
+    }
+    totalTextBytes += contentBuffer.byteLength;
+    files.push({
+      path: candidate.safePath,
+      content: contentBuffer.toString("utf8"),
+      language: inferFileLanguage(candidate.safePath),
+    });
+  }
+
+  return files;
+}
+
 export async function loadLocalV0TemplateFiles(
   templateId: string,
 ): Promise<{ source: LocalV0TemplateSource; files: CodeFile[] } | null> {
@@ -375,7 +547,7 @@ export async function loadLocalV0TemplateFiles(
   if (!source) return null;
 
   const buffer = await readArchiveBuffer(source);
-  const extracted = await extractImportedFilesFromZip(buffer);
+  const extracted = await extractV0TemplateArchiveFiles(buffer);
   if (extracted.length === 0) {
     throw new Error("No supported text files found in local template archive");
   }
@@ -392,4 +564,17 @@ export async function loadLocalV0TemplateFiles(
   }
 
   return { source, files: normalized.files };
+}
+
+export async function loadLocalV0TemplateReferenceFiles(
+  templateId: string,
+  options: { timeoutMs?: number } = {},
+): Promise<{ source: LocalV0TemplateSource; files: CodeFile[] } | null> {
+  const source = await getLocalV0TemplateSourceById(templateId);
+  if (!source) return null;
+
+  const signal = options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined;
+  const buffer = await readArchiveBuffer(source, signal);
+  const files = await extractV0TemplateReferenceFiles(buffer);
+  return { source, files };
 }

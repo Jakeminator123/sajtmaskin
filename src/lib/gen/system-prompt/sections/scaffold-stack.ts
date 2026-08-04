@@ -168,7 +168,7 @@ export function renderVariantTemplateInspirationBlock(
     }
   } else {
     parts.push(
-      "- No ZIP excerpt was available in this run; rely on the still image (when present) and the variant's curated rules.",
+      "- No structural excerpt was available in this run; rely on the still image (when present) and the variant's curated rules.",
     );
   }
   parts.push("");

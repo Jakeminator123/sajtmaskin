@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { CodeFile } from "../parser";
+import blobManifest from "../../templates/template-blob-manifest.json";
 import {
   extractVariantTemplateStructuralReferences,
   resolveVariantTemplateInspiration,
@@ -31,8 +32,27 @@ describe("selectVariantTemplateReference", () => {
     });
     expect(VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES).not.toContain(selected?.category);
     expect(VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS).toMatchObject({
-      h4nibkqysVJ: "ai",
+      h4nibkqysVJ: { category: "ai" },
     });
+  });
+
+  /**
+   * Utan SHA-bindningen räckte id + kategori, så ett template-id kunde behålla
+   * sin "granskad"-status efter att arkivet bakom det bytt innehåll.
+   */
+  it("binds the reviewed exception to the archive SHA in the manifest", () => {
+    const manifest = (blobManifest as { templates: { id: string; category: string; archiveSha256?: string }[] })
+      .templates;
+    const reviewed = manifest.find((template) => template.id === "h4nibkqysVJ");
+
+    expect(reviewed?.archiveSha256).toBe(
+      VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS.h4nibkqysVJ.archiveSha256,
+    );
+    for (const [templateId, entry] of Object.entries(VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS)) {
+      const row = manifest.find((template) => template.id === templateId);
+      expect(row?.category).toBe(entry.category);
+      expect(entry.archiveSha256).toMatch(/^[a-f0-9]{64}$/);
+    }
   });
 
   it("rejects component, animation, design-system and ambiguous AI categories", () => {
@@ -132,15 +152,94 @@ describe("extractVariantTemplateStructuralReferences", () => {
     expect(references.map((reference) => reference.path)).not.toContain("lib/actions.ts");
   });
 
+  /**
+   * `components/` innehåller ofta hooks och state-reducers, inte bara UI. En
+   * hook utan JSX är ingen visuell inspiration, så den ska inte vinna
+   * direct-component-platsen bara för att sökvägen råkar matcha mappen.
+   */
+  it("skips hooks under components/ in favour of a real UI component", () => {
+    const withHook: CodeFile[] = [
+      {
+        path: "app/page.tsx",
+        language: "tsx",
+        content:
+          'import { useToast } from "@/components/ui/use-toast";\nimport { Hero } from "@/components/hero";\nexport default function Page() { return <main><Hero /></main>; }',
+      },
+      {
+        path: "components/ui/use-toast.ts",
+        language: "ts",
+        content:
+          '"use client"\nimport { useState } from "react";\nconst TOAST_LIMIT = 1;\nexport function useToast() { const [toasts, setToasts] = useState([]); return { toasts, setToasts, TOAST_LIMIT }; }',
+      },
+      {
+        path: "components/hero.tsx",
+        language: "tsx",
+        content: "export function Hero() { return <section><h1>Hero</h1></section>; }",
+      },
+    ];
+
+    const references = extractVariantTemplateStructuralReferences(withHook);
+    const paths = references.map((reference) => reference.path);
+
+    expect(paths).not.toContain("components/ui/use-toast.ts");
+    expect(paths).toContain("components/hero.tsx");
+  });
+
   it("loads the selected ZIP once and applies the same structural bounds", async () => {
     const loadFiles = vi.fn(async () => ({ files }));
     const inspiration = await resolveVariantTemplateInspiration(
       { sourceTemplateIds: ["8QhCJAwn16K", "8Y9E0cStKrW"] },
-      { includeStructure: true, loadFiles },
+      {
+        includeStructure: true,
+        loadAddendum: () => ({ state: "missing", structuralReferences: null }),
+        loadFiles,
+      },
     );
 
     expect(loadFiles).toHaveBeenCalledTimes(1);
     expect(loadFiles).toHaveBeenCalledWith("8QhCJAwn16K");
     expect(inspiration?.structuralReferences).toHaveLength(3);
+  });
+
+  it("uses a valid addendum without touching the ZIP loader", async () => {
+    const loadFiles = vi.fn(async () => ({ files }));
+    const structuralReferences = extractVariantTemplateStructuralReferences(files);
+    const inspiration = await resolveVariantTemplateInspiration(
+      { sourceTemplateIds: ["8QhCJAwn16K"] },
+      {
+        includeStructure: true,
+        loadAddendum: () => ({ state: "hit", structuralReferences }),
+        loadFiles,
+      },
+    );
+
+    expect(loadFiles).not.toHaveBeenCalled();
+    expect(inspiration?.structuralReferences).toEqual(structuralReferences);
+  });
+
+  it("uses the committed SHA-bound addendum by default", async () => {
+    const loadFiles = vi.fn(async () => ({ files }));
+    const inspiration = await resolveVariantTemplateInspiration(
+      { sourceTemplateIds: ["8QhCJAwn16K"] },
+      { includeStructure: true, loadFiles },
+    );
+
+    expect(loadFiles).not.toHaveBeenCalled();
+    expect(inspiration?.structuralReferences.length).toBeGreaterThan(0);
+  });
+
+  it("honors an explicitly disabled addendum without falling back to ZIP", async () => {
+    const loadFiles = vi.fn(async () => ({ files }));
+    const inspiration = await resolveVariantTemplateInspiration(
+      { sourceTemplateIds: ["8QhCJAwn16K"] },
+      {
+        includeStructure: true,
+        loadAddendum: () => ({ state: "disabled", structuralReferences: [] }),
+        loadFiles,
+      },
+    );
+
+    expect(loadFiles).not.toHaveBeenCalled();
+    expect(inspiration?.structuralReferences).toEqual([]);
   });
 });

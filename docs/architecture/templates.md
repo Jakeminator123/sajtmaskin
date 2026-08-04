@@ -69,6 +69,7 @@ Allt annat innehåll är fortfarande verbatim.
 
 ```bash
 npm run templates:blob:upload -- --upload --write-catalog --source=../mallar
+npm run templates:addenda -- --write
 ```
 
 `upload-mallar-blob.mjs` läser "mallar"-intaket, laddar upp ZIP:ar **och en stillbild per mall** till Blob och (med `--write-catalog`) skriver **alla tre** filerna: `template-blob-manifest.json` + `templates.json` + `template-categories.json`. Datans egna metadata bekräftar källan (`_source: template-blob-manifest.json`, `_discoveryMode: blob-manifest`).
@@ -80,6 +81,10 @@ npm run templates:blob:upload -- --upload --write-catalog --source=../mallar
 3. `intake-folder` — mappnamnet i intaget (legacy-beteendet). Mappen säger bara vilken listsida skrapern råkade stå på, därför sist.
 
 **Stillbilder:** en bild per mall (listing-bild föredras, annars första detail-skärmdump) laddas till Blob under `v0-templates/images/<id>/still.<ext>` och skrivs som `preview_still_url` + `preview_image_url` i katalogen. `/api/template-image/<id>` finns kvar enbart som lokal dev-fallback (`templates_v0/` är gitignored och når aldrig prod).
+
+**Variant-addenda:** efter att manifestet har ändrats körs `templates:addenda -- --write`. Skriptet läser de template-id:n som faktiskt citeras av scaffold-variants, hämtar varje ZIP en gång utanför användarflödet, verifierar dess SHA-256 och skriver de redan begränsade frontendutdragen till `config/variant-template-addenda.json`. Skrivningen är atomisk och sker inte om någon hämtning eller hashkontroll misslyckas. `--refresh-generated` regenererar automatiska poster; `reviewed`-poster med oförändrad ZIP bevaras.
+
+En `reviewed`-post skrivs aldrig över automatiskt när käll-ZIP:en ändras. Generatorn stoppar då med fel så den nya källan kan granskas; den uttryckliga flaggan `--refresh-reviewed` ersätter manuella utdrag och återställer posten till `generated`.
 
 Uploadern exkluderar mallar som överskrider preview-host-taken från galleriet (`previewFits:false`) men behåller dem i Blob.
 
@@ -135,8 +140,25 @@ Dossiers har inga kategorier, inga thumbnails och syns aldrig i template-galleri
 Fritextgenerering importerar inte en template verbatim. Den valda scaffold-
 varianten får i stället välja högst en av sina `sourceTemplateIds`, och bara om
 manifestkategorin tydligt avser ett helt projekt. Stillbilden skickas till
-modellens visionkanal men markeras som icke-inbäddningsbar. Ett litet utdrag av
-huvudsida, direkt använd komponent och global CSS/layout läses ur samma ZIP.
-Detta återanvänder Blob-arkivet; den historiska klonade repo-cache-mappen behövs
-inte. Se `src/lib/gen/scaffold-variants/template-inspiration.ts` för allowlist,
-storleksgränser och fail-open-beteende.
+modellens visionkanal men markeras som icke-inbäddningsbar.
+
+Kodunderlaget kommer i första hand från den SHA-bundna och versionsstyrda posten
+i `config/variant-template-addenda.json`. Postens `structuralReferences` är
+exakt de frontendutdrag som renderas i modellblocket `## Variant Template
+Inspiration`; filen är därför den granskningsbara ytan för att se och redigera
+vad modellen får. Högst tre utdrag och totalt 9 000 tecken accepteras.
+
+`reviewStatus` har tre lägen:
+
+- `generated` — deterministiskt skapat och direkt användbart;
+- `reviewed` — manuellt granskat/redigerat och bevarat av generatorn så länge
+  ZIP-SHA:n är oförändrad;
+- `disabled` — skicka inga kodutdrag och hämta inte ZIP:en som fallback.
+
+Om posten saknas, är ogiltig eller inte matchar manifestets `archiveSha256`
+används dagens begränsade ZIP-läsare som compatibility fallback. Ett litet
+utdrag av huvudsida, direkt använd komponent och global CSS/layout tas då fram
+efter att arkivet har verifierats mot samma SHA-256. Fel är fail-open: stillbild och
+variantens kuraterade regler finns kvar även om ZIP-fallbacken misslyckas.
+Se `src/lib/gen/scaffold-variants/template-inspiration.ts` för urval och
+`variant-template-addendum.ts` för validering/fallbackkontrakt.
