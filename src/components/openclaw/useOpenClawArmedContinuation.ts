@@ -50,12 +50,6 @@ export function useOpenClawArmedContinuation(send: SendFn): void {
       const observed = observeBuilderTurn(watch, snapshot);
       if (observed !== watch) state.setArmedContinuation(observed);
 
-      // Keep the follow-through clock measuring idle time rather than answer
-      // length: a woken OpenClaw that writes for a while has not gone quiet.
-      if (observed.resumedAt !== null && state.isStreaming) {
-        state.setArmedContinuation(markContinuationResumed(observed, Date.now()));
-      }
-
       const decision = decideArmedContinuation({
         watch: observed,
         mandate: state.armedMandate,
@@ -110,6 +104,15 @@ export function useOpenClawArmedContinuation(send: SendFn): void {
         })
         .finally(() => {
           resumingRef.current = false;
+          // Restart the follow-through clock from the end of the wake-up answer.
+          // `send` resolves only when the whole stream is done, and the ticks in
+          // between were skipped, so a long answer would otherwise be mistaken
+          // for silence the moment it finished.
+          const live = useOpenClawStore.getState();
+          const pending = live.armedContinuation;
+          if (pending?.resumedAt !== null && pending !== null) {
+            live.setArmedContinuation(markContinuationResumed(pending, Date.now()));
+          }
         });
     };
 
