@@ -54,6 +54,7 @@ function setBuilderContext(overrides: Record<string, unknown> = {}) {
     activeVersionId: "ver-1",
     isStreaming: false,
     activeVersionStatus: "ready",
+    activeVersionIsLatest: true,
     ...overrides,
   };
 }

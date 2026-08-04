@@ -58,6 +58,30 @@ describe("OpenClaw store assistant targeting", () => {
     ]);
   });
 
+  it("drops a pending continuation whenever the mandate changes", () => {
+    const watch = {
+      chatId: "chat-1",
+      versionIdAtSend: "ver-1",
+      startedAt: 1,
+      buildObserved: true,
+    };
+    useOpenClawStore.setState({ armedContinuation: watch });
+
+    // Re-arming must not inherit the previous run's watch (Bugbot) …
+    useOpenClawStore.getState().setArmedMandate({
+      mode: "followups",
+      remaining: 3,
+      reason: "gör 3 follow-ups",
+      createdAt: 2,
+    });
+    expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+
+    // … and disarming must not leave one behind either.
+    useOpenClawStore.setState({ armedContinuation: watch });
+    useOpenClawStore.getState().setArmedMandate(null);
+    expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+  });
+
   it("resets messages and closes the panel when the scope changes", () => {
     useOpenClawStore.setState({
       isOpen: true,

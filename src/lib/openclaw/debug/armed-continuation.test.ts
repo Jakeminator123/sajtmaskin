@@ -29,6 +29,7 @@ function snapshot(overrides: Partial<BuilderTurnSnapshot> = {}): BuilderTurnSnap
     activeVersionId: "ver-2",
     isStreaming: false,
     versionStatus: "ready",
+    versionIsLatest: true,
     ...overrides,
   };
 }
@@ -138,6 +139,12 @@ describe("decideArmedContinuation", () => {
 
   it("never resumes without a builder to resume into", () => {
     expect(decide({ snapshot: null }).kind).toBe("wait");
+  });
+
+  it("waits while the user reads an older version than the one being built", () => {
+    // The status is projected for the focused version, so a terminal status on
+    // an older one says nothing about the turn the auto-send started.
+    expect(decide({ snapshot: snapshot({ versionIsLatest: false }) }).kind).toBe("wait");
   });
 
   it("waits until the turn has visibly started", () => {

@@ -102,11 +102,11 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   setAvatarMode: (v) => set({ avatarMode: v }),
   setDebugEnabled: (v) => set({ debugEnabled: v }),
   setEditEnabled: (v) => set({ editEnabled: v }),
-  // Disarming always cancels a pending continuation: "stopp", the stop button
-  // and a spent counter all route through here, so the watch can never outlive
-  // the mandate that authorized it.
-  setArmedMandate: (mandate) =>
-    set(mandate ? { armedMandate: mandate } : { armedMandate: null, armedContinuation: null }),
+  // Any mandate change cancels a pending continuation. Disarming ("stopp", the
+  // stop button, a spent counter) must not leave a watch that outlives its
+  // mandate — and a freshly armed mandate must not inherit the previous run's
+  // watch (Bugbot). The auto-send card re-registers its watch after this call.
+  setArmedMandate: (mandate) => set({ armedMandate: mandate, armedContinuation: null }),
   setArmedContinuation: (watch) => set({ armedContinuation: watch }),
   setPreparedFill: (fill) => set({ preparedFill: fill }),
 }));

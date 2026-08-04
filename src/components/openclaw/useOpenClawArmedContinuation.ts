@@ -87,9 +87,23 @@ export function useOpenClawArmedContinuation(send: SendFn): void {
         remaining: state.armedMandate?.remaining ?? 1,
         versionStatus: decision.versionStatus,
       });
-      void Promise.resolve(sendRef.current(prompt, { allowArming: false })).finally(() => {
-        resumingRef.current = false;
-      });
+      void Promise.resolve(sendRef.current(prompt, { allowArming: false }))
+        .catch(() => {
+          // The wake-up never reached OpenClaw. The watch is already gone, so
+          // leaving the mandate armed would strand it: no loop to continue it,
+          // but still enough authority for a later action to auto-send.
+          const live = useOpenClawStore.getState();
+          live.setArmedMandate(null);
+          live.addMessage({
+            id: `oc-continuation-${Date.now()}`,
+            role: "assistant",
+            content: "Autonomin stoppades: jag kunde inte läsa resultatet av bygget.",
+            timestamp: Date.now(),
+          });
+        })
+        .finally(() => {
+          resumingRef.current = false;
+        });
     };
 
     const timer = setInterval(tick, ARMED_CONTINUATION_POLL_MS);

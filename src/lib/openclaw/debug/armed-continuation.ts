@@ -39,7 +39,10 @@ export interface BuilderTurnSnapshot {
   chatId: string | null;
   activeVersionId: string | null;
   isStreaming: boolean;
+  /** Status of the FOCUSED version — only meaningful when it is the latest. */
   versionStatus: string | null;
+  /** False while the user reads an older version than the one being built. */
+  versionIsLatest: boolean;
 }
 
 export type ArmedContinuationDecision =
@@ -171,6 +174,12 @@ export function decideArmedContinuation(
 
   if (snapshot.isStreaming) {
     return { kind: "wait", reason: "Builderturen pågår." };
+  }
+
+  // The status belongs to the focused version. While that is not the latest
+  // one, a terminal status says nothing about the turn we started.
+  if (!snapshot.versionIsLatest) {
+    return { kind: "wait", reason: "En nyare version än den visade byggs." };
   }
 
   if (snapshot.versionStatus && FAILED_VERSION_STATUSES.has(snapshot.versionStatus)) {

@@ -36,5 +36,8 @@ export function readBuilderTurnSnapshot(): BuilderTurnSnapshot | null {
     activeVersionId: typeof ctx.activeVersionId === "string" ? ctx.activeVersionId : null,
     isStreaming: ctx.isStreaming === true,
     versionStatus: typeof ctx.activeVersionStatus === "string" ? ctx.activeVersionStatus : null,
+    // Absent flag ⇒ treat the view as stale rather than current: the handshake
+    // then waits instead of resuming on a status it cannot trust.
+    versionIsLatest: ctx.activeVersionIsLatest === true,
   };
 }

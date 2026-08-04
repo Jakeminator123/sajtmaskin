@@ -737,8 +737,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // `isStreaming` drops as soon as the stream closes, while post-checks may
       // still be running. The armed-autonomy handshake needs the version phase
       // too, so it resumes on a genuinely terminal turn and stops on a failed
-      // one (`debug/armed-continuation.ts`).
+      // one (`debug/armed-continuation.ts`). `activeVersionIsLatest` comes with
+      // it because the status is projected for the FOCUSED version — a user
+      // reading version history would otherwise report a terminal status while
+      // a newer version is still being built.
       activeVersionStatus,
+      activeVersionIsLatest,
     };
     return () => {
       delete window.__SITEMASKIN_CONTEXT;
@@ -758,6 +762,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.currentPageCode,
     vm.isAnyStreaming,
     activeVersionStatus,
+    activeVersionIsLatest,
   ]);
 
   const latestPendingReply = useMemo(
