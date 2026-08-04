@@ -131,7 +131,7 @@ describe("armed autonomy — continuation handshake", () => {
     // The builder turn starts — no resume while it runs.
     act(() => setBuilderContext({ isStreaming: true, activeVersionStatus: "generating" }));
     await waitFor(
-      () => expect(useOpenClawStore.getState().armedContinuation?.buildObserved).toBe(true),
+      () => expect(useOpenClawStore.getState().armedContinuation?.observedStrong).toBe(true),
       { timeout: 4000 },
     );
     expect(onSend).not.toHaveBeenCalled();
@@ -144,7 +144,9 @@ describe("armed autonomy — continuation handshake", () => {
     expect(prompt).toContain("[Automatisk fortsättning]");
     expect(prompt).toContain("sista steget");
     expect(options).toEqual({ allowArming: false });
-    expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+    // The watch survives the wake-up, stamped so it cannot fire twice — a
+    // dropped one would strand the mandate if `send` silently did nothing.
+    expect(useOpenClawStore.getState().armedContinuation?.resumedAt).toEqual(expect.any(Number));
 
     // Step 2: OpenClaw answers with another submit action — the last step runs
     // and the mandate is spent, so no third watch is registered.
@@ -179,7 +181,9 @@ describe("armed autonomy — continuation handshake", () => {
           versionIdAtSend: "ver-1",
           messageCountAtSend: 4,
           startedAt: Date.now(),
-          buildObserved: true,
+          observedAt: Date.now() - 5000,
+          observedStrong: true,
+          resumedAt: null,
         },
       });
     });
@@ -210,7 +214,9 @@ describe("armed autonomy — continuation handshake", () => {
           versionIdAtSend: "ver-1",
           messageCountAtSend: 4,
           startedAt: Date.now(),
-          buildObserved: true,
+          observedAt: Date.now() - 5000,
+          observedStrong: true,
+          resumedAt: null,
         },
       });
     });
@@ -246,7 +252,9 @@ describe("armed autonomy — continuation handshake", () => {
           versionIdAtSend: "ver-1",
           messageCountAtSend: 4,
           startedAt: Date.now(),
-          buildObserved: true,
+          observedAt: Date.now() - 5000,
+          observedStrong: true,
+          resumedAt: null,
         },
       });
     });

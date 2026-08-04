@@ -33,8 +33,18 @@ export interface ArmedContinuationWatch {
   /** Builder chat length at auto-send time — growth proves the turn happened
    * even when it was too fast for the poll to catch it streaming. */
   messageCountAtSend: number | null;
-  /** True once the builder turn has visibly started. */
-  buildObserved: boolean;
+  /** When the builder turn was first seen at all, by any signal. */
+  observedAt: number | null;
+  /**
+   * True once a *strong* signal was seen (streaming, a running phase or a new
+   * version). Chat growth alone is weak: the builder appends the outgoing user
+   * message before generation starts, so it proves the turn began but says
+   * nothing about the phase — a resume on that alone can land before the build
+   * even starts.
+   */
+  observedStrong: boolean;
+  /** Set when OpenClaw has been woken for this watch, so it fires only once. */
+  resumedAt: number | null;
 }
 
 /** Live builder state, read from `window.__SITEMASKIN_CONTEXT`. */
@@ -54,8 +64,15 @@ export type ArmedContinuationDecision =
   | { kind: "idle" }
   | { kind: "wait"; reason: string }
   | { kind: "resume"; versionId: string | null; versionStatus: string | null }
-  /** `notify` = tell the user in the chat; false for an undramatic end. */
-  | { kind: "abort"; reason: string; notify: boolean };
+  | {
+      kind: "abort";
+      reason: string;
+      /** Tell the user in the chat. False for an undramatic end. */
+      notify: boolean;
+      /** Drop the mandate too. False only when it is already gone or when the
+       * mandate is passive by design (`review_next`). */
+      disarm: boolean;
+    };
 
 export interface ArmedContinuationInput {
   watch: ArmedContinuationWatch | null;
@@ -76,6 +93,18 @@ export const CONTINUATION_START_TIMEOUT_MS = 90_000;
  * the mandate hostage until the absolute cap.
  */
 export const CONTINUATION_STALE_VIEW_TIMEOUT_MS = 120_000;
+/**
+ * Grace period before a weak-only observation (chat growth) may resume. Long
+ * enough for the builder to start streaming and for the context effect to
+ * publish it; far shorter than any real build.
+ */
+export const CONTINUATION_WEAK_CONFIRM_MS = 8_000;
+/**
+ * How long a woken OpenClaw gets to produce its next step before the run is
+ * considered finished. No auto-send by then means it chose to stop — an
+ * ordinary ending, so the mandate closes without an alarm.
+ */
+export const CONTINUATION_RESUME_FOLLOWTHROUGH_MS = 180_000;
 /** Absolute cap on a single watch, however slow the build is. */
 export const CONTINUATION_MAX_WAIT_MS = 15 * 60_000;
 
@@ -109,7 +138,9 @@ export function createArmedContinuationWatch(
     versionIdAtSend: snapshot?.activeVersionId ?? null,
     startedAt: now,
     messageCountAtSend: snapshot?.chatMessageCount ?? null,
-    buildObserved: false,
+    observedAt: null,
+    observedStrong: false,
+    resumedAt: null,
   };
 }
 
@@ -120,21 +151,34 @@ export function createArmedContinuationWatch(
 export function observeBuilderTurn(
   watch: ArmedContinuationWatch,
   snapshot: BuilderTurnSnapshot | null,
+  now: number = Date.now(),
 ): ArmedContinuationWatch {
-  if (watch.buildObserved || !snapshot) return watch;
-  const startedStreaming = snapshot.isStreaming;
-  const newVersion =
-    !!snapshot.activeVersionId && snapshot.activeVersionId !== watch.versionIdAtSend;
-  const runningStatus =
-    !!snapshot.versionStatus && RUNNING_VERSION_STATUSES.has(snapshot.versionStatus);
+  if (watch.observedStrong || !snapshot) return watch;
+  const strong =
+    snapshot.isStreaming ||
+    (!!snapshot.activeVersionId && snapshot.activeVersionId !== watch.versionIdAtSend) ||
+    (!!snapshot.versionStatus && RUNNING_VERSION_STATUSES.has(snapshot.versionStatus));
   // A turn short enough to slip between two polls (a clarification question,
-  // say) still leaves messages behind.
-  const grewChat =
+  // say) still leaves messages behind — but so does the outgoing message the
+  // auto-send just posted, hence "weak".
+  const weak =
     typeof snapshot.chatMessageCount === "number" &&
     typeof watch.messageCountAtSend === "number" &&
     snapshot.chatMessageCount > watch.messageCountAtSend;
-  if (!startedStreaming && !newVersion && !runningStatus && !grewChat) return watch;
-  return { ...watch, buildObserved: true };
+  if (!strong && !weak) return watch;
+  return {
+    ...watch,
+    observedAt: watch.observedAt ?? now,
+    observedStrong: watch.observedStrong || strong,
+  };
+}
+
+/** Mark the watch as woken so a single builder turn can resume only once. */
+export function markContinuationResumed(
+  watch: ArmedContinuationWatch,
+  now: number = Date.now(),
+): ArmedContinuationWatch {
+  return { ...watch, resumedAt: now };
 }
 
 /**
@@ -149,13 +193,13 @@ export function decideArmedContinuation(
   if (!watch) return { kind: "idle" };
 
   if (!editEnabled) {
-    return { kind: "abort", reason: "Redigeringsläget är av.", notify: false };
+    return { kind: "abort", reason: "Redigeringsläget är av.", notify: false, disarm: false };
   }
 
   // A spent mandate, a disarm and `review_next` all land here. None of them is
-  // an anomaly, so the chat stays quiet.
+  // an anomaly, so the chat stays quiet and nothing needs disarming.
   if (!isMandateActive(mandate) || mandate?.mode !== "followups") {
-    return { kind: "abort", reason: "Mandatet är slut.", notify: false };
+    return { kind: "abort", reason: "Mandatet är slut.", notify: false, disarm: false };
   }
 
   if (snapshot?.chatId && watch.chatId && snapshot.chatId !== watch.chatId) {
@@ -163,7 +207,22 @@ export function decideArmedContinuation(
       kind: "abort",
       reason: "Autonomin stoppades: builder-chatten byttes under bygget.",
       notify: true,
+      disarm: true,
     };
+  }
+
+  // Already woken for this turn. Either OpenClaw answers with another auto-send
+  // (which registers a fresh watch) or it decides to stop — an ordinary end.
+  if (watch.resumedAt !== null) {
+    if (now - watch.resumedAt > CONTINUATION_RESUME_FOLLOWTHROUGH_MS) {
+      return {
+        kind: "abort",
+        reason: "Mandatet avslutades: inget nytt steg kom.",
+        notify: false,
+        disarm: true,
+      };
+    }
+    return { kind: "wait", reason: "Väntar på Sajtagentens nästa steg." };
   }
 
   if (now - watch.startedAt > CONTINUATION_MAX_WAIT_MS) {
@@ -171,18 +230,27 @@ export function decideArmedContinuation(
       kind: "abort",
       reason: "Autonomin stoppades: bygget blev aldrig klart i tid.",
       notify: true,
+      disarm: true,
     };
   }
 
-  if (!watch.buildObserved) {
+  if (watch.observedAt === null) {
     if (now - watch.startedAt > CONTINUATION_START_TIMEOUT_MS) {
       return {
         kind: "abort",
         reason: "Autonomin stoppades: bygget startade aldrig efter utskicket.",
         notify: true,
+        disarm: true,
       };
     }
     return { kind: "wait", reason: "Väntar på att builderturen startar." };
+  }
+
+  // Chat growth alone can just be the outgoing message the auto-send posted.
+  // Give the builder a moment to reveal a real phase before trusting a status
+  // that may still describe the PREVIOUS version.
+  if (!watch.observedStrong && now - watch.observedAt < CONTINUATION_WEAK_CONFIRM_MS) {
+    return { kind: "wait", reason: "Låter builderturen sätta sig." };
   }
 
   // No builder in sight (the user navigated away, or the context is mid-swap).
@@ -205,6 +273,7 @@ export function decideArmedContinuation(
         reason:
           "Autonomin stoppades: en nyare version finns än den du tittar på, så jag kan inte läsa resultatet.",
         notify: true,
+        disarm: true,
       };
     }
     return { kind: "wait", reason: "En nyare version än den visade byggs." };
@@ -215,6 +284,7 @@ export function decideArmedContinuation(
       kind: "abort",
       reason: "Autonomin stoppades: den senaste versionen gick inte igenom.",
       notify: true,
+      disarm: true,
     };
   }
 

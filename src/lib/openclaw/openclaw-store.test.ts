@@ -64,7 +64,9 @@ describe("OpenClaw store assistant targeting", () => {
       versionIdAtSend: "ver-1",
       startedAt: 1,
       messageCountAtSend: 4,
-      buildObserved: true,
+      observedAt: Date.now() - 5000,
+      observedStrong: true,
+      resumedAt: null,
     };
     useOpenClawStore.setState({ armedContinuation: watch });
 

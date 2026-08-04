@@ -6,6 +6,7 @@ import { readBuilderTurnSnapshot } from "@/lib/openclaw/builder-target";
 import {
   buildArmedContinuationPrompt,
   decideArmedContinuation,
+  markContinuationResumed,
   observeBuilderTurn,
 } from "@/lib/openclaw/debug/armed-continuation";
 import type { OpenClawSendOptions } from "./useOpenClawChat";
@@ -59,39 +60,39 @@ export function useOpenClawArmedContinuation(send: SendFn): void {
       });
 
       if (decision.kind === "abort") {
+        // Ending the run while leaving the mandate armed would let a later
+        // action auto-send under authority the user believes is spent.
+        // `setArmedMandate(null)` drops the watch with it.
+        if (decision.disarm) state.setArmedMandate(null);
+        else state.setArmedContinuation(null);
         if (decision.notify) {
-          // A notified abort means the run was cut short (failed build, chat
-          // switch, timeout). Telling the user autonomy stopped while leaving
-          // the mandate armed would let a later action auto-send anyway, so
-          // disarm — `setArmedMandate(null)` drops the watch with it.
-          state.setArmedMandate(null);
           state.addMessage({
             id: `oc-continuation-${Date.now()}`,
             role: "assistant",
             content: decision.reason,
             timestamp: Date.now(),
           });
-        } else {
-          state.setArmedContinuation(null);
         }
         return;
       }
 
       if (decision.kind !== "resume") return;
 
-      // Drop the watch before sending: the resumed turn registers its own watch
-      // if it auto-sends again, and a failed send must not leave a stale one.
+      // Keep the watch and stamp it instead of dropping it. `send` can return
+      // without doing anything (an OpenClaw turn started in the same tick), and
+      // a dropped watch would then strand the mandate with no loop to finish
+      // it. A stamped watch stops resuming, and closes the run itself if no
+      // next step arrives.
       resumingRef.current = true;
-      state.setArmedContinuation(null);
+      state.setArmedContinuation(markContinuationResumed(observed, Date.now()));
       const prompt = buildArmedContinuationPrompt({
         remaining: state.armedMandate?.remaining ?? 1,
         versionStatus: decision.versionStatus,
       });
       void Promise.resolve(sendRef.current(prompt, { allowArming: false }))
         .catch(() => {
-          // The wake-up never reached OpenClaw. The watch is already gone, so
-          // leaving the mandate armed would strand it: no loop to continue it,
-          // but still enough authority for a later action to auto-send.
+          // The wake-up threw, so no next step can arrive. End the run now
+          // rather than letting the follow-through timeout do it silently.
           const live = useOpenClawStore.getState();
           live.setArmedMandate(null);
           live.addMessage({

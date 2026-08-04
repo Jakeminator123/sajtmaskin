@@ -5,8 +5,10 @@ import {
   decideArmedContinuation,
   observeBuilderTurn,
   CONTINUATION_MAX_WAIT_MS,
+  CONTINUATION_RESUME_FOLLOWTHROUGH_MS,
   CONTINUATION_STALE_VIEW_TIMEOUT_MS,
   CONTINUATION_START_TIMEOUT_MS,
+  CONTINUATION_WEAK_CONFIRM_MS,
   type ArmedContinuationInput,
   type ArmedContinuationWatch,
   type BuilderTurnSnapshot,
@@ -42,7 +44,9 @@ function watching(overrides: Partial<ArmedContinuationWatch> = {}): ArmedContinu
     versionIdAtSend: "ver-1",
     startedAt: NOW - 5000,
     messageCountAtSend: 4,
-    buildObserved: true,
+    observedAt: NOW - 4000,
+    observedStrong: true,
+    resumedAt: null,
     ...overrides,
   };
 }
@@ -67,7 +71,9 @@ describe("createArmedContinuationWatch", () => {
       versionIdAtSend: "ver-1",
       startedAt: NOW,
       messageCountAtSend: 4,
-      buildObserved: false,
+      observedAt: null,
+      observedStrong: false,
+      resumedAt: null,
     });
   });
 
@@ -80,39 +86,43 @@ describe("createArmedContinuationWatch", () => {
 
 describe("observeBuilderTurn", () => {
   it("marks the turn as started when the builder streams", () => {
-    const watch = watching({ buildObserved: false });
-    expect(observeBuilderTurn(watch, snapshot({ isStreaming: true })).buildObserved).toBe(true);
+    const watch = watching({ observedAt: null, observedStrong: false });
+    expect(observeBuilderTurn(watch, snapshot({ isStreaming: true })).observedStrong).toBe(true);
   });
 
   it("marks the turn as started when a new version appears", () => {
-    const watch = watching({ buildObserved: false, versionIdAtSend: "ver-1" });
-    expect(observeBuilderTurn(watch, snapshot({ activeVersionId: "ver-2" })).buildObserved).toBe(
+    const watch = watching({ observedAt: null, observedStrong: false, versionIdAtSend: "ver-1" });
+    expect(observeBuilderTurn(watch, snapshot({ activeVersionId: "ver-2" })).observedStrong).toBe(
       true,
     );
   });
 
   it("marks the turn as started on a running version status", () => {
-    const watch = watching({ buildObserved: false, versionIdAtSend: "ver-1" });
+    const watch = watching({ observedAt: null, observedStrong: false, versionIdAtSend: "ver-1" });
     const seen = observeBuilderTurn(
       watch,
       snapshot({ activeVersionId: "ver-1", versionStatus: "generating" }),
     );
-    expect(seen.buildObserved).toBe(true);
+    expect(seen.observedStrong).toBe(true);
   });
 
-  it("marks a turn too fast to catch mid-stream via the grown chat", () => {
+  it("sees a grown chat, but only as a weak signal", () => {
     // A clarification question can open and close between two polls; the only
-    // trace left is that the builder chat got longer.
-    const watch = watching({ buildObserved: false, messageCountAtSend: 4 });
+    // trace left is that the builder chat got longer. That also happens the
+    // instant the auto-send posts its own message, so it is not proof of a
+    // finished turn.
+    const watch = watching({ observedAt: null, observedStrong: false, messageCountAtSend: 4 });
     const seen = observeBuilderTurn(
       watch,
       snapshot({ activeVersionId: "ver-1", isStreaming: false, chatMessageCount: 6 }),
+      NOW,
     );
-    expect(seen.buildObserved).toBe(true);
+    expect(seen.observedAt).toBe(NOW);
+    expect(seen.observedStrong).toBe(false);
   });
 
   it("returns the same object when nothing has happened yet", () => {
-    const watch = watching({ buildObserved: false, versionIdAtSend: "ver-1" });
+    const watch = watching({ observedAt: null, observedStrong: false, versionIdAtSend: "ver-1" });
     const seen = observeBuilderTurn(
       watch,
       snapshot({
@@ -177,10 +187,37 @@ describe("decideArmedContinuation", () => {
 
   it("waits until the turn has visibly started", () => {
     const decision = decide({
-      watch: watching({ buildObserved: false }),
+      watch: watching({ observedAt: null, observedStrong: false }),
       snapshot: snapshot({ isStreaming: false, versionStatus: "idle" }),
     });
     expect(decision.kind).toBe("wait");
+  });
+
+  it("does not trust a weak-only observation until it settles", () => {
+    // The grown chat may just be the message the auto-send posted, while the
+    // status still describes the previous version.
+    expect(
+      decide({ watch: watching({ observedStrong: false, observedAt: NOW - 1000 }) }).kind,
+    ).toBe("wait");
+    expect(
+      decide({
+        watch: watching({
+          observedStrong: false,
+          observedAt: NOW - CONTINUATION_WEAK_CONFIRM_MS - 1,
+        }),
+      }).kind,
+    ).toBe("resume");
+  });
+
+  it("wakes OpenClaw only once per builder turn", () => {
+    expect(decide({ watch: watching({ resumedAt: NOW - 1000 }) }).kind).toBe("wait");
+  });
+
+  it("closes the run quietly when the woken turn brings no next step", () => {
+    const decision = decide({
+      watch: watching({ resumedAt: NOW - CONTINUATION_RESUME_FOLLOWTHROUGH_MS - 1 }),
+    });
+    expect(decision).toMatchObject({ kind: "abort", notify: false, disarm: true });
   });
 
   it("never sends in parallel with an in-flight OpenClaw turn", () => {
@@ -225,7 +262,7 @@ describe("decideArmedContinuation", () => {
 
   it("stops when the build never started within the start window", () => {
     const decision = decide({
-      watch: watching({ buildObserved: false, startedAt: NOW - CONTINUATION_START_TIMEOUT_MS - 1 }),
+      watch: watching({ observedAt: null, observedStrong: false, startedAt: NOW - CONTINUATION_START_TIMEOUT_MS - 1 }),
       snapshot: snapshot({ isStreaming: false, versionStatus: "idle" }),
     });
     expect(decision).toMatchObject({ kind: "abort", notify: true });

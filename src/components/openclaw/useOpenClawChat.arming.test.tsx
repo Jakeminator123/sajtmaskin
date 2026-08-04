@@ -99,7 +99,9 @@ describe("useOpenClawChat — arming consent", () => {
           versionIdAtSend: "ver-1",
           startedAt: Date.now(),
           messageCountAtSend: 4,
-          buildObserved: true,
+          observedAt: Date.now() - 5000,
+          observedStrong: true,
+          resumedAt: null,
         },
       });
     });
