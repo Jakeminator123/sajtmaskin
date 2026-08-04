@@ -37,6 +37,10 @@ import { type PromptSourceMeta } from "@/lib/builder/prompt-builder";
 import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import { buildInspectPointsPrompt } from "@/lib/builder/focus-point-prompt";
 import {
+  FIGMA_PREVIEW_NOT_CONFIGURED,
+  type FigmaPreviewResponse,
+} from "@/lib/api/figma-preview-contract";
+import {
   resolveOpenClawPreparedPromptSource,
   type OpenClawPreparedPromptSource,
 } from "@/lib/openclaw/prepared-prompt";
@@ -56,12 +60,6 @@ type MessageOptions = {
   promptSourceMeta?: PromptSourceMeta;
   /** OpenClaw prepared-prompt fast lane — see `prepared-prompt.ts`. */
   promptSource?: OpenClawPreparedPromptSource;
-};
-
-type FigmaPreviewResponse = {
-  imageUrl?: string;
-  fileName?: string;
-  error?: string;
 };
 
 type InspectPointToken = {
@@ -235,6 +233,8 @@ export function ChatInterface({
   const [figmaPreviewName, setFigmaPreviewName] = useState<string | null>(null);
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
   const [figmaPreviewLoading, setFigmaPreviewLoading] = useState(false);
+  /** Server has no Figma token — expected state, not an error the user can fix. */
+  const [figmaPreviewUnavailable, setFigmaPreviewUnavailable] = useState(false);
   const [inspectPoints, setInspectPoints] = useState<InspectPointToken[]>([]);
   const isFigmaInputOpen = controlledFigmaInputOpen ?? internalFigmaInputOpen;
   const setFigmaInputOpen = useCallback(
@@ -309,6 +309,7 @@ export function ChatInterface({
       setFigmaPreviewName(null);
       setFigmaPreviewError(null);
       setFigmaPreviewLoading(false);
+      setFigmaPreviewUnavailable(false);
       return;
     }
 
@@ -317,6 +318,7 @@ export function ChatInterface({
     const debounceId = window.setTimeout(async () => {
       setFigmaPreviewLoading(true);
       setFigmaPreviewError(null);
+      setFigmaPreviewUnavailable(false);
 
       try {
         const response = await fetch("/api/figma/preview", {
@@ -328,6 +330,13 @@ export function ChatInterface({
 
         const data = (await response.json().catch(() => ({}))) as FigmaPreviewResponse;
         if (!response.ok) {
+          if (data?.code === FIGMA_PREVIEW_NOT_CONFIGURED) {
+            if (!isActive) return;
+            setFigmaPreviewUrl(null);
+            setFigmaPreviewName(null);
+            setFigmaPreviewUnavailable(true);
+            return;
+          }
           const message =
             (data && typeof data === "object" && data.error) ||
             `Preview failed (HTTP ${response.status})`;
@@ -813,9 +822,9 @@ export function ChatInterface({
               <div className="text-muted-foreground text-xs">Hämtar Figma-preview...</div>
             )}
             {figmaPreviewError && <div className="text-xs text-red-500">{figmaPreviewError}</div>}
-            {!figmaPreviewUrl && !figmaPreviewLoading && (
+            {figmaPreviewUnavailable && (
               <div className="text-muted-foreground text-[11px]">
-                Kräver FIGMA_ACCESS_TOKEN för preview.
+                Förhandsbild är inte aktiverad. Länken skickas ändå med som designreferens.
               </div>
             )}
             {figmaPreviewUrl && (

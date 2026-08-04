@@ -17,6 +17,7 @@ vi.mock("@/lib/rateLimit", () => ({
     handler(),
 }));
 
+import { FIGMA_PREVIEW_NOT_CONFIGURED } from "@/lib/api/figma-preview-contract";
 import { parseFigmaUrl } from "./figma-url";
 
 const { POST } = await import("./route");
@@ -79,7 +80,12 @@ describe("POST /api/figma/preview", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ error: "Figma API token not configured" });
+    // The code is the client's branch point: an unset optional token must reach
+    // the builder as a neutral notice, never as a red error.
+    expect(await response.json()).toMatchObject({
+      code: FIGMA_PREVIEW_NOT_CONFIGURED,
+      error: "Figma API token not configured",
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

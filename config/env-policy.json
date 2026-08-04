@@ -340,7 +340,7 @@
       "key": "FIGMA_ACCESS_TOKEN",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
-      "notes": "Optional token for Figma-backed imports and design-related flows."
+      "notes": "Optional token for the builder's Figma preview thumbnail. Unset (the current production state) is supported: the preview degrades to a neutral notice and the pasted link is still sent to the model as a design reference."
     },
     {
       "key": "ENV_VAR_ENCRYPTION_KEY",
