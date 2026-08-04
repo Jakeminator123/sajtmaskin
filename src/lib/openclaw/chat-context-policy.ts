@@ -90,7 +90,10 @@ const LIGHT_CODE_CONTEXT_TERMS = [
 const EDIT_CODE_CONTEXT_TERMS = [
   "byt",
   "ändra",
-  "andra",
+  // ASCII-formen "andra" är struken: den träffar det vanliga ordet *andra*
+  // ("den andra sidan") och gav kodkontext på en ren fråga — samma skäl som
+  // att "text" ströks, det träffade "kontext". En diakritlös ändringsbegäran
+  // fångas i praktiken av substantiven nedan ("andra fargen pa knappen").
   "uppdatera",
   "justera",
   "ta bort",
@@ -99,16 +102,26 @@ const EDIT_CODE_CONTEXT_TERMS = [
   "rubrik",
   "färg",
   "farg",
-  "knapp",
+  // "knapp" träffar "knappt" ("det funkar knappt"), som inte är en ändring.
+  "knappen",
+  "knappar",
   "change",
   "replace",
   "update",
   "remove",
 ] as const;
 
+/**
+ * "review" ligger inuti "preview" — produktens allra vanligaste ord. Utan den
+ * här vakten blev "hur lång tid tar previewen?" review-intent, vilket både
+ * höjde `reasoning_effort` på gateway-anropet och drog in fynd-/tidslinje-
+ * block. Bara vänsterkanten är bunden, så "reviewa koden" träffar fortfarande.
+ */
+const REVIEW_WORD = /(?<![\p{L}\p{N}_])review/u;
+
 const REVIEW_INTENT_TERMS = [
   "granska",
-  "review",
+  REVIEW_WORD,
   "debug",
   "bugg",
   "bug",
@@ -136,8 +149,14 @@ function normalizeIntentText(value: string): string {
   return value.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
-function hasAnyTerm(text: string, terms: readonly string[]): boolean {
-  return terms.some((term) => text.includes(term));
+/**
+ * En term är antingen en ren delsträng (billigast, räcker för fraser) eller en
+ * regex för de ord som inte får träffa inuti ett större ord.
+ */
+type ContextTerm = string | RegExp;
+
+function hasAnyTerm(text: string, terms: readonly ContextTerm[]): boolean {
+  return terms.some((term) => (typeof term === "string" ? text.includes(term) : term.test(text)));
 }
 
 export function getLatestOpenClawUserText(

@@ -245,14 +245,26 @@ export interface PromptInputSubmitProps extends ButtonHTMLAttributes<HTMLButtonE
   children?: ReactNode;
 }
 
-export function PromptInputSubmit({ children, className, "aria-label": ariaLabelProp, ...props }: PromptInputSubmitProps) {
+export function PromptInputSubmit({
+  children,
+  className,
+  "aria-label": ariaLabelProp,
+  disabled: disabledProp,
+  ...props
+}: PromptInputSubmitProps) {
   const { value, onSubmit, isLoading, disabled } = usePromptInput();
   const ariaLabel = ariaLabelProp ?? (children ? undefined : "Send message");
+  // `disabledProp` måste vägas in, inte skrivas över. Förut spreds den via
+  // `{...props}` och skrevs sedan över av kontextvärdet nedan, så en callers
+  // extra spärr (ChatInterface: pågående filuppladdning) lämnade knappen
+  // klickbar medan submit-handlern ändå returnerade direkt. En klickare som
+  // inte kan se handlern — OpenClaws armerade auto-send — tolkade då klicket
+  // som ett skickat meddelande.
+  const isDisabled = Boolean(disabledProp) || !value.trim() || isLoading || disabled;
 
   const handleClick = () => {
-    if (value.trim() && !isLoading && !disabled) {
-      onSubmit({ text: value });
-    }
+    if (isDisabled) return;
+    onSubmit({ text: value });
   };
 
   return (
@@ -260,7 +272,7 @@ export function PromptInputSubmit({ children, className, "aria-label": ariaLabel
       {...props}
       type="button"
       onClick={handleClick}
-      disabled={!value.trim() || isLoading || disabled}
+      disabled={isDisabled}
       aria-label={ariaLabel}
       className={cn(
         "shrink-0 rounded-xl p-2",

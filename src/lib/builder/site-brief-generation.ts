@@ -777,6 +777,14 @@ function resolveRunnableBriefModel(preferred: string): string | null {
 
   let m = preferred;
   if (!isPromptAssistModelAllowed(m)) {
+    // Säg ifrån i stället för att byta tyst. `briefingModel` i manifestet är
+    // operatörsredigerbart och valideras bara som "icke-tom sträng" i både
+    // JSON-schemat och Zod-fallbacken, så en felstavning ser grön ut hela
+    // vägen och märks först som "briefen använder fel modell".
+    console.warn(
+      `[server-auto-brief] "${m}" är inte en tillåten prompt-assist-modell — ` +
+        `använder ${AUTO_BRIEF_MODEL_OPENAI} i stället. Kontrollera briefingModel i config/ai_models/manifest.json.`,
+    );
     m = AUTO_BRIEF_MODEL_OPENAI;
   }
   const provider = resolvePromptAssistProvider(m);

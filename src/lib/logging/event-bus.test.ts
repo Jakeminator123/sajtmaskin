@@ -20,6 +20,10 @@ describe("event-bus", () => {
   beforeEach(async () => {
     originalCwd = process.cwd();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "event-bus-test-"));
+    // Ordningen är bärande: `RUNS_ROOT_DIR` beräknas vid modul-load, så
+    // chdir MÅSTE ske före importen. Görs importen statisk i toppen av filen
+    // pekar bussen i stället på den delade tmp-spegeln och FS-assertions
+    // nedan faller på ENOENT. Testet direkt efter binder den kopplingen.
     process.chdir(tmpDir);
     vi.resetModules();
     bus = await import("./event-bus");
@@ -29,6 +33,13 @@ describe("event-bus", () => {
   afterEach(() => {
     process.chdir(originalCwd);
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("keeps a chdir-isolated run in its own tree instead of the shared tmp mirror", () => {
+    expect(bus.RUNS_ROOT_DIR).toBe(path.join(process.cwd(), "data", "runs"));
+    expect(bus.RUNS_ROOT_DIR).not.toBe(
+      path.join(os.tmpdir(), "sajtmaskin", "data", "runs"),
+    );
   });
 
   it("emit assigns id+ts+runId defaults and persists NDJSON", () => {
@@ -191,8 +202,31 @@ describe("event-bus RUNS_ROOT_DIR resolution", () => {
   it("uses repo-relative data/runs in local dev", async () => {
     delete process.env.VERCEL;
     delete process.env.VITEST;
-    vi.resetModules();
-    const bus = await import("./event-bus");
-    expect(bus.RUNS_ROOT_DIR).toBe(path.join(process.cwd(), "data", "runs"));
+    // Lokal dev kör NODE_ENV=development. Vitest sätter "test", och sedan
+    // sökvägsvalet delar testpredikat med loggdämpningen räcker det inte att
+    // nolla VITEST för att simulera dev — hela miljön måste simuleras.
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    try {
+      vi.resetModules();
+      const bus = await import("./event-bus");
+      expect(bus.RUNS_ROOT_DIR).toBe(path.join(process.cwd(), "data", "runs"));
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  });
+
+  it("mirrors under os.tmpdir() for a NODE_ENV=test run without VITEST", async () => {
+    delete process.env.VERCEL;
+    delete process.env.VITEST;
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "test";
+    try {
+      vi.resetModules();
+      const bus = await import("./event-bus");
+      expect(bus.RUNS_ROOT_DIR).not.toBe(path.join(process.cwd(), "data", "runs"));
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
   });
 });

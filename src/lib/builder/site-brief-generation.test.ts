@@ -9,6 +9,7 @@ import {
   siteBriefSchema,
 } from "./site-brief-generation";
 import { getTemperatureConfig } from "./direct-model";
+import { getDefaultPromptAssistModel } from "./defaults";
 
 /**
  * Alla objektnycklar i JSON-schemat som INTE ligger i sitt `required` — exakt
@@ -205,6 +206,15 @@ describe("resolveServerAutoBriefPreferredModel", () => {
       expect(resolveServerAutoBriefPreferredModel({ modelTier: "anthropic" })).toBe(
         "anthropic/claude-opus-4.8",
       );
+      // `pro` är DEFAULT_MODEL_TIER och pekar mot en kodmodell — den nivån
+      // hade ingen täckning, trots att den bär mest trafik den dag prioritets-
+      // ordningen nedan ändras.
+      expect(resolveServerAutoBriefPreferredModel({ modelTier: "pro" })).toBe(
+        "openai/gpt-5.3-codex",
+      );
+      expect(resolveServerAutoBriefPreferredModel({ modelTier: "codex" })).toBe(
+        "openai/gpt-5.5",
+      );
     } finally {
       if (previousOpenAI === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
       else process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = previousOpenAI;
@@ -229,6 +239,34 @@ describe("resolveServerAutoBriefPreferredModel", () => {
     } finally {
       if (previous === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
       else process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = previous;
+    }
+  });
+
+  // Karaktäriseringstest, inte en önskad ordning: buildern skickar ALLTID
+  // `meta.promptAssistModel` (`useBuilderState` initierar det från
+  // `getDefaultPromptAssistModel()`), så hint-grenen vinner för all UI-trafik
+  // och `perTierBriefing` blir aldrig avgörande där. Raden finns för att den
+  // dagen någon vill att nivån ska styra måste den här förväntan ändras
+  // medvetet — inte upptäckas i produktion.
+  it("lets a default-valued assist hint bypass per-tier briefing (today's behaviour)", () => {
+    const previousOpenAI = process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
+    delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
+    try {
+      expect(
+        resolveServerAutoBriefPreferredModel({
+          modelTier: "pro",
+          assistModelHint: getDefaultPromptAssistModel(),
+        }),
+      ).toBe(getDefaultPromptAssistModel());
+      expect(
+        resolveServerAutoBriefPreferredModel({
+          modelTier: "pro",
+          assistModelHint: getDefaultPromptAssistModel(),
+        }),
+      ).not.toBe("openai/gpt-5.3-codex");
+    } finally {
+      if (previousOpenAI === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
+      else process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = previousOpenAI;
     }
   });
 

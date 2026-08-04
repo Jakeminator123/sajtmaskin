@@ -3,6 +3,7 @@ import {
   type OpenClawApplyQuickEditAction,
 } from "./quick-edit-action";
 
+const OPENCLAW_ACTION_OPEN_TAG = "<openclaw-action>";
 const OPENCLAW_ACTION_CLOSE_TAG = "</openclaw-action>";
 const OPENCLAW_TEXT_FIELD_SELECTOR = "[data-openclaw-text-target]";
 const OPENCLAW_SEND_TARGET_SELECTOR = "[data-openclaw-send-target]";
@@ -70,6 +71,11 @@ export type OpenClawAction =
 export interface ParsedOpenClawMessage {
   visibleContent: string;
   action: OpenClawAction | null;
+  /**
+   * Ett action-block saknar sin stängningstagg. Kan vara satt SAMTIDIGT som
+   * `action`: ett komplett första block följt av ett andra som fortfarande
+   * strömmar in.
+   */
   hasIncompleteAction: boolean;
   /**
    * Svensk orsak till att ett KOMPLETT action-block avvisades, annars null.
@@ -169,42 +175,56 @@ export function applyOpenClawTextFieldAction(
   };
 }
 
+/**
+ * Klipp ut varje komplett action-block ur texten och behåll nyttolasten från
+ * det FÖRSTA. Systemprompten ber om exakt ett block, men en modell som bryter
+ * mot det (typiskt i armerat läge, där den både ska bekräfta ett mandat och
+ * skicka en follow-up) fick förut sitt andra block renderat som rå JSON i
+ * chattbubblan — bara det första klipptes bort. Extra block tolkas aldrig:
+ * ett meddelande utlöser som mest en action.
+ */
 export function parseOpenClawMessage(
   content: string,
 ): ParsedOpenClawMessage {
   const rawContent = typeof content === "string" ? content : "";
-  const openMatch = rawContent.match(/<openclaw-action>/i);
-  if (!openMatch || openMatch.index === undefined) {
-    return {
-      visibleContent: rawContent.trim(),
-      action: null,
-      hasIncompleteAction: false,
-      actionError: null,
-    };
+  const lowerContent = rawContent.toLowerCase();
+
+  const visibleParts: string[] = [];
+  let actionPayload: string | null = null;
+  let hasIncompleteAction = false;
+  let cursor = 0;
+
+  for (;;) {
+    const openIndex = lowerContent.indexOf(OPENCLAW_ACTION_OPEN_TAG, cursor);
+    if (openIndex === -1) {
+      visibleParts.push(rawContent.slice(cursor));
+      break;
+    }
+    visibleParts.push(rawContent.slice(cursor, openIndex));
+
+    const afterOpenTag = openIndex + OPENCLAW_ACTION_OPEN_TAG.length;
+    const closeIndex = lowerContent.indexOf(OPENCLAW_ACTION_CLOSE_TAG, afterOpenTag);
+    if (closeIndex === -1) {
+      // Blocket strömmar fortfarande in (eller är avhugget): allt efter
+      // öppningstaggen hålls utanför den synliga texten.
+      hasIncompleteAction = true;
+      break;
+    }
+    if (actionPayload === null) {
+      actionPayload = rawContent.slice(afterOpenTag, closeIndex).trim();
+    }
+    cursor = closeIndex + OPENCLAW_ACTION_CLOSE_TAG.length;
   }
 
-  const actionStart = openMatch.index;
-  const afterOpenTag = actionStart + openMatch[0].length;
-  const closeIndex = rawContent.toLowerCase().indexOf(
-    OPENCLAW_ACTION_CLOSE_TAG,
-    afterOpenTag,
-  );
-  const beforeAction = rawContent.slice(0, actionStart).trimEnd();
-
-  if (closeIndex === -1) {
-    return {
-      visibleContent: beforeAction.trim(),
-      action: null,
-      hasIncompleteAction: true,
-      actionError: null,
-    };
-  }
-
-  const actionPayload = rawContent.slice(afterOpenTag, closeIndex).trim();
-  const afterAction = rawContent
-    .slice(closeIndex + OPENCLAW_ACTION_CLOSE_TAG.length)
+  const visibleContent = visibleParts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("\n\n")
     .trim();
-  const visibleContent = [beforeAction, afterAction].filter(Boolean).join("\n\n").trim();
+
+  if (actionPayload === null) {
+    return { visibleContent, action: null, hasIncompleteAction, actionError: null };
+  }
 
   let action: OpenClawAction | null = null;
   let actionError: string | null = null;
@@ -216,12 +236,7 @@ export function parseOpenClawMessage(
     actionError = "Actionblocket är inte giltig JSON.";
   }
 
-  return {
-    visibleContent,
-    action,
-    hasIncompleteAction: false,
-    actionError,
-  };
+  return { visibleContent, action, hasIncompleteAction, actionError };
 }
 
 /** Antingen en godkänd action, eller en svensk orsak till avvisningen. */
