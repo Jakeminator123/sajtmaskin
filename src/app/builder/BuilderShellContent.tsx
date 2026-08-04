@@ -239,7 +239,33 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.activeVersionId,
     vm.latestVersionId,
   ]);
-  const sendMessage = vm.sendMessage;
+  // `sendMessage` already reports how a turn ended (`SendMessageOutcome`), but
+  // nothing kept the answer around. Armed autonomy needs it: a send stopped by
+  // stale-base, an F3 env gate or the credit gate leaves the focused version on
+  // its previous terminal status, which otherwise reads exactly like a finished
+  // build — and the handshake would wake up and spend another mandate step on a
+  // turn that never ran.
+  // A timestamp rather than a flag: React can batch a false→true pair into one
+  // commit, and a boolean would then never be observed in its cleared state.
+  // The handshake compares this against when its watch started instead.
+  const [lastTurnRejectedAt, setLastTurnRejectedAt] = useState<number | null>(null);
+
+  const latestPendingReply = useMemo(
+    () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
+    [vm.messages],
+  );
+  const rawSendMessage = vm.sendMessage;
+  const sendMessage = useCallback<typeof rawSendMessage>(
+    async (...args) => {
+      const outcome = await rawSendMessage(...args);
+      const status = outcome?.status;
+      if (status === "rejected" || status === "failed" || status === "aborted") {
+        setLastTurnRejectedAt(Date.now());
+      }
+      return outcome;
+    },
+    [rawSendMessage],
+  );
 
   // Byggblock-panelen (PreviewPanelDossiers) refetchar sin "inkopplade"-lista
   // på versionId-byte + popover-open + env-var-sparning, men INTE när en ny
@@ -734,6 +760,25 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       recentMessages: buildRecentContextMessages(vm.messages),
       currentCode: vm.currentPageCode?.slice(0, OPENCLAW_CONTEXT_CODE_MAX_CHARS) || null,
       isStreaming: vm.isAnyStreaming,
+      // `isStreaming` drops as soon as the stream closes, while post-checks may
+      // still be running. The armed-autonomy handshake needs the version phase
+      // too, so it resumes on a genuinely terminal turn and stops on a failed
+      // one (`debug/armed-continuation.ts`). `activeVersionIsLatest` comes with
+      // it because the status is projected for the FOCUSED version — a user
+      // reading version history would otherwise report a terminal status while
+      // a newer version is still being built.
+      activeVersionStatus,
+      activeVersionIsLatest,
+      // Monotonic, unlike the truncated `recentMessages` — growth is how the
+      // handshake recognises a turn too short to catch mid-stream.
+      chatMessageCount: vm.messages.length,
+      lastTurnRejectedAt,
+      // A pending question or plan approval belongs to the user, not to armed
+      // autonomy: sending past it would start a new generation and drop the
+      // plan the builder is holding. Both halves are needed — `isAwaitingInput`
+      // only sees the `awaiting-input` tool part, while a held plan shows up as
+      // a pending reply (the same pair that gates the dossier catalogue below).
+      awaitingInput: vm.isAwaitingInput || Boolean(latestPendingReply),
     };
     return () => {
       delete window.__SITEMASKIN_CONTEXT;
@@ -752,12 +797,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.messages,
     vm.currentPageCode,
     vm.isAnyStreaming,
+    activeVersionStatus,
+    activeVersionIsLatest,
+    lastTurnRejectedAt,
+    vm.isAwaitingInput,
+    latestPendingReply,
   ]);
-
-  const latestPendingReply = useMemo(
-    () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
-    [vm.messages],
-  );
 
   // Katalogval i Byggblock-panelen skickar via vm.sendMessage, som ABORTAR en
   // pågående stream. Ett val mitt i en generation skulle alltså döda den, och
@@ -954,13 +999,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // a new engine_versions row with `lifecycle_stage = "integrations"` and
       // `parent_version_id` set to the F2 version we just finalized.
       setF3Requirements(null);
-      void vm.sendMessage("Bygg integrationer nu utifrån den finaliserade designversionen.", {
+      void sendMessage("Bygg integrationer nu utifrån den finaliserade designversionen.", {
         lifecycleStageOverride: "integrations",
         parentVersionIdOverride: payload.parentVersionId,
         engineBaseVersionIdOverride: payload.parentVersionId,
       });
     },
-    [vm],
+    [sendMessage],
   );
 
   // Previewens lägen (composer/inspect/vy) har EN ägare här: kontrollerna sitter
@@ -1183,7 +1228,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               messages={vm.messages}
               showStructuredParts={vm.showStructuredChat}
               onQuickReply={async (text, options) => {
-                await vm.sendMessage(text, options);
+                await sendMessage(text, options);
               }}
               onApproveBuildPlan={handleApproveBuildPlan}
               quickReplyDisabled={isBusy}
@@ -1222,7 +1267,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             chatId={vm.chatId}
             initialPrompt={vm.initialPrompt}
             onCreateChat={vm.requestCreateChat}
-            onSendMessage={vm.sendMessage}
+            onSendMessage={sendMessage}
             onPromptAssistModeReset={vm.handlePromptAssistModeReset}
             isFigmaInputOpen={isFigmaInputOpen}
             onFigmaInputOpenChange={setIsFigmaInputOpen}

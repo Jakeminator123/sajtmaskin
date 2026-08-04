@@ -21,7 +21,11 @@ import {
   quickEditChatFiles,
 } from "@/lib/builder/engine-files-patch";
 import { dispatchQuickEditAppliedEvent } from "@/lib/builder/quick-edit-applied-event";
-import { readActiveBuilderTarget } from "@/lib/openclaw/builder-target";
+import {
+  readActiveBuilderTarget,
+  readBuilderTurnSnapshot,
+} from "@/lib/openclaw/builder-target";
+import { createArmedContinuationWatch } from "@/lib/openclaw/debug/armed-continuation";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
@@ -335,6 +339,7 @@ function OpenClawArmedSendCard({
   messageId: string;
 }) {
   const setArmedMandate = useOpenClawStore((s) => s.setArmedMandate);
+  const setArmedContinuation = useOpenClawStore((s) => s.setArmedContinuation);
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
   const [state, setState] = useState<"sending" | "sent" | "failed">(
     consumedArmedSends.has(messageId) ? "sent" : "sending",
@@ -380,7 +385,14 @@ function OpenClawArmedSendCard({
           consumedArmedSends.add(messageId);
           setState("sent");
           // Consume one authorized step; clears the mandate when exhausted.
-          setArmedMandate(consumeMandateStep(useOpenClawStore.getState().armedMandate));
+          const nextMandate = consumeMandateStep(useOpenClawStore.getState().armedMandate);
+          setArmedMandate(nextMandate);
+          // Hand the builder turn over to the continuation handshake, but only
+          // while the mandate still authorizes another step — an exhausted
+          // mandate must end here, not wake OpenClaw one more time.
+          if (nextMandate) {
+            setArmedContinuation(createArmedContinuationWatch(readBuilderTurnSnapshot()));
+          }
           return;
         }
       }
@@ -397,7 +409,7 @@ function OpenClawArmedSendCard({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [action, setArmedMandate, messageId]);
+  }, [action, setArmedMandate, setArmedContinuation, messageId]);
 
   return (
     <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
@@ -416,11 +428,9 @@ function OpenClawArmedSendCard({
         ) : null}
         {state === "sent" ? (
           <p className="text-xs text-emerald-300">
-            {`Skickad till buildern.${
-              armedMandate && armedMandate.remaining > 0
-                ? ` Mandatet har ${armedMandate.remaining} steg kvar.`
-                : ""
-            } När bygget är klart kan du be mig läsa resultatet.`}
+            {armedMandate && armedMandate.remaining > 0
+              ? `Skickad till buildern. Mandatet har ${armedMandate.remaining} steg kvar — jag fortsätter automatiskt när bygget är klart.`
+              : "Skickad till buildern. Mandatet är slut, så jag stannar här."}
           </p>
         ) : null}
         {state === "failed" ? (
