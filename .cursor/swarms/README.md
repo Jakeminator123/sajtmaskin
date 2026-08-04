@@ -20,7 +20,8 @@ Lokal **rapportfabrik** för `/automat` — sekventiella read-only audit-svärma
       r<runda>-<lane>.md          # rå per-agent-rapport (en per agent)
 ```
 
-- **`FINDINGS.md`** = den enda lista du behöver titta i. Orchestratorn destillerar varje runda hit och behåller bara de mest värdefulla fynden (dedupar mot fil:rad-ankare). Källa-tag: `A#<n>` (automat).
+- **`FINDINGS.md`** = den enda lista du behöver titta i. En destill-agent kuraterar varje scan-runda hit och behåller bara de mest värdefulla fynden (dedupar mot fil:rad-ankare). Källa-tag: `A#<n>` (automat).
+- **Status ligger i id:t.** `A#12` = overifierat, `A#12✔` = har överlevt en falsifieringsrunda (en agent försökte motbevisa det och misslyckades). Fynd som falsifierades **raderas** ur listan; motiveringen finns kvar i rundans `index.md`.
 - **`runs/`** = rå hög-volym-output. Behåll för spårbarhet; kan rensas när som helst.
 
 ## Relation till den kanoniska bugglistan
@@ -29,6 +30,6 @@ Lokal **rapportfabrik** för `/automat` — sekventiella read-only audit-svärma
 
 ## Kör
 
-- `/automat` → 3 svärmningar (rundor), 8 agenter per runda.
-- `/automat 7` → 7 svärmningar sekventiellt, 8 agenter per runda.
+- `/automat` → 3 rundor: scan → falsifiera → scan. 8 agenter per scan-runda.
+- `/automat 7` → 7 rundor sekventiellt, växlande scan och falsifiering.
 - Detaljer: [`.cursor/commands/automat.md`](../commands/automat.md) och [`.cursor/skills/automat-swarm/SKILL.md`](../skills/automat-swarm/SKILL.md).

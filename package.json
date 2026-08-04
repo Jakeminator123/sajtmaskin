@@ -129,6 +129,7 @@
     "vercel:link": "npx --yes vercel@58 link",
     "worktree:link": "node scripts/cursor/worktree.mjs link",
     "worktree:remove": "node scripts/cursor/worktree.mjs remove",
+    "kedja:clean": "node scripts/cursor/kedja-clean.mjs",
     "env:status": "node scripts/dev/run-python.mjs scripts/env/manage_env.py status",
     "env:audit": "node scripts/dev/run-python.mjs scripts/env/manage_env.py audit",
     "env:audit:strict": "node scripts/dev/run-python.mjs scripts/env/manage_env.py audit --strict",

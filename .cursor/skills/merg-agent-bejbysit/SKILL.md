@@ -411,7 +411,7 @@ Merge-agenten läser mycket och skriver lite. Håll kostnaden nere:
 | **En** bakgrundsshell som sover och sedan dumpar `gh pr checks` | Upprepad polling i förgrunden |
 | Avsluta turen under väntan — notisen tar dig tillbaka | Blockera på `AwaitShell` i 15 min |
 | Verifiera författarens bugbot-pass | Köra om ett pass som redan är dokumenterat |
-| `bugbot`-subagent bara när du själv rört koden, eller på protected path utan oberoende pass | `/granska`-svärmen (8 rapporter, dyrt — bara på uttrycklig begäran) |
+| `bugbot`-subagent bara när du själv rört koden, eller på protected path utan oberoende pass | En egen agentsvärm ovanpå bugbot-passet (togs bort med `/granska` 2026-08-02) |
 
 Väntemönster — låt **exit-koden** avgöra (`0` = alla gröna, `8` = pending). Att
 läsa stdout och tolka "inget 'pending'" som klart gör ett gh-fel, ett auth-utgånget
