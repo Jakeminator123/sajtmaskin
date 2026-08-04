@@ -88,15 +88,15 @@ def render(ctx: BackofficeContext) -> None:
     # denna sida lät det se ut som "är Redis OK?" rent generellt. I själva
     # verket använder appen TVÅ klienter mot samma Upstash-instans:
     #
-    #   - `ioredis` (TCP, REDIS_URL/KV_URL): app-cache, sessioner,
-    #     project-files, video-jobs, preview-sessions, deploy-status pubsub
+    #   - `ioredis` (TCP, REDIS_URL/KV_URL): app-cache, prompt-handoff,
+    #     audit-cache, brief-cache, preview-session-store, deploy-status pubsub
     #   - `@upstash/redis` (HTTP/REST): rate-limiting + denna hälsokoll
     #
     # Samma databas, olika transport — REST-failure = pubsub kan ändå funka,
     # och TCP-failure = denna sida visar grön. Både är "äkta Redis".
     st.warning(
-        "ℹ️ **Denna sida testar bara HTTP/REST-vägen.** App-cache, sessioner, "
-        "deploy-status pubsub m.m. går via `ioredis` (TCP) som **inte** valideras "
+        "ℹ️ **Denna sida testar bara HTTP/REST-vägen.** App-cache, brief-cache, "
+        "preview-session-store m.m. går via `ioredis` (TCP) som **inte** valideras "
         "här. För TCP-statusen, kolla `/api/health` eller server-loggar för "
         "`[Redis] Connected` / `[Redis] Connection error`."
     )
@@ -105,7 +105,7 @@ def render(ctx: BackofficeContext) -> None:
         st.markdown(
             """
 - **PING** + INFO → server-version, uptime, used memory, total keys.
-- Räknar nycklar per **prefix-bucket** (`dev:user:session:*`, `dev:cache:*`, etc.)
+- Räknar nycklar per **prefix-bucket** (`dev:cache:*`, `dev:brief:v1:*`, etc.)
   via SCAN. Visar 3 sample-nycklar per bucket så man ser ungefär vad som ligger där.
 - **Probe**: write → read → delete på `<env>:health:probe:<ts>` (TTL=30s som
   fail-safe om något går fel mitt i). Mäter latens per steg.
