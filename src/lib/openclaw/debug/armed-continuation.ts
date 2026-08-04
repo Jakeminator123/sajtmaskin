@@ -44,8 +44,11 @@ export interface ArmedContinuationWatch {
    */
   observedStrong: boolean;
   /**
-   * The builder send this watch owns, read from `nextSendSeq` before the
-   * auto-send clicked. Only a refusal carrying this id belongs to the watch.
+   * The builder send this watch owns. Written by that send itself once it
+   * reaches the builder (`bindArmedContinuationSend`), never predicted here:
+   * the composer awaits an attachment step between the click and the send, and
+   * any other sender could claim a guessed id inside that window. Null until
+   * the send arrives, and a send that never arrives leaves it null.
    */
   sendSeq: number | null;
   /** Set when OpenClaw has been woken for this watch, so it fires only once. */
@@ -65,11 +68,6 @@ export interface BuilderTurnSnapshot {
   versionIsLatest: boolean;
   /** Number of messages in the builder chat. */
   chatMessageCount: number | null;
-  /**
-   * The id the builder will give the NEXT send it starts. Read before the
-   * auto-send clicks, it names the turn the watch is about to own.
-   */
-  nextSendSeq: number | null;
   /**
    * Id of the send that most recently ended rejected, failed or aborted. Such a
    * turn leaves the focused version on its previous terminal status, so without
@@ -173,7 +171,7 @@ export function createArmedContinuationWatch(
     versionIdAtSend: snapshot?.activeVersionId ?? null,
     startedAt: now,
     messageCountAtSend: snapshot?.chatMessageCount ?? null,
-    sendSeq: snapshot?.nextSendSeq ?? null,
+    sendSeq: null,
     observedAt: null,
     observedStrong: false,
     resumedAt: null,

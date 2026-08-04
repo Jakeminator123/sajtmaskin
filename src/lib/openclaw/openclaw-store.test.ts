@@ -87,6 +87,36 @@ describe("OpenClaw store assistant targeting", () => {
     expect(useOpenClawStore.getState().armedContinuation).toBeNull();
   });
 
+  it("lets the first builder send name the pending continuation, and only the first", () => {
+    useOpenClawStore.setState({
+      armedContinuation: {
+        chatId: "chat-1",
+        versionIdAtSend: "ver-1",
+        startedAt: 1,
+        messageCountAtSend: 4,
+        sendSeq: null,
+        observedAt: null,
+        observedStrong: false,
+        resumedAt: null,
+        quietSince: null,
+      },
+    });
+
+    useOpenClawStore.getState().bindArmedContinuationSend(5);
+    expect(useOpenClawStore.getState().armedContinuation?.sendSeq).toBe(5);
+
+    // An OpenClaw-prepared send the user posts by hand during the same run must
+    // not rename the turn out from under the auto-send that registered it.
+    useOpenClawStore.getState().bindArmedContinuationSend(6);
+    expect(useOpenClawStore.getState().armedContinuation?.sendSeq).toBe(5);
+  });
+
+  it("ignores a send id when no continuation is pending", () => {
+    useOpenClawStore.setState({ armedContinuation: null });
+    useOpenClawStore.getState().bindArmedContinuationSend(5);
+    expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+  });
+
   it("resets messages and closes the panel when the scope changes", () => {
     useOpenClawStore.setState({
       isOpen: true,

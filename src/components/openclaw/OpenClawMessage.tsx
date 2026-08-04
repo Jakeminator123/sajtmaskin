@@ -378,10 +378,6 @@ function OpenClawArmedSendCard({
       if (cancelled) return;
       attempts += 1;
       if (isOpenClawSendReady(action.target)) {
-        // Read before the click: `nextSendSeq` still names the send this click
-        // is about to start, so a later refusal can be matched to this turn and
-        // an unrelated one cannot end the mandate.
-        const preSend = readBuilderTurnSnapshot();
         const result = triggerOpenClawSend(action.target);
         if (result.ok) {
           // Mark consumed BEFORE state/mandate updates so a remount triggered by
@@ -395,7 +391,9 @@ function OpenClawArmedSendCard({
           // while the mandate still authorizes another step — an exhausted
           // mandate must end here, not wake OpenClaw one more time.
           if (nextMandate) {
-            setArmedContinuation(createArmedContinuationWatch(preSend));
+            // The watch registers without a send id; the send this click just
+            // started binds its own once it reaches the builder.
+            setArmedContinuation(createArmedContinuationWatch(readBuilderTurnSnapshot()));
           }
           return;
         }

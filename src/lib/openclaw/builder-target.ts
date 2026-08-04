@@ -22,18 +22,12 @@ export function readActiveBuilderTarget(): OpenClawBuilderTarget | null {
 }
 
 /**
- * Publish a send id onto the live builder context without waiting for a React
- * commit. The armed auto-send reads `nextSendSeq` in the same tick it clicks,
- * and the whole point of the id is that it names exactly one turn — a value
- * still queued in state would name the previous one, so a send that started
- * microseconds earlier could steal the id the watch believes it owns.
- * `BuilderShellContent`'s effect republishes the same numbers from the same
- * ref; this only closes the gap between them.
+ * Publish a refused send's id onto the live builder context without waiting for
+ * a React commit, so the handshake's next poll cannot read a turn outcome that
+ * is a render behind. `BuilderShellContent`'s effect republishes the same value
+ * from the same state; this only closes the gap between them.
  */
-export function publishBuilderSendTurn(patch: {
-  nextSendSeq?: number;
-  rejectedSendSeq?: number;
-}): void {
+export function publishBuilderSendTurn(patch: { rejectedSendSeq?: number }): void {
   if (typeof window === "undefined") return;
   const ctx = window.__SITEMASKIN_CONTEXT;
   if (!ctx) return;
@@ -60,7 +54,6 @@ export function readBuilderTurnSnapshot(): BuilderTurnSnapshot | null {
     versionIsLatest: ctx.activeVersionIsLatest === true,
     chatMessageCount:
       typeof ctx.chatMessageCount === "number" ? ctx.chatMessageCount : null,
-    nextSendSeq: typeof ctx.nextSendSeq === "number" ? ctx.nextSendSeq : null,
     rejectedSendSeq:
       typeof ctx.rejectedSendSeq === "number" ? ctx.rejectedSendSeq : null,
     awaitingInput: ctx.awaitingInput === true,

@@ -56,7 +56,6 @@ function setBuilderContext(overrides: Record<string, unknown> = {}) {
     activeVersionStatus: "ready",
     activeVersionIsLatest: true,
     chatMessageCount: 4,
-    nextSendSeq: 5,
     rejectedSendSeq: null,
     ...overrides,
   };
@@ -258,11 +257,14 @@ describe("armed autonomy — continuation handshake", () => {
     // A fresh id: auto-sends are idempotent per message for the whole session.
     render(<Harness messages={[submitFillMessage("msg-refusal", 100)]} onSend={onSend} />);
 
-    // The card names its turn from the id the builder published before the
-    // click, so the refusal below can be told apart from anyone else's.
+    // The watch registers unnamed; the builder send it started claims the id
+    // when it arrives, which is what `BuilderShellContent` does for an
+    // `openclaw-prepared` send.
     await waitFor(() =>
-      expect(useOpenClawStore.getState().armedContinuation?.sendSeq).toBe(5),
+      expect(useOpenClawStore.getState().armedContinuation).not.toBeNull(),
     );
+    act(() => useOpenClawStore.getState().bindArmedContinuationSend(5));
+    expect(useOpenClawStore.getState().armedContinuation?.sendSeq).toBe(5);
 
     // A manual retry (send 6) fails mid-build. Autonomy's own turn is fine and
     // must keep running — this is what a shared timestamp got wrong.

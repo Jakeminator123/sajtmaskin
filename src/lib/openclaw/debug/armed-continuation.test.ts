@@ -35,7 +35,6 @@ function snapshot(overrides: Partial<BuilderTurnSnapshot> = {}): BuilderTurnSnap
     isStreaming: false,
     versionStatus: "ready",
     versionIsLatest: true,
-    nextSendSeq: 8,
     rejectedSendSeq: null,
     awaitingInput: false,
     chatMessageCount: 4,
@@ -78,7 +77,8 @@ describe("createArmedContinuationWatch", () => {
       versionIdAtSend: "ver-1",
       startedAt: NOW,
       messageCountAtSend: 4,
-      sendSeq: 8,
+      // Named by the send itself once it reaches the builder, never guessed here.
+      sendSeq: null,
       observedAt: null,
       observedStrong: false,
       resumedAt: null,
