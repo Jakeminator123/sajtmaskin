@@ -504,6 +504,60 @@ export type QualityGateSignalOptions = {
  * faktiskt beskriver innehållet — finns ingen är det en känd mismatch: "ingen
  * gate har körts för det här innehållet".
  */
+type TelemetryRevisionRow = {
+  qualityGateResult?: string | null;
+  filesRevision?: string | null;
+};
+
+/**
+ * Shared revision match for one version's telemetry rows (newest first) against
+ * a known content revision. Same rules as the gate-on path in
+ * {@link getLatestQualityGateSignalForVersion}.
+ */
+function resolveQualityGateSignalFromRows(
+  rowsNewestFirst: TelemetryRevisionRow[],
+  contentRevision: string | null,
+): QualityGateSignal {
+  const latest = rowsNewestFirst[0];
+  const legacySignal: QualityGateSignal = {
+    result: latest?.qualityGateResult ?? null,
+    revisionMatch: "unknown",
+    verdictRevision: latest?.filesRevision ?? null,
+    contentRevision: null,
+  };
+  if (!latest || !contentRevision) return legacySignal;
+
+  const latestMatch = classifyRevisionMatch(latest.filesRevision, contentRevision);
+  if (latestMatch === "unknown") {
+    return { ...legacySignal, contentRevision };
+  }
+  if (latestMatch === "current") {
+    return {
+      result: latest.qualityGateResult ?? null,
+      revisionMatch: "current",
+      verdictRevision: latest.filesRevision ?? null,
+      contentRevision,
+    };
+  }
+  const matching = rowsNewestFirst.find(
+    (row) => classifyRevisionMatch(row.filesRevision, contentRevision) === "current",
+  );
+  if (matching) {
+    return {
+      result: matching.qualityGateResult ?? null,
+      revisionMatch: "current",
+      verdictRevision: matching.filesRevision ?? null,
+      contentRevision,
+    };
+  }
+  return {
+    result: latest.qualityGateResult ?? null,
+    revisionMatch: "stale",
+    verdictRevision: latest.filesRevision ?? null,
+    contentRevision,
+  };
+}
+
 export async function getLatestQualityGateSignalForVersion(
   versionId: string,
   opts?: QualityGateSignalOptions,
@@ -536,35 +590,105 @@ export async function getLatestQualityGateSignalForVersion(
   //
   // Först när den nyaste raden är en KÄND mismatch är det meningsfullt att
   // fråga om någon äldre rad faktiskt beskriver innehållet.
-  const latestMatch = classifyRevisionMatch(latest.filesRevision, contentRevision);
-  if (latestMatch === "unknown") {
-    return { ...legacySignal, contentRevision };
-  }
-  if (latestMatch === "current") {
-    return {
-      result: latest.qualityGateResult ?? null,
-      revisionMatch: "current",
-      verdictRevision: latest.filesRevision ?? null,
-      contentRevision,
+  return resolveQualityGateSignalFromRows(rows, contentRevision);
+}
+
+/**
+ * Batch variant of {@link getLatestQualityGateSignalForVersion} for a whole chat.
+ *
+ * Used by the polled `GET .../versions` list — **one** DB round-trip, never
+ * N+1 per version. Flag off → empty map and **zero** DB reads (exact today's
+ * list behaviour). Read-only; never writes.
+ *
+ * SQL shape: `DISTINCT ON (version_id) … ORDER BY version_id, created_at DESC`
+ * for the latest telemetry row per version, joined to
+ * `engine_versions.files_revision`, plus a lateral lookup for an older row that
+ * matches current content when the latest is a known mismatch — same revision
+ * semantics as the single-version reader. Index:
+ * `idx_generation_telemetry_version_revision`.
+ */
+export async function getLatestQualityGateSignalsForChat(
+  chatId: string,
+): Promise<Map<string, QualityGateSignal>> {
+  const out = new Map<string, QualityGateSignal>();
+  if (!chatId || !isContentRevisionGateEnabled()) return out;
+  assertDbConfigured();
+
+  const result = await db.execute(sql`
+    WITH latest AS (
+      SELECT DISTINCT ON (t.version_id)
+        t.version_id AS version_id,
+        t.quality_gate_result AS quality_gate_result,
+        t.files_revision AS verdict_revision,
+        v.files_revision AS content_revision
+      FROM generation_telemetry t
+      INNER JOIN engine_versions v ON v.id = t.version_id
+      WHERE t.chat_id = ${chatId}
+        AND t.version_id IS NOT NULL
+      ORDER BY t.version_id, t.created_at DESC
+    )
+    SELECT
+      l.version_id AS "versionId",
+      l.quality_gate_result AS "latestResult",
+      l.verdict_revision AS "latestVerdictRevision",
+      l.content_revision AS "contentRevision",
+      m.quality_gate_result AS "matchingResult",
+      m.files_revision AS "matchingVerdictRevision"
+    FROM latest l
+    LEFT JOIN LATERAL (
+      SELECT t2.quality_gate_result, t2.files_revision
+      FROM generation_telemetry t2
+      WHERE t2.version_id = l.version_id
+        AND l.content_revision IS NOT NULL
+        AND t2.files_revision IS NOT NULL
+        AND t2.files_revision = l.content_revision
+      ORDER BY t2.created_at DESC
+      LIMIT 1
+    ) m ON true
+  `);
+
+  const rows =
+    (result as unknown as {
+      rows?: Array<{
+        versionId: string | null;
+        latestResult: string | null;
+        latestVerdictRevision: string | null;
+        contentRevision: string | null;
+        matchingResult: string | null;
+        matchingVerdictRevision: string | null;
+      }>;
+    }).rows ??
+    (Array.isArray(result)
+      ? (result as Array<{
+          versionId: string | null;
+          latestResult: string | null;
+          latestVerdictRevision: string | null;
+          contentRevision: string | null;
+          matchingResult: string | null;
+          matchingVerdictRevision: string | null;
+        }>)
+      : []);
+
+  for (const row of rows) {
+    if (!row.versionId) continue;
+    const contentRevision = row.contentRevision ?? null;
+    const latestRow: TelemetryRevisionRow = {
+      qualityGateResult: row.latestResult,
+      filesRevision: row.latestVerdictRevision,
     };
+    const rowsNewestFirst: TelemetryRevisionRow[] = [latestRow];
+    if (
+      row.matchingVerdictRevision != null &&
+      row.matchingVerdictRevision !== row.latestVerdictRevision
+    ) {
+      rowsNewestFirst.push({
+        qualityGateResult: row.matchingResult,
+        filesRevision: row.matchingVerdictRevision,
+      });
+    }
+    out.set(row.versionId, resolveQualityGateSignalFromRows(rowsNewestFirst, contentRevision));
   }
-  const matching = rows.find(
-    (row) => classifyRevisionMatch(row.filesRevision, contentRevision) === "current",
-  );
-  if (matching) {
-    return {
-      result: matching.qualityGateResult ?? null,
-      revisionMatch: "current",
-      verdictRevision: matching.filesRevision ?? null,
-      contentRevision,
-    };
-  }
-  return {
-    result: latest.qualityGateResult ?? null,
-    revisionMatch: "stale",
-    verdictRevision: latest.filesRevision ?? null,
-    contentRevision,
-  };
+  return out;
 }
 
 /**

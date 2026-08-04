@@ -405,8 +405,8 @@
     {
       "key": "SAJTMASKIN_CONTENT_REVISION_GATE",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview"],
-      "notes": "Opt-in, default off. Lets the verdict/receipt readers compare generation_telemetry.files_revision against engine_versions.files_revision instead of trusting versionId. On: the promote guard discards a verdict describing another revision (symmetrically, both passed and failed) and answers retryable indeterminate rather than terminal failed; the runtime-ready receipt only stamps rows whose revision matches the served content; a terminal bus status describing older content is degraded in /version-status. An unknown revision is never blocking — only a known mismatch is. Frequency is measured via sajtmaskin_content_revision_mismatch_total. Production is deliberately NOT a recommended target yet: releasing the flag is an owner decision, preview first. Source: src/lib/gen/verify/content-revision.ts."
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Opt-in, default off in code. Lets the verdict/receipt readers compare generation_telemetry.files_revision against engine_versions.files_revision instead of trusting versionId. On: the promote guard discards a verdict describing another revision (symmetrically, both passed and failed) and answers retryable indeterminate rather than terminal failed; the runtime-ready receipt only stamps rows whose revision matches the served content; a terminal bus status describing older content is degraded in /version-status. An unknown revision is never blocking — only a known mismatch is. Frequency is measured via sajtmaskin_content_revision_mismatch_total. Owner decision 2026-08-04 (restlista R14): released to ALL Vercel environments including production; watch the mismatch counter via /api/metrics. Source: src/lib/gen/verify/content-revision.ts."
     },
     {
       "key": "SAJTMASKIN_DOMAIN_PURCHASE",

@@ -259,6 +259,90 @@ describe.skipIf(!target.url)("innehållsrevision steg 3 mot riktig Postgres", ()
     });
   });
 
+  describe("batch-läsaren för /versions-listan (R15)", () => {
+    /**
+     * De mockade testerna ersätter `db.execute`, så `DISTINCT ON`/`LATERAL`-
+     * satsen körs aldrig där. Det här blocket bevisar två saker mot riktig
+     * Postgres: att satsen är giltig SQL mot det verkliga schemat, och att
+     * batchen svarar EXAKT som single-läsaren för samma versioner — paritet
+     * är kontraktet, inte en egen semantik.
+     */
+    it("batchen svarar samma som single-läsaren för stale, current och unknown", async () => {
+      process.env.SAJTMASKIN_CONTENT_REVISION_GATE = "true";
+
+      // stale: verdikt för bas-innehållet, sedan user-edit.
+      const staleVersion = await createVersion(FILES_BASE);
+      await telemetry.createGenerationTelemetryRecord({
+        chatId,
+        versionId: staleVersion,
+        model: "test-model",
+        qualityGateResult: "preflight_passed",
+      });
+      await rewriteVersionFiles(staleVersion, FILES_EDITED);
+
+      // current: verdiktet gäller innehållet som ligger kvar.
+      const currentVersion = await createVersion(FILES_BASE);
+      await telemetry.createGenerationTelemetryRecord({
+        chatId,
+        versionId: currentVersion,
+        model: "test-model",
+        qualityGateResult: "verifier_failed",
+      });
+
+      // unknown: rad utan revision (skriven före steg 2).
+      const unknownVersion = await createVersion(FILES_BASE);
+      versionSeq += 1;
+      await pool.query(
+        `insert into generation_telemetry (id, chat_id, model, version_id, quality_gate_result)
+         values ($1, $2, $3, $4, $5)`,
+        [`tel_crtest_batch_${versionSeq}`, chatId, "test-model", unknownVersion, "preflight_passed"],
+      );
+
+      const batch = await telemetry.getLatestQualityGateSignalsForChat(chatId);
+
+      for (const versionId of [staleVersion, currentVersion, unknownVersion]) {
+        const single = await telemetry.getLatestQualityGateSignalForVersion(versionId);
+        expect(batch.get(versionId)).toEqual(single);
+      }
+      expect(batch.get(staleVersion)?.revisionMatch).toBe("stale");
+      expect(batch.get(currentVersion)?.revisionMatch).toBe("current");
+      expect(batch.get(unknownVersion)?.revisionMatch).toBe("unknown");
+    });
+
+    it("äldre rad som matchar innehållet vinner över stale latest — även i batchen", async () => {
+      process.env.SAJTMASKIN_CONTENT_REVISION_GATE = "true";
+      const versionId = await createVersion(FILES_EDITED);
+      // Äldre rad: verdikt för innehållet som (till slut) ligger kvar.
+      await telemetry.createGenerationTelemetryRecord({
+        chatId,
+        versionId,
+        model: "test-model",
+        qualityGateResult: "preflight_passed",
+      });
+      // Nyare rad: verdikt för ett mellanliggande innehåll → känd mismatch.
+      await rewriteVersionFiles(versionId, FILES_BASE);
+      await telemetry.createGenerationTelemetryRecord({
+        chatId,
+        versionId,
+        model: "test-model",
+        qualityGateResult: "verifier_failed",
+      });
+      await rewriteVersionFiles(versionId, FILES_EDITED);
+
+      const batch = await telemetry.getLatestQualityGateSignalsForChat(chatId);
+      const single = await telemetry.getLatestQualityGateSignalForVersion(versionId);
+
+      expect(batch.get(versionId)).toEqual(single);
+      expect(batch.get(versionId)?.revisionMatch).toBe("current");
+      expect(batch.get(versionId)?.result).toBe("preflight_passed");
+    });
+
+    it("flaggan av → tom map och ingen läsning", async () => {
+      const batch = await telemetry.getLatestQualityGateSignalsForChat(chatId);
+      expect(batch.size).toBe(0);
+    });
+  });
+
   describe("runtime-ready-kvittot (M#pv4)", () => {
     /**
      * Repro: v1 bootar och servas; ett server-repair passerar sin gate och

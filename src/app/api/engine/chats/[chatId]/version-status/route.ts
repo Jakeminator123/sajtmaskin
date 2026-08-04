@@ -182,20 +182,28 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
         ? selectVersionStatus(readAll(dbVersion.id))
         : busStatus;
 
-    // Innehållsrevision steg 3 (flagg-gated): en TERMINAL bus-status kan beskriva
+    // Innehållsrevision steg 3 (flagg-gated): en terminal status kan beskriva
     // ett äldre innehåll — user-edit via `/files` skriver om `files_json` medan
-    // bussen (per-instans in-memory) behåller sitt `done`. Läs verdiktets revision
-    // bara i det läget: en icke-terminal status är ändå ingen "Klar"-claim, och
-    // terminala statusar slutar pollas av `useVersionStatus`, så detta är inte den
-    // heta 4s-vägen. Read-only och best-effort — ett läsfel får aldrig fälla
-    // statussvaret, det bara uteblir degraderingen.
+    // bussen (per-instans in-memory) behåller sitt `done`. Gaten är bus ELLER
+    // DB-terminal (Bugbot på fix/restlista-r14-r15): bussen är per-instans, så
+    // på serverless är en TOM buss normalfallet och terminalen kommer i stället
+    // från reconcile-uppgraderingen av DB:ns `verification_state` — bus-only
+    // missade exakt de pollarna. En icke-terminal slutstatus är ändå ingen
+    // "Klar"-claim (degraderingen no-op:ar), och terminala statusar slutar
+    // pollas av `useVersionStatus`, så detta är inte den heta 4s-vägen.
+    // Read-only och best-effort — ett läsfel får aldrig fälla statussvaret,
+    // det bara uteblir degraderingen.
     let contentRevision: ContentRevisionContext | undefined;
-    const busTerminal =
-      effectiveBusStatus.phase === "done" || effectiveBusStatus.phase === "failed";
-    if (busTerminal && isContentRevisionGateEnabled()) {
+    let staleSignalResult: string | null = null;
+    const mayRenderTerminal =
+      effectiveBusStatus.phase === "done" ||
+      effectiveBusStatus.phase === "failed" ||
+      dbVersion.verification_state === "passed" ||
+      dbVersion.verification_state === "failed";
+    if (mayRenderTerminal && isContentRevisionGateEnabled()) {
       const signal = await getLatestQualityGateSignalForVersion(dbVersion.id).catch(() => null);
       if (signal?.revisionMatch === "stale") {
-        incContentRevisionMismatch("status_projection", { verdict: signal.result });
+        staleSignalResult = signal.result;
         contentRevision = {
           verdictRevision: signal.verdictRevision,
           currentRevision: signal.contentRevision,
@@ -214,6 +222,11 @@ async function handleGET(req: Request, ctx: { params: Promise<{ chatId: string }
       dbVersion.release_state,
       contentRevision,
     );
+    // Räkna mismatchen först när slutfasen faktiskt är terminal — en spinner
+    // är ingen claim, och räknaren ska mäta degraderade terminal-claims.
+    if (staleSignalResult !== null && (status.phase === "done" || status.phase === "failed")) {
+      incContentRevisionMismatch("status_projection", { verdict: staleSignalResult });
+    }
 
     return NextResponse.json<VersionStatusApiResponse>({
       ok: true,

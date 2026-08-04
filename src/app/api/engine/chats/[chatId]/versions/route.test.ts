@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const shouldUseV0Fallback = vi.hoisted(() => vi.fn(() => false));
 const getEngineChatByIdForRequest = vi.hoisted(() => vi.fn());
@@ -14,6 +14,8 @@ const addMessage = vi.hoisted(() => vi.fn());
 const createDraftVersion = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
 const readAll = vi.hoisted(() => vi.fn(() => [] as unknown[]));
+const getLatestQualityGateSignalsForChat = vi.hoisted(() => vi.fn());
+const incContentRevisionMismatch = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/logging/event-bus", () => ({ readAll }));
 
@@ -41,6 +43,17 @@ vi.mock("@/lib/db/services/version-errors", () => ({
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewUrl,
+}));
+
+// Innehållsrevision R15: list path batches revision reads (not N+1). Mocked so
+// importing the route never touches `@/lib/db/client` (same reason as
+// version-status's getLatestQualityGateSignalForVersion mock).
+vi.mock("@/lib/db/services/generation-telemetry", () => ({
+  getLatestQualityGateSignalsForChat,
+}));
+
+vi.mock("@/lib/observability/metrics", () => ({
+  incContentRevisionMismatch,
 }));
 
 vi.mock("@/lib/db/client", () => ({
@@ -82,6 +95,21 @@ vi.mock("drizzle-orm", () => ({
 
 import { GET, PATCH } from "./route";
 
+const REVISION_N = "1".repeat(32);
+const REVISION_N_PLUS_1 = "2".repeat(32);
+
+const terminalDoneBus = [
+  {
+    t: "version.done",
+    id: "e1",
+    ts: "2026-08-04T10:00:00.000Z",
+    runId: "root",
+    versionId: "ver_rewritten",
+    chatId: "chat_1",
+    durationMs: 1000,
+  },
+];
+
 describe("GET /api/engine/chats/[chatId]/versions", () => {
   beforeEach(() => {
     shouldUseV0Fallback.mockReturnValue(false);
@@ -100,6 +128,14 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     createEngineVersionErrorLogs.mockResolvedValue(null);
     readAll.mockReset();
     readAll.mockReturnValue([]);
+    getLatestQualityGateSignalsForChat.mockReset();
+    getLatestQualityGateSignalsForChat.mockResolvedValue(new Map());
+    incContentRevisionMismatch.mockReset();
+    delete process.env.SAJTMASKIN_CONTENT_REVISION_GATE;
+  });
+
+  afterEach(() => {
+    delete process.env.SAJTMASKIN_CONTENT_REVISION_GATE;
   });
 
   it("returns failed own-engine versions without a preview URL", async () => {
@@ -242,6 +278,149 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     expect(response.status).toBe(200);
     // Without the reconcile this would be "repairing" (a perpetual spinner).
     expect(json.versions[0].busStatus.phase).toBe("failed");
+  });
+
+  describe("innehållsrevision (R15) — historikbadgen får inte visa solid Klar för omskrivet innehåll", () => {
+    beforeEach(() => {
+      getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1" });
+      getVersionsByChat.mockResolvedValue([
+        {
+          id: "ver_rewritten",
+          created_at: "2026-08-04T10:00:00.000Z",
+          version_number: 2,
+          message_id: "msg_1",
+          release_state: "draft",
+          verification_state: "pending",
+          verification_summary: null,
+          promoted_at: null,
+        },
+      ]);
+      readAll.mockReturnValue(terminalDoneBus);
+    });
+
+    it("degraderar terminal busStatus när senaste gate-signalen är stale (flagga PÅ)", async () => {
+      process.env.SAJTMASKIN_CONTENT_REVISION_GATE = "true";
+      getLatestQualityGateSignalsForChat.mockResolvedValue(
+        new Map([
+          [
+            "ver_rewritten",
+            {
+              result: "preflight_passed",
+              revisionMatch: "stale",
+              verdictRevision: REVISION_N,
+              contentRevision: REVISION_N_PLUS_1,
+            },
+          ],
+        ]),
+      );
+
+      const response = await GET(
+        new Request("https://example.com/api/engine/chats/chat_1/versions"),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(json.versions[0].busStatus.phase).toBe("done");
+      expect(json.versions[0].busStatus.degradations.map((d: { kind: string }) => d.kind)).toEqual([
+        "stale_content_revision",
+      ]);
+      expect(incContentRevisionMismatch).toHaveBeenCalledWith("versions_list", {
+        verdict: "preflight_passed",
+      });
+    });
+
+    it("degraderar även när bussen är tom och DB:n är terminal — serverless cold start (Bugbot)", async () => {
+      process.env.SAJTMASKIN_CONTENT_REVISION_GATE = "true";
+      // Per-instans in-memory buss: en ny instans har inga events alls, och
+      // reconcileTerminalDbState uppgraderar idle → done från DB-tillståndet.
+      readAll.mockReturnValue([]);
+      getVersionsByChat.mockResolvedValue([
+        {
+          id: "ver_rewritten",
+          created_at: "2026-08-04T10:00:00.000Z",
+          version_number: 2,
+          message_id: "msg_1",
+          release_state: "draft",
+          verification_state: "passed",
+          verification_summary: null,
+          promoted_at: null,
+        },
+      ]);
+      getLatestQualityGateSignalsForChat.mockResolvedValue(
+        new Map([
+          [
+            "ver_rewritten",
+            {
+              result: "preflight_passed",
+              revisionMatch: "stale",
+              verdictRevision: REVISION_N,
+              contentRevision: REVISION_N_PLUS_1,
+            },
+          ],
+        ]),
+      );
+
+      const response = await GET(
+        new Request("https://example.com/api/engine/chats/chat_1/versions"),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(getLatestQualityGateSignalsForChat).toHaveBeenCalledWith("chat_1");
+      expect(json.versions[0].busStatus.phase).toBe("done");
+      expect(json.versions[0].busStatus.degradations.map((d: { kind: string }) => d.kind)).toEqual([
+        "stale_content_revision",
+      ]);
+      expect(incContentRevisionMismatch).toHaveBeenCalledWith("versions_list", {
+        verdict: "preflight_passed",
+      });
+    });
+
+    it("läser inte revision alls med flaggan av (exakt dagens beteende)", async () => {
+      const response = await GET(
+        new Request("https://example.com/api/engine/chats/chat_1/versions"),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(getLatestQualityGateSignalsForChat).not.toHaveBeenCalled();
+      expect(json.versions[0].busStatus.phase).toBe("done");
+      expect(json.versions[0].busStatus.degradations).toEqual([]);
+      expect(incContentRevisionMismatch).not.toHaveBeenCalled();
+    });
+
+    it("degraderar inte när revisionMatch är unknown eller current (fail-open)", async () => {
+      process.env.SAJTMASKIN_CONTENT_REVISION_GATE = "true";
+      for (const revisionMatch of ["unknown", "current"] as const) {
+        getLatestQualityGateSignalsForChat.mockResolvedValue(
+          new Map([
+            [
+              "ver_rewritten",
+              {
+                result: "preflight_passed",
+                revisionMatch,
+                verdictRevision: revisionMatch === "current" ? REVISION_N_PLUS_1 : null,
+                contentRevision: revisionMatch === "current" ? REVISION_N_PLUS_1 : null,
+              },
+            ],
+          ]),
+        );
+
+        const response = await GET(
+          new Request("https://example.com/api/engine/chats/chat_1/versions"),
+          { params: Promise.resolve({ chatId: "chat_1" }) },
+        );
+        const json = await response.json();
+
+        expect(json.versions[0].busStatus.phase).toBe("done");
+        expect(json.versions[0].busStatus.degradations).toEqual([]);
+        expect(incContentRevisionMismatch).not.toHaveBeenCalled();
+        incContentRevisionMismatch.mockReset();
+      }
+    });
   });
 
   it("returns empty versions when chat is not engine-backed and has no legacy DB mapping", async () => {

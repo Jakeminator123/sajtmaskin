@@ -537,6 +537,34 @@ describe("GET version-status (engine)", () => {
       expect(body.status?.degradations.map((d) => d.kind)).toEqual(["stale_content_revision"]);
     });
 
+    it("degraderar även när bussen är tom och DB:n är terminal — serverless cold start (Bugbot)", async () => {
+      process.env.SAJTMASKIN_CONTENT_REVISION_GATE = "true";
+      // Per-instans in-memory buss: en annan instans har inga events, och
+      // terminalen kommer från reconcile-uppgraderingen av DB:ns
+      // verification_state — bus-only-gaten missade exakt den här pollen.
+      getEngineVersionForChatByIdForRequest.mockResolvedValue({
+        version: { id: "v1", verification_state: "passed", release_state: "promoted" },
+      });
+      readAll.mockReturnValue([]);
+      getLatestQualityGateSignalForVersion.mockResolvedValue({
+        result: "preflight_passed",
+        revisionMatch: "stale",
+        verdictRevision: "1".repeat(32),
+        contentRevision: "2".repeat(32),
+      });
+
+      const res = await GET(
+        new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      const body = (await res.json()) as {
+        status?: { phase: string; degradations: Array<{ kind: string }> };
+      };
+      expect(body.status?.phase).toBe("done");
+      expect(body.status?.degradations.map((d) => d.kind)).toEqual(["stale_content_revision"]);
+    });
+
     it("läser inte verdiktets revision alls med flaggan av", async () => {
       const res = await GET(
         new Request("http://localhost/api/engine/chats/chat_1/version-status?versionId=v1"),

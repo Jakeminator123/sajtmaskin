@@ -20,7 +20,13 @@ import { transientDbResponseIfRetryable } from "@/lib/api/transient-db-response"
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
 import { readAll } from "@/lib/logging/event-bus";
 import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
-import { reconcileTerminalDbState } from "@/lib/gen/verify/stale-verification";
+import {
+  reconcileTerminalDbState,
+  type ContentRevisionContext,
+} from "@/lib/gen/verify/stale-verification";
+import { isContentRevisionGateEnabled } from "@/lib/gen/verify/content-revision";
+import { getLatestQualityGateSignalsForChat } from "@/lib/db/services/generation-telemetry";
+import { incContentRevisionMismatch } from "@/lib/observability/metrics";
 
 // P0 stream-abort recovery (2026-04-26). The `/versions` route is the
 // canonical poll surface used by useVersions. By piggy-backing the chat's
@@ -87,7 +93,53 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       }
     }
     if (engineChat && engineVersions.length > 0) {
-      const versionsList = engineVersions.map((v) => ({
+      // Project bus status first so we only pay for a revision batch read when
+      // at least one row can RENDER terminal. The bus is per-instance
+      // in-memory, so on serverless the common case is an EMPTY bus (cold
+      // start / other instance) where `reconcileTerminalDbState` upgrades an
+      // idle projection from the DB's terminal `verification_state` — the
+      // gate must therefore look at bus OR DB, not bus alone (Bugbot on this
+      // diff: bus-only gating dropped the stale signal exactly where it
+      // matters most, right after a deploy).
+      const projectedByVersion = new Map(
+        engineVersions.map((v) => [v.id, selectVersionStatus(readAll(v.id))] as const),
+      );
+      const canRenderTerminal = (projected: { phase: string }, verificationState: string | null) =>
+        projected.phase === "done" ||
+        projected.phase === "failed" ||
+        verificationState === "passed" ||
+        verificationState === "failed";
+      const anyTerminal = engineVersions.some((v) =>
+        canRenderTerminal(
+          projectedByVersion.get(v.id) ?? selectVersionStatus([]),
+          v.verification_state,
+        ),
+      );
+      // Innehållsrevision R15 (flagg-gated): same semantics as `/version-status`,
+      // but ONE batched read for the whole chat — never N+1 on this polled list
+      // path, and never a DB write. Flag off → zero extra reads (today's path).
+      const revisionByVersion =
+        anyTerminal && isContentRevisionGateEnabled()
+          ? await getLatestQualityGateSignalsForChat(engineChat.id).catch(
+              () => new Map(),
+            )
+          : null;
+
+      const versionsList = engineVersions.map((v) => {
+          const projected = projectedByVersion.get(v.id) ?? selectVersionStatus([]);
+          let contentRevision: ContentRevisionContext | undefined;
+          let staleSignalResult: string | null = null;
+          if (revisionByVersion && canRenderTerminal(projected, v.verification_state)) {
+            const signal = revisionByVersion.get(v.id);
+            if (signal?.revisionMatch === "stale") {
+              staleSignalResult = signal.result;
+              contentRevision = {
+                verdictRevision: signal.verdictRevision,
+                currentRevision: signal.contentRevision,
+              };
+            }
+          }
+          return {
           id: v.id,
           versionId: v.id,
           ...previewUrlField(v.preview_url),
@@ -131,13 +183,28 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           // while the active-version surface has already settled. Pure + no DB
           // write — the lease-safe watchdog write stays on `/version-status` +
           // `/readiness`; a list poll must never write.
-          busStatus: reconcileTerminalDbState(
-            selectVersionStatus(readAll(v.id)),
-            v.verification_state,
-            v.release_state,
-          ),
+          busStatus: (() => {
+            const reconciled = reconcileTerminalDbState(
+              projected,
+              v.verification_state,
+              v.release_state,
+              contentRevision,
+            );
+            // Count the mismatch only when a terminal claim was actually
+            // degraded — `withStaleRevisionDegradation` no-ops on non-terminal
+            // phases, and the counter must not tick for rows that render as a
+            // spinner anyway.
+            if (
+              staleSignalResult !== null &&
+              (reconciled.phase === "done" || reconciled.phase === "failed")
+            ) {
+              incContentRevisionMismatch("versions_list", { verdict: staleSignalResult });
+            }
+            return reconciled;
+          })(),
           canPin: false,
-      }));
+      };
+      });
       return NextResponse.json({
         versions: versionsList,
         chatStatus: buildChatRunStatus(engineChat.id, true),
