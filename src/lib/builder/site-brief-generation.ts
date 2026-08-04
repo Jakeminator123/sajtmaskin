@@ -5,6 +5,11 @@
 import { createHash } from "node:crypto";
 import { generateObject } from "ai";
 import { z } from "zod";
+import {
+  getBriefingEnvKeysFromManifest,
+  getPerTierBriefingFromManifest,
+  type BuildProfileId,
+} from "@/lib/ai-models/load-manifest";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
@@ -789,8 +794,30 @@ function resolveRunnableBriefModel(preferred: string): string | null {
 /**
  * Best-effort brief for create-chat / internal callers: picks a runnable model when keys differ.
  */
+export function resolveServerAutoBriefPreferredModel(params: {
+  modelTier?: BuildProfileId | null;
+  assistModelHint?: string | null;
+}): string {
+  const explicitModel = params.assistModelHint?.trim();
+  const tierModel = params.modelTier
+    ? getPerTierBriefingFromManifest()?.[params.modelTier]?.briefingModel.trim()
+    : "";
+  const tierProvider = tierModel
+    ? resolvePromptAssistProvider(normalizeAssistModel(tierModel))
+    : null;
+  const briefingEnvKeys = getBriefingEnvKeysFromManifest();
+  const envModel =
+    tierProvider === "anthropic"
+      ? process.env[briefingEnvKeys.serverAutoAnthropic]?.trim()
+      : tierProvider === "openai"
+        ? process.env[briefingEnvKeys.serverAutoOpenAI]?.trim()
+        : "";
+  return normalizeAssistModel(explicitModel || envModel || tierModel || AUTO_BRIEF_MODEL_OPENAI);
+}
+
 export async function tryGenerateServerAutoBrief(params: {
   prompt: string;
+  modelTier?: BuildProfileId | null;
   assistModelHint?: string | null;
   imageGenerations: boolean;
   signal?: AbortSignal;
@@ -802,9 +829,7 @@ export async function tryGenerateServerAutoBrief(params: {
    *  visual changes. */
   priorDesignContext?: string;
 }): Promise<{ brief: Record<string, unknown>; modelUsed: string; trace: BriefTrace } | null> {
-  const normalized = normalizeAssistModel(
-    params.assistModelHint?.trim() || AUTO_BRIEF_MODEL_OPENAI,
-  );
+  const normalized = resolveServerAutoBriefPreferredModel(params);
   const runnable = resolveRunnableBriefModel(normalized);
   if (!runnable) return null;
 

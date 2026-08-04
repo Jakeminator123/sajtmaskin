@@ -10,7 +10,7 @@
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:8e5963583ff59a4b -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:40181cc99930d580 -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:1d4c06457cec3a1e -->
 
 # Policies
 
@@ -228,7 +228,7 @@ This index contains 34 control-plane entries. It is a map to canonical owners, n
 | `domain-rules`                      | `policy`            | `config/domain-rules.json`                                | `backoffice:test`       | `hard`    | `wired`         | Yes              |
 | `env-policy`                        | `policy`            | `config/env-policy.json`                                  | `env:audit`             | `manual`  | `declared-only` | No               |
 | `generated-site-placeholders`       | `policy`            | `config/ai_models/40-harmless-placeholders.env.txt`       | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `manifest-per-tier-briefing`        | `policy`            | `config/ai_models/manifest.json#perTierBriefing`          | `control-plane:check`   | `warn`    | `declared-only` | No               |
+| `manifest-per-tier-briefing`        | `policy`            | `config/ai_models/manifest.json#perTierBriefing`          | `control-plane:check`   | `hard`    | `wired`         | Yes              |
 | `manifest-per-tier-repair-policies` | `policy`            | `config/ai_models/manifest.json#perTierRepairPolicies`    | `control-plane:check`   | `warn`    | `declared-only` | No               |
 | `manifest-per-tier-timeouts`        | `policy`            | `config/ai_models/manifest.json#perTierTimeouts`          | `control-plane:check`   | `warn`    | `declared-only` | No               |
 | `manifest-pre-generation-contracts` | `policy`            | `config/ai_models/manifest.json#preGenerationContracts`   | `test:ci`               | `hard`    | `wired`         | Yes              |

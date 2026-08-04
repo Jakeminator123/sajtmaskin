@@ -108,18 +108,18 @@ describe("getPhaseRoutingSummary", () => {
 });
 
 describe("resolvePhaseThinking", () => {
-  it("Premium uses pro mode with max/xhigh reasoning", () => {
+  it("Premium uses pro mode with high reasoning across build phases", () => {
     expect(resolvePhaseThinking("premium", "planner")).toEqual({
       phase: "planner",
       thinking: true,
-      reasoningEffort: "max",
+      reasoningEffort: "high",
       reasoningMode: "pro",
       reason: "manifest-phase-thinking",
     });
     expect(resolvePhaseThinking("premium", "generator")).toEqual({
       phase: "generator",
       thinking: true,
-      reasoningEffort: "xhigh",
+      reasoningEffort: "high",
       reasoningMode: "pro",
       reason: "manifest-phase-thinking",
     });
@@ -133,7 +133,7 @@ describe("resolvePhaseThinking", () => {
       expect(resolvePhaseThinking("premium", "planner")).toEqual({
         phase: "planner",
         thinking: true,
-        reasoningEffort: "max",
+        reasoningEffort: "high",
         reason: "manifest-phase-thinking",
       });
     } finally {

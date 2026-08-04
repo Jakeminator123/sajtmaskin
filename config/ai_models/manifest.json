@@ -168,12 +168,12 @@
       "premium": {
         "planner": {
           "thinking": true,
-          "reasoningEffort": "max",
+          "reasoningEffort": "high",
           "reasoningMode": "pro"
         },
         "generator": {
           "thinking": true,
-          "reasoningEffort": "xhigh",
+          "reasoningEffort": "high",
           "reasoningMode": "pro"
         },
         "fixer": {
@@ -281,7 +281,7 @@
         }
       }
     },
-    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. The Premium tier replaces the retired fast/cheap tier and runs GPT-5.6 Sol across every phase. Its planner and generator use the Responses API with reasoning mode pro; planner uses max effort and generator xhigh. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
+    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. The Premium tier replaces the retired fast/cheap tier and runs GPT-5.6 Sol across every phase. Its planner and generator use the Responses API with reasoning mode pro and high effort. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
   },
   "perTierRepairPolicies": {
     "premium": {

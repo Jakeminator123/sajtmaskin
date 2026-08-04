@@ -7,6 +7,7 @@ import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation"
 import { OPENCLAW } from "@/lib/config";
 import type { ChatWithMessages } from "@/lib/db/chat-repository-pg";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
+import type { CanonicalModelId } from "@/lib/models/catalog";
 import {
   extractBriefSummaryFromSnapshot,
   formatPriorDesignContext,
@@ -83,6 +84,7 @@ export async function runClearRedesignDeltaBriefPhase(params: {
   metaScaffoldId: string | null;
   metaBuildIntent: string | null;
   metaPromptAssistModel: string | null;
+  resolvedModelTier: CanonicalModelId;
   resolvedImageGenerations: boolean;
   req: Request;
   /** Mutated in place: a generated delta-brief is routed into orchestration. */
@@ -100,6 +102,7 @@ export async function runClearRedesignDeltaBriefPhase(params: {
     metaScaffoldId,
     metaBuildIntent,
     metaPromptAssistModel,
+    resolvedModelTier,
     resolvedImageGenerations,
     req,
     parsedMeta,
@@ -166,6 +169,7 @@ export async function runClearRedesignDeltaBriefPhase(params: {
     const deltaBriefStartedAt = Date.now();
     const deltaBriefResult = await tryGenerateServerAutoBrief({
       prompt: followUpIntentMessage,
+      modelTier: resolvedModelTier,
       assistModelHint: metaPromptAssistModel,
       imageGenerations: resolvedImageGenerations,
       signal: req.signal,

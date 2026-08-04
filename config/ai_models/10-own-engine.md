@@ -3,8 +3,8 @@
 ## Profiler, etiketter och Premium (GPT-5.6 Sol)
 
 - **Intern nyckel `premium`** heter **`Premium`** i buildern och kör
-  **`gpt-5.6-sol` i alla faser**. Planner kör `reasoningEffort: "max"` och
-  generator `xhigh`; båda använder Responses API och `reasoningMode: "pro"`.
+  **`gpt-5.6-sol` i alla faser**. Planner och generator kör
+  `reasoningEffort: "high"`; båda använder Responses API och `reasoningMode: "pro"`.
   `gpt-5.6-terra` och `gpt-5.6-luna` är valbara per fas i backoffice.
 - **Intern nyckel `max`** (i kod och `manifest.json`) är **inte** engelska «Max» i UI. I buildern heter den **`Tänker`** och mappar standard till **`gpt-5.5`** (`buildProfiles.defaults.max`).
 - **`codex`** är en **egen** byggprofil (standardmodell `gpt-5.3-codex` enligt manifest — samma modell-id som `pro`, men med codex-tirets högre reasoning-effort i fasrouting). Inte samma som `max` (GPT-5.5). Vardagsläge för stark resonemangsmodell är `max` / GPT-5.5.

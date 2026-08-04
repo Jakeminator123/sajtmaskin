@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   briefRequestSchema,
   buildBriefTrace,
+  resolveServerAutoBriefPreferredModel,
   SIMPLIFIED_SCHEMA_PROVIDER_OPTIONS,
   simplifiedBriefSchema,
   siteBriefSchema,
@@ -185,6 +186,63 @@ describe("buildBriefTrace", () => {
     expect(client.traceId).not.toBe(server.traceId);
     expect(client.source).toBe("dynamic_instructions");
     expect(server.source).toBe("server_auto_brief");
+  });
+});
+
+describe("resolveServerAutoBriefPreferredModel", () => {
+  it("uses the active build tier when no explicit or env model overrides it", () => {
+    const previousOpenAI = process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
+    const previousAnthropic = process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC;
+    delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
+    delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC;
+    try {
+      expect(resolveServerAutoBriefPreferredModel({ modelTier: "premium" })).toBe(
+        "openai/gpt-5.6-sol",
+      );
+      expect(resolveServerAutoBriefPreferredModel({ modelTier: "max" })).toBe(
+        "openai/gpt-5.5",
+      );
+      expect(resolveServerAutoBriefPreferredModel({ modelTier: "anthropic" })).toBe(
+        "anthropic/claude-opus-4.8",
+      );
+    } finally {
+      if (previousOpenAI === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
+      else process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = previousOpenAI;
+      if (previousAnthropic === undefined) {
+        delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC;
+      } else {
+        process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_ANTHROPIC = previousAnthropic;
+      }
+    }
+  });
+
+  it("keeps explicit request selection above env and per-tier defaults", () => {
+    const previous = process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
+    process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = "openai/gpt-5.5";
+    try {
+      expect(
+        resolveServerAutoBriefPreferredModel({
+          modelTier: "premium",
+          assistModelHint: "openai/gpt-5.6-terra",
+        }),
+      ).toBe("openai/gpt-5.6-terra");
+    } finally {
+      if (previous === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
+      else process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = previous;
+    }
+  });
+
+  it("lets the selected provider's auto-brief env override its tier default", () => {
+    const previous = process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
+    process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = "openai/gpt-5.6-luna";
+    try {
+      expect(resolveServerAutoBriefPreferredModel({ modelTier: "premium" })).toBe(
+        "openai/gpt-5.6-luna",
+      );
+    } finally {
+      if (previous === undefined) delete process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI;
+      else process.env.SAJTMASKIN_AUTO_BRIEF_MODEL_OPENAI = previous;
+    }
   });
 });
 

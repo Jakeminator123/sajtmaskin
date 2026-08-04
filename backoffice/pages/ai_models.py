@@ -745,26 +745,24 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
 def _render_per_tier_policies(manifest: dict[str, Any]) -> None:
     """Surface tier-differentierade fält (perTierTimeouts/RepairPolicies/Briefing).
 
-    Declared-only: dessa fält valideras (Zod i `load-manifest.ts` + JSON Schema)
-    och kan läsas via `getPerTier*FromManifest()`, men inget i generationsflödet
-    konsumerar dem ännu — globala `routeTimeouts`/`repairPolicies`/`briefing`
-    gäller vid körning. Read-only-vy: fälten ligger som top-level-objekt i
-    manifestet och bevaras vid all edit (write_json skriver tillbaka hela
-    manifestet). Edit görs via manifest.json-tabben.
+    Timeout/repair är declared-only. Briefing är wired: create-chat och
+    clear-redesign väljer modell från den aktiva byggprofilens post, med global
+    briefing-default som fallback. Read-only-vy: fälten ligger som top-level-
+    objekt i manifestet och bevaras vid all edit (write_json skriver tillbaka
+    hela manifestet). Edit görs via manifest.json-tabben.
     """
 
     timeouts = manifest.get("perTierTimeouts") or {}
     policies = manifest.get("perTierRepairPolicies") or {}
     briefing = manifest.get("perTierBriefing") or {}
 
-    st.markdown("### Tier-differentierade policys · declared-only (EJ wired till runtime)")
+    st.markdown("### Tier-differentierade policys")
     st.caption(
-        "**Declared-only / EJ wired till runtime (valideras men styr inte runtime ännu).** "
-        "`perTier*`-fälten valideras (Zod i `load-manifest.ts` + JSON Schema), men ingen "
-        "kod i generationsflödet läser dem. De globala fälten (`routeTimeouts`, "
-        "`repairPolicies`, `briefing`) är det som faktiskt gäller vid körning. "
-        "Se `config/control-plane/policy-registry.json` (`manifest-per-tier-*`, "
-        "runtimeStatus `declared-only`). Read-only-vy; edit görs via manifest.json-tabben."
+        "`perTierTimeouts` och `perTierRepairPolicies` är **declared-only / EJ wired**; "
+        "globala timeout- och repairvärden gäller. `perTierBriefing` är **wired** och "
+        "väljer auto-brief-modell efter byggprofil. Explicit prompt-assist-modell och "
+        "vald providers auto-brief-env vinner; global briefing-default används om "
+        "tier-posten saknas. Read-only-vy; edit görs via manifest.json-tabben."
     )
 
     has_any = bool(timeouts or policies or briefing)
@@ -820,7 +818,7 @@ def _render_per_tier_policies(manifest: dict[str, Any]) -> None:
         )
 
     if briefing:
-        st.markdown("#### perTierBriefing")
+        st.markdown("#### perTierBriefing · wired till runtime")
         st.dataframe(
             [
                 {

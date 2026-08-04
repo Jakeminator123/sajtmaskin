@@ -23,6 +23,17 @@ Anropet går till [`createDirectModel`](../../src/lib/builder/direct-model.ts), 
 Defaults och env-nycklar: `promptAssist.defaults` och `promptAssist.envKeys` i manifestet.  
 Konsument: [`src/lib/gen/defaults.ts`](../../src/lib/gen/defaults.ts) (`ASSIST_MODEL`, `POLISH_MODEL`) och builder-defaults.
 
+## Deep Brief och auto-brief
+
+Klientens `/api/ai/brief` använder den globala `briefing.defaults.requestModel`.
+Serverns auto-brief vid init och `clear-redesign` använder däremot
+`perTierBriefing.<vald byggprofil>.briefingModel`. Prioritet:
+
+1. explicit `promptAssistModel` i requesten,
+2. vald providers `SAJTMASKIN_AUTO_BRIEF_MODEL_*`,
+3. byggprofilens `perTierBriefing`,
+4. global `briefing.defaults.serverAutoOpenAI` som compatibility-fallback.
+
 ## Tokenbudget
 
 `SAJTMASKIN_ASSIST_MAX_OUTPUT_TOKENS` — se `tokenBudgets.assistMaxOutputTokens` i manifestet.
