@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/runtime.js && node --check src/runtime/shared.js && node --check src/runtime/workspace-files.js && node --check src/runtime/package-install.js && node --check src/runtime/verify-jobs.js && node --check src/runtime/process-lifecycle.js && node --check src/runtime/preview-proxy.js && node --check src/runtime/storage-cleanup.js && node --check src/store.js && node --check src/validate.js && node --check src/prewarm-leases.js",
+    "check": "node --check src/server.js && node --check src/server/config.js && node --check src/server/http.js && node --check src/server/sessions.js && node --check src/server/storage.js && node --check src/server/routes.js && node --check src/server/create-server.js && node --check src/runtime.js && node --check src/runtime/shared.js && node --check src/runtime/workspace-files.js && node --check src/runtime/package-install.js && node --check src/runtime/verify-jobs.js && node --check src/runtime/process-lifecycle.js && node --check src/runtime/preview-proxy.js && node --check src/runtime/storage-cleanup.js && node --check src/store.js && node --check src/validate.js && node --check src/prewarm-leases.js",
     "smoke": "node scripts/smoke.js",
     "test:patch": "node scripts/test-patch.mjs",
     "test:proxy-contract": "node scripts/test-preview-proxy-contract.mjs",
