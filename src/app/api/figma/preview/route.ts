@@ -1,5 +1,6 @@
 import { FEATURES, SECRETS } from "@/lib/config";
 import { requireNotBot } from "@/lib/botProtection";
+import { FIGMA_PREVIEW_NOT_CONFIGURED } from "@/lib/api/figma-preview-contract";
 import { withRateLimit } from "@/lib/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 import { parseFigmaUrl } from "./figma-url";
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
+          code: FIGMA_PREVIEW_NOT_CONFIGURED,
           error: "Figma API token not configured",
         },
         { status: 400 },
