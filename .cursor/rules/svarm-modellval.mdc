@@ -1,0 +1,36 @@
+---
+description: Modellval för sanerings-/refaktorsvärmar i Sajtmaskin — vilken subagent-modell som är "billig default" vs "stark", och var valet styrs.
+alwaysApply: false
+---
+
+# Svärm-modellval (sanering/refaktor)
+
+Modellen styrs **per subagent** via `Task`-verktygets `model`-parameter. Det finns
+**ingen global default-modell** i Cursor — orkestratorn sätter den explicit per
+lane. Denna regel dokumenterar policyn så den inte bara lever i ett agenthuvud.
+
+## Billig default
+
+Mekaniska lanes körs med **grok 4.5 high** (`cursor-grok-4.5-high-fast`):
+docs-städning, död kod, beteendebevarande megafil-uppdelning bakom oförändrad
+fasad, backoffice-splits.
+
+## Stark modell (risklanes)
+
+Regressionskänsliga områden körs med en starkare modell (default:
+`claude-opus-5-thinking-high`):
+
+- false-green-/pipeline-ytan: `src/lib/gen/verify/**`, `src/lib/gen/autofix/**`,
+  `src/lib/gen/stream/**`, `create-chat-stream-post.ts`
+- dependency-katalog (`config/generated-site-dependencies.json`)
+- embeddings → Blob
+- produktbenchmark
+
+## Alltid
+
+- En agent per lane i eget `git worktree`/branch (se `agent-worktree.mdc`).
+- Orkestratorn granskar **diff + verifiering** per gren och mergar lokalt en i
+  taget — drar inte in agenternas löpande kontext (kostnad/effektivitet).
+- På pipeline-filer: **strikt mekanisk extraktion**, ingen omskrivning (flytta
+  kod verbatim, bevara ordning/grenar/hook-ordning). Går det inte utan
+  omskrivning: stanna och rapportera i stället.
