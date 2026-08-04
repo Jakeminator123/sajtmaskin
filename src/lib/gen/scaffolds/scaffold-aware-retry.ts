@@ -82,6 +82,7 @@ function classifyFailureType(
   if (
     buildIntent !== "app" &&
     isAppScaffold(resolvedScaffold.id) &&
+    !resolvedScaffold.allowedBuildIntents.includes(buildIntent) &&
     !hasRouteCount(finalizedFilesForPreview, 3)
   ) {
     return "site-shell-mismatch";
