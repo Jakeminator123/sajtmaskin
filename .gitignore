@@ -275,8 +275,11 @@ data/template-references/_metadata/
 
 # Agent-session scratchpad (PR bodies, diff probes, cherry-pick logs)
 .cursor/tmp/
-# Ad-hoc one-off debug scripts agents sometimes drop straight under .cursor/ (not .cursor/tmp/)
-.cursor/tmp-*
+# Scratch agents drop straight under .cursor/ instead of in .cursor/tmp/. The
+# glob is deliberately loose: the previous `.cursor/tmp-*` missed the `_tmp-*`
+# prefix an agent invented, so 21 scratch files sat in `git status` for a day.
+# No legitimate .cursor/ entry contains "tmp".
+.cursor/*tmp*
 
 # Local agent-conversation dumps (often contain pasted .env secrets — NEVER commit)
 trött_agent.txt
