@@ -94,12 +94,26 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
     }
     if (engineChat && engineVersions.length > 0) {
       // Project bus status first so we only pay for a revision batch read when
-      // at least one row is terminal (same gate as `/version-status`).
+      // at least one row can RENDER terminal. The bus is per-instance
+      // in-memory, so on serverless the common case is an EMPTY bus (cold
+      // start / other instance) where `reconcileTerminalDbState` upgrades an
+      // idle projection from the DB's terminal `verification_state` — the
+      // gate must therefore look at bus OR DB, not bus alone (Bugbot on this
+      // diff: bus-only gating dropped the stale signal exactly where it
+      // matters most, right after a deploy).
       const projectedByVersion = new Map(
         engineVersions.map((v) => [v.id, selectVersionStatus(readAll(v.id))] as const),
       );
-      const anyTerminal = [...projectedByVersion.values()].some(
-        (status) => status.phase === "done" || status.phase === "failed",
+      const canRenderTerminal = (projected: { phase: string }, verificationState: string | null) =>
+        projected.phase === "done" ||
+        projected.phase === "failed" ||
+        verificationState === "passed" ||
+        verificationState === "failed";
+      const anyTerminal = engineVersions.some((v) =>
+        canRenderTerminal(
+          projectedByVersion.get(v.id) ?? selectVersionStatus([]),
+          v.verification_state,
+        ),
       );
       // Innehållsrevision R15 (flagg-gated): same semantics as `/version-status`,
       // but ONE batched read for the whole chat — never N+1 on this polled list
@@ -114,12 +128,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const versionsList = engineVersions.map((v) => {
           const projected = projectedByVersion.get(v.id) ?? selectVersionStatus([]);
           let contentRevision: ContentRevisionContext | undefined;
-          const busTerminal =
-            projected.phase === "done" || projected.phase === "failed";
-          if (busTerminal && revisionByVersion) {
+          let staleSignalResult: string | null = null;
+          if (revisionByVersion && canRenderTerminal(projected, v.verification_state)) {
             const signal = revisionByVersion.get(v.id);
             if (signal?.revisionMatch === "stale") {
-              incContentRevisionMismatch("versions_list", { verdict: signal.result });
+              staleSignalResult = signal.result;
               contentRevision = {
                 verdictRevision: signal.verdictRevision,
                 currentRevision: signal.contentRevision,
@@ -170,12 +183,25 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           // while the active-version surface has already settled. Pure + no DB
           // write — the lease-safe watchdog write stays on `/version-status` +
           // `/readiness`; a list poll must never write.
-          busStatus: reconcileTerminalDbState(
-            projected,
-            v.verification_state,
-            v.release_state,
-            contentRevision,
-          ),
+          busStatus: (() => {
+            const reconciled = reconcileTerminalDbState(
+              projected,
+              v.verification_state,
+              v.release_state,
+              contentRevision,
+            );
+            // Count the mismatch only when a terminal claim was actually
+            // degraded — `withStaleRevisionDegradation` no-ops on non-terminal
+            // phases, and the counter must not tick for rows that render as a
+            // spinner anyway.
+            if (
+              staleSignalResult !== null &&
+              (reconciled.phase === "done" || reconciled.phase === "failed")
+            ) {
+              incContentRevisionMismatch("versions_list", { verdict: staleSignalResult });
+            }
+            return reconciled;
+          })(),
           canPin: false,
       };
       });

@@ -330,6 +330,54 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
       });
     });
 
+    it("degraderar även när bussen är tom och DB:n är terminal — serverless cold start (Bugbot)", async () => {
+      process.env.SAJTMASKIN_CONTENT_REVISION_GATE = "true";
+      // Per-instans in-memory buss: en ny instans har inga events alls, och
+      // reconcileTerminalDbState uppgraderar idle → done från DB-tillståndet.
+      readAll.mockReturnValue([]);
+      getVersionsByChat.mockResolvedValue([
+        {
+          id: "ver_rewritten",
+          created_at: "2026-08-04T10:00:00.000Z",
+          version_number: 2,
+          message_id: "msg_1",
+          release_state: "draft",
+          verification_state: "passed",
+          verification_summary: null,
+          promoted_at: null,
+        },
+      ]);
+      getLatestQualityGateSignalsForChat.mockResolvedValue(
+        new Map([
+          [
+            "ver_rewritten",
+            {
+              result: "preflight_passed",
+              revisionMatch: "stale",
+              verdictRevision: REVISION_N,
+              contentRevision: REVISION_N_PLUS_1,
+            },
+          ],
+        ]),
+      );
+
+      const response = await GET(
+        new Request("https://example.com/api/engine/chats/chat_1/versions"),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(getLatestQualityGateSignalsForChat).toHaveBeenCalledWith("chat_1");
+      expect(json.versions[0].busStatus.phase).toBe("done");
+      expect(json.versions[0].busStatus.degradations.map((d: { kind: string }) => d.kind)).toEqual([
+        "stale_content_revision",
+      ]);
+      expect(incContentRevisionMismatch).toHaveBeenCalledWith("versions_list", {
+        verdict: "preflight_passed",
+      });
+    });
+
     it("läser inte revision alls med flaggan av (exakt dagens beteende)", async () => {
       const response = await GET(
         new Request("https://example.com/api/engine/chats/chat_1/versions"),
