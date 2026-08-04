@@ -764,6 +764,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // handshake recognises a turn too short to catch mid-stream.
       chatMessageCount: vm.messages.length,
       lastTurnRejected,
+      // A pending question or plan approval belongs to the user, not to armed
+      // autonomy: sending past it would start a new generation and drop the
+      // plan the builder is holding.
+      awaitingInput: vm.isAwaitingInput,
     };
     return () => {
       delete window.__SITEMASKIN_CONTEXT;
@@ -785,6 +789,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     activeVersionStatus,
     activeVersionIsLatest,
     lastTurnRejected,
+    vm.isAwaitingInput,
   ]);
 
   const latestPendingReply = useMemo(

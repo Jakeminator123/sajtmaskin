@@ -35,6 +35,7 @@ function snapshot(overrides: Partial<BuilderTurnSnapshot> = {}): BuilderTurnSnap
     versionStatus: "ready",
     versionIsLatest: true,
     lastTurnRejected: false,
+    awaitingInput: false,
     chatMessageCount: 4,
     ...overrides,
   };
@@ -223,6 +224,13 @@ describe("decideArmedContinuation", () => {
     // Stale base, F3 env gate or the credit gate: the version keeps its old
     // terminal status, so nothing else in the snapshot reveals the refusal.
     const decision = decide({ snapshot: snapshot({ lastTurnRejected: true }) });
+    expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
+  });
+
+  it("stops when the builder is waiting for the user", () => {
+    // A pending clarification or plan approval is the user's to answer; sending
+    // past it would consent on their behalf.
+    const decision = decide({ snapshot: snapshot({ awaitingInput: true }) });
     expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
   });
 

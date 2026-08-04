@@ -42,5 +42,6 @@ export function readBuilderTurnSnapshot(): BuilderTurnSnapshot | null {
     chatMessageCount:
       typeof ctx.chatMessageCount === "number" ? ctx.chatMessageCount : null,
     lastTurnRejected: ctx.lastTurnRejected === true,
+    awaitingInput: ctx.awaitingInput === true,
   };
 }

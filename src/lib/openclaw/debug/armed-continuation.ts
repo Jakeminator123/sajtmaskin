@@ -72,6 +72,8 @@ export interface BuilderTurnSnapshot {
    * without this flag it is indistinguishable from a finished build.
    */
   lastTurnRejected: boolean;
+  /** The builder is holding a question or a plan that only the user can answer. */
+  awaitingInput: boolean;
 }
 
 export type ArmedContinuationDecision =
@@ -284,6 +286,19 @@ export function decideArmedContinuation(
     };
   }
 
+  // The builder is waiting for the user — a clarification, or a plan that needs
+  // approving. Autonomy drives the same composer, so continuing here would
+  // answer on the user's behalf and, for a pending plan, start a generation
+  // that discards it. The mandate delegated follow-ups, not consent.
+  if (snapshot?.awaitingInput) {
+    return {
+      kind: "abort",
+      reason: "Autonomin stoppades: buildern väntar på ditt svar.",
+      notify: true,
+      disarm: true,
+    };
+  }
+
   if (watch.observedAt === null) {
     if (now - watch.startedAt > CONTINUATION_START_TIMEOUT_MS) {
       return {
@@ -351,12 +366,6 @@ export function decideArmedContinuation(
   if (watch.quietSince === null || now - watch.quietSince < CONTINUATION_QUIET_MS) {
     return { kind: "wait", reason: "Låter builderns läge stabilisera sig." };
   }
-
-  // A turn that ends with the builder asking the user something (clarification,
-  // plan approval) also lands here, and resuming is deliberate: the mandate
-  // delegated the composer, so answering is how the run makes progress. Left
-  // unanswered it would stall until the cap. The step is bounded, visible in
-  // the chat, and "stopp" ends it.
 
   return {
     kind: "resume",
