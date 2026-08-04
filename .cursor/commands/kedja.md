@@ -2,7 +2,7 @@
 
 Kör **en** bugg genom sju steg. Billiga agenter gör det mekaniska, du (orkestratorn) fattar besluten. Det som gör kedjan möjlig är **steg 2**: ett failande test. Utan objektivt grönt/rött blir domarsteget en åsikt, och då är hela poängen borta.
 
-**Fix mode** — till skillnad från `/automat` (audit) skriver den här kod. All skrivning sker i **egna worktrees**, aldrig i huvudcheckouten. Ingen commit, push eller PR.
+**Fix mode** — till skillnad från `/automat` (audit) skriver den här kod. All skrivning sker i **egna worktrees**, aldrig i huvudcheckouten. Vinnaren committas på sin kedja-branch (se *Efter körning*); ingen push eller PR utan explicit begäran.
 
 ## Argument
 
@@ -34,7 +34,8 @@ Standard är i stället:
    branch, ansats och utfall (även utslagna — deras diffar ligger kvar i
    `.cursor/kedja/`), samt vem som gjorde vad (repro/fix/dom).
 4. Du kör själv **steg 7** (bugbot på vinnarens diff — billigt, kort svar),
-   verifierar acceptanskommandot i vinnarens worktree med egna ögon, och
+   verifierar acceptanskommandot i vinnarens worktree med egna ögon, utför
+   **Efter körning**-plikterna (committa vinnaren, riv förlorarna) och
    rapporterar.
 
 Att själv driva alla sju stegen är tillåtet bara när orkestratorn redan är en
@@ -120,16 +121,18 @@ Per kandidat, **med kandidatens worktree som arbetskatalog** (fixen och det röd
 
 `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`. Detta är det obligatoriska passet ur `workflow.mdc`, inte ett extra lager. Fynd triageras som vanligt: fixa i diffen, logga i backloggen, eller avfärda med en rad.
 
-## Efter körning
+## Efter körning — orkestratorns plikt, aldrig användarens
+
+Användaren kör inga kommandon. Orkestratorn gör allt nedan själv, direkt efter steg 7:
 
 1. Skriv varje kandidats diff till `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-<x>.diff` **innan** du tar bort något.
-2. Ta bort de förlorande worktreesen: `npm run worktree:remove -- <sökväg> --force`. Det tar bort katalogen men **lämnar branchen kvar** — radera den också: `git branch -D kedja/<slug>-<x>`. Missas det blir varje körning en föräldralös branch rikare.
-3. **Behåll vinnarens worktree, ocommittad.** Commit, push och PR sker bara på explicit begäran (`git.mdc`).
-4. Rapportera kort: bugg, acceptanskriterium, rotorsak, kandidat × utfall, bugbot-fynd, sökväg till vinnaren.
+2. **Committa vinnaren på sin kedja-branch** (bara commit — push/PR fortfarande bara på explicit begäran, `git.mdc`). Detta är vinnarens livförsäkring: `kedja-clean` och worktree-svep vägrar röra en branch med egna commits, medan en ocommittad vinnare ser ut som skräp för varje annan agents städning. 2026-08-04 sveptes två ocommittade vinnare av just en sådan — de överlevde bara som sparade diffar.
+3. Ta bort de förlorande worktreesen: `npm run worktree:remove -- <sökväg> --force`. Det tar bort katalogen men **lämnar branchen kvar** — radera den också: `git branch -D kedja/<slug>-<x>`. Missas det blir varje körning en föräldralös branch rikare.
+4. Rapportera enligt sluttabellen (spårbarhet: worktree, branch, ansats, utfall, vem gjorde vad).
 
-Blev något kvar — avbruten körning, misslyckad teardown, gammal branch — sopa upp med `npm run kedja:clean` (torrkörning) och sedan `node scripts/cursor/kedja-clean.mjs --yes --keep <vinnaren>`. Skriptet sparar diffar innan det raderar och vägrar röra en worktree vars tillstånd det inte kan läsa. Flaggorna måste gå via `node`: npm äter `--yes` och `--keep` innan de når skriptet.
+Blev något kvar — avbruten körning, misslyckad teardown, gammal branch — sopa upp med `npm run kedja:clean` (torrkörning) och sedan `node scripts/cursor/kedja-clean.mjs --yes --keep <vinnaren>`. Skriptet sparar diffar innan det raderar och vägrar röra en worktree vars tillstånd det inte kan läsa. Flaggorna måste gå via `node`: npm äter `--yes` och `--keep` innan de når skriptet. **Multi-agent-vakt:** kör aldrig `--yes` med kedja-worktrees du inte själv skapat utan att `--keep`:a dem — svepet skiljer inte din förlorare från en annan agents pågående arbete, och "läsbar" betyder inte "övergiven".
 
-Backlog-raden bockas **inte** av automatiskt. Det görs manuellt när fixen är mergad.
+**Backlog-raden stängs i samma PR som fixen.** När användaren begär PR: flytta raden till arkivfilen som `[x]` med PR-referens i samma branch (backloggens egen lärdom från #603- och #686-efterslagen). Ingen manuell avbockning efter merge. **Efter merge** river den agent som mergade vinnarens worktree + branch.
 
 ## Anti-mönster
 

@@ -89,6 +89,22 @@ describe("POST /api/figma/preview", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("still reports an invalid URL when the integration is disabled", async () => {
+    // Utan token (produktionsläget) svarade routen "not configured" på ALLA
+    // länkar, även otolkbara — så en felskriven figma.com-länk såg ut som ett
+    // avstängt tillval i stället för ett fel användaren kan rätta.
+    config.useFigmaApi = false;
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    const response = await POST(
+      makeRequest({ url: "https://www.figma.com/community/file-key/name" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: "Invalid Figma URL" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("renders an explicitly selected node without fetching file metadata", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

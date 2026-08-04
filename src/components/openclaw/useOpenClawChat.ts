@@ -18,6 +18,16 @@ function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+export interface OpenClawSendOptions {
+  /**
+   * Whether this turn may arm or disarm autonomy. Only a message the user
+   * actually typed carries that consent — the machine-generated continuation
+   * turn passes `false` so a mandate can never renew itself into a loop.
+   * Defaults to true.
+   */
+  allowArming?: boolean;
+}
+
 export function useOpenClawChat() {
   const {
     messages,
@@ -40,25 +50,30 @@ export function useOpenClawChat() {
   }, [scopeKey]);
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, options?: OpenClawSendOptions) => {
       const trimmed = text.trim();
       if (!trimmed) return;
+
+      // Read the live value rather than the render-time one: the continuation
+      // loop calls `send` from a timer, and a closure that has not caught up
+      // with the store would drop that turn silently.
+      const streaming = useOpenClawStore.getState().isStreaming;
 
       // Armed autonomy (Mode A): the user's own message is the consent. A stop
       // directive disarms IMMEDIATELY — handled before the streaming guard so
       // the user can cancel an in-flight autonomous run by typing "stopp" even
       // while OpenClaw is still responding. An arming directive creates a
       // bounded mandate. Outside OC_EDIT (the act gate) this never arms.
-      if (editEnabled) {
+      if (editEnabled && options?.allowArming !== false) {
         if (parseStopDirective(trimmed)) {
           setArmedMandate(null);
-        } else if (!isStreaming) {
+        } else if (!streaming) {
           const directive = parseArmingDirective(trimmed);
           if (directive) setArmedMandate(createArmedMandate(directive));
         }
       }
 
-      if (isStreaming) return;
+      if (streaming) return;
 
       const userMsg: OpenClawMessage = {
         id: makeId(),
@@ -181,7 +196,7 @@ export function useOpenClawChat() {
         abortRef.current = null;
       }
     },
-    [isStreaming, addMessage, updateAssistantMessage, setStreaming, editEnabled, setArmedMandate],
+    [addMessage, updateAssistantMessage, setStreaming, editEnabled, setArmedMandate],
   );
 
   const stop = useCallback(() => {

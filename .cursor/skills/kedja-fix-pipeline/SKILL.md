@@ -1,7 +1,7 @@
 ---
 name: kedja-fix-pipeline
 description: >-
-  Staged bug-fix pipeline for Sajtmaskin. A cheap orchestrator drives seven steps — frame, workspace, repro, localize, decide, fix, judge, review — where a failing test written in step 2 is what lets cheap agents be judged mechanically instead of by opinion. Write steps run in dedicated git worktrees, never in the main checkout, and nothing is committed. Use when the user runs /kedja, says "kedja", or asks to drive one specific bug through a staged multi-agent fix flow. Fix mode — the opposite of /automat, which is audit only.
+  Staged bug-fix pipeline for Sajtmaskin. A cheap orchestrator drives seven steps — frame, workspace, repro, localize, decide, fix, judge, review — where a failing test written in step 2 is what lets cheap agents be judged mechanically instead of by opinion. Write steps run in dedicated git worktrees, never in the main checkout; the winner is committed on its kedja branch (never pushed) while losers stay uncommitted. Use when the user runs /kedja, says "kedja", or asks to drive one specific bug through a staged multi-agent fix flow. Fix mode — the opposite of /automat, which is audit only.
 ---
 
 # Kedja — staged bug fix
@@ -15,7 +15,7 @@ Full step list, arguments and stop conditions: [`.cursor/commands/kedja.md`](../
 ## Hard rules
 
 1. **No writes in the main checkout.** Every write step runs inside a worktree created in step 1. No `git checkout`/`switch` in the main checkout (`agent-worktree.mdc`).
-2. **No git mutation.** No commit, push, rebase or PR — not even in the worktree. The result is handed over as an uncommitted diff (`git.mdc`).
+2. **No push, rebase or PR** (`git.mdc`) — but the WINNER is committed on its `kedja/<slug>-<x>` branch as the final step. An uncommitted winner looks like debris to every other agent's cleanup sweep (`kedja-clean` refuses branches with own commits — a commit is the winner's life insurance; two uncommitted winners were swept 2026-08-04). Losers stay uncommitted and are torn down after their diffs are saved.
 3. **One bug.** Adjacent findings go to `/buggrapport`, not into the diff (`mvp-scope-freeze.mdc`).
 4. **Models from the canonical table** in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `cursor-grok-4.5-high-fast` for the read-only localisation scan, `cursor-grok-4.5-high-fast` for the repro and fix agents (they write code), `bugbot` subagent for step 7.
 5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only. Raw `git worktree remove` follows the `node_modules` junction and empties the main checkout's copy — and dropping `--force` does not help, because git only refuses on dirty or *untracked* entries while a junctioned `node_modules` is *ignored*. A hook denies both forms.
@@ -170,7 +170,7 @@ The lesson generalises: when the fix direction is "make X stop happening", the c
 | Utfört av | repro: <roll/modell> · fix a/b: <roll/modell> · dom: orkestratorn maskinellt |
 | Bugbot | <findings, or "inga fynd"> |
 | Diffar | `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-*.diff` (även utslagna) |
-| Ligger i | `..\sajtmaskin-kedja-<slug>-a` på `kedja/<slug>-a`, ocommittad |
+| Ligger i | `..\sajtmaskin-kedja-<slug>-a` på `kedja/<slug>-a`, committad (ej pushad) |
 ```
 
 Every row that names a worktree must give the **absolute or repo-relative disk
@@ -178,7 +178,7 @@ path and branch**, including for eliminated candidates (their worktrees are
 torn down but the diffs stay) — the user uses this table to jump in and make
 targeted follow-up fixes.
 
-Say explicitly that nothing was committed and that the backlog row is untouched.
+Say explicitly that the winner is committed on its kedja branch but NOT pushed, and that the backlog row stays open until it is closed in the fix PR (same-PR archival, see `kedja.md § Efter körning`).
 
 ## Related
 

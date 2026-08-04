@@ -114,10 +114,35 @@ function removeEntry(abs, label) {
   if (apply) fs.rmSync(abs, { recursive: true, force: true });
 }
 
+/**
+ * True when the path is a symlink or (on Windows) a junction. `readdirSync`
+ * and `rmSync` follow such a link and operate on its TARGET, so wiping the
+ * "contents" of a linked tree empties whatever it points at — the same trap
+ * `scripts/cursor/worktree.mjs` exists to avoid for `node_modules`. We refuse
+ * instead of unlinking: this script's job is emptying scratch, not managing
+ * links someone else created on purpose.
+ */
+function isLinkedPath(abs) {
+  try {
+    return fs.lstatSync(abs).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 /** Wipe a whole scratch/cache tree (skips tracked files if any sneak in). */
 function wipeTree(rel) {
   const dir = path.join(root, rel);
   if (!fs.existsSync(dir)) return;
+  if (isLinkedPath(dir)) {
+    skippedTracked.push(dir);
+    // `rel` nedan är deklarerad efter den här körningen — använd path direkt.
+    console.warn(
+      `[clean-scratch] ${path.relative(root, dir)} is a link — skipped. ` +
+        "Emptying it would empty the link target, not the scratch tree.",
+    );
+    return;
+  }
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });

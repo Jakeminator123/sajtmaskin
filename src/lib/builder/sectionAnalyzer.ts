@@ -318,6 +318,105 @@ export function placementToInstruction(placement: string, sections: DetectedSect
 
 
 /**
+ * Untrusted sektionskandidat från inspect-bridge (postMessage).
+ * `extractSectionZonesFromBridge` normaliserar och kör samma zon-pipeline
+ * som Playwright-elementkartan.
+ */
+export type BridgeSectionCandidate = {
+  tag?: string;
+  id?: string | null;
+  className?: string | null;
+  text?: string | null;
+  selector?: string | null;
+  vpPercent?: { x?: number; y?: number; w?: number; h?: number };
+  rect?: { x?: number; y?: number; width?: number; height?: number };
+};
+
+function finiteOr(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+/**
+ * Bridge `collectSections`-regel: barn vars topp/botten ligger inom 1 % av
+ * viewport-höjden från förälderns räknas som wrapper-dubblett och ska inte
+ * äta sektionstaket. Speglas i inspect-bridge-script.ts (`isNearIdenticalParent`).
+ */
+export function isNearIdenticalParentSectionRect(
+  child: { top: number; bottom: number },
+  parent: { top: number; bottom: number },
+  viewportHeightPx: number,
+): boolean {
+  if (!(viewportHeightPx > 0)) return false;
+  if (
+    ![child.top, child.bottom, parent.top, parent.bottom].every((n) =>
+      Number.isFinite(n),
+    )
+  ) {
+    return false;
+  }
+  const threshold = viewportHeightPx * 0.01;
+  return (
+    Math.abs(child.top - parent.top) < threshold &&
+    Math.abs(child.bottom - parent.bottom) < threshold
+  );
+}
+
+/**
+ * Bridge-payload → ElementMapItem[] så `extractSectionZones` kan återanvändas.
+ * Ogiltiga rader (saknar tag/vpPercent) hoppas över.
+ */
+export function bridgeSectionCandidatesToElementMap(
+  candidates: BridgeSectionCandidate[] | null | undefined,
+): ElementMapItem[] {
+  if (!Array.isArray(candidates)) return [];
+  const out: ElementMapItem[] = [];
+  for (const raw of candidates) {
+    if (!raw || typeof raw !== "object") continue;
+    const tag = typeof raw.tag === "string" ? raw.tag.trim() : "";
+    if (!tag) continue;
+    const vp = raw.vpPercent;
+    if (!vp || typeof vp !== "object") continue;
+    const x = finiteOr(vp.x, NaN);
+    const y = finiteOr(vp.y, NaN);
+    const w = finiteOr(vp.w, NaN);
+    const h = finiteOr(vp.h, NaN);
+    if (![x, y, w, h].every(Number.isFinite)) continue;
+    const rect = raw.rect && typeof raw.rect === "object" ? raw.rect : null;
+    out.push({
+      tag,
+      id: typeof raw.id === "string" && raw.id.trim() ? raw.id : null,
+      className:
+        typeof raw.className === "string" && raw.className.trim() ? raw.className : null,
+      text: typeof raw.text === "string" && raw.text.trim() ? raw.text : null,
+      selector:
+        typeof raw.selector === "string" && raw.selector.trim()
+          ? raw.selector
+          : tag,
+      rect: {
+        x: Math.round(finiteOr(rect?.x, 0)),
+        y: Math.round(finiteOr(rect?.y, 0)),
+        width: Math.round(finiteOr(rect?.width, 0)),
+        height: Math.round(finiteOr(rect?.height, 0)),
+      },
+      vpPercent: {
+        x: clampPercent(x),
+        y: clampPercent(y),
+        w: clampPercent(w),
+        h: clampPercent(h),
+      },
+    });
+  }
+  return out;
+}
+
+/** Bridge-payload → SectionZone[] via samma extract/merge som elementkartan. */
+export function extractSectionZonesFromBridge(
+  candidates: BridgeSectionCandidate[] | null | undefined,
+): SectionZone[] {
+  return extractSectionZones(bridgeSectionCandidatesToElementMap(candidates));
+}
+
+/**
  * Build coarse top-level zones from inspector element maps.
  * These zones are used for visual insertion lines in the preview overlay.
  */

@@ -107,6 +107,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Figma URL is required" }, { status: 400 });
     }
 
+    // URL-formen avgörs före token-läget. Annars döljer den neutrala
+    // "inte konfigurerad"-notisen att länken är otolkbar — och eftersom
+    // token saknas i produktion gällde det varje trasig figma.com-länk.
+    const parsed = parseFigmaUrl(figmaUrl);
+    if (!parsed) {
+      return NextResponse.json({ success: false, error: "Invalid Figma URL" }, { status: 400 });
+    }
+
     if (!FEATURES.useFigmaApi) {
       return NextResponse.json(
         {
@@ -116,11 +124,6 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 },
       );
-    }
-
-    const parsed = parseFigmaUrl(figmaUrl);
-    if (!parsed) {
-      return NextResponse.json({ success: false, error: "Invalid Figma URL" }, { status: 400 });
     }
 
     try {

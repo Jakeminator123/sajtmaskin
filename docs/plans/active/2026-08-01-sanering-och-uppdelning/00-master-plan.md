@@ -17,6 +17,10 @@ kärnflödet + fyra i backoffice) och **tung git-historik** (624 MiB pack för e
 66 MiB arbetsyta). Planen tar dem i beroendeordning: integrera öppna PR:ar
 först, stäng false-green, städa, dela sedan.
 
+**Läge 2026-08-04:** steg 0–3 levererade, steg 4–6 delvis (se statuskolumnen
+nedan). Kvar med störst hävstång: dependency-katalogen (steg 9),
+docs våg 3, resten av megafilerna och repo-storleken (steg 7–8).
+
 ## Verifierad baseline (2026-08-01, master `c3a9273d0`)
 
 | Fakta | Värde | Verifierat via |
@@ -31,19 +35,21 @@ först, stäng false-green, städa, dela sedan.
 
 ## Ordning (en rad = en eller flera små PR:ar)
 
-| # | Steg | Planfil | Varför i denna ordning |
+Statuskolumnen verifierad mot master 2026-08-04.
+
+| # | Steg | Planfil | Status |
 |---|---|---|---|
-| 0 | Mergestyr #708 → #706 → #707 — **klart 2026-08-01** (alla tre mergade) | — | Öppna stora PR:ar låser builder-/deploy-filerna som senare ska delas |
-| 1 | Sex false-green-/tystnadsfixar — **levererade 2026-08-01** (#712, #715, #718, #720, #723, #725); Aktiv kö-arkiveringen slutsynkades 2026-08-05 | [`backlog-arkivet`](../../avklarat/bug-swarm/backlog-arkiv-2026-07-25.md) § Fixade 2026-08-01 | Fel som visar grönt trots trasig sajt går före all städning |
-| 2 | Radera Redis-domänblocken — **levererat i #714** (redis.ts 937 → 422 rader; bucket-städning i health-scripten kvar som egen liten PR) | [`02-dod-kod.md`](02-dod-kod.md) | Verifierat död, isolerad, hundratals rader |
-| 3 | Fem devDependencies + `vercel`-beslut — **levererat i #717**; exportytan (spår C) tas domänvis och pågår | [`02-dod-kod.md`](02-dod-kod.md) | Egen PR med lockfil + full CI |
-| 4 | Dokumentstädning (10 vägar) — **våg 1–2 levererade** (#713, #721); kvar: våg 3 + `_parkering/`-ägarfrågan | [`03-dokumentstadning.md`](03-dokumentstadning.md) | Docs-only, låg risk, men flera vägar kräver länkmigrering först |
-| 5 | Dela `useBuilderPageController` + `PreviewPanel` — **controllern klar** (#724, 2 041 → 917 rader); `PreviewPanel` kvar | [`04-megafiler.md`](04-megafiler.md) | Först efter steg 0 (PR-överlapp) |
-| 6 | Dela preview-host `runtime.js` (**klar**, #727), `generation-log-writer` (**klar**, #722), `server-verify`, `repair-loop` m.fl. | [`04-megafiler.md`](04-megafiler.md) | En fil per PR |
-| 7 | Binärer → Blob/CDN, embeddings → Blob/komprimerad | [`05-repo-storlek.md`](05-repo-storlek.md) | Förutsättning för historik-omskrivningen |
-| 8 | `git filter-repo`-operation (koordinerad, destruktiv — kräver ägar-OK) | [`05-repo-storlek.md`](05-repo-storlek.md) | Sist: kräver att alla PR:ar/worktrees är stängda |
-| 9 | Dependency-split: app-runtime vs generator-katalog vs tooling | [`06-dependency-split.md`](06-dependency-split.md) | Kräver inventering per paket (preview-bundling!) |
-| 10 | Permanent produktbenchmark 20–30 sajter | [`07-produktbenchmark.md`](07-produktbenchmark.md) | Värdemätning efter att grunden är stabil |
+| 0 | Mergestyr #708 → #706 → #707 | — | ✅ Mergade 2026-08-01 |
+| 1 | Sex false-green-/tystnadsfixar | — | ✅ #712/#715/#718/#720/#723/#725 — rad i [`../../avklarat/README.md`](../../avklarat/README.md) |
+| 2 | Radera Redis-domänblocken | [`02-dod-kod.md`](02-dod-kod.md) | ✅ #714 (−517 rader); bucket-städ i health-ytorna kvar |
+| 3 | Fem devDependencies + `vercel`-beslut + exportyta | [`02-dod-kod.md`](02-dod-kod.md) | ✅ #717; spår C (exportytan) är löpande |
+| 4 | Dokumentstädning (10 vägar) | [`03-dokumentstadning.md`](03-dokumentstadning.md) | ⚠️ Våg 1–2 klara (#713/#721); våg 3 + `_parkering/`-ägarfrågan kvar |
+| 5 | Dela `useBuilderPageController` + `PreviewPanel` | [`04-megafiler.md`](04-megafiler.md) | ⚠️ Controller klar (#724); `PreviewPanel` kvar och **växer** |
+| 6 | Dela preview-host `runtime.js`, `server-verify`, `repair-loop` m.fl. | [`04-megafiler.md`](04-megafiler.md) | ⚠️ `runtime.js` (#727) + `generation-log-writer` (#722) klara; resten kvar |
+| 7 | Binärer → Blob/CDN, embeddings → Blob/komprimerad | [`05-repo-storlek.md`](05-repo-storlek.md) | ❌ Ej påbörjad — `intro.mp4` + embeddings fortfarande spårade |
+| 8 | `git filter-repo`-operation (koordinerad, destruktiv — kräver ägar-OK) | [`05-repo-storlek.md`](05-repo-storlek.md) | ❌ Väntar på 7 + tom PR-kö + ägar-OK |
+| 9 | Dependency-split: app-runtime vs generator-katalog vs tooling | [`06-dependency-split.md`](06-dependency-split.md) | ⚠️ Inventeringen klar (2026-08-01); katalog-JSON:en ej byggd |
+| 10 | Permanent produktbenchmark 20–30 sajter | [`07-produktbenchmark.md`](07-produktbenchmark.md) | ❌ Ej påbörjad — blockeraren (steg 1) är borta |
 
 ## Arbetsregler för alla steg
 

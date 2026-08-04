@@ -151,6 +151,68 @@ describe("chat-context-policy", () => {
     ).toBe("none");
   });
 
+  it("does not treat the ordinal andra as an edit intent", () => {
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "Vad handlar den andra sidan om?" }],
+        page: "builder",
+        chatId: "chat_123",
+        edit: true,
+        debug: false,
+      }),
+    ).toBe("none");
+  });
+
+  it("does not treat the adverb knappt as an edit intent", () => {
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "Sidfoten syns knappt, hur länge brukar det ta?" }],
+        page: "builder",
+        chatId: "chat_123",
+        edit: true,
+        debug: false,
+      }),
+    ).toBe("none");
+  });
+
+  // "preview" innehåller "review". Utan vänsterbunden matchning blev varje
+  // fråga om förhandsvisningen review-intent — dyrare gateway-anrop och
+  // fynd-/tidslinjeblock på en ren väntefråga.
+  it("does not read the word preview as a review request", () => {
+    expect(
+      decideOpenClawRoutingIntent({
+        messages: [{ role: "user", content: "Hur lång tid brukar previewen ta att starta?" }],
+      }),
+    ).toBe("general");
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "Previewen laddar långsamt idag" }],
+        page: "builder",
+        chatId: "chat_123",
+        edit: true,
+        debug: false,
+      }),
+    ).toBe("none");
+  });
+
+  it("still reads an explicit review request", () => {
+    for (const content of ["Kan du reviewa den här versionen?", "review this version please"]) {
+      expect(decideOpenClawRoutingIntent({ messages: [{ role: "user", content }] })).toBe("review");
+    }
+  });
+
+  it("still reads a diacritic-free edit request through its nouns", () => {
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "andra fargen pa knappen i heron" }],
+        page: "builder",
+        chatId: "chat_123",
+        edit: true,
+        debug: false,
+      }),
+    ).toBe("manifest");
+  });
+
   it("returns none without chatId and without currentCode regardless of prompt", () => {
     const prompts = [
       "Kan du läsa koden och granska hela projektet?",

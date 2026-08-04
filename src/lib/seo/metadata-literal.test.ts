@@ -139,8 +139,54 @@ describe("writeMetadataString", () => {
     expect(writeMetadataString(source, "title", "Ny")).toBe(source);
   });
 
+  it("refuses to overwrite a template literal with a hole", () => {
+    const source = "export const metadata = {\n  title: `${brand} — Hem`,\n};";
+    expect(writeMetadataString(source, "title", "Ny")).toBe(source);
+  });
+
   it("returns the source unchanged when there is no metadata export", () => {
     const source = 'const a = { title: "one" };\nconst b = { title: "two" };';
     expect(writeMetadataString(source, "title", "ny")).toBe(source);
+  });
+
+  it("inserts a missing top-level key into an existing metadata object", () => {
+    const source = 'export const metadata: Metadata = {\n  description: "x"\n};';
+    const out = writeMetadataString(source, "title", "My Title");
+    expect(out).toContain('title: "My Title"');
+    expect(out).toContain('description: "x"');
+    expect(readMetadataString(out, "title")).toEqual({
+      kind: "literal",
+      value: "My Title",
+    });
+  });
+
+  it("inserts a missing key into an empty metadata object", () => {
+    const source = "export const metadata = {\n};";
+    const out = writeMetadataString(source, "title", "My Title");
+    expect(out).toContain('title: "My Title"');
+    expect(readMetadataString(out, "title")).toEqual({
+      kind: "literal",
+      value: "My Title",
+    });
+  });
+
+  it("does not let a trailing line comment swallow the separating comma", () => {
+    // Appending after the last property would put the comma inside `// viktig`
+    // and ship a layout that no longer parses.
+    const source = 'export const metadata = {\n  description: "x" // viktig\n};';
+    const out = writeMetadataString(source, "title", "My Title");
+    expect(out).toBe(
+      'export const metadata = {\n  title: "My Title",\n  description: "x" // viktig\n};',
+    );
+  });
+
+  it("inserts next to a multiline template literal without corrupting it", () => {
+    const source = "export const metadata = {\n  description: `line1\nline2`\n};";
+    const out = writeMetadataString(source, "title", "My Title");
+    expect(readMetadataString(out, "title")).toEqual({
+      kind: "literal",
+      value: "My Title",
+    });
+    expect(out).toContain("`line1\nline2`");
   });
 });

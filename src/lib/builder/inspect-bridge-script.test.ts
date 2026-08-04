@@ -36,4 +36,19 @@ describe("INSPECT_BRIDGE_SCRIPT", () => {
     );
     expect(INSPECT_BRIDGE_SCRIPT).toContain('document.removeEventListener("mouseup", onUp, true)');
   });
+
+  it("kan rapportera sektionsrektanglar utan att inspect-läget är på", () => {
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("function collectSections()");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("post(T.sections,");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("vpPercent:");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("e.data.type === T.requestSections");
+  });
+
+  it("hoppar över parent-identiska wrappers så sektionstaket inte svälter footern", () => {
+    // P2: MAX_SECTION_CANDIDATES räknas i DOM-ordning; nästlade fullbredds-divs
+    // får inte äta alla platser innan <footer> nås.
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("function isNearIdenticalParent(el, r, vh)");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("* 0.01");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("if (isNearIdenticalParent(el, r, vh)) continue;");
+  });
 });
