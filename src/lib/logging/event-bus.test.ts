@@ -179,6 +179,7 @@ describe("event-bus RUNS_ROOT_DIR resolution", () => {
   afterEach(() => {
     restore("VERCEL", originalVercel);
     restore("VITEST", originalVitest);
+    vi.unstubAllEnvs();
     vi.resetModules();
   });
 
@@ -205,28 +206,18 @@ describe("event-bus RUNS_ROOT_DIR resolution", () => {
     // Lokal dev kör NODE_ENV=development. Vitest sätter "test", och sedan
     // sökvägsvalet delar testpredikat med loggdämpningen räcker det inte att
     // nolla VITEST för att simulera dev — hela miljön måste simuleras.
-    const previousNodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = "development";
-    try {
-      vi.resetModules();
-      const bus = await import("./event-bus");
-      expect(bus.RUNS_ROOT_DIR).toBe(path.join(process.cwd(), "data", "runs"));
-    } finally {
-      process.env.NODE_ENV = previousNodeEnv;
-    }
+    vi.stubEnv("NODE_ENV", "development");
+    vi.resetModules();
+    const bus = await import("./event-bus");
+    expect(bus.RUNS_ROOT_DIR).toBe(path.join(process.cwd(), "data", "runs"));
   });
 
   it("mirrors under os.tmpdir() for a NODE_ENV=test run without VITEST", async () => {
     delete process.env.VERCEL;
     delete process.env.VITEST;
-    const previousNodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = "test";
-    try {
-      vi.resetModules();
-      const bus = await import("./event-bus");
-      expect(bus.RUNS_ROOT_DIR).not.toBe(path.join(process.cwd(), "data", "runs"));
-    } finally {
-      process.env.NODE_ENV = previousNodeEnv;
-    }
+    vi.stubEnv("NODE_ENV", "test");
+    vi.resetModules();
+    const bus = await import("./event-bus");
+    expect(bus.RUNS_ROOT_DIR).not.toBe(path.join(process.cwd(), "data", "runs"));
   });
 });
