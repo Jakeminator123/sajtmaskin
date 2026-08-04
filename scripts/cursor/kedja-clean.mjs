@@ -200,6 +200,9 @@ function main() {
       );
     } catch {
       console.log(`[fel]     ${info.name} — worktree.mjs kunde inte ta bort den, branchen lämnas kvar`);
+      // Signalera partiellt fel: en misslyckad borttagning får inte se ut som en
+      // ren körning för en anropare (npm/CI) som bara läser exit-koden.
+      process.exitCode = 1;
       continue;
     }
 

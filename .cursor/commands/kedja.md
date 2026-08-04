@@ -78,7 +78,7 @@ Varje agent får bara röra den utpekade ägaren plus testet, och ska hålla dif
 
 ### 6. Döm — du själv, maskinellt
 
-Per kandidat, i den ordningen (billigast först):
+Per kandidat, **med kandidatens worktree som arbetskatalog** (fixen och det röda testet finns bara där, inte i huvudcheckouten — `Set-Location <worktree>` eller kör med `--prefix`/`--cwd` mot den), i den ordningen (billigast först):
 
 1. `npx vitest run <testfil>` — **både** det röda testet och motprovet. Rött i någotdera betyder utslagen.
 2. Övriga tester i samma mapp — fångar den som fick testet grönt genom att bryta något annat.
