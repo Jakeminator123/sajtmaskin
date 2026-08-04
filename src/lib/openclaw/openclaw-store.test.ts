@@ -63,6 +63,7 @@ describe("OpenClaw store assistant targeting", () => {
       chatId: "chat-1",
       versionIdAtSend: "ver-1",
       startedAt: 1,
+      messageCountAtSend: 4,
       buildObserved: true,
     };
     useOpenClawStore.setState({ armedContinuation: watch });

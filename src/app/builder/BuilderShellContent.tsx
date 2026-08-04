@@ -743,6 +743,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // a newer version is still being built.
       activeVersionStatus,
       activeVersionIsLatest,
+      // Monotonic, unlike the truncated `recentMessages` — growth is how the
+      // handshake recognises a turn too short to catch mid-stream.
+      chatMessageCount: vm.messages.length,
     };
     return () => {
       delete window.__SITEMASKIN_CONTEXT;

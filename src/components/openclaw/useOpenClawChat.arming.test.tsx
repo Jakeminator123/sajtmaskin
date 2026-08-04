@@ -98,6 +98,7 @@ describe("useOpenClawChat — arming consent", () => {
           chatId: "chat-1",
           versionIdAtSend: "ver-1",
           startedAt: Date.now(),
+          messageCountAtSend: 4,
           buildObserved: true,
         },
       });

@@ -39,5 +39,7 @@ export function readBuilderTurnSnapshot(): BuilderTurnSnapshot | null {
     // Absent flag ⇒ treat the view as stale rather than current: the handshake
     // then waits instead of resuming on a status it cannot trust.
     versionIsLatest: ctx.activeVersionIsLatest === true,
+    chatMessageCount:
+      typeof ctx.chatMessageCount === "number" ? ctx.chatMessageCount : null,
   };
 }

@@ -28,8 +28,11 @@ export interface ArmedContinuationWatch {
   chatId: string | null;
   /** Active version at auto-send time — a new id means the turn produced one. */
   versionIdAtSend: string | null;
-  /** When the auto-send fired (drives both timeouts). */
+  /** When the auto-send fired (drives the timeouts). */
   startedAt: number;
+  /** Builder chat length at auto-send time — growth proves the turn happened
+   * even when it was too fast for the poll to catch it streaming. */
+  messageCountAtSend: number | null;
   /** True once the builder turn has visibly started. */
   buildObserved: boolean;
 }
@@ -43,6 +46,8 @@ export interface BuilderTurnSnapshot {
   versionStatus: string | null;
   /** False while the user reads an older version than the one being built. */
   versionIsLatest: boolean;
+  /** Number of messages in the builder chat. */
+  chatMessageCount: number | null;
 }
 
 export type ArmedContinuationDecision =
@@ -64,6 +69,13 @@ export interface ArmedContinuationInput {
 
 /** How long we wait for the builder turn to visibly start before giving up. */
 export const CONTINUATION_START_TIMEOUT_MS = 90_000;
+/**
+ * How long a finished-but-unreadable turn may block the loop. Happens when the
+ * user pins the view to an older version: a newer one exists but its status is
+ * not projected anywhere we can see. Stopping with a clear reason beats holding
+ * the mandate hostage until the absolute cap.
+ */
+export const CONTINUATION_STALE_VIEW_TIMEOUT_MS = 120_000;
 /** Absolute cap on a single watch, however slow the build is. */
 export const CONTINUATION_MAX_WAIT_MS = 15 * 60_000;
 
@@ -96,6 +108,7 @@ export function createArmedContinuationWatch(
     chatId: snapshot?.chatId ?? null,
     versionIdAtSend: snapshot?.activeVersionId ?? null,
     startedAt: now,
+    messageCountAtSend: snapshot?.chatMessageCount ?? null,
     buildObserved: false,
   };
 }
@@ -114,7 +127,13 @@ export function observeBuilderTurn(
     !!snapshot.activeVersionId && snapshot.activeVersionId !== watch.versionIdAtSend;
   const runningStatus =
     !!snapshot.versionStatus && RUNNING_VERSION_STATUSES.has(snapshot.versionStatus);
-  if (!startedStreaming && !newVersion && !runningStatus) return watch;
+  // A turn short enough to slip between two polls (a clarification question,
+  // say) still leaves messages behind.
+  const grewChat =
+    typeof snapshot.chatMessageCount === "number" &&
+    typeof watch.messageCountAtSend === "number" &&
+    snapshot.chatMessageCount > watch.messageCountAtSend;
+  if (!startedStreaming && !newVersion && !runningStatus && !grewChat) return watch;
   return { ...watch, buildObserved: true };
 }
 
@@ -177,8 +196,17 @@ export function decideArmedContinuation(
   }
 
   // The status belongs to the focused version. While that is not the latest
-  // one, a terminal status says nothing about the turn we started.
+  // one, a terminal status says nothing about the turn we started — so wait,
+  // but not forever: nothing will change while the view stays pinned.
   if (!snapshot.versionIsLatest) {
+    if (now - watch.startedAt > CONTINUATION_STALE_VIEW_TIMEOUT_MS) {
+      return {
+        kind: "abort",
+        reason:
+          "Autonomin stoppades: en nyare version finns än den du tittar på, så jag kan inte läsa resultatet.",
+        notify: true,
+      };
+    }
     return { kind: "wait", reason: "En nyare version än den visade byggs." };
   }
 

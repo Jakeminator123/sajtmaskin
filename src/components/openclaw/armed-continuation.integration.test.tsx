@@ -55,6 +55,7 @@ function setBuilderContext(overrides: Record<string, unknown> = {}) {
     isStreaming: false,
     activeVersionStatus: "ready",
     activeVersionIsLatest: true,
+    chatMessageCount: 4,
     ...overrides,
   };
 }
@@ -176,6 +177,7 @@ describe("armed autonomy — continuation handshake", () => {
         armedContinuation: {
           chatId: "chat-1",
           versionIdAtSend: "ver-1",
+          messageCountAtSend: 4,
           startedAt: Date.now(),
           buildObserved: true,
         },
@@ -206,6 +208,7 @@ describe("armed autonomy — continuation handshake", () => {
         armedContinuation: {
           chatId: "chat-1",
           versionIdAtSend: "ver-1",
+          messageCountAtSend: 4,
           startedAt: Date.now(),
           buildObserved: true,
         },
@@ -241,6 +244,7 @@ describe("armed autonomy — continuation handshake", () => {
         armedContinuation: {
           chatId: "chat-1",
           versionIdAtSend: "ver-1",
+          messageCountAtSend: 4,
           startedAt: Date.now(),
           buildObserved: true,
         },

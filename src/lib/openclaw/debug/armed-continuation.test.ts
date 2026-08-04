@@ -5,6 +5,7 @@ import {
   decideArmedContinuation,
   observeBuilderTurn,
   CONTINUATION_MAX_WAIT_MS,
+  CONTINUATION_STALE_VIEW_TIMEOUT_MS,
   CONTINUATION_START_TIMEOUT_MS,
   type ArmedContinuationInput,
   type ArmedContinuationWatch,
@@ -30,6 +31,7 @@ function snapshot(overrides: Partial<BuilderTurnSnapshot> = {}): BuilderTurnSnap
     isStreaming: false,
     versionStatus: "ready",
     versionIsLatest: true,
+    chatMessageCount: 4,
     ...overrides,
   };
 }
@@ -39,6 +41,7 @@ function watching(overrides: Partial<ArmedContinuationWatch> = {}): ArmedContinu
     chatId: "chat-1",
     versionIdAtSend: "ver-1",
     startedAt: NOW - 5000,
+    messageCountAtSend: 4,
     buildObserved: true,
     ...overrides,
   };
@@ -63,6 +66,7 @@ describe("createArmedContinuationWatch", () => {
       chatId: "chat-1",
       versionIdAtSend: "ver-1",
       startedAt: NOW,
+      messageCountAtSend: 4,
       buildObserved: false,
     });
   });
@@ -96,11 +100,27 @@ describe("observeBuilderTurn", () => {
     expect(seen.buildObserved).toBe(true);
   });
 
+  it("marks a turn too fast to catch mid-stream via the grown chat", () => {
+    // A clarification question can open and close between two polls; the only
+    // trace left is that the builder chat got longer.
+    const watch = watching({ buildObserved: false, messageCountAtSend: 4 });
+    const seen = observeBuilderTurn(
+      watch,
+      snapshot({ activeVersionId: "ver-1", isStreaming: false, chatMessageCount: 6 }),
+    );
+    expect(seen.buildObserved).toBe(true);
+  });
+
   it("returns the same object when nothing has happened yet", () => {
     const watch = watching({ buildObserved: false, versionIdAtSend: "ver-1" });
     const seen = observeBuilderTurn(
       watch,
-      snapshot({ activeVersionId: "ver-1", isStreaming: false, versionStatus: "idle" }),
+      snapshot({
+        activeVersionId: "ver-1",
+        isStreaming: false,
+        versionStatus: "idle",
+        chatMessageCount: 4,
+      }),
     );
     expect(seen).toBe(watch);
   });
@@ -145,6 +165,14 @@ describe("decideArmedContinuation", () => {
     // The status is projected for the focused version, so a terminal status on
     // an older one says nothing about the turn the auto-send started.
     expect(decide({ snapshot: snapshot({ versionIsLatest: false }) }).kind).toBe("wait");
+  });
+
+  it("gives up on a pinned older view instead of stalling to the absolute cap", () => {
+    const decision = decide({
+      watch: watching({ startedAt: NOW - CONTINUATION_STALE_VIEW_TIMEOUT_MS - 1 }),
+      snapshot: snapshot({ versionIsLatest: false }),
+    });
+    expect(decision).toMatchObject({ kind: "abort", notify: true });
   });
 
   it("waits until the turn has visibly started", () => {
