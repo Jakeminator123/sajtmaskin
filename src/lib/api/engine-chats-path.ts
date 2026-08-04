@@ -10,8 +10,8 @@
  *
  * **Other `/api/v0/**` segments are separate versioned boundaries, not chat
  * compatibility.** `deployments/**` and `projects/[projectId]/env-vars`
- * remain active. `projects/instructions` is a 410 tombstone and
- * `init-registry` no longer exists. Do not infer ownership from the `v0`
+ * remain active. `projects/instructions` (410 tombstone) and `init-registry`
+ * no longer exist. Do not infer ownership from the `v0`
  * prefix: inspect the concrete route and its callers before changing it. See
  * `docs/plans/avklarat/P29-v0-engine-consolidation.md` for historical context.
  */

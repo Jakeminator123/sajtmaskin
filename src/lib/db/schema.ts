@@ -340,6 +340,13 @@ export const users = pgTable(
   }),
 );
 
+/**
+ * No app code reads or writes this table since the Vercel Marketplace routes
+ * were removed (2026-08-04, zero callers and zero rows in production). The
+ * definition stays because `db-init.mjs` still creates the table and
+ * `db-health-check.mjs` asserts it — dropping either side alone causes schema
+ * drift. Retiring the table is a separate owner decision.
+ */
 export const userIntegrations = pgTable(
   "user_integrations",
   {
