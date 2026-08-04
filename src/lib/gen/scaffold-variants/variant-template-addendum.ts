@@ -22,6 +22,12 @@ const MAX_REFERENCE_PATH_CHARS = 300;
 const MAX_REVIEW_NOTES_CHARS = 2_000;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const LANGUAGE_PATTERN = /^[a-z0-9-]{1,24}$/;
+/**
+ * Same frontend allowlist the generator applies when it harvests candidates, so
+ * a hand-edited `reviewed` record cannot smuggle a lockfile or package manifest
+ * into the prompt.
+ */
+const REFERENCE_PATH_EXTENSION_PATTERN = /\.(?:tsx|jsx|ts|js|css)$/i;
 const warnedAddendumProblems = new Set<string>();
 
 function isSafeReferencePath(value: string): boolean {
@@ -33,7 +39,8 @@ function isSafeReferencePath(value: string): boolean {
     !normalized.startsWith("/") &&
     !normalized.includes("\0") &&
     !normalized.split("/").some((segment) => segment === "..") &&
-    !/(^|\/)api\//i.test(normalized)
+    !/(^|\/)api\//i.test(normalized) &&
+    REFERENCE_PATH_EXTENSION_PATTERN.test(normalized)
   );
 }
 

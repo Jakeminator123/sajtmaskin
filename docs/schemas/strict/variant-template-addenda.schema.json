@@ -28,7 +28,8 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 300,
-          "description": "Normalized relative frontend path. Runtime additionally rejects traversal, API paths, NUL bytes, and backslashes."
+          "pattern": "\\.(?:tsx|jsx|ts|js|css)$",
+          "description": "Normalized relative frontend path limited to .tsx/.jsx/.ts/.js/.css, so lockfiles and package manifests cannot be cited. Runtime additionally rejects traversal, API paths, NUL bytes, and backslashes."
         },
         "language": {
           "type": "string",

@@ -79,6 +79,7 @@ const TEXT_BASENAMES = new Set([
   "pnpm-lock.yml",
   "yarn.lock",
 ]);
+const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/;
 const REFERENCE_FILE_EXTENSION_PATTERN = /\.(?:tsx|jsx|ts|js|css)$/i;
 const PRIMARY_PAGE_PATTERN = /(^|\/)app\/(?:\([^/]+\)\/)*page\.(?:tsx|jsx|ts|js)$/i;
 
@@ -206,10 +207,18 @@ export async function getLocalV0TemplateSourceById(
     const archivePath = toAbsoluteArchivePath(rowPath);
     if (!(await fileExists(archivePath))) continue;
 
+    // Carry the manifest binding along even for a local cache hit, so the
+    // archive can still be checked against the current Blob SHA and re-fetched
+    // when the cached file is stale.
+    const manifestItem = getBlobManifestItemById(trimmedId);
+
     return {
       templateId: trimmedId,
       sourceKind: "local",
       archivePath,
+      archiveUrl: manifestItem?.archiveUrl,
+      archiveSizeBytes: manifestItem?.archiveSizeBytes ?? null,
+      archiveSha256: manifestItem?.archiveSha256 ?? null,
       sourceSlugs: normalizeStringArray(row.sourceSlugs),
       sourceLabelsSv: normalizeStringArray(row.sourceLabelsSv),
       categoryLabel:
@@ -341,31 +350,55 @@ async function readRemoteArchiveBuffer(url: string, signal?: AbortSignal): Promi
   return buffer;
 }
 
-async function readArchiveBuffer(
+function matchesExpectedSha(buffer: Buffer, expected: string | null | undefined): boolean {
+  const normalized = expected?.trim().toLowerCase();
+  // No manifest SHA means there is nothing to verify against, not that the
+  // archive is trusted; the caller keeps the pre-existing behaviour.
+  if (!normalized || !SHA256_HEX_PATTERN.test(normalized)) return true;
+  return createHash("sha256").update(buffer).digest("hex") === normalized;
+}
+
+/**
+ * Read the template archive and bind it to the Blob manifest SHA-256.
+ *
+ * A local cache hit is never trusted on filename alone: when it does not match
+ * the manifest SHA it is discarded and the Blob archive is fetched and verified
+ * instead, so a stale ZIP from an earlier download cannot reach the prompt.
+ */
+export async function readArchiveBuffer(
   source: LocalV0TemplateSource,
   signal?: AbortSignal,
 ): Promise<Buffer> {
-  let buffer: Buffer;
   if (source.sourceKind === "blob") {
     if (!source.archiveUrl) {
       throw new Error("Template Blob archive URL is missing");
     }
-    buffer = await readRemoteArchiveBuffer(source.archiveUrl, signal);
-  } else {
-    if (!source.archivePath) {
-      throw new Error("Local template archive path is missing");
-    }
-    buffer = await readLocalArchiveBuffer(source.archivePath);
-  }
-
-  const expectedSha = source.archiveSha256?.trim().toLowerCase();
-  if (expectedSha && /^[a-f0-9]{64}$/.test(expectedSha)) {
-    const actualSha = createHash("sha256").update(buffer).digest("hex");
-    if (actualSha !== expectedSha) {
+    const remoteBuffer = await readRemoteArchiveBuffer(source.archiveUrl, signal);
+    if (!matchesExpectedSha(remoteBuffer, source.archiveSha256)) {
       throw new Error("Template archive SHA-256 does not match the Blob manifest");
     }
+    return remoteBuffer;
   }
-  return buffer;
+
+  if (!source.archivePath) {
+    throw new Error("Local template archive path is missing");
+  }
+  const localBuffer = await readLocalArchiveBuffer(source.archivePath);
+  if (matchesExpectedSha(localBuffer, source.archiveSha256)) {
+    return localBuffer;
+  }
+
+  if (!source.archiveUrl) {
+    throw new Error("Template archive SHA-256 does not match the Blob manifest");
+  }
+  console.warn(
+    `[local-v0-template-source] Local archive for template ${source.templateId} does not match the Blob manifest SHA-256; re-fetching ${source.archiveUrl}`,
+  );
+  const refetched = await readRemoteArchiveBuffer(source.archiveUrl, signal);
+  if (!matchesExpectedSha(refetched, source.archiveSha256)) {
+    throw new Error("Template archive SHA-256 does not match the Blob manifest");
+  }
+  return refetched;
 }
 
 export async function extractV0TemplateArchiveFiles(buffer: Buffer): Promise<CodeFile[]> {

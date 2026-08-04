@@ -106,6 +106,30 @@ describe("variant template addenda", () => {
     ).toThrow();
   });
 
+  it("rejects hand-edited references outside the frontend allowlist", () => {
+    expect(() =>
+      parseVariantTemplateAddendaRegistry(
+        registry({
+          templates: [
+            {
+              templateId: "template-a",
+              sourceArchiveSha256: SHA_A,
+              reviewStatus: "reviewed",
+              structuralReferences: [
+                {
+                  path: "package-lock.json",
+                  language: "json",
+                  reason: "direct-component",
+                  excerpt: '{ "lockfileVersion": 3 }',
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toThrow();
+  });
+
   it("requires disabled addenda to be structurally empty", () => {
     expect(() =>
       parseVariantTemplateAddendaRegistry(
