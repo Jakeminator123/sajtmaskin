@@ -122,6 +122,24 @@ describe("decideArmedContinuation", () => {
     expect(decide({ snapshot: snapshot({ versionStatus: "verifying" }) }).kind).toBe("wait");
   });
 
+  it("waits on an idle status — that is also what a not-yet-loaded one looks like", () => {
+    expect(decide({ snapshot: snapshot({ versionStatus: "idle" }) }).kind).toBe("wait");
+  });
+
+  it("waits on an unknown status instead of guessing that the turn is done", () => {
+    expect(decide({ snapshot: snapshot({ versionStatus: null }) }).kind).toBe("wait");
+  });
+
+  it("resumes on the other terminal statuses too", () => {
+    for (const versionStatus of ["ready", "promoted", "degraded"]) {
+      expect(decide({ snapshot: snapshot({ versionStatus }) }).kind).toBe("resume");
+    }
+  });
+
+  it("never resumes without a builder to resume into", () => {
+    expect(decide({ snapshot: null }).kind).toBe("wait");
+  });
+
   it("waits until the turn has visibly started", () => {
     const decision = decide({
       watch: watching({ buildObserved: false }),

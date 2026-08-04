@@ -59,14 +59,20 @@ export function useOpenClawArmedContinuation(send: SendFn): void {
       });
 
       if (decision.kind === "abort") {
-        state.setArmedContinuation(null);
         if (decision.notify) {
+          // A notified abort means the run was cut short (failed build, chat
+          // switch, timeout). Telling the user autonomy stopped while leaving
+          // the mandate armed would let a later action auto-send anyway, so
+          // disarm — `setArmedMandate(null)` drops the watch with it.
+          state.setArmedMandate(null);
           state.addMessage({
             id: `oc-continuation-${Date.now()}`,
             role: "assistant",
             content: decision.reason,
             timestamp: Date.now(),
           });
+        } else {
+          state.setArmedContinuation(null);
         }
         return;
       }

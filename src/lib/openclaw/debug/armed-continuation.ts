@@ -76,6 +76,15 @@ const RUNNING_VERSION_STATUSES = new Set([
 
 const FAILED_VERSION_STATUSES = new Set(["failed", "blocked"]);
 
+/**
+ * Only these count as "the turn is genuinely done". `idle` is deliberately
+ * absent: it is also what an empty or still-loading status projection looks
+ * like, and resuming there would hand OpenClaw a half-finished turn. An
+ * unknown status therefore waits (and eventually times out) instead of
+ * resuming on a guess.
+ */
+const TERMINAL_VERSION_STATUSES = new Set(["ready", "promoted", "degraded"]);
+
 export function createArmedContinuationWatch(
   snapshot: BuilderTurnSnapshot | null,
   now: number = Date.now(),
@@ -154,20 +163,26 @@ export function decideArmedContinuation(
     return { kind: "wait", reason: "Väntar på att builderturen startar." };
   }
 
-  if (snapshot?.isStreaming) {
+  // No builder in sight (the user navigated away, or the context is mid-swap).
+  // Autonomy drives the builder composer, so it must never resume blind.
+  if (!snapshot) {
+    return { kind: "wait", reason: "Ingen builder-kontext att fortsätta i." };
+  }
+
+  if (snapshot.isStreaming) {
     return { kind: "wait", reason: "Builderturen pågår." };
   }
 
-  if (snapshot?.versionStatus && RUNNING_VERSION_STATUSES.has(snapshot.versionStatus)) {
-    return { kind: "wait", reason: "Versionen är inte färdigbehandlad." };
-  }
-
-  if (snapshot?.versionStatus && FAILED_VERSION_STATUSES.has(snapshot.versionStatus)) {
+  if (snapshot.versionStatus && FAILED_VERSION_STATUSES.has(snapshot.versionStatus)) {
     return {
       kind: "abort",
       reason: "Autonomin stoppades: den senaste versionen gick inte igenom.",
       notify: true,
     };
+  }
+
+  if (!snapshot.versionStatus || !TERMINAL_VERSION_STATUSES.has(snapshot.versionStatus)) {
+    return { kind: "wait", reason: "Versionen är inte färdigbehandlad." };
   }
 
   if (openClawStreaming) {
@@ -176,8 +191,8 @@ export function decideArmedContinuation(
 
   return {
     kind: "resume",
-    versionId: snapshot?.activeVersionId ?? null,
-    versionStatus: snapshot?.versionStatus ?? null,
+    versionId: snapshot.activeVersionId,
+    versionStatus: snapshot.versionStatus,
   };
 }
 

@@ -220,6 +220,9 @@ describe("armed autonomy — continuation handshake", () => {
     expect(useOpenClawStore.getState().messages[0].content).toContain("Autonomin stoppades");
     expect(onSend).not.toHaveBeenCalled();
     expect(useOpenClawStore.getState().armedContinuation).toBeNull();
+    // Saying autonomy stopped while leaving the mandate armed would let the
+    // next assistant action auto-send anyway (Bugbot).
+    expect(useOpenClawStore.getState().armedMandate).toBeNull();
   }, 10_000);
 
   it("does not resume while OpenClaw is already answering", async () => {
