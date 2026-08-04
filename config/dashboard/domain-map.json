@@ -155,7 +155,7 @@
       ]
     },
     "Scaffolds: titta & justera": {
-      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/promptHints/qualityChecklist). Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab (v0-mallar i Blob). Skapa/klona/radera görs i 'Scaffolds & varianter: skapa, klona, ta bort'.",
+      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens urklipp, översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/promptHints/qualityChecklist). Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab (v0-mallar i Blob). Skapa/klona/radera görs i 'Scaffolds & varianter: skapa, klona, ta bort'.",
       "canonicalPaths": [
         "src/lib/gen/scaffolds/",
         "src/lib/gen/scaffolds/protected-paths.ts",
@@ -169,6 +169,7 @@
         "docs/architecture/llm-pipeline.md"
       ],
       "codeReaders": [
+        "backoffice/pages/scaffolds.py",
         "src/lib/gen/scaffolds/protected-paths.ts",
         "src/lib/gen/scaffolds/registry.ts",
         "src/lib/gen/scaffolds/matcher.ts",
