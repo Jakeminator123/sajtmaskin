@@ -155,13 +155,19 @@ describe("event-bus", () => {
 
 describe("event-bus RUNS_ROOT_DIR resolution", () => {
   const originalVercel = process.env.VERCEL;
+  const originalVitest = process.env.VITEST;
+
+  function restore(key: "VERCEL" | "VITEST", value: string | undefined) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
 
   afterEach(() => {
-    if (originalVercel === undefined) {
-      delete process.env.VERCEL;
-    } else {
-      process.env.VERCEL = originalVercel;
-    }
+    restore("VERCEL", originalVercel);
+    restore("VITEST", originalVitest);
     vi.resetModules();
   });
 
@@ -173,8 +179,18 @@ describe("event-bus RUNS_ROOT_DIR resolution", () => {
     expect(bus.RUNS_ROOT_DIR).not.toBe(path.join(process.cwd(), "data", "runs"));
   });
 
-  it("uses repo-relative data/runs when not on Vercel", async () => {
+  it("mirrors under os.tmpdir() during vitest so suites never write into the repo", async () => {
     delete process.env.VERCEL;
+    process.env.VITEST = "true";
+    vi.resetModules();
+    const bus = await import("./event-bus");
+    expect(bus.RUNS_ROOT_DIR.startsWith(os.tmpdir())).toBe(true);
+    expect(bus.RUNS_ROOT_DIR).not.toBe(path.join(process.cwd(), "data", "runs"));
+  });
+
+  it("uses repo-relative data/runs in local dev", async () => {
+    delete process.env.VERCEL;
+    delete process.env.VITEST;
     vi.resetModules();
     const bus = await import("./event-bus");
     expect(bus.RUNS_ROOT_DIR).toBe(path.join(process.cwd(), "data", "runs"));
