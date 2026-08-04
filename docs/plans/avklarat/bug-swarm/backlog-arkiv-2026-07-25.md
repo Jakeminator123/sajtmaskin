@@ -2,6 +2,16 @@
 
 > Flyttade rader från [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) efter riktad tvåradsleverans 2026-07-25 (branch `cursor/warm-cache-sdk-och-sendmessage-outcome-2150`, mot master `1cd8f547`). Båda raderna var P3 och båda var "kniviga" i den mening att de krävde ett vägval snarare än en självklar patch — warm-cache-raden hade tre konkurrerande linjer och `sendMessage`-raden rörde hela caller-kedjan. Filen har sedan fyllts på med en P1-rad som stängdes 2026-07-26 och med de nio defekter som åtgärdsprogrammet efter observationssessionen 2026-07-25 stängde samma dag (egna sektioner nedan). Äldre historik: [`backlog-arkiv-2026-07-24.md`](backlog-arkiv-2026-07-24.md) · [`backlog-arkiv-2026-07-22.md`](backlog-arkiv-2026-07-22.md) · [`backlog-arkiv-2026-07-02.md`](backlog-arkiv-2026-07-02.md) · [`backlog-arkiv-2026-06-27.md`](backlog-arkiv-2026-06-27.md) · [`backlog-arkiv-2026-06-24.md`](backlog-arkiv-2026-06-24.md).
 
+## Fixade 2026-08-04
+
+Första körningen av `/kedja` — den stegade buggfix-pipelinen. Raden nedan var testfallet.
+
+| Klar | Status | Prio | Fynd | Källa | Fix-referens |
+| --- | --- | --- | --- | --- | --- |
+| [x] | Fixad | P2 | **Add-verb-vakten släpper igenom refine-prompter:** de nya `ska … jag … kunna`- och `skulle vilja testa/prova`-mönstren satte `allowDetection` även när prompten innehöll refine-verb som `flytta` (`follow-up-capability-detection.ts:330-335`), så en follow-up som flyttade ett befintligt kontaktformulär klassades som `capability-add` och återinjicerade dossier-skal på en ren layoutändring. | Bugbot-subagent på #683:s diff 2026-07-31 (merge-agentens pass), kodläst utan repro | **PR B (denna leverans):** add-verben delas efter styrka. **Starka** (handlingsverb: `lägg till`, `skapa`, `bygg`, `add`, `create`) överlever ett refine-verb i meddelandet — "lägg till ett kontaktformulär och flytta det högst upp" är en add med placeringsönskan. **Svaga** (önske-/modalformer: `behöver`, `ska jag kunna`, `i want`) förlorar mot refine. Bredare än radens bokstav med avsikt: hade bara de två namngivna mönstren vetats hade samma bugg legat kvar en omformulering bort (`Flytta formuläret, vi **behöver** det högst upp`). Credential-cue och `modifyReference` orörda. Fyra motprov tillagda. |
+
+> **Lärdom, dokumenterad i [`kedja-fix-pipeline`](../../../../.cursor/skills/kedja-fix-pipeline/SKILL.md):** pipelinens två egna kandidater fixade raden genom att göra refine-vetot absolut, vilket slog ut **varje** legitim add — en dyrare bugg än den ursprungliga, eftersom användaren då ber om ett kontaktformulär och tyst inte får något. Alla grindar var gröna: det röda testet passerade, 157 befintliga tester höll, bugbot teg. Ingenting mätte den motsatta riktningen. Steg 2 kräver därför nu ett **motprov** och steg 5 **uttryckligen olika ansats** per kandidat.
+
 ## Fixade 2026-08-02 (prodlogg-åtgärderna efter /logg-internet 2026-08-01)
 
 Tio fynd (M#li1–M#li10) från två live prod-körningar 2026-08-01 (fritext-generering chat `7a4d609f` + v0-mallen "AI Landing Page" chat `4d6b5546`). Raderna dokumenterades och fixades i samma leverans — fyra parallella spår i egna worktrees (#735, #736, #737, #739) plus #732 som stängde M#li3 — så de har aldrig legat som `[ ]`-rader i Aktiv kö på master.
