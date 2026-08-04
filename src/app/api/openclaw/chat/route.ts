@@ -128,7 +128,7 @@ Håll dig till kort, tydlig vägledning. Använd bara djup kodgranskning när an
 function buildDebugSystemPrompt(): string {
   return `Internt läge: DEBUG (OC_DEBUG på).
 
-Du har nu utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]), händelseloggen från förhandsvisningens VM ([PREVIEW-LOGG]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.`;
+När en ägarverifierad chatt och version är öppen får du utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]), händelseloggen från förhandsvisningens VM ([PREVIEW-LOGG]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.`;
 }
 
 /**
@@ -266,6 +266,8 @@ export async function POST(req: NextRequest) {
           : null;
       // Debug full-code context is only unlocked for an ownership-verified chat.
       const debugOwned = debug && Boolean(scopedVersion);
+      // Edit bounded code context uses the same ownership gate as debug.
+      const editOwned = OPENCLAW.editEnabled && Boolean(scopedVersion);
 
       // Cross-tenant guard (Codex P1): the file/code context builder may only
       // read generated files for ids the REQUESTER owns. Reuse the already
@@ -293,6 +295,7 @@ export async function POST(req: NextRequest) {
         currentCodeMaxChars: OPENCLAW_CURRENT_CODE_MAX_CHARS,
         fullCodeContextMaxChars: OPENCLAW_FULL_CODE_CONTEXT_MAX_CHARS,
         debug: debugOwned,
+        edit: editOwned,
         verifyOwnership,
       });
       messages.push({

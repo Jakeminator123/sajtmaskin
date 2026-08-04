@@ -70,11 +70,14 @@ export function OpenClawMessage({
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
   const parsed = parseOpenClawMessage(msg.content);
   const action = !isUser ? parsed.action : null;
+  const rejectedActionReason = !isUser ? parsed.actionError : null;
   // Smooth typewriter reveal: gateway chunks arrive in bursts, so ease the
   // visible text toward the full content instead of jumping per chunk.
   const displayedContent = useSmoothText(parsed.visibleContent, streaming && !isUser);
   const isTyping = !isUser && (streaming || displayedContent.length < parsed.visibleContent.length);
-  const shouldRenderBubble = Boolean(parsed.visibleContent) || !action;
+  // Utan `!rejectedActionReason` skulle ett action-block som avvisats och som
+  // saknar synlig text rendera väntprickarna för alltid bredvid felkortet.
+  const shouldRenderBubble = Boolean(parsed.visibleContent) || (!action && !rejectedActionReason);
 
   // Armed-autonomy gate (Mode A): only auto-send when OC_EDIT (the act gate) is
   // on AND the user has armed a still-active mandate AND the action explicitly
@@ -163,7 +166,27 @@ export function OpenClawMessage({
             builderTarget={msg.builderTarget ?? null}
           />
         ) : null}
+
+        {!isUser && !action && rejectedActionReason ? (
+          <OpenClawRejectedActionCard key="rejected_action" reason={rejectedActionReason} />
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Kort för ett action-block som avvisades redan i parsningen. Det bär ingen
+ * action och har inga knappar — rent informativt, så inget kan köras den här
+ * vägen. Alternativet vore att blocket försvinner spårlöst ur texten.
+ */
+function OpenClawRejectedActionCard({ reason }: { reason: string }) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-rose-400/20 bg-slate-900/70 p-3 text-slate-100">
+      <p className="text-[11px] font-medium tracking-[0.16em] text-rose-200/80 uppercase">
+        Förslaget kunde inte tolkas
+      </p>
+      <p className="mt-1 text-xs leading-5 wrap-break-word text-rose-300">{reason}</p>
     </div>
   );
 }
@@ -276,7 +299,7 @@ function OpenClawStartBugHuntCard({
   return (
     <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
       <p className="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase">
-        Armerad bug-hunt
+        {armedMandate?.mode === "review_next" ? "Armerad granskning" : "Armerad bug-hunt"}
       </p>
       <p className="mt-1 text-sm font-semibold text-white">
         {active
@@ -312,6 +335,7 @@ function OpenClawArmedSendCard({
   messageId: string;
 }) {
   const setArmedMandate = useOpenClawStore((s) => s.setArmedMandate);
+  const armedMandate = useOpenClawStore((s) => s.armedMandate);
   const [state, setState] = useState<"sending" | "sent" | "failed">(
     consumedArmedSends.has(messageId) ? "sent" : "sending",
   );
@@ -392,7 +416,11 @@ function OpenClawArmedSendCard({
         ) : null}
         {state === "sent" ? (
           <p className="text-xs text-emerald-300">
-            Skickad. Jag läser resultatet och fortsätter enligt mandatet.
+            {`Skickad till buildern.${
+              armedMandate && armedMandate.remaining > 0
+                ? ` Mandatet har ${armedMandate.remaining} steg kvar.`
+                : ""
+            } När bygget är klart kan du be mig läsa resultatet.`}
           </p>
         ) : null}
         {state === "failed" ? (

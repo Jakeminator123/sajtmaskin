@@ -81,6 +81,31 @@ const LIGHT_CODE_CONTEXT_TERMS = [
   "current output",
 ] as const;
 
+/**
+ * Edit-mode (OC_EDIT): small, concrete change intents — not review/debug.
+ * Matchningen är substring-baserad (se {@link hasAnyTerm}), så termerna måste
+ * tåla att ligga inuti andra ord: bara "text" skulle träffa "kontext" och ge
+ * kodkontext på en ren fråga.
+ */
+const EDIT_CODE_CONTEXT_TERMS = [
+  "byt",
+  "ändra",
+  "andra",
+  "uppdatera",
+  "justera",
+  "ta bort",
+  "lägg till",
+  "flytta",
+  "rubrik",
+  "färg",
+  "farg",
+  "knapp",
+  "change",
+  "replace",
+  "update",
+  "remove",
+] as const;
+
 const REVIEW_INTENT_TERMS = [
   "granska",
   "review",
@@ -144,8 +169,12 @@ export function decideOpenClawCodeContextMode(params: {
   /** Debug-mode (OC_DEBUG): unlock full code context whenever a chat is open,
    * bypassing the keyword/intent gating so OpenClaw always sees the project. */
   debug?: boolean;
+  /** Edit-mode (OC_EDIT): unlock bounded (manifest/light) code context when the
+   * latest user message expresses a concrete edit intent. Does not bypass to
+   * full — that remains debug-only. */
+  edit?: boolean;
 }): OpenClawCodeContextMode {
-  const { messages, page, chatId, currentCode, debug } = params;
+  const { messages, page, chatId, currentCode, debug, edit } = params;
   const latestUserText = getLatestOpenClawUserText(messages);
   if (!latestUserText) return "none";
 
@@ -170,6 +199,15 @@ export function decideOpenClawCodeContextMode(params: {
   }
 
   if (hasAnyTerm(latestUserText, MANIFEST_CODE_CONTEXT_TERMS)) {
+    if (hasChatId) return "manifest";
+    if (hasCurrentCode) return "light";
+    return "none";
+  }
+
+  // Efter FULL/MANIFEST, aldrig före: edit-läget ger bara avgränsad kontext, så
+  // en prompt som både ber om granskning och en ändring ("granska koden och byt
+  // rubriken") måste behålla sin fulla kontext i stället för att nedgraderas.
+  if (edit && hasAnyTerm(latestUserText, EDIT_CODE_CONTEXT_TERMS)) {
     if (hasChatId) return "manifest";
     if (hasCurrentCode) return "light";
     return "none";

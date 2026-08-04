@@ -173,9 +173,9 @@ function parseQuickEditOp(value: unknown, index: number): OpenClawQuickEditOp | 
 
 /**
  * Validera en rå `apply_quick_edit`-payload med tydliga svenska fel.
- * Vid `ok: false` renderas inget godkännandekort (samma "avvisas tyst"-
- * beteende som övriga actions i parse-kedjan) — felsträngarna finns för
- * tester, felsökning och som dokumenterat förfilterkontrakt.
+ * Vid `ok: false` renderas inget godkännandekort — i stället visar
+ * `OpenClawMessage` ett rent informativt felkort med `error` ordagrant
+ * (se `parseOpenClawMessage` i `text-field-actions.ts`).
  */
 export function validateOpenClawApplyQuickEditAction(
   value: unknown,

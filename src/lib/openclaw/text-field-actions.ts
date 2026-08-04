@@ -1,5 +1,5 @@
 import {
-  parseOpenClawApplyQuickEditAction,
+  validateOpenClawApplyQuickEditAction,
   type OpenClawApplyQuickEditAction,
 } from "./quick-edit-action";
 
@@ -71,6 +71,13 @@ export interface ParsedOpenClawMessage {
   visibleContent: string;
   action: OpenClawAction | null;
   hasIncompleteAction: boolean;
+  /**
+   * Svensk orsak till att ett KOMPLETT action-block avvisades, annars null.
+   * Sätts aldrig samtidigt som `action` — blocket klipps bort ur den synliga
+   * texten oavsett, så utan den här strängen ser en avvisning ut som att
+   * Sajtagenten struntade i förfrågan.
+   */
+  actionError: string | null;
 }
 
 export interface ApplyOpenClawTextFieldActionResult {
@@ -172,6 +179,7 @@ export function parseOpenClawMessage(
       visibleContent: rawContent.trim(),
       action: null,
       hasIncompleteAction: false,
+      actionError: null,
     };
   }
 
@@ -188,6 +196,7 @@ export function parseOpenClawMessage(
       visibleContent: beforeAction.trim(),
       action: null,
       hasIncompleteAction: true,
+      actionError: null,
     };
   }
 
@@ -198,27 +207,69 @@ export function parseOpenClawMessage(
   const visibleContent = [beforeAction, afterAction].filter(Boolean).join("\n\n").trim();
 
   let action: OpenClawAction | null = null;
+  let actionError: string | null = null;
   try {
-    action = parseOpenClawAction(JSON.parse(actionPayload));
+    const result = parseOpenClawAction(JSON.parse(actionPayload));
+    action = result.action;
+    actionError = result.error;
   } catch {
-    action = null;
+    actionError = "Actionblocket är inte giltig JSON.";
   }
 
   return {
     visibleContent,
     action,
     hasIncompleteAction: false,
+    actionError,
   };
 }
 
-function parseOpenClawAction(value: unknown): OpenClawAction | null {
-  if (!value || typeof value !== "object") return null;
+/** Antingen en godkänd action, eller en svensk orsak till avvisningen. */
+interface OpenClawActionParseResult {
+  action: OpenClawAction | null;
+  error: string | null;
+}
+
+function parseOpenClawAction(value: unknown): OpenClawActionParseResult {
+  if (!value || typeof value !== "object") {
+    return { action: null, error: "Actionblocket är inte ett JSON-objekt." };
+  }
   const type = (value as Record<string, unknown>).type;
-  if (type === "fill_text_field") return parseOpenClawFillTextFieldAction(value);
-  if (type === "request_repair") return parseOpenClawRequestRepairAction(value);
-  if (type === "start_bug_hunt") return parseOpenClawStartBugHuntAction(value);
-  if (type === "apply_quick_edit") return parseOpenClawApplyQuickEditAction(value);
-  return null;
+
+  if (type === "fill_text_field") {
+    const parsed = parseOpenClawFillTextFieldAction(value);
+    return parsed
+      ? { action: parsed, error: null }
+      : { action: null, error: "Fältförslaget saknar ett giltigt målfält eller text att fylla i." };
+  }
+  if (type === "request_repair") {
+    const parsed = parseOpenClawRequestRepairAction(value);
+    return parsed
+      ? { action: parsed, error: null }
+      : { action: null, error: "Reparationsförslaget gick inte att tolka." };
+  }
+  if (type === "start_bug_hunt") {
+    const parsed = parseOpenClawStartBugHuntAction(value);
+    return parsed
+      ? { action: parsed, error: null }
+      : { action: null, error: "Buggjaktsförslaget gick inte att tolka." };
+  }
+  if (type === "apply_quick_edit") {
+    // Validera i stället för att parsa: förfiltret har redan tydliga svenska
+    // fel (skyddad sökväg, för många ops, okänd op-typ …) som ska visas ordagrant.
+    const validation = validateOpenClawApplyQuickEditAction(value);
+    return validation.ok
+      ? { action: validation.action, error: null }
+      : { action: null, error: validation.error };
+  }
+
+  return {
+    action: null,
+    error:
+      typeof type === "string" && type.trim()
+        ? `Okänd action-typ "${type.trim().slice(0, 60)}".`
+        : "Actionblocket saknar en action-typ.",
+  };
 }
 
 function parseOpenClawStartBugHuntAction(

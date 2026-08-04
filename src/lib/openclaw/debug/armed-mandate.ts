@@ -132,6 +132,6 @@ export function describeMandate(mandate: ArmedMandate | null | undefined): strin
   if (!isMandateActive(mandate)) return "Ingen aktiv autonomi";
   const m = mandate as ArmedMandate;
   return m.mode === "review_next"
-    ? "Armerad: granskar nästa svar"
+    ? "Armerad: granskar nästa meddelande du skickar"
     : `Armerad: ${m.remaining} follow-up(s) kvar`;
 }
