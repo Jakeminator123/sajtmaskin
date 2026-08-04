@@ -22,13 +22,29 @@
  */
 import { readFileSync } from "node:fs";
 
-function decide(command) {
-  if (!/\bgit\b[\s\S]*\bworktree\b[\s\S]*\bremove\b/.test(command)) {
-    return { permission: "allow" };
-  }
+/**
+ * Split a shell line into independently executed parts.
+ *
+ * Judging the whole string at once is bypassable: `npm run worktree:remove --
+ * ../a; git worktree remove ../b --force` mentions the sanctioned wrapper, so a
+ * whole-string allowlist would pass it while the raw delete still runs.
+ */
+function shellSegments(command) {
+  return command
+    .split(/&&|\|\||[;|\n]/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
 
-  // The wrapper is the sanctioned path even though it shells out to git itself.
-  if (/worktree\.mjs|worktree:remove|kedja-clean|kedja:clean/.test(command)) {
+/** True for a segment that invokes git's own worktree removal, not the wrapper. */
+function isRawWorktreeRemove(segment) {
+  if (/worktree\.mjs|worktree:remove|kedja-clean|kedja:clean/.test(segment)) return false;
+  return /\bgit\b[\s\S]*\bworktree\b[\s\S]*\bremove\b/.test(segment);
+}
+
+function decide(command) {
+  const offending = shellSegments(command).find(isRawWorktreeRemove);
+  if (!offending) {
     return { permission: "allow" };
   }
 
@@ -39,7 +55,7 @@ function decide(command) {
   // worktree as clean. Plain `git worktree remove` therefore proceeds and
   // follows the junction exactly like `--force` does. The wrapper is the only
   // safe path in both cases.
-  const forced = /(?:^|\s)(?:--force|-f)(?:\s|$)/.test(command);
+  const forced = /(?:^|\s)(?:--force|-f)(?:\s|$)/.test(offending);
   const variant = forced ? "`git worktree remove --force`" : "`git worktree remove`";
 
   return {

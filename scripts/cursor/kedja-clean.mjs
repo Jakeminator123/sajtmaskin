@@ -52,8 +52,15 @@ function gitQuiet(args, options = {}) {
   }
 }
 
+/**
+ * Compare paths. Relative input is resolved against the repo root, not the
+ * process cwd — `git worktree list` yields absolute paths, so a `--keep` given
+ * as `..\sajtmaskin-kedja-x-a` must mean the same thing no matter which
+ * directory the script was invoked from. Resolving against cwd made `--keep`
+ * silently miss and delete the worktree it was meant to protect.
+ */
 function samePath(a, b) {
-  const norm = (p) => resolve(p).replace(/[\\/]+$/, "").toLowerCase();
+  const norm = (p) => resolve(REPO_ROOT, p).replace(/[\\/]+$/, "").toLowerCase();
   return norm(a) === norm(b);
 }
 
@@ -102,14 +109,18 @@ function inspect(worktree, trunk) {
 }
 
 /**
- * Full diff including new files. `git diff` alone misses untracked files, and
- * a `/kedja` candidate's new test file is usually untracked — losing it would
- * defeat the point of saving anything. `add -N` only records intent-to-add, so
- * nothing is staged for real, and the worktree is about to be removed anyway.
+ * Full diff against HEAD, covering staged, unstaged and new files alike.
+ *
+ * Two traps this avoids. Plain `git diff` misses untracked files, and a
+ * `/kedja` candidate's new test file is usually untracked — hence `add -A -N`,
+ * which records intent-to-add without really staging anything. And plain
+ * `git diff` also misses changes that are already *staged*, so a worktree dirty
+ * in both ways would have been backed up partially and then removed, losing the
+ * staged half for good. Diffing against `HEAD` covers every case.
  */
 function captureDiff(worktreePath) {
   gitQuiet(["add", "-A", "-N"], { cwd: worktreePath });
-  return gitQuiet(["diff"], { cwd: worktreePath }) ?? "";
+  return gitQuiet(["diff", "HEAD"], { cwd: worktreePath }) ?? "";
 }
 
 function timestamp() {
