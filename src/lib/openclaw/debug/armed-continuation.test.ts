@@ -5,6 +5,7 @@ import {
   decideArmedContinuation,
   observeBuilderTurn,
   CONTINUATION_MAX_WAIT_MS,
+  CONTINUATION_QUIET_MS,
   CONTINUATION_RESUME_FOLLOWTHROUGH_MS,
   CONTINUATION_STALE_VIEW_TIMEOUT_MS,
   CONTINUATION_START_TIMEOUT_MS,
@@ -48,6 +49,8 @@ function watching(overrides: Partial<ArmedContinuationWatch> = {}): ArmedContinu
     observedAt: NOW - 4000,
     observedStrong: true,
     resumedAt: null,
+    quietSince: NOW - 4000,
+    sawCleanStart: true,
     ...overrides,
   };
 }
@@ -75,6 +78,8 @@ describe("createArmedContinuationWatch", () => {
       observedAt: null,
       observedStrong: false,
       resumedAt: null,
+      quietSince: null,
+      sawCleanStart: false,
     });
   });
 
@@ -219,6 +224,36 @@ describe("decideArmedContinuation", () => {
     // terminal status, so nothing else in the snapshot reveals the refusal.
     const decision = decide({ snapshot: snapshot({ lastTurnRejected: true }) });
     expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
+  });
+
+  it("stops on a refusal that left no visible turn behind", () => {
+    // A rolled-back send erases its own optimistic message, so the refusal must
+    // be read before the "has the turn started?" gate.
+    const decision = decide({
+      watch: watching({ observedAt: null, observedStrong: false, sawCleanStart: true }),
+      snapshot: snapshot({ lastTurnRejected: true }),
+    });
+    expect(decision).toMatchObject({ kind: "abort", notify: true });
+  });
+
+  it("ignores a refusal the current turn has not yet cleared", () => {
+    // The flag belongs to the previous turn until a snapshot has reported it
+    // clean; acting on it would kill a mandate that just armed.
+    const decision = decide({
+      watch: watching({ sawCleanStart: false }),
+      snapshot: snapshot({ lastTurnRejected: true }),
+    });
+    expect(decision.kind).not.toBe("abort");
+  });
+
+  it("waits for the builder picture to hold still before waking", () => {
+    // Context fields are published a commit apart, so a status read the instant
+    // streaming stops may not carry the outcome of the send yet.
+    expect(decide({ watch: watching({ quietSince: null }) }).kind).toBe("wait");
+    expect(decide({ watch: watching({ quietSince: NOW - 500 }) }).kind).toBe("wait");
+    expect(decide({ watch: watching({ quietSince: NOW - CONTINUATION_QUIET_MS - 1 }) }).kind).toBe(
+      "resume",
+    );
   });
 
   it("does not time out a woken turn that is still being written", () => {

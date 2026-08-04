@@ -184,6 +184,8 @@ describe("armed autonomy — continuation handshake", () => {
           observedAt: Date.now() - 5000,
           observedStrong: true,
           resumedAt: null,
+          quietSince: Date.now() - 5000,
+          sawCleanStart: true,
         },
       });
     });
@@ -217,6 +219,8 @@ describe("armed autonomy — continuation handshake", () => {
           observedAt: Date.now() - 5000,
           observedStrong: true,
           resumedAt: null,
+          quietSince: Date.now() - 5000,
+          sawCleanStart: true,
         },
       });
     });
@@ -255,6 +259,8 @@ describe("armed autonomy — continuation handshake", () => {
           observedAt: Date.now() - 5000,
           observedStrong: true,
           resumedAt: null,
+          quietSince: Date.now() - 5000,
+          sawCleanStart: true,
         },
       });
     });

@@ -45,6 +45,14 @@ export interface ArmedContinuationWatch {
   observedStrong: boolean;
   /** Set when OpenClaw has been woken for this watch, so it fires only once. */
   resumedAt: number | null;
+  /** When the builder last looked idle; reset whenever it streams again. */
+  quietSince: number | null;
+  /**
+   * True once a snapshot has reported no rejection. The outgoing send clears
+   * that flag, but the context publishes a commit later — without this, a
+   * refusal left over from an earlier turn could kill a freshly armed mandate.
+   */
+  sawCleanStart: boolean;
 }
 
 /** Live builder state, read from `window.__SITEMASKIN_CONTEXT`. */
@@ -113,6 +121,13 @@ export const CONTINUATION_WEAK_CONFIRM_MS = 8_000;
 export const CONTINUATION_RESUME_FOLLOWTHROUGH_MS = 180_000;
 /** Absolute cap on a single watch, however slow the build is. */
 export const CONTINUATION_MAX_WAIT_MS = 15 * 60_000;
+/**
+ * How long the builder must look finished before that is believed. The context
+ * the loop polls is published from a React effect, so individual fields land a
+ * commit apart — the outcome of a send can still be missing at the instant
+ * streaming stops. Waiting a moment lets the whole picture catch up.
+ */
+export const CONTINUATION_QUIET_MS = 2_000;
 
 const RUNNING_VERSION_STATUSES = new Set([
   "generating",
@@ -147,6 +162,8 @@ export function createArmedContinuationWatch(
     observedAt: null,
     observedStrong: false,
     resumedAt: null,
+    quietSince: null,
+    sawCleanStart: false,
   };
 }
 
@@ -159,7 +176,8 @@ export function observeBuilderTurn(
   snapshot: BuilderTurnSnapshot | null,
   now: number = Date.now(),
 ): ArmedContinuationWatch {
-  if (watch.observedStrong || !snapshot) return watch;
+  if (!snapshot) return watch;
+
   const strong =
     snapshot.isStreaming ||
     (!!snapshot.activeVersionId && snapshot.activeVersionId !== watch.versionIdAtSend) ||
@@ -171,12 +189,21 @@ export function observeBuilderTurn(
     typeof snapshot.chatMessageCount === "number" &&
     typeof watch.messageCountAtSend === "number" &&
     snapshot.chatMessageCount > watch.messageCountAtSend;
-  if (!strong && !weak) return watch;
-  return {
+
+  const next: ArmedContinuationWatch = {
     ...watch,
-    observedAt: watch.observedAt ?? now,
+    observedAt: watch.observedAt ?? (strong || weak ? now : null),
     observedStrong: watch.observedStrong || strong,
+    quietSince: snapshot.isStreaming ? null : (watch.quietSince ?? now),
+    sawCleanStart: watch.sawCleanStart || !snapshot.lastTurnRejected,
   };
+
+  const unchanged =
+    next.observedAt === watch.observedAt &&
+    next.observedStrong === watch.observedStrong &&
+    next.quietSince === watch.quietSince &&
+    next.sawCleanStart === watch.sawCleanStart;
+  return unchanged ? watch : next;
 }
 
 /** Mark the watch as woken so a single builder turn can resume only once. */
@@ -245,6 +272,18 @@ export function decideArmedContinuation(
     };
   }
 
+  // The builder refused the turn (stale base, F3 env gate, credit gate, an
+  // abort). Checked before the observation gate because a refusal can erase its
+  // own trace — the optimistic message is rolled back, leaving nothing to see.
+  if (snapshot?.lastTurnRejected && watch.sawCleanStart) {
+    return {
+      kind: "abort",
+      reason: "Autonomin stoppades: buildern tog inte emot sändningen.",
+      notify: true,
+      disarm: true,
+    };
+  }
+
   if (watch.observedAt === null) {
     if (now - watch.startedAt > CONTINUATION_START_TIMEOUT_MS) {
       return {
@@ -255,18 +294,6 @@ export function decideArmedContinuation(
       };
     }
     return { kind: "wait", reason: "Väntar på att builderturen startar." };
-  }
-
-  // The builder refused the turn (stale base, F3 env gate, credit gate, an
-  // abort). Waking up here would spend the next step re-sending into the same
-  // wall, so the run ends and says why.
-  if (snapshot?.lastTurnRejected) {
-    return {
-      kind: "abort",
-      reason: "Autonomin stoppades: buildern tog inte emot sändningen.",
-      notify: true,
-      disarm: true,
-    };
   }
 
   // Chat growth alone can just be the outgoing message the auto-send posted.
@@ -317,6 +344,12 @@ export function decideArmedContinuation(
 
   if (openClawStreaming) {
     return { kind: "wait", reason: "Sajtagenten svarar redan." };
+  }
+
+  // Everything above says the turn is done, but the fields were published a
+  // commit apart. Let the picture hold still briefly before acting on it.
+  if (watch.quietSince === null || now - watch.quietSince < CONTINUATION_QUIET_MS) {
+    return { kind: "wait", reason: "Låter builderns läge stabilisera sig." };
   }
 
   // A turn that ends with the builder asking the user something (clarification,

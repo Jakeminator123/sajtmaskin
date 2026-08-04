@@ -67,6 +67,8 @@ describe("OpenClaw store assistant targeting", () => {
       observedAt: Date.now() - 5000,
       observedStrong: true,
       resumedAt: null,
+      quietSince: Date.now() - 5000,
+      sawCleanStart: true,
     };
     useOpenClawStore.setState({ armedContinuation: watch });
 
