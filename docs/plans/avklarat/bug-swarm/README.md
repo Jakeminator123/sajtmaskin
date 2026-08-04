@@ -8,6 +8,19 @@
 
 Alla scoutfiler (`findings/`), aktivitetsspecs (`activities/`), `triage.md` och `verdicts.md` är raderade — denna fil är enda kvarvarande artefakt och absorberar allt handlingsnödvändigt innehåll.
 
+## Bug-backlog-arkiv (fryst historik)
+
+Senaste snapshots: [`backlog-arkiv-2026-07-25.md`](backlog-arkiv-2026-07-25.md), [`backlog-arkiv-2026-07-24.md`](backlog-arkiv-2026-07-24.md).
+
+Äldre snapshots (konsoliderade 2026-08-04, full text i git):
+
+| Fil | Senaste SHA |
+|---|---|
+| `backlog-arkiv-2026-07-22.md` | `ebebeb84d` |
+| `backlog-arkiv-2026-07-02.md` | `aff52da63` |
+| `backlog-arkiv-2026-06-27.md` | `d3e06378b` |
+| `backlog-arkiv-2026-06-24.md` | `53c153644` |
+
 ---
 
 ## 0. STATUS — verifierad mot master `c2ccd7efd` (triage-svärm 2026-06-22)

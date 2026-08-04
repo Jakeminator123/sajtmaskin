@@ -5,7 +5,7 @@
 | Mapp | Vad |
 |---|---|
 | [`active/`](./active/README.md) | Koncentratet (enda aktiva ytan). |
-| [`archived/`](./archived/) | Vilande, parkerade (`archived/parked/`), skrotade och in-syntetiserade planer. Filnamn bevarade så länkar/historik resolvar. |
+| [`archived/`](./archived/README.md) | Lifecycle-slot för vilande/skrotade planer (tom sedan 2026-08-04; historik i git). |
 | [`avklarat/`](./avklarat/README.md) | Implementerat och mergat — historik. |
 
 Lifecycle-kontrakt: [`.cursor/rules/plan-lifecycle.mdc`](../../.cursor/rules/plan-lifecycle.mdc). Orientering: [`documentation-lifecycle.md`](../documentation-lifecycle.md) · [`docs/architecture/README.md`](../architecture/README.md).
