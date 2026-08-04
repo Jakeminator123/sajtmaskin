@@ -21,6 +21,27 @@ import { fetchWithPinnedDns } from "@/lib/capture/pinned-fetch";
 
 const IS_SERVERLESS = Boolean(process.env.VERCEL);
 
+/**
+ * `playwright-core` och `@sparticuz/chromium` måste uppgraderas TILLSAMMANS.
+ *
+ * Serverless-grenen nedan låter `playwright-core` driva Sparticuz-binären via
+ * `executablePath()`. Varje playwright-version är byggd mot en bestämd
+ * Chromium-major, så bumpas bara den ena hamnar drivrutin och binär i otakt.
+ * Det syns inte i någon check: lokalt och i CI används devDependencyn
+ * `playwright` med sin egen medföljande Chromium, så `quality` och `build` är
+ * gröna medan projektminiatyrer och inspector-capture går sönder i prod.
+ *
+ * Läge 2026-08-04: `playwright-core` 1.61.1 → Chromium 149.0.7827.55, och
+ * `@sparticuz/chromium` ^149.0.0 matchar. Dependabot-PR #750 ville lyfta
+ * `playwright-core` till 1.62.1 (Chromium 151) medan Sparticuz senaste
+ * publicerade version fortfarande var 149.0.0 — den stängdes därför.
+ *
+ * Innan nästa bump: kontrollera `npm view @sparticuz/chromium versions` och
+ * `node_modules/playwright-core/browsers.json` (fältet `browserVersion`) och
+ * bekräfta samma Chromium-major. Går det inte ihop — vänta, bumpa inte ensam.
+ * Trasslar bildfångsten i prod strax efter en dependency-uppdatering är det
+ * här du ska titta först.
+ */
 export async function launchCaptureBrowser(): Promise<Browser> {
   if (IS_SERVERLESS) {
     const chromium = (await import("@sparticuz/chromium")).default;
