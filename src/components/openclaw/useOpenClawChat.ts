@@ -18,6 +18,16 @@ function makeId() {
   return `oc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+export interface OpenClawSendOptions {
+  /**
+   * Whether this turn may arm or disarm autonomy. Only a message the user
+   * actually typed carries that consent — the machine-generated continuation
+   * turn passes `false` so a mandate can never renew itself into a loop.
+   * Defaults to true.
+   */
+  allowArming?: boolean;
+}
+
 export function useOpenClawChat() {
   const {
     messages,
@@ -40,7 +50,7 @@ export function useOpenClawChat() {
   }, [scopeKey]);
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, options?: OpenClawSendOptions) => {
       const trimmed = text.trim();
       if (!trimmed) return;
 
@@ -49,7 +59,7 @@ export function useOpenClawChat() {
       // the user can cancel an in-flight autonomous run by typing "stopp" even
       // while OpenClaw is still responding. An arming directive creates a
       // bounded mandate. Outside OC_EDIT (the act gate) this never arms.
-      if (editEnabled) {
+      if (editEnabled && options?.allowArming !== false) {
         if (parseStopDirective(trimmed)) {
           setArmedMandate(null);
         } else if (!isStreaming) {

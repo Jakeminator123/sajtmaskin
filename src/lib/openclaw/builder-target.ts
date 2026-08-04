@@ -5,6 +5,8 @@
  * — flyttad hit från `OpenClawMessage.tsx` när quick-edit-förslag började
  * bindas till versionen modellen faktiskt såg (Bugbot 2026-08-01).
  */
+import type { BuilderTurnSnapshot } from "@/lib/openclaw/debug/armed-continuation";
+
 export interface OpenClawBuilderTarget {
   chatId: string;
   versionId: string;
@@ -17,4 +19,22 @@ export function readActiveBuilderTarget(): OpenClawBuilderTarget | null {
   const versionId = typeof ctx?.activeVersionId === "string" ? ctx.activeVersionId : null;
   if (!chatId || !versionId) return null;
   return { chatId, versionId };
+}
+
+/**
+ * Live builder-turn state for the armed-autonomy handshake. Unlike
+ * `readActiveBuilderTarget` this tolerates a missing version id — a turn that
+ * has not produced its version yet is exactly what the handshake waits for.
+ * Returns null outside the builder so autonomy can never resume on another page.
+ */
+export function readBuilderTurnSnapshot(): BuilderTurnSnapshot | null {
+  if (typeof window === "undefined") return null;
+  const ctx = window.__SITEMASKIN_CONTEXT;
+  if (!ctx || ctx.page !== "builder") return null;
+  return {
+    chatId: typeof ctx.chatId === "string" ? ctx.chatId : null,
+    activeVersionId: typeof ctx.activeVersionId === "string" ? ctx.activeVersionId : null,
+    isStreaming: ctx.isStreaming === true,
+    versionStatus: typeof ctx.activeVersionStatus === "string" ? ctx.activeVersionStatus : null,
+  };
 }

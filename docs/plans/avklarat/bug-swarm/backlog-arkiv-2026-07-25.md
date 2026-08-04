@@ -12,6 +12,13 @@ Första körningen av `/kedja` — den stegade buggfix-pipelinen. Raden nedan va
 
 > **Lärdom, dokumenterad i [`kedja-fix-pipeline`](../../../../.cursor/skills/kedja-fix-pipeline/SKILL.md):** pipelinens två egna kandidater fixade raden genom att göra refine-vetot absolut, vilket slog ut **varje** legitim add — en dyrare bugg än den ursprungliga, eftersom användaren då ber om ett kontaktformulär och tyst inte får något. Alla grindar var gröna: det röda testet passerade, 157 befintliga tester höll, bugbot teg. Ingenting mätte den motsatta riktningen. Steg 2 kräver därför nu ett **motprov** och steg 5 **uttryckligen olika ansats** per kandidat.
 
+## Fixade 2026-08-04 (armerad autonomi — continuation-handshake)
+
+Resten av OpenClaw-svepet (#754, som stängde fyra av fem fynd och gjorde UI-texten ärlig men lämnade själva funktionen).
+
+| Klar | Status | Prio | Fynd | Källa | Fix-referens |
+| --- | --- | --- | --- | --- | --- |
+| [x] | Fixad | P2 | **Armerad autonomi fullföljde inte mandatet:** ett mandat på N follow-ups gav i praktiken EN auto-sändning — ingen kod väckte Sajtagenten igen när builderturen nått terminalt läge, så resterande steg låg oanvända. `review_next` saknade konsument helt (`canArmedSend` kräver `followups`). | Verifierad mot master `1b2686cc` (2026-08-04); UI-halvan fixad i #754 | Ny ren beslutsmodul `src/lib/openclaw/debug/armed-continuation.ts` + `useOpenClawArmedContinuation`: auto-sändningen registrerar en watch, loopen väntar in terminalt builder-läge (streaming + versionsstatus) och väcker Sajtagenten exakt en gång med färsk kontext. Stoppar vid mandatets tak, failed/blocked version, chattbyte, "stopp", timeout och parallell OpenClaw-tur. Fortsättningsturen kan inte re-armera (`allowArming: false` + inert prompttext, båda testade). `review_next` avbryts tyst. Integrationstest kör två follow-ups genom riktiga kort + loop. |
 ## Fixade 2026-08-02 (prodlogg-åtgärderna efter /logg-internet 2026-08-01)
 
 Tio fynd (M#li1–M#li10) från två live prod-körningar 2026-08-01 (fritext-generering chat `7a4d609f` + v0-mallen "AI Landing Page" chat `4d6b5546`). Raderna dokumenterades och fixades i samma leverans — fyra parallella spår i egna worktrees (#735, #736, #737, #739) plus #732 som stängde M#li3 — så de har aldrig legat som `[ ]`-rader i Aktiv kö på master.

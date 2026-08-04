@@ -734,6 +734,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       recentMessages: buildRecentContextMessages(vm.messages),
       currentCode: vm.currentPageCode?.slice(0, OPENCLAW_CONTEXT_CODE_MAX_CHARS) || null,
       isStreaming: vm.isAnyStreaming,
+      // `isStreaming` drops as soon as the stream closes, while post-checks may
+      // still be running. The armed-autonomy handshake needs the version phase
+      // too, so it resumes on a genuinely terminal turn and stops on a failed
+      // one (`debug/armed-continuation.ts`).
+      activeVersionStatus,
     };
     return () => {
       delete window.__SITEMASKIN_CONTEXT;
@@ -752,6 +757,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.messages,
     vm.currentPageCode,
     vm.isAnyStreaming,
+    activeVersionStatus,
   ]);
 
   const latestPendingReply = useMemo(

@@ -30,6 +30,7 @@ import {
   truncateForSpeech,
 } from "@/lib/openclaw/use-did-avatar";
 import { useOpenClawChat } from "./useOpenClawChat";
+import { useOpenClawArmedContinuation } from "./useOpenClawArmedContinuation";
 import { OpenClawMessage } from "./OpenClawMessage";
 import { describeMandate, isMandateActive } from "@/lib/openclaw/debug/armed-mandate";
 
@@ -111,6 +112,10 @@ export function OpenClawChatPanel({
   isOpen?: boolean;
 }) {
   const { messages, isStreaming, send, stop, clearConversation } = useOpenClawChat();
+  // Closes the armed-autonomy loop: an auto-send registers a watch and this
+  // resumes OpenClaw once the builder turn it started is done. The panel stays
+  // mounted while collapsed, so a running mandate survives a closed chat.
+  useOpenClawArmedContinuation(send);
   const { avatarMode, setAvatarMode, setDebugEnabled, setEditEnabled, armedMandate } =
     useOpenClawStore();
   const avatar = useDidAvatar({ enabled: avatarMode && isOpen });
