@@ -277,10 +277,10 @@ const generatedSiteIntegrationPlaceholdersSchema = z.object({
  *
  * VALIDATE-ONLY: these are present in config/ai_models/manifest.json and shown
  * read-only in backoffice, but nothing in the generation pipeline consumes them
- * yet. Global routeTimeouts / repairPolicies / briefing defaults are what apply
- * at runtime. See config/control-plane/policy-registry.json
- * (manifest-per-tier-* entries, runtimeStatus "declared-only"). Do NOT wire the
- * getters below into the pipeline without flipping those registry entries.
+ * yet. Global routeTimeouts / repairPolicies are what apply at runtime.
+ * `perTierBriefing` is the exception: create-chat and clear-redesign consume
+ * its selected tier entry, with the global briefing default as fallback.
+ * See config/control-plane/policy-registry.json for each field's runtimeStatus.
  */
 function tierKeyedSchema<T extends z.ZodTypeAny>(inner: T) {
   return z.object({
@@ -333,7 +333,7 @@ export const aiModelsManifestSchema = z.object({
   phaseRouting: phaseRoutingSchema,
   repairPolicies: repairPoliciesSchema,
   qualityGateTiers: qualityGateTiersSchema,
-  // VALIDATE-ONLY per-tier policy overrides (declared-only, not wired to runtime).
+  // Timeout/repair overrides are validate-only; perTierBriefing is runtime-wired.
   perTierTimeouts: perTierTimeoutsSchema.optional(),
   perTierRepairPolicies: perTierRepairPoliciesSchema.optional(),
   perTierBriefing: perTierBriefingSchema.optional(),
@@ -396,8 +396,8 @@ let cached: AiModelsManifest | null = null;
 
 const DEFAULT_PHASE_THINKING_BY_TIER: Record<BuildProfileId, PhaseThinkingTierFromManifest> = {
   premium: {
-    planner: { thinking: true, reasoningEffort: "max", reasoningMode: "pro" },
-    generator: { thinking: true, reasoningEffort: "xhigh", reasoningMode: "pro" },
+    planner: { thinking: true, reasoningEffort: "high", reasoningMode: "pro" },
+    generator: { thinking: true, reasoningEffort: "high", reasoningMode: "pro" },
     fixer: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
     verifier: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
     "deploy-assistant": { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
@@ -572,13 +572,11 @@ export function getMatchStrategy(point: MatchPoint): MatchStrategy {
 }
 
 /**
- * VALIDATE-ONLY read-only accessors for the per-tier policy overrides.
+ * Read-only accessors for the per-tier policy overrides.
  *
- * These intentionally do NOT alter runtime behavior — they only expose the
- * validated (optional) manifest fields so backoffice/tooling can read them.
- * The generation pipeline still uses the global routeTimeouts / repairPolicies /
- * briefing defaults. See the note above `perTierTimeoutsSchema` before wiring
- * any of these into the pipeline.
+ * Timeout and repair entries remain validate-only. `perTierBriefing` is read
+ * by server auto-brief model selection; its optional shape preserves the
+ * global briefing default as a compatibility fallback.
  */
 export function getPerTierTimeoutsFromManifest(): PerTierTimeoutsFromManifest | undefined {
   return getAiModelsManifest().perTierTimeouts;

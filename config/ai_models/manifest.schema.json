@@ -214,7 +214,7 @@
     },
     "perTierBriefing": {
       "type": "object",
-      "description": "VALIDATE-ONLY per-tier briefing-model overrides. Declared-only: validated but not wired to runtime (global briefing defaults apply).",
+      "description": "Runtime-wired per-tier auto-brief model defaults. Explicit prompt-assist selection and the selected provider's auto-brief env override take precedence; global briefing defaults are the compatibility fallback.",
       "required": ["premium", "pro", "max", "codex", "anthropic"],
       "properties": {
         "premium": { "$ref": "#/$defs/perTierBriefingEntry" },

@@ -559,6 +559,7 @@ export async function handleMessageStreamRequest(
           metaScaffoldId,
           metaBuildIntent,
           metaPromptAssistModel,
+          resolvedModelTier,
           resolvedImageGenerations,
           req,
           parsedMeta,

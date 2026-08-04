@@ -108,9 +108,9 @@
       "sourceOfTruth": "config/ai_models/manifest.json#perTierBriefing",
       "type": "policy",
       "validator": "control-plane:check",
-      "ciStatus": "warn",
-      "runtimeEnforced": false,
-      "runtimeStatus": "declared-only",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
       "backoffice": {
         "surface": "AI Models > Per-tier policy",
         "editable": false,
@@ -118,7 +118,7 @@
         "danger": "low"
       },
       "mobility": "leave",
-      "notes": "VALIDATE-ONLY; global briefing defaults apply."
+      "notes": "Create-chat and clear-redesign auto-brief select the active build tier's briefingModel. Explicit prompt-assist selection and the selected provider's auto-brief env override take precedence; global briefing defaults remain the compatibility fallback."
     },
     {
       "id": "domain-rules",

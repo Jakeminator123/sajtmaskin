@@ -301,6 +301,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const autoBriefStartedAt = Date.now();
         const generated = await tryGenerateServerAutoBrief({
           prompt: message,
+          modelTier: resolvedModelTier,
           assistModelHint,
           imageGenerations: resolvedImageGenerations,
           signal: req.signal,
