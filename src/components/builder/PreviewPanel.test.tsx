@@ -317,10 +317,11 @@ describe("PreviewPanel", () => {
 
   async function openBrowseDetailAndStartInsert(
     onShadcnItemInsert: (selection: ShadcnInsertSelection) => Promise<SendMessageOutcome>,
+    overrides?: Partial<React.ComponentProps<typeof PreviewPanel>>,
   ) {
     vi.stubEnv("NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL", "true");
     stubDropTestFetch();
-    const view = renderPreviewPanelWithTools({ onShadcnItemInsert });
+    const view = renderPreviewPanelWithTools({ onShadcnItemInsert, ...overrides });
 
     fireEvent.load(screen.getByTitle("Preview"));
     fireEvent.click(screen.getByRole("button", { name: /Lägg till block/i }));
@@ -424,6 +425,32 @@ describe("PreviewPanel", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("placement-overlay")).toBeNull();
     });
+    expect(onShadcnItemInsert).not.toHaveBeenCalled();
+  });
+
+  // Motsatsen till testet ovan: att versionslistan landar medan valet pågår är
+  // ingen chattbyte. Placeringsläget kräver bara `previewUrl`, så avbryter
+  // hydreringen valet försvinner overlayn tyst innan användaren hunnit klicka.
+  it("click-path första versionshydreringen avbryter INTE placeringsvalet", async () => {
+    const onShadcnItemInsert = vi.fn(
+      async (_selection: ShadcnInsertSelection): Promise<SendMessageOutcome> => ({
+        status: "started",
+        via: "stream",
+      }),
+    );
+    const view = await openBrowseDetailAndStartInsert(onShadcnItemInsert, {
+      versionId: null,
+    });
+
+    await screen.findByTestId("placement-overlay");
+
+    view.rerender(
+      <PreviewPanelHarness
+        {...buildPreviewPanelProps({ onShadcnItemInsert, versionId: "ver_1" })}
+      />,
+    );
+
+    expect(screen.getByTestId("placement-overlay")).toBeTruthy();
     expect(onShadcnItemInsert).not.toHaveBeenCalled();
   });
 

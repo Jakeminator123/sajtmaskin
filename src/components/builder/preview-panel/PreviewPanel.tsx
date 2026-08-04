@@ -436,8 +436,17 @@ export function PreviewPanel({
   // Chatt-/versionsbyte medan placeringsvalet pågår: avbryt HELT (ingen
   // insättning). Utan detta kunde ett val som startade i en chatt fullföljas
   // mot den nya aktiva chatten, eller lämna insertingRef låst (bugbot-fynd).
+  // Första hydreringen är inget byte: placeringsläget kräver bara `previewUrl`,
+  // som kan finnas innan versionslistan laddat, så en abort när `versionId` går
+  // från tomt till sitt första värde hade tyst svalt ett val användaren redan
+  // startat. Bara ett skifte FRÅN ett satt id räknas därför som byte.
+  const placementScopeRef = useRef({ chatId, versionId });
   useEffect(() => {
-    resolveShadcnPlacementPick("aborted");
+    const previous = placementScopeRef.current;
+    placementScopeRef.current = { chatId, versionId };
+    const chatSwitched = Boolean(previous.chatId) && previous.chatId !== chatId;
+    const versionSwitched = Boolean(previous.versionId) && previous.versionId !== versionId;
+    if (chatSwitched || versionSwitched) resolveShadcnPlacementPick("aborted");
   }, [chatId, versionId, resolveShadcnPlacementPick]);
 
   const handlePickShadcnPlacement = useCallback(
