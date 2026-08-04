@@ -78,6 +78,14 @@ export const variantTemplateAddendumSchema = z
   .object({
     templateId: z.string().trim().min(1).max(100),
     sourceArchiveSha256: z.string().regex(SHA256_PATTERN),
+    /**
+     * Fingerprint of the extractor that produced these excerpts. Records are
+     * bound to their input archive *and* to the code that transformed it, so a
+     * changed extraction rule cannot leave stale excerpts behind. Optional here
+     * because `disabled` records have nothing extracted; the generator and the
+     * integrity test require it for `generated` ones.
+     */
+    extractorSha256: z.string().regex(SHA256_PATTERN).optional(),
     reviewStatus: z.enum(VARIANT_TEMPLATE_ADDENDUM_REVIEW_STATUSES),
     reviewNotes: z.string().trim().min(1).max(MAX_REVIEW_NOTES_CHARS).optional(),
     structuralReferences: z.array(structuralReferenceSchema).max(MAX_STRUCTURAL_REFERENCES),

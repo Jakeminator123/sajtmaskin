@@ -27,9 +27,11 @@ import {
   VARIANT_TEMPLATE_ADDENDA_VERSION,
 } from "../../src/lib/gen/scaffold-variants/variant-template-addendum";
 import { extractVariantTemplateStructuralReferences } from "../../src/lib/gen/scaffold-variants/template-inspiration";
+import { computeExtractorSha256 } from "../../src/lib/gen/scaffold-variants/extractor-fingerprint";
 import { extractV0TemplateReferenceFiles } from "../../src/lib/templates/local-v0-template-source";
 
 const ROOT = process.cwd();
+const EXTRACTOR_SHA = computeExtractorSha256(ROOT);
 const MANIFEST_PATH = resolve(ROOT, "src/lib/templates/template-blob-manifest.json");
 const ADDENDA_PATH = resolve(ROOT, "config/variant-template-addenda.json");
 const VARIANTS_ROOT = resolve(ROOT, "config/scaffold-variants");
@@ -149,6 +151,7 @@ async function generateEntry(template: ManifestTemplate): Promise<VariantTemplat
   return {
     templateId: template.id,
     sourceArchiveSha256: template.archiveSha256,
+    extractorSha256: EXTRACTOR_SHA,
     reviewStatus: "generated",
     structuralReferences: extractVariantTemplateStructuralReferences(files),
   };
@@ -216,6 +219,10 @@ async function checkRegistry(
       entry.sourceArchiveSha256 !== manifest.archiveSha256
     ) {
       problems.push(`${templateId}: stale addendum sha`);
+    } else if (entry.reviewStatus === "generated" && entry.extractorSha256 !== EXTRACTOR_SHA) {
+      problems.push(
+        `${templateId}: produced by a different extractor than the current template-inspiration.ts`,
+      );
     }
   }
   if (problems.length > 0) {
@@ -265,7 +272,12 @@ async function main(): Promise<void> {
       });
       continue;
     }
-    const currentMatches = current?.sourceArchiveSha256 === template.archiveSha256;
+    // A record is current only when both its input archive and the extractor
+    // that produced it are unchanged. Without the extractor half, editing the
+    // extraction rules left every cached record in place and CI stayed green.
+    const currentMatches =
+      current?.sourceArchiveSha256 === template.archiveSha256 &&
+      (current?.reviewStatus !== "generated" || current?.extractorSha256 === EXTRACTOR_SHA);
     if (current?.reviewStatus === "reviewed" && !currentMatches && !refreshReviewed) {
       throw new Error(
         `${templateId}: reviewed addendum is stale; inspect the new archive and rerun with --refresh-reviewed to replace the manual edits`,

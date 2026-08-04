@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { computeExtractorSha256 } from "./extractor-fingerprint";
 import { selectVariantTemplateReference } from "./template-inspiration";
 import { parseVariantTemplateAddendaRegistry } from "./variant-template-addendum";
 
@@ -132,6 +133,30 @@ describe("scaffold-variant integrity", () => {
     expect(
       [...missingOrStale].sort(),
       "variant template addenda must cover every cited Blob id; run npm run templates:addenda -- --write",
+    ).toEqual([]);
+  });
+
+  /**
+   * The registry was bound only to the archive SHA, so it could not tell that
+   * the *extractor* had changed. `npm run templates:addenda -- --check` is not
+   * wired into CI, which made the test suite the only place this can be caught:
+   * without this assertion, tightening an extraction rule left the old excerpts
+   * shipping to the LLM with every check green.
+   */
+  it("every generated addendum was produced by the current extractor", () => {
+    const addenda = parseVariantTemplateAddendaRegistry(
+      JSON.parse(fs.readFileSync(TEMPLATE_ADDENDA_PATH, "utf-8")) as unknown,
+    );
+    const expected = computeExtractorSha256(ROOT);
+    const outdated = addenda.templates
+      .filter(
+        (entry) => entry.reviewStatus === "generated" && entry.extractorSha256 !== expected,
+      )
+      .map((entry) => entry.templateId);
+
+    expect(
+      outdated,
+      "template-inspiration.ts changed since these excerpts were extracted; run npm run templates:addenda -- --write",
     ).toEqual([]);
   });
 
