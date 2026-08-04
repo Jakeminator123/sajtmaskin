@@ -27,6 +27,7 @@ kopiera inte dess kö hit.
 | Spår | Plan | Läge | Nästa steg |
 | --- | --- | --- | --- |
 | Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | Sex rader kvar 2026-08-01: fyra sedan tidigare plus innehållsrevisionens svansar R14–R15 (planen upplöstes när kärnan — steg 1–3, #642/#674/#693 — indexerades i [`../avklarat/README.md`](../avklarat/README.md)) | **R8:s aktiverings-E2E** och **R15** kan tas mekaniskt. **R14 är ägarbeslutet: släpp `SAJTMASKIN_CONTENT_REVISION_GATE`** (preview först, läs räknaren, sedan prod — recept i planfilen). R5 och R12 är blockerade på annat än tid; R13 är en prod-observation |
+| Restlista: LLM-polish (från Kvarvarande-uppgifter) | [`2026-08-04-restlista-llm-polish.md`](2026-08-04-restlista-llm-polish.md) | Öppna rader flyttade från upplöst `archived/Kvarvarande-uppgifter.md` (git `c1acadc9d`) | Tech-debt/polish — inget P0 |
 | Sanering och uppdelning (10 steg) | [`2026-08-01-sanering-och-uppdelning/00-master-plan.md`](2026-08-01-sanering-och-uppdelning/00-master-plan.md) | Plan skriven 2026-08-01, kodverifierad baseline mot master `c3a9273d0` (öppna PR:ar, backlog-räkning, knip, blob-svep av historiken). Inget steg påbörjat | **Steg 0: mergestyr #708 → #706 → #707**, därefter de sex false-green-fixarna ([`01-false-green.md`](2026-08-01-sanering-och-uppdelning/01-false-green.md)). Historik-omskrivningen (steg 8) och `_parkering/`-raderingen kräver ägar-OK |
 
 ## Ägarbeslut — ratificerade 2026-07-30

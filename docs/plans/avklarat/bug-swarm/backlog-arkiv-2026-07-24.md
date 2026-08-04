@@ -1,6 +1,6 @@
 # Bug-backlog — arkiv (2026-07-24)
 
-> Flyttade rader från [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) efter bugfix-svepet 2026-07-24 (branch `fix/bugfix-svep-0724`, en commit per rotorsak, mot master `626f15e6`). Sex kodverifierade lågrisk-rader fixades; omtriage av rader i #593–#597-berörda områden (`sendMessage`-outcome, `version_busy`-UX, quick-edit-lease, autofix-kontext) bekräftade dem fortfarande öppna — inga ytterligare flyttar. Äldre historik: [`backlog-arkiv-2026-07-22.md`](backlog-arkiv-2026-07-22.md) · [`backlog-arkiv-2026-07-02.md`](backlog-arkiv-2026-07-02.md) · [`backlog-arkiv-2026-06-27.md`](backlog-arkiv-2026-06-27.md) · [`backlog-arkiv-2026-06-24.md`](backlog-arkiv-2026-06-24.md).
+> Flyttade rader från [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) efter bugfix-svepet 2026-07-24 (branch `fix/bugfix-svep-0724`, en commit per rotorsak, mot master `626f15e6`). Sex kodverifierade lågrisk-rader fixades; omtriage av rader i #593–#597-berörda områden (`sendMessage`-outcome, `version_busy`-UX, quick-edit-lease, autofix-kontext) bekräftade dem fortfarande öppna — inga ytterligare flyttar. Äldre historik: äldre snapshots jun–jul 22 i [`README.md`](README.md) (git-SHA).
 
 ## Fixade i bugfix-svepet 2026-07-24
 

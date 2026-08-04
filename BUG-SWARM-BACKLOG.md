@@ -2,7 +2,7 @@
 
 **Enda aktiva bugglistan i repot.** Lokal markdown är källan till sanning — ingen Linear, ingen extern tracker. Formatkontrollen (`npm run check:bug-backlog` → `scripts/dev/check-bug-backlog.mjs`, blockerande CI-steg i `quality`) och canvas-generatorn (`scripts/canvas/build-llm-flow-canvas.mjs`) läser **`## Aktiv kö`** nedan.
 
-Avslutade rader flyttas till [`docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-25.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-25.md) (senaste), [`backlog-arkiv-2026-07-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-24.md), [`backlog-arkiv-2026-07-22.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-22.md), [`backlog-arkiv-2026-07-02.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-02.md), [`backlog-arkiv-2026-06-27.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-27.md) och [`backlog-arkiv-2026-06-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-24.md) (fryst historik). Grandmaster-svärmens B01–B15 = löst historik i [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md).
+Avslutade rader flyttas till [`docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-25.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-25.md) (senaste) och [`backlog-arkiv-2026-07-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-24.md). Äldre snapshots (jun–jul 22) är indexerade med git-SHA i [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md). Grandmaster-svärmens B01–B15 = löst historik i samma README.
 
 ## Hur den hålls sann
 
@@ -20,7 +20,7 @@ Avslutade rader flyttas till [`docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-
 
 Verkliga öppna defekter. Detta är den enda listan att jobba ur. Canvasen visar dessa som öppna huvudrisker.
 
-> **Senast helverifierad:** 2026-07-22 mot master `bd09e331` (gated bug-swarm-pass, PR #592). Varje kvarvarande rad kodverifierades som fortfarande öppen; 15 rader fixades, 5 var redan fixade/obsoleta/avfärdade och 2 flyttades (arkiv: [`backlog-arkiv-2026-07-22.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-22.md)). Fil-ankare uppdaterade efter modulsplittarna #560/#562/#563.
+> **Senast helverifierad:** 2026-07-22 mot master `bd09e331` (gated bug-swarm-pass, PR #592). Varje kvarvarande rad kodverifierades som fortfarande öppen; 15 rader fixades, 5 var redan fixade/obsoleta/avfärdade och 2 flyttades (arkiv: `backlog-arkiv-2026-07-22`, git `ebebeb84d` — se [`bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md)). Fil-ankare uppdaterade efter modulsplittarna #560/#562/#563.
 >
 > **Bugfix-svep 2026-07-24** (mot master `626f15e6`, branch `fix/bugfix-svep-0724`): 6 kodverifierade lågrisk-rader fixade och flyttade (arkiv: [`backlog-arkiv-2026-07-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-24.md)); omtriage av rader i #593–#597-berörda områden (sendMessage-outcome, version_busy-UX, quick-edit-lease, autofix-kontext) bekräftade dem fortfarande öppna.
 >
@@ -189,7 +189,7 @@ Systemet gör som tänkt; "fixen" är ett produkt-/arkitektur-**val** som medvet
 | Bulkradering av Vercel-projekt i admin-UI kunde radera Sajtmaskins eget prod-projekt — **ÅTGÄRDAT 2026-07-24** | Hittat vid /admin-renoveringen (kodläsning + rutt-test) | `mega-cleanup` och `cleanup-vercel-projects` listade `api.vercel.com/v9/projects` och raderade **alla** projekt token såg, inklusive `VERCEL_PROJECT_ID`, bakom en två-klicks-knapp. `cleanup-vercel-projects` är pensionerad (410), `mega-cleanup` är nu en data-/cache-nollställning utan Vercel-anrop, och per-projekt-radering vägrar appens eget projekt (`src/lib/vercel/self-project-guard.ts`). Låst med tester. |
 | Health-endpoints bevisar process-liveness, inte modellkapacitet | M#och1 (prod-felsökning 2026-07-24, Codex-kvoten utmattad) | Både `/api/openclaw/health` och gatewayens `/health` svarade 200/`"ok"` medan varje modell i fallback-kedjan var kvotslut och Sajtagenten inte kunde svara ett enda tecken — en falsk grön signal som kostade en hel felsökningssession. **Medvetet val:** en riktig modell-probe per health-anrop kostar pengar och kan själv slå i kvoten. I stället är fällan dokumenterad (`infra/openclaw/DEPLOY_INFO.txt` §6) och orsaken ytas nu i chatten i st.f. att sväljas (`src/lib/openclaw/gateway-response.ts`, PR #605). Revisit om en billig kapacitets-signal blir tillgänglig. Ägare: `src/lib/openclaw/status.ts`. |
 
-Full detalj + alla `[x]`/avfärdade rader: [`backlog-arkiv-2026-07-02.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-02.md) · [`backlog-arkiv-2026-06-27.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-27.md) · [`backlog-arkiv-2026-06-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-24.md).
+Full detalj + alla `[x]`/avfärdade rader: äldre snapshots jun–jul 02 indexerade i [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md) (git-SHA).
 
 ## Naming-debt: `v0ChatId`
 
