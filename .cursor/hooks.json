@@ -7,6 +7,12 @@
         "matcher": "git\\s+commit",
         "timeout": 10,
         "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/worktree-force-guard.mjs",
+        "matcher": "worktree\\s+remove",
+        "timeout": 10,
+        "failClosed": false
       }
     ]
   }

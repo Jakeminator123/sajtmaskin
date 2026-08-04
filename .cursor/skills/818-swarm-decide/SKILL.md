@@ -1,41 +1,63 @@
 ---
 name: 818-swarm-decide
 description: >-
-  Runs eight parallel read-only Composer subagents on one decision topic, aggregates short reports with %-style confidence where useful, lets the parent agent implement minimally, then runs a short review pass. Use when the user runs /818, says "818", "åtta agenter", "svärm innan beslut", or wants consensus before a risky git/code change in Sajtmaskin.
+  Runs three parallel read-only subagents on one decision topic from three non-overlapping angles (consequence, the counter-case, canonical ownership), the parent verifies their claims against the code, then decides once, implements minimally and runs a short review pass. Use when the user runs /818, says "818", "svärm innan beslut" or wants a structured go/no-go before a risky change in Sajtmaskin. For fixing a bug rather than making a decision, use /kedja instead.
 ---
 
-# 818 swarm → decide → fix → review
+# 818 — one question → three angles → one decision
 
-## Trigger
+The name is historical: `818` meant eight agents. Since 2026-08-02 it is **three**. Eight cheap agents on one question produced correlated opinions, not independent ones — the same code read through slightly different framings, which reads as consensus and is not. The value is the ritual: verify, decide once, change little. The trigger stays `/818` so muscle memory keeps working.
 
-- User invokes **`/818`** or mentions **818**, **åtta agenter**, **svärm**, **konsensus innan ändring**.
-- Optional **`@` paths or pasted question** define the single topic.
+**This is for decisions, not bugs.** A bug has a runnable acceptance criterion, so it belongs in [`kedja-fix-pipeline`](../kedja-fix-pipeline/SKILL.md) where a failing test is the judge. A decision has no such judge, which is exactly why the parent must verify the facts itself.
 
 ## Pattern (orchestrator = main agent)
 
-1. **One-sentence problem statement** from user (or ask one clarifying line).
-2. **Eight** parallel `Task` calls: `explore`, `readonly: true`, `model: composer-2` or `composer-2-fast`.
-3. **Eight distinct angles** — assign explicitly in each prompt, e.g.:
-   - runtime / correctness risk
-   - alignment with `docs/architecture/glossary.md` and terminology
-   - regression / test gap
-   - security or data-loss (e.g. git branch delete)
-   - duplication vs canonical owner (signal ownership)
-   - UX/builder impact if relevant
-   - “what did we miss?”
-   - conservative vs aggressive recommendation
-4. Require **short** output: bullets or small table, **% or H/M/L** where it fits; **no** long prose.
-5. **Parent verifies** uncertain facts with repo tools (code is source of truth). Subagents may not see `.git`.
-6. **Aggregate** one table + **one** recommended action.
-7. **Implement** only if clear and narrow; else list blockers.
+1. **One-sentence problem statement** from the user, or ask one clarifying line. Never guess the scope.
+2. **Three** parallel `Task` calls: `explore`, `readonly: true`, `model: composer-2.5-fast` (scan role — canonical slugs in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell)).
+3. **Three fixed angles**, one per agent — see the table below. Do not add a fourth.
+4. Require **short** output: max 6 lines, table or bullets, `%` or H/M/L where it fits. No prose.
+5. **Parent verifies** every load-bearing claim with repo tools before deciding. Code is source of truth; subagents may not see `.git`, may miss an existing guard, and sometimes invent `fil:rad`.
+6. **Aggregate** into one table + **one** recommended action.
+7. **Implement** only if the decision is clear and narrow; otherwise list the blockers and stop.
 8. **Verify**: `npm run typecheck`, targeted `vitest`, `ReadLints` on touched files.
-9. **Review pass**: 1–2 (or up to 4 for sensitive changes) readonly agents review **intent of the change**, not rewrite code.
+9. **Review pass**: one readonly agent on `cursor-grok-4.5-high` (judgement role) reviews the **intent of the change**, without rewriting code. Two agents if the diff touches protected paths.
+
+## The three angles
+
+| # | Angle | What the agent answers |
+|---|---|---|
+| 1 | **Konsekvens** | What breaks if we do it — call sites, existing tests that lock today's behaviour, migrations |
+| 2 | **Motståndaren** | The strongest case *against*, plus the cheapest alternative that avoids the change entirely |
+| 3 | **Kanon** | Who already owns this decision — glossary, manifest, policy, a `BUG-SWARM-BACKLOG.md` row, a finished plan |
+
+Chosen so they do not overlap: forward risk, counter-case, ownership. Two agents agreeing is only a signal when they were looking at different things.
+
+## Prompt template
+
+```text
+READ-ONLY. Do not edit anything.
+
+Question: {FRÅGA}
+Relevant paths: {PATHS}
+Your angle: {VINKEL} — answer ONLY from this angle.
+
+Read the actual files. Cite fil:rad. If you cannot anchor a claim, drop it.
+Max 6 lines, no preamble, no summary line.
+
+Bedömning: <one sentence>
+Bevis: <fil:rad + what you saw>
+Säkerhet: <H/M/L or %>
+Om du har fel: <the assumption that would break your answer>
+```
 
 ## When NOT to use
 
-- Huge multi-area refactors → scoped plan.
-- User only wants a single-file typo fix → skip swarm.
+- Fixing a defect → `/kedja` (it has a real judge).
+- Huge multi-area refactor → a scoped plan, not a swarm.
+- A single-file typo → just fix it.
 
 ## Related
 
-- Command file: `.cursor/commands/818.md`
+- Command: [`.cursor/commands/818.md`](../../commands/818.md)
+- Fix counterpart: [`kedja-fix-pipeline`](../kedja-fix-pipeline/SKILL.md)
+- Broad audit counterpart: [`automat-swarm`](../automat-swarm/SKILL.md)

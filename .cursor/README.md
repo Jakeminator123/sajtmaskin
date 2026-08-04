@@ -88,12 +88,28 @@ parallell owner.
 
 ## Slash-kommandon (`.cursor/commands/*.md`)
 
-- `/818` = **en** fråga, **åtta** parallella read-only Composer-agenter (korta röster, gärna %), du sammanfattar, gör **minimal** ändring, verifierar, **review-pass** på diffen. Se `.cursor/skills/818-swarm-decide/SKILL.md`.
-- `/automat` = **flera** sekventiella read-only audit-svärmar (default 3 rundor, 8 agenter/runda; `/automat 7` = 7 rundor). Roterar lanes, för in värdefulla fynd i gitignored `.cursor/swarms/FINDINGS.md`. Audit mode (ändrar aldrig kod). Se `.cursor/skills/automat-swarm/SKILL.md`.
+- `/818` = **ett beslut** (inte en bugg): **tre** parallella read-only agenter med icke-överlappande vinklar (konsekvens · motståndaren · kanon), du verifierar deras påståenden mot koden, gör **minimal** ändring, verifierar, **review-pass** på diffen. Namnet är historiskt — åtta agenter blev tre 2026-08-02, eftersom åtta röster på samma fråga var korrelerat brus. Se `.cursor/skills/818-swarm-decide/SKILL.md`.
+- `/automat` = **flera** sekventiella read-only audit-svärmar som **växlar** scan (8 agenter i roterande lanes) och falsifiering (en agent per overifierat fynd, uppdrag: motbevisa det). Default 3 rundor; `/automat 7` = 7 rundor. Fynd hamnar i gitignored `.cursor/swarms/FINDINGS.md`. Audit mode (ändrar aldrig kod). Se `.cursor/skills/automat-swarm/SKILL.md`.
 - `/avslutning` = stäng arbete: review, scoped cleanup, docs-/schema-/backoffice-sync, verifiering, commit + push. Hanterar både vanligt slutpass och stängning av hela arbetsspår.
 - `/buggrapport` = lägg en bugg i `BUG-SWARM-BACKLOG.md` (rot) — `## Aktiv kö` för defekter, valfri lokal evidens i `.cursor/bugs/`. Ingen Linear.
+- `/kedja` = **fix mode**-motsvarigheten till `/automat`: en bugg genom sju steg (ram → worktrees → failande test → tre lokaliseringsagenter → du väljer rotorsak → N fix-kandidater i varsin worktree → maskinell dom → bugbot). Kandidatdiffar i gitignored `.cursor/kedja/`; vinnaren lämnas **ocommittad** i sin worktree. Se `.cursor/skills/kedja-fix-pipeline/SKILL.md`.
 - `/logg` = hämta **alla** loggar för senaste genererade prod-sajten (produktionsdatabas inkl. telemetri + OpenClaw-fynd, Vercel build/runtime via MCP, Fly preview-host) och sammanfatta hur körningen gick. Read-only mot prod. Se `.cursor/skills/logg/SKILL.md`.
 - `/logg-internet` = **live** prod-session i Cursor-browsern: verifiera inloggning på `sajtmaskin.vercel.app`, skriv en friprompt + ~2 uppföljningar och **anteckna** hur körningen går (Observatörspersona, jagar inte fel som default). Drar credits på riktigt. Notiser i gitignored `.cursor/logg-internet/`. Se `.cursor/skills/logg-internet/SKILL.md`.
+
+### Modellval för subagenter (kanonisk tabell)
+
+Kommandon och skills som startar `Task`-subagenter hämtar sin modell härifrån. Byt slug **här** när modellutbudet skiftar; kommandofilerna pekar hit i stället för att äga varsin kopia.
+
+| Roll | Slug | Används av |
+| ------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------- |
+| **Scan** — bred inventering, hög volym | `composer-2.5-fast` | `/automat` scan-rundor, `/818` insamling, `/kedja` lokalisering, `/post-review`, bakgrundsbevakaren i `pr-merge-review-gate.mdc` |
+| **Omdöme** — falsifiera fynd, skriva kod, review-pass | `cursor-grok-4.5-high` | `/automat` falsifieringsrundor, `/818` review-pass, `/kedja` repro- och fix-agenter |
+| **Destillering** — läsa råa `runs/`-rapporter, returnera topp-N | `composer-2.5-fast` | `/automat` |
+| **Bugg-grind** | ingen — `bugbot`-subagenten väljer själv | obligatoriskt pass före push/PR |
+
+- **En ogiltig slug felar inte högljutt.** Agenten körs ändå, men inte nödvändigtvis på den billiga modell du trodde — så en dyr session kan tyst göra åtta "billiga" agenter dyra. Stäm av slugen mot `Task`-verktygets modellista innan du skriver in en ny. (2026-08-02 låg `/818` och `/post-review` kvar på `composer-2`/`composer-2-fast`, som inte längre finns.)
+- **Scan ≠ omdöme.** Grok 4.5 kan användas överallt, men `high` betyder hög reasoning-insats: åtta parallella grok-agenter är långsamma och skriver längre rapporter — och långa rapporter är exakt det som fyller orkestratorns kontext. Håll bredden på `composer-2.5-fast`.
+- **Kostnaden sitter i orkestratorn, inte i antalet subagenter.** Varje returnerad rapport skickas om i *varje* efterföljande tur. Kör därför långa svärmsessioner med en **billig orkestrator** och spendera dyr modell som **enskild subagent** med färsk, handplockad kontext — inte som den modell som bär hela historiken.
 
 ## Backoffice
 
