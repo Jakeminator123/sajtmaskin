@@ -116,11 +116,20 @@ sällsynta callers kräver därför minst 30 dagars aggregerad
 route-/featuretelemetri — request count, last seen, mätperiod och caller-risk —
 plus ett produktägarbeslut KEEP / DEPRECATE / DELETE. Issue #538 äger det
 underlaget; payloads, `.env`-filer, tokens och secrets hör varken i issuen eller
-i docs. Ytorna som väntar på beslutet är `src/components/audit/`,
-`src/app/api/figma/`, `src/app/api/wizard/`,
-`src/app/api/integrations/marketplace/`, `src/app/api/integrations/mcp/` och
-410-tombstonen `src/app/api/v0/projects/instructions`. De är KEEP tills beslutet
-finns, aldrig DELETE.
+i docs.
+
+Beslutsläget för ytorna som issuet listar:
+
+| Yta | Beslut | Grund |
+|---|---|---|
+| `src/app/api/wizard/` | KEEP (2026-07-18) | Aktiv produktfunktion via förstasidans flöde |
+| `src/components/audit/` | KEEP (2026-07-18) | Aktiv produktfunktion via förstasidans flöde |
+| `src/app/api/integrations/marketplace/` | DELETE (2026-08-04) | Enda anroparen `ProjectEnvVarsPanel` togs bort i #573; noll rader i prodtabellen `user_integrations` |
+| `src/app/api/integrations/mcp/` | DELETE (2026-08-04) | Noll anropare; returnerade enbart hårdkodad statisk JSON |
+| `src/app/api/v0/projects/instructions` | DELETE (2026-08-04) | 410-tombstone utan anropare; svarar nu 404 |
+| `src/app/api/figma/` | Väntar på beslut | Fortfarande inkopplad i buildern (`ChatInterface`), men `FIGMA_ACCESS_TOKEN` saknas i prod |
+
+En yta utan dokumenterat DELETE-beslut är KEEP.
 
 ## Ändringsregel
 
