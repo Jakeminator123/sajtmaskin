@@ -226,8 +226,12 @@ function main() {
       console.log(`[skulle ta bort] branch ${branch} — ingen worktree, inga egna commits`);
       continue;
     }
-    gitQuiet(["branch", "-D", branch], { cwd: REPO_ROOT });
-    console.log(`[borta]   branch ${branch}`);
+    const deleted = gitQuiet(["branch", "-D", branch], { cwd: REPO_ROOT });
+    console.log(
+      deleted === null
+        ? `[kvar]    branch ${branch} — kunde inte raderas`
+        : `[borta]   branch ${branch}`,
+    );
   }
 
   if (candidates.length === 0 && orphans.length === 0) {

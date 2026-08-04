@@ -16,7 +16,7 @@ Full step list, arguments and stop conditions: [`.cursor/commands/kedja.md`](../
 2. **No git mutation.** No commit, push, rebase or PR — not even in the worktree. The result is handed over as an uncommitted diff (`git.mdc`).
 3. **One bug.** Adjacent findings go to `/buggrapport`, not into the diff (`mvp-scope-freeze.mdc`).
 4. **Models from the canonical table** in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `composer-2.5-fast` for the read-only localisation scan, `cursor-grok-4.5-high` for the repro and fix agents (they write code), `bugbot` subagent for step 7.
-5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only — `git worktree remove --force` follows the `node_modules` junction and empties the main checkout's copy.
+5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only. Raw `git worktree remove` follows the `node_modules` junction and empties the main checkout's copy — and dropping `--force` does not help, because git only refuses on dirty or *untracked* entries while a junctioned `node_modules` is *ignored*. A hook denies both forms.
 6. **One retry, then stop.** Two red judging rounds means the bug is too big for the chain; report that instead of looping.
 
 ## Worktree recipe

@@ -45,7 +45,7 @@ git worktree add ..\sajtmaskin-kedja-<slug>-a -b kedja/<slug>-a
 npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
 ```
 
-Upprepa med `-b`, `-c` … per kandidat. `worktree:link` kräver att worktreet redan är registrerat, så ordningen är låst. Använd **aldrig** `git worktree remove --force` direkt (junction-fällan tömmer huvudcheckoutens `node_modules`).
+Upprepa med `-b`, `-c` … per kandidat. `worktree:link` kräver att worktreet redan är registrerat, så ordningen är låst. Använd **aldrig** rå `git worktree remove` — med eller utan `--force` — eftersom junction-fällan tömmer huvudcheckoutens `node_modules`. En hook blockerar båda.
 
 ### 2. Repro — 1 agent, skrivrätt, `cursor-grok-4.5-high`
 

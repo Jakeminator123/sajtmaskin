@@ -26,7 +26,7 @@ git worktree add ..\sajtmaskin-feat-X -b feat/X
 npm run worktree:remove -- ..\sajtmaskin-feat-X   # städa så här, inte med git worktree remove
 ```
 
-**Junction-fällan:** kör aldrig `git worktree remove --force` på en worktree med junction-länkad `node_modules` — den följer länken och tömmer **huvudcheckoutens** `node_modules`. Använd `npm run worktree:remove`, som kopplar loss länken först.
+**Junction-fällan:** kör aldrig rå `git worktree remove` på en worktree med junction-länkad `node_modules` — den följer länken och tömmer **huvudcheckoutens** `node_modules`. Att utelämna `--force` skyddar inte: git vägrar bara vid smutsig tree eller **ospårade** filer, och en junctionad `node_modules` är *ignorerad*, alltså osynlig för den kontrollen. Använd `npm run worktree:remove`, som kopplar loss länken först. Hooken `.cursor/hooks/worktree-force-guard.mjs` blockerar båda varianterna.
 
 Flera agenter samtidigt: max **en** git-mutator i huvudcheckouten, övriga i egen worktree. En branch som "försvinner" är oftast redan mergad — verifiera med `git log`/`gh pr view` innan du tror att arbete gått förlorat.
 

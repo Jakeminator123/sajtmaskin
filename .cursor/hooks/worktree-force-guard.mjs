@@ -32,30 +32,34 @@ function decide(command) {
     return { permission: "allow" };
   }
 
-  if (/(?:^|\s)(?:--force|-f)(?:\s|$)/.test(command)) {
-    return {
-      permission: "deny",
-      user_message:
-        "Blockerat: rå `git worktree remove --force` följer node_modules-junctionen och tömmer " +
-        "huvudcheckoutens riktiga `node_modules`. Det har hänt två gånger i det här repot.\n\n" +
-        "Använd i stället:\n\n" +
-        "    npm run worktree:remove -- <sökväg> --force\n\n" +
-        "Den kopplar loss länkarna först och vägrar dessutom röra huvudcheckouten.",
-      agent_message:
-        "Denied: raw `git worktree remove --force` follows the node_modules junction and empties " +
-        "the main checkout's node_modules. Use `npm run worktree:remove -- <path> --force` instead — " +
-        "it detaches links first and refuses to touch the main checkout. Do not work around this by " +
-        "deleting the directory with another command.",
-    };
-  }
+  // Both variants are denied, not just the forced one. Git refuses to remove a
+  // worktree that is dirty or has untracked files — but a junctioned
+  // `node_modules` is *ignored*, not untracked, so `git status --porcelain`
+  // (what that check reads, see `parseDirtyEntries` in worktree.mjs) reports the
+  // worktree as clean. Plain `git worktree remove` therefore proceeds and
+  // follows the junction exactly like `--force` does. The wrapper is the only
+  // safe path in both cases.
+  const forced = /(?:^|\s)(?:--force|-f)(?:\s|$)/.test(command);
+  const variant = forced ? "`git worktree remove --force`" : "`git worktree remove`";
 
   return {
-    permission: "ask",
+    permission: "deny",
     user_message:
-      "Det här är rå `git worktree remove`. Den känner inte till node_modules-junctionen.\n\n" +
-      "Säkrare: `npm run worktree:remove -- <sökväg>`. Godkänn bara om du vet att worktreet saknar länkar.",
+      `Blockerat: rå ${variant} följer node_modules-junctionen och tömmer ` +
+      "huvudcheckoutens riktiga `node_modules`. Det har hänt två gånger i det här repot.\n\n" +
+      "Att utelämna `--force` hjälper inte: git vägrar bara när worktreet är smutsigt eller har " +
+      "**ospårade** filer, och en junctionad `node_modules` är *ignorerad* — alltså osynlig för " +
+      "den kontrollen.\n\n" +
+      "Använd i stället:\n\n" +
+      "    npm run worktree:remove -- <sökväg> [--force]\n\n" +
+      "Den kopplar loss länkarna först och vägrar dessutom röra huvudcheckouten.",
     agent_message:
-      "Raw `git worktree remove` is junction-unaware. Prefer `npm run worktree:remove -- <path>`.",
+      `Denied: raw ${variant} follows the node_modules junction and empties the main checkout's ` +
+      "node_modules. Dropping --force does not help: git only refuses on dirty or UNTRACKED " +
+      "entries, and a junctioned node_modules is IGNORED, so the worktree reads as clean. Use " +
+      "`npm run worktree:remove -- <path> [--force]` instead — it detaches links first and " +
+      "refuses to touch the main checkout. Do not work around this by deleting the directory " +
+      "with another command.",
   };
 }
 
