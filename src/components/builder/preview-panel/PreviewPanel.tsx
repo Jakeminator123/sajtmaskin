@@ -71,7 +71,10 @@ import type {
   InspectEngine,
   PreviewPanelProps,
 } from "./preview-panel-types";
-import { dispatchInspectCaptureEvent } from "@/lib/builder/inspect-events";
+import {
+  dispatchInspectCaptureEvent,
+  type PlacementSelectEventDetail,
+} from "@/lib/builder/inspect-events";
 import { usePreviewSurfaceMode } from "./usePreviewSurfaceMode";
 import {
   buildExternalRoutePreviewUrl,
@@ -88,6 +91,8 @@ import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import {
   parseShadcnDragPayload,
   SHADCN_ITEM_DND_TYPE,
+  type ShadcnInsertSelection,
+  type ShadcnPlacementPickResult,
 } from "@/lib/builder/shadcn-insert";
 import {
   resolveHomePageFilePath,
@@ -247,6 +252,16 @@ export function PreviewPanel({
   const [composerUndoStack, setComposerUndoStack] = useState<ComposerPatchHistoryEntry[]>([]);
   const [composerRedoStack, setComposerRedoStack] = useState<ComposerPatchHistoryEntry[]>([]);
   const [composerHistoryBusy, setComposerHistoryBusy] = useState(false);
+  // Klick-väg från Bläddra/Beskriv: aktivera befintligt placeringsläge (overlay +
+  // toast) i stället för att skicka utan ankare. Shell-ägda placementMode-props
+  // förblir externa; detta är den lokala pickern som kopplar Add-panelen.
+  const [shadcnPlacementPickItem, setShadcnPlacementPickItem] = useState<{
+    title: string;
+    description?: string | null;
+  } | null>(null);
+  const shadcnPlacementPickResolverRef = useRef<
+    ((value: ShadcnPlacementPickResult) => void) | null
+  >(null);
   const [lastComposerActionLabel, setLastComposerActionLabel] = useState<string | null>(null);
   const {
     files,
@@ -410,6 +425,104 @@ export function PreviewPanel({
     }
   }, [composerMode]);
 
+  const resolveShadcnPlacementPick = useCallback((value: ShadcnPlacementPickResult) => {
+    const resolve = shadcnPlacementPickResolverRef.current;
+    if (!resolve) return;
+    shadcnPlacementPickResolverRef.current = null;
+    setShadcnPlacementPickItem(null);
+    resolve(value);
+  }, []);
+
+  // Chatt-/versionsbyte medan placeringsvalet pågår: avbryt HELT (ingen
+  // insättning). Utan detta kunde ett val som startade i en chatt fullföljas
+  // mot den nya aktiva chatten, eller lämna insertingRef låst (bugbot-fynd).
+  // Första hydreringen är inget byte: placeringsläget kräver bara `previewUrl`,
+  // som kan finnas innan versionslistan laddat, så en abort när `versionId` går
+  // från tomt till sitt första värde hade tyst svalt ett val användaren redan
+  // startat. Bara ett skifte FRÅN ett satt id räknas därför som byte.
+  const placementScopeRef = useRef({ chatId, versionId });
+  useEffect(() => {
+    const previous = placementScopeRef.current;
+    placementScopeRef.current = { chatId, versionId };
+    const chatSwitched = Boolean(previous.chatId) && previous.chatId !== chatId;
+    const versionSwitched = Boolean(previous.versionId) && previous.versionId !== versionId;
+    if (chatSwitched || versionSwitched) resolveShadcnPlacementPick("aborted");
+  }, [chatId, versionId, resolveShadcnPlacementPick]);
+
+  const handlePickShadcnPlacement = useCallback(
+    (selection: ShadcnInsertSelection) => {
+      // Utan inspector/preview kan overlayn inte visas — behåll dagens default.
+      if (!inspectorEnabled || !previewUrl) {
+        return Promise.resolve(null);
+      }
+      if (shadcnPlacementPickResolverRef.current) {
+        // Ett nytt val ersätter ett pågående — det gamla får aldrig insättas.
+        shadcnPlacementPickResolverRef.current("aborted");
+        shadcnPlacementPickResolverRef.current = null;
+      }
+      return new Promise<ShadcnPlacementPickResult>((resolve) => {
+        shadcnPlacementPickResolverRef.current = resolve;
+        setShadcnPlacementPickItem({
+          title: selection.title?.trim() || selection.name,
+          description: selection.description ?? null,
+        });
+      });
+    },
+    [inspectorEnabled, previewUrl],
+  );
+
+  const handlePlacementCompleteMerged = useCallback(
+    (detail: PlacementSelectEventDetail) => {
+      onPlacementComplete?.(detail);
+      if (!shadcnPlacementPickResolverRef.current) return;
+      resolveShadcnPlacementPick({
+        placement: detail.placement,
+        placementLabel: detail.placementLabel,
+        anchorSectionLabel: detail.anchorSection?.label,
+      });
+    },
+    [onPlacementComplete, resolveShadcnPlacementPick],
+  );
+
+  // Esc / klick utanför overlay → avbryt HELT (ingen insättning). Klick på
+  // fryst chrome (disablad panel, tabbar) är inte "sätt in längst ner" —
+  // bugbot-fynd: null här startade en oavsiktlig generation. Default-insättning
+  // utan ankare finns kvar bara när overlayn inte kan visas alls (pickern
+  // resolvar null direkt i handlePickShadcnPlacement).
+  useEffect(() => {
+    if (!shadcnPlacementPickItem) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      resolveShadcnPlacementPick("aborted");
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('[data-testid="placement-overlay"]')) return;
+      resolveShadcnPlacementPick("aborted");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [shadcnPlacementPickItem, resolveShadcnPlacementPick]);
+
+  useEffect(() => {
+    return () => {
+      if (!shadcnPlacementPickResolverRef.current) return;
+      // Unmount = användaren lämnade ytan — avbryt utan insättning
+      // (bugbot-fynd: `null` här startade en oavsiktlig generation).
+      shadcnPlacementPickResolverRef.current("aborted");
+      shadcnPlacementPickResolverRef.current = null;
+    };
+  }, []);
+
+  const effectivePlacementMode = Boolean(placementMode || shadcnPlacementPickItem);
+  const effectivePendingPlacementItem = pendingPlacementItem ?? shadcnPlacementPickItem;
+
   const {
     elementMap,
     elementMapLoading,
@@ -420,6 +533,7 @@ export function PreviewPanel({
     setHoveredPlacement,
     handleToggleInspect,
     sectionZones,
+    applyBridgeSectionCandidates,
     handlePlacementMouseMove,
     handlePlacementClick,
     handleInspectMouseMove,
@@ -427,7 +541,7 @@ export function PreviewPanel({
     inspectorEnabled,
     previewUrl,
     versionId,
-    placementMode: Boolean(placementMode),
+    placementMode: effectivePlacementMode,
     composerMode,
     inspectMode,
     setInspectMode,
@@ -437,7 +551,7 @@ export function PreviewPanel({
     fetchFilesForRegistry,
     setInspectStatus,
     setLastCodeMatch,
-    onPlacementComplete,
+    onPlacementComplete: handlePlacementCompleteMerged,
     inspectEngine,
   });
 
@@ -560,6 +674,14 @@ export function PreviewPanel({
     // A-fix (#164/#197): bron annonserade aldrig `ready` → previewn saknar
     // injektionen. Växla till kartmotorn i stället för en inert inspektor.
     onBridgeUnavailable: () => setInspectEngine("map"),
+    // Placement/composer behöver sektionsankare i prod (ingen Playwright-map).
+    // effectivePlacementMode: även klick-pickerns lokala placeringsläge
+    // (Bläddra/Beskriv) ska trigga zon-hämtning, inte bara shell-propen.
+    requestSections:
+      bridgeEnabled &&
+      inspectEngine === "bridge" &&
+      (effectivePlacementMode || composerMode),
+    onSections: applyBridgeSectionCandidates,
   });
 
   // Menyn hör till inspect-läget: lämnar man läget (eller previewen byts) ska
@@ -1458,9 +1580,9 @@ export function PreviewPanel({
         showImagesDisabledWarning ||
         showImagesUnsupportedWarning),
   );
-  const showPlacementOverlay = inspectorEnabled && placementMode && Boolean(previewUrl);
+  const showPlacementOverlay = inspectorEnabled && effectivePlacementMode && Boolean(previewUrl);
   const showComposerOverlay =
-    composerMode && Boolean(previewUrl) && !placementMode && !isCodeView;
+    composerMode && Boolean(previewUrl) && !effectivePlacementMode && !isCodeView;
   // Bridge-engine renderar INTE den täckande overlayn — preview-iframen måste
   // få mus-eventen själv (det injicerade scriptet ritar highlight + postar pick).
   const showInspectOverlay =
@@ -1637,14 +1759,17 @@ export function PreviewPanel({
           {composerMode ? (
             addPanelEnabled ? (
               <PreviewPanelAddPanel
-                disabled={!previewUrl || Boolean(placementMode) || composerHistoryBusy}
+                disabled={!previewUrl || effectivePlacementMode || composerHistoryBusy}
                 onDragStart={() => setIsComposerDragging(true)}
                 onDragEnd={() => setIsComposerDragging(false)}
                 onInsertShadcnItem={onShadcnItemInsert}
+                onPickPlacement={
+                  onShadcnItemInsert ? handlePickShadcnPlacement : undefined
+                }
               />
             ) : (
               <PreviewPanelComposerPalette
-                disabled={!previewUrl || Boolean(placementMode) || composerHistoryBusy}
+                disabled={!previewUrl || effectivePlacementMode || composerHistoryBusy}
                 onDragStart={() => setIsComposerDragging(true)}
                 onDragEnd={() => setIsComposerDragging(false)}
               />
@@ -1695,7 +1820,7 @@ export function PreviewPanel({
                   handlePlacementMouseMove={handlePlacementMouseMove}
                   onPlacementMouseLeave={() => setHoveredPlacement(null)}
                   hoveredPlacement={hoveredPlacement}
-                  pendingPlacementItem={pendingPlacementItem}
+                  pendingPlacementItem={effectivePendingPlacementItem}
                   elementMapLoading={elementMapLoading}
                   sectionZonesCount={sectionZones.length}
                   isCapturePending={isCapturePending}

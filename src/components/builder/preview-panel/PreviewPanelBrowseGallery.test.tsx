@@ -153,6 +153,84 @@ describe("PreviewPanelBrowseGallery", () => {
     await waitFor(() => screen.getByText(/Skickat till chatten/i));
   });
 
+  it("klick-väg väntar på onPickPlacement och skickar placeringsankare med onInsertItem", async () => {
+    const onInsertItem = vi.fn().mockResolvedValue(STARTED_OUTCOME);
+    let resolvePick!: (value: {
+      placement: string;
+      placementLabel: string;
+      anchorSectionLabel?: string;
+    } | null) => void;
+    const onPickPlacement = vi.fn(
+      () =>
+        new Promise<{
+          placement: string;
+          placementLabel: string;
+          anchorSectionLabel?: string;
+        } | null>((resolve) => {
+          resolvePick = resolve;
+        }),
+    );
+
+    render(
+      <PreviewPanelBrowseGallery
+        onInsertItem={onInsertItem}
+        onPickPlacement={onPickPlacement}
+      />,
+    );
+    await waitFor(() => screen.getByText("Login 01"));
+    fireEvent.click(screen.getByText("Login 01"));
+    fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));
+
+    await waitFor(() => expect(onPickPlacement).toHaveBeenCalledTimes(1));
+    expect(onInsertItem).not.toHaveBeenCalled();
+
+    resolvePick({
+      placement: "after-hero",
+      placementLabel: "Efter Hero",
+      anchorSectionLabel: "Hero",
+    });
+
+    await waitFor(() =>
+      expect(onInsertItem).toHaveBeenCalledWith({
+        name: "login-01",
+        registry: "@shadcn",
+        title: "Login 01",
+        description: "Enkelt inloggningsformulär",
+        origin: "browse",
+        placement: "after-hero",
+        placementLabel: "Efter Hero",
+        anchorSectionLabel: "Hero",
+      }),
+    );
+    await waitFor(() => screen.getByText(/Skickat till chatten/i));
+  });
+
+  it("Esc/avbruten placement-pick → onInsertItem utan ankare (default längst ner)", async () => {
+    const onInsertItem = vi.fn().mockResolvedValue(STARTED_OUTCOME);
+    const onPickPlacement = vi.fn().mockResolvedValue(null);
+
+    render(
+      <PreviewPanelBrowseGallery
+        onInsertItem={onInsertItem}
+        onPickPlacement={onPickPlacement}
+      />,
+    );
+    await waitFor(() => screen.getByText("Login 01"));
+    fireEvent.click(screen.getByText("Login 01"));
+    fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));
+
+    await waitFor(() =>
+      expect(onInsertItem).toHaveBeenCalledWith({
+        name: "login-01",
+        registry: "@shadcn",
+        title: "Login 01",
+        description: "Enkelt inloggningsformulär",
+        origin: "browse",
+      }),
+    );
+    expect(onInsertItem.mock.calls[0]?.[0]?.placement).toBeUndefined();
+  });
+
   // Utfallskontraktet (BB#shadcn-lane1): ett hanterat avslag resolvar utan kast,
   // så före kontraktet visade detaljvyn "Skickat" för en insättning som aldrig
   // startade någon generation.

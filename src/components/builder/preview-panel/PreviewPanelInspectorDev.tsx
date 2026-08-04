@@ -94,6 +94,7 @@ export function PreviewPanelInspectorDev({
       {showPlacementOverlay ? (
         <>
           <div
+            data-testid="placement-overlay"
             className={cn(
               // Bumped from /10 → /25 (SAJ-19 / C3): the previous overlay was
               // so transparent that users routinely forgot inspect mode was on
@@ -117,7 +118,7 @@ export function PreviewPanelInspectorDev({
               </div>
             </div>
           ) : null}
-          <div className="absolute top-3 right-3 left-3 z-30 rounded border border-sky-700/70 bg-sky-950/85 px-3 py-2 text-xs text-sky-100 shadow-lg backdrop-blur-sm">
+          <div className="pointer-events-none absolute top-3 right-3 left-3 z-30 rounded border border-sky-700/70 bg-sky-950/85 px-3 py-2 text-xs text-sky-100 shadow-lg backdrop-blur-sm">
             <div className="font-semibold tracking-tight text-sky-300">Placering aktiv</div>
             <div className="mt-1">
               Klicka i previewn för att placera{" "}

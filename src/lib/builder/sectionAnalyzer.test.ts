@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractSectionZonesFromBridge,
+  isNearIdenticalParentSectionRect,
   isSameInsertionPoint,
   nearestInsertionPoint,
+  type BridgeSectionCandidate,
   type SectionZone,
 } from "./sectionAnalyzer";
 
@@ -16,6 +19,109 @@ const ZONES: SectionZone[] = [
     height: 40,
   },
 ];
+
+describe("extractSectionZonesFromBridge", () => {
+  const candidates: BridgeSectionCandidate[] = [
+    {
+      tag: "section",
+      id: null,
+      className: "hero banner",
+      text: "Välkommen",
+      selector: "section.hero",
+      vpPercent: { x: 0, y: 0, w: 100, h: 40 },
+    },
+    {
+      tag: "section",
+      className: "features",
+      selector: "section.features",
+      vpPercent: { x: 0, y: 42, w: 100, h: 35 },
+    },
+    {
+      tag: "footer",
+      className: "site-footer",
+      selector: "footer",
+      vpPercent: { x: 0, y: 80, w: 100, h: 18 },
+    },
+  ];
+
+  it("maps bridge payload into named section zones for placement anchors", () => {
+    const zones = extractSectionZonesFromBridge(candidates);
+    expect(zones.length).toBeGreaterThanOrEqual(2);
+    expect(zones.some((z) => z.type === "hero")).toBe(true);
+    expect(zones.some((z) => z.type === "features" || z.type === "footer")).toBe(true);
+
+    const afterHero = nearestInsertionPoint(40, zones);
+    expect(afterHero.placement).toBe("after-hero");
+    expect(afterHero.label).toBe("Efter Hero");
+  });
+
+  it("drops invalid rows and returns empty zones for garbage payloads", () => {
+    expect(extractSectionZonesFromBridge(null)).toEqual([]);
+    expect(extractSectionZonesFromBridge(undefined)).toEqual([]);
+    expect(
+      extractSectionZonesFromBridge([
+        { tag: "section" },
+        { vpPercent: { x: 0, y: 0, w: 100, h: 40 } },
+        { tag: "section", vpPercent: { x: "nope" as unknown as number, y: 0, w: 100, h: 40 } },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("falls through to top/bottom insertion when no usable zones remain", () => {
+    const zones = extractSectionZonesFromBridge([
+      // Too small for extractSectionZones (height < 8%).
+      { tag: "div", className: "tiny", vpPercent: { x: 0, y: 10, w: 100, h: 2 } },
+    ]);
+    expect(zones).toEqual([]);
+    expect(nearestInsertionPoint(20, zones).placement).toBe("top");
+    expect(nearestInsertionPoint(80, zones).placement).toBe("bottom");
+  });
+
+  it("does not let nested full-width wrappers duplicate zones or starve a footer", () => {
+    // Bridge collectSections hoppar över parent-identiska barn (1 % vh); det
+    // speglas här. Om en stack ändå slinker igenom ska extract-merge kollapsa
+    // dem så footern fortfarande får ett ankare.
+    const vh = 800;
+    expect(
+      isNearIdenticalParentSectionRect(
+        { top: 0, bottom: 680 },
+        { top: 0, bottom: 680 },
+        vh,
+      ),
+    ).toBe(true);
+    expect(
+      isNearIdenticalParentSectionRect(
+        { top: 0, bottom: 680 },
+        { top: 0, bottom: 660 }, // 20px = 2.5% > 1%
+        vh,
+      ),
+    ).toBe(false);
+    expect(
+      isNearIdenticalParentSectionRect(
+        { top: 680, bottom: 800 },
+        { top: 0, bottom: 800 },
+        vh,
+      ),
+    ).toBe(false);
+
+    const nestedWrappers: BridgeSectionCandidate[] = Array.from({ length: 6 }, (_, i) => ({
+      tag: "div",
+      className: `wrap-${i}`,
+      vpPercent: { x: 0, y: 0, w: 100, h: 85 },
+    }));
+    nestedWrappers.push({
+      tag: "footer",
+      className: "site-footer",
+      selector: "footer",
+      vpPercent: { x: 0, y: 85, w: 100, h: 15 },
+    });
+
+    const zones = extractSectionZonesFromBridge(nestedWrappers);
+    expect(zones.filter((z) => z.top === 0).length).toBe(1);
+    expect(zones.some((z) => z.type === "footer")).toBe(true);
+    expect(nearestInsertionPoint(100, zones).placement).toMatch(/after-footer|bottom/);
+  });
+});
 
 describe("isSameInsertionPoint", () => {
   it("treats two resolutions of the same line as equal", () => {

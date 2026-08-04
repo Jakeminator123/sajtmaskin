@@ -25,8 +25,11 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     pick: "sajtmaskin:inspect:pick",
     ready: "sajtmaskin:inspect:ready",
     rect: "sajtmaskin:inspect:rect",
-    region: "sajtmaskin:inspect:region"
+    region: "sajtmaskin:inspect:region",
+    requestSections: "sajtmaskin:inspect:request-sections",
+    sections: "sajtmaskin:inspect:sections"
   };
+  var MAX_SECTION_CANDIDATES = 40;
   var enabled = false;
   var box = null;
   var selBox = null;
@@ -207,6 +210,70 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     if (!document.contains(tracked)) { tracked = null; return; }
     post(T.rect, { rect: rectOf(tracked), viewport: { w: window.innerWidth, h: window.innerHeight } });
   }
+  /**
+   * True när barnets vertikala utsträckning är nästan identisk med förälderns
+   * (topp- och bottendiff < 1 % av viewporten). Speglar
+   * isNearIdenticalParentSectionRect i sectionAnalyzer.ts — håll i synk.
+   * querySelectorAll är document-order (förälder före barn), så den yttersta
+   * i en wrapper-stack räknas mot taket; nästlade dubbletter hoppas över.
+   */
+  function isNearIdenticalParent(el, r, vh) {
+    var parent = el.parentElement;
+    if (!parent || !parent.getBoundingClientRect) return false;
+    var pr = parent.getBoundingClientRect();
+    var threshold = (vh || 1) * 0.01;
+    return Math.abs(r.top - pr.top) < threshold && Math.abs(r.bottom - pr.bottom) < threshold;
+  }
+  /**
+   * Sektionskandidater för placement-overlay (drag-and-drop). Körs även när
+   * inspect-läget är av — placering stänger inspect men behöver fortfarande
+   * DOM-rektanglar i prod där Playwright/element-map saknas.
+   */
+  function collectSections() {
+    var vw = window.innerWidth || 1;
+    var vh = window.innerHeight || 1;
+    var nodes = document.querySelectorAll("section,main,header,footer,article,div");
+    var out = [];
+    for (var i = 0; i < nodes.length && out.length < MAX_SECTION_CANDIDATES; i++) {
+      var el = nodes[i];
+      if (!el || el.id === BOX_ID || el.id === SEL_ID || (el.getAttribute && el.getAttribute(MARK_ATTR))) continue;
+      var r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      var vpW = (r.width / vw) * 100;
+      var vpH = (r.height / vh) * 100;
+      // Samma grova storleksgolv som extractSectionZones — håll payloaden liten.
+      if (vpW < 45 || vpH < 8) continue;
+      // Wrapper-stack: räkna bara yttersta mot MAX_SECTION_CANDIDATES.
+      if (isNearIdenticalParent(el, r, vh)) continue;
+      out.push({
+        tag: el.tagName.toLowerCase(),
+        id: el.id || null,
+        className: (typeof el.className === "string" ? el.className.trim() : "") || null,
+        text: cleanMax(el.innerText || el.textContent, 80),
+        selector: selectorFor(el),
+        rect: {
+          x: Math.round(r.left),
+          y: Math.round(r.top),
+          width: Math.round(r.width),
+          height: Math.round(r.height)
+        },
+        vpPercent: {
+          x: Number(((r.left / vw) * 100).toFixed(2)),
+          y: Number(((r.top / vh) * 100).toFixed(2)),
+          w: Number(vpW.toFixed(2)),
+          h: Number(vpH.toFixed(2))
+        },
+        viewport: { w: vw, h: vh }
+      });
+    }
+    return out;
+  }
+  function postSections() {
+    post(T.sections, {
+      elements: collectSections(),
+      viewport: { w: window.innerWidth, h: window.innerHeight }
+    });
+  }
   function onViewportChange() {
     if (!enabled || !tracked || rafPending) return;
     rafPending = true;
@@ -311,9 +378,16 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
   }
   function originOk(origin) { if (!PARENT) return true; return origin === PARENT; }
   window.addEventListener("message", function (e) {
-    if (!e || !e.data || e.data.type !== T.setMode) return;
+    if (!e || !e.data || typeof e.data.type !== "string") return;
     if (!originOk(e.origin)) return;
-    setEnabled(!!e.data.enabled);
+    if (e.data.type === T.setMode) {
+      setEnabled(!!e.data.enabled);
+      return;
+    }
+    // Placement frågar efter zoner utan att slå på inspect-läget.
+    if (e.data.type === T.requestSections) {
+      postSections();
+    }
   });
   post(T.ready, { href: location.href });
 })();
