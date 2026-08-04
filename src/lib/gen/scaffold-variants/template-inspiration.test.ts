@@ -6,6 +6,7 @@ import {
   resolveVariantTemplateInspiration,
   selectVariantTemplateReference,
   VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES,
+  VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS,
 } from "./template-inspiration";
 
 describe("selectVariantTemplateReference", () => {
@@ -16,6 +17,22 @@ describe("selectVariantTemplateReference", () => {
 
     expect(selected?.templateId).toBe("8QhCJAwn16K");
     expect(VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES).toContain(selected?.category);
+  });
+
+  it("allows AEGIS as an explicitly reviewed complete AI project", () => {
+    const selected = selectVariantTemplateReference({
+      sourceTemplateIds: ["h4nibkqysVJ"],
+    });
+
+    expect(selected).toMatchObject({
+      templateId: "h4nibkqysVJ",
+      title: "AEGIS-Ω",
+      category: "ai",
+    });
+    expect(VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES).not.toContain(selected?.category);
+    expect(VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS).toMatchObject({
+      h4nibkqysVJ: "ai",
+    });
   });
 
   it("rejects component, animation, design-system and ambiguous AI categories", () => {

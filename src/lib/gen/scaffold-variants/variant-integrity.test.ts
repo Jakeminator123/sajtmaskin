@@ -13,6 +13,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { selectVariantTemplateReference } from "./template-inspiration";
+
 const ROOT = process.cwd();
 const VARIANTS_ROOT = path.join(ROOT, "config", "scaffold-variants");
 const EMBEDDINGS_PATH = path.join(VARIANTS_ROOT, "_index", "variant-embeddings.json");
@@ -76,6 +78,22 @@ describe("scaffold-variant integrity", () => {
     expect(dead, "dead sourceTemplateIds — use Blob ids from template-blob-manifest.json").toEqual(
       [],
     );
+  });
+
+  it("every variant resolves at least one runtime-selectable template reference", () => {
+    const unresolved = variantFiles
+      .filter(
+        ({ variant }) =>
+          !selectVariantTemplateReference({
+            sourceTemplateIds: variant.sourceTemplateIds ?? [],
+          }),
+      )
+      .map(({ relPath }) => relPath);
+
+    expect(
+      unresolved,
+      "variants without runtime-selectable template inspiration",
+    ).toEqual([]);
   });
 
   it("every variant has curated signaturePatterns (no half-finished variants)", () => {

@@ -21,6 +21,24 @@ export const VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES = [
 export type VariantTemplateFullProjectCategory =
   (typeof VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES)[number];
 
+/**
+ * Explicitly reviewed complete projects whose gallery category is topical or
+ * otherwise too broad to allow as a category. Both the id and category must
+ * match, so regenerating the catalog cannot silently broaden this exception.
+ */
+export const VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS = {
+  h4nibkqysVJ: "ai",
+} as const;
+
+type VariantTemplateReviewedFullProjectCategory =
+  (typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS)[
+    keyof typeof VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS
+  ];
+
+export type VariantTemplateReferenceCategory =
+  | VariantTemplateFullProjectCategory
+  | VariantTemplateReviewedFullProjectCategory;
+
 type ManifestTemplate = {
   id: string;
   title: string;
@@ -40,7 +58,7 @@ export type VariantTemplateStructuralReference = {
 export type VariantTemplateInspiration = {
   templateId: string;
   title: string;
-  category: VariantTemplateFullProjectCategory;
+  category: VariantTemplateReferenceCategory;
   archiveUrl: string;
   stillImageUrl: string;
   structuralReferences: VariantTemplateStructuralReference[];
@@ -55,6 +73,8 @@ type ResolveVariantTemplateInspirationOptions = {
 };
 
 const FULL_PROJECT_CATEGORY_SET = new Set<string>(VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES);
+const REVIEWED_FULL_PROJECT_CATEGORY_BY_ID: Readonly<Record<string, string>> =
+  VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS;
 const MAX_STRUCTURAL_EXCERPT_CHARS = 9_000;
 const DEFAULT_ARCHIVE_TIMEOUT_MS = 15_000;
 const STRUCTURAL_FILE_EXTENSIONS = [".tsx", ".jsx", ".ts", ".js", ".css"];
@@ -90,8 +110,11 @@ const TEMPLATE_BY_ID = new Map(
 
 function isFullProjectTemplate(
   template: ManifestTemplate,
-): template is ManifestTemplate & { category: VariantTemplateFullProjectCategory } {
-  return FULL_PROJECT_CATEGORY_SET.has(template.category);
+): template is ManifestTemplate & { category: VariantTemplateReferenceCategory } {
+  return (
+    FULL_PROJECT_CATEGORY_SET.has(template.category) ||
+    REVIEWED_FULL_PROJECT_CATEGORY_BY_ID[template.id] === template.category
+  );
 }
 
 /**
