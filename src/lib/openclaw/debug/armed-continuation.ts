@@ -226,6 +226,12 @@ export function decideArmedContinuation(
     return { kind: "wait", reason: "Sajtagenten svarar redan." };
   }
 
+  // A turn that ends with the builder asking the user something (clarification,
+  // plan approval) also lands here, and resuming is deliberate: the mandate
+  // delegated the composer, so answering is how the run makes progress. Left
+  // unanswered it would stall until the cap. The step is bounded, visible in
+  // the chat, and "stopp" ends it.
+
   return {
     kind: "resume",
     versionId: snapshot.activeVersionId,
