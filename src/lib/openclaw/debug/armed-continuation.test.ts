@@ -33,6 +33,7 @@ function snapshot(overrides: Partial<BuilderTurnSnapshot> = {}): BuilderTurnSnap
     isStreaming: false,
     versionStatus: "ready",
     versionIsLatest: true,
+    lastTurnRejected: false,
     chatMessageCount: 4,
     ...overrides,
   };
@@ -211,6 +212,13 @@ describe("decideArmedContinuation", () => {
 
   it("wakes OpenClaw only once per builder turn", () => {
     expect(decide({ watch: watching({ resumedAt: NOW - 1000 }) }).kind).toBe("wait");
+  });
+
+  it("stops when the builder refused the send", () => {
+    // Stale base, F3 env gate or the credit gate: the version keeps its old
+    // terminal status, so nothing else in the snapshot reveals the refusal.
+    const decision = decide({ snapshot: snapshot({ lastTurnRejected: true }) });
+    expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
   });
 
   it("does not time out a woken turn that is still being written", () => {

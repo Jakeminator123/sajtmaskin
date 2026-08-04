@@ -58,6 +58,12 @@ export interface BuilderTurnSnapshot {
   versionIsLatest: boolean;
   /** Number of messages in the builder chat. */
   chatMessageCount: number | null;
+  /**
+   * The last send ended as rejected, failed or aborted rather than running.
+   * Such a turn leaves the focused version on its previous terminal status, so
+   * without this flag it is indistinguishable from a finished build.
+   */
+  lastTurnRejected: boolean;
 }
 
 export type ArmedContinuationDecision =
@@ -249,6 +255,18 @@ export function decideArmedContinuation(
       };
     }
     return { kind: "wait", reason: "Väntar på att builderturen startar." };
+  }
+
+  // The builder refused the turn (stale base, F3 env gate, credit gate, an
+  // abort). Waking up here would spend the next step re-sending into the same
+  // wall, so the run ends and says why.
+  if (snapshot?.lastTurnRejected) {
+    return {
+      kind: "abort",
+      reason: "Autonomin stoppades: buildern tog inte emot sändningen.",
+      notify: true,
+      disarm: true,
+    };
   }
 
   // Chat growth alone can just be the outgoing message the auto-send posted.
