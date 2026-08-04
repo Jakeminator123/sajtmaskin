@@ -652,10 +652,12 @@ export function PreviewPanel({
     // injektionen. Växla till kartmotorn i stället för en inert inspektor.
     onBridgeUnavailable: () => setInspectEngine("map"),
     // Placement/composer behöver sektionsankare i prod (ingen Playwright-map).
+    // effectivePlacementMode: även klick-pickerns lokala placeringsläge
+    // (Bläddra/Beskriv) ska trigga zon-hämtning, inte bara shell-propen.
     requestSections:
       bridgeEnabled &&
       inspectEngine === "bridge" &&
-      (Boolean(placementMode) || composerMode),
+      (effectivePlacementMode || composerMode),
     onSections: applyBridgeSectionCandidates,
   });
 
