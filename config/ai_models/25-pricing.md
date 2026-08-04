@@ -13,7 +13,7 @@ filen. Verifiera alltid mot leverantörens pris-sida innan budgetbeslut.
 
 | Regel                                                                         | Varför                                                                                      |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| **Premium använder `gpt-5.6-sol`, inte ett separat `-pro`-modell-ID.**        | Längre resonemang styrs med Responses API `reasoningMode: "pro"` och effort upp till `max`. |
+| **Premium använder `gpt-5.6-sol`, inte ett separat `-pro`-modell-ID.**        | Längre resonemang styrs med Responses API `reasoningMode: "pro"`. Premium står på effort `high` sedan #751 — `xhigh`/`max` finns kvar i schemat men används inte som standard. |
 | **Alla GPT-5.6-effortnivåer är tillåtna.**                                    | `none`, `low`, `medium`, `high`, `xhigh`, `max` finns i schema, runtime och backoffice.     |
 | Små/utility-anrop hålls kvar på `gpt-5.4-mini` / `gpt-5-mini` / `gpt-5-nano`. | Ingen `gpt-5.5-mini`/`-nano` finns ännu.                                                    |
 

@@ -86,6 +86,52 @@ describe("text-field-actions", () => {
     expect(parsed.actionError).toBeNull();
   });
 
+  it("strips every complete action block and only honours the first", () => {
+    const parsed = parseOpenClawMessage(
+      [
+        "Jag bekräftar mandatet.",
+        "",
+        "<openclaw-action>",
+        `{"type":"start_bug_hunt","mode":"followups","count":3}`,
+        "</openclaw-action>",
+        "",
+        "Och här är första follow-upen.",
+        "",
+        "<openclaw-action>",
+        `{"type":"fill_text_field","target":"builder.chat.primary","value":"Gör om heron","submit":true}`,
+        "</openclaw-action>",
+      ].join("\n"),
+    );
+
+    expect(parsed.visibleContent).toBe(
+      "Jag bekräftar mandatet.\n\nOch här är första follow-upen.",
+    );
+    expect(parsed.visibleContent).not.toContain("openclaw-action");
+    expect(parsed.visibleContent).not.toContain("fill_text_field");
+    expect(parsed.action).toMatchObject({ type: "start_bug_hunt", mode: "followups", count: 3 });
+    expect(parsed.actionError).toBeNull();
+  });
+
+  it("keeps a trailing half-streamed block out of the visible text", () => {
+    const parsed = parseOpenClawMessage(
+      [
+        "Först en bekräftelse.",
+        "<openclaw-action>",
+        `{"type":"request_repair","label":"Laga bygget"}`,
+        "</openclaw-action>",
+        "Sedan skickar jag follow-upen.",
+        "<openclaw-action>",
+        `{"type":"fill_text_field","target":"builder.chat.primary","value":"Utka`,
+      ].join("\n"),
+    );
+
+    expect(parsed.visibleContent).toBe(
+      "Först en bekräftelse.\n\nSedan skickar jag follow-upen.",
+    );
+    expect(parsed.action).toMatchObject({ type: "request_repair" });
+    expect(parsed.hasIncompleteAction).toBe(true);
+  });
+
   it("reports a reason when the action block is not valid JSON", () => {
     const parsed = parseOpenClawMessage(
       actionMessage("Här är ett förslag.", `{"type":"fill_text_field",`),
