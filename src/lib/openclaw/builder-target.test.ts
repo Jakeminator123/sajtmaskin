@@ -13,9 +13,11 @@ describe("publishBuilderSendTurn", () => {
     // for the loop to act on a turn it already knows was refused.
     window.__SITEMASKIN_CONTEXT = { page: "builder", chatId: "chat-1" };
 
-    publishBuilderSendTurn({ rejectedSendSeq: 5 });
+    publishBuilderSendTurn({ rejectedSendSeq: 5, rejectedAt: 1_800_000_000_000 });
 
-    expect(readBuilderTurnSnapshot()?.rejectedSendSeq).toBe(5);
+    const snapshot = readBuilderTurnSnapshot();
+    expect(snapshot?.rejectedSendSeq).toBe(5);
+    expect(snapshot?.rejectedAt).toBe(1_800_000_000_000);
   });
 
   it("leaves the rest of the builder context alone", () => {

@@ -77,6 +77,13 @@ export interface BuilderTurnSnapshot {
    * still running, and only the mandate's own send may end the mandate.
    */
   rejectedSendSeq: number | null;
+  /**
+   * When that refusal happened. Only consulted for a send that never got to
+   * name itself: matching nothing at all would let an autonomous turn's own
+   * refusal pass unnoticed, and waiting out a timeout is a worse ending than
+   * the blunt time comparison this replaced.
+   */
+  rejectedAt: number | null;
   /** The builder is holding a question or a plan that only the user can answer. */
   awaitingInput: boolean;
 }
@@ -286,10 +293,14 @@ export function decideArmedContinuation(
   // abort). Checked before the observation gate because a refusal can erase its
   // own trace — the optimistic message is rolled back, leaving nothing to see.
   // Matched on the send id, so a refusal from any other sender leaves the
-  // mandate alone. An unidentified send cannot be matched at all and falls
-  // through to the timeouts rather than guessing.
-  const rejectedSendSeq = snapshot?.rejectedSendSeq ?? null;
-  if (rejectedSendSeq !== null && watch.sendSeq !== null && rejectedSendSeq === watch.sendSeq) {
+  // mandate alone. A send that never named itself has no id to match, and
+  // there the older time comparison still applies — bluntly, but a mandate
+  // that ends one turn early beats one that ignores its own refusal.
+  const refusedThisTurn =
+    watch.sendSeq !== null
+      ? snapshot?.rejectedSendSeq === watch.sendSeq
+      : typeof snapshot?.rejectedAt === "number" && snapshot.rejectedAt >= watch.startedAt;
+  if (refusedThisTurn) {
     return {
       kind: "abort",
       reason: "Autonomin stoppades: buildern tog inte emot sändningen.",

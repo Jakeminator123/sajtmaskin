@@ -27,7 +27,10 @@ export function readActiveBuilderTarget(): OpenClawBuilderTarget | null {
  * is a render behind. `BuilderShellContent`'s effect republishes the same value
  * from the same state; this only closes the gap between them.
  */
-export function publishBuilderSendTurn(patch: { rejectedSendSeq?: number }): void {
+export function publishBuilderSendTurn(patch: {
+  rejectedSendSeq?: number;
+  rejectedAt?: number;
+}): void {
   if (typeof window === "undefined") return;
   const ctx = window.__SITEMASKIN_CONTEXT;
   if (!ctx) return;
@@ -56,6 +59,7 @@ export function readBuilderTurnSnapshot(): BuilderTurnSnapshot | null {
       typeof ctx.chatMessageCount === "number" ? ctx.chatMessageCount : null,
     rejectedSendSeq:
       typeof ctx.rejectedSendSeq === "number" ? ctx.rejectedSendSeq : null,
+    rejectedAt: typeof ctx.rejectedAt === "number" ? ctx.rejectedAt : null,
     awaitingInput: ctx.awaitingInput === true,
   };
 }

@@ -82,7 +82,7 @@ import {
 import { useVersionStatus } from "@/lib/hooks/chat/useVersionStatus";
 import { shouldBlockPreviewWithLoadingOverlay } from "@/lib/builder/preview-lifecycle";
 import { publishBuilderSendTurn } from "@/lib/openclaw/builder-target";
-import { OPENCLAW_PREPARED_PROMPT_SOURCE } from "@/lib/openclaw/prepared-prompt";
+import { OPENCLAW_BUILDER_CHAT_TARGET } from "@/lib/openclaw/prepared-prompt";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
@@ -252,8 +252,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // and the handshake owns exactly one of them. A manual retry, a catalogue
   // insert or a plan decision that fails while an autonomous turn is running
   // must not end a mandate whose own send can still succeed.
+  // The timestamp rides along as a fallback for a send that never got to name
+  // itself: matching nothing at all would be worse than the blunt comparison
+  // the handshake used before ids existed.
   const sendSeqRef = useRef(0);
-  const [rejectedSendSeq, setRejectedSendSeq] = useState<number | null>(null);
+  const [rejectedTurn, setRejectedTurn] = useState<{ seq: number; at: number } | null>(
+    null,
+  );
 
   const latestPendingReply = useMemo(
     () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
@@ -263,19 +268,23 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const sendMessage = useCallback<typeof rawSendMessage>(
     async (...args) => {
       const seq = (sendSeqRef.current += 1);
-      // The armed auto-send reaches the builder as an `openclaw-prepared` send.
       // Naming the turn from inside the send that owns it is what makes the
       // match exact: the composer awaits an attachment step between the click
-      // and this call, and any other sender could take a predicted id in that
-      // window — which is the misattribution this whole id replaced.
-      if (args[1]?.promptSource === OPENCLAW_PREPARED_PROMPT_SOURCE) {
-        useOpenClawStore.getState().bindArmedContinuationSend(seq);
+      // and this call, and a predicted id could be taken by another sender in
+      // that window. The armed auto-send is recognised by the prepared fill it
+      // recorded for the composer — deliberately broader than the
+      // `openclaw-prepared` tag, which additionally drops on attachments or an
+      // appended Figma/inspect block.
+      const openClaw = useOpenClawStore.getState();
+      if (openClaw.preparedFill?.target === OPENCLAW_BUILDER_CHAT_TARGET) {
+        openClaw.bindArmedContinuationSend(seq);
       }
       const outcome = await rawSendMessage(...args);
       const status = outcome?.status;
       if (status === "rejected" || status === "failed" || status === "aborted") {
-        publishBuilderSendTurn({ rejectedSendSeq: seq });
-        setRejectedSendSeq(seq);
+        const rejected = { seq, at: Date.now() };
+        publishBuilderSendTurn({ rejectedSendSeq: rejected.seq, rejectedAt: rejected.at });
+        setRejectedTurn(rejected);
       }
       return outcome;
     },
@@ -789,7 +798,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       chatMessageCount: vm.messages.length,
       // Only a refusal carrying the id the autonomous send bound to its watch
       // ends the mandate; every other sender's failure is someone else's.
-      rejectedSendSeq,
+      rejectedSendSeq: rejectedTurn?.seq ?? null,
+      rejectedAt: rejectedTurn?.at ?? null,
       // A pending question or plan approval belongs to the user, not to armed
       // autonomy: sending past it would start a new generation and drop the
       // plan the builder is holding. Both halves are needed — `isAwaitingInput`
@@ -816,7 +826,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.isAnyStreaming,
     activeVersionStatus,
     activeVersionIsLatest,
-    rejectedSendSeq,
+    rejectedTurn,
     vm.isAwaitingInput,
     latestPendingReply,
   ]);

@@ -36,6 +36,7 @@ function snapshot(overrides: Partial<BuilderTurnSnapshot> = {}): BuilderTurnSnap
     versionStatus: "ready",
     versionIsLatest: true,
     rejectedSendSeq: null,
+    rejectedAt: null,
     awaitingInput: false,
     chatMessageCount: 4,
     ...overrides,
@@ -268,14 +269,29 @@ describe("decideArmedContinuation", () => {
     expect(decision).toMatchObject({ kind: "wait" });
   });
 
-  it("does not read a refusal onto a send it cannot identify", () => {
-    // No builder context at auto-send time means no id to match. Guessing
-    // would re-open the misattribution; the start timeout bounds it instead.
+  it("falls back to timing for a send that never named itself", () => {
+    // Without an id there is nothing to match, and ignoring the refusal would
+    // let the run wait out a timeout instead of stopping. The blunt comparison
+    // is the lesser evil, so it stays for exactly this case.
     const decision = decide({
-      watch: watching({ sendSeq: null }),
-      snapshot: snapshot({ rejectedSendSeq: 7 }),
+      watch: watching({ sendSeq: null, startedAt: NOW - 5_000 }),
+      snapshot: snapshot({ rejectedSendSeq: 7, rejectedAt: NOW - 1_000 }),
     });
-    expect(decision.kind).not.toBe("abort");
+    expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
+  });
+
+  it("does not let the timing fallback override a named send", () => {
+    // Once the turn has an id, a foreign refusal is a foreign refusal however
+    // recent it is — otherwise the fallback would undo the whole fix.
+    const decision = decide({
+      watch: watching({ sendSeq: 7, startedAt: NOW - 5_000 }),
+      snapshot: snapshot({
+        rejectedSendSeq: 9,
+        rejectedAt: NOW - 1_000,
+        versionStatus: "generating",
+      }),
+    });
+    expect(decision).toMatchObject({ kind: "wait" });
   });
 
   it("waits while the focus is still on the version we sent from", () => {
