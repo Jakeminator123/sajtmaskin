@@ -38,8 +38,17 @@ function shellSegments(command) {
 
 /** True for a segment that invokes git's own worktree removal, not the wrapper. */
 function isRawWorktreeRemove(segment) {
-  if (/worktree\.mjs|worktree:remove|kedja-clean|kedja:clean/.test(segment)) return false;
-  return /\bgit\b[\s\S]*\bworktree\b[\s\S]*\bremove\b/.test(segment);
+  // Strip quoted strings first. A command that merely *names* the phrase — a
+  // commit message, a grep pattern, an echo (`git commit -m "block raw git
+  // worktree remove"`) — must not trip the guard; only a real invocation should.
+  const unquoted = segment.replace(/"[^"]*"|'[^']*'/g, " ");
+  if (/worktree\.mjs|worktree:remove|kedja-clean|kedja:clean/.test(unquoted)) return false;
+  // The command actually run must be `git` (after optional leading VAR=val
+  // assignments), with `worktree remove` as adjacent subcommands. Anchoring on
+  // the command keeps `echo`/`grep`/`git commit -m` that only mention the phrase
+  // from matching, while every real `git [global-opts] worktree remove` still does.
+  const invocation = unquoted.trim().replace(/^(?:\w+=\S*\s+)*/, "");
+  return /^git\b[^\n]*\bworktree\s+remove\b/.test(invocation);
 }
 
 function decide(command) {
