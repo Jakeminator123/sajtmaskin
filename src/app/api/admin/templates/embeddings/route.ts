@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       {
         success: false,
         error:
-          "Template embeddings ar lokala och commitade artifacts. Regenerera dem lokalt och deploya om produktionen.",
+          "Template embeddings kan inte skrivas fran en deployad miljo. Regenerera lokalt (npm run templates:embeddings), ladda upp filen till Vercel Blob och peka TEMPLATE_EMBEDDINGS_BLOB_URL dit.",
       },
       { status: 409 },
     );

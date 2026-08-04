@@ -52,6 +52,7 @@
     "SAJTMASKIN_STRICT_GENERATED_ARTIFACTS",
     "SUPERADMIN_EMAIL",
     "SUPERADMIN_PASSWORD",
+    "TEMPLATE_EMBEDDINGS_BLOB_URL",
     "TEST_USER_EMAIL",
     "TEST_USER_PASSWORD",
     "VERCEL_GIT_COMMIT_AUTHOR_LOGIN",
@@ -806,6 +807,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Optional explicit backoffice blob colors key. Prefer leaving unset to use env-specific defaults like backoffice/dev|preview|prod/colors.json."
+    },
+    {
+      "key": "TEMPLATE_EMBEDDINGS_BLOB_URL",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["preview", "production"],
+      "notes": "Public Vercel Blob read URL for src/lib/templates/template-embeddings.json (~9 MiB, no longer bundled). Not a secret. Deployed runtimes read embeddings from here; local dev reads the committed file via fs. Unset in a deployed runtime = template search degrades visibly to keyword search."
     },
     {
       "key": "STORAGE_BACKEND",

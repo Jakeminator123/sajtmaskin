@@ -4,10 +4,8 @@ import {
   getTemplateCatalog,
   type TemplateCatalogItem,
 } from "@/lib/templates/template-catalog";
-import type {
-  EmbeddingEntry,
-  EmbeddingsFile,
-} from "@/lib/templates/template-embeddings-core";
+import type { EmbeddingEntry } from "@/lib/templates/template-embeddings-core";
+import { loadTemplateEmbeddings } from "@/lib/templates/template-embeddings-storage";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
@@ -22,20 +20,49 @@ const QUERY_HINTS: Array<{ match: RegExp; hint: string }> = [
 
 let cachedEmbeddings: EmbeddingEntry[] | undefined;
 let templateEmbeddingLoadFailed = false;
+let pendingEmbeddingsLoad: Promise<EmbeddingEntry[]> | null = null;
+let loadGeneration = 0;
 let catalogLookup: Map<string, TemplateCatalogItem> | null = null;
 
-function loadEmbeddings(): EmbeddingEntry[] {
-  if (cachedEmbeddings !== undefined) return cachedEmbeddings;
+async function readEmbeddings(): Promise<EmbeddingEntry[]> {
+  const generation = loadGeneration;
+  let embeddings: EmbeddingEntry[];
+  let failed = false;
+
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const data: EmbeddingsFile = require("./template-embeddings.json");
-    cachedEmbeddings = data.embeddings ?? [];
-    templateEmbeddingLoadFailed = false;
-  } catch {
-    cachedEmbeddings = [];
-    templateEmbeddingLoadFailed = true;
+    const { data, mode, location } = await loadTemplateEmbeddings();
+    embeddings = data.embeddings ?? [];
+    if (embeddings.length === 0) {
+      console.error(
+        `[template-search] Template embeddings loaded from ${mode} (${location}) but contained 0 entries — using keyword search.`,
+      );
+    }
+  } catch (err) {
+    console.error("[template-search] Failed to load template embeddings:", err);
+    embeddings = [];
+    failed = true;
   }
-  return cachedEmbeddings;
+
+  // A concurrent invalidateEmbeddingsCache() means this result describes the
+  // previous source — drop it instead of writing it back over the fresh state.
+  if (generation === loadGeneration) {
+    cachedEmbeddings = embeddings;
+    templateEmbeddingLoadFailed = failed;
+  }
+  return embeddings;
+}
+
+function loadEmbeddings(): Promise<EmbeddingEntry[]> {
+  if (cachedEmbeddings !== undefined) return Promise.resolve(cachedEmbeddings);
+  if (pendingEmbeddingsLoad) return pendingEmbeddingsLoad;
+
+  // Single in-flight read: concurrent searches must not each pull ~9 MiB.
+  const load: Promise<EmbeddingEntry[]> = readEmbeddings().finally(() => {
+    // Only clear our own slot — an invalidation may already have started another.
+    if (pendingEmbeddingsLoad === load) pendingEmbeddingsLoad = null;
+  });
+  pendingEmbeddingsLoad = load;
+  return load;
 }
 
 function retryIfTemplateEmbeddingLoadFailed(): boolean {
@@ -134,9 +161,9 @@ export async function searchTemplates(
   const apiKey = SECRETS.openaiApiKey;
   if (!apiKey) return fallbackResults;
 
-  let embeddings = loadEmbeddings();
+  let embeddings = await loadEmbeddings();
   if (embeddings.length === 0 && retryIfTemplateEmbeddingLoadFailed()) {
-    embeddings = loadEmbeddings();
+    embeddings = await loadEmbeddings();
   }
   if (embeddings.length === 0) return fallbackResults;
 
@@ -188,9 +215,12 @@ export async function searchTemplates(
 }
 
 /**
- * Force-reload embeddings from disk. Useful after regenerating.
+ * Force-reload embeddings from their storage. Useful after regenerating.
  */
 export function invalidateEmbeddingsCache(): void {
+  loadGeneration += 1;
   cachedEmbeddings = undefined;
+  pendingEmbeddingsLoad = null;
+  templateEmbeddingLoadFailed = false;
   catalogLookup = null;
 }

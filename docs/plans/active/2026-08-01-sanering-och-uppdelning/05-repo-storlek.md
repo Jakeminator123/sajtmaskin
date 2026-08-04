@@ -55,6 +55,19 @@ Vercel serverless. Storage-modulen har redan typen
 Testkrav: template-sökningen är pipeline-yta — riktade tester på
 laddning/fallback (Blob otillgänglig ⇒ tydligt fel, inte tom sökning).
 
+### Status
+
+| Punkt | Läge |
+|---|---|
+| 1–2 (mekanism) | **Klart.** `template-embeddings-storage.ts` äger var filen ligger (`loadTemplateEmbeddings()`): deployad miljö hämtar `TEMPLATE_EMBEDDINGS_BLOB_URL` via `fetch`, dev läser den committade filen via `fs`. `require()` borta ur `template-search.ts`; filen är dessutom `outputFileTracingExcludes`-listad. Fallback till `fallbackKeywordSearch` + `console.error` bevarad och testad. |
+| 3 (binärformat) | **Uppskjutet.** Float32-konvertering ändrar precisionen i cosine-rankningen — egen ändring med egen jämförelse mot dagens topp-N, inte en bieffekt av bundle-städningen. |
+| 4 (`template-library`) | **Ej aktuellt.** Katalogen `src/lib/gen/template-library/` finns inte längre i repot; bara historiska blobbar (raderas i steg 8). |
+
+Kvar för ägaren (kan inte göras av en agent): regenerera lokalt
+(`npm run templates:embeddings`), ladda upp JSON:en till appens Vercel Blob och
+sätt `TEMPLATE_EMBEDDINGS_BLOB_URL` (publik läs-URL, `preview` + `production`).
+Tills dess degraderar mall-sökningen i deploy synligt till nyckelordssökning.
+
 ## Steg 8 — historik-omskrivning (kräver ägar-OK, pausa här)
 
 Att radera dagens filer minskar inte 624 MiB historik. Kör `git filter-repo`
