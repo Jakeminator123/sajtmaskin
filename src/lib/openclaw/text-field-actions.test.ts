@@ -4,6 +4,11 @@ import {
   collectOpenClawTextFieldContext,
   parseOpenClawMessage,
 } from "./text-field-actions";
+import { validateOpenClawApplyQuickEditAction } from "./quick-edit-action";
+
+function actionMessage(intro: string, payload: string): string {
+  return `${intro}\n\n<openclaw-action>\n${payload}\n</openclaw-action>`;
+}
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -65,6 +70,7 @@ describe("text-field-actions", () => {
       submit: false,
     });
     expect(parsed.hasIncompleteAction).toBe(false);
+    expect(parsed.actionError).toBeNull();
   });
 
   it("hides incomplete action blocks from the visible assistant text", () => {
@@ -76,6 +82,47 @@ describe("text-field-actions", () => {
     expect(parsed.visibleContent).toBe("Jag kan fylla fältet åt dig.");
     expect(parsed.action).toBeNull();
     expect(parsed.hasIncompleteAction).toBe(true);
+    // Ett halvskrivet block strömmar fortfarande in — det är inte ett fel.
+    expect(parsed.actionError).toBeNull();
+  });
+
+  it("reports a reason when the action block is not valid JSON", () => {
+    const parsed = parseOpenClawMessage(
+      actionMessage("Här är ett förslag.", `{"type":"fill_text_field",`),
+    );
+
+    expect(parsed.visibleContent).toBe("Här är ett förslag.");
+    expect(parsed.action).toBeNull();
+    expect(parsed.hasIncompleteAction).toBe(false);
+    expect(parsed.actionError).toBe("Actionblocket är inte giltig JSON.");
+  });
+
+  it("reports a reason for an unknown action type", () => {
+    const parsed = parseOpenClawMessage(
+      actionMessage("Jag publicerar sajten.", `{"type":"deploy_site","target":"production"}`),
+    );
+
+    expect(parsed.visibleContent).toBe("Jag publicerar sajten.");
+    expect(parsed.action).toBeNull();
+    expect(parsed.hasIncompleteAction).toBe(false);
+    expect(parsed.actionError).toBe(`Okänd action-typ "deploy_site".`);
+  });
+
+  it("passes the quick-edit validation error through verbatim for a protected path", () => {
+    const payload = {
+      type: "apply_quick_edit",
+      label: "Uppdatera beroenden",
+      ops: [{ kind: "replace_content", path: "package.json", content: "{}" }],
+    };
+    const validation = validateOpenClawApplyQuickEditAction(payload);
+    const parsed = parseOpenClawMessage(
+      actionMessage("Jag vill uppdatera beroenden.", JSON.stringify(payload)),
+    );
+
+    expect(validation.ok).toBe(false);
+    expect(parsed.action).toBeNull();
+    expect(parsed.actionError).toBe(validation.ok ? null : validation.error);
+    expect(parsed.actionError).toContain("skyddad fil");
   });
 
   it("fills a marked textarea and dispatches input events", () => {
