@@ -15,10 +15,16 @@ describe("send-target helpers", () => {
     document.body.innerHTML = `
       <button data-openclaw-send-target="builder.chat.primary" disabled aria-label="Send message"></button>
     `;
+    const button = document.querySelector<HTMLButtonElement>(
+      "[data-openclaw-send-target]",
+    )!;
+    const onClick = vi.fn();
+    button.addEventListener("click", onClick);
     expect(isOpenClawSendReady("builder.chat.primary")).toBe(false);
     const result = triggerOpenClawSend("builder.chat.primary");
     expect(result.ok).toBe(false);
     expect(result.reason).toBe("not_ready");
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   it("clicks the send button when enabled", () => {

@@ -35,6 +35,14 @@ describe("parseArmingDirective", () => {
     expect(directive?.count).toBe(MAX_FOLLOWUP_COUNT);
   });
 
+  it("clamps a follow-up count under 1 to the default", () => {
+    const directive = parseArmingDirective("gör 0 follow-ups");
+    expect(directive?.mode).toBe("followups");
+    expect(directive?.count).toBe(DEFAULT_FOLLOWUP_COUNT);
+    const mandate = createArmedMandate({ mode: "followups", count: 0, reason: "x" });
+    expect(mandate.remaining).toBe(DEFAULT_FOLLOWUP_COUNT);
+  });
+
   it("detects a review-next mandate", () => {
     const directive = parseArmingDirective(
       "granska nästa meddelande jag skapar och ta notis om allt",
@@ -70,6 +78,12 @@ describe("parseStopDirective", () => {
     }
   });
 
+  it("detects Swedish stop variants including avsluta and halt", () => {
+    for (const text of ["avsluta", "Avsluta nu", "halt", "halt please"]) {
+      expect(parseStopDirective(text)).toBe(true);
+    }
+  });
+
   it("ignores unrelated text", () => {
     expect(parseStopDirective("fortsätt gärna")).toBe(false);
   });
@@ -88,6 +102,13 @@ describe("mandate lifecycle", () => {
     const after2 = consumeMandateStep(after1);
     expect(after2).toBeNull();
     expect(isMandateActive(after2)).toBe(false);
+  });
+
+  it("consumeMandateStep clears the mandate when the last step is consumed", () => {
+    const mandate = createArmedMandate({ mode: "review_next", count: 1, reason: "x" }, 1000);
+    expect(mandate.remaining).toBe(1);
+    expect(consumeMandateStep(mandate)).toBeNull();
+    expect(consumeMandateStep(null)).toBeNull();
   });
 
   it("describeMandate reflects state", () => {

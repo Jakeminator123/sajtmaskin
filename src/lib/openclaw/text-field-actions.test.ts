@@ -148,4 +148,30 @@ describe("text-field-actions", () => {
     expect(textarea?.value).toBe("En modern sajt för en salong i Göteborg");
     expect(inputSpy).toHaveBeenCalledTimes(1);
   });
+
+  it("refuses to write into a non-writable field", () => {
+    document.body.innerHTML = `
+      <textarea
+        data-openclaw-text-target="builder.chat.primary"
+        data-openclaw-text-label="Builderns huvudprompt"
+        readonly
+      >Befintligt</textarea>
+    `;
+
+    const textarea = document.querySelector("textarea");
+    const inputSpy = vi.fn();
+    textarea?.addEventListener("input", inputSpy);
+
+    const result = applyOpenClawTextFieldAction({
+      type: "fill_text_field",
+      target: "builder.chat.primary",
+      value: "Försök skriva över",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/inte skrivbart/i);
+    expect(result.field?.canWrite).toBe(false);
+    expect(textarea?.value).toBe("Befintligt");
+    expect(inputSpy).not.toHaveBeenCalled();
+  });
 });

@@ -125,4 +125,48 @@ describe("chat-context-policy", () => {
       }),
     ).toBe("none");
   });
+
+  it("returns none without chatId and without currentCode regardless of prompt", () => {
+    const prompts = [
+      "Kan du läsa koden och granska hela projektet?",
+      "Vilken fil hanterar previewpanelen?",
+      "Kan du förklara den här koden?",
+      "Vad kan förbättras i den här versionen?",
+    ];
+    for (const content of prompts) {
+      expect(
+        decideOpenClawCodeContextMode({
+          messages: [{ role: "user", content }],
+          page: "builder",
+          chatId: "",
+          currentCode: "   ",
+        }),
+      ).toBe("none");
+      expect(
+        decideOpenClawCodeContextMode({
+          messages: [{ role: "user", content }],
+          page: "builder",
+        }),
+      ).toBe("none");
+    }
+  });
+
+  it("returns none outside the builder page even with chat and code present", () => {
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "Kan du läsa koden och granska hela projektet?" }],
+        page: "landing",
+        chatId: "chat_123",
+        currentCode: "export default function Page() {}",
+      }),
+    ).toBe("none");
+    expect(
+      decideOpenClawCodeContextMode({
+        messages: [{ role: "user", content: "Vilken fil hanterar previewpanelen?" }],
+        page: "home",
+        chatId: "chat_123",
+        currentCode: "export default function Page() {}",
+      }),
+    ).toBe("none");
+  });
 });
