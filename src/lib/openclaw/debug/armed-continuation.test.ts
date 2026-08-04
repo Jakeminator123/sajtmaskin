@@ -213,6 +213,16 @@ describe("decideArmedContinuation", () => {
     expect(decide({ watch: watching({ resumedAt: NOW - 1000 }) }).kind).toBe("wait");
   });
 
+  it("does not time out a woken turn that is still being written", () => {
+    // A long answer is not a silent one; the next auto-send can only come once
+    // the stream is done.
+    const decision = decide({
+      watch: watching({ resumedAt: NOW - CONTINUATION_RESUME_FOLLOWTHROUGH_MS - 1 }),
+      openClawStreaming: true,
+    });
+    expect(decision.kind).toBe("wait");
+  });
+
   it("closes the run quietly when the woken turn brings no next step", () => {
     const decision = decide({
       watch: watching({ resumedAt: NOW - CONTINUATION_RESUME_FOLLOWTHROUGH_MS - 1 }),

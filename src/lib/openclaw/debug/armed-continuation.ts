@@ -214,6 +214,11 @@ export function decideArmedContinuation(
   // Already woken for this turn. Either OpenClaw answers with another auto-send
   // (which registers a fresh watch) or it decides to stop — an ordinary end.
   if (watch.resumedAt !== null) {
+    // The next auto-send can only appear once the woken answer is complete, so
+    // the follow-through clock must not run while it is still being written.
+    if (openClawStreaming) {
+      return { kind: "wait", reason: "Sajtagenten skriver sitt nästa steg." };
+    }
     if (now - watch.resumedAt > CONTINUATION_RESUME_FOLLOWTHROUGH_MS) {
       return {
         kind: "abort",

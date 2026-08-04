@@ -50,6 +50,12 @@ export function useOpenClawArmedContinuation(send: SendFn): void {
       const observed = observeBuilderTurn(watch, snapshot);
       if (observed !== watch) state.setArmedContinuation(observed);
 
+      // Keep the follow-through clock measuring idle time rather than answer
+      // length: a woken OpenClaw that writes for a while has not gone quiet.
+      if (observed.resumedAt !== null && state.isStreaming) {
+        state.setArmedContinuation(markContinuationResumed(observed, Date.now()));
+      }
+
       const decision = decideArmedContinuation({
         watch: observed,
         mandate: state.armedMandate,
