@@ -27,6 +27,16 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 - **Terminologi / ton:** [`terminology.mdc`](.cursor/rules/terminology.mdc), [`response-format.mdc`](.cursor/rules/response-format.mdc)
 - **MVP-fas:** [`mvp-scope-freeze.mdc`](.cursor/rules/mvp-scope-freeze.mdc) — stabilitet före coolhet; inga nya features, ytor eller UI-element utan uttrycklig begäran
 
+## Codex Desktop
+
+Projektets Codex-lager finns i [`.codex/README.md`](.codex/README.md) och
+[`.codex/config.toml`](.codex/config.toml). Starta nya Codex-chattar med
+repo-roten `C:\Users\jakem\dev\projects\sajtmaskin` som primary folder; då
+upptäcks `AGENTS.md`, projektkonfig och worktree-regler på samma sätt varje gång.
+Codex har ingen `.codexignore`; `.cursorignore` gäller Cursor, medan Codex
+förlitar sig på `.gitignore`, instruktionerna här och `.worktreeinclude` för
+hanterade worktrees.
+
 ## Allmänt per-PR-klart
 
 - `npm run typecheck` → 0 errors
