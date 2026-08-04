@@ -1,12 +1,17 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { KNOWN_PACKAGES } from "@/lib/gen/autofix/dep-completer";
+import {
+  GENERATED_SITE_DEPENDENCY_CATALOG_PATH,
+  GENERATED_SITE_KNOWN_PACKAGES,
+} from "@/lib/gen/data/generated-site-dependency-catalog";
+import { mergePackageJsonWithBaseline } from "./project-scaffold";
 
 /**
  * Version-glue guard: the dependency baseline that GENERATED PROJECTS ship
- * (`PACKAGE_JSON` in `project-scaffold.ts`) must stay in lockstep with this
- * platform's own `package.json` for the load-bearing packages. The vendored
+ * (`exportBaseline` in `config/generated-site-dependencies.json`, which
+ * `project-scaffold.ts` merges model output onto) must stay in lockstep with
+ * this platform's own `package.json` for the load-bearing packages. The vendored
  * `src/components/ui/*` files are copied verbatim from the platform into user
  * projects, so a version skew (e.g. lucide-react drifting) can ship a component
  * that imports an icon/API the pinned runtime does not have -> user build break.
@@ -36,15 +41,23 @@ function readPlatformDeps(): Record<string, string> {
   return { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
 }
 
+function readCatalogExportBaseline(): {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  overrides?: Record<string, string>;
+  [key: string]: unknown;
+} {
+  const raw = readFileSync(join(ROOT, GENERATED_SITE_DEPENDENCY_CATALOG_PATH), "utf8");
+  const parsed = JSON.parse(raw) as { exportBaseline?: Record<string, unknown> };
+  if (!parsed.exportBaseline) {
+    throw new Error(`Missing "exportBaseline" in ${GENERATED_SITE_DEPENDENCY_CATALOG_PATH}`);
+  }
+  return parsed.exportBaseline;
+}
+
 function readGeneratedBaselineDeps(): Record<string, string> {
-  const src = readFileSync(join(ROOT, "src/lib/gen/export/project-scaffold.ts"), "utf8");
-  const match = src.match(/const PACKAGE_JSON = `([\s\S]*?)`;/);
-  if (!match) throw new Error("Could not find PACKAGE_JSON template in project-scaffold.ts");
-  const parsed = JSON.parse(match[1]) as {
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
-  return { ...(parsed.dependencies ?? {}), ...(parsed.devDependencies ?? {}) };
+  const baseline = readCatalogExportBaseline();
+  return { ...(baseline.dependencies ?? {}), ...(baseline.devDependencies ?? {}) };
 }
 
 /**
@@ -125,11 +138,28 @@ describe("project-scaffold baseline parity with platform package.json", () => {
 });
 
 /**
+ * Single-source guard: what `project-scaffold` actually writes into a generated
+ * `package.json` must come from the catalog, so a version can never be edited
+ * in the TS module and silently diverge from `config/`.
+ */
+describe("generated package.json comes from the dependency catalog", () => {
+  it("merging an empty model onto the baseline reproduces exportBaseline verbatim", () => {
+    const merged = mergePackageJsonWithBaseline({}, { dependencies: {} });
+    expect(merged).toEqual(readCatalogExportBaseline());
+  });
+});
+
+/**
  * The React-Three 3D stack is no longer in the generated baseline (it is
- * capability-gated and injected on demand). Its pins now live in
- * KNOWN_PACKAGES (dep-completer) and must still match the platform's installed
- * 3D stack exactly, because the `three-fiber-canvas` dossier ships vendored
- * shell code coupled to specific three/fiber/drei versions.
+ * capability-gated and injected on demand). Its pins live in the catalog's
+ * `knownPackages` (read by dep-completer) and must still match the platform's
+ * installed 3D stack exactly, because the `three-fiber-canvas` dossier ships
+ * vendored shell code coupled to specific three/fiber/drei versions.
+ *
+ * `@react-three/rapier` is only installed here for the warm-cache typecheck.
+ * If it ever leaves the platform `package.json`, this comparison loses its
+ * counterpart — drop rapier from the list below rather than weakening the
+ * assertion for the whole stack.
  */
 const THREE_STACK_PACKAGES = [
   "three",
@@ -143,11 +173,14 @@ describe("3D stack gated pins parity with platform package.json", () => {
   const generated = readGeneratedBaselineDeps();
 
   for (const pkg of THREE_STACK_PACKAGES) {
-    it(`${pkg}: KNOWN_PACKAGES pin matches platform major.minor.patch`, () => {
+    it(`${pkg}: catalog knownPackages pin matches platform major.minor.patch`, () => {
       const p = platform[pkg];
-      const k = KNOWN_PACKAGES[pkg];
+      const k = GENERATED_SITE_KNOWN_PACKAGES[pkg];
       expect(p, `${pkg} missing from platform package.json`).toBeTruthy();
-      expect(k, `${pkg} missing from KNOWN_PACKAGES`).toBeTruthy();
+      expect(
+        k,
+        `${pkg} missing from knownPackages in ${GENERATED_SITE_DEPENDENCY_CATALOG_PATH}`,
+      ).toBeTruthy();
       expect(parseVersion(k)).toEqual(parseVersion(p));
     });
 

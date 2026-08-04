@@ -49,18 +49,23 @@ package.json — testet uppdateras i samma PR som flytten.
 ## Arbetsgång
 
 1. ~~Inventering~~ **klar** — se tabellen ovan.
-2. **Deklarativ katalog:** flytta (c)-paketens versioner till en JSON-katalog
-   (t.ex. `config/generated-site-dependencies.json`) som `dep-completer`/
-   `dependency-utils`/`project-scaffold` läser. Då slutar appens
-   `package.json` ljuga om vad appen använder, och knip blir signal i st.f.
-   brus. En källa — inte hårdkodade versioner i tre filer (signal-gate-regeln:
-   ändra ägaren, inte fem konsumenter).
+2. ~~**Deklarativ katalog**~~ **klar 2026-08-04:**
+   `config/generated-site-dependencies.json` äger nu `exportBaseline`,
+   `knownPackages`, `scopedPackagePrefixes`, `shadcnBaselinePackages` och
+   `shadcnFallbackVersions`. `dep-completer`, `dependency-utils` och
+   `project-scaffold` läser den via
+   `src/lib/gen/data/generated-site-dependency-catalog.ts`; båda
+   `baseline-deps:*`-scripten och parity-testerna läser JSON:en i st.f. att
+   regex-skrapa TS-källan. Bifynden är med: `tokenlens` + `@xyflow/react`
+   ligger i `knownPackages`.
 3. **Scripts-städning:** 137 scripts — gruppera med prefix (finns delvis) och
    flytta rena engångs-/forskningsscripts till `scripts/` med egen README
    i st.f. package.json-poster. Mål < 100.
-4. **Uppdatera** `docs/architecture/code-map.md` + `docs/ENV.md` om
-   katalogfilen införs, och knip-konfigen så roll 2-installerade paket är
-   medvetet undantagna med kommentar.
+4. ~~**Uppdatera** docs + knip-konfig~~ **klar 2026-08-04:**
+   `docs/architecture/code-map.md`, `docs/ENV.md`, `docs/dependency-policy.md`
+   och `docs/runbooks/hygiene.md` pekar på katalogen; `knip.json` →
+   `knip.jsonc` så klass (b) kan undantas med motivering i kommentar
+   (oanvända deps 21 → 14, kvar är exakt klass (c)).
 
 ## Risker
 

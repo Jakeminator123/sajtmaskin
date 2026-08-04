@@ -1,5 +1,6 @@
 /**
- * Verifies every dependency/devDependency pin in `project-scaffold.ts` PACKAGE_JSON baseline
+ * Verifies every dependency/devDependency pin in the generated-site export
+ * baseline (`config/generated-site-dependencies.json` → `exportBaseline`)
  * resolves on the public npm registry (catches ETARGET / phantom versions).
  *
  * Runtime scaffolds under `gen/scaffolds/` ship no `package.json`; `buildCompleteProject` merges
@@ -16,23 +17,30 @@ const execFileP = promisify(execFile);
 
 const CONCURRENCY = 6;
 
-function readBaselineFromProjectScaffold(): {
+const CATALOG_PATH = "config/generated-site-dependencies.json";
+
+function readExportBaseline(): Record<string, unknown> {
+  const file = path.join(process.cwd(), CATALOG_PATH);
+  const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as {
+    exportBaseline?: Record<string, unknown>;
+  };
+  if (!parsed.exportBaseline) {
+    throw new Error(`Missing "exportBaseline" in ${CATALOG_PATH}`);
+  }
+  return parsed.exportBaseline;
+}
+
+function readBaselineFromCatalog(): {
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
 } {
-  const file = path.join(process.cwd(), "src/lib/gen/export/project-scaffold.ts");
-  const text = fs.readFileSync(file, "utf8");
-  const m = text.match(/const PACKAGE_JSON = `([\s\S]*?)`;/);
-  if (!m) {
-    throw new Error("Could not find PACKAGE_JSON template in project-scaffold.ts");
-  }
-  const parsed = JSON.parse(m[1]) as {
+  const baseline = readExportBaseline() as {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
   };
   return {
-    dependencies: parsed.dependencies ?? {},
-    devDependencies: parsed.devDependencies ?? {},
+    dependencies: baseline.dependencies ?? {},
+    devDependencies: baseline.devDependencies ?? {},
   };
 }
 
@@ -67,7 +75,7 @@ async function poolMap<T, R>(
 }
 
 async function main() {
-  const baseline = readBaselineFromProjectScaffold();
+  const baseline = readBaselineFromCatalog();
   const rows: { pkg: string; range: string; section: string }[] = [];
   for (const [pkg, range] of Object.entries(baseline.dependencies)) {
     rows.push({ pkg, range, section: "dependencies" });
@@ -94,7 +102,7 @@ async function main() {
   }
 
   console.log(
-    `baseline-deps:verify — OK (${rows.length} poster i PACKAGE_JSON-baseline, npm registry).`,
+    `baseline-deps:verify — OK (${rows.length} poster i ${CATALOG_PATH} exportBaseline, npm registry).`,
   );
 }
 

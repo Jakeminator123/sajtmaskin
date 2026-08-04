@@ -13,14 +13,17 @@ import { promisify } from "node:util";
 
 const execFileP = promisify(execFile);
 
+const CATALOG_PATH = "config/generated-site-dependencies.json";
+
 function readBaselinePackageJson(): string {
-  const file = path.join(process.cwd(), "src/lib/gen/export/project-scaffold.ts");
-  const text = fs.readFileSync(file, "utf8");
-  const m = text.match(/const PACKAGE_JSON = `([\s\S]*?)`;/);
-  if (!m) {
-    throw new Error("Could not find PACKAGE_JSON template in project-scaffold.ts");
+  const file = path.join(process.cwd(), CATALOG_PATH);
+  const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as {
+    exportBaseline?: Record<string, unknown>;
+  };
+  if (!parsed.exportBaseline) {
+    throw new Error(`Missing "exportBaseline" in ${CATALOG_PATH}`);
   }
-  return m[1];
+  return JSON.stringify(parsed.exportBaseline, null, 2);
 }
 
 async function main() {

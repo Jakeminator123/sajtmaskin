@@ -334,18 +334,20 @@ jobs:
         run: npm run check && npm run test:guards && npm run test:patch
 
   # Dead-code / orphan-file-hygien (självgående städ-enforcement). knip är tunat i
-  # knip.json så FILES-kategorin har noll falska positiver: dynamiskt körda kataloger
+  # knip.jsonc så FILES-kategorin har noll falska positiver: dynamiskt körda kataloger
   # (shadcn `src/components/ui/`, `scripts/`, mcp/cli-entries, scaffold-scoring-spegeln)
   # är deklarerade som knip `entry` → deras importer räknas och deras exporter flaggas
   # inte. Två lanes:
   #   1. Full rådgivande rapport (`|| true`, faller ALDRIG) så deps/exports-svansen syns
   #      på varje PR utan att blockera. OBS: "unused dependencies" är till stor del FALSKA
-  #      positiver här — generatorn lagrar paket-NAMN som data (dep-completer /
-  #      import-validator) och shadcn importerar meta-paketet `radix-ui`, så individuella
-  #      @radix-ui/* ser oanvända ut. Verifiera innan något tas bort.
+  #      positiver här — generatorn lagrar paket-NAMN som data (versionerna ägs av
+  #      config/generated-site-dependencies.json) och shadcn importerar meta-paketet
+  #      `radix-ui`, så individuella @radix-ui/* ser oanvända ut. Paket som bara finns
+  #      för warm-cache-typechecken är undantagna i `ignoreDependencies`.
+  #      Verifiera innan något tas bort.
   #   2. Orphan-FIL-grind (blockerande): en genuint oimporterad källfil rödar CI. Fixa
   #      genom att radera den — eller, om den är runtime-/tooling-laddad, lägg till den i
-  #      knip.json `entry`. Runbook: docs/runbooks/hygiene.md.
+  #      knip.jsonc `entry`. Runbook: docs/runbooks/hygiene.md.
   # Som `preview-host-guards`: jobbet failar hårt, men det är ännu INTE en required
   # check på master-rulesetet, så ett rött resultat blockerar inte merge av sig självt.
   dead-code:

@@ -23,6 +23,7 @@ Den här kartan pekar enbart på primära owners. Den ersätter inte IDE-index,
 | Persistens                 | `src/lib/db/`, `scripts/db/`                                                                                         |
 | Status och loggning        | `src/lib/logging/`, `scripts/observability/`                                                                         |
 | Env                        | `src/lib/env.ts`, `config/env-policy.json`, `scripts/env/`                                                           |
+| Genererade sajters paketversioner | `config/generated-site-dependencies.json` (läses via `src/lib/gen/data/generated-site-dependency-catalog.ts`) |
 | Modeller                   | `config/ai_models/manifest.json`, `src/lib/models/`                                                                  |
 | Templates                  | `src/lib/templates/`, `src/app/api/template/`                                                                        |
 | Publicering                | `src/app/api/v0/deployments/`, `src/lib/deploy/`                                                                     |
