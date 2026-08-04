@@ -210,6 +210,8 @@ Djupare ämnen:
 
 Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/preview/env-local.ts`) med underlag från `config/ai_models/` — se **llm-pipeline.md**, avsnitt om tier-2 preview `.env.local`.
 
+**Paketversioner är inte env.** Vilka npm-versioner en genererad sajt får ägs deklarativt av [`config/generated-site-dependencies.json`](../config/generated-site-dependencies.json) (baseline-`package.json` för export, `knownPackages` för importskanningen, shadcn-fallbacks för deploy). Läs den via `src/lib/gen/data/generated-site-dependency-catalog.ts` — aldrig direkt, och blanda den inte med repots egen `package.json` (den styr bara vad Sajtmaskin själv installerar).
+
 **F2-mock-seed:** i F2 (`design`) får varje vald dossiers env-nyckel som fortfarande saknar värde efter de vanliga lagren ett deterministiskt stub-värde (`dossierMockPreviewEnvValue`) i preview-`.env.local`, så dossierns UI renderar sitt mock-/demo-läge — även nycklar utanför placeholder-katalogen (t.ex. `EMAIL_FROM`, `CONTACT_EMAIL_TO`, `FAL_API_KEY`, `MAILCHIMP_*`). Seeden körs **aldrig** i F3 (stub-lagret strippas, riktiga värden krävs), persisteras **aldrig** till `projectEnvVars` och når **aldrig** en deploy, och matchar `stub-env-filter.ts` så den aldrig räknas som integrationsbevis. Ett riktigt användar-/modell-värde vinner alltid över seeden.
 
 ### Project env file (`env.example`) — användar­synlig dokumentationsfil

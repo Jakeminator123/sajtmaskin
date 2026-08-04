@@ -49,8 +49,8 @@ SCRIPTS: tuple[HealthScript, ...] = (
         label="Baseline deps · verifiera npm-registry",
         command=("npm", "run", "baseline-deps:verify"),
         description=(
-            "Kollar att alla pin i scaffold-baseline (`src/lib/gen/export/project-scaffold.ts` "
-            "PACKAGE_JSON) faktiskt finns på npm-registry. Fångar phantom-versioner."
+            "Kollar att alla pin i scaffold-baseline (`config/generated-site-dependencies.json` "
+            "→ `exportBaseline`) faktiskt finns på npm-registry. Fångar phantom-versioner."
         ),
         cost="fast",
         requires_api=False,

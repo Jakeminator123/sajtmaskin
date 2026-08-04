@@ -26,19 +26,24 @@ function extractLeadingMajor(versionSpec: string): number | null {
   return Number.parseInt(match[0], 10);
 }
 
-function readBaselinePackageVersion(packageName: string): string {
-  const projectScaffoldPath = resolve(process.cwd(), "src/lib/gen/export/project-scaffold.ts");
-  const text = readFileSync(projectScaffoldPath, "utf8");
-  const packageJsonMatch = text.match(/const PACKAGE_JSON = `([\s\S]*?)`;/);
-  if (!packageJsonMatch) {
-    throw new Error("Could not find PACKAGE_JSON template in project-scaffold.ts");
-  }
-  const parsed = JSON.parse(packageJsonMatch[1]) as {
-    dependencies?: Record<string, string>;
+/**
+ * The generated-site export baseline, read from the declarative catalog that
+ * `project-scaffold.ts` now builds its `package.json` from.
+ */
+function readBaselineDependencies(): Record<string, string> {
+  const catalogPath = resolve(process.cwd(), "config/generated-site-dependencies.json");
+  const parsed = JSON.parse(readFileSync(catalogPath, "utf8")) as {
+    exportBaseline?: { dependencies?: Record<string, string> };
   };
-  const version = parsed.dependencies?.[packageName];
+  return parsed.exportBaseline?.dependencies ?? {};
+}
+
+function readBaselinePackageVersion(packageName: string): string {
+  const version = readBaselineDependencies()[packageName];
   if (!version) {
-    throw new Error(`Missing ${packageName} in project-scaffold PACKAGE_JSON baseline`);
+    throw new Error(
+      `Missing ${packageName} in config/generated-site-dependencies.json exportBaseline`,
+    );
   }
   return version;
 }
@@ -58,12 +63,8 @@ describe("dep-completer", () => {
   });
 
   it("keeps ALL overlapping KNOWN_PACKAGES majors aligned with scaffold baseline", () => {
-    const scaffoldPath = resolve(process.cwd(), "src/lib/gen/export/project-scaffold.ts");
-    const text = readFileSync(scaffoldPath, "utf8");
-    const m = text.match(/const PACKAGE_JSON = `([\s\S]*?)`;/);
-    expect(m).not.toBeNull();
-    const baselineDeps = (JSON.parse(m![1]) as { dependencies?: Record<string, string> })
-      .dependencies ?? {};
+    const baselineDeps = readBaselineDependencies();
+    expect(Object.keys(baselineDeps).length).toBeGreaterThan(0);
 
     const overlapping = Object.keys(KNOWN_PACKAGES).filter((k) => k in baselineDeps);
     expect(overlapping.length).toBeGreaterThan(0);

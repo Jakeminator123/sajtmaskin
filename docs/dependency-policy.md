@@ -42,7 +42,7 @@ Dessa är exkluderade i `npm-low-risk-minor`-gruppen och blockeras i auto-merge-
 
 ## Baseline-pinnade paket — kräver alltid manuell PR
 
-Vissa paket är **hårt pinnade på exakt `major.minor.patch`** i scaffold-baseline (`KNOWN_PACKAGES` i [`src/lib/gen/autofix/dep-completer.ts`](../src/lib/gen/autofix/dep-completer.ts) och `PACKAGE_JSON`-mallen i `src/lib/gen/export/project-scaffold.ts`). Genererade projekt måste få exakt den version som plattformen kör, annars kan vendored kod (t.ex. `three-fiber-canvas`-dossiern eller `lucide-react`-ikonallowlisten) importera en API som runtime-pinnen saknar → trasig användarbuild.
+Vissa paket är **hårt pinnade på exakt `major.minor.patch`** i generatorns paketkatalog [`config/generated-site-dependencies.json`](../config/generated-site-dependencies.json) — `knownPackages` (importskannern i `dep-completer.ts`) och `exportBaseline` (baseline-`package.json` i `project-scaffold.ts`) läser båda den filen. Genererade projekt måste få exakt den version som plattformen kör, annars kan vendored kod (t.ex. `three-fiber-canvas`-dossiern eller `lucide-react`-ikonallowlisten) importera en API som runtime-pinnen saknar → trasig användarbuild.
 
 Följande paket är exakt-pinnade:
 
@@ -54,7 +54,7 @@ three
 lucide-react
 ```
 
-Dessa kan **aldrig** auto-mergas — **inte ens en patch**. En version-bump kräver att pinnen i `KNOWN_PACKAGES` (och för `lucide-react` även `project-scaffold.ts` + `node scripts/dev/generate-lucide-icons.mjs`) uppdateras i **samma commit** som `package.json`. Kontraktet som skyddar detta är parity-testet [`src/lib/gen/export/project-scaffold-baseline-parity.test.ts`](../src/lib/gen/export/project-scaffold-baseline-parity.test.ts): en osynkad bump gör testet rött i CI.
+Dessa kan **aldrig** auto-mergas — **inte ens en patch**. En version-bump kräver att pinnen i katalogens `knownPackages` (och för `lucide-react` även `exportBaseline` + `node scripts/dev/generate-lucide-icons.mjs`) uppdateras i **samma commit** som `package.json`. Kontraktet som skyddar detta är parity-testet [`src/lib/gen/export/project-scaffold-baseline-parity.test.ts`](../src/lib/gen/export/project-scaffold-baseline-parity.test.ts): en osynkad bump gör testet rött i CI.
 
 Därför är samma paket blockerade i `core_regex`-blocklistan i auto-merge-workflow:et — en Dependabot-patch på ett baseline-pinnat paket labelas aldrig som `dependabot-patch-safe` och tas manuellt. Bakgrund: PR #399 (`@react-three/fiber` 9.6.0→9.6.1, patch) föll på just detta parity-test.
 

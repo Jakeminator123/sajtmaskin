@@ -11,6 +11,7 @@ import {
   type PreviewLifecycleStage,
 } from "@/lib/gen/preview/env-local";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
+import { GENERATED_SITE_EXPORT_BASELINE } from "@/lib/gen/data/generated-site-dependency-catalog";
 
 /**
  * Download/export scaffold.
@@ -22,75 +23,17 @@ import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
  * `_template_refs/` is a third, separate concept: research material only.
  */
 /**
- * Node-engine-range för **exporterade/nedladdade** projekt.
+ * Baseline `package.json` for **exporterade/nedladdade** projekt.
  *
- * Matcha Vercel/preview-host-lanen: Node 22. Bredare ranges kan få Vercel
- * att välja/varna om runtime-versioner som Next/Vercel inte stödjer för
- * exporterade projekt.
+ * Versionerna ägs deklarativt av `config/generated-site-dependencies.json`
+ * (`exportBaseline`) — samma katalog som `dep-completer` och
+ * `dependency-utils` läser, så generatorns paketversioner har EN källa i
+ * stället för tre hårdkodade tabeller. Node-engine-rangen där matchar
+ * Vercel/preview-host-lanen (Node 22) med flit.
  */
-const GENERATED_PROJECT_NODE_RANGE = ">=22.14.0 <23";
+const BASELINE_PACKAGE_JSON = GENERATED_SITE_EXPORT_BASELINE;
 
-const PACKAGE_JSON = `{
-  "name": "sajtmaskin-project",
-  "version": "0.1.0",
-  "private": true,
-  "engines": {
-    "node": "${GENERATED_PROJECT_NODE_RANGE}"
-  },
-  "scripts": {
-    "dev": "next dev --webpack",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
-  },
-  "dependencies": {
-    "next": "16.2.9",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "radix-ui": "1.4.3",
-    "class-variance-authority": "0.7.1",
-    "clsx": "2.1.1",
-    "tailwind-merge": "3.3.0",
-    "lucide-react": "0.577.0",
-    "next-themes": "0.4.6",
-    "sonner": "2.0.7",
-    "recharts": "2.15.4",
-    "cmdk": "1.1.1",
-    "vaul": "1.1.2",
-    "input-otp": "1.4.2",
-    "embla-carousel-react": "8.6.0",
-    "react-day-picker": "9.14.0",
-    "react-resizable-panels": "4.7.2",
-    "react-hook-form": "7.71.2",
-    "@hookform/resolvers": "5.2.2",
-    "zod": "4.3.6",
-    "framer-motion": "12.38.0",
-    "@tanstack/react-table": "8.21.3",
-    "date-fns": "4.1.0",
-    "react-error-boundary": "6.1.2",
-    "react-intersection-observer": "10.0.3",
-    "canvas-confetti": "1.9.4",
-    "@tanstack/react-virtual": "3.14.4"
-  },
-  "devDependencies": {
-    "eslint": "9.39.2",
-    "eslint-config-next": "16.2.9",
-    "typescript": "5.9.3",
-    "@types/node": "22.19.17",
-    "@types/react": "19.2.13",
-    "@types/react-dom": "19.2.3",
-    "@types/canvas-confetti": "1.9.0",
-    "@tailwindcss/postcss": "4.1.18",
-    "tailwindcss": "4.1.18"
-  },
-  "overrides": {
-    "postcss": "^8.5.10"
-  }
-}`;
-
-/** Parsed once — baseline for merge when the model emits a partial `package.json`. */
-const BASELINE_PACKAGE_JSON = JSON.parse(PACKAGE_JSON) as Record<string, unknown>;
+const PACKAGE_JSON = JSON.stringify(BASELINE_PACKAGE_JSON, null, 2);
 
 const TSCONFIG = `{
   "compilerOptions": {

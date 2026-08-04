@@ -1,0 +1,38 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/lib/mcp/generate-site.ts",
+    "src/lib/observability/fault-promotion-report-cli.ts",
+    "src/lib/gen/scaffolds/scaffold-scoring.ts",
+    "src/components/ui/**",
+    "src/lib/hooks/use-mobile.ts",
+    "scripts/**/*.{ts,mts,mjs,cjs,js}"
+  ],
+  "ignore": [
+    "data/dossiers/**",
+    "_parkering/**",
+    "src/lib/gen/scaffolds/*/files/**",
+    "src/lib/sajtmaskin-registry/blocks/**",
+    ".cursor/hooks/**",
+    "preview-host/**",
+    "**/*.config.{ts,js,mjs,cjs}"
+  ],
+  "ignoreDependencies": [
+    "@types/.+",
+    // Roll 2-paket: installerade för GENERERADE sajter, inte för appen själv, så
+    // de har med flit ingen statisk import (versionerna ägs deklarativt av
+    // config/generated-site-dependencies.json). De ligger kvar i package.json
+    // därför att warm-cache-typechecken (provision-warm-cache symlänkar repots
+    // node_modules) annars lämnar TS2307 på dem och triggar en falsk repair.
+    // Undantagna här så knip blir signal i stället för brus — ta INTE bort dem
+    // ur package.json utan att först ändra warm-cache-strategin. Klass (b) i
+    // docs/plans/active/2026-08-01-sanering-och-uppdelning/06-dependency-split.md.
+    "@hookform/resolvers",
+    "@tanstack/react-table",
+    "@tanstack/react-virtual",
+    "canvas-confetti",
+    "date-fns",
+    "react-error-boundary",
+    "react-intersection-observer"
+  ]
+}

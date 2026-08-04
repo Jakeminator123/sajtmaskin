@@ -32,14 +32,17 @@ buntar ihop dem och antingen godkänner eller pekar på problemet.
 
 - **Unused files** → **agera.** En källfil som inget importerar är antingen skräp
   (radera) eller runtime-/tooling-laddad (då: lägg till den i `entry` i
-  [`knip.json`](../../knip.json)). Det är den enda kategorin som blockerar CI.
+  [`knip.jsonc`](../../knip.jsonc)). Det är den enda kategorin som blockerar CI.
 - **Unused dependencies** → **verifiera först, ta aldrig bort blint.** Här finns
   många **falska positiver** som beror på det här repots generator-arkitektur:
-  generatorn lagrar paket-_namn_ som data (t.ex. i `dep-completer.ts` /
-  `import-validator.ts`) och appens shadcn-komponenter importerar meta-paketet
-  `radix-ui` i stället för de enskilda `@radix-ui/*`. Alltså ser många paket
-  "oanvända" ut fast de behövs. Ta bort ett paket bara efter att du grep:at hela
-  repot och kört `npm run build` + `npm run typecheck` gröna.
+  generatorn lagrar paket-_namn_ som data (versionerna ägs av
+  [`config/generated-site-dependencies.json`](../../config/generated-site-dependencies.json))
+  och appens shadcn-komponenter importerar meta-paketet `radix-ui` i stället för
+  de enskilda `@radix-ui/*`. Alltså ser många paket "oanvända" ut fast de behövs.
+  De paket som bara finns installerade för warm-cache-typechecken är medvetet
+  undantagna i `ignoreDependencies` (med motivering) så listan är signal, inte
+  brus. Ta bort ett paket bara efter att du grep:at hela repot och kört
+  `npm run build` + `npm run typecheck` gröna.
 - **Unused exports / types** → **oftast brus.** Publik API-yta och medvetet
   exporterade typer flaggas här. Bry dig bara om det när du redan städar just den
   modulen.
@@ -52,7 +55,7 @@ importeras av något. Två giltiga fixar:
 1. **Filen är skräp** → radera den (git-historiken är arkivet).
 2. **Filen laddas runtime/av tooling** (dynamisk import, ett Python-script som
    speglar den, en CLI-entry) → lägg till dess sökväg i `entry` i
-   [`knip.json`](../../knip.json). Det säger till knip "detta är en rot", så dess
+   [`knip.jsonc`](../../knip.jsonc). Det säger till knip "detta är en rot", så dess
    importer räknas och den flaggas inte längre.
 
 ## Städkommandon när något faktiskt ska bort

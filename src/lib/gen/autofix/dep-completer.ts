@@ -1,4 +1,8 @@
 import type { AutoFixEntry } from "./pipeline";
+import {
+  GENERATED_SITE_KNOWN_PACKAGES,
+  GENERATED_SITE_SCOPED_PACKAGE_PREFIXES,
+} from "@/lib/gen/data/generated-site-dependency-catalog";
 import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
@@ -136,144 +140,20 @@ const BUILTIN_PACKAGES = new Set([
  * Third-party packages frequently used by LLM-generated code.
  * Maps npm package name to latest known compatible version range.
  *
- * Keep majors aligned with `project-scaffold.ts` PACKAGE_JSON baseline —
- * `dep-completer.test.ts` enforces this automatically for all overlapping keys.
- *
- * NOTE: Sedan vi infört `dep-version-validator.ts` som kör mot live
- * npm-registret är denna tabell BARA en snabb fast-path för vanliga paket.
- * Om en post är stale (eller en major aldrig publicerats, t.ex. det historiska
- * `lucide-react: "^1"`-felet) så fångar validatorn det och bumpar till
- * `^latest`. Tabellen kan därmed vara mer "good enough" än "perfekt aktuell".
+ * The table itself lives in `config/generated-site-dependencies.json`
+ * (`knownPackages`) — one declarative owner for every generator version, since
+ * `dependency-utils.ts` and `project-scaffold.ts` read the same file. Add or
+ * bump packages there; the per-group provenance notes live on the loader in
+ * `@/lib/gen/data/generated-site-dependency-catalog`.
  */
-export const KNOWN_PACKAGES: Record<string, string> = {
-  "recharts": "^2",
-  "framer-motion": "^12",
-  "motion": "^12",
-  "@tanstack/react-table": "^8",
-  "@tanstack/react-query": "^5",
-  "@tanstack/react-virtual": "^3",
-  "date-fns": "^4",
-  "zod": "^4",
-  "zustand": "^5",
-  "jotai": "^2",
-  "react-hook-form": "^7",
-  "@hookform/resolvers": "^5",
-  "@reduxjs/toolkit": "^2",
-  "react-redux": "^9",
-  "lucide-react": "0.469.0",
-  "canvas-confetti": "^1.9",
-  "react-error-boundary": "^6",
-  "react-intersection-observer": "^10",
-  "radix-ui": "^1",
-  "cmdk": "^1",
-  "sonner": "^2",
-  "vaul": "^1",
-  "embla-carousel-react": "^8",
-  "embla-carousel-autoplay": "^8",
-  "react-day-picker": "^9",
-  "input-otp": "^1",
-  "react-resizable-panels": "^4",
-  "next-themes": "^0.4",
-  "@vercel/analytics": "^1.6.1",
-  "nuqs": "^2",
-  "swr": "^2",
-  "axios": "^1",
-  "lodash": "^4",
-  "uuid": "^10",
-  "nanoid": "^5",
-  "sharp": "^0.33",
-  "mapbox-gl": "^3",
-  "react-map-gl": "^7",
-  "three": "0.185.1",
-  "@react-three/fiber": "9.6.0",
-  "@react-three/drei": "10.7.7",
-  "@react-three/rapier": "2.2.0",
-  "gsap": "^3",
-  "lottie-react": "^2",
-  "react-icons": "^5",
-  "react-hot-toast": "^2",
-  "react-toastify": "^10",
-  "react-spring": "^9",
-  "react-use": "^17",
-  "usehooks-ts": "^3",
-  "@dnd-kit/core": "^6",
-  "@dnd-kit/sortable": "^8",
-  "react-beautiful-dnd": "^13",
-  "prismjs": "^1",
-  "highlight.js": "^11",
-  "marked": "^15",
-  "react-markdown": "^9",
-  "next-mdx-remote": "^6",
-  "remark-gfm": "^4",
-  "rehype-highlight": "^7",
-  "chart.js": "^4",
-  "react-chartjs-2": "^5",
-  "@visactor/react-vchart": "^2",
-  "d3": "^7",
-  "visx": "^3",
-  "mathjs": "^13",
-  "katex": "^0.16",
-  "stripe": "^20",
-  "@stripe/stripe-js": "^8",
-  "@clerk/nextjs": "^6",
-  "resend": "^6",
-  // Dossier wave 1 (legacy import 2026-07-08): ably-realtime,
-  // fal-image-generation, ai-tool-calling-chat. `ai` + `@ai-sdk/*` are pinned
-  // to the same generation so a generated site always gets ONE consistent
-  // AI SDK major (ai-tool-calling-chat REVIEW requirement).
-  "ably": "^2",
-  "ai": "^7",
-  "@ai-sdk/openai": "^4",
-  "@ai-sdk/fal": "^3",
-  "@ai-sdk/react": "^4",
-  // Dossier wave 2 (legacy import 2026-07-08, capability `database`):
-  // postgres-drizzle (default), neon-postgres, mongodb-atlas. Majors verified
-  // against the npm registry 2026-07-08 (`npm view <pkg> version`).
-  // The final legacy wave (`rag-chat`, capability `rag-chat`) introduces no
-  // new packages: its stack (ai + @ai-sdk/openai + @ai-sdk/react above,
-  // drizzle-orm/pg/@types/pg/server-only below) is fully covered here —
-  // locked by the rag-chat case in `dep-completer.test.ts`.
-  "drizzle-orm": "^0.45",
-  "drizzle-kit": "^0.31",
-  "pg": "^8",
-  "@types/pg": "^8",
-  "server-only": "0.0.1",
-  "@neondatabase/serverless": "^1",
-  "mongodb": "^7",
-  // Dossier (legacy import 2026-07-08, capability `subscriptions`):
-  // paddle-billing. Majors verified against the npm registry 2026-07-09
-  // (`npm view <pkg> version`). @supabase/ssr is 0.x so we pin the minor.
-  // NOTE: @supabase/ssr + @supabase/supabase-js are SHARED with the
-  // supabase-auth dossier (capability `supabase-auth`) — one entry serves both.
-  "@paddle/paddle-node-sdk": "^3",
-  "@supabase/ssr": "^0.12",
-  "@supabase/supabase-js": "^2",
-  // Dossier Fas D (legacy import 2026-07-09, capability `cms`): sanity-cms.
-  // Major verified against the npm registry 2026-07-09 (npm view → 13.1.1).
-  "next-sanity": "^13",
-  // Remaining dossier-declared SDKs (2026-07-25). These were reachable through
-  // `resolveCapabilityDependencies` (manifest fallback → "latest") but NOT
-  // through the import scan, so generated code that imported them without the
-  // capability being requested shipped a package.json without them → VM
-  // "Module not found". `dep-completer.test.ts` now asserts the whole manifest
-  // dependency union resolves here, and `generated-only-modules.ts` relies on
-  // that invariant when it drops undecidable pre-VM TS2307s.
-  // Majors verified against the npm registry 2026-07-25 (`npm view <pkg> version`).
-  "@sentry/nextjs": "^10",
-  "maplibre-gl": "^6",
-  minisearch: "^7",
-  // Pinned to the platform's own range so the generated site gets the major the
-  // vercel-analytics dossier was verified against (repo: ^1.3.1).
-  "@vercel/speed-insights": "^1.3.1",
-};
+export const KNOWN_PACKAGES: Record<string, string> = GENERATED_SITE_KNOWN_PACKAGES;
 
 /**
  * Scoped package prefixes where any sub-package maps to the same version.
  * E.g. `@radix-ui/react-dialog`, `@radix-ui/react-hover-card` etc. all resolve to `^1`.
  */
-const SCOPED_PACKAGE_PREFIXES: Record<string, string> = {
-  "@radix-ui/react-": "^1",
-};
+const SCOPED_PACKAGE_PREFIXES: Record<string, string> =
+  GENERATED_SITE_SCOPED_PACKAGE_PREFIXES;
 
 export function resolveKnownVersion(pkg: string): string | undefined {
   const direct = KNOWN_PACKAGES[pkg];
