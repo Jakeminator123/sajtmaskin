@@ -22,6 +22,25 @@ export function readActiveBuilderTarget(): OpenClawBuilderTarget | null {
 }
 
 /**
+ * Publish a send id onto the live builder context without waiting for a React
+ * commit. The armed auto-send reads `nextSendSeq` in the same tick it clicks,
+ * and the whole point of the id is that it names exactly one turn — a value
+ * still queued in state would name the previous one, so a send that started
+ * microseconds earlier could steal the id the watch believes it owns.
+ * `BuilderShellContent`'s effect republishes the same numbers from the same
+ * ref; this only closes the gap between them.
+ */
+export function publishBuilderSendTurn(patch: {
+  nextSendSeq?: number;
+  rejectedSendSeq?: number;
+}): void {
+  if (typeof window === "undefined") return;
+  const ctx = window.__SITEMASKIN_CONTEXT;
+  if (!ctx) return;
+  Object.assign(ctx, patch);
+}
+
+/**
  * Live builder-turn state for the armed-autonomy handshake. Unlike
  * `readActiveBuilderTarget` this tolerates a missing version id — a turn that
  * has not produced its version yet is exactly what the handshake waits for.

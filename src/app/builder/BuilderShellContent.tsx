@@ -81,6 +81,7 @@ import {
 } from "@/lib/hooks/chat/useAutoFix";
 import { useVersionStatus } from "@/lib/hooks/chat/useVersionStatus";
 import { shouldBlockPreviewWithLoadingOverlay } from "@/lib/builder/preview-lifecycle";
+import { publishBuilderSendTurn } from "@/lib/openclaw/builder-target";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -265,10 +266,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const sendMessage = useCallback<typeof rawSendMessage>(
     async (...args) => {
       const seq = (sendSeqRef.current += 1);
+      publishBuilderSendTurn({ nextSendSeq: seq + 1 });
       setSendTurns((prev) => ({ ...prev, nextSendSeq: seq + 1 }));
       const outcome = await rawSendMessage(...args);
       const status = outcome?.status;
       if (status === "rejected" || status === "failed" || status === "aborted") {
+        publishBuilderSendTurn({ rejectedSendSeq: seq });
         setSendTurns((prev) => ({ ...prev, rejectedSendSeq: seq }));
       }
       return outcome;
