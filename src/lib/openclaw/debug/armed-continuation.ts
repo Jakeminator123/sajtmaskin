@@ -43,6 +43,11 @@ export interface ArmedContinuationWatch {
    * even starts.
    */
   observedStrong: boolean;
+  /**
+   * The builder send this watch owns, read from `nextSendSeq` before the
+   * auto-send clicked. Only a refusal carrying this id belongs to the watch.
+   */
+  sendSeq: number | null;
   /** Set when OpenClaw has been woken for this watch, so it fires only once. */
   resumedAt: number | null;
   /** When the builder last looked idle; reset whenever it streams again. */
@@ -61,12 +66,19 @@ export interface BuilderTurnSnapshot {
   /** Number of messages in the builder chat. */
   chatMessageCount: number | null;
   /**
-   * When a send last ended as rejected, failed or aborted rather than running.
-   * Such a turn leaves the focused version on its previous terminal status, so
-   * without this it is indistinguishable from a finished build. A timestamp
-   * rather than a flag so a refusal can be tied to the turn it belongs to.
+   * The id the builder will give the NEXT send it starts. Read before the
+   * auto-send clicks, it names the turn the watch is about to own.
    */
-  lastTurnRejectedAt: number | null;
+  nextSendSeq: number | null;
+  /**
+   * Id of the send that most recently ended rejected, failed or aborted. Such a
+   * turn leaves the focused version on its previous terminal status, so without
+   * this it is indistinguishable from a finished build. Carried as an id rather
+   * than a timestamp because the builder has many senders: a manual retry, a
+   * catalogue insert or a plan decision can fail while an autonomous turn is
+   * still running, and only the mandate's own send may end the mandate.
+   */
+  rejectedSendSeq: number | null;
   /** The builder is holding a question or a plan that only the user can answer. */
   awaitingInput: boolean;
 }
@@ -161,6 +173,7 @@ export function createArmedContinuationWatch(
     versionIdAtSend: snapshot?.activeVersionId ?? null,
     startedAt: now,
     messageCountAtSend: snapshot?.chatMessageCount ?? null,
+    sendSeq: snapshot?.nextSendSeq ?? null,
     observedAt: null,
     observedStrong: false,
     resumedAt: null,
@@ -274,9 +287,11 @@ export function decideArmedContinuation(
   // The builder refused the turn (stale base, F3 env gate, credit gate, an
   // abort). Checked before the observation gate because a refusal can erase its
   // own trace — the optimistic message is rolled back, leaving nothing to see.
-  // Only a refusal stamped after this watch began belongs to it.
-  const rejectedAt = snapshot?.lastTurnRejectedAt ?? null;
-  if (rejectedAt !== null && rejectedAt >= watch.startedAt) {
+  // Matched on the send id, so a refusal from any other sender leaves the
+  // mandate alone. An unidentified send cannot be matched at all and falls
+  // through to the timeouts rather than guessing.
+  const rejectedSendSeq = snapshot?.rejectedSendSeq ?? null;
+  if (rejectedSendSeq !== null && watch.sendSeq !== null && rejectedSendSeq === watch.sendSeq) {
     return {
       kind: "abort",
       reason: "Autonomin stoppades: buildern tog inte emot sändningen.",

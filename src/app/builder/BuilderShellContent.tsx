@@ -245,10 +245,17 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // its previous terminal status, which otherwise reads exactly like a finished
   // build — and the handshake would wake up and spend another mandate step on a
   // turn that never ran.
-  // A timestamp rather than a flag: React can batch a false→true pair into one
-  // commit, and a boolean would then never be observed in its cleared state.
-  // The handshake compares this against when its watch started instead.
-  const [lastTurnRejectedAt, setLastTurnRejectedAt] = useState<number | null>(null);
+  // Numbered per send rather than time-stamped: the builder has many senders,
+  // and the handshake owns exactly one of them. A manual retry, a catalogue
+  // insert or a plan decision that fails while an autonomous turn is running
+  // must not end a mandate whose own send can still succeed. The ref is the
+  // synchronous source of truth (a send needs its id before it can be awaited);
+  // the state is only how that id reaches the published context.
+  const sendSeqRef = useRef(0);
+  const [sendTurns, setSendTurns] = useState<{
+    nextSendSeq: number;
+    rejectedSendSeq: number | null;
+  }>({ nextSendSeq: 1, rejectedSendSeq: null });
 
   const latestPendingReply = useMemo(
     () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
@@ -257,10 +264,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const rawSendMessage = vm.sendMessage;
   const sendMessage = useCallback<typeof rawSendMessage>(
     async (...args) => {
+      const seq = (sendSeqRef.current += 1);
+      setSendTurns((prev) => ({ ...prev, nextSendSeq: seq + 1 }));
       const outcome = await rawSendMessage(...args);
       const status = outcome?.status;
       if (status === "rejected" || status === "failed" || status === "aborted") {
-        setLastTurnRejectedAt(Date.now());
+        setSendTurns((prev) => ({ ...prev, rejectedSendSeq: seq }));
       }
       return outcome;
     },
@@ -772,7 +781,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // Monotonic, unlike the truncated `recentMessages` — growth is how the
       // handshake recognises a turn too short to catch mid-stream.
       chatMessageCount: vm.messages.length,
-      lastTurnRejectedAt,
+      // The auto-send reads `nextSendSeq` before it clicks, so the id names the
+      // turn it is about to start; only a refusal carrying that same id ends
+      // the mandate.
+      nextSendSeq: sendTurns.nextSendSeq,
+      rejectedSendSeq: sendTurns.rejectedSendSeq,
       // A pending question or plan approval belongs to the user, not to armed
       // autonomy: sending past it would start a new generation and drop the
       // plan the builder is holding. Both halves are needed — `isAwaitingInput`
@@ -799,7 +812,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.isAnyStreaming,
     activeVersionStatus,
     activeVersionIsLatest,
-    lastTurnRejectedAt,
+    sendTurns,
     vm.isAwaitingInput,
     latestPendingReply,
   ]);

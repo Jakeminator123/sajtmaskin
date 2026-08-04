@@ -64,6 +64,7 @@ describe("OpenClaw store assistant targeting", () => {
       versionIdAtSend: "ver-1",
       startedAt: 1,
       messageCountAtSend: 4,
+      sendSeq: 3,
       observedAt: Date.now() - 5000,
       observedStrong: true,
       resumedAt: null,

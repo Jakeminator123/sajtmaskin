@@ -56,6 +56,8 @@ function setBuilderContext(overrides: Record<string, unknown> = {}) {
     activeVersionStatus: "ready",
     activeVersionIsLatest: true,
     chatMessageCount: 4,
+    nextSendSeq: 5,
+    rejectedSendSeq: null,
     ...overrides,
   };
 }
@@ -180,6 +182,7 @@ describe("armed autonomy — continuation handshake", () => {
           chatId: "chat-1",
           versionIdAtSend: "ver-1",
           messageCountAtSend: 4,
+          sendSeq: null,
           startedAt: Date.now(),
           observedAt: Date.now() - 5000,
           observedStrong: true,
@@ -214,6 +217,7 @@ describe("armed autonomy — continuation handshake", () => {
           chatId: "chat-1",
           versionIdAtSend: "ver-1",
           messageCountAtSend: 4,
+          sendSeq: null,
           startedAt: Date.now(),
           observedAt: Date.now() - 5000,
           observedStrong: true,
@@ -237,6 +241,49 @@ describe("armed autonomy — continuation handshake", () => {
     expect(useOpenClawStore.getState().armedMandate).toBeNull();
   }, 10_000);
 
+  it("survives a refusal that belongs to another sender, and stops on its own", async () => {
+    const onSend = vi.fn();
+    act(() => {
+      useOpenClawStore.setState({
+        editEnabled: true,
+        armedMandate: {
+          mode: "followups",
+          remaining: 3,
+          reason: "gör 3 follow-ups",
+          createdAt: ARMED_AT,
+        },
+      });
+    });
+
+    // A fresh id: auto-sends are idempotent per message for the whole session.
+    render(<Harness messages={[submitFillMessage("msg-refusal", 100)]} onSend={onSend} />);
+
+    // The card names its turn from the id the builder published before the
+    // click, so the refusal below can be told apart from anyone else's.
+    await waitFor(() =>
+      expect(useOpenClawStore.getState().armedContinuation?.sendSeq).toBe(5),
+    );
+
+    // A manual retry (send 6) fails mid-build. Autonomy's own turn is fine and
+    // must keep running — this is what a shared timestamp got wrong.
+    act(() =>
+      setBuilderContext({ activeVersionStatus: "generating", rejectedSendSeq: 6 }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    expect(useOpenClawStore.getState().armedMandate).not.toBeNull();
+    expect(useOpenClawStore.getState().messages).toHaveLength(0);
+
+    // The builder then refuses OUR send: that one does end the run.
+    act(() => setBuilderContext({ rejectedSendSeq: 5 }));
+    await waitFor(() => expect(useOpenClawStore.getState().armedMandate).toBeNull(), {
+      timeout: 4000,
+    });
+    expect(useOpenClawStore.getState().messages[0].content).toContain(
+      "buildern tog inte emot sändningen",
+    );
+    expect(onSend).not.toHaveBeenCalled();
+  }, 15_000);
+
   it("does not resume while OpenClaw is already answering", async () => {
     const onSend = vi.fn();
     act(() => {
@@ -253,6 +300,7 @@ describe("armed autonomy — continuation handshake", () => {
           chatId: "chat-1",
           versionIdAtSend: "ver-1",
           messageCountAtSend: 4,
+          sendSeq: null,
           startedAt: Date.now(),
           observedAt: Date.now() - 5000,
           observedStrong: true,

@@ -22,6 +22,7 @@ import { queryDebugFindings } from "@/lib/db/services/debug-findings";
 import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
+  getLatestEngineVersionForChatForRequest,
 } from "@/lib/tenant";
 
 export const runtime = "nodejs";
@@ -128,7 +129,7 @@ Håll dig till kort, tydlig vägledning. Använd bara djup kodgranskning när an
 function buildDebugSystemPrompt(): string {
   return `Internt läge: DEBUG (OC_DEBUG på).
 
-När en ägarverifierad chatt och version är öppen får du utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]), händelseloggen från förhandsvisningens VM ([PREVIEW-LOGG]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.`;
+När en ägarverifierad chatt är öppen (versionen löses ut åt dig om ingen är vald) får du utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]), händelseloggen från förhandsvisningens VM ([PREVIEW-LOGG]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.`;
 }
 
 /**
@@ -256,14 +257,22 @@ export async function POST(req: NextRequest) {
       // exposing any version-scoped context. This gates BOTH the diagnostics
       // (findings/timeline) AND — critically — the debug full-code context, so a
       // forged id can never leak another tenant's generated files/diagnostics.
-      const scopedVersion =
-        reviewChatId && reviewVersionId
+      // A chat without a selected version resolves to its current one instead
+      // of losing the context entirely: the ids the client sends describe which
+      // chat is open, and a user who never clicked into version history still
+      // has one. Ownership is unchanged — it comes from the chat either way,
+      // and the version id is then derived server-side rather than trusted.
+      const scopedVersion = !reviewChatId
+        ? null
+        : reviewVersionId
           ? await getEngineVersionForChatByIdForRequest(
               req,
               reviewChatId,
               reviewVersionId,
             ).catch(() => null)
-          : null;
+          : await getLatestEngineVersionForChatForRequest(req, reviewChatId).catch(
+              () => null,
+            );
       // Debug full-code context is only unlocked for an ownership-verified chat.
       const debugOwned = debug && Boolean(scopedVersion);
       // Edit bounded code context uses the same ownership gate as debug.
