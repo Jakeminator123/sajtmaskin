@@ -5,6 +5,7 @@ import {
   decideArmedContinuation,
   observeBuilderTurn,
   CONTINUATION_MAX_WAIT_MS,
+  CONTINUATION_NO_VERSION_MS,
   CONTINUATION_QUIET_MS,
   CONTINUATION_RESUME_FOLLOWTHROUGH_MS,
   CONTINUATION_STALE_VIEW_TIMEOUT_MS,
@@ -252,6 +253,27 @@ describe("decideArmedContinuation", () => {
       snapshot: snapshot({ lastTurnRejected: true }),
     });
     expect(decision.kind).not.toBe("abort");
+  });
+
+  it("waits while the focus is still on the version we sent from", () => {
+    // A terminal status on the old row describes the previous build; focus only
+    // moves once this turn's version exists.
+    const decision = decide({
+      watch: watching({ versionIdAtSend: "ver-2" }),
+      snapshot: snapshot({ activeVersionId: "ver-2" }),
+    });
+    expect(decision.kind).toBe("wait");
+  });
+
+  it("gives up when no version ever comes out of the turn", () => {
+    const decision = decide({
+      watch: watching({
+        versionIdAtSend: "ver-2",
+        quietSince: NOW - CONTINUATION_NO_VERSION_MS - 1,
+      }),
+      snapshot: snapshot({ activeVersionId: "ver-2" }),
+    });
+    expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
   });
 
   it("waits for the builder picture to hold still before waking", () => {

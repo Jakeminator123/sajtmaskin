@@ -265,6 +265,8 @@ describe("armed autonomy — continuation handshake", () => {
       });
     });
 
+    // The build landed on its own row, so only the busy agent holds the resume.
+    act(() => setBuilderContext({ activeVersionId: "ver-2" }));
     render(<Harness messages={[]} onSend={onSend} />);
     await new Promise((resolve) => setTimeout(resolve, 1600));
 

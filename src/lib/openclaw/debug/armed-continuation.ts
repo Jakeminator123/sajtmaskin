@@ -130,6 +130,11 @@ export const CONTINUATION_MAX_WAIT_MS = 15 * 60_000;
  * streaming stops. Waiting a moment lets the whole picture catch up.
  */
 export const CONTINUATION_QUIET_MS = 2_000;
+/**
+ * How long a finished-looking turn may stay on the old version before the run
+ * is called off. Focus normally moves within a second of the build landing.
+ */
+export const CONTINUATION_NO_VERSION_MS = 60_000;
 
 const RUNNING_VERSION_STATUSES = new Set([
   "generating",
@@ -365,6 +370,23 @@ export function decideArmedContinuation(
   // commit apart. Let the picture hold still briefly before acting on it.
   if (watch.quietSince === null || now - watch.quietSince < CONTINUATION_QUIET_MS) {
     return { kind: "wait", reason: "Låter builderns läge stabilisera sig." };
+  }
+
+  // The focused version is still the one we sent from. A terminal status on it
+  // describes the PREVIOUS build, not this turn — focus moves only once the new
+  // row exists. Every other ending is already handled above (refusal, failure,
+  // a held question), so a turn that never yields a version has nothing for the
+  // next step to build on.
+  if (!snapshot.activeVersionId || snapshot.activeVersionId === watch.versionIdAtSend) {
+    if (now - watch.quietSince > CONTINUATION_NO_VERSION_MS) {
+      return {
+        kind: "abort",
+        reason: "Autonomin stoppades: turen gav ingen ny version att bygga vidare på.",
+        notify: true,
+        disarm: true,
+      };
+    }
+    return { kind: "wait", reason: "Väntar på att turens version dyker upp." };
   }
 
   return {

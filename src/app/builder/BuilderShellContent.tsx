@@ -246,6 +246,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // build — and the handshake would wake up and spend another mandate step on a
   // turn that never ran.
   const [lastTurnRejected, setLastTurnRejected] = useState(false);
+
+  const latestPendingReply = useMemo(
+    () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
+    [vm.messages],
+  );
   const rawSendMessage = vm.sendMessage;
   const sendMessage = useCallback<typeof rawSendMessage>(
     async (...args) => {
@@ -766,8 +771,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       lastTurnRejected,
       // A pending question or plan approval belongs to the user, not to armed
       // autonomy: sending past it would start a new generation and drop the
-      // plan the builder is holding.
-      awaitingInput: vm.isAwaitingInput,
+      // plan the builder is holding. Both halves are needed — `isAwaitingInput`
+      // only sees the `awaiting-input` tool part, while a held plan shows up as
+      // a pending reply (the same pair that gates the dossier catalogue below).
+      awaitingInput: vm.isAwaitingInput || Boolean(latestPendingReply),
     };
     return () => {
       delete window.__SITEMASKIN_CONTEXT;
@@ -790,12 +797,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     activeVersionIsLatest,
     lastTurnRejected,
     vm.isAwaitingInput,
+    latestPendingReply,
   ]);
-
-  const latestPendingReply = useMemo(
-    () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
-    [vm.messages],
-  );
 
   // Katalogval i Byggblock-panelen skickar via vm.sendMessage, som ABORTAR en
   // pågående stream. Ett val mitt i en generation skulle alltså döda den, och
