@@ -82,7 +82,7 @@ import {
 import { useVersionStatus } from "@/lib/hooks/chat/useVersionStatus";
 import { shouldBlockPreviewWithLoadingOverlay } from "@/lib/builder/preview-lifecycle";
 import { publishBuilderSendTurn } from "@/lib/openclaw/builder-target";
-import { OPENCLAW_BUILDER_CHAT_TARGET } from "@/lib/openclaw/prepared-prompt";
+import { isOpenClawPreparedSend } from "@/lib/openclaw/prepared-prompt";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
@@ -271,12 +271,12 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // Naming the turn from inside the send that owns it is what makes the
       // match exact: the composer awaits an attachment step between the click
       // and this call, and a predicted id could be taken by another sender in
-      // that window. The armed auto-send is recognised by the prepared fill it
-      // recorded for the composer — deliberately broader than the
-      // `openclaw-prepared` tag, which additionally drops on attachments or an
-      // appended Figma/inspect block.
+      // that window. The armed auto-send is recognised by the text OpenClaw
+      // filled into the composer — not merely by a fill being recorded, since a
+      // catalogue pick landing in the same window would then claim the watch
+      // and the mandate would read its own refused turn as someone else's.
       const openClaw = useOpenClawStore.getState();
-      if (openClaw.preparedFill?.target === OPENCLAW_BUILDER_CHAT_TARGET) {
+      if (isOpenClawPreparedSend({ preparedFill: openClaw.preparedFill, message: args[0] })) {
         openClaw.bindArmedContinuationSend(seq);
       }
       const outcome = await rawSendMessage(...args);

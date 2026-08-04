@@ -109,6 +109,27 @@ export function isOpenClawPreparedPromptStructured(prompt: string): boolean {
 }
 
 /**
+ * Whether an outgoing builder send is the one OpenClaw filled into the composer.
+ * Deliberately looser than `resolveOpenClawPreparedPromptSource`: that decides
+ * whether to TAG a send and must drop on anything that changed the text, while
+ * this only asks WHO started it, so the armed handshake can bind the refusal id
+ * of its own turn. A prefix match therefore counts — the composer appends
+ * Figma/inspect blocks after the base message — but a catalogue pick, a shadcn
+ * insert or a hand-typed message never matches, so none of them can claim a
+ * watch that is still waiting for its own send.
+ */
+export function isOpenClawPreparedSend(params: {
+  preparedFill: OpenClawPreparedFill | null;
+  message: string;
+}): boolean {
+  const { preparedFill, message } = params;
+  if (preparedFill?.target !== OPENCLAW_BUILDER_CHAT_TARGET) return false;
+  const filled = preparedFill.value.trim();
+  if (!filled) return false;
+  return message.trim().startsWith(filled);
+}
+
+/**
  * Client-side tag decision, called by the builder composer at send time.
  * Returns the tag ONLY when every condition holds:
  *
