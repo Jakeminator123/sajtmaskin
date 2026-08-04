@@ -40,7 +40,7 @@ export interface PreviewPanelAddPanelProps {
    * vägen. Saknas callbacken är insättningsknapparna disabled (read-only-läge).
    */
   onInsertShadcnItem?: ShadcnInsertHandler;
-  /** Klick-väg: befintligt placeringsläge innan insättning (Esc → default). */
+  /** Klick-väg: befintligt placeringsläge innan insättning (Esc → avbryt). */
   onPickPlacement?: ShadcnPlacementPicker;
 }
 

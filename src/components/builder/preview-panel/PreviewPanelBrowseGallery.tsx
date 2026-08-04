@@ -49,7 +49,8 @@ export interface PreviewPanelBrowseGalleryProps {
   /**
    * Klick-väg: aktivera befintligt placeringsläge mot previewn innan
    * `onInsertItem` anropas. Saknas → insätt direkt (default "Längst ner").
-   * `null` från pickern = Esc/klick utanför → samma default.
+   * `null` = läget kunde inte visas → samma default. `"aborted"` =
+   * Esc/klick utanför/kontextbyte → ingen insättning.
    */
   onPickPlacement?: ShadcnPlacementPicker;
   /** Aktiverar Composer-overlayns drop-yta medan ett kort dras (samma som Block-fliken). */
@@ -412,10 +413,10 @@ function BrowseDetailView({
     try {
       const selection = toBrowseSelection(item);
       // Klick-väg: samma placeringsfält som drag-and-drop sätter, via befintligt
-      // placeringsläge. Esc/utanför → null → default "Längst ner".
+      // placeringsläge. null (läget kunde inte visas) → default "Längst ner".
       const picked = onPickPlacement ? await onPickPlacement(selection) : null;
-      // "aborted" = kontextbyte (chatt/version/unmount) under valet →
-      // ingen insättning alls (finally återställer knappen).
+      // "aborted" = Esc/klick utanför/kontextbyte → ingen insättning alls
+      // (finally återställer knappen).
       if (picked === "aborted") return;
       const outcome = await onInsertItem({
         ...selection,

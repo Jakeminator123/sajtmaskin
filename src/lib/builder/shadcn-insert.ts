@@ -71,17 +71,18 @@ export type ShadcnPlacementAnchor = {
 /**
  * Utfall från placeringspickern:
  * - ankare → insättning med placeringsfält,
- * - `null` → användaren hoppade över valet (Esc/klick utanför) → insättning
- *   med dagens default ("Längst ner"),
- * - `"aborted"` → valet avbröts av kontextbyte (chatt-/versionsbyte, unmount)
- *   → INGEN insättning alls (bugbot-fynd: en oavsiktlig generation får inte
- *   starta för en chatt användaren lämnat).
+ * - `null` → placeringsläget kunde inte visas (ingen inspector/preview) →
+ *   insättning med dagens default ("Längst ner"),
+ * - `"aborted"` → användaren avbröt (Esc/klick utanför) eller kontextbyte
+ *   (chatt-/versionsbyte, unmount) → INGEN insättning alls (bugbot-fynd: en
+ *   oavsiktlig generation får aldrig starta från ett avbrutet val).
  */
 export type ShadcnPlacementPickResult = ShadcnPlacementAnchor | null | "aborted";
 
 /**
  * Aktiverar befintligt placeringsläge mot previewn. Resolvar med ankare vid
- * klick i previewn, `null` vid Esc/klick utanför, `"aborted"` vid kontextbyte.
+ * klick i previewn, `null` när läget inte kan visas, `"aborted"` vid
+ * avbrott/kontextbyte.
  */
 export type ShadcnPlacementPicker = (
   selection: ShadcnInsertSelection,

@@ -377,7 +377,9 @@ describe("PreviewPanel", () => {
     );
   });
 
-  it("click-path Esc under placeringsläge → insert utan ankare (default längst ner)", async () => {
+  // Esc = avbryt, inte "sätt in längst ner" — ett avbrutet val får aldrig
+  // starta en generation (bugbot-fynd; samma kontrakt som klick utanför).
+  it("click-path Esc under placeringsläge → ingen insättning alls", async () => {
     const onShadcnItemInsert = vi.fn(
       async (_selection: ShadcnInsertSelection): Promise<SendMessageOutcome> => ({
         status: "started",
@@ -392,16 +394,9 @@ describe("PreviewPanel", () => {
     fireEvent.keyDown(window, { key: "Escape" });
 
     await waitFor(() => {
-      expect(onShadcnItemInsert).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId("placement-overlay")).toBeNull();
     });
-    expect(onShadcnItemInsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "login-01",
-        registry: "@shadcn",
-        origin: "browse",
-      }),
-    );
-    expect(onShadcnItemInsert.mock.calls[0]?.[0]?.placement).toBeUndefined();
+    expect(onShadcnItemInsert).not.toHaveBeenCalled();
   });
 
   // Bugbot-fynd på placement-pickern: ett chattbyte medan valet pågår får

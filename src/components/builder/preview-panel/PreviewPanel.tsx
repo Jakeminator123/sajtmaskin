@@ -475,19 +475,23 @@ export function PreviewPanel({
     [onPlacementComplete, resolveShadcnPlacementPick],
   );
 
-  // Esc / klick utanför overlay → avbryt pickern → default "Längst ner".
+  // Esc / klick utanför overlay → avbryt HELT (ingen insättning). Klick på
+  // fryst chrome (disablad panel, tabbar) är inte "sätt in längst ner" —
+  // bugbot-fynd: null här startade en oavsiktlig generation. Default-insättning
+  // utan ankare finns kvar bara när overlayn inte kan visas alls (pickern
+  // resolvar null direkt i handlePickShadcnPlacement).
   useEffect(() => {
     if (!shadcnPlacementPickItem) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
-      resolveShadcnPlacementPick(null);
+      resolveShadcnPlacementPick("aborted");
     };
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
       if (target.closest('[data-testid="placement-overlay"]')) return;
-      resolveShadcnPlacementPick(null);
+      resolveShadcnPlacementPick("aborted");
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("pointerdown", onPointerDown, true);

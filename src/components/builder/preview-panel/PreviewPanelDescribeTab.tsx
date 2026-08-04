@@ -37,7 +37,8 @@ export interface PreviewPanelDescribeTabProps {
   onInsertItem?: ShadcnInsertHandler;
   /**
    * Klick-väg: aktivera befintligt placeringsläge innan `onInsertItem`.
-   * Saknas / resolvar `null` → default "Längst ner".
+   * Saknas / resolvar `null` (läget kunde inte visas) → default "Längst ner".
+   * `"aborted"` (Esc/utanför/kontextbyte) → ingen insättning.
    */
   onPickPlacement?: ShadcnPlacementPicker;
   /** Aktiverar Composer-overlayns drop-yta medan ett kandidatkort dras. */
@@ -134,7 +135,7 @@ export function PreviewPanelDescribeTab({
       try {
         const selection = toSelection(candidate);
         const picked = onPickPlacement ? await onPickPlacement(selection) : null;
-        // "aborted" = kontextbyte under valet → ingen insättning alls.
+        // "aborted" = Esc/utanför/kontextbyte → ingen insättning alls.
         if (picked === "aborted") return;
         const outcome = await onInsertItem({
           ...selection,
