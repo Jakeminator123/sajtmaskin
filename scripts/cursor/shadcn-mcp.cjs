@@ -42,18 +42,14 @@ if (!npxPath) {
 }
 
 const npxArgs = ["-y", "shadcn@4.13.1", "mcp"];
-const child =
-  process.platform === "win32"
-    ? spawn(
-        process.env.ComSpec || "cmd.exe",
-        ["/d", "/s", "/c", `"${npxPath}" ${npxArgs.join(" ")}`],
-        { stdio: "inherit", env },
-      )
-    : spawn(npxPath, npxArgs, {
-        stdio: "inherit",
-        env,
-        shell: false,
-      });
+// On Windows, .cmd/.bat must go through a shell. Do not wrap the path in
+// extra quotes inside a cmd /c arg list — Node escapes those to \"…\" and
+// cmd then treats the quotes as part of the filename.
+const child = spawn(npxPath, npxArgs, {
+  stdio: "inherit",
+  env,
+  shell: process.platform === "win32",
+});
 
 child.on("error", (err) => {
   console.error("[shadcn-mcp] spawn error:", err.message);

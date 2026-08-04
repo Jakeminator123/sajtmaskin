@@ -2,7 +2,7 @@
   "mcpServers": {
     "shadcn": {
       "command": "cmd",
-      "args": ["/d", "/s", "/c", "\"${workspaceFolder}\\scripts\\cursor\\shadcn-mcp.cmd\""],
+      "args": ["/d", "/s", "/c", "${workspaceFolder}\\scripts\\cursor\\shadcn-mcp.cmd"],
       "note": "shadcn/ui registry-MCP via lokal wrapper (scripts/cursor/shadcn-mcp.cmd → shadcn-mcp.cjs). Pinnad till shadcn@4.13.1 (ingen @latest-drift)."
     },
     "vercel": {
