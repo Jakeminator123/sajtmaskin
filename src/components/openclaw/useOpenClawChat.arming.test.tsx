@@ -85,6 +85,24 @@ describe("useOpenClawChat — arming consent", () => {
     expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(2);
   });
 
+  it("uses the live streaming state, not the one captured at render", async () => {
+    const { result } = renderHook(() => useOpenClawChat());
+    // The continuation loop calls `send` from a timer; a stale closure would
+    // drop the turn even though the store says OpenClaw is idle.
+    act(() => {
+      useOpenClawStore.setState({ isStreaming: true });
+    });
+    act(() => {
+      useOpenClawStore.setState({ isStreaming: false });
+    });
+
+    await act(async () => {
+      await result.current.send("[Automatisk fortsättning] läge?", { allowArming: false });
+    });
+
+    expect(useOpenClawStore.getState().messages.some((m) => m.role === "user")).toBe(true);
+  });
+
   it("disarms when the user types stop", async () => {
     act(() => {
       useOpenClawStore.setState({

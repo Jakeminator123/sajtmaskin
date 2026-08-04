@@ -54,6 +54,11 @@ export function useOpenClawChat() {
       const trimmed = text.trim();
       if (!trimmed) return;
 
+      // Read the live value rather than the render-time one: the continuation
+      // loop calls `send` from a timer, and a closure that has not caught up
+      // with the store would drop that turn silently.
+      const streaming = useOpenClawStore.getState().isStreaming;
+
       // Armed autonomy (Mode A): the user's own message is the consent. A stop
       // directive disarms IMMEDIATELY — handled before the streaming guard so
       // the user can cancel an in-flight autonomous run by typing "stopp" even
@@ -62,13 +67,13 @@ export function useOpenClawChat() {
       if (editEnabled && options?.allowArming !== false) {
         if (parseStopDirective(trimmed)) {
           setArmedMandate(null);
-        } else if (!isStreaming) {
+        } else if (!streaming) {
           const directive = parseArmingDirective(trimmed);
           if (directive) setArmedMandate(createArmedMandate(directive));
         }
       }
 
-      if (isStreaming) return;
+      if (streaming) return;
 
       const userMsg: OpenClawMessage = {
         id: makeId(),
@@ -191,7 +196,7 @@ export function useOpenClawChat() {
         abortRef.current = null;
       }
     },
-    [isStreaming, addMessage, updateAssistantMessage, setStreaming, editEnabled, setArmedMandate],
+    [addMessage, updateAssistantMessage, setStreaming, editEnabled, setArmedMandate],
   );
 
   const stop = useCallback(() => {
