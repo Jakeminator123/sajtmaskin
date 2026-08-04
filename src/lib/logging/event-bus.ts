@@ -52,9 +52,18 @@ import type {
  * and silently disabling on-disk replay. Mirror to `os.tmpdir()` on Vercel so
  * within-instance replay keeps working without the noise; local/dev keeps the
  * repo-relative path so `data/runs/` stays inspectable.
+ *
+ * The same mirror applies under vitest: most suites emit events without
+ * redirecting cwd, which wrote ~20 KB of fixture runs (`ver_1`, `ver_golden_1`,
+ * …) into the real `data/runs/` on every `vitest run` — and since the NDJSON is
+ * append-only, it grew without bound. Suites that DO isolate themselves by
+ * chdir:ing into a temp dir (event-bus.test.ts) are recognised by the cwd check
+ * and keep the relative path, so their FS assertions still target their own tree.
  */
 function resolveRunsRootDir(): string {
-  if (process.env.VERCEL) {
+  const testWritingIntoRepo =
+    Boolean(process.env.VITEST) && !process.cwd().startsWith(os.tmpdir());
+  if (process.env.VERCEL || testWritingIntoRepo) {
     return path.join(os.tmpdir(), "sajtmaskin", "data", "runs");
   }
   // turbopackIgnore keeps this dev-only cwd() out of Turbopack's NFT file trace.
