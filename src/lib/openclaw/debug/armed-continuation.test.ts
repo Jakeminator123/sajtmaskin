@@ -35,7 +35,7 @@ function snapshot(overrides: Partial<BuilderTurnSnapshot> = {}): BuilderTurnSnap
     isStreaming: false,
     versionStatus: "ready",
     versionIsLatest: true,
-    lastTurnRejected: false,
+    lastTurnRejectedAt: null,
     awaitingInput: false,
     chatMessageCount: 4,
     ...overrides,
@@ -52,7 +52,6 @@ function watching(overrides: Partial<ArmedContinuationWatch> = {}): ArmedContinu
     observedStrong: true,
     resumedAt: null,
     quietSince: NOW - 4000,
-    sawCleanStart: true,
     ...overrides,
   };
 }
@@ -81,7 +80,6 @@ describe("createArmedContinuationWatch", () => {
       observedStrong: false,
       resumedAt: null,
       quietSince: null,
-      sawCleanStart: false,
     });
   });
 
@@ -224,7 +222,7 @@ describe("decideArmedContinuation", () => {
   it("stops when the builder refused the send", () => {
     // Stale base, F3 env gate or the credit gate: the version keeps its old
     // terminal status, so nothing else in the snapshot reveals the refusal.
-    const decision = decide({ snapshot: snapshot({ lastTurnRejected: true }) });
+    const decision = decide({ snapshot: snapshot({ lastTurnRejectedAt: NOW }) });
     expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
   });
 
@@ -239,18 +237,18 @@ describe("decideArmedContinuation", () => {
     // A rolled-back send erases its own optimistic message, so the refusal must
     // be read before the "has the turn started?" gate.
     const decision = decide({
-      watch: watching({ observedAt: null, observedStrong: false, sawCleanStart: true }),
-      snapshot: snapshot({ lastTurnRejected: true }),
+      watch: watching({ observedAt: null, observedStrong: false }),
+      snapshot: snapshot({ lastTurnRejectedAt: NOW }),
     });
     expect(decision).toMatchObject({ kind: "abort", notify: true });
   });
 
-  it("ignores a refusal the current turn has not yet cleared", () => {
-    // The flag belongs to the previous turn until a snapshot has reported it
-    // clean; acting on it would kill a mandate that just armed.
+  it("ignores a refusal that belongs to an earlier turn", () => {
+    // Stamped before this watch existed, so it says nothing about this send —
+    // acting on it would kill a mandate that just armed.
     const decision = decide({
-      watch: watching({ sawCleanStart: false }),
-      snapshot: snapshot({ lastTurnRejected: true }),
+      watch: watching({ startedAt: NOW - 5_000 }),
+      snapshot: snapshot({ lastTurnRejectedAt: NOW - 20_000 }),
     });
     expect(decision.kind).not.toBe("abort");
   });

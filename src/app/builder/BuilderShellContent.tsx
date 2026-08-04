@@ -245,7 +245,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // its previous terminal status, which otherwise reads exactly like a finished
   // build — and the handshake would wake up and spend another mandate step on a
   // turn that never ran.
-  const [lastTurnRejected, setLastTurnRejected] = useState(false);
+  // A timestamp rather than a flag: React can batch a false→true pair into one
+  // commit, and a boolean would then never be observed in its cleared state.
+  // The handshake compares this against when its watch started instead.
+  const [lastTurnRejectedAt, setLastTurnRejectedAt] = useState<number | null>(null);
 
   const latestPendingReply = useMemo(
     () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
@@ -254,10 +257,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const rawSendMessage = vm.sendMessage;
   const sendMessage = useCallback<typeof rawSendMessage>(
     async (...args) => {
-      setLastTurnRejected(false);
       const outcome = await rawSendMessage(...args);
       const status = outcome?.status;
-      setLastTurnRejected(status === "rejected" || status === "failed" || status === "aborted");
+      if (status === "rejected" || status === "failed" || status === "aborted") {
+        setLastTurnRejectedAt(Date.now());
+      }
       return outcome;
     },
     [rawSendMessage],
@@ -768,7 +772,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // Monotonic, unlike the truncated `recentMessages` — growth is how the
       // handshake recognises a turn too short to catch mid-stream.
       chatMessageCount: vm.messages.length,
-      lastTurnRejected,
+      lastTurnRejectedAt,
       // A pending question or plan approval belongs to the user, not to armed
       // autonomy: sending past it would start a new generation and drop the
       // plan the builder is holding. Both halves are needed — `isAwaitingInput`
@@ -795,7 +799,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.isAnyStreaming,
     activeVersionStatus,
     activeVersionIsLatest,
-    lastTurnRejected,
+    lastTurnRejectedAt,
     vm.isAwaitingInput,
     latestPendingReply,
   ]);

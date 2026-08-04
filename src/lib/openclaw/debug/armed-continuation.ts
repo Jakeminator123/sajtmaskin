@@ -47,12 +47,6 @@ export interface ArmedContinuationWatch {
   resumedAt: number | null;
   /** When the builder last looked idle; reset whenever it streams again. */
   quietSince: number | null;
-  /**
-   * True once a snapshot has reported no rejection. The outgoing send clears
-   * that flag, but the context publishes a commit later — without this, a
-   * refusal left over from an earlier turn could kill a freshly armed mandate.
-   */
-  sawCleanStart: boolean;
 }
 
 /** Live builder state, read from `window.__SITEMASKIN_CONTEXT`. */
@@ -67,11 +61,12 @@ export interface BuilderTurnSnapshot {
   /** Number of messages in the builder chat. */
   chatMessageCount: number | null;
   /**
-   * The last send ended as rejected, failed or aborted rather than running.
+   * When a send last ended as rejected, failed or aborted rather than running.
    * Such a turn leaves the focused version on its previous terminal status, so
-   * without this flag it is indistinguishable from a finished build.
+   * without this it is indistinguishable from a finished build. A timestamp
+   * rather than a flag so a refusal can be tied to the turn it belongs to.
    */
-  lastTurnRejected: boolean;
+  lastTurnRejectedAt: number | null;
   /** The builder is holding a question or a plan that only the user can answer. */
   awaitingInput: boolean;
 }
@@ -170,7 +165,6 @@ export function createArmedContinuationWatch(
     observedStrong: false,
     resumedAt: null,
     quietSince: null,
-    sawCleanStart: false,
   };
 }
 
@@ -202,14 +196,12 @@ export function observeBuilderTurn(
     observedAt: watch.observedAt ?? (strong || weak ? now : null),
     observedStrong: watch.observedStrong || strong,
     quietSince: snapshot.isStreaming ? null : (watch.quietSince ?? now),
-    sawCleanStart: watch.sawCleanStart || !snapshot.lastTurnRejected,
   };
 
   const unchanged =
     next.observedAt === watch.observedAt &&
     next.observedStrong === watch.observedStrong &&
-    next.quietSince === watch.quietSince &&
-    next.sawCleanStart === watch.sawCleanStart;
+    next.quietSince === watch.quietSince;
   return unchanged ? watch : next;
 }
 
@@ -282,7 +274,9 @@ export function decideArmedContinuation(
   // The builder refused the turn (stale base, F3 env gate, credit gate, an
   // abort). Checked before the observation gate because a refusal can erase its
   // own trace — the optimistic message is rolled back, leaving nothing to see.
-  if (snapshot?.lastTurnRejected && watch.sawCleanStart) {
+  // Only a refusal stamped after this watch began belongs to it.
+  const rejectedAt = snapshot?.lastTurnRejectedAt ?? null;
+  if (rejectedAt !== null && rejectedAt >= watch.startedAt) {
     return {
       kind: "abort",
       reason: "Autonomin stoppades: buildern tog inte emot sändningen.",

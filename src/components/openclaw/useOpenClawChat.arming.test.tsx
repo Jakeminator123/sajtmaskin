@@ -121,7 +121,6 @@ describe("useOpenClawChat — arming consent", () => {
           observedStrong: true,
           resumedAt: null,
           quietSince: Date.now() - 5000,
-          sawCleanStart: true,
         },
       });
     });

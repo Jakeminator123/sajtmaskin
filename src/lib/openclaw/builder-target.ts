@@ -41,7 +41,8 @@ export function readBuilderTurnSnapshot(): BuilderTurnSnapshot | null {
     versionIsLatest: ctx.activeVersionIsLatest === true,
     chatMessageCount:
       typeof ctx.chatMessageCount === "number" ? ctx.chatMessageCount : null,
-    lastTurnRejected: ctx.lastTurnRejected === true,
+    lastTurnRejectedAt:
+      typeof ctx.lastTurnRejectedAt === "number" ? ctx.lastTurnRejectedAt : null,
     awaitingInput: ctx.awaitingInput === true,
   };
 }
