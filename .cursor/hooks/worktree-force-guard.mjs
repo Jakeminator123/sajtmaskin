@@ -38,17 +38,20 @@ function shellSegments(command) {
 
 /** True for a segment that invokes git's own worktree removal, not the wrapper. */
 function isRawWorktreeRemove(segment) {
-  // Strip quoted strings first. A command that merely *names* the phrase — a
-  // commit message, a grep pattern, an echo (`git commit -m "block raw git
-  // worktree remove"`) — must not trip the guard; only a real invocation should.
+  // Strip quoted strings first: a command that merely *names* the phrase — a
+  // commit message, a grep pattern (`rg "git worktree remove"`) — must not trip
+  // the guard. Known residual: a git call hidden inside a quoted `pwsh -Command
+  // "…"` / `bash -c "…"` is stripped too and thus missed; catching a nested
+  // sub-shell is out of scope for a regex net, and the sanctioned path is
+  // `npm run worktree:remove`.
   const unquoted = segment.replace(/"[^"]*"|'[^']*'/g, " ");
   if (/worktree\.mjs|worktree:remove|kedja-clean|kedja:clean/.test(unquoted)) return false;
-  // The command actually run must be `git` (after optional leading VAR=val
-  // assignments), with `worktree remove` as adjacent subcommands. Anchoring on
-  // the command keeps `echo`/`grep`/`git commit -m` that only mention the phrase
-  // from matching, while every real `git [global-opts] worktree remove` still does.
-  const invocation = unquoted.trim().replace(/^(?:\w+=\S*\s+)*/, "");
-  return /^git\b[^\n]*\bworktree\s+remove\b/.test(invocation);
+  // Match a real `git … worktree remove` with `worktree remove` adjacent (its
+  // true subcommand form). `\bgit\b` — not a `^git` anchor — so PowerShell/POSIX
+  // prefixes all still match: `& git`, `git.exe`, `git -C x`, `FOO=1 git`,
+  // `sudo git`. The only thing it over-matches is unquoted prose that names the
+  // phrase as an argument (`echo git worktree remove`), which fails safe (deny).
+  return /\bgit(?:\.exe)?\b[^\n]*\bworktree\s+remove\b/i.test(unquoted);
 }
 
 function decide(command) {
