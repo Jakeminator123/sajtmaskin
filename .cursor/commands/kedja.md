@@ -2,7 +2,7 @@
 
 Kör **en** bugg genom sju steg. Billiga agenter gör det mekaniska, du (orkestratorn) fattar besluten. Det som gör kedjan möjlig är **steg 2**: ett failande test. Utan objektivt grönt/rött blir domarsteget en åsikt, och då är hela poängen borta.
 
-**Fix mode** — till skillnad från `/automat` (audit) skriver den här kod. All skrivning sker i **egna worktrees**, aldrig i huvudcheckouten. Ingen commit, push eller PR.
+**Fix mode** — till skillnad från `/automat` (audit) skriver den här kod. All skrivning sker i **egna worktrees**, aldrig i huvudcheckouten. Vinnaren committas på sin kedja-branch (se *Efter körning*); ingen push eller PR utan explicit begäran.
 
 ## Argument
 
@@ -13,6 +13,34 @@ Kör **en** bugg genom sju steg. Billiga agenter gör det mekaniska, du (orkestr
 | `... kandidater=3` | 3 fix-kandidater i steg 5 i stället för 2 |
 
 Modellval kommer från [`.cursor/README.md § Modellval för subagenter`](../README.md#modellval-för-subagenter-kanonisk-tabell). Hitta inte på slugar.
+
+## Delegerat läge — STANDARD för dyra orkestratorer
+
+Kostnaden i kedjan sitter inte i subagenterna utan i orkestratorn: varje
+rapport den tar emot skickas om i **varje** efterföljande tur. Kör därför
+**aldrig** stegen själv från en dyr modell (allt som inte är composer-klass).
+Standard är i stället:
+
+1. Du gör bara **steg 0** (ramen: bugg, acceptans, utanför scope) och visar den.
+2. Starta **en enda runner-subagent** (**billig modell = Grok 4.5**,
+   slug `cursor-grok-4.5-high-fast` ur den kanoniska tabellen — aldrig Composer)
+   som läser den här filen + skillen och kör steg 1–6 i sin helhet —
+   egna worktrees, rött test, fix, maskinell dom. Har runnern inte tillgång
+   till egna subagenter gör den stegen sekventiellt själv; domen är ändå
+   maskinell (testet dömer, inte en åsikt).
+3. Runnern returnerar **endast** sluttabellen ur rapportformatet (~15 rader) —
+   aldrig mellanrapporter, diffar eller testutskrifter i löptext. Tabellen ska
+   ge **spårbarhet för spetsfixar**: per kandidat worktree-sökväg på disk,
+   branch, ansats och utfall (även utslagna — deras diffar ligger kvar i
+   `.cursor/kedja/`), samt vem som gjorde vad (repro/fix/dom).
+4. Du kör själv **steg 7** (bugbot på vinnarens diff — billigt, kort svar),
+   verifierar acceptanskommandot i vinnarens worktree med egna ögon, utför
+   **Efter körning**-plikterna (committa vinnaren, riv förlorarna) och
+   rapporterar.
+
+Att själv driva alla sju stegen är tillåtet bara när orkestratorn redan är en
+billig modell (Grok 4.5), eller när användaren uttryckligen ber om det (t.ex. för en
+knivig bugg där mellanbesluten i steg 4/6 behöver den dyra modellens omdöme).
 
 ## Stoppvillkor — läs dessa först
 
@@ -47,7 +75,7 @@ npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
 
 Upprepa med `-b`, `-c` … per kandidat. `worktree:link` kräver att worktreet redan är registrerat, så ordningen är låst. Använd **aldrig** rå `git worktree remove` — med eller utan `--force` — eftersom junction-fällan tömmer huvudcheckoutens `node_modules`. En hook blockerar båda.
 
-### 2. Repro — 1 agent, skrivrätt, `cursor-grok-4.5-high`
+### 2. Repro — 1 agent, skrivrätt, `cursor-grok-4.5-high-fast`
 
 Agenten skriver **två** saker i kandidat **a**:s worktree:
 
@@ -60,7 +88,7 @@ Motprovet är inte valfritt. Ett rött test säger bara "detta får inte hända"
 
 Kopiera testfilen till övriga kandidat-worktrees när den är verifierat röd, så alla döms av exakt samma prov.
 
-### 3. Lokalisera — 3 parallella, `readonly: true`, `composer-2.5-fast`
+### 3. Lokalisera — 3 parallella, `readonly: true`, `cursor-grok-4.5-high-fast`
 
 Tre konkurrerande hypoteser om rotorsaken, en agent var, max 5 rader vardera. De ser samma testutskrift men får olika ingångar (kodvägen, anropsplatserna, testet självt).
 
@@ -68,7 +96,7 @@ Tre konkurrerande hypoteser om rotorsaken, en agent var, max 5 rader vardera. De
 
 Läs koden på de ankare hypoteserna pekar ut. Enas två eller fler om samma ställe är det en stark signal. Motsäger de varandra: kör steg 3 igen med en skarpare fråga, **en** gång. Fortfarande oklart → stopp.
 
-### 5. Fixa — N parallella, skrivrätt, `cursor-grok-4.5-high`
+### 5. Fixa — N parallella, skrivrätt, `cursor-grok-4.5-high-fast`
 
 En agent per worktree, samma rotorsak, men **uttryckligen olika ansats** — du namnger ansatsen per kandidat i prompten. Låter du dem välja själva får du samma svar N gånger: de har ju samma rotorsak, samma test och samma modell, så de konvergerar.
 
@@ -93,19 +121,22 @@ Per kandidat, **med kandidatens worktree som arbetskatalog** (fixen och det röd
 
 `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`. Detta är det obligatoriska passet ur `workflow.mdc`, inte ett extra lager. Fynd triageras som vanligt: fixa i diffen, logga i backloggen, eller avfärda med en rad.
 
-## Efter körning
+## Efter körning — orkestratorns plikt, aldrig användarens
+
+Användaren kör inga kommandon. Orkestratorn gör allt nedan själv, direkt efter steg 7:
 
 1. Skriv varje kandidats diff till `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-<x>.diff` **innan** du tar bort något.
-2. Ta bort de förlorande worktreesen: `npm run worktree:remove -- <sökväg> --force`. Det tar bort katalogen men **lämnar branchen kvar** — radera den också: `git branch -D kedja/<slug>-<x>`. Missas det blir varje körning en föräldralös branch rikare.
-3. **Behåll vinnarens worktree, ocommittad.** Commit, push och PR sker bara på explicit begäran (`git.mdc`).
-4. Rapportera kort: bugg, acceptanskriterium, rotorsak, kandidat × utfall, bugbot-fynd, sökväg till vinnaren.
+2. **Committa vinnaren på sin kedja-branch** (bara commit — push/PR fortfarande bara på explicit begäran, `git.mdc`). Detta är vinnarens livförsäkring: `kedja-clean` och worktree-svep vägrar röra en branch med egna commits, medan en ocommittad vinnare ser ut som skräp för varje annan agents städning. 2026-08-04 sveptes två ocommittade vinnare av just en sådan — de överlevde bara som sparade diffar.
+3. Ta bort de förlorande worktreesen: `npm run worktree:remove -- <sökväg> --force`. Det tar bort katalogen men **lämnar branchen kvar** — radera den också: `git branch -D kedja/<slug>-<x>`. Missas det blir varje körning en föräldralös branch rikare.
+4. Rapportera enligt sluttabellen (spårbarhet: worktree, branch, ansats, utfall, vem gjorde vad).
 
-Blev något kvar — avbruten körning, misslyckad teardown, gammal branch — sopa upp med `npm run kedja:clean` (torrkörning) och sedan `node scripts/cursor/kedja-clean.mjs --yes --keep <vinnaren>`. Skriptet sparar diffar innan det raderar och vägrar röra en worktree vars tillstånd det inte kan läsa. Flaggorna måste gå via `node`: npm äter `--yes` och `--keep` innan de når skriptet.
+Blev något kvar — avbruten körning, misslyckad teardown, gammal branch — sopa upp med `npm run kedja:clean` (torrkörning) och sedan `node scripts/cursor/kedja-clean.mjs --yes --keep <vinnaren>`. Skriptet sparar diffar innan det raderar och vägrar röra en worktree vars tillstånd det inte kan läsa. Flaggorna måste gå via `node`: npm äter `--yes` och `--keep` innan de når skriptet. **Multi-agent-vakt:** kör aldrig `--yes` med kedja-worktrees du inte själv skapat utan att `--keep`:a dem — svepet skiljer inte din förlorare från en annan agents pågående arbete, och "läsbar" betyder inte "övergiven".
 
-Backlog-raden bockas **inte** av automatiskt. Det görs manuellt när fixen är mergad.
+**Backlog-raden stängs i samma PR som fixen.** När användaren begär PR: flytta raden till arkivfilen som `[x]` med PR-referens i samma branch (backloggens egen lärdom från #603- och #686-efterslagen). Ingen manuell avbockning efter merge. **Efter merge** river den agent som mergade vinnarens worktree + branch.
 
 ## Anti-mönster
 
+- **Dyr orkestrator som driver stegen själv.** Varje subagent-rapport den tar emot betalas om i varje senare tur — använd delegerat läge (ovan).
 - Hoppa över steg 2 för att buggen "är uppenbar". Utan rött test finns ingen domare, och då är pipelinen bara en dyrare `/818`.
 - Skriva kod i huvudcheckouten, eller `git checkout` där (`agent-worktree.mdc`).
 - Låta fix-agenterna välja rotorsak själva — de får en, du valde den i steg 4.

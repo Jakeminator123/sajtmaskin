@@ -1,21 +1,23 @@
 ---
 name: kedja-fix-pipeline
 description: >-
-  Staged bug-fix pipeline for Sajtmaskin. A cheap orchestrator drives seven steps — frame, workspace, repro, localize, decide, fix, judge, review — where a failing test written in step 2 is what lets cheap agents be judged mechanically instead of by opinion. Write steps run in dedicated git worktrees, never in the main checkout, and nothing is committed. Use when the user runs /kedja, says "kedja", or asks to drive one specific bug through a staged multi-agent fix flow. Fix mode — the opposite of /automat, which is audit only.
+  Staged bug-fix pipeline for Sajtmaskin. A cheap orchestrator drives seven steps — frame, workspace, repro, localize, decide, fix, judge, review — where a failing test written in step 2 is what lets cheap agents be judged mechanically instead of by opinion. Write steps run in dedicated git worktrees, never in the main checkout; the winner is committed on its kedja branch (never pushed) while losers stay uncommitted. Use when the user runs /kedja, says "kedja", or asks to drive one specific bug through a staged multi-agent fix flow. Fix mode — the opposite of /automat, which is audit only.
 ---
 
 # Kedja — staged bug fix
 
 The orchestrator is the cheap model in the user's chat. Subagents are cheap too; none of them are trusted. What makes the flow work is that **step 2 produces a red test**, so step 6 is a measurement rather than a judgement call.
 
+**Expensive orchestrator? Delegate.** If the model in the user's chat is not composer-class, the DEFAULT is delegated mode (see `kedja.md § Delegerat läge`): the parent does step 0 only, launches ONE cheap runner subagent that drives steps 1–6 end to end, receives only the final report table, then runs step 7 (bugbot) itself. Every report an orchestrator receives is re-paid in every later turn — do not carry the bulk in an expensive context.
+
 Full step list, arguments and stop conditions: [`.cursor/commands/kedja.md`](../../commands/kedja.md). This file holds the recipes and prompts.
 
 ## Hard rules
 
 1. **No writes in the main checkout.** Every write step runs inside a worktree created in step 1. No `git checkout`/`switch` in the main checkout (`agent-worktree.mdc`).
-2. **No git mutation.** No commit, push, rebase or PR — not even in the worktree. The result is handed over as an uncommitted diff (`git.mdc`).
+2. **No push, rebase or PR** (`git.mdc`) — but the WINNER is committed on its `kedja/<slug>-<x>` branch as the final step. An uncommitted winner looks like debris to every other agent's cleanup sweep (`kedja-clean` refuses branches with own commits — a commit is the winner's life insurance; two uncommitted winners were swept 2026-08-04). Losers stay uncommitted and are torn down after their diffs are saved.
 3. **One bug.** Adjacent findings go to `/buggrapport`, not into the diff (`mvp-scope-freeze.mdc`).
-4. **Models from the canonical table** in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `composer-2.5-fast` for the read-only localisation scan, `cursor-grok-4.5-high` for the repro and fix agents (they write code), `bugbot` subagent for step 7.
+4. **Models from the canonical table** in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `cursor-grok-4.5-high-fast` for the read-only localisation scan, `cursor-grok-4.5-high-fast` for the repro and fix agents (they write code), `bugbot` subagent for step 7.
 5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only. Raw `git worktree remove` follows the `node_modules` junction and empties the main checkout's copy — and dropping `--force` does not help, because git only refuses on dirty or *untracked* entries while a junctioned `node_modules` is *ignored*. A hook denies both forms.
 6. **One retry, then stop.** Two red judging rounds means the bug is too big for the chain; report that instead of looping.
 
@@ -35,7 +37,7 @@ npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
 
 ## Prompt templates
 
-### Step 2 — repro agent (1 agent, writes, `cursor-grok-4.5-high`)
+### Step 2 — repro agent (1 agent, writes, `cursor-grok-4.5-high-fast`)
 
 ```text
 Work ONLY inside: {WORKTREE_PATH}. Never touch any other checkout.
@@ -69,7 +71,7 @@ Motivering: <one sentence on why the red failure IS the bug>
 Then verify both yourself in that worktree. A green "red" test is a stop
 condition, not a nuisance.
 
-### Step 3 — localisation agents (3 parallel, `readonly: true`, `composer-2.5-fast`)
+### Step 3 — localisation agents (3 parallel, `readonly: true`, `cursor-grok-4.5-high-fast`)
 
 Same bug and same test output for all three; only the angle differs.
 
@@ -96,7 +98,7 @@ Emot: <the strongest reason you could be wrong, or "-">
 Låst av test: <existing test that encodes today's behaviour, or "-">
 ```
 
-### Step 5 — fix agents (N parallel, write, `cursor-grok-4.5-high`)
+### Step 5 — fix agents (N parallel, write, `cursor-grok-4.5-high-fast`)
 
 Every candidate gets the **same** root cause and a **different, named** approach. Leaving the approach open produces N identical diffs — same diagnosis, same test, same model, so they converge. If you cannot name two genuinely different approaches, run one candidate.
 
@@ -163,13 +165,20 @@ The lesson generalises: when the fix direction is "make X stop happening", the c
 |---|---|
 | Acceptans | `npx vitest run …` — rött före, grönt efter |
 | Rotorsak | <one sentence + fil:rad> |
-| Kandidat a | grön · 12 rader · vinnare |
-| Kandidat b | röd i steg 2 av domen (bröt <test>) |
+| Kandidat a | <ansats> · grön · 12 rader · **vinnare** · `..\sajtmaskin-kedja-<slug>-a` på `kedja/<slug>-a` |
+| Kandidat b | <ansats> · röd i steg 2 av domen (bröt <test>) · worktree riven, diff kvar |
+| Utfört av | repro: <roll/modell> · fix a/b: <roll/modell> · dom: orkestratorn maskinellt |
 | Bugbot | <findings, or "inga fynd"> |
-| Ligger i | `..\sajtmaskin-kedja-<slug>-a` på `kedja/<slug>-a`, ocommittad |
+| Diffar | `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-*.diff` (även utslagna) |
+| Ligger i | `..\sajtmaskin-kedja-<slug>-a` på `kedja/<slug>-a`, committad (ej pushad) |
 ```
 
-Say explicitly that nothing was committed and that the backlog row is untouched.
+Every row that names a worktree must give the **absolute or repo-relative disk
+path and branch**, including for eliminated candidates (their worktrees are
+torn down but the diffs stay) — the user uses this table to jump in and make
+targeted follow-up fixes.
+
+Say explicitly that the winner is committed on its kedja branch but NOT pushed, and that the backlog row stays open until it is closed in the fix PR (same-PR archival, see `kedja.md § Efter körning`).
 
 ## Related
 
