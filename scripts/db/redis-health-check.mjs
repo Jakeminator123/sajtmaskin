@@ -88,14 +88,9 @@ const KEY_PREFIX =
 // Två "shared" buckets är OK att mäta cross-env (rate-limit har eget
 // namnschema; health:probe rensas snabbt) — markerade i `scope`-fältet.
 const TRACKED_PREFIX_BUCKETS = [
-  { scope: "env", label: "user:session", suffix: "user:session:*" },
   { scope: "env", label: "cache", suffix: "cache:*" },
   { scope: "env", label: "audit", suffix: "audit:*" },
   { scope: "env", label: "audit_list", suffix: "audit_list:*" },
-  { scope: "env", label: "project:files", suffix: "project:files:*" },
-  { scope: "env", label: "project:meta", suffix: "project:meta:*" },
-  { scope: "env", label: "video:job", suffix: "video:job:*" },
-  { scope: "env", label: "preview", suffix: "preview:*" },
   { scope: "env", label: "preview-session:session", suffix: "preview-session:session:*" },
   { scope: "env", label: "sandbox-preview:session (legacy)", suffix: "sandbox-preview:session:*" },
   { scope: "env", label: "prompt_handoff", suffix: "prompt_handoff:*" },
