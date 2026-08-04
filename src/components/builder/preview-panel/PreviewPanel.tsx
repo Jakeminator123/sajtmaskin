@@ -92,7 +92,7 @@ import {
   parseShadcnDragPayload,
   SHADCN_ITEM_DND_TYPE,
   type ShadcnInsertSelection,
-  type ShadcnPlacementAnchor,
+  type ShadcnPlacementPickResult,
 } from "@/lib/builder/shadcn-insert";
 import {
   resolveHomePageFilePath,
@@ -260,7 +260,7 @@ export function PreviewPanel({
     description?: string | null;
   } | null>(null);
   const shadcnPlacementPickResolverRef = useRef<
-    ((value: ShadcnPlacementAnchor | null) => void) | null
+    ((value: ShadcnPlacementPickResult) => void) | null
   >(null);
   const [lastComposerActionLabel, setLastComposerActionLabel] = useState<string | null>(null);
   const {
@@ -425,13 +425,20 @@ export function PreviewPanel({
     }
   }, [composerMode]);
 
-  const resolveShadcnPlacementPick = useCallback((value: ShadcnPlacementAnchor | null) => {
+  const resolveShadcnPlacementPick = useCallback((value: ShadcnPlacementPickResult) => {
     const resolve = shadcnPlacementPickResolverRef.current;
     if (!resolve) return;
     shadcnPlacementPickResolverRef.current = null;
     setShadcnPlacementPickItem(null);
     resolve(value);
   }, []);
+
+  // Chatt-/versionsbyte medan placeringsvalet pågår: avbryt HELT (ingen
+  // insättning). Utan detta kunde ett val som startade i en chatt fullföljas
+  // mot den nya aktiva chatten, eller lämna insertingRef låst (bugbot-fynd).
+  useEffect(() => {
+    resolveShadcnPlacementPick("aborted");
+  }, [chatId, versionId, resolveShadcnPlacementPick]);
 
   const handlePickShadcnPlacement = useCallback(
     (selection: ShadcnInsertSelection) => {
@@ -440,10 +447,11 @@ export function PreviewPanel({
         return Promise.resolve(null);
       }
       if (shadcnPlacementPickResolverRef.current) {
-        shadcnPlacementPickResolverRef.current(null);
+        // Ett nytt val ersätter ett pågående — det gamla får aldrig insättas.
+        shadcnPlacementPickResolverRef.current("aborted");
         shadcnPlacementPickResolverRef.current = null;
       }
-      return new Promise<ShadcnPlacementAnchor | null>((resolve) => {
+      return new Promise<ShadcnPlacementPickResult>((resolve) => {
         shadcnPlacementPickResolverRef.current = resolve;
         setShadcnPlacementPickItem({
           title: selection.title?.trim() || selection.name,
@@ -492,7 +500,9 @@ export function PreviewPanel({
   useEffect(() => {
     return () => {
       if (!shadcnPlacementPickResolverRef.current) return;
-      shadcnPlacementPickResolverRef.current(null);
+      // Unmount = användaren lämnade ytan — avbryt utan insättning
+      // (bugbot-fynd: `null` här startade en oavsiktlig generation).
+      shadcnPlacementPickResolverRef.current("aborted");
       shadcnPlacementPickResolverRef.current = null;
     };
   }, []);

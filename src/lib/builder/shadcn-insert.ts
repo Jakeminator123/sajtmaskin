@@ -69,12 +69,23 @@ export type ShadcnPlacementAnchor = {
 };
 
 /**
+ * Utfall från placeringspickern:
+ * - ankare → insättning med placeringsfält,
+ * - `null` → användaren hoppade över valet (Esc/klick utanför) → insättning
+ *   med dagens default ("Längst ner"),
+ * - `"aborted"` → valet avbröts av kontextbyte (chatt-/versionsbyte, unmount)
+ *   → INGEN insättning alls (bugbot-fynd: en oavsiktlig generation får inte
+ *   starta för en chatt användaren lämnat).
+ */
+export type ShadcnPlacementPickResult = ShadcnPlacementAnchor | null | "aborted";
+
+/**
  * Aktiverar befintligt placeringsläge mot previewn. Resolvar med ankare vid
- * klick i previewn, eller `null` vid Esc/klick utanför.
+ * klick i previewn, `null` vid Esc/klick utanför, `"aborted"` vid kontextbyte.
  */
 export type ShadcnPlacementPicker = (
   selection: ShadcnInsertSelection,
-) => Promise<ShadcnPlacementAnchor | null>;
+) => Promise<ShadcnPlacementPickResult>;
 
 /**
  * Insättningshandler genom hela kedjan (`onShadcnItemInsert` →

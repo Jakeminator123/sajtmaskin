@@ -134,6 +134,8 @@ export function PreviewPanelDescribeTab({
       try {
         const selection = toSelection(candidate);
         const picked = onPickPlacement ? await onPickPlacement(selection) : null;
+        // "aborted" = kontextbyte under valet → ingen insättning alls.
+        if (picked === "aborted") return;
         const outcome = await onInsertItem({
           ...selection,
           ...(picked

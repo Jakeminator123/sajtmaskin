@@ -320,7 +320,7 @@ describe("PreviewPanel", () => {
   ) {
     vi.stubEnv("NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL", "true");
     stubDropTestFetch();
-    renderPreviewPanelWithTools({ onShadcnItemInsert });
+    const view = renderPreviewPanelWithTools({ onShadcnItemInsert });
 
     fireEvent.load(screen.getByTitle("Preview"));
     fireEvent.click(screen.getByRole("button", { name: /Lägg till block/i }));
@@ -331,6 +331,7 @@ describe("PreviewPanel", () => {
     await waitFor(() => screen.getByText("Login 01"));
     fireEvent.click(screen.getByText("Login 01"));
     fireEvent.click(screen.getByRole("button", { name: /Lägg till i sajten/i }));
+    return view;
   }
 
   it("click-path Lägg till i sajten → placeringsläge → insert med ankare", async () => {
@@ -401,6 +402,34 @@ describe("PreviewPanel", () => {
       }),
     );
     expect(onShadcnItemInsert.mock.calls[0]?.[0]?.placement).toBeUndefined();
+  });
+
+  // Bugbot-fynd på placement-pickern: ett chattbyte medan valet pågår får
+  // varken fullfölja insättningen mot den nya chatten eller lämna
+  // insertingRef/overlayn hängande — hela valet ska avbrytas tyst.
+  it("click-path chattbyte under placeringsläge → ingen insättning alls", async () => {
+    const onShadcnItemInsert = vi.fn(
+      async (_selection: ShadcnInsertSelection): Promise<SendMessageOutcome> => ({
+        status: "started",
+        via: "stream",
+      }),
+    );
+    const view = await openBrowseDetailAndStartInsert(onShadcnItemInsert);
+
+    await screen.findByTestId("placement-overlay");
+    expect(onShadcnItemInsert).not.toHaveBeenCalled();
+
+    // Chattbyte medan placeringsvalet pågår.
+    view.rerender(
+      <PreviewPanelHarness
+        {...buildPreviewPanelProps({ onShadcnItemInsert, chatId: "chat_2" })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("placement-overlay")).toBeNull();
+    });
+    expect(onShadcnItemInsert).not.toHaveBeenCalled();
   });
 
   it("renders version mismatch overlay and exposes retry action", () => {

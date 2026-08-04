@@ -414,6 +414,9 @@ function BrowseDetailView({
       // Klick-väg: samma placeringsfält som drag-and-drop sätter, via befintligt
       // placeringsläge. Esc/utanför → null → default "Längst ner".
       const picked = onPickPlacement ? await onPickPlacement(selection) : null;
+      // "aborted" = kontextbyte (chatt/version/unmount) under valet →
+      // ingen insättning alls (finally återställer knappen).
+      if (picked === "aborted") return;
       const outcome = await onInsertItem({
         ...selection,
         ...(picked
