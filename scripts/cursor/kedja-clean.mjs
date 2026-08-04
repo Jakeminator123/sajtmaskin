@@ -120,7 +120,19 @@ function inspect(worktree, trunk) {
  */
 function captureDiff(worktreePath) {
   gitQuiet(["add", "-A", "-N"], { cwd: worktreePath });
-  return gitQuiet(["diff", "HEAD"], { cwd: worktreePath }) ?? "";
+  // NOT gitQuiet: its `.trim()` strips trailing blank context lines, which are
+  // significant in a patch — `git apply` then rejects the file as corrupt.
+  // That silently corrupted two rescue diffs on 2026-08-04.
+  try {
+    return execFileSync("git", ["diff", "HEAD"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      cwd: worktreePath,
+      maxBuffer: 128 * 1024 * 1024,
+    });
+  } catch {
+    return "";
+  }
 }
 
 function timestamp() {
