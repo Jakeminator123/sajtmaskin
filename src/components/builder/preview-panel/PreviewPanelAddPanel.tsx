@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { LayoutGrid, MessageSquareText, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isShadcnDescribeEnabled } from "@/lib/shadcn/describe-feature";
-import type { ShadcnInsertHandler } from "@/lib/builder/shadcn-insert";
+import type { ShadcnInsertHandler, ShadcnPlacementPicker } from "@/lib/builder/shadcn-insert";
 import { PreviewPanelComposerPalette } from "./PreviewPanelComposer";
 import { PreviewPanelBrowseGallery } from "./PreviewPanelBrowseGallery";
 import { PreviewPanelDescribeTab } from "./PreviewPanelDescribeTab";
@@ -40,6 +40,8 @@ export interface PreviewPanelAddPanelProps {
    * vägen. Saknas callbacken är insättningsknapparna disabled (read-only-läge).
    */
   onInsertShadcnItem?: ShadcnInsertHandler;
+  /** Klick-väg: befintligt placeringsläge innan insättning (Esc → default). */
+  onPickPlacement?: ShadcnPlacementPicker;
 }
 
 const TABS: {
@@ -57,6 +59,7 @@ export function PreviewPanelAddPanel({
   onDragStart,
   onDragEnd,
   onInsertShadcnItem,
+  onPickPlacement,
 }: PreviewPanelAddPanelProps) {
   const [activeTab, setActiveTab] = useState<AddPanelTab>("block");
   // Beskriv-fliken kräver describe-flaggan. Läs EFTER mount (initial false)
@@ -120,6 +123,7 @@ export function PreviewPanelAddPanel({
         <PreviewPanelBrowseGallery
           disabled={disabled}
           onInsertItem={onInsertShadcnItem}
+          onPickPlacement={onPickPlacement}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />
@@ -127,6 +131,7 @@ export function PreviewPanelAddPanel({
         <PreviewPanelDescribeTab
           disabled={disabled}
           onInsertItem={onInsertShadcnItem}
+          onPickPlacement={onPickPlacement}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />
