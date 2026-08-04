@@ -33,6 +33,13 @@ export const INSPECT_BRIDGE_MESSAGE = {
   rect: "sajtmaskin:inspect:rect",
   /** child → parent: elementen som en uppdragen rektangel täcker */
   region: "sajtmaskin:inspect:region",
+  /**
+   * parent → child: be om sektionsrektanglar för placement-overlay.
+   * Oberoende av inspect set-mode — placering stänger inspect men behöver zoner.
+   */
+  requestSections: "sajtmaskin:inspect:request-sections",
+  /** child → parent: sektionskandidater (tag/id/class + vpPercent) */
+  sections: "sajtmaskin:inspect:sections",
 } as const;
 
 export function isInspectBridgeEnabled(): boolean {

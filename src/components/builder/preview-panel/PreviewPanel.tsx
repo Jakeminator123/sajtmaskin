@@ -420,6 +420,7 @@ export function PreviewPanel({
     setHoveredPlacement,
     handleToggleInspect,
     sectionZones,
+    applyBridgeSectionCandidates,
     handlePlacementMouseMove,
     handlePlacementClick,
     handleInspectMouseMove,
@@ -560,6 +561,12 @@ export function PreviewPanel({
     // A-fix (#164/#197): bron annonserade aldrig `ready` → previewn saknar
     // injektionen. Växla till kartmotorn i stället för en inert inspektor.
     onBridgeUnavailable: () => setInspectEngine("map"),
+    // Placement/composer behöver sektionsankare i prod (ingen Playwright-map).
+    requestSections:
+      bridgeEnabled &&
+      inspectEngine === "bridge" &&
+      (Boolean(placementMode) || composerMode),
+    onSections: applyBridgeSectionCandidates,
   });
 
   // Menyn hör till inspect-läget: lämnar man läget (eller previewen byts) ska

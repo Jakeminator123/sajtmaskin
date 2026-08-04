@@ -6,9 +6,11 @@ import {
 } from "@/lib/builder/inspect-events";
 import type { RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import {
+  bridgeSectionCandidatesToElementMap,
   extractSectionZones,
   isSameInsertionPoint,
   nearestInsertionPoint,
+  type BridgeSectionCandidate,
   type InsertionPoint,
 } from "@/lib/builder/sectionAnalyzer";
 import type { ElementMapItem, ElementMapResponse } from "@/lib/builder/types";
@@ -73,6 +75,11 @@ export function usePreviewPanelInspectMapPlacement(options: {
   const [hoveredMapElement, setHoveredMapElement] = useState<ElementMapItem | null>(null);
   const [hoveredPlacement, setHoveredPlacement] = useState<InsertionPoint | null>(null);
   const inspectFetchTokenRef = useRef(0);
+  /** Spegel av elementMap.length för rena timeout-beslut (inga setState i updaters). */
+  const elementMapLengthRef = useRef(0);
+  useEffect(() => {
+    elementMapLengthRef.current = elementMap.length;
+  }, [elementMap]);
 
   const fetchElementMap = useCallback(
     async (
@@ -194,6 +201,23 @@ export function usePreviewPanelInspectMapPlacement(options: {
   ]);
 
   const sectionZones = useMemo(() => extractSectionZones(elementMap), [elementMap]);
+
+  /**
+   * Bridge → elementMap → extractSectionZones. Anropas från usePreviewInspectBridge
+   * när child svarar på request-sections (prod utan Playwright).
+   */
+  const applyBridgeSectionCandidates = useCallback(
+    (candidates: BridgeSectionCandidate[]) => {
+      // Invalidera eventuell bridge-timeout i zones-effecten.
+      inspectFetchTokenRef.current += 1;
+      const mapped = bridgeSectionCandidatesToElementMap(candidates);
+      setElementMap(mapped);
+      setElementMapLoading(false);
+      // Tom lista = närmaste fallback (Längst upp / Längst ner) via nearestInsertionPoint.
+      setInspectorUnavailable(mapped.length === 0);
+    },
+    [],
+  );
 
   const handlePlacementMouseMove = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
@@ -335,11 +359,38 @@ export function usePreviewPanelInspectMapPlacement(options: {
       setHoveredPlacement(null);
       return;
     }
+    // Bridge-engine: sektionszoner kommer via postMessage (applyBridgeSectionCandidates).
+    // Playwright/element-map finns inte i serverless prod — hoppa över den vägen.
+    if (inspectEngine === "bridge") {
+      const requestToken = ++inspectFetchTokenRef.current;
+      setElementMap([]);
+      setElementMapLoading(true);
+      setInspectorUnavailable(false);
+      const BRIDGE_SECTIONS_TIMEOUT_MS = 5000;
+      const timer = window.setTimeout(() => {
+        if (requestToken !== inspectFetchTokenRef.current) return;
+        setElementMapLoading(false);
+        // Ingen bridge-svar → tomma zoner → nearestInsertionPoint = topp/botten.
+        if (elementMapLengthRef.current === 0) {
+          setInspectorUnavailable(true);
+        }
+      }, BRIDGE_SECTIONS_TIMEOUT_MS);
+      return () => {
+        window.clearTimeout(timer);
+      };
+    }
     const container = iframeRef.current?.parentElement;
     const w = container?.clientWidth || 1280;
     const h = container?.clientHeight || 800;
     void fetchElementMap(previewUrl, w, h);
-  }, [zonesActive, previewUrl, fetchElementMap, inspectorEnabled, iframeRef]);
+  }, [
+    zonesActive,
+    previewUrl,
+    fetchElementMap,
+    inspectorEnabled,
+    iframeRef,
+    inspectEngine,
+  ]);
 
   return {
     inspectMode,
@@ -353,6 +404,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
     setHoveredPlacement,
     handleToggleInspect,
     sectionZones,
+    applyBridgeSectionCandidates,
     handlePlacementMouseMove,
     handlePlacementClick,
     handleInspectMouseMove,
