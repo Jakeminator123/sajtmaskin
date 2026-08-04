@@ -9,6 +9,7 @@ import { BuilderPreviewTools } from "@/components/builder/BuilderPreviewTools";
 import { ChatOutputCollapseBar } from "@/components/builder/ChatOutputCollapseBar";
 import { useChatOutputCollapse } from "@/components/builder/useChatOutputCollapse";
 import { usePreviewSurfaceMode } from "@/components/builder/preview-panel/usePreviewSurfaceMode";
+import { resolveChatCollapseStatusText } from "@/lib/builder/chat-collapse-status";
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import type { ComposerAiFallbackPayload } from "@/components/builder/preview-panel/preview-panel-types";
 import { VersionHistory } from "@/components/builder/VersionHistory";
@@ -517,6 +518,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     f3Status?.versionId && vm.activeVersionId && f3Status.versionId !== vm.activeVersionId
       ? null
       : f3Status;
+
+  // Ö9: nedfällt läge döljer chattflödet, så en spärr som bara syns där måste
+  // följa med upp i raden — annars gömmer nedfällningen felet.
+  const chatCollapseStatusText = resolveChatCollapseStatusText({
+    activeVersionStatus,
+    deployBlocker: deployReadinessBlocker,
+    f3Status: visibleF3Status,
+  });
 
   useEffect(() => {
     setF3Requirements(null);
@@ -1206,6 +1215,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 onToggle={chatOutputCollapse.toggle}
                 messageCount={vm.messages.length}
                 isStreaming={vm.isAnyStreaming}
+                statusText={chatCollapseStatusText}
               />
             ) : null}
             <ChatInterface
