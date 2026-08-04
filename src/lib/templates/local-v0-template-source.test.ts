@@ -109,6 +109,48 @@ describe("readArchiveBuffer", () => {
     }
   });
 
+  it("fails closed when the manifest SHA-256 is present but malformed", async () => {
+    const archive = await buildArchive("current");
+    const directory = await mkdtemp(join(tmpdir(), "sajtmaskin-archive-"));
+    const archivePath = join(directory, "cached.zip");
+    await writeFile(archivePath, archive);
+
+    const fetchMock = vi.fn(async () => new Response(new Uint8Array(archive)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      await expect(
+        readArchiveBuffer(
+          localSource({
+            archivePath,
+            archiveUrl: "https://blob.example/template-a.zip",
+            archiveSha256: "not-a-sha256",
+          }),
+        ),
+      ).rejects.toThrow(/malformed/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("reads a local archive unverified when the manifest has no SHA-256 at all", async () => {
+    const archive = await buildArchive("current");
+    const directory = await mkdtemp(join(tmpdir(), "sajtmaskin-archive-"));
+    const archivePath = join(directory, "cached.zip");
+    await writeFile(archivePath, archive);
+
+    try {
+      const buffer = await readArchiveBuffer(
+        localSource({ archivePath, archiveSha256: null }),
+      );
+      expect(buffer.equals(archive)).toBe(true);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("fails closed when a stale local archive has no Blob archive to fall back to", async () => {
     const stale = await buildArchive("old");
     const fresh = await buildArchive("new");

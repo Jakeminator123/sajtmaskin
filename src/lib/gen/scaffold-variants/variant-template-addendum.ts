@@ -28,6 +28,12 @@ const LANGUAGE_PATTERN = /^[a-z0-9-]{1,24}$/;
  * into the prompt.
  */
 const REFERENCE_PATH_EXTENSION_PATTERN = /\.(?:tsx|jsx|ts|js|css)$/i;
+/**
+ * The path is rendered into a Markdown list item outside the code fence, so a
+ * backtick or a line break in it could close the inline span and open a new
+ * prompt section. Excerpts are already boundary-checked; paths need the same.
+ */
+const UNSAFE_REFERENCE_PATH_CHARS = /[`\u0000-\u001f\u007f]/;
 const warnedAddendumProblems = new Set<string>();
 
 function isSafeReferencePath(value: string): boolean {
@@ -37,7 +43,7 @@ function isSafeReferencePath(value: string): boolean {
     normalized.length > 0 &&
     normalized.length <= MAX_REFERENCE_PATH_CHARS &&
     !normalized.startsWith("/") &&
-    !normalized.includes("\0") &&
+    !UNSAFE_REFERENCE_PATH_CHARS.test(normalized) &&
     !normalized.split("/").some((segment) => segment === "..") &&
     !/(^|\/)api\//i.test(normalized) &&
     REFERENCE_PATH_EXTENSION_PATTERN.test(normalized)

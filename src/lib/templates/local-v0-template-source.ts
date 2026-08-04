@@ -350,12 +350,24 @@ async function readRemoteArchiveBuffer(url: string, signal?: AbortSignal): Promi
   return buffer;
 }
 
-function matchesExpectedSha(buffer: Buffer, expected: string | null | undefined): boolean {
+/**
+ * An absent manifest SHA means there is nothing to verify against, so the
+ * pre-existing unverified behaviour stands. A SHA that is *present but
+ * malformed* is a manifest defect, not an opt-out: silently treating it as
+ * absent would turn one corrupt field into an unverified archive read.
+ */
+function normalizeExpectedSha(expected: string | null | undefined): string | null {
   const normalized = expected?.trim().toLowerCase();
-  // No manifest SHA means there is nothing to verify against, not that the
-  // archive is trusted; the caller keeps the pre-existing behaviour.
-  if (!normalized || !SHA256_HEX_PATTERN.test(normalized)) return true;
-  return createHash("sha256").update(buffer).digest("hex") === normalized;
+  if (!normalized) return null;
+  if (!SHA256_HEX_PATTERN.test(normalized)) {
+    throw new Error("Template archive SHA-256 in the Blob manifest is malformed");
+  }
+  return normalized;
+}
+
+function archiveMatchesSha(buffer: Buffer, expectedSha: string | null): boolean {
+  if (!expectedSha) return true;
+  return createHash("sha256").update(buffer).digest("hex") === expectedSha;
 }
 
 /**
@@ -369,12 +381,14 @@ export async function readArchiveBuffer(
   source: LocalV0TemplateSource,
   signal?: AbortSignal,
 ): Promise<Buffer> {
+  const expectedSha = normalizeExpectedSha(source.archiveSha256);
+
   if (source.sourceKind === "blob") {
     if (!source.archiveUrl) {
       throw new Error("Template Blob archive URL is missing");
     }
     const remoteBuffer = await readRemoteArchiveBuffer(source.archiveUrl, signal);
-    if (!matchesExpectedSha(remoteBuffer, source.archiveSha256)) {
+    if (!archiveMatchesSha(remoteBuffer, expectedSha)) {
       throw new Error("Template archive SHA-256 does not match the Blob manifest");
     }
     return remoteBuffer;
@@ -384,7 +398,7 @@ export async function readArchiveBuffer(
     throw new Error("Local template archive path is missing");
   }
   const localBuffer = await readLocalArchiveBuffer(source.archivePath);
-  if (matchesExpectedSha(localBuffer, source.archiveSha256)) {
+  if (archiveMatchesSha(localBuffer, expectedSha)) {
     return localBuffer;
   }
 
@@ -395,7 +409,7 @@ export async function readArchiveBuffer(
     `[local-v0-template-source] Local archive for template ${source.templateId} does not match the Blob manifest SHA-256; re-fetching ${source.archiveUrl}`,
   );
   const refetched = await readRemoteArchiveBuffer(source.archiveUrl, signal);
-  if (!matchesExpectedSha(refetched, source.archiveSha256)) {
+  if (!archiveMatchesSha(refetched, expectedSha)) {
     throw new Error("Template archive SHA-256 does not match the Blob manifest");
   }
   return refetched;
