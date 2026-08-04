@@ -44,6 +44,11 @@ export const serverSchema = z.object({
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
   BLOB_CONTENT_KEY: z.string().optional(),
   BLOB_COLORS_KEY: z.string().optional(),
+  /** Public Vercel Blob read URL for `template-embeddings.json` (~9 MiB, kept out of
+   * the server bundle). Deployed runtimes fetch it from here; local dev reads the
+   * committed file via fs. Unset in a deployed runtime = template search degrades
+   * visibly to keyword search. Read via `src/lib/templates/template-embeddings-storage.ts`. */
+  TEMPLATE_EMBEDDINGS_BLOB_URL: z.string().optional(),
   STORAGE_BACKEND: z.enum(["fs", "json-blob"]).optional(),
 
   // Auth

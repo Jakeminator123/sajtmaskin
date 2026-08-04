@@ -43,7 +43,7 @@ export async function regenerateTemplateEmbeddings(
 
   if (process.env.VERCEL) {
     throw new Error(
-      "Template embeddings ar nu lokala och commitade artifacts. Regenerera dem lokalt och deploya om produktionen.",
+      "Template embeddings kan inte skrivas fran en deployad miljo. Regenerera lokalt (npm run templates:embeddings), ladda upp filen till Vercel Blob och peka TEMPLATE_EMBEDDINGS_BLOB_URL dit.",
     );
   }
 

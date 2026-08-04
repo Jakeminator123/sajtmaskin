@@ -38,6 +38,10 @@ const nextConfig: NextConfig = {
       "./templates_v0/**",
       "./archive/**",
       "./output/**",
+      // ~9 MiB embeddings artifact. Deployed runtimes fetch it from Blob
+      // (TEMPLATE_EMBEDDINGS_BLOB_URL); only local dev reads it from disk, so it
+      // must never be traced back into a serverless function.
+      "./src/lib/templates/template-embeddings.json",
     ],
   },
   experimental: {
