@@ -299,7 +299,7 @@ function OpenClawStartBugHuntCard({
   return (
     <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
       <p className="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase">
-        Armerad bug-hunt
+        {armedMandate?.mode === "review_next" ? "Armerad granskning" : "Armerad bug-hunt"}
       </p>
       <p className="mt-1 text-sm font-semibold text-white">
         {active
@@ -335,6 +335,7 @@ function OpenClawArmedSendCard({
   messageId: string;
 }) {
   const setArmedMandate = useOpenClawStore((s) => s.setArmedMandate);
+  const armedMandate = useOpenClawStore((s) => s.armedMandate);
   const [state, setState] = useState<"sending" | "sent" | "failed">(
     consumedArmedSends.has(messageId) ? "sent" : "sending",
   );
@@ -415,7 +416,11 @@ function OpenClawArmedSendCard({
         ) : null}
         {state === "sent" ? (
           <p className="text-xs text-emerald-300">
-            Skickad. Jag läser resultatet och fortsätter enligt mandatet.
+            {`Skickad till buildern.${
+              armedMandate && armedMandate.remaining > 0
+                ? ` Mandatet har ${armedMandate.remaining} steg kvar.`
+                : ""
+            } När bygget är klart kan du be mig läsa resultatet.`}
           </p>
         ) : null}
         {state === "failed" ? (

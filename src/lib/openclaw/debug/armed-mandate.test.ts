@@ -100,3 +100,20 @@ describe("mandate lifecycle", () => {
     ).toMatch(/3 follow-up/i);
   });
 });
+
+describe("describeMandate", () => {
+  it("describes review_next as a passive mode (user sends the next message)", () => {
+    const label = describeMandate(
+      createArmedMandate({ mode: "review_next", count: 1, reason: "granska nästa" }),
+    );
+    expect(label).toBe("Armerad: granskar nästa meddelande du skickar");
+    // Must not imply the agent drives/builds on its own.
+    expect(label).not.toMatch(/svar|följer upp|auto|bygg/i);
+  });
+
+  it("describes followups with the remaining step count", () => {
+    expect(
+      describeMandate(createArmedMandate({ mode: "followups", count: 5, reason: "gör 5" })),
+    ).toBe("Armerad: 5 follow-up(s) kvar");
+  });
+});
