@@ -597,7 +597,9 @@ stämpla aldrig om en befintlig telemetrirads revision.
 
 Frekvensen av känd mismatch mäts med Prometheus-räknaren
 `sajtmaskin_content_revision_mismatch_total{surface,verdict}` (`surface` =
-`promote_guard` · `preview_receipt` · `status_projection`).
+`promote_guard` · `preview_receipt` · `status_projection` · `versions_list`).
+`versions_list` (historiklistan `GET .../versions`, restlista-R15) tickar per
+poll så länge en stale rad visas — läs den som varaktighet, inte händelseantal.
 
 ## Server-repair outcome metadata (Wave 5 hot-fix #3)
 

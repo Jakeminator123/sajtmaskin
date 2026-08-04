@@ -17,6 +17,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 const telemetryRows = vi.hoisted(() => ({ value: [] as Record<string, unknown>[] }));
 const versionRows = vi.hoisted(() => ({ value: [] as Record<string, unknown>[], reads: 0 }));
+const chatSignalRows = vi.hoisted(() => ({
+  value: [] as Record<string, unknown>[],
+  reads: 0,
+}));
 
 vi.mock("@/lib/db/client", () => ({
   dbConfigured: true,
@@ -32,10 +36,17 @@ vi.mock("@/lib/db/client", () => ({
         }),
       }),
     }),
+    execute: async () => {
+      chatSignalRows.reads += 1;
+      return { rows: chatSignalRows.value };
+    },
   },
 }));
 
-const { getLatestQualityGateSignalForVersion } = await import("./generation-telemetry");
+const {
+  getLatestQualityGateSignalForVersion,
+  getLatestQualityGateSignalsForChat,
+} = await import("./generation-telemetry");
 
 const REVISION_N = "1".repeat(32);
 const REVISION_N_PLUS_1 = "2".repeat(32);
@@ -273,5 +284,91 @@ describe("getLatestQualityGateSignalForVersion — nyaste revisionslösa rad har
     expect(signal.revisionMatch).toBe("current");
     // Ingen uppslagning av versionens nuvarande revision behövdes.
     expect(versionRows.reads).toBe(0);
+  });
+});
+
+describe("getLatestQualityGateSignalsForChat — batch för /versions-listan", () => {
+  beforeEach(() => {
+    process.env.SAJTMASKIN_CONTENT_REVISION_GATE = "true";
+    chatSignalRows.value = [];
+    chatSignalRows.reads = 0;
+  });
+
+  afterEach(() => {
+    delete process.env.SAJTMASKIN_CONTENT_REVISION_GATE;
+  });
+
+  it("flaggan AV → tom map och noll DB-läsningar", async () => {
+    delete process.env.SAJTMASKIN_CONTENT_REVISION_GATE;
+    chatSignalRows.value = [
+      {
+        versionId: "ver_1",
+        latestResult: "preflight_passed",
+        latestVerdictRevision: REVISION_N,
+        contentRevision: REVISION_N_PLUS_1,
+        matchingResult: null,
+        matchingVerdictRevision: null,
+      },
+    ];
+
+    const signals = await getLatestQualityGateSignalsForChat("chat_1");
+
+    expect(signals.size).toBe(0);
+    expect(chatSignalRows.reads).toBe(0);
+  });
+
+  it("känd mismatch på senaste raden → stale (inga äldre matchande rader)", async () => {
+    chatSignalRows.value = [
+      {
+        versionId: "ver_1",
+        latestResult: "preflight_passed",
+        latestVerdictRevision: REVISION_N,
+        contentRevision: REVISION_N_PLUS_1,
+        matchingResult: null,
+        matchingVerdictRevision: null,
+      },
+    ];
+
+    const signals = await getLatestQualityGateSignalsForChat("chat_1");
+
+    expect(chatSignalRows.reads).toBe(1);
+    expect(signals.get("ver_1")?.revisionMatch).toBe("stale");
+    expect(signals.get("ver_1")?.verdictRevision).toBe(REVISION_N);
+    expect(signals.get("ver_1")?.contentRevision).toBe(REVISION_N_PLUS_1);
+  });
+
+  it("äldre rad som matchar innehållet vinner över stale latest (samma semantik som single)", async () => {
+    chatSignalRows.value = [
+      {
+        versionId: "ver_1",
+        latestResult: "verifier_failed",
+        latestVerdictRevision: REVISION_N,
+        contentRevision: REVISION_N_PLUS_1,
+        matchingResult: "preflight_passed",
+        matchingVerdictRevision: REVISION_N_PLUS_1,
+      },
+    ];
+
+    const signals = await getLatestQualityGateSignalsForChat("chat_1");
+
+    expect(signals.get("ver_1")?.revisionMatch).toBe("current");
+    expect(signals.get("ver_1")?.result).toBe("preflight_passed");
+  });
+
+  it("saknad revision → unknown, aldrig mismatch", async () => {
+    chatSignalRows.value = [
+      {
+        versionId: "ver_1",
+        latestResult: "preflight_passed",
+        latestVerdictRevision: null,
+        contentRevision: REVISION_N_PLUS_1,
+        matchingResult: null,
+        matchingVerdictRevision: null,
+      },
+    ];
+
+    const signals = await getLatestQualityGateSignalsForChat("chat_1");
+
+    expect(signals.get("ver_1")?.revisionMatch).toBe("unknown");
   });
 });

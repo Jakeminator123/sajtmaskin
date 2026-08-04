@@ -36,7 +36,8 @@ export type RevisionMatch = "current" | "unknown" | "stale";
 export type ContentRevisionSurface =
   | "promote_guard"
   | "preview_receipt"
-  | "status_projection";
+  | "status_projection"
+  | "versions_list";
 
 /**
  * Läses vid varje anrop (ingen modul-nivå-cache) så en flaggändring i en

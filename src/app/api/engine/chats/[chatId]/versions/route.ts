@@ -20,7 +20,13 @@ import { transientDbResponseIfRetryable } from "@/lib/api/transient-db-response"
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
 import { readAll } from "@/lib/logging/event-bus";
 import { selectVersionStatus } from "@/lib/logging/event-bus-projection";
-import { reconcileTerminalDbState } from "@/lib/gen/verify/stale-verification";
+import {
+  reconcileTerminalDbState,
+  type ContentRevisionContext,
+} from "@/lib/gen/verify/stale-verification";
+import { isContentRevisionGateEnabled } from "@/lib/gen/verify/content-revision";
+import { getLatestQualityGateSignalsForChat } from "@/lib/db/services/generation-telemetry";
+import { incContentRevisionMismatch } from "@/lib/observability/metrics";
 
 // P0 stream-abort recovery (2026-04-26). The `/versions` route is the
 // canonical poll surface used by useVersions. By piggy-backing the chat's
@@ -87,7 +93,40 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       }
     }
     if (engineChat && engineVersions.length > 0) {
-      const versionsList = engineVersions.map((v) => ({
+      // Project bus status first so we only pay for a revision batch read when
+      // at least one row is terminal (same gate as `/version-status`).
+      const projectedByVersion = new Map(
+        engineVersions.map((v) => [v.id, selectVersionStatus(readAll(v.id))] as const),
+      );
+      const anyTerminal = [...projectedByVersion.values()].some(
+        (status) => status.phase === "done" || status.phase === "failed",
+      );
+      // Innehållsrevision R15 (flagg-gated): same semantics as `/version-status`,
+      // but ONE batched read for the whole chat — never N+1 on this polled list
+      // path, and never a DB write. Flag off → zero extra reads (today's path).
+      const revisionByVersion =
+        anyTerminal && isContentRevisionGateEnabled()
+          ? await getLatestQualityGateSignalsForChat(engineChat.id).catch(
+              () => new Map(),
+            )
+          : null;
+
+      const versionsList = engineVersions.map((v) => {
+          const projected = projectedByVersion.get(v.id) ?? selectVersionStatus([]);
+          let contentRevision: ContentRevisionContext | undefined;
+          const busTerminal =
+            projected.phase === "done" || projected.phase === "failed";
+          if (busTerminal && revisionByVersion) {
+            const signal = revisionByVersion.get(v.id);
+            if (signal?.revisionMatch === "stale") {
+              incContentRevisionMismatch("versions_list", { verdict: signal.result });
+              contentRevision = {
+                verdictRevision: signal.verdictRevision,
+                currentRevision: signal.contentRevision,
+              };
+            }
+          }
+          return {
           id: v.id,
           versionId: v.id,
           ...previewUrlField(v.preview_url),
@@ -132,12 +171,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
           // write — the lease-safe watchdog write stays on `/version-status` +
           // `/readiness`; a list poll must never write.
           busStatus: reconcileTerminalDbState(
-            selectVersionStatus(readAll(v.id)),
+            projected,
             v.verification_state,
             v.release_state,
+            contentRevision,
           ),
           canPin: false,
-      }));
+      };
+      });
       return NextResponse.json({
         versions: versionsList,
         chatStatus: buildChatRunStatus(engineChat.id, true),
