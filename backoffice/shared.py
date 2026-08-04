@@ -1109,8 +1109,8 @@ PHASE_LABELS = {
 }
 DEFAULT_PHASE_THINKING_BY_TIER: dict[str, dict[str, dict[str, Any]]] = {
     "premium": {
-        "planner": {"thinking": True, "reasoningEffort": "max", "reasoningMode": "pro"},
-        "generator": {"thinking": True, "reasoningEffort": "xhigh", "reasoningMode": "pro"},
+        "planner": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "pro"},
+        "generator": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "pro"},
         "fixer": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
         "verifier": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
         "deploy-assistant": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},

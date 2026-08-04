@@ -86,7 +86,7 @@ describe("generateCode providerOptions", () => {
     });
   });
 
-  it("passes GPT-5.6 xhigh effort and pro reasoning mode", async () => {
+  it("passes GPT-5.6 high effort and pro reasoning mode", async () => {
     const { generateCode } = await loadEngineModule();
 
     generateCode({
@@ -94,13 +94,13 @@ describe("generateCode providerOptions", () => {
       systemPrompt: "System",
       model: "gpt-5.6-sol",
       thinking: true,
-      reasoningEffort: "xhigh",
+      reasoningEffort: "high",
       reasoningMode: "pro",
     });
 
     expect(streamTextMock.mock.calls[0][0].providerOptions).toEqual({
       openai: {
-        reasoningEffort: "xhigh",
+        reasoningEffort: "high",
         reasoningMode: "pro",
       },
     });

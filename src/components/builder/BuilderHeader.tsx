@@ -436,7 +436,7 @@ export function BuilderHeader(props: {
                     </TooltipTrigger>
                     <TooltipContent side="left" className="max-w-xs">
                       <p className="text-xs">
-                        Aktiverar provider-reasoning. Premium använder GPT-5.6 Sol med xhigh/max och
+                        Aktiverar provider-reasoning. Premium använder GPT-5.6 Sol med high och
                         pro-läge enligt fasinställningarna.
                       </p>
                     </TooltipContent>

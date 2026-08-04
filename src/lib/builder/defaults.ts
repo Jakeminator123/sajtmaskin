@@ -45,7 +45,7 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
     value: "premium",
     label: "Premium",
     description:
-      "GPT-5.6 Sol i hela byggkedjan. Planner kör max och generator xhigh med thinking i pro-läge.",
+      "GPT-5.6 Sol i hela byggkedjan. Planner och generator kör high med thinking i pro-läge.",
     hint: "högsta kvalitet",
   },
   {
