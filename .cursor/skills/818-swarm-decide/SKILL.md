@@ -13,14 +13,14 @@ The name is historical: `818` meant eight agents. Since 2026-08-02 it is **three
 ## Pattern (orchestrator = main agent)
 
 1. **One-sentence problem statement** from the user, or ask one clarifying line. Never guess the scope.
-2. **Three** parallel `Task` calls: `explore`, `readonly: true`, `model: composer-2.5-fast` (scan role — canonical slugs in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell)).
+2. **Three** parallel `Task` calls: `explore`, `readonly: true`, `model: cursor-grok-4.5-high-fast` (scan role — canonical slugs in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell)).
 3. **Three fixed angles**, one per agent — see the table below. Do not add a fourth.
 4. Require **short** output: max 6 lines, table or bullets, `%` or H/M/L where it fits. No prose.
 5. **Parent verifies** every load-bearing claim with repo tools before deciding. Code is source of truth; subagents may not see `.git`, may miss an existing guard, and sometimes invent `fil:rad`.
 6. **Aggregate** into one table + **one** recommended action.
 7. **Implement** only if the decision is clear and narrow; otherwise list the blockers and stop.
 8. **Verify**: `npm run typecheck`, targeted `vitest`, `ReadLints` on touched files.
-9. **Review pass**: one readonly agent on `cursor-grok-4.5-high` (judgement role) reviews the **intent of the change**, without rewriting code. Two agents if the diff touches protected paths.
+9. **Review pass**: one readonly agent on `cursor-grok-4.5-high-fast` (judgement role) reviews the **intent of the change**, without rewriting code. Two agents if the diff touches protected paths.
 
 ## The three angles
 

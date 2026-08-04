@@ -1,0 +1,13 @@
+---
+description: Billig subagent-modell = Grok 4.5; aldrig Composer som default
+alwaysApply: true
+---
+
+# Subagent-modeller
+
+När kommandon/skills säger **billig modell**, **scan-roll**, **destillering**
+eller pekar på Composer: använd **Grok 4.5** —
+slug `cursor-grok-4.5-high-fast`.
+
+- Välj **inte** `composer-2.5` / `composer-2.5-fast` (finns inte i Task-utbudet här).
+- Kanonisk tabell: [`.cursor/README.md` § Modellval för subagenter](../README.md#modellval-för-subagenter-kanonisk-tabell).

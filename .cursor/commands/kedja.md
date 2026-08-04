@@ -14,6 +14,33 @@ Kör **en** bugg genom sju steg. Billiga agenter gör det mekaniska, du (orkestr
 
 Modellval kommer från [`.cursor/README.md § Modellval för subagenter`](../README.md#modellval-för-subagenter-kanonisk-tabell). Hitta inte på slugar.
 
+## Delegerat läge — STANDARD för dyra orkestratorer
+
+Kostnaden i kedjan sitter inte i subagenterna utan i orkestratorn: varje
+rapport den tar emot skickas om i **varje** efterföljande tur. Kör därför
+**aldrig** stegen själv från en dyr modell (allt som inte är composer-klass).
+Standard är i stället:
+
+1. Du gör bara **steg 0** (ramen: bugg, acceptans, utanför scope) och visar den.
+2. Starta **en enda runner-subagent** (**billig modell = Grok 4.5**,
+   slug `cursor-grok-4.5-high-fast` ur den kanoniska tabellen — aldrig Composer)
+   som läser den här filen + skillen och kör steg 1–6 i sin helhet —
+   egna worktrees, rött test, fix, maskinell dom. Har runnern inte tillgång
+   till egna subagenter gör den stegen sekventiellt själv; domen är ändå
+   maskinell (testet dömer, inte en åsikt).
+3. Runnern returnerar **endast** sluttabellen ur rapportformatet (~15 rader) —
+   aldrig mellanrapporter, diffar eller testutskrifter i löptext. Tabellen ska
+   ge **spårbarhet för spetsfixar**: per kandidat worktree-sökväg på disk,
+   branch, ansats och utfall (även utslagna — deras diffar ligger kvar i
+   `.cursor/kedja/`), samt vem som gjorde vad (repro/fix/dom).
+4. Du kör själv **steg 7** (bugbot på vinnarens diff — billigt, kort svar),
+   verifierar acceptanskommandot i vinnarens worktree med egna ögon, och
+   rapporterar.
+
+Att själv driva alla sju stegen är tillåtet bara när orkestratorn redan är en
+billig modell (Grok 4.5), eller när användaren uttryckligen ber om det (t.ex. för en
+knivig bugg där mellanbesluten i steg 4/6 behöver den dyra modellens omdöme).
+
 ## Stoppvillkor — läs dessa först
 
 Pipelinen ska **avbrytas och rapportera**, inte improvisera, när:
@@ -47,7 +74,7 @@ npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
 
 Upprepa med `-b`, `-c` … per kandidat. `worktree:link` kräver att worktreet redan är registrerat, så ordningen är låst. Använd **aldrig** rå `git worktree remove` — med eller utan `--force` — eftersom junction-fällan tömmer huvudcheckoutens `node_modules`. En hook blockerar båda.
 
-### 2. Repro — 1 agent, skrivrätt, `cursor-grok-4.5-high`
+### 2. Repro — 1 agent, skrivrätt, `cursor-grok-4.5-high-fast`
 
 Agenten skriver **två** saker i kandidat **a**:s worktree:
 
@@ -60,7 +87,7 @@ Motprovet är inte valfritt. Ett rött test säger bara "detta får inte hända"
 
 Kopiera testfilen till övriga kandidat-worktrees när den är verifierat röd, så alla döms av exakt samma prov.
 
-### 3. Lokalisera — 3 parallella, `readonly: true`, `composer-2.5-fast`
+### 3. Lokalisera — 3 parallella, `readonly: true`, `cursor-grok-4.5-high-fast`
 
 Tre konkurrerande hypoteser om rotorsaken, en agent var, max 5 rader vardera. De ser samma testutskrift men får olika ingångar (kodvägen, anropsplatserna, testet självt).
 
@@ -68,7 +95,7 @@ Tre konkurrerande hypoteser om rotorsaken, en agent var, max 5 rader vardera. De
 
 Läs koden på de ankare hypoteserna pekar ut. Enas två eller fler om samma ställe är det en stark signal. Motsäger de varandra: kör steg 3 igen med en skarpare fråga, **en** gång. Fortfarande oklart → stopp.
 
-### 5. Fixa — N parallella, skrivrätt, `cursor-grok-4.5-high`
+### 5. Fixa — N parallella, skrivrätt, `cursor-grok-4.5-high-fast`
 
 En agent per worktree, samma rotorsak, men **uttryckligen olika ansats** — du namnger ansatsen per kandidat i prompten. Låter du dem välja själva får du samma svar N gånger: de har ju samma rotorsak, samma test och samma modell, så de konvergerar.
 
@@ -106,6 +133,7 @@ Backlog-raden bockas **inte** av automatiskt. Det görs manuellt när fixen är 
 
 ## Anti-mönster
 
+- **Dyr orkestrator som driver stegen själv.** Varje subagent-rapport den tar emot betalas om i varje senare tur — använd delegerat läge (ovan).
 - Hoppa över steg 2 för att buggen "är uppenbar". Utan rött test finns ingen domare, och då är pipelinen bara en dyrare `/818`.
 - Skriva kod i huvudcheckouten, eller `git checkout` där (`agent-worktree.mdc`).
 - Låta fix-agenterna välja rotorsak själva — de får en, du valde den i steg 4.
