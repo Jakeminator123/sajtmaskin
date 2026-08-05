@@ -137,7 +137,7 @@ Full Repository Path: {WINNER_WORKTREE_PATH}
 Diff: uncommitted changes
 ```
 
-**Linked-worktree fallback (verified 2026-08-05):** Bugbot cannot compute a diff inside a linked worktree (`.git` is a file there) — both `uncommitted changes` and `branch changes` return "diff is empty". Save the winner's patch to `.cursor/kedja/<run>/kandidat-<x>.diff` first, then run the pass against the MAIN checkout with `Diff: natural language`, a per-file Change Description, and Custom Instructions telling it to read that patch file and review it as if applied. Document the pass as `bugbot-local`.
+**Linked-worktree fallback (verified 2026-08-05):** Bugbot cannot compute a diff inside a linked worktree (`.git` is a file there) — both `uncommitted changes` and `branch changes` return "diff is empty". Save the winner's patch to `.cursor/kedja/<run>/kandidat-<x>.diff` first — with `git add -A -N` then `git diff HEAD`, the same procedure as `captureDiff` in `scripts/cursor/kedja-clean.mjs`, or the untracked repro test is missing from the patch and Bugbot reviews an incomplete winner. Then run the pass against the MAIN checkout with `Diff: natural language`, a per-file Change Description, and Custom Instructions telling it to read that patch file and review it as if applied. Document the pass as `bugbot-local`.
 
 ## Judging order
 
