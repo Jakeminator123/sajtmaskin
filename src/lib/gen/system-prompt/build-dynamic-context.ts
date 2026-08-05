@@ -76,6 +76,7 @@ import {
 } from "./sections/dossiers";
 import {
   renderExistingRoutePagesBlock,
+  renderHydrationDeterminismBlock,
   renderLucideIconsReminderBlock,
   renderRequiredImportsChecklistBlock,
   renderRoutePlanBlock,
@@ -293,6 +294,7 @@ export function buildDynamicContext(
     }),
   );
   parts.push(...renderScaffoldProtectedPathsBlock());
+  parts.push(...renderHydrationDeterminismBlock());
   // E4 (OMTAG fas 2·C) — deterministic shadcn imports checklist. Placed
   // right after the route plan so the LLM has scaffold + route context
   // in mind when it reads which components are about to be in play.

@@ -528,6 +528,15 @@ export function renderLucideIconsReminderBlock(): string[] {
   ];
 }
 
+export function renderHydrationDeterminismBlock(): string[] {
+  return [
+    "## Render determinism (hydration)",
+    "",
+    "- Do NOT call `Math.random()`, `Date.now()`, `new Date()` with no arguments, `performance.now()`, or `crypto.randomUUID()` in render scope (component body, JSX, `useState`/`useMemo` initializers). These are non-deterministic across server and client and cause React hydration mismatches. Use deterministic values, or move the call into `useEffect` after mount.",
+    "",
+  ];
+}
+
 /** Exposed for tests only. */
 export const __testing = {
   collectGroups,
