@@ -32,10 +32,36 @@ describe("heredoc-guard hook", () => {
   });
 
   it("denies a heredoc hidden behind a search command in an earlier segment", () => {
-    // Bypass-lås: allowlistan för sökverktyg vägs per segment. Mot hela
-    // kommandosträngen räckte det att nämna `rg` någonstans för att slippa
-    // igenom med en riktig heredoc i nästa segment.
+    // Bypass-lås: att nämna ett sökverktyg tidigare på raden fick förr hela
+    // segmentet att undantas, så en riktig heredoc slank igenom.
     expect(ask(`rg foo src; ${COMMIT_HEREDOC}`).permission).toBe("deny");
+  });
+
+  it("denies a heredoc hidden behind pwsh:s `&`-separator", () => {
+    // Samma bypass som ovan men med `&` i stället för `;`. Segmentdelningen
+    // saknade `&`, så `;`-formen nekades medan denna släpptes igenom.
+    expect(ask(`rg foo src & ${COMMIT_HEREDOC}`).permission).toBe("deny");
+    expect(ask(`findstr foo src & ${COMMIT_HEREDOC}`).permission).toBe("deny");
+  });
+
+  it("allows a commit message whose quoted text contains a semicolon", () => {
+    // Segmentdelningen respekterar citat. Utan det carvades meddelandet i
+    // falska segment, varav ett började med `cat` och nekades.
+    expect(
+      ask('git commit -m "fix: rensa a; cat <<EOF namns bara som text"').permission,
+    ).toBe("allow");
+  });
+
+  it("allows a commit message that names a .sh file next to the token", () => {
+    // Konsumenten känns igen först i segmentet. Matchad var som helst träffade
+    // `\bsh\b` även i `.sh`-suffixet och nekade ett giltigt commit-meddelande.
+    expect(
+      ask('git commit -m "fix deploy.sh and document <<EOF antipattern"').permission,
+    ).toBe("allow");
+  });
+
+  it("still denies a path-invoked shell that reads a heredoc", () => {
+    expect(ask("/usr/bin/sh <<EOF\necho hej\nEOF").permission).toBe("deny");
   });
 
   it("allows a commit message that only mentions the token as text", () => {

@@ -30,30 +30,59 @@ import { readFileSync } from "node:fs";
 const HEREDOC_RE = /<<-?[ \t]*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1/;
 
 /**
- * Commands whose whole job is to look for a literal string, so a `<<EOF` in
- * their arguments is a search pattern rather than a heredoc. Checked PER
- * SEGMENT: against the whole command it would be a bypass, since
- * `rg .; git commit -m "$(cat <<'EOF' … )"` mentions `rg` somewhere.
+ * Commands that actually consume a heredoc body, recognised only at the START
+ * of a segment (optionally via a path, `…/bin/sh <<EOF`).
+ *
+ * Anchoring matters. Matching the consumer ANYWHERE in the segment denied
+ * `git commit -m "fix deploy.sh and document <<EOF antipattern"`, because
+ * `\bsh\b` also matches the `.sh` suffix in a filename. A real heredoc opener
+ * always stands first in its own segment; anything after a `-m` is prose.
  */
-const SEARCH_TOOLS = /(?:^|[\s;|(])(?:Select-String|rg|grep|findstr|ack|ag)(?:\.exe)?(?:$|[\s;|])/i;
+const HEREDOC_CONSUMER_AT_START =
+  /^(?:\S*[\\/])?(?:cat|tee|read|bash|sh|zsh|ssh|dd|psql|sqlite3)(?:\.exe)?(?=$|\s)/i;
 
 /**
- * Commands that actually consume a heredoc body. Quote-stripping (the trick
- * `worktree-force-guard.mjs` uses to ignore mere mentions) is unavailable here,
- * because the real offender lives INSIDE quotes: `git commit -m "$(cat <<'EOF'`.
- */
-const HEREDOC_CONSUMERS = /\b(?:cat|tee|read|bash|sh|zsh|ssh|dd|psql|sqlite3)\b/i;
-
-/**
- * Split into independently executed parts. Newline counts as a separator, so a
- * heredoc's opening line becomes its own segment and its body does not leak
- * into the judgement.
+ * Split into independently executed parts.
+ *
+ * Newlines split unconditionally. A heredoc's opening line leaves a quote OPEN
+ * by construction (`-m "$(cat <<'EOF'`), so quote tracking has to restart per
+ * line — otherwise the whole body counts as one quoted string and the opener
+ * never ends a segment.
+ *
+ * Within a line, `;` `|` `&` `&&` `||` separate only OUTSIDE quotes. A splitter
+ * that ignored quoting carved `git commit -m "fix: rensa a; cat <<EOF …"` into
+ * fake segments and denied a single valid commit. `&` is included because pwsh
+ * accepts it as a separator; leaving it out was a bypass — a real heredoc after
+ * `rg foo src &` was allowed while the `;` form was denied.
  */
 function shellSegments(command) {
-  return command
-    .split(/&&|\|\||[;|\n]/)
-    .map((segment) => segment.trim())
-    .filter(Boolean);
+  const segments = [];
+  for (const line of command.split(/\n/)) {
+    let current = "";
+    let quote = null;
+    for (let i = 0; i < line.length; i += 1) {
+      const ch = line[i];
+      if (quote) {
+        current += ch;
+        if (ch === quote) quote = null;
+        continue;
+      }
+      if (ch === '"' || ch === "'") {
+        quote = ch;
+        current += ch;
+        continue;
+      }
+      if (ch === ";" || ch === "|" || ch === "&") {
+        if (line[i + 1] === ch) i += 1; // `&&` / `||`
+        segments.push(current);
+        current = "";
+        continue;
+      }
+      current += ch;
+    }
+    segments.push(current);
+  }
+  return segments.map((segment) => segment.trim()).filter(Boolean);
 }
 
 /**
@@ -61,19 +90,23 @@ function shellSegments(command) {
  * characters. Two accepted shapes:
  *   - the delimiter ends the segment (`… -m "$(cat <<'EOF'` + newline), which is
  *     what every real heredoc opener looks like;
- *   - the segment also names a command that reads one (`cat <<EOF > out.txt`).
- * Anything else is treated as literal text, so `git commit -m "förklara
- * <<EOF-syntax"` and `git log -S"<<EOF"` run untouched. The residual is a
- * heredoc opener written mid-segment by a command not on the consumer list;
- * that fails open, and pwsh's own parse error is the backstop.
+ *   - the segment STARTS with a command that reads one (`cat <<EOF > out.txt`).
+ * Anything else is literal text, so `git commit -m "förklara <<EOF-syntax"`,
+ * `git log -S"<<EOF"` and `rg "<<EOF" docs` run untouched — no search-tool
+ * allowlist needed, since a search tool is simply not a consumer. That
+ * allowlist used to exist and was itself a bypass: it returned early on the
+ * whole segment, so a genuine opener at the segment end slipped through
+ * whenever a search tool appeared earlier on the line.
+ *
+ * The residual is a heredoc opener written mid-segment by a command not on the
+ * consumer list; that fails open, and pwsh's own parse error is the backstop.
  */
 function heredocOpener(segment) {
   const match = HEREDOC_RE.exec(segment);
   if (!match) return null;
-  if (SEARCH_TOOLS.test(segment)) return null;
 
   const endsSegment = match.index + match[0].length === segment.length;
-  if (!endsSegment && !HEREDOC_CONSUMERS.test(segment)) return null;
+  if (!endsSegment && !HEREDOC_CONSUMER_AT_START.test(segment)) return null;
 
   return match[2];
 }
