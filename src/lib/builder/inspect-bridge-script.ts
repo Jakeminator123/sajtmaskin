@@ -27,9 +27,13 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     rect: "sajtmaskin:inspect:rect",
     region: "sajtmaskin:inspect:region",
     requestSections: "sajtmaskin:inspect:request-sections",
-    sections: "sajtmaskin:inspect:sections"
+    sections: "sajtmaskin:inspect:sections",
+    clientError: "sajtmaskin:inspect:client-error"
   };
   var MAX_SECTION_CANDIDATES = 40;
+  var MAX_CLIENT_ERRORS = 5;
+  var postedClientErrors = 0;
+  var seenClientErrorMessages = Object.create(null);
   var enabled = false;
   var box = null;
   var selBox = null;
@@ -149,6 +153,67 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
   function post(type, payload) {
     try { window.parent.postMessage({ type: type, source: "sajtmaskin-inspect", payload: payload }, PARENT || "*"); } catch (e) {}
   }
+  function truncateStr(v, max) {
+    if (v == null) return "";
+    var s = String(v);
+    return s.length > max ? s.slice(0, max) : s;
+  }
+  function postClientError(kind, message, stack) {
+    if (postedClientErrors >= MAX_CLIENT_ERRORS) return;
+    var msg = truncateStr(message, 500).trim();
+    if (!msg) return;
+    if (seenClientErrorMessages[msg]) return;
+    seenClientErrorMessages[msg] = 1;
+    postedClientErrors += 1;
+    var payload = {
+      kind: kind,
+      message: msg,
+      href: location.pathname || "/"
+    };
+    if (stack) payload.stack = truncateStr(stack, 1000);
+    post(T.clientError, payload);
+  }
+  function messageFromUnknown(v) {
+    if (v == null) return "";
+    if (typeof v === "string") return v;
+    if (v && typeof v.message === "string") return v.message;
+    try { return String(v); } catch (e) { return ""; }
+  }
+  function stackFromUnknown(v) {
+    if (v && typeof v.stack === "string") return v.stack;
+    return "";
+  }
+  window.addEventListener("error", function (e) {
+    if (!e) return;
+    if (!e.message && !e.error) return;
+    var msg = e.message || messageFromUnknown(e.error) || "Script error";
+    var stack = stackFromUnknown(e.error) || "";
+    postClientError("uncaught", msg, stack);
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    if (!e) return;
+    var reason = e.reason;
+    postClientError("unhandledrejection", messageFromUnknown(reason) || "Unhandled rejection", stackFromUnknown(reason));
+  });
+  (function wrapConsoleError() {
+    var orig = console.error;
+    if (typeof orig !== "function") return;
+    console.error = function () {
+      try {
+        var first = arguments.length > 0 ? arguments[0] : "";
+        var text = typeof first === "string" ? first : messageFromUnknown(first);
+        if (text && /hydrat|server[- ]rendered|not match|didn.t match|mismatch/i.test(text)) {
+          var stack = "";
+          for (var i = 0; i < arguments.length; i++) {
+            var s = stackFromUnknown(arguments[i]);
+            if (s) { stack = s; break; }
+          }
+          postClientError("hydration", text, stack);
+        }
+      } catch (ignore) {}
+      return orig.apply(console, arguments);
+    };
+  })();
   function pickAt(x, y) {
     var stack = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [document.elementFromPoint(x, y)];
     for (var i = 0; i < stack.length; i++) {

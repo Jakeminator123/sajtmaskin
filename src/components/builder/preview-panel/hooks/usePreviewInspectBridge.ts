@@ -189,6 +189,11 @@ export function usePreviewInspectBridge(options: {
   requestSections?: boolean;
   /** Sektionskandidater från bron → matas in i extractSectionZones-vägen. */
   onSections?: (candidates: BridgeSectionCandidate[]) => void;
+  /**
+   * Browser-runtime-fel från preview-iframen (hydration/uncaught/…).
+   * Accepteras även när inspectMode är av — felen uppstår utan inspektion.
+   */
+  onClientError?: (payload: unknown) => void;
 }) {
   const {
     enabled,
@@ -207,6 +212,7 @@ export function usePreviewInspectBridge(options: {
     onBridgeReady,
     requestSections = false,
     onSections,
+    onClientError,
   } = options;
 
   const childReadyRef = useRef(false);
@@ -282,6 +288,10 @@ export function usePreviewInspectBridge(options: {
   useEffect(() => {
     onBridgeReadyRef.current = onBridgeReady;
   }, [onBridgeReady]);
+  const onClientErrorRef = useRef(onClientError);
+  useEffect(() => {
+    onClientErrorRef.current = onClientError;
+  }, [onClientError]);
   useEffect(() => {
     if (!enabled || !active || !inspectMode) return;
     if (childReadyRef.current) return;
@@ -331,6 +341,13 @@ export function usePreviewInspectBridge(options: {
         postMode(liveRef.current);
         // Placement kan redan vara aktiv när bron blir ready.
         if (requestSectionsRef.current) postRequestSections();
+        return;
+      }
+
+      // Browser-fel: före active/liveRef — fångas utan inspect-läge (scriptet
+      // finns bara i builder-previews). Parent POST:ar vidare till error-log.
+      if (data.type === INSPECT_BRIDGE_MESSAGE.clientError) {
+        onClientErrorRef.current?.(data.payload);
         return;
       }
 

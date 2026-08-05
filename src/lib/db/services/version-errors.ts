@@ -26,8 +26,15 @@ type VersionErrorLogPayload = {
  * sätter därför aldrig fältet — utan det här undantaget räknas den som pass 0
  * och raderas vid nästa rena follow-up på samma version. Det träffade R7:s
  * missing-env-rad, vars enda syfte är att vara durabel (granskning 2026-07-29).
+ *
+ * `preview:client-error` (browser-runtime-fel speglade från preview-iframen,
+ * se `src/lib/builder/preview-client-error-report.ts`) är samma sorts
+ * observation och sätter heller aldrig `meta.repairPassIndex`.
  */
-export const PRUNE_EXEMPT_CATEGORIES = ["f3-readiness:missing-env"] as const;
+export const PRUNE_EXEMPT_CATEGORIES = [
+  "f3-readiness:missing-env",
+  "preview:client-error",
+] as const;
 
 type EngineScaffoldContext = {
   scaffoldId: string;

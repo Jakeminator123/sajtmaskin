@@ -221,4 +221,39 @@ describe("PreviewPanel inspect bridge recovery", () => {
       expect(screen.queryByText("Inspektion aktiv")).toBeNull();
     });
   }, 15000);
+
+  it("forged meddelande utan source-stämpel ignoreras (pick öppnas inte)", async () => {
+    render(<InspectOnHarness {...buildPreviewPanelProps()} />);
+
+    const iframe = document.getElementById("preview-iframe") as HTMLIFrameElement | null;
+    expect(iframe).toBeTruthy();
+    const contentWindow = attachFakeContentWindow(iframe!);
+
+    await act(async () => {
+      postBridgeMessage(contentWindow, INSPECT_BRIDGE_MESSAGE.ready);
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: contentWindow,
+          origin: "null",
+          data: {
+            type: INSPECT_BRIDGE_MESSAGE.pick,
+            // saknar source: "sajtmaskin-inspect"
+            payload: {
+              tag: "button",
+              text: "Forged",
+              rect: { x: 10, y: 10, width: 40, height: 20 },
+              viewport: { w: 1280, h: 800 },
+              click: { x: 20, y: 20 },
+            },
+          },
+        }),
+      );
+    });
+
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.queryByText(/Valt: button/i)).toBeNull();
+  }, 15000);
 });
