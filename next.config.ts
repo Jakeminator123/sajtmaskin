@@ -26,6 +26,13 @@ const nextConfig: NextConfig = {
         "./node_modules/playwright-core/browsers.json",
         "./node_modules/@sparticuz/chromium/bin/**",
       ],
+      // Product Postcheck startar samma Chromium och är också en egen
+      // serverless-funktion. Nyckeln är en glob: "[chatId]" literalt skulle
+      // tolkas som en teckenklass och aldrig matcha.
+      "/api/engine/chats/*/product-postcheck": [
+        "./node_modules/playwright-core/browsers.json",
+        "./node_modules/@sparticuz/chromium/bin/**",
+      ],
     // @sajtmaskin registry route reads committed block TSX files at request
     // time (same fs pattern as loadScaffoldFiles); force-include them so NFT
     // never drops them from the serverless trace. Key is a glob — "/r/*"

@@ -108,6 +108,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       warnings: [],
       warningCount: 0,
       productBlocked: false,
+      routesChecked: 0,
       durationMs: 0,
       checkedUrl: previewUrl?.trim() || null,
     });
@@ -143,6 +144,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       warnings: [],
       warningCount: 0,
       productBlocked: false,
+      routesChecked: 0,
       durationMs: 0,
       checkedUrl: null,
     });
@@ -216,6 +218,7 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
       warnings: [],
       warningCount: 0,
       productBlocked: false,
+      routesChecked: 0,
       durationMs: 0,
       checkedUrl: null,
       error: err instanceof Error ? err.message : "Product postcheck failed",
