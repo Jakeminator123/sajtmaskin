@@ -532,6 +532,7 @@ export async function finalizeAndSaveVersion(
   await persistOrchestrationSnapshot({
     chatId,
     versionId: version.id,
+    filesJson,
     orchestrationStreamMeta,
     lineageHash,
     buildIntent,

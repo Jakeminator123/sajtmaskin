@@ -85,7 +85,7 @@ describe("provider-specific pending integration dossiers", () => {
     ).toEqual(["mongodb-atlas"]);
   });
 
-  it("accumulates ids across F2 tweaks and clears a delivered dossier", () => {
+  it("accumulates ids across F2 tweaks and clears only exact file-evidenced delivery", () => {
     const accumulated = mergePersistedOrchestrationSnapshots(
       { mutedDossierIds: ["mongodb-atlas"] },
       { mutedDossierIds: ["stripe-checkout"] },
@@ -97,6 +97,7 @@ describe("provider-specific pending integration dossiers", () => {
 
     const delivered = mergePersistedOrchestrationSnapshots(accumulated, {
       selectedDossierIds: ["mongodb-atlas"],
+      fileEvidenceDossierIds: ["mongodb-atlas"],
       mutedDossierIds: [],
     });
     expect(readMutedDossierIdsFromSnapshot(delivered)).toEqual(["stripe-checkout"]);

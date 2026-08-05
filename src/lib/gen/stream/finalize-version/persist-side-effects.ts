@@ -26,6 +26,7 @@ import {
 } from "@/lib/gen/orchestration-snapshot";
 import type { FinalizePreflightIssue } from "../finalize-preflight";
 import { buildFinalizePreflightLogBundle } from "../finalize-preflight-logs";
+import { resolveFinalDossierFileEvidence } from "./dossier-file-evidence";
 import { buildSyntaxFailureLog, buildVerifierFailureLogs } from "./failure-log";
 import type {
   FinalizePreflightResult,
@@ -36,15 +37,26 @@ import type { AutofixRiskSummary } from "./pre-phases";
 export async function persistOrchestrationSnapshot(params: {
   chatId: string;
   versionId: string;
+  /** Exact post-merge payload already persisted on the version row. */
+  filesJson: string;
   orchestrationStreamMeta: Record<string, unknown> | null | undefined;
   lineageHash: string | null | undefined;
   buildIntent: BuildIntent | undefined;
 }): Promise<void> {
-  const { chatId, versionId, orchestrationStreamMeta, lineageHash, buildIntent } = params;
+  const { chatId, versionId, filesJson, orchestrationStreamMeta, lineageHash, buildIntent } = params;
   if (!orchestrationStreamMeta || typeof orchestrationStreamMeta !== "object") return;
   try {
+    const { fileEvidenceCapabilities, fileEvidenceDossierIds } =
+      resolveFinalDossierFileEvidence(filesJson);
     const snap = buildPersistedOrchestrationSnapshot({
-      streamMeta: { ...orchestrationStreamMeta, lineageHash: lineageHash ?? undefined },
+      streamMeta: {
+        ...orchestrationStreamMeta,
+        // Finalize-owned truth: overwrite the base-version evidence from
+        // orchestration with what the persisted post-merge version contains.
+        fileEvidenceCapabilities,
+        fileEvidenceDossierIds,
+        lineageHash: lineageHash ?? undefined,
+      },
       versionId,
       chatId,
       buildIntent: buildIntent ?? null,

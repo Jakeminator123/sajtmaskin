@@ -40,6 +40,7 @@ const PROTECTED_CAPABILITY_SIGNAL_KEYS = [
   "removedCapabilities",
   "readdedCapabilities",
   "fileEvidenceCapabilities",
+  "fileEvidenceDossierIds",
   "requestedCapabilities",
   "selectedDossierIds",
   "removedDossierIds",
@@ -253,14 +254,17 @@ export function mergePersistedOrchestrationSnapshots(
     );
   }
   // Provider-specific companion to mutedCapabilities. Selection ids are
-  // accumulated across ordinary F2 tweaks, then leave the pending set once a
-  // successful F3 round selected/delivered them or the user removed them. A
-  // newly selected sibling replaces the older sibling for the same capability
-  // ("byt MongoDB mot Postgres"); selection permits only one dossier per
-  // capability, so retaining both would make F3 build two competing providers.
+  // accumulated across ordinary F2 tweaks, then leave the pending set only
+  // once the final persisted version has exact dossier file evidence or the
+  // user removed them. `selectedDossierIds` is intent, not delivery proof: a
+  // failed/incomplete F3 round may select MongoDB without persisting its files.
+  // A newly selected sibling replaces the older sibling for the same
+  // capability ("byt MongoDB mot Postgres"); selection permits only one
+  // dossier per capability, so retaining both would make F3 build two
+  // competing providers.
   if ("mutedDossierIds" in base || "mutedDossierIds" in next) {
     const deliveredOrRemoved = new Set([
-      ...normalizeCapabilityList(next.selectedDossierIds),
+      ...normalizeCapabilityList(next.fileEvidenceDossierIds),
       ...normalizeCapabilityList(merged.removedDossierIds),
     ]);
     // Den durabla capability-tombstonen måste städa här också, precis som den

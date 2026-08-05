@@ -107,6 +107,7 @@ vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
 
 vi.mock("@/lib/gen/export/project-scaffold", () => ({
   buildCompleteProject,
+  SCAFFOLD_BASELINE_FILE_PATHS: [],
 }));
 
 vi.mock("@/lib/gen/export/project-scaffold-ui-reader", () => ({
@@ -174,6 +175,7 @@ vi.mock("@/lib/gen/validation/seo-preflight", () => ({
 }));
 
 import { finalizeAndSaveVersion } from "./finalize-version";
+import { persistOrchestrationSnapshot } from "./finalize-version/persist-side-effects";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 
 const BASIC_GENERATED_CONTENT =
@@ -593,6 +595,72 @@ export default function Page() {
     expect(saved?.scaffoldId).toBe("scaffold_prev");
     expect(saved?.promptStrategy).toBe("deep");
     expect(saved?.lastVersionId).toBe("ver_1");
+  });
+
+  it("keeps selected MongoDB pending when the persisted post-merge version has no MongoDB files", async () => {
+    getChatOrchestrationSnapshot.mockResolvedValueOnce({
+      mutedCapabilities: ["database"],
+      mutedDossierIds: ["mongodb-atlas"],
+    });
+
+    await persistOrchestrationSnapshot({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      filesJson: JSON.stringify([{ path: "app/page.tsx" }]),
+      orchestrationStreamMeta: {
+        selectedDossierIds: ["mongodb-atlas"],
+        mutedCapabilities: [],
+        mutedDossierIds: [],
+        // Stale base-version evidence must be overwritten by the final files.
+        fileEvidenceCapabilities: ["database"],
+      },
+      lineageHash: null,
+      buildIntent: undefined,
+    });
+
+    const saved = updateChatOrchestrationSnapshot.mock.calls[0]?.[1] as Record<
+      string,
+      unknown
+    >;
+    expect(saved.fileEvidenceCapabilities).toEqual([]);
+    expect(saved.fileEvidenceDossierIds).toEqual([]);
+    expect(saved.mutedCapabilities).toEqual(["database"]);
+    expect(saved.mutedDossierIds).toEqual(["mongodb-atlas"]);
+  });
+
+  it("clears pending capability and exact id when the persisted version has MongoDB files", async () => {
+    getChatOrchestrationSnapshot.mockResolvedValueOnce({
+      mutedCapabilities: ["database"],
+      mutedDossierIds: ["mongodb-atlas"],
+    });
+
+    await persistOrchestrationSnapshot({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      filesJson: JSON.stringify([
+        { path: "lib/mongodb.ts" },
+        { path: "lib/seed-data.ts" },
+        { path: "components/db-config-notice.tsx" },
+        { path: "app/api/health/db/route.ts" },
+      ]),
+      orchestrationStreamMeta: {
+        selectedDossierIds: ["mongodb-atlas"],
+        mutedCapabilities: [],
+        mutedDossierIds: [],
+        fileEvidenceCapabilities: [],
+      },
+      lineageHash: null,
+      buildIntent: undefined,
+    });
+
+    const saved = updateChatOrchestrationSnapshot.mock.calls[0]?.[1] as Record<
+      string,
+      unknown
+    >;
+    expect(saved.fileEvidenceCapabilities).toEqual(["database"]);
+    expect(saved.fileEvidenceDossierIds).toEqual(["mongodb-atlas"]);
+    expect(saved.mutedCapabilities).toEqual([]);
+    expect(saved.mutedDossierIds).toEqual([]);
   });
 
   it("propagates when transactional assistant+draft persist fails (no manual message delete)", async () => {
