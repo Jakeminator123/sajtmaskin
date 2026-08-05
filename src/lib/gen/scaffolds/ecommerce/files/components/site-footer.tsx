@@ -39,7 +39,7 @@ export function SiteFooter() {
         ))}
       </div>
       <div className="mx-auto mt-10 max-w-6xl border-t pt-6 text-center text-xs text-muted-foreground">
-        &copy; {new Date().getFullYear()} [Butiksnamn]. Alla rättigheter förbehållna.
+        &copy; 2026 [Butiksnamn]. Alla rättigheter förbehållna.
       </div>
     </footer>
   );

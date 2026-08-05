@@ -54,6 +54,10 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   // recreate it). Follows the pattern of other small non-required sections.
   { match: /^existing route pages/i, priority: 88 },
   { match: /^scaffold-default files$/i, priority: 90, required: true },
+  // Render-determinism (hydration) rule: dropping it under a tight budget
+  // silently reintroduces the nondeterministic-render pattern the advisory
+  // detector keeps flagging (same rationale as the AI SDK contract block).
+  { match: /^render determinism/i, priority: 88, required: true },
   { match: /^required imports checklist$/i, priority: 83 },
   { match: /^your toolkit$/i, priority: 85, required: true },
   { match: /^available dossiers$/i, priority: 87 },
