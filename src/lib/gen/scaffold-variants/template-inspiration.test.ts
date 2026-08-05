@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CodeFile } from "../parser";
 import blobManifest from "../../templates/template-blob-manifest.json";
@@ -9,6 +9,63 @@ import {
   VARIANT_TEMPLATE_FULL_PROJECT_CATEGORIES,
   VARIANT_TEMPLATE_REVIEWED_FULL_PROJECTS,
 } from "./template-inspiration";
+
+const archiveLoaderMock = vi.hoisted(() => {
+  const state = {
+    inFlight: 0,
+    maxInFlight: 0,
+    callCount: 0,
+    delayMs: 0,
+    files: [] as CodeFile[],
+  };
+
+  const loadLocalV0TemplateReferenceFiles = vi.fn(
+    async (templateId: string, options?: { timeoutMs?: number; signal?: AbortSignal }) => {
+      state.callCount += 1;
+      state.inFlight += 1;
+      state.maxInFlight = Math.max(state.maxInFlight, state.inFlight);
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, state.delayMs);
+          const signal = options?.signal;
+          if (!signal) return;
+          const onAbort = () => {
+            clearTimeout(timer);
+            reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+          };
+          if (signal.aborted) {
+            onAbort();
+            return;
+          }
+          signal.addEventListener("abort", onAbort, { once: true });
+        });
+        return {
+          source: { id: templateId },
+          files: state.files,
+        };
+      } finally {
+        state.inFlight -= 1;
+      }
+    },
+  );
+
+  return {
+    state,
+    loadLocalV0TemplateReferenceFiles,
+    reset() {
+      state.inFlight = 0;
+      state.maxInFlight = 0;
+      state.callCount = 0;
+      state.delayMs = 0;
+      state.files = [];
+      loadLocalV0TemplateReferenceFiles.mockClear();
+    },
+  };
+});
+
+vi.mock("@/lib/templates/local-v0-template-source", () => ({
+  loadLocalV0TemplateReferenceFiles: archiveLoaderMock.loadLocalV0TemplateReferenceFiles,
+}));
 
 describe("selectVariantTemplateReference", () => {
   it("selects at most one allowlisted complete-project reference", () => {
@@ -241,5 +298,94 @@ describe("extractVariantTemplateStructuralReferences", () => {
 
     expect(loadFiles).not.toHaveBeenCalled();
     expect(inspiration?.structuralReferences).toEqual([]);
+  });
+});
+
+describe("loadDefaultStructuralReferences archive timeout", () => {
+  const archiveFiles: CodeFile[] = [
+    {
+      path: "app/page.tsx",
+      language: "tsx",
+      content: "export default function Page() { return <main>Reference</main>; }",
+    },
+    {
+      path: "app/globals.css",
+      language: "css",
+      content: ":root { --radius: 1rem; }",
+    },
+  ];
+
+  const bypassAddendum = () =>
+    ({ state: "missing", structuralReferences: null }) as const;
+
+  beforeEach(() => {
+    archiveLoaderMock.reset();
+    archiveLoaderMock.state.files = archiveFiles;
+  });
+
+  it("caches a successful default archive load so the loader runs once across two calls", async () => {
+    archiveLoaderMock.state.delayMs = 5;
+
+    const options = {
+      includeStructure: true,
+      timeoutMs: 500,
+      loadAddendum: bypassAddendum,
+    };
+
+    const first = await resolveVariantTemplateInspiration(
+      { sourceTemplateIds: ["2fPrB0auQxF"] },
+      options,
+    );
+    const second = await resolveVariantTemplateInspiration(
+      { sourceTemplateIds: ["2fPrB0auQxF"] },
+      options,
+    );
+
+    expect(first?.structuralReferences.length).toBeGreaterThan(0);
+    expect(second?.structuralReferences).toEqual(first?.structuralReferences);
+    expect(archiveLoaderMock.state.callCount).toBe(1);
+    expect(archiveLoaderMock.loadLocalV0TemplateReferenceFiles).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * withTimeout avbryter bara väntan; cache-posten raderas i catch medan den
+   * underliggande arkivläsningen lever kvar. Nästa anrop startar därför en
+   * andra samtidiga load för samma templateId.
+   */
+  it("does not start a second concurrent archive load for the same templateId after timeout", async () => {
+    archiveLoaderMock.state.delayMs = 200;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const options = {
+      includeStructure: true,
+      timeoutMs: 20,
+      loadAddendum: bypassAddendum,
+    };
+
+    try {
+      const first = resolveVariantTemplateInspiration(
+        { sourceTemplateIds: ["0brPGNpjNkt"] },
+        options,
+      );
+      await first;
+
+      expect(archiveLoaderMock.state.callCount).toBeGreaterThanOrEqual(1);
+
+      const second = resolveVariantTemplateInspiration(
+        { sourceTemplateIds: ["0brPGNpjNkt"] },
+        options,
+      );
+      // Enough wall time for a cache-miss retry to call the loader again if it would.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(archiveLoaderMock.state.maxInFlight).toBeLessThanOrEqual(1);
+
+      await second;
+      await vi.waitFor(() => {
+        expect(archiveLoaderMock.state.inFlight).toBe(0);
+      });
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
