@@ -19,7 +19,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Discover hard dossiers
+      - name: Discover dossiers with files (hard + soft)
         id: matrix
         run: echo "dossiers=$(node scripts/dossiers/list-acceptance-matrix.mjs)" >> "$GITHUB_OUTPUT"
 

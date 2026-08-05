@@ -501,11 +501,16 @@ Do **not** bump `lastVerified` just to make CI green. A completed pass means:
    provider documentation.
 
 The weekly [dossier-acceptance workflow](../../.github/workflows/dossier-acceptance.yml)
-automates the first, keyless layer for **every hard dossier**. It materializes
-the exact dossier files on the common generated-project scaffold, merges the
-canonical export baseline and manifest dependency ranges, installs from
-scratch, runs `tsc --noEmit`, then runs a production build with only the
-pipeline's harmless preview placeholders. The same workflow checks every
+automates the first, keyless layer for **every dossier that ships files —
+hard AND soft** (instructions-only dossiers have nothing to build and are
+skipped). It materializes the exact dossier files on the common
+generated-project scaffold, merges the canonical export baseline and manifest
+dependency ranges, installs from scratch, runs `tsc --noEmit`, then runs a
+production build with only the pipeline's harmless preview placeholders.
+Soft coverage was added 2026-08-06 after `maplibre-map`'s verbatim component
+rotted unnoticed under the former hard-only matrix (maplibre-gl v6 dropped its
+default export; prod chat 3a6c5472 shipped a broken map and lost an F3 build
+on it). The same workflow checks every
 resolved dependency range against npm and runs the evidence/freshness gate.
 
 This is build acceptance, not proof that Clerk login, Stripe checkout or a

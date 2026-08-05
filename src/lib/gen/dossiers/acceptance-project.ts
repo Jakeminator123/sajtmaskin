@@ -27,12 +27,19 @@ function asCodeFile(path: string, content: string): CodeFile {
  * landing-page scaffold; export baseline completion then supplies package,
  * tsconfig and framework files exactly as a generated user project receives
  * them.
+ *
+ * Covers every dossier that SHIPS FILES — hard and soft alike. The former
+ * hard-only guard left soft verbatim components without any typecheck against
+ * their pinned dependencies, which is exactly how `maplibre-map`'s
+ * `.default`-import rotted unnoticed when maplibre-gl v6 dropped its default
+ * export (prod chat 3a6c5472, 2026-08-05). A dossier with zero files has
+ * nothing to build and is still rejected.
  */
 export function buildDossierAcceptanceProject(dossierId: string): DossierAcceptanceProject {
   const dossier = getDossierById(dossierId);
   if (!dossier) throw new Error(`Unknown dossier: ${dossierId}`);
-  if (dossier.class !== "hard") {
-    throw new Error(`Acceptance build requires a hard dossier: ${dossierId}`);
+  if ((dossier.files ?? []).length === 0) {
+    throw new Error(`Acceptance build requires a dossier with declared files: ${dossierId}`);
   }
 
   const byPath = new Map<string, CodeFile>();

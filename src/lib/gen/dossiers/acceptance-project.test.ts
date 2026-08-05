@@ -9,11 +9,17 @@ import { mapDossierPathToOutput } from "./output-path";
 import { buildDossierAcceptanceProject } from "./acceptance-project";
 
 describe("keyless dossier acceptance project", () => {
-  it("materializes every hard dossier with exact files and deterministic dependencies", () => {
-    const hardDossiers = getAllDossiers().filter((dossier) => dossier.class === "hard");
-    expect(hardDossiers.length).toBeGreaterThan(0);
+  it("materializes every file-shipping dossier (hard + soft) with exact files and deterministic dependencies", () => {
+    const fileShippingDossiers = getAllDossiers().filter(
+      (dossier) => (dossier.files ?? []).length > 0,
+    );
+    expect(fileShippingDossiers.length).toBeGreaterThan(0);
+    expect(
+      fileShippingDossiers.some((dossier) => dossier.class === "soft"),
+      "soft dossiers with files must be covered — maplibre-map's broken verbatim import rotted unnoticed under the former hard-only matrix",
+    ).toBe(true);
 
-    for (const dossier of hardDossiers) {
+    for (const dossier of fileShippingDossiers) {
       const project = buildDossierAcceptanceProject(dossier.id);
       const byPath = new Map(project.files.map((file) => [file.path, file.content]));
       expect(byPath.has("package.json"), dossier.id).toBe(true);
@@ -47,9 +53,11 @@ describe("keyless dossier acceptance project", () => {
     }
   });
 
-  it("rejects soft dossiers because the scheduled matrix is provider-coupled only", () => {
-    expect(() => buildDossierAcceptanceProject("gallery-lightbox")).toThrow(
-      /requires a hard dossier/,
+  it("rejects file-less dossiers because there is nothing to build", () => {
+    const fileless = getAllDossiers().find((dossier) => (dossier.files ?? []).length === 0);
+    expect(fileless, "expected at least one instructions-only dossier in the pool").toBeDefined();
+    expect(() => buildDossierAcceptanceProject(fileless!.id)).toThrow(
+      /requires a dossier with declared files/,
     );
   });
 });

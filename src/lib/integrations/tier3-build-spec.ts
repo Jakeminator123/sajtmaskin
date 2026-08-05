@@ -631,6 +631,13 @@ export function renderTier3BuildPlanBlock(spec: Tier3BuildSpec): string | null {
     "## Tier-3 Integration Build Plan",
     "",
     'You are now in F3 ("bygg integrationer"). Wire each integration below end-to-end.',
+    // A2 (prod chat 3a6c5472, 2026-08-05): an F3 round emitted only
+    // `suggestIntegration` cards ("Kräver konfiguration") and zero code files
+    // — for a key that already had a real stored value. The integrations in
+    // this plan are pre-approved; suggesting them again is always wrong.
+    // Key entry is the Byggblock panel's job (env-flow-f2-mute), never a
+    // reason to withhold the code.
+    "Every integration in this plan is already approved and planned. Your job THIS ROUND is to WRITE THE CODE FILES that wire them. Do NOT call `suggestIntegration` or `requestEnvVar` for integrations already listed here, and never end the round with tool calls but no code files — whether a key is configured or not is handled outside this round, and the graceful not-configured pattern below makes the code safe to write either way.",
     // The old wording ("assume real values are present at runtime") was
     // wrong for the approval-without-keys case (P2 F3-loop): keys tagged
     // `feature-runtime` may legitimately still be placeholders when the
