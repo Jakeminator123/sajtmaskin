@@ -174,10 +174,9 @@ robusta varianten framför en tröskelrefaktorering.
 
 En A/B avgörs på tre observerbara signaler per körning, alla i
 `generation_telemetry`: `meta.buildSpec.contextPolicy` (blev det `normal`?),
-`prompt_tokens`/`completion_tokens` (sjönk volymen?) och — **först när PR #792 är
-mergad** — `meta.streamMs` (blev strömmen kortare?). Utan #792 finns ingen
-`streamMs` på master, och strömtiden måste deriveras som `duration_ms` minus
-`postStreamSteps`. Kvalitetssidan avgörs inte av dem — den kräver
+`prompt_tokens`/`completion_tokens` (sjönk volymen?) och `meta.streamMs` (blev
+strömmen kortare?). Alla tre finns i `generation_telemetry` sedan steg 1.
+Kvalitetssidan avgörs inte av dem — den kräver
 att ägaren tittar på de genererade sajterna, eftersom Q5b-kommentaren säger att
 tröskeln sänktes just för att undvika `"section truncated"`-fall.
 

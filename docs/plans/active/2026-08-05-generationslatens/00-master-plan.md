@@ -1,7 +1,7 @@
 ---
 status: active
 owner: unassigned
-topic: Generationslatens — strömmen är 79–99 % av strömfönstret (brief/orkestrering ligger före mätankaret). Steg 1 i PR #792 (ej mergad), steg 2 diagnos klar (klassningen befogad), steg 3 ägarfråga, steg 4 gated.
+topic: Generationslatens — strömmen är 79–99 % av strömfönstret (brief/orkestrering ligger före mätankaret). Steg 1 levererat (#792), steg 2 diagnos klar (klassningen befogad), steg 3 ägarfråga, steg 4 gated.
 created: 2026-08-05
 source: Prod-mätning 2026-08-05 av de två senaste användarsajterna (fyra versioner, chattarna 9cdb3e31 + 41be90f2) via read-only `/logg` + direktläsning av `generation_telemetry.meta`. Underlaget i sin helhet: [`01-matningen.md`](01-matningen.md). Ägarfråga 2026-08-05: "kan man parallellisera saker för att snabba upp allt?"
 ---
@@ -44,7 +44,9 @@ codegen).
 | `/logg` kunde inte visa detta vid mätningen — **åtgärdat i steg 1** | `scripts/db/dump-logs.mjs` selekterade inte `meta` för telemetri-kinden (`errors`-kinden gjorde det, med `truncateMetaStrings`), så mätningen ovan krävde ett engångsskript. Steg 1 tog in `meta` på samma trunkeringsväg och lade till `meta.streamMs` |
 
 **Urvalet är fyra versioner från två chattar, alla F2.** Verifier-observationen
-vilar på en enda körning. Det är hela skälet till att steg 1 kommer först.
+vilar på en enda körning. Det var hela skälet till att steg 1 gjordes först —
+nu finns mätningen på plats, så nästa beslut kan tas på fler körningar än dessa
+fyra.
 
 ## Steg
 
