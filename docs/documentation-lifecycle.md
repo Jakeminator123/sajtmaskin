@@ -31,6 +31,7 @@ bli en parallell runtime-owner.
 | `docs/architecture/`                | Tunna systemöversikter, gränser, körflöde och kodkarta        | Inventarier, fil:rad-matriser och ändringshistorik |
 | `docs/concepts/`                    | Pedagogiska mentala modeller och stabil terminologi           | Runtimefält, fulla enumlistor och callsites        |
 | `docs/contracts/`                   | Kod- och schemanära policies och invariants                   | En andra arkitekturberättelse                      |
+| `docs/decisions/`                   | Gällande ratificerade ägarbeslut, pekare till kanonisk källa  | Väntande beslutsfrågor (backlog), planstatus       |
 | `docs/generated/`                   | Deterministisk referens från registries, schemas och policies | Handskriven prosa och manuella korrigeringar       |
 | `docs/schemas/`                     | Mänskliga schemaförklaringar och `strict/` JSON schemas       | Osäkra utkast                                      |
 | `docs/runbooks/`, `docs/operating/` | Felsökning, drift och incidenter                              | Arkitekturindex och planarbete                     |
@@ -120,14 +121,14 @@ i docs.
 
 Beslutsläget för ytorna som issuet listar:
 
-| Yta | Beslut | Grund |
-|---|---|---|
-| `src/app/api/wizard/` | KEEP (2026-07-18) | Aktiv produktfunktion via förstasidans flöde |
-| `src/components/audit/` | KEEP (2026-07-18) | Aktiv produktfunktion via förstasidans flöde |
+| Yta                                     | Beslut              | Grund                                                                                                |
+| --------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
+| `src/app/api/wizard/`                   | KEEP (2026-07-18)   | Aktiv produktfunktion via förstasidans flöde                                                         |
+| `src/components/audit/`                 | KEEP (2026-07-18)   | Aktiv produktfunktion via förstasidans flöde                                                         |
 | `src/app/api/integrations/marketplace/` | DELETE (2026-08-04) | Enda anroparen `ProjectEnvVarsPanel` togs bort i #573; noll rader i prodtabellen `user_integrations` |
-| `src/app/api/integrations/mcp/` | DELETE (2026-08-04) | Noll anropare; returnerade enbart hårdkodad statisk JSON |
-| `src/app/api/v0/projects/instructions` | DELETE (2026-08-04) | 410-tombstone utan anropare; svarar nu 404 |
-| `src/app/api/figma/` | Väntar på beslut | Fortfarande inkopplad i buildern (`ChatInterface`), men `FIGMA_ACCESS_TOKEN` saknas i prod |
+| `src/app/api/integrations/mcp/`         | DELETE (2026-08-04) | Noll anropare; returnerade enbart hårdkodad statisk JSON                                             |
+| `src/app/api/v0/projects/instructions`  | DELETE (2026-08-04) | 410-tombstone utan anropare; svarar nu 404                                                           |
+| `src/app/api/figma/`                    | Väntar på beslut    | Fortfarande inkopplad i buildern (`ChatInterface`), men `FIGMA_ACCESS_TOKEN` saknas i prod           |
 
 En yta utan dokumenterat DELETE-beslut är KEEP.
 
