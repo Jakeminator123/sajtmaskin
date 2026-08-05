@@ -63,6 +63,7 @@ export interface PreviewPanelDossiersProps {
 }
 
 type PanelTab = "wired" | "catalog";
+type CatalogClassFilter = "all" | DossierCatalogEntry["class"];
 
 const TONE_BADGE_CLASS: Record<DossierStatusDescriptor["tone"], string> = {
   neutral: "border-sky-500/40 bg-sky-500/10 text-sky-200",
@@ -127,6 +128,7 @@ export function PreviewPanelDossiers({
 }: PreviewPanelDossiersProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<PanelTab>("wired");
+  const [catalogClassFilter, setCatalogClassFilter] = useState<CatalogClassFilter>("all");
   const [data, setData] = useState<DossierOverviewResponse | null>(null);
   // Identity (`chatId::versionId`) the held `data` was fetched for, so we can
   // ignore it when the builder switches chat/version while the popover holds
@@ -268,6 +270,9 @@ export function PreviewPanelDossiers({
       // A focus request that never matched must not linger into a later,
       // unrelated open (it would surprise-expand a row).
       setPendingFocusKeys(null);
+      // A leftover class filter must not make the catalog look truncated on
+      // the next, unrelated open.
+      setCatalogClassFilter("all");
     }
   }, []);
 
@@ -330,6 +335,26 @@ export function PreviewPanelDossiers({
   const stage =
     freshData?.lifecycleStage ?? (lifecycleStage === "integrations" ? "integrations" : "design");
   const count = freshData?.counts.total ?? null;
+  const catalogCounts = useMemo(() => {
+    const counts = { total: 0, hard: 0, soft: 0 };
+    for (const group of catalogData?.groups ?? []) {
+      for (const dossier of group.dossiers) {
+        counts.total += 1;
+        counts[dossier.class] += 1;
+      }
+    }
+    return counts;
+  }, [catalogData]);
+  const filteredCatalogGroups = useMemo(() => {
+    if (!catalogData) return [];
+    if (catalogClassFilter === "all") return catalogData.groups;
+    return catalogData.groups
+      .map((group) => ({
+        ...group,
+        dossiers: group.dossiers.filter((dossier) => dossier.class === catalogClassFilter),
+      }))
+      .filter((group) => group.dossiers.length > 0);
+  }, [catalogData, catalogClassFilter]);
 
   // Custom env-blockers (Codex P2 on #573): a `custom-env` key detected in
   // generated code is not owned by any dossier, so a 412/deploy focus request
@@ -962,9 +987,16 @@ export function PreviewPanelDossiers({
               <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
             ) : null}
           </span>
-          {freshData ? (
+          {activeTab === "catalog" && catalogData ? (
             <span className="text-[10px] text-gray-500">
-              {freshData.counts.hard} kopplade · {freshData.counts.soft} fristående
+              Katalog: {catalogCounts.total} totalt · {catalogCounts.hard} kopplade ·{" "}
+              {catalogCounts.soft} fristående
+            </span>
+          ) : activeTab === "catalog" && catalogLoading ? (
+            <span className="text-[10px] text-gray-500">Katalog: läser…</span>
+          ) : freshData ? (
+            <span className="text-[10px] text-gray-500">
+              Version: {freshData.counts.hard} kopplade · {freshData.counts.soft} fristående
             </span>
           ) : null}
         </div>
@@ -982,13 +1014,13 @@ export function PreviewPanelDossiers({
               value="wired"
               className="rounded-none border-0 px-1.5 py-1 text-[11px] text-gray-400 shadow-none data-[state=active]:bg-transparent data-[state=active]:text-white"
             >
-              Inkopplade
+              Inkopplade{freshData ? ` (${freshData.counts.total})` : ""}
             </TabsTrigger>
             <TabsTrigger
               value="catalog"
               className="rounded-none border-0 px-1.5 py-1 text-[11px] text-gray-400 shadow-none data-[state=active]:bg-transparent data-[state=active]:text-white"
             >
-              Bläddra katalog
+              Bläddra katalog{catalogData ? ` (${catalogCounts.total})` : ""}
             </TabsTrigger>
           </TabsList>
 
@@ -1147,6 +1179,44 @@ export function PreviewPanelDossiers({
               </p>
             ) : null}
             <div className="max-h-105 overflow-y-auto p-2">
+              {catalogData && catalogData.groups.length > 0 ? (
+                <div
+                  role="group"
+                  aria-label="Filtrera katalogen"
+                  className="mb-2 flex items-center gap-1"
+                >
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={catalogClassFilter === "all" ? "secondary" : "ghost"}
+                    className="h-6 px-2 text-[10px]"
+                    aria-pressed={catalogClassFilter === "all"}
+                    onClick={() => setCatalogClassFilter("all")}
+                  >
+                    Alla ({catalogCounts.total})
+                  </Button>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={catalogClassFilter === "hard" ? "secondary" : "ghost"}
+                    className="h-6 px-2 text-[10px]"
+                    aria-pressed={catalogClassFilter === "hard"}
+                    onClick={() => setCatalogClassFilter("hard")}
+                  >
+                    Kopplade ({catalogCounts.hard})
+                  </Button>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={catalogClassFilter === "soft" ? "secondary" : "ghost"}
+                    className="h-6 px-2 text-[10px]"
+                    aria-pressed={catalogClassFilter === "soft"}
+                    onClick={() => setCatalogClassFilter("soft")}
+                  >
+                    Fristående ({catalogCounts.soft})
+                  </Button>
+                </div>
+              ) : null}
               {catalogLoading && !catalogData ? (
                 <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1166,9 +1236,14 @@ export function PreviewPanelDossiers({
                 </div>
               ) : catalogData && catalogData.groups.length === 0 ? (
                 <p className="px-1 py-3 text-[11px] text-gray-400">Katalogen är tom.</p>
+              ) : catalogData && filteredCatalogGroups.length === 0 ? (
+                <p className="px-1 py-3 text-[11px] text-gray-400">
+                  Inga {catalogClassFilter === "hard" ? "kopplade" : "fristående"} byggblock i
+                  katalogen.
+                </p>
               ) : (
                 <div className="space-y-3">
-                  {(catalogData?.groups ?? []).map((group) => (
+                  {filteredCatalogGroups.map((group) => (
                     <div key={group.id} className="space-y-1.5">
                       <p
                         className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase"
