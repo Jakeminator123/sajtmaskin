@@ -27,6 +27,8 @@ Avslutade rader flyttas till [`backlog-arkiv-2026-07-25.md`](docs/plans/avklarat
 Bekräftade öppna defekter. Detta är den enda listan att jobba ur. Canvasen visar dessa som öppna huvudrisker.
 
 > **Senast helverifierad:** 2026-08-05 mot master `2044877c` (sex områdesgranskningar + korsgranskning). Varje rad här kodverifierades som fortfarande öppen; 34 rader flyttades ur kön och 4 arkiverades. Beslutsmatris och fryst historik: [`backlog-omstrukturering-2026-08-05.md`](docs/plans/avklarat/bug-swarm/backlog-omstrukturering-2026-08-05.md).
+>
+> **Framburen till master `2a9f02050`** (2026-08-05): master hann ändra den gamla filen efter verifieringsbasen, så två deltan är applicerade för hand i stället för att skrivas över. `SM-010` (preview-host boot-fel) arkiverades när #799 mergades, och den enda rad master lade till — `worktree:remove` mot `.env.local`-symlänk — lever nu som `SM-022`. Kön är fortfarande 21 rader.
 
 | Klar | Status | Prio | Fynd | Källa | Beslut / nästa steg |
 | --- | --- | --- | --- | --- | --- |
@@ -39,7 +41,7 @@ Bekräftade öppna defekter. Detta är den enda listan att jobba ur. Canvasen vi
 | [ ] | Öppen bug | P2 | `SM-006` **Dependency-backfill tappar provideridentitet:** backfillen återselekterar default-dossier ur capability i stället för att utgå från de valda dossier-ID:na, så användarens val kan bytas mot defaulten. | Dossier-/dependency-granskning · journal R48 | Driv backfillen från `selectedDossierIds`; capability-default bara som legacy fallback. |
 | [ ] | Öppen bug | P3 | `SM-008` **F3-markern tappar env-only-förslagets detaljer:** markern bär provider men inte `requestedEnvKeys` efter reload/approve, så ett env-only-förslag glömmer vilka nycklar det bad om. | F3-granskning · journal R43 | Persistera `requestedEnvKeys` och lägg regressionstest på env-only-flödet. |
 | [ ] | Öppen kvalitet-risk | P3 | `SM-009` **Aktuellt F3-detaljkort kan säga "planerad" efter leverans i samma runda:** snapshot och panel är post-merge-korrekta, men tidig SSE/meta räknar på basfilerna. Felet pekar åt det ofarliga hållet (understryker en leverans) och träffar bara detaljkortet. | Cursor-bugbot på #623 (medium, loggad i st.f. fixad) · journal R16 | Räkna om eller ersätt detaljkortets `fileEvidence` efter finalize. |
-| [ ] | Öppen bug (PR #799) | P2 | `SM-010` **Preview-host boot-fel är osynliga för användaren:** ett misslyckat boot sätter `status="error"`, men splash-sidans auto-refresh och `/preview-status`-pollen re-triggar `ensureRuntimeForChat` var ~4:e sekund tills TTL. Felet loggas bara till Fly-sessionens `logs`-array — aldrig till DB eller buildern, som visar evig "Startar preview". | /logg prod-incident chat `11c3c1cd` (2026-07-08) + kodverifierad · journal R50 | **Fix under granskning i #799** (boot-failure-budget + `readiness-stamp` → `engine_version_error_logs`). Raden står kvar tills #799 mergas — arkivera den inte i förväg. |
+| [ ] | Öppen bug | P2 | `SM-022` **`npm run worktree:remove` kraschar på en worktree som har `.env.local` som symlänk:** teardown anropar `rmdirSync` på fil-symlänken och failar med ENOENT, så borttagningen avbryts halvvägs och worktreet blir kvar registrerat. Allvarligare än det ser ut: rå `git worktree remove` är förbjuden (den följer junctionen och tömmer **huvudcheckoutens** `node_modules`) och blockeras av `worktree-force-guard.mjs`, så skriptet är den enda sanktionerade vägen — en agent som möter felet kan lockas att kringgå vakten i stället. Workaround: koppla loss symlänken och kör om. | Mergeagentens städsvep 2026-08-05, reproducerat på `sajtmaskin-stadning-0805` (M#ma2) | Hantera fil-symlänkar i teardown (`lstatSync` + `unlink` innan `rmdirSync`). Ägare: `scripts/cursor/worktree.mjs`. |
 | [ ] | Öppen bug | P2 | `SM-011` **Sync-scaffoldmatchern väljer första tröskelträff och ignorerar capabilities:** `auth` kan returneras innan `ecommerce`/`app` ens jämförs, så en sämre scaffold vinner på ordning. | Scaffold-granskning · journal R6 | Rangordna de samlade scoresen och låt högsta **tillåtna** scaffold vinna. |
 | [ ] | Öppen bug | P2 | `SM-012` **Scaffold-valet kan bryta manifestets `allowedBuildIntents`:** efter avsiktlig promotion görs ingen manifestauktoritativ slutkontroll, så slutresultatet kan ligga utanför vad manifestet tillåter. | Scaffold-/manifestgranskning · journal R44 | Validera effective intent efter promotion och fall tillbaka säkert när den inte är tillåten. |
 | [ ] | Öppen bug | P2 | `SM-013` **Misslyckad template-init lämnar "Läser in mallen"-laddläget kvar tills omladdning:** `pendingTemplateInit` härleds bara ur `templateId` i URL:en + saknad `chatId`, så ett failat `POST /api/template` lämnar spinnern kvar utan felvy eller åtgärdsknapp — felet syns bara i en toast. | Bugbot-subagent på #737:s diff 2026-08-02, kodverifierad (M#li11) · journal R2 | Tråda template-init-felet till empty-staten (felvy + "försök igen") och återställ attempt-key vid retry. Ägare: `src/components/builder/preview-panel/PreviewPanelEmptyState.tsx` + `useBuilderEffects`-felvägen. |
@@ -60,7 +62,7 @@ Bekräftade öppna defekter. Detta är den enda listan att jobba ur. Canvasen vi
 4. Tillgänglighet: `SM-015`, sedan `SM-016`.
 5. Telemetri och mindre UI/CI: `SM-017`, `SM-018`, `SM-019`, `SM-020`, `SM-021`.
 
-`SM-007` går inte i den ordningen — den är en grind som ska vara stängd innan `SAJTMASKIN_DOMAIN_PURCHASE` slås på. `SM-010` väntar på att #799 mergas.
+`SM-007` går inte i den ordningen — den är en grind som ska vara stängd innan `SAJTMASKIN_DOMAIN_PURCHASE` slås på. `SM-022` är verktygsskuld i worktree-teardown och blockerar inget produktarbete, så den kan tas när som helst av den som ändå rör `scripts/cursor/worktree.mjs`.
 
 ## Release blocker bakom feature flag: domänköp
 
@@ -217,7 +219,7 @@ Flyttade ur kön med fixreferens. Full historik i [`backlog-omstrukturering-2026
 | `journal R40` (moderrad) | Levererad; residual kvar | Moderraden är levererad; bara F10-residualen står kvar och lever som `SM-001`. |
 | `journal R16`, `R7`, `R53` (delar) | Delvis löst | De redan lösta eller skuldklassade delarna är arkiverade; bara den smala aktiva premissen står kvar som `SM-009`, `SM-021` respektive `SM-020`. |
 
-`journal R50` arkiverades **inte** — dess fix ligger i öppen PR #799 och raden står kvar som `SM-010` tills den mergas.
+`journal R50` bar `SM-010` i den första omstruktureringen, eftersom fixen då låg i öppen PR #799. #799 mergades innan den här filen nådde master, så raden är arkiverad som `[x] Fixad` i [`backlog-arkiv-2026-07-25.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-25.md) och `SM-010` är **förbrukat** — ID:t återanvänds aldrig. Platsen i kön togs i stället av `SM-022`, som är den enda rad master hann lägga till efter omstruktureringens bas.
 
 ## Naming-debt: `v0ChatId`
 

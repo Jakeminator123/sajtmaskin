@@ -36,10 +36,40 @@ const { runInstallCommand } = require("./package-install.js");
 // require inuti stopStaleRuntimes (körs långt efter att allt laddats).
 const { withNoSpaceCleanupRetry } = require("./storage-cleanup.js");
 
-const READINESS_MAX_MS = parseInt(process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS ?? "180000", 10);
 const READINESS_INTERVAL_MS = 1200;
 const READINESS_EMPTY_BODY_MIN_CHARS = 50;
-const READINESS_MAX_EMPTY_BODY_RETRIES = 5;
+
+/** Read at call time so guard tests can shrink the deadline without reloading the module. */
+function readinessMaxMs() {
+  const parsed = parseInt(process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS ?? "180000", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 180_000;
+}
+
+/**
+ * Separate, much shorter deadline for the "HTTP 200 HTML but no meaningful
+ * visible body text" condition.
+ *
+ * Accepting an empty body after ~6s was a false-green (`preview_success` on a
+ * blank page), but inheriting the FULL readiness deadline is the opposite
+ * failure: `PREVIEW_HOST_RUNTIME_READY_MAX_MS` is 600 000 ms on Fly, and
+ * `waitForReady` fetches HTML without executing JavaScript — so a preview that
+ * renders client-side (heavy `"use client"` + effect fetching, or a text-free
+ * Suspense skeleton) never gains visible text no matter how long we wait. That
+ * page would sit in "Startar preview" for ten minutes before failing, which is
+ * the very symptom this whole change set exists to remove.
+ *
+ * 90s is chosen to clear a genuinely cold first compile (the observed prod
+ * cases resolved within seconds once compilation finished) while keeping the
+ * failure honest and fast. Capped by the overall readiness deadline so a
+ * shrunken deadline in tests still wins.
+ */
+function readinessEmptyBodyMaxMs() {
+  const parsed = parseInt(
+    process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS ?? "90000",
+    10,
+  );
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 90_000;
+}
 // Drain-fönster mellan SIGTERM och SIGKILL när en runtime stoppas (t.ex. vid
 // avsiktlig restart). Default 5000 ms = oförändrat beteende; höj för att låta
 // pågående HTTP-svar hinna klart innan processen tvångsdödas (mildrar
@@ -70,6 +100,13 @@ const RUNTIME_OUTPUT_EXIT_TAIL = 30;
 // retries the session.
 const RUNTIME_CLEAN_EXIT_LIMIT = 3;
 const RUNTIME_CLEAN_EXIT_WINDOW_MS = 2 * 60 * 1000;
+// Install/boot failures (pnpm exit 1, postcondition, spawn) are distinct from
+// clean process exits above. Splash refresh + ensureRuntimeForChat used to
+// clear status back to `starting` and retry forever; three failures for the
+// same version within two minutes are terminal so readinessState=failed stays
+// visible to the app (preview-status → engine_version_error_logs).
+const RUNTIME_BOOT_FAILURE_LIMIT = 3;
+const RUNTIME_BOOT_FAILURE_WINDOW_MS = 2 * 60 * 1000;
 
 function classifyRuntimeCleanExitLoop({ timestamps, now = Date.now() }) {
   const recent = (Array.isArray(timestamps) ? timestamps : [])
@@ -79,6 +116,34 @@ function classifyRuntimeCleanExitLoop({ timestamps, now = Date.now() }) {
     timestamps: recent,
     failed: recent.length >= RUNTIME_CLEAN_EXIT_LIMIT,
   };
+}
+
+function classifyRuntimeBootFailureLoop({ timestamps, now = Date.now(), record = true }) {
+  const recent = (Array.isArray(timestamps) ? timestamps : []).filter(
+    (value) => Number.isFinite(value) && now - value <= RUNTIME_BOOT_FAILURE_WINDOW_MS,
+  );
+  if (!record) {
+    return {
+      timestamps: recent,
+      failed: recent.length >= RUNTIME_BOOT_FAILURE_LIMIT,
+    };
+  }
+  const next = recent.concat(now);
+  return {
+    timestamps: next,
+    failed: next.length >= RUNTIME_BOOT_FAILURE_LIMIT,
+  };
+}
+
+function bootFailureTimestampsForSession(session) {
+  if (
+    session &&
+    session.runtimeBootFailureVersionId === session.versionId &&
+    Array.isArray(session.runtimeBootFailureTimestamps)
+  ) {
+    return session.runtimeBootFailureTimestamps;
+  }
+  return [];
 }
 
 /**
@@ -270,12 +335,35 @@ function htmlBodyHasMeaningfulVisibleText(html) {
 // tolerated (HMR can clear it), hence the streak.
 const READINESS_MAX_BUILD_ERROR_RETRIES = 4;
 
+/**
+ * Messages that are readiness VERDICTS rather than transient fetch failures.
+ * `waitForReady` throws both from inside its own `try`, so the `catch` must
+ * re-throw them instead of recording them as "last error" and looping.
+ */
+const READINESS_VERDICT_RE = /build error overlay|empty body for \d+ms/i;
+
 async function waitForReady(url) {
-  const deadline = Date.now() + READINESS_MAX_MS;
+  // Empty HTML body is treated like any other "not ready yet" signal: keep
+  // polling until meaningful visible text appears. Accepting after a handful of
+  // empty polls (~6s) was a false-green — cold starts routinely compile longer
+  // than that, so `preview_success` got stamped mid-compile on a blank page.
+  //
+  // It gets its OWN deadline rather than the full readiness one: a page that
+  // renders client-side never gains visible text in a JS-less fetch, and making
+  // it wait out the 600s Fly deadline would trade the false-green for a
+  // ten-minute "Startar preview" hang. See readinessEmptyBodyMaxMs().
+  //
+  // Either deadline expiring throws, so the boot path records
+  // readinessState=failed through the same channel as build-error overlays
+  // (#799) and preview_success is never stamped true on a blank page.
+  const readinessMaxMsValue = readinessMaxMs();
+  const emptyBodyMaxMsValue = Math.min(readinessEmptyBodyMaxMs(), readinessMaxMsValue);
+  const startedAt = Date.now();
+  const deadline = startedAt + readinessMaxMsValue;
   let lastError = "";
-  let emptyBodyStreak = 0;
   let buildErrorStreak = 0;
   let lastBuildErrorMessage = "";
+  let firstEmptyBodyAt = null;
   while (Date.now() < deadline) {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 90_000);
@@ -287,8 +375,8 @@ async function waitForReady(url) {
         headers: { Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8" },
       });
       if (!responseHeadersLookLikeHtmlDocument(res)) {
-        emptyBodyStreak = 0;
         buildErrorStreak = 0;
+        firstEmptyBodyAt = null;
         lastError = `HTTP ${res.status}`;
         await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));
         continue;
@@ -300,7 +388,7 @@ async function waitForReady(url) {
       // a page that is really showing a build error.
       if (htmlLooksLikeBuildError(text)) {
         buildErrorStreak += 1;
-        emptyBodyStreak = 0;
+        firstEmptyBodyAt = null;
         lastBuildErrorMessage = extractBuildErrorMessage(text);
         lastError = `Next.js build error overlay: ${lastBuildErrorMessage}`;
         if (buildErrorStreak >= READINESS_MAX_BUILD_ERROR_RETRIES) {
@@ -315,29 +403,37 @@ async function waitForReady(url) {
       if (htmlBodyHasMeaningfulVisibleText(text)) {
         return;
       }
-      emptyBodyStreak += 1;
       lastError = "HTTP 200 HTML but body text still empty (compiling or blank page)";
-      if (emptyBodyStreak >= READINESS_MAX_EMPTY_BODY_RETRIES) {
-        console.warn(
-          `[preview-host] Readiness: HTML body still looks empty after ${READINESS_MAX_EMPTY_BODY_RETRIES} attempts; accepting response.`,
+      // Time the empty-body window from the FIRST empty response, not from boot:
+      // install and the initial compile can precede it by minutes, and that time
+      // is not evidence about the page.
+      if (firstEmptyBodyAt === null) firstEmptyBodyAt = Date.now();
+      if (Date.now() - firstEmptyBodyAt >= emptyBodyMaxMsValue) {
+        throw new Error(
+          `Runtime served HTML with an empty body for ${emptyBodyMaxMsValue}ms ` +
+            `(not ready): ${lastError}`,
         );
-        return;
       }
     } catch (err) {
-      // A thrown build-error-overlay verdict is terminal — propagate it rather
-      // than treating it like a transient fetch error and looping to timeout.
-      if (err instanceof Error && /build error overlay/i.test(err.message)) {
+      // A thrown readiness VERDICT (build-error overlay, empty-body deadline) is
+      // terminal — propagate it rather than treating it like a transient fetch
+      // error and looping to timeout.
+      if (err instanceof Error && READINESS_VERDICT_RE.test(err.message)) {
         throw err;
       }
-      emptyBodyStreak = 0;
       buildErrorStreak = 0;
+      // A failed fetch is not evidence about the body, so the empty-body window
+      // measures a CONTIGUOUS run of empty responses.
+      firstEmptyBodyAt = null;
       lastError = err instanceof Error ? err.message : String(err);
     } finally {
       clearTimeout(tid);
     }
     await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));
   }
-  throw new Error(`Runtime did not become ready within ${READINESS_MAX_MS}ms. Last error: ${lastError}`);
+  throw new Error(
+    `Runtime did not become ready within ${readinessMaxMsValue}ms. Last error: ${lastError}`,
+  );
 }
 
 function stopChildProcessTree(child) {
@@ -543,6 +639,32 @@ async function bootRuntimeForSession(session, options = {}) {
     }
   }
 
+  const priorBootFailures = classifyRuntimeBootFailureLoop({
+    timestamps: bootFailureTimestampsForSession(session),
+    record: false,
+  });
+  if (priorBootFailures.failed) {
+    const terminalMessage = [
+      `Preview boot failed ${RUNTIME_BOOT_FAILURE_LIMIT} times within ${Math.round(RUNTIME_BOOT_FAILURE_WINDOW_MS / 1000)} seconds.`,
+      "Retry from the builder after fixing the project, or wait for the failure window to expire.",
+    ].join(" ");
+    await updateSessionById(session.sessionId, (stored) => {
+      if (stored.versionId !== session.versionId) return;
+      stored.status = "error";
+      stored.runtimeBootFailureVersionId = session.versionId;
+      stored.runtimeBootFailureTimestamps = priorBootFailures.timestamps;
+      if (session.prewarm !== true) {
+        stored.readinessState = "failed";
+        stored.readinessError =
+          typeof stored.readinessError === "string" && stored.readinessError.trim()
+            ? stored.readinessError
+            : terminalMessage;
+      }
+      stored.updatedAt = nowIso();
+    });
+    throw new Error(terminalMessage);
+  }
+
   await updateSessionById(session.sessionId, (stored) => {
     stored.status = "starting";
     // A start request writes `starting` before it queues the boot. Treat that
@@ -579,6 +701,9 @@ async function bootRuntimeForSession(session, options = {}) {
         stored.status = "warm_project";
         stored.runtimePort = runtimePort;
         stored.updatedAt = nowIso();
+        // A successful boot clears the install/boot failure budget for this version.
+        stored.runtimeBootFailureVersionId = session.versionId;
+        stored.runtimeBootFailureTimestamps = [];
         // Readiness is not yet confirmed (page not proven build-error-free).
         // Prewarm skeletons keep today's stateless behaviour.
         if (!isPrewarm) {
@@ -681,21 +806,42 @@ async function bootRuntimeForSession(session, options = {}) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
+    // Count this strike from the STORE, inside the mutation. `session` is the
+    // snapshot this boot started with, and install runs for minutes: a
+    // same-version update resets the budget in that window because rewriting
+    // content IS the repair. Classifying from the snapshot would write the
+    // pre-reset strikes back and could reach the cap, after which the pre-boot
+    // guard refuses the very boot the update asked for.
+    let failure = { timestamps: [], failed: false };
     await updateSessionById(session.sessionId, (stored) => {
       if (stored.versionId !== session.versionId) return;
+      failure = classifyRuntimeBootFailureLoop({
+        timestamps: bootFailureTimestampsForSession(stored),
+        now: Date.now(),
+        record: true,
+      });
       stored.status = "error";
+      stored.runtimeBootFailureVersionId = session.versionId;
+      stored.runtimeBootFailureTimestamps = failure.timestamps;
       // Install / postcondition / readiness failure is a hard boot failure —
       // mark readiness failed (unless prewarm) so `/status` reports it and the
       // app stamps preview_success=false + can trigger the repair path.
       if (session.prewarm !== true) {
         stored.readinessState = "failed";
-        stored.readinessError = message;
+        stored.readinessError = failure.failed
+          ? [
+              message,
+              `Preview boot failed ${RUNTIME_BOOT_FAILURE_LIMIT} times within ${Math.round(RUNTIME_BOOT_FAILURE_WINDOW_MS / 1000)} seconds; further automatic retries are stopped.`,
+            ].join("\n")
+          : message;
       }
       stored.updatedAt = nowIso();
     });
     await appendRuntimeLog(
       session.previewSessionId,
-      `Runtime boot failed: ${message}`,
+      failure.failed
+        ? `Runtime boot failed (retry cap reached): ${message}`
+        : `Runtime boot failed: ${message}`,
     );
     const tracked = runtimeChildren.get(session.sessionId);
     if (tracked) {
@@ -910,6 +1056,9 @@ module.exports = {
   classifyRuntimeCleanExitLoop,
   RUNTIME_CLEAN_EXIT_LIMIT,
   RUNTIME_CLEAN_EXIT_WINDOW_MS,
+  classifyRuntimeBootFailureLoop,
+  RUNTIME_BOOT_FAILURE_LIMIT,
+  RUNTIME_BOOT_FAILURE_WINDOW_MS,
   htmlLooksLikeBuildError,
   waitForReady,
   stopTrackedRuntime,

@@ -494,3 +494,90 @@ jobs:
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL_PROD }}
           DB_SSL_REJECT_UNAUTHORIZED: "false"
+
+  # Live dev↔prod-synk i två steg (samma trusted-event-modell som apply-jobben
+  # ovan — prod-/dev-secrets injiceras ALDRIG på pull_request):
+  #
+  #   1. Auto-applicera migrationer + perf-index mot DEV-databasen. Prod får
+  #      sina via prod-migrations-apply; utan detta steg fick dev dem först
+  #      när någon råkade köra `npm run dev` lokalt, och databaserna gled
+  #      isär mellan varven.
+  #   2. `db:schema-parity` — jämför de två LEVANDE databaserna objekt för
+  #      objekt (tabeller, kolumner, index, constraints). Rött = verklig
+  #      drift som varken den statiska schema-drift-gaten eller ledger-
+  #      checkarna kan se (t.ex. en kolumn skapad direkt i Supabase-
+  #      dashboarden, eller en apply som bara halvlyckades).
+  #
+  # `needs: prod-migrations-apply` så pariteten alltid mäts EFTER att prod
+  # fått sina migrationer — annars vore varje merge med migration falskt röd.
+  # Den schemalagda systern (db-schema-parity.yml) fångar drift mellan pushar.
+  db-schema-parity:
+    if: github.event_name != 'pull_request'
+    needs: prod-migrations-apply
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Samma false-green-skydd som prod-migrations-apply: på huvudrepot är
+      # saknade secrets ett HÅRT fel; forkar utan secrets SKIP:ar i stället.
+      - name: Detect dev + prod credentials
+        id: creds
+        env:
+          POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
+          POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}
+        run: |
+          if [ -n "$POSTGRES_URL_DEV" ] && [ -n "$POSTGRES_URL_PROD" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.repository }}" = "Jakeminator123/sajtmaskin" ]; then
+            echo "::error::POSTGRES_URL_DEV och/eller POSTGRES_URL_PROD saknas på huvudrepot — dev-synk + schema-paritet kan inte verifieras (false-green-risk). Sätt dem: gh secret set POSTGRES_URL_DEV / POSTGRES_URL_PROD"
+            exit 1
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::DB-secrets saknas — hoppar över dev-synk + schema-paritet (fork/no-secret)."
+          fi
+
+      # Identitetsguard: POSTGRES_URL_DEV MÅSTE peka på dev-Supabase enligt
+      # config/db-targets.json — migrationssteget nedan skriver dit.
+      - name: Verify dev DB identity (db-targets guard)
+        if: steps.creds.outputs.present == 'true'
+        run: node scripts/db/check-db-env-target.mjs --expect=dev
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_DEV }}
+
+      - name: Apply pending migrations to dev (idempotent)
+        if: steps.creds.outputs.present == 'true'
+        run: npx tsx scripts/db/run-migrations.ts
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_DEV }}
+          DB_SSL_REJECT_UNAUTHORIZED: "false"
+
+      - name: Apply performance indexes to dev (idempotent)
+        if: steps.creds.outputs.present == 'true'
+        run: npm run db:perf-indexes -- --reason "auto:ci-master-push-dev"
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL_DEV }}
+          DB_SSL_REJECT_UNAUTHORIZED: "false"
+
+      # Själva paritetsgaten. --require: nu MÅSTE båda sidor gå att nå —
+      # en tyst skip här vore exakt den false-green gaten finns för att stänga.
+      # Skriptet identitetscheckar båda URL:erna mot config/db-targets.json
+      # innan någon query körs.
+      - name: Live schema-parity gate dev↔prod (blocking)
+        if: steps.creds.outputs.present == 'true'
+        run: npm run db:schema-parity -- --require
+        env:
+          POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
+          POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}

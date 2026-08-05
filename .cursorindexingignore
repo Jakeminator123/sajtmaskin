@@ -33,6 +33,7 @@ next-env.d.ts
 package-lock.json
 
 # --- Tunga genererade artefakter (spårade i git → ej täckta av .gitignore) ---
+config/variant-template-addenda.json
 src/lib/templates/template-embeddings.json
 src/lib/templates/template-blob-manifest.json
 src/lib/templates/templates.json

@@ -18,6 +18,7 @@ import type { ScaffoldRetrySuggestion } from "@/lib/gen/scaffolds/scaffold-aware
 import type { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import type { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import type * as chatRepo from "@/lib/db/chat-repository-pg";
+import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
 import type { runFinalizePreflight, FinalizePreflightIssue } from "../finalize-preflight";
 import type { OwnEnginePostStreamPhaseId } from "../finalize-pipeline-contract";
 
@@ -276,9 +277,9 @@ export const VERIFIER_REPAIR_TIMEOUT_MS = 120_000;
  * the rerun does not rewrite files, it only re-evaluates findings, so it
  * should not inherit the (longer) repair budget when that one bumps.
  *
- * 30s mirrors the original "capped at one re-run + a 30 s timeout" design
- * note in `verifier-phase.ts`. Using a separate constant prevents future
- * adjustments to the repair budget from accidentally doubling the rerun
- * latency.
+ * Same source as the first verifier pass (`resolvePostGenerationVerifierConfig`)
+ * so the confirmation deadline is never tighter than the pass it confirms.
  */
-export const VERIFIER_RERUN_TIMEOUT_MS = 30_000;
+export function resolveVerifierRerunTimeoutMs(): number {
+  return resolvePostGenerationVerifierConfig().timeoutMs;
+}

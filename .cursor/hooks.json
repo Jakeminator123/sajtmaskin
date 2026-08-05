@@ -13,6 +13,12 @@
         "matcher": "worktree\\s+remove",
         "timeout": 10,
         "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/heredoc-guard.mjs",
+        "matcher": "<<-?\\s*['\"]?[A-Za-z_]",
+        "timeout": 10,
+        "failClosed": false
       }
     ]
   }

@@ -184,6 +184,31 @@ describe("assertPromoteAllowed — verdikt för en annan innehållsrevision", ()
     }
   });
 
+  it("bär det överspelade verdiktet maskinläsbart, inte bara i prosan", async () => {
+    // `staleRevision` klassas FÖRE blocking-checken, så ett `verifier_failed`
+    // för revision N ser ut precis som ett `preflight_passed` för N hos en
+    // anropare som bara tittar på flaggan. `/quality-gate`s omtag måste kunna
+    // skilja dem åt utan att parsa `reason` (annars stämplas ett färskt
+    // preflight_passed ovanpå en verifier-underkänd version).
+    const rejected = await assertPromoteAllowed("ver-1", async () =>
+      staleSignal("verifier_failed"),
+    );
+    const passed = await assertPromoteAllowed("ver-1", async () =>
+      staleSignal("preflight_passed"),
+    );
+
+    expect(rejected.allowed).toBe(false);
+    expect(passed.allowed).toBe(false);
+    if (!rejected.allowed && !passed.allowed) {
+      expect("staleSignal" in rejected && rejected.staleSignal).toBe("verifier_failed");
+      expect("staleSignal" in passed && passed.staleSignal).toBe("preflight_passed");
+      // Guarden äger vad "blockerande" betyder — konsumenten ska inte
+      // återhärleda det ur PROMOTE_BLOCKING_QUALITY_GATE_RESULTS.
+      expect("staleSignalBlocking" in rejected && rejected.staleSignalBlocking).toBe(true);
+      expect("staleSignalBlocking" in passed && passed.staleSignalBlocking).toBe(false);
+    }
+  });
+
   it("mismatch är retrybar oavsett onReadError — det är inte ett läsfel", async () => {
     const withDefault = await assertPromoteAllowed("ver-1", async () =>
       staleSignal("preflight_passed"),

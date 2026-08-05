@@ -619,6 +619,84 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     }
   });
   check("waitForReady accepts a healthy page that renders error prose", dashboardResolved === true);
+
+  // Persistent empty <body> must NOT false-green, and must NOT wait out the full
+  // readiness deadline either: it gets its own, much shorter window. Shrink both
+  // for this guard — prod uses 600s readiness / 90s empty-body.
+  const emptyHtml =
+    "<!doctype html><html><head><title>Boot</title></head><body><div id=\"__next\"></div></body></html>";
+  const previousReadyMax = process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS;
+  const previousEmptyMax = process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS;
+  process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = "60000";
+  process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS = "3000";
+  let emptyRejected = false;
+  let emptyMessage = "";
+  const emptyStartedAt = Date.now();
+  try {
+    await withServer(emptyHtml, async (url) => {
+      try {
+        await waitForReady(url);
+      } catch (err) {
+        emptyRejected = true;
+        emptyMessage = err instanceof Error ? err.message : String(err);
+      }
+    });
+  } finally {
+    if (previousReadyMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = previousReadyMax;
+    }
+    if (previousEmptyMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS = previousEmptyMax;
+    }
+  }
+  const emptyElapsedMs = Date.now() - emptyStartedAt;
+  check("waitForReady rejects a persistent empty HTML body", emptyRejected === true);
+  check(
+    "empty-body rejection names the empty-body condition",
+    /empty body/i.test(emptyMessage) && /body text still empty/i.test(emptyMessage),
+  );
+  check(
+    "empty-body rejection does not accept early (waits out its own window)",
+    emptyElapsedMs >= 2500,
+  );
+  // The point of the separate window: a client-rendered page must fail in ~3s
+  // here, not sit for the 60s readiness deadline. Without this the fix trades a
+  // false-green for a ten-minute hang in prod.
+  check(
+    "empty-body rejection uses its OWN window, not the readiness deadline",
+    emptyElapsedMs < 20_000,
+  );
+
+  // Motprov: empty during first compile, then meaningful content → ready.
+  // Proves we keep polling instead of failing on the first empty responses.
+  {
+    let hits = 0;
+    const server = createServer((_req, res) => {
+      hits += 1;
+      const html = hits < 3 ? emptyHtml : goodHtml;
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(html);
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address();
+    let delayedReady = false;
+    try {
+      await waitForReady(`http://127.0.0.1:${port}/`);
+      delayedReady = true;
+    } catch {
+      delayedReady = false;
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+    check(
+      "waitForReady accepts a page that fills in after empty compile polls",
+      delayedReady === true && hits >= 3,
+    );
+  }
 }
 
 // 12. PM-safe dependency postcondition: prefer the package manager's own view,
@@ -1045,6 +1123,241 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     runtime.__testing.cleanupPackageCachesUnqueued({ force: true }),
   );
   check("in-slot purge completes without deadlocking", inSlot.purgedCache === true);
+}
+
+// 16. Boot-failure cap (P2 crash-loop without error surface):
+//     When install/boot fails, splash refresh + status traffic used to call
+//     ensureRuntimeForChat forever. After N failures for the same version the
+//     session must stay terminal `error` and refuse further boots so the app
+//     can project readinessState=failed (existing preview-status → error log).
+{
+  const { setBootInstallRunnersForTesting, clearRuntimeStateForTesting } =
+    runtime.__testing;
+  // Mirror the clean-exit budget: three strikes, then terminal.
+  const BOOT_FAILURE_CAP = 3;
+  const chatId = "guard-boot-fail-cap";
+  const sessionId = "guard-boot-fail-session";
+  const previewSessionId = "ps_guard-boot-fail";
+  const versionId = "v-boot-fail";
+
+  function writeBootFailSession() {
+    const session = {
+      sessionId,
+      previewSessionId,
+      chatId,
+      versionId,
+      previewUrl: `http://localhost/${chatId}`,
+      status: "starting",
+      lastAction: "start",
+      sessionExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      filesJson: {
+        "package.json": JSON.stringify({
+          name: "boot-fail-cap",
+          private: true,
+          dependencies: { next: "15.0.0", react: "18", "react-dom": "18" },
+        }),
+      },
+    };
+    mkdirSync(dataDir, { recursive: true });
+    writeFileSync(
+      join(dataDir, "preview-host-store.json"),
+      JSON.stringify({
+        sessions: { [sessionId]: session },
+        logs: {},
+        previewSessionToSession: { [previewSessionId]: sessionId },
+      }),
+      "utf8",
+    );
+  }
+
+  let installAttempts = 0;
+  setBootInstallRunnersForTesting({
+    installRunner: async () => {
+      installAttempts += 1;
+      return {
+        passed: false,
+        exitCode: 1,
+        durationMs: 1,
+        output: "pnpm install failed: simulated boot failure",
+        usedFallback: false,
+        peerConflictDetected: false,
+      };
+    },
+  });
+
+  // ensureRuntimeForChat clears inflightBootByChat in a trailing microtask.
+  // Await one macrotask so the next call does not reuse the rejected promise
+  // (same gap the 4s splash refresh has in production).
+  async function ensureBootAttempt() {
+    try {
+      await runtime.ensureRuntimeForChat(chatId);
+    } catch {
+      /* boot failure expected */
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  try {
+    writeBootFailSession();
+
+    // Motprov: one failure must still be retriable — the next ensure still boots.
+    await ensureBootAttempt();
+    check("boot failure #1 records an install attempt", installAttempts === 1);
+    const afterFirst = installAttempts;
+    await ensureBootAttempt();
+    check(
+      "boot after fewer-than-N failures still retries",
+      installAttempts === afterFirst + 1,
+    );
+
+    // Drive remaining failures up to the cap.
+    while (installAttempts < BOOT_FAILURE_CAP) {
+      await ensureBootAttempt();
+    }
+    check(
+      "boot failure cap reached exactly N install attempts",
+      installAttempts === BOOT_FAILURE_CAP,
+    );
+
+    const atCap = installAttempts;
+    await ensureBootAttempt();
+    const storeAfter = JSON.parse(
+      readFileSync(join(dataDir, "preview-host-store.json"), "utf8"),
+    );
+    const terminal = storeAfter.sessions[sessionId];
+    check(
+      "boot failure cap refuses further boots",
+      installAttempts === atCap,
+    );
+    check(
+      "boot failure cap leaves session terminal error",
+      terminal?.status === "error" && terminal?.readinessState === "failed",
+    );
+  } finally {
+    setBootInstallRunnersForTesting();
+    clearRuntimeStateForTesting(chatId, sessionId);
+  }
+}
+
+// 17. Boot-failure budget vs the same-version repair (Bugbot finding on #799):
+//     `POST /preview/session/update` resets the budget because rewriting content
+//     IS the repair. Install runs for minutes, so that reset routinely lands
+//     while a boot is in flight. The failing boot must count from the STORE, not
+//     from the session snapshot it started with — otherwise its catch writes the
+//     pre-reset strikes back, reaches the cap, and the pre-boot guard refuses
+//     the very boot the update asked for.
+{
+  const { setBootInstallRunnersForTesting, clearRuntimeStateForTesting } = runtime.__testing;
+  const chatId = "guard-boot-reset-race";
+  const sessionId = "guard-boot-reset-session";
+  const previewSessionId = "ps_guard-boot-reset";
+  const versionId = "v-boot-reset";
+  const storePath = join(dataDir, "preview-host-store.json");
+  const readStore = () => JSON.parse(readFileSync(storePath, "utf8"));
+  const writeStore = (data) => writeFileSync(storePath, JSON.stringify(data), "utf8");
+
+  // Seed ONE strike short of the cap for this version.
+  const seededStrikes = [Date.now() - 3_000, Date.now() - 2_000];
+  mkdirSync(dataDir, { recursive: true });
+  writeStore({
+    sessions: {
+      [sessionId]: {
+        sessionId,
+        previewSessionId,
+        chatId,
+        versionId,
+        previewUrl: `http://localhost/${chatId}`,
+        status: "starting",
+        lastAction: "start",
+        sessionExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        runtimeBootFailureVersionId: versionId,
+        runtimeBootFailureTimestamps: [...seededStrikes],
+        filesJson: {
+          "package.json": JSON.stringify({
+            name: "boot-reset-race",
+            private: true,
+            dependencies: { next: "15.0.0", react: "18", "react-dom": "18" },
+          }),
+        },
+      },
+    },
+    logs: {},
+    previewSessionToSession: { [previewSessionId]: sessionId },
+  });
+
+  let installAttempts = 0;
+  let resetApplied = false;
+  setBootInstallRunnersForTesting({
+    installRunner: async () => {
+      installAttempts += 1;
+      if (!resetApplied) {
+        // Mirror exactly what the update route writes to the budget when the
+        // same version is rewritten — mid-install, as it happens in production.
+        resetApplied = true;
+        const data = readStore();
+        data.sessions[sessionId].runtimeBootFailureVersionId = versionId;
+        data.sessions[sessionId].runtimeBootFailureTimestamps = [];
+        writeStore(data);
+      }
+      return {
+        passed: false,
+        exitCode: 1,
+        durationMs: 1,
+        output: "pnpm install failed: simulated failure after a mid-install reset",
+        usedFallback: false,
+        peerConflictDetected: false,
+      };
+    },
+  });
+
+  async function attemptBoot() {
+    try {
+      await runtime.ensureRuntimeForChat(chatId);
+    } catch {
+      /* boot failure expected */
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  try {
+    await attemptBoot();
+    const afterRace = readStore().sessions[sessionId];
+    const afterRaceStrikes = Array.isArray(afterRace?.runtimeBootFailureTimestamps)
+      ? afterRace.runtimeBootFailureTimestamps
+      : null;
+    check(
+      "mid-install reset survives the failing boot's own write",
+      afterRaceStrikes?.length === 1,
+    );
+    check(
+      "the failing boot does not resurrect pre-reset strikes",
+      !seededStrikes.some((stamp) => (afterRaceStrikes ?? []).includes(stamp)),
+    );
+
+    // The whole point of the reset: the repaired project must get to boot.
+    const beforeRetry = installAttempts;
+    await attemptBoot();
+    check("a boot after a mid-install reset is not refused", installAttempts === beforeRetry + 1);
+
+    // Motprov: with no update in between, genuine repeated failures must STILL
+    // cap. The fix must not disarm the guard it protects.
+    await attemptBoot();
+    const atCap = installAttempts;
+    await attemptBoot();
+    const capped = readStore().sessions[sessionId];
+    check("genuine repeated failures still reach the cap", installAttempts === atCap);
+    check(
+      "capped session is still terminal error",
+      capped?.status === "error" && capped?.readinessState === "failed",
+    );
+  } finally {
+    setBootInstallRunnersForTesting();
+    clearRuntimeStateForTesting(chatId, sessionId);
+  }
 }
 
 rmSync(dataDir, { recursive: true, force: true });

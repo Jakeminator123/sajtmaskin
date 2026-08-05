@@ -27,6 +27,7 @@ import {
   resetVersionVerificationToPending,
 } from "@/lib/db/chat-repository-pg";
 import { assertPromoteAllowed } from "@/lib/db/promote-guard";
+import { recordQualityGatePassedForCurrentContent } from "@/lib/db/services/generation-telemetry";
 import { warnLog } from "@/lib/utils/debug";
 import {
   buildExportableProject,
@@ -766,19 +767,61 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           // (B08): the historic fail-open here could promote a `verifier_failed`
           // row whenever the telemetry read threw. The `.catch` is defensive for
           // any unexpected throw and also fails closed (retryable).
-          const guard = await assertPromoteAllowed(internalVersionId, undefined, {
-            onReadError: "indeterminate",
-          }).catch((err) => {
-            console.warn(
-              "[quality-gate] Promote guard threw unexpectedly; failing closed (retryable):",
-              err,
+          const readPromoteGuard = () =>
+            assertPromoteAllowed(internalVersionId, undefined, {
+              onReadError: "indeterminate",
+            }).catch((err) => {
+              console.warn(
+                "[quality-gate] Promote guard threw unexpectedly; failing closed (retryable):",
+                err,
+              );
+              return {
+                allowed: false as const,
+                indeterminate: true as const,
+                reason: "promote_guard_threw",
+              };
+            });
+
+          let guard = await readPromoteGuard();
+
+          // Approach B (prod 2026-08-05, chats 4cc467d2 / 41be90f2): when the
+          // content-revision gate reports `staleRevision`, the VM checks above
+          // already assessed the CURRENT fileset under lease. Stamp a fresh
+          // `preflight_passed` for that revision and re-check the guard exactly
+          // once — do NOT move an old verdict's revision forward (that would
+          // reintroduce false-green), and do NOT treat a matching
+          // `verifier_failed` as stale (explicit block path below).
+          //
+          // The superseded verdict must ALSO not have been blocking. The guard
+          // classifies a revision mismatch BEFORE it looks at whether the verdict
+          // blocks (`promote-guard.ts`), so `staleRevision` alone also covers
+          // "the finalize verifier REJECTED revision A, then the post-check lane
+          // mutated the files to B". Re-assessing there would stamp
+          // `preflight_passed` over a rejection on the strength of the VM lane
+          // alone — exactly the false-green this branch's own B08 comment
+          // forbids, since install/typecheck/build is not a substitute for the
+          // verifier pass. A blocking stale verdict therefore stays deferred and
+          // retryable: the next finalize/verify run produces a verdict that
+          // actually applies to the new content.
+          if (
+            !guard.allowed &&
+            "indeterminate" in guard &&
+            guard.indeterminate === true &&
+            "staleRevision" in guard &&
+            guard.staleRevision === true &&
+            guard.staleSignalBlocking !== true
+          ) {
+            const stamped = await recordQualityGatePassedForCurrentContent(
+              internalVersionId,
             );
-            return {
-              allowed: false as const,
-              indeterminate: true as const,
-              reason: "promote_guard_threw",
-            };
-          });
+            if (stamped) {
+              console.info(
+                "[quality-gate] Stale promote-guard revision: stamped fresh verdict for current content and re-checking once",
+              );
+              guard = await readPromoteGuard();
+            }
+          }
+
           if (guard.allowed) {
             // M#vlane2 + BB#299: bounded retry on a transient promote timeout so
             // a momentary row-lock/statement_timeout no longer strands a passed
@@ -803,6 +846,8 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
             // mark the version `failed` (a transient DB blip must not false-red a
             // clean version). Leave it at "verifying" and surface a soft error so
             // the client retries — mirrors the transient `promoteError` path.
+            // Also covers a staleRevision reassess that still could not produce
+            // an applicable verdict (stamp failed / race).
             promoteGuardUnavailable = true;
             // Do NOT persist the raw guard reason into the error log: on a DB/
             // telemetry read error `assertPromoteAllowed` embeds the underlying

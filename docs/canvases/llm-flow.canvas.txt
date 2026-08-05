@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "59eb80643",
+    "commit": "ad129f6de",
     "commitDate": "2026-08-05",
     "sinceDays": 14
   },
@@ -185,11 +185,11 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 10,
+      "openBugs": 9,
       "openByPrio": {
         "P0": 0,
         "P1": 1,
-        "P2": 6,
+        "P2": 5,
         "P3": 3,
         "other": 0
       },
@@ -286,7 +286,7 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-010` **Preview-host boot-fel är osynliga för användaren:** ett misslyckat boot sätter `status=\"error\"`, m…"
+      "fynd": "`SM-022` **`npm run worktree:remove` kraschar på en worktree som har `.env.local` som symlänk:** teardown anr…"
     },
     {
       "prio": "P2",

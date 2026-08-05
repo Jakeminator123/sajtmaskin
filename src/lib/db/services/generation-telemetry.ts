@@ -750,3 +750,43 @@ export async function recordRepairPassedQualityGate(
     console.warn("[telemetry] Failed to stamp repair-passed quality gate:", err);
   }
 }
+
+/**
+ * Stamp a fresh `preflight_passed` for the version's *current* `files_json`
+ * after `/quality-gate` already ran VM checks on that content but the promote
+ * guard reported `staleRevision` (finalize verdict named a different revision).
+ *
+ * Client post-finalize fixups (`normalize-text`, `validate-css`,
+ * `validate-images`) mutate `files_json` after finalize stamped a verdict for
+ * revision A. With `SAJTMASKIN_CONTENT_REVISION_GATE` on, the guard correctly
+ * refuses to let A's verdict cover B — but nothing used to re-assess B, so
+ * promotion deferred forever. This write is the bounded reassess: same pattern
+ * as {@link recordRepairPassedQualityGate}, but revision always comes from the
+ * version row (subselect), never by moving an old row's revision forward.
+ *
+ * Best-effort; never throws. Returns whether a new telemetry row was written.
+ */
+export async function recordQualityGatePassedForCurrentContent(
+  versionId: string,
+): Promise<boolean> {
+  try {
+    const rows = await getTelemetryForVersion(versionId);
+    const prior = rows[0];
+    if (!prior) return false;
+    await createGenerationTelemetryRecord({
+      chatId: prior.chatId,
+      versionId,
+      model: prior.model,
+      variantId: prior.variantId ?? null,
+      qualityGateResult: "preflight_passed",
+      meta: { source: "quality-gate-stale-revision-reassess" },
+    });
+    return true;
+  } catch (err) {
+    console.warn(
+      "[telemetry] Failed to stamp quality-gate stale-revision reassess:",
+      err,
+    );
+    return false;
+  }
+}
