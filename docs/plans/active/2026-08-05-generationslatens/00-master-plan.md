@@ -1,7 +1,7 @@
 ---
 status: active
 owner: unassigned
-topic: Generationslatens — strömmen är 79–99 % av strömfönstret (brief/orkestrering före ankaret). Steg 1 levererad, steg 2 diagnos (klassning befogad), steg 3 ägarfråga, steg 4 gated.
+topic: Generationslatens — strömmen är 79–99 % av strömfönstret (brief/orkestrering ligger före mätankaret). Steg 1 i PR #792 (ej mergad), steg 2 diagnos klar (klassningen befogad), steg 3 ägarfråga, steg 4 gated.
 created: 2026-08-05
 source: Prod-mätning 2026-08-05 av de två senaste användarsajterna (fyra versioner, chattarna 9cdb3e31 + 41be90f2) via read-only `/logg` + direktläsning av `generation_telemetry.meta`. Underlaget i sin helhet: [`01-matningen.md`](01-matningen.md). Ägarfråga 2026-08-05: "kan man parallellisera saker för att snabba upp allt?"
 ---
