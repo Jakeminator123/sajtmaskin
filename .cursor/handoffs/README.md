@@ -73,4 +73,6 @@ Handoffen ska kunna klistras direkt i Cursor Background Agent → "New Task" uta
 
 ## Rensning
 
-Ingen automatisk retention. Radera när handoffen är levererad. Historik bevaras i git (handoffen är gitignored, men det levererade arbetet ligger i commits/PR) och i ev. plan-/backlog-rad.
+**Taket är tre handoffs.** `npm run clean:scratch` (torrkörning) / `npm run clean:scratch:apply` behåller de tre nyaste och tar bort resten oavsett ålder — se `COUNT_TREES` i `scripts/dev/clean-scratch.mjs`. `README.md` är committad och rörs aldrig.
+
+Radera gärna manuellt så snart en handoff är levererad; taket är ett skyddsnät, inte en ursäkt för att låta mappen växa. Historik bevaras i git (handoffen är gitignored, men det levererade arbetet ligger i commits/PR) och i ev. plan-/backlog-rad.
