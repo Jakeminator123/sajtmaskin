@@ -66,19 +66,27 @@ const AGE_TREES = ["logs", ".env-backups"];
  * is the only signal worth keeping.
  *
  * The tracked-file guard still applies, so the committed README.md in each
- * directory is never a deletion candidate. `.cursor/plans` has no README (it is
- * gitignored wholesale) and holds Cursor's own `*.plan.md` files.
+ * directory is never a deletion candidate.
  *
- * Deliberately NOT capped: loose files directly under `.cursor/swarms`. That is
- * where `FINDINGS.md` lives — the curated, deduped list a distill agent
- * maintains across runs, and the one artifact in these trees whose value grows
- * rather than decays. Only `swarms/runs` (raw per-agent output) is capped.
+ * Two neighbours are deliberately NOT capped:
+ *
+ *   - Loose files directly under `.cursor/swarms`. That is where `FINDINGS.md`
+ *     lives — the curated, deduped list a distill agent maintains across runs,
+ *     and the one artifact in these trees whose value grows rather than decays.
+ *     Only `swarms/runs` (raw per-agent output) is capped.
+ *
+ *   - `.cursor/plans`. It is gitignored wholesale, so it holds no tracked file
+ *     for the guard above to protect, and tracked source cites individual plans
+ *     as its own rationale: `src/lib/gen/autofix/runtime-imports.ts` points at
+ *     `3d-motion-stub-fix_1125d129.plan.md` "for the full repro", and
+ *     `docs/plans/avklarat/repair-loop-hardening.md` names one as `parent_plan`.
+ *     A recency cap would delete the only copy of a document the repo refers to.
+ *     Migrate that rationale into the citing file first, then revisit.
  */
 const COUNT_TREES = [
   ".cursor/handoffs",
   ".cursor/kedja",
   ".cursor/bugs",
-  ".cursor/plans",
   ".cursor/logg-internet/runs",
   ".cursor/swarms/runs",
 ];
