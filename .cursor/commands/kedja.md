@@ -128,7 +128,12 @@ Två fällor i domen:
 
 `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`. Detta är det obligatoriska passet ur `workflow.mdc`, inte ett extra lager. Fynd triageras som vanligt: fixa i diffen, logga i backloggen, eller avfärda med en rad.
 
-**Worktree-fallback (verifierat 2026-08-05):** bugbot kan inte räkna ut diffen i en länkad worktree (`.git` är en fil där) — både `uncommitted changes` och `branch changes` svarar "diff is empty". Kör då passet mot **huvudcheckouten** med `Diff: natural language`: beskriv ändringarna per fil, och peka i Custom Instructions på den sparade patchfilen `.cursor/kedja/<körning>/kandidat-<x>.diff` med instruktionen att läsa och granska den som om den vore applicerad. **Spara patchen först, och med `git add -A -N` + `git diff HEAD`** (se *Efter körning* steg 1) — en vanlig `git diff` utelämnar den otrackade testfilen, och då granskar bugbot en ofullständig vinnare. Dokumentera passet som `bugbot-local`.
+**"diff is empty" — fallback (verifierat 2026-08-05):** bugbot kan svara *"the diff … is empty"* på en kedja-worktree och då **gäller passet inte som kört** — behandla det som ett fel, aldrig som "inga fynd". Observerat: en opushad kedja-branch gav tomt svar på både `uncommitted changes` och `branch changes`, medan samma form fungerade i en länkad worktree vars branch hade pushad upstream. Prova alltså normalformen ovan först. Får du tomt svar:
+
+1. Spara patchen med `git add -A -N` + `git diff HEAD` (se *Efter körning* steg 1) — en vanlig `git diff` utelämnar den otrackade testfilen och ger bugbot en ofullständig vinnare.
+2. Kör passet mot **huvudcheckouten** med `Diff: natural language`, en Change Description per fil, och Custom Instructions som pekar på `.cursor/kedja/<körning>/kandidat-<x>.diff` med instruktionen att läsa och granska patchen som om den vore applicerad.
+
+Dokumentera passet som `bugbot-local`. Läs svaret kritiskt: ett pass som bara ser en delmängd av branchen kan rapportera fynd som är falska mot helheten (hände på #780 — bugbot påstod att backlog-rader raderats utan arkivering, fast arkivraderna låg i samma diff). Verifiera alltid ett fynd mot `git diff master...HEAD` innan du agerar på det.
 
 ## Efter körning — orkestratorns plikt, aldrig användarens
 

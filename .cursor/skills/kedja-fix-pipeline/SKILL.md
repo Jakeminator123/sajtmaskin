@@ -137,7 +137,12 @@ Full Repository Path: {WINNER_WORKTREE_PATH}
 Diff: uncommitted changes
 ```
 
-**Linked-worktree fallback (verified 2026-08-05):** Bugbot cannot compute a diff inside a linked worktree (`.git` is a file there) — both `uncommitted changes` and `branch changes` return "diff is empty". Save the winner's patch to `.cursor/kedja/<run>/kandidat-<x>.diff` first — with `git add -A -N` then `git diff HEAD`, the same procedure as `captureDiff` in `scripts/cursor/kedja-clean.mjs`, or the untracked repro test is missing from the patch and Bugbot reviews an incomplete winner. Then run the pass against the MAIN checkout with `Diff: natural language`, a per-file Change Description, and Custom Instructions telling it to read that patch file and review it as if applied. Document the pass as `bugbot-local`.
+**"diff is empty" fallback (verified 2026-08-05).** Use the form above first. Bugbot may answer *"the diff … is empty"* on a kedja worktree; that means the pass did NOT run — never record it as "no findings". Observed: an unpushed kedja branch returned empty for both `uncommitted changes` and `branch changes`, while the same form worked in a linked worktree whose branch had a pushed upstream. On an empty answer:
+
+1. Save the patch with `git add -A -N` then `git diff HEAD` — the same procedure as `captureDiff` in `scripts/cursor/kedja-clean.mjs`. A plain `git diff` omits the untracked repro test, so Bugbot would review an incomplete winner.
+2. Run the pass against the MAIN checkout with `Diff: natural language`, a per-file Change Description, and Custom Instructions telling it to read `.cursor/kedja/<run>/kandidat-<x>.diff` and review it as if applied.
+
+Document the pass as `bugbot-local`. Read the answer critically: a pass that only saw part of the branch can report findings that are false against the whole (on #780 it claimed backlog rows were deleted without archival while the archive rows sat in the same diff). Verify any finding against `git diff master...HEAD` before acting on it.
 
 ## Judging order
 
