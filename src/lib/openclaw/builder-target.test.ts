@@ -1,44 +1,55 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { publishBuilderSendTurn, readBuilderTurnSnapshot } from "./builder-target";
+import { readBuilderTurnSnapshot } from "./builder-target";
 
 afterEach(() => {
   delete window.__SITEMASKIN_CONTEXT;
 });
 
-describe("publishBuilderSendTurn", () => {
-  it("is visible to the next poll without waiting for a render", () => {
-    // The handshake polls the context object directly, so a refusal that only
-    // lands on the next React commit would be read a beat late — long enough
-    // for the loop to act on a turn it already knows was refused.
-    window.__SITEMASKIN_CONTEXT = { page: "builder", chatId: "chat-1" };
-
-    publishBuilderSendTurn({ rejectedSendSeq: 5, rejectedAt: 1_800_000_000_000 });
-
-    const snapshot = readBuilderTurnSnapshot();
-    expect(snapshot?.rejectedSendSeq).toBe(5);
-    expect(snapshot?.rejectedAt).toBe(1_800_000_000_000);
-  });
-
-  it("leaves the rest of the builder context alone", () => {
+describe("readBuilderTurnSnapshot", () => {
+  it("reads the builder turn fields the handshake polls", () => {
     window.__SITEMASKIN_CONTEXT = {
       page: "builder",
       chatId: "chat-1",
       activeVersionId: "ver-2",
+      isStreaming: false,
+      activeVersionStatus: "ready",
+      activeVersionIsLatest: true,
+      chatMessageCount: 6,
+      awaitingInput: false,
     };
 
-    publishBuilderSendTurn({ rejectedSendSeq: 5 });
-
-    const snapshot = readBuilderTurnSnapshot();
-    expect(snapshot?.activeVersionId).toBe("ver-2");
-    expect(snapshot?.chatId).toBe("chat-1");
+    expect(readBuilderTurnSnapshot()).toEqual({
+      chatId: "chat-1",
+      activeVersionId: "ver-2",
+      isStreaming: false,
+      versionStatus: "ready",
+      versionIsLatest: true,
+      chatMessageCount: 6,
+      awaitingInput: false,
+    });
   });
 
-  it("is a no-op outside the builder", () => {
-    // Nothing to correlate against off the builder page, and inventing a
-    // context object there would make `readBuilderTurnSnapshot` answer for a
-    // page that has no send loop at all.
-    expect(() => publishBuilderSendTurn({ rejectedSendSeq: 2 })).not.toThrow();
-    expect(window.__SITEMASKIN_CONTEXT).toBeUndefined();
+  it("is null off the builder, so autonomy can never resume on another page", () => {
+    window.__SITEMASKIN_CONTEXT = { page: "landing", chatId: "chat-1" };
+    expect(readBuilderTurnSnapshot()).toBeNull();
+  });
+
+  it("is null without a context at all", () => {
+    expect(readBuilderTurnSnapshot()).toBeNull();
+  });
+
+  it("treats a missing latest-version flag as a stale view rather than a fresh one", () => {
+    // An absent flag must not read as "you are looking at the newest version" —
+    // the handshake would then trust a terminal status describing an older row.
+    window.__SITEMASKIN_CONTEXT = {
+      page: "builder",
+      chatId: "chat-1",
+      activeVersionStatus: "ready",
+    };
+
+    const snapshot = readBuilderTurnSnapshot();
+    expect(snapshot?.versionIsLatest).toBe(false);
+    expect(snapshot?.activeVersionId).toBeNull();
   });
 });

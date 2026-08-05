@@ -14,6 +14,9 @@
  * - only a `followups` mandate resumes (`review_next` is passive by design),
  * - only one resume per auto-send, and never while OpenClaw is still streaming,
  * - a failed/blocked build stops the mandate instead of piling on more work,
+ * - only a send that REPORTED that it ran may resume: the builder's own state
+ *   cannot say whose turn produced it, so a missing outcome stops the run
+ *   rather than reading the previous build's terminal version as a fresh one,
  * - a builder-target switch, a disarm, or a timeout drops the watch.
  *
  * This module is pure (no DOM, no React, no timers) so every rule above is
@@ -21,6 +24,32 @@
  */
 
 import { isMandateActive, type ArmedMandate } from "@/lib/openclaw/debug/armed-mandate";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
+
+/**
+ * How the builder send this watch owns ended. Mirrors `SendMessageOutcome`'s
+ * discriminator rather than restating it, so a new outcome kind has to be
+ * classified below instead of quietly inheriting "the turn ran".
+ */
+export type ArmedContinuationSendOutcome = SendMessageOutcome["status"];
+
+/**
+ * Which outcomes mean a builder turn actually RAN, and may therefore be read as
+ * the finished build the mandate's next step should build on. A total record
+ * over the union, so adding an outcome fails the typecheck here.
+ */
+const SEND_OUTCOME_RAN: Record<ArmedContinuationSendOutcome, boolean> = {
+  // The turn reached the builder and produced a version.
+  started: true,
+  // No generation ran, but the prompt was consumed by the nested F3 round and
+  // that round has its own version — there is something to continue from.
+  settled: true,
+  // Every refusal: stale base, the F3 env gate, the credit gate, a client or
+  // server abort, a network failure. Nothing was built.
+  rejected: false,
+  failed: false,
+  aborted: false,
+};
 
 /** Pending "an auto-send happened, watch the builder turn" record. */
 export interface ArmedContinuationWatch {
@@ -51,6 +80,13 @@ export interface ArmedContinuationWatch {
    * the send arrives, and a send that never arrives leaves it null.
    */
   sendSeq: number | null;
+  /**
+   * How that send ended, written by the same send once `sendMessage` resolves.
+   * Null while the turn is still in flight — and permanently null for a send
+   * the composer dropped before it ever reached `sendMessage`, which is exactly
+   * the case a resume must not be allowed to guess its way past.
+   */
+  sendOutcome: ArmedContinuationSendOutcome | null;
   /** Set when OpenClaw has been woken for this watch, so it fires only once. */
   resumedAt: number | null;
   /** When the builder last looked idle; reset whenever it streams again. */
@@ -68,22 +104,6 @@ export interface BuilderTurnSnapshot {
   versionIsLatest: boolean;
   /** Number of messages in the builder chat. */
   chatMessageCount: number | null;
-  /**
-   * Id of the send that most recently ended rejected, failed or aborted. Such a
-   * turn leaves the focused version on its previous terminal status, so without
-   * this it is indistinguishable from a finished build. Carried as an id rather
-   * than a timestamp because the builder has many senders: a manual retry, a
-   * catalogue insert or a plan decision can fail while an autonomous turn is
-   * still running, and only the mandate's own send may end the mandate.
-   */
-  rejectedSendSeq: number | null;
-  /**
-   * When that refusal happened. Only consulted for a send that never got to
-   * name itself: matching nothing at all would let an autonomous turn's own
-   * refusal pass unnoticed, and waiting out a timeout is a worse ending than
-   * the blunt time comparison this replaced.
-   */
-  rejectedAt: number | null;
   /** The builder is holding a question or a plan that only the user can answer. */
   awaitingInput: boolean;
 }
@@ -136,6 +156,19 @@ export const CONTINUATION_RESUME_FOLLOWTHROUGH_MS = 180_000;
 /** Absolute cap on a single watch, however slow the build is. */
 export const CONTINUATION_MAX_WAIT_MS = 15 * 60_000;
 /**
+ * How long the auto-send gets to reach `sendMessage` and name itself. The click
+ * is synchronous but the composer resolves attachments first — a Figma preview
+ * fetch alone may take six seconds — so this is deliberately generous. Past it,
+ * the send never got there and the watch has no turn of its own to follow.
+ */
+export const CONTINUATION_SEND_CLAIM_TIMEOUT_MS = 30_000;
+/**
+ * How long a builder that already looks finished may go without the send's own
+ * outcome. `sendMessage` resolves when the stream closes, so by this point the
+ * answer is normally already in; a long silence means it will not come.
+ */
+export const CONTINUATION_SEND_OUTCOME_TIMEOUT_MS = 60_000;
+/**
  * How long the builder must look finished before that is believed. The context
  * the loop polls is published from a React effect, so individual fields land a
  * commit apart — the outcome of a send can still be missing at the instant
@@ -179,6 +212,7 @@ export function createArmedContinuationWatch(
     startedAt: now,
     messageCountAtSend: snapshot?.chatMessageCount ?? null,
     sendSeq: null,
+    sendOutcome: null,
     observedAt: null,
     observedStrong: false,
     resumedAt: null,
@@ -292,15 +326,9 @@ export function decideArmedContinuation(
   // The builder refused the turn (stale base, F3 env gate, credit gate, an
   // abort). Checked before the observation gate because a refusal can erase its
   // own trace — the optimistic message is rolled back, leaving nothing to see.
-  // Matched on the send id, so a refusal from any other sender leaves the
-  // mandate alone. A send that never named itself has no id to match, and
-  // there the older time comparison still applies — bluntly, but a mandate
-  // that ends one turn early beats one that ignores its own refusal.
-  const refusedThisTurn =
-    watch.sendSeq !== null
-      ? snapshot?.rejectedSendSeq === watch.sendSeq
-      : typeof snapshot?.rejectedAt === "number" && snapshot.rejectedAt >= watch.startedAt;
-  if (refusedThisTurn) {
+  // The outcome is written by the send that claimed this watch, so a refusal
+  // belonging to any other sender never reaches us.
+  if (watch.sendOutcome !== null && !SEND_OUTCOME_RAN[watch.sendOutcome]) {
     return {
       kind: "abort",
       reason: "Autonomin stoppades: buildern tog inte emot sändningen.",
@@ -405,6 +433,39 @@ export function decideArmedContinuation(
       };
     }
     return { kind: "wait", reason: "Väntar på att turens version dyker upp." };
+  }
+
+  // Everything above is read off the BUILDER, and the builder cannot say whose
+  // turn it is describing. The last gate is the mandate's own send confirming
+  // that it ran: `sendMessage` reports a `SendMessageOutcome` and the send
+  // writes it onto this watch. Requiring that answer is what makes the loop
+  // default-closed. Before it, "no refusal was seen" counted as success, so a
+  // refusal the outcome contract does not cover — or a send the composer
+  // dropped before `sendMessage` ever ran — left the PREVIOUS build's terminal
+  // version standing in for a finished turn, and the mandate spent a step on a
+  // turn that never happened.
+  if (watch.sendSeq === null) {
+    if (now - watch.startedAt > CONTINUATION_SEND_CLAIM_TIMEOUT_MS) {
+      return {
+        kind: "abort",
+        reason: "Autonomin stoppades: min sändning nådde aldrig buildern.",
+        notify: true,
+        disarm: true,
+      };
+    }
+    return { kind: "wait", reason: "Väntar på att sändningen når buildern." };
+  }
+
+  if (watch.sendOutcome === null) {
+    if (now - watch.quietSince > CONTINUATION_SEND_OUTCOME_TIMEOUT_MS) {
+      return {
+        kind: "abort",
+        reason: "Autonomin stoppades: jag kunde inte bekräfta att turen kördes.",
+        notify: true,
+        disarm: true,
+      };
+    }
+    return { kind: "wait", reason: "Väntar på utfallet av min sändning." };
   }
 
   return {

@@ -118,6 +118,7 @@ describe("useOpenClawChat — arming consent", () => {
           startedAt: Date.now(),
           messageCountAtSend: 4,
           sendSeq: 3,
+          sendOutcome: "started",
           observedAt: Date.now() - 5000,
           observedStrong: true,
           resumedAt: null,

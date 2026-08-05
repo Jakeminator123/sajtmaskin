@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import type { ArmedMandate } from "@/lib/openclaw/debug/armed-mandate";
-import type { ArmedContinuationWatch } from "@/lib/openclaw/debug/armed-continuation";
+import type {
+  ArmedContinuationSendOutcome,
+  ArmedContinuationWatch,
+} from "@/lib/openclaw/debug/armed-continuation";
 import type { OpenClawPreparedFill } from "@/lib/openclaw/prepared-prompt";
 
 export interface OpenClawMessage {
@@ -52,9 +55,16 @@ interface OpenClawState {
   setEditEnabled: (v: boolean) => void;
   setArmedMandate: (mandate: ArmedMandate | null) => void;
   setArmedContinuation: (watch: ArmedContinuationWatch | null) => void;
-  /** Let the builder send that an armed auto-send started name itself, so a
-   * refusal can be matched to the exact turn. First claim wins. */
+  /** Let the builder send that an armed auto-send started name itself, so its
+   * outcome can be matched to the exact turn. First claim wins. */
   bindArmedContinuationSend: (sendSeq: number) => void;
+  /** Report how that named send ended (`SendMessageOutcome`). The handshake
+   * resumes only on a send that says it ran, so this is what separates a
+   * finished build from a refusal that left the old version standing. */
+  settleArmedContinuationSend: (
+    sendSeq: number,
+    outcome: ArmedContinuationSendOutcome,
+  ) => void;
   setPreparedFill: (fill: OpenClawPreparedFill | null) => void;
 }
 
@@ -118,6 +128,16 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
     set((s) =>
       s.armedContinuation && s.armedContinuation.sendSeq === null
         ? { armedContinuation: { ...s.armedContinuation, sendSeq } }
+        : {},
+    ),
+  // Only the send that claimed the watch may report on it. Every other sender
+  // in the builder — a manual retry, a catalogue insert, a plan decision — can
+  // succeed or fail while the autonomous turn runs, and none of those outcomes
+  // says anything about the mandate's own turn.
+  settleArmedContinuationSend: (sendSeq, outcome) =>
+    set((s) =>
+      s.armedContinuation && s.armedContinuation.sendSeq === sendSeq
+        ? { armedContinuation: { ...s.armedContinuation, sendOutcome: outcome } }
         : {},
     ),
   setPreparedFill: (fill) => set({ preparedFill: fill }),

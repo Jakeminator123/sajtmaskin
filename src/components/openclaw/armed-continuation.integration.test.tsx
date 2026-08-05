@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenClawMessage } from "./OpenClawMessage";
 import { useOpenClawArmedContinuation } from "./useOpenClawArmedContinuation";
 import { useOpenClawStore, type OpenClawMessage as Msg } from "@/lib/openclaw/openclaw-store";
+import type { ArmedContinuationSendOutcome } from "@/lib/openclaw/debug/armed-continuation";
 import {
   applyOpenClawTextFieldAction,
   triggerOpenClawSend,
@@ -56,7 +57,27 @@ function setBuilderContext(overrides: Record<string, unknown> = {}) {
     activeVersionStatus: "ready",
     activeVersionIsLatest: true,
     chatMessageCount: 4,
-    rejectedSendSeq: null,
+    ...overrides,
+  };
+}
+
+/**
+ * A watch as the auto-send card leaves it once the builder send has claimed it
+ * and reported back — the half of the handshake `BuilderShellContent` owns, and
+ * which the mocked auto-send here cannot produce on its own.
+ */
+function pendingWatch(overrides: Record<string, unknown> = {}) {
+  return {
+    chatId: "chat-1",
+    versionIdAtSend: "ver-1",
+    messageCountAtSend: 4,
+    sendSeq: 5,
+    sendOutcome: "started" as ArmedContinuationSendOutcome | null,
+    startedAt: Date.now(),
+    observedAt: Date.now() - 5000,
+    observedStrong: true,
+    resumedAt: null,
+    quietSince: Date.now() - 5000,
     ...overrides,
   };
 }
@@ -130,6 +151,7 @@ describe("armed autonomy — continuation handshake", () => {
     expect(onSend).not.toHaveBeenCalled();
 
     // The builder turn starts — no resume while it runs.
+    act(() => useOpenClawStore.getState().bindArmedContinuationSend(1));
     act(() => setBuilderContext({ isStreaming: true, activeVersionStatus: "generating" }));
     await waitFor(
       () => expect(useOpenClawStore.getState().armedContinuation?.observedStrong).toBe(true),
@@ -137,8 +159,15 @@ describe("armed autonomy — continuation handshake", () => {
     );
     expect(onSend).not.toHaveBeenCalled();
 
-    // Terminal, healthy turn → OpenClaw is woken exactly once.
+    // A terminal-looking builder is not enough on its own: the send that owns
+    // the watch has to report that it actually ran, or a refusal the outcome
+    // contract missed would be read as a finished build.
     act(() => setBuilderContext({ activeVersionId: "ver-2", activeVersionStatus: "ready" }));
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    expect(onSend).not.toHaveBeenCalled();
+
+    // Outcome in → OpenClaw is woken exactly once.
+    act(() => useOpenClawStore.getState().settleArmedContinuationSend(1, "started"));
     await waitFor(() => expect(onSend).toHaveBeenCalledTimes(1), { timeout: 4000 });
 
     const [prompt, options] = onSend.mock.calls[0];
@@ -177,17 +206,7 @@ describe("armed autonomy — continuation handshake", () => {
           createdAt: ARMED_AT,
         },
         // Even a watch planted by hand must not drive a review_next mandate.
-        armedContinuation: {
-          chatId: "chat-1",
-          versionIdAtSend: "ver-1",
-          messageCountAtSend: 4,
-          sendSeq: null,
-          startedAt: Date.now(),
-          observedAt: Date.now() - 5000,
-          observedStrong: true,
-          resumedAt: null,
-          quietSince: Date.now() - 5000,
-        },
+        armedContinuation: pendingWatch(),
       });
     });
 
@@ -212,17 +231,7 @@ describe("armed autonomy — continuation handshake", () => {
           reason: "gör 3 follow-ups",
           createdAt: ARMED_AT,
         },
-        armedContinuation: {
-          chatId: "chat-1",
-          versionIdAtSend: "ver-1",
-          messageCountAtSend: 4,
-          sendSeq: null,
-          startedAt: Date.now(),
-          observedAt: Date.now() - 5000,
-          observedStrong: true,
-          resumedAt: null,
-          quietSince: Date.now() - 5000,
-        },
+        armedContinuation: pendingWatch(),
       });
     });
     setBuilderContext({ activeVersionId: "ver-2", activeVersionStatus: "failed" });
@@ -268,15 +277,52 @@ describe("armed autonomy — continuation handshake", () => {
 
     // A manual retry (send 6) fails mid-build. Autonomy's own turn is fine and
     // must keep running — this is what a shared timestamp got wrong.
-    act(() =>
-      setBuilderContext({ activeVersionStatus: "generating", rejectedSendSeq: 6 }),
-    );
+    act(() => useOpenClawStore.getState().settleArmedContinuationSend(6, "rejected"));
+    act(() => setBuilderContext({ activeVersionStatus: "generating" }));
     await new Promise((resolve) => setTimeout(resolve, 1600));
     expect(useOpenClawStore.getState().armedMandate).not.toBeNull();
     expect(useOpenClawStore.getState().messages).toHaveLength(0);
 
     // The builder then refuses OUR send: that one does end the run.
-    act(() => setBuilderContext({ rejectedSendSeq: 5 }));
+    act(() => useOpenClawStore.getState().settleArmedContinuationSend(5, "rejected"));
+    await waitFor(() => expect(useOpenClawStore.getState().armedMandate).toBeNull(), {
+      timeout: 4000,
+    });
+    expect(useOpenClawStore.getState().messages[0].content).toContain(
+      "buildern tog inte emot sändningen",
+    );
+    expect(onSend).not.toHaveBeenCalled();
+  }, 15_000);
+
+  it("does not spend a step on a refused turn that left a terminal version behind", async () => {
+    // The P3 this closes: stale-base-409, the F3 env gate and the credit gate
+    // all return before a version is built, so the focused row keeps the
+    // PREVIOUS build's terminal status. Under a version list that moved on
+    // (`mutateVersions` refreshes it) that reads exactly like a finished turn,
+    // and the handshake used to wake OpenClaw and burn a mandate step on it.
+    const onSend = vi.fn();
+    act(() => {
+      useOpenClawStore.setState({
+        editEnabled: true,
+        armedMandate: {
+          mode: "followups",
+          remaining: 3,
+          reason: "gör 3 follow-ups",
+          createdAt: ARMED_AT,
+        },
+        armedContinuation: pendingWatch({ sendOutcome: null }),
+      });
+    });
+    // A newer version than the one we sent from, terminal and in focus.
+    setBuilderContext({ activeVersionId: "ver-2", activeVersionStatus: "ready" });
+
+    render(<Harness messages={[]} onSend={onSend} />);
+    await new Promise((resolve) => setTimeout(resolve, 1600));
+    expect(onSend).not.toHaveBeenCalled();
+    expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(3);
+
+    // Once the refusal is reported the run ends — and says why.
+    act(() => useOpenClawStore.getState().settleArmedContinuationSend(5, "rejected"));
     await waitFor(() => expect(useOpenClawStore.getState().armedMandate).toBeNull(), {
       timeout: 4000,
     });
@@ -298,17 +344,7 @@ describe("armed autonomy — continuation handshake", () => {
           reason: "gör 2 follow-ups",
           createdAt: ARMED_AT,
         },
-        armedContinuation: {
-          chatId: "chat-1",
-          versionIdAtSend: "ver-1",
-          messageCountAtSend: 4,
-          sendSeq: null,
-          startedAt: Date.now(),
-          observedAt: Date.now() - 5000,
-          observedStrong: true,
-          resumedAt: null,
-          quietSince: Date.now() - 5000,
-        },
+        armedContinuation: pendingWatch(),
       });
     });
 
