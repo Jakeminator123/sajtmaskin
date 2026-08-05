@@ -585,7 +585,7 @@ telemetri-raden för **aktuell** `files_revision` i stället för senaste raden 
 | Läge | Guardens svar | Varför |
 |---|---|---|
 | Revisionen matchar innehållet | dagens beslut (`preflight_passed` → allow, `verifier_failed`/`preflight_failed` → explicit block) | verdiktet är ett svar om det innehåll som promotas |
-| **Känd mismatch** (verdiktet bär en annan revision) | `{ allowed: false, indeterminate: true, staleRevision: true }` | Symmetriskt: ett `passed` från revision N får inte grönmarkera N+1, och ett `failed` från N får inte terminal-faila N+1. `indeterminate` betyder "kör gaten igen" — `promoteVersion` returnerar `null` (ej promotad, retrybart) och `promoteVersionIfUnleased` settlar **inte** raden terminalt |
+| **Känd mismatch** (verdiktet bär en annan revision) | `{ allowed: false, indeterminate: true, staleRevision: true }` | Symmetriskt: ett `passed` från revision N får inte grönmarkera N+1, och ett `failed` från N får inte terminal-faila N+1. `indeterminate` betyder "kör gaten igen". **`/quality-gate` gör det:** när VM-checken redan passerat på nuvarande innehåll stämplar routen ett färskt `preflight_passed` för aktuell `files_revision` (`recordQualityGatePassedForCurrentContent`) och gör **exakt ett** guard-omt ag — utan att flytta ett gammalt verdikts revision framåt. Övriga anropare (`promoteVersion` / `promoteVersionIfUnleased`) returnerar fortfarande `null` (ej promotad, retrybart) och settlar **inte** raden terminalt |
 | Okänd revision (rad före steg 2, versionslös rad, flagga av) | dagens fail-open | Back-compat: "vet inte" får aldrig bli en spärr |
 
 `acceptRepair` skickar `promotedFilesJson` (den avkodade reparerade payloaden) till
