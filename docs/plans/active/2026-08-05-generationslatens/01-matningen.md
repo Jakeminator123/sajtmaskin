@@ -21,10 +21,10 @@ Read-only mot prod, ingen skrivning.
 1. `npm run db:latest:prod` → senaste sajten.
 2. `dump-logs.mjs` med alla kinds för de två senaste chattarna.
 3. Ett engångsskript direkt mot `generation_telemetry.meta`, eftersom
-   `dump-logs.mjs` vid mätningstillfället **inte** selekterade `meta` för
-   telemetri-kinden. Utan det steget var fas-tiderna osynliga för `/logg`.
-   Det var precis den luckan steg 1 stängde — den är nu åtgärdad, så en
-   framtida mätning behöver inget engångsskript.
+   `dump-logs.mjs` **inte** selekterar `meta` för telemetri-kinden. Utan det
+   steget är fas-tiderna osynliga för `/logg`. Det är precis den luckan steg 1
+   stänger — **PR #792, ännu inte mergad**. När den är inne behöver en framtida
+   mätning inget engångsskript.
 4. Ett engångsskript som räknar bild-URL:er i `engine_versions.files_json`.
 
 Strömtiden var vid mätningen inte ett eget fält utan räknades fram som
@@ -32,7 +32,7 @@ Strömtiden var vid mätningen inte ett eget fält utan räknades fram som
 
 **Rättelse 2026-08-05 (bugbot-fynd under steg 1):** den ursprungliga texten här
 påstod att derivatet även rymmer Deep Brief och orkestrering. Det stämmer inte.
-`duration_ms` sätts som `Date.now() - startedAt` (`persist-telemetry.ts:254`) och
+`duration_ms` sätts som `Date.now() - startedAt` i `persistTelemetryRecord` och
 `streamMs` som `finalizePipelineStartedAt - startedAt` (`runner.ts`) — **samma
 ankare**, `engineStartedAt` i `generation-stream.ts:214`. Derivatet och den nya
 direktmätningen startar alltså på samma punkt och är jämförbara. Skillnaden är
@@ -174,8 +174,10 @@ robusta varianten framför en tröskelrefaktorering.
 
 En A/B avgörs på tre observerbara signaler per körning, alla i
 `generation_telemetry`: `meta.buildSpec.contextPolicy` (blev det `normal`?),
-`prompt_tokens`/`completion_tokens` (sjönk volymen?) och `meta.streamMs` från
-steg 1 (blev strömmen kortare?). Kvalitetssidan avgörs inte av dem — den kräver
+`prompt_tokens`/`completion_tokens` (sjönk volymen?) och — **först när PR #792 är
+mergad** — `meta.streamMs` (blev strömmen kortare?). Utan #792 finns ingen
+`streamMs` på master, och strömtiden måste deriveras som `duration_ms` minus
+`postStreamSteps`. Kvalitetssidan avgörs inte av dem — den kräver
 att ägaren tittar på de genererade sajterna, eftersom Q5b-kommentaren säger att
 tröskeln sänktes just för att undvika `"section truncated"`-fall.
 
