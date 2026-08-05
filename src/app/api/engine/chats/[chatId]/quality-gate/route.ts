@@ -791,12 +791,25 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
           // once — do NOT move an old verdict's revision forward (that would
           // reintroduce false-green), and do NOT treat a matching
           // `verifier_failed` as stale (explicit block path below).
+          //
+          // The superseded verdict must ALSO not have been blocking. The guard
+          // classifies a revision mismatch BEFORE it looks at whether the verdict
+          // blocks (`promote-guard.ts`), so `staleRevision` alone also covers
+          // "the finalize verifier REJECTED revision A, then the post-check lane
+          // mutated the files to B". Re-assessing there would stamp
+          // `preflight_passed` over a rejection on the strength of the VM lane
+          // alone — exactly the false-green this branch's own B08 comment
+          // forbids, since install/typecheck/build is not a substitute for the
+          // verifier pass. A blocking stale verdict therefore stays deferred and
+          // retryable: the next finalize/verify run produces a verdict that
+          // actually applies to the new content.
           if (
             !guard.allowed &&
             "indeterminate" in guard &&
             guard.indeterminate === true &&
             "staleRevision" in guard &&
-            guard.staleRevision === true
+            guard.staleRevision === true &&
+            guard.staleSignalBlocking !== true
           ) {
             const stamped = await recordQualityGatePassedForCurrentContent(
               internalVersionId,

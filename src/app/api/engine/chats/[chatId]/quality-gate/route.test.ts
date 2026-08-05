@@ -909,6 +909,67 @@ describe("POST quality-gate", () => {
     expect(body.promotionBlocked).toBeUndefined();
   });
 
+  it("never re-assesses a stale verdict that was itself blocking (false-green counterexample)", async () => {
+    // The guard classifies a revision mismatch BEFORE it checks whether the
+    // verdict blocks, so a `verifier_failed` for revision A looks exactly like a
+    // `preflight_passed` for A once the post-check lane mutates the files to B.
+    // Stamping a fresh pass there would promote a version the finalize verifier
+    // REJECTED, using only the VM lane as evidence. Stay deferred + retryable.
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1" },
+      version: { id: "ver-1" },
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    isQualityGateConfigured.mockReturnValue(true);
+    buildExportableProject.mockResolvedValue([
+      { path: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    exportableToQualityGateFiles.mockReturnValue([
+      { name: "app/page.tsx", content: "export default function Page(){}" },
+    ]);
+    runQualityGateChecks.mockResolvedValue({
+      results: [{ check: "typecheck", passed: true, exitCode: 0, output: "", durationMs: 10 }],
+      verifyLaneDurationMs: 10,
+      firstFailureCheck: null,
+      jobStartedAt: "2026-04-13T10:00:00.000Z",
+      jobFinishedAt: "2026-04-13T10:00:00.010Z",
+    });
+    qualityGateAllPassed.mockReturnValue(true);
+    buildServerVerifyQualityGateMeta.mockReturnValue({});
+    getLatestVersion.mockResolvedValue({ id: "ver-1" });
+    assertPromoteAllowed.mockResolvedValue({
+      allowed: false,
+      indeterminate: true,
+      staleRevision: true,
+      staleSignal: "verifier_failed",
+      staleSignalBlocking: true,
+      reason:
+        "promote guard signal describes another content revision (verdikt 241b9ad7 = verifier_failed, innehåll 385a8813) — kör gaten igen",
+    });
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", checks: ["typecheck"] }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    // No stamp, no second guard read, no promotion — and no terminal fail
+    // either (the mismatch is retryable, not a verdict about this content).
+    expect(recordQualityGatePassedForCurrentContent).not.toHaveBeenCalled();
+    expect(assertPromoteAllowed).toHaveBeenCalledTimes(1);
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(body.promoted).toBe(false);
+    expect(body.promoteGuardUnavailable).toBe(true);
+  });
+
   it("never promotes on an explicit verifier_failed (false-green counterexample)", async () => {
     // Motprov: a matching verifier_failed must still terminal-block. Without
     // this, "stamp pass + promote on any indeterminate" would green the red

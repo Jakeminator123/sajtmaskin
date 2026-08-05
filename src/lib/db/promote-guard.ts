@@ -36,6 +36,17 @@ export const PROMOTE_BLOCKING_QUALITY_GATE_RESULTS = [
   "preflight_failed",
 ] as const;
 
+/**
+ * Whether a quality-gate result is one that must block promotion. A type guard
+ * so callers keep the narrowed `string` when they build a decision from it.
+ */
+function isBlockingQualityGateResult(result: string | null | undefined): result is string {
+  return (
+    typeof result === "string" &&
+    (PROMOTE_BLOCKING_QUALITY_GATE_RESULTS as readonly string[]).includes(result)
+  );
+}
+
 export type PromoteGuardDecision =
   | { allowed: true }
   | { allowed: false; signal: string; reason: string }
@@ -51,6 +62,19 @@ export type PromoteGuardDecision =
       reason: string;
       /** Set when the indeterminacy is a KNOWN revision mismatch, not a read error. */
       staleRevision?: true;
+      /**
+       * The stale verdict's own result (`preflight_passed`, `verifier_failed`, …)
+       * when the indeterminacy is a revision mismatch, plus whether that result
+       * was BLOCKING. Machine-readable on purpose: a caller that re-assesses the
+       * current content must know that "the verifier rejected the previous
+       * revision" is not the same starting point as "the previous revision
+       * passed". Only `reason` carried this before, and parsing prose is not a
+       * contract. The blocking verdict is decided HERE rather than by each
+       * caller re-deriving it from `PROMOTE_BLOCKING_QUALITY_GATE_RESULTS` —
+       * one owner for what "blocking" means.
+       */
+      staleSignal?: string | null;
+      staleSignalBlocking?: boolean;
     };
 
 /**
@@ -151,6 +175,8 @@ export async function assertPromoteAllowed(
       allowed: false,
       indeterminate: true,
       staleRevision: true,
+      staleSignal: signal.result ?? null,
+      staleSignalBlocking: isBlockingQualityGateResult(signal.result),
       reason:
         `promote guard signal describes another content revision ` +
         `(verdikt ${shortRevision(signal.verdictRevision)} = ${signal.result ?? "inget"}, ` +
@@ -158,10 +184,7 @@ export async function assertPromoteAllowed(
     };
   }
 
-  if (
-    signal.result &&
-    (PROMOTE_BLOCKING_QUALITY_GATE_RESULTS as readonly string[]).includes(signal.result)
-  ) {
+  if (isBlockingQualityGateResult(signal.result)) {
     return {
       allowed: false,
       signal: signal.result,
