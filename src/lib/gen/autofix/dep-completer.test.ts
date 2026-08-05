@@ -624,6 +624,33 @@ describe("completeProjectDependencies", () => {
 });
 
 describe("CSS @import package detection (M#ma1)", () => {
+  it("pinnar inte en bare relativ CSS-sökväg vars första segment liknar ett paket", () => {
+    // Bugbot på granskningsdiffen: `@import "theme/colors.css"` är en RELATIV
+    // sökväg i CSS men saknar `./`, så prefixkontrollen fångar den inte. CSS
+    // skannas därför som strikt allow-list mot KNOWN_PACKAGES.
+    const result = runDepCompleter(
+      [
+        '@import "theme/colors.css";',
+        "@import url(ui/base.css);",
+        '@import "components/card.css";',
+      ].join("\n"),
+    );
+
+    expect(result.dependencies).toEqual({});
+    // Får inte heller läcka in som "okänt paket" — de varningarna matar
+    // reparationsprompten.
+    expect(result.unknownPackages).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("en okänd CSS-specifier blockerar inte samma namn från en riktig JS-import", () => {
+    const result = runDepCompleter(
+      ['@import "some-unknown-lib/theme.css";', 'import x from "some-unknown-lib";'].join("\n"),
+    );
+
+    expect(result.unknownPackages).toEqual(["some-unknown-lib"]);
+  });
+
   it("classifies named packages vs relative/url non-packages", () => {
     expect(isCssPackageImportSource("tw-animate-css")).toBe(true);
     expect(isCssPackageImportSource("tw-animate-css/dist/x.css")).toBe(true);

@@ -99,9 +99,15 @@ export function markLockfileStaleInFiles<T extends { path: string; content: stri
 const IMPORT_SOURCE_RE = new RegExp(
   [
     String.raw`from\s+["']${PACKAGE_SOURCE_PATTERN}["']`,
-    String.raw`import\s+["']${PACKAGE_SOURCE_PATTERN}["']`,
+    // `(?<![@\w])` keeps this JS branch off CSS's `@import "…"`, which is a
+    // different grammar: its specifier may be a relative path WITHOUT a `./`
+    // prefix (`@import "theme/colors.css"`), so letting the JS branch claim it
+    // turned a local folder name into an unknown-package warning. CSS is
+    // handled by CSS_AT_IMPORT_RE below, which knows those rules. The
+    // word-boundary half also stops `xyzimport "…"` from matching.
+    String.raw`(?<![@\w])import\s+["']${PACKAGE_SOURCE_PATTERN}["']`,
     String.raw`require\s*\(\s*["']${PACKAGE_SOURCE_PATTERN}["']\s*\)`,
-    String.raw`import\s*\(\s*["']${PACKAGE_SOURCE_PATTERN}["']\s*\)`,
+    String.raw`(?<![@\w])import\s*\(\s*["']${PACKAGE_SOURCE_PATTERN}["']\s*\)`,
   ].join("|"),
   "g",
 );
@@ -577,17 +583,25 @@ function considerPackageSource(
   seen: Set<string>,
   dependencies: Record<string, string>,
   unknownPackages: string[],
+  options?: { knownOnly?: boolean },
 ): void {
   const pkg = normalizePackageName(raw);
-
-  if (seen.has(pkg)) return;
-  seen.add(pkg);
 
   if (isBuiltinPackage(pkg)) return;
 
   if (pkg.startsWith("@/") || pkg.startsWith("~/") || pkg.startsWith(".")) return;
 
   const resolvedVersion = resolveExportableVersion(pkg);
+
+  // `knownOnly` (CSS): an unresolvable specifier is dropped SILENTLY instead of
+  // being reported as an unknown package — and without claiming the name in
+  // `seen`, so a later JS import of the same name is still judged on its own.
+  // See the CSS loop for why an unknown CSS specifier is not evidence.
+  if (options?.knownOnly && !resolvedVersion) return;
+
+  if (seen.has(pkg)) return;
+  seen.add(pkg);
+
   if (resolvedVersion) {
     dependencies[pkg] = resolvedVersion;
   } else {
@@ -616,12 +630,21 @@ export function runDepCompleter(code: string): {
     considerPackageSource(raw, seen, dependencies, unknownPackages);
   }
 
+  // CSS is scanned with `knownOnly`, i.e. as a strict allow-list against
+  // KNOWN_PACKAGES. A CSS `@import` specifier is genuinely ambiguous in a way a
+  // JS one is not: `@import "theme/colors.css"` and `@import url(ui/base.css)`
+  // are RELATIVE FILE PATHS, but they carry no `./` for the prefix check to
+  // catch, so their first segment would otherwise be treated as a package name.
+  // The bug this scanning exists for (`tw-animate-css`) is always a package we
+  // already know, so requiring a known pin costs nothing and removes the whole
+  // class of false positives — including polluting `unknownPackages`, whose
+  // warnings feed the repair prompt.
   CSS_AT_IMPORT_RE.lastIndex = 0;
   for (const match of code.matchAll(CSS_AT_IMPORT_RE)) {
     // Group 1 = quoted source, group 2 = unquoted `url(...)` source.
     const raw = match[1] ?? match[2];
     if (!raw || !isCssPackageImportSource(raw)) continue;
-    considerPackageSource(raw, seen, dependencies, unknownPackages);
+    considerPackageSource(raw, seen, dependencies, unknownPackages, { knownOnly: true });
   }
 
   const warnings = unknownPackages.map(
