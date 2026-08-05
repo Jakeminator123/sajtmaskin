@@ -133,7 +133,9 @@ Två fällor i domen:
 1. Spara patchen med `git add -A -N` + `git diff HEAD` (se *Efter körning* steg 1) — en vanlig `git diff` utelämnar den otrackade testfilen och ger bugbot en ofullständig vinnare.
 2. Kör passet mot **huvudcheckouten** med `Diff: natural language`, en Change Description per fil, och Custom Instructions som pekar på `.cursor/kedja/<körning>/kandidat-<x>.diff` med instruktionen att läsa och granska patchen som om den vore applicerad.
 
-Dokumentera passet som `bugbot-local`. Läs svaret kritiskt: ett pass som bara ser en delmängd av branchen kan rapportera fynd som är falska mot helheten (hände på #780 — bugbot påstod att backlog-rader raderats utan arkivering, fast arkivraderna låg i samma diff). Verifiera alltid ett fynd mot `git diff master...HEAD` innan du agerar på det.
+Dokumentera passet som `bugbot-local`.
+
+**Läs svaret kritiskt — passet ser inte alltid hela branchen.** På en branch med flera commits kan bugbot döma på en delmängd och rapportera fynd som är falska mot helheten. Reproducerat två gånger på #780: passet påstod att tre backlog-rader raderats utan arkivering **och** att alla tre defekterna fanns kvar i koden, medan arkivraderna och alla tre fixarna låg i samma diff. Verifiera därför varje fynd mot branchens faktiska sluttillstånd (`git diff master...HEAD`, eller `git show HEAD:<fil>` på det påstådda stället) innan du agerar — och avfärda aldrig ett fynd utan att ha gjort det, eftersom samma svaghet lika gärna kan dölja ett äkta fynd.
 
 ## Efter körning — orkestratorns plikt, aldrig användarens
 

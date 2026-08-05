@@ -142,7 +142,9 @@ Diff: uncommitted changes
 1. Save the patch with `git add -A -N` then `git diff HEAD` — the same procedure as `captureDiff` in `scripts/cursor/kedja-clean.mjs`. A plain `git diff` omits the untracked repro test, so Bugbot would review an incomplete winner.
 2. Run the pass against the MAIN checkout with `Diff: natural language`, a per-file Change Description, and Custom Instructions telling it to read `.cursor/kedja/<run>/kandidat-<x>.diff` and review it as if applied.
 
-Document the pass as `bugbot-local`. Read the answer critically: a pass that only saw part of the branch can report findings that are false against the whole (on #780 it claimed backlog rows were deleted without archival while the archive rows sat in the same diff). Verify any finding against `git diff master...HEAD` before acting on it.
+Document the pass as `bugbot-local`.
+
+**Read the answer critically — the pass does not always see the whole branch.** On a multi-commit branch Bugbot can judge a subset and report findings that are false against the whole. Reproduced twice on #780: it claimed three backlog rows were deleted without archival *and* that all three defects were still in the code, while the archive rows and all three fixes sat in the same diff. Verify every finding against the branch's actual end state (`git diff master...HEAD`, or `git show HEAD:<file>` at the cited spot) before acting — and never dismiss one without doing that, since the same weakness can just as easily hide a real finding.
 
 ## Judging order
 
