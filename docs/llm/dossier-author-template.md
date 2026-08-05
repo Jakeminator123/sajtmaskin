@@ -61,7 +61,7 @@ folders directly).
 ```
 data/dossiers/<class>/<id>/
   manifest.json        # required, validates against dossier.schema.json
-  instructions.md      # required, prose injected into the codegen prompt
+  instructions.md      # required; prompt projection follows promptInstructionMode
   components/<file>    # optional, source files exposed via `files[]`
 ```
 
@@ -115,7 +115,7 @@ For a soft dossier, remove `providers`, `mock`, and `envVars` entirely.
 | `summarySv` | string | no | Swedish catalog description for END USERS (builder Byggblock panel + backoffice). Never reaches the codegen prompt; UI falls back to `summary` when omitted. Write for a non-technical site owner. |
 | `summary` | string (30-600) | yes | 1-3 sentences: what it does, when to use, and its configuration/safety contract. Written for the codegen LLM, not for humans. Verbs in present tense. |
 | `envVars` | array | no | Only for `hard` dossiers. Each entry needs `key` (UPPER_SNAKE_CASE), `required` (bool), `purpose` (10-240 chars), and optional `enforcement` (see below). |
-| `envVars[].enforcement` | enum | no | Defaults to `"build"`. One of: `"build"` (real value required at F3 build time — secret keys, server-side database URLs, anything where a placeholder crashes deploy); `"feature-runtime"` (the SDK is imported but the dossier's UI shows a configuration banner / popup at runtime when the value is missing — the "Klarna-popup" pattern; F3 surfaces as warning, not blocker); `"warn-only"` (component self-disables on empty value, e.g. `if (!domain) return null` — surfaced only as info). The F3 readiness gate filters `requiredRealEnvKeys` to `build`-enforcement only, so getting this wrong either blocks deploy unnecessarily or lets a deploy succeed with broken integrations. Be honest about whether the dossier's runtime actually has graceful fallback before tagging `feature-runtime`. |
+| `envVars[].enforcement` | enum | no | Defaults to `"build"`. One of: `"build"` (F3 needs either a real project value or a catalog-approved placeholder; missing both blocks), `"feature-runtime"` (the SDK is imported but the dossier's UI shows a configuration banner/popup when the value is missing or placeholder; F3 warns), or `"warn-only"` (the component self-disables; info only). The readiness gate derives `requiredRealEnvKeys` from `build`, then applies catalog coverage. Be honest about the shipped runtime fallback before choosing `feature-runtime`; do not treat `env.example` as configuration evidence. |
 | `dependencies` | string[] | no | npm package names. Use `name@^x.y.z` only when a precise pin is required; bare names let the codegen pick the latest. Add ONLY packages this dossier itself imports. |
 | `files` | array | no | Source files shipped under the dossier folder. `path` is relative to the dossier dir (e.g. `components/foo.tsx`). `role` is `client` / `server` / `shared`. Optional `injectionMode` overrides `codeFidelity` per file. |
 | `exposes` | array | no | Symbols the codegen LLM may import. `import` is the **target site's** import path (typically `@/components/<file>`). |
@@ -127,11 +127,14 @@ For a soft dossier, remove `providers`, `mock`, and `envVars` entirely.
 `additionalProperties: false` — no other fields are allowed. The schema will
 reject manifests with stray keys.
 
-## `instructions.md` structure (required sections)
+## `instructions.md` structure (two required + three recommended sections)
 
-The instructions are concatenated into the codegen LLM's system prompt when
-the dossier is selected. Keep total length ≤ ~3000 tokens. Mirror this
-structure:
+Keep total length ≤ ~3000 tokens. The default `promptInstructionMode` is
+`compact`, which injects a manifest-derived summary rather than this prose.
+Use `selected-sections` to inject capped **When to use**, **How to integrate**
+and **Avoid** sections, or `full` only when the whole file is genuinely needed.
+The first two H1 headings below are validation-required; the remaining three
+are recommended and produce warnings when absent.
 
 ````markdown
 # When to use
@@ -154,20 +157,19 @@ Do not use for:
 // Minimal usage example, REAL imports, REAL props.
 ```
 
-# API contract
+# UX rules
 
-```tsx
-// Type signature(s) of the exposed symbols.
-```
+- <feedback, validation, mobile or accessibility invariant>
+- <composition or mount-point invariant>
 
-# Composition rules (the LLM should follow these without being asked)
-
-- <invariant 1>
-- <invariant 2>
-
-# Reduced-motion / accessibility / safety contract (optional but recommended)
+# Avoid
 
 <3-6 bullets of what NOT to do, with reasoning>
+
+# Verification
+
+- <manual smoke check>
+- <fallback/configuration check>
 ````
 
 ### Writing-style invariants
@@ -214,7 +216,8 @@ local `npx tsc --noEmit` pointing at the file before declaring it ready.
    `data/dossiers/_index/capability-map.json` (or the change adds it).
 4. A hard manifest has a non-empty `providers` array; a soft manifest omits
    the field. Provider ids describe the actual SDK/API in the shipped code.
-5. `instructions.md` has the five recommended sections and ≤ ~3000 tokens.
+5. `instructions.md` has the two required headings and preferably all three
+   recommended headings; total length is ≤ ~3000 tokens.
 6. Every file in `files[]` exists, type-checks against the target's tsconfig,
    and is importable via the path declared in `exposes[].import`.
 7. A new draft has `verificationStatus: "unverified"` and `lastVerified` records

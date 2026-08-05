@@ -175,10 +175,10 @@ När `SAJTMASKIN_PREVIEW_HOST_BASE_URL` finns satt behandlar appen preview-host 
 |---|---|---|
 | `env.example` / genererad env-dokumentation | Dokumentation för användaren | Nej |
 | Harmless placeholders + tier-3 stub placeholders | Gör F2-designpreview körbar utan riktiga integrationer | Nej för F2; vanlig F3-codegen strippar tier-3-stubbar. Deterministisk no-build-key-fork bevarar F2-filträdet exakt men behandlar stubbar fortsatt som Advisory/icke-bevis |
-| Project env vars (`projectEnvVars`) | Effektiva runtime-värden för F3/deploy | Ja, om dossier-nyckeln har `enforcement: "build"` och saknas |
+| Project env vars (`projectEnvVars`) | Effektiva runtime-värden för F3/deploy | Ja, om dossier-nyckeln har `enforcement: "build"` och saknar både riktigt värde och katalog-godkänd placeholder |
 | Preview-host `.env.local` | Faktisk runtime-fil inne i preview-VM | Speglar lagren ovan via `buildPreviewEnvLocalContents()` |
 
-F3-readiness ska alltså spegla **verkliga integrationkrav**, inte om en nyckel råkar finnas i `env.example`. `feature-runtime` rapporteras som warning och `warn-only` som info; bara `build`-enforcement blockerar. Efter #468 är `clerk-auth` den enda hard-dossiern med `build`-nycklar, så i praktiken är det bara saknade Clerk-nycklar (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) som blockerar en F3-publicering.
+F3-readiness ska alltså spegla **verkliga integrationkrav**, inte om en nyckel råkar finnas i `env.example`. `feature-runtime` rapporteras som warning och `warn-only` som info; bara `build`-enforcement kan blockera, och då endast när både riktigt projektvärde och godkänd katalog-placeholder saknas. Efter #468 är `clerk-auth` den enda hard-dossiern med `build`-nycklar. Dess två nycklar (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) har i dag katalog-placeholder, så en saknad riktig Clerk-konfiguration ger demo/advisory i stället för ett automatiskt F3-stopp.
 
 Om F3-specen helt saknar `requiredRealEnvKeys` är detta inte signal att
 capabilityn saknas. `finalize-design` forkar då en ny `integrations`-version
@@ -186,7 +186,7 @@ från exakt samma F2-filer och kör ReleaseGate utan LLM. `feature-runtime` och
 `warn-only` förblir Advisory tills användaren senare sparar riktiga
 `projectEnvVars`; den visuella Byggblock-fallbacken bevaras.
 
-**Ärlig publiceringsgrind (deploy-409):** `POST /api/v0/deployments` blockerar med `409 DEPLOY_MISSING_ENV` på `buildBlockingKeys` i F3 (`integrations`) — där hård-blockerar `feature-runtime`/placeholder-täckta nycklar aldrig; de surfar som icke-blockerande `EnvDegradationWarning` (`src/app/api/v0/deployments/env-degradation-warnings.ts`). I F2 (`design`) gäller `missingEnvKeys`-backstoppen (medvetet, #461): en okonfigurerad nyckel **utan katalog-placeholder** blockerar oavsett enforcement — dossier-nycklar träffas normalt inte i F2 (server-filer strippas, `env.example`-stubbar filtreras ur detektionen), men modellskrivna `process.env`-referenser utanför katalogen kan 409:a även en F2-publicering. F3-stream/finalize-design gatar dessutom på samma riktiga build-nycklar (`412 tier3_env_not_ready`) och visar serverns exakta nycklar i den persistenta, icke-modala F3-kravytan.
+**Ärlig publiceringsgrind (deploy-409):** `POST /api/v0/deployments` blockerar med `409 DEPLOY_MISSING_ENV` på `buildBlockingKeys` i F3 (`integrations`) — där hård-blockerar `feature-runtime` eller placeholder-täckta nycklar aldrig; de syns som icke-blockerande `EnvDegradationWarning` (`src/app/api/v0/deployments/env-degradation-warnings.ts`). I F2 (`design`) gäller `missingEnvKeys`-backstoppen (medvetet, #461): en okonfigurerad nyckel **utan katalog-placeholder** blockerar oavsett enforcement — dossier-nycklar träffas normalt inte i F2 (server-filer strippas, `env.example`-stubbar filtreras ur detektionen), men modellskrivna `process.env`-referenser utanför katalogen kan 409:a även en F2-publicering. F3-stream/finalize-design gatar på samma otäckta build-nycklar (`412 tier3_env_not_ready`); Byggblock-popovern är den enda projekt-env-editorn och öppnar/fokuserar rätt dossier från serverns `missingByIntegration`.
 
 ---
 

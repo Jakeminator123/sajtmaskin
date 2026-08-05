@@ -232,11 +232,23 @@ export function mapProviderKeysToBackingDossierIds(providerKeys: string[]): stri
  */
 export function providerKeysWithoutBackingDossier(providerKeys: string[]): string[] {
   const keys = new Set<string>();
+  const explicitProviderKeys = new Set<string>();
+  for (const raw of providerKeys) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const exactDossier = findExactDossierInput(raw);
+    for (const provider of exactDossier?.providers ?? []) {
+      explicitProviderKeys.add(provider.trim().toLowerCase());
+    }
+  }
   for (const raw of providerKeys) {
     if (typeof raw !== "string" || !raw.trim()) continue;
     if (findExactDossierInput(raw)) continue;
     const def = findRegistryDefinitionByProviderKey(raw);
     const provider = canonicalProviderKey(raw);
+    // An exact dossier identity is sharper than a generic provider approval,
+    // including when several dossiers claim that provider. Avoid scheduling a
+    // second generic LLM round for e.g. ["openai-chat", "openai"].
+    if (explicitProviderKeys.has(provider)) continue;
     const resolution = resolveDossierProvider(provider);
     const known = Boolean(def) || resolution.status !== "dossierless";
     if (known && resolution.status !== "unique") {
@@ -339,19 +351,34 @@ function buildGenericRequirement(
   };
 }
 
-function manifestOnlyGenericDefinition(provider: string): IntegrationDefinition {
+function manifestOnlyGenericDefinition(
+  provider: string,
+  dossiers: readonly DossierEntry[] = [],
+): IntegrationDefinition {
   const name = provider
     .split("-")
     .filter(Boolean)
     .map((part) => part[0]?.toUpperCase() + part.slice(1))
     .join(" ");
+  const envKeySets = dossiers.map(
+    (dossier) => new Set((dossier.envVars ?? []).map((env) => env.key)),
+  );
+  const sharedEnvVars =
+    envKeySets.length === 0
+      ? []
+      : [...envKeySets[0]].filter((key) => envKeySets.every((keys) => keys.has(key))).sort();
   return {
     key: provider,
     name: name || provider,
     category: "other",
-    envVars: [],
+    // Ambiguity must never select one dossier, but metadata common to every
+    // claimant is still safe to surface. Postgres is the motivating case:
+    // both postgres-drizzle and rag-chat require DATABASE_URL.
+    envVars: sharedEnvVars,
     setupGuide:
-      "Choose the exact capability/dossier before relying on provider-specific setup steps.",
+      sharedEnvVars.length > 0
+        ? `Configure the shared provider keys (${sharedEnvVars.join(", ")}), then choose the exact capability/dossier for provider-specific setup steps.`
+        : "Choose the exact capability/dossier before relying on provider-specific setup steps.",
     runtime: "server",
     optional: false,
     provider,
@@ -366,10 +393,15 @@ export function deriveTier3BuildSpecForProviderKeys(
   const seenProviders = new Set<string>();
   const seenDossierIds = new Set<string>();
   const explicitDossierIds = new Set<string>();
+  const explicitProviderKeys = new Set<string>();
   for (const rawProvider of providerKeys) {
     if (typeof rawProvider !== "string" || !rawProvider.trim()) continue;
     const exactDossier = findExactDossierInput(rawProvider);
-    if (exactDossier) explicitDossierIds.add(exactDossier.id);
+    if (!exactDossier) continue;
+    explicitDossierIds.add(exactDossier.id);
+    for (const provider of exactDossier.providers ?? []) {
+      explicitProviderKeys.add(provider.trim().toLowerCase());
+    }
   }
 
   for (const rawProvider of providerKeys) {
@@ -389,6 +421,7 @@ export function deriveTier3BuildSpecForProviderKeys(
     }
     const provider = canonicalProviderKey(rawProvider);
     if (!provider || seenProviders.has(provider)) continue;
+    if (explicitProviderKeys.has(provider)) continue;
     seenProviders.add(provider);
 
     const definition = findRegistryDefinitionByProviderKey(rawProvider);
@@ -413,7 +446,9 @@ export function deriveTier3BuildSpecForProviderKeys(
 
     if (definition || resolution.status === "ambiguous") {
       requirements.push(
-        buildGenericRequirement(definition ?? manifestOnlyGenericDefinition(provider)),
+        buildGenericRequirement(
+          definition ?? manifestOnlyGenericDefinition(provider, resolution.dossiers),
+        ),
       );
     }
   }
@@ -514,7 +549,10 @@ export function deriveTier3BuildSpec(contracts: PlanContracts): Tier3BuildSpec {
       );
     } else if (def || resolution.status === "ambiguous") {
       requirements.push(
-        buildGenericRequirement(def ?? manifestOnlyGenericDefinition(provider), integration),
+        buildGenericRequirement(
+          def ?? manifestOnlyGenericDefinition(provider, resolution.dossiers),
+          integration,
+        ),
       );
     }
   }

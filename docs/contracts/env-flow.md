@@ -106,7 +106,7 @@ dropping demo mode.
 | Stage (`PreviewLifecycleStage`) | Meaning                            | tier3-stub layer                                                                                                                                                           |
 | ------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `design` (**F2**)               | Design / preview                   | **included** — stubs boot the project so the preview renders                                                                                                               |
-| `integrations` (**F3**)         | Bygg integrationer / real services | **stripped for normal F3 codegen** — the project must supply real values via `projectEnvVars`; missing build keys surface via `tier3-build-spec.ts`. Deterministic no-build-key forks preserve the exact F2 files but stubs remain Advisory/icke-bevis. |
+| `integrations` (**F3**)         | Bygg integrationer / real services | **stripped for normal F3 codegen** — a build-enforced key needs either a real `projectEnvVars` value or a catalog-approved placeholder; otherwise it surfaces via `tier3-build-spec.ts`. Deterministic no-build-key forks preserve the exact F2 files but stubs remain Advisory/icke-bevis. |
 
 So:
 
@@ -115,16 +115,19 @@ So:
   IDs, public CMS/search read keys, local base URLs.
 - **tier3-stub placeholder** = present in **F2 only** and stripped during normal
   F3 codegen. Whether its absence blocks F3 comes from the selected dossier's
-  `envVars[].enforcement`: only `build` blocks; `feature-runtime` and
-  `warn-only` remain Advisory. Examples include Stripe secret keys, Supabase
-  URL + anon key, Clerk, OpenAI, Redis/DB URLs, Upstash and Resend.
+  `envVars[].enforcement` **and** catalog coverage: `build` blocks only when
+  neither a real project value nor an approved placeholder exists;
+  `feature-runtime` and `warn-only` remain Advisory. Examples include Stripe
+  secret keys, Supabase URL + anon key, Clerk, OpenAI, Redis/DB URLs, Upstash
+  and Resend.
 
 Placeholder classification is **per env-KEY**, but F3 blocking is per selected
-dossier declaration: a missing key blocks only when that dossier marks it
-`enforcement: "build"`. `STRIPE_SECRET_KEY` is a tier3-stub, while
-`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is harmless. The `.txt` fragment files are
-organized to match the set in `placeholder-harmless.ts` and are kept honest by
-`src/lib/integrations/placeholder-harmless.parity.test.ts`.
+dossier declaration plus placeholder coverage: a key blocks only when the
+dossier marks it `enforcement: "build"` and both a real project value and an
+approved catalog placeholder are absent. `STRIPE_SECRET_KEY` is a tier3-stub,
+while `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is harmless. The `.txt` fragment
+files are organized to match the set in `placeholder-harmless.ts` and are kept
+honest by `src/lib/integrations/placeholder-harmless.parity.test.ts`.
 
 ## Demo/mock-läge (F2) och ärlig publiceringsgrind
 
@@ -132,16 +135,18 @@ F2 ska rendera en trovärdig demo utan riktiga nycklar; F3-publicering ska bara
 blockera på det som verkligen kräver en riktig integration.
 
 - **Demo i F2:** varje hard-dossier deklarerar ett `mock`-läge
-  (`canned`/`seed`/`success`/`none`, se
+  (`canned`/`seed`/`success`/`visual`/`none`, se
   [`dossier-system.md`](dossier-system.md)) som driver dossierns egen
   degraderingskod. Kombinerat med F2-mock-seeden ovan renderar preview-ytan utan
   riktiga nycklar. `mock` aktiveras när nyckeln saknas **eller** är en stub.
 - **Enforcement styr blockering, inte "finns nyckeln i `env.example`".**
-  `buildBlockingKeys` (`src/lib/project-env-resolver.ts`) = de okonfigurerade
-  nycklar vars dossier-`enforcement` är `"build"`. Efter #468 har bara
-  `clerk-auth` `build`-nycklar (`CLERK_SECRET_KEY` +
-  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) — trasig inloggning är värre än
-  demo-friktion. `openai-chat`s `OPENAI_API_KEY` flyttades `build` → `feature-runtime`.
+  `buildBlockingKeys` (`src/lib/project-env-resolver.ts`) = de build-enforced
+  nycklar som saknar både ett riktigt projektvärde och en godkänd
+  katalog-placeholder. Efter #468 är `clerk-auth` den enda dossiern med
+  `build`-nycklar (`CLERK_SECRET_KEY` +
+  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`), men båda har i dag katalogstöd och kan
+  därför köra demo utan att automatiskt blockera. `openai-chat`s
+  `OPENAI_API_KEY` flyttades `build` → `feature-runtime`.
 - **Deploy-grind:** `POST /api/v0/deployments` ger `409 DEPLOY_MISSING_ENV` på
   `buildBlockingKeys` i **F3** — där blockerar `feature-runtime`/placeholder-nycklar
   aldrig; de surfar som icke-blockerande `EnvDegradationWarning`
@@ -153,14 +158,12 @@ blockera på det som verkligen kräver en riktig integration.
   `process.env.<KEY>`-referenser utanför katalogen (t.ex. ett eget
   `EMAIL_FROM`) kan fortfarande 409:a en F2-publicering.
 - **F3-readiness/stream:** `finalize-design` och stream-routen gatar på samma
-  riktiga build-nycklar (`412 tier3_env_not_ready`) och pekar mot
-  builderns persistenta, icke-modala F3-kravyta. Den visar exakt
-  `missingByIntegration` från servern, sparar via projektets env-vars-API och
-  erbjuder explicit retry. ReleaseGate-resultat (startad, promoted, superseded,
-  retryable eller Blocker) visas på samma beständiga builderyta i stället för
-  toastar. Byggblock-popovern är kvar för katalog/status men öppnas inte
-  automatiskt för nyckelinsamling; env-frågor hör aldrig hemma i F2/F3-chatten
-  (se [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)).
+  otäckta build-nycklar (`412 tier3_env_not_ready`). **Byggblock-popovern är den
+  enda editorn för projekt-env i F2/F3**: den visar serverns
+  `missingByIntegration`, sparar via projektets env-vars-API och erbjuder
+  explicit retry. Vid 412 öppnar/fokuserar buildern rätt dossier automatiskt;
+  env-frågor hör aldrig hemma i F2/F3-chatten (se
+  [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)).
   Är alla `requiredRealEnvKeys` i den valda versionens F3-krav tomma startas
   ingen generell F3-LLM-runda. I stället skapas en ny `integrations`-version
   med exakt samma filer och `parent_version_id` som pekar på F2-basen;

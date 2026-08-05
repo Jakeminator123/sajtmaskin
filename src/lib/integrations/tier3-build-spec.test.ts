@@ -72,6 +72,24 @@ it("deduplicates mixed provider and legacy dossier identities", () => {
   expect(specs[0]).toEqual(specs[1]);
 });
 
+it("lets an exact dossier identity supersede an ambiguous provider approval", () => {
+  const specs = [];
+  for (const approvals of [
+    ["openai", "openai-chat"],
+    ["openai-chat", "openai"],
+  ]) {
+    const spec = deriveTier3BuildSpecForProviderKeys(approvals);
+    expect(spec.requirements).toHaveLength(1);
+    expect(spec.requirements[0]).toMatchObject({
+      key: "openai-chat",
+      provider: "openai",
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+    });
+    specs.push(spec);
+  }
+  expect(specs[0]).toEqual(specs[1]);
+});
+
 describe("providerKeysWithoutBackingDossier (coach edge case on #503)", () => {
   it("flags registry providers without a backing dossier (posthog, google-analytics)", () => {
     expect(providerKeysWithoutBackingDossier(["posthog"])).toEqual(["posthog"]);
@@ -86,6 +104,11 @@ describe("providerKeysWithoutBackingDossier (coach edge case on #503)", () => {
   it("flags ambiguous providers instead of choosing an implicit dossier", () => {
     expect(providerKeysWithoutBackingDossier(["openai"])).toEqual(["openai"]);
     expect(providerKeysWithoutBackingDossier(["supabase"])).toEqual(["supabase"]);
+  });
+
+  it("lets an exact dossier identity supersede its ambiguous provider alias", () => {
+    expect(providerKeysWithoutBackingDossier(["openai-chat", "openai"])).toEqual([]);
+    expect(providerKeysWithoutBackingDossier(["openai", "openai-chat"])).toEqual([]);
   });
 
   it("skips unknown providers and empty input", () => {
@@ -581,6 +604,22 @@ describe("mapProviderKeysToDossierCapabilities", () => {
     expect(spec.requirements).toHaveLength(1);
     expect(spec.requirements[0].buildInstructions[0]).toContain("No unique dossier contract");
     expect(spec.requirements[0].buildInstructions.join("\n")).not.toContain("openai-chat");
+  });
+
+  it("keeps env metadata shared by every ambiguous Postgres dossier", () => {
+    expect(mapProviderKeysToDossierCapabilities(["postgres"])).toEqual([]);
+    const spec = deriveTier3BuildSpecForProviderKeys(["postgres"]);
+    expect(spec.requirements).toHaveLength(1);
+    expect(spec.requirements[0]).toMatchObject({
+      key: "postgres",
+      provider: "postgres",
+      requiredRealEnvKeys: [],
+      warnOnlyEnvKeys: ["DATABASE_URL"],
+    });
+    expect(spec.requirements[0].buildInstructions.join("\n")).toContain("DATABASE_URL");
+    expect(spec.requirements[0].setupGuide).toContain("DATABASE_URL");
+    expect(spec.requirements[0].buildInstructions.join("\n")).not.toContain("postgres-drizzle");
+    expect(spec.requirements[0].buildInstructions.join("\n")).not.toContain("rag-chat");
   });
 
   it("does NOT map category-only siblings — next-auth must not inject clerk-auth (Codex P1 PR #383)", () => {

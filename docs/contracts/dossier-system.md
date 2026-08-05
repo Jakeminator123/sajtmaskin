@@ -172,7 +172,7 @@ Samma dossier kan spänna över F2 och F3 — det är inte två separata dossier
 
 **Kanonisk signal i dagens kod** för "kräver F3" är dossierns eget kontrakt, via helpern [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) (enda källan). Två regler:
 
-1. **Env-kontrakt:** en `envVars`-post med `enforcement: "build"` (default när `enforcement` utelämnas). Efter #468 är `clerk-auth` (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) den **enda** hard-dossiern som fortfarande har `build`-enforcement — trasig inloggning är värre än demo-friktion. Övriga (Stripe, OpenAI, DB, e-post …) är `feature-runtime`/`warn-only` och degraderar via sitt mock-läge i stället för att blockera. En `build`-nyckel som saknas är alltså det enda som gör en dossier F3-tvingande via env-vägen.
+1. **Env-kontrakt:** en `envVars`-post med `enforcement: "build"` (default när `enforcement` utelämnas). Efter #468 är `clerk-auth` (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) den **enda** hard-dossiern som fortfarande har `build`-enforcement — trasig inloggning är värre än demo-friktion. Övriga (Stripe, OpenAI, DB, e-post …) är `feature-runtime`/`warn-only` och degraderar via sitt mock-läge i stället för att blockera. En `build`-nyckel gör dossiern F3-relevant via env-vägen, men readiness blockerar bara om både ett riktigt projektvärde och en katalog-godkänd placeholder saknas. Clerk-nycklarna har i dag katalog-placeholder och kan därför köra demo utan ett automatiskt F3-stopp.
 2. **Server-yta:** en `files[]`-post med `role: "server"` — dossiers som skeppar backend-wiring (API-route, middleware, server-config) hör till F3 även utan build-secret. Exempel: `resend-contact-form` (alla nycklar `feature-runtime`, men `/api/contact`-routen importerar `resend` som F2:s SDK-deny-lista strippar) och `mailchimp-newsletter`. I F2 renderas formuläret som visuell mockup enligt F2-kontraktet i `session-contracts.ts`; mejl/prenumeration aktiveras först i F3 ("Bygg integrationer").
 
 [`getF3RequiredCapabilities()`](../../src/lib/gen/dossiers/registry.ts) räknar upp de capability-nycklar vars dossier kräver F3, och `orchestrate.ts` deriverar F2-mute-listan därifrån (union med policy-residualen `{analytics}` — icke-secret, server-fri integration som ändå ska F2-mutas, per [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)). En dossier med `envVars: []` och enbart klientfiler (t.ex. `interactive-game-loop`) är alltså **fullt F2-användbar**. Utöka gränsen i helpern om ett framtida fall behöver det — inte via en ny per-dossier-flagga eller separat hårdkodad lista.
@@ -419,7 +419,9 @@ Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to ren
 1. Decide class: `hard` (provider/service-coupled) or `soft` (self-contained without an external provider; npm dependencies are allowed).
 2. Create `data/dossiers/<class>/<id>/manifest.json` matching the schema;
    declare canonical `providers` for `hard`, and omit it for `soft`.
-3. Write `data/dossiers/<class>/<id>/instructions.md` with the five sections.
+3. Write `data/dossiers/<class>/<id>/instructions.md` with the two required
+   headings and preferably the three recommended headings from the author
+   template.
 4. Place files under `data/dossiers/<class>/<id>/components/...` matching `files[].path`.
 5. Run `npm run dossiers:validate-all` (canonical AJV validation + invariants; `typecheck` alone does not validate manifest JSON).
 6. Open the backoffice "Dossiers" page → "Capability map" tab → "Bygg om" to refresh `_index/capability-map.json`.

@@ -28,7 +28,8 @@ lager och ska inte modelleras som en parallell sanning här.
 
 - Brief-LLM:n deklarerar `requestedCapabilities: string[]` (t.ex. `["payments", "ai-chat"]`).
 - `selectDossiersForRequest` matchar varje capability 1:1 mot en dossier i `data/dossiers/{hard|soft}/<id>/`.
-- Tie-break: `defaultForCapability: true` vinner; annars id-sort.
+- Tie-break: dependency-/alias-pin → explicit `relevanceKeywords`-träff →
+  `defaultForCapability: true` → id-sort som sista fallback.
 
 Alla gamla embedding-filer ligger i `archive/dossiers-legacy-2026-04-20/index/dossier-embeddings.json` (gitignored, läses inte av runtime). Det finns inget skript att köra för att bygga embeddings.
 
@@ -52,7 +53,9 @@ Sätt i `.env.local` lokalt eller via `vercel env add SAJTMASKIN_DOSSIER_PIPELIN
 1. Skapa mapp `data/dossiers/<hard|soft>/<id>/`.
 2. Skriv `manifest.json` (validera mot `docs/schemas/strict/dossier.schema.json`):
    `hard` måste ha en icke-tom `providers`-lista; `soft` måste utelämna fältet.
-3. Skriv `instructions.md` med fem sektioner: When to use / How to integrate / UX rules / Avoid / Verification.
+3. Skriv `instructions.md` med de två obligatoriska sektionerna **When to use**
+   och **How to integrate**, plus helst **UX rules**, **Avoid** och
+   **Verification**.
 4. Lägg ev. komponentfiler under `<id>/components/`.
 5. Kör `npm run dossiers:validate-all` — CI-blockerande. Obs mock-invarianten (per-dossier sedan 2026-07-12): **varje** hard-dossier måste ha `mock ≠ none` (eller capabilityn stå i `MOCKLESS_CAPABILITY_EXCEPTIONS`) — se `docs/contracts/dossier-system.md` § CI-invariant.
 6. Backoffice → "Dossiers" → "Capability map" → "Bygg om" så `_index/capability-map.json` uppdateras.
@@ -103,13 +106,17 @@ npm run dossiers:curate -- --reference=ai-fal-image-generator --class=hard --id=
 
 Skriptet:
 1. Läser `README.md`, `package.json`, `.env.example`, ~6 source-filer från upstream-repo.
-2. Skickar till GPT-4o-mini med structured output schema.
+2. Väljer modell från workload `backoffice_dossier_curation` i
+   `config/ai_models/manifest.json` (nu `gpt-5.5`, fallback
+   `gpt-5.4-mini`); `--model=<id>` får bara välja en modell som workloaden
+   tillåter.
 3. Skriver `manifest.json` + `instructions.md` till `data/dossiers/<class>/<id>/`.
 4. Vägrar skriva över befintlig dossier (lägg till `--force` om det är meningen).
 
-Kostnad: ~$0.01-0.05 per dossier. Tid: ~10-30 sek.
+Kostnad och tid beror på vald modell och inputstorlek; skriptet loggar vald
+modell och faktisk svarstid. Hårdkoda inte gamla GPT-4o-mini-estimat här.
 
-**Granska alltid utkastet** i backoffice (Dossiers-sidan → Redigera-tab) innan du litar på det. Dossier-id sätts till exakt vad du angav (`--id=`). `lastVerified` sätts till dagens datum men markera om efter manuell verifiering.
+**Granska alltid utkastet** i backoffice (Dossiers-sidan → Redigera-tab) innan du litar på det. Dossier-id sätts till exakt vad du angav (`--id=`). `lastVerified` sätts till dagens datum men utkastet får `verificationStatus: "unverified"`; byt till `accepted` först när acceptansbevis finns.
 
 ### Backoffice-flikarna (Dossiers-sidan)
 
