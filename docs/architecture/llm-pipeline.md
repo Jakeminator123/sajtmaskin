@@ -111,16 +111,19 @@ Typisk ordning i runtime:
    modul-diagnostiker för dossier-deklarerade paket släpps i st.f. att gissa —
    se [`warm-cache-setup.md`](../runbooks/warm-cache-setup.md). Warm ESLint är
    endast opt-in lokal diagnostik och ingår inte i finalize/RepairGate.
-4. `materialize_images` (deep path) byter bildplatshållare mot riktiga URL:er
-   och registreras i Prometheus `sajtmaskin_phase_duration_ms` samt i
-   `generation_telemetry.meta.postStreamSteps`. Light path hoppar steget.
-5. deterministisk diagnostikdriven import-repair
+4. deterministisk diagnostikdriven import-repair
    (`autofix/deterministic-import-repair.ts`: kända imports, egna komponenter,
    React/same-module-dedupe + re-check) körs före LLM på warm-tsc-residual.
-6. RepairGate (kod: `runLlmRepairGate` + `RepairLedger`) används endast för
+5. RepairGate (kod: `runLlmRepairGate` + `RepairLedger`) används endast för
    residual som Normalize och statiska kontroller inte löste. Samma ledger
    dedupe:ar syntax-, warm-tsc-, verifier- och preflight-repair
    inom en finalize-run.
+6. `materialize_images` (deep path) byter bildplatshållare mot riktiga URL:er
+   och registreras i Prometheus `sajtmaskin_phase_duration_ms` samt i
+   `generation_telemetry.meta.postStreamSteps`. Light path hoppar steget och
+   registrerar fasen som 0 ms. Steget ligger **efter** hela
+   `validateAndFix`-blocket (steg 3–5) — i `fast-path.ts` är syntax, warm-tsc,
+   import-repair och RepairGate Phase 1, och bildmaterialiseringen Phase 2.
 7. verifiern körs riskstyrt: `safe_fixes_only` kan hoppa över verifiern när
    grundpolicyn redan säger `run`, men aldrig vid 3D-signal; `risky_fixes`
    behåller verifier-täckning.
