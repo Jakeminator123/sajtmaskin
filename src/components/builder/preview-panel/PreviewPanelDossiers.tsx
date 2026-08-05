@@ -270,6 +270,9 @@ export function PreviewPanelDossiers({
       // A focus request that never matched must not linger into a later,
       // unrelated open (it would surprise-expand a row).
       setPendingFocusKeys(null);
+      // A leftover class filter must not make the catalog look truncated on
+      // the next, unrelated open.
+      setCatalogClassFilter("all");
     }
   }, []);
 

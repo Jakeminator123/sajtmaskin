@@ -174,6 +174,32 @@ describe("PreviewPanelDossiers", () => {
     expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
   });
 
+  it("resets the class filter when the popover closes so the next open shows the full catalog", async () => {
+    stubFetch({ wired: wiredResponse() });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const standaloneFilter = await screen.findByRole("button", { name: "Fristående (1)" });
+    fireEvent.click(standaloneFilter);
+    expect(screen.queryByText("Stripe Checkout")).toBeNull();
+
+    // Close (Escape) and reopen: a leftover filter must not make the catalog
+    // look truncated on the next, unrelated open.
+    fireEvent.keyDown(document, { key: "Escape" });
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const allFilter = await screen.findByRole("button", { name: "Alla (3)" });
+    expect(allFilter.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("Stripe Checkout")).toBeTruthy();
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
+  });
+
   it("sends id+label via onRequestDossier when a catalog row is picked and keeps the popover open with a design-stage surface-only notice for a HARD dossier", async () => {
     stubFetch({ wired: wiredResponse({ lifecycleStage: "design" }) });
     const onRequestDossier = vi.fn();
