@@ -143,7 +143,9 @@ def requires_f3(manifest: dict[str, Any]) -> bool:
 # Dokumenterat fallback-par (docs/contracts/dossier-system.md) om TS-filen
 # inte kan tolkas. Paritet mot den kanoniska källan grindas i
 # backoffice/test_dossiers_page.py.
-_MOCKLESS_FALLBACK = frozenset({"analytics", "error-tracking"})
+# error-tracking lamnade undantagslistan 2026-08-06 nar sentry-error-tracking
+# parkerades — TS-kallan ar MOCKLESS_CAPABILITY_EXCEPTIONS i validate-manifest.ts.
+_MOCKLESS_FALLBACK = frozenset({"analytics"})
 
 
 def _load_mockless_capability_exceptions() -> frozenset[str]:

@@ -101,7 +101,7 @@ npm run dossiers:curate -- --reference=payments-simple-online-store-with-stripe 
 npm run dossiers:curate -- --reference=auth-clerk-authentication-starter --class=hard --id=clerk
 
 # Fal image generator
-npm run dossiers:curate -- --reference=ai-fal-image-generator --class=hard --id=fal-image-gen
+npm run dossiers:curate -- --reference=<reference-id> --class=hard --id=<nytt-dossier-id>
 ```
 
 Skriptet:

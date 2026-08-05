@@ -495,12 +495,14 @@ describe("getF3RequiredCapabilities (derived from the real dossier contract)", (
     expect(caps.has("ai-chat")).toBe(true);
   });
 
-  it("derives server-file integrations (resend/mailchimp/sentry) via the server-file rule", () => {
+  it("derives server-file integrations (resend/mailchimp) via the server-file rule", () => {
     const caps = getF3RequiredCapabilities();
     // No build secrets, but real server wiring → F3.
     expect(caps.has("contact-form")).toBe(true);
     expect(caps.has("newsletter-subscribe")).toBe(true);
-    expect(caps.has("error-tracking")).toBe(true);
+    // error-tracking left the derived set 2026-08-06: its only dossier
+    // (sentry-error-tracking) is parked, so no contract makes it F3-required.
+    expect(caps.has("error-tracking")).toBe(false);
     // Analytics has neither a build-enforced env nor a server file → stays a
     // pure F2-mute POLICY residual, not derived from the dossier contract.
     expect(caps.has("analytics")).toBe(false);
@@ -513,7 +515,9 @@ describe("F2/F3 integration mute (contract-derived + policy residual)", () => {
     "auth",
     "ai-chat",
     "analytics",
-    "error-tracking",
+    // error-tracking left the list 2026-08-06 with its parked sole dossier —
+    // a capability without a dossier contract is neither derived into the F3
+    // set nor muted in F2.
     "contact-form",
     "newsletter-subscribe",
     // Dossier wave 2: all three database dossiers ship server-role files

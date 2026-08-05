@@ -300,13 +300,12 @@ describe("findMissingMockFallbacks (fallback-invariant, etapp 4)", () => {
     expect(errors[0]).toContain("(canned/seed/success/visual)");
   });
 
-  it("exempts ONLY analytics and error-tracking (taxonomy 2026-07-22)", () => {
+  it("exempts ONLY analytics (error-tracking left with its parked dossier 2026-08-06)", () => {
     // Every other capability must ship a real mock mode — auth/payments/
-    // realtime got mock:"visual" instead of an exception.
-    expect(Object.keys(MOCKLESS_CAPABILITY_EXCEPTIONS).sort()).toEqual([
-      "analytics",
-      "error-tracking",
-    ]);
+    // realtime got mock:"visual" instead of an exception (taxonomy
+    // 2026-07-22), and error-tracking's sole dossier (sentry-error-tracking)
+    // was parked 2026-08-06 so the exception has nothing left to except.
+    expect(Object.keys(MOCKLESS_CAPABILITY_EXCEPTIONS).sort()).toEqual(["analytics"]);
   });
 
   it("accepts every exempt capability shipping mock=none", () => {

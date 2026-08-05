@@ -45,25 +45,27 @@ describe("selectDossiersForRequest (deterministic capability-driven)", () => {
   });
 
   // Bugbot on #482: a Byggblock-catalog pick sends the dossier id verbatim
-  // (`Lägg till byggblocket "Plausible" (id: plausible-analytics)`). The id
-  // must count as explicit sibling intent so the pick beats the capability
-  // default (vercel-analytics) even when no manifest relevanceKeyword appears
-  // in the label.
+  // (`Lägg till byggblocket "MongoDB" (id: mongodb-atlas)`). The id must count
+  // as explicit sibling intent so the pick beats the capability default
+  // (postgres-drizzle) even when no manifest relevanceKeyword appears in the
+  // label. (Fixture moved from plausible-analytics when that dossier was
+  // parked 2026-08-06 — the mechanism under test is id-referencing, not the
+  // specific sibling.)
   it("picks an explicitly id-referenced sibling over the capability default", () => {
     const result = selectDossiersForRequest({
-      requestedCapabilities: ["analytics"],
-      promptText: 'Lägg till byggblocket "Plausible" (id: plausible-analytics)',
+      requestedCapabilities: ["database"],
+      promptText: 'Lägg till byggblocket "MongoDB" (id: mongodb-atlas)',
     });
-    expect(result.selected[0]?.entry.id).toBe("plausible-analytics");
+    expect(result.selected[0]?.entry.id).toBe("mongodb-atlas");
     expect(result.selected[0]?.reason).toBe("relevance-keyword");
   });
 
   it("still picks the capability default when the default's own id is referenced", () => {
     const result = selectDossiersForRequest({
-      requestedCapabilities: ["analytics"],
-      promptText: 'Lägg till byggblocket "Besöksstatistik" (id: vercel-analytics)',
+      requestedCapabilities: ["database"],
+      promptText: 'Lägg till byggblocket "Databas" (id: postgres-drizzle)',
     });
-    expect(result.selected[0]?.entry.id).toBe("vercel-analytics");
+    expect(result.selected[0]?.entry.id).toBe("postgres-drizzle");
   });
 
   it("marks hard dossier as unconfigured when env var is missing", () => {

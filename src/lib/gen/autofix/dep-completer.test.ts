@@ -220,30 +220,25 @@ describe("dep-completer", () => {
 
   // Dossier wave 1 (legacy import 2026-07-08): each new hard dossier's manifest
   // dependencies must resolve through KNOWN_PACKAGES pins, never `latest`.
-  it("injects ably when realtime is selected", () => {
-    const dossierSelection = selectDossiersForRequest({
-      requestedCapabilities: ["realtime"],
-    });
-    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("ably-realtime");
-
-    const deps = resolveCapabilityDependencies(["realtime"]);
-    expect(deps.ably).toBe(KNOWN_PACKAGES.ably);
-    expect(deps.ably).not.toBe("latest");
+  // (ably-realtime and fal-image-generation were parked 2026-08-06 — their
+  // capability-selection cases left with them, but the `ably`/`@ai-sdk/fal`
+  // pins stay in KNOWN_PACKAGES as import-scan fallbacks for freehand or
+  // legacy-version code that still imports the SDKs.)
+  it("parked capabilities (realtime / image-generation) select nothing and inject nothing", () => {
+    for (const capability of ["realtime", "image-generation"]) {
+      const dossierSelection = selectDossiersForRequest({
+        requestedCapabilities: [capability],
+      });
+      expect(dossierSelection.selected).toEqual([]);
+      expect(resolveCapabilityDependencies([capability])).toEqual({});
+    }
   });
 
-  it("injects ai + @ai-sdk/fal when image-generation is selected", () => {
-    const dossierSelection = selectDossiersForRequest({
-      requestedCapabilities: ["image-generation"],
-    });
-    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain(
-      "fal-image-generation",
-    );
-
-    const deps = resolveCapabilityDependencies(["image-generation"]);
-    expect(deps.ai).toBe(KNOWN_PACKAGES.ai);
-    expect(deps["@ai-sdk/fal"]).toBe(KNOWN_PACKAGES["@ai-sdk/fal"]);
-    expect(deps.ai).not.toBe("latest");
-    expect(deps["@ai-sdk/fal"]).not.toBe("latest");
+  it("keeps deterministic pins for parked-dossier SDKs (import-scan fallback)", () => {
+    expect(KNOWN_PACKAGES.ably).toBeDefined();
+    expect(KNOWN_PACKAGES.ably).not.toBe("latest");
+    expect(KNOWN_PACKAGES["@ai-sdk/fal"]).toBeDefined();
+    expect(KNOWN_PACKAGES["@ai-sdk/fal"]).not.toBe("latest");
   });
 
   it("injects ai + @ai-sdk/openai + zod when ai-tool-calling is selected", () => {

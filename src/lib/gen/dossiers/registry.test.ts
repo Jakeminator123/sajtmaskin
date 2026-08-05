@@ -33,12 +33,12 @@ describe("loadEntry copies the manifest mock field (bugbot #468)", () => {
     expect(neon?.mock).toBe("seed");
     const drizzle = all.find((d) => d.id === "postgres-drizzle");
     expect(drizzle?.mock).toBe("seed");
-    // Taxonomy 2026-07-22: payment/auth/realtime surfaces render a full
+    // Taxonomy 2026-07-22: payment/auth/subscription surfaces render a full
     // interactive demo surface (mock: visual) instead of a dead placeholder.
     const stripe = all.find((d) => d.id === "stripe-checkout");
     expect(stripe?.mock).toBe("visual");
-    const ably = all.find((d) => d.id === "ably-realtime");
-    expect(ably?.mock).toBe("visual");
+    const paddle = all.find((d) => d.id === "paddle-billing");
+    expect(paddle?.mock).toBe("visual");
   });
 
   it("surfaces provider ownership and verification status", () => {
@@ -159,7 +159,9 @@ describe("manifest provider projection", () => {
   it("contains only explicit hard-manifest providers", () => {
     const providers = getDossierProviderCatalog();
     expect(providers).toContain("stripe");
-    expect(providers).toContain("fal");
+    expect(providers).toContain("mailchimp");
+    // fal left the catalog when fal-image-generation was parked (2026-08-06).
+    expect(providers).not.toContain("fal");
     expect(providers).not.toContain("cmdk");
     expect(providers).toEqual([...providers].sort());
   });
