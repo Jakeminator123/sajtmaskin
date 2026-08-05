@@ -358,6 +358,12 @@ export function shouldIgnoreConsoleError(text: string): boolean {
  * `applyCaptureRequestGate` aborts disallowed requests with exactly
  * `blockedbyclient` — without that filter our guard would be reported as a
  * defect in the user's site.
+ *
+ * `ERR_ABORTED` sväljs medvetet trots att det kan dölja ett äkta avbrott:
+ * crawlens `page.goto` avbryter allt som fortfarande är i luften från
+ * föregående route, så alternativet är att rapportera vår egen navigering som
+ * fel i användarens sajt. För rådgivande diagnostik är den falska positiven
+ * dyrare än den missade signalen.
  */
 export function shouldIgnoreFailedRequest(url: string, errorText: string): boolean {
   const err = (errorText || "").toLowerCase();
@@ -581,6 +587,14 @@ export async function runProductPostcheck(params: {
   // route. Raderna är rådgivande diagnostik, inte grund för beslut per sida.
   let currentRoute = pathnameOf(previewUrl);
   let routesChecked = 0;
+  // Startsidans overlay-utfall, plus om crawlen hunnit navigera bort
+  // desktop-sidan. `catch`-blocket nedan omprövar overlayn, och efter en
+  // crawl-navigering står `page` inte längre på startsidan: utan de här
+  // två skulle omprövningen både kunna MISSA en död startsida (grönt fast
+  // previewen är trasig) och blockera på en undersida som happy-pathen
+  // medvetet bara varnar för.
+  let startPageOverlaySeen = false;
+  let desktopLeftStartUrl = false;
 
   const attachRuntimeListeners = (target: Page) => {
     // Listeners MUST be registered before page.goto — a post-nav listener
@@ -721,6 +735,7 @@ export async function runProductPostcheck(params: {
     const desktopErrorOverlay = await page
       .evaluate(detectNextErrorOverlayInBrowser)
       .catch(() => false);
+    startPageOverlaySeen = desktopErrorOverlay;
 
     // Bounded same-origin crawl on DESKTOP only (mobile stays start-page-only
     // for cost control). Next-dev compiles each route on demand, so we stop
@@ -741,6 +756,7 @@ export async function runProductPostcheck(params: {
       if (Date.now() - startedAt >= CRAWL_DEADLINE_MS) break;
       try {
         currentRoute = pathnameOf(routeUrl);
+        desktopLeftStartUrl = true;
         await page.goto(routeUrl, {
           waitUntil: "domcontentloaded",
           timeout: Math.min(timeoutMs, CRAWL_DEADLINE_MS),
@@ -850,16 +866,20 @@ export async function runProductPostcheck(params: {
     // so an ambiguous render crash (which the structural pattern list skips but
     // the overlay catches) is not lost when the throw happened before the
     // happy-path overlay probe ran.
-    let overlayInCatch = false;
-    for (const candidate of [page, mobilePage]) {
+    //
+    // Desktop-sidan omprövas BARA om crawlen inte flyttat den. Har den gjort
+    // det beskriver den en undersida, och en undersida får varken blockera
+    // (happy-pathen varnar bara) eller friskförklara en död startsida.
+    // `startPageOverlaySeen` bär startsidans utfall vidare i det läget.
+    let overlayInCatch = startPageOverlaySeen;
+    const overlayCandidates = desktopLeftStartUrl ? [mobilePage] : [page, mobilePage];
+    for (const candidate of overlayCandidates) {
+      if (overlayInCatch) break;
       if (!candidate) continue;
       const seen = await candidate
         .evaluate(detectNextErrorOverlayInBrowser)
         .catch(() => false);
-      if (seen) {
-        overlayInCatch = true;
-        break;
-      }
+      if (seen) overlayInCatch = true;
     }
     const runtimeEval = evaluateRuntimeErrors(pageErrors, { nextErrorOverlay: overlayInCatch });
     const browserEval = evaluateBrowserRuntimeIssues(browserRuntimeIssues);
@@ -879,6 +899,11 @@ export async function runProductPostcheck(params: {
       };
     }
     const reason = productPostcheckSkipReasonFromError(err);
+    // Advisory-fynd som hann samlas in innan felet följer INTE med en skip.
+    // Konsumenten (`buildProductPostcheckLogItems`) grenar på `skipped` först
+    // och skriver bara skip-raden, så warnings här hade ändå tappats — och en
+    // halvkörd kontroll ska rapportera "kördes inte", inte en delmängd som
+    // läses som täckning. `routesChecked` visar hur långt den kom.
     console.warn("[product-postcheck] skipped:", err);
     return skippedResult(reason, Date.now() - startedAt, previewUrl, routesChecked);
   } finally {

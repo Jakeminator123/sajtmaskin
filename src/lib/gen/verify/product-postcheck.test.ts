@@ -359,6 +359,66 @@ describe("runProductPostcheck browser-startpunkt", () => {
     expect(result.routesChecked).toBe(2);
     expect(result.warnings.some((w) => w.route === "/chat_1/om-oss")).toBe(true);
   });
+
+  /**
+   * Crawlen navigerar bort desktop-sidan från startsidan. `catch`-blockets
+   * overlay-omprövning får därför inte längre lita på att `page` beskriver
+   * startsidan — annars kan en död startsida läsas som grön, och en kraschad
+   * undersida kan blockera fast happy-pathen bara varnar för den.
+   */
+  describe("overlay-omprövning efter att crawlen flyttat desktop-sidan", () => {
+    function browserWhereMobileFails(desktopResults: unknown[]) {
+      const desktop = fakePage(desktopResults);
+      let call = 0;
+      return {
+        newPage: vi.fn(async () => {
+          call += 1;
+          if (call === 1) return desktop;
+          throw new Error("mobile viewport failed");
+        }),
+        close: vi.fn(async () => {}),
+      };
+    }
+
+    it("blockerar fortfarande när STARTSIDAN var död", async () => {
+      launchCaptureBrowserMock.mockResolvedValue(
+        browserWhereMobileFails([
+          { anchors: [], images: [], ctas: [], forms: [] },
+          true, // startsidan visade felöverlägget
+          ["/chat_1/om-oss"],
+          false,
+        ]),
+      );
+
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(result.productBlocked).toBe(true);
+      expect(result.skipped).toBe(false);
+    });
+
+    it("blockerar inte när bara en UNDERSIDA var död", async () => {
+      launchCaptureBrowserMock.mockResolvedValue(
+        browserWhereMobileFails([
+          { anchors: [], images: [], ctas: [], forms: [] },
+          false, // startsidan var frisk
+          ["/chat_1/om-oss"],
+          true, // undersidan kraschade
+        ]),
+      );
+
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(result.productBlocked).toBe(false);
+    });
+  });
 });
 
 /**
