@@ -21,7 +21,7 @@ function wiredResponse(overrides: Partial<DossierOverviewResponse> = {}): Dossie
 function catalogResponse(overrides: Partial<DossierCatalogResponse> = {}): DossierCatalogResponse {
   return {
     success: true,
-    total: 2,
+    total: 3,
     groups: [
       {
         id: "commerce",
@@ -52,6 +52,24 @@ function catalogResponse(overrides: Partial<DossierCatalogResponse> = {}): Dossi
             mock: "visual",
             groupId: "commerce",
             groupLabel: "Betalning & handel",
+          },
+        ],
+      },
+      {
+        id: "media",
+        label: "Media & galleri",
+        dossiers: [
+          {
+            id: "gallery-lightbox",
+            label: "Bildgalleri med lightbox",
+            capability: "gallery-lightbox",
+            class: "soft",
+            summary: "Click-to-enlarge image gallery.",
+            summarySv: "Bildgalleri där bilder kan förstoras.",
+            envVarCount: 0,
+            requiresF3: false,
+            groupId: "media",
+            groupLabel: "Media & galleri",
           },
         ],
       },
@@ -114,9 +132,46 @@ describe("PreviewPanelDossiers", () => {
     });
     expect(screen.getByText("Stripe Checkout")).toBeTruthy();
     expect(screen.getByText("Klarna Checkout")).toBeTruthy();
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Inkopplade (0)" }).getAttribute("data-state")).toBe(
+      "inactive",
+    );
+    expect(
+      screen.getByRole("tab", { name: "Bläddra katalog (3)" }).getAttribute("data-state"),
+    ).toBe("active");
+    expect(screen.getByText("Katalog: 3 totalt · 2 kopplade · 1 fristående")).toBeTruthy();
     // The "Inkopplade"-tab's empty-state copy must NOT be what greets the
     // user when there is nothing wired — the catalog tab is shown instead.
     expect(screen.queryByText("Inga byggblock är inkopplade i den här versionen.")).toBeNull();
+  });
+
+  it("filters the catalog by Kopplade and Fristående without hiding the F3 signal", async () => {
+    stubFetch({ wired: wiredResponse() });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const standaloneFilter = await screen.findByRole("button", { name: "Fristående (1)" });
+    fireEvent.click(standaloneFilter);
+
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
+    expect(screen.queryByText("Stripe Checkout")).toBeNull();
+    expect(screen.queryByText("Betalning & handel")).toBeNull();
+    expect(standaloneFilter.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Kopplade (2)" }));
+
+    expect(screen.getByText("Stripe Checkout")).toBeTruthy();
+    expect(screen.getByText("Klarna Checkout")).toBeTruthy();
+    expect(screen.queryByText("Bildgalleri med lightbox")).toBeNull();
+    expect(screen.getAllByText("Kopplad")).toHaveLength(2);
+    expect(screen.getAllByText("Kräver F3")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Alla (3)" }));
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
   });
 
   it("sends id+label via onRequestDossier when a catalog row is picked and keeps the popover open with a design-stage surface-only notice for a HARD dossier", async () => {
@@ -218,6 +273,10 @@ describe("PreviewPanelDossiers", () => {
     await waitFor(() => {
       expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
     });
+    expect(screen.getByRole("tab", { name: "Inkopplade (1)" }).getAttribute("data-state")).toBe(
+      "active",
+    );
+    expect(screen.getByText("Version: 0 kopplade · 1 fristående")).toBeTruthy();
     // The catalog tab's content is not shown by default when something is
     // already wired.
     expect(screen.queryByText("Stripe Checkout")).toBeNull();
