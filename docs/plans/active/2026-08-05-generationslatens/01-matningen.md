@@ -21,22 +21,49 @@ Read-only mot prod, ingen skrivning.
 1. `npm run db:latest:prod` → senaste sajten.
 2. `dump-logs.mjs` med alla kinds för de två senaste chattarna.
 3. Ett engångsskript direkt mot `generation_telemetry.meta`, eftersom
-   `dump-logs.mjs` **inte** selektar `meta` för telemetri-kinden. Utan det steget
-   är fas-tiderna osynliga för `/logg`. Det är precis den luckan steg 1 i planen
-   stänger.
+   `dump-logs.mjs` vid mätningstillfället **inte** selekterade `meta` för
+   telemetri-kinden. Utan det steget var fas-tiderna osynliga för `/logg`.
+   Det var precis den luckan steg 1 stängde — den är nu åtgärdad, så en
+   framtida mätning behöver inget engångsskript.
 4. Ett engångsskript som räknar bild-URL:er i `engine_versions.files_json`.
 
-Strömtiden är inte ett eget fält utan räknas fram som `duration_ms` minus summan
-av `meta.postStreamSteps`. Den posten rymmer därför även Deep Brief och
-orkestrering, men båda är små: orkestreringen är CPU plus mtime-cachad
-fil-läsning, och dess enda nätverksanrop är scaffold-/variant-embeddings.
-Codegen-strömmen dominerar posten.
+Strömtiden var vid mätningen inte ett eget fält utan räknades fram som
+`duration_ms` minus summan av `meta.postStreamSteps`.
+
+**Rättelse 2026-08-05 (bugbot-fynd under steg 1):** den ursprungliga texten här
+påstod att derivatet även rymmer Deep Brief och orkestrering. Det stämmer inte.
+`duration_ms` sätts som `Date.now() - startedAt` (`persist-telemetry.ts:254`) och
+`streamMs` som `finalizePipelineStartedAt - startedAt` (`runner.ts`) — **samma
+ankare**, `engineStartedAt` i `generation-stream.ts:214`. Derivatet och den nya
+direktmätningen startar alltså på samma punkt och är jämförbara. Skillnaden är
+bara att derivatet dessutom absorberar finalize-tid som inte är uppdelad i
+`postStreamSteps` (persist, partiell filreparation, glapp), så det är något
+**större** än `streamMs` — inte brief-uppblåst.
+
+**Verifierat 2026-08-05 (steg 2): Deep Brief och orkestrering ligger före
+`engineStartedAt`.** Planens totaler (414 s osv.) och andelen "strömmen är
+79–99 %" täcker bara fönstret från strömstart — **inte** användarens hela
+väntan. Det som saknas i båda fälten:
+
+| Steg | När | Bevis |
+|---|---|---|
+| Klientstyrd Deep Brief | **Separat HTTP-request före** create-chat-strömmen | `useInitBrief.ts:118` → `POST /api/ai/brief`; statusraden säger uttryckligen "innan own-engine startar" (`:116`) |
+| Server auto-brief | Inuti create-chat, **före** orkestrering | `create-chat-stream-post.ts:289–341` (`shouldRunServerAutoBrief` → `tryGenerateServerAutoBrief`) |
+| Scaffold-embeddings | Inuti `resolveOrchestrationBase` | `resolve-base.ts:259–264` (`matchScaffoldAuto` med `useEmbeddings`) anropas från `create-chat-stream-post.ts:804` |
+| Variant-embeddings | Inuti `finalizeOrchestrationPrompts` | `finalize-prompts.ts:86–97` → `resolveScaffoldVariant` → `pickScaffoldVariantAsync`; anropas från `create-chat-stream-post.ts:936` |
+| `pipelineStream` skapas | Efter allt ovan | `own-engine-pipeline-generation.ts:80` (`createGenerationPipeline`) |
+| `engineStartedAt` | Omedelbart därefter | `generation-stream.ts:214` i `createOwnEngineGenerationStream`, anropat från `:102` / create-chat `:1024` |
+
+Obs: `sajtmaskin_prompt_to_done_ms` ankrar i `requestStartedAt`
+(`create-chat-stream-post.ts:1088–1089`) och fångar server-brief + orkestrering
+fram till `done`, men **inte** klientens `/api/ai/brief`. Planens tabell nedan
+kommer från `generation_telemetry.duration_ms`, inte från den metriken.
 
 ## Vad mätningen visar
 
 Fyra versioner, två chattar, båda F2/`design`, alla med `finalizePath: full`.
 
-| Körning | Scaffold / modell | Totalt | Före finalize (brief + orkestrering + **ström**) | Efter ström | Varav verifier |
+| Körning | Scaffold / modell | Totalt (från strömstart) | Före finalize (**ström**, se rättelsen ovan) | Efter ström | Varav verifier |
 |---|---|---|---|---|---|
 | `9cdb3e31` v1, init | `blog` / `gpt-5.6-sol` | 414,6 s | **326,1 s (78,7 %)** | 88,5 s | 69,2 s |
 | `41be90f2` v1, init | `landing-page` / `gpt-5.3-codex` | 159,3 s | **157,3 s (98,7 %)** | 2,0 s | skippad |
@@ -109,7 +136,7 @@ Den riktiga frågan är därför inte vilken tröskel som är felinställd, utan
 F2-preview ska köra ett 69-sekunders LLM-pass över huvud taget när RenderGate
 ändå ägs av klienten. Det är ett ägarbeslut, och det är steg 3 i planen.
 
-### 3. Klassningen är den gemensamma nämnaren
+### 3. Klassningen är den gemensamma nämnaren — och den är befogad
 
 En bloggsajt fick `qualityTarget: premium` + `contextPolicy: heavy`. Landing-
 sajten fick `standard` + `normal` och tog en tredjedel så lång tid.
@@ -117,16 +144,34 @@ sajten fick `standard` + `normal` och tog en tredjedel så lång tid.
 Den klassningen betalar sig tre gånger om: `heavy` context ger 121k
 prompt-tokens mot landing-sajtens 20k, `premium` target ger mer utförlig output
 (59k completion-tokens mot 21k), och båda tvingar dessutom verifiern via
-tabellen ovan. Det är den enda spaken i mätningen som rör flera kostnader
-samtidigt, och därför steg 2 i planen.
+tabellen ovan. Steg 2 utredde om det var felklassning.
 
-### Allt annat är avrundningsfel
+**Dom (kodbevis, ingen tröskeländring):** skillnaden blog ↔ landing är
+**medveten avvägning**, inte en bug.
+
+| Signal | Villkor | `fil:rad` | Blogg-relevans |
+|---|---|---|---|
+| `qualityTarget: premium` via multipage | `routeCount > 1` på init | `policy-inference.ts:274–283` | Blog-scaffold lägger `/blog` (`planning-helpers.ts:303–309`) → minst två routes med `/`. Mätta körningen hade `changeScope: page-addition` (= `routes.length > 1`, `policy-inference.ts:152`) |
+| `qualityTarget: premium` via `content-heavy` | `siteType === "content-heavy"` | `policy-inference.ts:262` | `inferSiteType` sätter det först vid `routeCount > 5` (`route-plan-builder.ts:20–24`) |
+| `qualityTarget: premium` via brief | `brief.qualityBar` ∈ {`premium`,`bold-dramatic`} | `policy-inference.ts:234–245` | Kan ha bidragit om Deep Brief satte qualityBar |
+| `contextPolicy: heavy` | `score >= 3` (tröskel sänkt Q5b) | `policy-inference.ts:396–397`, `:528–530` | Multipage ensamt räcker **inte** — tre-sidors brochure stannar på `normal` (`build-spec.test.ts:413–431`). Heavy kräver t.ex. init(+1)+content-heavy-struktur(+2), eller init(+1)+brief.premium(+1)+≥3 routes(+1), eller `capabilityHeavy` (tvingar heavy, `:503–513`) |
+| Landing `standard`/`normal` | en route, inga tunga signaler | samma filer | `siteType: one-page`, `routeCount === 1` → ingen multipage-promotion, score ≈ 1 |
+
+Testkommentaren i `build-spec.test.ts:413–418` slår fast att multipage→premium
+infördes medvetet ("under-spent the budget"). Q5b-kommentaren
+(`policy-inference.ts:391–393`) accepterar fler `heavy`-fall mot färre
+trunkeringar. Att sänka trösklarna är därför ett kvalitets-/ägarbeslut, inte
+en defektfix — steg 2 levererar diagnosen och stannar.
+
+### Allt annat är avrundningsfel (inom strömfönstret)
 
 De tre landing-versionerna spenderade 1,4–2,0 s på hela efterströmskedjan.
-Orkestreringen — scaffold-matchning, route-plan, contracts, BuildSpec,
-capability-inferens, dossier-selektion — syns inte alls, vilket stämmer med
-koden: `selectDossiersForRequest` är ett uppslag i en mtime-cachad registry, och
-`inferCapabilities` är regex.
+Orkestreringen syns inte i `duration_ms`/`streamMs` eftersom den ligger **före**
+`engineStartedAt` (se verifieringen ovan). Inom själva orkestreringen är
+dossier-valet fortfarande billigt: `selectDossiersForRequest` är ett uppslag i
+en mtime-cachad registry, och `inferCapabilities` är regex — men
+scaffold-/variant-embeddings är nätverksanrop som användaren väntar på *innan*
+tabellens klocka startar.
 
 ## Varför "tre agenter" inte är svaret, och vad som är det
 
@@ -145,24 +190,24 @@ som beställt arbete.
 | Åtgärd | Blogg init (414 s) | Landing init (159 s) | Follow-up (47–71 s) |
 |---|---|---|---|
 | Steg 1 mätning | ±0 | ±0 | ±0 |
-| Steg 2 klassning, output −20 % | −65 s | −31 s | −10 s |
+| Steg 2 klassning | ±0 (befogad — ingen tröskeländring) | ±0 | ±0 |
 | Steg 3 verifier ur F2 | −69 s | 0 (redan skippad) | 0 (redan skippad) |
-| **Steg 1–3 tillsammans** | **~280 s (−32 %)** | **~128 s (−20 %)** | ~40–60 s (−15 %) |
+| **Steg 1–3 tillsammans** | **~345 s (−17 %)** om steg 3 tas | **~159 s** | ~47–71 s |
 | Steg 4 ovanpå | ~170–190 s (−55 %) | ~80–100 s (−40 %) | sannolikt sämre |
 
 Steg 3 ger bara något på körningar där verifiern faktiskt triggar — här en av
-fyra. Steg 2 antar att en femtedel av outputen går att ta bort utan
-kvalitetstapp, vilket är en hypotes och inte en mätning.
+fyra. Steg 2:s tidigare −20 %-hypotes utgår; klassningen lämnas orörd.
 
 ## Vad som INTE är verifierat
 
 - Urvalet är fyra versioner från två chattar, båda F2. Inga F3-körningar, inga
   imports, inga plan-mode-turer.
 - Verifier-observationen vilar på **en** körning.
-- Att 20 % av outputen kan tas bort utan kvalitetstapp är obevisat.
-- Att bloggsajten var felklassad som `premium`/`heavy` är en bedömning, inte ett
-  fastställt fel — trösklarna i `deriveBuildSpec` kan ha goda skäl som
-  mätningen inte ser.
+- Exakt vilken tung-signal (brief.qualityBar vs content-heavy vs
+  capabilityHeavy vs complexityScore) som bar `heavy` på `9cdb3e31` v1 kräver
+  den körningens `meta.buildSpec`/`contextPolicyScore` från prod — koden visar
+  bara vilka villkor som *kan* ha träffat. Domslutet "befogad" vilar på att
+  varje kandidatvillkor har dokumenterad avsikt, inte på live-meta.
 - Vinstsiffrorna för steg 4 är räknade, inte uppmätta: strömtid delad på tre
   plus påslag för kontraktspass, skew mellan workers och merge.
 
