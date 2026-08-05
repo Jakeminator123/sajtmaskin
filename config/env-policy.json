@@ -29,6 +29,7 @@
     "SAJTMASKIN_BLOCKING_ESLINT",
     "SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS",
     "SAJTMASKIN_CONTENT_REVISION_GATE",
+    "SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_DOMAIN_PURCHASE",
     "SAJTMASKIN_DISABLE_QUALITY_GATE",
@@ -187,6 +188,7 @@
     "SAJTMASKIN_BUILDER_INSPECTOR",
     "SAJTMASKIN_BRANDED_LIVE_URLS",
     "SAJTMASKIN_CONTENT_REVISION_GATE",
+    "SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD",
     "SAJTMASKIN_DEFAULT_THINKING",
     "SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT",
     "SAJTMASKIN_DOMAIN_PURCHASE",
@@ -407,6 +409,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Opt-in, default off in code. Lets the verdict/receipt readers compare generation_telemetry.files_revision against engine_versions.files_revision instead of trusting versionId. On: the promote guard discards a verdict describing another revision (symmetrically, both passed and failed) and answers retryable indeterminate rather than terminal failed; the runtime-ready receipt only stamps rows whose revision matches the served content; a terminal bus status describing older content is degraded in /version-status. An unknown revision is never blocking — only a known mismatch is. Frequency is measured via sajtmaskin_content_revision_mismatch_total. Owner decision 2026-08-04 (restlista R14): released to ALL Vercel environments including production; watch the mismatch counter via /api/metrics. Source: src/lib/gen/verify/content-revision.ts."
+    },
+    {
+      "key": "SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Integer score threshold for BuildSpec contextPolicy heavy vs normal (default 3 since Q5b). Lower → more requests choose heavy (larger prompt budget, higher output ceilings, heavier verifier gate). Set to 4 to restore pre-Q5b behavior. Unset/empty uses the code default. Source: src/lib/gen/build-spec/policy-inference.ts."
     },
     {
       "key": "SAJTMASKIN_DOMAIN_PURCHASE",

@@ -661,6 +661,8 @@ bucketar dem som `(historisk/utan-outcome)`.
 
 | Fält / plats | Skrivs av | Läses av |
 |---|---|---|
+| `meta.streamMs` (`number`) | `persistTelemetryRecord` (wall-clock engine-stream-start → finalize-start; samma mått som Prometheus-fasen `codegen`) | `/logg` via `dump-logs --kinds=telemetry`, latensanalys |
+| `meta.postStreamSteps` (per-steg-map, inkl. `materialize_images`) | `persistTelemetryRecord` från finalize `finalizeStepTelemetry` | `/logg`, latensanalys; Prometheus speglar faserna via `sajtmaskin_phase_duration_ms` |
 | `meta.selectedDossierIds` (`string[]`) | `persistTelemetryRecord` (endast när ≥1 dossier valdes) | `control-stats` (`dossierUsage`) |
 | `deploy_result` (kolumn, t.ex. `production:ready` / `preview:queued` / `production:error`) | `recordDeployResultForVersion` från `POST /api/v0/deployments` (best-effort, senaste telemetri-raden för versionId) | `control-stats` (`deployOutcomes`), backoffice generation-history |
 
