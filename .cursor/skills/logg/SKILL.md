@@ -29,6 +29,7 @@ Read-only. Skriv aldrig till prod. Hämtar bara. Se Guardrails.
 | Versioner (verify/release/preview_url) | Postgres `engine_versions` | `--kinds=versions` |
 | **Telemetri** (scaffold/retry/autofix/quality gate/preview) | Postgres `generation_telemetry` | `--kinds=telemetry` |
 | Pipeline-fel + `[BUGGFYND]` | Postgres `engine_version_error_logs` | `--kinds=errors` |
+| **Defektklasser med räknare** (samma fel över tid/chattar) | Samma tabell, grupperad på `meta.defect.signature` | `--kinds=defects` |
 | Chat-metadata | Postgres `engine_chats` | `--kinds=chats` |
 | **OpenClaw bug-hunt-fynd** (Mode B) | Postgres `oc_debug_findings` | `--kinds=oc` |
 | RAG fault/fix-telemetri | Postgres `error_log_events` | `--kinds=ragevents` |
@@ -98,13 +99,33 @@ Plocka ut `chatId`, `versionId`, `projectId`, `model`, `scaffoldId`, `previewUrl
 ```powershell
 node scripts/db/dump-logs.mjs --json `
   --env=.env.vercel.production.pulled `
-  --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys `
+  --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys,defects `
   --chat=<chatId> --limit=100 --allow-insecure-ssl
 ```
 
 Detta ger telemetri, fel, OpenClaw bug-hunt-fynd (`oc`), RAG-events (`ragevents`) och
 deploy-raden (`deploys`) i ett svep. Notera från `deploys`: `vercel_deployment_id`,
 `vercel_project_id`, `url`, `status` — de behövs i steg 3.
+
+#### 2b. Är felet chattens eller plattformens?
+
+`defects` grupperar `engine_version_error_logs` på `meta.defect.signature` i stället
+för att lista händelser. Kör den **en gång till utan `--chat`**:
+
+```powershell
+node scripts/db/dump-logs.mjs --json `
+  --env=.env.vercel.production.pulled `
+  --kinds=defects --limit=40 --allow-insecure-ssl
+```
+
+Jämför signaturerna från chatt-körningen mot den repo-breda listan. En signatur med
+högt `chats`-tal är ett **plattformsfel** som råkade synas i den här sajten — det hör
+hemma i rapportens bedömning, inte som "den här genereringen gick dåligt". En signatur
+som bara finns i en chatt är chattspecifik. `first_seen` visar om felklassen är ny
+(regression efter en deploy) eller gammal.
+
+Rader utan `meta.defect` är skrivna före klassificeraren fanns; de saknas i aggregatet
+men syns fortfarande under `errors`.
 
 ### 3. Vercel-loggar (MCP-server `vercel` — projekt-scopad, eller `user-vercel`)
 

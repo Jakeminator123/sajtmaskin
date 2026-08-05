@@ -91,6 +91,7 @@ Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nyck
 | Advisory | Synligt men ej blockerande. | warning, soft fail, degraded/typecheck_advisory |
 | Blocker | Stoppar promote/preview. | hard fail, blocking, preview-blocking |
 | CapabilitySmoke | Capability-specifik DOM/render-smoke. | product postcheck |
+| Defektsignatur | Stabil nyckel per **felklass** i `engine_version_error_logs`, skriven som `meta.defect.{kind,signature}` på den kanoniska skrivvägen. Två rader med samma signatur är samma fel även i olika chattar, vilket är det som gör "hur ofta händer det här" mätbart. Beskriver inte allvarlighet — vad som blockerar avgörs av gates. | `classifyVersionDefect`, `meta.defect` |
 
 ## Namnskuggor
 
