@@ -5,8 +5,9 @@ Lägg in en bugg i den **enda** bugglistan: [`BUG-SWARM-BACKLOG.md`](../../BUG-S
 ## Princip
 
 - En reell **defekt** (systemet gör fel) → ny `[ ]`-rad i sektionen **`## Aktiv kö`**.
-- Ett **policy-/produktval** (systemet gör som tänkt men vi kan välja annorlunda) → rad i **`## Beslut & policy`**, inte Aktiv kö.
-- Kan inte avgöras statiskt (kräver repro/livekörning) → **`## Behöver repro`**.
+- Ett **policy-/produktval** (systemet gör som tänkt men vi kan välja annorlunda) → rad i **`## Väntar på ägarbeslut`**, inte Aktiv kö. Raden ska ha beslutsägare + deadline/trigger.
+- Kan inte avgöras statiskt (kräver repro/livekörning) → **`## Behöver repro`**, med exakt vad som ska köras.
+- Hardening, testlucka, dokumentations- eller arkitekturskuld → **`## Säkerhet, infra och teknisk skuld`**. Det är ingen produktbugg och ska inte inflatera kön.
 - Läs `BUG-SWARM-BACKLOG.md` § "Hur den hålls sann" innan du skriver — den styr formatet.
 
 ## Indatakällor
@@ -37,19 +38,22 @@ Finns en aktuell öppen rad för samma rotorsak → **uppdatera den raden** (sk�
 
 ### 2. Tilldela ID
 
-Manuellt rapporterade buggar får källa-tag `M#<n>`. Hitta högsta befintliga `M#` i `BUG-SWARM-BACKLOG.md` + arkivfilen och inkrementera (`M#1`, `M#2`, …). Saknas någon → börja på `M#1`.
+Två olika ID, båda krävs för en Aktiv kö-rad:
+
+- **Stabilt rad-ID `SM-###`** — radens identitet. Hitta högsta befintliga `SM-` i `BUG-SWARM-BACKLOG.md` **och** i [`backlog-omstrukturering-2026-08-05.md`](../../docs/plans/avklarat/bug-swarm/backlog-omstrukturering-2026-08-05.md) samt arkivfilerna, och ta nästa lediga nummer. **Återanvänd aldrig** ett nummer, inte ens från en arkiverad rad.
+- **Källa-tag `M#<n>`** — varifrån fyndet kom. Manuellt rapporterade buggar inkrementerar högsta `M#` (`M#1`, `M#2`, …). Saknas någon → börja på `M#1`.
 
 ### 3. Lägg till raden
 
-Skriv en `[ ]`-rad i rätt sektion. Aktiv kö använder 7-kolumnsformatet (det är detta canvas + preflight läser):
+Skriv en `[ ]`-rad i rätt sektion. Aktiv kö använder 7-kolumnsformatet (det är detta canvas + formatkontrollen läser), och `Fynd`-cellen **måste** börja med det stabila ID:t:
 
 ```markdown
-| [ ] | Öppen bug | P2 | <kort fynd + fil:rad-ankare> | M#<n> | <minsta åtgärd / nästa steg> |
+| [ ] | Öppen bug | P2 | `SM-###` **<kort fynd>:** <fil:rad-ankare + varför det är fel> | M#<n> | <minsta åtgärd / nästa steg> |
 ```
 
-- **Fynd:** kort, konkret, med kod-ankare (`fil.ts:rad`) om koden är inblandad.
+- **Fynd:** kort, konkret, med kod-ankare (`fil.ts:rad`) om koden är inblandad. **En** falsifierbar premiss per rad — är den bred, dela raden.
 - **Prio:** `P0` produktion nere/dataförlust/säkerhetshål · `P1` kärnflöde brutet utan workaround · `P2` bug med workaround · `P3` kosmetiskt/edge. Osäker → `P2`.
-- Hör fyndet egentligen hemma i `Beslut & policy` eller `Behöver repro` → använd de sektionernas format i stället (ingen 7-kolumns-kryssruta där).
+- Hör fyndet egentligen hemma i `Väntar på ägarbeslut`, `Behöver repro` eller skuldsektionen → använd de sektionernas format i stället (ingen 7-kolumns-kryssruta där).
 
 ### 4. Valfri lokal evidens (`.cursor/bugs/`)
 

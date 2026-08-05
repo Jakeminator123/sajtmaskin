@@ -165,7 +165,7 @@ function keywordsFor(name, page) {
  *  Returnerar [{ prio, blocker, text }]. Helt defensiv mot formatdrift.
  *
  *  Bara rader UNDER rubriken "## Aktiv ko" (fram till nasta "## ") raknas, sa
- *  att "Beslut & policy"-, "Behover repro"- och arkiv-tabeller aldrig blastas
+ *  att "Vantar pa agarbeslut"-, "Behover repro"-, skuld- och arkiv-tabeller aldrig blastas
  *  in som oppna risker. Saknas rubriken (aldre fil) faller vi tillbaka pa hela
  *  filen sa canvasen aldrig blir tom. */
 export function parseBacklogRows(md) {

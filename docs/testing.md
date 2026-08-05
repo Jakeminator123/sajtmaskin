@@ -33,7 +33,7 @@ kanoniska bilden av skillnaden (verifierad mot rulesetet `Protect master` 2026-0
 
 De tre icke-required jobben som ändå failar hårt syns röda på PR:en men stoppas bara av
 agent-/människodisciplin. Det är ett medvetet men **öppet** läge: se raden om CI-grindarnas
-required-status i [`BUG-SWARM-BACKLOG.md`](../BUG-SWARM-BACKLOG.md) → "Beslut & policy".
+required-status i [`BUG-SWARM-BACKLOG.md`](../BUG-SWARM-BACKLOG.md) → "Väntar på ägarbeslut".
 
 ## Build-grinden
 
@@ -99,7 +99,7 @@ Dokumentation verifieras bottom-up i samma `quality`-jobb som kodkontrakten:
 | Aktiva dokumentationslänkar | Blockerar brutna relativa paths i aktiva Markdown-ytor; historiska källfiler ligger utanför den blockerande mängden | `npm run docs:links` |
 | Terminologi-ownership | Blockerar parallella glossary-paths, dubletter och uttryckligen förbjudna legacyalias | `npm run check:terms:contract` |
 | Generator-/guardtester | Blockerar regressioner i docs-generatorer och kontroller | `npm run docs:test` |
-| Bug-backloggens format | Blockerar avbockade `[x]`-rader kvar i Aktiv kö och rader som motsäger sin egen status | `npm run check:bug-backlog` |
+| Bug-backloggens format | Blockerar avbockade `[x]`-rader kvar i Aktiv kö, rader som motsäger sin egen status, saknade/återbrukade `SM-###`-ID och saknade kanoniska sektioner | `npm run check:bug-backlog` |
 | Bred termtäckning | Rådgivande signal; historikytor ingår inte | `npm run check:terms` |
 
 Bug-backlog-checken låg tidigare inuti `preflight:common` och därmed även i Vercels
