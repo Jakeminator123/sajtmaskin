@@ -56,3 +56,26 @@ Merge sker i stället via **merge-agenten** (en Cursor-agent) som:
 3. kör `gh pr merge` (admin) först då.
 
 Slår du på automationen igen: ge den samma grind + `merge:ready`-krav i dess dashboard-prompt, annars är den tillbaka i "dum"-läget.
+
+## Merge-agenten väntar aldrig passivt
+
+Har du mandat som merge-agent är väntan **inte** en aktivitet. `quality` tar
+~8 min, `review-window` minst 7, och ett bugbot-pass flera minuter — den tiden
+ska gå till att föra de **övriga** öppna PR:erna framåt, inte till att polla
+samma check om.
+
+Under väntan: svep `gh pr list --state open` (labels, draft, checks), hämta och
+triagera externa bot-fynd per PR (`pr-bot-findings-sweep.mdc` — `gh pr checks`
+visar dem inte), verifiera författarnas påståenden mot koden, och identifiera
+vilka PR:er som krockar i samma fil. Kom tillbaka till den väntande PR:en när
+den faktiskt är klar.
+
+**Men serialisera själva mergarna.** Granskningsarbetet parallelliseras; `gh pr
+merge` körs en PR i taget, med `git fetch` emellan, eftersom en merge gör alla
+andra PR:ers head-SHA:n inaktuella och kan väcka konflikter som var osynliga i
+deras gröna CI. Börja inte heller skriva kod på en annan agents branch bara för
+att du väntar — rapportera i stället att den behöver arbete.
+
+Bakgrund: 2026-08-05 stod merge-agenten still i ~10 min på en `quality`-check
+medan fyra andra öppna PR:er låg ogranskade, varav två med krockande ändringar i
+samma fil.
