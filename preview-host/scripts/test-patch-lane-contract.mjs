@@ -308,6 +308,14 @@ try {
       Date.now() - 2_000,
       Date.now() - 1_000,
     ];
+    // Same for the install/boot-failure budget: a capped session that gets new
+    // content must boot again, otherwise fixing the project cannot recover it.
+    sameVersionSeed.sessions[started.body.sessionId].runtimeBootFailureVersionId = "ver_6";
+    sameVersionSeed.sessions[started.body.sessionId].runtimeBootFailureTimestamps = [
+      Date.now() - 3_000,
+      Date.now() - 2_000,
+      Date.now() - 1_000,
+    ];
     store.writeStoreAtomicSync(sameVersionSeed);
     const sameVersionUpdate = await request("/preview/session/update", {
       previewSessionId,
@@ -321,6 +329,11 @@ try {
       afterSameVersionUpdate.runtimeCleanExitTimestamps,
       [],
       "same-version update must reset the clean-exit budget",
+    );
+    assert.deepEqual(
+      afterSameVersionUpdate.runtimeBootFailureTimestamps,
+      [],
+      "same-version update must reset the boot-failure budget so a fixed project can boot",
     );
   }
 
