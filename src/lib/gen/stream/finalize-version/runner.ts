@@ -402,6 +402,11 @@ export async function finalizeAndSaveVersion(
   recordPhaseDuration("syntax-validate", resolveStepDurationMs("validate_syntax"), {
     kind: latencyBudgetKind,
   });
+  recordPhaseDuration(
+    "materialize_images",
+    resolveStepDurationMs("materialize_images"),
+    { kind: latencyBudgetKind },
+  );
   recordPhaseDuration("preflight", resolveStepDurationMs("parse_merge_preflight"), {
     kind: latencyBudgetKind,
   });
@@ -701,6 +706,8 @@ export async function finalizeAndSaveVersion(
     hasPreflightVerificationErrors: hasVerificationBlockingPreflightErrors,
     previewBlockingReason,
     startedAt,
+    // Direct stream wall-clock: engine wrapper start → finalize start.
+    streamMs: Math.max(0, finalizePipelineStartedAt - startedAt),
     tokenUsage,
     preflightFileCount,
     scaffoldRetry,
