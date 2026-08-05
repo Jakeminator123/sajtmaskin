@@ -66,12 +66,19 @@ const AGE_TREES = ["logs", ".env-backups"];
  * is the only signal worth keeping.
  *
  * The tracked-file guard still applies, so the committed README.md in each
- * directory is never a deletion candidate.
+ * directory is never a deletion candidate. `.cursor/plans` has no README (it is
+ * gitignored wholesale) and holds Cursor's own `*.plan.md` files.
+ *
+ * Deliberately NOT capped: loose files directly under `.cursor/swarms`. That is
+ * where `FINDINGS.md` lives — the curated, deduped list a distill agent
+ * maintains across runs, and the one artifact in these trees whose value grows
+ * rather than decays. Only `swarms/runs` (raw per-agent output) is capped.
  */
 const COUNT_TREES = [
   ".cursor/handoffs",
   ".cursor/kedja",
   ".cursor/bugs",
+  ".cursor/plans",
   ".cursor/logg-internet/runs",
   ".cursor/swarms/runs",
 ];
