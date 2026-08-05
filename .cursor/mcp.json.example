@@ -3,15 +3,15 @@
     "shadcn": {
       "command": "cmd",
       "args": ["/d", "/s", "/c", "${workspaceFolder}\\scripts\\cursor\\shadcn-mcp.cmd"],
-      "note": "shadcn/ui registry-MCP via lokal wrapper (scripts/cursor/shadcn-mcp.cmd → shadcn-mcp.cjs). Pinnad till shadcn@4.13.1 (ingen @latest-drift)."
+      "note": "shadcn/ui registry-MCP via lokal wrapper (scripts/cursor/shadcn-mcp.cmd → shadcn-mcp.cjs). Pinnad till shadcn@4.13.1 (ingen @latest-drift). Enda command-servern här: den startar en lokal process, så den saknas tyst om wrappern eller Node inte går att köra — kontrollera Settings → Tools & MCP om den inte dyker upp."
     },
     "vercel": {
       "url": "https://mcp.vercel.com/jakeminator123s-projects/sajtmaskin",
-      "note": "Projekt-scopad Vercel MCP för sajtmaskin. OAuth i Cursor (Needs login) — inga secrets i filen."
+      "note": "Projekt-scopad Vercel MCP för sajtmaskin (deploys, build-/runtime-loggar). OAuth i Cursor — inga secrets i filen."
     },
     "user-vercel": {
       "url": "https://mcp.vercel.com",
-      "note": "Konto-bred Vercel MCP (alla projekt/teams). Använd om projekt-scopad ger 403 eller saknar team."
+      "note": "Konto-bred Vercel MCP (alla projekt/teams). Fallback när den projekt-scopade ger 403 eller saknar team."
     },
     "supabase": {
       "url": "https://mcp.supabase.com/mcp?project_ref=yubbckduwblyrbnlglwf&read_only=true",
@@ -19,7 +19,7 @@
     },
     "supabase-prod": {
       "url": "https://mcp.supabase.com/mcp?project_ref=egcitvwgettkftkyzbvn&read_only=true",
-      "note": "PROD-projektet (egcitvwgettkftkyzbvn, us-east-1) — read-only. Bara för att läsa prod-schema/rader vid felsökning. Ingen destruktiv SQL."
+      "note": "PROD-projektet (egcitvwgettkftkyzbvn, us-east-1) — read-only. Bara för att läsa prod-schema/rader vid felsökning. Ingen destruktiv SQL. Paret supabase/supabase-prod är hela mekaniken bakom dev/prod-regeln i project-phase-priorities.mdc — saknas de faller den tillbaka på en okänd generisk Supabase-anslutning."
     },
     "v0": {
       "url": "https://mcp.v0.dev",
@@ -32,7 +32,7 @@
     "openclaw-docs": {
       "type": "http",
       "url": "https://docs.openclaw.ai/mcp",
-      "note": "Hostad docs-MCP från docs.openclaw.ai — ingen lokal server behövs. Dokumenterar den EXTERNA OpenClaw-produkten (gateway/CLI/nodes/kanaler), inte Sajtmaskins openclaw-lager: armerad autonomi, mandat och <openclaw-action> är lokala begrepp i src/lib/openclaw/."
+      "note": "Hostad docs-MCP (ett verktyg: search_open_claw). Täcker den EXTERNA OpenClaw-produkten: gateway, CLI, nodes, kanaler, plugins, browser-verktyget — alltså hur man integrerar MOT OpenClaw. Den täcker INTE Sajtmaskins eget openclaw-lager: armerad autonomi, mandaträknaren, armedContinuation-watchen och <openclaw-action>-envelopen är lokala begrepp som bor i src/lib/openclaw/ och openclaw-bridge.mdc. Verifierat 2026-08-05: sökning på 'autonomy mandate follow-up' ger No results."
     }
   }
 }

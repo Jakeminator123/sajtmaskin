@@ -11,11 +11,21 @@ Detta är **IDE-lokal** setup — inte runtime för own-engine. Produktbeteende 
 
 | Plats | Roll |
 |---|---|
-| `%USERPROFILE%\.cursor\mcp.json` | Global fallback (vercel + supabase read-only + shadcn) — funkar i worktrees utan lokal fil |
-| `.cursor/mcp.json` | Projekt-override (**gitignorerad**, committa aldrig) |
-| `.cursor/mcp.json.example` | Mall — kopiera till `.cursor/mcp.json` i nya worktrees |
+| `%USERPROFILE%\.cursor\mcp.json` | Global fallback — funkar i worktrees utan lokal fil |
+| `.cursor/mcp.json` | Projekt-override (**gitignorerad + `.cursorignore`:ad**, committa aldrig) |
+| `.cursor/mcp.json.example` | **Kanonisk mall** — spårad i git; sync-skriptet kopierar den rakt av |
 
-Ny worktree utan MCP:
+**Varför två filer:** repot är publikt. Mallen är spårad så att servrarna är versionerade och granskningsbara, medan den faktiska filen är ignorerad för att en framtida auth-header aldrig ska kunna committas. Filen är dessutom `.cursorignore`:ad — inte för att den innehåller secrets idag (den gör den inte), utan för att den *kan* göra det och då hade ett `Read` dragit in nyckeln i kontexten.
+
+**Drift-fällan:** eftersom den faktiska filen är ignorerad kan den tyst hamna efter mallen. Det upptäcktes 2026-08-05 — den lokala filen hade fyra servrar (`shadcn`, `v0`, `openaiDeveloperDocs`, `openclaw-docs`) medan mallen hade åtta. **Både `supabase` och `supabase-prod` saknades**, alltså hela mekaniken bakom dev/prod-regeln i `project-phase-priorities.mdc`; kvar fanns bara en generisk Supabase-plugin utan synlig projektbindning. Jämför nyckelmängderna när något beter sig oväntat:
+
+```powershell
+$l = (Get-Content .cursor\mcp.json -Raw | ConvertFrom-Json).mcpServers.PSObject.Properties.Name
+$e = (Get-Content .cursor\mcp.json.example -Raw | ConvertFrom-Json).mcpServers.PSObject.Properties.Name
+Compare-Object $l $e   # tomt = i synk
+```
+
+Ny worktree utan MCP (eller lokal fil som drivit isär):
 
 ```powershell
 # från huvudcheckouten:
@@ -41,7 +51,7 @@ Kanonisk lista = nycklarna i `.cursor/mcp.json.example`. Tabellen nedan speglar 
 | `openai-docs` | `https://developers.openai.com/mcp` | OpenAI-docs + API-spec: `search_openai_docs`, `list_openai_docs`, `fetch_openai_doc`, `list_api_endpoints`, `get_openapi_spec` |
 | `v0` | `https://mcp.v0.dev` | v0:s chat-API (`createChat`, `sendChatMessage`, …) — **inte** docs, och inte own-engine. Legacy-yta; kräver nyckel för riktiga anrop |
 
-**`openclaw-docs` beskriver inte Sajtmaskins OpenClaw-lager.** Servern dokumenterar den externa produkten vi bryggar mot. Armerad autonomi, mandaträknaren, `armedContinuation`-watchen och `<openclaw-action>`-envelopen är Sajtmaskin-lokala begrepp och bor i `src/lib/openclaw/` + [`openclaw-bridge.mdc`](openclaw-bridge.mdc) — sök inte efter dem i docs-servern (verifierat 2026-08-05: `autonomy mandate follow-up` ger `No results`).
+**`openclaw-docs` beskriver inte Sajtmaskins OpenClaw-lager.** Servern svarar bra på hur man integrerar **mot** OpenClaw — gateway, CLI, nodes, kanaler, plugins, browser-verktyget — och det är den frågan den ska användas till. Armerad autonomi, mandaträknaren, `armedContinuation`-watchen och `<openclaw-action>`-envelopen är däremot Sajtmaskin-lokala begrepp och bor i `src/lib/openclaw/` + [`openclaw-bridge.mdc`](openclaw-bridge.mdc) — sök inte efter dem i docs-servern (verifierat 2026-08-05: `autonomy mandate follow-up` ger `No results`).
 
 - OAuth: Settings → Tools & MCP (grön status). Reload fönster efter `mcp.json`-ändring.
 - De tre sista raderna är hostade HTTP-endpoints **utan** auth-headers i mallen, så de kräver ingen OAuth-runda för att listas.
