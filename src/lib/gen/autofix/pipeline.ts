@@ -1469,8 +1469,6 @@ export function rebuildContent(
     const match = result.match(fenceRe);
     if (match) {
       result = result.replace(fenceRe, `$1${fixed.content}$3`);
-    } else {
-      result = result.replace(orig.content, fixed.content);
     }
   }
 
