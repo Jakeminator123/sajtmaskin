@@ -50,7 +50,7 @@ import { rebuildContent, type AutoFixResult } from "@/lib/gen/autofix/pipeline";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
 import {
   VERIFIER_REPAIR_TIMEOUT_MS,
-  VERIFIER_RERUN_TIMEOUT_MS,
+  resolveVerifierRerunTimeoutMs,
   type FinalizeProgressCallback,
   type FinalizeStepTelemetry,
 } from "./types";
@@ -376,7 +376,7 @@ export async function runVerifierPhase(params: {
           // LLM actually addressed the blocking finding. Without this we
           // optimistically cleared `verifierBlockingFindings` and could
           // tell the UI "fixed" when nothing was fixed. Capped at one
-          // re-run + a 30 s timeout so latency stays bounded.
+          // re-run; outer budget matches the first-pass verifier timeout.
           //
           // Hardcoded ON since omtag-04 (2026-04-23). Throw → keep the
           // pre-fix findings (rerunBlockingCount stays null, treated as
@@ -385,7 +385,7 @@ export async function runVerifierPhase(params: {
           const rerunAbort = new AbortController();
           const rerunTimeout = setTimeout(
             () => rerunAbort.abort(),
-            VERIFIER_RERUN_TIMEOUT_MS,
+            resolveVerifierRerunTimeoutMs(),
           );
           try {
             // Same policy filter as the first pass — without it a tier-3
