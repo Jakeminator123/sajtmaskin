@@ -108,6 +108,35 @@ describe("sanitizeOrchestrationSnapshotForStorage", () => {
     expect((out.nested as Record<string, unknown>)?.refreshToken).toBeUndefined();
   });
 
+  it("keeps contractAuthProvider (provider name, not a secret)", () => {
+    const out = sanitizeOrchestrationSnapshotForStorage({
+      contractAuthProvider: "clerk",
+      contractDataMode: "static",
+      contractPaymentProvider: null,
+    });
+    expect(out.contractAuthProvider).toBe("clerk");
+    expect(out.contractDataMode).toBe("static");
+    expect(out.contractPaymentProvider).toBeNull();
+  });
+
+  it("still drops credential-shaped keys near auth", () => {
+    const out = sanitizeOrchestrationSnapshotForStorage({
+      authToken: "tok",
+      authorization: "Bearer x",
+      password: "p",
+      apiKey: "k",
+      clientSecret: "s",
+      cookie: "c",
+      contractAuthProvider: "clerk",
+    });
+    expect(out.authToken).toBeUndefined();
+    expect(out.authorization).toBeUndefined();
+    expect(out.password).toBeUndefined();
+    expect(out.apiKey).toBeUndefined();
+    expect(out.clientSecret).toBeUndefined();
+    expect(out.cookie).toBeUndefined();
+  });
+
   it("truncates oversized string values", () => {
     const long = "a".repeat(13_000);
     const out = sanitizeOrchestrationSnapshotForStorage({ note: long });
