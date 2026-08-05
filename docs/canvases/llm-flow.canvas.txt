@@ -63,7 +63,7 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "f776a25e2",
+    "commit": "d7fa22a24",
     "commitDate": "2026-08-05",
     "sinceDays": 14
   },
@@ -71,7 +71,7 @@ const DATA: CanvasData = {
     "processes": 8,
     "openP0": 0,
     "openP1": 1,
-    "openP2": 18,
+    "openP2": 17,
     "openP3": 37,
     "blocked": 3,
     "shaky": 5,
@@ -100,17 +100,17 @@ const DATA: CanvasData = {
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 6,
+      "openBugs": 5,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 3,
+        "P2": 2,
         "P3": 3,
         "other": 0
       },
       "churn": 6,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "6 oppna backlog-rader (P0:0 P1:0 P2:3 P3:3)"
+      "note": "5 oppna backlog-rader (P0:0 P1:0 P2:2 P3:3)"
     },
     {
       "name": "prompt-core",
@@ -185,11 +185,11 @@ const DATA: CanvasData = {
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 42,
+      "openBugs": 41,
       "openByPrio": {
         "P0": 0,
         "P1": 1,
-        "P2": 14,
+        "P2": 13,
         "P3": 27,
         "other": 0
       },
@@ -241,10 +241,10 @@ const DATA: CanvasData = {
       "reason": "6 oppna backlog-rader (P0:0 P1:0 P2:1 P3:5)"
     },
     {
-      "name": "Codegen core",
+      "name": "LLM-faser & runtime-sanning",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "6 oppna backlog-rader (P0:0 P1:0 P2:3 P3:3)"
+      "reason": "5 oppna backlog-rader (P0:0 P1:0 P2:1 P3:4)"
     }
   ],
   "topOpenRisks": [
@@ -257,11 +257,6 @@ const DATA: CanvasData = {
       "prio": "P1",
       "blocker": false,
       "fynd": "**Domänköpets restlista — elva fynd som måste stängas innan `SAJTMASKIN_DOMAIN_PURCHASE` slås på:** #706 land…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "**Preview-vägens dep-completer ser inte CSS-importer, så `tw-animate-css` aldrig hamnar i `package.json`:** p…"
     },
     {
       "prio": "P2",
@@ -307,9 +302,14 @@ const DATA: CanvasData = {
       "prio": "P2",
       "blocker": false,
       "fynd": "`analytics` + `dashboard` dubbel-triggar capabilities utan veto i follow-up-vokabulären → båda kan aktiveras …"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "`/finalize-design` detektionsfullständighet: `detect-integrations.ts`-regex kan missa en integration på filer…"
     }
   ],
-  "topOpenRisksOmitted": 7,
+  "topOpenRisksOmitted": 6,
   "evals": {
     "exactHitPct": 98.46,
     "acceptableHitPct": null,

@@ -9,6 +9,7 @@ import {
   completeProjectDependencies,
   detectLockfilePackageManager,
   isBuiltinPackage,
+  isCssPackageImportSource,
   KNOWN_PACKAGES,
   LOCKFILE_STALE_MARKER_PATH,
   markLockfileStaleInFiles,
@@ -575,6 +576,85 @@ describe("completeProjectDependencies", () => {
     ]);
     expect(badPkg.pinnedDependencies).toEqual({});
     expect(badPkg.files.find((f) => f.path === "package.json")!.content).toBe("{ not json");
+  });
+
+  // M#ma1 / prod chat 4cc467d2: preview dep-completer ignored CSS `@import`,
+  // so tw-animate-css never landed in package.json while deploy already pinned it.
+  it("pins tw-animate-css from @import in app/globals.css", () => {
+    const result = completeProjectDependencies([
+      { path: "package.json", content: templatePackageJson },
+      {
+        path: "app/globals.css",
+        content: '@import "tailwindcss";\n@import "tw-animate-css";\n',
+      },
+    ]);
+
+    expect(result.pinnedDependencies["tw-animate-css"]).toBe(
+      KNOWN_PACKAGES["tw-animate-css"],
+    );
+    const pkg = JSON.parse(
+      result.files.find((f) => f.path === "package.json")!.content,
+    ) as { dependencies: Record<string, string> };
+    expect(pkg.dependencies["tw-animate-css"]).toBe(KNOWN_PACKAGES["tw-animate-css"]);
+    // Baseline builtin — must not become an extra dependency row.
+    expect(pkg.dependencies.tailwindcss).toBeUndefined();
+  });
+
+  it("does not pin relative CSS @import or bare url() font paths", () => {
+    const result = completeProjectDependencies([
+      { path: "package.json", content: templatePackageJson },
+      {
+        path: "app/globals.css",
+        content: [
+          '@import "./tokens.css";',
+          '@import "../theme/colors.css";',
+          '@font-face { src: url("/fonts/x.woff2") format("woff2"); }',
+        ].join("\n"),
+      },
+    ]);
+
+    expect(result.pinnedDependencies).toEqual({});
+    expect(result.files.find((f) => f.path === "package.json")!.content).toBe(
+      templatePackageJson,
+    );
+  });
+});
+
+describe("CSS @import package detection (M#ma1)", () => {
+  it("classifies named packages vs relative/url non-packages", () => {
+    expect(isCssPackageImportSource("tw-animate-css")).toBe(true);
+    expect(isCssPackageImportSource("tw-animate-css/dist/x.css")).toBe(true);
+    expect(isCssPackageImportSource("./tokens.css")).toBe(false);
+    expect(isCssPackageImportSource("../y.css")).toBe(false);
+    expect(isCssPackageImportSource("/fonts/x.woff2")).toBe(false);
+    expect(isCssPackageImportSource("https://example.com/a.css")).toBe(false);
+    expect(isCssPackageImportSource("data:text/css,body{}")).toBe(false);
+  });
+
+  it("pins tw-animate-css from quoted, url(), and Tailwind v4 suffix forms", () => {
+    const forms = [
+      '@import "tw-animate-css";',
+      "@import 'tw-animate-css';",
+      '@import url("tw-animate-css/dist/tw-animate.css");',
+      '@import "tw-animate-css" layer(utilities);',
+      '@import "tw-animate-css" source(none);',
+      '@import "tw-animate-css" theme(reference);',
+    ];
+    for (const content of forms) {
+      const result = runDepCompleter(content);
+      expect(result.dependencies["tw-animate-css"], content).toBe(
+        KNOWN_PACKAGES["tw-animate-css"],
+      );
+      expect(result.unknownPackages, content).not.toContain("tw-animate-css");
+    }
+  });
+
+  it("treats @import \"tailwindcss\" as builtin (no dependency pin)", () => {
+    const result = runDepCompleter(
+      '@import "tailwindcss";\n@import "tailwindcss" layer(base);\n',
+    );
+    expect(result.dependencies.tailwindcss).toBeUndefined();
+    expect(result.unknownPackages).not.toContain("tailwindcss");
   });
 });
 
