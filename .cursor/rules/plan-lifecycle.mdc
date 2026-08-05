@@ -41,6 +41,10 @@ Flytta färdiga planer till `avklarat/`. Låt inte lösa fragment ligga i `activ
 - **Behåll som egen fil endast** när något med fortsatt referensvärde pekar på den: (a) källkod/contract-doc som citerar filen, eller (b) `*.stability.test.ts` som anger den som `Källa:`. Radera sådana först efter referensmigrering.
 - Skriv aldrig ny prosa i avklarade detaljfiler; uppdatera indexet eller den kod/contract som äger sanningen.
 
+## Ägarbeslut
+
+Öppna beslutsfrågor ligger i `BUG-SWARM-BACKLOG.md`. Fattade/ratificerade beslut registreras i `docs/decisions/README.md` med datum och pekare till kanonisk källa; backloggraden arkiveras då med pekare dit. Beslutshistorik hör aldrig hemma i `active/`.
+
 ## Buggar
 
 `BUG-SWARM-BACKLOG.md` (repo-rot) är enda källan till buggsanning — ingen Linear/extern tracker. Öppna defekter ligger i `## Aktiv kö`; fixade flyttas till `docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`. `.cursor/bugs/` är valfri lokal evidens-yta (gitignored), inte en status-källa — radera evidens-filen när buggen är åtgärdad.
