@@ -85,6 +85,7 @@ BANNED_LABEL_LITERALS = (
 
 LABEL_SURFACES = (
     "backoffice/pages/scaffold_lifecycle.py",
+    "backoffice/pages/scaffold_lifecycle_lib/ui_danger.py",
     "backoffice/pages/scaffolds.py",
     "backoffice/pages/scaffold_wizard.py",
 )
