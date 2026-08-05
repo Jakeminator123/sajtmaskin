@@ -57,7 +57,19 @@ const HEREDOC_CONSUMER_AT_START =
  */
 function shellSegments(command) {
   const segments = [];
-  for (const line of command.split(/\n/)) {
+  let hereStringEnd = null;
+  for (const rawLine of command.split(/\n/)) {
+    let line = rawLine;
+    // A here-string BODY is literal text, and pwsh closes it only on a line
+    // that STARTS with the closing token — so nothing inside can open a
+    // heredoc. Skipping it is what lets the deny message practise what it
+    // preaches: `$msg = @'` … `cat <<EOF` … `'@` documents the antipattern and
+    // must not itself be denied.
+    if (hereStringEnd) {
+      if (!line.startsWith(hereStringEnd)) continue;
+      line = line.slice(hereStringEnd.length); // rest of the closing line is code again
+      hereStringEnd = null;
+    }
     let current = "";
     let quote = null;
     for (let i = 0; i < line.length; i += 1) {
@@ -81,6 +93,10 @@ function shellSegments(command) {
       current += ch;
     }
     segments.push(current);
+    // `@'` / `@"` must be the last thing on their line, so this is checked
+    // AFTER scanning it — the opening line itself is still ordinary code.
+    const opener = /@(['"])[ \t]*$/.exec(line);
+    if (opener) hereStringEnd = `${opener[1]}@`;
   }
   return segments.map((segment) => segment.trim()).filter(Boolean);
 }

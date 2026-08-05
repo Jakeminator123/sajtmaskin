@@ -64,6 +64,28 @@ describe("heredoc-guard hook", () => {
     expect(ask("/usr/bin/sh <<EOF\necho hej\nEOF").permission).toBe("deny");
   });
 
+  it("allows a here-string whose body documents the antipattern", () => {
+    // Hooken rekommenderar here-strings i sin egen neka-text, så en here-string
+    // som beskriver `<<EOF` måste gå igenom — annars motsäger den sig själv.
+    expect(
+      ask(["$msg = @'", "docs: forbjud bash-heredoc cat <<EOF", "'@", "git commit -m $msg"].join("\n"))
+        .permission,
+    ).toBe("allow");
+    expect(
+      ask(["$msg = @'", "regeln galler aven <<EOF", "'@", "git commit -m $msg"].join("\n")).permission,
+    ).toBe("allow");
+    expect(
+      ask(['$msg = @"', "se cat <<EOF", '"@', "git commit -m $msg"].join("\n")).permission,
+    ).toBe("allow");
+  });
+
+  it("still denies a real heredoc after a closed here-string", () => {
+    // Motprov till ovan: kroppen hoppas över, men koden efter sluttoken gör det
+    // inte — annars vore here-strings en bypass.
+    expect(ask(["$x = @'", "text", "'@", COMMIT_HEREDOC].join("\n")).permission).toBe("deny");
+    expect(ask(["$x = @'", "text", `'@ ; ${COMMIT_HEREDOC}`].join("\n")).permission).toBe("deny");
+  });
+
   it("allows a commit message that only mentions the token as text", () => {
     expect(ask('git commit -m "docs: forklara <<EOF-syntax i pwsh-regeln"').permission).toBe("allow");
   });
