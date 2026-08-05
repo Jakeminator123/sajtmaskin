@@ -57,7 +57,13 @@ describe("INSPECT_BRIDGE_SCRIPT", () => {
     expect(INSPECT_BRIDGE_SCRIPT).toContain('window.addEventListener("error"');
     expect(INSPECT_BRIDGE_SCRIPT).toContain('window.addEventListener("unhandledrejection"');
     expect(INSPECT_BRIDGE_SCRIPT).toContain("console.error");
-    expect(INSPECT_BRIDGE_SCRIPT).toContain("/hydrat/i");
+    // Bugbot high: Reacts vanligaste mismatch-texter ("Text content does not
+    // match server-rendered HTML") innehåller inte "hydrat" — filtret måste
+    // täcka även dem.
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("/hydrat|server[- ]rendered|not match|didn.t match|mismatch/i");
+    // Bugbot medium: händelser utan message/error (t.ex. resursfel) ska inte
+    // postas som uncaught.
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("if (!e.message && !e.error) return;");
     expect(INSPECT_BRIDGE_SCRIPT).toContain('postClientError("uncaught"');
     expect(INSPECT_BRIDGE_SCRIPT).toContain('postClientError("unhandledrejection"');
     expect(INSPECT_BRIDGE_SCRIPT).toContain('postClientError("hydration"');

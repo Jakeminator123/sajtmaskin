@@ -185,6 +185,7 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
   }
   window.addEventListener("error", function (e) {
     if (!e) return;
+    if (!e.message && !e.error) return;
     var msg = e.message || messageFromUnknown(e.error) || "Script error";
     var stack = stackFromUnknown(e.error) || "";
     postClientError("uncaught", msg, stack);
@@ -201,7 +202,7 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
       try {
         var first = arguments.length > 0 ? arguments[0] : "";
         var text = typeof first === "string" ? first : messageFromUnknown(first);
-        if (text && /hydrat/i.test(text)) {
+        if (text && /hydrat|server[- ]rendered|not match|didn.t match|mismatch/i.test(text)) {
           var stack = "";
           for (var i = 0; i < arguments.length; i++) {
             var s = stackFromUnknown(arguments[i]);
