@@ -176,6 +176,13 @@ export function usePreviewInspectBridge(options: {
    */
   onBridgeUnavailable?: () => void;
   /**
+   * Motsatsen till `onBridgeUnavailable`: bron annonserade `ready`. Lyssnaren
+   * lever så länge `enabled` är sant — även när callern fallit ner till map —
+   * så att en preview som blir injektionsbar först efter VM-booten kan tas i
+   * bruk utan full sidladdning.
+   */
+  onBridgeReady?: () => void;
+  /**
    * När true: be child om sektionsrektanglar (placement/composer). Kräver inte
    * att inspect-läget är på — placering stänger inspect men behöver zoner.
    */
@@ -197,6 +204,7 @@ export function usePreviewInspectBridge(options: {
     onRect,
     onRegion,
     onBridgeUnavailable,
+    onBridgeReady,
     requestSections = false,
     onSections,
   } = options;
@@ -270,6 +278,10 @@ export function usePreviewInspectBridge(options: {
   useEffect(() => {
     onBridgeUnavailableRef.current = onBridgeUnavailable;
   }, [onBridgeUnavailable]);
+  const onBridgeReadyRef = useRef(onBridgeReady);
+  useEffect(() => {
+    onBridgeReadyRef.current = onBridgeReady;
+  }, [onBridgeReady]);
   useEffect(() => {
     if (!enabled || !active || !inspectMode) return;
     if (childReadyRef.current) return;
@@ -283,7 +295,7 @@ export function usePreviewInspectBridge(options: {
   }, [enabled, active, inspectMode, previewUrl, setInspectStatus]);
 
   useEffect(() => {
-    if (!enabled || !active) return;
+    if (!enabled) return;
     const allowed = originForUrl(previewUrl);
 
     const handler = (event: MessageEvent) => {
@@ -315,11 +327,14 @@ export function usePreviewInspectBridge(options: {
 
       if (data.type === INSPECT_BRIDGE_MESSAGE.ready) {
         childReadyRef.current = true;
+        onBridgeReadyRef.current?.();
         postMode(liveRef.current);
         // Placement kan redan vara aktiv när bron blir ready.
         if (requestSectionsRef.current) postRequestSections();
         return;
       }
+
+      if (!active) return;
 
       // Sektionszoner för placement — tillåtna även när inspectMode är av
       // (placering stänger inspect men behöver fortfarande ankare).
