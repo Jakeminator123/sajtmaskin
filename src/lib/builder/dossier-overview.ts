@@ -8,6 +8,7 @@
  */
 
 import type { DossierMockMode, SelectedDossier } from "@/lib/gen/dossiers/types";
+import type { DossierLifecycleOverviewStatus } from "@/lib/gen/dossiers/lifecycle";
 
 /**
  * Hard-dossier status model (PR 1 av Byggblock-ägarbeslutet 2026-07-13).
@@ -30,12 +31,7 @@ import type { DossierMockMode, SelectedDossier } from "@/lib/gen/dossiers/types"
  *   has a stored real value, AND the server side is evidenced in the
  *   version's files.
  */
-export type DossierStatus =
-  | "self-contained"
-  | "planned"
-  | "blocked-build"
-  | "built-demo"
-  | "built-live";
+export type DossierStatus = DossierLifecycleOverviewStatus;
 
 export interface DossierOverviewEnvVar {
   key: string;
@@ -127,9 +123,7 @@ export interface DossierOverviewResponse {
  * are filled with harmless, valid placeholders (they never influence detection)
  * so the result is a well-typed `SelectedDossier` without a cast.
  */
-export function selectedDossiersFromOverview(
-  dossiers: DossierOverviewEntry[],
-): SelectedDossier[] {
+export function selectedDossiersFromOverview(dossiers: DossierOverviewEntry[]): SelectedDossier[] {
   return dossiers.map((dossier) => ({
     entry: {
       class: dossier.class,
