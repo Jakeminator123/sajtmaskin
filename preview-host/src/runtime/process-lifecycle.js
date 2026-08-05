@@ -70,6 +70,13 @@ const RUNTIME_OUTPUT_EXIT_TAIL = 30;
 // retries the session.
 const RUNTIME_CLEAN_EXIT_LIMIT = 3;
 const RUNTIME_CLEAN_EXIT_WINDOW_MS = 2 * 60 * 1000;
+// Install/boot failures (pnpm exit 1, postcondition, spawn) are distinct from
+// clean process exits above. Splash refresh + ensureRuntimeForChat used to
+// clear status back to `starting` and retry forever; three failures for the
+// same version within two minutes are terminal so readinessState=failed stays
+// visible to the app (preview-status → engine_version_error_logs).
+const RUNTIME_BOOT_FAILURE_LIMIT = 3;
+const RUNTIME_BOOT_FAILURE_WINDOW_MS = 2 * 60 * 1000;
 
 function classifyRuntimeCleanExitLoop({ timestamps, now = Date.now() }) {
   const recent = (Array.isArray(timestamps) ? timestamps : [])
@@ -79,6 +86,34 @@ function classifyRuntimeCleanExitLoop({ timestamps, now = Date.now() }) {
     timestamps: recent,
     failed: recent.length >= RUNTIME_CLEAN_EXIT_LIMIT,
   };
+}
+
+function classifyRuntimeBootFailureLoop({ timestamps, now = Date.now(), record = true }) {
+  const recent = (Array.isArray(timestamps) ? timestamps : []).filter(
+    (value) => Number.isFinite(value) && now - value <= RUNTIME_BOOT_FAILURE_WINDOW_MS,
+  );
+  if (!record) {
+    return {
+      timestamps: recent,
+      failed: recent.length >= RUNTIME_BOOT_FAILURE_LIMIT,
+    };
+  }
+  const next = recent.concat(now);
+  return {
+    timestamps: next,
+    failed: next.length >= RUNTIME_BOOT_FAILURE_LIMIT,
+  };
+}
+
+function bootFailureTimestampsForSession(session) {
+  if (
+    session &&
+    session.runtimeBootFailureVersionId === session.versionId &&
+    Array.isArray(session.runtimeBootFailureTimestamps)
+  ) {
+    return session.runtimeBootFailureTimestamps;
+  }
+  return [];
 }
 
 /**
@@ -543,6 +578,32 @@ async function bootRuntimeForSession(session, options = {}) {
     }
   }
 
+  const priorBootFailures = classifyRuntimeBootFailureLoop({
+    timestamps: bootFailureTimestampsForSession(session),
+    record: false,
+  });
+  if (priorBootFailures.failed) {
+    const terminalMessage = [
+      `Preview boot failed ${RUNTIME_BOOT_FAILURE_LIMIT} times within ${Math.round(RUNTIME_BOOT_FAILURE_WINDOW_MS / 1000)} seconds.`,
+      "Retry from the builder after fixing the project, or wait for the failure window to expire.",
+    ].join(" ");
+    await updateSessionById(session.sessionId, (stored) => {
+      if (stored.versionId !== session.versionId) return;
+      stored.status = "error";
+      stored.runtimeBootFailureVersionId = session.versionId;
+      stored.runtimeBootFailureTimestamps = priorBootFailures.timestamps;
+      if (session.prewarm !== true) {
+        stored.readinessState = "failed";
+        stored.readinessError =
+          typeof stored.readinessError === "string" && stored.readinessError.trim()
+            ? stored.readinessError
+            : terminalMessage;
+      }
+      stored.updatedAt = nowIso();
+    });
+    throw new Error(terminalMessage);
+  }
+
   await updateSessionById(session.sessionId, (stored) => {
     stored.status = "starting";
     // A start request writes `starting` before it queues the boot. Treat that
@@ -579,6 +640,9 @@ async function bootRuntimeForSession(session, options = {}) {
         stored.status = "warm_project";
         stored.runtimePort = runtimePort;
         stored.updatedAt = nowIso();
+        // A successful boot clears the install/boot failure budget for this version.
+        stored.runtimeBootFailureVersionId = session.versionId;
+        stored.runtimeBootFailureTimestamps = [];
         // Readiness is not yet confirmed (page not proven build-error-free).
         // Prewarm skeletons keep today's stateless behaviour.
         if (!isPrewarm) {
@@ -681,21 +745,36 @@ async function bootRuntimeForSession(session, options = {}) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
+    const failure = classifyRuntimeBootFailureLoop({
+      timestamps: bootFailureTimestampsForSession(session),
+      now: Date.now(),
+      record: true,
+    });
+    const readinessMessage = failure.failed
+      ? [
+          message,
+          `Preview boot failed ${RUNTIME_BOOT_FAILURE_LIMIT} times within ${Math.round(RUNTIME_BOOT_FAILURE_WINDOW_MS / 1000)} seconds; further automatic retries are stopped.`,
+        ].join("\n")
+      : message;
     await updateSessionById(session.sessionId, (stored) => {
       if (stored.versionId !== session.versionId) return;
       stored.status = "error";
+      stored.runtimeBootFailureVersionId = session.versionId;
+      stored.runtimeBootFailureTimestamps = failure.timestamps;
       // Install / postcondition / readiness failure is a hard boot failure —
       // mark readiness failed (unless prewarm) so `/status` reports it and the
       // app stamps preview_success=false + can trigger the repair path.
       if (session.prewarm !== true) {
         stored.readinessState = "failed";
-        stored.readinessError = message;
+        stored.readinessError = readinessMessage;
       }
       stored.updatedAt = nowIso();
     });
     await appendRuntimeLog(
       session.previewSessionId,
-      `Runtime boot failed: ${message}`,
+      failure.failed
+        ? `Runtime boot failed (retry cap reached): ${message}`
+        : `Runtime boot failed: ${message}`,
     );
     const tracked = runtimeChildren.get(session.sessionId);
     if (tracked) {
@@ -910,6 +989,9 @@ module.exports = {
   classifyRuntimeCleanExitLoop,
   RUNTIME_CLEAN_EXIT_LIMIT,
   RUNTIME_CLEAN_EXIT_WINDOW_MS,
+  classifyRuntimeBootFailureLoop,
+  RUNTIME_BOOT_FAILURE_LIMIT,
+  RUNTIME_BOOT_FAILURE_WINDOW_MS,
   htmlLooksLikeBuildError,
   waitForReady,
   stopTrackedRuntime,

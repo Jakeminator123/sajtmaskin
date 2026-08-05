@@ -790,6 +790,11 @@ async function routeRequest(req, res) {
       // intentionally use `warm_project` while their workspace is prepared.
       session.runtimeCleanExitVersionId = validated.versionId;
       session.runtimeCleanExitTimestamps = [];
+      // Same reasoning for the install/boot-failure budget: rewriting content
+      // IS the repair, so a capped session must get a fresh budget or the
+      // pre-boot guard would refuse the very boot that would have succeeded.
+      session.runtimeBootFailureVersionId = validated.versionId;
+      session.runtimeBootFailureTimestamps = [];
       session.lastAction = "update";
       session.startOutcome = "resumed";
       session.updatedAt = nowIso();
