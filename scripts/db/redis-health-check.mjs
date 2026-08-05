@@ -26,6 +26,7 @@ import { Redis } from "@upstash/redis";
 import { config } from "dotenv";
 import { mkdir, appendFile } from "fs/promises";
 import { dirname, join } from "path";
+import { buildTrackedRedisHealthBuckets } from "./redis-health-buckets.mjs";
 
 config({ path: ".env.local" });
 
@@ -77,38 +78,14 @@ const KEY_PREFIX =
       ? "preview:"
       : "dev:";
 
-// Kategorier vi grupperar nycklar i. Måste hållas i synk med
-// src/lib/data/redis.ts och src/lib/api/ai/brief-cache.ts.
-//
 // BUG-FIX 2026-04-24: tidigare började alla pattern med `*` (wildcard) vilket
 // fångade nycklar från ALLA miljöer (dev:/preview:/prod:) trots att UI:t
 // visar "denna miljö" — `total_keys_in_buckets` blandades cross-env.
 // Nu prefixas pattern med faktisk `KEY_PREFIX` så siffrorna stämmer.
 //
-// Två "shared" buckets är OK att mäta cross-env (rate-limit har eget
-// namnschema; health:probe rensas snabbt) — markerade i `scope`-fältet.
-const TRACKED_PREFIX_BUCKETS = [
-  { scope: "env", label: "user:session", suffix: "user:session:*" },
-  { scope: "env", label: "cache", suffix: "cache:*" },
-  { scope: "env", label: "audit", suffix: "audit:*" },
-  { scope: "env", label: "audit_list", suffix: "audit_list:*" },
-  { scope: "env", label: "project:files", suffix: "project:files:*" },
-  { scope: "env", label: "project:meta", suffix: "project:meta:*" },
-  { scope: "env", label: "video:job", suffix: "video:job:*" },
-  { scope: "env", label: "preview", suffix: "preview:*" },
-  { scope: "env", label: "preview-session:session", suffix: "preview-session:session:*" },
-  { scope: "env", label: "sandbox-preview:session (legacy)", suffix: "sandbox-preview:session:*" },
-  { scope: "env", label: "prompt_handoff", suffix: "prompt_handoff:*" },
-  { scope: "env", label: "brief:v1", suffix: "brief:v1:*" },
-  { scope: "env", label: "health:probe", suffix: "health:probe:*" },
-  // Rate-limit har eget namnschema som inkluderar miljöprefix internt
-  // (`sajtmaskin:<env>:ratelimit:...`). Vi kan därför scope:a det env-säkert.
-  {
-    scope: "global",
-    label: "ratelimit (sajtmaskin, denna miljö)",
-    rawPattern: () => `sajtmaskin:${KEY_PREFIX.replace(/:$/, "")}:ratelimit:*`,
-  },
-];
+// Rate-limit har ett eget, miljökodat namnschema och mäts därför med ett
+// globalt pattern. Alla övriga buckets, inklusive health:probe, är env-scopeade.
+const TRACKED_PREFIX_BUCKETS = buildTrackedRedisHealthBuckets(KEY_PREFIX);
 
 const redis = new Redis({ url: restUrl, token: restToken });
 
@@ -210,11 +187,7 @@ async function run() {
   // ENBART denna miljö, inte cross-env wildcard som tidigare.
   const prefixes = [];
   for (const bucket of TRACKED_PREFIX_BUCKETS) {
-    const pattern =
-      bucket.rawPattern?.() ??
-      (bucket.scope === "env"
-        ? `${KEY_PREFIX}${bucket.suffix}`
-        : bucket.suffix);
+    const pattern = bucket.pattern;
     const t = await timed(() => scanCount(pattern));
     prefixes.push({
       label: bucket.label,
