@@ -163,6 +163,28 @@ infördes medvetet ("under-spent the budget"). Q5b-kommentaren
 trunkeringar. Att sänka trösklarna är därför ett kvalitets-/ägarbeslut, inte
 en defektfix — steg 2 levererar diagnosen och stannar.
 
+### Spaken finns redan: `heavy`-tröskeln är env-styrd
+
+`CONTEXT_POLICY_HEAVY_THRESHOLD` läses ur miljön
+(`policy-inference.ts:396–397`), och Q5b-kommentaren anger uttryckligen
+`SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD=4` som vägen tillbaka till det gamla
+beteendet. Vill ägaren pröva om `heavy` är för generöst behövs alltså **ingen
+kodändring** — sätt env-värdet i Vercel, deploya, och jämför. Det är den tråkiga
+robusta varianten framför en tröskelrefaktorering.
+
+En A/B avgörs på tre observerbara signaler per körning, alla i
+`generation_telemetry`: `meta.buildSpec.contextPolicy` (blev det `normal`?),
+`prompt_tokens`/`completion_tokens` (sjönk volymen?) och `meta.streamMs` från
+steg 1 (blev strömmen kortare?). Kvalitetssidan avgörs inte av dem — den kräver
+att ägaren tittar på de genererade sajterna, eftersom Q5b-kommentaren säger att
+tröskeln sänktes just för att undvika `"section truncated"`-fall.
+
+**Docs-lucka (följdarbete, inte del av steg 2):** variabeln finns bara i koden.
+Den är inte registrerad i `docs/ENV.md` eller `config/env-policy.json`, så
+`npm run env:audit` känner inte till den och ingen kan hitta spaken utan att
+läsa `policy-inference.ts`. Registrering kräver rätt sektion i env-policyn och
+bör göras som en egen liten ändring.
+
 ### Allt annat är avrundningsfel (inom strömfönstret)
 
 De tre landing-versionerna spenderade 1,4–2,0 s på hela efterströmskedjan.
