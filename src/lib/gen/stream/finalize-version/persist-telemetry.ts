@@ -45,6 +45,15 @@ export async function persistTelemetryRecord(params: {
   hasPreflightVerificationErrors?: boolean;
   previewBlockingReason: string | null;
   startedAt: number;
+  /**
+   * Wall-clock ms from engine stream wrapper start (`startedAt` =
+   * `engineStartedAt` in generation-stream) until finalize begins.
+   * Measured at the stream→finalize boundary in runner.ts
+   * (`finalizePipelineStartedAt - startedAt`). Brief and orchestration run
+   * before that wrapper and are **not** included — this is codegen SSE
+   * read time only.
+   */
+  streamMs: number;
   tokenUsage?: { prompt?: number; completion?: number };
   preflightFileCount: number;
   scaffoldRetry: ScaffoldRetrySuggestion | null;
@@ -102,6 +111,7 @@ export async function persistTelemetryRecord(params: {
     hasVerificationBlockingErrors,
     previewBlockingReason,
     startedAt,
+    streamMs,
     tokenUsage,
     preflightFileCount,
     scaffoldRetry,
@@ -126,6 +136,8 @@ export async function persistTelemetryRecord(params: {
     const telemetryMeta: Record<string, unknown> = {
       finalizePath: finalizePath.runDeepPath ? "full" : "light",
       finalizePathReason: finalizePath.reason,
+      // See `streamMs` param JSDoc — direct measure at stream→finalize boundary.
+      streamMs: Math.max(0, streamMs),
       postStreamSteps: finalizeStepTelemetry,
       repairPassIndex,
       autofix: {

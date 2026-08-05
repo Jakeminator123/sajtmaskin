@@ -270,6 +270,9 @@ export async function finalizeAndSaveVersion(
     finalizePath: finalizePath.runDeepPath ? "full" : "light",
     finalizePathReason: finalizePath.reason,
   });
+  // Same wall-clock as meta.streamMs below (engine start → finalize start).
+  // Keep both expressions identical — Prometheus `codegen` phase and telemetry
+  // `streamMs` are two names for one measurement.
   recordPhaseDuration(
     "codegen",
     Math.max(0, finalizePipelineStartedAt - startedAt),
@@ -402,6 +405,14 @@ export async function finalizeAndSaveVersion(
   recordPhaseDuration("syntax-validate", resolveStepDurationMs("validate_syntax"), {
     kind: latencyBudgetKind,
   });
+  // Skipped steps (light path) resolve to 0 ms — they contributed nothing to
+  // wall-clock. Per-run status ("done" | "skipped" | …) lives in JSONB meta
+  // (`postStreamSteps`), same pattern as syntax-validate / preflight.
+  recordPhaseDuration(
+    "materialize_images",
+    resolveStepDurationMs("materialize_images"),
+    { kind: latencyBudgetKind },
+  );
   recordPhaseDuration("preflight", resolveStepDurationMs("parse_merge_preflight"), {
     kind: latencyBudgetKind,
   });
@@ -701,6 +712,9 @@ export async function finalizeAndSaveVersion(
     hasPreflightVerificationErrors: hasVerificationBlockingPreflightErrors,
     previewBlockingReason,
     startedAt,
+    // Direct stream wall-clock: engine wrapper start → finalize start.
+    // Same expression as recordPhaseDuration("codegen", …) above — keep in sync.
+    streamMs: Math.max(0, finalizePipelineStartedAt - startedAt),
     tokenUsage,
     preflightFileCount,
     scaffoldRetry,

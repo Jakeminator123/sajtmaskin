@@ -29,6 +29,11 @@ const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
 const subscribeEventBus = vi.hoisted(() => vi.fn());
+const recordPhaseDuration = vi.hoisted(() => vi.fn());
+const observePhase = vi.hoisted(() =>
+  vi.fn(async (_params: unknown, run: () => unknown) => run()),
+);
+const incPartialFileRepair = vi.hoisted(() => vi.fn());
 
 // Mock the FEATURES gate so optional dossier RAG / recurring-patterns
 // blocks stay deterministic in tests. The repair-pass / verifier-rerun /
@@ -174,6 +179,12 @@ vi.mock("@/lib/gen/validation/seo-preflight", () => ({
   runSeoPreflightChecks: vi.fn().mockReturnValue([]),
 }));
 
+vi.mock("@/lib/observability/metrics", () => ({
+  recordPhaseDuration,
+  observePhase,
+  incPartialFileRepair,
+}));
+
 import { finalizeAndSaveVersion } from "./finalize-version";
 import { persistOrchestrationSnapshot } from "./finalize-version/persist-side-effects";
 import type { BuildSpec } from "@/lib/gen/build-spec";
@@ -242,6 +253,10 @@ describe("finalizeAndSaveVersion", () => {
     validateGeneratedCode.mockReset();
     emitBusEvent.mockReset();
     subscribeEventBus.mockReset();
+    recordPhaseDuration.mockReset();
+    observePhase.mockClear();
+    observePhase.mockImplementation(async (_params: unknown, run: () => unknown) => run());
+    incPartialFileRepair.mockReset();
 
     runAutoFix.mockResolvedValue({
       fixedContent: '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
@@ -2361,6 +2376,63 @@ export default function Page() {
               verifier: expect.objectContaining({
                 status: "skipped",
                 reason: "light_followup_fast_policy",
+              }),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("deep path registers materialize_images via recordPhaseDuration", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent: BASIC_GENERATED_CONTENT,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: baseBuildSpec({ qualityTarget: "premium" }),
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(materializeImages).toHaveBeenCalled();
+      expect(recordPhaseDuration).toHaveBeenCalledWith(
+        "materialize_images",
+        expect.any(Number),
+        expect.objectContaining({ kind: "init" }),
+      );
+    });
+
+    it("light path still records materialize_images as 0 ms (skipped, intentional)", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent: BASIC_GENERATED_CONTENT,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: baseBuildSpec({
+          generationMode: "followUp",
+          changeScope: "copy",
+          qualityTarget: "standard",
+          verificationPolicy: "fast",
+          contextPolicy: "light",
+        }),
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(materializeImages).not.toHaveBeenCalled();
+      expect(recordPhaseDuration).toHaveBeenCalledWith(
+        "materialize_images",
+        0,
+        expect.objectContaining({ kind: "followup" }),
+      );
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            postStreamSteps: expect.objectContaining({
+              materialize_images: expect.objectContaining({
+                status: "skipped",
               }),
             }),
           }),
