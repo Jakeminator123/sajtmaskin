@@ -58,6 +58,32 @@ describe("deferred provider identity (mutedDossierIds)", () => {
     expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["mongodb-atlas"]);
   });
 
+  it("keeps selected MongoDB pending when the final version has no MongoDB files", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas"] },
+      {
+        selectedDossierIds: ["mongodb-atlas"],
+        fileEvidenceDossierIds: [],
+        mutedDossierIds: [],
+      },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["mongodb-atlas"]);
+  });
+
+  it("clears MongoDB only when the final version has exact MongoDB file evidence", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas"] },
+      {
+        selectedDossierIds: ["mongodb-atlas"],
+        fileEvidenceDossierIds: ["mongodb-atlas"],
+        mutedDossierIds: [],
+      },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual([]);
+  });
+
   it("replaces an older sibling when the user changes provider", () => {
     const merged = mergePersistedOrchestrationSnapshots(
       { mutedDossierIds: ["mongodb-atlas", "stripe-checkout"] },
@@ -204,6 +230,7 @@ function realisticStreamMeta(): Record<string, unknown> {
     mutedCapabilities: ["newsletter-subscribe"],
     mutedCapabilityLabels: ["Nyhetsbrev — Mailchimp"],
     fileEvidenceCapabilities: ["contact-form"],
+    fileEvidenceDossierIds: ["resend-contact-form"],
     removedCapabilities: ["payments"],
     readdedCapabilities: [],
     removedDossierIds: [],
@@ -246,6 +273,7 @@ describe("capability-signalnycklar överlever nyckelbudgeten (spår 01 steg 3)",
     });
 
     expect(out.fileEvidenceCapabilities).toEqual(["contact-form"]);
+    expect(out.fileEvidenceDossierIds).toEqual(["resend-contact-form"]);
     expect(out.requestedCapabilities).toEqual(["contact-form"]);
     expect(out.selectedDossierIds).toEqual(["resend-contact-form"]);
     expect(out.f3ApprovedCapabilities).toEqual(["contact-form"]);

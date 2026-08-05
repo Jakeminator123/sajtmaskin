@@ -326,6 +326,11 @@ durable approval and starts the LLM/dossier round even when the dossier has no
 required real build key. The generic button message therefore cannot swap a
 provider sibling back to the capability default.
 
+`selectedDossierIds` records generation intent, not delivery. After the merged
+version has been saved, finalize derives `fileEvidenceDossierIds` and
+`fileEvidenceCapabilities` from that final `files_json`; only this evidence (or
+explicit removal) clears the corresponding pending entries.
+
 An exact-file integrations fork + ReleaseGate without codegen is allowed only
 when **no pending dossier remains** and the existing file-derived build spec has
 no reason to run a general LLM build. An APPROVE-continuation remains exempted

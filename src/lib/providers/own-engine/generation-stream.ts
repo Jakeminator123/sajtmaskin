@@ -120,8 +120,18 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
   mutedDossierIds?: string[];
   /** Swedish user-facing names for `mutedCapabilities` (dossier labels). */
   mutedCapabilityLabels?: string[];
-  /** Dossier capabilities with real file evidence in the base version. */
+  /**
+   * Dossier capabilities with real file evidence in the base version.
+   * Finalize overwrites this with the final persisted version's evidence
+   * before saving the orchestration snapshot.
+   */
   fileEvidenceCapabilities?: string[];
+  /**
+   * Exact dossier ids with file evidence in the final persisted version.
+   * Finalize owns this signal because selection happens before the post-merge
+   * file set exists.
+   */
+  fileEvidenceDossierIds?: string[];
   removedDossierIds?: string[];
   f3ApprovedCapabilities?: string[];
   f3ApprovedProviders?: string[];

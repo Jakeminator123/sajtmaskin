@@ -226,7 +226,10 @@ subtraherar dossier-filbevis; finns någon planerad dossier kvar godkänns dess
 capability + dossier-id durabelt och F3-LLM-rundan körs även när alla nycklar är
 `feature-runtime`/`warn-only`. Dossier-id:t återanvänds som selection-hint så
 ett generiskt knappmeddelande inte faller tillbaka till ett providersyskons
-default.
+default. `selectedDossierIds` är alltså byggavsikt, inte leveransbevis. Efter
+persist härleder finalize `fileEvidenceDossierIds` och
+`fileEvidenceCapabilities` ur den slutligt sparade versionens filer; bara detta
+filbevis (eller explicit borttagning) rensar pending.
 
 **Deterministisk F3 när inget återstår att bygga:** bara om inga planerade
 dossier-filer saknas och den filhärledda specen inte kräver en generell
