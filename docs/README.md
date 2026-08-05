@@ -6,24 +6,25 @@ policies kan äga olika beslut.
 
 ## Börja här
 
-| Fråga                            | Dokument                                                                 |
-| -------------------------------- | ------------------------------------------------------------------------ |
-| Vad är huvudflödet?              | [`architecture/system-overview.md`](architecture/system-overview.md)     |
-| Hur hänger begreppen ihop?       | [`concepts/mental-model.md`](concepts/mental-model.md)                   |
-| Var bor koden?                   | [`architecture/code-map.md`](architecture/code-map.md)                   |
-| Hur fungerar init och follow-up? | [`concepts/init-and-follow-up.md`](concepts/init-and-follow-up.md)       |
-| Hur skiljer sig F2 och F3?       | [`concepts/f2-and-f3.md`](concepts/f2-and-f3.md)                         |
-| Vilka invariants gäller?         | [`architecture/runtime-contracts.md`](architecture/runtime-contracts.md) |
-| Hur körs generationen?           | [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md)           |
-| Vilket schema gäller?            | [`schemas/README.md`](schemas/README.md)                                 |
-| Vilka kontraktsindex genereras?  | [`generated/README.md`](generated/README.md)                             |
-| Hur felsöker jag preview?        | [`runbooks/preview-white-screen.md`](runbooks/preview-white-screen.md)   |
-| Kör jag i en Cursor Cloud-pod?   | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)       |
-| Hur jobbar flera agenter samtidigt? | [`runbooks/git-worktree.md`](runbooks/git-worktree.md)                |
-| Hur provisionerar jag warm-cachen? | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)          |
-| Varför ser merge-grinden ut så?  | [`runbooks/pr-merge-gate.md`](runbooks/pr-merge-gate.md)                 |
-| Vad applicerar DB-migrationerna? | [`runbooks/db-migrations.md`](runbooks/db-migrations.md)                 |
-| Vilka planer är aktiva?          | [`plans/README.md`](plans/README.md)                                     |
+| Fråga                               | Dokument                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------ |
+| Vad är huvudflödet?                 | [`architecture/system-overview.md`](architecture/system-overview.md)     |
+| Hur hänger begreppen ihop?          | [`concepts/mental-model.md`](concepts/mental-model.md)                   |
+| Var bor koden?                      | [`architecture/code-map.md`](architecture/code-map.md)                   |
+| Hur fungerar init och follow-up?    | [`concepts/init-and-follow-up.md`](concepts/init-and-follow-up.md)       |
+| Hur skiljer sig F2 och F3?          | [`concepts/f2-and-f3.md`](concepts/f2-and-f3.md)                         |
+| Vilka invariants gäller?            | [`architecture/runtime-contracts.md`](architecture/runtime-contracts.md) |
+| Hur körs generationen?              | [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md)           |
+| Vilket schema gäller?               | [`schemas/README.md`](schemas/README.md)                                 |
+| Vilka kontraktsindex genereras?     | [`generated/README.md`](generated/README.md)                             |
+| Hur felsöker jag preview?           | [`runbooks/preview-white-screen.md`](runbooks/preview-white-screen.md)   |
+| Kör jag i en Cursor Cloud-pod?      | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)       |
+| Hur jobbar flera agenter samtidigt? | [`runbooks/git-worktree.md`](runbooks/git-worktree.md)                   |
+| Hur provisionerar jag warm-cachen?  | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)           |
+| Varför ser merge-grinden ut så?     | [`runbooks/pr-merge-gate.md`](runbooks/pr-merge-gate.md)                 |
+| Vad applicerar DB-migrationerna?    | [`runbooks/db-migrations.md`](runbooks/db-migrations.md)                 |
+| Vilka planer är aktiva?             | [`plans/README.md`](plans/README.md)                                     |
+| Vad har ägaren beslutat?            | [`decisions/README.md`](decisions/README.md)                             |
 
 Full terminologi finns tills vidare i
 [`architecture/glossary.md`](architecture/glossary.md). Regler för

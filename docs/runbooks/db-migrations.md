@@ -50,6 +50,13 @@ Kvittot `DB_ALLOW_PROD_LIKE_WRITE=1` gäller som förut, så `db:migrate:prod` o
 |---|---|---|
 | `prod-migrations-apply` | Push till master eller manuell dispatch (**aldrig** på PR) | Kör `run-migrations.ts` mot prod. Idempotent → en migration kan inte längre bli deployad utan att köras. Gate:at bakom `quality` + `schema-drift` så prod-schemat aldrig muteras för en trasig merge |
 | `prod-migrations-applied` | `needs: prod-migrations-apply` | Läser prod-ledgern EFTER apply. Rött = kör `npm run db:migrate:prod` manuellt |
+| `db-schema-parity` | `needs: prod-migrations-apply` + dagligen (cron i `db-schema-parity.yml`) | Auto-applicerar migrationer + perf-index mot **dev** (`POSTGRES_URL_DEV`), kör sedan `npm run db:schema-parity` |
+
+### Varför ledgern inte räcker: live-paritet
+
+`db-schema-parity` (`scripts/db/check-schema-parity.mjs`) jämför de två **levande** databaserna objekt för objekt — tabeller, kolumner, index, constraints. Det behövs eftersom ledgern kan vara grön på båda sidor medan schemat ändå skiljer sig: tabeller födda under äldre `CREATE TABLE IF NOT EXISTS`-definitioner, eller DDL körd direkt i dashboarden, syns aldrig i `schema_migrations`. Exakt det läget rådde 2026-08-05 — 32 avvikelser, avstämda i `align-live-schema-parity.sql`.
+
+Cron-körningen finns för att fånga drift som uppstår **mellan** pushar. Rött = skriv en migration (aldrig dashboard-DDL). Lokalt: `npm run db:schema-parity`.
 
 Samma `prod-migrations-apply`-jobb kör även `npm run db:perf-indexes` mot prod (idempotent `CREATE INDEX IF NOT EXISTS` + dedupe), så nya hot-path-index — deklarerade i `add-performance-indexes.mjs`, utanför SQL-ledgern — auto-appliceras vid push till master. Tidigare nådde de prod bara via backoffice-knappen "Databashälsa".
 

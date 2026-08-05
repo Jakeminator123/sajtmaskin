@@ -54,14 +54,13 @@ hållas i synk; **Databashälsa-sidan i backofficen flaggar drift**.
 fortsätter dev-servern att starta ändå. Allt loggas i audit-NDJSON.
 Detta speglar mönstret som redan finns för `db:init.mjs`.
 
-**I produktion (Vercel):** Ingen automatik. Migrationen körs **bara**
-om du:
-- Manuellt kör `npm run db:perf-indexes` från CLI mot prod-DB:n, eller
-- Trycker "APPLY"-knappen på backoffice "Databashälsa"-sidan
-
-Designval: vi vill inte att Vercel-deploys triggar DB-DDL automatiskt.
-Det skulle skapa risk för att en oavsiktlig deploy kör en migration
-mot prod under hög trafik.
+**I CI (push till master):** `prod-migrations-apply` kör
+`npm run db:perf-indexes` mot prod och `db-schema-parity` kör samma sak
+mot dev — båda idempotenta, så varje re-run är en no-op. Vercel-deployen
+själv kör fortfarande ingen DB-DDL (designval: en oavsiktlig deploy ska
+inte kunna trigga en migration under hög trafik). Manuella vägar finns
+kvar: `npm run db:perf-indexes` från CLI eller "APPLY"-knappen på
+backoffice "Databashälsa"-sidan.
 
 **Predev-kedjans struktur (medvetet):**
 
@@ -117,6 +116,14 @@ när Drizzle-schemat deklarerar ett index/tabell som inte motsvaras av
 någon runtime-källa (`db-init.mjs`, `add-performance-indexes.mjs`,
 eller `src/lib/db/migrations/*.sql`). Förhindrar att deklarerade index
 aldrig faktiskt skapas i DB:n.
+
+**Live-paritet fångas av `db:schema-parity`:** den statiska testen ser
+bara repo-filer — `scripts/db/check-schema-parity.mjs` jämför i stället
+de två LEVANDE databaserna (dev↔prod: tabeller, kolumner, index,
+constraints) och körs i CI vid master-push samt dagligen via cron.
+Fångar dashboard-DDL och tabeller födda under äldre CREATE TABLE-
+definitioner (`CREATE TABLE IF NOT EXISTS` uppdaterar aldrig en
+befintlig tabell).
 
 ### Hot-path-tabeller (de som måste vara snabba)
 

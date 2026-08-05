@@ -4,6 +4,7 @@
 | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`workflows/ci.yml`](workflows/ci.yml)                                 | Push/PR mot `master`: typecheck, lint, tester, kontraktsvalidering, schema-drift, backoffice och preview-host guards. Produktionsmigrationer körs bara på betrodda events. |
 | [`workflows/db-blob-sync-check.yml`](workflows/db-blob-sync-check.yml) | Read-only DB-/Blob-kontroll; PR-kod får inga produktionshemligheter.                                                                                                       |
+| [`workflows/db-schema-parity.yml`](workflows/db-schema-parity.yml)     | Daglig read-only-jämförelse av LEVANDE dev↔prod-schema (`npm run db:schema-parity`); push-vägen täcks av `db-schema-parity`-jobbet i ci.yml.                               |
 | [`workflows/review-window.yml`](workflows/review-window.yml)           | Minsta granskningsfönster och väntan på externa botar.                                                                                                                     |
 | [`dependabot.yml`](dependabot.yml)                                     | Veckovisa uppdateringar för npm och GitHub Actions.                                                                                                                        |
 

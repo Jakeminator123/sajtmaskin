@@ -33,7 +33,7 @@ kanoniska bilden av skillnaden (verifierad mot rulesetet `Protect master` 2026-0
 
 De tre icke-required jobben som ändå failar hårt syns röda på PR:en men stoppas bara av
 agent-/människodisciplin. Det är ett medvetet men **öppet** läge: se raden om CI-grindarnas
-required-status i [`BUG-SWARM-BACKLOG.md`](../BUG-SWARM-BACKLOG.md) → "Beslut & policy".
+required-status i [`BUG-SWARM-BACKLOG.md`](../BUG-SWARM-BACKLOG.md) → "Väntar på ägarbeslut".
 
 ## Build-grinden
 
@@ -73,6 +73,8 @@ in efter hand (t.ex. aktivitet S2/S3) och varje fall ska peka på sin källa (se
 | Extern review-fönster | `review-window` | PR mot `master` | **Ja** — required check | Pending tills PR:en är ≥ 7 min och kända externa botar för head-SHA:n är klara (10 min cap) — teknisk enforcement av merge-gaten i `pr-merge.mdc` |
 | Prod-migrationer (`scripts/db/migrate-prod.mjs`) | `prod-migrations-apply` | push till `master` + manuell dispatch (aldrig PR — prod-secret injiceras inte på `pull_request`) | Gate:ad bakom `quality` + `schema-drift` | Migrationer körs inte av Vercel-deployen; idempotent + bokför `schema_migrations`-ledgern |
 | Ledger-verifiering (`scripts/db/check-migrations-applied.mjs`) | `prod-migrations-applied` | efter `prod-migrations-apply` | Post-condition (skippas när apply skippas) | Verifierar att prod-ledgern täcker alla migrationsfiler — fångar tyst missad apply |
+| Dev-synk + live schema-paritet (`scripts/db/check-schema-parity.mjs`) | `db-schema-parity` | efter `prod-migrations-apply` (aldrig PR — secrets injiceras inte på `pull_request`) | Hård gate på trusted events | Auto-applicerar migrationer + perf-index mot **dev**-DB:n och jämför sedan de två LEVANDE databaserna objekt för objekt — fångar dashboard-DDL och halvlyckade applies som ledger-checkarna inte ser |
+| Schemalagd paritets-vakt (samma skript, read-only) | `db-schema-parity-scheduled` ([`db-schema-parity.yml`](../.github/workflows/db-schema-parity.yml)) | cron dagligen + manuell dispatch | Hård gate (rött = verklig drift) | Fångar drift som uppstår **mellan** master-pushar, t.ex. manuell DDL i Supabase-dashboarden |
 
 - Det blockerande `schema-drift`-jobbet kör enbart `npm run db:schema-drift` (utan `continue-on-error`).
   Ett rött resultat stoppar push/PR/merge → fångar t.ex. tabell/index som finns i `schema.ts`
@@ -99,7 +101,7 @@ Dokumentation verifieras bottom-up i samma `quality`-jobb som kodkontrakten:
 | Aktiva dokumentationslänkar | Blockerar brutna relativa paths i aktiva Markdown-ytor; historiska källfiler ligger utanför den blockerande mängden | `npm run docs:links` |
 | Terminologi-ownership | Blockerar parallella glossary-paths, dubletter och uttryckligen förbjudna legacyalias | `npm run check:terms:contract` |
 | Generator-/guardtester | Blockerar regressioner i docs-generatorer och kontroller | `npm run docs:test` |
-| Bug-backloggens format | Blockerar avbockade `[x]`-rader kvar i Aktiv kö och rader som motsäger sin egen status | `npm run check:bug-backlog` |
+| Bug-backloggens format | Blockerar avbockade `[x]`-rader kvar i Aktiv kö, rader som motsäger sin egen status, saknade/återbrukade `SM-###`-ID och saknade kanoniska sektioner | `npm run check:bug-backlog` |
 | Bred termtäckning | Rådgivande signal; historikytor ingår inte | `npm run check:terms` |
 
 Bug-backlog-checken låg tidigare inuti `preflight:common` och därmed även i Vercels

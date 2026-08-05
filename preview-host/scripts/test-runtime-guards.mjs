@@ -619,6 +619,84 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     }
   });
   check("waitForReady accepts a healthy page that renders error prose", dashboardResolved === true);
+
+  // Persistent empty <body> must NOT false-green, and must NOT wait out the full
+  // readiness deadline either: it gets its own, much shorter window. Shrink both
+  // for this guard — prod uses 600s readiness / 90s empty-body.
+  const emptyHtml =
+    "<!doctype html><html><head><title>Boot</title></head><body><div id=\"__next\"></div></body></html>";
+  const previousReadyMax = process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS;
+  const previousEmptyMax = process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS;
+  process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = "60000";
+  process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS = "3000";
+  let emptyRejected = false;
+  let emptyMessage = "";
+  const emptyStartedAt = Date.now();
+  try {
+    await withServer(emptyHtml, async (url) => {
+      try {
+        await waitForReady(url);
+      } catch (err) {
+        emptyRejected = true;
+        emptyMessage = err instanceof Error ? err.message : String(err);
+      }
+    });
+  } finally {
+    if (previousReadyMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = previousReadyMax;
+    }
+    if (previousEmptyMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS = previousEmptyMax;
+    }
+  }
+  const emptyElapsedMs = Date.now() - emptyStartedAt;
+  check("waitForReady rejects a persistent empty HTML body", emptyRejected === true);
+  check(
+    "empty-body rejection names the empty-body condition",
+    /empty body/i.test(emptyMessage) && /body text still empty/i.test(emptyMessage),
+  );
+  check(
+    "empty-body rejection does not accept early (waits out its own window)",
+    emptyElapsedMs >= 2500,
+  );
+  // The point of the separate window: a client-rendered page must fail in ~3s
+  // here, not sit for the 60s readiness deadline. Without this the fix trades a
+  // false-green for a ten-minute hang in prod.
+  check(
+    "empty-body rejection uses its OWN window, not the readiness deadline",
+    emptyElapsedMs < 20_000,
+  );
+
+  // Motprov: empty during first compile, then meaningful content → ready.
+  // Proves we keep polling instead of failing on the first empty responses.
+  {
+    let hits = 0;
+    const server = createServer((_req, res) => {
+      hits += 1;
+      const html = hits < 3 ? emptyHtml : goodHtml;
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(html);
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address();
+    let delayedReady = false;
+    try {
+      await waitForReady(`http://127.0.0.1:${port}/`);
+      delayedReady = true;
+    } catch {
+      delayedReady = false;
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+    check(
+      "waitForReady accepts a page that fills in after empty compile polls",
+      delayedReady === true && hits >= 3,
+    );
+  }
 }
 
 // 12. PM-safe dependency postcondition: prefer the package manager's own view,

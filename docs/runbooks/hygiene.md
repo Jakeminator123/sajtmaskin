@@ -60,8 +60,24 @@ importeras av något. Två giltiga fixar:
 | Kommando | Gör |
 |---|---|
 | `npm run clean:orphans` | Tar bort regenererbart skräp (Python-cache, tomma mappar). `:dry` för förhandsvisning. |
+| `npm run clean:scratch` | Förhandsvisar städning av gitignorerat scratch (`.tmp`, `.cursor/`-ytor, `logs/`, `.env-backups`). `:apply` raderar. |
 | `npm run plans:archive:apply` | Arkiverar färdiga planer enligt livscykeln. `plans:archive` (utan `:apply`) förhandsvisar. |
 | `npm run knip` | Full dödkods-rapport (se ovan om hur den läses). |
+
+### `clean:scratch` — retention i korthet
+
+Skriptet: [`scripts/dev/clean-scratch.mjs`](../../scripts/dev/clean-scratch.mjs). Torrkörning är default; inget raderas utan `--apply` / `:apply`. Git-spårade filer och symlänkar/junctions rörs aldrig.
+
+| Yta | Policy |
+|---|---|
+| `.tmp`, `.pytest_cache`, `.cursor/tmp`, `.eslintcache` | Wipe (rensas helt) |
+| `.cursor/handoffs`, `kedja`, `bugs`, `logg-internet/runs`, `swarms/runs` | Hårt antalstak: 3 nyaste, ingen åldersflykt |
+| `logs/` **mappar** (t.ex. `hydration-*`) | Hårt antalstak: **2** nyaste, ingen åldersflykt |
+| `logs/` **lösa filer** (`tmp-*`, `dump-*`, `*.log`-artefakter m.m.) | Wipe — inget referensvärde |
+| `logs/generationslogg`, `site-observability`, `llm-segmentts-and-index` | Orörda här — egen retention i `generation-log-writer` |
+| `.env-backups` | Åldersbaserat: 3 nyaste **eller** yngre än 14 dagar |
+
+`hygiene` rapporterar gitignorerade scratch-filer som "oanvända" via knip; det är förväntat brus tills du kör `clean:scratch:apply`. Automatisk körning (t.ex. via `predev`) är **inte** inkopplad — kör manuellt när `logs/` eller `.cursor/`-scratch vuxit.
 
 ## Vad som redan är självgående (du behöver inte tänka på det)
 

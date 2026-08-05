@@ -130,6 +130,18 @@ describe("decidePreviewReadinessOutcome", () => {
     expect(decision.previewSuccess).toBe(false);
     expect(decision.buildError).toContain("radix-ui");
   });
+
+  it("maps persistent empty-body readiness failure to stamp false (not true / not pending)", () => {
+    const decision = decidePreviewReadinessOutcome({
+      readinessState: "failed",
+      readinessError:
+        "Runtime did not become ready within 600000ms. Last error: HTTP 200 HTML but body text still empty (compiling or blank page)",
+      regeneratedLockfile: null,
+      httpReady: false,
+    });
+    expect(decision.previewSuccess).toBe(false);
+    expect(decision.buildError).toMatch(/body text still empty/i);
+  });
 });
 
 describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after start)", () => {
@@ -157,6 +169,36 @@ describe("applyPreviewReadinessOutcome (regression 4 — build-overlay after sta
     ];
     expect(payloads[0]).toMatchObject({ versionId: "v1", level: "error" });
     expect(payloads[0].message).toContain("radix-ui");
+  });
+
+  it("stamps preview_success=false + category preview when host fails on persistent empty HTML body", async () => {
+    // Host waitForReady now rejects empty <body> at the readiness deadline
+    // (readinessState=failed) instead of accepting after ~5 polls. App-side
+    // translation must stay on the existing failed → stamp false + error-log
+    // path — never preview_success=true, no new UI surface.
+    await applyPreviewReadinessOutcome({
+      chatId: "chat_1",
+      versionId: "v1",
+      resumed: {
+        readinessState: "failed",
+        readinessError:
+          "Runtime did not become ready within 600000ms. Last error: HTTP 200 HTML but body text still empty (compiling or blank page)",
+        regeneratedLockfile: null,
+        httpReady: false,
+      },
+    });
+
+    expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("v1", false);
+    expect(createEngineVersionErrorLogs).toHaveBeenCalledTimes(1);
+    const [payloads] = createEngineVersionErrorLogs.mock.calls[0] as [
+      Array<{ versionId: string; level: string; category: string; message: string }>,
+    ];
+    expect(payloads[0]).toMatchObject({
+      versionId: "v1",
+      level: "error",
+      category: "preview",
+    });
+    expect(payloads[0].message).toMatch(/body text still empty/i);
   });
 
   it("stamps preview_success=true and never logs an error when ready", async () => {

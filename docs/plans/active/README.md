@@ -32,27 +32,18 @@ kopiera inte dess kö hit.
 | Generationslatens | [`2026-08-05-generationslatens/00-master-plan.md`](2026-08-05-generationslatens/00-master-plan.md) | Plan skriven 2026-08-05 på prod-mätning av fyra versioner: strömmen är 79–99 % av **strömfönstret** (inte av hela väntan — brief och orkestrering ligger före mätankaret), bildhämtning kostar noll, och verifierns 69 s var trippel-gatead av BuildSpec-klassningen. **Steg 1 levererat** (#792): `meta` i telemetri-kinden, `meta.streamMs` direktmätt, `materialize_images`-fasen registreras — låst av runner-test. **Steg 2 klart** (#795): klassningen är **befogad** (multipage→premium, score≥3→heavy, ingen tröskeländring), och brief + orkestrering ligger **före** mätankaret så totalerna underskattar användarens väntan | **Kvar är två ägarbeslut.** Steg 3: ska en F2-preview köra ett 69 s LLM-pass alls när RenderGate ägs av klienten? Steg 4 (parallell codegen) är en beslutspunkt som kräver ägar-OK. Vill ägaren pröva en lägre `heavy`-andel finns spaken redan som env — ingen kodändring |
 | Loggindex: sökvägsägare före omdöpning | [`2026-08-02-loggindex-sokvagsagare/00-master-plan.md`](2026-08-02-loggindex-sokvagsagare/00-master-plan.md) | Plan skriven 2026-08-02, alla sju konstruktionsställen grep-verifierade. Inget steg påbörjat | **[`01-konsolidera-sokvagsagare.md`](2026-08-02-loggindex-sokvagsagare/01-konsolidera-sokvagsagare.md) kan tas när som helst** — ren refaktorering, inga filer flyttas. [`02-omdopning.md`](2026-08-02-loggindex-sokvagsagare/02-omdopning.md) är blockerad på MVP-leverans + ägarens namnbeslut (lever mappen vidare alls?) |
 
-## Ägarbeslut — ratificerade 2026-07-30
+## Ägarbeslut
 
-Kön "väntar på ägarbeslut" är tom. Besluten nedan togs av agent på ägarens
-delegation och **ratificerades av ägaren 2026-07-30** ("jag godkänner alt") — de
-är alltså inte längre bara arbetsbara. Vänd ett beslut fritt om verkligheten
-säger något annat, men gör det där motiveringen står, inte här.
-
-| Fråga | Beslut | Var motiveringen står |
-| --- | --- | --- |
-| Fail-closed vid revisions-mismatch? | Mismatchat verdikt **kastas i båda riktningar**; bara **känd** mismatch blockerar promote, saknad revision är fail-open | [`../avklarat/README.md`](../avklarat/README.md) § Innehållsrevision (plantexten i git) |
-| `files_revision`: hash eller räknare? | **Hash, genererad av Postgres** (`md5(files_json)`) — ingen skrivare kan glömma den | samma |
-| Steg 1–2 separat från steg 3? | **Ja** — additivt först, beteende sen | samma |
-| ReleaseGate-bannern: noll spår eller diskret länk? | **Diskret diagnostik-länk** (noll spår gör UI:t osant) — implementerad 2026-07-28 (#639) | [`../avklarat/README.md`](../avklarat/README.md) § Restlistan |
-| Fas D: egna workload-poster i manifestet? | **Godkänt** — tre separata poster, ingen sammanslagning. **Levererat 2026-07-29**; posternas `notes`-fält i `config/ai_models/manifest.json` bär numera motiveringen | [`../avklarat/README.md`](../avklarat/README.md) § Backoffice Byggstenar |
-| Vad ska tokenmätningen användas till? | Internt kostnadsunderlag, **inte** debitering: diamonds förblir fast pris per åtgärd; sekundära ytor mäts när de börjar debitera; OpenClaw/D-ID redovisas separat | [`scripts/observability/README.md`](../../../scripts/observability/README.md) § Vad mätningen är till för |
-| Ska en LLM-byggd konkurrerande yta raderas automatiskt när en dossier tar över samma capability? (R11) | **Nej** — prompt-prevention + Advisory är slutläget. Beslut av **ägaren själv** 2026-07-28: ett `REPLACES:`-utdataprotokoll skulle radera användarfiler vid felaktig deklaration, alltså dataförlust mot mindre brus | [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) § Beslut & policy — där hela motiveringen bor sedan restlistans R11-avsnitt trimmades bort 2026-07-30 |
-| Vad ska en generationsrad påstå när ett provider-fel passerade men körningen slutade som avsett? | **Utfallet, inte det värsta ögonblicket.** En återhämtad 429 får inte skriva `success=false`: flaggan scopas per försök och provider-fault-raden skrivs bara när körningen faktiskt föll på provider-felet. Blippen ska synas som retry/Advisory. Credit-beteendet är oförändrat — det är redan rätt | [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md) → `providerFault`-raden |
+Ratificerade ägarbeslut bor i registret
+[`docs/decisions/README.md`](../../decisions/README.md) — beslutshistorik hör
+inte hemma i `active/`. Öppna beslutsfrågor ägs av
+[`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md); vänd ett fattat beslut
+där motiveringen står, inte här.
 
 ## Andra aktiva sanningar
 
-- Buggar och policybeslut: [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md)
+- Buggar och öppna beslutsfrågor: [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md)
+- Fattade ägarbeslut: [`../../decisions/README.md`](../../decisions/README.md)
 - Stoppunkter för städning och telemetrikravet före route-radering:
   [`../../documentation-lifecycle.md`](../../documentation-lifecycle.md)
 - Stabil arkitektur och kontrakt: [`../../README.md`](../../README.md)

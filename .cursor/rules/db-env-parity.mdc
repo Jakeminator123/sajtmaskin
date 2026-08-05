@@ -32,7 +32,7 @@ Lägger du en migration i `src/lib/db/migrations/` och rör en INSERT/kolumn: k�
 3. Prod: `npm run env:pull:prod-snapshot` (om `.env.vercel.production.pulled` saknas), sedan **`npm run db:migrate:prod`** — den pekar mot den **pooled** prod-URL:en (`*.pooler.supabase.com`, ej direct/IPv6 som timear ut) och sätter `DB_ALLOW_PROD_LIKE_WRITE=1` åt dig.
 4. Verifiera kolumnen i prod (read mot `information_schema.columns`).
 
-Ligger något efter: `npm run db:migrate:check` (dev) / `:check:prod`, fixa med `npm run db:ensure`. CI applicerar dessutom prod-migrationer automatiskt vid push till master (`prod-migrations-apply` → `prod-migrations-applied`).
+Ligger något efter: `npm run db:migrate:check` (dev) / `:check:prod`, fixa med `npm run db:ensure`. CI applicerar dessutom prod-migrationer automatiskt vid push till master (`prod-migrations-apply` → `prod-migrations-applied`) och jämför de **levande** dev- och prod-schemana i `db-schema-parity` — den kan bli röd även när ledgern är grön på båda sidor (`npm run db:schema-parity` lokalt). Maskineriet: [`docs/runbooks/db-migrations.md`](../../docs/runbooks/db-migrations.md).
 
 ## Env-variabler — alla tre ställen
 

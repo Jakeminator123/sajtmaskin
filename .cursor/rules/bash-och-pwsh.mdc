@@ -24,9 +24,23 @@ Lokal miljö är Windows med PowerShell 7 (`pwsh`). Använd pwsh-syntax i termin
 | `The term 'grep'/'head'/'tail'/'sed'/'awk' is not recognized` | Bash-verktyg finns inte i pwsh | `Select-String`, `Select-Object -First N` / `-Last N`, eller Cursor Grep/StrReplace |
 | Villkor på git/npm/node slår fel fastän kommandot gick bra (eller tvärtom) | `$?` speglar inte extern exit-kod tillförlitligt | Använd `$LASTEXITCODE -eq 0` för externa program (`$?` bara för rena cmdlets) |
 | `Test-Path`/`Get-Content`/`Set-Location` hittar inte fil med `[ ]` i sökväg (t.ex. `[chatId]`, `[id]`, `[slug]`) | `[ ]` tolkas som wildcard | `-LiteralPath <sökväg>` — men föredra ändå Cursor Read/StrReplace för dessa App Router-mappar. **Obs:** Cursor **Glob** är undantaget, dess `glob_pattern` är glob-syntax, så `[chatId]` blir en teckenklass även där — escapa (`[[]chatId[]]`) eller använd Read med exakt sökväg |
+| `Missing file specification after redirection operator` | Bash-**heredoc** (`<<'EOF'`) — nästan alltid för ett commit-meddelande. pwsh läser `<` som omdirigering, så felet nämner varken heredocen eller fixen | Here-string: `$msg = @'` … `'@` (båda i kolumn 0), sedan `git commit -m $msg`. Blockeras numera av `.cursor/hooks/heredoc-guard.mjs` |
 | Parse error på here-string | `'@`/`"@` inte i kolumn 0, eller text efter `@'`/`@"` på öppningsraden | Stängningstoken längst till vänster; inget efter öppningstoken |
 | Oväntad variabel-/backtick-expansion (`$`, `` ` ``) | Dubbelcitat och `@" "@` expanderar | Enkla citat `'...'` / `@' '@` för literal text (regex, `$`, backticks) |
 | Trunkerad (`…`) eller tom output vid pipe till fil | PS formaterar objekt för konsolbredd | Avsluta med `| Out-String` (ev. `| Format-Table -Auto | Out-String -Width 4096`) |
+
+### Commit-meddelanden: mallen du minns är bash
+
+Den generiska instruktionen "skicka alltid commit-meddelandet via en HEREDOC" (`git commit -m "$(cat <<'EOF' … EOF)"`) är **bash** och gäller inte här. Den är den vanligaste källan till heredoc-felet ovan, eftersom den plockas fram i commit-ögonblicket utan att tabellen läses om. Kanonisk form på den här maskinen:
+
+```powershell
+$msg = @'
+kort rubrik
+
+brödtext
+'@
+git commit -m $msg
+```
 
 ## Kedja kommandon
 

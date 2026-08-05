@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * Focused suite for the deterministic import pre-fix in `runVerifierPhase`
@@ -44,7 +44,9 @@ vi.mock("@/lib/logging/devLog", () => ({
 }));
 
 import { runVerifierPhase } from "./verifier-phase";
+import { resolveVerifierRerunTimeoutMs } from "./types";
 import { checkUndefinedJsxSymbols } from "@/lib/gen/verify/verifier-pass";
+import { resolvePostGenerationVerifierConfig } from "@/lib/gen/verify/post-generation-config";
 import { parseCodeProject } from "@/lib/gen/parser";
 
 function fencedFile(path: string, code: string): string {
@@ -504,6 +506,150 @@ describe("runVerifierPhase verifier-fixer RAG honesty (prod incident 2026-07-09)
         result: "fixed",
         fixText: "verifier-fixer rewrote the offending file(s)",
       }),
+    );
+  });
+});
+
+describe("runVerifierPhase confirmation-rerun budget (prod AbortError on premium)", () => {
+  const PAGE = fencedFile(
+    "app/api/assistant/route.ts",
+    `export async function POST() {
+  return new Response("ok");
+}`,
+  );
+  const preFixFinding = {
+    id: "import-name-collision",
+    detail:
+      "app/api/assistant/route.ts: Uint8Array imported from @/components/uint8-array but used as the global.",
+  };
+  /** Longer than the hardcoded 30 s outer abort, shorter than the verifier pass budget (120 s default / 240 s premium). */
+  const RERUN_DELAY_MS = 45_000;
+
+  beforeEach(() => {
+    runVerifierPass.mockReset();
+    runLlmRepairGate.mockReset();
+    appendErrorLogEvent.mockReset();
+    devLogAppend.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("adopts confirmation-rerun findings when the rerun finishes after 30s but within the verifier budget", async () => {
+    vi.useFakeTimers();
+
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [preFixFinding],
+        quality: [],
+      })
+      .mockImplementationOnce((_content: string, opts?: { abortSignal?: AbortSignal }) => {
+        return new Promise<{
+          blocking: Array<{ id: string; detail: string }>;
+          quality: Array<{ id: string; detail: string }>;
+        }>((resolve, reject) => {
+          const abortError = () => {
+            const err = new Error("Aborted");
+            err.name = "AbortError";
+            reject(err);
+          };
+          const timer = setTimeout(() => {
+            resolve({ blocking: [], quality: [] });
+          }, RERUN_DELAY_MS);
+          const signal = opts?.abortSignal;
+          if (!signal) return;
+          if (signal.aborted) {
+            clearTimeout(timer);
+            abortError();
+            return;
+          }
+          signal.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              abortError();
+            },
+            { once: true },
+          );
+        });
+      });
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: PAGE,
+        fixedFiles: ["app/api/assistant/route.ts"],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: true,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.6-sol",
+      deduped: false,
+    });
+
+    const resultPromise = runVerifierPhase({
+      ...baseParams(PAGE),
+      verifierTier: "premium",
+    });
+    await vi.advanceTimersByTimeAsync(RERUN_DELAY_MS);
+    const result = await resultPromise;
+
+    // Rerun completed clean → adopt its empty set, not the pre-fix blockers
+    // left by the AbortError catch path.
+    expect(result.verifierBlockingFindings).toEqual([]);
+    expect(appendErrorLogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subphase: "verifier-fixer",
+        result: "fixed",
+      }),
+    );
+  });
+
+  it("keeps pre-fix findings when the confirmation rerun is genuinely aborted", async () => {
+    runVerifierPass
+      .mockResolvedValueOnce({
+        blocking: [preFixFinding],
+        quality: [],
+      })
+      .mockRejectedValueOnce(
+        Object.assign(new Error("Aborted"), { name: "AbortError" }),
+      );
+    runLlmRepairGate.mockResolvedValueOnce({
+      result: {
+        fixedContent: PAGE,
+        fixedFiles: ["app/api/assistant/route.ts"],
+        missingFiles: [],
+        incompleteFiles: [],
+        partial: false,
+        success: true,
+        aborted: false,
+        durationMs: 5,
+      },
+      fixerModel: "gpt-5.6-sol",
+      deduped: false,
+    });
+
+    const result = await runVerifierPhase({
+      ...baseParams(PAGE),
+      verifierTier: "premium",
+    });
+
+    expect(result.verifierBlockingFindings).toEqual([
+      expect.objectContaining({ id: "import-name-collision" }),
+    ]);
+    expect(appendErrorLogEvent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ subphase: "verifier-fixer" }),
+    );
+  });
+
+  // The trade-off this fix accepts: the confirmation rerun may now cost the
+  // full verifier budget instead of 30 s. That is deliberate, and this is what
+  // stops the deadline from being tightened below the pass it confirms again.
+  it("never gives the confirmation rerun a tighter budget than the pass it confirms", () => {
+    expect(resolveVerifierRerunTimeoutMs()).toBeGreaterThanOrEqual(
+      resolvePostGenerationVerifierConfig().timeoutMs,
     );
   });
 });

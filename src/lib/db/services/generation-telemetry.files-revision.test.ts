@@ -33,9 +33,11 @@ vi.mock("@/lib/db/client", () => {
   return { db, dbConfigured: true };
 });
 
-const { createGenerationTelemetryRecord, recordRepairPassedQualityGate } = await import(
-  "./generation-telemetry"
-);
+const {
+  createGenerationTelemetryRecord,
+  recordRepairPassedQualityGate,
+  recordQualityGatePassedForCurrentContent,
+} = await import("./generation-telemetry");
 
 const REPAIR_A = '[{"path":"app/page.tsx","content":"A-fixed"}]';
 const REPAIR_B = '[{"path":"app/page.tsx","content":"B-fixed"}]';
@@ -149,6 +151,40 @@ describe("recordRepairPassedQualityGate — ersättande repair", () => {
 
     await recordRepairPassedQualityGate("ver_1");
 
+    expect(insertCapture.count).toBe(0);
+  });
+});
+
+describe("recordQualityGatePassedForCurrentContent — staleRevision reassess", () => {
+  beforeEach(() => {
+    insertCapture.values = null;
+    insertCapture.count = 0;
+    telemetryRows.value = [];
+  });
+
+  it("stämplar preflight_passed med versionens aktuella revision (subselect)", async () => {
+    telemetryRows.value = [priorPass(md5(REPAIR_A))];
+
+    const stamped = await recordQualityGatePassedForCurrentContent("ver_1");
+
+    expect(stamped).toBe(true);
+    expect(insertCapture.count).toBe(1);
+    expect(insertCapture.values?.qualityGateResult).toBe("preflight_passed");
+    expect(insertCapture.values?.meta).toEqual({
+      source: "quality-gate-stale-revision-reassess",
+    });
+    // Nuvarande innehåll — inte assessedFilesJson — så subselect mot version-raden.
+    const rendered = JSON.stringify(insertCapture.values?.filesRevision);
+    expect(rendered).toContain("engine_versions");
+    expect(rendered).toContain("files_revision");
+  });
+
+  it("hoppar över när ingen prior telemetry finns (fail-open redan)", async () => {
+    telemetryRows.value = [];
+
+    const stamped = await recordQualityGatePassedForCurrentContent("ver_1");
+
+    expect(stamped).toBe(false);
     expect(insertCapture.count).toBe(0);
   });
 });
