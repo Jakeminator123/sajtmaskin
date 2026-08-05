@@ -118,22 +118,30 @@ Typisk ordning i runtime:
    residual som Normalize och statiska kontroller inte löste. Samma ledger
    dedupe:ar syntax-, warm-tsc-, verifier- och preflight-repair
    inom en finalize-run.
-6. verifiern körs riskstyrt: `safe_fixes_only` kan hoppa över verifiern när
+6. `materialize_images` (deep path) byter bildplatshållare mot riktiga URL:er
+   och registreras i Prometheus `sajtmaskin_phase_duration_ms` samt i
+   `generation_telemetry.meta.postStreamSteps`. Light path hoppar steget och
+   registrerar fasen som 0 ms. Steget ligger **efter** hela
+   `validateAndFix`-blocket (steg 3–5) — i `fast-path.ts` är syntax, warm-tsc,
+   import-repair och RepairGate Phase 1, och bildmaterialiseringen Phase 2.
+7. verifiern körs riskstyrt: `safe_fixes_only` kan hoppa över verifiern när
    grundpolicyn redan säger `run`, men aldrig vid 3D-signal; `risky_fixes`
    behåller verifier-täckning.
-7. parse/merge applicerar scaffold-skydd, dossier verbatim policy och
+8. parse/merge applicerar scaffold-skydd, dossier verbatim policy och
    follow-up-bevarande mot tidigare version.
-8. preflight kontrollerar preview-/verification-blockers före persist.
-9. persist sparar assistant-rad, version, snapshot, preflight-loggar,
-   telemetry och event/status-underlag.
-10. preview startas, patchas eller resyncas mot den persistade versionen. En
-    tidigare best-effort-förvärmning får återanvändas, men är aldrig själv ett
-    bevis på att den persistade versionen är redo.
-11. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
+9. preflight kontrollerar preview-/verification-blockers före persist.
+10. persist sparar assistant-rad, version, snapshot, preflight-loggar,
+   telemetry (`meta.streamMs` = codegen-SSE wall-clock till finalize-start;
+   `meta.postStreamSteps` = per-steg-tider inkl. `materialize_images`) och
+   event/status-underlag.
+11. preview startas, patchas eller resyncas mot den persistade versionen. En
+   tidigare best-effort-förvärmning får återanvändas, men är aldrig själv ett
+   bevis på att den persistade versionen är redo.
+12. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
     typecheck är Advisory utom render-risk-koder. Ägare: **klienten**
     (`post-checks.ts` → `POST /quality-gate`) — server-verify skippas för F2
     (`design_preview_skip_verify`, M#vlane1).
-12. ReleaseGate (kod: `integrationsBuild` quality gate) kör F3 i en
+13. ReleaseGate (kod: `integrationsBuild` quality gate) kör F3 i en
     auktoritativ VM-gate: typecheck → build. Env-krav täcks av placeholders
     (alltid tillåtna — demoläge tills riktiga nycklar fylls i via Byggblock).
     Lint togs bort ur den blockerande lanen 2026-07-22 (stilregler blockerade
@@ -143,7 +151,7 @@ Typisk ordning i runtime:
     `integrations`-versioner utan följer utfallet via status-polling. Den
     deterministiska F3-forken (finalize-design utan LLM) är undantaget: där
     är klientens `runF3FinalizeAction` enda gate-anropare.
-13. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån
+14. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån
     gate-resultat och promote-guard. En version som hinner ersättas av en
     nyare under gaten settlas terminal-neutralt som `superseded` ("Ersatt",
     aldrig rött `failed`; se `docs/schemas/quality-gate.md`).
@@ -152,7 +160,7 @@ Viktig ordningsregel: Normalize, verifier och preflight ligger före persist.
 VM-gaten (RenderGate/ReleaseGate) ligger efter persist och arbetar på den
 sparade versionen.
 
-**Follow-up-preview: patch före full update.** Steg 10 för en follow-up (ny
+**Follow-up-preview: patch före full update.** Steg 11 för en follow-up (ny
 version på en levande session) bygger fortfarande hela update-payloaden, men
 försöker först Fast Edit Lane: appen hämtar hostens filmanifest
 (`GET /preview/session/:id/files-manifest`, sha256 per path), diffar payloaden mot
