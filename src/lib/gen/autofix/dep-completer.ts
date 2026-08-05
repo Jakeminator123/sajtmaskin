@@ -107,6 +107,33 @@ const IMPORT_SOURCE_RE = new RegExp(
 );
 
 /**
+ * Named package `@import` in CSS / Tailwind v4.
+ *
+ * Supported forms (package string extracted; Tailwind suffixes ignored):
+ * - `@import "pkg";` / `@import 'pkg';`
+ * - `@import "pkg" layer(...)` / `source(...)` / `theme(...)`
+ * - `@import url("pkg/dist/x.css");` / `@import url('pkg');`
+ *
+ * Never treated as a package (caller filters via {@link isCssPackageImportSource}):
+ * - Relative `@import "./x.css"` / `../y.css`
+ * - Root-absolute `@import "/fonts/..."`
+ * - Network/data URLs (`http:`, `https:`, `data:`, protocol-relative `//`)
+ * - Bare `url(...)` without `@import`
+ */
+const CSS_AT_IMPORT_RE = /@import\s+(?:url\s*\(\s*)?["']([^"']+)["']\s*\)?/gi;
+
+/** True when a CSS `@import` source looks like an npm package specifier. */
+export function isCssPackageImportSource(source: string): boolean {
+  const trimmed = source.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith(".") || trimmed.startsWith("/")) return false;
+  if (trimmed.startsWith("//")) return false;
+  // Protocol URLs (http:, https:, data:, …) — not npm packages.
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) return false;
+  return true;
+}
+
+/**
  * Packages the preview runtime already ships (Next.js, React, tailwind, etc.).
  * These should NOT appear in the dependency list.
  */
@@ -174,6 +201,10 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "input-otp": "^1",
   "react-resizable-panels": "^4",
   "next-themes": "^0.4",
+  // Prompt + variant addenda teach `@import "tw-animate-css"` in globals.css.
+  // Deploy already pins it (`dependency-utils.ts`); preview dep-completer must
+  // too or install misses the package (M#ma1 / chat 4cc467d2).
+  "tw-animate-css": "^1.3.4",
   "@vercel/analytics": "^1.6.1",
   "nuqs": "^2",
   "swr": "^2",
@@ -450,7 +481,8 @@ export function mergeMissingDependenciesIntoPackageJson(
   return { packageJson: nextPackageJson, mergedCount };
 }
 
-const PROJECT_CODE_FILE_RE = /\.(?:tsx?|jsx?|mjs|cjs)$/i;
+/** JS/TS modules plus CSS (named `@import` packages, e.g. tw-animate-css). */
+const PROJECT_CODE_FILE_RE = /\.(?:tsx?|jsx?|mjs|cjs|css)$/i;
 
 /**
  * Deterministic project-wide dependency completion for imported repos
@@ -463,7 +495,7 @@ const PROJECT_CODE_FILE_RE = /\.(?:tsx?|jsx?|mjs|cjs)$/i;
  * `package.json` + lockfiles, so install was skipped and the runtime 500:ade
  * on the missing module (prod chat 0d52e5c9, 2026-07-31).
  *
- * This helper scans every code file for third-party imports and merges the
+ * This helper scans every code/CSS file for third-party imports and merges the
  * ones with a KNOWN version pin into the project's EXISTING `package.json`.
  * It never touches already-declared versions (dependencies or
  * devDependencies), so template framework majors and lockfile identities stay
@@ -538,8 +570,32 @@ export function completeProjectDependencies<
   };
 }
 
+function considerPackageSource(
+  raw: string,
+  seen: Set<string>,
+  dependencies: Record<string, string>,
+  unknownPackages: string[],
+): void {
+  const pkg = normalizePackageName(raw);
+
+  if (seen.has(pkg)) return;
+  seen.add(pkg);
+
+  if (isBuiltinPackage(pkg)) return;
+
+  if (pkg.startsWith("@/") || pkg.startsWith("~/") || pkg.startsWith(".")) return;
+
+  const resolvedVersion = resolveExportableVersion(pkg);
+  if (resolvedVersion) {
+    dependencies[pkg] = resolvedVersion;
+  } else {
+    unknownPackages.push(pkg);
+  }
+}
+
 /**
- * Scan code for third-party import sources and produce a dependency list.
+ * Scan code (and CSS `@import`) for third-party import sources and produce a
+ * dependency list.
  */
 export function runDepCompleter(code: string): {
   dependencies: Record<string, string>;
@@ -555,21 +611,14 @@ export function runDepCompleter(code: string): {
   for (const match of code.matchAll(IMPORT_SOURCE_RE)) {
     const raw = match.slice(1).find((group): group is string => typeof group === "string");
     if (!raw) continue;
-    const pkg = normalizePackageName(raw);
+    considerPackageSource(raw, seen, dependencies, unknownPackages);
+  }
 
-    if (seen.has(pkg)) continue;
-    seen.add(pkg);
-
-    if (isBuiltinPackage(pkg)) continue;
-
-    if (pkg.startsWith("@/") || pkg.startsWith("~/") || pkg.startsWith(".")) continue;
-
-    const resolvedVersion = resolveExportableVersion(pkg);
-    if (resolvedVersion) {
-      dependencies[pkg] = resolvedVersion;
-    } else {
-      unknownPackages.push(pkg);
-    }
+  CSS_AT_IMPORT_RE.lastIndex = 0;
+  for (const match of code.matchAll(CSS_AT_IMPORT_RE)) {
+    const raw = match[1];
+    if (!raw || !isCssPackageImportSource(raw)) continue;
+    considerPackageSource(raw, seen, dependencies, unknownPackages);
   }
 
   const warnings = unknownPackages.map(
