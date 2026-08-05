@@ -9,7 +9,7 @@
 <!-- source-fingerprint: docs/schemas/strict/domain-rules.schema.json sha256:fade2032ef57bc1c -->
 <!-- source-fingerprint: docs/schemas/strict/dossier-stub-created.schema.json sha256:8ac54956f4a9a386 -->
 <!-- source-fingerprint: docs/schemas/strict/dossier-verbatim-restored.schema.json sha256:dbeaefe19ccead17 -->
-<!-- source-fingerprint: docs/schemas/strict/dossier.schema.json sha256:5f6f8f6968e82028 -->
+<!-- source-fingerprint: docs/schemas/strict/dossier.schema.json sha256:e8c26f80f99ad0d2 -->
 <!-- source-fingerprint: docs/schemas/strict/env-policy.schema.json sha256:6fead5ada9616f55 -->
 <!-- source-fingerprint: docs/schemas/strict/image-replaced-with-placeholder.schema.json sha256:ccc8383867471175 -->
 <!-- source-fingerprint: docs/schemas/strict/llm-fixer-aborted.schema.json sha256:1419d25b0f17519d -->

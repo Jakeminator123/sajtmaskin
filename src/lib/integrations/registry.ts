@@ -1,14 +1,9 @@
+import { resolveDossierProvider } from "@/lib/gen/dossiers/registry";
+
 export type IntegrationRuntime = "browser" | "server" | "edge" | "deploy";
 
 export type IntegrationCategory =
-  | "analytics"
-  | "payments"
-  | "auth"
-  | "data"
-  | "cms"
-  | "email"
-  | "storage"
-  | "other";
+  "analytics" | "payments" | "auth" | "data" | "cms" | "email" | "storage" | "other";
 
 export type IntegrationDefinition = {
   key: string;
@@ -21,7 +16,7 @@ export type IntegrationDefinition = {
   provider?: string;
 };
 
-export const integrationRegistry: IntegrationDefinition[] = [
+const integrationRegistryBase: IntegrationDefinition[] = [
   {
     key: "supabase",
     name: "Supabase",
@@ -71,8 +66,7 @@ export const integrationRegistry: IntegrationDefinition[] = [
     name: "Google APIs",
     category: "other",
     envVars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
-    setupGuide:
-      "Skapa OAuth-klient i Google Cloud Console > APIs & Services > Credentials.",
+    setupGuide: "Skapa OAuth-klient i Google Cloud Console > APIs & Services > Credentials.",
     runtime: "server",
     optional: false,
     provider: "google",
@@ -114,8 +108,7 @@ export const integrationRegistry: IntegrationDefinition[] = [
     name: "Plausible",
     category: "analytics",
     envVars: ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
-    setupGuide:
-      "Skapa sajt i Plausible och sätt domänen som NEXT_PUBLIC_PLAUSIBLE_DOMAIN.",
+    setupGuide: "Skapa sajt i Plausible och sätt domänen som NEXT_PUBLIC_PLAUSIBLE_DOMAIN.",
     runtime: "browser",
     optional: false,
     provider: "plausible",
@@ -267,11 +260,21 @@ export const integrationRegistry: IntegrationDefinition[] = [
     name: "Upstash",
     category: "data",
     envVars: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
-    setupGuide:
-      "Skapa en Redis-databas på console.upstash.com. Kopiera REST URL och REST Token.",
+    setupGuide: "Skapa en Redis-databas på console.upstash.com. Kopiera REST URL och REST Token.",
     runtime: "edge",
     optional: false,
     provider: "upstash",
+  },
+  {
+    key: "prisma",
+    name: "Prisma",
+    category: "data",
+    envVars: ["DATABASE_URL"],
+    setupGuide:
+      "Välj en databasleverantör, sätt DATABASE_URL och initiera samt generera sedan Prisma-klienten för databasen.",
+    runtime: "server",
+    optional: false,
+    provider: "prisma",
   },
   {
     key: "vercel-blob",
@@ -285,6 +288,40 @@ export const integrationRegistry: IntegrationDefinition[] = [
     provider: "vercel-blob",
   },
 ];
+
+function manifestSetupGuide(
+  definition: IntegrationDefinition,
+  envVars: ReadonlyArray<{
+    key: string;
+    purpose: string;
+    setupUrl?: string;
+  }>,
+): string {
+  const guide = envVars
+    .map((env) => `${env.key}: ${env.purpose}${env.setupUrl ? ` (${env.setupUrl})` : ""}`)
+    .join(" ");
+  return guide || definition.setupGuide;
+}
+
+/**
+ * Provider metadata projected from an exact dossier when manifest ownership
+ * is unique. Dossierless and ambiguous providers keep their generic registry
+ * contract until an exact capability/dossier is selected.
+ */
+export const integrationRegistry: IntegrationDefinition[] = integrationRegistryBase.map(
+  (definition) => {
+    const provider = definition.provider ?? definition.key;
+    const resolution = resolveDossierProvider(provider);
+    if (resolution.status !== "unique") return definition;
+    const dossier = resolution.dossiers[0];
+    const envVars = dossier.envVars ?? [];
+    return {
+      ...definition,
+      envVars: envVars.map((env) => env.key),
+      setupGuide: manifestSetupGuide(definition, envVars),
+    };
+  },
+);
 
 /** Lookup by `IntegrationDefinition.key` (matches manifest `key` and detection `key`). */
 export const integrationRegistryByKey = new Map(

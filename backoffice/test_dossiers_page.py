@@ -175,6 +175,47 @@ class RebuildCapabilityMapTests(unittest.TestCase):
         self.assertEqual(fresh["capabilities"], {"payments": ["stripe-checkout"]})
 
 
+class ManifestClassValidationTests(unittest.TestCase):
+    def test_raw_hard_manifest_requires_providers(self) -> None:
+        self.assertIn(
+            "hard manifests must declare a non-empty providers array",
+            dossiers_page._validate_manifest({"id": "acme"}, "hard"),
+        )
+
+    def test_raw_soft_manifest_forbids_providers(self) -> None:
+        self.assertIn(
+            "soft manifests must not declare providers",
+            dossiers_page._validate_manifest(
+                {"id": "acme", "providers": ["acme"]}, "soft"
+            ),
+        )
+
+    def test_raw_save_rejects_schema_invalid_provider_before_write(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            original = {
+                "id": "acme",
+                "label": "Acme integration",
+                "capability": "payments",
+                "providers": ["acme"],
+                "codeFidelity": "verbatim",
+                "complexity": "medium",
+                "summary":
+                    "A valid provider integration fixture used by the raw editor test.",
+                "lastVerified": "2026-08-05",
+            }
+            path.write_text(json.dumps(original), encoding="utf-8")
+            invalid = {**original, "providers": ["INVALID"]}
+            ok, msg = dossiers_page._save_raw_manifest(
+                path, invalid, dossier_class="hard"
+            )
+            self.assertFalse(ok)
+            self.assertIn("Strict-schema", msg)
+            self.assertEqual(
+                json.loads(path.read_text(encoding="utf-8")), original
+            )
+
+
 class ApplyCapabilityOverrideTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
@@ -194,6 +235,7 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
                     "complexity": "simple",
                     "summary": "A CMS building block used for exercising the override tests.",
                     "lastVerified": "2026-07-12",
+                    "providers": ["acme"],
                 }
             ),
             encoding="utf-8",
@@ -218,6 +260,17 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
         ok, msg = dossiers_page._apply_capability_override("hard", "acme-cms", "Not Kebab")
         self.assertFalse(ok)
         self.assertIn("kebab-case", msg)
+        self.assertEqual(self._read_capability(), "cms")
+
+    def test_hard_override_cannot_save_after_providers_are_removed(self) -> None:
+        manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+        manifest.pop("providers")
+        self.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        ok, msg = dossiers_page._apply_capability_override(
+            "hard", "acme-cms", "content-hub"
+        )
+        self.assertFalse(ok)
+        self.assertIn("providers", msg)
         self.assertEqual(self._read_capability(), "cms")
 
     def test_llm_set_default_flag_is_forced_false_on_override(self) -> None:
@@ -460,7 +513,10 @@ class CreateDossierSkeletonTests(unittest.TestCase):
             "capability": "map-display",
             "summary": "An interactive map building block used to exercise the skeleton tests.",
             "mock": "visual",
+            "providers": ["acme"],
         }
+        if target_class == "soft":
+            kwargs["providers"] = None
         kwargs.update(overrides)
         return dossiers_page._create_dossier_skeleton(target_class, target_id, **kwargs)
 
@@ -484,6 +540,7 @@ class CreateDossierSkeletonTests(unittest.TestCase):
         )
         self.assertEqual(manifest["id"], "acme-maps")
         self.assertEqual(manifest["mock"], "visual")
+        self.assertEqual(manifest["providers"], ["acme"])
         instructions = (target / "instructions.md").read_text(encoding="utf-8")
         # De två H1-rubriker som `dossiers:validate-all` kräver.
         self.assertIn("# When to use", instructions)
@@ -514,6 +571,23 @@ class CreateDossierSkeletonTests(unittest.TestCase):
             ok, msg = self._create(capability="payments", mock=mock_value)
             self.assertFalse(ok, str(mock_value))
             self.assertIn("demoläge", msg.lower())
+        self._assert_nothing_written()
+
+    def test_hard_without_provider_is_rejected(self) -> None:
+        ok, msg = self._create(providers=None)
+        self.assertFalse(ok)
+        self.assertIn("provider-id", msg)
+        self._assert_nothing_written()
+
+    def test_soft_provider_is_rejected_instead_of_written(self) -> None:
+        ok, msg = self._create(
+            target_class="soft",
+            target_id="faq-block",
+            mock=None,
+            providers=["acme"],
+        )
+        self.assertFalse(ok)
+        self.assertIn("får inte deklarera providers", msg)
         self._assert_nothing_written()
 
     def test_hard_exception_capability_may_skip_demo_mode(self) -> None:
@@ -632,6 +706,8 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
             "lastVerified": "2026-07-12",
             **extra,
         }
+        if dossier_class == "hard" and "providers" not in extra:
+            manifest["providers"] = ["acme"]
         path.write_text(json.dumps(manifest), encoding="utf-8")
         return path
 
@@ -682,6 +758,28 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("demoläge", msg)
         self.assertEqual(self._saved()["mock"], "seed")
+
+    def test_hard_may_not_lose_provider_ownership(self) -> None:
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            self.manifest_path,
+            {"mock": "seed", "providers": None},
+            dossier_class="hard",
+        )
+        self.assertFalse(ok)
+        self.assertIn("providers", msg)
+        self.assertEqual(self._saved(), self.original)
+
+    def test_soft_may_not_gain_provider_ownership(self) -> None:
+        path = self._write_manifest(
+            "soft", "acme-tabell", "data-table", providers=["acme"]
+        )
+        before = self._saved(path)
+        ok, msg = dossiers_page._apply_manifest_field_edits(
+            path, {"label": "Acme Tabell"}, dossier_class="soft"
+        )
+        self.assertFalse(ok)
+        self.assertIn("providers", msg)
+        self.assertEqual(self._saved(path), before)
 
     def test_hard_on_the_exception_list_may_have_no_demolage(self) -> None:
         # Undantagslistan läses ur validate-manifest.ts — samma källa som
@@ -816,6 +914,24 @@ class PromoteProspectCapabilityGateTests(unittest.TestCase):
         )
         self.assertFalse(ok)
         self.assertNotIn("targetCapability", msg)
+
+    def test_hard_draft_without_provider_is_rejected(self) -> None:
+        ok, msg = dossiers_page._promote_prospect(
+            self.root, self._entry(), force=False
+        )
+        self.assertFalse(ok)
+        self.assertIn("providers", msg)
+
+    def test_soft_draft_with_provider_is_rejected(self) -> None:
+        manifest_path = self.root / "legacy-1" / "_v2-draft" / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["providers"] = ["acme"]
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        ok, msg = dossiers_page._promote_prospect(
+            self.root, self._entry(targetClass="soft"), force=False
+        )
+        self.assertFalse(ok)
+        self.assertIn("soft manifests must not declare providers", msg)
 
 
 if __name__ == "__main__":

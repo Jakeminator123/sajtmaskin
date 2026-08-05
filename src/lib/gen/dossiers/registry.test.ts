@@ -9,9 +9,13 @@ import {
   clearDossierRegistryCache,
   getAllDossiers,
   getCapabilityMap,
+  getDossierProviderCatalog,
   getDossierFileContent,
   isSafeDossierPath,
+  resolveDossierProvider,
 } from "./registry";
+import { INTEGRATION_PROVIDERS } from "../agent-tools";
+import { integrationRegistry } from "../../integrations/registry";
 
 const ROOT = resolve(process.cwd(), "data", "dossiers");
 
@@ -35,6 +39,13 @@ describe("loadEntry copies the manifest mock field (bugbot #468)", () => {
     expect(stripe?.mock).toBe("visual");
     const ably = all.find((d) => d.id === "ably-realtime");
     expect(ably?.mock).toBe("visual");
+  });
+
+  it("surfaces provider ownership and verification status", () => {
+    const all = getAllDossiers();
+    expect(all.find((d) => d.id === "stripe-checkout")?.providers).toEqual(["stripe"]);
+    expect(all.find((d) => d.id === "ai-tool-calling-chat")?.verificationStatus).toBe("unverified");
+    expect(all.find((d) => d.id === "gallery-lightbox")?.providers).toBeUndefined();
   });
 });
 
@@ -91,12 +102,12 @@ describe("isSafeDossierPath", () => {
   // substrängen `..` men är inte traversal — en substring-check tappade
   // dem tyst. Segment-checken ska släppa igenom dem.
   it("accepts literal catch-all directory names ([...slug])", () => {
-    expect(
-      isSafeDossierPath("hard", "stripe-checkout", "files/app/docs/[...slug]/page.tsx"),
-    ).toBe(true);
-    expect(
-      isSafeDossierPath("hard", "stripe-checkout", "files/app/[[...slug]]/page.tsx"),
-    ).toBe(true);
+    expect(isSafeDossierPath("hard", "stripe-checkout", "files/app/docs/[...slug]/page.tsx")).toBe(
+      true,
+    );
+    expect(isSafeDossierPath("hard", "stripe-checkout", "files/app/[[...slug]]/page.tsx")).toBe(
+      true,
+    );
   });
 
   it("rejects parent traversal", () => {
@@ -124,6 +135,62 @@ describe("getCapabilityMap", () => {
       const sorted = [...ids].sort();
       expect(ids).toEqual(sorted);
     }
+  });
+});
+
+describe("manifest provider projection", () => {
+  it("maps a unique provider to exact dossier identity and capability", () => {
+    expect(resolveDossierProvider("stripe")).toMatchObject({
+      provider: "stripe",
+      status: "unique",
+      dossierIds: ["stripe-checkout"],
+      capabilities: ["payments"],
+    });
+  });
+
+  it("flags providers with several dossiers as ambiguous", () => {
+    expect(resolveDossierProvider("openai")).toMatchObject({
+      status: "ambiguous",
+      dossierIds: ["ai-tool-calling-chat", "openai-chat", "rag-chat"],
+      capabilities: ["ai-chat", "ai-tool-calling", "rag-chat"],
+    });
+  });
+
+  it("contains only explicit hard-manifest providers", () => {
+    const providers = getDossierProviderCatalog();
+    expect(providers).toContain("stripe");
+    expect(providers).toContain("fal");
+    expect(providers).not.toContain("cmdk");
+    expect(providers).toEqual([...providers].sort());
+  });
+
+  it("keeps the agent enum in parity with registry and manifest providers", () => {
+    const expected = new Set([
+      ...integrationRegistry.map((definition) => definition.provider ?? definition.key),
+      ...getDossierProviderCatalog(),
+      "other",
+    ]);
+    expect(new Set(INTEGRATION_PROVIDERS)).toEqual(expected);
+    expect(INTEGRATION_PROVIDERS).toHaveLength(expected.size);
+  });
+
+  it("retains every legacy agent provider value, including generic Prisma", () => {
+    expect(INTEGRATION_PROVIDERS).toEqual(
+      expect.arrayContaining([
+        "supabase",
+        "stripe",
+        "clerk",
+        "next-auth",
+        "resend",
+        "upstash",
+        "prisma",
+        "openai",
+        "vercel-blob",
+        "vercel-kv",
+        "google",
+        "other",
+      ]),
+    );
   });
 });
 

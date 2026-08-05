@@ -9,16 +9,21 @@ describe("deriveTier3BuildSpecForDossierIds", () => {
       key: "stripe-checkout",
       provider: "stripe-checkout",
       featureRuntimeEnvKeys: ["STRIPE_SECRET_KEY"],
-      placeholderOkEnvKeys: ["NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
-      warnOnlyEnvKeys: [],
+      placeholderOkEnvKeys: [],
+      warnOnlyEnvKeys: ["NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
     });
   });
 
-  it("keeps Clerk build enforcement while allowing harmless public config", () => {
+  it("lets manifest enforcement outrank the global harmless-key catalog", () => {
     const spec = deriveTier3BuildSpecForDossierIds(["clerk-auth"]);
     expect(spec.requirements[0].requiredRealEnvKeys).toContain("CLERK_SECRET_KEY");
-    expect(spec.requirements[0].placeholderOkEnvKeys).toContain(
-      "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+    expect(spec.requirements[0].requiredRealEnvKeys).toContain("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY");
+    expect(spec.requirements[0].placeholderOkEnvKeys).toEqual([]);
+
+    const sanity = deriveTier3BuildSpecForDossierIds(["sanity-cms"]).requirements[0];
+    expect(sanity.featureRuntimeEnvKeys).toEqual(
+      expect.arrayContaining(["NEXT_PUBLIC_SANITY_PROJECT_ID", "NEXT_PUBLIC_SANITY_DATASET"]),
     );
+    expect(sanity.placeholderOkEnvKeys).toEqual([]);
   });
 });

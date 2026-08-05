@@ -10,21 +10,24 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { ROUTE_PLAN_SITE_TYPES } from "./route-plan";
+import { getDossierProviderCatalog } from "./dossiers/registry";
+import { integrationRegistry } from "../integrations/registry";
 
-const INTEGRATION_PROVIDERS = [
-  "supabase",
-  "stripe",
-  "clerk",
-  "next-auth",
-  "resend",
-  "upstash",
-  "prisma",
-  "openai",
-  "vercel-blob",
-  "vercel-kv",
-  "google",
-  "other",
-] as const;
+const DERIVED_INTEGRATION_PROVIDERS = [
+  ...new Set(
+    [
+      ...integrationRegistry.map((definition) =>
+        (definition.provider ?? definition.key).toLowerCase(),
+      ),
+      ...getDossierProviderCatalog(),
+    ].filter((provider) => provider !== "other"),
+  ),
+];
+
+export const INTEGRATION_PROVIDERS: [string, ...string[]] =
+  DERIVED_INTEGRATION_PROVIDERS.length > 0
+    ? [DERIVED_INTEGRATION_PROVIDERS[0], ...DERIVED_INTEGRATION_PROVIDERS.slice(1), "other"]
+    : ["other"];
 
 export const suggestIntegration = tool({
   description:
@@ -34,19 +37,14 @@ export const suggestIntegration = tool({
     "IMPORTANT: Always generate the full site code in the same response. Never return only tool calls without code.",
   inputSchema: z.object({
     name: z.string().describe("Human-readable integration name, e.g. 'Supabase'"),
-    provider: z
-      .enum(INTEGRATION_PROVIDERS)
-      .describe("Provider key"),
+    provider: z.enum(INTEGRATION_PROVIDERS).describe("Provider key"),
     envVars: z
       .array(z.string())
-      .describe("Environment variable names the integration requires, e.g. ['SUPABASE_URL', 'SUPABASE_ANON_KEY']"),
-    reason: z
-      .string()
-      .describe("Why this integration is needed for the project"),
-    setupHint: z
-      .string()
-      .optional()
-      .describe("Brief setup instruction for the user"),
+      .describe(
+        "Environment variable names the integration requires, e.g. ['SUPABASE_URL', 'SUPABASE_ANON_KEY']",
+      ),
+    reason: z.string().describe("Why this integration is needed for the project"),
+    setupHint: z.string().optional().describe("Brief setup instruction for the user"),
   }),
   execute: async ({ name, provider }: { name: string; provider: string }) => ({
     acknowledged: true,
@@ -61,12 +59,8 @@ export const requestEnvVar = tool({
     "on simple brochure/landing pages; prefer mocks or client-only behavior when non-blocking. " +
     "IMPORTANT: Always generate the full site code in the same response. Never return only tool calls without code.",
   inputSchema: z.object({
-    key: z
-      .string()
-      .describe("The environment variable name, e.g. 'MY_API_KEY'"),
-    description: z
-      .string()
-      .describe("What this variable is used for"),
+    key: z.string().describe("The environment variable name, e.g. 'MY_API_KEY'"),
+    description: z.string().describe("What this variable is used for"),
     required: z
       .boolean()
       .default(true)
@@ -84,9 +78,7 @@ export const askClarifyingQuestion = tool({
     "blocking decision (database, auth, payment, core scope). Do not use for every possible " +
     "integration or for static sites that do not need backend choices.",
   inputSchema: z.object({
-    question: z
-      .string()
-      .describe("The question to ask the user"),
+    question: z.string().describe("The question to ask the user"),
     options: z
       .array(z.string())
       .optional()
@@ -138,14 +130,7 @@ export const emitPlanArtifact = tool({
       .array(
         z.object({
           id: z.string(),
-          kind: z.enum([
-            "integration",
-            "env",
-            "database",
-            "auth",
-            "payment",
-            "unclear",
-          ]),
+          kind: z.enum(["integration", "env", "database", "auth", "payment", "unclear"]),
           question: z.string(),
           options: z.array(z.string()).optional(),
         }),

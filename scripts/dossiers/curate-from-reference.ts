@@ -105,7 +105,8 @@ export function parseArgs(argv: string[]): Args {
     else if (a.startsWith("--reference=")) args.reference = a.slice("--reference=".length);
     else if (a.startsWith("--class=")) {
       const v = a.slice("--class=".length);
-      if (v !== "hard" && v !== "soft") throw new Error(`--class must be 'hard' or 'soft' (got: ${v})`);
+      if (v !== "hard" && v !== "soft")
+        throw new Error(`--class must be 'hard' or 'soft' (got: ${v})`);
       args.class = v;
     } else if (a.startsWith("--id=")) args.id = a.slice("--id=".length);
     else if (a.startsWith("--model=")) requestedModel = a.slice("--model=".length);
@@ -167,7 +168,13 @@ function listSourceFiles(refDir: string, maxFiles = 6): string[] {
 function readMetadata(referenceId: string): string | null {
   if (!existsSync(METADATA_ROOT)) return null;
   const metaFiles = readdirSync(METADATA_ROOT).filter(
-    (f) => f.includes(referenceId.replace(/^(ai|auth|cms|database|payments|realtime|ui-content|ui-marketing)-/, "")) && f.endsWith(".github.json"),
+    (f) =>
+      f.includes(
+        referenceId.replace(
+          /^(ai|auth|cms|database|payments|realtime|ui-content|ui-marketing)-/,
+          "",
+        ),
+      ) && f.endsWith(".github.json"),
   );
   if (metaFiles.length === 0) return null;
   return readIfExists(join(METADATA_ROOT, metaFiles[0]), 2_000);
@@ -177,14 +184,24 @@ interface DraftManifest {
   id: string;
   label: string;
   capability: string;
+  providers?: string[];
   codeFidelity: "verbatim" | "rewritable";
   complexity: "simple" | "medium" | "advanced";
   defaultForCapability: boolean;
+  mock?: "canned" | "seed" | "success" | "visual" | "none";
   summary: string;
   envVars?: { key: string; required: boolean; purpose: string; setupUrl?: string }[];
   dependencies?: string[];
-  files?: { path: string; role: "client" | "server" | "shared"; injectionMode?: "verbatim" | "rewritable" }[];
-  exposes?: { name: string; type: "component" | "function" | "hook" | "constant"; import: string }[];
+  files?: {
+    path: string;
+    role: "client" | "server" | "shared";
+    injectionMode?: "verbatim" | "rewritable";
+  }[];
+  exposes?: {
+    name: string;
+    type: "component" | "function" | "hook" | "constant";
+    import: string;
+  }[];
   lastVerified: string;
   verificationStatus?: "accepted" | "unverified";
   sourceRepoUrl?: string;
@@ -231,21 +248,20 @@ function assertCurationOutput(
   (root.manifest as Record<string, unknown>).verificationStatus = "unverified";
   const result = validateDossierManifest(root.manifest, { expectedId, class: klass });
   if (!result.valid) {
-    throw new Error(
-      `LLM manifest failed schema validation:\n  - ${result.errors.join("\n  - ")}`,
-    );
+    throw new Error(`LLM manifest failed schema validation:\n  - ${result.errors.join("\n  - ")}`);
   }
 }
 
-async function callLLM(args: Args, sources: { name: string; body: string }[]): Promise<CurationOutput> {
+async function callLLM(
+  args: Args,
+  sources: { name: string; body: string }[],
+): Promise<CurationOutput> {
   const apiKey = (process.env.OPENAI_API_KEY ?? "").trim();
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
   const openai = new OpenAI({ apiKey });
 
   const today = new Date().toISOString().slice(0, 10);
-  const sourcesBlock = sources
-    .map((s) => `### ${s.name}\n\`\`\`\n${s.body}\n\`\`\``)
-    .join("\n\n");
+  const sourcesBlock = sources.map((s) => `### ${s.name}\n\`\`\`\n${s.body}\n\`\`\``).join("\n\n");
 
   const system = `You are curating a dossier (a reusable building block) for a website-generation pipeline. Read the provided template repo and produce:
 
@@ -254,10 +270,10 @@ async function callLLM(args: Args, sources: { name: string; body: string }[]): P
   "id": "<kebab-case>",
   "label": "<short human label>",
   "capability": "<single kebab-case capability the dossier delivers, e.g. 'payments', 'auth', 'ai-chat', 'image-gen', 'pricing-section', 'visual-3d'>",
-  "codeFidelity": "verbatim" | "rewritable",
+${args.class === "hard" ? '  "providers": ["<canonical kebab-case provider id, e.g. stripe or openai>"],\n' : ""}  "codeFidelity": "verbatim" | "rewritable",
   "complexity": "simple" | "medium" | "advanced",
   "defaultForCapability": false,
-  "mock": "canned" | "seed" | "success" | "none",
+  "mock": "canned" | "seed" | "success" | "visual" | "none",
   "summary": "<1-3 sentences: what it does + when to use it>",
   "envVars": [{"key":"FOO","required":true,"purpose":"<concrete reason>","setupUrl":"<official provider URL when known>"}],
   "dependencies": ["..."],
@@ -269,10 +285,11 @@ async function callLLM(args: Args, sources: { name: string; body: string }[]): P
 }
 
 Rules:
-- Class is "${args.class}" (already decided): hard = needs external secrets, soft = self-contained.
+- Class is "${args.class}" (already decided): hard = coupled to an external provider, service, or runtime contract; soft = self-contained.
+- providers: REQUIRED and non-empty for hard dossiers; list the canonical external provider identities implemented by the shipped code. OMIT the property entirely for soft dossiers. Never copy a legacy or guessed provider label without confirming it from the source SDK/API.
 - codeFidelity: "verbatim" for integration glue (auth callbacks, webhooks, SDK init, api-routes); "rewritable" for UI components.
 - envVars: only ones that come from the .env.example AND are actually used in the source code. Skip placeholders.
-- mock (hard dossiers): declare how the VISUAL surface works in preview WITHOUT a real key — "canned" (server route returns a believable fabricated response), "seed" (data layer falls back to shipped seed data), "success" (mutation endpoints return a fake success + demo notice), or "none" (cannot be mocked meaningfully, e.g. payments/auth — a discreet config banner is shown). CI requires EVERY hard dossier to have mock != "none" unless the capability is on the documented exception list, so prefer a real mock mode. Omit for soft dossiers.
+- mock (hard dossiers): declare how the VISUAL surface works in preview WITHOUT a real key — "canned" (server route returns a believable fabricated response), "seed" (data layer falls back to shipped seed data), "success" (mutation endpoints return a fake success + demo notice), "visual" (the interactive surface renders but actions show an honest demo notice), or "none" (no meaningful demo surface; a discreet config banner is shown or the feature self-disables). CI requires EVERY hard dossier to have mock != "none" unless the capability is on the documented exception list, so prefer a real mock mode. Omit for soft dossiers.
 - files: list only files that should be injected into the user's project. Strip the upstream's "src/" prefix; output paths should start with "components/".
 - summary: write it for an LLM that needs to decide *when* to use this dossier. No marketing language.
 
@@ -321,17 +338,32 @@ ${sourcesBlock}`;
               type: "object",
               additionalProperties: false,
               required: [
-                "id", "label", "capability", "codeFidelity", "complexity",
-                "summary", "lastVerified",
+                "id",
+                "label",
+                "capability",
+                "codeFidelity",
+                "complexity",
+                "summary",
+                "lastVerified",
+                ...(args.class === "hard" ? ["providers"] : []),
               ],
               properties: {
                 id: { type: "string" },
                 label: { type: "string" },
                 capability: { type: "string" },
+                providers: {
+                  type: "array",
+                  minItems: 1,
+                  uniqueItems: true,
+                  items: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" },
+                },
                 codeFidelity: { type: "string", enum: ["verbatim", "rewritable"] },
                 complexity: { type: "string", enum: ["simple", "medium", "advanced"] },
                 defaultForCapability: { type: "boolean" },
-                mock: { type: "string", enum: ["canned", "seed", "success", "none"] },
+                mock: {
+                  type: "string",
+                  enum: ["canned", "seed", "success", "visual", "none"],
+                },
                 summary: { type: "string" },
                 envVars: {
                   type: "array",
@@ -428,13 +460,20 @@ async function main() {
   }
 
   const sources: { name: string; body: string }[] = [];
-  for (const candidate of ["README.md", "readme.md", "package.json", ".env.example", "components.json"]) {
+  for (const candidate of [
+    "README.md",
+    "readme.md",
+    "package.json",
+    ".env.example",
+    "components.json",
+  ]) {
     const body = readIfExists(join(refDir, candidate));
     if (body) sources.push({ name: candidate, body });
   }
   for (const path of listSourceFiles(refDir)) {
     const body = readIfExists(path);
-    if (body) sources.push({ name: path.replace(refDir + "\\", "").replace(refDir + "/", ""), body });
+    if (body)
+      sources.push({ name: path.replace(refDir + "\\", "").replace(refDir + "/", ""), body });
   }
   const meta = readMetadata(args.reference);
   if (meta) sources.push({ name: "_metadata.github.json", body: meta });
@@ -455,12 +494,17 @@ async function main() {
 
   // Sanity-check: enforce the id/class the user asked for.
   output.manifest.id = args.id;
-  if (!output.manifest.lastVerified) output.manifest.lastVerified = new Date().toISOString().slice(0, 10);
+  if (!output.manifest.lastVerified)
+    output.manifest.lastVerified = new Date().toISOString().slice(0, 10);
 
   mkdirSync(targetDir, { recursive: true });
   writeFileSync(
     join(targetDir, "manifest.json"),
-    JSON.stringify({ $schema: "../../../../docs/schemas/strict/dossier.schema.json", ...output.manifest }, null, 2) + "\n",
+    JSON.stringify(
+      { $schema: "../../../../docs/schemas/strict/dossier.schema.json", ...output.manifest },
+      null,
+      2,
+    ) + "\n",
     "utf-8",
   );
   writeFileSync(join(targetDir, "instructions.md"), output.instructions, "utf-8");

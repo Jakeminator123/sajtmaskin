@@ -4,6 +4,7 @@
   "mock": "canned",
   "label": "AI-bildgenerering — Fal",
   "capability": "image-generation",
+  "providers": ["fal"],
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
@@ -18,10 +19,7 @@
       "enforcement": "feature-runtime"
     }
   ],
-  "dependencies": [
-    "ai",
-    "@ai-sdk/fal"
-  ],
+  "dependencies": ["ai", "@ai-sdk/fal"],
   "files": [
     {
       "path": "components/api/generate-images/route.ts",

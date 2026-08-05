@@ -4,6 +4,7 @@
   "mock": "canned",
   "label": "AI-chatt på eget innehåll (RAG)",
   "capability": "rag-chat",
+  "providers": ["openai", "postgres"],
   "codeFidelity": "verbatim",
   "complexity": "advanced",
   "defaultForCapability": true,

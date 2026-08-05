@@ -4,6 +4,7 @@
   "mock": "success",
   "label": "Kontaktformulär — Resend",
   "capability": "contact-form",
+  "providers": ["resend"],
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,

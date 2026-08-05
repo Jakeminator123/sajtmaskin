@@ -123,6 +123,12 @@ export interface DossierEntry {
   label: string;
   /** Abstract capability matched against `brief.requestedCapabilities`. */
   capability: Capability;
+  /**
+   * Canonical external provider identities implemented by this dossier.
+   * Required for `hard` manifests and forbidden for `soft` manifests by the
+   * validator. Composite dossiers may name more than one provider.
+   */
+  providers?: string[];
   /** Default injection mode for files in this dossier. */
   codeFidelity: CodeFidelity;
   complexity: DossierComplexity;
@@ -223,9 +229,7 @@ export function defaultInjectionMode(file: DossierFile, entry: DossierEntry): Co
  * Extend the rule HERE if a future case needs it — never re-derive the
  * boundary in a separate hardcoded list.
  */
-export function dossierRequiresF3(
-  entry: Pick<DossierEntry, "envVars" | "files">,
-): boolean {
+export function dossierRequiresF3(entry: Pick<DossierEntry, "envVars" | "files">): boolean {
   if ((entry.envVars ?? []).some((env) => (env.enforcement ?? "build") === "build")) {
     return true;
   }

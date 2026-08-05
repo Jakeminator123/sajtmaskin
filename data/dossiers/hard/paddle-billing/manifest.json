@@ -4,6 +4,7 @@
   "mock": "visual",
   "label": "Prenumerationer — Paddle",
   "capability": "subscriptions",
+  "providers": ["paddle", "supabase"],
   "codeFidelity": "verbatim",
   "complexity": "advanced",
   "defaultForCapability": true,
