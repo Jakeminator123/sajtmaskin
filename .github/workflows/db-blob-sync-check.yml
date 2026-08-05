@@ -7,7 +7,7 @@ name: DB + Blob sync check
 # counts are informational (the old "prod is also empty" assumption was stale and
 # kept this gate red on a used production DB — the same now applies to the
 # actively-used dev DB). Both still enforce connectivity, schema, no drift,
-# PRESERVED tables and parity. Runs pydatabastest.py --ci, which never prompts and
+# PRESERVED tables and parity. Runs scripts/db/pydatabastest.py --ci, which never prompts and
 # exits non-zero on any FAIL. If a DB/blob secret is empty, that target is SKIPPED
 # with a WARN so the job still passes meaningfully in forks / environments without
 # prod credentials.
@@ -49,6 +49,10 @@ jobs:
       # Behavior tests for the gate's EMPTY-group decision logic (enforce/warn/info).
       # No DB or credentials needed, so they run on every event including PRs.
       - name: Run gate unit tests
+        # `working-directory` puts scripts/db on sys.path, which is what lets the
+        # test's `from pydatabastest import ...` resolve after the move out of the
+        # repo root. The script itself is CWD-independent (see its REPO_ROOT).
+        working-directory: scripts/db
         run: python -m unittest test_pydatabastest -v
 
       # SECURITY: production credentials are injected ONLY on trusted events (push to
@@ -56,7 +60,7 @@ jobs:
       # same script, so PR-controlled code can never execute with production secrets.
       - name: Run DB + Blob sync gate (trusted events, with credentials)
         if: github.event_name != 'pull_request'
-        run: python pydatabastest.py --ci
+        run: python scripts/db/pydatabastest.py --ci
         env:
           # The script tries the pooled (pooler.supabase.com) URL first, then direct.
           POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
@@ -71,6 +75,6 @@ jobs:
         # No secrets are injected here, so the PR's (untrusted) script can never run
         # with production credentials. Each DB/blob target SKIPs with a WARN; this step
         # only validates that the script parses and runs.
-        run: python pydatabastest.py --ci
+        run: python scripts/db/pydatabastest.py --ci
         env:
           DB_SSL_REJECT_UNAUTHORIZED: "false"
