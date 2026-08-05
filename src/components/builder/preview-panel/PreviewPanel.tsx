@@ -313,6 +313,19 @@ export function PreviewPanel({
   const [inspectEngine, setInspectEngine] = useState<InspectEngine>(
     bridgeEnabled ? "bridge" : "map",
   );
+  // Bara en automatisk nedfällning får återhämtas. Ett manuellt motorval (map/
+  // ai/playwright i inspektorpanelen) ska inte ryckas tillbaka av ett sent `ready`.
+  const autoFellBackFromBridgeRef = useRef(false);
+  const selectInspectEngine = useCallback(
+    (engine: InspectEngine) => {
+      // Ett klick på den redan valda motorn är inget val — hade det räknats
+      // skulle en felklick på Map släcka återhämtningen och lämna inspektorn
+      // död i prod, där kartan är 503.
+      if (engine !== inspectEngine) autoFellBackFromBridgeRef.current = false;
+      setInspectEngine(engine);
+    },
+    [inspectEngine],
+  );
   const [inspectStatus, setInspectStatus] = useState<string | null>(null);
   const [lastCodeMatch, setLastCodeMatch] = useState<RegistryMatch | null>(null);
   const [inspectMenu, setInspectMenu] = useState<InspectMenuState | null>(null);
@@ -673,7 +686,18 @@ export function PreviewPanel({
     onRegion: handleBridgeRegion,
     // A-fix (#164/#197): bron annonserade aldrig `ready` → previewn saknar
     // injektionen. Växla till kartmotorn i stället för en inert inspektor.
-    onBridgeUnavailable: () => setInspectEngine("map"),
+    onBridgeUnavailable: () => {
+      autoFellBackFromBridgeRef.current = true;
+      setInspectEngine("map");
+    },
+    // Kommer `ready` sent (VM:en bootade klart och iframen laddades om) tas
+    // sessionen tillbaka till bron i stället för att sitta fast i en död karta.
+    onBridgeReady: () => {
+      if (!autoFellBackFromBridgeRef.current) return;
+      autoFellBackFromBridgeRef.current = false;
+      setInspectEngine("bridge");
+      setInspectStatus("Inspektera: klicka på ett element i previewn.");
+    },
     // Placement/composer behöver sektionsankare i prod (ingen Playwright-map).
     // effectivePlacementMode: även klick-pickerns lokala placeringsläge
     // (Bläddra/Beskriv) ska trigga zon-hämtning, inte bara shell-propen.
@@ -1834,7 +1858,7 @@ export function PreviewPanel({
                   inspectEngine={inspectEngine}
                   hoveredMapElement={hoveredMapElement}
                   inspectPulse={inspectPulse}
-                  setInspectEngine={setInspectEngine}
+                  setInspectEngine={selectInspectEngine}
                   inspectorUnavailable={inspectorUnavailable}
                   elementMapCount={elementMap.length}
                   totalAiCostUsd={totalAiCostUsd}
