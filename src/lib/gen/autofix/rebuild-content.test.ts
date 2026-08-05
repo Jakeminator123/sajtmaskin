@@ -30,6 +30,10 @@ describe("rebuildContent", () => {
 
     const aBlock = result.match(/```tsx file="components\/a\.tsx"\n([\s\S]*?)\n```/);
     expect(aBlock?.[1]).toBe(STUB);
+
+    // The trade-off this fix accepts: an unmatched fence means b keeps its
+    // original content instead of the fix landing in the wrong file.
+    expect(result).not.toContain(FIXED);
   });
 
   it("replaces the matching fence when two files share identical content", () => {
