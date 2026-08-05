@@ -1,5 +1,14 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 
+/**
+ * Kategori för browser-runtime-fel i versionens error-log. Raden är en
+ * observation från previewn (inget repair-pass) och måste därför vara med i
+ * `PRUNE_EXEMPT_CATEGORIES` i `src/lib/db/services/version-errors.ts` — annars
+ * räknas den som pass 0 och raderas vid nästa rena follow-up på samma version
+ * (samma fälla som R7:s missing-env-rad). Låst av test i version-errors.test.ts.
+ */
+export const PREVIEW_CLIENT_ERROR_CATEGORY = "preview:client-error";
+
 export const CLIENT_ERROR_KINDS = ["uncaught", "unhandledrejection", "hydration"] as const;
 export type ClientErrorKind = (typeof CLIENT_ERROR_KINDS)[number];
 
@@ -104,7 +113,7 @@ export function reportPreviewClientError(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         level: "warning",
-        category: "preview:client-error",
+        category: PREVIEW_CLIENT_ERROR_CATEGORY,
         message: `[${payload.kind}] ${payload.message}`,
         meta: {
           kind: payload.kind,

@@ -70,6 +70,7 @@ vi.mock("next/server", () => ({ after: vi.fn() }));
 import { PgDialect } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db/client";
 import { F3_READINESS_MISSING_ENV_CATEGORY } from "@/lib/integrations/log-tier3-missing-env";
+import { PREVIEW_CLIENT_ERROR_CATEGORY } from "@/lib/builder/preview-client-error-report";
 import {
   createEngineVersionErrorLogs,
   PRUNE_EXEMPT_CATEGORIES,
@@ -147,6 +148,15 @@ describe("pruneStaleVersionErrorLogs", () => {
    */
   it("undantagslistan täcker R7:s kategori", () => {
     expect(PRUNE_EXEMPT_CATEGORIES).toContain(F3_READINESS_MISSING_ENV_CATEGORY);
+  });
+
+  /**
+   * Browser-runtime-fel från previewn (steg 3, hydration-reparationskedjan)
+   * är också gate-observationer utan `meta.repairPassIndex` — utan undantaget
+   * raderas de vid nästa rena follow-up på samma version.
+   */
+  it("undantagslistan täcker preview:client-error", () => {
+    expect(PRUNE_EXEMPT_CATEGORIES).toContain(PREVIEW_CLIENT_ERROR_CATEGORY);
   });
 });
 
