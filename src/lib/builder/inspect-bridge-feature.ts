@@ -40,6 +40,12 @@ export const INSPECT_BRIDGE_MESSAGE = {
   requestSections: "sajtmaskin:inspect:request-sections",
   /** child → parent: sektionskandidater (tag/id/class + vpPercent) */
   sections: "sajtmaskin:inspect:sections",
+  /**
+   * child → parent: browser-runtime-fel (uncaught / unhandledrejection /
+   * hydration via console.error). Aktiv utan inspect-läge — scriptet finns
+   * bara i builder-previews.
+   */
+  clientError: "sajtmaskin:inspect:client-error",
 } as const;
 
 export function isInspectBridgeEnabled(): boolean {

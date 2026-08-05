@@ -19,6 +19,7 @@ import {
   INSPECT_BRIDGE_QUERY_PARAM,
   isInspectBridgeEnabled,
 } from "@/lib/builder/inspect-bridge-feature";
+import { reportPreviewClientError } from "@/lib/builder/preview-client-error-report";
 import type { FileNode } from "@/lib/builder/types";
 import { buildJsxElementRegistry, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import {
@@ -671,6 +672,13 @@ export function PreviewPanel({
     });
   }, []);
 
+  const handleBridgeClientError = useCallback(
+    (payload: unknown) => {
+      reportPreviewClientError(chatId, versionId, payload);
+    },
+    [chatId, versionId],
+  );
+
   usePreviewInspectBridge({
     enabled: bridgeEnabled,
     active: inspectEngine === "bridge",
@@ -684,6 +692,7 @@ export function PreviewPanel({
     onPick: handleBridgePick,
     onRect: handleBridgeRect,
     onRegion: handleBridgeRegion,
+    onClientError: handleBridgeClientError,
     // A-fix (#164/#197): bron annonserade aldrig `ready` → previewn saknar
     // injektionen. Växla till kartmotorn i stället för en inert inspektor.
     onBridgeUnavailable: () => {

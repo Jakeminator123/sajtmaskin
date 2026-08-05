@@ -51,4 +51,19 @@ describe("INSPECT_BRIDGE_SCRIPT", () => {
     expect(INSPECT_BRIDGE_SCRIPT).toContain("* 0.01");
     expect(INSPECT_BRIDGE_SCRIPT).toContain("if (isNearIdenticalParent(el, r, vh)) continue;");
   });
+
+  it("fångar browser-runtime-fel och postar clientError oberoende av inspect-läge", () => {
+    expect(INSPECT_BRIDGE_SCRIPT).toContain(`"${INSPECT_BRIDGE_MESSAGE.clientError}"`);
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('window.addEventListener("error"');
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('window.addEventListener("unhandledrejection"');
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("console.error");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("/hydrat/i");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('postClientError("uncaught"');
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('postClientError("unhandledrejection"');
+    expect(INSPECT_BRIDGE_SCRIPT).toContain('postClientError("hydration"');
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("post(T.clientError,");
+    // Tak + dedupe per sidladdning (inte gated på enabled/setMode).
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("MAX_CLIENT_ERRORS");
+    expect(INSPECT_BRIDGE_SCRIPT).toContain("postedClientErrors");
+  });
 });
