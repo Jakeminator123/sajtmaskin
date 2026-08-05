@@ -1,10 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const launchCaptureBrowserMock = vi.hoisted(() => vi.fn());
+const applyCaptureRequestGateMock = vi.hoisted(() => vi.fn(async () => {}));
+
+vi.mock("@/lib/capture/browser", () => ({
+  launchCaptureBrowser: launchCaptureBrowserMock,
+  applyCaptureRequestGate: applyCaptureRequestGateMock,
+}));
+
 import {
   evaluateProductDomSnapshot,
   evaluateRuntimeErrors,
   isAllowedProductPostcheckUrl,
   isRenderFatalError,
   productPostcheckSkipReasonFromError,
+  runProductPostcheck,
   type ProductDomEvaluation,
   type ProductPostcheckWarning,
 } from "./product-postcheck";
@@ -256,5 +268,82 @@ describe("evaluateRuntimeErrors (M#f2et — never green when the preview is dead
     const result = evaluateRuntimeErrors([elementTypeInvalid, elementTypeInvalid, elementTypeInvalid]);
     expect(result.productBlocked).toBe(true);
     expect(result.warnings).toHaveLength(1);
+  });
+});
+
+/**
+ * Postchecken importerade tidigare `playwright` rakt av. Den är en
+ * devDependency vars Chromium aldrig installeras på Vercel, så launchen kastade
+ * i prod → `playwright_unavailable` → `skipped: true, productBlocked: false`.
+ * Kontrollen rapporterade alltså tyst grönt utan att någonsin ha kört. Samma
+ * fälla som `@/lib/capture/browser` skapades för att stänga för miniatyrer och
+ * inspector-capture; detta test låser att postchecken använder den startpunkten.
+ */
+describe("runProductPostcheck browser-startpunkt", () => {
+  function fakePage(results: unknown[]) {
+    let call = 0;
+    return {
+      on: vi.fn(),
+      goto: vi.fn(async () => {}),
+      waitForLoadState: vi.fn(async () => {}),
+      evaluate: vi.fn(async () => results[call++]),
+      close: vi.fn(async () => {}),
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    applyCaptureRequestGateMock.mockResolvedValue(undefined);
+    const desktop = fakePage([{ anchors: [], images: [], ctas: [], forms: [] }, false]);
+    const mobile = fakePage([{ status: "not_applicable" }, false]);
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+  });
+
+  it("startar Chromium via den delade, prod-dugliga startpunkten", async () => {
+    const result = await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    expect(launchCaptureBrowserMock).toHaveBeenCalledTimes(1);
+    expect(result.skipped).toBe(false);
+    expect(result.skippedReason).toBeNull();
+  });
+
+  it("lägger SSRF-grinden på båda viewporterna", async () => {
+    await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * NFT tappar Chromium-binären för varje serverless-funktion som saknar egen
+ * spårningspost, och funktionen dör då vid browser-launch med grönt bygge
+ * (Codex P1 på #729). Enhetstester som mockar `executablePath` kan inte fånga
+ * det — därför granskas konfigurationen direkt.
+ */
+describe("outputFileTracingIncludes för browser-routes", () => {
+  const routesThatLaunchChromium = [
+    "/api/projects/*/thumbnail",
+    "/api/inspector-capture",
+    "/api/engine/chats/*/product-postcheck",
+  ];
+
+  it("ger varje Chromium-route en egen spårningspost", () => {
+    const config = readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");
+    for (const route of routesThatLaunchChromium) {
+      expect(config).toContain(`"${route}"`);
+    }
   });
 });

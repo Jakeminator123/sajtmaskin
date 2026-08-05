@@ -1,3 +1,5 @@
+import type { Browser, Page } from "playwright-core";
+import { applyCaptureRequestGate, launchCaptureBrowser } from "@/lib/capture/browser";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
 
 export type ProductPostcheckWarningCode =
@@ -355,9 +357,9 @@ export async function runProductPostcheck(params: {
   }
 
   const timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  let browser: Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>> | null = null;
-  let page: Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>> | null = null;
-  let mobilePage: Awaited<ReturnType<Awaited<ReturnType<(typeof import("playwright"))["chromium"]["launch"]>>["newPage"]>> | null = null;
+  let browser: Browser | null = null;
+  let page: Page | null = null;
+  let mobilePage: Page | null = null;
   // Uncaught runtime exceptions captured across BOTH viewports. Hoisted to
   // function scope so the catch below can still surface a render-fatal crash
   // that was captured before a later phase (mobile nav / menu probe) threw —
@@ -365,13 +367,22 @@ export async function runProductPostcheck(params: {
   const pageErrors: string[] = [];
 
   try {
-    const { chromium } = await import("playwright");
-    browser = await chromium.launch({ headless: true });
+    // Samma startpunkt som miniatyrer och inspector-capture. Ett rakt
+    // `import("playwright")` såg ut att fungera — men `playwright` är en
+    // devDependency vars Chromium aldrig installeras på Vercel, så launchen
+    // kastade i prod, fångades av catchen nedan och blev `playwright_unavailable`
+    // → `skipped: true, productBlocked: false`. Kontrollen har alltså aldrig
+    // kört i produktion och rapporterade tyst grönt. Exakt den fällan som
+    // `@/lib/capture/browser` skapades för att stänga.
+    browser = await launchCaptureBrowser();
     page = await browser.newPage({
       viewport: { width: 1280, height: 900 },
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+      // Service-worker-requests går förbi route-interception (PR #426).
+      serviceWorkers: "block",
     });
+    await applyCaptureRequestGate(page);
 
     // Capture uncaught runtime exceptions while the preview boots. A
     // render-fatal crash (e.g. "Element type is invalid") blanks the page even
@@ -458,7 +469,11 @@ export async function runProductPostcheck(params: {
       .evaluate(detectNextErrorOverlayInBrowser)
       .catch(() => false);
 
-    mobilePage = await browser.newPage({ viewport: { width: 375, height: 667 } });
+    mobilePage = await browser.newPage({
+      viewport: { width: 375, height: 667 },
+      serviceWorkers: "block",
+    });
+    await applyCaptureRequestGate(mobilePage);
     // Capture mobile-viewport runtime crashes too (Bugbot #321): a render-fatal
     // error can surface only at 375px or after the hamburger toggle below.
     mobilePage.on("pageerror", (error) => {
