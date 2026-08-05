@@ -80,6 +80,12 @@ export const MIGRATION_ORDER = [
   // version så force-restart/quick-edit-fallback bygger samma F2 mock-seedade
   // .env.local som första boot. Additiv nullable jsonb; basen skapas tidigare.
   "add-engine-version-selected-dossier-env-keys.sql",
+  // Live dev↔prod-paritet (2026-08-05): prod-tabeller födda under äldre
+  // CREATE TABLE-definitioner får dagens form (TIMESTAMPTZ, UNIQUE/FK-
+  // constraints), dev tappar redundanta dubblett-index. Allt guardat via
+  // kataloguppslag — no-op på färska installationer. Sist i ordningen:
+  // den förutsätter att alla baser + tidigare alters redan körts.
+  "align-live-schema-parity.sql",
 ];
 
 /**
