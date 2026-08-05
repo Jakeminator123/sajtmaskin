@@ -130,6 +130,8 @@ Risk: <the caller most likely to be affected, or "-">
 
 ### Step 7 — review
 
+**Read the test diff line by line, not just its outcome.** The whole chain rests on the step 2 test measuring the right thing; if it does not, the mechanical verdict is worthless, and red-before/green-after will not reveal it. Before opening a PR the orchestrator reads the test addition itself and asks: does the red test measure the bug or a proxy? Is the counter-test the *closest legitimate* case? And — easiest to miss — **does the test assert what the fix deliberately gives up?** On #780 `rebuild-content.test.ts` locked that the wrong file is not corrupted but said nothing about the right file's fix now being dropped on a fence miss; the trade-off lived only in the head of whoever read the diff. One more assertion turned it into a contract.
+
 `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, prompt form per `AGENTS.md § Review guidelines`:
 
 ```text

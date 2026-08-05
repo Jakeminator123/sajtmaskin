@@ -128,6 +128,8 @@ Två fällor i domen:
 
 `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`. Detta är det obligatoriska passet ur `workflow.mdc`, inte ett extra lager. Fynd triageras som vanligt: fixa i diffen, logga i backloggen, eller avfärda med en rad.
 
+**Läs testdiffen rad för rad — inte bara utfallet.** Hela kedjan vilar på att steg 2:s test mäter rätt sak; gör det inte det är den maskinella domen värdelös, och rött-före/grönt-efter avslöjar det inte. Orkestratorn läser därför testtillägget själv innan PR och frågar: mäter det röda testet buggen eller en proxy? Är motprovet det *närmaste legitima* fallet? Och — lättast att missa — **asserterar testet det fixen medvetet offrar?** På #780 låste `rebuild-content.test.ts` att fel fil inte korrumperas men var tyst om att den rätta filens fix nu tappas vid fence-miss; avvägningen fanns bara i huvudet på den som läst diffen. En assertion till gjorde den till kontrakt.
+
 **"diff is empty" — fallback (verifierat 2026-08-05):** bugbot kan svara *"the diff … is empty"* på en kedja-worktree och då **gäller passet inte som kört** — behandla det som ett fel, aldrig som "inga fynd". Observerat: en opushad kedja-branch gav tomt svar på både `uncommitted changes` och `branch changes`, medan samma form fungerade i en länkad worktree vars branch hade pushad upstream. Prova alltså normalformen ovan först. Får du tomt svar:
 
 1. Spara patchen med `git add -A -N` + `git diff HEAD` (se *Efter körning* steg 1) — en vanlig `git diff` utelämnar den otrackade testfilen och ger bugbot en ofullständig vinnare.
