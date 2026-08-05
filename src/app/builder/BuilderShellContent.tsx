@@ -81,7 +81,7 @@ import {
 } from "@/lib/hooks/chat/useAutoFix";
 import { useVersionStatus } from "@/lib/hooks/chat/useVersionStatus";
 import { shouldBlockPreviewWithLoadingOverlay } from "@/lib/builder/preview-lifecycle";
-import { publishBuilderSendTurn } from "@/lib/openclaw/builder-target";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
 import { isOpenClawPreparedSend } from "@/lib/openclaw/prepared-prompt";
 import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { cn } from "@/lib/utils";
@@ -247,18 +247,14 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // stale-base, an F3 env gate or the credit gate leaves the focused version on
   // its previous terminal status, which otherwise reads exactly like a finished
   // build — and the handshake would wake up and spend another mandate step on a
-  // turn that never ran.
+  // turn that never ran. It is reported for EVERY outcome, not just refusals:
+  // the handshake resumes only on a send that says it ran, so the absence of an
+  // answer has to stop the run too.
   // Numbered per send rather than time-stamped: the builder has many senders,
   // and the handshake owns exactly one of them. A manual retry, a catalogue
   // insert or a plan decision that fails while an autonomous turn is running
   // must not end a mandate whose own send can still succeed.
-  // The timestamp rides along as a fallback for a send that never got to name
-  // itself: matching nothing at all would be worse than the blunt comparison
-  // the handshake used before ids existed.
   const sendSeqRef = useRef(0);
-  const [rejectedTurn, setRejectedTurn] = useState<{ seq: number; at: number } | null>(
-    null,
-  );
 
   const latestPendingReply = useMemo(
     () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
@@ -279,14 +275,18 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       if (isOpenClawPreparedSend({ preparedFill: openClaw.preparedFill, message: args[0] })) {
         openClaw.bindArmedContinuationSend(seq);
       }
-      const outcome = await rawSendMessage(...args);
-      const status = outcome?.status;
-      if (status === "rejected" || status === "failed" || status === "aborted") {
-        const rejected = { seq, at: Date.now() };
-        publishBuilderSendTurn({ rejectedSendSeq: rejected.seq, rejectedAt: rejected.at });
-        setRejectedTurn(rejected);
+      let outcome: SendMessageOutcome | undefined;
+      try {
+        outcome = await rawSendMessage(...args);
+        return outcome;
+      } finally {
+        // A send that threw or resolved with nothing did not run a turn either,
+        // so it reports as a failure rather than leaving the watch waiting for
+        // an answer that will never come.
+        useOpenClawStore
+          .getState()
+          .settleArmedContinuationSend(seq, outcome?.status ?? "failed");
       }
-      return outcome;
     },
     [rawSendMessage],
   );
@@ -796,10 +796,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // Monotonic, unlike the truncated `recentMessages` — growth is how the
       // handshake recognises a turn too short to catch mid-stream.
       chatMessageCount: vm.messages.length,
-      // Only a refusal carrying the id the autonomous send bound to its watch
-      // ends the mandate; every other sender's failure is someone else's.
-      rejectedSendSeq: rejectedTurn?.seq ?? null,
-      rejectedAt: rejectedTurn?.at ?? null,
       // A pending question or plan approval belongs to the user, not to armed
       // autonomy: sending past it would start a new generation and drop the
       // plan the builder is holding. Both halves are needed — `isAwaitingInput`
@@ -826,7 +822,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.isAnyStreaming,
     activeVersionStatus,
     activeVersionIsLatest,
-    rejectedTurn,
     vm.isAwaitingInput,
     latestPendingReply,
   ]);

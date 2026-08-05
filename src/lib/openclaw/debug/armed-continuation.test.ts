@@ -8,6 +8,8 @@ import {
   CONTINUATION_NO_VERSION_MS,
   CONTINUATION_QUIET_MS,
   CONTINUATION_RESUME_FOLLOWTHROUGH_MS,
+  CONTINUATION_SEND_CLAIM_TIMEOUT_MS,
+  CONTINUATION_SEND_OUTCOME_TIMEOUT_MS,
   CONTINUATION_STALE_VIEW_TIMEOUT_MS,
   CONTINUATION_START_TIMEOUT_MS,
   CONTINUATION_WEAK_CONFIRM_MS,
@@ -35,8 +37,6 @@ function snapshot(overrides: Partial<BuilderTurnSnapshot> = {}): BuilderTurnSnap
     isStreaming: false,
     versionStatus: "ready",
     versionIsLatest: true,
-    rejectedSendSeq: null,
-    rejectedAt: null,
     awaitingInput: false,
     chatMessageCount: 4,
     ...overrides,
@@ -50,6 +50,7 @@ function watching(overrides: Partial<ArmedContinuationWatch> = {}): ArmedContinu
     startedAt: NOW - 5000,
     messageCountAtSend: 4,
     sendSeq: 7,
+    sendOutcome: "started",
     observedAt: NOW - 4000,
     observedStrong: true,
     resumedAt: null,
@@ -80,6 +81,8 @@ describe("createArmedContinuationWatch", () => {
       messageCountAtSend: 4,
       // Named by the send itself once it reaches the builder, never guessed here.
       sendSeq: null,
+      // Same for the outcome: it is reported, never inferred from the builder.
+      sendOutcome: null,
       observedAt: null,
       observedStrong: false,
       resumedAt: null,
@@ -224,11 +227,23 @@ describe("decideArmedContinuation", () => {
     expect(decide({ watch: watching({ resumedAt: NOW - 1000 }) }).kind).toBe("wait");
   });
 
-  it("stops when the builder refused the send", () => {
-    // Stale base, F3 env gate or the credit gate: the version keeps its old
-    // terminal status, so nothing else in the snapshot reveals the refusal.
-    const decision = decide({ snapshot: snapshot({ rejectedSendSeq: 7 }) });
-    expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
+  it("stops on every send outcome that did not run a turn", () => {
+    // Stale base, F3 env gate, the credit gate, a cancel, a network failure:
+    // the version keeps its old terminal status, so nothing in the snapshot
+    // reveals any of them. Only the send's own answer does.
+    for (const sendOutcome of ["rejected", "failed", "aborted"] as const) {
+      expect(decide({ watch: watching({ sendOutcome }) })).toMatchObject({
+        kind: "abort",
+        notify: true,
+        disarm: true,
+      });
+    }
+  });
+
+  it("treats a settled F3 round as a turn that ran", () => {
+    // No generation, but the prompt was consumed and the nested round left its
+    // own version behind — there is something for the next step to build on.
+    expect(decide({ watch: watching({ sendOutcome: "settled" }) }).kind).toBe("resume");
   });
 
   it("stops when the builder is waiting for the user", () => {
@@ -242,56 +257,50 @@ describe("decideArmedContinuation", () => {
     // A rolled-back send erases its own optimistic message, so the refusal must
     // be read before the "has the turn started?" gate.
     const decision = decide({
-      watch: watching({ observedAt: null, observedStrong: false }),
-      snapshot: snapshot({ rejectedSendSeq: 7 }),
+      watch: watching({ sendOutcome: "rejected", observedAt: null, observedStrong: false }),
     });
     expect(decision).toMatchObject({ kind: "abort", notify: true });
   });
 
-  it("ignores a refusal that belongs to an earlier turn", () => {
-    // A send that ended before this watch existed says nothing about ours —
-    // acting on it would kill a mandate that just armed.
+  it("will not resume a finished-looking turn it has no outcome for", () => {
+    // The whole point of the gate: stale-base, the F3 env gate and the credit
+    // gate all leave the PREVIOUS build's version terminal and latest, which is
+    // indistinguishable from a finished turn. Anything the outcome contract
+    // does not cover used to be read as success and burned a mandate step.
     const decision = decide({
-      watch: watching({ sendSeq: 7 }),
-      snapshot: snapshot({ rejectedSendSeq: 6 }),
-    });
-    expect(decision.kind).not.toBe("abort");
-  });
-
-  it("ignores a refusal from another sender while our own turn is still running", () => {
-    // A manual retry, a catalogue insert or a plan decision can fail at any
-    // point during an autonomous build. Timestamps could not tell those apart
-    // from our own refusal, so any of them killed a mandate that was fine.
-    const decision = decide({
-      watch: watching({ sendSeq: 7 }),
-      snapshot: snapshot({ rejectedSendSeq: 9, versionStatus: "generating" }),
+      watch: watching({ sendOutcome: null, quietSince: NOW - CONTINUATION_QUIET_MS - 1 }),
     });
     expect(decision).toMatchObject({ kind: "wait" });
   });
 
-  it("falls back to timing for a send that never named itself", () => {
-    // Without an id there is nothing to match, and ignoring the refusal would
-    // let the run wait out a timeout instead of stopping. The blunt comparison
-    // is the lesser evil, so it stays for exactly this case.
+  it("gives up when the outcome of its own send never arrives", () => {
     const decision = decide({
-      watch: watching({ sendSeq: null, startedAt: NOW - 5_000 }),
-      snapshot: snapshot({ rejectedSendSeq: 7, rejectedAt: NOW - 1_000 }),
+      watch: watching({
+        sendOutcome: null,
+        startedAt: NOW - CONTINUATION_SEND_OUTCOME_TIMEOUT_MS - 5_000,
+        observedAt: NOW - CONTINUATION_SEND_OUTCOME_TIMEOUT_MS - 4_000,
+        quietSince: NOW - CONTINUATION_SEND_OUTCOME_TIMEOUT_MS - 1,
+      }),
     });
     expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
   });
 
-  it("does not let the timing fallback override a named send", () => {
-    // Once the turn has an id, a foreign refusal is a foreign refusal however
-    // recent it is — otherwise the fallback would undo the whole fix.
+  it("will not resume a turn it cannot claim as its own", () => {
+    // No send ever named itself, so the terminal version on screen may belong
+    // to anyone — an autofix repair, a second tab, a manual retry.
+    const decision = decide({ watch: watching({ sendSeq: null, sendOutcome: null }) });
+    expect(decision).toMatchObject({ kind: "wait" });
+  });
+
+  it("gives up when the auto-send never reached the builder at all", () => {
     const decision = decide({
-      watch: watching({ sendSeq: 7, startedAt: NOW - 5_000 }),
-      snapshot: snapshot({
-        rejectedSendSeq: 9,
-        rejectedAt: NOW - 1_000,
-        versionStatus: "generating",
+      watch: watching({
+        sendSeq: null,
+        sendOutcome: null,
+        startedAt: NOW - CONTINUATION_SEND_CLAIM_TIMEOUT_MS - 1,
       }),
     });
-    expect(decision).toMatchObject({ kind: "wait" });
+    expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
   });
 
   it("waits while the focus is still on the version we sent from", () => {
