@@ -8,6 +8,12 @@ alwaysApply: true
 **Grok 4.5 är standardmodell för ALLA subagenter** — scan, omdöme, destillering,
 kedja-runner **och** bugg-/kodgranskning (`bugbot`).
 
+**Detta är ägarens stående begäran, inte en repo-preferens.** `Task`-verktygets
+egen beskrivning säger *"use `inherit` unless the user explicitly requested
+another listed model"* — ägaren **har** begärt det här, en gång, för alla
+sessioner. Skicka därför alltid `model`; välj `inherit` bara när ägaren ber om
+något annat i stunden.
+
 ## Slå upp slugen, skriv inte av den
 
 `<grok-4.5>` i repots kommandon och skills betyder: **den Grok 4.5-post som
@@ -29,7 +35,10 @@ dyrt utan att något syns.
 ## Regler
 
 - Skicka alltid `model` i `Task`-anropet (inkl. `bugbot`) — utelämnas den ärver
-  subagenten din egen, ofta dyra, modell.
+  subagenten din egen, ofta dyra, modell. Mätt 2026-08-05: **118 av 147**
+  `Task`-anrop under tre dygn skickade ingen modell alls, så varje "billig"
+  agent kördes tyst på orkestratorns dyra modell. Det, inte antalet subagenter,
+  var den faktiska kostnaden.
 - Välj **inte** Composer (`composer-2.5` / `composer-2.5-fast`) som default
   även om den finns i Task-utbudet.
 - **Hård regel:** dyra tänkande modeller — i synnerhet
