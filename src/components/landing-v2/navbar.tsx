@@ -33,13 +33,12 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
     return () => el?.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // "Funktioner" borttagen — features bor numera på /teknik (slimmare, mer
-  // företagsriktad nav). Sektionsankare använder absolut "/#…" så de fungerar
-  // även från andra sidor än startsidan (t.ex. /teknik).
+  // Marketing-sektioner bor på egna routes (samma mönster som /teknik), så
+  // startsidan kan vara en enda viewport utan scroll.
   const navLinks = [
     { href: "/teknik", label: "Teknik" },
-    { href: "/#hur-det-fungerar", label: "Hur det fungerar" },
-    { href: "/#priser", label: "Priser" },
+    { href: "/hur-det-fungerar", label: "Hur det fungerar" },
+    { href: "/priser", label: "Priser" },
     { href: "/faq", label: "FAQ" },
   ];
 
@@ -67,20 +66,25 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
 
   return (
     <nav
-      className={`relative z-20 flex items-center justify-between px-6 py-3.5 border-b transition-all duration-300 ${
+      className={`relative z-20 grid grid-cols-[1fr_auto] items-center gap-3 px-6 py-3.5 border-b transition-all duration-300 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] ${
         scrolled
           ? "border-border/40 bg-background/80 backdrop-blur-xl"
           : "border-border/20 bg-background/30 backdrop-blur-md"
       }`}
     >
-      <div className="flex items-center gap-1">
+      <Link
+        href="/"
+        className="justify-self-start flex shrink-0 items-center gap-1 rounded-lg outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/40"
+        aria-label="SajtMaskin — till startsidan"
+      >
         <AnimatedLogo className="text-lg font-semibold text-foreground" />
         <span className="hidden sm:inline-flex text-[10px] font-medium uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full ml-1.5">
           Beta
         </span>
-      </div>
+      </Link>
 
-      <div className="hidden lg:flex items-center gap-1">
+      {/* Center column: position is independent of logo width (3-col grid). */}
+      <div className="hidden lg:flex items-center justify-center gap-1 justify-self-center">
         {navLinks.map((link) => (
           <Link
             key={link.href}
@@ -92,7 +96,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
         ))}
       </div>
 
-      <div className="hidden lg:flex items-center gap-3">
+      <div className="hidden lg:flex items-center justify-end gap-3 justify-self-end">
         {!isInitialized ? (
           // Auth-hydration (backlog /logg-internet fynd #22): rendera inte
           // gäst-CTA:erna ("Logga in"/"Kom igång gratis") innan auth-state är

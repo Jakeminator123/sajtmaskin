@@ -68,14 +68,13 @@ export function AnimatedLogo({ className = "" }: { className?: string }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-2 select-none cursor-pointer group ${className}`}
+      className={`inline-flex shrink-0 items-center gap-2 select-none cursor-pointer group ${className}`}
       onMouseEnter={startScramble}
-      role="img"
-      aria-label="SajtMaskin"
+      aria-hidden="true"
     >
-      <span className="relative flex items-center justify-center w-9 h-9 shrink-0">
+      <span className="relative flex items-center justify-center w-9 h-9 shrink-0 overflow-visible">
         <span
-          className={`absolute inset-0 rounded-xl transition-all duration-700 ${
+          className={`pointer-events-none absolute inset-0 rounded-xl transition-all duration-700 ${
             rocketPhase === "launch"
               ? "scale-0 opacity-0"
               : rocketPhase === "boost"
@@ -120,7 +119,7 @@ export function AnimatedLogo({ className = "" }: { className?: string }) {
             {BOOST_PARTICLES.map((particle, i) => (
               <span
                 key={i}
-                className="absolute rounded-full"
+                className="pointer-events-none absolute rounded-full"
                 style={{
                   width: `${particle.size}px`,
                   height: `${particle.size}px`,
@@ -136,12 +135,26 @@ export function AnimatedLogo({ className = "" }: { className?: string }) {
         )}
       </span>
 
-      <span className="font-(--font-heading) tracking-tight">
-        <span className={`transition-colors duration-200 ${isHovering ? "text-primary" : ""}`}>
+      {/*
+        Width is owned ONLY by the invisible FULL_TEXT sizer.
+        Animated glyphs are absolutely positioned so scramble chars
+        (often wider than the final word) cannot grow the navbar.
+      */}
+      <span className="relative font-(--font-heading) tracking-tight inline-block shrink-0">
+        <span className="invisible whitespace-nowrap" aria-hidden="true">
+          {FULL_TEXT}
+        </span>
+        <span
+          className={`absolute inset-0 overflow-hidden whitespace-nowrap transition-colors duration-200 ${
+            isHovering ? "text-primary" : ""
+          }`}
+        >
           {display}
+          {showCursor ? (
+            <span className="ml-0.5 inline-block h-[1em] w-[2px] align-middle bg-primary animate-pulse" />
+          ) : null}
         </span>
       </span>
-      {showCursor && <span className="inline-block w-[2px] h-[1em] bg-primary ml-0.5 animate-pulse" />}
     </span>
   );
 }
