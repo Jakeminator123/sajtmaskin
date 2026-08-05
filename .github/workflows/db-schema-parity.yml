@@ -1,0 +1,69 @@
+name: DB schema parity (scheduled)
+
+# Schemalagd drift-vakt: jämför de två LEVANDE databaserna (dev- och prod-
+# Supabase) objekt för objekt — tabeller, kolumner, index, constraints — via
+# `npm run db:schema-parity` (scripts/db/check-schema-parity.mjs). Read-only.
+#
+# Push-vägen täcks redan av `db-schema-parity`-jobbet i ci.yml (som dessutom
+# auto-applicerar migrationer mot dev). Det här workflowet finns för driften
+# DÄREMELLAN: en kolumn skapad direkt i Supabase-dashboarden, eller manuell
+# DDL, syns annars först vid nästa master-push. Rött = verklig skillnad; fixen
+# är en migration i src/lib/db/migrations/ + MIGRATION_ORDER (aldrig mer
+# dashboard-DDL), alternativt att objektet tas bort.
+#
+# SÄKERHET: körs aldrig på pull_request — secrets injiceras bara på schedule/
+# manuell dispatch, så PR-styrd kod aldrig ser DB-creds (samma modell som
+# db-blob-sync-check.yml).
+
+on:
+  schedule:
+    # Dagligen 04:37 UTC (udda minut för att undvika GitHubs heltimmes-rusning).
+    - cron: "37 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  db-schema-parity-scheduled:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Samma false-green-skydd som CI-jobben: på huvudrepot är saknade
+      # secrets ett HÅRT fel; forkar (med cron aktiv av misstag) SKIP:ar.
+      - name: Detect dev + prod credentials
+        id: creds
+        env:
+          POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
+          POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}
+        run: |
+          if [ -n "$POSTGRES_URL_DEV" ] && [ -n "$POSTGRES_URL_PROD" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.repository }}" = "Jakeminator123/sajtmaskin" ]; then
+            echo "::error::POSTGRES_URL_DEV och/eller POSTGRES_URL_PROD saknas på huvudrepot — schema-paritet kan inte verifieras. Sätt dem: gh secret set POSTGRES_URL_DEV / POSTGRES_URL_PROD"
+            exit 1
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::DB-secrets saknas — hoppar över schema-paritet (fork)."
+          fi
+
+      - name: Live schema-parity gate dev↔prod (blocking, read-only)
+        if: steps.creds.outputs.present == 'true'
+        run: npm run db:schema-parity -- --require
+        env:
+          POSTGRES_URL_DEV: ${{ secrets.POSTGRES_URL_DEV }}
+          POSTGRES_URL_PROD: ${{ secrets.POSTGRES_URL_PROD }}

@@ -109,7 +109,7 @@ Appen läser alltid **`POSTGRES_URL`** (resolver: [`src/lib/db/env.ts`](../src/l
 | Vercel **Development** | `POSTGRES_URL` | dev: `yubbckduwblyrbnlglwf` | `eu-north-1` |
 | Vercel **Production** | `POSTGRES_URL` | prod: `egcitvwgettkftkyzbvn` | `us-east-1` |
 | Lokal dev (**`.env.local`**) | `POSTGRES_URL` | dev (eller lokal throwaway-Postgres) | `eu-north-1` |
-| GitHub Actions (CI) | `POSTGRES_URL_DEV` **och** `POSTGRES_URL_PROD` (secrets) | CI refererar båda; migrate-jobben mappar prod-secreten → `POSTGRES_URL` | resp. ovan |
+| GitHub Actions (CI) | `POSTGRES_URL_DEV` **och** `POSTGRES_URL_PROD` (secrets) | CI refererar båda; migrate-jobben mappar prod-secreten → `POSTGRES_URL`, `db-schema-parity` mappar dev-secreten likadant för dev-synk och läser båda direkt för live-paritetsgaten | resp. ovan |
 | `.env.vercel.production.pulled` | endast **explicit lokal prod-snapshot** | prod | `us-east-1` |
 | Supabase-MCP (IDE-tooling) | — | scoped till **dev**-projektet, read-only | `eu-north-1` |
 
