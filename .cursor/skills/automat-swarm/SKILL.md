@@ -22,7 +22,7 @@ A **report factory**: the orchestrator (the main agent running `/automat`) launc
 2. **No git.** No commit/branch/checkout/push. Writing to `.cursor/swarms/` is safe because it is gitignored (no HEAD movement, no worktree needed).
 3. **Write only to `.cursor/swarms/`.** Raw reports → `runs/<ts>/`, curated findings → `FINDINGS.md`. Nothing else is written.
 4. **Never auto-touch `BUG-SWARM-BACKLOG.md`.** Promotion of a confirmed finding is a separate manual `/buggrapport` step.
-5. **Keep volume cheap.** Models come from the canonical table in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `cursor-grok-4.5-high` for scan and distill rounds, `cursor-grok-4.5-high` for falsification rounds only. Never invent a slug — an invalid one does not fail loudly and may run on the (expensive) parent model.
+5. **Keep volume cheap.** Models come from the canonical table in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `cursor-grok-4.5-high` for every round — scan, distill and falsification alike. Never invent a slug — an invalid one does not fail loudly and may run on the (expensive) parent model.
 6. **Keep reports short.** Max **6** table rows per agent and no closing prose. Every returned line lands in the orchestrator's context and is re-sent on every later turn — brevity in the subagent prompt is the main cost lever in this skill.
 
 ## Round types — rounds alternate
