@@ -1163,6 +1163,125 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   }
 }
 
+// 17. Boot-failure budget vs the same-version repair (Bugbot finding on #799):
+//     `POST /preview/session/update` resets the budget because rewriting content
+//     IS the repair. Install runs for minutes, so that reset routinely lands
+//     while a boot is in flight. The failing boot must count from the STORE, not
+//     from the session snapshot it started with — otherwise its catch writes the
+//     pre-reset strikes back, reaches the cap, and the pre-boot guard refuses
+//     the very boot the update asked for.
+{
+  const { setBootInstallRunnersForTesting, clearRuntimeStateForTesting } = runtime.__testing;
+  const chatId = "guard-boot-reset-race";
+  const sessionId = "guard-boot-reset-session";
+  const previewSessionId = "ps_guard-boot-reset";
+  const versionId = "v-boot-reset";
+  const storePath = join(dataDir, "preview-host-store.json");
+  const readStore = () => JSON.parse(readFileSync(storePath, "utf8"));
+  const writeStore = (data) => writeFileSync(storePath, JSON.stringify(data), "utf8");
+
+  // Seed ONE strike short of the cap for this version.
+  const seededStrikes = [Date.now() - 3_000, Date.now() - 2_000];
+  mkdirSync(dataDir, { recursive: true });
+  writeStore({
+    sessions: {
+      [sessionId]: {
+        sessionId,
+        previewSessionId,
+        chatId,
+        versionId,
+        previewUrl: `http://localhost/${chatId}`,
+        status: "starting",
+        lastAction: "start",
+        sessionExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        runtimeBootFailureVersionId: versionId,
+        runtimeBootFailureTimestamps: [...seededStrikes],
+        filesJson: {
+          "package.json": JSON.stringify({
+            name: "boot-reset-race",
+            private: true,
+            dependencies: { next: "15.0.0", react: "18", "react-dom": "18" },
+          }),
+        },
+      },
+    },
+    logs: {},
+    previewSessionToSession: { [previewSessionId]: sessionId },
+  });
+
+  let installAttempts = 0;
+  let resetApplied = false;
+  setBootInstallRunnersForTesting({
+    installRunner: async () => {
+      installAttempts += 1;
+      if (!resetApplied) {
+        // Mirror exactly what the update route writes to the budget when the
+        // same version is rewritten — mid-install, as it happens in production.
+        resetApplied = true;
+        const data = readStore();
+        data.sessions[sessionId].runtimeBootFailureVersionId = versionId;
+        data.sessions[sessionId].runtimeBootFailureTimestamps = [];
+        writeStore(data);
+      }
+      return {
+        passed: false,
+        exitCode: 1,
+        durationMs: 1,
+        output: "pnpm install failed: simulated failure after a mid-install reset",
+        usedFallback: false,
+        peerConflictDetected: false,
+      };
+    },
+  });
+
+  async function attemptBoot() {
+    try {
+      await runtime.ensureRuntimeForChat(chatId);
+    } catch {
+      /* boot failure expected */
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  try {
+    await attemptBoot();
+    const afterRace = readStore().sessions[sessionId];
+    const afterRaceStrikes = Array.isArray(afterRace?.runtimeBootFailureTimestamps)
+      ? afterRace.runtimeBootFailureTimestamps
+      : null;
+    check(
+      "mid-install reset survives the failing boot's own write",
+      afterRaceStrikes?.length === 1,
+    );
+    check(
+      "the failing boot does not resurrect pre-reset strikes",
+      !seededStrikes.some((stamp) => (afterRaceStrikes ?? []).includes(stamp)),
+    );
+
+    // The whole point of the reset: the repaired project must get to boot.
+    const beforeRetry = installAttempts;
+    await attemptBoot();
+    check("a boot after a mid-install reset is not refused", installAttempts === beforeRetry + 1);
+
+    // Motprov: with no update in between, genuine repeated failures must STILL
+    // cap. The fix must not disarm the guard it protects.
+    await attemptBoot();
+    const atCap = installAttempts;
+    await attemptBoot();
+    const capped = readStore().sessions[sessionId];
+    check("genuine repeated failures still reach the cap", installAttempts === atCap);
+    check(
+      "capped session is still terminal error",
+      capped?.status === "error" && capped?.readinessState === "failed",
+    );
+  } finally {
+    setBootInstallRunnersForTesting();
+    clearRuntimeStateForTesting(chatId, sessionId);
+  }
+}
+
 rmSync(dataDir, { recursive: true, force: true });
 
 if (failures > 0) {

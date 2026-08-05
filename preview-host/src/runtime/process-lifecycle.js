@@ -745,19 +745,20 @@ async function bootRuntimeForSession(session, options = {}) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
-    const failure = classifyRuntimeBootFailureLoop({
-      timestamps: bootFailureTimestampsForSession(session),
-      now: Date.now(),
-      record: true,
-    });
-    const readinessMessage = failure.failed
-      ? [
-          message,
-          `Preview boot failed ${RUNTIME_BOOT_FAILURE_LIMIT} times within ${Math.round(RUNTIME_BOOT_FAILURE_WINDOW_MS / 1000)} seconds; further automatic retries are stopped.`,
-        ].join("\n")
-      : message;
+    // Count this strike from the STORE, inside the mutation. `session` is the
+    // snapshot this boot started with, and install runs for minutes: a
+    // same-version update resets the budget in that window because rewriting
+    // content IS the repair. Classifying from the snapshot would write the
+    // pre-reset strikes back and could reach the cap, after which the pre-boot
+    // guard refuses the very boot the update asked for.
+    let failure = { timestamps: [], failed: false };
     await updateSessionById(session.sessionId, (stored) => {
       if (stored.versionId !== session.versionId) return;
+      failure = classifyRuntimeBootFailureLoop({
+        timestamps: bootFailureTimestampsForSession(stored),
+        now: Date.now(),
+        record: true,
+      });
       stored.status = "error";
       stored.runtimeBootFailureVersionId = session.versionId;
       stored.runtimeBootFailureTimestamps = failure.timestamps;
@@ -766,7 +767,12 @@ async function bootRuntimeForSession(session, options = {}) {
       // app stamps preview_success=false + can trigger the repair path.
       if (session.prewarm !== true) {
         stored.readinessState = "failed";
-        stored.readinessError = readinessMessage;
+        stored.readinessError = failure.failed
+          ? [
+              message,
+              `Preview boot failed ${RUNTIME_BOOT_FAILURE_LIMIT} times within ${Math.round(RUNTIME_BOOT_FAILURE_WINDOW_MS / 1000)} seconds; further automatic retries are stopped.`,
+            ].join("\n")
+          : message;
       }
       stored.updatedAt = nowIso();
     });
