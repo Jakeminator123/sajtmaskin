@@ -137,7 +137,14 @@ Två fällor i domen:
 
 Dokumentera passet som `bugbot-local`.
 
-**Läs svaret kritiskt — passet ser inte alltid hela branchen.** På en branch med flera commits kan bugbot döma på en delmängd och rapportera fynd som är falska mot helheten. Reproducerat två gånger på #780: passet påstod att tre backlog-rader raderats utan arkivering **och** att alla tre defekterna fanns kvar i koden, medan arkivraderna och alla tre fixarna låg i samma diff. Verifiera därför varje fynd mot branchens faktiska sluttillstånd (`git diff master...HEAD`, eller `git show HEAD:<fil>` på det påstådda stället) innan du agerar — och avfärda aldrig ett fynd utan att ha gjort det, eftersom samma svaghet lika gärna kan dölja ett äkta fynd.
+**Läs svaret kritiskt — passet ser inte alltid hela branchen.** På en branch med flera commits kan bugbot döma på en delmängd och rapportera fynd som är falska mot helheten. Reproducerat två gånger på #780: passet påstod att tre backlog-rader raderats utan arkivering **och** att alla tre defekterna fanns kvar i koden, medan arkivraderna och alla tre fixarna låg i samma diff. Verifiera därför varje fynd mot det faktiska sluttillståndet innan du agerar — och avfärda aldrig ett fynd utan att ha gjort det, eftersom samma svaghet lika gärna kan dölja ett äkta fynd.
+
+Vilket kommando som visar sanningen beror på var i flödet du står, och det är lätt att ta fel:
+
+| Läge | Verifiera med |
+|---|---|
+| Steg 7, vinnaren **ännu inte committad** (standard) | `git add -A -N` + `git diff master` i worktreet, eller läs filen på disk. `HEAD` saknar fixen här — `git show HEAD:<fil>` skulle "bekräfta" fyndet felaktigt. |
+| Efter *Efter körning* steg 2, eller på en PR-branch | `git diff master...HEAD` och `git show HEAD:<fil>` |
 
 ## Efter körning — orkestratorns plikt, aldrig användarens
 

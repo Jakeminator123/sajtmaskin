@@ -146,7 +146,14 @@ Diff: uncommitted changes
 
 Document the pass as `bugbot-local`.
 
-**Read the answer critically — the pass does not always see the whole branch.** On a multi-commit branch Bugbot can judge a subset and report findings that are false against the whole. Reproduced twice on #780: it claimed three backlog rows were deleted without archival *and* that all three defects were still in the code, while the archive rows and all three fixes sat in the same diff. Verify every finding against the branch's actual end state (`git diff master...HEAD`, or `git show HEAD:<file>` at the cited spot) before acting — and never dismiss one without doing that, since the same weakness can just as easily hide a real finding.
+**Read the answer critically — the pass does not always see the whole branch.** On a multi-commit branch Bugbot can judge a subset and report findings that are false against the whole. Reproduced twice on #780: it claimed three backlog rows were deleted without archival *and* that all three defects were still in the code, while the archive rows and all three fixes sat in the same diff. Verify every finding against the actual end state before acting — and never dismiss one without doing that, since the same weakness can just as easily hide a real finding.
+
+Which command shows the truth depends on where you are, and getting it wrong is easy:
+
+| State | Verify with |
+|---|---|
+| Step 7, winner **not yet committed** (the default) | `git add -A -N` + `git diff master` in the worktree, or read the file on disk. `HEAD` does not contain the fix yet, so `git show HEAD:<file>` would falsely "confirm" the finding. |
+| After *After the run* step 2, or on a PR branch | `git diff master...HEAD` and `git show HEAD:<file>` |
 
 ## Judging order
 
