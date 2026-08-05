@@ -46,7 +46,7 @@ hanterade worktrees.
 - `npm run hygiene` → docs-färskhet + dödkod/orphan-filer i **en knapp** (grönt = rent, rött pekar på exakt problem). Full dödkods-lista: `npm run knip` (läs deps-kategorin försiktigt — mest falska positiver, se runbook). Städning + hur man läser knip: [`docs/runbooks/hygiene.md`](docs/runbooks/hygiene.md). CI blockerar på orphan-**filer** och docs-gates automatiskt.
 - Synk docs/schemas/backoffice vid pipeline-ändringar (se [`pipeline-rules.mdc`](.cursor/rules/pipeline-rules.mdc))
 - Commit- och PR-hygien enligt [`git.mdc`](.cursor/rules/git.mdc) och [`workflow.mdc`](.cursor/rules/workflow.mdc)
-- **Alla PR:er går mot `master`** (trunk) — ingen direktcommit/-push till master. Kör ett **bugbot-pass** (bugbot-subagent, `model: cursor-grok-4.5-high`) på egen diff före PR/push. Se [`git.mdc`](.cursor/rules/git.mdc) → "Branch-modell".
+- **Alla PR:er går mot `master`** (trunk) — ingen direktcommit/-push till master. Kör ett **bugbot-pass** (bugbot-subagent, `model: <grok-4.5>`) på egen diff före PR/push. Se [`git.mdc`](.cursor/rules/git.mdc) → "Branch-modell".
 
 ## Vercel-åtkomst
 
@@ -56,12 +56,12 @@ Servrar, projekt-id:n, OAuth och 403-felsökning: [`local-tooling-mcp.mdc`](.cur
 
 ## Review guidelines
 
-PR-författaren äger bugg-efterkontrollen. Kör ett **Cursor Bugbot-pass** på egen diff (`bugbot`-subagent, `readonly: true`, `model: cursor-grok-4.5-high`) före PR **och** före push till master — samma pass täcker både för-filter och efterkontroll för den head-SHA:n. Det finns **ingen** `bugbot run` CLI i repot; använd `review-bugbot`-skillen eller subagenten. Obs: `review-bugbot` är en global skill utanför repot och sätter **varken** `model` eller `readonly` — kör du den vägen måste du ange dem själv, annars ärvs sessionens modell tyst.
+PR-författaren äger bugg-efterkontrollen. Kör ett **Cursor Bugbot-pass** på egen diff (`bugbot`-subagent, `readonly: true`, `model: <grok-4.5>`) före PR **och** före push till master — samma pass täcker både för-filter och efterkontroll för den head-SHA:n. Det finns **ingen** `bugbot run` CLI i repot; använd `review-bugbot`-skillen eller subagenten. Obs: `review-bugbot` är en global skill utanför repot och sätter **varken** `model` eller `readonly` — kör du den vägen måste du ange dem själv, annars ärvs sessionens modell tyst.
 
 **Faller Bugbot bort, gå nedåt i stegen — hoppa inte direkt till manuell review.** Den GitHub-integrerade Bugbot:en delar teamets budget och svarar `Bugbot couldn't run - usage limit reached` när den är slut. Att budgeten är slut på GitHub betyder **inte** att passet ska utebli: den lokala `bugbot`-subagenten är en egen väg och ska köras då.
 
 1. GitHub-integrerad Bugbot på PR:en (gratis oberoende ögon när budgeten räcker).
-2. Är den slut eller utebliven → **berörd agent kör Cursor Bugbot-passet lokalt** (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "cursor-grok-4.5-high"`).
+2. Är den slut eller utebliven → **berörd agent kör Cursor Bugbot-passet lokalt** (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"`).
 3. Först om även det misslyckas → strukturerad manuell diff-granskning med fil- och radreferenser.
 
 Dokumentera alltid i PR:en vilket steg som användes: `bugbot` (GitHub), `bugbot-local` (subagent) eller `manual local bug review`. Samma värde går i `bugkoll:`-fältet i `merge:ready`-sign-offen.

@@ -37,7 +37,7 @@ Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler ko
 | [response-format.mdc](rules/response-format.mdc)                   | Hur agenten svarar — kort, matris/flöde, svenska vid behov                                                                   |
 | [sok-index-fallback.mdc](rules/sok-index-fallback.mdc)             | 0 träffar i Glob/Grep betyder inte att filen saknas — verifiera med Read                                                     |
 | [svenska-tech-synonymer.mdc](rules/svenska-tech-synonymer.mdc)     | Kort parentesförklaring första gången ett otydligt tech-ord används                                                          |
-| [subagent-models.mdc](rules/subagent-models.mdc)                   | Grok 4.5 (`cursor-grok-4.5-high`) = default för ALLA subagenter inkl. bugbot; Opus/dyra modeller bara på ägarens begäran    |
+| [subagent-models.mdc](rules/subagent-models.mdc)                   | Grok 4.5 = default för ALLA subagenter inkl. bugg-/kodgranskning; slug slås upp per session                                  |
 | [terminology.mdc](rules/terminology.mdc)                           | Snabb förväxlingstabell; kanonisk ordlista är `docs/architecture/glossary.md`                                                |
 | [workflow.mdc](rules/workflow.mdc)                                 | Git, filstruktur, städning, verifiering — hur ändringar utförs                                                               |
 
@@ -99,20 +99,23 @@ parallell owner.
 
 ### Modellval för subagenter (kanonisk tabell)
 
-Kommandon och skills som startar `Task`-subagenter hämtar sin modell härifrån. Byt slug **här** när modellutbudet skiftar; kommandofilerna pekar hit i stället för att äga varsin kopia.
+Kommandon och skills som startar `Task`-subagenter hämtar sin **roll** härifrån. Slugen bor däremot inte i repot — den slås upp per session, se nedan.
 
-**Grok 4.5 = default för ALLA subagenter** (`cursor-grok-4.5-high`) — scan, omdöme, destillering, kedja-runner **och** bugg-/kodgranskning. Composer (`composer-2.5` / `composer-2.5-fast`) kan finnas i Task-utbudet men är **inte** default. Se även `rules/subagent-models.mdc`.
+**Grok 4.5 = default för ALLA subagenter** — scan, omdöme, destillering, kedja-runner **och** bugg-/kodgranskning. Composer (`composer-2.5` / `composer-2.5-fast`) kan finnas i Task-utbudet men är **inte** default. Se även `rules/subagent-models.mdc`.
+
+`<grok-4.5>` nedan är en **platshållare, inte en slug**: slå upp posten som börjar på `cursor-grok-4.5` i din egen sessions `<available_subagent_models>` och använd den exakt.
 
 | Roll | Slug | Används av |
 | ------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
-| **Scan** — bred inventering, hög volym | `cursor-grok-4.5-high` | `/automat` scan-rundor, `/818` insamling, `/kedja` lokalisering, `/post-review`, bakgrundsbevakaren i `pr-merge-review-gate.mdc` |
-| **Omdöme** — falsifiera fynd, skriva kod, review-pass | `cursor-grok-4.5-high` | `/automat` falsifieringsrundor, `/818` review-pass, `/kedja` repro- och fix-agenter |
-| **Destillering** — läsa råa `runs/`-rapporter, returnera topp-N | `cursor-grok-4.5-high` | `/automat` |
-| **Kedja-runner / billig orkestrator-delegering** | `cursor-grok-4.5-high` | `/kedja` delegerat läge (steg 1–6) |
-| **Bugg-grind / kodgranskning** | `cursor-grok-4.5-high` | `bugbot`-subagenten (`model:`-parametern) — obligatoriskt pass före push/PR |
+| **Scan** — bred inventering, hög volym | `<grok-4.5>` | `/automat` scan-rundor, `/818` insamling, `/kedja` lokalisering, `/post-review`, bakgrundsbevakaren i `pr-merge-review-gate.mdc` |
+| **Omdöme** — falsifiera fynd, skriva kod, review-pass | `<grok-4.5>` | `/automat` falsifieringsrundor, `/818` review-pass, `/kedja` repro- och fix-agenter |
+| **Destillering** — läsa råa `runs/`-rapporter, returnera topp-N | `<grok-4.5>` | `/automat` |
+| **Kedja-runner / billig orkestrator-delegering** | `<grok-4.5>` | `/kedja` delegerat läge (steg 1–6) |
+| **Bugg-grind / kodgranskning** | `<grok-4.5>` | `bugbot`-subagenten (`model:`-parametern) — obligatoriskt pass före push/PR |
 
 - **Hård regel — dyra tänkande modeller.** `claude-opus-5-thinking-xhigh` och andra dyra tänkande modeller får **inte** användas som buggranskare/review-subagent som default. De får bara användas när ägaren uttryckligen ber om en specialkoll.
-- **En ogiltig slug felar inte högljutt.** Agenten körs ändå — ofta som tyst fallback till parent-modellen — så du betalar för fel modell utan att märka det. Stäm alltid av slugen mot sessionens `<available_subagent_models>` innan du skriver in en ny. (Äldre texter som säger `cursor-grok-4.5-high-fast` är inaktuella: den slugen fanns inte i utbudet 2026-08-05.)
+- **Skriv aldrig av en slug ur en äldre textrad.** Formen varierar mellan sessioner: 2026-08-05 observerades `cursor-grok-4.5-high` i en session och `cursor-grok-4.5-high-fast` i en annan **samma dag**. Fel form avvisas med `Invalid model selection` — och svaret listar de tillåtna, så en felgissning rättar sig själv. Det tystare utfallet är värre: en slug som inte valideras faller tillbaka på **orkestratorns** modell, så en "billig" subagent kan köra dyrt utan att något syns.
+- **Skicka alltid `model`.** Utelämnas parametern ärver subagenten din egen modell — samma dyra utfall som en tyst fallback, bara utan att någon skrev fel.
 - **Håll volymrapporter korta.** Samma Grok-slug används för scan och omdöme; kostnaden sitter i *rapportlängd × orkestratorns kontext*. Scan/destill ska returnera tabellrader, inte prosa.
 - **Kostnaden sitter i orkestratorn, inte i antalet subagenter.** Varje returnerad rapport skickas om i *varje* efterföljande tur. Kör därför långa svärmsessioner med en **billig orkestrator** (Grok 4.5) och håll subagent-svaren korta — inte som den modell som bär hela historiken.
 
