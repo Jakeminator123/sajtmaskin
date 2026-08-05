@@ -250,8 +250,11 @@ export function BuilderHeader(props: {
     runDeferredAction(onGoHome);
   }, [logout, onGoHome, runDeferredAction]);
 
+  // Headerns höjd är ett golv, inte ett tak: högergruppen är `flex-wrap`, så en
+  // smal skärm lägger knapparna på flera rader. Med fast `h-14` ritades de
+  // raderna utanför headern, ovanpå mobilflikarna och previewen.
   return (
-    <header className="border-border bg-background flex h-14 items-center justify-between border-b px-4">
+    <header className="border-border bg-background flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-4 py-2">
       <div className="flex items-center gap-3">
         <button
           type="button"
