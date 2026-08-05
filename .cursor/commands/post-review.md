@@ -67,10 +67,10 @@ Minimal fix: <1 mening>
    - Fixa bara små, tydliga, bekräftade fynd inom scope.
    - Större arkitekturbeslut rapporteras som nästa steg.
 7. **Backlog-avstämning** ([`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) — håll den sann i samma svep):
-   - **Fixade i svepet:** om en rad i `## Aktiv kö` adresserades → **flytta** den till arkivet (`docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`) som `[x]` med commit/PR-ref. Bocka inte av på plats.
-   - **Nya bekräftade defekter:** lägg en `[ ]`-rad i `## Aktiv kö` (källa `M#<n>`) med fil-ankare, per `/buggrapport`-formatet.
-   - **Visade sig vara val/repro:** flytta till `## Beslut & policy` eller `## Behöver repro` i stället.
-   - Skriv aldrig "FIXAD" i prosan på en `[ ]`-rad (`npm run check:bug-backlog` failar på motsägelsen).
+   - **Fixade i svepet:** om en rad i `## Aktiva produktionsbuggar` eller releasegrinden adresserades → **flytta** den till senaste arkivfilen med samma `SW-###`-ID och commit/PR-ref.
+   - **Nya bekräftade defekter:** lägg en ny stabil `SW-###`-rad i rätt operativ sektion enligt `/buggrapport`.
+   - **Visade sig vara val/repro/skuld:** flytta samma ID till `## Väntar på ägarbeslut`, `## Risker som behöver repro` eller skuldsektionen.
+   - Checkboxar används inte; sektionens placering är status och `npm run check:bug-backlog` stoppar formatdrift och dubbla ID:n.
    - Detta är den löpande sanningsmekanismen — backloggen får aldrig driva ur fas med koden.
 8. Verifiera med minsta relevanta set:
    - Alltid vid TS-kod: `npm run typecheck`

@@ -27,10 +27,10 @@ Exempel: `2026-04-21_1100_finalize-versionid-pruning.md`
 ```markdown
 ---
 created_at: 2026-04-21T11:00:00+02:00
-suggested_runner: cursor-background-agent   # cursor-background-agent | manual | task-subagent
+suggested_runner: cursor-background-agent # cursor-background-agent | manual | task-subagent
 estimated_effort: 30–60 min
 parent_plan: docs/plans/active/<plan>.md
-backlog_ref: <ev. M#/G#-rad i BUG-SWARM-BACKLOG.md>
+backlog_ref: <ev. SW-###-rad i BUG-SWARM-BACKLOG.md>
 ---
 
 # Handoff: <kort beskrivning>
@@ -52,8 +52,8 @@ backlog_ref: <ev. M#/G#-rad i BUG-SWARM-BACKLOG.md>
 
 ## Acceptans
 
-| # | Kontroll | Förväntat |
-|---|---|---|
+| #   | Kontroll | Förväntat |
+| --- | -------- | --------- |
 
 ## Risk + skydd
 

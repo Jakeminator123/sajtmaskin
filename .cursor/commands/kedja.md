@@ -2,15 +2,15 @@
 
 Kör **en** bugg genom sju steg. Billiga agenter gör det mekaniska, du (orkestratorn) fattar besluten. Det som gör kedjan möjlig är **steg 2**: ett failande test. Utan objektivt grönt/rött blir domarsteget en åsikt, och då är hela poängen borta.
 
-**Fix mode** — till skillnad från `/automat` (audit) skriver den här kod. All skrivning sker i **egna worktrees**, aldrig i huvudcheckouten. Vinnaren committas på sin kedja-branch (se *Efter körning*); ingen push eller PR utan explicit begäran.
+**Fix mode** — till skillnad från `/automat` (audit) skriver den här kod. All skrivning sker i **egna worktrees**, aldrig i huvudcheckouten. Vinnaren committas på sin kedja-branch (se _Efter körning_); ingen push eller PR utan explicit begäran.
 
 ## Argument
 
-| Kommando | Betyder |
-|---|---|
-| `/kedja <bugg eller backlog-rad>` | kör pipelinen på den buggen |
-| `/kedja` | fråga användaren vilken bugg — välj aldrig själv |
-| `... kandidater=3` | 3 fix-kandidater i steg 5 i stället för 2 |
+| Kommando                          | Betyder                                          |
+| --------------------------------- | ------------------------------------------------ |
+| `/kedja <bugg eller backlog-rad>` | kör pipelinen på den buggen                      |
+| `/kedja`                          | fråga användaren vilken bugg — välj aldrig själv |
+| `... kandidater=3`                | 3 fix-kandidater i steg 5 i stället för 2        |
 
 Modellval kommer från [`.cursor/README.md § Modellval för subagenter`](../README.md#modellval-för-subagenter-kanonisk-tabell). Hitta inte på slugar.
 
@@ -67,7 +67,7 @@ Skriv tre rader och visa dem för användaren innan du fortsätter:
 
 Har ägarfilen **genererade vyer som hashar/speglar den** (t.ex. extractor-fingerprintet över `template-inspiration.ts` + `local-v0-template-source.ts` → `npm run templates:addenda -- --write`): namnge regen-kommandot i ramen. Sådan regen är **synk-plikt i samma ändring** (`workflow.mdc`), inte scope-brott — en runner som stannar på den grinden stannar i onödan (hände 2026-08-05).
 
-Kommer du från `BUG-SWARM-BACKLOG.md`: läs raden ordagrant. Kolumnen "Beslut / nästa steg" innehåller ofta ägaren, testet som måste skrivas om, och fällor. Den är indata, inte bakgrund.
+Kommer du från `BUG-SWARM-BACKLOG.md`: läs raden ordagrant. Kolumnen "Nästa steg" och radens kodbevis innehåller ofta ägaren, testet som måste skrivas om och fällor. De är indata, inte bakgrund.
 
 ### 1. Arbetsyta
 
@@ -87,7 +87,7 @@ Agenten skriver **två** saker i kandidat **a**:s worktree:
 - **Det röda testet** — buggen. Ska faila nu.
 - **Minst ett motprov** — ett test som är grönt nu och som fixen **inte får bryta**.
 
-Motprovet är inte valfritt. Ett rött test säger bara "detta får inte hända"; utan motprov är "stäng av funktionen helt" ett fullt giltigt sätt att bli grön. Frågan agenten ska svara på är: *vilket är det närmaste fallet som fortfarande MÅSTE fungera?* För en vakt som ska sluta trigga är svaret alltid det legitima fall som ligger närmast det felaktiga.
+Motprovet är inte valfritt. Ett rött test säger bara "detta får inte hända"; utan motprov är "stäng av funktionen helt" ett fullt giltigt sätt att bli grön. Frågan agenten ska svara på är: _vilket är det närmaste fallet som fortfarande MÅSTE fungera?_ För en vakt som ska sluta trigga är svaret alltid det legitima fall som ligger närmast det felaktiga.
 
 **Grind:** kör själv båda i den worktreen. Är det röda testet **grönt** → stopp. Ett test som passerar på orörd kod bevisar att fyndet inte stämmer, och då är fixen fel sak att bygga. Rapportera det som ett resultat — det är ett bra utfall, inte ett misslyckande.
 
@@ -133,11 +133,11 @@ Två fällor i domen:
 
 **Samma modell granskar samma modells kod — det är avsiktligt.** Runnern, fix-agenterna och bugbot körs alla på Grok 4.5, så oberoendet kommer inte från ett modellbyte. Det kommer från tre andra saker: bugbot får en färsk kontext utan kedjans historik, den dömer mot diffen i stället för mot avsikten, och du läser testtillägget själv enligt nästa stycke. Byt **inte** till en dyr tänkande modell här för att "få oberoende ögon" — det kräver ägarens uttryckliga begäran (`subagent-models.mdc`).
 
-**Läs testdiffen rad för rad — inte bara utfallet.** Hela kedjan vilar på att steg 2:s test mäter rätt sak; gör det inte det är den maskinella domen värdelös, och rött-före/grönt-efter avslöjar det inte. Orkestratorn läser därför testtillägget själv innan PR och frågar: mäter det röda testet buggen eller en proxy? Är motprovet det *närmaste legitima* fallet? Och — lättast att missa — **asserterar testet det fixen medvetet offrar?** På #780 låste `rebuild-content.test.ts` att fel fil inte korrumperas men var tyst om att den rätta filens fix nu tappas vid fence-miss; avvägningen fanns bara i huvudet på den som läst diffen. En assertion till gjorde den till kontrakt.
+**Läs testdiffen rad för rad — inte bara utfallet.** Hela kedjan vilar på att steg 2:s test mäter rätt sak; gör det inte det är den maskinella domen värdelös, och rött-före/grönt-efter avslöjar det inte. Orkestratorn läser därför testtillägget själv innan PR och frågar: mäter det röda testet buggen eller en proxy? Är motprovet det _närmaste legitima_ fallet? Och — lättast att missa — **asserterar testet det fixen medvetet offrar?** På #780 låste `rebuild-content.test.ts` att fel fil inte korrumperas men var tyst om att den rätta filens fix nu tappas vid fence-miss; avvägningen fanns bara i huvudet på den som läst diffen. En assertion till gjorde den till kontrakt.
 
-**"diff is empty" — fallback (verifierat 2026-08-05):** bugbot kan svara *"the diff … is empty"* på en kedja-worktree och då **gäller passet inte som kört** — behandla det som ett fel, aldrig som "inga fynd". Observerat: en opushad kedja-branch gav tomt svar på både `uncommitted changes` och `branch changes`, medan samma form fungerade i en länkad worktree vars branch hade pushad upstream. Prova alltså normalformen ovan först. Får du tomt svar:
+**"diff is empty" — fallback (verifierat 2026-08-05):** bugbot kan svara _"the diff … is empty"_ på en kedja-worktree och då **gäller passet inte som kört** — behandla det som ett fel, aldrig som "inga fynd". Observerat: en opushad kedja-branch gav tomt svar på både `uncommitted changes` och `branch changes`, medan samma form fungerade i en länkad worktree vars branch hade pushad upstream. Prova alltså normalformen ovan först. Får du tomt svar:
 
-1. Spara patchen med `git add -A -N` + `git diff HEAD` (se *Efter körning* steg 1) — en vanlig `git diff` utelämnar den otrackade testfilen och ger bugbot en ofullständig vinnare.
+1. Spara patchen med `git add -A -N` + `git diff HEAD` (se _Efter körning_ steg 1) — en vanlig `git diff` utelämnar den otrackade testfilen och ger bugbot en ofullständig vinnare.
 2. Kör passet mot **huvudcheckouten** med `Diff: natural language`, en Change Description per fil, och Custom Instructions som pekar på `.cursor/kedja/<körning>/kandidat-<x>.diff` med instruktionen att läsa och granska patchen som om den vore applicerad.
 
 Dokumentera passet som `bugbot-local`.
@@ -146,10 +146,10 @@ Dokumentera passet som `bugbot-local`.
 
 Vilket kommando som visar sanningen beror på var i flödet du står, och det är lätt att ta fel:
 
-| Läge | Verifiera med |
-|---|---|
+| Läge                                                | Verifiera med                                                                                                                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Steg 7, vinnaren **ännu inte committad** (standard) | `git add -A -N` + `git diff master` i worktreet, eller läs filen på disk. `HEAD` saknar fixen här — `git show HEAD:<fil>` skulle "bekräfta" fyndet felaktigt. |
-| Efter *Efter körning* steg 2, eller på en PR-branch | `git diff master...HEAD` och `git show HEAD:<fil>` |
+| Efter _Efter körning_ steg 2, eller på en PR-branch | `git diff master...HEAD` och `git show HEAD:<fil>`                                                                                                            |
 
 ## Efter körning — orkestratorns plikt, aldrig användarens
 
@@ -162,7 +162,7 @@ Användaren kör inga kommandon. Orkestratorn gör allt nedan själv, direkt eft
 
 Blev något kvar — avbruten körning, misslyckad teardown, gammal branch — sopa upp med `npm run kedja:clean` (torrkörning) och sedan `node scripts/cursor/kedja-clean.mjs --yes --keep <vinnaren>`. Skriptet sparar diffar innan det raderar och vägrar röra en worktree vars tillstånd det inte kan läsa. Flaggorna måste gå via `node`: npm äter `--yes` och `--keep` innan de når skriptet. **Multi-agent-vakt:** kör aldrig `--yes` med kedja-worktrees du inte själv skapat utan att `--keep`:a dem — svepet skiljer inte din förlorare från en annan agents pågående arbete, och "läsbar" betyder inte "övergiven".
 
-**Backlog-raden stängs i samma PR som fixen.** När användaren begär PR: flytta raden till arkivfilen som `[x]` med PR-referens i samma branch (backloggens egen lärdom från #603- och #686-efterslagen). Ingen manuell avbockning efter merge. **Efter merge** river den agent som mergade vinnarens worktree + branch.
+**Backlog-raden stängs i samma PR som fixen.** När användaren begär PR: flytta hela raden till den senaste daterade arkivfilen med samma stabila `SW-###`-ID och PR-/commitreferens i samma branch (backloggens egen lärdom från #603- och #686-efterslagen). Ingen manuell statusändring efter merge. **Efter merge** river den agent som mergade vinnarens worktree + branch.
 
 ## Anti-mönster
 

@@ -135,13 +135,58 @@ function basename(p) {
  *  over-matcha). Helt valfria: en process utan traffar visas som stabil. En
  *  process som saknas har faller tillbaka pa enbart langa fil-stammar. */
 const STRONG_TERMS = {
-  "LLM-faser & runtime-sanning": ["phase-routing", "phaserouting", "buildprofile", "build-profile", "tier-routing", "fixer/verifier"],
-  "Codegen core": ["autofix", "cross-file", "null-render", "static-core", "domain-inference", "prompt-heuristic", "system-prompt"],
+  "LLM-faser & runtime-sanning": [
+    "phase-routing",
+    "phaserouting",
+    "buildprofile",
+    "build-profile",
+    "tier-routing",
+    "fixer/verifier",
+  ],
+  "Codegen core": [
+    "autofix",
+    "cross-file",
+    "null-render",
+    "static-core",
+    "domain-inference",
+    "prompt-heuristic",
+    "system-prompt",
+  ],
   "prompt-core": ["core rules", "prompt-core", "core-contract", "systemprompt", "system prompt"],
-  "ai_models": ["manifest.json", "phase-routing", "token-budget", "tokenbudget", "repair-pass", "build-spec", "buildspec", "promptlimits", "partial-file repair"],
+  ai_models: [
+    "manifest.json",
+    "phase-routing",
+    "token-budget",
+    "tokenbudget",
+    "repair-pass",
+    "build-spec",
+    "buildspec",
+    "promptlimits",
+    "partial-file repair",
+  ],
   "Scaffolds: titta & justera": ["scaffold", "dossier", "capability", "route-plan", "routeplan"],
-  "Scaffolds & varianter: skapa, klona, ta bort": ["scaffold-variant", "variant-json", "scaffold-variants"],
-  "Preview och versioner": ["preview", "verifier", "finalize-design", "quality gate", "quality-gate", "warm-typecheck", "product-postcheck", "server-verify", "event-bus", "build plan", "f3 ", " f3", "f2 ", " f2", "repair gate"],
+  "Scaffolds & varianter: skapa, klona, ta bort": [
+    "scaffold-variant",
+    "variant-json",
+    "scaffold-variants",
+  ],
+  "Preview och versioner": [
+    "preview",
+    "verifier",
+    "finalize-design",
+    "quality gate",
+    "quality-gate",
+    "warm-typecheck",
+    "product-postcheck",
+    "server-verify",
+    "event-bus",
+    "build plan",
+    "f3 ",
+    " f3",
+    "f2 ",
+    " f2",
+    "repair gate",
+  ],
   Eval: ["eval", "baseline", "merge-syntax", "merge syntax", "arcade-with-klarna"],
 };
 
@@ -152,7 +197,9 @@ function keywordsFor(name, page) {
   const terms = new Set((STRONG_TERMS[name] || []).map((t) => t.toLowerCase()));
   const paths = [...(page.canonicalPaths || []), ...(page.codeReaders || [])];
   for (const p of paths) {
-    const stem = basename(p).toLowerCase().replace(/\.[a-z]+$/u, "");
+    const stem = basename(p)
+      .toLowerCase()
+      .replace(/\.[a-z]+$/u, "");
     // Bara distinkta fler-ords-stammar (innehaller bindestreck) och langa nog.
     if (stem.includes("-") && stem.length >= 9) terms.add(stem);
   }
@@ -161,47 +208,122 @@ function keywordsFor(name, page) {
 
 // --- signalkallor --------------------------------------------------------
 
-/** Plockar ut oppna backlog-rader ur "## Aktiv ko"-sektionen.
- *  Returnerar [{ prio, blocker, text }]. Helt defensiv mot formatdrift.
+/** Plockar ut verkligt exekverbara backlog-rader.
  *
- *  Bara rader UNDER rubriken "## Aktiv ko" (fram till nasta "## ") raknas, sa
- *  att "Beslut & policy"-, "Behover repro"- och arkiv-tabeller aldrig blastas
- *  in som oppna risker. Saknas rubriken (aldre fil) faller vi tillbaka pa hela
- *  filen sa canvasen aldrig blir tom. */
+ *  Kanoniskt format (2026-08-05):
+ *    - "## Aktiva produktionsbuggar" raknas rad for rad.
+ *    - "## Release blockers bakom feature flag" kollapsas till EN grind, sa
+ *      tolv barnpunkter for samma feature inte trycker undan alla produktfel.
+ *    - repro, agarbeslut och skuld raknas aldrig som oppna huvudrisker.
+ *
+ *  Aldre "## Aktiv ko" stods som defensiv fallback for historiska brancher. */
 export function parseBacklogRows(md) {
   if (!md) return [];
   const lines = md.split(/\r?\n/);
-  // Begransa till "## Aktiv ko"-sektionen om den finns (Unicode-okansligt for o/ö).
-  const startIdx = lines.findIndex((l) => /^##\s+Aktiv\s+k/iu.test(l.trim()));
-  let scope = lines;
-  if (startIdx !== -1) {
-    const endRel = lines.slice(startIdx + 1).findIndex((l) => /^##\s+/u.test(l.trim()));
+
+  const tableCells = (line) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return null;
+    const cells = [];
+    let cell = "";
+    for (const character of trimmed.slice(1, -1)) {
+      if (character !== "|") {
+        cell += character;
+        continue;
+      }
+      const trailingBackslashes = cell.match(/\\+$/u)?.[0].length ?? 0;
+      if (trailingBackslashes % 2 === 1) {
+        cell = `${cell.slice(0, -1)}|`;
+        continue;
+      }
+      cells.push(cell.replace(/`/g, "").trim());
+      cell = "";
+    }
+    cells.push(cell.replace(/`/g, "").trim());
+    return cells;
+  };
+  const isSeparator = (cells) =>
+    cells?.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+
+  const sectionLines = (heading) => {
+    const startIdx = lines.findIndex((line) => line.trim() === `## ${heading}`);
+    if (startIdx === -1) return null;
+    const endRel = lines.slice(startIdx + 1).findIndex((line) => /^##\s+/u.test(line.trim()));
     const endIdx = endRel === -1 ? lines.length : startIdx + 1 + endRel;
-    scope = lines.slice(startIdx + 1, endIdx);
+    return lines.slice(startIdx + 1, endIdx);
+  };
+
+  const parseCanonicalTable = (scope) => {
+    if (!scope) return [];
+    let headers = null;
+    const parsed = [];
+    for (const line of scope) {
+      const cells = tableCells(line);
+      if (!cells) continue;
+      if (!headers) {
+        if (cells.includes("ID") && cells.includes("Prio") && cells.includes("Fel")) {
+          headers = cells;
+        }
+        continue;
+      }
+      if (isSeparator(cells)) continue;
+      const row = Object.fromEntries(headers.map((header, index) => [header, cells[index] || ""]));
+      if (!/^SW-\d{3}[A-Z]?$/.test(row.ID || "")) continue;
+      const prio = (row.Prio || "").match(/P[0-3]/i)?.[0]?.toUpperCase() || null;
+      const fynd = row.Fel || "";
+      const blob = `${fynd} ${row.Kodbevis || ""} ${row["Nästa steg"] || ""}`;
+      parsed.push({ prio, blocker: false, text: blob.toLowerCase(), fynd });
+    }
+    return parsed;
+  };
+
+  const active = parseCanonicalTable(sectionLines("Aktiva produktionsbuggar"));
+  const release = parseCanonicalTable(sectionLines("Release blockers bakom feature flag"));
+  if (active.length > 0 || release.length > 0) {
+    if (release.length === 0) return active;
+    const priorityRank = { P0: 0, P1: 1, P2: 2, P3: 3 };
+    const releasePriority = [...release].sort(
+      (a, b) => (priorityRank[a.prio] ?? 9) - (priorityRank[b.prio] ?? 9),
+    )[0]?.prio;
+    return [
+      ...active,
+      {
+        prio: releasePriority || "P1",
+        blocker: true,
+        text: release.map((row) => row.text).join(" "),
+        fynd: `${release.length} release blockers bakom avstängd feature flag`,
+      },
+    ];
   }
-  const rows = [];
-  for (const line of scope) {
-    const t = line.trim();
-    if (!t.startsWith("| [")) continue; // bara "Klar"-markerade datarader
-    const cells = t.split("|").map((c) => c.trim());
-    // | Klar | Status | Prio | Fynd | Kalla | Beslut |
-    if (cells.length < 7) continue;
-    const klar = cells[1];
-    if (!/^\[\s?\]$/.test(klar) && klar !== "[ ]") continue; // bara oppna
-    const prioRaw = (cells[3] || "").toUpperCase();
-    const prioM = prioRaw.match(/P[0-3]/);
-    const fynd = cells[4] || "";
-    const kalla = cells[5] || "";
-    const beslut = cells[6] || "";
-    const blob = `${fynd} ${kalla} ${beslut}`;
-    rows.push({
-      prio: prioM ? prioM[0] : null,
-      blocker: /BLOCKER/.test(beslut.toUpperCase()),
+
+  // Legacy-fallback: gammal checkbox-tabell under "## Aktiv ko".
+  const legacyStart = lines.findIndex((line) => /^##\s+Aktiv\s+k/iu.test(line.trim()));
+  const legacyEndRel =
+    legacyStart === -1
+      ? -1
+      : lines.slice(legacyStart + 1).findIndex((line) => /^##\s+/u.test(line.trim()));
+  const legacyScope =
+    legacyStart === -1
+      ? lines
+      : lines.slice(
+          legacyStart + 1,
+          legacyEndRel === -1 ? lines.length : legacyStart + 1 + legacyEndRel,
+        );
+  const legacyRows = [];
+  for (const line of legacyScope) {
+    const cells = tableCells(line);
+    if (!cells || cells.length < 6 || cells[0] !== "[ ]") continue;
+    const prio = cells[2]?.match(/P[0-3]/i)?.[0]?.toUpperCase() || null;
+    const fynd = cells[3] || "";
+    const blob = `${fynd} ${cells[4] || ""} ${cells[5] || ""}`;
+    legacyRows.push({
+      prio,
+      blocker: /BLOCKER/i.test(cells[5] || ""),
       text: blob.toLowerCase(),
       fynd,
     });
   }
-  return rows;
+  return legacyRows;
 }
 
 /** Valjer "Oppna huvudrisker" ur backlog-rader. P0 ar hogsta allvar och far
@@ -224,7 +346,11 @@ export function selectTopOpenRisks(backlogRows, cap = 12) {
   const rest = candidates.filter((r) => r.prio !== "P0");
   const shown = [...p0, ...rest.slice(0, Math.max(0, cap - p0.length))];
   return {
-    rows: shown.map((r) => ({ prio: r.prio || "-", blocker: r.blocker, fynd: truncate(r.fynd, 110) })),
+    rows: shown.map((r) => ({
+      prio: r.prio || "-",
+      blocker: r.blocker,
+      fynd: truncate(r.fynd, 110),
+    })),
     omitted: candidates.length - shown.length,
   };
 }
@@ -244,8 +370,7 @@ function evalSignal(summary) {
         ? s.exactHitRatePercent
         : null;
   // semanticTop1Accuracy kan vara fraktion (0–1) eller procent; normalisera till procent.
-  const exactHitPct =
-    rawAcc == null ? null : rawAcc <= 1 ? Math.round(rawAcc * 1000) / 10 : rawAcc;
+  const exactHitPct = rawAcc == null ? null : rawAcc <= 1 ? Math.round(rawAcc * 1000) / 10 : rawAcc;
   const rows = Array.isArray(summary.results)
     ? summary.results.map((r) => ({
         id: String(r.id ?? "?"),
@@ -267,7 +392,11 @@ function evalSignal(summary) {
 /** Antal commits de senaste `sinceDays` dagarna som ror processens paths. */
 function churnFor(page, sinceDays) {
   const paths = [...(page.canonicalPaths || []), ...(page.codeReaders || [])]
-    .map((p) => String(p).replace(/\s*\(.*\)\s*$/u, "").trim()) // strippa "(...)"-noter
+    .map((p) =>
+      String(p)
+        .replace(/\s*\(.*\)\s*$/u, "")
+        .trim(),
+    ) // strippa "(...)"-noter
     .map((p) => p.replace(/\*.*$/u, "")) // strippa glob-svansar -> katalog
     .filter(Boolean)
     .filter((p) => existsSync(join(REPO_ROOT, p)));
@@ -284,7 +413,10 @@ function deriveStatus({ override, matched, churn, evalForProcess, churnHot }) {
   const hasBlocker = matched.some((r) => r.blocker);
   if (hasBlocker) return "blocked";
   const openCount = matched.length;
-  const evalWeak = evalForProcess && typeof evalForProcess.exactHitPct === "number" && evalForProcess.exactHitPct < 90;
+  const evalWeak =
+    evalForProcess &&
+    typeof evalForProcess.exactHitPct === "number" &&
+    evalForProcess.exactHitPct < 90;
   if (openCount > 0 || evalWeak) return "shaky";
   if (churn >= churnHot) return "ongoing";
   return "done";
@@ -321,7 +453,13 @@ export function buildData() {
     const churn = churnFor(page, sinceDays);
     const isEvalProcess = /eval/i.test(name);
     const evalForProcess = isEvalProcess ? evals : null;
-    const status = deriveStatus({ override: overrides[name], matched, churn, evalForProcess, churnHot });
+    const status = deriveStatus({
+      override: overrides[name],
+      matched,
+      churn,
+      evalForProcess,
+      churnHot,
+    });
 
     const openByPrio = { P0: 0, P1: 0, P2: 0, P3: 0, other: 0 };
     for (const r of matched) {

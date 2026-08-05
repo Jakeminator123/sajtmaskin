@@ -159,7 +159,7 @@ jobs:
         run: npm run preflight:common
 
       # Bug-backloggens formatkontroll låg tidigare INUTI `preflight:common`, dvs
-      # även i Vercels prebuild — en avbockad [x]-rad kvar i Aktiv kö kunde alltså
+      # även i Vercels prebuild — en inkonsekvent backloggrad kunde alltså
       # fälla PROD-BYGGET (hänt: #368). Bokföring i en markdown-fil ska inte kunna
       # stoppa en deploy, så checken är flyttad hit: fortfarande blockerande på PR
       # (samma enforcement, snabbare feedback) men utanför build-kedjan.

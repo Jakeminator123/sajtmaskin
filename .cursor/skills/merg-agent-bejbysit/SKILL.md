@@ -33,13 +33,13 @@ någon rad faller — rapportera vilken, gör inget mer.
 Set-Location <repo-rot>; git rev-parse --show-toplevel; git status --short --branch; git fetch origin --quiet; git rev-list --left-right --count origin/master...HEAD; gh auth status 2>&1 | Select-String "Logged in"
 ```
 
-| Krav | Accepteras när |
-|---|---|
-| Rätt plats | Du står i **huvudcheckouten** (`git rev-parse --show-toplevel` = repo-roten), inte en worktree |
-| På trunk | HEAD är `master` |
+| Krav                      | Accepteras när                                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rätt plats                | Du står i **huvudcheckouten** (`git rev-parse --show-toplevel` = repo-roten), inte en worktree                                             |
+| På trunk                  | HEAD är `master`                                                                                                                           |
 | Ingen lokal master-commit | `git rev-list --left-right --count origin/master...HEAD` — är högersiffran > 0 har någon committat lokalt på master → avböj och rapportera |
-| GitHub-åtkomst | `gh auth status` visar inloggad |
-| Ensam mutator | Ingen annan agent håller på att merga just nu (fråga användaren vid tvekan) |
+| GitHub-åtkomst            | `gh auth status` visar inloggad                                                                                                            |
+| Ensam mutator             | Ingen annan agent håller på att merga just nu (fråga användaren vid tvekan)                                                                |
 
 Accepterar du: säg det i en mening och gå vidare. Håll dig sedan i huvudcheckouten
 under hela passet — merge-agenten checkar aldrig ut branches, gör aldrig rebase och
@@ -117,10 +117,10 @@ gh api --paginate "repos/Jakeminator123/sajtmaskin/check-runs/<check-run-id>/ann
 **Mognadsregeln: 15 min granskningsbar.** Två klockor måste båda ha gått, för att
 täcka två olika sätt att smita förbi granskning:
 
-| Klocka | Skyddar mot |
-|---|---|
-| När head:et blev **synligt** (push) | En sen push precis före merge — nytt head startar om väntan |
-| PR:ens `createdAt` | En gammal lokal commit som pushas som ny PR; den har inte varit synlig för Codex/Vercel/Bugbot en enda minut |
+| Klocka                              | Skyddar mot                                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| När head:et blev **synligt** (push) | En sen push precis före merge — nytt head startar om väntan                                                  |
+| PR:ens `createdAt`                  | En gammal lokal commit som pushas som ny PR; den har inte varit synlig för Codex/Vercel/Bugbot en enda minut |
 
 Mät head-klockan från **pushen**, inte från `.commit.committer.date` — commit-tiden
 är metadata och kan vara timmar äldre än ögonblicket koden blev granskningsbar
@@ -173,15 +173,15 @@ De kostar inget: labels, författare och `mergeStateStatus` är redan hämtade i
 Steg 1–2. Faller någon rad är PR:en färdigbehandlad för det här svepet — lägg
 inga tokens på fynd-svep eller mognadsräkning.
 
-| Signal | Läge |
-|---|---|
-| `isDraft: true` | Rör aldrig |
-| Label `do-not-merge` | Stopp. Kräver medvetet ägarbeslut — gäller **även** om `merge:ready` sitter kvar |
-| Label `agent:needs-human` | Stopp. Rapportera, merga inte |
-| Label `risk:4` / `risk:5` | Stopp. Eskalera till ägaren |
-| `mergeStateStatus: DIRTY` | Konflikt — författaren måste lösa. Se konfliktordningen i Steg 4 |
-| `mergeStateStatus: BLOCKED` | Ett gate-krav saknas. Ta reda på **vilket** innan du ens överväger `--admin` |
-| Författare `dependabot[bot]` | Egen rutt, se nedan |
+| Signal                       | Läge                                                                             |
+| ---------------------------- | -------------------------------------------------------------------------------- |
+| `isDraft: true`              | Rör aldrig                                                                       |
+| Label `do-not-merge`         | Stopp. Kräver medvetet ägarbeslut — gäller **även** om `merge:ready` sitter kvar |
+| Label `agent:needs-human`    | Stopp. Rapportera, merga inte                                                    |
+| Label `risk:4` / `risk:5`    | Stopp. Eskalera till ägaren                                                      |
+| `mergeStateStatus: DIRTY`    | Konflikt — författaren måste lösa. Se konfliktordningen i Steg 4                 |
+| `mergeStateStatus: BLOCKED`  | Ett gate-krav saknas. Ta reda på **vilket** innan du ens överväger `--admin`     |
+| Författare `dependabot[bot]` | Egen rutt, se nedan                                                              |
 
 En label som säger stopp väger alltid tyngre än en som säger klart. `merge:ready`
 betyder "författaren är färdig", inte "det här får merge:as".
@@ -222,12 +222,12 @@ och kör om grinden på den nya SHA:n. Rör aldrig CI-checkar för att få grön
 ### Lova aldrig att merga på ett mekaniskt villkor
 
 Skriv inte "säg till när den är grön, så mergar jag" eller "jag mergar när klockan
-gått". Grönt CI och en passerad klocka säger att *det som är pushat* håller — inte
+gått". Grönt CI och en passerad klocka säger att _det som är pushat_ håller — inte
 att författaren är färdig med att pusha. Det kan bara författaren säga, och ett
 sådant löfte har redan kapat en pågående fix
 ([`references/incidenter.md`](references/incidenter.md)).
 
-Rätt formulering: *"ping mig när du är klar, så tar jag grinden."*
+Rätt formulering: _"ping mig när du är klar, så tar jag grinden."_
 
 ### Delegering ger mandat att signera, inte kunskap om att någon är klar
 
@@ -248,7 +248,7 @@ fönstret, gör en dokumenterad manuell slutgranskning av diffen och notera båd
 
 **`merge:ready` är författarens godkännande, inte mergarens.** Grinden är en
 tvåpartskontroll: författaragenten skriver sign-off-raden och sätter sedan labeln
-när dess bugg-efterkontroll är klar, och mergaren *verifierar* dem. Sätter mergaren själv
+när dess bugg-efterkontroll är klar, och mergaren _verifierar_ dem. Sätter mergaren själv
 labeln kollapsar kontrollen till en part — samma blindfläck som `Author-is-merger`
 finns till för att stoppa.
 
@@ -300,17 +300,17 @@ låter i stället GitHub falla stängd åt dig. Samma skäl som `--admin`-förbu
 
 Faller den: läs felet innan du eskalerar.
 
-| Felet säger | Betyder | Gör |
-|---|---|---|
-| Required checks röda/pending | Grinden gör sitt jobb | Merga inte. `--admin` hade tyst kringgått det |
-| Approving review saknas på **ägarens egen** PR | Kan inte självgodkännas — enda legitima `--admin`-fallet | `gh pr merge <n> --squash --admin` |
-| Code-owner-review saknas på **extern** PR (t.ex. `chgenberg`) | Precis vad rulesetet finns till för | Merga inte — ägaren godkänner själv |
+| Felet säger                                                   | Betyder                                                  | Gör                                           |
+| ------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------- |
+| Required checks röda/pending                                  | Grinden gör sitt jobb                                    | Merga inte. `--admin` hade tyst kringgått det |
+| Approving review saknas på **ägarens egen** PR                | Kan inte självgodkännas — enda legitima `--admin`-fallet | `gh pr merge <n> --squash --admin`            |
+| Code-owner-review saknas på **extern** PR (t.ex. `chgenberg`) | Precis vad rulesetet finns till för                      | Merga inte — ägaren godkänner själv           |
 
-| Läge | Gör |
-|---|---|
-| Label + sign-off finns, SHA matchar | Merga |
-| Sign-off avser en äldre SHA | Behandla som osignerad — en commit landade efter godkännandet |
-| **Label saknas** | **Merga inte.** Grönt CI är inte ett godkännande — se nedan |
+| Läge                                                          | Gör                                                                                                                                                                                                                        |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Label + sign-off finns, SHA matchar                           | Merga                                                                                                                                                                                                                      |
+| Sign-off avser en äldre SHA                                   | Behandla som osignerad — en commit landade efter godkännandet                                                                                                                                                              |
+| **Label saknas**                                              | **Merga inte.** Grönt CI är inte ett godkännande — se nedan                                                                                                                                                                |
 | Label saknas och författaragenten svarar inte inom rimlig tid | Först då får du ta över **författarrollen**: kör bugbot-passet själv, triagera, och skriv sign-off-raden med `bugkoll: <väg> (merge-agenten agerade författare — ingen oberoende andra part)`. Aldrig på en protected path |
 
 **Övertagandet är ett undantag, inte ett arbetssätt.** Det kräver antingen att
@@ -327,19 +327,19 @@ sign-offen vilken av de två grunderna som gällde.
 
 ### Avsaknad av `merge:ready` betyder "författaren är inte klar"
 
-Grönt CI säger att *det som är pushat* håller. Det säger ingenting om huruvida
+Grönt CI säger att _det som är pushat_ håller. Det säger ingenting om huruvida
 författaren är **färdig med att pusha**. Bara labeln säger det. Att sätta den åt
 författaren gör inte PR:en redo — det raderar bara signalen som hade sagt att den
 inte var det.
 
 Innan du behandlar en författare som frånvarande, väg in tecknen på motsatsen:
 
-| Tecken på att författaren fortfarande jobbar | Var det syns |
-|---|---|
-| Head:et pushades nyligen | tidigaste `started_at` bland head:ets check-runs |
-| PR:en öppnades nyss | `createdAt` |
-| Färska kommentarer eller commits från författaren | `gh pr view <n> --json comments,commits` |
-| PR:en är draft | `isDraft` — rör den aldrig |
+| Tecken på att författaren fortfarande jobbar      | Var det syns                                     |
+| ------------------------------------------------- | ------------------------------------------------ |
+| Head:et pushades nyligen                          | tidigaste `started_at` bland head:ets check-runs |
+| PR:en öppnades nyss                               | `createdAt`                                      |
+| Färska kommentarer eller commits från författaren | `gh pr view <n> --json comments,commits`         |
+| PR:en är draft                                    | `isDraft` — rör den aldrig                       |
 
 Utgångsläget är att **författaren är aktiv**. Är du osäker: fråga i PR:en och gå
 vidare till nästa PR i kön i stället för att vänta.
@@ -372,15 +372,17 @@ underkänner då en korrekt lösning, eller värre: får någon att stryka det n
 fyndet för att få siffran att stämma.
 
 ```powershell
-$key = { param($f) (git show "${f}:BUG-SWARM-BACKLOG.md") -split "`n" | Where-Object { $_ -match "^\| \[ \]" } | ForEach-Object { (($_ -split "\|")[4]).Trim().Substring(0, [Math]::Min(60, (($_ -split "\|")[4]).Trim().Length)) } }
+$key = { param($f) (git show "${f}:BUG-SWARM-BACKLOG.md") -split "`n" | Where-Object { $_ -match "^\| (SW-\d{3}[A-Z]?) \|" } | ForEach-Object { $matches[1] } }
 $m = & $key "origin/master"; $b = & $key "<head>"
 "borta ur branchen:"; Compare-Object $m $b | Where-Object SideIndicator -eq "<=" | ForEach-Object { $_.InputObject }
 "nya i branchen:";    Compare-Object $m $b | Where-Object SideIndicator -eq "=>" | ForEach-Object { $_.InputObject }
 ```
 
-Varje rad under "borta" ska återfinnas avbockad i arkivfilen. Varje rad under
-"nya" ska vara ett fynd PR:en medvetet loggar. Är någondera oväntad: konflikten
-är felaktigt löst.
+Varje ID under "borta" ska återfinnas med **samma ID** i den senaste daterade
+arkivfilen. Varje ID under "nya" ska vara ett fynd PR:en medvetet loggar. Är
+någondera oväntad: konflikten är felaktigt löst. Jämför dessutom texten för ID:n
+som finns på båda sidor när konflikten rörde samma rad; identiteten fångar bortfall,
+inte en semantiskt felaktig omskrivning.
 
 Canvasen handmergas aldrig — ta vilken sida som helst och kör om
 `node scripts/canvas/build-llm-flow-canvas.mjs`.
@@ -404,13 +406,13 @@ Ser du master röd efter en merge — säg till direkt, det är viktigare än at
 
 Merge-agenten läser mycket och skriver lite. Håll kostnaden nere:
 
-| Gör | Inte |
-|---|---|
-| `--jq` på varje `gh`-anrop, hämta bara fälten du behöver | `gh pr view --json` utan filter (hela body + reviews i kontexten) |
-| Läs diffen bara när ett fynd kräver det, och då riktat | `gh pr diff` på hela PR:en rutinmässigt |
-| **En** bakgrundsshell som sover och sedan dumpar `gh pr checks` | Upprepad polling i förgrunden |
-| Avsluta turen under väntan — notisen tar dig tillbaka | Blockera på `AwaitShell` i 15 min |
-| Verifiera författarens bugbot-pass | Köra om ett pass som redan är dokumenterat |
+| Gör                                                                                         | Inte                                                                          |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `--jq` på varje `gh`-anrop, hämta bara fälten du behöver                                    | `gh pr view --json` utan filter (hela body + reviews i kontexten)             |
+| Läs diffen bara när ett fynd kräver det, och då riktat                                      | `gh pr diff` på hela PR:en rutinmässigt                                       |
+| **En** bakgrundsshell som sover och sedan dumpar `gh pr checks`                             | Upprepad polling i förgrunden                                                 |
+| Avsluta turen under väntan — notisen tar dig tillbaka                                       | Blockera på `AwaitShell` i 15 min                                             |
+| Verifiera författarens bugbot-pass                                                          | Köra om ett pass som redan är dokumenterat                                    |
 | `bugbot`-subagent bara när du själv rört koden, eller på protected path utan oberoende pass | En egen agentsvärm ovanpå bugbot-passet (togs bort med `/granska` 2026-08-02) |
 
 Väntemönster — låt **exit-koden** avgöra (`0` = alla gröna, `8` = pending). Att

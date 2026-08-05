@@ -40,7 +40,7 @@ Låt `--keep` peka på vinnaren tills fixen är mergad. Utan den flaggan städas
 
 ## Relation till bugglistan
 
-`BUG-SWARM-BACKLOG.md` (repo-rot) rörs **aldrig** av `/kedja`. Att bocka av en rad är en manuell åtgärd efter att fixen är mergad, precis som `/automat` aldrig skriver dit.
+`/kedja` ändrar inte backloggen under kandidatkörningen. När användaren begär PR flyttar orkestratorn den lösta raden från `BUG-SWARM-BACKLOG.md` till den senaste daterade arkivfilen med samma `SW-###`-ID och fixreferens **i samma PR**; ingen manuell efter-merge-status behövs.
 
 ## Kör
 

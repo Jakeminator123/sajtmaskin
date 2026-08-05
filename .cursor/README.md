@@ -43,28 +43,28 @@ Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler ko
 
 ### Glob-triggrade (aktiveras vid relevanta filer)
 
-| Regel                                              | Trigger                          | Syfte                                                                    |
-| -------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
-| [db-env-parity.mdc](rules/db-env-parity.mdc)       | `src/lib/db/**`                  | DB-/env-paritet mellan lager                                             |
-| [dossier-rules.mdc](rules/dossier-rules.mdc)       | `data/dossiers/**`               | Regler vid dossier-ändringar                                             |
-| [env-flow-f2-mute.mdc](rules/env-flow-f2-mute.mdc) | `src/lib/api/engine/chats/**`    | F2 får aldrig generera env-frågor — all env-trafik gates till F3         |
-| [openclaw-bridge.mdc](rules/openclaw-bridge.mdc)   | `.cursor/openclaw-bridge/**`     | OpenClaw inbox/outbox (opt-in)                                           |
-| [pipeline-rules.mdc](rules/pipeline-rules.mdc)     | `sajtmaskin_backoffice.py`       | Pipeline-enkelhet + docs/schemas/backoffice-sync vid LLM-flödesändringar |
-| [plan-lifecycle.mdc](rules/plan-lifecycle.mdc)     | `docs/plans/**`                  | När planer ska skapas, parkas, avklaras och raderas                      |
-| [scaffold-rules.mdc](rules/scaffold-rules.mdc)     | `src/lib/gen/scaffolds/**`       | Agentregler vid scaffold-ändringar                                       |
-| [unicode-regex.mdc](rules/unicode-regex.mdc)       | `src/lib/gen/**`                 | Regex för mänsklig text — alltid Unicode-medveten, aldrig ASCII `\b`     |
+| Regel                                              | Trigger                       | Syfte                                                                    |
+| -------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
+| [db-env-parity.mdc](rules/db-env-parity.mdc)       | `src/lib/db/**`               | DB-/env-paritet mellan lager                                             |
+| [dossier-rules.mdc](rules/dossier-rules.mdc)       | `data/dossiers/**`            | Regler vid dossier-ändringar                                             |
+| [env-flow-f2-mute.mdc](rules/env-flow-f2-mute.mdc) | `src/lib/api/engine/chats/**` | F2 får aldrig generera env-frågor — all env-trafik gates till F3         |
+| [openclaw-bridge.mdc](rules/openclaw-bridge.mdc)   | `.cursor/openclaw-bridge/**`  | OpenClaw inbox/outbox (opt-in)                                           |
+| [pipeline-rules.mdc](rules/pipeline-rules.mdc)     | `sajtmaskin_backoffice.py`    | Pipeline-enkelhet + docs/schemas/backoffice-sync vid LLM-flödesändringar |
+| [plan-lifecycle.mdc](rules/plan-lifecycle.mdc)     | `docs/plans/**`               | När planer ska skapas, parkas, avklaras och raderas                      |
+| [scaffold-rules.mdc](rules/scaffold-rules.mdc)     | `src/lib/gen/scaffolds/**`    | Agentregler vid scaffold-ändringar                                       |
+| [unicode-regex.mdc](rules/unicode-regex.mdc)       | `src/lib/gen/**`              | Regex för mänsklig text — alltid Unicode-medveten, aldrig ASCII `\b`     |
 
 ### Manuellt bifogade (alwaysApply: false, ingen glob)
 
-| Regel                                                        | Syfte                                                                          |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| [agent-observatory.mdc](rules/agent-observatory.mdc)         | Var agenter hittar per-körning- och per-chat-loggar                            |
-| [auto-merge-automation.mdc](rules/auto-merge-automation.mdc) | Vem mergar, och när `--admin` är tillåtet                                      |
+| Regel                                                        | Syfte                                                                              |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| [agent-observatory.mdc](rules/agent-observatory.mdc)         | Var agenter hittar per-körning- och per-chat-loggar                                |
+| [auto-merge-automation.mdc](rules/auto-merge-automation.mdc) | Vem mergar, och när `--admin` är tillåtet                                          |
 | [local-tooling-mcp.mdc](rules/local-tooling-mcp.mdc)         | Lokal MCP/Vercel/Supabase/shadcn-setup — läs vid tooling-problem eller ny worktree |
-| [platform-quirks.mdc](rules/platform-quirks.mdc)             | Windows och repo-specifika fallgropar                                          |
-| [pr-bot-findings-sweep.mdc](rules/pr-bot-findings-sweep.mdc) | Hämta och triagera externa bot-fynd vid PR-granskning                          |
-| [pr-merge-review-gate.mdc](rules/pr-merge-review-gate.mdc)   | Kanonisk merge-grind — läs före merge/approval                                 |
-| [useful-commands.mdc](rules/useful-commands.mdc)             | Snabb kommandoöversikt; `package.json` är kanonisk källa                       |
+| [platform-quirks.mdc](rules/platform-quirks.mdc)             | Windows och repo-specifika fallgropar                                              |
+| [pr-bot-findings-sweep.mdc](rules/pr-bot-findings-sweep.mdc) | Hämta och triagera externa bot-fynd vid PR-granskning                              |
+| [pr-merge-review-gate.mdc](rules/pr-merge-review-gate.mdc)   | Kanonisk merge-grind — läs före merge/approval                                     |
+| [useful-commands.mdc](rules/useful-commands.mdc)             | Snabb kommandoöversikt; `package.json` är kanonisk källa                           |
 
 I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
 
@@ -92,7 +92,7 @@ parallell owner.
 - `/818` = **ett beslut** (inte en bugg): **tre** parallella read-only agenter med icke-överlappande vinklar (konsekvens · motståndaren · kanon), du verifierar deras påståenden mot koden, gör **minimal** ändring, verifierar, **review-pass** på diffen. Namnet är historiskt — åtta agenter blev tre 2026-08-02, eftersom åtta röster på samma fråga var korrelerat brus. Se `.cursor/skills/818-swarm-decide/SKILL.md`.
 - `/automat` = **flera** sekventiella read-only audit-svärmar som **växlar** scan (8 agenter i roterande lanes) och falsifiering (en agent per overifierat fynd, uppdrag: motbevisa det). Default 3 rundor; `/automat 7` = 7 rundor. Fynd hamnar i gitignored `.cursor/swarms/FINDINGS.md`. Audit mode (ändrar aldrig kod). Se `.cursor/skills/automat-swarm/SKILL.md`.
 - `/avslutning` = stäng arbete: review, scoped cleanup, docs-/schema-/backoffice-sync, verifiering, commit + push. Hanterar både vanligt slutpass och stängning av hela arbetsspår.
-- `/buggrapport` = lägg en bugg i `BUG-SWARM-BACKLOG.md` (rot) — `## Aktiv kö` för defekter, valfri lokal evidens i `.cursor/bugs/`. Ingen Linear.
+- `/buggrapport` = lägg en stabil `SW-###`-rad i rätt kö i `BUG-SWARM-BACKLOG.md` (rot), med valfri lokal evidens i `.cursor/bugs/`. Ingen Linear.
 - `/kedja` = **fix mode**-motsvarigheten till `/automat`: en bugg genom sju steg (ram → worktrees → failande test → tre lokaliseringsagenter → du väljer rotorsak → N fix-kandidater i varsin worktree → maskinell dom → bugbot). Kandidatdiffar i gitignored `.cursor/kedja/`; vinnaren lämnas **ocommittad** i sin worktree. Se `.cursor/skills/kedja-fix-pipeline/SKILL.md`.
 - `/logg` = hämta **alla** loggar för senaste genererade prod-sajten (produktionsdatabas inkl. telemetri + OpenClaw-fynd, Vercel build/runtime via MCP, Fly preview-host) och sammanfatta hur körningen gick. Read-only mot prod. Se `.cursor/skills/logg/SKILL.md`.
 - `/logg-internet` = **live** prod-session i Cursor-browsern: verifiera inloggning på `sajtmaskin.vercel.app`, skriv en friprompt + ~2 uppföljningar och **anteckna** hur körningen går (Observatörspersona, jagar inte fel som default). Drar credits på riktigt. Notiser i gitignored `.cursor/logg-internet/`. Se `.cursor/skills/logg-internet/SKILL.md`.
@@ -105,19 +105,19 @@ Kommandon och skills som startar `Task`-subagenter hämtar sin **roll** härifr�
 
 `<grok-4.5>` nedan är en **platshållare, inte en slug**: slå upp posten som börjar på `cursor-grok-4.5` i din egen sessions `<available_subagent_models>` och använd den exakt.
 
-| Roll | Slug | Används av |
-| ------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
-| **Scan** — bred inventering, hög volym | `<grok-4.5>` | `/automat` scan-rundor, `/818` insamling, `/kedja` lokalisering, `/post-review`, bakgrundsbevakaren i `pr-merge-review-gate.mdc` |
-| **Omdöme** — falsifiera fynd, skriva kod, review-pass | `<grok-4.5>` | `/automat` falsifieringsrundor, `/818` review-pass, `/kedja` repro- och fix-agenter |
-| **Destillering** — läsa råa `runs/`-rapporter, returnera topp-N | `<grok-4.5>` | `/automat` |
-| **Kedja-runner / billig orkestrator-delegering** | `<grok-4.5>` | `/kedja` delegerat läge (steg 1–6) |
-| **Bugg-grind / kodgranskning** | `<grok-4.5>` | `bugbot`-subagenten (`model:`-parametern) — obligatoriskt pass före push/PR |
+| Roll                                                            | Slug         | Används av                                                                                                                       |
+| --------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Scan** — bred inventering, hög volym                          | `<grok-4.5>` | `/automat` scan-rundor, `/818` insamling, `/kedja` lokalisering, `/post-review`, bakgrundsbevakaren i `pr-merge-review-gate.mdc` |
+| **Omdöme** — falsifiera fynd, skriva kod, review-pass           | `<grok-4.5>` | `/automat` falsifieringsrundor, `/818` review-pass, `/kedja` repro- och fix-agenter                                              |
+| **Destillering** — läsa råa `runs/`-rapporter, returnera topp-N | `<grok-4.5>` | `/automat`                                                                                                                       |
+| **Kedja-runner / billig orkestrator-delegering**                | `<grok-4.5>` | `/kedja` delegerat läge (steg 1–6)                                                                                               |
+| **Bugg-grind / kodgranskning**                                  | `<grok-4.5>` | `bugbot`-subagenten (`model:`-parametern) — obligatoriskt pass före push/PR                                                      |
 
 - **Hård regel — dyra tänkande modeller.** `claude-opus-5-thinking-xhigh` och andra dyra tänkande modeller får **inte** användas som buggranskare/review-subagent som default. De får bara användas när ägaren uttryckligen ber om en specialkoll.
 - **Skriv aldrig av en slug ur en äldre textrad.** Formen varierar mellan sessioner: 2026-08-05 observerades `cursor-grok-4.5-high` i en session och `cursor-grok-4.5-high-fast` i en annan **samma dag**. Fel form avvisas med `Invalid model selection` — och svaret listar de tillåtna, så en felgissning rättar sig själv. Det tystare utfallet är värre: en slug som inte valideras faller tillbaka på **orkestratorns** modell, så en "billig" subagent kan köra dyrt utan att något syns.
-- **Skicka alltid `model`.** Utelämnas parametern ärver subagenten din egen modell — samma dyra utfall som en tyst fallback, bara utan att någon skrev fel. `Task`-verktyget säger själv *"use `inherit` unless the user explicitly requested another listed model"*; ägarens stående begäran (se `rules/subagent-models.mdc`) **är** den begäran, så `inherit` är inte defaultvalet här. Mätt 2026-08-05: **118 av 147** `Task`-anrop under tre dygn saknade `model` helt.
-- **Håll volymrapporter korta.** Samma Grok-slug används för scan och omdöme; kostnaden sitter i *rapportlängd × orkestratorns kontext*. Scan/destill ska returnera tabellrader, inte prosa.
-- **Kostnaden sitter i orkestratorn, inte i antalet subagenter.** Varje returnerad rapport skickas om i *varje* efterföljande tur. Kör därför långa svärmsessioner med en **billig orkestrator** (Grok 4.5) och håll subagent-svaren korta — inte som den modell som bär hela historiken.
+- **Skicka alltid `model`.** Utelämnas parametern ärver subagenten din egen modell — samma dyra utfall som en tyst fallback, bara utan att någon skrev fel. `Task`-verktyget säger själv _"use `inherit` unless the user explicitly requested another listed model"_; ägarens stående begäran (se `rules/subagent-models.mdc`) **är** den begäran, så `inherit` är inte defaultvalet här. Mätt 2026-08-05: **118 av 147** `Task`-anrop under tre dygn saknade `model` helt.
+- **Håll volymrapporter korta.** Samma Grok-slug används för scan och omdöme; kostnaden sitter i _rapportlängd × orkestratorns kontext_. Scan/destill ska returnera tabellrader, inte prosa.
+- **Kostnaden sitter i orkestratorn, inte i antalet subagenter.** Varje returnerad rapport skickas om i _varje_ efterföljande tur. Kör därför långa svärmsessioner med en **billig orkestrator** (Grok 4.5) och håll subagent-svaren korta — inte som den modell som bär hela historiken.
 
 ## Backoffice
 

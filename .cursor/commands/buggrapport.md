@@ -4,10 +4,12 @@ Lägg in en bugg i den **enda** bugglistan: [`BUG-SWARM-BACKLOG.md`](../../BUG-S
 
 ## Princip
 
-- En reell **defekt** (systemet gör fel) → ny `[ ]`-rad i sektionen **`## Aktiv kö`**.
-- Ett **policy-/produktval** (systemet gör som tänkt men vi kan välja annorlunda) → rad i **`## Beslut & policy`**, inte Aktiv kö.
-- Kan inte avgöras statiskt (kräver repro/livekörning) → **`## Behöver repro`**.
-- Läs `BUG-SWARM-BACKLOG.md` § "Hur den hålls sann" innan du skriver — den styr formatet.
+- En reell **defekt** i nåbar kod → ny rad i **`## Aktiva produktionsbuggar`**.
+- En defekt bakom avstängd feature flag → **`## Release blockers bakom feature flag`**.
+- Ett **policy-/produktval** → **`## Väntar på ägarbeslut`**.
+- Kan inte avgöras statiskt → **`## Risker som behöver repro`**.
+- Hardening, testlucka eller städning → **`## Säkerhet, infra och teknisk skuld`**.
+- Läs `BUG-SWARM-BACKLOG.md` § "Regler" innan du skriver — den styr formatet.
 
 ## Indatakällor
 
@@ -37,19 +39,20 @@ Finns en aktuell öppen rad för samma rotorsak → **uppdatera den raden** (sk�
 
 ### 2. Tilldela ID
 
-Manuellt rapporterade buggar får källa-tag `M#<n>`. Hitta högsta befintliga `M#` i `BUG-SWARM-BACKLOG.md` + arkivfilen och inkrementera (`M#1`, `M#2`, …). Saknas någon → börja på `M#1`.
+Hitta högsta befintliga bas-ID `SW-###` i `BUG-SWARM-BACKLOG.md` och arkivfilerna och inkrementera. Suffix som `SW-055A` räknas som bas `SW-055`, så nästa blir `SW-056`. ID:t ändras inte om raden senare flyttar mellan köer.
 
 ### 3. Lägg till raden
 
-Skriv en `[ ]`-rad i rätt sektion. Aktiv kö använder 7-kolumnsformatet (det är detta canvas + preflight läser):
+Skriv en rad i rätt sektion. Aktiva produktionsbuggar och releaseblockers använder detta format (canvas + formatkontroll läser det):
 
 ```markdown
-| [ ] | Öppen bug | P2 | <kort fynd + fil:rad-ankare> | M#<n> | <minsta åtgärd / nästa steg> |
+| SW-056 | P2 | Builder | <ett kort falsifierbart fel> | `fil.ts` + funktion eller kontrakt | <minsta åtgärd> | 2026-08-05 abcdef0 |
 ```
 
-- **Fynd:** kort, konkret, med kod-ankare (`fil.ts:rad`) om koden är inblandad.
+- **Fel:** kort och konkret. Lägg fil/funktion i `Kodbevis` i stället för lång historik i felcellen.
 - **Prio:** `P0` produktion nere/dataförlust/säkerhetshål · `P1` kärnflöde brutet utan workaround · `P2` bug med workaround · `P3` kosmetiskt/edge. Osäker → `P2`.
-- Hör fyndet egentligen hemma i `Beslut & policy` eller `Behöver repro` → använd de sektionernas format i stället (ingen 7-kolumns-kryssruta där).
+- **Verifierad:** datum + den master-SHA som beviset lästes mot.
+- Hör fyndet hemma i en annan kö → använd den sektionens tabellformat. Checkboxar används inte; sektionen äger status.
 
 ### 4. Valfri lokal evidens (`.cursor/bugs/`)
 
@@ -58,7 +61,7 @@ Bara om rapporten har tung evidens (skärmdump, lång console-/network-dump) som
 Filnamn:
 
 ```text
-.cursor/bugs/YYYY-MM-DD_HHMM_M<n>_<kort-slug>.md
+.cursor/bugs/YYYY-MM-DD_HHMM_SW-<nnn>_<kort-slug>.md
 ```
 
 - Tidsstämpel = lokal tid: `Get-Date -Format "yyyy-MM-dd_HHmm"`.
@@ -76,7 +79,7 @@ Undvik `Det funkar inte`.
 
 ## Slutsvar till användaren
 
-- Vilken sektion + källa-id (`M#<n>`) som lades/uppdaterades.
+- Vilken sektion + stabilt ID (`SW-###`) som lades/uppdaterades.
 - Prio.
 - Ev. lokal evidens-fil (`.cursor/bugs/...`).
 - Om dublett-check hittade en befintlig rad och den uppdaterades i stället → säg vilken.

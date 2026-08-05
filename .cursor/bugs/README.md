@@ -14,7 +14,7 @@ Mappen är **inte** i `.cursorignore`, så agenter kan läsa innehållet.
 
 ## Hur buggar hamnar här
 
-1. **Via `/buggrapport`** — en `[ ]`-rad läggs i `BUG-SWARM-BACKLOG.md § Aktiv kö`. Om rapporten har tung evidens skrivs en valfri detaljfil hit.
+1. **Via `/buggrapport`** — en stabil `SW-###`-rad läggs i rätt sektion i `BUG-SWARM-BACKLOG.md`. Om rapporten har tung evidens skrivs en valfri detaljfil hit.
 2. **Via agent/automation** — innan nya buggar föreslås: läs backloggen + denna mapp för att undvika dubletter.
 
 ## Status
@@ -24,9 +24,9 @@ Status lever **bara** i `BUG-SWARM-BACKLOG.md`. En fil här är en frusen eviden
 ## Filnamn-konvention
 
 ```text
-YYYY-MM-DD_HHMM_M<n>_<kort-slug>.md
+YYYY-MM-DD_HHMM_SW-<nnn>_<kort-slug>.md
 ```
 
-- `M<n>` = samma källa-id som backlog-raden (manuellt rapporterad bugg).
+- `SW-<nnn>` = samma stabila ID som backlog-raden.
 - Tidsstämpel = lokal tid: `Get-Date -Format "yyyy-MM-dd_HHmm"`.
 - Slug: 3–6 ord, kebab-case, transliterera å→a, ä→a, ö→o.

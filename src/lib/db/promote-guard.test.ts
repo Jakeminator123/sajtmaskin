@@ -120,7 +120,7 @@ describe("assertPromoteAllowed (false-green promotion guard)", () => {
   // (från före en användar-edit) kan false-green:a en promote. Guarden är
   // dock ALLOW-by-default: bara `verifier_failed`/`preflight_failed` blockerar,
   // och `null` är medvetet fail-open (back-compat: template-import, rollback,
-  // äldre rader — se "Beslut & policy" i backloggen). En stale `passed` ger
+  // äldre rader — se `SW-082` under "Väntar på ägarbeslut" i backloggen). En stale `passed` ger
   // därför INGET som en superseding null-rad inte redan skulle ge — den
   // föreslagna fixen ("skriv en superseding rad") kan inte stänga något hål.
   // Detta test låser fast ekvivalensen så nästa agent inte bygger den fixen.

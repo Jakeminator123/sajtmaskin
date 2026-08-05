@@ -32,7 +32,7 @@ uttryckligen förklarar MVP:n levererad gäller:
 
 ## Alltid tillåtet (ingen frys på detta)
 
-- Bekräftade defekter och rader ur `BUG-SWARM-BACKLOG.md § Aktiv kö`.
+- Bekräftade defekter och rader ur `BUG-SWARM-BACKLOG.md § Aktiva produktionsbuggar`.
 - Grundhygien enligt `project-phase-priorities.mdc` (secrets, cross-tenant,
   dataförlust, tyst korruption).
 - Tester som låser en konkret fixad bugg eller ett nytt litet kontrakt

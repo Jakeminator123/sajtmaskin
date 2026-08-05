@@ -14,12 +14,12 @@ Planer dokumenterar arbete, de är inte produkten.
 
 `docs/plans/active/README.md` är aktiv router. Allt som inte styr pågående arbete ska ut ur `active/`.
 
-| Plats | Innehåll |
-|---|---|
-| `docs/plans/active/README.md` | aktivt koncentrat + länkar |
-| `docs/plans/active/<initiativ>/` | endast stora pågående initiativ |
-| `docs/plans/avklarat/` | implementerat och mergat |
-| `docs/plans/archived/` | vilande, parkerat, ersatt, skrotat |
+| Plats                            | Innehåll                           |
+| -------------------------------- | ---------------------------------- |
+| `docs/plans/active/README.md`    | aktivt koncentrat + länkar         |
+| `docs/plans/active/<initiativ>/` | endast stora pågående initiativ    |
+| `docs/plans/avklarat/`           | implementerat och mergat           |
+| `docs/plans/archived/`           | vilande, parkerat, ersatt, skrotat |
 
 ## Stora initiativ
 
@@ -43,4 +43,4 @@ Flytta färdiga planer till `avklarat/`. Låt inte lösa fragment ligga i `activ
 
 ## Buggar
 
-`BUG-SWARM-BACKLOG.md` (repo-rot) är enda källan till buggsanning — ingen Linear/extern tracker. Öppna defekter ligger i `## Aktiv kö`; fixade flyttas till `docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`. `.cursor/bugs/` är valfri lokal evidens-yta (gitignored), inte en status-källa — radera evidens-filen när buggen är åtgärdad.
+`BUG-SWARM-BACKLOG.md` (repo-rot) är enda källan till buggsanning — ingen Linear/extern tracker. Bekräftade nåbara fel ligger i `## Aktiva produktionsbuggar`; feature-flag-blockers, repro, ägarbeslut och skuld har egna sektioner. Fixade rader flyttas med sitt stabila `SW-###`-ID till `docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`. `.cursor/bugs/` är valfri lokal evidens-yta (gitignored), inte en status-källa — radera evidens-filen när buggen är åtgärdad.
