@@ -32,6 +32,14 @@ Required-checken `review-window` (`.github/workflows/review-window.yml`) håller
 
 **`gh pr merge --admin` överstyr checken**, så vid admin-merge måste PR-åldern verifieras manuellt (`gh pr view <n> --json createdAt`).
 
+### Mergarens kontroll precis före merge
+
+Detta är **mergarens** kontroll, skild från författarens bugg-efterkontroll längre ner (som körs vid PR-skapandet). Ingen merge — **inte ens admin** — förrän minst en extern buggkoll hunnit köra:
+
+1. **Codex-fönstret är 7 min och bounded.** Ge Codex upp till 7 min från PR-skapandet att lägga en review. Kommer ingen: **vänta inte längre** — författarens bugbot-pass för aktuell head-SHA räcker som oberoende ögon.
+2. **Landar en Codex-review inom fönstret** → läs och triagera den. Ett redan gjort bugbot-pass behöver inte köras om — men kör bugbot ändå på protected paths. Codex ersätter **aldrig** författarens obligatoriska efterkontroll; den är ett tillägg.
+3. **Har inget bugbot-pass körts för aktuell SHA** — eller landade en ny commit efter passet — kör `bugbot`-subagenten **nu** (`readonly: true`, `model: <grok-4.5>`) och dokumentera fynden innan du mergar.
+
 ### `--admin` är förbjudet före grinden
 
 Admin-bypass kringgår allt: required checks och code-owner-review. Jakes egna PR:er kan inte självgodkännas och mergas därför med `--admin` — men först **efter** att hela grinden ovan är uppfylld och dokumenterad. `--admin` är aldrig en genväg förbi en utebliven granskning, ett rött check eller ett fönster som inte gått ut.
@@ -154,7 +162,7 @@ Dashboard-automationen "PR-mergare" ska vara **AV** (beslut 2026-07-09 — se ru
 
 Har du mandat som merge-agent är väntan **inte** en aktivitet. `quality` tar ~8 min, `review-window` minst 7, och ett bugbot-pass flera minuter — den tiden ska gå till att föra de **övriga** öppna PR:erna framåt, inte till att polla samma check om.
 
-Under väntan: svep `gh pr list --state open` (labels, draft, checks), hämta och triagera externa bot-fynd per PR (se "Hämta ALLA fynd" ovan — `gh pr checks` visar dem inte), verifiera författarnas påståenden mot koden, och identifiera vilka PR:er som krockar i samma fil.
+Under väntan: svep `gh pr list --state open` (labels, draft, checks), hämta och triagera externa bot-fynd per PR (se "Hämta ALLA fynd" ovan — `gh pr checks` visar dem inte), verifiera författarnas påståenden mot koden, och identifiera vilka PR:er som krockar i samma fil. Kom tillbaka till den väntande PR:en när den faktiskt är klar.
 
 **Men serialisera själva mergarna.** Granskningsarbetet parallelliseras; `gh pr merge` körs en PR i taget, med `git fetch` emellan, eftersom en merge gör alla andra PR:ers head-SHA:n inaktuella och kan väcka konflikter som var osynliga i deras gröna CI. Börja inte heller skriva kod på en annan agents branch bara för att du väntar — rapportera i stället att den behöver arbete.
 
