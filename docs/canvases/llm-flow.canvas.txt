@@ -63,23 +63,108 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "778717bb",
-    "commitDate": "2026-07-25",
+    "commit": "f776a25e2",
+    "commitDate": "2026-08-05",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
     "openP1": 1,
-    "openP2": 14,
-    "openP3": 24,
-    "blocked": 0,
-    "shaky": 6,
+    "openP2": 18,
+    "openP3": 37,
+    "blocked": 3,
+    "shaky": 5,
     "evalExactHitPct": 98.46
   },
   "processes": [
     {
       "name": "LLM-faser & runtime-sanning",
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 5,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 1,
+        "P3": 4,
+        "other": 0
+      },
+      "churn": 22,
+      "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
+      "note": "5 oppna backlog-rader (P0:0 P1:0 P2:1 P3:4)"
+    },
+    {
+      "name": "Codegen core",
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 6,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 3,
+        "P3": 3,
+        "other": 0
+      },
+      "churn": 6,
+      "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
+      "note": "6 oppna backlog-rader (P0:0 P1:0 P2:3 P3:3)"
+    },
+    {
+      "name": "prompt-core",
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 1,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 1,
+        "P3": 0,
+        "other": 0
+      },
+      "churn": 1,
+      "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
+      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:1 P3:0)"
+    },
+    {
+      "name": "ai_models",
+      "status": "shaky",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "openBugs": 6,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 1,
+        "P3": 5,
+        "other": 0
+      },
+      "churn": 19,
+      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
+      "note": "6 oppna backlog-rader (P0:0 P1:0 P2:1 P3:5)"
+    },
+    {
+      "name": "Scaffolds: titta & justera",
+      "status": "blocked",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "openBugs": 16,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 0,
+        "P2": 10,
+        "P3": 6,
+        "other": 0
+      },
+      "churn": 18,
+      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
+      "note": "BLOCKER: **`Eval Baseline Update` har failat varje vecka i minst åtta veckor utan att någon märkt …"
+    },
+    {
+      "name": "Scaffolds & varianter: skapa, klona, ta bort",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
@@ -91,15 +176,32 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 8,
-      "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
+      "churn": 30,
+      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
     },
     {
-      "name": "Codegen core",
-      "status": "shaky",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
+      "name": "Preview och versioner",
+      "status": "blocked",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "openBugs": 42,
+      "openByPrio": {
+        "P0": 0,
+        "P1": 1,
+        "P2": 14,
+        "P3": 27,
+        "other": 0
+      },
+      "churn": 25,
+      "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
+      "note": "BLOCKER: **`Eval Baseline Update` har failat varje vecka i minst åtta veckor utan att någon märkt …"
+    },
+    {
+      "name": "Eval",
+      "status": "blocked",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
       "openBugs": 4,
       "openByPrio": {
         "P0": 0,
@@ -108,160 +210,88 @@ const DATA: CanvasData = {
         "P3": 2,
         "other": 0
       },
-      "churn": 2,
-      "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
-      "note": "4 oppna backlog-rader (P0:0 P1:0 P2:2 P3:2)"
-    },
-    {
-      "name": "prompt-core",
-      "status": "shaky",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "openBugs": 2,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 0,
-        "P2": 2,
-        "P3": 0,
-        "other": 0
-      },
-      "churn": 0,
-      "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
-      "note": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
-    },
-    {
-      "name": "ai_models",
-      "status": "shaky",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "openBugs": 4,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 0,
-        "P2": 1,
-        "P3": 3,
-        "other": 0
-      },
-      "churn": 13,
-      "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
-      "note": "4 oppna backlog-rader (P0:0 P1:0 P2:1 P3:3)"
-    },
-    {
-      "name": "Scaffolds: titta & justera",
-      "status": "shaky",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "openBugs": 10,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 0,
-        "P2": 6,
-        "P3": 4,
-        "other": 0
-      },
-      "churn": 9,
-      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/pro",
-      "note": "10 oppna backlog-rader (P0:0 P1:0 P2:6 P3:4)"
-    },
-    {
-      "name": "Scaffolds & varianter: skapa, klona, ta bort",
-      "status": "ongoing",
-      "statusLabel": "Pagar",
-      "tone": "info",
-      "openBugs": 0,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 0,
-        "P2": 0,
-        "P3": 0,
-        "other": 0
-      },
-      "churn": 10,
-      "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 10 commits / 14d"
-    },
-    {
-      "name": "Preview och versioner",
-      "status": "shaky",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "openBugs": 31,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 1,
-        "P2": 10,
-        "P3": 20,
-        "other": 0
-      },
-      "churn": 17,
-      "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
-      "note": "31 oppna backlog-rader (P0:0 P1:1 P2:10 P3:20)"
-    },
-    {
-      "name": "Eval",
-      "status": "done",
-      "statusLabel": "Klart",
-      "tone": "success",
-      "openBugs": 0,
-      "openByPrio": {
-        "P0": 0,
-        "P1": 0,
-        "P2": 0,
-        "P3": 0,
-        "other": 0
-      },
-      "churn": 3,
+      "churn": 5,
       "summary": "Backoffice-yta för scaffold-selection-eval och codegen-eval. Scaffold-eval läser senaste lokala JSON-rapport. Codegen-delen visar baseline-status, kan köra `npm run eval:gate` manu",
-      "note": "Eval exact-hit 98.46%"
+      "note": "BLOCKER: **`Eval Baseline Update` har failat varje vecka i minst åtta veckor utan att någon märkt …"
     }
   ],
   "shaky": [
     {
       "name": "Preview och versioner",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "31 oppna backlog-rader (P0:0 P1:1 P2:10 P3:20)"
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "reason": "BLOCKER: **`Eval Baseline Update` har failat varje vecka i minst åtta veckor utan att någon märkt …"
     },
     {
       "name": "Scaffolds: titta & justera",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "10 oppna backlog-rader (P0:0 P1:0 P2:6 P3:4)"
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "reason": "BLOCKER: **`Eval Baseline Update` har failat varje vecka i minst åtta veckor utan att någon märkt …"
+    },
+    {
+      "name": "Eval",
+      "statusLabel": "Blockerat",
+      "tone": "danger",
+      "reason": "BLOCKER: **`Eval Baseline Update` har failat varje vecka i minst åtta veckor utan att någon märkt …"
     },
     {
       "name": "ai_models",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "4 oppna backlog-rader (P0:0 P1:0 P2:1 P3:3)"
+      "reason": "6 oppna backlog-rader (P0:0 P1:0 P2:1 P3:5)"
     },
     {
       "name": "Codegen core",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "4 oppna backlog-rader (P0:0 P1:0 P2:2 P3:2)"
-    },
-    {
-      "name": "LLM-faser & runtime-sanning",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "2 oppna backlog-rader (P0:0 P1:0 P2:1 P3:1)"
+      "reason": "6 oppna backlog-rader (P0:0 P1:0 P2:3 P3:3)"
     }
   ],
   "topOpenRisks": [
     {
+      "prio": "P2",
+      "blocker": true,
+      "fynd": "**`Eval Baseline Update` har failat varje vecka i minst åtta veckor utan att någon märkt det:** alla schemala…"
+    },
+    {
       "prio": "P1",
       "blocker": false,
-      "fynd": "**Dedupe-bailouten i placement-hooken saknar regressionstest på hook-/komponentnivå:** #604 testar bara `isSa…"
+      "fynd": "**Domänköpets restlista — elva fynd som måste stängas innan `SAJTMASKIN_DOMAIN_PURCHASE` slås på:** #706 land…"
     },
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "**Tidigare LLM-byggd chattyta konkurrerar med senare `openai-chat`-dossier (dubbel chatt-yta/route):** en F2-…"
+      "fynd": "**Preview-vägens dep-completer ser inte CSS-importer, så `tw-animate-css` aldrig hamnar i `package.json`:** p…"
     },
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "Sign-off/merge-freshness: `review-window` väntar bara in botar, gör INGEN verdict-bedömning, och blir grön ef…"
+      "fynd": "**`npm run worktree:remove` kraschar på en worktree som har `.env.local` som symlänk:** teardown anropar `rmd…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "**F3 kan fortfarande bygga en uppskjuten dossier bredvid ett modellbyggt block med samma capability:** M#li6-…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "**Exit-budgeten kan nollställas av en boot ingen bad om:** #710 stoppade omstartsloopen genom att räkna rena …"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "**Scaffold-matcherns synkroniska väg avgör på ordning i stället för poäng, och ignorerar capabilities:** `mat…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "**Variantdata ljuger om färgläge:** `starter-neutral` (base-nextjs default) deklarerar `\"colorMode\": \"either\"…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "**Kontraktsradernas filbevis är basversionens, inte rundans — en integration som byggs i samma runda märks \"p…"
     },
     {
       "prio": "P2",
@@ -277,39 +307,9 @@ const DATA: CanvasData = {
       "prio": "P2",
       "blocker": false,
       "fynd": "`analytics` + `dashboard` dubbel-triggar capabilities utan veto i follow-up-vokabulären → båda kan aktiveras …"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "`/finalize-design` detektionsfullständighet: `detect-integrations.ts`-regex kan missa en integration på filer…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "F3 pre-gen contracts divergerar från approval-scopad build-plan: när parent-versionen saknar filhärledda inte…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "OC_DEBUG: `buildDebugSystemPrompt()` lovar alltid full kod + fynd + repo-kontext, men kontext-bygget får `deb…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "Preview-hosten (Fly `vm-fly-jakem`, single VM) har minnestryck: `npm install` OOM-killades 2× 2026-07-02 ~06:…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "**Saknad primitiv: ingen innehållsrevision på `engine_versions` (konsoliderar 3 rader):** raden har `created_…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "**DB-pool-svält i prod under generering** (live-session 2026-07-03, chat `69aae3d5`): klustrade `timeout exce…"
     }
   ],
-  "topOpenRisksOmitted": 3,
+  "topOpenRisksOmitted": 7,
   "evals": {
     "exactHitPct": 98.46,
     "acceptableHitPct": null,
