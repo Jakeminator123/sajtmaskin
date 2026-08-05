@@ -117,7 +117,7 @@ Att merga med kvarvarande P2 **utan** att fixa eller logga dem är ett regelbrot
 
 **Codex-review (`chatgpt-codex-connector`) kan vara på eller av beroende på credits** (av 2026-07-02, tillbaka 2026-07-08). Vänta aldrig på att den ska dyka upp och räkna inte dess frånvaro som ett gap — men **finns en Codex-review ska den läsas och triageras** (den kan landa strax efter grönt CI). Oavsett Codex är det **agenten som skapade PR:en** som äger bugg-efterkontrollen, före eller direkt efter att PR:en öppnas:
 
-- Spawna `bugbot`-subagenten (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "cursor-grok-4.5-high"`) eller använd `review-bugbot`-skillen. Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
+- Spawna `bugbot`-subagenten (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "cursor-grok-4.5-high"`) eller använd `review-bugbot`-skillen — den globala skillen sätter **varken** `model` eller `readonly`, så ange dem själv den vägen. Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
 - **Fallback-stege — hoppa inte över steg 2.** Den GitHub-integrerade Bugbot:en delar teamets budget och postar `Bugbot couldn't run - usage limit reached` när den tar slut (hände 2026-08-01 samtidigt som Codex slog i sitt tak, så #703/#704 stod utan externa ögon). Slut budget på GitHub är **inget skäl att hoppa till manuell review** — den lokala subagenten är en egen väg:
   1. GitHub-integrerad Bugbot på PR:en.
   2. Slut/utebliven → **berörd agent kör Cursor Bugbot-passet lokalt** via subagenten ovan.
