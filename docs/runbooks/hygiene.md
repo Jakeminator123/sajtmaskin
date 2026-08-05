@@ -60,7 +60,7 @@ importeras av något. Två giltiga fixar:
 | Kommando | Gör |
 |---|---|
 | `npm run clean:orphans` | Tar bort regenererbart skräp (Python-cache, tomma mappar). `:dry` för förhandsvisning. |
-| `npm run clean:scratch` | Förhandsvisar städning av gitignorerat scratch (`.tmp`, `.cursor/`-ytor, `logs/`, `.env-backups`). `:apply` raderar. |
+| `npm run clean:scratch` | Förhandsvisar städning av gitignorerat scratch (`.tmp`, `.cursor/`-ytor, `logs/`, `.env-backups`, lösa `.tmp-*`/`scratch-*` i roten). `:apply` raderar. |
 | `npm run plans:archive:apply` | Arkiverar färdiga planer enligt livscykeln. `plans:archive` (utan `:apply`) förhandsvisar. |
 | `npm run knip` | Full dödkods-rapport (se ovan om hur den läses). |
 
@@ -76,8 +76,11 @@ Skriptet: [`scripts/dev/clean-scratch.mjs`](../../scripts/dev/clean-scratch.mjs)
 | `logs/` **lösa filer** (`tmp-*`, `dump-*`, `*.log`-artefakter m.m.) | Wipe — inget referensvärde |
 | `logs/generationslogg`, `site-observability`, `llm-segmentts-and-index` | Orörda här — egen retention i `generation-log-writer` |
 | `.env-backups` | Åldersbaserat: 3 nyaste **eller** yngre än 14 dagar |
+| Lösa `.tmp-*` och `scratch-*.mjs`/`.json` i repo-roten | Wipe — mönstret är ankrat och speglar `.gitignore` exakt |
 
-`hygiene` rapporterar gitignorerade scratch-filer som "oanvända" via knip; det är förväntat brus tills du kör `clean:scratch:apply`. Automatisk körning (t.ex. via `predev`) är **inte** inkopplad — kör manuellt när `logs/` eller `.cursor/`-scratch vuxit.
+Automatisk körning (t.ex. via `predev`) är **inte** inkopplad — kör manuellt när `logs/` eller `.cursor/`-scratch vuxit.
+
+`logs/**` ligger i `knip.json`s ignore-lista. Utan den raden räknades en sparad generationsdump (`logs/hydration-*/`, ~43 `.tsx`-filer) som "oanvända filer" och gjorde `npm run hygiene` röd lokalt — och `clean:scratch` kunde inte ta bort orsaken, eftersom mapptaket är 2 och dumpen låg inom taket. CI såg det aldrig, för `logs/` är tom där.
 
 ## Vad som redan är självgående (du behöver inte tänka på det)
 

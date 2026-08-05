@@ -42,7 +42,12 @@ env.vercel*.local
 *.env.backup
 *.env.bak
 *.pem
-*key
+# Key material by extension/prefix, not substring: the previous `*key` also
+# matched ordinary source paths (`src/lib/crypto/key.ts`, `apikey`, `SESSION_KEY`
+# — core.ignorecase makes the match case-insensitive on Windows), so a real file
+# could be ignored into invisibility.
+*.key
+id_rsa*
 .env.production
 # Timestamped env backups from env-cleanup tooling (may contain real secrets — never commit)
 .env-backups/
@@ -94,7 +99,7 @@ output/generations/
 # --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
 # OBS: scaffold-embeddings.json + scaffold-research.generated.json är för närvarande
 # committade (prebuild-gaten `scaffolds:embeddings:check` kräver dem i Vercel-build där
-# ingen OPENAI_API_KEY finns). De hålls ur Cursor-index via .cursorignore. Raderna nedan
+# ingen OPENAI_API_KEY finns). De hålls ur Cursor-index via .cursorindexingignore. Raderna nedan
 # är inerta för redan spårade filer men hindrar oavsiktlig re-add efter en lokal radering.
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
