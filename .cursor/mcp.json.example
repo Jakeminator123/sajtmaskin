@@ -22,15 +22,17 @@
       "note": "PROD-projektet (egcitvwgettkftkyzbvn, us-east-1) — read-only. Bara för att läsa prod-schema/rader vid felsökning. Ingen destruktiv SQL."
     },
     "v0": {
-      "url": "https://mcp.v0.dev"
+      "url": "https://mcp.v0.dev",
+      "note": "v0:s chat-API (createChat/sendChatMessage/...), INTE docs och inte own-engine. Legacy-yta; riktiga anrop kräver nyckel."
     },
-    "openaiDeveloperDocs": {
-      "url": "https://developers.openai.com/mcp"
+    "openai-docs": {
+      "url": "https://developers.openai.com/mcp",
+      "note": "OpenAI-docs + API-spec: search_openai_docs, list_openai_docs, fetch_openai_doc, list_api_endpoints, get_openapi_spec."
     },
     "openclaw-docs": {
       "type": "http",
       "url": "https://docs.openclaw.ai/mcp",
-      "note": "Hostad docs-MCP direkt från docs.openclaw.ai — ingen lokal server behövs."
+      "note": "Hostad docs-MCP från docs.openclaw.ai — ingen lokal server behövs. Dokumenterar den EXTERNA OpenClaw-produkten (gateway/CLI/nodes/kanaler), inte Sajtmaskins openclaw-lager: armerad autonomi, mandat och <openclaw-action> är lokala begrepp i src/lib/openclaw/."
     }
   }
 }
