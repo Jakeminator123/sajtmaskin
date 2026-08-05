@@ -47,7 +47,7 @@ Genomströmning i completion-tokens: 182, 134, 148 respektive 138 tokens per
 sekund. Sammanhållet nog över två modeller för att behandla strömtiden som
 i praktiken linjär i antalet output-tokens.
 
-Fasfördelningen efter strömmen, för den enda körning där något faktiskt hände:
+Fasfördelningen efter strömmen:
 
 | Fas | `9cdb3e31` v1 | De tre landing-versionerna |
 |---|---|---|
@@ -77,31 +77,56 @@ ur modellens minne och alltså kan peka på bilder som inte finns; det är vad d
 asynkrona HEAD-valideringen och `knownBrokenImageReplacements` fångar, båda
 utanför kritiska vägen.
 
-### 2. Verifiern betalade 69 sekunder för noll blockerare
+### 2. Verifiern var trippel-gatead — och etiketten i telemetrin ljuger
 
 Den enda körning där verifiern kördes tog 69,2 s och returnerade
-`blockingCount: 0` med fem kvalitetsfynd. Den triggades av `risky_fixes`: autofix
-hade gjort 34 fixar klassade som risky.
+`blockingCount: 0` med fem kvalitetsfynd. Telemetrin anger
+`trigger: "risky_fixes"`, vilket ser ut som att autofix orsakade passet. **Det
+gör den inte.**
 
-Tittar man på `meta.autofix.fixers` har varenda en av dem
-`category: "mechanical"`. Det handlar om `jsx-checker` som lägger till
-default-exporter och `import-validator` som lägger till saknade importer — 30 av
-de 34 fixarna. Klassningen är samtidigt fullt medveten: `fixer-registry.test.ts`
-slår uttryckligen fast att struktur- och cross-file-muterare ska vara risky, och
-`summarizeAutofixRisk` failar closed på fixers den inte känner igen.
+`fast-path.ts` skriver etiketten `risky_fixes` ovanpå `verifierPolicy.reason`
+när passet ändå ska köras och det råkar finnas risky fixar. Själva beslutet
+fattas i `resolveVerifierPassPolicy` (`policy.ts`), och där matchade körningen
+tre oberoende villkor:
 
-Det är alltså inte en bugg utan en policykostnad, och det finns bara ett
-datapunkt. Därför är steg 2 i planen gated på ett mätfönster i stället för
-formulerat som en fix.
+| Villkor | Rad | Körningens värde |
+|---|---|---|
+| `qualityTarget !== "standard"` → `high_quality_target` | `policy.ts:58` | `premium` |
+| `contextPolicy === "heavy"` → `heavy_context` | `policy.ts:64` | `heavy` |
+| `changeScope === "page-addition"` → `high_risk_change_scope` | `policy.ts:67` | `page-addition` |
 
-### 3. Allt annat är avrundningsfel
+Vart och ett hade räckt. Att bara ta bort ett flyttar beslutet till nästa.
 
-De tre landing-versionerna spenderade 1,4–2,0 s på hela efterströmskedjan. Även
-i den tunga blogg-körningen är allt utom verifiern och LLM-fixern tillsammans
-under 2,2 s. Orkestreringen — scaffold-matchning, route-plan, contracts,
-BuildSpec, capability-inferens, dossier-selektion — syns inte alls, vilket
-stämmer med koden: `selectDossiersForRequest` är ett uppslag i en mtime-cachad
-registry, och `inferCapabilities` är regex.
+Dessutom: `hasLlmFixesInValidate` var sant (`validate_syntax.fixerUsed: true`),
+och det blockerar `safe_fixes_only`-hoppet i `fast-path.ts` **oavsett** hur
+fixarna är klassade. Att omklassa `import-validator` och `jsx-checker` från
+risky till safe hade alltså inte sparat en sekund på den här körningen. Den
+klassningen är dessutom medveten: `fixer-registry.test.ts` slår fast att
+struktur- och cross-file-muterare ska vara risky, och `summarizeAutofixRisk`
+failar closed på okänd fixer.
+
+Den riktiga frågan är därför inte vilken tröskel som är felinställd, utan om en
+F2-preview ska köra ett 69-sekunders LLM-pass över huvud taget när RenderGate
+ändå ägs av klienten. Det är ett ägarbeslut, och det är steg 3 i planen.
+
+### 3. Klassningen är den gemensamma nämnaren
+
+En bloggsajt fick `qualityTarget: premium` + `contextPolicy: heavy`. Landing-
+sajten fick `standard` + `normal` och tog en tredjedel så lång tid.
+
+Den klassningen betalar sig tre gånger om: `heavy` context ger 121k
+prompt-tokens mot landing-sajtens 20k, `premium` target ger mer utförlig output
+(59k completion-tokens mot 21k), och båda tvingar dessutom verifiern via
+tabellen ovan. Det är den enda spaken i mätningen som rör flera kostnader
+samtidigt, och därför steg 2 i planen.
+
+### Allt annat är avrundningsfel
+
+De tre landing-versionerna spenderade 1,4–2,0 s på hela efterströmskedjan.
+Orkestreringen — scaffold-matchning, route-plan, contracts, BuildSpec,
+capability-inferens, dossier-selektion — syns inte alls, vilket stämmer med
+koden: `selectDossiersForRequest` är ett uppslag i en mtime-cachad registry, och
+`inferCapabilities` är regex.
 
 ## Varför "tre agenter" inte är svaret, och vad som är det
 
@@ -115,32 +140,29 @@ enda i den här planen som kostar mer än timmar. Det ligger i
 [`02-parallell-codegen.md`](02-parallell-codegen.md) som en beslutspunkt, inte
 som beställt arbete.
 
-Innan dess finns två spakar som inte rör arkitekturen alls: verifier-triggern
-(steg 2) och antalet output-tokens (steg 3). Blogg-körningen gick med
-`contextPolicy: heavy` och `qualityTarget: premium` på 121k prompt-tokens och
-59k completion-tokens; landing-körningen klarade sig på 20k/21k och tog en
-tredjedel så lång tid.
-
 ## Uppskattad vinst
 
 | Åtgärd | Blogg init (414 s) | Landing init (159 s) | Follow-up (47–71 s) |
 |---|---|---|---|
 | Steg 1 mätning | ±0 | ±0 | ±0 |
-| Steg 2 verifier-trigger | −69 s | 0 | 0 |
-| Steg 3 output −20 % | −65 s | −31 s | −10 s |
+| Steg 2 klassning, output −20 % | −65 s | −31 s | −10 s |
+| Steg 3 verifier ur F2 | −69 s | 0 (redan skippad) | 0 (redan skippad) |
 | **Steg 1–3 tillsammans** | **~280 s (−32 %)** | **~128 s (−20 %)** | ~40–60 s (−15 %) |
 | Steg 4 ovanpå | ~170–190 s (−55 %) | ~80–100 s (−40 %) | sannolikt sämre |
 
-Siffrorna för steg 2 gäller bara när verifiern faktiskt triggar — här en av fyra
-körningar. Siffrorna för steg 3 antar att en femtedel av outputen går att ta bort
-utan kvalitetstapp, vilket är en hypotes och inte en mätning.
+Steg 3 ger bara något på körningar där verifiern faktiskt triggar — här en av
+fyra. Steg 2 antar att en femtedel av outputen går att ta bort utan
+kvalitetstapp, vilket är en hypotes och inte en mätning.
 
 ## Vad som INTE är verifierat
 
 - Urvalet är fyra versioner från två chattar, båda F2. Inga F3-körningar, inga
   imports, inga plan-mode-turer.
-- Verifier-fyndet vilar på **en** körning.
+- Verifier-observationen vilar på **en** körning.
 - Att 20 % av outputen kan tas bort utan kvalitetstapp är obevisat.
+- Att bloggsajten var felklassad som `premium`/`heavy` är en bedömning, inte ett
+  fastställt fel — trösklarna i `deriveBuildSpec` kan ha goda skäl som
+  mätningen inte ser.
 - Vinstsiffrorna för steg 4 är räknade, inte uppmätta: strömtid delad på tre
   plus påslag för kontraktspass, skew mellan workers och merge.
 

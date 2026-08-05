@@ -13,7 +13,7 @@ Steg 1–3 tar ungefär en tredjedel av en tung init-körning. De rör inte det 
 utgör 79–99 % av tiden: att modellen skriver ut kod token för token, seriellt,
 i ungefär 134–182 tokens per sekund. Ingen orkestreringsförändring i världen
 gör den serien snabbare. Det finns tre sätt att komma åt den — färre tokens
-(steg 3), snabbare modell (produktbeslut, inte pipeline), eller flera strömmar
+(steg 2), snabbare modell (produktbeslut, inte pipeline), eller flera strömmar
 samtidigt. Det sista är det här.
 
 ## Formen, om det görs
@@ -68,7 +68,7 @@ befintliga kontrakt.
 ## Rekommendation
 
 Ta steg 1–3 först. De är billiga, de rör inga kontrakt, och de ger data som gör
-den här frågan lättare: visar mätningen efter steg 3 att en typisk init-körning
+den här frågan lättare: visar mätningen efteråt att en typisk init-körning
 landar under två minuter, är det inte säkert att steg 4 är värt sin
 komplexitet alls.
 
@@ -78,7 +78,7 @@ Ta aldrig produktionsvarianten som första steg.
 ## Villkor för att ens öppna frågan
 
 - Steg 1 mergat, så vinsten går att mäta i stället för att uppskattas.
-- Steg 3 utvärderat, så man vet hur mycket output som är kvar att dela.
+- Steg 2 utvärderat, så man vet hur mycket output som är kvar att dela.
 - Uttryckligt ägar-OK, eftersom scope-frysen annars gäller.
 - Follow-ups undantagna. De ligger på 47–71 s med `changeScope: local-layout`
   och få filer; fan-out-overheaden äter sannolikt upp vinsten.
