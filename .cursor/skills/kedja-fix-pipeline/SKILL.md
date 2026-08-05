@@ -130,12 +130,30 @@ Risk: <the caller most likely to be affected, or "-">
 
 ### Step 7 — review
 
+**Read the test diff line by line, not just its outcome.** The whole chain rests on the step 2 test measuring the right thing; if it does not, the mechanical verdict is worthless, and red-before/green-after will not reveal it. Before opening a PR the orchestrator reads the test addition itself and asks: does the red test measure the bug or a proxy? Is the counter-test the *closest legitimate* case? And — easiest to miss — **does the test assert what the fix deliberately gives up?** On #780 `rebuild-content.test.ts` locked that the wrong file is not corrupted but said nothing about the right file's fix now being dropped on a fence miss; the trade-off lived only in the head of whoever read the diff. One more assertion turned it into a contract.
+
 `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, prompt form per `AGENTS.md § Review guidelines`:
 
 ```text
 Full Repository Path: {WINNER_WORKTREE_PATH}
 Diff: uncommitted changes
 ```
+
+**"diff is empty" fallback (verified 2026-08-05).** Use the form above first. Bugbot may answer *"the diff … is empty"* on a kedja worktree; that means the pass did NOT run — never record it as "no findings". Observed: an unpushed kedja branch returned empty for both `uncommitted changes` and `branch changes`, while the same form worked in a linked worktree whose branch had a pushed upstream. On an empty answer:
+
+1. Save the patch with `git add -A -N` then `git diff HEAD` — the same procedure as `captureDiff` in `scripts/cursor/kedja-clean.mjs`. A plain `git diff` omits the untracked repro test, so Bugbot would review an incomplete winner.
+2. Run the pass against the MAIN checkout with `Diff: natural language`, a per-file Change Description, and Custom Instructions telling it to read `.cursor/kedja/<run>/kandidat-<x>.diff` and review it as if applied.
+
+Document the pass as `bugbot-local`.
+
+**Read the answer critically — the pass does not always see the whole branch.** On a multi-commit branch Bugbot can judge a subset and report findings that are false against the whole. Reproduced twice on #780: it claimed three backlog rows were deleted without archival *and* that all three defects were still in the code, while the archive rows and all three fixes sat in the same diff. Verify every finding against the actual end state before acting — and never dismiss one without doing that, since the same weakness can just as easily hide a real finding.
+
+Which command shows the truth depends on where you are, and getting it wrong is easy:
+
+| State | Verify with |
+|---|---|
+| Step 7, winner **not yet committed** (the default) | `git add -A -N` + `git diff master` in the worktree, or read the file on disk. `HEAD` does not contain the fix yet, so `git show HEAD:<file>` would falsely "confirm" the finding. |
+| After *After the run* step 2, or on a PR branch | `git diff master...HEAD` and `git show HEAD:<file>` |
 
 ## Judging order
 
@@ -149,6 +167,11 @@ Cheapest signal first, so a broken candidate is eliminated before it costs a typ
 | 4 | `node scripts/dev/check-unicode-regex.mjs` | only if the diff touches regex |
 
 Winner = the **smallest** diff that clears every applicable check. Compare with `git diff --stat` in each worktree; do not pick on elegance.
+
+Two judging traps (both hit 2026-08-05):
+
+- **Regen gate ≠ red.** If a directory/CI gate fails because a generated view must be regenerated after the owner edit (fingerprint/addenda/embeddings/docs), run the regen command in the candidate's worktree and re-judge — that is a sync duty in the same change (`workflow.mdc`), not an elimination and not a scope breach.
+- **Mock-green ≠ green.** A candidate whose diff needs an `as`-cast to pass typecheck is probably smuggling in an API the real owner does not have — green only against the test mock. Verify the signature against the real code; if fake, the candidate is eliminated on semantics (seen: `signal` cast into a loader that only accepts `{ timeoutMs }`).
 
 Two candidates that differ only in formatting or variable extraction are **one** answer, not two. Say so in the report — it means step 5 gave no spread and the winner was effectively unopposed.
 

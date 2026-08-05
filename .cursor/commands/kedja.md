@@ -62,6 +62,8 @@ Skriv tre rader och visa dem för användaren innan du fortsätter:
 - **Acceptans:** ett **körbart** kommando som är rött nu och grönt efter fixen (`npx vitest run <fil>`).
 - **Utanför scope:** vad du medvetet inte rör.
 
+Har ägarfilen **genererade vyer som hashar/speglar den** (t.ex. extractor-fingerprintet över `template-inspiration.ts` + `local-v0-template-source.ts` → `npm run templates:addenda -- --write`): namnge regen-kommandot i ramen. Sådan regen är **synk-plikt i samma ändring** (`workflow.mdc`), inte scope-brott — en runner som stannar på den grinden stannar i onödan (hände 2026-08-05).
+
 Kommer du från `BUG-SWARM-BACKLOG.md`: läs raden ordagrant. Kolumnen "Beslut / nästa steg" innehåller ofta ägaren, testet som måste skrivas om, och fällor. Den är indata, inte bakgrund.
 
 ### 1. Arbetsyta
@@ -115,18 +117,41 @@ Per kandidat, **med kandidatens worktree som arbetskatalog** (fixen och det röd
 
 **Vinnare = minsta diff som klarar allt.** Är två kandidater semantiskt identiska räknas de som **en** — notera det i rapporten, för det betyder att steg 5 inte gav någon spridning.
 
+Två fällor i domen:
+
+- **Regen-grind ≠ rött.** Failar en katalog-/CI-grind för att en genererad vy måste regenereras efter ägar-editen (fingerprint/addenda/embeddings/docs): kör regen-kommandot i kandidatens worktree och döm om. Det är synk-plikt, inte utslag.
+- **Mock-grönt ≠ grönt.** En kandidat vars diff behöver en `as`-cast för att passera typecheck smugglar troligen in ett API som den riktiga ägaren inte har — grön bara mot test-mocken. Verifiera signaturen mot den riktiga koden; är den fejk är kandidaten utslagen på semantik (hände 2026-08-05: `signal` castades in i en loader som bara tar `{ timeoutMs }`).
+
 Är alla röda: en extra runda där varje agent får sin egen felutskrift. Sedan stopp.
 
 ### 7. Grind — bugbot-subagent på vinnarens diff
 
 `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`. Detta är det obligatoriska passet ur `workflow.mdc`, inte ett extra lager. Fynd triageras som vanligt: fixa i diffen, logga i backloggen, eller avfärda med en rad.
 
+**Läs testdiffen rad för rad — inte bara utfallet.** Hela kedjan vilar på att steg 2:s test mäter rätt sak; gör det inte det är den maskinella domen värdelös, och rött-före/grönt-efter avslöjar det inte. Orkestratorn läser därför testtillägget själv innan PR och frågar: mäter det röda testet buggen eller en proxy? Är motprovet det *närmaste legitima* fallet? Och — lättast att missa — **asserterar testet det fixen medvetet offrar?** På #780 låste `rebuild-content.test.ts` att fel fil inte korrumperas men var tyst om att den rätta filens fix nu tappas vid fence-miss; avvägningen fanns bara i huvudet på den som läst diffen. En assertion till gjorde den till kontrakt.
+
+**"diff is empty" — fallback (verifierat 2026-08-05):** bugbot kan svara *"the diff … is empty"* på en kedja-worktree och då **gäller passet inte som kört** — behandla det som ett fel, aldrig som "inga fynd". Observerat: en opushad kedja-branch gav tomt svar på både `uncommitted changes` och `branch changes`, medan samma form fungerade i en länkad worktree vars branch hade pushad upstream. Prova alltså normalformen ovan först. Får du tomt svar:
+
+1. Spara patchen med `git add -A -N` + `git diff HEAD` (se *Efter körning* steg 1) — en vanlig `git diff` utelämnar den otrackade testfilen och ger bugbot en ofullständig vinnare.
+2. Kör passet mot **huvudcheckouten** med `Diff: natural language`, en Change Description per fil, och Custom Instructions som pekar på `.cursor/kedja/<körning>/kandidat-<x>.diff` med instruktionen att läsa och granska patchen som om den vore applicerad.
+
+Dokumentera passet som `bugbot-local`.
+
+**Läs svaret kritiskt — passet ser inte alltid hela branchen.** På en branch med flera commits kan bugbot döma på en delmängd och rapportera fynd som är falska mot helheten. Reproducerat två gånger på #780: passet påstod att tre backlog-rader raderats utan arkivering **och** att alla tre defekterna fanns kvar i koden, medan arkivraderna och alla tre fixarna låg i samma diff. Verifiera därför varje fynd mot det faktiska sluttillståndet innan du agerar — och avfärda aldrig ett fynd utan att ha gjort det, eftersom samma svaghet lika gärna kan dölja ett äkta fynd.
+
+Vilket kommando som visar sanningen beror på var i flödet du står, och det är lätt att ta fel:
+
+| Läge | Verifiera med |
+|---|---|
+| Steg 7, vinnaren **ännu inte committad** (standard) | `git add -A -N` + `git diff master` i worktreet, eller läs filen på disk. `HEAD` saknar fixen här — `git show HEAD:<fil>` skulle "bekräfta" fyndet felaktigt. |
+| Efter *Efter körning* steg 2, eller på en PR-branch | `git diff master...HEAD` och `git show HEAD:<fil>` |
+
 ## Efter körning — orkestratorns plikt, aldrig användarens
 
 Användaren kör inga kommandon. Orkestratorn gör allt nedan själv, direkt efter steg 7:
 
-1. Skriv varje kandidats diff till `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-<x>.diff` **innan** du tar bort något.
-2. **Committa vinnaren på sin kedja-branch** (bara commit — push/PR fortfarande bara på explicit begäran, `git.mdc`). Detta är vinnarens livförsäkring: `kedja-clean` och worktree-svep vägrar röra en branch med egna commits, medan en ocommittad vinnare ser ut som skräp för varje annan agents städning. 2026-08-04 sveptes två ocommittade vinnare av just en sådan — de överlevde bara som sparade diffar.
+1. Skriv varje kandidats diff till `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-<x>.diff` **innan** du tar bort något. **En ny testfil är otrackad och syns inte i `git diff`** — använd samma procedur som `captureDiff` i `scripts/cursor/kedja-clean.mjs`: `git add -A -N` och sedan `git diff HEAD` i worktreet. Utan det saknar den sparade patchen själva testet (hände 2026-08-05).
+2. **Committa vinnaren på sin kedja-branch** — `git add -A -N` från steg 1 räcker **inte** för commiten: intent-to-add lägger en tom blob i indexet, så stagea filen på riktigt (`git add <sökväg>`) innan du committar, annars landar vinnaren utan sitt repro-test. (bara commit — push/PR fortfarande bara på explicit begäran, `git.mdc`). Detta är vinnarens livförsäkring: `kedja-clean` och worktree-svep vägrar röra en branch med egna commits, medan en ocommittad vinnare ser ut som skräp för varje annan agents städning. 2026-08-04 sveptes två ocommittade vinnare av just en sådan — de överlevde bara som sparade diffar.
 3. Ta bort de förlorande worktreesen: `npm run worktree:remove -- <sökväg> --force`. Det tar bort katalogen men **lämnar branchen kvar** — radera den också: `git branch -D kedja/<slug>-<x>`. Missas det blir varje körning en föräldralös branch rikare.
 4. Rapportera enligt sluttabellen (spårbarhet: worktree, branch, ansats, utfall, vem gjorde vad).
 
