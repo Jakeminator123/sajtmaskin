@@ -643,6 +643,32 @@ describe("CSS @import package detection (M#ma1)", () => {
     expect(result.warnings).toEqual([]);
   });
 
+  it("JS-grammatiken körs inte på .css-filer — prosa i CSS-kommentarer pinnar inget", () => {
+    // Bugbot på #813: `from "…"`-armen i IMPORT_SOURCE_RE kan matcha prosa i
+    // en CSS-kommentar och pinna ett paket projektet aldrig importerar. En
+    // ren stylesheet ska bara skannas med CSS-grammatiken.
+    const css = [
+      '/* adapted from "framer-motion" */',
+      '@import "tw-animate-css";',
+      "body { color: red; }",
+    ].join("\n");
+
+    const unit = runDepCompleter(css, { grammar: "css" });
+    expect(unit.dependencies).toEqual({
+      "tw-animate-css": KNOWN_PACKAGES["tw-animate-css"],
+    });
+    expect(unit.unknownPackages).toEqual([]);
+
+    // Fil-loopen ska själv välja CSS-grammatiken utifrån filändelsen.
+    const result = completeProjectDependencies([
+      { path: "package.json", content: JSON.stringify({ name: "x", dependencies: {} }) },
+      { path: "app/globals.css", content: css },
+    ]);
+    expect(result.pinnedDependencies).toEqual({
+      "tw-animate-css": KNOWN_PACKAGES["tw-animate-css"],
+    });
+  });
+
   it("en okänd CSS-specifier blockerar inte samma namn från en riktig JS-import", () => {
     const result = runDepCompleter(
       ['@import "some-unknown-lib/theme.css";', 'import x from "some-unknown-lib";'].join("\n"),

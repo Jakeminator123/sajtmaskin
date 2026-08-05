@@ -544,7 +544,13 @@ export function completeProjectDependencies<
   const unknown = new Set<string>();
   for (const file of files) {
     if (!PROJECT_CODE_FILE_RE.test(file.path)) continue;
-    const result = runDepCompleter(file.content);
+    // A pure stylesheet gets ONLY the CSS `@import` grammar: the JS pass's
+    // `from "…"` arm would otherwise match prose in CSS comments and pin
+    // packages the project never imports (bugbot on #813).
+    const result = runDepCompleter(
+      file.content,
+      /\.css$/i.test(file.path) ? { grammar: "css" } : undefined,
+    );
     for (const [name, version] of Object.entries(result.dependencies)) {
       if (declared.has(name)) continue;
       collected[name] = version;
@@ -612,8 +618,18 @@ function considerPackageSource(
 /**
  * Scan code (and CSS `@import`) for third-party import sources and produce a
  * dependency list.
+ *
+ * `grammar: "css"` skips the JS import pass entirely: a pure stylesheet has no
+ * JS imports, but `IMPORT_SOURCE_RE`'s `from "…"` arm can still match prose in
+ * a CSS comment — e.g. an "adapted from \"framer-motion\"" note — and pin a
+ * package the project never uses. Callers that scan a whole-project BLOB
+ * (mixed JS + CSS concatenated) keep the default: they cannot attribute
+ * content per file, and that behaviour predates the CSS scanning.
  */
-export function runDepCompleter(code: string): {
+export function runDepCompleter(
+  code: string,
+  opts?: { grammar?: "all" | "css" },
+): {
   dependencies: Record<string, string>;
   unknownPackages: string[];
   fixes: AutoFixEntry[];
@@ -623,11 +639,13 @@ export function runDepCompleter(code: string): {
   const unknownPackages: string[] = [];
   const seen = new Set<string>();
 
-  IMPORT_SOURCE_RE.lastIndex = 0;
-  for (const match of code.matchAll(IMPORT_SOURCE_RE)) {
-    const raw = match.slice(1).find((group): group is string => typeof group === "string");
-    if (!raw) continue;
-    considerPackageSource(raw, seen, dependencies, unknownPackages);
+  if ((opts?.grammar ?? "all") !== "css") {
+    IMPORT_SOURCE_RE.lastIndex = 0;
+    for (const match of code.matchAll(IMPORT_SOURCE_RE)) {
+      const raw = match.slice(1).find((group): group is string => typeof group === "string");
+      if (!raw) continue;
+      considerPackageSource(raw, seen, dependencies, unknownPackages);
+    }
   }
 
   // CSS is scanned with `knownOnly`, i.e. as a strict allow-list against
