@@ -64,6 +64,25 @@ describe("observability/metrics", () => {
     expect(text).toMatch(/kind="unknown"/);
   });
 
+  it("records materialize_images in the canonical observed set", async () => {
+    expect(OBSERVED_PHASES).toContain("materialize_images");
+    recordPhaseDuration("materialize_images", 42, { kind: "init" });
+    const text = await getPrometheusMetrics();
+    expect(text).toMatch(
+      /sajtmaskin_phase_duration_ms_count\{[^}]*phase="materialize_images"[^}]*kind="init"[^}]*\}\s+1/,
+    );
+  });
+
+  it("still records sibling finalize phases alongside materialize_images (motprov)", async () => {
+    recordPhaseDuration("materialize_images", 10, { kind: "followup" });
+    recordPhaseDuration("validate_syntax", 20, { kind: "followup" });
+    recordPhaseDuration("verifier", 30, { kind: "followup" });
+    const text = await getPrometheusMetrics();
+    expect(text).toMatch(/phase="materialize_images"/);
+    expect(text).toMatch(/phase="validate_syntax"/);
+    expect(text).toMatch(/phase="verifier"/);
+  });
+
   it("observePhase records latency-budget timing with an explicit init/followup kind", async () => {
     await observePhase({ phase: "persist", kind: "followup" }, async () => {
       // no-op

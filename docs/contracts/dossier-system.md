@@ -163,6 +163,40 @@ per språk — [`src/lib/builder/dossier-axes.ts`](../../src/lib/builder/dossier
 [`backoffice/pages/dossiers.py`](../../backoffice/pages/dossiers.py) (kurator-UI);
 pariteten mellan dem grindas i `backoffice/test_dossiers_page.py`.
 
+### Härledd livscykelvy för Byggblock-panelen
+
+[`resolveDossierLifecycle()`](../../src/lib/gen/dossiers/lifecycle.ts) är den
+rena ägaren av panelens befintliga fem statusar: `planned`, `self-contained`,
+`blocked-build`, `built-demo` och `built-live`. Routens adapter laddar och
+normaliserar bevisen; resolvern gör ingen DB-, registry- eller filläsning.
+
+Detta är **inte** en ordnad state machine. Följande bevis förblir separata:
+
+| Bevis                     | Betydelse                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pending`                 | Exakt dossier-id är uppskjutet från F2 och saknar ännu leveransbevis.                                                                      |
+| `materialized`            | Exakt manifestbaserad filnärvaro från `resolveDossierIdsPresentInVersion`; `null` betyder att ingen läsbar version/fillista finns.         |
+| `configured`              | Alla `required`-nycklar har riktiga projektvärden. Detta är fortfarande bara selectionens promptsignal.                                    |
+| `detected`                | En filhärledd Tier3-requirement överlappar dossierns env-yta; `null` betyder att specen inte kunde härledas.                               |
+| `serverEvidenceSatisfied` | Alla manifest-serverfiler finns, en modellbyggd API-route bevisar kopplingen, **eller** dossiern saknar en server-yta som behöver bevisas. |
+
+Statusprecedensen är beteendebevarande:
+`pending → planned`; ingen F3-yta → `self-contained`; ingen matchad requirement
+→ `planned`; readiness saknar build-nyckel → `blocked-build`; annars avgör
+riktiga build-/feature-runtime-värden och serverfilbevis `built-demo` kontra
+`built-live`.
+
+`overviewStatus` är endast panelens reporting-projektion. Modellbyggd kod kan
+ge `built-live` utan exakt `materialized` dossieridentitet; statusen får därför
+aldrig återanvändas som readiness-, deploy-, installations- eller
+versionsverifieringsbevis.
+
+Versionsverifiering hör **inte** till denna per-dossierprojektion. RenderGate/
+ReleaseGate och revisionsmatchning kvitterar hela versionssnapshoten; att
+projicera det som `verified: boolean` på varje dossier skulle skapa falsk
+precision. Katalogfältet `lastVerified` är i sin tur kurationsbevis och ska inte
+blandas ihop med ett versionskvitto.
+
 ### F2/F3-gräns: dossier-kontraktet är signalen (kanonisk)
 
 Samma dossier kan spänna över F2 och F3 — det är inte två separata dossiers och det finns ingen extra `hard/soft/visual`-taxonomi som styr fasen:
@@ -602,6 +636,7 @@ Set `SAJTMASKIN_DOSSIER_PIPELINE=false` (or `0`) in any environment to skip doss
 | `src/lib/gen/dossiers/registry.ts`                                                                                         | Disk reader + mtime cache                                                                                                                                                                                                                                                                                                       |
 | `src/lib/gen/dossiers/select.ts`                                                                                           | Deterministic capability-driven selection                                                                                                                                                                                                                                                                                       |
 | `src/lib/gen/dossiers/version-presence.ts`                                                                                 | Canonical "which dossiers are IN this version" resolver (server files + ≥1 distinctive file; se § Version-presence union) + `resolveSelectedDossiersWithVersionPresence` — the snapshot ∪ presence union shared by panel, readiness, finalize-design, F3-gate and deploy.                                                       |
+| `src/lib/gen/dossiers/lifecycle.ts`                                                                                        | Pure evidence/status projection for the builder overview; preserves independent pending/materialized/configured/detected/server-evidence axes and the existing five UI statuses.                                                                                                                                                |
 | `src/lib/gen/dossiers/types.ts`                                                                                            | `DossierEntry`, `SelectedDossier`, `DossierSelectionResult`                                                                                                                                                                                                                                                                     |
 | `src/lib/gen/system-prompt/`                                                                                               | Renders the three dossier blocks into the system prompt                                                                                                                                                                                                                                                                         |
 | `scripts/dossiers/curate-from-reference.ts`                                                                                | AI-curation script (single dossier from a cloned reference repo). The model comes from `config/ai_models/manifest.json` → workload `backoffice_dossier_curation`; `--model=<id>` picks another id from that entry and an unlisted id is rejected before the LLM call                                                            |

@@ -31,6 +31,7 @@ function makeParams(overrides: Partial<PersistParams> = {}): PersistParams {
     hasVerificationBlockingErrors: false,
     previewBlockingReason: null,
     startedAt: Date.now(),
+    streamMs: 0,
     preflightFileCount: 3,
     scaffoldRetry: null,
     finalizePath: { runDeepPath: true, reason: "default" },
@@ -154,5 +155,44 @@ describe("persistTelemetryRecord — variant_id", () => {
     );
     const arg = createGenerationTelemetryRecord.mock.calls[0][0];
     expect(arg.variantId).toBeNull();
+  });
+});
+
+describe("persistTelemetryRecord — streamMs", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createGenerationTelemetryRecord.mockResolvedValue({ id: "tel_1" });
+  });
+
+  it("skriver meta.streamMs från den direkta strömmätningen", async () => {
+    await persistTelemetryRecord(makeParams({ streamMs: 45_600 }));
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.streamMs).toBe(45_600);
+  });
+
+  it("klamrar negativa värden till 0", async () => {
+    await persistTelemetryRecord(makeParams({ streamMs: -12 }));
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.streamMs).toBe(0);
+  });
+
+  it("behåller postStreamSteps och övriga meta-nycklar (motprov)", async () => {
+    await persistTelemetryRecord(
+      makeParams({
+        streamMs: 1_000,
+        finalizeStepTelemetry: {
+          autofix: { status: "done", durationMs: 40 },
+        },
+        selectedDossierIds: ["stripe-checkout"],
+      }),
+    );
+    const arg = createGenerationTelemetryRecord.mock.calls[0][0];
+    expect(arg.meta.streamMs).toBe(1_000);
+    expect(arg.meta.postStreamSteps).toEqual({
+      autofix: { durationMs: 40, status: "done" },
+    });
+    expect(arg.meta.selectedDossierIds).toEqual(["stripe-checkout"]);
+    expect(arg.meta.finalizePath).toBe("full");
+    expect(arg.meta.autofix.fixCount).toBe(0);
   });
 });

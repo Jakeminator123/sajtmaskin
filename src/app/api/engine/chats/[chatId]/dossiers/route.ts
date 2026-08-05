@@ -54,10 +54,7 @@
 import { NextResponse } from "next/server";
 import { transientDbResponseIfRetryable } from "@/lib/api/transient-db-response";
 import { withRateLimit } from "@/lib/rateLimit";
-import {
-  getEngineChatByIdForRequest,
-  getEngineVersionForChatByIdForRequest,
-} from "@/lib/tenant";
+import { getEngineChatByIdForRequest, getEngineVersionForChatByIdForRequest } from "@/lib/tenant";
 import { getLatestVersion, getPreferredVersion } from "@/lib/db/chat-repository-pg";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import {
@@ -67,15 +64,11 @@ import {
 import {
   isPlannedDossierCoveredByModelBuiltBlock,
   preferPendingIntegrationDossiers,
+  resolveDossierLifecycle,
   resolvePendingIntegrationDossiers,
 } from "@/lib/gen/dossiers";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { mapDossierPathToOutput } from "@/lib/gen/dossiers/output-path";
-import {
-  dossierRequiresF3,
-  type DossierEntry,
-  type SelectedDossier,
-} from "@/lib/gen/dossiers/types";
+import type { SelectedDossier } from "@/lib/gen/dossiers/types";
 import {
   extractBriefSummaryFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
@@ -84,157 +77,15 @@ import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readine
 import {
   mapProviderKeysToDossierCapabilities,
   validateTier3Readiness,
-  type Tier3IntegrationRequirement,
 } from "@/lib/integrations/tier3-build-spec";
 import { getStoredProjectEnvVarMap } from "@/lib/project-env-vars";
 import { loadPlaceholderKeySet } from "@/lib/gen/preview/env-local";
-import type {
-  DossierOverviewEntry,
-  DossierOverviewResponse,
-  DossierStatus,
-} from "@/lib/builder/dossier-overview";
+import type { DossierOverviewEntry, DossierOverviewResponse } from "@/lib/builder/dossier-overview";
 
 export const runtime = "nodejs";
 
-/** Full env-key surface a detected tier-3 requirement owns. */
-function requirementEnvSurface(req: Tier3IntegrationRequirement): Set<string> {
-  return new Set<string>([
-    ...req.requiredRealEnvKeys,
-    ...req.placeholderOkEnvKeys,
-    ...req.featureRuntimeEnvKeys,
-    ...req.warnOnlyEnvKeys,
-  ]);
-}
-
-/**
- * Match a dossier to the detected tier-3 requirement with the most env-key
- * overlap (any-overlap = same vendor). Mirrors `findMatchingCluster` in
- * `detect-integrations.ts` so the join is consistent with how enforcement
- * tags are already threaded.
- */
-function matchRequirementForDossier(
-  dossierEnvKeys: string[],
-  requirements: Tier3IntegrationRequirement[],
-): Tier3IntegrationRequirement | undefined {
-  let best: Tier3IntegrationRequirement | undefined;
-  let bestOverlap = 0;
-  for (const req of requirements) {
-    const surface = requirementEnvSurface(req);
-    let overlap = 0;
-    for (const key of dossierEnvKeys) {
-      if (surface.has(key)) overlap += 1;
-    }
-    if (overlap > bestOverlap) {
-      bestOverlap = overlap;
-      best = req;
-    }
-  }
-  return best;
-}
-
-/** Normalize a version file path for comparison (mirrors version-presence). */
-function normalizeProjectPath(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\.\//, "").replace(/^\/+/, "");
-}
-
-const API_ROUTE_PATH_RE = /^app\/api\/(?:.*\/)?route\.(?:ts|tsx|js|jsx|mjs|cjs)$/;
-
-/**
- * M#li1: server-side FILE EVIDENCE gate for `built-live`. Env presence alone
- * proved false in prod (2026-08-01, chat 7a4d609f): a client-only mock chat
- * widget plus a stored OPENAI_API_KEY showed "Byggd — live" while the
- * published site 404'd on `POST /api/chat`. "Live" therefore requires that
- * the server side of the block demonstrably exists in the version's files:
- *
- *  - dossier-injected entry: EVERY manifest `role: "server"` file (mapped to
- *    its output path) is present in the version — same all-files rule as
- *    `version-presence`; a PARTIALLY injected integration (some but not all
- *    server files) is never "live" and never falls through to the
- *    model-built fallback, OR
- *  - model-built entry (ZERO manifest server paths present — the model wrote
- *    its own implementation under other paths): at least one API route file
- *    (`app/api/xx/route.*`) in the version reads `process.env` and
- *    references one of the dossier's env keys as a standalone identifier
- *    (substring match would let `NEXT_PUBLIC_OPENAI_API_KEY` count as
- *    evidence for `OPENAI_API_KEY` — a client-exposed key is exactly NOT
- *    server evidence).
- *
- * Entries whose manifest declares no server files (client-only providers,
- * e.g. analytics) are exempt — there is nothing server-side to evidence.
- * Documented conservative choice: a model-built block whose server routes
- * reference none of the dossier's env keys stays `built-demo` — honest
- * under-reporting beats claiming "live" for a client-side mock.
- */
-function hasServerFileEvidence(
-  entry: DossierEntry,
-  versionFiles: ReadonlyArray<{ path?: unknown; content?: unknown }> | null,
-): boolean {
-  const serverPaths = (entry.files ?? [])
-    .filter((file) => file.role === "server")
-    .map((file) => normalizeProjectPath(mapDossierPathToOutput(file.path)));
-  if (serverPaths.length === 0) return true;
-
-  const files = (versionFiles ?? []).flatMap((file) =>
-    typeof file.path === "string" && file.path.trim().length > 0
-      ? [
-          {
-            path: normalizeProjectPath(file.path),
-            content: typeof file.content === "string" ? file.content : "",
-          },
-        ]
-      : [],
-  );
-  const presentPaths = new Set(files.map((file) => file.path));
-  const presentServerCount = serverPaths.filter((path) => presentPaths.has(path)).length;
-  if (presentServerCount === serverPaths.length) return true;
-  // SOME but not all manifest server files present = partially injected
-  // dossier — never live, and the model-built fallback below must not
-  // resurrect it (a surviving checkout route reading the secret does not
-  // replace the missing webhook route). The fallback is reserved for pure
-  // model-built implementations: ZERO manifest server paths in the version.
-  if (presentServerCount > 0) return false;
-
-  // Only keys that MEAN server wiring count as fallback evidence:
-  // `warn-only` keys and `NEXT_PUBLIC_*` keys are client-exposed/cosmetic —
-  // a route reading only `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` proves no
-  // server-side integration (Bugbot on the M#li1 fix).
-  const envKeys = (entry.envVars ?? [])
-    .filter((env) => (env.enforcement ?? "build") !== "warn-only")
-    .map((env) => env.key)
-    .filter(
-      (key): key is string =>
-        typeof key === "string" && key.length > 0 && !key.startsWith("NEXT_PUBLIC_"),
-    );
-  if (envKeys.length === 0) return false;
-  const keyPatterns = envKeys.map(envKeyIdentifierPattern);
-  // Heuristic: the route must both name the key as a standalone identifier
-  // AND actually read `process.env` — covers `process.env.KEY`, bracket
-  // access and destructuring, while a mock whose only mention of the key is
-  // a comment/string (and never touches process.env) stays demo. Known
-  // residual: a comment mention alongside an unrelated `process.env` read
-  // still passes — accepted; this is a view-level status heuristic and the
-  // conservative direction (under-reporting) is preserved elsewhere.
-  return files.some(
-    (file) =>
-      API_ROUTE_PATH_RE.test(file.path) &&
-      file.content.includes("process.env") &&
-      keyPatterns.some((pattern) => pattern.test(file.content)),
-  );
-}
-
-/**
- * Match an env key as a standalone identifier: no `[A-Za-z0-9_]` directly
- * before or after (explicit class, not `\b`/`\w` — see unicode-regex.mdc).
- * Keys come from dossier manifests but are escaped defensively.
- */
-function envKeyIdentifierPattern(key: string): RegExp {
-  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?<![A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])`);
-}
-
 type OverviewResult =
-  | { ok: true; response: DossierOverviewResponse }
-  | { ok: false; status: number; error: string };
+  { ok: true; response: DossierOverviewResponse } | { ok: false; status: number; error: string };
 
 async function buildDossierOverview(
   request: Request,
@@ -264,9 +115,7 @@ async function buildDossierOverview(
   // signal, so it must be resolved before the snapshot selection runs.
   // `getStoredProjectEnvVarMap` only returns keys with a real stored value.
   const projectEnvVars = chat.project_id
-    ? await getStoredProjectEnvVarMap(chat.project_id).catch(
-        () => ({}) as Record<string, string>,
-      )
+    ? await getStoredProjectEnvVarMap(chat.project_id).catch(() => ({}) as Record<string, string>)
     : ({} as Record<string, string>);
   const configuredEnvKeys = new Set(Object.keys(projectEnvVars));
 
@@ -301,9 +150,7 @@ async function buildDossierOverview(
   const presentInVersionDossiers = versionFiles
     ? resolveDossiersPresentInVersion(versionFiles, configuredEnvKeys)
     : [];
-  const presentDossierIds = new Set(
-    presentInVersionDossiers.map((selected) => selected.entry.id),
-  );
+  const presentDossierIds = new Set(presentInVersionDossiers.map((selected) => selected.entry.id));
   const initialSelectedDossiers = preferPendingIntegrationDossiers({
     selected: snapshotAndPresenceDossiers,
     pending: pendingDossiers,
@@ -311,7 +158,8 @@ async function buildDossierOverview(
   });
 
   const lifecycleStage =
-    version && typeof version.lifecycle_stage === "string" &&
+    version &&
+    typeof version.lifecycle_stage === "string" &&
     version.lifecycle_stage === "integrations"
       ? "integrations"
       : "design";
@@ -396,8 +244,7 @@ async function buildDossierOverview(
   // in the files, so it never forces a re-derive. Failure degrades to the
   // provisional spec (review round 2) instead of 500:ing the panel.
   const presenceAddedNewDossier = presentInVersionDossiers.some(
-    (present) =>
-      !capabilitySelectedDossiers.some((sel) => sel.entry.id === present.entry.id),
+    (present) => !capabilitySelectedDossiers.some((sel) => sel.entry.id === present.entry.id),
   );
   let spec = provisionalSpec;
   if (
@@ -426,6 +273,7 @@ async function buildDossierOverview(
     const value = projectEnvVars[key];
     return typeof value === "string" && value.trim().length > 0;
   };
+  const realEnvKeys = new Set(Object.keys(projectEnvVars).filter((key) => hasRealEnvValue(key)));
 
   let missingByKey = new Map<string, string[]>();
   if (spec && spec.requirements.length > 0 && version) {
@@ -437,83 +285,35 @@ async function buildDossierOverview(
       allowPlaceholdersForBuildKeys: lifecycleStage === "integrations",
       placeholderEnvKeys: placeholderKeySet,
     });
-    missingByKey = new Map(
-      readiness.missingByIntegration.map((m) => [m.key, m.missing]),
-    );
+    missingByKey = new Map(readiness.missingByIntegration.map((m) => [m.key, m.missing]));
   }
 
-  const requirements = spec?.requirements ?? [];
+  const lifecycleRequirements = spec
+    ? spec.requirements.map((requirement) => ({
+        key: requirement.key,
+        envKeys: [
+          ...requirement.requiredRealEnvKeys,
+          ...requirement.placeholderOkEnvKeys,
+          ...requirement.featureRuntimeEnvKeys,
+          ...requirement.warnOnlyEnvKeys,
+        ],
+        missingBuildKeys: missingByKey.get(requirement.key) ?? [],
+      }))
+    : null;
 
   const pendingDossierIds = new Set(pendingDossiers.map((pending) => pending.entry.id));
 
   const dossiers: DossierOverviewEntry[] = selectedDossiers.map((selected) => {
     const { entry } = selected;
-    const requiresF3 = dossierRequiresF3(entry);
-    const envKeys = (entry.envVars ?? []).map((env) => env.key);
-
-    // Feature-runtime keys never block F3 (they are absent from the
-    // readiness gate's missing set) but they DO decide demo vs live: without
-    // a stored real value the dossier's shipped fallback (canned/seed/
-    // success) is what actually runs. Derived from the manifest so it also
-    // covers planned (not yet detected) dossiers.
-    const missingLiveKeys = (entry.envVars ?? [])
-      .filter(
-        (env) => (env.enforcement ?? "build") === "feature-runtime" && !hasRealEnvValue(env.key),
-      )
-      .map((env) => env.key);
-    // Build keys satisfied only via the F3 placeholder opt-in
-    // (`allowPlaceholdersInF3`) clear `missingKeys` — the BUILD may proceed —
-    // but the function is not live (Codex P2 on #525): live requires real
-    // stored values, never placeholders.
-    const buildKeysWithoutRealValue = (entry.envVars ?? [])
-      .filter(
-        (env) => (env.enforcement ?? "build") === "build" && !hasRealEnvValue(env.key),
-      )
-      .map((env) => env.key);
-
-    let status: DossierStatus;
-    let missingKeys: string[] = [];
-    if (pendingDossierIds.has(entry.id)) {
-      // Uppskjuten av F2-muten och ännu inte i versionens filer. Måste prövas
-      // FÖRE `requiresF3`: en klient-bara provider (analytics) uppfyller inte
-      // `dossierRequiresF3`, så den hade annars fallit rakt in i
-      // `self-contained` och panelen sagt "Inkopplad" om en fil som
-      // /finalize-design inte skrivit än — grönt utan verklig verifiering.
-      // `resolvePendingIntegrationDossiers` utesluter redan allt med
-      // filnärvaro, så en pending-post kan aldrig vara byggd.
-      status = "planned";
-    } else if (!requiresF3) {
-      status = "self-contained";
-    } else {
-      const matched = matchRequirementForDossier(envKeys, requirements);
-      if (!matched) {
-        // Planned: no code in the version yet. Deliberately NOT blocked-build
-        // even when a manifest build key lacks a value (Bugbot on this diff):
-        // the finalize gate only validates DETECTED integrations (+ pending
-        // approved providers), so labelling an undetected dossier as blocking
-        // would contradict the gate. The per-key badges ("Kräver riktigt
-        // värde") + inline inputs still prompt for the key, and an actual 412
-        // focuses this row via the open-event with the server's key scope.
-        status = "planned";
-      } else {
-        // Built: the F3-blocking scope is the readiness gate's verdict for
-        // the matched requirement — the exact set the 412 gate would demand.
-        missingKeys = missingByKey.get(matched.key) ?? [];
-        if (missingKeys.length > 0) {
-          status = "blocked-build";
-        } else {
-          // M#li1: live requires real env values AND server-side file
-          // evidence (see `hasServerFileEvidence`) — a requirement matched
-          // from client-only code with filled keys is demo, not live.
-          status =
-            missingLiveKeys.length > 0 ||
-            buildKeysWithoutRealValue.length > 0 ||
-            !hasServerFileEvidence(entry, versionFiles)
-              ? "built-demo"
-              : "built-live";
-        }
-      }
-    }
+    const lifecycle = resolveDossierLifecycle({
+      entry,
+      configuredBySelection: selected.configured,
+      materialized: versionFiles === null ? null : presentDossierIds.has(entry.id),
+      pending: pendingDossierIds.has(entry.id),
+      realEnvKeys,
+      requirements: lifecycleRequirements,
+      versionFiles,
+    });
 
     return {
       id: entry.id,
@@ -523,7 +323,7 @@ async function buildDossierOverview(
       summary: entry.summary,
       summarySv: entry.summarySv,
       complexity: entry.complexity,
-      requiresF3,
+      requiresF3: lifecycle.requiresF3,
       mock: entry.mock,
       configured: selected.configured,
       dependencies: entry.dependencies ?? [],
@@ -536,9 +336,9 @@ async function buildDossierOverview(
         hasRealValue: hasRealEnvValue(env.key),
         placeholderCovered: placeholderKeySet.has(env.key),
       })),
-      status,
-      missingKeys,
-      missingLiveKeys,
+      status: lifecycle.overviewStatus,
+      missingKeys: lifecycle.missingBuildKeys,
+      missingLiveKeys: lifecycle.missingFeatureRuntimeKeys,
       lastVerified: entry.lastVerified,
     };
   });
@@ -553,9 +353,7 @@ async function buildDossierOverview(
   const modelBuiltBlocks = dossiers
     .filter(
       (d) =>
-        (d.status === "built-live" ||
-          d.status === "built-demo" ||
-          d.status === "blocked-build") &&
+        (d.status === "built-live" || d.status === "built-demo" || d.status === "blocked-build") &&
         !presentDossierIds.has(d.id),
     )
     .map((d) => ({

@@ -131,6 +131,8 @@ const KIND_SPECS = {
   telemetry: {
     table: "generation_telemetry",
     chatColumn: "chat_id",
+    // `meta` carries postStreamSteps / streamMs / buildSpec so /logg can show
+    // phase timings without a one-off SQL script. Same truncate path as errors.
     columns: [
       "id", "chat_id", "version_id", "scaffold_id", "model", "model_tier",
       "build_intent", "retry_count", "autofix_applied", "preflight_error_count",
@@ -138,8 +140,9 @@ const KIND_SPECS = {
       "preview_blocking_reason", "duration_ms", "file_count",
       // Tokenkolumnerna: enda stället där en tokenvolym bär `version_id`, alltså
       // det som gör kostnad per KÖRNING möjlig (engine_generation_logs är per chat).
-      "prompt_tokens", "completion_tokens", "created_at",
+      "prompt_tokens", "completion_tokens", "meta", "created_at",
     ],
+    sanitizeRow: (row) => ({ ...row, meta: truncateMetaStrings(row.meta) }),
   },
   errors: {
     table: "engine_version_error_logs",

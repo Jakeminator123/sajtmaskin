@@ -27,6 +27,15 @@ export {
   resolveSelectedDossiersWithVersionPresence,
 } from "./version-presence";
 
+export { resolveDossierLifecycle } from "./lifecycle";
+export type {
+  DossierLifecycleRequirementEvidence,
+  DossierLifecycleResolution,
+  DossierLifecycleOverviewStatus,
+  DossierLifecycleVersionFile,
+  ResolveDossierLifecycleInput,
+} from "./lifecycle";
+
 export { resolvePendingIntegrationDossiers } from "./pending-integrations";
 export { preferPendingIntegrationDossiers } from "./pending-integrations";
 export { isPlannedDossierCoveredByModelBuiltBlock } from "./pending-integrations";

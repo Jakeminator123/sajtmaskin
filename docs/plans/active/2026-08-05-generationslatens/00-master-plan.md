@@ -34,14 +34,14 @@ codegen).
 
 | Fakta | Bevis |
 |---|---|
-| Strömmen är 79–99 % av väggklockan **från strömstart** | Fyra versioner, `generation_telemetry.duration_ms` minus summan av `meta.postStreamSteps` — tabell i [`01-matningen.md`](01-matningen.md). Brief + orkestrering ligger **före** `engineStartedAt` (steg 2), så andelen av användarens *hela* väntan är lägre |
+| Strömmen är 79–99 % av väggklockan **från strömstart** | Fyra versioner, `generation_telemetry.duration_ms` minus summan av `meta.postStreamSteps` — tabell i [`01-matningen.md`](01-matningen.md). Båda talen är ankrade i `engineStartedAt`, och brief + orkestrering ligger **före** det ankaret (verifierat i steg 2), så andelen av användarens *hela* väntan är lägre |
 | Strömtiden är ~linjär i completion-tokens | 134–182 tok/s över fyra körningar och två modeller (`gpt-5.3-codex`, `gpt-5.6-sol`) |
 | Bildhämtning kostar noll på kritiska vägen | `materialize_images`: `durationMs: 0`, `replacedCount: 0` i alla fyra versionerna — samtidigt som sajterna har 8–13 `images.unsplash.com`-referenser som modellen skrivit direkt |
 | Verifiern tog 69,2 s och gav noll blockerare | `postStreamSteps.verifier`: `durationMs: 69226`, `blockingCount: 0`, `qualityCount: 5` |
 | Verifiern var **trippel-gatead**, inte utlöst av autofix-risk | `policy.ts:58` `qualityTarget !== "standard"` → `high_quality_target`; dessutom `contextPolicy: heavy` (rad 64) och `changeScope: page-addition` (rad 67). Telemetrins `trigger: "risky_fixes"` är bara en etikett som `fast-path.ts` skriver över `verifierPolicy.reason` med |
 | En bloggsajt klassades `premium` + `heavy` — **befogad** | Multipage-promotion (`policy-inference.ts:274–283`) + heavy-score ≥ 3; se diagnos i [`01-matningen.md`](01-matningen.md). Landing är en-sida → `standard`/`normal` |
 | Brief + orkestrering saknas i `duration_ms`/`streamMs` | Båda före `engineStartedAt` (`generation-stream.ts:214`); embeddings i `resolve-base.ts:259–264` och `finalize-prompts.ts:86–97` |
-| `/logg` kan inte visa detta på master — **åtgärdas av PR #792** | `scripts/db/dump-logs.mjs` selekterar inte `meta` för telemetri-kinden (`errors`-kinden gör det, med `truncateMetaStrings`), så mätningen ovan krävde ett engångsskript. #792 tar in `meta` på samma trunkeringsväg och lägger till `meta.streamMs` |
+| `/logg` kunde inte visa detta vid mätningen — **åtgärdat i steg 1** | `scripts/db/dump-logs.mjs` selekterade inte `meta` för telemetri-kinden (`errors`-kinden gjorde det, med `truncateMetaStrings`), så mätningen ovan krävde ett engångsskript. Steg 1 tog in `meta` på samma trunkeringsväg och lade till `meta.streamMs` |
 
 **Urvalet är fyra versioner från två chattar, alla F2.** Verifier-observationen
 vilar på en enda körning. Det är hela skälet till att steg 1 kommer först.
@@ -50,7 +50,7 @@ vilar på en enda körning. Det är hela skälet till att steg 1 kommer först.
 
 | # | Steg | Ägare i koden | Status / villkor |
 |---|---|---|---|
-| 1 | **Gör mätningen synlig.** `meta` med i telemetri-kinden i `dump-logs.mjs`; explicit `streamMs` som meta-nyckel; det saknade `recordPhaseDuration("materialize_images", …)`-anropet | `scripts/db/dump-logs.mjs`, `persist-telemetry.ts`, `runner.ts` | **Levererad i PR #792 — väntar på merge.** Inget av det nedan finns på master förrän den är inne. `streamMs` blev **direktmätt** vid stream→finalize-gränsen i stället för deriverat. Obs: samma ankare som `duration_ms`, så talen är jämförbara — se rättelsen i [`01-matningen.md`](01-matningen.md). Fasnamnet fanns redan i `OBSERVED_PHASES`; bara anropet saknades, så `metrics.ts` behövde inte ändras |
+| 1 | **Gör mätningen synlig.** `meta` med i telemetri-kinden i `dump-logs.mjs`; explicit `streamMs` som meta-nyckel; det saknade `recordPhaseDuration("materialize_images", …)`-anropet | `scripts/db/dump-logs.mjs`, `persist-telemetry.ts`, `runner.ts` | **Levererad och mergad** (#792). `streamMs` blev **direktmätt** vid stream→finalize-gränsen i stället för deriverat. Obs: samma ankare som `duration_ms`, så talen är jämförbara — se rättelsen i [`01-matningen.md`](01-matningen.md). Fasnamnet fanns redan i `OBSERVED_PHASES`; bara anropet saknades, så `metrics.ts` behövde inte ändras |
 | 2 | **BuildSpec-klassningen.** Varför blir en bloggsajt `qualityTarget: premium` + `contextPolicy: heavy`? | `src/lib/gen/build-spec/` | **Diagnos klar — ingen tröskeländring.** Klassningen är medveten avvägning (multipage→premium, score≥3→heavy). Vill ägaren ändå pröva en lägre `heavy`-andel finns spaken redan som env (`SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD=4`) — ingen kodändring behövs. Se [`01-matningen.md`](01-matningen.md) §3 |
 | 3 | **Verifierns proportionalitet i F2.** Tre oberoende villkor tvingar ett 69 s LLM-pass på en design-preview vars gate ändå ägs av klientens RenderGate | `resolveVerifierPassPolicy` i `policy.ts` | **Ägarfråga, inte tröskeljustering.** Kodändringen är liten; beslutet är det inte. Se risknoten |
 | 4 | **Parallell codegen** — kontraktspass, N workers per filgrupp, merge | Fas 2–3 i sin helhet | **Beslutspunkt, inte beställt arbete.** Kräver ägar-OK enligt `mvp-scope-freeze.mdc`. Se [`02-parallell-codegen.md`](02-parallell-codegen.md) |
