@@ -16,6 +16,9 @@
  *   ragevents -> error_log_events       (durable fault/fix RAG telemetry)
  *   deploys   -> deployments            (Vercel deploy row: ids + url + status)
  *   openai    -> openai_webhook_events  (inbound OpenAI platform webhook receipts)
+ *   defects   -> engine_version_error_logs GROUPED BY meta.defect.signature
+ *                (felKLASSER med räknare, inte enskilda händelser — svarar på
+ *                 "hur ofta, över hur många chattar, sedan när")
  *
  * Env source: pass `--env=<path>` to choose which dotenv file to load. For
  * production logs, pull the prod env first:
@@ -188,6 +191,55 @@ const KIND_SPECS = {
       "inspector_url", "url", "domain", "status", "created_at", "updated_at",
     ],
   },
+  // Aggregat, inte rader: grupperar `engine_version_error_logs` på
+  // `meta.defect.signature` (satt av `src/lib/logging/version-defect-signature.ts`
+  // på den kanoniska skrivvägen). Det är den enda vyn som svarar på "hur ofta
+  // händer det här, och över hur många chattar" — `errors` visar händelser,
+  // den här visar felKLASSER. Utan `--chat` är den repo-bred, vilket är
+  // poängen: ett fel som återkommer i tio chattar är ett plattformsfel, inte
+  // otur i en generering.
+  defects: {
+    table: "engine_version_error_logs",
+    chatColumn: "chat_id",
+    columns: [],
+    buildQuery: ({ chatId: chat, limit: max }) => {
+      const where = ["meta -> 'defect' ->> 'signature' IS NOT NULL"];
+      const params = [];
+      if (chat) {
+        params.push(chat);
+        where.push(`chat_id = $${params.length}`);
+      }
+      params.push(max);
+      return {
+        sql: `
+          SELECT
+            meta -> 'defect' ->> 'signature'                       AS signature,
+            meta -> 'defect' ->> 'kind'                            AS kind,
+            meta -> 'defect' ->> 'file'                            AS file,
+            count(*)::int                                          AS occurrences,
+            count(DISTINCT chat_id)::int                           AS chats,
+            count(*) FILTER (WHERE level = 'error')::int           AS errors,
+            min(created_at)                                        AS first_seen,
+            max(created_at)                                        AS last_seen,
+            (array_agg(category ORDER BY created_at DESC))[1]      AS latest_category,
+            (array_agg(message  ORDER BY created_at DESC))[1]      AS latest_message
+          FROM engine_version_error_logs
+          WHERE ${where.join(" AND ")}
+          GROUP BY 1, 2, 3
+          ORDER BY occurrences DESC, last_seen DESC
+          LIMIT $${params.length}
+        `,
+        params,
+      };
+    },
+    sanitizeRow: (row) => ({
+      ...row,
+      latest_message:
+        typeof row.latest_message === "string" && row.latest_message.length > 300
+          ? `${row.latest_message.slice(0, 297)}…`
+          : row.latest_message,
+    }),
+  },
   openai: {
     table: "openai_webhook_events",
     // OpenAI events carry no chatId — correlation goes via object_id
@@ -244,7 +296,11 @@ try {
     const cols = spec.columns.join(", ");
     let sql;
     let params;
-    if (chatId && spec.chatColumn) {
+    if (spec.buildQuery) {
+      // Aggregatkinds bygger sin egen SQL (GROUP BY / egen ORDER BY) men går
+      // genom samma felhantering och samma sanering som radkinds.
+      ({ sql, params } = spec.buildQuery({ chatId, limit }));
+    } else if (chatId && spec.chatColumn) {
       sql = `SELECT ${cols} FROM ${spec.table} WHERE ${spec.chatColumn} = $1 ORDER BY created_at DESC LIMIT $2`;
       params = [chatId, limit];
     } else {

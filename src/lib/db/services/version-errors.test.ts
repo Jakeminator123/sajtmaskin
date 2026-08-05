@@ -9,10 +9,15 @@ const whereSpy = vi.fn();
 const returningSpy = vi.fn();
 const insertRows = vi.fn(() => [] as unknown[]);
 const selectRows = vi.fn(() => [] as unknown[]);
+/** Fångar raderna som faktiskt skulle skrivas, så metan går att granska. */
+const insertValuesSpy = vi.fn();
 
 vi.mock("@/lib/db/client", () => {
   const insertChain = () => ({
-    values: () => ({ returning: () => Promise.resolve(insertRows()) }),
+    values: (values: unknown) => {
+      insertValuesSpy(values);
+      return { returning: () => Promise.resolve(insertRows()) };
+    },
   });
   return {
     db: {
@@ -212,5 +217,62 @@ describe("createEngineVersionErrorLogs (lock-timeout degrade)", () => {
     await expect(
       createEngineVersionErrorLogs(onePayload, { lockTimeoutMs: 3000 }),
     ).rejects.toThrow("boom");
+  });
+});
+
+describe("createEngineVersionErrorLogs — defektklassificering", () => {
+  beforeEach(() => {
+    insertValuesSpy.mockClear();
+    selectRows.mockReturnValue([]);
+  });
+
+  function writtenRows() {
+    const values = insertValuesSpy.mock.calls[0]?.[0];
+    return (Array.isArray(values) ? values : [values]) as Array<{
+      meta?: { defect?: { kind?: string; signature?: string } } | null;
+    }>;
+  }
+
+  it("sätter kind och signature på varje rad utan att anroparen ber om det", async () => {
+    await createEngineVersionErrorLogs([
+      {
+        chatId: "c1",
+        versionId: "v1",
+        level: "warning",
+        category: PREVIEW_CLIENT_ERROR_CATEGORY,
+        message: "[hydration] Hydration failed because the server rendered text didn't match.",
+        meta: { kind: "hydration" },
+      },
+    ]);
+
+    const defect = writtenRows()[0]?.meta?.defect;
+    expect(defect?.kind).toBe("hydration");
+    expect(defect?.signature).toMatch(/^[0-9a-f]{12}$/);
+  });
+
+  it("rör inte en defect som anroparen redan satt", async () => {
+    await createEngineVersionErrorLogs([
+      {
+        chatId: "c1",
+        versionId: "v1",
+        level: "error",
+        category: "syntax",
+        message: "boom",
+        meta: { defect: { kind: "compile", signature: "handpicked00" } },
+      },
+    ]);
+
+    expect(writtenRows()[0]?.meta?.defect).toEqual({
+      kind: "compile",
+      signature: "handpicked00",
+    });
+  });
+
+  it("klassificerar även när chat-uppslaget hoppas över (tom chatId)", async () => {
+    await createEngineVersionErrorLogs([
+      { chatId: "", versionId: "v1", level: "error", category: "syntax", message: "boom" },
+    ]);
+
+    expect(writtenRows()[0]?.meta?.defect?.kind).toBe("compile");
   });
 });
