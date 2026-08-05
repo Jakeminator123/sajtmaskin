@@ -23,6 +23,8 @@ Sparade kandidat-diffar från `/kedja` — den stegade buggfix-pipelinen. Mappen
 
 Kan rensas när som helst — så snart vinnaren är mergad har diffarna inget värde.
 
+**Taket är tre körningsmappar.** `npm run clean:scratch` (torrkörning) / `npm run clean:scratch:apply` behåller de tre nyaste `YYYY-MM-DD_HHMM/`-mapparna och tar bort resten oavsett ålder — se `COUNT_TREES` i `scripts/dev/clean-scratch.mjs`. Det rör bara diff-arkivet här; worktrees och brancher städas av `kedja:clean` nedan.
+
 ## Städa upp efteråt
 
 `git worktree remove` tar bort katalogen men lämnar branchen kvar, så en avbruten eller ofullständig körning lämnar skräp. Sopa upp med:
