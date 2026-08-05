@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const validateAndNormalizeUrl = vi.hoisted(() => vi.fn());
 const getCanonicalUrlKey = vi.hoisted(() => vi.fn());
@@ -37,6 +39,15 @@ vi.mock("@/lib/gen/defaults", () => ({
 }));
 
 const { POST } = await import("./route");
+
+describe("audit route configuration", () => {
+  it("keeps maxDuration as a direct literal export in the route module", () => {
+    const source = readFileSync(resolve("src/app/api/audit/route.ts"), "utf8");
+
+    expect(source.match(/export const maxDuration = 300;/g)).toHaveLength(1);
+    expect(source).not.toMatch(/export\s*\{[^}]*maxDuration[^}]*\}/);
+  });
+});
 
 function request(body: unknown, userId = "user_1"): NextRequest {
   return new NextRequest("http://localhost/api/audit", {
