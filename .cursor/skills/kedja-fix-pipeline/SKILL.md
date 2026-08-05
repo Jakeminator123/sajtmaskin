@@ -137,6 +137,8 @@ Full Repository Path: {WINNER_WORKTREE_PATH}
 Diff: uncommitted changes
 ```
 
+**Linked-worktree fallback (verified 2026-08-05):** Bugbot cannot compute a diff inside a linked worktree (`.git` is a file there) — both `uncommitted changes` and `branch changes` return "diff is empty". Save the winner's patch to `.cursor/kedja/<run>/kandidat-<x>.diff` first, then run the pass against the MAIN checkout with `Diff: natural language`, a per-file Change Description, and Custom Instructions telling it to read that patch file and review it as if applied. Document the pass as `bugbot-local`.
+
 ## Judging order
 
 Cheapest signal first, so a broken candidate is eliminated before it costs a typecheck.
@@ -149,6 +151,11 @@ Cheapest signal first, so a broken candidate is eliminated before it costs a typ
 | 4 | `node scripts/dev/check-unicode-regex.mjs` | only if the diff touches regex |
 
 Winner = the **smallest** diff that clears every applicable check. Compare with `git diff --stat` in each worktree; do not pick on elegance.
+
+Two judging traps (both hit 2026-08-05):
+
+- **Regen gate ≠ red.** If a directory/CI gate fails because a generated view must be regenerated after the owner edit (fingerprint/addenda/embeddings/docs), run the regen command in the candidate's worktree and re-judge — that is a sync duty in the same change (`workflow.mdc`), not an elimination and not a scope breach.
+- **Mock-green ≠ green.** A candidate whose diff needs an `as`-cast to pass typecheck is probably smuggling in an API the real owner does not have — green only against the test mock. Verify the signature against the real code; if fake, the candidate is eliminated on semantics (seen: `signal` cast into a loader that only accepts `{ timeoutMs }`).
 
 Two candidates that differ only in formatting or variable extraction are **one** answer, not two. Say so in the report — it means step 5 gave no spread and the winner was effectively unopposed.
 
