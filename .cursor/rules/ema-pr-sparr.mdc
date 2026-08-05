@@ -1,0 +1,15 @@
+---
+alwaysApply: true
+---
+
+# Ema/Emil PR-spärr (ägarbeslut 2026-08-05, tillfällig)
+
+- PR:er författade av GitHub-kontot **`EmaCodeHero`** (Emil; branch `ema`, t.ex. #801)
+  får **ALDRIG** mergas av en agent — oavsett grönt CI, `merge:ready` eller andra
+  labels. Endast ägaren (`Jakeminator123`) beslutar om merge, uttryckligen per PR.
+- Omvänt gäller samma spärr åt andra hållet: EmaCodeHero ska inte merga ägarens
+  eller agenternas PR:er. Upptäcker en agent en sådan merge: rapportera direkt
+  till ägaren, agera inte själv.
+- Behandla EmaCodeHero-PR:er som `agent:needs-human`: läsa, granska och
+  kommentera går bra — merge-beslutet är ägarens.
+- Regeln är tillfällig och lokal tills ägaren säger annat.
