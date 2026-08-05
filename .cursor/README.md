@@ -96,8 +96,6 @@ parallell owner.
 - `/kedja` = **fix mode**-motsvarigheten till `/automat`: en bugg genom sju steg (ram → worktrees → failande test → tre lokaliseringsagenter → du väljer rotorsak → N fix-kandidater i varsin worktree → maskinell dom → bugbot). Kandidatdiffar i gitignored `.cursor/kedja/`; vinnaren lämnas **ocommittad** i sin worktree. Se `.cursor/skills/kedja-fix-pipeline/SKILL.md`.
 - `/logg` = hämta **alla** loggar för senaste genererade prod-sajten (produktionsdatabas inkl. telemetri + OpenClaw-fynd, Vercel build/runtime via MCP, Fly preview-host) och sammanfatta hur körningen gick. Read-only mot prod. Se `.cursor/skills/logg/SKILL.md`.
 - `/logg-internet` = **live** prod-session i Cursor-browsern: verifiera inloggning på `sajtmaskin.vercel.app`, skriv en friprompt + ~2 uppföljningar och **anteckna** hur körningen går (Observatörspersona, jagar inte fel som default). Drar credits på riktigt. Notiser i gitignored `.cursor/logg-internet/`. Se `.cursor/skills/logg-internet/SKILL.md`.
-- `/ut-ur-master` = rutin när du står i huvudcheckouten på `master` och ska ändra kod: läs läget, avgör om uppgiften kräver eget spår, **fråga**, skapa worktree + branch, och flytta ev. redan gjorda ändringar ut icke-förstörande. Skyddar delad HEAD; ersätter inte ägarens rätt att jobba direkt i master.
-
 ### Modellval för subagenter (kanonisk tabell)
 
 Kommandon och skills som startar `Task`-subagenter hämtar sin **roll** härifrån. Slugen bor däremot inte i repot — den slås upp per session, se nedan.
