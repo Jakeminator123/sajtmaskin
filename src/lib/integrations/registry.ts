@@ -1,4 +1,5 @@
-import { resolveDossierProvider } from "@/lib/gen/dossiers/registry";
+import { getAllDossiers, resolveDossierProvider } from "@/lib/gen/dossiers/registry";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
 
 export type IntegrationRuntime = "browser" | "server" | "edge" | "deploy";
 
@@ -304,21 +305,56 @@ function manifestSetupGuide(
 }
 
 /**
+ * Memo keyed on the dossier list's identity. `getAllDossiers()` returns the
+ * SAME array reference while its mtime signature holds, so a changed
+ * reference is exactly the signal that a manifest was edited. Without this,
+ * reading `.envVars` inside a loop over the registry would re-stat all 27
+ * manifests once per definition.
+ */
+let _projectionCache: {
+  dossiers: readonly DossierEntry[];
+  byProvider: Map<string, DossierEntry | null>;
+} | null = null;
+
+/** The dossier that uniquely owns `provider`, or null when none/ambiguous. */
+function uniqueDossierForProvider(provider: string): DossierEntry | null {
+  const dossiers = getAllDossiers();
+  if (_projectionCache?.dossiers !== dossiers) {
+    _projectionCache = { dossiers, byProvider: new Map() };
+  }
+  const cached = _projectionCache.byProvider.get(provider);
+  if (cached !== undefined) return cached;
+  const resolution = resolveDossierProvider(provider, dossiers);
+  const owner = resolution.status === "unique" ? resolution.dossiers[0] : null;
+  _projectionCache.byProvider.set(provider, owner);
+  return owner;
+}
+
+/**
  * Provider metadata projected from an exact dossier when manifest ownership
  * is unique. Dossierless and ambiguous providers keep their generic registry
  * contract until an exact capability/dossier is selected.
+ *
+ * The projection is LAZY on purpose: computing it at module scope froze the
+ * registry at import time, so the dossier registry's mtime cache never
+ * reached it — a manifest edited in backoffice or during dev hot reload kept
+ * serving the stale env keys until the process restarted.
  */
 export const integrationRegistry: IntegrationDefinition[] = integrationRegistryBase.map(
   (definition) => {
     const provider = definition.provider ?? definition.key;
-    const resolution = resolveDossierProvider(provider);
-    if (resolution.status !== "unique") return definition;
-    const dossier = resolution.dossiers[0];
-    const envVars = dossier.envVars ?? [];
     return {
       ...definition,
-      envVars: envVars.map((env) => env.key),
-      setupGuide: manifestSetupGuide(definition, envVars),
+      get envVars(): string[] {
+        const dossier = uniqueDossierForProvider(provider);
+        if (!dossier) return definition.envVars;
+        return (dossier.envVars ?? []).map((env) => env.key);
+      },
+      get setupGuide(): string {
+        const dossier = uniqueDossierForProvider(provider);
+        if (!dossier) return definition.setupGuide;
+        return manifestSetupGuide(definition, dossier.envVars ?? []);
+      },
     };
   },
 );

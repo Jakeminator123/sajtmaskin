@@ -159,10 +159,15 @@ blockera på det som verkligen kräver en riktig integration.
   `EMAIL_FROM`) kan fortfarande 409:a en F2-publicering.
 - **F3-readiness/stream:** `finalize-design` och stream-routen gatar på samma
   otäckta build-nycklar (`412 tier3_env_not_ready`). **Byggblock-popovern är den
-  enda editorn för projekt-env i F2/F3**: den visar serverns
-  `missingByIntegration`, sparar via projektets env-vars-API och erbjuder
-  explicit retry. Vid 412 öppnar/fokuserar buildern rätt dossier automatiskt;
-  env-frågor hör aldrig hemma i F2/F3-chatten (se
+  enda editorn för projekt-env i F2/F3** (ägarbeslut 2026-07-22), och vid 412
+  öppnar/fokuserar buildern rätt dossier där automatiskt. Bredvid popovern
+  ligger [`F3RequirementsSurface`](../../src/components/builder/F3RequirementsSurface.tsx)
+  — en beständig, icke-modal builderyta som listar serverns
+  `missingByIntegration` som den är, deep-linkar till Byggblock och erbjuder
+  explicit retry. Den har medvetet **ingen egen editor** mot env-API:t.
+  ReleaseGate-resultat (startad, promoted, superseded, retryable eller Blocker)
+  visas på motsvarande `F3StatusSurface` i stället för toastar. Env-frågor hör
+  aldrig hemma i F2/F3-chatten (se
   [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)).
   Är alla `requiredRealEnvKeys` i den valda versionens F3-krav tomma startas
   ingen generell F3-LLM-runda. I stället skapas en ny `integrations`-version

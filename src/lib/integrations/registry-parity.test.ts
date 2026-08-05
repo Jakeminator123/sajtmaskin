@@ -45,4 +45,23 @@ describe("integrationRegistry parity", () => {
     }
     expect(missing).toEqual([]);
   });
+
+  /**
+   * Regressionen som fixades: projektionen räknades ut på modulnivå och
+   * frystes vid import, så dossier-registrets mtime-cache aldrig nådde fram
+   * — ett manifest redigerat i backoffice eller under dev hot reload fortsatte
+   * servera gamla env-nycklar tills processen startades om. En accessor kan
+   * inte frysas på det sättet; en data-property kan det.
+   */
+  it("projects manifest-owned fields lazily, not frozen at import", () => {
+    const resend = integrationRegistry.find((d) => d.key === "resend");
+    expect(resend).toBeDefined();
+    for (const field of ["envVars", "setupGuide"] as const) {
+      const descriptor = Object.getOwnPropertyDescriptor(resend!, field);
+      expect(descriptor?.get, `${field} must stay an accessor`).toBeTypeOf("function");
+    }
+    // Lathten får inte kosta korrekthet: värdet är fortfarande manifestets.
+    expect(resend!.envVars).toEqual(["RESEND_API_KEY", "EMAIL_FROM", "CONTACT_EMAIL_TO"]);
+    expect(resend!.envVars).toEqual(resend!.envVars);
+  });
 });

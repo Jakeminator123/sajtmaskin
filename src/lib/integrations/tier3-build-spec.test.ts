@@ -4,6 +4,7 @@ import {
   deriveTier3BuildSpec,
   deriveTier3BuildSpecForProviderKeys,
   hasRequiredRealBuildKeys,
+  mapProviderKeysToBackingDossierIds,
   mapProviderKeysToDossierCapabilities,
   providerKeysWithoutBackingDossier,
   renderTier3BuildPlanBlock,
@@ -626,6 +627,52 @@ describe("mapProviderKeysToDossierCapabilities", () => {
     // No manifest claims next-auth. A category-only match would inject
     // clerk-auth's templates and env keys for the wrong provider.
     expect(mapProviderKeysToDossierCapabilities(["next-auth"])).toEqual([]);
+  });
+});
+
+/**
+ * Kontraktslås för de tre providers som flera manifest deklarerar. Alla tre
+ * kartfunktionerna måste svara samma sak — svarar de olika kan en F3-runda
+ * injicera en dossier som env-clampningen inte känner till.
+ *
+ * `openai` avviker MEDVETET från beteendet före den här konsolideringen: där
+ * injicerade ett generiskt openai-godkännande BÅDA chattdossiererna
+ * (`openai-chat` + `ai-tool-calling-chat`), eftersom de strict-backade
+ * providern via delade `@ai-sdk/openai`-beroenden. Nyckeln `openai` säger
+ * ingenting om chatt, verktygsanrop eller RAG, så valet mellan syskonen var
+ * godtyckligt. Den generiska LLM-vägen är rätt svar i stället. Låt inte en
+ * framtida refaktor läsa det som en regression och peka tillbaka.
+ *
+ * `supabase` och `postgres` är däremot inga beteendeändringar alls: inget
+ * dossierval skedde för dem tidigare heller — supabase blockerades av
+ * suppressionslistan (approving Supabase för lagring/databas fick inte dra in
+ * auth-middleware), och postgres saknades helt som providernyckel i registryt.
+ */
+describe("provider→dossier contract lock (ambiguous manifest providers)", () => {
+  it.each(["supabase", "postgres", "openai"])(
+    "%s selects no dossier through the generic provider path",
+    (provider) => {
+      expect(mapProviderKeysToDossierCapabilities([provider])).toEqual([]);
+      expect(mapProviderKeysToBackingDossierIds([provider])).toEqual([]);
+      expect(providerKeysWithoutBackingDossier([provider])).toEqual([provider]);
+    },
+  );
+
+  it("resolves an exact dossier id — openai-chat is the counter-proof", () => {
+    expect(mapProviderKeysToDossierCapabilities(["openai-chat"])).toEqual(["ai-chat"]);
+    expect(mapProviderKeysToBackingDossierIds(["openai-chat"])).toEqual(["openai-chat"]);
+    expect(providerKeysWithoutBackingDossier(["openai-chat"])).toEqual([]);
+  });
+
+  it("never injects the siblings a generic openai key used to pull in", () => {
+    const ids = mapProviderKeysToBackingDossierIds(["openai"]);
+    expect(ids).not.toContain("ai-tool-calling-chat");
+    expect(ids).not.toContain("rag-chat");
+  });
+
+  it("leaves unique providers injecting their exact dossier", () => {
+    expect(mapProviderKeysToBackingDossierIds(["stripe"])).toEqual(["stripe-checkout"]);
+    expect(mapProviderKeysToBackingDossierIds(["clerk"])).toEqual(["clerk-auth"]);
   });
 });
 
