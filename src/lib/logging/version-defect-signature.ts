@@ -46,6 +46,55 @@ export type VersionDefectInput = {
 
 const SIGNATURE_LENGTH = 12;
 const NORMALIZED_MAX = 300;
+/**
+ * Taket klipps INNAN regexarbetet, inte efter.
+ *
+ * Mönstren nedan har en nästlad kvantifierare (`(?:[\w.-]+\/)*?`) som backtrackar
+ * kvadratiskt på en lång sträng utan snedstreck. Ett byggfel kan vara tiotals
+ * kilobyte, och klassificeraren kör på varje skrivning till felliggaren — utan
+ * taket vore en lång rad nog för att sänka skrivvägen. Signaturen använder ändå
+ * bara de första `NORMALIZED_MAX` tecknen.
+ */
+const NORMALIZE_INPUT_MAX = 1_000;
+
+/** Källrötter vars sökvägsprefix är miljöberoende brus. */
+const SOURCE_ROOT_GROUP = "(?:node_modules|src|app|components)";
+
+/**
+ * Absolut sökvägsprefix fram till första källroten.
+ *
+ * Två detaljer bär hela beteendet:
+ *  - **Negativ lookbehind på `.` och `\w`** gör mönstret blint för RELATIVA
+ *    sökvägar. Utan den matchar `./components/Hero` och blir `.components/hero`,
+ *    vilket slår ihop alla saknade moduler till en enda signatur.
+ *  - **Lat kvantifierare** stannar vid FÖRSTA källroten. Girigt skulle
+ *    `/x/y/src/app/p.tsx` ätas fram till `app/` och bli omöjlig att skilja
+ *    från `/x/y/app/p.tsx`.
+ *
+ * Noll segment tillåts med flit, så att ett kort `/src/app/page.tsx` kortas
+ * till samma form som ett långt `/home/runner/work/src/app/page.tsx`.
+ */
+const ABSOLUTE_PATH_PREFIX_RE = new RegExp(
+  `(?<![.\\w])\\/(?:[\\w.-]+\\/)*?(?=${SOURCE_ROOT_GROUP}\\/)`,
+  "g",
+);
+
+/**
+ * Samma sökvägsform oavsett hur anroparen råkade skriva den.
+ *
+ * Filen ingår i signaturen, så `/src/a.tsx` och `src/a.tsx` skulle annars bli
+ * två defekter trots att de är en — precis den uppdelning signaturen finns för
+ * att undvika.
+ */
+export function normalizeDefectFile(file: string): string {
+  return String(file ?? "")
+    .slice(0, NORMALIZE_INPUT_MAX)
+    .replace(/\\/g, "/")
+    .replace(/^[A-Za-z]:\//, "/")
+    .replace(ABSOLUTE_PATH_PREFIX_RE, "")
+    .replace(/^\.\//, "")
+    .trim();
+}
 
 function metaString(meta: Record<string, unknown> | null | undefined, key: string): string | null {
   const value = meta?.[key];
@@ -127,8 +176,12 @@ export function classifyVersionDefectKind(input: VersionDefectInput): VersionDef
  * './components/Hero'` är modulnamnet hela signalen, och maskas det bort
  * kollapsar alla saknade moduler till en enda signatur.
  */
-export function normalizeDefectMessage(raw: string): string {
-  let text = (raw || "").trim();
+export function normalizeDefectMessage(raw: unknown): string {
+  // `String(...)` och taket före allt annat: modulen ligger på en best-effort
+  // diagnostikväg och får aldrig kasta. Ett icke-strängvärde som slinker in
+  // genom en otypad route ska bli en dålig signatur, inte ett 500-svar.
+  let text = typeof raw === "string" ? raw : raw == null ? "" : String(raw);
+  text = text.slice(0, NORMALIZE_INPUT_MAX).trim();
   if (!text) return "";
 
   // URL → sökväg. Query och fragment beskriver anropet, inte felet.
@@ -147,13 +200,9 @@ export function normalizeDefectMessage(raw: string): string {
     .replace(/\b(chat|version|ver|v0|dpl|prj)[_-][A-Za-z0-9_-]{6,}/gi, "<id>")
     // Långa hex-strängar (hashar, revisioner)
     .replace(/\b[0-9a-f]{16,}\b/gi, "<id>")
-    // Absolutprefix: behåll svansen, den är den läsbara delen. Minst två
-    // segment krävs före källroten, annars äter mönstret separatorn i ett
-    // relativt `./components/Hero` och slår ihop olika moduler till en signatur.
+    // Absolutprefix: behåll svansen, den är den läsbara delen.
     .replace(/\b[A-Za-z]:\\[^\s:]+\\/g, "")
-    // Lat kvantifierare: girig matchning skulle äta förbi `src/` fram till
-    // `app/` och göra `/x/y/src/app/p.tsx` omöjlig att skilja från `/x/y/app/p.tsx`.
-    .replace(/\/(?:[\w.-]+\/){2,}?(?=(?:node_modules|src|app|components)\/)/g, "")
+    .replace(ABSOLUTE_PATH_PREFIX_RE, "")
     // Radnummer/kolumner och alla övriga tal
     .replace(/\d+/g, "<n>")
     .replace(/\s+/g, " ")
@@ -172,12 +221,14 @@ export function extractDefectLocation(input: VersionDefectInput): { file?: strin
   const metaLineRaw = input.meta?.line;
   const metaLine = typeof metaLineRaw === "number" && Number.isFinite(metaLineRaw) ? metaLineRaw : undefined;
   if (metaFile) {
-    return metaLine === undefined ? { file: metaFile } : { file: metaFile, line: metaLine };
+    const file = normalizeDefectFile(metaFile);
+    return metaLine === undefined ? { file } : { file, line: metaLine };
   }
 
-  const match = /([\w./-]+\.(?:tsx|ts|jsx|js|mjs|cjs|css))(?::(\d+))?/.exec(input.message ?? "");
+  const message = typeof input.message === "string" ? input.message.slice(0, NORMALIZE_INPUT_MAX) : "";
+  const match = /([\w./-]+\.(?:tsx|ts|jsx|js|mjs|cjs|css))(?::(\d+))?/.exec(message);
   if (!match) return {};
-  const file = match[1];
+  const file = normalizeDefectFile(match[1]);
   const line = match[2] ? Number.parseInt(match[2], 10) : undefined;
   return line === undefined || !Number.isFinite(line) ? { file } : { file, line };
 }

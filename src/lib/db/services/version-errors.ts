@@ -105,11 +105,22 @@ function mergeDefectClassification(payload: VersionErrorLogPayload): VersionErro
   const meta = payload.meta && typeof payload.meta === "object" ? payload.meta : null;
   if (meta?.defect) return payload;
 
-  const defect = classifyVersionDefect({
-    category: payload.category,
-    message: payload.message,
-    meta,
-  });
+  // Klassificeringen är en bekvämlighet ovanpå en rad som ska skrivas oavsett.
+  // Den kör på VARJE skrivning till felliggaren, inklusive den best-effort-väg
+  // som redan degraderar vid låskonflikt — ett kast här skulle förvandla en
+  // diagnostikrad som tidigare gick igenom till ett 500-svar på routen. En
+  // saknad signatur är bara en rad som uteblir ur aggregatet.
+  let defect: ReturnType<typeof classifyVersionDefect> = null;
+  try {
+    defect = classifyVersionDefect({
+      category: payload.category,
+      message: payload.message,
+      meta,
+    });
+  } catch (err) {
+    console.warn("[version-errors] defect classification failed:", err);
+    return payload;
+  }
   if (!defect) return payload;
 
   return { ...payload, meta: { ...(meta ?? {}), defect } };

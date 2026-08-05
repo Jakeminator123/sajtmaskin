@@ -85,6 +85,33 @@ describe("normalizeDefectMessage", () => {
     );
   });
 
+  it("kortar kort och lång absolut sökväg till samma form", () => {
+    // Bugbot: `/src/app/page.tsx` lämnades orörd medan den långa varianten
+    // kortades, så samma defekt fick två signaturer beroende på miljö.
+    const short = normalizeDefectMessage("Error in /src/app/page.tsx");
+    const long = normalizeDefectMessage("Error in /home/runner/work/src/app/page.tsx");
+    expect(short).toBe(long);
+  });
+
+  it("håller isär sökvägar som skiljer sig efter källroten", () => {
+    expect(normalizeDefectMessage("/x/y/src/app/p.tsx")).not.toBe(
+      normalizeDefectMessage("/x/y/app/p.tsx"),
+    );
+  });
+
+  it("kastar inte på icke-strängar", () => {
+    expect(() => normalizeDefectMessage(42 as unknown as string)).not.toThrow();
+    expect(normalizeDefectMessage(undefined as unknown as string)).toBe("");
+    expect(normalizeDefectMessage(null as unknown as string)).toBe("");
+  });
+
+  it("bottnar snabbt på en lång sträng utan snedstreck (backtracking-tak)", () => {
+    const hostile = `${"a".repeat(60_000)} /home/runner/work/src/app/p.tsx`;
+    const startedAt = Date.now();
+    normalizeDefectMessage(hostile);
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+  });
+
   it("returnerar tom sträng för tomt meddelande", () => {
     expect(normalizeDefectMessage("   ")).toBe("");
   });
@@ -119,6 +146,18 @@ describe("signaturens stabilitet", () => {
       })?.signature;
 
     expect(at(42)).toBe(at(87));
+  });
+
+  it("ger samma signatur oavsett hur anroparen skrev sökvägen", () => {
+    // Bugbot: filen ingår i signaturen, så `/src/a.tsx` och `src/a.tsx` blev
+    // två defekter trots att de är en.
+    const withFile = (file: string) =>
+      classifyVersionDefect({ category: "syntax", message: "Unexpected token", meta: { file } })
+        ?.signature;
+
+    expect(withFile("/src/a.tsx")).toBe(withFile("src/a.tsx"));
+    expect(withFile("./src/a.tsx")).toBe(withFile("src/a.tsx"));
+    expect(withFile("C:/work/src/a.tsx")).toBe(withFile("src/a.tsx"));
   });
 
   it("skiljer samma meddelande i olika filer", () => {
