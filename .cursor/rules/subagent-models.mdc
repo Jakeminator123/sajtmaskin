@@ -6,43 +6,19 @@ alwaysApply: true
 # Subagent-modeller
 
 **Grok 4.5 är standardmodell för ALLA subagenter** — scan, omdöme, destillering,
-kedja-runner **och** bugg-/kodgranskning (`bugbot`).
+kedja-runner **och** bugg-/kodgranskning (`bugbot`). Detta är ägarens stående
+begäran, så `Task`-verktygets default (`inherit`) gäller inte här.
 
-**Detta är ägarens stående begäran, inte en repo-preferens.** `Task`-verktygets
-egen beskrivning säger *"use `inherit` unless the user explicitly requested
-another listed model"* — ägaren **har** begärt det här, en gång, för alla
-sessioner. Skicka därför alltid `model`; välj `inherit` bara när ägaren ber om
-något annat i stunden.
-
-## Slå upp slugen, skriv inte av den
-
-`<grok-4.5>` i repots kommandon och skills betyder: **den Grok 4.5-post som
-finns i din egen sessions `<available_subagent_models>`.** Leta upp posten som
-börjar på `cursor-grok-4.5` och använd den exakt.
-
-Skriv **inte** in en slug du minns eller hittar i en äldre textrad. Den exakta
-formen varierar mellan sessioner: 2026-08-05 observerades `cursor-grok-4.5-high`
-i en session och `cursor-grok-4.5-high-fast` i en annan samma dag, och den
-felaktiga av de två avvisas med `Invalid model selection`. En hårdkodad slug i
-repot skulle därför vara fel i ungefär varannan session — det är hela skälet
-till att den inte står här.
-
-Avvisningen listar de tillåtna slugarna, så gissar du fel får du rätt svar
-tillbaka. Det finns dock ett tystare utfall: en slug som inte valideras alls
-faller tillbaka på **orkestratorns** modell, så en "billig" subagent kan köra
-dyrt utan att något syns.
-
-## Regler
-
-- Skicka alltid `model` i `Task`-anropet (inkl. `bugbot`) — utelämnas den ärver
-  subagenten din egen, ofta dyra, modell. Mätt 2026-08-05: **118 av 147**
-  `Task`-anrop under tre dygn skickade ingen modell alls, så varje "billig"
-  agent kördes tyst på orkestratorns dyra modell. Det, inte antalet subagenter,
-  var den faktiska kostnaden.
-- Välj **inte** Composer (`composer-2.5` / `composer-2.5-fast`) som default
-  även om den finns i Task-utbudet.
+- **Skicka alltid `model`** i `Task`-anropet, inklusive `bugbot`. Utelämnas den
+  ärver subagenten din egen, ofta dyra, modell — tyst.
+- **Slå upp slugen, skriv inte av den.** `<grok-4.5>` i repots kommandon och
+  skills betyder: posten som börjar på `cursor-grok-4.5` i din egen sessions
+  `<available_subagent_models>`. Formen varierar mellan sessioner, så en slug ur
+  en äldre textrad är fel ungefär varannan gång.
+- Välj **inte** Composer (`composer-2.5` / `composer-2.5-fast`) som default.
 - **Hård regel:** dyra tänkande modeller — i synnerhet
-  `claude-opus-5-thinking-xhigh` — får **inte** användas som
-  buggranskare/review-subagent som default. De får bara användas när ägaren
-  uttryckligen ber om en specialkoll.
-- Kanonisk tabell: [`.cursor/README.md` § Modellval för subagenter](../README.md#modellval-för-subagenter-kanonisk-tabell).
+  `claude-opus-5-thinking-xhigh` — får inte vara buggranskare/review-subagent
+  som default. Bara när ägaren uttryckligen ber om en specialkoll.
+
+Kanonisk tabell, mätdata och felsökning av `Invalid model selection`:
+[`.cursor/README.md` § Modellval för subagenter](../README.md#modellval-för-subagenter-kanonisk-tabell).

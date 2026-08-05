@@ -20,7 +20,7 @@ name: Dependabot safe auto-merge
 #      schema-drift) are configured on the "Protect master" ruleset.
 #   2. [TODO] Automate the bot-finding sweep/settling gate — `--auto` merges as
 #      soon as review + required checks pass, but Codex/VADE findings can land
-#      minutes after green CI (see pr-bot-findings-sweep.mdc).
+#      minutes after green CI (see pr-merge.mdc).
 #   3. [TODO] Add a changed-files/protected-path filter — the classifier below
 #      only checks patch + core names, so a github-actions patch (e.g.
 #      actions/checkout) editing .github/workflows/* would still pass.

@@ -19,9 +19,9 @@ någon annans arbete är granskat, grönt och moget — och mergar det då. Andr
 mergar ibland själva; det är OK. Din uppgift är att kontrollera att det som landat
 och det som ligger kvar är rätt.
 
-Kanonisk grind: [`pr-merge-review-gate.mdc`](../../rules/pr-merge-review-gate.mdc) +
-[`auto-merge-automation.mdc`](../../rules/auto-merge-automation.mdc). Duplicera inte
-deras innehåll — den här skillen lägger bara till rollansvarstestet, 15-min-regeln
+Kanonisk grind: [`pr-merge.mdc`](../../rules/pr-merge.mdc) (bakgrund och incidenter i
+[`docs/runbooks/pr-merge-gate.md`](../../../docs/runbooks/pr-merge-gate.md)). Duplicera
+inte dess innehåll — den här skillen lägger bara till rollansvarstestet, 15-min-regeln
 och token-hygienen.
 
 ## Steg 0 — rollansvarstest (obligatoriskt, före allt annat)
@@ -93,10 +93,10 @@ commit-loggen om det är åtgärdat — anta det inte i någondera riktningen.
 kommentarer tappar de äldsta tyst — och de äldsta är precis de som hunnit bli
 olösta länge. Ett sidfilter är samma fel som ett tidsfilter, bara med en annan
 axel. Använd `--method GET --paginate -F per_page=100` på varje fyndhämtning,
-som [`pr-bot-findings-sweep.mdc`](../../rules/pr-bot-findings-sweep.mdc) föreskriver.
+som [`pr-merge.mdc`](../../rules/pr-merge.mdc) → "Hämta ALLA fynd" föreskriver.
 
 **Grönt `gh pr checks` betyder inte "inga fynd".** Enligt
-[`pr-bot-findings-sweep.mdc`](../../rules/pr-bot-findings-sweep.mdc) lägger flera
+[`pr-merge.mdc`](../../rules/pr-merge.mdc) lägger flera
 botar sina fynd på ytor som statuslistan inte visar — Vercel Agent Review (VADE)
 skriver i check-runens `output`/`annotations`, och PR-nivånotiser hamnar bland
 `issues/comments` i stället för de radbundna `pulls/comments`. Svep därför båda:
@@ -296,7 +296,7 @@ gh pr view <n> --json state,mergeCommit --jq '{state,sha:.mergeCommit.oid}'
 `schema-drift`, `review-window`, `build`), code-owner-review och 7-min-fönstret.
 Kör du det direkt vilar hela grinden på att du själv kollade rätt — plain merge
 låter i stället GitHub falla stängd åt dig. Samma skäl som `--admin`-förbudet i
-[`auto-merge-automation.mdc`](../../rules/auto-merge-automation.mdc).
+[`pr-merge.mdc`](../../rules/pr-merge.mdc).
 
 Faller den: läs felet innan du eskalerar.
 

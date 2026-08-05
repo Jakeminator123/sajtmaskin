@@ -19,7 +19,7 @@ name: review-window
 # ...men aldrig längre än ett tak (10 min väntan på botar) så det aldrig
 # fastnar om en bot är avstängd (t.ex. Codex utan credits). Jobbet gör ingen
 # verdict-bedömning — själva triagen av fynden är fortfarande agentens jobb
-# (se pr-merge-review-gate.mdc). Det garanterar bara att botarna hunnit tala.
+# (se pr-merge.mdc). Det garanterar bara att botarna hunnit tala.
 #
 # Kör på ALLA PR:er (även forkar): läser bara publik check-run-status, inga
 # secrets. cancel-in-progress → en ny commit startar om fönstret för nya SHA:t.

@@ -21,6 +21,8 @@ policies kan äga olika beslut.
 | Kör jag i en Cursor Cloud-pod?   | [`runbooks/cursor-cloud-agent.md`](runbooks/cursor-cloud-agent.md)       |
 | Hur jobbar flera agenter samtidigt? | [`runbooks/git-worktree.md`](runbooks/git-worktree.md)                |
 | Hur provisionerar jag warm-cachen? | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)          |
+| Varför ser merge-grinden ut så?  | [`runbooks/pr-merge-gate.md`](runbooks/pr-merge-gate.md)                 |
+| Vad applicerar DB-migrationerna? | [`runbooks/db-migrations.md`](runbooks/db-migrations.md)                 |
 | Vilka planer är aktiva?          | [`plans/README.md`](plans/README.md)                                     |
 
 Full terminologi finns tills vidare i

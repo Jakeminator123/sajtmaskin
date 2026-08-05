@@ -654,7 +654,7 @@
       ]
     },
     "Cursor-agenter": {
-      "summary": "Ordlista, struktur och aktiv backlog — alla 15 projektregler + arkitektur + en samlad planfil. Slash-kommandon: /avslutning, /buggrapport.",
+      "summary": "Ordlista, struktur och aktiv backlog — projektreglerna i .cursor/rules/ + arkitektur + en samlad planfil. Slash-kommandon: /avslutning, /buggrapport.",
       "canonicalPaths": [
         ".cursor/rules/agent-observatory.mdc",
         ".cursor/rules/env-flow-f2-mute.mdc",
@@ -662,7 +662,7 @@
         ".cursor/rules/openclaw-bridge.mdc",
         ".cursor/rules/pipeline-rules.mdc",
         ".cursor/rules/plan-lifecycle.mdc",
-        ".cursor/rules/platform-quirks.mdc",
+        ".cursor/rules/pr-merge.mdc",
         ".cursor/rules/repo-router.mdc",
         ".cursor/rules/response-format.mdc",
         ".cursor/rules/scaffold-rules.mdc",

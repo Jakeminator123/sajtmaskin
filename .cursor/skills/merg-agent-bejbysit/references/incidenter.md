@@ -52,4 +52,4 @@ Labeln `merge:ready` sattes 20:12:24 och sign-off-kommentaren 20:12:27 — båda
 inne i fönstret där `merge-ready-freshness.yml` körde på en bot-kommentar. Körningen
 såg en labelad PR utan sign-off och rev labeln, trots grön grind och oförändrad
 head-SHA. Skriv därför alltid sign-off-kommentaren **först**, labeln sedan.
-Detaljerna ligger i [`pr-merge-review-gate.mdc`](../../../rules/pr-merge-review-gate.mdc).
+Detaljerna ligger i [`docs/runbooks/pr-merge-gate.md`](../../../../docs/runbooks/pr-merge-gate.md).
