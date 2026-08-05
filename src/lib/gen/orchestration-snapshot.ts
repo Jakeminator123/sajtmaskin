@@ -9,6 +9,7 @@ import { getDossierById } from "./dossiers/registry";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "./prompt-wrapper-contract";
 
 const SENSITIVE_KEY_SUBSTR = /pass|secret|token|auth|cookie|credential|apikey|api_key/i;
+const SAFE_KEY_ALLOWLIST = new Set(["contractAuthProvider"]);
 const MAX_STRING = 12_000;
 const MAX_DEPTH = 8;
 const MAX_KEYS = 80;
@@ -100,7 +101,7 @@ export function sanitizeOrchestrationSnapshotForStorage(
     if (depth === 0 && PROTECTED_TOP_LEVEL_KEY_SET.has(k)) continue;
     if (depth === 0 && capabilitySignalsWritten.has(k)) continue;
     if (keyCount.n > MAX_KEYS) break;
-    if (SENSITIVE_KEY_SUBSTR.test(k)) continue;
+    if (!SAFE_KEY_ALLOWLIST.has(k) && SENSITIVE_KEY_SUBSTR.test(k)) continue;
     keyCount.n += 1;
     if (v === null || typeof v === "boolean" || typeof v === "number") {
       out[k] = v;

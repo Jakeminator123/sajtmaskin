@@ -401,24 +401,19 @@ async function loadDefaultStructuralReferences(
   timeoutMs: number,
 ): Promise<VariantTemplateStructuralReference[]> {
   const cached = structuralReferenceCache.get(templateId);
-  if (cached) return cached;
+  if (cached) return withTimeout(cached, timeoutMs);
 
   const pending = (async () => {
     const { loadLocalV0TemplateReferenceFiles } =
       await import("@/lib/templates/local-v0-template-source");
-    const loaded = await withTimeout(
-      loadLocalV0TemplateReferenceFiles(templateId, { timeoutMs }),
-      timeoutMs,
-    );
+    const loaded = await loadLocalV0TemplateReferenceFiles(templateId, { timeoutMs });
     return extractVariantTemplateStructuralReferences(loaded?.files ?? []);
   })();
   structuralReferenceCache.set(templateId, pending);
-  try {
-    return await pending;
-  } catch (error) {
+  pending.catch(() => {
     structuralReferenceCache.delete(templateId);
-    throw error;
-  }
+  });
+  return withTimeout(pending, timeoutMs);
 }
 
 /**
