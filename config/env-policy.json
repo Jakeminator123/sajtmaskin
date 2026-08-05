@@ -426,8 +426,8 @@
     {
       "key": "SAJTMASKIN_F2_PRODUCT_POSTCHECK",
       "classification": "optional_runtime",
-      "recommendedVercelTargets": ["development", "preview"],
-      "notes": "Opt-in. Enables server-side F2 Product Postcheck via Playwright for trusted preview URLs only (localhost / configured preview-host / vm-fly-jakem.fly.dev). Produces product_postcheck.* warnings in existing version diagnostics; does not block F2 rendering. Blocking product findings can keep the F3 trigger disabled until the visible preview works."
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "DEFAULT ON (kill switch: set to 'false'). Enables server-side F2 Product Postcheck via Playwright for trusted preview URLs only (localhost / configured preview-host / vm-fly-jakem.fly.dev), using the prod-capable Chromium launch path. Produces product_postcheck.* warnings in existing version diagnostics including advisory browser-runtime (console/hydration/network) and a bounded desktop crawl; does not block F2 rendering. Blocking product findings (mobile_menu_failed, >=2 broken_anchor, runtime_crash) can keep the F3 trigger disabled until the visible preview works. Source: src/lib/config.ts (FEATURES.f2ProductPostcheck), src/lib/gen/verify/product-postcheck.ts."
     },
     {
       "key": "SAJTMASKIN_SHADCN_RESOLVER_SEARCH",

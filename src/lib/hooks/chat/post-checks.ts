@@ -181,6 +181,10 @@ export function buildProductPostcheckLogItems(
       productBlocked: result.productBlocked === true,
       durationMs: result.durationMs ?? null,
       checkedUrl: result.checkedUrl ?? null,
+      // Hur många routes crawlen hann med innan deadline. Underlaget för
+      // beslutet om kontrollen ska flyttas före preview-länken (masterplanens
+      // steg 4) — utan det i DB:n går täckningen inte att mäta i efterhand.
+      routesChecked: result.routesChecked ?? null,
     },
   });
   return logs;

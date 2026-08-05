@@ -8,7 +8,11 @@ export type ProductPostcheckWarningCode =
   | "cta_no_handler"
   | "mobile_menu_failed"
   | "fake_form"
-  | "runtime_crash";
+  | "runtime_crash"
+  | "hydration_mismatch"
+  | "console_error"
+  | "request_failed"
+  | "http_error";
 
 export type ProductPostcheckSkipReason =
   | "feature_disabled"
@@ -28,6 +32,17 @@ export type ProductPostcheckWarning = {
   src?: string | null;
   alt?: string | null;
   formId?: string | null;
+  /** Pathname for the page being visited when the issue was captured. */
+  route?: string | null;
+};
+
+/** Raw browser-runtime signal collected during Playwright navigation. */
+export type BrowserRuntimeIssue = {
+  kind: "console" | "requestfailed" | "http";
+  route: string;
+  message: string;
+  url?: string;
+  status?: number;
 };
 
 export type ProductPostcheckResult = {
@@ -39,6 +54,8 @@ export type ProductPostcheckResult = {
   productBlocked: boolean;
   durationMs: number;
   checkedUrl: string | null;
+  /** How many routes were actually visited (start URL + successful crawl hops). */
+  routesChecked: number;
 };
 
 type DomSnapshot = {
@@ -80,6 +97,12 @@ export type ProductDomEvaluation = {
 };
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+/** Soft deadline for extra crawl hops — API route maxDuration is 60s and Next
+ *  dev compiles each route on demand. Checked before each additional route. */
+const CRAWL_DEADLINE_MS = 25_000;
+const MAX_CRAWL_ROUTES = 5;
+/** Cap per advisory code so one broken loop cannot flood the log. */
+const MAX_WARNINGS_PER_RUNTIME_CODE = 3;
 const DEFAULT_ALLOWED_HOSTS = new Set([
   "localhost",
   "127.0.0.1",
@@ -318,6 +341,189 @@ export function evaluateRuntimeErrors(
   return { warnings, productBlocked };
 }
 
+/** Next-dev / React-devtools console noise that is never a site defect. */
+export function shouldIgnoreConsoleError(text: string): boolean {
+  if (!text || !text.trim()) return true;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes("download the react devtools") ||
+    lower.includes("fast refresh") ||
+    lower.includes("[hmr]") ||
+    lower.includes("webpack-hmr")
+  );
+}
+
+/**
+ * Failed-request noise from the Next-dev proxy and from our own SSRF gate.
+ * `applyCaptureRequestGate` aborts disallowed requests with exactly
+ * `blockedbyclient` — without that filter our guard would be reported as a
+ * defect in the user's site.
+ */
+export function shouldIgnoreFailedRequest(url: string, errorText: string): boolean {
+  const err = (errorText || "").toLowerCase();
+  if (
+    err.includes("err_blocked_by_client") ||
+    err.includes("blockedbyclient") ||
+    err.includes("err_aborted")
+  ) {
+    return true;
+  }
+  const u = (url || "").toLowerCase();
+  if (u.includes("/_next/webpack-hmr")) return true;
+  if (u.endsWith(".map")) return true;
+  return false;
+}
+
+/**
+ * HTTP status noise from favicon/source-map/HMR and 4xx probes of `/_next/`
+ * assets. Document-level 4xx/5xx are never ignored.
+ */
+export function shouldIgnoreHttpStatus(url: string, status: number): boolean {
+  const u = (url || "").toLowerCase();
+  if (u.includes("/favicon.ico")) return true;
+  if (u.endsWith(".map")) return true;
+  if (u.includes("/_next/webpack-hmr")) return true;
+  if (status >= 400 && status < 500) {
+    try {
+      const path = new URL(url).pathname;
+      if (path.startsWith("/_next/")) return true;
+    } catch {
+      if (u.includes("/_next/")) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * React hydration mismatch wording. Deliberately does NOT match the bare
+ * word "mismatch" — that is too broad and catches unrelated errors.
+ */
+export function isHydrationConsoleError(text: string): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes("hydration failed") ||
+    lower.includes("hydrating") ||
+    lower.includes("server rendered html didn't match") ||
+    lower.includes("didn't match the client") ||
+    lower.includes("text content does not match") ||
+    // React 18 wording uses "did not match"; keep both so we do not miss
+    // the common console string while still avoiding bare "mismatch".
+    lower.includes("text content did not match") ||
+    lower.includes("server-rendered")
+  );
+}
+
+/**
+ * Classify collected browser-runtime issues into advisory warnings.
+ * Always returns `productBlocked: false` — advisory-only is deliberate;
+ * flipping these to blockers is a separate owner decision (plan
+ * `docs/plans/active/2026-08-05-hydration-reparationskedja/00-master-plan.md`
+ * step 4 is blocked on measuring this data first).
+ */
+export function evaluateBrowserRuntimeIssues(
+  issues: readonly BrowserRuntimeIssue[],
+): ProductDomEvaluation {
+  const warnings: ProductPostcheckWarning[] = [];
+  const seen = new Set<string>();
+  const perCode = new Map<ProductPostcheckWarningCode, number>();
+
+  for (const issue of issues) {
+    let code: ProductPostcheckWarningCode;
+    if (issue.kind === "console") {
+      if (shouldIgnoreConsoleError(issue.message)) continue;
+      code = isHydrationConsoleError(issue.message)
+        ? "hydration_mismatch"
+        : "console_error";
+    } else if (issue.kind === "requestfailed") {
+      if (shouldIgnoreFailedRequest(issue.url ?? "", issue.message)) continue;
+      code = "request_failed";
+    } else {
+      if (shouldIgnoreHttpStatus(issue.url ?? "", issue.status ?? 0)) continue;
+      code = "http_error";
+    }
+
+    const count = perCode.get(code) ?? 0;
+    if (count >= MAX_WARNINGS_PER_RUNTIME_CODE) continue;
+
+    const dedupeKey = `${code}|${issue.route}|${issue.message.slice(0, 200)}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    perCode.set(code, count + 1);
+
+    warnings.push(
+      warning(code, `[${issue.route}] ${issue.message}`, {
+        route: issue.route,
+        href: issue.url ?? null,
+      }),
+    );
+  }
+
+  return { warnings, productBlocked: false };
+}
+
+/**
+ * Pick same-origin in-app routes to crawl after the start URL.
+ * Stable document order; at most `max` entries; start URL / hash-only /
+ * cross-origin / outside the preview pathname prefix are dropped.
+ */
+export function selectCrawlRoutes(
+  hrefs: readonly string[],
+  startUrl: string,
+  max: number,
+): string[] {
+  if (max <= 0 || hrefs.length === 0) return [];
+  let start: URL;
+  try {
+    start = new URL(startUrl);
+  } catch {
+    return [];
+  }
+  const prefixRaw = start.pathname.replace(/\/$/, "") || "/";
+  const seen = new Set<string>();
+  const startKey = (() => {
+    const u = new URL(startUrl);
+    u.hash = "";
+    u.search = "";
+    return u.href;
+  })();
+  seen.add(startKey);
+
+  const out: string[] = [];
+  for (const href of hrefs) {
+    if (typeof href !== "string" || !href || href.startsWith("#")) continue;
+    let resolved: URL;
+    try {
+      resolved = new URL(href, startUrl);
+    } catch {
+      continue;
+    }
+    if (resolved.origin !== start.origin) continue;
+    resolved.hash = "";
+    resolved.search = "";
+    const pathNorm = resolved.pathname.replace(/\/$/, "") || "/";
+    if (pathNorm === prefixRaw) continue;
+    // Previewen ligger normalt under `/{chatId}`, och prefixet hindrar att
+    // crawlen vandrar ut ur chattens egen sajt. Ligger den i roten (lokal
+    // dev) är varje same-origin-path innanför sajten — utan det här
+    // undantaget blir `${prefixRaw}/` = "//" och ingenting matchar alls.
+    if (prefixRaw !== "/" && !pathNorm.startsWith(`${prefixRaw}/`)) continue;
+    if (seen.has(resolved.href)) continue;
+    seen.add(resolved.href);
+    out.push(resolved.href);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function pathnameOf(rawUrl: string): string {
+  try {
+    return new URL(rawUrl).pathname || "/";
+  } catch {
+    return "/";
+  }
+}
+
 export function productPostcheckSkipReasonFromError(err: unknown): ProductPostcheckSkipReason {
   if (!(err instanceof Error)) return "runtime_error";
   if (/timeout/i.test(err.message)) return "timeout";
@@ -330,6 +536,7 @@ function skippedResult(
   reason: ProductPostcheckSkipReason,
   durationMs: number,
   checkedUrl: string | null = null,
+  routesCheckedCount = 0,
 ): ProductPostcheckResult {
   return {
     ok: true,
@@ -340,6 +547,7 @@ function skippedResult(
     productBlocked: false,
     durationMs,
     checkedUrl,
+    routesChecked: routesCheckedCount,
   };
 }
 
@@ -365,6 +573,50 @@ export async function runProductPostcheck(params: {
   // that was captured before a later phase (mobile nav / menu probe) threw —
   // otherwise that crash would be silently downgraded to a skip (Bugbot #321).
   const pageErrors: string[] = [];
+  // Console / network issues — same hoist so a later-phase throw still classifies
+  // whatever was already captured on earlier routes.
+  const browserRuntimeIssues: BrowserRuntimeIssue[] = [];
+  // Route-etiketten är best-effort: lyssnarna är asynkrona, så ett svar som
+  // fortfarande är i luften när crawlen navigerar vidare kan hamna på nästa
+  // route. Raderna är rådgivande diagnostik, inte grund för beslut per sida.
+  let currentRoute = pathnameOf(previewUrl);
+  let routesChecked = 0;
+
+  const attachRuntimeListeners = (target: Page) => {
+    // Listeners MUST be registered before page.goto — a post-nav listener
+    // misses everything that fired during navigation/boot.
+    target.on("pageerror", (error) => {
+      pageErrors.push(error?.message ?? String(error));
+    });
+    target.on("console", (msg) => {
+      if (msg.type() !== "error") return;
+      browserRuntimeIssues.push({
+        kind: "console",
+        route: currentRoute,
+        message: msg.text(),
+      });
+    });
+    target.on("requestfailed", (request) => {
+      const errorText = request.failure()?.errorText ?? "unknown";
+      browserRuntimeIssues.push({
+        kind: "requestfailed",
+        route: currentRoute,
+        message: `${request.method()} ${request.url()}: ${errorText}`,
+        url: request.url(),
+      });
+    });
+    target.on("response", (response) => {
+      const status = response.status();
+      if (status < 400) return;
+      browserRuntimeIssues.push({
+        kind: "http",
+        route: currentRoute,
+        message: `${status} ${response.url()}`,
+        url: response.url(),
+        status,
+      });
+    });
+  };
 
   try {
     // Samma startpunkt som miniatyrer och inspector-capture. Ett rakt
@@ -389,12 +641,13 @@ export async function runProductPostcheck(params: {
     // though the dev-server is up and the build passed — without this the F2
     // design preview reads as solid green (M#f2et). Classified by
     // `evaluateRuntimeErrors` below; only render-fatal crashes block.
-    page.on("pageerror", (error) => {
-      pageErrors.push(error?.message ?? String(error));
-    });
+    // Also console/network listeners (advisory) — before goto.
+    attachRuntimeListeners(page);
 
+    currentRoute = pathnameOf(previewUrl);
     await page.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     await page.waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) }).catch(() => {});
+    routesChecked = 1;
 
     const snapshot = await page.evaluate<DomSnapshot>(() => {
       const visible = (el: Element): boolean => {
@@ -469,6 +722,57 @@ export async function runProductPostcheck(params: {
       .evaluate(detectNextErrorOverlayInBrowser)
       .catch(() => false);
 
+    // Bounded same-origin crawl on DESKTOP only (mobile stays start-page-only
+    // for cost control). Next-dev compiles each route on demand, so we stop
+    // when the soft deadline is exceeded.
+    const hrefsRaw = await page
+      .evaluate(() =>
+        Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).map(
+          (a) => a.getAttribute("href") || "",
+        ),
+      )
+      .catch(() => [] as string[]);
+    const crawlRoutes = selectCrawlRoutes(
+      Array.isArray(hrefsRaw) ? hrefsRaw : [],
+      previewUrl,
+      MAX_CRAWL_ROUTES,
+    );
+    for (const routeUrl of crawlRoutes) {
+      if (Date.now() - startedAt >= CRAWL_DEADLINE_MS) break;
+      try {
+        currentRoute = pathnameOf(routeUrl);
+        await page.goto(routeUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: Math.min(timeoutMs, CRAWL_DEADLINE_MS),
+        });
+        await page
+          .waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) })
+          .catch(() => {});
+        const crawlOverlay = await page
+          .evaluate(detectNextErrorOverlayInBrowser)
+          .catch(() => false);
+        // En kraschad UNDERSIDA rapporteras men blockerar inte. Startsidan får
+        // fortfarande blockera via `desktopErrorOverlay` — den avgör om
+        // previewen är död. Att låta crawl-träffar blockera vore en tyst
+        // utvidgning av blockeringsytan, och undersidor på en dev-server
+        // kompileras on demand och är därför känsligare för transienta fel
+        // (samma överblockeringsfälla som Bugbot #321).
+        if (crawlOverlay) {
+          browserRuntimeIssues.push({
+            kind: "console",
+            route: currentRoute,
+            message: "Next.js-felöverlägg visas på undersidan.",
+          });
+        }
+        routesChecked += 1;
+      } catch {
+        // One bad extra route must not fail the whole check — skip and continue.
+      }
+    }
+
+    // Reset route label for the mobile start-page pass.
+    currentRoute = pathnameOf(previewUrl);
+
     mobilePage = await browser.newPage({
       viewport: { width: 375, height: 667 },
       serviceWorkers: "block",
@@ -476,9 +780,8 @@ export async function runProductPostcheck(params: {
     await applyCaptureRequestGate(mobilePage);
     // Capture mobile-viewport runtime crashes too (Bugbot #321): a render-fatal
     // error can surface only at 375px or after the hamburger toggle below.
-    mobilePage.on("pageerror", (error) => {
-      pageErrors.push(error?.message ?? String(error));
-    });
+    // Console/network listeners also attached (advisory) before goto.
+    attachRuntimeListeners(mobilePage);
     await mobilePage.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     // Let the mobile page settle like the desktop one so a render-fatal crash
     // that fires just after the initial paint is captured before we classify
@@ -519,7 +822,14 @@ export async function runProductPostcheck(params: {
     const runtimeEval = evaluateRuntimeErrors(pageErrors, {
       nextErrorOverlay: desktopErrorOverlay || mobileErrorOverlay,
     });
-    const warnings = [...evaluation.warnings, ...runtimeEval.warnings];
+    const browserEval = evaluateBrowserRuntimeIssues(browserRuntimeIssues);
+    const warnings = [
+      ...evaluation.warnings,
+      ...runtimeEval.warnings,
+      ...browserEval.warnings,
+    ];
+    // productBlocked comes ONLY from DOM + render-fatal evaluators — browser
+    // runtime issues are advisory-only by design.
     return {
       ok: true,
       skipped: false,
@@ -529,6 +839,7 @@ export async function runProductPostcheck(params: {
       productBlocked: evaluation.productBlocked || runtimeEval.productBlocked,
       durationMs: Date.now() - startedAt,
       checkedUrl: previewUrl,
+      routesChecked,
     };
   } catch (err) {
     // A render-fatal crash may already be visible even though a later phase
@@ -551,22 +862,25 @@ export async function runProductPostcheck(params: {
       }
     }
     const runtimeEval = evaluateRuntimeErrors(pageErrors, { nextErrorOverlay: overlayInCatch });
+    const browserEval = evaluateBrowserRuntimeIssues(browserRuntimeIssues);
+    const warnings = [...runtimeEval.warnings, ...browserEval.warnings];
     if (runtimeEval.productBlocked) {
       console.warn("[product-postcheck] fatal runtime crash captured before phase error:", err);
       return {
         ok: true,
         skipped: false,
         skippedReason: null,
-        warnings: runtimeEval.warnings,
-        warningCount: runtimeEval.warnings.length,
+        warnings,
+        warningCount: warnings.length,
         productBlocked: true,
         durationMs: Date.now() - startedAt,
         checkedUrl: previewUrl,
+        routesChecked,
       };
     }
     const reason = productPostcheckSkipReasonFromError(err);
     console.warn("[product-postcheck] skipped:", err);
-    return skippedResult(reason, Date.now() - startedAt, previewUrl);
+    return skippedResult(reason, Date.now() - startedAt, previewUrl, routesChecked);
   } finally {
     await mobilePage?.close().catch(() => {});
     await page?.close().catch(() => {});

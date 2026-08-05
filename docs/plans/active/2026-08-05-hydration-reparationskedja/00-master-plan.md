@@ -46,9 +46,19 @@ fixas i PR #774 (eget spår, rör inte denna plan).
 |---|---|---|---|
 | 1 | Prompt-regel: förbjud icke-deterministiska värden i render-scope | `src/lib/gen/system-prompt/` | **Levererad** — PR #777 (mergad 2026-08-05); eget required budget-block (bugbot-fynd åtgärdat) + kontraktstest `render-determinism-contract.test.ts` |
 | 2 | Scaffold-fix: statiskt årtal i ecommerce-footern | `src/lib/gen/scaffolds/ecommerce/files/components/site-footer.tsx` | **Levererad** — samma PR #777. Rätt förväntan: tystar advisory-bruset och slutar lära ut mönstret; släcker inte i sig veckans overlays |
-| 3 | Browser-fel → befintlig error-log: bridge-scriptet fångar hydration-/konsolfel, **buildern (parent) POST:ar** till versionens error-log med Advisory-semantik (`preview:client-error`), dedupe + tak 5/version. Noll ny UI — syns automatiskt i `/logg`, backoffice, OpenClaw-timeline | `src/lib/builder/inspect-bridge-script.ts` + `preview-client-error-report.ts` + befintlig error-log-route | **Fix klar 2026-08-05** — PR öppnad från `feat/preview-client-error-log`. Bugbot: transient POST-miss släpper gaten (fixad); attribuering vid versionsbyte är accepterad best-effort-begränsning (dokumenterad i modulen) |
+| 3 | Browser-fel → befintlig error-log: bridge-scriptet fångar hydration-/konsolfel, **buildern (parent) POST:ar** till versionens error-log med Advisory-semantik (`preview:client-error`), dedupe + tak 5/version. Noll ny UI — syns automatiskt i `/logg`, backoffice, OpenClaw-timeline | `src/lib/builder/inspect-bridge-script.ts` + `preview-client-error-report.ts` + befintlig error-log-route | **Mergad** — PR #778 (`feat/preview-client-error-log`). Bugbot: transient POST-miss släpper gaten (fixad); attribuering vid versionsbyte är accepterad best-effort-begränsning (dokumenterad i modulen) |
 | 4 | RepairGate-koppling: bekräftat browser-fel + detektor-varning för samma version ⇒ repairable in i befintliga repair-loopen. Ingen ny fixer, ingen ny LLM-ingång | RepairGate | **Blockerad** på steg 3-data — kräver att bekräftade par faktiskt förekommer. Pipeline-regeln "färre LLM-fix-ingångar" gäller |
 | 5 | Patch-lane settle: låt patch-svaret invänta recompile innan iframe-reload | `preview-host` Fast Edit Lane | **Blockerad** på live-repro av skevheten på Fly (gör en quick edit i prod och försök reproducera mismatchen). Utan repro: rör inte |
+
+## Relaterat: Product Postcheck (2026-08-05)
+
+Product Postcheck (`SAJTMASKIN_F2_PRODUCT_POSTCHECK`) **körde aldrig i produktion**
+före denna gren: den importerade `playwright` rakt av (devDependency) så Chromium
+saknades på Vercel → tyst `playwright_unavailable` / fail-open grönt. Den här
+PR-grenen (`fix/product-postcheck-runtime-errors`) byter till
+`launchCaptureBrowser`, lägger till advisory console/network/hydration-capture,
+bounded desktop-crawl (`routesChecked`) och sätter flaggan default-på med
+`false`-kill-switch. Advisory-only — ingen RepairGate-koppling (steg 4).
 
 ## Utanför scope
 

@@ -7,7 +7,7 @@ import path from "path";
 import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";
 import { getAppBaseUrl } from "./app-url";
 import { getServerEnv } from "./env";
-import { isAffirmativeEnvValue } from "./env-affirmative";
+import { isAffirmativeEnvValue, sanitizeEnvString } from "./env-affirmative";
 
 const env = getServerEnv();
 
@@ -374,10 +374,18 @@ export const OPENCLAW = {
  */
 export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
-  // Spår 02: F2 Product Postcheck. Server-side Playwright DOM checks
-  // against trusted preview URLs only. Default off while we measure flake
-  // rate and runtime cost.
-  f2ProductPostcheck: isAffirmativeEnvValue(env.SAJTMASKIN_F2_PRODUCT_POSTCHECK),
+  // F2 Product Postcheck. Server-side Playwright DOM checks against trusted
+  // preview URLs only. Default ON now that the check runs on a prod-capable
+  // Chromium (`launchCaptureBrowser`) and browser-runtime findings are
+  // advisory — keeping it default-off left the signal unused. Set
+  // `SAJTMASKIN_F2_PRODUCT_POSTCHECK=false` to disable (kill switch).
+  //
+  // Tåligare än de råa `!== "false"`-jämförelserna längre ned med flit: det här
+  // är nödbromsen för en kontroll som nu kör i produktion som default, och en
+  // deploy-plattform som skickar `False` eller ` false ` får inte tyst låta den
+  // fortsätta köra.
+  f2ProductPostcheck:
+    sanitizeEnvString(env.SAJTMASKIN_F2_PRODUCT_POSTCHECK)?.toLowerCase() !== "false",
 
   // Grandmaster område 7 / A7-2 (BUG-SWARM N#1): when ON, the cross-file
   // import checker refuses to fabricate a silent null-render stub for a
