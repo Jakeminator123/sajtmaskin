@@ -11,7 +11,7 @@ alwaysApply: true
 - Vid oklar working tree-status: visa `git status --short` och fråga.
 - Om du bedömer att PR behövs: förklara varför och invänta OK.
 - Om användaren ber om merge: följ `pr-merge-review-gate.mdc` först.
-- Före PR-skapande **och** före push till master: kör ett **Cursor Bugbot-pass på egen diff** (bugbot-subagent, `readonly: true`, `model: cursor-grok-4.5-high`) — samma pass som bugg-efterkontrollen, kört en gång. Det är hela buggkollen; någon svärm ovanpå finns inte längre (`/granska` borttagen 2026-08-02).
+- Före PR-skapande **och** före push till master: kör ett **Cursor Bugbot-pass på egen diff** (bugbot-subagent, `readonly: true`, `model: <grok-4.5>`) — samma pass som bugg-efterkontrollen, kört en gång. Det är hela buggkollen; någon svärm ovanpå finns inte längre (`/granska` borttagen 2026-08-02).
 - `gh pr merge --admin` bara när merge-grinden i `auto-merge-automation.mdc` är uppfylld (alla required checks gröna — inkl. `review-window` som tvingar 7-min/bot-fönstret — + bugbot-pass kört på diffen + minst en extern buggkoll + PR ≥ 7 min). Aldrig som genväg förbi röda/väntande checks eller utebliven granskning. Obs: `--admin` överstyr även `review-window`, så verifiera PR-åldern manuellt då.
 
 ## Ignore-filer

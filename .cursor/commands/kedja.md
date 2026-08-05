@@ -22,8 +22,9 @@ rapport den tar emot skickas om i **varje** efterföljande tur. Kör därför
 Standard är i stället:
 
 1. Du gör bara **steg 0** (ramen: bugg, acceptans, utanför scope) och visar den.
-2. Starta **en enda runner-subagent** (**billig modell = Grok 4.5**,
-   slug `cursor-grok-4.5-high` ur den kanoniska tabellen — aldrig Composer som default)
+2. Starta **en enda runner-subagent** (**billig modell = Grok 4.5**, slug
+   `<grok-4.5>` upplöst mot `cursor-grok-4.5`-posten i din sessions
+   `<available_subagent_models>` — aldrig Composer som default)
    som läser den här filen + skillen och kör steg 1–6 i sin helhet —
    egna worktrees, rött test, fix, maskinell dom. Har runnern inte tillgång
    till egna subagenter gör den stegen sekventiellt själv; domen är ändå
@@ -79,7 +80,7 @@ npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
 
 Upprepa med `-b`, `-c` … per kandidat. `worktree:link` kräver att worktreet redan är registrerat, så ordningen är låst. Använd **aldrig** rå `git worktree remove` — med eller utan `--force` — eftersom junction-fällan tömmer huvudcheckoutens `node_modules`. En hook blockerar båda.
 
-### 2. Repro — 1 agent, skrivrätt, `cursor-grok-4.5-high`
+### 2. Repro — 1 agent, skrivrätt, `<grok-4.5>`
 
 Agenten skriver **två** saker i kandidat **a**:s worktree:
 
@@ -92,7 +93,7 @@ Motprovet är inte valfritt. Ett rött test säger bara "detta får inte hända"
 
 Kopiera testfilen till övriga kandidat-worktrees när den är verifierat röd, så alla döms av exakt samma prov.
 
-### 3. Lokalisera — 3 parallella, `readonly: true`, `cursor-grok-4.5-high`
+### 3. Lokalisera — 3 parallella, `readonly: true`, `<grok-4.5>`
 
 Tre konkurrerande hypoteser om rotorsaken, en agent var, max 5 rader vardera. De ser samma testutskrift men får olika ingångar (kodvägen, anropsplatserna, testet självt).
 
@@ -100,7 +101,7 @@ Tre konkurrerande hypoteser om rotorsaken, en agent var, max 5 rader vardera. De
 
 Läs koden på de ankare hypoteserna pekar ut. Enas två eller fler om samma ställe är det en stark signal. Motsäger de varandra: kör steg 3 igen med en skarpare fråga, **en** gång. Fortfarande oklart → stopp.
 
-### 5. Fixa — N parallella, skrivrätt, `cursor-grok-4.5-high`
+### 5. Fixa — N parallella, skrivrätt, `<grok-4.5>`
 
 En agent per worktree, samma rotorsak, men **uttryckligen olika ansats** — du namnger ansatsen per kandidat i prompten. Låter du dem välja själva får du samma svar N gånger: de har ju samma rotorsak, samma test och samma modell, så de konvergerar.
 
@@ -128,7 +129,7 @@ Två fällor i domen:
 
 ### 7. Grind — bugbot-subagent på vinnarens diff
 
-`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "cursor-grok-4.5-high"` (bugg-grind-rollen i den kanoniska tabellen — aldrig Opus/dyra modeller som default). Detta är det obligatoriska passet ur `workflow.mdc`, inte ett extra lager. Fynd triageras som vanligt: fixa i diffen, logga i backloggen, eller avfärda med en rad.
+`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"` (bugg-grind-rollen i den kanoniska tabellen — aldrig Opus/dyra modeller som default). Detta är det obligatoriska passet ur `workflow.mdc`, inte ett extra lager. Fynd triageras som vanligt: fixa i diffen, logga i backloggen, eller avfärda med en rad.
 
 **Samma modell granskar samma modells kod — det är avsiktligt.** Runnern, fix-agenterna och bugbot körs alla på Grok 4.5, så oberoendet kommer inte från ett modellbyte. Det kommer från tre andra saker: bugbot får en färsk kontext utan kedjans historik, den dömer mot diffen i stället för mot avsikten, och du läser testtillägget själv enligt nästa stycke. Byt **inte** till en dyr tänkande modell här för att "få oberoende ögon" — det kräver ägarens uttryckliga begäran (`subagent-models.mdc`).
 
