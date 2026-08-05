@@ -419,7 +419,11 @@ function createCleaner(root, apply) {
     const dir = path.join(root, rel);
     if (!fs.existsSync(dir)) return;
     const now = Date.now();
-    const candidates = collectPruneCandidates(dir);
+    // Keep passing the skip set even though today's only AGE_TREES entry
+    // (`.env-backups`) contains none of those names: the guard belongs to the
+    // policy, not to the current contents, and dropping it here would silently
+    // prune a tooling-managed subtree the day someone adds one.
+    const candidates = collectPruneCandidates(dir, { skipNames: AGE_SKIP_NAMES });
     candidates.forEach((c, i) => {
       const withinCount = i < RETAIN_COUNT;
       const withinAge = now - c.mtime < RETAIN_MS;

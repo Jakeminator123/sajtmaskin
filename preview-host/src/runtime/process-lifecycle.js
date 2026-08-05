@@ -44,6 +44,32 @@ function readinessMaxMs() {
   const parsed = parseInt(process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS ?? "180000", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 180_000;
 }
+
+/**
+ * Separate, much shorter deadline for the "HTTP 200 HTML but no meaningful
+ * visible body text" condition.
+ *
+ * Accepting an empty body after ~6s was a false-green (`preview_success` on a
+ * blank page), but inheriting the FULL readiness deadline is the opposite
+ * failure: `PREVIEW_HOST_RUNTIME_READY_MAX_MS` is 600 000 ms on Fly, and
+ * `waitForReady` fetches HTML without executing JavaScript — so a preview that
+ * renders client-side (heavy `"use client"` + effect fetching, or a text-free
+ * Suspense skeleton) never gains visible text no matter how long we wait. That
+ * page would sit in "Startar preview" for ten minutes before failing, which is
+ * the very symptom this whole change set exists to remove.
+ *
+ * 90s is chosen to clear a genuinely cold first compile (the observed prod
+ * cases resolved within seconds once compilation finished) while keeping the
+ * failure honest and fast. Capped by the overall readiness deadline so a
+ * shrunken deadline in tests still wins.
+ */
+function readinessEmptyBodyMaxMs() {
+  const parsed = parseInt(
+    process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS ?? "90000",
+    10,
+  );
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 90_000;
+}
 // Drain-fönster mellan SIGTERM och SIGKILL när en runtime stoppas (t.ex. vid
 // avsiktlig restart). Default 5000 ms = oförändrat beteende; höj för att låta
 // pågående HTTP-svar hinna klart innan processen tvångsdödas (mildrar
@@ -309,20 +335,35 @@ function htmlBodyHasMeaningfulVisibleText(html) {
 // tolerated (HMR can clear it), hence the streak.
 const READINESS_MAX_BUILD_ERROR_RETRIES = 4;
 
+/**
+ * Messages that are readiness VERDICTS rather than transient fetch failures.
+ * `waitForReady` throws both from inside its own `try`, so the `catch` must
+ * re-throw them instead of recording them as "last error" and looping.
+ */
+const READINESS_VERDICT_RE = /build error overlay|empty body for \d+ms/i;
+
 async function waitForReady(url) {
   // Empty HTML body is treated like any other "not ready yet" signal: keep
-  // polling until meaningful visible text appears OR the full readiness
-  // deadline elapses. Accepting after a handful of empty polls (~6s) was a
-  // false-green — prod deadline is up to PREVIEW_HOST_RUNTIME_READY_MAX_MS
-  // (600s on Fly) and cold starts routinely compile longer than 6s. When the
-  // deadline is hit with the body still empty, throw so the boot path records
-  // readinessState=failed (same channel as build-error overlays / #799) and
-  // preview_success is never stamped true on a blank page.
+  // polling until meaningful visible text appears. Accepting after a handful of
+  // empty polls (~6s) was a false-green — cold starts routinely compile longer
+  // than that, so `preview_success` got stamped mid-compile on a blank page.
+  //
+  // It gets its OWN deadline rather than the full readiness one: a page that
+  // renders client-side never gains visible text in a JS-less fetch, and making
+  // it wait out the 600s Fly deadline would trade the false-green for a
+  // ten-minute "Startar preview" hang. See readinessEmptyBodyMaxMs().
+  //
+  // Either deadline expiring throws, so the boot path records
+  // readinessState=failed through the same channel as build-error overlays
+  // (#799) and preview_success is never stamped true on a blank page.
   const readinessMaxMsValue = readinessMaxMs();
-  const deadline = Date.now() + readinessMaxMsValue;
+  const emptyBodyMaxMsValue = Math.min(readinessEmptyBodyMaxMs(), readinessMaxMsValue);
+  const startedAt = Date.now();
+  const deadline = startedAt + readinessMaxMsValue;
   let lastError = "";
   let buildErrorStreak = 0;
   let lastBuildErrorMessage = "";
+  let firstEmptyBodyAt = null;
   while (Date.now() < deadline) {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 90_000);
@@ -335,6 +376,7 @@ async function waitForReady(url) {
       });
       if (!responseHeadersLookLikeHtmlDocument(res)) {
         buildErrorStreak = 0;
+        firstEmptyBodyAt = null;
         lastError = `HTTP ${res.status}`;
         await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));
         continue;
@@ -346,6 +388,7 @@ async function waitForReady(url) {
       // a page that is really showing a build error.
       if (htmlLooksLikeBuildError(text)) {
         buildErrorStreak += 1;
+        firstEmptyBodyAt = null;
         lastBuildErrorMessage = extractBuildErrorMessage(text);
         lastError = `Next.js build error overlay: ${lastBuildErrorMessage}`;
         if (buildErrorStreak >= READINESS_MAX_BUILD_ERROR_RETRIES) {
@@ -361,13 +404,27 @@ async function waitForReady(url) {
         return;
       }
       lastError = "HTTP 200 HTML but body text still empty (compiling or blank page)";
+      // Time the empty-body window from the FIRST empty response, not from boot:
+      // install and the initial compile can precede it by minutes, and that time
+      // is not evidence about the page.
+      if (firstEmptyBodyAt === null) firstEmptyBodyAt = Date.now();
+      if (Date.now() - firstEmptyBodyAt >= emptyBodyMaxMsValue) {
+        throw new Error(
+          `Runtime served HTML with an empty body for ${emptyBodyMaxMsValue}ms ` +
+            `(not ready): ${lastError}`,
+        );
+      }
     } catch (err) {
-      // A thrown build-error-overlay verdict is terminal — propagate it rather
-      // than treating it like a transient fetch error and looping to timeout.
-      if (err instanceof Error && /build error overlay/i.test(err.message)) {
+      // A thrown readiness VERDICT (build-error overlay, empty-body deadline) is
+      // terminal — propagate it rather than treating it like a transient fetch
+      // error and looping to timeout.
+      if (err instanceof Error && READINESS_VERDICT_RE.test(err.message)) {
         throw err;
       }
       buildErrorStreak = 0;
+      // A failed fetch is not evidence about the body, so the empty-body window
+      // measures a CONTIGUOUS run of empty responses.
+      firstEmptyBodyAt = null;
       lastError = err instanceof Error ? err.message : String(err);
     } finally {
       clearTimeout(tid);

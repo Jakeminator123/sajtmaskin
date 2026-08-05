@@ -608,7 +608,10 @@ describe("completeProjectDependencies", () => {
         content: [
           '@import "./tokens.css";',
           '@import "../theme/colors.css";',
+          "@import url(./unquoted-local.css);",
+          "@import url(https://fonts.example.com/x.css);",
           '@font-face { src: url("/fonts/x.woff2") format("woff2"); }',
+          "@font-face { src: url(/fonts/y.woff2) format('woff2'); }",
         ].join("\n"),
       },
     ]);
@@ -636,6 +639,9 @@ describe("CSS @import package detection (M#ma1)", () => {
       '@import "tw-animate-css";',
       "@import 'tw-animate-css';",
       '@import url("tw-animate-css/dist/tw-animate.css");',
+      // Unquoted url() is valid CSS and appears in imported templates.
+      "@import url(tw-animate-css/dist/tw-animate.css);",
+      "@import url( tw-animate-css );",
       '@import "tw-animate-css" layer(utilities);',
       '@import "tw-animate-css" source(none);',
       '@import "tw-animate-css" theme(reference);',

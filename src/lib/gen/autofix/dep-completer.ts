@@ -113,6 +113,7 @@ const IMPORT_SOURCE_RE = new RegExp(
  * - `@import "pkg";` / `@import 'pkg';`
  * - `@import "pkg" layer(...)` / `source(...)` / `theme(...)`
  * - `@import url("pkg/dist/x.css");` / `@import url('pkg');`
+ * - `@import url(pkg/dist/x.css);` — unquoted, which CSS allows
  *
  * Never treated as a package (caller filters via {@link isCssPackageImportSource}):
  * - Relative `@import "./x.css"` / `../y.css`
@@ -120,7 +121,8 @@ const IMPORT_SOURCE_RE = new RegExp(
  * - Network/data URLs (`http:`, `https:`, `data:`, protocol-relative `//`)
  * - Bare `url(...)` without `@import`
  */
-const CSS_AT_IMPORT_RE = /@import\s+(?:url\s*\(\s*)?["']([^"']+)["']\s*\)?/gi;
+const CSS_AT_IMPORT_RE =
+  /@import\s+(?:url\s*\(\s*)?(?:["']([^"']+)["']|([^"'()\s;]+)\s*\))/gi;
 
 /** True when a CSS `@import` source looks like an npm package specifier. */
 export function isCssPackageImportSource(source: string): boolean {
@@ -616,7 +618,8 @@ export function runDepCompleter(code: string): {
 
   CSS_AT_IMPORT_RE.lastIndex = 0;
   for (const match of code.matchAll(CSS_AT_IMPORT_RE)) {
-    const raw = match[1];
+    // Group 1 = quoted source, group 2 = unquoted `url(...)` source.
+    const raw = match[1] ?? match[2];
     if (!raw || !isCssPackageImportSource(raw)) continue;
     considerPackageSource(raw, seen, dependencies, unknownPackages);
   }

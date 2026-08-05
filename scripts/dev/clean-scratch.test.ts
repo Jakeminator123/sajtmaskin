@@ -84,4 +84,35 @@ describe("planLogsTree / logs retention", () => {
     expect(fs.existsSync(skipDir)).toBe(true);
     expect(fs.existsSync(skipMarker)).toBe(true);
   });
+
+  it("rör aldrig en länkad post — radering följer länken och tömmer målet", () => {
+    // Detta är skriptets enda regel vars felläge är destruktivt: rmSync på en
+    // junction/symlink opererar på TARGET, så en felaktigt pruneable länk under
+    // logs/ skulle tömma vad den än pekar på (samma fälla som node_modules-
+    // junctions i worktree-hanteringen). Guarden flyttades i refaktorn och var
+    // otestad.
+    const logsDir = makeTempLogsDir();
+    const linkTarget = makeTempLogsDir();
+    touchFile(path.join(linkTarget, "precious.txt"), Date.UTC(2026, 7, 1));
+
+    const t0 = Date.UTC(2026, 7, 1, 12);
+    // Tre riktiga mappar så taket (2) garanterat vill radera något.
+    touchDir(path.join(logsDir, "hydration-a"), t0);
+    touchDir(path.join(logsDir, "hydration-b"), t0 + 60_000);
+    touchDir(path.join(logsDir, "hydration-c"), t0 + 120_000);
+
+    const linkPath = path.join(logsDir, "linked-dump");
+    try {
+      fs.symlinkSync(linkTarget, linkPath, "junction");
+    } catch {
+      return; // Saknade länkrättigheter (t.ex. icke-elevated Windows) — hoppa.
+    }
+
+    const plan = planLogsTree(logsDir);
+
+    expect(plan.skipped).toContain(linkPath);
+    expect(plan.remove.map((r) => r.abs)).not.toContain(linkPath);
+    expect(plan.keep).not.toContain(linkPath);
+    expect(fs.existsSync(path.join(linkTarget, "precious.txt"))).toBe(true);
+  });
 });

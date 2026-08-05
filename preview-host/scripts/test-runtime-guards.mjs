@@ -620,13 +620,15 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   });
   check("waitForReady accepts a healthy page that renders error prose", dashboardResolved === true);
 
-  // Persistent empty <body> must NOT false-green: keep polling until the full
-  // readiness deadline, then reject so readinessState=failed (not "ready").
-  // Shrink the deadline for this guard only — prod uses up to 600s on Fly.
+  // Persistent empty <body> must NOT false-green, and must NOT wait out the full
+  // readiness deadline either: it gets its own, much shorter window. Shrink both
+  // for this guard — prod uses 600s readiness / 90s empty-body.
   const emptyHtml =
     "<!doctype html><html><head><title>Boot</title></head><body><div id=\"__next\"></div></body></html>";
   const previousReadyMax = process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS;
-  process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = "4500";
+  const previousEmptyMax = process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS;
+  process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = "60000";
+  process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS = "3000";
   let emptyRejected = false;
   let emptyMessage = "";
   const emptyStartedAt = Date.now();
@@ -645,15 +647,28 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
     } else {
       process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS = previousReadyMax;
     }
+    if (previousEmptyMax === undefined) {
+      delete process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS;
+    } else {
+      process.env.PREVIEW_HOST_RUNTIME_READY_EMPTY_BODY_MAX_MS = previousEmptyMax;
+    }
   }
+  const emptyElapsedMs = Date.now() - emptyStartedAt;
   check("waitForReady rejects a persistent empty HTML body", emptyRejected === true);
   check(
     "empty-body rejection names the empty-body condition",
-    /body text still empty/i.test(emptyMessage),
+    /empty body/i.test(emptyMessage) && /body text still empty/i.test(emptyMessage),
   );
   check(
-    "empty-body rejection waits for the readiness deadline (no early accept)",
-    Date.now() - emptyStartedAt >= 4000,
+    "empty-body rejection does not accept early (waits out its own window)",
+    emptyElapsedMs >= 2500,
+  );
+  // The point of the separate window: a client-rendered page must fail in ~3s
+  // here, not sit for the 60s readiness deadline. Without this the fix trades a
+  // false-green for a ten-minute hang in prod.
+  check(
+    "empty-body rejection uses its OWN window, not the readiness deadline",
+    emptyElapsedMs < 20_000,
   );
 
   // Motprov: empty during first compile, then meaningful content → ready.
