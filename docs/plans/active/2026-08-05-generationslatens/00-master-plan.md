@@ -39,7 +39,7 @@ verifiern. En klassning, tre kostnader.
 | Verifiern var **trippel-gatead**, inte utlöst av autofix-risk | `policy.ts:58` `qualityTarget !== "standard"` → `high_quality_target`; dessutom `contextPolicy: heavy` (rad 64) och `changeScope: page-addition` (rad 67). Telemetrins `trigger: "risky_fixes"` är bara en etikett som `fast-path.ts` skriver över `verifierPolicy.reason` med |
 | En bloggsajt klassades `premium` + `heavy` | `meta.buildSpec` för `9cdb3e31` v1 — mot `standard` + `normal` för landing-sajten |
 | Orkestrering och dossier-val är inte mätbara poster | `resolveOrchestrationBase` är CPU + mtime-cachad `readFileSync`; enda nätverksanropet är scaffold-/variant-embeddings |
-| `/logg` kan inte visa detta idag | `scripts/db/dump-logs.mjs` selektar inte `meta` för telemetri-kinden (`errors`-kinden gör det, med `truncateMetaStrings`) — mätningen ovan krävde ett engångsskript |
+| `/logg` kunde inte visa detta vid mätningen — **åtgärdat i steg 1** | `scripts/db/dump-logs.mjs` selekterade inte `meta` för telemetri-kinden (`errors`-kinden gjorde det, med `truncateMetaStrings`), så mätningen ovan krävde ett engångsskript. Steg 1 tog in `meta` på samma trunkeringsväg och lade till `meta.streamMs` |
 
 **Urvalet är fyra versioner från två chattar, alla F2.** Verifier-observationen
 vilar på en enda körning. Det är hela skälet till att steg 1 kommer först.

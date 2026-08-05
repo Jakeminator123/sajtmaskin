@@ -21,16 +21,22 @@ Read-only mot prod, ingen skrivning.
 1. `npm run db:latest:prod` → senaste sajten.
 2. `dump-logs.mjs` med alla kinds för de två senaste chattarna.
 3. Ett engångsskript direkt mot `generation_telemetry.meta`, eftersom
-   `dump-logs.mjs` **inte** selektar `meta` för telemetri-kinden. Utan det steget
-   är fas-tiderna osynliga för `/logg`. Det är precis den luckan steg 1 i planen
-   stänger.
+   `dump-logs.mjs` vid mätningstillfället **inte** selekterade `meta` för
+   telemetri-kinden. Utan det steget var fas-tiderna osynliga för `/logg`.
+   Det var precis den luckan steg 1 stängde — den är nu åtgärdad, så en
+   framtida mätning behöver inget engångsskript.
 4. Ett engångsskript som räknar bild-URL:er i `engine_versions.files_json`.
 
-Strömtiden är inte ett eget fält utan räknas fram som `duration_ms` minus summan
-av `meta.postStreamSteps`. Den posten rymmer därför även Deep Brief och
-orkestrering, men båda är små: orkestreringen är CPU plus mtime-cachad
-fil-läsning, och dess enda nätverksanrop är scaffold-/variant-embeddings.
-Codegen-strömmen dominerar posten.
+Strömtiden var vid mätningen inte ett eget fält utan räknades fram som
+`duration_ms` minus summan av `meta.postStreamSteps`. Den posten rymmer därför
+även Deep Brief och orkestrering, men båda är små: orkestreringen är CPU plus
+mtime-cachad fil-läsning, och dess enda nätverksanrop är scaffold-/variant-
+embeddings. Codegen-strömmen dominerar posten.
+
+**Siffrorna i tabellen nedan är alltså det derivatet, inte ren strömtid.** Steg 1
+införde `meta.streamMs`, som mäts direkt vid stream→finalize-gränsen och därför
+**inte** innehåller brief eller orkestrering. Jämför inte de två talen rakt av —
+nya körningar ska läsas på `streamMs`.
 
 ## Vad mätningen visar
 
