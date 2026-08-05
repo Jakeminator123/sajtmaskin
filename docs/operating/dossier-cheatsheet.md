@@ -9,13 +9,18 @@ Ingen av dem följer av någon annan. Full tabell + exempel:
 
 | Axel | Fråga | Källa |
 |---|---|---|
-| Kopplad / Fristående | Behövs externa nycklar? | mappen `hard/` vs `soft/` |
+| Kopplad / Fristående | Finns ett externt provider-/runtimekontrakt? | mappen `hard/` vs `soft/`; `hard` deklarerar `providers`, `soft` utelämnar fältet |
 | Demoläge (`mock`) | Hur ser F2 ut utan nyckel? | manifestfältet på den **valda** dossiern |
 | Kräver F3 | Byggs den riktiga integrationen i eget steg? | `dossierRequiresF3()` — build-nyckel **eller** serverfil |
 
-Vanligaste felslutet: "Kopplad ⇒ kräver F3". `vercel-analytics` är Kopplad och
-ändå klar i designläget; `resend-contact-form` har inga build-nycklar men kräver
-F3 för sin serverfil.
+Vanligaste felslutet är "Kopplad ⇒ hemligheter ⇒ kräver F3". `vercel-analytics`
+är Kopplad utan egna env-nycklar och ändå klar i designläget;
+`resend-contact-form` har inga build-nycklar men kräver F3 för sin serverfil.
+
+För dossier-backade integrationer äger `manifest.json` provider-identitet,
+`envVars` och `envVars[].enforcement`. `providers` beskriver kodkontraktet; det
+provisionerar inte konton eller resurser. Marketplace/provisioning är ett senare
+lager och ska inte modelleras som en parallell sanning här.
 
 ## Embeddings — finns det några?
 
@@ -45,7 +50,8 @@ Sätt i `.env.local` lokalt eller via `vercel env add SAJTMASKIN_DOSSIER_PIPELIN
 ### A. Hand-skriven (snabb om du vet vad du vill)
 
 1. Skapa mapp `data/dossiers/<hard|soft>/<id>/`.
-2. Skriv `manifest.json` (validera mot `docs/schemas/strict/dossier.schema.json`).
+2. Skriv `manifest.json` (validera mot `docs/schemas/strict/dossier.schema.json`):
+   `hard` måste ha en icke-tom `providers`-lista; `soft` måste utelämna fältet.
 3. Skriv `instructions.md` med fem sektioner: When to use / How to integrate / UX rules / Avoid / Verification.
 4. Lägg ev. komponentfiler under `<id>/components/`.
 5. Kör `npm run dossiers:validate-all` — CI-blockerande. Obs mock-invarianten (per-dossier sedan 2026-07-12): **varje** hard-dossier måste ha `mock ≠ none` (eller capabilityn stå i `MOCKLESS_CAPABILITY_EXCEPTIONS`) — se `docs/contracts/dossier-system.md` § CI-invariant.
@@ -55,9 +61,11 @@ Sätt i `.env.local` lokalt eller via `vercel env add SAJTMASKIN_DOSSIER_PIPELIN
 
 Billigaste vägen — ingen ändring i urvalskoden behövs:
 
-1. Ny mapp med **samma `capability`** som syskonet, `defaultForCapability: false`.
-2. `relevanceKeywords: ["klarna", …]` — det är hela mekanismen för "användaren
-   bad uttryckligen om den här leverantören".
+1. Ny mapp med **samma `capability`** som syskonet,
+   `providers: ["<leverantör>"]` och `defaultForCapability: false`.
+2. `relevanceKeywords: ["klarna", …]` styr explicit prompt-urval;
+   providerägarskapet kommer från `providers`, inte från id, dependency eller
+   kategori.
 3. `mock ≠ none` (garantin gäller per dossier — väljs din leverantör är det din
    fallback besökaren ser).
 4. Lägg monteringsfallet i `src/lib/gen/dossiers/dossier-client-mount.test.tsx`
@@ -65,8 +73,8 @@ Billigaste vägen — ingen ändring i urvalskoden behövs:
    täckningsgrinden.
 
 Tidsåtgång: manifest + instruktioner under en timme; **degraderingskoden** (att
-komponenten monterar utan nyckel och visar en ärlig notis) är det egentliga
-arbetet. Full checklista + vad en ny *capability* kostar extra:
+komponenten monterar utan nödvändig konfiguration och visar en ärlig notis) är
+det egentliga arbetet. Full checklista + vad en ny *capability* kostar extra:
 [`dossier-system.md` § Ny LEVERANTÖR](../contracts/dossier-system.md#ny-leverantör-under-en-befintlig-capability-den-billiga-vägen).
 
 ### B. AI-kuration från ett klonat upstream-repo
@@ -126,7 +134,13 @@ Om brief-LLM:n deklarerar en capability som ingen dossier täcker:
 
 → Lägg till en dossier för den capability eller justera brief-prompten.
 
-Om en hard-dossier saknar en riktig nyckel (kollas mot **projektets** sparade env-nycklar, inte plattformens `process.env`) renderas `[UNCONFIGURED — render placeholder UI]` i system-promptens `## Available Dossiers`-block, och codegen-LLM:n får dossierns `mock`-läge (`canned`/`seed`/`success`/`visual`/`none`) så demo-ytan fungerar i F2. Se [`dossier-system.md`](../contracts/dossier-system.md) § Mock/demo-läge.
+Om en hard-dossier har obligatoriska `envVars` men saknar ett riktigt värde
+(kollas mot **projektets** sparade env-nycklar, inte plattformens `process.env`)
+renderas `[UNCONFIGURED — render placeholder UI]` i system-promptens
+`## Available Dossiers`-block. En nyckelfri hard-dossier är däremot
+`configured: true`. Codegen-LLM:n får dossierns `mock`-läge
+(`canned`/`seed`/`success`/`visual`/`none`) så demo-ytan fungerar i F2. Se
+[`dossier-system.md`](../contracts/dossier-system.md) § Mock/demo-läge.
 
 ## Mappstruktur
 

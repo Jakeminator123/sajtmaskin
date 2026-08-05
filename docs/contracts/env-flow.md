@@ -19,12 +19,19 @@ placeholder files described below** — they hold fake/test placeholders only.
 | Environment                    | What it is                                                                             | Key authority                                                                                             | Classification authority                                                                                                          |
 | ------------------------------ | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | **Sajtmaskin app env**         | The control-plane app's own runtime env (this Next.js app)                             | [`src/lib/env.ts`](../../src/lib/env.ts) `serverSchema` (ultimate authority for which keys the app reads) | [`config/env-policy.json`](../../config/env-policy.json) (per-key classification + Vercel targets)                                |
-| **Generated-site preview env** | The `.env.local` injected into a **generated user site** when it boots in preview / VM | [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts) (merge order)                | [`src/lib/integrations/placeholder-harmless.ts`](../../src/lib/integrations/placeholder-harmless.ts) (harmless vs tier-3 per key) |
+| **Generated-site preview env** | The `.env.local` injected into a **generated user site** when it boots in preview / VM | [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts) (merge order)                | [`placeholder-harmless.ts`](../../src/lib/integrations/placeholder-harmless.ts) owns placeholder class; each selected dossier's `manifest.json` owns its env enforcement |
 
 The same key _name_ can appear in both (e.g. `OPENAI_API_KEY`, `REDIS_URL`,
 `POSTGRES_URL`). That is **not** a duplicate: in the app env it is the
 Sajtmaskin app's own credential; in the generated-site env it is a placeholder
 injected into a user's preview site. Different environment, different meaning.
+
+For dossier-backed integrations, `manifest.json` is the authority for
+`providers`, `envVars` and `envVars[].enforcement`. A `hard` dossier may be
+keyless (for example Vercel Analytics); `hard` means provider/runtime-coupled,
+not "has secrets". The manifest describes the code/runtime contract only:
+Marketplace resource provisioning and automatic credential delivery are a
+later layer, not a second env/provider registry today.
 
 ## Sajtmaskin app env — classification (`config/env-policy.json`)
 
@@ -106,13 +113,15 @@ So:
 - **harmless placeholder** = safe to leave fake in **both F2 and F3**. Stripe
   _publishable_ test key, `AUTH_SECRET` (any 32-char string), public analytics
   IDs, public CMS/search read keys, local base URLs.
-- **tier3-stub placeholder** = present in **F2 only**. A real value is required
-  before F3 succeeds — this is what "blocks F3" means. Stripe _secret_ key,
-  Supabase URL + anon key, Clerk secret, OpenAI key, Redis/DB URLs, Upstash
-  tokens, Resend, etc.
+- **tier3-stub placeholder** = present in **F2 only** and stripped during normal
+  F3 codegen. Whether its absence blocks F3 comes from the selected dossier's
+  `envVars[].enforcement`: only `build` blocks; `feature-runtime` and
+  `warn-only` remain Advisory. Examples include Stripe secret keys, Supabase
+  URL + anon key, Clerk, OpenAI, Redis/DB URLs, Upstash and Resend.
 
-Classification is **per env-KEY**, not per integration: `STRIPE_SECRET_KEY` is
-tier-3 (blocks F3) regardless of which integration uses it, while
+Placeholder classification is **per env-KEY**, but F3 blocking is per selected
+dossier declaration: a missing key blocks only when that dossier marks it
+`enforcement: "build"`. `STRIPE_SECRET_KEY` is a tier3-stub, while
 `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is harmless. The `.txt` fragment files are
 organized to match the set in `placeholder-harmless.ts` and are kept honest by
 `src/lib/integrations/placeholder-harmless.parity.test.ts`.
@@ -172,5 +181,6 @@ blockera på det som verkligen kräver en riktig integration.
 | What placeholder lines get injected (harmless)?      | `config/ai_models/40-harmless-placeholders.env.txt`      |
 | What boot-only stubs get injected (F2)?              | `config/ai_models/41-tier3-stub-placeholders.env.txt`    |
 | In what order do preview layers merge / who wins?    | `src/lib/gen/preview/env-local.ts` (generated wins)      |
+| Which provider, env keys and enforcement does a dossier own? | `data/dossiers/<class>/<id>/manifest.json` |
 | What does each app key value mean / deploy status?   | `docs/ENV.md`                                            |
 | Read-only operator matrix of all of the above        | `backoffice/pages/env_readiness.py` (Env Readiness page) |

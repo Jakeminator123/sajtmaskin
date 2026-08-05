@@ -26,11 +26,17 @@ Encoded in the folder path. Pick exactly one:
 
 | Class | Folder | Use when |
 |---|---|---|
-| `hard` | `data/dossiers/hard/<id>/` | The dossier needs **external secrets** (API keys, OAuth client IDs, webhook signing secrets) declared in `envVars`. Preflight checks env. Examples: Stripe, Auth.js, OpenAI, Resend. |
+| `hard` | `data/dossiers/hard/<id>/` | The dossier is coupled to an **external provider, service, or runtime contract**. It usually declares `envVars`, but keyless provider SDKs such as Vercel Analytics are still hard. Examples: Stripe, Clerk, OpenAI, Resend. |
 | `soft` | `data/dossiers/soft/<id>/` | The dossier is **self-contained** (interaction patterns, R3F shells, key-free features). No envVars. Examples: three-fiber-canvas, maplibre-map, local-site-search, gallery-lightbox. |
 
-If the reference uses a third-party SDK that needs an API key → `hard`. If it
-is a pure React/CSS pattern → `soft`.
+If the reference implements an external provider/runtime contract → `hard`.
+If it is a self-contained React/CSS/npm pattern → `soft`.
+
+Every hard manifest must declare a non-empty `providers` array containing the
+canonical provider identities its shipped code implements. Soft manifests must
+omit `providers`. This field is the only provider→dossier ownership source;
+the integration registry supplies generic/dossierless fallbacks, and agent
+provider choices are derived from both catalogs.
 
 ## Capability naming
 
@@ -62,7 +68,9 @@ data/dossiers/<class>/<id>/
 The `<id>` MUST equal the directory name and match the regex
 `^[a-z0-9]+(-[a-z0-9]+)*$`.
 
-## Strict manifest skeleton (copy this and fill in)
+## Strict hard-manifest skeleton (copy this and fill in)
+
+For a soft dossier, remove `providers`, `mock`, and `envVars` entirely.
 
 ```json
 {
@@ -70,11 +78,12 @@ The `<id>` MUST equal the directory name and match the regex
   "id": "<kebab-case-id>",
   "label": "<Human-readable Title>",
   "capability": "<capability-id>",
+  "providers": ["<canonical-provider-id>"],
   "codeFidelity": "rewritable",
   "complexity": "simple",
   "defaultForCapability": true,
   "mock": "seed",
-  "summary": "<30-600 chars: what it does, when to use, key safety contract>",
+  "summary": "<30-600 chars: what it does, when to use, configuration/safety contract>",
   "envVars": [],
   "dependencies": [],
   "files": [
@@ -84,6 +93,7 @@ The `<id>` MUST equal the directory name and match the regex
     { "name": "<Symbol>", "type": "component", "import": "@/components/<file>" }
   ],
   "lastVerified": "YYYY-MM-DD",
+  "verificationStatus": "unverified",
   "sourceRepoUrl": "https://github.com/<org>/<repo>",
   "notes": "<curator-only context, not surfaced to the LLM>"
 }
@@ -97,18 +107,20 @@ The `<id>` MUST equal the directory name and match the regex
 | `id` | string | yes | Kebab-case, equals directory name. Pattern `^[a-z0-9]+(-[a-z0-9]+)*$`. |
 | `label` | string (2-80) | yes | Shown in backoffice. Title-case. No emoji. |
 | `capability` | string | yes | The capability id. Pattern `^[a-z0-9]+(-[a-z0-9]+)*$`. |
+| `providers` | string[] | hard: yes; soft: forbidden | Canonical provider identities implemented by this dossier. Non-empty, unique, kebab-case. Several dossiers may claim one provider; that makes provider-only resolution ambiguous until an exact capability/dossier is chosen. |
 | `codeFidelity` | enum | yes | `verbatim` for SDK glue/webhooks/auth that must not be paraphrased. `rewritable` for UI components the LLM may adapt. |
 | `complexity` | enum | yes | `simple` = 1-2 files, no env. `medium` = 3-5 files OR env required. `advanced` = >5 files or multi-step setup. |
 | `defaultForCapability` | bool | no (default false) | Set `true` for the canonical implementation. When two dossiers share a capability the default wins selection. |
-| `mock` | enum | no (omitted = `none`) | How the dossier's VISUAL surface works in F2/preview without a real key: `canned` (fabricated server response), `seed` (shipped seed data + notice), `success` (fake success + demo notice), `visual` (full interactive surface; the ACTION opens an honest demo notice/modal — never fake sessions/charges/transport), `none` (self-disable — analytics/error-tracking only). **EVERY hard dossier must declare `mock ≠ none`** (per-dossier since 2026-07-12) unless the capability is in `MOCKLESS_CAPABILITY_EXCEPTIONS` (only `analytics` + `error-tracking` since 2026-07-22) — enforced by `dossiers:validate-all` (see checklist item 8). Omit for soft dossiers. |
+| `mock` | enum | no (omitted = `none`) | How the dossier's VISUAL surface works in F2/preview without live provider configuration: `canned` (fabricated server response), `seed` (shipped seed data + notice), `success` (fake success + demo notice), `visual` (full interactive surface; the ACTION opens an honest demo notice/modal — never fake sessions/charges/transport), `none` (self-disable — analytics/error-tracking only). **EVERY hard dossier must declare `mock ≠ none`** (per-dossier since 2026-07-12) unless the capability is in `MOCKLESS_CAPABILITY_EXCEPTIONS` (only `analytics` + `error-tracking` since 2026-07-22) — enforced by `dossiers:validate-all` (see checklist item 9). Omit for soft dossiers. |
 | `summarySv` | string | no | Swedish catalog description for END USERS (builder Byggblock panel + backoffice). Never reaches the codegen prompt; UI falls back to `summary` when omitted. Write for a non-technical site owner. |
-| `summary` | string (30-600) | yes | 1-3 sentences: what it does, when to use, key safety contract. Written for the codegen LLM, not for humans. Verbs in present tense. |
+| `summary` | string (30-600) | yes | 1-3 sentences: what it does, when to use, and its configuration/safety contract. Written for the codegen LLM, not for humans. Verbs in present tense. |
 | `envVars` | array | no | Only for `hard` dossiers. Each entry needs `key` (UPPER_SNAKE_CASE), `required` (bool), `purpose` (10-240 chars), and optional `enforcement` (see below). |
 | `envVars[].enforcement` | enum | no | Defaults to `"build"`. One of: `"build"` (real value required at F3 build time — secret keys, server-side database URLs, anything where a placeholder crashes deploy); `"feature-runtime"` (the SDK is imported but the dossier's UI shows a configuration banner / popup at runtime when the value is missing — the "Klarna-popup" pattern; F3 surfaces as warning, not blocker); `"warn-only"` (component self-disables on empty value, e.g. `if (!domain) return null` — surfaced only as info). The F3 readiness gate filters `requiredRealEnvKeys` to `build`-enforcement only, so getting this wrong either blocks deploy unnecessarily or lets a deploy succeed with broken integrations. Be honest about whether the dossier's runtime actually has graceful fallback before tagging `feature-runtime`. |
 | `dependencies` | string[] | no | npm package names. Use `name@^x.y.z` only when a precise pin is required; bare names let the codegen pick the latest. Add ONLY packages this dossier itself imports. |
 | `files` | array | no | Source files shipped under the dossier folder. `path` is relative to the dossier dir (e.g. `components/foo.tsx`). `role` is `client` / `server` / `shared`. Optional `injectionMode` overrides `codeFidelity` per file. |
 | `exposes` | array | no | Symbols the codegen LLM may import. `import` is the **target site's** import path (typically `@/components/<file>`). |
-| `lastVerified` | date | yes | YYYY-MM-DD when a human (or you) last validated the dossier against a real preview build. |
+| `lastVerified` | date | yes | YYYY-MM-DD for the latest acceptance evidence, or the imported source date while `verificationStatus` is `unverified`. |
+| `verificationStatus` | enum | recommended | New drafts must use `unverified`; change to `accepted` only after the acceptance checklist has real evidence. Omission is backward compatibility for existing accepted manifests, not an authoring default. |
 | `sourceRepoUrl` | URI | no | Optional pointer to the upstream reference. |
 | `notes` | string (≤600) | no | Curator-only. NOT surfaced to the LLM. |
 
@@ -121,7 +133,7 @@ The instructions are concatenated into the codegen LLM's system prompt when
 the dossier is selected. Keep total length ≤ ~3000 tokens. Mirror this
 structure:
 
-```markdown
+````markdown
 # When to use
 
 Use this dossier whenever the brief mentions <triggers>. Triggers (Swedish + English): `<word>`, `<word>`, ...
@@ -156,7 +168,7 @@ Do not use for:
 # Reduced-motion / accessibility / safety contract (optional but recommended)
 
 <3-6 bullets of what NOT to do, with reasoning>
-```
+````
 
 ### Writing-style invariants
 
@@ -200,18 +212,21 @@ local `npx tsc --noEmit` pointing at the file before declaring it ready.
 2. `id` matches the directory name and the schema regex.
 3. `capability` is documented in
    `data/dossiers/_index/capability-map.json` (or the change adds it).
-4. `instructions.md` has the five recommended sections and ≤ ~3000 tokens.
-5. Every file in `files[]` exists, type-checks against the target's tsconfig,
+4. A hard manifest has a non-empty `providers` array; a soft manifest omits
+   the field. Provider ids describe the actual SDK/API in the shipped code.
+5. `instructions.md` has the five recommended sections and ≤ ~3000 tokens.
+6. Every file in `files[]` exists, type-checks against the target's tsconfig,
    and is importable via the path declared in `exposes[].import`.
-6. `lastVerified` is today's date and the dossier was visually verified on a
-   preview build of a sample brief.
-7. If a new capability is introduced, register it in the capability-map AND
+7. A new draft has `verificationStatus: "unverified"` and `lastVerified` records
+   its imported source date. Change the status to `accepted` and update the date
+   only after visually verifying a sample brief on a real preview build.
+8. If a new capability is introduced, register it in the capability-map AND
    add a matching `RULE` in
    [`src/lib/gen/capability-inference.ts`](../../src/lib/gen/capability-inference.ts)
    so prompts actually trigger it. Add a corresponding hint in
    `buildCapabilityHints` so the codegen LLM gets pointed at the dossier's
    exposed symbols.
-8. Run `npm run dossiers:validate-all` — the CI-blocking gate. Beyond the
+9. Run `npm run dossiers:validate-all` — the CI-blocking gate. Beyond the
    schema it enforces exposes/import-closure, default uniqueness, and the
    mock-fallback invariant (per-dossier since 2026-07-12): EVERY hard dossier
    must declare `mock ≠ none` unless the capability is listed in
