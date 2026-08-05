@@ -36,10 +36,14 @@ const { runInstallCommand } = require("./package-install.js");
 // require inuti stopStaleRuntimes (körs långt efter att allt laddats).
 const { withNoSpaceCleanupRetry } = require("./storage-cleanup.js");
 
-const READINESS_MAX_MS = parseInt(process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS ?? "180000", 10);
 const READINESS_INTERVAL_MS = 1200;
 const READINESS_EMPTY_BODY_MIN_CHARS = 50;
-const READINESS_MAX_EMPTY_BODY_RETRIES = 5;
+
+/** Read at call time so guard tests can shrink the deadline without reloading the module. */
+function readinessMaxMs() {
+  const parsed = parseInt(process.env.PREVIEW_HOST_RUNTIME_READY_MAX_MS ?? "180000", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 180_000;
+}
 // Drain-fönster mellan SIGTERM och SIGKILL när en runtime stoppas (t.ex. vid
 // avsiktlig restart). Default 5000 ms = oförändrat beteende; höj för att låta
 // pågående HTTP-svar hinna klart innan processen tvångsdödas (mildrar
@@ -306,9 +310,17 @@ function htmlBodyHasMeaningfulVisibleText(html) {
 const READINESS_MAX_BUILD_ERROR_RETRIES = 4;
 
 async function waitForReady(url) {
-  const deadline = Date.now() + READINESS_MAX_MS;
+  // Empty HTML body is treated like any other "not ready yet" signal: keep
+  // polling until meaningful visible text appears OR the full readiness
+  // deadline elapses. Accepting after a handful of empty polls (~6s) was a
+  // false-green — prod deadline is up to PREVIEW_HOST_RUNTIME_READY_MAX_MS
+  // (600s on Fly) and cold starts routinely compile longer than 6s. When the
+  // deadline is hit with the body still empty, throw so the boot path records
+  // readinessState=failed (same channel as build-error overlays / #799) and
+  // preview_success is never stamped true on a blank page.
+  const readinessMaxMsValue = readinessMaxMs();
+  const deadline = Date.now() + readinessMaxMsValue;
   let lastError = "";
-  let emptyBodyStreak = 0;
   let buildErrorStreak = 0;
   let lastBuildErrorMessage = "";
   while (Date.now() < deadline) {
@@ -322,7 +334,6 @@ async function waitForReady(url) {
         headers: { Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8" },
       });
       if (!responseHeadersLookLikeHtmlDocument(res)) {
-        emptyBodyStreak = 0;
         buildErrorStreak = 0;
         lastError = `HTTP ${res.status}`;
         await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));
@@ -335,7 +346,6 @@ async function waitForReady(url) {
       // a page that is really showing a build error.
       if (htmlLooksLikeBuildError(text)) {
         buildErrorStreak += 1;
-        emptyBodyStreak = 0;
         lastBuildErrorMessage = extractBuildErrorMessage(text);
         lastError = `Next.js build error overlay: ${lastBuildErrorMessage}`;
         if (buildErrorStreak >= READINESS_MAX_BUILD_ERROR_RETRIES) {
@@ -350,21 +360,13 @@ async function waitForReady(url) {
       if (htmlBodyHasMeaningfulVisibleText(text)) {
         return;
       }
-      emptyBodyStreak += 1;
       lastError = "HTTP 200 HTML but body text still empty (compiling or blank page)";
-      if (emptyBodyStreak >= READINESS_MAX_EMPTY_BODY_RETRIES) {
-        console.warn(
-          `[preview-host] Readiness: HTML body still looks empty after ${READINESS_MAX_EMPTY_BODY_RETRIES} attempts; accepting response.`,
-        );
-        return;
-      }
     } catch (err) {
       // A thrown build-error-overlay verdict is terminal — propagate it rather
       // than treating it like a transient fetch error and looping to timeout.
       if (err instanceof Error && /build error overlay/i.test(err.message)) {
         throw err;
       }
-      emptyBodyStreak = 0;
       buildErrorStreak = 0;
       lastError = err instanceof Error ? err.message : String(err);
     } finally {
@@ -372,7 +374,9 @@ async function waitForReady(url) {
     }
     await new Promise((resolve) => setTimeout(resolve, READINESS_INTERVAL_MS));
   }
-  throw new Error(`Runtime did not become ready within ${READINESS_MAX_MS}ms. Last error: ${lastError}`);
+  throw new Error(
+    `Runtime did not become ready within ${readinessMaxMsValue}ms. Last error: ${lastError}`,
+  );
 }
 
 function stopChildProcessTree(child) {
