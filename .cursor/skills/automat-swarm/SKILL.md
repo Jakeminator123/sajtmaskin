@@ -22,7 +22,7 @@ A **report factory**: the orchestrator (the main agent running `/automat`) launc
 2. **No git.** No commit/branch/checkout/push. Writing to `.cursor/swarms/` is safe because it is gitignored (no HEAD movement, no worktree needed).
 3. **Write only to `.cursor/swarms/`.** Raw reports → `runs/<ts>/`, curated findings → `FINDINGS.md`. Nothing else is written.
 4. **Never auto-touch `BUG-SWARM-BACKLOG.md`.** Promotion of a confirmed finding is a separate manual `/buggrapport` step.
-5. **Keep volume cheap.** Models come from the canonical table in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `cursor-grok-4.5-high-fast` for scan and distill rounds, `cursor-grok-4.5-high-fast` for falsification rounds only. Never invent a slug — an invalid one does not fail loudly and may run on the (expensive) parent model.
+5. **Keep volume cheap.** Models come from the canonical table in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `cursor-grok-4.5-high` for scan and distill rounds, `cursor-grok-4.5-high` for falsification rounds only. Never invent a slug — an invalid one does not fail loudly and may run on the (expensive) parent model.
 6. **Keep reports short.** Max **6** table rows per agent and no closing prose. Every returned line lands in the orchestrator's context and is re-sent on every later turn — brevity in the subagent prompt is the main cost lever in this skill.
 
 ## Round types — rounds alternate
@@ -31,8 +31,8 @@ More breadth on top of unverified findings just grows the pile. Odd rounds widen
 
 | Round | Type | Agents | Model | Job |
 |---|---|---|---|---|
-| 1, 3, 5 … | **Scan** | 8, one lane each | `cursor-grok-4.5-high-fast` | find new candidates in rotating lanes |
-| 2, 4, 6 … | **Falsification** | one per unverified finding, max 8 | `cursor-grok-4.5-high-fast` | try to prove the finding is **not** a bug |
+| 1, 3, 5 … | **Scan** | 8, one lane each | `cursor-grok-4.5-high` | find new candidates in rotating lanes |
+| 2, 4, 6 … | **Falsification** | one per unverified finding, max 8 | `cursor-grok-4.5-high` | try to prove the finding is **not** a bug |
 
 `/automat 3` is therefore scan → falsify → scan. If a falsification round has no unverified findings left, run a scan round instead. A finding is falsified **at most once** — an `oklar` verdict stays unverified and is never re-swarmed.
 
@@ -42,15 +42,15 @@ Status lives in the `A#` id itself, so `FINDINGS.md` needs no new column: `A#12`
 
 1. **Pick lanes.** Take the next 8 lanes from the rotation cursor (wrap around the table). Round 1 = lanes 1–8, round 3 = lanes 9–13 then 1–3, etc. If agents `K` ≠ 8, map `K` agents to lanes (split a lane into sub-areas when `K` > lane count). Honor any lane override from the message.
 2. **Resolve paths.** For each lane, get exact repo paths from [`repo-router.mdc`](../../rules/repo-router.mdc) so subagents look in the right place.
-3. **Launch the swarm.** In **one** assistant turn, fire 8 parallel `Task` calls (`subagent_type: explore`, `readonly: true`, `model: cursor-grok-4.5-high-fast`), one lane each, using the scan prompt below.
+3. **Launch the swarm.** In **one** assistant turn, fire 8 parallel `Task` calls (`subagent_type: explore`, `readonly: true`, `model: cursor-grok-4.5-high`), one lane each, using the scan prompt below.
 4. **Persist raw reports.** Write each returned report verbatim to `.cursor/swarms/runs/<YYYY-MM-DD_HHMM>/r<r>-<lane-slug>.md`.
-5. **Distill via one subagent, not yourself.** Fire a single `Task` (`explore`, `readonly: true`, `cursor-grok-4.5-high-fast`) pointed at `runs/<ts>/r<r>-*.md` **and** `.cursor/swarms/FINDINGS.md`, asking for **at most 5** new high-value findings that are not already in `FINDINGS.md` (value filter below), each returned as one finished table row. Write those rows and assign `A#<n>` ids. Doing the cross-round merge this way keeps the growing `FINDINGS.md` and every earlier round out of your own context — you never re-read them.
+5. **Distill via one subagent, not yourself.** Fire a single `Task` (`explore`, `readonly: true`, `cursor-grok-4.5-high`) pointed at `runs/<ts>/r<r>-*.md` **and** `.cursor/swarms/FINDINGS.md`, asking for **at most 5** new high-value findings that are not already in `FINDINGS.md` (value filter below), each returned as one finished table row. Write those rows and assign `A#<n>` ids. Doing the cross-round merge this way keeps the growing `FINDINGS.md` and every earlier round out of your own context — you never re-read them.
 6. **Round note.** Update `runs/<ts>/index.md` with one line per lane (top pick + confidence).
 
 ### Falsification round
 
 1. **Pick targets.** Unverified `A#` findings in `FINDINGS.md`, highest impact first, max 8. One agent per finding — never two agents on the same finding.
-2. **Launch.** Parallel `Task` calls (`subagent_type: explore`, `readonly: true`, `model: cursor-grok-4.5-high-fast`) with the falsification prompt below.
+2. **Launch.** Parallel `Task` calls (`subagent_type: explore`, `readonly: true`, `model: cursor-grok-4.5-high`) with the falsification prompt below.
 3. **Apply verdicts.** `falsk` → delete the row from `FINDINGS.md`. `bekräftad` → append `✔` to its id. `oklar` → leave as is; it is now spent and will not be falsified again.
 4. **Round note.** One line per finding in `runs/<ts>/index.md`: id, verdict, and the one-line reason (the reason for a deleted row only survives here).
 

@@ -20,15 +20,15 @@ Kör **flera** read-only svärmningar i rad. Rundorna **växlar**: udda rundor b
 ## Flöde — scan-runda (udda)
 
 1. Välj nästa 8 lanes från rotationen (se skill-tabellen). Slå upp exakta sökvägar via [`repo-router.mdc`](../rules/repo-router.mdc).
-2. Lansera 8 parallella `Task`-agenter: `subagent_type: explore`, `readonly: true`, `model: cursor-grok-4.5-high-fast`. En lane var, hårt tak på **6 tabellrader** och ingen avslutande prosa.
+2. Lansera 8 parallella `Task`-agenter: `subagent_type: explore`, `readonly: true`, `model: cursor-grok-4.5-high`. En lane var, hårt tak på **6 tabellrader** och ingen avslutande prosa.
 3. Skriv varje rå rapport till `.cursor/swarms/runs/<tidsstämpel>/r<runda>-<lane>.md`.
-4. Lansera **en** destill-agent (`cursor-grok-4.5-high-fast`, readonly) mot rundans rapporter + `FINDINGS.md`; den returnerar max 5 nya, icke-dubbletta rader. Skriv in dem med `A#<n>`-id. Gör inte hopslagningen själv — poängen är att äldre rundor aldrig behöver in i din egen kontext igen.
+4. Lansera **en** destill-agent (`cursor-grok-4.5-high`, readonly) mot rundans rapporter + `FINDINGS.md`; den returnerar max 5 nya, icke-dubbletta rader. Skriv in dem med `A#<n>`-id. Gör inte hopslagningen själv — poängen är att äldre rundor aldrig behöver in i din egen kontext igen.
 5. Skriv en rad per lane i rundans `index.md` (topp-plock + konfidens).
 
 ## Flöde — falsifieringsrunda (jämna)
 
 1. Ta de overifierade `A#`-fynden med högst impact, max 8. En agent per fynd.
-2. Lansera parallella `Task`-agenter: `readonly: true`, `model: cursor-grok-4.5-high-fast`. Uppdrag: **motbevisa** fyndet (guard som redan finns, anropsväg som aldrig nås, fel ankare).
+2. Lansera parallella `Task`-agenter: `readonly: true`, `model: cursor-grok-4.5-high`. Uppdrag: **motbevisa** fyndet (guard som redan finns, anropsväg som aldrig nås, fel ankare).
 3. `falsk` → radera raden ur `FINDINGS.md`. `bekräftad` → lägg `✔` efter id:t. `oklar` → lämna, och falsifiera aldrig om samma fynd.
 4. Skriv en rad per fynd i rundans `index.md` (id, verdikt, motivering) — för raderade rader är det enda spåret.
 

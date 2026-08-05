@@ -18,12 +18,12 @@ Modellval kommer från [`.cursor/README.md § Modellval för subagenter`](../REA
 
 Kostnaden i kedjan sitter inte i subagenterna utan i orkestratorn: varje
 rapport den tar emot skickas om i **varje** efterföljande tur. Kör därför
-**aldrig** stegen själv från en dyr modell (allt som inte är composer-klass).
+**aldrig** stegen själv från en dyr modell (allt som inte är Grok-/billig-klass).
 Standard är i stället:
 
 1. Du gör bara **steg 0** (ramen: bugg, acceptans, utanför scope) och visar den.
 2. Starta **en enda runner-subagent** (**billig modell = Grok 4.5**,
-   slug `cursor-grok-4.5-high-fast` ur den kanoniska tabellen — aldrig Composer)
+   slug `cursor-grok-4.5-high` ur den kanoniska tabellen — aldrig Composer som default)
    som läser den här filen + skillen och kör steg 1–6 i sin helhet —
    egna worktrees, rött test, fix, maskinell dom. Har runnern inte tillgång
    till egna subagenter gör den stegen sekventiellt själv; domen är ändå
@@ -33,10 +33,12 @@ Standard är i stället:
    ge **spårbarhet för spetsfixar**: per kandidat worktree-sökväg på disk,
    branch, ansats och utfall (även utslagna — deras diffar ligger kvar i
    `.cursor/kedja/`), samt vem som gjorde vad (repro/fix/dom).
-4. Du kör själv **steg 7** (bugbot på vinnarens diff — billigt, kort svar),
-   verifierar acceptanskommandot i vinnarens worktree med egna ögon, utför
+4. Du kör själv **steg 7** (bugbot på vinnarens diff), verifierar
+   acceptanskommandot i vinnarens worktree med egna ögon, utför
    **Efter körning**-plikterna (committa vinnaren, riv förlorarna) och
-   rapporterar.
+   rapporterar. Skälet är inte kostnad — bugbot körs på Grok oavsett vem som
+   startar den — utan att steget kräver att **du** läser testtillägget rad för
+   rad. Det är ett omdömesmoment, inte ett verktygsanrop.
 
 Att själv driva alla sju stegen är tillåtet bara när orkestratorn redan är en
 billig modell (Grok 4.5), eller när användaren uttryckligen ber om det (t.ex. för en
@@ -77,7 +79,7 @@ npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
 
 Upprepa med `-b`, `-c` … per kandidat. `worktree:link` kräver att worktreet redan är registrerat, så ordningen är låst. Använd **aldrig** rå `git worktree remove` — med eller utan `--force` — eftersom junction-fällan tömmer huvudcheckoutens `node_modules`. En hook blockerar båda.
 
-### 2. Repro — 1 agent, skrivrätt, `cursor-grok-4.5-high-fast`
+### 2. Repro — 1 agent, skrivrätt, `cursor-grok-4.5-high`
 
 Agenten skriver **två** saker i kandidat **a**:s worktree:
 
@@ -90,7 +92,7 @@ Motprovet är inte valfritt. Ett rött test säger bara "detta får inte hända"
 
 Kopiera testfilen till övriga kandidat-worktrees när den är verifierat röd, så alla döms av exakt samma prov.
 
-### 3. Lokalisera — 3 parallella, `readonly: true`, `cursor-grok-4.5-high-fast`
+### 3. Lokalisera — 3 parallella, `readonly: true`, `cursor-grok-4.5-high`
 
 Tre konkurrerande hypoteser om rotorsaken, en agent var, max 5 rader vardera. De ser samma testutskrift men får olika ingångar (kodvägen, anropsplatserna, testet självt).
 
@@ -98,7 +100,7 @@ Tre konkurrerande hypoteser om rotorsaken, en agent var, max 5 rader vardera. De
 
 Läs koden på de ankare hypoteserna pekar ut. Enas två eller fler om samma ställe är det en stark signal. Motsäger de varandra: kör steg 3 igen med en skarpare fråga, **en** gång. Fortfarande oklart → stopp.
 
-### 5. Fixa — N parallella, skrivrätt, `cursor-grok-4.5-high-fast`
+### 5. Fixa — N parallella, skrivrätt, `cursor-grok-4.5-high`
 
 En agent per worktree, samma rotorsak, men **uttryckligen olika ansats** — du namnger ansatsen per kandidat i prompten. Låter du dem välja själva får du samma svar N gånger: de har ju samma rotorsak, samma test och samma modell, så de konvergerar.
 
@@ -126,7 +128,9 @@ Två fällor i domen:
 
 ### 7. Grind — bugbot-subagent på vinnarens diff
 
-`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`. Detta är det obligatoriska passet ur `workflow.mdc`, inte ett extra lager. Fynd triageras som vanligt: fixa i diffen, logga i backloggen, eller avfärda med en rad.
+`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "cursor-grok-4.5-high"` (bugg-grind-rollen i den kanoniska tabellen — aldrig Opus/dyra modeller som default). Detta är det obligatoriska passet ur `workflow.mdc`, inte ett extra lager. Fynd triageras som vanligt: fixa i diffen, logga i backloggen, eller avfärda med en rad.
+
+**Samma modell granskar samma modells kod — det är avsiktligt.** Runnern, fix-agenterna och bugbot körs alla på Grok 4.5, så oberoendet kommer inte från ett modellbyte. Det kommer från tre andra saker: bugbot får en färsk kontext utan kedjans historik, den dömer mot diffen i stället för mot avsikten, och du läser testtillägget själv enligt nästa stycke. Byt **inte** till en dyr tänkande modell här för att "få oberoende ögon" — det kräver ägarens uttryckliga begäran (`subagent-models.mdc`).
 
 **Läs testdiffen rad för rad — inte bara utfallet.** Hela kedjan vilar på att steg 2:s test mäter rätt sak; gör det inte det är den maskinella domen värdelös, och rött-före/grönt-efter avslöjar det inte. Orkestratorn läser därför testtillägget själv innan PR och frågar: mäter det röda testet buggen eller en proxy? Är motprovet det *närmaste legitima* fallet? Och — lättast att missa — **asserterar testet det fixen medvetet offrar?** På #780 låste `rebuild-content.test.ts` att fel fil inte korrumperas men var tyst om att den rätta filens fix nu tappas vid fence-miss; avvägningen fanns bara i huvudet på den som läst diffen. En assertion till gjorde den till kontrakt.
 
