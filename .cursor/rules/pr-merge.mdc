@@ -79,6 +79,8 @@ gh api --method GET --paginate -F per_page=100 repos/<owner>/<repo>/check-runs/<
 
 **Aktiva granskare:** `Cursor Automation: Find critical bugs` + `Vercel Agent Review` (som checks), `GitGuardian` (secrets) och **Codex** (på/av beroende på credits). Codex-review kan landa några minuter efter grönt CI → **re-läs reviews precis före merge**.
 
+En kommentar som **bara** säger att budgeten är slut (`Bugbot couldn't run - usage limit reached`, Codex "usage limit") betyder att granskaren är av → **icke-blockerande, och inte ett fynd att triagera**. Den är däremot ett skäl att köra bugbot-subagenten lokalt; se fallback-stegen nedan.
+
 **Svep även PR:er rörda senaste ~12h**, inklusive mergade — ett bot-fynd på en syskon-PR kan peka på en reell bugg i delad kod.
 
 ```powershell
