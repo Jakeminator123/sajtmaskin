@@ -1,13 +1,22 @@
 ---
-description: Billig subagent-modell = Grok 4.5; aldrig Composer som default
+description: Grok 4.5 = default för ALLA subagenter inkl. bugg-/kodgranskning
 alwaysApply: true
 ---
 
 # Subagent-modeller
 
-När kommandon/skills säger **billig modell**, **scan-roll**, **destillering**
-eller pekar på Composer: använd **Grok 4.5** —
-slug `cursor-grok-4.5-high-fast`.
+**Grok 4.5 är standardmodell för ALLA subagenter** — scan, omdöme, destillering,
+kedja-runner **och** bugg-/kodgranskning (`bugbot`). Slug:
+`cursor-grok-4.5-high`.
 
-- Välj **inte** `composer-2.5` / `composer-2.5-fast` (finns inte i Task-utbudet här).
+- Skicka alltid `model: cursor-grok-4.5-high` i `Task`-anropet (inkl. `bugbot`).
+- Välj **inte** Composer (`composer-2.5` / `composer-2.5-fast`) som default
+  även om den finns i Task-utbudet.
+- **Hård regel:** dyra tänkande modeller — i synnerhet
+  `claude-opus-5-thinking-xhigh` — får **inte** användas som
+  buggranskare/review-subagent som default. De får bara användas när ägaren
+  uttryckligen ber om en specialkoll.
+- **En ogiltig slug felar inte högljutt** — tyst fallback till fel (ofta dyr)
+  modell. Stäm alltid av mot sessionens `<available_subagent_models>` innan
+  du skriver in en slug.
 - Kanonisk tabell: [`.cursor/README.md` § Modellval för subagenter](../README.md#modellval-för-subagenter-kanonisk-tabell).

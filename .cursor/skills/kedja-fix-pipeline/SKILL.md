@@ -8,7 +8,7 @@ description: >-
 
 The orchestrator is the cheap model in the user's chat. Subagents are cheap too; none of them are trusted. What makes the flow work is that **step 2 produces a red test**, so step 6 is a measurement rather than a judgement call.
 
-**Expensive orchestrator? Delegate.** If the model in the user's chat is not composer-class, the DEFAULT is delegated mode (see `kedja.md § Delegerat läge`): the parent does step 0 only, launches ONE cheap runner subagent that drives steps 1–6 end to end, receives only the final report table, then runs step 7 (bugbot) itself. Every report an orchestrator receives is re-paid in every later turn — do not carry the bulk in an expensive context.
+**Expensive orchestrator? Delegate.** If the model in the user's chat is not a cheap Grok-class orchestrator, the DEFAULT is delegated mode (see `kedja.md § Delegerat läge`): the parent does step 0 only, launches ONE cheap runner subagent that drives steps 1–6 end to end, receives only the final report table, then runs step 7 (bugbot) itself. Every report an orchestrator receives is re-paid in every later turn — do not carry the bulk in an expensive context.
 
 Full step list, arguments and stop conditions: [`.cursor/commands/kedja.md`](../../commands/kedja.md). This file holds the recipes and prompts.
 
@@ -17,7 +17,7 @@ Full step list, arguments and stop conditions: [`.cursor/commands/kedja.md`](../
 1. **No writes in the main checkout.** Every write step runs inside a worktree created in step 1. No `git checkout`/`switch` in the main checkout (`agent-worktree.mdc`).
 2. **No push, rebase or PR** (`git.mdc`) — but the WINNER is committed on its `kedja/<slug>-<x>` branch as the final step. An uncommitted winner looks like debris to every other agent's cleanup sweep (`kedja-clean` refuses branches with own commits — a commit is the winner's life insurance; two uncommitted winners were swept 2026-08-04). Losers stay uncommitted and are torn down after their diffs are saved.
 3. **One bug.** Adjacent findings go to `/buggrapport`, not into the diff (`mvp-scope-freeze.mdc`).
-4. **Models from the canonical table** in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `cursor-grok-4.5-high-fast` for the read-only localisation scan, `cursor-grok-4.5-high-fast` for the repro and fix agents (they write code), `bugbot` subagent for step 7.
+4. **Models from the canonical table** in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `cursor-grok-4.5-high` for localisation, repro and fix agents, and for step 7 `bugbot` (`model: cursor-grok-4.5-high`). Never invent a slug; never default to Opus/expensive thinking models.
 5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only. Raw `git worktree remove` follows the `node_modules` junction and empties the main checkout's copy — and dropping `--force` does not help, because git only refuses on dirty or *untracked* entries while a junctioned `node_modules` is *ignored*. A hook denies both forms.
 6. **One retry, then stop.** Two red judging rounds means the bug is too big for the chain; report that instead of looping.
 
@@ -37,7 +37,7 @@ npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
 
 ## Prompt templates
 
-### Step 2 — repro agent (1 agent, writes, `cursor-grok-4.5-high-fast`)
+### Step 2 — repro agent (1 agent, writes, `cursor-grok-4.5-high`)
 
 ```text
 Work ONLY inside: {WORKTREE_PATH}. Never touch any other checkout.
@@ -71,7 +71,7 @@ Motivering: <one sentence on why the red failure IS the bug>
 Then verify both yourself in that worktree. A green "red" test is a stop
 condition, not a nuisance.
 
-### Step 3 — localisation agents (3 parallel, `readonly: true`, `cursor-grok-4.5-high-fast`)
+### Step 3 — localisation agents (3 parallel, `readonly: true`, `cursor-grok-4.5-high`)
 
 Same bug and same test output for all three; only the angle differs.
 
@@ -98,7 +98,7 @@ Emot: <the strongest reason you could be wrong, or "-">
 Låst av test: <existing test that encodes today's behaviour, or "-">
 ```
 
-### Step 5 — fix agents (N parallel, write, `cursor-grok-4.5-high-fast`)
+### Step 5 — fix agents (N parallel, write, `cursor-grok-4.5-high`)
 
 Every candidate gets the **same** root cause and a **different, named** approach. Leaving the approach open produces N identical diffs — same diagnosis, same test, same model, so they converge. If you cannot name two genuinely different approaches, run one candidate.
 
@@ -132,7 +132,7 @@ Risk: <the caller most likely to be affected, or "-">
 
 **Read the test diff line by line, not just its outcome.** The whole chain rests on the step 2 test measuring the right thing; if it does not, the mechanical verdict is worthless, and red-before/green-after will not reveal it. Before opening a PR the orchestrator reads the test addition itself and asks: does the red test measure the bug or a proxy? Is the counter-test the *closest legitimate* case? And — easiest to miss — **does the test assert what the fix deliberately gives up?** On #780 `rebuild-content.test.ts` locked that the wrong file is not corrupted but said nothing about the right file's fix now being dropped on a fence miss; the trade-off lived only in the head of whoever read the diff. One more assertion turned it into a contract.
 
-`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, prompt form per `AGENTS.md § Review guidelines`:
+`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "cursor-grok-4.5-high"` (bug-grind role in the canonical table — never Opus/expensive thinking models as default), prompt form per `AGENTS.md § Review guidelines`:
 
 ```text
 Full Repository Path: {WINNER_WORKTREE_PATH}
