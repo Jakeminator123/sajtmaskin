@@ -239,47 +239,11 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:som\s+svarar\s+(?:utifrån|från|ur|baserat\s+på)|that\s+answers\s+(?:from|based\s+on)|answering\s+from)\s+(?:våra|vara|egna|era|sina|dina|our|your|the\s+site'?s?)?\s*(?:dokument|innehåll|kunskapsbas(?:en)?|artiklar|filer|documents?|docs|content|knowledge)(?![\p{L}\p{N}_])/iu,
     ],
   },
-  {
-    // Realtime infrastructure (Ably pub/sub, presence, live updates between
-    // clients). NOT "live-feeling" animations and NOT real-time analytics —
-    // those route to `analytics` / ordinary page content.
-    capability: "realtime",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:ably|pusher|websockets?|web-?sockets?|socket\.io|pub\/?sub|pubsub)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:realtids?-?(?:chat|chatt|meddelanden|notiser|uppdateringar|funktion(?:er)?)|real-?time\s+(?:chat|messaging|notifications?|updates?|collaboration))(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:live-?(?:chat|chatt)|presence|närvaro-?(?:status|indikator)|vem\s+som\s+är\s+online|collaborative\s+(?:editing|cursors?)|multiplayer)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:live-?(?:notiser|notifikationer|uppdateringar)|live\s+(?:notifications?|updates?))(?![\p{L}\p{N}_])/iu,
-    ],
-    // "real-time analytics" / "realtidsstatistik" is an analytics/dashboard
-    // ask, not realtime messaging infrastructure — those route to `analytics`
-    // or `dashboard-charts`, never the Ably dossier. Swedish definite forms
-    // (dashboarden, statistiken) are covered so inflection can't dodge the veto.
-    vetoes: [
-      /(?<![\p{L}\p{N}_])(?:real-?time|realtids?)[-\s]?(?:analytics|analys(?:en)?|statistik(?:en)?|dashboard(?:s|en|erna)?|rapporter(?:ing(?:en)?)?|metrics)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
-    // Server-side AI text-to-image generation (Fal). NOT image galleries,
-    // lightboxes, carousels or stock imagery — the site must GENERATE images.
-    capability: "image-generation",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:text-?(?:till|to)-?(?:bild|image)|ai-?(?:bild|image)-?(?:generator|generering|generation)|image-?generation|bildgenerering|bildgenerator)(?![\p{L}\p{N}_])/iu,
-      // Visitor-facing generation ("användare kan generera bilder") or an
-      // explicit with-AI clause. Bare "generera bilder" is NOT enough — that
-      // phrasing also covers asking Sajtmaskin for page imagery assets.
-      /(?<![\p{L}\p{N}_])(?:användar(?:e|na)?|besökar(?:e|na)?|users?|visitors?|kunder(?:na)?)[\s\S]{0,50}(?:generera(?:r)?\s+bilder|generate\s+images?|skapa(?:r)?\s+bilder)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:generera(?:r)?|skapa(?:r)?)\s+bilder\s+(?:med|via)\s+ai(?![\p{L}\p{N}_])|(?<![\p{L}\p{N}_])(?:generate|create)\s+images?\s+(?:with|using|via)\s+ai(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:fal(?:\.ai)?|flux(?:-?schnell|-?pro)?|dall-?e|stable\s+diffusion|midjourney)(?![\p{L}\p{N}_])/iu,
-    ],
-    // Gallery/lightbox/carousel asks are about SHOWING images, not generating
-    // them — route those to their own capabilities. "AI-genererade bilder" as
-    // page imagery (assets) is also not an in-site generator tool. Swedish
-    // definite/plural inflections included so "bildgalleriet" can't dodge.
-    vetoes: [
-      /(?<![\p{L}\p{N}_])(?:bild-?galleri(?:et|er|erna)?|foto-?galleri(?:et|er|erna)?|image[-\s]?galler(?:y|ies)|photo[-\s]?galler(?:y|ies)|lightbox(?:en)?|karusell(?:en|er)?|carousel|bildspel(?:et)?|slideshow)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:stock-?(?:bilder|foton|photos?|images?)|hero-?(?:bild|image)|bakgrundsbild(?:er)?|background\s+images?)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
+  // `realtime` (ably-realtime) and `image-generation` (fal-image-generation)
+  // left the vocabulary 2026-08-06 when their sole provider dossiers were
+  // parked (`_parkering/dossiers-utfasade-2026-08-06/`) — a capability id
+  // without a backing dossier selects nothing, so detecting it only mutes a
+  // surface the model may as well freehand as ordinary page content.
   {
     // Persistent server-side data storage (Postgres/Drizzle default;
     // mongodb-atlas / neon-postgres siblings resolve via manifest
@@ -333,12 +297,9 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:spåra\s+besökare|track[-\s]?visitors|page[-\s]?views|sidvisningar)(?![\p{L}\p{N}_])/iu,
     ],
   },
-  {
-    capability: "error-tracking",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:sentry|error[-\s]?tracking|fel-?spårning|crash[-\s]?reporting|bug[-\s]?reporting|datadog|bugsnag|rollbar)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
+  // `error-tracking` (sentry-error-tracking) left the vocabulary 2026-08-06
+  // with its parked dossier — same rationale as the realtime/image-generation
+  // note further up.
   {
     // Swipeable/auto-advancing slider. `image-gallery` / `product-gallery`
     // were intentionally REMOVED from here: a "gallery" the user wants to

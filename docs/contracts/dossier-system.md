@@ -67,11 +67,11 @@ capability via kanonisk mappning i
 | 2   | `auth`         | Inloggning & konton | `auth` (en capability — clerk-auth default, supabase-auth leverantörssyskon) |
 | 3   | `commerce`     | Betalning & handel  | `payments`, `subscriptions`                                                  |
 | 4   | `contact`      | Kontakt & utskick   | `contact-form`, `newsletter-subscribe`                                       |
-| 5   | `ai`           | AI                  | `ai-chat`, `ai-tool-calling`, `rag-chat`, `image-generation`                 |
+| 5   | `ai`           | AI                  | `ai-chat`, `ai-tool-calling`, `rag-chat`                                     |
 | 6   | `search-maps`  | Sök & karta         | `site-search`, `map-display`, `command-palette`                              |
 | 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`                                               |
 | 8   | `interactive`  | Interaktivt & 3D    | `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`            |
-| 9   | `ops`          | Realtid & drift     | `realtime`, `analytics`, `error-tracking`                                    |
+| 9   | `ops`          | Drift & mätning     | `analytics`                                                                  |
 | 10  | `other`        | Övrigt              | (fångstnät för omappade capabilities)                                        |
 
 > **Taxonomi-omtag 2026-07-22 (ägarbeslut):** elva soft-dossiers parkerades
@@ -85,6 +85,18 @@ capability via kanonisk mappning i
 > Legacy-id:n normaliseras via `CAPABILITY_ALIASES` i `select.ts`
 > (`supabase-auth` → `auth` med dossier-pin, `command-search` →
 > `command-palette`) så gamla snapshots fortsätter selektera rätt.
+>
+> **Nedbantning 2026-08-06 (ägarens fria-händer-uppdrag 2026-08-05):** fyra
+> hard-dossiers parkerades (`_parkering/dossiers-utfasade-2026-08-06/`):
+> `sentry-error-tracking`, `plausible-analytics`, `fal-image-generation` och
+> `ably-realtime` — noll prod-selektioner sedan telemetristart och inga
+> lastbärande kodreferenser. Capabilities `error-tracking`,
+> `image-generation` och `realtime` lämnade därmed grupper, brief-prompt,
+> follow-up-vokabulär och undantagslistan; `analytics` kvarstår med
+> `vercel-analytics` som ensam provider. Ops-gruppens label smalnade från
+> "Realtid & drift" till "Drift & mätning". En gammal snapshot med ett utfasat
+> capability-id selekterar tyst ingenting; ett F3-godkännande av providern
+> går den generiska vägen (`providerKeysWithoutBackingDossier`).
 
 **Fallback-principen:** demo-_mönstret_ (seed-data, canned-svar, fejkad
 success) är gemensamt per capability, men garantin gäller **per dossier**:
@@ -124,12 +136,13 @@ kategori ska ha en demo-fallback): `payments`, `subscriptions`, `auth` och
 `realtime` lämnade listan och deklarerar nu `mock: "visual"` — den
 interaktiva ytan renderas fullt ut och handlingen öppnar en ärlig
 demo-notis/modal i stället för att utföra den riktiga operationen (aldrig
-fejkade sessioner, debiteringar eller transport).
+fejkade sessioner, debiteringar eller transport). `error-tracking` lämnade
+listan 2026-08-06 av det motsatta skälet: dess enda dossier parkerades, så
+det finns ingen hard-dossier kvar för undantaget att gälla.
 
-| Capability       | Varför undantagen                                                                                              |
-| ---------------- | -------------------------------------------------------------------------------------------------------------- |
-| `analytics`      | Fire-and-forget-beacons har ingen visuell yta att mocka; nycklar är `warn-only` och komponenten self-disablar. |
-| `error-tracking` | Som analytics — ingen användarsynlig demo; self-disablar utan DSN.                                             |
+| Capability  | Varför undantagen                                                                                              |
+| ----------- | -------------------------------------------------------------------------------------------------------------- |
+| `analytics` | Fire-and-forget-beacons har ingen visuell yta att mocka; nycklar är `warn-only` och komponenten self-disablar. |
 
 Att lägga till en capability här är ett kontraktsbeslut, inte en genväg: en
 demo-bar capability (DB, CMS, e-post, AI, betalning, inloggning …) ska i
@@ -217,15 +230,15 @@ Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/t
 
 | `mock`                         | Beteende utan riktig nyckel                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Exempel-dossiers                                                                    |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `canned`                       | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar, bildgenerering ger en deterministisk platshållarbild). Riktiga vägen återupptas när en riktig nyckel sätts.                                                                                                                                                                                                                                                                    | `openai-chat`, `ai-tool-calling-chat`, `fal-image-generation`, `rag-chat`           |
+| `canned`                       | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar). Riktiga vägen återupptas när en riktig nyckel sätts.                                                                                                                                                                                                                                                                                                                          | `openai-chat`, `ai-tool-calling-chat`, `rag-chat`                                   |
 | `seed`                         | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps.                                                                                                                                  | `postgres-drizzle`, `neon-postgres`, `mongodb-atlas`                                |
 | `success`                      | Mutations-endpoints returnerar en fejkad success + en demo-notis (`demo: true`) så formulär går igenom i F2 utan att koppla providern.                                                                                                                                                                                                                                                                                                                                                  | `resend-contact-form`, `mailchimp-newsletter`                                       |
-| `visual` (nytt 2026-07-22)     | Den interaktiva ytan renderas fullt ut (betalknapp, inloggningsknappar, live-widget) och **handlingen** öppnar en ärlig demo-notis/modal i stället för att utföra den riktiga operationen — aldrig fejkade sessioner, debiteringar eller transport. Riktiga backend aktiveras när leverantörsvärden sparas. Exempel: stripe-checkouts `CheckoutButton` är klickbar och öppnar "Demoläge — ingen riktig betalning"-modalen; clerk-auths knappar öppnar "Inloggning i demoläge"-dialogen. | `stripe-checkout`, `clerk-auth`, `supabase-auth`, `paddle-billing`, `ably-realtime` |
-| `none` (default vid utelämnat) | Ingen användarsynlig demo-yta alls → komponenten self-disablar (analytics/error-tracking) eller visar en diskret konfigurationsbanner.                                                                                                                                                                                                                                                                                                                                                  | `vercel-analytics`, `plausible-analytics`, `sentry-error-tracking`                  |
+| `visual` (nytt 2026-07-22)     | Den interaktiva ytan renderas fullt ut (betalknapp, inloggningsknappar, live-widget) och **handlingen** öppnar en ärlig demo-notis/modal i stället för att utföra den riktiga operationen — aldrig fejkade sessioner, debiteringar eller transport. Riktiga backend aktiveras när leverantörsvärden sparas. Exempel: stripe-checkouts `CheckoutButton` är klickbar och öppnar "Demoläge — ingen riktig betalning"-modalen; clerk-auths knappar öppnar "Inloggning i demoläge"-dialogen. | `stripe-checkout`, `clerk-auth`, `supabase-auth`, `paddle-billing`                  |
+| `none` (default vid utelämnat) | Ingen användarsynlig demo-yta alls → komponenten self-disablar (analytics) eller visar en diskret konfigurationsbanner.                                                                                                                                                                                                                                                                                                                                                                 | `vercel-analytics`                                                                  |
 
 Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvVars` och skeppas aldrig till en riktig deploy. En dossier som fått en _riktig_ primärnyckel men har platshållare på en sekundärnyckel tar den ärliga setup-vägen (t.ex. `resend-contact-form`: riktig `RESEND_API_KEY` men placeholder `EMAIL_FROM`/`CONTACT_EMAIL_TO` → `503 email-not-configured` + `IntegrationConfigNotice`), aldrig ett riktigt anrop med fejkad config.
 
-**Satt på 15 av 18 hard-dossiers (sedan 2026-07-22 med `visual` för betalning/inloggning/prenumeration/realtid).** De tre analytics-dossiererna (`vercel-analytics`, `sentry-error-tracking`, `plausible-analytics`) utelämnar fältet → `none`; det är korrekt eftersom deras nycklar är `warn-only` (komponenten self-disablar helt utan visuell yta att mocka) och capabilities `analytics`/`error-tracking` står på undantagslistan. Att **varje** hard-dossier i en icke-undantagen capability har `mock ≠ none` är **CI-tvingat** (per-dossier sedan 2026-07-12) — se **Fallback-principen** i grupp-sektionen ovan (`findMissingMockFallbacks` i `validate-manifest.ts`).
+**Satt på 13 av 14 hard-dossiers (sedan nedbantningen 2026-08-06).** Endast `vercel-analytics` utelämnar fältet → `none`; det är korrekt eftersom dess nycklar är `warn-only` (komponenten self-disablar helt utan visuell yta att mocka) och capability `analytics` står på undantagslistan. Att **varje** hard-dossier i en icke-undantagen capability har `mock ≠ none` är **CI-tvingat** (per-dossier sedan 2026-07-12) — se **Fallback-principen** i grupp-sektionen ovan (`findMissingMockFallbacks` i `validate-manifest.ts`).
 
 ## Two code-fidelities (per-dossier default + per-file override)
 

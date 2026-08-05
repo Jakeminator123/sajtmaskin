@@ -204,9 +204,9 @@ describe("detectFollowUpCapabilities — assorted dossier capabilities", () => {
     expect(result.capabilityIds).toContain("analytics");
   });
 
-  it("detects 'sentry' as `error-tracking`", () => {
+  it("does NOT detect parked `error-tracking` (sentry-error-tracking parkerad 2026-08-06)", () => {
     const result = detectFollowUpCapabilities("lägg till sentry för error-tracking");
-    expect(result.capabilityIds).toContain("error-tracking");
+    expect(result.capabilityIds).not.toContain("error-tracking");
   });
 
   it("detects 'ai-chatt' as `ai-chat`", () => {
@@ -668,99 +668,41 @@ describe("detectFollowUpCapabilities — dashboard-charts", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Dossier wave 1 — hard integration capabilities promoted from legacy import
-// (2026-07-08): realtime (ably-realtime), image-generation
-// (fal-image-generation), ai-tool-calling (ai-tool-calling-chat).
+// Parked capabilities (2026-08-06): `realtime` (ably-realtime) and
+// `image-generation` (fal-image-generation) left the vocabulary with their
+// parked sole-provider dossiers — a capability without a backing dossier
+// selects nothing, so detecting it only muted a freehand-able surface.
+// The positive guarantee is that such asks are NOT nominated, and that the
+// neighbouring capabilities they used to be vetoed against still route right.
 // ─────────────────────────────────────────────────────────────────────────
-describe("detectFollowUpCapabilities — realtime", () => {
-  it("detects 'realtidschat' as realtime", () => {
-    const result = detectFollowUpCapabilities(
+describe("detectFollowUpCapabilities — parked capabilities stay undetected", () => {
+  it("does NOT nominate `realtime` for realtime-infrastructure asks", () => {
+    for (const prompt of [
       "lägg till en realtidschat mellan besökarna",
-    );
-    expect(result.capabilityIds).toContain("realtime");
+      "koppla på ably för live-notiser",
+      "add real-time notifications for new orders",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain("realtime");
+    }
   });
 
-  it("detects an explicit Ably/websocket ask", () => {
-    const result = detectFollowUpCapabilities("koppla på ably för live-notiser");
-    expect(result.capabilityIds).toContain("realtime");
+  it("does NOT nominate `image-generation` for text-to-image asks", () => {
+    for (const prompt of [
+      "lägg till en AI-bildgenerator på sidan",
+      "add a text-to-image tool",
+    ]) {
+      expect(detectFollowUpCapabilities(prompt).capabilityIds).not.toContain(
+        "image-generation",
+      );
+    }
   });
 
-  it("detects English 'real-time notifications'", () => {
-    const result = detectFollowUpCapabilities("add real-time notifications for new orders");
-    expect(result.capabilityIds).toContain("realtime");
-  });
-
-  it("detects presence ('vem som är online')", () => {
-    const result = detectFollowUpCapabilities(
-      "visa vem som är online, vi vill ha närvaro-status i chatten",
-    );
-    expect(result.capabilityIds).toContain("realtime");
-  });
-
-  // Veto: real-time ANALYTICS is an analytics/dashboard ask, not messaging infra.
-  it("does NOT detect realtime for 'real-time analytics dashboard'", () => {
-    const result = detectFollowUpCapabilities("add a real-time analytics dashboard");
-    expect(result.capabilityIds).not.toContain("realtime");
-  });
-
-  it("does NOT detect realtime for 'realtidsstatistik över besökare'", () => {
-    const result = detectFollowUpCapabilities(
-      "lägg till realtidsstatistik över besökare på sidan",
-    );
-    expect(result.capabilityIds).not.toContain("realtime");
-  });
-
-  // Veto exercise: a genuine live-updates phrase is suppressed when the
-  // surrounding ask is a realtime DASHBOARD (analytics/statistics surface).
-  it("vetoes live-uppdateringar when tied to a realtime dashboard", () => {
-    const result = detectFollowUpCapabilities(
-      "lägg till live-uppdateringar på realtids-dashboarden",
-    );
-    expect(result.capabilityIds).not.toContain("realtime");
-  });
-});
-
-describe("detectFollowUpCapabilities — image-generation", () => {
-  it("detects 'AI-bildgenerator' as image-generation", () => {
-    const result = detectFollowUpCapabilities("lägg till en AI-bildgenerator på sidan");
-    expect(result.capabilityIds).toContain("image-generation");
-  });
-
-  it("detects a visitor-facing generation ask", () => {
-    const result = detectFollowUpCapabilities(
-      "användare ska kunna generera bilder från en textprompt",
-    );
-    expect(result.capabilityIds).toContain("image-generation");
-  });
-
-  it("detects English 'text-to-image' and Fal model names", () => {
-    expect(
-      detectFollowUpCapabilities("add a text-to-image tool").capabilityIds,
-    ).toContain("image-generation");
-    expect(
-      detectFollowUpCapabilities("lägg till fal flux-schnell för bildgenerering").capabilityIds,
-    ).toContain("image-generation");
-  });
-
-  // Veto: galleries/lightboxes SHOW images — they do not generate them.
-  it("does NOT detect image-generation for a gallery/lightbox ask", () => {
+  it("still routes gallery asks to gallery-lightbox (not the parked generator)", () => {
     const result = detectFollowUpCapabilities(
       "lägg till ett bildgalleri där man kan förstora bilder",
     );
     expect(result.capabilityIds).not.toContain("image-generation");
     expect(result.capabilityIds).toContain("gallery-lightbox");
-  });
-
-  it("does NOT detect image-generation for a photo carousel ask", () => {
-    const result = detectFollowUpCapabilities("lägg till en karusell med foton");
-    expect(result.capabilityIds).not.toContain("image-generation");
-  });
-
-  it("does NOT detect image-generation for stock/hero imagery requests", () => {
-    const result = detectFollowUpCapabilities(
-      "lägg till stock-bilder och en hero-bild på startsidan",
-    );
-    expect(result.capabilityIds).not.toContain("image-generation");
   });
 });
 

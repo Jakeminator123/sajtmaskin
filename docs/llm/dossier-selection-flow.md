@@ -201,8 +201,7 @@ via `npm run dossiers:capability-map:write` (eller backoffice-tabben).
   nyckelfria `vercel-analytics`, `payments` (stripe-checkout),
   `auth` (clerk-auth default + supabase-auth), `ai-chat` (openai-chat),
   `contact-form` (resend-contact-form), `newsletter-subscribe`
-  (mailchimp-newsletter), `analytics` (plausible-analytics + vercel-analytics),
-  `error-tracking` (sentry-error-tracking).
+  (mailchimp-newsletter), `analytics` (vercel-analytics).
 - `soft` (Fristående) är självförsörjande mönster — `carousel`,
   `command-palette`, `gallery-lightbox`, `map-display`, `site-search`,
   `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`.

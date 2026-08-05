@@ -23,12 +23,10 @@ describe("integration manifest", () => {
     const detected = detectIntegrationsFromVersionFiles(files);
     const sentry = detected.find((d) => d.key === "sentry");
     expect(sentry?.name).toBe("Sentry");
-    expect(sentry?.envVars).toEqual([
-      "NEXT_PUBLIC_SENTRY_DSN",
-      "SENTRY_ENVIRONMENT",
-      "SENTRY_TRACES_SAMPLE_RATE",
-    ]);
-    expect(sentry?.envVars).not.toContain("SENTRY_DSN");
+    // sentry-error-tracking parkerades 2026-08-06, så providern är dossierless
+    // och den generiska registry-definitionen äger env-kontraktet igen —
+    // exakt den designade fallback-ordningen (manifest > registry).
+    expect(sentry?.envVars).toEqual(["SENTRY_DSN"]);
   });
 
   it("detects Meilisearch from generated code", () => {
