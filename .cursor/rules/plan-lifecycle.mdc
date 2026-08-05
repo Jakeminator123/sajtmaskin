@@ -43,7 +43,7 @@ Flytta färdiga planer till `avklarat/`. Låt inte lösa fragment ligga i `activ
 
 ## Ägarbeslut
 
-Öppna beslutsfrågor ligger i `BUG-SWARM-BACKLOG.md`. Fattade/ratificerade beslut registreras i `docs/decisions/README.md` med datum och pekare till kanonisk källa; backloggraden arkiveras då med pekare dit. Beslutshistorik hör aldrig hemma i `active/`.
+Öppna beslutsfrågor ligger i `BUG-SWARM-BACKLOG.md` (aktiva defekter i `## Aktiv kö`, uppskjutna produkt-/arkitekturval i `## Beslut & policy`). Fattade/ratificerade beslut registreras i `docs/decisions/README.md` med datum och pekare till kanonisk källa; backloggraden arkiveras då med pekare dit. Beslutshistorik hör aldrig hemma i `active/`.
 
 ## Buggar
 
