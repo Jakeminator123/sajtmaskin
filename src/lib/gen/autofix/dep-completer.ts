@@ -304,6 +304,10 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   // Pinned to the platform's own range so the generated site gets the major the
   // vercel-analytics dossier was verified against (repo: ^1.3.1).
   "@vercel/speed-insights": "^1.3.1",
+  // AI Elements catalog dependencies. Keep these pinned so selecting the
+  // corresponding context or graph components cannot fall through to `latest`.
+  tokenlens: "^1",
+  "@xyflow/react": "^12",
 };
 
 /**
