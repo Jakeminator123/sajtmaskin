@@ -4,6 +4,7 @@
   "mock": "success",
   "label": "Nyhetsbrev — Mailchimp",
   "capability": "newsletter-subscribe",
+  "providers": ["mailchimp"],
   "codeFidelity": "rewritable",
   "complexity": "medium",
   "defaultForCapability": true,

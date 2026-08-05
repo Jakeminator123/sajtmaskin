@@ -24,6 +24,30 @@ data/dossiers/
 | `hard` | Provider-coupled: depends on an external service or its runtime contract. It may have secrets, public config, SDK/server files, or a client-only provider integration. | Selection marks `configured: true\|false` per project (see the selection algorithm below). Missing values follow the dossier's `mock`/enforcement contract. `hard` does **not** by itself mean "requires F3". |
 | `soft` | Self-contained in the generated project: no external provider/account/secret. npm dependencies are allowed.                                                            | Always considered configured.                                                                                                                                                                                 |
 
+### Provider identity and ownership
+
+Every `hard` manifest must declare a non-empty `providers` array; `soft`
+manifests must omit it. The values are canonical provider identities such as
+`stripe`, `openai` or `postgres`. A composite dossier may list more than one
+provider (`rag-chat` owns both `openai` and `postgres`).
+
+The ownership hierarchy is strict:
+
+1. `manifest.json` owns provider → exact dossier ids/capabilities, env
+   enforcement, files, exports and verification status.
+2. `src/lib/gen/dossiers/registry.ts` exposes the generated runtime projection.
+   Exactly one matching dossier is `unique`; more than one is `ambiguous` and
+   must not be selected implicitly.
+3. `src/lib/integrations/registry.ts` supplies generic provider metadata only
+   when no unique dossier contract exists.
+4. `agent-tools.ts` derives its provider enum from that registry plus the
+   manifest provider catalog; it is never a separately maintained owner.
+
+Do not infer provider ownership from dossier ids, npm dependencies,
+capabilities or integration categories. Thus `stripe` resolves uniquely to
+`stripe-checkout`, while a bare `openai` approval remains generic until an
+exact capability/dossier is known.
+
 Hard dossiers whose runtime crashes on missing/placeholder keys should additionally **key-gate themselves in the shipped files** — e.g. `clerk-auth/components/middleware.ts` only constructs `clerkMiddleware` when the keys are structurally valid and otherwise degrades to `NextResponse.next()` (placeholder keys must never 500 the whole preview). The `configured` flag from selection is a prompt signal, not a runtime guard — it is never wired to any gate.
 
 ## Grupper (presentations-lager, 10 st)
@@ -148,7 +172,7 @@ Samma dossier kan spänna över F2 och F3 — det är inte två separata dossier
 
 **Kanonisk signal i dagens kod** för "kräver F3" är dossierns eget kontrakt, via helpern [`dossierRequiresF3()`](../../src/lib/gen/dossiers/types.ts) (enda källan). Två regler:
 
-1. **Env-kontrakt:** en `envVars`-post med `enforcement: "build"` (default när `enforcement` utelämnas). Efter #468 är `clerk-auth` (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) den **enda** hard-dossiern som fortfarande har `build`-enforcement — trasig inloggning är värre än demo-friktion. Övriga (Stripe, OpenAI, DB, e-post …) är `feature-runtime`/`warn-only` och degraderar via sitt mock-läge i stället för att blockera. En `build`-nyckel som saknas är alltså det enda som gör en dossier F3-tvingande via env-vägen.
+1. **Env-kontrakt:** en `envVars`-post med `enforcement: "build"` (default när `enforcement` utelämnas). Efter #468 är `clerk-auth` (`CLERK_SECRET_KEY` + `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) den **enda** hard-dossiern som fortfarande har `build`-enforcement — trasig inloggning är värre än demo-friktion. Övriga (Stripe, OpenAI, DB, e-post …) är `feature-runtime`/`warn-only` och degraderar via sitt mock-läge i stället för att blockera. En `build`-nyckel gör dossiern F3-relevant via env-vägen, men readiness blockerar bara om både ett riktigt projektvärde och en katalog-godkänd placeholder saknas. Clerk-nycklarna har i dag katalog-placeholder och kan därför köra demo utan ett automatiskt F3-stopp.
 2. **Server-yta:** en `files[]`-post med `role: "server"` — dossiers som skeppar backend-wiring (API-route, middleware, server-config) hör till F3 även utan build-secret. Exempel: `resend-contact-form` (alla nycklar `feature-runtime`, men `/api/contact`-routen importerar `resend` som F2:s SDK-deny-lista strippar) och `mailchimp-newsletter`. I F2 renderas formuläret som visuell mockup enligt F2-kontraktet i `session-contracts.ts`; mejl/prenumeration aktiveras först i F3 ("Bygg integrationer").
 
 [`getF3RequiredCapabilities()`](../../src/lib/gen/dossiers/registry.ts) räknar upp de capability-nycklar vars dossier kräver F3, och `orchestrate.ts` deriverar F2-mute-listan därifrån (union med policy-residualen `{analytics}` — icke-secret, server-fri integration som ändå ska F2-mutas, per [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)). En dossier med `envVars: []` och enbart klientfiler (t.ex. `interactive-game-loop`) är alltså **fullt F2-användbar**. Utöka gränsen i helpern om ett framtida fall behöver det — inte via en ny per-dossier-flagga eller separat hårdkodad lista.
@@ -188,7 +212,7 @@ The block is emit-time prevention, which is the part the pipeline can guarantee:
 
 Incident this closes: chat `747636c8` (2026-07-13) built its own `components/chatbot-widget.tsx` + `app/api/ai-chat/route.ts` in F2, then added the `openai-chat` dossier for the same `ai-chat` capability. Nothing declared ownership, the page ended up with two chat implementations, and the hand-rolled one carried the `TS2345` that failed the F3 ReleaseGate.
 
-## Manifest schema (7 required + optional)
+## Manifest schema (7 common required + class rule)
 
 ```json
 {
@@ -197,6 +221,7 @@ Incident this closes: chat `747636c8` (2026-07-13) built its own `components/cha
   "mock": "visual",
   "label": "Betalning — Stripe",
   "capability": "payments",
+  "providers": ["stripe"],
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
@@ -237,6 +262,7 @@ Incident this closes: chat `747636c8` (2026-07-13) built its own `components/cha
 | `id`                    | ✓                          | Kebab-case, must match the directory name.                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `label`                 | ✓                          | Human label for backoffice.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `capability`            | ✓                          | Single kebab-case capability (matched against `brief.requestedCapabilities`).                                                                                                                                                                                                                                                                                                                                                                                           |
+| `providers`             | hard: ✓ · soft: forbidden  | Canonical provider identities this dossier implements. One or more for `hard`; omit for `soft`. Multiple matches for the same provider are intentionally ambiguous and require an exact capability/dossier selection.                                                                                                                                                                                                                                                   |
 | `codeFidelity`          | ✓                          | `verbatim` or `rewritable` (default for files).                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `complexity`            | ✓                          | `simple` / `medium` / `advanced`.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `summary`               | ✓                          | 1-3 sentences. Used in prompt + backoffice.                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -336,18 +362,18 @@ when **no pending dossier remains** and the existing file-derived build spec has
 no reason to run a general LLM build. An APPROVE-continuation remains exempted
 from the deterministic backstop in three legacy/interactive cases:
 
-1. **Dossier-backed provider, DOSSIER-ID granularity** (Codex P1 on #503): an
-   approved provider maps via `mapProviderKeysToBackingDossierIds` (strict
-   id/dependency matching) to a backing dossier whose files are NOT present in
-   the parent (`resolveDossierIdsPresentInVersion`). Capability granularity is
-   deliberately NOT used here — a present sibling (`postgres-drizzle` under
-   `database`) must not satisfy an approved `mongodb`.
-2. **Dossier-LESS registry provider** (coach review on #503, policy
-   2026-07-13): an approved provider that resolves in `integrationRegistry`
-   but has no backing dossier (e.g. `posthog`, `google-analytics` —
-   `providerKeysWithoutBackingDossier`) and is not already evidenced in the
-   parent's file-derived spec goes the GENERIC LLM build path — never a
-   deterministic exact-file fork that would ship zero integration code.
+1. **Uniquely dossier-backed provider, DOSSIER-ID granularity:** an approved
+   provider maps via explicit `manifest.providers` to exactly one dossier whose
+   files are not present in the parent (`resolveDossierIdsPresentInVersion`).
+   Capability granularity is deliberately not used — a present sibling
+   (`postgres-drizzle` under `database`) must not satisfy an approved
+   `mongodb`. Legacy approval values that already contain an exact dossier id
+   (for example `stripe-checkout`) remain accepted as explicit identities.
+2. **Dossierless or ambiguous provider:** a known provider with zero manifest
+   matches (`posthog`, `google-analytics`) or several matches (`openai`,
+   `supabase`) is reported by `providerKeysWithoutBackingDossier` and goes
+   through the GENERIC LLM path. It must never pick an arbitrary dossier sibling
+   or take a deterministic exact-file fork that would ship the wrong/zero code.
 3. **Durable snapshot capability**: a persisted `f3ApprovedCapabilities` entry
    (no provider identity to sharpen with) lacking file presence, compared at
    capability level.
@@ -391,8 +417,11 @@ Output: `DossierSelectionResult` consumed by `src/lib/gen/system-prompt/` to ren
 ### Manually
 
 1. Decide class: `hard` (provider/service-coupled) or `soft` (self-contained without an external provider; npm dependencies are allowed).
-2. Create `data/dossiers/<class>/<id>/manifest.json` matching the schema.
-3. Write `data/dossiers/<class>/<id>/instructions.md` with the five sections.
+2. Create `data/dossiers/<class>/<id>/manifest.json` matching the schema;
+   declare canonical `providers` for `hard`, and omit it for `soft`.
+3. Write `data/dossiers/<class>/<id>/instructions.md` with the two required
+   headings and preferably the three recommended headings from the author
+   template.
 4. Place files under `data/dossiers/<class>/<id>/components/...` matching `files[].path`.
 5. Run `npm run dossiers:validate-all` (canonical AJV validation + invariants; `typecheck` alone does not validate manifest JSON).
 6. Open the backoffice "Dossiers" page → "Capability map" tab → "Bygg om" to refresh `_index/capability-map.json`.
@@ -518,13 +547,16 @@ instructions declare a not-configured contract should also ship component
 tests exercising the 503 → notice path (see
 `src/lib/gen/dossiers/dossier-config-fallback.test.tsx`).
 
-**Documented divergence:** the backoffice save path (`backoffice/pages/dossiers.py`,
-`_validate_manifest`) does a lighter Python pre-check (required fields + enum
-values) so the editor can give instant feedback without a Node round-trip. It is
-intentionally a _subset_ — a manifest can pass the Python pre-check and still be
-rejected by the canonical Node/AJV validator in CI. Treat the Node validator as
-source of truth; always run `npm run dossiers:validate-all` after editing a
-manifest in the backoffice.
+**Backoffice validation:** every class-aware write path in
+`backoffice/pages/dossiers.py` (safe edit, raw JSON, capability override,
+legacy promotion, and skeleton creation) applies the hard/soft `providers`
+rule and the strict JSON schema before backup/write. The lightweight
+`_validate_manifest` still supplies immediate field-level feedback, while the
+strict-schema pass prevents the raw editor from bypassing canonical shape
+rules. Node/AJV remains the full source of truth because
+`dossiers:validate-all` additionally checks cross-manifest defaults,
+instructions, files/import closure, mock fallbacks, and SDK construction; run
+it after backoffice edits.
 
 **Capability map:** `data/dossiers/_index/capability-map.json` is a **generated
 view only** (backoffice + curation tooling); the runtime registry walks

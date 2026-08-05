@@ -4,6 +4,7 @@
   "mock": "visual",
   "label": "Inloggning — Supabase",
   "capability": "auth",
+  "providers": ["supabase"],
   "codeFidelity": "verbatim",
   "complexity": "advanced",
   "defaultForCapability": false,

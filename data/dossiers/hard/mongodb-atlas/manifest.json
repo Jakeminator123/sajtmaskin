@@ -4,6 +4,7 @@
   "mock": "seed",
   "label": "Databas — MongoDB Atlas",
   "capability": "database",
+  "providers": ["mongodb"],
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": false,
@@ -19,9 +20,7 @@
       "enforcement": "feature-runtime"
     }
   ],
-  "dependencies": [
-    "mongodb"
-  ],
+  "dependencies": ["mongodb"],
   "files": [
     {
       "path": "components/lib/mongodb.ts",

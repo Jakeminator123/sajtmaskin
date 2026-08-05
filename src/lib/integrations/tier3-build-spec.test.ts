@@ -4,12 +4,14 @@ import {
   deriveTier3BuildSpec,
   deriveTier3BuildSpecForProviderKeys,
   hasRequiredRealBuildKeys,
+  mapProviderKeysToBackingDossierIds,
   mapProviderKeysToDossierCapabilities,
   providerKeysWithoutBackingDossier,
   renderTier3BuildPlanBlock,
   validateTier3Readiness,
 } from "./tier3-build-spec";
 import { resolveIntegrationIdentityKey } from "./suggestion-display";
+import { integrationRegistryByKey } from "./registry";
 import type { PlanContracts } from "@/lib/gen/plan/schema";
 
 const emptyContracts: PlanContracts = {
@@ -18,24 +20,96 @@ const emptyContracts: PlanContracts = {
   envVars: [],
 };
 
+it("projects unique Sentry and Resend registry contracts from manifests", () => {
+  const resend = integrationRegistryByKey.get("resend");
+  expect(resend?.envVars).toEqual(["RESEND_API_KEY", "EMAIL_FROM", "CONTACT_EMAIL_TO"]);
+  expect(resend?.setupGuide).toContain("https://resend.com/docs/dashboard/api-keys/introduction");
+
+  const sentry = integrationRegistryByKey.get("sentry");
+  expect(sentry?.envVars).toEqual([
+    "NEXT_PUBLIC_SENTRY_DSN",
+    "SENTRY_ENVIRONMENT",
+    "SENTRY_TRACES_SAMPLE_RATE",
+  ]);
+  expect(sentry?.envVars).not.toContain("SENTRY_DSN");
+  expect(sentry?.setupGuide).toContain(
+    "https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/",
+  );
+});
+
 it("derives build requirements directly from explicit provider approvals", () => {
   const spec = deriveTier3BuildSpecForProviderKeys(["stripe"]);
-  expect(spec.requirements.map((requirement) => requirement.key)).toContain(
-    "stripe",
+  expect(spec.requirements.map((requirement) => requirement.key)).toContain("stripe");
+});
+
+it("accepts legacy exact dossier ids in the approved-provider list", () => {
+  const spec = deriveTier3BuildSpecForProviderKeys(["stripe-checkout"]);
+  expect(spec.requirements).toHaveLength(1);
+  expect(spec.requirements[0]).toMatchObject({
+    key: "stripe-checkout",
+    provider: "stripe",
+    featureRuntimeEnvKeys: ["STRIPE_SECRET_KEY"],
+  });
+  expect(spec.requirements[0].buildInstructions.join("\n")).toContain(
+    "components/api/checkout-session/route.ts",
   );
+});
+
+it("deduplicates mixed provider and legacy dossier identities", () => {
+  const specs = [];
+  for (const approvals of [
+    ["stripe", "stripe-checkout"],
+    ["stripe-checkout", "stripe"],
+  ]) {
+    const spec = deriveTier3BuildSpecForProviderKeys(approvals);
+    expect(spec.requirements).toHaveLength(1);
+    expect(spec.requirements[0]).toMatchObject({
+      key: "stripe-checkout",
+      provider: "stripe",
+      featureRuntimeEnvKeys: ["STRIPE_SECRET_KEY"],
+    });
+    specs.push(spec);
+  }
+  expect(specs[0]).toEqual(specs[1]);
+});
+
+it("lets an exact dossier identity supersede an ambiguous provider approval", () => {
+  const specs = [];
+  for (const approvals of [
+    ["openai", "openai-chat"],
+    ["openai-chat", "openai"],
+  ]) {
+    const spec = deriveTier3BuildSpecForProviderKeys(approvals);
+    expect(spec.requirements).toHaveLength(1);
+    expect(spec.requirements[0]).toMatchObject({
+      key: "openai-chat",
+      provider: "openai",
+      featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+    });
+    specs.push(spec);
+  }
+  expect(specs[0]).toEqual(specs[1]);
 });
 
 describe("providerKeysWithoutBackingDossier (coach edge case on #503)", () => {
   it("flags registry providers without a backing dossier (posthog, google-analytics)", () => {
     expect(providerKeysWithoutBackingDossier(["posthog"])).toEqual(["posthog"]);
-    expect(providerKeysWithoutBackingDossier(["google-analytics"])).toEqual([
-      "google-analytics",
-    ]);
+    expect(providerKeysWithoutBackingDossier(["google-analytics"])).toEqual(["google-analytics"]);
   });
 
   it("does NOT flag dossier-backed providers (stripe, mongodb)", () => {
     expect(providerKeysWithoutBackingDossier(["stripe"])).toEqual([]);
     expect(providerKeysWithoutBackingDossier(["mongodb"])).toEqual([]);
+  });
+
+  it("flags ambiguous providers instead of choosing an implicit dossier", () => {
+    expect(providerKeysWithoutBackingDossier(["openai"])).toEqual(["openai"]);
+    expect(providerKeysWithoutBackingDossier(["supabase"])).toEqual(["supabase"]);
+  });
+
+  it("lets an exact dossier identity supersede its ambiguous provider alias", () => {
+    expect(providerKeysWithoutBackingDossier(["openai-chat", "openai"])).toEqual([]);
+    expect(providerKeysWithoutBackingDossier(["openai", "openai-chat"])).toEqual([]);
   });
 
   it("skips unknown providers and empty input", () => {
@@ -64,24 +138,20 @@ describe("config-notice advertisement uses strict backing (Codex P1 on #506)", (
 
 describe("resolveIntegrationIdentityKey generic-provider guard (Codex P1 on #506)", () => {
   it("falls through to the named provider when provider is the generic 'other'", () => {
-    expect(
-      resolveIntegrationIdentityKey({ provider: "other", name: "PostHog" }),
-    ).toBe("posthog");
-    expect(
-      resolveIntegrationIdentityKey({ provider: "custom", name: "Google Analytics" }),
-    ).toBe("googleanalytics");
+    expect(resolveIntegrationIdentityKey({ provider: "other", name: "PostHog" })).toBe("posthog");
+    expect(resolveIntegrationIdentityKey({ provider: "custom", name: "Google Analytics" })).toBe(
+      "googleanalytics",
+    );
   });
 
   it("keeps a real provider identity untouched", () => {
-    expect(
-      resolveIntegrationIdentityKey({ provider: "stripe", name: "Stripe Checkout" }),
-    ).toBe("stripe");
+    expect(resolveIntegrationIdentityKey({ provider: "stripe", name: "Stripe Checkout" })).toBe(
+      "stripe",
+    );
   });
 
   it("returns null when both provider and name are generic", () => {
-    expect(
-      resolveIntegrationIdentityKey({ provider: "other", name: "integration" }),
-    ).toBeNull();
+    expect(resolveIntegrationIdentityKey({ provider: "other", name: "integration" })).toBeNull();
   });
 });
 
@@ -90,7 +160,7 @@ describe("deriveTier3BuildSpec", () => {
     expect(deriveTier3BuildSpec(emptyContracts)).toEqual({ requirements: [] });
   });
 
-  it("partitions Stripe envVars into harmless (publishable) vs tier-3 (secret/webhook)", () => {
+  it("uses the exact Stripe dossier contract instead of hand-written provider instructions", () => {
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
@@ -111,19 +181,19 @@ describe("deriveTier3BuildSpec", () => {
     expect(spec.requirements).toHaveLength(1);
     const req = spec.requirements[0];
     expect(req.key).toBe("stripe");
-    expect(req.requiredRealEnvKeys.sort()).toEqual(
-      ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"].sort(),
-    );
-    expect(req.placeholderOkEnvKeys).toEqual(["NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"]);
+    expect(req.requiredRealEnvKeys).toEqual([]);
+    expect(req.featureRuntimeEnvKeys).toEqual(["STRIPE_SECRET_KEY"]);
+    expect(req.warnOnlyEnvKeys).toEqual(["NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"]);
+    expect(req.placeholderOkEnvKeys).toEqual([]);
     expect(req.buildInstructions.length).toBeGreaterThanOrEqual(4);
-    expect(req.buildInstructions.some((s) => s.toLowerCase().includes("stripe"))).toBe(true);
+    expect(req.buildInstructions.join("\n")).toContain("stripe-checkout");
+    expect(req.buildInstructions.join("\n")).toContain("components/api/checkout-session/route.ts");
+    expect(req.buildInstructions.join("\n")).not.toContain("STRIPE_WEBHOOK_SECRET");
   });
 
-  it("falls back to integrationRegistry envVars when contract envVars is empty", () => {
-    // Uses Stripe because it is backed by the stripe-checkout dossier, so
-    // required env keys survive the dossier-backing clamp. Supabase (which
-    // used to be here) has no dossier yet and would correctly be downgraded
-    // to warn-only — see the dedicated clamp test below.
+  it("uses manifest envVars when contract envVars is empty", () => {
+    // A unique provider projection makes stripe-checkout the contract owner;
+    // contract/registry env lists cannot override its enforcement metadata.
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
@@ -139,19 +209,36 @@ describe("deriveTier3BuildSpec", () => {
 
     expect(spec.requirements).toHaveLength(1);
     const req = spec.requirements[0];
-    expect(req.requiredRealEnvKeys).toContain("STRIPE_SECRET_KEY");
-    expect(req.placeholderOkEnvKeys).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+    expect(req.featureRuntimeEnvKeys).toContain("STRIPE_SECRET_KEY");
+    expect(req.warnOnlyEnvKeys).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
   });
 
-  it("downgrades unbacked integrations (no matching dossier) to warn-only", () => {
-    // Pin change (dossier-batch): the fixture used to be "supabase", but the
-    // promoted supabase-auth dossier now BACKS the supabase registry entry
-    // (id-prefix match) and genuinely consumes its keys — see the companion
-    // test below. vercel-kv remains truly unbacked (no dossier id/dependency
-    // implements it; category "data" has no dossier capability), so F3 must
-    // not block on KV keys nothing in generated code would consume. Clamp
-    // moves them from requiredRealEnvKeys → warnOnlyEnvKeys so the UI still
-    // surfaces them but F3 validation doesn't refuse to start.
+  it("keeps a manifest-only provider emitted by the agent contract", () => {
+    const spec = deriveTier3BuildSpec({
+      ...emptyContracts,
+      integrations: [
+        {
+          provider: "fal",
+          name: "Fal",
+          reason: "image generation",
+          status: "chosen",
+          envVars: [],
+        },
+      ],
+    });
+
+    expect(spec.requirements).toHaveLength(1);
+    expect(spec.requirements[0]).toMatchObject({
+      key: "fal",
+      provider: "fal",
+      featureRuntimeEnvKeys: ["FAL_API_KEY"],
+    });
+    expect(spec.requirements[0].buildInstructions.join("\n")).toContain("fal-image-generation");
+  });
+
+  it("keeps dossierless registry integrations non-blocking", () => {
+    // Vercel KV has a registry definition but no manifest provider owner.
+    // The generic path surfaces its keys without claiming dossier enforcement.
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
@@ -172,11 +259,7 @@ describe("deriveTier3BuildSpec", () => {
     expect(req.warnOnlyEnvKeys).toContain("KV_REST_API_TOKEN");
   });
 
-  it("no longer clamps supabase — the supabase-auth dossier backs it (dossier-batch)", () => {
-    // Before the batch, "supabase" had no backing dossier and was clamped to
-    // warn-only. supabase-auth (id-prefix "supabase-") now implements it and
-    // consumes NEXT_PUBLIC_SUPABASE_URL/ANON_KEY, so requiring real values at
-    // an explicit supabase approval is actionable again.
+  it("keeps ambiguous Supabase approvals on the generic path", () => {
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
@@ -192,8 +275,10 @@ describe("deriveTier3BuildSpec", () => {
 
     expect(spec.requirements).toHaveLength(1);
     const req = spec.requirements[0];
-    expect(req.requiredRealEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_URL");
-    expect(req.requiredRealEnvKeys).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+    expect(req.requiredRealEnvKeys).toEqual([]);
+    expect(req.buildInstructions[0]).toContain("No unique dossier contract");
+    expect(req.buildInstructions.join("\n")).not.toContain("supabase-auth");
+    expect(req.buildInstructions.join("\n")).not.toContain("paddle-billing");
     expect(req.hasConfigNoticeComponent).toBe(false);
   });
 
@@ -236,12 +321,7 @@ describe("deriveTier3BuildSpec", () => {
     expect(spec.requirements).toHaveLength(1);
   });
 
-  it("respects upstream warn-only envEnforcement so unbacked integrations don't block F3 (plan-12 #15)", () => {
-    // End-to-end check for the chat-b71dafb3 scenario: detect-integrations
-    // marks orphan Stripe + Clerk imports as warn-only when no matching
-    // dossier was selected (via the new applyEnforcementOverlay default).
-    // tier3-build-spec must honour that classification so every required
-    // real env key is empty → validateTier3Readiness reports ready.
+  it("lets unique dossier enforcement override upstream/global classification", () => {
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
@@ -269,15 +349,14 @@ describe("deriveTier3BuildSpec", () => {
 
     const stripe = spec.requirements.find((r) => r.key === "stripe");
     const clerk = spec.requirements.find((r) => r.key === "clerk");
-    expect(stripe?.requiredRealEnvKeys).toEqual([]);
-    expect(stripe?.warnOnlyEnvKeys).toContain("STRIPE_SECRET_KEY");
-    expect(clerk?.requiredRealEnvKeys).toEqual([]);
-    expect(clerk?.warnOnlyEnvKeys).toContain("CLERK_SECRET_KEY");
+    expect(stripe?.featureRuntimeEnvKeys).toContain("STRIPE_SECRET_KEY");
+    expect(stripe?.warnOnlyEnvKeys).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+    expect(clerk?.requiredRealEnvKeys).toContain("CLERK_SECRET_KEY");
+    expect(clerk?.requiredRealEnvKeys).toContain("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY");
 
     const readiness = validateTier3Readiness(spec, {});
-    expect(readiness.ready).toBe(true);
-    expect(readiness.missingByIntegration).toEqual([]);
-    expect(hasRequiredRealBuildKeys(spec)).toBe(false);
+    expect(readiness.ready).toBe(false);
+    expect(hasRequiredRealBuildKeys(spec)).toBe(true);
   });
 
   it("treats only required real build keys as permission for an F3 LLM round", () => {
@@ -314,52 +393,54 @@ describe("deriveTier3BuildSpec", () => {
 });
 
 describe("validateTier3Readiness", () => {
-  const stripeSpec = deriveTier3BuildSpec({
+  const clerkSpec = deriveTier3BuildSpec({
     ...emptyContracts,
     integrations: [
       {
-        provider: "stripe",
-        name: "Stripe",
-        reason: "billing",
+        provider: "clerk",
+        name: "Clerk",
+        reason: "auth",
         status: "chosen",
-        envVars: [
-          "STRIPE_SECRET_KEY",
-          "STRIPE_WEBHOOK_SECRET",
-          "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-        ],
       },
     ],
   });
 
   it("reports ready when all required keys have non-empty values", () => {
-    const report = validateTier3Readiness(stripeSpec, {
-      STRIPE_SECRET_KEY: "sk_test_real",
-      STRIPE_WEBHOOK_SECRET: "whsec_real",
+    const report = validateTier3Readiness(clerkSpec, {
+      CLERK_SECRET_KEY: "sk_test_real",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_real",
     });
     expect(report.ready).toBe(true);
     expect(report.missingByIntegration).toEqual([]);
   });
 
   it("reports missing keys when env vars are absent or empty", () => {
-    const report = validateTier3Readiness(stripeSpec, {
-      STRIPE_SECRET_KEY: "  ",
+    const report = validateTier3Readiness(clerkSpec, {
+      CLERK_SECRET_KEY: "  ",
     });
     expect(report.ready).toBe(false);
     expect(report.missingByIntegration).toEqual([
       {
-        key: "stripe",
-        name: "Stripe",
-        missing: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
+        key: "clerk",
+        name: "Clerk",
+        missing: ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
       },
     ]);
   });
 
-  it("ignores harmless keys even when missing", () => {
-    const report = validateTier3Readiness(stripeSpec, {
-      STRIPE_SECRET_KEY: "sk_test_real",
-      STRIPE_WEBHOOK_SECRET: "whsec_real",
-      // NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY intentionally absent
+  it("does not block on manifest feature-runtime or warn-only keys", () => {
+    const stripeSpec = deriveTier3BuildSpec({
+      ...emptyContracts,
+      integrations: [
+        {
+          provider: "stripe",
+          name: "Stripe",
+          reason: "billing",
+          status: "chosen",
+        },
+      ],
     });
+    const report = validateTier3Readiness(stripeSpec, {});
     expect(report.ready).toBe(true);
   });
 });
@@ -491,17 +572,16 @@ describe("mapProviderKeysToDossierCapabilities", () => {
     expect(mapProviderKeysToDossierCapabilities(["stripe"])).toContain("payments");
   });
 
-  it("maps clerk/openai/resend via the same dossier matching rules as the backing clamp", () => {
+  it("maps unique Clerk/Resend providers and leaves OpenAI ambiguous", () => {
     expect(mapProviderKeysToDossierCapabilities(["clerk"])).toContain("auth");
-    expect(mapProviderKeysToDossierCapabilities(["openai"])).toContain("ai-chat");
+    expect(mapProviderKeysToDossierCapabilities(["openai"])).toEqual([]);
     expect(mapProviderKeysToDossierCapabilities(["resend"])).toContain("contact-form");
   });
 
   it("compact-matches identity-form keys (suggestIntegration output)", () => {
     // toolSignaledProviders stores compact identity form ("vercelblob"),
     // the registry uses the hyphenated slug ("vercel-blob").
-    const caps = mapProviderKeysToDossierCapabilities(["VercelBlob"]);
-    expect(Array.isArray(caps)).toBe(true);
+    expect(mapProviderKeysToDossierCapabilities(["VercelAnalytics"])).toEqual(["analytics"]);
   });
 
   it("returns [] for unknown providers, blanks and empty input", () => {
@@ -511,30 +591,88 @@ describe("mapProviderKeysToDossierCapabilities", () => {
   });
 
   it("does NOT map generic supabase (data) approval to subscriptions or auth", () => {
-    // paddle infra deps (@supabase/*) and supabase-auth's id-prefix both
-    // strict-back the generic "supabase" DATA provider — neither may inject
-    // off a plain Supabase approval (Codex P1 dossier-batch). Since the
-    // 2026-07-22 capability merge the supabase-auth dossier lives under
-    // `auth`, so the suppression matches on DOSSIER ID and must keep `auth`
-    // out too. Both enter only via explicit capability selection / pin.
+    // Two manifests explicitly claim Supabase, so the provider is ambiguous.
+    // Neither sibling may be injected without an exact dossier/capability.
     const caps = mapProviderKeysToDossierCapabilities(["supabase"]);
     expect(caps).not.toContain("subscriptions");
     expect(caps).not.toContain("supabase-auth");
     expect(caps).not.toContain("auth");
   });
 
-  it("does NOT map openai approval to rag-chat (shared @ai-sdk/openai dep only)", () => {
-    const caps = mapProviderKeysToDossierCapabilities(["openai"]);
-    expect(caps).not.toContain("rag-chat");
-    expect(caps).toContain("ai-chat");
+  it("does not choose any dossier for an ambiguous OpenAI approval", () => {
+    expect(mapProviderKeysToDossierCapabilities(["openai"])).toEqual([]);
+    const spec = deriveTier3BuildSpecForProviderKeys(["openai"]);
+    expect(spec.requirements).toHaveLength(1);
+    expect(spec.requirements[0].buildInstructions[0]).toContain("No unique dossier contract");
+    expect(spec.requirements[0].buildInstructions.join("\n")).not.toContain("openai-chat");
+  });
+
+  it("keeps env metadata shared by every ambiguous Postgres dossier", () => {
+    expect(mapProviderKeysToDossierCapabilities(["postgres"])).toEqual([]);
+    const spec = deriveTier3BuildSpecForProviderKeys(["postgres"]);
+    expect(spec.requirements).toHaveLength(1);
+    expect(spec.requirements[0]).toMatchObject({
+      key: "postgres",
+      provider: "postgres",
+      requiredRealEnvKeys: [],
+      warnOnlyEnvKeys: ["DATABASE_URL"],
+    });
+    expect(spec.requirements[0].buildInstructions.join("\n")).toContain("DATABASE_URL");
+    expect(spec.requirements[0].setupGuide).toContain("DATABASE_URL");
+    expect(spec.requirements[0].buildInstructions.join("\n")).not.toContain("postgres-drizzle");
+    expect(spec.requirements[0].buildInstructions.join("\n")).not.toContain("rag-chat");
   });
 
   it("does NOT map category-only siblings — next-auth must not inject clerk-auth (Codex P1 PR #383)", () => {
-    // next-auth shares the "auth" CATEGORY with clerk, but no dossier
-    // id-prefix/dependency implements next-auth. A category-only match would
-    // inject clerk-auth's verbatim templates + env keys for the wrong
-    // provider. Strict mapping → no capability at all.
+    // No manifest claims next-auth. A category-only match would inject
+    // clerk-auth's templates and env keys for the wrong provider.
     expect(mapProviderKeysToDossierCapabilities(["next-auth"])).toEqual([]);
+  });
+});
+
+/**
+ * Kontraktslås för de tre providers som flera manifest deklarerar. Alla tre
+ * kartfunktionerna måste svara samma sak — svarar de olika kan en F3-runda
+ * injicera en dossier som env-clampningen inte känner till.
+ *
+ * `openai` avviker MEDVETET från beteendet före den här konsolideringen: där
+ * injicerade ett generiskt openai-godkännande BÅDA chattdossiererna
+ * (`openai-chat` + `ai-tool-calling-chat`), eftersom de strict-backade
+ * providern via delade `@ai-sdk/openai`-beroenden. Nyckeln `openai` säger
+ * ingenting om chatt, verktygsanrop eller RAG, så valet mellan syskonen var
+ * godtyckligt. Den generiska LLM-vägen är rätt svar i stället. Låt inte en
+ * framtida refaktor läsa det som en regression och peka tillbaka.
+ *
+ * `supabase` och `postgres` är däremot inga beteendeändringar alls: inget
+ * dossierval skedde för dem tidigare heller — supabase blockerades av
+ * suppressionslistan (approving Supabase för lagring/databas fick inte dra in
+ * auth-middleware), och postgres saknades helt som providernyckel i registryt.
+ */
+describe("provider→dossier contract lock (ambiguous manifest providers)", () => {
+  it.each(["supabase", "postgres", "openai"])(
+    "%s selects no dossier through the generic provider path",
+    (provider) => {
+      expect(mapProviderKeysToDossierCapabilities([provider])).toEqual([]);
+      expect(mapProviderKeysToBackingDossierIds([provider])).toEqual([]);
+      expect(providerKeysWithoutBackingDossier([provider])).toEqual([provider]);
+    },
+  );
+
+  it("resolves an exact dossier id — openai-chat is the counter-proof", () => {
+    expect(mapProviderKeysToDossierCapabilities(["openai-chat"])).toEqual(["ai-chat"]);
+    expect(mapProviderKeysToBackingDossierIds(["openai-chat"])).toEqual(["openai-chat"]);
+    expect(providerKeysWithoutBackingDossier(["openai-chat"])).toEqual([]);
+  });
+
+  it("never injects the siblings a generic openai key used to pull in", () => {
+    const ids = mapProviderKeysToBackingDossierIds(["openai"]);
+    expect(ids).not.toContain("ai-tool-calling-chat");
+    expect(ids).not.toContain("rag-chat");
+  });
+
+  it("leaves unique providers injecting their exact dossier", () => {
+    expect(mapProviderKeysToBackingDossierIds(["stripe"])).toEqual(["stripe-checkout"]);
+    expect(mapProviderKeysToBackingDossierIds(["clerk"])).toEqual(["clerk-auth"]);
   });
 });
 
@@ -542,8 +680,7 @@ describe("approvedProvidersShipConfigNotice (Codex P2 PR #383)", () => {
   it("true for providers whose strict-backed dossier ships integration-config-notice", () => {
     expect(approvedProvidersShipConfigNotice(["stripe"])).toBe(true);
     expect(approvedProvidersShipConfigNotice(["resend"])).toBe(true);
-    // openai strict-backs ai-chat (no config-notice UI). rag-chat is excluded
-    // from provider mapping so OpenAI approval must not flip this to true via RAG.
+    // OpenAI is ambiguous and therefore cannot advertise any sibling's notice.
     expect(approvedProvidersShipConfigNotice(["openai"])).toBe(false);
   });
 

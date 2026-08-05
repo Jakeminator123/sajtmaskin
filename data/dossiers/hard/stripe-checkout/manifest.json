@@ -4,6 +4,7 @@
   "mock": "visual",
   "label": "Betalning — Stripe",
   "capability": "payments",
+  "providers": ["stripe"],
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,

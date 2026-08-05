@@ -1,14 +1,10 @@
+import { getAllDossiers, resolveDossierProvider } from "@/lib/gen/dossiers/registry";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
+
 export type IntegrationRuntime = "browser" | "server" | "edge" | "deploy";
 
 export type IntegrationCategory =
-  | "analytics"
-  | "payments"
-  | "auth"
-  | "data"
-  | "cms"
-  | "email"
-  | "storage"
-  | "other";
+  "analytics" | "payments" | "auth" | "data" | "cms" | "email" | "storage" | "other";
 
 export type IntegrationDefinition = {
   key: string;
@@ -21,7 +17,7 @@ export type IntegrationDefinition = {
   provider?: string;
 };
 
-export const integrationRegistry: IntegrationDefinition[] = [
+const integrationRegistryBase: IntegrationDefinition[] = [
   {
     key: "supabase",
     name: "Supabase",
@@ -71,8 +67,7 @@ export const integrationRegistry: IntegrationDefinition[] = [
     name: "Google APIs",
     category: "other",
     envVars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
-    setupGuide:
-      "Skapa OAuth-klient i Google Cloud Console > APIs & Services > Credentials.",
+    setupGuide: "Skapa OAuth-klient i Google Cloud Console > APIs & Services > Credentials.",
     runtime: "server",
     optional: false,
     provider: "google",
@@ -114,8 +109,7 @@ export const integrationRegistry: IntegrationDefinition[] = [
     name: "Plausible",
     category: "analytics",
     envVars: ["NEXT_PUBLIC_PLAUSIBLE_DOMAIN"],
-    setupGuide:
-      "Skapa sajt i Plausible och sätt domänen som NEXT_PUBLIC_PLAUSIBLE_DOMAIN.",
+    setupGuide: "Skapa sajt i Plausible och sätt domänen som NEXT_PUBLIC_PLAUSIBLE_DOMAIN.",
     runtime: "browser",
     optional: false,
     provider: "plausible",
@@ -267,11 +261,21 @@ export const integrationRegistry: IntegrationDefinition[] = [
     name: "Upstash",
     category: "data",
     envVars: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
-    setupGuide:
-      "Skapa en Redis-databas på console.upstash.com. Kopiera REST URL och REST Token.",
+    setupGuide: "Skapa en Redis-databas på console.upstash.com. Kopiera REST URL och REST Token.",
     runtime: "edge",
     optional: false,
     provider: "upstash",
+  },
+  {
+    key: "prisma",
+    name: "Prisma",
+    category: "data",
+    envVars: ["DATABASE_URL"],
+    setupGuide:
+      "Välj en databasleverantör, sätt DATABASE_URL och initiera samt generera sedan Prisma-klienten för databasen.",
+    runtime: "server",
+    optional: false,
+    provider: "prisma",
   },
   {
     key: "vercel-blob",
@@ -285,6 +289,75 @@ export const integrationRegistry: IntegrationDefinition[] = [
     provider: "vercel-blob",
   },
 ];
+
+function manifestSetupGuide(
+  definition: IntegrationDefinition,
+  envVars: ReadonlyArray<{
+    key: string;
+    purpose: string;
+    setupUrl?: string;
+  }>,
+): string {
+  const guide = envVars
+    .map((env) => `${env.key}: ${env.purpose}${env.setupUrl ? ` (${env.setupUrl})` : ""}`)
+    .join(" ");
+  return guide || definition.setupGuide;
+}
+
+/**
+ * Memo keyed on the dossier list's identity. `getAllDossiers()` returns the
+ * SAME array reference while its mtime signature holds, so a changed
+ * reference is exactly the signal that a manifest was edited. Without this,
+ * reading `.envVars` inside a loop over the registry would re-stat all 27
+ * manifests once per definition.
+ */
+let _projectionCache: {
+  dossiers: readonly DossierEntry[];
+  byProvider: Map<string, DossierEntry | null>;
+} | null = null;
+
+/** The dossier that uniquely owns `provider`, or null when none/ambiguous. */
+function uniqueDossierForProvider(provider: string): DossierEntry | null {
+  const dossiers = getAllDossiers();
+  if (_projectionCache?.dossiers !== dossiers) {
+    _projectionCache = { dossiers, byProvider: new Map() };
+  }
+  const cached = _projectionCache.byProvider.get(provider);
+  if (cached !== undefined) return cached;
+  const resolution = resolveDossierProvider(provider, dossiers);
+  const owner = resolution.status === "unique" ? resolution.dossiers[0] : null;
+  _projectionCache.byProvider.set(provider, owner);
+  return owner;
+}
+
+/**
+ * Provider metadata projected from an exact dossier when manifest ownership
+ * is unique. Dossierless and ambiguous providers keep their generic registry
+ * contract until an exact capability/dossier is selected.
+ *
+ * The projection is LAZY on purpose: computing it at module scope froze the
+ * registry at import time, so the dossier registry's mtime cache never
+ * reached it — a manifest edited in backoffice or during dev hot reload kept
+ * serving the stale env keys until the process restarted.
+ */
+export const integrationRegistry: IntegrationDefinition[] = integrationRegistryBase.map(
+  (definition) => {
+    const provider = definition.provider ?? definition.key;
+    return {
+      ...definition,
+      get envVars(): string[] {
+        const dossier = uniqueDossierForProvider(provider);
+        if (!dossier) return definition.envVars;
+        return (dossier.envVars ?? []).map((env) => env.key);
+      },
+      get setupGuide(): string {
+        const dossier = uniqueDossierForProvider(provider);
+        if (!dossier) return definition.setupGuide;
+        return manifestSetupGuide(definition, dossier.envVars ?? []);
+      },
+    };
+  },
+);
 
 /** Lookup by `IntegrationDefinition.key` (matches manifest `key` and detection `key`). */
 export const integrationRegistryByKey = new Map(

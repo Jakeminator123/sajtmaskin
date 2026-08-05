@@ -4,6 +4,7 @@
   "mock": "seed",
   "label": "CMS — Sanity",
   "capability": "cms",
+  "providers": ["sanity"],
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
@@ -42,10 +43,7 @@
       "enforcement": "feature-runtime"
     }
   ],
-  "dependencies": [
-    "next-sanity",
-    "server-only"
-  ],
+  "dependencies": ["next-sanity", "server-only"],
   "files": [
     {
       "path": "components/lib/sanity/api.ts",

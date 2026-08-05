@@ -4,6 +4,7 @@
   "mock": "visual",
   "label": "Realtid — Ably",
   "capability": "realtime",
+  "providers": ["ably"],
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
@@ -18,9 +19,7 @@
       "enforcement": "feature-runtime"
     }
   ],
-  "dependencies": [
-    "ably"
-  ],
+  "dependencies": ["ably"],
   "files": [
     {
       "path": "components/lib/ably/client.ts",

@@ -4,6 +4,7 @@
   "mock": "visual",
   "label": "Inloggning — Clerk",
   "capability": "auth",
+  "providers": ["clerk"],
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,

@@ -3,6 +3,7 @@
   "id": "sentry-error-tracking",
   "label": "Felrapportering — Sentry",
   "capability": "error-tracking",
+  "providers": ["sentry"],
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": true,

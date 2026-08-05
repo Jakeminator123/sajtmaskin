@@ -4,6 +4,7 @@
   "mock": "canned",
   "label": "AI-assistent med verktyg",
   "capability": "ai-tool-calling",
+  "providers": ["openai"],
   "codeFidelity": "rewritable",
   "complexity": "medium",
   "defaultForCapability": true,
@@ -18,11 +19,7 @@
       "enforcement": "feature-runtime"
     }
   ],
-  "dependencies": [
-    "@ai-sdk/openai",
-    "ai",
-    "zod"
-  ],
+  "dependencies": ["@ai-sdk/openai", "ai", "zod"],
   "files": [
     {
       "path": "components/api/assistant/route.ts",

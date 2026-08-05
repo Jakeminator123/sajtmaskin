@@ -4,6 +4,7 @@
   "mock": "canned",
   "label": "AI-chatt — OpenAI",
   "capability": "ai-chat",
+  "providers": ["openai"],
   "codeFidelity": "rewritable",
   "complexity": "medium",
   "defaultForCapability": true,

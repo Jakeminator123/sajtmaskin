@@ -40,6 +40,20 @@ const stripeDetection = [
   },
 ];
 
+const clerkDetection = [
+  {
+    key: "clerk",
+    provider: "clerk",
+    name: "Clerk",
+    intent: "auth",
+    envVars: ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
+    envEnforcement: {
+      CLERK_SECRET_KEY: "build",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "build",
+    },
+  },
+];
+
 beforeEach(() => {
   vi.clearAllMocks();
   getVersionFiles.mockResolvedValue([
@@ -49,7 +63,7 @@ beforeEach(() => {
   getStoredProjectEnvVarMap.mockResolvedValue({});
   loadPlaceholderKeySet.mockReturnValue(new Set<string>());
   getLatestEngineVersionErrorLogForCategory.mockResolvedValue(null);
-  });
+});
 
 describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   it("blocks with version_files_unavailable when files cannot be read (G#21)", async () => {
@@ -63,6 +77,7 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   });
 
   it("blocks with missing_env when a required real key is absent AND has no placeholder", async () => {
+    detectIntegrationsFromVersionFiles.mockReturnValue(clerkDetection);
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,
@@ -71,7 +86,9 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
     expect(result.ok).toBe(false);
     if (!result.ok && result.reason === "missing_env") {
       expect(result.readiness.missingByIntegration).toEqual([
-        expect.objectContaining({ missing: ["STRIPE_SECRET_KEY"] }),
+        expect.objectContaining({
+          missing: ["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
+        }),
       ]);
     } else {
       throw new Error(`expected missing_env, got ${JSON.stringify(result)}`);
@@ -79,7 +96,10 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   });
 
   it("passes on a placeholder-covered build key (placeholders alltid tillåtna, 2026-07-22)", async () => {
-    loadPlaceholderKeySet.mockReturnValue(new Set(["STRIPE_SECRET_KEY"]));
+    detectIntegrationsFromVersionFiles.mockReturnValue(clerkDetection);
+    loadPlaceholderKeySet.mockReturnValue(
+      new Set(["CLERK_SECRET_KEY", "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"]),
+    );
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,
@@ -124,7 +144,20 @@ describe("checkTier3ReadinessForVersion (M#818-2)", () => {
   });
 
   it("passes when the required key has a real stored value", async () => {
-    getStoredProjectEnvVarMap.mockResolvedValue({ STRIPE_SECRET_KEY: "sk_test_real" });
+    detectIntegrationsFromVersionFiles.mockReturnValue(clerkDetection);
+    getStoredProjectEnvVarMap.mockResolvedValue({
+      CLERK_SECRET_KEY: "sk_test_real",
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_real",
+    });
+    const result = await checkTier3ReadinessForVersion({
+      versionId: "ver_1",
+      orchestrationSnapshot: null,
+      projectId: "proj_1",
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("keeps exact Stripe feature-runtime enforcement non-blocking", async () => {
     const result = await checkTier3ReadinessForVersion({
       versionId: "ver_1",
       orchestrationSnapshot: null,

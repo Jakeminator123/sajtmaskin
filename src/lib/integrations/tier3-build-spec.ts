@@ -9,11 +9,12 @@
  *
  * Derivation pipeline:
  *
- *   PreGenerationContractContext  ─┐
- *                                  │  deriveTier3BuildSpec()
- *   integrationRegistry            ├──────────────────────► Tier3BuildSpec
- *                                  │
- *   PLACEHOLDER_HARMLESS_ENV_KEYS ─┘
+ *   provider approval -> manifest provider projection
+ *     - exactly one dossier: manifest env enforcement/files/exports own F3
+ *     - zero or several dossiers: generic registry fallback; no dossier pick
+ *
+ * `PLACEHOLDER_HARMLESS_ENV_KEYS` is consulted only by the generic fallback.
+ * On an exact dossier path the manifest enforcement always wins.
  *
  * Used by:
  *  - `POST /api/engine/chats/[chatId]/finalize-design` — calls
@@ -24,17 +25,15 @@
  *  - F3 placeholder merge — tier-3 stub layer is dropped via
  *    `resolvePreviewEnvLayers({ lifecycleStage: "integrations" })`.
  */
-import type {
-  PlanContracts,
-  PlanIntegrationContract,
-} from "@/lib/gen/plan/schema";
+import type { PlanContracts, PlanIntegrationContract } from "@/lib/gen/plan/schema";
 import {
   integrationRegistry,
   integrationRegistryByKey,
   type IntegrationDefinition,
 } from "@/lib/integrations/registry";
 import { partitionEnvKeysByTier } from "@/lib/integrations/placeholder-harmless";
-import { getAllDossiers } from "@/lib/gen/dossiers/registry";
+import { getAllDossiers, resolveDossierProvider } from "@/lib/gen/dossiers/registry";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
 
 export interface Tier3IntegrationRequirement {
   /** Integration key, matches `IntegrationDefinition.key`. */
@@ -45,14 +44,15 @@ export interface Tier3IntegrationRequirement {
   provider: string;
   /**
    * Env keys that MUST have real values before F3 can succeed.
-   * Subset of `IntegrationDefinition.envVars` excluding placeholder-harmless
-   * keys AND any key whose dossier metadata marked it `feature-runtime` /
-   * `warn-only` (those are surfaced separately below).
+   * For an exact dossier, derived solely from required manifest env vars with
+   * `enforcement: "build"`. Generic fallbacks never hard-block F3.
    */
   requiredRealEnvKeys: string[];
   /**
    * Env keys that may keep their placeholder value even in F3.
-   * Subset of `IntegrationDefinition.envVars` matching `PLACEHOLDER_HARMLESS_ENV_KEYS`.
+   * Generic-fallback env keys matching `PLACEHOLDER_HARMLESS_ENV_KEYS`.
+   * Always empty on an exact dossier path because manifest enforcement owns
+   * every declared key there.
    */
   placeholderOkEnvKeys: string[];
   /**
@@ -70,7 +70,7 @@ export interface Tier3IntegrationRequirement {
   warnOnlyEnvKeys: string[];
   /** 4-8 concrete build steps for the F3 LLM. */
   buildInstructions: string[];
-  /** Vendor setup guide (re-exported from `IntegrationDefinition.setupGuide`). */
+  /** Vendor setup guide from the dossier manifest or generic registry fallback. */
   setupGuide: string;
   /**
    * True when a backing dossier ships `components/integration-config-notice.tsx`
@@ -95,9 +95,7 @@ export interface Tier3BuildSpec {
  * not itself permission to start codegen.
  */
 export function hasRequiredRealBuildKeys(spec: Tier3BuildSpec): boolean {
-  return spec.requirements.some(
-    (requirement) => requirement.requiredRealEnvKeys.length > 0,
-  );
+  return spec.requirements.some((requirement) => requirement.requiredRealEnvKeys.length > 0);
 }
 
 export interface Tier3ReadinessReport {
@@ -121,83 +119,14 @@ export interface Tier3ReadinessReport {
   }>;
 }
 
-/**
- * Build instructions per integration. Conservative defaults — each list is
- * enough to wire the integration end-to-end without dictating UI choices.
- * Unknown integrations fall back to a generic "wire env vars" instruction.
- */
-const BUILD_INSTRUCTIONS: Record<string, string[]> = {
-  stripe: [
-    "Add a `/api/checkout/route.ts` POST handler that constructs a Stripe checkout session from `STRIPE_SECRET_KEY`.",
-    "Wire the primary CTA on the pricing/plans page to POST to `/api/checkout` and redirect to the returned `url`.",
-    "Add a `/api/stripe/webhook/route.ts` POST handler that verifies signatures with `STRIPE_WEBHOOK_SECRET`.",
-    "Add `/checkout/success` and `/checkout/cancel` pages that read the session id from the URL and render the outcome.",
-    "Use `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` only in client components, never the secret key.",
-    "Document the required env vars in a top-of-file comment in `/api/checkout/route.ts`.",
-  ],
-  supabase: [
-    "Initialize a Supabase server client in `lib/supabase/server.ts` using `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.",
-    "Initialize a Supabase browser client in `lib/supabase/browser.ts` for client components.",
-    "Add a typed `Database` interface stub in `lib/supabase/types.ts` to be replaced with generated types.",
-    "Wire data fetches in server components/route handlers to the server client; use the browser client only for realtime/auth.",
-    "Add a top-of-file comment listing required env vars in each `lib/supabase/*.ts` file.",
-  ],
-  clerk: [
-    "Wrap `app/layout.tsx` in `<ClerkProvider>` from `@clerk/nextjs`.",
-    "Add `middleware.ts` at project root with `clerkMiddleware()` and matcher excluding static assets.",
-    "Add `app/sign-in/[[...sign-in]]/page.tsx` and `app/sign-up/[[...sign-up]]/page.tsx` rendering Clerk's `<SignIn />` / `<SignUp />`.",
-    "Use `auth()` from `@clerk/nextjs/server` in protected route handlers and server components.",
-    "Document `CLERK_SECRET_KEY` and `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` in a top-of-file comment in `middleware.ts`.",
-  ],
-  "next-auth": [
-    "Add `app/api/auth/[...nextauth]/route.ts` exporting `GET`/`POST` from `NextAuth(authOptions)`.",
-    "Define `authOptions` in `lib/auth.ts` with provider list and session strategy.",
-    "Use `auth()` (or `getServerSession`) in server components and route handlers to gate access.",
-    "Wrap client components needing session data in `<SessionProvider>`.",
-    "Document required `AUTH_SECRET` and provider env vars in a top-of-file comment in `lib/auth.ts`.",
-  ],
-  "vercel-blob": [
-    "Add `/api/upload/route.ts` POST handler using `@vercel/blob` `put()` with `BLOB_READ_WRITE_TOKEN`.",
-    "Wire upload UI to POST FormData to `/api/upload` and store returned URL.",
-    "Add a top-of-file comment listing required env vars.",
-  ],
-  upstash: [
-    "Initialize an Upstash Redis client in `lib/redis.ts` from `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.",
-    "Wire rate-limit / cache helpers to use the client.",
-    "Add a top-of-file comment listing required env vars.",
-  ],
-  mongodb: [
-    "Add a `lib/mongodb.ts` that exports a singleton `MongoClient` connected via `MONGODB_URI`.",
-    "Use the singleton in server components and route handlers; never expose the URI to the client.",
-    "Add a top-of-file comment documenting `MONGODB_URI` and SSL/IP allowlist requirements.",
-  ],
-  resend: [
-    "Add a `lib/email.ts` that initializes a Resend client from `RESEND_API_KEY`.",
-    "Add `/api/contact/route.ts` (or similar) that calls `resend.emails.send(...)`.",
-    "Document `RESEND_API_KEY` and `EMAIL_FROM` in a top-of-file comment.",
-  ],
-  openai: [
-    "Initialize an OpenAI client in `lib/openai.ts` from `OPENAI_API_KEY`.",
-    "Wire AI features to a server-side route handler; never expose the key to the client.",
-    "Document `OPENAI_API_KEY` in a top-of-file comment.",
-  ],
-};
-
-const FALLBACK_INSTRUCTIONS = (def: IntegrationDefinition): string[] => [
+const GENERIC_BUILD_INSTRUCTIONS = (def: IntegrationDefinition): string[] => [
+  "No unique dossier contract owns this provider approval; use the generic integration path and do not inject an arbitrary dossier sibling.",
   `Wire ${def.name} using its standard SDK and the env keys: ${def.envVars.join(", ") || "(none required)"}.`,
   `Initialize the client in a dedicated module (e.g. \`lib/${def.key}.ts\`) and reuse the instance.`,
   `Document required env vars in a top-of-file comment.`,
 ];
 
-function resolveBuildInstructions(def: IntegrationDefinition): string[] {
-  const explicit = BUILD_INSTRUCTIONS[def.key];
-  if (explicit && explicit.length > 0) return explicit;
-  return FALLBACK_INSTRUCTIONS(def);
-}
-
-function uniqueProviderIntegrations(
-  contracts: PlanContracts,
-): PlanIntegrationContract[] {
+function uniqueProviderIntegrations(contracts: PlanContracts): PlanIntegrationContract[] {
   const seen = new Set<string>();
   const out: PlanIntegrationContract[] = [];
   for (const integration of contracts.integrations) {
@@ -224,80 +153,6 @@ function findIntegrationDefinition(
 }
 
 /**
- * Shape used to decide whether an integration is backed by a runtime-
- * installable dossier on disk. The F3 contract ("bygg integrationer") is
- * only actionable when a hard-class dossier exists that actually implements
- * the integration — otherwise F3 would ask the user for env keys that no
- * generated file would ever consume (e.g. CLERK_SECRET_KEY without any
- * clerk-auth dossier to wire it up).
- *
- * Backing is indicated by ANY of:
- *  - dossier id starts with `<integration.key>-` or equals `<key>`
- *    (e.g. stripe-checkout matches stripe)
- *  - dossier's capability equals integration.category
- *  - integration provider appears in the dossier's dependencies array
- */
-interface DossierBackingMatcher {
-  readonly matches: (def: IntegrationDefinition) => boolean;
-  /**
-   * Strict variant WITHOUT the `capability === integration.category`
-   * fallback: only id-prefix and dependency matches count. Codex P1
-   * (PR #383): the category fallback is right for env-CLAMPING ("no dossier
-   * can consume this key") but wrong for dossier-INJECTION — a "next-auth"
-   * approval must not pull in the clerk-auth dossier's verbatim templates
-   * just because both live under the "auth" category.
-   */
-  readonly matchesStrict: (def: IntegrationDefinition) => boolean;
-  readonly files: ReadonlyArray<{ path: string }>;
-  /** Capability of the dossier behind this matcher (e.g. "payments"). */
-  readonly capability: string;
-  /** Id of the dossier behind this matcher (e.g. "stripe-checkout"). */
-  readonly dossierId: string;
-}
-
-interface DossierBackingIndex {
-  readonly matchers: ReadonlyArray<DossierBackingMatcher>;
-}
-
-function buildDossierBackingIndex(): DossierBackingIndex {
-  const entries = getAllDossiers();
-  const matchers: DossierBackingMatcher[] = [];
-  for (const entry of entries) {
-    const idLc = entry.id.toLowerCase();
-    const capabilityLc = entry.capability.toLowerCase();
-    const deps = (entry.dependencies ?? []).map((d) => d.toLowerCase());
-    const matchesStrict = (def: IntegrationDefinition) => {
-      const keyLc = def.key.toLowerCase();
-      const providerLc = (def.provider ?? def.key).toLowerCase();
-      if (idLc === keyLc || idLc.startsWith(`${keyLc}-`)) return true;
-      if (idLc === providerLc || idLc.startsWith(`${providerLc}-`)) return true;
-      if (deps.some((d) => d === keyLc || d.includes(`/${keyLc}`) || d.startsWith(`${keyLc}`))) {
-        return true;
-      }
-      return false;
-    };
-    matchers.push({
-      files: entry.files ?? [],
-      capability: entry.capability,
-      dossierId: entry.id,
-      matchesStrict,
-      matches: (def: IntegrationDefinition) => {
-        if (matchesStrict(def)) return true;
-        return capabilityLc === def.category.toLowerCase();
-      },
-    });
-  }
-  return { matchers };
-}
-
-function findBackingDossiers(
-  def: IntegrationDefinition,
-  index: DossierBackingIndex,
-): DossierBackingMatcher[] {
-  return index.matchers.filter((m) => m.matches(def));
-}
-
-/**
  * Any `components/**config-notice*.tsx` counts as a config-notice UI — the
  * shared `integration-config-notice.tsx` AND dossier-specific variants like
  * mongodb-atlas's `db-config-notice.tsx` (Codex P2 #445: the exact-filename
@@ -306,175 +161,299 @@ function findBackingDossiers(
  */
 const CONFIG_NOTICE_FILE_RE = /(?:^|\/)components\/(?:[\w-]*-)?config-notice\.tsx$/;
 
-function backingDossierShipsConfigNotice(backing: DossierBackingMatcher[]): boolean {
-  return backing.some((dossier) =>
-    dossier.files.some((f) => CONFIG_NOTICE_FILE_RE.test(f.path)),
-  );
+function dossierShipsConfigNotice(dossier: DossierEntry): boolean {
+  return (dossier.files ?? []).some((file) => CONFIG_NOTICE_FILE_RE.test(file.path));
 }
 
 function compactProviderKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-/**
- * Map integration provider keys (as signaled by `suggestIntegration`, e.g.
- * "stripe") to the dossier capabilities that implement them (e.g.
- * "payments"). Used by the F3 approval round (P2 F3-loop, åtgärd 2) to get
- * the approved provider's hard dossier selected/injected into the build's
- * codegen context — the same `selectDossiersForRequest` mechanic the init
- * path uses, keyed off `integrationRegistry` + dossier matching rules.
- * Providers without a registry entry or backing dossier map to nothing
- * (the build instruction still forces codegen; the model just gets no
- * verbatim templates).
- *
- * Uses `matchesStrict` (id-prefix / dependency only — NOT
- * capability=category): a category-only match would inject a DIFFERENT
- * provider's dossier ("next-auth" approval → clerk-auth templates) whose
- * verbatim code and env keys don't implement the approved provider
- * (Codex P1, PR #383). The category fallback remains in `matches` for the
- * env-clamping use case in `deriveTier3BuildSpec`.
- *
- * Input keys are compact-matched (non-alphanumerics stripped) so both
- * identity-form ("vercelblob") and registry-slug ("vercel-blob") inputs
- * resolve.
- */
-/**
- * A dossier can strict-back a generic provider purely via an infrastructure
- * dependency it shares with a different, more specific dossier — which would
- * inject the wrong capability's routes/templates on a plain provider approval
- * (Codex P1 dossier-batch):
- *  - paddle-billing lists `@supabase/*` as infra deps → strict-backs the generic
- *    "supabase" provider into the unrelated `subscriptions` capability.
- *  - rag-chat shares `@ai-sdk/openai` with ai-chat → strict-backs "openai" into
- *    `rag-chat`.
- * Both extra capabilities must inject ONLY on explicit capability selection
- * (the init/follow-up path), never off a generic provider approval in F3.
- */
-function isSuppressedProviderBacking(
-  providerCompact: string,
-  capability: string,
-  dossierId: string,
-): boolean {
-  if (providerCompact === "supabase" && capability === "subscriptions") return true;
-  if (providerCompact === "openai" && capability === "rag-chat") return true;
-  // supabase-auth's id ("supabase-*") id-prefix-matches the generic "supabase"
-  // DATA provider, so approving Supabase for storage/database would otherwise
-  // inject auth middleware/callback/client (Codex P1 dossier-batch). Supabase
-  // Auth enters only via an explicit Supabase-auth ask (relevanceKeywords
-  // under the shared `auth` capability) or the subscriptions dependency pin —
-  // matched on DOSSIER ID since the capability merge (2026-07-22).
-  if (providerCompact === "supabase" && dossierId === "supabase-auth") return true;
-  return false;
+function canonicalProviderKey(raw: string): string {
+  const definition = findRegistryDefinitionByProviderKey(raw);
+  return (definition?.provider ?? definition?.key ?? raw).trim().toLowerCase();
 }
 
-export function mapProviderKeysToDossierCapabilities(
-  providerKeys: string[],
-): string[] {
+function findExactDossierInput(raw: string): DossierEntry | undefined {
+  const dossierId = raw.trim().toLowerCase();
+  if (!dossierId) return undefined;
+  return getAllDossiers().find((dossier) => dossier.id === dossierId);
+}
+
+/**
+ * A generic provider approval may select a dossier only when the manifest
+ * projection resolves to exactly one dossier. Zero matches and multiple
+ * matches deliberately map to nothing so F3 cannot inject an arbitrary
+ * sibling (for example OpenAI chat vs tool-calling vs RAG).
+ */
+export function mapProviderKeysToDossierCapabilities(providerKeys: string[]): string[] {
   const capabilities = new Set<string>();
-  if (providerKeys.length === 0) return [];
-  const backingIndex = buildDossierBackingIndex();
   for (const raw of providerKeys) {
     if (typeof raw !== "string" || !raw.trim()) continue;
-    const compact = compactProviderKey(raw);
-    const def = findRegistryDefinitionByProviderKey(raw);
-    if (!def) continue;
-    for (const matcher of backingIndex.matchers) {
-      if (
-        matcher.matchesStrict(def) &&
-        !isSuppressedProviderBacking(compact, matcher.capability, matcher.dossierId)
-      ) {
-        capabilities.add(matcher.capability);
-      }
+    const exactDossier = findExactDossierInput(raw);
+    if (exactDossier) {
+      capabilities.add(exactDossier.capability);
+      continue;
     }
+    const resolution = resolveDossierProvider(canonicalProviderKey(raw));
+    if (resolution.status !== "unique") continue;
+    capabilities.add(resolution.capabilities[0]);
   }
-  return Array.from(capabilities);
+  return [...capabilities].sort();
 }
 
 /**
- * DOSSIER-ID variant of {@link mapProviderKeysToDossierCapabilities} — same
- * strict matching + suppression, but returns the backing dossier ids. Needed
+ * DOSSIER-ID variant of {@link mapProviderKeysToDossierCapabilities}. Needed
  * where capability granularity is too coarse: version-presence comparisons
  * (Codex P1 on #503) must not treat a present SIBLING dossier
  * (`postgres-drizzle` under `database`) as satisfying a newly approved
  * provider (`mongodb` → `mongodb-atlas`).
  */
-export function mapProviderKeysToBackingDossierIds(
-  providerKeys: string[],
-): string[] {
+export function mapProviderKeysToBackingDossierIds(providerKeys: string[]): string[] {
   const ids = new Set<string>();
-  if (providerKeys.length === 0) return [];
-  const backingIndex = buildDossierBackingIndex();
   for (const raw of providerKeys) {
     if (typeof raw !== "string" || !raw.trim()) continue;
-    const compact = compactProviderKey(raw);
-    const def = findRegistryDefinitionByProviderKey(raw);
-    if (!def) continue;
-    for (const matcher of backingIndex.matchers) {
-      if (
-        matcher.matchesStrict(def) &&
-        !isSuppressedProviderBacking(compact, matcher.capability, matcher.dossierId)
-      ) {
-        ids.add(matcher.dossierId);
-      }
+    const exactDossier = findExactDossierInput(raw);
+    if (exactDossier) {
+      ids.add(exactDossier.id);
+      continue;
     }
+    const resolution = resolveDossierProvider(canonicalProviderKey(raw));
+    if (resolution.status !== "unique") continue;
+    ids.add(resolution.dossierIds[0]);
   }
-  return Array.from(ids);
+  return [...ids].sort();
 }
 
 /**
- * Registry-resolvable provider keys (canonical `def.key`) that have ZERO
- * strict backing dossiers. These providers (e.g. `posthog`,
- * `google-analytics`) can be legitimately approved via `suggestIntegration`
- * but have no dossier templates to inject — an approve round must still run
- * the GENERIC LLM build path for them (coach review on #503: a deterministic
- * exact-file fork would silently ship zero integration code). Unknown keys
- * (no registry definition) are skipped — they cannot be built deterministically
- * or generically and are handled by the approval prompt's fallback contract.
+ * Known provider keys that cannot safely select one dossier. Both dossierless
+ * and ambiguous providers must use the generic LLM path; only a unique
+ * manifest projection is eligible for deterministic dossier injection.
  */
-export function providerKeysWithoutBackingDossier(
-  providerKeys: string[],
-): string[] {
+export function providerKeysWithoutBackingDossier(providerKeys: string[]): string[] {
   const keys = new Set<string>();
-  if (providerKeys.length === 0) return [];
-  const backingIndex = buildDossierBackingIndex();
+  const explicitProviderKeys = new Set<string>();
   for (const raw of providerKeys) {
     if (typeof raw !== "string" || !raw.trim()) continue;
-    const compact = compactProviderKey(raw);
-    const def = findRegistryDefinitionByProviderKey(raw);
-    if (!def) continue;
-    const hasBacking = backingIndex.matchers.some(
-      (matcher) =>
-        matcher.matchesStrict(def) &&
-        !isSuppressedProviderBacking(compact, matcher.capability, matcher.dossierId),
-    );
-    if (!hasBacking) keys.add(def.key.toLowerCase());
+    const exactDossier = findExactDossierInput(raw);
+    for (const provider of exactDossier?.providers ?? []) {
+      explicitProviderKeys.add(provider.trim().toLowerCase());
+    }
   }
-  return Array.from(keys);
+  for (const raw of providerKeys) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    if (findExactDossierInput(raw)) continue;
+    const def = findRegistryDefinitionByProviderKey(raw);
+    const provider = canonicalProviderKey(raw);
+    // An exact dossier identity is sharper than a generic provider approval,
+    // including when several dossiers claim that provider. Avoid scheduling a
+    // second generic LLM round for e.g. ["openai-chat", "openai"].
+    if (explicitProviderKeys.has(provider)) continue;
+    const resolution = resolveDossierProvider(provider);
+    const known = Boolean(def) || resolution.status !== "dossierless";
+    if (known && resolution.status !== "unique") {
+      keys.add((def?.key ?? provider).toLowerCase());
+    }
+  }
+  return [...keys].sort();
+}
+
+function manifestSetupGuide(entry: DossierEntry): string {
+  return (entry.envVars ?? [])
+    .map((env) => `${env.key}: ${env.purpose}${env.setupUrl ? ` (${env.setupUrl})` : ""}`)
+    .join(" ");
+}
+
+function buildDossierRequirement(
+  entry: DossierEntry,
+  identity: Pick<Tier3IntegrationRequirement, "key" | "name" | "provider">,
+): Tier3IntegrationRequirement {
+  const requiredRealEnvKeys: string[] = [];
+  const featureRuntimeEnvKeys: string[] = [];
+  const warnOnlyEnvKeys: string[] = [];
+
+  // Exact dossier paths are governed solely by manifest enforcement. Global
+  // harmless-placeholder classification must never demote e.g. Clerk's public
+  // build key or Sanity's public feature-runtime keys.
+  for (const env of entry.envVars ?? []) {
+    switch (env.enforcement ?? "build") {
+      case "feature-runtime":
+        featureRuntimeEnvKeys.push(env.key);
+        break;
+      case "warn-only":
+        warnOnlyEnvKeys.push(env.key);
+        break;
+      default:
+        if (env.required !== false) requiredRealEnvKeys.push(env.key);
+        else warnOnlyEnvKeys.push(env.key);
+    }
+  }
+
+  const declaredFiles = (entry.files ?? []).map((file) => `\`${file.path}\``).join(", ");
+  const declaredExports = (entry.exposes ?? [])
+    .map((exposed) => `\`${exposed.name}\` from \`${exposed.import}\``)
+    .join(", ");
+
+  return {
+    ...identity,
+    requiredRealEnvKeys,
+    placeholderOkEnvKeys: [],
+    featureRuntimeEnvKeys,
+    warnOnlyEnvKeys,
+    buildInstructions: [
+      `Use the injected \`${entry.id}\` dossier as the exact implementation contract: ${entry.summary}`,
+      `Materialize and wire only its declared files: ${declaredFiles || "(no shipped files)"}.`,
+      `Mount its declared exports in the existing design: ${declaredExports || "(no declared exports)"}.`,
+      `Preserve the dossier's \`${entry.mock ?? "none"}\` F2 fallback while activating the real provider path.`,
+    ],
+    setupGuide: manifestSetupGuide(entry),
+    hasConfigNoticeComponent: dossierShipsConfigNotice(entry),
+  };
+}
+
+function buildGenericRequirement(
+  definition: IntegrationDefinition,
+  integration?: PlanIntegrationContract,
+): Tier3IntegrationRequirement {
+  const envKeys =
+    integration?.envVars && integration.envVars.length > 0
+      ? integration.envVars
+      : definition.envVars;
+  const { harmless, tier3 } = partitionEnvKeysByTier(envKeys);
+  const enforcementHint = integration?.envEnforcement;
+  const featureRuntimeEnvKeys = enforcementHint
+    ? tier3.filter((key) => enforcementHint[key] === "feature-runtime")
+    : [];
+  const hintedWarnOnly = enforcementHint
+    ? tier3.filter((key) => enforcementHint[key] === "warn-only")
+    : [];
+  const otherwiseBuild = tier3.filter(
+    (key) => !featureRuntimeEnvKeys.includes(key) && !hintedWarnOnly.includes(key),
+  );
+
+  // There is no exact manifest contract that proves a generated file consumes
+  // these keys. Keep the generic path actionable without hard-blocking F3 on
+  // an inferred provider requirement.
+  return {
+    key: definition.key,
+    name: definition.name,
+    provider: definition.provider ?? definition.key,
+    requiredRealEnvKeys: [],
+    placeholderOkEnvKeys: harmless,
+    featureRuntimeEnvKeys,
+    warnOnlyEnvKeys: [...new Set([...hintedWarnOnly, ...otherwiseBuild])],
+    buildInstructions: GENERIC_BUILD_INSTRUCTIONS({
+      ...definition,
+      envVars: envKeys,
+    }),
+    setupGuide: definition.setupGuide,
+    hasConfigNoticeComponent: false,
+  };
+}
+
+function manifestOnlyGenericDefinition(
+  provider: string,
+  dossiers: readonly DossierEntry[] = [],
+): IntegrationDefinition {
+  const name = provider
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
+  const envKeySets = dossiers.map(
+    (dossier) => new Set((dossier.envVars ?? []).map((env) => env.key)),
+  );
+  const sharedEnvVars =
+    envKeySets.length === 0
+      ? []
+      : [...envKeySets[0]].filter((key) => envKeySets.every((keys) => keys.has(key))).sort();
+  return {
+    key: provider,
+    name: name || provider,
+    category: "other",
+    // Ambiguity must never select one dossier, but metadata common to every
+    // claimant is still safe to surface. Postgres is the motivating case:
+    // both postgres-drizzle and rag-chat require DATABASE_URL.
+    envVars: sharedEnvVars,
+    setupGuide:
+      sharedEnvVars.length > 0
+        ? `Configure the shared provider keys (${sharedEnvVars.join(", ")}), then choose the exact capability/dossier for provider-specific setup steps.`
+        : "Choose the exact capability/dossier before relying on provider-specific setup steps.",
+    runtime: "server",
+    optional: false,
+    provider,
+  };
 }
 
 /** Build F3 requirements directly from explicit provider approvals. */
 export function deriveTier3BuildSpecForProviderKeys(
   providerKeys: readonly string[],
 ): Tier3BuildSpec {
-  const integrations: PlanIntegrationContract[] = [];
-  const seen = new Set<string>();
-  for (const providerKey of providerKeys) {
-    const definition = findRegistryDefinitionByProviderKey(providerKey);
-    if (!definition || seen.has(definition.key)) continue;
-    seen.add(definition.key);
-    integrations.push({
-      provider: definition.provider ?? definition.key,
-      name: definition.name,
-      reason: "explicitly approved for this F3 build",
-      status: "chosen",
-      envVars: definition.envVars,
-    });
+  const requirements: Tier3IntegrationRequirement[] = [];
+  const seenProviders = new Set<string>();
+  const seenDossierIds = new Set<string>();
+  const explicitDossierIds = new Set<string>();
+  const explicitProviderKeys = new Set<string>();
+  for (const rawProvider of providerKeys) {
+    if (typeof rawProvider !== "string" || !rawProvider.trim()) continue;
+    const exactDossier = findExactDossierInput(rawProvider);
+    if (!exactDossier) continue;
+    explicitDossierIds.add(exactDossier.id);
+    for (const provider of exactDossier.providers ?? []) {
+      explicitProviderKeys.add(provider.trim().toLowerCase());
+    }
   }
-  return deriveTier3BuildSpec({
-    dataMode: "none",
-    integrations,
-    envVars: [],
-  });
+
+  for (const rawProvider of providerKeys) {
+    if (typeof rawProvider !== "string" || !rawProvider.trim()) continue;
+    const exactDossier = findExactDossierInput(rawProvider);
+    if (exactDossier) {
+      if (seenDossierIds.has(exactDossier.id)) continue;
+      seenDossierIds.add(exactDossier.id);
+      requirements.push(
+        buildDossierRequirement(exactDossier, {
+          key: exactDossier.id,
+          name: exactDossier.label,
+          provider: exactDossier.providers?.[0] ?? exactDossier.id,
+        }),
+      );
+      continue;
+    }
+    const provider = canonicalProviderKey(rawProvider);
+    if (!provider || seenProviders.has(provider)) continue;
+    if (explicitProviderKeys.has(provider)) continue;
+    seenProviders.add(provider);
+
+    const definition = findRegistryDefinitionByProviderKey(rawProvider);
+    const resolution = resolveDossierProvider(provider);
+    if (resolution.status === "unique") {
+      const entry = resolution.dossiers[0];
+      // A legacy exact dossier identity is sharper than its generic provider
+      // alias. Pre-scan the complete approval array so the winner is stable
+      // regardless of union/insertion order in persisted snapshots.
+      if (explicitDossierIds.has(entry.id)) continue;
+      if (seenDossierIds.has(entry.id)) continue;
+      seenDossierIds.add(entry.id);
+      requirements.push(
+        buildDossierRequirement(entry, {
+          key: definition?.key ?? provider,
+          name: definition?.name ?? entry.label,
+          provider,
+        }),
+      );
+      continue;
+    }
+
+    if (definition || resolution.status === "ambiguous") {
+      requirements.push(
+        buildGenericRequirement(
+          definition ?? manifestOnlyGenericDefinition(provider, resolution.dossiers),
+        ),
+      );
+    }
+  }
+  requirements.sort((a, b) => a.key.localeCompare(b.key));
+  return { requirements };
 }
 
 /**
@@ -482,9 +461,7 @@ export function deriveTier3BuildSpecForProviderKeys(
  * bridge used by the F2 → F3 button: planned dossiers have no file evidence
  * yet, so provider detection cannot discover them from the parent version.
  */
-export function deriveTier3BuildSpecForDossierIds(
-  dossierIds: readonly string[],
-): Tier3BuildSpec {
+export function deriveTier3BuildSpecForDossierIds(dossierIds: readonly string[]): Tier3BuildSpec {
   const byId = new Map(getAllDossiers().map((entry) => [entry.id, entry]));
   const requirements: Tier3IntegrationRequirement[] = [];
   const seen = new Set<string>();
@@ -496,94 +473,41 @@ export function deriveTier3BuildSpecForDossierIds(
     const entry = byId.get(dossierId);
     if (!entry) continue;
 
-    const placeholderOkEnvKeys: string[] = [];
-    const requiredRealEnvKeys: string[] = [];
-    const featureRuntimeEnvKeys: string[] = [];
-    const warnOnlyEnvKeys: string[] = [];
-    for (const env of entry.envVars ?? []) {
-      const { harmless } = partitionEnvKeysByTier([env.key]);
-      if (harmless.includes(env.key)) {
-        placeholderOkEnvKeys.push(env.key);
-        continue;
-      }
-      switch (env.enforcement ?? "build") {
-        case "feature-runtime":
-          featureRuntimeEnvKeys.push(env.key);
-          break;
-        case "warn-only":
-          warnOnlyEnvKeys.push(env.key);
-          break;
-        default:
-          if (env.required !== false) requiredRealEnvKeys.push(env.key);
-          else warnOnlyEnvKeys.push(env.key);
-      }
-    }
-
-    requirements.push({
-      key: entry.id,
-      name: entry.label,
-      provider: entry.id,
-      requiredRealEnvKeys,
-      placeholderOkEnvKeys,
-      featureRuntimeEnvKeys,
-      warnOnlyEnvKeys,
-      buildInstructions: [
-        `Use the injected \`${entry.id}\` dossier as the implementation contract.`,
-        "Wire its exposed UI into the existing design and connect every shipped server route end-to-end.",
-        "Preserve the F2 layout and graceful not-configured/demo state while activating the real provider path.",
-      ],
-      setupGuide: (entry.envVars ?? [])
-        .map((env) => env.purpose)
-        .filter(Boolean)
-        .join(" "),
-      hasConfigNoticeComponent: (entry.files ?? []).some((file) =>
-        CONFIG_NOTICE_FILE_RE.test(file.path),
-      ),
-    });
+    requirements.push(
+      buildDossierRequirement(entry, {
+        key: entry.id,
+        name: entry.label,
+        provider: entry.id,
+      }),
+    );
   }
 
   requirements.sort((a, b) => a.key.localeCompare(b.key));
   return { requirements };
 }
 
-function findRegistryDefinitionByProviderKey(
-  raw: string,
-): IntegrationDefinition | undefined {
+function findRegistryDefinitionByProviderKey(raw: string): IntegrationDefinition | undefined {
   const compact = compactProviderKey(raw);
   if (!compact) return undefined;
   return integrationRegistry.find(
     (d) =>
-      compactProviderKey(d.key) === compact ||
-      compactProviderKey(d.provider ?? d.key) === compact,
+      compactProviderKey(d.key) === compact || compactProviderKey(d.provider ?? d.key) === compact,
   );
 }
 
-/**
- * True when at least one approved provider's STRICT-matched backing dossier
- * ships the shared `integration-config-notice.tsx` component (Codex P2,
- * PR #383): the F3 approval prompt may only instruct the model to render
- * "the dossier's config-notice UI" when that file actually exists in the
- * injected templates — providers like Clerk/OpenAI have hard dossiers
- * without it, and the instruction would make the model import a component
- * that is never emitted (build break).
- */
+/** True when a uniquely resolved provider dossier ships a config notice. */
 export function approvedProvidersShipConfigNotice(providerKeys: string[]): boolean {
-  if (providerKeys.length === 0) return false;
-  const backingIndex = buildDossierBackingIndex();
   for (const raw of providerKeys) {
     if (typeof raw !== "string" || !raw.trim()) continue;
-    const compact = compactProviderKey(raw);
-    const def = findRegistryDefinitionByProviderKey(raw);
-    if (!def) continue;
-    // Same suppression as mapProviderKeysToDossierCapabilities: a capability
-    // that only strict-backs the provider via a shared infra dep is NOT
-    // injected, so its config-notice file must not be advertised here either
-    // (otherwise the F3 prompt tells the model to render a component that was
-    // never emitted → build break).
-    const strictBacking = backingIndex.matchers.filter(
-      (m) => m.matchesStrict(def) && !isSuppressedProviderBacking(compact, m.capability, m.dossierId),
-    );
-    if (backingDossierShipsConfigNotice(strictBacking)) return true;
+    const exactDossier = findExactDossierInput(raw);
+    if (exactDossier) {
+      if (dossierShipsConfigNotice(exactDossier)) return true;
+      continue;
+    }
+    const resolution = resolveDossierProvider(canonicalProviderKey(raw));
+    if (resolution.status === "unique" && dossierShipsConfigNotice(resolution.dossiers[0])) {
+      return true;
+    }
   }
   return false;
 }
@@ -594,85 +518,43 @@ export function approvedProvidersShipConfigNotice(providerKeys: string[]): boole
  * integrations without a status are skipped because the user hasn't asked
  * for them yet.
  */
-export function deriveTier3BuildSpec(
-  contracts: PlanContracts,
-): Tier3BuildSpec {
+export function deriveTier3BuildSpec(contracts: PlanContracts): Tier3BuildSpec {
   const requirements: Tier3IntegrationRequirement[] = [];
-  const backingIndex = buildDossierBackingIndex();
 
   for (const integration of uniqueProviderIntegrations(contracts)) {
     if (integration.status === "optional") continue;
-    const def = findIntegrationDefinition(integration);
-    if (!def) continue;
-
-    const envKeys = integration.envVars && integration.envVars.length > 0
-      ? integration.envVars
-      : def.envVars;
-    const { harmless, tier3 } = partitionEnvKeysByTier(envKeys);
-
-    // PlanContracts may carry per-key enforcement (added to the schema in
-    // P31). When absent (older callers / legacy snapshots) every tier-3
-    // key falls back to `"build"` — the conservative pre-P31 default.
-    const enforcementHint = integration.envEnforcement;
-    const featureRuntimeEnvKeys = enforcementHint
-      ? tier3.filter((k) => enforcementHint[k] === "feature-runtime")
-      : [];
-    const warnOnlyEnvKeys = enforcementHint
-      ? tier3.filter((k) => enforcementHint[k] === "warn-only")
-      : [];
-    let buildEnforcedTier3 = tier3.filter(
-      (k) => !featureRuntimeEnvKeys.includes(k) && !warnOnlyEnvKeys.includes(k),
-    );
-    let effectiveWarnOnly = warnOnlyEnvKeys;
-
-    // Clamp against dossier-backing: if no hard-/soft-dossier implements this
-    // integration, we cannot generate code that consumes its env keys. F3
-    // asking for a real CLERK_SECRET_KEY when no clerk-auth dossier exists
-    // would block the build on a value no generated file would ever use.
-    // Downgrade to warn-only so the UI still surfaces the expected vars but
-    // F3 validation doesn't refuse to start.
-    const backingDossiers = findBackingDossiers(def, backingIndex);
-    if (backingDossiers.length === 0 && buildEnforcedTier3.length > 0) {
-      effectiveWarnOnly = [...warnOnlyEnvKeys, ...buildEnforcedTier3];
-      buildEnforcedTier3 = [];
+    const exactDossier = findExactDossierInput(integration.provider);
+    if (exactDossier) {
+      requirements.push(
+        buildDossierRequirement(exactDossier, {
+          key: exactDossier.id,
+          name: exactDossier.label,
+          provider: exactDossier.providers?.[0] ?? exactDossier.id,
+        }),
+      );
+      continue;
     }
 
-    // Config-notice advertisement must exclude backing that only exists via a
-    // suppressed capability (e.g. paddle-billing strict-backs the generic
-    // "supabase" provider through its `@supabase/*` infra deps, shipping
-    // `subscription-config-notice.tsx`). That dossier is NOT injected on a
-    // plain provider approval, so advertising its config-notice would tell the
-    // F3 model to render a component that was never emitted → build break.
-    // Mirrors the suppression in `approvedProvidersShipConfigNotice`; the
-    // env-clamping use of `backingDossiers` above stays unsuppressed since a
-    // suppressed dossier still legitimately "backs nothing" for that clamp.
-    const defProviderCompact = compactProviderKey(def.provider ?? def.key);
-    const defKeyCompact = compactProviderKey(def.key);
-    // STRICT match required (Codex P1 on #506): `backingDossiers` uses the
-    // category fallback (right for the env-clamp above), but config-notice
-    // advertisement must mirror INJECTION semantics — a category sibling
-    // (contentful → sanity-cms under "cms") is never injected on a provider
-    // approval, so advertising its notice file would make the model import a
-    // component that was never emitted (build break).
-    const configNoticeBacking = backingDossiers.filter(
-      (m) =>
-        m.matchesStrict(def) &&
-        !isSuppressedProviderBacking(defProviderCompact, m.capability, m.dossierId) &&
-        !isSuppressedProviderBacking(defKeyCompact, m.capability, m.dossierId),
-    );
-
-    requirements.push({
-      key: def.key,
-      name: def.name,
-      provider: def.provider ?? def.key,
-      requiredRealEnvKeys: buildEnforcedTier3,
-      placeholderOkEnvKeys: harmless,
-      featureRuntimeEnvKeys,
-      warnOnlyEnvKeys: effectiveWarnOnly,
-      buildInstructions: resolveBuildInstructions(def),
-      setupGuide: def.setupGuide,
-      hasConfigNoticeComponent: backingDossierShipsConfigNotice(configNoticeBacking),
-    });
+    const def = findIntegrationDefinition(integration);
+    const provider = canonicalProviderKey(def?.provider ?? def?.key ?? integration.provider);
+    const resolution = resolveDossierProvider(provider);
+    if (resolution.status === "unique") {
+      const entry = resolution.dossiers[0];
+      requirements.push(
+        buildDossierRequirement(entry, {
+          key: def?.key ?? provider,
+          name: def?.name ?? entry.label,
+          provider,
+        }),
+      );
+    } else if (def || resolution.status === "ambiguous") {
+      requirements.push(
+        buildGenericRequirement(
+          def ?? manifestOnlyGenericDefinition(provider, resolution.dossiers),
+          integration,
+        ),
+      );
+    }
   }
 
   requirements.sort((a, b) => a.key.localeCompare(b.key));
@@ -734,9 +616,7 @@ export function validateTier3Readiness(
   return {
     ready: missingByIntegration.length === 0,
     missingByIntegration,
-    ...(placeholderUsedByIntegration.length > 0
-      ? { placeholderUsedByIntegration }
-      : {}),
+    ...(placeholderUsedByIntegration.length > 0 ? { placeholderUsedByIntegration } : {}),
   };
 }
 
@@ -750,7 +630,7 @@ export function renderTier3BuildPlanBlock(spec: Tier3BuildSpec): string | null {
   const lines: string[] = [
     "## Tier-3 Integration Build Plan",
     "",
-    "You are now in F3 (\"bygg integrationer\"). Wire each integration below end-to-end.",
+    'You are now in F3 ("bygg integrationer"). Wire each integration below end-to-end.',
     // The old wording ("assume real values are present at runtime") was
     // wrong for the approval-without-keys case (P2 F3-loop): keys tagged
     // `feature-runtime` may legitimately still be placeholders when the
@@ -775,6 +655,11 @@ export function renderTier3BuildPlanBlock(spec: Tier3BuildSpec): string | null {
     }
     if (req.placeholderOkEnvKeys.length > 0) {
       lines.push(`Public/placeholder-OK env: \`${req.placeholderOkEnvKeys.join("`, `")}\``);
+    }
+    if (req.warnOnlyEnvKeys.length > 0) {
+      lines.push(
+        `Optional/warn-only env (never blocks F3): \`${req.warnOnlyEnvKeys.join("`, `")}\``,
+      );
     }
     // Only integrations whose backing dossier actually ships the config-notice
     // component get the graceful-fallback instruction. Emitting it globally

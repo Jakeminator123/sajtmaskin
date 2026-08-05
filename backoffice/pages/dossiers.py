@@ -12,8 +12,8 @@ Lets you:
   per dossier-grupp; the technical column view lives in the tech expander.
 - Edit the safe manifest fields via a form (fail-closed chain:
   `_validate_manifest` → strict schema → `backup_file` → write), or the raw
-  JSON in the tech expander (unchanged light pre-check + backup — the
-  documented divergence in docs/contracts/dossier-system.md).
+  JSON in the tech expander (same class-aware pre-check + strict schema before
+  backup/write).
 - Delete a byggblock from the live pool (danger zone: dossier-rules checklist
   + typed id confirmation + zip snapshot).
 - Create a byggblock from scratch (manifest skeleton + instructions stub,
@@ -281,7 +281,9 @@ def _walk_all_dossiers() -> list[dict[str, Any]]:
 _ALLOWED_ENFORCEMENT = {"build", "feature-runtime", "warn-only"}
 
 
-def _validate_manifest(data: dict[str, Any]) -> list[str]:
+def _validate_manifest(
+    data: dict[str, Any], dossier_class: str | None = None
+) -> list[str]:
     errors: list[str] = []
     for f in REQUIRED_FIELDS:
         if f not in data:
@@ -292,6 +294,13 @@ def _validate_manifest(data: dict[str, Any]) -> list[str]:
         errors.append("complexity must be 'simple' | 'medium' | 'advanced'")
     if "id" in data and not isinstance(data["id"], str):
         errors.append("id must be a string")
+    providers = data.get("providers")
+    if dossier_class == "hard" and (
+        not isinstance(providers, list) or not providers
+    ):
+        errors.append("hard manifests must declare a non-empty providers array")
+    elif dossier_class == "soft" and "providers" in data:
+        errors.append("soft manifests must not declare providers")
     # P31: per-envVar `enforcement` is optional but, when present, must be one
     # of the three documented values. Defaults to "build" downstream.
     env_vars = data.get("envVars") or []
@@ -308,6 +317,30 @@ def _validate_manifest(data: dict[str, Any]) -> list[str]:
                     f"{sorted(_ALLOWED_ENFORCEMENT)} (got {enforcement!r})"
                 )
     return errors
+
+
+def _save_raw_manifest(
+    manifest_path: Path, manifest: dict[str, Any], *, dossier_class: str
+) -> tuple[bool, str]:
+    """Fail-closed raw-editor write: class-aware pre-check + strict schema
+    before the shared backup/write helper. Raw JSON gives access to every
+    schema field, not permission to bypass the runtime contract."""
+    errors = _validate_manifest(manifest, dossier_class)
+    if errors:
+        return False, "Validering misslyckades — sparade inte:\n" + "\n".join(
+            f"- {error}" for error in errors
+        )
+    try:
+        schema_errors = validate_json_against_schema(manifest, STRICT_SCHEMA_PATH)
+    except Exception as exc:  # noqa: BLE001 - fail closed, never save unvalidated
+        schema_errors = [f"Strict-schemavalidering kunde inte köras: {exc}"]
+    if schema_errors:
+        return False, (
+            "Strict-schema (samma regler som runtime/CI) misslyckades — sparade inte:\n"
+            + "\n".join(f"- {error}" for error in schema_errors)
+        )
+    _save_json(manifest_path, manifest)
+    return True, ""
 
 
 def _summarize_enforcement(data: dict[str, Any]) -> str:
@@ -596,8 +629,9 @@ def _apply_manifest_field_edits(
     resultatet fällde ``npm run dossiers:validate-all`` i stället. Varken
     strict-schemat eller ``_validate_manifest`` fångar det, eftersom ``mock``
     är valfritt för båda. Ett redan trasigt manifest kan alltså inte sparas
-    vidare utan att demoläget sätts i samma formulär; rå-JSON-editorn är kvar
-    som medveten undantagsväg."""
+    vidare utan att demoläget sätts i samma formulär. Rå-JSON-editorn ger
+    fortfarande full kontroll över schemafälten men kör alltid klassregeln och
+    strict-schemat före skrivning."""
     manifest = _load_json(manifest_path)
     if not manifest:
         return False, f"Kunde inte läsa `{manifest_path}` (saknad eller ogiltig JSON)."
@@ -606,7 +640,7 @@ def _apply_manifest_field_edits(
             manifest.pop(key, None)
         else:
             manifest[key] = value
-    errors = _validate_manifest(manifest)
+    errors = _validate_manifest(manifest, dossier_class)
     if errors:
         return False, "Validering misslyckades — sparade inte:\n" + "\n".join(
             f"- {e}" for e in errors
@@ -737,11 +771,9 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
             "Manifestet kunde inte läsas som JSON — rätta det via rå-JSON-editorn nedan."
         )
 
-    # Rå JSON = full kontroll över alla fält (envVars, files, exposes …).
-    # Oförändrad, medvetet lättare kedja (dokumenterad divergens i
-    # docs/contracts/dossier-system.md): lätt pre-check → backup → skriv.
-    # Strict-schemat körs i fältformuläret ovan och av
-    # `npm run dossiers:validate-all`.
+    # Rå JSON = full kontroll över alla schemafält (envVars, files, exposes …),
+    # men samma klassregel + strict-schema som runtime måste vara gröna före
+    # backup/skrivning.
     with tech_details("Rå JSON (full kontroll över alla fält)"):
         raw = manifest_path.read_text(encoding="utf-8")
         edited = st.text_area("manifest.json", value=raw, height=400, key=f"edit_{pick_key}")
@@ -751,12 +783,12 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
             except json.JSONDecodeError as exc:
                 st.error(f"Ogiltig JSON: {exc}")
                 return
-            errors = _validate_manifest(parsed)
-            if errors:
-                st.error("Validering misslyckades:\n" + "\n".join(f"- {e}" for e in errors))
+            ok, msg = _save_raw_manifest(
+                manifest_path, parsed, dossier_class=chosen["_class"]
+            )
+            if not ok:
+                st.error(msg)
                 return
-            backup_file(manifest_path, REPO_ROOT)
-            manifest_path.write_text(json.dumps(parsed, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
             st.success(f"Sparat {manifest_path.relative_to(REPO_ROOT)}")
             st.cache_data.clear()
 
@@ -1184,7 +1216,7 @@ def _apply_capability_override(target_class: str, target_id: str, capability: st
     # standardval".
     if manifest.get("defaultForCapability"):
         manifest["defaultForCapability"] = False
-    errors = _validate_manifest(manifest)
+    errors = _validate_manifest(manifest, target_class)
     if errors:
         return False, "Manifestet blev ogiltigt efter capability-bytet:\n" + "\n".join(f"- {e}" for e in errors)
     try:
@@ -1495,7 +1527,7 @@ def _promote_prospect(root: Path, entry: dict[str, Any], force: bool) -> tuple[b
             f"plan-postens targetCapability ({plan_capability!r}). Kör om "
             "normaliseringen mot aktuell plan (eller uppdatera prospects.json)."
         )
-    errors = _validate_manifest(manifest)
+    errors = _validate_manifest(manifest, klass)
     if errors:
         return False, "Manifest-validering misslyckades:\n" + "\n".join(f"- {e}" for e in errors)
     # Canonical strict-schema gate (additionalProperties:false, kebab/id/label
@@ -1732,6 +1764,7 @@ def _create_dossier_skeleton(
     label: str,
     capability: str,
     summary: str,
+    providers: list[str] | None = None,
     complexity: str = "medium",
     code_fidelity: str = "rewritable",
     mock: str | None = None,
@@ -1744,11 +1777,12 @@ def _create_dossier_skeleton(
 
     Fail-closed i strikt ordning:
     1. id + capability valideras (kebab-case, 2-60 tecken) INNAN något skrivs;
-    2. en Kopplad (hard) dossier måste ha `mock` ≠ `none` om inte capabilityn
+    2. en Kopplad (hard) dossier måste deklarera minst ett explicit provider-id;
+    3. en Kopplad (hard) dossier måste ha `mock` ≠ `none` om inte capabilityn
        står på `MOCKLESS_CAPABILITY_EXCEPTIONS` (läst ur validate-manifest.ts);
-    3. manifestet måste passera `_validate_manifest` OCH strict-schemat
+    4. manifestet måste passera `_validate_manifest` OCH strict-schemat
        (`docs/schemas/strict/dossier.schema.json`) INNAN skrivning;
-    4. en befintlig katalog skrivs ALDRIG över — `mkdir(exist_ok=False)` är
+    5. en befintlig katalog skrivs ALDRIG över — `mkdir(exist_ok=False)` är
        själva vakten, så inte heller ett race förbi exists-kollen kan skriva
        över något.
     """
@@ -1763,6 +1797,20 @@ def _create_dossier_skeleton(
             return False, (
                 f"Ogiltigt {field_name} (kebab-case, 2-60 tecken, t.ex. "
                 f"`image-generation`): {value!r} — inget skapades."
+            )
+    provider_values = [value.strip() for value in (providers or []) if value.strip()]
+    if target_class == "hard" and not provider_values:
+        return False, (
+            "En Kopplad (hard) dossier måste ha minst ett explicit provider-id "
+            "i kebab-case (t.ex. `stripe`) — inget skapades."
+        )
+    if target_class == "soft" and provider_values:
+        return False, "Fristående (soft) dossiers får inte deklarera providers — inget skapades."
+    for provider in provider_values:
+        if not _KEBAB_RE.match(provider):
+            return False, (
+                "Ogiltigt provider-id (kebab-case, t.ex. `vercel-analytics`): "
+                f"{provider!r} — inget skapades."
             )
     mock_value = (mock or "").strip() or None
     if target_class == "hard":
@@ -1789,10 +1837,12 @@ def _create_dossier_skeleton(
         manifest["summarySv"] = summary_sv.strip()
     if default_for_capability:
         manifest["defaultForCapability"] = True
+    if target_class == "hard":
+        manifest["providers"] = provider_values
     if mock_value and mock_value != "none":
         manifest["mock"] = mock_value
 
-    errors = _validate_manifest(manifest)
+    errors = _validate_manifest(manifest, target_class)
     if errors:
         return False, "Validering misslyckades — inget skapades:\n" + "\n".join(
             f"- {e}" for e in errors
@@ -1928,8 +1978,21 @@ def _section_create_from_scratch() -> None:
             field_label("defaultForCapability", hint="vinner när flera byggblock delar funktion"),
             key="create_scratch_default",
         )
+        provider_ids: list[str] | None = None
         mock_choice: str | None = None
         if target_class == "hard":
+            provider_text = st.text_input(
+                field_label(
+                    "providers",
+                    hint="obligatoriska provider-id:n, kommaseparerade; t.ex. `stripe`",
+                ),
+                key="create_scratch_providers",
+            )
+            provider_ids = [
+                value.strip()
+                for value in re.split(r"[,\n]", provider_text)
+                if value.strip()
+            ]
             mock_choice = st.selectbox(
                 field_label("mock", hint="obligatoriskt för Kopplade byggblock"),
                 list(_MOCK_OPTIONS),
@@ -1950,6 +2013,7 @@ def _section_create_from_scratch() -> None:
             target_id.strip(),
             label=new_label,
             capability=capability.strip(),
+            providers=provider_ids,
             summary=summary,
             complexity=complexity,
             code_fidelity=code_fidelity,

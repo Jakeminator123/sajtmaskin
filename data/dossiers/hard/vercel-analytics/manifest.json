@@ -3,6 +3,7 @@
   "id": "vercel-analytics",
   "label": "Besöksstatistik — Vercel",
   "capability": "analytics",
+  "providers": ["vercel-analytics"],
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": true,

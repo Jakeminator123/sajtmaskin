@@ -4,6 +4,7 @@
   "mock": "seed",
   "label": "Databas — Postgres (standard)",
   "capability": "database",
+  "providers": ["postgres"],
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
@@ -17,13 +18,7 @@
       "enforcement": "feature-runtime"
     }
   ],
-  "dependencies": [
-    "drizzle-orm",
-    "drizzle-kit",
-    "pg",
-    "@types/pg",
-    "server-only"
-  ],
+  "dependencies": ["drizzle-orm", "drizzle-kit", "pg", "@types/pg", "server-only"],
   "files": [
     {
       "path": "components/lib/db/schema.ts",

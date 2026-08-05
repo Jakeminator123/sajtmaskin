@@ -17,11 +17,18 @@ describe("integration manifest", () => {
   });
 
   it("detects Sentry from version files via registry pipeline", () => {
-    const files = [{ name: "instrumentation.ts", content: 'import * as Sentry from "@sentry/nextjs";\n' }];
+    const files = [
+      { name: "instrumentation.ts", content: 'import * as Sentry from "@sentry/nextjs";\n' },
+    ];
     const detected = detectIntegrationsFromVersionFiles(files);
     const sentry = detected.find((d) => d.key === "sentry");
     expect(sentry?.name).toBe("Sentry");
-    expect(sentry?.envVars).toContain("SENTRY_DSN");
+    expect(sentry?.envVars).toEqual([
+      "NEXT_PUBLIC_SENTRY_DSN",
+      "SENTRY_ENVIRONMENT",
+      "SENTRY_TRACES_SAMPLE_RATE",
+    ]);
+    expect(sentry?.envVars).not.toContain("SENTRY_DSN");
   });
 
   it("detects Meilisearch from generated code", () => {
@@ -82,9 +89,14 @@ describe("integration manifest", () => {
     const files = [
       {
         name: "lib/sanity.ts",
-        content: 'import { createClient } from "next-sanity";\nexport const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!;\n',
+        content:
+          'import { createClient } from "next-sanity";\nexport const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID!;\n',
       },
-      { name: "lib/db.ts", content: "import mongoose from \"mongoose\";\nawait mongoose.connect(process.env.MONGODB_URI!);\n" },
+      {
+        name: "lib/db.ts",
+        content:
+          'import mongoose from "mongoose";\nawait mongoose.connect(process.env.MONGODB_URI!);\n',
+      },
     ];
     const detected = detectIntegrationsFromVersionFiles(files);
     expect(detected.some((d) => d.key === "sanity")).toBe(true);
