@@ -6,6 +6,8 @@ import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getProjectByIdForOwner } from "@/lib/db/services/projects";
 import {
   getChat as getEngineChat,
+  getLatestVersion as getLatestEngineVersion,
+  getPreferredVersion as getPreferredEngineVersion,
   getVersionById as getEngineVersionById,
   type ChatWithMessages as EngineChatWithMessages,
   type Version as EngineVersion,
@@ -313,4 +315,27 @@ export async function getEngineVersionForChatByIdForRequest(
   if (!scoped) return null;
   if (scoped.version.chat_id !== normalizedChatId) return null;
   return scoped;
+}
+
+/**
+ * The chat's current version, for callers that hold a chat id but no version id
+ * (an OpenClaw session on a chat the user has not opened a specific version
+ * of). Ownership comes from the chat, so this is no weaker than the pair
+ * lookup above — and the version id is resolved server-side rather than taken
+ * from the client. Prefers the lifecycle-preferred row, falling back to the
+ * newest, so a failed tip does not hide the version the user is looking at.
+ */
+export async function getLatestEngineVersionForChatForRequest(
+  req: Request,
+  chatId: string,
+  options?: { sessionId?: string },
+): Promise<{ chat: EngineChatWithMessages; version: EngineVersion } | null> {
+  const chat = await getEngineChatByIdForRequest(req, chatId, options);
+  if (!chat) return null;
+  const normalizedChatId = chatId.trim();
+  const version =
+    (await getPreferredEngineVersion(normalizedChatId)) ??
+    (await getLatestEngineVersion(normalizedChatId));
+  if (!version) return null;
+  return { chat, version };
 }

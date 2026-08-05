@@ -35,7 +35,8 @@ function snapshot(overrides: Partial<BuilderTurnSnapshot> = {}): BuilderTurnSnap
     isStreaming: false,
     versionStatus: "ready",
     versionIsLatest: true,
-    lastTurnRejectedAt: null,
+    rejectedSendSeq: null,
+    rejectedAt: null,
     awaitingInput: false,
     chatMessageCount: 4,
     ...overrides,
@@ -48,6 +49,7 @@ function watching(overrides: Partial<ArmedContinuationWatch> = {}): ArmedContinu
     versionIdAtSend: "ver-1",
     startedAt: NOW - 5000,
     messageCountAtSend: 4,
+    sendSeq: 7,
     observedAt: NOW - 4000,
     observedStrong: true,
     resumedAt: null,
@@ -76,6 +78,8 @@ describe("createArmedContinuationWatch", () => {
       versionIdAtSend: "ver-1",
       startedAt: NOW,
       messageCountAtSend: 4,
+      // Named by the send itself once it reaches the builder, never guessed here.
+      sendSeq: null,
       observedAt: null,
       observedStrong: false,
       resumedAt: null,
@@ -87,6 +91,7 @@ describe("createArmedContinuationWatch", () => {
     const watch = createArmedContinuationWatch(null, NOW);
     expect(watch.chatId).toBeNull();
     expect(watch.versionIdAtSend).toBeNull();
+    expect(watch.sendSeq).toBeNull();
   });
 });
 
@@ -222,7 +227,7 @@ describe("decideArmedContinuation", () => {
   it("stops when the builder refused the send", () => {
     // Stale base, F3 env gate or the credit gate: the version keeps its old
     // terminal status, so nothing else in the snapshot reveals the refusal.
-    const decision = decide({ snapshot: snapshot({ lastTurnRejectedAt: NOW }) });
+    const decision = decide({ snapshot: snapshot({ rejectedSendSeq: 7 }) });
     expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
   });
 
@@ -238,19 +243,55 @@ describe("decideArmedContinuation", () => {
     // be read before the "has the turn started?" gate.
     const decision = decide({
       watch: watching({ observedAt: null, observedStrong: false }),
-      snapshot: snapshot({ lastTurnRejectedAt: NOW }),
+      snapshot: snapshot({ rejectedSendSeq: 7 }),
     });
     expect(decision).toMatchObject({ kind: "abort", notify: true });
   });
 
   it("ignores a refusal that belongs to an earlier turn", () => {
-    // Stamped before this watch existed, so it says nothing about this send —
+    // A send that ended before this watch existed says nothing about ours —
     // acting on it would kill a mandate that just armed.
     const decision = decide({
-      watch: watching({ startedAt: NOW - 5_000 }),
-      snapshot: snapshot({ lastTurnRejectedAt: NOW - 20_000 }),
+      watch: watching({ sendSeq: 7 }),
+      snapshot: snapshot({ rejectedSendSeq: 6 }),
     });
     expect(decision.kind).not.toBe("abort");
+  });
+
+  it("ignores a refusal from another sender while our own turn is still running", () => {
+    // A manual retry, a catalogue insert or a plan decision can fail at any
+    // point during an autonomous build. Timestamps could not tell those apart
+    // from our own refusal, so any of them killed a mandate that was fine.
+    const decision = decide({
+      watch: watching({ sendSeq: 7 }),
+      snapshot: snapshot({ rejectedSendSeq: 9, versionStatus: "generating" }),
+    });
+    expect(decision).toMatchObject({ kind: "wait" });
+  });
+
+  it("falls back to timing for a send that never named itself", () => {
+    // Without an id there is nothing to match, and ignoring the refusal would
+    // let the run wait out a timeout instead of stopping. The blunt comparison
+    // is the lesser evil, so it stays for exactly this case.
+    const decision = decide({
+      watch: watching({ sendSeq: null, startedAt: NOW - 5_000 }),
+      snapshot: snapshot({ rejectedSendSeq: 7, rejectedAt: NOW - 1_000 }),
+    });
+    expect(decision).toMatchObject({ kind: "abort", notify: true, disarm: true });
+  });
+
+  it("does not let the timing fallback override a named send", () => {
+    // Once the turn has an id, a foreign refusal is a foreign refusal however
+    // recent it is — otherwise the fallback would undo the whole fix.
+    const decision = decide({
+      watch: watching({ sendSeq: 7, startedAt: NOW - 5_000 }),
+      snapshot: snapshot({
+        rejectedSendSeq: 9,
+        rejectedAt: NOW - 1_000,
+        versionStatus: "generating",
+      }),
+    });
+    expect(decision).toMatchObject({ kind: "wait" });
   });
 
   it("waits while the focus is still on the version we sent from", () => {

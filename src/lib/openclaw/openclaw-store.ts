@@ -52,6 +52,9 @@ interface OpenClawState {
   setEditEnabled: (v: boolean) => void;
   setArmedMandate: (mandate: ArmedMandate | null) => void;
   setArmedContinuation: (watch: ArmedContinuationWatch | null) => void;
+  /** Let the builder send that an armed auto-send started name itself, so a
+   * refusal can be matched to the exact turn. First claim wins. */
+  bindArmedContinuationSend: (sendSeq: number) => void;
   setPreparedFill: (fill: OpenClawPreparedFill | null) => void;
 }
 
@@ -108,5 +111,14 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   // watch (Bugbot). The auto-send card re-registers its watch after this call.
   setArmedMandate: (mandate) => set({ armedMandate: mandate, armedContinuation: null }),
   setArmedContinuation: (watch) => set({ armedContinuation: watch }),
+  // Only the first send may claim the watch. The auto-send is the one that
+  // registered it, so a later OpenClaw-prepared send the user posts by hand
+  // during the same run cannot rename the turn out from under it.
+  bindArmedContinuationSend: (sendSeq) =>
+    set((s) =>
+      s.armedContinuation && s.armedContinuation.sendSeq === null
+        ? { armedContinuation: { ...s.armedContinuation, sendSeq } }
+        : {},
+    ),
   setPreparedFill: (fill) => set({ preparedFill: fill }),
 }));

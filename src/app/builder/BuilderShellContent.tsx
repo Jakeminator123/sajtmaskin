@@ -81,6 +81,9 @@ import {
 } from "@/lib/hooks/chat/useAutoFix";
 import { useVersionStatus } from "@/lib/hooks/chat/useVersionStatus";
 import { shouldBlockPreviewWithLoadingOverlay } from "@/lib/builder/preview-lifecycle";
+import { publishBuilderSendTurn } from "@/lib/openclaw/builder-target";
+import { isOpenClawPreparedSend } from "@/lib/openclaw/prepared-prompt";
+import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -245,10 +248,17 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   // its previous terminal status, which otherwise reads exactly like a finished
   // build — and the handshake would wake up and spend another mandate step on a
   // turn that never ran.
-  // A timestamp rather than a flag: React can batch a false→true pair into one
-  // commit, and a boolean would then never be observed in its cleared state.
-  // The handshake compares this against when its watch started instead.
-  const [lastTurnRejectedAt, setLastTurnRejectedAt] = useState<number | null>(null);
+  // Numbered per send rather than time-stamped: the builder has many senders,
+  // and the handshake owns exactly one of them. A manual retry, a catalogue
+  // insert or a plan decision that fails while an autonomous turn is running
+  // must not end a mandate whose own send can still succeed.
+  // The timestamp rides along as a fallback for a send that never got to name
+  // itself: matching nothing at all would be worse than the blunt comparison
+  // the handshake used before ids existed.
+  const sendSeqRef = useRef(0);
+  const [rejectedTurn, setRejectedTurn] = useState<{ seq: number; at: number } | null>(
+    null,
+  );
 
   const latestPendingReply = useMemo(
     () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
@@ -257,10 +267,24 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const rawSendMessage = vm.sendMessage;
   const sendMessage = useCallback<typeof rawSendMessage>(
     async (...args) => {
+      const seq = (sendSeqRef.current += 1);
+      // Naming the turn from inside the send that owns it is what makes the
+      // match exact: the composer awaits an attachment step between the click
+      // and this call, and a predicted id could be taken by another sender in
+      // that window. The armed auto-send is recognised by the text OpenClaw
+      // filled into the composer — not merely by a fill being recorded, since a
+      // catalogue pick landing in the same window would then claim the watch
+      // and the mandate would read its own refused turn as someone else's.
+      const openClaw = useOpenClawStore.getState();
+      if (isOpenClawPreparedSend({ preparedFill: openClaw.preparedFill, message: args[0] })) {
+        openClaw.bindArmedContinuationSend(seq);
+      }
       const outcome = await rawSendMessage(...args);
       const status = outcome?.status;
       if (status === "rejected" || status === "failed" || status === "aborted") {
-        setLastTurnRejectedAt(Date.now());
+        const rejected = { seq, at: Date.now() };
+        publishBuilderSendTurn({ rejectedSendSeq: rejected.seq, rejectedAt: rejected.at });
+        setRejectedTurn(rejected);
       }
       return outcome;
     },
@@ -772,7 +796,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // Monotonic, unlike the truncated `recentMessages` — growth is how the
       // handshake recognises a turn too short to catch mid-stream.
       chatMessageCount: vm.messages.length,
-      lastTurnRejectedAt,
+      // Only a refusal carrying the id the autonomous send bound to its watch
+      // ends the mandate; every other sender's failure is someone else's.
+      rejectedSendSeq: rejectedTurn?.seq ?? null,
+      rejectedAt: rejectedTurn?.at ?? null,
       // A pending question or plan approval belongs to the user, not to armed
       // autonomy: sending past it would start a new generation and drop the
       // plan the builder is holding. Both halves are needed — `isAwaitingInput`
@@ -799,7 +826,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.isAnyStreaming,
     activeVersionStatus,
     activeVersionIsLatest,
-    lastTurnRejectedAt,
+    rejectedTurn,
     vm.isAwaitingInput,
     latestPendingReply,
   ]);

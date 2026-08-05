@@ -22,6 +22,22 @@ export function readActiveBuilderTarget(): OpenClawBuilderTarget | null {
 }
 
 /**
+ * Publish a refused send's id onto the live builder context without waiting for
+ * a React commit, so the handshake's next poll cannot read a turn outcome that
+ * is a render behind. `BuilderShellContent`'s effect republishes the same value
+ * from the same state; this only closes the gap between them.
+ */
+export function publishBuilderSendTurn(patch: {
+  rejectedSendSeq?: number;
+  rejectedAt?: number;
+}): void {
+  if (typeof window === "undefined") return;
+  const ctx = window.__SITEMASKIN_CONTEXT;
+  if (!ctx) return;
+  Object.assign(ctx, patch);
+}
+
+/**
  * Live builder-turn state for the armed-autonomy handshake. Unlike
  * `readActiveBuilderTarget` this tolerates a missing version id — a turn that
  * has not produced its version yet is exactly what the handshake waits for.
@@ -41,8 +57,9 @@ export function readBuilderTurnSnapshot(): BuilderTurnSnapshot | null {
     versionIsLatest: ctx.activeVersionIsLatest === true,
     chatMessageCount:
       typeof ctx.chatMessageCount === "number" ? ctx.chatMessageCount : null,
-    lastTurnRejectedAt:
-      typeof ctx.lastTurnRejectedAt === "number" ? ctx.lastTurnRejectedAt : null,
+    rejectedSendSeq:
+      typeof ctx.rejectedSendSeq === "number" ? ctx.rejectedSendSeq : null,
+    rejectedAt: typeof ctx.rejectedAt === "number" ? ctx.rejectedAt : null,
     awaitingInput: ctx.awaitingInput === true,
   };
 }

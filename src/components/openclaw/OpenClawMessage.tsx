@@ -391,6 +391,8 @@ function OpenClawArmedSendCard({
           // while the mandate still authorizes another step — an exhausted
           // mandate must end here, not wake OpenClaw one more time.
           if (nextMandate) {
+            // The watch registers without a send id; the send this click just
+            // started binds its own once it reaches the builder.
             setArmedContinuation(createArmedContinuationWatch(readBuilderTurnSnapshot()));
           }
           return;

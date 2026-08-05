@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isOpenClawPreparedPromptStructured,
+  isOpenClawPreparedSend,
   OPENCLAW_BUILDER_CHAT_TARGET,
   OPENCLAW_PREPARED_PROMPT_SOURCE,
   resolveOpenClawPreparedPromptSource,
@@ -246,5 +247,50 @@ describe("prepared-prompt — taggen är en ledtråd, inte ett intyg", () => {
         hasAttachments: false,
       }),
     ).toBeNull();
+  });
+});
+
+describe("isOpenClawPreparedSend (vem startade sändningen)", () => {
+  const preparedFill = {
+    target: OPENCLAW_BUILDER_CHAT_TARGET,
+    value: "Gör hjältesektionen luftigare",
+  };
+
+  it("känner igen sändningen även när composern hängt på ett Figma-block", () => {
+    // Bindningen av send-id:t frågar VEM som startade turen, inte om texten är
+    // orörd — annars blir en armerad auto-send obunden så fort en Figma-länk
+    // ligger i composern, och dess egen avvisning kan inte matchas.
+    const message = `${preparedFill.value}\n\nUse this Figma design as a reference: https://figma.test/x`;
+    expect(isOpenClawPreparedSend({ preparedFill, message })).toBe(true);
+  });
+
+  it("nekar en katalog-/handskriven sändning som råkar ske i samma fönster", () => {
+    // Den här riktningen är den farliga: en främmande sändning som binder
+    // watchen gör att autonomins EGEN avvisning inte matchar, och mandatet
+    // fortsätter som om steget lyckats.
+    expect(
+      isOpenClawPreparedSend({ preparedFill, message: "Lägg till Stripe-betalningar" }),
+    ).toBe(false);
+  });
+
+  it("nekar när ingen fill finns eller när den gäller ett annat fält", () => {
+    expect(isOpenClawPreparedSend({ preparedFill: null, message: preparedFill.value })).toBe(
+      false,
+    );
+    expect(
+      isOpenClawPreparedSend({
+        preparedFill: { target: "landing.freeform.primary", value: preparedFill.value },
+        message: preparedFill.value,
+      }),
+    ).toBe(false);
+  });
+
+  it("nekar en tom fill, som annars skulle matcha varje sändning", () => {
+    expect(
+      isOpenClawPreparedSend({
+        preparedFill: { target: OPENCLAW_BUILDER_CHAT_TARGET, value: "   " },
+        message: "Lägg till en prissektion",
+      }),
+    ).toBe(false);
   });
 });
