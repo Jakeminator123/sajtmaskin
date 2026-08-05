@@ -10,8 +10,10 @@ source: Prod-mätning 2026-08-05 av de två senaste användarsajterna (fyra vers
 
 ## TL;DR
 
-En generation tar 47–415 sekunder i prod. **79–99 % av den tiden är
-codegen-strömmen.** Allt efter strömmen går på 1,4–2,0 s utom i en av de fyra
+En generation tar 47–415 sekunder i prod **räknat från strömstart**
+(`engineStartedAt` — se rättelsen i [`01-matningen.md`](01-matningen.md); om brief
+och orkestrering ligger före den punkten är användarens faktiska väntan längre).
+**79–99 % av den tiden är codegen-strömmen.** Allt efter strömmen går på 1,4–2,0 s utom i en av de fyra
 mätta körningarna, där verifiern ensam tog 69 s. Bildhämtning kostar **noll** —
 modellen skriver Unsplash-URL:er ur minnet, så `materialize_images` ersatte 0
 bilder i samtliga versioner.
@@ -32,7 +34,7 @@ verifiern. En klassning, tre kostnader.
 
 | Fakta | Bevis |
 |---|---|
-| Strömmen är 79–99 % av väggklockan | Fyra versioner, `generation_telemetry.duration_ms` minus summan av `meta.postStreamSteps` — tabell i [`01-matningen.md`](01-matningen.md) |
+| Strömmen är 79–99 % av väggklockan **från strömstart** | Fyra versioner, `generation_telemetry.duration_ms` minus summan av `meta.postStreamSteps` — tabell i [`01-matningen.md`](01-matningen.md). Båda talen är ankrade i `engineStartedAt`, så andelen är giltig inom det fönstret; om brief/orkestrering ligger utanför fönstret är andelen av användarens *hela* väntan lägre |
 | Strömtiden är ~linjär i completion-tokens | 134–182 tok/s över fyra körningar och två modeller (`gpt-5.3-codex`, `gpt-5.6-sol`) |
 | Bildhämtning kostar noll på kritiska vägen | `materialize_images`: `durationMs: 0`, `replacedCount: 0` i alla fyra versionerna — samtidigt som sajterna har 8–13 `images.unsplash.com`-referenser som modellen skrivit direkt |
 | Verifiern tog 69,2 s och gav noll blockerare | `postStreamSteps.verifier`: `durationMs: 69226`, `blockingCount: 0`, `qualityCount: 5` |
@@ -48,7 +50,7 @@ vilar på en enda körning. Det är hela skälet till att steg 1 kommer först.
 
 | # | Steg | Ägare i koden | Status / villkor |
 |---|---|---|---|
-| 1 | **Gör mätningen synlig.** `meta` med i telemetri-kinden i `dump-logs.mjs`; explicit `streamMs` som meta-nyckel; det saknade `recordPhaseDuration("materialize_images", …)`-anropet | `scripts/db/dump-logs.mjs`, `persist-telemetry.ts`, `runner.ts` | **Levererad** (`feat/telemetry-stream-visibility`). `streamMs` blev **direktmätt** vid stream→finalize-gränsen, inte deriverat — brief och orkestrering ingår alltså inte. Fasnamnet fanns redan i `OBSERVED_PHASES`; bara anropet saknades, så `metrics.ts` behövde inte ändras |
+| 1 | **Gör mätningen synlig.** `meta` med i telemetri-kinden i `dump-logs.mjs`; explicit `streamMs` som meta-nyckel; det saknade `recordPhaseDuration("materialize_images", …)`-anropet | `scripts/db/dump-logs.mjs`, `persist-telemetry.ts`, `runner.ts` | **Levererad** (`feat/telemetry-stream-visibility`). `streamMs` blev **direktmätt** vid stream→finalize-gränsen i stället för deriverat. Obs: samma ankare som `duration_ms`, så talen är jämförbara — se rättelsen i [`01-matningen.md`](01-matningen.md). Fasnamnet fanns redan i `OBSERVED_PHASES`; bara anropet saknades, så `metrics.ts` behövde inte ändras |
 | 2 | **BuildSpec-klassningen.** Varför blir en bloggsajt `qualityTarget: premium` + `contextPolicy: heavy`? Klassningen driver prompt-storlek, output och verifier-gaten på en gång | `src/lib/gen/build-spec/` | **Klar att ta efter steg 1.** ~3–4 h + A/B mot samma prompt. Kvalitetsrisk → mät utfall, inte bara tid |
 | 3 | **Verifierns proportionalitet i F2.** Tre oberoende villkor tvingar ett 69 s LLM-pass på en design-preview vars gate ändå ägs av klientens RenderGate | `resolveVerifierPassPolicy` i `policy.ts` | **Ägarfråga, inte tröskeljustering.** Kodändringen är liten; beslutet är det inte. Se risknoten |
 | 4 | **Parallell codegen** — kontraktspass, N workers per filgrupp, merge | Fas 2–3 i sin helhet | **Beslutspunkt, inte beställt arbete.** Kräver ägar-OK enligt `mvp-scope-freeze.mdc`. Se [`02-parallell-codegen.md`](02-parallell-codegen.md) |

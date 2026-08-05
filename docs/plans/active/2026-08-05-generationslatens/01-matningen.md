@@ -28,21 +28,31 @@ Read-only mot prod, ingen skrivning.
 4. Ett engångsskript som räknar bild-URL:er i `engine_versions.files_json`.
 
 Strömtiden var vid mätningen inte ett eget fält utan räknades fram som
-`duration_ms` minus summan av `meta.postStreamSteps`. Den posten rymmer därför
-även Deep Brief och orkestrering, men båda är små: orkestreringen är CPU plus
-mtime-cachad fil-läsning, och dess enda nätverksanrop är scaffold-/variant-
-embeddings. Codegen-strömmen dominerar posten.
+`duration_ms` minus summan av `meta.postStreamSteps`.
 
-**Siffrorna i tabellen nedan är alltså det derivatet, inte ren strömtid.** Steg 1
-införde `meta.streamMs`, som mäts direkt vid stream→finalize-gränsen och därför
-**inte** innehåller brief eller orkestrering. Jämför inte de två talen rakt av —
-nya körningar ska läsas på `streamMs`.
+**Rättelse 2026-08-05 (bugbot-fynd under steg 1):** den ursprungliga texten här
+påstod att derivatet även rymmer Deep Brief och orkestrering. Det stämmer inte.
+`duration_ms` sätts som `Date.now() - startedAt` (`persist-telemetry.ts:254`) och
+`streamMs` som `finalizePipelineStartedAt - startedAt` (`runner.ts`) — **samma
+ankare**, `engineStartedAt` i `generation-stream.ts:214`. Derivatet och den nya
+direktmätningen startar alltså på samma punkt och är jämförbara. Skillnaden är
+bara att derivatet dessutom absorberar finalize-tid som inte är uppdelad i
+`postStreamSteps` (persist, partiell filreparation, glapp), så det är något
+**större** än `streamMs` — inte brief-uppblåst.
+
+**Öppen fråga som steg 2 måste stänga:** var ligger Deep Brief och orkestreringen
+i förhållande till `engineStartedAt`? Ligger de före ankaret saknas de i *både*
+`duration_ms` och `streamMs`, och då är den verkliga väntetiden användaren
+upplever längre än totalsiffrorna i tabellen nedan. Det är inte utrett här;
+`engineStartedAt` sätts när engine-wrappern börjar läsa pipeline-SSE, och vad som
+hunnit hända innan dess kräver att man följer API-routen. Läs därför tabellens
+totaler som "från strömstart", inte som användarens hela väntan.
 
 ## Vad mätningen visar
 
 Fyra versioner, två chattar, båda F2/`design`, alla med `finalizePath: full`.
 
-| Körning | Scaffold / modell | Totalt | Före finalize (brief + orkestrering + **ström**) | Efter ström | Varav verifier |
+| Körning | Scaffold / modell | Totalt (från strömstart) | Före finalize (**ström**, se rättelsen ovan) | Efter ström | Varav verifier |
 |---|---|---|---|---|---|
 | `9cdb3e31` v1, init | `blog` / `gpt-5.6-sol` | 414,6 s | **326,1 s (78,7 %)** | 88,5 s | 69,2 s |
 | `41be90f2` v1, init | `landing-page` / `gpt-5.3-codex` | 159,3 s | **157,3 s (98,7 %)** | 2,0 s | skippad |
