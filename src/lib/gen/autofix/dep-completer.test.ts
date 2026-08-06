@@ -410,28 +410,19 @@ describe("dep-completer", () => {
     expect(result.unknownPackages).not.toContain("resend");
   });
 
-  // Dossier (capability `subscriptions`, legacy import 2026-07-09): the
-  // paddle-billing manifest deps must resolve through KNOWN_PACKAGES pins,
-  // never `latest`.
-  it("injects the paddle + supabase stack when subscriptions is selected", () => {
+  // paddle-billing / subscriptions parked 2026-08-06 — capability selects
+  // nothing; the @paddle pin stays as an import-scan fallback for legacy code.
+  it("parked subscriptions selects nothing and injects nothing", () => {
     const dossierSelection = selectDossiersForRequest({
       requestedCapabilities: ["subscriptions"],
     });
-    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("paddle-billing");
+    expect(dossierSelection.selected).toEqual([]);
+    expect(resolveCapabilityDependencies(["subscriptions"])).toEqual({});
+  });
 
-    const deps = resolveCapabilityDependencies(["subscriptions"]);
-    expect(deps["@paddle/paddle-node-sdk"]).toBe(KNOWN_PACKAGES["@paddle/paddle-node-sdk"]);
-    expect(deps["@supabase/ssr"]).toBe(KNOWN_PACKAGES["@supabase/ssr"]);
-    expect(deps["@supabase/supabase-js"]).toBe(KNOWN_PACKAGES["@supabase/supabase-js"]);
-    expect(deps["server-only"]).toBe(KNOWN_PACKAGES["server-only"]);
-    for (const pkg of [
-      "@paddle/paddle-node-sdk",
-      "@supabase/ssr",
-      "@supabase/supabase-js",
-      "server-only",
-    ]) {
-      expect(deps[pkg]).not.toBe("latest");
-    }
+  it("keeps deterministic pin for parked paddle SDK (import-scan fallback)", () => {
+    expect(KNOWN_PACKAGES["@paddle/paddle-node-sdk"]).toBeDefined();
+    expect(KNOWN_PACKAGES["@paddle/paddle-node-sdk"]).not.toBe("latest");
   });
 
   /**

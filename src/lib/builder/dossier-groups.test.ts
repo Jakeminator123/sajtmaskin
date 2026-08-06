@@ -68,8 +68,9 @@ describe("resolveDossierGroup", () => {
       database: "data-content",
       cms: "data-content",
       auth: "auth",
+      // subscriptions left the table 2026-08-06 (etapp 2) with the parked
+      // paddle-billing dossier — commerce holds one-off payments only.
       payments: "commerce",
-      subscriptions: "commerce",
       "contact-form": "contact",
       "newsletter-subscribe": "contact",
       "ai-chat": "ai",

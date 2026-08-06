@@ -25,8 +25,8 @@ function providerMatchesRemovedCapability(
   ) {
     return true;
   }
-  // Some promoted dossiers (notably paddle-billing) intentionally have no
-  // integrationRegistry entry yet. Fall back to the dossier registry instead
+  // Manifest-only providers (mailchimp, neon, postgres, …) have no
+  // integrationRegistry entry. Fall back to the dossier registry instead
   // of letting stale provider approvals survive removal.
   const compactProvider = provider.toLowerCase().replace(/[^a-z0-9]+/g, "");
   if (!compactProvider) return false;
@@ -77,22 +77,16 @@ export function suppressRemovedInferredCapabilities(
 export function filterRemovedCapabilitiesFromContracts(
   context: PreGenerationContractContext,
   removedCapabilities: readonly string[],
-  retainedCapabilities: readonly string[] = [],
 ): PreGenerationContractContext {
   const removed = normalizeCapabilitySet(removedCapabilities);
   if (removed.size === 0) return context;
-  const retained = normalizeCapabilitySet(retainedCapabilities);
-  const removePaymentResidue =
-    removed.has("subscriptions") && !retained.has("payments");
+  // (The former `retainedCapabilities` parameter and its subscriptions→
+  // payments residue-sweep left 2026-08-06 with the parked paddle-billing
+  // dossier — `subscriptions` is no longer a detectable capability.)
 
   const removedIntegrations = context.contracts.integrations.filter(
     (integration) =>
-      providerMatchesRemovedCapability(integration.provider, removed) ||
-      (removePaymentResidue &&
-        providerMatchesRemovedCapability(
-          integration.provider,
-          new Set(["payments"]),
-        )),
+      providerMatchesRemovedCapability(integration.provider, removed),
   );
   const retainedIntegrations = context.contracts.integrations.filter(
     (integration) => !removedIntegrations.includes(integration),
@@ -127,18 +121,13 @@ export function filterRemovedCapabilitiesFromContracts(
     paymentProvider: providerMatchesRemovedCapability(
       context.contracts.paymentProvider,
       removed,
-    ) ||
-    (removePaymentResidue &&
-      providerMatchesRemovedCapability(
-        context.contracts.paymentProvider,
-        new Set(["payments"]),
-      ))
+    )
       ? undefined
       : context.contracts.paymentProvider,
   };
 
   const removedDecisionKinds = new Set<string>();
-  if (removed.has("payments") || removed.has("subscriptions")) {
+  if (removed.has("payments")) {
     removedDecisionKinds.add("payment");
   }
   if (removed.has("auth") || removed.has("supabase-auth")) {

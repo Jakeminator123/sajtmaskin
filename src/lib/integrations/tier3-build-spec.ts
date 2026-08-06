@@ -33,6 +33,7 @@ import {
 } from "@/lib/integrations/registry";
 import { partitionEnvKeysByTier } from "@/lib/integrations/placeholder-harmless";
 import { getAllDossiers, resolveDossierProvider } from "@/lib/gen/dossiers/registry";
+import type { DossierProviderResolution } from "@/lib/gen/dossiers/registry";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 
 export interface Tier3IntegrationRequirement {
@@ -181,6 +182,31 @@ function findExactDossierInput(raw: string): DossierEntry | undefined {
 }
 
 /**
+ * Provider keys that must stay on the GENERIC path even when the manifest
+ * projection is momentarily unique. `supabase` names a whole BaaS — auth,
+ * database, storage — so a generic "supabase" approval carries no signal that
+ * the user wants LOGIN, and must never deterministically inject the
+ * supabase-auth dossier (root login middleware). The #503 contract predates
+ * the 2026-08-06 paddle-billing parking: before it, registry ambiguity
+ * (paddle-billing + supabase-auth both claimed `supabase`) enforced this;
+ * with one claimant left, the INTENT-ambiguity remains even though the
+ * registry projection does not. An EXACT `supabase-auth` approval still
+ * injects via `findExactDossierInput`.
+ */
+const FORCED_GENERIC_PROVIDER_KEYS = new Set(["supabase"]);
+
+/** Injection-decision variant of {@link resolveDossierProvider}: downgrades
+ * forced-generic providers to "ambiguous" so no `status === "unique"` branch
+ * in this module can inject a dossier for them. */
+function resolveInjectableProvider(providerKey: string): DossierProviderResolution {
+  const resolution = resolveDossierProvider(providerKey);
+  if (resolution.status === "unique" && FORCED_GENERIC_PROVIDER_KEYS.has(resolution.provider)) {
+    return { ...resolution, status: "ambiguous" };
+  }
+  return resolution;
+}
+
+/**
  * A generic provider approval may select a dossier only when the manifest
  * projection resolves to exactly one dossier. Zero matches and multiple
  * matches deliberately map to nothing so F3 cannot inject an arbitrary
@@ -195,7 +221,7 @@ export function mapProviderKeysToDossierCapabilities(providerKeys: string[]): st
       capabilities.add(exactDossier.capability);
       continue;
     }
-    const resolution = resolveDossierProvider(canonicalProviderKey(raw));
+    const resolution = resolveInjectableProvider(canonicalProviderKey(raw));
     if (resolution.status !== "unique") continue;
     capabilities.add(resolution.capabilities[0]);
   }
@@ -218,7 +244,7 @@ export function mapProviderKeysToBackingDossierIds(providerKeys: string[]): stri
       ids.add(exactDossier.id);
       continue;
     }
-    const resolution = resolveDossierProvider(canonicalProviderKey(raw));
+    const resolution = resolveInjectableProvider(canonicalProviderKey(raw));
     if (resolution.status !== "unique") continue;
     ids.add(resolution.dossierIds[0]);
   }
@@ -249,7 +275,7 @@ export function providerKeysWithoutBackingDossier(providerKeys: string[]): strin
     // including when several dossiers claim that provider. Avoid scheduling a
     // second generic LLM round for e.g. ["openai-chat", "openai"].
     if (explicitProviderKeys.has(provider)) continue;
-    const resolution = resolveDossierProvider(provider);
+    const resolution = resolveInjectableProvider(provider);
     const known = Boolean(def) || resolution.status !== "dossierless";
     if (known && resolution.status !== "unique") {
       keys.add((def?.key ?? provider).toLowerCase());
@@ -425,7 +451,7 @@ export function deriveTier3BuildSpecForProviderKeys(
     seenProviders.add(provider);
 
     const definition = findRegistryDefinitionByProviderKey(rawProvider);
-    const resolution = resolveDossierProvider(provider);
+    const resolution = resolveInjectableProvider(provider);
     if (resolution.status === "unique") {
       const entry = resolution.dossiers[0];
       // A legacy exact dossier identity is sharper than its generic provider
@@ -504,7 +530,7 @@ export function approvedProvidersShipConfigNotice(providerKeys: string[]): boole
       if (dossierShipsConfigNotice(exactDossier)) return true;
       continue;
     }
-    const resolution = resolveDossierProvider(canonicalProviderKey(raw));
+    const resolution = resolveInjectableProvider(canonicalProviderKey(raw));
     if (resolution.status === "unique" && dossierShipsConfigNotice(resolution.dossiers[0])) {
       return true;
     }
@@ -537,7 +563,7 @@ export function deriveTier3BuildSpec(contracts: PlanContracts): Tier3BuildSpec {
 
     const def = findIntegrationDefinition(integration);
     const provider = canonicalProviderKey(def?.provider ?? def?.key ?? integration.provider);
-    const resolution = resolveDossierProvider(provider);
+    const resolution = resolveInjectableProvider(provider);
     if (resolution.status === "unique") {
       const entry = resolution.dossiers[0];
       requirements.push(

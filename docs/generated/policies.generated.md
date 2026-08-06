@@ -9,7 +9,7 @@
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:30f8348d64521b5a -->
-<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:052ab03ab5ff7fc5 -->
+<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:e0d718422f7f316c -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:1d4c06457cec3a1e -->
 
 # Policies
@@ -189,12 +189,6 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `mongodb-atlas`        | `database`             | `MONGODB_URI`                        | Yes      | `feature-runtime` | `seed`    |
 | `neon-postgres`        | `database`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `seed`    |
 | `openai-chat`          | `ai-chat`              | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
-| `paddle-billing`       | `subscriptions`        | `NEXT_PUBLIC_PADDLE_ENV`             | No       | `warn-only`       | `visual`  |
-| `paddle-billing`       | `subscriptions`        | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Yes      | `feature-runtime` | `visual`  |
-| `paddle-billing`       | `subscriptions`        | `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | `feature-runtime` | `visual`  |
-| `paddle-billing`       | `subscriptions`        | `PADDLE_API_KEY`                     | Yes      | `feature-runtime` | `visual`  |
-| `paddle-billing`       | `subscriptions`        | `PADDLE_NOTIFICATION_WEBHOOK_SECRET` | Yes      | `feature-runtime` | `visual`  |
-| `paddle-billing`       | `subscriptions`        | `SUPABASE_SERVICE_ROLE_KEY`          | Yes      | `feature-runtime` | `visual`  |
 | `postgres-drizzle`     | `database`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `seed`    |
 | `rag-chat`             | `rag-chat`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `canned`  |
 | `rag-chat`             | `rag-chat`             | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |

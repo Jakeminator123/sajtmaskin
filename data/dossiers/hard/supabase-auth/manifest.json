@@ -21,8 +21,8 @@
     "auth with supabase",
     "inloggning med supabase"
   ],
-  "summary": "Supabase Auth provider under the shared 'auth' capability (clerk-auth is the default; this dossier wins on an EXPLICIT Supabase ask via relevanceKeywords, and is pinned automatically when 'subscriptions'/paddle-billing is selected). Ships cookie-based SSR sessions, middleware session refresh, a server client, a browser client, and an OAuth code-exchange callback route. In demo mode (mock: visual) the login UI renders fully and submitting shows the honest 'Auth ej konfigurerat' notice — never a fake session.",
-  "summarySv": "Inloggning via Supabase. Väljs när sajten uttryckligen ska använda Supabase för konton/inloggning, eller automatiskt ihop med prenumerationer (Paddle). Utan riktiga nycklar visas inloggningsytan i demoläge med en tydlig notis — ingen låtsas-inloggning sker.",
+  "summary": "Supabase Auth provider under the shared 'auth' capability (clerk-auth is the default; this dossier wins on an EXPLICIT Supabase ask via relevanceKeywords). Ships cookie-based SSR sessions, middleware session refresh, a server client, a browser client, and an OAuth code-exchange callback route. In demo mode (mock: visual) the login UI renders fully and submitting shows the honest 'Auth ej konfigurerat' notice — never a fake session.",
+  "summarySv": "Inloggning via Supabase. Väljs när sajten uttryckligen ska använda Supabase för konton/inloggning. Utan riktiga nycklar visas inloggningsytan i demoläge med en tydlig notis — ingen låtsas-inloggning sker.",
   "envVars": [
     {
       "key": "NEXT_PUBLIC_SUPABASE_URL",
@@ -39,7 +39,7 @@
       "enforcement": "feature-runtime"
     }
   ],
-  "dependencies": ["@supabase/ssr"],
+  "dependencies": ["@supabase/ssr", "@supabase/supabase-js"],
   "files": [
     {
       "path": "components/middleware.ts",

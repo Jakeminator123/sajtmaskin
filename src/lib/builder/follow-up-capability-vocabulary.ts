@@ -121,39 +121,16 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     patterns: [
       /(?<![\p{L}\p{N}_])(?:stripe(?:-?betalning|-?checkout)?|klarna|swish|paypal|adyen|mollie|braintree)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:checkout|kassa|kortbetalning|kortköp|kortbetala|kreditkort)(?![\p{L}\p{N}_])/iu,
-      // Recurring terms (subscription-billing / recurring-billing /
-      // prenumerationsbetalning) were MOVED to the `subscriptions` entry below
-      // (bugbot high on the dossier-batch PR): keeping them here made a
-      // recurring ask match BOTH capabilities and collide stripe-checkout with
-      // paddle-billing. One-off payment vocabulary only.
+      // One-off payment vocabulary only. Recurring terms (prenumeration,
+      // membership, subscription-billing) belonged to the `subscriptions`
+      // capability, which left 2026-08-06 with the parked paddle-billing
+      // dossier — they are deliberately NOT folded back in here, since routing
+      // a recurring ask to one-off Stripe checkout was the exact bug the #475
+      // split fixed. A recurring ask is ordinary page content until a
+      // subscriptions dossier exists again.
       /(?<![\p{L}\p{N}_])(?:betalningsfl(?:ö|o)de|betalningsl(?:ö|o)sning|payment[-\s]?flow|checkout[-\s]?flow)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])betala\s+med\s+(?:kort|kreditkort|swish|klarna|stripe|paypal|visa|mastercard|apple\s*pay|google\s*pay)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])k(?:ö|o)p(?:a)?\s+med\s+(?:kort|kreditkort|stripe|klarna|swish|checkout)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
-    // Recurring subscriptions / memberships (Paddle Billing). INTENTIONALLY
-    // separate from one-off `payments` (Stripe-checkout owns `payments`): this
-    // capability is for recurring plans/memberships synced from signed Paddle
-    // webhooks. The provider word "paddle" is high-precision. Vetoes keep it off
-    // one-off payment intent and newsletter "prenumerera på nyhetsbrev".
-    capability: "subscriptions",
-    patterns: [
-      /(?<![\p{L}\p{N}_])paddle(?![\p{L}\p{N}_])/iu,
-      // NOTE: no bare English "subscribe" token — it collides with newsletter
-      // "subscribe form" / email-signup (Codex P2 dossier-batch). Billing intent
-      // comes from "subscription(s)" and the Swedish prenumeration/abonnemang
-      // nouns; a bare "subscribe form" stays with newsletter-subscribe.
-      /(?<![\p{L}\p{N}_])(?:prenumeration(?:en|er|erna|s)?|prenumerera(?:r|s)?|prenumerationstj(?:ä|a)nst(?:en)?|prenumerationsplan(?:en|er)?|abonnemang(?:et|en)?|subscription(?:s)?)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:medlemskap(?:et|en)?|membership|members?[-\s]?(?:only|area|tier))(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:(?:å|a)terkommande\s+(?:betalning(?:ar|en)?|debitering(?:ar|en)?)|recurring\s+(?:payment(?:s)?|billing|subscription(?:s)?)|subscription[-\s]?billing|prenumerationsbetalning)(?![\p{L}\p{N}_])/iu,
-    ],
-    vetoes: [
-      /(?<![\p{L}\p{N}_])(?:eng(?:å|a)ngs(?:betalning(?:ar|en)?|k(?:ö|o)p(?:et)?|belopp)?|one-?time|one-?off|single\s+payment)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:nyhetsbrev(?:et)?|newsletter)(?![\p{L}\p{N}_])/iu,
-      // Email-signup / "subscribe form" belongs to newsletter-subscribe, not
-      // billing (Codex P2 dossier-batch).
-      /(?<![\p{L}\p{N}_])(?:e-?post|e-?mail|email)[-\s]?(?:formul(?:ä|a)r|form|signup|sign[-\s]?up|lista|list)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {

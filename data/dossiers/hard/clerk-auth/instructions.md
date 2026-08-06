@@ -1,6 +1,6 @@
 # When to use
 
-Use this dossier when the brief declares the `auth` capability — the site needs real user accounts (login, signup, password reset, gated content). Clerk is the CAPABILITY DEFAULT; the `supabase-auth` sibling wins only on an explicit Supabase ask or via the subscriptions/paddle dependency pin. Triggers (Swedish + English): `auth`, `login`, `sign in`, `sign up`, `register`, `account`, `inloggning`, `registrering`, `logga in`, `konto`, `medlem`, `medlemssida`, `gated`, `protected route`, `dashboard requires login`.
+Use this dossier when the brief declares the `auth` capability — the site needs real user accounts (login, signup, password reset, gated content). Clerk is the CAPABILITY DEFAULT; the `supabase-auth` sibling wins only on an explicit Supabase ask. Triggers (Swedish + English): `auth`, `login`, `sign in`, `sign up`, `register`, `account`, `inloggning`, `registrering`, `logga in`, `konto`, `medlem`, `medlemssida`, `gated`, `protected route`, `dashboard requires login`.
 
 Best fit:
 

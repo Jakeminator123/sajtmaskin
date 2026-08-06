@@ -32,7 +32,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NewsletterForm } from "../../../../data/dossiers/hard/mailchimp-newsletter/components/newsletter-form";
 import { DbConfigNotice } from "../../../../data/dossiers/hard/neon-postgres/components/db-config-notice";
-import { SubscriptionConfigNotice } from "../../../../data/dossiers/hard/paddle-billing/components/subscription-config-notice";
 import { RagConfigNotice } from "../../../../data/dossiers/hard/rag-chat/components/rag-config-notice";
 
 const HARD_DIR = path.resolve(__dirname, "../../../../data/dossiers/hard");
@@ -45,7 +44,6 @@ const MOUNTED: Record<string, string> = {
   "mailchimp-newsletter/components/newsletter-form.tsx": "denna fil",
   "mongodb-atlas/components/db-config-notice.tsx": "denna fil (via kopie-vakten)",
   "neon-postgres/components/db-config-notice.tsx": "denna fil",
-  "paddle-billing/components/subscription-config-notice.tsx": "denna fil",
   "postgres-drizzle/components/db-config-notice.tsx": "denna fil (via kopie-vakten)",
   "rag-chat/components/rag-config-notice.tsx": "denna fil",
   "resend-contact-form/components/integration-config-notice.tsx":
@@ -215,26 +213,6 @@ describe("DbConfigNotice — seed-läge (neon-postgres / mongodb-atlas / postgre
     // Seed-läget ska läsa som "inte uppsatt ännu", inte som ett kraschat anrop.
     expect(container.innerHTML).not.toContain("destructive");
     expect(container.textContent).not.toMatch(/fel|error/i);
-  });
-});
-
-describe("SubscriptionConfigNotice — setup-yta (paddle-billing)", () => {
-  it("namnger alla nycklar som behövs och håller lugn ton", () => {
-    render(<SubscriptionConfigNotice />);
-
-    expect(screen.getByText("Prenumerationer är inte aktiverade ännu")).toBeTruthy();
-    for (const key of [
-      "PADDLE_API_KEY",
-      "PADDLE_NOTIFICATION_WEBHOOK_SECRET",
-      "NEXT_PUBLIC_SUPABASE_URL",
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-      "SUPABASE_SERVICE_ROLE_KEY",
-    ]) {
-      expect(screen.getByText(key), `saknar nyckelnamnet ${key}`).toBeTruthy();
-    }
-    expect(screen.getByRole("note").className).not.toContain("destructive");
-    const link = screen.getByRole("link");
-    expect(link.getAttribute("rel")).toContain("noopener");
   });
 });
 

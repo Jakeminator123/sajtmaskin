@@ -98,6 +98,10 @@ describe("providerKeysWithoutBackingDossier (coach edge case on #503)", () => {
 
   it("flags ambiguous providers instead of choosing an implicit dossier", () => {
     expect(providerKeysWithoutBackingDossier(["openai"])).toEqual(["openai"]);
+    // postgres stays ambiguous (postgres-drizzle + rag-chat). supabase is
+    // registry-unique since paddle-billing parked (2026-08-06) but stays
+    // FORCED-GENERIC: a BaaS key must not inject the auth dossier (#503).
+    expect(providerKeysWithoutBackingDossier(["postgres"])).toEqual(["postgres"]);
     expect(providerKeysWithoutBackingDossier(["supabase"])).toEqual(["supabase"]);
   });
 
@@ -256,7 +260,11 @@ describe("deriveTier3BuildSpec", () => {
     expect(req.warnOnlyEnvKeys).toContain("KV_REST_API_TOKEN");
   });
 
-  it("keeps ambiguous Supabase approvals on the generic path", () => {
+  it("keeps a generic Supabase approval on the generic path (forced-generic)", () => {
+    // Registry-unique since paddle-billing parked (2026-08-06), but a bare
+    // "supabase" approval (here: for a DATABASE) must never inject the
+    // supabase-auth dossier's login middleware — #503 contract, now enforced
+    // by FORCED_GENERIC_PROVIDER_KEYS instead of registry ambiguity.
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
@@ -272,7 +280,6 @@ describe("deriveTier3BuildSpec", () => {
 
     expect(spec.requirements).toHaveLength(1);
     const req = spec.requirements[0];
-    expect(req.requiredRealEnvKeys).toEqual([]);
     expect(req.buildInstructions[0]).toContain("No unique dossier contract");
     expect(req.buildInstructions.join("\n")).not.toContain("supabase-auth");
     expect(req.buildInstructions.join("\n")).not.toContain("paddle-billing");
@@ -613,10 +620,12 @@ describe("mapProviderKeysToDossierCapabilities", () => {
     expect(mapProviderKeysToDossierCapabilities(["", "   "])).toEqual([]);
   });
 
-  it("does NOT map generic supabase (data) approval to subscriptions or auth", () => {
-    // Two manifests explicitly claim Supabase, so the provider is ambiguous.
-    // Neither sibling may be injected without an exact dossier/capability.
+  it("does NOT map a generic supabase (data) approval to auth", () => {
+    // Registry-unique since paddle parked, but FORCED_GENERIC_PROVIDER_KEYS
+    // keeps the BaaS key off the auth dossier — a Supabase-for-storage
+    // approval must not inject login middleware (#503).
     const caps = mapProviderKeysToDossierCapabilities(["supabase"]);
+    expect(caps).toEqual([]);
     expect(caps).not.toContain("subscriptions");
     expect(caps).not.toContain("supabase-auth");
     expect(caps).not.toContain("auth");
@@ -654,22 +663,17 @@ describe("mapProviderKeysToDossierCapabilities", () => {
 });
 
 /**
- * Kontraktslås för de tre providers som flera manifest deklarerar. Alla tre
+ * Kontraktslås för providers som inte får väljas deterministiskt. Alla tre
  * kartfunktionerna måste svara samma sak — svarar de olika kan en F3-runda
  * injicera en dossier som env-clampningen inte känner till.
  *
- * `openai` avviker MEDVETET från beteendet före den här konsolideringen: där
- * injicerade ett generiskt openai-godkännande BÅDA chattdossiererna
- * (`openai-chat` + `ai-tool-calling-chat`), eftersom de strict-backade
- * providern via delade `@ai-sdk/openai`-beroenden. Nyckeln `openai` säger
- * ingenting om chatt, verktygsanrop eller RAG, så valet mellan syskonen var
- * godtyckligt. Den generiska LLM-vägen är rätt svar i stället. Låt inte en
- * framtida refaktor läsa det som en regression och peka tillbaka.
- *
- * `supabase` och `postgres` är däremot inga beteendeändringar alls: inget
- * dossierval skedde för dem tidigare heller — supabase blockerades av
- * suppressionslistan (approving Supabase för lagring/databas fick inte dra in
- * auth-middleware), och postgres saknades helt som providernyckel i registryt.
+ * `openai` / `postgres` är ambigua i registryt → generisk LLM-väg.
+ * `supabase` blev registry-unik när paddle-billing parkerades 2026-08-06,
+ * men hålls MEDVETET kvar på generiska vägen via
+ * `FORCED_GENERIC_PROVIDER_KEYS`: nyckeln namnger en hel BaaS (auth, databas,
+ * lagring), så ett generiskt godkännande säger inget om inloggning och får
+ * aldrig injicera supabase-auths root-middleware (#503). Ett EXAKT
+ * `supabase-auth`-godkännande injicerar fortfarande.
  */
 describe("provider→dossier contract lock (ambiguous manifest providers)", () => {
   it.each(["supabase", "postgres", "openai"])(
@@ -680,6 +684,12 @@ describe("provider→dossier contract lock (ambiguous manifest providers)", () =
       expect(providerKeysWithoutBackingDossier([provider])).toEqual([provider]);
     },
   );
+
+  it("an exact supabase-auth id still injects — the forced-generic gate only blocks the bare BaaS key", () => {
+    expect(mapProviderKeysToDossierCapabilities(["supabase-auth"])).toEqual(["auth"]);
+    expect(mapProviderKeysToBackingDossierIds(["supabase-auth"])).toEqual(["supabase-auth"]);
+    expect(providerKeysWithoutBackingDossier(["supabase-auth"])).toEqual([]);
+  });
 
   it("resolves an exact dossier id — openai-chat is the counter-proof", () => {
     expect(mapProviderKeysToDossierCapabilities(["openai-chat"])).toEqual(["ai-chat"]);

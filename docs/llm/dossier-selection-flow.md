@@ -175,7 +175,7 @@ Skriptet samplar README + package.json + .env.example + ~6 source-filer från `d
     "auth": ["clerk-auth", "supabase-auth"]
   },
   "groups": {
-    "commerce": { "label": "Betalning & handel", "capabilities": ["payments", "subscriptions"] }
+    "commerce": { "label": "Betalning & handel", "capabilities": ["payments"] }
   }
 }
 ```

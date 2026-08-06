@@ -79,7 +79,7 @@ export type DossierEnvVarEnforcement = "build" | "feature-runtime" | "warn-only"
  *   controls, live widget) and the ACTION opens an honest demo notice/modal
  *   instead of performing the real operation — no fake sessions, no fake
  *   charges, no fake transport. The real backend activates when provider
- *   values are set (payments, auth, subscriptions, realtime).
+ *   values are set (payments, auth).
  * - `"none"`: no meaningful demo surface at all → the UI shows a discreet
  *   demo/configuration banner (the `IntegrationConfigNotice` pattern) or
  *   self-disables (analytics/error-tracking).

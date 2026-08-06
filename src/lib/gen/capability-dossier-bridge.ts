@@ -13,11 +13,10 @@ export const INFERRED_CAPABILITY_DOSSIER_BRIDGE = [
   // LLM writes better freehand). The flag still drives the freehand parallax
   // guidance block in `capability-inference.ts`.
   { flag: "needsPayments", dossierCapabilities: ["payments"] },
-  // #475 split follow-up (review round 2): recurring/subscription vocabulary
-  // routes to `subscriptions` (paddle-billing) — via needsPayments it injected
-  // Stripe one-off checkout for a recurring ask. `subscriptions` in turn pulls
-  // `supabase-auth` via expandDependentCapabilities in selection.
-  { flag: "needsSubscriptions", dossierCapabilities: ["subscriptions"] },
+  // (`needsSubscriptions` → `subscriptions` left the bridge 2026-08-06 with
+  // the parked paddle-billing dossier. Recurring vocabulary is deliberately
+  // NOT routed to `payments` — see the interface note in
+  // `capability-inference.ts`.)
   { flag: "needsAuth", dossierCapabilities: ["auth"] },
   // Codex P1 (#445): without this bridge a no-brief init ("booking app that
   // saves bookings in Postgres") sets needsDatabase but selects no database
