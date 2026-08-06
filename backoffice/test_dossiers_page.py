@@ -404,9 +404,11 @@ class MocklessExceptionParityTests(unittest.TestCase):
         # Kanonisk källa: MOCKLESS_CAPABILITY_EXCEPTIONS i
         # src/lib/gen/dossiers/validate-manifest.ts. Ändras listan där ska
         # detta test fällas så Python-läsaren verifieras mot nya innehållet.
+        # (error-tracking lämnade listan 2026-08-06 när sentry-error-tracking
+        # parkerades.)
         self.assertEqual(
             dossiers_page._load_mockless_capability_exceptions(),
-            frozenset({"analytics", "error-tracking"}),
+            frozenset({"analytics"}),
         )
 
 

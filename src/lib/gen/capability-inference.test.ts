@@ -232,32 +232,32 @@ describe("inferCapabilities", () => {
     expect(inferCapabilities("Vi tar kreditkort på plats").needsPayments).toBe(true);
   });
 
-  // ---- #475 payments/subscriptions split (review round 2, fix 6) ----
+  // ---- #475 split preserved after subscriptions park (etapp 2, 2026-08-06) ----
 
-  it("routes recurring vocabulary to needsSubscriptions, NOT needsPayments", () => {
-    const prenumeration = inferCapabilities("Lägg till prenumerationsbetalning för medlemmar");
-    expect(prenumeration.needsSubscriptions).toBe(true);
-    expect(prenumeration.needsPayments).toBe(false);
-
-    const recurring = inferCapabilities("Add recurring billing for the premium plan");
-    expect(recurring.needsSubscriptions).toBe(true);
-    expect(recurring.needsPayments).toBe(false);
+  it("does NOT route recurring vocabulary to needsPayments", () => {
+    expect(
+      inferCapabilities("Lägg till prenumerationsbetalning för medlemmar").needsPayments,
+    ).toBe(false);
+    expect(
+      inferCapabilities("Add recurring billing for the premium plan").needsPayments,
+    ).toBe(false);
+    expect(
+      inferCapabilities("Use Paddle for the membership billing").needsPayments,
+    ).toBe(false);
+    expect(
+      inferCapabilities("En medlemskapssida med återkommande betalning").needsPayments,
+    ).toBe(false);
   });
 
-  it("detects Paddle and membership terms as subscriptions", () => {
-    expect(inferCapabilities("Use Paddle for the membership billing").needsSubscriptions).toBe(true);
-    expect(inferCapabilities("En medlemskapssida med återkommande betalning").needsSubscriptions).toBe(true);
+  it("keeps a one-off checkout as payments", () => {
+    expect(inferCapabilities("Lägg in Stripe-checkout för engångsköp").needsPayments).toBe(true);
   });
 
-  it("keeps a one-off checkout as payments only", () => {
-    const caps = inferCapabilities("Lägg in Stripe-checkout för engångsköp");
-    expect(caps.needsPayments).toBe(true);
-    expect(caps.needsSubscriptions).toBe(false);
-  });
-
-  it("negation clears subscriptions like payments ('utan betalning')", () => {
-    const caps = inferCapabilities("En medlemssida med prenumerationer men utan betalning i MVP");
-    expect(caps.needsSubscriptions).toBe(false);
+  it("negation still clears needsPayments ('utan betalning')", () => {
+    expect(
+      inferCapabilities("En medlemssida med prenumerationer men utan betalning i MVP")
+        .needsPayments,
+    ).toBe(false);
   });
 });
 

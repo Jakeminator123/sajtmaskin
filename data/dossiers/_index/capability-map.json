@@ -1,6 +1,6 @@
 {
   "$comment": "View of capability → dossier ids, plus a `groups` view (capability → presentation group, derived from src/lib/builder/dossier-groups.ts) for the backoffice group view. Can be regenerated from either backoffice/pages/dossiers.py (Capability map tab → 'Bygg om') or `npm run dossiers:capability-map:write` (scripts/dossiers/regenerate-capability-map.ts). Runtime walks data/dossiers/{hard,soft}/ directly; this file is for tooling + sanity check during curation.",
-  "generatedAt": "2026-07-24T15:17:25.459Z",
+  "generatedAt": "2026-08-06T15:22:13.452Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -9,7 +9,6 @@
       "ai-tool-calling-chat"
     ],
     "analytics": [
-      "plausible-analytics",
       "vercel-analytics"
     ],
     "auth": [
@@ -32,18 +31,10 @@
       "dashboard-charts"
     ],
     "database": [
-      "mongodb-atlas",
-      "neon-postgres",
       "postgres-drizzle"
-    ],
-    "error-tracking": [
-      "sentry-error-tracking"
     ],
     "gallery-lightbox": [
       "gallery-lightbox"
-    ],
-    "image-generation": [
-      "fal-image-generation"
     ],
     "interactive-game": [
       "interactive-game-loop"
@@ -63,14 +54,8 @@
     "rag-chat": [
       "rag-chat"
     ],
-    "realtime": [
-      "ably-realtime"
-    ],
     "site-search": [
       "local-site-search"
-    ],
-    "subscriptions": [
-      "paddle-billing"
     ],
     "visual-3d": [
       "three-fiber-canvas"
@@ -93,8 +78,7 @@
     "commerce": {
       "label": "Betalning & handel",
       "capabilities": [
-        "payments",
-        "subscriptions"
+        "payments"
       ]
     },
     "contact": {
@@ -109,7 +93,6 @@
       "capabilities": [
         "ai-chat",
         "ai-tool-calling",
-        "image-generation",
         "rag-chat"
       ]
     },
@@ -138,11 +121,9 @@
       ]
     },
     "ops": {
-      "label": "Realtid & drift",
+      "label": "Drift & mätning",
       "capabilities": [
-        "analytics",
-        "error-tracking",
-        "realtime"
+        "analytics"
       ]
     },
     "other": {

@@ -1,6 +1,6 @@
 # When to use
 
-- Provider sibling under the shared `auth` capability. Selected when the user EXPLICITLY names Supabase for login/auth (manifest `relevanceKeywords`), or automatically when `subscriptions`/paddle-billing is selected (dependency pin — the customer portal needs a signed-in Supabase user). A generic "login / inloggning / auth" ask picks the capability default (clerk-auth), not this dossier.
+- Provider sibling under the shared `auth` capability. Selected when the user EXPLICITLY names Supabase for login/auth (manifest `relevanceKeywords`). A generic "login / inloggning / auth" ask picks the capability default (clerk-auth), not this dossier.
 - Fit: Next.js App Router apps needing cookie-based sessions, SSR auth state, middleware session refresh, and server-side user checks.
 - Appropriate for dashboards, member areas, app shells, and protected route groups.
 - Supports email/password, magic link, and OAuth flows configured in Supabase.

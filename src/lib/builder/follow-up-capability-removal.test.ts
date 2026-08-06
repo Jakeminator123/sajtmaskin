@@ -42,31 +42,24 @@ describe("detectCapabilityRemoval — payments removal (prod repro)", () => {
   });
 });
 
-describe("detectCapabilityRemoval — subscriptions vs payments split (#475 follow-up)", () => {
-  it("detects subscriptions removal (not payments) for 'Ta bort prenumerationsbetalningen'", () => {
-    const result = detectCapabilityRemoval("Ta bort prenumerationsbetalningen");
-    expect(result.removedCapabilities).toContain("subscriptions");
-    expect(result.removedCapabilities).not.toContain("payments");
+describe("detectCapabilityRemoval — recurring vocabulary is not a capability", () => {
+  // Etapp 2 (2026-08-06): subscriptions/paddle-billing parked. Recurring
+  // removal phrasing must NOT shrink one-off `payments` (#475 split preserved).
+  it.each([
+    "Ta bort prenumerationsbetalningen",
+    "Ta bort prenumerationen",
+    "Ta bort Paddle",
+    "Remove the membership billing",
+    "ta bort prenumerationsbetalning",
+    "remove subscription billing",
+    "remove memberships",
+  ])("does NOT remove payments (or subscriptions) for: %s", (message) => {
+    const removed = detectCapabilityRemoval(message).removedCapabilities;
+    expect(removed).not.toContain("payments");
+    expect(removed).not.toContain("subscriptions");
   });
 
-  it("detects subscriptions removal for 'Ta bort prenumerationen'", () => {
-    const result = detectCapabilityRemoval("Ta bort prenumerationen");
-    expect(result.removedCapabilities).toEqual(["subscriptions"]);
-  });
-
-  it("detects subscriptions removal for 'Ta bort Paddle-abonnemanget'", () => {
-    expect(
-      detectCapabilityRemoval("Ta bort Paddle").removedCapabilities,
-    ).toContain("subscriptions");
-  });
-
-  it("detects subscriptions removal for 'Remove the membership billing'", () => {
-    expect(
-      detectCapabilityRemoval("Remove the membership billing").removedCapabilities,
-    ).toContain("subscriptions");
-  });
-
-  it("still detects payments (not subscriptions) for a one-off checkout removal", () => {
+  it("still detects payments for a one-off checkout removal", () => {
     const result = detectCapabilityRemoval("Ta bort Stripe-betalningen");
     expect(result.removedCapabilities).toContain("payments");
     expect(result.removedCapabilities).not.toContain("subscriptions");
@@ -118,36 +111,7 @@ describe("detectCapabilityRemoval — must NOT over-trigger", () => {
   });
 });
 
-describe("detectCapabilityRemoval — subscriptions/payments split (Vercel Agent #475)", () => {
-  // The dossier-batch PR promoted `subscriptions` (Paddle, recurring) as a
-  // capability distinct from one-off `payments` (Stripe) and updated the
-  // DETECTION vocabulary — but the REMOVAL vocabulary was left unchanged, so a
-  // recurring-billing removal was mis-attributed to payments and Paddle could
-  // never be removed at all. These lock the mirrored split.
-  it("attributes recurring-billing removal to subscriptions, not payments", () => {
-    expect(
-      detectCapabilityRemoval("ta bort prenumerationsbetalning").removedCapabilities,
-    ).toEqual(["subscriptions"]);
-    expect(
-      detectCapabilityRemoval("remove subscription billing").removedCapabilities,
-    ).toEqual(["subscriptions"]);
-  });
-
-  it("can remove the Paddle subscriptions capability via a follow-up", () => {
-    expect(detectCapabilityRemoval("ta bort prenumerationen").removedCapabilities).toEqual([
-      "subscriptions",
-    ]);
-    expect(detectCapabilityRemoval("remove subscriptions").removedCapabilities).toEqual([
-      "subscriptions",
-    ]);
-    expect(detectCapabilityRemoval("ta bort Paddle").removedCapabilities).toEqual([
-      "subscriptions",
-    ]);
-    expect(detectCapabilityRemoval("ta bort medlemskapet").removedCapabilities).toEqual([
-      "subscriptions",
-    ]);
-  });
-
+describe("detectCapabilityRemoval — one-off payments + newsletter (post-subscriptions)", () => {
   it("keeps one-off Stripe payments removal on the payments capability", () => {
     expect(
       detectCapabilityRemoval("Ta bort Stripe-betalningsgrejjen").removedCapabilities,
@@ -157,49 +121,19 @@ describe("detectCapabilityRemoval — subscriptions/payments split (Vercel Agent
     ).toEqual(["payments"]);
   });
 
-  it("vetoes newsletter / one-off phrases from firing the Paddle capability", () => {
-    // Newsletter "prenumeration" must not shrink Paddle subscriptions.
-    expect(
-      detectCapabilityRemoval("ta bort nyhetsbrevsprenumerationen").removedCapabilities,
-    ).not.toContain("subscriptions");
-    // One-off payment removal must not fire subscriptions.
-    expect(
-      detectCapabilityRemoval("ta bort engångsbetalningen").removedCapabilities,
-    ).not.toContain("subscriptions");
-  });
-
-  it("scopes subscription vetoes to the matched clause", () => {
-    expect(
-      detectCapabilityRemoval(
-        "ta bort prenumerationerna men behåll nyhetsbrevet",
-      ).removedCapabilities,
-    ).toContain("subscriptions");
-    expect(
-      detectCapabilityRemoval(
-        "remove one-time payments and subscriptions",
-      ).removedCapabilities,
-    ).toContain("subscriptions");
-  });
-
-  it("matches plural memberships", () => {
-    expect(
-      detectCapabilityRemoval("remove memberships").removedCapabilities,
-    ).toContain("subscriptions");
-  });
-
   it("still removes the newsletter capability on an explicit newsletter removal", () => {
     expect(detectCapabilityRemoval("ta bort nyhetsbrevet").removedCapabilities).toEqual([
       "newsletter-subscribe",
     ]);
   });
 
-  it("removes both when the prompt names Stripe AND the subscription", () => {
+  it("removes only payments when the prompt names Stripe AND a subscription phrase", () => {
     expect(
       detectCapabilityRemoval("ta bort Stripe och prenumerationen").removedCapabilities,
-    ).toEqual(["payments", "subscriptions"]);
+    ).toEqual(["payments"]);
   });
 
-  it("does not fire subscriptions on an additive prompt", () => {
+  it("does not fire any money-flow removal on an additive recurring prompt", () => {
     expect(
       detectCapabilityRemoval("Lägg till prenumerationer").removedCapabilities,
     ).toEqual([]);

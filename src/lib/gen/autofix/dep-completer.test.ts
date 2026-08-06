@@ -220,30 +220,25 @@ describe("dep-completer", () => {
 
   // Dossier wave 1 (legacy import 2026-07-08): each new hard dossier's manifest
   // dependencies must resolve through KNOWN_PACKAGES pins, never `latest`.
-  it("injects ably when realtime is selected", () => {
-    const dossierSelection = selectDossiersForRequest({
-      requestedCapabilities: ["realtime"],
-    });
-    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("ably-realtime");
-
-    const deps = resolveCapabilityDependencies(["realtime"]);
-    expect(deps.ably).toBe(KNOWN_PACKAGES.ably);
-    expect(deps.ably).not.toBe("latest");
+  // (ably-realtime and fal-image-generation were parked 2026-08-06 — their
+  // capability-selection cases left with them, but the `ably`/`@ai-sdk/fal`
+  // pins stay in KNOWN_PACKAGES as import-scan fallbacks for freehand or
+  // legacy-version code that still imports the SDKs.)
+  it("parked capabilities (realtime / image-generation) select nothing and inject nothing", () => {
+    for (const capability of ["realtime", "image-generation"]) {
+      const dossierSelection = selectDossiersForRequest({
+        requestedCapabilities: [capability],
+      });
+      expect(dossierSelection.selected).toEqual([]);
+      expect(resolveCapabilityDependencies([capability])).toEqual({});
+    }
   });
 
-  it("injects ai + @ai-sdk/fal when image-generation is selected", () => {
-    const dossierSelection = selectDossiersForRequest({
-      requestedCapabilities: ["image-generation"],
-    });
-    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain(
-      "fal-image-generation",
-    );
-
-    const deps = resolveCapabilityDependencies(["image-generation"]);
-    expect(deps.ai).toBe(KNOWN_PACKAGES.ai);
-    expect(deps["@ai-sdk/fal"]).toBe(KNOWN_PACKAGES["@ai-sdk/fal"]);
-    expect(deps.ai).not.toBe("latest");
-    expect(deps["@ai-sdk/fal"]).not.toBe("latest");
+  it("keeps deterministic pins for parked-dossier SDKs (import-scan fallback)", () => {
+    expect(KNOWN_PACKAGES.ably).toBeDefined();
+    expect(KNOWN_PACKAGES.ably).not.toBe("latest");
+    expect(KNOWN_PACKAGES["@ai-sdk/fal"]).toBeDefined();
+    expect(KNOWN_PACKAGES["@ai-sdk/fal"]).not.toBe("latest");
   });
 
   it("injects ai + @ai-sdk/openai + zod when ai-tool-calling is selected", () => {
@@ -317,18 +312,21 @@ describe("dep-completer", () => {
     }
   });
 
-  it("selects the sibling database dossiers on explicit provider prompts", () => {
+  // neon-postgres / mongodb-atlas parked 2026-08-06 — brand asks still mean
+  // capability `database`, and selection yields the sole postgres-drizzle
+  // dossier. Sibling-select cases moved to auth in select.test.ts.
+  it("selects postgres-drizzle for database brand asks (siblings parked)", () => {
     const mongoSelection = selectDossiersForRequest({
       requestedCapabilities: ["database"],
       promptText: "spara produkterna i mongodb",
     });
-    expect(mongoSelection.selected[0]?.entry.id).toBe("mongodb-atlas");
+    expect(mongoSelection.selected.map((s) => s.entry.id)).toEqual(["postgres-drizzle"]);
 
     const neonSelection = selectDossiersForRequest({
       requestedCapabilities: ["database"],
       promptText: "använd neon postgres för medlemsdatan",
     });
-    expect(neonSelection.selected[0]?.entry.id).toBe("neon-postgres");
+    expect(neonSelection.selected.map((s) => s.entry.id)).toEqual(["postgres-drizzle"]);
   });
 
   it("pins mongodb and @neondatabase/serverless imports from generated code", () => {
@@ -393,6 +391,35 @@ describe("dep-completer", () => {
     expect(deps["@supabase/ssr"]).toBeUndefined();
   });
 
+  // ---- SM-006: selectedDossierIds beats capability re-selection ----
+
+  it("resolves deps from the CHOSEN sibling, not the capability default (SM-006)", () => {
+    // User picked supabase-auth; the raw capability is still `auth`. Without
+    // the ids the backfill re-selected clerk-auth (default) and injected the
+    // wrong provider's SDK stack.
+    const deps = resolveCapabilityDependencies(["auth"], ["supabase-auth"]);
+    expect(deps["@supabase/ssr"]).toBe(KNOWN_PACKAGES["@supabase/ssr"]);
+    expect(deps["@supabase/supabase-js"]).toBe(KNOWN_PACKAGES["@supabase/supabase-js"]);
+    expect(deps["@clerk/nextjs"]).toBeUndefined();
+  });
+
+  it("keeps capability fallback for capabilities no picked id covers (SM-006)", () => {
+    const deps = resolveCapabilityDependencies(["auth", "database"], ["supabase-auth"]);
+    // auth resolved from the pick...
+    expect(deps["@supabase/ssr"]).toBe(KNOWN_PACKAGES["@supabase/ssr"]);
+    expect(deps["@clerk/nextjs"]).toBeUndefined();
+    // ...database from the capability default (postgres-drizzle).
+    expect(deps["drizzle-orm"]).toBe(KNOWN_PACKAGES["drizzle-orm"]);
+  });
+
+  it("ignores unknown/parked ids and falls back to the capability default (SM-006)", () => {
+    // mongodb-atlas is parked — a stale snapshot id must not crash the
+    // backfill; auth falls back to the clerk default as before.
+    const deps = resolveCapabilityDependencies(["auth"], ["mongodb-atlas"]);
+    expect(deps["@clerk/nextjs"]).toBe(KNOWN_PACKAGES["@clerk/nextjs"]);
+    expect(deps["mongodb"]).toBeUndefined();
+  });
+
   it("pins tier-3 SDK imports detected in restored dossier files", () => {
     const result = runDepCompleter(
       [
@@ -415,28 +442,19 @@ describe("dep-completer", () => {
     expect(result.unknownPackages).not.toContain("resend");
   });
 
-  // Dossier (capability `subscriptions`, legacy import 2026-07-09): the
-  // paddle-billing manifest deps must resolve through KNOWN_PACKAGES pins,
-  // never `latest`.
-  it("injects the paddle + supabase stack when subscriptions is selected", () => {
+  // paddle-billing / subscriptions parked 2026-08-06 — capability selects
+  // nothing; the @paddle pin stays as an import-scan fallback for legacy code.
+  it("parked subscriptions selects nothing and injects nothing", () => {
     const dossierSelection = selectDossiersForRequest({
       requestedCapabilities: ["subscriptions"],
     });
-    expect(dossierSelection.selected.map((s) => s.entry.id)).toContain("paddle-billing");
+    expect(dossierSelection.selected).toEqual([]);
+    expect(resolveCapabilityDependencies(["subscriptions"])).toEqual({});
+  });
 
-    const deps = resolveCapabilityDependencies(["subscriptions"]);
-    expect(deps["@paddle/paddle-node-sdk"]).toBe(KNOWN_PACKAGES["@paddle/paddle-node-sdk"]);
-    expect(deps["@supabase/ssr"]).toBe(KNOWN_PACKAGES["@supabase/ssr"]);
-    expect(deps["@supabase/supabase-js"]).toBe(KNOWN_PACKAGES["@supabase/supabase-js"]);
-    expect(deps["server-only"]).toBe(KNOWN_PACKAGES["server-only"]);
-    for (const pkg of [
-      "@paddle/paddle-node-sdk",
-      "@supabase/ssr",
-      "@supabase/supabase-js",
-      "server-only",
-    ]) {
-      expect(deps[pkg]).not.toBe("latest");
-    }
+  it("keeps deterministic pin for parked paddle SDK (import-scan fallback)", () => {
+    expect(KNOWN_PACKAGES["@paddle/paddle-node-sdk"]).toBeDefined();
+    expect(KNOWN_PACKAGES["@paddle/paddle-node-sdk"]).not.toBe("latest");
   });
 
   /**

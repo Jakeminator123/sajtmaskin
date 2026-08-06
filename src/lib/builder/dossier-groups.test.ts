@@ -68,14 +68,14 @@ describe("resolveDossierGroup", () => {
       database: "data-content",
       cms: "data-content",
       auth: "auth",
+      // subscriptions left the table 2026-08-06 (etapp 2) with the parked
+      // paddle-billing dossier — commerce holds one-off payments only.
       payments: "commerce",
-      subscriptions: "commerce",
       "contact-form": "contact",
       "newsletter-subscribe": "contact",
       "ai-chat": "ai",
       "ai-tool-calling": "ai",
       "rag-chat": "ai",
-      "image-generation": "ai",
       "site-search": "search-maps",
       "map-display": "search-maps",
       "command-palette": "search-maps",
@@ -85,9 +85,9 @@ describe("resolveDossierGroup", () => {
       "physics-3d": "interactive",
       "interactive-game": "interactive",
       "dashboard-charts": "interactive",
-      realtime: "ops",
+      // realtime / error-tracking / image-generation left the table
+      // 2026-08-06 with their parked sole-provider dossiers.
       analytics: "ops",
-      "error-tracking": "ops",
     };
 
     for (const [capability, expectedGroupId] of Object.entries(expectedGroupByCapability)) {
@@ -114,8 +114,7 @@ describe("resolveDossierGroup", () => {
     expect(resolveDossierGroup("site-search").label).toBe("Sök & karta");
     expect(resolveDossierGroup("carousel").label).toBe("Media & galleri");
     expect(resolveDossierGroup("visual-3d").label).toBe("Interaktivt & 3D");
-    expect(resolveDossierGroup("realtime").label).toBe("Realtid & drift");
-    expect(resolveDossierGroup("analytics").label).toBe("Realtid & drift");
+    expect(resolveDossierGroup("analytics").label).toBe("Drift & mätning");
   });
 
   it("has 10 groups in the documented order", () => {

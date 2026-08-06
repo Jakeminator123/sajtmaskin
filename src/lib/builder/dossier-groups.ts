@@ -33,7 +33,9 @@ export const DOSSIER_GROUPS = {
   "search-maps": { id: "search-maps", label: "Sök & karta" },
   media: { id: "media", label: "Media & galleri" },
   interactive: { id: "interactive", label: "Interaktivt & 3D" },
-  ops: { id: "ops", label: "Realtid & drift" },
+  // 2026-08-06: label narrowed from "Realtid & drift" when `realtime` left
+  // the map (ably-realtime parked) — the group now holds observability only.
+  ops: { id: "ops", label: "Drift & mätning" },
   other: { id: "other", label: "Övrigt" },
 } as const satisfies Record<string, DossierGroup>;
 
@@ -66,14 +68,14 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   // One capability since 2026-07-22 — clerk-auth (default) and supabase-auth
   // are provider siblings under `auth`.
   auth: "auth",
+  // `subscriptions` left the map 2026-08-06 with the parked paddle-billing
+  // dossier (etapp 2) — commerce now holds one-off payments only.
   payments: "commerce",
-  subscriptions: "commerce",
   "contact-form": "contact",
   "newsletter-subscribe": "contact",
   "ai-chat": "ai",
   "ai-tool-calling": "ai",
   "rag-chat": "ai",
-  "image-generation": "ai",
   // Search & maps: local site search + map display are key-free demo-first
   // capabilities; command-palette (f.d. command-search) is the cmd+k surface.
   "site-search": "search-maps",
@@ -87,10 +89,10 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   "physics-3d": "interactive",
   "interactive-game": "interactive",
   "dashboard-charts": "interactive",
-  // Realtime & operations: live transport + fire-and-forget observability.
-  realtime: "ops",
+  // Operations: fire-and-forget observability. `realtime`, `error-tracking`
+  // and `image-generation` left the map 2026-08-06 when their sole provider
+  // dossiers were parked (see `_parkering/dossiers-utfasade-2026-08-06/`).
   analytics: "ops",
-  "error-tracking": "ops",
 };
 
 /**

@@ -19,7 +19,6 @@ function capabilities(
     needsPhysics: false,
     needsParallax: false,
     needsPayments: false,
-    needsSubscriptions: false,
     needsCharts: false,
     needsDatabase: false,
     needsAuth: false,
@@ -41,15 +40,15 @@ it("suppresses raw inferred flags for explicitly removed capabilities", () => {
   const result = suppressRemovedInferredCapabilities(
     capabilities({
       needsPayments: true,
-      needsSubscriptions: true,
       needsAuth: true,
+      needsDatabase: true,
     }),
     ["payments", "auth"],
   );
 
   expect(result.needsPayments).toBe(false);
   expect(result.needsAuth).toBe(false);
-  expect(result.needsSubscriptions).toBe(true);
+  expect(result.needsDatabase).toBe(true);
 });
 
 describe("filterRemovedCapabilitiesFromContracts", () => {
@@ -95,11 +94,13 @@ describe("filterRemovedCapabilitiesFromContracts", () => {
     expect(result.unresolvedDecisions).toEqual([]);
   });
 
-  it("removes Paddle through dossier fallback even without a registry entry", () => {
+  it("removes ambiguous postgres through dossier-id fallback when database is removed", () => {
+    // `postgres` is claimed by multiple manifests → mapProviderKeys returns [];
+    // the dossier-id fallback under `database` still matches postgres-drizzle.
     const context: PreGenerationContractContext = {
       contracts: {
         dataMode: "mixed",
-        paymentProvider: "paddle",
+        databaseProvider: "postgres",
         integrations: [
           {
             provider: "stripe",
@@ -109,40 +110,31 @@ describe("filterRemovedCapabilitiesFromContracts", () => {
             envVars: ["STRIPE_SECRET_KEY"],
           },
           {
-            provider: "paddle",
-            name: "Paddle",
-            reason: "recurring",
+            provider: "postgres",
+            name: "Postgres",
+            reason: "storage",
             status: "chosen",
-            envVars: ["PADDLE_API_KEY"],
+            envVars: ["DATABASE_URL"],
           },
         ],
         envVars: [
           { key: "STRIPE_SECRET_KEY", reason: "Stripe" },
-          { key: "PADDLE_API_KEY", reason: "Paddle" },
+          { key: "DATABASE_URL", reason: "Postgres" },
         ],
       },
       unresolvedDecisions: [],
       confirmedAnswers: [],
     };
 
-    const result = filterRemovedCapabilitiesFromContracts(context, [
-      "subscriptions",
-    ], ["payments"]);
+    const result = filterRemovedCapabilitiesFromContracts(context, ["database"]);
 
-    expect(result.contracts.paymentProvider).toBeUndefined();
+    expect(result.contracts.databaseProvider).toBeUndefined();
     expect(result.contracts.integrations.map((item) => item.provider)).toEqual([
       "stripe",
     ]);
     expect(result.contracts.envVars.map((item) => item.key)).toEqual([
       "STRIPE_SECRET_KEY",
     ]);
-
-    const noRetainedPayment = filterRemovedCapabilitiesFromContracts(
-      context,
-      ["subscriptions"],
-    );
-    expect(noRetainedPayment.contracts.integrations).toEqual([]);
-    expect(noRetainedPayment.contracts.paymentProvider).toBeUndefined();
   });
 });
 
@@ -165,12 +157,22 @@ it("removes stale F3 provider approvals for removed capabilities", () => {
       ["payments"],
     ),
   ).toEqual(["paddle"]);
+  // `supabase` is forced-generic in tier3-build-spec (a BaaS key never picks
+  // the auth dossier), but the dossier-id fallback (`supabase` prefix of
+  // `supabase-auth`) still attributes it to a removed `auth`.
+  expect(
+    filterProvidersForRemovedCapabilities(
+      ["stripe", "paddle", "supabase"],
+      ["auth"],
+    ),
+  ).toEqual(["stripe", "paddle"]);
+  // Parked subscriptions is a no-op — nothing maps to it anymore.
   expect(
     filterProvidersForRemovedCapabilities(
       ["stripe", "paddle", "supabase"],
       ["subscriptions"],
     ),
-  ).toEqual(["stripe", "supabase"]);
+  ).toEqual(["stripe", "paddle", "supabase"]);
 });
 
 it("builds a removal instruction from the exact removed dossier files", () => {

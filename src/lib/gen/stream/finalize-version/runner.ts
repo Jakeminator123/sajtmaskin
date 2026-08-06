@@ -231,6 +231,13 @@ export async function finalizeAndSaveVersion(
   const requestedCapabilities = resolveRequestedCapabilitiesFromStreamMeta(
     orchestrationStreamMeta as Record<string, unknown> | null | undefined,
   );
+  // Explicit dossier picks only (no capability-replay fallback): the autofix
+  // dep-backfill uses these to resolve the CHOSEN provider sibling's manifest
+  // instead of re-selecting the capability default (SM-006).
+  const orchestrationSelectedDossierIds = normalizeDossierIds(
+    (orchestrationStreamMeta as Record<string, unknown> | null | undefined)
+      ?.selectedDossierIds,
+  );
   // Read the orchestrate-locked variantId off the stream meta so the
   // autofix pre-phase can materialize the variant's first fontPairing
   // into the baseline `app/layout.tsx`. Falls back to null when meta
@@ -302,6 +309,7 @@ export async function finalizeAndSaveVersion(
         chatId,
         model,
         requestedCapabilities,
+        selectedDossierIds: orchestrationSelectedDossierIds,
         buildSpec,
         resolvedScaffold,
         resolvedTier,

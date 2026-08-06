@@ -300,13 +300,12 @@ describe("findMissingMockFallbacks (fallback-invariant, etapp 4)", () => {
     expect(errors[0]).toContain("(canned/seed/success/visual)");
   });
 
-  it("exempts ONLY analytics and error-tracking (taxonomy 2026-07-22)", () => {
+  it("exempts ONLY analytics (error-tracking left with its parked dossier 2026-08-06)", () => {
     // Every other capability must ship a real mock mode — auth/payments/
-    // realtime got mock:"visual" instead of an exception.
-    expect(Object.keys(MOCKLESS_CAPABILITY_EXCEPTIONS).sort()).toEqual([
-      "analytics",
-      "error-tracking",
-    ]);
+    // realtime got mock:"visual" instead of an exception (taxonomy
+    // 2026-07-22), and error-tracking's sole dossier (sentry-error-tracking)
+    // was parked 2026-08-06 so the exception has nothing left to except.
+    expect(Object.keys(MOCKLESS_CAPABILITY_EXCEPTIONS).sort()).toEqual(["analytics"]);
   });
 
   it("accepts every exempt capability shipping mock=none", () => {
@@ -332,22 +331,23 @@ describe("findMissingMockFallbacks (fallback-invariant, etapp 4)", () => {
   });
 
   it("checks EVERY hard dossier — a non-default sibling without mock fails (per-dossier, ägarbeslut 2026-07-12)", () => {
+    // Synthetic siblings (auth shape) — ids are fixtures for the invariant,
+    // not live pool entries.
     const errors = findMissingMockFallbacks([
-      hard("postgres-drizzle", "database", true, "seed"),
-      hard("mongodb-atlas", "database", false, "none"),
-      hard("neon-postgres", "database", false),
+      hard("clerk-auth", "auth", true, "visual"),
+      hard("supabase-auth", "auth", false, "none"),
+      hard("other-auth", "auth", false),
     ]);
     expect(errors).toHaveLength(2);
-    expect(errors[0]).toContain("mongodb-atlas");
-    expect(errors[1]).toContain("neon-postgres");
+    expect(errors[0]).toContain("other-auth");
+    expect(errors[1]).toContain("supabase-auth");
   });
 
   it("passes when every sibling declares a real mock mode", () => {
     expect(
       findMissingMockFallbacks([
-        hard("postgres-drizzle", "database", true, "seed"),
-        hard("mongodb-atlas", "database", false, "seed"),
-        hard("neon-postgres", "database", false, "seed"),
+        hard("clerk-auth", "auth", true, "visual"),
+        hard("supabase-auth", "auth", false, "visual"),
       ]),
     ).toEqual([]);
   });

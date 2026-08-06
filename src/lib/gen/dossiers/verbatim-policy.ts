@@ -20,7 +20,10 @@ import { devLogAppend } from "@/lib/logging/devLog";
 export interface VerbatimRestoreEvent {
   path: string;
   dossierId: string;
-  reason: "verbatim_content_drift" | "verbatim_file_missing_in_llm_output";
+  reason:
+    | "verbatim_content_drift"
+    | "verbatim_file_missing_in_llm_output"
+    | "rewritable_file_missing_seeded";
 }
 
 /**
@@ -33,6 +36,12 @@ export interface VerbatimRestoreEvent {
  *   (safe-default: prefer a possibly-drifted file over a crash).
  * - Only the paths explicitly listed in `dossier.files` are checked — other
  *   LLM-emitted files are untouched.
+ * - REWRITABLE dossier files are seeded with canonical content when the LLM
+ *   omitted them entirely, but NEVER overwritten when present (SM-004): a
+ *   restored verbatim file may import a rewritable sibling — postgres-drizzle's
+ *   verbatim `lib/db/index.ts` does `import * as schema from './schema'` where
+ *   `schema.ts` is rewritable — so dossier-listed files must always EXIST,
+ *   while the LLM keeps full freedom over rewritable content.
  */
 export function applyDossierVerbatimPolicy(params: {
   llmFiles: CodeFile[];
@@ -46,14 +55,23 @@ export function applyDossierVerbatimPolicy(params: {
     for (const file of dossier.files ?? []) {
       // Per-file injectionMode takes precedence over dossier-level codeFidelity.
       const effectiveMode = file.injectionMode ?? dossier.codeFidelity;
-      if (effectiveMode !== "verbatim") continue;
+      const isVerbatim = effectiveMode === "verbatim";
 
-      const canonical = getDossierFileContent(dossier.class, dossier.id, file.path);
+      // Safe-default: a malformed entry or unreadable disk must never crash
+      // the merge path — treat as "cannot verify/seed" and leave files as-is.
+      let canonical: string | null = null;
+      try {
+        canonical = getDossierFileContent(dossier.class, dossier.id, file.path);
+      } catch {
+        canonical = null;
+      }
       if (!canonical) {
-        console.warn(
-          `[verbatim-policy] dossier ${dossier.id} declares verbatim file ${file.path} but disk content is unavailable - verbatim policy skipped for this file`,
-        );
-        continue; // Cannot verify — leave as-is.
+        if (isVerbatim) {
+          console.warn(
+            `[verbatim-policy] dossier ${dossier.id} declares verbatim file ${file.path} but disk content is unavailable - verbatim policy skipped for this file`,
+          );
+        }
+        continue; // Cannot verify/seed — leave as-is.
       }
 
       // Translate the dossier-internal staging path to the output path the
@@ -63,7 +81,9 @@ export function applyDossierVerbatimPolicy(params: {
 
       const llmFile = llmByPath.get(outputPath);
       if (!llmFile) {
-        // LLM omitted a verbatim file — push it back with canonical content.
+        // LLM omitted a dossier-listed file — push it back with canonical
+        // content. For rewritable files this is a SEED (the file must exist;
+        // a restored verbatim sibling may import it), not an overwrite.
         const ext = outputPath.split(".").pop()?.toLowerCase() ?? "ts";
         const language: CodeFile["language"] =
           ext === "tsx"
@@ -81,10 +101,16 @@ export function applyDossierVerbatimPolicy(params: {
         restored.push({
           path: outputPath,
           dossierId: dossier.id,
-          reason: "verbatim_file_missing_in_llm_output",
+          reason: isVerbatim
+            ? "verbatim_file_missing_in_llm_output"
+            : "rewritable_file_missing_seeded",
         });
         continue;
       }
+
+      // Rewritable files present in the LLM output are the LLM's to shape —
+      // never overwrite (SM-004 seeds absence only).
+      if (!isVerbatim) continue;
 
       if (llmFile.content !== canonical) {
         llmFile.content = canonical;

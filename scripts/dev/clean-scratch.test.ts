@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,6 +8,7 @@ import {
   AGE_SKIP_NAMES,
   LOGS_RETAIN_COUNT,
   planLogsTree,
+  runCleanScratch,
 } from "./clean-scratch.mjs";
 
 const tmpRoots: string[] = [];
@@ -20,6 +22,18 @@ afterEach(() => {
 function makeTempLogsDir(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clean-scratch-logs-"));
   tmpRoots.push(dir);
+  return dir;
+}
+
+/**
+ * A real git repo, because the tracked-file guard reads `git ls-files`. Without
+ * git the loader fails safe by treating everything as tracked, which would make
+ * the assertions below pass for the wrong reason.
+ */
+function makeTempRepo(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clean-scratch-root-"));
+  tmpRoots.push(dir);
+  execFileSync("git", ["init", "--quiet"], { cwd: dir });
   return dir;
 }
 
@@ -113,6 +127,61 @@ describe("planLogsTree / logs retention", () => {
     expect(plan.skipped).toContain(linkPath);
     expect(plan.remove.map((r) => r.abs)).not.toContain(linkPath);
     expect(plan.keep).not.toContain(linkPath);
+    expect(fs.existsSync(path.join(linkTarget, "precious.txt"))).toBe(true);
+  });
+});
+
+describe("lösa scratch-filer i repo-roten", () => {
+  it("sopar .tmp-* och scratch-*.mjs/json men lämnar riktiga rotfiler", () => {
+    const root = makeTempRepo();
+
+    // Namn som INTE ska röras: vanliga rotfiler, plus ett scratch-liknande namn
+    // som git faktiskt visar (`scratch-notes.txt` står inte i .gitignore, så att
+    // radera det vore att kasta arbete användaren var på väg att se).
+    const survivors = ["package.json", "knip.json", "scratch-notes.txt"];
+    for (const name of survivors) fs.writeFileSync(path.join(root, name), "keep");
+
+    // Matchar mönstret men är spårad — guarden ska skona den.
+    const trackedScratch = path.join(root, "scratch-tracked.mjs");
+    fs.writeFileSync(trackedScratch, "// tracked");
+    execFileSync("git", ["add", "scratch-tracked.mjs"], { cwd: root });
+
+    const doomed = [
+      ".tmp-shadcn-out.txt",
+      ".tmp-shadcn-err.txt",
+      "scratch-logs.mjs",
+      "scratch-data.json",
+    ];
+    for (const name of doomed) fs.writeFileSync(path.join(root, name), "scratch");
+
+    const { removed, skippedTracked } = runCleanScratch({ root, apply: true });
+
+    expect(removed.map((r) => path.basename(r.abs)).sort()).toEqual([...doomed].sort());
+    for (const r of removed) expect(r.label).toBe("stray:.");
+
+    for (const name of survivors) {
+      expect(fs.existsSync(path.join(root, name))).toBe(true);
+    }
+    expect(fs.existsSync(trackedScratch)).toBe(true);
+    expect(skippedTracked).toContain(trackedScratch);
+  });
+
+  it("rör aldrig en länkad scratch-post — rmSync följer länken och tömmer målet", () => {
+    const root = makeTempRepo();
+    const linkTarget = makeTempLogsDir();
+    fs.writeFileSync(path.join(linkTarget, "precious.txt"), "x");
+
+    const linkPath = path.join(root, ".tmp-linked");
+    try {
+      fs.symlinkSync(linkTarget, linkPath, "junction");
+    } catch {
+      return; // Saknade länkrättigheter (icke-elevated Windows) — hoppa.
+    }
+
+    const { removed, skippedTracked } = runCleanScratch({ root, apply: true });
+
+    expect(removed.map((r) => r.abs)).not.toContain(linkPath);
+    expect(skippedTracked).toContain(linkPath);
     expect(fs.existsSync(path.join(linkTarget, "precious.txt"))).toBe(true);
   });
 });

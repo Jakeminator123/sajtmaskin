@@ -108,51 +108,19 @@ interface RemovalCapabilityEntry {
  */
 const REMOVAL_CAPABILITY_TERMS: RemovalCapabilityEntry[] = [
   {
-    // ONE-OFF payments only (stripe-checkout). After #475 split payments /
-    // subscriptions, recurring terms (paddle, prenumeration, subscription
-    // billing, memberships) belong to the `subscriptions` entry below — leaving
-    // them here made "ta bort prenumerationsbetalningen" wrongly shrink
-    // `payments` while `subscriptions` could never be removed at all (Vercel P2
-    // on #475).
+    // ONE-OFF payments (stripe-checkout). The Unicode look-behind on
+    // `betalning[...]` means it does NOT match inside compounds like
+    // "prenumerationsbetalning" (preceded by a letter). The former separate
+    // `subscriptions` removal entry left 2026-08-06 with the parked
+    // paddle-billing dossier — no project ever had the capability built
+    // (zero prod selections), so there is nothing for a removal ask to shrink.
     capability: "payments",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:stripe|klarna|swish|paypal|adyen|mollie|braintree)(?![\p{L}\p{N}_])/iu,
       // `betalning[...]` catches Swedish compounds like "betalningsgrejjen",
-      // "betalningarna", "betalningsflödet" once a removal verb is present. The
-      // Unicode look-behind means it does NOT match inside "prenumerationsbetalning"
-      // (preceded by a letter), so that recurring compound stays `subscriptions`.
+      // "betalningarna", "betalningsflödet" once a removal verb is present.
       /(?<![\p{L}\p{N}_])betalning[\p{L}]*(?![\p{L}\p{N}_])/iu,
-      // Recurring-billing terms (`subscription-billing`, `prenumerationsbetalning`)
-      // were CEDED to the `subscriptions` entry below — mirrors the detection-side
-      // split in `follow-up-capability-vocabulary.ts` (Vercel Agent finding #475).
-      // One-off payment vocabulary only.
       /(?<![\p{L}\p{N}_])(?:payments?|checkout|kassa|kortbetalning[\p{L}]*|kortköp|kreditkort)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
-    // Recurring subscriptions / memberships (Paddle Billing) — INTENTIONALLY
-    // separate from one-off `payments` (Stripe-checkout). Mirrors the
-    // detection-side `subscriptions` split in `follow-up-capability-vocabulary.ts`
-    // so "ta bort prenumerationen" / "remove subscriptions" / "ta bort Paddle"
-    // shrinks the Paddle capability, not `payments`. Without this entry the
-    // can-only-grow floor (`enforceFollowUpCapabilityFloor`) would re-inject the
-    // capability — the same prod-bug class (chat e298da50) this module closes.
-    capability: "subscriptions",
-    patterns: [
-      /(?<![\p{L}\p{N}_])paddle(?![\p{L}\p{N}_])/iu,
-      // `prenumeration[...]` / `abonnemang[...]` catch Swedish compounds like
-      // "prenumerationen", "abonnemanget" once a removal verb is present. No
-      // bare English "subscribe" token — it collides with newsletter signup
-      // (mirrors the detection-side note).
-      /(?<![\p{L}\p{N}_])(?:prenumeration[\p{L}]*|prenumerera[\p{L}]*|abonnemang[\p{L}]*|subscription(?:s)?)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:medlemskap[\p{L}]*|membership[\p{L}]*|members?[-\s]?(?:only|area|tier))(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:(?:å|a)terkommande\s+(?:betalning[\p{L}]*|debitering[\p{L}]*)|recurring\s+(?:payments?|billing|subscription(?:s)?)|subscription[-\s]?billing|prenumerationsbetalning[\p{L}]*)(?![\p{L}\p{N}_])/iu,
-    ],
-    // Newsletter "prenumerera på nyhetsbrevet" and one-off payments must NOT be
-    // read as a Paddle subscription removal — mirrors the detection vetoes.
-    vetoes: [
-      /(?<![\p{L}\p{N}_])(?:nyhetsbrev[\p{L}]*|newsletter)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:eng(?:å|a)ngs(?:betalning[\p{L}]*|k(?:ö|o)p[\p{L}]*|belopp)?|one-?time|one-?off|single\s+payment)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {

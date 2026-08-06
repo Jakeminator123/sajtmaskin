@@ -36,8 +36,6 @@ try:
         build_backoffice_context,
         ensure_utf8_stdio,
         find_repo_root,
-        launch_streamlit_if_needed,
-        running_under_streamlit,
     )
     from .shared_lib.danger import confirm_by_typing, danger_zone
     from .shared_lib.data_loaders import (
@@ -80,7 +78,6 @@ try:
     from .shared_lib.prompt_dumps import (
         PROMPT_DUMP_SPECS,
         collect_prompt_dump_statuses,
-        format_prompt_dump_status_lines,
         load_latest_prompt_size_metrics,
     )
     from .shared_lib.routes import ROUTE_TIMEOUT_DISPLAY, read_route_maxduration_literals
@@ -129,8 +126,6 @@ except ImportError:
         build_backoffice_context,
         ensure_utf8_stdio,
         find_repo_root,
-        launch_streamlit_if_needed,
-        running_under_streamlit,
     )
     from shared_lib.danger import confirm_by_typing, danger_zone
     from shared_lib.data_loaders import (
@@ -173,7 +168,6 @@ except ImportError:
     from shared_lib.prompt_dumps import (
         PROMPT_DUMP_SPECS,
         collect_prompt_dump_statuses,
-        format_prompt_dump_status_lines,
         load_latest_prompt_size_metrics,
     )
     from shared_lib.routes import ROUTE_TIMEOUT_DISPLAY, read_route_maxduration_literals

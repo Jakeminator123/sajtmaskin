@@ -101,12 +101,12 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
     ).toEqual(["interactive-game"]);
   });
 
-  it("bridges needsSubscriptions to `subscriptions` — never one-off `payments` (#475 split)", () => {
+  it("bridges needsPayments to `payments` only (subscriptions left the bridge)", () => {
     expect(
       resolveDossierCapabilitiesFromInferredCapabilities(
-        capabilities({ needsSubscriptions: true }),
+        capabilities({ needsPayments: true }),
       ),
-    ).toEqual(["subscriptions"]);
+    ).toEqual(["payments"]);
   });
 
   it("lights up game + visual-3d + physics together for a physics-driven 3D game", () => {
@@ -129,7 +129,6 @@ describe("resolveDossierCapabilitiesFromInferredCapabilities", () => {
       "needs3D",
       "needsPhysics",
       "needsPayments",
-      "needsSubscriptions",
       "needsAuth",
       "needsDatabase",
       "needsForms",

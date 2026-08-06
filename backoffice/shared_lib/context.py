@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,25 +35,6 @@ def ensure_utf8_stdio() -> None:
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 
-def running_under_streamlit() -> bool:
-    try:
-        from streamlit.runtime.scriptrunner_utils.script_run_context import (
-            get_script_run_ctx,
-        )
-
-        return get_script_run_ctx() is not None
-    except Exception:
-        return False
-
-
-def launch_streamlit_if_needed(app_path: Path, argv: list[str] | None = None) -> None:
-    if running_under_streamlit():
-        return
-    raise SystemExit(
-        subprocess.call(
-            [sys.executable, "-m", "streamlit", "run", str(app_path), *((argv or []))],
-        )
-    )
 def find_repo_root(start: Path | None = None) -> Path:
     here = (start or Path(__file__).resolve()).resolve()
     candidates = [here.parent] if here.is_file() else [here]

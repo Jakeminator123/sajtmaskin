@@ -16,17 +16,6 @@ function explicitlyRequestsCarousel(prompt: string): boolean {
 }
 
 /**
- * Explicit one-off / card-checkout intent (stripe-checkout `payments`). Used to
- * KEEP `payments` when a prompt asks for both memberships and a one-off purchase
- * (Codex P2 dossier-batch) — the subscriptions/payments dedup only drops
- * `payments` when it was inferred, never when the shopper explicitly asked to
- * buy something once. Unicode-safe lookarounds (not \b) so åäö-adjacent words
- * are handled correctly.
- */
-const EXPLICIT_ONE_OFF_PAYMENT_RE =
-  /(?<![\p{L}\p{N}_])(?:eng(?:å|a)ngs(?:betalning(?:ar|en)?|k(?:ö|o)p(?:et)?|belopp)?|one-?time|one-?off|single\s+payment|betala\s+en\s+g(?:å|a)ng|k(?:ö|o)p\s+(?:en\s+)?(?:produkt|vara|artikel)|one-?off\s+checkout)(?![\p{L}\p{N}_])/iu;
-
-/**
  * Non-secret integration capabilities that F2 mutes by POLICY
  * (`.cursor/rules/env-flow-f2-mute.mdc`) even though their dossier has no
  * build-enforced env secret AND no server-file surface — today only
@@ -138,31 +127,16 @@ export function filterDossierCapabilitiesForPromptWithMutes(params: {
   if (result.includes("physics-3d") && !result.includes("visual-3d")) {
     result = result.filter((capability) => capability !== "physics-3d");
   }
-  // Dependent capabilities (Codex P1 #475, re-expressed after the
-  // auth-capability merge): `subscriptions` requires `auth` — and SELECTION
-  // pins that auth pick to the `supabase-auth` dossier (paddle's
-  // customer-portal needs a signed-in Supabase user; see
-  // `DEPENDENT_CAPABILITIES` in select.ts). Expanded AFTER the F2 mute
-  // (subscriptions never survives F2, so this only fires in F3). Same helper
-  // as selectDossiersForRequest — prompt and selection stay in lockstep. The
-  // helper also alias-normalizes legacy ids (`supabase-auth` → `auth`,
-  // `command-search` → `command-palette`) so stale snapshots keep resolving,
-  // and dedupes overlapping picks (ai-tool-calling wins over ai-chat). The
-  // former supabase-auth/auth dedup is obsolete: both dossiers share the
-  // `auth` capability now, so selection picks exactly one middleware owner.
+  // Dependent-capability expansion (same helper as selectDossiersForRequest —
+  // prompt and selection stay in lockstep). `DEPENDENT_CAPABILITIES` is empty
+  // since 2026-08-06 (the only entry, `subscriptions` ⇒ auth-pin, left with
+  // the parked paddle-billing dossier), but the helper still alias-normalizes
+  // legacy ids (`supabase-auth` → `auth`, `command-search` →
+  // `command-palette`) so stale snapshots keep resolving, and dedupes
+  // overlapping picks (ai-tool-calling wins over ai-chat). The money-flow
+  // dedup subscriptions/payments left with the same parking — `subscriptions`
+  // is no longer a capability, so a recurring ask flows as ordinary
+  // content/`payments`.
   result = expandDependentCapabilities(result);
-  // Money-flow dedup (bugbot high, dossier-batch): a recurring/subscriptions ask
-  // can drag generic `payments` along (brief, inferred `needsPayments`, or a
-  // prompt mentioning both "prenumeration" and "betala med kort"). stripe-checkout
-  // (payments) and paddle-billing (subscriptions) ship DISTINCT output paths (no
-  // build collision, Codex P2), so we drop `payments` only when it was inferred/
-  // ambiguous — an EXPLICIT one-off checkout ask alongside memberships keeps both.
-  if (
-    result.includes("subscriptions") &&
-    result.includes("payments") &&
-    !EXPLICIT_ONE_OFF_PAYMENT_RE.test(params.prompt ?? "")
-  ) {
-    result = result.filter((capability) => capability !== "payments");
-  }
   return { capabilities: result, mutedCapabilities };
 }

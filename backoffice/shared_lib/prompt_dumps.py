@@ -160,33 +160,3 @@ def collect_prompt_dump_statuses(
         )
 
     return statuses
-
-
-def format_prompt_dump_status_lines(
-    repo_root: Path,
-    env_value: str | None = None,
-) -> list[str]:
-    statuses = collect_prompt_dump_statuses(repo_root, env_value=env_value)
-    env_display = (
-        env_value
-        if env_value is not None
-        else os.environ.get("SAJTMASKIN_PROMPT_DUMP", "(unset)")
-    )
-
-    lines = [
-        "Prompt-dumps",
-        f"  SAJTMASKIN_PROMPT_DUMP: {env_display}",
-    ]
-    for item in statuses:
-        lines.append(f"  {item['category']}: {item['status']}")
-        lines.append(f"    dumpedAt: {item['dumpedAt'] or 'missing'}")
-        if item["statusUpdatedAt"]:
-            lines.append(f"    statusUpdatedAt: {item['statusUpdatedAt']}")
-        lines.append(
-            "    files: "
-            + (", ".join(item["presentFiles"]) if item["presentFiles"] else "none")
-        )
-        if item["missingFiles"]:
-            lines.append("    missing: " + ", ".join(item["missingFiles"]))
-        lines.append(f"    note: {item['note']}")
-    return lines

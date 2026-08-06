@@ -37,7 +37,7 @@ F2-fallbacken ska:
 
 Klicket utgår från den valda F2-versionen och läser vilka Byggblock som kräver
 F3, planerades i F2 och ännu saknar filbevis. F2 har sparat både capability och
-exakt dossier-id, så `database` + MongoDB fortsätter som `mongodb-atlas` i F3.
+exakt dossier-id, så `auth` + Supabase fortsätter som `supabase-auth` i F3.
 
 1. Product Postcheck och versionens filer kontrolleras.
 2. Parent-versionens redan byggda integrationer och de planerade dossier-id:na

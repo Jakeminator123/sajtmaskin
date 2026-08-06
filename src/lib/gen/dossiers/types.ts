@@ -79,7 +79,7 @@ export type DossierEnvVarEnforcement = "build" | "feature-runtime" | "warn-only"
  *   controls, live widget) and the ACTION opens an honest demo notice/modal
  *   instead of performing the real operation — no fake sessions, no fake
  *   charges, no fake transport. The real backend activates when provider
- *   values are set (payments, auth, subscriptions, realtime).
+ *   values are set (payments, auth).
  * - `"none"`: no meaningful demo surface at all → the UI shows a discreet
  *   demo/configuration banner (the `IntegrationConfigNotice` pattern) or
  *   self-disables (analytics/error-tracking).
@@ -136,8 +136,8 @@ export interface DossierEntry {
   defaultForCapability: boolean;
   /**
    * Optional provider-specific keywords that mark an EXPLICIT ask for this
-   * dossier when several dossiers share one capability (e.g. "mongodb" on
-   * mongodb-atlas under `database`). A prompt hit overrides the
+   * dossier when several dossiers share one capability (e.g. "supabase" on
+   * supabase-auth under `auth`). A prompt hit overrides the
    * `defaultForCapability` pick — see `pickForCapability` in `select.ts`.
    */
   relevanceKeywords?: string[];

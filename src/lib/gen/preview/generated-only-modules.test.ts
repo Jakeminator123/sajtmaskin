@@ -19,12 +19,9 @@ describe("getGeneratedOnlyPackages", () => {
   it("covers dossier-declared SDKs the platform does not install", () => {
     const packages = getGeneratedOnlyPackages();
     for (const pkg of [
-      "ably",
       "@supabase/ssr",
       "@supabase/supabase-js",
-      "@sentry/nextjs",
       "@clerk/nextjs",
-      "mongodb",
       "next-sanity",
       "maplibre-gl",
       "minisearch",
@@ -32,6 +29,19 @@ describe("getGeneratedOnlyPackages", () => {
     ]) {
       expect(packages.has(pkg), `${pkg} missing from the generated-only set`).toBe(true);
     }
+  });
+
+  it("drops SDKs whose dossiers are parked (curation owns the set)", () => {
+    // ably-realtime / sentry-error-tracking (etapp 1) and mongodb-atlas /
+    // neon-postgres (etapp 3) were parked 2026-08-06, so their SDKs are no
+    // longer dossier-declared and their TS2307s are decidable (KEPT) again.
+    // The KNOWN_PACKAGES pins that remain in dep-completer serve legacy-
+    // version export, not this suppression set.
+    const packages = getGeneratedOnlyPackages();
+    expect(packages.has("ably")).toBe(false);
+    expect(packages.has("@sentry/nextjs")).toBe(false);
+    expect(packages.has("mongodb")).toBe(false);
+    expect(packages.has("@neondatabase/serverless")).toBe(false);
   });
 
   it("excludes packages the preview runtime already ships", () => {
@@ -71,11 +81,23 @@ describe("partitionUndecidableModuleDiagnostics", () => {
 
   it("drops unresolved-module errors for dossier SDKs the cache cannot install", () => {
     const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(
-      [unresolved("ably"), unresolved("@supabase/ssr")],
+      [unresolved("next-sanity"), unresolved("@supabase/ssr")],
       cacheDir,
     );
     expect(kept).toEqual([]);
-    expect(suppressedModules).toEqual(["@supabase/ssr", "ably"]);
+    expect(suppressedModules).toEqual(["@supabase/ssr", "next-sanity"]);
+  });
+
+  it("keeps TS2307 for parked database SDKs (mongodb / @neondatabase)", () => {
+    // Same pattern as the ably case after etapp 1: no live dossier declares
+    // these packages, so pre-VM typecheck must surface the unresolved import.
+    const diagnostics = [unresolved("mongodb"), unresolved("@neondatabase/serverless")];
+    const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(
+      diagnostics,
+      cacheDir,
+    );
+    expect(kept).toEqual(diagnostics);
+    expect(suppressedModules).toEqual([]);
   });
 
   it("normalizes subpath imports to the package name", () => {
