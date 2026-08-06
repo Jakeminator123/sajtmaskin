@@ -495,6 +495,32 @@ describe("renderTier3BuildPlanBlock", () => {
     expect(block).toContain("IntegrationConfigNotice");
   });
 
+  it("forbids suggestion-only rounds for planned integrations (A2, prod chat 3a6c5472)", () => {
+    // 2026-08-05: an F3 pass emitted two `suggestIntegration` cards asking to
+    // configure a key that already had a real stored value, and wrote zero
+    // code files. The plan block must state that planned integrations are
+    // pre-approved and that tool-only rounds are a failed outcome.
+    const block = renderTier3BuildPlanBlock(
+      deriveTier3BuildSpec({
+        ...emptyContracts,
+        integrations: [
+          {
+            provider: "stripe",
+            name: "Stripe",
+            reason: "billing",
+            status: "chosen",
+          },
+        ],
+      }),
+    );
+    expect(block).not.toBeNull();
+    expect(block).toContain("already approved and planned");
+    expect(block).toContain("WRITE THE CODE FILES");
+    expect(block).toContain(
+      "never end the round with tool calls but no code files",
+    );
+  });
+
   it("never tells the model to assume real env values (P2 F3-loop åtgärd 1)", () => {
     // The old copy ("assume real values are present at runtime") was wrong
     // for the approval-without-keys case: feature-runtime keys may stay

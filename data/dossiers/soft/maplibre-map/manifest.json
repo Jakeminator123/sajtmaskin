@@ -24,7 +24,7 @@
       "import": "@/components/map-display"
     }
   ],
-  "lastVerified": "2026-07-22",
+  "lastVerified": "2026-08-05",
   "sourceRepoUrl": "https://github.com/maplibre/maplibre-gl-js",
   "promptInstructionMode": "selected-sections"
 }

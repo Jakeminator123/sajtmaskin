@@ -58,7 +58,10 @@ export function MapDisplay({
 
     (async () => {
       try {
-        const maplibregl = (await import("maplibre-gl")).default;
+        // Namespace import on purpose: maplibre-gl v6 removed the default
+        // export from its ESM build, so `.default` is undefined at runtime
+        // (and a TS2339 at typecheck). The classes are named exports.
+        const maplibregl = await import("maplibre-gl");
         const el = containerRef.current;
         if (cancelled || !el) return;
         const init = initialRef.current;
@@ -66,7 +69,7 @@ export function MapDisplay({
           init.center ??
           (init.markers[0] ? [init.markers[0].lng, init.markers[0].lat] : [18.0686, 59.3293]);
 
-        map = new maplibregl.Map({
+        const mapInstance = new maplibregl.Map({
           container: el,
           // OpenFreeMap: key-free, account-free vector tiles.
           style: "https://tiles.openfreemap.org/styles/liberty",
@@ -77,7 +80,11 @@ export function MapDisplay({
           cooperativeGestures: true,
           attributionControl: { compact: true },
         });
-        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+        map = mapInstance;
+        mapInstance.addControl(
+          new maplibregl.NavigationControl({ showCompass: false }),
+          "top-right",
+        );
 
         for (const marker of init.markers) {
           const popup = new maplibregl.Popup({ offset: 24, closeButton: false });
@@ -89,13 +96,16 @@ export function MapDisplay({
             detail.textContent = marker.description;
             heading.insertAdjacentElement("afterend", detail);
           }
-          new maplibregl.Marker().setLngLat([marker.lng, marker.lat]).setPopup(popup).addTo(map);
+          new maplibregl.Marker()
+            .setLngLat([marker.lng, marker.lat])
+            .setPopup(popup)
+            .addTo(mapInstance);
         }
 
-        map.on("load", () => {
+        mapInstance.on("load", () => {
           if (!cancelled) setStatus("ready");
         });
-        map.on("error", () => {
+        mapInstance.on("error", () => {
           // Tile/style fetch failures land here; keep the map if it already
           // rendered, otherwise fall back to the list.
           if (!cancelled) setStatus((prev) => (prev === "loading" ? "error" : prev));
