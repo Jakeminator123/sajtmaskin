@@ -18,6 +18,7 @@ import { join } from "node:path";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
+import { buildTrackedRedisHealthBuckets } from "../../../scripts/db/redis-health-buckets.mjs";
 
 const REPO_ROOT = join(__dirname, "..", "..", "..");
 
@@ -260,14 +261,14 @@ describe("redis-health-check-report.schema.json", () => {
       },
       summary: {
         total_keys: 6,
-        total_prefix_buckets: 14,
+        total_prefix_buckets: 9,
         total_keys_in_buckets: 6,
         probe_round_trip_ms: 346,
       },
       prefixes: [
         {
-          label: "user:session",
-          pattern: "dev:user:session:*",
+          label: "cache",
+          pattern: "dev:cache:*",
           scope: "env",
           latency_ms: 117,
           key_count: 0,
@@ -293,6 +294,42 @@ describe("redis-health-check-report.schema.json", () => {
         delete: { ok: true, latency_ms: 116, error: null },
       },
     };
+
+    const trackedBuckets = buildTrackedRedisHealthBuckets("dev:");
+    expect(trackedBuckets).toEqual([
+      { scope: "env", label: "cache", pattern: "dev:cache:*" },
+      { scope: "env", label: "audit", pattern: "dev:audit:*" },
+      { scope: "env", label: "audit_list", pattern: "dev:audit_list:*" },
+      {
+        scope: "env",
+        label: "preview-session:session",
+        pattern: "dev:preview-session:session:*",
+      },
+      {
+        scope: "env",
+        label: "sandbox-preview:session (legacy)",
+        pattern: "dev:sandbox-preview:session:*",
+      },
+      { scope: "env", label: "prompt_handoff", pattern: "dev:prompt_handoff:*" },
+      { scope: "env", label: "brief:v1", pattern: "dev:brief:v1:*" },
+      { scope: "env", label: "health:probe", pattern: "dev:health:probe:*" },
+      {
+        scope: "global",
+        label: "ratelimit (sajtmaskin, denna miljö)",
+        pattern: "sajtmaskin:dev:ratelimit:*",
+      },
+    ]);
+    expect(fixture.summary.total_prefix_buckets).toBe(trackedBuckets.length);
+    expect(
+      fixture.prefixes.every((prefix) =>
+        trackedBuckets.some(
+          (bucket) =>
+            bucket.scope === prefix.scope &&
+            bucket.label === prefix.label &&
+            bucket.pattern === prefix.pattern,
+        ),
+      ),
+    ).toBe(true);
     const ok = validateRedisHealth(fixture);
     expect(ok, fmt(validateRedisHealth.errors)).toBe(true);
   });
