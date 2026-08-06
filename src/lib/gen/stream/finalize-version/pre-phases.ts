@@ -160,6 +160,12 @@ export async function runAutofixPrePhase(params: {
   chatId: string;
   model: string;
   requestedCapabilities?: string[];
+  /**
+   * Orchestration's explicit dossier picks (`streamMeta.selectedDossierIds`).
+   * Threaded into `runAutoFix` so dependency-injection resolves the CHOSEN
+   * provider sibling's manifest instead of the capability default (SM-006).
+   */
+  selectedDossierIds?: string[];
   buildSpec?: BuildSpec | null;
   resolvedScaffold: ScaffoldManifest | null;
   resolvedTier?: CanonicalModelId;
@@ -178,6 +184,7 @@ export async function runAutofixPrePhase(params: {
     chatId,
     model,
     requestedCapabilities,
+    selectedDossierIds,
     buildSpec,
     resolvedScaffold,
     resolvedTier,
@@ -219,6 +226,7 @@ export async function runAutofixPrePhase(params: {
       chatId,
       model,
       requestedCapabilities,
+      selectedDossierIds,
       previewPolicy: buildSpec?.previewPolicy,
       scaffoldId: resolvedScaffold?.id ?? null,
       variantId: variantId ?? null,

@@ -5,8 +5,8 @@
  *   1. Read `requestedCapabilities` (from explicit option or `brief.requestedCapabilities`).
  *   2. For each capability, find matching dossiers via `getDossiersByCapability`.
  *   3. If multiple match: an explicit `relevanceKeywords` hit in `promptText`
- *      (when provided) overrides the default — e.g. "MongoDB" picks
- *      mongodb-atlas even though postgres-drizzle is the `database` default.
+ *      (when provided) overrides the default — e.g. "logga in med supabase"
+ *      picks supabase-auth even though clerk-auth is the `auth` default.
  *      Otherwise pick the one with `defaultForCapability=true`, else the
  *      first by id-sort.
  *   4. For hard dossiers, check `process.env` for required envVars
@@ -36,8 +36,8 @@ export interface SelectDossiersOptions {
   /**
    * Optional raw prompt text used ONLY to disambiguate sibling dossiers that
    * share a capability, via their manifest `relevanceKeywords` (e.g. an
-   * explicit "MongoDB" ask picks mongodb-atlas over the postgres-drizzle
-   * default under `database`). Absent → the `defaultForCapability` pick.
+   * explicit "logga in med supabase" ask picks supabase-auth over the
+   * clerk-auth default under `auth`). Absent → the `defaultForCapability` pick.
    */
   promptText?: string | null;
   /**
@@ -244,10 +244,9 @@ function escapeRegExp(value: string): string {
  * True when the prompt contains one of the dossier's `relevanceKeywords` as a
  * standalone word/phrase. Unicode-aware boundaries; the hyphen is treated as
  * part of the word on purpose so a compound like "neon-skylt" (neon sign)
- * does NOT hit the bare "neon" keyword, while "Neon Postgres", "neon.tech"
- * and "använd Neon" still do. Spaces inside a multi-word keyword match
- * space-or-hyphen so hyphenated provider forms ("mongodb-atlas",
- * "neon-postgres") hit the same keyword as the spaced form (Codex P2 on
+ * does NOT hit a bare "neon" keyword. Spaces inside a multi-word keyword
+ * match space-or-hyphen so hyphenated provider forms ("supabase-auth",
+ * "clerk-auth") hit the same keyword as the spaced form (Codex P2 on
  * PR #445). Precision over recall — a miss falls back to the capability
  * default, which is always a working implementation.
  *
@@ -291,7 +290,7 @@ function pickForCapability(
     if (pinned) return { entry: pinned, reason: "dependency-pin" };
   }
   // Explicit provider intent beats the capability default: when the prompt
-  // hits a sibling's relevanceKeywords ("MongoDB", "Neon"), that sibling is
+  // hits a sibling's relevanceKeywords ("supabase", "clerk"), that sibling is
   // what the user asked for. Deterministic on multi-hit: prefer the default
   // if it also matched, else the first match by id-sort.
   if (promptText && sorted.length > 1) {

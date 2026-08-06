@@ -222,17 +222,18 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
   // without a backing dossier selects nothing, so detecting it only mutes a
   // surface the model may as well freehand as ordinary page content.
   {
-    // Persistent server-side data storage (Postgres/Drizzle default;
-    // mongodb-atlas / neon-postgres siblings resolve via manifest
-    // relevanceKeywords in select.ts). NOT vector stores (those are
-    // `rag-chat`) and NOT analytics/tracking — those route to `analytics`.
+    // Persistent server-side data storage — postgres-drizzle is the sole
+    // dossier under `database` (neon-postgres / mongodb-atlas parked
+    // 2026-08-06). Mongo/Neon brand names still trigger THIS capability: a
+    // MongoDB-ask is a database-ask; implementation is ours. NOT vector
+    // stores (those are `rag-chat`) and NOT analytics/tracking.
     capability: "database",
     patterns: [
       // Core nouns, Swedish + English inflections.
       /(?<![\p{L}\p{N}_])(?:databas(?:en|er|erna)?|databases?|sql[-\s]?databas(?:en)?|sql\s+database)(?![\p{L}\p{N}_])/iu,
-      // Provider / stack names that unambiguously mean a database layer.
+      // Brand / stack names that unambiguously mean a database layer.
       // Bare "neon" is intentionally NOT matched — it is a common design word
-      // (neonfärger, neon-skyltar); Neon-the-provider needs a DB-flavoured
+      // (neonfärger, neon-skyltar); Neon-the-DB needs a DB-flavoured
       // compound or the neon.tech domain.
       /(?<![\p{L}\p{N}_])(?:postgres(?:ql)?|drizzle(?:-?orm)?|mongo(?:db)?(?:[-\s]?atlas)?|neon[-\s]?(?:postgres(?:ql)?|db|databas(?:en)?|database)|neon\.tech)(?![\p{L}\p{N}_])/iu,
       // Verb phrases: "lagra/spara ... i (en) databas", "store/save ... in a database".
@@ -244,8 +245,8 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     //  - Analytics/tracking asks route to `analytics` — "spåra besökare i en
     //    databas" is a visitor-tracking request, not a persistence layer.
     //  - An explicit competing ORM/BaaS choice (Prisma, Mongoose, Supabase,
-    //    Firebase, …) must not pull in the Drizzle/Mongo-driver stack — same
-    //    precedent as the Chart.js veto on `dashboard-charts`.
+    //    Firebase, …) must not pull in the Drizzle stack — same precedent
+    //    as the Chart.js veto on `dashboard-charts`.
     vetoes: [
       /(?<![\p{L}\p{N}_])(?:(?:vector|vektor)[-\s]?(?:databas(?:en)?|database|db|store|search)|pgvector|pinecone|weaviate|qdrant|chroma(?:db)?)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:plausible|google[-\s]?analytics|posthog|mixpanel|fathom|matomo|statcounter|vercel[-\s]?analytics|webbanalys|webb-?analys|besöksstatistik(?:en)?|spåra\s+besökare|track\s+visitors?|page[-\s]?views|sidvisningar)(?![\p{L}\p{N}_])/iu,

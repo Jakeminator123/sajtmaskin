@@ -38,7 +38,8 @@ Verifierade fakta bakom domen:
 |---|---|---|
 | Fix-PR (`fix/dossier-defekter-0805`) | MapLibre-importfixen (verifierad med skarpt acceptansbygge), acceptansmatrisen täcker nu soft-dossiers med filer, F3-planblocket förbjuder suggestion-only-rundor, backlograder `SM-023`–`SM-026` | Klar, väntar på granskning |
 | Etapp 1 (`feat/dossier-forenkling`) | Fyra hard-dossiers parkerade (`sentry-error-tracking`, `plausible-analytics`, `fal-image-generation`, `ably-realtime`) med full sweep: vokabulär, brief-prompt, grupper, undantagslista, backoffice-spegel, docs. Pool 27 → 23 (14 hard + 9 soft) | Klar, väntar på granskning |
-| Etapp 2 (`feat/dossier-etapp2-subscriptions`) | `paddle-billing` parkerad + capability `subscriptions` borttagen. Systemets enda dossier-beroende dog: `DEPENDENT_CAPABILITIES` är TOM (mekanismen kvar för framtida äkta beroenden), `needsSubscriptions`-flaggan, money-flow-dedupen och recurring-vokabulären borta — recurring-önskemål routas AVSIKTLIGT inte till `payments`. Pool 23 → 22 (13 hard + 9 soft) | Klar i branch, väntar på PR efter #829 |
+| Etapp 2 (`feat/dossier-etapp2-subscriptions`) | `paddle-billing` parkerad + capability `subscriptions` borttagen. Systemets enda dossier-beroende dog: `DEPENDENT_CAPABILITIES` är TOM (mekanismen kvar för framtida äkta beroenden), `needsSubscriptions`-flaggan, money-flow-dedupen och recurring-vokabulären borta — recurring-önskemål routas AVSIKTLIGT inte till `payments`. Pool 23 → 22 (13 hard + 9 soft) | Mergad (#832) |
+| Etapp 3 (`feat/dossier-etapp3-databaser`) | Databassyskonen `neon-postgres` + `mongodb-atlas` parkerade; `postgres-drizzle` ensam under `database` (en Neon-URL fungerar med pg-drivern). `mongodb` är dossierless registry-provider (generisk F3-väg); mongo-/neon-vokabulär triggar fortfarande `database`; preview-suppression följer live-manifesten. I samma pass: `SM-004` (verbatim-policyn seedar saknade rewritable-filer) och `SM-006` (dep-backfillen drivs av `selectedDossierIds`, capability-default bara legacy fallback). Pool 22 → 20 (11 hard + 9 soft) | Klar i branch, väntar på PR |
 
 Urvalskriteriet för etapp 1: noll prod-selektioner OCH noll lastbärande
 kodreferenser (bara kommentarer/testfixturer). Systemet degraderar by design
@@ -50,17 +51,6 @@ och F3-godkännanden går den generiska providervägen.
 Referenskartorna nedan är grep-verifierade 2026-08-06. Ta en etapp i taget;
 var och en är en egen PR med egen testsweep.
 
-### Etapp 3 — databassyskonen (`neon-postgres`, `mongodb-atlas`)
-
-Behåll `postgres-drizzle` som ensam databas-dossier (en Neon-connection-string
-fungerar med pg-drivern). mongodb-atlas är tyngst refererad (13 runtime-filer:
-pins i `resolve-base`, `tier3-build-spec`, `f3-approve-round`,
-`finalize-design`, snapshot, dep-completer, select-keywords) och är dessutom
-dokumentationens standardexempel för syskon-pins — sweepen ska peka om
-exemplen till `supabase-auth` under `auth`. `SM-004` (postgres-dossierns
-verbatim/rewritable-mix) och `SM-006` (dependency-backfillens providertapp)
-bör tas i samma pass.
-
 ### Etapp 4 — AI-familjen (`ai-tool-calling-chat`, `rag-chat`)
 
 Båda är overifierade, aldrig selekterade i prod och överlappar `openai-chat`.
@@ -70,7 +60,7 @@ Parkeras de dör dedup-regeln `ai-tool-calling` ⇒ droppa `ai-chat`
 composite-providern openai+postgres). Brief-promptens `ai-tool-calling`/
 `rag-chat`-regler trimmas i samma pass.
 
-Slutläge efter etapp 3–4: **~9 hard + 9 soft = 18 dossiers**, noll
+Slutläge efter etapp 4: **~9 hard + 9 soft = 18 dossiers**, noll
 specialregler i selektionen utöver alias + relevanceKeywords + default.
 
 ## Frågor ägaren ställde, med svar

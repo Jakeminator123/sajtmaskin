@@ -8,13 +8,13 @@
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
-  "summary": "Use when a Next.js app needs a server-side PostgreSQL database layer with Drizzle ORM, migrations, a typed schema module, shared DB client, and a simple health-check route. When DATABASE_URL is missing the app must not crash: pages fall back to static seedData with a discreet config notice, and API routes answer 503. Keep it to persistence infrastructure; application tables and queries should be adapted to the generated app domain.",
-  "summarySv": "Standardvalet när sajten behöver en databas: Postgres med Drizzle som neutral grund, för att spara sådant som listor, bokningar och annat innehåll. Neon och MongoDB är alternativ om du själv nämner dem; utan riktiga nycklar körs demoläge med exempeldata som går att skapa, lista och ändra, men utan delad lagring.",
+  "summary": "Use when a Next.js app needs a server-side PostgreSQL database layer with Drizzle ORM, migrations, a typed schema module, shared DB client, and a simple health-check route. A Neon Postgres DATABASE_URL works directly with the pg driver — no separate Neon dossier. When DATABASE_URL is missing the app must not crash: pages fall back to static seedData with a discreet config notice, and API routes answer 503. Keep it to persistence infrastructure; application tables and queries should be adapted to the generated app domain.",
+  "summarySv": "Standardvalet när sajten behöver en databas: Postgres med Drizzle som neutral grund, för att spara sådant som listor, bokningar och annat innehåll. En Neon-Postgres-URL fungerar direkt med pg-drivern. Utan riktiga nycklar körs demoläge med exempeldata som går att skapa, lista och ändra, men utan delad lagring.",
   "envVars": [
     {
       "key": "DATABASE_URL",
       "required": true,
-      "purpose": "PostgreSQL connection string used by the Drizzle client, database health route, and Drizzle Kit migrations. Get it from the Postgres provider, preferably a pooled connection URL. Tagged feature-runtime because the dossier degrades gracefully without it: isDbConfigured() gates all access, pages render seedData + DbConfigNotice, and /api/health/db returns 503.",
+      "purpose": "PostgreSQL connection string used by the Drizzle client, database health route, and Drizzle Kit migrations. Get it from any Postgres host (including Neon); preferably a pooled connection URL. Tagged feature-runtime because the dossier degrades gracefully without it: isDbConfigured() gates all access, pages render seedData + DbConfigNotice, and /api/health/db returns 503.",
       "enforcement": "feature-runtime"
     }
   ],

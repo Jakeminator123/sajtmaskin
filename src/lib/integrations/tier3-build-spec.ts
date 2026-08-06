@@ -156,7 +156,7 @@ function findIntegrationDefinition(
 /**
  * Any `components/**config-notice*.tsx` counts as a config-notice UI — the
  * shared `integration-config-notice.tsx` AND dossier-specific variants like
- * mongodb-atlas's `db-config-notice.tsx` (Codex P2 #445: the exact-filename
+ * postgres-drizzle's `db-config-notice.tsx` (Codex P2 #445: the exact-filename
  * check made DB approvals take the "none is provided" branch and told the
  * model NOT to import the notice the dossier actually ships).
  */
@@ -232,8 +232,9 @@ export function mapProviderKeysToDossierCapabilities(providerKeys: string[]): st
  * DOSSIER-ID variant of {@link mapProviderKeysToDossierCapabilities}. Needed
  * where capability granularity is too coarse: version-presence comparisons
  * (Codex P1 on #503) must not treat a present SIBLING dossier
- * (`postgres-drizzle` under `database`) as satisfying a newly approved
- * provider (`mongodb` → `mongodb-atlas`).
+ * (`clerk-auth` under `auth`) as satisfying a newly approved exact sibling
+ * id (`supabase-auth`). After etapp 3, `mongodb` is dossierless and takes
+ * the generic path via {@link providerKeysWithoutBackingDossier}.
  */
 export function mapProviderKeysToBackingDossierIds(providerKeys: string[]): string[] {
   const ids = new Set<string>();

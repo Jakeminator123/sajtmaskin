@@ -9,7 +9,7 @@
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:30f8348d64521b5a -->
-<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:e0d718422f7f316c -->
+<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:3f8c55bc9d79cd01 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:1d4c06457cec3a1e -->
 
 # Policies
@@ -186,8 +186,6 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `mailchimp-newsletter` | `newsletter-subscribe` | `MAILCHIMP_API_KEY`                  | Yes      | `feature-runtime` | `success` |
 | `mailchimp-newsletter` | `newsletter-subscribe` | `MAILCHIMP_AUDIENCE_ID`              | Yes      | `feature-runtime` | `success` |
 | `mailchimp-newsletter` | `newsletter-subscribe` | `MAILCHIMP_DC`                       | No       | `warn-only`       | `success` |
-| `mongodb-atlas`        | `database`             | `MONGODB_URI`                        | Yes      | `feature-runtime` | `seed`    |
-| `neon-postgres`        | `database`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `seed`    |
 | `openai-chat`          | `ai-chat`              | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
 | `postgres-drizzle`     | `database`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `seed`    |
 | `rag-chat`             | `rag-chat`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `canned`  |

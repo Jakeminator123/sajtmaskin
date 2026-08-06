@@ -31,7 +31,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NewsletterForm } from "../../../../data/dossiers/hard/mailchimp-newsletter/components/newsletter-form";
-import { DbConfigNotice } from "../../../../data/dossiers/hard/neon-postgres/components/db-config-notice";
+import { DbConfigNotice } from "../../../../data/dossiers/hard/postgres-drizzle/components/db-config-notice";
 import { RagConfigNotice } from "../../../../data/dossiers/hard/rag-chat/components/rag-config-notice";
 
 const HARD_DIR = path.resolve(__dirname, "../../../../data/dossiers/hard");
@@ -42,9 +42,7 @@ const HARD_DIR = path.resolve(__dirname, "../../../../data/dossiers/hard");
  */
 const MOUNTED: Record<string, string> = {
   "mailchimp-newsletter/components/newsletter-form.tsx": "denna fil",
-  "mongodb-atlas/components/db-config-notice.tsx": "denna fil (via kopie-vakten)",
-  "neon-postgres/components/db-config-notice.tsx": "denna fil",
-  "postgres-drizzle/components/db-config-notice.tsx": "denna fil (via kopie-vakten)",
+  "postgres-drizzle/components/db-config-notice.tsx": "denna fil",
   "rag-chat/components/rag-config-notice.tsx": "denna fil",
   "resend-contact-form/components/integration-config-notice.tsx":
     "denna fil (via kopie-vakten)",
@@ -68,11 +66,8 @@ const MOUNTED: Record<string, string> = {
  * ge den ett eget monteringsfall.
  */
 const IDENTICAL_COPY_FAMILIES: Record<string, string[]> = {
-  "db-config-notice (seed-läge)": [
-    "mongodb-atlas/components/db-config-notice.tsx",
-    "neon-postgres/components/db-config-notice.tsx",
-    "postgres-drizzle/components/db-config-notice.tsx",
-  ],
+  // neon-postgres / mongodb-atlas parked 2026-08-06 — only postgres-drizzle
+  // remains; no identical-copy family for db-config-notice anymore.
   "integration-config-notice": [
     "resend-contact-form/components/integration-config-notice.tsx",
     "stripe-checkout/components/integration-config-notice.tsx",
@@ -205,7 +200,7 @@ describe("kopie-vakt: avsiktligt duplicerade notiser får inte drifta isär", ()
   );
 });
 
-describe("DbConfigNotice — seed-läge (neon-postgres / mongodb-atlas / postgres-drizzle)", () => {
+describe("DbConfigNotice — seed-läge (postgres-drizzle)", () => {
   it("säger att det är exempeldata, diskret och utan att låta som ett fel", () => {
     const { container } = render(<DbConfigNotice />);
 

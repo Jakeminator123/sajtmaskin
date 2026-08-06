@@ -51,32 +51,32 @@ describe("deferred integrations (mutedCapabilities)", () => {
 describe("deferred provider identity (mutedDossierIds)", () => {
   it("survives a neutral F2 follow-up", () => {
     const merged = mergePersistedOrchestrationSnapshots(
-      { mutedDossierIds: ["mongodb-atlas"] },
+      { mutedDossierIds: ["supabase-auth"] },
       { mutedDossierIds: [] },
     );
 
-    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["mongodb-atlas"]);
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["supabase-auth"]);
   });
 
-  it("keeps selected MongoDB pending when the final version has no MongoDB files", () => {
+  it("keeps selected supabase-auth pending when the final version has no auth files", () => {
     const merged = mergePersistedOrchestrationSnapshots(
-      { mutedDossierIds: ["mongodb-atlas"] },
+      { mutedDossierIds: ["supabase-auth"] },
       {
-        selectedDossierIds: ["mongodb-atlas"],
+        selectedDossierIds: ["supabase-auth"],
         fileEvidenceDossierIds: [],
         mutedDossierIds: [],
       },
     );
 
-    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["mongodb-atlas"]);
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["supabase-auth"]);
   });
 
-  it("clears MongoDB only when the final version has exact MongoDB file evidence", () => {
+  it("clears supabase-auth only when the final version has exact auth file evidence", () => {
     const merged = mergePersistedOrchestrationSnapshots(
-      { mutedDossierIds: ["mongodb-atlas"] },
+      { mutedDossierIds: ["supabase-auth"] },
       {
-        selectedDossierIds: ["mongodb-atlas"],
-        fileEvidenceDossierIds: ["mongodb-atlas"],
+        selectedDossierIds: ["supabase-auth"],
+        fileEvidenceDossierIds: ["supabase-auth"],
         mutedDossierIds: [],
       },
     );
@@ -86,13 +86,13 @@ describe("deferred provider identity (mutedDossierIds)", () => {
 
   it("replaces an older sibling when the user changes provider", () => {
     const merged = mergePersistedOrchestrationSnapshots(
-      { mutedDossierIds: ["mongodb-atlas", "stripe-checkout"] },
-      { mutedDossierIds: ["postgres-drizzle"] },
+      { mutedDossierIds: ["supabase-auth", "stripe-checkout"] },
+      { mutedDossierIds: ["clerk-auth"] },
     );
 
     expect(readMutedDossierIdsFromSnapshot(merged)).toEqual([
       "stripe-checkout",
-      "postgres-drizzle",
+      "clerk-auth",
     ]);
   });
 
@@ -101,8 +101,8 @@ describe("deferred provider identity (mutedDossierIds)", () => {
     // removedDossierIds att filtrera på. Utan tombstone-filtret överlever id:t
     // och bygger tyst tillbaka just det syskon användaren tog bort.
     const merged = mergePersistedOrchestrationSnapshots(
-      { mutedDossierIds: ["mongodb-atlas", "stripe-checkout"] },
-      { removedCapabilities: ["database"] },
+      { mutedDossierIds: ["supabase-auth", "stripe-checkout"] },
+      { removedCapabilities: ["auth"] },
     );
 
     expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["stripe-checkout"]);
@@ -110,15 +110,15 @@ describe("deferred provider identity (mutedDossierIds)", () => {
 
   it("släpper tillbaka syskonet när capability:n uttryckligen läggs till igen", () => {
     const removed = mergePersistedOrchestrationSnapshots(
-      { mutedDossierIds: ["mongodb-atlas"] },
-      { removedCapabilities: ["database"] },
+      { mutedDossierIds: ["supabase-auth"] },
+      { removedCapabilities: ["auth"] },
     );
     const readded = mergePersistedOrchestrationSnapshots(removed, {
-      readdedCapabilities: ["database"],
-      mutedDossierIds: ["mongodb-atlas"],
+      readdedCapabilities: ["auth"],
+      mutedDossierIds: ["supabase-auth"],
     });
 
-    expect(readMutedDossierIdsFromSnapshot(readded)).toEqual(["mongodb-atlas"]);
+    expect(readMutedDossierIdsFromSnapshot(readded)).toEqual(["supabase-auth"]);
   });
 });
 

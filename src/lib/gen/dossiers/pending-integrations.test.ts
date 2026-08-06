@@ -11,16 +11,16 @@ import {
 import { resolveSelectedDossiersWithVersionPresence } from "./version-presence";
 
 describe("provider-specific pending integration dossiers", () => {
-  it("preserves the exact database provider selected in F2", () => {
+  it("preserves the exact auth provider selected in F2", () => {
     const pending = resolvePendingIntegrationDossiers({
       snapshot: {
-        mutedCapabilities: ["database"],
-        mutedDossierIds: ["mongodb-atlas"],
+        mutedCapabilities: ["auth"],
+        mutedDossierIds: ["supabase-auth"],
       },
       versionFiles: [],
     });
 
-    expect(pending.map((selected) => selected.entry.id)).toEqual(["mongodb-atlas"]);
+    expect(pending.map((selected) => selected.entry.id)).toEqual(["supabase-auth"]);
   });
 
   it("falls back to the capability default for legacy snapshots", () => {
@@ -52,14 +52,14 @@ describe("provider-specific pending integration dossiers", () => {
   it("combines exact and legacy pending selections in a rollout-era hybrid snapshot", () => {
     const pending = resolvePendingIntegrationDossiers({
       snapshot: {
-        mutedCapabilities: ["database", "payments"],
-        mutedDossierIds: ["mongodb-atlas"],
+        mutedCapabilities: ["auth", "payments"],
+        mutedDossierIds: ["supabase-auth"],
       },
       versionFiles: [],
     });
 
     expect(pending.map((selected) => selected.entry.id)).toEqual([
-      "mongodb-atlas",
+      "supabase-auth",
       "stripe-checkout",
     ]);
   });
@@ -67,9 +67,9 @@ describe("provider-specific pending integration dossiers", () => {
   it("lets exact pending provider identity replace a brief-derived default sibling", () => {
     const snapshot = {
       requestedCapabilities: [],
-      briefSummary: { requestedCapabilities: ["database"] },
-      mutedCapabilities: ["database"],
-      mutedDossierIds: ["mongodb-atlas"],
+      briefSummary: { requestedCapabilities: ["auth"] },
+      mutedCapabilities: ["auth"],
+      mutedDossierIds: ["supabase-auth"],
     };
     const selected = resolveSelectedDossiersWithVersionPresence({
       snapshot,
@@ -77,27 +77,27 @@ describe("provider-specific pending integration dossiers", () => {
     });
     const pending = resolvePendingIntegrationDossiers({ snapshot, versionFiles: [] });
 
-    expect(selected.map((item) => item.entry.id)).toEqual(["postgres-drizzle"]);
+    expect(selected.map((item) => item.entry.id)).toEqual(["clerk-auth"]);
     expect(
       preferPendingIntegrationDossiers({ selected, pending }).map(
         (item) => item.entry.id,
       ),
-    ).toEqual(["mongodb-atlas"]);
+    ).toEqual(["supabase-auth"]);
   });
 
   it("accumulates ids across F2 tweaks and clears only exact file-evidenced delivery", () => {
     const accumulated = mergePersistedOrchestrationSnapshots(
-      { mutedDossierIds: ["mongodb-atlas"] },
+      { mutedDossierIds: ["supabase-auth"] },
       { mutedDossierIds: ["stripe-checkout"] },
     );
     expect(readMutedDossierIdsFromSnapshot(accumulated)).toEqual([
-      "mongodb-atlas",
+      "supabase-auth",
       "stripe-checkout",
     ]);
 
     const delivered = mergePersistedOrchestrationSnapshots(accumulated, {
-      selectedDossierIds: ["mongodb-atlas"],
-      fileEvidenceDossierIds: ["mongodb-atlas"],
+      selectedDossierIds: ["supabase-auth"],
+      fileEvidenceDossierIds: ["supabase-auth"],
       mutedDossierIds: [],
     });
     expect(readMutedDossierIdsFromSnapshot(delivered)).toEqual(["stripe-checkout"]);
@@ -110,6 +110,19 @@ describe("provider-specific pending integration dossiers", () => {
         removedDossierIds: ["stripe-checkout"],
       }),
     ).toEqual([]);
+  });
+
+  it("treats a parked dossier id as selecting nothing (etapp 3 safety valve)", () => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: {
+        mutedCapabilities: ["database"],
+        mutedDossierIds: ["mongodb-atlas"],
+      },
+      versionFiles: [],
+    });
+    // Parked id resolves to nothing; legacy capability falls back to the sole
+    // database dossier (postgres-drizzle).
+    expect(pending.map((selected) => selected.entry.id)).toEqual(["postgres-drizzle"]);
   });
 });
 

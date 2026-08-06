@@ -136,8 +136,8 @@ export interface DossierEntry {
   defaultForCapability: boolean;
   /**
    * Optional provider-specific keywords that mark an EXPLICIT ask for this
-   * dossier when several dossiers share one capability (e.g. "mongodb" on
-   * mongodb-atlas under `database`). A prompt hit overrides the
+   * dossier when several dossiers share one capability (e.g. "supabase" on
+   * supabase-auth under `auth`). A prompt hit overrides the
    * `defaultForCapability` pick — see `pickForCapability` in `select.ts`.
    */
   relevanceKeywords?: string[];

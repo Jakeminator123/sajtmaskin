@@ -312,18 +312,21 @@ describe("dep-completer", () => {
     }
   });
 
-  it("selects the sibling database dossiers on explicit provider prompts", () => {
+  // neon-postgres / mongodb-atlas parked 2026-08-06 — brand asks still mean
+  // capability `database`, and selection yields the sole postgres-drizzle
+  // dossier. Sibling-select cases moved to auth in select.test.ts.
+  it("selects postgres-drizzle for database brand asks (siblings parked)", () => {
     const mongoSelection = selectDossiersForRequest({
       requestedCapabilities: ["database"],
       promptText: "spara produkterna i mongodb",
     });
-    expect(mongoSelection.selected[0]?.entry.id).toBe("mongodb-atlas");
+    expect(mongoSelection.selected.map((s) => s.entry.id)).toEqual(["postgres-drizzle"]);
 
     const neonSelection = selectDossiersForRequest({
       requestedCapabilities: ["database"],
       promptText: "använd neon postgres för medlemsdatan",
     });
-    expect(neonSelection.selected[0]?.entry.id).toBe("neon-postgres");
+    expect(neonSelection.selected.map((s) => s.entry.id)).toEqual(["postgres-drizzle"]);
   });
 
   it("pins mongodb and @neondatabase/serverless imports from generated code", () => {
@@ -386,6 +389,35 @@ describe("dep-completer", () => {
     const deps = resolveCapabilityDependencies(["auth"]);
     expect(deps["@clerk/nextjs"]).toBe(KNOWN_PACKAGES["@clerk/nextjs"]);
     expect(deps["@supabase/ssr"]).toBeUndefined();
+  });
+
+  // ---- SM-006: selectedDossierIds beats capability re-selection ----
+
+  it("resolves deps from the CHOSEN sibling, not the capability default (SM-006)", () => {
+    // User picked supabase-auth; the raw capability is still `auth`. Without
+    // the ids the backfill re-selected clerk-auth (default) and injected the
+    // wrong provider's SDK stack.
+    const deps = resolveCapabilityDependencies(["auth"], ["supabase-auth"]);
+    expect(deps["@supabase/ssr"]).toBe(KNOWN_PACKAGES["@supabase/ssr"]);
+    expect(deps["@supabase/supabase-js"]).toBe(KNOWN_PACKAGES["@supabase/supabase-js"]);
+    expect(deps["@clerk/nextjs"]).toBeUndefined();
+  });
+
+  it("keeps capability fallback for capabilities no picked id covers (SM-006)", () => {
+    const deps = resolveCapabilityDependencies(["auth", "database"], ["supabase-auth"]);
+    // auth resolved from the pick...
+    expect(deps["@supabase/ssr"]).toBe(KNOWN_PACKAGES["@supabase/ssr"]);
+    expect(deps["@clerk/nextjs"]).toBeUndefined();
+    // ...database from the capability default (postgres-drizzle).
+    expect(deps["drizzle-orm"]).toBe(KNOWN_PACKAGES["drizzle-orm"]);
+  });
+
+  it("ignores unknown/parked ids and falls back to the capability default (SM-006)", () => {
+    // mongodb-atlas is parked — a stale snapshot id must not crash the
+    // backfill; auth falls back to the clerk default as before.
+    const deps = resolveCapabilityDependencies(["auth"], ["mongodb-atlas"]);
+    expect(deps["@clerk/nextjs"]).toBe(KNOWN_PACKAGES["@clerk/nextjs"]);
+    expect(deps["mongodb"]).toBeUndefined();
   });
 
   it("pins tier-3 SDK imports detected in restored dossier files", () => {
