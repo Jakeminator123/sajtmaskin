@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { AI_ELEMENT_ITEMS } from "@/lib/builder/ai-elements-catalog";
 import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import {
@@ -216,6 +217,17 @@ describe("dep-completer", () => {
     );
     expect(deps["@visactor/react-vchart"]).toBeDefined();
     expect(deps["@visactor/react-vchart"]).not.toBe("latest");
+  });
+
+  it("pins every dependency advertised by the AI Elements catalog", () => {
+    const advertised = [
+      ...new Set(AI_ELEMENT_ITEMS.flatMap((item) => item.dependencies ?? [])),
+    ].sort();
+    const unresolved = advertised.filter((pkg) => !resolveKnownVersion(pkg));
+
+    expect(unresolved).toEqual([]);
+    expect(resolveKnownVersion("tokenlens")).toBe("^1");
+    expect(resolveKnownVersion("@xyflow/react")).toBe("^12");
   });
 
   // Dossier wave 1 (legacy import 2026-07-08): each new hard dossier's manifest
