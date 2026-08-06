@@ -97,22 +97,18 @@ const ALIAS_DOSSIER_PINS: Readonly<Record<string, string>> = {
  * path — init, follow-up, snapshot re-selection, dep-completer — pulls the
  * full stack.
  *
- * `subscriptions` ⇒ `auth` PINNED to the `supabase-auth` dossier (Codex P1
- * #475, re-expressed after the auth-capability merge): paddle-billing's
- * customer-portal route requires a signed-in Supabase user; without the
- * supabase-auth dossier the generated app has no middleware/callback/sign-in
- * surface, so the portal path is unreachable (always 401). The pin overrides
- * both the capability default (clerk-auth) and prompt keywords — a
- * subscriptions round must never ship Clerk. Collision-free by construction:
- * paddle-billing ships no root middleware and namespaces its Supabase helpers
- * under `lib/paddle/`.
+ * EMPTY since 2026-08-06: the only entry ever needed was `subscriptions` ⇒
+ * `auth` pinned to supabase-auth (paddle-billing's customer portal), and it
+ * left with the parked paddle-billing dossier
+ * (`_parkering/dossiers-utfasade-2026-08-06/`). The mechanism stays because
+ * dossiers must remain self-sufficient in F2 — add an entry here only when a
+ * dossier's F3 surface genuinely cannot work without a companion capability,
+ * never as a convenience bundle.
  */
 const DEPENDENT_CAPABILITIES: Record<
   string,
   readonly { capability: string; pinDossierId?: string }[]
-> = {
-  subscriptions: [{ capability: "auth", pinDossierId: "supabase-auth" }],
-};
+> = {};
 
 /**
  * Returns `capabilities` plus any dependent capabilities (deduped, input order
@@ -164,7 +160,7 @@ export function normalizeCapabilityId(capability: string): string {
  * Dossier pins for the given (already alias-normalized) capability set:
  * capability → dossier id that MUST win selection. Sources: legacy alias pins
  * (`supabase-auth` → auth pinned to the Supabase dossier) and dependency pins
- * (`subscriptions` ⇒ auth pinned to supabase-auth). Later sources never
+ * (from `DEPENDENT_CAPABILITIES`, currently empty). Later sources never
  * overwrite an earlier pin for the same capability.
  */
 function resolveDossierPins(rawCapabilities: string[]): Map<string, string> {
@@ -286,9 +282,10 @@ function pickForCapability(
   // even if two dossiers accidentally have defaultForCapability=true (last-
   // touched-wins in dirent iteration is undesirable cross-machine).
   const sorted = [...candidates].sort((a, b) => a.id.localeCompare(b.id));
-  // A dependency/alias pin beats everything — the dependent feature only
-  // works with this specific sibling (e.g. subscriptions ⇒ supabase-auth),
-  // so neither the capability default nor a prompt keyword may override it.
+  // A dependency/alias pin beats everything — the pinned request only works
+  // with this specific sibling (e.g. legacy `supabase-auth` ⇒ the Supabase
+  // dossier under `auth`), so neither the capability default nor a prompt
+  // keyword may override it.
   if (pinnedDossierId) {
     const pinned = sorted.find((c) => c.id === pinnedDossierId);
     if (pinned) return { entry: pinned, reason: "dependency-pin" };

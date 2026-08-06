@@ -6,7 +6,7 @@
 
 # Capabilities
 
-This index contains 20 capabilities derived from 23 validated dossier manifests.
+This index contains 19 capabilities derived from 22 validated dossier manifests.
 Capability is the selection key. Dossier groups are presentation only.
 Canonical owner: dossier manifest `capability`; runtime consumer/validator: dossier registry and `dossierRequiresF3`.
 
@@ -30,5 +30,4 @@ Canonical owner: dossier manifest `capability`; runtime consumer/validator: doss
 | `physics-3d`           | `three-fiber-physics`                                | `three-fiber-physics`   | `soft`  | `none`        | —                                                    |
 | `rag-chat`             | `rag-chat`                                           | `rag-chat`              | `hard`  | `canned`      | `rag-chat`                                           |
 | `site-search`          | `local-site-search`                                  | `local-site-search`     | `soft`  | `none`        | —                                                    |
-| `subscriptions`        | `paddle-billing`                                     | `paddle-billing`        | `hard`  | `visual`      | `paddle-billing`                                     |
 | `visual-3d`            | `three-fiber-canvas`                                 | `three-fiber-canvas`    | `soft`  | `none`        | —                                                    |

@@ -33,12 +33,12 @@ describe("loadEntry copies the manifest mock field (bugbot #468)", () => {
     expect(neon?.mock).toBe("seed");
     const drizzle = all.find((d) => d.id === "postgres-drizzle");
     expect(drizzle?.mock).toBe("seed");
-    // Taxonomy 2026-07-22: payment/auth/subscription surfaces render a full
-    // interactive demo surface (mock: visual) instead of a dead placeholder.
+    // Taxonomy 2026-07-22: payment/auth surfaces render a full interactive
+    // demo surface (mock: visual) instead of a dead placeholder.
     const stripe = all.find((d) => d.id === "stripe-checkout");
     expect(stripe?.mock).toBe("visual");
-    const paddle = all.find((d) => d.id === "paddle-billing");
-    expect(paddle?.mock).toBe("visual");
+    const supabaseAuth = all.find((d) => d.id === "supabase-auth");
+    expect(supabaseAuth?.mock).toBe("visual");
   });
 
   it("surfaces provider ownership and verification status", () => {

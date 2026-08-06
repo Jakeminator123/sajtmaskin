@@ -68,8 +68,9 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   // One capability since 2026-07-22 — clerk-auth (default) and supabase-auth
   // are provider siblings under `auth`.
   auth: "auth",
+  // `subscriptions` left the map 2026-08-06 with the parked paddle-billing
+  // dossier (etapp 2) — commerce now holds one-off payments only.
   payments: "commerce",
-  subscriptions: "commerce",
   "contact-form": "contact",
   "newsletter-subscribe": "contact",
   "ai-chat": "ai",

@@ -435,9 +435,9 @@ export function enforceFollowUpCapabilityFloor(
  *   - `fileEvidenceCapabilities`: integrations with ACTUAL files in the
  *     parent/base version (already built — safe to keep so they still wire up).
  *
- * The allowed set is dependency-expanded (via {@link expandDependentCapabilities})
- * so a kept `subscriptions` still pulls its required `auth` (pinned to the
- * supabase-auth dossier in selection). Any capability NOT in the allowed set —
+ * The allowed set is dependency-expanded (via {@link expandDependentCapabilities};
+ * the map is empty since 2026-08-06 but the helper still alias-normalizes and
+ * dedupes overlapping picks). Any capability NOT in the allowed set —
  * a speculative brief/floor entry with no ask, approval, or file evidence — is
  * dropped. Candidates are alias-normalized before the comparison
  * (test-sync finding 2026-07-22): a legacy snapshot id like `supabase-auth`

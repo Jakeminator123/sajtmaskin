@@ -88,17 +88,16 @@ describe("scopeF3DossierCapabilities", () => {
     expect(result.dropped).toEqual(["analytics"]);
   });
 
-  it("keeps a dependent companion capability when its key capability survives", () => {
-    // `subscriptions` has file evidence → allowed; its dependent `auth`
-    // (pinned to the supabase-auth dossier at selection time) must ride along
-    // even though it has no independent evidence.
+  it("does not invent companion capabilities when DEPENDENT_CAPABILITIES is empty", () => {
+    // Empty table since 2026-08-06 (subscriptions ⇒ auth left with parked
+    // paddle-billing). File evidence of payments must NOT pull auth along.
     const result = scopeF3DossierCapabilities({
-      capabilities: ["subscriptions", "auth", "analytics"],
+      capabilities: ["payments", "auth", "analytics"],
       explicitCapabilities: [],
-      fileEvidenceCapabilities: ["subscriptions"],
+      fileEvidenceCapabilities: ["payments"],
     });
-    expect(result.capabilities).toEqual(["subscriptions", "auth"]);
-    expect(result.dropped).toEqual(["analytics"]);
+    expect(result.capabilities).toEqual(["payments"]);
+    expect(result.dropped).toEqual(["auth", "analytics"]);
   });
 
   it("is a no-op when every capability is asked or file-evidenced", () => {
@@ -374,70 +373,35 @@ describe("filterDossierCapabilitiesForPrompt (auth after the 2026-07-22 merge)",
   });
 });
 
-describe("filterDossierCapabilitiesForPrompt (subscriptions vs payments dedup)", () => {
-  // Inferred/ambiguous `payments` is dropped when `subscriptions` is present so
-  // a recurring ask does not also inject Stripe checkout (bugbot high).
-  it("drops inferred payments when subscriptions is present (F3)", () => {
+describe("filterDossierCapabilitiesForPrompt (empty DEPENDENT_CAPABILITIES)", () => {
+  // Table empty since 2026-08-06; expandDependentCapabilities still alias-
+  // normalizes + dedupes overlapping AI chat surfaces.
+  it("does not expand payments with auth (no-op table)", () => {
+    const result = filterDossierCapabilitiesForPrompt({
+      capabilities: ["payments"],
+      prompt: "lägg till stripe-checkout",
+      previewPolicy: "fidelity3",
+    });
+    expect(result).toEqual(["payments"]);
+  });
+
+  it("no longer strips payments when a stale subscriptions id is present", () => {
     const result = filterDossierCapabilitiesForPrompt({
       capabilities: ["subscriptions", "payments"],
       prompt: "lägg till återkommande medlemskap med paddle",
       previewPolicy: "fidelity3",
     });
-    expect(result).toContain("subscriptions");
-    expect(result).not.toContain("payments");
-  });
-
-  // Codex P2 dossier-batch: an EXPLICIT one-off checkout alongside memberships
-  // keeps both — the two dossiers ship distinct output paths (no collision).
-  it("keeps explicit one-off payments alongside subscriptions (F3)", () => {
-    const result = filterDossierCapabilitiesForPrompt({
-      capabilities: ["subscriptions", "payments"],
-      prompt: "medlemskap med paddle och en engångsbetalning för merch-köp",
-      previewPolicy: "fidelity3",
-    });
-    expect(result).toContain("subscriptions");
     expect(result).toContain("payments");
   });
-});
 
-describe("filterDossierCapabilitiesForPrompt (dependent capability: subscriptions ⇒ auth)", () => {
-  // Codex P1 #475, re-expressed after the auth merge: paddle's customer-portal
-  // requires a signed-in Supabase user — a bare `subscriptions` selection must
-  // pull `auth` (which selection pins to the supabase-auth dossier) or the
-  // portal path is always 401.
-  it("expands subscriptions with auth in F3", () => {
+  it("drops ai-chat when ai-tool-calling is present", () => {
     const result = filterDossierCapabilitiesForPrompt({
-      capabilities: ["subscriptions"],
-      prompt: "lägg till prenumerationer för medlemmar",
+      capabilities: ["ai-tool-calling", "ai-chat"],
+      prompt: "lägg till en AI-assistent med verktyg",
       previewPolicy: "fidelity3",
     });
-    expect(result).toContain("subscriptions");
-    expect(result).toContain("auth");
-    expect(result).not.toContain("supabase-auth");
-  });
-
-  it("keeps ONE auth entry when generic auth tags along with subscriptions (F3)", () => {
-    // Inferred `needsAuth` can add generic `auth` on a membership prompt; the
-    // expansion dedupes it into a single `auth` entry. Which PROVIDER wins is
-    // selection's job — the dependency pin picks the supabase-auth dossier
-    // (see select.test.ts), so clerk-auth's root middleware never collides.
-    const result = filterDossierCapabilitiesForPrompt({
-      capabilities: ["subscriptions", "auth"],
-      prompt: "medlemssida med prenumerationer och inloggning",
-      previewPolicy: "fidelity3",
-    });
-    expect(result).toContain("subscriptions");
-    expect(result.filter((cap) => cap === "auth")).toHaveLength(1);
-  });
-
-  it("does NOT expand in F2 — subscriptions is muted before expansion runs", () => {
-    const result = filterDossierCapabilitiesForPrompt({
-      capabilities: ["subscriptions"],
-      prompt: "lägg till prenumerationer för medlemmar",
-      previewPolicy: "fidelity2",
-    });
-    expect(result).not.toContain("subscriptions");
-    expect(result).not.toContain("auth");
+    expect(result).toContain("ai-tool-calling");
+    expect(result).not.toContain("ai-chat");
   });
 });
 

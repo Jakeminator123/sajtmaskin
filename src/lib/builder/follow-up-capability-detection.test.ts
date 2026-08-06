@@ -884,73 +884,44 @@ describe("detectFollowUpCapabilities — ai-tool-calling", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// subscriptions — hard dossier promoted from legacy import (2026-07-09):
-// paddle-billing. INTENTIONALLY separate from one-off `payments` (Stripe);
-// the vocabulary vetoes keep it off one-off payment intent and off newsletter
-// "prenumerera på nyhetsbrev".
+// Recurring/membership vocabulary (etapp 2, 2026-08-06): `subscriptions` /
+// paddle-billing left the registry. Phrases must NOT route to one-off
+// `payments` — that was the whole point of the #475 split. Until a
+// subscriptions dossier exists again, a recurring ask is ordinary page content.
 // ─────────────────────────────────────────────────────────────────────────
-describe("detectFollowUpCapabilities — subscriptions", () => {
-  it("detects 'prenumerationer med paddle' as subscriptions", () => {
-    const result = detectFollowUpCapabilities(
-      "lägg till prenumerationer med paddle på prissidan",
-    );
-    expect(result.capabilityIds).toContain("subscriptions");
-  });
-
-  it("detects 'återkommande betalning' as subscriptions (not payments)", () => {
-    const result = detectFollowUpCapabilities(
-      "vi vill ha återkommande betalning för medlemmarna",
-    );
-    expect(result.capabilityIds).toContain("subscriptions");
+describe("detectFollowUpCapabilities — recurring vocabulary is not a capability", () => {
+  it.each([
+    "lägg till prenumerationer med paddle på prissidan",
+    "vi vill ha återkommande betalning för medlemmarna",
+    "lägg till ett medlemskap med månadsavgift",
+    "add recurring subscription billing for members",
+    "we want a subscription plan with Paddle",
+  ])("does NOT detect subscriptions or payments for: %s", (message) => {
+    const result = detectFollowUpCapabilities(message);
+    expect(result.capabilityIds).not.toContain("subscriptions");
     expect(result.capabilityIds).not.toContain("payments");
   });
 
-  it("detects 'medlemskap' as subscriptions", () => {
-    const result = detectFollowUpCapabilities("lägg till ett medlemskap med månadsavgift");
-    expect(result.capabilityIds).toContain("subscriptions");
-  });
-
-  it("detects English 'recurring subscription billing'", () => {
-    const result = detectFollowUpCapabilities("add recurring subscription billing for members");
-    expect(result.capabilityIds).toContain("subscriptions");
-  });
-
-  it("detects an English 'subscription plan with Paddle' ask", () => {
-    const result = detectFollowUpCapabilities("we want a subscription plan with Paddle");
-    expect(result.capabilityIds).toContain("subscriptions");
-  });
-
-  // Veto: a one-off payment is `payments` (Stripe), never `subscriptions`.
-  it("does NOT detect subscriptions for a one-off payment ask", () => {
+  it("still detects a one-off Stripe checkout as payments", () => {
     const result = detectFollowUpCapabilities(
       "lägg till stripe-checkout för en engångsbetalning, inte prenumeration",
     );
-    expect(result.capabilityIds).not.toContain("subscriptions");
     expect(result.capabilityIds).toContain("payments");
+    expect(result.capabilityIds).not.toContain("subscriptions");
   });
 
-  // Veto: "prenumerera på nyhetsbrev" is a newsletter signup, not billing.
-  it("does NOT detect subscriptions for a newsletter signup", () => {
+  it("routes newsletter 'prenumerera' to newsletter-subscribe, not payments", () => {
     const result = detectFollowUpCapabilities(
       "lägg till ett nyhetsbrev där man kan prenumerera",
     );
-    expect(result.capabilityIds).not.toContain("subscriptions");
     expect(result.capabilityIds).toContain("newsletter-subscribe");
+    expect(result.capabilityIds).not.toContain("payments");
+    expect(result.capabilityIds).not.toContain("subscriptions");
   });
 
-  // Control: a plain Stripe checkout stays `payments`, does not leak into
-  // the new `subscriptions` capability.
   it("keeps a plain stripe-checkout ask on payments only", () => {
     const result = detectFollowUpCapabilities("lägg till stripe-checkout på prissidan");
     expect(result.capabilityIds).toContain("payments");
-    expect(result.capabilityIds).not.toContain("subscriptions");
-  });
-
-  // Veto (Codex P2 dossier-batch): a bare "subscribe form" is an email signup,
-  // not recurring billing — the bare English "subscribe" token was removed from
-  // the subscriptions pattern so it no longer competes with newsletter-subscribe.
-  it("does NOT detect subscriptions for a plain 'subscribe form'", () => {
-    const result = detectFollowUpCapabilities("add a subscribe form to the footer");
     expect(result.capabilityIds).not.toContain("subscriptions");
   });
 });

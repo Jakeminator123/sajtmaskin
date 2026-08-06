@@ -508,16 +508,9 @@ export async function resolveOrchestrationBase(
     );
   }
 
-  const retainedContractCapabilities = Array.from(
-    new Set([
-      ...(input.followUpContract?.capabilities ?? []),
-      ...(input.requestedDossierCapabilities ?? []),
-      ...resolveDossierCapabilitiesFromInferredCapabilities(capabilities),
-    ]),
-  ).filter(
-    (capability) =>
-      !removedCapabilities.includes(capability.trim().toLowerCase()),
-  );
+  // (The third `retainedCapabilities` argument left 2026-08-06 with the
+  // parked paddle-billing dossier — it only fed the subscriptions→payments
+  // residue-sweep, which is gone.)
   const preGenerationContracts = filterRemovedCapabilitiesFromContracts(
     inferPreGenerationContracts({
       prompt: input.contractsPrompt ?? prompt,
@@ -527,7 +520,6 @@ export async function resolveOrchestrationBase(
       contractAnswers,
     }),
     removedCapabilities,
-    retainedContractCapabilities,
   );
   const rawBuildSpec = deriveBuildSpec({
     prompt: buildSpecPrompt ?? prompt,
@@ -683,10 +675,12 @@ export async function resolveOrchestrationBase(
       // wanted NOW: (a) capabilities the CURRENT message infers, (b) providers
       // the user explicitly APPROVED, and (c) integrations with real FILE
       // EVIDENCE in the parent/base version (already built — safe to keep). The
-      // allowed set is dependency-expanded so a kept `subscriptions` still pulls
-      // its required `supabase-auth`. Speculative brief/floor capabilities with
-      // no evidence, ask, or approval are dropped. F2/design rounds are
-      // untouched (can-only-grow stays). See docs/architecture/llm-pipeline.md.
+      // allowed set is dependency-expanded via the same helper as selection
+      // (`DEPENDENT_CAPABILITIES` is empty since 2026-08-06; the expansion
+      // also alias-normalizes and dedupes overlapping picks). Speculative
+      // brief/floor capabilities with no evidence, ask, or approval are
+      // dropped. F2/design rounds are untouched (can-only-grow stays). See
+      // docs/architecture/llm-pipeline.md.
       if (input.lifecycleStage === "integrations") {
         const explicitCapabilities = [
           ...inferredCapabilityIds,

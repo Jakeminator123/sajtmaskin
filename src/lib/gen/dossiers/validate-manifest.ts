@@ -475,10 +475,11 @@ export function findDuplicateDefaults(
  *
  * Owner decision 2026-07-12 (plan: dossier-grupper-och-fallback-kontrakt, akt
  * 4.1); tightened 2026-07-22 (owner directive: EVERY user-visible category
- * needs a demo fallback): payments / subscriptions / auth / realtime moved
- * OFF this list — they now declare `mock: "visual"` (the interactive surface
- * renders and the action opens an honest demo notice instead of performing
- * the real operation; never fake sessions/charges/transport).
+ * needs a demo fallback): payments / auth (and the since-parked subscriptions
+ * / realtime) moved OFF this list — they declare `mock: "visual"` (the
+ * interactive surface renders and the action opens an honest demo notice
+ * instead of performing the real operation; never fake
+ * sessions/charges/transport).
  *
  * Adding a capability here is a contract choice, not a shortcut: a demo-able
  * capability (DB, CMS, e-post, AI, betalning, inloggning, …) must gain a

@@ -336,45 +336,26 @@ describe("selectDossiersForRequest — relevanceKeywords disambiguation (databas
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Dependent capabilities (Codex P1 #475, re-expressed after the 2026-07-22
-// auth merge): `subscriptions` (paddle-billing) only produces a working
-// feature with a signed-in Supabase user, so every selection of
-// `subscriptions` must also pull `auth` PINNED to the supabase-auth dossier
-// (reason "dependency-pin") — regardless of which caller path (init,
-// follow-up, snapshot, dep-completer) invoked select. Exactly ONE auth
-// dossier is ever selected — never two root middlewares.
+// Dependent capabilities: DEPENDENT_CAPABILITIES is empty since 2026-08-06
+// (subscriptions ⇒ auth-pin left with parked paddle-billing). Expansion is a
+// no-op; alias-normalization + ai-tool-calling/ai-chat dedup still apply.
 // ─────────────────────────────────────────────────────────────────────────
 describe("selectDossiersForRequest — dependent capabilities", () => {
-  it("co-selects the supabase-auth dossier under `auth` whenever subscriptions is requested", () => {
+  it("selects nothing for the parked subscriptions capability (empty table)", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["subscriptions"],
     });
-    const ids = result.selected.map((s) => s.entry.id);
-    expect(ids).toContain("paddle-billing");
-    expect(ids).toContain("supabase-auth");
-    expect(result.byCapability["auth"]).toEqual(["supabase-auth"]);
-    const authPick = result.selected.find((s) => s.entry.id === "supabase-auth");
-    expect(authPick?.reason).toBe("dependency-pin");
-    expect(authPick?.entry.capability).toBe("auth");
+    expect(result.selected).toEqual([]);
   });
 
-  it("selects exactly ONE auth dossier for [subscriptions, auth] — the pin wins over the clerk default", () => {
+  it("does not pull auth when only payments is requested", () => {
     const result = selectDossiersForRequest({
-      requestedCapabilities: ["subscriptions", "auth"],
+      requestedCapabilities: ["payments"],
     });
-    const authPicks = result.selected.filter((s) => s.entry.capability === "auth");
-    expect(authPicks).toHaveLength(1);
-    expect(authPicks[0]?.entry.id).toBe("supabase-auth");
     const ids = result.selected.map((s) => s.entry.id);
+    expect(ids).toContain("stripe-checkout");
+    expect(ids).not.toContain("supabase-auth");
     expect(ids).not.toContain("clerk-auth");
-  });
-
-  it("does not duplicate supabase-auth when the legacy alias is requested alongside subscriptions", () => {
-    const result = selectDossiersForRequest({
-      requestedCapabilities: ["subscriptions", "supabase-auth"],
-    });
-    const authPicks = result.selected.filter((s) => s.entry.id === "supabase-auth");
-    expect(authPicks).toHaveLength(1);
   });
 
   it("resolves the legacy 'supabase-auth' capability alias to the pinned dossier under `auth`", () => {
@@ -384,6 +365,7 @@ describe("selectDossiersForRequest — dependent capabilities", () => {
     expect(result.selected).toHaveLength(1);
     expect(result.selected[0]?.entry.id).toBe("supabase-auth");
     expect(result.selected[0]?.entry.capability).toBe("auth");
+    expect(result.selected[0]?.reason).toBe("dependency-pin");
     expect(result.byCapability["auth"]).toEqual(["supabase-auth"]);
   });
 
@@ -403,14 +385,6 @@ describe("selectDossiersForRequest — dependent capabilities", () => {
     expect(result.selected).toHaveLength(1);
     expect(result.selected[0]?.entry.id).toBe("supabase-auth");
     expect(result.selected[0]?.reason).toBe("relevance-keyword");
-  });
-
-  it("does not pull supabase-auth for capabilities without a dependency", () => {
-    const result = selectDossiersForRequest({
-      requestedCapabilities: ["payments"],
-    });
-    const ids = result.selected.map((s) => s.entry.id);
-    expect(ids).not.toContain("supabase-auth");
   });
 
   it("drops generic ai-chat when ai-tool-calling is present — no redundant chatbot", () => {
@@ -535,13 +509,12 @@ describe("isExplicitDossierChoice — persisterbar syskonidentitet", () => {
   });
 
   it("räknar en dependency-pin som val — den är ett krav, inte en gissning", () => {
+    expect(isExplicitDossierChoice("dependency-pin")).toBe(true);
     const result = selectDossiersForRequest({
-      requestedCapabilities: ["subscriptions"],
+      requestedCapabilities: ["supabase-auth"],
     });
-    const auth = result.selected.find((s) => s.entry.capability.toLowerCase() === "auth");
-
-    expect(auth?.reason).toBe("dependency-pin");
-    expect(isExplicitDossierChoice(auth!.reason)).toBe(true);
+    expect(result.selected[0]?.reason).toBe("dependency-pin");
+    expect(isExplicitDossierChoice(result.selected[0]!.reason)).toBe(true);
   });
 
   it("släpper igenom bara valet när prompten nämner ett syskon av flera capabilities", () => {
