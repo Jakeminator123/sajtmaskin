@@ -1,6 +1,6 @@
 # When to use
 
-Use this dossier when the brief declares the `payments` capability and the site needs to accept money for products, subscriptions, or one-off services.
+Use this dossier when the brief declares the `payments` capability and the site needs to accept money for products or one-off services. ONE-TIME payments only (`mode: "payment"`): recurring billing/subscriptions have no capability since 2026-08-06 — never wire this checkout as a subscription surface.
 
 Best fit:
 
