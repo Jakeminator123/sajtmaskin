@@ -475,10 +475,11 @@ export function findDuplicateDefaults(
  *
  * Owner decision 2026-07-12 (plan: dossier-grupper-och-fallback-kontrakt, akt
  * 4.1); tightened 2026-07-22 (owner directive: EVERY user-visible category
- * needs a demo fallback): payments / subscriptions / auth / realtime moved
- * OFF this list — they now declare `mock: "visual"` (the interactive surface
- * renders and the action opens an honest demo notice instead of performing
- * the real operation; never fake sessions/charges/transport).
+ * needs a demo fallback): payments / auth (and the since-parked subscriptions
+ * / realtime) moved OFF this list — they declare `mock: "visual"` (the
+ * interactive surface renders and the action opens an honest demo notice
+ * instead of performing the real operation; never fake
+ * sessions/charges/transport).
  *
  * Adding a capability here is a contract choice, not a shortcut: a demo-able
  * capability (DB, CMS, e-post, AI, betalning, inloggning, …) must gain a
@@ -488,8 +489,9 @@ export function findDuplicateDefaults(
 export const MOCKLESS_CAPABILITY_EXCEPTIONS: Readonly<Record<string, string>> = {
   analytics:
     "Fire-and-forget beacons have no visual surface to mock; keys are `warn-only` and the component self-disables when unset.",
-  "error-tracking":
-    "Same as analytics — an error reporter has no user-facing demo; self-disables without a DSN.",
+  // `error-tracking` left the list 2026-08-06: its sole dossier
+  // (sentry-error-tracking) was parked to `_parkering/dossiers-utfasade-2026-08-06/`,
+  // so there is no hard dossier under the capability for the invariant to except.
 } as const;
 
 export interface DossierMockFallbackEntry {
@@ -507,10 +509,10 @@ export interface DossierMockFallbackEntry {
  * EVERY hard dossier in a non-exempt capability must declare a real `mock`
  * mode (`canned`/`seed`/`success`) — not only the capability default. Owner
  * directive 2026-07-12: "allt ska vara lika för alla hard dossiers", so a
- * keyword-selected non-default provider (e.g. "mongodb" → `mongodb-atlas`)
- * carries the same keyless F2 demo guarantee as the default. `mock` omitted
- * counts as `none` (per {@link DossierMockMode}). Exceptions stay
- * capability-wide ({@link MOCKLESS_CAPABILITY_EXCEPTIONS}).
+ * keyword-selected non-default provider (e.g. "logga in med supabase" →
+ * `supabase-auth`) carries the same keyless F2 demo guarantee as the
+ * default. `mock` omitted counts as `none` (per {@link DossierMockMode}).
+ * Exceptions stay capability-wide ({@link MOCKLESS_CAPABILITY_EXCEPTIONS}).
  *
  * Each hard capability must ALSO have exactly one resolvable default dossier
  * (including exempt capabilities — the exception only waives the mock

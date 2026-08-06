@@ -121,39 +121,16 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     patterns: [
       /(?<![\p{L}\p{N}_])(?:stripe(?:-?betalning|-?checkout)?|klarna|swish|paypal|adyen|mollie|braintree)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:checkout|kassa|kortbetalning|kortköp|kortbetala|kreditkort)(?![\p{L}\p{N}_])/iu,
-      // Recurring terms (subscription-billing / recurring-billing /
-      // prenumerationsbetalning) were MOVED to the `subscriptions` entry below
-      // (bugbot high on the dossier-batch PR): keeping them here made a
-      // recurring ask match BOTH capabilities and collide stripe-checkout with
-      // paddle-billing. One-off payment vocabulary only.
+      // One-off payment vocabulary only. Recurring terms (prenumeration,
+      // membership, subscription-billing) belonged to the `subscriptions`
+      // capability, which left 2026-08-06 with the parked paddle-billing
+      // dossier — they are deliberately NOT folded back in here, since routing
+      // a recurring ask to one-off Stripe checkout was the exact bug the #475
+      // split fixed. A recurring ask is ordinary page content until a
+      // subscriptions dossier exists again.
       /(?<![\p{L}\p{N}_])(?:betalningsfl(?:ö|o)de|betalningsl(?:ö|o)sning|payment[-\s]?flow|checkout[-\s]?flow)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])betala\s+med\s+(?:kort|kreditkort|swish|klarna|stripe|paypal|visa|mastercard|apple\s*pay|google\s*pay)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])k(?:ö|o)p(?:a)?\s+med\s+(?:kort|kreditkort|stripe|klarna|swish|checkout)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
-    // Recurring subscriptions / memberships (Paddle Billing). INTENTIONALLY
-    // separate from one-off `payments` (Stripe-checkout owns `payments`): this
-    // capability is for recurring plans/memberships synced from signed Paddle
-    // webhooks. The provider word "paddle" is high-precision. Vetoes keep it off
-    // one-off payment intent and newsletter "prenumerera på nyhetsbrev".
-    capability: "subscriptions",
-    patterns: [
-      /(?<![\p{L}\p{N}_])paddle(?![\p{L}\p{N}_])/iu,
-      // NOTE: no bare English "subscribe" token — it collides with newsletter
-      // "subscribe form" / email-signup (Codex P2 dossier-batch). Billing intent
-      // comes from "subscription(s)" and the Swedish prenumeration/abonnemang
-      // nouns; a bare "subscribe form" stays with newsletter-subscribe.
-      /(?<![\p{L}\p{N}_])(?:prenumeration(?:en|er|erna|s)?|prenumerera(?:r|s)?|prenumerationstj(?:ä|a)nst(?:en)?|prenumerationsplan(?:en|er)?|abonnemang(?:et|en)?|subscription(?:s)?)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:medlemskap(?:et|en)?|membership|members?[-\s]?(?:only|area|tier))(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:(?:å|a)terkommande\s+(?:betalning(?:ar|en)?|debitering(?:ar|en)?)|recurring\s+(?:payment(?:s)?|billing|subscription(?:s)?)|subscription[-\s]?billing|prenumerationsbetalning)(?![\p{L}\p{N}_])/iu,
-    ],
-    vetoes: [
-      /(?<![\p{L}\p{N}_])(?:eng(?:å|a)ngs(?:betalning(?:ar|en)?|k(?:ö|o)p(?:et)?|belopp)?|one-?time|one-?off|single\s+payment)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:nyhetsbrev(?:et)?|newsletter)(?![\p{L}\p{N}_])/iu,
-      // Email-signup / "subscribe form" belongs to newsletter-subscribe, not
-      // billing (Codex P2 dossier-batch).
-      /(?<![\p{L}\p{N}_])(?:e-?post|e-?mail|email)[-\s]?(?:formul(?:ä|a)r|form|signup|sign[-\s]?up|lista|list)(?![\p{L}\p{N}_])/iu,
     ],
   },
   {
@@ -239,59 +216,24 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:som\s+svarar\s+(?:utifrån|från|ur|baserat\s+på)|that\s+answers\s+(?:from|based\s+on)|answering\s+from)\s+(?:våra|vara|egna|era|sina|dina|our|your|the\s+site'?s?)?\s*(?:dokument|innehåll|kunskapsbas(?:en)?|artiklar|filer|documents?|docs|content|knowledge)(?![\p{L}\p{N}_])/iu,
     ],
   },
+  // `realtime` (ably-realtime) and `image-generation` (fal-image-generation)
+  // left the vocabulary 2026-08-06 when their sole provider dossiers were
+  // parked (`_parkering/dossiers-utfasade-2026-08-06/`) — a capability id
+  // without a backing dossier selects nothing, so detecting it only mutes a
+  // surface the model may as well freehand as ordinary page content.
   {
-    // Realtime infrastructure (Ably pub/sub, presence, live updates between
-    // clients). NOT "live-feeling" animations and NOT real-time analytics —
-    // those route to `analytics` / ordinary page content.
-    capability: "realtime",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:ably|pusher|websockets?|web-?sockets?|socket\.io|pub\/?sub|pubsub)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:realtids?-?(?:chat|chatt|meddelanden|notiser|uppdateringar|funktion(?:er)?)|real-?time\s+(?:chat|messaging|notifications?|updates?|collaboration))(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:live-?(?:chat|chatt)|presence|närvaro-?(?:status|indikator)|vem\s+som\s+är\s+online|collaborative\s+(?:editing|cursors?)|multiplayer)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:live-?(?:notiser|notifikationer|uppdateringar)|live\s+(?:notifications?|updates?))(?![\p{L}\p{N}_])/iu,
-    ],
-    // "real-time analytics" / "realtidsstatistik" is an analytics/dashboard
-    // ask, not realtime messaging infrastructure — those route to `analytics`
-    // or `dashboard-charts`, never the Ably dossier. Swedish definite forms
-    // (dashboarden, statistiken) are covered so inflection can't dodge the veto.
-    vetoes: [
-      /(?<![\p{L}\p{N}_])(?:real-?time|realtids?)[-\s]?(?:analytics|analys(?:en)?|statistik(?:en)?|dashboard(?:s|en|erna)?|rapporter(?:ing(?:en)?)?|metrics)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
-    // Server-side AI text-to-image generation (Fal). NOT image galleries,
-    // lightboxes, carousels or stock imagery — the site must GENERATE images.
-    capability: "image-generation",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:text-?(?:till|to)-?(?:bild|image)|ai-?(?:bild|image)-?(?:generator|generering|generation)|image-?generation|bildgenerering|bildgenerator)(?![\p{L}\p{N}_])/iu,
-      // Visitor-facing generation ("användare kan generera bilder") or an
-      // explicit with-AI clause. Bare "generera bilder" is NOT enough — that
-      // phrasing also covers asking Sajtmaskin for page imagery assets.
-      /(?<![\p{L}\p{N}_])(?:användar(?:e|na)?|besökar(?:e|na)?|users?|visitors?|kunder(?:na)?)[\s\S]{0,50}(?:generera(?:r)?\s+bilder|generate\s+images?|skapa(?:r)?\s+bilder)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:generera(?:r)?|skapa(?:r)?)\s+bilder\s+(?:med|via)\s+ai(?![\p{L}\p{N}_])|(?<![\p{L}\p{N}_])(?:generate|create)\s+images?\s+(?:with|using|via)\s+ai(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:fal(?:\.ai)?|flux(?:-?schnell|-?pro)?|dall-?e|stable\s+diffusion|midjourney)(?![\p{L}\p{N}_])/iu,
-    ],
-    // Gallery/lightbox/carousel asks are about SHOWING images, not generating
-    // them — route those to their own capabilities. "AI-genererade bilder" as
-    // page imagery (assets) is also not an in-site generator tool. Swedish
-    // definite/plural inflections included so "bildgalleriet" can't dodge.
-    vetoes: [
-      /(?<![\p{L}\p{N}_])(?:bild-?galleri(?:et|er|erna)?|foto-?galleri(?:et|er|erna)?|image[-\s]?galler(?:y|ies)|photo[-\s]?galler(?:y|ies)|lightbox(?:en)?|karusell(?:en|er)?|carousel|bildspel(?:et)?|slideshow)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:stock-?(?:bilder|foton|photos?|images?)|hero-?(?:bild|image)|bakgrundsbild(?:er)?|background\s+images?)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
-    // Persistent server-side data storage (Postgres/Drizzle default;
-    // mongodb-atlas / neon-postgres siblings resolve via manifest
-    // relevanceKeywords in select.ts). NOT vector stores (those are
-    // `rag-chat`) and NOT analytics/tracking — those route to `analytics`.
+    // Persistent server-side data storage — postgres-drizzle is the sole
+    // dossier under `database` (neon-postgres / mongodb-atlas parked
+    // 2026-08-06). Mongo/Neon brand names still trigger THIS capability: a
+    // MongoDB-ask is a database-ask; implementation is ours. NOT vector
+    // stores (those are `rag-chat`) and NOT analytics/tracking.
     capability: "database",
     patterns: [
       // Core nouns, Swedish + English inflections.
       /(?<![\p{L}\p{N}_])(?:databas(?:en|er|erna)?|databases?|sql[-\s]?databas(?:en)?|sql\s+database)(?![\p{L}\p{N}_])/iu,
-      // Provider / stack names that unambiguously mean a database layer.
+      // Brand / stack names that unambiguously mean a database layer.
       // Bare "neon" is intentionally NOT matched — it is a common design word
-      // (neonfärger, neon-skyltar); Neon-the-provider needs a DB-flavoured
+      // (neonfärger, neon-skyltar); Neon-the-DB needs a DB-flavoured
       // compound or the neon.tech domain.
       /(?<![\p{L}\p{N}_])(?:postgres(?:ql)?|drizzle(?:-?orm)?|mongo(?:db)?(?:[-\s]?atlas)?|neon[-\s]?(?:postgres(?:ql)?|db|databas(?:en)?|database)|neon\.tech)(?![\p{L}\p{N}_])/iu,
       // Verb phrases: "lagra/spara ... i (en) databas", "store/save ... in a database".
@@ -303,8 +245,8 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     //  - Analytics/tracking asks route to `analytics` — "spåra besökare i en
     //    databas" is a visitor-tracking request, not a persistence layer.
     //  - An explicit competing ORM/BaaS choice (Prisma, Mongoose, Supabase,
-    //    Firebase, …) must not pull in the Drizzle/Mongo-driver stack — same
-    //    precedent as the Chart.js veto on `dashboard-charts`.
+    //    Firebase, …) must not pull in the Drizzle stack — same precedent
+    //    as the Chart.js veto on `dashboard-charts`.
     vetoes: [
       /(?<![\p{L}\p{N}_])(?:(?:vector|vektor)[-\s]?(?:databas(?:en)?|database|db|store|search)|pgvector|pinecone|weaviate|qdrant|chroma(?:db)?)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:plausible|google[-\s]?analytics|posthog|mixpanel|fathom|matomo|statcounter|vercel[-\s]?analytics|webbanalys|webb-?analys|besöksstatistik(?:en)?|spåra\s+besökare|track\s+visitors?|page[-\s]?views|sidvisningar)(?![\p{L}\p{N}_])/iu,
@@ -333,12 +275,9 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:spåra\s+besökare|track[-\s]?visitors|page[-\s]?views|sidvisningar)(?![\p{L}\p{N}_])/iu,
     ],
   },
-  {
-    capability: "error-tracking",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:sentry|error[-\s]?tracking|fel-?spårning|crash[-\s]?reporting|bug[-\s]?reporting|datadog|bugsnag|rollbar)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
+  // `error-tracking` (sentry-error-tracking) left the vocabulary 2026-08-06
+  // with its parked dossier — same rationale as the realtime/image-generation
+  // note further up.
   {
     // Swipeable/auto-advancing slider. `image-gallery` / `product-gallery`
     // were intentionally REMOVED from here: a "gallery" the user wants to

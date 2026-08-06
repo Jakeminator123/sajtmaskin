@@ -76,10 +76,10 @@ export async function appendF3ApprovedToSnapshot(
   /**
    * Provider-/dossier-id som det här godkännandet ERSÄTTER — syskon till de
    * capabilities som godkänns nu. Utan dem blir unionen fel sorts minne: ett
-   * tidigare godkänt `postgres-drizzle` som aldrig gav filbevis ligger kvar när
-   * användaren byter till `mongodb-atlas`, båda matar `dossierProviderHints`,
+   * tidigare godkänt `clerk-auth` som aldrig gav filbevis ligger kvar när
+   * användaren byter till `supabase-auth`, båda matar `dossierProviderHints`,
    * och `pickForCapability` föredrar defaulten vid dubbelträff — alltså byggs
-   * Postgres igen trots bytet.
+   * Clerk igen trots bytet.
    */
   supersededProviders: string[] = [],
 ): Promise<boolean> {

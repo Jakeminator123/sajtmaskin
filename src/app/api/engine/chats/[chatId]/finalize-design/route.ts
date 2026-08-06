@@ -229,8 +229,8 @@ export async function POST(
       );
       // Godkännandet ERSÄTTER tidigare val för samma capability. Selektionen
       // tillåter bara ett syskon per capability, så ett kvarliggande
-      // `postgres-drizzle` (godkänt förut, aldrig levererat) skulle mata
-      // `dossierProviderHints` samtidigt som det nyvalda `mongodb-atlas` — och
+      // `clerk-auth` (godkänt förut, aldrig levererat) skulle mata
+      // `dossierProviderHints` samtidigt som det nyvalda `supabase-auth` — och
       // vid dubbelträff föredrar `pickForCapability` defaulten, alltså byggs
       // fel provider. Peka ut syskonen så unionen får släppa dem.
       const approvedIds = new Set(pendingDossierIds);

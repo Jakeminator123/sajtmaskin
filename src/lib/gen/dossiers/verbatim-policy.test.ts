@@ -168,7 +168,61 @@ describe("applyDossierVerbatimPolicy", () => {
     });
   });
 
-  describe("rewritable files are not touched", () => {
+  describe("rewritable_file_missing_seeded — SM-004: dossier-listed files must exist", () => {
+    it("seeds a missing rewritable schema.ts that a verbatim sibling imports", () => {
+      // postgres-drizzle shape: verbatim lib/db/index.ts does
+      // `import * as schema from './schema'` where schema.ts is rewritable.
+      // A restored index.ts without its schema is a broken import.
+      const canonicalIndex = 'import * as schema from "./schema";\nexport const db = schema;';
+      const canonicalSchema = "export const users = {};";
+      mockGetDossierFileContent.mockImplementation((_klass, _id, relPath) =>
+        relPath === "components/lib/db/index.ts"
+          ? canonicalIndex
+          : relPath === "components/lib/db/schema.ts"
+            ? canonicalSchema
+            : null,
+      );
+
+      const dossier = makeVerbatimDossier({
+        id: "postgres-drizzle-like",
+        capability: "database",
+        files: [
+          { path: "components/lib/db/index.ts", role: "server", injectionMode: "verbatim" },
+          { path: "components/lib/db/schema.ts", role: "server", injectionMode: "rewritable" },
+        ],
+      });
+      const { files, restored } = applyDossierVerbatimPolicy({
+        // LLM emitted the verbatim helper untouched but omitted the schema.
+        llmFiles: [makeFile("lib/db/index.ts", canonicalIndex)],
+        selectedDossiers: [dossier],
+        chatId: "chat-sm004",
+      });
+
+      expect(restored).toEqual([
+        {
+          path: "lib/db/schema.ts",
+          dossierId: "postgres-drizzle-like",
+          reason: "rewritable_file_missing_seeded",
+        },
+      ]);
+      expect(files.find((f) => f.path === "lib/db/schema.ts")?.content).toBe(canonicalSchema);
+    });
+
+    it("does NOT seed when canonical content is unavailable (and does not warn loudly)", () => {
+      mockGetDossierFileContent.mockReturnValue(null);
+      const dossier = makeVerbatimDossier({
+        codeFidelity: "rewritable",
+        files: [{ path: "components/lib/db/schema.ts", role: "server" }],
+      });
+      const { restored } = applyDossierVerbatimPolicy({
+        llmFiles: [],
+        selectedDossiers: [dossier],
+      });
+      expect(restored).toHaveLength(0);
+    });
+  });
+
+  describe("rewritable files present in the LLM output are never overwritten", () => {
     it("ignores files with effective injectionMode 'rewritable'", () => {
       mockGetDossierFileContent.mockReturnValue("canonical content");
 

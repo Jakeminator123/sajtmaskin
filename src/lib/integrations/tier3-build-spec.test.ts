@@ -20,21 +20,15 @@ const emptyContracts: PlanContracts = {
   envVars: [],
 };
 
-it("projects unique Sentry and Resend registry contracts from manifests", () => {
+it("projects the unique Resend manifest contract, and the generic registry for dossierless Sentry", () => {
   const resend = integrationRegistryByKey.get("resend");
   expect(resend?.envVars).toEqual(["RESEND_API_KEY", "EMAIL_FROM", "CONTACT_EMAIL_TO"]);
   expect(resend?.setupGuide).toContain("https://resend.com/docs/dashboard/api-keys/introduction");
 
+  // sentry-error-tracking parkerades 2026-08-06 → providern är dossierless och
+  // den generiska registry-definitionen äger kontraktet (manifest > registry).
   const sentry = integrationRegistryByKey.get("sentry");
-  expect(sentry?.envVars).toEqual([
-    "NEXT_PUBLIC_SENTRY_DSN",
-    "SENTRY_ENVIRONMENT",
-    "SENTRY_TRACES_SAMPLE_RATE",
-  ]);
-  expect(sentry?.envVars).not.toContain("SENTRY_DSN");
-  expect(sentry?.setupGuide).toContain(
-    "https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/",
-  );
+  expect(sentry?.envVars).toEqual(["SENTRY_DSN"]);
 });
 
 it("derives build requirements directly from explicit provider approvals", () => {
@@ -97,13 +91,24 @@ describe("providerKeysWithoutBackingDossier (coach edge case on #503)", () => {
     expect(providerKeysWithoutBackingDossier(["google-analytics"])).toEqual(["google-analytics"]);
   });
 
-  it("does NOT flag dossier-backed providers (stripe, mongodb)", () => {
+  it("does NOT flag uniquely dossier-backed providers (stripe)", () => {
     expect(providerKeysWithoutBackingDossier(["stripe"])).toEqual([]);
-    expect(providerKeysWithoutBackingDossier(["mongodb"])).toEqual([]);
+  });
+
+  it("flags mongodb as dossierless after etapp 3 parking", () => {
+    // mongodb-atlas parked 2026-08-06 → registry row remains, no backing
+    // dossier. Generic LLM path (same class as posthog).
+    expect(providerKeysWithoutBackingDossier(["mongodb"])).toEqual(["mongodb"]);
+    expect(mapProviderKeysToBackingDossierIds(["mongodb"])).toEqual([]);
+    expect(mapProviderKeysToDossierCapabilities(["mongodb"])).toEqual([]);
   });
 
   it("flags ambiguous providers instead of choosing an implicit dossier", () => {
     expect(providerKeysWithoutBackingDossier(["openai"])).toEqual(["openai"]);
+    // postgres stays ambiguous (postgres-drizzle + rag-chat). supabase is
+    // registry-unique since paddle-billing parked (2026-08-06) but stays
+    // FORCED-GENERIC: a BaaS key must not inject the auth dossier (#503).
+    expect(providerKeysWithoutBackingDossier(["postgres"])).toEqual(["postgres"]);
     expect(providerKeysWithoutBackingDossier(["supabase"])).toEqual(["supabase"]);
   });
 
@@ -214,13 +219,16 @@ describe("deriveTier3BuildSpec", () => {
   });
 
   it("keeps a manifest-only provider emitted by the agent contract", () => {
+    // Fixture moved from fal → mailchimp when fal-image-generation was parked
+    // (2026-08-06): mailchimp exists ONLY as a dossier-manifest provider, so
+    // it still exercises the manifest-only path.
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
         {
-          provider: "fal",
-          name: "Fal",
-          reason: "image generation",
+          provider: "mailchimp",
+          name: "Mailchimp",
+          reason: "newsletter",
           status: "chosen",
           envVars: [],
         },
@@ -229,11 +237,11 @@ describe("deriveTier3BuildSpec", () => {
 
     expect(spec.requirements).toHaveLength(1);
     expect(spec.requirements[0]).toMatchObject({
-      key: "fal",
-      provider: "fal",
-      featureRuntimeEnvKeys: ["FAL_API_KEY"],
+      key: "mailchimp",
+      provider: "mailchimp",
     });
-    expect(spec.requirements[0].buildInstructions.join("\n")).toContain("fal-image-generation");
+    expect(spec.requirements[0].featureRuntimeEnvKeys).toContain("MAILCHIMP_API_KEY");
+    expect(spec.requirements[0].buildInstructions.join("\n")).toContain("mailchimp-newsletter");
   });
 
   it("keeps dossierless registry integrations non-blocking", () => {
@@ -259,7 +267,11 @@ describe("deriveTier3BuildSpec", () => {
     expect(req.warnOnlyEnvKeys).toContain("KV_REST_API_TOKEN");
   });
 
-  it("keeps ambiguous Supabase approvals on the generic path", () => {
+  it("keeps a generic Supabase approval on the generic path (forced-generic)", () => {
+    // Registry-unique since paddle-billing parked (2026-08-06), but a bare
+    // "supabase" approval (here: for a DATABASE) must never inject the
+    // supabase-auth dossier's login middleware — #503 contract, now enforced
+    // by FORCED_GENERIC_PROVIDER_KEYS instead of registry ambiguity.
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
@@ -275,7 +287,6 @@ describe("deriveTier3BuildSpec", () => {
 
     expect(spec.requirements).toHaveLength(1);
     const req = spec.requirements[0];
-    expect(req.requiredRealEnvKeys).toEqual([]);
     expect(req.buildInstructions[0]).toContain("No unique dossier contract");
     expect(req.buildInstructions.join("\n")).not.toContain("supabase-auth");
     expect(req.buildInstructions.join("\n")).not.toContain("paddle-billing");
@@ -495,6 +506,32 @@ describe("renderTier3BuildPlanBlock", () => {
     expect(block).toContain("IntegrationConfigNotice");
   });
 
+  it("forbids suggestion-only rounds for planned integrations (A2, prod chat 3a6c5472)", () => {
+    // 2026-08-05: an F3 pass emitted two `suggestIntegration` cards asking to
+    // configure a key that already had a real stored value, and wrote zero
+    // code files. The plan block must state that planned integrations are
+    // pre-approved and that tool-only rounds are a failed outcome.
+    const block = renderTier3BuildPlanBlock(
+      deriveTier3BuildSpec({
+        ...emptyContracts,
+        integrations: [
+          {
+            provider: "stripe",
+            name: "Stripe",
+            reason: "billing",
+            status: "chosen",
+          },
+        ],
+      }),
+    );
+    expect(block).not.toBeNull();
+    expect(block).toContain("already approved and planned");
+    expect(block).toContain("WRITE THE CODE FILES");
+    expect(block).toContain(
+      "never end the round with tool calls but no code files",
+    );
+  });
+
   it("never tells the model to assume real env values (P2 F3-loop åtgärd 1)", () => {
     // The old copy ("assume real values are present at runtime") was wrong
     // for the approval-without-keys case: feature-runtime keys may stay
@@ -590,10 +627,12 @@ describe("mapProviderKeysToDossierCapabilities", () => {
     expect(mapProviderKeysToDossierCapabilities(["", "   "])).toEqual([]);
   });
 
-  it("does NOT map generic supabase (data) approval to subscriptions or auth", () => {
-    // Two manifests explicitly claim Supabase, so the provider is ambiguous.
-    // Neither sibling may be injected without an exact dossier/capability.
+  it("does NOT map a generic supabase (data) approval to auth", () => {
+    // Registry-unique since paddle parked, but FORCED_GENERIC_PROVIDER_KEYS
+    // keeps the BaaS key off the auth dossier — a Supabase-for-storage
+    // approval must not inject login middleware (#503).
     const caps = mapProviderKeysToDossierCapabilities(["supabase"]);
+    expect(caps).toEqual([]);
     expect(caps).not.toContain("subscriptions");
     expect(caps).not.toContain("supabase-auth");
     expect(caps).not.toContain("auth");
@@ -631,22 +670,17 @@ describe("mapProviderKeysToDossierCapabilities", () => {
 });
 
 /**
- * Kontraktslås för de tre providers som flera manifest deklarerar. Alla tre
+ * Kontraktslås för providers som inte får väljas deterministiskt. Alla tre
  * kartfunktionerna måste svara samma sak — svarar de olika kan en F3-runda
  * injicera en dossier som env-clampningen inte känner till.
  *
- * `openai` avviker MEDVETET från beteendet före den här konsolideringen: där
- * injicerade ett generiskt openai-godkännande BÅDA chattdossiererna
- * (`openai-chat` + `ai-tool-calling-chat`), eftersom de strict-backade
- * providern via delade `@ai-sdk/openai`-beroenden. Nyckeln `openai` säger
- * ingenting om chatt, verktygsanrop eller RAG, så valet mellan syskonen var
- * godtyckligt. Den generiska LLM-vägen är rätt svar i stället. Låt inte en
- * framtida refaktor läsa det som en regression och peka tillbaka.
- *
- * `supabase` och `postgres` är däremot inga beteendeändringar alls: inget
- * dossierval skedde för dem tidigare heller — supabase blockerades av
- * suppressionslistan (approving Supabase för lagring/databas fick inte dra in
- * auth-middleware), och postgres saknades helt som providernyckel i registryt.
+ * `openai` / `postgres` är ambigua i registryt → generisk LLM-väg.
+ * `supabase` blev registry-unik när paddle-billing parkerades 2026-08-06,
+ * men hålls MEDVETET kvar på generiska vägen via
+ * `FORCED_GENERIC_PROVIDER_KEYS`: nyckeln namnger en hel BaaS (auth, databas,
+ * lagring), så ett generiskt godkännande säger inget om inloggning och får
+ * aldrig injicera supabase-auths root-middleware (#503). Ett EXAKT
+ * `supabase-auth`-godkännande injicerar fortfarande.
  */
 describe("provider→dossier contract lock (ambiguous manifest providers)", () => {
   it.each(["supabase", "postgres", "openai"])(
@@ -657,6 +691,12 @@ describe("provider→dossier contract lock (ambiguous manifest providers)", () =
       expect(providerKeysWithoutBackingDossier([provider])).toEqual([provider]);
     },
   );
+
+  it("an exact supabase-auth id still injects — the forced-generic gate only blocks the bare BaaS key", () => {
+    expect(mapProviderKeysToDossierCapabilities(["supabase-auth"])).toEqual(["auth"]);
+    expect(mapProviderKeysToBackingDossierIds(["supabase-auth"])).toEqual(["supabase-auth"]);
+    expect(providerKeysWithoutBackingDossier(["supabase-auth"])).toEqual([]);
+  });
 
   it("resolves an exact dossier id — openai-chat is the counter-proof", () => {
     expect(mapProviderKeysToDossierCapabilities(["openai-chat"])).toEqual(["ai-chat"]);

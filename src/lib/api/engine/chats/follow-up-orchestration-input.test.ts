@@ -239,14 +239,14 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
         mode: "codegen",
         parsedMeta: { ...followUpMeta(), lifecycleStage: "integrations" },
         orchestrationSnapshot: {
-          f3ApprovedCapabilities: ["database"],
-          f3ApprovedProviders: ["mongodb-atlas"],
+          f3ApprovedCapabilities: ["auth"],
+          f3ApprovedProviders: ["supabase-auth"],
         },
       }),
     );
 
-    expect(input.dossierProviderHints).toEqual(["mongodb-atlas"]);
-    expect(input.followUpContract?.f3ApprovedProviders).toEqual(["mongodb-atlas"]);
+    expect(input.dossierProviderHints).toEqual(["supabase-auth"]);
+    expect(input.followUpContract?.f3ApprovedProviders).toEqual(["supabase-auth"]);
   });
 
   it("importedRepoMode forces scaffoldMode off and threads the flag (v0-template follow-ups)", () => {

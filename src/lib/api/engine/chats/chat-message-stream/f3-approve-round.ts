@@ -19,8 +19,8 @@ import {
  *
  * True when at least one approved provider maps to a BACKING DOSSIER whose
  * files are NOT already present in the parent version (dossier-id granularity
- * per Codex P1 on #503 — a present sibling like `postgres-drizzle` must not
- * satisfy an approved `mongodb`), when a DOSSIER-LESS registry provider
+ * per Codex P1 on #503 — a present sibling like `clerk-auth` must not
+ * satisfy an approved `supabase-auth`), when a DOSSIER-LESS registry provider
  * (e.g. `posthog` — approvable via suggestIntegration but with no dossier
  * templates) is not already evidenced in the parent's file-derived spec
  * (coach review on #503: a deterministic exact-file fork would ship ZERO
@@ -56,8 +56,8 @@ export function approveRoundNeedsDossierInjection(params: {
 
   // Provider approvals compare at DOSSIER-ID granularity (Codex P1 on #503):
   // capability granularity would treat a present SIBLING dossier
-  // (postgres-drizzle under `database`) as satisfying a newly approved
-  // provider (mongodb → mongodb-atlas) and skip its injection forever.
+  // (clerk-auth under `auth`) as satisfying a newly approved exact
+  // sibling id (supabase-auth) and skip its injection forever.
   let requiredDossierIds: string[] = [];
   try {
     requiredDossierIds = mapProviderKeysToBackingDossierIds(

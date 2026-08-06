@@ -2,6 +2,13 @@
 
 > Flyttade rader från [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) efter riktad tvåradsleverans 2026-07-25 (branch `cursor/warm-cache-sdk-och-sendmessage-outcome-2150`, mot master `1cd8f547`). Båda raderna var P3 och båda var "kniviga" i den mening att de krävde ett vägval snarare än en självklar patch — warm-cache-raden hade tre konkurrerande linjer och `sendMessage`-raden rörde hela caller-kedjan. Filen har sedan fyllts på med en P1-rad som stängdes 2026-07-26 och med de nio defekter som åtgärdsprogrammet efter observationssessionen 2026-07-25 stängde samma dag (egna sektioner nedan). Äldre historik: [`backlog-arkiv-2026-07-24.md`](backlog-arkiv-2026-07-24.md) · [`backlog-arkiv-2026-07-22.md`](backlog-arkiv-2026-07-22.md) · [`backlog-arkiv-2026-07-02.md`](backlog-arkiv-2026-07-02.md) · [`backlog-arkiv-2026-06-27.md`](backlog-arkiv-2026-06-27.md) · [`backlog-arkiv-2026-06-24.md`](backlog-arkiv-2026-06-24.md).
 
+## Fixade 2026-08-06 (dossier-förenkling etapp 3 — SM-004 + SM-006)
+
+| Klar | Status | Prio | Fynd | Källa | Fix-referens |
+| --- | --- | --- | --- | --- | --- |
+| [x] | Fixad | P2 | `SM-004` **Postgres-dossier kan återställa helper utan schemafil:** `index.ts` är verbatim och importerar en rewritable `schema.ts`, så helpern kan komma tillbaka utan sitt schema. | Dossier-granskning · journal R28 | PR #833: `applyDossierVerbatimPolicy` seedar nu dossier-listade **rewritable**-filer när de saknas helt (ny reason `rewritable_file_missing_seeded`) men skriver aldrig över närvarande innehåll — LLM-friheten intakt, verbatim-syskonets import kan inte längre brytas. Test: seed-fall + motprov (närvarande rewritable orörd) i `verbatim-policy.test.ts`. |
+| [x] | Fixad | P2 | `SM-006` **Dependency-backfill tappar provideridentitet:** backfillen återselekterar default-dossier ur capability i stället för att utgå från de valda dossier-ID:na, så användarens val kan bytas mot defaulten. | Dossier-/dependency-granskning · journal R48 | PR #833: `resolveCapabilityDependencies` tar nu `selectedDossierIds` (trådade från `streamMeta.selectedDossierIds` via runner → pre-phases → `AutoFixContext`); valda dossiers manifest har företräde, capability-default bara som legacy fallback för id-lösa capabilities. Test: supabase-auth-val ger Supabase-deps (inte Clerks), residual-fallback och parkerat-id-tolerans i `dep-completer.test.ts`. |
+
 ## Fixade 2026-08-05 (promote-guard staleRevision → totalstopp)
 
 | Klar | Status | Prio | Fynd | Källa | Fix-referens |

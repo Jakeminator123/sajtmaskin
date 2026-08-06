@@ -63,12 +63,14 @@ environments without prod creds (those DBs SKIP with a clear warning).
 
 USAGE / FLAGS
 -------------
-  python pydatabastest.py            Interactive: run all checks, print report.
+  python scripts/db/pydatabastest.py        Interactive: run all checks, print report.
                                      May ask at most 1 safe, optional remediation
                                      prompt (e.g. run `npm run db:init` for dev).
-  python pydatabastest.py --ci       CI/non-interactive gate. Never prompts, never
-                                     pulls creds via the Vercel CLI, read-only only,
-                                     exits non-zero on any FAIL.
+  python scripts/db/pydatabastest.py --ci   CI/non-interactive gate. Never prompts,
+                                     never pulls creds via the Vercel CLI,
+                                     read-only only, exits non-zero on any FAIL.
+Any working directory works: the `.env.local` fallback is resolved from this
+file's location (see REPO_ROOT below), not from the current directory.
   --no-input / --yes                 Aliases for non-interactive (same as --ci's
                                      no-prompt behaviour).
   --no-pull                          Do not use `vercel env pull` even interactively
@@ -250,6 +252,15 @@ def header(title: str) -> None:
 # until one connects, so it is robust whether run from CI, a laptop, or IPv6.
 DB_KEYS = ("POSTGRES_URL", "POSTGRES_URL_NON_POOLING")
 
+# Repo root derived from this file's location, not the working directory. The
+# local `.env.local` fallback below used a bare relative path, so it only
+# resolved when the script happened to be invoked from the repo root — running
+# it from any subdirectory silently found nothing and reported "no credentials".
+# Anchoring it here makes the fallback independent of CWD, which is what lets
+# this file live in scripts/db/ instead of the repo root.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+LOCAL_ENV_FILE = os.path.join(REPO_ROOT, ".env.local")
+
 
 def parse_env_file(path: str) -> Dict[str, str]:
     out: Dict[str, str] = {}
@@ -348,7 +359,7 @@ def resolve_pg_candidates(
             return candidates
 
     if target == "dev":
-        candidates = db_url_candidates(parse_env_file(".env.local"))
+        candidates = db_url_candidates(parse_env_file(LOCAL_ENV_FILE))
         if candidates:
             source_note.append(".env.local")
             return candidates
@@ -374,7 +385,7 @@ def resolve_blob_token(*, allow_pull: bool, source_note: List[str]) -> Optional[
                 source_note.append(f"vercel env pull ({vercel_target})")
                 return tok.strip()
 
-    local = parse_env_file(".env.local").get("BLOB_READ_WRITE_TOKEN")
+    local = parse_env_file(LOCAL_ENV_FILE).get("BLOB_READ_WRITE_TOKEN")
     if local and local.strip():
         source_note.append(".env.local")
         return local.strip()
@@ -860,7 +871,7 @@ def maybe_remediate(dev: DbState, interactive: bool) -> None:
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="pydatabastest.py",
+        prog="scripts/db/pydatabastest.py",
         description="Order/regression test: verify dev+prod Postgres and the Vercel Blob "
         "store are in the expected state — dev is a used scratch DB (EMPTY-group rows are "
         "an advisory WARN), prod has live data (schema + preserved enforced, EMPTY "

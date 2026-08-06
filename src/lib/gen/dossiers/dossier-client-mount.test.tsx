@@ -30,10 +30,8 @@ import path from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { RealtimeConfigNotice } from "../../../../data/dossiers/hard/ably-realtime/components/realtime-config-notice";
 import { NewsletterForm } from "../../../../data/dossiers/hard/mailchimp-newsletter/components/newsletter-form";
-import { DbConfigNotice } from "../../../../data/dossiers/hard/neon-postgres/components/db-config-notice";
-import { SubscriptionConfigNotice } from "../../../../data/dossiers/hard/paddle-billing/components/subscription-config-notice";
+import { DbConfigNotice } from "../../../../data/dossiers/hard/postgres-drizzle/components/db-config-notice";
 import { RagConfigNotice } from "../../../../data/dossiers/hard/rag-chat/components/rag-config-notice";
 
 const HARD_DIR = path.resolve(__dirname, "../../../../data/dossiers/hard");
@@ -43,12 +41,8 @@ const HARD_DIR = path.resolve(__dirname, "../../../../data/dossiers/hard");
  * behöver leta — och så en flyttad svit syns som ett trasigt värde.
  */
 const MOUNTED: Record<string, string> = {
-  "ably-realtime/components/realtime-config-notice.tsx": "denna fil",
   "mailchimp-newsletter/components/newsletter-form.tsx": "denna fil",
-  "mongodb-atlas/components/db-config-notice.tsx": "denna fil (via kopie-vakten)",
-  "neon-postgres/components/db-config-notice.tsx": "denna fil",
-  "paddle-billing/components/subscription-config-notice.tsx": "denna fil",
-  "postgres-drizzle/components/db-config-notice.tsx": "denna fil (via kopie-vakten)",
+  "postgres-drizzle/components/db-config-notice.tsx": "denna fil",
   "rag-chat/components/rag-config-notice.tsx": "denna fil",
   "resend-contact-form/components/integration-config-notice.tsx":
     "denna fil (via kopie-vakten)",
@@ -72,11 +66,8 @@ const MOUNTED: Record<string, string> = {
  * ge den ett eget monteringsfall.
  */
 const IDENTICAL_COPY_FAMILIES: Record<string, string[]> = {
-  "db-config-notice (seed-läge)": [
-    "mongodb-atlas/components/db-config-notice.tsx",
-    "neon-postgres/components/db-config-notice.tsx",
-    "postgres-drizzle/components/db-config-notice.tsx",
-  ],
+  // neon-postgres / mongodb-atlas parked 2026-08-06 — only postgres-drizzle
+  // remains; no identical-copy family for db-config-notice anymore.
   "integration-config-notice": [
     "resend-contact-form/components/integration-config-notice.tsx",
     "stripe-checkout/components/integration-config-notice.tsx",
@@ -90,20 +81,16 @@ const IDENTICAL_COPY_FAMILIES: Record<string, string[]> = {
  * testas, hör den i `MOUNTED`.
  */
 const UNMOUNTABLE: Record<string, string> = {
-  "ably-realtime/components/AblyClientProvider.tsx":
-    "Öppnar en riktig Ably-websocket i en effekt via `@/lib/ably/client`. Att mocka klienten bort lämnar bara en provider som renderar children — noll kontraktsvärde. Demoytan testas via RealtimeConfigNotice nedan.",
   "clerk-auth/components/clerk-provider-shell.tsx":
     "Renderar `ClerkProvider` ur den genererade sajtens beroende; repots alias pekar på en inert stub (`tests/stubs/clerk-nextjs.tsx`), så en montering skulle bevisa stubben. Nyckelgrinden `isLikelyValidClerkPublishableKey` täcks via AuthButtons.",
   "openai-chat/components/chat-panel.tsx":
     "`useChat` från `@ai-sdk/react` kräver en transport och ett strömmande svar; det canned demo-svaret testas där det bor — på routen, i dossier-config-fallback.test.tsx.",
-  "plausible-analytics/components/plausible-analytics.tsx":
-    "Injicerar bara en `next/script`-tagg. Ingen användarsynlig yta att verifiera, och `mock` är tomt eftersom en analytics-beacon inte har någon demo.",
   "rag-chat/components/chat.tsx":
     "Samma `useChat`-beroende som openai-chat. Demoytan täcks av RagConfigNotice nedan.",
   "supabase-auth/components/supabase-auth-notice.tsx":
     "Importerar `@/lib/supabase/config`, som dossiern själv levererar — `@` pekar på repots `src/` här, så sökvägen finns inte. Env-grinden bakom notisen täcks av supabase-auth-guards.test.ts.",
   "vercel-analytics/components/analytics-providers.tsx":
-    "Två beacon-komponenter från Vercel, ingen egen yta och ingen demoväg — samma skäl som plausible-analytics.",
+    "Två beacon-komponenter från Vercel, ingen egen användarsynlig yta och ingen demoväg — en analytics-beacon har inget att montera.",
 };
 
 interface DossierManifest {
@@ -213,7 +200,7 @@ describe("kopie-vakt: avsiktligt duplicerade notiser får inte drifta isär", ()
   );
 });
 
-describe("DbConfigNotice — seed-läge (neon-postgres / mongodb-atlas / postgres-drizzle)", () => {
+describe("DbConfigNotice — seed-läge (postgres-drizzle)", () => {
   it("säger att det är exempeldata, diskret och utan att låta som ett fel", () => {
     const { container } = render(<DbConfigNotice />);
 
@@ -221,66 +208,6 @@ describe("DbConfigNotice — seed-läge (neon-postgres / mongodb-atlas / postgre
     // Seed-läget ska läsa som "inte uppsatt ännu", inte som ett kraschat anrop.
     expect(container.innerHTML).not.toContain("destructive");
     expect(container.textContent).not.toMatch(/fel|error/i);
-  });
-});
-
-describe("RealtimeConfigNotice — demoläge (ably-realtime, mock: visual)", () => {
-  it("renderar setup-notisen när auth-routen svarar 503", async () => {
-    mockFetchOnce(503);
-    render(<RealtimeConfigNotice />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("note")).toBeTruthy();
-    });
-    expect(screen.getByText("Realtid är inte kopplad ännu")).toBeTruthy();
-    // Namnger nyckeln som behövs, aldrig ett värde.
-    expect(screen.getByText("ABLY_API_KEY")).toBeTruthy();
-    // Lugn ton: aldrig destruktiv styling för "inte uppsatt ännu".
-    expect(screen.getByRole("note").className).not.toContain("destructive");
-    expect(screen.queryByText(/503/)).toBeNull();
-  });
-
-  it("håller sig helt tyst när routen svarar OK (Ably är kopplat)", async () => {
-    mockFetchOnce(200, {});
-    const { container } = render(<RealtimeConfigNotice />);
-
-    await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalled();
-    });
-    expect(container.firstChild).toBeNull();
-  });
-
-  it("tolkar INTE ett nätverksfel som 'inte konfigurerad'", async () => {
-    const fetchMock = vi.fn().mockRejectedValue(new Error("offline"));
-    vi.stubGlobal("fetch", fetchMock);
-    const { container } = render(<RealtimeConfigNotice />);
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalled();
-    });
-    // Ett tappat nät är inget bevis på saknad nyckel — annars skulle en
-    // flygplansläges-blipp påstå att sajtens realtid inte är uppsatt.
-    expect(container.firstChild).toBeNull();
-  });
-});
-
-describe("SubscriptionConfigNotice — setup-yta (paddle-billing)", () => {
-  it("namnger alla nycklar som behövs och håller lugn ton", () => {
-    render(<SubscriptionConfigNotice />);
-
-    expect(screen.getByText("Prenumerationer är inte aktiverade ännu")).toBeTruthy();
-    for (const key of [
-      "PADDLE_API_KEY",
-      "PADDLE_NOTIFICATION_WEBHOOK_SECRET",
-      "NEXT_PUBLIC_SUPABASE_URL",
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-      "SUPABASE_SERVICE_ROLE_KEY",
-    ]) {
-      expect(screen.getByText(key), `saknar nyckelnamnet ${key}`).toBeTruthy();
-    }
-    expect(screen.getByRole("note").className).not.toContain("destructive");
-    const link = screen.getByRole("link");
-    expect(link.getAttribute("rel")).toContain("noopener");
   });
 });
 

@@ -166,10 +166,6 @@ def load_blob_templates(repo_root: Path) -> list[dict[str, Any]]:
     return entries
 
 
-def blob_template_lookup(repo_root: Path) -> dict[str, dict[str, Any]]:
-    return {str(entry["id"]): entry for entry in load_blob_templates(repo_root)}
-
-
 # ---------------------------------------------------------------------------
 # Zip download + in-memory analysis
 # ---------------------------------------------------------------------------

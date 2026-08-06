@@ -1,4 +1,4 @@
-/** Materialize one hard dossier into a standalone, keyless generated project. */
+/** Materialize one file-shipping dossier (hard or soft) into a standalone, keyless generated project. */
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 
@@ -12,7 +12,7 @@ function readArg(name: string): string | null {
 const dossierId = readArg("id")?.trim();
 const outputArg = readArg("out")?.trim();
 if (!dossierId || !outputArg) {
-  throw new Error("Usage: materialize-acceptance-project.ts --id=<hard-dossier> --out=<empty-dir>");
+  throw new Error("Usage: materialize-acceptance-project.ts --id=<dossier-with-files> --out=<empty-dir>");
 }
 
 const outputRoot = resolve(outputArg);
@@ -34,5 +34,5 @@ for (const file of project.files) {
 }
 
 console.log(
-  `Materialized hard/${project.dossier.id}: ${project.files.length} files, keyless output ${outputRoot}`,
+  `Materialized ${project.dossier.class}/${project.dossier.id}: ${project.files.length} files, keyless output ${outputRoot}`,
 );

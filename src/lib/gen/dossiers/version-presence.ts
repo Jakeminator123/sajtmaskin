@@ -136,7 +136,7 @@ export function resolveDossierIdsPresentInVersion(
 /**
  * {@link SelectedDossier} objects for every dossier whose files are present in
  * the version. Built directly from the detected entry (NOT re-selected by
- * capability) so a non-default sibling — e.g. `mongodb-atlas` under `database`
+ * capability) so a non-default sibling — e.g. `supabase-auth` under `auth`
  * or `ai-tool-calling-chat` under an `ai-*` capability — is reported exactly as
  * it exists in the files, never swapped for the capability default.
  *

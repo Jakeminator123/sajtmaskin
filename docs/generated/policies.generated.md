@@ -9,7 +9,7 @@
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:30f8348d64521b5a -->
-<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
+<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:3f8c55bc9d79cd01 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:1d4c06457cec3a1e -->
 
 # Policies
@@ -176,47 +176,32 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 ## Dossier environment enforcement
 
-| Dossier                 | Capability             | Key                                  | Required | Enforcement       | F2 mock   |
-| ----------------------- | ---------------------- | ------------------------------------ | -------- | ----------------- | --------- |
-| `ably-realtime`         | `realtime`             | `ABLY_API_KEY`                       | Yes      | `feature-runtime` | `visual`  |
-| `ai-tool-calling-chat`  | `ai-tool-calling`      | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
-| `clerk-auth`            | `auth`                 | `CLERK_SECRET_KEY`                   | Yes      | `build`           | `visual`  |
-| `clerk-auth`            | `auth`                 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`  | Yes      | `build`           | `visual`  |
-| `clerk-auth`            | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL`      | No       | `warn-only`       | `visual`  |
-| `clerk-auth`            | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_UP_URL`      | No       | `warn-only`       | `visual`  |
-| `fal-image-generation`  | `image-generation`     | `FAL_API_KEY`                        | Yes      | `feature-runtime` | `canned`  |
-| `mailchimp-newsletter`  | `newsletter-subscribe` | `MAILCHIMP_API_KEY`                  | Yes      | `feature-runtime` | `success` |
-| `mailchimp-newsletter`  | `newsletter-subscribe` | `MAILCHIMP_AUDIENCE_ID`              | Yes      | `feature-runtime` | `success` |
-| `mailchimp-newsletter`  | `newsletter-subscribe` | `MAILCHIMP_DC`                       | No       | `warn-only`       | `success` |
-| `mongodb-atlas`         | `database`             | `MONGODB_URI`                        | Yes      | `feature-runtime` | `seed`    |
-| `neon-postgres`         | `database`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `seed`    |
-| `openai-chat`           | `ai-chat`              | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
-| `paddle-billing`        | `subscriptions`        | `NEXT_PUBLIC_PADDLE_ENV`             | No       | `warn-only`       | `visual`  |
-| `paddle-billing`        | `subscriptions`        | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Yes      | `feature-runtime` | `visual`  |
-| `paddle-billing`        | `subscriptions`        | `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | `feature-runtime` | `visual`  |
-| `paddle-billing`        | `subscriptions`        | `PADDLE_API_KEY`                     | Yes      | `feature-runtime` | `visual`  |
-| `paddle-billing`        | `subscriptions`        | `PADDLE_NOTIFICATION_WEBHOOK_SECRET` | Yes      | `feature-runtime` | `visual`  |
-| `paddle-billing`        | `subscriptions`        | `SUPABASE_SERVICE_ROLE_KEY`          | Yes      | `feature-runtime` | `visual`  |
-| `plausible-analytics`   | `analytics`            | `NEXT_PUBLIC_PLAUSIBLE_API_HOST`     | No       | `warn-only`       | `none`    |
-| `plausible-analytics`   | `analytics`            | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN`       | Yes      | `warn-only`       | `none`    |
-| `postgres-drizzle`      | `database`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `seed`    |
-| `rag-chat`              | `rag-chat`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `canned`  |
-| `rag-chat`              | `rag-chat`             | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
-| `resend-contact-form`   | `contact-form`         | `CONTACT_EMAIL_TO`                   | Yes      | `feature-runtime` | `success` |
-| `resend-contact-form`   | `contact-form`         | `EMAIL_FROM`                         | Yes      | `feature-runtime` | `success` |
-| `resend-contact-form`   | `contact-form`         | `RESEND_API_KEY`                     | Yes      | `feature-runtime` | `success` |
-| `sanity-cms`            | `cms`                  | `NEXT_PUBLIC_SANITY_API_VERSION`     | No       | `warn-only`       | `seed`    |
-| `sanity-cms`            | `cms`                  | `NEXT_PUBLIC_SANITY_DATASET`         | Yes      | `feature-runtime` | `seed`    |
-| `sanity-cms`            | `cms`                  | `NEXT_PUBLIC_SANITY_PROJECT_ID`      | Yes      | `feature-runtime` | `seed`    |
-| `sanity-cms`            | `cms`                  | `NEXT_PUBLIC_SANITY_STUDIO_URL`      | No       | `warn-only`       | `seed`    |
-| `sanity-cms`            | `cms`                  | `SANITY_API_TOKEN`                   | No       | `feature-runtime` | `seed`    |
-| `sentry-error-tracking` | `error-tracking`       | `NEXT_PUBLIC_SENTRY_DSN`             | No       | `warn-only`       | `none`    |
-| `sentry-error-tracking` | `error-tracking`       | `SENTRY_ENVIRONMENT`                 | No       | `warn-only`       | `none`    |
-| `sentry-error-tracking` | `error-tracking`       | `SENTRY_TRACES_SAMPLE_RATE`          | No       | `warn-only`       | `none`    |
-| `stripe-checkout`       | `payments`             | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes      | `warn-only`       | `visual`  |
-| `stripe-checkout`       | `payments`             | `STRIPE_SECRET_KEY`                  | Yes      | `feature-runtime` | `visual`  |
-| `supabase-auth`         | `auth`                 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Yes      | `feature-runtime` | `visual`  |
-| `supabase-auth`         | `auth`                 | `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | `feature-runtime` | `visual`  |
+| Dossier                | Capability             | Key                                  | Required | Enforcement       | F2 mock   |
+| ---------------------- | ---------------------- | ------------------------------------ | -------- | ----------------- | --------- |
+| `ai-tool-calling-chat` | `ai-tool-calling`      | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
+| `clerk-auth`           | `auth`                 | `CLERK_SECRET_KEY`                   | Yes      | `build`           | `visual`  |
+| `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`  | Yes      | `build`           | `visual`  |
+| `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL`      | No       | `warn-only`       | `visual`  |
+| `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_UP_URL`      | No       | `warn-only`       | `visual`  |
+| `mailchimp-newsletter` | `newsletter-subscribe` | `MAILCHIMP_API_KEY`                  | Yes      | `feature-runtime` | `success` |
+| `mailchimp-newsletter` | `newsletter-subscribe` | `MAILCHIMP_AUDIENCE_ID`              | Yes      | `feature-runtime` | `success` |
+| `mailchimp-newsletter` | `newsletter-subscribe` | `MAILCHIMP_DC`                       | No       | `warn-only`       | `success` |
+| `openai-chat`          | `ai-chat`              | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
+| `postgres-drizzle`     | `database`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `seed`    |
+| `rag-chat`             | `rag-chat`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `canned`  |
+| `rag-chat`             | `rag-chat`             | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
+| `resend-contact-form`  | `contact-form`         | `CONTACT_EMAIL_TO`                   | Yes      | `feature-runtime` | `success` |
+| `resend-contact-form`  | `contact-form`         | `EMAIL_FROM`                         | Yes      | `feature-runtime` | `success` |
+| `resend-contact-form`  | `contact-form`         | `RESEND_API_KEY`                     | Yes      | `feature-runtime` | `success` |
+| `sanity-cms`           | `cms`                  | `NEXT_PUBLIC_SANITY_API_VERSION`     | No       | `warn-only`       | `seed`    |
+| `sanity-cms`           | `cms`                  | `NEXT_PUBLIC_SANITY_DATASET`         | Yes      | `feature-runtime` | `seed`    |
+| `sanity-cms`           | `cms`                  | `NEXT_PUBLIC_SANITY_PROJECT_ID`      | Yes      | `feature-runtime` | `seed`    |
+| `sanity-cms`           | `cms`                  | `NEXT_PUBLIC_SANITY_STUDIO_URL`      | No       | `warn-only`       | `seed`    |
+| `sanity-cms`           | `cms`                  | `SANITY_API_TOKEN`                   | No       | `feature-runtime` | `seed`    |
+| `stripe-checkout`      | `payments`             | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes      | `warn-only`       | `visual`  |
+| `stripe-checkout`      | `payments`             | `STRIPE_SECRET_KEY`                  | Yes      | `feature-runtime` | `visual`  |
+| `supabase-auth`        | `auth`                 | `NEXT_PUBLIC_SUPABASE_ANON_KEY`      | Yes      | `feature-runtime` | `visual`  |
+| `supabase-auth`        | `auth`                 | `NEXT_PUBLIC_SUPABASE_URL`           | Yes      | `feature-runtime` | `visual`  |
 
 ## Control-plane registry
 

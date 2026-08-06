@@ -21,7 +21,6 @@ const noCapabilities: InferredCapabilities = {
   needsPhysics: false,
   needsParallax: false,
   needsPayments: false,
-  needsSubscriptions: false,
   needsCharts: false,
   needsDatabase: false,
   needsAuth: false,

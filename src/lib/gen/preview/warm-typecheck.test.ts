@@ -138,6 +138,11 @@ describe("runPreVmTypecheck against a real provisioned warm cache", () => {
   }
 
   it("passes generated code that imports dossier-supplied SDKs", async () => {
+    // `ably` left this fixture 2026-08-06: ably-realtime is parked, so the
+    // package is no longer dossier-declared and its TS2307 is KEPT (see the
+    // dedicated case below). The suppression set follows the live manifests
+    // (curation owner), not KNOWN_PACKAGES — the pins that remain there serve
+    // legacy-version export, not fresh curation.
     const result = await runPreVmTypecheck({
       scaffoldId: SCAFFOLD_ID,
       force: true,
@@ -150,15 +155,6 @@ describe("runPreVmTypecheck against a real provisioned warm cache", () => {
             'import type { SupabaseClient } from "@supabase/supabase-js";',
             "export function makeClient(): SupabaseClient {",
             '  return createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, "anon");',
-            "}",
-          ].join("\n"),
-        ),
-        file(
-          "lib/ably/client.ts",
-          [
-            'import * as Ably from "ably";',
-            "export function getAblyClient(): Ably.Realtime {",
-            '  return new Ably.Realtime({ authUrl: "/api/ably/auth" });',
             "}",
           ].join("\n"),
         ),
@@ -183,8 +179,45 @@ describe("runPreVmTypecheck against a real provisioned warm cache", () => {
       "@clerk/nextjs",
       "@supabase/ssr",
       "@supabase/supabase-js",
-      "ably",
     ]);
+  }, 120_000);
+
+  it("keeps the unresolved-module error for a parked dossier's SDK (ably)", async () => {
+    // ably-realtime parkerades 2026-08-06 → `ably` är inte längre en kuraterad
+    // dossier-dependency, så pre-VM-passet får inte längre svälja dess TS2307.
+    const result = await runPreVmTypecheck({
+      scaffoldId: SCAFFOLD_ID,
+      force: true,
+      cacheDirOverride: cacheDir,
+      files: [
+        file("lib/ably/client.ts", 'import * as Ably from "ably";\nexport default Ably;\n'),
+      ],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toEqual(["TS2307"]);
+    expect(result.suppressedModules ?? []).toEqual([]);
+  }, 120_000);
+
+  it("keeps the unresolved-module error for a parked database SDK (mongodb)", async () => {
+    // mongodb-atlas parkerades 2026-08-06 → `mongodb` är inte längre en
+    // kuraterad dossier-dependency, så pre-VM-passet får inte längre svälja
+    // dess TS2307 (samma mönster som ably ovan).
+    const result = await runPreVmTypecheck({
+      scaffoldId: SCAFFOLD_ID,
+      force: true,
+      cacheDirOverride: cacheDir,
+      files: [
+        file(
+          "lib/db/mongo.ts",
+          'import { MongoClient } from "mongodb";\nexport const client = new MongoClient("mongodb://demo");\n',
+        ),
+      ],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toEqual(["TS2307"]);
+    expect(result.suppressedModules ?? []).toEqual([]);
   }, 120_000);
 
   it("still reports real type errors in the same run", async () => {
@@ -193,7 +226,16 @@ describe("runPreVmTypecheck against a real provisioned warm cache", () => {
       force: true,
       cacheDirOverride: cacheDir,
       files: [
-        file("lib/ably/client.ts", 'import * as Ably from "ably";\nexport default Ably;\n'),
+        file(
+          "lib/supabase/client.ts",
+          [
+            'import { createBrowserClient } from "@supabase/ssr";',
+            "export const client = createBrowserClient(",
+            '  process.env.NEXT_PUBLIC_SUPABASE_URL!,',
+            '  "anon",',
+            ");",
+          ].join("\n"),
+        ),
         file(
           "app/broken/page.tsx",
           'const label: number = "not a number";\nexport default function Page() {\n  return <main>{label}</main>;\n}\n',
@@ -203,7 +245,7 @@ describe("runPreVmTypecheck against a real provisioned warm cache", () => {
 
     expect(result.ok).toBe(false);
     expect(result.diagnostics.map((d) => d.code)).toEqual(["TS2322"]);
-    expect(result.suppressedModules).toEqual(["ably"]);
+    expect(result.suppressedModules).toEqual(["@supabase/ssr"]);
   }, 120_000);
 
   it("reports an unresolved package that no dossier declares", async () => {

@@ -1,5 +1,6 @@
 import type { AutoFixEntry } from "./pipeline";
-import { getAllDossiers } from "@/lib/gen/dossiers/registry";
+import { getAllDossiers, getDossierById } from "@/lib/gen/dossiers/registry";
+import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
 
@@ -266,24 +267,29 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@ai-sdk/fal": "^3",
   "@ai-sdk/react": "^4",
   // Dossier wave 2 (legacy import 2026-07-08, capability `database`):
-  // postgres-drizzle (default), neon-postgres, mongodb-atlas. Majors verified
-  // against the npm registry 2026-07-08 (`npm view <pkg> version`).
-  // The final legacy wave (`rag-chat`, capability `rag-chat`) introduces no
-  // new packages: its stack (ai + @ai-sdk/openai + @ai-sdk/react above,
-  // drizzle-orm/pg/@types/pg/server-only below) is fully covered here —
-  // locked by the rag-chat case in `dep-completer.test.ts`.
+  // postgres-drizzle is the sole live dossier (neon-postgres / mongodb-atlas
+  // parked 2026-08-06). Majors verified against the npm registry 2026-07-08
+  // (`npm view <pkg> version`). The final legacy wave (`rag-chat`, capability
+  // `rag-chat`) introduces no new packages: its stack (ai + @ai-sdk/openai +
+  // @ai-sdk/react above, drizzle-orm/pg/@types/pg/server-only below) is fully
+  // covered here — locked by the rag-chat case in `dep-completer.test.ts`.
   "drizzle-orm": "^0.45",
   "drizzle-kit": "^0.31",
   "pg": "^8",
   "@types/pg": "^8",
   "server-only": "0.0.1",
+  // neon-postgres / mongodb-atlas (parked 2026-08-06) — the pins stay as an
+  // import-scan fallback for legacy-version code, like ably/@ai-sdk/fal /
+  // @paddle above.
   "@neondatabase/serverless": "^1",
   "mongodb": "^7",
-  // Dossier (legacy import 2026-07-08, capability `subscriptions`):
-  // paddle-billing. Majors verified against the npm registry 2026-07-09
+  // paddle-billing (parked 2026-08-06) — the @paddle pin stays as an
+  // import-scan fallback for legacy-version code, like ably/@ai-sdk/fal above.
+  // Majors verified against the npm registry 2026-07-09
   // (`npm view <pkg> version`). @supabase/ssr is 0.x so we pin the minor.
   // NOTE: @supabase/ssr + @supabase/supabase-js are SHARED with the
-  // supabase-auth dossier (capability `supabase-auth`) — one entry serves both.
+  // supabase-auth dossier (provider sibling under the `auth` capability since
+  // the 2026-07-22 merge) — one entry serves both.
   "@paddle/paddle-node-sdk": "^3",
   "@supabase/ssr": "^0.12",
   "@supabase/supabase-js": "^2",
@@ -304,6 +310,10 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   // Pinned to the platform's own range so the generated site gets the major the
   // vercel-analytics dossier was verified against (repo: ^1.3.1).
   "@vercel/speed-insights": "^1.3.1",
+  // AI Elements catalog dependencies. Keep these pinned so selecting the
+  // corresponding context or graph components cannot fall through to `latest`.
+  tokenlens: "^1",
+  "@xyflow/react": "^12",
 };
 
 /**
@@ -437,14 +447,14 @@ export function parseManifestDependencySpec(raw: string): {
 
 export function resolveCapabilityDependencies(
   requestedCapabilities: string[] | null | undefined,
+  selectedDossierIds?: string[] | null,
 ): Record<string, string> {
   const deps: Record<string, string> = {};
   const capabilities = normalizeCapabilityList(requestedCapabilities);
   if (capabilities.length === 0) return deps;
 
-  const selection = selectDossiersForRequest({ requestedCapabilities: capabilities });
-  for (const selected of selection.selected) {
-    for (const rawPkg of selected.entry.dependencies ?? []) {
+  const collect = (entry: DossierEntry) => {
+    for (const rawPkg of entry.dependencies ?? []) {
       const { pkg, version: manifestVersion } = parseManifestDependencySpec(rawPkg);
       if (!pkg) continue;
       if (isBuiltinPackage(pkg)) continue;
@@ -458,6 +468,30 @@ export function resolveCapabilityDependencies(
         deps[pkg] = manifestVersion?.trim() || "latest";
       }
     }
+  };
+
+  // SM-006: the user's ACTUAL dossier picks take precedence. Re-selecting
+  // from capabilities alone always lands on `defaultForCapability`, which
+  // silently swapped e.g. a chosen supabase-auth for the clerk default and
+  // injected the wrong provider's SDK stack. Capability re-selection stays
+  // only as legacy fallback for capabilities no picked id covers (old
+  // streams/evals without `selectedDossierIds` metadata).
+  const pickedEntries = (selectedDossierIds ?? [])
+    .map((id) => (typeof id === "string" ? getDossierById(id.trim().toLowerCase()) : null))
+    .filter((entry): entry is DossierEntry => entry !== null);
+  const coveredCapabilities = new Set(
+    pickedEntries.map((entry) => entry.capability.toLowerCase()),
+  );
+  for (const entry of pickedEntries) collect(entry);
+
+  const residualCapabilities = capabilities.filter(
+    (capability) => !coveredCapabilities.has(capability),
+  );
+  if (residualCapabilities.length > 0) {
+    const selection = selectDossiersForRequest({
+      requestedCapabilities: residualCapabilities,
+    });
+    for (const selected of selection.selected) collect(selected.entry);
   }
   return deps;
 }
