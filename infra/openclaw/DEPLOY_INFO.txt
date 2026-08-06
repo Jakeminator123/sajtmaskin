@@ -51,8 +51,11 @@ Instance type: Standard (2 GB RAM / 1 CPU)
 
 Disk:
 - Mount path: /root/.openclaw
-- Size: 1 GB or larger (about 0.7 GB is in use on the live instance). A Render
-  disk can be grown but never shrunk, so do not over-provision "just in case".
+- Size: 3 GB (render.yaml). About 0.7 GB is in use on the live instance, so the
+  earlier 1 GB disk was already ~70 % full and agent state only grows. A Render
+  disk can be grown but never shrunk -- growing it needs a manual dashboard
+  edit, since render.yaml does not always re-apply plan/disk to an existing
+  service. The headroom is therefore bought up front, not under pressure.
 
 Required environment variables (see render.yaml for the canonical stubs):
 - OPENCLAW_GATEWAY_TOKEN=<secret>                  (shared with the app)
@@ -204,7 +207,7 @@ Note:    The agent CANNOT diagnose this from inside the container. It reads the
          HOST's /proc, so `free` and `df /` report the Render node's numbers --
          a health check will happily say "28 GB of 64 GB free" and "root fs 84%
          full" while the real ceiling is the plan's 2 GB and the only disk we
-         own is the 1 GB+ mount at /root/.openclaw. Neither number is
+         own is the 3 GB mount at /root/.openclaw. Neither number is
          actionable; the plan's RAM is. Likewise `systemctl`, `ss`, `ufw`,
          `iptables`, `ps` and `free` are absent from node:22-slim, so the audit
          reports them as gaps rather than as a finding about our setup.

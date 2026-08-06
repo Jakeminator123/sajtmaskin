@@ -55,6 +55,8 @@ services:
     disk:
       name: openclaw-sajtagenten-data
       mountPath: /root/.openclaw
-      # ~0.7 GB in use on the live instance (agent state, sessions, codex-home).
-      # A disk can be grown but never shrunk, so start small.
+      # ~0.7 GB in use on the live instance (agent state, sessions, codex-home),
+      # i.e. the previous 1 GB disk was already ~70 % full and agent state only
+      # grows. A Render disk can be grown but never shrunk, so the headroom is
+      # bought once here rather than as a migration under pressure later.
       sizeGB: 3
