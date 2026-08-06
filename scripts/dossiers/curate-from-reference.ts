@@ -28,8 +28,10 @@
  * model, so expect a higher cost and a longer run (the backoffice caller allows
  * up to 300s).
  *
- * NOTE: This is the *only* dossier script. The legacy 16-script pipeline
- * was archived 2026-04-20 to archive/dossiers-legacy-2026-04-20/scripts/.
+ * NOTE: This is the only CURATION script; validation/index/freshness/acceptance
+ * tooling lives beside it in `scripts/dossiers/` (see package.json `dossiers:*`).
+ * The legacy 16-script pipeline was archived 2026-04-20 to
+ * archive/dossiers-legacy-2026-04-20/scripts/.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";

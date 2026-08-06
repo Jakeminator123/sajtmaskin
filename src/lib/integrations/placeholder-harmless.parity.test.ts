@@ -117,15 +117,13 @@ describe("placeholder-harmless × env-fragment parity", () => {
     ).toEqual([]);
   });
 
-  it("lets unique Resend and Sentry use selected-dossier fallback values", () => {
+  it("lets unique Resend use selected-dossier fallback values", () => {
+    // (Sentry lämnade fallet 2026-08-06: sentry-error-tracking parkerades, så
+    // providern är dossierless och täcks av katalog-placeholder-fallet ovan.)
     expect(resolveDossierProvider("resend").status).toBe("unique");
     expect(missingCatalogEnvVars("resend")).toEqual(["CONTACT_EMAIL_TO", "EMAIL_FROM"]);
 
-    expect(resolveDossierProvider("sentry").status).toBe("unique");
-    expect(missingCatalogEnvVars("sentry")).toEqual([
-      "SENTRY_ENVIRONMENT",
-      "SENTRY_TRACES_SAMPLE_RATE",
-    ]);
+    expect(resolveDossierProvider("sentry").status).toBe("dossierless");
   });
 
   it("generates a recognized stub for every uncovered unique-provider env", () => {
@@ -143,12 +141,7 @@ describe("placeholder-harmless × env-fragment parity", () => {
       }
     }
     expect(fallbackKeys).toEqual(
-      expect.arrayContaining([
-        "resend: EMAIL_FROM",
-        "resend: CONTACT_EMAIL_TO",
-        "sentry: SENTRY_ENVIRONMENT",
-        "sentry: SENTRY_TRACES_SAMPLE_RATE",
-      ]),
+      expect.arrayContaining(["resend: EMAIL_FROM", "resend: CONTACT_EMAIL_TO"]),
     );
   });
 });

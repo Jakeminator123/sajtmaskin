@@ -20,21 +20,15 @@ const emptyContracts: PlanContracts = {
   envVars: [],
 };
 
-it("projects unique Sentry and Resend registry contracts from manifests", () => {
+it("projects the unique Resend manifest contract, and the generic registry for dossierless Sentry", () => {
   const resend = integrationRegistryByKey.get("resend");
   expect(resend?.envVars).toEqual(["RESEND_API_KEY", "EMAIL_FROM", "CONTACT_EMAIL_TO"]);
   expect(resend?.setupGuide).toContain("https://resend.com/docs/dashboard/api-keys/introduction");
 
+  // sentry-error-tracking parkerades 2026-08-06 → providern är dossierless och
+  // den generiska registry-definitionen äger kontraktet (manifest > registry).
   const sentry = integrationRegistryByKey.get("sentry");
-  expect(sentry?.envVars).toEqual([
-    "NEXT_PUBLIC_SENTRY_DSN",
-    "SENTRY_ENVIRONMENT",
-    "SENTRY_TRACES_SAMPLE_RATE",
-  ]);
-  expect(sentry?.envVars).not.toContain("SENTRY_DSN");
-  expect(sentry?.setupGuide).toContain(
-    "https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/",
-  );
+  expect(sentry?.envVars).toEqual(["SENTRY_DSN"]);
 });
 
 it("derives build requirements directly from explicit provider approvals", () => {
@@ -214,13 +208,16 @@ describe("deriveTier3BuildSpec", () => {
   });
 
   it("keeps a manifest-only provider emitted by the agent contract", () => {
+    // Fixture moved from fal → mailchimp when fal-image-generation was parked
+    // (2026-08-06): mailchimp exists ONLY as a dossier-manifest provider, so
+    // it still exercises the manifest-only path.
     const spec = deriveTier3BuildSpec({
       ...emptyContracts,
       integrations: [
         {
-          provider: "fal",
-          name: "Fal",
-          reason: "image generation",
+          provider: "mailchimp",
+          name: "Mailchimp",
+          reason: "newsletter",
           status: "chosen",
           envVars: [],
         },
@@ -229,11 +226,11 @@ describe("deriveTier3BuildSpec", () => {
 
     expect(spec.requirements).toHaveLength(1);
     expect(spec.requirements[0]).toMatchObject({
-      key: "fal",
-      provider: "fal",
-      featureRuntimeEnvKeys: ["FAL_API_KEY"],
+      key: "mailchimp",
+      provider: "mailchimp",
     });
-    expect(spec.requirements[0].buildInstructions.join("\n")).toContain("fal-image-generation");
+    expect(spec.requirements[0].featureRuntimeEnvKeys).toContain("MAILCHIMP_API_KEY");
+    expect(spec.requirements[0].buildInstructions.join("\n")).toContain("mailchimp-newsletter");
   });
 
   it("keeps dossierless registry integrations non-blocking", () => {
