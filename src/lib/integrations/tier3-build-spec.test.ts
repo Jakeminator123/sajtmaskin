@@ -91,9 +91,16 @@ describe("providerKeysWithoutBackingDossier (coach edge case on #503)", () => {
     expect(providerKeysWithoutBackingDossier(["google-analytics"])).toEqual(["google-analytics"]);
   });
 
-  it("does NOT flag dossier-backed providers (stripe, mongodb)", () => {
+  it("does NOT flag uniquely dossier-backed providers (stripe)", () => {
     expect(providerKeysWithoutBackingDossier(["stripe"])).toEqual([]);
-    expect(providerKeysWithoutBackingDossier(["mongodb"])).toEqual([]);
+  });
+
+  it("flags mongodb as dossierless after etapp 3 parking", () => {
+    // mongodb-atlas parked 2026-08-06 → registry row remains, no backing
+    // dossier. Generic LLM path (same class as posthog).
+    expect(providerKeysWithoutBackingDossier(["mongodb"])).toEqual(["mongodb"]);
+    expect(mapProviderKeysToBackingDossierIds(["mongodb"])).toEqual([]);
+    expect(mapProviderKeysToDossierCapabilities(["mongodb"])).toEqual([]);
   });
 
   it("flags ambiguous providers instead of choosing an implicit dossier", () => {

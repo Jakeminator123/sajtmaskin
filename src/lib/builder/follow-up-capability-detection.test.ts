@@ -707,10 +707,9 @@ describe("detectFollowUpCapabilities — parked capabilities stay undetected", (
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Dossier wave 2 — capability `database` (2026-07-08): postgres-drizzle
-// (default) + neon-postgres + mongodb-atlas share the capability; provider
-// disambiguation happens later in select.ts via manifest relevanceKeywords.
-// Detection only needs to say "the user wants a database".
+// Capability `database` (etapp 3, 2026-08-06): postgres-drizzle is sole
+// dossier. Mongo/Neon brand names still trigger THIS capability — detection
+// only needs to say "the user wants a database"; implementation is ours.
 // ─────────────────────────────────────────────────────────────────────────
 describe("detectFollowUpCapabilities — database", () => {
   it("detects a generic Swedish database ask ('spara ... i en databas')", () => {

@@ -29,10 +29,10 @@ describe("loadEntry copies the manifest mock field (bugbot #468)", () => {
     expect(openaiChat?.mock).toBe("canned");
     const resend = all.find((d) => d.id === "resend-contact-form");
     expect(resend?.mock).toBe("success");
-    const neon = all.find((d) => d.id === "neon-postgres");
-    expect(neon?.mock).toBe("seed");
     const drizzle = all.find((d) => d.id === "postgres-drizzle");
     expect(drizzle?.mock).toBe("seed");
+    // neon-postgres / mongodb-atlas parked 2026-08-06 — seed mock lives on
+    // the sole remaining database dossier above.
     // Taxonomy 2026-07-22: payment/auth surfaces render a full interactive
     // demo surface (mock: visual) instead of a dead placeholder.
     const stripe = all.find((d) => d.id === "stripe-checkout");

@@ -331,22 +331,23 @@ describe("findMissingMockFallbacks (fallback-invariant, etapp 4)", () => {
   });
 
   it("checks EVERY hard dossier — a non-default sibling without mock fails (per-dossier, ägarbeslut 2026-07-12)", () => {
+    // Synthetic siblings (auth shape) — ids are fixtures for the invariant,
+    // not live pool entries.
     const errors = findMissingMockFallbacks([
-      hard("postgres-drizzle", "database", true, "seed"),
-      hard("mongodb-atlas", "database", false, "none"),
-      hard("neon-postgres", "database", false),
+      hard("clerk-auth", "auth", true, "visual"),
+      hard("supabase-auth", "auth", false, "none"),
+      hard("other-auth", "auth", false),
     ]);
     expect(errors).toHaveLength(2);
-    expect(errors[0]).toContain("mongodb-atlas");
-    expect(errors[1]).toContain("neon-postgres");
+    expect(errors[0]).toContain("other-auth");
+    expect(errors[1]).toContain("supabase-auth");
   });
 
   it("passes when every sibling declares a real mock mode", () => {
     expect(
       findMissingMockFallbacks([
-        hard("postgres-drizzle", "database", true, "seed"),
-        hard("mongodb-atlas", "database", false, "seed"),
-        hard("neon-postgres", "database", false, "seed"),
+        hard("clerk-auth", "auth", true, "visual"),
+        hard("supabase-auth", "auth", false, "visual"),
       ]),
     ).toEqual([]);
   });

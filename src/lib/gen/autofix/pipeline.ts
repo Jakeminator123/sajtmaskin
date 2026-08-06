@@ -82,6 +82,14 @@ export interface AutoFixContext {
    */
   requestedCapabilities?: string[];
   /**
+   * Orchestration's ACTUAL dossier picks (`streamMeta.selectedDossierIds`).
+   * Dependency-injection resolves manifests from these first (SM-006) —
+   * capability re-selection alone lands on `defaultForCapability` and can
+   * swap a chosen provider sibling for the default. Optional: absent ids
+   * fall back to capability selection (old streams/evals).
+   */
+  selectedDossierIds?: string[];
+  /**
    * Scaffold id picked by orchestrate. Combined with `variantId` it lets
    * `font-import-fixer` materialize the chosen variant's `fontPairings[0]`
    * into baseline `app/layout.tsx` files instead of relying on the LLM
@@ -1296,6 +1304,7 @@ async function runAutoFixSinglePass(
   // deterministically even if the LLM forgot the imports.
   const capabilityDependencies = resolveCapabilityDependencies(
     context?.requestedCapabilities,
+    context?.selectedDossierIds,
   );
   if (Object.keys(capabilityDependencies).length > 0) {
     allDependencies = { ...capabilityDependencies, ...allDependencies };

@@ -3003,29 +3003,35 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     });
 
     it("BB#f3det1 (Codex P1): an approved SIBLING provider of an already-present capability still runs the LLM round (dossier-id granularity)", async () => {
-      // The parent carries postgres-drizzle (capability `database` present at
-      // capability level). Approving `mongodb` must still exempt the
+      // The parent carries clerk-auth (capability `auth` present at capability
+      // level). Approving exact `supabase-auth` must still exempt the
       // deterministic backstop — capability-granularity would wrongly treat
-      // the postgres sibling as satisfying the MongoDB approval and the
-      // mongodb-atlas dossier would never be injected.
+      // the clerk sibling as satisfying the Supabase approval.
       getEngineChatByIdForRequest.mockResolvedValueOnce({
         id: "chat_1",
         project_id: "app_proj_1",
         scaffold_id: "scaffold_1",
         messages: f3AwaitingHistory("ver_f2_parent", {
-          suggestedProviders: ["mongodb"],
+          suggestedProviders: ["supabase-auth"],
         }),
         orchestration_snapshot: null,
       });
       resolveChatPreferredVersionId.mockResolvedValue("ver_f2_parent");
       getVersionById.mockResolvedValue({ id: "ver_f2_parent", chat_id: "chat_1" });
       resolveFollowUpPreviousFiles.mockResolvedValue([
-        { path: "lib/db/schema.ts", content: "export const schema = {};", language: "ts" },
-        { path: "lib/db/index.ts", content: "export const db = {};", language: "ts" },
-        { path: "drizzle.config.ts", content: "export default {};", language: "ts" },
         {
-          path: "app/api/health/db/route.ts",
-          content: "export async function GET() { return new Response(); }",
+          path: "lib/auth/clerk.ts",
+          content: "export const clerk = {};",
+          language: "ts",
+        },
+        {
+          path: "components/auth-buttons.tsx",
+          content: "export function AuthButtons() { return null; }",
+          language: "tsx",
+        },
+        {
+          path: "middleware.ts",
+          content: "export default function middleware() {}",
           language: "ts",
         },
       ]);
@@ -3034,9 +3040,9 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         spec: {
           requirements: [
             {
-              key: "postgres",
+              key: "clerk",
               requiredRealEnvKeys: [],
-              featureRuntimeEnvKeys: ["DATABASE_URL"],
+              featureRuntimeEnvKeys: ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"],
             },
           ],
         },
@@ -3044,7 +3050,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
       consumeF3ContinuationMarker.mockResolvedValue(true);
       createGenerationPipeline.mockReturnValue(
         buildPipelineStream([
-          { event: "content", data: { text: "<main>Mongo wired</main>" } },
+          { event: "content", data: { text: "<main>Supabase auth wired</main>" } },
           { event: "done", data: { promptTokens: 5, completionTokens: 9 } },
         ]),
       );

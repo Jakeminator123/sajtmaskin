@@ -109,10 +109,10 @@ export function isPlannedDossierCoveredByModelBuiltBlock(params: {
  * Merge a snapshot/presence selection with exact F2-deferred providers.
  *
  * Exact pending identity wins over a snapshot/brief DEFAULT for the same
- * capability (MongoDB must not coexist with a guessed Postgres sibling). Real
- * file evidence may be preserved explicitly: it describes code that actually
- * exists, not a guess, and can therefore legitimately coexist during a
- * provider migration.
+ * capability (supabase-auth must not coexist with a guessed clerk-auth
+ * sibling). Real file evidence may be preserved explicitly: it describes code
+ * that actually exists, not a guess, and can therefore legitimately coexist
+ * during a provider migration.
  */
 export function preferPendingIntegrationDossiers(params: {
   selected: readonly SelectedDossier[];

@@ -257,9 +257,9 @@ export function mergePersistedOrchestrationSnapshots(
   // accumulated across ordinary F2 tweaks, then leave the pending set only
   // once the final persisted version has exact dossier file evidence or the
   // user removed them. `selectedDossierIds` is intent, not delivery proof: a
-  // failed/incomplete F3 round may select MongoDB without persisting its files.
-  // A newly selected sibling replaces the older sibling for the same
-  // capability ("byt MongoDB mot Postgres"); selection permits only one
+  // failed/incomplete F3 round may select supabase-auth without persisting its
+  // files. A newly selected sibling replaces the older sibling for the same
+  // capability ("byt Clerk mot Supabase"); selection permits only one
   // dossier per capability, so retaining both would make F3 build two
   // competing providers.
   if ("mutedDossierIds" in base || "mutedDossierIds" in next) {

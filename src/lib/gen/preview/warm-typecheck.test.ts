@@ -199,7 +199,10 @@ describe("runPreVmTypecheck against a real provisioned warm cache", () => {
     expect(result.suppressedModules ?? []).toEqual([]);
   }, 120_000);
 
-  it("still reports real type errors in the same run", async () => {
+  it("keeps the unresolved-module error for a parked database SDK (mongodb)", async () => {
+    // mongodb-atlas parkerades 2026-08-06 → `mongodb` är inte längre en
+    // kuraterad dossier-dependency, så pre-VM-passet får inte längre svälja
+    // dess TS2307 (samma mönster som ably ovan).
     const result = await runPreVmTypecheck({
       scaffoldId: SCAFFOLD_ID,
       force: true,
@@ -208,6 +211,30 @@ describe("runPreVmTypecheck against a real provisioned warm cache", () => {
         file(
           "lib/db/mongo.ts",
           'import { MongoClient } from "mongodb";\nexport const client = new MongoClient("mongodb://demo");\n',
+        ),
+      ],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics.map((d) => d.code)).toEqual(["TS2307"]);
+    expect(result.suppressedModules ?? []).toEqual([]);
+  }, 120_000);
+
+  it("still reports real type errors in the same run", async () => {
+    const result = await runPreVmTypecheck({
+      scaffoldId: SCAFFOLD_ID,
+      force: true,
+      cacheDirOverride: cacheDir,
+      files: [
+        file(
+          "lib/supabase/client.ts",
+          [
+            'import { createBrowserClient } from "@supabase/ssr";',
+            "export const client = createBrowserClient(",
+            '  process.env.NEXT_PUBLIC_SUPABASE_URL!,',
+            '  "anon",',
+            ");",
+          ].join("\n"),
         ),
         file(
           "app/broken/page.tsx",
@@ -218,7 +245,7 @@ describe("runPreVmTypecheck against a real provisioned warm cache", () => {
 
     expect(result.ok).toBe(false);
     expect(result.diagnostics.map((d) => d.code)).toEqual(["TS2322"]);
-    expect(result.suppressedModules).toEqual(["mongodb"]);
+    expect(result.suppressedModules).toEqual(["@supabase/ssr"]);
   }, 120_000);
 
   it("reports an unresolved package that no dossier declares", async () => {

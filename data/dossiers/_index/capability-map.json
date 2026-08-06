@@ -1,6 +1,6 @@
 {
   "$comment": "View of capability → dossier ids, plus a `groups` view (capability → presentation group, derived from src/lib/builder/dossier-groups.ts) for the backoffice group view. Can be regenerated from either backoffice/pages/dossiers.py (Capability map tab → 'Bygg om') or `npm run dossiers:capability-map:write` (scripts/dossiers/regenerate-capability-map.ts). Runtime walks data/dossiers/{hard,soft}/ directly; this file is for tooling + sanity check during curation.",
-  "generatedAt": "2026-08-06T00:02:10.889Z",
+  "generatedAt": "2026-08-06T15:22:13.452Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -31,8 +31,6 @@
       "dashboard-charts"
     ],
     "database": [
-      "mongodb-atlas",
-      "neon-postgres",
       "postgres-drizzle"
     ],
     "gallery-lightbox": [

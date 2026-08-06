@@ -612,10 +612,10 @@ export default function Page() {
     expect(saved?.lastVersionId).toBe("ver_1");
   });
 
-  it("keeps selected MongoDB pending when the persisted post-merge version has no MongoDB files", async () => {
+  it("keeps selected supabase-auth pending when the persisted post-merge version has no auth files", async () => {
     getChatOrchestrationSnapshot.mockResolvedValueOnce({
-      mutedCapabilities: ["database"],
-      mutedDossierIds: ["mongodb-atlas"],
+      mutedCapabilities: ["auth"],
+      mutedDossierIds: ["supabase-auth"],
     });
 
     await persistOrchestrationSnapshot({
@@ -623,11 +623,11 @@ export default function Page() {
       versionId: "ver_1",
       filesJson: JSON.stringify([{ path: "app/page.tsx" }]),
       orchestrationStreamMeta: {
-        selectedDossierIds: ["mongodb-atlas"],
+        selectedDossierIds: ["supabase-auth"],
         mutedCapabilities: [],
         mutedDossierIds: [],
         // Stale base-version evidence must be overwritten by the final files.
-        fileEvidenceCapabilities: ["database"],
+        fileEvidenceCapabilities: ["auth"],
       },
       lineageHash: null,
       buildIntent: undefined,
@@ -639,27 +639,29 @@ export default function Page() {
     >;
     expect(saved.fileEvidenceCapabilities).toEqual([]);
     expect(saved.fileEvidenceDossierIds).toEqual([]);
-    expect(saved.mutedCapabilities).toEqual(["database"]);
-    expect(saved.mutedDossierIds).toEqual(["mongodb-atlas"]);
+    expect(saved.mutedCapabilities).toEqual(["auth"]);
+    expect(saved.mutedDossierIds).toEqual(["supabase-auth"]);
   });
 
-  it("clears pending capability and exact id when the persisted version has MongoDB files", async () => {
+  it("clears pending capability and exact id when the persisted version has supabase-auth files", async () => {
     getChatOrchestrationSnapshot.mockResolvedValueOnce({
-      mutedCapabilities: ["database"],
-      mutedDossierIds: ["mongodb-atlas"],
+      mutedCapabilities: ["auth"],
+      mutedDossierIds: ["supabase-auth"],
     });
 
     await persistOrchestrationSnapshot({
       chatId: "chat_1",
       versionId: "ver_1",
       filesJson: JSON.stringify([
-        { path: "lib/mongodb.ts" },
-        { path: "lib/seed-data.ts" },
-        { path: "components/db-config-notice.tsx" },
-        { path: "app/api/health/db/route.ts" },
+        // Same presence set as version-presence.test.ts (all server files +
+        // distinctive supabase helpers).
+        { path: "middleware.ts" },
+        { path: "lib/supabase/middleware.ts" },
+        { path: "lib/supabase/server.ts" },
+        { path: "app/api/auth/callback/route.ts" },
       ]),
       orchestrationStreamMeta: {
-        selectedDossierIds: ["mongodb-atlas"],
+        selectedDossierIds: ["supabase-auth"],
         mutedCapabilities: [],
         mutedDossierIds: [],
         fileEvidenceCapabilities: [],
@@ -672,8 +674,8 @@ export default function Page() {
       string,
       unknown
     >;
-    expect(saved.fileEvidenceCapabilities).toEqual(["database"]);
-    expect(saved.fileEvidenceDossierIds).toEqual(["mongodb-atlas"]);
+    expect(saved.fileEvidenceCapabilities).toEqual(["auth"]);
+    expect(saved.fileEvidenceDossierIds).toEqual(["supabase-auth"]);
     expect(saved.mutedCapabilities).toEqual([]);
     expect(saved.mutedDossierIds).toEqual([]);
   });

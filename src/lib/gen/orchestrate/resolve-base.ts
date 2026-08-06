@@ -631,9 +631,9 @@ export async function resolveOrchestrationBase(
         // "användaren valde det här syskonet nu" och låter det ersätta ett
         // tidigare syskon för samma capability. En neutral uppföljning ("gör
         // rubriken större") bär ingen providerhint, men capability-floor:en
-        // håller kvar `database` — så en ofiltrerad selektion hade skickat
-        // capability-defaulten `postgres-drizzle` och tyst skrivit över ett
-        // tidigare valt `mongodb-atlas`. Ett utelämnat id är ofarligt: F3
+        // håller kvar `auth` — så en ofiltrerad selektion hade skickat
+        // capability-defaulten `clerk-auth` och tyst skrivit över ett
+        // tidigare valt `supabase-auth`. Ett utelämnat id är ofarligt: F3
         // faller tillbaka på `mutedCapabilities` och därmed på samma default.
         mutedDossierIds = selectDossiersForRequest({
           requestedCapabilities: mutedCapabilities,
@@ -709,9 +709,9 @@ export async function resolveOrchestrationBase(
       }
       // Same prompt surface as the F2 filter above, PLUS the approved-provider
       // hints from an F3 approval round: the raw approval text ("Godkänn")
-      // has no provider keyword, so without the hints an approved MongoDB
-      // build would silently receive the postgres-drizzle default under
-      // `database` (Codex P1 on PR #445).
+      // has no provider keyword, so without the hints an approved supabase
+      // auth build would silently receive the clerk-auth default under
+      // `auth` (Codex P1 on PR #445 — same sibling-pin pattern).
       const providerHintText = (input.dossierProviderHints ?? [])
         .filter((hint): hint is string => typeof hint === "string" && hint.trim().length > 0)
         .join(" ");
@@ -737,8 +737,8 @@ export async function resolveOrchestrationBase(
           input.lifecycleStage === "integrations" ||
           removedCapabilities.length > 0,
         // Lets sibling dossiers under one capability resolve on explicit
-        // provider intent via manifest relevanceKeywords (e.g. "MongoDB" →
-        // mongodb-atlas instead of the postgres-drizzle default).
+        // provider intent via manifest relevanceKeywords (e.g. "logga in med
+        // supabase" → supabase-auth instead of the clerk-auth default).
         promptText: dossierSelectionPromptText,
         // Project-scoped `configured` signal (fix-isconfigured): use the
         // project's stored env keys, not the platform process.env.
