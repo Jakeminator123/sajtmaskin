@@ -6,10 +6,10 @@
  * .cursor/, rotated logs and timestamped env-backups.
  *
  * Why this exists:
- * `.tmp/`, `logs/*`, `.env-backups/` and `.cursor/` scratch are gitignored, so
- * `git clean` in a normal workflow never touches them and they grow unbounded
- * on disk. This is the repeatable "empty them" button the repo-cleanup plan
- * asked for.
+ * `.tmp/`, `logs/*`, `.env-backups/`, `.cursor/` scratch and loose `.tmp-*` /
+ * `scratch-*` files at the repo root are gitignored, so `git clean` in a normal
+ * workflow never touches them and they grow unbounded on disk. This is the
+ * repeatable "empty them" button the repo-cleanup plan asked for.
  *
  * Safety model:
  *   - Dry-run by DEFAULT. Nothing is removed unless you pass --apply.
@@ -61,8 +61,21 @@ const WIPE_FILES = [".eslintcache"];
  * instead of in `.cursor/tmp/`. `.gitignore` hides them from `git status`,
  * which also means nothing else ever sweeps them. Same loose "name contains
  * tmp" match as `.gitignore` — no legitimate `.cursor/` entry contains it.
+ *
+ * The repo root has the same problem for a different set of names: an MCP probe
+ * leaves `.tmp-shadcn-out.txt`, ad-hoc log analysis leaves `scratch-*.mjs`.
+ * Being gitignored is precisely why they linger — they never appear in
+ * `git status`, so the only signal is someone noticing them in the file tree.
+ *
+ * The root pattern is fully anchored and mirrors the three `.gitignore` lines
+ * (`.tmp-*`, `scratch-*.mjs`, `scratch-*.json`) exactly. A looser match at the
+ * root would reach real config files, and matching names git does NOT ignore
+ * would delete work that `git status` was about to show the user.
  */
-const STRAY_TREES = [{ rel: ".cursor", match: /tmp/i, own: new Set(["tmp"]) }];
+const STRAY_TREES = [
+  { rel: ".cursor", match: /tmp/i, own: new Set(["tmp"]) },
+  { rel: ".", match: /^(?:\.tmp-.*|scratch-.*\.(?:mjs|json))$/i, own: new Set() },
+];
 /** Age-based trees: keep newest RETAIN_COUNT + anything younger than RETAIN_DAYS. */
 export const AGE_TREES = [".env-backups"];
 /** logs/ is count-capped (dirs) + loose-file wiped — see pruneLogs / planLogsTree. */
@@ -344,6 +357,13 @@ function createCleaner(root, apply) {
     for (const e of entries) {
       if (!match.test(e.name) || own.has(e.name)) continue; // `own` is WIPE_TREES' job
       const abs = path.join(dir, e.name);
+      // Same trap as wipeTree/collectPruneCandidates: rmSync follows a
+      // junction and empties the TARGET, so a linked stray would delete
+      // somebody else's tree instead of the scratch entry.
+      if (isLinkedPath(abs)) {
+        skippedTracked.push(abs);
+        continue;
+      }
       if (e.isDirectory() ? containsTrackedFile(abs) : isTracked(abs)) {
         skippedTracked.push(abs);
         continue;
