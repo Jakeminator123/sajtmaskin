@@ -14,6 +14,10 @@
 # Cursor exkluderar redan .gitignore + en inbyggd default-lista (binärer,
 # media som *.mp4/*.png, lockfiles, node_modules, .next, __pycache__ …) från
 # indexering. Upprepa inte sådant här — det gör bara filer oläsbara i onödan.
+#
+# Att en fil är gitignorerad räcker INTE som skydd här. Gitignore styr vad som
+# kan committas; den här filen styr vad en agent kan läsa. Secrets som lever
+# lokalt utan att någonsin nå git behöver därför en egen rad nedan.
 
 # --- Secrets (spegel av .gitignore) ---
 # Dessa kan innehålla API-nycklar som annars smugglas in i LLM-kontexten
@@ -34,6 +38,24 @@ vercel-env-deploy.txt
 git_env.txt
 .env*.local
 files_envvars
+# Timestampade env-dumpar från env-cleanup-tooling. `.env.*` matchar INTE
+# katalognamnet, så mapparna låg läsbara: 2026-08-05 innehöll de sm_production.env
+# och team-shared-vars.json från juni — riktiga prod-värden som ett Read hade
+# dragit rakt in i kontexten.
+.env-backups/
+
+# --- Nyckel- och credentialfiler ---
+*.pem
+*.key
+id_rsa*
+**/client_secret*.json
+google-services.json
+.token-status.json
+
+# --- OpenClaw-bryggan ---
+# Agent-till-agent-trafik som regelmässigt citerar env-värden och felutdrag.
+.cursor/openclaw-bridge/
+.cursor/openclaw-bridge-message.txt
 
 # Lokal IDE-MCP-config (kan hålla tokens; mall: .cursor/mcp.json.example)
 .cursor/mcp.json

@@ -48,27 +48,6 @@ def ensure_utf8_stdio() -> None:
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 
-def running_under_streamlit() -> bool:
-    try:
-        from streamlit.runtime.scriptrunner_utils.script_run_context import (
-            get_script_run_ctx,
-        )
-
-        return get_script_run_ctx() is not None
-    except Exception:
-        return False
-
-
-def launch_streamlit_if_needed(app_path: Path, argv: list[str] | None = None) -> None:
-    if running_under_streamlit():
-        return
-    raise SystemExit(
-        subprocess.call(
-            [sys.executable, "-m", "streamlit", "run", str(app_path), *((argv or []))],
-        )
-    )
-
-
 def resolve_command(command: tuple[str, ...]) -> list[str]:
     """Resolve the first argument via PATH (PATHEXT on Windows).
 
@@ -1563,36 +1542,6 @@ def collect_prompt_dump_statuses(
         )
 
     return statuses
-
-
-def format_prompt_dump_status_lines(
-    repo_root: Path,
-    env_value: str | None = None,
-) -> list[str]:
-    statuses = collect_prompt_dump_statuses(repo_root, env_value=env_value)
-    env_display = (
-        env_value
-        if env_value is not None
-        else os.environ.get("SAJTMASKIN_PROMPT_DUMP", "(unset)")
-    )
-
-    lines = [
-        "Prompt-dumps",
-        f"  SAJTMASKIN_PROMPT_DUMP: {env_display}",
-    ]
-    for item in statuses:
-        lines.append(f"  {item['category']}: {item['status']}")
-        lines.append(f"    dumpedAt: {item['dumpedAt'] or 'missing'}")
-        if item["statusUpdatedAt"]:
-            lines.append(f"    statusUpdatedAt: {item['statusUpdatedAt']}")
-        lines.append(
-            "    files: "
-            + (", ".join(item["presentFiles"]) if item["presentFiles"] else "none")
-        )
-        if item["missingFiles"]:
-            lines.append("    missing: " + ", ".join(item["missingFiles"]))
-        lines.append(f"    note: {item['note']}")
-    return lines
 
 
 def _load_manage_env_helpers(manage_env_script: Path):
