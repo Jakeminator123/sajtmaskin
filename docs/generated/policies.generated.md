@@ -9,7 +9,7 @@
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:30f8348d64521b5a -->
-<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:3f8c55bc9d79cd01 -->
+<!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:1df82ad99d801a14 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:1d4c06457cec3a1e -->
 
 # Policies
@@ -178,7 +178,6 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 | Dossier                | Capability             | Key                                  | Required | Enforcement       | F2 mock   |
 | ---------------------- | ---------------------- | ------------------------------------ | -------- | ----------------- | --------- |
-| `ai-tool-calling-chat` | `ai-tool-calling`      | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
 | `clerk-auth`           | `auth`                 | `CLERK_SECRET_KEY`                   | Yes      | `build`           | `visual`  |
 | `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`  | Yes      | `build`           | `visual`  |
 | `clerk-auth`           | `auth`                 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL`      | No       | `warn-only`       | `visual`  |
@@ -188,8 +187,6 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `mailchimp-newsletter` | `newsletter-subscribe` | `MAILCHIMP_DC`                       | No       | `warn-only`       | `success` |
 | `openai-chat`          | `ai-chat`              | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
 | `postgres-drizzle`     | `database`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `seed`    |
-| `rag-chat`             | `rag-chat`             | `DATABASE_URL`                       | Yes      | `feature-runtime` | `canned`  |
-| `rag-chat`             | `rag-chat`             | `OPENAI_API_KEY`                     | Yes      | `feature-runtime` | `canned`  |
 | `resend-contact-form`  | `contact-form`         | `CONTACT_EMAIL_TO`                   | Yes      | `feature-runtime` | `success` |
 | `resend-contact-form`  | `contact-form`         | `EMAIL_FROM`                         | Yes      | `feature-runtime` | `success` |
 | `resend-contact-form`  | `contact-form`         | `RESEND_API_KEY`                     | Yes      | `feature-runtime` | `success` |

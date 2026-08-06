@@ -26,7 +26,7 @@ import { mapDossierPathToOutput } from "../../dossiers/output-path";
  * the codegen LLM's freeform output drifts to stale v4 APIs (`CoreMessage`,
  * `maxSteps`, `chunk.textDelta`), which typecheck-fails the F3 build.
  */
-const AI_SDK_CAPABILITIES = new Set(["ai-chat", "ai-tool-calling", "rag-chat"]);
+const AI_SDK_CAPABILITIES = new Set(["ai-chat"]);
 
 /**
  * Deterministic v4→v5 guardrail for rounds that select an AI-SDK dossier. Kept

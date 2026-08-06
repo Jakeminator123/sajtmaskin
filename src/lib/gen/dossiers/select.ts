@@ -134,20 +134,10 @@ export function expandDependentCapabilities(capabilities: string[]): string[] {
       }
     }
   }
-  let result = out;
-  // `ai-tool-calling` (an AI assistant that calls server-side tools) and
-  // `ai-chat` (a generic chatbot) are overlapping chat surfaces — the brief LLM
-  // routinely nominates both for a single "AI assistant" ask, which injects two
-  // competing chat routes/components (ai-tool-calling-chat's `/api/assistant` +
-  // openai-chat's `/api/chat`) and doubles the env/scope. The more specific
-  // `ai-tool-calling` wins; generic `ai-chat` is dropped. (The former
-  // supabase-auth vs auth dedup is obsolete: both dossiers now share the
-  // `auth` capability, so selection picks exactly one — never two colliding
-  // root middlewares.)
-  if (seen.has("ai-tool-calling") && seen.has("ai-chat")) {
-    result = result.filter((cap) => cap !== "ai-chat");
-  }
-  return result;
+  // Alias-normalization + empty DEPENDENT_CAPABILITIES expansion only.
+  // The former ai-tool-calling ⇒ drop ai-chat dedup died with etapp 4
+  // (ai-tool-calling-chat / rag-chat parked 2026-08-06).
+  return out;
 }
 
 /** Normalize a capability id through the legacy alias map (lowercased). */

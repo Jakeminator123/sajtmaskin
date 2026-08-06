@@ -192,8 +192,15 @@ function findExactDossierInput(raw: string): DossierEntry | undefined {
  * with one claimant left, the INTENT-ambiguity remains even though the
  * registry projection does not. An EXACT `supabase-auth` approval still
  * injects via `findExactDossierInput`.
+ *
+ * `openai` (ägarbeslut #785): the bare key says nothing about
+ * chat / tools / RAG / text-generation. After etapp 4 only openai-chat
+ * remains in the registry, but that registry-uniqueness does NOT resolve
+ * the intent ambiguity — a generic openai approval must NEVER inject
+ * openai-chat deterministically. An EXACT `openai-chat` approval still
+ * injects via `findExactDossierInput`.
  */
-const FORCED_GENERIC_PROVIDER_KEYS = new Set(["supabase"]);
+const FORCED_GENERIC_PROVIDER_KEYS = new Set(["supabase", "openai"]);
 
 /** Injection-decision variant of {@link resolveDossierProvider}: downgrades
  * forced-generic providers to "ambiguous" so no `status === "unique"` branch
@@ -210,7 +217,8 @@ function resolveInjectableProvider(providerKey: string): DossierProviderResoluti
  * A generic provider approval may select a dossier only when the manifest
  * projection resolves to exactly one dossier. Zero matches and multiple
  * matches deliberately map to nothing so F3 cannot inject an arbitrary
- * sibling (for example OpenAI chat vs tool-calling vs RAG).
+ * sibling. Forced-generic keys (`supabase`, `openai`) are treated as
+ * ambiguous even when registry-unique — see FORCED_GENERIC_PROVIDER_KEYS.
  */
 export function mapProviderKeysToDossierCapabilities(providerKeys: string[]): string[] {
   const capabilities = new Set<string>();
@@ -399,8 +407,7 @@ function manifestOnlyGenericDefinition(
     name: name || provider,
     category: "other",
     // Ambiguity must never select one dossier, but metadata common to every
-    // claimant is still safe to surface. Postgres is the motivating case:
-    // both postgres-drizzle and rag-chat require DATABASE_URL.
+    // claimant is still safe to surface (shared env keys across siblings).
     envVars: sharedEnvVars,
     setupGuide:
       sharedEnvVars.length > 0

@@ -158,17 +158,17 @@ function stripeDossier(): SelectedDossier {
   };
 }
 
-function aiToolCallingDossier(): SelectedDossier {
+function openaiChatDossier(): SelectedDossier {
   return {
     entry: {
       class: "hard",
-      id: "ai-tool-calling-chat",
-      label: "AI Tool-Calling Chat Route",
-      capability: "ai-tool-calling",
+      id: "openai-chat",
+      label: "AI-chatt — OpenAI",
+      capability: "ai-chat",
       codeFidelity: "rewritable",
       complexity: "medium",
       defaultForCapability: true,
-      summary: "Streamed chat endpoint with server-side tool calling.",
+      summary: "Streaming chat assistant powered by OpenAI.",
       envVars: [
         {
           key: "OPENAI_API_KEY",
@@ -177,8 +177,8 @@ function aiToolCallingDossier(): SelectedDossier {
           purpose: "OpenAI provider auth.",
         },
       ],
-      dependencies: ["@ai-sdk/openai", "ai", "zod"],
-      files: [{ path: "components/api/assistant/route.ts", role: "server" }],
+      dependencies: ["ai", "@ai-sdk/openai", "@ai-sdk/react"],
+      files: [{ path: "components/api/chat/route.ts", role: "server" }],
       lastVerified: "2026-04-17",
     },
     reason: "capability-match",
@@ -337,17 +337,17 @@ describe("GET dossiers overview", () => {
   // stays "planned" — nothing blocks the build and nothing is live-actionable
   // until the code exists.
   it("marks an undetected hard dossier with only feature-runtime keys as planned", async () => {
-    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([openaiChatDossier()]);
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
 
     const res = await GET(request(), ctx);
     expect(res.status).toBe(200);
     const body = (await res.json()) as DossierOverviewResponse;
 
-    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
-    expect(aiTool?.status).toBe("planned");
-    expect(aiTool?.missingKeys).toEqual([]);
-    expect(aiTool?.missingLiveKeys).toEqual(["OPENAI_API_KEY"]);
+    const openaiChat = body.dossiers.find((d) => d.id === "openai-chat");
+    expect(openaiChat?.status).toBe("planned");
+    expect(openaiChat?.missingKeys).toEqual([]);
+    expect(openaiChat?.missingLiveKeys).toEqual(["OPENAI_API_KEY"]);
     expect(body.counts.planned).toBe(1);
   });
 
@@ -368,11 +368,11 @@ describe("GET dossiers overview", () => {
       setupGuide: "",
       hasConfigNoticeComponent: true,
     };
-    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([openaiChatDossier()]);
     // M#li1: the manifest's server file is in the version, so the only thing
     // separating demo from live in this test is the stored key.
     getVersionFiles.mockResolvedValue([
-      { path: "app/api/assistant/route.ts", content: "// assistant route" },
+      { path: "app/api/chat/route.ts", content: "// chat route" },
     ]);
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [openaiRequirement] });
     validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
@@ -380,10 +380,10 @@ describe("GET dossiers overview", () => {
     // Without a stored real value → demo fallback runs.
     let res = await GET(request(), ctx);
     let body = (await res.json()) as DossierOverviewResponse;
-    let aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
-    expect(aiTool?.status).toBe("built-demo");
-    expect(aiTool?.missingKeys).toEqual([]);
-    expect(aiTool?.missingLiveKeys).toEqual(["OPENAI_API_KEY"]);
+    let openaiChat = body.dossiers.find((d) => d.id === "openai-chat");
+    expect(openaiChat?.status).toBe("built-demo");
+    expect(openaiChat?.missingKeys).toEqual([]);
+    expect(openaiChat?.missingLiveKeys).toEqual(["OPENAI_API_KEY"]);
     expect(body.counts.builtDemo).toBe(1);
     expect(body.counts.builtLive).toBe(0);
 
@@ -391,9 +391,9 @@ describe("GET dossiers overview", () => {
     getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
     res = await GET(request(), ctx);
     body = (await res.json()) as DossierOverviewResponse;
-    aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
-    expect(aiTool?.status).toBe("built-live");
-    expect(aiTool?.missingLiveKeys).toEqual([]);
+    openaiChat = body.dossiers.find((d) => d.id === "openai-chat");
+    expect(openaiChat?.status).toBe("built-live");
+    expect(openaiChat?.missingLiveKeys).toEqual([]);
     expect(body.counts.builtLive).toBe(1);
   });
 
@@ -417,9 +417,9 @@ describe("GET dossiers overview", () => {
       hasConfigNoticeComponent: true,
     };
     getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
-    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([openaiChatDossier()]);
     // The version only contains the client-side mock widget: no manifest
-    // server file (app/api/assistant/route.ts) and no API route at all.
+    // server file (app/api/chat/route.ts) and no API route at all.
     getVersionFiles.mockResolvedValue([
       { path: "components/ai-chat-widget.tsx", content: "// hardcoded canned answers" },
     ]);
@@ -430,18 +430,19 @@ describe("GET dossiers overview", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as DossierOverviewResponse;
 
-    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
-    expect(aiTool?.status).toBe("built-demo");
+    const openaiChat = body.dossiers.find((d) => d.id === "openai-chat");
+    expect(openaiChat?.status).toBe("built-demo");
     expect(body.counts.builtLive).toBe(0);
     expect(body.counts.builtDemo).toBe(1);
   });
 
-  // M#li6 (prod 2026-08-01, chat 7a4d609f): after the follow-up "lägg till
-  // AI-chatbot", F2-mute deferred openai-chat (pending → "Planerad") while a
-  // model-built chat block was already detected in the version's code
-  // ("AI-assistent med verktyg", built) — three posts for two functions. The
-  // planned post must be superseded by the model-built coverage: ONE post,
-  // not two. The pending SIGNAL itself is untouched (view-level filter).
+  // M#li6 (prod 2026-08-01): a planned pending dossier whose function is
+  // already covered by a MODEL-BUILT block must be hidden (view-level). The
+  // original AI-sibling pair (ai-tool-calling built + openai-chat planned,
+  // shared OPENAI_API_KEY) is gone after etapp 4 — no live dossiers share an
+  // env key across capabilities, and same-capability pairs collapse in
+  // preferPending. Lock the view filter with a hand-rolled built block that
+  // shares OPENAI_API_KEY with muted openai-chat (env-overlap join).
   it("hides a planned pending dossier already covered by a model-built block (M#li6)", async () => {
     const openaiRequirement = {
       key: "openai",
@@ -455,9 +456,33 @@ describe("GET dossiers overview", () => {
       setupGuide: "",
       hasConfigNoticeComponent: true,
     };
-    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
-    // F2 deferred the openai-chat dossier (real registry entry: capability
-    // ai-chat, env OPENAI_API_KEY — same vendor surface as the built block).
+    const handRolledAssistant: SelectedDossier = {
+      entry: {
+        class: "hard",
+        id: "hand-rolled-assistant",
+        label: "Hand-rolled AI assistant",
+        capability: "custom-assistant",
+        codeFidelity: "rewritable",
+        complexity: "medium",
+        defaultForCapability: true,
+        summary: "Model-built chat surface sharing OpenAI env.",
+        envVars: [
+          {
+            key: "OPENAI_API_KEY",
+            required: true,
+            enforcement: "feature-runtime",
+            purpose: "OpenAI provider auth.",
+          },
+        ],
+        dependencies: ["ai"],
+        files: [{ path: "components/api/assistant/route.ts", role: "server" }],
+        lastVerified: "2026-04-17",
+      },
+      reason: "capability-match",
+      configured: false,
+    };
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([handRolledAssistant]);
+    // F2 deferred openai-chat (OPENAI_API_KEY — same vendor surface).
     readMutedDossierIdsFromSnapshot.mockReturnValue(["openai-chat"]);
     getVersionFiles.mockResolvedValue([
       { path: "components/ai-chat-widget.tsx", content: "// client mock widget" },
@@ -469,7 +494,7 @@ describe("GET dossiers overview", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as DossierOverviewResponse;
 
-    expect(body.dossiers.map((d) => d.id)).toEqual(["ai-tool-calling-chat"]);
+    expect(body.dossiers.map((d) => d.id)).toEqual(["hand-rolled-assistant"]);
     expect(body.counts.total).toBe(1);
     expect(body.counts.planned).toBe(0);
   });
@@ -491,11 +516,12 @@ describe("GET dossiers overview", () => {
       hasConfigNoticeComponent: true,
     };
     getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
-    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
-    // Model-built route at a non-manifest path, reading the dossier's key.
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([openaiChatDossier()]);
+    // Model-built route at a non-manifest path (not openai-chat's
+    // app/api/chat/route.ts), reading the dossier's key.
     getVersionFiles.mockResolvedValue([
       {
-        path: "app/api/chat/route.ts",
+        path: "app/api/ai-assistant/route.ts",
         content: "const key = process.env.OPENAI_API_KEY;\n",
       },
     ]);
@@ -506,8 +532,8 @@ describe("GET dossiers overview", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as DossierOverviewResponse;
 
-    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
-    expect(aiTool?.status).toBe("built-live");
+    const openaiChat = body.dossiers.find((d) => d.id === "openai-chat");
+    expect(openaiChat?.status).toBe("built-live");
     expect(body.counts.builtLive).toBe(1);
   });
 
@@ -528,10 +554,10 @@ describe("GET dossiers overview", () => {
       hasConfigNoticeComponent: true,
     };
     getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
-    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([openaiChatDossier()]);
     getVersionFiles.mockResolvedValue([
       {
-        path: "app/api/chat/route.ts",
+        path: "app/api/ai-assistant/route.ts",
         content: "const key = process.env.NEXT_PUBLIC_OPENAI_API_KEY;\n",
       },
     ]);
@@ -542,8 +568,8 @@ describe("GET dossiers overview", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as DossierOverviewResponse;
 
-    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
-    expect(aiTool?.status).toBe("built-demo");
+    const openaiChat = body.dossiers.find((d) => d.id === "openai-chat");
+    expect(openaiChat?.status).toBe("built-demo");
     expect(body.counts.builtLive).toBe(0);
   });
 
@@ -563,10 +589,10 @@ describe("GET dossiers overview", () => {
       hasConfigNoticeComponent: true,
     };
     getStoredProjectEnvVarMap.mockResolvedValue({ OPENAI_API_KEY: "sk-real-key" });
-    resolveSelectedDossiersFromSnapshot.mockReturnValue([aiToolCallingDossier()]);
+    resolveSelectedDossiersFromSnapshot.mockReturnValue([openaiChatDossier()]);
     getVersionFiles.mockResolvedValue([
       {
-        path: "app/api/chat/route.ts",
+        path: "app/api/ai-assistant/route.ts",
         content:
           "// TODO: wire OPENAI_API_KEY later\nexport async function POST() { return Response.json({ reply: 'canned' }); }\n",
       },
@@ -578,8 +604,8 @@ describe("GET dossiers overview", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as DossierOverviewResponse;
 
-    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
-    expect(aiTool?.status).toBe("built-demo");
+    const openaiChat = body.dossiers.find((d) => d.id === "openai-chat");
+    expect(openaiChat?.status).toBe("built-demo");
     expect(body.counts.builtLive).toBe(0);
   });
 
@@ -599,7 +625,7 @@ describe("GET dossiers overview", () => {
       setupGuide: "",
       hasConfigNoticeComponent: true,
     };
-    const dossier = aiToolCallingDossier();
+    const dossier = openaiChatDossier();
     dossier.entry.envVars = [
       ...(dossier.entry.envVars ?? []),
       {
@@ -613,7 +639,7 @@ describe("GET dossiers overview", () => {
     resolveSelectedDossiersFromSnapshot.mockReturnValue([dossier]);
     getVersionFiles.mockResolvedValue([
       {
-        path: "app/api/chat/route.ts",
+        path: "app/api/ai-assistant/route.ts",
         content: "const url = process.env.NEXT_PUBLIC_APP_URL;\n",
       },
     ]);
@@ -624,8 +650,8 @@ describe("GET dossiers overview", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as DossierOverviewResponse;
 
-    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
-    expect(aiTool?.status).toBe("built-demo");
+    const openaiChat = body.dossiers.find((d) => d.id === "openai-chat");
+    expect(openaiChat?.status).toBe("built-demo");
     expect(body.counts.builtLive).toBe(0);
   });
 
@@ -734,7 +760,7 @@ describe("GET dossiers overview", () => {
     });
     resolveSelectedDossiersFromSnapshot.mockReturnValue([
       stripeDossier(),
-      aiToolCallingDossier(),
+      openaiChatDossier(),
     ]);
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [stripeRequirement] });
     validateTier3Readiness.mockReturnValue({ ready: true, missingByIntegration: [] });
@@ -886,31 +912,30 @@ describe("GET dossiers overview", () => {
     expect(body.counts.planned).toBe(1);
   });
 
-  // Canonical version-presence (ai-tool-calling incident): the snapshot floor
-  // is empty (F2-muted) and the provider-key→capability mapping resolves
-  // `openai` to the `ai-chat` default — never `ai-tool-calling`. The dossier
-  // whose files are ACTUALLY in the version (`app/api/assistant/route.ts`) must
+  // Canonical version-presence: the snapshot floor is empty (F2-muted) and
+  // the provider-key→capability mapping alone is not enough. The dossier
+  // whose files are ACTUALLY in the version (`app/api/chat/route.ts`) must
   // still surface via the version-presence union so the panel isn't `total: 0`.
   it("surfaces a dossier from its files in the version when the snapshot floor and provider mapping both miss it", async () => {
     resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
-    // Provider mapping resolves nothing useful for ai-tool-calling.
+    // Provider mapping alone is not version ground truth.
     deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
     mapProviderKeysToDossierCapabilities.mockReturnValue([]);
     // The version's files load, and the presence resolver detects the built
-    // ai-tool-calling route.
+    // openai-chat chat route.
     getVersionFiles.mockResolvedValue([
-      { path: "app/api/assistant/route.ts", content: "// assistant route" },
-      { path: "components/ai-assistant.tsx", content: "// ui" },
+      { path: "app/api/chat/route.ts", content: "// chat route" },
+      { path: "components/chat-panel.tsx", content: "// ui" },
     ]);
-    resolveDossiersPresentInVersion.mockReturnValue([aiToolCallingDossier()]);
+    resolveDossiersPresentInVersion.mockReturnValue([openaiChatDossier()]);
 
     const res = await GET(request(), ctx);
     expect(res.status).toBe(200);
     const body = (await res.json()) as DossierOverviewResponse;
 
-    const aiTool = body.dossiers.find((d) => d.id === "ai-tool-calling-chat");
-    expect(aiTool).toBeDefined();
-    expect(aiTool?.capability).toBe("ai-tool-calling");
+    const openaiChat = body.dossiers.find((d) => d.id === "openai-chat");
+    expect(openaiChat).toBeDefined();
+    expect(openaiChat?.capability).toBe("ai-chat");
     expect(body.counts.total).toBeGreaterThanOrEqual(1);
     // Perf (review round 2): the presence dossier is in the INITIAL union, so
     // the provisional derivation already covered it — no second derive needed.

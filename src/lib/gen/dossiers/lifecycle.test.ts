@@ -233,14 +233,14 @@ describe("resolveDossierLifecycle", () => {
       requirements: [
         requirement({ key: "openai", envKeys: ["OPENAI_API_KEY"] }),
         requirement({
-          key: "rag-chat",
+          key: "stripe",
           envKeys: ["OPENAI_API_KEY", "DATABASE_URL"],
           missingBuildKeys: ["DATABASE_URL"],
         }),
       ],
     });
 
-    expect(result.matchedRequirementKey).toBe("rag-chat");
+    expect(result.matchedRequirementKey).toBe("stripe");
     expect(result.overviewStatus).toBe("blocked-build");
   });
 });

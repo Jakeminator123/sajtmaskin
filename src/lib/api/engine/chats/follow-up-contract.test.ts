@@ -134,12 +134,12 @@ describe("buildFollowUpContract — consolidation (5-1)", () => {
     const contract = buildFollowUpContract({
       snapshot: {
         ...baseSnapshot(),
-        f3ApprovedCapabilities: ["payments", "AI-Tool-Calling", 42, ""],
+        f3ApprovedCapabilities: ["payments", "Ai-Chat", 42, ""],
         f3ApprovedProviders: ["Stripe", "openai", 42, ""],
       },
     });
     // Strings only, trimmed + lowercased.
-    expect(contract.f3ApprovedCapabilities).toEqual(["payments", "ai-tool-calling"]);
+    expect(contract.f3ApprovedCapabilities).toEqual(["payments", "ai-chat"]);
     expect(contract.f3ApprovedProviders).toEqual(["stripe", "openai"]);
   });
 

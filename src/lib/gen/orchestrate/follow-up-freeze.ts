@@ -427,7 +427,7 @@ export function enforceFollowUpCapabilityFloor(
  * In the integrations stage the F2 mute is lifted, so the prompt filter + the
  * can-only-grow floor restore EVERY capability the Deep Brief ever nominated
  * speculatively — turning a one-capability ask into a full-SaaS env wall (prod
- * 2026-07-09: one `ai-tool-calling` ask → 8 hard dossiers / ~40 env keys). An
+ * 2026-07-09: one AI-assistant ask → 8 hard dossiers / ~40 env keys). An
  * F3 build should only wire integrations that are wanted NOW. The allowed set is:
  *
  *   - `explicitCapabilities`: inferred from the CURRENT message + providers the
@@ -436,8 +436,8 @@ export function enforceFollowUpCapabilityFloor(
  *     parent/base version (already built — safe to keep so they still wire up).
  *
  * The allowed set is dependency-expanded (via {@link expandDependentCapabilities};
- * the map is empty since 2026-08-06 but the helper still alias-normalizes and
- * dedupes overlapping picks). Any capability NOT in the allowed set —
+ * the map is empty since 2026-08-06 but the helper still alias-normalizes).
+ * Any capability NOT in the allowed set —
  * a speculative brief/floor entry with no ask, approval, or file evidence — is
  * dropped. Candidates are alias-normalized before the comparison
  * (test-sync finding 2026-07-22): a legacy snapshot id like `supabase-auth`

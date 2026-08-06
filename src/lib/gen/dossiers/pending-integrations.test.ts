@@ -145,6 +145,7 @@ describe("isPlannedDossierCoveredByModelBuiltBlock (M#li6)", () => {
       isPlannedDossierCoveredByModelBuiltBlock({
         planned: { capability: "ai-chat", envKeys: ["OPENAI_API_KEY"] },
         modelBuiltBlocks: [
+          // Stale parked capability id with overlapping env — still covers.
           { capability: "ai-tool-calling", envKeys: ["OPENAI_API_KEY"] },
         ],
       }),
@@ -156,7 +157,7 @@ describe("isPlannedDossierCoveredByModelBuiltBlock (M#li6)", () => {
       isPlannedDossierCoveredByModelBuiltBlock({
         planned: { capability: "newsletter", envKeys: ["MAILCHIMP_API_KEY"] },
         modelBuiltBlocks: [
-          { capability: "ai-tool-calling", envKeys: ["OPENAI_API_KEY"] },
+          { capability: "payments", envKeys: ["STRIPE_SECRET_KEY"] },
         ],
       }),
     ).toBe(false);

@@ -32,7 +32,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NewsletterForm } from "../../../../data/dossiers/hard/mailchimp-newsletter/components/newsletter-form";
 import { DbConfigNotice } from "../../../../data/dossiers/hard/postgres-drizzle/components/db-config-notice";
-import { RagConfigNotice } from "../../../../data/dossiers/hard/rag-chat/components/rag-config-notice";
 
 const HARD_DIR = path.resolve(__dirname, "../../../../data/dossiers/hard");
 
@@ -43,7 +42,6 @@ const HARD_DIR = path.resolve(__dirname, "../../../../data/dossiers/hard");
 const MOUNTED: Record<string, string> = {
   "mailchimp-newsletter/components/newsletter-form.tsx": "denna fil",
   "postgres-drizzle/components/db-config-notice.tsx": "denna fil",
-  "rag-chat/components/rag-config-notice.tsx": "denna fil",
   "resend-contact-form/components/integration-config-notice.tsx":
     "denna fil (via kopie-vakten)",
   "clerk-auth/components/auth-buttons.tsx": "dossier-config-fallback.test.tsx",
@@ -85,8 +83,6 @@ const UNMOUNTABLE: Record<string, string> = {
     "Renderar `ClerkProvider` ur den genererade sajtens beroende; repots alias pekar på en inert stub (`tests/stubs/clerk-nextjs.tsx`), så en montering skulle bevisa stubben. Nyckelgrinden `isLikelyValidClerkPublishableKey` täcks via AuthButtons.",
   "openai-chat/components/chat-panel.tsx":
     "`useChat` från `@ai-sdk/react` kräver en transport och ett strömmande svar; det canned demo-svaret testas där det bor — på routen, i dossier-config-fallback.test.tsx.",
-  "rag-chat/components/chat.tsx":
-    "Samma `useChat`-beroende som openai-chat. Demoytan täcks av RagConfigNotice nedan.",
   "supabase-auth/components/supabase-auth-notice.tsx":
     "Importerar `@/lib/supabase/config`, som dossiern själv levererar — `@` pekar på repots `src/` här, så sökvägen finns inte. Env-grinden bakom notisen täcks av supabase-auth-guards.test.ts.",
   "vercel-analytics/components/analytics-providers.tsx":
@@ -208,15 +204,6 @@ describe("DbConfigNotice — seed-läge (postgres-drizzle)", () => {
     // Seed-läget ska läsa som "inte uppsatt ännu", inte som ett kraschat anrop.
     expect(container.innerHTML).not.toContain("destructive");
     expect(container.textContent).not.toMatch(/fel|error/i);
-  });
-});
-
-describe("RagConfigNotice — setup-yta (rag-chat, mock: canned)", () => {
-  it("renderar utan att krascha och utan destruktiv styling", () => {
-    const { container } = render(<RagConfigNotice />);
-
-    expect(container.textContent?.trim().length ?? 0).toBeGreaterThan(0);
-    expect(container.innerHTML).not.toContain("destructive");
   });
 });
 

@@ -291,7 +291,8 @@ describe("selectDossiersForRequest — relevanceKeywords disambiguation (auth)",
 // ─────────────────────────────────────────────────────────────────────────
 // Dependent capabilities: DEPENDENT_CAPABILITIES is empty since 2026-08-06
 // (subscriptions ⇒ auth-pin left with parked paddle-billing). Expansion is a
-// no-op; alias-normalization + ai-tool-calling/ai-chat dedup still apply.
+// no-op; alias-normalization only. The ai-tool-calling/ai-chat dedup died
+// with etapp 4.
 // ─────────────────────────────────────────────────────────────────────────
 describe("selectDossiersForRequest — dependent capabilities", () => {
   it("selects nothing for the parked subscriptions capability (empty table)", () => {
@@ -340,16 +341,28 @@ describe("selectDossiersForRequest — dependent capabilities", () => {
     expect(result.selected[0]?.reason).toBe("relevance-keyword");
   });
 
-  it("drops generic ai-chat when ai-tool-calling is present — no redundant chatbot", () => {
+  it("keeps ai-chat beside a stale ai-tool-calling id — no dedup after etapp 4", () => {
+    // Parked capability selects nothing; live ai-chat still resolves.
     const result = selectDossiersForRequest({
       requestedCapabilities: ["ai-tool-calling", "ai-chat"],
     });
     const ids = result.selected.map((s) => s.entry.id);
-    expect(ids).toContain("ai-tool-calling-chat");
-    expect(ids).not.toContain("openai-chat");
+    expect(ids).toContain("openai-chat");
+    expect(ids).not.toContain("ai-tool-calling-chat");
   });
 
-  it("keeps ai-chat when ai-tool-calling is NOT requested", () => {
+  it("selects nothing for parked AI sibling capabilities alone", () => {
+    const tool = selectDossiersForRequest({
+      requestedCapabilities: ["ai-tool-calling"],
+    });
+    const rag = selectDossiersForRequest({
+      requestedCapabilities: ["rag-chat"],
+    });
+    expect(tool.selected).toEqual([]);
+    expect(rag.selected).toEqual([]);
+  });
+
+  it("keeps ai-chat when only ai-chat is requested", () => {
     const result = selectDossiersForRequest({
       requestedCapabilities: ["ai-chat"],
     });

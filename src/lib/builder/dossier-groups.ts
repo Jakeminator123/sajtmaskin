@@ -73,9 +73,9 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   payments: "commerce",
   "contact-form": "contact",
   "newsletter-subscribe": "contact",
+  // ai-tool-calling / rag-chat left the map 2026-08-06 with their parked
+  // dossiers (etapp 4) — AI group is openai-chat / `ai-chat` only.
   "ai-chat": "ai",
-  "ai-tool-calling": "ai",
-  "rag-chat": "ai",
   // Search & maps: local site search + map display are key-free demo-first
   // capabilities; command-palette (f.d. command-search) is the cmd+k surface.
   "site-search": "search-maps",
