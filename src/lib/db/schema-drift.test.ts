@@ -276,7 +276,7 @@ describe("schema-drift mellan schema.ts, db-init.mjs och add-performance-indexes
   // väl skapas. Det här testet binder pydatabastest.py till schema.ts så gapet
   // inte kan återuppstå tyst.
   // ───────────────────────────────────────────────────────────────────────
-  const pydbtestSrc = readFile(join(REPO_ROOT, "pydatabastest.py"));
+  const pydbtestSrc = readFile(join(REPO_ROOT, "scripts", "db", "pydatabastest.py"));
 
   function parsePyStringTuple(source: string, varName: string): Set<string> {
     // Matchar `VARNAME[: Tuple[str, ...]] = ( "a", "b", ... )` och plockar ut de

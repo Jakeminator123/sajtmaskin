@@ -2,7 +2,13 @@
 """Behavior tests for pydatabastest's EMPTY-group restart-state decision.
 
 Runs without a DB or pg8000 (pg8000 is imported lazily inside pydatabastest),
-so it is safe in any environment:  python -m unittest test_pydatabastest
+so it is safe in any environment. Run it from THIS directory, so that the
+`from pydatabastest import ...` below resolves via sys.path:
+
+    cd scripts/db ; python -m unittest test_pydatabastest
+
+The gate script itself is CWD-independent and is invoked from the repo root
+(`python scripts/db/pydatabastest.py --ci`); only this test cares about CWD.
 """
 
 import unittest
