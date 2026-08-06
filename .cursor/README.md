@@ -30,6 +30,7 @@ Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler ko
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | [agent-worktree.mdc](rules/agent-worktree.mdc)                     | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
 | [bash-och-pwsh.mdc](rules/bash-och-pwsh.mdc)                       | PowerShell-syntax först; vanliga hårda felkällor på Windows                                                                  |
+| [ema-pr-sparr.mdc](rules/ema-pr-sparr.mdc)                         | Tillfällig ägarspärr: `EmaCodeHero`-PR:er mergas aldrig av en agent, oavsett grönt CI                                        |
 | [git.mdc](rules/git.mdc)                                           | Inga PR:er; commit/push/merge bara på explicit begäran + ignore-filsbefogenhet                                               |
 | [mvp-scope-freeze.mdc](rules/mvp-scope-freeze.mdc)                 | MVP-frys: stabilitet före coolhet — inga nya features, ytor eller UI-element utan uttrycklig begäran                         |
 | [project-phase-priorities.mdc](rules/project-phase-priorities.mdc) | Projektprioritet, grundhygien och tooling-säkerhet (dev vs prod Supabase)                                                    |
