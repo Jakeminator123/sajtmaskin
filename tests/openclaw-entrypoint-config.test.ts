@@ -23,21 +23,45 @@ function toShellPath(value: string): string {
   return value.replace(/\\/g, "/");
 }
 
-/** POSIX shell, needed to execute the entrypoint. Absent on bare Windows. */
-function resolveShell(): string | null {
-  const candidates =
+interface PosixShell {
+  /** Absolute path to `sh`. */
+  path: string;
+  /** Directories prepended to PATH so `tr` and `sed` resolve inside the shell. */
+  toolDirs: string[];
+}
+
+/**
+ * A POSIX shell that can also reach the coreutils the entrypoint calls. Finding
+ * `sh.exe` is not enough on Windows: Git ships it separately from `tr`/`sed`, so
+ * a shell found without its `usr/bin` on PATH fails on the entrypoint's first
+ * `tr` and reports it as a config-generation failure. Probing for the utilities
+ * too means the suite either runs truthfully or skips, never fails on setup.
+ */
+function resolveShell(): PosixShell | null {
+  const gitUsrBin = "C:\\Program Files\\Git\\usr\\bin";
+  const candidates: PosixShell[] =
     process.platform === "win32"
-      ? ["C:\\Program Files\\Git\\usr\\bin\\sh.exe", "C:\\Program Files\\Git\\bin\\sh.exe"]
-      : ["/bin/sh"];
+      ? [
+          { path: `${gitUsrBin}\\sh.exe`, toolDirs: [gitUsrBin] },
+          { path: "C:\\Program Files\\Git\\bin\\sh.exe", toolDirs: [gitUsrBin] },
+        ]
+      : [{ path: "/bin/sh", toolDirs: [] }];
   for (const candidate of candidates) {
     try {
-      execFileSync(candidate, ["-c", "exit 0"], { stdio: "ignore" });
+      execFileSync(candidate.path, ["-c", "command -v tr >/dev/null && command -v sed >/dev/null"], {
+        env: { NODE_ENV: process.env.NODE_ENV ?? "test", PATH: buildShellPath(candidate) },
+        stdio: "ignore",
+      });
       return candidate;
     } catch {
       // try the next candidate
     }
   }
   return null;
+}
+
+function buildShellPath(target: PosixShell): string {
+  return [...target.toolDirs, process.env.PATH ?? ""].join(path.delimiter);
 }
 
 const shell = resolveShell();
@@ -56,6 +80,15 @@ interface GeneratedConfig {
   };
   gateway: {
     mode: string;
+    auth: {
+      mode: string;
+      rateLimit: {
+        maxAttempts: number;
+        windowMs: number;
+        lockoutMs: number;
+        exemptLoopback: boolean;
+      };
+    };
     http: { endpoints: { chatCompletions: { enabled: boolean } } };
   };
 }
@@ -83,10 +116,10 @@ function bootAndReadConfig(env: Record<string, string>): GeneratedConfig {
 
   // Deliberately NOT spreading process.env: a developer with OPENCLAW_MODEL_*
   // set locally would otherwise change what the default case asserts.
-  execFileSync(shell!, [toShellPath(ENTRYPOINT)], {
+  execFileSync(shell!.path, [toShellPath(ENTRYPOINT)], {
     env: {
       NODE_ENV: process.env.NODE_ENV ?? "test",
-      PATH: `${binDir}${path.delimiter}${process.env.PATH ?? ""}`,
+      PATH: `${binDir}${path.delimiter}${buildShellPath(shell!)}`,
       SAJTAGENT_HOME_DIR: toShellPath(home),
       SAJTAGENT_SEED_DIR: toShellPath(seed),
       OPENCLAW_GATEWAY_TOKEN: "test-token",
@@ -149,6 +182,19 @@ describe.skipIf(!shell)("docker-entrypoint.sh config generation", () => {
     const config = bootAndReadConfig({ OPENCLAW_MODEL_FALLBACK: " , , " });
 
     expect(config.agents.defaults.model.fallbacks).toEqual([]);
+  });
+
+  it("writes the failed-auth rate limit explicitly", () => {
+    // Implicit defaults are not enough: `openclaw security audit` reports a
+    // non-loopback gateway without the explicit key as a finding on every run.
+    const config = bootAndReadConfig({});
+
+    expect(config.gateway.auth.rateLimit).toEqual({
+      maxAttempts: 10,
+      windowMs: 60000,
+      lockoutMs: 300000,
+      exemptLoopback: true,
+    });
   });
 
   it("builds allowedOrigins from env without hardcoding a hostname", () => {
