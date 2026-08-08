@@ -160,5 +160,5 @@ Baserat på baseline från 2026-03-18 (`gpt-5.3-codex`, 15 prompts; full suite �
 ## Hänvisningar
 
 - CI-workflow: `.github/workflows/eval-baseline-update.yml`
-- Kvarvarande punkt om CI-gate på PR: `docs/plans/active/Kvarvarande-uppgifter.md` (sök "eval" / "CI-gate")
+- PR-triggad eval-gate saknas medvetet (kostnadsbeslut 2026-04-27) — veckoschemat i `eval-baseline-update.yml` äger baseline-uppdateringen
 - Backoffice-sidan: `backoffice/pages/eval_page.py` (registrerad som `PageSpec("Eval", "Overhead", …)` i `backoffice/pages/__init__.py`)

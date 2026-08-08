@@ -464,8 +464,7 @@
         "docs/evals/"
       ],
       "docsPaths": [
-        "src/lib/gen/eval/README.md",
-        "docs/plans/archived/Kvarvarande-uppgifter.md"
+        "src/lib/gen/eval/README.md"
       ],
       "codeReaders": [
         "backoffice/pages/eval_page.py",

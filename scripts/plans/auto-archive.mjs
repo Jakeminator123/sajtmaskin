@@ -8,8 +8,7 @@
  *
  * Pragmatisk variant: stödjer både YAML-frontmatter `status: ...` och äldre
  * prosa-status ("Status: DONE 2026-04-20", "Status: Stängd", "Status: Closed").
- * Scriptet skippar `Kvarvarande-uppgifter.md`/`README.md`
- * (levande listor som aldrig ska flyttas).
+ * Scriptet skippar `README.md` (levande router som aldrig ska flyttas).
  *
  * Default: dry-run. Visa vilka som SKULLE flyttas. `--apply` kör `git mv`.
  *
@@ -37,7 +36,6 @@ const ARCHIVE_DIR = join(REPO_ROOT, "docs", "plans", "avklarat");
 // lists, master indexes, or canonical pointers.
 const NEVER_ARCHIVE = new Set([
   "README.md",
-  "Kvarvarande-uppgifter.md",
 ]);
 
 // Status patterns that signal a plan is finished. Matched case-insensitively

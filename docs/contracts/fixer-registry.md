@@ -221,5 +221,5 @@ andra försök. Ägare: `src/lib/gen/verify/repair-blockers.ts`.
 
 - `docs/plans/avklarat/repair-loop-hardening.md` — A/B/C/D hardening steps that
   add the LLM phases visible in the registry.
-- `docs/plans/archived/parked/L1-unified-repair-call.md` — future consolidation of the
-  four LLM phases into one call.
+- Parked idea `L1-unified-repair-call` (plan file deleted 2026-08-08, full text in
+  git history) — future consolidation of the four LLM phases into one call.
