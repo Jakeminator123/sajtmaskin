@@ -1873,6 +1873,180 @@ export default function Page() {
     expect(result.preflight.verificationBlocked).toBe(true);
   });
 
+  it("SM-023: stale verifier finding resolved in the MERGED files no longer fails the version (F3)", async () => {
+    // Prod chat 3a6c5472 v3 (2026-08-05): the verifier judged PRE-merge model
+    // output, phase 4 (merge + import-validator + dep-completion) fixed every
+    // blocker in the persisted files_json, but the stale verdict still
+    // terminally failed the paid F3 pass. The post-merge stale-check must
+    // drop a missing-import finding whose symbol IS bound in the final files.
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "missing-resend-import",
+          detail: "app/api/contact/route.ts: uses `Resend` but does not import it.",
+        },
+      ],
+      quality: [],
+    });
+    parseFilesFromContent.mockReturnValue(
+      JSON.stringify([
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            name: "unit-test",
+            version: "0.0.0",
+            private: true,
+            scripts: { dev: "next dev", build: "next build" },
+            dependencies: { next: "15.0.0", react: "19.0.0", "react-dom": "19.0.0" },
+            devDependencies: { typescript: "5.6.0" },
+          }),
+          language: "json",
+        },
+        {
+          path: "src/app/page.tsx",
+          content:
+            "export default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }",
+          language: "tsx",
+        },
+        {
+          path: "app/api/contact/route.ts",
+          content:
+            'import { Resend } from "resend";\nexport async function POST() { const resend = new Resend(process.env.RESEND_API_KEY); return Response.json({ ok: Boolean(resend) }); }',
+          language: "ts",
+        },
+      ]),
+    );
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "premium",
+        previewPolicy: "fidelity3",
+        verificationPolicy: "strict",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(result.preflight.verificationBlocked).toBe(false);
+    expect(failVersionVerification).not.toHaveBeenCalled();
+    expect(result.verifierBlockingFindings).toEqual([]);
+    // The drop is observable (devLog row with the finding id + reason).
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "verifier-pass.stale-findings-dropped",
+        droppedCount: 1,
+      }),
+    );
+  });
+
+  it("SM-023 control: the same finding still fails the version when the merged files do NOT resolve it", async () => {
+    runVerifierPass.mockResolvedValueOnce({
+      blocking: [
+        {
+          id: "missing-resend-import",
+          detail: "app/api/contact/route.ts: uses `Resend` but does not import it.",
+        },
+      ],
+      quality: [],
+    });
+    parseFilesFromContent.mockReturnValue(
+      JSON.stringify([
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            name: "unit-test",
+            version: "0.0.0",
+            private: true,
+            scripts: { dev: "next dev", build: "next build" },
+            dependencies: { next: "15.0.0", react: "19.0.0", "react-dom": "19.0.0" },
+            devDependencies: { typescript: "5.6.0" },
+          }),
+          language: "json",
+        },
+        {
+          path: "src/app/page.tsx",
+          content:
+            "export default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }",
+          language: "tsx",
+        },
+        {
+          path: "app/api/contact/route.ts",
+          content:
+            "export async function POST() { const resend = new Resend(process.env.RESEND_API_KEY); return Response.json({ ok: Boolean(resend) }); }",
+          language: "ts",
+        },
+      ]),
+    );
+
+    const result = await finalizeAndSaveVersion({
+      accumulatedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      chatId: "chat_1",
+      model: "gpt-5.4",
+      buildIntent: "website",
+      buildSpec: {
+        buildIntent: "website",
+        generationMode: "init",
+        changeScope: "redesign",
+        scaffoldId: null,
+        routePlanSummary: "prompt:one-page:/",
+        stylePack: "brand-led",
+        qualityTarget: "premium",
+        previewPolicy: "fidelity3",
+        verificationPolicy: "strict",
+        contextPolicy: "normal",
+        referenceCategories: ["marketing-sites"],
+        forbiddenPatterns: ["leave_bracket_placeholders"],
+        tokenBudgets: {
+          scaffoldChars: 36_000,
+          refsChars: 12_000,
+          systemContextChars: 48_000,
+        },
+        routeRealization: {
+          mode: "full",
+          primaryRoutePath: "/",
+          fullRoutePaths: ["/"],
+          shellRoutePaths: [],
+        },
+      },
+      resolvedScaffold: null,
+      urlMap: {},
+      startedAt: Date.now() - 500,
+    });
+
+    expect(result.preflight.verificationBlocked).toBe(true);
+    expect(result.verifierBlockingFindings).toEqual([
+      expect.objectContaining({ id: "missing-resend-import" }),
+    ]);
+  });
+
   it("WP4: blocks a degenerate (oversized) assembled project and fails the version", async () => {
     // The assembled files_json contains a single multi-MB file (the real
     // credential-deck incident: ~84 KB model output amplified downstream). The
