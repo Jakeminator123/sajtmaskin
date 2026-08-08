@@ -142,10 +142,15 @@ function makeFakePage(overrides: Record<string, unknown> = {}) {
 }
 
 function makeFakeBrowser(page: ReturnType<typeof makeFakePage>) {
-  return {
+  // SM-025: launchCaptureBrowser byter ut `browser.close` mot en wrapper som
+  // släpper launch-grinden, så objektets `close` är inte spy:n efteråt.
+  // Behåll spy-referensen separat och assertera på den.
+  const closeSpy = vi.fn().mockResolvedValue(undefined);
+  const browser = {
     newPage: vi.fn().mockResolvedValue(page),
-    close: vi.fn().mockResolvedValue(undefined),
+    close: closeSpy,
   };
+  return { browser, closeSpy };
 }
 
 describe("captureThumbnailScreenshot", () => {
@@ -157,7 +162,7 @@ describe("captureThumbnailScreenshot", () => {
 
   it("passes the explicit screenshot timeout and closes the browser", async () => {
     const page = makeFakePage();
-    const browser = makeFakeBrowser(page);
+    const { browser, closeSpy } = makeFakeBrowser(page);
     launchMock.mockResolvedValue(browser);
 
     const buf = await captureThumbnailScreenshot("https://site.fly.dev/x", {
@@ -168,7 +173,7 @@ describe("captureThumbnailScreenshot", () => {
     expect(page.screenshot).toHaveBeenCalledWith(
       expect.objectContaining({ type: "jpeg", fullPage: false, timeout: 15_000 }),
     );
-    expect(browser.close).toHaveBeenCalledTimes(1);
+    expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 
   it("wraps a launch failure with the failing stage and preserves the cause", async () => {
@@ -197,7 +202,7 @@ describe("captureThumbnailScreenshot", () => {
           new Error("page.screenshot: Target page, context or browser has been closed"),
         ),
     });
-    const browser = makeFakeBrowser(page);
+    const { browser, closeSpy } = makeFakeBrowser(page);
     launchMock.mockResolvedValue(browser);
 
     const err = await captureThumbnailScreenshot("https://site.fly.dev/x", {
@@ -209,14 +214,14 @@ describe("captureThumbnailScreenshot", () => {
 
     expect(err?.message).toMatch(/stage "screenshot"/);
     expect(isTransientCaptureAbort(err)).toBe(true);
-    expect(browser.close).toHaveBeenCalledTimes(1);
+    expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 
   it('wraps a navigation failure with stage "navigate" and still closes the browser', async () => {
     const page = makeFakePage({
       goto: vi.fn().mockRejectedValue(new Error("net::ERR_TIMED_OUT")),
     });
-    const browser = makeFakeBrowser(page);
+    const { browser, closeSpy } = makeFakeBrowser(page);
     launchMock.mockResolvedValue(browser);
 
     const err = await captureThumbnailScreenshot("https://site.fly.dev/x", {
@@ -229,7 +234,7 @@ describe("captureThumbnailScreenshot", () => {
     expect(err).toBeInstanceOf(Error);
     expect(err?.message).toMatch(/stage "navigate"/);
     expect(err?.message).toContain("net::ERR_TIMED_OUT");
-    expect(browser.close).toHaveBeenCalledTimes(1);
+    expect(closeSpy).toHaveBeenCalledTimes(1);
     expect(page.screenshot).not.toHaveBeenCalled();
   });
 });
