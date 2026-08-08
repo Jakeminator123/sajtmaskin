@@ -23,8 +23,9 @@ generationslatens (steg 1–2 levererade via #792/#795-diagnosen; steg 3–4 är
 hydration-reparationskedjan (steg 1–3 levererade via #777/#778; steg 4–5 är
 datablockerade och bor i backloggens repro-sektion). **2026-08-08 stängdes även
 saneringsinitiativet (10 steg):** de mekaniska stegen är levererade — docs
-våg 3 i #853, och megafil-omtaget slutfördes samma kväll i #855–#862 (inga
-källfiler över ~1 200-radstaket kvar) — plankatalogen är raderad och
+våg 3 i #853, och megafil-omtaget slutfördes samma kväll i #855–#862 (ingen
+produktionsfil över ~1 200-radstaket kvar; tester/datafiler var aldrig i
+planens scope) — plankatalogen är raderad och
 initiativet är en rad i [`../avklarat/README.md`](../avklarat/README.md);
 resterna (binärer/embeddings, filter-repo, dependency-katalog, benchmark) bor
 som rader i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). Planlivscykeln ägs av
