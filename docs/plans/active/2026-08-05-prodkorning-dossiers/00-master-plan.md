@@ -42,20 +42,22 @@ importfelen och auto-repair stängdes av just för att fynden var blockerande.
 | F3-tomhetsgrinden | Vägrade grönmarkera passet som inte skrev filer |
 | Infra | 0 runtime-felkluster i appen, DB-pool frisk, `retry_count: 0` på alla versioner |
 
-## Prioritering inför morgondagen
+## Prioritering (avstämd 2026-08-08)
 
-Statuskolumnen nedan är avstämd mot master 2026-08-07, efter #828 och hela
-dossier-förenklingen (etapp 1–4, pool 27 → 18). Förenklingen är levererad och
-indexerad i [`../../avklarat/README.md`](../../avklarat/README.md).
+Efter #828 och dossier-förenklingen (etapp 1–4, pool 27 → 18; indexerad i
+[`../../avklarat/README.md`](../../avklarat/README.md)).
 
 1. **Auto-repair-undertryckandet** ([`01-dossiers.md`](01-dossiers.md) § A4) —
    allt annat mäts fel så länge deterministiskt fixbara blockerare får döda
-   versioner. **Kvar.**
+   versioner. **Öppen PR #839** (SM-023, stale-check av verifier-dom) +
+   SM-024-branch `fix/sm024-diagnostic-only-deterministic-repair` på väg upp —
+   **inte levererat förrän merge**.
 2. ~~**MapLibre-importen** (§ A1)~~ — **levererad i #828**, tillsammans med
    acceptansmatrisens täckning av soft-dossiers med filer och F3-planblockets
    förbud mot suggestion-only-rundor (§ A2:s åtgärdsspår a).
 3. **`package.json`-kontraktet i F3** (§ A3) — ensam orsak till hälften av
-   blockerarna i den underkända versionen. **Kvar.**
+   blockerarna i den underkända versionen. Relaterat arbete syns i samma
+   verifier-/repair-spår som A4 (**öppen PR #839**); markera inte klart före merge.
 4. **OpenClaw auto-send-effekten** ([`02-defekter-pipeline.md`](02-defekter-pipeline.md) § B1)
    — gör hela armerade autonomin obrukbar; orsaken är en beroendelista.
 5. **Typecheck-advisory-policyn** (§ A5) — ägarbeslut, inte bugg: ska

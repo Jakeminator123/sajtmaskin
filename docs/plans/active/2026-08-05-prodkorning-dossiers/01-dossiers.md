@@ -90,6 +90,9 @@ aldrig ersättas (merge-kontrakt i finalize eller autofixer); (b) överväg
 versionspinnar i dossier-manifestens `dependencies` så modellen inte väljer
 majors själv.
 
+**Status 2026-08-08:** relaterat arbete i **öppen PR #839** (SM-023) — markera
+inte levererat före merge.
+
 ## A4 — Auto-repair undertrycks exakt när den behövs (hög, policyfel)
 
 v3 föll på fyra blockerare. Två var triviala saknade importer (`FormEvent`,
@@ -108,6 +111,10 @@ undertryckandet här är en separat kodväg, inte env-flaggan.
 **Åtgärdsspår:** låt mekaniska fixers (import-validator m.fl.) köra även när
 verifier-blockerare finns; undertryck bara **LLM**-reparationen. Kräver att
 någon skiljer fixer-klasserna åt i `server-verify.ts`-vägen.
+
+**Status 2026-08-08:** **öppen PR #839** (SM-023, stale-check av verifier-dom)
++ SM-024-branch `fix/sm024-diagnostic-only-deterministic-repair` på väg upp —
+inte levererat före merge.
 
 ## A5 — Typecheck-advisory släpper igenom trasiga dossier-funktioner (ägarbeslut)
 
