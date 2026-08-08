@@ -86,6 +86,7 @@ Radräkning mot master (`(Get-Content … | Measure-Object -Line).Lines`).
 | `BuilderMessageTooling.tsx` | #848 | 15 | Var 1 542; moduler under `builder-message-tooling/` |
 | `PreviewPanelCodeSectionEditors.tsx` | #849 | 47 | Var 1 498; moduler under `code-section-editors/` |
 | `hooks/chat/helpers.ts` | #851 | 48 | Var 1 324; `helpers-*`-moduler i samma mapp |
+| `VersionHistory.tsx` | #852 | 7 | Var 1 271; moduler under `version-history/` |
 | `repair-loop.ts` | — | 1 139 | Under ~1 200-taket (ingen ny split-PR) |
 | `scaffold_wizard.py` | — | 1 137 | Under taket |
 
@@ -100,7 +101,6 @@ Radräkning mot master (`(Get-Content … | Measure-Object -Line).Lines`).
 | `BuilderShellContent.tsx` | 1 432 | Konflikt — 4 master-commits |
 | `autofix/pipeline.ts` | 1 387 | Konflikt — 2 master-commits |
 | `PreviewPanelDossiers.tsx` | 1 280 | Konflikt — 1 master-commit |
-| `VersionHistory.tsx` | 1 271 | **Ren** — split finns klar (`c4ed67c47`) |
 | `preview-host/src/server.js` | 1 213 | Konflikt — 1 master-commit |
 
 `import-validator.ts` (1 187), `audit-modal.tsx` (1 127) och
@@ -108,12 +108,13 @@ Radräkning mot master (`(Get-Content … | Measure-Object -Line).Lines`).
 
 **Inventering 2026-08-08 av `chore/sanering-integration`** (47 commits före,
 86 bakom master; ingen öppen PR): splits för samtliga kvarvarande filer finns
-på branchen, men bara de "rena" ovan applicerar utan konfliktlösning. De tre
-rena togs som #847–#849; resten kräver att spliten görs om (eller rebasas för
-hand) mot dagens fil — cherry-picka dem **inte** rakt av. Samma gäller steg
-9-katalogen (`config/generated-site-dependencies.json`, commit `8305869d1`):
-klar på branchen men i konflikt med `dep-completer.ts`, som fått 6 commits på
-master sedan dess — måste göras om mot dagens dep-completer.
+på branchen, men bara rena appliceras utan konfliktlösning. Alla fem rena är
+tagna (#847–#849, #851, #852); **samtliga åtta kvarvarande konfliktar** och
+kräver att spliten görs om (eller rebasas för hand) mot dagens fil —
+cherry-picka dem **inte** rakt av. Samma gäller steg 9-katalogen
+(`config/generated-site-dependencies.json`, commit `8305869d1`): klar på
+branchen men i konflikt med `dep-completer.ts`, som fått 6 commits på master
+sedan dess — måste göras om mot dagens dep-completer.
 
 ## Klart-kriterium
 
