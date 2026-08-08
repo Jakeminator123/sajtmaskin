@@ -1,7 +1,7 @@
 ---
 status: active
 owner: unassigned
-topic: Dossier-kedjans fem defekter från prod-körningen 2026-08-05 + kontraktsinsikter. A1 (MapLibre) och A3 (package.json) är mekaniska; A4 (auto-repair) och A5 (advisory-policy) styr allt annat.
+topic: Dossier-kedjans fem defekter från prod-körningen 2026-08-05 + kontraktsinsikter. A1/A3/A4 levererade (#828/#839/#842, arkivrader SM-023/SM-024); A2 spår a levererat (#828); A5 kvar som ägarbeslut.
 created: 2026-08-05
 source: Live-körning chatId 3a6c5472 + /logg. Versioner: edc7ea62 (v1, promotad, trasig karta), d46e89a7 (v2, promotad, demo-chatt), e0d6cc0e (v3, F3, underkänd).
 ---
@@ -90,8 +90,11 @@ aldrig ersättas (merge-kontrakt i finalize eller autofixer); (b) överväg
 versionspinnar i dossier-manifestens `dependencies` så modellen inte väljer
 majors själv.
 
-**Status 2026-08-08:** relaterat arbete i **öppen PR #839** (SM-023) — markera
-inte levererat före merge.
+**Status 2026-08-08:** spår (a) visade sig redan finnas (`mergePackageJsonContent`
+deep-mergar deps/scripts sedan april) — det som fällde v3 var att verifier-domen
+aldrig omprövades mot det mergade innehållet. Det är fixat i **#839** (`SM-023`,
+arkivrad): mekanisk stale-check släpper package.json- och import-fynd som
+bevisat är lösta i persisterade filer. Spår (b) kvarstår som oprioriterad idé.
 
 ## A4 — Auto-repair undertrycks exakt när den behövs (hög, policyfel)
 
@@ -112,9 +115,10 @@ undertryckandet här är en separat kodväg, inte env-flaggan.
 verifier-blockerare finns; undertryck bara **LLM**-reparationen. Kräver att
 någon skiljer fixer-klasserna åt i `server-verify.ts`-vägen.
 
-**Status 2026-08-08:** **öppen PR #839** (SM-023, stale-check av verifier-dom)
-+ SM-024-branch `fix/sm024-diagnostic-only-deterministic-repair` på väg upp —
-inte levererat före merge.
+**Status 2026-08-08: levererad i #842** (`SM-024`, arkivrad) — exakt spåret ovan:
+`runDeterministicRepairPrepass` (extraherad ur repair-loop) körs i
+diagnosticOnly-failed-grenen med supersede-vakt och optimistisk låsning;
+LLM-repair och promotion förblir avstängda.
 
 ## A5 — Typecheck-advisory släpper igenom trasiga dossier-funktioner (ägarbeslut)
 

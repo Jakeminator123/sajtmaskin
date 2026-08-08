@@ -44,22 +44,24 @@ importfelen och auto-repair stängdes av just för att fynden var blockerande.
 
 ## Prioritering (avstämd 2026-08-08)
 
-Efter #828 och dossier-förenklingen (etapp 1–4, pool 27 → 18; indexerad i
-[`../../avklarat/README.md`](../../avklarat/README.md)).
+Avstämd mot master 2026-08-08, efter #828, hela dossier-förenklingen
+(etapp 1–4, pool 27 → 18; indexerad i
+[`../../avklarat/README.md`](../../avklarat/README.md)) samt #839/#842.
 
-1. **Auto-repair-undertryckandet** ([`01-dossiers.md`](01-dossiers.md) § A4) —
-   allt annat mäts fel så länge deterministiskt fixbara blockerare får döda
-   versioner. **Öppen PR #839** (SM-023, stale-check av verifier-dom) +
-   SM-024-branch `fix/sm024-diagnostic-only-deterministic-repair` på väg upp —
-   **inte levererat förrän merge**.
+1. ~~**Auto-repair-undertryckandet** (§ A4)~~ — **levererad i #842** (2026-08-08,
+   `SM-024` i arkivet): den mekaniska prepassen körs nu i diagnosticOnly,
+   LLM-repair och promotion förblir avstängda.
 2. ~~**MapLibre-importen** (§ A1)~~ — **levererad i #828**, tillsammans med
    acceptansmatrisens täckning av soft-dossiers med filer och F3-planblockets
    förbud mot suggestion-only-rundor (§ A2:s åtgärdsspår a).
-3. **`package.json`-kontraktet i F3** (§ A3) — ensam orsak till hälften av
-   blockerarna i den underkända versionen. Relaterat arbete syns i samma
-   verifier-/repair-spår som A4 (**öppen PR #839**); markera inte klart före merge.
+3. ~~**`package.json`-kontraktet i F3** (§ A3)~~ — **rotorsaken levererad i #839**
+   (2026-08-08, `SM-023` i arkivet): deep-merge av `package.json` fanns redan;
+   det som dödade versionen var den inaktuella verifier-domen, som nu
+   stale-checkas mot mergade filer. Residual: åtgärdsspår (b), versionspinnar i
+   dossier-manifestens `dependencies` — oprioriterad idé, ingen defekt.
 4. **OpenClaw auto-send-effekten** ([`02-defekter-pipeline.md`](02-defekter-pipeline.md) § B1)
    — gör hela armerade autonomin obrukbar; orsaken är en beroendelista.
+   Spårad som `SM-026` i backloggen.
 5. **Typecheck-advisory-policyn** (§ A5) — ägarbeslut, inte bugg: ska
    `defect.kind: "compile"` i en verbatim dossier-fil få promotas?
 
