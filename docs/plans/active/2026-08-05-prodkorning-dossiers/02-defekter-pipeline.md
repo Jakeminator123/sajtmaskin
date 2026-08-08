@@ -60,9 +60,16 @@ skickar felsökaren åt fel håll.
 `finally { browser.close() }` och listar exakt detta felmönster som
 `TRANSIENT_ABORT_PATTERNS` i `src/lib/projects/thumbnail-capture.ts`.
 
-**Åtgärdsspår:** (a) rätta skip-klassificeringen (browser-closed ≠
-unavailable); (b) utred delad/konkurrerande Chromium mellan postcheck och
+**Åtgärdsspår:** ~~(a) rätta skip-klassificeringen (browser-closed ≠
+unavailable)~~ — **levererad i #841**: navigeringsmönstret testas nu före
+browser-mönstret, så `page.goto`/`page.evaluate`-fel mot previewen klassas som
+`navigation_failed`. Äkta launch-fel behåller `playwright_unavailable`.
+**Kvar: (b)** utred delad/konkurrerande Chromium mellan postcheck och
 thumbnail (serialisera eller isolera).
+
+Felklassen återkom i prod-körningen 2026-08-08 (chat `1b906aa1`, tre versioner
+i rad) med `page.goto` i stället för `page.evaluate` — samma etikettfel, vilket
+bekräftade rotorsaken innan (a) rättades.
 
 ## B3 — Hydreringsfel shippades trots träff i preflight (medel)
 

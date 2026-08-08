@@ -42,6 +42,35 @@ import {
   resolveCanonicalLivePreviewUrlFromPreviewReadyPayload,
 } from "@/lib/api/preview-url-contract";
 
+export type ProgressPartState = "output-available" | "output-error" | "input-streaming";
+
+/**
+ * Maps an SSE progress `(step, phase)` onto the tool-part state the Agentlogg
+ * renders. Exported purely so the classification is testable — the rest of the
+ * progress plumbing lives in closures inside `createStreamHandlers`.
+ *
+ * `reverted` belongs with the completed phases. The Element Preservation /
+ * shrink guard reverting a file is the guard succeeding: the run continues,
+ * the version is saved and the preview boots. It is surfaced as a warning
+ * (log line + toast), never as a failed step. Note that anything not listed
+ * here renders as an in-progress spinner, so a phase that ends a step must be
+ * classified as completed or failed — not simply dropped from `failed`.
+ */
+export function resolveProgressPartState(step: string, phase: string): ProgressPartState {
+  const completed =
+    phase === "passed" ||
+    phase === "done" ||
+    phase === "reverted" ||
+    (step === "preview" &&
+      (phase === "boot-queued" || phase === "ready" || phase === "build-verified"));
+  if (completed) return "output-available";
+  const failed =
+    phase === "error" ||
+    phase === "gave-up" ||
+    (step === "preview" && phase === "build-failed");
+  return failed ? "output-error" : "input-streaming";
+}
+
 export type StreamContext = {
   streamType: "create" | "send";
   assistantMessageId: string;
@@ -444,7 +473,7 @@ export async function handleSseStream(
         if (!entry || typeof entry !== "object") continue;
         const file = typeof entry.file === "string" ? entry.file : "okänd fil";
         lines.push(
-          `Ändringen i ${file} återställdes eftersom det nya innehållet var kraftigt förkortat (sannolik avhuggen output). Försök igen.`,
+          `Ändringen i ${file} återställdes eftersom det nya innehållet var kraftigt förkortat (sannolik avhuggen output). Föregående version behölls, så inget gick förlorat — be om ändringen igen om den var avsiktlig.`,
         );
       }
       if (lines.length === 0) {
@@ -488,21 +517,11 @@ export async function handleSseStream(
   };
 
   const appendProgressPart = (step: string, phase: string, payload: Record<string, unknown> = {}) => {
-    const completed =
-      phase === "passed" ||
-      phase === "done" ||
-      (step === "preview" &&
-        (phase === "boot-queued" || phase === "ready" || phase === "build-verified"));
-    const failed =
-      phase === "error" ||
-      phase === "gave-up" ||
-      phase === "reverted" ||
-      (step === "preview" && phase === "build-failed");
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: `tool:engine-${step}` as const,
       toolName: getProgressToolName(step),
       toolCallId: `progress:${step}`,
-      state: completed ? "output-available" : failed ? "output-error" : "input-streaming",
+      state: resolveProgressPartState(step, phase),
       output: {
         step,
         phase,
@@ -1312,7 +1331,7 @@ export async function handleSseStream(
               });
               const revertedCount = rejectedStructural.length + rejectedShrinks.length;
               toast.warning(
-                `Ändringsskyddet återställde ${revertedCount} fil(er) — din senaste ändring behölls inte. Se Agentloggen för detaljer.`,
+                `Ändringsskyddet återställde ${revertedCount} fil(er) till föregående version. Se Agentloggen för detaljer.`,
               );
             }
 
