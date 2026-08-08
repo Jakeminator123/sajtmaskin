@@ -17,6 +17,7 @@ import {
   promoteVersion,
   failVersionVerification,
   saveRepairedFiles,
+  updateVersionFiles,
   getChat,
   getLatestVersion,
   getPreferredVersion,
@@ -73,6 +74,7 @@ import {
 import {
   buildGroupedRepairErrorContext,
   buildRepairErrorContextLines,
+  runDeterministicRepairPrepass,
   runRepairLoop,
   type RepairErrorManifest,
 } from "./repair-loop";
@@ -199,11 +201,10 @@ async function isLatestVersionForChat(chatId: string, versionId: string): Promis
  * Fire-and-forget server-side verification + capped repair loop.
  * Called from generation stream after finalize. Does NOT block the SSE response.
  *
- * `diagnosticOnly` (default false) skips both auto-promotion and the
- * auto-repair loop — we only persist quality-gate findings as logs so
- * SSR/build-error visibility exists for whitelisted UIs even when the
- * version has verifier-blocking findings (in which case promotion is
- * disallowed by design).
+ * `diagnosticOnly` (default false) skips auto-promotion and LLM repair.
+ * When the gate has repairable code failures, the mechanical deterministic
+ * prepass still runs and may persist `files_json` improvements (SM-024);
+ * terminal state remains failed because verifier blockers forbid promotion.
  */
 export async function triggerServerVerification(params: {
   chatId: string;
@@ -558,27 +559,107 @@ export async function triggerServerVerification(params: {
     logQualityGateFailuresBestEffort({ chatId, versionId, failedOutputs });
 
     if (diagnosticOnly) {
-      // Diagnostics-only mode: log the failures and return. Do NOT enter
-      // the repair loop — that would mutate the version under
-      // conditions where promotion is forbidden anyway, and would
-      // contribute to the regress-on-repair pattern (see Snickar
-      // Anders log: blocking went from 1 → 3 across two repair passes
-      // because every pass mutated and re-failed). Surfacing the
-      // failures is enough; manual repair via the explicit
-      // `/api/engine/chats/.../repair` HTTP path is still available
-      // for the user.
+      // SM-024: verifier blockers still forbid promotion AND LLM repair
+      // (regress-on-repair: LLM passes can worsen blocking findings). But the
+      // VM gate may have independent, mechanically fixable code failures
+      // (import-repair / autofix). Run that deterministic prepass, persist
+      // improvements into files_json, then fail closed — never promote.
+      let deterministicMeta: {
+        attempted: boolean;
+        contentChanged: boolean;
+        persisted: boolean;
+        importRepairFixCount: number;
+        handledCodes: string[];
+        error?: string;
+      } = {
+        attempted: false,
+        contentChanged: false,
+        persisted: false,
+        importRepairFixCount: 0,
+        handledCodes: [],
+      };
+
+      if (failedOutputs.length > 0) {
+        try {
+          const repairVerbatimRepo = await chatUsesVerbatimRepo(chatId);
+          const exportableForRepair = await buildExportableProject(codeFiles, {
+            verbatimRepo: repairVerbatimRepo,
+          });
+          const initialContent = serializeCodeProject(exportableForRepair);
+          const prepass = await runDeterministicRepairPrepass({
+            initialContent,
+            failedOutputs,
+            previewPolicy,
+            chatId,
+          });
+          deterministicMeta = {
+            attempted: true,
+            contentChanged: prepass.changed,
+            persisted: false,
+            importRepairFixCount: prepass.fixCount,
+            handledCodes: prepass.handledCodes,
+          };
+
+          if (prepass.changed) {
+            const rawRepairedFiles = parseCodeProject(prepass.content).files;
+            const protectedPartition =
+              partitionGeneratedFilesForProtectedPaths(rawRepairedFiles);
+            const reinjection = reinjectProtectedPathsFromFallback({
+              kept: protectedPartition.kept,
+              droppedPaths: protectedPartition.dropped.map((f) => f.path),
+              fallbackFiles: codeFiles,
+            });
+            const repairedFilesJson = JSON.stringify(reinjection.files);
+            if (repairedFilesJson !== baseFilesJson) {
+              const persisted = await updateVersionFiles(versionId, repairedFilesJson, {
+                holderRunId: runId,
+                expectedFilesJson: baseFilesJson,
+              }).catch((err) => {
+                console.warn(
+                  "[server-verify] Failed to persist diagnostic deterministic repair:",
+                  err,
+                );
+                return false;
+              });
+              deterministicMeta.persisted = persisted === true;
+            }
+          }
+        } catch (err) {
+          // Fail-closed: keep today's surface-only path when mechanical repair throws.
+          deterministicMeta = {
+            ...deterministicMeta,
+            attempted: true,
+            error: err instanceof Error ? err.message : String(err),
+          };
+          console.warn(
+            "[server-verify] Deterministic diagnostic repair failed; falling back to surface-only:",
+            err,
+          );
+        }
+      }
+
+      const diagnosticMessage = !deterministicMeta.attempted
+        ? "Server verify gate failed but auto-repair suppressed (verifier blockers already exist; surface findings for inspection only)."
+        : deterministicMeta.error
+          ? "Server verify gate failed; deterministic repair threw (LLM repair suppressed — verifier blockers). Surface findings only."
+          : deterministicMeta.contentChanged
+            ? deterministicMeta.persisted
+              ? "Server verify gate failed; deterministic repair persisted improvements (LLM repair suppressed — verifier blockers forbid promotion)."
+              : "Server verify gate failed; deterministic repair improved content but could not persist (LLM repair suppressed — verifier blockers)."
+            : "Server verify gate failed; deterministic repair ran with no content change (LLM repair suppressed — verifier blockers).";
+
       await createEngineVersionErrorLogs([
         {
           chatId,
           versionId,
           level: "warning",
           category: "server-verify:diagnostic",
-          message:
-            "Server verify gate failed but auto-repair suppressed (verifier blockers already exist; surface findings for inspection only).",
+          message: diagnosticMessage,
           meta: {
             serverOwned: true,
             diagnosticOnly: true,
             failedChecks: failedOutputs.map((f) => f.check),
+            deterministicRepair: deterministicMeta,
           },
         },
       ]).catch(() => null);
