@@ -547,15 +547,25 @@ function resolveNonPromotedEarlyStopReason(params: {
   return "no_improvement";
 }
 
-export async function runRepairLoop<TPayload = unknown>(
-  params: RunRepairLoopParams<TPayload>,
-): Promise<RunRepairLoopResult<TPayload>> {
-  const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
+export type DeterministicRepairPrepassResult = {
+  content: string;
+  changed: boolean;
+  importRepairFixed: boolean;
+  handledCodes: string[];
+  fixCount: number;
+};
 
-  // Initial mechanical pass: repair-loop is invoked from contexts that may not
-  // have already autofixed (verifier rerun, eval). Idempotent if input is
-  // already clean.
-  //
+/**
+ * Mechanical repair prepass shared by the full repair loop and SM-024's
+ * diagnosticOnly path: `runAutoFix` + diagnostic-driven import repair.
+ * Never invokes the LLM fixer.
+ */
+export async function runDeterministicRepairPrepass(params: {
+  initialContent: string;
+  failedOutputs: RepairFailedOutput[];
+  previewPolicy?: BuildSpecPreviewPolicy;
+  chatId?: string;
+}): Promise<DeterministicRepairPrepassResult> {
   // Thread the version's `previewPolicy` so the F2 SDK guard
   // (`tier3-sdk-guard-fixer`) only strips tier-3 backend SDK imports in F2.
   // Without it, an F3/integrations version entering the loop with a gate
@@ -608,6 +618,35 @@ export async function runRepairLoop<TPayload = unknown>(
       cannotFindSummary: importRepair.cannotFindSummary,
     });
   }
+
+  return {
+    content,
+    changed: content !== params.initialContent,
+    importRepairFixed: importRepair.fixed,
+    handledCodes: importRepair.handledCodes,
+    fixCount: importRepair.fixes.length,
+  };
+}
+
+export async function runRepairLoop<TPayload = unknown>(
+  params: RunRepairLoopParams<TPayload>,
+): Promise<RunRepairLoopResult<TPayload>> {
+  const { validateGeneratedCode } = await import("@/lib/gen/retry/validate-syntax");
+
+  // Initial mechanical pass: repair-loop is invoked from contexts that may not
+  // have already autofixed (verifier rerun, eval). Idempotent if input is
+  // already clean.
+  const prepass = await runDeterministicRepairPrepass({
+    initialContent: params.initialContent,
+    failedOutputs: params.failedOutputs,
+    previewPolicy: params.previewPolicy,
+    chatId: params.chatId,
+  });
+  let content = prepass.content;
+  const importRepair = {
+    fixed: prepass.importRepairFixed,
+    handledCodes: prepass.handledCodes,
+  };
 
   let syntaxResult = await validateGeneratedCode(content);
   const initialSyntaxErrorCount = syntaxResult.errors.length;
