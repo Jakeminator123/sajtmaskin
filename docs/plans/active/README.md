@@ -22,11 +22,12 @@ generationslatens (steg 1–2 levererade via #792/#795-diagnosen; steg 3–4 är
 ägarbeslut som nu bor i backloggens beslutssektion) och
 hydration-reparationskedjan (steg 1–3 levererade via #777/#778; steg 4–5 är
 datablockerade och bor i backloggens repro-sektion). **2026-08-08 stängdes även
-saneringsinitiativet (10 steg):** de mekaniska stegen är levererade — sist docs
-våg 3 i #853 — plankatalogen är raderad och initiativet är en rad i
-[`../avklarat/README.md`](../avklarat/README.md); resterna (megafil-omtag,
-binärer/embeddings, filter-repo, dependency-katalog, benchmark) bor som rader i
-[`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). Planlivscykeln ägs av
+saneringsinitiativet (10 steg):** de mekaniska stegen är levererade — docs
+våg 3 i #853, och megafil-omtaget slutfördes samma kväll i #855–#862 (inga
+källfiler över ~1 200-radstaket kvar) — plankatalogen är raderad och
+initiativet är en rad i [`../avklarat/README.md`](../avklarat/README.md);
+resterna (binärer/embeddings, filter-repo, dependency-katalog, benchmark) bor
+som rader i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). Planlivscykeln ägs av
 [`plan-lifecycle.mdc`](../../../.cursor/rules/plan-lifecycle.mdc). Defekter och
 repro-status ägs av [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md);
 kopiera inte dess kö hit.
