@@ -1,16 +1,23 @@
 ---
-status: active
+status: archived
 owner: unassigned
 topic: Steg 2 — själva omdöpningen av logs/llm-segmentts-and-index. Blockerad på MVP-leverans + ägarens namnbeslut. Kräver manuell migrering per maskin.
 created: 2026-08-02
-source: Master-planens riskavsnitt. Förutsätter att steg 1 är levererat.
+source: Master-planens riskavsnitt (git — `git log --follow docs/plans/active/2026-08-02-loggindex-sokvagsagare/00-master-plan.md`). Steg 1 (konsolidera sökvägsägare) är levererat — se raden i ../avklarat/README.md.
 ---
+
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Avklarat-indexet § Loggindex steg 1](../avklarat/README.md)
+>
+> Parkerad, inte skrotad: steg 2 väntar på MVP-leverans + ägarens namnbeslut.
 
 # Steg 2: omdöpningen
 
 ## Blockerad tills två saker är sanna
 
-1. **MVP är levererad.** [`mvp-scope-freeze.mdc`](../../../../.cursor/rules/mvp-scope-freeze.mdc)
+1. **MVP är levererad.** [`mvp-scope-freeze.mdc`](../../../.cursor/rules/mvp-scope-freeze.mdc)
    säger stabilitet före kosmetik, och den här ändringen är ren kosmetik.
 2. **Ägaren har valt målnamn** — och samtidigt avgjort om mappen ska leva vidare
    alls. Konstanten heter `LEGACY_INDEX_DIR`; ska mappen fasas ut är omdöpningen
@@ -19,9 +26,12 @@ source: Master-planens riskavsnitt. Förutsätter att steg 1 är levererat.
 Rekommenderat namn: **`error-log-index`** (innehållet är `error-log.csv`,
 `error-log.ndjson` och `readme.txt` — "llm-segments" beskriver det inte).
 
-**Förutsätter [`01-konsolidera-sokvagsagare.md`](01-konsolidera-sokvagsagare.md).**
-Utan steg 1 är detta en sök-och-ersätt över sju ställen i tre språk med svagt
-skyddsnät — precis det som gör ändringen riskabel.
+**Förutsätter steg 1 (konsolidera sökvägsägare) — levererat, se
+[`../avklarat/README.md`](../avklarat/README.md).** Utan steg 1 vore detta en
+sök-och-ersätt över sju ställen i tre språk med svagt skyddsnät — precis det
+som gör ändringen riskabel. Nu bor sökvägen hos `LEGACY_INDEX_DIR_NAME` (TS)
+och `build_backoffice_context` (Python), plus två dokumenterade
+.mjs-pekare.
 
 ## Kodändringar när steg 1 är på plats
 
@@ -30,7 +40,7 @@ skyddsnät — precis det som gör ändringen riskabel.
 | `generation-log-writer/constants.ts` | `LEGACY_INDEX_DIR_NAME` → nytt namn (byt även konstantnamnet om mappen inte längre är "legacy") |
 | `scripts/observability/index-error-log-rag.mjs` | strängen + pekar-kommentaren |
 | `scripts/dev/clean-scratch.mjs` | posten i `AGE_SKIP_NAMES` |
-| `backoffice/shared.py` | de tre sökvägarna i `build_backoffice_context` |
+| `backoffice/shared_lib/context.py` | `llm_index_dir` i `build_backoffice_context` (en rad) |
 | `generation-log-writer.test.ts:163` | assertionen |
 | `config/dashboard/domain-map.json` | **fem** rader: 37, 42, 43, 541, 570 |
 | `backoffice/pages/error_log_rag.py:124` | UI-texten |
