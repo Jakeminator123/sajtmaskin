@@ -66,26 +66,48 @@ refaktormål).
 | `src/components/modals/audit-modal.tsx` | 1 127 | |
 | `src/lib/api/engine/chats/create-chat-stream-post.ts` | 1 065 | Rörs av false-green-fix 2 — synka |
 
-## Status 2026-08-01
+## Status 2026-08-08 — merge-våg #817–#838
 
-Levererat: **#1 `useBuilderPageController`** (PR #724 — 2 041 → 917 rader,
-14 ansvarshooks, hook-ordningen mekaniskt verifierad),
-**#3 `runtime.js`** (PR #727 — fasad + 7 moduler; agenten dog på API-limit
-efter push, PR öppnades från branchen), och
-**#4 `generation-log-writer`** (PR #722 — fasad på 25 rader + 12 moduler,
-artefakt-diff mot master: 67/67 identiska loggfiler). Övriga ej påbörjade.
+Radräkning mot master (`(Get-Content … | Measure-Object -Line).Lines`).
 
-## Status 2026-08-04 — filerna växer tillbaka
+### Levererade splits (under taket eller fasad)
 
-Omätning mot master: flera kvarvarande targets har **vuxit** sedan planen
-skrevs — `PreviewPanel.tsx` 1 610 → 1 792, `finalize-preflight.ts`
-1 596 → 1 737, `api/audit/route.ts` 1 623 → 1 724, `BuilderMessageTooling.tsx`
-1 542 → 1 627, `scaffold_lifecycle.py` 2 462 → 2 741, `dossiers.py`
-1 848 → 2 025. Utan fortsatta split-PR:ar (eller en radbudget) äts #722/#724/
-#727-vinsten upp av tillväxten.
+| Fil | PR | Nu | Notering |
+|---|---|---|---|
+| `useBuilderPageController.ts` | #724 | ~859 | Tidigare ~1 896 |
+| `preview-host/src/runtime.js` | #727 | ~100 | Fasad + moduler |
+| `generation-log-writer.ts` | #722 | ~25 | Fasad + moduler |
+| `src/app/api/audit/route.ts` | #822 | 11 | Var 1 724; handler/analys i `modules/` |
+| `src/app/api/v0/deployments/route.ts` | #821 | 3 | Fasad + `_route/` |
+| `src/lib/backoffice/template-generator.ts` | #818 | 11 | Fasad + undermoduler |
+| `backoffice/pages/scaffold_lifecycle.py` | #826 | 866 | Var 2 741; lib under `scaffold_lifecycle_lib/` |
+| `backoffice/shared.py` | #837 | 196 | Var 1 574; lib under `shared_lib/` |
+| `repair-loop.ts` | — | 1 139 | Under ~1 200-taket (ingen ny split-PR) |
+| `scaffold_wizard.py` | — | 1 137 | Under taket |
+
+### Kvar över ~1 200 rader
+
+| Fil | Rader |
+|---|---|
+| `backoffice/pages/dossiers.py` | 1 913 |
+| `PreviewPanel.tsx` | 1 859 |
+| `finalize-preflight.ts` | 1 653 |
+| `BuilderMessageTooling.tsx` | 1 542 |
+| `server-verify.ts` | 1 511 |
+| `PreviewPanelCodeSectionEditors.tsx` | 1 498 |
+| `stream-handlers.ts` | 1 437 |
+| `BuilderShellContent.tsx` | 1 432 |
+| `autofix/pipeline.ts` | 1 387 |
+| `hooks/chat/helpers.ts` | 1 324 |
+| `PreviewPanelDossiers.tsx` | 1 280 |
+| `VersionHistory.tsx` | 1 271 |
+| `preview-host/src/server.js` | 1 213 |
+
+`import-validator.ts` (1 187), `audit-modal.tsx` (1 127) och
+`create-chat-stream-post.ts` (1 084) ligger under taket.
 
 ## Klart-kriterium
 
 Ingen fil i `src/`, `preview-host/` eller `backoffice/` över ~1 200 rader
 (exkl. genererade datafiler), utan att någon befintlig test ändrat semantik.
-Bocka av per fil i denna tabell.
+Bocka av per fil i tabellen ovan — **inte uppfyllt** 2026-08-08.

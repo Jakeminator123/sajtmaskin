@@ -17,9 +17,12 @@ kärnflödet + fyra i backoffice) och **tung git-historik** (624 MiB pack för e
 66 MiB arbetsyta). Planen tar dem i beroendeordning: integrera öppna PR:ar
 först, stäng false-green, städa, dela sedan.
 
-**Läge 2026-08-04:** steg 0–3 levererade, steg 4–6 delvis (se statuskolumnen
-nedan). Kvar med störst hävstång: dependency-katalogen (steg 9),
-docs våg 3, resten av megafilerna och repo-storleken (steg 7–8).
+**Läge 2026-08-08:** steg 0–3 levererade (inkl. Redis bucket-städ #825). Steg
+5–6 har fått flera nya split-PR:ar i merge-vågen #817–#838 (`audit` #822,
+`deployments` #821, `template-generator` #818, `scaffold_lifecycle` #826,
+`shared.py` #837), men klart-kriteriet (~1 200 rader) är **inte** nått —
+tretton filer ligger kvar över taket. Steg 4 våg 3, steg 7–8 och steg 9
+(katalog-JSON) är oförändrat öppna. Steg 10 ej påbörjad. **Planen är inte klar.**
 
 ## Verifierad baseline (2026-08-01, master `c3a9273d0`)
 
@@ -35,21 +38,21 @@ docs våg 3, resten av megafilerna och repo-storleken (steg 7–8).
 
 ## Ordning (en rad = en eller flera små PR:ar)
 
-Statuskolumnen verifierad mot master 2026-08-04.
+Statuskolumnen verifierad mot master 2026-08-08 (radräkning + `git ls-files`).
 
 | # | Steg | Planfil | Status |
 |---|---|---|---|
 | 0 | Mergestyr #708 → #706 → #707 | — | ✅ Mergade 2026-08-01 |
 | 1 | Sex false-green-/tystnadsfixar | — | ✅ #712/#715/#718/#720/#723/#725 — rad i [`../../avklarat/README.md`](../../avklarat/README.md) |
-| 2 | Radera Redis-domänblocken | [`02-dod-kod.md`](02-dod-kod.md) | ✅ #714 (−517 rader); bucket-städ i health-ytorna kvar |
+| 2 | Radera Redis-domänblocken | [`02-dod-kod.md`](02-dod-kod.md) | ✅ #714 (−517 rader) + bucket-städ #825 |
 | 3 | Fem devDependencies + `vercel`-beslut + exportyta | [`02-dod-kod.md`](02-dod-kod.md) | ✅ #717; spår C (exportytan) är löpande |
 | 4 | Dokumentstädning (10 vägar) | [`03-dokumentstadning.md`](03-dokumentstadning.md) | ⚠️ Våg 1–2 klara (#713/#721); våg 3 + `_parkering/`-ägarfrågan kvar |
-| 5 | Dela `useBuilderPageController` + `PreviewPanel` | [`04-megafiler.md`](04-megafiler.md) | ⚠️ Controller klar (#724); `PreviewPanel` kvar och **växer** |
-| 6 | Dela preview-host `runtime.js`, `server-verify`, `repair-loop` m.fl. | [`04-megafiler.md`](04-megafiler.md) | ⚠️ `runtime.js` (#727) + `generation-log-writer` (#722) klara; resten kvar |
-| 7 | Binärer → Blob/CDN, embeddings → Blob/komprimerad | [`05-repo-storlek.md`](05-repo-storlek.md) | ❌ Ej påbörjad — `intro.mp4` + embeddings fortfarande spårade |
+| 5 | Dela `useBuilderPageController` + `PreviewPanel` | [`04-megafiler.md`](04-megafiler.md) | ⚠️ Controller klar (#724, ~859 rader); `PreviewPanel` kvar (~1 859) |
+| 6 | Dela preview-host `runtime.js`, `server-verify`, `repair-loop` m.fl. | [`04-megafiler.md`](04-megafiler.md) | ⚠️ Flera klara (#722/#727/#818/#821/#822/#826/#837); tretton filer fortfarande över ~1 200 — se [`04-megafiler.md`](04-megafiler.md) |
+| 7 | Binärer → Blob/CDN, embeddings → Blob/komprimerad | [`05-repo-storlek.md`](05-repo-storlek.md) | ❌ Ej påbörjad — `git ls-files` spårar fortfarande `public/video/intro.mp4` + `src/lib/templates/template-embeddings.json` |
 | 8 | `git filter-repo`-operation (koordinerad, destruktiv — kräver ägar-OK) | [`05-repo-storlek.md`](05-repo-storlek.md) | ❌ Väntar på 7 + tom PR-kö + ägar-OK |
-| 9 | Dependency-split: app-runtime vs generator-katalog vs tooling | [`06-dependency-split.md`](06-dependency-split.md) | ⚠️ Inventeringen klar (2026-08-01); katalog-JSON:en ej byggd |
-| 10 | Permanent produktbenchmark 20–30 sajter | [`07-produktbenchmark.md`](07-produktbenchmark.md) | ❌ Ej påbörjad — blockeraren (steg 1) är borta |
+| 9 | Dependency-split: app-runtime vs generator-katalog vs tooling | [`06-dependency-split.md`](06-dependency-split.md) | ⚠️ Inventeringen klar (2026-08-01); `config/generated-site-dependencies.json` (eller motsv.) finns inte |
+| 10 | Permanent produktbenchmark 20–30 sajter | [`07-produktbenchmark.md`](07-produktbenchmark.md) | ❌ Ej påbörjad — blockeraren (steg 1) är borta; inget eval-/benchmark-spår startat |
 
 ## Arbetsregler för alla steg
 
