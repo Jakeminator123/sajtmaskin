@@ -22,6 +22,19 @@ import { fetchWithPinnedDns } from "@/lib/capture/pinned-fetch";
 const IS_SERVERLESS = Boolean(process.env.VERCEL);
 
 /**
+ * Serialize capture-browser lifetimes inside one isolate.
+ *
+ * Product Postcheck and thumbnail capture both call `launchCaptureBrowser` from
+ * separate API routes. On a warm Vercel instance they can overlap: one path's
+ * `browser.close()` then surfaces as `Target page, context or browser has been
+ * closed` in the other (SM-025 — chats `3a6c5472`, `1b906aa1`). Holding the
+ * lock from successful launch until `close()` (or launch failure) keeps those
+ * paths from sharing the Sparticuz/Chromium slot. Cross-isolate races are out
+ * of scope for this mutex.
+ */
+let captureBrowserGate: Promise<void> = Promise.resolve();
+
+/**
  * `playwright-core` och `@sparticuz/chromium` måste uppgraderas TILLSAMMANS.
  *
  * Serverless-grenen nedan låter `playwright-core` driva Sparticuz-binären via
@@ -42,7 +55,7 @@ const IS_SERVERLESS = Boolean(process.env.VERCEL);
  * Trasslar bildfångsten i prod strax efter en dependency-uppdatering är det
  * här du ska titta först.
  */
-export async function launchCaptureBrowser(): Promise<Browser> {
+async function launchCaptureBrowserUnscoped(): Promise<Browser> {
   if (IS_SERVERLESS) {
     const chromium = (await import("@sparticuz/chromium")).default;
     const { chromium: pw } = await import("playwright-core");
@@ -55,6 +68,39 @@ export async function launchCaptureBrowser(): Promise<Browser> {
   // Lokalt: full `playwright` (devDependency) har sin egen Chromium.
   const { chromium: pw } = await import("playwright");
   return pw.launch({ headless: true }) as unknown as Browser;
+}
+
+export async function launchCaptureBrowser(): Promise<Browser> {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const previous = captureBrowserGate;
+  captureBrowserGate = gate;
+  await previous;
+
+  try {
+    const browser = await launchCaptureBrowserUnscoped();
+    const originalClose = browser.close.bind(browser);
+    let released = false;
+    const releaseOnce = () => {
+      if (!released) {
+        released = true;
+        release();
+      }
+    };
+    browser.close = (async (...args: Parameters<Browser["close"]>) => {
+      try {
+        return await originalClose(...args);
+      } finally {
+        releaseOnce();
+      }
+    }) as Browser["close"];
+    return browser;
+  } catch (error) {
+    release();
+    throw error;
+  }
 }
 
 /**
