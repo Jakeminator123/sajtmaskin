@@ -22,6 +22,8 @@ class BackofficeContext:
     eval_latest: Path
     schema_md: Path
     error_log_csv: Path
+    error_log_ndjson: Path
+    llm_index_readme: Path
     autofix_hook_ts: Path
 
 
@@ -56,6 +58,9 @@ def build_backoffice_context(repo_root: Path | None = None) -> BackofficeContext
     variants_dir = config_dir / "scaffold-variants"
     scripts_dir = root / "scripts"
     scaffolds_dir = root / "src" / "lib" / "gen" / "scaffolds"
+    # Enda Python-ägaren av sökvägen. TS-motsvarigheten är LEGACY_INDEX_DIR i
+    # src/lib/logging/generation-log-writer/constants.ts — håll dem i synk.
+    llm_index_dir = root / "logs" / "llm-segmentts-and-index"
     return BackofficeContext(
         repo_root=root,
         dashboard_dir=dashboard_dir,
@@ -71,6 +76,8 @@ def build_backoffice_context(repo_root: Path | None = None) -> BackofficeContext
         embeddings_json=scaffolds_dir / "scaffold-embeddings.json",
         eval_latest=root / "data" / "scaffold-eval" / "reports" / "scaffold-selection-latest.json",
         schema_md=root / "docs" / "contracts" / "scaffold-system.md",
-        error_log_csv=root / "logs" / "llm-segmentts-and-index" / "error-log.csv",
+        error_log_csv=llm_index_dir / "error-log.csv",
+        error_log_ndjson=llm_index_dir / "error-log.ndjson",
+        llm_index_readme=llm_index_dir / "readme.txt",
         autofix_hook_ts=root / "src" / "lib" / "hooks" / "chat" / "useAutoFix.ts",
     )

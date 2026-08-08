@@ -2,7 +2,11 @@ import path from "node:path";
 
 export const ROOT_DIR = path.join(process.cwd(), "logs", "generationslogg");
 export const SITE_OBSERVABILITY_DIR = path.join(process.cwd(), "logs", "site-observability");
-export const LEGACY_INDEX_DIR = path.join(process.cwd(), "logs", "llm-segmentts-and-index");
+// Enda TS-ägaren av mappnamnet (medvetet felstavat på disk — omdöpning är
+// steg 2 i docs/plans, blockerad på MVP). Callers med egen root komponerar
+// via LEGACY_INDEX_DIR_NAME i stället för att duplicera strängen.
+export const LEGACY_INDEX_DIR_NAME = "llm-segmentts-and-index";
+export const LEGACY_INDEX_DIR = path.join(process.cwd(), "logs", LEGACY_INDEX_DIR_NAME);
 export const RUN_INDEX_DIR = path.join(ROOT_DIR, "_index");
 export const CHAT_TO_RUN_INDEX_FILE = path.join(RUN_INDEX_DIR, "chat-to-run.json");
 export const UNROUTED_DIR = path.join(ROOT_DIR, "_unrouted");
