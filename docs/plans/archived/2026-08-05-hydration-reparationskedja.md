@@ -1,10 +1,19 @@
 ---
-status: active
+status: archived
 owner: unassigned
 topic: Hydration-/browser-fel på genererade sajter — sluta lära ut mönstret, och koppla browser-runtime-fel till den befintliga signalytan i stället för att bygga en ny reparations-grej. Fem steg i beviskravsordning.
 created: 2026-08-05
 source: Prod-observation chat 9cdb3e31 (2026-08-05) + förundersökning i två agentpass — kod friad med filbevis (logs/hydration-9cdb3e31/), detektor/scaffold/prompt-luckor filverifierade mot master samma natt. Ägarbegäran 2026-08-05: "koppla ihop med befintlig reparations-fix på ett smart sätt" — steg 3 är därmed uttryckligen beställt, inte fryst.
 ---
+
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [BUG-SWARM-BACKLOG § Behöver repro](../../../BUG-SWARM-BACKLOG.md)
+>
+> Parkerad 2026-08-08: steg 1–3 levererade (#777, #778). Steg 4 (RepairGate-koppling)
+> och steg 5 (patch-lane settle) är datablockerade och bor nu som rader i backloggens
+> repro-sektion — de aktiveras av data, inte av mer plantext.
 
 # Master-plan: hydration-fel och reparationskedjan
 
