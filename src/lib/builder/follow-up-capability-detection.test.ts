@@ -1263,3 +1263,47 @@ describe("detectFollowUpCapabilities — gate robustness (typos / V2 / credentia
     expect(result.capabilityIds).toContain("contact-form");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Partikelverb-luckan (prod 2026-08-08, flugfiske-sajten). "Lägg IN" bar
+// samma avsikt som "lägg till" men saknades i STRONG_ADD_VERB_PATTERNS, så
+// kart-önskemålet nådde aldrig `maplibre-map` — modellen frihandsade en
+// <img> mot en nedlagd static-map-tjänst i stället. Prompten var 10 ord och
+// föll därmed inte heller igenom kortprompt-undantaget (≤ 4 ord).
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — add-verb partikelvarianter", () => {
+  it("detects map-display in the verbatim prod prompt 'Lägg in en karta …'", () => {
+    const result = detectFollowUpCapabilities(
+      "Lägg in en karta på vart detta är.. (i arvidsjaur)",
+    );
+    expect(result.capabilityIds).toContain("map-display");
+  });
+
+  it("accepts 'sätt in' — the imperative of the already-supported 'skulle vilja sätta in'", () => {
+    const result = detectFollowUpCapabilities("Sätt in en karta över Arvidsjaur");
+    expect(result.capabilityIds).toContain("map-display");
+  });
+
+  it("accepts 'stoppa in' and 'lägg dit'", () => {
+    expect(
+      detectFollowUpCapabilities("stoppa in ett kontaktformulär längst ner på sidan")
+        .capabilityIds,
+    ).toContain("contact-form");
+    expect(
+      detectFollowUpCapabilities("lägg dit en sökfunktion i headern uppe till höger")
+        .capabilityIds,
+    ).toContain("site-search");
+  });
+
+  it("accepts English 'insert'", () => {
+    const result = detectFollowUpCapabilities("insert a map of our office on the contact page");
+    expect(result.capabilityIds).toContain("map-display");
+  });
+
+  // Motprov: partikelverben får inte göra layout-edits till capability-add.
+  // "in" som riktningsadverb utan add-verb ska fortfarande vara tyst.
+  it("does NOT detect capability-add for a layout move that mentions a map", () => {
+    const result = detectFollowUpCapabilities("Flytta kartan in i högerspalten");
+    expect(result.capabilityIds).toEqual([]);
+  });
+});

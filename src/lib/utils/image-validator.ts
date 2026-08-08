@@ -525,7 +525,7 @@ async function findReplacements(
 function applyReplacements(
   files: TextFile[],
   broken: BrokenImage[],
-): { files: TextFile[]; replacedCount: number } {
+): { files: TextFile[]; replacedCount: number; placeholderCount: number } {
   const replacements = broken
     .map((entry) => {
       const isPlaceholder = !entry.replacementUrl;
@@ -538,13 +538,14 @@ function applyReplacements(
     .filter((entry): entry is BrokenImage & { replacementUrl: string; isPlaceholder: boolean } =>
       Boolean(entry.replacementUrl),
     );
-  if (replacements.length === 0) return { files, replacedCount: 0 };
+  if (replacements.length === 0) return { files, replacedCount: 0, placeholderCount: 0 };
 
   // Sort longest URL first to prevent shorter URLs from corrupting longer ones
   // e.g., "photo-abc" must not match inside "photo-abc?w=400"
   const sorted = [...replacements].sort((a, b) => b.url.length - a.url.length);
 
   let replacedCount = 0;
+  let placeholderCount = 0;
   const emittedPlaceholderTelemetry = new Set<string>();
   const updatedFiles = files.map((f) => {
     let content = f.content;
@@ -554,6 +555,7 @@ function applyReplacements(
       if (occurrences > 0) {
         content = parts.join(entry.replacementUrl);
         replacedCount += occurrences;
+        if (entry.isPlaceholder) placeholderCount += occurrences;
         if (entry.isPlaceholder && !emittedPlaceholderTelemetry.has(entry.url)) {
           debugLog("images", "image_replaced_with_placeholder", {
             originalUrl: entry.url,
@@ -566,7 +568,7 @@ function applyReplacements(
     return { ...f, content };
   });
 
-  return { files: updatedFiles, replacedCount };
+  return { files: updatedFiles, replacedCount, placeholderCount };
 }
 
 function sortedKnownImageReplacements(replacements: KnownImageReplacementMap) {
@@ -661,11 +663,26 @@ export async function validateImages(params: {
     return { total: refs.length, broken, replacedCount: 0, files, warnings };
   }
 
-  const { files: updatedFiles, replacedCount } = applyReplacements(files, broken);
+  const { files: updatedFiles, replacedCount, placeholderCount } = applyReplacements(
+    files,
+    broken,
+  );
 
-  if (replacedCount > 0) {
+  // Placeholders are counted separately because they are NOT a fix. Replacement
+  // search only covers Unsplash hosts, so anything else (prod 2026-08-08: a
+  // dead static-map URL the model wrote for "lägg in en karta") falls back to
+  // the grey `/api/placeholder` SVG. The old wording called that "tillgängliga
+  // ersättningar", which read as a solved problem in the logs while the page
+  // still had no map on it.
+  const realReplacementCount = replacedCount - placeholderCount;
+  if (realReplacementCount > 0) {
     warnings.push(
-      `Ersatte ${replacedCount} trasig(a) bild-URL:er med tillgängliga ersättningar.`,
+      `Ersatte ${realReplacementCount} trasig(a) bild-URL:er med tillgängliga ersättningar.`,
+    );
+  }
+  if (placeholderCount > 0) {
+    warnings.push(
+      `Ersatte ${placeholderCount} trasig(a) bild-URL:er med platshållare — ingen ersättningsbild hittades.`,
     );
   }
 

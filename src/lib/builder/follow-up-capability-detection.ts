@@ -112,11 +112,20 @@ const BEYOND_DOSSIER_MARKERS: Record<string, RegExp[]> = {
  * det högst upp" is an add with a placement wish attached — not a layout edit.
  */
 const STRONG_ADD_VERB_PATTERNS: RegExp[] = [
-  /(?<![\p{L}\p{N}_])(?:lägg(?:er|de)?\s+till|infoga(?:r|de)?|inkludera(?:r|de)?|skapa(?:r|de)?|bygg(?:er|de)?|gör|designa(?:r|de)?|implementera(?:r|de)?|aktivera(?:r|de)?|koppla(?:r|de)?\s+(?:på|in))(?![\p{L}\p{N}_])/iu,
+  // Partikelvarianterna "lägg IN/DIT", "sätt in/dit" och "stoppa in" betyder
+  // exakt samma sak som "lägg till" men saknades fram till 2026-08-08. Prod
+  // den dagen: "Lägg in en karta på vart detta är.. (i arvidsjaur)" (10 ord,
+  // alltså över kortprompt-undantaget) detekterade ingenting, `maplibre-map`
+  // injicerades aldrig, och modellen frihandsade en <img> mot en nedlagd
+  // static-map-tjänst som bildvalideringen sedan bytte mot en platshållare.
+  // Att önskeformen "skulle vilja SÄTTA IN" redan låg i mönstret nedan
+  // gjorde luckan asymmetrisk: det artiga läget öppnade gaten, imperativen
+  // gjorde det inte.
+  /(?<![\p{L}\p{N}_])(?:lägg(?:er|de)?\s+(?:till|in|dit)|sätt(?:er|te)?\s+(?:in|dit)|stoppa(?:r|de)?\s+in|infoga(?:r|de)?|inkludera(?:r|de)?|skapa(?:r|de)?|bygg(?:er|de)?|gör|designa(?:r|de)?|implementera(?:r|de)?|aktivera(?:r|de)?|koppla(?:r|de)?\s+(?:på|in))(?![\p{L}\p{N}_])/iu,
   // Artigt önskeläge med efterföljande handlingsverb: "jag skulle vilja lägga
   // till / sätta in / koppla …". Rena önskeformer ligger i WEAK nedan.
   /(?<![\p{L}\p{N}_])skulle\s+vilja\s+(?:lägga\s+till|sätta\s+in|koppla|bygga|skapa|aktivera|integrera)(?![\p{L}\p{N}_])/iu,
-  /(?<![\p{L}\p{N}_])(?:add|include|build|create|implement|set\s+up|wire\s+up|hook\s+up|enable|integrate)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:add|insert|include|build|create|implement|set\s+up|wire\s+up|hook\s+up|enable|integrate)(?![\p{L}\p{N}_])/iu,
 ];
 
 /**

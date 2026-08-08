@@ -200,6 +200,30 @@ describe("productPostcheckSkipReasonFromError", () => {
     );
     expect(productPostcheckSkipReasonFromError(new Error("unexpected"))).toBe("runtime_error");
   });
+
+  // Prod 2026-08-08 (flugfiske-sajten): tre körningar i rad loggades som
+  // `playwright_unavailable` fastän Playwright startade — felet kom från
+  // navigeringen mot Fly-previewen och nämner bara ordet "browser" i sin
+  // egen text. Fel etikett = fel felsökning.
+  it("klassificerar 'Target page, context or browser has been closed' som navigation_failed", () => {
+    const err = new Error(
+      "page.goto: Target page, context or browser has been closed\n" +
+        "Call log:\n" +
+        '  - navigating to "https://vm-fly-jakem.fly.dev/chat_1", waiting until "domcontentloaded"',
+    );
+    expect(productPostcheckSkipReasonFromError(err)).toBe("navigation_failed");
+  });
+
+  it("behåller playwright_unavailable för äkta launch-fel", () => {
+    expect(
+      productPostcheckSkipReasonFromError(
+        new Error("browserType.launch: Executable doesn't exist at /ms-playwright/chromium/chrome"),
+      ),
+    ).toBe("playwright_unavailable");
+    expect(
+      productPostcheckSkipReasonFromError(new Error("Failed to launch the browser process")),
+    ).toBe("playwright_unavailable");
+  });
 });
 
 describe("isRenderFatalError", () => {
