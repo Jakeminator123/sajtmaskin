@@ -107,8 +107,10 @@ describe("branded live URL policy", () => {
 });
 
 it("marks public builder previews as non-indexable and non-cacheable", () => {
+  // `applyPublicPreviewHeaders` moved from the server.js monolith to the
+  // http module in the server/-split; the pinned header contract is the same.
   const source = readFileSync(
-    resolve(process.cwd(), "preview-host/src/server.js"),
+    resolve(process.cwd(), "preview-host/src/server/http.js"),
     "utf8",
   );
   expect(source).toContain(
