@@ -530,11 +530,25 @@ function pathnameOf(rawUrl: string): string {
   }
 }
 
+/**
+ * Navigation must be tested BEFORE the browser family. Playwright's
+ * navigation errors mention the browser in their own text — prod 2026-08-08
+ * produced `page.goto: Target page, context or browser has been closed` while
+ * navigating to the Fly preview, which the old order labelled
+ * `playwright_unavailable`. That reads as "Chromium was never installed", so
+ * three consecutive runs looked like a known infra gap instead of the preview
+ * navigation failure they were.
+ */
+const NAVIGATION_ERROR_PATTERN = /page\.goto|navigating\s+to|navigation|net::|err_/i;
+/** Genuine launch failures: the binary is missing or the launch itself threw. */
+const BROWSER_UNAVAILABLE_PATTERN =
+  /playwright|browsertype\.launch|failed\s+to\s+launch|executable\s+doesn'?t\s+exist|browser/i;
+
 export function productPostcheckSkipReasonFromError(err: unknown): ProductPostcheckSkipReason {
   if (!(err instanceof Error)) return "runtime_error";
   if (/timeout/i.test(err.message)) return "timeout";
-  if (/playwright|browser/i.test(err.message)) return "playwright_unavailable";
-  if (/navigation|net::|err_/i.test(err.message)) return "navigation_failed";
+  if (NAVIGATION_ERROR_PATTERN.test(err.message)) return "navigation_failed";
+  if (BROWSER_UNAVAILABLE_PATTERN.test(err.message)) return "playwright_unavailable";
   return "runtime_error";
 }
 

@@ -347,4 +347,33 @@ describe("validateImages", () => {
       "/api/placeholder?w=1200&h=800&label=Portr%C3%A4tt%20av%20Emilia%20Eberg",
     );
   });
+
+  // Prod 2026-08-08 (flugfiske-sajten): en död static-map-URL gav varningen
+  // "Ersatte 1 trasig(a) bild-URL:er med tillgängliga ersättningar" trots att
+  // ersättningen var den grå platshållaren — sidan hade fortfarande ingen
+  // karta. En platshållare är en degradering, inte en lagad bild, och
+  // varningstexten måste säga det.
+  it("kallar en platshållare för en platshållare, inte en 'tillgänglig ersättning'", async () => {
+    const files: TextFile[] = [
+      {
+        name: "app/page.tsx",
+        content:
+          '<img src="https://staticmap.example.invalid/staticmap.php?center=65.5903,19.1668" alt="Karta över Arvidsjaur" />',
+      },
+    ];
+
+    const result = await validateImages({
+      files,
+      autoFix: true,
+      unsplashAccessKey: null,
+    });
+
+    expect(result.replacedCount).toBe(1);
+    expect(result.warnings).toContain(
+      "Ersatte 1 trasig(a) bild-URL:er med platshållare — ingen ersättningsbild hittades.",
+    );
+    expect(result.warnings).not.toContain(
+      "Ersatte 1 trasig(a) bild-URL:er med tillgängliga ersättningar.",
+    );
+  });
 });
