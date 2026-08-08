@@ -2,6 +2,14 @@
 
 > Flyttade rader från [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) efter riktad tvåradsleverans 2026-07-25 (branch `cursor/warm-cache-sdk-och-sendmessage-outcome-2150`, mot master `1cd8f547`). Båda raderna var P3 och båda var "kniviga" i den mening att de krävde ett vägval snarare än en självklar patch — warm-cache-raden hade tre konkurrerande linjer och `sendMessage`-raden rörde hela caller-kedjan. Filen har sedan fyllts på med en P1-rad som stängdes 2026-07-26 och med de nio defekter som åtgärdsprogrammet efter observationssessionen 2026-07-25 stängde samma dag (egna sektioner nedan). Äldre historik: [`backlog-arkiv-2026-07-24.md`](backlog-arkiv-2026-07-24.md) · [`backlog-arkiv-2026-07-22.md`](backlog-arkiv-2026-07-22.md) · [`backlog-arkiv-2026-07-02.md`](backlog-arkiv-2026-07-02.md) · [`backlog-arkiv-2026-06-27.md`](backlog-arkiv-2026-06-27.md) · [`backlog-arkiv-2026-06-24.md`](backlog-arkiv-2026-06-24.md).
 
+## Fixad 2026-08-06 (stripe-checkout mode-bugg — SM-028, aldrig i Aktiv kö)
+
+Ny defekt, hittad av extern tungmodellsreview under dossier-förenklingens slutgranskning och fixad direkt:
+
+| Klar | Status | Prio | Fynd | Källa | Fix-referens |
+| --- | --- | --- | --- | --- | --- |
+| [x] | Fixad | P1 | `SM-028` **Alla Stripe-checkouts skapades som prenumerationer:** `stripe-checkout`-dossierns route valde `mode: body.priceId.startsWith("price_") ? "subscription" : "payment"` — men VARJE Stripe Price-id börjar med `price_` (recurring avgörs av `Price.type`, inte id-prefixet), så varje engångsköp med giltigt pris-id skickades som subscription. För-existerande sedan dossierns kuratering (raden orörd sedan #429) — inte från 2026-08-06-serien. F2 opåverkad (demo-läge utan riktig nyckel); slog bara i F3-byggen med riktig Stripe-nyckel. | Extern review 2026-08-06 + kodverifiering (`components/api/checkout-session/route.ts:58`) | Hotfix-PR: `mode: "payment"` hårdkodat per engångspolicyn (recurring har ingen capability sedan etapp 2); ett recurring-pris failar nu högt med Stripes eget fel i stället för en tyst prenumeration. Manifest-summary + instructions trimmade från subscription-anspråk. |
+
 ## Fixade 2026-08-06 (dossier-förenkling etapp 3 — SM-004 + SM-006)
 
 | Klar | Status | Prio | Fynd | Källa | Fix-referens |

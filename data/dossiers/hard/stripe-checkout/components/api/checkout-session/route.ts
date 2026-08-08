@@ -55,7 +55,15 @@ export async function POST(request: Request) {
 
   try {
     const session = await stripe.checkout.sessions.create({
-      mode: body.priceId.startsWith("price_") ? "subscription" : "payment",
+      // Always one-off `payment` mode. The former prefix check
+      // (`priceId.startsWith("price_") ? "subscription" : "payment"`) was a
+      // bug: EVERY Stripe Price id starts with `price_` (recurring is
+      // Price.type, not an id prefix), so all checkouts were silently created
+      // as subscriptions (SM-028). The `payments` capability is deliberately
+      // one-off only — recurring billing has no capability since 2026-08-06.
+      // A recurring Price passed here fails loudly with Stripe's own error
+      // via the catch below, never a silent subscription.
+      mode: "payment",
       line_items: [{ price: body.priceId, quantity: 1 }],
       success_url: successUrl,
       cancel_url: cancelUrl,
