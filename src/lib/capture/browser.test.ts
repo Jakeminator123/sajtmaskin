@@ -62,9 +62,14 @@ describe("launchCaptureBrowser", () => {
     // Detta är hela poängen: utan den här vägen svarade inspector-capture 503
     // i prod, så bildfångsten fanns bara i utvecklarens maskin.
     process.env.VERCEL = "1";
+    sparticuzLaunch.mockResolvedValue({
+      id: "serverless",
+      close: async () => undefined,
+    });
     const { launchCaptureBrowser } = await import("./browser");
 
-    await launchCaptureBrowser();
+    const browser = await launchCaptureBrowser();
+    await browser.close();
 
     expect(sparticuzLaunch).toHaveBeenCalledTimes(1);
     expect(localLaunch).not.toHaveBeenCalled();
@@ -76,12 +81,54 @@ describe("launchCaptureBrowser", () => {
 
   it("använder den lokala playwright-installationen utanför serverless", async () => {
     delete process.env.VERCEL;
+    localLaunch.mockResolvedValue({
+      id: "local",
+      close: async () => undefined,
+    });
     const { launchCaptureBrowser } = await import("./browser");
 
-    await launchCaptureBrowser();
+    const browser = await launchCaptureBrowser();
+    await browser.close();
 
     expect(localLaunch).toHaveBeenCalledTimes(1);
     expect(sparticuzLaunch).not.toHaveBeenCalled();
+  });
+
+  it("släpper inte in en andra launch förrän den första browsern stängts (SM-025)", async () => {
+    // Prod: postcheck och thumbnail delar warm-instans och dödar varandras
+    // Chromium mitt i kontrollen. Kön håller livstiden, inte bara launch.
+    delete process.env.VERCEL;
+    let resolveFirstClose!: () => void;
+    const firstCloseBarrier = new Promise<void>((resolve) => {
+      resolveFirstClose = resolve;
+    });
+    let secondLaunchStarted = false;
+
+    localLaunch.mockImplementationOnce(async () => ({
+      id: "first",
+      close: async () => {
+        resolveFirstClose();
+      },
+    }));
+    localLaunch.mockImplementationOnce(async () => {
+      secondLaunchStarted = true;
+      return { id: "second", close: async () => undefined };
+    });
+
+    const { launchCaptureBrowser } = await import("./browser");
+    const first = await launchCaptureBrowser();
+    const secondPromise = launchCaptureBrowser();
+
+    await Promise.resolve();
+    expect(secondLaunchStarted).toBe(false);
+    expect(localLaunch).toHaveBeenCalledTimes(1);
+
+    await first.close();
+    await firstCloseBarrier;
+    const second = await secondPromise;
+    expect(secondLaunchStarted).toBe(true);
+    expect(localLaunch).toHaveBeenCalledTimes(2);
+    await second.close();
   });
 });
 

@@ -64,8 +64,9 @@ skickar felsökaren åt fel håll.
 unavailable)~~ — **levererad i #841**: navigeringsmönstret testas nu före
 browser-mönstret, så `page.goto`/`page.evaluate`-fel mot previewen klassas som
 `navigation_failed`. Äkta launch-fel behåller `playwright_unavailable`.
-**Kvar: (b)** utred delad/konkurrerande Chromium mellan postcheck och
-thumbnail (serialisera eller isolera).
+**Kvar: (b)** ~~utred delad/konkurrerande Chromium~~ — **processlås i
+`launchCaptureBrowser` levererad i #843** (launch→close per warm-instans).
+Väntar prod-bevis att follow-up-versioner inte längre skippas med browser-closed.
 
 Felklassen återkom i prod-körningen 2026-08-08 (chat `1b906aa1`, tre versioner
 i rad) med `page.goto` i stället för `page.evaluate` — samma etikettfel, vilket
