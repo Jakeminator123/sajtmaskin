@@ -1,3 +1,8 @@
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [BUG-SWARM-BACKLOG § Väntar på ägarbeslut](../../../../BUG-SWARM-BACKLOG.md)
+
 # Steg 4: parallell codegen — beslutspunkt
 
 Detta är **inte** beställt arbete. Det kräver uttryckligt ägar-OK enligt

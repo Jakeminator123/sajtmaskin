@@ -1,3 +1,8 @@
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [Master-planen](00-master-plan.md)
+
 # Varför planen ser ut som den gör — mätningen 2026-08-05
 
 Detta är underlaget till [`00-master-plan.md`](00-master-plan.md). Det svarar på

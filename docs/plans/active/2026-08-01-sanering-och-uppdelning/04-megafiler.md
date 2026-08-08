@@ -66,7 +66,7 @@ refaktormål).
 | `src/components/modals/audit-modal.tsx` | 1 127 | |
 | `src/lib/api/engine/chats/create-chat-stream-post.ts` | 1 065 | Rörs av false-green-fix 2 — synka |
 
-## Status 2026-08-08 — merge-våg #817–#838
+## Status 2026-08-08 — merge-våg #817–#838 + cherry-pick-våg #847–#849
 
 Radräkning mot master (`(Get-Content … | Measure-Object -Line).Lines`).
 
@@ -82,29 +82,38 @@ Radräkning mot master (`(Get-Content … | Measure-Object -Line).Lines`).
 | `src/lib/backoffice/template-generator.ts` | #818 | 11 | Fasad + undermoduler |
 | `backoffice/pages/scaffold_lifecycle.py` | #826 | 866 | Var 2 741; lib under `scaffold_lifecycle_lib/` |
 | `backoffice/shared.py` | #837 | 196 | Var 1 574; lib under `shared_lib/` |
+| `finalize-preflight.ts` | #847 | 6 | Var 1 653; moduler under `finalize-preflight/` |
+| `BuilderMessageTooling.tsx` | #848 | 15 | Var 1 542; moduler under `builder-message-tooling/` |
+| `PreviewPanelCodeSectionEditors.tsx` | #849 | 47 | Var 1 498; moduler under `code-section-editors/` |
 | `repair-loop.ts` | — | 1 139 | Under ~1 200-taket (ingen ny split-PR) |
 | `scaffold_wizard.py` | — | 1 137 | Under taket |
 
 ### Kvar över ~1 200 rader
 
-| Fil | Rader |
-|---|---|
-| `backoffice/pages/dossiers.py` | 1 913 |
-| `PreviewPanel.tsx` | 1 859 |
-| `finalize-preflight.ts` | 1 653 |
-| `BuilderMessageTooling.tsx` | 1 542 |
-| `server-verify.ts` | 1 511 |
-| `PreviewPanelCodeSectionEditors.tsx` | 1 498 |
-| `stream-handlers.ts` | 1 437 |
-| `BuilderShellContent.tsx` | 1 432 |
-| `autofix/pipeline.ts` | 1 387 |
-| `hooks/chat/helpers.ts` | 1 324 |
-| `PreviewPanelDossiers.tsx` | 1 280 |
-| `VersionHistory.tsx` | 1 271 |
-| `preview-host/src/server.js` | 1 213 |
+| Fil | Rader | Cherry-pick-läge mot `chore/sanering-integration` |
+|---|---|---|
+| `backoffice/pages/dossiers.py` | 1 913 | Konflikt — 2 master-commits sedan branch-punkten |
+| `PreviewPanel.tsx` | 1 859 | Konflikt — 3 master-commits |
+| `server-verify.ts` | 1 511 | Konflikt — 1 master-commit |
+| `stream-handlers.ts` | 1 437 | Konflikt — #843 la `resolveProgressPartState` |
+| `BuilderShellContent.tsx` | 1 432 | Konflikt — 4 master-commits |
+| `autofix/pipeline.ts` | 1 387 | Konflikt — 2 master-commits |
+| `hooks/chat/helpers.ts` | 1 324 | **Ren** — split finns klar (`4441ed7c2`) |
+| `PreviewPanelDossiers.tsx` | 1 280 | Konflikt — 1 master-commit |
+| `VersionHistory.tsx` | 1 271 | **Ren** — split finns klar (`c4ed67c47`) |
+| `preview-host/src/server.js` | 1 213 | Konflikt — 1 master-commit |
 
 `import-validator.ts` (1 187), `audit-modal.tsx` (1 127) och
 `create-chat-stream-post.ts` (1 084) ligger under taket.
+
+**Inventering 2026-08-08 av `chore/sanering-integration`** (47 commits före,
+86 bakom master; ingen öppen PR): splits för samtliga kvarvarande filer finns
+på branchen, men bara de "rena" ovan applicerar utan konfliktlösning. De tre
+rena togs som #847–#849; resten kräver att spliten görs om (eller rebasas för
+hand) mot dagens fil — cherry-picka dem **inte** rakt av. Samma gäller steg
+9-katalogen (`config/generated-site-dependencies.json`, commit `8305869d1`):
+klar på branchen men i konflikt med `dep-completer.ts`, som fått 6 commits på
+master sedan dess — måste göras om mot dagens dep-completer.
 
 ## Klart-kriterium
 

@@ -1,6 +1,6 @@
 # Utfasade dossiers (2026-08-06)
 
-Sju hard-dossiers parkerade vid dossier-förenklingen (ägarens fria-händer-uppdrag
+Nio hard-dossiers parkerade vid dossier-förenklingen (ägarens fria-händer-uppdrag
 2026-08-05): noll selektioner i prod sedan telemetrin började (2026-07-03,
 `generation_telemetry.meta.selectedDossierIds`), noll lastbärande kodreferenser
 utanför testfixturer/den egna specialmekaniken, och flera låg som

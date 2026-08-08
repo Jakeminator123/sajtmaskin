@@ -92,6 +92,8 @@ Fynd som inte kan avgöras statiskt. De är **inte** bekräftade produktbuggar. 
 | Fynd | Källa | Repro-krav |
 | --- | --- | --- |
 | Automatisk boot av en persisterad `starting`-session kan nollställa clean-exit-budgeten. | Granskning 2026-08-05 · journal R5 | Testa host-omstart/krasch under boot. Håller premissen: flytta resetet till en explicit start-option. |
+| Hydration steg 4 (RepairGate-koppling) väntar på bekräftade par: samma version med både `preview:client-error`-rad (#778) och hydration-advisory. | Hydrationsplanen, arkiverad 2026-08-08 (steg 1–3 levererade i #777/#778) | Läs error-log-datat efter en tids prod-drift; förekommer bekräftade par → koppla in som repairable i **befintliga** repair-loopen (ingen ny fixer, ingen ny LLM-ingång). Annars arkivera raden. |
+| Fast Edit Lane-skevheten (patch utan HMR → previewn kör stale chunk) är en 75 %-hypotes utan livebevis. | Hydrationsplanen steg 5 | Gör en quick edit i prod på Fly och försök reproducera mismatchen. Utan repro: rör inte patch-lanen. |
 | Ett gammalt variant-ID kan överleva en lyckad explicit clear/rematch. | journal R12 | Visa den normala vägen där finalize ger `null` med tidigare variant satt. Går det inte: arkivera raden. |
 | Synliga template-gallerimallar kan fortfarande krascha eller lata-ladda. | journal R20 | Kör aktuell catalog-/blob-audit + click-smoke på **endast** de synliga mallarna (evidensen är gammal). |
 | Verify/export använder F2-placeholderkuvert även i F3. | journal R21 | Reproducera en konkret build-/runtime-avvikelse innan kontraktet breddas. |
@@ -131,6 +133,9 @@ Varje rad ska ha en beslutsägare och en deadline eller trigger. Utan det blir b
 | P2 | Rotera Actions-secreten `OPENAI_API_KEY`, kör ny baseline (`--save-baseline`) och besluta om notifiering vid schemalagt evalfel. Nuvarande baseline är från 2026-03-18 och senaste körningen föll på `invalid_api_key`. `journal R54` | Jake (ägaråtgärd) | Före nästa gång evalgaten citeras som kvalitetsbevis |
 | P3 | Ska tool-only-förslag + approval prissättas som två modellrundor eller ett användarsteg? `journal R14` | Jake | Före MVP-leverans (prissättning) |
 | P3 | Efter nuvarande minnesmitigering: vilken SLO skulle motivera en separat verify-lane från preview-VM:n? `journal R34` | Jake | Bara om preview-VM-minnet blir en incident igen |
+| P2 | **Latens steg 3:** ska en F2-preview köra ett 69-sekunders verifier-LLM-pass alls, när RenderGate ändå ägs av klienten? Kodändringen är liten, beslutet är det inte — "nej, verifiern stannar" är ett giltigt utfall som skrivs ner. `verificationPolicy: "strict"` och fixer-riskklassningen rörs inte oavsett. Underlag: [`docs/plans/archived/2026-08-05-generationslatens/`](docs/plans/archived/2026-08-05-generationslatens/00-master-plan.md) (risknot + mätning). | Jake | Nästa gång latens prioriteras (post-MVP) |
+| P3 | **Latens steg 4:** parallell codegen (kontraktspass, N workers per filgrupp, merge) — beslutspunkt gated av `mvp-scope-freeze.mdc`, rör SSE-/kreditkontraktet i grunden. Underlag: [`docs/plans/archived/2026-08-05-generationslatens/02-parallell-codegen.md`](docs/plans/archived/2026-08-05-generationslatens/02-parallell-codegen.md). | Jake | Post-MVP, bara vid uttrycklig beställning |
+| P2 | **A5 typecheck-policy:** ska `defect.kind: "compile"` i en levererad verbatim dossier-fil få promotas (dagens Advisory) eller blockera? Extern granskning 2026-08-08 rekommenderar blockerande, om inte systemet mekaniskt kan ta bort/ersätta den trasiga dossiern. Ur prod-körningen 2026-08-05 (`docs/plans/active/2026-08-05-prodkorning-dossiers/`). | Jake | Nästa F3-härdningspass eller nästa dossier-compile-incident |
 
 ### Tidigare beslutskluster
 

@@ -1,10 +1,19 @@
 ---
-status: active
+status: archived
 owner: unassigned
 topic: Generationslatens — strömmen är 79–99 % av strömfönstret (brief/orkestrering ligger före mätankaret). Steg 1 levererat (#792), steg 2 diagnos klar (klassningen befogad), steg 3 ägarfråga, steg 4 gated.
 created: 2026-08-05
 source: Prod-mätning 2026-08-05 av de två senaste användarsajterna (fyra versioner, chattarna 9cdb3e31 + 41be90f2) via read-only `/logg` + direktläsning av `generation_telemetry.meta`. Underlaget i sin helhet: [`01-matningen.md`](01-matningen.md). Ägarfråga 2026-08-05: "kan man parallellisera saker för att snabba upp allt?"
 ---
+
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [BUG-SWARM-BACKLOG § Väntar på ägarbeslut](../../../../BUG-SWARM-BACKLOG.md)
+>
+> Parkerad 2026-08-08: steg 1–2 levererade (#792, #795-diagnos), steg 3 (F2-verifierns
+> proportionalitet) och steg 4 (parallell codegen) är öppna ägarbeslut som nu bor som
+> rader i backloggens beslutssektion. Mätunderlaget behålls här för beslutet.
 
 # Master-plan: generationslatens
 
