@@ -30,7 +30,7 @@ def render(ctx: BackofficeContext) -> None:
 
     man_path = ctx.manifest_json
     catalog_path = ctx.repo_root / "src" / "lib" / "models" / "catalog.ts"
-    llm_readme = ctx.repo_root / "logs" / "llm-segmentts-and-index" / "readme.txt"
+    llm_readme = ctx.llm_index_readme
     manifest: dict[str, Any] = read_json(man_path) if man_path.is_file() else {}
     default_tier = parse_ts_default_model_id(catalog_path)
 

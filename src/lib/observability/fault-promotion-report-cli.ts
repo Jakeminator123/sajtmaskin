@@ -11,6 +11,7 @@ import {
   formatFaultPromotionReport,
 } from "./fault-promotion-report";
 import type { ErrorLogEvent } from "@/lib/logging/error-log-rag";
+import { LEGACY_INDEX_DIR_NAME } from "@/lib/logging/generation-log-writer/constants";
 
 function readNdjson(filePath: string): unknown[] {
   if (!fs.existsSync(filePath)) return [];
@@ -47,7 +48,9 @@ function looksLikeErrorLogEvent(value: unknown): value is ErrorLogEvent {
 
 function collectFaultEvents(root: string): FaultEvent[] {
   const events: FaultEvent[] = [];
-  const ndjsonPath = path.join(root, "logs", "llm-segmentts-and-index", "error-log.ndjson");
+  // Komponerar mot anroparens `root` — kan därför inte använda
+  // LEGACY_INDEX_DIR, som är bunden till process.cwd().
+  const ndjsonPath = path.join(root, "logs", LEGACY_INDEX_DIR_NAME, "error-log.ndjson");
   for (const row of readNdjson(ndjsonPath)) {
     if (looksLikeErrorLogEvent(row)) {
       events.push(faultEventFromErrorLogEvent(row));
