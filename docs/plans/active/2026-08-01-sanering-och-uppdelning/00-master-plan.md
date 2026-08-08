@@ -21,7 +21,7 @@ först, stäng false-green, städa, dela sedan.
 5–6 har fått flera nya split-PR:ar i merge-vågen #817–#838 (`audit` #822,
 `deployments` #821, `template-generator` #818, `scaffold_lifecycle` #826,
 `shared.py` #837), men klart-kriteriet (~1 200 rader) är **inte** nått —
-nio filer ligger kvar över taket. Steg 4 våg 3, steg 7–8 och steg 9
+tretton filer ligger kvar över taket. Steg 4 våg 3, steg 7–8 och steg 9
 (katalog-JSON) är oförändrat öppna. Steg 10 ej påbörjad. **Planen är inte klar.**
 
 ## Verifierad baseline (2026-08-01, master `c3a9273d0`)
@@ -48,7 +48,7 @@ Statuskolumnen verifierad mot master 2026-08-08 (radräkning + `git ls-files`).
 | 3 | Fem devDependencies + `vercel`-beslut + exportyta | [`02-dod-kod.md`](02-dod-kod.md) | ✅ #717; spår C (exportytan) är löpande |
 | 4 | Dokumentstädning (10 vägar) | [`03-dokumentstadning.md`](03-dokumentstadning.md) | ⚠️ Våg 1–2 klara (#713/#721); våg 3 + `_parkering/`-ägarfrågan kvar |
 | 5 | Dela `useBuilderPageController` + `PreviewPanel` | [`04-megafiler.md`](04-megafiler.md) | ⚠️ Controller klar (#724, ~859 rader); `PreviewPanel` kvar (~1 859) |
-| 6 | Dela preview-host `runtime.js`, `server-verify`, `repair-loop` m.fl. | [`04-megafiler.md`](04-megafiler.md) | ⚠️ Flera klara (#722/#727/#818/#821/#822/#826/#837); nio filer fortfarande över ~1 200 — se [`04-megafiler.md`](04-megafiler.md) |
+| 6 | Dela preview-host `runtime.js`, `server-verify`, `repair-loop` m.fl. | [`04-megafiler.md`](04-megafiler.md) | ⚠️ Flera klara (#722/#727/#818/#821/#822/#826/#837); tretton filer fortfarande över ~1 200 — se [`04-megafiler.md`](04-megafiler.md) |
 | 7 | Binärer → Blob/CDN, embeddings → Blob/komprimerad | [`05-repo-storlek.md`](05-repo-storlek.md) | ❌ Ej påbörjad — `git ls-files` spårar fortfarande `public/video/intro.mp4` + `src/lib/templates/template-embeddings.json` |
 | 8 | `git filter-repo`-operation (koordinerad, destruktiv — kräver ägar-OK) | [`05-repo-storlek.md`](05-repo-storlek.md) | ❌ Väntar på 7 + tom PR-kö + ägar-OK |
 | 9 | Dependency-split: app-runtime vs generator-katalog vs tooling | [`06-dependency-split.md`](06-dependency-split.md) | ⚠️ Inventeringen klar (2026-08-01); `config/generated-site-dependencies.json` (eller motsv.) finns inte |
