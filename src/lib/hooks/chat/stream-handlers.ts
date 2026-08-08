@@ -1,603 +1,101 @@
 import { consumeSseResponse } from "@/lib/builder/sse";
-import { isPromptAssistOff, resolvePromptAssistProvider } from "@/lib/builder/prompt-assist";
-import type {
-  AutoFixPayload,
-  PreviewBuildErrorPayload,
-  PreviewProdBuildPayload,
-  SetMessages,
-  StreamQualitySignal,
-} from "./types";
-import { toast } from "sonner";
+import type { StreamQualitySignal } from "./types";
 import {
-  appendModelInfoPart,
-  appendPromptStrategyPart,
-  appendToolPartToMessage,
-  buildStreamErrorMessage,
-  coerceIntegrationSignals,
-  coerceUiParts,
   finalizeStreamStats,
   initStreamStats,
-  integrationSignalToToolPart,
-  mergeStreamingText,
-  mergeUiParts,
-  recordStreamParts,
-  recordStreamText,
 } from "./helpers";
-import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
-import { planArtifactHasSubstance } from "@/lib/gen/plan/review";
-import { runPostGenerationChecks } from "./post-checks";
-import {
-  F3_APPROVAL_NOTHING_TO_BUILD_REASON,
-  F3_REJECT_ACK_REASON,
-  F3_TOOL_ONLY_EXHAUSTED_REASON,
-} from "@/lib/gen/stream/f3-continuation";
-import { triggerImageMaterialization } from "./post-checks-fetch";
 import { readPreviewPreflight } from "./post-checks-preview";
 import {
-  isOwnEnginePostStreamPhaseId,
-  ownEnginePostStreamStepLabelSv,
-} from "@/lib/gen/stream/finalize-pipeline-contract";
+  handleContentEvent,
+  handleIntegrationEvent,
+  handlePartsEvent,
+  handleProgressEvent,
+  handleThinkingEvent,
+  handleToolCallEvent,
+} from "./stream-handlers-content";
+import { handleDoneEvent } from "./stream-handlers-done";
 import {
-  resolveCanonicalLivePreviewUrlFromDonePayload,
-  resolveCanonicalLivePreviewUrlFromPreviewReadyPayload,
-} from "@/lib/api/preview-url-contract";
+  handleBuildErrorEvent,
+  handleChatIdEvent,
+  handleErrorEvent,
+  handleMetaEvent,
+  handlePreviewReadyEvent,
+  handleProjectIdEvent,
+  handleVersionRepairAvailableEvent,
+} from "./stream-handlers-lifecycle";
+import { createPreviewUrlDeliverer } from "./stream-handlers-preview-delivery";
+import { appendProgressPart } from "./stream-handlers-progress";
+import { runPostStreamSideEffects } from "./stream-handlers-post-stream";
+import { createStreamingTextBatcher } from "./stream-handlers-text-batch";
+import type {
+  StreamContext,
+  StreamHandlerResult,
+  StreamRunState,
+} from "./stream-handlers-types";
 
-export type ProgressPartState = "output-available" | "output-error" | "input-streaming";
-
-/**
- * Maps an SSE progress `(step, phase)` onto the tool-part state the Agentlogg
- * renders. Exported purely so the classification is testable — the rest of the
- * progress plumbing lives in closures inside `createStreamHandlers`.
- *
- * `reverted` belongs with the completed phases. The Element Preservation /
- * shrink guard reverting a file is the guard succeeding: the run continues,
- * the version is saved and the preview boots. It is surfaced as a warning
- * (log line + toast), never as a failed step. Note that anything not listed
- * here renders as an in-progress spinner, so a phase that ends a step must be
- * classified as completed or failed — not simply dropped from `failed`.
- */
-export function resolveProgressPartState(step: string, phase: string): ProgressPartState {
-  const completed =
-    phase === "passed" ||
-    phase === "done" ||
-    phase === "reverted" ||
-    (step === "preview" &&
-      (phase === "boot-queued" || phase === "ready" || phase === "build-verified"));
-  if (completed) return "output-available";
-  const failed =
-    phase === "error" ||
-    phase === "gave-up" ||
-    (step === "preview" && phase === "build-failed");
-  return failed ? "output-error" : "input-streaming";
-}
-
-export type StreamContext = {
-  streamType: "create" | "send";
-  assistantMessageId: string;
-  selectedModelTier: string;
-  chatId: string | null;
-  setMessages: SetMessages;
-  touchStreamSafetyTimer: () => void;
-
-  setChatId?: (id: string | null) => void;
-  chatIdParam?: string | null;
-  buildBuilderParams?: (entries: Record<string, string | null | undefined>) => URLSearchParams;
-  router?: { replace: (href: string) => void };
-  appProjectId?: string | null;
-  pendingCreateKeyRef?: React.MutableRefObject<string | null>;
-  onLinkedProjectId?: (projectId: string) => void;
-
-  setCurrentPreviewUrl: (url: string | null) => void;
-  setPreviewBuildError?: (payload: PreviewBuildErrorPayload | null) => void;
-  setPreviewProdBuild?: (payload: PreviewProdBuildPayload | null) => void;
-  setPreviewPending?: (pending: boolean) => void;
-  /** See `ChatMessagingParams.applyPreviewHandoff` — dedup'd URL-or-bump handoff. */
-  applyPreviewHandoff?: (params: {
-    url: string | null | undefined;
-    versionId?: string | null;
-    force?: boolean;
-  }) => void;
-  /** Område 6-3 punkt 1: post-check completion → guaranteed status refetch. */
-  onVersionStatusRefresh?: () => void;
-  onGenerationComplete?: (data: {
-    chatId: string;
-    versionId?: string;
-    previewUrl?: string;
-    onlySelectVersionIfWasLatest?: boolean;
-  }) => void;
-  /** Own-engine preview session metadata (SSE `preview-ready`). */
-  onPreviewSessionMeta?: (meta: { previewSessionId: string; versionId: string | null } | null) => void;
-  mutateVersions: () => void;
-  enableImageMaterialization: boolean;
-  autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
-  promptAssistModel?: string | null;
-  promptAssistDeep?: boolean;
-  promptAssistMode?: "polish" | "rewrite" | null;
-};
-
-import { updateCreateChatLockChatId } from "./helpers";
+export type { StreamContext } from "./stream-handlers-types";
+export type { ProgressPartState } from "./stream-handlers-progress";
+export { resolveProgressPartState } from "./stream-handlers-progress";
 
 export async function handleSseStream(
   response: Response,
   ctx: StreamContext,
   signal: AbortSignal,
-): Promise<{
-  streamQuality: StreamQualitySignal;
-  chatIdFromStream: string | null;
-  /**
-   * True när done-eventet bar en riktig artefakt (version, preview,
-   * plan-artefakt eller awaiting-input). False vid tomma/failade
-   * generationer — Byggval-storen ska då INTE nollställas (valen bevaras
-   * till nästa försök).
-   */
-  hasRecoveredArtifact: boolean;
-}> {
-  let chatIdFromStream: string | null = null;
-  let versionIdFromStream: string | null = null;
-  let recoveredArtifactSignal = false;
-  let linkedProjectIdFromStream: string | null = null;
-  let accumulatedThinking = "";
-  let accumulatedContent = "";
-  let didReceiveDone = false;
-  let generationProgressStarted = false;
-  let generationDoneProgressReceived = false;
-  let pendingStreamErrorMessage: string | null = null;
-  const postCheckQueue: Array<{
-    chatId: string;
-    versionId: string;
-    demoUrl?: string | null;
-    preflight?: PreviewPreflightState | null;
-  }> = [];
-  const materializeQueue: Array<{ chatId: string; versionId: string }> = [];
+): Promise<StreamHandlerResult> {
+  const state: StreamRunState = {
+    chatIdFromStream: null,
+    versionIdFromStream: null,
+    recoveredArtifactSignal: false,
+    linkedProjectIdFromStream: null,
+    accumulatedThinking: "",
+    accumulatedContent: "",
+    didReceiveDone: false,
+    generationProgressStarted: false,
+    generationDoneProgressReceived: false,
+    pendingStreamErrorMessage: null,
+    postCheckQueue: [],
+    materializeQueue: [],
+    streamStats: initStreamStats(ctx.streamType, ctx.assistantMessageId),
+  };
+
   let streamQuality: StreamQualitySignal = { hasCriticalAnomaly: false, reasons: [] };
-  const streamStats = initStreamStats(ctx.streamType, ctx.assistantMessageId);
 
-  const {
-    assistantMessageId,
-    selectedModelTier,
-    setMessages,
-    touchStreamSafetyTimer,
-    setChatId,
-    chatIdParam,
-    buildBuilderParams,
-    router,
-    appProjectId,
-    pendingCreateKeyRef,
-    onLinkedProjectId,
-    onPreviewSessionMeta,
-    setCurrentPreviewUrl,
-    setPreviewBuildError,
-    setPreviewProdBuild,
-    setPreviewPending,
-    onVersionStatusRefresh,
-    onGenerationComplete,
-    mutateVersions,
-    enableImageMaterialization,
-    autoFixHandlerRef,
-  } = ctx;
+  const deliverPreviewUrl = createPreviewUrlDeliverer(ctx);
+  const boundAppendProgressPart = (
+    step: string,
+    phase: string,
+    payload: Record<string, unknown> = {},
+  ) => appendProgressPart(ctx.setMessages, ctx.assistantMessageId, step, phase, payload);
 
-  const effectiveChatId = ctx.chatId;
+  const { requestStreamingTextFlush, flushStreamingTextNow } = createStreamingTextBatcher({
+    setMessages: ctx.setMessages,
+    assistantMessageId: ctx.assistantMessageId,
+    getAccumulatedContent: () => state.accumulatedContent,
+    getAccumulatedThinking: () => state.accumulatedThinking,
+  });
 
-  // Dedup'd preview handoff: exactly one iframe reload per stream run even
-  // when preview-ready AND done both carry the same URL. The per-run latch
-  // here is deliberate (not just the controller's versionId:url latch):
-  // `versionIdFromStream` may still be null when preview-ready arrives and
-  // only resolve at done, which would give the two events different dedup
-  // keys. Falls back to a plain URL set (which itself reloads the iframe)
-  // when the controller callback is not wired (tests).
-  let deliveredPreviewUrlForRun: string | null = null;
-  let deliveredVersionIdForRun: string | null = null;
-  const deliverPreviewUrl = (url: string | null | undefined, versionId: string | null) => {
-    const normalized = typeof url === "string" && url.trim().length > 0 ? url.trim() : null;
-    if (!normalized) return;
-    const resolvedVersionId =
-      typeof versionId === "string" && versionId.trim().length > 0 ? versionId.trim() : null;
-    const sameUrl = deliveredPreviewUrlForRun === normalized;
-    // Latch upgrade: preview-ready delivered this URL before the stream reported
-    // versionId (`?:url`), and done now carries the concrete id for the SAME URL.
-    // Re-deliver ONCE so the controller upgrades its dedup latch to
-    // `versionId:url` — decidePreviewHandoff returns a no-reload noop for that
-    // upgrade, so the iframe still reloads exactly once, but the latch never
-    // stays stuck at `?:url` (which would swallow a genuine new-version bump at
-    // the same reused VM URL — Bugbot). The fallback path (no handoff callback,
-    // tests) has no latch to upgrade, so it keeps the strict URL-only dedup.
-    const isLatchUpgrade =
-      sameUrl &&
-      Boolean(ctx.applyPreviewHandoff) &&
-      resolvedVersionId !== null &&
-      resolvedVersionId !== deliveredVersionIdForRun;
-    if (sameUrl && !isLatchUpgrade) return;
-    deliveredPreviewUrlForRun = normalized;
-    if (resolvedVersionId !== null) deliveredVersionIdForRun = resolvedVersionId;
-    if (ctx.applyPreviewHandoff) {
-      ctx.applyPreviewHandoff({ url: normalized, versionId });
-      return;
-    }
-    setCurrentPreviewUrl(normalized);
-  };
-
-  const getProgressToolName = (step: string) => {
-    if (isOwnEnginePostStreamPhaseId(step)) return ownEnginePostStreamStepLabelSv(step);
-    if (step === "generation") return "Generering";
-    if (step === "preview") return "Live-preview";
-    if (step === "build-error") return "Byggfel";
-    if (step === "element_guard") return "Ändringsskydd";
-    return step;
-  };
-
-  const buildProgressSteps = (step: string, phase: string, payload: Record<string, unknown>) => {
-    const durationMs =
-      typeof payload.durationMs === "number" && Number.isFinite(payload.durationMs)
-        ? payload.durationMs
-        : null;
-    const reasoningMs =
-      typeof payload.reasoningMs === "number" && Number.isFinite(payload.reasoningMs)
-        ? payload.reasoningMs
-        : null;
-    const outputMs =
-      typeof payload.outputMs === "number" && Number.isFinite(payload.outputMs)
-        ? payload.outputMs
-        : null;
-    const errorCount =
-      typeof payload.errorCount === "number" && Number.isFinite(payload.errorCount)
-        ? payload.errorCount
-        : null;
-    const pass = typeof payload.pass === "number" && Number.isFinite(payload.pass) ? payload.pass : null;
-    const fixes = typeof payload.fixes === "number" && Number.isFinite(payload.fixes) ? payload.fixes : null;
-    const warnings =
-      typeof payload.warnings === "number" && Number.isFinite(payload.warnings) ? payload.warnings : null;
-    const dependencies =
-      typeof payload.dependencies === "number" && Number.isFinite(payload.dependencies)
-        ? payload.dependencies
-        : null;
-    const errorsAfter =
-      typeof payload.errorsAfter === "number" && Number.isFinite(payload.errorsAfter)
-        ? payload.errorsAfter
-        : null;
-    const fixerUsed = payload.fixerUsed === true;
-    const fileCount =
-      typeof payload.fileCount === "number" && Number.isFinite(payload.fileCount) ? payload.fileCount : null;
-    const versionId =
-      typeof payload.versionId === "string" && payload.versionId.trim().length > 0
-        ? payload.versionId.trim()
-        : null;
-    const fixers = Array.isArray(payload.fixers)
-      ? payload.fixers
-          .map((item) => (item && typeof item === "object" ? (item as Record<string, unknown>) : null))
-          .filter((item): item is Record<string, unknown> => Boolean(item))
-      : [];
-    const formatFixerLabel = (fixer: Record<string, unknown>) => {
-      const name =
-        typeof fixer.fixer === "string" && fixer.fixer.trim() ? fixer.fixer.trim() : "okänd fixer";
-      const count =
-        typeof fixer.count === "number" && Number.isFinite(fixer.count) ? fixer.count : 0;
-      return `${name} ×${count}`;
-    };
-    const formatFixerExamples = () =>
-      fixers
-        .flatMap((fixer) =>
-          Array.isArray(fixer.examples)
-            ? fixer.examples.map((example) => String(example).trim()).filter(Boolean)
-            : [],
-        )
-        .slice(0, 3);
-    const formatSeconds = (ms: number) => `${(ms / 1000).toFixed(ms >= 10000 ? 0 : 1)}s`;
-    const doneSuffix = durationMs !== null ? ` (${formatSeconds(durationMs)})` : "";
-
-    if (step === "generation") {
-      if (phase === "start") return ["Startar own-engine-strömmen."];
-      if (phase === "reasoning") {
-        return ["Modellen analyserar uppgiften innan första synliga outputen kommer."];
-      }
-      if (phase === "reasoning-slow") {
-        const elapsedMs =
-          typeof payload.elapsedMs === "number" && Number.isFinite(payload.elapsedMs)
-            ? payload.elapsedMs
-            : null;
-        return [
-          elapsedMs !== null
-            ? `Modellen analyserar fortfarande uppgiften (${formatSeconds(elapsedMs)}).`
-            : "Modellen analyserar fortfarande uppgiften.",
-        ];
-      }
-      if (phase === "awaiting-output") {
-        return ["Väntar på första kod- eller textoutput från modellen."];
-      }
-      if (phase === "streaming") return ["Genererar innehåll och filer från prompten."];
-      if (phase === "awaiting-input") {
-        return ["Genereringen pausades eftersom modellen behöver mer input eller konfiguration."];
-      }
-      if (phase === "empty-output") {
-        return ["Genereringen avslutades utan användbar kod eller preview-artifact."];
-      }
-      if (phase === "stream-without-version") {
-        return [
-          "Innehåll strömmades till chatten men kunde inte sparas som version. Texten ovan finns kvar.",
-        ];
-      }
-      if (phase === "tool") {
-        const toolName = typeof payload.toolName === "string" ? payload.toolName.trim() : "";
-        return [
-          toolName
-            ? `Modellen kör verktyget "${toolName}" (integration, plan eller fråga).`
-            : "Modellen kör ett verktyg — väntar på nästa kodoutput.",
-        ];
-      }
-      if (phase === "done") {
-        const lines = [`Generering klar${doneSuffix}. Startar efterkontroller och slutsteg.`];
-        if (reasoningMs !== null || outputMs !== null) {
-          lines.push(
-            `Faser: reasoning ${formatSeconds(reasoningMs ?? 0)}, output ${formatSeconds(outputMs ?? 0)}.`,
-          );
-        }
-        return lines;
-      }
-    }
-    if (step === "autofix") {
-      if (phase === "start") return ["Mekanisk autofix startad."];
-      if (phase === "done") {
-        const summary: string[] = [`Mekanisk autofix klar${doneSuffix}.`];
-        if (fixes !== null || warnings !== null) {
-          summary.push(
-            `Fixar: ${fixes ?? 0}${warnings !== null ? `, varningar: ${warnings}` : ""}${dependencies !== null ? `, dependencies: ${dependencies}` : ""}.`,
-          );
-        }
-        if ((fixes ?? 0) === 0 && fixers.length === 0) {
-          summary.push("Inga mekaniska fixar behövdes.");
-        } else if (fixers.length > 0) {
-          summary.push(`Fixers: ${fixers.slice(0, 6).map(formatFixerLabel).join(", ")}.`);
-          const examples = formatFixerExamples();
-          if (examples.length > 0) summary.push(`Exempel: ${examples.join(" • ")}.`);
-        }
-        return summary;
-      }
-      if (phase === "error") return ["Mekanisk autofix misslyckades. Fortsätter med rått innehåll."];
-    }
-    if (step === "verifier") {
-      if (phase === "start") {
-        return ["Verifiering: läser av projektet efter syntax (ingen kodändring i detta steg)."];
-      }
-      if (phase === "done") {
-        const bc =
-          typeof payload.blockingCount === "number" && Number.isFinite(payload.blockingCount)
-            ? payload.blockingCount
-            : null;
-        const qc =
-          typeof payload.qualityCount === "number" && Number.isFinite(payload.qualityCount)
-            ? payload.qualityCount
-            : null;
-        return [
-          `Verifiering klar${doneSuffix}.${bc !== null ? ` Blockerande fynd: ${bc}.` : ""}${qc !== null ? ` Kvalitetsanteckningar: ${qc}.` : ""}`,
-        ];
-      }
-      if (phase === "error") return ["Verifiering misslyckades; fortsätter med nuvarande kod."];
-      if (phase === "skipped") return ["Verifiering hoppades över."];
-    }
-    if (step === "url_expand") {
-      if (phase === "start") return ["Expanderar kortade URL:er till fulla adresser."];
-      if (phase === "done") return [`URL-expansion klar${doneSuffix}.`];
-    }
-    if (step === "materialize_images") {
-      if (phase === "start") return ["Materialiserar bildplatshållare (t.ex. riktiga bild-URL:er)…"];
-      if (phase === "done") {
-        const replaced =
-          typeof payload.replacedCount === "number" && Number.isFinite(payload.replacedCount)
-            ? payload.replacedCount
-            : null;
-        if (replaced !== null && replaced > 0) {
-          return [`Bytte ut ${replaced} bildplatshållare${doneSuffix}.`];
-        }
-        return [`Inga bildplatshållare behövde bytas${doneSuffix}.`];
-      }
-      if (phase === "error") {
-        return ["Bildmaterialisering misslyckades; platshållare kan kvarstå."];
-      }
-    }
-    if (step === "validate_syntax") {
-      if (phase === "start" || phase === "validating") {
-        return [`Validerar genererad kod${pass ? ` (pass ${pass})` : ""}.`];
-      }
-      if (phase === "fixing") {
-        // Tidigare: "Försöker reparera syntaxfel..." — gav intryck av att
-        // något var allvarligt fel. Det här är normal autofix-poleringen
-        // som körs på varje generation och nästan alltid lyckas inom
-        // några sekunder. Neutralare formulering.
-        return [
-          `Polerar syntax${pass ? ` (pass ${pass})` : ""}${errorCount !== null ? `, ${errorCount} småfel` : ""}.`,
-        ];
-      }
-      if (phase === "retrying") {
-        return [`Kör om valideringen efter fixförsök${pass ? ` i pass ${pass}` : ""}.`];
-      }
-      if (phase === "passed") return ["Validering klar."];
-      if (phase === "done") {
-        const details = [`Syntaxvalidering klar${doneSuffix}.`];
-        if (pass !== null || errorsAfter !== null) {
-          details.push(
-            `${pass ?? 1} pass, ${errorsAfter ?? errorCount ?? 0} kvarvarande fel${fixerUsed ? " efter fixförsök" : ""}.`,
-          );
-        }
-        return details;
-      }
-      if (phase === "gave-up") {
-        return [
-          `Valideringen gav upp${errorCount !== null ? ` med ${errorCount} kvarvarande fel` : ""}.`,
-        ];
-      }
-      if (phase === "error") return ["Valideringen misslyckades."];
-    }
-    if (step === "parse_merge_preflight") {
-      if (phase === "start") return ["Finaliserar filer, gör project checks och sparar versionen."];
-      if (phase === "done") {
-        const details: string[] = [`Finalisering klar${doneSuffix}.`];
-        if (fileCount !== null) details.push(`Filer i versionen: ${fileCount}.`);
-        if (versionId) details.push(`Version: ${versionId}.`);
-        details.push("Versionen sparades.");
-        return details;
-      }
-    }
-    if (step === "element_guard") {
-      // M#p7a: the server's Element Preservation Guard / shrink-guard can
-      // silently revert a follow-up file to the previous version (it protects
-      // against token-truncation dropping <video>/<canvas>/<form> etc.). The
-      // server emits `rejectedStructural`/`rejectedShrinks` on SSE `done`, but
-      // no client surface consumed them — so the user's edit could vanish with
-      // no explanation. Surface it explicitly here.
-      const structural = Array.isArray(payload.rejectedStructural)
-        ? (payload.rejectedStructural as Array<{
-            file?: unknown;
-            droppedElements?: Array<{ label?: unknown; kind?: unknown }>;
-          }>)
-        : [];
-      const shrinks = Array.isArray(payload.rejectedShrinks)
-        ? (payload.rejectedShrinks as Array<{ file?: unknown }>)
-        : [];
-      const lines: string[] = [];
-      for (const entry of structural) {
-        // Defensive: the SSE `done` callback must never throw on a malformed
-        // payload (e.g. a null array entry), so skip non-object items.
-        if (!entry || typeof entry !== "object") continue;
-        const file = typeof entry.file === "string" ? entry.file : "okänd fil";
-        const labels = Array.isArray(entry.droppedElements)
-          ? entry.droppedElements
-              .map((el) => (el && typeof el.label === "string" ? el.label : null))
-              .filter((l): l is string => Boolean(l))
-          : [];
-        lines.push(
-          `Ändringen i ${file} återställdes till föregående version för att bevara viktiga element${
-            labels.length > 0 ? ` (${labels.join(", ")})` : ""
-          }. Beskriv ändringen tydligare och försök igen om den var avsiktlig.`,
-        );
-      }
-      for (const entry of shrinks) {
-        if (!entry || typeof entry !== "object") continue;
-        const file = typeof entry.file === "string" ? entry.file : "okänd fil";
-        lines.push(
-          `Ändringen i ${file} återställdes eftersom det nya innehållet var kraftigt förkortat (sannolik avhuggen output). Föregående version behölls, så inget gick förlorat — be om ändringen igen om den var avsiktlig.`,
-        );
-      }
-      if (lines.length === 0) {
-        lines.push("En eller flera follow-up-ändringar återställdes av ändringsskyddet.");
-      }
-      return lines;
-    }
-    if (step === "preview") {
-      if (phase === "starting") {
-        return ["Startar tier-2-preview (VM) ..."];
-      }
-      if (phase === "boot-queued") {
-        return [
-          "Preview-sessionen är skapad. Miljön fortsätter starta i previewytan.",
-        ];
-      }
-      if (phase === "ready") {
-        return ["Live-preview är klar."];
-      }
-      if (phase === "build-verified") {
-        return ["Production build (npm run build) lyckades i verifierings-VM — separat från dev-preview."];
-      }
-      if (phase === "build-failed") {
-        return [
-          "Production build misslyckades i verifierings-VM. Dev-server-preview kan ändå vara användbar.",
-        ];
-      }
-      if (phase === "error") {
-        const message =
-          typeof payload.message === "string" && payload.message.trim()
-            ? payload.message.trim()
-            : null;
-        return [
-          message
-            ? `Live-preview kunde inte starta: ${message}`
-            : "Live-preview kunde inte starta.",
-        ];
-      }
-    }
-    return [`${getProgressToolName(step)}: ${phase}`];
-  };
-
-  const appendProgressPart = (step: string, phase: string, payload: Record<string, unknown> = {}) => {
-    appendToolPartToMessage(setMessages, assistantMessageId, {
-      type: `tool:engine-${step}` as const,
-      toolName: getProgressToolName(step),
-      toolCallId: `progress:${step}`,
-      state: resolveProgressPartState(step, phase),
-      output: {
-        step,
-        phase,
-        ...payload,
-        steps: buildProgressSteps(step, phase, payload),
-      },
-    } as Parameters<typeof appendToolPartToMessage>[2]);
-  };
-
-  const parseDonePreflight = (doneData: Record<string, unknown>): PreviewPreflightState | null =>
+  const parseDonePreflight = (doneData: Record<string, unknown>) =>
     readPreviewPreflight(doneData);
 
-  // ── rAF-batched streaming-text flush (content/thinking) ───────────────────
-  // Accumulation stays synchronous (merge, stats and the progressive-preview
-  // detection below are unchanged); only the React `setMessages` for the
-  // growing text is coalesced to ~1 frame so a fast token stream stops
-  // thrashing layout + markdown re-parse on every delta. Any NON-text event
-  // flushes first (see the callback head) and the `finally` flushes the tail,
-  // so ordering/precedence vs the done/parts/error handlers is identical to the
-  // pre-batch (synchronous) behavior and the final text is never dropped. A
-  // setTimeout fallback keeps SSR/test environments without rAF working.
-  let pendingContentFlush = false;
-  let pendingThinkingFlush = false;
-  let streamingTextFrame: number | null = null;
-
-  const scheduleStreamingTextFrame =
-    typeof requestAnimationFrame === "function"
-      ? (cb: () => void): number => requestAnimationFrame(cb)
-      : (cb: () => void): number => setTimeout(cb, 16) as unknown as number;
-  const cancelStreamingTextFrame =
-    typeof cancelAnimationFrame === "function"
-      ? (handle: number): void => cancelAnimationFrame(handle)
-      : (handle: number): void => clearTimeout(handle as unknown as ReturnType<typeof setTimeout>);
-
-  const applyStreamingText = () => {
-    streamingTextFrame = null;
-    const flushContent = pendingContentFlush;
-    const flushThinking = pendingThinkingFlush;
-    pendingContentFlush = false;
-    pendingThinkingFlush = false;
-    if (!flushContent && !flushThinking) return;
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === assistantMessageId
-          ? {
-              ...m,
-              ...(flushContent ? { content: accumulatedContent } : {}),
-              ...(flushThinking ? { thinking: accumulatedThinking } : {}),
-              isStreaming: true,
-            }
-          : m,
-      ),
-    );
+  const contentDeps = {
+    appendProgressPart: boundAppendProgressPart,
+    requestStreamingTextFlush,
   };
-
-  const requestStreamingTextFlush = (kind: "content" | "thinking") => {
-    if (kind === "content") pendingContentFlush = true;
-    else pendingThinkingFlush = true;
-    if (streamingTextFrame === null) {
-      streamingTextFrame = scheduleStreamingTextFrame(applyStreamingText);
-    }
+  const lifecycleDeps = {
+    appendProgressPart: boundAppendProgressPart,
+    deliverPreviewUrl,
   };
-
-  const flushStreamingTextNow = () => {
-    if (streamingTextFrame !== null) {
-      cancelStreamingTextFrame(streamingTextFrame);
-      streamingTextFrame = null;
-    }
-    applyStreamingText();
+  const doneDeps = {
+    appendProgressPart: boundAppendProgressPart,
+    deliverPreviewUrl,
+    parseDonePreflight,
   };
 
   try {
     await consumeSseResponse(
       response,
       (event, data) => {
-        touchStreamSafetyTimer();
+        ctx.touchStreamSafetyTimer();
         // Commit any batched streaming text before a non-text event so its
         // handler (done/parts/error/preview-ready/…) sees and can overwrite the
         // exact message state it would have in the pre-batch synchronous flow.
@@ -606,805 +104,59 @@ export async function handleSseStream(
         }
         switch (event) {
           case "meta": {
-            const meta = typeof data === "object" && data ? (data as Record<string, unknown>) : {};
-            const paModel = ctx.promptAssistModel ?? null;
-            appendModelInfoPart(setMessages, assistantMessageId, {
-              modelId: (meta.modelId as string) ?? selectedModelTier,
-              modelTier:
-                (typeof meta.modelTier === "string" && meta.modelTier) || selectedModelTier || null,
-              buildProfileId:
-                typeof meta.buildProfileId === "string" ? meta.buildProfileId : null,
-              buildProfileLabel:
-                typeof meta.buildProfileLabel === "string" ? meta.buildProfileLabel : null,
-              enginePath: typeof meta.enginePath === "string" ? meta.enginePath : null,
-              thinking: typeof meta.thinking === "boolean" ? meta.thinking : null,
-              imageGenerations:
-                typeof meta.imageGenerations === "boolean" ? meta.imageGenerations : null,
-              chatPrivacy: typeof meta.chatPrivacy === "string" ? meta.chatPrivacy : null,
-              promptAssistProvider: paModel
-                ? (isPromptAssistOff(paModel) ? "off" : resolvePromptAssistProvider(paModel))
-                : null,
-              promptAssistModel: paModel,
-              promptAssistDeep: ctx.promptAssistDeep ?? null,
-              promptAssistMode: ctx.promptAssistMode ?? null,
-              scaffoldId: typeof meta.scaffoldId === "string" ? meta.scaffoldId : null,
-              scaffoldLabel: typeof meta.scaffoldLabel === "string" ? meta.scaffoldLabel : null,
-              capabilities: meta.capabilities && typeof meta.capabilities === "object" ? meta.capabilities as Record<string, boolean> : null,
-              mutedCapabilityLabels: Array.isArray(meta.mutedCapabilityLabels)
-                ? (meta.mutedCapabilityLabels as string[])
-                : null,
-              fileEvidenceCapabilities: Array.isArray(meta.fileEvidenceCapabilities)
-                ? (meta.fileEvidenceCapabilities as string[])
-                : null,
-              contractDataMode:
-                typeof meta.contractDataMode === "string" ? meta.contractDataMode : null,
-              contractDatabaseProvider:
-                typeof meta.contractDatabaseProvider === "string" ? meta.contractDatabaseProvider : null,
-              contractAuthProvider:
-                typeof meta.contractAuthProvider === "string" ? meta.contractAuthProvider : null,
-              contractPaymentProvider:
-                typeof meta.contractPaymentProvider === "string" ? meta.contractPaymentProvider : null,
-              contractIntegrations:
-                Array.isArray(meta.contractIntegrations)
-                  ? (meta.contractIntegrations as Array<{ provider?: string; name?: string; status?: string; envVars?: string[] }>)
-                  : null,
-              contractEnvVars:
-                Array.isArray(meta.contractEnvVars)
-                  ? (meta.contractEnvVars as Array<{ key?: string; reason?: string; required?: boolean }>)
-                  : null,
-              unresolvedContractDecisions:
-                Array.isArray(meta.unresolvedContractDecisions)
-                  ? (meta.unresolvedContractDecisions as Array<{ kind?: string; reason?: string } | string>)
-                  : null,
-            });
-
-            const promptStrategy =
-              meta.promptStrategy === "direct" ||
-              meta.promptStrategy === "phase_plan_build_refine" ||
-              meta.promptStrategy === "preserved"
-                ? meta.promptStrategy
-                : null;
-            const promptType =
-              meta.promptType === "audit" ||
-              meta.promptType === "wizard" ||
-              meta.promptType === "freeform" ||
-              meta.promptType === "template" ||
-              meta.promptType === "followup_general" ||
-              meta.promptType === "followup_technical" ||
-              meta.promptType === "unknown"
-                ? meta.promptType
-                : null;
-            const promptBudgetTarget =
-              typeof meta.promptBudgetTarget === "number" ? meta.promptBudgetTarget : null;
-            const promptOriginalLength =
-              typeof meta.promptOriginalLength === "number" ? meta.promptOriginalLength : null;
-            const promptOptimizedLength =
-              typeof meta.promptOptimizedLength === "number" ? meta.promptOptimizedLength : null;
-            const promptReductionRatio =
-              typeof meta.promptReductionRatio === "number" ? meta.promptReductionRatio : 0;
-            const promptStrategyReason =
-              typeof meta.promptStrategyReason === "string" ? meta.promptStrategyReason : "";
-            const promptComplexityScore =
-              typeof meta.promptComplexityScore === "number" ? meta.promptComplexityScore : 0;
-            // Plan 03 (short): SSE meta now carries `promptSource` ("user" |
-            // "auto_repair"). Default to "user" so legacy meta payloads
-            // missing the field render exactly as before.
-            const promptSource =
-              meta.promptSource === "auto_repair" ? "auto_repair" : "user";
-
-            if (promptStrategy && promptType && promptBudgetTarget !== null && promptOriginalLength !== null &&
-              promptOptimizedLength !== null) {
-              appendPromptStrategyPart(setMessages, assistantMessageId, {
-                strategy: promptStrategy,
-                promptType,
-                promptSource,
-                budgetTarget: promptBudgetTarget,
-                originalLength: promptOriginalLength,
-                optimizedLength: promptOptimizedLength,
-                reductionRatio: promptReductionRatio,
-                reason: promptStrategyReason,
-                phaseHints: [],
-                complexityScore: promptComplexityScore,
-                wasChanged: promptOriginalLength !== promptOptimizedLength,
-              });
-            }
-
-            if (!chatIdFromStream && typeof meta.chatId === "string" && meta.chatId) {
-              const id = meta.chatId;
-              chatIdFromStream = id;
-              setChatId?.(id);
-              if (chatIdParam !== id && buildBuilderParams && router) {
-                const params = buildBuilderParams({
-                  chatId: id,
-                  project: appProjectId ?? undefined,
-                });
-                router.replace(`/builder?${params.toString()}`);
-              }
-              if (pendingCreateKeyRef?.current) {
-                updateCreateChatLockChatId(pendingCreateKeyRef.current, id);
-              }
-            }
-            if (!versionIdFromStream && typeof meta.versionId === "string" && meta.versionId) {
-              versionIdFromStream = meta.versionId;
-            }
+            handleMetaEvent(data, state, ctx);
             break;
           }
           case "thinking": {
-            const thinkingText =
-              typeof data === "string"
-                ? data
-                : (data as Record<string, unknown>)?.text ||
-                  (data as Record<string, unknown>)?.thinking ||
-                  (data as Record<string, unknown>)?.reasoning ||
-                  null;
-            if (thinkingText) {
-              if (!generationProgressStarted) {
-                generationProgressStarted = true;
-                appendProgressPart("generation", "streaming");
-              }
-              const incoming = String(thinkingText);
-              const previous = accumulatedThinking;
-              const mergedThought = mergeStreamingText(previous, incoming);
-              recordStreamText(streamStats, "thinking", previous, mergedThought, incoming.length);
-              if (mergedThought !== accumulatedThinking) {
-                accumulatedThinking = mergedThought;
-                requestStreamingTextFlush("thinking");
-              }
-            }
+            handleThinkingEvent(data, state, ctx, contentDeps);
             break;
           }
           case "content": {
-            const contentText =
-              typeof data === "string"
-                ? data
-                : (data as Record<string, unknown>)?.content ||
-                  (data as Record<string, unknown>)?.text ||
-                  (data as Record<string, unknown>)?.delta ||
-                  null;
-            if (contentText) {
-              if (!generationProgressStarted) {
-                generationProgressStarted = true;
-                appendProgressPart("generation", "streaming");
-              }
-              const incoming = String(contentText);
-              const previous = accumulatedContent;
-              const merged = mergeStreamingText(previous, incoming);
-              recordStreamText(streamStats, "content", previous, merged, incoming.length);
-              accumulatedContent = merged;
-              requestStreamingTextFlush("content");
-            }
+            handleContentEvent(data, state, ctx, contentDeps);
             break;
           }
           case "parts": {
-            const nextParts = coerceUiParts(data);
-            if (nextParts.length > 0) {
-              recordStreamParts(streamStats, nextParts.length);
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMessageId
-                    ? { ...m, uiParts: mergeUiParts(m.uiParts, nextParts), isStreaming: true }
-                    : m,
-                ),
-              );
-            }
+            handlePartsEvent(data, state, ctx);
             break;
           }
           case "integration": {
-            const signals = coerceIntegrationSignals(data);
-            if (signals.length > 0) {
-              const integrationParts = signals.map((s, i) =>
-                integrationSignalToToolPart(s, `${assistantMessageId}:${i}`),
-              );
-              recordStreamParts(streamStats, integrationParts.length);
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMessageId
-                    ? {
-                        ...m,
-                        uiParts: mergeUiParts(m.uiParts, integrationParts),
-                        isStreaming: true,
-                      }
-                    : m,
-                ),
-              );
-            }
+            handleIntegrationEvent(data, state, ctx);
             break;
           }
           case "tool-call": {
-            const toolData = typeof data === "object" && data ? (data as Record<string, unknown>) : {};
-            const toolName = typeof toolData.toolName === "string" ? toolData.toolName : "";
-            const toolCallId = typeof toolData.toolCallId === "string"
-              ? toolData.toolCallId
-              : `tool-${Date.now()}`;
-            const toolArgs = (toolData.args as Record<string, unknown>) ?? {};
-
-            if (toolName === "askClarifyingQuestion") {
-              const questionText = typeof toolArgs.question === "string" ? toolArgs.question : "";
-              const options = Array.isArray(toolArgs.options) ? (toolArgs.options as string[]) : [];
-              const part = {
-                type: "tool:awaiting-input",
-                toolName: "Klargörande fråga",
-                toolCallId,
-                state: "input-available",
-                output: {
-                  question: questionText,
-                  options: options.length > 0 ? options : undefined,
-                  kind: typeof toolArgs.kind === "string" ? toolArgs.kind : "unclear",
-                  awaitingInput: true,
-                },
-              } as Parameters<typeof appendToolPartToMessage>[2];
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMessageId
-                    ? { ...m, uiParts: mergeUiParts(m.uiParts, [part]) }
-                    : m,
-                ),
-              );
-            } else if (toolName === "emitPlanArtifact") {
-              const planPart = {
-                type: "plan" as const,
-                plan: {
-                  title: (typeof toolArgs.goal === "string" ? toolArgs.goal : "Plan") as string,
-                  description: Array.isArray(toolArgs.scope)
-                    ? (toolArgs.scope as string[]).join(", ")
-                    : "",
-                  steps: Array.isArray(toolArgs.steps)
-                    ? (toolArgs.steps as Array<Record<string, unknown>>).map((s) => ({
-                        title: String(s.title ?? ""),
-                        description: String(s.description ?? ""),
-                        status: String(s.phase ?? "build"),
-                      }))
-                    : [],
-                  raw: toolArgs,
-                },
-              };
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMessageId
-                    ? { ...m, uiParts: mergeUiParts(m.uiParts, [planPart]) }
-                    : m,
-                ),
-              );
-            }
+            handleToolCallEvent(data, state, ctx);
             break;
           }
           case "progress": {
-            const progressData = typeof data === "object" && data ? (data as Record<string, unknown>) : {};
-            const step = typeof progressData.step === "string" ? progressData.step : "";
-            const phase = typeof progressData.phase === "string" ? progressData.phase : "";
-            if (step && phase) {
-              if (step === "generation") {
-                generationProgressStarted = true;
-                if (phase === "done") {
-                  generationDoneProgressReceived = true;
-                }
-              }
-              appendProgressPart(step, phase, progressData);
-            }
+            handleProgressEvent(data, state, ctx, contentDeps);
             break;
           }
           case "chatId": {
-            const nextChatId =
-              typeof data === "string"
-                ? data
-                : (data as Record<string, unknown>)?.id ||
-                  (data as Record<string, unknown>)?.chatId ||
-                  null;
-            if (nextChatId && !chatIdFromStream) {
-              const id = String(nextChatId);
-              chatIdFromStream = id;
-              streamStats.chatId = id;
-              setChatId?.(id);
-              if (chatIdParam !== id && buildBuilderParams && router) {
-                const params = buildBuilderParams({
-                  chatId: id,
-                  project: appProjectId ?? undefined,
-                });
-                router.replace(`/builder?${params.toString()}`);
-              }
-              if (pendingCreateKeyRef?.current) {
-                updateCreateChatLockChatId(pendingCreateKeyRef.current, id);
-              }
-            }
+            handleChatIdEvent(data, state, ctx);
             break;
           }
           case "projectId": {
-            const nextV0ProjectId =
-              typeof data === "string"
-                ? data
-                : (data as Record<string, unknown>)?.projectId ||
-                  (data as Record<string, unknown>)?.v0ProjectId ||
-                  (data as Record<string, unknown>)?.v0_project_id ||
-                  null;
-            if (nextV0ProjectId && !linkedProjectIdFromStream) {
-              const id = String(nextV0ProjectId);
-              linkedProjectIdFromStream = id;
-              onLinkedProjectId?.(id);
-            }
+            handleProjectIdEvent(data, state, ctx);
             break;
           }
           case "preview-ready": {
-            const previewData = data as Record<string, unknown>;
-            const previewUrl =
-              resolveCanonicalLivePreviewUrlFromPreviewReadyPayload(
-                previewData as { previewUrl?: unknown },
-              ) ?? "";
-            const previewSessionIdRaw =
-              typeof previewData.previewSessionId === "string"
-                ? previewData.previewSessionId.trim()
-                : "";
-            if (previewSessionIdRaw) {
-              onPreviewSessionMeta?.({
-                previewSessionId: previewSessionIdRaw,
-                versionId: versionIdFromStream,
-              });
-            }
-
-            setPreviewPending?.(false);
-            setPreviewBuildError?.(null);
-
-            if (previewUrl) {
-              deliverPreviewUrl(previewUrl, versionIdFromStream);
-              const pendingPost = postCheckQueue[postCheckQueue.length - 1];
-              if (pendingPost) {
-                pendingPost.demoUrl = previewUrl;
-              }
-            }
-
-            const tierMeta =
-              typeof previewData.previewTier === "number"
-                ? {
-                    previewTier: previewData.previewTier,
-                    ...(typeof previewData.previewMode === "string"
-                      ? { previewMode: previewData.previewMode }
-                      : {}),
-                  }
-                : {};
-
-            const pb =
-              typeof previewData.prodBuildVerified === "boolean"
-                ? previewData.prodBuildVerified
-                : undefined;
-            if (pb !== undefined) {
-              const logSnippet =
-                typeof previewData.prodBuildLogSnippet === "string"
-                  ? previewData.prodBuildLogSnippet
-                  : undefined;
-              setPreviewProdBuild?.({
-                verified: pb,
-                logSnippet: !pb ? logSnippet : undefined,
-              });
-              appendProgressPart(
-                "preview",
-                pb ? "build-verified" : "build-failed",
-                { prodBuildVerified: pb, ...tierMeta },
-              );
-            } else if (previewUrl) {
-              setPreviewProdBuild?.(null);
-            }
-
-            if (previewUrl && Object.keys(tierMeta).length > 0 && pb === undefined) {
-              const runtimeConfirmed =
-                typeof previewData.runtimeConfirmed === "boolean"
-                  ? previewData.runtimeConfirmed
-                  : undefined;
-              appendProgressPart(
-                "preview",
-                runtimeConfirmed === false ? "boot-queued" : "ready",
-                { ...tierMeta, ...(runtimeConfirmed === undefined ? {} : { runtimeConfirmed }) },
-              );
-            }
+            handlePreviewReadyEvent(data, state, ctx, lifecycleDeps);
             break;
           }
           case "build-error": {
-            const buildErrorData = data as Record<string, unknown>;
-            const stage = String(buildErrorData.stage ?? "build");
-            const message = String(buildErrorData.message ?? "Build failed");
-            setPreviewPending?.(false);
-            setPreviewBuildError?.({
-              stage,
-              message,
-            });
-            appendProgressPart("preview", "error", { stage, message });
-            toast.error(
-              `Live-preview gick inte [${stage}]: ${message.slice(0, 400)}. Ingen live-preview förrän VM-previewn lyckas.`,
-            );
+            handleBuildErrorEvent(data, state, ctx, lifecycleDeps);
             break;
           }
           case "version-repair-available": {
-            const payload =
-              data && typeof data === "object" ? (data as Record<string, unknown>) : {};
-            const repairVersionId =
-              typeof payload.versionId === "string" && payload.versionId.trim().length > 0
-                ? payload.versionId.trim()
-                : null;
-            const summary =
-              typeof payload.summary === "string" && payload.summary.trim().length > 0
-                ? payload.summary.trim()
-                : "En serverreparation finns tillgänglig och kan accepteras i versionspanelen.";
-
-            appendToolPartToMessage(setMessages, assistantMessageId, {
-              type: "tool:quality-gate",
-              toolName: "Server repair",
-              toolCallId: repairVersionId
-                ? `server-repair-available:${repairVersionId}`
-                : `server-repair-available:${Date.now()}`,
-              state: "output-available",
-              output: {
-                repaired: true,
-                status: "repair_available",
-                reason: summary,
-                method: null,
-                newVersionId: repairVersionId,
-                remainingErrors: null,
-                improvedSyntax: null,
-                earlyStopReason: null,
-              },
-            } as Parameters<typeof appendToolPartToMessage>[2]);
-
-            mutateVersions();
-            toast.message("Serverreparation tillgänglig", {
-              description: summary,
-            });
+            handleVersionRepairAvailableEvent(data, state, ctx);
             break;
           }
           case "done": {
-            didReceiveDone = true;
-            streamStats.didReceiveDone = true;
-            if (
-              !generationDoneProgressReceived &&
-              (generationProgressStarted ||
-                accumulatedContent.trim().length > 0 ||
-                accumulatedThinking.trim().length > 0)
-            ) {
-              appendProgressPart("generation", "done");
-            }
-            const doneData =
-              typeof data === "object" && data ? (data as Record<string, unknown>) : {};
-            const donePreflight = parseDonePreflight(doneData);
-            const doneV0ProjectId =
-              doneData.projectId || doneData.v0ProjectId || doneData.v0_project_id || null;
-            if (doneV0ProjectId && !linkedProjectIdFromStream) {
-              linkedProjectIdFromStream = String(doneV0ProjectId);
-              onLinkedProjectId?.(linkedProjectIdFromStream);
-            }
-            const effectiveDoneDemo = resolveCanonicalLivePreviewUrlFromDonePayload(
-              doneData as { previewUrl?: unknown; demoUrl?: unknown },
-            );
-            setPreviewPending?.(Boolean(doneData.previewPending));
-            const resolvedChatId =
-              doneData.chatId || doneData.id || chatIdFromStream || effectiveChatId || null;
-            const resolvedVersionId =
-              doneData.versionId ||
-              doneData.version_id ||
-              (doneData.latestVersion as Record<string, unknown> | undefined)?.id ||
-              (doneData.latestVersion as Record<string, unknown> | undefined)?.versionId ||
-              versionIdFromStream ||
-              null;
-            if (resolvedVersionId) {
-              versionIdFromStream = String(resolvedVersionId);
-            }
-            if (effectiveDoneDemo) {
-              // After versionId resolution so the dedup key matches the one
-              // preview-ready used — a done that repeats the same URL for the
-              // same version must not reload the iframe a second time.
-              deliverPreviewUrl(effectiveDoneDemo, versionIdFromStream);
-            }
-            const awaitingInput = Boolean(doneData.awaitingInput);
-            // Plan-läget avslutar medvetet utan version och utan preview —
-            // planen ÄR resultatet. Räknades den inte som återfunnen artefakt
-            // tog empty-output-grenen nedan över och visade "Genereringen
-            // avslutades utan version eller preview." med en `break`, så
-            // plan-kortet aldrig monterades och "Plan skapad!" aldrig nåddes.
-            // Gäller bara planer utan blockerare; med blockerare är
-            // `awaitingInput` redan sant.
-            //
-            // Kräver substans som ÖVERLEVER normaliseringen, inte bara en
-            // icke-tom array: `plan-mode-stream.ts` skickar
-            // `resolvePlanArtifact(...) ?? {}` och serverns resolver berikar
-            // bara ytligt, så `{ steps: [{}] }` — eller steg vars `phase` inte
-            // är ett giltigt enumvärde — når hit orört. `normalizePlanArtifact`
-            // släpper varje steg utan titel/beskrivning/giltig fas och varje
-            // blockerare utan kind/question, men defaultar `goal` till "Plan"
-            // och returnerar alltså ett objekt ändå. Räknades arraylängden
-            // rått blev en misslyckad planering "Plan skapad!" plus ett tomt
-            // kort — falsk grönt. Detta är samma normalisering som
-            // `BuildPlanCard` renderar ur, så toasten och kortet kan inte säga
-            // emot varandra. Substanspredikatet delas med serverns
-            // persist-beslut (`planArtifactHasSubstance` räknar även
-            // pages/scope — en sidplan utan steg är en riktig plan), så
-            // klientens toast kan inte säga emot vad servern sparade.
-            const hasPlanArtifact = planArtifactHasSubstance(
-              (doneData.planArtifact ?? null) as Record<string, unknown> | null,
-            );
-            const hasRecoveredArtifact =
-              awaitingInput ||
-              Boolean(resolvedVersionId) ||
-              Boolean(effectiveDoneDemo) ||
-              hasPlanArtifact;
-            recoveredArtifactSignal = hasRecoveredArtifact;
-            const emptyGenerationReason =
-              typeof doneData.reason === "string" && doneData.reason.trim().length > 0
-                ? doneData.reason.trim()
-                : "no_version_or_preview";
-
-            if (!resolvedChatId) {
-              throw new Error("No chat ID returned from stream");
-            }
-            if (pendingStreamErrorMessage && !hasRecoveredArtifact) {
-              throw new Error(pendingStreamErrorMessage);
-            }
-            // P2 F3-loop: deliberate no-version close-outs (calm F3 reject,
-            // loop-breaker terminal close). The server already streamed the
-            // explanation as content — finalize the assistant message
-            // without the "generation ended without version" failure toast.
-            const isCalmNoVersionClose =
-              emptyGenerationReason === F3_REJECT_ACK_REASON ||
-              emptyGenerationReason === F3_APPROVAL_NOTHING_TO_BUILD_REASON ||
-              emptyGenerationReason === F3_TOOL_ONLY_EXHAUSTED_REASON;
-            const nextId = String(resolvedChatId);
-            streamStats.chatId = nextId;
-            streamStats.versionId = resolvedVersionId ? String(resolvedVersionId) : null;
-
-            if (!chatIdFromStream && setChatId) {
-              chatIdFromStream = nextId;
-              setChatId(nextId);
-              if (chatIdParam !== nextId && buildBuilderParams && router) {
-                const params = buildBuilderParams({
-                  chatId: nextId,
-                  project: appProjectId ?? undefined,
-                });
-                router.replace(`/builder?${params.toString()}`);
-              }
-            }
-            if (pendingCreateKeyRef?.current) {
-              updateCreateChatLockChatId(pendingCreateKeyRef.current, nextId);
-            }
-
-            if (!awaitingInput && !hasRecoveredArtifact && isCalmNoVersionClose) {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
-                ),
-              );
-              break;
-            }
-
-            if (!awaitingInput && !hasRecoveredArtifact) {
-              // Strömmad assistenttext som nådde chatten är inte "ingenting":
-              // när innehåll finns (eller servern uttryckligen sa
-              // `stream_ended_without_version`) får varken feltoasten eller
-              // empty-output-fasen påstå att inget kom tillbaka. Medvetet
-              // INTE inbakat i `hasRecoveredArtifact` — den signalen betyder
-              // "riktig artefakt" och styr bl.a. Byggval-reset i
-              // useCreateChat, där strömmad text utan version inte ska räknas.
-              const hasStreamedContent =
-                accumulatedContent.trim().length > 0 ||
-                emptyGenerationReason === "stream_ended_without_version";
-              if (hasStreamedContent) {
-                if (doneData.planMode === true) {
-                  // Plan-läge utan substansplan: servern persisterar prosan
-                  // som planner-text — ett medvetet utfall, inte ett
-                  // persist-fel. Ingen codegen-fas ("kunde inte sparas som
-                  // version" vore lögn) och ingen toast; texten är
-                  // resultatet. Completion-hooken körs som på den lyckade
-                  // planvägen så UI:t inte fastnar i genererings-läge.
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
-                    ),
-                  );
-                  onGenerationComplete?.({ chatId: nextId });
-                  break;
-                }
-                appendProgressPart("generation", "stream-without-version", {
-                  reason: emptyGenerationReason,
-                });
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
-                  ),
-                );
-                break;
-              }
-              appendProgressPart("generation", "empty-output", { reason: emptyGenerationReason });
-              const explicitFailureMessage =
-                pendingStreamErrorMessage ||
-                (emptyGenerationReason.includes("empty_output")
-                  ? "Own-engine genererade ingen användbar kod i det här försöket."
-                  : "Genereringen avslutades utan version eller preview.");
-              setMessages((prev) =>
-                prev.map((m) => {
-                  if (m.id !== assistantMessageId) return m;
-                  if ((m.content || "").trim().length > 0) {
-                    return { ...m, isStreaming: false };
-                  }
-                  return {
-                    ...m,
-                    content: `${explicitFailureMessage} Försök igen eller justera prompten.`,
-                    isStreaming: false,
-                  };
-                }),
-              );
-              toast.error(explicitFailureMessage);
-              break;
-            }
-
-            if (awaitingInput) {
-              const planBlockers = (() => {
-                const pa = doneData.planArtifact as Record<string, unknown> | undefined;
-                if (!pa || !Array.isArray(pa.blockers)) return null;
-                const arr = pa.blockers as Array<Record<string, unknown>>;
-                return arr.length > 0 ? arr : null;
-              })();
-
-              const serverAwaitingPrompt =
-                typeof doneData.awaitingInputPrompt === "string"
-                  ? doneData.awaitingInputPrompt.trim()
-                  : "";
-              const questionPreview = (() => {
-                if (serverAwaitingPrompt) return serverAwaitingPrompt;
-                if (planBlockers) {
-                  return planBlockers
-                    .map((b) => String(b.question ?? ""))
-                    .filter(Boolean)
-                    .join("\n") || "Planen kräver dina svar för att fortsätta.";
-                }
-                const contentTail = accumulatedContent.trim().slice(-300);
-                const looksLikeQuestion =
-                  contentTail &&
-                  (contentTail.slice(-25).includes("?") || contentTail.length <= 100);
-                return looksLikeQuestion
-                  ? contentTail
-                  : "AI väntar på ditt svar. Läs meddelandet ovan och svara i chatten.";
-              })();
-
-              const quickOptions = planBlockers
-                ? planBlockers.flatMap((b) =>
-                    Array.isArray(b.options)
-                      ? (b.options as string[]).slice(0, 4)
-                      : [],
-                  )
-                : [];
-
-              setMessages((prev) => {
-                const assistantMsg = prev.find((m) => m.id === assistantMessageId);
-                const hasApprovalRequested = (assistantMsg?.uiParts ?? []).some(
-                  (p) =>
-                    (p as { state?: string; type?: string }).state === "approval-requested" ||
-                    (p as { type?: string }).type === "tool:awaiting-input",
-                );
-                if (hasApprovalRequested) return prev;
-                const part = {
-                  type: "tool:awaiting-input",
-                  toolName: planBlockers ? "Plan: svar krävs" : "Awaiting input",
-                  toolCallId: `awaiting-input:${assistantMessageId}`,
-                  state: "input-available",
-                  output: {
-                    question: questionPreview,
-                    options: quickOptions.length > 0 ? quickOptions : undefined,
-                    chatId: nextId,
-                    messageId:
-                      doneData.messageId ||
-                      doneData.message_id ||
-                      (doneData.latestVersion as Record<string, unknown> | undefined)?.messageId ||
-                      null,
-                    awaitingInput: true,
-                    planBlockers: planBlockers ?? undefined,
-                  },
-                } as Parameters<typeof appendToolPartToMessage>[2];
-                return prev.map((m) =>
-                  m.id === assistantMessageId
-                    ? { ...m, uiParts: mergeUiParts(m.uiParts, [part]) }
-                    : m,
-                );
-              });
-              setMessages((prev) =>
-                prev.map((m) => {
-                  if (m.id !== assistantMessageId || (m.content || "").trim()) return m;
-                  return {
-                    ...m,
-                    content: planBlockers
-                      ? "Planen innehåller frågor som måste besvaras innan byggfasen kan starta."
-                      : "Jag behöver ditt svar på en följdfråga innan nästa preview kan genereras.",
-                  };
-                }),
-              );
-              toast(planBlockers ? "Planen kräver dina svar." : "AI väntar på ditt svar för att fortsätta.", {
-                id: "builder-awaiting-input",
-              });
-            }
-
-            // M#p7a: surface server-side Element Preservation Guard / shrink-guard
-            // reverts. These arrive on the `done` payload but previously had no
-            // client consumer, so a follow-up edit could be silently dropped.
-            const rejectedStructural = Array.isArray(doneData.rejectedStructural)
-              ? (doneData.rejectedStructural as Array<Record<string, unknown>>)
-              : [];
-            const rejectedShrinks = Array.isArray(doneData.rejectedShrinks)
-              ? (doneData.rejectedShrinks as Array<Record<string, unknown>>)
-              : [];
-            if (rejectedStructural.length > 0 || rejectedShrinks.length > 0) {
-              appendProgressPart("element_guard", "reverted", {
-                rejectedStructural,
-                rejectedShrinks,
-              });
-              const revertedCount = rejectedStructural.length + rejectedShrinks.length;
-              toast.warning(
-                `Ändringsskyddet återställde ${revertedCount} fil(er) till föregående version. Se Agentloggen för detaljer.`,
-              );
-            }
-
-            const planArtifact = doneData.planArtifact as Record<string, unknown> | undefined;
-            if (planArtifact && typeof planArtifact === "object") {
-              const planPart = {
-                type: "plan" as const,
-                plan: {
-                  title: (typeof planArtifact.goal === "string" ? planArtifact.goal : "Plan") as string,
-                  description: Array.isArray(planArtifact.scope)
-                    ? (planArtifact.scope as string[]).join(", ")
-                    : "",
-                  steps: Array.isArray(planArtifact.steps)
-                    ? (planArtifact.steps as Array<Record<string, unknown>>).map((s) => ({
-                        title: String(s.title ?? ""),
-                        description: String(s.description ?? ""),
-                        status: String(s.phase ?? "build"),
-                      }))
-                    : [],
-                  blockers: Array.isArray(planArtifact.blockers) ? planArtifact.blockers : [],
-                  assumptions: Array.isArray(planArtifact.assumptions) ? planArtifact.assumptions : [],
-                  raw: planArtifact,
-                },
-              };
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMessageId
-                    ? { ...m, uiParts: mergeUiParts(m.uiParts, [planPart]) }
-                    : m,
-                ),
-              );
-            }
-
-            setMessages((prev) =>
-              prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
-            );
-            if (pendingStreamErrorMessage) {
-              const errTail = pendingStreamErrorMessage.slice(0, 280);
-              toast.warning(
-                `Streamen rapporterade fel tidigare, men en version eller demo returnerades ändå. ${errTail}${pendingStreamErrorMessage.length > 280 ? "…" : ""}`,
-              );
-            } else if (ctx.streamType === "create" && !awaitingInput) {
-              toast.success(planArtifact ? "Plan skapad!" : "Sajt skapad!");
-            }
-            mutateVersions();
-            const onlySelectVersionIfWasLatest = Boolean(doneData.onlySelectVersionIfWasLatest);
-            onGenerationComplete?.({
-              chatId: nextId,
-              versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-              previewUrl: effectiveDoneDemo ?? undefined,
-              onlySelectVersionIfWasLatest,
-            });
-            if (resolvedChatId && resolvedVersionId) {
-              materializeQueue.push({
-                chatId: String(resolvedChatId),
-                versionId: String(resolvedVersionId),
-              });
-              postCheckQueue.push({
-                chatId: String(resolvedChatId),
-                versionId: String(resolvedVersionId),
-                demoUrl: effectiveDoneDemo,
-                preflight: donePreflight,
-              });
-            }
+            handleDoneEvent(data, state, ctx, doneDeps);
             break;
           }
           case "error": {
-            const errorData =
-              typeof data === "object" && data
-                ? (data as Record<string, unknown>)
-                : { message: data };
-            pendingStreamErrorMessage = buildStreamErrorMessage(errorData);
-            streamStats.errorEvents += 1;
+            handleErrorEvent(data, state);
             break;
           }
         }
@@ -1416,87 +168,34 @@ export async function handleSseStream(
     // last non-text event (incl. success/error/abort paths) before the stream
     // winds down, so the last delta is never dropped.
     flushStreamingTextNow();
-    streamStats.chatId = streamStats.chatId ?? chatIdFromStream ?? effectiveChatId ?? null;
-    streamStats.didReceiveDone = streamStats.didReceiveDone || didReceiveDone;
-    streamStats.abortedByClient = signal.aborted;
-    streamQuality = finalizeStreamStats(streamStats);
+    state.streamStats.chatId =
+      state.streamStats.chatId ?? state.chatIdFromStream ?? ctx.chatId ?? null;
+    state.streamStats.didReceiveDone =
+      state.streamStats.didReceiveDone || state.didReceiveDone;
+    state.streamStats.abortedByClient = signal.aborted;
+    streamQuality = finalizeStreamStats(state.streamStats);
   }
 
-  if (!didReceiveDone) {
+  if (!state.didReceiveDone) {
     if (signal.aborted) {
       const abortErr = new Error("Streaming aborted by client");
       abortErr.name = "AbortError";
       throw abortErr;
     }
     throw new Error(
-      pendingStreamErrorMessage || "Streamen avslutades innan genereringen var klar. Försök igen.",
+      state.pendingStreamErrorMessage ||
+        "Streamen avslutades innan genereringen var klar. Försök igen.",
     );
   }
-  if (ctx.streamType === "create" && !chatIdFromStream) {
+  if (ctx.streamType === "create" && !state.chatIdFromStream) {
     throw new Error("No chat ID returned from stream");
   }
 
-  setMessages((prev) => {
-    const msg = prev.find((m) => m.id === assistantMessageId);
-    if (!msg?.isStreaming) return prev;
-    return prev.map((m) =>
-      m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
-    );
-  });
+  runPostStreamSideEffects({ state, ctx, signal, streamQuality });
 
-  const latestMaterialize =
-    materializeQueue.length > 0 ? materializeQueue[materializeQueue.length - 1] : null;
-  if (latestMaterialize && !signal.aborted) {
-    void triggerImageMaterialization({
-      chatId: latestMaterialize.chatId,
-      versionId: latestMaterialize.versionId,
-      enabled: enableImageMaterialization,
-    }).then((result) => {
-      if (!result) return;
-      appendToolPartToMessage(setMessages, assistantMessageId, {
-        type: "tool:image-materialization",
-        toolName: "Bildmaterialisering",
-        toolCallId: `image-materialization:${latestMaterialize.versionId}`,
-        state: result.error ? "output-error" : "output-available",
-        output: {
-          attempted: result.attempted,
-          strategy: result.strategy,
-          replaced: result.replaced,
-          uploaded: result.uploaded,
-          skipped: result.skipped,
-          warningCount: result.warningCount,
-          reason: result.reason ?? null,
-          error: result.error ?? null,
-          steps: result.error
-            ? ["Bildmaterialisering misslyckades efter att versionen sparats."]
-            : !result.attempted
-              ? [result.reason === "blob_not_configured"
-                ? "Blob-materialisering hoppades över eftersom Blob inte är konfigurerat."
-                : "Bildmaterialisering hoppades över i den här körningen."]
-              : result.replaced > 0
-                ? [`Speglade ${result.replaced} bildreferenser till Blob efter att versionen sparats.`]
-                : ["Ingen ytterligare bildmaterialisering behövdes efter att versionen sparats."],
-        },
-      } as Parameters<typeof appendToolPartToMessage>[2]);
-    });
-  }
-
-  const latestPostCheck =
-    postCheckQueue.length > 0 ? postCheckQueue[postCheckQueue.length - 1] : null;
-  if (latestPostCheck && !signal.aborted) {
-    void runPostGenerationChecks({
-      chatId: latestPostCheck.chatId,
-      versionId: latestPostCheck.versionId,
-      demoUrl: latestPostCheck.demoUrl ?? null,
-      preflight: latestPostCheck.preflight ?? null,
-      assistantMessageId,
-      setMessages,
-      streamQuality,
-      mutateVersions,
-      onAutoFix: (payload) => autoFixHandlerRef.current(payload),
-      onComplete: onVersionStatusRefresh,
-    });
-  }
-
-  return { streamQuality, chatIdFromStream, hasRecoveredArtifact: recoveredArtifactSignal };
+  return {
+    streamQuality,
+    chatIdFromStream: state.chatIdFromStream,
+    hasRecoveredArtifact: state.recoveredArtifactSignal,
+  };
 }
