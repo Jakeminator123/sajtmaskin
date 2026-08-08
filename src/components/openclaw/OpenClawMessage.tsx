@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   applyOpenClawTextFieldAction,
@@ -72,7 +72,11 @@ export function OpenClawMessage({
   const isUser = msg.role === "user";
   const editEnabled = useOpenClawStore((s) => s.editEnabled);
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
-  const parsed = parseOpenClawMessage(msg.content);
+  // SM-026: parse:n måste vara stabil för samma content. Utan memo föds ett
+  // nytt `action`-objekt varje render, och typewriter-effekten nedan
+  // garanterar omrenderingar — vilket dödade auto-send-kortets retry-kedja
+  // via dess dependency-lista.
+  const parsed = useMemo(() => parseOpenClawMessage(msg.content), [msg.content]);
   const action = !isUser ? parsed.action : null;
   const rejectedActionReason = !isUser ? parsed.actionError : null;
   // Smooth typewriter reveal: gateway chunks arrive in bursts, so ease the
@@ -347,6 +351,18 @@ function OpenClawArmedSendCard({
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
 
+  // SM-026: `action` kommer från förälderns parse och kan byta objektidentitet
+  // vid omrendering (t.ex. medan streamen fortfarande fyller på content). Låg
+  // den i dependency-listan körde varje identitetsbyte cleanup (cancelled =
+  // true, timern rensades) medan omstarten bailade på startedRef — retryloopen
+  // dog före MAX_ATTEMPTS och kortet stod på "Fyller fältet och skickar…" för
+  // alltid. Effekten nycklas därför på messageId och läser senaste action via
+  // ref: en ren omrendering får aldrig avbryta en pågående auto-send.
+  const actionRef = useRef(action);
+  useEffect(() => {
+    actionRef.current = action;
+  }, [action]);
+
   useEffect(() => {
     // Idempotency across remounts (Bugbot): if this message's action already
     // auto-sent in this session, never fire (or consume a mandate step) again.
@@ -364,21 +380,21 @@ function OpenClawArmedSendCard({
     // effect body) so we don't trigger cascading renders.
     const begin = () => {
       if (cancelled) return;
-      const fill = applyOpenClawTextFieldAction(action);
+      const fill = applyOpenClawTextFieldAction(actionRef.current);
       if (!fill.ok) {
         setState("failed");
         setError(fill.error ?? "Kunde inte fylla fältet.");
         return;
       }
-      recordOpenClawPreparedFill(action);
+      recordOpenClawPreparedFill(actionRef.current);
       timer = setTimeout(trySend, 100);
     };
 
     const trySend = () => {
       if (cancelled) return;
       attempts += 1;
-      if (isOpenClawSendReady(action.target)) {
-        const result = triggerOpenClawSend(action.target);
+      if (isOpenClawSendReady(actionRef.current.target)) {
+        const result = triggerOpenClawSend(actionRef.current.target);
         if (result.ok) {
           // Mark consumed BEFORE state/mandate updates so a remount triggered by
           // the resulting re-render can't replay this same auto-send.
@@ -411,7 +427,7 @@ function OpenClawArmedSendCard({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [action, setArmedMandate, setArmedContinuation, messageId]);
+  }, [setArmedMandate, setArmedContinuation, messageId]);
 
   return (
     <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
