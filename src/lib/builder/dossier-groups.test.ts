@@ -74,8 +74,6 @@ describe("resolveDossierGroup", () => {
       "contact-form": "contact",
       "newsletter-subscribe": "contact",
       "ai-chat": "ai",
-      "ai-tool-calling": "ai",
-      "rag-chat": "ai",
       "site-search": "search-maps",
       "map-display": "search-maps",
       "command-palette": "search-maps",

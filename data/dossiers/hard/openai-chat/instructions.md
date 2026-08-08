@@ -10,9 +10,25 @@ Best fit:
 
 Do not use it for:
 
-- Image generation (use `image-gen` capability).
+- Image generation (no capability id — parked 2026-08-06; treat as ordinary content).
 - Pure information lookup with no conversation (a search box is better).
-- Tasks that need long-term memory or vector search (RAG is a separate dossier).
+
+## RAG / tool-calling asks land here — deliver them HONESTLY
+
+Since 2026-08-06 (etapp 4) there is no separate RAG or tool-calling dossier:
+an ask like "chatbot that answers from our documents" or "AI assistant with
+tools" selects THIS dossier as its chat surface. That fold is deliberate — but
+the surface must never overpromise:
+
+- The shipped route is plain `streamText`: **no retrieval, no vector store, no
+  tool execution.** Do not wire fake "sources"/tool UI, and do not write a
+  system prompt that claims the bot reads the site's documents or performs
+  actions (see the honesty rule below).
+- You MAY paste site content (FAQ, product facts) into the system prompt as
+  static context — that is honest and often covers the practical need.
+- If the user's ask genuinely requires real retrieval or tool execution,
+  build the standard chat surface and describe the gap in prose — never a
+  half-working imitation.
 
 # How to integrate
 

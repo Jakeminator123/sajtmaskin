@@ -6,14 +6,13 @@
 
 # Capabilities
 
-This index contains 19 capabilities derived from 20 validated dossier manifests.
+This index contains 17 capabilities derived from 18 validated dossier manifests.
 Capability is the selection key. Dossier groups are presentation only.
 Canonical owner: dossier manifest `capability`; runtime consumer/validator: dossier registry and `dossierRequiresF3`.
 
 | Capability             | Dossiers                      | Default dossier         | Classes | F2 mock modes | F3-required dossiers          |
 | ---------------------- | ----------------------------- | ----------------------- | ------- | ------------- | ----------------------------- |
 | `ai-chat`              | `openai-chat`                 | `openai-chat`           | `hard`  | `canned`      | `openai-chat`                 |
-| `ai-tool-calling`      | `ai-tool-calling-chat`        | `ai-tool-calling-chat`  | `hard`  | `canned`      | `ai-tool-calling-chat`        |
 | `analytics`            | `vercel-analytics`            | `vercel-analytics`      | `hard`  | `none`        | —                             |
 | `auth`                 | `clerk-auth`, `supabase-auth` | `clerk-auth`            | `hard`  | `visual`      | `clerk-auth`, `supabase-auth` |
 | `carousel`             | `embla-carousel`              | `embla-carousel`        | `soft`  | `none`        | —                             |
@@ -28,6 +27,5 @@ Canonical owner: dossier manifest `capability`; runtime consumer/validator: doss
 | `newsletter-subscribe` | `mailchimp-newsletter`        | `mailchimp-newsletter`  | `hard`  | `success`     | `mailchimp-newsletter`        |
 | `payments`             | `stripe-checkout`             | `stripe-checkout`       | `hard`  | `visual`      | `stripe-checkout`             |
 | `physics-3d`           | `three-fiber-physics`         | `three-fiber-physics`   | `soft`  | `none`        | —                             |
-| `rag-chat`             | `rag-chat`                    | `rag-chat`              | `hard`  | `canned`      | `rag-chat`                    |
 | `site-search`          | `local-site-search`           | `local-site-search`     | `soft`  | `none`        | —                             |
 | `visual-3d`            | `three-fiber-canvas`          | `three-fiber-canvas`    | `soft`  | `none`        | —                             |

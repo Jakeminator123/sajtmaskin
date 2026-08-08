@@ -13,7 +13,12 @@ services:
   - type: web
     name: openclaw-sajtagenten
     runtime: docker
-    plan: starter
+    # Standard = 2 GB / 1 CPU. Not a comfort choice: the live instance OOM-killed
+    # three times on 2026-08-05 ("used over 2GB"), so starter's 512 MB cannot run
+    # this gateway. Note that the agent sees the HOST's /proc inside the
+    # container — it will report tens of gigabytes free while the real ceiling is
+    # the plan's RAM.
+    plan: standard
     rootDir: infra/openclaw
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
@@ -40,9 +45,18 @@ services:
         value: "10000"
       - key: OPENCLAW_GATEWAY_BIND
         value: lan
+      # Device auth only guards the browser Control UI. The app never touches it
+      # — src/app/api/openclaw/chat/route.ts calls /v1/chat/completions with a
+      # Bearer token — so leaving it on costs the product nothing, while turning
+      # it off removes the second factor behind a publicly reachable dashboard.
+      # `openclaw security audit` reports the disabled state as critical.
       - key: OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH
-        value: "true"
+        value: "false"
     disk:
       name: openclaw-sajtagenten-data
       mountPath: /root/.openclaw
-      sizeGB: 1
+      # ~0.7 GB in use on the live instance (agent state, sessions, codex-home),
+      # i.e. the previous 1 GB disk was already ~70 % full and agent state only
+      # grows. A Render disk can be grown but never shrunk, so the headroom is
+      # bought once here rather than as a migration under pressure later.
+      sizeGB: 3

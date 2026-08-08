@@ -23,7 +23,7 @@ Lokal miljö är Windows med PowerShell 7 (`pwsh`). Använd pwsh-syntax i termin
 | `The term 'if' is not recognized` | `if`/`foreach`/`switch` använt som **värde** (t.ex. i `-f`, som argument eller i pipeline) | Wrappa i subexpression `$( ... )` — aldrig bara `( ... )`. Eller räkna ut i en variabel först. |
 | `The term 'grep'/'head'/'tail'/'sed'/'awk' is not recognized` | Bash-verktyg finns inte i pwsh | `Select-String`, `Select-Object -First N` / `-Last N`, eller Cursor Grep/StrReplace |
 | Villkor på git/npm/node slår fel fastän kommandot gick bra (eller tvärtom) | `$?` speglar inte extern exit-kod tillförlitligt | Använd `$LASTEXITCODE -eq 0` för externa program (`$?` bara för rena cmdlets) |
-| `Test-Path`/`Get-Content`/`Set-Location` hittar inte fil med `[ ]` i sökväg (t.ex. `[chatId]`, `[id]`, `[slug]`) | `[ ]` tolkas som wildcard | `-LiteralPath <sökväg>` — men föredra ändå Cursor Read/StrReplace för dessa App Router-mappar (Cursor **Glob** glob-tolkar `[ ]`, så escapa eller använd Read) |
+| `Test-Path`/`Get-Content`/`Set-Location` hittar inte fil med `[ ]` i sökväg (t.ex. `[chatId]`, `[id]`, `[slug]`) | `[ ]` tolkas som wildcard | `-LiteralPath <sökväg>` — men föredra ändå Cursor Read/StrReplace för dessa App Router-mappar. **Obs:** Cursor **Glob** är undantaget, dess `glob_pattern` är glob-syntax, så `[chatId]` blir en teckenklass även där — escapa (`[[]chatId[]]`) eller använd Read med exakt sökväg |
 | `Missing file specification after redirection operator` | Bash-**heredoc** (`<<'EOF'`) — nästan alltid för ett commit-meddelande. pwsh läser `<` som omdirigering, så felet nämner varken heredocen eller fixen | Here-string: `$msg = @'` … `'@` (båda i kolumn 0), sedan `git commit -m $msg`. Blockeras numera av `.cursor/hooks/heredoc-guard.mjs` |
 | Parse error på here-string | `'@`/`"@` inte i kolumn 0, eller text efter `@'`/`@"` på öppningsraden | Stängningstoken längst till vänster; inget efter öppningstoken |
 | Oväntad variabel-/backtick-expansion (`$`, `` ` ``) | Dubbelcitat och `@" "@` expanderar | Enkla citat `'...'` / `@' '@` för literal text (regex, `$`, backticks) |
@@ -48,6 +48,12 @@ git commit -m $msg
 - `&&`/`||` finns i PS7 men blanda inte med bash-antaganden; villkora hellre på `$LASTEXITCODE`.
 - Oberoende kommandon: kör som separata (parallella) verktygsanrop i stället för en lång kedja.
 
+## LF/CRLF-fällan
+
+Repo-filer är ofta LF. PowerShell here-strings skapar CRLF, vilket gör `.Replace()` träfflös. Säkra vägar: läs rad-för-rad och skriv med `[System.IO.File]::WriteAllLines`, normalisera med ``.Replace("`r`n", "`n")``, eller använd Cursor StrReplace.
+
 ## När en one-liner blir krånglig
 
-Krångliga citat, loopar eller `if`-uttryck → skriv en liten `.ps1`/`.mjs`-fil och kör den, eller använd Cursor Read/Glob/Grep/StrReplace. Det är mer robust än att kämpa med inline-escaping. Samma för stora edits.
+Krångliga citat, loopar eller `if`-uttryck → skriv en liten `.ps1`/`.mjs`-fil och kör den, eller använd Cursor Read/Glob/Grep/StrReplace. Det är mer robust än att kämpa med inline-escaping. Samma för stora edits. Undvik särskilt långa `node -e` / `python -c` med nästlade citat.
+
+Playwright saknas ibland lokalt: `npx playwright install chromium`.

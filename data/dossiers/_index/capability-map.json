@@ -1,12 +1,9 @@
 {
   "$comment": "View of capability → dossier ids, plus a `groups` view (capability → presentation group, derived from src/lib/builder/dossier-groups.ts) for the backoffice group view. Can be regenerated from either backoffice/pages/dossiers.py (Capability map tab → 'Bygg om') or `npm run dossiers:capability-map:write` (scripts/dossiers/regenerate-capability-map.ts). Runtime walks data/dossiers/{hard,soft}/ directly; this file is for tooling + sanity check during curation.",
-  "generatedAt": "2026-08-06T15:22:13.452Z",
+  "generatedAt": "2026-08-06T16:34:15.800Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
-    ],
-    "ai-tool-calling": [
-      "ai-tool-calling-chat"
     ],
     "analytics": [
       "vercel-analytics"
@@ -51,9 +48,6 @@
     "physics-3d": [
       "three-fiber-physics"
     ],
-    "rag-chat": [
-      "rag-chat"
-    ],
     "site-search": [
       "local-site-search"
     ],
@@ -91,9 +85,7 @@
     "ai": {
       "label": "AI",
       "capabilities": [
-        "ai-chat",
-        "ai-tool-calling",
-        "rag-chat"
+        "ai-chat"
       ]
     },
     "search-maps": {

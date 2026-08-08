@@ -142,6 +142,12 @@ for fallback in $MODEL_FALLBACK; do
 done
 IFS="$FALLBACK_OLD_IFS"
 
+# `gateway.auth.rateLimit` repeats OpenClaw's own defaults on purpose. Recent
+# versions enable the limiter implicitly when shared-secret auth is configured,
+# but `openclaw security audit` only looks for the explicit key and reports a
+# non-loopback gateway without it as a finding on every run. Writing it out ends
+# that false positive and pins the numbers for a gateway that is reachable from
+# the public internet.
 cat > "$CONFIG_FILE" <<EOF
 {
   ${CUSTOM_PROVIDERS}
@@ -150,7 +156,13 @@ cat > "$CONFIG_FILE" <<EOF
     "bind": "${BIND_MODE}",
     "auth": {
       "mode": "token",
-      "token": "${OPENCLAW_GATEWAY_TOKEN}"
+      "token": "${OPENCLAW_GATEWAY_TOKEN}",
+      "rateLimit": {
+        "maxAttempts": 10,
+        "windowMs": 60000,
+        "lockoutMs": 300000,
+        "exemptLoopback": true
+      }
     },
     "controlUi": {
       "enabled": true,
@@ -187,6 +199,12 @@ cat > "$CONFIG_FILE" <<EOF
   }
 }
 EOF
+
+# The config holds the gateway token in clear text and `cat >` creates it 0644
+# under the container's default umask. Setting it by hand inside the container
+# is pointless — this file is rewritten on every boot — so the permission has to
+# be applied here.
+chmod 600 "$CONFIG_FILE"
 
 echo "[entrypoint] Config written — model=${MODEL_PRIMARY}, fallbacks=[${MODEL_FALLBACKS_JSON}], port=${LISTEN_PORT}, bind=${BIND_MODE}"
 echo "[entrypoint] OpenClaw version: ${OPENCLAW_VERSION:-unknown}"

@@ -132,9 +132,8 @@ async function buildDossierOverview(
   // resolver the readiness/finalize-design/stream-gate/deploy consumers use,
   // so the panel can never disagree with the gates. Covers the incident case:
   // an integration built into the version shows even when the F2-muted
-  // snapshot floor dropped its capability AND the provider-key→capability
-  // mapping resolves the wrong dossier (`openai` → `ai-chat` default, never
-  // `ai-tool-calling`).
+  // snapshot floor dropped its capability (provider-key→capability mapping
+  // alone is not ground truth — version files are).
   const snapshotAndPresenceDossiers = resolveSelectedDossiersWithVersionPresence({
     snapshot: chat.orchestration_snapshot,
     versionFiles,

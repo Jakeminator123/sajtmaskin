@@ -17,3 +17,9 @@ alwaysApply: true
 | Osäkerhet | Säg kort vad som är verifierat och vad som är antagande. |
 
 Exempel på avslut: `Säkerhet: 80 %. Verifierat mot filer, inte livekört.`
+
+## Parentesregeln i praktik
+
+Sätt parentesen **första gången** ett otydligt engelskt tech-ord eller en förkortning används, sedan inte mer i samma svar: `scope (avgränsning)`, `snapshot (ögonblicksbild)`, `RLS (radnivåsäkerhet)`, `CI (automatisk kontroll)`, `workflow (automatiskt flöde)`.
+
+Hoppa över vardagliga repo-ord som redan är etablerade: `commit`, `merge`, `branch`, `push`, `PR`, `fil`, `repo`, `prod`.

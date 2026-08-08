@@ -88,7 +88,7 @@ const SUSPICIOUS_DOUBLE_BACKSLASH_RUN_RE = /\\{4,}/g;
  * Detect (and warn about) common ingest-side corruption in stored env
  * values. The classic case is a value created via `vercel env add … |`
  * piped through PowerShell, which silently substitutes literal `\n`
- * sequences for newlines (documented in `.cursor/rules/platform-quirks.mdc`).
+ * sequences for newlines (documented in `.cursor/rules/bash-och-pwsh.mdc`).
  *
  * We do NOT mutate the value here — secrets like base64-encoded private
  * keys can legitimately contain `\n`, and silently rewriting them would
@@ -115,7 +115,7 @@ function warnIfSuspiciousEnvValue(key: string, value: string): void {
   _warnedKeys.add(key);
   console.warn(
     `[project-env-vars] Suspicious env value for "${key}": ${issue} ` +
-      `Inspect via \`vercel env pull --environment=preview\` and re-set the key from a temp file (see \`.cursor/rules/platform-quirks.mdc\`).`,
+      `Inspect via \`vercel env pull --environment=preview\` and re-set the key from a temp file (see \`.cursor/rules/bash-och-pwsh.mdc\`).`,
   );
 }
 

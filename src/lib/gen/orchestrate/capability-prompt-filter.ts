@@ -132,9 +132,9 @@ export function filterDossierCapabilitiesForPromptWithMutes(params: {
   // since 2026-08-06 (the only entry, `subscriptions` ⇒ auth-pin, left with
   // the parked paddle-billing dossier), but the helper still alias-normalizes
   // legacy ids (`supabase-auth` → `auth`, `command-search` →
-  // `command-palette`) so stale snapshots keep resolving, and dedupes
-  // overlapping picks (ai-tool-calling wins over ai-chat). The money-flow
-  // dedup subscriptions/payments left with the same parking — `subscriptions`
+  // `command-palette`) so stale snapshots keep resolving. The former
+  // ai-tool-calling ⇒ drop ai-chat dedup died with etapp 4. The money-flow
+  // dedup subscriptions/payments left with paddle parking — `subscriptions`
   // is no longer a capability, so a recurring ask flows as ordinary
   // content/`payments`.
   result = expandDependentCapabilities(result);

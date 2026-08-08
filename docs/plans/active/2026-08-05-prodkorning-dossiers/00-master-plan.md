@@ -44,8 +44,9 @@ importfelen och auto-repair stängdes av just för att fynden var blockerande.
 
 ## Prioritering inför morgondagen
 
-Statuskolumnen nedan är avstämd mot master 2026-08-06 (efter #828 och
-dossier-förenklingens etapp 1–3).
+Statuskolumnen nedan är avstämd mot master 2026-08-07, efter #828 och hela
+dossier-förenklingen (etapp 1–4, pool 27 → 18). Förenklingen är levererad och
+indexerad i [`../../avklarat/README.md`](../../avklarat/README.md).
 
 1. **Auto-repair-undertryckandet** ([`01-dossiers.md`](01-dossiers.md) § A4) —
    allt annat mäts fel så länge deterministiskt fixbara blockerare får döda
