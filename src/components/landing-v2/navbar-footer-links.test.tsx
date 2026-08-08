@@ -14,18 +14,30 @@ import { LandingFooter } from "./landing-footer";
 
 afterEach(() => cleanup());
 
-describe("landing nav + footer links after /teknik move", () => {
-  it("navbar links Teknik to /teknik", () => {
+describe("landing nav + footer links after marketing routes", () => {
+  it("navbar links Teknik, Hur det fungerar, Priser and FAQ to own routes", () => {
     render(<Navbar />);
-    const teknik = screen.getByRole("link", { name: "Teknik" });
-    expect(teknik.getAttribute("href")).toBe("/teknik");
+    expect(screen.getByRole("link", { name: "Teknik" }).getAttribute("href")).toBe("/teknik");
+    expect(screen.getByRole("link", { name: "Hur det fungerar" }).getAttribute("href")).toBe(
+      "/hur-det-fungerar",
+    );
+    expect(screen.getByRole("link", { name: "Priser" }).getAttribute("href")).toBe("/priser");
+    expect(screen.getByRole("link", { name: "FAQ" }).getAttribute("href")).toBe("/faq");
   });
 
-  it("footer links Funktioner to /teknik#funktioner and Teknik to /teknik", () => {
+  it("navbar logo links back to the start page", () => {
+    render(<Navbar />);
+    expect(
+      screen.getByRole("link", { name: /SajtMaskin — till startsidan/i }).getAttribute("href"),
+    ).toBe("/");
+  });
+
+  it("footer links Funktioner/Teknik to /teknik and Priser to /priser", () => {
     render(<LandingFooter />);
     expect(screen.getByRole("link", { name: "Funktioner" }).getAttribute("href")).toBe(
       "/teknik#funktioner",
     );
     expect(screen.getByRole("link", { name: "Teknik" }).getAttribute("href")).toBe("/teknik");
+    expect(screen.getByRole("link", { name: "Priser" }).getAttribute("href")).toBe("/priser");
   });
 });

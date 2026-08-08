@@ -45,8 +45,18 @@ export function LandingFooter() {
                 </a>
               </li>
               <li>
-                <Link href="/#priser" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/hur-det-fungerar" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Hur det fungerar
+                </Link>
+              </li>
+              <li>
+                <Link href="/priser" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                   Priser
+                </Link>
+              </li>
+              <li>
+                <Link href="/faq" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  FAQ
                 </Link>
               </li>
               <li>

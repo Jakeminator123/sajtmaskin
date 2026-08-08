@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUp, ChevronDown, Mic, Play, Video, X } from "lucide-react"
+import { ArrowUp, Mic, Play, Video, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
@@ -49,7 +49,7 @@ export function LandingHero({
   const { ref: headlineRef, handleMove: onHeadlineMove, handleLeave: onHeadlineLeave } = headlineTilt
 
   return (
-    <section className="flex min-h-[calc(100vh-57px)] flex-col items-center justify-center px-6 pt-10 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-16 md:pb-12">
+    <section className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-6 pt-8 pb-4 md:pt-12 md:pb-6">
       {heroPrefix}
       <div className="relative mb-5 animate-fade-up" style={{ animationDelay: "0.1s" }}>
         <ParticleOrb />
@@ -326,12 +326,6 @@ export function LandingHero({
         ))}
       </div>
 
-      <div className="mt-12 animate-fade-up opacity-40" style={{ animationDelay: "1s" }}>
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Scrolla ner</span>
-          <ChevronDown className="w-4 h-4 text-muted-foreground animate-bounce" />
-        </div>
-      </div>
     </section>
   )
 }
