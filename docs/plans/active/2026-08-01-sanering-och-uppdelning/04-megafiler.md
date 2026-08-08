@@ -85,6 +85,7 @@ Radräkning mot master (`(Get-Content … | Measure-Object -Line).Lines`).
 | `finalize-preflight.ts` | #847 | 6 | Var 1 653; moduler under `finalize-preflight/` |
 | `BuilderMessageTooling.tsx` | #848 | 15 | Var 1 542; moduler under `builder-message-tooling/` |
 | `PreviewPanelCodeSectionEditors.tsx` | #849 | 47 | Var 1 498; moduler under `code-section-editors/` |
+| `hooks/chat/helpers.ts` | #851 | 48 | Var 1 324; `helpers-*`-moduler i samma mapp |
 | `repair-loop.ts` | — | 1 139 | Under ~1 200-taket (ingen ny split-PR) |
 | `scaffold_wizard.py` | — | 1 137 | Under taket |
 
@@ -98,7 +99,6 @@ Radräkning mot master (`(Get-Content … | Measure-Object -Line).Lines`).
 | `stream-handlers.ts` | 1 437 | Konflikt — #843 la `resolveProgressPartState` |
 | `BuilderShellContent.tsx` | 1 432 | Konflikt — 4 master-commits |
 | `autofix/pipeline.ts` | 1 387 | Konflikt — 2 master-commits |
-| `hooks/chat/helpers.ts` | 1 324 | **Ren** — split finns klar (`4441ed7c2`) |
 | `PreviewPanelDossiers.tsx` | 1 280 | Konflikt — 1 master-commit |
 | `VersionHistory.tsx` | 1 271 | **Ren** — split finns klar (`c4ed67c47`) |
 | `preview-host/src/server.js` | 1 213 | Konflikt — 1 master-commit |
