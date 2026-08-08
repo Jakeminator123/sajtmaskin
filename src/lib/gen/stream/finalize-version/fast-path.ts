@@ -30,6 +30,9 @@ import { RepairLedger } from "@/lib/gen/autofix/llm-repair-gate";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import { getKnownBrokenImageReplacements } from "@/lib/db/chat-repository-pg";
+import { dropResolvedVerifierFindings } from "@/lib/gen/verify/stale-verifier-findings";
+import { appendErrorLogEvent } from "@/lib/logging/error-log-rag";
+import { FIX_LESSON_POST_MERGE_STALE_FINDING } from "@/lib/logging/error-log-fix-lessons";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { applyKnownImageReplacementsToContent } from "@/lib/utils/image-validator";
 import { createFinalizeStepTelemetry } from "./step-telemetry";
@@ -403,7 +406,7 @@ export async function runFinalizeFastPath(params: {
   });
   contentForVersion = verifierOutcome.contentForVersion;
   stepTelemetry.verifier = verifierOutcome.stepTelemetry;
-  const verifierBlockingFindings = verifierOutcome.verifierBlockingFindings;
+  let verifierBlockingFindings = verifierOutcome.verifierBlockingFindings;
 
   // ── Phase 4: parse + merge + preflight + scaffold-retry ─────────────────
   const preflightOutcome = await runPreflightPhase({
@@ -424,6 +427,81 @@ export async function runFinalizeFastPath(params: {
     repairLedger,
     repairScopeId,
   });
+
+  // ── SM-023: post-merge stale-check of the verifier verdict ──────────────
+  // The verifier (phase 3) judged PRE-merge content, but phase 4 (merge with
+  // previous files, `package.json` deep-merge, post-merge import-validator,
+  // dep-completion) deterministically resolves whole finding classes in the
+  // files that actually get persisted. Prod chat 3a6c5472 v3 (2026-08-05):
+  // all four blocking findings were already fixed in `files_json`, yet the
+  // stale verdict terminally failed the paid F3 pass. Re-check each blocking
+  // finding against the FINAL files and drop only the ones mechanically
+  // confirmed resolved — unknown classes and unparseable details stay
+  // blocking (fail-closed; see `stale-verifier-findings.ts`).
+  if (verifierBlockingFindings.length > 0) {
+    try {
+      const finalFiles = (
+        JSON.parse(preflightOutcome.filesJson) as Array<{ path?: unknown; content?: unknown }>
+      ).filter(
+        (file): file is { path: string; content: string } =>
+          typeof file?.path === "string" && typeof file?.content === "string",
+      );
+      const staleCheck = dropResolvedVerifierFindings(verifierBlockingFindings, finalFiles);
+      if (staleCheck.dropped.length > 0) {
+        devLogAppend("in-progress", {
+          type: "verifier-pass.stale-findings-dropped",
+          chatId,
+          droppedCount: staleCheck.dropped.length,
+          keptCount: staleCheck.kept.length,
+          dropped: staleCheck.dropped.map(({ id, reason }) => ({ id, reason })),
+          scaffoldId: resolvedScaffold?.id ?? null,
+        });
+        // Correct the fault/fix ledger: the verifier phase already wrote a
+        // `still-failing` RAG row per blocking finding at detection time.
+        // Without a matching `fixed` row the retriever keeps teaching future
+        // generations that these faults went unresolved.
+        const ragGenerationMode =
+          buildSpec?.generationMode === "followUp"
+            ? "followup"
+            : buildSpec?.generationMode === "init"
+              ? "init"
+              : repairPassIndex > 0
+                ? "followup"
+                : null;
+        for (const droppedFinding of staleCheck.dropped) {
+          appendErrorLogEvent({
+            phase: "post-gen",
+            subphase: "verifier-pass",
+            creator: "verifier",
+            fixer: "post-merge-stale-check",
+            severity: "warning",
+            fault: droppedFinding.id,
+            faultText: droppedFinding.detail,
+            fixText: FIX_LESSON_POST_MERGE_STALE_FINDING,
+            modelTier: resolvedTier ?? null,
+            model,
+            provider: "own-engine",
+            repairPassIndex,
+            result: "fixed",
+            chatId,
+            versionId: null, // version not minted yet at this point
+            scaffoldId: resolvedScaffold?.id ?? null,
+            routePath: buildSpec?.routeRealization?.primaryRoutePath ?? null,
+            capabilityIds: buildSpec?.capabilityFlags?.signals ?? [],
+            generationMode: ragGenerationMode,
+            lineageHash: null,
+          });
+        }
+        verifierBlockingFindings = staleCheck.kept;
+      }
+    } catch (staleCheckErr) {
+      // Fail-closed: on any error keep every finding blocking.
+      console.warn(
+        "[verifier-pass] Post-merge stale-check failed (non-fatal, keeping findings):",
+        staleCheckErr,
+      );
+    }
+  }
 
   return {
     contentForVersion: preflightOutcome.contentForVersion,

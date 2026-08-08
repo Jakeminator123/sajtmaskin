@@ -45,6 +45,15 @@ export function verifierFixerPartialFixLesson(before: number, after: number): st
 export const FIX_LESSON_REPAIR_LOOP_DETERMINISTIC =
   "repair-loop deterministic pass (autofix + import-repair) resolved the quality-gate failure";
 
+/**
+ * SM-023: the post-merge stale-check confirmed a verifier finding was already
+ * resolved in the final merged files (deep-merge / import-validator /
+ * dep-completion), so the stale verdict was dropped instead of failing the
+ * version.
+ */
+export const FIX_LESSON_POST_MERGE_STALE_FINDING =
+  "post-merge stale-check: finding already resolved in the final merged files; stale verdict dropped";
+
 /** The repair loop's LLM fixer resolved the quality-gate failure after `llmPasses` passes. */
 export function repairLoopLlmFixLesson(llmPasses: number): string {
   return `repair-loop LLM fixer resolved the quality-gate failure after ${llmPasses} pass(es)`;
@@ -54,6 +63,7 @@ const CROSS_TENANT_SAFE_LESSONS: ReadonlySet<string> = new Set([
   FIX_LESSON_DETERMINISTIC_IMPORT_REPAIR,
   FIX_LESSON_VERIFIER_FIXER_REWRITE,
   FIX_LESSON_REPAIR_LOOP_DETERMINISTIC,
+  FIX_LESSON_POST_MERGE_STALE_FINDING,
 ]);
 
 /**
