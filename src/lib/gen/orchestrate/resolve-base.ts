@@ -211,10 +211,10 @@ export async function resolveOrchestrationBase(
   // P32 Fas A: `requestKind` carried on `OrchestrationInput` for *future*
   // branching in `deriveBuildSpec()`. Today it is logged at the call-site
   // (devLog `request.kind.classified`) and does **not** alter the pipeline —
-  // see `docs/plans/active/P32-request-type-taxonomy.md` (Fas B is the step
-  // that wires it into BuildSpec). Multiple audit-rounds have flagged the
-  // apparent disconnect; keep the field + this explicit note until Fas B
-  // lands so the intent of the dead-looking signal is documented in code.
+  // see the parked plan `P32-request-type-taxonomy.md` in git history (Fas B
+  // is the step that wires it into BuildSpec). Multiple audit-rounds have
+  // flagged the apparent disconnect; keep the field + this explicit note until
+  // Fas B lands so the intent of the dead-looking signal is documented in code.
 
   const effectivePersistedScaffoldId =
     importedRepoMode || ignorePersistedScaffoldForMatch ? null : persistedScaffoldId;

@@ -423,8 +423,8 @@ export function isHydrationConsoleError(text: string): boolean {
 /**
  * Classify collected browser-runtime issues into advisory warnings.
  * Always returns `productBlocked: false` — advisory-only is deliberate;
- * flipping these to blockers is a separate owner decision (plan
- * `docs/plans/active/2026-08-05-hydration-reparationskedja/00-master-plan.md`
+ * flipping these to blockers is a separate owner decision (parked plan
+ * `docs/plans/archived/2026-08-05-hydration-reparationskedja.md` —
  * step 4 is blocked on measuring this data first).
  */
 export function evaluateBrowserRuntimeIssues(
