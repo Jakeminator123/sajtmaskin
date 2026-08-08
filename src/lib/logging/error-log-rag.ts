@@ -44,9 +44,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { FEATURES } from "@/lib/config";
+import { LEGACY_INDEX_DIR } from "./generation-log-writer/constants";
 
-const ERROR_LOG_DIR = path.join(process.cwd(), "logs", "llm-segmentts-and-index");
-const ERROR_LOG_NDJSON = path.join(ERROR_LOG_DIR, "error-log.ndjson");
+const ERROR_LOG_NDJSON = path.join(LEGACY_INDEX_DIR, "error-log.ndjson");
 const MAX_ROW_BYTES = 8 * 1024;
 
 export type ErrorLogPhase =
@@ -87,7 +87,7 @@ export interface ErrorLogEvent {
 
 function ensureDirSync(): void {
   try {
-    fs.mkdirSync(ERROR_LOG_DIR, { recursive: true });
+    fs.mkdirSync(LEGACY_INDEX_DIR, { recursive: true });
   } catch {
     // intentional swallow — best-effort
   }
@@ -193,4 +193,4 @@ export function getErrorLogProducerMtime(): number {
 }
 
 export const ERROR_LOG_NDJSON_PATH = ERROR_LOG_NDJSON;
-export const ERROR_LOG_DIR_PATH = ERROR_LOG_DIR;
+export const ERROR_LOG_DIR_PATH = LEGACY_INDEX_DIR;

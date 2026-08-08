@@ -125,6 +125,8 @@ const COUNT_TREES = [
 export const AGE_SKIP_NAMES = new Set([
   "generationslogg",
   "site-observability",
+  // Sökvägsnamnet ägs av LEGACY_INDEX_DIR_NAME i
+  // src/lib/logging/generation-log-writer/constants.ts — håll dem i synk.
   "llm-segmentts-and-index",
 ]);
 

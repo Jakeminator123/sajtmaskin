@@ -28,6 +28,9 @@ const QUIET = args.has("--quiet");
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..", "..");
 
+// Sökvägsnamnet ägs av LEGACY_INDEX_DIR_NAME i
+// src/lib/logging/generation-log-writer/constants.ts — håll dem i synk
+// (körs med node, kan inte importera TS-konstanten).
 const NDJSON_PATH = path.join(ROOT, "logs", "llm-segmentts-and-index", "error-log.ndjson");
 const SNAPSHOT_DIR = path.join(ROOT, "data", "observability");
 const SNAPSHOT_PATH = path.join(SNAPSHOT_DIR, "error-log-tfidf-snapshot.json");

@@ -28,21 +28,21 @@ import streamlit as st
 from backoffice.shared import BackofficeContext
 
 
-def _ndjson_status(repo_root: Path) -> dict[str, Any]:
-    p = repo_root / "logs" / "llm-segmentts-and-index" / "error-log.ndjson"
+def _ndjson_status(ctx: BackofficeContext) -> dict[str, Any]:
+    p = ctx.error_log_ndjson
     if not p.exists():
         return {"exists": False}
     stat = p.stat()
     return {
         "exists": True,
-        "path": str(p.relative_to(repo_root)),
+        "path": str(p.relative_to(ctx.repo_root)),
         "sizeBytes": stat.st_size,
         "mtime": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
     }
 
 
-def _read_ndjson_rows(repo_root: Path, limit: int = 5000) -> list[dict[str, Any]]:
-    p = repo_root / "logs" / "llm-segmentts-and-index" / "error-log.ndjson"
+def _read_ndjson_rows(ctx: BackofficeContext, limit: int = 5000) -> list[dict[str, Any]]:
+    p = ctx.error_log_ndjson
     if not p.exists():
         return []
     rows: list[dict[str, Any]] = []
@@ -130,7 +130,7 @@ def render(ctx: BackofficeContext) -> None:
     cols = st.columns(2)
     with cols[0]:
         st.subheader("Producer (NDJSON)")
-        ndjson = _ndjson_status(ctx.repo_root)
+        ndjson = _ndjson_status(ctx)
         if not ndjson.get("exists"):
             st.warning(
                 "Ingen producer-NDJSON ännu. Den skapas första gången en "
@@ -206,7 +206,7 @@ def render(ctx: BackofficeContext) -> None:
 
     st.divider()
     st.subheader("Topp fault-kategorier (senaste 5000 rader)")
-    rows = _read_ndjson_rows(ctx.repo_root)
+    rows = _read_ndjson_rows(ctx)
     if not rows:
         st.caption(
             "Inga rader att analysera ännu. RAG är hårdkodat ON i "
