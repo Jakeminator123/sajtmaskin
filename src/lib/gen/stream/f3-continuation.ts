@@ -128,7 +128,7 @@ export const F3_EMPTY_NO_CODE_REASON = "f3_empty_no_code_generation";
  * `resolveDossiersPresentInVersion` over the parent files). The old copy
  * ("Integrationer signalerades, men modellen skrev inga kodfiler") was a lie in
  * this case — the integration code very much exists, it just already lived in
- * the design version (the ai-tool-calling incident). Still offers the same
+ * the design version (F3 parent-has-code honesty). Still offers the same
  * approve/continue choice via the canonical quick-replies.
  */
 export const F3_CONTINUATION_PARENT_HAS_CODE_QUESTION =

@@ -93,23 +93,23 @@ describe("resolveOrchestrationBase — F3 capability-scope stage gating", () => 
       baseInput({
         lifecycleStage: "integrations",
         // Inflated floor from earlier rounds: payments/analytics were brief
-        // speculation; ai-tool-calling was actually built (file evidence).
+        // speculation; ai-chat was actually built (file evidence).
         followUpContract: followUpContract([
           "payments",
           "analytics",
-          "ai-tool-calling",
+          "ai-chat",
           "gallery-lightbox",
         ]),
         previousFilePaths: [
           "app/page.tsx",
-          "app/api/assistant/route.ts",
-          "components/ai-assistant.tsx",
+          "app/api/chat/route.ts",
+          "components/chat-panel.tsx",
         ],
       }),
     );
-    expect(base.dossierRequestedCapabilities).toEqual(["ai-tool-calling"]);
+    expect(base.dossierRequestedCapabilities).toEqual(["ai-chat"]);
     const selectedIds = (base.dossierSelection?.selected ?? []).map((s) => s.entry.id);
-    expect(selectedIds).toEqual(["ai-tool-calling-chat"]);
+    expect(selectedIds).toEqual(["openai-chat"]);
   });
 
   it("integrations round with an empty scoped set selects NOTHING (brief fallback disabled)", async () => {

@@ -721,7 +721,7 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(contentPayload).toContain("Integrationsbygget avslutades");
   });
 
-  it("first tool-only round but PARENT already has the integration code: honest 'finns redan i designversionen' copy, never 'inga kodfiler' (ai-tool-calling incident)", async () => {
+  it("first tool-only round but PARENT already has the integration code: honest 'finns redan i designversionen' copy, never 'inga kodfiler' (F3 parent-has-code)", async () => {
     const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
       .EmptyGenerationError;
     finalizeAndSaveVersionMock.mockRejectedValueOnce(
@@ -730,13 +730,13 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
 
     const out = createOwnEngineGenerationStream({
       ...f3ToolOnlyStreamParams("chat_parent_has_code", 0),
-      // Parent design version already carries the ai-tool-calling dossier's
-      // built assistant route — the F3 round writing no NEW files is NOT the
+      // Parent design version already carries the openai-chat dossier's
+      // built chat route — the F3 round writing no NEW files is NOT the
       // same as "no code files exist".
       previousFiles: [
         {
-          path: "app/api/assistant/route.ts",
-          content: "// built assistant route",
+          path: "app/api/chat/route.ts",
+          content: "// built chat route",
           language: "ts",
         },
         { path: "components/ai-assistant.tsx", content: "// ui", language: "tsx" },

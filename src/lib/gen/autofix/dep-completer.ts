@@ -258,9 +258,9 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   "@clerk/nextjs": "^6",
   "resend": "^6",
   // Dossier wave 1 (legacy import 2026-07-08): ably-realtime,
-  // fal-image-generation, ai-tool-calling-chat. `ai` + `@ai-sdk/*` are pinned
-  // to the same generation so a generated site always gets ONE consistent
-  // AI SDK major (ai-tool-calling-chat REVIEW requirement).
+  // fal-image-generation (+ parked ai-tool-calling-chat). `ai` +
+  // `@ai-sdk/*` stay pinned so openai-chat (sole live AI dossier after
+  // etapp 4) always gets ONE consistent AI SDK major.
   "ably": "^2",
   "ai": "^7",
   "@ai-sdk/openai": "^4",
@@ -269,10 +269,8 @@ export const KNOWN_PACKAGES: Record<string, string> = {
   // Dossier wave 2 (legacy import 2026-07-08, capability `database`):
   // postgres-drizzle is the sole live dossier (neon-postgres / mongodb-atlas
   // parked 2026-08-06). Majors verified against the npm registry 2026-07-08
-  // (`npm view <pkg> version`). The final legacy wave (`rag-chat`, capability
-  // `rag-chat`) introduces no new packages: its stack (ai + @ai-sdk/openai +
-  // @ai-sdk/react above, drizzle-orm/pg/@types/pg/server-only below) is fully
-  // covered here — locked by the rag-chat case in `dep-completer.test.ts`.
+  // (`npm view <pkg> version`). Parked rag-chat's stack was covered by the
+  // same pins (ai / @ai-sdk/* above + drizzle/pg below).
   "drizzle-orm": "^0.45",
   "drizzle-kit": "^0.31",
   "pg": "^8",

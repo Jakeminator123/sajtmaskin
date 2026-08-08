@@ -44,7 +44,7 @@ describe("loadEntry copies the manifest mock field (bugbot #468)", () => {
   it("surfaces provider ownership and verification status", () => {
     const all = getAllDossiers();
     expect(all.find((d) => d.id === "stripe-checkout")?.providers).toEqual(["stripe"]);
-    expect(all.find((d) => d.id === "ai-tool-calling-chat")?.verificationStatus).toBe("unverified");
+    expect(all.find((d) => d.id === "openai-chat")?.providers).toEqual(["openai"]);
     expect(all.find((d) => d.id === "gallery-lightbox")?.providers).toBeUndefined();
   });
 });
@@ -148,11 +148,21 @@ describe("manifest provider projection", () => {
     });
   });
 
-  it("flags providers with several dossiers as ambiguous", () => {
+  it("resolves openai uniquely to openai-chat after etapp 4 (injection still forced-generic)", () => {
+    // Registry projection is unique; FORCED_GENERIC_PROVIDER_KEYS in
+    // tier3-build-spec.ts still blocks deterministic injection (#785).
     expect(resolveDossierProvider("openai")).toMatchObject({
-      status: "ambiguous",
-      dossierIds: ["ai-tool-calling-chat", "openai-chat", "rag-chat"],
-      capabilities: ["ai-chat", "ai-tool-calling", "rag-chat"],
+      status: "unique",
+      dossierIds: ["openai-chat"],
+      capabilities: ["ai-chat"],
+    });
+  });
+
+  it("resolves postgres uniquely to postgres-drizzle after etapp 4", () => {
+    expect(resolveDossierProvider("postgres")).toMatchObject({
+      status: "unique",
+      dossierIds: ["postgres-drizzle"],
+      capabilities: ["database"],
     });
   });
 

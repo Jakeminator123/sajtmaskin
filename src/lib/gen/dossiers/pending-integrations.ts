@@ -82,9 +82,9 @@ export function resolvePendingIntegrationDossiers(params: {
  *
  * Coverage join: same capability (case-insensitive) OR any env-key overlap.
  * Any-overlap = same vendor — mirrors `findMatchingCluster` in
- * `detect-integrations.ts`; this is how `ai-chat` (openai-chat) and
- * `ai-tool-calling` (ai-tool-calling-chat) unify on `OPENAI_API_KEY` despite
- * different capability keys.
+ * `detect-integrations.ts`; env-key overlap is how sibling AI surfaces
+ * used to unify on `OPENAI_API_KEY` before etapp 4 parked the tool-/RAG
+ * dossiers (openai-chat is now the sole live AI dossier).
  *
  * Deliberately restricted to MODEL-BUILT coverage (callers pass only built
  * blocks WITHOUT dossier file presence): a dossier-file-injected built block

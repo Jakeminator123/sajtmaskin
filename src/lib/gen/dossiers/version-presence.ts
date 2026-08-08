@@ -6,8 +6,7 @@
  * the F2-muted `orchestration_snapshot.requestedCapabilities` floor, and not the
  * provider-key → capability mapping in `tier3-build-spec.ts` (which resolves a
  * detected provider like `openai` to a capability *default*, so it can surface
- * the wrong dossier — e.g. `ai-chat`/`openai-chat` for code that is actually the
- * `ai-tool-calling` assistant route).
+ * the wrong dossier when several siblings used to share a provider).
  *
  * Matching rule (review round 2 — resilient to user edits, guarded against
  * shared paths):
@@ -16,8 +15,7 @@
  *    it (after output-path mapping) AND it is not part of the scaffold
  *    baseline. Shared helper files like
  *    `components/integration-config-notice.tsx` (shipped by several hard
- *    dossiers) or the chat route `app/api/chat/route.ts` (openai-chat AND
- *    rag-chat) are never distinctive. Neither is a baseline path
+ *    dossiers) are never distinctive. Neither is a baseline path
  *    (`isScaffoldBaselinePath`): `lib/utils.ts`, `app/layout.tsx` and their
  *    siblings are injected into EVERY version by the platform, so their
  *    presence says nothing about a dossier — that is exactly how
@@ -25,15 +23,15 @@
  *    (declared `components/lib/utils.ts` → `lib/utils.ts`, declared by no
  *    other dossier, therefore "distinctive"). The baseline rule holds no
  *    matter how many dossiers declare the path, so the next manifest cannot
- *    reintroduce the bug.
+ *    reintroduce the bug. (Etapp 4 parked rag-chat / ai-tool-calling-chat —
+ *    openai-chat's chat route is now unique in the live pool.)
  *  - Dossier WITH `role: "server"` files: present ⇔ ALL its server files exist
  *    AND at least one of its present files (any role) is distinctive. Server
  *    files are the functional core and verbatim-protected — a user
  *    renaming/absorbing a rewritable client component must not erase the
  *    evidence (Stripe built + keys filled would otherwise silently drop
  *    `payments` from the F3 scope). The distinctive requirement stops a shared
- *    server path alone from matching a sibling dossier (rag-chat's chat route
- *    must not resurrect openai-chat).
+ *    server path alone from matching a sibling dossier.
  *  - Dossier WITHOUT server files: present ⇔ at least one distinctive file
  *    exists (a soft/UI dossier keeps its evidence even when sibling shared
  *    files drift).
@@ -136,9 +134,9 @@ export function resolveDossierIdsPresentInVersion(
 /**
  * {@link SelectedDossier} objects for every dossier whose files are present in
  * the version. Built directly from the detected entry (NOT re-selected by
- * capability) so a non-default sibling — e.g. `supabase-auth` under `auth`
- * or `ai-tool-calling-chat` under an `ai-*` capability — is reported exactly as
- * it exists in the files, never swapped for the capability default.
+ * capability) so a non-default sibling — e.g. `supabase-auth` under `auth` —
+ * is reported exactly as it exists in the files, never swapped for the
+ * capability default.
  *
  * @param versionFiles the version's files (only `path` is read).
  * @param configuredEnvKeys project env keys with a real stored value; drives

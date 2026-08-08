@@ -6,7 +6,8 @@
 Do not use it for:
 
 - A cmd+k command palette for app navigation/actions — that is the `command-palette` capability.
-- Chat-style questions answered from documents — that is `rag-chat`.
+- Chat-style questions answered from documents — that is the `ai-chat`
+  capability (openai-chat), not a separate retrieval dossier.
 - Huge datasets (thousands of records) or server-side filtering — that needs an external search provider (future hard sibling under this capability).
 
 # How to integrate

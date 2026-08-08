@@ -28,8 +28,8 @@ data/dossiers/
 
 Every `hard` manifest must declare a non-empty `providers` array; `soft`
 manifests must omit it. The values are canonical provider identities such as
-`stripe`, `openai` or `postgres`. A composite dossier may list more than one
-provider (`rag-chat` owns both `openai` and `postgres`).
+`stripe`, `openai` or `postgres`. (Composite multi-provider dossiers left the
+live pool with etapp 4 — `rag-chat` owned both `openai` and `postgres`.)
 
 The ownership hierarchy is strict:
 
@@ -67,7 +67,7 @@ capability via kanonisk mappning i
 | 2   | `auth`         | Inloggning & konton | `auth` (en capability — clerk-auth default, supabase-auth leverantörssyskon) |
 | 3   | `commerce`     | Betalning & handel  | `payments` (`subscriptions` lämnade 2026-08-06 med parkerade paddle-billing) |
 | 4   | `contact`      | Kontakt & utskick   | `contact-form`, `newsletter-subscribe`                                       |
-| 5   | `ai`           | AI                  | `ai-chat`, `ai-tool-calling`, `rag-chat`                                     |
+| 5   | `ai`           | AI                  | `ai-chat` (`ai-tool-calling` / `rag-chat` lämnade 2026-08-06 med etapp 4)    |
 | 6   | `search-maps`  | Sök & karta         | `site-search`, `map-display`, `command-palette`                              |
 | 7   | `media`        | Media & galleri     | `gallery-lightbox`, `carousel`                                               |
 | 8   | `interactive`  | Interaktivt & 3D    | `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`            |
@@ -234,7 +234,7 @@ Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/t
 
 | `mock`                         | Beteende utan riktig nyckel                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Exempel-dossiers                                                                    |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `canned`                       | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar). Riktiga vägen återupptas när en riktig nyckel sätts.                                                                                                                                                                                                                                                                                                                          | `openai-chat`, `ai-tool-calling-chat`, `rag-chat`                                   |
+| `canned`                       | Server-routen returnerar ett trovärdigt fabricerat svar i demo-läge (chatboten streamar ett canned-svar). Riktiga vägen återupptas när en riktig nyckel sätts.                                                                                                                                                                                                                                                                                                                          | `openai-chat`                                                                       |
 | `seed`                         | Data-lagret faller tillbaka på medskeppad `seedData` + en diskret `<DbConfigNotice />` när connection-strängen saknas/är stub, så DB-vyer renderar utan riktig databas. **Medvetet vald framför in-preview-SQLite:** `better-sqlite3` kräver native-build på preview-VM:en (skört), medan in-memory seed ger samma visuella resultat utan native-deps.                                                                                                                                  | `postgres-drizzle`                                                                  |
 | `success`                      | Mutations-endpoints returnerar en fejkad success + en demo-notis (`demo: true`) så formulär går igenom i F2 utan att koppla providern.                                                                                                                                                                                                                                                                                                                                                  | `resend-contact-form`, `mailchimp-newsletter`                                       |
 | `visual` (nytt 2026-07-22)     | Den interaktiva ytan renderas fullt ut (betalknapp, inloggningsknappar, live-widget) och **handlingen** öppnar en ärlig demo-notis/modal i stället för att utföra den riktiga operationen — aldrig fejkade sessioner, debiteringar eller transport. Riktiga backend aktiveras när leverantörsvärden sparas. Exempel: stripe-checkouts `CheckoutButton` är klickbar och öppnar "Demoläge — ingen riktig betalning"-modalen; clerk-auths knappar öppnar "Inloggning i demoläge"-dialogen. | `stripe-checkout`, `clerk-auth`, `supabase-auth`                                    |
@@ -364,7 +364,7 @@ Keep it **scaffold-agnostic** when the rule applies regardless of layout, and **
 `selectDossiersForRequest(opts)` lives in `src/lib/gen/dossiers/select.ts`:
 
 1. Read `requestedCapabilities` (from explicit option or `brief.requestedCapabilities`). When the caller COMPUTED the list (the F3 capability-scope in orchestrate passes `disableBriefFallback: true`), an empty list is authoritative — the brief fallback never resurrects speculative capabilities in F3.
-2. Normalize legacy aliases (`CAPABILITY_ALIASES`): `supabase-auth` → `auth` (with a dossier PIN on the `supabase-auth` dossier so the legacy id keeps meaning "Supabase specifically") and `command-search` → `command-palette` — old snapshots/briefs keep resolving. Then expand dependent capabilities (`expandDependentCapabilities`): a capability that only works with a companion pulls it in automatically — the table is EMPTY since 2026-08-06 (the only entry ever needed, `subscriptions` ⇒ `auth` pinned to `supabase-auth`, left with the parked paddle-billing dossier); the mechanism stays for a future dossier whose F3 surface genuinely cannot work alone, never as a convenience bundle. The helper also dedupes overlapping picks: `ai-tool-calling` drops generic `ai-chat` (overlapping chat surfaces — one "AI assistant" ask must not ship two competing chat routes). The former supabase-auth/auth dedup is obsolete since the capability merge — one capability selects exactly one dossier, so two colliding root middlewares can no longer be picked. The same helper runs in `filterDossierCapabilitiesForPrompt` (orchestrate) so prompt and selection stay in lockstep; in F2 the base capability is already muted, so expansion only fires in F3.
+2. Normalize legacy aliases (`CAPABILITY_ALIASES`): `supabase-auth` → `auth` (with a dossier PIN on the `supabase-auth` dossier so the legacy id keeps meaning "Supabase specifically") and `command-search` → `command-palette` — old snapshots/briefs keep resolving. Then expand dependent capabilities (`expandDependentCapabilities`): a capability that only works with a companion pulls it in automatically — the table is EMPTY since 2026-08-06 (the only entry ever needed, `subscriptions` ⇒ `auth` pinned to `supabase-auth`, left with the parked paddle-billing dossier); the mechanism stays for a future dossier whose F3 surface genuinely cannot work alone, never as a convenience bundle. The former ai-tool-calling ⇒ drop ai-chat dedup died with etapp 4 (those dossiers parked). The former supabase-auth/auth dedup is obsolete since the capability merge — one capability selects exactly one dossier, so two colliding root middlewares can no longer be picked. The same helper runs in `filterDossierCapabilitiesForPrompt` (orchestrate) so prompt and selection stay in lockstep; in F2 the base capability is already muted, so expansion only fires in F3.
 3. For each capability, find dossiers via `getDossiersByCapability(cap)`.
 4. If multiple match: a dependency/alias PIN wins first (reason `dependency-pin`); otherwise an explicit `relevanceKeywords` hit in `promptText` (when the caller supplies it — orchestrate passes the raw prompt) overrides the default, e.g. "logga in med supabase" → `supabase-auth` even though `clerk-auth` is the `auth` default. Otherwise pick the one with `defaultForCapability=true`, else the first by id-sort. Callers without a prompt (dep-completer backstop, snapshot re-selection) always get the capability default.
 5. For hard dossiers, mark `configured: true|false` from the **current project's** stored env keys (`SelectDossiersOptions.configuredEnvKeys`, threaded from `getStoredProjectEnvVarMap`) — a hard dossier is `configured` only when all its required keys have a real stored value for that project. Reading the platform `process.env` is a **deprecated fallback** kept only for callers that cannot supply a project env map (e.g. the dep-completer backstop); it is wrong for user projects (Sajtmaskin's own keys leak in). The flag is a prompt-only signal, never wired to a gate.
@@ -422,11 +422,15 @@ from the deterministic backstop in three legacy/interactive cases:
    dossier id (for example `stripe-checkout`) remain accepted as explicit
    identities. Note: after etapp 3, `mongodb` is dossierless and takes the
    generic path (case 2).
-2. **Dossierless or ambiguous provider:** a known provider with zero manifest
-   matches (`posthog`, `google-analytics`) or several matches (`openai`,
-   `supabase`) is reported by `providerKeysWithoutBackingDossier` and goes
-   through the GENERIC LLM path. It must never pick an arbitrary dossier sibling
-   or take a deterministic exact-file fork that would ship the wrong/zero code.
+2. **Dossierless or ambiguous / forced-generic provider:** a known provider with
+   zero manifest matches (`posthog`, `google-analytics`) or forced-generic keys
+   (`openai`, `supabase` via `FORCED_GENERIC_PROVIDER_KEYS` — intent-ambiguity
+   even when registry-unique after parkings) is reported by
+   `providerKeysWithoutBackingDossier` and goes through the GENERIC LLM path.
+   It must never pick an arbitrary dossier sibling or take a deterministic
+   exact-file fork that would ship the wrong/zero code. (`postgres` injects
+   `postgres-drizzle` deterministically since etapp 4 — rag-chat was the only
+   other claimant.)
 3. **Durable snapshot capability**: a persisted `f3ApprovedCapabilities` entry
    (no provider identity to sharpen with) lacking file presence, compared at
    capability level.

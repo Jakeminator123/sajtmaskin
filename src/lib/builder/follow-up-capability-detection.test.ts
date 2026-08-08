@@ -738,12 +738,13 @@ describe("detectFollowUpCapabilities — database", () => {
     expect(result.capabilityIds).toContain("database");
   });
 
-  // Veto: vector stores belong to the coming rag-chat capability.
+  // Veto: vector stores are not a database ask (phrases fold into ai-chat).
   it("does NOT detect database for a vector-store ask", () => {
     const result = detectFollowUpCapabilities(
       "lägg till en vektor-databas för semantisk sökning",
     );
     expect(result.capabilityIds).not.toContain("database");
+    expect(result.capabilityIds).toContain("ai-chat");
   });
 
   // Veto: visitor tracking is an analytics ask even when phrased with "databas".
@@ -841,44 +842,43 @@ describe("detectFollowUpCapabilities — database", () => {
   });
 });
 
-describe("detectFollowUpCapabilities — ai-tool-calling", () => {
-  it("detects 'tool-calling' as ai-tool-calling (not plain ai-chat)", () => {
+describe("detectFollowUpCapabilities — tool-calling folds into ai-chat (etapp 4)", () => {
+  it("detects 'tool-calling' as ai-chat", () => {
     const result = detectFollowUpCapabilities(
       "lägg till en ai-chat med tool-calling mot vårt api",
     );
-    expect(result.capabilityIds).toContain("ai-tool-calling");
-    expect(result.capabilityIds).not.toContain("ai-chat");
+    expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("ai-tool-calling");
   });
 
-  it("detects an assistant that uses tools ('assistent som använder verktyg')", () => {
+  it("detects an assistant that uses tools ('assistent som använder verktyg') as ai-chat", () => {
     const result = detectFollowUpCapabilities(
       "vi behöver en ai-assistent som använder verktyg för att slå upp ordersstatus",
     );
-    expect(result.capabilityIds).toContain("ai-tool-calling");
-    expect(result.capabilityIds).not.toContain("ai-chat");
+    expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("ai-tool-calling");
   });
 
-  it("detects English 'function calling' chat", () => {
+  it("detects English 'function calling' chat as ai-chat", () => {
     const result = detectFollowUpCapabilities(
       "add a chatbot with function-calling so it can execute tools",
     );
-    expect(result.capabilityIds).toContain("ai-tool-calling");
-    expect(result.capabilityIds).not.toContain("ai-chat");
-  });
-
-  // Veto/control: a plain conversational chatbot stays ai-chat.
-  it("does NOT detect ai-tool-calling for a plain chatbot ask", () => {
-    const result = detectFollowUpCapabilities("lägg till en ai-chatt-widget");
-    expect(result.capabilityIds).not.toContain("ai-tool-calling");
     expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("ai-tool-calling");
   });
 
-  it("does NOT detect ai-tool-calling for an explicitly simple chatbot", () => {
+  it("still detects a plain chatbot ask as ai-chat", () => {
+    const result = detectFollowUpCapabilities("lägg till en ai-chatt-widget");
+    expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("ai-tool-calling");
+  });
+
+  it("still detects an explicitly simple chatbot as ai-chat", () => {
     const result = detectFollowUpCapabilities(
       "vi vill ha en enkel chatbot som svarar på vanliga frågor",
     );
-    expect(result.capabilityIds).not.toContain("ai-tool-calling");
     expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("ai-tool-calling");
   });
 });
 
@@ -1077,95 +1077,89 @@ describe("detectFollowUpCapabilities — auth (merged capability)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Legacy import final wave — capability `rag-chat` (2026-07-09). The core
-// invariant: rag-chat must NOT compete with ai-chat (openai-chat owns generic
-// chatbots). Explicit retrieval intent → rag-chat ONLY (both dossiers ship an
-// /api/chat route — double-injection would collide); bare "chatbot" → ai-chat.
+// RAG / document-Q&A vocabulary folds into `ai-chat` (etapp 4, 2026-08-06).
+// Phrases stay as positive locks — capability id is now always ai-chat.
 // ─────────────────────────────────────────────────────────────────────────
-describe("detectFollowUpCapabilities — rag-chat", () => {
-  // THE locked pair from the promotion brief.
-  it("routes a bare 'chatbot' to ai-chat, never rag-chat", () => {
+describe("detectFollowUpCapabilities — RAG folds into ai-chat (etapp 4)", () => {
+  it("routes a bare 'chatbot' to ai-chat", () => {
     const result = detectFollowUpCapabilities("lägg till en chatbot");
     expect(result.capabilityIds).toContain("ai-chat");
     expect(result.capabilityIds).not.toContain("rag-chat");
   });
 
-  it("routes 'chatbot som svarar från våra dokument' to rag-chat, not ai-chat", () => {
+  it("routes 'chatbot som svarar från våra dokument' to ai-chat", () => {
     const result = detectFollowUpCapabilities(
       "lägg till en chatbot som svarar från våra dokument",
     );
-    expect(result.capabilityIds).toContain("rag-chat");
-    expect(result.capabilityIds).not.toContain("ai-chat");
+    expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("rag-chat");
   });
 
-  it("detects an explicit 'rag' ask", () => {
+  it("detects an explicit 'rag' ask as ai-chat", () => {
     const result = detectFollowUpCapabilities("lägg till rag-chat på sajten");
-    expect(result.capabilityIds).toContain("rag-chat");
-    expect(result.capabilityIds).not.toContain("ai-chat");
+    expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("rag-chat");
   });
 
-  it("detects 'kunskapsbas-chat'", () => {
+  it("detects 'kunskapsbas-chat' as ai-chat", () => {
     const result = detectFollowUpCapabilities("vi vill ha en kunskapsbas-chat");
-    expect(result.capabilityIds).toContain("rag-chat");
-    expect(result.capabilityIds).not.toContain("ai-chat");
+    expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("rag-chat");
   });
 
-  it("detects 'chatta med våra dokument'", () => {
+  it("detects 'chatta med våra dokument' as ai-chat", () => {
     const result = detectFollowUpCapabilities(
       "lägg till att besökare kan chatta med våra dokument",
     );
-    expect(result.capabilityIds).toContain("rag-chat");
+    expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("rag-chat");
   });
 
-  it("detects 'dokument-Q&A'", () => {
+  it("detects 'dokument-Q&A' as ai-chat", () => {
     const result = detectFollowUpCapabilities("bygg en dokument-Q&A på hjälpsidan");
-    expect(result.capabilityIds).toContain("rag-chat");
-    expect(result.capabilityIds).not.toContain("ai-chat");
+    expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("rag-chat");
   });
 
-  it("detects English 'chatbot that answers from our documents' as rag-chat", () => {
+  it("detects English 'chatbot that answers from our documents' as ai-chat", () => {
     const result = detectFollowUpCapabilities(
       "add a chatbot that answers from our documents",
     );
-    expect(result.capabilityIds).toContain("rag-chat");
-    expect(result.capabilityIds).not.toContain("ai-chat");
+    expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("rag-chat");
   });
 
-  // Vector-store asks: the `database` capability vetoes them on purpose
-  // (its veto comment points here) — they must land on rag-chat instead.
-  it("routes a vector-store ask to rag-chat, not database", () => {
+  // Vector-store asks: database veto stays; phrases fold into ai-chat.
+  it("routes a vector-store ask to ai-chat, not database", () => {
     const result = detectFollowUpCapabilities(
       "lägg till en vektor-databas för semantisk sökning",
     );
-    expect(result.capabilityIds).toContain("rag-chat");
+    expect(result.capabilityIds).toContain("ai-chat");
     expect(result.capabilityIds).not.toContain("database");
+    expect(result.capabilityIds).not.toContain("rag-chat");
   });
 
-  // Control: an explicitly simple chatbot must stay ai-chat (same guard as
-  // ai-tool-calling — "svarar på vanliga frågor" is not a retrieval clause).
-  it("does NOT detect rag-chat for an explicitly simple chatbot", () => {
+  it("keeps a simple chatbot as ai-chat", () => {
     const result = detectFollowUpCapabilities(
       "vi vill ha en enkel chatbot som svarar på vanliga frågor",
     );
-    expect(result.capabilityIds).not.toContain("rag-chat");
     expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("rag-chat");
   });
 
-  // Control: an ai-chat widget ask stays ai-chat.
-  it("does NOT detect rag-chat for 'lägg till en ai-chatt-widget'", () => {
+  it("keeps an ai-chatt-widget ask as ai-chat", () => {
     const result = detectFollowUpCapabilities("lägg till en ai-chatt-widget");
-    expect(result.capabilityIds).not.toContain("rag-chat");
     expect(result.capabilityIds).toContain("ai-chat");
+    expect(result.capabilityIds).not.toContain("rag-chat");
   });
 
-  // Tool-calling and RAG stay separate capabilities: a tool-calling ask with
-  // no retrieval clause must not light up rag-chat.
-  it("does NOT detect rag-chat for a plain tool-calling ask", () => {
+  it("routes a plain tool-calling ask to ai-chat (no separate rag/tool caps)", () => {
     const result = detectFollowUpCapabilities(
       "lägg till en ai-chat med tool-calling mot vårt api",
     );
-    expect(result.capabilityIds).toContain("ai-tool-calling");
+    expect(result.capabilityIds).toContain("ai-chat");
     expect(result.capabilityIds).not.toContain("rag-chat");
+    expect(result.capabilityIds).not.toContain("ai-tool-calling");
   });
 });
 

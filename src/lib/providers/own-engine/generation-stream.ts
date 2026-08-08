@@ -460,12 +460,13 @@ export function createOwnEngineGenerationStream(
             return;
           }
 
-          // Task 1c (ai-tool-calling incident): a first-round F3 no-code result
-          // must NOT claim "modellen skrev inga kodfiler" when the parent design
-          // version already carries the integration/dossier artifacts — the code
-          // exists, it just lived in F2. `previousFiles` is the parent version's
-          // file set (loaded upstream for the follow-up). Only overrides the
-          // FIRST round's copy; the loop/exhausted copy stays as-is.
+          // Task 1c (F3 parent-has-code honesty): a first-round F3 no-code
+          // result must NOT claim "modellen skrev inga kodfiler" when the
+          // parent design version already carries the integration/dossier
+          // artifacts — the code exists, it just lived in F2. `previousFiles`
+          // is the parent version's file set (loaded upstream for the
+          // follow-up). Only overrides the FIRST round's copy; the
+          // loop/exhausted copy stays as-is.
           const parentHasIntegrationCode =
             isF3Round &&
             noCodeRounds < 2 &&

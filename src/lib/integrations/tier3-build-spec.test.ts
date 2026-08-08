@@ -103,13 +103,20 @@ describe("providerKeysWithoutBackingDossier (coach edge case on #503)", () => {
     expect(mapProviderKeysToDossierCapabilities(["mongodb"])).toEqual([]);
   });
 
-  it("flags ambiguous providers instead of choosing an implicit dossier", () => {
+  it("flags forced-generic providers instead of choosing an implicit dossier", () => {
+    // openai: FORCED_GENERIC (#785) — intent-ambiguity even though registry-
+    // unique after etapp 4. supabase: same class (BaaS key ≠ auth).
     expect(providerKeysWithoutBackingDossier(["openai"])).toEqual(["openai"]);
-    // postgres stays ambiguous (postgres-drizzle + rag-chat). supabase is
-    // registry-unique since paddle-billing parked (2026-08-06) but stays
-    // FORCED-GENERIC: a BaaS key must not inject the auth dossier (#503).
-    expect(providerKeysWithoutBackingDossier(["postgres"])).toEqual(["postgres"]);
     expect(providerKeysWithoutBackingDossier(["supabase"])).toEqual(["supabase"]);
+  });
+
+  it("lets postgres inject deterministically after etapp 4 (rag-chat parked)", () => {
+    // Differentiated from supabase/openai: the key is unambiguous (one
+    // Postgres approval wants a Postgres database) and postgres-drizzle is
+    // the database default. rag-chat was the only other claimant.
+    expect(mapProviderKeysToDossierCapabilities(["postgres"])).toEqual(["database"]);
+    expect(mapProviderKeysToBackingDossierIds(["postgres"])).toEqual(["postgres-drizzle"]);
+    expect(providerKeysWithoutBackingDossier(["postgres"])).toEqual([]);
   });
 
   it("lets an exact dossier identity supersede its ambiguous provider alias", () => {
@@ -646,19 +653,16 @@ describe("mapProviderKeysToDossierCapabilities", () => {
     expect(spec.requirements[0].buildInstructions.join("\n")).not.toContain("openai-chat");
   });
 
-  it("keeps env metadata shared by every ambiguous Postgres dossier", () => {
-    expect(mapProviderKeysToDossierCapabilities(["postgres"])).toEqual([]);
+  it("injects postgres-drizzle for a unique postgres approval after etapp 4", () => {
+    expect(mapProviderKeysToDossierCapabilities(["postgres"])).toEqual(["database"]);
     const spec = deriveTier3BuildSpecForProviderKeys(["postgres"]);
     expect(spec.requirements).toHaveLength(1);
     expect(spec.requirements[0]).toMatchObject({
       key: "postgres",
       provider: "postgres",
-      requiredRealEnvKeys: [],
-      warnOnlyEnvKeys: ["DATABASE_URL"],
     });
-    expect(spec.requirements[0].buildInstructions.join("\n")).toContain("DATABASE_URL");
-    expect(spec.requirements[0].setupGuide).toContain("DATABASE_URL");
-    expect(spec.requirements[0].buildInstructions.join("\n")).not.toContain("postgres-drizzle");
+    // Exact dossier path — manifest owns build instructions.
+    expect(spec.requirements[0].buildInstructions.join("\n")).toContain("postgres-drizzle");
     expect(spec.requirements[0].buildInstructions.join("\n")).not.toContain("rag-chat");
   });
 
@@ -674,16 +678,14 @@ describe("mapProviderKeysToDossierCapabilities", () => {
  * kartfunktionerna måste svara samma sak — svarar de olika kan en F3-runda
  * injicera en dossier som env-clampningen inte känner till.
  *
- * `openai` / `postgres` är ambigua i registryt → generisk LLM-väg.
- * `supabase` blev registry-unik när paddle-billing parkerades 2026-08-06,
- * men hålls MEDVETET kvar på generiska vägen via
- * `FORCED_GENERIC_PROVIDER_KEYS`: nyckeln namnger en hel BaaS (auth, databas,
- * lagring), så ett generiskt godkännande säger inget om inloggning och får
- * aldrig injicera supabase-auths root-middleware (#503). Ett EXAKT
- * `supabase-auth`-godkännande injicerar fortfarande.
+ * `supabase` / `openai` hålls MEDVETET på generiska vägen via
+ * `FORCED_GENERIC_PROVIDER_KEYS` även när registry-unika: intent-ambiguitet
+ * (#503 BaaS, #785 openai-chat vs tools/RAG/textgen). `postgres` injicerar
+ * däremot efter etapp 4 (se testet ovan) — skiljer sig från supabase/openai
+ * för att nyckeln är entydig.
  */
-describe("provider→dossier contract lock (ambiguous manifest providers)", () => {
-  it.each(["supabase", "postgres", "openai"])(
+describe("provider→dossier contract lock (forced-generic providers)", () => {
+  it.each(["supabase", "openai"])(
     "%s selects no dossier through the generic provider path",
     (provider) => {
       expect(mapProviderKeysToDossierCapabilities([provider])).toEqual([]);

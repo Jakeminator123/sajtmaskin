@@ -11,22 +11,21 @@ import {
 
 /**
  * Version-presence resolves the dossiers whose ACTUAL files are in a version —
- * the signal-gate ground truth the ai-tool-calling incident needed (the panel
- * showed `total: 0` because the snapshot floor was F2-muted and the
- * provider-key→capability mapping only knew `ai-chat`, never `ai-tool-calling`).
+ * the signal-gate ground truth for "what is built" (snapshot floors and
+ * provider-key→capability mapping are not).
  *
  * Matching rule (review round 2): all server files + ≥1 distinctive file for
  * server dossiers; ≥1 distinctive file for client-only dossiers. Distinctive =
  * declared by exactly one dossier in the pool.
  */
 describe("resolveDossierIdsPresentInVersion", () => {
-  it("detects ai-tool-calling-chat from its built assistant route", () => {
+  it("detects openai-chat from its built chat route", () => {
     const ids = resolveDossierIdsPresentInVersion([
       "app/page.tsx",
-      "app/api/assistant/route.ts",
-      "components/ai-assistant.tsx",
+      "app/api/chat/route.ts",
+      "components/chat-panel.tsx",
     ]);
-    expect(ids).toContain("ai-tool-calling-chat");
+    expect(ids).toContain("openai-chat");
   });
 
   it("returns [] for a version with no dossier files", () => {
@@ -74,12 +73,11 @@ describe("resolveDossierIdsPresentInVersion", () => {
     expect(ids).toContain("stripe-checkout");
   });
 
-  // False-positive guard: a path shared by SEVERAL dossiers (the chat route is
-  // declared by both openai-chat and rag-chat) is never sole evidence.
-  it("does NOT match any chat dossier from the shared chat route alone", () => {
+  // After etapp 4, openai-chat owns the chat route uniquely in the live pool
+  // (rag-chat parked) — the server path alone is distinctive evidence.
+  it("matches openai-chat from its chat route alone after etapp 4", () => {
     const ids = resolveDossierIdsPresentInVersion(["app/api/chat/route.ts"]);
-    expect(ids).not.toContain("openai-chat");
-    expect(ids).not.toContain("rag-chat");
+    expect(ids).toContain("openai-chat");
   });
 
   it("does NOT match a dossier from a shared helper file alone", () => {
@@ -90,16 +88,15 @@ describe("resolveDossierIdsPresentInVersion", () => {
     expect(ids).toEqual([]);
   });
 
-  it("resolves openai-chat (not rag-chat) from its full file set", () => {
+  it("resolves openai-chat from its full file set", () => {
     const ids = resolveDossierIdsPresentInVersion([
       "app/api/chat/route.ts",
       "components/chat-panel.tsx",
     ]);
     expect(ids).toContain("openai-chat");
-    expect(ids).not.toContain("rag-chat");
   });
 
-  it("resolves rag-chat (not openai-chat) from its full file set", () => {
+  it("does not resolve a parked rag-chat file set (dossier gone from pool)", () => {
     const ids = resolveDossierIdsPresentInVersion([
       "app/api/chat/route.ts",
       "components/chat.tsx",
@@ -111,15 +108,14 @@ describe("resolveDossierIdsPresentInVersion", () => {
       "lib/rag/retrieval.ts",
       "lib/rag-migrations.sql",
     ]);
-    expect(ids).toContain("rag-chat");
-    expect(ids).not.toContain("openai-chat");
+    // Chat route still matches live openai-chat; parked rag-chat is absent.
+    expect(ids).toContain("openai-chat");
+    expect(ids).not.toContain("rag-chat");
   });
 
-  it("does not resolve a server dossier when its server files are missing", () => {
-    // rag-chat's client component alone (chat.tsx is rag-distinctive) is not
-    // enough — ALL server files must be present for a server dossier.
+  it("does not resolve openai-chat from an unrelated client file alone", () => {
     const ids = resolveDossierIdsPresentInVersion(["components/chat.tsx"]);
-    expect(ids).not.toContain("rag-chat");
+    expect(ids).not.toContain("openai-chat");
   });
 
   // Client-only (soft) dossiers: one distinctive file is enough evidence.
@@ -132,9 +128,9 @@ describe("resolveDossierIdsPresentInVersion", () => {
 
   it("normalizes leading ./ and / in file paths", () => {
     const ids = resolveDossierIdsPresentInVersion([
-      "./app/api/assistant/route.ts",
+      "./app/api/chat/route.ts",
     ]);
-    expect(ids).toContain("ai-tool-calling-chat");
+    expect(ids).toContain("openai-chat");
   });
 });
 
@@ -144,34 +140,34 @@ describe("resolveDossiersPresentInVersion", () => {
     // project rather than the platform process.env (deterministic across envs).
     const selected = resolveDossiersPresentInVersion(
       [
-        { path: "app/api/assistant/route.ts" },
-        { path: "components/ai-assistant.tsx" },
+        { path: "app/api/chat/route.ts" },
+        { path: "components/chat-panel.tsx" },
       ],
       new Set<string>(),
     );
-    const aiTool = selected.find((s) => s.entry.id === "ai-tool-calling-chat");
-    expect(aiTool).toBeDefined();
-    expect(aiTool?.entry.capability).toBe("ai-tool-calling");
+    const openai = selected.find((s) => s.entry.id === "openai-chat");
+    expect(openai).toBeDefined();
+    expect(openai?.entry.capability).toBe("ai-chat");
     // A hard dossier with no configured env keys → configured: false.
-    expect(aiTool?.configured).toBe(false);
+    expect(openai?.configured).toBe(false);
   });
 
   it("marks a hard dossier configured when its required env keys are provided", () => {
     const selected = resolveDossiersPresentInVersion(
-      [{ path: "app/api/assistant/route.ts" }],
+      [{ path: "app/api/chat/route.ts" }],
       new Set(["OPENAI_API_KEY"]),
     );
-    const aiTool = selected.find((s) => s.entry.id === "ai-tool-calling-chat");
-    expect(aiTool?.configured).toBe(true);
+    const openai = selected.find((s) => s.entry.id === "openai-chat");
+    expect(openai?.configured).toBe(true);
   });
 });
 
 describe("resolveCapabilitiesPresentInVersion", () => {
   it("returns the capabilities of the present dossiers", () => {
     const caps = resolveCapabilitiesPresentInVersion([
-      "app/api/assistant/route.ts",
+      "app/api/chat/route.ts",
     ]);
-    expect(caps).toContain("ai-tool-calling");
+    expect(caps).toContain("ai-chat");
   });
 });
 
@@ -183,7 +179,7 @@ describe("resolveSelectedDossiersWithVersionPresence", () => {
     const selected = resolveSelectedDossiersWithVersionPresence({
       snapshot: { requestedCapabilities: ["gallery-lightbox"] },
       versionFiles: [
-        { path: "app/api/assistant/route.ts" },
+        { path: "app/api/chat/route.ts" },
         { path: "components/gallery-lightbox.tsx" },
       ],
       configuredEnvKeys: new Set<string>(),
@@ -192,7 +188,7 @@ describe("resolveSelectedDossiersWithVersionPresence", () => {
     // Snapshot part (capability-selected) + presence part, no duplicate
     // gallery-lightbox even though both sources produce it.
     expect(ids).toContain("gallery-lightbox");
-    expect(ids).toContain("ai-tool-calling-chat");
+    expect(ids).toContain("openai-chat");
     expect(ids.filter((id) => id === "gallery-lightbox")).toHaveLength(1);
   });
 
@@ -208,10 +204,10 @@ describe("resolveSelectedDossiersWithVersionPresence", () => {
   it("returns presence-only for an empty/missing snapshot (the incident shape)", () => {
     const selected = resolveSelectedDossiersWithVersionPresence({
       snapshot: null,
-      versionFiles: [{ path: "app/api/assistant/route.ts" }],
+      versionFiles: [{ path: "app/api/chat/route.ts" }],
       configuredEnvKeys: new Set<string>(),
     });
-    expect(selected.map((s) => s.entry.id)).toEqual(["ai-tool-calling-chat"]);
+    expect(selected.map((s) => s.entry.id)).toEqual(["openai-chat"]);
   });
 
   // auth-merge regression (2026-07-22): after `supabase-auth`→`auth` the

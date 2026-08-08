@@ -44,7 +44,6 @@ describe("scopeF3DossierCapabilities", () => {
     const result = scopeF3DossierCapabilities({
       // The inflated set F2-mute lift restored from the Deep Brief.
       capabilities: [
-        "ai-tool-calling",
         "ai-chat",
         "payments",
         "contact-form",
@@ -52,12 +51,11 @@ describe("scopeF3DossierCapabilities", () => {
         "auth",
       ],
       explicitCapabilities: [],
-      // Only the AI assistant route was actually built in the design version.
-      fileEvidenceCapabilities: ["ai-tool-calling"],
+      // Only the AI chat surface was actually built in the design version.
+      fileEvidenceCapabilities: ["ai-chat"],
     });
-    expect(result.capabilities).toEqual(["ai-tool-calling"]);
+    expect(result.capabilities).toEqual(["ai-chat"]);
     expect(result.dropped).toEqual([
-      "ai-chat",
       "payments",
       "contact-form",
       "analytics",
@@ -102,11 +100,11 @@ describe("scopeF3DossierCapabilities", () => {
 
   it("is a no-op when every capability is asked or file-evidenced", () => {
     const result = scopeF3DossierCapabilities({
-      capabilities: ["ai-tool-calling", "payments"],
+      capabilities: ["ai-chat", "payments"],
       explicitCapabilities: ["payments"],
-      fileEvidenceCapabilities: ["ai-tool-calling"],
+      fileEvidenceCapabilities: ["ai-chat"],
     });
-    expect(result.capabilities).toEqual(["ai-tool-calling", "payments"]);
+    expect(result.capabilities).toEqual(["ai-chat", "payments"]);
     expect(result.dropped).toEqual([]);
   });
 });
@@ -394,14 +392,16 @@ describe("filterDossierCapabilitiesForPrompt (empty DEPENDENT_CAPABILITIES)", ()
     expect(result).toContain("payments");
   });
 
-  it("drops ai-chat when ai-tool-calling is present", () => {
+  it("keeps ai-chat beside a stale ai-tool-calling id — no dedup after etapp 4", () => {
     const result = filterDossierCapabilitiesForPrompt({
       capabilities: ["ai-tool-calling", "ai-chat"],
       prompt: "lägg till en AI-assistent med verktyg",
       previewPolicy: "fidelity3",
     });
+    expect(result).toContain("ai-chat");
+    // Stale parked id is not stripped by expandDependentCapabilities, but
+    // selects nothing downstream.
     expect(result).toContain("ai-tool-calling");
-    expect(result).not.toContain("ai-chat");
   });
 });
 

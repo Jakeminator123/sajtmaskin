@@ -151,69 +151,30 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   {
-    // Retrieval-augmented chat over the site's OWN indexed content (pgvector).
-    // Listed BEFORE `ai-tool-calling`/`ai-chat` so an explicit RAG ask wins the
-    // most specific capability. Every pattern requires an explicit retrieval
-    // cue — "rag", "kunskapsbas-chat", "chat med egna dokument", "svarar från
-    // våra dokument", a vector-store noun — NEVER bare "chatbot"/"ai-chat"
-    // (openai-chat owns generic chatbots; see the matching veto on `ai-chat`).
-    capability: "rag-chat",
-    patterns: [
-      // The RAG term family itself (tech word, high signal in any language).
-      /(?<![\p{L}\p{N}_])(?:rag|rag-?chat|rag-?bot|retrieval-?augmented(?:\s+generation)?)(?![\p{L}\p{N}_])/iu,
-      // Vector-store nouns — the `database` capability vetoes these on purpose
-      // (see its veto comment) so they must land here instead.
-      /(?<![\p{L}\p{N}_])(?:pgvector|(?:vector|vektor)[-\s]?(?:databas(?:en)?|database|db|store|search)|semantisk\s+sökning|semantic\s+search)(?![\p{L}\p{N}_])/iu,
-      // Knowledge-base chat compounds, Swedish + English.
-      /(?<![\p{L}\p{N}_])(?:kunskapsbas(?:en)?[-\s]?(?:chat|chatt|bot|assistent)|knowledge[-\s]?base\s+(?:chat|bot|assistant)|chatt?a?\s+(?:med|mot)\s+(?:vår\s+|er\s+)?kunskapsbas(?:en)?)(?![\p{L}\p{N}_])/iu,
-      // "Chat with our documents" phrasing.
-      /(?<![\p{L}\p{N}_])(?:chatt?a?\s+med\s+(?:våra|egna|era|sina|dina)\s+(?:dokument|filer|pdf:?er)|chat\s+with\s+(?:our|your)\s+(?:docs|documents|files))(?![\p{L}\p{N}_])/iu,
-      // Document Q&A.
-      /(?<![\p{L}\p{N}_])(?:dokument|document)[-\s]?q\s*&\s*a(?![\p{L}\p{N}_])/iu,
-      // "chatbot/assistant that answers FROM our documents/content/knowledge
-      // base" — the retrieval clause is what separates this from `ai-chat`.
-      /(?<![\p{L}\p{N}_])(?:chatt?bot|assistent(?:en)?|assistant|ai)[\s\S]{0,60}(?:som\s+svarar\s+(?:utifrån|från|ur|baserat\s+på)|that\s+answers\s+(?:from|based\s+on)|answering\s+from)\s+(?:våra|vara|egna|era|sina|dina|our|your|the\s+site'?s?)?\s*(?:dokument|innehåll|kunskapsbas(?:en)?|artiklar|filer|documents?|docs|content|knowledge)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
-    // AI assistant that executes server-side tools (function-calling roundtrips).
-    // Listed BEFORE `ai-chat` so a tool-calling ask wins the more specific
-    // capability; a plain conversational chatbot stays `ai-chat`. Requires an
-    // explicit tool/function/action cue — "ai-chat som kan söka i våra dokument"
-    // style phrasing — never bare "chatbot".
-    capability: "ai-tool-calling",
-    patterns: [
-      /(?<![\p{L}\p{N}_])(?:tool-?calling|tool-?call(?:s|er)?|function-?calling|verktygsanrop|funktionsanrop|tool-?roundtrips?)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:ai|llm|chatt?bot|assistent(?:en)?|assistant)[\s\S]{0,60}(?:använd(?:er|a|e)?\s+verktyg|anropa(?:r)?\s+(?:verktyg|funktioner|api:?er)|call(?:s|ing)?\s+tools|uses?\s+tools|execute(?:s)?\s+tools|kör(?:a)?\s+verktyg)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:agent(?:isk)?\s+(?:chat|chatt|assistent|assistant)|ai-?agent\s+som\s+(?:kan\s+)?(?:utför|bokar|söker|hämtar|slår\s+upp))(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:assistent|assistant|chatt?bot|ai)[\s\S]{0,80}(?:som\s+kan\s+(?:utföra|boka|slå\s+upp|hämta\s+(?:live|real)-?(?:data|tid))|that\s+can\s+(?:perform|execute|look\s+up|book|fetch\s+live))(?![\p{L}\p{N}_])/iu,
-    ],
-    // A plain conversational AI chat (no tool/action cue) must stay `ai-chat`;
-    // these vetoes keep the generic chat vocabulary from being shadowed when
-    // the user explicitly says "vanlig chatbot" / "simple chatbot".
-    vetoes: [
-      /(?<![\p{L}\p{N}_])(?:vanlig|enkel|simpel|basic|simple|plain)\s+(?:ai-?)?(?:chatt?bot|chatt|chat|assistent|assistant)(?![\p{L}\p{N}_])/iu,
-    ],
-  },
-  {
+    // Chatbot surface. openai-chat is the sole dossier under `ai-chat`
+    // (ai-tool-calling-chat / rag-chat parked 2026-08-06, etapp 4). Tool-
+    // calling and document-Q&A / RAG phrasing still trigger THIS capability:
+    // an "AI assistant with tools" or "chatbot that answers from our
+    // documents" ask is a chatbot ask; implementation is ours (same
+    // precedent as MongoDB→`database` in etapp 3).
     capability: "ai-chat",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:ai-?chatt|ai-?chat|chattbot|chatbot|ai-?assistent|ai-?bot|llm-?chat|chat[-\s]?ui|chat[-\s]?widget)(?![\p{L}\p{N}_])/iu,
       /(?<![\p{L}\p{N}_])(?:openai\s+chat|gpt-?chat|claude-?chat|chatgpt-?widget)(?![\p{L}\p{N}_])/iu,
-    ],
-    // `openai-chat`, `ai-tool-calling-chat` AND `rag-chat` all ship an
-    // `/api/chat`-style route — injecting two of them would collide. When the
-    // prompt carries an explicit tool/function-calling cue the more specific
-    // `ai-tool-calling` entry above wins; when it carries an explicit
-    // retrieval/RAG cue the `rag-chat` entry wins. Either way this generic
-    // chat entry is suppressed (parallax-pointer/scroll precedent). Bare
-    // "chatbot" with no cue stays here.
-    vetoes: [
+      // Tool-calling / function-calling (folded from parked ai-tool-calling).
       /(?<![\p{L}\p{N}_])(?:tool-?calling|tool-?call(?:s|er)?|function-?calling|verktygsanrop|funktionsanrop|tool-?roundtrips?)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:använd(?:er|a|e)?\s+verktyg|anropa(?:r)?\s+(?:verktyg|funktioner)|call(?:s|ing)?\s+tools|uses?\s+tools|execute(?:s)?\s+tools|kör(?:a)?\s+verktyg)(?![\p{L}\p{N}_])/iu,
-      // RAG cues — mirror the `rag-chat` trigger families above.
-      /(?<![\p{L}\p{N}_])(?:rag|rag-?chat|rag-?bot|retrieval-?augmented(?:\s+generation)?|pgvector|kunskapsbas(?:en)?[-\s]?(?:chat|chatt|bot|assistent)|knowledge[-\s]?base\s+(?:chat|bot|assistant)|(?:dokument|document)[-\s]?q\s*&\s*a)(?![\p{L}\p{N}_])/iu,
-      /(?<![\p{L}\p{N}_])(?:som\s+svarar\s+(?:utifrån|från|ur|baserat\s+på)|that\s+answers\s+(?:from|based\s+on)|answering\s+from)\s+(?:våra|vara|egna|era|sina|dina|our|your|the\s+site'?s?)?\s*(?:dokument|innehåll|kunskapsbas(?:en)?|artiklar|filer|documents?|docs|content|knowledge)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:ai|llm|chatt?bot|assistent(?:en)?|assistant)[\s\S]{0,60}(?:använd(?:er|a|e)?\s+verktyg|anropa(?:r)?\s+(?:verktyg|funktioner|api:?er)|call(?:s|ing)?\s+tools|uses?\s+tools|execute(?:s)?\s+tools|kör(?:a)?\s+verktyg)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:agent(?:isk)?\s+(?:chat|chatt|assistent|assistant)|ai-?agent\s+som\s+(?:kan\s+)?(?:utför|bokar|söker|hämtar|slår\s+upp))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:assistent|assistant|chatt?bot|ai)[\s\S]{0,80}(?:som\s+kan\s+(?:utföra|boka|slå\s+upp|hämta\s+(?:live|real)-?(?:data|tid))|that\s+can\s+(?:perform|execute|look\s+up|book|fetch\s+live))(?![\p{L}\p{N}_])/iu,
+      // RAG / document Q&A (folded from parked rag-chat).
+      /(?<![\p{L}\p{N}_])(?:rag|rag-?chat|rag-?bot|retrieval-?augmented(?:\s+generation)?)(?![\p{L}\p{N}_])/iu,
+      // Vector-store nouns — `database` vetoes these on purpose (a vector
+      // store is not a database ask); they land here as chatbot intent.
+      /(?<![\p{L}\p{N}_])(?:pgvector|(?:vector|vektor)[-\s]?(?:databas(?:en)?|database|db|store|search)|semantisk\s+sökning|semantic\s+search)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:kunskapsbas(?:en)?[-\s]?(?:chat|chatt|bot|assistent)|knowledge[-\s]?base\s+(?:chat|bot|assistant)|chatt?a?\s+(?:med|mot)\s+(?:vår\s+|er\s+)?kunskapsbas(?:en)?)(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:chatt?a?\s+med\s+(?:våra|egna|era|sina|dina)\s+(?:dokument|filer|pdf:?er)|chat\s+with\s+(?:our|your)\s+(?:docs|documents|files))(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:dokument|document)[-\s]?q\s*&\s*a(?![\p{L}\p{N}_])/iu,
+      /(?<![\p{L}\p{N}_])(?:chatt?bot|assistent(?:en)?|assistant|ai)[\s\S]{0,60}(?:som\s+svarar\s+(?:utifrån|från|ur|baserat\s+på)|that\s+answers\s+(?:from|based\s+on)|answering\s+from)\s+(?:våra|vara|egna|era|sina|dina|our|your|the\s+site'?s?)?\s*(?:dokument|innehåll|kunskapsbas(?:en)?|artiklar|filer|documents?|docs|content|knowledge)(?![\p{L}\p{N}_])/iu,
     ],
   },
   // `realtime` (ably-realtime) and `image-generation` (fal-image-generation)
@@ -226,7 +187,9 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     // dossier under `database` (neon-postgres / mongodb-atlas parked
     // 2026-08-06). Mongo/Neon brand names still trigger THIS capability: a
     // MongoDB-ask is a database-ask; implementation is ours. NOT vector
-    // stores (those are `rag-chat`) and NOT analytics/tracking.
+    // stores (a vector-store ask is not a database ask — those phrases fold
+    // into `ai-chat` since etapp 4; rag-chat no longer exists) and NOT
+    // analytics/tracking.
     capability: "database",
     patterns: [
       // Core nouns, Swedish + English inflections.
@@ -241,7 +204,8 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
       /(?<![\p{L}\p{N}_])(?:store|save|persist)[\s\S]{0,60}(?:in|to)\s+(?:a\s+|the\s+)?database(?![\p{L}\p{N}_])/iu,
     ],
     // Vetoes:
-    //  - Vector stores are the `rag-chat` capability, not this dossier.
+    //  - Vector stores are NOT a database ask (rag-chat is parked; the
+    //    phrases fold into `ai-chat` instead).
     //  - Analytics/tracking asks route to `analytics` — "spåra besökare i en
     //    databas" is a visitor-tracking request, not a persistence layer.
     //  - An explicit competing ORM/BaaS choice (Prisma, Mongoose, Supabase,
@@ -305,8 +269,8 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
   },
   {
     // Local site search over the site's own content (MiniSearch — key-free).
-    // Distinct from `command-palette` (app navigation/actions) and `rag-chat`
-    // (chat answers from documents). New capability 2026-07-22.
+    // Distinct from `command-palette` (app navigation/actions) and chat-style
+    // answers from documents (`ai-chat` since etapp 4). New capability 2026-07-22.
     capability: "site-search",
     patterns: [
       /(?<![\p{L}\p{N}_])(?:sökfunktion(?:en)?|sökfält(?:et)?|sökruta(?:n)?|site[-\s]?search|sök(?:a)?\s+(?:på|i|bland)\s+(?:sajten|sidan|webbplatsen|innehållet|menyn|produkter(?:na)?|artiklar(?:na)?)|search\s+(?:the\s+)?(?:site|content|menu|products?|articles?)|quick[-\s]?search|minisearch|fuse\.js)(?![\p{L}\p{N}_])/iu,
