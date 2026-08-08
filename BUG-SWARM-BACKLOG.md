@@ -18,7 +18,7 @@ Avslutade rader flyttas till [`backlog-arkiv-2026-07-25.md`](docs/plans/avklarat
 | **Beslut ≠ bug** | Saker där systemet gör som tänkt men vi *kan* välja annorlunda (fail-open, default-off-flaggor, degraded-policy) hör i `Väntar på ägarbeslut` — de räknas inte som risk i canvasen. Ett beslut utan **beslutsägare och deadline** blir en permanent pseudobugg. |
 | **Kan ej verifieras statiskt** | Fynd som kräver repro/livekörning hör i `Behöver repro` tills någon kört dem, med exakt vad som ska köras för att raden får flytta. |
 | **Skuld ≠ bug** | Hardening, testluckor, dokumentations- och arkitekturskuld räknas inte som produktbuggar och ska inte inflatera kön. |
-| **Inflöde** | Nya buggar: `/buggrapport` (skriver en `M#`-rad + nästa lediga `SM`-ID) eller PR-review-gaten (`pr-merge-review-gate.mdc` → logga med fil-ankare). |
+| **Inflöde** | Nya buggar: `/buggrapport` (skriver en `M#`-rad + nästa lediga `SM`-ID) eller PR-review-gaten (`pr-merge.mdc` → logga med fil-ankare). |
 
 **Status-legend:** `[ ]` = öppen. Källa-taggar: `G#`/`U#` = gamla GPT/UI-svärmlistor, `N#` = defensiv triage, `R#` = äldre kodrapport, `B#` = grandmaster-svärm, `E#` = eval, `FEL#`/`MB#`/`BB#` = PR-review-fynd, `M#` = manuellt rapporterad, `journal R#` = raden i den frysta för-migrationssnapshoten.
 

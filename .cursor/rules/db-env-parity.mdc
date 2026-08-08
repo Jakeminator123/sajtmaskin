@@ -11,50 +11,39 @@ alwaysApply: false
 
 # DB- och env-paritet (lokalt ≠ prod)
 
-Lokal framgång bevisar **inte** prod. Prod kan ha en annan Postgres (Supabase prod-region) och egna Upstash/Redis/Blob-instanser. När du sätter något för dev/lokalt: gör motsvarande för **alla** Vercel-miljöer och rätt databas.
+Lokal framgång bevisar **inte** prod. Prod kan ha en annan Postgres (Supabase prod-region) och egna Upstash/Redis/Blob-instanser. När du sätter något för dev: gör motsvarande för **alla** Vercel-miljöer och rätt databas.
 
-**Kanonisk dev/prod-identitet:** `config/db-targets.json` (dev = `yubbckduwblyrbnlglwf` i `eu-north-1`, prod = `egcitvwgettkftkyzbvn` i `us-east-1`). Entydig tabell: `docs/ENV.md` → "Databas: dev/prod-identitet". Verifiera target med `npm run db:check-target -- --expect=dev|prod` (sanitiserad utskrift, aldrig credentials) — CI kör samma guard mot `POSTGRES_URL_PROD` före prod-migrationer **och** före eval-baslinjen.
+Maskineriet runtomkring — git-hooks, CI-jobb, självläkande testlane, prod-skyddet — beskrivs i [`docs/runbooks/db-migrations.md`](../../docs/runbooks/db-migrations.md).
 
-**Läs etiketten, inte värdnamnet.** DB-skripten prefixar sin målrad med miljön ur `config/db-targets.json`: `db:latest -> [DEV] aws-1-eu-north-1…` respektive `[PROD] aws-1-us-east-1…` (okänt projekt, t.ex. lokal Postgres, lämnas omärkt). Ser du ingen `[PROD]` läser du inte prod — oavsett vilken flagga du trodde att du skickade. Flaggnamnen är **inte** enhetliga: `db:latest` tar `--prod`, medan `check-migrations-applied.mjs` tar `--env=<fil>`. En okänd flagga ignoreras tyst, så etiketten är det som avgör.
+## Läs etiketten, inte värdnamnet
 
-## Migrationer (körs INTE automatiskt vid Vercel-deploy)
+**Kanonisk dev/prod-identitet:** `config/db-targets.json` (dev = `yubbckduwblyrbnlglwf` i `eu-north-1`, prod = `egcitvwgettkftkyzbvn` i `us-east-1`). Entydig tabell i `docs/ENV.md` → "Databas: dev/prod-identitet".
 
-Lägger du en migration i `src/lib/db/migrations/` (och rör en INSERT/kolumn): kör mot **både** dev och prod innan merge går live. Annars bryts även vanlig drift i prod.
+DB-skripten prefixar sin målrad med miljön: `db:latest -> [DEV] aws-1-eu-north-1…` respektive `[PROD] aws-1-us-east-1…` (okänt projekt, t.ex. lokal Postgres, lämnas omärkt). **Ser du ingen `[PROD]` läser du inte prod** — oavsett vilken flagga du trodde att du skickade.
 
-- Registrera i `MIGRATION_ORDER` (`scripts/db/migration-order.mjs` — delad single-source som både `run-migrations.ts` och `db-init.mjs` använder).
-- Dev: `npm run db:migrate` (env `DB_SSL_REJECT_UNAUTHORIZED=false` för Supabase).
-- Prod (enkommando): `npm run env:pull:prod-snapshot` (om `.env.vercel.production.pulled` saknas), sedan **`npm run db:migrate:prod`** — den pekar mot den **pooled** prod-URL:en (`*.pooler.supabase.com`, ej direct/IPv6 som timear ut) och sätter `DB_ALLOW_PROD_LIKE_WRITE=1` åt dig.
-- Verifiera kolumnen finns i prod (read mot `information_schema.columns`).
+Flaggnamnen är **inte** enhetliga: `db:latest` tar `--prod`, medan `check-migrations-applied.mjs` tar `--env=<fil>`. En okänd flagga ignoreras tyst, så etiketten är det som avgör. Verifiera med `npm run db:check-target -- --expect=dev|prod` (sanitiserad utskrift, aldrig credentials) — CI kör samma guard mot `POSTGRES_URL_PROD` före prod-migrationer **och** före eval-baslinjen.
 
-### Migration-ledger + gate (glöm-inte-prod)
+## Migrationer körs INTE automatiskt vid Vercel-deploy
 
-Runners (`db:migrate`, `db:migrate:prod`, `db:init`) bokför varje applicerad migration i tabellen `schema_migrations` (idempotent, best-effort/warn-only). Gaten läser den:
+Lägger du en migration i `src/lib/db/migrations/` och rör en INSERT/kolumn: kör mot **både** dev och prod innan merge går live. Annars bryts även vanlig drift i prod.
 
-- Lokalt: `npm run db:migrate:check` (dev) / `npm run db:migrate:check:prod` (read-only mot prod-snapshot). Rött = DB:n ligger efter → kör migrate.
-- **Lokal auto-apply + vakt:** `db:init` (via `predev`) applicerar hela `MIGRATION_ORDER` vid varje `npm run dev`, så dev-DB:n hålls i synk automatiskt. Utöver det kör `next-runner.mjs` `scripts/db/ensure-schema.mjs --check-only --soft --quiet-ok` i bakgrunden vid varje dev-start: tyst när allt är rätt, ramad varning när DB:n ligger efter. Täcker `SKIP_PREDEV=1`/direktstart och en tyst `db:init:soft`-miss. Fixkommando: **`npm run db:ensure`** (kollar → `db:migrate` → verifierar om). Vakten kör aldrig DDL själv — den delegerar till `run-migrations.ts` som äger apply-loopen och prod-skrivskyddet.
-- **Git-hooks (dev-symmetrin mot prod):** `post-merge`, `post-checkout` och `post-rewrite` kör `ensure-schema.mjs --soft --quiet-ok` — prod får migrationer när kod pushas till master, dev när master dras hem, alltså där driften faktiskt uppstår. Tre hooks eftersom en merge-pull, ett grenbyte och en rebase-pull är tre olika vägar hem: `git pull --rebase` kör aldrig `post-merge`, och rebase med merge-backenden (default sedan git 2.26) ger inget pålitligt `post-checkout` heller. `post-checkout` kör bara vid grenbyten (arg 3 = 1), `post-rewrite` bara för `rebase` (inte `amend`). Installeras av `npm run hooks:install` och automatiskt via `predev` (`hooks:install:soft`), så en färsk clone får dem utan att någon minns det. Tysta i normalfallet, avbryter aldrig git-kommandot, står över i CI och vid `SAJTMASKIN_SKIP_DB_HOOKS=1`. Genererade filer bär markören `sajtmaskin-managed-hook` — en befintlig hook utan markören rörs aldrig, den rapporteras. Länkade worktrees delar `.git/hooks` med huvudcheckouten (`--git-common-dir`), så en installation räcker för alla.
-- **Självläkande testlane:** `pretest:postgres` kör `ensure-schema.mjs --quiet-ok` före `npm run test:postgres`, så lanen inte kan bli röd av drift i stället för av en riktig bugg (den felsökningen kostade en gång ett helt pass: nio tester kraschade på en saknad `variant_id`-kolumn långt innan de nådde koden de testade). **Utan `--soft` med flit:** i hookarna får ett misslyckat migrationsförsök aldrig avbryta git-kommandot, men i testlanen ska det stoppa körningen — annars kör testerna vidare mot det gamla schemat och man får tillbaka exakt de vilseledande felen. Saknad DB-URL är fortfarande en tyst skip med exit 0, så forkar och CI utan databas påverkas inte.
-- **Prod-skyddet avgörs av registret, inte av en fil:** `assertSafeWriteTarget` vägrar skriva när målets Supabase project ref är prod enligt `config/db-targets.json`, oavsett om `.env.vercel.production.pulled` finns. Snapshot-jämförelsen ligger kvar men bara som fallback för mål registret inte känner. Tidigare var det tvärtom — saknades snapshoten blev det en varning och skrivningen släpptes igenom, alltså inget skydd alls på just de maskiner som aldrig dragit hem prod-env. Det duger inte när git-hookarna gör migrering till en automatisk väg. Kvittot `DB_ALLOW_PROD_LIKE_WRITE=1` gäller som förut, så `db:migrate:prod` och CI:s `prod-migrations-apply` fungerar oförändrat.
-- **CI auto-apply (idiotsäkerheten):** jobbet `prod-migrations-apply` (`.github/workflows/ci.yml`) kör `run-migrations.ts` mot prod vid **push till master / manuell dispatch** (aldrig på PR). Idempotent → en migration kan inte längre bli deployad utan att köras. Gate:at bakom `quality` + `schema-drift` så prod-schemat aldrig muteras för en trasig merge.
-- **CI-verifiering:** jobbet `prod-migrations-applied` (`needs: prod-migrations-apply`) läser prod-ledgern EFTER apply. Rött = apply fick inte prod i synk → kör `npm run db:migrate:prod` manuellt.
-- **CI dev-synk + live-paritet:** jobbet `db-schema-parity` (`needs: prod-migrations-apply`) auto-applicerar migrationer + perf-index mot **dev**-Supabase (`POSTGRES_URL_DEV`) och kör sedan `npm run db:schema-parity` (`scripts/db/check-schema-parity.mjs`) som jämför de två LEVANDE databaserna objekt för objekt (tabeller, kolumner, index, constraints). Ledgern kan vara grön på båda sidor och schemat ändå skilja sig (tabeller födda under äldre `CREATE TABLE IF NOT EXISTS`-definitioner, dashboard-DDL) — det var exakt läget 2026-08-05 (32 avvikelser, avstämda i `align-live-schema-parity.sql`). Workflowet `db-schema-parity.yml` kör samma check dagligen (cron) så drift mellan pushar också fångas. Rött = skriv en migration (aldrig dashboard-DDL); lokalt: `npm run db:schema-parity`.
-- **CI perf-index:** samma `prod-migrations-apply`-jobb kör även `npm run db:perf-indexes` mot prod (idempotent `CREATE INDEX IF NOT EXISTS` + dedupe) så nya hot-path-index — deklarerade i `add-performance-indexes.mjs`, utanför SQL-ledgern — auto-appliceras vid push till master. Tidigare nådde de prod bara via backoffice-knappen "Databashälsa".
-- **Kräver secret:** `POSTGRES_URL_PROD` (poolad prod-URL) måste finnas som GitHub Actions-secret (`gh secret set POSTGRES_URL_PROD`). På **huvudrepot** (`Jakeminator123/sajtmaskin`) failar `prod-migrations-apply` **hårt rött** om den saknas (false-green-skydd, fix 2026-07-11 — en tyst skip var exakt varför en saknad migration kunde slinka till prod oupptäckt). På **forkar** utan secret SKIP:as apply med en varning i stället för att falla rött.
-- **SÄKERHET:** prod-secret injiceras bara på trusted events; PR-kod (inkl. forkar) ser aldrig prod-creds. Fork utan secret → guard-steget hoppar över apply i stället för att falla rött.
-- Vill du ha helt race-fritt (migrera FÖRE deploy): gate:a Vercel-deployen bakom `prod-migrations-apply` separat. Additiv `ADD COLUMN`-migration parallellt med deploy är annars ofarligt.
+1. Registrera i `MIGRATION_ORDER` (`scripts/db/migration-order.mjs` — delad källa för `run-migrations.ts` och `db-init.mjs`).
+2. Dev: `npm run db:migrate` (env `DB_SSL_REJECT_UNAUTHORIZED=false` för Supabase).
+3. Prod: `npm run env:pull:prod-snapshot` (om `.env.vercel.production.pulled` saknas), sedan **`npm run db:migrate:prod`** — den pekar mot den **pooled** prod-URL:en (`*.pooler.supabase.com`, ej direct/IPv6 som timear ut) och sätter `DB_ALLOW_PROD_LIKE_WRITE=1` åt dig.
+4. Verifiera kolumnen i prod (read mot `information_schema.columns`).
 
-## Env-variabler
+Ligger något efter: `npm run db:migrate:check` (dev) / `:check:prod`, fixa med `npm run db:ensure`. CI applicerar dessutom prod-migrationer automatiskt vid push till master (`prod-migrations-apply` → `prod-migrations-applied`) och jämför de **levande** dev- och prod-schemana i `db-schema-parity` — den kan bli röd även när ledgern är grön på båda sidor (`npm run db:schema-parity` lokalt). Maskineriet: [`docs/runbooks/db-migrations.md`](../../docs/runbooks/db-migrations.md).
 
-Sätter du en flagga/nyckel: gör det på **alla tre** ställen, inte bara `.env.local`.
+## Env-variabler — alla tre ställen
 
 - `.env.local` (lokalt) **och** `vercel env add <NAMN> production|preview|development` (preview kräver `--value <v> --yes`).
-- Registrera i `config/env-policy.json` (`extraKnownKeys`; + `knownEmptyOk` om unset=av).
+- Registrera i `config/env-policy.json` (`extraKnownKeys`; + `knownEmptyOk` om unset = av).
 - `NEXT_PUBLIC_*` inlineas vid build → kräver ny Vercel-deploy för att slå igenom i prod.
 
 ## Preview-host (Fly) är en egen miljö
 
-Env för preview-VM:en sätts i `preview-host/fly.toml` (`[env]`) eller `fly secrets set ... -a vm-fly-jakem` + `fly deploy`. Vercel-env når inte Fly-hosten.
+Env för preview-VM:en sätts i `preview-host/fly.toml` (`[env]`) eller `fly secrets set … -a vm-fly-jakem` + `fly deploy`. **Vercel-env når inte Fly-hosten.**
 
-## Innan merge/leverans
+## Innan merge
 
 Fråga: "funkar detta i prod, inte bara lokalt?" Saknad migration eller env i prod = tyst prod-brott. Logga avvikelse om paritet medvetet skjuts upp.

@@ -565,7 +565,7 @@ XS (1 rad). Enda motargumentet är att "cancelled" scenario är ovanligt; men pr
 
 **Owner-filer:** `.github/workflows/ci.yml`
 
-**Föreslagen branch:** `fix/ci-followup-contract-gate` (protected path → NEEDS_HUMAN från auto-merge-automation)
+**Föreslagen branch:** `fix/ci-followup-contract-gate` (protected path → NEEDS_HUMAN från pr-merge.mdc)
 
 **PR-storlek:** XS (1 rad)
 

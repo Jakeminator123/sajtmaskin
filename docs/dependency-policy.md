@@ -95,7 +95,7 @@ För att slå på auto-merge på riktigt:
 
 1. ~~Lägg till **required status checks** (minst CI-jobben `quality`, `backoffice-tests`, `schema-drift`) i rulesetet "Protect master".~~ ✅ Gjort 2026-07-08.
 2. **Innan** on-switchen är säker återstår två saker som `gh pr merge --auto` INTE gör själv:
-   - **Bot-fynd-sweep/settling:** `--auto` mergar så fort review + required checks är uppfyllda, men Codex/VADE-fynd kan landa minuter efter grönt CI (se `pr-bot-findings-sweep.mdc`). Utan automatiserad sweep i workflow:et kan otriagerade sena fynd auto-mergas.
+   - **Bot-fynd-sweep/settling:** `--auto` mergar så fort review + required checks är uppfyllda, men Codex/VADE-fynd kan landa minuter efter grönt CI (se `pr-merge.mdc` → "Hämta ALLA fynd"). Utan automatiserad sweep i workflow:et kan otriagerade sena fynd auto-mergas.
    - **Protected-path-filter:** klassificeraren kollar bara patch + core-paket-namn, inte "inga protected-path-ändringar" — en `github-actions`-patch (t.ex. `actions/checkout`) ändrar `.github/workflows/*` men passerar. Lägg ett changed-files/protected-path-filter först.
 3. Sätt repo-variabeln `DEPENDABOT_AUTOMERGE_ENABLED = true` **först när** ovanstående är på plats.
 

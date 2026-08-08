@@ -30,16 +30,15 @@ Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler ko
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | [agent-worktree.mdc](rules/agent-worktree.mdc)                     | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
 | [bash-och-pwsh.mdc](rules/bash-och-pwsh.mdc)                       | PowerShell-syntax först; vanliga hårda felkällor på Windows                                                                  |
+| [ema-pr-sparr.mdc](rules/ema-pr-sparr.mdc)                         | Tillfällig ägarspärr: `EmaCodeHero`-PR:er mergas aldrig av en agent, oavsett grönt CI                                        |
 | [git.mdc](rules/git.mdc)                                           | Inga PR:er; commit/push/merge bara på explicit begäran + ignore-filsbefogenhet                                               |
 | [mvp-scope-freeze.mdc](rules/mvp-scope-freeze.mdc)                 | MVP-frys: stabilitet före coolhet — inga nya features, ytor eller UI-element utan uttrycklig begäran                         |
 | [project-phase-priorities.mdc](rules/project-phase-priorities.mdc) | Projektprioritet, grundhygien och tooling-säkerhet (dev vs prod Supabase)                                                    |
 | [repo-router.mdc](rules/repo-router.mdc)                           | Snabb repo-router + env/indexering                                                                                           |
-| [response-format.mdc](rules/response-format.mdc)                   | Hur agenten svarar — kort, matris/flöde, svenska vid behov                                                                   |
-| [sok-index-fallback.mdc](rules/sok-index-fallback.mdc)             | 0 träffar i Glob/Grep betyder inte att filen saknas — verifiera med Read                                                     |
-| [svenska-tech-synonymer.mdc](rules/svenska-tech-synonymer.mdc)     | Kort parentesförklaring första gången ett otydligt tech-ord används                                                          |
+| [response-format.mdc](rules/response-format.mdc)                   | Hur agenten svarar — kort, tabell vid val, svenska + parentesregeln för tech-ord                                             |
 | [subagent-models.mdc](rules/subagent-models.mdc)                   | Grok 4.5 = default för ALLA subagenter inkl. bugg-/kodgranskning; slug slås upp per session                                  |
 | [terminology.mdc](rules/terminology.mdc)                           | Snabb förväxlingstabell; kanonisk ordlista är `docs/architecture/glossary.md`                                                |
-| [workflow.mdc](rules/workflow.mdc)                                 | Git, filstruktur, städning, verifiering — hur ändringar utförs                                                               |
+| [workflow.mdc](rules/workflow.mdc)                                 | Git, filstruktur, städning, sök-index-fallback, verifiering — hur ändringar utförs                                           |
 
 ### Glob-triggrade (aktiveras vid relevanta filer)
 
@@ -59,11 +58,8 @@ Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler ko
 | Regel                                                        | Syfte                                                                          |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
 | [agent-observatory.mdc](rules/agent-observatory.mdc)         | Var agenter hittar per-körning- och per-chat-loggar                            |
-| [auto-merge-automation.mdc](rules/auto-merge-automation.mdc) | Vem mergar, och när `--admin` är tillåtet                                      |
 | [local-tooling-mcp.mdc](rules/local-tooling-mcp.mdc)         | Lokal MCP/Vercel/Supabase/shadcn-setup — läs vid tooling-problem eller ny worktree |
-| [platform-quirks.mdc](rules/platform-quirks.mdc)             | Windows och repo-specifika fallgropar                                          |
-| [pr-bot-findings-sweep.mdc](rules/pr-bot-findings-sweep.mdc) | Hämta och triagera externa bot-fynd vid PR-granskning                          |
-| [pr-merge-review-gate.mdc](rules/pr-merge-review-gate.mdc)   | Kanonisk merge-grind — läs före merge/approval                                 |
+| [pr-merge.mdc](rules/pr-merge.mdc)                           | **Kanonisk merge-grind** — grind, bot-fyndsvep, `merge:ready`-sign-off, vem som mergar. Läs före granskning/merge |
 | [useful-commands.mdc](rules/useful-commands.mdc)             | Snabb kommandoöversikt; `package.json` är kanonisk källa                       |
 
 I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
@@ -106,7 +102,7 @@ Kommandon och skills som startar `Task`-subagenter hämtar sin **roll** härifr�
 
 | Roll | Slug | Används av |
 | ------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
-| **Scan** — bred inventering, hög volym | `<grok-4.5>` | `/automat` scan-rundor, `/818` insamling, `/kedja` lokalisering, `/post-review`, bakgrundsbevakaren i `pr-merge-review-gate.mdc` |
+| **Scan** — bred inventering, hög volym | `<grok-4.5>` | `/automat` scan-rundor, `/818` insamling, `/kedja` lokalisering, `/post-review`, bakgrundsbevakaren i `pr-merge.mdc` |
 | **Omdöme** — falsifiera fynd, skriva kod, review-pass | `<grok-4.5>` | `/automat` falsifieringsrundor, `/818` review-pass, `/kedja` repro- och fix-agenter |
 | **Destillering** — läsa råa `runs/`-rapporter, returnera topp-N | `<grok-4.5>` | `/automat` |
 | **Kedja-runner / billig orkestrator-delegering** | `<grok-4.5>` | `/kedja` delegerat läge (steg 1–6) |
