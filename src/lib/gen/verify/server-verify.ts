@@ -570,6 +570,7 @@ export async function triggerServerVerification(params: {
         persisted: boolean;
         importRepairFixCount: number;
         handledCodes: string[];
+        skippedPersistReason?: string;
         error?: string;
       } = {
         attempted: false,
@@ -611,17 +612,27 @@ export async function triggerServerVerification(params: {
             });
             const repairedFilesJson = JSON.stringify(reinjection.files);
             if (repairedFilesJson !== baseFilesJson) {
-              const persisted = await updateVersionFiles(versionId, repairedFilesJson, {
-                holderRunId: runId,
-                expectedFilesJson: baseFilesJson,
-              }).catch((err) => {
-                console.warn(
-                  "[server-verify] Failed to persist diagnostic deterministic repair:",
-                  err,
-                );
-                return false;
-              });
-              deterministicMeta.persisted = persisted === true;
+              // Supersede guard (bugbot HIGH on this diff): the gate can run
+              // for minutes after the initial latest-check at the top of the
+              // run. Re-check before mutating so a follow-up version created
+              // meanwhile never gets its predecessor's files rewritten under
+              // it. `expectedFilesJson` below still guards the same-version
+              // race (user edit advancing files_json).
+              if (!(await isLatestVersionForChat(chatId, versionId))) {
+                deterministicMeta.skippedPersistReason = "superseded_by_newer_version";
+              } else {
+                const persisted = await updateVersionFiles(versionId, repairedFilesJson, {
+                  holderRunId: runId,
+                  expectedFilesJson: baseFilesJson,
+                }).catch((err) => {
+                  console.warn(
+                    "[server-verify] Failed to persist diagnostic deterministic repair:",
+                    err,
+                  );
+                  return false;
+                });
+                deterministicMeta.persisted = persisted === true;
+              }
             }
           }
         } catch (err) {
@@ -668,11 +679,21 @@ export async function triggerServerVerification(params: {
       // and server-verify both agree the version is broken, so resolve to
       // `failed` cleanly. `triggerBuildErrorRepair` can still flip this to
       // `repair_available` later when the VM emits a build-error SSE.
+      // Honesty note (bugbot MEDIUM on this diff): the gate ran on the
+      // PRE-repair content; after a persisted deterministic fix the recorded
+      // check list may no longer describe the stored files_json. Re-running
+      // the gate here is out of scope for the diagnostics lane (promotion is
+      // forbidden by verifier blockers regardless), so the summary says which
+      // content the findings refer to instead of implying they were re-checked.
       await failVersionVerification(
         versionId,
         `Verifier-LLM blockers + server-verify gate failed (${failedOutputs
           .map((f) => f.check)
-          .join(", ")}).`,
+          .join(", ")}).${
+          deterministicMeta.persisted
+            ? " Deterministic repair persisted improvements afterwards; the gate findings refer to the pre-repair content."
+            : ""
+        }`,
         runId,
       ).catch(() => null);
       return;

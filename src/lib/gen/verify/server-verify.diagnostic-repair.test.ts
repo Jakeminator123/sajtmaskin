@@ -198,6 +198,10 @@ describe("triggerServerVerification diagnosticOnly + repairable gate (SM-024)", 
       expect.stringMatching(/typecheck/),
       "run-sm024",
     );
+    // Honesty note: gate findings were produced on PRE-repair content, and the
+    // summary must say so once deterministic fixes were persisted afterwards.
+    const failSummary = failVersionVerification.mock.calls[0]?.[1] as string;
+    expect(failSummary).toMatch(/pre-repair content/);
 
     const diagnosticLogs = createEngineVersionErrorLogs.mock.calls
       .flatMap((call) => call[0] as Array<{ category?: string; message?: string; meta?: Record<string, unknown> }>)
@@ -209,5 +213,39 @@ describe("triggerServerVerification diagnosticOnly + repairable gate (SM-024)", 
         /auto-repair suppressed \(verifier blockers already exist/i.test(row.message ?? ""),
       ),
     ).toBe(false);
+  });
+
+  it("bugbot: skips persist when the version is superseded mid-verify", async () => {
+    // The gate can run for minutes after the run-start latest-check. If a
+    // newer version becomes preferred meanwhile, the deterministic repair may
+    // still RUN (diagnostics), but must never rewrite the superseded row's
+    // files_json.
+    getPreferredVersion
+      .mockResolvedValueOnce({ id: versionId }) // run-start latest-check passes
+      .mockResolvedValue({ id: "version-newer" }); // persist-time guard sees a newer version
+
+    await triggerServerVerification({
+      chatId,
+      versionId,
+      diagnosticOnly: true,
+    });
+
+    expect(updateVersionFiles).not.toHaveBeenCalled();
+    expect(promoteVersion).not.toHaveBeenCalled();
+    expect(runLlmRepairGate).not.toHaveBeenCalled();
+
+    const diagnosticLogs = createEngineVersionErrorLogs.mock.calls
+      .flatMap((call) => call[0] as Array<{ category?: string; meta?: Record<string, unknown> }>)
+      .filter((row) => row.category === "server-verify:diagnostic");
+    expect(
+      diagnosticLogs.some(
+        (row) =>
+          (row.meta?.deterministicRepair as { skippedPersistReason?: string } | undefined)
+            ?.skippedPersistReason === "superseded_by_newer_version",
+      ),
+    ).toBe(true);
+    // Nothing was persisted, so the fail summary must not claim otherwise.
+    const failSummary = failVersionVerification.mock.calls[0]?.[1] as string;
+    expect(failSummary).not.toMatch(/pre-repair content/);
   });
 });
