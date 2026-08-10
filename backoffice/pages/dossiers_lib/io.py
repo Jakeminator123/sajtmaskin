@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import shutil
@@ -304,6 +305,87 @@ def _load_group_view() -> dict[str, Any]:
     data = _load_json(_facade().CAPABILITY_MAP_PATH) or {}
     groups = data.get("groups")
     return groups if isinstance(groups, dict) else {}
+
+
+def _capability_map_source_paths() -> list[Path]:
+    """All files that the canonical TypeScript projection fingerprints.
+
+    Keep this path list sourced from ``constants.py`` and mirror only the
+    manifest glob here. The generated map records the same relative paths, so
+    additions/removals and same-count content edits are detected without
+    parsing TypeScript policy in Python.
+    """
+    paths = [_facade().REPO_ROOT / rel for rel in _facade().CAPABILITY_MAP_FIXED_SOURCES]
+    for klass in ("hard", "soft"):
+        paths.extend(sorted((_facade().DOSSIER_ROOT / klass).glob("*/manifest.json")))
+    return sorted(paths, key=lambda path: path.as_posix())
+
+
+def _capability_map_source_fingerprints() -> dict[str, str] | None:
+    fingerprints: dict[str, str] = {}
+    try:
+        for path in _capability_map_source_paths():
+            relative = path.relative_to(_facade().REPO_ROOT).as_posix()
+            fingerprints[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+    return dict(sorted(fingerprints.items()))
+
+
+def _capability_map_is_stale(current: dict[str, Any]) -> bool:
+    """Compare exact source hashes, not mtimes/counts, with the TS projection."""
+    expected = _capability_map_source_fingerprints()
+    stored = current.get("sourceFiles")
+    return expected is None or not isinstance(stored, dict) or stored != expected
+
+
+def _ensure_capability_map_current() -> tuple[dict[str, Any], str | None]:
+    """Load the validated-registry projection, regenerating it on source drift.
+
+    The subprocess only runs when exact source hashes differ. Failure is soft:
+    callers receive the last readable projection plus a warning, so the
+    backoffice remains usable when Node/npm is temporarily unavailable.
+    """
+    current = _load_json(_facade().CAPABILITY_MAP_PATH) or {}
+    required_views = (
+        isinstance(current.get("dossiers"), list)
+        and isinstance(current.get("groups"), dict)
+        and isinstance(current.get("f2Policy"), dict)
+    )
+    if required_views and not _capability_map_is_stale(current):
+        return current, None
+
+    ok, output = _run_capability_map_write()
+    if ok:
+        refreshed = _load_json(_facade().CAPABILITY_MAP_PATH) or {}
+        if (
+            isinstance(refreshed.get("dossiers"), list)
+            and isinstance(refreshed.get("groups"), dict)
+            and isinstance(refreshed.get("f2Policy"), dict)
+            and not _capability_map_is_stale(refreshed)
+        ):
+            return refreshed, None
+        output = output + "\nGeneratorn avslutades grönt men projektionen är fortfarande ofullständig."
+    return current, (
+        "Systemkartan kunde inte synkas från runtime-registret. Visar senast "
+        "sparade projektion; kör `npm run dossiers:capability-map:write`.\n\n"
+        + output[-2000:]
+    )
+
+
+def _render_dossier_flash() -> None:
+    flash = st.session_state.pop("_dossier_flash", None)
+    if not isinstance(flash, dict):
+        return
+    renderer = st.success if flash.get("kind") == "success" else st.info
+    renderer(str(flash.get("message") or "Klart."))
+
+
+def _rerun_after_dossier_mutation(message: str) -> None:
+    """Make all tabs observe a successful mutation in the same interaction."""
+    st.session_state["_dossier_flash"] = {"kind": "success", "message": message}
+    st.cache_data.clear()
+    st.rerun()
 
 
 
