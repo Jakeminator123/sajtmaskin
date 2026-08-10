@@ -18,8 +18,8 @@ source: Samma session som 00-master-plan.md. Rotorsaker filverifierade mot maste
 
 ## B1 — OpenClaw armerad autonomi kan aldrig klicka skicka — LEVERERAD i #846
 
-**Fixad 2026-08-08 (PR #846, `SM-026` — arkivrad i
-`docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-25.md` (git):**
+**Fixad 2026-08-08 (PR #846, `SM-026` — arkivrad i git-historiken för
+`docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-25.md`):**
 parse:n memoiseras på `msg.content` och auto-send-effekten nycklas på
 `messageId` med `action` läst via ref, så omrenderingar aldrig dödar
 retry-kedjan. Regressionstest låser beteendet. Beskrivningen nedan är
