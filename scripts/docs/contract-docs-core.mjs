@@ -21,6 +21,8 @@ async function loadRuntimeBindings() {
       import("../../src/lib/gen/scaffolds/registry.ts"),
       import("../../src/lib/gen/scaffold-variants/registry.ts"),
       import("../../src/lib/ai-models/load-manifest.ts"),
+      import("../../src/lib/builder/dossier-groups.ts"),
+      import("../../src/lib/gen/orchestrate/capability-prompt-filter.ts"),
     ]).then(
       ([
         dossierRegistryModule,
@@ -28,12 +30,17 @@ async function loadRuntimeBindings() {
         scaffoldRegistryModule,
         variantRegistryModule,
         aiModelsRuntimeModule,
+        dossierGroupsModule,
+        capabilityPromptFilterModule,
       ]) => {
         const dossierRegistry = dossierRegistryModule.default ?? dossierRegistryModule;
         const dossierTypes = dossierTypesModule.default ?? dossierTypesModule;
         const scaffoldRegistry = scaffoldRegistryModule.default ?? scaffoldRegistryModule;
         const variantRegistry = variantRegistryModule.default ?? variantRegistryModule;
         const aiModelsRuntime = aiModelsRuntimeModule.default ?? aiModelsRuntimeModule;
+        const dossierGroups = dossierGroupsModule.default ?? dossierGroupsModule;
+        const capabilityPromptFilter =
+          capabilityPromptFilterModule.default ?? capabilityPromptFilterModule;
         return {
           getAllDossiers: dossierRegistry.getAllDossiers,
           dossierRequiresF3: dossierTypes.dossierRequiresF3,
@@ -41,6 +48,9 @@ async function loadRuntimeBindings() {
           getScaffoldIds: scaffoldRegistry.getScaffoldIds,
           getVariantsForScaffold: variantRegistry.getVariantsForScaffold,
           getAiModelsManifest: aiModelsRuntime.getAiModelsManifest,
+          resolveDossierGroup: dossierGroups.resolveDossierGroup,
+          getF2MutedIntegrationCapabilities:
+            capabilityPromptFilter.getF2MutedIntegrationCapabilities,
         };
       },
     );
@@ -73,11 +83,18 @@ export const GENERATED_DOC_FAMILIES = Object.freeze({
     sources: [
       "data/dossiers/{hard,soft}/*/manifest.json#capability",
       "src/lib/gen/dossiers/types.ts#dossierRequiresF3",
+      "src/lib/builder/dossier-groups.ts#resolveDossierGroup",
+      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
     ],
     output: "docs/generated/capabilities.generated.md",
   },
   dossiers: {
-    sources: ["data/dossiers/{hard,soft}/*/manifest.json", "src/lib/gen/dossiers/registry.ts"],
+    sources: [
+      "data/dossiers/{hard,soft}/*/manifest.json",
+      "src/lib/gen/dossiers/registry.ts",
+      "src/lib/builder/dossier-groups.ts#resolveDossierGroup",
+      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
+    ],
     output: "docs/generated/dossiers.generated.md",
   },
   scaffolds: {
@@ -231,7 +248,7 @@ function envPolicyProjection(envPolicy) {
   };
 }
 
-function renderCapabilities(dossiers, dossierRequiresF3) {
+function renderCapabilities(dossiers, dossierRequiresF3, resolveDossierGroup, f2MutedCapabilities) {
   const byCapability = new Map();
   for (const dossier of dossiers) {
     const entries = byCapability.get(dossier.capability) ?? [];
@@ -247,8 +264,12 @@ function renderCapabilities(dossiers, dossierRequiresF3) {
       const classes = [...new Set(sorted.map((entry) => entry.class))].sort(compareText);
       const f3Dossiers = sorted.filter(dossierRequiresF3).map((entry) => entry.id);
       const mockModes = [...new Set(sorted.map((entry) => entry.mock ?? "none"))].sort(compareText);
+      const group = resolveDossierGroup(capability);
+      const f2Disposition = f2MutedCapabilities.has(capability)
+        ? "Planned (deferred)"
+        : "Available";
 
-      return `| ${code(capability)} | ${list(sorted.map((entry) => entry.id))} | ${
+      return `| ${code(group.id)} (${group.label}) | ${code(capability)} | ${f2Disposition} | ${list(sorted.map((entry) => entry.id))} | ${
         defaultDossier ? code(defaultDossier.id) : "—"
       } | ${list(classes)} | ${list(mockModes)} | ${list(f3Dossiers)} |`;
     });
@@ -257,15 +278,29 @@ function renderCapabilities(dossiers, dossierRequiresF3) {
     generatedHeader([
       "data/dossiers/{hard,soft}/*/manifest.json",
       "src/lib/gen/dossiers/types.ts#dossierRequiresF3",
+      "src/lib/builder/dossier-groups.ts#resolveDossierGroup",
+      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
     ]),
+    fingerprintComment("validated dossier registry", dossiers),
+    fingerprintComment(
+      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
+      [...f2MutedCapabilities].sort(compareText),
+    ),
+    fingerprintComment(
+      "src/lib/builder/dossier-groups.ts#resolveDossierGroup",
+      [...byCapability.keys()]
+        .sort(compareText)
+        .map((capability) => ({ capability, group: resolveDossierGroup(capability) })),
+    ),
+    "",
     "# Capabilities",
     "",
     `This index contains ${byCapability.size} capabilities derived from ${dossiers.length} validated dossier manifests.`,
-    "Capability is the selection key. Dossier groups are presentation only.",
-    "Canonical owner: dossier manifest `capability`; runtime consumer/validator: dossier registry and `dossierRequiresF3`.",
+    "Capability is the selection key. Dossier groups are presentation only. F2 disposition and the F3 build/server contract are independent: Analytics is currently planned in F2 while having no build/server requirement.",
+    "Canonical owners: dossier manifest `capability`; `resolveDossierGroup()` for presentation groups; `getF2MutedIntegrationCapabilities()` for F2 disposition; `dossierRequiresF3()` for the build/server contract.",
     "",
-    "| Capability | Dossiers | Default dossier | Classes | F2 mock modes | F3-required dossiers |",
-    "|---|---|---|---|---|---|",
+    "| Group | Capability | F2 disposition | Dossiers | Default dossier | Classes | Manifest mock modes | Build/server-required dossiers |",
+    "|---|---|---|---|---|---|---|---|",
     ...rows,
     "",
   ].join("\n");
@@ -294,18 +329,22 @@ function renderFileRoles(dossier) {
   );
 }
 
-function renderDossiers(dossiers, dossierRequiresF3) {
+function renderDossiers(dossiers, dossierRequiresF3, resolveDossierGroup, f2MutedCapabilities) {
   const rows = dossiers
     .toSorted(
       (left, right) => compareText(left.class, right.class) || compareText(left.id, right.id),
     )
     .map(
       (dossier) =>
-        `| ${code(dossier.id)} | ${dossier.label.replaceAll("|", "\\|")} | ${code(
+        `| ${code(resolveDossierGroup(dossier.capability).id)} | ${code(
+          dossier.capability,
+        )} | ${code(dossier.id)} | ${dossier.label.replaceAll("|", "\\|")} | ${code(
           dossier.class,
-        )} | ${code(dossier.capability)} | ${yesNo(dossier.defaultForCapability)} | ${code(
-          dossier.mock ?? "none",
-        )} | ${yesNo(dossierRequiresF3(dossier))} | ${renderEnvVars(dossier)} | ${list(
+        )} | ${list(dossier.providers ?? [])} | ${
+          f2MutedCapabilities.has(dossier.capability) ? "Planned (deferred)" : "Available"
+        } | ${code(dossier.mock ?? "none")} | ${yesNo(
+          dossierRequiresF3(dossier),
+        )} | ${yesNo(dossier.defaultForCapability)} | ${renderEnvVars(dossier)} | ${list(
           dossier.dependencies ?? [],
         )} | ${renderFileRoles(dossier)} | ${code(dossier.lastVerified)} |`,
     );
@@ -315,15 +354,23 @@ function renderDossiers(dossiers, dossierRequiresF3) {
       "data/dossiers/{hard,soft}/*/manifest.json",
       "docs/schemas/strict/dossier.schema.json",
       "src/lib/gen/dossiers/registry.ts",
+      "src/lib/builder/dossier-groups.ts#resolveDossierGroup",
+      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
     ]),
+    fingerprintComment("validated dossier registry", dossiers),
+    fingerprintComment(
+      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
+      [...f2MutedCapabilities].sort(compareText),
+    ),
+    "",
     "# Dossiers",
     "",
     `This catalog contains ${dossiers.length} manifests accepted by the runtime dossier registry.`,
-    "Env values and instruction text are intentionally excluded.",
-    "Canonical owner: dossier manifests. Validator/schema mirror: runtime manifest validation and the strict dossier schema. Runtime consumer: dossier registry/selection.",
+    "Env values and instruction text are intentionally excluded. Manifest mock mode describes behavior after dossier materialization without live configuration; it does not mean the dossier is injected during normal F2.",
+    "Canonical owners: dossier manifests; F2 disposition in `getF2MutedIntegrationCapabilities()`; build/server requirement in `dossierRequiresF3()`; presentation group in `resolveDossierGroup()`. Validator/schema mirror: runtime manifest validation and the strict dossier schema.",
     "",
-    "| ID | Label | Class | Capability | Default | F2 mock | Requires F3 | Env contract | Dependencies | File roles | Last verified |",
-    "|---|---|---|---|---|---|---|---|---|---|---|",
+    "| Group | Capability | ID | Label | Class | Providers | F2 disposition | Manifest mock | Build/server requirement | Default | Env contract | Dependencies | File roles | Last verified |",
+    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ...rows,
     "",
   ].join("\n");
@@ -669,6 +716,8 @@ export async function loadContractDocInputs() {
     getScaffoldIds,
     getVariantsForScaffold,
     getAiModelsManifest,
+    resolveDossierGroup,
+    getF2MutedIntegrationCapabilities,
   } = await loadRuntimeBindings();
   const scaffoldIds = getScaffoldIds();
   return {
@@ -678,6 +727,8 @@ export async function loadContractDocInputs() {
     variants: scaffoldIds.flatMap((scaffoldId) => getVariantsForScaffold(scaffoldId)),
     modelManifest: getAiModelsManifest(),
     dossierRequiresF3,
+    resolveDossierGroup,
+    f2MutedCapabilities: getF2MutedIntegrationCapabilities(),
     controlPlaneEntries: await loadControlPlaneEntries(),
     envPolicy: await loadEnvPolicy(),
     strictSchemas: await loadStrictSchemas(),
@@ -693,6 +744,8 @@ export async function buildGeneratedDocs(overrides = {}) {
     variants,
     modelManifest,
     dossierRequiresF3,
+    resolveDossierGroup,
+    f2MutedCapabilities,
     controlPlaneEntries,
     envPolicy,
     strictSchemas,
@@ -702,8 +755,14 @@ export async function buildGeneratedDocs(overrides = {}) {
   }
 
   const rawDocs = new Map([
-    [GENERATED_DOC_FAMILIES.capabilities.output, renderCapabilities(dossiers, dossierRequiresF3)],
-    [GENERATED_DOC_FAMILIES.dossiers.output, renderDossiers(dossiers, dossierRequiresF3)],
+    [
+      GENERATED_DOC_FAMILIES.capabilities.output,
+      renderCapabilities(dossiers, dossierRequiresF3, resolveDossierGroup, f2MutedCapabilities),
+    ],
+    [
+      GENERATED_DOC_FAMILIES.dossiers.output,
+      renderDossiers(dossiers, dossierRequiresF3, resolveDossierGroup, f2MutedCapabilities),
+    ],
     [GENERATED_DOC_FAMILIES.scaffolds.output, renderScaffolds(scaffolds)],
     [GENERATED_DOC_FAMILIES.variants.output, renderVariants(variants, scaffoldIds.length)],
     [GENERATED_DOC_FAMILIES.models.output, renderModels(modelManifest)],
