@@ -2,19 +2,14 @@
 status: active
 owner: unassigned
 created: 2026-07-27
-topic: Restlista — små, oberoende svansar från konsoliderade planer. Fyra rader kvar 2026-08-05: env-scope i export (R5, blockerad), dossier-aktiverings-E2E (R8-resten), redeploy-paus i pollningen (R12) och pool-ratten (R13, prod-observation). Innehållsrevisionens svansar R14 (flagg-släppet, ägarbeslut 2026-08-04) och R15 (/versions-revisionstrådningen) är levererade och indexerade i ../avklarat/README.md
-source: Kodverifiering 2026-07-27 mot master `3b419115` av fyra read-only-agenter. Ersätter svansarna i de raderade planerna 2026-07-13-builder-status-ui-declutter.md, 2026-07-13-anvandarsajt-env-konsolidering.md och 2026-07-13-stabilisering-verify-f3-doman-plan.md (§ 6, § 7, PR 4) — kärnan i de tre är levererad och indexerad i ../avklarat/README.md
+topic: Restlista — fyra öppna svansar (R5 blockerad, R8 aktiverings-E2E, R12 kräver beslut, R13 prod-observation). Levererade R-rader = avklarat-index + git.
+source: Kodverifiering 2026-07-27. Svansar från konsoliderade builder/env/verify-planer.
 ---
 
 # Restlista: builder-UI, F3-scope och env-klarhet
 
-Varje rad här är **liten och oberoende**. Ta en eller flera i samma PR — de delar
-inte kod och behöver ingen inbördes ordning.
-
-Levererade rader (R1–R4, R6, R7, R9, R10, R11, R14, R15 samt R8:s monteringsdel) står i
-[`../avklarat/README.md`](../avklarat/README.md) med PR-referenser; git bär
-diffarna. De låg tidigare kvar här som ~120 rader färdigt arbete, vilket gjorde
-att man fick läsa fyra skärmar levererat innan man hittade nästa uppgift.
+Varje rad är **liten och oberoende**. Levererade R-rader (inkl. R14/R15 och
+R8-montering) står i [`../avklarat/README.md`](../avklarat/README.md) — inte här.
 
 ## Restrader
 

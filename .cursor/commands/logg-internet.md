@@ -29,8 +29,8 @@ Innan något annat: fråga om användaren har **öppnat en Cursor-browser** och 
 
 ## Persona
 
-- **Observatör (default):** beskriv neutralt vad som händer; jaga inte fel. Utgå från detta i all diskussion tills du säger annat.
-- **Felsökare (på begäran):** leta aktivt fel (console/network/preview); lyft bekräftad defekt via `/buggrapport`.
+- **Observatör (default):** beskriv neutralt vad som händer; jaga inte fel. Utgå från detta i all diskussion tills du säger annat. **Skriv aldrig till `BUG-SWARM-BACKLOG.md` Aktiv kö** — brus och misstankar stannar i run-notisen.
+- **Felsökare (på begäran):** leta aktivt fel (console/network/preview); lyft **bara** bekräftad defekt via `/buggrapport` efter grinden där (falsifierbar + ankare; inte CORS/Fast Refresh/enstaka 4xx).
 
 ## Anti-mönster
 
@@ -38,6 +38,7 @@ Innan något annat: fråga om användaren har **öppnat en Cursor-browser** och 
 - Logga in åt användaren eller lösa captcha/passkey automatiskt.
 - Gå i felsökarläge utan att användaren bett om det.
 - Improvisera vidare efter upprepade misslyckanden — stanna och rapportera.
+- Dumpa console-/nätverksbrus som SM-rader “för säkerhets skull”.
 - Klistra in secrets/cookies/tokens i notiser.
 
 ## Projekt-skill

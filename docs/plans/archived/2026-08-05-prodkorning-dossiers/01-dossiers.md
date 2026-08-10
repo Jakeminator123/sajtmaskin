@@ -1,10 +1,18 @@
 ---
-status: active
+status: archived
 owner: unassigned
 topic: Dossier-kedjans fem defekter från prod-körningen 2026-08-05 + kontraktsinsikter. A1/A3/A4 levererade (#828/#839/#842, arkivrader SM-023/SM-024); A2 spår a levererat (#828); A5 kvar som ägarbeslut.
 created: 2026-08-05
 source: Live-körning chatId 3a6c5472 + /logg. Versioner: edc7ea62 (v1, promotad, trasig karta), d46e89a7 (v2, promotad, demo-chatt), e0d6cc0e (v3, F3, underkänd).
 ---
+
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [BUG-SWARM-BACKLOG](../../../BUG-SWARM-BACKLOG.md)
+>
+> Parkerad 2026-08-10: dossier-defekter A1/A3/A4 levererade; planen styr inte längre aktivt arbete.
+
 
 # Dossiers: defekter och insikter
 

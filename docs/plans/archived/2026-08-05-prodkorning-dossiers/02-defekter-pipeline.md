@@ -1,10 +1,18 @@
 ---
-status: active
+status: archived
 owner: unassigned
 topic: Pipeline-/agent-defekter utanför dossier-kedjan från prod-körningen 2026-08-05 — OpenClaw auto-send (rotorsak funnen), postcheck-racet med fel felettikett, hydrering som preflight såg, klassificerar- och telemetriluckor.
 created: 2026-08-05
 source: Samma session som 00-master-plan.md. Rotorsaker filverifierade mot master; runtime-bevis ur prod-DB, Vercel-loggar och Fly.
 ---
+
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [BUG-SWARM-BACKLOG](../../../BUG-SWARM-BACKLOG.md)
+>
+> Parkerad 2026-08-10: dossier-defekter A1/A3/A4 levererade; planen styr inte längre aktivt arbete.
+
 
 # Pipeline-defekter utanför dossiers
 

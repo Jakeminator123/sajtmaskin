@@ -11,7 +11,8 @@
 # som är spårade i git, plus lokala dumpar man vill kunna läsa men aldrig
 # söka i.
 #
-# Indexera fortsatt: docs/plans/avklarat/ (historik ska vara sökbar).
+# Indexera fortsatt: docs/plans/avklarat/ (leveransfacit ska vara sökbart).
+# Indexera inte: docs/plans/archived/ (parkerat/skrotat — läsbart vid behov).
 
 # --- Build & cache (backup; normalt redan via .gitignore) ---
 node_modules
@@ -78,7 +79,11 @@ templates_v0/
 public/video/
 public/images/
 
-# --- Lokal scratch / parkering ---
+# --- Planhistorik som inte ska styra sök ---
+# Parkerade/skrotade planer. Avklarat-indexet hålls sökbart; detaljarkiv = git.
+docs/plans/archived/**
+
+# --- Lokal scratch ---
 scratch-*.mjs
 manual_log/
 input_files_for_cursor/

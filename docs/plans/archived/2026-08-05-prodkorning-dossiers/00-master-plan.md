@@ -1,10 +1,18 @@
 ---
-status: active
+status: archived
 owner: unassigned
 topic: Fynd från live prod-körning 2026-08-05 kväll — dossier-kedjan är huvudspåret (trasigt MapLibre-byggblock, icke-deterministisk F3, package.json-omskrivning, undertryckt auto-repair). Plus pipeline-defekter och ägarens UX-punkter.
 created: 2026-08-05
 source: Observatörssession i prod-buildern (chatId 3a6c5472-9c70-4d1d-b7c8-181c4f85b160, projekt Nm-CccXtbDO7qYKkymVZ9) följd av full /logg-korsreferens (prod-Postgres, Vercel runtime, Fly). Rådata i gitignorerade .cursor/logg-internet/runs/2026-08-05_2029*.md.
 ---
+
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [BUG-SWARM-BACKLOG](../../../BUG-SWARM-BACKLOG.md)
+>
+> Parkerad 2026-08-10: dossier-defekter A1/A3/A4 levererade; planen styr inte längre aktivt arbete.
+
 
 # Master-plan: prod-körningens fynd, fokus dossiers
 

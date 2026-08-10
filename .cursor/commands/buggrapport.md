@@ -10,6 +10,16 @@ Lägg in en bugg i den **enda** bugglistan: [`BUG-SWARM-BACKLOG.md`](../../BUG-S
 - Hardening, testlucka, dokumentations- eller arkitekturskuld → **`## Säkerhet, infra och teknisk skuld`**. Det är ingen produktbugg och ska inte inflatera kön.
 - Läs `BUG-SWARM-BACKLOG.md` § "Hur den hålls sann" innan du skriver — den styr formatet.
 
+## Gate — skriv INTE till Aktiv kö om
+
+1. **Körningsbrus:** CORS/CORB, Fast Refresh, CSP report-only, D-ID 4xx, enstaka nätverksblipp utan repro.
+2. **Ingen falsifierbar premiss** + saknat fil-/route-ankare (“känns trasigt”).
+3. **`/logg-internet` Observatör:** notera i run-filen; Aktiv kö bara efter persona **Felsökare** *och* bekräftad defekt.
+4. **Önskemål / saknad feature** under MVP-frys — inte bugg (beslut eller ignorera).
+5. **Dublett** av öppen rad — uppdatera den i stället.
+
+Osäker → `Behöver repro` eller bara körningsnotis. Hellre för få rader i Aktiv kö än för många.
+
 ## Indatakällor
 
 Välj den/de som finns:

@@ -12,7 +12,8 @@ Planer dokumenterar arbete, de är inte produkten.
 
 ## Grundregel
 
-`docs/plans/active/README.md` är aktiv router. Allt som inte styr pågående arbete ska ut ur `active/`.
+`docs/plans/active/README.md` är aktiv router (kort tabell — inte stängningskrönika).
+Allt som inte styr pågående arbete ska ut ur `active/`.
 
 | Plats | Innehåll |
 |---|---|
