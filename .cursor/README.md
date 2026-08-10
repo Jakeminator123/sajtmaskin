@@ -29,7 +29,7 @@ Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler ko
 | Regel                                                              | Syfte                                                                                                                        |
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | [agent-worktree.mdc](rules/agent-worktree.mdc)                     | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
-| [bash-och-pwsh.mdc](rules/bash-och-pwsh.mdc)                       | PowerShell-syntax först; vanliga hårda felkällor på Windows                                                                  |
+| [bash-och-pwsh.mdc](rules/bash-och-pwsh.mdc)                       | PowerShell-syntax först (kort stub); felkatalog i `bash-och-pwsh-fel.mdc`                                                    |
 | [ema-pr-sparr.mdc](rules/ema-pr-sparr.mdc)                         | Tillfällig ägarspärr: `EmaCodeHero`-PR:er mergas aldrig av en agent, oavsett grönt CI                                        |
 | [git.mdc](rules/git.mdc)                                           | Inga PR:er; commit/push/merge bara på explicit begäran + ignore-filsbefogenhet                                               |
 | [mvp-scope-freeze.mdc](rules/mvp-scope-freeze.mdc)                 | MVP-frys: stabilitet före coolhet — inga nya features, ytor eller UI-element utan uttrycklig begäran                         |
@@ -58,6 +58,7 @@ Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler ko
 | Regel                                                        | Syfte                                                                          |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
 | [agent-observatory.mdc](rules/agent-observatory.mdc)         | Var agenter hittar per-körning- och per-chat-loggar                            |
+| [bash-och-pwsh-fel.mdc](rules/bash-och-pwsh-fel.mdc)         | PowerShell-felkatalog / heredoc / LF — bifoga vid pwsh-fel                     |
 | [local-tooling-mcp.mdc](rules/local-tooling-mcp.mdc)         | Lokal MCP/Vercel/Supabase/shadcn-setup — läs vid tooling-problem eller ny worktree |
 | [pr-merge.mdc](rules/pr-merge.mdc)                           | **Kanonisk merge-grind** — grind, bot-fyndsvep, `merge:ready`-sign-off, vem som mergar. Läs före granskning/merge |
 | [useful-commands.mdc](rules/useful-commands.mdc)             | Snabb kommandoöversikt; `package.json` är kanonisk källa                       |
@@ -89,7 +90,7 @@ parallell owner.
 - `/automat` = **flera** sekventiella read-only audit-svärmar som **växlar** scan (8 agenter i roterande lanes) och falsifiering (en agent per overifierat fynd, uppdrag: motbevisa det). Default 3 rundor; `/automat 7` = 7 rundor. Fynd hamnar i gitignored `.cursor/swarms/FINDINGS.md`. Audit mode (ändrar aldrig kod). Se `.cursor/skills/automat-swarm/SKILL.md`.
 - `/avslutning` = stäng arbete: review, scoped cleanup, docs-/schema-/backoffice-sync, verifiering, commit + push. Hanterar både vanligt slutpass och stängning av hela arbetsspår.
 - `/buggrapport` = lägg en bugg i `BUG-SWARM-BACKLOG.md` (rot) — `## Aktiv kö` för defekter (rad-ID `SM-###`), `## Behöver repro` / `## Väntar på ägarbeslut` / skuldsektionen för resten. Valfri lokal evidens i `.cursor/bugs/`. Ingen Linear.
-- `/kedja` = **fix mode**-motsvarigheten till `/automat`: en bugg genom sju steg (ram → worktrees → failande test → tre lokaliseringsagenter → du väljer rotorsak → N fix-kandidater i varsin worktree → maskinell dom → bugbot). Kandidatdiffar i gitignored `.cursor/kedja/`; vinnaren lämnas **ocommittad** i sin worktree. Se `.cursor/skills/kedja-fix-pipeline/SKILL.md`.
+- `/kedja` = **fix mode**-motsvarigheten till `/automat`: en bugg genom sju steg. Command = stub (args/stopp/delegering); fulltext i `.cursor/skills/kedja-fix-pipeline/SKILL.md`. Kandidatdiffar i gitignored `.cursor/kedja/`; vinnaren **committas** på kedja-branchen (ej push).
 - `/logg` = hämta **alla** loggar för senaste genererade prod-sajten (produktionsdatabas inkl. telemetri + OpenClaw-fynd, Vercel build/runtime via MCP, Fly preview-host) och sammanfatta hur körningen gick. Read-only mot prod. Se `.cursor/skills/logg/SKILL.md`.
 - `/logg-internet` = **live** prod-session i Cursor-browsern: verifiera inloggning på `sajtmaskin.vercel.app`, skriv en friprompt + ~2 uppföljningar och **anteckna** hur körningen går (Observatörspersona, jagar inte fel som default). Drar credits på riktigt. Notiser i gitignored `.cursor/logg-internet/`. Se `.cursor/skills/logg-internet/SKILL.md`.
 ### Modellval för subagenter (kanonisk tabell)

@@ -185,8 +185,8 @@ Read-only vid runtime — dossier-registry walkar `data/dossiers/{hard,soft}/` d
 ## Nuvarande pool
 
 Per 2026-07-22 (taxonomi-omtaget): **27 dossiers över 23 capabilities**
-(18 `hard`, 9 `soft`). Elva soft-sektionsdossiers parkerades i
-`_parkering/dossiers-utfasade-2026-07-22/` (rena innehållssektioner/CSS-effekter
+(18 `hard`, 9 `soft`). Elva soft-sektionsdossiers parkerades 2026-07-22
+(träd borttaget 2026-08-10; git-historik — rena innehållssektioner/CSS-effekter
 som codegen-LLM:en skriver bättre frihand), `command-search` heter numera
 `command-palette`, `supabase-auth` är sammanslagen i `auth` (två
 leverantörsdossiers under en capability), och `map-display` (maplibre-map) +

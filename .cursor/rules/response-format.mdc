@@ -12,7 +12,6 @@ alwaysApply: true
 | Tabell vid val | Använd tabell för jämförelser, risker, steg och status. |
 | Svåra ord | Undvik onödigt krångliga/tekniska ord. Måste du ändå använda ett: sätt en kort förklaring i parentes direkt efter — `term (kort förklaring)`. |
 | Svenska | Svara på svenska om användaren gör det. Kodnamn/filnamn lämnas på engelska. |
-| Inga git-åtgärder | Commit, push, PR och merge bara på explicit begäran. |
 | Plan betyder plan | Om användaren ber om plan: börja inte implementera utan OK. |
 | Osäkerhet | Säg kort vad som är verifierat och vad som är antagande. |
 

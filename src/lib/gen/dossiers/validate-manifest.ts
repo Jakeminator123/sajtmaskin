@@ -490,7 +490,7 @@ export const MOCKLESS_CAPABILITY_EXCEPTIONS: Readonly<Record<string, string>> = 
   analytics:
     "Fire-and-forget beacons have no visual surface to mock; keys are `warn-only` and the component self-disables when unset.",
   // `error-tracking` left the list 2026-08-06: its sole dossier
-  // (sentry-error-tracking) was parked to `_parkering/dossiers-utfasade-2026-08-06/`,
+  // (sentry-error-tracking) was parked 2026-08-06 (träd borttaget 2026-08-10),
   // so there is no hard dossier under the capability for the invariant to except.
 } as const;
 

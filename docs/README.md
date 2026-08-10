@@ -23,6 +23,7 @@ policies kan äga olika beslut.
 | Hur provisionerar jag warm-cachen?  | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)           |
 | Varför ser merge-grinden ut så?     | [`runbooks/pr-merge-gate.md`](runbooks/pr-merge-gate.md)                 |
 | Vad applicerar DB-migrationerna?    | [`runbooks/db-migrations.md`](runbooks/db-migrations.md)                 |
+| Vilka manuella underhållsknappar?   | [`../UNDERHALL.md`](../UNDERHALL.md)                                     |
 | Vilka planer är aktiva?             | [`plans/README.md`](plans/README.md)                                     |
 | Vad har ägaren beslutat?            | [`decisions/README.md`](decisions/README.md)                             |
 

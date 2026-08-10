@@ -38,11 +38,3 @@ uttryckligen förklarar MVP:n levererad gäller:
 - Tester som låser en konkret fixad bugg eller ett nytt litet kontrakt
   (se `docs/delivery-bias.md`).
 - Docs-synk som speglar runtime.
-
-## Bakgrund
-
-2026-08-01 hade flera PR:er sammantaget infört överlappande statusytor ovanpå
-preview och i chatten (slow-boot-pill, truth bar, statusrad, räknar-badge) utan
-att ägaren bett om dem. Ägarbeslut: både nya features och nya UI-ytor kräver
-explicit begäran. Säkerhets-/governance-lagret ligger kvar i
-`project-phase-priorities.mdc § Undvik utan explicit scope`.

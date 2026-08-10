@@ -68,7 +68,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
     ],
   },
   // Parallax entries removed 2026-07-22: the parallax dossier pair was parked
-  // (`_parkering/dossiers-utfasade-2026-07-22/`). Parallax intent is still
+  // (utfasade-träd borttaget 2026-08-10; återställ via git-historik). Parallax intent is still
   // detected by `capability-inference.ts` (`needsParallax`) which now drives
   // freehand parallax guidance instead of dossier injection.
   {
@@ -179,7 +179,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
   },
   // `realtime` (ably-realtime) and `image-generation` (fal-image-generation)
   // left the vocabulary 2026-08-06 when their sole provider dossiers were
-  // parked (`_parkering/dossiers-utfasade-2026-08-06/`) — a capability id
+  // parked 2026-08-06 (träd borttaget 2026-08-10; git-historik) — a capability id
   // without a backing dossier selects nothing, so detecting it only mutes a
   // surface the model may as well freehand as ordinary page content.
   {
@@ -298,7 +298,7 @@ export const CAPABILITY_VOCABULARY: CapabilityVocabularyEntry[] = [
   },
   // Section-capability entries (faq/pricing/testimonials/logo-cloud/marquee/
   // stats-counter/feature-grid/cta-section/stepper) removed 2026-07-22: their
-  // dossiers were parked (`_parkering/dossiers-utfasade-2026-07-22/`) — plain
+  // dossiers were parked 2026-07-22 (träd borttaget 2026-08-10; git-historik) — plain
   // content sections the codegen LLM writes better freehand, so a follow-up
   // like "lägg till en FAQ" is now an ordinary content edit, not a dossier
   // injection.

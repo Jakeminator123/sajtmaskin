@@ -8,9 +8,9 @@ description: >-
 
 The orchestrator is the cheap model in the user's chat. Subagents are cheap too; none of them are trusted. What makes the flow work is that **step 2 produces a red test**, so step 6 is a measurement rather than a judgement call.
 
-**Expensive orchestrator? Delegate.** If the model in the user's chat is not a cheap Grok-class orchestrator, the DEFAULT is delegated mode (see `kedja.md § Delegerat läge`): the parent does step 0 only, launches ONE cheap runner subagent that drives steps 1–6 end to end, receives only the final report table, then runs step 7 (bugbot) itself. Every report an orchestrator receives is re-paid in every later turn — do not carry the bulk in an expensive context.
+**Expensive orchestrator? Delegate.** If the model in the user's chat is not a cheap Grok-class orchestrator, the DEFAULT is delegated mode (see command stub `kedja.md § Delegerat läge`): the parent does step 0 only, launches ONE cheap runner subagent that drives steps 1–6 end to end, receives only the final report table, then runs step 7 (bugbot) itself. Every report an orchestrator receives is re-paid in every later turn — do not carry the bulk in an expensive context.
 
-Full step list, arguments and stop conditions: [`.cursor/commands/kedja.md`](../../commands/kedja.md). This file holds the recipes and prompts.
+**This skill is the sole fulltext** for steps, prompts, judging and teardown. The slash command is a short stub (args + stop + delegate) — do not re-read duplicated procedure from the command.
 
 ## Hard rules
 
@@ -201,11 +201,24 @@ path and branch**, including for eliminated candidates (their worktrees are
 torn down but the diffs stay) — the user uses this table to jump in and make
 targeted follow-up fixes.
 
-Say explicitly that the winner is committed on its kedja branch but NOT pushed, and that the backlog row stays open until it is closed in the fix PR (same-PR archival, see `kedja.md § Efter körning`).
+Say explicitly that the winner is committed on its kedja branch but NOT pushed, and that the backlog row stays open until it is closed in the fix PR (same-PR archival, see § After the run).
+
+## After the run — orchestrator duty
+
+User runs no commands. Right after step 7:
+
+1. Save each candidate diff to `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-<x>.diff` **before** teardown. New test files are untracked — use `git add -A -N` then `git diff HEAD` (same as `captureDiff` in `scripts/cursor/kedja-clean.mjs`).
+2. **Commit the winner** on its kedja branch: real `git add <paths>` (intent-to-add alone leaves an empty blob), then commit. No push/PR unless asked (`git.mdc`). Commit is the winner's life insurance against `kedja-clean` sweeps.
+3. Remove loser worktrees: `npm run worktree:remove -- <path> --force`, then `git branch -D kedja/<slug>-<x>`.
+4. Report with the table above.
+
+Leftovers: `npm run kedja:clean` (dry), then `node scripts/cursor/kedja-clean.mjs --yes --keep <winner>` (flags via `node`, not npm). Never `--yes` other agents' kedja worktrees without `--keep`.
+
+**Backlog row closes in the same PR as the fix** (`[x]` + PR ref in archive). After merge, the merging agent tears down the winner worktree + branch.
 
 ## Related
 
-- Command: [`.cursor/commands/kedja.md`](../../commands/kedja.md)
+- Command stub: [`.cursor/commands/kedja.md`](../../commands/kedja.md)
 - Output folder: [`.cursor/kedja/README.md`](../../kedja/README.md)
 - Audit counterpart (never fixes): [`automat-swarm`](../automat-swarm/SKILL.md)
 - Promote or log a finding found on the way: `/buggrapport`

@@ -18,7 +18,7 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 
 - **LLM-pipeline / gen:** [`pipeline-rules.mdc`](.cursor/rules/pipeline-rules.mdc), [`scaffold-rules.mdc`](.cursor/rules/scaffold-rules.mdc)
 - **Git / commit / workflow:** [`git.mdc`](.cursor/rules/git.mdc), [`workflow.mdc`](.cursor/rules/workflow.mdc), [`agent-worktree.mdc`](.cursor/rules/agent-worktree.mdc) (flera agenter → använd `git worktree`)
-- **Plattform:** [`bash-och-pwsh.mdc`](.cursor/rules/bash-och-pwsh.mdc) (Windows/PowerShell), [`unicode-regex.mdc`](.cursor/rules/unicode-regex.mdc)
+- **Plattform:** [`bash-och-pwsh.mdc`](.cursor/rules/bash-och-pwsh.mdc) (kort pwsh-stub; felkatalog: [`bash-och-pwsh-fel.mdc`](.cursor/rules/bash-och-pwsh-fel.mdc)), [`unicode-regex.mdc`](.cursor/rules/unicode-regex.mdc)
 - **Repo-router:** [`repo-router.mdc`](.cursor/rules/repo-router.mdc)
 - **Lokal tooling (MCP/Vercel/Supabase/shadcn):** [`local-tooling-mcp.mdc`](.cursor/rules/local-tooling-mcp.mdc)
 - **OpenClaw / env-flow:** [`openclaw-bridge.mdc`](.cursor/rules/openclaw-bridge.mdc), [`env-flow-f2-mute.mdc`](.cursor/rules/env-flow-f2-mute.mdc)

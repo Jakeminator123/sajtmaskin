@@ -99,8 +99,8 @@ const ALIAS_DOSSIER_PINS: Readonly<Record<string, string>> = {
  *
  * EMPTY since 2026-08-06: the only entry ever needed was `subscriptions` ⇒
  * `auth` pinned to supabase-auth (paddle-billing's customer portal), and it
- * left with the parked paddle-billing dossier
- * (`_parkering/dossiers-utfasade-2026-08-06/`). The mechanism stays because
+ * left with the parked paddle-billing dossier (2026-08-06; träd borttaget
+ * 2026-08-10 — git-historik). The mechanism stays because
  * dossiers must remain self-sufficient in F2 — add an entry here only when a
  * dossier's F3 surface genuinely cannot work without a companion capability,
  * never as a convenience bundle.

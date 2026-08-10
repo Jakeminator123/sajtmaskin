@@ -67,3 +67,5 @@ npm run dossiers:validate-all
 ```
 
 `package.json` är kanonisk källa för tillgängliga kommandon.
+Manuella underhållsknappar (scratch, worktrees, env) som CI *inte* kör:
+[`UNDERHALL.md`](UNDERHALL.md).
