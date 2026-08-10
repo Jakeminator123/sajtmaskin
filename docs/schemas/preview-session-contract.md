@@ -33,7 +33,7 @@ Machine-oriented companion:
 | `versionId` / `engine_versions.id` | version state | canonical | The specific saved version within a chat |
 | `previewSessionId` | active preview session | canonical | The active preview-session ID used by app state and preview-host session control |
 | `previewUrl` | public API/client | canonical | The public preview/live URL field |
-| `preview_url` | DB column (`engine_versions`) | canonical | Persisted tier-2 preview URL in Postgres |
+| `preview_url` | DB column (`engine_versions`) | canonical | Persisted F2 (`fidelity2`) preview URL in Postgres |
 | `runId` | observability/logs | canonical | Per-run log/telemetry correlation ID |
 | `VERCEL_PROJECT_ID` | Vercel auth/config | canonical in Vercel scope | Vercel project ID, not a Sajtmaskin project identifier |
 
@@ -41,7 +41,7 @@ Machine-oriented companion:
 
 ### Preview lane
 
-The live tier-2 preview is stateful:
+The live F2 preview is stateful:
 
 - keyed by `chatId`
 - exposed through `previewUrl`
@@ -147,7 +147,7 @@ Important fields:
 - `previewSessionId`
 - `previewMode`
 - `previewTier`
-- `prodBuildVerified` (optional — only present when a real `npm run build` ran; omitted for pure dev-preview tier-2)
+- `prodBuildVerified` (optional — only present when a real `npm run build` ran; omitted for pure F2 dev-preview)
 - `startOutcome`
 
 `startOutcome` currently allows:
@@ -177,7 +177,7 @@ Stable contract types:
 ### `PreviewDestroyApiJson` — host-failure semantics (2026-04-18)
 
 The destroy route now distinguishes between hard and transient host failures
-so the user can never end up pointing at a zombie sandbox:
+so the user can never end up pointing at a zombie preview VM:
 
 - **Host destroy ok** → 200 + `{ destroyed: <bool>, clearedPreviewUrl: true }`.
 - **Host destroy retryable failure** (5xx / network blip) → 200 +
@@ -464,7 +464,7 @@ categories unless a dedicated migration removes them:
 
 | Category | Examples | Why it stays |
 |---|---|---|
-| HTML | `<iframe sandbox="...">` | Browser attribute; unrelated to tier-2 naming. |
+| HTML | `<iframe sandbox="...">` | Browser attribute; unrelated to F2/preview naming. |
 | Preview-host legacy HTTP paths | `/preview/sandbox/:previewSessionId/status` | Kept for older host clients during rollout. |
 | Storage / Redis reads | `sandbox-preview:session:` prefix, legacy `sandbox*` JSON/session fields | Read-only migration input; new writes use `preview-session:session:*` + `previewSessionId`/`previewUrl`. |
 | Wire/API aliases | `sandboxId`, `sandboxUrl` | Backwards-compatible preview-host aliases parsed/emitted at the boundary only. |
@@ -472,7 +472,8 @@ categories unless a dedicated migration removes them:
 | Provider copy | Resend/email “sandbox mode” | Third-party terminology. |
 | Tests / mocks | fixtures using legacy field names | Must mirror production shapes. |
 
-Prefer **preview-** / **tier-2** / **VM** in new comments, docs, and local variable names.
+Prefer **preview-** / **F2** (`fidelity2`) / **VM** in new human-facing comments and docs.
+Code identifiers may still say `tier2` / `tier-2` (legacy) — map in prose, do not mass-rename.
 
 ## Local handoff note
 
