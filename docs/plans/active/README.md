@@ -14,8 +14,10 @@ kopiera inte kön hit.
 | Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | Öppna: **R8** aktiverings-E2E · **R5** (blockerad) · **R12** (kräver beslut) · **R13** (prod-observation) |
 
 Prod-körningens dossier-spår (2026-08-05) är **parkerat** — levererat i
-[`../avklarat/README.md`](../avklarat/README.md); rester A5 / `SM-025` / UX-go
-bor i backloggen. Plantext:
+[`../avklarat/README.md`](../avklarat/README.md). Resterna A5 och `SM-025` lever
+i [`BUG-SWARM-BACKLOG.md`](../../../BUG-SWARM-BACKLOG.md). Ägarens UX-punkter
+(U1–U8) är **inte** backloggförda — de väntar på go per punkt och ligger kvar i
+plantexten:
 [`../archived/2026-08-05-prodkorning-dossiers/`](../archived/2026-08-05-prodkorning-dossiers/).
 
 ## Ägarbeslut
