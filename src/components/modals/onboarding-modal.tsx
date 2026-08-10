@@ -108,7 +108,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                 Välkommen till SajtMaskin
               </div>
               <h2 className="text-2xl font-bold text-white">Din AI-partner för hemsidor</h2>
-              <p className="mt-2 text-gray-400">Se denna korta introduktion (ca 2 min)</p>
+              <p className="mt-2 text-gray-400">Se denna korta introduktion</p>
             </div>
 
             {/* Video player */}
