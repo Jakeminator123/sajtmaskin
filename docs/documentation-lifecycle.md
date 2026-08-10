@@ -61,10 +61,10 @@ När genererade referenser finns ska `docs/README.md` länka deras router.
 som generatorn slutat äga får inte ligga kvar och se canonical ut.
 
 `docs:links` ska verifiera relativa fil- och kataloglänkar i aktiva Markdown-
-ytor. Bara arkiverade och avklarade planer plus `_parkering/` ligger utanför den
-blockerande mängden; de ska städas eller märkas i separata historik-PR:er. Nya
-historikytor ska inte läggas till i undantaget — daterade revisioner och
-ögonblicksstatus hör i git, inte i en egen docs-katalog.
+ytor. Bara arkiverade och avklarade planer ligger utanför den blockerande
+mängden; de ska städas eller märkas i separata historik-PR:er. Nya historikytor
+ska inte läggas till i undantaget — daterade revisioner och ögonblicksstatus hör
+i git, inte i en egen docs-katalog.
 
 ## Terminologi
 

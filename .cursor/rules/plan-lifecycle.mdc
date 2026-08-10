@@ -47,4 +47,4 @@ Flytta färdiga planer till `avklarat/`. Låt inte lösa fragment ligga i `activ
 
 ## Buggar
 
-`BUG-SWARM-BACKLOG.md` (repo-rot) är enda källan till buggsanning — ingen Linear/extern tracker. Öppna defekter ligger i `## Aktiv kö`; fixade flyttas till `docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`. `.cursor/bugs/` är valfri lokal evidens-yta (gitignored), inte en status-källa — radera evidens-filen när buggen är åtgärdad.
+`BUG-SWARM-BACKLOG.md` (repo-rot) är enda källan till buggsanning — ingen Linear/extern tracker. Öppna defekter ligger i `## Aktiv kö`; fixade flyttas till samma fils `## Arkiv` som `[x]` med PR/commit-ref. Äldre bulk-arkiv ligger i git — tunt index i `docs/plans/avklarat/bug-swarm/README.md`. `.cursor/bugs/` är valfri lokal evidens-yta (gitignored), inte en status-källa — radera evidens-filen när buggen är åtgärdad.

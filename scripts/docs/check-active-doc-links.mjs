@@ -8,7 +8,6 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const HISTORICAL_DOC_PREFIXES = Object.freeze([
   "docs/plans/archived/",
   "docs/plans/avklarat/",
-  "_parkering/",
 ]);
 
 function compareText(left, right) {

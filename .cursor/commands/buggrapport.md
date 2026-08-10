@@ -40,7 +40,7 @@ Finns en aktuell öppen rad för samma rotorsak → **uppdatera den raden** (sk�
 
 Två olika ID, båda krävs för en Aktiv kö-rad:
 
-- **Stabilt rad-ID `SM-###`** — radens identitet. Hitta högsta befintliga `SM-` i `BUG-SWARM-BACKLOG.md` **och** i [`backlog-omstrukturering-2026-08-05.md`](../../docs/plans/avklarat/bug-swarm/backlog-omstrukturering-2026-08-05.md) samt arkivfilerna, och ta nästa lediga nummer. **Återanvänd aldrig** ett nummer, inte ens från en arkiverad rad.
+- **Stabilt rad-ID `SM-###`** — radens identitet. Hitta högsta befintliga `SM-` i `BUG-SWARM-BACKLOG.md` **och** i [`docs/plans/avklarat/bug-swarm/README.md`](../../docs/plans/avklarat/bug-swarm/README.md) (fältet "Högsta förbrukade"), och ta nästa lediga nummer. **Återanvänd aldrig** ett nummer, inte ens från en arkiverad rad (äldre arkiv = git-historik).
 - **Källa-tag `M#<n>`** — varifrån fyndet kom. Manuellt rapporterade buggar inkrementerar högsta `M#` (`M#1`, `M#2`, …). Saknas någon → börja på `M#1`.
 
 ### 3. Lägg till raden

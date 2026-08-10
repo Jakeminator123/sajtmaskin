@@ -35,7 +35,6 @@ const SKIP_DIRS = new Set([
   ".tmp",
   "data",
   "logs",
-  "_parkering",
 ]);
 
 const removedCaches = [];
