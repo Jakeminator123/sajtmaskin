@@ -1,31 +1,36 @@
 # Kontraktslager (lätt)
 
-Fyra pelare som låser sanning på olika sätt. Tre finns redan i repot — de är bara
-samlade och namngivna här. Håll lätt: lås format/värden/beslut, bygg **inte** ett
-styrningslager (jfr Sajtbyggarens tunga `governance/` — porteras inte).
+Fyra pelare som låser sanning på olika sätt. Håll lätt: lås format/värden/beslut,
+bygg **inte** ett styrningslager (jfr Sajtbyggarens tunga `governance/` — porteras inte).
 
-| Pelare | Låser | Bor i | Status |
-|---|---|---|---|
-| **Schemas** | *Struktur/format* på dataartefakter (dossier, scaffold-variant, prompt, telemetri-event) | [`docs/schemas/`](../schemas/) | finns |
-| **Policies** | *Värden/mappningar* — tillåtna värden, signal-källor, trösklar | `config/*.json` — se [Policies](#policies) nedan | finns (utspritt) |
-| **Regler** | *Process/konvention* — hur kod/planer/PR görs | [`.cursor/rules/`](../../.cursor/rules/) | finns |
-| **Beslut (ADR)** | *Varför* — beslutslogg, en rad per arkitekturval | [`beslut/`](beslut/) | **ny** |
-
-"ADR" (Architecture Decision Record) = beslutslogg. Det är samma sak som "beslut"
-— därför **en** pelare, inte två.
+| Pelare | Låser | Bor i |
+|---|---|---|
+| **Schemas** | *Struktur/format* på dataartefakter | [`docs/schemas/`](../schemas/) |
+| **Policies** | *Värden/mappningar* — tillåtna värden, signal-källor, trösklar | `config/*.json` (+ enstaka prose under denna mapp) |
+| **Regler** | *Process/konvention* — hur kod/planer/PR görs | [`.cursor/rules/`](../../.cursor/rules/) |
+| **Beslut** | *Varför* — ratificerade ägarbeslut | [`docs/decisions/`](../decisions/README.md) |
 
 > Schema = hur något *ser ut*. Policy = vilka *värden* som gäller. Regel = hur vi
 > *arbetar*. Beslut = *varför* vi valde så.
 
-Fysisk flytt av `docs/schemas/` + `config/`-policies hit under `contracts/` är en
-städnings-aktivitet senare (bred ref-diff). Nu: index + den nya beslut-pelaren.
+`docs/contracts/beslut/` (ADR-mappen) är **borttagen** 2026-08-10 — den överlappade
+`docs/decisions/` och skapade två “beslut”-ytor. Historik via git.
 
-## Policies
+## Handskrivna kontrakt här
 
-Låsta *värden/mappningar* (inte struktur — det är schemas). De finns redan i repot,
-mest under `config/`. Kanoniskt maskinläsbart policy-index är
-[`config/control-plane/policy-registry.json`](../../config/control-plane/policy-registry.json)
-— lägg inte policy-JSON i `docs/` när den redan har en tydlig runtime-/config-plats.
+| Fil | Äger |
+|---|---|
+| [`dossier-system.md`](dossier-system.md) | Byggblock / capability-modell |
+| [`scaffold-system.md`](scaffold-system.md) | Scaffold-pool och pick |
+| [`fixer-registry.md`](fixer-registry.md) | RepairGate-fixare |
+| [`env-flow.md`](env-flow.md) | Env-flöde F2/F3 |
+| [`data-layer.md`](data-layer.md) | DB/data-kontrakt |
+| [`component-library.md`](component-library.md) | Scaffold vs shadcn vs capability-deps |
+
+## Policies (maskinläsbara)
+
+Kanoniskt index: [`config/control-plane/policy-registry.json`](../../config/control-plane/policy-registry.json).
+Lägg inte policy-JSON i `docs/` när den redan har en runtime-/config-plats.
 
 | Policy (de-facto) | Fil | Låser |
 |---|---|---|
@@ -33,6 +38,5 @@ mest under `config/`. Kanoniskt maskinläsbart policy-index är
 | Prompt-heuristik | `config/prompt-heuristic-tokens.json` | heuristik-tokens |
 | Namn-ordlista | `config/naming-dictionary.json` | förbjudna alias → canonical (term-check) |
 
-Lägg en policy bara när ett värde/mappning faktiskt återanvänds på flera ställen.
 Ägar-/signalmatrisen bor i [`.cursor/rules/terminology.mdc`](../../.cursor/rules/terminology.mdc)
 § Signal-gate — ändra **ägaren**, inte konsumenten.

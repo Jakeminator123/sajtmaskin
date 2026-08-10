@@ -34,7 +34,7 @@ bli en parallell runtime-owner.
 | `docs/decisions/`                   | Gällande ratificerade ägarbeslut, pekare till kanonisk källa  | Väntande beslutsfrågor (backlog), planstatus       |
 | `docs/generated/`                   | Deterministisk referens från registries, schemas och policies | Handskriven prosa och manuella korrigeringar       |
 | `docs/schemas/`                     | Mänskliga schemaförklaringar och `strict/` JSON schemas       | Osäkra utkast                                      |
-| `docs/runbooks/`, `docs/operating/` | Felsökning, drift och incidenter                              | Arkitekturindex och planarbete                     |
+| `docs/runbooks/`                    | Felsökning och drift                                          | Arkitekturindex och planarbete                     |
 | `docs/plans/active/`                | Planer som styr arbete nu                                     | Färdiga planer                                     |
 | `docs/plans/avklarat/`              | Avklarade beslut med fortsatt referensvärde                   | Aktiv status                                       |
 | `docs/plans/archived/`              | Parkerade, ersatta eller skrotade planer                      | Runtime-vägledning                                 |

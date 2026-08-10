@@ -1,6 +1,6 @@
 # Dossier — urvalsflöde och prompt-injection
 
-**Källtruth:** `src/lib/gen/dossiers/select.ts` + `src/lib/gen/system-prompt/`. **Schema:** `docs/schemas/strict/dossier.schema.json`. **Operativ guide:** `docs/operating/dossier-cheatsheet.md`. **Uppdaterad:** 2026-08-05.
+**Källtruth:** `src/lib/gen/dossiers/select.ts` + `src/lib/gen/system-prompt/`. **Schema:** `docs/schemas/strict/dossier.schema.json`. **Operativ guide:** [`dossier-cheatsheet.md`](dossier-cheatsheet.md). **Uppdaterad:** 2026-08-05.
 
 Den här filen visar **hur** en dossier väljs och **var** den landar i prompten — komplement till [`dossier-system.md`](../contracts/dossier-system.md) som beskriver **vad** systemet är.
 
@@ -138,7 +138,7 @@ Hela `## Available Dossiers`-blocket försvinner från system-prompten. Inget an
 
 ## Lifecycle: lägga till en dossier
 
-Två vägar (full guide i [`docs/operating/dossier-cheatsheet.md`](../operating/dossier-cheatsheet.md)):
+Två vägar (full guide i [`dossier-cheatsheet.md`](dossier-cheatsheet.md)):
 
 ### A. Hand-skriven
 
