@@ -38,7 +38,7 @@ node scripts/cursor/kedja-clean.mjs --yes --keep ..\sajtmaskin-kedja-x-a        
 
 Skriptet sparar varje worktrees diff hit **innan** den tas bort, och vägrar röra en worktree vars tillstånd det inte kunde läsa — en oläsbar worktree är oftast en som körs just nu. Branchar raderas bara när de heter `kedja/*` och saknar egna commits.
 
-Låt `--keep` peka på **vinnarens worktree-sökväg** tills fixen är mergad. Utan den flaggan städas även den bort (diffen sparas, men worktreet försvinner). En committad vinnar-branch överlever branch-sopan; ocommittade förlorare gör det inte.
+`--keep` tar **worktree-sökväg** och behövs främst för ocommittat arbete du vill skydda. En **committad** vinnare (`commits ahead of trunk`) behålls automatiskt även utan `--keep` — skriptet vägrar röra brancher/worktrees med egna commits. Ocommittade förlorare (inga commits ahead) sopas bort; deras diff sparas hit först.
 
 ## Relation till bugglistan
 

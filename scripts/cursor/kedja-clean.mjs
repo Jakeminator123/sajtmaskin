@@ -5,12 +5,13 @@
  * Tears down leftovers from `/kedja` runs: candidate worktrees named
  * `sajtmaskin-kedja-*` and their `kedja/*` branches.
  *
- * Why this exists: `/kedja` never commits — the whole value of a candidate is
- * its UNCOMMITTED diff. Deleting such a worktree is therefore always
- * destructive, which is why the pipeline saves each diff before teardown and
- * why an interrupted run leaves worktrees behind. This script makes the safe
- * order the default: save the diff first, remove second, and refuse to touch
- * anything it could not measure.
+ * Why this exists: loser candidates stay uncommitted (value = their diff);
+ * the winner is committed on its `kedja/*` branch as life insurance. Deleting
+ * an uncommitted worktree is destructive, so the pipeline saves each diff
+ * before teardown and interrupted runs leave debris. This script makes the
+ * safe order the default: save the diff first, remove second, and refuse to
+ * touch anything it could not measure — including worktrees/branches with
+ * commits trunk does not have (committed winners).
  *
  * Guard rails:
  *   - dry run unless `--yes`
