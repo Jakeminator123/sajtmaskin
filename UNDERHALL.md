@@ -55,9 +55,9 @@ tomma mappar efter raderade träd). Dry-run: `npm run clean:orphans:dry`
 ### `npm run kedja:clean`
 
 **Vad:** Torrkörning som listar kvarlämnade kedja-worktrees/brancher. Faktisk
-städ: `node scripts/cursor/kedja-clean.mjs --yes --keep <vinnar-branch>` —
-**inte** via `npm` (npm äter flaggorna). Rör aldrig andras pågående worktrees
-utan `--keep`.
+städ: `node scripts/cursor/kedja-clean.mjs --yes --keep ..\sajtmaskin-kedja-<slug>-a` —
+`--keep` tar **worktree-sökväg** (inte branchnamn). **Inte** via `npm` (npm
+äter flaggorna). Rör aldrig andras pågående worktrees utan `--keep`.
 
 **När:** Efter avbruten `/kedja`, eller när `git worktree list` visar skräp.
 **Hur ofta:** Efter varje kedja-körning som inte städades klart; annars månadsvis
@@ -160,4 +160,5 @@ git worktree list             # ta bort övergivna med worktree:remove
 ```
 
 Efter en tung agentvecka: lägg till `npm run kedja:clean` och följ upp med
-`node scripts/cursor/kedja-clean.mjs --yes --keep <det-du-vill-behålla>`.
+`node scripts/cursor/kedja-clean.mjs --yes --keep ..\sajtmaskin-kedja-<slug>-a`
+(worktree-sökväg, inte branchnamn).

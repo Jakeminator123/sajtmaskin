@@ -71,6 +71,10 @@ Motivering: <one sentence on why the red failure IS the bug>
 Then verify both yourself in that worktree. A green "red" test is a stop
 condition, not a nuisance.
 
+**Copy the verified test file into every other candidate worktree** before
+step 5/6 so all candidates are judged by the exact same red test + counter-test
+(same path under each worktree root). Do not re-write the tests per candidate.
+
 ### Step 3 — localisation agents (3 parallel, `readonly: true`, `<grok-4.5>`)
 
 Same bug and same test output for all three; only the angle differs.
@@ -97,6 +101,14 @@ Bevis: <what in the code makes you say that>
 Emot: <the strongest reason you could be wrong, or "-">
 Låst av test: <existing test that encodes today's behaviour, or "-">
 ```
+
+### Step 4 — choose root cause (orchestrator / runner)
+
+Read the code at the anchors the three hypotheses cite. If **two or more**
+agree on the same place, that is a strong signal — lock that root cause and
+continue. If they contradict: re-run step 3 **once** with a sharper question.
+Still unclear → **stop** (do not coin-flip). Fix agents in step 5 receive the
+chosen root cause; they must not re-diagnose.
 
 ### Step 5 — fix agents (N parallel, write, `<grok-4.5>`)
 
