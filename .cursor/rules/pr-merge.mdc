@@ -40,9 +40,13 @@ Detta är **mergarens** kontroll, skild från författarens bugg-efterkontroll l
 2. **Landar en Codex-review inom fönstret** → läs och triagera den. Ett redan gjort bugbot-pass behöver inte köras om — men kör bugbot ändå på protected paths. Codex ersätter **aldrig** författarens obligatoriska efterkontroll; den är ett tillägg.
 3. **Har inget bugbot-pass körts för aktuell SHA** — eller landade en ny commit efter passet — kör `bugbot`-subagenten **nu** (`readonly: true`, `model: <grok-4.5>`) och dokumentera fynden innan du mergar.
 
-### `--admin` är förbjudet före grinden
+### `--admin`: tillåtet på ägarens uppmaning, aldrig före grinden
 
-Admin-bypass kringgår allt: required checks och code-owner-review. Jakes egna PR:er kan inte självgodkännas och mergas därför med `--admin` — men först **efter** att hela grinden ovan är uppfylld och dokumenterad. `--admin` är aldrig en genväg förbi en utebliven granskning, ett rött check eller ett fönster som inte gått ut.
+**Ägarbeslut 2026-08-11:** ber ägaren om merge får agenten köra `gh pr merge --admin` direkt — ingen extra tillståndsfråga per PR. Mandatet ändrar **ingenting** i grinden ovan; den är fortfarande det enda som avgör.
+
+Admin-bypass kringgår required checks och code-owner-review, och ägarens egna PR:er kan ändå inte självgodkännas — därför är `--admin` normalvägen här, inte ett undantag. Men aldrig förbi ett rött check, en utebliven granskning eller ett fönster som inte gått ut. Eftersom `--admin` även överstyr `review-window` måste PR-åldern verifieras manuellt (`gh pr view <n> --json createdAt`).
+
+Mandatet gäller agent-merge, inte helautomatisk merge: dashboard-automationen "PR-mergare" förblir av (se "Vem mergar").
 
 ### Protected paths → kräver oberoende pass
 
