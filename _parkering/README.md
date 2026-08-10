@@ -10,6 +10,8 @@ Parkeringsyta för filer du vill behålla i git **utan** att de stör sökning/i
 - Utfasade dossier-träd är **borttagna** (2026-08-10). Återställ via
   git-historik (`data/dossiers/hard|soft/<id>/` före parkeringen) +
   `docs/plans/avklarat/README.md` (dossier-förenkling).
+- Gamla dump-MD (handoff/research) är **borttagna** (2026-08-10). Återställ
+  via git-historik om någon behöver dem.
 
 ## Vad som gäller
 
