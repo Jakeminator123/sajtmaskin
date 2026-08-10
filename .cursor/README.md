@@ -32,7 +32,7 @@ Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler ko
 | [bash-och-pwsh.mdc](rules/bash-och-pwsh.mdc)                       | PowerShell-syntax först (kort stub); felkatalog i `bash-och-pwsh-fel.mdc`                                                    |
 | [ema-pr-sparr.mdc](rules/ema-pr-sparr.mdc)                         | Tillfällig ägarspärr: `EmaCodeHero`-PR:er mergas aldrig av en agent, oavsett grönt CI                                        |
 | [git.mdc](rules/git.mdc)                                           | Inga PR:er; commit/push/merge bara på explicit begäran + ignore-filsbefogenhet                                               |
-| [mvp-scope-freeze.mdc](rules/mvp-scope-freeze.mdc)                 | MVP-frys: stabilitet före coolhet — inga nya features, ytor eller UI-element utan uttrycklig begäran                         |
+| [mvp-scope-freeze.mdc](rules/mvp-scope-freeze.mdc)                 | MVP-bias: stabilitet före coolhet — varna + fråga innan nya features/ytor                                                   |
 | [project-phase-priorities.mdc](rules/project-phase-priorities.mdc) | Projektprioritet, grundhygien och tooling-säkerhet (dev vs prod Supabase)                                                    |
 | [repo-router.mdc](rules/repo-router.mdc)                           | Snabb repo-router + env/indexering                                                                                           |
 | [response-format.mdc](rules/response-format.mdc)                   | Hur agenten svarar — kort, tabell vid val, svenska + parentesregeln för tech-ord                                             |

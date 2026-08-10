@@ -15,7 +15,7 @@ Lägg in en bugg i den **enda** bugglistan: [`BUG-SWARM-BACKLOG.md`](../../BUG-S
 1. **Körningsbrus:** CORS/CORB, Fast Refresh, CSP report-only, D-ID 4xx, enstaka nätverksblipp utan repro.
 2. **Ingen falsifierbar premiss** + saknat fil-/route-ankare (“känns trasigt”).
 3. **`/logg-internet` Observatör:** notera i run-filen; Aktiv kö bara efter persona **Felsökare** *och* bekräftad defekt.
-4. **Önskemål / saknad feature** under MVP-frys — inte bugg (beslut eller ignorera).
+4. **Önskemål / saknad feature** — inte bugg (beslut eller ignorera; varna per MVP-bias).
 5. **Dublett** av öppen rad — uppdatera den i stället.
 
 Osäker → `Behöver repro` eller bara körningsnotis. Hellre för få rader i Aktiv kö än för många.
