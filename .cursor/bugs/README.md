@@ -19,7 +19,7 @@ Mappen är **inte** i `.cursorignore`, så agenter kan läsa innehållet.
 
 ## Status
 
-Status lever **bara** i `BUG-SWARM-BACKLOG.md`. En fil här är en frusen evidens-snapshot, inte en status-källa. När en bugg fixas: flytta backlog-raden till arkivet (`docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`) och radera ev. lokal evidens-fil här. `npm run clean:scratch:apply` håller de tre nyaste som skyddsnät.
+Status lever **bara** i `BUG-SWARM-BACKLOG.md`. En fil här är en frusen evidens-snapshot, inte en status-källa. När en bugg fixas: flytta backlog-raden till `## Arkiv` i samma fil och radera ev. lokal evidens-fil här. `npm run clean:scratch:apply` håller de tre nyaste som skyddsnät.
 
 ## Filnamn-konvention
 

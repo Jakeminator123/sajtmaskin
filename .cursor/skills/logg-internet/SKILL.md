@@ -16,8 +16,8 @@ Prod-URL: **https://sajtmaskin.vercel.app/**
 
 | Persona | När | Beteende |
 |---|---|---|
-| **Observatör** (default) | alltid, om inget annat sägs | Beskriv neutralt vad som händer: prompts, svar, tider, preview-utfall, UI-tillstånd. Notera avvikelser, men jaga **inte** fel. |
-| **Felsökare** | bara om användaren säger "felsök" / "buggjägare" / "hitta fel" | Aktivt leta fel: console/network-fel, preview-krasch, trasiga flöden. Lyft bekräftad defekt via `/buggrapport`. |
+| **Observatör** (default) | alltid, om inget annat sägs | Beskriv neutralt vad som händer: prompts, svar, tider, preview-utfall, UI-tillstånd. Notera avvikelser, men jaga **inte** fel. **Ingen** rad i `BUG-SWARM-BACKLOG.md` Aktiv kö. |
+| **Felsökare** | bara om användaren säger "felsök" / "buggjägare" / "hitta fel" | Aktivt leta fel. Lyft **bara** bekräftad defekt via `/buggrapport` efter grinden (falsifierbar + ankare; inte CORS/Fast Refresh/enstaka 4xx). |
 
 Utgå alltid från Observatör i diskussion och körning tills användaren säger annat.
 
@@ -149,7 +149,7 @@ Persona: Observatör | Prod: https://sajtmaskin.vercel.app/ | chatId: <…>
 
 - **Prod = riktig generering** som drar credits. Kör bara efter uttryckligt OK (steg 0).
 - **Logga aldrig in åt användaren.** Lösenord/passkey/captcha = manuellt — påminn och pausa.
-- **Default = ta notiser.** Byt till Felsökare bara på begäran; lyft bekräftad defekt via `/buggrapport`.
+- **Default = ta notiser.** Byt till Felsökare bara på begäran. Observatör skriver aldrig SM-rader; Felsökare följer `/buggrapport`-grinden.
 - Browser-ordning: navigate → lock → interagera → **unlock**. Utelämna `position`.
 - Fastnar det (~4 misslyckade försök eller oväntat tillstånd): **stanna och rapportera**, improvisera inte.
 - Preview körs i **iframe** — innehållet syns inte i snapshot. Observera via screenshot + (vid behov) Fly preview-host-loggar (se `/logg`).

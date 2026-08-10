@@ -10,7 +10,6 @@
   ],
   "ignore": [
     "data/dossiers/**",
-    "_parkering/**",
     "logs/**",
     "src/lib/gen/scaffolds/*/files/**",
     "src/lib/sajtmaskin-registry/blocks/**",

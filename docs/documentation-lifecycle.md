@@ -34,7 +34,7 @@ bli en parallell runtime-owner.
 | `docs/decisions/`                   | Gällande ratificerade ägarbeslut, pekare till kanonisk källa  | Väntande beslutsfrågor (backlog), planstatus       |
 | `docs/generated/`                   | Deterministisk referens från registries, schemas och policies | Handskriven prosa och manuella korrigeringar       |
 | `docs/schemas/`                     | Mänskliga schemaförklaringar och `strict/` JSON schemas       | Osäkra utkast                                      |
-| `docs/runbooks/`, `docs/operating/` | Felsökning, drift och incidenter                              | Arkitekturindex och planarbete                     |
+| `docs/runbooks/`                    | Felsökning och drift                                          | Arkitekturindex och planarbete                     |
 | `docs/plans/active/`                | Planer som styr arbete nu                                     | Färdiga planer                                     |
 | `docs/plans/avklarat/`              | Avklarade beslut med fortsatt referensvärde                   | Aktiv status                                       |
 | `docs/plans/archived/`              | Parkerade, ersatta eller skrotade planer                      | Runtime-vägledning                                 |
@@ -61,10 +61,10 @@ När genererade referenser finns ska `docs/README.md` länka deras router.
 som generatorn slutat äga får inte ligga kvar och se canonical ut.
 
 `docs:links` ska verifiera relativa fil- och kataloglänkar i aktiva Markdown-
-ytor. Bara arkiverade och avklarade planer plus `_parkering/` ligger utanför den
-blockerande mängden; de ska städas eller märkas i separata historik-PR:er. Nya
-historikytor ska inte läggas till i undantaget — daterade revisioner och
-ögonblicksstatus hör i git, inte i en egen docs-katalog.
+ytor. Bara arkiverade och avklarade planer ligger utanför den blockerande
+mängden; de ska städas eller märkas i separata historik-PR:er. Nya historikytor
+ska inte läggas till i undantaget — daterade revisioner och ögonblicksstatus hör
+i git, inte i en egen docs-katalog.
 
 ## Terminologi
 

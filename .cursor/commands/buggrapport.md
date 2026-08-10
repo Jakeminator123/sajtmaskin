@@ -10,6 +10,16 @@ Lägg in en bugg i den **enda** bugglistan: [`BUG-SWARM-BACKLOG.md`](../../BUG-S
 - Hardening, testlucka, dokumentations- eller arkitekturskuld → **`## Säkerhet, infra och teknisk skuld`**. Det är ingen produktbugg och ska inte inflatera kön.
 - Läs `BUG-SWARM-BACKLOG.md` § "Hur den hålls sann" innan du skriver — den styr formatet.
 
+## Gate — skriv INTE till Aktiv kö om
+
+1. **Körningsbrus:** CORS/CORB, Fast Refresh, CSP report-only, D-ID 4xx, enstaka nätverksblipp utan repro.
+2. **Ingen falsifierbar premiss** + saknat fil-/route-ankare (“känns trasigt”).
+3. **`/logg-internet` Observatör:** notera i run-filen; Aktiv kö bara efter persona **Felsökare** *och* bekräftad defekt.
+4. **Önskemål / saknad feature** — inte bugg (beslut eller ignorera; varna per MVP-bias).
+5. **Dublett** av öppen rad — uppdatera den i stället.
+
+Osäker → `Behöver repro` eller bara körningsnotis. Hellre för få rader i Aktiv kö än för många.
+
 ## Indatakällor
 
 Välj den/de som finns:
@@ -40,7 +50,7 @@ Finns en aktuell öppen rad för samma rotorsak → **uppdatera den raden** (sk�
 
 Två olika ID, båda krävs för en Aktiv kö-rad:
 
-- **Stabilt rad-ID `SM-###`** — radens identitet. Hitta högsta befintliga `SM-` i `BUG-SWARM-BACKLOG.md` **och** i [`backlog-omstrukturering-2026-08-05.md`](../../docs/plans/avklarat/bug-swarm/backlog-omstrukturering-2026-08-05.md) samt arkivfilerna, och ta nästa lediga nummer. **Återanvänd aldrig** ett nummer, inte ens från en arkiverad rad.
+- **Stabilt rad-ID `SM-###`** — radens identitet. Hitta högsta befintliga `SM-` i `BUG-SWARM-BACKLOG.md` **och** i [`docs/plans/avklarat/bug-swarm/README.md`](../../docs/plans/avklarat/bug-swarm/README.md) (fältet "Högsta förbrukade"), och ta nästa lediga nummer. **Återanvänd aldrig** ett nummer, inte ens från en arkiverad rad (äldre arkiv = git-historik).
 - **Källa-tag `M#<n>`** — varifrån fyndet kom. Manuellt rapporterade buggar inkrementerar högsta `M#` (`M#1`, `M#2`, …). Saknas någon → börja på `M#1`.
 
 ### 3. Lägg till raden

@@ -25,7 +25,7 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 - **Observability:** [`agent-observatory.mdc`](.cursor/rules/agent-observatory.mdc), [`useful-commands.mdc`](.cursor/rules/useful-commands.mdc)
 - **Plan-/bug-livscykel:** [`plan-lifecycle.mdc`](.cursor/rules/plan-lifecycle.mdc) — när planer ska parkas/avklaras/raderas + frontmatter-krav. Avklarad historik: läs det tunna indexet [`docs/plans/avklarat/README.md`](docs/plans/avklarat/README.md) + git — gräv inte i eller återskapa stora plandetaljfiler.
 - **Terminologi / ton:** [`terminology.mdc`](.cursor/rules/terminology.mdc), [`response-format.mdc`](.cursor/rules/response-format.mdc)
-- **MVP-fas:** [`mvp-scope-freeze.mdc`](.cursor/rules/mvp-scope-freeze.mdc) — stabilitet före coolhet; inga nya features, ytor eller UI-element utan uttrycklig begäran
+- **MVP-fas:** [`mvp-scope-freeze.mdc`](.cursor/rules/mvp-scope-freeze.mdc) — stabilitet före coolhet; varna + fråga innan nya features/ytor
 
 ## Codex Desktop
 

@@ -41,8 +41,7 @@
     "**/node_modules": true,
     "templates_v0/**": true,
     "data/template-references/**": true,
-    "data/dossiers/_repo-cache/**": true,
-    "_parkering/**": true
+    "data/dossiers/_repo-cache/**": true
   },
 
   // ── Dölj i sök (Ctrl+Shift+F) ──
@@ -55,8 +54,7 @@
     "**/dist": true,
     "templates_v0/**": true,
     "data/template-references/**": true,
-    "data/dossiers/_repo-cache/**": true,
-    "_parkering/**": true
+    "data/dossiers/_repo-cache/**": true
   },
 
   // ── Sluta filbevaka tungt (fixar "watcher stopped" — ~149k filer i template-references) ──
@@ -72,8 +70,7 @@
     "templates_v0/**": true,
     "data/template-references/**": true,
     "data/dossiers/_repo-cache/**": true,
-    "eval-output/**": true,
-    "_parkering/**": true
+    "eval-output/**": true
   },
   "search.useIgnoreFiles": true,
   "search.useGlobalIgnoreFiles": true,

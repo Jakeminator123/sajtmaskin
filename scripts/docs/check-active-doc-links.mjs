@@ -8,7 +8,12 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const HISTORICAL_DOC_PREFIXES = Object.freeze([
   "docs/plans/archived/",
   "docs/plans/avklarat/",
-  "_parkering/",
+]);
+
+/** Index/router files that must stay link-clean even under historical prefixes. */
+export const ALWAYS_CHECK_DOC_PATHS = Object.freeze([
+  "docs/plans/active/README.md",
+  "docs/plans/avklarat/README.md",
 ]);
 
 function compareText(left, right) {
@@ -17,10 +22,9 @@ function compareText(left, right) {
 
 export function isActiveMarkdown(path) {
   const extension = extname(path).toLowerCase();
-  return (
-    (extension === ".md" || extension === ".mdx") &&
-    !HISTORICAL_DOC_PREFIXES.some((prefix) => path.startsWith(prefix))
-  );
+  if (!(extension === ".md" || extension === ".mdx")) return false;
+  if (ALWAYS_CHECK_DOC_PATHS.includes(path)) return true;
+  return !HISTORICAL_DOC_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
 function withoutCode(content) {

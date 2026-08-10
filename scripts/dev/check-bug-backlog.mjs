@@ -63,7 +63,7 @@ export function validateBacklog(body) {
 
       // 1. Inga avbockade rader i Aktiv ko - fixat ska FLYTTAS till arkivet.
       if (klar === "[x]") {
-        failures.push(`closed row "[x]" left in Aktiv kö (move it to the archive file): ${label}`);
+        failures.push(`closed row "[x]" left in Aktiv kö (move it to ## Arkiv in BUG-SWARM-BACKLOG.md): ${label}`);
         continue;
       }
 
@@ -71,7 +71,7 @@ export function validateBacklog(body) {
       //    pastar att den ar klar (klassisk drift: fix-status men gloomd kryssruta).
       if (/^\[\s*\]$/.test(klar) && RESOLVED_STATUS_RE.test(status)) {
         failures.push(
-          `open row "[ ]" claims resolved status "${status}" — flip to [x] and move to archive, or correct the status: ${label}`,
+          `open row "[ ]" claims resolved status "${status}" — flip to [x] and move to ## Arkiv, or correct the status: ${label}`,
         );
       }
 

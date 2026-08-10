@@ -2,23 +2,24 @@
 
 **Enda aktiva bugglistan i repot.** Lokal markdown är källan till sanning — ingen Linear, ingen extern tracker. Formatkontrollen (`npm run check:bug-backlog` → `scripts/dev/check-bug-backlog.mjs`, blockerande CI-steg i `quality`) och canvas-generatorn (`scripts/canvas/build-llm-flow-canvas.mjs`) läser **`## Aktiv kö`** nedan.
 
-Filen omstrukturerades 2026-08-05: `Aktiv kö` gick från 55 rader till 21, eftersom 34 av dem inte var bekräftade produktfel utan repro-behov, ägarbeslut, teknisk skuld eller redan löst. Ingen rad raderades — granskningsgrund, full beslutsmatris (`R1`–`R55` → nya ID) och en fryst kopia av den gamla filen ligger i [`backlog-omstrukturering-2026-08-05.md`](docs/plans/avklarat/bug-swarm/backlog-omstrukturering-2026-08-05.md).
+Filen omstrukturerades 2026-08-05: `Aktiv kö` gick från 55 rader till 21, eftersom 34 av dem inte var bekräftade produktfel utan repro-behov, ägarbeslut, teknisk skuld eller redan löst. Ingen rad raderades — granskningsgrund och R1–R55-matrisen ligger i git-historiken (`docs/plans/avklarat/bug-swarm/backlog-omstrukturering-2026-08-05.md`, borttagen som fil 2026-08-10).
 
-Avslutade rader flyttas till [`backlog-arkiv-2026-07-25.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-25.md) (senaste), [`backlog-arkiv-2026-07-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-24.md), [`backlog-arkiv-2026-07-22.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-22.md), [`backlog-arkiv-2026-07-02.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-02.md), [`backlog-arkiv-2026-06-27.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-27.md) och [`backlog-arkiv-2026-06-24.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-06-24.md) (fryst historik). Grandmaster-svärmens B01–B15 = löst historik i [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md).
+Avslutade rader flyttas till `## Arkiv` nedan som `[x]` med PR/commit-ref. Äldre bulk-arkiv (`backlog-arkiv-*.md`) är borttagna som filer — full text i git. Tunnt index + högsta `SM`-ID: [`docs/plans/avklarat/bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md).
 
 ## Hur den hålls sann
 
 | Regel | Vad |
 | --- | --- |
 | **Sex sektioner, en dom per rad** | `Aktiv kö` (bekräftade fel) · `Release blocker` (bakom avstängd flagga) · `Behöver repro` (trovärdig men obevisad) · `Väntar på ägarbeslut` (systemet gör som tänkt) · `Säkerhet, infra och teknisk skuld` (ingen produktbugg) · `Arkiv`. Hör raden i två sektioner: **dela den**, skriv den inte i båda. |
-| **Aktiv kö = bara öppna defekter** | Rader där systemet gör fel. Alla rader är `[ ]`. När en rad fixas: **flytta** den till arkivfilen som `[x]` med fix-referens (commit/PR). Bocka inte av på plats. |
-| **Stabilt ID** | Varje rad i `Aktiv kö` börjar med `` `SM-###` `` i `Fynd`-cellen. ID:t är stabilt, återanvänds **aldrig**, och säger ingenting om prio eller position — nya rader tar nästa lediga nummer. Refera till en rad med ID, inte med "raden ovan" eller ett radnummer. **ID:t följer med raden till arkivfilen** när den fixas: nästa lediga nummer räknas ut ur kön **plus** arkiven, så en arkiverad rad som tappar sitt ID gör att numret tystnadsfullt kan delas ut igen. Är ett ID förbrukat utan att raden finns kvar någonstans (t.ex. arkiverad innan formatet fanns): skriv en rad om det, som för `SM-010` längst ned. |
+| **Aktiv kö = bara öppna defekter** | Rader där systemet gör fel. Alla rader är `[ ]`. När en rad fixas: **flytta** den till `## Arkiv` nedan som `[x]` med fix-referens (commit/PR). Bocka inte av på plats. |
+| **Stabilt ID** | Varje rad i `Aktiv kö` börjar med `` `SM-###` `` i `Fynd`-cellen. ID:t är stabilt, återanvänds **aldrig**, och säger ingenting om prio eller position — nya rader tar nästa lediga nummer. Refera till en rad med ID, inte med "raden ovan" eller ett radnummer. **ID:t följer med raden till `## Arkiv`** när den fixas: nästa lediga nummer räknas ur kön + `## Arkiv` + [`bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md) (högsta förbrukade). Är ett ID förbrukat utan att raden finns kvar någonstans: skriv en rad om det, som för `SM-010` längst ned. |
 | **En falsifierbar premiss** | Fyndcellen ska gå att motbevisa med kod eller en körning. Är premissen bred: dela raden. Lång historik och gamla PR-resonemang hör i arkivet/journalen, inte i kön. |
 | **En sanning per rad** | Skriv aldrig "FIXAD" i prosan på en `[ ]`-rad. Det är en motsägelse och formatkontrollen failar (`npm run check:bug-backlog`). Ligger fixen i en **öppen** PR står raden kvar tills den mergas. |
 | **Beslut ≠ bug** | Saker där systemet gör som tänkt men vi *kan* välja annorlunda (fail-open, default-off-flaggor, degraded-policy) hör i `Väntar på ägarbeslut` — de räknas inte som risk i canvasen. Ett beslut utan **beslutsägare och deadline** blir en permanent pseudobugg. |
 | **Kan ej verifieras statiskt** | Fynd som kräver repro/livekörning hör i `Behöver repro` tills någon kört dem, med exakt vad som ska köras för att raden får flytta. |
 | **Skuld ≠ bug** | Hardening, testluckor, dokumentations- och arkitekturskuld räknas inte som produktbuggar och ska inte inflatera kön. |
-| **Inflöde** | Nya buggar: `/buggrapport` (skriver en `M#`-rad + nästa lediga `SM`-ID) eller PR-review-gaten (`pr-merge.mdc` → logga med fil-ankare). |
+| **Gate före Aktiv kö** | Lägg **inte** in en rad i Aktiv kö om något av detta gäller: (1) engångs-/körningsbrus (CORS, Fast Refresh, CSP report-only, enstaka 4xx utan repro), (2) “känns konstigt” utan falsifierbar premiss + fil-ankare, (3) observation från `/logg-internet` Observatör utan bekräftad defekt, (4) saknad feature / UX-önskemål (backlog-beslut eller ignorera — se MVP-bias), (5) redan täckt av öppen rad (uppdatera den). Osäker → `Behöver repro` eller lämna i körningsnotisen — **inte** Aktiv kö. |
+| **Inflöde** | Nya buggar: `/buggrapport` (efter grinden ovan) eller PR-review (`pr-merge.mdc` → logga P0/P1 med fil-ankare; P2/P3 bara om falsifierbar). |
 
 **Status-legend:** `[ ]` = öppen. Källa-taggar: `G#`/`U#` = gamla GPT/UI-svärmlistor, `N#` = defensiv triage, `R#` = äldre kodrapport, `B#` = grandmaster-svärm, `E#` = eval, `FEL#`/`MB#`/`BB#` = PR-review-fynd, `M#` = manuellt rapporterad, `journal R#` = raden i den frysta för-migrationssnapshoten.
 
@@ -26,7 +27,7 @@ Avslutade rader flyttas till [`backlog-arkiv-2026-07-25.md`](docs/plans/avklarat
 
 Bekräftade öppna defekter. Detta är den enda listan att jobba ur. Canvasen visar dessa som öppna huvudrisker.
 
-> **Senast helverifierad:** 2026-08-05 mot master `2044877c` (sex områdesgranskningar + korsgranskning). Varje rad här kodverifierades som fortfarande öppen; 34 rader flyttades ur kön och 4 arkiverades. Beslutsmatris och fryst historik: [`backlog-omstrukturering-2026-08-05.md`](docs/plans/avklarat/bug-swarm/backlog-omstrukturering-2026-08-05.md).
+> **Senast helverifierad:** 2026-08-05 mot master `2044877c` (sex områdesgranskningar + korsgranskning). Varje rad här kodverifierades som fortfarande öppen; 34 rader flyttades ur kön och 4 arkiverades. Beslutsmatris/fryst historik: git (`backlog-omstrukturering-2026-08-05.md`).
 >
 > **Framburen till master `2a9f02050`** (2026-08-05): master hann ändra den gamla filen efter verifieringsbasen, så två deltan är applicerade för hand i stället för att skrivas över. `SM-010` (preview-host boot-fel) arkiverades när #799 mergades, och den enda rad master lade till — `worktree:remove` mot `.env.local`-symlänk — lever nu som `SM-022`.
 >
@@ -136,14 +137,14 @@ Varje rad ska ha en beslutsägare och en deadline eller trigger. Utan det blir b
 | P3 | Efter nuvarande minnesmitigering: vilken SLO skulle motivera en separat verify-lane från preview-VM:n? `journal R34` | Jake | Bara om preview-VM-minnet blir en incident igen |
 | P2 | **Latens steg 3:** ska en F2-preview köra ett 69-sekunders verifier-LLM-pass alls, när RenderGate ändå ägs av klienten? Kodändringen är liten, beslutet är det inte — "nej, verifiern stannar" är ett giltigt utfall som skrivs ner. `verificationPolicy: "strict"` och fixer-riskklassningen rörs inte oavsett. Underlag: [`docs/plans/archived/2026-08-05-generationslatens/`](docs/plans/archived/2026-08-05-generationslatens/00-master-plan.md) (risknot + mätning). | Jake | Nästa gång latens prioriteras (post-MVP) |
 | P3 | **Latens steg 4:** parallell codegen (kontraktspass, N workers per filgrupp, merge) — beslutspunkt gated av `mvp-scope-freeze.mdc`, rör SSE-/kreditkontraktet i grunden. Underlag: [`docs/plans/archived/2026-08-05-generationslatens/02-parallell-codegen.md`](docs/plans/archived/2026-08-05-generationslatens/02-parallell-codegen.md). | Jake | Post-MVP, bara vid uttrycklig beställning |
-| P2 | **A5 typecheck-policy:** ska `defect.kind: "compile"` i en levererad verbatim dossier-fil få promotas (dagens Advisory) eller blockera? Extern granskning 2026-08-08 rekommenderar blockerande, om inte systemet mekaniskt kan ta bort/ersätta den trasiga dossiern. Ur prod-körningen 2026-08-05 (`docs/plans/active/2026-08-05-prodkorning-dossiers/`). | Jake | Nästa F3-härdningspass eller nästa dossier-compile-incident |
-| P3 | **`_parkering/`-rest:** utfasade dossier-träd + referensmigrering **gjord 2026-08-10**. Kvar: dump-filer i `_parkering/` (handoff/research) och om hela mappen ska bort — kräver fortfarande exclude-poster i `tsconfig`/`knip`/`.vscode`/`.cursorindexingignore`. | Jake | Valfritt städpass |
-| P3 | **Historik-omskrivning (`git filter-repo`):** packen är 624 MiB för en 66 MiB arbetsyta (embeddings-versioner ~85 MiB, QA-zippar, videor). Destruktiv engångsoperation — force-push + omkloning av alla kloner — receptet med borttagningsmål ligger i saneringsplanens `05-repo-storlek.md` (git). Förutsätter att Blob-flytten (teknisk skuld-raden) är gjord + tom PR-kö. Får aldrig köras av en agent på eget initiativ. | Jake | När repo-storleks-skulden betalats och PR-kön är tom |
+| P2 | **A5 typecheck-policy:** ska `defect.kind: "compile"` i en levererad verbatim dossier-fil få promotas (dagens Advisory) eller blockera? Extern granskning 2026-08-08 rekommenderar blockerande, om inte systemet mekaniskt kan ta bort/ersätta den trasiga dossiern. Ur prod-körningen 2026-08-05 ([`docs/plans/archived/2026-08-05-prodkorning-dossiers/`](docs/plans/archived/2026-08-05-prodkorning-dossiers/)). | Jake | Nästa F3-härdningspass eller nästa dossier-compile-incident |
+| P3 | **Repo-storlek (Blob vs git):** ska `public/video/intro.mp4` (~35 MiB) och `template-embeddings.json` (~9 MiB) flyttas till Blob + lazy load (recept: saneringsplanens `05-repo-storlek.md` i git), eller lämnas spårade tills vidare? Historik-omskrivning (`git filter-repo`) är meningslös innan detta. | Jake | När du vill betala repo-storlek / före filter-repo |
+| P3 | **Historik-omskrivning (`git filter-repo`):** packen är 624 MiB för en 66 MiB arbetsyta (embeddings-versioner ~85 MiB, QA-zippar, videor). Destruktiv engångsoperation — force-push + omkloning av alla kloner — receptet med borttagningsmål ligger i saneringsplanens `05-repo-storlek.md` (git). Förutsätter att Blob-flytten (ägarbeslutet ovan) är gjord + tom PR-kö. Får aldrig köras av en agent på eget initiativ. | Jake | När repo-storleks-beslutet är ja och PR-kön är tom |
 | P3 | **Produktbenchmark (20–30 verkliga byggen):** stående mätning av preview-success, first-attempt-pass, repair-frekvens, tid till preview, kostnad per lyckad sajt, deploy-success — metrik- och formtabellen ligger i saneringsplanens `07-produktbenchmark.md` (git). Bygga eller inte är ett produktval under MVP-frysen; datakällorna (generation_telemetry, engine_generation_logs, `/api/metrics`) finns redan. | Jake | Inför lansering/värdering (post-MVP) |
 
 ### Tidigare beslutskluster
 
-Arkiverade 2026-08-10 → [`beslutskluster-arkiv-2026-08-10.md`](docs/plans/avklarat/bug-swarm/beslutskluster-arkiv-2026-08-10.md) (oförändrade rader/essäer från före tabellformen). Öppna beslut = tabellen ovan.
+Arkiverade 2026-08-10 → git-historik (`docs/plans/avklarat/bug-swarm/beslutskluster-arkiv-2026-08-10.md`, fil borttagen samma dag). Öppna beslut = tabellen ovan.
 
 
 ## Säkerhet, infra och teknisk skuld
@@ -167,12 +168,11 @@ Ingen av dessa är en produktbugg. De ska inte inflatera `Aktiv kö` och räknas
 | P3 | Scaffold-skuld | Dashboard-light-gapet (delen av `SM-021` som inte är metadatakonflikten). | `journal R7` |
 | P3 | Modellkälla-skuld | Bredare gap bakom `SM-020`: adminverktygets modellista härleds inte ur workload-manifestet, så retired ID kan dyka upp igen på nya ytor. | `journal R53` |
 | P3 | Härdning (`SM-029`) | `version-presence` kan klassa ett gammalt RAG-projekts chat-route som openai-chat-bevis (`api/chat/route.ts` delas). Population idag: **noll** (rag-chat selekterades aldrig i prod). Om äkta RAG ska särskiljas: matcha på `lib/rag/*` innan `ai-chat`-bevis stämplas. Ägare: `src/lib/gen/dossiers/version-presence.ts`. | Extern review 2026-08-06; flyttad ur Aktiv kö 2026-08-10 |
-| P3 | Repo-storlek | `public/video/intro.mp4` (35,5 MiB, används av `onboarding-modal.tsx`) och `src/lib/templates/template-embeddings.json` (8,8 MiB, bundlas synkront via `require()` i `template-search.ts`) är fortfarande git-spårade. Flytt till Blob + lazy load med fallback-test enligt steg 7-receptet i saneringsplanens `05-repo-storlek.md` (git). Först därefter är historik-omskrivningen (ägarbeslutsraden ovan) meningsfull. | Saneringsplanen steg 7 |
-| P3 | Dependency-skuld | Generatorns paketversioner (22 "oanvända" deps enligt knip) saknar deklarativ katalog-JSON (`config/generated-site-dependencies.json`) — appens `package.json` ljuger om vad appen använder. Katalogen är klar på `chore/sanering-integration` (commit `8305869d1`, **radera inte branchen** — katalogen är dess sista olevererade innehåll) men i konflikt med dagens `dep-completer.ts` — görs om mot dagens fil. Paket-för-paket-inventeringen (vilka som bara kan flyttas vs. vilka warm-cache-typechecken kräver installerade) ligger i saneringsplanens `06-dependency-split.md` (git). | Saneringsplanen steg 9 |
+| P3 | Dependency-skuld | Generatorns paketversioner (knip-flaggade "oanvända" deps) saknar deklarativ katalog-JSON (`config/generated-site-dependencies.json`) — appens `package.json` blandar app-deps med det generatorn vill injicera i användarsajter. Utkast fanns på `origin/chore/sanering-integration`; måste göras om mot dagens `dep-completer.ts`. Inventering: saneringsplanens `06-dependency-split.md` (git). | Saneringsplanen steg 9 |
 
-## Arkiv (avslutat i denna omstrukturering)
+## Arkiv
 
-Flyttade ur kön med fixreferens. Full historik i [`backlog-omstrukturering-2026-08-05.md`](docs/plans/avklarat/bug-swarm/backlog-omstrukturering-2026-08-05.md).
+Flyttade ur kön med fixreferens. Äldre bulk-arkiv + omstruktureringsmatris: git (se [`bug-swarm/README.md`](docs/plans/avklarat/bug-swarm/README.md)). Nya avslut läggs **här** som `[x]`, inte i nya `backlog-arkiv-*.md`.
 
 | Rad | Dom | Bevis / destination |
 | --- | --- | --- |
@@ -182,8 +182,9 @@ Flyttade ur kön med fixreferens. Full historik i [`backlog-omstrukturering-2026
 | `journal R47` | Kodfixad | Preview-hostens status skiljer nu `running`, `httpReady` och `readinessState`. |
 | `journal R40` (moderrad) | Levererad; residual kvar | Moderraden är levererad; bara F10-residualen står kvar och lever som `SM-001`. |
 | `journal R16`, `R7`, `R53` (delar) | Delvis löst | De redan lösta eller skuldklassade delarna är arkiverade; bara den smala aktiva premissen står kvar som `SM-009`, `SM-021` respektive `SM-020`. |
+| `_parkering/` | Borttaget 2026-08-10 | Hela mappen + dump-MD + utfasade dossier-träd raderade; exclude-poster synkade. |
 
-`journal R50` bar `SM-010` i den första omstruktureringen, eftersom fixen då låg i öppen PR #799. #799 mergades innan den här filen nådde master, så raden är arkiverad som `[x] Fixad` i [`backlog-arkiv-2026-07-25.md`](docs/plans/avklarat/bug-swarm/backlog-arkiv-2026-07-25.md) och `SM-010` är **förbrukat** — ID:t återanvänds aldrig. Platsen i kön togs i stället av `SM-022`, som är den enda rad master hann lägga till efter omstruktureringens bas.
+`journal R50` bar `SM-010` i den första omstruktureringen, eftersom fixen då låg i öppen PR #799. #799 mergades innan den här filen nådde master, så raden är `[x]` i git-historikens `backlog-arkiv-2026-07-25.md` och `SM-010` är **förbrukat** — ID:t återanvänds aldrig. Platsen i kön togs i stället av `SM-022`.
 
 ## Naming-debt: `v0ChatId`
 

@@ -1,10 +1,18 @@
 ---
-status: active
+status: archived
 owner: unassigned
 topic: Ägarens UX-punkter från prod-sessionen 2026-08-05, uttryckta under körning. Detta är den uttryckliga begäran-listan i MVP-frysens mening — men varje punkt kräver fortfarande ägarens go per punkt innan bygge.
 created: 2026-08-05
 source: Ägarens kommentarer i realtid under observatörssessionen (chatId 3a6c5472). U7 är mätt och verifierad; övriga är formulerade önskemål.
 ---
+
+> Status: Archived
+> Not current architecture.
+> Do not use as runtime guidance.
+> Replaced by: [BUG-SWARM-BACKLOG](../../../BUG-SWARM-BACKLOG.md)
+>
+> Parkerad 2026-08-10: dossier-defekter A1/A3/A4 levererade; planen styr inte längre aktivt arbete.
+
 
 # Ägarens UX-punkter, en per rad
 

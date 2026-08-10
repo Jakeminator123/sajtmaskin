@@ -39,7 +39,7 @@ Det här är en **schema-/kontraktsöversikt**, inte full arkitekturtext. För f
 
 Briefen är den **kanoniska semantiska expansionen** för init. Brief-objektet skickas via `meta.brief` och konsumeras av `buildDynamicContext()`. Brief-deriverad prose sammanfogas inte längre med `customInstructions` — `customInstructions` bär enbart användarens egna instruktioner. Server Auto-Brief (`shouldRunServerAutoBrief`) körs som fallback när klienten inte skickar brief; den hoppar bara över audit, technical/preserved payload och follow-up, inte strukturerade init-prompts. **Follow-ups återkör inte Deep Brief-LLM:en** — när `meta.brief` saknas hydreras en minimal snapshot-brief (requestedCapabilities, domainProfile-slug, visualDirection.styleKeywords, toneAndVoice, qualityBar, motionLevel, colorPalette, typography, projectTitle, brandName) från `orchestration_snapshot.briefSummary` via `buildFollowUpBriefFromSnapshot()`. Följ-upen förlitar sig alltså på persisted scaffold, snapshot-brief och tidigare filer.
 
-Briefen matar in i scaffoldmatchningen via `ScaffoldQueryContext` (pages, styleKeywords, domainHints → keyword-boost + berikad embedding-prompt). Route-planen mergear brief-routes som startpunkt, inte override. Se `docs/contracts/policy/component-library.md` för komponentbibliotekspolicy.
+Briefen matar in i scaffoldmatchningen via `ScaffoldQueryContext` (pages, styleKeywords, domainHints → keyword-boost + berikad embedding-prompt). Route-planen mergear brief-routes som startpunkt, inte override. Se [`docs/contracts/component-library.md`](../contracts/component-library.md) för komponentbibliotekspolicy.
 
 ### 2. Keyword och embeddings körs parallellt; merge-policy jämför signalerna
 

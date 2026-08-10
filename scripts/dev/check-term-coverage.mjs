@@ -37,7 +37,6 @@ const IGNORE_DIRS = new Set([
   "build",
   "coverage",
   "_archived",
-  "_parkering",
 ]);
 
 // Definition/meta files that obviously contain the aliases (they define them) - skip so

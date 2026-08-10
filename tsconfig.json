@@ -47,7 +47,6 @@
     "data/eval-runs",
     "data/dossiers",
     "data/template-references",
-    "_parkering",
     "archive",
     "output",
     "src/lib/gen/scaffolds/*/files",

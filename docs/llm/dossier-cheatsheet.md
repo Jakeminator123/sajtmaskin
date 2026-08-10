@@ -1,6 +1,12 @@
 # Dossier cheatsheet
 
-Snabbreferens för dossier-systemet (v2). Full spec: `docs/contracts/dossier-system.md`.
+Snabbreferens för dossier-systemet (v2).
+
+| Behöver du… | Läs |
+|---|---|
+| Full modell / invariants | [`docs/contracts/dossier-system.md`](../contracts/dossier-system.md) |
+| Urval + prompt-injection | [`dossier-selection-flow.md`](dossier-selection-flow.md) |
+| Skriva ny dossier (AI-kontrakt) | [`dossier-author-template.md`](dossier-author-template.md) |
 
 ## Tre axlar — svara på rätt fråga
 
