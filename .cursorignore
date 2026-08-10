@@ -65,3 +65,11 @@ google-services.json
 # blockerar LÄSNING, och det är poängen här — cachen är en flera megabyte stor
 # enradig JSON som förstör kontexten för den agent som råkar öppna den.
 .eslintcache
+# --- Embedding-JSON (Read-fälla) ---
+# Redan i .cursorindexingignore (osökbara) men fortfarande läsbara. En enda
+# Read på template-embeddings.json (~9 MB, en rad) förstör kontexten — samma
+# klass som .eslintcache ovan. Runtime/scripts läser via Node/terminal.
+**/template-embeddings.json
+**/scaffold-embeddings.json
+**/variant-embeddings.json
+**/dossier-embeddings.json

@@ -59,9 +59,9 @@ Avstämd mot master 2026-08-08, efter #828, hela dossier-förenklingen
    det som dödade versionen var den inaktuella verifier-domen, som nu
    stale-checkas mot mergade filer. Residual: åtgärdsspår (b), versionspinnar i
    dossier-manifestens `dependencies` — oprioriterad idé, ingen defekt.
-4. **OpenClaw auto-send-effekten** ([`02-defekter-pipeline.md`](02-defekter-pipeline.md) § B1)
-   — gör hela armerade autonomin obrukbar; orsaken är en beroendelista.
-   Spårad som `SM-026` i backloggen.
+4. ~~**OpenClaw auto-send-effekten** ([`02-defekter-pipeline.md`](02-defekter-pipeline.md) § B1)~~
+   — **levererad i #846** (2026-08-08, `SM-026` i arkivet): armerad auto-send
+   överlever omrenderingar.
 5. **Typecheck-advisory-policyn** (§ A5) — ägarbeslut, inte bugg: ska
    `defect.kind: "compile"` i en verbatim dossier-fil få promotas?
 

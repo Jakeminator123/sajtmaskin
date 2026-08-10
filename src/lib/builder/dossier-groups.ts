@@ -14,7 +14,7 @@
  *
  * Taxonomy 2026-07-22: groups rebuilt around common business-site needs
  * (search/maps/media got real homes; the parked content-section and
- * parallax/marquee capabilities left the map — see `_parkering/`).
+ * parallax/marquee capabilities left the map — see dossier-förenkling i avklarat).
  */
 
 export interface DossierGroup {
@@ -91,7 +91,7 @@ const CAPABILITY_TO_GROUP_ID: Record<string, DossierGroupId> = {
   "dashboard-charts": "interactive",
   // Operations: fire-and-forget observability. `realtime`, `error-tracking`
   // and `image-generation` left the map 2026-08-06 when their sole provider
-  // dossiers were parked (see `_parkering/dossiers-utfasade-2026-08-06/`).
+  // dossiers were parked 2026-08-06 (träd borttaget 2026-08-10; git-historik).
   analytics: "ops",
 };
 

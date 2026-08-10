@@ -35,14 +35,8 @@ Full tooling-setup: [`local-tooling-mcp.mdc`](local-tooling-mcp.mdc).
 - Föredra läsbara (non-sensitive, `encrypted`-typ) Vercel-env så värden kan inspekteras; markera inte `sensitive` i onödan.
 - Ta inte bort `ENV_VAR_ENCRYPTION_KEY` (lagrade projektEnvVars blir odekrypterbara → tyst dataförlust).
 
-## Repo-synlighet (obs)
+## Repo-synlighet
 
-Repot är **publikt** sedan 2026-07-18 (GitHub API utan credentials →
-`private: false`, `visibility: public`; anonym `git ls-remote` fungerar). Publik
-hygien är därför obligatorisk: committa inga secrets, och var sparsam med
-admin-/credit-mekanik och infra-id:n i docs (t.ex. exakt "bli admin → 10 000
-diamonds"-recept). "Läsbar env" ovan gäller Vercel-dashboarden — inte en
-licens att skriva känsligt i git. Verifiera synligheten på nytt innan ett
-framtida styrbeslut bygger på den; ägaren kan ändra den igen.
-
+Repot är **publikt**. Committa inga secrets; var sparsam med admin-/credit-mekanik
+och infra-id:n i docs. "Läsbar env" ovan gäller Vercel-dashboarden — inte git.
 Skriv säkerhetsfynd som tydlig backlog om de inte är P0/P1.

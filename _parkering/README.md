@@ -1,23 +1,26 @@
 # _parkering
 
-Parkeringsyta för filer och mappar du vill jobba med **senare** men inte ha liggande i projektroten eller i vägen för sökning/index.
+Parkeringsyta för filer du vill behålla i git **utan** att de stör sökning/index.
+**Inte** source of truth — runtime läser inte härifrån.
 
-## Vad som gäller för den här mappen
+## Agenter
+
+- **Läs inte** den här mappen som bakgrund. Öppna bara en fil om användaren
+  uttryckligen pekar på den.
+- Utfasade dossier-träd är **borttagna** (2026-08-10). Återställ via
+  git-historik (`data/dossiers/hard|soft/<id>/` före parkeringen) +
+  `docs/plans/avklarat/README.md` (dossier-förenkling).
+
+## Vad som gäller
 
 | Aspekt | Status | Styrs av |
 |---|---|---|
-| Cursor AI-index (semantisk sökning) | **Av** | `.cursorindexingignore` (`_parkering/`) |
-| Filbevakare (live filändringar i editorn) | **Av** | `.vscode/settings.json` -> `files.watcherExclude` |
-| Sök (Ctrl+Shift+F) | **Av** | `.vscode/settings.json` -> `search.exclude` |
+| Cursor AI-index | **Av** | `.cursorindexingignore` (`_parkering/`) |
+| Filbevakare | **Av** | `.vscode/settings.json` → `files.watcherExclude` |
+| Sök (Ctrl+Shift+F) | **Av** | `.vscode/settings.json` → `search.exclude` |
 | Git | **På** (spåras normalt) | - |
-
-Öppna filer härinne med `@`-referens eller direkt i editorn när du vill jobba med dem - de är bara tystade i bakgrundsverktygen.
 
 ## Lägga till mer
 
-1. Flytta in mappen/filen hit (`git mv <sökväg> _parkering/` för spårade filer så historiken följer med).
-2. Är innehållet **stort/genererat/cache** (t.ex. en klon på tiotusentals filer): lägg dess sökväg i `.gitignore` också, så git inte sväller. `_parkering/` är medvetet **inte** helt gitignorerad så små arbetsfiler kan versionshanteras.
-
-## Notis om "övervakas mer sällan"
-
-Cursor/VS Code har ingen inställning för *hur ofta* en mapp bevakas - bevakning är antingen på eller av per sökväg. Den här mappen är därför helt avbevakad. Behöver du live-uppdateringar på något härinne: flytta ut det tillfälligt.
+1. `git mv <sökväg> _parkering/` för spårade filer.
+2. Stort/genererat innehåll: lägg dess sökväg i `.gitignore` också.

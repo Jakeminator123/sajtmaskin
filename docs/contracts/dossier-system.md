@@ -75,10 +75,10 @@ capability via kanonisk mappning i
 | 10  | `other`        | Övrigt              | (fångstnät för omappade capabilities)                                        |
 
 > **Taxonomi-omtag 2026-07-22 (ägarbeslut):** elva soft-dossiers parkerades
-> (`_parkering/dossiers-utfasade-2026-07-22/` — rena innehållssektioner och
+> (utfasade soft-dossiers 2026-07-22 — rena innehållssektioner och
 > CSS-effekter som codegen-LLM:en skriver bättre frihand: cta/faq/pricing/
 > testimonials/feature-grid/logo-cloud/stats-counter/stepper/marquee/parallax
-> ×2). `command-search` döptes om till `command-palette`, `supabase-auth`
+> ×2; träd borttaget 2026-08-10, finns i git-historik). `command-search` döptes om till `command-palette`, `supabase-auth`
 > slogs ihop med `auth` (en capability, två leverantörsdossiers), och två nya
 > nyckelfria capabilities tillkom: `map-display` (maplibre-map — MapLibre +
 > OpenFreeMap) och `site-search` (local-site-search — MiniSearch).
@@ -87,7 +87,7 @@ capability via kanonisk mappning i
 > `command-palette`) så gamla snapshots fortsätter selektera rätt.
 >
 > **Nedbantning 2026-08-06 (ägarens fria-händer-uppdrag 2026-08-05):** sju
-> hard-dossiers parkerades (`_parkering/dossiers-utfasade-2026-08-06/`):
+> hard-dossiers parkerades 2026-08-06 (träd borttaget 2026-08-10; git-historik):
 > etapp 1 `sentry-error-tracking`, `plausible-analytics`,
 > `fal-image-generation`, `ably-realtime`; etapp 2 `paddle-billing`; etapp 3
 > `neon-postgres`, `mongodb-atlas` — noll prod-selektioner sedan telemetristart

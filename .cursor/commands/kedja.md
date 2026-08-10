@@ -1,8 +1,12 @@
 # /kedja — stegad buggfix-pipeline
 
-Kör **en** bugg genom sju steg. Billiga agenter gör det mekaniska, du (orkestratorn) fattar besluten. Det som gör kedjan möjlig är **steg 2**: ett failande test. Utan objektivt grönt/rött blir domarsteget en åsikt, och då är hela poängen borta.
+Kör **en** bugg genom sju steg. Steg 2 (failande test) gör domen mekanisk.
+**Fix mode** — skriver kod i **egna worktrees**, aldrig i huvudcheckouten.
+Vinnaren committas på sin kedja-branch; ingen push/PR utan begäran.
 
-**Fix mode** — till skillnad från `/automat` (audit) skriver den här kod. All skrivning sker i **egna worktrees**, aldrig i huvudcheckouten. Vinnaren committas på sin kedja-branch (se *Efter körning*); ingen push eller PR utan explicit begäran.
+**Fulltext (steg, prompts, dom, efter körning):** läs
+[`.cursor/skills/kedja-fix-pipeline/SKILL.md`](../skills/kedja-fix-pipeline/SKILL.md)
+— den här filen är bara orkestrator-stub. Ladda inte om samma recept två gånger.
 
 ## Argument
 
@@ -12,167 +16,24 @@ Kör **en** bugg genom sju steg. Billiga agenter gör det mekaniska, du (orkestr
 | `/kedja` | fråga användaren vilken bugg — välj aldrig själv |
 | `... kandidater=3` | 3 fix-kandidater i steg 5 i stället för 2 |
 
-Modellval kommer från [`.cursor/README.md § Modellval för subagenter`](../README.md#modellval-för-subagenter-kanonisk-tabell). Hitta inte på slugar.
+Modellslug: [`.cursor/README.md` § Modellval](../README.md#modellval-för-subagenter-kanonisk-tabell) — `<grok-4.5>` upplöst mot sessionens `cursor-grok-4.5*`.
 
 ## Delegerat läge — STANDARD för dyra orkestratorer
 
-Kostnaden i kedjan sitter inte i subagenterna utan i orkestratorn: varje
-rapport den tar emot skickas om i **varje** efterföljande tur. Kör därför
-**aldrig** stegen själv från en dyr modell (allt som inte är Grok-/billig-klass).
-Standard är i stället:
+1. Du: **steg 0** (bugg + acceptanskommando + utanför scope) — visa för användaren.
+2. En Grok-runner läser **skillen** och kör steg 1–6; returnerar **bara** sluttabellen.
+3. Du: **steg 7** (bugbot), läs testdiffen själv, committa vinnare, riv förlorare (se skill § After the run).
 
-1. Du gör bara **steg 0** (ramen: bugg, acceptans, utanför scope) och visar den.
-2. Starta **en enda runner-subagent** (**billig modell = Grok 4.5**, slug
-   `<grok-4.5>` upplöst mot `cursor-grok-4.5`-posten i din sessions
-   `<available_subagent_models>` — aldrig Composer som default)
-   som läser den här filen + skillen och kör steg 1–6 i sin helhet —
-   egna worktrees, rött test, fix, maskinell dom. Har runnern inte tillgång
-   till egna subagenter gör den stegen sekventiellt själv; domen är ändå
-   maskinell (testet dömer, inte en åsikt).
-3. Runnern returnerar **endast** sluttabellen ur rapportformatet (~15 rader) —
-   aldrig mellanrapporter, diffar eller testutskrifter i löptext. Tabellen ska
-   ge **spårbarhet för spetsfixar**: per kandidat worktree-sökväg på disk,
-   branch, ansats och utfall (även utslagna — deras diffar ligger kvar i
-   `.cursor/kedja/`), samt vem som gjorde vad (repro/fix/dom).
-4. Du kör själv **steg 7** (bugbot på vinnarens diff), verifierar
-   acceptanskommandot i vinnarens worktree med egna ögon, utför
-   **Efter körning**-plikterna (committa vinnaren, riv förlorarna) och
-   rapporterar. Skälet är inte kostnad — bugbot körs på Grok oavsett vem som
-   startar den — utan att steget kräver att **du** läser testtillägget rad för
-   rad. Det är ett omdömesmoment, inte ett verktygsanrop.
+Själv köra alla steg: bara om orkestratorn redan är Grok/billig, eller ägaren ber om det.
 
-Att själv driva alla sju stegen är tillåtet bara när orkestratorn redan är en
-billig modell (Grok 4.5), eller när användaren uttryckligen ber om det (t.ex. för en
-knivig bugg där mellanbesluten i steg 4/6 behöver den dyra modellens omdöme).
+## Stoppvillkor
 
-## Stoppvillkor — läs dessa först
+Avbryt och rapportera när: acceptans saknas · rött test är grönt på orörd kod · ingen enig rotorsak efter en omkörning · ingen grön kandidat efter en extra runda · scope > buggen / protected paths / >10 filer.
 
-Pipelinen ska **avbrytas och rapportera**, inte improvisera, när:
+## Steg 0 (orkestratorn)
 
-- steg 0 inte kan formulera ett körbart acceptanskriterium,
-- steg 2:s test blir **grönt** på orörd kod (då är fyndet eller kriteriet fel, inte koden),
-- steg 4 inte kan peka ut en rotorsak — två motstridiga hypoteser är ett stoppvillkor, inte ett myntkast,
-- ingen kandidat är grön efter **en** extra runda,
-- fixen växer utanför den beskrivna buggen (`mvp-scope-freeze.mdc`), rör protected paths eller >10 filer.
-
-## Steg
-
-### 0. Ram — du själv, ingen subagent
-
-Skriv tre rader och visa dem för användaren innan du fortsätter:
-
-- **Bugg:** en mening + `fil:rad`-ankare.
-- **Acceptans:** ett **körbart** kommando som är rött nu och grönt efter fixen (`npx vitest run <fil>`).
-- **Utanför scope:** vad du medvetet inte rör.
-
-Har ägarfilen **genererade vyer som hashar/speglar den** (t.ex. extractor-fingerprintet över `template-inspiration.ts` + `local-v0-template-source.ts` → `npm run templates:addenda -- --write`): namnge regen-kommandot i ramen. Sådan regen är **synk-plikt i samma ändring** (`workflow.mdc`), inte scope-brott — en runner som stannar på den grinden stannar i onödan (hände 2026-08-05).
-
-Kommer du från `BUG-SWARM-BACKLOG.md`: läs raden ordagrant. Kolumnen "Beslut / nästa steg" innehåller ofta ägaren, testet som måste skrivas om, och fällor. Den är indata, inte bakgrund.
-
-### 1. Arbetsyta
-
-En worktree per kandidat, aldrig arbete i huvudcheckouten:
-
-```powershell
-git worktree add ..\sajtmaskin-kedja-<slug>-a -b kedja/<slug>-a
-npm run worktree:link -- ..\sajtmaskin-kedja-<slug>-a
-```
-
-Upprepa med `-b`, `-c` … per kandidat. `worktree:link` kräver att worktreet redan är registrerat, så ordningen är låst. Använd **aldrig** rå `git worktree remove` — med eller utan `--force` — eftersom junction-fällan tömmer huvudcheckoutens `node_modules`. En hook blockerar båda.
-
-### 2. Repro — 1 agent, skrivrätt, `<grok-4.5>`
-
-Agenten skriver **två** saker i kandidat **a**:s worktree:
-
-- **Det röda testet** — buggen. Ska faila nu.
-- **Minst ett motprov** — ett test som är grönt nu och som fixen **inte får bryta**.
-
-Motprovet är inte valfritt. Ett rött test säger bara "detta får inte hända"; utan motprov är "stäng av funktionen helt" ett fullt giltigt sätt att bli grön. Frågan agenten ska svara på är: *vilket är det närmaste fallet som fortfarande MÅSTE fungera?* För en vakt som ska sluta trigga är svaret alltid det legitima fall som ligger närmast det felaktiga.
-
-**Grind:** kör själv båda i den worktreen. Är det röda testet **grönt** → stopp. Ett test som passerar på orörd kod bevisar att fyndet inte stämmer, och då är fixen fel sak att bygga. Rapportera det som ett resultat — det är ett bra utfall, inte ett misslyckande.
-
-Kopiera testfilen till övriga kandidat-worktrees när den är verifierat röd, så alla döms av exakt samma prov.
-
-### 3. Lokalisera — 3 parallella, `readonly: true`, `<grok-4.5>`
-
-Tre konkurrerande hypoteser om rotorsaken, en agent var, max 5 rader vardera. De ser samma testutskrift men får olika ingångar (kodvägen, anropsplatserna, testet självt).
-
-### 4. Välj rotorsak — du själv
-
-Läs koden på de ankare hypoteserna pekar ut. Enas två eller fler om samma ställe är det en stark signal. Motsäger de varandra: kör steg 3 igen med en skarpare fråga, **en** gång. Fortfarande oklart → stopp.
-
-### 5. Fixa — N parallella, skrivrätt, `<grok-4.5>`
-
-En agent per worktree, samma rotorsak, men **uttryckligen olika ansats** — du namnger ansatsen per kandidat i prompten. Låter du dem välja själva får du samma svar N gånger: de har ju samma rotorsak, samma test och samma modell, så de konvergerar.
-
-Kan du inte formulera två genuint olika ansatser: kör **en** kandidat. Två identiska diffar är inte best-of-2, det är dubbel kostnad för en enda röst.
-
-Varje agent får bara röra den utpekade ägaren plus testet, och ska hålla diffen minimal.
-
-### 6. Döm — du själv, maskinellt
-
-Per kandidat, **med kandidatens worktree som arbetskatalog** (fixen och det röda testet finns bara där, inte i huvudcheckouten — `Set-Location <worktree>` eller kör med `--prefix`/`--cwd` mot den), i den ordningen (billigast först):
-
-1. `npx vitest run <testfil>` — **både** det röda testet och motprovet. Rött i någotdera betyder utslagen.
-2. Övriga tester i samma mapp — fångar den som fick testet grönt genom att bryta något annat.
-3. `npm run typecheck` — bara på kandidater som klarat 1 och 2.
-4. `node scripts/dev/check-unicode-regex.mjs` om diffen rör regex.
-
-**Vinnare = minsta diff som klarar allt.** Är två kandidater semantiskt identiska räknas de som **en** — notera det i rapporten, för det betyder att steg 5 inte gav någon spridning.
-
-Två fällor i domen:
-
-- **Regen-grind ≠ rött.** Failar en katalog-/CI-grind för att en genererad vy måste regenereras efter ägar-editen (fingerprint/addenda/embeddings/docs): kör regen-kommandot i kandidatens worktree och döm om. Det är synk-plikt, inte utslag.
-- **Mock-grönt ≠ grönt.** En kandidat vars diff behöver en `as`-cast för att passera typecheck smugglar troligen in ett API som den riktiga ägaren inte har — grön bara mot test-mocken. Verifiera signaturen mot den riktiga koden; är den fejk är kandidaten utslagen på semantik (hände 2026-08-05: `signal` castades in i en loader som bara tar `{ timeoutMs }`).
-
-Är alla röda: en extra runda där varje agent får sin egen felutskrift. Sedan stopp.
-
-### 7. Grind — bugbot-subagent på vinnarens diff
-
-`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"` (bugg-grind-rollen i den kanoniska tabellen — aldrig Opus/dyra modeller som default). Detta är det obligatoriska passet ur `workflow.mdc`, inte ett extra lager. Fynd triageras som vanligt: fixa i diffen, logga i backloggen, eller avfärda med en rad.
-
-**Samma modell granskar samma modells kod — det är avsiktligt.** Runnern, fix-agenterna och bugbot körs alla på Grok 4.5, så oberoendet kommer inte från ett modellbyte. Det kommer från tre andra saker: bugbot får en färsk kontext utan kedjans historik, den dömer mot diffen i stället för mot avsikten, och du läser testtillägget själv enligt nästa stycke. Byt **inte** till en dyr tänkande modell här för att "få oberoende ögon" — det kräver ägarens uttryckliga begäran (`subagent-models.mdc`).
-
-**Läs testdiffen rad för rad — inte bara utfallet.** Hela kedjan vilar på att steg 2:s test mäter rätt sak; gör det inte det är den maskinella domen värdelös, och rött-före/grönt-efter avslöjar det inte. Orkestratorn läser därför testtillägget själv innan PR och frågar: mäter det röda testet buggen eller en proxy? Är motprovet det *närmaste legitima* fallet? Och — lättast att missa — **asserterar testet det fixen medvetet offrar?** På #780 låste `rebuild-content.test.ts` att fel fil inte korrumperas men var tyst om att den rätta filens fix nu tappas vid fence-miss; avvägningen fanns bara i huvudet på den som läst diffen. En assertion till gjorde den till kontrakt.
-
-**"diff is empty" — fallback (verifierat 2026-08-05):** bugbot kan svara *"the diff … is empty"* på en kedja-worktree och då **gäller passet inte som kört** — behandla det som ett fel, aldrig som "inga fynd". Observerat: en opushad kedja-branch gav tomt svar på både `uncommitted changes` och `branch changes`, medan samma form fungerade i en länkad worktree vars branch hade pushad upstream. Prova alltså normalformen ovan först. Får du tomt svar:
-
-1. Spara patchen med `git add -A -N` + `git diff HEAD` (se *Efter körning* steg 1) — en vanlig `git diff` utelämnar den otrackade testfilen och ger bugbot en ofullständig vinnare.
-2. Kör passet mot **huvudcheckouten** med `Diff: natural language`, en Change Description per fil, och Custom Instructions som pekar på `.cursor/kedja/<körning>/kandidat-<x>.diff` med instruktionen att läsa och granska patchen som om den vore applicerad.
-
-Dokumentera passet som `bugbot-local`.
-
-**Läs svaret kritiskt — passet ser inte alltid hela branchen.** På en branch med flera commits kan bugbot döma på en delmängd och rapportera fynd som är falska mot helheten. Reproducerat två gånger på #780: passet påstod att tre backlog-rader raderats utan arkivering **och** att alla tre defekterna fanns kvar i koden, medan arkivraderna och alla tre fixarna låg i samma diff. Verifiera därför varje fynd mot det faktiska sluttillståndet innan du agerar — och avfärda aldrig ett fynd utan att ha gjort det, eftersom samma svaghet lika gärna kan dölja ett äkta fynd.
-
-Vilket kommando som visar sanningen beror på var i flödet du står, och det är lätt att ta fel:
-
-| Läge | Verifiera med |
-|---|---|
-| Steg 7, vinnaren **ännu inte committad** (standard) | `git add -A -N` + `git diff master` i worktreet, eller läs filen på disk. `HEAD` saknar fixen här — `git show HEAD:<fil>` skulle "bekräfta" fyndet felaktigt. |
-| Efter *Efter körning* steg 2, eller på en PR-branch | `git diff master...HEAD` och `git show HEAD:<fil>` |
-
-## Efter körning — orkestratorns plikt, aldrig användarens
-
-Användaren kör inga kommandon. Orkestratorn gör allt nedan själv, direkt efter steg 7:
-
-1. Skriv varje kandidats diff till `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-<x>.diff` **innan** du tar bort något. **En ny testfil är otrackad och syns inte i `git diff`** — använd samma procedur som `captureDiff` i `scripts/cursor/kedja-clean.mjs`: `git add -A -N` och sedan `git diff HEAD` i worktreet. Utan det saknar den sparade patchen själva testet (hände 2026-08-05).
-2. **Committa vinnaren på sin kedja-branch** — `git add -A -N` från steg 1 räcker **inte** för commiten: intent-to-add lägger en tom blob i indexet, så stagea filen på riktigt (`git add <sökväg>`) innan du committar, annars landar vinnaren utan sitt repro-test. (bara commit — push/PR fortfarande bara på explicit begäran, `git.mdc`). Detta är vinnarens livförsäkring: `kedja-clean` och worktree-svep vägrar röra en branch med egna commits, medan en ocommittad vinnare ser ut som skräp för varje annan agents städning. 2026-08-04 sveptes två ocommittade vinnare av just en sådan — de överlevde bara som sparade diffar.
-3. Ta bort de förlorande worktreesen: `npm run worktree:remove -- <sökväg> --force`. Det tar bort katalogen men **lämnar branchen kvar** — radera den också: `git branch -D kedja/<slug>-<x>`. Missas det blir varje körning en föräldralös branch rikare.
-4. Rapportera enligt sluttabellen (spårbarhet: worktree, branch, ansats, utfall, vem gjorde vad).
-
-Blev något kvar — avbruten körning, misslyckad teardown, gammal branch — sopa upp med `npm run kedja:clean` (torrkörning) och sedan `node scripts/cursor/kedja-clean.mjs --yes --keep <vinnaren>`. Skriptet sparar diffar innan det raderar och vägrar röra en worktree vars tillstånd det inte kan läsa. Flaggorna måste gå via `node`: npm äter `--yes` och `--keep` innan de når skriptet. **Multi-agent-vakt:** kör aldrig `--yes` med kedja-worktrees du inte själv skapat utan att `--keep`:a dem — svepet skiljer inte din förlorare från en annan agents pågående arbete, och "läsbar" betyder inte "övergiven".
-
-**Backlog-raden stängs i samma PR som fixen.** När användaren begär PR: flytta raden till arkivfilen som `[x]` med PR-referens i samma branch (backloggens egen lärdom från #603- och #686-efterslagen). Ingen manuell avbockning efter merge. **Efter merge** river den agent som mergade vinnarens worktree + branch.
-
-## Anti-mönster
-
-- **Dyr orkestrator som driver stegen själv.** Varje subagent-rapport den tar emot betalas om i varje senare tur — använd delegerat läge (ovan).
-- Hoppa över steg 2 för att buggen "är uppenbar". Utan rött test finns ingen domare, och då är pipelinen bara en dyrare `/818`.
-- Skriva kod i huvudcheckouten, eller `git checkout` där (`agent-worktree.mdc`).
-- Låta fix-agenterna välja rotorsak själva — de får en, du valde den i steg 4.
-- Bredda fixen till närliggande fynd som dyker upp på vägen. Logga dem via `/buggrapport` i stället.
-- Loopa mer än en extra runda. Två röda rundor är ett svar: buggen är för stor för kedjan.
-
-## Projekt-skill
-
-Promptmallar per steg, worktree-recept och rapportformat: [`.cursor/skills/kedja-fix-pipeline/SKILL.md`](../skills/kedja-fix-pipeline/SKILL.md).
+- **Bugg:** en mening + `fil:rad`.
+- **Acceptans:** `npx vitest run <fil>` (rött nu → grönt efter).
+- **Utanför scope:** vad du inte rör.
+- Regen av genererad vy efter ägar-edit = synk-plikt, inte scope-brott (`workflow.mdc`).
+- Från backlog: läs raden ordagrant (kolumnen "Beslut / nästa steg").

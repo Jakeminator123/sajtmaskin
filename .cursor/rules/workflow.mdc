@@ -47,9 +47,9 @@ Docs ska spegla runtime. Ersätt gammal text, lägg inte nya lager ovanpå. Ta b
 
 ## Innan PR eller push till master
 
-Kör ett **Cursor Bugbot-pass på egen diff** (bugbot-subagent, `readonly: true`, `model: <grok-4.5>`) före du skapar PR eller pushar till master. Detta pass **ÄR** författarens obligatoriska bugg-efterkontroll — samma pass, bara kört före push i stället för efter PR-öppning, så för-filter och efterkontroll är ett och samma för aktuell head-SHA. **Kör om bugbot på varje ny commit.** Protected-path-passet, 7-min/Codex-fönstret och sign-off-ordningen ligger i `pr-merge.mdc`.
+Bugbot-plikt: se `git.mdc` (en ägare). Protected-path, 7-min/Codex och `merge:ready`: `pr-merge.mdc`.
 
-Kör `/automat` bara för bred repo-audit — inte som diff-granskning. En bugg som ska åtgärdas går genom `/kedja`. (Den tidigare `/granska`-8-agentssvärmen togs bort 2026-08-02 — återinför den inte; de allvarliga fynden kom ändå från Bugbot/Codex.)
+`/automat` = bred audit (inte diff-granskning). Buggfix → `/kedja`.
 
 ## När du ska pausa
 
