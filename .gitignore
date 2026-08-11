@@ -132,6 +132,12 @@ eval-output/
 data/eval-runs/*
 !data/eval-runs/README.md
 
+# Scaffold-selection / variant-eval JSON reports (per-machine).
+# Prompts stay tracked: data/scaffold-eval/prompts.json + landing-variant-prompts.json.
+# Regenerate with `npm run scaffolds:eval` / eval-landing-variants.
+data/scaffold-eval/reports/*
+!data/scaffold-eval/reports/README.md
+
 # MCP scraped documentation (60+ MB, regenerate with doc.py)
 services/mpc/docs/docgrab__*/
 services/mpc/docs/local/

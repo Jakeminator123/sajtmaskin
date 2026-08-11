@@ -6,4 +6,6 @@ Genererade eval-rapporter (markdown) från backoffice-vyn **Eval** (`backoffice/
 - Äldre april-2026-rapporter togs bort 2026-06-23 (inaktuella; eval-scripten konsoliderade). Historik finns i git.
 - Referas av `config/dashboard/domain-map.json` (Eval-sidan). Den här README:n håller mappen spårad så att domain-map-parity-testet (`src/lib/config/dashboard-domain-map.parity.test.ts`) hittar `docs/evals/`.
 
-Kanonisk eval-kod: `src/lib/gen/eval/` (+ `src/lib/gen/eval/README.md`). Scaffold-selection-rapporter skrivs lokalt till `data/scaffold-eval/reports/`.
+Kanonisk eval-kod: `src/lib/gen/eval/` (+ `src/lib/gen/eval/README.md`).
+
+Scaffold-selection- och variant-eval-JSON skrivs **lokalt** till `data/scaffold-eval/reports/` (gitignorerade, per-maskin). Kör `npm run scaffolds:eval` respektive `npx tsx scripts/scaffolds/eval-landing-variants.ts` för att skapa dem. Prompt-fixtures (`prompts.json`, `landing-variant-prompts.json`) ligger kvar i git under `data/scaffold-eval/`.
