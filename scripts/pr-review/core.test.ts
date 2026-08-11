@@ -111,6 +111,28 @@ describe("PR review state machine", () => {
     expect(reclaimed.latestProcessedHeadSha).toBeNull();
   });
 
+  it("counts a new head after a failed run instead of free reclaim", () => {
+    const failedOnB = {
+      ...stateWithFinding(),
+      totalRunCount: MAX_RUNS,
+      latestProcessedHeadSha: "b".repeat(40),
+      lastRun: {
+        kind: "follow-up",
+        headSha: "b".repeat(40),
+        status: "failed",
+        at: "2026-08-11T00:00:00.000Z",
+        error: "provider down",
+      },
+    };
+    expect(decideReview({ pr: { ...PR, headSha: "c".repeat(40) }, state: failedOnB })).toEqual({
+      kind: "skip",
+      reason: "run-limit",
+    });
+    expect(() =>
+      claimRun(failedOnB, { kind: "follow-up", headSha: "c".repeat(40) }),
+    ).toThrow("PR review run limit reached");
+  });
+
   it("uses synchronize only for finding-specific follow-up", () => {
     const state = stateWithFinding();
     expect(decideReview({ pr: PR, state })).toMatchObject({

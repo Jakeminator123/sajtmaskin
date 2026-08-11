@@ -98,10 +98,17 @@ function lastRunIncomplete(state) {
   return Boolean(state.lastRun && state.lastRun.status !== "completed");
 }
 
+function sameHeadReclaim(state, headSha) {
+  return lastRunIncomplete(state) && state.lastRun.headSha === headSha;
+}
+
 export function decideReview({ pr, state }) {
   if (pr.mergedAt) return { kind: "skip", reason: "merged" };
   if (pr.baseRef !== TARGET_BASE_BRANCH) return { kind: "skip", reason: "wrong-base" };
-  if (state.totalRunCount >= MAX_RUNS && !lastRunIncomplete(state)) {
+  // Reclaim is only for the same incomplete head. A new head always counts as
+  // a new run against MAX_RUNS — otherwise failed follow-ups across commits
+  // could schedule unbounded model calls at a frozen totalRunCount.
+  if (state.totalRunCount >= MAX_RUNS && !sameHeadReclaim(state, pr.headSha)) {
     return { kind: "skip", reason: "run-limit" };
   }
   // Only completed processing of this head is sticky. A claim that dies mid-run
@@ -124,7 +131,7 @@ export function decideReview({ pr, state }) {
 }
 
 export function claimRun(state, { kind, headSha, now = new Date() }) {
-  const reclaiming = lastRunIncomplete(state);
+  const reclaiming = sameHeadReclaim(state, headSha);
   if (!reclaiming && state.totalRunCount >= MAX_RUNS) {
     throw new Error("PR review run limit reached");
   }
