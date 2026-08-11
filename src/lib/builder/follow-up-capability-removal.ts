@@ -87,7 +87,7 @@ const UI_CONTROL_RE =
   /(?:knapp|button|länk|\blink\b|ikon|icon|selector|dropdown|drop-?down|väljare|meny|menu|sektion|section|sidan?\b|page|block\b|rubrik|heading|färg|colou?r|tema|theme|logo|logga|favicon)/iu;
 
 interface RemovalCapabilityEntry {
-  /** Must match a capability id in `data/dossiers/_index/capability-map.json`. */
+  /** Must match a capability id declared by a dossier manifest in the runtime registry. */
   capability: string;
   patterns: RegExp[];
   /**
@@ -157,7 +157,7 @@ const REMOVAL_CAPABILITY_TERMS: RemovalCapabilityEntry[] = [
 ];
 
 export interface CapabilityRemovalDetection {
-  /** Dossier capability ids (matches capability-map.json) the user asked to remove. */
+  /** Manifest-owned dossier capability ids the user asked to remove. */
   removedCapabilities: string[];
   /**
    * Dossier capability ids the user EXPLICITLY re-activated this round ("lägg

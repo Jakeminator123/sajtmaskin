@@ -1,13 +1,15 @@
 /**
  * Capability vocabulary for follow-up detection.
  *
- * Source-of-truth for the set of capability ids: `data/dossiers/_index/capability-map.json`.
- * The keys here MUST match those ids verbatim — they are forwarded to
- * `selectDossiersForRequest` which looks dossiers up by capability. Not every
- * capability in the map needs an entry here: `physics-3d` arrives via the
+ * Source-of-truth for the available capability ids: dossier manifests read by
+ * `src/lib/gen/dossiers/registry.ts`. The keys here MUST match those ids
+ * verbatim — they are forwarded to `selectDossiersForRequest` which looks
+ * dossiers up by capability. Not every capability in the pool needs an entry
+ * here: `physics-3d` arrives via the
  * inferred-capability bridge. The capability count is intentionally NOT stated
  * here — it drifts; `follow-up-capability-vocabulary.test.ts` guards every
- * entry's id against the map instead.
+ * entry's id against the live registry instead. The CI-gated capability-map is
+ * a Backoffice/tooling projection, not the runtime owner.
  *
  * Every pattern uses Unicode-aware look-arounds rather than ASCII `\b`, so
  * Swedish words with `å/ä/ö` boundary correctly. Mirrors the convention in
@@ -47,7 +49,7 @@
  */
 
 export interface CapabilityVocabularyEntry {
-  /** Must match a capability id in `data/dossiers/_index/capability-map.json`. */
+  /** Must match a capability id declared by a dossier manifest in the runtime registry. */
   capability: string;
   /** At least one pattern must match the message for the capability to detect. */
   patterns: RegExp[];

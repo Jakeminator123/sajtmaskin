@@ -190,7 +190,7 @@ Handskriven text räknar inte poolen. Aktuell katalog:
 |---|---|
 | [`docs/generated/capabilities.generated.md`](../generated/capabilities.generated.md) | Capabilities + klasser + F2/F3-axlar |
 | [`docs/generated/dossiers.generated.md`](../generated/dossiers.generated.md) | Per-dossier katalog |
-| [`data/dossiers/_index/capability-map.json`](../../data/dossiers/_index/capability-map.json) | Runtime-projektion (capability → dossier-id + `groups`) |
+| [`data/dossiers/_index/capability-map.json`](../../data/dossiers/_index/capability-map.json) | CI-grindad Backoffice/tooling-projektion (capability → dossier-id + `groups`); runtime läser manifests direkt |
 
 Regenerera projektionen med `npm run dossiers:capability-map:write` (eller
 backoffice-tabben) och kontraktsdocs med `npm run docs:generate`.

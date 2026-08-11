@@ -94,3 +94,5 @@ The matching-config policies `domain-rules` and `prompt-heuristic-tokens` name
 backoffice Python suite (incl. `backoffice/test_validate_matching_config.py`,
 which asserts the committed config stays valid against its strict schema), and a
 dedicated **blocking** `backoffice-tests` CI job runs it on every push/PR.
+The same blocking job validates every committed scaffold variant against
+`docs/schemas/strict/scaffold-variant.schema.json`.

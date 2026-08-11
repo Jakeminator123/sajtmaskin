@@ -37,7 +37,7 @@ def nav_link_button(label: str, page_name: str, *, key: str) -> None:
 BUILDING_BLOCK_CHAIN: tuple[tuple[str, str], ...] = (
     ("Översikt", "Byggstenar: översikt"),
     ("Scaffolds", "Scaffolds: titta & justera"),
-    ("Skapa & ta bort", "Scaffolds & varianter: skapa, klona, ta bort"),
+    ("Skapa & hantera", "Scaffolds & varianter: skapa, redigera, klona, ta bort"),
     ("Guide (AI)", "Guide: ny scaffold eller variant (AI)"),
     ("Byggblock", "Byggblock (dossiers)"),
     ("Mallar (v0)", "Mallar (v0): inspiration & uppladdning"),

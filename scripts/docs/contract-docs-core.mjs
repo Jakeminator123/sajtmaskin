@@ -429,7 +429,7 @@ function renderVariants(variants, scaffoldCount) {
     "# Scaffold variants",
     "",
     `This catalog contains ${sortedVariants.length} variants accepted by the runtime registry for ${scaffoldCount} registered scaffolds.`,
-    "Canonical owner: variant JSON files. Runtime consumer/validator: scaffold-variant registry.",
+    "Canonical owner: variant JSON files. Runtime consumer/parser: scaffold-variant registry. Strict shape validator: backoffice:test.",
     "",
     "| Scaffold | Variant | Label | Color mode | Default | Font pairings | Signature motif |",
     "|---|---|---|---|---|---|---|",
@@ -660,11 +660,12 @@ function schemaEnumSummary(schema) {
 }
 
 function schemaValidatorSummary(path, controlPlaneEntries) {
+  // Per-schema validator attribution requires an exact control-plane owner.
+  // Expanding a glob here would claim that every matching mirror is exercised
+  // by the same command, including forward declarations and non-JSON-Schema
+  // strict contracts.
   const validators = controlPlaneEntries
-    .filter(
-      (entry) =>
-        entry.sourceOfTruth === path || entry.sourceOfTruth === "docs/schemas/strict/*.schema.json",
-    )
+    .filter((entry) => entry.sourceOfTruth === path)
     .map((entry) => entry.validator)
     .filter(Boolean);
   return list([...new Set(validators)].sort(compareText));

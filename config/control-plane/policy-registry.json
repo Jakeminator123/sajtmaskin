@@ -231,7 +231,7 @@
       "runtimeEnforced": false,
       "runtimeStatus": "declared-only",
       "backoffice": {
-        "surface": "Scaffolds & varianter: skapa, klona, ta bort",
+        "surface": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
         "editable": true,
         "writePath": "config/structural-file-priorities.json",
         "danger": "low"

@@ -635,9 +635,9 @@ def _load_inspiration_lookup(
     """Resolve variants' ``sourceTemplateIds`` against the canonical
     inspiration source: the committed Blob manifest
     (``template-blob-manifest.json``) — v0-mallarna i Vercel Blob. Scaffold
-    Wizard skriver Blob-id:n hit. Id:n som inte finns där är ofarliga
-    legacy-etiketter från den borttagna external-template-pipelinen
-    (arkiverad utanför repot i ``gamla-skript-till-scaffolds/``).
+    Wizard skriver Blob-id:n hit. Id:n som inte finns där kan inte användas som
+    runtime-inspiration och fälls av integritetsgrinden; de ska ersättas med
+    giltiga Blob-id:n.
 
     NOTE: Källan är inte runtime-dossiers (``data/dossiers/{hard,soft}``).
     """

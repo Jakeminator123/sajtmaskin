@@ -52,9 +52,9 @@ Capability ids are kebab-case, free-form, but follow these conventions:
   first to avoid synonyms (`carousel-slider` and `image-slider` should be one
   capability, not two).
 
-When introducing a new capability also add it to the capability map for
-backoffice listings (read-only at runtime; the registry walks the manifest
-folders directly).
+When introducing a new capability, declare it in the manifest and regenerate
+the capability map for backoffice listings. The projection is CI-fresh but
+read-only at runtime; the registry walks the manifest folders directly.
 
 ## Required directory layout
 
@@ -212,8 +212,8 @@ local `npx tsc --noEmit` pointing at the file before declaring it ready.
 1. `manifest.json` validates against the strict schema (load it in any
    JSON-Schema validator or run the registry test suite).
 2. `id` matches the directory name and the schema regex.
-3. `capability` is documented in
-   `data/dossiers/_index/capability-map.json` (or the change adds it).
+3. `capability` is declared by the manifest; regenerate
+   `data/dossiers/_index/capability-map.json` after changing the owning data.
 4. A hard manifest has a non-empty `providers` array; a soft manifest omits
    the field. Provider ids describe the actual SDK/API in the shipped code.
 5. `instructions.md` has the two required headings and preferably all three
@@ -223,8 +223,8 @@ local `npx tsc --noEmit` pointing at the file before declaring it ready.
 7. A new draft has `verificationStatus: "unverified"` and `lastVerified` records
    its imported source date. Change the status to `accepted` and update the date
    only after visually verifying a sample brief on a real preview build.
-8. If a new capability is introduced, register it in the capability-map AND
-   add a matching `RULE` in
+8. If a new capability is introduced, add its dossier-group mapping, regenerate
+   the capability-map projection, AND add a matching `RULE` in
    [`src/lib/gen/capability-inference.ts`](../../src/lib/gen/capability-inference.ts)
    so prompts actually trigger it. Add a corresponding hint in
    `buildCapabilityHints` so the codegen LLM gets pointed at the dossier's

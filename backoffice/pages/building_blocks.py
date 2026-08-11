@@ -78,7 +78,7 @@ BLOCK_CARDS: tuple[BlockCard, ...] = (
         choose_caption="Så väljs scaffolden (ur scaffold-kontraktet)",
         actions=(
             ("Titta & justera", "Scaffolds: titta & justera"),
-            ("Skapa eller ta bort", "Scaffolds & varianter: skapa, klona, ta bort"),
+            ("Skapa eller hantera", "Scaffolds & varianter: skapa, redigera, klona, ta bort"),
         ),
     ),
     BlockCard(
@@ -89,7 +89,7 @@ BLOCK_CARDS: tuple[BlockCard, ...] = (
         doc_needle="Variant signature patterns",
         choose_caption="Så väljs varianten (ur scaffold-kontraktet)",
         actions=(
-            ("Skapa & ändra", "Scaffolds & varianter: skapa, klona, ta bort"),
+            ("Skapa & ändra", "Scaffolds & varianter: skapa, redigera, klona, ta bort"),
             ("Guide med AI-hjälp", "Guide: ny scaffold eller variant (AI)"),
         ),
     ),

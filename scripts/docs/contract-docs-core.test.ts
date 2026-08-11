@@ -169,6 +169,46 @@ describe("contract docs source coverage", () => {
     );
   });
 
+  it("uses only exact control-plane declarations for schema validator attribution", async () => {
+    const controlPlaneEntries = structuredClone(inputs.controlPlaneEntries);
+    const exact = controlPlaneEntries.find(
+      (entry) => entry.sourceOfTruth === "docs/schemas/strict/scaffold-variant.schema.json",
+    );
+    const wildcard = controlPlaneEntries.find(
+      (entry) => entry.sourceOfTruth === "docs/schemas/strict/*.schema.json",
+    );
+    if (!exact || !wildcard) throw new Error("expected exact and catalog schema entries");
+    exact.validator = "exact-validator";
+    wildcard.validator = "wildcard-validator";
+
+    const changed = await buildGeneratedDocs({ controlPlaneEntries });
+    const schemaRows = changed.get(GENERATED_DOC_FAMILIES.schemas.output)?.split("\n");
+    const schemaRow = schemaRows?.find((line: string) =>
+      line.startsWith("| `scaffold-variant.schema.json`"),
+    );
+    const forwardDeclarationRow = schemaRows?.find((line: string) =>
+      line.startsWith("| `dossier-stub-created.schema.json`"),
+    );
+
+    expect(schemaRow).toContain("exact-validator");
+    expect(schemaRow).not.toContain("wildcard-validator");
+    expect(forwardDeclarationRow).not.toContain("wildcard-validator");
+  });
+
+  it("does not claim test:ci for forward declarations or non-schema contracts", () => {
+    const schemaRows = baselineDocs.get(GENERATED_DOC_FAMILIES.schemas.output)?.split("\n");
+
+    for (const path of [
+      "docs/schemas/strict/dossier-stub-created.schema.json",
+      "docs/schemas/strict/image-replaced-with-placeholder.schema.json",
+      "docs/schemas/strict/preview-session-contract.schema.json",
+    ]) {
+      const row = schemaRows?.find((line: string) => line.includes(`\`${path}\``));
+      expect(row, `missing generated schema row for ${path}`).toBeDefined();
+      expect(row).not.toContain("`test:ci`");
+    }
+  });
+
   it("reports stale committed output", async () => {
     const expectedDocs = new Map([["docs/generated/example.generated.md", "expected"]]);
     const drift = await findContractDocDrift({

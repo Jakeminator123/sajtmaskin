@@ -27,11 +27,10 @@ function readCapabilityMapCapabilities(): string[] {
 /**
  * Capabilities that ACTUALLY exist on disk, read through the same registry
  * runtime uses. The guarantee-tests below deliberately do NOT read
- * `capability-map.json` for this: that file is a generated projection with no
- * CI freshness gate (removed as maintenance tax, `ci.yml`), so a new dossier
- * whose capability lacks a group mapping would land in "Övrigt" in the builder
- * while a stale map kept the test green. Deriving from the manifests makes the
- * projection non-load-bearing instead of adding a gate to keep it fresh.
+ * `capability-map.json` for this: CI keeps that generated Backoffice/tooling
+ * projection fresh, but the manifests remain the runtime owner. Deriving from
+ * the manifests keeps the executable group guarantee non-load-bearing on the
+ * projection.
  */
 function liveCapabilities(): string[] {
   return [...new Set(getAllDossiers().map((entry) => entry.capability))].sort();

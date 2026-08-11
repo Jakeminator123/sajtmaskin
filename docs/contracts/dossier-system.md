@@ -626,19 +626,20 @@ it after backoffice edits.
 
 **Capability map:** `data/dossiers/_index/capability-map.json` is a **generated
 view only** (backoffice + curation tooling); the runtime registry walks
-`data/dossiers/{hard,soft}/` directly and never reads it. It is **not** CI-enforced
-(the former `dossiers:capability-map:check` drift-gate was removed as maintenance
-tax). Regenerate on demand with `npm run dossiers:capability-map:write` or the
-backoffice "Capability map" tab's "Bygg om" button when curating.
+`data/dossiers/{hard,soft}/` directly and never reads it. Its freshness is
+CI-enforced by the blocking `npm run dossiers:capability-map:check` step because
+Backoffice/Systemkarta consumes the committed projection. Regenerate it with
+`npm run dossiers:capability-map:write` or the backoffice "Capability map" tab's
+"Bygg om" button after changing an owning source.
 
-Because there is no freshness gate, **no guarantee may depend on the file being
-current**. The group-coverage test (`dossier-groups.test.ts`) and the follow-up
-vocabulary test therefore read the live pool through `getAllDossiers()` — a new
-dossier whose capability lacks a group mapping fails there immediately, instead
-of hiding behind a stale projection until someone clicks "Bygg om". What still
-reads the file is only what the file itself owns: its internal `groups`-view
-consistency, and the backoffice group view (which warns when the view looks
-stale).
+The freshness gate does **not** make the projection a capability owner. Dossier
+manifests, read through the runtime registry, own the available capability set;
+`dossier-groups.ts` owns the capability→group mapping and the other sources named
+by the generator own their respective projected facts. The group-coverage test
+(`dossier-groups.test.ts`) and follow-up vocabulary test therefore read the live
+pool through `getAllDossiers()`, so runtime guarantees remain tied to manifests
+rather than to a derived file. The capability-map owns only its generated shape
+and serves Backoffice/tooling as a CI-fresh projection.
 
 Since etapp 5 (2026-07-12) the generated file also carries a top-level
 **`groups`** field: `{ "<group-id>": { "label": "<svensk label>", "capabilities":
