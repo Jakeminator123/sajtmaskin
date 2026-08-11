@@ -254,17 +254,15 @@ def _variant_embeddings_index_path(ctx: BackofficeContext) -> Path:
 
 
 def _sync_variant_embeddings_cache(ctx: BackofficeContext) -> bool:
-    """Best-effort: pull Blob/manifest variant index into the local cache.
+    """Best-effort: refresh local variant-embeddings cache from Blob/manifest.
 
-    After embeddings left git, delete flows often have no on-disk JSON. Sync
-    first so prune can edit the real index and push it back. Returns True when
-    the local cache file exists afterwards.
+    Always prefer Blob as source of truth before prune+push, so a stale on-disk
+    cache cannot overwrite newer Blob entries. Returns True when the local
+    cache file exists afterwards.
     """
     import subprocess
 
     path = _variant_embeddings_index_path(ctx)
-    if path.is_file():
-        return True
     try:
         subprocess.run(
             resolve_command(("npm", "run", "embeddings:sync")),
@@ -275,7 +273,7 @@ def _sync_variant_embeddings_cache(ctx: BackofficeContext) -> bool:
             timeout=180,
         )
     except Exception:
-        return path.is_file()
+        pass
     return path.is_file()
 
 
@@ -296,9 +294,9 @@ def _prune_variant_embeddings(
     with the variant files. No-op (returns 0) when the index is missing/unreadable
     or has no matching entries, so it never blocks a delete.
     """
+    # Refresh from Blob first so prune+push cannot clobber a newer remote index.
+    _sync_variant_embeddings_cache(ctx)
     path = _variant_embeddings_index_path(ctx)
-    if not path.is_file():
-        _sync_variant_embeddings_cache(ctx)
     if not path.is_file():
         return 0
     try:
