@@ -315,11 +315,14 @@ const PACKAGE_CLASS_ID_RE = /(?:package|dependenc|version|script|build|manifest)
  * independent code-file blocker the manifest re-check cannot confirm.
  * The inner `\.(?!\s|$)` keeps dots inside filenames (`app/layout.tsx`,
  * `Next.js`) from ending the clause early, so no `absent.tsx`-style artifact
- * survives the strip. Only used for the CLASS-membership test; the claim
- * re-check still reads the full detail.
+ * survives the strip. The clause also STOPS at a following coordinating
+ * boundary (`, and|but|or`), so a compound sentence like "…, so the build
+ * fails, and src/app/page.tsx uses X" keeps its independent code-file claim
+ * visible for the exclusion test (bugbot high on this diff). Only used for
+ * the CLASS-membership test; the claim re-check still reads the full detail.
  */
 const MANIFEST_JUSTIFICATION_CLAUSE_RE =
-  /[,;—–]\s+(?:although|though|even though|because|since|so(?:\s+that)?)\b(?:[^.;]|\.(?!\s|$))*[.;]?/gi;
+  /[,;—–]\s+(?:although|though|even though|because|since|so(?:\s+that)?)\b(?:(?!,\s+(?:and|but|or)\b)(?:[^.;]|\.(?!\s|$)))*[.;]?/gi;
 
 function isPackageJsonClassFinding(finding: VerifierBlockingFinding): boolean {
   if (!/package\.json/i.test(finding.detail)) return false;

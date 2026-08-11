@@ -400,6 +400,20 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
     expect(result.kept).toHaveLength(0);
   });
 
+  it("bugbot high: keeps a compound finding whose so-clause is followed by a coordinated code-file claim", () => {
+    // ", so …" får inte svälja en självständig ", and <kodfil> …"-sats — då
+    // skulle ett blandat fynd omklassas till manifest-only och släppas trots
+    // att kodfils-blockern kvarstår.
+    const finding = {
+      id: "incomplete-package-manifest",
+      detail:
+        "package.json lacks `next`, so the build fails, and src/app/page.tsx renders `<Undefined />` without importing it.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
   it("keeps the justification-clause finding while the manifest still misses a named package", () => {
     const finding = {
       id: "missing-next-runtime-dependencies",

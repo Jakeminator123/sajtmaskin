@@ -246,7 +246,16 @@ export function VersionDiagnosticsDialog({
     if (productLogs.length === 0) {
       return { label: "Not run —", tone: "gray" };
     }
-    const warningCount = productLogs.filter(
+    // En skip-rad (även krasch-skip på warning-nivå sedan 2026-08-11) betyder
+    // att kontrollen INTE kördes — den är inget produktfynd och får inte
+    // räknas som "N warnings" i produkt-lanen (bugbot-fynd på egen diff).
+    const ranLogs = productLogs.filter(
+      (log) => getCategory(log) !== "product_postcheck.skipped",
+    );
+    if (ranLogs.length === 0) {
+      return { label: "Not run —", tone: "gray" };
+    }
+    const warningCount = ranLogs.filter(
       (log) => log.level === "warning" || log.level === "error",
     ).length;
     if (warningCount > 0) {
