@@ -24,11 +24,17 @@ import {
   buildCaptureRequestGate,
   launchCaptureBrowser,
 } from "@/lib/capture/browser";
+import {
+  PreviewHostBootPageError,
+  isPreviewHostBootPage,
+  isPreviewHostBootPageError,
+} from "@/lib/capture/preview-boot-page";
 
 // Startpunkten och SSRF-grinden bor numera i `@/lib/capture/browser` så
 // inspector-capture kan använda exakt samma. Re-exporten håller den här
 // modulens befintliga API intakt.
 export { buildCaptureRequestGate };
+export { isPreviewHostBootPageError, PreviewHostBootPageError };
 
 const NAVIGATION_TIMEOUT_MS = 25_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
@@ -137,6 +143,23 @@ export async function captureThumbnailScreenshot(
       .catch(() => undefined);
     await page.waitForTimeout(400).catch(() => undefined);
 
+    // Refuse a thumbnail of the preview-host "Startar preview" / warm_project
+    // placeholder (same detector as F2 product postcheck). Cosmetics must not
+    // freeze a dark boot screen into "Mina projekt".
+    stage = "boot-page-check";
+    const bootProbe = await page
+      .evaluate(() => ({
+        title: document.title || "",
+        h1: document.querySelector("h1")?.textContent?.trim() || null,
+        bodyText: (document.body?.innerText || "").slice(0, 800),
+      }))
+      .catch(() => null);
+    if (bootProbe && isPreviewHostBootPage(bootProbe)) {
+      throw new PreviewHostBootPageError(
+        "Preview-host boot placeholder is still showing; thumbnail skipped.",
+      );
+    }
+
     // Re-check right before the shot: redirects/JS/meta-refresh may have moved
     // the main frame anywhere public during navigation or the settle waits.
     stage = "final-url-check";
@@ -150,6 +173,14 @@ export async function captureThumbnailScreenshot(
       timeout: SCREENSHOT_TIMEOUT_MS,
     });
   } catch (error) {
+    if (isPreviewHostBootPageError(error)) {
+      // Keep the typed boot-page error so the route can skip without a 502.
+      throw error instanceof PreviewHostBootPageError
+        ? error
+        : new PreviewHostBootPageError(
+            error instanceof Error ? error.message : "Preview-host boot placeholder is still showing.",
+          );
+    }
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Thumbnail capture failed at stage "${stage}": ${message}`, {
       cause: error,

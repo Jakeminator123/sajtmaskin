@@ -1,6 +1,10 @@
 import type { Browser, Page } from "playwright-core";
 import { applyCaptureRequestGate, launchCaptureBrowser } from "@/lib/capture/browser";
 import { getPreviewHostBaseUrl } from "@/lib/gen/preview/tier2-config";
+import {
+  isPreviewHostBootPage,
+  type PreviewHostBootPageProbe,
+} from "@/lib/capture/preview-boot-page";
 
 export type ProductPostcheckWarningCode =
   | "broken_anchor"
@@ -14,6 +18,9 @@ export type ProductPostcheckWarningCode =
   | "console_error"
   | "request_failed"
   | "http_error";
+
+// Re-export so existing verify/postcheck callers keep a stable import path.
+export { isPreviewHostBootPage, type PreviewHostBootPageProbe };
 
 export type ProductPostcheckSkipReason =
   | "feature_disabled"
@@ -275,44 +282,6 @@ const RENDER_FATAL_ERROR_PATTERNS: readonly RegExp[] = [
 export function isRenderFatalError(message: string): boolean {
   if (!message) return false;
   return RENDER_FATAL_ERROR_PATTERNS.some((re) => re.test(message));
-}
-
-/**
- * Detect the preview-host placeholder HTML (`sendRuntimeStartingPage` /
- * held-error page in `preview-host/src/runtime/preview-proxy.js`).
- *
- * Product postcheck used to treat that dark "Startar preview" page as a
- * successful site render (HTTP 200 + real DOM text, no Next overlay) while
- * Fly was still booting / returning HTTP 500 — classic F2 false-green.
- */
-export function isPreviewHostBootPage(input: {
-  title?: string | null;
-  h1?: string | null;
-  bodyText?: string | null;
-}): boolean {
-  const title = (input.title ?? "").trim();
-  const h1 = (input.h1 ?? "").trim();
-  const body = (input.bodyText ?? "").trim();
-  if (/^Startar (om )?preview$/i.test(title) || /^Startar (om )?preview$/i.test(h1)) {
-    return true;
-  }
-  if (/^Preview kunde inte starta$/i.test(title) || /^Preview kunde inte starta$/i.test(h1)) {
-    return true;
-  }
-  // Body copy is stable even if heading text drifts slightly.
-  if (
-    /Preview-host bygger projektet och startar Next\.js/i.test(body) ||
-    /Preview-runtimen startar om i bakgrunden/i.test(body)
-  ) {
-    return true;
-  }
-  // Fly readiness also treats HTTP 200 with an empty body as "not ready"
-  // (compiling / blank page). Without this, postcheck can false-green on a
-  // still-warming runtime that never rendered the Startar-preview placeholder.
-  if (!title && !h1 && body.length === 0) {
-    return true;
-  }
-  return false;
 }
 
 /**
