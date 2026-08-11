@@ -98,7 +98,7 @@ som normalt plattformsbrus. Minst hälften är tysta krascher.
 
 | # | Åtgärd | Storlek | Effekt |
 |---|---|---|---|
-| 1 | ~~Mät~~ **GJORT 2026-08-11:** `logTmpFreeSpaceBestEffort()` i `src/lib/capture/browser.ts` loggar `[capture-browser] tmp free: XMB of YMB` före varje serverless Chromium-start (fail-open) | ~15 rader | läs av i Vercel-loggen efter nästa deploy |
+| 1 | ~~Mät~~ **GJORT 2026-08-11:** `logTmpFreeSpaceBestEffort()` i `src/lib/capture/browser.ts` loggar `[capture-browser] free space in temporary directory: XMB of YMB` före varje serverless Chromium-start (fail-open) | ~15 rader | läs av i Vercel-loggen efter nästa deploy |
 | 2 | Prune `/tmp/sajtmaskin/data/runs` till N senaste versioner vid skrivning | liten | tar bort den enda obegränsat växande posten |
 | 3 | Städa `/tmp/playwright_chromiumdev_profile-*` äldre än X min före varje launch | liten | återvinner disk efter krascher |
 | 4 | Höj skip-loggnivån (se [`01`](01-product-postcheck.md) åtgärd 3) | liten | felet slutar gömma sig |

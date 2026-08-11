@@ -77,7 +77,7 @@ ompröva som eget beslut är `SAJTMASKIN_REFUSE_DOSSIER_STUBS` i production.
 | Ändring | Fil(er) | Verifiering |
 |---|---|---|
 | Kö #1: stale-checkens package-klass accepterar justifikationsklausuler | `stale-verifier-findings.ts` (+ 3 tester) | vitest 47/47 grönt |
-| Kö #3 steg 1: `/tmp`-mätning före varje Chromium-start | `capture/browser.ts` (`[capture-browser] tmp free: …`) | typecheck + browser.test grönt |
+| Kö #3 steg 1: `/tmp`-mätning före varje Chromium-start | `capture/browser.ts` (`[capture-browser] free space in temporary directory: …`) | typecheck + browser.test grönt |
 | Kö #8: Turbopack över-bundling (event-bus + warm-typecheck) | `event-bus.ts`, `warm-typecheck.ts`, `next.config.ts` | lokal prod-build: 0 varningar |
 | Postcheck-krascher syns: skip-orsak `playwright_unavailable`/`navigation_failed`/`timeout`/`runtime_error` loggas som `warning` | `post-checks.ts` | post-checks.test grönt; gates opåverkade (ankrar på `preflight:quality-gate`) |
 | `/logg` steg 3c: appens console-rader obligatoriska | `.cursor/skills/logg/SKILL.md`, `.cursor/commands/logg.md` | — |
@@ -91,7 +91,7 @@ Verifierade svar på ägarfrågor (2026-08-11):
 ## Nästa steg
 
 1. Utred punkt 2 (AI-sidans attrapp) — den gör en publicerad sajt oärlig.
-2. Läs av `[capture-browser] tmp free:`-raderna i Vercel efter nästa deploy → välj åtgärd i [`02`](02-tmp-krasch.md) (prune NDJSON / städa profiler).
+2. Läs av `[capture-browser] free space in temporary directory:`-raderna i Vercel efter nästa deploy → välj åtgärd i [`02`](02-tmp-krasch.md) (prune NDJSON / städa profiler).
 3. Verifiera kö #1-fixen live: kör "Bygg integrationer" igen efter deploy — v6 ska bli grön om manifestet är komplett.
 4. Beslut: ska `SAJTMASKIN_REFUSE_DOSSIER_STUBS` vara på i production?
 

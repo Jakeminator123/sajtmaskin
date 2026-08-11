@@ -15,6 +15,7 @@ const isDisallowedHost = vi.hoisted(() => vi.fn());
 const hostResolvesToPrivate = vi.hoisted(() => vi.fn());
 const getPreviewHostBaseUrl = vi.hoisted(() => vi.fn());
 const fetchWithPinnedDns = vi.hoisted(() => vi.fn());
+const statfs = vi.hoisted(() => vi.fn());
 
 vi.mock("@sparticuz/chromium", () => ({
   default: {
@@ -29,6 +30,8 @@ vi.mock("@/lib/ssrf-guard", () => ({ isDisallowedHost, hostResolvesToPrivate }))
 // värd får — men preview-hostens bas kommer från env, så bara den mockas.
 vi.mock("@/lib/gen/preview/tier2-config", () => ({ getPreviewHostBaseUrl }));
 vi.mock("@/lib/capture/pinned-fetch", () => ({ fetchWithPinnedDns }));
+vi.mock("node:fs/promises", () => ({ statfs }));
+vi.mock("node:os", () => ({ default: { tmpdir: () => "/tmp" } }));
 
 const ORIGINAL_VERCEL = process.env.VERCEL;
 const ALLOWLIST_ENV_KEY = "NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES";
@@ -47,6 +50,7 @@ beforeEach(() => {
     headers: { "content-type": "image/png" },
     body: Buffer.from("pinned-bytes"),
   });
+  statfs.mockResolvedValue({ bavail: 512, bsize: 1024, blocks: 1024 });
   delete process.env[ALLOWLIST_ENV_KEY];
 });
 
@@ -66,6 +70,7 @@ describe("launchCaptureBrowser", () => {
       id: "serverless",
       close: async () => undefined,
     });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const { launchCaptureBrowser } = await import("./browser");
 
     const browser = await launchCaptureBrowser();
@@ -77,6 +82,10 @@ describe("launchCaptureBrowser", () => {
       executablePath: "/tmp/chromium",
       headless: true,
     });
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[capture-browser] free space in temporary directory: 1MB of 1MB (/tmp)",
+    );
+    warnSpy.mockRestore();
   });
 
   it("använder den lokala playwright-installationen utanför serverless", async () => {

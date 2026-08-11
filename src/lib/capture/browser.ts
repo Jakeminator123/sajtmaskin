@@ -70,7 +70,9 @@ async function logTmpFreeSpaceBestEffort(): Promise<void> {
     const stat = await statfs(tmp);
     const freeMb = Math.round((stat.bavail * stat.bsize) / 1_048_576);
     const totalMb = Math.round((stat.blocks * stat.bsize) / 1_048_576);
-    console.info(`[capture-browser] tmp free: ${freeMb}MB of ${totalMb}MB (${tmp})`);
+    console.warn(
+      `[capture-browser] free space in temporary directory: ${freeMb}MB of ${totalMb}MB (${tmp})`,
+    );
   } catch {
     // Best effort only.
   }
