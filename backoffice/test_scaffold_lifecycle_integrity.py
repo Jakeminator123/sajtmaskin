@@ -1002,6 +1002,11 @@ class CreateScaffoldValidationTests(unittest.TestCase):
         self.assertIn("if not create_start_variant:", self.source)
         self.assertIn("måste ha minst en variant", self.source)
 
+    def test_success_flash_reflects_whether_start_variant_was_created(self) -> None:
+        self.assertIn("if create_start_variant:", self.source)
+        self.assertIn("validerad startvariant", self.source)
+        self.assertIn("utan startvariant", self.source)
+
     def test_duplicate_and_empty_fields_are_still_rejected(self) -> None:
         self.assertIn("finns redan", self.source)
         self.assertIn("if not allowed_build_intents:", self.source)
@@ -1124,6 +1129,16 @@ class PostCreateStatusTests(unittest.TestCase):
         self.assertIn("integritetskontroller återstår", source)
         self.assertIn("Integritetsgrinden är grön", source)
         self.assertIn("redo för master", source)
+
+    def test_validation_status_is_derived_after_button_handlers(self) -> None:
+        source = inspect.getsource(sw._render_post_create)
+        button_pos = source.find('st.button("▶ Kör alla steg i följd (igen)"')
+        status_pos = source.find(
+            "validation_passed = _post_create_validation_passed(results)"
+        )
+        self.assertGreater(button_pos, -1)
+        self.assertGreater(status_pos, button_pos)
+        self.assertIn("status_slot", source)
 
     def test_mutation_invalidates_an_earlier_green_validation(self) -> None:
         results = {

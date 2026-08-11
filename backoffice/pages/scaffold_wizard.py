@@ -1108,25 +1108,9 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
     variant_id = str(created.get("variantId", ""))
     scaffold_id = str(created.get("scaffoldId", ""))
     results: dict[str, Any] = st.session_state.setdefault("swz_cmd_results", {})
-    validation_passed = _post_create_validation_passed(results)
-
-    if validation_passed:
-        st.subheader("Integritetsgrinden är grön")
-        st.success(
-            f"{created.get('message', 'Varianten skapades.')} "
-            "`npm run scaffolds:validate` passerar. Granska fortfarande diffen "
-            "innan commit eller merge."
-        )
-        if not st.session_state.get("swz_balloons_shown"):
-            st.balloons()
-            st.session_state["swz_balloons_shown"] = True
-    else:
-        st.subheader("Varianten är skapad — integritetskontroller återstår")
-        st.info(created.get("message", "Varianten skapades."))
-        st.warning(
-            "Filerna finns i worktreet, men ändringen är inte integritetsklar eller "
-            "redo för master förrän efter-stegen avslutas med en grön validering."
-        )
+    # Status is filled after button handlers may invalidate an earlier green
+    # validate result in the same render pass.
+    status_slot = st.empty()
 
     if variant_id and scaffold_id:
         st.caption(
@@ -1214,6 +1198,27 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
             ):
                 _run(step)
                 st.rerun()
+
+    # Derive display status only after handlers may have popped validate.
+    validation_passed = _post_create_validation_passed(results)
+    with status_slot.container():
+        if validation_passed:
+            st.subheader("Integritetsgrinden är grön")
+            st.success(
+                f"{created.get('message', 'Varianten skapades.')} "
+                "`npm run scaffolds:validate` passerar. Granska fortfarande diffen "
+                "innan commit eller merge."
+            )
+            if not st.session_state.get("swz_balloons_shown"):
+                st.balloons()
+                st.session_state["swz_balloons_shown"] = True
+        else:
+            st.subheader("Varianten är skapad — integritetskontroller återstår")
+            st.info(created.get("message", "Varianten skapades."))
+            st.warning(
+                "Filerna finns i worktreet, men ändringen är inte integritetsklar eller "
+                "redo för master förrän efter-stegen avslutas med en grön validering."
+            )
 
     for step in steps:
         res = results.get(step["key"])

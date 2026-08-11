@@ -916,13 +916,20 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
         st.error(_exception_message(error))
         return
 
-    _flash_note(
-        f"Skapade scaffolden `{scaffold_id}` från `{source_scaffold_id}` med en "
-        "schema- och provenance-validerad startvariant. Den är ännu inte "
-        "integritetsklar: bygg om embeddings/research och kör "
-        "`npm run scaffolds:validate` innan ändringen bedöms redo för master.",
-        level="warning",
-    )
+    if create_start_variant:
+        flash = (
+            f"Skapade scaffolden `{scaffold_id}` från `{source_scaffold_id}` med en "
+            "schema- och provenance-validerad startvariant. Den är ännu inte "
+            "integritetsklar: bygg om embeddings/research och kör "
+            "`npm run scaffolds:validate` innan ändringen bedöms redo för master."
+        )
+    else:
+        flash = (
+            f"Skapade scaffolden `{scaffold_id}` från `{source_scaffold_id}` "
+            "utan startvariant. Lägg till minst en variant och kör "
+            "`npm run scaffolds:validate` innan ändringen bedöms redo för master."
+        )
+    _flash_note(flash, level="warning")
     st.rerun()
 
 
