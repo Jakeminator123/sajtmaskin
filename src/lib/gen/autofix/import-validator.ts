@@ -1,6 +1,6 @@
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
-import { extractLocalComponentDeclarations } from "./local-declarations";
+import { buildLocalDeclarationIndex } from "./local-declarations";
 import {
   findNearestIcon,
   isLucideTypeOnlyExport,
@@ -563,24 +563,29 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
   const bound = collectImportBoundNames(code);
   const importedNames = new Set<string>([...bound.value, ...bound.typeOnly]);
 
-  // A name the file DECLARES itself is never a missing import. Without this
-  // guard a shadcn component file gets a self-import injected (`DialogPortal`
-  // is `const DialogPortal = DialogPrimitive.Portal` in `ui/dialog.tsx`, and
-  // also a key in SHADCN_COMPONENTS), which `fixImportDeclarationConflicts`
-  // strips again on the same pass — an add/remove cycle that stacked blank
-  // lines above the imports on every generation (prod chat f98fd5c0).
-  // `jsx-checker` and `common-import-fixer` already apply the same guard.
-  const localDeclarations = extractLocalComponentDeclarations(code);
+  // A name the file DECLARES itself (as a value, in scope at the usage) is
+  // never a missing import. Without this guard a shadcn component file gets a
+  // self-import injected (`DialogPortal` is `const DialogPortal =
+  // DialogPrimitive.Portal` in `ui/dialog.tsx`, and also a key in
+  // SHADCN_COMPONENTS), which `fixImportDeclarationConflicts` strips again on
+  // the same pass — an add/remove cycle that stacked blank lines above the
+  // imports on every generation (prod chat f98fd5c0). Scope-aware: a nested
+  // `const Button` only covers JSX inside that block; `type`/`interface`
+  // names never suppress a runtime import.
+  const localDecls = buildLocalDeclarationIndex(code);
 
   const jsxTagRe = /<([A-Z][A-Za-z0-9]*)\b/g;
-  const jsxTags = new Set<string>();
+  const jsxTagsNeedingImport = new Set<string>();
   for (const m of code.matchAll(jsxTagRe)) {
-    jsxTags.add(m[1]);
+    const tag = m[1];
+    if (importedNames.has(tag)) continue;
+    if (localDecls.isValueInScope(tag, m.index ?? 0)) continue;
+    jsxTagsNeedingImport.add(tag);
   }
 
   const typeUsageRe = /:\s*(Metadata)\b/g;
   for (const m of code.matchAll(typeUsageRe)) {
-    jsxTags.add(m[1]);
+    jsxTagsNeedingImport.add(m[1]);
   }
 
   const hookUsageRe = /\b(use[A-Z]\w*)\s*[<(]/g;
@@ -594,9 +599,8 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
 
   const newImports: string[] = [];
 
-  for (const tag of jsxTags) {
+  for (const tag of jsxTagsNeedingImport) {
     if (importedNames.has(tag)) continue;
-    if (localDeclarations.has(tag)) continue;
 
     if (NEXT_AUTO_IMPORTS[tag]) {
       newImports.push(NEXT_AUTO_IMPORTS[tag]);

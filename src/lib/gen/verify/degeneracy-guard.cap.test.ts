@@ -116,3 +116,44 @@ describe("capDegeneratePayload — preservePaths (inherited content)", () => {
     expect(stubbedPaths).toEqual([]);
   });
 });
+
+describe("capDegeneratePayload — lockfiles (tooling category)", () => {
+  it("does not stub a regenerated lockfile under 2 MiB when source bloat triggers the cap", () => {
+    const lock = { path: "pnpm-lock.yaml", content: "l".repeat(900_000) };
+    const files = [
+      lock,
+      { path: "components/bloat.tsx", content: "z".repeat(800_000) },
+    ];
+    const { files: out, stubbedPaths } = capDegeneratePayload(files, "bloat");
+    expect(stubbedPaths).toEqual(["components/bloat.tsx"]);
+    expect(out.find((f) => f.path === lock.path)!.content).toBe(lock.content);
+  });
+
+  it("does not evict a lockfile when capping split source bloat to 1 MB", () => {
+    const lock = { path: "pnpm-lock.yaml", content: "l".repeat(700_000) };
+    const files = [
+      lock,
+      ...Array.from({ length: 6 }, (_unused, i) => ({
+        path: `components/c-${i}.tsx`,
+        content: "a".repeat(400_000),
+      })),
+    ];
+    const { files: out, stubbedPaths } = capDegeneratePayload(files, "split bloat");
+    expect(stubbedPaths).not.toContain(lock.path);
+    expect(out.find((f) => f.path === lock.path)!.content).toBe(lock.content);
+    const sourceTotal = out
+      .filter((f) => f.path.endsWith(".tsx"))
+      .reduce((n, f) => n + f.content.length, 0);
+    expect(sourceTotal).toBeLessThanOrEqual(1_000_000);
+  });
+
+  it("still stubs a lockfile over the preview-host 2 MiB ceiling", () => {
+    const lock = {
+      path: "pnpm-lock.yaml",
+      content: "x".repeat(Math.round(2.5 * MB)),
+    };
+    const { stubbedPaths, files: out } = capDegeneratePayload([lock], "too big");
+    expect(stubbedPaths).toEqual([lock.path]);
+    expect(out[0].content.length).toBeLessThan(200);
+  });
+});

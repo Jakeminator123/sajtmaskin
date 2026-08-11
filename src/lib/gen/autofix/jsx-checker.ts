@@ -1,7 +1,10 @@
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import type { AutoFixEntry } from "./pipeline";
-import { extractLocalComponentDeclarations as extractLocalDeclarations } from "./local-declarations";
+import {
+  buildLocalDeclarationIndex,
+  extractLocalComponentDeclarations as extractLocalDeclarations,
+} from "./local-declarations";
 import { resolveOwnComponentImports } from "./deterministic-import-repair";
 import {
   countParseErrors,
@@ -34,7 +37,7 @@ const JSX_OPEN_TAG_RE = /<([A-Z]\w*)[\s/>]/g;
 const JSX_CLOSE_TAG_RE = /<\/([A-Z]\w*)\s*>/g;
 
 /**
- * Component-detection matchers used by `extractUsedComponents` (which decides
+ * Component-detection matchers used by `fixMissingImports` (which decides
  * what imports to insert). The negative lookbehind `(?<![A-Za-z0-9_$.])`
  * rejects TS generic positions where `<` immediately follows an identifier or
  * `.` — `new ReadableStream<Uint8Array>`, `useRef<Group>`, `foo<T>(`,
@@ -221,23 +224,6 @@ function extractImportedNames(code: string): Set<string> {
   return names;
 }
 
-function extractUsedComponents(code: string): Set<string> {
-  const used = new Set<string>();
-
-  // Lookbehind matchers exclude TS generic positions (`new
-  // ReadableStream<Uint8Array>`, `foo<T>(`) so those never drive an import.
-  JSX_COMPONENT_OPEN_TAG_RE.lastIndex = 0;
-  for (const m of code.matchAll(JSX_COMPONENT_OPEN_TAG_RE)) {
-    used.add(m[1]);
-  }
-  JSX_COMPONENT_SELF_CLOSING_RE.lastIndex = 0;
-  for (const m of code.matchAll(JSX_COMPONENT_SELF_CLOSING_RE)) {
-    used.add(m[1]);
-  }
-
-  return used;
-}
-
 function findLastImportLine(lines: string[]): number {
   let last = -1;
   for (let i = 0; i < lines.length; i++) {
@@ -417,18 +403,31 @@ function fixMissingImports(
   const fixes: AutoFixEntry[] = [];
   const warnings: string[] = [];
   const imported = extractImportedNames(code);
-  const used = extractUsedComponents(code);
-  const localDecls = extractLocalDeclarations(code);
+  const localDecls = buildLocalDeclarationIndex(code);
 
+  // Collect used components with positions so a nested `const Button` only
+  // covers JSX inside that scope (module-level `<Button>` still needs import).
   const missing: string[] = [];
-  for (const comp of used) {
-    if (BUILT_IN.has(comp)) continue;
+  const seenMissing = new Set<string>();
+  const considerUsage = (name: string, atIndex: number) => {
+    if (BUILT_IN.has(name)) return;
     // Built-in DOM/standard-library types appear in TS generic positions like
     // `useRef<HTMLDivElement>` and must not be treated as missing components.
-    if (isGlobalTypeName(comp)) continue;
-    if (imported.has(comp)) continue;
-    if (localDecls.has(comp)) continue;
-    missing.push(comp);
+    if (isGlobalTypeName(name)) return;
+    if (imported.has(name)) return;
+    if (localDecls.isValueInScope(name, atIndex)) return;
+    if (seenMissing.has(name)) return;
+    seenMissing.add(name);
+    missing.push(name);
+  };
+
+  JSX_COMPONENT_OPEN_TAG_RE.lastIndex = 0;
+  for (const m of code.matchAll(JSX_COMPONENT_OPEN_TAG_RE)) {
+    considerUsage(m[1], m.index ?? 0);
+  }
+  JSX_COMPONENT_SELF_CLOSING_RE.lastIndex = 0;
+  for (const m of code.matchAll(JSX_COMPONENT_SELF_CLOSING_RE)) {
+    considerUsage(m[1], m.index ?? 0);
   }
 
   if (missing.length === 0) return { code, fixes, warnings };
