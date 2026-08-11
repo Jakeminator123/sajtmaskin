@@ -12,10 +12,10 @@ import {
  * Phase routing resolves which model handles each generation phase per tier.
  * `selected_build_model` means the tier's primary model; explicit IDs override.
  *
- * Max AND Premium pin **fixer** to gpt-5.3-codex without thinking (better at
- * targeted syntax repair than the heavy build models, which timed out —
- * ägarbeslut 2026-08-11 for Premium). Verifier and deploy-assistant also use
- * gpt-5.3-codex for all quality-line tiers; Premium keeps GPT-5.6 Sol for
+ * Premium pins **fixer** to gpt-5.6-sol without thinking (ägarbeslut
+ * 2026-08-11: Sol for targeted repairs, thinking off so latency stays
+ * bounded). Max still pins fixer to gpt-5.3-codex. Verifier/deploy-assistant
+ * use gpt-5.3-codex on pro/max/codex; Premium keeps GPT-5.6 Sol for
  * planner/generator/verifier/deploy-assistant. Anthropic keeps a single model
  * across phases.
  */
