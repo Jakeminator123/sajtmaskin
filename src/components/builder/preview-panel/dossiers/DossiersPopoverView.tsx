@@ -23,6 +23,7 @@ import { resolveDossierGroup } from "@/lib/builder/dossier-groups";
 import { cn } from "@/lib/utils";
 import type { usePreviewPanelDossiersController } from "../hooks/usePreviewPanelDossiersController";
 import {
+  describeActiveVersionLabel,
   ENFORCEMENT_LABEL,
   GROUP_HEADING_TITLE,
   RequiresF3Badge,
@@ -32,10 +33,12 @@ import {
 
 type Vm = ReturnType<typeof usePreviewPanelDossiersController> & {
   className?: string;
+  activeVersionMeta?: { versionNumber?: number | null; createdAt?: string | Date | null } | null;
 };
 
 export function DossiersPopoverView({
   className,
+  activeVersionMeta,
   ...vm
 }: Vm) {
   const {
@@ -57,12 +60,14 @@ export function DossiersPopoverView({
     customKeyDraftError,
     customSaving,
     customError,
+    customSaveConfirmation,
     keyValues,
     setKeyValues,
     editingKeys,
     setEditingKeys,
     savingDossierId,
     saveError,
+    saveConfirmation,
     deletingKey,
     projectId,
     handleSaveKeys,
@@ -83,6 +88,8 @@ export function DossiersPopoverView({
     catalogCounts,
     filteredCatalogGroups,
   } = vm;
+
+  const activeVersionLabel = describeActiveVersionLabel(activeVersionMeta);
 
   const renderRow = (entry: DossierOverviewEntry) => {
     const descriptor = describeDossierStatus(entry.status, stage, entry.class);
@@ -297,6 +304,19 @@ export function DossiersPopoverView({
                     ) : null}
                   </div>
                 ) : null}
+                {/* Lucka 1 (ägarbeslut 2026-08-11): ersätter den borttagna
+                    "Miljövariabler sparade"-toasten med ett kvitto precis där
+                    nyckeln skrevs in — inklusive den previewn-startar om-info
+                    som annars försvann med toasten. Ligger UTANFÖR
+                    "still needs input"-blocket ovan: en lyckad sista nyckel
+                    gör att det blocket försvinner (inget kvar att fylla i),
+                    men kvittot ska ändå synas. */}
+                {saveConfirmation && saveConfirmation.dossierId === entry.id ? (
+                  <p className="mt-2 text-[10px] text-emerald-300">
+                    Ifylld — byggblocket är nu &quot;{descriptor.label}&quot;. Previewn startas
+                    om med det nya värdet.
+                  </p>
+                ) : null}
               </div>
             ) : null}
             {entry.dependencies.length > 0 ? (
@@ -359,10 +379,11 @@ export function DossiersPopoverView({
             </span>
           ) : activeTab === "catalog" && catalogLoading ? (
             <span className="text-[10px] text-gray-500">Katalog: läser…</span>
-          ) : freshData ? (
-            <span className="text-[10px] text-gray-500">
-              Version: {freshData.counts.hard} kopplade · {freshData.counts.soft} fristående
-            </span>
+          ) : freshData && activeVersionLabel ? (
+            // Lucka 2 (ägarbeslut 2026-08-11): ersätter "Version: N kopplade ·
+            // M fristående" — den raden dubblerade fliken `Inkopplade (N)` och
+            // katalogfiltren utan att säga VILKEN version statusen gäller.
+            <span className="text-[10px] text-gray-500">{activeVersionLabel}</span>
           ) : null}
         </div>
 
@@ -477,6 +498,11 @@ export function DossiersPopoverView({
             ) : null}
             {customError ? (
               <p className="text-[10px] text-rose-300">{customError}</p>
+            ) : null}
+            {customSaveConfirmation && !customError ? (
+              <p className="text-[10px] text-emerald-300">
+                Sparat. Previewn startas om med de nya värdena.
+              </p>
             ) : null}
             <div className="flex items-center gap-1.5">
               <Input

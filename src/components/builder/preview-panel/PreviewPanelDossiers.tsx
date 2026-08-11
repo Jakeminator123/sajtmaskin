@@ -32,6 +32,8 @@ export function PreviewPanelDossiers({
   className,
   onRequestDossier,
   catalogPickDisabled = false,
+  onCountsChange,
+  activeVersionMeta,
 }: PreviewPanelDossiersProps) {
   const vm = usePreviewPanelDossiersController({
     chatId,
@@ -39,6 +41,7 @@ export function PreviewPanelDossiers({
     lifecycleStage,
     onRequestDossier,
     catalogPickDisabled,
+    onCountsChange,
   });
-  return <DossiersPopoverView {...vm} className={className} />;
+  return <DossiersPopoverView {...vm} className={className} activeVersionMeta={activeVersionMeta} />;
 }

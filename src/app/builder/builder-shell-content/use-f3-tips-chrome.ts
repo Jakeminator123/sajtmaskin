@@ -12,6 +12,7 @@ import type {
   F3BuilderStatus,
   F3MissingIntegration,
 } from "@/components/builder/F3RequirementsSurface";
+import type { DossierOverviewResponse } from "@/lib/builder/dossier-overview";
 import { compressAssistantCodeBlocks } from "@/lib/builder/openclaw-context-messages";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -36,6 +37,23 @@ export function useShellF3TipsChrome(vm: BuilderViewModel, sendMessage: BuilderV
   } | null>(null);
   const [f3Status, setF3Status] = useState<F3BuilderStatus | null>(null);
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
+
+  // Lucka 3 (ägarbeslut 2026-08-11): Byggblock-panelen (PreviewPanelDossiers)
+  // rapporterar sina counts hit via `onCountsChange` — samma data F3-triggerns
+  // framgångstitel behöver, utan att triggern hämtar `/dossiers` själv (se
+  // noten i 05-builder-statussanning.md).
+  const [dossierCounts, setDossierCounts] = useState<DossierOverviewResponse["counts"] | null>(
+    null,
+  );
+  const handleDossierCountsChange = useCallback(
+    (counts: DossierOverviewResponse["counts"] | null) => {
+      setDossierCounts(counts);
+    },
+    [],
+  );
+  useEffect(() => {
+    setDossierCounts(null);
+  }, [vm.chatId]);
 
   // (Prompt-prefill-lyssnaren togs bort 2026-07-31: Byggval-reglagen skriver
   // inte längre i chattens input, och exempel-chipsen försvann med #673.)
@@ -356,6 +374,8 @@ export function useShellF3TipsChrome(vm: BuilderViewModel, sendMessage: BuilderV
     setF3Status,
     visibleF3Status,
     visibleF3Requirements,
+    dossierCounts,
+    handleDossierCountsChange,
     mobileTab,
     setMobileTab,
     githubExportOpen,

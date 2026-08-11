@@ -60,6 +60,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     setF3Status,
     visibleF3Status,
     visibleF3Requirements,
+    dossierCounts,
+    handleDossierCountsChange,
     mobileTab,
     setMobileTab,
     githubExportOpen,
@@ -208,6 +210,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             f3RequiresRealBuildKeys={
               vm.deployReadiness?.info?.hasRealBuildIntegrations ?? null
             }
+            onDossierCountsChange={handleDossierCountsChange}
+            activeVersionMeta={activeVersionSummary}
+            f3BuiltCounts={
+              dossierCounts
+                ? { builtLive: dossierCounts.builtLive, builtDemo: dossierCounts.builtDemo }
+                : null
+            }
           />
         }
       />
@@ -282,7 +291,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             hasAnyVersion={vm.effectiveVersionsList.length > 0}
           />
-          {visibleF3Requirements ? (
+          {/* Lucka 3 (ägarbeslut 2026-08-11): rendera bara medan det faktiskt
+              saknas nycklar. Ytans egna "allt klart"-läge togs bort — det
+              dubblerade F3-statusraden (`F3StatusSurface`) nedanför utan att
+              själv försvinna. */}
+          {visibleF3Requirements && visibleF3Requirements.missingByIntegration.length > 0 ? (
             <F3RequirementsSurface
               projectId={visibleF3Requirements.projectId ?? vm.appProjectId}
               missingByIntegration={visibleF3Requirements.missingByIntegration}

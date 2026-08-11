@@ -108,6 +108,13 @@ export function F3StatusSurface({
  * Byggblock är enda env-inmatningsytan (ägarbeslut 2026-07-22,
  * `env-flow-f2-mute.mdc`), så ytan listar bara vad som saknas och deep-linkar
  * dit — den har ingen egen editor mot samma API (restlistan R4).
+ *
+ * Lucka 3 (ägarbeslut 2026-08-11): denna komponent har inget eget "allt
+ * klart"-läge längre — den beskrev bara sig själv som redan löst
+ * ("Alla nycklar är sparade") utan att faktiskt försvinna, vilket dubblerade
+ * F3-statusraden (`F3StatusSurface`) ovanför. Callern (`builder-shell-content/`)
+ * äger nu villkoret: rendera denna yta ENDAST när `missingByIntegration` är
+ * icke-tom.
  */
 export function F3RequirementsSurface({
   projectId,
@@ -132,17 +139,12 @@ export function F3RequirementsSurface({
       className="border-border mx-3 mt-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs"
     >
       <div className="flex items-start gap-2">
-        {missingByIntegration.length === 0 ? (
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
-        ) : (
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-        )}
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
         <div>
           <h2 className="font-medium text-amber-100">Krav för integrationsbygge</h2>
           <p className="mt-1 text-amber-100/80">
-            {missingByIntegration.length === 0
-              ? "Alla nycklar är sparade — fortsätt integrationsbygget."
-              : "Designpreviewn är kvar i F2. Fyll i värdena under Byggblock i previewen och fortsätt sedan integrationsbygget."}
+            Designpreviewn är kvar i F2. Fyll i värdena under Byggblock i previewen och fortsätt
+            sedan integrationsbygget.
           </p>
         </div>
       </div>

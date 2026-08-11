@@ -64,6 +64,19 @@ describe("F3RequirementsSurface", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  // Lucka 3 (ägarbeslut 2026-08-11): the component's own "allt klart"-state
+  // ("Alla nycklar är sparade") is gone — it never actually disappeared, so
+  // it duplicated `F3StatusSurface` above it. Visibility for the empty case
+  // is now the caller's job (`builder-shell-content/shell-content.tsx`
+  // renders this component only while `missingByIntegration.length > 0`).
+  it("lucka 3: no longer renders its own empty-state copy when missingByIntegration is empty", () => {
+    render(
+      <F3RequirementsSurface projectId="project_1" missingByIntegration={[]} onRetry={vi.fn()} />,
+    );
+
+    expect(screen.queryByText(/alla nycklar är sparade/i)).toBeNull();
+  });
+
   it("offers an explicit retry without closing the persistent surface", () => {
     const onRetry = vi.fn();
     render(

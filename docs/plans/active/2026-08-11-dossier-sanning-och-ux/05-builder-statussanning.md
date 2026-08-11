@@ -53,11 +53,16 @@ sin formulering — de länkar till diagnostiken, och där är grindens namn rä
 
 ## Fas B — implementation (efter ägarens OK per punkt)
 
+**Status: klar 2026-08-11.** Alla fyra punkter (Lucka 1–3 + Ö2) byggda i `feat/builder-statussanning`.
+Borttagningarna (halva poängen): toasten `Miljövariabler sparade` (`useBuilderVmPreview.ts`), raden
+`Version: N kopplade · M fristående` (`DossiersPopoverView.tsx`) och kravytans eget tomma läge
+(`F3RequirementsSurface.tsx` — synlighet flyttad till `shell-content.tsx`).
+
 - Implementera exakt de godkända punkterna, inget mer.
 - Statusord hämtas ur `describeDossierStatus`/`dossier-axes.ts` — inga nya strängvarianter.
 - Varje borttagen/sammanslagen yta listas i PR-beskrivningen.
 - Tester: komponenttest per ändrad yta + uppdaterade befintliga (`PreviewPanelDossiers.test`,
-  `F3RequirementsSurface.test`, `BuilderHeader.test`).
+  `F3RequirementsSurface.test`, `PreviewPanelF3Trigger.test`).
 
 ### Två noter som fas B måste läsa först
 

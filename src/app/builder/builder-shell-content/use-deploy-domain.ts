@@ -52,9 +52,12 @@ export function useShellDeployDomain(vm: BuilderViewModel) {
             : isDeployReadinessPending
               ? "Kontrollerar publiceringsstatus…"
               : deployReadinessBlocker?.detail || deployReadinessBlocker?.title || null;
+  // Ö2 (ägarbeslut 2026-08-11): "Projektets miljövariabler" pekade på en
+  // panel som togs bort 2026-07-22 — nycklar bor i Byggblock-popovern i
+  // previewen (samma fras som `F3RequirementsSurface`).
   const deployDisabledReason =
     deployReadinessBlocker?.action === "env" && baseDeployDisabledReason
-      ? `${baseDeployDisabledReason} Lägg till nycklarna under Projektets miljövariabler (Lansering överst i chatpanelen).`
+      ? `${baseDeployDisabledReason} Lägg till nycklarna under Byggblock i previewen.`
       : baseDeployDisabledReason;
   const { hasGitHub, user: authUser } = useAuth();
   return {

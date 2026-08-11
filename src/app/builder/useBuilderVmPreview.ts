@@ -210,10 +210,10 @@ export function useBuilderVmPreview(params: UseBuilderVmPreviewParams) {
       setPreviewBuildError(null);
       setPreviewProdBuild(null);
       setPreviewBootstrapRetryNonce((value) => value + 1);
-      toast.message("Miljövariabler sparade", {
-        description: "Startar om live-preview för att ladda om VM-previewn med nya värden.",
-        duration: 6000,
-      });
+      // Ägarbeslut 2026-08-11 (lucka 1): den generiska toasten ("Miljövariabler
+      // sparade") sa inte vad som faktiskt hände med byggblocket. Kvittot bor
+      // nu inline i Byggblock-raden (samma `saveError`-slot i
+      // `DossiersPopoverView`), med samma "previewn startar om"-info.
     };
 
     window.addEventListener(PROJECT_ENV_VARS_UPDATED_EVENT, handler as EventListener);

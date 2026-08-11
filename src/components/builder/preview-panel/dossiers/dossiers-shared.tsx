@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { describeF3Requirement } from "@/lib/builder/dossier-axes";
 import type {
   DossierOverviewEntry,
+  DossierOverviewResponse,
   DossierStatusDescriptor,
 } from "@/lib/builder/dossier-overview";
 
@@ -28,6 +29,43 @@ export interface PreviewPanelDossiersProps {
    * disabled with a short hint while true.
    */
   catalogPickDisabled?: boolean;
+  /**
+   * Lucka 3 (ägarbeslut 2026-08-11): reports the wired-list counts on every
+   * fetch so `builder-shell-content/` can weave `builtLive`/`builtDemo` into
+   * the F3-statusradens framgångstitel — without a second fetch of the same
+   * route from `PreviewPanelF3Trigger`.
+   */
+  onCountsChange?: (counts: DossierOverviewResponse["counts"] | null) => void;
+  /**
+   * Lucka 2 (ägarbeslut 2026-08-11): vilken version popoverns huvudrad
+   * beskriver, buren av den befintliga versionslistan (`versionNumber` +
+   * `createdAt`) — ingen ny signal.
+   */
+  activeVersionMeta?: { versionNumber?: number | null; createdAt?: string | Date | null } | null;
+}
+
+/**
+ * "Version 4 · byggd 14:32" i popoverns huvudrad — ersätter raden
+ * `Version: N kopplade · M fristående`, som bara dubblerade fliken
+ * `Inkopplade (N)` och katalogfiltren utan att säga VILKEN version statusen
+ * gäller (lucka 2, ägarbeslut 2026-08-11).
+ */
+export function describeActiveVersionLabel(
+  meta: { versionNumber?: number | null; createdAt?: string | Date | null } | null | undefined,
+): string | null {
+  const versionLabel =
+    typeof meta?.versionNumber === "number" ? `Version ${meta.versionNumber}` : null;
+  let timeLabel: string | null = null;
+  if (meta?.createdAt) {
+    const date = meta.createdAt instanceof Date ? meta.createdAt : new Date(meta.createdAt);
+    if (!Number.isNaN(date.getTime())) {
+      timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+  }
+  if (versionLabel && timeLabel) return `${versionLabel} · byggd ${timeLabel}`;
+  if (versionLabel) return versionLabel;
+  if (timeLabel) return `Byggd ${timeLabel}`;
+  return null;
 }
 
 export type PanelTab = "wired" | "catalog";
