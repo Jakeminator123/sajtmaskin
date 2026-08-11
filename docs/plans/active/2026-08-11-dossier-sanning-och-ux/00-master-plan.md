@@ -1,6 +1,7 @@
 # Dossier: färre sanningsytor, tydligare status (master-plan)
 
-**Startad:** 2026-08-11 · **Ägare:** Jakeminator123 · **Status:** planerad, inget bygge startat.
+**Startad:** 2026-08-11 · **Ägare:** Jakeminator123 · **Status:** 01–04 planerade, inget bygge startat.
+Delplan 05: fas A klar, ägarbeslut fattade 2026-08-11, fas B ej påbörjad.
 **Byggs av:** separata agenter per delplan. **Reviewas av:** ägaren + granskande agent (bugbot-pass per PR).
 
 ## Målbild (ägarens krav, destillerade)

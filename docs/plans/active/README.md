@@ -12,7 +12,7 @@ kopiera inte kön hit.
 | Spår | Plan | Nästa steg |
 | --- | --- | --- |
 | Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | Öppna: **R8** aktiverings-E2E · **R5** (blockerad) · **R12** (kräver beslut) · **R13** (prod-observation) |
-| Dossier: färre sanningsytor + status-UX | [`2026-08-11-dossier-sanning-och-ux/00-master-plan.md`](2026-08-11-dossier-sanning-och-ux/00-master-plan.md) | 01 (ta över truth-map-checkpointen `d7caf4cf`) först; 02–04 efter; 05 parallell. Inget bygge startat |
+| Dossier: färre sanningsytor + status-UX | [`2026-08-11-dossier-sanning-och-ux/00-master-plan.md`](2026-08-11-dossier-sanning-och-ux/00-master-plan.md) | 01 (ta över truth-map-checkpointen `d7caf4cf`) först; 02–04 efter. 05: fas A klar + ägarbeslut fattade 2026-08-11, fas B kan börja parallellt |
 
 Prod-körningens dossier-spår (2026-08-05) är **parkerat** — levererat i
 [`../avklarat/README.md`](../avklarat/README.md). Resterna A5 och `SM-025` lever
