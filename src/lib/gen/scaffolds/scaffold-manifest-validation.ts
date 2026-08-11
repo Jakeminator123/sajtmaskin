@@ -1,3 +1,4 @@
+import { normalizeBuildIntent } from "@/lib/builder/build-intent";
 import { getAllScaffolds } from "./registry";
 import type {
   ScaffoldFilePromptRole,
@@ -50,6 +51,25 @@ const VALID_FILE_SERIALIZATIONS: ReadonlySet<ScaffoldFileSerialization> = new Se
  */
 export function validateScaffoldManifest(scaffold: ScaffoldManifest): ScaffoldManifestIssue[] {
   const issues: ScaffoldManifestIssue[] = [];
+  const allowedBuildIntents = (scaffold as { allowedBuildIntents?: unknown }).allowedBuildIntents;
+  if (!Array.isArray(allowedBuildIntents) || allowedBuildIntents.length === 0) {
+    issues.push({
+      scaffoldId: scaffold.id,
+      severity: "error",
+      message: "allowedBuildIntents must contain at least one build intent",
+    });
+  } else {
+    const invalidBuildIntents = allowedBuildIntents.filter(
+      (intent) => typeof intent !== "string" || normalizeBuildIntent(intent) !== intent,
+    );
+    if (invalidBuildIntents.length > 0) {
+      issues.push({
+        scaffoldId: scaffold.id,
+        severity: "error",
+        message: `allowedBuildIntents contains invalid values: ${invalidBuildIntents.join(", ")}`,
+      });
+    }
+  }
   const filePaths = scaffold.files.map((file) => file.path);
   const uniqueFilePaths = new Set(filePaths);
 

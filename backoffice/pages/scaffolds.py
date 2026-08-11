@@ -32,6 +32,11 @@ from backoffice.shared import (
     tech_details,
     write_text,
 )
+from .scaffold_lifecycle_lib.constants import BUILD_INTENT_OPTIONS
+from .scaffold_lifecycle_lib.scaffold_ops import (
+    _normalize_allowed_build_intents,
+    _update_client_list_allowed_build_intents_text,
+)
 
 PAGE_NAME = "Scaffolds: titta & justera"
 
@@ -433,6 +438,72 @@ def _write_ts_multiline_string_array(text: str, field: str, values: list[str]) -
     return re.sub(pattern, rf"\g<1>[\n{items}\n  ]", text, count=1, flags=re.DOTALL)
 
 
+def _save_scaffold_metadata(
+    ctx: BackofficeContext,
+    *,
+    scaffold_id: str,
+    tags: list[str],
+    allowed_build_intents: list[str],
+    prompt_hints: list[str],
+    quality_checklist: list[str],
+) -> bool:
+    """Persist manifest metadata and its client projection as one transaction."""
+    intents = _normalize_allowed_build_intents(allowed_build_intents)
+    manifest_path = ctx.scaffolds_dir / scaffold_id / "manifest.ts"
+    types_path = ctx.scaffolds_dir / "types.ts"
+    manifest_text = read_text(manifest_path)
+    types_text = read_text(types_path)
+
+    if re.search(r"allowedBuildIntents:\s*\[", manifest_text) is None:
+        raise ValueError(
+            "Manifestet saknar allowedBuildIntents-fältet. Ingen fil ändrades."
+        )
+
+    updated_manifest = manifest_text
+    updated_manifest = _write_ts_string_array(updated_manifest, "tags", tags)
+    updated_manifest = _write_ts_string_array(
+        updated_manifest, "allowedBuildIntents", intents
+    )
+    updated_manifest = _write_ts_multiline_string_array(
+        updated_manifest, "promptHints", prompt_hints
+    )
+    updated_manifest = _write_ts_multiline_string_array(
+        updated_manifest, "qualityChecklist", quality_checklist
+    )
+    updated_types = _update_client_list_allowed_build_intents_text(
+        types_text, scaffold_id, intents
+    )
+
+    changes = [
+        (manifest_path, manifest_text, updated_manifest),
+        (types_path, types_text, updated_types),
+    ]
+    pending = [
+        (path, original, updated)
+        for path, original, updated in changes
+        if updated != original
+    ]
+    if not pending:
+        return False
+
+    try:
+        for path, _original, updated in pending:
+            write_text(path, updated)
+    except Exception as error:
+        rollback_errors: list[str] = []
+        for path, original, _updated in changes:
+            try:
+                path.write_text(original, encoding="utf-8", newline="\n")
+            except OSError as rollback_error:
+                rollback_errors.append(f"{path}: {rollback_error}")
+        if rollback_errors:
+            raise RuntimeError(
+                "Sparningen och rollbacken misslyckades: " + "; ".join(rollback_errors)
+            ) from error
+        raise
+    return True
+
+
 def _render_termguide() -> None:
     with st.expander("Termguide: vad betyder fälten?", expanded=False):
         st.markdown(
@@ -510,9 +581,12 @@ def _render_editor(ctx: BackofficeContext, picked: dict[str, Any]) -> None:
 
     st.markdown(
         "Här justerar du hur scaffolden matchas och vad den kräver. Sparningen rör "
-        "bara fyra fält — resten av filen lämnas orörd."
+        "bara fyra manifestfält och håller den klientlätta intent-projektionen synkad."
     )
-    render_save_scope("repo", paths=(picked["manifestPath"],))
+    render_save_scope(
+        "repo",
+        paths=(picked["manifestPath"], "src/lib/gen/scaffolds/types.ts"),
+    )
     manifest_text = read_text(manifest_path)
 
     edit_col1, edit_col2 = st.columns(2)
@@ -524,11 +598,14 @@ def _render_editor(ctx: BackofficeContext, picked: dict[str, Any]) -> None:
             key=f"tags_{selected_id}",
             help="Matchningssignaler: orden matchern väger scaffolden mot.",
         )
-        all_intents = ["website", "app", "template"]
         new_intents = st.multiselect(
             field_label("allowedBuildIntents"),
-            options=all_intents,
-            default=[i for i in picked["allowedBuildIntents"] if i in all_intents],
+            options=list(BUILD_INTENT_OPTIONS),
+            default=[
+                intent
+                for intent in picked["allowedBuildIntents"]
+                if intent in BUILD_INTENT_OPTIONS
+            ],
             key=f"intents_{selected_id}",
             help="Vilka byggen scaffolden får användas för.",
         )
@@ -556,16 +633,22 @@ def _render_editor(ctx: BackofficeContext, picked: dict[str, Any]) -> None:
             c.strip() for c in new_checklist_str.strip().splitlines() if c.strip()
         ]
 
-        updated = manifest_text
-        updated = _write_ts_string_array(updated, "tags", new_tags)
-        updated = _write_ts_string_array(updated, "allowedBuildIntents", new_intents)
-        updated = _write_ts_multiline_string_array(updated, "promptHints", new_hints)
-        updated = _write_ts_multiline_string_array(updated, "qualityChecklist", new_checklist)
+        try:
+            changed = _save_scaffold_metadata(
+                ctx,
+                scaffold_id=selected_id,
+                tags=new_tags,
+                allowed_build_intents=new_intents,
+                prompt_hints=new_hints,
+                quality_checklist=new_checklist,
+            )
+        except (OSError, RuntimeError, ValueError) as error:
+            st.error(f"Sparades inte: {error}")
+            return
 
-        if updated != manifest_text:
-            write_text(manifest_path, updated)
+        if changed:
             st.success(
-                f"Sparade ändringar till `{picked['manifestPath']}`. "
+                f"Sparade `{picked['manifestPath']}` och synkade klientprojektionen. "
                 "Föregående version finns under **Återställning**."
             )
             st.rerun()

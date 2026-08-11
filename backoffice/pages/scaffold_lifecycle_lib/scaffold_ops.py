@@ -15,6 +15,7 @@ from backoffice.shared import (
     write_text,
 )
 
+from .constants import BUILD_INTENT_OPTIONS
 from .formatting import _unique_preserving_order
 
 from .variants import _prune_variant_embeddings, _neutral_variant_payload
@@ -34,6 +35,56 @@ from .scaffold_text import (
 )
 
 
+def _normalize_allowed_build_intents(values: list[str]) -> list[str]:
+    """Validate and normalize the manifest/client projection intent contract."""
+    normalized = _unique_preserving_order(
+        [str(value).strip() for value in values if str(value).strip()]
+    )
+    if not normalized:
+        raise ValueError("allowedBuildIntents måste innehålla minst ett värde.")
+    invalid = [value for value in normalized if value not in BUILD_INTENT_OPTIONS]
+    if invalid:
+        raise ValueError(
+            "allowedBuildIntents innehåller ogiltiga värden: "
+            + ", ".join(f"`{value}`" for value in invalid)
+            + ". Tillåtna värden är: "
+            + ", ".join(f"`{value}`" for value in BUILD_INTENT_OPTIONS)
+            + "."
+        )
+    return normalized
+
+
+def _inline_ts_string_array(values: list[str]) -> str:
+    return "[" + ", ".join(f'"{_escape_ts_string(value)}"' for value in values) + "]"
+
+
+def _update_client_list_allowed_build_intents_text(
+    text: str,
+    scaffold_id: str,
+    allowed_build_intents: list[str],
+) -> str:
+    """Update one existing SCAFFOLD_CLIENT_LIST row or fail before writing."""
+    intents = _normalize_allowed_build_intents(allowed_build_intents)
+    pattern = re.compile(
+        rf'^(?P<prefix>\s*\{{\s*id:\s*"{re.escape(scaffold_id)}"\s*,.*?'
+        rf'allowedBuildIntents:\s*)\[[^\]]*\](?P<suffix>\s*\}},\s*)$',
+        flags=re.MULTILINE,
+    )
+    updated, count = pattern.subn(
+        lambda match: (
+            f"{match.group('prefix')}{_inline_ts_string_array(intents)}"
+            f"{match.group('suffix')}"
+        ),
+        text,
+    )
+    if count != 1:
+        raise ValueError(
+            "Kunde inte hitta exakt en SCAFFOLD_CLIENT_LIST-post för "
+            f"`{scaffold_id}` i types.ts. Ingen fil ändrades."
+        )
+    return updated
+
+
 
 def _update_types_for_created_scaffold(
     ctx: BackofficeContext,
@@ -41,17 +92,29 @@ def _update_types_for_created_scaffold(
     scaffold_id: str,
     label: str,
     description: str,
+    allowed_build_intents: list[str],
 ) -> None:
+    intents = _normalize_allowed_build_intents(allowed_build_intents)
     path = _types_path(ctx)
     text = read_text(path)
     updated = _upsert_scaffold_union_entry(text, scaffold_id)
     client_entry = (
         f'  {{ id: "{_escape_ts_string(scaffold_id)}", '
         f'label: "{_escape_ts_string(label)}", '
-        f'description: "{_escape_ts_string(description)}" }},\n'
+        f'description: "{_escape_ts_string(description)}", '
+        f'allowedBuildIntents: {_inline_ts_string_array(intents)} }},\n'
     )
     if f'id: "{scaffold_id}"' not in updated:
-        updated = updated.replace("] as const;", f"{client_entry}] as const;", 1)
+        marker = "] as const;"
+        if updated.count(marker) != 1:
+            raise ValueError(
+                "Kunde inte hitta SCAFFOLD_CLIENT_LIST-slutet i types.ts. Ingen fil ändrades."
+            )
+        updated = updated.replace(marker, f"{client_entry}{marker}", 1)
+    else:
+        updated = _update_client_list_allowed_build_intents_text(
+            updated, scaffold_id, intents
+        )
     if updated != text:
         write_text(path, updated)
 
@@ -179,6 +242,7 @@ def _create_scaffold(
     upgrade_targets: list[str],
     create_start_variant: bool,
 ) -> None:
+    allowed_build_intents = _normalize_allowed_build_intents(allowed_build_intents)
     scaffold_dir = _scaffold_dir(ctx, scaffold_id)
     variant_dir = ctx.variants_dir / scaffold_id
     if scaffold_dir.exists():
@@ -226,6 +290,7 @@ def _create_scaffold(
             scaffold_id=scaffold_id,
             label=label,
             description=description,
+            allowed_build_intents=allowed_build_intents,
         )
         _update_registry_for_created_scaffold(ctx, scaffold_id)
         _update_embedding_locale_for_created_scaffold(
