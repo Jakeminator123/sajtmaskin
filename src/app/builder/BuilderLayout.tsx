@@ -1,6 +1,6 @@
 "use client";
 
-import { ErrorBoundary } from "@/components/builder/ErrorBoundary";
+import { ErrorBoundary } from "@/components/builder/shell/ErrorBoundary";
 import type { ReactNode } from "react";
 type BuilderLayoutProps = {
   chatId: string | null;

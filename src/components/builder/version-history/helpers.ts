@@ -17,7 +17,7 @@ export function versionRowSortKey(version: VersionSummary): number {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
-export function resolveVersionInternalId(version: VersionSummary): string | null {
+function resolveVersionInternalId(version: VersionSummary): string | null {
   if (typeof version.id === "string" && version.id.trim()) return version.id;
   if (typeof version.versionId === "string" && version.versionId.trim()) return version.versionId;
   return null;

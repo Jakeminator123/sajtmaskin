@@ -8,7 +8,7 @@
  * äger ingen egen statuskälla — ingen state, inga hooks, ingen hämtning.
  */
 
-import type { F3BuilderStatus } from "@/components/builder/F3RequirementsSurface";
+import type { F3BuilderStatus } from "@/lib/builder/f3-status";
 import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
 import type { ChatReadinessItem } from "@/lib/chat-readiness";
 

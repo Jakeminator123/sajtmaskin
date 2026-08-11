@@ -97,7 +97,7 @@ export function pageFilePathForRoute(route: string, appDir: AppDirPrefix = "app"
 
 /**
  * Canonical route derivation, intentionally DUPLICATED from
- * `preview-panel/preview-route-helpers.ts` (`collectPageRoutes` /
+ * `preview-panel/pages/preview-route-helpers.ts` (`collectPageRoutes` /
  * `buildRouteFromSegments`). This module lives under `src/lib` and must not
  * import from `src/components`, so the App Router rules are mirrored here: strip
  * `(group)` and `@slot` segments (they contribute no URL segment), support both

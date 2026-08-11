@@ -16,15 +16,15 @@ import {
   type DossierOverviewEntry,
 } from "@/lib/builder/dossier-overview";
 import {
+  DOSSIER_ENV_ENFORCEMENT_LABELS,
   describeDossierClass,
   describeDossierMockMode,
 } from "@/lib/builder/dossier-axes";
 import { resolveDossierGroup } from "@/lib/builder/dossier-groups";
 import { cn } from "@/lib/utils";
-import type { usePreviewPanelDossiersController } from "../hooks/usePreviewPanelDossiersController";
+import type { usePreviewPanelDossiersController } from "./usePreviewPanelDossiersController";
 import {
   describeActiveVersionLabel,
-  ENFORCEMENT_LABEL,
   GROUP_HEADING_TITLE,
   RequiresF3Badge,
   TONE_BADGE_CLASS,
@@ -190,7 +190,7 @@ export function DossiersPopoverView({
                             {env.key}
                           </code>
                           <span className="text-[10px] text-gray-500">
-                            {ENFORCEMENT_LABEL[env.enforcement]}
+                            {DOSSIER_ENV_ENFORCEMENT_LABELS[env.enforcement]}
                           </span>
                           <Badge
                             variant="outline"

@@ -19,11 +19,9 @@
  * Facade: hooks live in `usePreviewPanelDossiersController`; presentation in
  * `dossiers/DossiersPopoverView`. Public export surface is unchanged.
  */
-import { usePreviewPanelDossiersController } from "./hooks/usePreviewPanelDossiersController";
+import { usePreviewPanelDossiersController } from "./dossiers/usePreviewPanelDossiersController";
 import { DossiersPopoverView } from "./dossiers/DossiersPopoverView";
 import type { PreviewPanelDossiersProps } from "./dossiers/dossiers-shared";
-
-export type { PreviewPanelDossiersProps } from "./dossiers/dossiers-shared";
 
 export function PreviewPanelDossiers({
   chatId,

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Wand2 } from "lucide-react";
-import type { F3BuilderStatus } from "@/components/builder/F3RequirementsSurface";
+import type { F3BuilderStatus } from "@/lib/builder/f3-status";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import {
   F3_REBUILD_REQUEST_EVENT,

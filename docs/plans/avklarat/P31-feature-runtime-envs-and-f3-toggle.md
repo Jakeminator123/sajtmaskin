@@ -68,7 +68,7 @@ Backfill:
 - Ny [src/app/api/projects/[id]/preferences/route.ts](../../../src/app/api/projects/[id]/preferences/route.ts) — `PATCH`/`GET` för `allowPlaceholdersInF3`, persisterar i `project_data.meta`.
 - Ny [src/components/builder/F3PlaceholderToggle.tsx](../../../src/components/builder/F3PlaceholderToggle.tsx) — switch + förklarande text + felhantering. Default off.
 - Monterat i [ProjectEnvVarsPanel.tsx](../../../src/components/builder/ProjectEnvVarsPanel.tsx) i env-tabbet.
-- [LaunchReadinessCard.tsx](../../../src/components/builder/LaunchReadinessCard.tsx) — "Öppna miljövariabler"-knappen prefererar `buildBlockingKeys` framför legacy `missingEnvKeys` så panelen öppnas med korrekt subset.
+- [LaunchReadinessCard.tsx](../../../src/components/builder/readiness/LaunchReadinessCard.tsx) — "Öppna miljövariabler"-knappen prefererar `buildBlockingKeys` framför legacy `missingEnvKeys` så panelen öppnas med korrekt subset.
 
 ### Fas 6 — Capability-skärpning
 

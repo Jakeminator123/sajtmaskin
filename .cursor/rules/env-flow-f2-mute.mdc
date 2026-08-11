@@ -7,8 +7,7 @@ globs:
   - src/lib/gen/detect-integrations.ts
   - src/app/api/engine/chats/[chatId]/readiness/**
   - src/app/builder/BuilderShellContent.tsx
-  - src/components/builder/F3RequirementsSurface.tsx
-  - src/components/builder/ProjectEnvVarsPanel.tsx
+  - src/components/builder/readiness/F3RequirementsSurface.tsx
   - src/components/builder/preview-panel/**
 alwaysApply: false
 ---

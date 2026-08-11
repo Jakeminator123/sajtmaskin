@@ -1,15 +1,13 @@
 "use client";
 
-export type { PendingReplyModalData, EnvRequirementHint } from "./builder-message-tooling/types";
+export { AgentLogCard } from "./chat/tooling/agent-log";
+export { buildAgentLogItems, getActiveAgentLogLabel } from "./chat/tooling/agent-log";
 
-export { AgentLogCard } from "./builder-message-tooling/agent-log";
-export { buildAgentLogItems, getActiveAgentLogLabel } from "./builder-message-tooling/agent-log";
-
-export { StructuredToolParts, CompactToolParts } from "./builder-message-tooling/tool-parts";
+export { StructuredToolParts, CompactToolParts } from "./chat/tooling/tool-parts";
 
 export {
   getLatestPendingReply,
   getLatestEnvRequirement,
   hasUserMessageAfter,
   isActionableToolPart,
-} from "./builder-message-tooling/pending-replies";
+} from "./chat/tooling/pending-replies";

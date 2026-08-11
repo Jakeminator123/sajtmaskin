@@ -2,7 +2,6 @@
 
 import { useMemo, useRef } from "react";
 import { resolveEngineVersionLifecycleStatus } from "@/lib/db/engine-version-lifecycle";
-import { resolveAlternatePreviewUrls } from "@/lib/gen/preview/preview-url-classifier";
 import type { VersionSummary } from "../useBuilderDerivedState";
 import { versionSummaryHasPreview } from "../builder-page-preview-helpers";
 
@@ -30,17 +29,6 @@ export function useBuilderActiveVersionInfo({
   latestVersionIdRef.current = latestVersionId;
   /* eslint-enable react-hooks/refs */
 
-  /** Active live-preview URL for the version. */
-  const activeVersionAlternatePreview = useMemo(() => {
-    const vid = activeVersionId;
-    if (!vid) return { storedLivePreviewUrl: null as string | null };
-    const v = effectiveVersionsList.find((x) => (x.versionId || x.id) === vid);
-    if (!v) return { storedLivePreviewUrl: null };
-    return resolveAlternatePreviewUrls({
-      storedLivePreviewUrl: v.previewUrl,
-    });
-  }, [activeVersionId, effectiveVersionsList]);
-
   const activeVersionFailedWithoutPreviewUrl = useMemo(() => {
     const vid = activeVersionId;
     if (!vid) return false;
@@ -62,7 +50,6 @@ export function useBuilderActiveVersionInfo({
   return {
     selectedVersionIdRef,
     latestVersionIdRef,
-    activeVersionAlternatePreview,
     activeVersionFailedWithoutPreviewUrl,
   };
 }

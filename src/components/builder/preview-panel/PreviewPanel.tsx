@@ -24,26 +24,26 @@ import type { FileNode } from "@/lib/builder/types";
 import { buildJsxElementRegistry, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import { isAddPanelEnabled } from "@/lib/builder/add-panel-feature";
 import { PreviewPanelEmptyState } from "./PreviewPanelEmptyState";
-import { PreviewPanelSurface } from "./PreviewPanelSurface";
-import type { PreviewIssuePayload } from "./iframe-diagnostics";
-import { fetchChatVersionFilesJson } from "./chat-version-files-fetch";
-import { usePreviewHeartbeat } from "./hooks/usePreviewHeartbeat";
-import { usePreviewIframe } from "./hooks/usePreviewIframe";
-import { usePreviewPanelCodeDrafts } from "./hooks/usePreviewPanelCodeDrafts";
-import { usePreviewPanelInspectCapture } from "./hooks/usePreviewPanelInspectCapture";
-import { usePreviewPanelInspectMapPlacement } from "./hooks/usePreviewPanelInspectMapPlacement";
+import { PreviewPanelSurface } from "./runtime/PreviewPanelSurface";
+import type { PreviewIssuePayload } from "./runtime/iframe-diagnostics";
+import { fetchChatVersionFilesJson } from "./code/chat-version-files-fetch";
+import { usePreviewHeartbeat } from "./runtime/usePreviewHeartbeat";
+import { usePreviewIframe } from "./runtime/usePreviewIframe";
+import { usePreviewPanelCodeDrafts } from "./code/usePreviewPanelCodeDrafts";
+import { usePreviewPanelInspectCapture } from "./inspect/usePreviewPanelInspectCapture";
+import { usePreviewPanelInspectMapPlacement } from "./inspect/usePreviewPanelInspectMapPlacement";
 import {
   usePreviewInspectBridge,
   type BridgePick,
   type BridgeRect,
   type BridgeRegion,
-} from "./hooks/usePreviewInspectBridge";
+} from "./inspect/usePreviewInspectBridge";
 import { classifyInspectedElement } from "@/lib/builder/inspect-element-actions";
-import { usePreviewPanelCodeFiles } from "./hooks/usePreviewPanelCodeFiles";
-import { usePreviewPanelPreviewRoutes } from "./hooks/usePreviewPanelPreviewRoutes";
-import { usePreviewPanelComposerActions } from "./hooks/usePreviewPanelComposerActions";
-import { usePreviewPanelPageActions } from "./hooks/usePreviewPanelPageActions";
-import { usePreviewPanelInspectorActions } from "./hooks/usePreviewPanelInspectorActions";
+import { usePreviewPanelCodeFiles } from "./code/usePreviewPanelCodeFiles";
+import { usePreviewPanelPreviewRoutes } from "./pages/usePreviewPanelPreviewRoutes";
+import { usePreviewPanelComposerActions } from "./composer/usePreviewPanelComposerActions";
+import { usePreviewPanelPageActions } from "./pages/usePreviewPanelPageActions";
+import { usePreviewPanelInspectorActions } from "./inspect/usePreviewPanelInspectorActions";
 import type {
   InspectEngine,
   PreviewPanelProps,
@@ -51,14 +51,14 @@ import type {
 import type {
   InspectMenuState,
   InspectRegionState,
-} from "./preview-panel-inspect-types";
+} from "./inspect/preview-panel-inspect-types";
 import { usePreviewSurfaceMode } from "./usePreviewSurfaceMode";
 import {
   buildExternalRoutePreviewUrl,
   buildOwnEngineRoutePreviewUrl,
   extractTier2AppRoute,
-} from "./preview-route-helpers";
-import { findFileNodeByPath } from "./code-file-tree-utils";
+} from "./pages/preview-route-helpers";
+import { findFileNodeByPath } from "./code/code-file-tree-utils";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
 import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { isTier2LivePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";

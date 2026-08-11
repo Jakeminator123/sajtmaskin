@@ -161,7 +161,7 @@ blockera på det som verkligen kräver en riktig integration.
   otäckta build-nycklar (`412 tier3_env_not_ready`). **Byggblock-popovern är den
   enda editorn för projekt-env i F2/F3** (ägarbeslut 2026-07-22), och vid 412
   öppnar/fokuserar buildern rätt dossier där automatiskt. Bredvid popovern
-  ligger [`F3RequirementsSurface`](../../src/components/builder/F3RequirementsSurface.tsx)
+  ligger [`F3RequirementsSurface`](../../src/components/builder/readiness/F3RequirementsSurface.tsx)
   — en beständig, icke-modal builderyta som listar serverns
   `missingByIntegration` som den är, deep-linkar till Byggblock och erbjuder
   explicit retry. Den har medvetet **ingen egen editor** mot env-API:t.

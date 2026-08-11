@@ -5,8 +5,6 @@ export type VersionSummary = {
   versionId?: string | null;
   previewUrl?: string | null;
   demoUrl?: string | null;
-  /** @deprecated Legacy API alias; new version payloads use `previewUrl`. */
-  sandboxUrl?: string | null;
   createdAt?: string | Date | null;
   versionNumber?: number | null;
   releaseState?: string | null;

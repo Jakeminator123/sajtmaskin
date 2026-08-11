@@ -1,20 +1,20 @@
 "use client";
 
-import { ChatInterface } from "@/components/builder/ChatInterface";
-import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
-import { MessageList } from "@/components/builder/MessageList";
+import { ChatInterface } from "@/components/builder/chat/ChatInterface";
+import { InitFromRepoModal } from "@/components/builder/project-transfer/InitFromRepoModal";
+import { MessageList } from "@/components/builder/chat/MessageList";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
-import { BuilderPreviewTools } from "@/components/builder/BuilderPreviewTools";
-import { ChatOutputCollapseBar } from "@/components/builder/ChatOutputCollapseBar";
+import { BuilderPreviewTools } from "@/components/builder/shell/BuilderPreviewTools";
+import { ChatOutputCollapseBar } from "@/components/builder/chat/ChatOutputCollapseBar";
 import { VersionHistory } from "@/components/builder/VersionHistory";
-import { BuilderHeader } from "@/components/builder/BuilderHeader";
-import { ModelTraceOverlay } from "@/components/builder/ModelTraceOverlay";
-import { LaunchReadinessCard } from "@/components/builder/LaunchReadinessCard";
+import { BuilderHeader } from "@/components/builder/shell/BuilderHeader";
+import { ModelTraceOverlay } from "@/components/builder/diagnostics/ModelTraceOverlay";
+import { LaunchReadinessCard } from "@/components/builder/readiness/LaunchReadinessCard";
 import {
   F3RequirementsSurface,
   F3StatusSurface,
-} from "@/components/builder/F3RequirementsSurface";
-import { TipCard } from "@/components/builder/TipCard";
+} from "@/components/builder/readiness/F3RequirementsSurface";
+import { TipCard } from "@/components/builder/shell/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { requestF3Rebuild } from "@/lib/builder/project-env-events";
@@ -416,7 +416,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onDesignThemeChange={vm.setDesignTheme}
               themeLocked={vm.isAnyStreaming}
               previewUrl={vm.currentPreviewUrl}
-              alternatePreviewUrls={vm.activeVersionAlternatePreview}
               previewBuildError={vm.previewBuildError}
               previewProdBuild={vm.previewProdBuild}
               previewPending={vm.previewPending}

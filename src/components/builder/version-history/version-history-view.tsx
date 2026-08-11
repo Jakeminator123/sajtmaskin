@@ -321,7 +321,7 @@ export function VersionHistory({
             });
             const isEngineVersionRow =
               version.canPin === false || typeof version.versionNumber === "number";
-            const tier2PreviewNorm = normalizePreviewUrl(version.previewUrl ?? version.sandboxUrl);
+            const tier2PreviewNorm = normalizePreviewUrl(version.previewUrl);
             const hasTier2LivePreviewForRow = Boolean(
               tier2PreviewNorm && isTier2LivePreviewUrl(tier2PreviewNorm),
             );
