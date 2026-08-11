@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 // Synkron repair-loop (LLM-pass + preview-host verify). Håll linje med den
 // manuella engine-repair-route:n; `REPAIR_LOOP_BUDGET_MS` binder loopen strax
 // under detta tak så leasen alltid hinner släppas före platform-kill.
-export const maxDuration = 800;
+export const maxDuration = 950;
 
 // OBS: ingen `versionId` i kontraktet — repairen riktar ALLTID den version som
 // deployment-raden pekar på (den som faktiskt failade på Vercel). Klientens
