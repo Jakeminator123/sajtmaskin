@@ -86,6 +86,36 @@ describe("scopeF3DossierCapabilities", () => {
     expect(result.dropped).toEqual(["analytics"]);
   });
 
+  it("adds a durably approved capability even when the candidate floor is empty", () => {
+    const result = scopeF3DossierCapabilities({
+      capabilities: [],
+      explicitCapabilities: ["ai-chat"],
+      fileEvidenceCapabilities: [],
+    });
+    expect(result.capabilities).toEqual(["ai-chat"]);
+    expect(result.dropped).toEqual([]);
+  });
+
+  it("adds a file-evidenced capability even when the candidate floor is empty", () => {
+    const result = scopeF3DossierCapabilities({
+      capabilities: [],
+      explicitCapabilities: [],
+      fileEvidenceCapabilities: ["ai-chat"],
+    });
+    expect(result.capabilities).toEqual(["ai-chat"]);
+    expect(result.dropped).toEqual([]);
+  });
+
+  it("drops speculative candidates while adding the approved capability", () => {
+    const result = scopeF3DossierCapabilities({
+      capabilities: ["payments", "analytics"],
+      explicitCapabilities: ["ai-chat"],
+      fileEvidenceCapabilities: [],
+    });
+    expect(result.capabilities).toEqual(["ai-chat"]);
+    expect(result.dropped).toEqual(["payments", "analytics"]);
+  });
+
   it("does not invent companion capabilities when DEPENDENT_CAPABILITIES is empty", () => {
     // Empty table since 2026-08-06 (subscriptions ⇒ auth left with parked
     // paddle-billing). File evidence of payments must NOT pull auth along.

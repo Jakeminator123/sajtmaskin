@@ -259,6 +259,12 @@ export async function resolvePreviewEnvLayers(params: {
   generatedEnvLocal?: string | null;
   lifecycleStage?: PreviewLifecycleStage;
   /**
+   * Whether decrypted project env values may enter the resolved layers.
+   * Defaults to true for the preview runtime. Persisted documentation such as
+   * `env.example` must set this to false so real values never enter files_json.
+   */
+  includeStoredProjectEnvVars?: boolean;
+  /**
    * Env keys declared by the dossiers selected for this generation. In F2
    * (`design`) any of these keys still WITHOUT a value after the normal layers
    * is seeded with a deterministic stub ({@link dossierMockPreviewEnvValue}) so
@@ -312,7 +318,7 @@ export async function resolvePreviewEnvLayers(params: {
 
   let project: Record<string, string> = {};
   const pid = typeof params.appProjectId === "string" ? params.appProjectId.trim() : "";
-  if (pid) {
+  if (pid && params.includeStoredProjectEnvVars !== false) {
     try {
       const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
       project = await getStoredProjectEnvVarMap(pid);

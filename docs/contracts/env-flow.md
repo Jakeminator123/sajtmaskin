@@ -73,6 +73,14 @@ harmless  →  tier3-stub  →  project-preview  →  user  →  generated
 Read at runtime via
 [`src/lib/ai-models/load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts).
 
+**Persistensgräns:** mergeordningen ovan gäller preview-VM:ens runtimefil.
+`env.example` är en separat dokumentationsartefakt som skrivs till
+`engine_versions.files_json`; dess byggare sätter
+`includeStoredProjectEnvVars: false` och laddar därför aldrig de dekrypterade
+`projectEnvVars`. Dossiernycklar dokumenteras med säkra F2-stubbar eller tomma
+F3-rader. Preview/deploy fortsätter samtidigt att få de riktiga värdena genom
+sina runtimevägar.
+
 **Catalog scoping (preview `.env.local`):** the two catalog layers (`harmless`
 + `tier3-stub`) are filtered to project-relevant keys before merging, via
 [`src/lib/gen/preview/relevant-env-keys.ts`](../../src/lib/gen/preview/relevant-env-keys.ts):

@@ -43,18 +43,20 @@ describe("buildProjectEnvFileContents", () => {
     expect(body).toContain("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=");
   });
 
-  it("merges user values from the project env panel as user provenance", async () => {
+  it("never loads or renders stored project values", async () => {
     const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
-    vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
-      KLARNA_API_SECRET: "klarna_real_secret",
-    });
+    const getStoredMap = vi.mocked(getStoredProjectEnvVarMap);
+    getStoredMap.mockClear();
     const body = await buildProjectEnvFileContents({
       appProjectId: "proj_test",
       generatedEnvLocal: null,
       lifecycleStage: "integrations",
+      dossierEnvScope: {
+        envVars: [{ key: "OPENAI_API_KEY", purpose: "OpenAI API key" }],
+      },
     });
-    expect(body).toContain("# ── Dina ifyllda värden");
-    expect(body).toContain("KLARNA_API_SECRET=klarna_real_secret");
+    expect(getStoredMap).not.toHaveBeenCalled();
+    expect(body).toMatch(/OPENAI_API_KEY=\s*$/m);
   });
 
   it("groups detected email-recipient keys under an email heading with a hint", async () => {
@@ -318,18 +320,43 @@ describe("buildProjectEnvFileContents — dossier-scoped env.example (wave 1)", 
     expect(body).toMatch(/NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=.+/);
   });
 
-  it("keeps user-stored values even for out-of-scope keys", async () => {
+  it("keeps stored values out of injected files_json", async () => {
     const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
-    vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
-      KLARNA_API_SECRET: "klarna_real_secret",
-    });
-    const body = await buildProjectEnvFileContents({
-      appProjectId: "proj_test",
-      generatedEnvLocal: null,
-      lifecycleStage: "design",
-      dossierEnvScope: { envVars: [] },
-    });
-    // User-panel values are project-specific and always kept, regardless of scope.
-    expect(body).toContain("KLARNA_API_SECRET=klarna_real_secret");
+    const getStoredMap = vi.mocked(getStoredProjectEnvVarMap);
+    getStoredMap.mockClear();
+    const next = await injectProjectEnvFileIntoFilesJson(
+      JSON.stringify([{ path: "app/page.tsx", content: "export default function Page(){}" }]),
+      {
+        appProjectId: "proj_test",
+        lifecycleStage: "integrations",
+        dossierEnvScope: {
+          envVars: [{ key: "OPENAI_API_KEY", purpose: "OpenAI API key" }],
+        },
+      },
+    );
+    const parsed = JSON.parse(next) as Array<{ path: string; content: string }>;
+    const envFile = parsed.find((file) => file.path === PROJECT_ENV_FILE_PATH);
+
+    expect(getStoredMap).not.toHaveBeenCalled();
+    expect(envFile?.content).toMatch(/OPENAI_API_KEY=\s*$/m);
+  });
+
+  it("scrubs a previously persisted env.example value on reinjection", async () => {
+    const next = await injectProjectEnvFileIntoFilesJson(
+      JSON.stringify([
+        { path: "app/page.tsx", content: "export default function Page(){}" },
+        { path: PROJECT_ENV_FILE_PATH, content: "OPENAI_API_KEY=sk-legacy-plaintext" },
+      ]),
+      {
+        appProjectId: "proj_test",
+        lifecycleStage: "integrations",
+        dossierEnvScope: {
+          envVars: [{ key: "OPENAI_API_KEY", purpose: "OpenAI API key" }],
+        },
+      },
+    );
+
+    expect(next).not.toContain("sk-legacy-plaintext");
+    expect(next).toContain("OPENAI_API_KEY=");
   });
 });

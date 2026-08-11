@@ -628,6 +628,8 @@ export interface FollowUpContract {
   f3ApprovedCapabilities?: string[];
   /** Provider keys persisted by earlier F3 approval rounds. */
   f3ApprovedProviders?: string[];
+  /** Durable capability-removal tombstones inherited from the snapshot. */
+  removedCapabilities?: string[];
   /** Quality target inherited from the prior accepted version, or null. */
   qualityTarget: BuildSpecQualityTarget | null;
   /** Active preview session id carried on the snapshot, or null. */
@@ -753,6 +755,7 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
     // chat-message-stream-post.ts) gets tombstone-filtered values.
     f3ApprovedCapabilities: readF3ApprovedFromSnapshot(snapshot).capabilities,
     f3ApprovedProviders: readF3ApprovedFromSnapshot(snapshot).providers,
+    removedCapabilities: [...removedTombstone],
     qualityTarget: resolveContractQualityTarget(input.priorQualityTarget, snapshot),
     previewSessionId: readSnapshotString(snapshot, "previewSessionId"),
   };

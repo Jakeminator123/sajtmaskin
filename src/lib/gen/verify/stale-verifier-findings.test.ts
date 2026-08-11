@@ -316,6 +316,28 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
     expect(result.kept).toHaveLength(1);
   });
 
+  it("bugbot high: keeps compound build-script + unparsed package omission", () => {
+    // Satisfied scripts.build must not drop "… and omits next" when that
+    // second claim is outside the recognized absence-list grammar.
+    const finding = {
+      id: "package-build-setup",
+      detail: "package.json lacks build scripts and omits next",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("still drops a pure build-script absence once scripts.build exists", () => {
+    const finding = {
+      id: "package-build-setup",
+      detail: "package.json lacks build scripts.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile()]);
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
   it("drops a version-combination finding when the criticized majors changed (prod: ai-sdk)", () => {
     const finding = {
       id: "ai-sdk-version-conflict",
@@ -375,6 +397,29 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
     expect(result.dropped).toHaveLength(0);
   });
 
+  it("keeps an independent failure that precedes a satisfied package.json claim", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail: "The app crashes at runtime, and package.json omits next.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [packageJsonFile(), PAGE_FILE],
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("still drops a satisfied package.json claim with leading whitespace only", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail: "  \n\tpackage.json omits next.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile()]);
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
   it("prod 72cbc979 v4: drops a satisfied manifest claim whose code-file mention is only justification (', although …')", () => {
     // Verifier phrasing from the 2026-08-11 F3 run: the file appears in a
     // subordinate clause that motivates the claim. The merged manifest has
@@ -398,6 +443,120 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
     const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
     expect(result.dropped).toHaveLength(1);
     expect(result.kept).toHaveLength(0);
+  });
+
+  it("prod 83f2cd54 v5: drops satisfied unquoted framework omissions before a while-justification", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail:
+        "package.json omits next, react, and react-dom while app/api/chat/route.ts and components/chat-panel.tsx import those runtimes.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
+  it("keeps the prod while-finding when a named framework dependency is still absent", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail:
+        "package.json omits next, react, and react-dom while app/api/chat/route.ts and components/chat-panel.tsx import those runtimes.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [
+        packageJsonFile({
+          dependencies: { next: "15.0.0", react: "19.0.0" },
+          devDependencies: {},
+        }),
+        PAGE_FILE,
+      ],
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("keeps a while-clause that carries an independent code failure", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail: "package.json omits next while src/app/page.tsx calls an undefined helper.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("keeps an unrecognized while-clause fail-closed even without a defect keyword", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail:
+        "package.json omits next while src/app/page.tsx enters an infinite loop.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("keeps a while-clause that carries a second manifest omission", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail: "package.json omits react while next is not listed.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [
+        packageJsonFile({
+          dependencies: { react: "19.0.0" },
+          devDependencies: {},
+        }),
+        PAGE_FILE,
+      ],
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("does not treat an unrelated Next mention as the object of an omission", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail:
+        "package.json omits the engines field; this Next application requires Node 22.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it.each([
+    "package.json omits the required engines.node constraint; this application uses `next`.",
+    "package.json omits the required engines.node constraint; this application uses next@15.",
+    "package.json omits the required engines.node constraint and uses `next`.",
+    "package.json omits the required engines.node constraint but uses next@15.",
+    "package.json omits the required engines.node constraint and pins next@15, which is incompatible with Node 18.",
+  ])("keeps a separate manifest omission despite unrelated package prose: %s", (detail) => {
+    const finding = { id: "missing-framework-dependencies", detail };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("keeps an unknown omission even after a coordinated version conflict is resolved", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail:
+        "package.json omits the required engines.node constraint and pins next@15, which is incompatible with Node 18.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [
+        packageJsonFile({
+          dependencies: { next: "14.2.0", react: "19.0.0", "react-dom": "19.0.0" },
+        }),
+        PAGE_FILE,
+      ],
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
   });
 
   it("bugbot round 3: keeps a finding whose although-clause carries an independent code-claim", () => {

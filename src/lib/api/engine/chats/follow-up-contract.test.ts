@@ -121,6 +121,7 @@ describe("buildFollowUpContract — consolidation (5-1)", () => {
         capabilities: [],
         f3ApprovedCapabilities: [],
         f3ApprovedProviders: [],
+        removedCapabilities: [],
         qualityTarget: null,
         previewSessionId: null,
       });
@@ -153,6 +154,7 @@ describe("buildFollowUpContract — consolidation (5-1)", () => {
       },
     });
     expect(contract.capabilities).toEqual([]);
+    expect(contract.removedCapabilities).toEqual(["payments"]);
   });
 
   it("keeps brief capabilities when an ordinary F2 snapshot mutes the top-level floor", () => {
@@ -249,6 +251,7 @@ describe("buildFollowUpOrchestrationInput attaches followUpContract (5-1, additi
       capabilities: ["payments", "booking"],
       f3ApprovedCapabilities: [],
       f3ApprovedProviders: [],
+      removedCapabilities: [],
       qualityTarget: "premium",
       previewSessionId: "preview_sess_1",
     });

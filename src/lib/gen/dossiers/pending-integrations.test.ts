@@ -103,6 +103,71 @@ describe("provider-specific pending integration dossiers", () => {
     expect(readMutedDossierIdsFromSnapshot(delivered)).toEqual(["stripe-checkout"]);
   });
 
+  it("retries a durably approved OpenAI dossier after a failed F3 cleared the pending markers", () => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: {
+        mutedCapabilities: [],
+        mutedDossierIds: [],
+        f3ApprovedCapabilities: ["ai-chat"],
+        f3ApprovedProviders: ["openai-chat"],
+        // A failed integrations version may already have reported path-based
+        // evidence into the chat snapshot. The selected design base below is
+        // still the ground truth for whether the retry must rebuild it.
+        fileEvidenceCapabilities: ["ai-chat"],
+        fileEvidenceDossierIds: ["openai-chat"],
+      },
+      versionFiles: [
+        {
+          path: "app/users/page.tsx",
+          content: "export default function Users() {}",
+          language: "tsx",
+        },
+      ],
+    });
+
+    expect(pending.map((selected) => selected.entry.id)).toEqual(["openai-chat"]);
+  });
+
+  it("does not retry an approved dossier whose canonical files exist in the selected base", () => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: {
+        f3ApprovedCapabilities: ["ai-chat"],
+        f3ApprovedProviders: ["openai-chat"],
+      },
+      versionFiles: [
+        {
+          path: "app/api/chat/route.ts",
+          content: "export async function POST() {}",
+          language: "ts",
+        },
+      ],
+    });
+
+    expect(pending).toEqual([]);
+  });
+
+  it("does not turn a generic OpenAI provider approval into an exact dossier", () => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: { f3ApprovedProviders: ["openai"] },
+      versionFiles: [],
+    });
+
+    expect(pending).toEqual([]);
+  });
+
+  it("keeps an explicit removal authoritative over a durable approval", () => {
+    const pending = resolvePendingIntegrationDossiers({
+      snapshot: {
+        f3ApprovedCapabilities: ["ai-chat"],
+        f3ApprovedProviders: ["openai-chat"],
+        removedCapabilities: ["ai-chat"],
+      },
+      versionFiles: [],
+    });
+
+    expect(pending).toEqual([]);
+  });
+
   it("filters explicit dossier removal tombstones", () => {
     expect(
       readMutedDossierIdsFromSnapshot({

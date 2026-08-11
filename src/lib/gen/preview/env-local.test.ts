@@ -129,6 +129,24 @@ describe("dotenv round-trip (parseDotenvBody ↔ quoteEnvValue)", () => {
 });
 
 describe("resolvePreviewEnvLayers", () => {
+  it("can exclude stored project values for persisted artifact callers", async () => {
+    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    const getStoredMap = vi.mocked(getStoredProjectEnvVarMap);
+    getStoredMap.mockClear();
+
+    const { merged, provenance } = await resolvePreviewEnvLayers({
+      appProjectId: "proj_test",
+      generatedEnvLocal: null,
+      lifecycleStage: "integrations",
+      includeStoredProjectEnvVars: false,
+    });
+
+    expect(getStoredMap).not.toHaveBeenCalled();
+    expect(merged.OPENAI_API_KEY).toBeUndefined();
+    expect(provenance.OPENAI_API_KEY).toBeUndefined();
+    expect(merged.NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID).toBe("proj_test");
+  });
+
   it("tracks provenance per key with later layers winning", async () => {
     const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
     vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
