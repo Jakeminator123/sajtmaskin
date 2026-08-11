@@ -525,6 +525,17 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
+        // A manually pinned app scaffold outranks even an explicit Byggval
+        // "Hemsida", so this deliberately ignores `buildIntentExplicit`.
+        //
+        // Byggval cannot produce that pair itself — it drops a site type that
+        // contradicts the target — so reaching here means the builder header's
+        // scaffold menu pinned dashboard/app-shell while Byggval said Hemsida.
+        // `dashboard` declares `allowedBuildIntents: ["app"]`, so honouring the
+        // intent instead would run an app-only scaffold under a website intent:
+        // exactly the mismatch `scaffoldForExplicitIntent` exists to prevent.
+        // Flipping the intent is the self-consistent read of two contradicting
+        // surfaces; which one SHOULD win is a product decision, not a fix here.
         if (engineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
           engineIntent = "app";
         }
@@ -739,6 +750,17 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
+        // A manually pinned app scaffold outranks even an explicit Byggval
+        // "Hemsida", so this deliberately ignores `buildIntentExplicit`.
+        //
+        // Byggval cannot produce that pair itself — it drops a site type that
+        // contradicts the target — so reaching here means the builder header's
+        // scaffold menu pinned dashboard/app-shell while Byggval said Hemsida.
+        // `dashboard` declares `allowedBuildIntents: ["app"]`, so honouring the
+        // intent instead would run an app-only scaffold under a website intent:
+        // exactly the mismatch `scaffoldForExplicitIntent` exists to prevent.
+        // Flipping the intent is the self-consistent read of two contradicting
+        // surfaces; which one SHOULD win is a product decision, not a fix here.
         if (engineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
           engineIntent = "app";
         }

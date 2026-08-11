@@ -99,7 +99,7 @@ Reglagen i builderns välkomstläge (`PreviewPanelInitControls`). Svensk etikett
 
 | Etikett (UI) | Signal (kod) | Mottagare | Hård? |
 |---|---|---|---|
-| Hemsida eller app | `meta.buildIntent` + `buildIntentExplicit` | `BuildIntent` → scaffold-matcher, route-patterns, `BuildSpec` | Ja — filtrerar Typ av sajt, stoppar auto-promoteringen website→app, och avvisar en automatchad scaffold som inte tillåter valet |
+| Hemsida eller app | `meta.buildIntent` + `buildIntentExplicit` | `BuildIntent` → scaffold-matcher, route-patterns, `BuildSpec` | Ja — filtrerar Typ av sajt, stoppar auto-promoteringen website→app, och avvisar en automatchad scaffold som inte tillåter valet. Undantag nedan. |
 | Typ av sajt | `meta.scaffoldId` + `scaffoldMode: "manual"` | `getScaffoldById` | Ja |
 | Antal sidor | `meta.pageCountHint` | `buildRoutePlan`, tak `MAX_ROUTES_PER_GENERATION` | Ja |
 | Komplexitet | `meta.complexityHint` + svenskt direktiv | `deriveBuildSpec` + `customInstructions` | Delvis |
@@ -109,6 +109,11 @@ Reglagen i builderns välkomstläge (`PreviewPanelInitControls`). Svensk etikett
 | Färgläge | `meta.colorModeHint` (+ `styleKeywordsHint`) | väljer klustrets ljusa/mörka palett | Ja för paletten, viktning för varianten |
 
 Stil→variant-mappningen är avsiktligt **partiell**: ett scaffold med två varianter kan inte uttrycka fem stilar, så omappade par faller tillbaka på matchningen i stället för att tvinga fram ett dåligt val. Se `src/lib/gen/scaffold-variants/style-choice-variants.ts`.
+
+**Två undantag där Hemsida/App inte vinner** — båda dokumenterade i koden, ingen av dem ett fel:
+
+1. **En manuellt pinnad app-scaffold trumfar.** Väljer du Hemsida i Byggval men har `dashboard`/`app-skal` pinnat i builderns header-meny, blir bygget en app. Byggval kan inte själv skapa den kombinationen (motsägande sajttyp släpps), så det kräver att två ytor säger emot varandra. `dashboard` tillåter bara `app`, så att behålla `website` vore en värre motsägelse.
+2. **`clear-redesign` släpper valet.** `buildIntentExplicit` skickas bara vid init och lagras inte i orchestration-snapshoten. Neutrala follow-ups är täckta av den befintliga scaffold-frysningen, men en "gör om hela sajten" släpper låsen med flit och kan promotera till app igen. Att bära valet över rundor kräver att flaggan persisteras.
 
 ### Färg och theme tokens (1:1 kod ↔ svenska)
 
