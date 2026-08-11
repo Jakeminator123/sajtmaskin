@@ -12,9 +12,11 @@
  *   (which drags in the whole CLI toolchain). No `shadcn` runtime dep.
  * - Built-in `@shadcn`/`@v0` are reached via `registry-service`'s base URL and
  *   MUST NOT be declared in `components.json` "registries" (CLI 4.x rejects it).
- *   Community registries (`@shadcnblocks`/`@tailark`/`@magicui`) are read from
- *   `components.json` (canonical registry list); their item catalog is seeded
- *   from `config/community-registries.json` (no community index endpoint yet).
+ *   Community registries (`@shadcnblocks`/`@tailark-oss`/`@magicui`) are read
+ *   from `components.json` (canonical registry list); their item catalog is
+ *   seeded from `config/community-registries.json` (no community index endpoint
+ *   yet — Tailark OSS publishes `oss.tailark.com/r/registry.json`, but the
+ *   resolver still uses the curated seed for section picks).
  * - `searchRegistries` is fuzzy on name/description, not semantic — an LLM
  *   translates sentence → queries and ranks real hits. Both LLM steps fall back
  *   to a deterministic heuristic so the route works even without a provider key.
@@ -77,7 +79,7 @@ export type { CommunityRegistryDescriptor } from "@/lib/shadcn/registry-search";
 export interface DescribeCandidate {
   /** Registry-local item name, e.g. `login-03` or `hero1`. */
   name: string;
-  /** Registry namespace, e.g. `@shadcn`, `@shadcnblocks`, `@tailark`, `@magicui`. */
+  /** Registry namespace, e.g. `@shadcn`, `@shadcnblocks`, `@tailark-oss`, `@magicui`. */
   registry: string;
   title?: string;
   description?: string;

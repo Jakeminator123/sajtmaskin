@@ -19,21 +19,24 @@
     }
   },
   {
-    "namespace": "@tailark",
-    "url": "https://tailark.com/r/{name}.json",
-    "description": "Clean marketing website blocks (verified against live registry 2026-04)",
+    "namespace": "@tailark-oss",
+    "url": "https://oss.tailark.com/r/radix/{name}.json",
+    "description": "Free Tailark Mist marketing blocks (public OSS registry; verified 2026-08-12). Radix path matches components.json style radix-vega.",
     "maxPerGeneration": 1,
     "sectionMappings": {
-      "hero": ["hero-section-1", "hero-section-2", "hero-section-3", "hero-section-4", "hero-section-5"],
-      "features": ["features-1", "features-2", "features-3", "features-4", "features-5"],
-      "pricing": ["pricing-1", "pricing-2", "pricing-3", "pricing-4"],
-      "cta": ["call-to-action-1", "call-to-action-2", "call-to-action-3"],
-      "faq": ["faqs-1", "faqs-2", "faqs-3", "faqs-4"],
-      "footer": ["footer-1", "footer-2", "footer-3", "footer-4", "footer-5"],
-      "testimonials": ["testimonials-1", "testimonials-2", "testimonials-3", "testimonials-4"],
-      "contact": ["contact-1", "contact-2"],
-      "team": ["team-1", "team-2"],
-      "stats": ["stats-1", "stats-2", "stats-3", "stats-4"]
+      "hero": ["mist-hero-section-1", "mist-hero-section-2", "mist-hero-section-3", "mist-hero-section-4", "mist-hero-section-5", "mist-hero-section-6"],
+      "features": ["mist-features-1", "mist-features-2", "mist-features-3", "mist-features-4", "mist-features-5", "mist-features-6", "mist-features-7", "mist-features-8", "mist-features-9", "mist-features-10", "mist-features-11"],
+      "pricing": ["mist-pricing-1", "mist-pricing-2"],
+      "cta": ["mist-call-to-action-1", "mist-call-to-action-2", "mist-call-to-action-3"],
+      "faq": ["mist-faqs-1", "mist-faqs-2", "mist-faqs-3"],
+      "footer": ["mist-footer-1", "mist-footer-2", "mist-footer-3", "mist-footer-4"],
+      "testimonials": ["mist-testimonials-1", "mist-testimonials-2", "mist-testimonials-3", "mist-testimonials-4", "mist-testimonials-5"],
+      "contact": ["mist-contact-1"],
+      "team": ["mist-team-1", "mist-team-2"],
+      "stats": ["mist-stats-1", "mist-stats-2", "mist-stats-3", "mist-stats-4"],
+      "logo-cloud": ["mist-logo-cloud-1", "mist-logo-cloud-2"],
+      "integrations": ["mist-integrations-1", "mist-integrations-2", "mist-integrations-3"],
+      "content": ["mist-content-1", "mist-content-2", "mist-content-3", "mist-content-4"]
     }
   },
   {

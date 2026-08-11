@@ -317,8 +317,8 @@ describe("buildAddCommand", () => {
   });
 
   it("namespace-qualifies community registries", () => {
-    expect(buildAddCommand("@tailark", "hero-section-1")).toBe(
-      "npx shadcn@latest add @tailark/hero-section-1",
+    expect(buildAddCommand("@tailark-oss", "mist-hero-section-1")).toBe(
+      "npx shadcn@latest add @tailark-oss/mist-hero-section-1",
     );
   });
 });
@@ -327,19 +327,22 @@ describe("mergeCommunityRegistries", () => {
   it("reads registry list from components.json and item names from the seed", () => {
     const merged = mergeCommunityRegistries(
       {
-        "@tailark": "https://tailark.com/r/{name}.json",
+        "@tailark-oss": "https://oss.tailark.com/r/radix/{name}.json",
         "@magicui": "https://magicui.design/r/{name}",
       },
       [
         {
-          namespace: "@tailark",
-          url: "https://tailark.com/r/{name}.json",
-          sectionMappings: { hero: ["hero-section-1"], pricing: ["pricing-1"] },
+          namespace: "@tailark-oss",
+          url: "https://oss.tailark.com/r/radix/{name}.json",
+          sectionMappings: {
+            hero: ["mist-hero-section-1"],
+            pricing: ["mist-pricing-1"],
+          },
         },
       ],
     );
-    const tailark = merged.find((r) => r.namespace === "@tailark");
-    expect(tailark?.itemNames.sort()).toEqual(["hero-section-1", "pricing-1"]);
+    const tailark = merged.find((r) => r.namespace === "@tailark-oss");
+    expect(tailark?.itemNames.sort()).toEqual(["mist-hero-section-1", "mist-pricing-1"]);
     // A namespace without a seed still appears (from components.json) with no items.
     expect(merged.find((r) => r.namespace === "@magicui")?.itemNames).toEqual([]);
   });

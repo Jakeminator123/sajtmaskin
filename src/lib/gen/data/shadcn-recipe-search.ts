@@ -115,7 +115,20 @@ export function detectSectionTypes(prompt: string): string[] {
     { terms: ["footer", "sidfot"], sectionType: "footer" },
     { terms: ["navbar", "navigation", "header", "meny"], sectionType: "navbar" },
     { terms: ["contact", "kontakt", "skicka meddelande"], sectionType: "contact" },
-    { terms: ["stats", "statistik", "siffror", "metrics"], sectionType: "stats" },
+    { terms: ["stats", "statistik", "siffror", "metrics", "kpi"], sectionType: "stats" },
+    { terms: ["team", "teamet", "medarbetare"], sectionType: "team" },
+    {
+      terms: ["logo cloud", "logocloud", "kundloggor", "trusted by", "partners"],
+      sectionType: "logo-cloud",
+    },
+    {
+      terms: ["integration", "integrationer", "kopplingar", "connectors"],
+      sectionType: "integrations",
+    },
+    {
+      terms: ["content section", "innehållssektion", "content block", "textblock"],
+      sectionType: "content",
+    },
   ];
   return sectionPatterns
     .filter(({ terms }) => promptIncludes(prompt, terms))

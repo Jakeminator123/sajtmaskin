@@ -1,6 +1,3 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import type { InferredCapabilities } from "../capability-inference";
 import { rewriteRegistryImports } from "@/lib/shadcn/registry-utils";
 import {
@@ -26,7 +23,6 @@ import {
 const FETCH_TIMEOUT_MS = 2_000;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_REMOTE_CANDIDATES = 8;
-const COMMUNITY_REGISTRIES_PATH = join(process.cwd(), "config", "community-registries.json");
 
 export interface ShadcnUiRecipeFile {
   path: string;
@@ -180,21 +176,34 @@ async function fetchOfficialRecipe(
   return null;
 }
 
+/**
+ * Legacy per-section fetch path: item catalog + caps from
+ * `config/community-registries.json`, URL templates from canonical
+ * `components.json` (via `loadDescribeCommunityRegistries`) so runtime and
+ * CLI never drift on host/path (e.g. Tailark OSS Radix URL).
+ */
 function loadCommunityRegistries(): CommunityRegistry[] {
   if (communityRegistriesCache) return communityRegistriesCache;
-  if (!existsSync(COMMUNITY_REGISTRIES_PATH)) {
-    communityRegistriesCache = [];
-    return communityRegistriesCache;
+  const seeds = loadCommunitySeedEntries();
+  const urlByNamespace = new Map(
+    loadDescribeCommunityRegistries().map((entry) => [entry.namespace, entry.urlTemplate]),
+  );
+  const loaded: CommunityRegistry[] = [];
+  for (const entry of seeds) {
+    if (!entry?.namespace || typeof entry.maxPerGeneration !== "number" || !entry.sectionMappings) {
+      continue;
+    }
+    const url = urlByNamespace.get(entry.namespace) || entry.url;
+    if (!url?.includes("{name}")) continue;
+    loaded.push({
+      namespace: entry.namespace,
+      url,
+      maxPerGeneration: entry.maxPerGeneration,
+      sectionMappings: entry.sectionMappings,
+    });
   }
-  try {
-    communityRegistriesCache = JSON.parse(
-      readFileSync(COMMUNITY_REGISTRIES_PATH, "utf-8"),
-    ) as CommunityRegistry[];
-    return communityRegistriesCache;
-  } catch {
-    communityRegistriesCache = [];
-    return communityRegistriesCache;
-  }
+  communityRegistriesCache = loaded;
+  return communityRegistriesCache;
 }
 
 async function fetchCommunityRecipe(

@@ -20,7 +20,7 @@
   },
   "registries": {
     "@shadcnblocks": "https://shadcnblocks.com/r/{name}.json",
-    "@tailark": "https://tailark.com/r/{name}.json",
+    "@tailark-oss": "https://oss.tailark.com/r/radix/{name}.json",
     "@magicui": "https://magicui.design/r/{name}",
     "@sajtmaskin": "https://sajtmaskin.vercel.app/r/{name}.json"
   }

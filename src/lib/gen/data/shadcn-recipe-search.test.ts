@@ -12,6 +12,7 @@ import {
   buildCommunitySearchPlans,
   buildOfficialSearchCandidates,
   buildRecipeSearchIntents,
+  detectSectionTypes,
   fetchOfficialIndexForResolver,
   isShadcnResolverSearchEnabled,
   type CommunityRegistryDescriptor,
@@ -230,6 +231,29 @@ const SEED: CommunitySeedEntry[] = [
     },
   },
 ];
+
+describe("detectSectionTypes", () => {
+  it("covers every @tailark-oss community section key used in the seed", () => {
+    const probes: Array<{ prompt: string; section: string }> = [
+      { prompt: "hero banner", section: "hero" },
+      { prompt: "feature cards", section: "features" },
+      { prompt: "pricing paket", section: "pricing" },
+      { prompt: "call to action", section: "cta" },
+      { prompt: "faq frågor", section: "faq" },
+      { prompt: "footer sidfot", section: "footer" },
+      { prompt: "testimonial omdöme", section: "testimonials" },
+      { prompt: "kontaktformulär", section: "contact" },
+      { prompt: "team medarbetare", section: "team" },
+      { prompt: "stats kpi", section: "stats" },
+      { prompt: "kundloggor trusted by", section: "logo-cloud" },
+      { prompt: "integrationer connectors", section: "integrations" },
+      { prompt: "content section textblock", section: "content" },
+    ];
+    for (const { prompt, section } of probes) {
+      expect(detectSectionTypes(prompt), prompt).toContain(section);
+    }
+  });
+});
 
 describe("buildCommunitySearchPlans", () => {
   it("resolves section queries to the LEGACY seeded pick (same pool, same seed string)", () => {

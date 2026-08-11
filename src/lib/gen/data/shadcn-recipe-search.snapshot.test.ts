@@ -124,7 +124,7 @@ const SCENARIOS: Scenario[] = [
       "chart-bar-default",
     ],
     // Identical to the legacy per-section picks (stats section, same DJB seed).
-    expectedCommunityPlans: ["@shadcnblocks/stats1", "@tailark/stats-1"],
+    expectedCommunityPlans: ["@shadcnblocks/stats1", "@tailark-oss/mist-stats-3"],
   },
   {
     id: "pricing",
@@ -135,7 +135,7 @@ const SCENARIOS: Scenario[] = [
     // Identical to the legacy per-section picks (pricing section, same DJB seed).
     expectedCommunityPlans: [
       "@shadcnblocks/pricing3",
-      "@tailark/pricing-3",
+      "@tailark-oss/mist-pricing-1",
       "@sajtmaskin/pricing-section",
     ],
   },
@@ -201,7 +201,7 @@ const SCENARIOS: Scenario[] = [
       "field-checkbox",
     ],
     // Identical to the legacy per-section picks (contact section, same DJB seed).
-    expectedCommunityPlans: ["@shadcnblocks/contact1", "@tailark/contact-2"],
+    expectedCommunityPlans: ["@shadcnblocks/contact1", "@tailark-oss/mist-contact-1"],
   },
 ];
 

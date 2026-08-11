@@ -70,7 +70,7 @@ Kanonisk lista = nycklarna i `.cursor/mcp.json.example`. Tabellen nedan speglar 
 
 ## shadcn
 
-- `components.json` styr registries (`@shadcnblocks`, `@tailark`, `@magicui`, …).
+- `components.json` styr registries (`@shadcnblocks`, `@tailark-oss`, `@magicui`, …).
 - Föredra shadcn-MCP; annars `npx shadcn@4.13.1 …` (samma pin som wrappern).
 
 ## Felsök “ibland funkar”
