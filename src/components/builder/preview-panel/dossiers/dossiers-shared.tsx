@@ -49,9 +49,16 @@ export interface PreviewPanelDossiersProps {
  * `Version: N kopplade · M fristående`, som bara dubblerade fliken
  * `Inkopplade (N)` och katalogfiltren utan att säga VILKEN version statusen
  * gäller (lucka 2, ägarbeslut 2026-08-11).
+ *
+ * `versionId` is a fallback when `meta` lags behind the selected id (common
+ * right after `handleDeterministicF3Settled` selects a brand-new F3 version
+ * before `mutateVersions()` has put it in `effectiveVersionsList` — Bugbot
+ * on this diff). Prefer a short id over a blank header while dossiers for
+ * that version are already visible.
  */
 export function describeActiveVersionLabel(
   meta: { versionNumber?: number | null; createdAt?: string | Date | null } | null | undefined,
+  versionId?: string | null,
 ): string | null {
   const versionLabel =
     typeof meta?.versionNumber === "number" ? `Version ${meta.versionNumber}` : null;
@@ -71,6 +78,8 @@ export function describeActiveVersionLabel(
   if (versionLabel && timeLabel) return `${versionLabel} · byggd ${timeLabel}`;
   if (versionLabel) return versionLabel;
   if (timeLabel) return `Byggd ${timeLabel}`;
+  const trimmed = typeof versionId === "string" ? versionId.trim() : "";
+  if (trimmed) return `Version #${trimmed.slice(0, 6)}`;
   return null;
 }
 

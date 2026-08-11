@@ -43,26 +43,31 @@ export function useShellF3TipsChrome(vm: BuilderViewModel, sendMessage: BuilderV
   // rapporterar sina counts hit via `onCountsChange` — samma data F3-triggerns
   // framgångstitel behöver, utan att triggern hämtar `/dossiers` själv (se
   // noten i 05-builder-statussanning.md).
-  const [dossierCounts, setDossierCounts] = useState<DossierOverviewResponse["counts"] | null>(
-    null,
-  );
+  //
+  // Counts are stored WITH the chat/version scope they were reported under.
+  // At read time we only trust them when that scope still matches the live
+  // `activeVersionId` (Bugbot on this diff): a `useEffect` reset would clear
+  // one paint too late, so `resolveF3StatusTitle` below could briefly weave
+  // the PREVIOUS version's live/demo numbers into the new version's success
+  // title. Scoping at read time also covers the unmount case where
+  // `PreviewPanelDossiers` (the only `onCountsChange` source) is gone between
+  // versions (`BuilderPreviewTools` returns null when there's no preview
+  // surface yet) and nothing would call back to clear us.
+  const countsScopeKey = `${vm.chatId ?? ""}::${vm.activeVersionId ?? ""}`;
+  const [dossierCountsState, setDossierCountsState] = useState<{
+    scope: string;
+    counts: DossierOverviewResponse["counts"] | null;
+  } | null>(null);
   const handleDossierCountsChange = useCallback(
     (counts: DossierOverviewResponse["counts"] | null) => {
-      setDossierCounts(counts);
+      setDossierCountsState({ scope: countsScopeKey, counts });
     },
-    [],
+    [countsScopeKey],
   );
-  // Also reset on activeVersionId, not just chatId (Bugbot, 4th pass on this
-  // diff): `PreviewPanelDossiers` (the only source of `onCountsChange`) can
-  // unmount entirely between versions when there's no preview surface yet
-  // (`BuilderPreviewTools` returns null — see `hasSurface`). Its own
-  // `freshData`-vs-`overviewKey` guard only protects the "stays mounted"
-  // case; while unmounted nothing calls back to clear this, so a later
-  // remount could show the F3-trigger's success title with a PREVIOUS
-  // version's counts until the fresh fetch resolves.
-  useEffect(() => {
-    setDossierCounts(null);
-  }, [vm.chatId, vm.activeVersionId]);
+  const dossierCounts =
+    dossierCountsState && dossierCountsState.scope === countsScopeKey
+      ? dossierCountsState.counts
+      : null;
 
   // (Prompt-prefill-lyssnaren togs bort 2026-07-31: Byggval-reglagen skriver
   // inte längre i chattens input, och exempel-chipsen försvann med #673.)
@@ -241,12 +246,13 @@ export function useShellF3TipsChrome(vm: BuilderViewModel, sendMessage: BuilderV
   // the version this status is about. `resolveF3StatusTitle` re-derives it
   // from `dossierCounts` instead: the guard above already guarantees
   // `scopedF3Status.versionId` (when set) equals `vm.activeVersionId`, and
-  // `dossierCounts` is reset to null on every version change and only ever
-  // populated by a fetch scoped to THAT same `vm.activeVersionId` (see
-  // `PreviewPanelDossiers`'s own `dataKey`/`overviewKey` guard) — so the two
-  // are already version-consistent whenever both are non-null. Recomputing at
-  // render time (not once, at report time) means the title self-corrects as
-  // soon as the fresh fetch resolves, with no new fetch of its own.
+  // `dossierCounts` is null whenever the stored counts were reported under a
+  // DIFFERENT chat/version scope (see the scoped `dossierCountsState` above —
+  // a useEffect reset would be one paint too late) and only ever non-null
+  // after a fetch scoped to THAT same `vm.activeVersionId` (see
+  // `PreviewPanelDossiers`'s own `dataKey`/`overviewKey` guard). Recomputing
+  // at render time (not once, at report time) means the title self-corrects
+  // as soon as the fresh fetch resolves, with no new fetch of its own.
   const visibleF3Status = scopedF3Status
     ? resolveF3StatusTitle(scopedF3Status, dossierCounts)
     : null;

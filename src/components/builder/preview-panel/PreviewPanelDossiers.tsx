@@ -43,5 +43,12 @@ export function PreviewPanelDossiers({
     catalogPickDisabled,
     onCountsChange,
   });
-  return <DossiersPopoverView {...vm} className={className} activeVersionMeta={activeVersionMeta} />;
+  return (
+    <DossiersPopoverView
+      {...vm}
+      className={className}
+      activeVersionMeta={activeVersionMeta}
+      versionId={versionId}
+    />
+  );
 }

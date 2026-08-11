@@ -305,9 +305,11 @@ describe("PreviewPanelDossiers", () => {
     // Lucka 2 (ägarbeslut 2026-08-11): the old "Version: N kopplade · M
     // fristående" line is gone — it duplicated the "Inkopplade (N)" tab and
     // the catalog filters without saying WHICH version the status describes.
-    // Without `activeVersionMeta` (not passed here) the header shows nothing;
-    // see the dedicated version-identity test below for the populated case.
+    // Without `activeVersionMeta` we still fall back to a short id from
+    // `versionId` (Bugbot: meta often lags right after F3 settle) rather than
+    // leaving the header blank while dossiers for that version are visible.
     expect(screen.queryByText(/kopplade ·.*fristående/)).toBeNull();
+    expect(screen.getByText("Version #ver_1")).toBeTruthy();
     // The catalog tab's content is not shown by default when something is
     // already wired.
     expect(screen.queryByText("Stripe Checkout")).toBeNull();
@@ -358,6 +360,53 @@ describe("PreviewPanelDossiers", () => {
       // `describeActiveVersionLabel`, so the shape is always HH:MM (no AM/PM).
       expect(screen.getByText(/^Version 4 · byggd \d{1,2}:\d{2}$/)).toBeTruthy();
     });
+  });
+
+  // Bugbot on this diff: `activeVersionMeta` comes from `effectiveVersionsList`,
+  // which often lags behind `activeVersionId` (e.g. F3 settle selects the new
+  // id before `mutateVersions()` finishes). While dossiers for that versionId
+  // are already loaded, the header must not go blank — fall back to a short id.
+  it("lucka 2: falls back to a short versionId when activeVersionMeta has not landed yet", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 0, soft: 1, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 0 },
+        dossiers: [
+          {
+            id: "gallery-lightbox",
+            label: "Bildgalleri med lightbox",
+            class: "soft",
+            capability: "gallery-lightbox",
+            summary: "Click-to-enlarge image gallery.",
+            complexity: "simple",
+            requiresF3: false,
+            configured: true,
+            dependencies: [],
+            envVars: [],
+            status: "self-contained",
+            missingKeys: [],
+            missingLiveKeys: [],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_f3_abc123"
+        activeVersionMeta={null}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Version #ver_f3")).toBeTruthy();
+    });
+    expect(screen.queryByText(/kopplade ·.*fristående/)).toBeNull();
   });
 
   // De tre axlarna (hard/soft, demoläge, F2/F3) är oberoende. Panelen visade

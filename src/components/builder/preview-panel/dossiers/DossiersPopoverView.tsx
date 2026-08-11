@@ -34,11 +34,14 @@ import {
 type Vm = ReturnType<typeof usePreviewPanelDossiersController> & {
   className?: string;
   activeVersionMeta?: { versionNumber?: number | null; createdAt?: string | Date | null } | null;
+  /** Fallback when `activeVersionMeta` lags the selected id (see describeActiveVersionLabel). */
+  versionId?: string | null;
 };
 
 export function DossiersPopoverView({
   className,
   activeVersionMeta,
+  versionId,
   ...vm
 }: Vm) {
   const {
@@ -89,7 +92,7 @@ export function DossiersPopoverView({
     filteredCatalogGroups,
   } = vm;
 
-  const activeVersionLabel = describeActiveVersionLabel(activeVersionMeta);
+  const activeVersionLabel = describeActiveVersionLabel(activeVersionMeta, versionId);
 
   const renderRow = (entry: DossierOverviewEntry) => {
     const descriptor = describeDossierStatus(entry.status, stage, entry.class);
