@@ -7,6 +7,7 @@ from typing import Any
 from backoffice.shared import (
     BackofficeContext,
     read_json,
+    resolve_command,
     validate_json_against_schema,
     write_json,
 )
@@ -252,6 +253,30 @@ def _variant_embeddings_index_path(ctx: BackofficeContext) -> Path:
     return ctx.variants_dir / "_index" / "variant-embeddings.json"
 
 
+def _sync_variant_embeddings_cache(ctx: BackofficeContext) -> bool:
+    """Best-effort: pull Blob/manifest variant index into the local cache.
+
+    After embeddings left git, delete flows often have no on-disk JSON. Sync
+    first so prune can edit the real index and push it back. Returns True when
+    the local cache file exists afterwards.
+    """
+    import subprocess
+
+    path = _variant_embeddings_index_path(ctx)
+    if path.is_file():
+        return True
+    try:
+        subprocess.run(
+            resolve_command(("npm", "run", "embeddings:sync")),
+            cwd=str(ctx.repo_root),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except Exception:
+        return path.is_file()
+    return path.is_file()
 
 
 def _prune_variant_embeddings(
@@ -272,6 +297,8 @@ def _prune_variant_embeddings(
     or has no matching entries, so it never blocks a delete.
     """
     path = _variant_embeddings_index_path(ctx)
+    if not path.is_file():
+        _sync_variant_embeddings_cache(ctx)
     if not path.is_file():
         return 0
     try:
@@ -312,7 +339,7 @@ def _push_variant_embeddings_to_blob(ctx: BackofficeContext) -> None:
 
     try:
         subprocess.run(
-            ["npm", "run", "embeddings:push", "--", "--only=variant"],
+            resolve_command(("npm", "run", "embeddings:push", "--", "--only=variant")),
             cwd=str(ctx.repo_root),
             check=False,
             capture_output=True,
