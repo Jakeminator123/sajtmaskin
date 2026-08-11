@@ -20,6 +20,7 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
+from backoffice.observability_io import format_ms
 from backoffice.shared import BackofficeContext, resolve_metrics_endpoint
 
 
@@ -42,7 +43,6 @@ OBSERVED_PHASES: tuple[str, ...] = (
     "quality_gate",
 )
 
-PROMPT_TO_DONE_KINDS: tuple[str, ...] = ("init", "followup")
 METRICS_PATH = "/api/metrics"
 REQUEST_TIMEOUT_SECONDS = 10.0
 
@@ -315,16 +315,6 @@ def _counter_dataframe(
     )
 
 
-def _format_ms(value: float | None) -> str:
-    if value is None:
-        return "—"
-    if value >= 10_000:
-        return f"{value / 1000:.1f} s"
-    if value >= 1_000:
-        return f"{value / 1000:.2f} s"
-    return f"{value:.0f} ms"
-
-
 # ---------------------------------------------------------------------------
 # Page entrypoint
 # ---------------------------------------------------------------------------
@@ -413,19 +403,19 @@ def render(ctx: BackofficeContext) -> None:
     cards = st.columns(4)
     cards[0].metric(
         "P50 init",
-        _format_ms(_prompt_to_done_percentile(sajtmaskin_series, "init", 0.50)),
+        format_ms(_prompt_to_done_percentile(sajtmaskin_series, "init", 0.50)),
     )
     cards[1].metric(
         "P95 init",
-        _format_ms(_prompt_to_done_percentile(sajtmaskin_series, "init", 0.95)),
+        format_ms(_prompt_to_done_percentile(sajtmaskin_series, "init", 0.95)),
     )
     cards[2].metric(
         "P50 followup",
-        _format_ms(_prompt_to_done_percentile(sajtmaskin_series, "followup", 0.50)),
+        format_ms(_prompt_to_done_percentile(sajtmaskin_series, "followup", 0.50)),
     )
     cards[3].metric(
         "P95 followup",
-        _format_ms(_prompt_to_done_percentile(sajtmaskin_series, "followup", 0.95)),
+        format_ms(_prompt_to_done_percentile(sajtmaskin_series, "followup", 0.95)),
     )
     st.caption(
         "Estimated from `sajtmaskin_prompt_to_done_ms_bucket` via linear "
@@ -443,9 +433,9 @@ def render(ctx: BackofficeContext) -> None:
             {
                 "Phase": row["phase"],
                 "Count": row["count"],
-                "Mean": _format_ms(row["mean_ms"]),
-                "P50": _format_ms(row["p50_ms"]),
-                "P95": _format_ms(row["p95_ms"]),
+                "Mean": format_ms(row["mean_ms"]),
+                "P50": format_ms(row["p50_ms"]),
+                "P95": format_ms(row["p95_ms"]),
             }
             for row in phase_rows
         ]

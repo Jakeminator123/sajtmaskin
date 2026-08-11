@@ -17,183 +17,92 @@ from urllib.parse import urlparse
 import pandas as pd
 import streamlit as st
 
-try:
-    from .shared_lib.backup import (
-        BACKUP_DIR_PARTS,
-        MAX_BACKUPS_PER_FILE,
-        backup_file,
-        backup_root,
-        backup_tree,
-        list_backup_files,
-        list_backup_trees,
-        list_snapshots_for,
-        list_tree_snapshots_for,
-        restore_backup,
-        restore_tree,
-    )
-    from .shared_lib.context import (
-        BackofficeContext,
-        build_backoffice_context,
-        ensure_utf8_stdio,
-        find_repo_root,
-    )
-    from .shared_lib.danger import confirm_by_typing, danger_zone
-    from .shared_lib.data_loaders import (
-        find_workload,
-        load_fault_fix_csv,
-        read_autofix_runtime_config,
-    )
-    from .shared_lib.docs import (
-        first_sentence,
-        read_doc_section,
-        read_markdown_table_cell,
-    )
-    from .shared_lib.domain_map import load_domain_map
-    from .shared_lib.env_flags import read_env_flag, resolve_metrics_endpoint, write_env_flag
-    from .shared_lib.fields import FIELD_LABELS, field_label
-    from .shared_lib.io import read_json, read_text, write_json, write_text
-    from .shared_lib.models import (
-        AVAILABLE_PHASE_MODELS,
-        BUILD_PROFILE_ORDER,
-        DEFAULT_PHASE_THINKING_BY_TIER,
-        MODEL_LABELS,
-        PHASE_LABELS,
-        PHASE_ORDER,
-        PHASE_ROUTED_WORKLOADS,
-        PHASE_TOKEN_BUDGET_NOTES,
-        REASONING_EFFORT_OPTIONS,
-        REASONING_MODE_OPTIONS,
-        ROUTE_LOCAL_WORKLOAD_MODELS,
-        build_profile_defaults,
-        describe_workload_model_resolution,
-        human_model_label,
-        phase_model_display_label,
-        phase_routing_defaults,
-        phase_thinking_defaults,
-        phase_token_budget_entry,
-        resolve_phase_models_for_dashboard,
-        summarize_tier_models,
-        write_phase_thinking,
-    )
-    from .shared_lib.prompt_dumps import (
-        PROMPT_DUMP_SPECS,
-        collect_prompt_dump_statuses,
-        load_latest_prompt_size_metrics,
-    )
-    from .shared_lib.routes import ROUTE_TIMEOUT_DISPLAY, read_route_maxduration_literals
-    from .shared_lib.subprocess_helpers import resolve_command, run_repo_command
-    from .shared_lib.ts_parsing import (
-        _escape_ts_string,
-        extract_ts_string_array_field,
-        extract_ts_string_field,
-        extract_ts_union_values,
-        get_all_manifests,
-        normalize_nonempty_lines,
-        parse_manifest_ts,
-        parse_ts_default_model_id,
-        unescape_ts_string,
-    )
-    from .shared_lib.ui import (
-        BUILDING_BLOCK_CHAIN,
-        MODE_BADGES,
-        SAVE_SCOPE_MESSAGES,
-        SAVE_SCOPE_PATHS,
-        STATIC_REFERENCE_BADGE,
-        nav_link_button,
-        render_building_blocks_nav,
-        render_save_scope,
-        render_static_reference,
-        render_where_panel,
-        tech_details,
-    )
-    from .shared_lib.validation import validate_json_against_schema, validate_manifest_or_error
-except ImportError:
-    from shared_lib.backup import (
-        BACKUP_DIR_PARTS,
-        MAX_BACKUPS_PER_FILE,
-        backup_file,
-        backup_root,
-        backup_tree,
-        list_backup_files,
-        list_backup_trees,
-        list_snapshots_for,
-        list_tree_snapshots_for,
-        restore_backup,
-        restore_tree,
-    )
-    from shared_lib.context import (
-        BackofficeContext,
-        build_backoffice_context,
-        ensure_utf8_stdio,
-        find_repo_root,
-    )
-    from shared_lib.danger import confirm_by_typing, danger_zone
-    from shared_lib.data_loaders import (
-        find_workload,
-        load_fault_fix_csv,
-        read_autofix_runtime_config,
-    )
-    from shared_lib.docs import (
-        first_sentence,
-        read_doc_section,
-        read_markdown_table_cell,
-    )
-    from shared_lib.domain_map import load_domain_map
-    from shared_lib.env_flags import read_env_flag, resolve_metrics_endpoint, write_env_flag
-    from shared_lib.fields import FIELD_LABELS, field_label
-    from shared_lib.io import read_json, read_text, write_json, write_text
-    from shared_lib.models import (
-        AVAILABLE_PHASE_MODELS,
-        BUILD_PROFILE_ORDER,
-        DEFAULT_PHASE_THINKING_BY_TIER,
-        MODEL_LABELS,
-        PHASE_LABELS,
-        PHASE_ORDER,
-        PHASE_ROUTED_WORKLOADS,
-        PHASE_TOKEN_BUDGET_NOTES,
-        REASONING_EFFORT_OPTIONS,
-        REASONING_MODE_OPTIONS,
-        ROUTE_LOCAL_WORKLOAD_MODELS,
-        build_profile_defaults,
-        describe_workload_model_resolution,
-        human_model_label,
-        phase_model_display_label,
-        phase_routing_defaults,
-        phase_thinking_defaults,
-        phase_token_budget_entry,
-        resolve_phase_models_for_dashboard,
-        summarize_tier_models,
-        write_phase_thinking,
-    )
-    from shared_lib.prompt_dumps import (
-        PROMPT_DUMP_SPECS,
-        collect_prompt_dump_statuses,
-        load_latest_prompt_size_metrics,
-    )
-    from shared_lib.routes import ROUTE_TIMEOUT_DISPLAY, read_route_maxduration_literals
-    from shared_lib.subprocess_helpers import resolve_command, run_repo_command
-    from shared_lib.ts_parsing import (
-        _escape_ts_string,
-        extract_ts_string_array_field,
-        extract_ts_string_field,
-        extract_ts_union_values,
-        get_all_manifests,
-        normalize_nonempty_lines,
-        parse_manifest_ts,
-        parse_ts_default_model_id,
-        unescape_ts_string,
-    )
-    from shared_lib.ui import (
-        BUILDING_BLOCK_CHAIN,
-        MODE_BADGES,
-        SAVE_SCOPE_MESSAGES,
-        SAVE_SCOPE_PATHS,
-        STATIC_REFERENCE_BADGE,
-        nav_link_button,
-        render_building_blocks_nav,
-        render_save_scope,
-        render_static_reference,
-        render_where_panel,
-        tech_details,
-    )
-    from shared_lib.validation import validate_json_against_schema, validate_manifest_or_error
+from .shared_lib.backup import (
+    BACKUP_DIR_PARTS,
+    MAX_BACKUPS_PER_FILE,
+    backup_file,
+    backup_root,
+    backup_tree,
+    list_backup_files,
+    list_backup_trees,
+    list_snapshots_for,
+    list_tree_snapshots_for,
+    restore_backup,
+    restore_tree,
+)
+from .shared_lib.context import (
+    BackofficeContext,
+    build_backoffice_context,
+    ensure_utf8_stdio,
+    find_repo_root,
+)
+from .shared_lib.danger import confirm_by_typing, danger_zone
+from .shared_lib.data_loaders import (
+    find_workload,
+    load_fault_fix_csv,
+    read_autofix_runtime_config,
+)
+from .shared_lib.docs import (
+    first_sentence,
+    read_doc_section,
+    read_markdown_table_cell,
+)
+from .shared_lib.domain_map import load_domain_map
+from .shared_lib.env_flags import read_env_flag, resolve_metrics_endpoint, write_env_flag
+from .shared_lib.fields import FIELD_LABELS, field_label
+from .shared_lib.io import read_json, read_text, write_json, write_text
+from .shared_lib.models import (
+    AVAILABLE_PHASE_MODELS,
+    BUILD_PROFILE_ORDER,
+    DEFAULT_PHASE_THINKING_BY_TIER,
+    MODEL_LABELS,
+    PHASE_LABELS,
+    PHASE_ORDER,
+    PHASE_ROUTED_WORKLOADS,
+    PHASE_TOKEN_BUDGET_NOTES,
+    REASONING_EFFORT_OPTIONS,
+    REASONING_MODE_OPTIONS,
+    ROUTE_LOCAL_WORKLOAD_MODELS,
+    build_profile_defaults,
+    describe_workload_model_resolution,
+    human_model_label,
+    phase_model_display_label,
+    phase_routing_defaults,
+    phase_thinking_defaults,
+    phase_token_budget_entry,
+    resolve_phase_models_for_dashboard,
+    summarize_tier_models,
+    write_phase_thinking,
+)
+from .shared_lib.prompt_dumps import (
+    PROMPT_DUMP_SPECS,
+    collect_prompt_dump_statuses,
+    load_latest_prompt_size_metrics,
+)
+from .shared_lib.routes import ROUTE_TIMEOUT_DISPLAY, read_route_maxduration_literals
+from .shared_lib.subprocess_helpers import resolve_command, run_repo_command
+from .shared_lib.ts_parsing import (
+    _escape_ts_string,
+    extract_ts_string_array_field,
+    extract_ts_string_field,
+    extract_ts_union_values,
+    get_all_manifests,
+    normalize_nonempty_lines,
+    parse_manifest_ts,
+    parse_ts_default_model_id,
+    unescape_ts_string,
+)
+from .shared_lib.ui import (
+    BUILDING_BLOCK_CHAIN,
+    MODE_BADGES,
+    SAVE_SCOPE_MESSAGES,
+    SAVE_SCOPE_PATHS,
+    STATIC_REFERENCE_BADGE,
+    nav_link_button,
+    render_building_blocks_nav,
+    render_save_scope,
+    render_static_reference,
+    render_where_panel,
+    tech_details,
+)
+from .shared_lib.validation import validate_json_against_schema, validate_manifest_or_error

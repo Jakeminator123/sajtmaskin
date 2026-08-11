@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import copy
 import unittest
-from pathlib import Path
 
 from backoffice import REPO_ROOT
 from backoffice.shared import read_json, validate_json_against_schema

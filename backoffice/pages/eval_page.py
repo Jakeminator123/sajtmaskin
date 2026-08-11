@@ -175,59 +175,11 @@ def _export_latest_eval_summary(ctx: BackofficeContext) -> Path | None:
     return target
 
 
-def _write_eval_gate_report(
-    ctx: BackofficeContext,
-    *,
-    command: tuple[str, ...],
-    report_slug: str,
-    title: str,
-    exit_code: int,
-    elapsed_sec: float,
-    output: str,
-    started_at: datetime,
-) -> Path:
-    reports_dir = _eval_reports_dir(ctx)
-    reports_dir.mkdir(parents=True, exist_ok=True)
-    # Second-level granularity prevents silent overwrite when two runs land
-    # in the same minute (e.g. fast-failing binary-missing + immediate retry,
-    # double-click on the gate button, parallel operators).
-    stamp = started_at.astimezone().strftime("%Y-%m-%d-%H%M%S")
-    report_path = reports_dir / f"{stamp}-{report_slug}.md"
-    status = "PASS" if exit_code == 0 else "FAIL"
-    cleaned_output = _strip_ansi(output).strip()
-    report_path.write_text(
-        "\n".join(
-            [
-                f"# {title} - {stamp}",
-                "",
-                f"- Command: `{' '.join(command)}`",
-                f"- Exit code: `{exit_code}`",
-                f"- Gate result: `{status}`",
-                f"- Runtime: `{elapsed_sec:.1f}s`",
-                f"- Started: `{started_at.isoformat()}`",
-                "- Baseline update: not performed by this backoffice gate runner",
-                "",
-                "## Output",
-                "",
-                "```text",
-                cleaned_output,
-                "```",
-                "",
-            ]
-        ),
-        encoding="utf-8",
-        newline="\n",
-    )
-    return report_path
-
-
 def _run_eval_command(
     ctx: BackofficeContext,
     *,
     command: tuple[str, ...],
     timeout_s: int,
-    report_slug: str,
-    title: str,
 ) -> dict[str, Any]:
     started_at = datetime.now(timezone.utc)
     started = time.time()
@@ -275,8 +227,6 @@ def _run_eval_command(
         "summaryPath": summary_path if summary_path.is_file() else None,
         "outputTail": _strip_ansi(output)[-6000:],
         "startedAt": started_at.isoformat(),
-        "title": title,
-        "reportSlug": report_slug,
     }
 
 
@@ -285,8 +235,6 @@ def _run_eval_gate(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]:
         ctx,
         command=("npm", "run", "eval:gate"),
         timeout_s=timeout_s,
-        report_slug="codegen-eval-gate",
-        title="Codegen eval gate",
     )
 
 
@@ -295,8 +243,6 @@ def _run_eval_smoke(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, Any]
         ctx,
         command=("npm", "run", "eval:smoke"),
         timeout_s=timeout_s,
-        report_slug="codegen-eval-smoke",
-        title="Codegen eval smoke",
     )
 
 
@@ -305,8 +251,6 @@ def _run_eval_weird_smoke(ctx: BackofficeContext, *, timeout_s: int) -> dict[str
         ctx,
         command=("npm", "run", "eval:weird-smoke"),
         timeout_s=timeout_s,
-        report_slug="codegen-eval-weird-smoke",
-        title="Codegen eval weird smoke",
     )
 
 
@@ -315,8 +259,6 @@ def _run_eval_weird_smoke_dump(ctx: BackofficeContext, *, timeout_s: int) -> dic
         ctx,
         command=("npm", "run", "eval:weird-smoke:dump"),
         timeout_s=timeout_s,
-        report_slug="codegen-eval-weird-smoke-dump",
-        title="Codegen eval weird smoke dump",
     )
 
 
@@ -325,8 +267,6 @@ def _run_eval_followup(ctx: BackofficeContext, *, timeout_s: int) -> dict[str, A
         ctx,
         command=("npm", "run", "eval:followup"),
         timeout_s=timeout_s,
-        report_slug="codegen-eval-followup",
-        title="Codegen eval follow-up context",
     )
 
 

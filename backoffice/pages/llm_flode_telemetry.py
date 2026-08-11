@@ -26,14 +26,13 @@ Alla värden är **observability** (signal), inte alarm. Sidan är read-only.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import streamlit as st
 
-from backoffice.observability_io import load_tail_ndjson
+from backoffice.observability_io import format_ms, iter_run_dirs, load_tail_ndjson
 from backoffice.shared import BackofficeContext, load_latest_prompt_size_metrics
 
 _MAX_RUNS = 20
@@ -43,19 +42,6 @@ _MAX_ROWS_PER_RUN = 500
 # ---------------------------------------------------------------------------
 # Data helpers
 # ---------------------------------------------------------------------------
-
-
-def _iter_run_dirs(ctx: BackofficeContext) -> list[Path]:
-    """Returnerar de senaste N run-mapparna under logs/generationslogg/, sorterade ny→gammal."""
-    log_dir = ctx.repo_root / "logs" / "generationslogg"
-    if not log_dir.is_dir():
-        return []
-    dirs = sorted(
-        [p for p in log_dir.iterdir() if p.is_dir() and not p.name.startswith("_")],
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    return dirs[:_MAX_RUNS]
 
 
 def _load_timeline_entries(run_dir: Path) -> list[dict[str, Any]]:
@@ -91,16 +77,6 @@ def _rnum(value: Any) -> float | None:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return float(value)
     return None
-
-
-def _fmt_ms(value: float | None) -> str:
-    if value is None:
-        return "—"
-    if value >= 10_000:
-        return f"{value / 1000:.1f} s"
-    if value >= 1_000:
-        return f"{value / 1000:.2f} s"
-    return f"{value:.0f} ms"
 
 
 def _percentile(values: list[float], percentile: float) -> float | None:
@@ -144,8 +120,8 @@ def _render_llm_fixer_aborted(run_dirs: list[Path]) -> None:
     durations = [_rnum(e.get("durationMs")) for e in events if _rnum(e.get("durationMs")) is not None]
     if durations:
         avg_ms = sum(durations) / len(durations)
-        col2.metric("Snitt duration", _fmt_ms(avg_ms))
-        col3.metric("Max duration", _fmt_ms(max(durations)))
+        col2.metric("Snitt duration", format_ms(avg_ms))
+        col3.metric("Max duration", format_ms(max(durations)))
 
     rows = []
     for e in events:
@@ -154,7 +130,7 @@ def _render_llm_fixer_aborted(run_dirs: list[Path]) -> None:
                 "Tid": e.get("_ts", "")[:19],
                 "Run": e.get("_run", ""),
                 "Slug / Chat": (e.get("_slug") or "")[:40],
-                "durationMs": _fmt_ms(_rnum(e.get("durationMs"))),
+                "durationMs": format_ms(_rnum(e.get("durationMs"))),
                 "errorsCount": e.get("errorsCount", "—"),
                 "requiredFilesCount": e.get("requiredFilesCount", "—"),
             }
@@ -190,8 +166,8 @@ def _render_site_aborted(run_dirs: list[Path]) -> None:
 
     if elapsed:
         col4, col5 = st.columns(2)
-        col4.metric("Snitt elapsedMs", _fmt_ms(sum(elapsed) / len(elapsed)))  # type: ignore[arg-type]
-        col5.metric("Max elapsedMs", _fmt_ms(max(elapsed)))
+        col4.metric("Snitt elapsedMs", format_ms(sum(elapsed) / len(elapsed)))  # type: ignore[arg-type]
+        col5.metric("Max elapsedMs", format_ms(max(elapsed)))
 
     reason_counts: dict[str, int] = {}
     for e in events:
@@ -216,7 +192,7 @@ def _render_site_aborted(run_dirs: list[Path]) -> None:
                 "Reason": e.get("reason", "—"),
                 "Kind": e.get("kind", "—"),
                 "Versionless": "ja" if not version_id else "nej",
-                "elapsedMs": _fmt_ms(_rnum(e.get("elapsedMs"))),
+                "elapsedMs": format_ms(_rnum(e.get("elapsedMs"))),
             }
         )
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
@@ -429,11 +405,11 @@ def _render_warm_passes(run_dirs: list[Path]) -> None:
         diff_rows = []
         if durations_skipped:
             diff_rows.append(
-                {"Kategori": "warmTscSkipped=true", "Snitt durationMs": _fmt_ms(sum(durations_skipped) / len(durations_skipped)), "Antal": len(durations_skipped)}
+                {"Kategori": "warmTscSkipped=true", "Snitt durationMs": format_ms(sum(durations_skipped) / len(durations_skipped)), "Antal": len(durations_skipped)}
             )
         if durations_not:
             diff_rows.append(
-                {"Kategori": "warmTscSkipped=false/null", "Snitt durationMs": _fmt_ms(sum(durations_not) / len(durations_not)), "Antal": len(durations_not)}
+                {"Kategori": "warmTscSkipped=false/null", "Snitt durationMs": format_ms(sum(durations_not) / len(durations_not)), "Antal": len(durations_not)}
             )
         st.dataframe(pd.DataFrame(diff_rows), hide_index=True, use_container_width=True)
 
@@ -484,9 +460,9 @@ def _render_f2_f3_time(run_dirs: list[Path]) -> None:
             {
                 "Signal": "preview_url_handoff",
                 "Antal": len(handoff_ms),
-                "Snitt": _fmt_ms(sum(handoff_ms) / len(handoff_ms)),
-                "P50": _fmt_ms(_percentile(handoff_ms, 0.50)),
-                "P95": _fmt_ms(_percentile(handoff_ms, 0.95)),
+                "Snitt": format_ms(sum(handoff_ms) / len(handoff_ms)),
+                "P50": format_ms(_percentile(handoff_ms, 0.50)),
+                "P95": format_ms(_percentile(handoff_ms, 0.95)),
             }
         )
     if ready_ms:
@@ -494,9 +470,9 @@ def _render_f2_f3_time(run_dirs: list[Path]) -> None:
             {
                 "Signal": "preview_ready",
                 "Antal": len(ready_ms),
-                "Snitt": _fmt_ms(sum(ready_ms) / len(ready_ms)),
-                "P50": _fmt_ms(_percentile(ready_ms, 0.50)),
-                "P95": _fmt_ms(_percentile(ready_ms, 0.95)),
+                "Snitt": format_ms(sum(ready_ms) / len(ready_ms)),
+                "P50": format_ms(_percentile(ready_ms, 0.50)),
+                "P95": format_ms(_percentile(ready_ms, 0.95)),
             }
         )
     if rows:
@@ -514,7 +490,7 @@ def _render_f2_f3_time(run_dirs: list[Path]) -> None:
                 "Preview session": str(event.get("previewSessionId") or "")[:16] or "—",
                 "Fidelity": event.get("fidelityTier", "—"),
                 "Start outcome": event.get("startOutcome", "—"),
-                "msSinceEngineStart": _fmt_ms(_rnum(event.get("msSinceEngineStart"))),
+                "msSinceEngineStart": format_ms(_rnum(event.get("msSinceEngineStart"))),
             }
         )
     st.markdown("**Senaste preview-lifecycle-events**")
@@ -827,7 +803,7 @@ def render(ctx: BackofficeContext) -> None:
         "Läser `logs/generationslogg/*/timeline.ndjson`. Kräver `GENERATIONSLOGG=true` i `.env.local`."
     )
 
-    run_dirs = _iter_run_dirs(ctx)
+    run_dirs = iter_run_dirs(ctx.repo_root, max_runs=_MAX_RUNS)
     log_dir = ctx.repo_root / "logs" / "generationslogg"
 
     with st.sidebar:

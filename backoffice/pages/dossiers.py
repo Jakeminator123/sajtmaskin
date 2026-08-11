@@ -16,7 +16,6 @@ from typing import Any
 
 import streamlit as st
 
-from backoffice.ai_workloads import WORKLOAD_DOSSIER_CURATION, resolve_model_choices
 from backoffice.shared import (
     backup_file,
     backup_tree,
