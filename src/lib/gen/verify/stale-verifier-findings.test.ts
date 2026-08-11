@@ -316,6 +316,28 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
     expect(result.kept).toHaveLength(1);
   });
 
+  it("bugbot high: keeps compound build-script + unparsed package omission", () => {
+    // Satisfied scripts.build must not drop "… and omits next" when that
+    // second claim is outside the recognized absence-list grammar.
+    const finding = {
+      id: "package-build-setup",
+      detail: "package.json lacks build scripts and omits next",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("still drops a pure build-script absence once scripts.build exists", () => {
+    const finding = {
+      id: "package-build-setup",
+      detail: "package.json lacks build scripts.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile()]);
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
   it("drops a version-combination finding when the criticized majors changed (prod: ai-sdk)", () => {
     const finding = {
       id: "ai-sdk-version-conflict",

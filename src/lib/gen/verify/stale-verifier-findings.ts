@@ -445,6 +445,11 @@ const BUILD_SCRIPT_ABSENCE_RE = new RegExp(
   String.raw`^package\.json\s+${PACKAGE_ABSENCE_VERB_SOURCE}\s+build\s+scripts?\b`,
   "i",
 );
+/** Build-script absence with no second, unparsed claim after it. */
+const BUILD_SCRIPT_ONLY_ABSENCE_RE = new RegExp(
+  String.raw`^package\.json\s+${PACKAGE_ABSENCE_VERB_SOURCE}\s+build\s+scripts?\s*[.;]?$`,
+  "i",
+);
 const ANY_ABSENCE_WORDING_RE =
   /\b(?:lacks?|omits?|omitted|missing|does\s+not\s+(?:list|declare|include|contain)|not\s+(?:listed|declared|included|present))\b/i;
 const VERSION_CONFLICT_WORDING_RE = /\b(?:incompatible|conflict|mismatch)\b/i;
@@ -527,10 +532,12 @@ function checkPackageJsonFinding(
   // An absence word with no recognized package-list/build-script target is an
   // unsupported manifest claim (for example `engines.node`). Do not let a
   // later package/version mention become the only checked premise.
+  // Likewise: "lacks build scripts and omits next" must stay fail-closed —
+  // a satisfied scripts.build must not drop the unparsed dependency claim.
   if (
     ANY_ABSENCE_WORDING_RE.test(detail) &&
     absentPackageList === null &&
-    !hasBuildScriptAbsence
+    (!hasBuildScriptAbsence || !BUILD_SCRIPT_ONLY_ABSENCE_RE.test(detail))
   ) {
     return null;
   }
