@@ -1,4 +1,6 @@
 /**
+ * @vitest-environment node
+ *
  * Contract tests for the generated dossier projection
  * (`data/dossiers/_index/capability-map.json`).
  *
