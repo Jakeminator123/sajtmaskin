@@ -17,9 +17,9 @@ Hämtar **allt** som säger hur den senaste genererade användarsajten i **produ
 1. **Env:** säkra prod-snapshot (`npm run env:pull:prod-snapshot` om `.env.vercel.production.pulled` saknas). Lös upp Vercel `teamId`/`projectId` (`.vercel/project.json` eller env) + Fly-åtkomst.
 2. **Hitta senaste sajten:** `npm run db:latest:prod` → `chatId`, `versionId`, `projectId`, `previewUrl`, `created_at`, telemetri. (Inte `npm run db:latest -- --prod` — npm sväljer `--prod` och skriptet läser då tyst DEV.)
 3. **Alla prod-DB-loggar:** `node scripts/db/dump-logs.mjs --json --env=.env.vercel.production.pulled --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys,defects,drain --chat=<chatId> --limit=100 --allow-insecure-ssl`.
-   - `drain` är appens egna `console.warn`/`console.error` från Vercel, levererade av en Log Drain till `POST /api/drains/vercel`. Kinden bär ingen `chat_id` — korrelera på `log_timestamp` eller `request_id`. **Tom lista = antingen inga fel eller ingen drain konfigurerad**; skilj dem åt innan du rapporterar "rent", och falla annars tillbaka på `vercel logs … --json`.
+   - **App-console (steg 2c) — XOR:** lyckad `drain`-query (även tom) = console-sanningen; greppa 3c-mönstren där. **Kör inte** `vercel logs --json` ovanpå. Fallback till `vercel logs … --json` **bara** om kinden saknas/`skipped`. Rapportera vilken källa som användes. Kinden bär ingen `chat_id` — korrelera på `log_timestamp`/`request_id`.
    - `defects` är ett **aggregat**, inte rader: `engine_version_error_logs` grupperade på `meta.defect.signature` med `occurrences`, `chats`, `first_seen`/`last_seen`. Kör den **en gång till utan `--chat`** för att se om körningens fel är chattspecifika eller ett återkommande plattformsfel — ett fel med högt `chats`-tal är det senare och hör hemma i rapportens bedömning, inte i "den här sajten hade otur".
-4. **Vercel (MCP-server `vercel` projekt-scopad, eller `user-vercel`; `plugin-vercel-vercel` kan ge 403):** `get_runtime_errors` + `get_runtime_logs` för appen kring körningsfönstret; `get_deployment_build_logs` + `get_runtime_logs` för sajtens egen deploy (om `deploys` gav en rad). CLI-alternativ: `vercel logs <dpl>`. **DB-pool-hälsa:** sök runtime-loggarna efter `timeout exceeded when trying to connect` (→ *höj* `POSTGRES_POOL_MAX`) och `EMAXCONNSESSION` (→ *sänk* den / kör direkt-URL) — motsatta fixar; 0 träffar = frisk. Valfritt live-mått: Supabase-MCP `pg_stat_activity` (read-only).
+4. **Vercel (MCP-server `vercel` projekt-scopad, eller `user-vercel`; `plugin-vercel-vercel` kan ge 403):** `get_runtime_errors` + `get_runtime_logs` för appen kring körningsfönstret; `get_deployment_build_logs` + `get_runtime_logs` för sajtens egen deploy (om `deploys` gav en rad). CLI-alternativ: `vercel logs <dpl>`. Använd MCP för felkluster/5xx — **inte** för att upprepa 2c:s console-grep. **DB-pool-hälsa:** sök runtime-loggarna efter `timeout exceeded when trying to connect` (→ *höj* `POSTGRES_POOL_MAX`) och `EMAXCONNSESSION` (→ *sänk* den / kör direkt-URL) — motsatta fixar; 0 träffar = frisk. Valfritt live-mått: Supabase-MCP `pg_stat_activity` (read-only).
 5. **Fly:** `fly logs -a vm-fly-jakem --no-tail` + preview-host-loggar för sajtens `previewSessionId` (store-fil eller `/preview/logs/:id`).
 6. **Syntes:** en svensk rapport — kort bedögning (lyckad/delvis/misslyckad) först, sedan fas-tabell + "ej tillgängligt" + säkerhets-%.
 
@@ -34,6 +34,8 @@ Prod skriver **inte** `logs/generationslogg/` (avstängt) och `data/runs/` går 
 - Förväxla appens `VERCEL_PROJECT_ID` med användarsajtens per-deploy `vercel_project_id`.
 - Anta att `logs/generationslogg/` finns för en prod-körning (den skapas bara lokalt).
 - Anta att höjd `POSTGRES_POOL_MAX` = snabbare (poolstorlek = samtidighet, inte latens) eller vrida ratten utan att först se vilket av connect-timeout/EMAXCONNSESSION som faktiskt loggas.
+- Köra **både** `--kinds=drain` **och** `vercel logs --json` för samma console-grep (XOR — se steg 2c).
+- Hämta drain/console separat i `/logg-internet` när `/logg` redan körts (dubbelrapport).
 
 ## Projekt-skill
 

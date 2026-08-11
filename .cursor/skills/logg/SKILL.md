@@ -36,7 +36,7 @@ Read-only. Skriv aldrig till prod. Hämtar bara. Se Guardrails.
 | Vercel-deploy för sajten | Postgres `deployments` (ids + url + status) | `--kinds=deploys` |
 | Vercel **build**-loggar | Vercel-plattformen | MCP `get_deployment_build_logs` |
 | Vercel **runtime**-loggar/fel | Vercel-plattformen | MCP `get_runtime_logs` / `get_runtime_errors` |
-| **Appens `console.warn`/`console.error`** (postcheck-krascher, `/tmp`-slut, droppade scaffold-filer, rutt-timeouts, CSP) | Postgres `vercel_log_drain_events` **om** Log Drain är på — annars bara Vercel-plattformen | `--kinds=drain` (se 2c), annars `vercel logs <app-url> --json` |
+| **Appens `console.warn`/`console.error`** (postcheck-krascher, `/tmp`-slut, droppade scaffold-filer, rutt-timeouts, CSP) | Postgres `vercel_log_drain_events` **eller** Vercel-plattformen — **XOR** | `--kinds=drain` (2c); `vercel logs --json` **bara** om drain saknas |
 | **DB-pool-hälsa** (connect-timeout / EMAXCONNSESSION) | Vercel runtime-logg + Postgres `pg_stat_activity` | MCP `get_runtime_logs` (sök felsträngarna) + valfri Supabase-MCP `pg_stat_activity` |
 | Fly preview-host runtime-logg | Fly VM `vm-fly-jakem` | `fly logs` / store-fil / `/preview/logs/:id` |
 | Per-run fil-logg (dev) | `logs/generationslogg/<run>/` | **bara om körningen skedde lokalt** — i prod avstängt |
@@ -74,8 +74,8 @@ Kopiera checklistan och bocka av:
 ```text
 - [ ] 0. Env: prod-snapshot finns, Vercel-ids + Fly-åtkomst upplösta
 - [ ] 1. Hitta senaste sajten (chatId, versionId, projectId, previewUrl, created_at)
-- [ ] 2. Alla prod-DB-loggar för chatId (dump-logs, alla kinds)
-- [ ] 3. Vercel: appens runtime-fel under körningsfönstret + sajtens deploy-loggar + DB-pool-hälsa (connect-timeout/EMAXCONNSESSION)
+- [ ] 2. Alla prod-DB-loggar för chatId (inkl. `drain`) + 2c XOR-regel för console
+- [ ] 3. Vercel: felkluster/5xx + sajtens deploy-loggar + DB-pool — **inte** omgreppa 2c:s console-mönster
 - [ ] 4. Fly: preview-host-loggar för sajtens previewSessionId
 - [ ] 5. Syntes: en rapport om hur körningen gick
 ```
@@ -125,14 +125,16 @@ hemma i rapportens bedömning, inte som "den här genereringen gick dåligt". En
 som bara finns i en chatt är chattspecifik. `first_seen` visar om felklassen är ny
 (regression efter en deploy) eller gammal.
 
-#### 2c. Appens egna console-rader (`drain`)
+#### 2c. Appens egna console-rader — **en** källa, inte två
 
 `engine_version_error_logs` innehåller bara det pipelinen medvetet persisterar.
-Rutternas egna `console.warn`/`console.error` — kraschad postcheck, `/tmp`-slut,
-droppade scaffold-filer, rutt-timeouts, CSP — har historiskt bara funnits på
-Vercel-plattformen. Är en **Vercel Log Drain** konfigurerad mot
-`POST /api/drains/vercel` (env `VERCEL_LOG_DRAIN_SECRET`) landar de i Postgres
-och läses här i stället:
+Rutternas egna `console.warn`/`console.error` (kraschad postcheck, `/tmp`-slut,
+droppade scaffold-filer, rutt-timeouts, CSP) finns antingen i Postgres via Log
+Drain **eller** på Vercel-plattformen. **Aldrig båda i samma rapport.**
+
+**Ordning (XOR):**
+
+1. Hämta drain först:
 
 ```powershell
 node scripts/db/dump-logs.mjs --json `
@@ -140,21 +142,33 @@ node scripts/db/dump-logs.mjs --json `
   --kinds=drain --limit=100 --allow-insecure-ssl
 ```
 
-Kinden bär **ingen** `chat_id` — plattformsloggar vet inget om chattar. Korrelera
-på tid (`log_timestamp` mot körningens `created_at`) eller på `request_id`.
+2. **Om drain-kinden finns och queryn lyckades** (även tom lista): behandla det
+   som console-sanningen. Sök mönstren nedan i `drain`-raderna. **Kör inte**
+   `vercel logs … --json` för samma grepp — det dubblerar.
+3. **Bara om drain saknas** (`skipped.drain` / tabell saknas / env utan
+   `VERCEL_LOG_DRAIN_SECRET` i prod): falla tillbaka till
 
-**Tom lista betyder två helt olika saker:** antingen inga fel i fönstret, eller
-ingen drain konfigurerad. Skilj dem åt innan du drar en slutsats — annars
-rapporterar du "rent" om en källa som aldrig var påslagen. Är drainen av, kör
-steg 3c-vägen (`vercel logs … --json`) i stället, och skriv i rapporten att
-raden kom därifrån.
+```powershell
+vercel logs https://sajtmaskin.vercel.app --json | Set-Content -Encoding utf8 .cursor/tmp-app-runtime.jsonl
+```
 
-Mottagaren sparar bara `error`/`warning`/`fatal`, 5xx/kraschar och de mönster
-steg 3c letar efter, och rensar rader äldre än 14 dagar. Saknas något du väntade
-dig: det kan ha filtrerats bort vid ingest, inte bara aldrig hänt.
+   och skriv i rapporten `App-console: vercel logs (drain ej aktiv)`.
 
-Rader utan `meta.defect` är skrivna före klassificeraren fanns; de saknas i aggregatet
-men syns fortfarande under `errors`.
+Kinden bär **ingen** `chat_id` — korrelera på `log_timestamp` mot körningens
+`created_at` eller på `request_id`. Tom lista med aktiv drain = inga matchande
+fel i fönstret (mottagaren filtrerar redan till error/warning/fatal + 3c-mönster).
+
+Sök minst efter:
+
+| Mönster | Betyder |
+|---|---|
+| `[product-postcheck] skipped` | Postcheck kraschade — läs `skippedReason` i DB |
+| `free space in temporary directory` · `AllocateRingBuffer` | `/tmp` slut → Chromium dör |
+| `Thumbnail capture failed` | samma rotorsak |
+| `stillMissing: [` | scaffold-skyddad fil kunde inte återinjiceras |
+| `Vercel Runtime Timeout Error` | rutt slog i `maxDuration` |
+| `[CSP Violation]` | egen CSP blockerar resurs |
+| `AI SDK Warning` | modell-/parameterproblem |
 
 ### 3. Vercel-loggar (MCP-server `vercel` — projekt-scopad, eller `user-vercel`)
 
@@ -166,6 +180,9 @@ men syns fortfarande under `errors`.
 
 - `get_runtime_errors` `{ projectId, teamId, since, until }` — grupperade felkluster (kör först).
 - `get_runtime_logs` `{ projectId, teamId, environment: "production", level: ["error","warning"], since, until, limit: 100 }`.
+
+  Använd MCP här för felkluster/5xx — **inte** som ersättning för steg 2c:s
+  console-grep. Om 2c redan läste drain, greppa inte samma 3c-mönster igen ur MCP.
 
 **b) Sajtens egen deploy** (bara om steg 2 `deploys` gav en rad; användarsajter får eget
 Vercel-projekt `sajtmaskin-<chatId>`):
@@ -227,6 +244,7 @@ Bedömning: <lyckad / delvis / misslyckad> — <1–2 meningar varför>
 | Deploy | status, url | deployments |
 | Vercel build | pass/fail + felrad | MCP get_deployment_build_logs |
 | Vercel runtime | felkluster / 5xx | MCP get_runtime_errors/logs |
+| App-console (2c) | postcheck-krasch, `/tmp`-slut, `stillMissing`, rutt-timeout, CSP — **en** källa | `--kinds=drain` **eller** `vercel logs --json` (fallback), aldrig båda |
 | DB-pool | connect-timeout / EMAXCONNSESSION-antal (0 = frisk) · ev. pg_stat_activity-peak | Vercel runtime + pg_stat_activity |
 | Preview (Fly) | boot/install/exit-tail | preview-host-loggar |
 

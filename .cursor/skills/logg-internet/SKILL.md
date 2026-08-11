@@ -111,23 +111,10 @@ För varje uppföljning (default 2; 1–3):
 
 - Skriv en notis-fil: `.cursor/logg-internet/runs/<YYYY-MM-DD_HHMM>.md` (tidsstämpel:
   `Get-Date -Format "yyyy-MM-dd_HHmm"`). Se mallen nedan.
-- **Valfritt** (om `loggar` eller Felsökare): korsreferera mot `/logg` för `chatId` —
-  hämta backend-telemetri/fel för samma sajt och väv in i notiserna (inkl. **DB-pool-hälsa**:
-  `/logg` flaggar connect-timeout/EMAXCONNSESSION för körningsfönstret).
-- Är Vercel Log Drain påslagen (`VERCEL_LOG_DRAIN_SECRET` i production) finns appens
-  egna `console.warn`/`console.error` i Postgres och kan hämtas direkt för sessionens
-  tidsfönster — det är den enda källan som fångar sådant sessionen *inte* såg i UI:t
-  (kraschad postcheck, `/tmp`-slut, rutt-timeout):
-
-  ```powershell
-  node scripts/db/dump-logs.mjs --json `
-    --env=.env.vercel.production.pulled `
-    --kinds=drain --limit=100 --allow-insecure-ssl
-  ```
-
-  Kinden bär ingen `chatId` — filtrera på `log_timestamp` mellan sessionens start och
-  slut. Tom lista = antingen inga fel eller ingen drain; skriv vilket i notisen.
-  Bakgrund: [`docs/runbooks/vercel-log-drain.md`](../../../docs/runbooks/vercel-log-drain.md).
+- **Valfritt** (om `loggar` eller Felsökare): kör **bara** `/logg` för `chatId` och
+  väv in resultatet. `/logg` äger redan drain (`--kinds=drain`) **eller**
+  `vercel logs`-fallback — hämta **inte** drain/console en andra gång här. Annars
+  dubbelrapporteras samma postcheck-/tmp-/timeout-rader.
 - `browser_lock` (`action: "unlock"`).
 - Ge användaren en kort sammanfattning i chatten + pekare till notis-filen.
 

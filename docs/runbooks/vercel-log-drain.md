@@ -23,14 +23,27 @@ returnerar tom lista.
 
 Dialogen når du via Vercel-dashboarden → **Team Settings → Drains → Add Drain**.
 
+### Vad som är env och vad som inte är det
+
+| Namn | Rätt? | Var |
+|---|---|---|
+| `VERCEL_LOG_DRAIN_SECRET=<secret från dialogen>` | **Ja** | Vercel **production**-env (valfritt i `.env.local` bara om du testar mottagaren lokalt) |
+| `DRAIN=…` | **Nej** — koden läser inte det | — |
+| `POST_DRAIN=https://…` | **Nej** — URL:en är **inte** en env-variabel | Vercel-dialogen → fältet **URL** |
+
+URL:en pekar drainen mot mottagaren. Secreten verifierar `x-vercel-signature`.
+Blanda inte ihop dem, och döp inte om secreten till `DRAIN`.
+
 ### Secreten hör hemma i Vercel-env, inte i git
 
 Det genererade värdet är den **enda** grinden mot att vem som helst som gissar
-URL:en kan skriva rader i vår databas. Lägg det som `VERCEL_LOG_DRAIN_SECRET`:
+URL:en kan skriva rader i vår databas. Lägg det som `VERCEL_LOG_DRAIN_SECRET`
+(från länkad repo-rot, inte en worktree utan `.vercel/`):
 
 ```powershell
-vercel env add VERCEL_LOG_DRAIN_SECRET production
-# klistra in värdet från dialogen när prompten kommer
+# från C:\Users\jakem\dev\projects\sajtmaskin (huvudcheckouten):
+$secret = Read-Host "Klistra in Signature Verification Secret"
+$secret | vercel env add VERCEL_LOG_DRAIN_SECRET production --yes
 ```
 
 Sedan **en ny production-deploy**, annars ser den körande funktionen inte
@@ -40,7 +53,8 @@ ofarligt — Vercel försöker igen — men "Test"-knappen i dialogen kommer att
 misslyckad ut tills variabeln är på plats och deployad.
 
 Sätt den **bara i production**. Preview-deployer behöver den inte, och varje
-extra miljö är ett extra ställe secreten kan läcka från.
+extra miljö är ett extra ställe secreten kan läcka från. Lägg **inte**
+`POST_DRAIN` i Vercel-env — det gör ingenting.
 
 ### Testa själv med en signerad request
 
