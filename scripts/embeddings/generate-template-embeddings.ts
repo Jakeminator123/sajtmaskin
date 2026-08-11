@@ -4,27 +4,22 @@
  * Usage:  npx tsx scripts/embeddings/generate-template-embeddings.ts
  * Or:     npm run templates:embeddings
  *
- * Requires OPENAI_API_KEY in environment (or .env.local).
- * Output:  src/lib/templates/template-embeddings.json
+ * Requires OPENAI_API_KEY. Persists to Vercel Blob when BLOB_READ_WRITE_TOKEN
+ * is set; always writes a local cache when the FS is writable.
  */
 
 import "dotenv/config";
-import fs from "fs";
-import path from "path";
 import {
   generateTemplateEmbeddings,
   TEMPLATE_EMBEDDING_BATCH_SIZE,
   TEMPLATE_EMBEDDING_DIMENSIONS,
   TEMPLATE_EMBEDDING_MODEL,
 } from "../../src/lib/templates/template-embeddings-core";
+import { saveEmbeddingsArtifact } from "../../src/lib/gen/embeddings/embeddings-storage";
 
 const MODEL = TEMPLATE_EMBEDDING_MODEL;
 const DIMENSIONS = TEMPLATE_EMBEDDING_DIMENSIONS;
 const BATCH_SIZE = TEMPLATE_EMBEDDING_BATCH_SIZE;
-const OUTPUT_PATH = path.resolve(
-  __dirname,
-  "../../src/lib/templates/template-embeddings.json",
-);
 
 async function main() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -43,11 +38,11 @@ async function main() {
     },
   });
 
-  fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output), "utf-8");
+  const saved = await saveEmbeddingsArtifact("template", output);
 
-  const fileSizeMB = (fs.statSync(OUTPUT_PATH).size / 1024 / 1024).toFixed(2);
-  console.info(`\n✅ Saved ${output.embeddings.length} embeddings to ${OUTPUT_PATH}`);
-  console.info(`   File size: ${fileSizeMB} MB`);
+  console.info(`\n✅ Saved ${output.embeddings.length} embeddings (${saved.storage})`);
+  if (saved.blobUrl) console.info(`   Blob: ${saved.blobUrl}`);
+  if (saved.localPath) console.info(`   Local cache: ${saved.localPath}`);
 }
 
 main().catch((err) => {

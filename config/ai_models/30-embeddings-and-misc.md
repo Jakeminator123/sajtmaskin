@@ -6,8 +6,22 @@ Flera moduler anropar `openai.embeddings.create` med **`text-embedding-3-small`*
 
 - Builderns Mallar-katalog: [`src/lib/templates/template-search.ts`](../../src/lib/templates/template-search.ts)
 - Runtime-scaffolds: [`src/lib/gen/scaffolds/scaffold-search.ts`](../../src/lib/gen/scaffolds/scaffold-search.ts)
+- Scaffold-variants: [`src/lib/gen/scaffold-variants/matcher.ts`](../../src/lib/gen/scaffold-variants/matcher.ts)
 
-**OBS:** Själva modellsträngen för index-bygge ligger fortfarande i respektive `*-embeddings-core.ts`. Om du byter embedding-modell måste du **bygga om** motsvarande JSON-index.
+**Lagring:** indexfilerna bor i **Vercel Blob** (`embeddings/*.json`). Shared loader:
+[`src/lib/gen/embeddings/embeddings-storage.ts`](../../src/lib/gen/embeddings/embeddings-storage.ts).
+Public URLs (inga secrets) i [`config/embeddings-blob-manifest.json`](../embeddings-blob-manifest.json).
+Lokala JSON-filer är cache och får **inte** vara git-tracked (`npm run embeddings:check-untracked`).
+
+| Kommando | Vad |
+|---|---|
+| `npm run templates:embeddings` / `scaffolds:embeddings` / `scaffolds:variant-embeddings` | Bygg om + skriv Blob (+ lokal cache) |
+| `npm run embeddings:promote` | Ladda upp befintlig lokal JSON → Blob |
+| `npm run embeddings:ensure` | Auto-synk + verifiera (CI/prebuild-grind) |
+| `npm run embeddings:sync` | Ladda ner Blob/manifest → lokal cache |
+| `npm run embeddings:check-untracked` | CI-/preflight-grind mot tracked JSON |
+
+**OBS:** Själva modellsträngen för index-bygge ligger fortfarande i respektive `*-embeddings-core.ts`. Om du byter embedding-modell måste du **bygga om** motsvarande JSON-index och köra promote/regenerate så Blob uppdateras.
 
 ## OpenAI Responses API (strukturerad text / JSON)
 

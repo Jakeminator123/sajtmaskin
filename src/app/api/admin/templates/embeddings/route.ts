@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAccess } from "@/lib/auth/admin";
+import { getBlobReadWriteToken } from "@/lib/gen/embeddings/embeddings-storage";
 import { regenerateTemplateEmbeddings } from "@/lib/templates/template-embeddings-refresh";
 
 export const runtime = "nodejs";
@@ -17,12 +18,12 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json().catch(() => null)) as RequestBody | null;
 
-  if (process.env.VERCEL) {
+  if (process.env.VERCEL && !getBlobReadWriteToken()) {
     return NextResponse.json(
       {
         success: false,
         error:
-          "Template embeddings ar lokala och commitade artifacts. Regenerera dem lokalt och deploya om produktionen.",
+          "BLOB_READ_WRITE_TOKEN saknas. Template embeddings sparas i Vercel Blob — sätt token i Vercel env.",
       },
       { status: 409 },
     );
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
       storage: result.storage,
       persisted: result.persisted,
       persistedTo: result.persistedTo,
+      blobUrl: result.blobUrl,
       count: result.generated._meta.count,
       model: result.generated._meta.model,
       dimensions: result.generated._meta.dimensions,

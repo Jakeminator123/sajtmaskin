@@ -97,18 +97,17 @@ data/observability/
 output/generations/
 
 # --- Genererade artefakter (stora JSON / embeddings) ---
-# VIKTIGT: flera av dessa är fortfarande SPÅRADE i git — runtime/prebuild importerar
-# dem från disk (t.ex. `scaffolds:embeddings:check`, template-/variant-matchning).
-# Att lägga dem här hindrar bara oavsiktlig re-add efter lokal radering; det tar
-# INTE bort dem ur historiken. För att hålla dem ur agent-kontext: .cursorignore
-# (Read-block) + .cursorindexingignore (sök). Blob+lazy krävs innan `git rm --cached`.
+# Source of truth: Vercel Blob (`embeddings/*.json`). Public URLs are recorded in
+# config/embeddings-blob-manifest.json (committed). Local JSON paths below are a
+# cache only — never git-tracked. Upload with `npm run embeddings:promote`;
+# download with `npm run embeddings:sync`. Gate: `npm run embeddings:check-untracked`.
 src/lib/templates/template-embeddings.json
 config/scaffold-variants/_index/variant-embeddings.json
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
 config/variant-template-addenda.json
 src/lib/templates/template-blob-manifest.json
-# templates.json hålls spårad (importeras av template-data.ts) — bara agent-skydd i .cursorignore
+# templates.json hålls spårad (importeras av template-data.ts) — agent-skydd i .cursorignore
 # LLM-flow canvas JSON-sidecar: lokal runtime-artefakt (regenereras vid backoffice-start
 # och av `npm run canvas:build`). Den diffbara .txt-artefakten committas; JSON:en inte.
 docs/canvases/llm-flow.canvas.json

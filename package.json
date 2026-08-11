@@ -9,7 +9,7 @@
     "node": "22.23.1"
   },
   "scripts": {
-    "preflight:common": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/check-lucide-icons.mjs && node scripts/dev/check-unicode-regex.mjs && node scripts/dev/check-traversal-guards.mjs && node scripts/dev/check-autofix-risk.mjs && npm run route-timeouts:check",
+    "preflight:common": "node scripts/dev/check-systemprompt.mjs && node scripts/dev/check-lucide-icons.mjs && node scripts/dev/check-unicode-regex.mjs && node scripts/dev/check-traversal-guards.mjs && node scripts/dev/check-autofix-risk.mjs && npm run route-timeouts:check && npm run embeddings:check-untracked",
     "check:bug-backlog": "node scripts/dev/check-bug-backlog.mjs",
     "route-timeouts:sync": "node scripts/ai-models/sync-route-timeouts.mjs --write",
     "route-timeouts:check": "node scripts/ai-models/sync-route-timeouts.mjs --check",
@@ -34,7 +34,7 @@
     "dev:unlock": "node scripts/dev/unlock-dev.mjs",
     "dev:fast": "node scripts/dev/dev-fast.mjs",
     "refresh-token": "node scripts/dev/refresh-token.mjs",
-    "prebuild": "npm run preflight:common && npm run scaffolds:embeddings:check",
+    "prebuild": "npm run preflight:common && npm run embeddings:ensure",
     "build": "node scripts/dev/next-runner.mjs build",
     "start": "node scripts/dev/next-runner.mjs start",
     "lint": "eslint . --cache --cache-location .eslintcache",
@@ -76,6 +76,10 @@
     "templates:embeddings": "npx tsx scripts/embeddings/generate-template-embeddings.ts",
     "scaffolds:embeddings": "npx tsx scripts/embeddings/generate-scaffold-embeddings.ts",
     "scaffolds:embeddings:check": "npx tsx scripts/embeddings/check-scaffold-embeddings.ts",
+    "embeddings:promote": "npx tsx scripts/embeddings/promote-embeddings-to-blob.ts",
+    "embeddings:sync": "npx tsx scripts/embeddings/sync-embeddings-from-blob.ts",
+    "embeddings:check-untracked": "node scripts/embeddings/check-embeddings-not-tracked.mjs",
+    "embeddings:push": "npx tsx scripts/embeddings/promote-embeddings-to-blob.ts",
     "backoffice": "node scripts/dev/run-python.mjs sajtmaskin_backoffice.py",
     "backoffice:test": "node scripts/dev/run-python.mjs -m unittest discover -s backoffice -p \"test_*.py\" -t .",
     "logg:site": "node scripts/dev/run-python.mjs scripts/observability/last-generated-usersite.py",
@@ -85,7 +89,7 @@
     "scaffolds:variant-embeddings": "npx tsx scripts/scaffolds/generate-variant-embeddings.ts",
     "scaffolds:variant-patterns": "npx tsx scripts/scaffolds/auto-curate-variant-patterns.ts",
     "scaffolds:variant-patterns:dry": "npx tsx scripts/scaffolds/auto-curate-variant-patterns.ts --dry-run",
-    "scaffolds:validate": "npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts src/lib/gen/scaffold-variants/variant-integrity.test.ts src/lib/gen/scaffold-variants/variant-template-addendum.test.ts",
+    "scaffolds:validate": "npm run embeddings:ensure && npx vitest run src/lib/gen/scaffolds/scaffold-manifest-validation.test.ts src/lib/gen/scaffolds/scaffold-embeddings-parity.test.ts src/lib/gen/scaffold-variants/variant-integrity.test.ts src/lib/gen/scaffold-variants/variant-template-addendum.test.ts",
     "dossiers:curate": "npx tsx scripts/dossiers/curate-from-reference.ts",
     "dossiers:normalize-legacy": "npx tsx scripts/dossiers/normalize-legacy-prospect.ts",
     "dossiers:inventory-legacy": "node scripts/dossiers/inventory-legacy.mjs",
@@ -156,7 +160,8 @@
     "observability:rebuild-all": "npm run rag:error-log:reindex:force && npm run fixers:dump",
     "provision:warm-cache": "npx tsx scripts/provision-warm-cache.ts",
     "provision:warm-cache:force": "npx tsx scripts/provision-warm-cache.ts --force",
-    "warm-cache:smoke": "node scripts/dev/check-warm-cache.mjs"
+    "warm-cache:smoke": "node scripts/dev/check-warm-cache.mjs",
+    "embeddings:ensure": "npx tsx scripts/embeddings/ensure-embeddings.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.95",

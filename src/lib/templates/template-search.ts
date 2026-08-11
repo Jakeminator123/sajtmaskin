@@ -9,6 +9,10 @@ import type {
   EmbeddingsFile,
 } from "@/lib/templates/template-embeddings-core";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
+import {
+  invalidateEmbeddingsArtifactCache,
+  loadEmbeddingsArtifact,
+} from "@/lib/gen/embeddings/embeddings-storage";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const DEFAULT_TOP_K = 5;
@@ -24,13 +28,12 @@ let cachedEmbeddings: EmbeddingEntry[] | undefined;
 let templateEmbeddingLoadFailed = false;
 let catalogLookup: Map<string, TemplateCatalogItem> | null = null;
 
-function loadEmbeddings(): EmbeddingEntry[] {
+async function loadEmbeddings(): Promise<EmbeddingEntry[]> {
   if (cachedEmbeddings !== undefined) return cachedEmbeddings;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const data: EmbeddingsFile = require("./template-embeddings.json");
-    cachedEmbeddings = data.embeddings ?? [];
-    templateEmbeddingLoadFailed = false;
+    const data = (await loadEmbeddingsArtifact("template")) as EmbeddingsFile | null;
+    cachedEmbeddings = data?.embeddings ?? [];
+    templateEmbeddingLoadFailed = cachedEmbeddings.length === 0 && !data;
   } catch {
     cachedEmbeddings = [];
     templateEmbeddingLoadFailed = true;
@@ -42,6 +45,7 @@ function retryIfTemplateEmbeddingLoadFailed(): boolean {
   if (!templateEmbeddingLoadFailed) return false;
   cachedEmbeddings = undefined;
   templateEmbeddingLoadFailed = false;
+  invalidateEmbeddingsArtifactCache("template");
   return true;
 }
 
@@ -134,9 +138,9 @@ export async function searchTemplates(
   const apiKey = SECRETS.openaiApiKey;
   if (!apiKey) return fallbackResults;
 
-  let embeddings = loadEmbeddings();
+  let embeddings = await loadEmbeddings();
   if (embeddings.length === 0 && retryIfTemplateEmbeddingLoadFailed()) {
-    embeddings = loadEmbeddings();
+    embeddings = await loadEmbeddings();
   }
   if (embeddings.length === 0) return fallbackResults;
 
@@ -188,9 +192,11 @@ export async function searchTemplates(
 }
 
 /**
- * Force-reload embeddings from disk. Useful after regenerating.
+ * Force-reload embeddings from Blob/local. Useful after regenerating.
  */
 export function invalidateEmbeddingsCache(): void {
   cachedEmbeddings = undefined;
   catalogLookup = null;
+  templateEmbeddingLoadFailed = false;
+  invalidateEmbeddingsArtifactCache("template");
 }

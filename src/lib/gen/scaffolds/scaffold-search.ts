@@ -6,6 +6,10 @@ import type { ScaffoldEmbeddingEntry, ScaffoldEmbeddingsFile } from "./scaffold-
 import { SCAFFOLD_EMBEDDING_MODEL, SCAFFOLD_EMBEDDING_DIMENSIONS } from "./scaffold-embeddings-core";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
+import {
+  invalidateEmbeddingsArtifactCache,
+  loadEmbeddingsArtifact,
+} from "@/lib/gen/embeddings/embeddings-storage";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 
 export interface ScaffoldSearchResult {
@@ -64,13 +68,12 @@ function createEmbeddingAbortSignal(): AbortSignal | undefined {
   return controller.signal;
 }
 
-function loadEmbeddings(): ScaffoldEmbeddingEntry[] {
+async function loadEmbeddings(): Promise<ScaffoldEmbeddingEntry[]> {
   if (cachedEmbeddings !== undefined) return cachedEmbeddings;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const data: ScaffoldEmbeddingsFile = require("./scaffold-embeddings.json");
-    cachedEmbeddings = data.embeddings ?? [];
-    embeddingLoadFailed = false;
+    const data = (await loadEmbeddingsArtifact("scaffold")) as ScaffoldEmbeddingsFile | null;
+    cachedEmbeddings = data?.embeddings ?? [];
+    embeddingLoadFailed = cachedEmbeddings.length === 0 && !data;
   } catch {
     cachedEmbeddings = [];
     embeddingLoadFailed = true;
@@ -150,9 +153,9 @@ export async function searchScaffoldsWithDiagnostics(
     };
   }
 
-  let embeddings = loadEmbeddings();
+  let embeddings = await loadEmbeddings();
   if (embeddings.length === 0 && retryIfEmbeddingLoadFailed()) {
-    embeddings = loadEmbeddings();
+    embeddings = await loadEmbeddings();
   }
   if (embeddings.length === 0) {
     return {
@@ -291,6 +294,7 @@ export async function searchScaffoldsWithDiagnostics(
 export function invalidateScaffoldEmbeddingsCache(): void {
   cachedEmbeddings = undefined;
   embeddingLoadFailed = false;
+  invalidateEmbeddingsArtifactCache("scaffold");
 }
 
 /**

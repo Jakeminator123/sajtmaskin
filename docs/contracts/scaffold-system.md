@@ -303,7 +303,15 @@ oidentifierade referenser konkurrerar med den aktiva mallen.
 
 ### Embedding-driven variant pick
 
-`pickScaffoldVariantAsync()` embeddar prompten via OpenAI, cosine vs precomputed `config/scaffold-variants/_index/variant-embeddings.json`, top-3 + deterministisk seed.
+`pickScaffoldVariantAsync()` embeddar prompten via OpenAI och cosine-söker mot
+precomputed variant-embeddings. **Source of truth:** Vercel Blob
+(`embeddings/variant-embeddings.json`). Lokal fil under
+`config/scaffold-variants/_index/` är bara cache. Public URL finns i
+[`config/embeddings-blob-manifest.json`](../../config/embeddings-blob-manifest.json).
+
+Regenerate: `npm run scaffolds:variant-embeddings` (skriver Blob när
+`BLOB_READ_WRITE_TOKEN` finns). Sync cache: `npm run embeddings:sync`.
+Promote befintlig lokal JSON: `npm run embeddings:promote`.
 
 **Sedan 2026-04-18:** `create-chat-stream-post.ts` låser keyword-pre-match-varianten via `OrchestrationInput.persistedVariantId`, så orchestrate hämtar samma variant via `getVariantById` istället för att köra async-pickaren. Async körs då bara som fallback (id stale, plan-mode, eval). Eliminerar drift mellan brief-LLM-hint och codegen-variant.
 
@@ -321,7 +329,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 | Variant-registry | `src/lib/gen/scaffold-variants/registry.ts` | Parser-kod |
 | Variant-skript | `scripts/scaffolds/auto-curate-variant-patterns.ts`, `generate-variant-embeddings.ts` | Signature patterns + embeddings |
 | Matcher | `src/lib/gen/scaffolds/matcher.ts` | Keyword-listor, `defaultScaffoldForIntent` |
-| Embeddings | `src/lib/gen/scaffolds/scaffold-embeddings.json` | Regenereras via `npm run scaffolds:embeddings` |
+| Embeddings | Vercel Blob `embeddings/scaffold-embeddings.json` (+ lokal cache) | Regenereras via `npm run scaffolds:embeddings` |
 | Backoffice | `backoffice/pages/scaffolds.py`, `scaffold_lifecycle.py`, `scaffold_performance.py` | Kontroller, sidolist |
 | Dokumentation | denna fil (`docs/contracts/scaffold-system.md`) + `docs/architecture/glossary.md`, `docs/schemas/scaffold-contract.md`, `docs/architecture/code-map.md` | Tabeller, distinktioner |
 | Cursor-regler | `.cursor/rules/scaffold-rules.mdc`, `.cursor/skills/sajtmaskin-context/SKILL.md` | Lista vid sammanslagning |
@@ -338,9 +346,13 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 |---|---|
 | `npm run scaffolds:validate` | Validerar scaffold-manifest via test |
 | `npm run scaffolds:embeddings:check` | Kontrollerar scaffold-embeddings inför build |
+| `npm run embeddings:ensure` | Auto-synk + URL-check + registry-paritet (CI/prebuild) |
+| `npm run embeddings:sync` | Laddar ner embedding-JSON från Blob/manifest → lokal cache |
+| `npm run embeddings:promote` | Laddar upp lokal cache → Blob (+ `--untrack` tar bort från git) |
+| `npm run embeddings:check-untracked` | Failar om embedding-JSON är git-tracked |
 | `npm run scaffolds:eval` | Eval-harness för scaffold-matchern |
-| `npm run scaffolds:embeddings` | Regenererar runtime scaffold-embeddings |
-| `npm run scaffolds:variant-embeddings` | Regenererar variant-embeddings |
+| `npm run scaffolds:embeddings` | Regenererar runtime scaffold-embeddings (Blob + cache) |
+| `npm run scaffolds:variant-embeddings` | Regenererar variant-embeddings (Blob + cache) |
 | `npm run scaffolds:variant-patterns` | Kuraterar variant signature patterns |
 | `npm run dossiers:curate` | Kuraterar externa referenser till dossier-pipen |
 | `npm run dossiers:validate-all` | Validerar dossier-manifest + invariants |

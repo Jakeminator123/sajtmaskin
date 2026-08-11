@@ -3,6 +3,8 @@ export type StorageBody = string | Buffer | Uint8Array | ArrayBuffer;
 export interface StoragePutOptions {
   access?: "public" | "private";
   addRandomSuffix?: boolean;
+  /** Required by @vercel/blob when overwriting an existing pathname. */
+  allowOverwrite?: boolean;
   contentType?: string;
 }
 
