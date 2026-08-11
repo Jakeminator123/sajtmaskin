@@ -91,31 +91,33 @@ from .io import (
     _promote_prospect,
     _create_dossier_skeleton,
     _run_sdk_version_check,
+    _rerun_after_dossier_mutation,
 )
 
 
 
-def _section_edit(dossiers: list[dict[str, Any]]) -> None:
-    st.subheader("Redigera byggblock")
-    if not dossiers:
-        return
-    options = {f"{d['_class']}/{d['id']}": d for d in dossiers}
-    pick_key = st.selectbox(
-        "Välj byggblock",
-        list(options.keys()),
-        format_func=lambda k: f"{options[k]['id']} — {class_label(options[k]['_class'])}",
-    )
-    if not pick_key:
-        return
-    chosen = options[pick_key]
-    manifest_path = _facade().REPO_ROOT / chosen["_path"] / "manifest.json"
-    manifest = _load_json(manifest_path)
+def _render_manifest_edit_controls(
+    chosen: dict[str, Any],
+    manifest_path: Path,
+    manifest: dict[str, Any] | None,
+    *,
+    key_prefix: str,
+    show_raw_json: bool = True,
+) -> None:
+    """Fält-formulär (+ valfri rå-JSON-editor) för ETT redan valt byggblock.
+    Samma validerade skrivväg (`_apply_manifest_field_edits`/`_save_raw_manifest`)
+    oavsett anropande yta — Redigera-tabbens väljare eller Systemkartans
+    radvy (med byggblocket redan förvalt) — ingen ny skrivväg.
 
+    `show_raw_json=False` från en yta som redan sitter inuti en `st.expander`
+    (Systemkartans rad): en `st.expander` får inte nästlas i en annan, så
+    rå-JSON-editorn (byggd på `tech_details()` → `st.expander`) hoppas då
+    över; den nås ändå via Redigera-tabben för samma byggblock."""
     if manifest:
         st.caption(
             f"{field_label('capability')}: `{manifest.get('capability')}` · "
-            f"Klass: {class_label(chosen['_class'])} — funktion och klass byts "
-            "via rå JSON (teknik-expandern nedan)."
+            f"Klass: {class_label(chosen['_class'])} — funktion byts via "
+            "\"Byt capability\" nedan, klass via rå JSON."
         )
         current_mock = str(manifest.get("mock") or "none")
         mock_index = (
@@ -127,7 +129,7 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
             if current_complexity in _facade()._COMPLEXITY_OPTIONS
             else 1
         )
-        with st.form(f"dossier_field_form_{pick_key}"):
+        with st.form(f"{key_prefix}_field_form"):
             edited_label = st.text_input(
                 field_label("label"), value=str(manifest.get("label") or "")
             )
@@ -176,22 +178,28 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
                     manifest_path, updates, dossier_class=chosen["_class"]
                 )
                 if ok:
-                    st.success(f"Sparat {manifest_path.relative_to(_facade().REPO_ROOT)}")
-                    st.cache_data.clear()
+                    _rerun_after_dossier_mutation(
+                        f"Sparat {manifest_path.relative_to(_facade().REPO_ROOT)}"
+                    )
                 else:
                     st.error(msg)
     else:
         st.warning(
             "Manifestet kunde inte läsas som JSON — rätta det via rå-JSON-editorn nedan."
+            if show_raw_json
+            else "Manifestet kunde inte läsas som JSON — rätta det via rå-JSON-editorn i Redigera-tabben."
         )
+
+    if not show_raw_json:
+        return
 
     # Rå JSON = full kontroll över alla schemafält (envVars, files, exposes …),
     # men samma klassregel + strict-schema som runtime måste vara gröna före
     # backup/skrivning.
     with tech_details("Rå JSON (full kontroll över alla fält)"):
         raw = manifest_path.read_text(encoding="utf-8")
-        edited = st.text_area("manifest.json", value=raw, height=400, key=f"edit_{pick_key}")
-        if st.button("Spara rå JSON", type="primary", key=f"save_{pick_key}"):
+        edited = st.text_area("manifest.json", value=raw, height=400, key=f"{key_prefix}_raw_json")
+        if st.button("Spara rå JSON", type="primary", key=f"{key_prefix}_raw_json_save"):
             try:
                 parsed = json.loads(edited)
             except json.JSONDecodeError as exc:
@@ -203,8 +211,108 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
             if not ok:
                 st.error(msg)
                 return
-            st.success(f"Sparat {manifest_path.relative_to(_facade().REPO_ROOT)}")
-            st.cache_data.clear()
+            _rerun_after_dossier_mutation(
+                f"Sparat {manifest_path.relative_to(_facade().REPO_ROOT)}"
+            )
+
+
+
+
+def _render_capability_change_action(
+    chosen: dict[str, Any],
+    groups: dict[str, Any],
+    *,
+    key_prefix: str,
+) -> None:
+    """Byt capability (= flytta familj) för ett REDAN LIVE byggblock. Gruppen
+    följer automatiskt med — den lagras aldrig per dossier, bara härledd från
+    capabilityn (`dossier-groups.ts`). Samma validerade skrivväg som
+    AI-kurationens override (`_apply_capability_override`); det här är bara
+    en ny ingång till den för byggblock som redan finns i live-poolen,
+    inte en ny skrivväg."""
+    current_capability = str(chosen.get("capability") or "")
+    current_group_label = _group_label_for_capability(current_capability, groups)
+    st.caption(
+        f"Nuvarande funktion: `{current_capability}` (grupp: {current_group_label}). "
+        "Ett byte flyttar byggblocket till en annan familj — gruppen följer "
+        "automatiskt med den nya funktionen; den lagras inte separat."
+    )
+    group_ids = list(groups.keys())
+    group_labels = {gid: (groups[gid].get("label") or gid) for gid in group_ids}
+    cols = st.columns(2)
+    with cols[0]:
+        target_group_id = (
+            st.selectbox(
+                "Ny dossier-grupp (kategori)",
+                group_ids,
+                format_func=lambda gid: group_labels.get(gid, gid),
+                key=f"{key_prefix}_group",
+            )
+            if group_ids
+            else None
+        )
+    target_group_capabilities = (
+        groups.get(target_group_id, {}).get("capabilities") or [] if target_group_id else []
+    )
+    none_choice = "(ingen — se fritt fält)"
+    with cols[1]:
+        capability_choice = st.selectbox(
+            "Funktion i gruppen",
+            [none_choice] + list(target_group_capabilities),
+            key=f"{key_prefix}_choice",
+        )
+    free_capability = st.text_input(
+        "…eller ny funktion (fritt fält, kebab-case, tar över valet ovan)",
+        key=f"{key_prefix}_free",
+    ).strip()
+    decided_capability = free_capability or (
+        capability_choice if capability_choice != none_choice else ""
+    )
+    if decided_capability and decided_capability != current_capability:
+        st.caption(_describe_capability_group_hint(decided_capability, target_group_id, groups))
+    if st.button("Byt capability", key=f"{key_prefix}_submit"):
+        if not decided_capability:
+            st.error("Ange en funktion (fritt fält eller från listan) — inget byttes.")
+        elif decided_capability == current_capability:
+            st.info("Samma funktion som idag — inget byttes.")
+        else:
+            ok, msg = _apply_capability_override(
+                chosen["_class"], chosen["id"], decided_capability
+            )
+            if ok:
+                _rerun_after_dossier_mutation(
+                    f"Bytte funktion för `{chosen['id']}`: "
+                    f"`{current_capability}` → `{decided_capability}`."
+                )
+            else:
+                st.error(msg)
+
+
+
+
+def _section_edit(dossiers: list[dict[str, Any]]) -> None:
+    st.subheader("Redigera byggblock")
+    if not dossiers:
+        return
+    options = {f"{d['_class']}/{d['id']}": d for d in dossiers}
+    pick_key = st.selectbox(
+        "Välj byggblock",
+        list(options.keys()),
+        format_func=lambda k: f"{options[k]['id']} — {class_label(options[k]['_class'])}",
+    )
+    if not pick_key:
+        return
+    chosen = options[pick_key]
+    manifest_path = _facade().REPO_ROOT / chosen["_path"] / "manifest.json"
+    manifest = _load_json(manifest_path)
+    _render_manifest_edit_controls(
+        chosen, manifest_path, manifest, key_prefix=f"edit_{pick_key}"
+    )
+
+    st.markdown("**Byt capability**")
+    _render_capability_change_action(
+        chosen, _load_group_view(), key_prefix=f"edit_{pick_key}_cap"
+    )
 
 
 
@@ -231,17 +339,22 @@ def _section_delete(dossiers: list[dict[str, Any]]) -> None:
 
 
 
-def _render_delete_body(dossiers: list[dict[str, Any]]) -> None:
-    options = {f"{d['_class']}/{d['id']}": d for d in dossiers}
-    pick_key = st.selectbox(
-        "Välj byggblock att radera",
-        list(options.keys()),
-        key="delete_pick",
-        format_func=lambda k: f"{options[k]['id']} — {class_label(options[k]['_class'])}",
-    )
-    if not pick_key:
-        return
-    chosen = options[pick_key]
+def _render_delete_action(
+    chosen: dict[str, Any],
+    dossiers: list[dict[str, Any]],
+    *,
+    key_prefix: str,
+    extra_state_keys: tuple[str, ...] = (),
+) -> None:
+    """Checklista + `confirm_by_typing` + radering för ETT redan valt
+    byggblock. Samma validerade skrivväg (`_delete_dossier_dir`) oavsett
+    anropande yta — Redigera-tabbens väljare eller Systemkartans radvy.
+    `dossiers` är den fulla live-poolen — bara så leverantörssyskon under
+    samma capability kan listas i checklistan.
+
+    `extra_state_keys` rensas också vid lyckad radering (t.ex. den
+    anropande väljarens selectbox-nyckel, som annars pekar på ett värde
+    som inte längre finns i dess `options` och kraschar nästa rerun)."""
     capability = chosen.get("capability") or ""
     # Normalized comparison (trim + lowercase) — mirrors resolveDossierGroup
     # and the TS capability-map script, so a manifest edited with stray
@@ -293,11 +406,13 @@ def _render_delete_body(dossiers: list[dict[str, Any]]) -> None:
     # Bekräftelsen ligger i ett formulär, samma mönster som scaffold-/variant-
     # raderingen i Fas B: fritextfältet skickar sitt värde först vid submit, så
     # ingen halvskriven bekräftelse kan råka gälla.
-    with st.form("delete_dossier_form"):
-        ack = st.checkbox("Jag har gått igenom checklistan ovan", key="delete_ack")
+    ack_key = f"{key_prefix}_ack"
+    confirm_key = f"{key_prefix}_confirm"
+    with st.form(f"{key_prefix}_dossier_form"):
+        ack = st.checkbox("Jag har gått igenom checklistan ovan", key=ack_key)
         confirmed = confirm_by_typing(
             str(chosen.get("id") or ""),
-            "delete_confirm",
+            confirm_key,
             label="Bekräfta genom att skriva byggblockets id",
         )
         submitted = st.form_submit_button("Radera från live-poolen", type="primary")
@@ -311,11 +426,33 @@ def _render_delete_body(dossiers: list[dict[str, Any]]) -> None:
             )
             return
         ok, msg = _delete_dossier_dir(chosen)
-        (st.success if ok else st.error)(msg)
-        if ok:
-            # Drop the widget state that points at the now-deleted dossier —
-            # otherwise the next rerun's selectbox/text_input restore a value
-            # that no longer exists in options (StreamlitAPIException).
-            for state_key in ("delete_pick", "delete_ack", "delete_confirm"):
-                st.session_state.pop(state_key, None)
-            st.cache_data.clear()
+        if not ok:
+            st.error(msg)
+            return
+        # Drop widget state that points at the now-deleted dossier —
+        # otherwise the next rerun's selectbox/text_input restore a value
+        # that no longer exists in options (StreamlitAPIException). Always
+        # clear Redigera-flikens `delete_pick` too: Systemkartan och
+        # Redigera delar poolen, så en radering från Systemkartan får inte
+        # lämna selectboxen där med ett borttaget värde.
+        for state_key in (ack_key, confirm_key, "delete_pick", *extra_state_keys):
+            st.session_state.pop(state_key, None)
+        _rerun_after_dossier_mutation(msg)
+
+
+
+
+def _render_delete_body(dossiers: list[dict[str, Any]]) -> None:
+    options = {f"{d['_class']}/{d['id']}": d for d in dossiers}
+    pick_key = st.selectbox(
+        "Välj byggblock att radera",
+        list(options.keys()),
+        key="delete_pick",
+        format_func=lambda k: f"{options[k]['id']} — {class_label(options[k]['_class'])}",
+    )
+    if not pick_key:
+        return
+    chosen = options[pick_key]
+    _render_delete_action(
+        chosen, dossiers, key_prefix="delete", extra_state_keys=("delete_pick",)
+    )

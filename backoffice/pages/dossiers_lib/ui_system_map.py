@@ -6,9 +6,25 @@ from typing import Any
 
 import streamlit as st
 
-from .io import _ensure_capability_map_current
+from .io import _ensure_capability_map_current, _load_json
 from .labels import class_label, mock_label
-from .truth_map import build_system_map_dot, build_system_map_rows, filter_system_map_rows
+from .truth_map import (
+    build_system_map_dot,
+    build_system_map_rows,
+    filter_system_map_rows,
+    index_dossiers_by_class_and_id,
+)
+from .ui_edit import (
+    _render_capability_change_action,
+    _render_delete_action,
+    _render_manifest_edit_controls,
+)
+
+
+def _facade():
+    from backoffice.pages import dossiers as page
+
+    return page
 
 
 _F2_LABELS = {
@@ -52,7 +68,72 @@ def _file_roles(row: dict[str, Any]) -> str:
     ) or "—"
 
 
-def _section_system_map() -> None:
+def _render_system_map_row_detail(
+    row: dict[str, Any], chosen: dict[str, Any] | None
+) -> None:
+    """Alla fält för EN rad: projektionens härledda axlar (`row`, alltid
+    tillgängliga) plus rå-manifestets fulla `envVars`/`files` (`chosen`, kan
+    saknas om projektionen hunnit bli inaktuell mot disk-poolen)."""
+    cols = st.columns(2)
+    with cols[0]:
+        st.markdown(f"**Providers:** {_join_or_dash(row['providers'])}")
+        st.markdown(f"**Dependencies:** {_join_or_dash(row['dependencies'])}")
+        st.markdown("**Standardval för capability:** " + ("Ja" if row["default"] else "Nej"))
+        if row["class"] == "hard":
+            st.markdown(f"**Demoläge när byggt:** {mock_label(row['mock'])}")
+    with cols[1]:
+        st.markdown(
+            f"**F2:** {_F2_LABELS.get(row['f2_disposition'], row['f2_disposition'])} "
+            f"({_F2_REASON_LABELS.get(row['f2_reason'], row['f2_reason'])})"
+        )
+        build_reasons = _join_or_dash(
+            [_BUILD_REASON_LABELS.get(value, value) for value in row["build_server_reasons"]]
+        )
+        st.markdown(
+            "**Build/server-krav:** "
+            + ("Ja" if row["build_server_requirement"] else "Nej")
+            + f" — {build_reasons}"
+        )
+        st.markdown(
+            f"**Verifiering:** {row['verification_status']} · "
+            f"**Senast verifierad:** {row['last_verified'] or '—'}"
+        )
+    st.markdown(f"**Env-kontrakt:** {_env_contract(row)}")
+    st.markdown(f"**Filroller:** {_file_roles(row)}")
+    if row["summary_sv"]:
+        st.caption(row["summary_sv"])
+
+    if chosen is None:
+        return
+
+    detail_cols = st.columns(2)
+    detail_cols[0].markdown(f"**Komplexitet:** {chosen.get('complexity', '—')}")
+    detail_cols[1].markdown(f"**Kodfidelitet:** {chosen.get('codeFidelity', '—')}")
+
+    env_vars = [env for env in (chosen.get("envVars") or []) if isinstance(env, dict)]
+    if env_vars:
+        lines = []
+        for env in env_vars:
+            required = "obligatorisk" if env.get("required") else "valfri"
+            purpose = f" — {env['purpose']}" if env.get("purpose") else ""
+            lines.append(
+                f"- `{env.get('key', '?')}` ({env.get('enforcement', 'build')}, {required}){purpose}"
+            )
+        st.markdown("**Env-nycklar (fullständigt):**\n" + "\n".join(lines))
+
+    files = [f for f in (chosen.get("files") or []) if isinstance(f, dict)]
+    if files:
+        lines = [
+            f"- `{f.get('path', '?')}` ({f.get('role', '?')}, {f.get('injectionMode', '?')})"
+            for f in files
+        ]
+        st.markdown("**Filer:**\n" + "\n".join(lines))
+
+    if chosen.get("sourceRepoUrl"):
+        st.caption(f"Källa: {chosen['sourceRepoUrl']}")
+
+
+def _section_system_map(dossiers: list[dict[str, Any]]) -> None:
     st.subheader("Systemkarta: kategori → capability → dossier → provider")
     st.caption(
         "Kartan läser en automatiskt synkad projektion av det schema-validerade "
@@ -72,15 +153,42 @@ def _section_system_map() -> None:
         )
         return
 
-    metrics = st.columns(5)
-    metrics[0].metric("Dossierer", len(rows))
-    metrics[1].metric("Capabilities", len({row["capability"] for row in rows}))
-    metrics[2].metric("Kopplade", sum(row["class"] == "hard" for row in rows))
+    # Pool-räknare från live-disk (samma sanning som gamla Översikt). F2-
+    # och build/server-axlarna finns bara i projektionen — vid sync_warning
+    # syns det redan ovan, så de markeras inte gröna som "säkra".
+    pool = dossiers if dossiers else []
+    metrics = st.columns(6)
+    metrics[0].metric("Dossierer", len(pool) if pool else len(rows))
+    metrics[1].metric(
+        "Capabilities",
+        len({str(d.get("capability") or "") for d in pool})
+        if pool
+        else len({row["capability"] for row in rows}),
+    )
+    metrics[2].metric(
+        "Kopplade",
+        sum(d.get("_class") == "hard" for d in pool)
+        if pool
+        else sum(row["class"] == "hard" for row in rows),
+    )
     metrics[3].metric(
-        "Planerade i F2", sum(row["f2_disposition"] == "deferred" for row in rows)
+        "Fristående",
+        sum(d.get("_class") == "soft" for d in pool)
+        if pool
+        else sum(row["class"] == "soft" for row in rows),
     )
     metrics[4].metric(
+        "Planerade i F2", sum(row["f2_disposition"] == "deferred" for row in rows)
+    )
+    metrics[5].metric(
         "Build/server-krav", sum(row["build_server_requirement"] for row in rows)
+    )
+    # Från gamla Översikt-fliken (konsoliderad hit, inte duplicerad).
+    st.caption(
+        "**Kopplad** = kräver en extern tjänst/nycklar (Stripe, databas …). "
+        "**Fristående** = behöver bara npm-paket. Varje byggblock hör till "
+        "exakt en **funktion** (capability) — det är funktionen briefen ber "
+        "om som styr vilket byggblock som väljs."
     )
 
     all_groups = sorted({(row["group_id"], row["group_label"]) for row in rows})
@@ -163,13 +271,87 @@ def _section_system_map() -> None:
         )
     st.dataframe(table_rows, width="stretch", hide_index=True)
 
+    st.divider()
+    st.markdown("**Rad → detalj → handling**")
+    st.caption(
+        "Öppna en rad för alla fält, filer, env-nycklar och verifieringsstatus "
+        "— och Redigera/Byt capability/Radera direkt härifrån via samma "
+        "validerade flöden som Redigera-tabben, med byggblocket redan valt."
+    )
+    groups_full = projection.get("groups") if isinstance(projection.get("groups"), dict) else {}
+    dossiers_by_key = index_dossiers_by_class_and_id(dossiers)
+    for row in filtered:
+        default_mark = " · ✓ Standardval" if row["default"] else ""
+        header = (
+            f"{row['id']} — {class_label(row['class'])} · {row['group_label']} / "
+            f"{row['capability']}{default_mark}"
+        )
+        with st.expander(header):
+            chosen = dossiers_by_key.get((row["class"], row["id"]))
+            _render_system_map_row_detail(row, chosen)
+            if chosen is None:
+                st.warning(
+                    "Hittades inte i disk-poolen (projektionen kan vara inaktuell) "
+                    "— bygg om capability-map.json i Kontroller-tabben före "
+                    "redigering, byte eller radering."
+                )
+                continue
+            key_ns = f"sysmap_{row['class']}_{row['id']}"
+            action = st.radio(
+                "Redigera",
+                ["Ingen", "Redigera", "Byt capability", "Radera"],
+                key=f"{key_ns}_action",
+                horizontal=True,
+                label_visibility="collapsed",
+            )
+            manifest_path = _facade().REPO_ROOT / chosen["_path"] / "manifest.json"
+            if action == "Redigera":
+                manifest = _load_json(manifest_path)
+                _render_manifest_edit_controls(
+                    chosen,
+                    manifest_path,
+                    manifest,
+                    key_prefix=f"{key_ns}_edit",
+                    show_raw_json=False,
+                )
+            elif action == "Byt capability":
+                _render_capability_change_action(
+                    chosen, groups_full, key_prefix=f"{key_ns}_cap"
+                )
+            elif action == "Radera":
+                _render_delete_action(chosen, dossiers, key_prefix=f"{key_ns}_delete")
+
     with st.expander("Så läses axlarna"):
+        # Samma vokabulär som buildern: `labelsSv` speglar dossier-axes.ts.
+        labels_sv = (
+            projection.get("labelsSv") if isinstance(projection.get("labelsSv"), dict) else {}
+        )
+        class_vocab = labels_sv.get("class") if isinstance(labels_sv.get("class"), dict) else {}
+        f3_vocab = (
+            labels_sv.get("requiresF3") if isinstance(labels_sv.get("requiresF3"), dict) else {}
+        )
+
+        def _sv_label(entry: Any, fallback: str) -> str:
+            if isinstance(entry, dict):
+                value = str(entry.get("label") or "").strip()
+                if value:
+                    return value
+            return fallback
+
+        hard = _sv_label(class_vocab.get("hard"), "Kopplad")
+        soft = _sv_label(class_vocab.get("soft"), "Fristående")
+        requires_f3 = _sv_label(f3_vocab.get("true"), "Kräver F3")
+        clear_in_f2 = _sv_label(f3_vocab.get("false"), "Klar i designläget")
         st.markdown(
-            "- **Klass** kommer från mappen `hard/` eller `soft/`; den avgör inte F2-status.\n"
-            "- **F2** kommer från `getF2MutedIntegrationCapabilities()`. Planerad betyder "
-            "att normal F2 bygger en lokal yta och skjuter provider-dossiern till integrationssteget.\n"
+            f"- **Klass** (`{hard}` / `{soft}`) kommer från mappen `hard/` eller `soft/`; "
+            "den avgör inte F2-status.\n"
+            "- **F2** kommer från `getF2MutedIntegrationCapabilities()` (projekterat som "
+            "`f2Disposition`). Planerad betyder att normal F2 bygger en lokal yta och "
+            "skjuter provider-dossiern till integrationssteget.\n"
             "- **Demoläge när byggt** är manifestets fallback efter materialisering utan "
-            "livekonfiguration; det betyder inte att hard-dossiern injiceras i normal F2.\n"
-            "- **Build/server-krav** kommer från `dossierRequiresF3()`: build-env eller serverfil. "
-            "En kataloggodkänd placeholder kan ge ett demo/advisory-bygge; den räknas aldrig som live."
+            "livekonfiguration; det betyder inte att hard-dossiern injiceras i normal F2. "
+            "Etiketter läses ur projektionens `labelsSv.mock` (samma som buildern).\n"
+            f"- **Build/server-krav** (`{requires_f3}` / `{clear_in_f2}`) kommer från "
+            "`dossierRequiresF3()`: build-env eller serverfil. En kataloggodkänd "
+            "placeholder kan ge ett demo/advisory-bygge; den räknas aldrig som live."
         )

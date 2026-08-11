@@ -95,26 +95,6 @@ from .io import (
 
 
 
-def _section_overview(dossiers: list[dict[str, Any]]) -> None:
-    st.subheader("Översikt")
-    hard = [d for d in dossiers if d["_class"] == "hard"]
-    soft = [d for d in dossiers if d["_class"] == "soft"]
-    cols = st.columns(4)
-    cols[0].metric("Totalt", len(dossiers))
-    cols[1].metric("Kopplade (hard)", len(hard))
-    cols[2].metric("Fristående (soft)", len(soft))
-    caps = {d.get("capability", "?") for d in dossiers}
-    cols[3].metric("Funktioner (capabilities)", len(caps))
-    st.caption(
-        "**Kopplad** = kräver en extern tjänst/nycklar (Stripe, databas …). "
-        "**Fristående** = behöver bara npm-paket. Varje byggblock hör till "
-        "exakt en **funktion** (capability) — det är funktionen briefen ber "
-        "om som styr vilket byggblock som väljs."
-    )
-
-
-
-
 def _section_list(dossiers: list[dict[str, Any]]) -> None:
     st.subheader("Alla byggblock")
     if not dossiers:

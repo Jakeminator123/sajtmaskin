@@ -92,6 +92,7 @@ from .io import (
     _promote_prospect,
     _create_dossier_skeleton,
     _run_sdk_version_check,
+    _rerun_after_dossier_mutation,
 )
 
 
@@ -197,12 +198,13 @@ def _section_create_from_scratch() -> None:
             summary_sv=summary_sv,
             default_for_capability=default_flag,
         )
-        (st.success if ok else st.error)(msg)
-        if ok:
+        if not ok:
+            st.error(msg)
+        else:
             st.session_state["create_scratch_created"] = (
                 f"data/dossiers/{target_class}/{target_id.strip()}"
             )
-            st.cache_data.clear()
+            _rerun_after_dossier_mutation(msg)
 
     created = st.session_state.get("create_scratch_created")
     if created:
@@ -473,9 +475,10 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
             disabled=not fixes_ack,
         ):
             ok, msg = _promote_prospect(root, entry, force=force_overwrite)
-            (st.success if ok else st.error)(msg)
-            if ok:
-                st.cache_data.clear()
+            if not ok:
+                st.error(msg)
+                return
+            _rerun_after_dossier_mutation(msg)
     elif report_verdict == "invalid":
         st.error(
             "Senaste körningen blev **invalid** — LLM:en accepterade men utkastet "
