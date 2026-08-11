@@ -23,6 +23,12 @@
  * With every power off, the resolved flags are identical to an `OC_EDIT=false`
  * deployment — that equivalence is what keeps "knappen av = precis som idag"
  * true rather than merely intended, and it is what the tests assert.
+ *
+ * One deliberate nuance: revoking a power does not rewrite chat history. The
+ * conversation is resent whole, so action blocks from while a power WAS granted
+ * stay visible to the model and may nudge it to offer them again. Equivalence
+ * holds where it carries authority — prompt assembly and the execution gates —
+ * not in what the model remembers being told earlier in the same session.
  */
 
 /** Canonical power ids. The menu is derived from this list, never hardcoded. */

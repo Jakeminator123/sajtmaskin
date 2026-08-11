@@ -107,10 +107,15 @@ export function OpenClawChatPanel({
   onClose,
   content = DEFAULT_OPENCLAW_CHAT_PANEL_CONTENT,
   isOpen = true,
+  powersAvailable = false,
 }: {
   onClose: () => void;
   content?: OpenClawChatPanelContent;
   isOpen?: boolean;
+  /** True only on surfaces where extra powers can act (the builder). Landing
+   * and kostnadsfri have no builder target, so a grant there could only
+   * produce failure cards — the control is not rendered at all. */
+  powersAvailable?: boolean;
 }) {
   const { messages, isStreaming, send, stop, clearConversation } = useOpenClawChat();
   // Closes the armed-autonomy loop: an auto-send registers a watch and this
@@ -442,7 +447,7 @@ export function OpenClawChatPanel({
           </div>
         </div>
         <div data-no-drag className="flex items-center gap-0.5">
-          <OpenClawPowersControl />
+          {powersAvailable ? <OpenClawPowersControl /> : null}
           {showAvatar ? (
             <button
               type="button"

@@ -26,17 +26,46 @@ import { useOpenClawPowers } from "./useOpenClawPowers";
  * gates are visible at once, and neither alone changes behaviour: pressing the
  * shield with nothing ticked grants nothing.
  */
+/**
+ * Re-validate the env gate at the moment the user presses the shield. The
+ * mount-time health check is the panel's only other read and the panel stays
+ * mounted for the whole session, so without this an `OC_EDIT` that was turned
+ * off server-side would keep offering powers until a reload. Revokes only on a
+ * DEFINITIVE `editEnabled: false` answer — a network blip proves nothing and
+ * must not kill a legitimately enabled control for the rest of the session.
+ */
+async function revalidateEditGateOnPress(setEditEnabled: (v: boolean) => void) {
+  try {
+    const res = await fetch("/api/openclaw/health");
+    if (!res.ok) return;
+    const data = (await res.json().catch(() => null)) as { editEnabled?: boolean } | null;
+    if (data && data.editEnabled !== true) setEditEnabled(false);
+  } catch {
+    // Transient failure — the mount-time check stays the authority.
+  }
+}
+
 export function OpenClawPowersControl() {
   const editEnabled = useOpenClawStore((s) => s.editEnabled);
   const powersOn = useOpenClawStore((s) => s.powersOn);
   const grantedPowers = useOpenClawStore((s) => s.grantedPowers);
   const setPowersOn = useOpenClawStore((s) => s.setPowersOn);
+  const setEditEnabled = useOpenClawStore((s) => s.setEditEnabled);
   const toggleGrantedPower = useOpenClawStore((s) => s.toggleGrantedPower);
   const powers = useOpenClawPowers();
 
   if (!editEnabled) return null;
 
   const activeCount = Number(powers.armedAutonomy) + Number(powers.quickEdit);
+
+  const handleToggle = () => {
+    const next = !powersOn;
+    setPowersOn(next);
+    // Pressing ON grants authority, so that is the moment to re-check the env
+    // gate. A stale-true answer flips editEnabled off, which withdraws the
+    // grant (store) and unmounts this control.
+    if (next) void revalidateEditGateOnPress(setEditEnabled);
+  };
 
   return (
     <div
@@ -50,7 +79,7 @@ export function OpenClawPowersControl() {
       <button
         type="button"
         aria-pressed={powersOn}
-        onClick={() => setPowersOn(!powersOn)}
+        onClick={handleToggle}
         className={cn(
           "flex items-center gap-1 rounded-l-full py-1 pr-1 pl-2 transition-colors",
           powersOn ? "text-fuchsia-200 hover:text-fuchsia-100" : "text-slate-300 hover:text-white",
