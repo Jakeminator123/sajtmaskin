@@ -429,10 +429,13 @@ def _render_delete_action(
         if not ok:
             st.error(msg)
             return
-        # Drop the widget state that points at the now-deleted dossier —
+        # Drop widget state that points at the now-deleted dossier —
         # otherwise the next rerun's selectbox/text_input restore a value
-        # that no longer exists in options (StreamlitAPIException).
-        for state_key in (ack_key, confirm_key, *extra_state_keys):
+        # that no longer exists in options (StreamlitAPIException). Always
+        # clear Redigera-flikens `delete_pick` too: Systemkartan och
+        # Redigera delar poolen, så en radering från Systemkartan får inte
+        # lämna selectboxen där med ett borttaget värde.
+        for state_key in (ack_key, confirm_key, "delete_pick", *extra_state_keys):
             st.session_state.pop(state_key, None)
         _rerun_after_dossier_mutation(msg)
 

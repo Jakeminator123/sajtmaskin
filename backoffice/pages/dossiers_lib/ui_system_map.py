@@ -153,11 +153,30 @@ def _section_system_map(dossiers: list[dict[str, Any]]) -> None:
         )
         return
 
+    # Pool-räknare från live-disk (samma sanning som gamla Översikt). F2-
+    # och build/server-axlarna finns bara i projektionen — vid sync_warning
+    # syns det redan ovan, så de markeras inte gröna som "säkra".
+    pool = dossiers if dossiers else []
     metrics = st.columns(6)
-    metrics[0].metric("Dossierer", len(rows))
-    metrics[1].metric("Capabilities", len({row["capability"] for row in rows}))
-    metrics[2].metric("Kopplade", sum(row["class"] == "hard" for row in rows))
-    metrics[3].metric("Fristående", sum(row["class"] == "soft" for row in rows))
+    metrics[0].metric("Dossierer", len(pool) if pool else len(rows))
+    metrics[1].metric(
+        "Capabilities",
+        len({str(d.get("capability") or "") for d in pool})
+        if pool
+        else len({row["capability"] for row in rows}),
+    )
+    metrics[2].metric(
+        "Kopplade",
+        sum(d.get("_class") == "hard" for d in pool)
+        if pool
+        else sum(row["class"] == "hard" for row in rows),
+    )
+    metrics[3].metric(
+        "Fristående",
+        sum(d.get("_class") == "soft" for d in pool)
+        if pool
+        else sum(row["class"] == "soft" for row in rows),
+    )
     metrics[4].metric(
         "Planerade i F2", sum(row["f2_disposition"] == "deferred" for row in rows)
     )
