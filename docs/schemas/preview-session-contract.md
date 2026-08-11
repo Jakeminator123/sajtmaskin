@@ -129,7 +129,7 @@ After finalize, stream contract should be read as:
 
 `previewUrlHint` must not be treated as persisted live `previewUrl` in version APIs.
 
-### Tier-2 preview bootstrap
+### F2 preview bootstrap
 
 Canonical route:
 

@@ -96,13 +96,19 @@ data/observability/
 # Local generation comparisons (manual API runs)
 output/generations/
 
-# --- Genererade artefakter (stora JSON / embeddings — minskar index-kontext; återskapas av scripts) ---
-# OBS: scaffold-embeddings.json + scaffold-research.generated.json är för närvarande
-# committade (prebuild-gaten `scaffolds:embeddings:check` kräver dem i Vercel-build där
-# ingen OPENAI_API_KEY finns). De hålls ur Cursor-index via .cursorindexingignore. Raderna nedan
-# är inerta för redan spårade filer men hindrar oavsiktlig re-add efter en lokal radering.
+# --- Genererade artefakter (stora JSON / embeddings) ---
+# VIKTIGT: flera av dessa är fortfarande SPÅRADE i git — runtime/prebuild importerar
+# dem från disk (t.ex. `scaffolds:embeddings:check`, template-/variant-matchning).
+# Att lägga dem här hindrar bara oavsiktlig re-add efter lokal radering; det tar
+# INTE bort dem ur historiken. För att hålla dem ur agent-kontext: .cursorignore
+# (Read-block) + .cursorindexingignore (sök). Blob+lazy krävs innan `git rm --cached`.
+src/lib/templates/template-embeddings.json
+config/scaffold-variants/_index/variant-embeddings.json
 src/lib/gen/scaffolds/scaffold-embeddings.json
 src/lib/gen/scaffolds/scaffold-research.generated.json
+config/variant-template-addenda.json
+src/lib/templates/template-blob-manifest.json
+# templates.json hålls spårad (importeras av template-data.ts) — bara agent-skydd i .cursorignore
 # LLM-flow canvas JSON-sidecar: lokal runtime-artefakt (regenereras vid backoffice-start
 # och av `npm run canvas:build`). Den diffbara .txt-artefakten committas; JSON:en inte.
 docs/canvases/llm-flow.canvas.json
@@ -311,3 +317,5 @@ docs/plans/**/run.log.jsonl
 
 # Local agent tooling (Cursor skills symlink) — never deployed, keep out of git
 .agents/
+
+.vercel
