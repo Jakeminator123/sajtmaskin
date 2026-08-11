@@ -310,14 +310,27 @@ def _load_group_view() -> dict[str, Any]:
 _MANIFEST_SOURCE_RE = re.compile(r"^data/dossiers/(?:hard|soft)/[^/]+/manifest\.json$")
 
 
-def _capability_map_source_paths(current: dict[str, Any]) -> list[Path] | None:
+def _is_repo_relative_key(key: str) -> bool:
+    """Reject absolute or parent-escaping keys from a corrupt/hand-edited map.
+
+    Keys are joined onto ``REPO_ROOT`` and read, so anything that could escape
+    the repo — or that pathlib would treat as an absolute path and silently
+    substitute for the base — must not become a path at all.
+    """
+    if not key or key.startswith("/") or key.startswith("\\") or "\\" in key or ":" in key:
+        return False
+    return ".." not in key.split("/")
+
+
+def _capability_map_source_paths(current: dict[str, Any]) -> list[tuple[str, Path]] | None:
     """The files the TS projection itself says it depends on, plus manifests.
 
-    The non-manifest paths are read out of the projection's own ``sourceFiles``
-    keys rather than a Python copy of ``FIXED_SOURCE_PATHS`` — one owner, no
-    second list to drift. Manifests are globbed here instead, because an
-    added/removed dossier directory is by definition absent from the stored
-    keys; globbing is what makes pool changes detectable at all.
+    Returns ``(repo-relative key, absolute path)`` pairs. The non-manifest paths
+    are read out of the projection's own ``sourceFiles`` keys rather than a
+    Python copy of ``FIXED_SOURCE_PATHS`` — one owner, no second list to drift.
+    Manifests are globbed here instead, because an added/removed dossier
+    directory is by definition absent from the stored keys; globbing is what
+    makes pool changes detectable at all.
 
     Known limit (accepted, see plan 01 step 6): if TypeScript *adds* a fixed
     source path and nobody regenerates, Python cannot know about it. The CI
@@ -329,24 +342,29 @@ def _capability_map_source_paths(current: dict[str, Any]) -> list[Path] | None:
     if not isinstance(stored, dict):
         return None
     fixed = sorted(
-        key for key in stored if isinstance(key, str) and not _MANIFEST_SOURCE_RE.match(key)
+        key
+        for key in stored
+        if isinstance(key, str)
+        and not _MANIFEST_SOURCE_RE.match(key)
+        and _is_repo_relative_key(key)
     )
     if not fixed:
         return None
-    paths = [_facade().REPO_ROOT / rel for rel in fixed]
+    repo_root = _facade().REPO_ROOT
+    entries = [(key, repo_root / key) for key in fixed]
     for klass in ("hard", "soft"):
-        paths.extend(sorted((_facade().DOSSIER_ROOT / klass).glob("*/manifest.json")))
-    return sorted(paths, key=lambda path: path.as_posix())
+        for path in sorted((_facade().DOSSIER_ROOT / klass).glob("*/manifest.json")):
+            entries.append((path.relative_to(repo_root).as_posix(), path))
+    return sorted(entries, key=lambda entry: entry[0])
 
 
 def _capability_map_source_fingerprints(current: dict[str, Any]) -> dict[str, str] | None:
-    paths = _capability_map_source_paths(current)
-    if paths is None:
+    entries = _capability_map_source_paths(current)
+    if entries is None:
         return None
     fingerprints: dict[str, str] = {}
     try:
-        for path in paths:
-            relative = path.relative_to(_facade().REPO_ROOT).as_posix()
+        for relative, path in entries:
             fingerprints[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError:
         return None

@@ -319,6 +319,21 @@ class CapabilityMapFreshnessTests(unittest.TestCase):
             with self.subTest(broken=broken):
                 self.assertTrue(dossiers_io._capability_map_is_stale(broken))
 
+    def test_absolute_or_escaping_keys_never_become_paths(self) -> None:
+        # A corrupt/hand-edited projection must degrade to "stale" (which soft-
+        # regenerates), never raise out of a Streamlit render or read outside
+        # the repo. pathlib would otherwise let an absolute key replace the base.
+        for key in (
+            "/etc/passwd",
+            "C:/Windows/win.ini",
+            "../../../etc/passwd",
+            "src/../../escape.ts",
+            "",
+        ):
+            with self.subTest(key=key):
+                projection = {"sourceFiles": {key: "0" * 64}}
+                self.assertTrue(dossiers_io._capability_map_is_stale(projection))
+
     def test_projection_with_only_manifest_keys_is_stale(self) -> None:
         # No fixed TS/JSON source recorded → nothing to derive the path list
         # from, so the guard must not silently accept the file as fresh.
