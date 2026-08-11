@@ -5,10 +5,13 @@
  * (structural split, no behavior change).
  */
 import { normalizeRoutePath } from "../route-plan";
-import { expandDependentCapabilities, normalizeCapabilityId } from "../dossiers";
+import {
+  expandDependentCapabilities,
+  getF2MutedIntegrationCapabilities,
+  normalizeCapabilityId,
+} from "../dossiers";
 import type { BuildSpec } from "../build-spec";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
-import { getF2MutedIntegrationCapabilities } from "./capability-prompt-filter";
 
 // ── Område 5 / 5-3: follow-up freeze-enforcement ──────────────────────────
 // `FollowUpContract` is the *active* source of the frozen scaffold / variant /

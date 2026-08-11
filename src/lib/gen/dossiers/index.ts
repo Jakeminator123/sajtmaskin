@@ -11,6 +11,8 @@ export {
 } from "./registry";
 export type { DossierExposesInfo } from "./registry";
 
+export { getF2MutedIntegrationCapabilities } from "./f2-mute";
+
 export {
   selectDossiersForRequest,
   isExplicitDossierChoice,

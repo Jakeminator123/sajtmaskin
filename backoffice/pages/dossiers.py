@@ -75,6 +75,8 @@ from .dossiers_lib.io import (
     _save_raw_manifest,
     _summarize_enforcement,
     _load_group_view,
+    _ensure_capability_map_current,
+    _render_dossier_flash,
     _group_label_for_capability,
     _groups_view_is_stale,
     _run_capability_map_write,
@@ -119,6 +121,8 @@ from .dossiers_lib.ui_create import (
     _section_legacy_prospect,
 )
 
+from .dossiers_lib.ui_system_map import _section_system_map
+
 
 # Importerna ovan är re-exporter, inte lokalt använda namn: modulerna i
 # ``dossiers_lib/`` slår upp dem sent via sin ``_facade()`` (t.ex.
@@ -158,6 +162,7 @@ __all__ = [
     "_create_dossier_skeleton",
     "_delete_dossier_dir",
     "_describe_capability_group_hint",
+    "_ensure_capability_map_current",
     "_existing_default_for_capability",
     "_extract_ts_union_values",
     "_group_label_for_capability",
@@ -176,6 +181,7 @@ __all__ = [
     "_read_prospect_verdict_files",
     "_rebuild_capability_map",
     "_render_delete_body",
+    "_render_dossier_flash",
     "_run_capability_map_write",
     "_run_curate",
     "_run_normalize",
@@ -183,6 +189,7 @@ __all__ = [
     "_save_json",
     "_save_raw_manifest",
     "_schema_enum",
+    "_section_system_map",
     "_summarize_enforcement",
     "_validate_manifest",
     "backup_file",
@@ -210,6 +217,7 @@ __all__ = [
 def render(ctx) -> None:
     # `app_main` sätter redan sidtiteln — sidan ska bara ha sin egen rubrik.
     st.header("Byggblock (dossiers)")
+    _render_dossier_flash()
     render_building_blocks_nav(PAGE_NAME)
     st.markdown(
         "Ett **byggblock** är en färdig funktion som kan byggas in i en genererad "
@@ -229,23 +237,25 @@ def render(ctx) -> None:
         st.markdown("- Validera efter ändring: `npm run dossiers:validate-all`")
 
     dossiers = _walk_all_dossiers()
-    # Fem tabbar (Fas C, tidigare nio). OBS: st.tabs kör ALLA tab-bodies vid
+    # Sex tabbar. OBS: st.tabs kör ALLA tab-bodies vid
     # varje rerun — tunga subprocess-anrop (hälsokoll, validate-all, kuration,
     # capability-map-bygge) ska ligga bakom knappar, aldrig i default-vyn.
-    tabs = st.tabs(["Översikt", "Lista", "Redigera", "Skapa", "Kontroller"])
+    tabs = st.tabs(["Översikt", "Lista", "Systemkarta", "Redigera", "Skapa", "Kontroller"])
     with tabs[0]:
         _section_overview(dossiers)
     with tabs[1]:
         _section_list(dossiers)
     with tabs[2]:
+        _section_system_map()
+    with tabs[3]:
         _section_edit(dossiers)
         _section_delete(dossiers)
-    with tabs[3]:
+    with tabs[4]:
         _section_curate()
         st.divider()
         _section_legacy_prospect(dossiers)
         _section_create_from_scratch()
-    with tabs[4]:
+    with tabs[5]:
         _section_enforcement_overview(dossiers)
         st.divider()
         _section_capability_tiers()

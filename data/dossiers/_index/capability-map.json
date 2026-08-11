@@ -1,6 +1,6 @@
 {
-  "$comment": "View of capability → dossier ids, plus a `groups` view (capability → presentation group, derived from src/lib/builder/dossier-groups.ts) for the backoffice group view. Can be regenerated from either backoffice/pages/dossiers.py (Capability map tab → 'Bygg om') or `npm run dossiers:capability-map:write` (scripts/dossiers/regenerate-capability-map.ts). Runtime walks data/dossiers/{hard,soft}/ directly; this file is for tooling + sanity check during curation.",
-  "generatedAt": "2026-08-06T16:34:15.800Z",
+  "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
+  "generatedAt": "2026-08-11T01:51:55.141Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -122,5 +122,625 @@
       "label": "Övrigt",
       "capabilities": []
     }
+  },
+  "dossiers": [
+    {
+      "id": "clerk-auth",
+      "label": "Inloggning — Clerk",
+      "class": "hard",
+      "capability": "auth",
+      "providers": [
+        "clerk"
+      ],
+      "defaultForCapability": true,
+      "mock": "visual",
+      "envVars": [
+        {
+          "key": "CLERK_SECRET_KEY",
+          "required": true,
+          "enforcement": "build"
+        },
+        {
+          "key": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+          "required": true,
+          "enforcement": "build"
+        },
+        {
+          "key": "NEXT_PUBLIC_CLERK_SIGN_IN_URL",
+          "required": false,
+          "enforcement": "warn-only"
+        },
+        {
+          "key": "NEXT_PUBLIC_CLERK_SIGN_UP_URL",
+          "required": false,
+          "enforcement": "warn-only"
+        }
+      ],
+      "fileRoles": {
+        "client": 2,
+        "server": 1
+      },
+      "dependencies": [
+        "@clerk/nextjs"
+      ],
+      "summarySv": "Inloggning och konton via Clerk (standardvalet för inloggning). Utan riktiga nycklar visas inloggningsknapparna i demoläge: besökaren ser flödet men ingen riktig inloggning sker — en tydlig demoruta förklarar hur Clerk kopplas in. Med nycklar på plats blir samma knappar riktig inloggning.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-04-21",
+      "f2Disposition": "deferred",
+      "f2Reason": "build-server",
+      "buildServerRequirement": true,
+      "buildServerReasons": [
+        "build-env",
+        "server-file"
+      ]
+    },
+    {
+      "id": "mailchimp-newsletter",
+      "label": "Nyhetsbrev — Mailchimp",
+      "class": "hard",
+      "capability": "newsletter-subscribe",
+      "providers": [
+        "mailchimp"
+      ],
+      "defaultForCapability": true,
+      "mock": "success",
+      "envVars": [
+        {
+          "key": "MAILCHIMP_API_KEY",
+          "required": true,
+          "enforcement": "feature-runtime"
+        },
+        {
+          "key": "MAILCHIMP_AUDIENCE_ID",
+          "required": true,
+          "enforcement": "feature-runtime"
+        },
+        {
+          "key": "MAILCHIMP_DC",
+          "required": false,
+          "enforcement": "warn-only"
+        }
+      ],
+      "fileRoles": {
+        "client": 1,
+        "server": 1
+      },
+      "dependencies": [],
+      "summarySv": "Anmälningsformulär för nyhetsbrev som lägger till besökarens e-postadress i din lista hos Mailchimp. Utan riktiga nycklar körs demoläge: anmälan går igenom med tydlig demomarkering, men ingen läggs till på riktigt förrän nycklarna är på plats.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-04-21",
+      "f2Disposition": "deferred",
+      "f2Reason": "build-server",
+      "buildServerRequirement": true,
+      "buildServerReasons": [
+        "server-file"
+      ]
+    },
+    {
+      "id": "openai-chat",
+      "label": "AI-chatt — OpenAI",
+      "class": "hard",
+      "capability": "ai-chat",
+      "providers": [
+        "openai"
+      ],
+      "defaultForCapability": true,
+      "mock": "canned",
+      "envVars": [
+        {
+          "key": "OPENAI_API_KEY",
+          "required": true,
+          "enforcement": "feature-runtime"
+        }
+      ],
+      "fileRoles": {
+        "client": 1,
+        "server": 1
+      },
+      "dependencies": [
+        "@ai-sdk/openai",
+        "@ai-sdk/react",
+        "ai"
+      ],
+      "summarySv": "En chattassistent på sajten som svarar besökarna direkt, driven av OpenAI. Passar kundfrågor, vägledning och enklare support; utan riktig nyckel körs demoläge där chatten ger trovärdiga låtsassvar tills en OpenAI-nyckel läggs in.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-04-20",
+      "f2Disposition": "deferred",
+      "f2Reason": "build-server",
+      "buildServerRequirement": true,
+      "buildServerReasons": [
+        "server-file"
+      ]
+    },
+    {
+      "id": "postgres-drizzle",
+      "label": "Databas — Postgres (standard)",
+      "class": "hard",
+      "capability": "database",
+      "providers": [
+        "postgres"
+      ],
+      "defaultForCapability": true,
+      "mock": "seed",
+      "envVars": [
+        {
+          "key": "DATABASE_URL",
+          "required": true,
+          "enforcement": "feature-runtime"
+        }
+      ],
+      "fileRoles": {
+        "server": 4,
+        "shared": 2
+      },
+      "dependencies": [
+        "@types/pg",
+        "drizzle-kit",
+        "drizzle-orm",
+        "pg",
+        "server-only"
+      ],
+      "summarySv": "Standardvalet när sajten behöver en databas: Postgres med Drizzle som neutral grund, för att spara sådant som listor, bokningar och annat innehåll. En Neon-Postgres-URL fungerar direkt med pg-drivern. Utan riktiga nycklar körs demoläge med exempeldata som går att skapa, lista och ändra, men utan delad lagring.",
+      "verificationStatus": "unverified",
+      "lastVerified": "2026-04-17",
+      "f2Disposition": "deferred",
+      "f2Reason": "build-server",
+      "buildServerRequirement": true,
+      "buildServerReasons": [
+        "server-file"
+      ]
+    },
+    {
+      "id": "resend-contact-form",
+      "label": "Kontaktformulär — Resend",
+      "class": "hard",
+      "capability": "contact-form",
+      "providers": [
+        "resend"
+      ],
+      "defaultForCapability": true,
+      "mock": "success",
+      "envVars": [
+        {
+          "key": "CONTACT_EMAIL_TO",
+          "required": true,
+          "enforcement": "feature-runtime"
+        },
+        {
+          "key": "EMAIL_FROM",
+          "required": true,
+          "enforcement": "feature-runtime"
+        },
+        {
+          "key": "RESEND_API_KEY",
+          "required": true,
+          "enforcement": "feature-runtime"
+        }
+      ],
+      "fileRoles": {
+        "client": 1,
+        "server": 1,
+        "shared": 1
+      },
+      "dependencies": [
+        "resend"
+      ],
+      "summarySv": "Kontaktformulär där besökarens meddelande skickas till din e-post via tjänsten Resend. Utan riktiga nycklar körs demoläge: formuläret går igenom med tydlig demomarkering, men inget skickas på riktigt förrän nycklarna är på plats.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-04-21",
+      "f2Disposition": "deferred",
+      "f2Reason": "build-server",
+      "buildServerRequirement": true,
+      "buildServerReasons": [
+        "server-file"
+      ]
+    },
+    {
+      "id": "sanity-cms",
+      "label": "CMS — Sanity",
+      "class": "hard",
+      "capability": "cms",
+      "providers": [
+        "sanity"
+      ],
+      "defaultForCapability": true,
+      "mock": "seed",
+      "envVars": [
+        {
+          "key": "NEXT_PUBLIC_SANITY_API_VERSION",
+          "required": false,
+          "enforcement": "warn-only"
+        },
+        {
+          "key": "NEXT_PUBLIC_SANITY_DATASET",
+          "required": true,
+          "enforcement": "feature-runtime"
+        },
+        {
+          "key": "NEXT_PUBLIC_SANITY_PROJECT_ID",
+          "required": true,
+          "enforcement": "feature-runtime"
+        },
+        {
+          "key": "NEXT_PUBLIC_SANITY_STUDIO_URL",
+          "required": false,
+          "enforcement": "warn-only"
+        },
+        {
+          "key": "SANITY_API_TOKEN",
+          "required": false,
+          "enforcement": "feature-runtime"
+        }
+      ],
+      "fileRoles": {
+        "server": 5,
+        "shared": 3
+      },
+      "dependencies": [
+        "next-sanity",
+        "server-only"
+      ],
+      "summarySv": "Kopplar sajten till Sanity, ett redigeringsverktyg där du uppdaterar texter och bilder utan att röra koden. Välj det när innehållet ska kunna ändras löpande av dig eller en redaktör; tills riktiga nycklar läggs in körs demoläge med färdigt exempelinnehåll, utan delad lagring.",
+      "verificationStatus": "unverified",
+      "lastVerified": "2026-04-18",
+      "f2Disposition": "deferred",
+      "f2Reason": "build-server",
+      "buildServerRequirement": true,
+      "buildServerReasons": [
+        "server-file"
+      ]
+    },
+    {
+      "id": "stripe-checkout",
+      "label": "Betalning — Stripe",
+      "class": "hard",
+      "capability": "payments",
+      "providers": [
+        "stripe"
+      ],
+      "defaultForCapability": true,
+      "mock": "visual",
+      "envVars": [
+        {
+          "key": "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+          "required": true,
+          "enforcement": "warn-only"
+        },
+        {
+          "key": "STRIPE_SECRET_KEY",
+          "required": true,
+          "enforcement": "feature-runtime"
+        }
+      ],
+      "fileRoles": {
+        "client": 1,
+        "server": 1,
+        "shared": 1
+      },
+      "dependencies": [
+        "@stripe/stripe-js",
+        "stripe"
+      ],
+      "summarySv": "Ta betalt med kort via Stripe Checkout. Utan riktiga nycklar körs betalknappen i demoläge: besökaren ser hela betalflödet men inga pengar dras — en tydlig demoruta förklarar hur Stripe kopplas in. När nyckeln finns blir samma knapp en riktig betalning.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-04-20",
+      "f2Disposition": "deferred",
+      "f2Reason": "build-server",
+      "buildServerRequirement": true,
+      "buildServerReasons": [
+        "server-file"
+      ]
+    },
+    {
+      "id": "supabase-auth",
+      "label": "Inloggning — Supabase",
+      "class": "hard",
+      "capability": "auth",
+      "providers": [
+        "supabase"
+      ],
+      "defaultForCapability": false,
+      "mock": "visual",
+      "envVars": [
+        {
+          "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+          "required": true,
+          "enforcement": "feature-runtime"
+        },
+        {
+          "key": "NEXT_PUBLIC_SUPABASE_URL",
+          "required": true,
+          "enforcement": "feature-runtime"
+        }
+      ],
+      "fileRoles": {
+        "client": 2,
+        "server": 4,
+        "shared": 2
+      },
+      "dependencies": [
+        "@supabase/ssr",
+        "@supabase/supabase-js"
+      ],
+      "summarySv": "Inloggning via Supabase. Väljs när sajten uttryckligen ska använda Supabase för konton/inloggning. Utan riktiga nycklar visas inloggningsytan i demoläge med en tydlig notis — ingen låtsas-inloggning sker.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-07-08",
+      "f2Disposition": "deferred",
+      "f2Reason": "build-server",
+      "buildServerRequirement": true,
+      "buildServerReasons": [
+        "server-file"
+      ]
+    },
+    {
+      "id": "vercel-analytics",
+      "label": "Besöksstatistik — Vercel",
+      "class": "hard",
+      "capability": "analytics",
+      "providers": [
+        "vercel-analytics"
+      ],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {
+        "client": 1
+      },
+      "dependencies": [
+        "@vercel/analytics",
+        "@vercel/speed-insights"
+      ],
+      "summarySv": "Besöksstatistik inbyggd i hostingen: se hur många som besöker sajten och hur snabbt den laddar, utan att du behöver ställa in något — allt kopplas automatiskt när sajten publiceras. Utan den kopplingen stänger blocket av sig självt helt (ingen demoyta), vilket är det förväntade beteendet.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-04-21",
+      "f2Disposition": "deferred",
+      "f2Reason": "policy-only",
+      "buildServerRequirement": false,
+      "buildServerReasons": []
+    },
+    {
+      "id": "cmdk-command-palette",
+      "label": "Kommandopalett (cmd+k)",
+      "class": "soft",
+      "capability": "command-palette",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {
+        "client": 1
+      },
+      "dependencies": [
+        "cmdk"
+      ],
+      "summarySv": "Sökpalett som öppnas med Cmd/Ctrl+K — snabbnavigering och kommandon på sajten. Helt fristående (ingen extern tjänst); bra för appar och dashboards.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-04-21",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": []
+    },
+    {
+      "id": "dashboard-charts",
+      "label": "Diagram & grafer",
+      "class": "soft",
+      "capability": "dashboard-charts",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {
+        "client": 1,
+        "shared": 2
+      },
+      "dependencies": [
+        "@visactor/react-vchart",
+        "clsx",
+        "tailwind-merge"
+      ],
+      "summarySv": "Färdiga diagram och grafer för att visa siffror på ett tydligt sätt, till exempel försäljning eller besök över tid. Välj det när sajten behöver en översikt med staplar och kurvor; fungerar helt utan externa tjänster.",
+      "verificationStatus": "unverified",
+      "lastVerified": "2026-04-18",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": []
+    },
+    {
+      "id": "embla-carousel",
+      "label": "Bildkarusell",
+      "class": "soft",
+      "capability": "carousel",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {
+        "client": 1
+      },
+      "dependencies": [
+        "embla-carousel-autoplay",
+        "embla-carousel-react"
+      ],
+      "summarySv": "Bläddringsbar karusell för bilder eller kort, med pilknappar, punkter och valfri automatisk bläddring. Passar kundomdömen, produktbilder eller utvalda nyheter; fungerar helt utan externa tjänster.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-04-21",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": []
+    },
+    {
+      "id": "gallery-lightbox",
+      "label": "Bildgalleri med lightbox",
+      "class": "soft",
+      "capability": "gallery-lightbox",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {
+        "client": 1
+      },
+      "dependencies": [],
+      "summarySv": "Bildgalleri i rutnät där bilderna öppnas i helskärm när besökaren klickar, med knappar och tangentbordsstyrning för att bläddra. Passar sidor som visar många bilder, till exempel arbetsprover eller lokaler; fungerar helt utan externa tjänster.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-06-25",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": []
+    },
+    {
+      "id": "interactive-game-loop",
+      "label": "Interaktivt spel",
+      "class": "soft",
+      "capability": "interactive-game",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {},
+      "dependencies": [],
+      "summarySv": "Gör att sajten kan innehålla ett spelbart minispel med poäng, styrning och omstart, till exempel ett pussel- eller arkadspel. Välj det när du vill bjuda besökarna på något lekfullt; fungerar helt utan externa tjänster.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-05-01",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": []
+    },
+    {
+      "id": "local-site-search",
+      "label": "Sök på sajten (lokal)",
+      "class": "soft",
+      "capability": "site-search",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {
+        "client": 1
+      },
+      "dependencies": [
+        "minisearch"
+      ],
+      "summarySv": "Sökfunktion som söker i sajtens eget innehåll (sidor, produkter, artiklar) direkt i webbläsaren — ingen extern tjänst eller nyckel behövs och den fungerar direkt i förhandsvisningen. Tål stavfel (fuzzy) och visar träffar medan man skriver.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-07-22",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": []
+    },
+    {
+      "id": "maplibre-map",
+      "label": "Karta (MapLibre)",
+      "class": "soft",
+      "capability": "map-display",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {
+        "client": 1
+      },
+      "dependencies": [
+        "maplibre-gl"
+      ],
+      "summarySv": "Interaktiv karta för t.ex. 'Hitta hit'-sektioner. Ingen API-nyckel eller konto behövs — kartan fungerar direkt i förhandsvisningen. Markörer och popup-rutor styrs med props; om kartan inte kan laddas visas platserna som en snygg lista i stället.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-08-05",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": []
+    },
+    {
+      "id": "three-fiber-canvas",
+      "label": "3D-scen (Three.js)",
+      "class": "soft",
+      "capability": "visual-3d",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {
+        "client": 1
+      },
+      "dependencies": [
+        "@react-three/drei",
+        "@react-three/fiber",
+        "three"
+      ],
+      "summarySv": "Lägger in en tredimensionell scen på sajten, till exempel en animerad figur eller ett rörligt blickfång högst upp. Välj det när sajten ska ha en extra visuell effekt; fungerar helt utan externa tjänster och tar hänsyn till besökare som valt bort rörelser.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-04-22",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": []
+    },
+    {
+      "id": "three-fiber-physics",
+      "label": "3D-fysik",
+      "class": "soft",
+      "capability": "physics-3d",
+      "providers": [],
+      "defaultForCapability": true,
+      "mock": "none",
+      "envVars": [],
+      "fileRoles": {},
+      "dependencies": [
+        "@react-three/rapier"
+      ],
+      "summarySv": "Ger tredimensionella inslag verklighetstrogen fysik som tyngdkraft, studsar och kollisioner. Välj det när saker uttryckligen ska röra sig som på riktigt i en 3D-scen; fungerar helt utan externa tjänster.",
+      "verificationStatus": "accepted",
+      "lastVerified": "2026-04-30",
+      "f2Disposition": "available",
+      "f2Reason": "available",
+      "buildServerRequirement": false,
+      "buildServerReasons": []
+    }
+  ],
+  "f2Policy": {
+    "mutedCapabilities": [
+      "ai-chat",
+      "analytics",
+      "auth",
+      "cms",
+      "contact-form",
+      "database",
+      "newsletter-subscribe",
+      "payments"
+    ]
+  },
+  "sourceFiles": {
+    "data/dossiers/hard/clerk-auth/manifest.json": "aa952b4feef8f9d952191d6016df83282034bdd09ef543ebc4814fc6d982e0bd",
+    "data/dossiers/hard/mailchimp-newsletter/manifest.json": "8b3400858050d66a5c383db99675264df32883c2d9d3a3ff954a309f336ea0f4",
+    "data/dossiers/hard/openai-chat/manifest.json": "d1c0c4005d8deccf683817dd6f4ba1b249157b9c7eec27c34d6efbbf0d656d98",
+    "data/dossiers/hard/postgres-drizzle/manifest.json": "11d7a2c25db545916907c6fdb5ae86b883cbf8b11facb1a823d8061057ded4e7",
+    "data/dossiers/hard/resend-contact-form/manifest.json": "da4af8a189ec7b304eee50bf8bc0157b6a1bd365b16344f6e6f8ded4ff035a9a",
+    "data/dossiers/hard/sanity-cms/manifest.json": "18ccf5581fbbb85ce800e6c08940f6a8058cd0c9598b7423a8596a34c87307b2",
+    "data/dossiers/hard/stripe-checkout/manifest.json": "e433a1a0236e9cffc9af78983805d0a3f0dadafc1400a00608dee38eef7d834d",
+    "data/dossiers/hard/supabase-auth/manifest.json": "c4edd2ee8a92a2231cfd1b2610bca447495f5744d6b5cc6bec9acde5f9947daf",
+    "data/dossiers/hard/vercel-analytics/manifest.json": "85913f69e9ca853141f4bf115b55afabd6637bcb7853b6fa16552c92e7ce6de4",
+    "data/dossiers/soft/cmdk-command-palette/manifest.json": "f199ee6dfacebc40193ee48324c77c488048b78a197d848394176e1cfbbd5f99",
+    "data/dossiers/soft/dashboard-charts/manifest.json": "5a87faf952ea4490a4afdda1d1e48693d30cd6e48e86f4e7537db57c7a5dabf1",
+    "data/dossiers/soft/embla-carousel/manifest.json": "d016ba15b9f322656c283d37d48407a21c3308030416e485518874d8da0da520",
+    "data/dossiers/soft/gallery-lightbox/manifest.json": "d5c0160e7299eea08b59a04c3142252b23bc1b145a8b7ebc3372cd2823e2ec9b",
+    "data/dossiers/soft/interactive-game-loop/manifest.json": "09c61bd792680e8d846a776dd459937d56f4b7f80b1cf85a07546343e5a98e69",
+    "data/dossiers/soft/local-site-search/manifest.json": "a71d090610f5e8784bcc1b8773ee6678fc7f8748ba0aa2d3843c3a22727600c2",
+    "data/dossiers/soft/maplibre-map/manifest.json": "95308e041fcb3b18a3a38aea6d745a7f2103cd4384b6d476beaa17e1230ed442",
+    "data/dossiers/soft/three-fiber-canvas/manifest.json": "a465b0c30f26663c8b0067f16f4e99ec2bfae59d3463d170a38c04d3f6bffad2",
+    "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
+    "docs/schemas/strict/dossier.schema.json": "454912f6f36ba3e565d0a1e3d65863b849387c5eff0ba68fe5347a54849787ab",
+    "scripts/dossiers/regenerate-capability-map.ts": "dca55e0041774d690c8cc5c6981022e2803a1404644b106dc53ee42a2c793e9c",
+    "src/lib/builder/dossier-groups.ts": "67adc554dafd00c54766c732af6600737f6194138c7773ee09a977c03d97fd59",
+    "src/lib/gen/dossiers/f2-mute.ts": "f9fe5879bdd327277423c2a82374c11d303b6c1484fb17b88edb6d8bbd6882ed",
+    "src/lib/gen/dossiers/registry.ts": "2766260fb71f0bef126a9f30274869b507bc466b84edb50501568a8b9cee7c11",
+    "src/lib/gen/dossiers/types.ts": "b08f15c5d4e15b25d627d3d004b13606c81e963f41c468871fe03259581662ec",
+    "src/lib/gen/dossiers/validate-manifest.ts": "b3df4710977db60ced7732160f1c3f527e71424b97abda706fecc66e29afd707"
   }
 }

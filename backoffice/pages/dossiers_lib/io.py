@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import shutil
@@ -304,6 +305,126 @@ def _load_group_view() -> dict[str, Any]:
     data = _load_json(_facade().CAPABILITY_MAP_PATH) or {}
     groups = data.get("groups")
     return groups if isinstance(groups, dict) else {}
+
+
+_MANIFEST_SOURCE_RE = re.compile(r"^data/dossiers/(?:hard|soft)/[^/]+/manifest\.json$")
+
+
+def _is_repo_relative_key(key: str) -> bool:
+    """Reject absolute or parent-escaping keys from a corrupt/hand-edited map.
+
+    Keys are joined onto ``REPO_ROOT`` and read, so anything that could escape
+    the repo — or that pathlib would treat as an absolute path and silently
+    substitute for the base — must not become a path at all.
+    """
+    if not key or key.startswith("/") or key.startswith("\\") or "\\" in key or ":" in key:
+        return False
+    return ".." not in key.split("/")
+
+
+def _capability_map_source_paths(current: dict[str, Any]) -> list[tuple[str, Path]] | None:
+    """The files the TS projection itself says it depends on, plus manifests.
+
+    Returns ``(repo-relative key, absolute path)`` pairs. The non-manifest paths
+    are read out of the projection's own ``sourceFiles`` keys rather than a
+    Python copy of ``FIXED_SOURCE_PATHS`` — one owner, no second list to drift.
+    Manifests are globbed here instead, because an added/removed dossier
+    directory is by definition absent from the stored keys; globbing is what
+    makes pool changes detectable at all.
+
+    Known limit (accepted, see plan 01 step 6): if TypeScript *adds* a fixed
+    source path and nobody regenerates, Python cannot know about it. The CI
+    staleness gate (`npm run dossiers:capability-map:check`) is what keeps
+    master's projection fresh, so the stored key set is current in any clean
+    checkout.
+    """
+    stored = current.get("sourceFiles")
+    if not isinstance(stored, dict):
+        return None
+    fixed = sorted(
+        key
+        for key in stored
+        if isinstance(key, str)
+        and not _MANIFEST_SOURCE_RE.match(key)
+        and _is_repo_relative_key(key)
+    )
+    if not fixed:
+        return None
+    repo_root = _facade().REPO_ROOT
+    entries = [(key, repo_root / key) for key in fixed]
+    for klass in ("hard", "soft"):
+        for path in sorted((_facade().DOSSIER_ROOT / klass).glob("*/manifest.json")):
+            entries.append((path.relative_to(repo_root).as_posix(), path))
+    return sorted(entries, key=lambda entry: entry[0])
+
+
+def _capability_map_source_fingerprints(current: dict[str, Any]) -> dict[str, str] | None:
+    entries = _capability_map_source_paths(current)
+    if entries is None:
+        return None
+    fingerprints: dict[str, str] = {}
+    try:
+        for relative, path in entries:
+            fingerprints[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+    return dict(sorted(fingerprints.items()))
+
+
+def _capability_map_is_stale(current: dict[str, Any]) -> bool:
+    """Compare exact source hashes, not mtimes/counts, with the TS projection."""
+    expected = _capability_map_source_fingerprints(current)
+    stored = current.get("sourceFiles")
+    return expected is None or not isinstance(stored, dict) or stored != expected
+
+
+def _ensure_capability_map_current() -> tuple[dict[str, Any], str | None]:
+    """Load the validated-registry projection, regenerating it on source drift.
+
+    The subprocess only runs when exact source hashes differ. Failure is soft:
+    callers receive the last readable projection plus a warning, so the
+    backoffice remains usable when Node/npm is temporarily unavailable.
+    """
+    current = _load_json(_facade().CAPABILITY_MAP_PATH) or {}
+    required_views = (
+        isinstance(current.get("dossiers"), list)
+        and isinstance(current.get("groups"), dict)
+        and isinstance(current.get("f2Policy"), dict)
+    )
+    if required_views and not _capability_map_is_stale(current):
+        return current, None
+
+    ok, output = _run_capability_map_write()
+    if ok:
+        refreshed = _load_json(_facade().CAPABILITY_MAP_PATH) or {}
+        if (
+            isinstance(refreshed.get("dossiers"), list)
+            and isinstance(refreshed.get("groups"), dict)
+            and isinstance(refreshed.get("f2Policy"), dict)
+            and not _capability_map_is_stale(refreshed)
+        ):
+            return refreshed, None
+        output = output + "\nGeneratorn avslutades grönt men projektionen är fortfarande ofullständig."
+    return current, (
+        "Systemkartan kunde inte synkas från runtime-registret. Visar senast "
+        "sparade projektion; kör `npm run dossiers:capability-map:write`.\n\n"
+        + output[-2000:]
+    )
+
+
+def _render_dossier_flash() -> None:
+    flash = st.session_state.pop("_dossier_flash", None)
+    if not isinstance(flash, dict):
+        return
+    renderer = st.success if flash.get("kind") == "success" else st.info
+    renderer(str(flash.get("message") or "Klart."))
+
+
+def _rerun_after_dossier_mutation(message: str) -> None:
+    """Make all tabs observe a successful mutation in the same interaction."""
+    st.session_state["_dossier_flash"] = {"kind": "success", "message": message}
+    st.cache_data.clear()
+    st.rerun()
 
 
 
