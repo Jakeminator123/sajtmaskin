@@ -29,10 +29,13 @@ function completedStateFromReview(state, review, reviewComments, now) {
     const marker = decodeMarker(comment.body, FINDING_MARKER_PREFIX);
     if (marker?.findingId) commentIds.set(marker.findingId, comment.id);
   }
+  const at = now.toISOString();
   return {
     ...state,
     firstReviewedHeadSha: snapshot.headSha,
-    latestProcessedHeadSha: state.latestProcessedHeadSha ?? snapshot.headSha,
+    // Always take the published review's head — recovery must not leave a
+    // sticky incomplete lastRun that reclaim logic treats as retryable.
+    latestProcessedHeadSha: snapshot.headSha,
     exhaustiveReviewCompleted: true,
     totalRunCount: Math.max(1, state.totalRunCount),
     findings: snapshot.findings.map((finding) => ({
@@ -40,7 +43,14 @@ function completedStateFromReview(state, review, reviewComments, now) {
       originalCommentId: commentIds.get(finding.id) ?? finding.originalCommentId ?? null,
     })),
     github: { ...state.github, exhaustiveReviewId: review.id },
-    updatedAt: now.toISOString(),
+    updatedAt: at,
+    lastRun: {
+      kind: "exhaustive",
+      headSha: snapshot.headSha,
+      status: "completed",
+      at,
+      error: null,
+    },
   };
 }
 
@@ -117,6 +127,7 @@ async function loadAndReconcileState({ github, pr, now }) {
   if (stateComment) {
     state = { ...state, github: { ...state.github, stateCommentId: stateComment.id } };
   }
+  let dirty = false;
 
   const exhaustiveReview = reviews.find(
     (review) =>
@@ -124,11 +135,36 @@ async function loadAndReconcileState({ github, pr, now }) {
   );
   if (exhaustiveReview && !state.exhaustiveReviewCompleted) {
     state = completedStateFromReview(state, exhaustiveReview, reviewComments, now);
+    dirty = true;
   } else if (exhaustiveReview) {
+    const before = state;
     state = enrichFindingCommentIds(state, reviewComments);
+    // Heal sticky incomplete lastRun when the exhaustive review already exists
+    // (state comment may still say running/failed after a mid-persist crash).
+    if (state.lastRun?.status !== "completed") {
+      const snapshot = decodeMarker(exhaustiveReview.body, EXHAUSTIVE_MARKER_PREFIX);
+      const headSha = snapshot?.headSha ?? state.latestProcessedHeadSha ?? pr.headSha;
+      const at = now.toISOString();
+      state = {
+        ...state,
+        latestProcessedHeadSha: state.latestProcessedHeadSha ?? headSha,
+        lastRun: {
+          kind: state.lastRun?.kind ?? "exhaustive",
+          headSha,
+          status: "completed",
+          at,
+          error: null,
+        },
+      };
+      dirty = true;
+    } else if (state !== before) {
+      dirty = true;
+    }
   }
+  const beforeFollowUps = state;
   state = applyRecoveredFollowUps(state, comments);
-  return { state, comments, reviews, reviewComments };
+  if (state !== beforeFollowUps) dirty = true;
+  return { state, dirty, comments, reviews, reviewComments };
 }
 
 async function persistState(github, state) {
@@ -262,6 +298,11 @@ export async function runReviewAutomation({ github, model, prNumber, now = new D
 
   const reconciled = await loadAndReconcileState({ github, pr, now });
   let state = reconciled.state;
+  if (reconciled.dirty) {
+    // Persist recovery heals even when we skip a model run, so sticky
+    // lastRun=running cannot reopen the same head on the next event.
+    state = await persistState(github, state);
+  }
   const decision = decideReview({ pr, state });
   if (decision.kind === "skip") return decision;
 

@@ -155,6 +155,33 @@ describe("PR review automation integration", () => {
     });
   });
 
+  it("heals sticky incomplete lastRun from a published exhaustive review", async () => {
+    const harness = createHarness();
+    await runReviewAutomation({ github: harness.github, model: harness.model, prNumber: 88 });
+    const stateComment = harness.issueComments.find((comment) => parseStateComment(comment.body));
+    if (!stateComment) throw new Error("state missing");
+    const broken = {
+      ...currentState(harness),
+      latestProcessedHeadSha: null,
+      lastRun: {
+        kind: "exhaustive",
+        headSha: harness.pr.headSha,
+        status: "running",
+        at: "2026-08-11T12:00:00.000Z",
+        error: null,
+      },
+    };
+    stateComment.body = renderStateComment(broken);
+
+    await runReviewAutomation({ github: harness.github, model: harness.model, prNumber: 88 });
+    expect(harness.calls).toEqual({ exhaustive: 1, followUp: 0 });
+    expect(currentState(harness)).toMatchObject({
+      exhaustiveReviewCompleted: true,
+      latestProcessedHeadSha: harness.pr.headSha,
+      lastRun: { status: "completed" },
+    });
+  });
+
   it("uses later synchronize events only for existing findings", async () => {
     const harness = createHarness();
     await runReviewAutomation({ github: harness.github, model: harness.model, prNumber: 88 });
