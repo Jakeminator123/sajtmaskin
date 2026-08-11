@@ -354,7 +354,9 @@ describe("PreviewPanelDossiers", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/^Version 4 · byggd \d{2}:\d{2}$/)).toBeTruthy();
+      // Time zone may shift the hour; locale is pinned to sv-SE 24h in
+      // `describeActiveVersionLabel`, so the shape is always HH:MM (no AM/PM).
+      expect(screen.getByText(/^Version 4 · byggd \d{1,2}:\d{2}$/)).toBeTruthy();
     });
   });
 

@@ -59,7 +59,13 @@ export function describeActiveVersionLabel(
   if (meta?.createdAt) {
     const date = meta.createdAt instanceof Date ? meta.createdAt : new Date(meta.createdAt);
     if (!Number.isNaN(date.getTime())) {
-      timeLabel = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      // Pin `sv-SE` + 24h so CI (often en-US → "12:32 PM") and local both
+      // render the same shape. The UI around this label is Swedish already.
+      timeLabel = date.toLocaleTimeString("sv-SE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
     }
   }
   if (versionLabel && timeLabel) return `${versionLabel} · byggd ${timeLabel}`;
