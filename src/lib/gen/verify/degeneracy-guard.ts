@@ -135,12 +135,12 @@ function byteLength(value: string): number {
 
 export interface DegeneracyDetectionOptions {
   /**
-   * Paths whose content is byte-identical with the base version. Inherited
-   * content is not this round's output, so the self-repetition heuristic must
-   * not fail the round over it — otherwise one bad version bricks every later
-   * follow-up and the user can never edit their way out (prod chat f98fd5c0).
-   * The SIZE ceilings deliberately ignore provenance: they mirror what the
-   * preview host will accept, and it refuses an oversized payload either way.
+   * @deprecated Ignored by `detectDegenerateFiles` since 2026-08-11.
+   * Skipping repetition for base-identical paths let a blocked degenerate file
+   * "wash clean" on the next follow-up that left it untouched (`preservePaths`
+   * → heuristic skipped → preview unblocked). Lockfiles still skip repetition
+   * via `isGeneratedLockfile`. Call sites may still pass this for
+   * `capDegeneratePayload`, which uses it when stubbing.
    */
   preservePaths?: ReadonlySet<string>;
 }
@@ -152,7 +152,7 @@ export interface DegeneracyDetectionOptions {
 export function detectDegenerateFiles(
   files: ReadonlyArray<{ path?: unknown; content?: unknown; language?: unknown }>,
   thresholds: DegeneracyThresholds = DEFAULT_DEGENERACY_THRESHOLDS,
-  options: DegeneracyDetectionOptions = {},
+  _options: DegeneracyDetectionOptions = {},
 ): DegeneracyResult {
   if (!Array.isArray(files) || files.length === 0) return CLEAN;
   let totalSourceBytes = 0;
@@ -202,6 +202,26 @@ export function detectDegenerateFiles(
       continue;
     }
 
+    // Lockfiles are template/tooling artifacts, not model source: per-file
+    // ceiling matches preview-host `MAX_FILE_BYTES` (2 MiB), they do not count
+    // toward the source-project budget, and their repeated peer-range lines
+    // must not trip the self-repetition heuristic (prod chat f98fd5c0).
+    if (isGeneratedLockfile(path)) {
+      if (sizeBytes > thresholds.maxBinaryAssetBytes) {
+        return {
+          degenerate: true,
+          reason: `Lockfile ${path || "(unknown)"} is ${Math.round(sizeBytes / 1024)} KB, over the ${Math.round(
+            thresholds.maxBinaryAssetBytes / 1024,
+          )} KB file ceiling (the preview host refuses the payload above this).`,
+          file: path || null,
+          sizeBytes,
+          repeatedLine: null,
+          repeatCount: null,
+        };
+      }
+      continue;
+    }
+
     totalSourceBytes += sizeBytes;
     if (totalSourceBytes > thresholds.maxTotalProjectBytes) {
       return {
@@ -228,10 +248,9 @@ export function detectDegenerateFiles(
       };
     }
 
-    // Self-repetition only means "model loop" for content this round produced,
-    // in a format where repeated long lines are abnormal. Lockfiles and
-    // inherited (base-identical) files are neither.
-    if (isGeneratedLockfile(path) || options.preservePaths?.has(path)) continue;
+    // Self-repetition = model loop. Lockfiles handled above. `preservePaths` is
+    // intentionally NOT skipped here: an unchanged but still-degenerate file
+    // must keep blocking preview (otherwise one follow-up "washes" it clean).
 
     const counts = new Map<string, number>();
     for (const rawLine of content.split("\n")) {
