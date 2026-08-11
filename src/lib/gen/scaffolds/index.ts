@@ -21,6 +21,7 @@ export {
   matchScaffold,
   matchScaffoldAuto,
   scaffoldForExplicitIntent,
+  scaffoldForIntent,
 } from "./matcher";
 export type {
   ScaffoldSelectionConfidence,

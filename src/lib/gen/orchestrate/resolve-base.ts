@@ -4,13 +4,14 @@
  * from `src/lib/gen/orchestrate.ts` (structural split, no behavior change).
  */
 import { detectCapabilityRemoval } from "@/lib/builder/follow-up-capability-removal";
-import type { BuildIntent } from "@/lib/builder/build-intent";
+import { isAppScaffold, type BuildIntent } from "@/lib/builder/build-intent";
 import { buildScaffoldQueryContext } from "./scaffold-query-context";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import {
   getScaffoldById,
   matchScaffoldAuto,
   scaffoldForExplicitIntent,
+  scaffoldForIntent,
   type ScaffoldSelectionMeta,
 } from "../scaffolds";
 import {
@@ -288,8 +289,11 @@ export async function resolveOrchestrationBase(
         scaffoldSelection = {
           ...scaffoldSelection,
           selectedScaffold: intentSafeScaffold?.id ?? null,
-          selectionMethod: "keyword",
-          selectionConfidence: "medium",
+          selectionMethod: "default",
+          selectionConfidence: "low",
+          topCandidates: intentSafeScaffold
+            ? [{ id: intentSafeScaffold.id, score: 0, source: "keyword" }]
+            : [],
         };
       }
     }
@@ -376,7 +380,44 @@ export async function resolveOrchestrationBase(
   const intentPromotionBlockedForFollowUp =
     intentPromotionDecision.blockedForFollowUp;
   const intentPromoted = intentPromotionDecision.promoted;
-  const effectiveBuildIntent: BuildIntent = intentPromoted ? "app" : buildIntent;
+  // Intentional Byggval exception documented in the glossary: a manually
+  // pinned app scaffold wins over a conflicting website target. Production
+  // callers already normalize this pair via `resolveBuildIntentWithScaffold`,
+  // but keep the orchestration boundary honest for direct/manipulated input.
+  const intentPromotedByManualScaffold =
+    buildIntent === "website" &&
+    scaffoldMode === "manual" &&
+    isAppScaffold(resolvedScaffold?.id);
+  const effectiveBuildIntent: BuildIntent =
+    intentPromoted || intentPromotedByManualScaffold ? "app" : buildIntent;
+
+  // Final server-side truth: manual ids, persisted ids, follow-up freeze and
+  // auto selection all converge here, after website→app promotion has resolved
+  // the effective intent. No downstream route/build-spec/serialization stage
+  // may observe a scaffold whose manifest rejects that intent.
+  const intentCompatibleScaffold = scaffoldForIntent(
+    resolvedScaffold,
+    effectiveBuildIntent,
+  );
+  if (intentCompatibleScaffold?.id !== resolvedScaffold?.id) {
+    console.info("[scaffold] scaffold_rejected_for_effective_intent", {
+      chatId: input.chatId ?? null,
+      effectiveBuildIntent,
+      rejectedScaffoldId: resolvedScaffold?.id ?? null,
+      fallbackScaffoldId: intentCompatibleScaffold?.id ?? null,
+      selectionMethod: scaffoldSelection.selectionMethod,
+    });
+    resolvedScaffold = intentCompatibleScaffold;
+    scaffoldSelection = {
+      ...scaffoldSelection,
+      selectedScaffold: intentCompatibleScaffold?.id ?? null,
+      selectionMethod: "default",
+      selectionConfidence: "low",
+      topCandidates: intentCompatibleScaffold
+        ? [{ id: intentCompatibleScaffold.id, score: 0, source: "keyword" }]
+        : [],
+    };
+  }
 
   if (intentPromotionBlockedForFollowUp) {
     console.info("[orchestrate] intent_promotion_blocked_followup", {
@@ -396,6 +437,15 @@ export async function resolveOrchestrationBase(
       scaffoldId: resolvedScaffold?.id,
       scaffoldConfidence: scaffoldSelection.selectionConfidence,
       reason: "Auto-selected app scaffold implies app intent for route planning and downstream context",
+    });
+  }
+
+  if (intentPromotedByManualScaffold) {
+    console.info("[orchestrate] build_intent_promoted_by_manual_scaffold", {
+      from: buildIntent,
+      to: effectiveBuildIntent,
+      scaffoldId: resolvedScaffold?.id,
+      reason: "A manually pinned app scaffold overrides a conflicting website target",
     });
   }
 

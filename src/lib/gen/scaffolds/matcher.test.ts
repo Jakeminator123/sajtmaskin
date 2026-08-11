@@ -6,6 +6,7 @@ vi.mock("./scaffold-search", () => ({
 
 import { searchScaffoldsWithDiagnostics } from "./scaffold-search";
 import { getScaffoldById } from "./registry";
+import { inferCapabilities } from "../capability-inference";
 import { matchScaffold, matchScaffoldAuto } from "./matcher";
 
 const mockedSearchScaffoldsWithDiagnostics = vi.mocked(searchScaffoldsWithDiagnostics);
@@ -56,6 +57,16 @@ describe("matchScaffold", () => {
       "Bygg en webshop för en restaurang som säljer produkter online med varukorg och checkout.";
 
     expect(matchScaffold(prompt, "website")?.id).toBe("ecommerce");
+  });
+
+  it("does not select a website-only ecommerce scaffold for app intent", () => {
+    const result = matchScaffold(
+      "Bygg en webshop med produkter, varukorg, checkout och orderhantering.",
+      "app",
+    );
+
+    expect(result?.allowedBuildIntents).toContain("app");
+    expect(result?.id).toBe("app-shell");
   });
 
   it("does not over-promote generic company gallery sites to portfolio", () => {
@@ -127,6 +138,20 @@ describe("matchScaffold", () => {
       "website",
     );
     expect(result?.id).not.toBe("base-nextjs");
+  });
+
+  it("does not let a capability boost promote a gaming-news portal to app", async () => {
+    const prompt = "Bygg en gaming news portal med recensioner";
+    const result = await matchScaffoldAuto(prompt, "website", {
+      useEmbeddings: false,
+      capabilities: inferCapabilities(prompt),
+    });
+
+    expect(result.meta.keywordScores["app-shell"]).toBeGreaterThanOrEqual(2);
+    expect(result.scaffold?.allowedBuildIntents).toContain("website");
+    expect(result.scaffold?.id).not.toBe("app-shell");
+    expect(result.meta.selectedScaffold).toBe(result.scaffold?.id);
+    expect(result.meta.topCandidates.some((candidate) => candidate.id === "app-shell")).toBe(false);
   });
 
   it("does NOT reroute a 'tv-spel butik' retail prompt to base-nextjs", () => {
@@ -248,6 +273,26 @@ describe("matchScaffold", () => {
     expect(result.meta.keywordScores["auth-pages"]).toBeGreaterThanOrEqual(2);
   });
 
+  it("uses the capability-boosted ranking for both selection and diagnostics", async () => {
+    const capabilities = {
+      ...inferCapabilities(""),
+      needsEcommerce: true,
+    };
+
+    const result = await matchScaffoldAuto(
+      "Skapa login och signup för en webshop.",
+      "website",
+      { useEmbeddings: false, capabilities },
+    );
+
+    expect(result.meta.keywordScores.ecommerce).toBeGreaterThan(
+      result.meta.keywordScores["auth-pages"],
+    );
+    expect(result.scaffold?.id).toBe("ecommerce");
+    expect(result.meta.selectedScaffold).toBe(result.scaffold?.id);
+    expect(result.meta.topCandidates[0]?.id).toBe(result.scaffold?.id);
+  });
+
   it("does not let embedding pick portfolio when buildIntent is app", async () => {
     const portfolio = getScaffoldById("portfolio");
     expect(portfolio).toBeTruthy();
@@ -269,6 +314,85 @@ describe("matchScaffold", () => {
     );
 
     expect(result.scaffold?.id).not.toBe("portfolio");
+  });
+
+  it("does not let one raw dashboard signal promote implicit website intent", async () => {
+    const dashboard = getScaffoldById("dashboard");
+    expect(dashboard).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [{ scaffold: dashboard!, score: 0.92 }],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 8,
+      },
+    });
+
+    const result = await matchScaffoldAuto("Bygg en hemsida med dashboard.", "website");
+
+    expect(result.scaffold?.id).toBe("landing-page");
+    expect(result.meta.selectionMethod).toBe("default");
+    expect(result.meta.embeddingTopResult).toBeNull();
+    expect(result.meta.topCandidates.some((candidate) => candidate.id === "dashboard")).toBe(false);
+  });
+
+  it("allows a strong embedding to promote website after two raw app signals", async () => {
+    const dashboard = getScaffoldById("dashboard");
+    expect(dashboard).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [{ scaffold: dashboard!, score: 0.92 }],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 8,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Bygg en hemsida med dashboard och workspace.",
+      "website",
+    );
+
+    expect(result.scaffold?.id).toBe("dashboard");
+    expect(result.meta.selectionMethod).toBe("embedding");
+    expect(result.meta.embeddingTopResult).toEqual({ id: "dashboard", score: 0.92 });
+  });
+
+  it("skips an ineligible embedding result and evaluates the next eligible candidate", async () => {
+    const ecommerce = getScaffoldById("ecommerce");
+    const appShell = getScaffoldById("app-shell");
+    expect(ecommerce).toBeTruthy();
+    expect(appShell).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [
+        { scaffold: ecommerce!, score: 0.91 },
+        { scaffold: appShell!, score: 0.72 },
+      ],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 10,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Bygg en app med workspace, portal och inställningar.",
+      "app",
+    );
+
+    expect(result.scaffold?.id).toBe("app-shell");
+    expect(result.meta.selectedScaffold).toBe(result.scaffold?.id);
+    expect(result.meta.embeddingTopResult?.id).toBe("app-shell");
+    expect(result.meta.topCandidates.some((candidate) => candidate.id === "ecommerce")).toBe(false);
   });
 
   it("reports selectionMethod=agreement when keyword and embedding converge on the same scaffold", async () => {
