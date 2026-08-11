@@ -3,7 +3,6 @@ import {
   getVariantsForScaffold,
   getVariantById,
 } from "./registry";
-import { getBlockedVariantIds } from "./eval-blocklist";
 import type { PickScaffoldVariantInput, ScaffoldVariant } from "./types";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
 import {
@@ -121,26 +120,6 @@ export function lockedVariantForFollowUp(
   return variant;
 }
 
-/**
- * Removes variant ids that the eval pipeline flagged as
- * `candidatesForRemoval`. Falls back to the unfiltered list when the
- * blocklist would leave us with zero candidates (safety net so a
- * misconfigured eval can never softlock variant selection).
- */
-function applyEvalBlocklist(
-  variants: ScaffoldVariant[],
-  scaffoldId: string | null | undefined,
-): ScaffoldVariant[] {
-  if (!scaffoldId) return variants;
-  const blocked = getBlockedVariantIds(
-    scaffoldId,
-    variants.map((variant) => variant.id),
-  );
-  if (blocked.size === 0) return variants;
-  const filtered = variants.filter((variant) => !blocked.has(variant.id));
-  return filtered.length > 0 ? filtered : variants;
-}
-
 function hashSeed(value: string): number {
   let hash = 5381;
   for (let i = 0; i < value.length; i += 1) {
@@ -251,9 +230,8 @@ function scoreVariant(
 export function pickScaffoldVariant(
   input: PickScaffoldVariantInput,
 ): ScaffoldVariant | null {
-  const allVariants = getVariantsForScaffold(input.scaffoldId);
-  if (allVariants.length === 0) return null;
-  const variants = applyEvalBlocklist(allVariants, input.scaffoldId);
+  const variants = getVariantsForScaffold(input.scaffoldId);
+  if (variants.length === 0) return null;
 
   const promptLower = input.prompt.toLowerCase();
   const styleKeywordsLower = (input.styleKeywords ?? []).map((value) => value.toLowerCase());
@@ -350,9 +328,8 @@ export interface PickScaffoldVariantAsyncOptions extends PickScaffoldVariantInpu
 export async function pickScaffoldVariantAsync(
   input: PickScaffoldVariantAsyncOptions,
 ): Promise<ScaffoldVariant | null> {
-  const allVariants = getVariantsForScaffold(input.scaffoldId);
-  if (allVariants.length === 0) return null;
-  const variants = applyEvalBlocklist(allVariants, input.scaffoldId);
+  const variants = getVariantsForScaffold(input.scaffoldId);
+  if (variants.length === 0) return null;
 
   const embeddingsFile = await loadVariantEmbeddings();
   if (!embeddingsFile) return pickScaffoldVariant(input);

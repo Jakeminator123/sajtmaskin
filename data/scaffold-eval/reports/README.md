@@ -2,6 +2,9 @@
 
 Lokala JSON-rapporter från scaffold-/variant-eval. **Inte i git** (gitignorerade).
 
+Rapporterna är eval-evidens, inte runtime-policy. Variantmatchern läser aldrig
+den här mappen; kandidatpoolen kommer alltid från det committade variantregistret.
+
 | Körning | Output |
 |---|---|
 | `npm run scaffolds:eval` | `scaffold-selection-latest.json` (+ timestampad kopia) |

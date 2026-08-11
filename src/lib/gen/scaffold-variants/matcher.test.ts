@@ -1,11 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   buildKeywordWordPattern,
   lockedVariantForFollowUp,
   pickScaffoldVariant,
+  pickScaffoldVariantAsync,
 } from "./matcher";
 import { getVariantsForScaffold } from "./registry";
+import * as embeddingsStorage from "@/lib/gen/embeddings/embeddings-storage";
 
 describe("pickScaffoldVariant", () => {
   it("picks corporate-grid when the prompt carries strong b2b/consulting keywords", () => {
@@ -146,6 +150,66 @@ describe("pickScaffoldVariant — tie-break vid nollpoäng", () => {
       sessionSeed: "stable-seed",
     });
     expect(first?.id).toBe(second?.id);
+  });
+
+  it("keeps a previously report-blocked variant in the sync candidate pool", () => {
+    const picked = pickScaffoldVariant({
+      prompt:
+        "Asymmetric stack with vertical scroll-rhythm, typography-led off-grid handmade sections",
+      scaffoldId: "landing-page",
+      generationMode: "init",
+      sessionSeed: "runtime-policy-sync",
+    });
+
+    expect(picked?.id).toBe("asymmetric-stack");
+  });
+});
+
+describe("variant candidate authority", () => {
+  it("forbids local eval-report dependencies in the runtime matcher", () => {
+    const matcherSource = readFileSync(
+      resolve(process.cwd(), "src/lib/gen/scaffold-variants/matcher.ts"),
+      "utf-8",
+    );
+
+    expect(matcherSource).not.toMatch(
+      /eval-blocklist|getBlockedVariantIds|scaffold-eval[\\/]reports|candidatesForRemoval/,
+    );
+  });
+
+  it("keeps the full committed pool in the async embedding path", async () => {
+    const variants = getVariantsForScaffold("landing-page");
+    const targetId = "asymmetric-stack";
+    const loadSpy = vi.spyOn(embeddingsStorage, "loadEmbeddingsArtifact").mockResolvedValue({
+      _meta: {
+        model: "test-embedding-model",
+        dimensions: 2,
+        generated: "2026-08-11T00:00:00.000Z",
+        count: variants.length,
+      },
+      embeddings: variants.map((variant) => ({
+        id: variant.id,
+        scaffoldId: variant.scaffoldId,
+        embedding: variant.id === targetId ? [1, 0] : [0, 1],
+      })),
+    });
+
+    try {
+      const picked = await pickScaffoldVariantAsync({
+        // Keyword fallback would pick corporate-grid, so this assertion also
+        // proves that queryVector + the embedding candidate path were used.
+        prompt: "Professional B2B consulting and enterprise services",
+        scaffoldId: "landing-page",
+        generationMode: "init",
+        sessionSeed: "runtime-policy-async",
+        queryVector: [1, 0],
+      });
+
+      expect(picked?.id).toBe(targetId);
+      expect(loadSpy).toHaveBeenCalledWith("variant");
+    } finally {
+      loadSpy.mockRestore();
+    }
   });
 });
 

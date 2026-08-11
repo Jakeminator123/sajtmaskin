@@ -13,9 +13,9 @@
  * `config/scaffold-variants/_index/variant-embeddings.json` cache is
  * unavailable).
  *
- * Output: `data/scaffold-eval/reports/landing-page-variant-latest.json` (the
- * filename `eval-blocklist.ts` reads — see `variantEvalReportFileName`) and a
- * timestamped sibling for diffing across runs.
+ * Output: `data/scaffold-eval/reports/landing-page-variant-latest.json` and a
+ * timestamped sibling for diffing across runs. Reports are local eval evidence;
+ * runtime variant selection never reads them or treats them as policy.
  */
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -23,7 +23,6 @@ import {
   getVariantsForScaffold,
   pickScaffoldVariantAsync,
 } from "@/lib/gen/scaffold-variants";
-import { variantEvalReportFileName } from "@/lib/gen/scaffold-variants/eval-blocklist";
 
 const SCAFFOLD_ID = "landing-page";
 
@@ -173,8 +172,7 @@ async function main() {
 
   const reportDir = path.join(repoRoot, "data", "scaffold-eval", "reports");
   await fs.mkdir(reportDir, { recursive: true });
-  // Filnamnet ÄR kontraktet mot `eval-blocklist.ts` — därav den delade helpern.
-  const latestPath = path.join(reportDir, variantEvalReportFileName(SCAFFOLD_ID));
+  const latestPath = path.join(reportDir, `${SCAFFOLD_ID}-variant-latest.json`);
   const stampedPath = path.join(
     reportDir,
     `${SCAFFOLD_ID}-variant-${report.timestamp.replace(/[:.]/g, "-")}.json`,
