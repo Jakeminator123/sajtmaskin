@@ -109,8 +109,8 @@ export interface ScaffoldManifest {
  * Metadata-light projection of the registry for client bundles: importing
  * `registry.ts` would pull every scaffold's `files` into the browser.
  *
- * `allowedBuildIntents` is mirrored from each manifest so Byggval can filter the
- * "Typ av sajt" chips by the chosen Hemsida/App target without that import.
+ * `label`, `description` and `allowedBuildIntents` are mirrored from each
+ * manifest so Byggval can render and filter the choices without that import.
  * `scaffold-client-list.test.ts` fails if the mirror drifts from the manifests.
  */
 export const SCAFFOLD_CLIENT_LIST: ReadonlyArray<{
@@ -120,12 +120,12 @@ export const SCAFFOLD_CLIENT_LIST: ReadonlyArray<{
   allowedBuildIntents: ReadonlyArray<"website" | "app" | "template">;
 }> = [
   { id: "base-nextjs", label: "Base Next.js", description: "Minimal Next.js starter with Tailwind, App Router, and dark theme.", allowedBuildIntents: ["website", "template"] },
-  { id: "landing-page", label: "Landing Page", description: "Marketing landing page with hero, services, testimonials, and CTA.", allowedBuildIntents: ["website", "template"] },
-  { id: "saas-landing", label: "SaaS Landing", description: "SaaS marketing site with pricing tiers, features, and trial CTA.", allowedBuildIntents: ["website", "template"] },
-  { id: "portfolio", label: "Portfolio", description: "Creative portfolio with project gallery, case studies, and contact.", allowedBuildIntents: ["website", "template"] },
-  { id: "blog", label: "Blog", description: "Editorial blog with article list, categories, and author pages.", allowedBuildIntents: ["website", "template"] },
-  { id: "dashboard", label: "Dashboard", description: "Analytics dashboard with charts, KPI cards, and data tables.", allowedBuildIntents: ["app"] },
-  { id: "auth-pages", label: "Auth Pages", description: "Authentication pages: sign in, sign up, and password reset.", allowedBuildIntents: ["website", "app", "template"] },
-  { id: "ecommerce", label: "E-handel", description: "E-commerce storefront with product grid, cart, and checkout.", allowedBuildIntents: ["website", "template"] },
-  { id: "app-shell", label: "App Shell", description: "Application shell with sidebar, settings, and workspace layout.", allowedBuildIntents: ["app"] },
+  { id: "landing-page", label: "Landing Page", description: "Polished one-page or multi-section layout for local businesses, service companies, and product launches.", allowedBuildIntents: ["website", "template"] },
+  { id: "saas-landing", label: "SaaS Landing", description: "Product-led marketing starter with feature narrative, dashboard preview, pricing, FAQ, and conversion-ready sections.", allowedBuildIntents: ["website", "template"] },
+  { id: "portfolio", label: "Portfolio", description: "Personal portfolio starter with intro, selected work, writing, credibility, and contact sections.", allowedBuildIntents: ["website", "template"] },
+  { id: "blog", label: "Blog", description: "Content-first blog starter with article list, post layout, author, featured posts, and reading-friendly typography.", allowedBuildIntents: ["website", "template"] },
+  { id: "dashboard", label: "Dashboard", description: "Analytics and overview dashboard with sidebar, stats cards, data tables, and chart placeholders. For admin panels, analytics, and SaaS apps.", allowedBuildIntents: ["app"] },
+  { id: "auth-pages", label: "Auth Pages", description: "Login, signup, and forgot-password pages with form layout, validation-ready structure, and minimal branding.", allowedBuildIntents: ["website", "app", "template"] },
+  { id: "ecommerce", label: "E-handel", description: "Storefront starter with product grid, category filtering, product detail page, cart drawer, and checkout-ready layout.", allowedBuildIntents: ["website", "template"] },
+  { id: "app-shell", label: "App Shell", description: "Operational app shell with sidebar navigation, workspace summaries, queue tables, and execution-focused content areas.", allowedBuildIntents: ["app"] },
 ] as const;

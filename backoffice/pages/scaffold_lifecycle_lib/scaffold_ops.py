@@ -15,6 +15,7 @@ from backoffice.shared import (
     write_text,
 )
 
+from .constants import BUILD_INTENT_OPTIONS
 from .formatting import _unique_preserving_order
 
 from .variants import _prune_variant_embeddings, _neutral_variant_payload
@@ -34,6 +35,110 @@ from .scaffold_text import (
 )
 
 
+def _normalize_allowed_build_intents(values: list[str]) -> list[str]:
+    """Validate and normalize the manifest/client projection intent contract."""
+    normalized = _unique_preserving_order(
+        [str(value).strip() for value in values if str(value).strip()]
+    )
+    if not normalized:
+        raise ValueError("allowedBuildIntents måste innehålla minst ett värde.")
+    invalid = [value for value in normalized if value not in BUILD_INTENT_OPTIONS]
+    if invalid:
+        raise ValueError(
+            "allowedBuildIntents innehåller ogiltiga värden: "
+            + ", ".join(f"`{value}`" for value in invalid)
+            + ". Tillåtna värden är: "
+            + ", ".join(f"`{value}`" for value in BUILD_INTENT_OPTIONS)
+            + "."
+        )
+    return normalized
+
+
+def _inline_ts_string_array(values: list[str]) -> str:
+    return "[" + ", ".join(f'"{_escape_ts_string(value)}"' for value in values) + "]"
+
+
+def _scaffold_projection_conflicts(
+    *,
+    scaffold_id: str,
+    types_text: str,
+    registry_text: str,
+    locale_text: str,
+) -> list[str]:
+    """Return stale projections that make a create operation unsafe."""
+    escaped_id = re.escape(scaffold_id)
+    export_name = _scaffold_export_name(scaffold_id)
+    conflicts: list[str] = []
+    if re.search(
+        rf'^\s*\|\s*"{escaped_id}"\s*;?\s*$', types_text, flags=re.MULTILINE
+    ):
+        conflicts.append("ScaffoldId")
+    if re.search(rf'\bid:\s*"{escaped_id}"', types_text):
+        conflicts.append("SCAFFOLD_CLIENT_LIST")
+    if (
+        re.search(rf'from\s+"\./{escaped_id}/manifest"', registry_text)
+        or re.search(rf"\b{re.escape(export_name)}\b", registry_text)
+    ):
+        conflicts.append("registry.ts")
+    if re.search(rf'"{escaped_id}"\s*:', locale_text):
+        conflicts.append("scaffold-embedding-locale.ts")
+    return conflicts
+
+
+def _insert_client_list_entry_text(text: str, client_entry: str) -> str:
+    """Insert one row into the exact SCAFFOLD_CLIENT_LIST array or fail closed."""
+    start_pattern = re.compile(
+        r"export const SCAFFOLD_CLIENT_LIST:\s*ReadonlyArray<.*?>\s*=\s*\[\r?\n",
+        flags=re.DOTALL,
+    )
+    starts = list(start_pattern.finditer(text))
+    if len(starts) != 1:
+        raise ValueError(
+            "Kunde inte hitta exakt en SCAFFOLD_CLIENT_LIST i types.ts. "
+            "Ingen fil ändrades."
+        )
+    end_match = re.compile(
+        r"^\s*\](?:\s+as const)?;\s*$", flags=re.MULTILINE
+    ).search(text, starts[0].end())
+    if end_match is None or end_match.group(0).strip() != "] as const;":
+        raise ValueError(
+            "Kunde inte hitta exakt ett giltigt SCAFFOLD_CLIENT_LIST-slut i types.ts. "
+            "Ingen fil ändrades."
+        )
+    return (
+        text[: end_match.start()]
+        + client_entry
+        + text[end_match.start() :]
+    )
+
+
+def _update_client_list_allowed_build_intents_text(
+    text: str,
+    scaffold_id: str,
+    allowed_build_intents: list[str],
+) -> str:
+    """Update one existing SCAFFOLD_CLIENT_LIST row or fail before writing."""
+    intents = _normalize_allowed_build_intents(allowed_build_intents)
+    pattern = re.compile(
+        rf'^(?P<prefix>\s*\{{\s*id:\s*"{re.escape(scaffold_id)}"\s*,.*?'
+        rf'allowedBuildIntents:\s*)\[[^\]]*\](?P<suffix>\s*\}},\s*)$',
+        flags=re.MULTILINE,
+    )
+    updated, count = pattern.subn(
+        lambda match: (
+            f"{match.group('prefix')}{_inline_ts_string_array(intents)}"
+            f"{match.group('suffix')}"
+        ),
+        text,
+    )
+    if count != 1:
+        raise ValueError(
+            "Kunde inte hitta exakt en SCAFFOLD_CLIENT_LIST-post för "
+            f"`{scaffold_id}` i types.ts. Ingen fil ändrades."
+        )
+    return updated
+
+
 
 def _update_types_for_created_scaffold(
     ctx: BackofficeContext,
@@ -41,17 +146,31 @@ def _update_types_for_created_scaffold(
     scaffold_id: str,
     label: str,
     description: str,
+    allowed_build_intents: list[str],
 ) -> None:
+    intents = _normalize_allowed_build_intents(allowed_build_intents)
     path = _types_path(ctx)
     text = read_text(path)
+    conflicts = _scaffold_projection_conflicts(
+        scaffold_id=scaffold_id,
+        types_text=text,
+        registry_text="",
+        locale_text="",
+    )
+    if conflicts:
+        raise ValueError(
+            f"Scaffold `{scaffold_id}` finns redan i "
+            + ", ".join(conflicts)
+            + ". Ingen fil ändrades."
+        )
     updated = _upsert_scaffold_union_entry(text, scaffold_id)
     client_entry = (
         f'  {{ id: "{_escape_ts_string(scaffold_id)}", '
         f'label: "{_escape_ts_string(label)}", '
-        f'description: "{_escape_ts_string(description)}" }},\n'
+        f'description: "{_escape_ts_string(description)}", '
+        f'allowedBuildIntents: {_inline_ts_string_array(intents)} }},\n'
     )
-    if f'id: "{scaffold_id}"' not in updated:
-        updated = updated.replace("] as const;", f"{client_entry}] as const;", 1)
+    updated = _insert_client_list_entry_text(updated, client_entry)
     if updated != text:
         write_text(path, updated)
 
@@ -179,6 +298,7 @@ def _create_scaffold(
     upgrade_targets: list[str],
     create_start_variant: bool,
 ) -> None:
+    allowed_build_intents = _normalize_allowed_build_intents(allowed_build_intents)
     scaffold_dir = _scaffold_dir(ctx, scaffold_id)
     variant_dir = ctx.variants_dir / scaffold_id
     if scaffold_dir.exists():
@@ -198,6 +318,20 @@ def _create_scaffold(
     schema_path = _variant_schema_path(ctx)
     if schema_path.is_file():
         originals[schema_path] = read_text(schema_path)
+
+    projection_conflicts = _scaffold_projection_conflicts(
+        scaffold_id=scaffold_id,
+        types_text=originals[_types_path(ctx)],
+        registry_text=originals[_registry_path(ctx)],
+        locale_text=originals[_embedding_locale_path(ctx)],
+    )
+    if projection_conflicts:
+        raise ValueError(
+            f"Scaffold `{scaffold_id}` har kvar en projektion i "
+            + ", ".join(projection_conflicts)
+            + ". Rensa den gamla projektionen innan scaffolden skapas. Ingen fil ändrades."
+        )
+    _insert_client_list_entry_text(originals[_types_path(ctx)], "")
 
     try:
         scaffold_dir.mkdir(parents=True, exist_ok=False)
@@ -226,6 +360,7 @@ def _create_scaffold(
             scaffold_id=scaffold_id,
             label=label,
             description=description,
+            allowed_build_intents=allowed_build_intents,
         )
         _update_registry_for_created_scaffold(ctx, scaffold_id)
         _update_embedding_locale_for_created_scaffold(
@@ -249,13 +384,29 @@ def _create_scaffold(
                     tags=tags,
                 ),
             )
-    except Exception:
+    except Exception as error:
+        rollback_errors: list[str] = []
         for path, original in originals.items():
-            write_text(path, original)
+            try:
+                write_text(path, original)
+            except Exception as rollback_error:
+                rollback_errors.append(f"restore {path}: {rollback_error}")
         if variant_dir.is_dir():
-            shutil.rmtree(variant_dir)
+            try:
+                shutil.rmtree(variant_dir)
+            except Exception as rollback_error:
+                rollback_errors.append(f"remove {variant_dir}: {rollback_error}")
         if scaffold_dir.is_dir():
-            shutil.rmtree(scaffold_dir)
+            try:
+                shutil.rmtree(scaffold_dir)
+            except Exception as rollback_error:
+                rollback_errors.append(f"remove {scaffold_dir}: {rollback_error}")
+        if rollback_errors:
+            raise RuntimeError(
+                f"Scaffold-skapandet misslyckades ({error}). "
+                "Rollbacken fick dessutom fel: "
+                + "; ".join(rollback_errors)
+            ) from error
         raise
 
 

@@ -55,6 +55,39 @@ describe("validateScaffoldManifest — V2 file-policy fields", () => {
     expect(issues.filter((issue) => issue.severity === "error")).toEqual([]);
   });
 
+  it("rejects an empty allowedBuildIntents list", () => {
+    const scaffold = fixtureScaffold();
+    scaffold.allowedBuildIntents = [];
+    const errors = validateScaffoldManifest(scaffold).filter(
+      (issue) => issue.severity === "error",
+    );
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining("allowedBuildIntents"),
+        }),
+      ]),
+    );
+  });
+
+  it("rejects unknown allowedBuildIntents values", () => {
+    const scaffold = fixtureScaffold();
+    scaffold.allowedBuildIntents = [
+      "website",
+      "other" as unknown as ScaffoldManifest["allowedBuildIntents"][number],
+    ];
+    const errors = validateScaffoldManifest(scaffold).filter(
+      (issue) => issue.severity === "error",
+    );
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining("invalid values: other"),
+        }),
+      ]),
+    );
+  });
+
   it("flags an invalid role value", () => {
     const scaffold = fixtureScaffold();
     scaffold.files[3] = {
