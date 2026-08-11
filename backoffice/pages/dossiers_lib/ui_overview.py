@@ -44,9 +44,6 @@ from .constants import (
     REQUIRED_FIELDS,
     VALIDATE_MANIFEST_TS_PATH,
     _KEBAB_RE,
-    CLASS_LABELS,
-    MOCK_LABELS,
-    _MOCKLESS_FALLBACK,
     _COMPLEXITY_FALLBACK,
     _MOCK_FALLBACK,
     _ALLOWED_ENFORCEMENT,
@@ -62,7 +59,6 @@ from .labels import (
 )
 
 from .io import (
-    _load_mockless_capability_exceptions,
     _schema_enum,
     _COMPLEXITY_OPTIONS,
     _MOCK_OPTIONS,

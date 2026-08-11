@@ -9,7 +9,6 @@ temporär katalogstruktur med monkeypatchade modulkonstanter.
 from __future__ import annotations
 
 import json
-import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -298,16 +297,20 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
 
 
 class SwedishLabelCoverageTests(unittest.TestCase):
-    """C6-etikettgrinden: varje `_class`- och `mock`-värde har en svensk
-    etikett (ingen tom sträng). Mock-värdena läses ur strict-schemat så ett
-    nytt enum-värde i schemat fäller testet tills etiketten finns."""
+    """Varje enum-värde i strict-schemat ska ha en etikett i projektionens
+    ``labelsSv``-ordlista (fångar nytt mock-värde utan ord)."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.projection = json.loads(
+            dossiers_page.CAPABILITY_MAP_PATH.read_text(encoding="utf-8")
+        )
+        cls.labels = cls.projection["labelsSv"]
 
     def test_every_class_value_has_swedish_label(self) -> None:
         for klass in ("hard", "soft"):
-            self.assertTrue(
-                dossiers_page.CLASS_LABELS.get(klass, "").strip(),
-                f"_class-värdet {klass!r} saknar svensk etikett",
-            )
+            label = str((self.labels["class"].get(klass) or {}).get("label") or "").strip()
+            self.assertTrue(label, f"_class-värdet {klass!r} saknar svensk etikett i projektionen")
 
     def test_every_mock_enum_value_has_swedish_label(self) -> None:
         schema = json.loads(
@@ -316,21 +319,47 @@ class SwedishLabelCoverageTests(unittest.TestCase):
         mock_values = schema["properties"]["mock"]["enum"]
         self.assertTrue(mock_values)
         for value in mock_values:
+            label = str((self.labels["mock"].get(value) or {}).get("label") or "").strip()
             self.assertTrue(
-                dossiers_page.MOCK_LABELS.get(value, "").strip(),
-                f"mock-värdet {value!r} saknar svensk etikett",
+                label,
+                f"mock-värdet {value!r} saknar svensk etikett i projektionen",
             )
 
     def test_labels_keep_the_technical_value_in_parentheses(self) -> None:
-        self.assertEqual(dossiers_page.class_label("hard"), "Kopplad (hard)")
-        self.assertEqual(dossiers_page.class_label("soft"), "Fristående (soft)")
-        self.assertIn("(seed)", dossiers_page.mock_label("seed"))
+        self.assertEqual(
+            dossiers_page.class_label("hard", projection=self.projection),
+            "Kopplad (hard)",
+        )
+        self.assertEqual(
+            dossiers_page.class_label("soft", projection=self.projection),
+            "Fristående (soft)",
+        )
+        self.assertIn("(seed)", dossiers_page.mock_label("seed", projection=self.projection))
         # Utelämnat mock-fält räknas som `none`, precis som i runtime.
-        self.assertIn("(none)", dossiers_page.mock_label(None))
+        self.assertIn("(none)", dossiers_page.mock_label(None, projection=self.projection))
 
     def test_unknown_values_render_raw_instead_of_guessing(self) -> None:
-        self.assertEqual(dossiers_page.class_label("weird"), "weird")
-        self.assertEqual(dossiers_page.mock_label("weird"), "weird")
+        self.assertEqual(
+            dossiers_page.class_label("weird", projection=self.projection), "weird"
+        )
+        self.assertEqual(
+            dossiers_page.mock_label("weird", projection=self.projection), "weird"
+        )
+
+    def test_missing_projection_falls_back_to_raw_technical_value(self) -> None:
+        empty = {"labelsSv": {}}
+        self.assertEqual(dossiers_page.class_label("hard", projection=empty), "hard")
+        self.assertEqual(dossiers_page.mock_label("seed", projection=empty), "seed")
+        with mock.patch.object(
+            dossiers_page, "CAPABILITY_MAP_PATH", Path("saknas-capability-map.json")
+        ):
+            from backoffice.pages.dossiers_lib import labels as labels_mod
+
+            with mock.patch.object(
+                labels_mod, "CAPABILITY_MAP_PATH", Path("saknas-capability-map.json")
+            ):
+                self.assertEqual(dossiers_page.class_label("hard"), "hard")
+                self.assertEqual(dossiers_page.mock_label("seed"), "seed")
 
     def test_field_labels_cover_the_dossier_form_fields(self) -> None:
         from backoffice.shared import field_label
@@ -348,6 +377,65 @@ class SwedishLabelCoverageTests(unittest.TestCase):
             "lastVerified",
         ):
             self.assertIn(f"(`{key}`)", field_label(key))
+
+
+class ProjectionReaderTests(unittest.TestCase):
+    """Backoffice läser etiketter/policy ur projektionen — saknad etikett ger
+    tydligt fel (rått värde), aldrig tom sträng eller gissad svenska."""
+
+    def test_missing_label_is_raw_not_empty(self) -> None:
+        broken = {"labelsSv": {"class": {"hard": {"label": "   ", "hint": "x"}}}}
+        self.assertEqual(dossiers_page.class_label("hard", projection=broken), "hard")
+        self.assertNotEqual(dossiers_page.class_label("hard", projection=broken), "")
+
+    def test_mockless_exceptions_come_from_policy_node(self) -> None:
+        projection = {
+            "policy": {"mocklessCapabilityExceptions": ["analytics", "extra-cap"]}
+        }
+        self.assertEqual(
+            dossiers_page._load_mockless_capability_exceptions(projection),
+            frozenset({"analytics", "extra-cap"}),
+        )
+
+    def test_broken_policy_is_fail_closed_empty_set(self) -> None:
+        self.assertEqual(
+            dossiers_page._load_mockless_capability_exceptions({"policy": {}}),
+            frozenset(),
+        )
+        self.assertEqual(
+            dossiers_page._load_mockless_capability_exceptions({}),
+            frozenset(),
+        )
+
+    def test_requires_f3_reads_projection_for_saved_dossier(self) -> None:
+        projection = {
+            "dossiers": [
+                {"id": "acme", "buildServerRequirement": True},
+                {"id": "lite", "buildServerRequirement": False},
+            ]
+        }
+        self.assertTrue(
+            dossiers_page.requires_f3({"id": "acme"}, projection=projection)
+        )
+        self.assertFalse(
+            dossiers_page.requires_f3({"id": "lite"}, projection=projection)
+        )
+
+    def test_requires_f3_draft_without_projection_entry_uses_local_rule(self) -> None:
+        # Ospart utkast — id saknas i projektionen ⇒ lokal draft-regel.
+        projection = {"dossiers": []}
+        self.assertTrue(
+            dossiers_page.requires_f3(
+                {"id": "draft-new", "envVars": [{"key": "K"}]},
+                projection=projection,
+            )
+        )
+        self.assertFalse(
+            dossiers_page.requires_f3(
+                {"id": "draft-new", "envVars": [{"key": "K", "enforcement": "warn-only"}]},
+                projection=projection,
+            )
+        )
 
 
 class IsDefaultForCapabilityTests(unittest.TestCase):
@@ -399,37 +487,29 @@ class SchemaEnumParityTests(unittest.TestCase):
             )
 
 
-class MocklessExceptionParityTests(unittest.TestCase):
-    def test_parsed_exceptions_match_canonical_ts_list(self) -> None:
-        # Kanonisk källa: MOCKLESS_CAPABILITY_EXCEPTIONS i
-        # src/lib/gen/dossiers/validate-manifest.ts. Ändras listan där ska
-        # detta test fällas så Python-läsaren verifieras mot nya innehållet.
-        # (error-tracking lämnade listan 2026-08-06 när sentry-error-tracking
-        # parkerades.)
-        self.assertEqual(
-            dossiers_page._load_mockless_capability_exceptions(),
-            frozenset({"analytics"}),
-        )
-
-
 class RequiresF3Tests(unittest.TestCase):
-    """Tredje axeln: kräver byggblocket ett eget F3-steg? Den följer varken av
-    Kopplad/Fristående eller av demoläget — vanligaste felslutet i systemet."""
+    """Tredje axeln för OSPARADE utkast: lokal draft-regel när id saknas i
+    projektionen. Sparade dossiers läses via ``buildServerRequirement`` (se
+    ``ProjectionReaderTests``)."""
 
     def test_build_enforced_key_requires_f3(self) -> None:
         manifest = {"envVars": [{"key": "K", "enforcement": "build"}]}
-        self.assertTrue(dossiers_page.requires_f3(manifest))
+        self.assertTrue(dossiers_page.requires_f3(manifest, projection={"dossiers": []}))
 
     def test_omitted_enforcement_counts_as_build(self) -> None:
         # Samma default som DossierEnvVarEnforcement i types.ts.
-        self.assertTrue(dossiers_page.requires_f3({"envVars": [{"key": "K"}]}))
+        self.assertTrue(
+            dossiers_page.requires_f3(
+                {"envVars": [{"key": "K"}]}, projection={"dossiers": []}
+            )
+        )
 
     def test_server_file_requires_f3_even_without_build_keys(self) -> None:
         manifest = {
             "envVars": [{"key": "K", "enforcement": "feature-runtime"}],
             "files": [{"path": "components/api/contact/route.ts", "role": "server"}],
         }
-        self.assertTrue(dossiers_page.requires_f3(manifest))
+        self.assertTrue(dossiers_page.requires_f3(manifest, projection={"dossiers": []}))
 
     def test_hard_dossier_can_be_done_in_f2(self) -> None:
         # Kopplad + demoläge, men varken build-nyckel eller serverfil
@@ -439,57 +519,17 @@ class RequiresF3Tests(unittest.TestCase):
             "files": [{"path": "components/analytics.tsx", "role": "client"}],
             "mock": "none",
         }
-        self.assertFalse(dossiers_page.requires_f3(manifest))
+        self.assertFalse(dossiers_page.requires_f3(manifest, projection={"dossiers": []}))
 
     def test_missing_and_malformed_fields_do_not_crash(self) -> None:
-        self.assertFalse(dossiers_page.requires_f3({}))
-        self.assertFalse(dossiers_page.requires_f3({"envVars": None, "files": None}))
-        self.assertFalse(dossiers_page.requires_f3({"envVars": ["rå-sträng"]}))
-
-
-class RequiresF3ParityTests(unittest.TestCase):
-    """Paritetsgrind mot den kanoniska TS-regeln.
-
-    ``requires_f3`` är en medveten spegling av ``dossierRequiresF3()`` i
-    ``src/lib/gen/dossiers/types.ts`` (listvyn ska inte behöva ett Node-anrop
-    per rendering). En regel som bor i två skrivvägar är bara en regel så
-    länge något håller ihop dem — ändras TS-villkoren ska detta test fällas
-    och tvinga fram en uppdatering här.
-    """
-
-    def _helper_body(self) -> str:
-        path = (
-            dossiers_page.REPO_ROOT / "src" / "lib" / "gen" / "dossiers" / "types.ts"
+        empty = {"dossiers": []}
+        self.assertFalse(dossiers_page.requires_f3({}, projection=empty))
+        self.assertFalse(
+            dossiers_page.requires_f3({"envVars": None, "files": None}, projection=empty)
         )
-        text = path.read_text(encoding="utf-8")
-        start = text.index("export function dossierRequiresF3")
-        return text[start:]
-
-    def test_ts_rule_still_has_exactly_the_two_mirrored_clauses(self) -> None:
-        body = self._helper_body()
-        self.assertIn('(env.enforcement ?? "build") === "build"', body)
-        self.assertIn('file.role === "server"', body)
-
-
-class MockLabelParityTests(unittest.TestCase):
-    """Kuratorn och slutanvändaren ska läsa SAMMA ord för samma manifestvärde.
-
-    Etiketterna finns i två språk (Python-listan här, ``MOCK_MODE_LABELS`` i
-    ``src/lib/builder/dossier-axes.ts`` som builder-panelen använder). Driftar
-    de isär beskriver backoffice och produkten samma demoläge olika.
-    """
-
-    def _ts_labels(self) -> dict[str, str]:
-        path = dossiers_page.REPO_ROOT / "src" / "lib" / "builder" / "dossier-axes.ts"
-        text = path.read_text(encoding="utf-8")
-        block = re.search(
-            r"const MOCK_MODE_LABELS[^=]*=\s*\{(.*?)\};", text, re.DOTALL
+        self.assertFalse(
+            dossiers_page.requires_f3({"envVars": ["rå-sträng"]}, projection=empty)
         )
-        assert block is not None, "MOCK_MODE_LABELS hittades inte i dossier-axes.ts"
-        return dict(re.findall(r'^\s*([a-zA-Z]+):\s*"([^"]+)"', block.group(1), re.MULTILINE))
-
-    def test_swedish_mock_labels_match_the_builder_panel(self) -> None:
-        self.assertEqual(dossiers_page.MOCK_LABELS, self._ts_labels())
 
 
 class CreateDossierSkeletonTests(unittest.TestCase):

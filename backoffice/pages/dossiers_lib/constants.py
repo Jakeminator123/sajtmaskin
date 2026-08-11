@@ -78,39 +78,10 @@ _KEBAB_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
 
-# --- Glossary-svenska (C3) -----------------------------------------------------
-# UI-etiketter för manifest-/klassvärden. Kod-id, manifestfält och enum-värden
-# behåller sina engelska namn — bara etiketten är svensk, med det tekniska
-# värdet i parentes (samma mönster som `field_label`). Kanonisk ordkälla:
-# docs/architecture/glossary.md (raden "Dossier" + "Mock mode (dossier)").
-
-CLASS_LABELS: dict[str, str] = {
-    "hard": "Kopplad",
-    "soft": "Fristående",
-}
-
-
-
-MOCK_LABELS: dict[str, str] = {
-    "canned": "Fabricerat demo-svar",
-    "seed": "Medskickad demo-data",
-    "success": "Fejkad success + demo-notis",
-    "visual": "Full yta, ärlig demo-notis",
-    "none": "Ingen demo-yta",
-}
-
-
-
-
-# Dokumenterat fallback-par (docs/contracts/dossier-system.md) om TS-filen
-# inte kan tolkas. Paritet mot den kanoniska källan grindas i
-# backoffice/test_dossiers_page.py.
-# error-tracking lamnade undantagslistan 2026-08-06 nar sentry-error-tracking
-# parkerades — TS-kallan ar MOCKLESS_CAPABILITY_EXCEPTIONS i validate-manifest.ts.
-_MOCKLESS_FALLBACK = frozenset({"analytics"})
-
-
-
+# Svenska etiketter (klass/mock/F3) och mockless-undantag läses ur den
+# CI-grindade projektionen `capability-map.json` (`labelsSv` + `policy`) —
+# se `dossiers_lib/labels.py` och `_load_mockless_capability_exceptions`.
+# Inga Python-kopior av TS-ordlistor/regler här.
 
 _COMPLEXITY_FALLBACK = ("simple", "medium", "advanced")
 
