@@ -12,7 +12,7 @@ kopiera inte kön hit.
 | Spår | Plan | Nästa steg |
 | --- | --- | --- |
 | Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | Öppna: **R8** aktiverings-E2E · **R5** (blockerad) · **R12** (kräver beslut) · **R13** (prod-observation) |
-| Lint: react-hooks-varningar (builder) | [`2026-08-11-lint-hooks-warn-cleanup.md`](2026-08-11-lint-hooks-warn-cleanup.md) | Städa 22 warn i Sajtmaskin-appen; PR mot master |
+| React hooks-refaktor (builder, utan disable) | [`2026-08-11-react-hooks-refaktor/00-master-plan.md`](2026-08-11-react-hooks-refaktor/00-master-plan.md) | Efter #889: ta bort medvetna `eslint-disable` yta för yta; pekare i backlog-skuld |
 
 Prod-körningens dossier-spår (2026-08-05) är **parkerat** — levererat i
 [`../avklarat/README.md`](../avklarat/README.md). Resterna A5 och `SM-025` lever
