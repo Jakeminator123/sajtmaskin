@@ -291,11 +291,17 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             hasAnyVersion={vm.effectiveVersionsList.length > 0}
           />
-          {/* Lucka 3 (ägarbeslut 2026-08-11): rendera bara medan det faktiskt
-              saknas nycklar. Ytans egna "allt klart"-läge togs bort — det
-              dubblerade F3-statusraden (`F3StatusSurface`) nedanför utan att
-              själv försvinna. */}
-          {visibleF3Requirements && visibleF3Requirements.missingByIntegration.length > 0 ? (
+          {/* Lucka 3 (ägarbeslut 2026-08-11): render while an F3-blocked
+              episode is tracked at all — NOT only while `missingByIntegration`
+              is still non-empty. `visibleF3Requirements` shrinks that list
+              client-side as keys are saved, but "Fortsätt integrationsbygget"
+              (the only caller of `requestF3Rebuild`) must stay reachable right
+              after the user fills the LAST key too (Bugbot, 4th pass on this
+              diff — gating on the empty list here removed the button, not
+              just the surface's own now-removed "allt klart"-text). The
+              surface itself hides its intro text + key list when nothing is
+              missing; the retry button is always rendered. */}
+          {visibleF3Requirements ? (
             <F3RequirementsSurface
               projectId={visibleF3Requirements.projectId ?? vm.appProjectId}
               missingByIntegration={visibleF3Requirements.missingByIntegration}

@@ -109,12 +109,16 @@ export function F3StatusSurface({
  * `env-flow-f2-mute.mdc`), så ytan listar bara vad som saknas och deep-linkar
  * dit — den har ingen egen editor mot samma API (restlistan R4).
  *
- * Lucka 3 (ägarbeslut 2026-08-11): denna komponent har inget eget "allt
- * klart"-läge längre — den beskrev bara sig själv som redan löst
- * ("Alla nycklar är sparade") utan att faktiskt försvinna, vilket dubblerade
- * F3-statusraden (`F3StatusSurface`) ovanför. Callern (`builder-shell-content/`)
- * äger nu villkoret: rendera denna yta ENDAST när `missingByIntegration` är
- * icke-tom.
+ * Lucka 3 (ägarbeslut 2026-08-11): den gamla "allt klart"-TEXTEN
+ * ("Alla nycklar är sparade") är borta — den beskrev bara sig själv som redan
+ * löst utan att faktiskt försvinna, vilket dubblerade F3-statusraden
+ * (`F3StatusSurface`) ovanför. Men "Fortsätt integrationsbygget"-knappen
+ * nedan är den ENDA anroparen av `requestF3Rebuild` (Bugbot, 4:e passet på
+ * denna diff) — den måste finnas kvar även när `missingByIntegration` blivit
+ * tom (klienten drar av nycklar allteftersom de sparas), annars kan
+ * användaren inte fortsätta bygget efter att just ha fyllt i den sista
+ * nyckeln. Bara intro-texten + nyckellistan döljs när det inte är något att
+ * lista; knapparna nedan är alltid med.
  */
 export function F3RequirementsSurface({
   projectId,
@@ -132,44 +136,49 @@ export function F3RequirementsSurface({
       ),
     [missingByIntegration],
   );
+  const hasMissingKeys = missingByIntegration.length > 0;
 
   return (
     <section
       aria-label="Krav för integrationsbygge"
       className="border-border mx-3 mt-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs"
     >
-      <div className="flex items-start gap-2">
-        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-        <div>
-          <h2 className="font-medium text-amber-100">Krav för integrationsbygge</h2>
-          <p className="mt-1 text-amber-100/80">
-            Designpreviewn är kvar i F2. Fyll i värdena under Byggblock i previewen och fortsätt
-            sedan integrationsbygget.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-3 space-y-3">
-        {missingByIntegration.map((integration) => (
-          <div
-            key={`${integration.key}:${integration.name}`}
-            className="border-border/80 bg-background/50 rounded-md border p-2.5"
-          >
-            <p className="text-foreground font-medium">{integration.name}</p>
-            <ul className="mt-2 space-y-1">
-              {integration.missing.map((key) => (
-                <li
-                  key={`${integration.key}:${key}`}
-                  className="text-muted-foreground flex items-center gap-1.5"
-                >
-                  <KeyRound className="h-3 w-3 shrink-0" />
-                  <code className="text-foreground text-[11px]">{key}</code>
-                </li>
-              ))}
-            </ul>
+      {hasMissingKeys ? (
+        <>
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+            <div>
+              <h2 className="font-medium text-amber-100">Krav för integrationsbygge</h2>
+              <p className="mt-1 text-amber-100/80">
+                Designpreviewn är kvar i F2. Fyll i värdena under Byggblock i previewen och
+                fortsätt sedan integrationsbygget.
+              </p>
+            </div>
           </div>
-        ))}
-      </div>
+
+          <div className="mt-3 space-y-3">
+            {missingByIntegration.map((integration) => (
+              <div
+                key={`${integration.key}:${integration.name}`}
+                className="border-border/80 bg-background/50 rounded-md border p-2.5"
+              >
+                <p className="text-foreground font-medium">{integration.name}</p>
+                <ul className="mt-2 space-y-1">
+                  {integration.missing.map((key) => (
+                    <li
+                      key={`${integration.key}:${key}`}
+                      className="text-muted-foreground flex items-center gap-1.5"
+                    >
+                      <KeyRound className="h-3 w-3 shrink-0" />
+                      <code className="text-foreground text-[11px]">{key}</code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
 
       {!projectId ? (
         <p className="mt-3 text-[11px] text-amber-200">

@@ -427,10 +427,17 @@ export function usePreviewPanelDossiersController({
   // (handleSaveCustomKeys dispatches dispatchProjectEnvVarsUpdated with the
   // OLD versionId to restart that version's preview), so it must drop here
   // too (Bugbot follow-up on this diff) — not just on chatId change below.
+  // saveError/customError describe the same ONE save attempt just as much as
+  // the receipts do (Bugbot, 4th pass on this diff) — previously only reset
+  // on a full chat change below, so a plain version switch (same chat) could
+  // leave a failed-on-version-A message to resurface if the user re-expands
+  // the same dossier row under version B.
   useEffect(() => {
     setSaveConfirmation(null);
     pendingSaveConfirmationRef.current = null;
     setCustomSaveConfirmation(false);
+    setSaveError(null);
+    setCustomError(null);
   }, [chatId, versionId]);
 
   const handleSaveKeys = useCallback(
@@ -465,10 +472,16 @@ export function usePreviewPanelDossiersController({
           error?: string;
         } | null;
         if (!response.ok || !data?.success) {
-          setSaveError({
-            dossierId: dossier.id,
-            message: data?.error || "Kunde inte spara nycklarna.",
-          });
+          // Same late-completion guard as the success receipt below (Bugbot,
+          // 4th pass on this diff): a failure for a save the user already
+          // switched away from must not surface under a DIFFERENT
+          // chat/version's row — that would misattribute the failure.
+          if (latestOverviewKeyRef.current === overviewKey) {
+            setSaveError({
+              dossierId: dossier.id,
+              message: data?.error || "Kunde inte spara nycklarna.",
+            });
+          }
           return;
         }
         setKeyValues((current) => {
@@ -504,13 +517,15 @@ export function usePreviewPanelDossiersController({
           pendingSaveConfirmationRef.current = dossier.id;
         }
       } catch (error) {
-        setSaveError({
-          dossierId: dossier.id,
-          message:
-            error instanceof Error
-              ? `Kunde inte spara nycklarna: ${error.message}`
-              : "Kunde inte spara nycklarna.",
-        });
+        if (latestOverviewKeyRef.current === overviewKey) {
+          setSaveError({
+            dossierId: dossier.id,
+            message:
+              error instanceof Error
+                ? `Kunde inte spara nycklarna: ${error.message}`
+                : "Kunde inte spara nycklarna.",
+          });
+        }
       } finally {
         setSavingDossierId(null);
       }
@@ -541,10 +556,16 @@ export function usePreviewPanelDossiersController({
           error?: string;
         } | null;
         if (!response.ok || !data?.success) {
-          setSaveError({
-            dossierId: dossier.id,
-            message: data?.error || `Kunde inte ta bort ${envKey}.`,
-          });
+          // Same late-completion guard as handleSaveKeys above (Bugbot, 4th
+          // pass on this diff): a delete failure for a chat/version the user
+          // already switched away from must not surface under a DIFFERENT
+          // one's row.
+          if (latestOverviewKeyRef.current === overviewKey) {
+            setSaveError({
+              dossierId: dossier.id,
+              message: data?.error || `Kunde inte ta bort ${envKey}.`,
+            });
+          }
           return;
         }
         dispatchProjectEnvVarsUpdated({
@@ -555,18 +576,20 @@ export function usePreviewPanelDossiersController({
           action: "deleted",
         });
       } catch (error) {
-        setSaveError({
-          dossierId: dossier.id,
-          message:
-            error instanceof Error
-              ? `Kunde inte ta bort ${envKey}: ${error.message}`
-              : `Kunde inte ta bort ${envKey}.`,
-        });
+        if (latestOverviewKeyRef.current === overviewKey) {
+          setSaveError({
+            dossierId: dossier.id,
+            message:
+              error instanceof Error
+                ? `Kunde inte ta bort ${envKey}: ${error.message}`
+                : `Kunde inte ta bort ${envKey}.`,
+          });
+        }
       } finally {
         setDeletingKey(null);
       }
     },
-    [chatId, deletingKey, projectId, savingDossierId, versionId],
+    [chatId, deletingKey, overviewKey, projectId, savingDossierId, versionId],
   );
 
   // Save filled custom keys to the same canonical env-vars API the dossier
@@ -600,7 +623,12 @@ export function usePreviewPanelDossiersController({
         error?: string;
       } | null;
       if (!response.ok || !data?.success) {
-        setCustomError(data?.error || "Kunde inte spara nycklarna.");
+        // Same late-completion guard as handleSaveKeys above (Bugbot, 4th
+        // pass on this diff): a failure for a chat/version the user already
+        // switched away from must not surface under a different one.
+        if (latestOverviewKeyRef.current === overviewKey) {
+          setCustomError(data?.error || "Kunde inte spara nycklarna.");
+        }
         return;
       }
       setKeyValues((current) => {
@@ -622,11 +650,13 @@ export function usePreviewPanelDossiersController({
         envKeys: filled,
       });
     } catch (error) {
-      setCustomError(
-        error instanceof Error
-          ? `Kunde inte spara nycklarna: ${error.message}`
-          : "Kunde inte spara nycklarna.",
-      );
+      if (latestOverviewKeyRef.current === overviewKey) {
+        setCustomError(
+          error instanceof Error
+            ? `Kunde inte spara nycklarna: ${error.message}`
+            : "Kunde inte spara nycklarna.",
+        );
+      }
     } finally {
       setCustomSaving(false);
     }

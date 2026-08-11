@@ -51,9 +51,17 @@ export function useShellF3TipsChrome(vm: BuilderViewModel, sendMessage: BuilderV
     },
     [],
   );
+  // Also reset on activeVersionId, not just chatId (Bugbot, 4th pass on this
+  // diff): `PreviewPanelDossiers` (the only source of `onCountsChange`) can
+  // unmount entirely between versions when there's no preview surface yet
+  // (`BuilderPreviewTools` returns null — see `hasSurface`). Its own
+  // `freshData`-vs-`overviewKey` guard only protects the "stays mounted"
+  // case; while unmounted nothing calls back to clear this, so a later
+  // remount could show the F3-trigger's success title with a PREVIOUS
+  // version's counts until the fresh fetch resolves.
   useEffect(() => {
     setDossierCounts(null);
-  }, [vm.chatId]);
+  }, [vm.chatId, vm.activeVersionId]);
 
   // (Prompt-prefill-lyssnaren togs bort 2026-07-31: Byggval-reglagen skriver
   // inte längre i chattens input, och exempel-chipsen försvann med #673.)
