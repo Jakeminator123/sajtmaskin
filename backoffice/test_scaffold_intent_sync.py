@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 import unittest
@@ -113,6 +114,14 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
         schema_path.parent.mkdir(parents=True)
         schema_path.write_text(SCHEMA_FIXTURE, encoding="utf-8", newline="\n")
         self.schema_path = schema_path
+        # create_start_variant=True copies provenance from the base starter.
+        starter_dir = self.variants_dir / "base-nextjs"
+        starter_dir.mkdir(parents=True)
+        (starter_dir / "starter-neutral.json").write_text(
+            json.dumps({"sourceTemplateIds": ["test-template-id"]}),
+            encoding="utf-8",
+            newline="\n",
+        )
         self.ctx = SimpleNamespace(
             repo_root=self.root,
             scaffolds_dir=self.scaffolds_dir,
@@ -290,48 +299,55 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
             self.scaffolds_dir / "scaffold-embedding-locale.ts",
             self.schema_path,
         ]
-        originals = {path: path.read_text(encoding="utf-8") for path in tracked_paths}
+        originals = {path: path.read_bytes() for path in tracked_paths}
         types_path = self.scaffolds_dir / "types.ts"
         restored_after_failure: list[Path] = []
-        types_was_mutated = False
+        path_type = type(types_path)
+        real_write_bytes = path_type.write_bytes
 
-        def fail_types_restore(path: Path, content: str) -> None:
-            nonlocal types_was_mutated
-            if path == types_path and content == originals[types_path] and types_was_mutated:
+        def fail_types_restore(path: Path, data: bytes) -> int:
+            if path == types_path:
                 raise OSError("simulated types restore failure")
-            write_text(path, content)
-            if path == types_path and content != originals[types_path]:
-                types_was_mutated = True
-            elif content == originals.get(path):
-                restored_after_failure.append(path)
+            restored_after_failure.append(path)
+            return real_write_bytes(path, data)
 
         with (
-            mock.patch(
-                "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops.write_text",
+            mock.patch.object(
+                path_type,
+                "write_bytes",
+                autospec=True,
                 side_effect=fail_types_restore,
+            ),
+            mock.patch(
+                "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops._validate_variant_payload",
+                return_value=[],
             ),
             mock.patch(
                 "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops.write_json",
                 side_effect=OSError("simulated variant write failure"),
             ),
         ):
-            with self.assertRaisesRegex(RuntimeError, "Rollbacken") as raised:
+            with self.assertRaisesRegex(
+                OSError, "simulated variant write failure"
+            ) as raised:
                 self._create(["app"], create_start_variant=True)
 
-        self.assertIsInstance(raised.exception.__cause__, OSError)
-        self.assertIn("simulated variant write failure", str(raised.exception.__cause__))
-        self.assertIn("simulated types restore failure", str(raised.exception))
-        self.assertTrue(types_was_mutated)
+        notes = getattr(raised.exception, "__notes__", [])
+        self.assertTrue(any("ofullständig" in note for note in notes))
+        self.assertTrue(
+            any("simulated types restore failure" in note for note in notes)
+        )
+        self.assertNotEqual(types_path.read_bytes(), originals[types_path])
         self.assertEqual(
             restored_after_failure,
-            tracked_paths[1:],
+            list(reversed(tracked_paths[1:])),
             "later originals must still be restored after the first restore fails",
         )
         self.assertFalse((self.scaffolds_dir / "new-app").exists())
         self.assertFalse((self.variants_dir / "new-app").exists())
         for path in tracked_paths[1:]:
             with self.subTest(path=path):
-                self.assertEqual(path.read_text(encoding="utf-8"), originals[path])
+                self.assertEqual(path.read_bytes(), originals[path])
 
     def test_create_rollback_continues_after_first_cleanup_failure(self) -> None:
         tracked_paths = [
@@ -340,20 +356,19 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
             self.scaffolds_dir / "scaffold-embedding-locale.ts",
             self.schema_path,
         ]
-        originals = {path: path.read_text(encoding="utf-8") for path in tracked_paths}
-        mutated_paths: set[Path] = set()
+        originals = {path: path.read_bytes() for path in tracked_paths}
         restore_attempts: list[Path] = []
         cleanup_attempts: list[Path] = []
         variant_dir = self.variants_dir / "new-app"
         scaffold_dir = self.scaffolds_dir / "new-app"
         real_rmtree = shutil.rmtree
+        path_type = type(tracked_paths[0])
+        real_write_bytes = path_type.write_bytes
 
-        def track_writes(path: Path, content: str) -> None:
-            if path in mutated_paths and content == originals.get(path):
+        def track_restores(path: Path, data: bytes) -> int:
+            if path in originals and data == originals[path]:
                 restore_attempts.append(path)
-            write_text(path, content)
-            if path in originals and content != originals[path]:
-                mutated_paths.add(path)
+            return real_write_bytes(path, data)
 
         def fail_first_cleanup(path: Path) -> None:
             cleanup_attempts.append(path)
@@ -362,9 +377,15 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
             real_rmtree(path)
 
         with (
+            mock.patch.object(
+                path_type,
+                "write_bytes",
+                autospec=True,
+                side_effect=track_restores,
+            ),
             mock.patch(
-                "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops.write_text",
-                side_effect=track_writes,
+                "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops._validate_variant_payload",
+                return_value=[],
             ),
             mock.patch(
                 "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops.write_json",
@@ -375,19 +396,27 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
                 side_effect=fail_first_cleanup,
             ),
         ):
-            with self.assertRaisesRegex(RuntimeError, "Rollbacken") as raised:
+            with self.assertRaisesRegex(
+                OSError, "simulated variant write failure"
+            ) as raised:
                 self._create(["app"], create_start_variant=True)
 
-        self.assertIsInstance(raised.exception.__cause__, OSError)
-        self.assertIn("simulated variant write failure", str(raised.exception.__cause__))
-        self.assertIn("simulated variant cleanup failure", str(raised.exception))
-        self.assertEqual(restore_attempts, tracked_paths)
-        self.assertEqual(cleanup_attempts, [variant_dir, scaffold_dir])
+        notes = getattr(raised.exception, "__notes__", [])
+        self.assertTrue(any("ofullständig" in note for note in notes))
+        self.assertTrue(
+            any("simulated variant cleanup failure" in note for note in notes)
+        )
+        self.assertEqual(restore_attempts, list(reversed(tracked_paths)))
+        self.assertEqual(
+            cleanup_attempts,
+            [variant_dir, scaffold_dir, variant_dir],
+            "failed cleanup must be retried after other rollback targets",
+        )
         self.assertTrue(variant_dir.is_dir())
         self.assertFalse(scaffold_dir.exists())
         for path, original in originals.items():
             with self.subTest(path=path):
-                self.assertEqual(path.read_text(encoding="utf-8"), original)
+                self.assertEqual(path.read_bytes(), original)
 
     def test_edit_updates_manifest_and_client_projection(self) -> None:
         changed = _save_scaffold_metadata(
