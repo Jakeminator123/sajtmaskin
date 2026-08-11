@@ -222,6 +222,38 @@ describe("review output contracts", () => {
     expect(result.findings[0]?.title).toBe("Valid");
   });
 
+  it("discards unknown paths without throwing so valid findings still publish", () => {
+    const result = validateExhaustiveResult(
+      {
+        summary: "One valid, one unknown file.",
+        findings: [
+          {
+            title: "Valid",
+            body: "Changed line is broken.",
+            impact: 8,
+            confidence: 95,
+            path: "src/example.ts",
+            line: 2,
+            endLine: null,
+          },
+          {
+            title: "Unknown path",
+            body: "Model invented a file outside the diff.",
+            impact: 9,
+            confidence: 99,
+            path: "src/missing.ts",
+            line: 1,
+            endLine: null,
+          },
+        ],
+      },
+      buildDiffLocationIndex(files),
+    );
+    expect(result.discardedFindings).toBe(1);
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]?.title).toBe("Valid");
+  });
+
   it("makes it structurally impossible for follow-up output to add findings", () => {
     const schema = followUpJsonSchema(["F-existing"]);
     expect(schema.properties).toEqual({ statuses: expect.any(Object) });
