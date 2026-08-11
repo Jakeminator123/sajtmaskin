@@ -409,7 +409,7 @@ describe("selectDossiersForRequest — command-palette rename + new soft dossier
 // F3 capability-scope follow-up (review round 2): when the caller COMPUTED the
 // capability list (the scoped F3 set), an empty list means "wire nothing" —
 // the brief fallback must not resurrect the speculative brief capabilities.
-describe("selectDossiersForRequest — disableBriefFallback (F3 scope)", () => {
+describe("selectDossiersForRequest — disableBriefFallback (F3 scope / F2 mute)", () => {
   const briefWithFiveCaps = {
     requestedCapabilities: ["payments", "auth", "ai-chat", "contact-form", "analytics"],
   };

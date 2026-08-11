@@ -754,13 +754,17 @@ export async function resolveOrchestrationBase(
         // restoring speculative brief/floor capabilities (Task 2). Identical to
         // the floor set on F2/design rounds.
         requestedCapabilities: dossierRequestedCapabilities,
-        // F3 (review round 2): the scoped list is authoritative even when
-        // EMPTY — select.ts's brief fallback would otherwise resurrect the
-        // speculative brief set in exactly the inflation case the scope
-        // filters (scoped [] + brief with 5 caps → 5 dossiers again).
+        // Authoritative empty list — select.ts's brief fallback must not
+        // resurrect caps we already dropped:
+        // - F3 scope (integrations): scoped [] + brief with N caps → N dossiers
+        // - Explicit removals: same resurrection risk
+        // - F2 mute: muted hard caps leave requestedCapabilities empty/soft-only;
+        //   brief fallback would otherwise re-inject openai-chat/clerk-auth into
+        //   F2 (prod 2026-08-11 chat 72cbc979…), fighting the local-demo contract.
         disableBriefFallback:
           input.lifecycleStage === "integrations" ||
-          removedCapabilities.length > 0,
+          removedCapabilities.length > 0 ||
+          mutedCapabilities.length > 0,
         // Lets sibling dossiers under one capability resolve on explicit
         // provider intent via manifest relevanceKeywords (e.g. "logga in med
         // supabase" → supabase-auth instead of the clerk-auth default).

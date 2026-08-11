@@ -317,6 +317,7 @@ function renderCapabilitySurfaceOwnership(
   if (previousPaths.size === 0) return [];
 
   const owned: OwnedSurface[] = [];
+  let anyAlreadyMaterialized = false;
   for (const sel of dossierSel.selected) {
     const entry = sel.entry;
     const components = (entry.exposes ?? []).filter((expose) => expose.type === "component");
@@ -324,12 +325,16 @@ function renderCapabilitySurfaceOwnership(
     for (const expose of components) {
       const projectPath = exposesImportToProjectPath(expose.import);
       if (!projectPath) continue;
-      // Already materialized in the project → the dossier owns the surface
-      // already and re-stating ownership is noise.
-      if (projectPathPresent(previousPaths, projectPath)) continue;
       const serverPaths = (entry.files ?? [])
         .filter((file) => file.role === "server")
         .map((file) => mapDossierPathToOutput(file.path).replace(/\\/g, "/"));
+      const alreadyPresent = projectPathPresent(previousPaths, projectPath);
+      // Soft/UI-only surface already on disk → ownership is noise.
+      // Hard dossiers with a server contract must keep emitting a rewire check:
+      // F2 may have left a local useState demo at the same path while verbatim
+      // restored `app/api/**` (prod 2026-08-11 openai-chat).
+      if (alreadyPresent && serverPaths.length === 0) continue;
+      if (alreadyPresent) anyAlreadyMaterialized = true;
       const existing = owned.find(
         (candidate) => candidate.dossierId === entry.id && candidate.importSpec === expose.import,
       );
@@ -352,7 +357,9 @@ function renderCapabilitySurfaceOwnership(
   const parts: string[] = [
     "## Capability Surface Ownership — one owner per capability",
     "",
-    "The dossier(s) below are being added to a project that does not yet contain their UI. From this round on the dossier OWNS that capability's surface. If you built your own version of it in an earlier round, exactly ONE implementation may be live when you are done.",
+    anyAlreadyMaterialized
+      ? "The dossier(s) below OWN this capability's surface. Their UI file may already exist from an earlier round (including an F2 local demo). Exactly ONE live implementation is allowed, and that UI MUST call the dossier's server contract — not a local useState/toast mock and not a hand-rolled endpoint."
+      : "The dossier(s) below are being added to a project that does not yet contain their UI. From this round on the dossier OWNS that capability's surface. If you built your own version of it in an earlier round, exactly ONE implementation may be live when you are done.",
     "",
   ];
   for (const surface of owned) {
@@ -370,10 +377,10 @@ function renderCapabilitySurfaceOwnership(
     "",
     "Pick exactly one of these, per capability:",
     "",
-    "- **Adapt** — keep the existing UI the user already saw, but point it at the dossier's server contract (the route path above) and stop calling the endpoint you wrote yourself. Re-emit the changed component in this round.",
+    "- **Adapt** — keep the existing UI the user already saw, but point it at the dossier's server contract (the route path above) and stop calling the endpoint you wrote yourself (or any local demo submit handler). Re-emit the changed component in this round.",
     "- **Replace** — emit the dossier's component as the owner and re-emit the page/layout so the earlier component is no longer imported or rendered anywhere.",
     "",
-    "Never leave both live. Two components rendering the same capability, or a component calling your own endpoint while the dossier's route also exists, is a defect: the user sees one surface but the other one carries its own bugs into the F3 verification.",
+    "Never leave both live. Two components rendering the same capability, or a component calling your own endpoint / local demo while the dossier's route also exists, is a defect: the user sees one surface but the other one carries its own bugs into the F3 verification.",
     "",
     "Two hard rules for either choice:",
     "",
