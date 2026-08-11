@@ -29,6 +29,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { deleteBlob, uploadBlob } from "@/lib/vercel/blob-service";
 import {
   captureThumbnailScreenshot,
+  isPreviewHostBootPageError,
   isTransientCaptureAbort,
 } from "@/lib/projects/thumbnail-capture";
 
@@ -221,6 +222,18 @@ async function handlePOST(
       );
       return NextResponse.json(
         { success: false, skipped: true, reason: "capture_interrupted" },
+        { status: 200 },
+      );
+    }
+    // Preview-host is still on "Startar preview" / warm_project — do not
+    // persist that placeholder as the project thumbnail (retry later).
+    if (isPreviewHostBootPageError(error)) {
+      console.info(
+        "[API] Thumbnail capture skipped — preview-host boot placeholder:",
+        error instanceof Error ? error.message : error,
+      );
+      return NextResponse.json(
+        { success: false, skipped: true, reason: "preview_boot_page" },
         { status: 200 },
       );
     }

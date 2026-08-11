@@ -19,6 +19,8 @@ const {
   assertFinalUrlAllowed,
   captureThumbnailScreenshot,
   isTransientCaptureAbort,
+  PreviewHostBootPageError,
+  isPreviewHostBootPageError,
 } = await import("./thumbnail-capture");
 
 // Bugbot high (PR #426): the page-level request gate must block redirect/JS
@@ -236,5 +238,38 @@ describe("captureThumbnailScreenshot", () => {
     expect(err?.message).toContain("net::ERR_TIMED_OUT");
     expect(closeSpy).toHaveBeenCalledTimes(1);
     expect(page.screenshot).not.toHaveBeenCalled();
+  });
+
+  it("skips the screenshot when the preview-host boot placeholder is showing", async () => {
+    let evaluateCalls = 0;
+    const page = makeFakePage({
+      evaluate: vi.fn(async () => {
+        evaluateCalls += 1;
+        // 1st = fonts settle, 2nd = boot-page probe
+        if (evaluateCalls === 1) return undefined;
+        return {
+          title: "Startar preview",
+          h1: "Startar preview",
+          bodyText:
+            "Preview-host bygger projektet och startar Next.js i bakgrunden.\n" +
+            "Chat: 8aeac552-f309-4610-b9c0-6be7309d5c38\n" +
+            "Status: warm_project",
+        };
+      }),
+    });
+    const { browser, closeSpy } = makeFakeBrowser(page);
+    launchMock.mockResolvedValue(browser);
+
+    const err = await captureThumbnailScreenshot("https://site.fly.dev/x", {
+      isFinalUrlAllowed: () => true,
+    }).then(
+      () => undefined,
+      (e: unknown) => e as Error,
+    );
+
+    expect(err).toBeInstanceOf(PreviewHostBootPageError);
+    expect(isPreviewHostBootPageError(err)).toBe(true);
+    expect(page.screenshot).not.toHaveBeenCalled();
+    expect(closeSpy).toHaveBeenCalledTimes(1);
   });
 });

@@ -277,6 +277,17 @@ describe("isPreviewHostBootPage", () => {
     ).toBe(true);
   });
 
+  it("detects Status: warm_project on the placeholder body", () => {
+    expect(
+      isPreviewHostBootPage({
+        title: "Startar preview",
+        h1: "Startar preview",
+        bodyText:
+          "Preview-host bygger projektet.\nChat: 8aeac552\nStatus: warm_project",
+      }),
+    ).toBe(true);
+  });
+
   it("does not treat a real site heading as a boot page", () => {
     expect(
       isPreviewHostBootPage({

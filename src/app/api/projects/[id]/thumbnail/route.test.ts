@@ -279,6 +279,25 @@ describe("POST /api/projects/[id]/thumbnail", () => {
     expect(uploadBlob).not.toHaveBeenCalled();
   });
 
+  it("svarar 200 skipped när preview-host fortfarande visar Startar preview", async () => {
+    const { PreviewHostBootPageError } = await import("@/lib/projects/thumbnail-capture");
+    captureThumbnailScreenshot.mockRejectedValue(
+      new PreviewHostBootPageError(
+        "Preview-host boot placeholder is still showing; thumbnail skipped.",
+      ),
+    );
+    const res = await POST(thumbnailRequest({ previewUrl: ALLOWED_PREVIEW_URL }), routeParams);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      success: false,
+      skipped: true,
+      reason: "preview_boot_page",
+    });
+    expect(setProjectThumbnail).not.toHaveBeenCalled();
+    expect(uploadBlob).not.toHaveBeenCalled();
+  });
+
   it("returns 500 and deletes uploaded blob when DB persist returns null", async () => {
     setProjectThumbnail.mockResolvedValue(null);
     const res = await POST(
