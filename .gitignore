@@ -318,3 +318,6 @@ docs/plans/**/run.log.jsonl
 .agents/
 
 .vercel
+
+# Scratch dumps from /logg (never commit)
+tmp-logg/
