@@ -68,7 +68,7 @@ import {
 import { triggerServerVerification } from "@/lib/gen/verify/server-verify";
 
 export const runtime = "nodejs";
-export const maxDuration = 800;
+export const maxDuration = 950;
 
 const qualityGateFailureSchema = z.object({
   check: z.enum(["typecheck", "build", "lint"]),

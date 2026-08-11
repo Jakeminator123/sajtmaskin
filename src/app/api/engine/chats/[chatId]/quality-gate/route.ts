@@ -61,7 +61,7 @@ import {
 import { checkTier3ReadinessForVersion } from "@/lib/integrations/tier3-readiness-gate";
 
 export const runtime = "nodejs";
-export const maxDuration = 800;
+export const maxDuration = 950;
 
 /** Uses preview-host verify lane for verification only (typecheck/build/lint), not the live preview workspace. */
 

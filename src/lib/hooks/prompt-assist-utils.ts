@@ -1,6 +1,7 @@
 import type { PromptAssistProvider } from "@/lib/builder/prompt-assist";
 
-export const PROMPT_ASSIST_TIMEOUT_MS = 600_000;
+/** Client abort ceiling — keep aligned with assistRouteMaxDurationSeconds (750). */
+export const PROMPT_ASSIST_TIMEOUT_MS = 750_000;
 
 export function extractErrorMessage(value: unknown): string | null {
   if (value && typeof value === "object" && "error" in value) {
