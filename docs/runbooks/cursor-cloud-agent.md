@@ -2,7 +2,7 @@
 
 **Mål:** få en Cloud Agent-pod att köra Sajtmaskin end-to-end (landing → login → builder → generate → preview).
 
-**Gäller inte lokal utveckling på Windows.** Flyttad hit från `AGENTS.md` 2026-08-01 — innehållet gällde bara Cloud-podar men injicerades i varje agent-tur.
+**Gäller inte lokal utveckling på Windows.** Flyttad hit från `AGENTS.md` 2026-08-01 — innehållet gällde bara Cloud-podar men injicerades i varje agent-tur. För laptop/`npm run dev` (särskilt sällan-körning och hybrid Fly-preview): [`local-dev-generation.md`](local-dev-generation.md).
 
 Kanonisk ägare för schema/SSL-mekanik är [`docs/contracts/data-layer.md`](../contracts/data-layer.md); env-sanning är [`config/env-policy.json`](../../config/env-policy.json) + [`docs/ENV.md`](../ENV.md). Den här filen samlar bara pod-specifika fallgropar.
 

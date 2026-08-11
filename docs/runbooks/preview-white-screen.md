@@ -5,6 +5,10 @@
 
 **Sanning i kod:** Shim (`/api/preview-render`) byggs i `src/lib/gen/preview/`; iframe-beteende i `src/components/builder/preview-panel/PreviewPanel.tsx`; tier-2-preview går via `src/lib/gen/preview/preview-session.ts` + `preview-host/`.
 
+**Lokal laptop mot delad Fly:** om codegen lyckas men preview strejkar, börja
+med hybrid-checklistan i [`local-dev-generation.md`](local-dev-generation.md)
+innan du misstänker Postgres.
+
 ---
 
 ## 1. Två helt olika preview-lager (förvirring #1)
