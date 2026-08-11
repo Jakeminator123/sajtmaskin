@@ -13,7 +13,6 @@ from backoffice.shared import (
     REASONING_EFFORT_OPTIONS,
     REASONING_MODE_OPTIONS,
     BackofficeContext,
-    build_profile_defaults,
     describe_workload_model_resolution,
     find_workload,
     human_model_label,
@@ -124,7 +123,6 @@ def _render_generator_chain(
     quality_map = manifest.setdefault("qualityToOwnEngineModel", {})
     phase_routing = manifest.setdefault("phaseRouting", {}).setdefault("defaultByTier", {})
 
-    codegen = find_workload(manifest, "own_engine_codegen") or {}
     planner = find_workload(manifest, "plan_mode_planner") or {}
     brief = find_workload(manifest, "brief_structured") or {}
     verifier = find_workload(manifest, "post_generation_verifier") or {}

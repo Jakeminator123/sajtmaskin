@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from .data_loaders import find_workload
-
 MODEL_LABELS = {
     "openai/gpt-5.5": "OpenAI GPT-5.5",
     "openai/gpt-5.4": "OpenAI GPT-5.4",

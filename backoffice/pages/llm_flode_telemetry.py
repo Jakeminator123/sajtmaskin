@@ -26,7 +26,6 @@ Alla värden är **observability** (signal), inte alarm. Sidan är read-only.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
