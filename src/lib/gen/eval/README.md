@@ -121,9 +121,9 @@ För slutlig produktverifiering: kör samma prompt manuellt i lokal builder och 
 **Filer:**
 - `scripts/scaffolds/eval-scaffold-selection.ts` — entry
 - `src/lib/gen/scaffolds/scaffold-eval.ts` — kärnan
-- Output: `data/scaffold-eval/reports/scaffold-selection-latest.json`
+- Output (lokal, gitignorerad): `data/scaffold-eval/reports/scaffold-selection-latest.json`
 
-**Var datan visas:** `Backoffice → Overhead → Eval`-sidan läser `scaffold-selection-latest.json` för scaffold-eval. Samma sida visar också codegen-baseline-status, kan köra codegen-eval och läser senaste codegen-summary från `data/eval-runs/latest/`, men de två systemen är separata.
+**Var datan visas:** `Backoffice → Overhead → Eval`-sidan läser `scaffold-selection-latest.json` om den finns lokalt (saknas på ren checkout tills du kört eval). Samma sida visar också codegen-baseline-status, kan köra codegen-eval och läser senaste codegen-summary från `data/eval-runs/latest/`, men de två systemen är separata.
 
 **När köra:** efter att du justerat scaffold-keywords, embeddings, eller variant-konfiguration. Kostar i princip inget (lokala embeddings + keyword-matching).
 
