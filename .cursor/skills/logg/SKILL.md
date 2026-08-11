@@ -36,6 +36,7 @@ Read-only. Skriv aldrig till prod. Hämtar bara. Se Guardrails.
 | Vercel-deploy för sajten | Postgres `deployments` (ids + url + status) | `--kinds=deploys` |
 | Vercel **build**-loggar | Vercel-plattformen | MCP `get_deployment_build_logs` |
 | Vercel **runtime**-loggar/fel | Vercel-plattformen | MCP `get_runtime_logs` / `get_runtime_errors` |
+| **Appens `console.warn`/`console.error`** (postcheck-krascher, `/tmp`-slut, droppade scaffold-filer, rutt-timeouts, CSP) | Postgres `vercel_log_drain_events` **om** Log Drain är på — annars bara Vercel-plattformen | `--kinds=drain` (se 2c), annars `vercel logs <app-url> --json` |
 | **DB-pool-hälsa** (connect-timeout / EMAXCONNSESSION) | Vercel runtime-logg + Postgres `pg_stat_activity` | MCP `get_runtime_logs` (sök felsträngarna) + valfri Supabase-MCP `pg_stat_activity` |
 | Fly preview-host runtime-logg | Fly VM `vm-fly-jakem` | `fly logs` / store-fil / `/preview/logs/:id` |
 | Per-run fil-logg (dev) | `logs/generationslogg/<run>/` | **bara om körningen skedde lokalt** — i prod avstängt |
@@ -99,7 +100,7 @@ Plocka ut `chatId`, `versionId`, `projectId`, `model`, `scaffoldId`, `previewUrl
 ```powershell
 node scripts/db/dump-logs.mjs --json `
   --env=.env.vercel.production.pulled `
-  --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys,defects `
+  --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys,defects,drain `
   --chat=<chatId> --limit=100 --allow-insecure-ssl
 ```
 
@@ -123,6 +124,34 @@ högt `chats`-tal är ett **plattformsfel** som råkade synas i den här sajten 
 hemma i rapportens bedömning, inte som "den här genereringen gick dåligt". En signatur
 som bara finns i en chatt är chattspecifik. `first_seen` visar om felklassen är ny
 (regression efter en deploy) eller gammal.
+
+#### 2c. Appens egna console-rader (`drain`)
+
+`engine_version_error_logs` innehåller bara det pipelinen medvetet persisterar.
+Rutternas egna `console.warn`/`console.error` — kraschad postcheck, `/tmp`-slut,
+droppade scaffold-filer, rutt-timeouts, CSP — har historiskt bara funnits på
+Vercel-plattformen. Är en **Vercel Log Drain** konfigurerad mot
+`POST /api/drains/vercel` (env `VERCEL_LOG_DRAIN_SECRET`) landar de i Postgres
+och läses här i stället:
+
+```powershell
+node scripts/db/dump-logs.mjs --json `
+  --env=.env.vercel.production.pulled `
+  --kinds=drain --limit=100 --allow-insecure-ssl
+```
+
+Kinden bär **ingen** `chat_id` — plattformsloggar vet inget om chattar. Korrelera
+på tid (`log_timestamp` mot körningens `created_at`) eller på `request_id`.
+
+**Tom lista betyder två helt olika saker:** antingen inga fel i fönstret, eller
+ingen drain konfigurerad. Skilj dem åt innan du drar en slutsats — annars
+rapporterar du "rent" om en källa som aldrig var påslagen. Är drainen av, kör
+steg 3c-vägen (`vercel logs … --json`) i stället, och skriv i rapporten att
+raden kom därifrån.
+
+Mottagaren sparar bara `error`/`warning`/`fatal`, 5xx/kraschar och de mönster
+steg 3c letar efter, och rensar rader äldre än 14 dagar. Saknas något du väntade
+dig: det kan ha filtrerats bort vid ingest, inte bara aldrig hänt.
 
 Rader utan `meta.defect` är skrivna före klassificeraren fanns; de saknas i aggregatet
 men syns fortfarande under `errors`.
@@ -218,6 +247,7 @@ Säkerhet: <%>. Verifierat mot <källor>; inte live-kört mot X.
 
 - Kommando: [`.cursor/commands/logg.md`](../../commands/logg.md)
 - Read-only DB-dumper: `scripts/db/dump-logs.mjs` · senaste sajt: `scripts/db/latest-site.mjs`
+- Log Drain-mottagare (`--kinds=drain`): `src/lib/vercel-log-drain.ts`, `src/app/api/drains/vercel/route.ts` · setup + URL: [`docs/runbooks/vercel-log-drain.md`](../../../docs/runbooks/vercel-log-drain.md)
 - Observability-regel: [`.cursor/rules/agent-observatory.mdc`](../../rules/agent-observatory.mdc)
 - Preview-host & Fly: `preview-host/README.md`
 - Env-sanning: [`docs/ENV.md`](../../../docs/ENV.md)

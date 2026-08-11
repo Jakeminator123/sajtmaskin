@@ -16,6 +16,8 @@
  *   ragevents -> error_log_events       (durable fault/fix RAG telemetry)
  *   deploys   -> deployments            (Vercel deploy row: ids + url + status)
  *   openai    -> openai_webhook_events  (inbound OpenAI platform webhook receipts)
+ *   drain     -> vercel_log_drain_events (appens console.warn/error, levererade
+ *                av en Vercel Log Drain — finns bara om drainen är konfigurerad)
  *   defects   -> engine_version_error_logs GROUPED BY meta.defect.signature
  *                (felKLASSER med räknare, inte enskilda händelser — svarar på
  *                 "hur ofta, över hur många chattar, sedan när")
@@ -241,6 +243,32 @@ const KIND_SPECS = {
         typeof row.latest_message === "string" && row.latest_message.length > 300
           ? `${row.latest_message.slice(0, 297)}…`
           : row.latest_message,
+    }),
+  },
+  // Appens egna console.warn/console.error från Vercel, levererade av en Log
+  // Drain till POST /api/drains/vercel. Enda kinden som INTE skrivs av appens
+  // egen kod — den kommer utifrån, och finns bara om drainen är konfigurerad
+  // (`VERCEL_LOG_DRAIN_SECRET`). Tom lista betyder alltså antingen "inga fel"
+  // eller "ingen drain": kontrollera vilket innan du drar en slutsats.
+  //
+  // Mottagaren sparar bara error/warning/fatal, 5xx och de mönster /logg
+  // steg 3c letar efter — resten kastas vid ingest. `--chat` finns inte:
+  // plattformsloggar bär ingen chatId. Korrelera på tid (`log_timestamp`)
+  // eller `request_id`.
+  drain: {
+    table: "vercel_log_drain_events",
+    chatColumn: null,
+    columns: [
+      "id", "log_timestamp", "source", "level", "type", "environment", "host",
+      "path", "status_code", "request_id", "deployment_id", "execution_region",
+      "message", "created_at",
+    ],
+    sanitizeRow: (row) => ({
+      ...row,
+      message:
+        typeof row.message === "string" && row.message.length > 600
+          ? `${row.message.slice(0, 597)}…`
+          : row.message,
     }),
   },
   openai: {

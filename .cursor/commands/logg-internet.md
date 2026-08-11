@@ -26,6 +26,7 @@ Innan något annat: fråga om användaren har **öppnat en Cursor-browser** och 
 4. **Builder**: klicka skicka (`builder.chat.primary`) för att starta genereringen; läs `chatId` från URL:en; observera tills preview visas.
 5. **~2 uppföljningar** i `builder.chat.primary`, en i taget, observera var och en.
 6. **Notiser** till `.cursor/logg-internet/runs/<ts>.md` + (valfritt) korsref mot `/logg`; `browser_lock` unlock; kort chattsummering.
+   - Är Vercel Log Drain påslagen finns appens egna `console.warn`/`console.error` i Postgres: `node scripts/db/dump-logs.mjs --json --env=.env.vercel.production.pulled --kinds=drain --limit=100 --allow-insecure-ssl`, filtrerat på sessionens `log_timestamp`-fönster. Det fångar sådant sessionen inte såg i UI:t. Tom lista = inga fel **eller** ingen drain — skriv vilket.
 
 ## Persona
 

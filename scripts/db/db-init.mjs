@@ -695,6 +695,7 @@ const ALL_TABLES = [
   "oc_debug_findings",
   "llm_usage",
   "openai_webhook_events",
+  "vercel_log_drain_events",
 ];
 
 async function applySqlMigrations() {

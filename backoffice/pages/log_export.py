@@ -50,6 +50,11 @@ _KIND_LABELS: dict[str, tuple[str, str]] = {
     "ragevents": ("RAG-events (error_log_events)", "Durabel fault/fix-telemetri: fault, fix_text, result."),
     "deploys": ("Deploys (deployments)", "Vercel-deploy per sajt: deployment/project-id, url, status."),
     "openai": ("OpenAI-webhooks (openai_webhook_events)", "Verifierade plattforms-webhooks: event-typ, status, payload."),
+    "drain": (
+        "App-console via Vercel (vercel_log_drain_events)",
+        "Appens egna console.warn/error från Vercel Log Drain: level, path, status, meddelande. "
+        "Bara fel/varningar sparas, och bara om drainen är konfigurerad.",
+    ),
 }
 _DEFAULT_KINDS = ["prompts", "generations", "versions", "telemetry", "errors"]
 
