@@ -50,7 +50,7 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from backoffice.observability_io import load_tail_ndjson
+from backoffice.observability_io import iter_run_dirs, load_tail_ndjson
 from backoffice.shared import BackofficeContext
 
 PAGE_NAME = "Selection Rationale (read-only)"
@@ -65,19 +65,6 @@ _DB_TIMEOUT_S = 60
 # ---------------------------------------------------------------------------
 # Data helpers (all read-only, all defensive)
 # ---------------------------------------------------------------------------
-
-
-def _iter_run_dirs(ctx: BackofficeContext) -> list[Path]:
-    """De senaste N run-mapparna under logs/generationslogg/, ny→gammal."""
-    log_dir = ctx.repo_root / "logs" / "generationslogg"
-    if not log_dir.is_dir():
-        return []
-    dirs = sorted(
-        [p for p in log_dir.iterdir() if p.is_dir() and not p.name.startswith("_")],
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    return dirs[:_MAX_RUNS]
 
 
 def _read_run_meta(run_dir: Path) -> dict[str, Any]:
@@ -528,7 +515,7 @@ def render(ctx: BackofficeContext) -> None:
         "visas som tom struktur, inte som krasch."
     )
 
-    run_dirs = _iter_run_dirs(ctx)
+    run_dirs = iter_run_dirs(ctx.repo_root, max_runs=_MAX_RUNS)
     dump = _load_orchestration_dump(ctx.repo_root)
 
     with st.sidebar:

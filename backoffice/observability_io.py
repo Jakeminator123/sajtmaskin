@@ -10,7 +10,8 @@ ladda hela filen. Robust mot tre vanliga edge-cases:
   3. Tail-fönstret börjar mitt i en rad → första (potentiellt brutna) raden
      skippas så inkomplett JSON inte tystnar i `json.loads`-except.
 
-Ändras: håll signaturen stabil — `database_health.py`, `redis_health.py`
+Ändras: håll signaturen stabil — `database_health.py`, `redis_health.py`,
+`llm_flode_telemetry.py`, `selection_rationale.py`, `observability.py`
 och eventuella framtida observability-sidor anropar denna.
 """
 
@@ -22,6 +23,30 @@ from typing import Any
 
 # 256 KB räcker för flera tusen NDJSON-rader och håller backoffice snabb.
 _DEFAULT_TAIL_BYTES = 256_000
+_DEFAULT_MAX_RUNS = 20
+
+
+def iter_run_dirs(repo_root: Path, *, max_runs: int = _DEFAULT_MAX_RUNS) -> list[Path]:
+    """Returnerar de senaste N run-mapparna under logs/generationslogg/, ny→gammal."""
+    log_dir = repo_root / "logs" / "generationslogg"
+    if not log_dir.is_dir():
+        return []
+    dirs = sorted(
+        [p for p in log_dir.iterdir() if p.is_dir() and not p.name.startswith("_")],
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    return dirs[:max_runs]
+
+
+def format_ms(value: float | None) -> str:
+    if value is None:
+        return "—"
+    if value >= 10_000:
+        return f"{value / 1000:.1f} s"
+    if value >= 1_000:
+        return f"{value / 1000:.2f} s"
+    return f"{value:.0f} ms"
 
 
 def load_tail_ndjson(

@@ -213,7 +213,8 @@ jobs:
 
   # Backoffice Python tests: control-plane/domain-map parity, matching-config
   # strict-schema validate-on-save, manifest parity and page-import smoke.
-  # Deterministic + keyless (no DB creds, no network — all 49 tests run offline).
+  # Deterministic + keyless (no DB creds, no HTTP — all tests run offline).
+  # Some tests invoke local `git` (baseline reset, building-blocks nav).
   # Blocking by design: domain-rules and prompt-heuristic-tokens declare
   # `backoffice:test` as their control-plane validator, so this job IS their
   # structural guarantee. Mirrors the Python setup in db-blob-sync-check.yml.

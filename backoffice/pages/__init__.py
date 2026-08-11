@@ -47,7 +47,7 @@ from . import (
 #   "edit"   = redigerbar yta (sparar filer; alla sparningar säkerhetskopieras)
 #   "run"    = kör kommandon/skript (kan skriva genererade artefakter)
 #   "danger" = innehåller destruktiva åtgärder (radering) — läs varningarna
-PAGE_MODES = ("read", "edit", "run", "danger")
+# Runtime använder PageSpec.mode + MODE_BADGES (inte en separat PAGE_MODES-konstant).
 
 
 @dataclass(frozen=True)
