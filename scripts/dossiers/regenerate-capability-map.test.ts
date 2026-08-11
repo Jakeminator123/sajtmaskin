@@ -19,6 +19,8 @@ import {
   MAP_PATH,
   buildDossierTruth,
   buildGroups,
+  buildLabelsSvVocabulary,
+  buildPolicy,
   collectCapabilities,
   collectSourceFiles,
   listIds,
@@ -43,6 +45,7 @@ const TRUTH_VIEW_KEYS = [
   "f2Reason",
   "buildServerRequirement",
   "buildServerReasons",
+  "labelsSv",
 ].sort();
 
 const dossiers = getAllDossiers();
@@ -96,6 +99,37 @@ describe("capability-map projection: truth view", () => {
       }
     }
   });
+  it("embeds resolved Swedish labels from dossier-axes on every entry", () => {
+    for (const entry of truth) {
+      expect(entry.labelsSv.class.label.length).toBeGreaterThan(0);
+      expect(entry.labelsSv.mock.label.length).toBeGreaterThan(0);
+      expect(entry.labelsSv.requiresF3.label.length).toBeGreaterThan(0);
+      expect(entry.labelsSv.requiresF3).toEqual(
+        buildLabelsSvVocabulary().requiresF3[entry.buildServerRequirement ? "true" : "false"],
+      );
+    }
+  });
+});
+
+describe("capability-map projection: vocabulary + policy", () => {
+  it("covers every class/mock/F3 value used by the UI", () => {
+    const labels = buildLabelsSvVocabulary();
+    expect(Object.keys(labels.class).sort()).toEqual(["hard", "soft"]);
+    expect(Object.keys(labels.mock).sort()).toEqual(
+      ["canned", "none", "seed", "success", "visual"].sort(),
+    );
+    expect(Object.keys(labels.requiresF3).sort()).toEqual(["false", "true"]);
+    for (const axis of [labels.class, labels.mock, labels.requiresF3]) {
+      for (const descriptor of Object.values(axis)) {
+        expect(descriptor.label.trim().length).toBeGreaterThan(0);
+        expect(descriptor.hint.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("projects mockless exceptions from validate-manifest without inventing extras", () => {
+    expect(buildPolicy()).toEqual({ mocklessCapabilityExceptions: ["analytics"] });
+  });
 });
 
 describe("capability-map projection: determinism", () => {
@@ -141,6 +175,7 @@ describe("capability-map projection: source fingerprints", () => {
     // from orchestrate/capability-prompt-filter.ts dragged ~98 modules
     // (build-spec, autofix, capability-inference) into the script.
     expect(FIXED_SOURCE_PATHS).toContain("src/lib/gen/dossiers/f2-mute.ts");
+    expect(FIXED_SOURCE_PATHS).toContain("src/lib/builder/dossier-axes.ts");
     expect(FIXED_SOURCE_PATHS).not.toContain(
       "src/lib/gen/orchestrate/capability-prompt-filter.ts",
     );
@@ -167,6 +202,8 @@ describe("capability-map projection: committed file is fresh", () => {
     expect(committed.capabilities).toEqual(capabilities);
     expect(committed.groups).toEqual(buildGroups(capabilities));
     expect(committed.dossiers).toEqual(truth);
+    expect(committed.labelsSv).toEqual(buildLabelsSvVocabulary());
+    expect(committed.policy).toEqual(buildPolicy());
     expect(committed.f2Policy).toEqual({
       mutedCapabilities: [...mutedCapabilities].sort(),
     });

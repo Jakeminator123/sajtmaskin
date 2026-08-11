@@ -44,9 +44,6 @@ from .constants import (
     REQUIRED_FIELDS,
     VALIDATE_MANIFEST_TS_PATH,
     _KEBAB_RE,
-    CLASS_LABELS,
-    MOCK_LABELS,
-    _MOCKLESS_FALLBACK,
     _COMPLEXITY_FALLBACK,
     _MOCK_FALLBACK,
     _ALLOWED_ENFORCEMENT,
@@ -57,7 +54,6 @@ from .constants import (
 from .labels import (
     class_label,
     mock_label,
-    requires_f3,
     is_default_for_capability,
 )
 

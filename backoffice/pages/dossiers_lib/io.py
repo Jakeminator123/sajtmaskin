@@ -45,9 +45,6 @@ from .constants import (
     REQUIRED_FIELDS,
     VALIDATE_MANIFEST_TS_PATH,
     _KEBAB_RE,
-    CLASS_LABELS,
-    MOCK_LABELS,
-    _MOCKLESS_FALLBACK,
     _COMPLEXITY_FALLBACK,
     _MOCK_FALLBACK,
     _ALLOWED_ENFORCEMENT,
@@ -64,30 +61,33 @@ from .labels import (
 
 
 
-def _load_mockless_capability_exceptions() -> frozenset[str]:
+def _load_mockless_capability_exceptions(
+    projection: dict[str, Any] | None = None,
+) -> frozenset[str]:
     """Capabilities där `mock: none` är legitimt för en Kopplad (hard) dossier.
 
-    Kanonisk källa är ``MOCKLESS_CAPABILITY_EXCEPTIONS`` i
-    ``src/lib/gen/dossiers/validate-manifest.ts`` — nycklarna läses därifrån
-    (aldrig en egen Python-lista som kan drifta). Kan filen inte läsas/tolkas
-    används det dokumenterade paret, så skapa-formuläret aldrig blir mer
-    tillåtande än CI-invarianten."""
-    try:
-        text = _facade().VALIDATE_MANIFEST_TS_PATH.read_text(encoding="utf-8")
-    except OSError:
-        return _facade()._MOCKLESS_FALLBACK
-    match = re.search(
-        r"export const MOCKLESS_CAPABILITY_EXCEPTIONS[^=]*=\s*\{(.*?)\}\s*as const",
-        text,
-        re.DOTALL,
-    )
-    if not match:
-        return _facade()._MOCKLESS_FALLBACK
-    keys = re.findall(
-        r'^\s*(?:"([^"\n]+)"|([A-Za-z0-9_-]+))\s*:', match.group(1), re.MULTILINE
-    )
-    found = frozenset(quoted or bare for quoted, bare in keys)
-    return found or _facade()._MOCKLESS_FALLBACK
+    Läses ur projektionens ``policy.mocklessCapabilityExceptions`` (genererad
+    från ``MOCKLESS_CAPABILITY_EXCEPTIONS`` i validate-manifest.ts). Python
+    parsar inte TS-källan.
+
+    Saknas ``policy``-noden försöker vi synka projektionen en gång (äldre map
+    utan plan-02-fält). Misslyckas det → tom mängd (fail-closed: strängare än
+    CI, aldrig mer tillåtande / aldrig krasch).
+    """
+    data = projection
+    if data is None:
+        data = _load_json(_facade().CAPABILITY_MAP_PATH) or {}
+    policy = data.get("policy") if isinstance(data, dict) else None
+    if not isinstance(policy, dict) and projection is None:
+        # Explicit fixture/test projections stay untouched; live disk maps refresh.
+        refreshed, _warning = _facade()._ensure_capability_map_current()
+        data = refreshed
+        policy = data.get("policy") if isinstance(data, dict) else None
+    raw = policy.get("mocklessCapabilityExceptions") if isinstance(policy, dict) else None
+    if not isinstance(raw, list):
+        return frozenset()
+    found = frozenset(str(item).strip() for item in raw if str(item).strip())
+    return found
 
 
 
@@ -390,6 +390,8 @@ def _ensure_capability_map_current() -> tuple[dict[str, Any], str | None]:
         isinstance(current.get("dossiers"), list)
         and isinstance(current.get("groups"), dict)
         and isinstance(current.get("f2Policy"), dict)
+        and isinstance(current.get("labelsSv"), dict)
+        and isinstance(current.get("policy"), dict)
     )
     if required_views and not _capability_map_is_stale(current):
         return current, None
@@ -401,6 +403,8 @@ def _ensure_capability_map_current() -> tuple[dict[str, Any], str | None]:
             isinstance(refreshed.get("dossiers"), list)
             and isinstance(refreshed.get("groups"), dict)
             and isinstance(refreshed.get("f2Policy"), dict)
+            and isinstance(refreshed.get("labelsSv"), dict)
+            and isinstance(refreshed.get("policy"), dict)
             and not _capability_map_is_stale(refreshed)
         ):
             return refreshed, None
