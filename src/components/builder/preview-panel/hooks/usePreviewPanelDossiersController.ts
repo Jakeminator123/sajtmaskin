@@ -44,6 +44,16 @@ export function usePreviewPanelDossiersController({
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const overviewKey = `${chatId}::${versionId ?? ""}`;
+  // Always-current identity for async save completions to check against
+  // (Bugbot, 3rd pass on this diff): handleSaveKeys/handleSaveCustomKeys
+  // close over chatId/versionId at call-start, so a save still in flight
+  // when the user switches chat/version has no other way to notice. Mirrors
+  // the `detail.versionId !== activeVersionId` guard useBuilderVmPreview.ts
+  // already applies to the same dispatchProjectEnvVarsUpdated event.
+  const latestOverviewKeyRef = useRef(overviewKey);
+  useEffect(() => {
+    latestOverviewKeyRef.current = overviewKey;
+  }, [overviewKey]);
 
   // Tracks the single in-flight request so a newer load (e.g. a post-save
   // refetch) aborts an earlier one. Without this, a slow initial load could
@@ -482,8 +492,17 @@ export function usePreviewPanelDossiersController({
         });
         // The refetch the event above triggers is what will reveal the
         // dossier's POST-save status (live vs. still demo) — see the
-        // resolving effect near `saveConfirmation`.
-        pendingSaveConfirmationRef.current = dossier.id;
+        // resolving effect near `saveConfirmation`. Only arm it if the user
+        // is still on the chat/version this save targeted (Bugbot, 3rd pass
+        // on this diff): a chat/version switch during the awaited POST above
+        // must not let this late completion re-show a receipt under a
+        // DIFFERENT identity's view — the reset effect already cleared it
+        // once for that new identity, so re-arming here would resurrect it
+        // wrongly (same class of bug the reset effect above fixes, just for
+        // a save that hadn't finished yet when the switch happened).
+        if (latestOverviewKeyRef.current === overviewKey) {
+          pendingSaveConfirmationRef.current = dossier.id;
+        }
       } catch (error) {
         setSaveError({
           dossierId: dossier.id,
@@ -496,7 +515,7 @@ export function usePreviewPanelDossiersController({
         setSavingDossierId(null);
       }
     },
-    [chatId, editingKeys, keyValues, projectId, savingDossierId, versionId],
+    [chatId, editingKeys, keyValues, overviewKey, projectId, savingDossierId, versionId],
   );
 
   // Delete a stored key via the canonical DELETE API (same route the removed
@@ -590,7 +609,12 @@ export function usePreviewPanelDossiersController({
         return next;
       });
       setCustomFocusKeys((current) => current.filter((key) => !filled.includes(key)));
-      setCustomSaveConfirmation(true);
+      // Same late-completion guard as handleSaveKeys above (Bugbot, 3rd pass
+      // on this diff): don't resurrect a receipt for a chat/version the user
+      // has already switched away from.
+      if (latestOverviewKeyRef.current === overviewKey) {
+        setCustomSaveConfirmation(true);
+      }
       dispatchProjectEnvVarsUpdated({
         projectId,
         chatId,
@@ -606,7 +630,16 @@ export function usePreviewPanelDossiersController({
     } finally {
       setCustomSaving(false);
     }
-  }, [chatId, customFocusKeys, customSaving, keyValues, projectId, savingDossierId, versionId]);
+  }, [
+    chatId,
+    customFocusKeys,
+    customSaving,
+    keyValues,
+    overviewKey,
+    projectId,
+    savingDossierId,
+    versionId,
+  ]);
 
   // Manual add of an arbitrary UPPER_SNAKE key (the removed
   // ProjectEnvVarsPanel was the only surface that could do this). Client-side
