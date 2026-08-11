@@ -94,7 +94,10 @@ PowerShell från repo-roten:
 
 När du behöver deterministisk preview utan att röra prod-Fly:
 
-1. I `preview-host/`: installera deps en gång (`npm ci --prefix preview-host`).
+1. Installera deps en gång från **repo-roten**:
+   ```powershell
+   npm ci --prefix preview-host
+   ```
 2. Starta host:
    ```powershell
    # från preview-host/
