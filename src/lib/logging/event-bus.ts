@@ -122,12 +122,19 @@ function ensureDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
 }
 
+// turbopackIgnore: RUNS_ROOT_DIR is resolved at module load (os.tmpdir() on
+// Vercel, repo-relative data/runs in dev), so Turbopack's static analysis sees
+// a fully dynamic fs path here and traces the WHOLE project into every route
+// that imports the event bus (build warning: "matches 10194 files"). These
+// paths are runtime write targets, never bundle assets — ignoring them from
+// the trace is correct. Paired with `outputFileTracingExcludes` for
+// `data/runs/**` in next.config.ts.
 function runDir(versionId: string, runId: string): string {
-  return path.join(RUNS_ROOT_DIR, versionId, runId);
+  return path.join(/* turbopackIgnore: true */ RUNS_ROOT_DIR, versionId, runId);
 }
 
 function versionDir(versionId: string): string {
-  return path.join(RUNS_ROOT_DIR, versionId);
+  return path.join(/* turbopackIgnore: true */ RUNS_ROOT_DIR, versionId);
 }
 
 function indexPath(versionId: string): string {

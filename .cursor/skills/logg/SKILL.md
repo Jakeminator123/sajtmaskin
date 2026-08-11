@@ -36,6 +36,7 @@ Read-only. Skriv aldrig till prod. Hämtar bara. Se Guardrails.
 | Vercel-deploy för sajten | Postgres `deployments` (ids + url + status) | `--kinds=deploys` |
 | Vercel **build**-loggar | Vercel-plattformen | MCP `get_deployment_build_logs` |
 | Vercel **runtime**-loggar/fel | Vercel-plattformen | MCP `get_runtime_logs` / `get_runtime_errors` |
+| **Appens `console.warn`/`console.error`** (postcheck-krascher, `/tmp`-slut, droppade scaffold-filer, rutt-timeouts, CSP) | Vercel-plattformen — finns **inte** i Postgres | `vercel logs <app-url> --json`, se steg 3c |
 | **DB-pool-hälsa** (connect-timeout / EMAXCONNSESSION) | Vercel runtime-logg + Postgres `pg_stat_activity` | MCP `get_runtime_logs` (sök felsträngarna) + valfri Supabase-MCP `pg_stat_activity` |
 | Fly preview-host runtime-logg | Fly VM `vm-fly-jakem` | `fly logs` / store-fil / `/preview/logs/:id` |
 | Per-run fil-logg (dev) | `logs/generationslogg/<run>/` | **bara om körningen skedde lokalt** — i prod avstängt |
@@ -74,7 +75,7 @@ Kopiera checklistan och bocka av:
 - [ ] 0. Env: prod-snapshot finns, Vercel-ids + Fly-åtkomst upplösta
 - [ ] 1. Hitta senaste sajten (chatId, versionId, projectId, previewUrl, created_at)
 - [ ] 2. Alla prod-DB-loggar för chatId (dump-logs, alla kinds)
-- [ ] 3. Vercel: appens runtime-fel under körningsfönstret + sajtens deploy-loggar + DB-pool-hälsa (connect-timeout/EMAXCONNSESSION)
+- [ ] 3. Vercel: appens runtime-fel + **appens console.warn/error (3c — obligatoriskt)** + sajtens deploy-loggar + DB-pool-hälsa
 - [ ] 4. Fly: preview-host-loggar för sajtens previewSessionId
 - [ ] 5. Syntes: en rapport om hur körningen gick
 ```
@@ -146,7 +147,34 @@ Vercel-projekt `sajtmaskin-<chatId>`):
 
 Om ingen deploy-rad finns: sajten är sannolikt bara en preview (F2) — notera det och hoppa till steg 4.
 
-**c) DB-pool-hälsa** (återkommande fråga — logga den så den inte utreds från noll varje gång):
+**c) Appens `console.warn`/`console.error` under körningen — KÖR ALLTID.**
+
+Det här steget lades till 2026-08-11 efter att en session missade fyra riktiga
+defekter. `engine_version_error_logs` innehåller bara det pipelinen medvetet
+persisterar; rutternas egna `console`-rader finns **enbart** i Vercel. Sex
+körningar i rad rapporterade artigt `product_postcheck.skipped` medan Vercel-loggen
+visade en kraschad Chromium.
+
+```powershell
+vercel logs https://sajtmaskin.vercel.app --json | Set-Content -Encoding utf8 .cursor/tmp-app-runtime.jsonl
+```
+
+MCP-motsvarighet: `get_runtime_logs { level: ["error","warning"] }`. Loggfönstret i
+UI:t: `…/logs?search=level%3Aerror%2Cfatal%2Cwarn&timeline=past12Hours`.
+
+Sök minst efter dessa och rapportera träffar med tidsstämpel:
+
+| Mönster | Betyder |
+|---|---|
+| `[product-postcheck] skipped` | Postcheck kraschade — läs `skippedReason` i DB (`playwright_unavailable`/`navigation_failed` = krasch, inte policy) |
+| `free space in temporary directory` · `AllocateRingBuffer` | `/tmp` slut i funktionen → Chromium dör (se dok B, 2026-08-11) |
+| `Thumbnail capture failed` | samma rotorsak som ovan |
+| `stillMissing: [` | scaffold-skyddad fil droppades och kunde **inte** återinjiceras |
+| `Vercel Runtime Timeout Error` | rutt slog i sin `maxDuration` |
+| `[CSP Violation]` | egen CSP blockerar en resurs sajten behöver |
+| `AI SDK Warning` | modell-/parameterproblem som annars är osynligt |
+
+**d) DB-pool-hälsa** (återkommande fråga — logga den så den inte utreds från noll varje gång):
 
 - Sök i appens runtime-loggar från (a) efter `timeout exceeded when trying to connect` och `EMAXCONNSESSION: max clients reached`. **0 träffar = poolen frisk** (normalläget; koden försvarar sig redan mot svälten).
 - Valfritt live-mått (om Supabase-MCP är inloggad, **read-only**): `pg_stat_activity` — aktiva vs idle backends mot poolerns tak (Pro ~60, Free ~15 sessioner). Detta är *nuläge*, inte körningsfönstret.
@@ -198,6 +226,7 @@ Bedömning: <lyckad / delvis / misslyckad> — <1–2 meningar varför>
 | Deploy | status, url | deployments |
 | Vercel build | pass/fail + felrad | MCP get_deployment_build_logs |
 | Vercel runtime | felkluster / 5xx | MCP get_runtime_errors/logs |
+| App-console (3c) | postcheck-krasch, `/tmp`-slut, `stillMissing`, rutt-timeout, CSP | `vercel logs --json` |
 | DB-pool | connect-timeout / EMAXCONNSESSION-antal (0 = frisk) · ev. pg_stat_activity-peak | Vercel runtime + pg_stat_activity |
 | Preview (Fly) | boot/install/exit-tail | preview-host-loggar |
 

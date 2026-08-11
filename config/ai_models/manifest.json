@@ -131,7 +131,7 @@
       "premium": {
         "planner": "selected_build_model",
         "generator": "selected_build_model",
-        "fixer": "selected_build_model",
+        "fixer": "gpt-5.3-codex",
         "verifier": "selected_build_model",
         "deploy-assistant": "selected_build_model"
       },
@@ -177,9 +177,8 @@
           "reasoningMode": "pro"
         },
         "fixer": {
-          "thinking": true,
-          "reasoningEffort": "high",
-          "reasoningMode": "standard"
+          "thinking": false,
+          "reasoningEffort": "medium"
         },
         "verifier": {
           "thinking": true,
@@ -281,7 +280,7 @@
         }
       }
     },
-    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. The Premium tier replaces the retired fast/cheap tier and runs GPT-5.6 Sol across every phase. Its planner and generator use the Responses API with reasoning mode pro and high effort. Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
+    "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. The Premium tier replaces the retired fast/cheap tier and runs GPT-5.6 Sol for planner/generator/verifier/deploy-assistant; its planner and generator use the Responses API with reasoning mode pro and high effort. The Premium FIXER is pinned to gpt-5.3-codex without thinking (owner decision 2026-08-11: the heavy build model timed out on targeted repairs — same reasoning as the Max tier's fixer pin). Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
   },
   "perTierRepairPolicies": {
     "premium": {

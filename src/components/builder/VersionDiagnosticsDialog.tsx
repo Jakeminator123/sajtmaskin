@@ -246,7 +246,16 @@ export function VersionDiagnosticsDialog({
     if (productLogs.length === 0) {
       return { label: "Not run —", tone: "gray" };
     }
-    const warningCount = productLogs.filter(
+    // En skip-rad (även krasch-skip på warning-nivå sedan 2026-08-11) betyder
+    // att kontrollen INTE kördes — den är inget produktfynd och får inte
+    // räknas som "N warnings" i produkt-lanen (bugbot-fynd på egen diff).
+    const ranLogs = productLogs.filter(
+      (log) => getCategory(log) !== "product_postcheck.skipped",
+    );
+    if (ranLogs.length === 0) {
+      return { label: "Not run —", tone: "gray" };
+    }
+    const warningCount = ranLogs.filter(
       (log) => log.level === "warning" || log.level === "error",
     ).length;
     if (warningCount > 0) {
@@ -315,7 +324,14 @@ export function VersionDiagnosticsDialog({
     return { label: "Unchecked —", tone: "gray" };
   }, [activeLogs]);
 
-  const canAutoFix = activeLogs.some((log) => log.level === "error" || log.level === "warning");
+  // En överhoppad Postcheck (kraschad Chromium//tmp-svält) är infrastruktur —
+  // den kan aldrig lagas av en kodreparation och får varken låsa upp knappen
+  // eller skickas som repair-orsak (bugbot-fynd 2026-08-11, när krasch-skips
+  // började loggas som warning).
+  const isAutoFixableLog = (log: VersionDiagnosticsLog) =>
+    (log.level === "error" || log.level === "warning") &&
+    log.category !== "product_postcheck.skipped";
+  const canAutoFix = activeLogs.some(isAutoFixableLog);
   const hasHistoricalLogs = logs.length > activeLogs.length;
 
   const handleAutoFix = () => {
@@ -323,7 +339,7 @@ export function VersionDiagnosticsDialog({
     const reasons = Array.from(
       new Set(
         activeLogs
-          .filter((log) => log.level === "error" || log.level === "warning")
+          .filter(isAutoFixableLog)
           .slice(0, 5)
           .map((log) => log.message.trim())
           .filter(Boolean),

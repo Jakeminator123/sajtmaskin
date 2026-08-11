@@ -55,8 +55,30 @@ let captureBrowserGate: Promise<void> = Promise.resolve();
  * Trasslar bildfångsten i prod strax efter en dependency-uppdatering är det
  * här du ska titta först.
  */
+/**
+ * Mätsteg för /tmp-svälten (plan 2026-08-11-prodkorning-observability/02):
+ * Chromium loggade "free space in temporary directory: 0" och dog i
+ * `browser.newPage`. Fluid Compute återanvänder instansen, så /tmp ackumulerar
+ * (Sparticuz-binär, läckta Playwright-profiler, run-NDJSON). En rad per launch
+ * gör hypotesen mätbar i Vercel-loggen utan att ändra beteende. Fail-open —
+ * statfs får aldrig stoppa en capture.
+ */
+async function logTmpFreeSpaceBestEffort(): Promise<void> {
+  try {
+    const [{ statfs }, os] = await Promise.all([import("node:fs/promises"), import("node:os")]);
+    const tmp = os.default.tmpdir();
+    const stat = await statfs(tmp);
+    const freeMb = Math.round((stat.bavail * stat.bsize) / 1_048_576);
+    const totalMb = Math.round((stat.blocks * stat.bsize) / 1_048_576);
+    console.info(`[capture-browser] tmp free: ${freeMb}MB of ${totalMb}MB (${tmp})`);
+  } catch {
+    // Best effort only.
+  }
+}
+
 async function launchCaptureBrowserUnscoped(): Promise<Browser> {
   if (IS_SERVERLESS) {
+    await logTmpFreeSpaceBestEffort();
     const chromium = (await import("@sparticuz/chromium")).default;
     const { chromium: pw } = await import("playwright-core");
     return pw.launch({

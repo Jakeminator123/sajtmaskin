@@ -375,6 +375,75 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
     expect(result.dropped).toHaveLength(0);
   });
 
+  it("prod 72cbc979 v4: drops a satisfied manifest claim whose code-file mention is only justification (', although …')", () => {
+    // Verifier phrasing from the 2026-08-11 F3 run: the file appears in a
+    // subordinate clause that motivates the claim. The merged manifest has
+    // next/react/react-dom, so the finding is stale.
+    const finding = {
+      id: "missing-next-runtime-dependencies",
+      detail:
+        "package.json lacks `next`, `react`, and `react-dom`, although app/layout.tsx imports Next.js and React modules.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
+  it("prod 72cbc979 v5: drops a satisfied absence claim with a consequence clause (', so …')", () => {
+    const finding = {
+      id: "incomplete-package-manifest",
+      detail:
+        "package.json dependencies: `next`, `react`, and `react-dom` are absent, so app/layout.tsx and the Next.js application cannot build or run.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
+  it("bugbot round 3: keeps a finding whose although-clause carries an independent code-claim", () => {
+    // Klausulen är inte ren motivering — den påstår ett eget fel ("undefined
+    // helper") som manifest-omkontrollen aldrig kan bekräfta löst.
+    const finding = {
+      id: "incomplete-package-manifest",
+      detail:
+        "package.json lacks `next`, although src/app/page.tsx also calls an undefined helper.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("bugbot high: keeps a compound finding whose so-clause is followed by a coordinated code-file claim", () => {
+    // ", so …" får inte svälja en självständig ", and <kodfil> …"-sats — då
+    // skulle ett blandat fynd omklassas till manifest-only och släppas trots
+    // att kodfils-blockern kvarstår.
+    const finding = {
+      id: "incomplete-package-manifest",
+      detail:
+        "package.json lacks `next`, so the build fails, and src/app/page.tsx renders `<Undefined />` without importing it.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("keeps the justification-clause finding while the manifest still misses a named package", () => {
+    const finding = {
+      id: "missing-next-runtime-dependencies",
+      detail:
+        "package.json lacks `next`, `react`, and `react-dom`, although app/layout.tsx imports Next.js and React modules.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [
+        packageJsonFile({ dependencies: { next: "15.0.0", react: "19.0.0" } }),
+        PAGE_FILE,
+      ],
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
   it("bugbot: keeps a package-labelled finding whose detail also references a code file", () => {
     // Mixed claim (manifest + code file) — the manifest re-check alone cannot
     // confirm the code-file half, so the finding stays blocking.
