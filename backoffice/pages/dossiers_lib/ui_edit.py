@@ -75,6 +75,7 @@ from .io import (
     _run_capability_map_write,
     _rebuild_capability_map,
     _extract_ts_union_values,
+    _default_handoff_candidates,
     _apply_manifest_field_edits,
     _is_link_like,
     _delete_dossier_dir,
@@ -129,6 +130,14 @@ def _render_manifest_edit_controls(
             if current_complexity in _facade()._COMPLEXITY_OPTIONS
             else 1
         )
+        handoff_candidates = (
+            _default_handoff_candidates(
+                manifest_path, dossier_class=str(chosen.get("_class") or "")
+            )
+            if is_default_for_capability(manifest)
+            else []
+        )
+        handoff_options = {dossier_id: path for dossier_id, path in handoff_candidates}
         with st.form(f"{key_prefix}_field_form"):
             edited_label = st.text_input(
                 field_label("label"), value=str(manifest.get("label") or "")
@@ -146,6 +155,17 @@ def _render_manifest_edit_controls(
                 field_label("defaultForCapability", hint="vinner när flera byggblock delar funktion"),
                 value=is_default_for_capability(manifest),
             )
+            replacement_choice = None
+            if handoff_options:
+                replacement_choice = st.selectbox(
+                    "Nytt Standardval om kryssrutan avmarkeras",
+                    ["(välj syskon)", *handoff_options.keys()],
+                    key=f"{key_prefix}_replacement_default",
+                    help=(
+                        "Båda manifesten valideras och sparas som en atomisk flytt. "
+                        "Valet används bara när nuvarande Standardval avmarkeras."
+                    ),
+                )
             edited_mock = st.selectbox(
                 field_label("mock", hint="hur ytan fungerar i preview utan riktig nyckel"),
                 list(_facade()._MOCK_OPTIONS),
@@ -175,7 +195,14 @@ def _render_manifest_edit_controls(
                     else (False if "defaultForCapability" in manifest else None),
                 }
                 ok, msg = _apply_manifest_field_edits(
-                    manifest_path, updates, dossier_class=chosen["_class"]
+                    manifest_path,
+                    updates,
+                    dossier_class=chosen["_class"],
+                    replacement_default_path=(
+                        handoff_options.get(str(replacement_choice))
+                        if not edited_default
+                        else None
+                    ),
                 )
                 if ok:
                     _rerun_after_dossier_mutation(
@@ -268,6 +295,31 @@ def _render_capability_change_action(
     decided_capability = free_capability or (
         capability_choice if capability_choice != none_choice else ""
     )
+    manifest_path = (
+        _facade().DOSSIER_ROOT
+        / str(chosen.get("_class") or "")
+        / str(chosen.get("id") or "")
+        / "manifest.json"
+    )
+    handoff_candidates = (
+        _default_handoff_candidates(
+            manifest_path, dossier_class=str(chosen.get("_class") or "")
+        )
+        if is_default_for_capability(chosen)
+        else []
+    )
+    handoff_options = {dossier_id: path for dossier_id, path in handoff_candidates}
+    replacement_choice = None
+    if len(handoff_options) >= 2:
+        replacement_choice = st.selectbox(
+            "Nytt Standardval i den gamla funktionen",
+            ["(välj syskon)", *handoff_options.keys()],
+            key=f"{key_prefix}_replacement_default",
+            help=(
+                "Krävs när flytten annars lämnar flera hard-syskon utan explicit "
+                "Standardval. Båda manifesten sparas eller rullas tillbaka tillsammans."
+            ),
+        )
     if decided_capability and decided_capability != current_capability:
         st.caption(_describe_capability_group_hint(decided_capability, target_group_id, groups))
     if st.button("Byt capability", key=f"{key_prefix}_submit"):
@@ -277,7 +329,10 @@ def _render_capability_change_action(
             st.info("Samma funktion som idag — inget byttes.")
         else:
             ok, msg = _apply_capability_override(
-                chosen["_class"], chosen["id"], decided_capability
+                chosen["_class"],
+                chosen["id"],
+                decided_capability,
+                replacement_default_path=handoff_options.get(str(replacement_choice)),
             )
             if ok:
                 _rerun_after_dossier_mutation(
@@ -385,9 +440,9 @@ def _render_delete_action(
         )
     if is_default_for_capability(chosen) and siblings:
         default_line = (
-            "detta är funktionens **Standardval** — flagga ett syskon som nytt "
-            "standardval, annars stoppar `dossiers:validate-all` "
-            "(mock-fallback-invarianten kräver en upplösbar default)."
+            "detta är funktionens **Standardval** — välj vid behov ett syskon "
+            "som nytt Standardval i formuläret nedan. Flytten och raderingen "
+            "genomförs tillsammans; inget mellanläge behöver sparas manuellt."
         )
     elif is_default_for_capability(chosen):
         default_line = "detta är Standardval, men hela funktionen försvinner med det."
@@ -408,8 +463,25 @@ def _render_delete_action(
     # ingen halvskriven bekräftelse kan råka gälla.
     ack_key = f"{key_prefix}_ack"
     confirm_key = f"{key_prefix}_confirm"
+    manifest_path = _facade().REPO_ROOT / str(chosen.get("_path") or "") / "manifest.json"
+    handoff_candidates = (
+        _default_handoff_candidates(
+            manifest_path, dossier_class=str(chosen.get("_class") or "")
+        )
+        if is_default_for_capability(chosen)
+        else []
+    )
+    handoff_options = {dossier_id: path for dossier_id, path in handoff_candidates}
     with st.form(f"{key_prefix}_dossier_form"):
         ack = st.checkbox("Jag har gått igenom checklistan ovan", key=ack_key)
+        replacement_choice = None
+        if len(handoff_options) >= 2:
+            replacement_choice = st.selectbox(
+                "Nytt Standardval efter raderingen",
+                ["(välj syskon)", *handoff_options.keys()],
+                key=f"{key_prefix}_replacement_default",
+                help="Standardvals-flytten görs atomiskt med raderingen.",
+            )
         confirmed = confirm_by_typing(
             str(chosen.get("id") or ""),
             confirm_key,
@@ -425,7 +497,10 @@ def _render_delete_action(
                 f"Bekräftelsetexten måste vara exakt `{chosen.get('id')}` — inget raderades."
             )
             return
-        ok, msg = _delete_dossier_dir(chosen)
+        ok, msg = _delete_dossier_dir(
+            chosen,
+            replacement_default_path=handoff_options.get(str(replacement_choice)),
+        )
         if not ok:
             st.error(msg)
             return

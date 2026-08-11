@@ -9,6 +9,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import streamlit as st
 
@@ -170,6 +171,114 @@ def _load_json(path: Path) -> dict[str, Any] | None:
 
 
 
+def _default_invariant_errors_after_changes(
+    changes: list[tuple[Path, dict[str, Any] | None, str]],
+) -> list[str]:
+    """Cross-manifest default errors after one or more projected changes.
+
+    ``dossiers:validate-all`` owns two related invariants that neither the
+    strict schema nor ``_validate_manifest`` can see:
+
+    - at most one dossier (hard or soft) may be default for a capability;
+    - a hard capability with multiple dossiers must have a hard default.
+
+    Only old/new capability families touched by the changed manifests are
+    checked, so an unrelated pre-existing pool error cannot block a local edit.
+    A ``None`` replacement projects a deletion; otherwise the corresponding
+    on-disk manifest is replaced without writing anything. Multiple changes are
+    projected together so a default handoff can be validated atomically.
+
+    Every readable sibling manifest participates, even when it would fail the
+    strict schema and therefore be excluded from CI's cross-manifest pass. This
+    is deliberately fail-closed: Backoffice must not make the default ownership
+    of an already damaged *affected* family more ambiguous. The invalid sibling
+    must first be repaired or removed; unrelated invalid families remain
+    non-blocking because of the affected-capability filter above.
+    """
+
+    def normalized_capability(manifest: dict[str, Any]) -> str:
+        return str(manifest.get("capability") or "").strip().lower()
+
+    affected: set[str] = set()
+    changed_paths: set[Path] = set()
+    for manifest_path, replacement, _dossier_class in changes:
+        for manifest in (_load_json(manifest_path) or {}, replacement or {}):
+            capability = normalized_capability(manifest)
+            if capability:
+                affected.add(capability)
+        try:
+            changed_paths.add(manifest_path.resolve())
+        except OSError:
+            changed_paths.add(manifest_path)
+    if not affected:
+        return []
+
+    rows: list[tuple[str, str, dict[str, Any]]] = []
+    for class_dir in ("hard", "soft"):
+        root = _facade().DOSSIER_ROOT / class_dir
+        if not root.is_dir():
+            continue
+        for sibling_path in sorted(root.glob("*/manifest.json")):
+            try:
+                if sibling_path.resolve() in changed_paths:
+                    continue
+            except OSError:
+                if sibling_path in changed_paths:
+                    continue
+            sibling = _load_json(sibling_path)
+            if not sibling or normalized_capability(sibling) not in affected:
+                continue
+            dossier_id = str(sibling.get("id") or sibling_path.parent.name)
+            rows.append((class_dir, dossier_id, sibling))
+
+    for manifest_path, replacement, dossier_class in changes:
+        if replacement is not None:
+            capability = normalized_capability(replacement)
+            if capability in affected:
+                dossier_id = str(replacement.get("id") or manifest_path.parent.name)
+                rows.append((dossier_class, dossier_id, replacement))
+
+    errors: list[str] = []
+    for capability in sorted(affected):
+        capability_rows = [row for row in rows if normalized_capability(row[2]) == capability]
+        defaults = [
+            f"{class_dir}/{dossier_id}"
+            for class_dir, dossier_id, manifest in capability_rows
+            if is_default_for_capability(manifest)
+        ]
+        if len(defaults) > 1:
+            errors.append(
+                f'capability "{capability}" has {len(defaults)} dossiers with '
+                "defaultForCapability=true: "
+                + ", ".join(defaults)
+                + " (must be exactly one per capability)"
+            )
+
+        hard_rows = [row for row in capability_rows if row[0] == "hard"]
+        hard_defaults = [row for row in hard_rows if is_default_for_capability(row[2])]
+        if len(hard_rows) > 1 and not hard_defaults:
+            candidates = ", ".join(dossier_id for _class, dossier_id, _manifest in hard_rows)
+            errors.append(
+                f'hard capability "{capability}" has {len(hard_rows)} dossiers but none '
+                "with defaultForCapability=true — no resolvable default demo "
+                f"(candidates: {candidates})"
+            )
+    return errors
+
+
+def _default_invariant_errors_after_change(
+    manifest_path: Path,
+    replacement: dict[str, Any] | None,
+    *,
+    dossier_class: str,
+) -> list[str]:
+    return _default_invariant_errors_after_changes(
+        [(manifest_path, replacement, dossier_class)]
+    )
+
+
+
+
 def _save_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     backup_file(path, _facade().REPO_ROOT)
@@ -245,6 +354,157 @@ def _validate_manifest(
     return errors
 
 
+def _default_handoff_candidates(
+    manifest_path: Path, *, dossier_class: str
+) -> list[tuple[str, Path]]:
+    """Strict-valid hard siblings that can receive default ownership."""
+    if dossier_class != "hard":
+        return []
+    current = _load_json(manifest_path) or {}
+    capability = str(current.get("capability") or "").strip().lower()
+    if not capability:
+        return []
+    try:
+        current_path = manifest_path.resolve()
+    except OSError:
+        current_path = manifest_path
+    candidates: list[tuple[str, Path]] = []
+    hard_root = _facade().DOSSIER_ROOT / "hard"
+    for sibling_path in sorted(hard_root.glob("*/manifest.json")):
+        try:
+            if sibling_path.resolve() == current_path:
+                continue
+        except OSError:
+            pass
+        sibling = _load_json(sibling_path)
+        if not sibling or is_default_for_capability(sibling):
+            continue
+        if str(sibling.get("id") or "") != sibling_path.parent.name:
+            continue
+        if str(sibling.get("capability") or "").strip().lower() != capability:
+            continue
+        if _validate_manifest(sibling, "hard"):
+            continue
+        try:
+            if validate_json_against_schema(sibling, _facade().STRICT_SCHEMA_PATH):
+                continue
+        except Exception:  # noqa: BLE001 - an unvalidated successor is never offered
+            continue
+        candidates.append((str(sibling.get("id") or sibling_path.parent.name), sibling_path))
+    return candidates
+
+
+def _prepare_default_handoff(
+    primary_path: Path,
+    primary_replacement: dict[str, Any] | None,
+    *,
+    primary_class: str,
+    successor_path: Path,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Validate both sides of a projected default transfer without writing."""
+    current = _load_json(primary_path)
+    successor = _load_json(successor_path)
+    if not current or not successor:
+        return None, "Kunde inte läsa båda manifesten för Standardvals-flytten. Inget ändrades."
+    if primary_class != "hard":
+        return None, "Standardval kan bara flyttas atomiskt mellan Kopplade (hard) syskon."
+    try:
+        successor_resolved = successor_path.resolve()
+        primary_resolved = primary_path.resolve()
+        hard_root = (_facade().DOSSIER_ROOT / "hard").resolve()
+    except OSError:
+        return None, "Kunde inte verifiera sökvägen till det nya Standardvalet. Inget ändrades."
+    if (
+        successor_resolved.name != "manifest.json"
+        or successor_resolved.parent.parent != hard_root
+        or successor_resolved == primary_resolved
+    ):
+        return None, "Det valda Standardvalet ligger inte i rätt hard-dossierfamilj. Inget ändrades."
+    old_capability = str(current.get("capability") or "").strip().lower()
+    successor_capability = str(successor.get("capability") or "").strip().lower()
+    if str(successor.get("id") or "") != successor_resolved.parent.name:
+        return None, (
+            "Det nya Standardvalets manifest.id matchar inte katalognamnet — "
+            "inget ändrades."
+        )
+    if not old_capability or successor_capability != old_capability:
+        return None, "Det nya Standardvalet måste vara ett hard-syskon i den gamla funktionen."
+
+    successor = {**successor, "defaultForCapability": True}
+    errors = _validate_manifest(successor, "hard")
+    if errors:
+        return None, "Det nya Standardvalet är ogiltigt — inget ändrades:\n" + "\n".join(
+            f"- {error}" for error in errors
+        )
+    try:
+        schema_errors = validate_json_against_schema(
+            successor, _facade().STRICT_SCHEMA_PATH
+        )
+    except Exception as exc:  # noqa: BLE001 - fail closed before either write
+        schema_errors = [f"Strict-schemavalidering kunde inte köras: {exc}"]
+    if schema_errors:
+        return None, "Det nya Standardvalet faller strict-schema — inget ändrades:\n" + "\n".join(
+            f"- {error}" for error in schema_errors
+        )
+    default_errors = _default_invariant_errors_after_changes(
+        [
+            (primary_path, primary_replacement, primary_class),
+            (successor_path, successor, "hard"),
+        ]
+    )
+    if default_errors:
+        return None, (
+            "Standardvals-flytten ger inget giltigt slutläge — inget ändrades:\n"
+            + "\n".join(f"- {error}" for error in default_errors)
+        )
+    return successor, None
+
+
+def _save_manifest_with_default_handoff(
+    primary_path: Path,
+    primary_manifest: dict[str, Any],
+    *,
+    primary_class: str,
+    successor_path: Path,
+) -> tuple[bool, str]:
+    """Back up and write a two-manifest handoff, rolling both back on failure."""
+    successor, error = _prepare_default_handoff(
+        primary_path,
+        primary_manifest,
+        primary_class=primary_class,
+        successor_path=successor_path,
+    )
+    if error or successor is None:
+        return False, error or "Standardvals-flytten kunde inte förberedas."
+    originals = {
+        primary_path: primary_path.read_bytes(),
+        successor_path: successor_path.read_bytes(),
+    }
+    backups = [backup_file(path, _facade().REPO_ROOT) for path in originals]
+    if any(path is None for path in backups):
+        return False, "Kunde inte säkerhetskopiera båda manifesten — inget ändrades."
+    try:
+        # Successorn skrivs först: om processen avbryts mellan filerna finns
+        # åtminstone ett explicit default kvar. Ett fåtal millisekunders dubbel
+        # default är säkrare än ett permanent ägarlöst live-läge.
+        _save_json(successor_path, successor)
+        _save_json(primary_path, primary_manifest)
+    except OSError as exc:
+        rollback_errors: list[str] = []
+        for path, content in originals.items():
+            try:
+                path.write_bytes(content)
+            except OSError as rollback_exc:
+                rollback_errors.append(f"{path}: {rollback_exc}")
+        if rollback_errors:
+            return False, (
+                f"Standardvals-flytten misslyckades ({exc}) och rollbacken blev ofullständig:\n"
+                + "\n".join(f"- {item}" for item in rollback_errors)
+            )
+        return False, f"Standardvals-flytten misslyckades ({exc}) — båda manifesten rullades tillbaka."
+    return True, ""
+
+
 def _save_raw_manifest(
     manifest_path: Path, manifest: dict[str, Any], *, dossier_class: str
 ) -> tuple[bool, str]:
@@ -264,6 +524,21 @@ def _save_raw_manifest(
         return False, (
             "Strict-schema (samma regler som runtime/CI) misslyckades — sparade inte:\n"
             + "\n".join(f"- {error}" for error in schema_errors)
+        )
+    default_errors = _default_invariant_errors_after_change(
+        manifest_path, manifest, dossier_class=dossier_class
+    )
+    if default_errors:
+        guidance = (
+            "\nVälj ett nytt Standardval i formuläret; båda manifesten sparas då tillsammans."
+            if any("no resolvable default demo" in error for error in default_errors)
+            else ""
+        )
+        return False, (
+            "Standardvalsregeln (samma regel som dossiers:validate-all) "
+            "misslyckades — sparade inte:\n"
+            + "\n".join(f"- {error}" for error in default_errors)
+            + guidance
         )
     _save_json(manifest_path, manifest)
     return True, ""
@@ -550,7 +825,11 @@ def _extract_ts_union_values(path: Path, type_name: str) -> list[str]:
 
 
 def _apply_manifest_field_edits(
-    manifest_path: Path, updates: dict[str, Any], *, dossier_class: str
+    manifest_path: Path,
+    updates: dict[str, Any],
+    *,
+    dossier_class: str,
+    replacement_default_path: Path | None = None,
 ) -> tuple[bool, str]:
     """Patcha de trygga fälten i ett befintligt manifest (C4). Pure (ingen
     Streamlit) så skrivvägen är enhetstestbar. Samma fail-closed-kedja som
@@ -608,9 +887,33 @@ def _apply_manifest_field_edits(
             return False, (
                 f"`{taken}` är redan Standardval för funktionen `{capability}` — "
                 "två byggblock kan inte vara det samtidigt (det fälls av "
-                "`npm run dossiers:validate-all`). Ta bort Standardval där först. "
+                "`npm run dossiers:validate-all`). Öppna det nuvarande Standardvalet, "
+                f"avmarkera kryssrutan och välj `{manifest.get('id')}` som nytt "
+                "Standardval i samma formulär; flytten sparas då atomiskt. "
                 "Sparade inte."
             )
+    if replacement_default_path is not None:
+        return _save_manifest_with_default_handoff(
+            manifest_path,
+            manifest,
+            primary_class=dossier_class,
+            successor_path=replacement_default_path,
+        )
+    default_errors = _default_invariant_errors_after_change(
+        manifest_path, manifest, dossier_class=dossier_class
+    )
+    if default_errors:
+        guidance = (
+            "\nVälj ett nytt Standardval i formuläret; båda manifesten sparas då tillsammans."
+            if any("no resolvable default demo" in error for error in default_errors)
+            else ""
+        )
+        return False, (
+            "Standardvalsregeln (samma regel som dossiers:validate-all) "
+            "misslyckades — sparade inte:\n"
+            + "\n".join(f"- {error}" for error in default_errors)
+            + guidance
+        )
     _save_json(manifest_path, manifest)
     return True, ""
 
@@ -635,7 +938,9 @@ def _is_link_like(path: Path) -> bool:
 
 
 
-def _delete_dossier_dir(chosen: dict[str, Any]) -> tuple[bool, str]:
+def _delete_dossier_dir(
+    chosen: dict[str, Any], *, replacement_default_path: Path | None = None
+) -> tuple[bool, str]:
     """Guarded deletion of a dossier directory from the live pool. Pure
     (no Streamlit) so the destructive path is unit-testable. Deletes the
     ACTUAL walked directory (`_path` from `_walk_all_dossiers`) — never a
@@ -662,16 +967,106 @@ def _delete_dossier_dir(chosen: dict[str, Any]) -> tuple[bool, str]:
         return False, f"Sökvägen ligger utanför dossier-poolen: `{rel_path}` — inget raderades."
     if not target_dir.exists():
         return False, f"Katalogen finns inte längre: `{rel_path}`."
+    manifest_path = target_dir / "manifest.json"
+    dossier_class = str(chosen.get("_class") or "")
+    successor: dict[str, Any] | None = None
+    if replacement_default_path is not None:
+        successor, handoff_error = _prepare_default_handoff(
+            manifest_path,
+            None,
+            primary_class=dossier_class,
+            successor_path=replacement_default_path,
+        )
+        if handoff_error or successor is None:
+            return False, handoff_error or "Standardvals-flytten kunde inte förberedas."
+    else:
+        default_errors = _default_invariant_errors_after_change(
+            manifest_path, None, dossier_class=dossier_class
+        )
+        if default_errors:
+            return False, (
+                "Standardvalsregeln (samma regel som dossiers:validate-all) "
+                "skulle brytas — inget raderades:\n"
+                + "\n".join(f"- {error}" for error in default_errors)
+                + "\nVälj ett nytt Standardval i raderingsformuläret och försök igen."
+            )
     # Fail-closed: radera inte om zip-snapshoten (Återställning) inte kunde tas.
-    if backup_tree(target_dir, _facade().REPO_ROOT) is None:
+    tree_snapshot = backup_tree(target_dir, _facade().REPO_ROOT)
+    if tree_snapshot is None:
         return False, (
             f"Kunde inte ta zip-snapshot av `{rel_path}` — "
             "avbröt raderingen, inget raderades."
         )
-    shutil.rmtree(target_dir)
+    successor_original: bytes | None = None
+    if successor is not None and replacement_default_path is not None:
+        successor_original = replacement_default_path.read_bytes()
+        if backup_file(replacement_default_path, _facade().REPO_ROOT) is None:
+            return False, "Kunde inte säkerhetskopiera det nya Standardvalet — inget raderades."
+
+    quarantine_dir = target_dir.parent / (
+        f"_{target_dir.name}.backoffice-delete-{uuid4().hex}"
+    )
+    try:
+        target_dir.rename(quarantine_dir)
+    except OSError as exc:
+        return False, f"Kunde inte flytta `{rel_path}` till säker quarantine ({exc}) — inget ändrades."
+
+    def restore_successor() -> str | None:
+        if successor_original is None or replacement_default_path is None:
+            return None
+        try:
+            replacement_default_path.write_bytes(successor_original)
+        except OSError as rollback_exc:
+            return str(rollback_exc)
+        return None
+
+    def restore_primary_from_snapshot() -> str | None:
+        try:
+            shutil.unpack_archive(str(tree_snapshot), str(target_dir))
+        except (OSError, shutil.ReadError) as rollback_exc:
+            return str(rollback_exc)
+        return None
+
+    if successor is not None and replacement_default_path is not None:
+        try:
+            _save_json(replacement_default_path, successor)
+        except OSError as exc:
+            successor_rollback_error = restore_successor()
+            try:
+                quarantine_dir.rename(target_dir)
+                primary_rollback_error = None
+            except OSError:
+                primary_rollback_error = restore_primary_from_snapshot()
+            if successor_rollback_error or primary_rollback_error:
+                return False, (
+                    f"Kunde inte skriva det nya Standardvalet ({exc}) och rollbacken "
+                    f"blev ofullständig (successor={successor_rollback_error}, "
+                    f"primär={primary_rollback_error}). Återställ från backup."
+                )
+            return False, (
+                f"Kunde inte skriva det nya Standardvalet ({exc}) — live-katalogen "
+                "och successor rullades tillbaka."
+            )
+    try:
+        shutil.rmtree(quarantine_dir)
+    except OSError as exc:
+        successor_rollback_error = restore_successor()
+        primary_rollback_error = restore_primary_from_snapshot()
+        if successor_rollback_error or primary_rollback_error:
+            return False, (
+                f"Quarantine-raderingen misslyckades ({exc}) och rollbacken blev "
+                f"ofullständig (successor={successor_rollback_error}, "
+                f"primär={primary_rollback_error}). Återställ från backup."
+            )
+        return False, (
+            f"Quarantine-raderingen misslyckades ({exc}) — live-trädet och "
+            "Standardvalet återställdes byte-exakt från snapshot. En ignorerad "
+            f"quarantine-rest kan ligga kvar i `{quarantine_dir.name}`."
+        )
     return True, (
         f"Raderade `{rel_path}`.\n\n"
-        "Nästa steg: bygg om capability-map (Kontroller-tabben) och kör "
+        + ("Standardvalet flyttades atomiskt till det valda syskonet.\n\n" if successor else "")
+        + "Nästa steg: bygg om capability-map (Kontroller-tabben) och kör "
         "`npm run dossiers:validate-all`. Ångra: en zip-snapshot av katalogen "
         "togs precis före raderingen — återställ den via sidan **Återställning** "
         "(git funkar också för redan incheckade byggblock)."
@@ -719,7 +1114,13 @@ def _run_curate(
 
 
 
-def _apply_capability_override(target_class: str, target_id: str, capability: str) -> tuple[bool, str]:
+def _apply_capability_override(
+    target_class: str,
+    target_id: str,
+    capability: str,
+    *,
+    replacement_default_path: Path | None = None,
+) -> tuple[bool, str]:
     """Overwrite a freshly-curated draft's `capability` with the dossier-grupp
     capability the curator explicitly picked, so a brand-new dossier lands on
     a decided capability instead of whatever the LLM guessed. Runs AFTER
@@ -756,6 +1157,28 @@ def _apply_capability_override(target_class: str, target_id: str, capability: st
         return False, (
             "Strict-schema (samma regler som runtime/CI) misslyckades efter "
             "capability-bytet — sparar inte:\n" + "\n".join(f"- {e}" for e in schema_errors)
+        )
+    if replacement_default_path is not None:
+        return _save_manifest_with_default_handoff(
+            manifest_path,
+            manifest,
+            primary_class=target_class,
+            successor_path=replacement_default_path,
+        )
+    default_errors = _default_invariant_errors_after_change(
+        manifest_path, manifest, dossier_class=target_class
+    )
+    if default_errors:
+        guidance = (
+            "\nVälj ett nytt Standardval i den gamla funktionen; manifesten sparas då tillsammans."
+            if any("no resolvable default demo" in error for error in default_errors)
+            else ""
+        )
+        return False, (
+            "Standardvalsregeln (samma regel som dossiers:validate-all) "
+            "misslyckades — sparar inte capability-bytet:\n"
+            + "\n".join(f"- {error}" for error in default_errors)
+            + guidance
         )
     _save_json(manifest_path, manifest)
     return True, ""
@@ -961,6 +1384,15 @@ def _promote_prospect(root: Path, entry: dict[str, Any], force: bool) -> tuple[b
     if target_dir.exists() and not force:
         rel = target_dir.relative_to(_facade().REPO_ROOT)
         return False, f"Dossier finns redan: `{rel}`. Kryssa i 'Skriv över' för att ersätta."
+    default_errors = _default_invariant_errors_after_change(
+        target_dir / "manifest.json", manifest, dossier_class=klass
+    )
+    if default_errors:
+        return False, (
+            "Standardvalsregeln (samma regel som dossiers:validate-all) "
+            "misslyckades — promotar inte:\n"
+            + "\n".join(f"- {error}" for error in default_errors)
+        )
     target_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(manifest_path, target_dir / "manifest.json")
     instructions = draft / "instructions.md"
@@ -1096,6 +1528,15 @@ def _create_dossier_skeleton(
                 "`npm run dossiers:validate-all`). Skapa byggblocket utan "
                 "Standardval, eller ta bort det där först. Inget skapades."
             )
+    default_errors = _default_invariant_errors_after_change(
+        target_dir / "manifest.json", manifest, dossier_class=target_class
+    )
+    if default_errors:
+        return False, (
+            "Standardvalsregeln (samma regel som dossiers:validate-all) "
+            "misslyckades — inget skapades:\n"
+            + "\n".join(f"- {error}" for error in default_errors)
+        )
     if target_dir.exists():
         return False, (
             f"Katalogen finns redan: `{rel}` — ett befintligt byggblock skrivs "

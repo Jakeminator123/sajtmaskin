@@ -44,7 +44,12 @@ import {
   getWorkloadFallbackModelsFromManifest,
 } from "../../src/lib/ai-models/load-manifest";
 import { getTemperatureConfig } from "../../src/lib/builder/direct-model";
-import { validateDossierManifest } from "../../src/lib/gen/dossiers/validate-manifest";
+import { getAllDossiers } from "../../src/lib/gen/dossiers/registry";
+import {
+  findDuplicateDefaults,
+  findUnresolvableHardCapabilityDefaults,
+  validateDossierManifest,
+} from "../../src/lib/gen/dossiers/validate-manifest";
 
 const REPO_ROOT = resolve(process.cwd());
 const REFERENCES_ROOT = join(REPO_ROOT, "data", "template-references", "repos");
@@ -213,6 +218,36 @@ interface DraftManifest {
 interface CurationOutput {
   manifest: DraftManifest;
   instructions: string;
+}
+
+export interface CurationDefaultInvariantEntry {
+  id: string;
+  class: "hard" | "soft";
+  capability: string;
+  defaultForCapability: boolean;
+}
+
+/** Validate the affected capability families after replacing/adding a draft. */
+export function findProjectedCurationDefaultErrors(
+  existing: readonly CurationDefaultInvariantEntry[],
+  candidate: CurationDefaultInvariantEntry,
+): string[] {
+  const replaced = existing.find(
+    (entry) => entry.class === candidate.class && entry.id === candidate.id,
+  );
+  const affectedCapabilities = new Set([
+    candidate.capability,
+    ...(replaced ? [replaced.capability] : []),
+  ]);
+  const projected = [
+    ...existing.filter((entry) => !(entry.class === candidate.class && entry.id === candidate.id)),
+    candidate,
+  ].filter((entry) => affectedCapabilities.has(entry.capability));
+
+  return [
+    ...findDuplicateDefaults(projected),
+    ...findUnresolvableHardCapabilityDefaults(projected),
+  ];
 }
 
 /**
@@ -499,14 +534,26 @@ async function main() {
   if (!output.manifest.lastVerified)
     output.manifest.lastVerified = new Date().toISOString().slice(0, 10);
 
+  const manifestToWrite = {
+    $schema: "../../../../docs/schemas/strict/dossier.schema.json",
+    ...output.manifest,
+  };
+  const defaultErrors = findProjectedCurationDefaultErrors(getAllDossiers(), {
+    id: args.id,
+    class: args.class,
+    capability: output.manifest.capability,
+    defaultForCapability: output.manifest.defaultForCapability === true,
+  });
+  if (defaultErrors.length > 0) {
+    throw new Error(
+      `Refusing to write a dossier that breaks the default invariant:\n  - ${defaultErrors.join("\n  - ")}`,
+    );
+  }
+
   mkdirSync(targetDir, { recursive: true });
   writeFileSync(
     join(targetDir, "manifest.json"),
-    JSON.stringify(
-      { $schema: "../../../../docs/schemas/strict/dossier.schema.json", ...output.manifest },
-      null,
-      2,
-    ) + "\n",
+    JSON.stringify(manifestToWrite, null, 2) + "\n",
     "utf-8",
   );
   writeFileSync(join(targetDir, "instructions.md"), output.instructions, "utf-8");

@@ -25,6 +25,7 @@ import {
   findMissingInstructionsHeadings,
   findMissingInstructionsHeadingsPartitioned,
   findMissingMockFallbacks,
+  findUnresolvableHardCapabilityDefaults,
   findModuleLevelSdkConstructions,
   MOCKLESS_CAPABILITY_EXCEPTIONS,
   RECOMMENDED_INSTRUCTIONS_HEADINGS,
@@ -274,6 +275,19 @@ describe("findMissingMockFallbacks (fallback-invariant, etapp 4)", () => {
     class: "hard",
     defaultForCapability,
     mock,
+  });
+
+  it("exposes the default-resolution check without also enforcing mock modes", () => {
+    const entries = [
+      hard("db-a", "database", false, "none"),
+      hard("db-b", "database", false, "none"),
+    ];
+
+    const errors = findUnresolvableHardCapabilityDefaults(entries);
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("no resolvable default demo");
+    expect(errors[0]).toContain("db-a, db-b");
   });
 
   it("flags a non-exempt hard capability whose default dossier has mock=none", () => {

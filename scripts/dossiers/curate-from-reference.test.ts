@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   allowedCurationModels,
   CURATION_WORKLOAD_ID,
+  findProjectedCurationDefaultErrors,
   parseArgs,
   resolveCurationModel,
 } from "./curate-from-reference";
@@ -60,9 +61,7 @@ describe("curation model resolution", () => {
     expect(() => resolveCurationModel("gpt-4o-mini")).toThrow(
       new RegExp(allowedCurationModels().join(", ")),
     );
-    expect(() => parseArgs([...BASE_ARGV, "--model=totally-made-up"])).toThrow(
-      /Allowed:/,
-    );
+    expect(() => parseArgs([...BASE_ARGV, "--model=totally-made-up"])).toThrow(/Allowed:/);
   });
 
   it("no longer hardcodes the legacy gpt-4o-mini id", () => {
@@ -79,5 +78,74 @@ describe("curation model resolution", () => {
     expect(() =>
       parseArgs(["node", "s.ts", "--reference=r", "--class=soft", "--id=Not_Kebab"]),
     ).toThrow(/--id must be kebab-case/);
+  });
+});
+
+describe("curation projected default invariant", () => {
+  it("rejects a second non-default hard dossier before it becomes live", () => {
+    const errors = findProjectedCurationDefaultErrors(
+      [
+        {
+          id: "existing-cms",
+          class: "hard",
+          capability: "cms",
+          defaultForCapability: false,
+        },
+      ],
+      {
+        id: "curated-cms",
+        class: "hard",
+        capability: "cms",
+        defaultForCapability: false,
+      },
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("no resolvable default demo");
+  });
+
+  it("checks the old family when --force replaces its explicit default", () => {
+    const errors = findProjectedCurationDefaultErrors(
+      [
+        {
+          id: "curated-cms",
+          class: "hard",
+          capability: "cms",
+          defaultForCapability: true,
+        },
+        {
+          id: "sibling-cms",
+          class: "hard",
+          capability: "cms",
+          defaultForCapability: false,
+        },
+        {
+          id: "third-cms",
+          class: "hard",
+          capability: "cms",
+          defaultForCapability: false,
+        },
+      ],
+      {
+        id: "curated-cms",
+        class: "hard",
+        capability: "content-hub",
+        defaultForCapability: false,
+      },
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain('hard capability "cms"');
+  });
+
+  it("allows an implicit default when the candidate is the sole hard dossier", () => {
+    expect(
+      findProjectedCurationDefaultErrors([], {
+        id: "curated-cms",
+        class: "hard",
+        capability: "cms",
+        defaultForCapability: false,
+      }),
+    ).toEqual([]);
   });
 });

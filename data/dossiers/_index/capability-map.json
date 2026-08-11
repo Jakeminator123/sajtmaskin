@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-08-11T16:48:54.304Z",
+  "generatedAt": "2026-08-11T19:21:30.534Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -1043,6 +1043,6 @@
     "src/lib/gen/dossiers/f2-mute.ts": "f9fe5879bdd327277423c2a82374c11d303b6c1484fb17b88edb6d8bbd6882ed",
     "src/lib/gen/dossiers/registry.ts": "2766260fb71f0bef126a9f30274869b507bc466b84edb50501568a8b9cee7c11",
     "src/lib/gen/dossiers/types.ts": "b08f15c5d4e15b25d627d3d004b13606c81e963f41c468871fe03259581662ec",
-    "src/lib/gen/dossiers/validate-manifest.ts": "a8b159fcdde2e63f1d38a3c10a3ff5bcef5d51d93d17c8687d92571aa22ea2b4"
+    "src/lib/gen/dossiers/validate-manifest.ts": "bea0a961faedc86de17551f9435cd6eadd609df04165619f23d4a6b1ebc6e7f4"
   }
 }
