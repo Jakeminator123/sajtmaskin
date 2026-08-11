@@ -13,6 +13,10 @@
  * — the resolver would pick the `.tsx` and silently disable every motion
  * component that reads the hook. See plan
  * `.cursor/plans/3d-motion-stub-fix_1125d129.plan.md` for the full repro.
+ *
+ * `@/lib/hooks/use-mobile` / `@/hooks/use-mobile` are likewise baseline-shipped
+ * (`lib/hooks/use-mobile.ts` + alias). Keep them here so autofix never emits a
+ * competing stub; the quality-gate `tsc` still resolves the real baseline file.
  */
 
 export const RUNTIME_PROVIDED_PREFIXES = ["@/components/ui/"] as const;

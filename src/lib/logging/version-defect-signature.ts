@@ -112,6 +112,7 @@ function kindFromProductPostcheckCode(code: string): VersionDefectKind {
       return "hydration";
     case "runtime_crash":
     case "console_error":
+    case "preview_boot_page":
       return "runtime";
     case "request_failed":
     case "http_error":

@@ -13,6 +13,7 @@ describe("classifyVersionDefectKind", () => {
     expect(kind("product_postcheck.hydration_mismatch")).toBe("hydration");
     expect(kind("product_postcheck.runtime_crash")).toBe("runtime");
     expect(kind("product_postcheck.console_error")).toBe("runtime");
+    expect(kind("product_postcheck.preview_boot_page")).toBe("runtime");
     expect(kind("product_postcheck.request_failed")).toBe("network");
     expect(kind("product_postcheck.http_error")).toBe("network");
     expect(kind("product_postcheck.broken_anchor")).toBe("product");
