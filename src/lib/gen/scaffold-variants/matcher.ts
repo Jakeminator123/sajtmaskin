@@ -1,6 +1,3 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { resolve } from "node:path";
-
 import {
   getDefaultVariantForScaffold,
   getVariantsForScaffold,
@@ -9,6 +6,10 @@ import {
 import { getBlockedVariantIds } from "./eval-blocklist";
 import type { PickScaffoldVariantInput, ScaffoldVariant } from "./types";
 import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
+import {
+  invalidateEmbeddingsArtifactCache,
+  loadEmbeddingsArtifact,
+} from "@/lib/gen/embeddings/embeddings-storage";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 
@@ -299,22 +300,15 @@ export function pickScaffoldVariant(
 // Embedding-driven variant matching (opt-in, used by orchestrate when
 // FEATURES.useDossierPipeline is on so we already have an OpenAI client).
 //
-// Strategy: precomputed embeddings (config/scaffold-variants/_index/variant-embeddings.json)
-// are mtime-cached. At runtime, embed the user prompt once via OpenAI,
+// Strategy: precomputed embeddings (Blob key embeddings/variant-embeddings.json,
+// local cache under config/scaffold-variants/_index/) are process-cached.
+// At runtime, embed the user prompt once via OpenAI,
 // cosine-search vs all variants for the chosen scaffoldId, take top 3,
 // then use the same deterministic seed-hash to vary across sessions.
 //
 // Falls back to `pickScaffoldVariant` (keyword) when embeddings file is
 // missing or no API key.
 // ─────────────────────────────────────────────────────────────────────────
-
-const VARIANT_EMBEDDINGS_PATH = resolve(
-  process.cwd(),
-  "config",
-  "scaffold-variants",
-  "_index",
-  "variant-embeddings.json",
-);
 
 interface VariantEmbedding {
   id: string;
@@ -327,19 +321,19 @@ interface VariantEmbeddingsFile {
   embeddings: VariantEmbedding[];
 }
 
-let _embeddingsCache: { mtimeMs: number; data: VariantEmbeddingsFile } | null = null;
-
-function loadVariantEmbeddings(): VariantEmbeddingsFile | null {
-  if (!existsSync(VARIANT_EMBEDDINGS_PATH)) return null;
-  const mtime = statSync(VARIANT_EMBEDDINGS_PATH).mtimeMs;
-  if (_embeddingsCache?.mtimeMs === mtime) return _embeddingsCache.data;
+async function loadVariantEmbeddings(): Promise<VariantEmbeddingsFile | null> {
   try {
-    const data = JSON.parse(readFileSync(VARIANT_EMBEDDINGS_PATH, "utf-8")) as VariantEmbeddingsFile;
-    _embeddingsCache = { mtimeMs: mtime, data };
+    const data = (await loadEmbeddingsArtifact("variant")) as VariantEmbeddingsFile | null;
+    if (!data || !Array.isArray(data.embeddings)) return null;
     return data;
   } catch {
     return null;
   }
+}
+
+/** Clear process cache after regenerate/promote. */
+export function invalidateVariantEmbeddingsCache(): void {
+  invalidateEmbeddingsArtifactCache("variant");
 }
 
 export interface PickScaffoldVariantAsyncOptions extends PickScaffoldVariantInput {
@@ -360,7 +354,7 @@ export async function pickScaffoldVariantAsync(
   if (allVariants.length === 0) return null;
   const variants = applyEvalBlocklist(allVariants, input.scaffoldId);
 
-  const embeddingsFile = loadVariantEmbeddings();
+  const embeddingsFile = await loadVariantEmbeddings();
   if (!embeddingsFile) return pickScaffoldVariant(input);
 
   // Get query vector

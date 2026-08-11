@@ -27,7 +27,7 @@ when generating code.
 
 | File | Size | What it is |
 |------|------|-----------|
-| `scaffold-embeddings.json` | ~2 MB | OpenAI vectors for the 9 scaffolds. Used by `searchScaffolds()` when semantic fallback is needed. |
+| `scaffold-embeddings.json` | ~0.4 MB (lokal cache) | OpenAI vectors for the 9 scaffolds. **SoT:** Vercel Blob `embeddings/scaffold-embeddings.json`. Used by `searchScaffolds()`. |
 | `scaffold-research.generated.json` | ~1 MB | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, legacy `referenceTemplates`). Historically built from the removed external template-library pipeline. Runtime renders checklist/upgrade targets but no longer renders the legacy template list. |
 
 ## Indexed files (readable by agents)
@@ -57,5 +57,5 @@ when generating code.
 ## Regeneration Notes
 
 - `scaffold-research.generated.json` was historically rebuilt by `scripts/template-library/build-template-library.ts`. That script + its `template-library:*` npm targets are removed (see `registry.ts` header). Treat `referenceTemplates` as retained legacy data, not runtime prompt input; current variant inspiration comes from one allowlisted Blob template via `scaffold-variants/template-inspiration.ts`.
-- `scaffold-embeddings.json` is rebuilt by `npm run scaffolds:embeddings` (`scripts/embeddings/generate-scaffold-embeddings.ts`).
+- `scaffold-embeddings.json` rebuilds via `npm run scaffolds:embeddings` (writes Vercel Blob + local cache). Sync cache with `npm run embeddings:sync`.
 - If scaffold research changes, regenerate embeddings too so semantic matching uses the same merged scaffold data as runtime.

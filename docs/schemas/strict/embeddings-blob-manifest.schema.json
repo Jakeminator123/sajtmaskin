@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/schemas/strict/embeddings-blob-manifest.schema.json",
+  "title": "EmbeddingsBlobManifest",
+  "description": "Committed public URL map for platform embedding JSON in Vercel Blob. No secrets.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["_meta", "artifacts"],
+  "properties": {
+    "_meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["updatedAt"],
+      "properties": {
+        "updatedAt": { "type": "string", "minLength": 1 }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["template", "scaffold", "variant"],
+      "properties": {
+        "template": { "$ref": "#/$defs/artifact" },
+        "scaffold": { "$ref": "#/$defs/artifact" },
+        "variant": { "$ref": "#/$defs/artifact" }
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "url", "updatedAt"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^embeddings/[a-z0-9-]+\\.json$"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https://.+\\.blob\\.vercel-storage\\.com/.+"
+        },
+        "updatedAt": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
