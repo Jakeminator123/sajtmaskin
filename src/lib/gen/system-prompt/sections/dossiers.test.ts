@@ -290,13 +290,19 @@ describe("renderDossierBlocks — compact dossier instructions", () => {
       expect(text).toContain("must call a route that EXISTS in your output");
     });
 
-    it("stays silent once the dossier UI is already in the project", () => {
+    it("rewire-checks when the dossier UI already exists alongside its server route", () => {
+      // F2 may have written a local-demo chat-panel at the dossier path while
+      // verbatim kept app/api/chat/route.ts — ownership must still force Adapt.
       const text = renderDossierBlocks(openaiChatSelection, {
         generationMode: "followUp",
         previousFilePaths: ["app/page.tsx", "components/chat-panel.tsx", "app/api/chat/route.ts"],
       }).join("\n");
 
-      expect(text).not.toContain("## Capability Surface Ownership");
+      expect(text).toContain("## Capability Surface Ownership — one owner per capability");
+      expect(text).toContain("`openai-chat`");
+      expect(text).toContain("`app/api/chat/route.ts`");
+      expect(text).toContain("MUST call the dossier's server contract");
+      expect(text).toContain("local useState/toast mock");
     });
 
     it("stays silent on init — there is no earlier surface to own", () => {

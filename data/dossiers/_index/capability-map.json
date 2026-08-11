@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-08-11T07:31:01.674Z",
+  "generatedAt": "2026-08-11T15:43:22.926Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -272,7 +272,7 @@
       ],
       "summarySv": "En chattassistent på sajten som svarar besökarna direkt, driven av OpenAI. Passar kundfrågor, vägledning och enklare support; utan riktig nyckel körs demoläge där chatten ger trovärdiga låtsassvar tills en OpenAI-nyckel läggs in.",
       "verificationStatus": "accepted",
-      "lastVerified": "2026-04-20",
+      "lastVerified": "2026-08-11",
       "f2Disposition": "deferred",
       "f2Reason": "build-server",
       "buildServerRequirement": true,
@@ -1020,7 +1020,7 @@
   "sourceFiles": {
     "data/dossiers/hard/clerk-auth/manifest.json": "aa952b4feef8f9d952191d6016df83282034bdd09ef543ebc4814fc6d982e0bd",
     "data/dossiers/hard/mailchimp-newsletter/manifest.json": "8b3400858050d66a5c383db99675264df32883c2d9d3a3ff954a309f336ea0f4",
-    "data/dossiers/hard/openai-chat/manifest.json": "d1c0c4005d8deccf683817dd6f4ba1b249157b9c7eec27c34d6efbbf0d656d98",
+    "data/dossiers/hard/openai-chat/manifest.json": "b929ec00bac5d4a7f25478eee88444c8916f08b0b24c931fef23f95bcdcd19a2",
     "data/dossiers/hard/postgres-drizzle/manifest.json": "11d7a2c25db545916907c6fdb5ae86b883cbf8b11facb1a823d8061057ded4e7",
     "data/dossiers/hard/resend-contact-form/manifest.json": "da4af8a189ec7b304eee50bf8bc0157b6a1bd365b16344f6e6f8ded4ff035a9a",
     "data/dossiers/hard/sanity-cms/manifest.json": "18ccf5581fbbb85ce800e6c08940f6a8058cd0c9598b7423a8596a34c87307b2",

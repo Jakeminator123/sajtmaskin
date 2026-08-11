@@ -32,9 +32,9 @@ the surface must never overpromise:
 
 # How to integrate
 
-1. Place `<ChatPanel />` somewhere in the page tree — a sidebar, a modal, a dedicated `/chat` route, etc. The component is fully self-contained and uses the `useChat` hook from `@ai-sdk/react`.
-2. The hook posts to `/api/chat` and streams tokens back. The route handler is intentionally tiny — system prompt, model, and temperature are inlined so the codegen LLM can adapt them per project.
-3. **Re-style the panel freely.** Avatars, layout, colors, message rendering, autoscroll behavior — all rewritable. Only the `route.ts` file must stay verbatim (the streaming protocol depends on the exact response format).
+1. Place `<ChatPanel />` somewhere in the page tree — a sidebar, a modal, a dedicated `/chat` route, etc. The component is fully self-contained and uses AI SDK **v5** `useChat` from `@ai-sdk/react` with `DefaultChatTransport({ api: "/api/chat" })` from `ai`.
+2. The transport posts to `/api/chat` and streams UI-message parts back. Do **not** use the v4 `useChat({ api })` / `handleInputChange` / `append` shape — it 500s against this route. Manage input with local `useState` and call `sendMessage({ text })`.
+3. **Re-style the panel freely.** Avatars, layout, colors, message rendering, autoscroll behavior — all rewritable. Keep the `/api/chat` transport target. Only the `route.ts` file must stay verbatim (the streaming protocol depends on the exact response format).
 4. Configure the **system prompt** in `route.ts` to match the site's persona — this is the single most important integration step. Generic `You are a helpful assistant` is a sign of incomplete adaptation.
 
 # Ownership and response contract
@@ -46,10 +46,10 @@ your existing UI at `/api/chat` (the dossier's route) or replace it with
 `<ChatPanel />`. Never keep both, and never add a second chat endpoint next to
 `app/api/chat/route.ts`.
 
-The response contract is the AI SDK **UI-message stream**, consumed by `useChat`
-— not a JSON envelope. Do not hand-roll an endpoint that answers
-`{ reply: "..." }` and do not read `data.reply` on the client: `useChat` gives
-you `messages` with typed parts, so there is no optional string to unwrap.
+The response contract is the AI SDK **UI-message stream**, consumed by v5
+`useChat` + `DefaultChatTransport` — not a JSON envelope. Do not hand-roll an
+endpoint that answers `{ reply: "..." }` and do not read `data.reply` on the
+client: render text from `message.parts` (`type === "text"`).
 
 If your own code does read a value that TypeScript types as
 `string | undefined`, narrow it before use (`if (!value) return;` or
