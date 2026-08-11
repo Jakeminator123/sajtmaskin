@@ -403,11 +403,15 @@ def _create_scaffold(
                     "Startvariantens `scaffoldId` måste matcha scaffolden som skapas."
                 )
             starter_errors = _validate_variant_payload(ctx, starter_payload)
+            # Wizard starters omit signaturePatterns until post-create
+            # `scaffolds:variant-patterns`. Neutral auto-starters already ship
+            # curated patterns, so keep that gate fail-closed for them.
             starter_errors.extend(
                 _variant_integrity_errors(
                     ctx,
                     starter_payload,
                     sibling_defaults=[],
+                    require_signature_patterns=starter_variant_payload is None,
                 )
             )
             if starter_errors:

@@ -8,6 +8,8 @@ state that later fails ``npm run scaffolds:validate``
   * create/edit require curated ``signaturePatterns`` (>=3/2/2), exactly one
     ``default: true`` per scaffold and non-empty template provenance;
   * the neutral starter variant is auto-populated with valid signaturePatterns;
+  * Wizard new-scaffold starters may omit signaturePatterns at create time
+    (post-create ``scaffolds:variant-patterns`` fills them);
   * delete cannot remove the sole default and prunes the embeddings index;
   * Lifecycle and Wizard use the runtime-selectability + addendum contract for
     ``sourceTemplateIds``, not only Blob existence.
@@ -318,6 +320,60 @@ class CreateScaffoldTransactionTests(unittest.TestCase):
         }
         return draft, payload
 
+    def test_wizard_starter_without_signature_patterns_creates(self) -> None:
+        """Green checklist payload (no signaturePatterns) must not fail Create."""
+        scaffold_id = "wizard-patterns-deferred"
+        draft = {
+            "mode": "new-scaffold",
+            "scaffold": {
+                "cloneFrom": "base-nextjs",
+                "label": "Wizard Patterns Deferred",
+                "description": "Starter without curated patterns yet.",
+                "siteKind": "marketing",
+                "complexity": "simple",
+                "intents": ["website"],
+                "tagsText": "wizard\npatterns",
+                "hintsText": "Keep the structure clear.\nStay easy to extend.",
+                "qualityText": "One\nTwo\nThree",
+                "upgradesText": "Richer domain patterns",
+            },
+            "variant": {
+                "id": "wizard-starter",
+                "scaffoldId": scaffold_id,
+                "label": "Wizard Starter",
+                "description": "Provisional starter before pattern curation.",
+                "signatureMotif": "a calm neutral test motif phrase",
+                "colorMode": "either",
+                "default": True,
+                "keywordsText": "one\ntwo\nthree",
+                "fontsText": "Inter | Inter",
+                "hintsText": "A specific, concrete visual hint for tests.",
+                "tokensText": "",
+                "sourceTemplateId": self.source_template_ids[0],
+            },
+        }
+        payload, build_error = sw._build_variant_payload(self.ctx, draft)
+        self.assertIsNone(build_error)
+        assert payload is not None
+        self.assertNotIn("signaturePatterns", payload)
+
+        with patch.object(
+            variants_lib,
+            "_variant_template_reference_errors",
+            return_value=[],
+        ):
+            sw._apply(self.ctx, draft, payload)
+
+        written = json.loads(
+            (self.variants_dir / scaffold_id / "wizard-starter.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertNotIn("signaturePatterns", written)
+        self.assertTrue(written.get("default"))
+        self.assertEqual(written.get("sourceTemplateIds"), [self.source_template_ids[0]])
+        self.assertTrue((self.scaffolds_dir / scaffold_id / "manifest.ts").is_file())
+
     def test_wizard_apply_rolls_back_a_post_write_variant_failure(self) -> None:
         scaffold_id = "wizard-rollback-probe"
         new_scaffold_dir = self.scaffolds_dir / scaffold_id
@@ -413,6 +469,28 @@ class IntegrityErrorTests(unittest.TestCase):
             self.ctx, payload, sibling_defaults=[]
         )
         self.assertTrue(any("signaturePatterns" in e for e in errors))
+
+    def test_wizard_create_profile_skips_signature_patterns(self) -> None:
+        """Checklist/_apply omit patterns; create must match that profile."""
+        payload = _variant_payload(default_variant=True)
+        self.assertNotIn("signaturePatterns", payload)
+        self.assertTrue(
+            any(
+                "signaturePatterns" in error
+                for error in sl._variant_integrity_errors(
+                    self.ctx, payload, sibling_defaults=[]
+                )
+            )
+        )
+        self.assertEqual(
+            sl._variant_integrity_errors(
+                self.ctx,
+                payload,
+                sibling_defaults=[],
+                require_signature_patterns=False,
+            ),
+            [],
+        )
 
     def test_flags_default_conflict(self) -> None:
         payload = _variant_payload(

@@ -284,6 +284,7 @@ def _variant_integrity_errors(
     payload: dict[str, Any],
     *,
     sibling_defaults: list[str],
+    require_signature_patterns: bool = True,
 ) -> list[str]:
     """Mirror the parts of the CI gate (`variant-integrity.test.ts`) that the
     JSON schema alone does NOT enforce, so the Lifecycle create/edit forms can
@@ -293,6 +294,11 @@ def _variant_integrity_errors(
     - exactly one ``default: true`` per scaffold;
     - at least one ``sourceTemplateIds`` entry.
 
+    ``require_signature_patterns`` defaults to True (fail-closed for real
+    curations). Pass False for the Scaffold Wizard new-scaffold starter: the
+    wizard checklist never asks for patterns, and
+    ``scaffolds:variant-patterns`` writes them in the post-create step.
+
     (``sourceTemplateIds`` existence, runtime eligibility and addenda are
     covered by ``_validate_variant_payload``. Embeddings-index membership is
     intentionally NOT checked here: a new entry needs an embedding vector —
@@ -300,7 +306,7 @@ def _variant_integrity_errors(
     instead.)
     """
     errors: list[str] = []
-    if not _signature_patterns_ok(payload):
+    if require_signature_patterns and not _signature_patterns_ok(payload):
         errors.append(
             "signaturePatterns saknas eller är ofullständig — CI-grinden "
             "(`variant-integrity.test.ts`) kräver minst "
