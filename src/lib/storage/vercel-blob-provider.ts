@@ -38,6 +38,7 @@ export class VercelBlobProvider implements StorageProvider {
     const blob = (await blobSdk.put(normalized, body as Parameters<VercelBlobModule["put"]>[1], {
       access: options.access ?? this.options.defaultAccess ?? "public",
       addRandomSuffix: options.addRandomSuffix,
+      allowOverwrite: options.allowOverwrite,
       contentType: options.contentType,
       ...this.withToken(),
     })) as BlobSdkRecord;

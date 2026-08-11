@@ -57,6 +57,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Auto-sync embedding JSON from public Blob manifest before any step
+      # that may read scaffold/variant embeddings (tests, validate, build).
+      - name: Ensure embeddings (sync + verify)
+        run: npm run embeddings:ensure
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -172,15 +177,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run check:bug-backlog
 
-      # Andra halvan av Vercels prebuild (`prebuild` = preflight:common +
-      # scaffolds:embeddings:check) som CI tidigare saknade: en ny scaffold utan
-      # regenererade embeddings blev CI-grön och fällde prod-bygget. Checken är
-      # snabb och nyckelfri (jämför bara JSON-filens id-mängd mot registryt, inga
-      # API-anrop), så det fanns aldrig ett skäl att utelämna den.
-      - name: Scaffold embeddings in sync (blocking)
-        if: ${{ !cancelled() }}
-        run: npm run scaffolds:embeddings:check
-
   # Produktionsbygge (2026-07-29). `next build` kördes INGENSTANS före merge:
   # preview-deployer är avstängda i `vercel.json` (`deploymentEnabled` bara för
   # `master`), så första riktiga bygget av en ändring var prod-deployen EFTER
@@ -190,7 +186,7 @@ jobs:
   #
   # Verifierat att bygget går igenom helt utan secrets, så jobbet får medvetet
   # INGA credentials — samma nyckelfria princip som schema-drift. `npm run build`
-  # kör `prebuild` (preflight + scaffold-embeddings) och sedan Turbopack-bygget,
+  # kör `prebuild` (preflight + embeddings:ensure) och sedan Turbopack-bygget,
   # vilket också gör detta till den enda platsen där hela prebuild-kedjan körs
   # exakt som Vercel kör den.
   build:

@@ -66,10 +66,9 @@ google-services.json
 # enradig JSON som förstör kontexten för den agent som råkar öppna den.
 .eslintcache
 # --- Stora genererade JSON (Read-fälla) ---
-# Dessa ÄR spårade i git med flit (runtime/prebuild importerar dem).
-# .gitignore tar INTE bort dem från repot. Den här filen är det enda som
-# stoppar agent-Read. Terminal/Node kringgår — det är meningen.
-# Indexering: även i .cursorindexingignore.
+# Embeddings: source of truth = Vercel Blob; lokala JSON är cache (gitignored).
+# Övriga stora JSON kan fortfarande vara spårade. Den här filen stoppar agent-Read.
+# Terminal/Node kringgår — det är meningen. Indexering: .cursorindexingignore.
 **/template-embeddings.json
 **/scaffold-embeddings.json
 **/variant-embeddings.json

@@ -1,28 +1,37 @@
-import path from "path";
-import { LocalFsProvider } from "@/lib/storage/local-fs-provider";
+import {
+  getEmbeddingsLocalPath,
+  loadEmbeddingsArtifact,
+  resolveEmbeddingsStorageMode,
+  saveEmbeddingsArtifact,
+  type EmbeddingsStorageMode,
+  type SaveEmbeddingsResult,
+} from "@/lib/gen/embeddings/embeddings-storage";
 import type { EmbeddingsFile } from "./template-embeddings-core";
 
-export type TemplateEmbeddingsStorageMode = "local";
-export type TemplateEmbeddingsStoragePreference = "local" | "auto";
+/** @deprecated Prefer resolveEmbeddingsStorageMode from embeddings-storage. */
+export type TemplateEmbeddingsStorageMode = EmbeddingsStorageMode;
+/** Remnant preference type kept for call-site compatibility. */
+export type TemplateEmbeddingsStoragePreference = "local" | "auto" | "blob";
 
-const TEMPLATE_EMBEDDINGS_LOCAL_PATH = path.resolve(
-  process.cwd(),
-  "src/lib/templates/template-embeddings.json",
-);
+export function resolveTemplateEmbeddingsStorageMode(): EmbeddingsStorageMode {
+  return resolveEmbeddingsStorageMode();
+}
 
-const LOCAL_FILENAME = path.basename(TEMPLATE_EMBEDDINGS_LOCAL_PATH);
-
-export function resolveTemplateEmbeddingsStorageMode(): TemplateEmbeddingsStorageMode {
-  return "local";
+export async function loadTemplateEmbeddingsFile(): Promise<EmbeddingsFile | null> {
+  const data = await loadEmbeddingsArtifact("template");
+  if (!data || typeof data !== "object") return null;
+  return data as EmbeddingsFile;
 }
 
 export async function saveTemplateEmbeddingsToLocalFile(
   data: EmbeddingsFile,
 ): Promise<{ path: string }> {
-  const provider = new LocalFsProvider({ rootDir: path.dirname(TEMPLATE_EMBEDDINGS_LOCAL_PATH) });
-  const stored = await provider.put(LOCAL_FILENAME, JSON.stringify(data), {
-    contentType: "application/json",
-  });
-  return { path: stored.fsPath ?? TEMPLATE_EMBEDDINGS_LOCAL_PATH };
+  const saved = await saveEmbeddingsArtifact("template", data);
+  return { path: saved.localPath ?? getEmbeddingsLocalPath("template") };
 }
 
+export async function saveTemplateEmbeddings(
+  data: EmbeddingsFile,
+): Promise<SaveEmbeddingsResult> {
+  return saveEmbeddingsArtifact("template", data);
+}

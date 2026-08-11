@@ -1,10 +1,14 @@
 import { SECRETS } from "@/lib/config";
 import {
+  invalidateEmbeddingsArtifactCache,
+} from "@/lib/gen/embeddings/embeddings-storage";
+import {
   generateTemplateEmbeddings,
   type EmbeddingsFile,
 } from "./template-embeddings-core";
 import {
-  saveTemplateEmbeddingsToLocalFile,
+  resolveTemplateEmbeddingsStorageMode,
+  saveTemplateEmbeddings,
 } from "./template-embeddings-storage";
 import { invalidateEmbeddingsCache } from "./template-search";
 
@@ -14,10 +18,11 @@ export interface RegenerateTemplateEmbeddingsOptions {
 }
 
 export interface RegenerateTemplateEmbeddingsResult {
-  storage: "local";
+  storage: "blob" | "local";
   generated: EmbeddingsFile;
   persisted: boolean;
   persistedTo?: string;
+  blobUrl?: string;
   elapsedMs: number;
 }
 
@@ -31,29 +36,26 @@ export async function regenerateTemplateEmbeddings(
 
   const startedAt = Date.now();
   const generated = await generateTemplateEmbeddings({ apiKey });
+  const storageMode = resolveTemplateEmbeddingsStorageMode();
 
   if (options.dryRun) {
     return {
-      storage: "local",
+      storage: storageMode,
       generated,
       persisted: false,
       elapsedMs: Date.now() - startedAt,
     };
   }
 
-  if (process.env.VERCEL) {
-    throw new Error(
-      "Template embeddings ar nu lokala och commitade artifacts. Regenerera dem lokalt och deploya om produktionen.",
-    );
-  }
-
-  const saved = await saveTemplateEmbeddingsToLocalFile(generated);
+  const saved = await saveTemplateEmbeddings(generated);
   invalidateEmbeddingsCache();
+  invalidateEmbeddingsArtifactCache("template");
   return {
-    storage: "local",
+    storage: saved.storage,
     generated,
     persisted: true,
-    persistedTo: saved.path,
+    persistedTo: saved.blobUrl ?? saved.localPath,
+    blobUrl: saved.blobUrl,
     elapsedMs: Date.now() - startedAt,
   };
 }
