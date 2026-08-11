@@ -312,6 +312,54 @@ describe("buildCompleteProject", () => {
     expect(hook!.content).toContain("removeEventListener");
   });
 
+  it("ships useIsMobile so shadcn sidebar typechecks without autofix stubs", () => {
+    // Prod 2026-08-11: quality gate TS2307 on `@/lib/hooks/use-mobile` because
+    // autofix treats the path as runtime-provided while server tsc does not.
+    const generated: CodeFile[] = [
+      { path: "package.json", content: "{}", language: "json" },
+      {
+        path: "app/page.tsx",
+        content: `export default function Page() { return <div />; }`,
+        language: "tsx",
+      },
+      {
+        path: "components/ui/sidebar.tsx",
+        content: [
+          '"use client";',
+          'import { useIsMobile } from "@/lib/hooks/use-mobile";',
+          "export function Sidebar() {",
+          "  const mobile = useIsMobile();",
+          "  return <aside data-mobile={mobile} />;",
+          "}",
+        ].join("\n"),
+        language: "tsx",
+      },
+    ];
+    const files = buildCompleteProject(generated);
+    const hook = files.find((f) => f.path === "lib/hooks/use-mobile.ts");
+    expect(hook).toBeDefined();
+    expect(hook!.content).toContain('"use client"');
+    expect(hook!.content).toContain("useSyncExternalStore");
+    expect(hook!.content).toContain("export function useIsMobile");
+    expect(hook!.content).toContain("(max-width: 767px)");
+    const alias = files.find((f) => f.path === "hooks/use-mobile.ts");
+    expect(alias).toBeDefined();
+    expect(alias!.content).toContain('from "@/lib/hooks/use-mobile"');
+    // Baseline wins over a colliding generated .tsx stub.
+    const colliding: CodeFile[] = [
+      ...generated,
+      {
+        path: "lib/hooks/use-mobile.tsx",
+        content: "export function useIsMobile() { return false; }\n",
+        language: "tsx",
+      },
+    ];
+    const merged = buildCompleteProject(colliding);
+    const mobileFiles = merged.filter((f) => f.path.startsWith("lib/hooks/use-mobile"));
+    expect(mobileFiles).toHaveLength(1);
+    expect(mobileFiles[0]!.path).toBe("lib/hooks/use-mobile.ts");
+  });
+
   it("uses useSyncExternalStore (lint-safe) instead of a setState-in-effect guard", () => {
     // Regression guard: the earlier `useState(false) + useEffect(setState)` shape
     // is flagged as an ERROR by eslint-config-next's

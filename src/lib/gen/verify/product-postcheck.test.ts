@@ -16,6 +16,7 @@ import {
   evaluateRuntimeErrors,
   isAllowedProductPostcheckUrl,
   isHydrationConsoleError,
+  isPreviewHostBootPage,
   isRenderFatalError,
   productPostcheckSkipReasonFromError,
   runProductPostcheck,
@@ -251,6 +252,43 @@ describe("isRenderFatalError", () => {
   });
 });
 
+describe("isPreviewHostBootPage", () => {
+  it("detects the preview-host starting / recovering placeholder", () => {
+    expect(
+      isPreviewHostBootPage({
+        title: "Startar preview",
+        h1: "Startar preview",
+        bodyText: "Preview-host bygger projektet och startar Next.js i bakgrunden.",
+      }),
+    ).toBe(true);
+    expect(
+      isPreviewHostBootPage({
+        title: "Startar om preview",
+        h1: "Startar om preview",
+        bodyText: "Preview-runtimen startar om i bakgrunden. Sidan laddar om automatiskt.",
+      }),
+    ).toBe(true);
+    expect(
+      isPreviewHostBootPage({
+        title: "Preview kunde inte starta",
+        h1: "Preview kunde inte starta",
+        bodyText: "Uppstarten misslyckades.",
+      }),
+    ).toBe(true);
+  });
+
+  it("does not treat a real site heading as a boot page", () => {
+    expect(
+      isPreviewHostBootPage({
+        title: "Jakob & Johan Stays",
+        h1: "Exklusiva semesterbostäder",
+        bodyText: "Handplockade premiumboenden i Palma.",
+      }),
+    ).toBe(false);
+    expect(isPreviewHostBootPage({ title: "", h1: null, bodyText: "" })).toBe(false);
+  });
+});
+
 describe("evaluateRuntimeErrors (M#f2et — never green when the preview is dead)", () => {
   const elementTypeInvalid =
     "Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: object. Check the render method of `IconMark`.";
@@ -322,10 +360,20 @@ describe("runProductPostcheck browser-startpunkt", () => {
     };
   }
 
+  const liveBootProbe = {
+    title: "Jakob & Johan Stays",
+    h1: "Exklusiva semesterbostäder",
+    bodyText: "Handplockade premiumboenden i Palma.",
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     applyCaptureRequestGateMock.mockResolvedValue(undefined);
-    const desktop = fakePage([{ anchors: [], images: [], ctas: [], forms: [] }, false]);
+    const desktop = fakePage([
+      liveBootProbe,
+      { anchors: [], images: [], ctas: [], forms: [] },
+      false,
+    ]);
     const mobile = fakePage([{ status: "not_applicable" }, false]);
     const pages = [desktop, mobile];
     let index = 0;
@@ -357,8 +405,35 @@ describe("runProductPostcheck browser-startpunkt", () => {
     expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(2);
   });
 
+  it("blockerar när preview-host fortfarande visar Startar preview", async () => {
+    const desktop = fakePage([
+      {
+        title: "Startar preview",
+        h1: "Startar preview",
+        bodyText: "Preview-host bygger projektet och startar Next.js i bakgrunden.",
+      },
+    ]);
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => desktop),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    expect(result.productBlocked).toBe(true);
+    expect(result.skipped).toBe(false);
+    expect(result.warnings.map((w) => w.code)).toEqual(["preview_boot_page"]);
+    // Only desktop was opened — no mobile pass after early return.
+    expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(1);
+  });
+
   it("rapporterar en kraschad undersida utan att blockera versionen", async () => {
     const desktop = fakePage([
+      liveBootProbe,
       { anchors: [], images: [], ctas: [], forms: [] },
       false, // startsidans overlay — previewen lever
       ["/chat_1/om-oss"], // länkar att crawla
@@ -407,6 +482,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
     it("blockerar fortfarande när STARTSIDAN var död", async () => {
       launchCaptureBrowserMock.mockResolvedValue(
         browserWhereMobileFails([
+          liveBootProbe,
           { anchors: [], images: [], ctas: [], forms: [] },
           true, // startsidan visade felöverlägget
           ["/chat_1/om-oss"],
@@ -427,6 +503,7 @@ describe("runProductPostcheck browser-startpunkt", () => {
     it("blockerar inte när bara en UNDERSIDA var död", async () => {
       launchCaptureBrowserMock.mockResolvedValue(
         browserWhereMobileFails([
+          liveBootProbe,
           { anchors: [], images: [], ctas: [], forms: [] },
           false, // startsidan var frisk
           ["/chat_1/om-oss"],

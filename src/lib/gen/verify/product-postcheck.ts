@@ -9,6 +9,7 @@ export type ProductPostcheckWarningCode =
   | "mobile_menu_failed"
   | "fake_form"
   | "runtime_crash"
+  | "preview_boot_page"
   | "hydration_mismatch"
   | "console_error"
   | "request_failed"
@@ -274,6 +275,38 @@ const RENDER_FATAL_ERROR_PATTERNS: readonly RegExp[] = [
 export function isRenderFatalError(message: string): boolean {
   if (!message) return false;
   return RENDER_FATAL_ERROR_PATTERNS.some((re) => re.test(message));
+}
+
+/**
+ * Detect the preview-host placeholder HTML (`sendRuntimeStartingPage` /
+ * held-error page in `preview-host/src/runtime/preview-proxy.js`).
+ *
+ * Product postcheck used to treat that dark "Startar preview" page as a
+ * successful site render (HTTP 200 + real DOM text, no Next overlay) while
+ * Fly was still booting / returning HTTP 500 — classic F2 false-green.
+ */
+export function isPreviewHostBootPage(input: {
+  title?: string | null;
+  h1?: string | null;
+  bodyText?: string | null;
+}): boolean {
+  const title = (input.title ?? "").trim();
+  const h1 = (input.h1 ?? "").trim();
+  const body = (input.bodyText ?? "").trim();
+  if (/^Startar (om )?preview$/i.test(title) || /^Startar (om )?preview$/i.test(h1)) {
+    return true;
+  }
+  if (/^Preview kunde inte starta$/i.test(title) || /^Preview kunde inte starta$/i.test(h1)) {
+    return true;
+  }
+  // Body copy is stable even if heading text drifts slightly.
+  if (
+    /Preview-host bygger projektet och startar Next\.js/i.test(body) ||
+    /Preview-runtimen startar om i bakgrunden/i.test(body)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -676,6 +709,34 @@ export async function runProductPostcheck(params: {
     await page.goto(previewUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     await page.waitForLoadState("networkidle", { timeout: Math.min(8_000, timeoutMs) }).catch(() => {});
     routesChecked = 1;
+
+    // Refuse false-green on the preview-host boot placeholder (prod 2026-08-11:
+    // postcheck "passed" while Fly still reported empty body / HTTP 500).
+    const bootProbe = await page
+      .evaluate(() => ({
+        title: document.title || "",
+        h1: document.querySelector("h1")?.textContent?.trim() || null,
+        bodyText: (document.body?.innerText || "").slice(0, 800),
+      }))
+      .catch(() => null);
+    if (bootProbe && isPreviewHostBootPage(bootProbe)) {
+      return {
+        ok: true,
+        skipped: false,
+        skippedReason: null,
+        warnings: [
+          warning(
+            "preview_boot_page",
+            "Preview-host visar fortfarande start-/omstartssidan — sajten är inte ready än.",
+          ),
+        ],
+        warningCount: 1,
+        productBlocked: true,
+        durationMs: Date.now() - startedAt,
+        checkedUrl: previewUrl,
+        routesChecked,
+      };
+    }
 
     const snapshot = await page.evaluate<DomSnapshot>(() => {
       const visible = (el: Element): boolean => {
