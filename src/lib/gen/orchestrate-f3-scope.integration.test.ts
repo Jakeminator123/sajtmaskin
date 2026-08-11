@@ -125,6 +125,35 @@ describe("resolveOrchestrationBase — F3 capability-scope stage gating", () => 
     expect(base.dossierRequestedCapabilities).toEqual([]);
     expect(base.dossierSelection?.selected ?? []).toEqual([]);
   });
+
+  it("build-button F3 round selects the durably approved OpenAI dossier with an empty floor", async () => {
+    const prompt = "Bygg integrationer nu utifrån den finaliserade designversionen.";
+    const base = await resolveOrchestrationBase(
+      baseInput({
+        lifecycleStage: "integrations",
+        prompt,
+        rawPrompt: prompt,
+        routePlanPrompt: prompt,
+        buildSpecPrompt: prompt,
+        contractsPrompt: prompt,
+        capabilitiesPrompt: prompt,
+        scaffoldMatchPrompt: prompt,
+        brief: null,
+        followUpContract: {
+          ...followUpContract([]),
+          f3ApprovedCapabilities: ["ai-chat"],
+          f3ApprovedProviders: ["openai-chat"],
+        },
+        dossierProviderHints: ["openai-chat"],
+        previousFilePaths: ["app/page.tsx"],
+      }),
+    );
+
+    expect(base.dossierRequestedCapabilities).toEqual(["ai-chat"]);
+    expect((base.dossierSelection?.selected ?? []).map((selected) => selected.entry.id)).toEqual([
+      "openai-chat",
+    ]);
+  });
 });
 
 describe("resolveOrchestrationBase — F2 mute vs brief fallback", () => {
@@ -265,6 +294,28 @@ describe("resolveOrchestrationBase — explicit capability removal", () => {
 
     expect(base.removedCapabilities).toEqual(["payments"]);
     expect(base.dossierRequestedCapabilities).not.toContain("payments");
+    expect(base.dossierSelection?.selected ?? []).toEqual([]);
+  });
+
+  it("keeps a durable removal authoritative over residual F3 file evidence", async () => {
+    const prompt = "Bygg integrationer nu utifrån den finaliserade designversionen.";
+    const base = await resolveOrchestrationBase(
+      baseInput({
+        prompt,
+        rawPrompt: prompt,
+        capabilitiesPrompt: prompt,
+        lifecycleStage: "integrations",
+        followUpContract: {
+          ...followUpContract([]),
+          removedCapabilities: ["ai-chat"],
+        },
+        previousFilePaths: ["app/api/chat/route.ts"],
+      }),
+    );
+
+    expect(base.removedCapabilities).toEqual([]);
+    expect(base.fileEvidenceCapabilities).toContain("ai-chat");
+    expect(base.dossierRequestedCapabilities).not.toContain("ai-chat");
     expect(base.dossierSelection?.selected ?? []).toEqual([]);
   });
 });

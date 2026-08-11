@@ -445,7 +445,8 @@ export function enforceFollowUpCapabilityFloor(
  * dropped. Candidates are alias-normalized before the comparison
  * (test-sync finding 2026-07-22): a legacy snapshot id like `supabase-auth`
  * must be RECOGNIZED as `auth`, not dropped as unknown. Pure; the caller logs
- * `dropped` for observability and only reassigns when something was dropped.
+ * `dropped` for observability and always consumes the authoritative result so
+ * approvals/file evidence can seed an otherwise empty F2-muted candidate set.
  *
  * Only F3 rounds call this; F2/design rounds keep can-only-grow untouched.
  */
@@ -454,14 +455,13 @@ export function scopeF3DossierCapabilities(params: {
   explicitCapabilities: string[];
   fileEvidenceCapabilities: string[];
 }): { capabilities: string[]; dropped: string[] } {
-  const allowed = new Set(
-    expandDependentCapabilities(
-      normalizeCapabilityList([
-        ...params.explicitCapabilities,
-        ...params.fileEvidenceCapabilities,
-      ]),
-    ),
+  const authoritativeCapabilities = expandDependentCapabilities(
+    normalizeCapabilityList([
+      ...params.explicitCapabilities,
+      ...params.fileEvidenceCapabilities,
+    ]),
   );
+  const allowed = new Set(authoritativeCapabilities);
   const capabilities: string[] = [];
   const seen = new Set<string>();
   const dropped: string[] = [];
@@ -475,6 +475,17 @@ export function scopeF3DossierCapabilities(params: {
     } else {
       dropped.push(cap);
     }
+  }
+  // Approval and version-presence are positive F3 build intent, not merely an
+  // allowlist for candidates restored by the follow-up floor. F2 deliberately
+  // mutes hard integrations, so that floor can be empty when the user clicks
+  // "Bygg integrationer". Append any authoritative capability the candidate
+  // list did not already carry, preserving the candidate order above and the
+  // explicit→file-evidence order of the authoritative sources here.
+  for (const capability of authoritativeCapabilities) {
+    if (seen.has(capability)) continue;
+    seen.add(capability);
+    capabilities.push(capability);
   }
   return { capabilities, dropped };
 }

@@ -21,11 +21,12 @@
  * and confused users into thinking they had two competing env files.
  * Renamed 2026-04 to follow the standard `.example` convention.
  *
- * Layering matches `buildPreviewEnvLocalContents`
- * ({@link ./env-local.ts}): harmless placeholders + tier-3 stubs (F2 only)
- * + per-project preview tokens + user-stored values + values emitted by
- * the model. F3 strips the tier-3 stub layer so missing real values
- * surface as a runtime failure.
+ * Layering follows `buildPreviewEnvLocalContents` ({@link ./env-local.ts}) for
+ * placeholders, per-project preview tokens and model-emitted values. Stored
+ * project values are deliberately excluded: they belong only in the preview
+ * runtime `.env.local` / deploy env and must never enter persisted files_json.
+ * F3 strips the tier-3 stub layer so missing real values surface through the
+ * runtime/readiness contract rather than being copied into this file.
  */
 
 import {
@@ -79,14 +80,14 @@ const F3_HEADER = `# ───────────────────�
 # via Byggblock i previewens verktygsrad eller (lokalt) i .env.local
 # innan sajten kan publiceras.
 #
-# Värden från Byggblock mergas in automatiskt vid nästa generering.
+# Värden från Byggblock injiceras bara i preview/deploy och skrivs aldrig här.
 # Vill du köra lokalt: kopiera till .env.local och fyll i där.
 `;
 
 const SECTION_HEADERS: Record<EnvVarProvenance, string> = {
   user:
-    "# ── Dina ifyllda värden (Byggblock) ────────────────────────────\n" +
-    "# Mergas in från projektets sparade env-variabler.",
+    "# ── Dina konfigurerade nycklar (värden utelämnade) ─────────────\n" +
+    "# Riktiga värden injiceras bara i preview/deploy.",
   generated:
     "# ── Värden modellen själv satte ────────────────────────────────\n" +
     "# Lades in av kod-genereringen. Skrivs över om du sätter värden\n" +
@@ -143,7 +144,6 @@ export interface DossierEnvScope {
 
 /** Provenance layers that describe THIS project (never a catalog dump). */
 const PROJECT_SPECIFIC_PROVENANCE: ReadonlySet<EnvVarProvenance> = new Set<EnvVarProvenance>([
-  "user",
   "generated",
   "project-preview",
 ]);
@@ -260,7 +260,14 @@ export async function buildProjectEnvFileContents(params: {
   dossierEnvScope?: DossierEnvScope;
 }): Promise<string> {
   const lifecycleStage = params.lifecycleStage ?? "design";
-  const { merged, provenance } = await resolvePreviewEnvLayers(params);
+  // `env.example` is persisted inside files_json. Keep the project id for
+  // stable preview-token names, but never load/decrypt stored project values
+  // into this artifact. Preview runtime uses buildPreviewEnvLocalContents()
+  // separately and retains the default (`includeStoredProjectEnvVars: true`).
+  const { merged, provenance } = await resolvePreviewEnvLayers({
+    ...params,
+    includeStoredProjectEnvVars: false,
+  });
 
   // Dossier-scoped mode (preflight): keep the project-specific layers, keep
   // catalog keys ONLY when a selected dossier declares them, and drop the rest

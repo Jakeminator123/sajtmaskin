@@ -41,6 +41,7 @@ import {
 } from "../data/shadcn-ui-recipes";
 import {
   isExplicitDossierChoice,
+  normalizeCapabilityId,
   resolveCapabilitiesPresentInVersion,
   resolveDossiersPresentInVersion,
   selectDossiersForRequest,
@@ -707,6 +708,17 @@ export async function resolveOrchestrationBase(
       // dropped. F2/design rounds are untouched (can-only-grow stays). See
       // docs/architecture/llm-pipeline.md.
       if (input.lifecycleStage === "integrations") {
+        const durableRemovedCapabilities = (
+          input.followUpContract?.removedCapabilities ?? []
+        )
+          .map(normalizeCapabilityId)
+          .filter((capability) => !readdedCapabilities.includes(capability));
+        const inactiveCapabilities = new Set([
+          ...removedCapabilities,
+          ...durableRemovedCapabilities,
+        ]);
+        const isRemovedCapability = (capability: string) =>
+          inactiveCapabilities.has(normalizeCapabilityId(capability));
         const explicitCapabilities = [
           ...inferredCapabilityIds,
           ...callerProvidedCapabilityIds,
@@ -715,11 +727,14 @@ export async function resolveOrchestrationBase(
           // snapshot. Without these, approve → build-incomplete (no file
           // evidence yet) → the next round's scope drops the capability again.
           ...f3ApprovedCapabilities,
-        ];
+        ].filter((capability) => !isRemovedCapability(capability));
+        const activeFileEvidenceCapabilities = fileEvidenceCapabilities.filter(
+          (capability) => !isRemovedCapability(capability),
+        );
         const f3Scope = scopeF3DossierCapabilities({
           capabilities: dossierRequestedCapabilities,
           explicitCapabilities,
-          fileEvidenceCapabilities,
+          fileEvidenceCapabilities: activeFileEvidenceCapabilities,
         });
         if (f3Scope.dropped.length > 0) {
           console.info("[orchestrate] f3_capability_scope_dropped", {
@@ -727,10 +742,13 @@ export async function resolveOrchestrationBase(
             dropped: f3Scope.dropped,
             kept: f3Scope.capabilities,
             explicitCapabilities,
-            fileEvidenceCapabilities,
+            fileEvidenceCapabilities: activeFileEvidenceCapabilities,
           });
-          dossierRequestedCapabilities = f3Scope.capabilities;
         }
+        // The scoped set is authoritative even when nothing was dropped:
+        // durable approvals and version-presence can add an integration that
+        // F2 intentionally omitted from the follow-up candidate floor.
+        dossierRequestedCapabilities = f3Scope.capabilities;
       }
       // Same prompt surface as the F2 filter above, PLUS the approved-provider
       // hints from an F3 approval round: the raw approval text ("Godkänn")

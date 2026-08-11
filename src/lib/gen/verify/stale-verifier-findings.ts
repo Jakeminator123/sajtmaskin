@@ -309,37 +309,59 @@ const PACKAGE_CLASS_ID_RE = /(?:package|dependenc|version|script|build|manifest)
  * justification clause kept the finding outside the package class, so the
  * already-resolved finding kept suppressing promotion on every F3 run.
  *
- * Deliberately narrow: only justification conjunctions (although/though/
- * because/since/so). Coordinating "and" (a genuinely mixed claim) and
- * contrastive while/whereas stay excluded — those clauses can carry an
- * independent code-file blocker the manifest re-check cannot confirm.
+ * Deliberately narrow: justification conjunctions (although/though/because/
+ * since/so). Coordinating/contrastive `and`, `while` and `whereas` stay
+ * excluded — those clauses can carry an independent code-file blocker the
+ * manifest re-check cannot confirm. The one observed `while` shape has its
+ * own exact, end-anchored runtime-import pattern below.
  * The inner `\.(?!\s|$)` keeps dots inside filenames (`app/layout.tsx`,
  * `Next.js`) from ending the clause early, so no `absent.tsx`-style artifact
  * survives the strip. The clause also STOPS at a following coordinating
  * boundary (`, and|but|or`), so a compound sentence like "…, so the build
  * fails, and src/app/page.tsx uses X" keeps its independent code-file claim
- * visible for the exclusion test (bugbot high on this diff). Only used for
- * the CLASS-membership test; the claim re-check still reads the full detail.
+ * visible for the exclusion test (bugbot high on this diff). The same stripped
+ * manifest portion is used only for the tightly bound unquoted-framework
+ * omission parser below; backticked/versioned claims still read full detail.
  */
 const MANIFEST_JUSTIFICATION_CLAUSE_RE =
   /[,;—–]\s+(?:although|though|even though|because|since|so(?:\s+that)?)\b(?:(?!,\s+(?:and|but|or)\b)(?:[^.;]|\.(?!\s|$)))*[.;]?/gi;
+
+const CODE_FILE_TOKEN_SOURCE =
+  String.raw`(?:[A-Za-z0-9_.@\[\]-]+\/)*[A-Za-z0-9_.\[\]-]+\.(?:tsx|ts|jsx|js|mjs|cjs)`;
+
+/**
+ * Exact prod motivation shape: `while <file>[ and <file>] import those
+ * runtimes.` It is anchored to the end so any additional code claim keeps the
+ * whole finding fail-closed instead of being erased by a keyword denylist.
+ */
+const MANIFEST_RUNTIME_IMPORT_JUSTIFICATION_RE = new RegExp(
+  String.raw`\s+while\s+\`?${CODE_FILE_TOKEN_SOURCE}\`?(?:\s*(?:,\s*|\s+and\s+)\`?${CODE_FILE_TOKEN_SOURCE}\`?)*\s+imports?\s+(?:those|these|the)\s+runtimes?\s*[.;]?\s*$`,
+  "gi",
+);
 
 /**
  * Markers of an INDEPENDENT defect claim inside a justification clause
  * (bugbot medium, round 3): "…, although app/page.tsx also calls an
  * `undefined` helper" is not mere motivation — the clause carries its own
- * blocker that the manifest re-check can never confirm. A clause containing
- * any of these words is NOT stripped, so the code-file mention keeps the
- * finding outside the package class (kept blocking, fail-closed). The prod
+ * blocker that the manifest re-check can never confirm. A second manifest
+ * absence (for example "while next is not listed") is independent too. A
+ * clause containing any of these markers is NOT stripped, so the full finding
+ * stays blocking/fail-closed. The prod
  * justifications this feature exists for ("imports Next.js and React
  * modules", "cannot build or run") contain none of them.
  */
 const INDEPENDENT_CLAIM_MARKER_RE =
-  /(?:undefined|undeclared|not\s+(?:defined|declared|imported)|missing|never|without|unused|unresolved|fail(?:s|ed)?\s+to\s+await\b|syntax|crash|throw|error|broken|invalid|incorrect|wrong|fake|dead)/i;
+  /(?:undefined|undeclared|not\s+(?:defined|declared|imported|listed|included|present|contained)|missing|omit(?:s|ted|ting)?|lacks?|never|without|unused|unresolved|fail(?:s|ed)?\s+to\s+await\b|syntax|crash|throw|error|broken|invalid|incorrect|wrong|fake|dead)/i;
 
 function stripManifestJustificationClauses(detail: string): string {
-  return detail.replace(MANIFEST_JUSTIFICATION_CLAUSE_RE, (clause) =>
-    INDEPENDENT_CLAIM_MARKER_RE.test(clause) ? clause : "",
+  const withoutKnownSubordinateClauses = detail.replace(
+    MANIFEST_JUSTIFICATION_CLAUSE_RE,
+    (clause) =>
+      INDEPENDENT_CLAIM_MARKER_RE.test(clause) ? clause : "",
+  );
+  return withoutKnownSubordinateClauses.replace(
+    MANIFEST_RUNTIME_IMPORT_JUSTIFICATION_RE,
+    "",
   );
 }
 
@@ -355,12 +377,76 @@ function isPackageJsonClassFinding(finding: VerifierBlockingFinding): boolean {
   return !FILE_PATH_RE.test(detailWithoutJustification);
 }
 
+/**
+ * Return one self-contained package.json claim, or null for compound prose.
+ * Class re-checks may only drop what they can fully prove resolved; a second
+ * sentence/clause after `;` or a sentence-ending period is an unknown claim
+ * and therefore remains fail-closed.
+ */
+function extractSinglePackageJsonClaim(detail: string): string | null {
+  const stripped = stripManifestJustificationClauses(detail);
+  const packageIndex = stripped.search(/package\.json/i);
+  if (packageIndex < 0) return null;
+  const claimAndTail = stripped.slice(packageIndex).trim();
+  const boundaryMatches = [
+    claimAndTail.indexOf(";"),
+    (() => {
+      const match = /\.(?=\s|$)/.exec(claimAndTail);
+      return match?.index ?? -1;
+    })(),
+  ].filter((index) => index >= 0);
+  if (boundaryMatches.length === 0) return claimAndTail;
+  const boundary = Math.min(...boundaryMatches);
+  const remainder = claimAndTail.slice(boundary + 1).trim();
+  if (remainder.length > 0) return null;
+  return claimAndTail.slice(0, boundary + 1).trim();
+}
+
 /** `name@spec` tokens (`ai@^7`, `@ai-sdk/react@^2.0.3`). */
 const VERSION_TOKEN_RE =
   /((?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*)@([~^]?[0-9][0-9A-Za-z.^~<>=*+-]*)/g;
 
 /** Backticked bare npm package names (lowercase by npm rules → never clashes with symbol names like `Resend`). */
 const BARE_PACKAGE_RE = /`((?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*)`/g;
+
+/**
+ * Framework packages the verifier sometimes emits without backticks. Kept to
+ * the canonical Next runtime trio so prose is never interpreted as an
+ * arbitrary npm package name. Read only from the manifest-claim portion after
+ * subordinate justification clauses have been stripped.
+ */
+const UNQUOTED_FRAMEWORK_PACKAGE_RE = /\b(react-dom|next|react)\b/gi;
+
+const BACKTICK_PACKAGE_TOKEN_SOURCE =
+  String.raw`\`(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*(?:@[~^]?[0-9][0-9A-Za-z.^~<>=*+-]*)?\``;
+const UNQUOTED_VERSIONED_PACKAGE_TOKEN_SOURCE =
+  String.raw`(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*@[~^]?[0-9][0-9A-Za-z.^~<>=*+-]*`;
+const PACKAGE_LIST_TOKEN_SOURCE = String.raw`(?:${BACKTICK_PACKAGE_TOKEN_SOURCE}|${UNQUOTED_VERSIONED_PACKAGE_TOKEN_SOURCE}|(?:react-dom|next|react)\b)`;
+const PACKAGE_LIST_SOURCE = String.raw`${PACKAGE_LIST_TOKEN_SOURCE}(?:\s*(?:,\s*(?:and\s+)?|\s+and\s+)${PACKAGE_LIST_TOKEN_SOURCE})*`;
+const PACKAGE_ABSENCE_VERB_SOURCE =
+  String.raw`(?:lacks?|omits?|omitted|missing|does\s+not\s+(?:list|declare|include|contain))`;
+
+/**
+ * A package list is trusted only when the complete manifest claim binds it to
+ * an absence verb (or `dependencies: ... are absent`). Anchoring the grammar
+ * prevents an unrelated package mention in a coordinated clause from becoming
+ * the only mechanically re-checked claim.
+ */
+const PACKAGE_ABSENCE_PREFIX_RE = new RegExp(
+  String.raw`^package\.json\s+${PACKAGE_ABSENCE_VERB_SOURCE}\s+(?:(?:build\s+scripts?\s+and\s+)?(?:direct\s+)?dependencies?(?:\s+for\s+(?:imported\s+)?(?:runtime\s+)?packages?)?\s+)?(${PACKAGE_LIST_SOURCE})\s*[.;]?$`,
+  "i",
+);
+const PACKAGE_ABSENCE_SUFFIX_RE = new RegExp(
+  String.raw`^package\.json\s+(?:dependencies|packages)\s*:\s*(${PACKAGE_LIST_SOURCE})\s+(?:are|is)\s+(?:absent|missing|not\s+(?:listed|declared|included|present))\s*[.;]?$`,
+  "i",
+);
+const BUILD_SCRIPT_ABSENCE_RE = new RegExp(
+  String.raw`^package\.json\s+${PACKAGE_ABSENCE_VERB_SOURCE}\s+build\s+scripts?\b`,
+  "i",
+);
+const ANY_ABSENCE_WORDING_RE =
+  /\b(?:lacks?|omits?|omitted|missing|does\s+not\s+(?:list|declare|include|contain)|not\s+(?:listed|declared|included|present))\b/i;
+const VERSION_CONFLICT_WORDING_RE = /\b(?:incompatible|conflict|mismatch)\b/i;
 
 /** Backticked words that look like npm names but are package.json vocabulary. */
 const PACKAGE_STOP_WORDS = new Set([
@@ -388,9 +474,13 @@ const PACKAGE_STOP_WORDS = new Set([
   "json",
 ]);
 
-/** "lacks X" / "missing X" wording → the claim is about ABSENCE (presence resolves it). */
-const LACKS_WORDING_RE =
-  /\b(?:lacks?|missing|does\s+not\s+(?:list|declare|include|contain)|not\s+(?:listed|declared|included|present))\b/i;
+function extractAbsentPackageList(detail: string): string | null {
+  return (
+    PACKAGE_ABSENCE_PREFIX_RE.exec(detail)?.[1] ??
+    PACKAGE_ABSENCE_SUFFIX_RE.exec(detail)?.[1] ??
+    null
+  );
+}
 
 function majorOf(spec: string | undefined): number | null {
   if (typeof spec !== "string") return null;
@@ -403,7 +493,8 @@ function checkPackageJsonFinding(
   finding: VerifierBlockingFinding,
   filesByPath: ReadonlyMap<string, FinalProjectFile>,
 ): ClassCheckVerdict | null {
-  const detail = finding.detail;
+  const detail = extractSinglePackageJsonClaim(finding.detail);
+  if (!detail) return null;
   const pkgFile = filesByPath.get("package.json");
   if (!pkgFile) return null;
 
@@ -430,22 +521,37 @@ function checkPackageJsonFinding(
   }
 
   const claims: Array<{ ok: boolean; label: string }> = [];
+  const absentPackageList = extractAbsentPackageList(detail);
+  const hasBuildScriptAbsence = BUILD_SCRIPT_ABSENCE_RE.test(detail);
+  // An absence word with no recognized package-list/build-script target is an
+  // unsupported manifest claim (for example `engines.node`). Do not let a
+  // later package/version mention become the only checked premise.
+  if (
+    ANY_ABSENCE_WORDING_RE.test(detail) &&
+    absentPackageList === null &&
+    !hasBuildScriptAbsence
+  ) {
+    return null;
+  }
 
   // Claim: missing/broken build scripts.
-  if (/\bscripts?\b/i.test(detail)) {
+  if (hasBuildScriptAbsence) {
     const hasBuildScript = typeof scripts.build === "string" && scripts.build.trim().length > 0;
     claims.push({ ok: hasBuildScript, label: "build script present" });
   }
 
-  // Claims carrying explicit `name@spec` versions.
+  // Claims carrying explicit `name@spec` versions. Absence lists are checked
+  // for presence/major; non-absence lists are considered only when the whole
+  // claim explicitly describes a version conflict.
+  const versionTokenSource =
+    absentPackageList ?? (VERSION_CONFLICT_WORDING_RE.test(detail) ? detail : "");
   VERSION_TOKEN_RE.lastIndex = 0;
-  const versionTokens = [...detail.matchAll(VERSION_TOKEN_RE)].map((match) => ({
+  const versionTokens = [...versionTokenSource.matchAll(VERSION_TOKEN_RE)].map((match) => ({
     name: match[1],
     spec: match[2],
   }));
-  const lacksWording = LACKS_WORDING_RE.test(detail);
   if (versionTokens.length > 0) {
-    if (lacksWording) {
+    if (absentPackageList !== null) {
       // "lacks foo@^2" → resolved when foo is present (major must not
       // contradict the ask when both sides are parseable).
       const ok = versionTokens.every((token) => {
@@ -473,13 +579,18 @@ function checkPackageJsonFinding(
   }
 
   // Claims naming bare packages ("direct dependencies for `next`, `react`, …").
+  // Read only the grammar-bound absence list, never unrelated prose.
   BARE_PACKAGE_RE.lastIndex = 0;
   const versionTokenNames = new Set(versionTokens.map((token) => token.name));
-  const bareNames = [...detail.matchAll(BARE_PACKAGE_RE)]
+  const bareNames = [...(absentPackageList ?? "").matchAll(BARE_PACKAGE_RE)]
     .map((match) => match[1])
     .filter((name) => !PACKAGE_STOP_WORDS.has(name.toLowerCase()))
     .filter((name) => !versionTokenNames.has(name));
-  for (const name of [...new Set(bareNames)]) {
+  UNQUOTED_FRAMEWORK_PACKAGE_RE.lastIndex = 0;
+  const unquotedFrameworkNames = [
+    ...(absentPackageList ?? "").matchAll(UNQUOTED_FRAMEWORK_PACKAGE_RE),
+  ].map((match) => match[1].toLowerCase());
+  for (const name of [...new Set([...bareNames, ...unquotedFrameworkNames])]) {
     claims.push({ ok: name in deps, label: `dependency ${name} present` });
   }
 

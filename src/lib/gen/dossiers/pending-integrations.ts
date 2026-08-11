@@ -1,7 +1,9 @@
 import {
+  readF3ApprovedFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
   readMutedDossierIdsFromSnapshot,
 } from "@/lib/gen/orchestration-snapshot";
+import { mapProviderKeysToBackingDossierIds } from "@/lib/integrations/tier3-build-spec";
 import { getDossierById } from "./registry";
 import { isDossierConfigured, selectDossiersForRequest } from "./select";
 import type { SelectedDossier } from "./types";
@@ -9,13 +11,16 @@ import { resolveDossierIdsPresentInVersion } from "./version-presence";
 import type { CodeFile } from "@/lib/gen/parser";
 
 /**
- * Resolve provider-specific integration dossiers the user requested in F2 but
- * whose files are not present in the selected version yet.
+ * Resolve provider-specific integration dossiers the user requested in F2 or
+ * durably approved for F3, but whose files are not present in the selected
+ * design version yet.
  *
  * New snapshots use `mutedDossierIds`, which preserves sibling identity. Old
  * snapshots fall back to `mutedCapabilities` and therefore use the capability
- * default. Actual file presence always wins, so an already-built integration
- * is never rebuilt merely because an older pending signal survived.
+ * default. Durable approvals also restore retry intent after a failed F3 wrote
+ * chat-global file evidence and cleared those muted markers. Actual presence
+ * in the selected base always wins, so an already-built integration is never
+ * rebuilt merely because an older pending/approval signal survived.
  */
 export function resolvePendingIntegrationDossiers(params: {
   snapshot: Record<string, unknown> | null | undefined;
@@ -35,7 +40,17 @@ export function resolvePendingIntegrationDossiers(params: {
       : [],
   );
 
-  const exactIds = readMutedDossierIdsFromSnapshot(params.snapshot);
+  const approved = readF3ApprovedFromSnapshot(params.snapshot);
+  // Durable F3 approvals survive an incomplete/failed integrations build.
+  // Its chat-global file evidence may already have cleared the old muted
+  // markers, so retry authority must come from the selected design version's
+  // actual files, not from those stale markers alone.
+  const exactIds = Array.from(
+    new Set([
+      ...readMutedDossierIdsFromSnapshot(params.snapshot),
+      ...mapProviderKeysToBackingDossierIds(approved.providers),
+    ]),
+  );
   const exactCapabilityIds = new Set<string>();
   const exactSelections = exactIds.flatMap((id): SelectedDossier[] => {
     const entry = getDossierById(id);
@@ -59,8 +74,11 @@ export function resolvePendingIntegrationDossiers(params: {
   // then use the legacy capability default only for capabilities that have no
   // known exact companion. A delivered exact dossier still counts as covered,
   // otherwise its stale capability signal could incorrectly rebuild a sibling.
-  const uncoveredLegacyCapabilities = readMutedCapabilitiesFromSnapshot(
-    params.snapshot,
+  const uncoveredLegacyCapabilities = Array.from(
+    new Set([
+      ...readMutedCapabilitiesFromSnapshot(params.snapshot),
+      ...approved.capabilities,
+    ]),
   ).filter((capability) => !exactCapabilityIds.has(capability.toLowerCase()));
   if (uncoveredLegacyCapabilities.length === 0) return exactSelections;
   const legacySelections = selectDossiersForRequest({

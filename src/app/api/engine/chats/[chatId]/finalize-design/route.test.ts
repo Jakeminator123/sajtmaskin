@@ -344,6 +344,65 @@ describe("POST finalize-design", () => {
     expect(createDraftVersion).not.toHaveBeenCalled();
   });
 
+  it("restarts the approved OpenAI build from the selected design version after failed F3 evidence", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: null,
+      orchestration_snapshot: {
+        mutedCapabilities: [],
+        mutedDossierIds: [],
+        f3ApprovedCapabilities: ["ai-chat"],
+        f3ApprovedProviders: ["openai-chat"],
+        fileEvidenceCapabilities: ["ai-chat"],
+        fileEvidenceDossierIds: ["openai-chat"],
+      },
+    });
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: true,
+      spec: {
+        requirements: [
+          {
+            key: "openai-chat",
+            name: "AI-chatt — OpenAI",
+            requiredRealEnvKeys: [],
+            featureRuntimeEnvKeys: ["OPENAI_API_KEY"],
+            placeholderOkEnvKeys: [],
+            warnOnlyEnvKeys: [],
+          },
+        ],
+      },
+    });
+
+    const res = await POST(request({ versionId: "ver_current" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({
+      ready: true,
+      parentVersionId: "ver_current",
+      plannedDossierIds: ["openai-chat"],
+      streamMeta: {
+        lifecycleStage: "integrations",
+        parentVersionId: "ver_current",
+      },
+    });
+    expect(body.action).toBeUndefined();
+    expect(appendF3ApprovedToSnapshot).toHaveBeenCalledWith(
+      "chat_1",
+      ["ai-chat"],
+      ["openai-chat"],
+      expect.not.arrayContaining(["openai-chat"]),
+    );
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pendingApprovedDossierIds: ["openai-chat"],
+      }),
+    );
+    expect(createDraftVersion).not.toHaveBeenCalled();
+  });
+
   it("reuses an already-promoted exact F3 fork without demoting it", async () => {
     getVersionsByChat.mockResolvedValue([
       {

@@ -11,11 +11,17 @@ const getVersionFiles = vi.hoisted(() => vi.fn());
 const resolveDossiersPresentInVersion = vi.hoisted(() => vi.fn());
 const resolveDossierIdsPresentInVersion = vi.hoisted(() => vi.fn(() => [] as string[]));
 const extractBriefSummaryFromSnapshot = vi.hoisted(() => vi.fn());
+const readF3ApprovedFromSnapshot = vi.hoisted(() =>
+  vi.fn(() => ({ capabilities: [] as string[], providers: [] as string[] })),
+);
 const readMutedCapabilitiesFromSnapshot = vi.hoisted(() => vi.fn(() => [] as string[]));
 const readMutedDossierIdsFromSnapshot = vi.hoisted(() => vi.fn(() => [] as string[]));
 const deriveTier3BuildSpecForVersion = vi.hoisted(() => vi.fn());
 const validateTier3Readiness = vi.hoisted(() => vi.fn());
 const mapProviderKeysToDossierCapabilities = vi.hoisted(() => vi.fn());
+const mapProviderKeysToBackingDossierIds = vi.hoisted(() =>
+  vi.fn(() => [] as string[]),
+);
 const getStoredProjectEnvVarMap = vi.hoisted(() => vi.fn());
 const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const loadPlaceholderKeySet = vi.hoisted(() => vi.fn());
@@ -76,6 +82,7 @@ vi.mock("@/lib/gen/dossiers/version-presence", () => ({
 
 vi.mock("@/lib/gen/orchestration-snapshot", () => ({
   extractBriefSummaryFromSnapshot,
+  readF3ApprovedFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
   readMutedDossierIdsFromSnapshot,
 }));
@@ -87,6 +94,7 @@ vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
 vi.mock("@/lib/integrations/tier3-build-spec", () => ({
   validateTier3Readiness,
   mapProviderKeysToDossierCapabilities,
+  mapProviderKeysToBackingDossierIds,
 }));
 
 vi.mock("@/lib/project-env-vars", () => ({
