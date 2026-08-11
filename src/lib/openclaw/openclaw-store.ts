@@ -5,6 +5,13 @@ import type {
   ArmedContinuationWatch,
 } from "@/lib/openclaw/debug/armed-continuation";
 import type { OpenClawPreparedFill } from "@/lib/openclaw/prepared-prompt";
+import {
+  activeOpenClawPowerIds,
+  resolveOpenClawPowers,
+  toggleOpenClawPower,
+  type OpenClawPowerId,
+  type OpenClawPowers,
+} from "@/lib/openclaw/powers";
 
 export interface OpenClawMessage {
   id: string;
@@ -29,6 +36,12 @@ interface OpenClawState {
   /** Server-reported OC_EDIT state (from /api/openclaw/health) — act side.
    * Gates the armed-autonomy auto-send path on the client. Default false. */
   editEnabled: boolean;
+  /** The chat's "extra befogenheter" master toggle. Must be pressed before any
+   * power is live, even with OC_EDIT on. Session-only and default off: a
+   * reload always lands back on today's guide behaviour. */
+  powersOn: boolean;
+  /** Which powers the user ticked in the menu. Empty = nothing extra. */
+  grantedPowers: OpenClawPowerId[];
   /** Active "armed autonomy" mandate (Mode A), or null when OpenClaw is passive. */
   armedMandate: ArmedMandate | null;
   /** Pending continuation watch: an armed auto-send fired and the builder turn
@@ -53,6 +66,10 @@ interface OpenClawState {
   setAvatarMode: (v: boolean) => void;
   setDebugEnabled: (v: boolean) => void;
   setEditEnabled: (v: boolean) => void;
+  /** Press/release the master toggle. Releasing it disarms (see below). */
+  setPowersOn: (v: boolean) => void;
+  /** Tick/untick one power. Unticking armed autonomy disarms (see below). */
+  toggleGrantedPower: (id: OpenClawPowerId) => void;
   setArmedMandate: (mandate: ArmedMandate | null) => void;
   setArmedContinuation: (watch: ArmedContinuationWatch | null) => void;
   /** Let the builder send that an armed auto-send started name itself, so its
@@ -68,6 +85,30 @@ interface OpenClawState {
   setPreparedFill: (fill: OpenClawPreparedFill | null) => void;
 }
 
+/**
+ * Withdrawing a power must take the state it authorized with it. Releasing the
+ * button (or unticking armed autonomy) while a mandate is running would
+ * otherwise leave a live watch that keeps auto-sending under authority the user
+ * just revoked — the same reasoning as `setArmedMandate` dropping its watch.
+ * Clearing the prepared fill once nothing is granted keeps the composer from
+ * tagging a later send with a fast lane the user no longer allows.
+ */
+function revokeStaleAutonomy(
+  state: Pick<OpenClawState, "editEnabled" | "armedMandate" | "armedContinuation" | "preparedFill">,
+  next: { powersOn: boolean; grantedPowers: OpenClawPowerId[] },
+): Partial<OpenClawState> {
+  const powers = resolveOpenClawPowers({
+    editEnabled: state.editEnabled,
+    powersOn: next.powersOn,
+    granted: next.grantedPowers,
+  });
+  return {
+    ...next,
+    ...(powers.armedAutonomy ? {} : { armedMandate: null, armedContinuation: null }),
+    ...(powers.any ? {} : { preparedFill: null }),
+  };
+}
+
 export const useOpenClawStore = create<OpenClawState>()((set) => ({
   isOpen: false,
   messages: [],
@@ -76,6 +117,8 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   avatarMode: true,
   debugEnabled: false,
   editEnabled: false,
+  powersOn: false,
+  grantedPowers: [],
   armedMandate: null,
   armedContinuation: null,
   preparedFill: null,
@@ -98,6 +141,11 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
             armedContinuation: null,
             // Same scoping: a prepared fill belongs to one composer context.
             preparedFill: null,
+            // Powers are granted for the context the user was looking at. Moving
+            // to another chat/site must not carry the grant along silently — the
+            // user re-presses the button where they actually want it.
+            powersOn: false,
+            grantedPowers: [],
           },
     ),
 
@@ -114,7 +162,28 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
   clearMessages: () => set({ messages: [] }),
   setAvatarMode: (v) => set({ avatarMode: v }),
   setDebugEnabled: (v) => set({ debugEnabled: v }),
-  setEditEnabled: (v) => set({ editEnabled: v }),
+  // Losing the env gate withdraws the grant with it. Otherwise a health check
+  // that dips to false and back — a failed fetch is enough — would silently
+  // restore powers the user pressed for earlier, without a fresh press.
+  setEditEnabled: (v) =>
+    set((s) =>
+      v
+        ? { editEnabled: true }
+        : {
+            editEnabled: false,
+            ...revokeStaleAutonomy(
+              { ...s, editEnabled: false },
+              { powersOn: false, grantedPowers: [] },
+            ),
+          },
+    ),
+  setPowersOn: (v) =>
+    set((s) => revokeStaleAutonomy(s, { powersOn: v, grantedPowers: s.grantedPowers })),
+  toggleGrantedPower: (id) =>
+    set((s) => {
+      const grantedPowers = toggleOpenClawPower(s.grantedPowers, id);
+      return revokeStaleAutonomy(s, { powersOn: s.powersOn, grantedPowers });
+    }),
   // Any mandate change cancels a pending continuation. Disarming ("stopp", the
   // stop button, a spent counter) must not leave a watch that outlives its
   // mandate — and a freshly armed mandate must not inherit the previous run's
@@ -142,3 +211,18 @@ export const useOpenClawStore = create<OpenClawState>()((set) => ({
     ),
   setPreparedFill: (fill) => set({ preparedFill: fill }),
 }));
+
+/**
+ * Effective powers for callers outside React (event handlers, the builder
+ * composer). Components use `useOpenClawPowers` so they re-render on a change.
+ */
+export function readOpenClawPowers(): OpenClawPowers {
+  const { editEnabled, powersOn, grantedPowers } = useOpenClawStore.getState();
+  return resolveOpenClawPowers({ editEnabled, powersOn, granted: grantedPowers });
+}
+
+/** The live grant as ids, for the chat request body. */
+export function readActiveOpenClawPowerIds(): OpenClawPowerId[] {
+  const { editEnabled, powersOn, grantedPowers } = useOpenClawStore.getState();
+  return activeOpenClawPowerIds({ editEnabled, powersOn, granted: grantedPowers });
+}

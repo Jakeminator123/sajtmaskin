@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { useOpenClawStore } from "./openclaw-store";
+import { readOpenClawPowers, useOpenClawStore } from "./openclaw-store";
 
 describe("OpenClaw store assistant targeting", () => {
   beforeEach(() => {
@@ -173,5 +173,108 @@ describe("OpenClaw store assistant targeting", () => {
       messages: [],
       scopeKey: "/kostnadsfri/acme::kostnadsfri",
     });
+  });
+});
+
+describe("OpenClaw store — withdrawing an extra power", () => {
+  const MANDATE = {
+    mode: "followups" as const,
+    remaining: 3,
+    reason: "gör 3 follow-ups",
+    createdAt: Date.now(),
+  };
+
+  const WATCH = {
+    chatId: "chat-1",
+    versionIdAtSend: "v-1",
+    startedAt: Date.now(),
+    messageCountAtSend: 2,
+    sendSeq: 1,
+    sendOutcome: "started" as const,
+    observedAt: Date.now(),
+    observedStrong: true,
+    resumedAt: null,
+    quietSince: Date.now(),
+  };
+
+  const FILL = { target: "builder.chat.primary", value: "fylld prompt" };
+
+  /** A live armed run under a full grant — the state a withdrawal must clean up. */
+  function armedUnderFullGrant() {
+    useOpenClawStore.setState({
+      editEnabled: true,
+      powersOn: true,
+      grantedPowers: ["armed_autonomy", "quick_edit"],
+      armedMandate: MANDATE,
+      armedContinuation: WATCH,
+      preparedFill: FILL,
+    });
+  }
+
+  beforeEach(() => {
+    useOpenClawStore.setState({
+      scopeKey: "global",
+      editEnabled: false,
+      powersOn: false,
+      grantedPowers: [],
+      armedMandate: null,
+      armedContinuation: null,
+      preparedFill: null,
+    });
+  });
+
+  it("stops a running mandate when the button is released", () => {
+    armedUnderFullGrant();
+    useOpenClawStore.getState().setPowersOn(false);
+
+    const state = useOpenClawStore.getState();
+    expect(state.armedMandate).toBeNull();
+    expect(state.armedContinuation).toBeNull();
+    expect(state.preparedFill).toBeNull();
+    expect(readOpenClawPowers().any).toBe(false);
+  });
+
+  it("stops a running mandate when armed autonomy alone is unticked", () => {
+    armedUnderFullGrant();
+    useOpenClawStore.getState().toggleGrantedPower("armed_autonomy");
+
+    const state = useOpenClawStore.getState();
+    expect(state.armedMandate).toBeNull();
+    expect(state.armedContinuation).toBeNull();
+    // Quick edits are still granted, so the prepared fill may stand.
+    expect(readOpenClawPowers().quickEdit).toBe(true);
+    expect(state.preparedFill).not.toBeNull();
+  });
+
+  it("keeps the mandate when an unrelated power is unticked", () => {
+    armedUnderFullGrant();
+    useOpenClawStore.getState().toggleGrantedPower("quick_edit");
+
+    expect(useOpenClawStore.getState().armedMandate).toEqual(MANDATE);
+    expect(readOpenClawPowers().armedAutonomy).toBe(true);
+  });
+
+  // A health check that dips to false and back must not silently re-grant.
+  it("withdraws the grant when the env gate is lost", () => {
+    armedUnderFullGrant();
+    useOpenClawStore.getState().setEditEnabled(false);
+
+    expect(useOpenClawStore.getState().grantedPowers).toEqual([]);
+    expect(useOpenClawStore.getState().armedMandate).toBeNull();
+
+    useOpenClawStore.getState().setEditEnabled(true);
+
+    expect(useOpenClawStore.getState().powersOn).toBe(false);
+    expect(readOpenClawPowers().any).toBe(false);
+  });
+
+  it("drops the grant on a scope change so it cannot follow the user to another chat", () => {
+    armedUnderFullGrant();
+    useOpenClawStore.getState().setScope("chat:other");
+
+    const state = useOpenClawStore.getState();
+    expect(state.powersOn).toBe(false);
+    expect(state.grantedPowers).toEqual([]);
+    expect(state.armedMandate).toBeNull();
   });
 });

@@ -17,9 +17,9 @@ export interface OpenClawSurfaceSnapshot {
   /** OC_DEBUG gate — read/diagnostics side (debug context). Not a blocker for
    * the normal surface. */
   debugEnabled: boolean;
-  /** OC_EDIT gate — act side. Lets the client unlock armed autonomy (auto-send
-   * follow-ups through the ordinary builder pipeline). Not a blocker for the
-   * normal surface. */
+  /** OC_EDIT gate — act side. Lets the chat OFFER extra powers (armed autonomy,
+   * quick edits); the user still has to grant them in the UI before anything
+   * changes (`powers.ts`). Not a blocker for the normal surface. */
   editEnabled: boolean;
 }
 

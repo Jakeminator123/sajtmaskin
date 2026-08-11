@@ -344,11 +344,16 @@ export const OPENCLAW = {
     return isAffirmativeEnvValue(env.OC_DEBUG) || isAffirmativeEnvValue(env.OC_DEBUGG);
   },
   /**
-   * Edit gate — ACT side. When affirmative (OC_EDIT), OpenClaw may drive edits
+   * Edit gate — ACT side. When affirmative (OC_EDIT), OpenClaw MAY drive edits
    * of USER SITES, exclusively through the ordinary builder pipeline (armed
    * autonomy fills the builder prompt and clicks the same send button the user
    * would; Mode B drives the same follow-up generation server-side). Never a
    * direct write path against preview-host/Fly or Sajtmaskin's own code.
+   *
+   * In the interactive chat this flag only ALLOWS: the user must also grant the
+   * specific power in the UI before anything happens (`src/lib/openclaw/powers.ts`).
+   * Mode B (`/api/openclaw/debug/run`) is an operator path with its own token
+   * and is gated by this flag alone.
    */
   get editEnabled(): boolean {
     return isAffirmativeEnvValue(env.OC_EDIT);

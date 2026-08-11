@@ -35,7 +35,8 @@ type BuildOpenClawContextSystemMessageParams = {
   fullFileLimit?: number;
   /** Debug-mode (OC_DEBUG): force full code context for the open chat. */
   debug?: boolean;
-  /** Edit-mode (OC_EDIT): allow bounded manifest/light code context on edit intent. */
+  /** Edit-mode (OC_EDIT AND a user-granted power): allow bounded manifest/light
+   * code context on edit intent. */
   edit?: boolean;
   /**
    * Ownership gate for generated file/code context. Generated files are fetched
