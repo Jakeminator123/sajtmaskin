@@ -34,6 +34,25 @@ async function insertDraftVersionRow(
   },
 ): Promise<Version> {
   const id = uuid();
+  // Lineage contract (schema.ts `parentVersionId`): every F3/integrations row
+  // must record which F2 design version it forked from. Prod chat fc0f053b
+  // (2026-08-11) wrote two integrations rows with NULL parent, which breaks
+  // the finalize-design reuse filter (every retry forks anew) and leaves the
+  // version history without provenance. All known writers pass the parent, so
+  // an unidentified path still exists — log loudly WITH a stack instead of
+  // throwing, so the next occurrence is attributable without killing the
+  // user's finished generation at the persist step.
+  if (params.lifecycleStage === "integrations" && !params.parentVersionId) {
+    console.error(
+      "[versions] integrations version inserted WITHOUT parent_version_id — lineage contract violation (see schema.ts parentVersionId)",
+      {
+        chatId: params.chatId,
+        messageId: params.messageId,
+        editKind: params.editKind ?? null,
+        stack: new Error("integrations-without-parent").stack,
+      },
+    );
+  }
   const selectedDossierEnvKeysJson =
     Array.isArray(params.selectedDossierEnvKeys) && params.selectedDossierEnvKeys.length > 0
       ? JSON.stringify(params.selectedDossierEnvKeys)

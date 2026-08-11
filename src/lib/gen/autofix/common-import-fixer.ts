@@ -338,15 +338,62 @@ function symbolLooksUsed(code: string, name: string): boolean {
   return patterns.some((pattern) => pattern.test(code));
 }
 
-function addNamedImport(code: string, importPath: string, names: string[]): string {
-  const importLine = `import { ${names.join(", ")} } from "${importPath}";`;
+/**
+ * Add named imports for `importPath`, kind-aware.
+ *
+ * `options.typeNames` marks which of `names` are TYPE-only exports at the
+ * source module. Those are emitted as `import type { X }` (all-type line) or
+ * inline `{ type X, y }` (mixed line) so a type-only export is never injected
+ * as a value binding. The merge branch preserves the kind of EXISTING
+ * specifiers: merging a value symbol into `import type { Lang } from "..."`
+ * must not demote `Lang` to a value import (prod chat fc0f053b: the injected
+ * value-import of `type Lang` kept tripping the verifier, which "fixed" it,
+ * and the next generation re-dropped it — three rounds of the same fault).
+ */
+function addNamedImport(
+  code: string,
+  importPath: string,
+  names: string[],
+  options: { typeNames?: ReadonlySet<string> } = {},
+): string {
+  const addTypeNames = options.typeNames ?? new Set<string>();
   const samePathNamedImport = new RegExp(
-    `import\\s+(?:type\\s+)?\\{([^}]+)\\}\\s+from\\s+["']${escapeRegExp(importPath)}["'];?`,
+    `import\\s+(type\\s+)?\\{([^}]+)\\}\\s+from\\s+["']${escapeRegExp(importPath)}["'];?`,
   );
+
+  type Spec = { render: string; isType: boolean };
+  const specsByLocal = new Map<string, Spec>();
+
   const match = code.match(samePathNamedImport);
   if (match) {
-    const merged = [...new Set([...parseImportNames(match[1]), ...names])].sort();
-    return code.replace(match[0], `import { ${merged.join(", ")} } from "${importPath}";`);
+    const headerTypeOnly = Boolean(match[1]);
+    for (const part of match[2].split(",")) {
+      const raw = part.trim();
+      if (!raw) continue;
+      const inlineType = /^type\s+/.test(raw);
+      const base = raw.replace(/^type\s+/, "").trim();
+      const aliasParts = base.split(/\s+as\s+/i).map((segment) => segment.trim());
+      const local = aliasParts[aliasParts.length - 1] ?? "";
+      if (!local) continue;
+      specsByLocal.set(local, { render: base, isType: headerTypeOnly || inlineType });
+    }
+  }
+  for (const name of names) {
+    if (specsByLocal.has(name)) continue;
+    specsByLocal.set(name, { render: name, isType: addTypeNames.has(name) });
+  }
+
+  const sorted = [...specsByLocal.entries()].sort(([a], [b]) => a.localeCompare(b));
+  const allType = sorted.length > 0 && sorted.every(([, spec]) => spec.isType);
+  const body = sorted
+    .map(([, spec]) => (spec.isType && !allType ? `type ${spec.render}` : spec.render))
+    .join(", ");
+  const importLine = allType
+    ? `import type { ${body} } from "${importPath}";`
+    : `import { ${body} } from "${importPath}";`;
+
+  if (match) {
+    return code.replace(match[0], importLine);
   }
   return insertImportAfterDirectives(code, importLine);
 }
@@ -396,6 +443,67 @@ export function buildProjectExportIndex(files: CodeFile[]): ExportIndex {
   }
 
   return index;
+}
+
+/**
+ * Same declaration scan as `buildProjectExportIndex`, but with the export
+ * KEYWORD captured so type-only exports can be told apart from values.
+ */
+const EXPORT_DECL_KIND_RE =
+  /\bexport\s+(const|let|var|function|async\s+function|class|enum|type|interface)\s+([A-Za-z_$][\w$]*)\b/g;
+
+/**
+ * importPath → symbols that module exports as TYPE-only (`export type X`,
+ * `export interface X`). Companion to `buildProjectExportIndex` (same file
+ * filters) so `fixMissingLocalSymbolImports` can emit `import type { Lang }`
+ * instead of a value import for a type export.
+ *
+ * Background (prod chat fc0f053b, 2026-08-11): `lib/i18n.ts` exports
+ * `type Lang` plus value helpers. The fixer injected all three as ONE value
+ * import, the verifier flagged the type-as-value binding, the LLM fixer
+ * rewrote it, and the next generation re-dropped it — the same fault was
+ * "fixed" three times in one session. Emitting the right kind up front ends
+ * that loop.
+ *
+ * Declaration form only: `export type { X }` re-export lists never enter the
+ * main export index (its `EXPORT_LIST_RE` does not match the `type` keyword),
+ * so they cannot be injected and need no kind here.
+ *
+ * A name exported both as a type AND a value by the same module stays a value
+ * import (the value binding also carries the type).
+ */
+export function buildProjectTypeOnlyExportIndex(files: CodeFile[]): Map<string, Set<string>> {
+  const byPath = new Map<string, Set<string>>();
+
+  for (const file of files) {
+    if (!/\.(tsx?|jsx?)$/i.test(file.path)) continue;
+    if (!isIndexableSharedFile(file.path)) continue;
+    if (file.content.includes("autofix-stub:")) continue;
+
+    const importPath = toAliasImportPath(file.path);
+    const typeNames = new Set<string>();
+    const valueNames = new Set<string>();
+
+    for (const match of file.content.matchAll(EXPORT_DECL_KIND_RE)) {
+      const kind = match[1];
+      const name = match[2];
+      if (!name || !isEligibleSharedSymbol(name)) continue;
+      if (kind === "type" || kind === "interface") typeNames.add(name);
+      else valueNames.add(name);
+    }
+
+    for (const name of valueNames) typeNames.delete(name);
+    if (typeNames.size > 0) {
+      const existing = byPath.get(importPath);
+      if (existing) {
+        for (const name of typeNames) existing.add(name);
+      } else {
+        byPath.set(importPath, typeNames);
+      }
+    }
+  }
+
+  return byPath;
 }
 
 export function buildProjectModuleExportIndex(files: CodeFile[]): ModuleExportIndex {
@@ -475,6 +583,8 @@ export function fixMissingLocalSymbolImports(
   code: string,
   filePath: string,
   exportIndex: ExportIndex,
+  /** From `buildProjectTypeOnlyExportIndex` — marks which symbols need `import type`. */
+  typeOnlyExportsByPath?: ReadonlyMap<string, ReadonlySet<string>>,
 ): { code: string; fixed: boolean; addedSymbols: string[] } {
   const imported = extractImportedNames(code);
   const declared = extractLocalDeclarations(code);
@@ -501,7 +611,13 @@ export function fixMissingLocalSymbolImports(
   const addedSymbols: string[] = [];
   for (const [importPath, names] of groupedByPath) {
     const uniqueNames = [...new Set(names)].sort();
-    nextCode = addNamedImport(nextCode, importPath, uniqueNames);
+    const typeNames = typeOnlyExportsByPath?.get(importPath);
+    nextCode = addNamedImport(
+      nextCode,
+      importPath,
+      uniqueNames,
+      typeNames && typeNames.size > 0 ? { typeNames } : {},
+    );
     addedSymbols.push(...uniqueNames);
   }
 
