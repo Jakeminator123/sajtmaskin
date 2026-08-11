@@ -73,3 +73,16 @@ google-services.json
 **/scaffold-embeddings.json
 **/variant-embeddings.json
 **/dossier-embeddings.json
+# --- Archived / agent dump secrets (spegel av .gitignore) ---
+# Att de är gitignorerade skyddar inte mot Read — spegla hit.
+docs/old/**/*.env.local
+docs/old/**/*.env.production
+docs/old/**/*.env
+docs/old/**/*env*.txt
+/old/
+senaste_miljovariablar/
+*_agent_session.txt
+agent-session-*.txt
+tr*_agent.txt
+.cursor/tmp/
+.cursor/*tmp*

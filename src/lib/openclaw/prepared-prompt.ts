@@ -133,7 +133,8 @@ export function isOpenClawPreparedSend(params: {
  * Client-side tag decision, called by the builder composer at send time.
  * Returns the tag ONLY when every condition holds:
  *
- *  - the store's `editEnabled` (server-reported OC_EDIT) is true,
+ *  - the user has granted an extra power (OC_EDIT AND the chat's button and
+ *    menu — the composer passes the resolved grant, see `powers.ts`),
  *  - the last OpenClaw fill targeted the builder composer,
  *  - the outgoing message is EXACTLY the filled content (whitespace-trimmed —
  *    any user edit, appended Figma/inspect block or attachment prompt breaks

@@ -16,7 +16,12 @@ export type {
   ScaffoldSiteKind,
 } from "./types";
 export { getScaffoldById, getScaffoldIds } from "./registry";
-export { matchScaffold, matchScaffoldAuto } from "./matcher";
+export {
+  defaultScaffoldForIntent,
+  matchScaffold,
+  matchScaffoldAuto,
+  scaffoldForExplicitIntent,
+} from "./matcher";
 export type {
   ScaffoldSelectionConfidence,
   ScaffoldQueryContext,

@@ -51,6 +51,8 @@ function armPreparedFill() {
   act(() => {
     useOpenClawStore.setState({
       editEnabled: true,
+      powersOn: true,
+      grantedPowers: ["armed_autonomy"],
       preparedFill: { target: OPENCLAW_BUILDER_CHAT_TARGET, value: FILLED },
     });
   });
@@ -58,7 +60,12 @@ function armPreparedFill() {
 
 afterEach(() => {
   act(() => {
-    useOpenClawStore.setState({ editEnabled: false, preparedFill: null });
+    useOpenClawStore.setState({
+      editEnabled: false,
+      powersOn: false,
+      grantedPowers: [],
+      preparedFill: null,
+    });
   });
   vi.clearAllMocks();
 });
@@ -113,6 +120,28 @@ describe("ChatInterface prepared-fill marker", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(2));
     expect(seen[1]?.promptSource).toBeUndefined();
+  });
+
+  // The fast lane is part of the granted behaviour, so a fill left over from a
+  // grant the user has since withdrawn must not tag the next send.
+  it("does not tag when the powers button is off", async () => {
+    const seen: Array<MessageOptions | undefined> = [];
+    const onSendMessage = vi.fn(async (_m: string, opts?: MessageOptions) => {
+      seen.push(opts);
+      return { status: "started", via: "stream" } as const;
+    });
+    armPreparedFill();
+    act(() => {
+      useOpenClawStore.setState({ powersOn: false });
+    });
+    render(<ChatInterface chatId="chat_1" onSendMessage={onSendMessage} />);
+
+    const textarea = screen.getByLabelText("Skriv en uppdatering");
+    fireEvent.change(textarea, { target: { value: FILLED } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    await waitFor(() => expect(onSendMessage).toHaveBeenCalledTimes(1));
+    expect(seen[0]?.promptSource).toBeUndefined();
   });
 
   it("keeps the marker when the send was rejected without being recorded (retry may re-tag)", async () => {

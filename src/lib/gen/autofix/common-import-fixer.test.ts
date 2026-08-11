@@ -3,6 +3,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildProjectExportIndex,
   buildProjectModuleExportIndex,
+  buildProjectTypeOnlyExportIndex,
   fixImportedDeclarationConflicts,
   fixLocalDefaultImportMismatches,
   fixLocalNamedImportDefaultMismatches,
@@ -82,6 +83,126 @@ describe("common-import-fixer", () => {
     expect(result.fixed).toBe(false);
     expect(result.addedSymbols).toEqual([]);
     expect(result.code).not.toContain("@/components/lane");
+  });
+
+  // Prod chat fc0f053b (2026-08-11): lib/i18n.ts exports `type Lang` plus the
+  // value helpers `getLangFromSearchParam`/`withLang`. The fixer injected all
+  // three as one VALUE import; the verifier flagged the type-as-value binding
+  // three times in one session (fixed by LLM, re-dropped on the next
+  // generation). The kind-aware emission ends that loop.
+  describe("type-only exports (prod chat fc0f053b)", () => {
+    const i18nFiles: CodeFile[] = [
+      {
+        path: "lib/i18n.ts",
+        content: [
+          'export type Lang = "sv" | "en";',
+          "export function getLangFromSearchParam(value: string | null): Lang { return value === \"en\" ? \"en\" : \"sv\"; }",
+          "export function withLang(href: string, lang: Lang): string { return `${href}?lang=${lang}`; }",
+        ].join("\n"),
+        language: "ts",
+      },
+      {
+        path: "components/site-footer.tsx",
+        content: [
+          "export default function SiteFooter({ search }: { search: string | null }) {",
+          "  const lang: Lang = getLangFromSearchParam(search);",
+          '  return <a href={withLang("/om", lang)}>Om oss</a>;',
+          "}",
+        ].join("\n"),
+        language: "tsx",
+      },
+    ];
+
+    it("emits an inline type specifier for a type-only export mixed with value helpers", () => {
+      const exportIndex = buildProjectExportIndex(i18nFiles);
+      const typeOnly = buildProjectTypeOnlyExportIndex(i18nFiles);
+      const result = fixMissingLocalSymbolImports(
+        i18nFiles[1]!.content,
+        i18nFiles[1]!.path,
+        exportIndex,
+        typeOnly,
+      );
+
+      expect(result.fixed).toBe(true);
+      expect(result.code).toContain(
+        'import { getLangFromSearchParam, type Lang, withLang } from "@/lib/i18n";',
+      );
+    });
+
+    it("emits a pure `import type` line when everything missing is a type", () => {
+      const files: CodeFile[] = [
+        i18nFiles[0]!,
+        {
+          path: "components/lang-badge.tsx",
+          content: "export function LangBadge({ lang }: { lang: Lang }) { return <span>{lang}</span>; }",
+          language: "tsx",
+        },
+      ];
+      const result = fixMissingLocalSymbolImports(
+        files[1]!.content,
+        files[1]!.path,
+        buildProjectExportIndex(files),
+        buildProjectTypeOnlyExportIndex(files),
+      );
+
+      expect(result.fixed).toBe(true);
+      expect(result.code).toContain('import type { Lang } from "@/lib/i18n";');
+    });
+
+    it("does not demote an existing `import type` when merging in a value symbol", () => {
+      const consumer = [
+        'import type { Lang } from "@/lib/i18n";',
+        "",
+        "export default function SiteFooter({ lang }: { lang: Lang }) {",
+        '  return <a href={withLang("/om", lang)}>Om oss</a>;',
+        "}",
+      ].join("\n");
+      const files: CodeFile[] = [
+        i18nFiles[0]!,
+        { path: "components/site-footer.tsx", content: consumer, language: "tsx" },
+      ];
+      const result = fixMissingLocalSymbolImports(
+        consumer,
+        "components/site-footer.tsx",
+        buildProjectExportIndex(files),
+        buildProjectTypeOnlyExportIndex(files),
+      );
+
+      expect(result.fixed).toBe(true);
+      expect(result.code).toContain('import { type Lang, withLang } from "@/lib/i18n";');
+      expect(result.code).not.toContain('import type { Lang } from "@/lib/i18n";');
+    });
+
+    it("keeps a symbol exported as BOTH type and value a value import", () => {
+      const files: CodeFile[] = [
+        {
+          path: "lib/theme.ts",
+          content: ['export type Theme = "dark" | "light";', "export const Theme = { dark: 1 };"].join("\n"),
+          language: "ts",
+        },
+        {
+          path: "components/theme-picker.tsx",
+          content: "export function ThemePicker() { return <span>{Theme.dark}</span>; }",
+          language: "tsx",
+        },
+      ];
+      const typeOnly = buildProjectTypeOnlyExportIndex(files);
+      expect(typeOnly.get("@/lib/theme")).toBeUndefined();
+    });
+
+    it("is idempotent for the mixed i18n import", () => {
+      const exportIndex = buildProjectExportIndex(i18nFiles);
+      const typeOnly = buildProjectTypeOnlyExportIndex(i18nFiles);
+      const once = fixMissingLocalSymbolImports(
+        i18nFiles[1]!.content,
+        i18nFiles[1]!.path,
+        exportIndex,
+        typeOnly,
+      );
+      const twice = fixMissingLocalSymbolImports(once.code, i18nFiles[1]!.path, exportIndex, typeOnly);
+      expect(twice.fixed).toBe(false);
+      expect(twice.code).toBe(once.code);
+    });
   });
 
   it("adds missing ReactNode type import", () => {

@@ -471,7 +471,13 @@ function readEmbedVsKeywordBias(): number {
   return n;
 }
 
-function defaultScaffoldForIntent(buildIntent?: BuildIntent | null): ScaffoldManifest {
+/**
+ * Baseline scaffold for an intent. Exported so callers that reject a matched
+ * scaffold (e.g. an app-only pick under an explicit Hemsida choice) land on the
+ * same default the matcher itself would have used, instead of re-deriving the
+ * intent→scaffold mapping and creating a second source of truth.
+ */
+export function defaultScaffoldForIntent(buildIntent?: BuildIntent | null): ScaffoldManifest {
   if (buildIntent === "website" || buildIntent === "template") {
     return getScaffoldById("landing-page")!;
   }
@@ -482,6 +488,32 @@ function defaultScaffoldForIntent(buildIntent?: BuildIntent | null): ScaffoldMan
     return getScaffoldById("app-shell")!;
   }
   return getScaffoldById("base-nextjs")!;
+}
+
+/**
+ * Keep a scaffold pick honest against an EXPLICIT Hemsida/App choice.
+ *
+ * Both the keyword matcher and the embedding path can return an app-only scaffold
+ * for a website prompt when app vocabulary scores high; the website→app promotion
+ * used to make that self-consistent by flipping the intent. An explicit user
+ * choice suppresses that promotion, so the mismatch has to be resolved on the
+ * scaffold side instead — otherwise a run claims `website` while sitting on a
+ * scaffold whose `allowedBuildIntents` is `["app"]`.
+ *
+ * Shared by the create-chat pre-match (which steers the Deep Brief) and
+ * `resolve-base` (which steers codegen), so the two cannot disagree about which
+ * scaffold survived.
+ */
+export function scaffoldForExplicitIntent(
+  scaffold: ScaffoldManifest | null | undefined,
+  buildIntent: BuildIntent | null | undefined,
+): ScaffoldManifest | null {
+  if (!scaffold) return null;
+  if (buildIntent !== "website" && buildIntent !== "app" && buildIntent !== "template") {
+    return scaffold;
+  }
+  if (scaffold.allowedBuildIntents.includes(buildIntent)) return scaffold;
+  return defaultScaffoldForIntent(buildIntent);
 }
 
 function normalizedKeywordStrength(score: number): number {

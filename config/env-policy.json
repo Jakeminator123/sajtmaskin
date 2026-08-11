@@ -729,7 +729,7 @@
       "key": "OC_EDIT",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview"],
-      "notes": "OpenClaw edit gate — the ACT side. Affirmative (1/true/yes/y/on) lets OpenClaw drive edits of USER SITES, exclusively through the ordinary builder pipeline: armed autonomy (user arms a bounded mandate, OpenClaw fills the builder prompt and clicks the same send button the user would) and the Mode B bug-hunt run route (which additionally requires OC_DEBUG + OC_DEBUG_RUN_TOKEN). Never a direct write path to preview-host/Fly or Sajtmaskin's own code. Default off; enable in production deliberately. Read via OPENCLAW.editEnabled (src/lib/config.ts)."
+      "notes": "OpenClaw edit gate — the ACT side, and only HALF the gate since 2026-08-11. Affirmative (1/true/yes/y/on) ALLOWS OpenClaw to drive edits of USER SITES, exclusively through the ordinary builder pipeline; the user must additionally press the 'extra befogenheter' button in the OpenClaw chat and tick the specific power (armed_autonomy / quick_edit). Without that grant the app behaves exactly as with OC_EDIT off — including the chat route sending no edit system prompt at all. The client's granted list can only narrow: the server ANDs it with OPENCLAW.editEnabled (src/lib/openclaw/powers.ts). The Mode B bug-hunt run route (OC_DEBUG + OC_DEBUG_RUN_TOKEN) is an operator path outside the chat button and still needs only the env flag. Never a direct write path to preview-host/Fly or Sajtmaskin's own code. Default off; enable in production deliberately. Read via OPENCLAW.editEnabled (src/lib/config.ts)."
     },
     {
       "key": "OC_DEBUG_RUN_TOKEN",

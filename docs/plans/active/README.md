@@ -13,6 +13,7 @@ kopiera inte kön hit.
 | --- | --- | --- |
 | Restlista: builder-UI, F3-scope, env | [`2026-07-27-restlista-builder-f3-env.md`](2026-07-27-restlista-builder-f3-env.md) | Öppna: **R8** aktiverings-E2E · **R5** (blockerad) · **R12** (kräver beslut) · **R13** (prod-observation) |
 | Dossier: färre sanningsytor + status-UX | [`2026-08-11-dossier-sanning-och-ux/00-master-plan.md`](2026-08-11-dossier-sanning-och-ux/00-master-plan.md) | 01 levererad (#875) · fas A + fas B klara (05), PR mot master väntar på merge. Nu: 02+03 parallellt; 04 efter 02 |
+| Lint: react-hooks-varningar (builder) | [`2026-08-11-lint-hooks-warn-cleanup.md`](2026-08-11-lint-hooks-warn-cleanup.md) | Städa 22 warn i Sajtmaskin-appen; PR mot master |
 
 Prod-körningens dossier-spår (2026-08-05) är **parkerat** — levererat i
 [`../avklarat/README.md`](../avklarat/README.md). Resterna A5 och `SM-025` lever

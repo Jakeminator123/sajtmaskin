@@ -287,6 +287,26 @@ describe("resolveBuildIntentPromotion (P26 / OMTAG Fas 2·A)", () => {
     const result = resolveBuildIntentPromotion(makeInput({ scaffoldMode: "manual" }));
     expect(result.wouldPromote).toBe(false);
   });
+
+  // Byggval's Hemsida/App control (2026-08-11). Promotion was written for an
+  // intent INHERITED from the landing entry, where `website` was a default and an
+  // auto-matched dashboard was the better evidence. Once the user picks Hemsida
+  // themselves that reasoning inverts: a stray "dashboard" in the prompt must not
+  // hand back the app they just declined.
+  it("does not promote when the user explicitly chose Hemsida", () => {
+    const result = resolveBuildIntentPromotion(
+      makeInput({ buildIntent: "website", buildIntentExplicit: true }),
+    );
+    expect(result.wouldPromote).toBe(false);
+    expect(result.promoted).toBe(false);
+  });
+
+  it("still promotes an inherited website intent (flag absent or false)", () => {
+    expect(resolveBuildIntentPromotion(makeInput()).promoted).toBe(true);
+    expect(
+      resolveBuildIntentPromotion(makeInput({ buildIntentExplicit: false })).promoted,
+    ).toBe(true);
+  });
 });
 
 describe("filterDossierCapabilitiesForPrompt (#198 physics-3d invariant)", () => {

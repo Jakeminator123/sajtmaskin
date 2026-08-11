@@ -109,8 +109,16 @@ export function useShellDevContextEffects(
       // a pending reply (the same pair that gates the dossier catalogue below).
       awaitingInput: vm.isAwaitingInput || Boolean(latestPendingReply),
     };
+    // Landing and kostnadsfri announce every context write with this event, and
+    // OpenClaw's scope sync listens for it — the builder never sent it, so an
+    // in-builder chat switch (same pathname, new chatId) kept the OLD OpenClaw
+    // scope alive: conversation, armed mandate and granted extra powers all
+    // survived into the next chat. The store's scope reset only works if this
+    // surface reports its context changes like the other two do.
+    window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
     return () => {
       delete window.__SITEMASKIN_CONTEXT;
+      window.dispatchEvent(new CustomEvent("sajtmaskin:context-updated"));
     };
   }, [
     vm.appProjectId,

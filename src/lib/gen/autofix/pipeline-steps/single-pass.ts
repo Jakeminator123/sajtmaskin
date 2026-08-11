@@ -7,6 +7,7 @@ import {
   fixLocalNamedImportDefaultMismatches,
   buildProjectDefaultExportIndex,
   buildProjectExportIndex,
+  buildProjectTypeOnlyExportIndex,
   fixLocalDefaultImportMismatches,
   fixMissingLocalSymbolImports,
   fixMissingReactTypeImports,
@@ -24,6 +25,7 @@ import {
 import { fixTailwindApplyOfComponents } from "../rules/tailwind-apply-component-fixer";
 import { fixAsConstBooleanKeys } from "../rules/as-const-boolean-keys";
 import { fixR3FVectorTuples } from "../rules/r3f-vector-tuple-fixer";
+import { fixZodV4Params } from "../rules/zod-v4-params-fixer";
 import { fixTypeOnlyImports } from "../rules/type-only-import-fixer";
 import { fixValueUsedFromTypeImport } from "../rules/value-used-from-type-import-fixer";
 import { fixImportAliasTypeHybrid } from "../rules/import-alias-type-syntax-fixer";
@@ -171,6 +173,7 @@ export async function runAutoFixSinglePass(
 
   const fixedFiles: CodeFile[] = [];
   const exportIndex = buildProjectExportIndex(project.files);
+  const typeOnlyExportIndex = buildProjectTypeOnlyExportIndex(project.files);
   const moduleExportIndex = buildProjectModuleExportIndex(project.files);
   // jsx-checker only generates a component import when the project itself
   // exports the name — named exports via `exportIndex`, default exports via
@@ -471,7 +474,12 @@ export async function runAutoFixSinglePass(
 
       // 3f. local-symbol-import-fixer — import shared local config/data symbols when uniquely exported
       try {
-        const symbolResult = fixMissingLocalSymbolImports(currentCode, file.path, exportIndex);
+        const symbolResult = fixMissingLocalSymbolImports(
+          currentCode,
+          file.path,
+          exportIndex,
+          typeOnlyExportIndex,
+        );
         if (symbolResult.fixed) {
           currentCode = symbolResult.code;
           allFixes.push({
@@ -839,6 +847,23 @@ export async function runAutoFixSinglePass(
       } catch (err) {
         allWarnings.push(
           `[${file.path}] r3f-vector-tuple-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      // 4j-zod. zod-v4-params-fixer — rewrite Zod 3 `errorMap: () => ({ message })`
+      // params to Zod 4 `message` so one habitual param does not cascade TS2322
+      // through every FormField (prod chat fc0f053b, 2026-08-11).
+      try {
+        const zodResult = fixZodV4Params(currentCode, file.path);
+        if (zodResult.fixed) {
+          currentCode = zodResult.code;
+          for (const fix of zodResult.fixes) {
+            allFixes.push(fix);
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] zod-v4-params-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
 

@@ -30,7 +30,12 @@ import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
 import { OPENCLAW_BUILDER_CHAT_TARGET } from "@/lib/openclaw/prepared-prompt";
-import { useOpenClawStore, type OpenClawMessage as Msg } from "@/lib/openclaw/openclaw-store";
+import {
+  readOpenClawPowers,
+  useOpenClawStore,
+  type OpenClawMessage as Msg,
+} from "@/lib/openclaw/openclaw-store";
+import { useOpenClawPowers } from "./useOpenClawPowers";
 import {
   consumeMandateStep,
   describeMandate,
@@ -51,12 +56,12 @@ const consumedArmedSends = new Set<string>();
 /**
  * Record a successful builder-composer fill so the composer can tag an
  * UNEDITED send of exactly this content as `promptSource: "openclaw-prepared"`
- * (see `prepared-prompt.ts`). Only when the act gate (OC_EDIT → store
- * `editEnabled`) is on — without it the fast-lane tag must never be set.
+ * (see `prepared-prompt.ts`). Only when the user has actually granted a power —
+ * with the button off the send must take the same path it takes today.
  */
 function recordOpenClawPreparedFill(action: OpenClawFillTextFieldAction) {
-  const { editEnabled, setPreparedFill } = useOpenClawStore.getState();
-  if (!editEnabled) return;
+  const { setPreparedFill } = useOpenClawStore.getState();
+  if (!readOpenClawPowers().any) return;
   if (action.target !== OPENCLAW_BUILDER_CHAT_TARGET) return;
   setPreparedFill({ target: OPENCLAW_BUILDER_CHAT_TARGET, value: action.value });
 }
@@ -70,7 +75,7 @@ export function OpenClawMessage({
   streaming?: boolean;
 }) {
   const isUser = msg.role === "user";
-  const editEnabled = useOpenClawStore((s) => s.editEnabled);
+  const powers = useOpenClawPowers();
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
   // SM-026: parse:n måste vara stabil för samma content. Utan memo föds ett
   // nytt `action`-objekt varje render, och typewriter-effekten nedan
@@ -87,10 +92,11 @@ export function OpenClawMessage({
   // saknar synlig text rendera väntprickarna för alltid bredvid felkortet.
   const shouldRenderBubble = Boolean(parsed.visibleContent) || (!action && !rejectedActionReason);
 
-  // Armed-autonomy gate (Mode A): only auto-send when OC_EDIT (the act gate) is
-  // on AND the user has armed a still-active mandate AND the action explicitly
-  // asked to submit. Otherwise a `submit:true` action degrades to the normal
-  // manual fill suggestion (fill but never send) — defense in depth.
+  // Armed-autonomy gate (Mode A): only auto-send when the power is actually
+  // granted (OC_EDIT on + button pressed + armed autonomy ticked) AND the user
+  // has armed a still-active mandate AND the action explicitly asked to submit.
+  // Otherwise a `submit:true` action degrades to the normal manual fill
+  // suggestion (fill but never send) — defense in depth.
   //
   // Bind to the CURRENT mandate (Codex P2): an older assistant action authored
   // BEFORE the active mandate was armed must never auto-send when the user later
@@ -101,7 +107,7 @@ export function OpenClawMessage({
     !isUser &&
     action?.type === "fill_text_field" &&
     action.submit === true &&
-    editEnabled &&
+    powers.armedAutonomy &&
     isMandateActive(armedMandate) &&
     !!armedMandate &&
     // Only a `followups` mandate authorizes auto-send (Bugbot). A `review_next`
@@ -162,7 +168,7 @@ export function OpenClawMessage({
           <OpenClawStartBugHuntCard
             key="start_bug_hunt"
             action={action}
-            editEnabled={editEnabled}
+            armedAutonomyGranted={powers.armedAutonomy}
           />
         ) : null}
 
@@ -170,7 +176,7 @@ export function OpenClawMessage({
           <OpenClawQuickEditCard
             key="apply_quick_edit"
             action={action}
-            editEnabled={editEnabled}
+            quickEditGranted={powers.quickEdit}
             builderTarget={msg.builderTarget ?? null}
           />
         ) : null}
@@ -285,18 +291,19 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
  */
 function OpenClawStartBugHuntCard({
   action,
-  editEnabled,
+  armedAutonomyGranted,
 }: {
   action: OpenClawStartBugHuntAction;
-  editEnabled: boolean;
+  armedAutonomyGranted: boolean;
 }) {
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
 
-  if (!editEnabled) {
+  if (!armedAutonomyGranted) {
     return (
       <div className="min-w-0 rounded-2xl border border-white/10 bg-slate-900/70 p-3 text-slate-100">
         <p className="text-xs leading-5 text-slate-300">
-          Redigeringsläge är av — armerad autonomi är inaktiverad. (Aktivera OC_EDIT.)
+          Armerad autonomi är inaktiverad. Tryck in sköldknappen i chattens topprad och kryssa i
+          &quot;Armerad autonomi&quot; om du vill tillåta den.
         </p>
       </div>
     );
@@ -327,8 +334,8 @@ function OpenClawStartBugHuntCard({
 }
 
 /**
- * Armed-autonomy auto-send card (Mode A). Rendered only when OC_EDIT is on and
- * a user-armed mandate is active. On mount it fills the builder prompt, waits
+ * Armed-autonomy auto-send card (Mode A). Rendered only when the armed-autonomy
+ * power is granted and a user-armed mandate is active. On mount it fills the builder prompt, waits
  * for the real send button to become enabled, clicks it, and consumes one step
  * of the mandate. OpenClaw never writes files — it drives the same visible send
  * the user would click. Bounded by the mandate counter; no manual approval in
@@ -609,11 +616,11 @@ function OpenClawRepairRequestCard({ action }: { action: OpenClawRequestRepairAc
  */
 function OpenClawQuickEditCard({
   action,
-  editEnabled,
+  quickEditGranted,
   builderTarget,
 }: {
   action: OpenClawApplyQuickEditAction;
-  editEnabled: boolean;
+  quickEditGranted: boolean;
   /** Builder-mål bundet när turen SKICKADES (versionen modellen såg), eller null. */
   builderTarget: { chatId: string; versionId: string } | null;
 }) {
@@ -643,11 +650,12 @@ function OpenClawQuickEditCard({
   // POST:ar mot samma bas (forkad historik / förvirrande stale_base_version).
   const approveInFlightRef = useRef(false);
 
-  if (!editEnabled) {
+  if (!quickEditGranted) {
     return (
       <div className="min-w-0 rounded-2xl border border-white/10 bg-slate-900/70 p-3 text-slate-100">
         <p className="text-xs leading-5 text-slate-300">
-          Redigeringsläge är av — aktivera OC_EDIT för att kunna godkänna snabbändringar.
+          Snabbändringar är inaktiverade. Tryck in sköldknappen i chattens topprad och kryssa i
+          &quot;Snabbändringar&quot; om du vill kunna godkänna dem.
         </p>
       </div>
     );

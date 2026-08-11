@@ -1,13 +1,16 @@
 import {
   extractAppProjectIdFromMeta,
   extractBriefFromMeta,
+  extractColorModeHintFromMeta,
   extractComplexityHintFromMeta,
   extractDesignThemePresetFromMeta,
   extractPageCountHintFromMeta,
   extractPaletteStateFromMeta,
   extractScaffoldSettingsFromMeta,
+  extractStyleChoiceHintFromMeta,
   extractStyleKeywordsHintFromMeta,
   extractThemeColorsFromMeta,
+  extractToneKeywordsHintFromMeta,
 } from "@/lib/gen/request-metadata";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import type { PaletteState } from "@/lib/builder/palette";
@@ -31,6 +34,12 @@ export interface ParsedChatRequestMeta {
   modelTier: string | null;
   buildMethod: string | null;
   buildIntent: string | null;
+  /**
+   * Byggval: the user picked Hemsida/App themselves. Distinguishes a decision
+   * from the intent inherited from the landing entry, which is what the
+   * website→app promotion is allowed to override.
+   */
+  buildIntentExplicit: boolean;
   promptSourceKind: string | null;
   promptSourceTechnical: boolean;
   promptSourcePreservePayload: boolean;
@@ -42,6 +51,15 @@ export interface ParsedChatRequestMeta {
   pageCountHint: number | null;
   /** Byggval (init controls): structured style keywords for variant matching. */
   styleKeywordsHint: string[];
+  /** Byggval (init controls): structured tone keywords for variant matching. */
+  toneKeywordsHint: string[];
+  /**
+   * Byggval (init controls): the raw style choice. Resolved to a concrete variant
+   * id server-side once the scaffold is known, then pinned.
+   */
+  styleChoiceHint: "warm" | "corporate" | "bold" | "editorial" | "minimal" | null;
+  /** Byggval (init controls): ljust/mörkt, selects the color cluster's palette. */
+  colorModeHint: "light" | "dark" | null;
   /** Byggval (init controls): structured complexity choice for BuildSpec. */
   complexityHint: "simple" | "medium" | "complex" | null;
   themeColors: ThemeColors | null;
@@ -84,6 +102,7 @@ export function parseChatRequestMeta(meta: unknown): ParsedChatRequestMeta {
     modelTier: metaString(meta, "modelTier"),
     buildMethod: metaString(meta, "buildMethod"),
     buildIntent: metaString(meta, "buildIntent"),
+    buildIntentExplicit: metaBool(meta, "buildIntentExplicit"),
     promptSourceKind: metaString(meta, "promptSourceKind"),
     promptSourceTechnical: metaBool(meta, "promptSourceTechnical"),
     promptSourcePreservePayload: metaBool(meta, "promptSourcePreservePayload"),
@@ -93,6 +112,9 @@ export function parseChatRequestMeta(meta: unknown): ParsedChatRequestMeta {
     scaffoldId,
     pageCountHint: extractPageCountHintFromMeta(meta),
     styleKeywordsHint: extractStyleKeywordsHintFromMeta(meta),
+    toneKeywordsHint: extractToneKeywordsHintFromMeta(meta),
+    styleChoiceHint: extractStyleChoiceHintFromMeta(meta),
+    colorModeHint: extractColorModeHintFromMeta(meta),
     complexityHint: extractComplexityHintFromMeta(meta),
     themeColors: extractThemeColorsFromMeta(meta),
     brief: extractBriefFromMeta(meta),

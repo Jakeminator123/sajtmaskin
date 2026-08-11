@@ -1,6 +1,6 @@
 {
-  "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-08-11T01:51:55.141Z",
+  "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
+  "generatedAt": "2026-08-11T05:55:26.506Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -172,7 +172,21 @@
       "buildServerReasons": [
         "build-env",
         "server-file"
-      ]
+      ],
+      "labelsSv": {
+        "class": {
+          "label": "Kopplad",
+          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+        },
+        "mock": {
+          "label": "Full yta, ärlig demo-notis",
+          "hint": "Ytan renderas fullt ut, men handlingen öppnar en ärlig demo-notis i stället för en riktig betalning eller inloggning."
+        },
+        "requiresF3": {
+          "label": "Kräver F3",
+          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+        }
+      }
     },
     {
       "id": "mailchimp-newsletter",
@@ -214,7 +228,21 @@
       "buildServerRequirement": true,
       "buildServerReasons": [
         "server-file"
-      ]
+      ],
+      "labelsSv": {
+        "class": {
+          "label": "Kopplad",
+          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+        },
+        "mock": {
+          "label": "Fejkad success + demo-notis",
+          "hint": "Formuläret går igenom och svarar med en ärlig demo-notis — inget mejl och ingen prenumeration skickas på riktigt."
+        },
+        "requiresF3": {
+          "label": "Kräver F3",
+          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+        }
+      }
     },
     {
       "id": "openai-chat",
@@ -250,7 +278,21 @@
       "buildServerRequirement": true,
       "buildServerReasons": [
         "server-file"
-      ]
+      ],
+      "labelsSv": {
+        "class": {
+          "label": "Kopplad",
+          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+        },
+        "mock": {
+          "label": "Fabricerat demo-svar",
+          "hint": "Servern svarar med ett trovärdigt påhittat svar (chatten streamar ett förberett svar) tills en riktig nyckel sparas."
+        },
+        "requiresF3": {
+          "label": "Kräver F3",
+          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+        }
+      }
     },
     {
       "id": "postgres-drizzle",
@@ -288,7 +330,21 @@
       "buildServerRequirement": true,
       "buildServerReasons": [
         "server-file"
-      ]
+      ],
+      "labelsSv": {
+        "class": {
+          "label": "Kopplad",
+          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+        },
+        "mock": {
+          "label": "Medskickad demo-data",
+          "hint": "Data-lagret använder medskickad exempeldata och en diskret notis tills en riktig databas kopplas in."
+        },
+        "requiresF3": {
+          "label": "Kräver F3",
+          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+        }
+      }
     },
     {
       "id": "resend-contact-form",
@@ -333,7 +389,21 @@
       "buildServerRequirement": true,
       "buildServerReasons": [
         "server-file"
-      ]
+      ],
+      "labelsSv": {
+        "class": {
+          "label": "Kopplad",
+          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+        },
+        "mock": {
+          "label": "Fejkad success + demo-notis",
+          "hint": "Formuläret går igenom och svarar med en ärlig demo-notis — inget mejl och ingen prenumeration skickas på riktigt."
+        },
+        "requiresF3": {
+          "label": "Kräver F3",
+          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+        }
+      }
     },
     {
       "id": "sanity-cms",
@@ -388,7 +458,21 @@
       "buildServerRequirement": true,
       "buildServerReasons": [
         "server-file"
-      ]
+      ],
+      "labelsSv": {
+        "class": {
+          "label": "Kopplad",
+          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+        },
+        "mock": {
+          "label": "Medskickad demo-data",
+          "hint": "Data-lagret använder medskickad exempeldata och en diskret notis tills en riktig databas kopplas in."
+        },
+        "requiresF3": {
+          "label": "Kräver F3",
+          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+        }
+      }
     },
     {
       "id": "stripe-checkout",
@@ -429,7 +513,21 @@
       "buildServerRequirement": true,
       "buildServerReasons": [
         "server-file"
-      ]
+      ],
+      "labelsSv": {
+        "class": {
+          "label": "Kopplad",
+          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+        },
+        "mock": {
+          "label": "Full yta, ärlig demo-notis",
+          "hint": "Ytan renderas fullt ut, men handlingen öppnar en ärlig demo-notis i stället för en riktig betalning eller inloggning."
+        },
+        "requiresF3": {
+          "label": "Kräver F3",
+          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+        }
+      }
     },
     {
       "id": "supabase-auth",
@@ -470,7 +568,21 @@
       "buildServerRequirement": true,
       "buildServerReasons": [
         "server-file"
-      ]
+      ],
+      "labelsSv": {
+        "class": {
+          "label": "Kopplad",
+          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+        },
+        "mock": {
+          "label": "Full yta, ärlig demo-notis",
+          "hint": "Ytan renderas fullt ut, men handlingen öppnar en ärlig demo-notis i stället för en riktig betalning eller inloggning."
+        },
+        "requiresF3": {
+          "label": "Kräver F3",
+          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+        }
+      }
     },
     {
       "id": "vercel-analytics",
@@ -496,7 +608,21 @@
       "f2Disposition": "deferred",
       "f2Reason": "policy-only",
       "buildServerRequirement": false,
-      "buildServerReasons": []
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Kopplad",
+          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar i designläget",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
     },
     {
       "id": "cmdk-command-palette",
@@ -519,7 +645,21 @@
       "f2Disposition": "available",
       "f2Reason": "available",
       "buildServerRequirement": false,
-      "buildServerReasons": []
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar i designläget",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
     },
     {
       "id": "dashboard-charts",
@@ -545,7 +685,21 @@
       "f2Disposition": "available",
       "f2Reason": "available",
       "buildServerRequirement": false,
-      "buildServerReasons": []
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar i designläget",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
     },
     {
       "id": "embla-carousel",
@@ -569,7 +723,21 @@
       "f2Disposition": "available",
       "f2Reason": "available",
       "buildServerRequirement": false,
-      "buildServerReasons": []
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar i designläget",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
     },
     {
       "id": "gallery-lightbox",
@@ -590,7 +758,21 @@
       "f2Disposition": "available",
       "f2Reason": "available",
       "buildServerRequirement": false,
-      "buildServerReasons": []
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar i designläget",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
     },
     {
       "id": "interactive-game-loop",
@@ -609,7 +791,21 @@
       "f2Disposition": "available",
       "f2Reason": "available",
       "buildServerRequirement": false,
-      "buildServerReasons": []
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar i designläget",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
     },
     {
       "id": "local-site-search",
@@ -632,7 +828,21 @@
       "f2Disposition": "available",
       "f2Reason": "available",
       "buildServerRequirement": false,
-      "buildServerReasons": []
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar i designläget",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
     },
     {
       "id": "maplibre-map",
@@ -655,7 +865,21 @@
       "f2Disposition": "available",
       "f2Reason": "available",
       "buildServerRequirement": false,
-      "buildServerReasons": []
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar i designläget",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
     },
     {
       "id": "three-fiber-canvas",
@@ -680,7 +904,21 @@
       "f2Disposition": "available",
       "f2Reason": "available",
       "buildServerRequirement": false,
-      "buildServerReasons": []
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar i designläget",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
     },
     {
       "id": "three-fiber-physics",
@@ -701,9 +939,72 @@
       "f2Disposition": "available",
       "f2Reason": "available",
       "buildServerRequirement": false,
-      "buildServerReasons": []
+      "buildServerReasons": [],
+      "labelsSv": {
+        "class": {
+          "label": "Fristående",
+          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+        },
+        "mock": {
+          "label": "Ingen demo-yta",
+          "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+        },
+        "requiresF3": {
+          "label": "Klar i designläget",
+          "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+        }
+      }
     }
   ],
+  "labelsSv": {
+    "class": {
+      "hard": {
+        "label": "Kopplad",
+        "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+      },
+      "soft": {
+        "label": "Fristående",
+        "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+      }
+    },
+    "mock": {
+      "canned": {
+        "label": "Fabricerat demo-svar",
+        "hint": "Servern svarar med ett trovärdigt påhittat svar (chatten streamar ett förberett svar) tills en riktig nyckel sparas."
+      },
+      "seed": {
+        "label": "Medskickad demo-data",
+        "hint": "Data-lagret använder medskickad exempeldata och en diskret notis tills en riktig databas kopplas in."
+      },
+      "success": {
+        "label": "Fejkad success + demo-notis",
+        "hint": "Formuläret går igenom och svarar med en ärlig demo-notis — inget mejl och ingen prenumeration skickas på riktigt."
+      },
+      "visual": {
+        "label": "Full yta, ärlig demo-notis",
+        "hint": "Ytan renderas fullt ut, men handlingen öppnar en ärlig demo-notis i stället för en riktig betalning eller inloggning."
+      },
+      "none": {
+        "label": "Ingen demo-yta",
+        "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
+      }
+    },
+    "requiresF3": {
+      "true": {
+        "label": "Kräver F3",
+        "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+      },
+      "false": {
+        "label": "Klar i designläget",
+        "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
+      }
+    }
+  },
+  "policy": {
+    "mocklessCapabilityExceptions": [
+      "analytics"
+    ]
+  },
   "f2Policy": {
     "mutedCapabilities": [
       "ai-chat",
@@ -736,11 +1037,12 @@
     "data/dossiers/soft/three-fiber-canvas/manifest.json": "a465b0c30f26663c8b0067f16f4e99ec2bfae59d3463d170a38c04d3f6bffad2",
     "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
     "docs/schemas/strict/dossier.schema.json": "454912f6f36ba3e565d0a1e3d65863b849387c5eff0ba68fe5347a54849787ab",
-    "scripts/dossiers/regenerate-capability-map.ts": "dca55e0041774d690c8cc5c6981022e2803a1404644b106dc53ee42a2c793e9c",
+    "scripts/dossiers/regenerate-capability-map.ts": "2a032e44adf000b9b163954bdfee57e5d572e7454e4382e75d7b208f320813e5",
+    "src/lib/builder/dossier-axes.ts": "8b515284e97918c790573c4ce572db797cac8e1ae68ceb13c6f612e24a9eae69",
     "src/lib/builder/dossier-groups.ts": "67adc554dafd00c54766c732af6600737f6194138c7773ee09a977c03d97fd59",
     "src/lib/gen/dossiers/f2-mute.ts": "f9fe5879bdd327277423c2a82374c11d303b6c1484fb17b88edb6d8bbd6882ed",
     "src/lib/gen/dossiers/registry.ts": "2766260fb71f0bef126a9f30274869b507bc466b84edb50501568a8b9cee7c11",
     "src/lib/gen/dossiers/types.ts": "b08f15c5d4e15b25d627d3d004b13606c81e963f41c468871fe03259581662ec",
-    "src/lib/gen/dossiers/validate-manifest.ts": "b3df4710977db60ced7732160f1c3f527e71424b97abda706fecc66e29afd707"
+    "src/lib/gen/dossiers/validate-manifest.ts": "a8b159fcdde2e63f1d38a3c10a3ff5bcef5d51d93d17c8687d92571aa22ea2b4"
   }
 }

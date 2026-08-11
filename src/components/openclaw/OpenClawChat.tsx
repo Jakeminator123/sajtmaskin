@@ -182,10 +182,12 @@ export function OpenClawChat() {
     toggle();
   };
 
+  // Extra befogenheter kan bara agera där builderns composer/versioner finns.
+  const isBuilderSurface = pathname?.startsWith("/builder") ?? false;
   // Buildern har en chatinput i skärmens nederkant på mobil (knappraden wrappar
   // dit vid riktig mobilbredd). Bubblan måste sitta ovanför den, annars täcker
   // den Skicka.
-  const sharesBottomEdgeWithInput = pathname?.startsWith("/builder") ?? false;
+  const sharesBottomEdgeWithInput = isBuilderSurface;
 
   return (
     <div
@@ -258,7 +260,12 @@ export function OpenClawChat() {
               : null,
         )}
       >
-        <OpenClawChatPanel onClose={close} content={content.panel} isOpen={isOpen} />
+        <OpenClawChatPanel
+          onClose={close}
+          content={content.panel}
+          isOpen={isOpen}
+          powersAvailable={isBuilderSurface}
+        />
       </div>
 
       {/* FAB toggle — icon-only on mobile, label on sm+ */}

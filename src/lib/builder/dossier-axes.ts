@@ -13,8 +13,9 @@
  *
  * Every user-facing surface that shows a dossier reads its labels here so the
  * builder panel, the catalog tab and the docs cannot drift into three
- * vocabularies. The backoffice list (Python) mirrors the demo-mode labels and
- * the F3 rule; parity is gated in `backoffice/test_dossiers_page.py`.
+ * vocabularies. The backoffice list (Python) consumes the same words via the
+ * generated `labelsSv` projection in `capability-map.json` — it does not keep
+ * its own copy.
  *
  * Canonical contract: `docs/contracts/dossier-system.md` § Tre oberoende axlar.
  */
@@ -29,9 +30,8 @@ export interface DossierAxisDescriptor {
 }
 
 /**
- * Demo-mode labels. Kept byte-identical to `MOCK_LABELS` in
- * `backoffice/pages/dossiers.py` so a curator and an end user read the same
- * words for the same manifest value.
+ * Demo-mode labels. Projected into `capability-map.json` (`labelsSv.mock`) for
+ * non-TypeScript consumers — do not re-copy these strings into Python.
  */
 const MOCK_MODE_LABELS: Record<DossierMockMode, string> = {
   canned: "Fabricerat demo-svar",

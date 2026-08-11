@@ -99,7 +99,7 @@ export function useShellPreviewLayout(
 
   useEffect(() => {
     setEnableAutofix(readAutofixLocalStorageOnly());
-  }, []);
+  }, [setEnableAutofix]);
 
   const handleF3MissingEnv = useCallback(
     (payload: {
@@ -118,7 +118,7 @@ export function useShellPreviewLayout(
       setF3Status(null);
       openDossiersPanel(payload.missingByIntegration.flatMap((entry) => entry.missing));
     },
-    [vm.chatId],
+    [vm.chatId, setF3Requirements, setF3Status],
   );
 
   const handleF3Ready = useCallback(
@@ -135,7 +135,7 @@ export function useShellPreviewLayout(
         engineBaseVersionIdOverride: payload.parentVersionId,
       });
     },
-    [sendMessage],
+    [sendMessage, setF3Requirements],
   );
 
   // Previewens lägen (composer/inspect/vy) har EN ägare här: kontrollerna sitter
@@ -146,10 +146,13 @@ export function useShellPreviewLayout(
     inspectorEnabled: isBuilderInspectorEnabled(),
   });
 
-  const handleEnableAutofixChange = useCallback((next: boolean) => {
-    writeAutofixLocalStorage(next);
-    setEnableAutofix(next);
-  }, []);
+  const handleEnableAutofixChange = useCallback(
+    (next: boolean) => {
+      writeAutofixLocalStorage(next);
+      setEnableAutofix(next);
+    },
+    [setEnableAutofix],
+  );
 
   const chatOutputCollapse = useChatOutputCollapse(vm.chatId);
   const isChatOutputCollapsed = chatOutputCollapse.isCollapsed && vm.messages.length > 0;

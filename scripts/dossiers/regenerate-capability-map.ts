@@ -27,10 +27,17 @@ import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import {
+  describeDossierClass,
+  describeDossierMockMode,
+  describeF3Requirement,
+  type DossierAxisDescriptor,
+} from "../../src/lib/builder/dossier-axes";
 import { DOSSIER_GROUP_ORDER, resolveDossierGroup } from "../../src/lib/builder/dossier-groups";
 import { getF2MutedIntegrationCapabilities } from "../../src/lib/gen/dossiers/f2-mute";
 import { getAllDossiers } from "../../src/lib/gen/dossiers/registry";
-import { dossierRequiresF3, type DossierEntry } from "../../src/lib/gen/dossiers/types";
+import { dossierRequiresF3, type DossierEntry, type DossierMockMode } from "../../src/lib/gen/dossiers/types";
+import { MOCKLESS_CAPABILITY_EXCEPTIONS } from "../../src/lib/gen/dossiers/validate-manifest";
 
 const ROOT = resolve(process.cwd(), "data", "dossiers");
 const INDEX_DIR = join(ROOT, "_index");
@@ -48,6 +55,7 @@ const REPO_ROOT = resolve(process.cwd());
 export const FIXED_SOURCE_PATHS = [
   "docs/schemas/strict/dossier.schema.json",
   "scripts/dossiers/regenerate-capability-map.ts",
+  "src/lib/builder/dossier-axes.ts",
   "src/lib/builder/dossier-groups.ts",
   "src/lib/gen/dossiers/f2-mute.ts",
   "src/lib/gen/dossiers/registry.ts",
@@ -55,9 +63,25 @@ export const FIXED_SOURCE_PATHS = [
   "src/lib/gen/dossiers/validate-manifest.ts",
 ] as const;
 
+const MOCK_MODE_VALUES = ["canned", "seed", "success", "visual", "none"] as const satisfies readonly DossierMockMode[];
+
 type CapabilityGroupView = {
   label: string;
   capabilities: string[];
+};
+
+export type AxisLabelView = DossierAxisDescriptor;
+
+export type DossierLabelsSvView = {
+  class: AxisLabelView;
+  mock: AxisLabelView;
+  requiresF3: AxisLabelView;
+};
+
+export type LabelsSvVocabulary = {
+  class: Record<"hard" | "soft", AxisLabelView>;
+  mock: Record<DossierMockMode, AxisLabelView>;
+  requiresF3: Record<"true" | "false", AxisLabelView>;
 };
 
 export type DossierTruthView = {
@@ -82,6 +106,8 @@ export type DossierTruthView = {
   f2Reason: "available" | "build-server" | "policy-only";
   buildServerRequirement: boolean;
   buildServerReasons: Array<"build-env" | "server-file">;
+  /** Resolved Swedish labels from dossier-axes.ts — projection only, not a second owner. */
+  labelsSv: DossierLabelsSvView;
 };
 
 export type CapabilityMap = {
@@ -90,6 +116,12 @@ export type CapabilityMap = {
   capabilities: Record<string, string[]>;
   groups: Record<string, CapabilityGroupView>;
   dossiers: DossierTruthView[];
+  /** Full vocabulary for every class/mock/F3 enum value — backoffice reads this instead of Python copies. */
+  labelsSv: LabelsSvVocabulary;
+  /** Policy facts owned in TypeScript; Python must not re-parse validate-manifest.ts. */
+  policy: {
+    mocklessCapabilityExceptions: string[];
+  };
   f2Policy: {
     mutedCapabilities: string[];
   };
@@ -153,6 +185,30 @@ export function collectCapabilities(dossiers: readonly DossierEntry[]): Record<s
   return sorted;
 }
 
+export function buildLabelsSvVocabulary(): LabelsSvVocabulary {
+  const mock = {} as LabelsSvVocabulary["mock"];
+  for (const mode of MOCK_MODE_VALUES) {
+    mock[mode] = describeDossierMockMode(mode);
+  }
+  return {
+    class: {
+      hard: describeDossierClass("hard"),
+      soft: describeDossierClass("soft"),
+    },
+    mock,
+    requiresF3: {
+      true: describeF3Requirement(true),
+      false: describeF3Requirement(false),
+    },
+  };
+}
+
+export function buildPolicy(): CapabilityMap["policy"] {
+  return {
+    mocklessCapabilityExceptions: Object.keys(MOCKLESS_CAPABILITY_EXCEPTIONS).sort(),
+  };
+}
+
 export function buildDossierTruth(
   dossiers: readonly DossierEntry[],
   f2MutedCapabilities: ReadonlySet<string>,
@@ -172,6 +228,7 @@ export function buildDossierTruth(
         buildServerReasons.push("server-file");
       }
       const f2Deferred = f2MutedCapabilities.has(dossier.capability);
+      const mock = dossier.mock ?? "none";
       return {
         id: dossier.id,
         label: dossier.label,
@@ -179,7 +236,7 @@ export function buildDossierTruth(
         capability: dossier.capability,
         providers: [...(dossier.providers ?? [])].sort(),
         defaultForCapability: dossier.defaultForCapability,
-        mock: dossier.mock ?? "none",
+        mock,
         envVars: (dossier.envVars ?? [])
           .map((envVar) => ({
             key: envVar.key,
@@ -202,6 +259,11 @@ export function buildDossierTruth(
           : "available",
         buildServerRequirement,
         buildServerReasons,
+        labelsSv: {
+          class: describeDossierClass(dossier.class),
+          mock: describeDossierMockMode(mock),
+          requiresF3: describeF3Requirement(buildServerRequirement),
+        },
       };
     })
     .sort(
@@ -256,6 +318,20 @@ function sameF2Policy(
   return JSON.stringify(existing) === JSON.stringify(fresh);
 }
 
+function sameLabelsSv(
+  existing: LabelsSvVocabulary | undefined,
+  fresh: LabelsSvVocabulary,
+): boolean {
+  return JSON.stringify(existing) === JSON.stringify(fresh);
+}
+
+function samePolicy(
+  existing: CapabilityMap["policy"] | undefined,
+  fresh: CapabilityMap["policy"],
+): boolean {
+  return JSON.stringify(existing) === JSON.stringify(fresh);
+}
+
 function sameSourceFiles(
   existing: Record<string, string> | undefined,
   fresh: Record<string, string>,
@@ -287,6 +363,8 @@ function main(): void {
   const freshGroups = buildGroups(capabilities);
   const f2MutedCapabilities = getF2MutedIntegrationCapabilities();
   const freshDossiers = buildDossierTruth(dossiers, f2MutedCapabilities);
+  const freshLabelsSv = buildLabelsSvVocabulary();
+  const freshPolicy = buildPolicy();
   const freshF2Policy: CapabilityMap["f2Policy"] = {
     mutedCapabilities: [...f2MutedCapabilities].sort(),
   };
@@ -297,6 +375,8 @@ function main(): void {
     sameCapabilities(existing.capabilities, capabilities) &&
     sameGroups(existing.groups, freshGroups) &&
     sameDossiers(existing.dossiers, freshDossiers) &&
+    sameLabelsSv(existing.labelsSv, freshLabelsSv) &&
+    samePolicy(existing.policy, freshPolicy) &&
     sameF2Policy(existing.f2Policy, freshF2Policy) &&
     sameSourceFiles(existing.sourceFiles, freshSourceFiles)
   ) {
@@ -325,6 +405,14 @@ function main(): void {
           "  `dossiers` truth view is missing or stale vs the validated runtime registry.",
         );
       }
+      if (!sameLabelsSv(existing.labelsSv, freshLabelsSv)) {
+        console.error("  `labelsSv` vocabulary is missing or stale vs dossier-axes.ts.");
+      }
+      if (!samePolicy(existing.policy, freshPolicy)) {
+        console.error(
+          "  `policy` view is missing or stale vs MOCKLESS_CAPABILITY_EXCEPTIONS.",
+        );
+      }
       if (!sameF2Policy(existing.f2Policy, freshF2Policy)) {
         console.error(
           "  `f2Policy` view is missing or stale vs getF2MutedIntegrationCapabilities().",
@@ -345,11 +433,13 @@ function main(): void {
   }
   const next: CapabilityMap = {
     $comment:
-      "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
+      "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
     generatedAt: new Date().toISOString(),
     capabilities,
     groups: freshGroups,
     dossiers: freshDossiers,
+    labelsSv: freshLabelsSv,
+    policy: freshPolicy,
     f2Policy: freshF2Policy,
     sourceFiles: freshSourceFiles,
   };

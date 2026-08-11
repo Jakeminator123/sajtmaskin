@@ -82,8 +82,10 @@ export function useChatMessaging(params: ChatMessagingParams): ChatMessagingRetu
       Object.entries(entries).forEach(([key, value]) => {
         if (value) p.set(key, value);
       });
-      if (params.buildIntent) p.set("buildIntent", params.buildIntent);
-      if (params.buildMethod) p.set("buildMethod", params.buildMethod);
+      // Entries win: create-chat may pass the Byggval-effective intent before
+      // React state has caught up.
+      if (params.buildIntent && !p.has("buildIntent")) p.set("buildIntent", params.buildIntent);
+      if (params.buildMethod && !p.has("buildMethod")) p.set("buildMethod", params.buildMethod);
       return p;
     },
     [params.buildIntent, params.buildMethod],
