@@ -97,6 +97,10 @@ Sätt dem i **`.env.local`** lokalt och i **Vercel → Environment Variables** f
 
 `.vercel/.env.*.local` från `vercel env pull` är **snapshot**, inte kanon.
 
+**Sällan `npm run dev` / lokal användarsajt-generering:** checklista, hybrid
+Fly-preview-fällor, prewarm/Redis-råd och DEV≠PROD-DB-guard finns i
+[`runbooks/local-dev-generation.md`](runbooks/local-dev-generation.md).
+
 Env-pull-scripten (`npm run env:pull`, `npm run env:pull:prod-snapshot`) och `npm run vercel:link` kör Vercel-CLI:n via `npx --yes vercel@58` — de kräver alltså **ingen** global `vercel`-installation, och alla maskiner får samma major-version. CLI:n är medvetet **inte** en devDependency (tungt paket som bara används av lokala engångs-script). Backoffice-knappen "Hämta prod-env" (`backoffice/pages/log_export.py`) slår fortfarande upp `vercel` på PATH och behöver därför en global installation.
 
 ---
