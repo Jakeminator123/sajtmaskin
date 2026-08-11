@@ -57,6 +57,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Auto-sync embedding JSON from public Blob manifest before any step
+      # that may read scaffold/variant embeddings (tests, validate, build).
+      - name: Ensure embeddings (sync + verify)
+        run: npm run embeddings:ensure
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -171,12 +176,6 @@ jobs:
       - name: Bug-backlog sanity (blocking)
         if: ${{ !cancelled() }}
         run: npm run check:bug-backlog
-
-      # Idiot-proof embeddings gate: untracked + manifest URL check + auto-sync + parity.
-      # Keyless via public URLs in config/embeddings-blob-manifest.json.
-      - name: Ensure embeddings (sync + verify)
-        if: ${{ !cancelled() }}
-        run: npm run embeddings:ensure
 
   # Produktionsbygge (2026-07-29). `next build` kördes INGENSTANS före merge:
   # preview-deployer är avstängda i `vercel.json` (`deploymentEnabled` bara för
