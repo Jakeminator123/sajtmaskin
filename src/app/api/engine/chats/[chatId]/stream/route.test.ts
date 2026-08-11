@@ -492,7 +492,7 @@ describe("POST /api/engine/chats/[chatId]/stream", () => {
 
   it("uses node runtime and stream maxDuration", () => {
     expect(runtime).toBe("nodejs");
-    expect(maxDuration).toBe(800);
+    expect(maxDuration).toBe(950);
   });
 });
 

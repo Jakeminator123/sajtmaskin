@@ -26,7 +26,7 @@ import { FEATURES } from "@/lib/config";
 import { incBriefCache } from "@/lib/observability/metrics";
 
 export const runtime = "nodejs";
-export const maxDuration = 600;
+export const maxDuration = 750;
 
 type CachedBriefPayload = {
   brief: Record<string, unknown>;

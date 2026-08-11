@@ -614,13 +614,13 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
     )
     engine_timeout = st.number_input(
         "Build-route maxDuration (sekunder)",
-        value=int((rt.get("engineRouteMaxDurationSeconds") or {}).get("default", 800)),
+        value=int((rt.get("engineRouteMaxDurationSeconds") or {}).get("default", 950)),
         step=10,
         key="rt_engine",
     )
     assist_timeout = st.number_input(
         "Assist/brief-route maxDuration (sekunder)",
-        value=int((rt.get("assistRouteMaxDurationSeconds") or {}).get("default", 600)),
+        value=int((rt.get("assistRouteMaxDurationSeconds") or {}).get("default", 750)),
         step=10,
         key="rt_assist",
     )
@@ -633,7 +633,7 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
     )
     stream_timeout = st.number_input(
         "Klientens stream-safety-timeout (millisekunder)",
-        value=int((rt.get("streamSafetyTimeoutMs") or {}).get("default", 840000)),
+        value=int((rt.get("streamSafetyTimeoutMs") or {}).get("default", 920000)),
         step=1000,
         key="rt_stream",
     )
