@@ -200,20 +200,32 @@ export async function runLlmFixer(
     const resolvedModelId = options?.model ?? DEFAULT_FIXER_MODEL;
     const resolvedThinking = Boolean(options?.thinking);
     let providerOptions: ProviderOptionsRecord | undefined;
-    if (resolvedThinking) {
-      providerOptions = isAnthropicModel(resolvedModelId)
-        ? {
-            anthropic: {
-              thinking: { type: "adaptive" as const },
-              effort: toAnthropicEffort(options?.reasoningEffort ?? "medium"),
-            },
-          }
-        : {
-            openai: {
-              reasoningEffort: options?.reasoningEffort ?? "medium",
-              ...(options?.reasoningMode ? { reasoningMode: options.reasoningMode } : {}),
-            },
-          };
+    if (isAnthropicModel(resolvedModelId)) {
+      // Same pattern as engine.ts: Opus defaults to high effort if omitted.
+      providerOptions = {
+        anthropic: {
+          thinking: resolvedThinking
+            ? { type: "adaptive" as const }
+            : { type: "disabled" as const },
+          effort: toAnthropicEffort(options?.reasoningEffort ?? "medium"),
+        },
+      };
+    } else if (resolvedThinking) {
+      providerOptions = {
+        openai: {
+          reasoningEffort: options?.reasoningEffort ?? "medium",
+          ...(options?.reasoningMode ? { reasoningMode: options.reasoningMode } : {}),
+        },
+      };
+    } else if (resolvedModelId.startsWith("gpt-5.6-")) {
+      // GPT-5.6 goes through Responses API; omitting reasoningEffort defaults to
+      // medium and quietly re-enables thinking despite thinking:false in the
+      // phase manifest (Premium fixer pin). Force none so latency stays bounded.
+      providerOptions = {
+        openai: {
+          reasoningEffort: "none",
+        },
+      };
     }
 
     resolvedModelIdForUsage = resolvedModelId;

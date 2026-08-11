@@ -10,6 +10,7 @@ vi.mock("ai", () => ({
 
 vi.mock("../models", () => ({
   getOpenAIModel: getOpenAIModelMock,
+  isAnthropicModel: (id: string) => id.startsWith("claude-"),
 }));
 
 vi.mock("@/lib/logging/devLog", () => ({
@@ -120,6 +121,57 @@ describe("runLlmFixer merge behavior", () => {
     expect(prompt).toContain("Files that likely need edits first:");
     expect(prompt).toContain("- app/page.tsx");
     expect(prompt).toContain("- components/site-header.tsx");
+  });
+
+  it("forces reasoningEffort none for gpt-5.6 when thinking is off", async () => {
+    streamTextMock.mockReturnValue({
+      text: Promise.resolve([
+        '```tsx file="app/page.tsx"',
+        "export default function Page(){ return <main />; }",
+        "```",
+      ].join("\n")),
+    });
+
+    await runLlmFixer(
+      [
+        '```tsx file="app/page.tsx"',
+        "export default function Page(){ return <div>broken</div> }",
+        "```",
+      ].join("\n"),
+      ["app/page.tsx:1:1 broken"],
+      { model: "gpt-5.6-sol", thinking: false },
+    );
+
+    expect(streamTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: {
+          openai: { reasoningEffort: "none" },
+        },
+      }),
+    );
+  });
+
+  it("does not inject openai providerOptions for non-5.6 models when thinking is off", async () => {
+    streamTextMock.mockReturnValue({
+      text: Promise.resolve([
+        '```tsx file="app/page.tsx"',
+        "export default function Page(){ return <main />; }",
+        "```",
+      ].join("\n")),
+    });
+
+    await runLlmFixer(
+      [
+        '```tsx file="app/page.tsx"',
+        "export default function Page(){ return <div>broken</div> }",
+        "```",
+      ].join("\n"),
+      ["app/page.tsx:1:1 broken"],
+      { model: "gpt-5.3-codex", thinking: false },
+    );
+
+    const call = streamTextMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(call.providerOptions).toBeUndefined();
   });
 
   it("logs partial-response telemetry when incomplete files are excluded", async () => {
