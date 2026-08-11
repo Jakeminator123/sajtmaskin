@@ -128,6 +128,22 @@ const DEFAULT_ALLOWED_HOSTS = new Set([
   "vm-fly-jakem.fly.dev",
 ]);
 
+/** Empty probe that `isPreviewHostBootPage` treats as still-warming / not ready. */
+const SYNTHETIC_BOOT_PROBE: PreviewHostBootPageProbe = {
+  title: "",
+  h1: null,
+  bodyText: "",
+};
+
+/**
+ * True while preview may still be compiling: explicit boot placeholder, or a
+ * titled-but-empty body (partial Next compile clears title before content).
+ */
+function isPreviewHostStillWarming(probe: PreviewHostBootPageProbe): boolean {
+  if (isPreviewHostBootPage(probe)) return true;
+  return (probe.bodyText ?? "").trim().length === 0;
+}
+
 async function waitForPreviewHostBootToClear(params: {
   page: Page;
   startedAt: number;
@@ -147,7 +163,6 @@ async function waitForPreviewHostBootToClear(params: {
     Math.ceil(waitBudgetMs / PREVIEW_BOOT_RETRY_INTERVAL_MS) + 1,
   );
   let latestProbe: PreviewHostBootPageProbe | null = null;
-  let sawBootPage = false;
 
   for (let probeIndex = 0; probeIndex < maxProbes; probeIndex += 1) {
     const probe = await params.page
@@ -160,11 +175,12 @@ async function waitForPreviewHostBootToClear(params: {
 
     if (probe) {
       latestProbe = probe;
-      if (!isPreviewHostBootPage(probe)) return probe;
-      sawBootPage = true;
-    } else if (!sawBootPage) {
-      return null;
+      // Ready only when we have real body content and it is not the boot page.
+      // Evaluate null / titled-empty must keep polling (fail-closed), not clear.
+      if (!isPreviewHostStillWarming(probe)) return probe;
     }
+    // Evaluate failed (null): keep polling until deadline. Returning null here
+    // used to fail-open during meta-refresh / transient DOM attach races.
 
     const remainingMs = deadlineAt - Date.now();
     if (probeIndex === maxProbes - 1 || remainingMs <= 0) break;
@@ -173,6 +189,16 @@ async function waitForPreviewHostBootToClear(params: {
     );
   }
 
+  if (!latestProbe) {
+    // Never got a successful probe within budget → block (caller treats boot).
+    return SYNTHETIC_BOOT_PROBE;
+  }
+  if (isPreviewHostBootPage(latestProbe)) return latestProbe;
+  // Titled-but-empty still at deadline: synthesize empty boot so caller blocks
+  // (detector alone does not treat title+"Home"/empty body as boot).
+  if ((latestProbe.bodyText ?? "").trim().length === 0) {
+    return SYNTHETIC_BOOT_PROBE;
+  }
   return latestProbe;
 }
 
