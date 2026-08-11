@@ -124,7 +124,13 @@ export async function runFinalizePreflight({
     // preflight then runs cheaply on the trimmed content, and the issue gates
     // preview-start + verification through the normal preflight contract.
     {
-      const degeneracy = detectDegenerateFiles(finalFiles);
+      const baseIdenticalPaths = collectBaseIdenticalPaths(
+        finalFiles,
+        previousContentByPath,
+      );
+      const degeneracy = detectDegenerateFiles(finalFiles, undefined, {
+        preservePaths: baseIdenticalPaths,
+      });
       if (degeneracy.degenerate) {
         // Fully de-bloat via capDegeneratePayload (stub ALL oversized files +
         // largest until total is under cap) — not just the single named file —
@@ -135,7 +141,7 @@ export async function runFinalizePreflight({
         // imported template's large binary asset — prod chat 4d6b5546); the
         // blocking issue below still gates preview either way.
         const capped = capDegeneratePayload(finalFiles, degeneracy.reason, {
-          preservePaths: collectBaseIdenticalPaths(finalFiles, previousContentByPath),
+          preservePaths: baseIdenticalPaths,
         });
         if (capped.stubbedPaths.length > 0) {
           finalFiles = capped.files;
@@ -553,17 +559,20 @@ export async function runFinalizePreflight({
     // multi-MB files_json is never written and the home/sanity passes below run
     // on the trimmed content.
     {
-      const assembledDegeneracy = detectDegenerateFiles(completeProjectFiles);
+      const assembledBaseIdenticalPaths = collectBaseIdenticalPaths(
+        completeProjectFiles,
+        previousContentByPath,
+      );
+      const assembledDegeneracy = detectDegenerateFiles(
+        completeProjectFiles,
+        undefined,
+        { preservePaths: assembledBaseIdenticalPaths },
+      );
       if (assembledDegeneracy.degenerate) {
         const capped = capDegeneratePayload(
           completeProjectFiles,
           assembledDegeneracy.reason,
-          {
-            preservePaths: collectBaseIdenticalPaths(
-              completeProjectFiles,
-              previousContentByPath,
-            ),
-          },
+          { preservePaths: assembledBaseIdenticalPaths },
         );
         if (capped.stubbedPaths.length > 0) {
           completeProjectFiles = capped.files;

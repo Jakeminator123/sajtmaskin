@@ -16,8 +16,12 @@
  * Deterministic + pure so it can be unit-tested without any pipeline plumbing.
  * Conservative thresholds: real generated source files top out ~100–150 KB and
  * never repeat a substantial line dozens of times, so a legitimate project is
- * never flagged. Binary assets are judged separately (see
- * `maxBinaryAssetBytes`) — they are carried template content, not model output.
+ * never flagged. Two file classes are judged by provenance rather than shape,
+ * because holding them to the source heuristics failed whole versions over
+ * content no model wrote: binary assets get their own ceiling
+ * (`maxBinaryAssetBytes`), and lockfiles plus base-identical inherited files
+ * are exempt from the self-repetition heuristic (see `isGeneratedLockfile` and
+ * `DegeneracyDetectionOptions.preservePaths`).
  */
 
 import { isNonTextContentFile } from "@/lib/gen/context/file-context-builder";
@@ -81,6 +85,42 @@ const CLEAN: DegeneracyResult = {
   repeatCount: null,
 };
 
+/**
+ * Machine-generated dependency lockfiles. A lockfile legitimately repeats the
+ * SAME long line once per resolved package — a metapackage like `radix-ui`
+ * pulls in ~30 subpackages that each declare the identical 52-char peer range
+ * `react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc`. Prod chat f98fd5c0
+ * (2026-08-11) crossed the 120 cap at 126 repeats after the dep-completer
+ * pinned `radix-ui` and the preview host regenerated the lockfile, which then
+ * blocked every later follow-up on a site that had already rendered fine.
+ *
+ * The size ceilings still apply — only the self-repetition heuristic, which
+ * assumes prose/code shape, is meaningless here.
+ */
+const LOCKFILE_BASENAMES = new Set([
+  "pnpm-lock.yaml",
+  // The `.yml` spelling is accepted as a pnpm lockfile by the template blob
+  // tooling (`scripts/v0-templates/verify-mallar-blob.mjs`), so an imported
+  // template can legitimately carry it.
+  "pnpm-lock.yml",
+  "package-lock.json",
+  "npm-shrinkwrap.json",
+  "yarn.lock",
+  "bun.lock",
+  "bun.lockb",
+  "deno.lock",
+  "composer.lock",
+  "poetry.lock",
+  "cargo.lock",
+  "gemfile.lock",
+  "pipfile.lock",
+]);
+
+export function isGeneratedLockfile(path: string): boolean {
+  const basename = path.replace(/\\/g, "/").split("/").pop() ?? "";
+  return LOCKFILE_BASENAMES.has(basename.toLowerCase());
+}
+
 function languageOf(file: { language?: unknown }): string {
   return typeof file.language === "string" ? file.language : "";
 }
@@ -93,6 +133,18 @@ function byteLength(value: string): number {
   }
 }
 
+export interface DegeneracyDetectionOptions {
+  /**
+   * Paths whose content is byte-identical with the base version. Inherited
+   * content is not this round's output, so the self-repetition heuristic must
+   * not fail the round over it — otherwise one bad version bricks every later
+   * follow-up and the user can never edit their way out (prod chat f98fd5c0).
+   * The SIZE ceilings deliberately ignore provenance: they mirror what the
+   * preview host will accept, and it refuses an oversized payload either way.
+   */
+  preservePaths?: ReadonlySet<string>;
+}
+
 /**
  * Inspect a parsed file list for oversized files or self-repetition. Returns at
  * the FIRST offending file so the caller gets a concrete, named reason.
@@ -100,6 +152,7 @@ function byteLength(value: string): number {
 export function detectDegenerateFiles(
   files: ReadonlyArray<{ path?: unknown; content?: unknown; language?: unknown }>,
   thresholds: DegeneracyThresholds = DEFAULT_DEGENERACY_THRESHOLDS,
+  options: DegeneracyDetectionOptions = {},
 ): DegeneracyResult {
   if (!Array.isArray(files) || files.length === 0) return CLEAN;
   let totalSourceBytes = 0;
@@ -175,6 +228,11 @@ export function detectDegenerateFiles(
       };
     }
 
+    // Self-repetition only means "model loop" for content this round produced,
+    // in a format where repeated long lines are abnormal. Lockfiles and
+    // inherited (base-identical) files are neither.
+    if (isGeneratedLockfile(path) || options.preservePaths?.has(path)) continue;
+
     const counts = new Map<string, number>();
     for (const rawLine of content.split("\n")) {
       const line = rawLine.trim();
@@ -207,6 +265,7 @@ export function detectDegenerateFiles(
 export function detectDegenerateProjectJson(
   filesJson: string,
   thresholds?: DegeneracyThresholds,
+  options?: DegeneracyDetectionOptions,
 ): DegeneracyResult {
   let parsed: unknown;
   try {
@@ -218,6 +277,7 @@ export function detectDegenerateProjectJson(
   return detectDegenerateFiles(
     parsed as Array<{ path?: unknown; content?: unknown; language?: unknown }>,
     thresholds,
+    options,
   );
 }
 

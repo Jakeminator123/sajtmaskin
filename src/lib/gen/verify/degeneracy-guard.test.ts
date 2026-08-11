@@ -124,6 +124,68 @@ describe("detectDegenerateFiles", () => {
     expect(result.reason).toContain("Total payload");
   });
 
+  // Prod 2026-08-11 (chat f98fd5c0): an imported template's `pnpm-lock.yaml`
+  // repeated radix-ui's peer range 126x after the dep-completer pinned
+  // `radix-ui` and the preview host regenerated the lockfile. The version had
+  // already rendered fine at 68 repeats; crossing the 120 cap then blocked
+  // EVERY later follow-up on a file no model ever wrote.
+  it("does NOT flag a lockfile that repeats the same peer range per package", () => {
+    const peerRange = "react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc";
+    const lock = Array.from(
+      { length: DEFAULT_DEGENERACY_THRESHOLDS.maxLineRepeats + 6 },
+      (_unused, i) => `  '@radix-ui/react-part-${i}@1.0.0':\n    peerDependencies:\n      ${peerRange}`,
+    ).join("\n");
+    const result = detectDegenerateFiles([
+      { path: "app/page.tsx", content: "export default function P(){return null;}" },
+      { path: "pnpm-lock.yaml", content: `lockfileVersion: '9.0'\n${lock}` },
+    ]);
+    expect(result.degenerate).toBe(false);
+  });
+
+  it("still flags a lockfile the preview host would refuse on size", () => {
+    const result = detectDegenerateFiles([
+      {
+        path: "pnpm-lock.yaml",
+        content: "x".repeat(DEFAULT_DEGENERACY_THRESHOLDS.maxSingleFileBytes + 1),
+      },
+    ]);
+    expect(result.degenerate).toBe(true);
+    expect(result.reason).toContain("single-file ceiling");
+  });
+
+  // A round can only be blamed for what it produced. Inherited (base-identical)
+  // content that trips the repetition heuristic would otherwise block every
+  // follow-up forever, leaving the user no way to edit their way out.
+  it("does NOT flag self-repetition in base-identical inherited content", () => {
+    const line = "export function CredentialDeck() { return <Deck cards={CARDS} />; }";
+    const repeated = Array.from(
+      { length: DEFAULT_DEGENERACY_THRESHOLDS.maxLineRepeats + 5 },
+      () => line,
+    ).join("\n");
+    const files = [{ path: "components/credential-deck.tsx", content: repeated }];
+    expect(detectDegenerateFiles(files).degenerate).toBe(true);
+    expect(
+      detectDegenerateFiles(files, undefined, {
+        preservePaths: new Set(["components/credential-deck.tsx"]),
+      }).degenerate,
+    ).toBe(false);
+  });
+
+  it("still flags self-repetition in a file this round changed", () => {
+    const line = "export function CredentialDeck() { return <Deck cards={CARDS} />; }";
+    const repeated = Array.from(
+      { length: DEFAULT_DEGENERACY_THRESHOLDS.maxLineRepeats + 5 },
+      () => line,
+    ).join("\n");
+    const result = detectDegenerateFiles(
+      [{ path: "components/credential-deck.tsx", content: repeated }],
+      undefined,
+      { preservePaths: new Set(["components/other.tsx"]) },
+    );
+    expect(result.degenerate).toBe(true);
+    expect(result.reason).toContain("self-repetition");
+  });
+
   it("does not let binary bytes push a normal project over the source ceiling", () => {
     const files = [
       { path: "public/a.png", content: `base64:${"A".repeat(1_500_000)}` },
