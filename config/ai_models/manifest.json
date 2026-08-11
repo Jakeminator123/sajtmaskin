@@ -311,7 +311,7 @@
   },
   "perTierTimeouts": {
     "premium": {
-      "engineRouteMaxDurationSeconds": 800,
+      "engineRouteMaxDurationSeconds": 950,
       "verifierTimeoutMs": 240000
     },
     "pro": {
@@ -319,15 +319,15 @@
       "verifierTimeoutMs": 120000
     },
     "max": {
-      "engineRouteMaxDurationSeconds": 800,
+      "engineRouteMaxDurationSeconds": 950,
       "verifierTimeoutMs": 240000
     },
     "codex": {
-      "engineRouteMaxDurationSeconds": 800,
+      "engineRouteMaxDurationSeconds": 950,
       "verifierTimeoutMs": 240000
     },
     "anthropic": {
-      "engineRouteMaxDurationSeconds": 600,
+      "engineRouteMaxDurationSeconds": 750,
       "verifierTimeoutMs": 120000
     }
   },
@@ -667,27 +667,27 @@
   "routeTimeouts": {
     "engineRouteMaxDurationSeconds": {
       "envKey": "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
-      "default": 800,
+      "default": 950,
       "min": 60,
-      "max": 800
+      "max": 1800
     },
     "assistRouteMaxDurationSeconds": {
       "envKey": "SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS",
-      "default": 600,
+      "default": 750,
       "min": 60,
-      "max": 800
+      "max": 1800
     },
     "streamSafetyTimeoutMs": {
       "envKey": "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
-      "default": 840000,
+      "default": 920000,
       "min": 60000,
-      "max": 900000
+      "max": 1800000
     },
     "verifyRepairRouteMaxDurationSeconds": {
       "envKey": "SAJTMASKIN_VERIFY_REPAIR_ROUTE_MAX_DURATION_SECONDS",
-      "default": 800,
+      "default": 950,
       "min": 60,
-      "max": 800
+      "max": 1800
     }
   },
   "embeddingModels": {

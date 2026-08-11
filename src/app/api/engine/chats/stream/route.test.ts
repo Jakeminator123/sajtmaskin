@@ -357,7 +357,7 @@ describe("POST /api/engine/chats/stream", () => {
 
   it("uses the same runtime envelope as shared stream routes", () => {
     expect(runtime).toBe("nodejs");
-    expect(maxDuration).toBe(800);
+    expect(maxDuration).toBe(950);
   });
 });
 
