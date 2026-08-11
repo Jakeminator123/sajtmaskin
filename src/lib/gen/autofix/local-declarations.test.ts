@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { extractLocalComponentDeclarations } from "./local-declarations";
+import {
+  buildLocalDeclarationIndex,
+  extractLocalComponentDeclarations,
+} from "./local-declarations";
 
 describe("extractLocalComponentDeclarations", () => {
   it("finds module-scope value and type declarations", () => {
@@ -24,7 +27,9 @@ describe("extractLocalComponentDeclarations", () => {
     expect(extractLocalComponentDeclarations(code).has("Button")).toBe(true);
   });
 
-  it("ignores nested declarations inside functions", () => {
+  it("ignores nested declarations inside functions for the flat Set (back-compat note)", () => {
+    // Flat Set still lists nested values (they exist somewhere). Import
+    // decisions must use isValueInScope — see tests below.
     const code = [
       "function helper() {",
       "  const Button = () => null;",
@@ -32,7 +37,7 @@ describe("extractLocalComponentDeclarations", () => {
       "}",
       "export function Page() { return <Button /> }",
     ].join("\n");
-    expect(extractLocalComponentDeclarations(code).has("Button")).toBe(false);
+    expect(extractLocalComponentDeclarations(code).has("Button")).toBe(true);
   });
 
   it("does not treat braces inside strings as scope", () => {
@@ -41,5 +46,65 @@ describe("extractLocalComponentDeclarations", () => {
       "const Button = () => null;",
     ].join("\n");
     expect(extractLocalComponentDeclarations(code).has("Button")).toBe(true);
+  });
+
+  it("ignores declaration-shaped text inside comments and strings", () => {
+    const code = [
+      "// const Button = exempel",
+      'const tip = "const Card = exempel";',
+      "export function Page() { return <Button><Card /></Button> }",
+    ].join("\n");
+    const idx = buildLocalDeclarationIndex(code);
+    expect(idx.allNames.has("Button")).toBe(false);
+    expect(idx.allNames.has("Card")).toBe(false);
+  });
+
+  it("keeps type names in allNames but not as value bindings", () => {
+    const code = [
+      "type Card = { title: string }",
+      "interface Button { label: string }",
+      "export function Page() { return <Button><Card /></Button> }",
+    ].join("\n");
+    const idx = buildLocalDeclarationIndex(code);
+    expect(idx.typeNames.has("Card")).toBe(true);
+    expect(idx.typeNames.has("Button")).toBe(true);
+    expect(idx.allNames.has("Button")).toBe(true);
+    const buttonUsage = code.indexOf("<Button>");
+    const cardUsage = code.indexOf("<Card");
+    expect(idx.isValueInScope("Button", buttonUsage)).toBe(false);
+    expect(idx.isValueInScope("Card", cardUsage)).toBe(false);
+  });
+});
+
+describe("buildLocalDeclarationIndex — usage scope", () => {
+  it("covers nested JSX with a nested value decl, but not sibling scopes", () => {
+    const code = [
+      "function makeToolbar() {",
+      "  const Button = (props: { children?: React.ReactNode }) => <button {...props} />;",
+      "  return <Button>local</Button>;",
+      "}",
+      "",
+      "export default function Page() {",
+      "  return <Button>Klicka</Button>;",
+      "}",
+    ].join("\n");
+    const idx = buildLocalDeclarationIndex(code);
+    const nestedUsage = code.indexOf("<Button>local");
+    const pageUsage = code.indexOf("<Button>Klicka");
+    expect(idx.isValueInScope("Button", nestedUsage)).toBe(true);
+    expect(idx.isValueInScope("Button", pageUsage)).toBe(false);
+  });
+
+  it("does not invent an outer import need when JSX only uses the nested local", () => {
+    const code = [
+      "function makeToolbar() {",
+      "  const Button = () => null;",
+      "  return <Button />;",
+      "}",
+      "export default function Page() { return makeToolbar(); }",
+    ].join("\n");
+    const idx = buildLocalDeclarationIndex(code);
+    const usage = code.indexOf("<Button");
+    expect(idx.isValueInScope("Button", usage)).toBe(true);
   });
 });

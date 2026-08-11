@@ -19,9 +19,11 @@
  * never flagged. Two file classes are judged by provenance rather than shape,
  * because holding them to the source heuristics failed whole versions over
  * content no model wrote: binary assets get their own ceiling
- * (`maxBinaryAssetBytes`), and lockfiles plus base-identical inherited files
- * are exempt from the self-repetition heuristic (see `isGeneratedLockfile` and
- * `DegeneracyDetectionOptions.preservePaths`).
+ * (`maxBinaryAssetBytes`), and lockfiles are tooling artifacts with the same
+ * 2 MiB per-file ceiling and no self-repetition check (see
+ * `isGeneratedLockfile`). `preservePaths` still protects inherited content from
+ * being stubbed in `capDegeneratePayload`, but does NOT skip repetition
+ * detection — an unchanged but still-degenerate file must keep blocking.
  */
 
 import { isNonTextContentFile } from "@/lib/gen/context/file-context-builder";
@@ -325,13 +327,19 @@ export function degenerateStubContent(reason: string | null): string {
  * Paths in `preservePaths` (content byte-identical with the base version, i.e.
  * inherited rather than produced by this round) are NEVER stubbed — inherited
  * content is by definition not this round's degenerate output.
+ * Lockfiles are a third tooling category: they use the preview-host 2 MiB
+ * per-file ceiling, are excluded from the source total pool (so source bloat
+ * cannot replace a regenerated `pnpm-lock.yaml` with a comment stub), and are
+ * never evicted for total-cap reasons — only stubbed when individually over
+ * the tooling ceiling the preview host would refuse anyway.
  * Only call this once the project is known degenerate; the version is failing,
  * so replacing bloated TEXT content with a marker stub is safe and keeps the
- * text portion of `files_json` under ~1 MB. Binary assets and inherited
- * (`preservePaths`) content are deliberately NOT held to that guarantee:
- * a payload can persist up to the preview-host binary budget (12 MB) rather
- * than risk destroying legitimate template assets — data loss is worse than
- * DB bloat, and the blocking degeneracy issue still gates preview either way.
+ * text portion of `files_json` under ~1 MB. Binary assets, lockfiles, and
+ * inherited (`preservePaths`) content are deliberately NOT held to that
+ * guarantee: a payload can persist up to the preview-host binary budget
+ * (12 MB) rather than risk destroying legitimate template/tooling artifacts —
+ * data loss is worse than DB bloat, and the blocking degeneracy issue still
+ * gates preview either way.
  * (A small but self-repetitive file that tripped only the repetition heuristic
  * is left intact — it is blocked, not a persist-size problem.)
  */
@@ -354,28 +362,38 @@ export function capDegeneratePayload<
   const maxBinaryAssetBytes = options.maxBinaryAssetBytes ?? 2 * 1024 * 1024;
   const maxBinaryTotalBytes = options.maxBinaryTotalBytes ?? 12 * 1024 * 1024;
   const preservePaths = options.preservePaths;
-  const sized = files.map((file) => ({
-    file,
-    size: byteLength(file.content ?? ""),
-    binary: isNonTextContentFile({
-      path: file.path,
-      content: file.content ?? "",
-      language: file.language ?? "",
-    }),
-    preserved: preservePaths?.has(file.path) ?? false,
-  }));
+  const sized = files.map((file) => {
+    const lockfile = isGeneratedLockfile(file.path);
+    const binary =
+      !lockfile &&
+      isNonTextContentFile({
+        path: file.path,
+        content: file.content ?? "",
+        language: file.language ?? "",
+      });
+    return {
+      file,
+      size: byteLength(file.content ?? ""),
+      binary,
+      lockfile,
+      preserved: preservePaths?.has(file.path) ?? false,
+    };
+  });
   const toStub = new Set<string>();
   // 1. Every individually oversized file, against its pool's own ceiling.
-  for (const { file, size, binary, preserved } of sized) {
+  for (const { file, size, binary, lockfile, preserved } of sized) {
     if (preserved) continue;
+    if (lockfile) {
+      if (size > maxBinaryAssetBytes) toStub.add(file.path);
+      continue;
+    }
     if (size > (binary ? maxBinaryAssetBytes : maxSingleFileBytes)) {
       toStub.add(file.path);
     }
   }
   // 2. Largest remaining files until each pool's total is under its cap.
-  //    Preserved files count toward the total but are never candidates, so a
-  //    pool can legitimately stay above its cap when everything left in it is
-  //    inherited content.
+  //    Preserved + lockfile paths count toward totals where relevant but are
+  //    never eviction candidates (lockfiles excluded from the source pool).
   const capPoolTotal = (
     pool: ReadonlyArray<(typeof sized)[number]>,
     maxTotal: number,
@@ -385,15 +403,24 @@ export function capDegeneratePayload<
       0,
     );
     for (const { file, size } of [...pool]
-      .filter((entry) => !toStub.has(entry.file.path) && !entry.preserved)
+      .filter(
+        (entry) =>
+          !toStub.has(entry.file.path) && !entry.preserved && !entry.lockfile,
+      )
       .sort((a, b) => b.size - a.size)) {
       if (total <= maxTotal) break;
       toStub.add(file.path);
       total -= size; // the stub content is negligible
     }
   };
-  capPoolTotal(sized.filter((entry) => !entry.binary), maxTotalBytes);
-  capPoolTotal(sized.filter((entry) => entry.binary), maxBinaryTotalBytes);
+  capPoolTotal(
+    sized.filter((entry) => !entry.binary && !entry.lockfile),
+    maxTotalBytes,
+  );
+  capPoolTotal(
+    sized.filter((entry) => entry.binary),
+    maxBinaryTotalBytes,
+  );
   if (toStub.size === 0) return { files: [...files], stubbedPaths: [] };
   const stub = degenerateStubContent(reason);
   return {

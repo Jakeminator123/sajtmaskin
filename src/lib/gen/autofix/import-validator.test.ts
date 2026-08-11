@@ -68,6 +68,45 @@ describe("import-validator locally declared components (prod chat f98fd5c0)", ()
     expect(runImportValidator(page).code).toContain('from "@/components/ui/button"');
   });
 
+  it("does NOT import Button when JSX only uses a nested local const Button", () => {
+    const page = [
+      "function makeToolbar() {",
+      "  const Button = (props: { children?: React.ReactNode }) => <button {...props} />;",
+      "  return <Button>local</Button>;",
+      "}",
+      "",
+      "export default function Page() {",
+      "  return makeToolbar();",
+      "}",
+      "",
+    ].join("\n");
+    expect(runImportValidator(page).code).not.toContain("@/components/ui/button");
+  });
+
+  it("still imports Button when only a type/interface Button exists", () => {
+    const page = [
+      "interface Button { label: string }",
+      "type Card = { title: string }",
+      "export default function Page() {",
+      "  return <Button>Klicka</Button>;",
+      "}",
+      "",
+    ].join("\n");
+    expect(runImportValidator(page).code).toContain('from "@/components/ui/button"');
+  });
+
+  it("still imports Button when a comment looks like const Button = …", () => {
+    const page = [
+      "// const Button = exempel",
+      'const tip = "const Button = exempel";',
+      "export default function Page() {",
+      "  return <Button>Klicka</Button>;",
+      "}",
+      "",
+    ].join("\n");
+    expect(runImportValidator(page).code).toContain('from "@/components/ui/button"');
+  });
+
   it("does not self-import a typed module-scope const Button: React.FC", () => {
     const page = [
       "import * as React from 'react';",
