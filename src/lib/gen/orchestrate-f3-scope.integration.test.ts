@@ -127,6 +127,68 @@ describe("resolveOrchestrationBase — F3 capability-scope stage gating", () => 
   });
 });
 
+describe("resolveOrchestrationBase — F2 mute vs brief fallback", () => {
+  it("design round: muted hard caps stay out of selection even when brief still lists them", async () => {
+    // Prod 2026-08-11 (chat 72cbc979…): F2 mute dropped ai-chat/auth, then
+    // brief fallback re-selected openai-chat + clerk-auth and the LLM wrote a
+    // local-demo panel next to a live verbatim /api/chat route.
+    const prompt =
+      "Byråsajit med inloggning och en AI-chatt som svarar kunder via OpenAI.";
+    const base = await resolveOrchestrationBase(
+      baseInput({
+        generationMode: "init",
+        lifecycleStage: "design",
+        prompt,
+        rawPrompt: prompt,
+        routePlanPrompt: prompt,
+        buildSpecPrompt: prompt,
+        contractsPrompt: prompt,
+        capabilitiesPrompt: prompt,
+        scaffoldMatchPrompt: prompt,
+        brief: { requestedCapabilities: ["ai-chat", "auth"] },
+        followUpContract: undefined,
+        previousFilesCount: 0,
+        previousFilePaths: [],
+      }),
+    );
+
+    expect(base.mutedCapabilities).toEqual(expect.arrayContaining(["ai-chat", "auth"]));
+    expect(base.dossierRequestedCapabilities).not.toContain("ai-chat");
+    expect(base.dossierRequestedCapabilities).not.toContain("auth");
+    const selectedIds = (base.dossierSelection?.selected ?? []).map((s) => s.entry.id);
+    expect(selectedIds).not.toContain("openai-chat");
+    expect(selectedIds).not.toContain("clerk-auth");
+  });
+
+  it("design round: soft F2-ok brief caps still select when hard caps are muted", async () => {
+    const prompt = "Landningssida med bildgalleri plus framtida AI-chatt.";
+    const base = await resolveOrchestrationBase(
+      baseInput({
+        generationMode: "init",
+        lifecycleStage: "design",
+        prompt,
+        rawPrompt: prompt,
+        routePlanPrompt: prompt,
+        buildSpecPrompt: prompt,
+        contractsPrompt: prompt,
+        capabilitiesPrompt: prompt,
+        scaffoldMatchPrompt: prompt,
+        brief: { requestedCapabilities: ["ai-chat", "gallery-lightbox"] },
+        followUpContract: undefined,
+        previousFilesCount: 0,
+        previousFilePaths: [],
+      }),
+    );
+
+    expect(base.mutedCapabilities).toContain("ai-chat");
+    expect(base.dossierRequestedCapabilities).toContain("gallery-lightbox");
+    expect(base.dossierRequestedCapabilities).not.toContain("ai-chat");
+    const selectedIds = (base.dossierSelection?.selected ?? []).map((s) => s.entry.id);
+    expect(selectedIds).toContain("gallery-lightbox");
+    expect(selectedIds).not.toContain("openai-chat");
+  });
+});
+
 describe("resolveOrchestrationBase — explicit capability removal", () => {
   it("removes Stripe from inference, contracts, dossier selection, and file ownership", async () => {
     const prompt = "Ta bort Stripe-betalningsgrejjen helt.";

@@ -1,6 +1,8 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { useMemo, useState } from "react";
 
 interface ChatPanelProps {
   title?: string;
@@ -9,15 +11,29 @@ interface ChatPanelProps {
   className?: string;
 }
 
+function messageText(message: {
+  parts?: Array<{ type: string; text?: string }>;
+}): string {
+  return (message.parts ?? [])
+    .filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
+    .map((part) => part.text)
+    .join("");
+}
+
 export function ChatPanel({
   title = "Ask the assistant",
   placeholder = "Type a message…",
   starterPrompts = ["What can you help me with?"],
   className,
 }: ChatPanelProps) {
-  const { messages, input, handleInputChange, handleSubmit, status, stop, append } = useChat({
-    api: "/api/chat",
-  });
+  const [input, setInput] = useState("");
+  // Stable transport instance — recreating DefaultChatTransport every render
+  // can drop in-flight streams.
+  const transport = useMemo(
+    () => new DefaultChatTransport({ api: "/api/chat" }),
+    [],
+  );
+  const { messages, sendMessage, status, stop } = useChat({ transport });
   const isStreaming = status === "streaming" || status === "submitted";
 
   return (
@@ -31,41 +47,50 @@ export function ChatPanel({
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">Try:</p>
             <ul className="space-y-1">
-              {starterPrompts.map((p) => (
-                <li key={p}>
+              {starterPrompts.map((prompt) => (
+                <li key={prompt}>
                   <button
                     type="button"
-                    onClick={() => append({ role: "user", content: p })}
+                    onClick={() => sendMessage({ text: prompt })}
                     className="text-left text-sm text-primary underline-offset-4 hover:underline"
                   >
-                    {p}
+                    {prompt}
                   </button>
                 </li>
               ))}
             </ul>
           </div>
         )}
-        {messages.map((m) => (
+        {messages.map((message) => (
           <div
-            key={m.id}
+            key={message.id}
             className={
-              m.role === "user"
+              message.role === "user"
                 ? "ml-8 rounded-md bg-primary/10 px-3 py-2 text-sm"
                 : "mr-8 rounded-md bg-muted px-3 py-2 text-sm"
             }
           >
             <span className="block text-xs font-medium opacity-60">
-              {m.role === "user" ? "You" : "Assistant"}
+              {message.role === "user" ? "You" : "Assistant"}
             </span>
-            <p className="whitespace-pre-wrap">{m.content}</p>
+            <p className="whitespace-pre-wrap">{messageText(message)}</p>
           </div>
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2 border-t p-3">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          const text = input.trim();
+          if (!text || isStreaming) return;
+          sendMessage({ text });
+          setInput("");
+        }}
+        className="flex gap-2 border-t p-3"
+      >
         <input
           value={input}
-          onChange={handleInputChange}
+          onChange={(event) => setInput(event.target.value)}
           placeholder={placeholder}
           className="flex-1 rounded-md border bg-background px-3 py-2 text-sm"
           disabled={isStreaming}
