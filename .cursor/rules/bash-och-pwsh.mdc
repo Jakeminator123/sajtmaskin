@@ -19,4 +19,6 @@ Lokal miljö är Windows med PowerShell 7 (`pwsh`). Använd pwsh-syntax i termin
 
 Kedja med `;` i en kommandosträng. Oberoende kommandon: parallella verktygsanrop. Commit-meddelande: pwsh here-string (inte bash-heredoc) — se felkatalogen vid behov.
 
+**RTK:** global Cursor-hook kan komprimera Shell-output. Lita på exit code, inte på kort stdout. Aldrig manuellt `rtk git log` (merge-bug). Rå engångskörning: `RTK_DISABLED=1 …` (unix-prefix). Detaljer: `@.cursor/rules/rtk-terminal.mdc`.
+
 **Felsökning / heredoc / LF-fällor:** bifoga `@.cursor/rules/bash-och-pwsh-fel.mdc` (eller läs den) — inte alwaysApply.

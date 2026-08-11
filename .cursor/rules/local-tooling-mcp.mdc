@@ -65,6 +65,7 @@ Kanonisk lista = nycklarna i `.cursor/mcp.json.example`. Tabellen nedan speglar 
 - Vercel CLI: team `jakeminator123s-projects`, projekt `sajtmaskin` (`prj_AK7FqC8NwKorjoxGpkXi6nKGUsoe`, team `team_j7KE5zKTm5rdg7zfWzOZhJ89`). Se `.vercel/repo.json`.
 - GitHub: `Jakeminator123` via `gh` (HTTPS). SSH-nyckel: `~/.ssh/id_ed25519_github` (Host `github.com` i `~/.ssh/config`).
 - Terminal: PowerShell 7 (`pwsh`) — se även `bash-och-pwsh.mdc`.
+- **RTK** (global Shell-komprimering via `%USERPROFILE%\.cursor\hooks.json`): se `rtk-terminal.mdc`. Config `%APPDATA%\rtk\config.toml` ska ha `exclude_commands = ["git log", "git rebase", "git cherry-pick"]` (telemetri av). Smoke: `rtk hook check --agent cursor "git log -1"` → `No rewrite`.
 - Worktrees: eget fönster per checkout; byt inte branch i delad huvudcheckout — se `agent-worktree.mdc`.
 
 ## shadcn
