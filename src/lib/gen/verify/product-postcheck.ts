@@ -105,6 +105,16 @@ export type ProductDomEvaluation = {
 };
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+/**
+ * Fly returns a real boot placeholder while `npm install` / `next dev` starts.
+ * Product Postcheck begins as soon as the preview URL exists, so a single
+ * probe can race that placeholder and persist a permanent F3 blocker even
+ * though the same URL becomes healthy seconds later. Poll inside the existing
+ * check before classifying it; a placeholder that outlives this bounded budget
+ * remains blocking.
+ */
+const PREVIEW_BOOT_MAX_WAIT_MS = 20_000;
+const PREVIEW_BOOT_RETRY_INTERVAL_MS = 2_000;
 /** Soft deadline for extra crawl hops — API route maxDuration is 60s and Next
  *  dev compiles each route on demand. Checked before each additional route. */
 const CRAWL_DEADLINE_MS = 25_000;
@@ -117,6 +127,80 @@ const DEFAULT_ALLOWED_HOSTS = new Set([
   "::1",
   "vm-fly-jakem.fly.dev",
 ]);
+
+/** Empty probe that `isPreviewHostBootPage` treats as still-warming / not ready. */
+const SYNTHETIC_BOOT_PROBE: PreviewHostBootPageProbe = {
+  title: "",
+  h1: null,
+  bodyText: "",
+};
+
+/**
+ * True while preview may still be compiling: explicit boot placeholder, or a
+ * titled-but-empty body (partial Next compile clears title before content).
+ */
+function isPreviewHostStillWarming(probe: PreviewHostBootPageProbe): boolean {
+  if (isPreviewHostBootPage(probe)) return true;
+  return (probe.bodyText ?? "").trim().length === 0;
+}
+
+async function waitForPreviewHostBootToClear(params: {
+  page: Page;
+  startedAt: number;
+  timeoutMs: number;
+}): Promise<PreviewHostBootPageProbe | null> {
+  const waitBudgetMs = Math.min(
+    PREVIEW_BOOT_MAX_WAIT_MS,
+    Math.max(0, params.timeoutMs),
+  );
+  const bootPollingStartedAt = Date.now();
+  const deadlineAt = Math.min(
+    bootPollingStartedAt + waitBudgetMs,
+    params.startedAt + Math.max(0, params.timeoutMs),
+  );
+  const maxProbes = Math.max(
+    1,
+    Math.ceil(waitBudgetMs / PREVIEW_BOOT_RETRY_INTERVAL_MS) + 1,
+  );
+  let latestProbe: PreviewHostBootPageProbe | null = null;
+
+  for (let probeIndex = 0; probeIndex < maxProbes; probeIndex += 1) {
+    const probe = await params.page
+      .evaluate(() => ({
+        title: document.title || "",
+        h1: document.querySelector("h1")?.textContent?.trim() || null,
+        bodyText: (document.body?.innerText || "").slice(0, 800),
+      }))
+      .catch(() => null);
+
+    if (probe) {
+      latestProbe = probe;
+      // Ready only when we have real body content and it is not the boot page.
+      // Evaluate null / titled-empty must keep polling (fail-closed), not clear.
+      if (!isPreviewHostStillWarming(probe)) return probe;
+    }
+    // Evaluate failed (null): keep polling until deadline. Returning null here
+    // used to fail-open during meta-refresh / transient DOM attach races.
+
+    const remainingMs = deadlineAt - Date.now();
+    if (probeIndex === maxProbes - 1 || remainingMs <= 0) break;
+    await params.page.waitForTimeout(
+      Math.min(PREVIEW_BOOT_RETRY_INTERVAL_MS, remainingMs),
+    );
+  }
+
+  if (!latestProbe) {
+    // Never got a successful probe within budget → block (caller treats boot).
+    return SYNTHETIC_BOOT_PROBE;
+  }
+  if (isPreviewHostBootPage(latestProbe)) return latestProbe;
+  // Titled-but-empty still at deadline: synthesize empty boot so caller blocks
+  // (detector alone does not treat title+"Home"/empty body as boot).
+  if ((latestProbe.bodyText ?? "").trim().length === 0) {
+    return SYNTHETIC_BOOT_PROBE;
+  }
+  return latestProbe;
+}
 
 function normalizeHost(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -687,13 +771,11 @@ export async function runProductPostcheck(params: {
 
     // Refuse false-green on the preview-host boot placeholder (prod 2026-08-11:
     // postcheck "passed" while Fly still reported empty body / HTTP 500).
-    const bootProbe = await page
-      .evaluate(() => ({
-        title: document.title || "",
-        h1: document.querySelector("h1")?.textContent?.trim() || null,
-        bodyText: (document.body?.innerText || "").slice(0, 800),
-      }))
-      .catch(() => null);
+    const bootProbe = await waitForPreviewHostBootToClear({
+      page,
+      startedAt,
+      timeoutMs,
+    });
     if (bootProbe && isPreviewHostBootPage(bootProbe)) {
       return {
         ok: true,
