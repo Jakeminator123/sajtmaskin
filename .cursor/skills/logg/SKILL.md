@@ -36,7 +36,7 @@ Read-only. Skriv aldrig till prod. Hämtar bara. Se Guardrails.
 | Vercel-deploy för sajten | Postgres `deployments` (ids + url + status) | `--kinds=deploys` |
 | Vercel **build**-loggar | Vercel-plattformen | MCP `get_deployment_build_logs` |
 | Vercel **runtime**-loggar/fel | Vercel-plattformen | MCP `get_runtime_logs` / `get_runtime_errors` |
-| **Appens `console.warn`/`console.error`** (postcheck-krascher, `/tmp`-slut, droppade scaffold-filer, rutt-timeouts, CSP) | Postgres `vercel_log_drain_events` **eller** Vercel-plattformen — **XOR** | `--kinds=drain` (2c); `vercel logs --json` **bara** om drain saknas |
+| **Appens `console.warn`/`console.error`** (postcheck-krascher, `/tmp`-slut, droppade scaffold-filer, rutt-timeouts, CSP) | Postgres `vercel_log_drain_events` **eller** Vercel-plattformen — **XOR** | `--kinds=drain` om rader finns (2c); annars `vercel logs --json` |
 | **DB-pool-hälsa** (connect-timeout / EMAXCONNSESSION) | Vercel runtime-logg + Postgres `pg_stat_activity` | MCP `get_runtime_logs` (sök felsträngarna) + valfri Supabase-MCP `pg_stat_activity` |
 | Fly preview-host runtime-logg | Fly VM `vm-fly-jakem` | `fly logs` / store-fil / `/preview/logs/:id` |
 | Per-run fil-logg (dev) | `logs/generationslogg/<run>/` | **bara om körningen skedde lokalt** — i prod avstängt |
@@ -142,21 +142,22 @@ node scripts/db/dump-logs.mjs --json `
   --kinds=drain --limit=100 --allow-insecure-ssl
 ```
 
-2. **Om drain-kinden finns och queryn lyckades** (även tom lista): behandla det
-   som console-sanningen. Sök mönstren nedan i `drain`-raderna. **Kör inte**
-   `vercel logs … --json` för samma grepp — det dubblerar.
-3. **Bara om drain saknas** (`skipped.drain` / tabell saknas / env utan
-   `VERCEL_LOG_DRAIN_SECRET` i prod): falla tillbaka till
+2. **Om drain-kinden returnerar minst en rad:** behandla det som console-sanningen.
+   Sök mönstren nedan i `drain`-raderna. **Kör inte** `vercel logs … --json` för
+   samma grepp — det dubblerar.
+3. **Om drain är tom, saknas eller skippas** (`[]`, `skipped.drain`, tabell saknas,
+   eller ingest inte konfigurerad): falla tillbaka till
 
 ```powershell
 vercel logs https://sajtmaskin.vercel.app --json | Set-Content -Encoding utf8 .cursor/tmp-app-runtime.jsonl
 ```
 
-   och skriv i rapporten `App-console: vercel logs (drain ej aktiv)`.
+   och skriv i rapporten `App-console: vercel logs (drain tom/ej aktiv)`.
+   En tom lyckad query betyder **inte** att drainen är aktiv — tabellen kan
+   finnas efter migration medan `VERCEL_LOG_DRAIN_SECRET` fortfarande saknas.
 
 Kinden bär **ingen** `chat_id` — korrelera på `log_timestamp` mot körningens
-`created_at` eller på `request_id`. Tom lista med aktiv drain = inga matchande
-fel i fönstret (mottagaren filtrerar redan till error/warning/fatal + 3c-mönster).
+`created_at` eller på `request_id`.
 
 Sök minst efter:
 
@@ -271,7 +272,7 @@ Bedömning: <lyckad / delvis / misslyckad> — <1–2 meningar varför>
 | Deploy | status, url | deployments |
 | Vercel build | pass/fail + felrad | MCP get_deployment_build_logs |
 | Vercel runtime | felkluster / 5xx | MCP get_runtime_errors/logs |
-| App-console (2c) | postcheck-krasch, `/tmp`-slut, `stillMissing`, rutt-timeout, CSP — **en** källa | `--kinds=drain` **eller** `vercel logs --json` (fallback), aldrig båda |
+| App-console (2c) | postcheck-krasch, `/tmp`-slut, `stillMissing`, rutt-timeout, CSP — **en** källa | `--kinds=drain` om rader finns, annars `vercel logs --json` — aldrig båda |
 | DB-pool | connect-timeout / EMAXCONNSESSION-antal (0 = frisk) · ev. pg_stat_activity-peak | Vercel runtime + pg_stat_activity |
 | Preview (Fly) | boot/install/exit-tail | preview-host-loggar |
 
