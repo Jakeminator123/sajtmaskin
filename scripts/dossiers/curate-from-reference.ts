@@ -33,7 +33,8 @@
  * The legacy 16-script pipeline was archived 2026-04-20 to
  * archive/dossiers-legacy-2026-04-20/scripts/.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -44,12 +45,7 @@ import {
   getWorkloadFallbackModelsFromManifest,
 } from "../../src/lib/ai-models/load-manifest";
 import { getTemperatureConfig } from "../../src/lib/builder/direct-model";
-import { getAllDossiers } from "../../src/lib/gen/dossiers/registry";
-import {
-  findDuplicateDefaults,
-  findUnresolvableHardCapabilityDefaults,
-  validateDossierManifest,
-} from "../../src/lib/gen/dossiers/validate-manifest";
+import { validateDossierManifest } from "../../src/lib/gen/dossiers/validate-manifest";
 
 const REPO_ROOT = resolve(process.cwd());
 const REFERENCES_ROOT = join(REPO_ROOT, "data", "template-references", "repos");
@@ -65,6 +61,7 @@ interface Args {
   id: string;
   force: boolean;
   model: string;
+  capability?: string;
 }
 
 /**
@@ -116,6 +113,7 @@ export function parseArgs(argv: string[]): Args {
         throw new Error(`--class must be 'hard' or 'soft' (got: ${v})`);
       args.class = v;
     } else if (a.startsWith("--id=")) args.id = a.slice("--id=".length);
+    else if (a.startsWith("--capability=")) args.capability = a.slice("--capability=".length);
     else if (a.startsWith("--model=")) requestedModel = a.slice("--model=".length);
   }
   if (!args.reference) throw new Error("--reference=<id> is required");
@@ -123,6 +121,14 @@ export function parseArgs(argv: string[]): Args {
   if (!args.id) throw new Error("--id=<dossier-id> is required");
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(args.id)) {
     throw new Error(`--id must be kebab-case (got: ${args.id})`);
+  }
+  if (
+    args.capability &&
+    (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(args.capability) ||
+      args.capability.length < 2 ||
+      args.capability.length > 60)
+  ) {
+    throw new Error(`--capability must be kebab-case with 2-60 characters`);
   }
   args.model = resolveCurationModel(requestedModel);
   return args as Args;
@@ -220,34 +226,57 @@ interface CurationOutput {
   instructions: string;
 }
 
-export interface CurationDefaultInvariantEntry {
-  id: string;
-  class: "hard" | "soft";
-  capability: string;
-  defaultForCapability: boolean;
+export function curationTransactionArgs(stage: string, args: Args): string[] {
+  return [
+    join(REPO_ROOT, "scripts", "dev", "run-python.mjs"),
+    join(REPO_ROOT, "scripts", "dossiers", "transaction_adapter.py"),
+    "curate",
+    `--stage=${stage}`,
+    `--class=${args.class}`,
+    `--id=${args.id}`,
+    ...(args.force ? ["--force"] : []),
+  ];
 }
 
-/** Validate the affected capability families after replacing/adding a draft. */
-export function findProjectedCurationDefaultErrors(
-  existing: readonly CurationDefaultInvariantEntry[],
-  candidate: CurationDefaultInvariantEntry,
-): string[] {
-  const replaced = existing.find(
-    (entry) => entry.class === candidate.class && entry.id === candidate.id,
-  );
-  const affectedCapabilities = new Set([
-    candidate.capability,
-    ...(replaced ? [replaced.capability] : []),
-  ]);
-  const projected = [
-    ...existing.filter((entry) => !(entry.class === candidate.class && entry.id === candidate.id)),
-    candidate,
-  ].filter((entry) => affectedCapabilities.has(entry.capability));
+function runTransactionAdapter(args: string[]): string {
+  const result = spawnSync(process.execPath, args, {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error((result.stderr || result.stdout || "Dossier transaction failed").trim());
+  }
+  return result.stdout.trim();
+}
 
+function transactionAdapterBase(): string[] {
   return [
-    ...findDuplicateDefaults(projected),
-    ...findUnresolvableHardCapabilityDefaults(projected),
+    join(REPO_ROOT, "scripts", "dev", "run-python.mjs"),
+    join(REPO_ROOT, "scripts", "dossiers", "transaction_adapter.py"),
   ];
+}
+
+export function curationAllocateArgs(targetId: string): string[] {
+  return [...transactionAdapterBase(), "allocate", `--id=${targetId}`];
+}
+
+export function curationCleanupArgs(stage: string): string[] {
+  return [...transactionAdapterBase(), "cleanup", `--stage=${stage}`];
+}
+
+function allocateCurationStage(targetId: string): string {
+  return runTransactionAdapter(curationAllocateArgs(targetId));
+}
+
+function cleanupCurationStage(stage: string): void {
+  runTransactionAdapter(curationCleanupArgs(stage));
+}
+
+function commitCurationStage(stage: string, args: Args): void {
+  const output = runTransactionAdapter(curationTransactionArgs(stage, args));
+  if (output) console.log(`[curate] ${output}`);
 }
 
 /**
@@ -531,6 +560,10 @@ async function main() {
 
   // Sanity-check: enforce the id/class the user asked for.
   output.manifest.id = args.id;
+  if (args.capability) {
+    output.manifest.capability = args.capability;
+    output.manifest.defaultForCapability = false;
+  }
   if (!output.manifest.lastVerified)
     output.manifest.lastVerified = new Date().toISOString().slice(0, 10);
 
@@ -538,25 +571,25 @@ async function main() {
     $schema: "../../../../docs/schemas/strict/dossier.schema.json",
     ...output.manifest,
   };
-  const defaultErrors = findProjectedCurationDefaultErrors(getAllDossiers(), {
-    id: args.id,
-    class: args.class,
-    capability: output.manifest.capability,
-    defaultForCapability: output.manifest.defaultForCapability === true,
-  });
-  if (defaultErrors.length > 0) {
-    throw new Error(
-      `Refusing to write a dossier that breaks the default invariant:\n  - ${defaultErrors.join("\n  - ")}`,
+  const stagedDir = allocateCurationStage(args.id);
+  try {
+    writeFileSync(
+      join(stagedDir, "manifest.json"),
+      JSON.stringify(manifestToWrite, null, 2) + "\n",
+      "utf-8",
     );
+    writeFileSync(join(stagedDir, "instructions.md"), output.instructions, "utf-8");
+    commitCurationStage(stagedDir, args);
+  } catch (error) {
+    try {
+      cleanupCurationStage(stagedDir);
+    } catch (cleanupError) {
+      console.warn(
+        `[curate] stage cleanup also failed: ${cleanupError instanceof Error ? cleanupError.message : cleanupError}`,
+      );
+    }
+    throw error;
   }
-
-  mkdirSync(targetDir, { recursive: true });
-  writeFileSync(
-    join(targetDir, "manifest.json"),
-    JSON.stringify(manifestToWrite, null, 2) + "\n",
-    "utf-8",
-  );
-  writeFileSync(join(targetDir, "instructions.md"), output.instructions, "utf-8");
 
   console.log(`[curate] wrote ${join(targetDir, "manifest.json")}`);
   console.log(`[curate] wrote ${join(targetDir, "instructions.md")}`);

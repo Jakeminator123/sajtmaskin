@@ -28,6 +28,7 @@ from backoffice.shared import (
 
 def _facade():
     from backoffice.pages import dossiers as page
+
     return page
 
 
@@ -96,7 +97,6 @@ from .io import (
 )
 
 
-
 def _section_create_from_scratch() -> None:
     st.divider()
     st.subheader("Skapa byggblock från grunden")
@@ -126,7 +126,10 @@ def _section_create_from_scratch() -> None:
         )
         new_label = st.text_input(field_label("label"), key="create_scratch_label")
         capability = st.text_input(
-            field_label("capability", hint="kebab-case, t.ex. `payments` — återanvänd hellre en befintlig"),
+            field_label(
+                "capability",
+                hint="kebab-case, t.ex. `payments` — återanvänd hellre en befintlig",
+            ),
             key="create_scratch_capability",
         )
         cols = st.columns(2)
@@ -138,21 +141,29 @@ def _section_create_from_scratch() -> None:
             )
         with cols[1]:
             code_fidelity = st.selectbox(
-                field_label("codeFidelity", hint="verbatim = LLM:en får inte skriva om filerna"),
+                field_label(
+                    "codeFidelity", hint="verbatim = LLM:en får inte skriva om filerna"
+                ),
                 ["rewritable", "verbatim"],
             )
         summary = st.text_area(
-            field_label("summary", hint="engelska, 30-600 tecken — går till codegen-prompten"),
+            field_label(
+                "summary", hint="engelska, 30-600 tecken — går till codegen-prompten"
+            ),
             height=80,
             key="create_scratch_summary",
         )
         summary_sv = st.text_area(
-            field_label("summarySv", hint="valfri, minst 20 tecken — visas för användare"),
+            field_label(
+                "summarySv", hint="valfri, minst 20 tecken — visas för användare"
+            ),
             height=80,
             key="create_scratch_summary_sv",
         )
         default_flag = st.checkbox(
-            field_label("defaultForCapability", hint="vinner när flera byggblock delar funktion"),
+            field_label(
+                "defaultForCapability", hint="vinner när flera byggblock delar funktion"
+            ),
             key="create_scratch_default",
         )
         provider_ids: list[str] | None = None
@@ -174,7 +185,9 @@ def _section_create_from_scratch() -> None:
                 field_label("mock", hint="obligatoriskt för Kopplade byggblock"),
                 list(_facade()._MOCK_OPTIONS),
                 # Enum:arna kommer från schemat, så "visual" kan inte antas finnas.
-                index=_facade()._MOCK_OPTIONS.index("visual") if "visual" in _facade()._MOCK_OPTIONS else 0,
+                index=_facade()._MOCK_OPTIONS.index("visual")
+                if "visual" in _facade()._MOCK_OPTIONS
+                else 0,
                 format_func=mock_label,
             )
             st.caption(
@@ -210,15 +223,19 @@ def _section_create_from_scratch() -> None:
     if created:
         st.info(f"Senast skapat härifrån: `{created}`.")
         # Tungt subprocess-anrop — ligger bakom knapp, aldrig i default-vyn.
-        if st.button("Kör `npm run dossiers:validate-all`", key="create_scratch_validate"):
+        if st.button(
+            "Kör `npm run dossiers:validate-all`", key="create_scratch_validate"
+        ):
             with st.spinner("Kör dossiers:validate-all…"):
                 result = run_repo_command(
-                    _facade().REPO_ROOT, ("npm", "run", "dossiers:validate-all"), timeout=300
+                    _facade().REPO_ROOT,
+                    ("npm", "run", "dossiers:validate-all"),
+                    timeout=300,
                 )
             output = (result["stdoutTail"] + "\n" + result["stderrTail"]).strip()
-            (st.success if result["ok"] else st.error)(output[-3000:] or "Ingen output.")
-
-
+            (st.success if result["ok"] else st.error)(
+                output[-3000:] or "Ingen output."
+            )
 
 
 def _section_curate() -> None:
@@ -249,13 +266,21 @@ def _section_curate() -> None:
     group_labels = {gid: (groups[gid].get("label") or gid) for gid in group_ids}
     group_cols = st.columns(2)
     with group_cols[0]:
-        chosen_group_id = st.selectbox(
-            "Dossier-grupp (kategori)",
-            group_ids,
-            format_func=lambda gid: group_labels.get(gid, gid),
-            key="curate_group_id",
-        ) if group_ids else None
-    group_capabilities = groups.get(chosen_group_id, {}).get("capabilities") or [] if chosen_group_id else []
+        chosen_group_id = (
+            st.selectbox(
+                "Dossier-grupp (kategori)",
+                group_ids,
+                format_func=lambda gid: group_labels.get(gid, gid),
+                key="curate_group_id",
+            )
+            if group_ids
+            else None
+        )
+    group_capabilities = (
+        groups.get(chosen_group_id, {}).get("capabilities") or []
+        if chosen_group_id
+        else []
+    )
     with group_cols[1]:
         capability_choice = st.selectbox(
             "Capability i gruppen",
@@ -291,7 +316,9 @@ def _section_curate() -> None:
         target_id = st.text_input("Ny dossier-id", value=suggested)
     # Modellvalen ägs av manifestet (workload `backoffice_dossier_curation`),
     # inte av den här sidan och inte av en hårdkodad rad i skriptet.
-    curation_models = resolve_model_choices(_facade().REPO_ROOT, WORKLOAD_DOSSIER_CURATION)
+    curation_models = resolve_model_choices(
+        _facade().REPO_ROOT, WORKLOAD_DOSSIER_CURATION
+    )
     curation_model = st.selectbox(
         "Modell för kurationen",
         list(curation_models),
@@ -320,29 +347,19 @@ def _section_curate() -> None:
             )
             return
         with st.spinner("Kör kurations-skriptet…"):
-            ok, output = _run_curate(ref_id, target_class, target_id, curation_model)
-        override_failed = False
-        if ok and decided_capability:
-            override_ok, override_msg = _apply_capability_override(target_class, target_id, decided_capability)
-            if override_ok:
-                output += f"\n[backoffice] satte capability={decided_capability!r} enligt vald kategori."
-            else:
-                override_failed = True
-                output += f"\n[backoffice] KUNDE INTE sätta vald capability: {override_msg}"
-        (st.success if ok else st.error)(output[-3000:])
-        if ok and override_failed:
-            st.warning(
-                "Kurationen lyckades men den valda capabilityn kunde INTE sättas "
-                "— utkastet har kvar LLM:ns egen capability. Rätta manuellt i "
-                "Redigera-tabben innan dossiern används."
+            ok, output = _run_curate(
+                ref_id,
+                target_class,
+                target_id,
+                curation_model,
+                decided_capability,
             )
+        (st.success if ok else st.error)(output[-3000:])
         if ok:
             st.info(
                 f"Granska och redigera `data/dossiers/{target_class}/{target_id}/` i Redigera-tabben "
                 f"innan dossiern är produktionsklar."
             )
-
-
 
 
 def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
@@ -398,7 +415,9 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
             f"invalid: {invalids}. 'fixar' = obligatoriska kodändringar innan promotion."
         )
 
-    model = st.selectbox("Modell för normalisering", _facade()._NORMALIZE_MODELS, key="prospect_model")
+    model = st.selectbox(
+        "Modell för normalisering", _facade()._NORMALIZE_MODELS, key="prospect_model"
+    )
     st.caption(
         "`gpt-5.5` = bäst omdöme (default). `gpt-5.4-mini` = billigare/snabbare. "
         "Körningen blockerar UI:t tills den är klar."
@@ -407,7 +426,9 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
     with batch_cols[0]:
         if st.button("Normalisera saknade", key="prospect_run_missing"):
             with st.spinner("Kör normaliseraren (hoppar över redan behandlade)…"):
-                ok, output = _run_normalize(None, run_all=True, force=False, model=model)
+                ok, output = _run_normalize(
+                    None, run_all=True, force=False, model=model
+                )
             (st.success if ok else st.error)(output[-3000:])
     with batch_cols[1]:
         if st.button("Kör om alla (force)", key="prospect_run_all_force"):
@@ -435,7 +456,9 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
     with single_cols[0]:
         if st.button("Normalisera denna", key="prospect_run_one"):
             with st.spinner(f"Normaliserar {pick}…"):
-                ok, output = _run_normalize(pick, run_all=False, force=True, model=model)
+                ok, output = _run_normalize(
+                    pick, run_all=False, force=True, model=model
+                )
             (st.success if ok else st.error)(output[-3000:])
 
     # Promotion trusts the REPORT verdict (canonical outcome of the latest run),
@@ -449,7 +472,9 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
     if report_verdict == "accept" and draft_exists:
         st.success("Utkast finns (accepterat i senaste körningen).")
         if text:
-            with st.expander("REVIEW.md — concerns + obligatoriska kodfixar", expanded=False):
+            with st.expander(
+                "REVIEW.md — concerns + obligatoriska kodfixar", expanded=False
+            ):
                 st.markdown(text)
         # Block promotion while REVIEW lists required code changes — the draft's
         # manifest shape can be valid while the integration code still needs the
@@ -467,7 +492,9 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
                 key="prospect_fixes_ack",
             )
         with single_cols[1]:
-            force_overwrite = st.checkbox("Skriv över befintlig", key="prospect_promote_force")
+            force_overwrite = st.checkbox(
+                "Skriv över befintlig", key="prospect_promote_force"
+            )
         if st.button(
             "Promota utkast → live-pool",
             type="primary",
@@ -501,4 +528,6 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
             "normaliseringen innan du promotar."
         )
     else:
-        st.info("Inte behandlad ännu. Klicka 'Normalisera denna' för att skapa ett utkast.")
+        st.info(
+            "Inte behandlad ännu. Klicka 'Normalisera denna' för att skapa ett utkast."
+        )

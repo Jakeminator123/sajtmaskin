@@ -27,6 +27,7 @@ from backoffice.shared import (
 
 def _facade():
     from backoffice.pages import dossiers as page
+
     return page
 
 
@@ -96,7 +97,6 @@ from .io import (
 )
 
 
-
 def _render_manifest_edit_controls(
     chosen: dict[str, Any],
     manifest_path: Path,
@@ -118,11 +118,13 @@ def _render_manifest_edit_controls(
         st.caption(
             f"{field_label('capability')}: `{manifest.get('capability')}` · "
             f"Klass: {class_label(chosen['_class'])} — funktion byts via "
-            "\"Byt capability\" nedan, klass via rå JSON."
+            '"Byt capability" nedan, klass via rå JSON.'
         )
         current_mock = str(manifest.get("mock") or "none")
         mock_index = (
-            _facade()._MOCK_OPTIONS.index(current_mock) if current_mock in _facade()._MOCK_OPTIONS else len(_facade()._MOCK_OPTIONS) - 1
+            _facade()._MOCK_OPTIONS.index(current_mock)
+            if current_mock in _facade()._MOCK_OPTIONS
+            else len(_facade()._MOCK_OPTIONS) - 1
         )
         current_complexity = str(manifest.get("complexity") or "medium")
         complexity_index = (
@@ -149,10 +151,15 @@ def _render_manifest_edit_controls(
                 help="Minst 20 tecken, eller tomt för att ta bort fältet (UI faller då tillbaka på engelska `summary`).",
             )
             edited_complexity = st.selectbox(
-                field_label("complexity"), list(_facade()._COMPLEXITY_OPTIONS), index=complexity_index
+                field_label("complexity"),
+                list(_facade()._COMPLEXITY_OPTIONS),
+                index=complexity_index,
             )
             edited_default = st.checkbox(
-                field_label("defaultForCapability", hint="vinner när flera byggblock delar funktion"),
+                field_label(
+                    "defaultForCapability",
+                    hint="vinner när flera byggblock delar funktion",
+                ),
                 value=is_default_for_capability(manifest),
             )
             replacement_choice = None
@@ -167,7 +174,9 @@ def _render_manifest_edit_controls(
                     ),
                 )
             edited_mock = st.selectbox(
-                field_label("mock", hint="hur ytan fungerar i preview utan riktig nyckel"),
+                field_label(
+                    "mock", hint="hur ytan fungerar i preview utan riktig nyckel"
+                ),
                 list(_facade()._MOCK_OPTIONS),
                 index=mock_index,
                 format_func=mock_label,
@@ -225,8 +234,12 @@ def _render_manifest_edit_controls(
     # backup/skrivning.
     with tech_details("Rå JSON (full kontroll över alla fält)"):
         raw = manifest_path.read_text(encoding="utf-8")
-        edited = st.text_area("manifest.json", value=raw, height=400, key=f"{key_prefix}_raw_json")
-        if st.button("Spara rå JSON", type="primary", key=f"{key_prefix}_raw_json_save"):
+        edited = st.text_area(
+            "manifest.json", value=raw, height=400, key=f"{key_prefix}_raw_json"
+        )
+        if st.button(
+            "Spara rå JSON", type="primary", key=f"{key_prefix}_raw_json_save"
+        ):
             try:
                 parsed = json.loads(edited)
             except json.JSONDecodeError as exc:
@@ -241,8 +254,6 @@ def _render_manifest_edit_controls(
             _rerun_after_dossier_mutation(
                 f"Sparat {manifest_path.relative_to(_facade().REPO_ROOT)}"
             )
-
-
 
 
 def _render_capability_change_action(
@@ -279,7 +290,9 @@ def _render_capability_change_action(
             else None
         )
     target_group_capabilities = (
-        groups.get(target_group_id, {}).get("capabilities") or [] if target_group_id else []
+        groups.get(target_group_id, {}).get("capabilities") or []
+        if target_group_id
+        else []
     )
     none_choice = "(ingen — se fritt fält)"
     with cols[1]:
@@ -296,10 +309,7 @@ def _render_capability_change_action(
         capability_choice if capability_choice != none_choice else ""
     )
     manifest_path = (
-        _facade().DOSSIER_ROOT
-        / str(chosen.get("_class") or "")
-        / str(chosen.get("id") or "")
-        / "manifest.json"
+        _facade().REPO_ROOT / str(chosen.get("_path") or "") / "manifest.json"
     )
     handoff_candidates = (
         _default_handoff_candidates(
@@ -321,7 +331,9 @@ def _render_capability_change_action(
             ),
         )
     if decided_capability and decided_capability != current_capability:
-        st.caption(_describe_capability_group_hint(decided_capability, target_group_id, groups))
+        st.caption(
+            _describe_capability_group_hint(decided_capability, target_group_id, groups)
+        )
     if st.button("Byt capability", key=f"{key_prefix}_submit"):
         if not decided_capability:
             st.error("Ange en funktion (fritt fält eller från listan) — inget byttes.")
@@ -329,8 +341,8 @@ def _render_capability_change_action(
             st.info("Samma funktion som idag — inget byttes.")
         else:
             ok, msg = _apply_capability_override(
+                manifest_path,
                 chosen["_class"],
-                chosen["id"],
                 decided_capability,
                 replacement_default_path=handoff_options.get(str(replacement_choice)),
             )
@@ -343,8 +355,6 @@ def _render_capability_change_action(
                 st.error(msg)
 
 
-
-
 def _section_edit(dossiers: list[dict[str, Any]]) -> None:
     st.subheader("Redigera byggblock")
     if not dossiers:
@@ -353,7 +363,9 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
     pick_key = st.selectbox(
         "Välj byggblock",
         list(options.keys()),
-        format_func=lambda k: f"{options[k]['id']} — {class_label(options[k]['_class'])}",
+        format_func=lambda k: (
+            f"{options[k]['id']} — {class_label(options[k]['_class'])}"
+        ),
     )
     if not pick_key:
         return
@@ -368,8 +380,6 @@ def _section_edit(dossiers: list[dict[str, Any]]) -> None:
     _render_capability_change_action(
         chosen, _load_group_view(), key_prefix=f"edit_{pick_key}_cap"
     )
-
-
 
 
 def _section_delete(dossiers: list[dict[str, Any]]) -> None:
@@ -390,8 +400,6 @@ def _section_delete(dossiers: list[dict[str, Any]]) -> None:
     )
     with zone:
         _render_delete_body(dossiers)
-
-
 
 
 def _render_delete_action(
@@ -422,7 +430,9 @@ def _render_delete_action(
         and d.get("id") != chosen.get("id")
     ]
     env_keys = [
-        str(ev.get("key")) for ev in (chosen.get("envVars") or []) if isinstance(ev, dict)
+        str(ev.get("key"))
+        for ev in (chosen.get("envVars") or [])
+        if isinstance(ev, dict)
     ]
     deps = [str(dep) for dep in (chosen.get("dependencies") or [])]
 
@@ -447,7 +457,9 @@ def _render_delete_action(
     elif is_default_for_capability(chosen):
         default_line = "detta är Standardval, men hela funktionen försvinner med det."
     else:
-        default_line = "ingen standardvals-flytt behövs (byggblocket är inte Standardval)."
+        default_line = (
+            "ingen standardvals-flytt behövs (byggblocket är inte Standardval)."
+        )
 
     st.markdown(
         "**Checklista före radering** (per `dossier-rules.mdc`):\n"
@@ -463,7 +475,9 @@ def _render_delete_action(
     # ingen halvskriven bekräftelse kan råka gälla.
     ack_key = f"{key_prefix}_ack"
     confirm_key = f"{key_prefix}_confirm"
-    manifest_path = _facade().REPO_ROOT / str(chosen.get("_path") or "") / "manifest.json"
+    manifest_path = (
+        _facade().REPO_ROOT / str(chosen.get("_path") or "") / "manifest.json"
+    )
     handoff_candidates = (
         _default_handoff_candidates(
             manifest_path, dossier_class=str(chosen.get("_class") or "")
@@ -515,15 +529,15 @@ def _render_delete_action(
         _rerun_after_dossier_mutation(msg)
 
 
-
-
 def _render_delete_body(dossiers: list[dict[str, Any]]) -> None:
     options = {f"{d['_class']}/{d['id']}": d for d in dossiers}
     pick_key = st.selectbox(
         "Välj byggblock att radera",
         list(options.keys()),
         key="delete_pick",
-        format_func=lambda k: f"{options[k]['id']} — {class_label(options[k]['_class'])}",
+        format_func=lambda k: (
+            f"{options[k]['id']} — {class_label(options[k]['_class'])}"
+        ),
     )
     if not pick_key:
         return

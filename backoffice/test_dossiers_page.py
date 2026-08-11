@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -19,25 +20,36 @@ from backoffice.pages import dossiers as dossiers_page
 
 class GroupViewHelpersTests(unittest.TestCase):
     GROUPS = {
-        "payments": {"label": "Betalningar", "capabilities": ["payments", "subscriptions"]},
+        "payments": {
+            "label": "Betalningar",
+            "capabilities": ["payments", "subscriptions"],
+        },
         "ai": {"label": "AI", "capabilities": ["ai-chat"]},
         "other": {"label": "Övrigt", "capabilities": []},
     }
 
     def test_known_capability_resolves_to_group_label(self) -> None:
         self.assertEqual(
-            dossiers_page._group_label_for_capability("payments", self.GROUPS), "Betalningar"
+            dossiers_page._group_label_for_capability("payments", self.GROUPS),
+            "Betalningar",
         )
 
     def test_lookup_is_case_insensitive_and_trimmed(self) -> None:
         self.assertEqual(
-            dossiers_page._group_label_for_capability("  PAYMENTS ", self.GROUPS), "Betalningar"
+            dossiers_page._group_label_for_capability("  PAYMENTS ", self.GROUPS),
+            "Betalningar",
         )
 
     def test_unknown_or_empty_capability_falls_back_to_ovrigt(self) -> None:
-        self.assertEqual(dossiers_page._group_label_for_capability("maps", self.GROUPS), "Övrigt")
-        self.assertEqual(dossiers_page._group_label_for_capability("", self.GROUPS), "Övrigt")
-        self.assertEqual(dossiers_page._group_label_for_capability(None, self.GROUPS), "Övrigt")
+        self.assertEqual(
+            dossiers_page._group_label_for_capability("maps", self.GROUPS), "Övrigt"
+        )
+        self.assertEqual(
+            dossiers_page._group_label_for_capability("", self.GROUPS), "Övrigt"
+        )
+        self.assertEqual(
+            dossiers_page._group_label_for_capability(None, self.GROUPS), "Övrigt"
+        )
 
     def test_stale_detection_flags_uncovered_capability(self) -> None:
         pool = [{"capability": "payments"}, {"capability": "maps"}]
@@ -48,7 +60,9 @@ class GroupViewHelpersTests(unittest.TestCase):
         self.assertFalse(dossiers_page._groups_view_is_stale(self.GROUPS, pool))
 
     def test_empty_groups_view_is_always_stale(self) -> None:
-        self.assertTrue(dossiers_page._groups_view_is_stale({}, [{"capability": "payments"}]))
+        self.assertTrue(
+            dossiers_page._groups_view_is_stale({}, [{"capability": "payments"}])
+        )
 
 
 class DeleteDossierDirTests(unittest.TestCase):
@@ -64,6 +78,8 @@ class DeleteDossierDirTests(unittest.TestCase):
         patches = [
             mock.patch.object(dossiers_page, "REPO_ROOT", self.repo_root),
             mock.patch.object(dossiers_page, "DOSSIER_ROOT", self.dossier_root),
+            mock.patch.object(dossiers_page, "HARD_ROOT", self.dossier_root / "hard"),
+            mock.patch.object(dossiers_page, "SOFT_ROOT", self.dossier_root / "soft"),
         ]
         for p in patches:
             p.start()
@@ -108,7 +124,9 @@ class DeleteDossierDirTests(unittest.TestCase):
         self.assertTrue(ok, msg)
         self.assertFalse((self.dossier_root / "hard" / "acme-cms").exists())
 
-    def test_refuses_to_delete_default_when_multiple_hard_siblings_would_remain(self) -> None:
+    def test_refuses_to_delete_default_when_multiple_hard_siblings_would_remain(
+        self,
+    ) -> None:
         selected = self._write_hard_manifest(
             "acme-cms", capability="cms", is_default=True
         )
@@ -142,7 +160,56 @@ class DeleteDossierDirTests(unittest.TestCase):
             json.loads(successor.read_text(encoding="utf-8"))["defaultForCapability"]
         )
 
-    def test_partial_quarantine_delete_restores_primary_tree_and_successor_bytes(self) -> None:
+    def test_delete_writes_successor_before_quarantining_primary(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        primary = self._write_hard_manifest(
+            "acme-cms", capability="cms", is_default=True
+        )
+        successor = self._write_hard_manifest(
+            "beta-cms", capability="cms", is_default=False
+        )
+        self._write_hard_manifest("gamma-cms", capability="cms", is_default=False)
+        events: list[str] = []
+        quarantine_targets: list[Path] = []
+        original_save_json = dossiers_io._save_json
+        original_rename = Path.rename
+
+        def record_save(path: Path, data: dict) -> None:
+            if path == successor:
+                events.append("successor")
+            original_save_json(path, data)
+
+        def record_rename(path: Path, target: Path) -> Path:
+            if path == primary.parent:
+                events.append("quarantine")
+                quarantine_targets.append(target)
+            return original_rename(path, target)
+
+        with (
+            mock.patch.object(dossiers_io, "_save_json", side_effect=record_save),
+            mock.patch.object(Path, "rename", record_rename),
+        ):
+            ok, msg = dossiers_page._delete_dossier_dir(
+                self._chosen(), replacement_default_path=successor
+            )
+
+        self.assertTrue(ok, msg)
+        self.assertEqual(events[:2], ["successor", "quarantine"])
+        self.assertEqual(len(quarantine_targets), 1)
+        transaction_root = (
+            self.repo_root / "data" / "backoffice" / "staging" / "dossiers"
+        )
+        self.assertEqual(
+            quarantine_targets[0].parent.resolve(), transaction_root.resolve()
+        )
+        self.assertNotIn(
+            self.dossier_root.resolve(), quarantine_targets[0].resolve().parents
+        )
+
+    def test_partial_quarantine_delete_restores_primary_tree_and_successor_bytes(
+        self,
+    ) -> None:
         import shutil
 
         primary_manifest = self._write_hard_manifest(
@@ -160,7 +227,9 @@ class DeleteDossierDirTests(unittest.TestCase):
 
         def tree_bytes(root: Path) -> dict[str, bytes | None]:
             return {
-                path.relative_to(root).as_posix(): None if path.is_dir() else path.read_bytes()
+                path.relative_to(root).as_posix(): None
+                if path.is_dir()
+                else path.read_bytes()
                 for path in sorted(root.rglob("*"))
             }
 
@@ -171,7 +240,9 @@ class DeleteDossierDirTests(unittest.TestCase):
         def partially_delete_then_fail(path: object, *args: object, **kwargs: object):
             target = Path(path)  # type: ignore[arg-type]
             if ".backoffice-delete-" in target.name:
-                victim = next(candidate for candidate in target.rglob("*") if candidate.is_file())
+                victim = next(
+                    candidate for candidate in target.rglob("*") if candidate.is_file()
+                )
                 victim.unlink()
                 raise OSError("simulerad partiell quarantine-radering")
             return original_rmtree(path, *args, **kwargs)  # type: ignore[arg-type]
@@ -189,6 +260,134 @@ class DeleteDossierDirTests(unittest.TestCase):
         self.assertEqual(tree_bytes(primary_dir), primary_before)
         self.assertEqual(successor.read_bytes(), successor_before)
 
+    def test_rename_keyboard_interrupt_rolls_back_then_reraises(self) -> None:
+        primary = self._write_hard_manifest(
+            "acme-cms", capability="cms", is_default=True
+        )
+        successor = self._write_hard_manifest(
+            "beta-cms", capability="cms", is_default=False
+        )
+        self._write_hard_manifest("gamma-cms", capability="cms", is_default=False)
+        primary_before = primary.read_bytes()
+        successor_before = successor.read_bytes()
+        original_rename = Path.rename
+
+        def rename_then_interrupt(path: Path, target: Path) -> Path:
+            result = original_rename(path, target)
+            if path == primary.parent:
+                raise KeyboardInterrupt()
+            return result
+
+        with mock.patch.object(Path, "rename", rename_then_interrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                dossiers_page._delete_dossier_dir(
+                    self._chosen(), replacement_default_path=successor
+                )
+
+        self.assertEqual(primary.read_bytes(), primary_before)
+        self.assertEqual(successor.read_bytes(), successor_before)
+
+    def test_partial_delete_keyboard_interrupt_restores_then_reraises(self) -> None:
+        import shutil
+
+        primary = self._write_hard_manifest(
+            "acme-cms", capability="cms", is_default=True
+        )
+        successor = self._write_hard_manifest(
+            "beta-cms", capability="cms", is_default=False
+        )
+        self._write_hard_manifest("gamma-cms", capability="cms", is_default=False)
+        primary_before = primary.read_bytes()
+        successor_before = successor.read_bytes()
+        original_rmtree = shutil.rmtree
+
+        def partially_delete_then_interrupt(
+            path: object, *args: object, **kwargs: object
+        ) -> None:
+            target = Path(path)  # type: ignore[arg-type]
+            if ".backoffice-delete-" in target.name:
+                next(
+                    candidate for candidate in target.rglob("*") if candidate.is_file()
+                ).unlink()
+                raise KeyboardInterrupt()
+            original_rmtree(path, *args, **kwargs)  # type: ignore[arg-type]
+
+        with mock.patch(
+            "backoffice.pages.dossiers_lib.io.shutil.rmtree",
+            partially_delete_then_interrupt,
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                dossiers_page._delete_dossier_dir(
+                    self._chosen(), replacement_default_path=successor
+                )
+
+        self.assertEqual(primary.read_bytes(), primary_before)
+        self.assertEqual(successor.read_bytes(), successor_before)
+
+    def test_partial_delete_rollback_restores_primary_default_before_successor(
+        self,
+    ) -> None:
+        import shutil
+
+        primary = self._write_hard_manifest(
+            "acme-cms", capability="cms", is_default=True
+        )
+        successor = self._write_hard_manifest(
+            "beta-cms", capability="cms", is_default=False
+        )
+        self._write_hard_manifest("gamma-cms", capability="cms", is_default=False)
+        events: list[str] = []
+        original_rmtree = shutil.rmtree
+        original_unpack_archive = shutil.unpack_archive
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        original_atomic_replace = dossiers_io._atomic_replace_bytes
+
+        def partially_delete_then_fail(
+            path: object, *args: object, **kwargs: object
+        ) -> None:
+            target = Path(path)  # type: ignore[arg-type]
+            if ".backoffice-delete-" in target.name:
+                next(
+                    candidate for candidate in target.rglob("*") if candidate.is_file()
+                ).unlink()
+                raise OSError("simulerad partiell quarantine-radering")
+            original_rmtree(path, *args, **kwargs)  # type: ignore[arg-type]
+
+        def record_unpack(*args: object, **kwargs: object) -> None:
+            events.append("primary")
+            original_unpack_archive(*args, **kwargs)  # type: ignore[arg-type]
+
+        def record_write(path: Path, content: bytes) -> None:
+            if path == successor:
+                events.append("successor")
+            original_atomic_replace(path, content)
+
+        with (
+            mock.patch(
+                "backoffice.pages.dossiers_lib.io.shutil.rmtree",
+                partially_delete_then_fail,
+            ),
+            mock.patch(
+                "backoffice.pages.dossiers_lib.io.shutil.unpack_archive",
+                record_unpack,
+            ),
+            mock.patch.object(dossiers_io, "_atomic_replace_bytes", record_write),
+        ):
+            ok, msg = dossiers_page._delete_dossier_dir(
+                self._chosen(), replacement_default_path=successor
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("återställdes byte-exakt", msg)
+        self.assertEqual(events[-2:], ["primary", "successor"])
+        self.assertTrue(
+            json.loads(primary.read_text(encoding="utf-8"))["defaultForCapability"]
+        )
+        self.assertFalse(
+            json.loads(successor.read_text(encoding="utf-8"))["defaultForCapability"]
+        )
+
     def test_allows_deleting_default_when_only_one_hard_sibling_remains(self) -> None:
         self._write_hard_manifest("acme-cms", capability="cms", is_default=True)
         self._write_hard_manifest("beta-cms", capability="cms", is_default=False)
@@ -203,6 +402,13 @@ class DeleteDossierDirTests(unittest.TestCase):
         ok, msg = dossiers_page._delete_dossier_dir(self._chosen(id="../escape"))
         self.assertFalse(ok)
         self.assertIn("Ogiltigt dossier-id", msg)
+        self.assertTrue((self.dossier_root / "hard" / "acme-cms").exists())
+
+    def test_rejects_different_valid_chosen_id_for_walked_directory(self) -> None:
+        ok, msg = dossiers_page._delete_dossier_dir(self._chosen(id="other-cms"))
+
+        self.assertFalse(ok)
+        self.assertIn("matchar inte", msg)
         self.assertTrue((self.dossier_root / "hard" / "acme-cms").exists())
 
     def test_rejects_path_outside_pool(self) -> None:
@@ -246,30 +452,41 @@ class DeleteDossierDirTests(unittest.TestCase):
 
 class CapabilityGroupHintTests(unittest.TestCase):
     GROUPS = {
-        "payments": {"label": "Betalningar", "capabilities": ["payments", "subscriptions"]},
+        "payments": {
+            "label": "Betalningar",
+            "capabilities": ["payments", "subscriptions"],
+        },
         "ai": {"label": "AI", "capabilities": ["ai-chat", "rag-chat"]},
         "other": {"label": "Övrigt", "capabilities": []},
     }
 
     def test_capability_in_chosen_group_shows_chosen_group(self) -> None:
-        hint = dossiers_page._describe_capability_group_hint("ai-chat", "ai", self.GROUPS)
+        hint = dossiers_page._describe_capability_group_hint(
+            "ai-chat", "ai", self.GROUPS
+        )
         self.assertIn("grupp: AI", hint)
 
     def test_existing_capability_from_other_group_shows_real_group(self) -> None:
         # Coach regression on #500: group "AI" picked but existing `payments`
         # typed in the free field — must NOT be reported as "ny → Övrigt".
-        hint = dossiers_page._describe_capability_group_hint("payments", "ai", self.GROUPS)
+        hint = dossiers_page._describe_capability_group_hint(
+            "payments", "ai", self.GROUPS
+        )
         self.assertIn("Betalningar", hint)
         self.assertIn("ligger kvar", hint)
         self.assertNotIn("ny capability", hint)
 
     def test_unknown_capability_reports_new_and_ovrigt(self) -> None:
-        hint = dossiers_page._describe_capability_group_hint("map-search", "ai", self.GROUPS)
+        hint = dossiers_page._describe_capability_group_hint(
+            "map-search", "ai", self.GROUPS
+        )
         self.assertIn("ny capability", hint)
         self.assertIn("Övrigt", hint)
 
     def test_no_chosen_group_still_resolves_real_group(self) -> None:
-        hint = dossiers_page._describe_capability_group_hint("payments", None, self.GROUPS)
+        hint = dossiers_page._describe_capability_group_hint(
+            "payments", None, self.GROUPS
+        )
         self.assertIn("Betalningar", hint)
 
 
@@ -307,7 +524,10 @@ class ManifestClassValidationTests(unittest.TestCase):
 
     def test_raw_save_rejects_schema_invalid_provider_before_write(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "manifest.json"
+            repo_root = Path(tmp)
+            dossier_root = repo_root / "data" / "dossiers"
+            path = dossier_root / "hard" / "acme" / "manifest.json"
+            path.parent.mkdir(parents=True)
             original = {
                 "id": "acme",
                 "label": "Acme integration",
@@ -315,20 +535,21 @@ class ManifestClassValidationTests(unittest.TestCase):
                 "providers": ["acme"],
                 "codeFidelity": "verbatim",
                 "complexity": "medium",
-                "summary":
-                    "A valid provider integration fixture used by the raw editor test.",
+                "summary": "A valid provider integration fixture used by the raw editor test.",
                 "lastVerified": "2026-08-05",
             }
             path.write_text(json.dumps(original), encoding="utf-8")
             invalid = {**original, "providers": ["INVALID"]}
-            ok, msg = dossiers_page._save_raw_manifest(
-                path, invalid, dossier_class="hard"
-            )
+            with (
+                mock.patch.object(dossiers_page, "REPO_ROOT", repo_root),
+                mock.patch.object(dossiers_page, "DOSSIER_ROOT", dossier_root),
+            ):
+                ok, msg = dossiers_page._save_raw_manifest(
+                    path, invalid, dossier_class="hard"
+                )
             self.assertFalse(ok)
             self.assertIn("Strict-schema", msg)
-            self.assertEqual(
-                json.loads(path.read_text(encoding="utf-8")), original
-            )
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), original)
 
 
 class ApplyCapabilityOverrideTests(unittest.TestCase):
@@ -358,6 +579,8 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
         patches = [
             mock.patch.object(dossiers_page, "REPO_ROOT", self.repo_root),
             mock.patch.object(dossiers_page, "DOSSIER_ROOT", self.dossier_root),
+            mock.patch.object(dossiers_page, "HARD_ROOT", self.dossier_root / "hard"),
+            mock.patch.object(dossiers_page, "SOFT_ROOT", self.dossier_root / "soft"),
         ]
         for p in patches:
             p.start()
@@ -367,12 +590,16 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
         return json.loads(self.manifest_path.read_text(encoding="utf-8"))["capability"]
 
     def test_valid_override_is_saved(self) -> None:
-        ok, msg = dossiers_page._apply_capability_override("hard", "acme-cms", "content-hub")
+        ok, msg = dossiers_page._apply_capability_override(
+            self.manifest_path, "hard", "content-hub"
+        )
         self.assertTrue(ok, msg)
         self.assertEqual(self._read_capability(), "content-hub")
 
     def test_invalid_kebab_case_is_rejected_without_saving(self) -> None:
-        ok, msg = dossiers_page._apply_capability_override("hard", "acme-cms", "Not Kebab")
+        ok, msg = dossiers_page._apply_capability_override(
+            self.manifest_path, "hard", "Not Kebab"
+        )
         self.assertFalse(ok)
         self.assertIn("kebab-case", msg)
         self.assertEqual(self._read_capability(), "cms")
@@ -382,7 +609,7 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
         manifest.pop("providers")
         self.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         ok, msg = dossiers_page._apply_capability_override(
-            "hard", "acme-cms", "content-hub"
+            self.manifest_path, "hard", "content-hub"
         )
         self.assertFalse(ok)
         self.assertIn("providers", msg)
@@ -395,7 +622,9 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
         manifest = json.loads(self.manifest_path.read_text(encoding="utf-8"))
         manifest["defaultForCapability"] = True
         self.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-        ok, msg = dossiers_page._apply_capability_override("hard", "acme-cms", "payments")
+        ok, msg = dossiers_page._apply_capability_override(
+            self.manifest_path, "hard", "payments"
+        )
         self.assertTrue(ok, msg)
         saved = json.loads(self.manifest_path.read_text(encoding="utf-8"))
         self.assertEqual(saved["capability"], "payments")
@@ -420,7 +649,7 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
             )
 
         ok, msg = dossiers_page._apply_capability_override(
-            "hard", "acme-cms", "payments"
+            self.manifest_path, "hard", "payments"
         )
 
         self.assertFalse(ok)
@@ -435,9 +664,7 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
         self.manifest_path.write_text(json.dumps(current), encoding="utf-8")
         sibling_paths: list[Path] = []
         for dossier_id in ("beta-cms", "gamma-cms"):
-            sibling_path = (
-                self.dossier_root / "hard" / dossier_id / "manifest.json"
-            )
+            sibling_path = self.dossier_root / "hard" / dossier_id / "manifest.json"
             sibling_path.parent.mkdir(parents=True)
             sibling_path.write_text(
                 json.dumps(
@@ -453,8 +680,8 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
             sibling_paths.append(sibling_path)
 
         ok, msg = dossiers_page._apply_capability_override(
+            self.manifest_path,
             "hard",
-            "acme-cms",
             "payments",
             replacement_default_path=sibling_paths[0],
         )
@@ -471,10 +698,61 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
         # not, so this exercises exactly the AJV-parity gate added after the
         # C1/C8 review findings.
         too_long = "a" * 61
-        ok, msg = dossiers_page._apply_capability_override("hard", "acme-cms", too_long)
+        ok, msg = dossiers_page._apply_capability_override(
+            self.manifest_path, "hard", too_long
+        )
         self.assertFalse(ok)
         self.assertIn("Strict-schema", msg)
         self.assertEqual(self._read_capability(), "cms")
+
+    def test_mismatched_primary_id_never_mutates_matching_sibling(self) -> None:
+        mismatched_path = self.dossier_root / "hard" / "foo" / "manifest.json"
+        mismatched_path.parent.mkdir(parents=True)
+        mismatched_path.write_text(
+            self.manifest_path.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        real_original = self.manifest_path.read_bytes()
+        mismatched_original = mismatched_path.read_bytes()
+
+        ok, msg = dossiers_page._apply_capability_override(
+            mismatched_path, "hard", "content-hub"
+        )
+
+        self.assertFalse(ok)
+        self.assertIn("id, katalog och klass", msg)
+        self.assertEqual(self.manifest_path.read_bytes(), real_original)
+        self.assertEqual(mismatched_path.read_bytes(), mismatched_original)
+
+    def test_partial_override_write_restores_original_bytes(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        original = self.manifest_path.read_bytes()
+
+        def truncate_then_fail(path: Path, _data: dict[str, object]) -> None:
+            path.write_bytes(b'{"partial":')
+            raise OSError("simulerad trunkering")
+
+        with mock.patch.object(dossiers_io, "_save_json", truncate_then_fail):
+            ok, msg = dossiers_page._apply_capability_override(
+                self.manifest_path, "hard", "content-hub"
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("byte-exakt", msg)
+        self.assertEqual(self.manifest_path.read_bytes(), original)
+
+    def test_override_backup_failure_is_fail_closed(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        original = self.manifest_path.read_bytes()
+        with mock.patch.object(dossiers_io, "backup_file", return_value=None):
+            ok, msg = dossiers_page._apply_capability_override(
+                self.manifest_path, "hard", "content-hub"
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("säkerhetskopiera", msg)
+        self.assertEqual(self.manifest_path.read_bytes(), original)
 
 
 class SwedishLabelCoverageTests(unittest.TestCase):
@@ -490,8 +768,12 @@ class SwedishLabelCoverageTests(unittest.TestCase):
 
     def test_every_class_value_has_swedish_label(self) -> None:
         for klass in ("hard", "soft"):
-            label = str((self.labels["class"].get(klass) or {}).get("label") or "").strip()
-            self.assertTrue(label, f"_class-värdet {klass!r} saknar svensk etikett i projektionen")
+            label = str(
+                (self.labels["class"].get(klass) or {}).get("label") or ""
+            ).strip()
+            self.assertTrue(
+                label, f"_class-värdet {klass!r} saknar svensk etikett i projektionen"
+            )
 
     def test_every_mock_enum_value_has_swedish_label(self) -> None:
         schema = json.loads(
@@ -500,7 +782,9 @@ class SwedishLabelCoverageTests(unittest.TestCase):
         mock_values = schema["properties"]["mock"]["enum"]
         self.assertTrue(mock_values)
         for value in mock_values:
-            label = str((self.labels["mock"].get(value) or {}).get("label") or "").strip()
+            label = str(
+                (self.labels["mock"].get(value) or {}).get("label") or ""
+            ).strip()
             self.assertTrue(
                 label,
                 f"mock-värdet {value!r} saknar svensk etikett i projektionen",
@@ -515,9 +799,13 @@ class SwedishLabelCoverageTests(unittest.TestCase):
             dossiers_page.class_label("soft", projection=self.projection),
             "Fristående (soft)",
         )
-        self.assertIn("(seed)", dossiers_page.mock_label("seed", projection=self.projection))
+        self.assertIn(
+            "(seed)", dossiers_page.mock_label("seed", projection=self.projection)
+        )
         # Utelämnat mock-fält räknas som `none`, precis som i runtime.
-        self.assertIn("(none)", dossiers_page.mock_label(None, projection=self.projection))
+        self.assertIn(
+            "(none)", dossiers_page.mock_label(None, projection=self.projection)
+        )
 
     def test_unknown_values_render_raw_instead_of_guessing(self) -> None:
         self.assertEqual(
@@ -600,13 +888,14 @@ class ProjectionReaderTests(unittest.TestCase):
             "groups": {},
             "f2Policy": {},
         }
-        with mock.patch.object(
-            dossiers_io, "_load_json", return_value=stale
-        ), mock.patch.object(
-            dossiers_page,
-            "_ensure_capability_map_current",
-            return_value=(refreshed, None),
-        ) as ensure:
+        with (
+            mock.patch.object(dossiers_io, "_load_json", return_value=stale),
+            mock.patch.object(
+                dossiers_page,
+                "_ensure_capability_map_current",
+                return_value=(refreshed, None),
+            ) as ensure,
+        ):
             self.assertEqual(
                 dossiers_page._load_mockless_capability_exceptions(),
                 frozenset({"analytics"}),
@@ -638,7 +927,10 @@ class ProjectionReaderTests(unittest.TestCase):
         )
         self.assertFalse(
             dossiers_page.requires_f3(
-                {"id": "draft-new", "envVars": [{"key": "K", "enforcement": "warn-only"}]},
+                {
+                    "id": "draft-new",
+                    "envVars": [{"key": "K", "enforcement": "warn-only"}],
+                },
                 projection=projection,
             )
         )
@@ -700,7 +992,9 @@ class RequiresF3Tests(unittest.TestCase):
 
     def test_build_enforced_key_requires_f3(self) -> None:
         manifest = {"envVars": [{"key": "K", "enforcement": "build"}]}
-        self.assertTrue(dossiers_page.requires_f3(manifest, projection={"dossiers": []}))
+        self.assertTrue(
+            dossiers_page.requires_f3(manifest, projection={"dossiers": []})
+        )
 
     def test_omitted_enforcement_counts_as_build(self) -> None:
         # Samma default som DossierEnvVarEnforcement i types.ts.
@@ -715,7 +1009,9 @@ class RequiresF3Tests(unittest.TestCase):
             "envVars": [{"key": "K", "enforcement": "feature-runtime"}],
             "files": [{"path": "components/api/contact/route.ts", "role": "server"}],
         }
-        self.assertTrue(dossiers_page.requires_f3(manifest, projection={"dossiers": []}))
+        self.assertTrue(
+            dossiers_page.requires_f3(manifest, projection={"dossiers": []})
+        )
 
     def test_hard_dossier_can_be_done_in_f2(self) -> None:
         # Kopplad + demoläge, men varken build-nyckel eller serverfil
@@ -725,13 +1021,17 @@ class RequiresF3Tests(unittest.TestCase):
             "files": [{"path": "components/analytics.tsx", "role": "client"}],
             "mock": "none",
         }
-        self.assertFalse(dossiers_page.requires_f3(manifest, projection={"dossiers": []}))
+        self.assertFalse(
+            dossiers_page.requires_f3(manifest, projection={"dossiers": []})
+        )
 
     def test_missing_and_malformed_fields_do_not_crash(self) -> None:
         empty = {"dossiers": []}
         self.assertFalse(dossiers_page.requires_f3({}, projection=empty))
         self.assertFalse(
-            dossiers_page.requires_f3({"envVars": None, "files": None}, projection=empty)
+            dossiers_page.requires_f3(
+                {"envVars": None, "files": None}, projection=empty
+            )
         )
         self.assertFalse(
             dossiers_page.requires_f3({"envVars": ["rå-sträng"]}, projection=empty)
@@ -755,7 +1055,9 @@ class CreateDossierSkeletonTests(unittest.TestCase):
             p.start()
             self.addCleanup(p.stop)
 
-    def _create(self, target_class: str = "hard", target_id: str = "acme-maps", **overrides):
+    def _create(
+        self, target_class: str = "hard", target_id: str = "acme-maps", **overrides
+    ):
         kwargs: dict[str, object] = {
             "label": "Acme Maps",
             "capability": "map-display",
@@ -820,7 +1122,9 @@ class CreateDossierSkeletonTests(unittest.TestCase):
         ok, msg = self._create()
         self.assertTrue(ok, msg)
         raw = (self.dossier_root / "hard" / "acme-maps" / "manifest.json").read_bytes()
-        self.assertNotIn(b"\r\n", raw, "manifest must be LF-only for capability-map hashes")
+        self.assertNotIn(
+            b"\r\n", raw, "manifest must be LF-only for capability-map hashes"
+        )
         self.assertTrue(raw.endswith(b"\n"))
 
     def test_invalid_id_is_rejected_before_any_write(self) -> None:
@@ -968,6 +1272,20 @@ class CreateDossierSkeletonTests(unittest.TestCase):
         ok, msg = self._create()
         self.assertTrue(ok, msg)
 
+    def test_keyboard_interrupt_after_first_write_rolls_back_and_reraises(self) -> None:
+        original_write_text = Path.write_text
+
+        def interrupt_second_write(self: Path, *args: object, **kwargs: object):
+            if self.name == "instructions.md":
+                raise KeyboardInterrupt()
+            return original_write_text(self, *args, **kwargs)  # type: ignore[arg-type]
+
+        with mock.patch.object(Path, "write_text", interrupt_second_write):
+            with self.assertRaises(KeyboardInterrupt):
+                self._create()
+
+        self.assertFalse((self.dossier_root / "hard" / "acme-maps").exists())
+
 
 class ApplyManifestFieldEditsTests(unittest.TestCase):
     """C4-grinden: fält-formulärets skrivväg går genom samma fail-closed-kedja
@@ -1030,6 +1348,74 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
         self.assertEqual(saved["label"], "Acme CMS v2")
         self.assertEqual(saved["complexity"], "medium")
         self.assertEqual(saved["mock"], "seed")
+
+    def test_partial_edit_write_restores_original_bytes(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        original = self.manifest_path.read_bytes()
+
+        def truncate_then_fail(path: Path, _data: dict[str, object]) -> None:
+            path.write_bytes(b'{"partial":')
+            raise OSError("simulerad trunkering")
+
+        with mock.patch.object(dossiers_io, "_save_json", truncate_then_fail):
+            ok, msg = dossiers_page._apply_manifest_field_edits(
+                self.manifest_path,
+                {"label": "Ny etikett", "mock": "seed"},
+                dossier_class="hard",
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("byte-exakt", msg)
+        self.assertEqual(self.manifest_path.read_bytes(), original)
+
+    def test_edit_backup_failure_is_fail_closed(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        original = self.manifest_path.read_bytes()
+        with mock.patch.object(dossiers_io, "backup_file", return_value=None):
+            ok, msg = dossiers_page._apply_manifest_field_edits(
+                self.manifest_path,
+                {"label": "Ny etikett", "mock": "seed"},
+                dossier_class="hard",
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("säkerhetskopiera", msg)
+        self.assertEqual(self.manifest_path.read_bytes(), original)
+
+    def test_raw_partial_write_restores_original_bytes(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        original = self.manifest_path.read_bytes()
+        edited = {**self._saved(), "label": "Rå ny etikett"}
+
+        def truncate_then_fail(path: Path, _data: dict[str, object]) -> None:
+            path.write_bytes(b'{"partial":')
+            raise OSError("simulerad trunkering")
+
+        with mock.patch.object(dossiers_io, "_save_json", truncate_then_fail):
+            ok, msg = dossiers_page._save_raw_manifest(
+                self.manifest_path, edited, dossier_class="hard"
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("byte-exakt", msg)
+        self.assertEqual(self.manifest_path.read_bytes(), original)
+
+    def test_raw_backup_failure_is_fail_closed(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        original = self.manifest_path.read_bytes()
+        edited = {**self._saved(), "label": "Rå ny etikett"}
+        with mock.patch.object(dossiers_io, "backup_file", return_value=None):
+            ok, msg = dossiers_page._save_raw_manifest(
+                self.manifest_path, edited, dossier_class="hard"
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("säkerhetskopiera", msg)
+        self.assertEqual(self.manifest_path.read_bytes(), original)
 
     def test_none_removes_an_optional_field(self) -> None:
         # Fristående (soft) dossier: demoläget är valfritt, så borttagningen
@@ -1136,7 +1522,9 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
         self.assertTrue(ok, msg)
         self.assertTrue(self._saved(path)["defaultForCapability"])
 
-    def test_hard_default_cannot_be_unchecked_when_multiple_dossiers_need_it(self) -> None:
+    def test_hard_default_cannot_be_unchecked_when_multiple_dossiers_need_it(
+        self,
+    ) -> None:
         current = self._saved()
         current.update({"mock": "seed", "defaultForCapability": True})
         self.manifest_path.write_text(json.dumps(current), encoding="utf-8")
@@ -1174,7 +1562,106 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
         self.assertFalse(self._saved()["defaultForCapability"])
         self.assertTrue(self._saved(successor_path)["defaultForCapability"])
 
-    def test_mismatched_folder_id_is_never_offered_or_accepted_as_successor(self) -> None:
+    def test_handoff_rejects_primary_change_after_caller_snapshot(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        current = self._saved()
+        current.update({"mock": "seed", "defaultForCapability": True})
+        self.manifest_path.write_text(json.dumps(current), encoding="utf-8")
+        successor_path = self._write_manifest(
+            "hard", "beta-cms", "cms", mock="seed", defaultForCapability=False
+        )
+        external = {**current, "label": "Extern ändring"}
+
+        def mutate_after_read() -> set[str]:
+            self.manifest_path.write_text(json.dumps(external), encoding="utf-8")
+            return {"cms"}
+
+        with mock.patch.object(
+            dossiers_io,
+            "_load_mockless_capability_exceptions",
+            side_effect=mutate_after_read,
+        ):
+            ok, msg = dossiers_page._apply_manifest_field_edits(
+                self.manifest_path,
+                {"mock": "seed", "defaultForCapability": False},
+                dossier_class="hard",
+                replacement_default_path=successor_path,
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("ändrades efter", msg)
+        self.assertEqual(self._saved(), external)
+        self.assertFalse(self._saved(successor_path)["defaultForCapability"])
+
+    def test_concurrent_handoffs_cannot_leave_duplicate_defaults(self) -> None:
+        current = self._saved()
+        current.update({"mock": "seed", "defaultForCapability": True})
+        self.manifest_path.write_text(json.dumps(current), encoding="utf-8")
+        successors = [
+            self._write_manifest(
+                "hard", dossier_id, "cms", mock="seed", defaultForCapability=False
+            )
+            for dossier_id in ("beta-cms", "gamma-cms")
+        ]
+        barrier = threading.Barrier(3)
+        results: list[tuple[bool, str]] = []
+
+        def transfer(successor_path: Path) -> None:
+            barrier.wait()
+            results.append(
+                dossiers_page._apply_manifest_field_edits(
+                    self.manifest_path,
+                    {"mock": "seed", "defaultForCapability": False},
+                    dossier_class="hard",
+                    replacement_default_path=successor_path,
+                )
+            )
+
+        threads = [
+            threading.Thread(target=transfer, args=(path,)) for path in successors
+        ]
+        for thread in threads:
+            thread.start()
+        barrier.wait()
+        for thread in threads:
+            thread.join(timeout=5)
+
+        self.assertTrue(all(not thread.is_alive() for thread in threads))
+        self.assertEqual(sum(ok for ok, _msg in results), 1, results)
+        defaults = [
+            path.parent.name
+            for path in successors
+            if self._saved(path).get("defaultForCapability") is True
+        ]
+        self.assertEqual(len(defaults), 1, defaults)
+        self.assertFalse(self._saved()["defaultForCapability"])
+
+    def test_cas_rejects_external_change_before_single_manifest_write(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        external = {**self._saved(), "label": "Extern ändring", "mock": "seed"}
+
+        def race(*_args: object, **_kwargs: object) -> list[str]:
+            self.manifest_path.write_text(json.dumps(external), encoding="utf-8")
+            return []
+
+        with mock.patch.object(
+            dossiers_io, "_default_invariant_errors_after_change", side_effect=race
+        ):
+            ok, msg = dossiers_page._apply_manifest_field_edits(
+                self.manifest_path,
+                {"label": "Backoffice-ändring", "mock": "seed"},
+                dossier_class="hard",
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("ändrades medan redigeringen", msg)
+        self.assertEqual(self._saved(), external)
+
+    def test_mismatched_folder_id_is_never_offered_or_accepted_as_successor(
+        self,
+    ) -> None:
         from backoffice.pages.dossiers_lib import io as dossiers_io
 
         current = self._saved()
@@ -1205,20 +1692,22 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
         self.assertFalse(self._saved(mismatched_path)["defaultForCapability"])
 
     def test_default_handoff_rolls_back_both_when_second_write_fails(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
         current = self._saved()
         current.update({"mock": "seed", "defaultForCapability": True})
         self.manifest_path.write_text(json.dumps(current), encoding="utf-8")
         successor_path = self._write_manifest(
             "hard", "beta-cms", "cms", mock="seed", defaultForCapability=False
         )
-        original_write_text = Path.write_text
+        original_save_json = dossiers_io._save_json
 
-        def fail_primary_write(path: Path, *args: object, **kwargs: object):
+        def fail_primary_write(path: Path, data: dict[str, object]) -> None:
             if path == self.manifest_path:
                 raise OSError("simulerat andra-skrivningsfel")
-            return original_write_text(path, *args, **kwargs)  # type: ignore[arg-type]
+            original_save_json(path, data)
 
-        with mock.patch.object(Path, "write_text", fail_primary_write):
+        with mock.patch.object(dossiers_io, "_save_json", fail_primary_write):
             ok, msg = dossiers_page._apply_manifest_field_edits(
                 self.manifest_path,
                 {"mock": "seed", "defaultForCapability": False},
@@ -1231,13 +1720,39 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
         self.assertTrue(self._saved()["defaultForCapability"])
         self.assertFalse(self._saved(successor_path)["defaultForCapability"])
 
+    def test_default_handoff_rolls_back_then_reraises_keyboard_interrupt(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        current = self._saved()
+        current.update({"mock": "seed", "defaultForCapability": True})
+        self.manifest_path.write_text(json.dumps(current), encoding="utf-8")
+        successor_path = self._write_manifest(
+            "hard", "beta-cms", "cms", mock="seed", defaultForCapability=False
+        )
+        original_save_json = dossiers_io._save_json
+
+        def interrupt_primary(path: Path, data: dict[str, object]) -> None:
+            if path == self.manifest_path:
+                raise KeyboardInterrupt()
+            original_save_json(path, data)
+
+        with mock.patch.object(dossiers_io, "_save_json", interrupt_primary):
+            with self.assertRaises(KeyboardInterrupt):
+                dossiers_page._apply_manifest_field_edits(
+                    self.manifest_path,
+                    {"mock": "seed", "defaultForCapability": False},
+                    dossier_class="hard",
+                    replacement_default_path=successor_path,
+                )
+
+        self.assertTrue(self._saved()["defaultForCapability"])
+        self.assertFalse(self._saved(successor_path)["defaultForCapability"])
+
     def test_raw_editor_cannot_bypass_hard_default_invariant(self) -> None:
         current = self._saved()
         current["defaultForCapability"] = True
         self.manifest_path.write_text(json.dumps(current), encoding="utf-8")
-        self._write_manifest(
-            "hard", "beta-cms", "cms", defaultForCapability=False
-        )
+        self._write_manifest("hard", "beta-cms", "cms", defaultForCapability=False)
         edited = {**current, "defaultForCapability": False}
 
         ok, msg = dossiers_page._save_raw_manifest(
@@ -1290,6 +1805,10 @@ class PromoteProspectCapabilityGateTests(unittest.TestCase):
         draft.mkdir(parents=True)
         (draft / "manifest.json").write_text(
             json.dumps({"id": "acme-pay", "capability": "payments"}), encoding="utf-8"
+        )
+        (draft / "instructions.md").write_text(
+            "# When to use\n\nTest.\n\n# How to integrate\n\nTest.\n",
+            encoding="utf-8",
         )
         self.dossier_root = self.root / "data" / "dossiers"
         patches = [
@@ -1356,9 +1875,7 @@ class PromoteProspectCapabilityGateTests(unittest.TestCase):
         self.assertNotIn("targetCapability", msg)
 
     def test_hard_draft_without_provider_is_rejected(self) -> None:
-        ok, msg = dossiers_page._promote_prospect(
-            self.root, self._entry(), force=False
-        )
+        ok, msg = dossiers_page._promote_prospect(self.root, self._entry(), force=False)
         self.assertFalse(ok)
         self.assertIn("providers", msg)
 
@@ -1376,19 +1893,529 @@ class PromoteProspectCapabilityGateTests(unittest.TestCase):
     def test_promotion_cannot_make_hard_family_unresolvable(self) -> None:
         draft_manifest = self.root / "legacy-1" / "_v2-draft" / "manifest.json"
         self._write_valid_hard_manifest(draft_manifest, "acme-pay")
-        sibling_manifest = (
-            self.dossier_root / "hard" / "sibling-pay" / "manifest.json"
-        )
+        sibling_manifest = self.dossier_root / "hard" / "sibling-pay" / "manifest.json"
         self._write_valid_hard_manifest(sibling_manifest, "sibling-pay")
 
-        ok, msg = dossiers_page._promote_prospect(
-            self.root, self._entry(), force=False
-        )
+        ok, msg = dossiers_page._promote_prospect(self.root, self._entry(), force=False)
 
         self.assertFalse(ok)
         self.assertIn("Standardvalsregeln", msg)
         self.assertIn("no resolvable default demo", msg)
         self.assertFalse((self.dossier_root / "hard" / "acme-pay").exists())
+
+    def test_rejects_escaped_legacy_id_before_reading_outside_root(self) -> None:
+        outside = self.root.parent / "outside" / "_v2-draft"
+        outside.mkdir(parents=True, exist_ok=True)
+        (outside / "manifest.json").write_text("{}", encoding="utf-8")
+
+        ok, msg = dossiers_page._promote_prospect(
+            self.root, self._entry(legacyId="../outside"), force=False
+        )
+
+        self.assertFalse(ok)
+        self.assertIn("legacyId", msg)
+        self.assertFalse((self.dossier_root / "hard" / "acme-pay").exists())
+
+    def test_draft_change_after_projection_is_rejected_without_live_write(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        draft_manifest = self.root / "legacy-1" / "_v2-draft" / "manifest.json"
+        self._write_valid_hard_manifest(draft_manifest, "acme-pay")
+
+        def mutate_source(*_args: object, **_kwargs: object) -> list[str]:
+            changed = json.loads(draft_manifest.read_text(encoding="utf-8"))
+            changed["label"] = "Extern ändring"
+            draft_manifest.write_text(json.dumps(changed), encoding="utf-8")
+            return []
+
+        with mock.patch.object(
+            dossiers_io,
+            "_default_invariant_errors_after_change",
+            side_effect=mutate_source,
+        ):
+            ok, msg = dossiers_page._promote_prospect(
+                self.root, self._entry(), force=False
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("ändrades under valideringen", msg)
+        self.assertFalse((self.dossier_root / "hard" / "acme-pay").exists())
+
+    def test_target_appearing_before_commit_is_preserved(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        draft_manifest = self.root / "legacy-1" / "_v2-draft" / "manifest.json"
+        self._write_valid_hard_manifest(draft_manifest, "acme-pay")
+        target_manifest = self.dossier_root / "hard" / "acme-pay" / "manifest.json"
+        external = b'{"id":"acme-pay","external":true}'
+
+        def create_target(*_args: object, **_kwargs: object) -> list[str]:
+            target_manifest.parent.mkdir(parents=True)
+            target_manifest.write_bytes(external)
+            return []
+
+        with mock.patch.object(
+            dossiers_io,
+            "_default_invariant_errors_after_change",
+            side_effect=create_target,
+        ):
+            ok, msg = dossiers_page._promote_prospect(
+                self.root, self._entry(), force=True
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("annan session", msg)
+        self.assertEqual(target_manifest.read_bytes(), external)
+
+    def test_rename_after_success_failure_restores_forced_target(self) -> None:
+        draft_manifest = self.root / "legacy-1" / "_v2-draft" / "manifest.json"
+        self._write_valid_hard_manifest(draft_manifest, "acme-pay")
+        target_manifest = self.dossier_root / "hard" / "acme-pay" / "manifest.json"
+        self._write_valid_hard_manifest(target_manifest, "acme-pay")
+        old_bytes = target_manifest.read_bytes()
+        original_rename = Path.rename
+
+        def rename_then_fail(path: Path, target: Path) -> Path:
+            result = original_rename(path, target)
+            if ".promote-stage-" in path.name:
+                raise OSError("simulerat rename-after-success")
+            return result
+
+        with mock.patch.object(Path, "rename", rename_then_fail):
+            ok, msg = dossiers_page._promote_prospect(
+                self.root, self._entry(), force=True
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("återställdes", msg)
+        self.assertEqual(target_manifest.read_bytes(), old_bytes)
+
+    def test_pool_change_after_projection_blocks_promotion(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        draft_manifest = self.root / "legacy-1" / "_v2-draft" / "manifest.json"
+        self._write_valid_hard_manifest(draft_manifest, "acme-pay")
+        candidate = json.loads(draft_manifest.read_text(encoding="utf-8"))
+        candidate["defaultForCapability"] = True
+        draft_manifest.write_text(json.dumps(candidate), encoding="utf-8")
+        sibling = self.dossier_root / "hard" / "other-pay" / "manifest.json"
+
+        def add_competing_default(*_args: object, **_kwargs: object) -> list[str]:
+            self._write_valid_hard_manifest(sibling, "other-pay")
+            data = json.loads(sibling.read_text(encoding="utf-8"))
+            data["defaultForCapability"] = True
+            sibling.write_text(json.dumps(data), encoding="utf-8")
+            return []
+
+        with mock.patch.object(
+            dossiers_io,
+            "_default_invariant_errors_after_change",
+            side_effect=add_competing_default,
+        ):
+            ok, msg = dossiers_page._promote_prospect(
+                self.root, self._entry(), force=False
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("Dossier-poolen ändrades", msg)
+        self.assertFalse((self.dossier_root / "hard" / "acme-pay").exists())
+
+    def test_draft_change_during_target_backup_blocks_promotion(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        draft_manifest = self.root / "legacy-1" / "_v2-draft" / "manifest.json"
+        self._write_valid_hard_manifest(draft_manifest, "acme-pay")
+        target_manifest = self.dossier_root / "hard" / "acme-pay" / "manifest.json"
+        self._write_valid_hard_manifest(target_manifest, "acme-pay")
+        old_target = target_manifest.read_bytes()
+
+        def mutate_draft(*_args: object, **_kwargs: object) -> Path:
+            changed = json.loads(draft_manifest.read_text(encoding="utf-8"))
+            changed["label"] = "Sen extern ändring"
+            draft_manifest.write_text(json.dumps(changed), encoding="utf-8")
+            return self.root / "backup.zip"
+
+        with mock.patch.object(dossiers_io, "backup_tree", side_effect=mutate_draft):
+            ok, msg = dossiers_page._promote_prospect(
+                self.root, self._entry(), force=True
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("Utkastet ändrades före commit", msg)
+        self.assertEqual(target_manifest.read_bytes(), old_target)
+
+    def test_silent_stage_materialization_drift_is_rejected(self) -> None:
+        draft_manifest = self.root / "legacy-1" / "_v2-draft" / "manifest.json"
+        self._write_valid_hard_manifest(draft_manifest, "acme-pay")
+        original_write_bytes = Path.write_bytes
+
+        def tamper_instructions(path: Path, content: bytes) -> int:
+            if ".promote-stage-" in path.parent.name and path.name == "instructions.md":
+                return original_write_bytes(path, b"tampered")
+            return original_write_bytes(path, content)
+
+        with mock.patch.object(Path, "write_bytes", tamper_instructions):
+            ok, msg = dossiers_page._promote_prospect(
+                self.root, self._entry(), force=False
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("matchar inte", msg)
+        self.assertFalse((self.dossier_root / "hard" / "acme-pay").exists())
+
+
+class CuratedDossierTransactionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo_root = Path(self._tmp.name)
+        self.dossier_root = self.repo_root / "data" / "dossiers"
+        patches = [
+            mock.patch.object(dossiers_page, "REPO_ROOT", self.repo_root),
+            mock.patch.object(dossiers_page, "DOSSIER_ROOT", self.dossier_root),
+            mock.patch.object(dossiers_page, "HARD_ROOT", self.dossier_root / "hard"),
+            mock.patch.object(dossiers_page, "SOFT_ROOT", self.dossier_root / "soft"),
+        ]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def _stage(self, dossier_id: str = "acme-pay") -> Path:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        ok, stage = dossiers_io._allocate_curated_dossier_stage(dossier_id)
+        self.assertTrue(ok, stage)
+        path = Path(stage)
+        (path / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "id": dossier_id,
+                    "label": "Acme Payments",
+                    "capability": "payments",
+                    "codeFidelity": "rewritable",
+                    "complexity": "simple",
+                    "summary": "A payments building block used by transaction tests.",
+                    "lastVerified": "2026-08-11",
+                    "providers": ["acme"],
+                    "mock": "seed",
+                    "defaultForCapability": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        (path / "instructions.md").write_text(
+            "# When to use\n\nTest.\n\n# How to integrate\n\nTest.\n",
+            encoding="utf-8",
+        )
+        return path
+
+    def test_stage_is_outside_live_pool_and_publishes_both_files_together(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self._stage()
+        self.assertNotIn(self.dossier_root.resolve(), stage.resolve().parents)
+        self.assertEqual(dossiers_io._walk_all_dossiers(), [])
+
+        ok, msg = dossiers_io._commit_curated_dossier_stage(
+            stage, "hard", "acme-pay", force=False
+        )
+
+        self.assertTrue(ok, msg)
+        target = self.dossier_root / "hard" / "acme-pay"
+        self.assertTrue((target / "manifest.json").exists())
+        self.assertTrue((target / "instructions.md").exists())
+
+    def test_transaction_root_link_is_rejected_before_stage_allocation(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        outside = self.repo_root / "outside-staging"
+        outside.mkdir()
+        staging = self.repo_root / "data" / "backoffice" / "staging"
+        staging.parent.mkdir(parents=True)
+        try:
+            staging.symlink_to(outside, target_is_directory=True)
+        except OSError as exc:
+            self.skipTest(f"symlink/junction creation unavailable: {exc}")
+
+        ok, msg = dossiers_io._allocate_curated_dossier_stage("acme-pay")
+
+        self.assertFalse(ok)
+        self.assertIn("länk/junction", msg)
+        self.assertEqual(list(outside.iterdir()), [])
+
+    def test_curated_stage_rejects_unexpected_files(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self._stage()
+        (stage / "unexpected.txt").write_text("no", encoding="utf-8")
+
+        ok, msg = dossiers_io._commit_curated_dossier_stage(
+            stage, "hard", "acme-pay", force=False
+        )
+
+        self.assertFalse(ok)
+        self.assertIn("oväntade", msg)
+        self.assertFalse((self.dossier_root / "hard" / "acme-pay").exists())
+
+    def test_lock_timeout_stage_can_be_cleaned_by_service_owner(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self._stage()
+        with mock.patch.object(
+            dossiers_io,
+            "repo_mutation_lock",
+            side_effect=dossiers_io.RepoMutationLockTimeout("busy"),
+        ):
+            ok, _msg = dossiers_io._commit_curated_dossier_stage(
+                stage, "hard", "acme-pay", force=False
+            )
+        self.assertFalse(ok)
+        cleanup_ok, cleanup_msg = dossiers_io._cleanup_curated_dossier_stage(stage)
+        self.assertTrue(cleanup_ok, cleanup_msg)
+        self.assertFalse(stage.exists())
+
+    def test_invalid_class_never_cleans_unverified_arbitrary_path(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        outside = self.repo_root / "do-not-delete"
+        outside.mkdir()
+        (outside / "sentinel").write_text("keep", encoding="utf-8")
+
+        ok, _msg = dossiers_io._commit_curated_dossier_stage(
+            outside, "invalid", "acme-pay", force=False
+        )
+
+        self.assertFalse(ok)
+        self.assertTrue((outside / "sentinel").exists())
+
+    def test_pool_change_after_projection_blocks_curated_commit(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self._stage()
+        candidate = json.loads((stage / "manifest.json").read_text(encoding="utf-8"))
+        candidate["defaultForCapability"] = True
+        (stage / "manifest.json").write_text(json.dumps(candidate), encoding="utf-8")
+
+        def add_competing_default(*_args: object, **_kwargs: object) -> list[str]:
+            sibling = self.dossier_root / "hard" / "other-pay" / "manifest.json"
+            sibling.parent.mkdir(parents=True)
+            sibling.write_text(
+                json.dumps(
+                    {
+                        **candidate,
+                        "id": "other-pay",
+                        "defaultForCapability": True,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            return []
+
+        with mock.patch.object(
+            dossiers_io,
+            "_default_invariant_errors_after_change",
+            side_effect=add_competing_default,
+        ):
+            ok, msg = dossiers_io._commit_curated_dossier_stage(
+                stage, "hard", "acme-pay", force=False
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("Dossier-poolen ändrades", msg)
+        self.assertFalse((self.dossier_root / "hard" / "acme-pay").exists())
+
+    def test_stage_change_during_target_backup_blocks_curated_commit(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self._stage()
+        target = self.dossier_root / "hard" / "acme-pay"
+        target.mkdir(parents=True)
+        old_manifest = (stage / "manifest.json").read_bytes()
+        (target / "manifest.json").write_bytes(old_manifest)
+        (target / "instructions.md").write_text("old", encoding="utf-8")
+        old_target = (target / "manifest.json").read_bytes()
+
+        def mutate_stage(*_args: object, **_kwargs: object) -> Path:
+            (stage / "manifest.json").write_text('{"id":"evil"}', encoding="utf-8")
+            return self.repo_root / "backup.zip"
+
+        with mock.patch.object(dossiers_io, "backup_tree", side_effect=mutate_stage):
+            ok, msg = dossiers_io._commit_curated_dossier_stage(
+                stage, "hard", "acme-pay", force=True
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("stage ändrades före commit", msg)
+        self.assertEqual((target / "manifest.json").read_bytes(), old_target)
+
+    def test_force_preserves_existing_non_owned_tree_byte_exactly(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self._stage()
+        candidate_manifest = (stage / "manifest.json").read_bytes()
+        candidate_instructions = (stage / "instructions.md").read_bytes()
+        target = self.dossier_root / "hard" / "acme-pay"
+        target.mkdir(parents=True)
+        (target / "manifest.json").write_bytes(candidate_manifest)
+        (target / "instructions.md").write_bytes(b"old instructions\r\n")
+        component_bytes = b"export const value = '\\x00';\r\n"
+        unknown_bytes = bytes(range(256))
+        (target / "components").mkdir()
+        (target / "components" / "widget.tsx").write_bytes(component_bytes)
+        (target / "notes.bin").write_bytes(unknown_bytes)
+        (target / "assets" / "empty").mkdir(parents=True)
+
+        ok, msg = dossiers_io._commit_curated_dossier_stage(
+            stage, "hard", "acme-pay", force=True
+        )
+
+        self.assertTrue(ok, msg)
+        self.assertEqual((target / "manifest.json").read_bytes(), candidate_manifest)
+        self.assertEqual(
+            (target / "instructions.md").read_bytes(), candidate_instructions
+        )
+        self.assertEqual(
+            (target / "components" / "widget.tsx").read_bytes(), component_bytes
+        )
+        self.assertEqual((target / "notes.bin").read_bytes(), unknown_bytes)
+        self.assertTrue((target / "assets" / "empty").is_dir())
+
+    def test_force_preserved_tree_is_restored_when_stage_rename_fails(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self._stage()
+        target = self.dossier_root / "hard" / "acme-pay"
+        target.mkdir(parents=True)
+        (target / "manifest.json").write_bytes((stage / "manifest.json").read_bytes())
+        (target / "instructions.md").write_bytes(b"old instructions\r\n")
+        (target / "components").mkdir()
+        (target / "components" / "widget.tsx").write_bytes(b"old component\x00\r\n")
+        (target / "unknown.bin").write_bytes(bytes(range(256)))
+        (target / "assets" / "empty").mkdir(parents=True)
+        before, snapshot_error = dossiers_io._tree_byte_snapshot(target)
+        self.assertIsNone(snapshot_error)
+        self.assertIsNotNone(before)
+        original_rename = Path.rename
+
+        def reject_stage_rename(path: Path, destination: Path) -> Path:
+            if ".curate-stage-" in path.name:
+                raise OSError("simulated stage rename failure")
+            return original_rename(path, destination)
+
+        with mock.patch.object(Path, "rename", reject_stage_rename):
+            ok, msg = dossiers_io._commit_curated_dossier_stage(
+                stage, "hard", "acme-pay", force=True
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("simulated stage rename failure", msg)
+        after, snapshot_error = dossiers_io._tree_byte_snapshot(target)
+        self.assertIsNone(snapshot_error)
+        self.assertEqual(after, before)
+
+    def test_class_root_link_is_rejected_before_publication(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self._stage()
+        outside = self.repo_root / "outside-hard"
+        outside.mkdir()
+        class_root = self.dossier_root / "hard"
+        class_root.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            class_root.symlink_to(outside, target_is_directory=True)
+        except OSError as exc:
+            self.skipTest(f"symlink/junction creation unavailable: {exc}")
+
+        ok, msg = dossiers_io._commit_curated_dossier_stage(
+            stage, "hard", "acme-pay", force=False
+        )
+
+        self.assertFalse(ok)
+        self.assertIn("länk/junction", msg)
+        self.assertFalse((outside / "acme-pay").exists())
+
+    def test_parent_class_link_blocks_existing_manifest_writer(self) -> None:
+        outside = self.repo_root / "outside-hard"
+        manifest_path = outside / "acme-pay" / "manifest.json"
+        manifest_path.parent.mkdir(parents=True)
+        manifest = {
+            "id": "acme-pay",
+            "label": "Acme Payments",
+            "capability": "payments",
+            "codeFidelity": "rewritable",
+            "complexity": "simple",
+            "summary": "A payments building block used by link guard tests.",
+            "lastVerified": "2026-08-11",
+            "providers": ["acme"],
+            "mock": "seed",
+        }
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        original = manifest_path.read_bytes()
+        class_root = self.dossier_root / "hard"
+        class_root.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            class_root.symlink_to(outside, target_is_directory=True)
+        except OSError as exc:
+            self.skipTest(f"symlink/junction creation unavailable: {exc}")
+
+        ok, msg = dossiers_page._save_raw_manifest(
+            class_root / "acme-pay" / "manifest.json",
+            {**manifest, "label": "Should not write"},
+            dossier_class="hard",
+        )
+
+        self.assertFalse(ok)
+        self.assertIn("länk/junction", msg)
+        self.assertEqual(manifest_path.read_bytes(), original)
+
+    def test_parent_class_link_blocks_skeleton_creation(self) -> None:
+        outside = self.repo_root / "outside-hard"
+        outside.mkdir()
+        class_root = self.dossier_root / "hard"
+        class_root.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            class_root.symlink_to(outside, target_is_directory=True)
+        except OSError as exc:
+            self.skipTest(f"symlink/junction creation unavailable: {exc}")
+
+        ok, msg = dossiers_page._create_dossier_skeleton(
+            "hard",
+            "acme-pay",
+            label="Acme Payments",
+            capability="payments",
+            summary="A payments building block used by link guard tests.",
+            providers=["acme"],
+            mock="seed",
+        )
+
+        self.assertFalse(ok)
+        self.assertIn("länk/junction", msg)
+        self.assertFalse((outside / "acme-pay").exists())
+
+    def test_keyboard_interrupt_after_stage_rename_restores_old_target(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self._stage()
+        target = self.dossier_root / "hard" / "acme-pay"
+        target.mkdir(parents=True)
+        (target / "manifest.json").write_bytes((stage / "manifest.json").read_bytes())
+        (target / "instructions.md").write_text("old", encoding="utf-8")
+        old_instructions = (target / "instructions.md").read_bytes()
+        original_rename = Path.rename
+
+        def rename_then_interrupt(path: Path, destination: Path) -> Path:
+            result = original_rename(path, destination)
+            if ".curate-stage-" in path.name:
+                raise KeyboardInterrupt()
+            return result
+
+        with mock.patch.object(Path, "rename", rename_then_interrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                dossiers_io._commit_curated_dossier_stage(
+                    stage, "hard", "acme-pay", force=True
+                )
+
+        self.assertEqual((target / "instructions.md").read_bytes(), old_instructions)
 
 
 if __name__ == "__main__":
