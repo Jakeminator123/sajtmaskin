@@ -142,21 +142,27 @@ describe("detectDegenerateFiles", () => {
     expect(result.degenerate).toBe(false);
   });
 
+  it("accepts a lockfile under the preview-host 2 MiB file ceiling", () => {
+    // Between the old 768 KB source ceiling and preview-host MAX_FILE_BYTES.
+    const content = "x".repeat(DEFAULT_DEGENERACY_THRESHOLDS.maxSingleFileBytes + 50_000);
+    const result = detectDegenerateFiles([{ path: "pnpm-lock.yaml", content }]);
+    expect(result.degenerate).toBe(false);
+  });
+
   it("still flags a lockfile the preview host would refuse on size", () => {
     const result = detectDegenerateFiles([
       {
         path: "pnpm-lock.yaml",
-        content: "x".repeat(DEFAULT_DEGENERACY_THRESHOLDS.maxSingleFileBytes + 1),
+        content: "x".repeat(DEFAULT_DEGENERACY_THRESHOLDS.maxBinaryAssetBytes + 1),
       },
     ]);
     expect(result.degenerate).toBe(true);
-    expect(result.reason).toContain("single-file ceiling");
+    expect(result.reason).toContain("file ceiling");
   });
 
-  // A round can only be blamed for what it produced. Inherited (base-identical)
-  // content that trips the repetition heuristic would otherwise block every
-  // follow-up forever, leaving the user no way to edit their way out.
-  it("does NOT flag self-repetition in base-identical inherited content", () => {
+  // preservePaths must NOT skip repetition: otherwise a blocked degenerate file
+  // left untouched on the next follow-up is treated as clean (false-green wash).
+  it("still flags self-repetition even when the path is listed in preservePaths", () => {
     const line = "export function CredentialDeck() { return <Deck cards={CARDS} />; }";
     const repeated = Array.from(
       { length: DEFAULT_DEGENERACY_THRESHOLDS.maxLineRepeats + 5 },
@@ -168,7 +174,7 @@ describe("detectDegenerateFiles", () => {
       detectDegenerateFiles(files, undefined, {
         preservePaths: new Set(["components/credential-deck.tsx"]),
       }).degenerate,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("still flags self-repetition in a file this round changed", () => {

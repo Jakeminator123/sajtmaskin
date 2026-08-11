@@ -52,6 +52,39 @@ describe("import-validator locally declared components (prod chat f98fd5c0)", ()
     ].join("\n");
     expect(runImportValidator(page).code).toContain('from "@/components/ui/button"');
   });
+
+  it("still imports Button when only a nested helper declares const Button", () => {
+    const page = [
+      "function makeToolbar() {",
+      "  const Button = (props: { children?: React.ReactNode }) => <button {...props} />;",
+      "  return <Button>local</Button>;",
+      "}",
+      "",
+      "export default function Page() {",
+      "  return <Button>Klicka</Button>;",
+      "}",
+      "",
+    ].join("\n");
+    expect(runImportValidator(page).code).toContain('from "@/components/ui/button"');
+  });
+
+  it("does not self-import a typed module-scope const Button: React.FC", () => {
+    const page = [
+      "import * as React from 'react';",
+      "",
+      "const Button: React.FC<{ children?: React.ReactNode }> = ({ children }) => (",
+      "  <button type=\"button\">{children}</button>",
+      ");",
+      "",
+      "export default function Page() {",
+      "  return <Button>Klicka</Button>;",
+      "}",
+      "",
+    ].join("\n");
+    const result = runImportValidator(page);
+    expect(result.code).not.toContain("@/components/ui/button");
+    expect(result.code).toBe(page);
+  });
 });
 
 describe("import-validator multi-line import bindings (M#imp1, prod cc10e7de v8)", () => {
