@@ -50,7 +50,7 @@ exact capability/dossier is known.
 
 Hard dossiers whose runtime crashes on missing/placeholder keys should additionally **key-gate themselves in the shipped files** — e.g. `clerk-auth/components/middleware.ts` only constructs `clerkMiddleware` when the keys are structurally valid and otherwise degrades to `NextResponse.next()` (placeholder keys must never 500 the whole preview). The `configured` flag from selection is a prompt signal, not a runtime guard — it is never wired to any gate.
 
-## Grupper (presentations-lager, 10 st)
+## Grupper (presentations-lager)
 
 Grupper är UI-rubriker för backoffice och builderns Byggblock-panel — inte en
 ny schemadimension. Trenivåmodellen: **Grupp** (UI-rubrik, styr aldrig
@@ -60,6 +60,8 @@ capability, en är default via `defaultForCapability`). Grupp härleds från
 capability via kanonisk mappning i
 [`src/lib/builder/dossier-groups.ts`](../../src/lib/builder/dossier-groups.ts)
 (`resolveDossierGroup`) — inget nytt manifestfält, ingen runtime-/selektionspåverkan.
+Aktuell capability→grupp-vy:
+[`docs/generated/capabilities.generated.md`](../generated/capabilities.generated.md).
 
 | #   | Grupp-id       | Svensk label        | Capabilities                                                                 |
 | --- | -------------- | ------------------- | ---------------------------------------------------------------------------- |
@@ -144,9 +146,9 @@ fejkade sessioner, debiteringar eller transport). `error-tracking` lämnade
 listan 2026-08-06 av det motsatta skälet: dess enda dossier parkerades, så
 det finns ingen hard-dossier kvar för undantaget att gälla.
 
-| Capability  | Varför undantagen                                                                                              |
-| ----------- | -------------------------------------------------------------------------------------------------------------- |
-| `analytics` | Fire-and-forget-beacons har ingen visuell yta att mocka; nycklar är `warn-only` och komponenten self-disablar. |
+| Capability  | Varför undantagen                                                                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `analytics` | Fire-and-forget-beacons har ingen visuell yta att mocka; dossiern har `envVars: []` och komponenten self-disablar utan hosting-token. |
 
 Att lägga till en capability här är ett kontraktsbeslut, inte en genväg: en
 demo-bar capability (DB, CMS, e-post, AI, betalning, inloggning …) ska i
@@ -170,15 +172,17 @@ Konkreta kombinationer som visar oberoendet:
 | ------------------ | -------- | -------- | ---------- | -------------------------------------------------------------------------------------------- |
 | `stripe-checkout`  | Ja       | `visual` | Ja         | Serverfil (`/api/checkout-session`) — inte nyckeln; `STRIPE_SECRET_KEY` är `feature-runtime` |
 | `clerk-auth`       | Ja       | `visual` | Ja         | Enda kvarvarande `enforcement: "build"` — trasig inloggning är värre än demo-friktion        |
-| `vercel-analytics` | Ja       | `none`   | **Nej**    | `warn-only`-nyckel + bara klientfil ⇒ klar redan i designläget                               |
+| `vercel-analytics` | Ja       | `none`   | **Nej**    | Inga egna env-nycklar (`envVars: []`) + bara klientfil ⇒ klar redan i designläget; self-disable utan hosting-token |
 | `embla-carousel`   | Nej      | —        | Nej        | Fristående, bara npm                                                                         |
 
 Följden av detta: **läs aldrig av "Kopplad" som "kräver F3"**, och läs aldrig av
-`mock` som en fas-signal. Vokabulären för alla tre axlarna bor på ett ställe
-per språk — [`src/lib/builder/dossier-axes.ts`](../../src/lib/builder/dossier-axes.ts)
-(produkt-UI) och `MOCK_LABELS`/`requires_f3` i
-[`backoffice/pages/dossiers.py`](../../backoffice/pages/dossiers.py) (kurator-UI);
-pariteten mellan dem grindas i `backoffice/test_dossiers_page.py`.
+`mock` som en fas-signal. Vokabulären ägs av
+[`src/lib/builder/dossier-axes.ts`](../../src/lib/builder/dossier-axes.ts)
+(produkt-UI). Kurator-UI speglar orden via
+[`backoffice/pages/dossiers_lib/`](../../backoffice/pages/dossiers_lib/)
+(`constants.py` / `labels.py` — fasaden `dossiers.py` är bara re-export).
+F3-kravet speglas också som `buildServerRequirement` i
+[`capability-map.json`](../../data/dossiers/_index/capability-map.json).
 
 ### Härledd livscykelvy för Byggblock-panelen
 
@@ -242,7 +246,7 @@ Det deklarativa `mock`-fältet ([`DossierMockMode`](../../src/lib/gen/dossiers/t
 
 Mock-värden är **F2/preview-only** — de persisteras aldrig till `projectEnvVars` och skeppas aldrig till en riktig deploy. En dossier som fått en _riktig_ primärnyckel men har platshållare på en sekundärnyckel tar den ärliga setup-vägen (t.ex. `resend-contact-form`: riktig `RESEND_API_KEY` men placeholder `EMAIL_FROM`/`CONTACT_EMAIL_TO` → `503 email-not-configured` + `IntegrationConfigNotice`), aldrig ett riktigt anrop med fejkad config.
 
-**Satt på 10 av 11 hard-dossiers (sedan nedbantningen 2026-08-06, inkl. etapp 3).** Endast `vercel-analytics` utelämnar fältet → `none`; det är korrekt eftersom dess nycklar är `warn-only` (komponenten self-disablar helt utan visuell yta att mocka) och capability `analytics` står på undantagslistan. Att **varje** hard-dossier i en icke-undantagen capability har `mock ≠ none` är **CI-tvingat** (per-dossier sedan 2026-07-12) — se **Fallback-principen** i grupp-sektionen ovan (`findMissingMockFallbacks` i `validate-manifest.ts`).
+**Alla hard-dossiers har ett explicit `mock`-läge utom analytics-undantaget.** Endast `vercel-analytics` utelämnar fältet → `none`; det är korrekt eftersom den saknar egna env-nycklar (`envVars: []` — komponenten self-disablar helt utan visuell yta att mocka) och capability `analytics` står på undantagslistan. Att **varje** hard-dossier i en icke-undantagen capability har `mock ≠ none` är **CI-tvingat** (per-dossier sedan 2026-07-12) — se **Fallback-principen** i grupp-sektionen ovan (`findMissingMockFallbacks` i `validate-manifest.ts`). Aktuell katalog: [`docs/generated/dossiers.generated.md`](../generated/dossiers.generated.md).
 
 ## Two code-fidelities (per-dossier default + per-file override)
 

@@ -5,12 +5,13 @@ Tunn pekare — canonical innehåll finns redan i `docs/` och `.cursor/rules/`.
 ## Läs i denna ordning innan du börjar
 
 1. [`docs/README.md`](docs/README.md) — dokumentationsnav
-2. [`docs/concepts/mental-model.md`](docs/concepts/mental-model.md) — stabil mental modell
-3. [`docs/architecture/code-map.md`](docs/architecture/code-map.md) — kodkarta
-4. [`docs/architecture/glossary.md`](docs/architecture/glossary.md) — kanonisk ordlista
-5. [`.cursor/README.md`](.cursor/README.md) — fulla regel-index + prioriteringsordning
-6. [`.cursor/rules/terminology.mdc`](.cursor/rules/terminology.mdc) — snabb förväxlingstabell
-7. [`config/env-policy.json`](config/env-policy.json) + [`docs/ENV.md`](docs/ENV.md) — env-sanning
+2. [`FUSKLAPP-BYGGBLOCK.md`](FUSKLAPP-BYGGBLOCK.md) — Byggblock/dossiers på en sida (koden vinner)
+3. [`docs/concepts/mental-model.md`](docs/concepts/mental-model.md) — stabil mental modell
+4. [`docs/architecture/code-map.md`](docs/architecture/code-map.md) — kodkarta
+5. [`docs/architecture/glossary.md`](docs/architecture/glossary.md) — kanonisk ordlista
+6. [`.cursor/README.md`](.cursor/README.md) — fulla regel-index + prioriteringsordning
+7. [`.cursor/rules/terminology.mdc`](.cursor/rules/terminology.mdc) — snabb förväxlingstabell
+8. [`config/env-policy.json`](config/env-policy.json) + [`docs/ENV.md`](docs/ENV.md) — env-sanning
 
 ## Kritiska regler att plocka upp tidigt
 

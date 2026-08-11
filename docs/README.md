@@ -10,6 +10,7 @@ policies kan äga olika beslut.
 | ----------------------------------- | ------------------------------------------------------------------------ |
 | Vad är huvudflödet?                 | [`architecture/system-overview.md`](architecture/system-overview.md)     |
 | Hur hänger begreppen ihop?          | [`concepts/mental-model.md`](concepts/mental-model.md)                   |
+| Byggblock/dossiers på en sida       | [`../FUSKLAPP-BYGGBLOCK.md`](../FUSKLAPP-BYGGBLOCK.md)                    |
 | Var bor koden?                      | [`architecture/code-map.md`](architecture/code-map.md)                   |
 | Hur fungerar init och follow-up?    | [`concepts/init-and-follow-up.md`](concepts/init-and-follow-up.md)       |
 | Hur skiljer sig F2 och F3?          | [`concepts/f2-and-f3.md`](concepts/f2-and-f3.md)                         |

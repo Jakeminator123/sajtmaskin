@@ -162,9 +162,10 @@ export interface DossierStatusDescriptor {
  *
  * `dossierClass` is optional but matters for `self-contained`: the route sets
  * that status from `!requiresF3`, which a KOPPLAD (hard) dossier can also
- * reach (e.g. the analytics dossiers — warn-only keys, no server file). Saying
- * "inga externa nycklar behövs" about a dossier that does have keys is simply
- * false, so the hard variant gets its own honest wording.
+ * reach (e.g. vercel-analytics — `envVars: []`, client-only, self-disables
+ * without a hosting token). Saying "inga externa nycklar behövs" about a
+ * dossier that does have keys is simply false, so the hard variant gets its
+ * own honest wording.
  */
 export function describeDossierStatus(
   status: DossierStatus,
