@@ -15,9 +15,7 @@ TF-IDF snapshot under `data/observability/`; the auto-ingest hook in
 from __future__ import annotations
 
 import json
-import os
 import subprocess
-import sys
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path

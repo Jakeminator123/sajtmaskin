@@ -120,6 +120,92 @@ from .dossiers_lib.ui_create import (
 )
 
 
+# Importerna ovan är re-exporter, inte lokalt använda namn: modulerna i
+# ``dossiers_lib/`` slår upp dem sent via sin ``_facade()`` (t.ex.
+# ``_facade()._MOCK_OPTIONS``, ``_facade().REPO_ROOT``), så de måste finnas som
+# attribut här även när den här filen inte rör dem. ``__all__`` säger det till
+# `npm run lint:py` i stället för att fasaden gömms bakom en ignore-rad.
+#
+# Underscore-namnen står med med flit — de är interna för backoffice men ändå
+# en del av fasadens kontrakt mot ``dossiers_lib/``.
+__all__ = [
+    "Any",
+    "CAPABILITY_MAP_PATH",
+    "CAPABILITY_TIERS_PATH",
+    "CLASS_LABELS",
+    "DOSSIER_ROOT",
+    "HARD_ROOT",
+    "INDEX_ROOT",
+    "MOCK_LABELS",
+    "Path",
+    "REPO_ROOT",
+    "REQUIRED_FIELDS",
+    "SOFT_ROOT",
+    "STRICT_SCHEMA_PATH",
+    "TEMPLATE_REFS_ROOT",
+    "VALIDATE_MANIFEST_TS_PATH",
+    "_ALLOWED_ENFORCEMENT",
+    "_COMPLEXITY_FALLBACK",
+    "_COMPLEXITY_OPTIONS",
+    "_INSTRUCTIONS_STUB",
+    "_KEBAB_RE",
+    "_MOCKLESS_FALLBACK",
+    "_MOCK_FALLBACK",
+    "_MOCK_OPTIONS",
+    "_NORMALIZE_MODELS",
+    "_apply_capability_override",
+    "_apply_manifest_field_edits",
+    "_create_dossier_skeleton",
+    "_delete_dossier_dir",
+    "_describe_capability_group_hint",
+    "_existing_default_for_capability",
+    "_extract_ts_union_values",
+    "_group_label_for_capability",
+    "_groups_view_is_stale",
+    "_is_link_like",
+    "_list_dossier_dirs",
+    "_list_template_refs",
+    "_load_group_view",
+    "_load_json",
+    "_load_mockless_capability_exceptions",
+    "_load_prospect_plan",
+    "_load_prospect_report",
+    "_npm_binary",
+    "_promote_prospect",
+    "_prospect_root",
+    "_read_prospect_verdict_files",
+    "_rebuild_capability_map",
+    "_render_delete_body",
+    "_run_capability_map_write",
+    "_run_curate",
+    "_run_normalize",
+    "_run_sdk_version_check",
+    "_save_json",
+    "_save_raw_manifest",
+    "_schema_enum",
+    "_summarize_enforcement",
+    "_validate_manifest",
+    "backup_file",
+    "backup_tree",
+    "class_label",
+    "confirm_by_typing",
+    "danger_zone",
+    "datetime",
+    "field_label",
+    "is_default_for_capability",
+    "json",
+    "mock_label",
+    "os",
+    "re",
+    "render",
+    "requires_f3",
+    "run_repo_command",
+    "shutil",
+    "subprocess",
+    "timezone",
+    "validate_json_against_schema",
+]
+
 
 def render(ctx) -> None:
     # `app_main` sätter redan sidtiteln — sidan ska bara ha sin egen rubrik.

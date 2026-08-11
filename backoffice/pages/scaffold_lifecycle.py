@@ -140,6 +140,77 @@ from .scaffold_lifecycle_lib.ui_danger import (
 )
 
 
+# En del av importerna ovan används inte i den här filen utan är re-exporter:
+# ``scaffold_lifecycle_lib/baseline.py`` når dem sent via sin ``_facade()``, och
+# testerna (``test_scaffold_lifecycle_ui.py``, ``test_scaffold_baseline_reset.py``)
+# slår upp dem som attribut på den här modulen. ``__all__`` deklarerar det för
+# `npm run lint:py` så fasaden inte behöver en ignore-rad i `ruff.toml`.
+#
+# Modulens egna renderare (``_render_create_variant`` m.fl.) står inte här — de
+# definieras nedan och är redan synliga för lintern.
+__all__ = [
+    "BASELINE_PATHS",
+    "BASELINE_TAG",
+    "THEME_TOKEN_KEYS",
+    "_POST_ACTION_NOTE_KEY",
+    "_baseline_drift",
+    "_baseline_head_delta",
+    "_baseline_tag_exists",
+    "_clean_generated_scaffold_artifacts",
+    "_dead_source_template_ids",
+    "_dead_source_template_ids_message",
+    "_delete_scaffold",
+    "_embedding_locale_path",
+    "_escape_ts_string",
+    "_extract_ts_string_array_field",
+    "_extract_ts_string_field",
+    "_factory_reset_to_baseline",
+    "_files_dir",
+    "_manifest_path",
+    "_neutral_starter_signature_patterns",
+    "_neutral_variant_payload",
+    "_normalize_scaffold_union_semicolon",
+    "_parse_font_pairings",
+    "_parse_theme_tokens",
+    "_prune_variant_embeddings",
+    "_registry_path",
+    "_remove_locale_block",
+    "_render_dependency_report",
+    "_render_manifest_ts",
+    "_render_ts_string_array",
+    "_run_git",
+    "_run_repo_command",
+    "_scaffold_dir",
+    "_scaffold_export_name",
+    "_scan_manual_code_references",
+    "_scan_scaffold_dependencies",
+    "_signature_patterns_ok",
+    "_types_path",
+    "_unique_preserving_order",
+    "_update_embedding_locale_for_created_scaffold",
+    "_update_embedding_locale_for_deleted_scaffold",
+    "_update_registry_for_created_scaffold",
+    "_update_registry_for_deleted_scaffold",
+    "_update_types_for_created_scaffold",
+    "_update_types_for_deleted_scaffold",
+    "_update_variant_schema_enum",
+    "_upsert_scaffold_union_entry",
+    "_variant_embeddings_index_path",
+    "_variant_schema_path",
+    "backup_file",
+    "backup_tree",
+    "confirm_by_typing",
+    "os",
+    "pd",
+    "read_json",
+    "read_text",
+    "render",
+    "shutil",
+    "subprocess",
+    "validate_json_against_schema",
+    "write_text",
+]
+
 
 def _render_create_variant(scaffold_ids: list[str], ctx: BackofficeContext) -> None:
     if not scaffold_ids:
@@ -390,7 +461,8 @@ def _render_edit_variant(
         edited_label = st.text_input(
             field_label("label"), value=defaults["label"], key=f"edit_label_{variant_key}"
         )
-        edited_id = st.text_input(
+        # Fältet är låst och visas bara — värdet läses aldrig tillbaka.
+        st.text_input(
             "Variant-ID (`id`)",
             value=defaults["id"],
             key=f"edit_id_{variant_key}",

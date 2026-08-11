@@ -41,6 +41,7 @@ hanterade worktrees.
 
 - `npm run typecheck` → 0 errors
 - `npm run lint` → 0 errors
+- `npm run lint:py` → 0 errors **om du rört Python** (ruff över `backoffice/`; inte en required CI-check. Saknas ruff: `npm run lint:py:install`)
 - `npx vitest run` → existing tester gröna
 - `node scripts/dev/check-unicode-regex.mjs` om du rört regex
 - `npm run hygiene` → docs-färskhet + dödkod/orphan-filer i **en knapp** (grönt = rent, rött pekar på exakt problem). Full dödkods-lista: `npm run knip` (läs deps-kategorin försiktigt — mest falska positiver, se runbook). Städning + hur man läser knip: [`docs/runbooks/hygiene.md`](docs/runbooks/hygiene.md). CI blockerar på orphan-**filer** och docs-gates automatiskt.
