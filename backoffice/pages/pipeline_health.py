@@ -82,7 +82,8 @@ SCRIPTS: tuple[HealthScript, ...] = (
         label="Scaffolds · variant-embeddings",
         command=("npm", "run", "scaffolds:variant-embeddings"),
         description=(
-            "Genererar embeddings för scaffold-varianter via OpenAI. "
+            "Genererar embeddings för scaffold-varianter via OpenAI och "
+            "skriver till Vercel Blob (lokal JSON är cache). "
             "Kör efter att variant-prompts/patterns ändrats."
         ),
         cost="expensive",
@@ -100,7 +101,10 @@ SCRIPTS: tuple[HealthScript, ...] = (
         id="templates-embeddings",
         label="Templates · embeddings",
         command=("npm", "run", "templates:embeddings"),
-        description="Genererar template-embeddings via OpenAI.",
+        description=(
+            "Genererar template-embeddings via OpenAI och skriver till Vercel Blob "
+            "(lokal JSON är cache)."
+        ),
         cost="expensive",
         requires_api=True,
         tags=("embeddings", "templates"),

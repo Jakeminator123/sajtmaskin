@@ -298,9 +298,29 @@ def _prune_variant_embeddings(
         if isinstance(data.get("_meta"), dict):
             data["_meta"]["count"] = len(filtered)
         write_json(path, data)
+        _push_variant_embeddings_to_blob(ctx)
     return removed
 
 
+def _push_variant_embeddings_to_blob(ctx: BackofficeContext) -> None:
+    """Best-effort: upload pruned local variant-embeddings JSON to Vercel Blob.
+
+    Uses ``npm run embeddings:push -- --only=variant``. No-op when the command
+    fails (missing token, offline) so deletes never block on Blob.
+    """
+    import subprocess
+
+    try:
+        subprocess.run(
+            ["npm", "run", "embeddings:push", "--", "--only=variant"],
+            cwd=str(ctx.repo_root),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except Exception:
+        return
 
 
 def _load_variants(ctx: BackofficeContext) -> list[dict[str, Any]]:

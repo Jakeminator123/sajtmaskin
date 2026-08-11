@@ -714,15 +714,15 @@ def _autorun_writes(draft: dict[str, Any]) -> list[dict[str, str]]:
       skriver ``writeFileSync(ref.filePath, …)``, alltså variantfilen själv
       (``--only`` gör att bara den nyss skapade varianten rörs).
     * ``scaffolds:variant-embeddings`` → ``generate-variant-embeddings.ts``
-      skriver ``OUTPUT_PATH``, dvs
-      ``config/scaffold-variants/_index/variant-embeddings.json``, och bygger om
-      hela indexet från samtliga varianter.
+      anropar ``saveEmbeddingsArtifact("variant")`` → Vercel Blob
+      ``embeddings/variant-embeddings.json`` (+ lokal cache under
+      ``config/scaffold-variants/_index/``), och bygger om hela indexet.
     * ``scaffolds:validate`` kör vitest och skriver ingenting.
 
     Båda skrivstegen har ``needs_api`` och hoppas över utan ``OPENAI_API_KEY``,
     så anroparen måste säga vilket fall som gäller.
     `backoffice/test_scaffold_lifecycle_ui.py` grindar listan mot skriptens
-    faktiska ``writeFileSync``-mål.
+    faktiska skrivmål (``writeFileSync`` / ``saveEmbeddingsArtifact``).
     """
     variant = draft.get("variant") or {}
     scaffold_id = str(variant.get("scaffoldId", "")).strip() or "<scaffold>"
@@ -739,7 +739,13 @@ def _autorun_writes(draft: dict[str, Any]) -> list[dict[str, str]]:
             "path": "config/scaffold-variants/_index/variant-embeddings.json",
             "script": "scaffolds:variant-embeddings",
             "source": "scripts/scaffolds/generate-variant-embeddings.ts",
-            "note": "hela matchningsindexet byggs om, inte bara din variant",
+            "note": "lokal cache (gitignorerad); Blob-nyckel embeddings/variant-embeddings.json",
+        },
+        {
+            "path": "config/embeddings-blob-manifest.json",
+            "script": "scaffolds:variant-embeddings",
+            "source": "scripts/scaffolds/generate-variant-embeddings.ts",
+            "note": "committad URL-manifest uppdateras när BLOB_READ_WRITE_TOKEN + upload lyckas",
         },
     ]
 

@@ -2,12 +2,12 @@
  * Generate embeddings for all scaffold variants.
  *
  * Reads:  config/scaffold-variants/<scaffold-id>/<variant-id>.json
- * Writes: config/scaffold-variants/_index/variant-embeddings.json
+ * Writes: Vercel Blob `embeddings/variant-embeddings.json` (+ local cache)
  *
  * Embedding text per variant:
  *   "{label}\n{description}\n{signatureMotif}\nKeywords: …\nPrompt cues: …"
  *
- * Used at runtime by pickScaffoldVariant to rank variants semantically
+ * Used at runtime by pickScaffoldVariantAsync to rank variants semantically
  * (better than the keyword array). Falls back to keyword scoring when
  * embeddings file missing or no API key.
  *
@@ -15,17 +15,17 @@
  *   npx tsx scripts/scaffolds/generate-variant-embeddings.ts
  *   npm run scaffolds:variant-embeddings
  *
- * Requires OPENAI_API_KEY in .env.local.
+ * Requires OPENAI_API_KEY in .env.local. BLOB_READ_WRITE_TOKEN to publish.
  */
 import "dotenv/config";
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import OpenAI from "openai";
+import { saveEmbeddingsArtifact } from "../../src/lib/gen/embeddings/embeddings-storage";
+import { invalidateVariantEmbeddingsCache } from "../../src/lib/gen/scaffold-variants/matcher";
 
 const WORKSPACE_ROOT = process.cwd();
 const VARIANTS_ROOT = resolve(WORKSPACE_ROOT, "config", "scaffold-variants");
-const INDEX_DIR = join(VARIANTS_ROOT, "_index");
-const OUTPUT_PATH = join(INDEX_DIR, "variant-embeddings.json");
 
 const MODEL = "text-embedding-3-small";
 const DIMENSIONS = 1536;
@@ -146,13 +146,15 @@ async function main(): Promise<void> {
     console.log(`[variant-embed]   batch ${Math.floor(i / BATCH_SIZE) + 1}: +${batch.length}`);
   }
 
-  mkdirSync(INDEX_DIR, { recursive: true });
   const out: VariantEmbeddingsFile = {
     _meta: { model: MODEL, dimensions: DIMENSIONS, generated: new Date().toISOString(), count: all.length },
     embeddings: all,
   };
-  writeFileSync(OUTPUT_PATH, JSON.stringify(out, null, 2) + "\n", "utf-8");
-  console.log(`[variant-embed] Wrote ${all.length} embeddings to ${OUTPUT_PATH}`);
+  const saved = await saveEmbeddingsArtifact("variant", out);
+  invalidateVariantEmbeddingsCache();
+  console.log(`[variant-embed] Saved ${all.length} embeddings (${saved.storage})`);
+  if (saved.blobUrl) console.log(`[variant-embed] Blob: ${saved.blobUrl}`);
+  if (saved.localPath) console.log(`[variant-embed] Local cache: ${saved.localPath}`);
 }
 
 main().catch((err) => {

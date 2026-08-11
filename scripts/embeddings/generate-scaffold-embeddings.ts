@@ -5,14 +5,14 @@
  *   npx tsx scripts/embeddings/generate-scaffold-embeddings.ts
  *   npm run scaffolds:embeddings
  *
- * Requires OPENAI_API_KEY in environment (or .env.local).
- * Output:  src/lib/gen/scaffolds/scaffold-embeddings.json
+ * Requires OPENAI_API_KEY. Persists to Vercel Blob when BLOB_READ_WRITE_TOKEN
+ * is set; always writes a local cache when the FS is writable.
  */
 
 import "dotenv/config";
-import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { generateScaffoldEmbeddings } from "../../src/lib/gen/scaffolds/scaffold-embeddings-core";
+import { saveEmbeddingsArtifact } from "../../src/lib/gen/embeddings/embeddings-storage";
+import { invalidateScaffoldEmbeddingsCache } from "../../src/lib/gen/scaffolds/scaffold-search";
 
 async function main() {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -24,15 +24,14 @@ async function main() {
   console.info("Generating scaffold embeddings...");
 
   const result = await generateScaffoldEmbeddings({ apiKey });
-
-  const outPath = resolve(
-    "src/lib/gen/scaffolds/scaffold-embeddings.json",
-  );
-  writeFileSync(outPath, JSON.stringify(result, null, 2), "utf-8");
+  const saved = await saveEmbeddingsArtifact("scaffold", result);
+  invalidateScaffoldEmbeddingsCache();
 
   console.info(
-    `Generated ${result.embeddings.length} scaffold embeddings -> ${outPath}`,
+    `Generated ${result.embeddings.length} scaffold embeddings (${saved.storage})`,
   );
+  if (saved.blobUrl) console.info(`  Blob: ${saved.blobUrl}`);
+  if (saved.localPath) console.info(`  Local cache: ${saved.localPath}`);
 }
 
 main().catch((err) => {
