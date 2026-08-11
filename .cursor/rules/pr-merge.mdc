@@ -81,7 +81,9 @@ gh api --method GET --paginate -F per_page=100 repos/<owner>/<repo>/check-runs/<
 
 `--method GET` krävs (`-F` gör annars anropet till POST) och `--paginate` behövs eftersom default-sidstorleken är 30.
 
-**Aktiva granskare:** `Cursor Automation: Find critical bugs` + `Vercel Agent Review` (som checks), `GitGuardian` (secrets) och **Codex** (på/av beroende på credits). Codex-review kan landa några minuter efter grönt CI → **re-läs reviews precis före merge**.
+**Aktiva granskare:** `Cursor Automation: Find critical bugs` + `Vercel Agent Review` (som checks), `GitGuardian` (secrets), **Codex** (på/av beroende på credits) och den **eventstyrda PR AI-reviewen** (`.github/workflows/pr-ai-review.yml` / `scripts/pr-review/`, OpenAI via modellmanifestet — Sol/high full review, Luna/low uppföljning). Codex/AI-review kan landa några minuter efter grönt CI → **re-läs reviews precis före merge**.
+
+**PR AI-review = fullgod buggkoll när den landat.** En publicerad uttömmande review från `github-actions[bot]` via `pr-ai-review` (eller motsvarande bot-kommentar med fynd/“inga trovärdiga buggar”) räknas som **fullgott bugbot-pass** för den head-SHA den granskat. Dokumentera då `bugkoll: pr-ai-review` (eller `codex` om det är Codex Desktop/connector). Den ersätter inte författarens triage av fynden — P0/P1 måste fortfarande fixas/loggas/avfärdas. Kommer ingen sådan review: fall tillbaka till stegen nedan.
 
 En kommentar som **bara** säger att budgeten är slut (`Bugbot couldn't run - usage limit reached`, Codex "usage limit") betyder att granskaren är av → **icke-blockerande, och inte ett fynd att triagera**. Den är däremot ett skäl att köra bugbot-subagenten lokalt; se fallback-stegen nedan.
 
@@ -111,13 +113,14 @@ P1/High/säkerhet/cross-tenant blockerar merge. Att merga med kvarvarande P2 **u
 
 Oberoende av Codex är det **agenten som skapade PR:en** som äger efterkontrollen — kör den före push/PR-skapande (se `git.mdc`, `workflow.mdc`). Vänta aldrig på Codex och räkna inte dess frånvaro som ett gap, men **finns en Codex-review ska den läsas och triageras**.
 
-**Fallback-stege — hoppa inte över steg 2:**
+**Fallback-stege — hoppa inte över steg 2/3:**
 
 1. GitHub-integrerad Bugbot på PR:en.
-2. Slut budget eller utebliven → **kör Cursor Bugbot-passet lokalt**: `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"`. Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
-3. Först om även det misslyckas → strukturerad manuell diff-granskning med fil- och radreferenser.
+2. Eventstyrd **PR AI-review** (`pr-ai-review.yml`) — om den publicerat en uttömmande review för aktuell head-SHA räknas den som fullgod (se ovan).
+3. Bugbot/PR AI-review slut budget eller utebliven → **kör Cursor Bugbot-passet lokalt**: `subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"`. Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
+4. Först om även det misslyckas → strukturerad manuell diff-granskning med fil- och radreferenser.
 
-Dokumentera i PR:en vilket steg som användes: `bugbot`, `bugbot-local` eller `manual local bug review`. Samma värde går i `bugkoll:`-fältet i sign-offen.
+Dokumentera i PR:en vilket steg som användes: `bugbot`, `bugbot-local`, `pr-ai-review`, `codex` eller `manual local bug review`. Samma värde går i `bugkoll:`-fältet i sign-offen.
 
 Kör om bugbot **på varje ny commit** (SHA-färskhet) och alltid på protected paths. `review-bugbot`-skillen är en global skill som sätter **varken** `model` eller `readonly` — anger du dem inte själv den vägen ärvs sessionens dyra modell tyst.
 
@@ -130,7 +133,7 @@ Kör om bugbot **på varje ny commit** (SHA-färskhet) och alltid på protected 
 Ingen agent mergar utan att författaren intygat att buggkollen är gjord. Ordningen är **inte kosmetisk** — omvänd ordning river labeln automatiskt (se runbooken, #665).
 
 1. **Sign-off som PR-kommentar först**, efter att triagen är klar och inga P0/P1 står öppna:
-   `merge:ready — sha: <40-tecken head-SHA>, at: <ISO8601 UTC>, bugkoll: <bugbot|bugbot-local|manual|codex>, triage: <fixat/loggat/avfärdat>, P0/P1: 0`
+   `merge:ready — sha: <40-tecken head-SHA>, at: <ISO8601 UTC>, bugkoll: <bugbot|bugbot-local|pr-ai-review|manual|codex>, triage: <fixat/loggat/avfärdat>, P0/P1: 0`
 2. **Sedan** labeln: `gh pr edit <n> --add-label "merge:ready"`.
 3. **Mergaren verifierar** label + sign-off-rad + att head-SHA är oförändrad sedan sign-off (`gh pr view <n> --json headRefOid`, jämför mot SHA:t i raden) + hela grinden. Saknas labeln, eller har en nyare commit landat → `NEEDS_HUMAN`.
 4. **Ny commit eller bot-fynd efter sign-off ogiltigförklarar labeln.** `merge-ready-freshness.yml` tar bort den vid `synchronize` och vid bot-review/kommentar som landat efter sign-offens tidsstämpel. Gör om buggkollen och signera på nytt **i samma ordning** — ny sign-off för aktuell SHA först, label sedan. Att bara sätta tillbaka labeln på en gammal sign-off är inget godkännande.
