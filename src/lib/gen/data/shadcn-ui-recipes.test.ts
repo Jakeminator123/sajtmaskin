@@ -265,7 +265,7 @@ describe("resolveShadcnUiRecipes", () => {
       }
       if (
         url.includes("shadcnblocks.com") ||
-        url.includes("tailark.com") ||
+        url.includes("oss.tailark.com") ||
         url.includes("sajtmaskin.vercel.app")
       ) {
         const itemName = url.split("/").pop()?.replace(/\.json$/, "") ?? "pricing";
@@ -299,7 +299,7 @@ describe("resolveShadcnUiRecipes", () => {
     expect(result[2]?.source).toBe("community");
     expect(
       mockFetch.mock.calls.some(([input]) =>
-        /shadcnblocks\.com|tailark\.com/.test(String(input)),
+        /shadcnblocks\.com|oss\.tailark\.com/.test(String(input)),
       ),
     ).toBe(true);
   });
@@ -322,7 +322,7 @@ describe("resolveShadcnUiRecipes", () => {
       }
       if (
         url.includes("shadcnblocks.com") ||
-        url.includes("tailark.com") ||
+        url.includes("oss.tailark.com") ||
         url.includes("sajtmaskin.vercel.app")
       ) {
         return { ok: false, status: 503, text: async () => "" };

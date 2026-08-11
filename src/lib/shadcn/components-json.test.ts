@@ -68,7 +68,7 @@ describe("components.json shadcn config", () => {
  * Fas 0 of the shadcn-registry consolidation (plan
  * 2026-07-22-shadcn-registry-beskriv-komposition.md) makes `components.json`
  * the canonical registry config: a `registries` key mapping the community
- * namespaces (`@shadcnblocks`, `@tailark`, `@magicui`) that
+ * namespaces (`@shadcnblocks`, `@tailark-oss`, `@magicui`) that
  * `config/community-registries.json` seeds today. Fas 6 adds the internal
  * `@sajtmaskin` registry, served by the app itself from
  * `src/app/r/[name]/route.ts` (see `src/lib/sajtmaskin-registry/`).
@@ -83,6 +83,10 @@ describe("components.json shadcn config", () => {
  * value is a URL template and the `{name}` placeholder is mandatory. The key is
  * inert at runtime until the resolver (Fas 4) reads it, so this guard just locks
  * the shape so it can't silently drift or lose a namespace.
+ *
+ * `@tailark-oss` uses the free public host + Radix path (`/r/radix/{name}.json`)
+ * to match `style: radix-vega`. Gated Quartz (`@tailark` on tailark.com) is
+ * intentionally not wired — it requires TAILARK_API_KEY.
  */
 describe("components.json canonical registries", () => {
   const componentsJson = JSON.parse(
@@ -91,7 +95,7 @@ describe("components.json canonical registries", () => {
 
   const EXPECTED_REGISTRIES: Record<string, string> = {
     "@shadcnblocks": "https://shadcnblocks.com/r/{name}.json",
-    "@tailark": "https://tailark.com/r/{name}.json",
+    "@tailark-oss": "https://oss.tailark.com/r/radix/{name}.json",
     "@magicui": "https://magicui.design/r/{name}",
     // Fas 6: internal registry served by the app itself (src/app/r/[name]/route.ts).
     "@sajtmaskin": "https://sajtmaskin.vercel.app/r/{name}.json",
@@ -125,6 +129,64 @@ describe("components.json canonical registries", () => {
     for (const value of Object.values(componentsJson.registries ?? {})) {
       const url = typeof value === "string" ? value : (value.url ?? "");
       expect(url.startsWith("https://")).toBe(true);
+    }
+  });
+
+  it("keeps @tailark-oss seed URLs + Mist item names aligned with components.json", () => {
+    const seed = JSON.parse(
+      readFileSync(path.join(process.cwd(), "config", "community-registries.json"), "utf8"),
+    ) as Array<{
+      namespace: string;
+      url: string;
+      sectionMappings?: Record<string, string[]>;
+    }>;
+    const tailark = seed.find((entry) => entry.namespace === "@tailark-oss");
+    expect(tailark?.url).toBe(EXPECTED_REGISTRIES["@tailark-oss"]);
+    const mappings = tailark?.sectionMappings ?? {};
+    const itemNames = Object.values(mappings).flat();
+    expect(itemNames.length).toBeGreaterThan(0);
+    expect(seed.some((entry) => entry.namespace === "@tailark")).toBe(false);
+
+    // Live-verified Mist catalog counts on oss.tailark.com (2026-08-12).
+    // Guards silent 404s from typos/stale names without a network call in CI.
+    const expectedCounts: Record<string, number> = {
+      hero: 6,
+      features: 11,
+      pricing: 2,
+      cta: 3,
+      faq: 3,
+      footer: 4,
+      testimonials: 5,
+      contact: 1,
+      team: 2,
+      stats: 4,
+      "logo-cloud": 2,
+      integrations: 3,
+      content: 4,
+    };
+    expect(Object.keys(mappings).sort()).toEqual(Object.keys(expectedCounts).sort());
+    const itemSlugBySection: Record<string, string> = {
+      hero: "hero-section",
+      features: "features",
+      pricing: "pricing",
+      cta: "call-to-action",
+      faq: "faqs",
+      footer: "footer",
+      testimonials: "testimonials",
+      contact: "contact",
+      team: "team",
+      stats: "stats",
+      "logo-cloud": "logo-cloud",
+      integrations: "integrations",
+      content: "content",
+    };
+    for (const [section, count] of Object.entries(expectedCounts)) {
+      const names = mappings[section] ?? [];
+      expect(names, section).toHaveLength(count);
+      const slug = itemSlugBySection[section];
+      for (let i = 0; i < names.length; i++) {
+        expect(names[i]).toBe(`mist-${slug}-${i + 1}`);
+      }
     }
   });
 });
