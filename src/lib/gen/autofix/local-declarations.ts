@@ -9,8 +9,12 @@
  * `components/ui/dialog.tsx`) that the conflict fixer then removed again — an
  * add/remove cycle that stacked blank lines on every pass (prod chat f98fd5c0).
  *
- * Only **module-scope** declarations count. A nested `const Button = …` inside a
- * helper must not suppress a missing shadcn import for a top-level `<Button>`.
+ * Declarations are resolved with lexical (brace) scope on a comment-/string-
+ * blanked view of the source:
+ * - Value bindings (`function`/`const`/`let`/`var`/`class`) suppress imports
+ *   only for JSX usages that fall inside that binding's scope.
+ * - Type-only bindings (`type`/`interface`) never suppress a runtime import —
+ *   they exist only for tag-mismatch / generic false-positive filters.
  *
  * Leaf module on purpose: `import-validator` cannot import from `jsx-checker`
  * without closing the cycle `jsx-checker -> deterministic-import-repair ->
@@ -19,77 +23,254 @@
 
 /**
  * Value declarations at the match site: `function Foo(`, `const Foo =`,
- * `const Foo: React.FC<{…}> =`, `let Foo`, `var Foo`.
+ * `const Foo: React.FC<{…}> =`, `let Foo`, `var Foo`, `class Foo`.
  * Type annotations may contain nested `<>` / `{}`, so we allow any non-`=`
  * (and non-newline) run between `:` and the `=` / `(`.
+ *
+ * Capture groups: [1]=function, [2]=const/let/var keyword, [3]=const/let/var
+ * name, [4]=class name.
  */
 const LOCAL_VALUE_DECL_RE =
-  /(?:function|const|let|var)\s+([A-Z]\w*)(?:\s*:\s*[^=\n]+)?\s*[=(]/g;
+  /(?:function\s+([A-Z]\w*)\s*\(|(const|let|var)\s+([A-Z]\w*)(?:\s*:\s*[^=\n]+)?\s*=|class\s+([A-Z]\w*)\b)/g;
 
 /**
- * Type declarations: `type Foo = …`, `interface Foo`, `class Foo`. Included so a
- * local TS type used in a generic position (`useState<GamePhase>(…)` paired with
- * `type GamePhase = …`) is never mistaken for a missing component import.
+ * Type-only declarations: `type Foo = …`, `interface Foo`.
+ * `class` is a value (runtime constructor), not listed here.
  */
-const LOCAL_TYPE_DECL_RE = /(?:type|interface|class)\s+([A-Z]\w*)\b/g;
+const LOCAL_TYPE_DECL_RE = /(?:type|interface)\s+([A-Z]\w*)\b/g;
+
+interface ValueBinding {
+  name: string;
+  /** Inclusive start index of the binding (0 for hoisted function/var in scope). */
+  from: number;
+  /** Exclusive end index — when the enclosing block closes (or EOF). */
+  to: number;
+  /** True when declared in module scope (not inside a nested `{...}`). */
+  moduleScope: boolean;
+}
+
+type DeclKind = "function" | "var" | "let-const-class";
 
 /**
- * Approximate brace depth at `index`, skipping line/block comments and simple
- * string/template literals so `{` inside strings does not inflate depth.
+ * Replace comments and string/template literals with same-length spaces so
+ * regex/brace scans never match inside them. Newlines are preserved.
  */
-function braceDepthAt(code: string, index: number): number {
-  let depth = 0;
+function blankCommentsAndStrings(source: string): string {
+  const out = source.split("");
   let i = 0;
-  while (i < index) {
-    const ch = code[i];
-    const next = code[i + 1];
-
+  const n = source.length;
+  const blank = (from: number, to: number) => {
+    for (let k = from; k < to && k < n; k++) {
+      if (out[k] !== "\n") out[k] = " ";
+    }
+  };
+  while (i < n) {
+    const ch = source[i];
+    const next = source[i + 1];
     if (ch === "/" && next === "/") {
-      i += 2;
-      while (i < index && code[i] !== "\n") i += 1;
+      let j = i + 2;
+      while (j < n && source[j] !== "\n") j++;
+      blank(i, j);
+      i = j;
       continue;
     }
     if (ch === "/" && next === "*") {
-      i += 2;
-      while (i < index && !(code[i] === "*" && code[i + 1] === "/")) i += 1;
-      i = Math.min(index, i + 2);
+      let j = i + 2;
+      while (j < n && !(source[j] === "*" && source[j + 1] === "/")) j++;
+      j = Math.min(n, j + 2);
+      blank(i, j);
+      i = j;
       continue;
     }
-    if (ch === "'" || ch === '"' || ch === "`") {
+    if (ch === '"' || ch === "'" || ch === "`") {
       const quote = ch;
-      i += 1;
-      while (i < index) {
-        if (code[i] === "\\") {
-          i += 2;
+      let j = i + 1;
+      while (j < n) {
+        if (source[j] === "\\") {
+          j += 2;
           continue;
         }
-        if (code[i] === quote) {
-          i += 1;
+        if (source[j] === quote) {
+          j++;
           break;
         }
-        i += 1;
+        j++;
       }
+      blank(i, j);
+      i = j;
       continue;
     }
-
-    if (ch === "{") depth += 1;
-    else if (ch === "}") depth = Math.max(0, depth - 1);
-    i += 1;
+    i++;
   }
-  return depth;
+  return out.join("");
 }
 
+type ScopeEvent =
+  | { index: number; kind: "open" }
+  | { index: number; kind: "close" }
+  | { index: number; kind: "decl"; name: string; declKind: DeclKind };
+
+/**
+ * Build value-binding ranges with lexical brace scope on blanked source.
+ * `function` / `var` are treated as hoisted to the start of their enclosing
+ * scope (matching JS); `const` / `let` / `class` start at the declaration.
+ */
+function collectValueBindings(blanked: string): ValueBinding[] {
+  const events: ScopeEvent[] = [];
+  for (let i = 0; i < blanked.length; i++) {
+    const ch = blanked[i];
+    if (ch === "{") events.push({ index: i, kind: "open" });
+    else if (ch === "}") events.push({ index: i, kind: "close" });
+  }
+
+  LOCAL_VALUE_DECL_RE.lastIndex = 0;
+  for (const m of blanked.matchAll(LOCAL_VALUE_DECL_RE)) {
+    let name: string | undefined;
+    let declKind: DeclKind;
+    if (m[1]) {
+      name = m[1];
+      declKind = "function";
+    } else if (m[3]) {
+      name = m[3];
+      declKind = m[2] === "var" ? "var" : "let-const-class";
+    } else {
+      name = m[4];
+      declKind = "let-const-class";
+    }
+    if (!name) continue;
+    events.push({ index: m.index ?? 0, kind: "decl", name, declKind });
+  }
+
+  events.sort((a, b) => {
+    if (a.index !== b.index) return a.index - b.index;
+    // At the same index: decls before braces (`function Foo(){`).
+    const rank = (e: ScopeEvent) => (e.kind === "decl" ? 0 : e.kind === "open" ? 1 : 2);
+    return rank(a) - rank(b);
+  });
+
+  const stack: {
+    /** Index where this scope's body became active (module=0, else `{` index). */
+    scopeFrom: number;
+    decls: {
+      name: string;
+      from: number;
+      declKind: DeclKind;
+      moduleScope: boolean;
+    }[];
+  }[] = [{ scopeFrom: 0, decls: [] }];
+  const bindings: ValueBinding[] = [];
+
+  for (const event of events) {
+    if (event.kind === "decl") {
+      const frame = stack[stack.length - 1]!;
+      // Module-scope bindings are visible to earlier function bodies once the
+      // module has finished evaluating (typical React: Page above, const Button
+      // below). Nested `function`/`var` hoist to the start of their block;
+      // nested `const`/`let`/`class` start at the declaration (TDZ).
+      const isModuleScope = stack.length === 1;
+      const from =
+        isModuleScope || event.declKind === "function" || event.declKind === "var"
+          ? frame.scopeFrom
+          : event.index;
+      frame.decls.push({
+        name: event.name,
+        from,
+        declKind: event.declKind,
+        moduleScope: isModuleScope,
+      });
+      continue;
+    }
+    if (event.kind === "open") {
+      stack.push({ scopeFrom: event.index, decls: [] });
+      continue;
+    }
+    // close
+    if (stack.length <= 1) {
+      // Unbalanced `}` — ignore rather than corrupting module scope.
+      continue;
+    }
+    const frame = stack.pop()!;
+    for (const d of frame.decls) {
+      bindings.push({
+        name: d.name,
+        from: d.from,
+        to: event.index,
+        moduleScope: d.moduleScope,
+      });
+    }
+  }
+
+  // Remaining frames (including module scope) stay open until EOF.
+  const eof = blanked.length;
+  while (stack.length > 0) {
+    const frame = stack.pop()!;
+    for (const d of frame.decls) {
+      bindings.push({
+        name: d.name,
+        from: d.from,
+        to: eof,
+        moduleScope: d.moduleScope,
+      });
+    }
+  }
+
+  return bindings;
+}
+
+function collectTypeNames(blanked: string): Set<string> {
+  const names = new Set<string>();
+  LOCAL_TYPE_DECL_RE.lastIndex = 0;
+  for (const m of blanked.matchAll(LOCAL_TYPE_DECL_RE)) {
+    names.add(m[1]);
+  }
+  return names;
+}
+
+export interface LocalDeclarationIndex {
+  /** True when a runtime value binding named `name` is in scope at `atIndex`. */
+  isValueInScope(name: string, atIndex: number): boolean;
+  /** Type-only names (`type` / `interface`) anywhere in the file. */
+  typeNames: ReadonlySet<string>;
+  /**
+   * Module-scope value names plus all type names.
+   * Used by tag-mismatch filters (`checkTagMatching`) so a local type in a
+   * generic position is not treated as a JSX tag — without letting a nested
+   * `const Button` mute mismatch checks for a top-level `<Button>`.
+   * Prefer `isValueInScope` for import decisions.
+   */
+  allNames: ReadonlySet<string>;
+}
+
+/**
+ * Build a reusable index for scope-aware local declaration checks.
+ */
+export function buildLocalDeclarationIndex(code: string): LocalDeclarationIndex {
+  const blanked = blankCommentsAndStrings(code);
+  const bindings = collectValueBindings(blanked);
+  const typeNames = collectTypeNames(blanked);
+  const moduleValueNames = new Set(
+    bindings.filter((b) => b.moduleScope).map((b) => b.name),
+  );
+  const allNames = new Set<string>([...moduleValueNames, ...typeNames]);
+
+  return {
+    isValueInScope(name: string, atIndex: number): boolean {
+      for (const b of bindings) {
+        if (b.name === name && b.from <= atIndex && atIndex < b.to) return true;
+      }
+      return false;
+    },
+    typeNames,
+    allNames,
+  };
+}
+
+/**
+ * Back-compat Set: module-scope values + type names.
+ *
+ * Prefer `buildLocalDeclarationIndex` + `isValueInScope` when deciding whether
+ * a specific JSX usage needs an import — this Set cannot express nested scope.
+ */
 export function extractLocalComponentDeclarations(code: string): Set<string> {
-  const decls = new Set<string>();
-  for (const m of code.matchAll(LOCAL_VALUE_DECL_RE)) {
-    if (braceDepthAt(code, m.index ?? 0) === 0) {
-      decls.add(m[1]);
-    }
-  }
-  for (const m of code.matchAll(LOCAL_TYPE_DECL_RE)) {
-    if (braceDepthAt(code, m.index ?? 0) === 0) {
-      decls.add(m[1]);
-    }
-  }
-  return decls;
+  return new Set(buildLocalDeclarationIndex(code).allNames);
 }

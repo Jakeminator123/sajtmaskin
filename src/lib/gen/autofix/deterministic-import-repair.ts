@@ -58,6 +58,7 @@ import { collectImportBoundNames } from "./import-validator";
 import {
   buildProjectDefaultExportIndex,
   buildProjectExportIndex,
+  buildProjectTypeOnlyExportIndex,
   fixImportedDeclarationConflicts,
   fixMissingLocalSymbolImports,
   insertImportAfterDirectives,
@@ -210,6 +211,13 @@ export function resolveOwnComponentImports(params: {
   missingNames: ReadonlySet<string>;
   exportIndex: Map<string, string[]>;
   defaultExportsByName: Map<string, string[]>;
+  /**
+   * From `buildProjectTypeOnlyExportIndex` — lets the named-export injector
+   * emit `import type` for type-only exports (e.g. `Lang`) instead of a value
+   * binding. Optional: the jsx-checker caller resolves JSX tags, which are
+   * always value components, so it deliberately omits this.
+   */
+  typeOnlyExportsByPath?: ReadonlyMap<string, ReadonlySet<string>>;
 }): { code: string; added: Array<{ name: string; module: string }> } {
   const added: Array<{ name: string; module: string }> = [];
   let working = params.code;
@@ -228,6 +236,7 @@ export function resolveOwnComponentImports(params: {
       working,
       params.filePath,
       filteredIndex,
+      params.typeOnlyExportsByPath,
     );
     if (namedResult.fixed) {
       working = namedResult.code;
@@ -489,9 +498,11 @@ export function runDeterministicImportRepair(
       }
       let exportIndex: Map<string, string[]> | null = null;
       let defaultExportsByName: Map<string, string[]> | null = null;
+      let typeOnlyExportsByPath: Map<string, Set<string>> | null = null;
       if (ownComponentResidualByFile.size > 0) {
         exportIndex = buildProjectExportIndex(project.files);
         defaultExportsByName = buildProjectDefaultExportIndex(project.files);
+        typeOnlyExportsByPath = buildProjectTypeOnlyExportIndex(project.files);
       }
 
       const fixedFiles = project.files.map((file) => {
@@ -516,6 +527,7 @@ export function runDeterministicImportRepair(
             missingNames: ownComponentNames,
             exportIndex,
             defaultExportsByName,
+            typeOnlyExportsByPath: typeOnlyExportsByPath ?? undefined,
           });
           if (result.added.length > 0) {
             code = result.code;

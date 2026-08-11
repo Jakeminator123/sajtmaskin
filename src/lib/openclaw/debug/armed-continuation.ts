@@ -125,6 +125,8 @@ export type ArmedContinuationDecision =
 export interface ArmedContinuationInput {
   watch: ArmedContinuationWatch | null;
   mandate: ArmedMandate | null;
+  /** The resolved act gate: `OC_EDIT` AND the user's granted armed-autonomy
+   * power (see `powers.ts`). Revoking either one aborts a running loop. */
   editEnabled: boolean;
   /** OpenClaw's own stream — a resume must never overlap an in-flight turn. */
   openClawStreaming: boolean;

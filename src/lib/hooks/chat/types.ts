@@ -30,7 +30,8 @@ export type MessageOptions = {
   /**
    * OpenClaw prepared-prompt fast lane: set by the builder composer when the
    * outgoing message is EXACTLY an OpenClaw `fill_text_field` payload and the
-   * store's `editEnabled` (OC_EDIT) is on. Forwarded as a top-level
+   * user has granted an extra power (OC_EDIT + the chat's button and menu, see
+   * `powers.ts`). Forwarded as a top-level
    * `promptSource` field on the follow-up stream request body so the server
    * may skip the redundant delta-brief LLM pass (see `prepared-prompt.ts`).
    * Distinct from `promptSourceMeta.sourceKind` (prompt-builder envelopes).

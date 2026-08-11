@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { useOpenClawStore, type OpenClawMessage } from "@/lib/openclaw/openclaw-store";
+import {
+  readActiveOpenClawPowerIds,
+  readOpenClawPowers,
+  useOpenClawStore,
+  type OpenClawMessage,
+} from "@/lib/openclaw/openclaw-store";
 import { collectOpenClawClientContext } from "@/lib/openclaw/client-context";
 import {
   parseGatewayStream,
@@ -37,7 +42,6 @@ export function useOpenClawChat() {
     clearMessages,
     setStreaming,
     scopeKey,
-    editEnabled,
     setArmedMandate,
   } = useOpenClawStore();
   const abortRef = useRef<AbortController | null>(null);
@@ -54,17 +58,21 @@ export function useOpenClawChat() {
       const trimmed = text.trim();
       if (!trimmed) return;
 
-      // Read the live value rather than the render-time one: the continuation
+      // Read the live values rather than the render-time ones: the continuation
       // loop calls `send` from a timer, and a closure that has not caught up
-      // with the store would drop that turn silently.
+      // with the store would drop that turn silently. The powers follow the
+      // same rule for a sharper reason — a grant the user withdrew a moment ago
+      // must not ride along on a turn that is only now being sent.
       const streaming = useOpenClawStore.getState().isStreaming;
+      const powers = readOpenClawPowers();
 
       // Armed autonomy (Mode A): the user's own message is the consent. A stop
       // directive disarms IMMEDIATELY — handled before the streaming guard so
       // the user can cancel an in-flight autonomous run by typing "stopp" even
       // while OpenClaw is still responding. An arming directive creates a
-      // bounded mandate. Outside OC_EDIT (the act gate) this never arms.
-      if (editEnabled && options?.allowArming !== false) {
+      // bounded mandate. Without BOTH gates — OC_EDIT and the granted power —
+      // this never arms.
+      if (powers.armedAutonomy && options?.allowArming !== false) {
         if (parseStopDirective(trimmed)) {
           setArmedMandate(null);
         } else if (!streaming) {
@@ -112,6 +120,10 @@ export function useOpenClawChat() {
           body: JSON.stringify({
             messages: apiMessages,
             context: collectOpenClawClientContext(),
+            // Which extra powers the user granted for THIS turn. The server ANDs
+            // the list with its own OC_EDIT, so it can only narrow the edit
+            // instructions — never unlock anything the deployment forbids.
+            powers: readActiveOpenClawPowerIds(),
           }),
           signal: abortRef.current.signal,
         });
@@ -196,7 +208,7 @@ export function useOpenClawChat() {
         abortRef.current = null;
       }
     },
-    [addMessage, updateAssistantMessage, setStreaming, editEnabled, setArmedMandate],
+    [addMessage, updateAssistantMessage, setStreaming, setArmedMandate],
   );
 
   const stop = useCallback(() => {

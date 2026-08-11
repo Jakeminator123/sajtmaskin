@@ -9,6 +9,8 @@ import {
   OPENCLAW_ROUTING_STRATEGY,
 } from "@/lib/openclaw/chat-context-policy";
 import { getOpenClawSurfaceStatus } from "@/lib/openclaw/status";
+import { resolveOpenClawPowersFromRequest } from "@/lib/openclaw/powers";
+import { buildOpenClawEditSystemPrompt } from "@/lib/openclaw/edit-system-prompt";
 import { buildOpenClawContextSystemMessage } from "@/lib/openclaw/server-context";
 import { buildOpenClawReviewContext } from "@/lib/openclaw/review-context";
 import { buildOpenClawPreviewLogBlock } from "@/lib/openclaw/preview-log-context";
@@ -36,6 +38,9 @@ interface ChatMessage {
 interface ChatRequestBody {
   messages: ChatMessage[];
   context?: Record<string, unknown> | null;
+  /** Extra powers the user granted in the chat UI. Narrowing only — see
+   * `resolveOpenClawPowersFromRequest`. */
+  powers?: unknown;
 }
 
 const OPENCLAW_CURRENT_CODE_MAX_CHARS = 16_000;
@@ -132,44 +137,6 @@ function buildDebugSystemPrompt(): string {
 När en ägarverifierad chatt är öppen (versionen löses ut åt dig om ingen är vald) får du utökad kontext: full genererad projektkod, persisterade verifierings-/reparationsfynd ([BUGGFYND]/[TIDSLINJE]/[OC-DEBUG-FYND]), händelseloggen från förhandsvisningens VM ([PREVIEW-LOGG]) och ibland read-only utdrag ur Sajtmaskins EGEN källkod ([SAJTMASKIN-KÄLLKOD]). Använd dem för att resonera konkret om var bygget OCH var plattformen själv brister. Du kan ALDRIG ändra Sajtmaskins kod — bara läsa och resonera.`;
 }
 
-/**
- * Edit-mode (OC_EDIT) system instructions — ACT side. Unlocks armed autonomy
- * (Mode A): OpenClaw still reasons first and never builds unprompted, but after
- * an explicit arming directive it may fill the builder prompt and click send
- * for a bounded number of follow-ups. Every edit runs through the ordinary
- * builder pipeline (own-engine -> verify -> preview); there is no direct write
- * path to preview-host/Fly or to Sajtmaskin's own code.
- */
-function buildEditSystemPrompt(): string {
-  return `Internt läge: EDIT (OC_EDIT på) — armerad autonomi.
-
-Armerad autonomi (gör detta först efter att användaren uttryckligen ber om det):
-- Du bygger ALDRIG en sajt oombett. Resonera först.
-- När användaren armerar dig ("granska nästa meddelande jag skapar" eller "gör N follow-ups och buggranska det suspekta"), bekräfta kort och lägg ett action-block sist:
-<openclaw-action>
-{"type":"start_bug_hunt","mode":"followups","count":5,"reason":"Kort motivering"}
-</openclaw-action>
-- När du är armerad och ska skicka en follow-up i buildern: ge en kort förklaring och lägg ett action-block sist som fyller OCH skickar:
-<openclaw-action>
-{"type":"fill_text_field","target":"builder.chat.primary","value":"Din follow-up-prompt","submit":true}
-</openclaw-action>
-- Skicka EN follow-up i taget, vänta in resultatet, läs fynden och välj nästa suspekta steg. Respektera mandatets antal. Om användaren skriver "stopp" – sluta omedelbart och skicka inga fler.
-- "submit":true respekteras bara i redigeringsläge med ett aktivt mandat; annars fylls fältet men skickas inte.
-- Skriv follow-up-prompten i strukturerat briefformat: minst 200 tecken, minst två etikettrader (t.ex. "Mål:", "Sektioner:", "Design:") och minst tre punktrader ("- ..."). Då kan servern hoppa över sitt brief-strukturerings-pass och använda din prompt direkt. Exempel på value: "Gör om hero-sektionen.\\n\\nMål:\\n- <effekt>\\n\\nSektioner:\\n- <sektion + innehåll>\\n- <sektion + innehåll>\\n\\nDesign:\\n- <stil/tema>"
-- Alla ändringar går genom builderns vanliga flöde (samma send-knapp som användaren) — du skriver aldrig filer direkt.
-
-Exakta småändringar (apply_quick_edit):
-- När användaren uttryckligen ber om en LITEN, EXAKT ändring i den genererade sajten (byt en text, justera en rad, ta bort en fil) får du föreslå den med exakt ett action-block sist i svaret:
-<openclaw-action>
-{"type":"apply_quick_edit","label":"Kort etikett","reason":"Kort motivering","ops":[{"kind":"replace_text","path":"app/page.tsx","find":"Exakt befintlig text","replace":"Ny text"}]}
-</openclaw-action>
-- Tillåtna op-typer: "replace_content" (path + content: ersätt hela filens innehåll), "replace_text" (path + find + replace + valfri occurrence: ersätt exakt textförekomst) och "delete_file" (path: ta bort fil). Inga andra.
-- Max 5 ops per förslag. Sökvägar är relativa (t.ex. "app/page.tsx"), aldrig med "..". Använd bara filer och exakta textstycken du faktiskt ser i kodkontexten — gissa aldrig innehåll.
-- Endast små, exakta ändringar i BEFINTLIGA filer. ALDRIG package.json, nya beroenden, nya filer eller nya routes — sådant ska gå som en vanlig follow-up-prompt i buildern i stället.
-- Föreslå ALDRIG en snabbändring oombett — bara när användaren uttryckligen ber om en konkret liten ändring.
-- Förslaget körs ALDRIG automatiskt: användaren måste godkänna kortet manuellt, även med ett aktivt armerat mandat. Påstå aldrig att ändringen redan är gjord — säg att den genomförs efter godkännande och skapar en ny version.`;
-}
-
 const OPENCLAW_DEBUG_FINDINGS_MAX = 12;
 
 /**
@@ -225,6 +192,13 @@ export async function POST(req: NextRequest) {
 
     const routingIntent = decideOpenClawRoutingIntent({ messages: body.messages });
     const debug = OPENCLAW.debugEnabled;
+    // Act side: OC_EDIT AND the powers the user granted in the chat UI. With no
+    // grant this is all-false, and the turn is built exactly like one on a
+    // deployment without OC_EDIT.
+    const powers = resolveOpenClawPowersFromRequest({
+      editEnabled: OPENCLAW.editEnabled,
+      requested: body.powers,
+    });
     const messages: ChatMessage[] = [
       { role: "system", content: SYSTEM_PROMPT },
       {
@@ -237,8 +211,9 @@ export async function POST(req: NextRequest) {
       messages.push({ role: "system", content: buildDebugSystemPrompt() });
     }
 
-    if (OPENCLAW.editEnabled) {
-      messages.push({ role: "system", content: buildEditSystemPrompt() });
+    const editSystemPrompt = buildOpenClawEditSystemPrompt(powers);
+    if (editSystemPrompt) {
+      messages.push({ role: "system", content: editSystemPrompt });
     }
 
     if (BUILDER_PROMPT_TIPS) {
@@ -275,8 +250,9 @@ export async function POST(req: NextRequest) {
             );
       // Debug full-code context is only unlocked for an ownership-verified chat.
       const debugOwned = debug && Boolean(scopedVersion);
-      // Edit bounded code context uses the same ownership gate as debug.
-      const editOwned = OPENCLAW.editEnabled && Boolean(scopedVersion);
+      // Edit bounded code context uses the same ownership gate as debug, plus
+      // the user's grant: it exists to support acting, so it follows the powers.
+      const editOwned = powers.any && Boolean(scopedVersion);
 
       // Cross-tenant guard (Codex P1): the file/code context builder may only
       // read generated files for ids the REQUESTER owns. Reuse the already

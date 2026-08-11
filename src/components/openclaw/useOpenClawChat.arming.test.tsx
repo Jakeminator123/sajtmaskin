@@ -21,7 +21,11 @@ beforeEach(() => {
   );
   act(() => {
     useOpenClawStore.setState({
+      // Both gates open: the env flag AND the user's granted power. Arming is
+      // authorized only by their conjunction.
       editEnabled: true,
+      powersOn: true,
+      grantedPowers: ["armed_autonomy"],
       armedMandate: null,
       armedContinuation: null,
       messages: [],
@@ -35,6 +39,8 @@ afterEach(() => {
   act(() => {
     useOpenClawStore.setState({
       editEnabled: false,
+      powersOn: false,
+      grantedPowers: [],
       armedMandate: null,
       armedContinuation: null,
       messages: [],
@@ -63,6 +69,55 @@ describe("useOpenClawChat — arming consent", () => {
 
     expect(useOpenClawStore.getState().armedMandate?.mode).toBe("followups");
     expect(useOpenClawStore.getState().armedMandate?.remaining).toBe(5);
+  });
+
+  // The user-facing promise: with the button up, the exact same sentence that
+  // arms above must do nothing at all.
+  it("does not arm when the powers button is off, even with OC_EDIT on", async () => {
+    act(() => {
+      useOpenClawStore.setState({ powersOn: false });
+    });
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send(ARMING_TEXT);
+    });
+
+    expect(useOpenClawStore.getState().armedMandate).toBeNull();
+  });
+
+  it("does not arm when the button is pressed but armed autonomy is not ticked", async () => {
+    act(() => {
+      useOpenClawStore.setState({ powersOn: true, grantedPowers: ["quick_edit"] });
+    });
+    const { result } = renderHook(() => useOpenClawChat());
+
+    await act(async () => {
+      await result.current.send(ARMING_TEXT);
+    });
+
+    expect(useOpenClawStore.getState().armedMandate).toBeNull();
+  });
+
+  // The continuation loop holds `send` in a ref and calls it from a timer, so a
+  // grant captured at render time could outlive the grant itself. Powers are
+  // therefore read live at send time, exactly like `isStreaming`.
+  it("reads powers live, so a send captured before a revoke carries none", async () => {
+    const { result } = renderHook(() => useOpenClawChat());
+    const capturedSend = result.current.send;
+
+    act(() => {
+      useOpenClawStore.setState({ powersOn: false });
+    });
+
+    await act(async () => {
+      await capturedSend(ARMING_TEXT);
+    });
+
+    expect(useOpenClawStore.getState().armedMandate).toBeNull();
+    const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.powers).toEqual([]);
   });
 
   it("ignores a stop directive on a machine-generated turn", async () => {

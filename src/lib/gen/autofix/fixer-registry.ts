@@ -601,6 +601,18 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     notes: "Documented in docs/plans/avklarat/P30-r3f-tuple-and-repair-feedback.md.",
   },
   {
+    id: "zod-v4-params-fixer",
+    category: "mechanical-misc",
+    risk: "safe",
+    sourcePath: "src/lib/gen/autofix/rules/zod-v4-params-fixer.ts",
+    targetFailureMode:
+      "Zod 3 errorMap param against the zod v4 baseline (params overload breaks, TS2322 cascades through zodResolver/FormField)",
+    triggers: ["errorMap: () => ({ message }) in a file importing zod"],
+    status: "active",
+    ownerPhase: "pre-syntax",
+    notes: "Prod chat fc0f053b 2026-08-11: 1 root cause → 12 typecheck errors, server repair gave up after 2 passes.",
+  },
+  {
     id: "scroll-smooth-html-fixer",
     category: "mechanical-misc",
     risk: "safe",

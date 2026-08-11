@@ -277,6 +277,8 @@ class CapabilityMapFreshnessTests(unittest.TestCase):
             "dossiers": [],
             "groups": {},
             "f2Policy": {"mutedCapabilities": []},
+            "labelsSv": {"class": {}, "mock": {}, "requiresF3": {}},
+            "policy": {"mocklessCapabilityExceptions": ["analytics"]},
             "sourceFiles": {
                 "data/dossiers/hard/acme/manifest.json": self._sha(self.manifest),
                 "src/lib/gen/dossiers/f2-mute.ts": self._sha(self.source),
@@ -399,6 +401,8 @@ class EnsureCapabilityMapCurrentTests(unittest.TestCase):
                     "dossiers": [],
                     "groups": {},
                     "f2Policy": {"mutedCapabilities": []},
+                    "labelsSv": {"class": {}, "mock": {}, "requiresF3": {}},
+                    "policy": {"mocklessCapabilityExceptions": ["analytics"]},
                     "sourceFiles": {
                         "src/lib/gen/dossiers/f2-mute.ts": hashlib.sha256(
                             source.read_bytes()
