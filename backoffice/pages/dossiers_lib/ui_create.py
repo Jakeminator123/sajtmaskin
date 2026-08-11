@@ -354,7 +354,16 @@ def _section_curate() -> None:
                 curation_model,
                 decided_capability,
             )
-        (st.success if ok else st.error)(output[-3000:])
+        override_failed = ok and bool(decided_capability) and (
+            "KUNDE INTE sätta vald capability" in output
+        )
+        (st.success if ok and not override_failed else st.error)(output[-3000:])
+        if ok and override_failed:
+            st.warning(
+                "Kurationen publicerades men den valda capabilityn kunde INTE sättas "
+                "— utkastet har kvar LLM:ns egen capability. Rätta manuellt i "
+                "Redigera-tabben innan dossiern används."
+            )
         if ok:
             st.info(
                 f"Granska och redigera `data/dossiers/{target_class}/{target_id}/` i Redigera-tabben "

@@ -1020,6 +1020,206 @@ class ApplyCapabilityOverrideTests(unittest.TestCase):
         self.assertEqual(self.manifest_path.read_bytes(), original)
 
 
+class RunCurateFinalizeTests(unittest.TestCase):
+    """Backoffice curate must publish under the mutation lock and re-apply capability."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.repo_root = Path(self._tmp.name)
+        self.dossier_root = self.repo_root / "data" / "dossiers"
+        patches = [
+            mock.patch.object(dossiers_page, "REPO_ROOT", self.repo_root),
+            mock.patch.object(dossiers_page, "DOSSIER_ROOT", self.dossier_root),
+            mock.patch.object(dossiers_page, "HARD_ROOT", self.dossier_root / "hard"),
+            mock.patch.object(dossiers_page, "SOFT_ROOT", self.dossier_root / "soft"),
+        ]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def test_parse_curate_stage_path_reads_marker(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self.repo_root / "data" / "backoffice" / "staging" / "dossiers" / "_x.curate-stage-1"
+        output = f"noise\nSTAGE_PATH={stage}\n[curate] stage-only — skipped live publish\n"
+        self.assertEqual(dossiers_io._parse_curate_stage_path(output), stage)
+        self.assertIsNone(dossiers_io._parse_curate_stage_path("no marker here"))
+
+    def test_run_curate_finalizes_under_lock_and_applies_capability(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self.repo_root / "_acme-pay.curate-stage-abc"
+        stage.mkdir(parents=True)
+        lock_holder = mock.Mock()
+
+        def fake_run(cmd, **_kwargs):
+            self.assertIn("--stage-only", cmd)
+            self.assertIn("--capability=content-hub", cmd)
+            return mock.Mock(
+                returncode=0,
+                stdout=f"STAGE_PATH={stage}\n",
+                stderr="",
+            )
+
+        def fake_finalize(staged_dir, target_class, target_id, capability="", *, force=False):
+            lock_holder()
+            self.assertEqual(staged_dir, stage)
+            self.assertEqual(target_class, "hard")
+            self.assertEqual(target_id, "acme-pay")
+            self.assertEqual(capability, "content-hub")
+            self.assertFalse(force)
+            return True, "publicerad"
+
+        with (
+            mock.patch.object(dossiers_io.subprocess, "run", side_effect=fake_run),
+            mock.patch.object(
+                dossiers_io, "_finalize_curated_dossier", side_effect=fake_finalize
+            ) as finalize,
+        ):
+            ok, msg = dossiers_io._run_curate(
+                "ref-repo", "hard", "acme-pay", "model-x", "content-hub"
+            )
+
+        self.assertTrue(ok, msg)
+        self.assertIn("publicerad", msg)
+        finalize.assert_called_once()
+        lock_holder.assert_called_once()
+
+    def test_run_curate_fails_closed_without_stage_marker(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        with (
+            mock.patch.object(
+                dossiers_io.subprocess,
+                "run",
+                return_value=mock.Mock(returncode=0, stdout="ok but no marker\n", stderr=""),
+            ),
+            mock.patch.object(dossiers_io, "_finalize_curated_dossier") as finalize,
+        ):
+            ok, msg = dossiers_io._run_curate("ref-repo", "hard", "acme-pay")
+
+        self.assertFalse(ok)
+        self.assertIn("STAGE_PATH", msg)
+        finalize.assert_not_called()
+
+    def test_finalize_applies_capability_override_after_commit(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self.repo_root / "_acme-pay.curate-stage-abc"
+        manifest = self.dossier_root / "hard" / "acme-pay" / "manifest.json"
+
+        with (
+            mock.patch.object(
+                dossiers_io,
+                "_commit_curated_dossier_stage",
+                return_value=(True, "Publicerade kurations-stage"),
+            ) as commit,
+            mock.patch.object(
+                dossiers_io,
+                "_apply_capability_override",
+                return_value=(True, "ok"),
+            ) as override,
+        ):
+            ok, msg = dossiers_io._finalize_curated_dossier(
+                stage, "hard", "acme-pay", "content-hub"
+            )
+
+        self.assertTrue(ok, msg)
+        self.assertIn("capability='content-hub'", msg)
+        commit.assert_called_once_with(stage, "hard", "acme-pay", force=False)
+        override.assert_called_once_with(manifest, "hard", "content-hub")
+
+    def test_finalize_reports_override_failure_without_hiding_publish(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stage = self.repo_root / "_acme-pay.curate-stage-abc"
+        with (
+            mock.patch.object(
+                dossiers_io,
+                "_commit_curated_dossier_stage",
+                return_value=(True, "Publicerade kurations-stage"),
+            ),
+            mock.patch.object(
+                dossiers_io,
+                "_apply_capability_override",
+                return_value=(False, "Strict-schema misslyckades"),
+            ),
+        ):
+            ok, msg = dossiers_io._finalize_curated_dossier(
+                stage, "hard", "acme-pay", "content-hub"
+            )
+
+        self.assertTrue(ok)
+        self.assertIn("KUNDE INTE sätta vald capability", msg)
+        self.assertIn("Strict-schema misslyckades", msg)
+
+    def test_finalize_waits_on_mutation_lock(self) -> None:
+        import time
+        from contextlib import contextmanager
+
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+        from backoffice.shared_lib.repo_lock import repo_mutation_lock
+
+        stage = self.repo_root / "_acme-pay.curate-stage-abc"
+        ready = self.repo_root / "lock-ready"
+        real_lock = repo_mutation_lock
+        holder = subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                "\n".join(
+                    [
+                        "import sys, time",
+                        "from pathlib import Path",
+                        "from backoffice.shared_lib.repo_lock import repo_mutation_lock",
+                        "root, ready = Path(sys.argv[1]), Path(sys.argv[2])",
+                        "with repo_mutation_lock(root, 'dossiers', timeout_seconds=2):",
+                        "    ready.write_text('locked', encoding='utf-8')",
+                        "    time.sleep(1.0)",
+                    ]
+                ),
+                str(self.repo_root),
+                str(ready),
+            ],
+            cwd=Path(__file__).resolve().parents[1],
+        )
+        self.addCleanup(lambda: holder.poll() is None and holder.kill())
+        deadline = time.monotonic() + 3
+        while (
+            not ready.exists()
+            and holder.poll() is None
+            and time.monotonic() < deadline
+        ):
+            time.sleep(0.02)
+        self.assertTrue(ready.exists(), f"lock holder exited with {holder.poll()}")
+
+        @contextmanager
+        def short_timeout_lock(
+            repo_root: Path,
+            name: str,
+            *,
+            timeout_seconds: float = 15.0,
+            poll_seconds: float = 0.05,
+        ):
+            with real_lock(
+                repo_root,
+                name,
+                timeout_seconds=0.2,
+                poll_seconds=poll_seconds,
+            ):
+                yield
+
+        with mock.patch.object(dossiers_io, "repo_mutation_lock", short_timeout_lock):
+            ok, msg = dossiers_io._finalize_curated_dossier(
+                stage, "hard", "acme-pay", "content-hub"
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("annan Backoffice-process", msg)
+        self.assertEqual(holder.wait(timeout=3), 0)
+
+
 class SwedishLabelCoverageTests(unittest.TestCase):
     """Varje enum-värde i strict-schemat ska ha en etikett i projektionens
     ``labelsSv``-ordlista (fångar nytt mock-värde utan ord)."""

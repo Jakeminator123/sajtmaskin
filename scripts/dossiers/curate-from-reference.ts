@@ -60,8 +60,38 @@ interface Args {
   class: "hard" | "soft";
   id: string;
   force: boolean;
+  /** When true, write the sibling stage and print STAGE_PATH=… — do not publish. */
+  stageOnly: boolean;
   model: string;
   capability?: string;
+}
+
+/** Machine-readable marker for Backoffice `_run_curate` stage-only mode. */
+export const CURATE_STAGE_PATH_PREFIX = "STAGE_PATH=";
+
+/**
+ * Apply a curator-chosen capability onto an LLM draft.
+ * Always clears `defaultForCapability` so a picked capability cannot land as a
+ * duplicate Standardval; the curator promotes defaults later in Redigera.
+ */
+export function applyCuratorCapabilityChoice<T extends { capability?: string; defaultForCapability?: boolean }>(
+  manifest: T,
+  capability: string,
+): T {
+  const trimmed = capability.trim();
+  if (
+    !trimmed ||
+    !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(trimmed) ||
+    trimmed.length < 2 ||
+    trimmed.length > 60
+  ) {
+    throw new Error(`--capability must be kebab-case with 2-60 characters`);
+  }
+  return {
+    ...manifest,
+    capability: trimmed,
+    defaultForCapability: false,
+  };
 }
 
 /**
@@ -102,10 +132,11 @@ export function resolveCurationModel(requested: string | undefined): string {
 }
 
 export function parseArgs(argv: string[]): Args {
-  const args: Partial<Args> = { force: false };
+  const args: Partial<Args> = { force: false, stageOnly: false };
   let requestedModel: string | undefined;
   for (const a of argv.slice(2)) {
     if (a === "--force") args.force = true;
+    else if (a === "--stage-only") args.stageOnly = true;
     else if (a.startsWith("--reference=")) args.reference = a.slice("--reference=".length);
     else if (a.startsWith("--class=")) {
       const v = a.slice("--class=".length);
@@ -115,6 +146,11 @@ export function parseArgs(argv: string[]): Args {
     } else if (a.startsWith("--id=")) args.id = a.slice("--id=".length);
     else if (a.startsWith("--capability=")) args.capability = a.slice("--capability=".length);
     else if (a.startsWith("--model=")) requestedModel = a.slice("--model=".length);
+    else {
+      // Fail closed: silent ignore previously discarded Backoffice `--capability`
+      // and would hide typos like `--capabilty=…`.
+      throw new Error(`Unknown argument: ${a}`);
+    }
   }
   if (!args.reference) throw new Error("--reference=<id> is required");
   if (!args.class) throw new Error("--class=hard|soft is required");
@@ -122,13 +158,9 @@ export function parseArgs(argv: string[]): Args {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(args.id)) {
     throw new Error(`--id must be kebab-case (got: ${args.id})`);
   }
-  if (
-    args.capability &&
-    (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(args.capability) ||
-      args.capability.length < 2 ||
-      args.capability.length > 60)
-  ) {
-    throw new Error(`--capability must be kebab-case with 2-60 characters`);
+  if (args.capability) {
+    // Validate via the shared enforcer so CLI and post-LLM patch stay aligned.
+    applyCuratorCapabilityChoice({ capability: "placeholder" }, args.capability);
   }
   args.model = resolveCurationModel(requestedModel);
   return args as Args;
@@ -560,9 +592,11 @@ async function main() {
 
   // Sanity-check: enforce the id/class the user asked for.
   output.manifest.id = args.id;
+  // AI drafts never enter as Standardval. When the curator also picked a
+  // capability, that choice wins over the LLM guess.
+  output.manifest.defaultForCapability = false;
   if (args.capability) {
-    output.manifest.capability = args.capability;
-    output.manifest.defaultForCapability = false;
+    output.manifest = applyCuratorCapabilityChoice(output.manifest, args.capability);
   }
   if (!output.manifest.lastVerified)
     output.manifest.lastVerified = new Date().toISOString().slice(0, 10);
@@ -579,6 +613,12 @@ async function main() {
       "utf-8",
     );
     writeFileSync(join(stagedDir, "instructions.md"), output.instructions, "utf-8");
+    if (args.stageOnly) {
+      // Backoffice owns the locked publish + capability override in-process.
+      console.log(`${CURATE_STAGE_PATH_PREFIX}${stagedDir}`);
+      console.log(`[curate] stage-only — skipped live publish`);
+      return;
+    }
     commitCurationStage(stagedDir, args);
   } catch (error) {
     try {

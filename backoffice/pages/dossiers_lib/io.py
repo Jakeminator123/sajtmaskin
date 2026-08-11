@@ -2016,6 +2016,7 @@ def _cleanup_verified_transaction_stage(path: Path) -> str | None:
     return _cleanup_tree(resolved)
 
 
+@_dossier_mutation_locked
 def _allocate_curated_dossier_stage(target_id: str) -> tuple[bool, str]:
     if not _facade()._KEBAB_RE.match(target_id):
         return False, "Ogiltigt dossier-id för stage-allokering."
@@ -2030,6 +2031,7 @@ def _allocate_curated_dossier_stage(target_id: str) -> tuple[bool, str]:
     return True, str(staged_dir)
 
 
+@_dossier_mutation_locked
 def _cleanup_curated_dossier_stage(staged_dir: Path) -> tuple[bool, str]:
     root, root_error = _transaction_root()
     if root_error or root is None:
@@ -2577,6 +2579,59 @@ def _list_template_refs() -> list[str]:
     return sorted(d.name for d in _facade().TEMPLATE_REFS_ROOT.iterdir() if d.is_dir())
 
 
+_CURATE_STAGE_PATH_PREFIX = "STAGE_PATH="
+
+
+def _parse_curate_stage_path(output: str) -> Path | None:
+    """Extract the stage-only marker emitted by curate-from-reference.ts."""
+    for line in output.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(_CURATE_STAGE_PATH_PREFIX):
+            raw = stripped[len(_CURATE_STAGE_PATH_PREFIX) :].strip()
+            if raw:
+                return Path(raw)
+    return None
+
+
+@_dossier_mutation_locked
+def _finalize_curated_dossier(
+    staged_dir: Path,
+    target_class: str,
+    target_id: str,
+    capability: str = "",
+    *,
+    force: bool = False,
+) -> tuple[bool, str]:
+    """Publish a TS stage under the shared mutation lock, then apply capability.
+
+    Holding the lock across the LLM subprocess would deadlock the child
+    allocate/commit helpers, so Backoffice runs ``--stage-only`` unlocked and
+    funnels the live-pool write through this exclusive gate instead.
+    """
+    ok, msg = _commit_curated_dossier_stage(
+        staged_dir, target_class, target_id, force=force
+    )
+    if not ok:
+        return False, msg
+    decided = capability.strip()
+    if not decided:
+        return True, msg
+    manifest_path = (
+        _facade().DOSSIER_ROOT / target_class / target_id / "manifest.json"
+    )
+    override_ok, override_msg = _apply_capability_override(
+        manifest_path, target_class, decided
+    )
+    if override_ok:
+        return True, (
+            msg
+            + f"\n[backoffice] satte capability={decided!r} enligt vald kategori."
+        )
+    return True, (
+        msg + f"\n[backoffice] KUNDE INTE sätta vald capability: {override_msg}"
+    )
+
+
 def _run_curate(
     reference_id: str,
     target_class: str,
@@ -2584,10 +2639,18 @@ def _run_curate(
     model: str = "",
     capability: str = "",
 ) -> tuple[bool, str]:
-    """Kör kurations-skriptet. ``model`` skickas bara vidare när operatören valt
-    ett id; utan flagga använder skriptet manifestets `defaultModel` för
-    workloaden `backoffice_dossier_curation` (Fas D). Ett id skriptet inte
-    känner igen fälls där, före LLM-anropet."""
+    """Kör kurations-skriptet i stage-only-läge och publicerar under mutation-lock.
+
+    ``model`` skickas bara vidare när operatören valt ett id; utan flagga
+    använder skriptet manifestets `defaultModel` för workloaden
+    `backoffice_dossier_curation` (Fas D). Ett id skriptet inte känner igen
+    fälls där, före LLM-anropet.
+
+    Live-pool-skrivningen går via ``_finalize_curated_dossier`` (samma
+    ``@_dossier_mutation_locked`` som övriga dossier-mutationer). Föräldern
+    håller inte låset över LLM-subprocessen — det skulle deadloka barnets
+    allocate-anrop.
+    """
     cmd = [
         "npx",
         "tsx",
@@ -2595,6 +2658,7 @@ def _run_curate(
         f"--reference={reference_id}",
         f"--class={target_class}",
         f"--id={target_id}",
+        "--stage-only",
     ]
     if model.strip():
         cmd.append(f"--model={model.strip()}")
@@ -2610,7 +2674,33 @@ def _run_curate(
             timeout=300,
         )
         out = (result.stdout or "") + (result.stderr or "")
-        return result.returncode == 0, out
+        if result.returncode != 0:
+            return False, out
+        staged_dir = _parse_curate_stage_path(out)
+        if staged_dir is None:
+            return False, (
+                out
+                + "\n[backoffice] Kurations-skriptet returnerade ingen STAGE_PATH "
+                "— live-poolen ändrades inte."
+            )
+        finalize_ok, finalize_msg = _finalize_curated_dossier(
+            staged_dir,
+            target_class,
+            target_id,
+            capability,
+            force=False,
+        )
+        if not finalize_ok:
+            # Commit-vägen städar själv vid valideringsfel; lock-timeout och
+            # liknande lämnar stage kvar — best-effort cleanup så ytan inte växer.
+            cleanup_ok, cleanup_msg = _cleanup_curated_dossier_stage(staged_dir)
+            if not cleanup_ok:
+                finalize_msg = (
+                    f"{finalize_msg}\n[backoffice] Stage-cleanup misslyckades: "
+                    f"{cleanup_msg}"
+                )
+        combined = (out + "\n" + finalize_msg).strip()
+        return finalize_ok, combined
     except subprocess.TimeoutExpired:
         return (
             False,

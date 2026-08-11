@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   allowedCurationModels,
+  applyCuratorCapabilityChoice,
   curationAllocateArgs,
   curationCleanupArgs,
   curationTransactionArgs,
@@ -84,6 +85,30 @@ describe("curation model resolution", () => {
     expect(() => parseArgs([...BASE_ARGV, "--capability=Not Valid"])).toThrow(
       /--capability must be kebab-case/,
     );
+  });
+
+  it("accepts --stage-only and rejects unknown flags", () => {
+    expect(parseArgs([...BASE_ARGV, "--stage-only"]).stageOnly).toBe(true);
+    expect(() => parseArgs([...BASE_ARGV, "--capabilty=content-hub"])).toThrow(
+      /Unknown argument: --capabilty=content-hub/,
+    );
+  });
+});
+
+describe("curator capability enforcement", () => {
+  it("overwrites capability and refuses defaultForCapability when curator chose one", () => {
+    const patched = applyCuratorCapabilityChoice(
+      { capability: "llm-guess", defaultForCapability: true },
+      "content-hub",
+    );
+    expect(patched.capability).toBe("content-hub");
+    expect(patched.defaultForCapability).toBe(false);
+  });
+
+  it("rejects an invalid curator capability before any write", () => {
+    expect(() =>
+      applyCuratorCapabilityChoice({ capability: "cms", defaultForCapability: false }, "Not Valid"),
+    ).toThrow(/--capability must be kebab-case/);
   });
 });
 
