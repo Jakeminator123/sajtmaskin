@@ -22,7 +22,7 @@ async function loadRuntimeBindings() {
       import("../../src/lib/gen/scaffold-variants/registry.ts"),
       import("../../src/lib/ai-models/load-manifest.ts"),
       import("../../src/lib/builder/dossier-groups.ts"),
-      import("../../src/lib/gen/orchestrate/capability-prompt-filter.ts"),
+      import("../../src/lib/gen/dossiers/f2-mute.ts"),
     ]).then(
       ([
         dossierRegistryModule,
@@ -31,7 +31,7 @@ async function loadRuntimeBindings() {
         variantRegistryModule,
         aiModelsRuntimeModule,
         dossierGroupsModule,
-        capabilityPromptFilterModule,
+        f2MuteModule,
       ]) => {
         const dossierRegistry = dossierRegistryModule.default ?? dossierRegistryModule;
         const dossierTypes = dossierTypesModule.default ?? dossierTypesModule;
@@ -39,8 +39,7 @@ async function loadRuntimeBindings() {
         const variantRegistry = variantRegistryModule.default ?? variantRegistryModule;
         const aiModelsRuntime = aiModelsRuntimeModule.default ?? aiModelsRuntimeModule;
         const dossierGroups = dossierGroupsModule.default ?? dossierGroupsModule;
-        const capabilityPromptFilter =
-          capabilityPromptFilterModule.default ?? capabilityPromptFilterModule;
+        const f2Mute = f2MuteModule.default ?? f2MuteModule;
         return {
           getAllDossiers: dossierRegistry.getAllDossiers,
           dossierRequiresF3: dossierTypes.dossierRequiresF3,
@@ -49,8 +48,7 @@ async function loadRuntimeBindings() {
           getVariantsForScaffold: variantRegistry.getVariantsForScaffold,
           getAiModelsManifest: aiModelsRuntime.getAiModelsManifest,
           resolveDossierGroup: dossierGroups.resolveDossierGroup,
-          getF2MutedIntegrationCapabilities:
-            capabilityPromptFilter.getF2MutedIntegrationCapabilities,
+          getF2MutedIntegrationCapabilities: f2Mute.getF2MutedIntegrationCapabilities,
         };
       },
     );
@@ -84,7 +82,7 @@ export const GENERATED_DOC_FAMILIES = Object.freeze({
       "data/dossiers/{hard,soft}/*/manifest.json#capability",
       "src/lib/gen/dossiers/types.ts#dossierRequiresF3",
       "src/lib/builder/dossier-groups.ts#resolveDossierGroup",
-      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
+      "src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities",
     ],
     output: "docs/generated/capabilities.generated.md",
   },
@@ -93,7 +91,7 @@ export const GENERATED_DOC_FAMILIES = Object.freeze({
       "data/dossiers/{hard,soft}/*/manifest.json",
       "src/lib/gen/dossiers/registry.ts",
       "src/lib/builder/dossier-groups.ts#resolveDossierGroup",
-      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
+      "src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities",
     ],
     output: "docs/generated/dossiers.generated.md",
   },
@@ -279,11 +277,11 @@ function renderCapabilities(dossiers, dossierRequiresF3, resolveDossierGroup, f2
       "data/dossiers/{hard,soft}/*/manifest.json",
       "src/lib/gen/dossiers/types.ts#dossierRequiresF3",
       "src/lib/builder/dossier-groups.ts#resolveDossierGroup",
-      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
+      "src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities",
     ]),
     fingerprintComment("validated dossier registry", dossiers),
     fingerprintComment(
-      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
+      "src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities",
       [...f2MutedCapabilities].sort(compareText),
     ),
     fingerprintComment(
@@ -355,11 +353,11 @@ function renderDossiers(dossiers, dossierRequiresF3, resolveDossierGroup, f2Mute
       "docs/schemas/strict/dossier.schema.json",
       "src/lib/gen/dossiers/registry.ts",
       "src/lib/builder/dossier-groups.ts#resolveDossierGroup",
-      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
+      "src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities",
     ]),
     fingerprintComment("validated dossier registry", dossiers),
     fingerprintComment(
-      "src/lib/gen/orchestrate/capability-prompt-filter.ts#getF2MutedIntegrationCapabilities",
+      "src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities",
       [...f2MutedCapabilities].sort(compareText),
     ),
     "",

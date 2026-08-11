@@ -1,44 +1,58 @@
 /**
- * Regenerate `data/dossiers/_index/capability-map.json` from disk.
+ * Regenerate `data/dossiers/_index/capability-map.json` — the generated
+ * projection of dossier truth for every non-TypeScript consumer.
  *
- * Walks `data/dossiers/{hard,soft}/<id>/manifest.json` and builds a view of
- * capability → [dossier-id]. This file is consumed by the backoffice Dossiers
- * page + curation docs; the runtime selector walks disk directly and does not
- * read this file.
+ * Reads the *validated runtime registry* (`getAllDossiers()`), not raw
+ * manifests, so the projection can never claim a dossier the runtime rejects.
+ * Emits capability → [dossier-id], the presentation `groups` view, a `dossiers`
+ * truth view (F2 disposition and the build/server contract as separate axes),
+ * the `f2Policy` mute set and `sourceFiles` fingerprints. Consumed by the
+ * backoffice Dossiers page + curation docs; the runtime selector walks disk
+ * directly and never reads this file.
  *
  * Usage:
- *   npx tsx scripts/dossiers/regenerate-capability-map.ts         # check-only (prints diff)
- *   npx tsx scripts/dossiers/regenerate-capability-map.ts --write # regenerate + write
+ *   npm run dossiers:capability-map:check   # check-only (names the stale view)
+ *   npm run dossiers:capability-map:write   # regenerate + write
  *
  * Exit codes:
  *   0 = map is in sync (no changes needed)
- *   1 = map is stale (differs from disk) — use --write to refresh
- *   2 = fatal error (invalid manifest, missing directory, etc.)
+ *   1 = map is stale — use --write to refresh
+ *   2 = fatal error (registry rejected a manifest, empty pool, unreadable source)
  *
- * Hook this into CI and/or pre-commit so the on-disk file never drifts.
+ * The check mode is a blocking CI step (`quality` job): backoffice reads this
+ * file, so staleness has a real consumer.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { DOSSIER_GROUP_ORDER, resolveDossierGroup } from "../../src/lib/builder/dossier-groups";
+import { getF2MutedIntegrationCapabilities } from "../../src/lib/gen/dossiers/f2-mute";
 import { getAllDossiers } from "../../src/lib/gen/dossiers/registry";
 import { dossierRequiresF3, type DossierEntry } from "../../src/lib/gen/dossiers/types";
-import { getF2MutedIntegrationCapabilities } from "../../src/lib/gen/orchestrate/capability-prompt-filter";
 
 const ROOT = resolve(process.cwd(), "data", "dossiers");
 const INDEX_DIR = join(ROOT, "_index");
-const MAP_PATH = join(INDEX_DIR, "capability-map.json");
+export const MAP_PATH = join(INDEX_DIR, "capability-map.json");
 const CLASSES = ["hard", "soft"] as const;
 const REPO_ROOT = resolve(process.cwd());
-const FIXED_SOURCE_PATHS = [
+/**
+ * Every non-manifest file whose content can change the projection. Recorded as
+ * `sourceFiles` sha256 fingerprints so non-TS consumers (backoffice) can decide
+ * freshness without parsing TypeScript, and so the CI staleness gate has an
+ * exact trigger. Hashes are platform-stable because `.gitattributes` pins the
+ * working tree to LF (`* text=auto eol=lf`) — locked by
+ * `regenerate-capability-map.test.ts`.
+ */
+export const FIXED_SOURCE_PATHS = [
   "docs/schemas/strict/dossier.schema.json",
   "scripts/dossiers/regenerate-capability-map.ts",
   "src/lib/builder/dossier-groups.ts",
+  "src/lib/gen/dossiers/f2-mute.ts",
   "src/lib/gen/dossiers/registry.ts",
   "src/lib/gen/dossiers/types.ts",
   "src/lib/gen/dossiers/validate-manifest.ts",
-  "src/lib/gen/orchestrate/capability-prompt-filter.ts",
 ] as const;
 
 type CapabilityGroupView = {
@@ -46,7 +60,7 @@ type CapabilityGroupView = {
   capabilities: string[];
 };
 
-type DossierTruthView = {
+export type DossierTruthView = {
   id: string;
   label: string;
   class: DossierEntry["class"];
@@ -70,7 +84,7 @@ type DossierTruthView = {
   buildServerReasons: Array<"build-env" | "server-file">;
 };
 
-type CapabilityMap = {
+export type CapabilityMap = {
   $comment: string;
   generatedAt: string;
   capabilities: Record<string, string[]>;
@@ -86,7 +100,7 @@ function sha256File(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-function collectSourceFiles(): Record<string, string> {
+export function collectSourceFiles(): Record<string, string> {
   const manifestPaths = CLASSES.flatMap((klass) =>
     listIds(klass).map((id) => `data/dossiers/${klass}/${id}/manifest.json`),
   );
@@ -103,7 +117,9 @@ function collectSourceFiles(): Record<string, string> {
  * Keeps backoffice (Python) from needing its own hand-written copy of the
  * capability→group mapping — see `docs/contracts/dossier-system.md` § Grupper.
  */
-function buildGroups(capabilities: Record<string, string[]>): Record<string, CapabilityGroupView> {
+export function buildGroups(
+  capabilities: Record<string, string[]>,
+): Record<string, CapabilityGroupView> {
   const groups: Record<string, CapabilityGroupView> = {};
   for (const group of DOSSIER_GROUP_ORDER) {
     groups[group.id] = { label: group.label, capabilities: [] };
@@ -115,7 +131,7 @@ function buildGroups(capabilities: Record<string, string[]>): Record<string, Cap
   return groups;
 }
 
-function listIds(klass: string): string[] {
+export function listIds(klass: string): string[] {
   const dir = join(ROOT, klass);
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true })
@@ -124,7 +140,7 @@ function listIds(klass: string): string[] {
     .sort();
 }
 
-function collectCapabilities(dossiers: readonly DossierEntry[]): Record<string, string[]> {
+export function collectCapabilities(dossiers: readonly DossierEntry[]): Record<string, string[]> {
   const byCap: Record<string, string[]> = {};
   for (const dossier of dossiers) {
     (byCap[dossier.capability] ??= []).push(dossier.id);
@@ -137,12 +153,12 @@ function collectCapabilities(dossiers: readonly DossierEntry[]): Record<string, 
   return sorted;
 }
 
-function buildDossierTruth(
+export function buildDossierTruth(
   dossiers: readonly DossierEntry[],
   f2MutedCapabilities: ReadonlySet<string>,
 ): DossierTruthView[] {
   return dossiers
-    .map((dossier) => {
+    .map((dossier): DossierTruthView => {
       const fileRoles: Record<string, number> = {};
       for (const file of dossier.files ?? []) {
         fileRoles[file.role] = (fileRoles[file.role] ?? 0) + 1;
@@ -329,7 +345,7 @@ function main(): void {
   }
   const next: CapabilityMap = {
     $comment:
-      "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, and the F2 integration-mute from getF2MutedIntegrationCapabilities(). Can be regenerated automatically by backoffice/pages/dossiers.py or explicitly with `npm run dossiers:capability-map:write`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner.",
+      "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
     generatedAt: new Date().toISOString(),
     capabilities,
     groups: freshGroups,
@@ -345,4 +361,16 @@ function main(): void {
   );
 }
 
-main();
+function isInvokedDirectly() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(entry).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isInvokedDirectly()) {
+  main();
+}

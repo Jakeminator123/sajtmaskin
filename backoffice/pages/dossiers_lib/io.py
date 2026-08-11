@@ -307,24 +307,45 @@ def _load_group_view() -> dict[str, Any]:
     return groups if isinstance(groups, dict) else {}
 
 
-def _capability_map_source_paths() -> list[Path]:
-    """All files that the canonical TypeScript projection fingerprints.
+_MANIFEST_SOURCE_RE = re.compile(r"^data/dossiers/(?:hard|soft)/[^/]+/manifest\.json$")
 
-    Keep this path list sourced from ``constants.py`` and mirror only the
-    manifest glob here. The generated map records the same relative paths, so
-    additions/removals and same-count content edits are detected without
-    parsing TypeScript policy in Python.
+
+def _capability_map_source_paths(current: dict[str, Any]) -> list[Path] | None:
+    """The files the TS projection itself says it depends on, plus manifests.
+
+    The non-manifest paths are read out of the projection's own ``sourceFiles``
+    keys rather than a Python copy of ``FIXED_SOURCE_PATHS`` — one owner, no
+    second list to drift. Manifests are globbed here instead, because an
+    added/removed dossier directory is by definition absent from the stored
+    keys; globbing is what makes pool changes detectable at all.
+
+    Known limit (accepted, see plan 01 step 6): if TypeScript *adds* a fixed
+    source path and nobody regenerates, Python cannot know about it. The CI
+    staleness gate (`npm run dossiers:capability-map:check`) is what keeps
+    master's projection fresh, so the stored key set is current in any clean
+    checkout.
     """
-    paths = [_facade().REPO_ROOT / rel for rel in _facade().CAPABILITY_MAP_FIXED_SOURCES]
+    stored = current.get("sourceFiles")
+    if not isinstance(stored, dict):
+        return None
+    fixed = sorted(
+        key for key in stored if isinstance(key, str) and not _MANIFEST_SOURCE_RE.match(key)
+    )
+    if not fixed:
+        return None
+    paths = [_facade().REPO_ROOT / rel for rel in fixed]
     for klass in ("hard", "soft"):
         paths.extend(sorted((_facade().DOSSIER_ROOT / klass).glob("*/manifest.json")))
     return sorted(paths, key=lambda path: path.as_posix())
 
 
-def _capability_map_source_fingerprints() -> dict[str, str] | None:
+def _capability_map_source_fingerprints(current: dict[str, Any]) -> dict[str, str] | None:
+    paths = _capability_map_source_paths(current)
+    if paths is None:
+        return None
     fingerprints: dict[str, str] = {}
     try:
-        for path in _capability_map_source_paths():
+        for path in paths:
             relative = path.relative_to(_facade().REPO_ROOT).as_posix()
             fingerprints[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError:
@@ -334,7 +355,7 @@ def _capability_map_source_fingerprints() -> dict[str, str] | None:
 
 def _capability_map_is_stale(current: dict[str, Any]) -> bool:
     """Compare exact source hashes, not mtimes/counts, with the TS projection."""
-    expected = _capability_map_source_fingerprints()
+    expected = _capability_map_source_fingerprints(current)
     stored = current.get("sourceFiles")
     return expected is None or not isinstance(stored, dict) or stored != expected
 

@@ -117,12 +117,17 @@ jobs:
       - name: Validate dossier manifests
         run: npm run dossiers:validate-all
 
-      # NOTE: the dossier capability-map (data/dossiers/_index/capability-map.json)
-      # is a GENERATED tooling view, never read at runtime (the registry walks
-      # data/dossiers/{hard,soft}/ directly). Its former drift-check
-      # (`dossiers:capability-map:check`) was pure maintenance tax and was
-      # removed. Regenerate on demand with `npm run dossiers:capability-map:write`
-      # (or the backoffice "Bygg om" tab) when curating.
+      # Dossier-projektionen (data/dossiers/_index/capability-map.json) är
+      # GENERERAD och läses aldrig i runtime — registryt går direkt på
+      # data/dossiers/{hard,soft}/. Drift-checken togs bort 2026 som ren
+      # underhållsskatt, men är tillbaka som blockerande steg eftersom
+      # backoffice Systemkarta nu LÄSER filen: en stale projektion visar fel
+      # F2-/build-status för operatören, alltså har staleness en verklig
+      # konsument. Checken skriver inget, hashar bara `sourceFiles` och namnger
+      # vilken vy som drivit isär. Fixa rött med
+      # `npm run dossiers:capability-map:write` (eller backoffice "Bygg om").
+      - name: Dossier-projektionen är färsk (blocking)
+        run: npm run dossiers:capability-map:check
 
       - name: Validate control-plane registries
         run: npm run control-plane:check

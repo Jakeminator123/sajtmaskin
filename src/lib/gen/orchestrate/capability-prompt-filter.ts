@@ -6,42 +6,13 @@
 import { explicitlyRequests3D } from "../capability-inference";
 import {
   expandDependentCapabilities,
-  getF3RequiredCapabilities,
+  getF2MutedIntegrationCapabilities,
   normalizeCapabilityId,
 } from "../dossiers";
 import type { BuildSpec } from "../build-spec";
 
 function explicitlyRequestsCarousel(prompt: string): boolean {
   return /\b(carousel|slider|slideshow|swipe|embla|karusell|bildkarusell|bildspel|hero[-\s]?slider|produktkarusell)\b/i.test(prompt);
-}
-
-/**
- * Non-secret integration capabilities that F2 mutes by POLICY
- * (`.cursor/rules/env-flow-f2-mute.mdc`) even though their dossier has no
- * build-enforced env secret AND no server-file surface — today only
- * analytics (`<Analytics/>` needs no build key and ships no server file).
- * Everything else is derived from each dossier's own contract via
- * `getF3RequiredCapabilities()` (see `dossierRequiresF3`: build-enforced
- * env var OR a `files[].role === "server"` file — the latter now covers
- * contact-form/resend, newsletter-subscribe/mailchimp and
- * error-tracking/sentry). Keep this residual minimal; prefer expressing
- * "needs F3" through the dossier manifest.
- */
-const F2_MUTE_POLICY_ONLY_CAPABILITIES = new Set(["analytics"]);
-
-/**
- * Integration capabilities muted from the F2 dossier prompt injection.
- * Canonical F3 signal = `dossierRequiresF3` (build-enforced envVars OR
- * server-file surface), enumerated as capabilities by
- * `getF3RequiredCapabilities()`, unioned with the small non-secret policy
- * residual above. Replaces the former hardcoded `F3_ONLY_DOSSIER_CAPABILITIES`
- * list so the boundary tracks the dossier contract instead of a duplicated
- * constant.
- */
-export function getF2MutedIntegrationCapabilities(): Set<string> {
-  const caps = new Set<string>(getF3RequiredCapabilities());
-  for (const cap of F2_MUTE_POLICY_ONLY_CAPABILITIES) caps.add(cap);
-  return caps;
 }
 
 export interface DossierCapabilityPromptFilterResult {

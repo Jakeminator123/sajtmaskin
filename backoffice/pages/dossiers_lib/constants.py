@@ -50,17 +50,6 @@ INDEX_ROOT = DOSSIER_ROOT / "_index"
 CAPABILITY_MAP_PATH = INDEX_ROOT / "capability-map.json"
 
 
-CAPABILITY_MAP_FIXED_SOURCES = (
-    "docs/schemas/strict/dossier.schema.json",
-    "scripts/dossiers/regenerate-capability-map.ts",
-    "src/lib/builder/dossier-groups.ts",
-    "src/lib/gen/dossiers/registry.ts",
-    "src/lib/gen/dossiers/types.ts",
-    "src/lib/gen/dossiers/validate-manifest.ts",
-    "src/lib/gen/orchestrate/capability-prompt-filter.ts",
-)
-
-
 STRICT_SCHEMA_PATH = REPO_ROOT / "docs" / "schemas" / "strict" / "dossier.schema.json"
 
 
