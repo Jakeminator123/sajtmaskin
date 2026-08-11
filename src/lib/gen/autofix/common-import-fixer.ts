@@ -100,6 +100,25 @@ function findFirstShadowingIndex(code: string, name: string): number | null {
  * not serve value usages — that sub-case stays with the type-collision
  * fixer / the LLM).
  */
+/**
+ * End offset for a patch that removes a whole import statement.
+ *
+ * The statement's own line break is not part of the match, so `replacement: ""`
+ * alone turns the line into a BLANK one instead of removing it. That is not
+ * cosmetic: a fixer upstream can re-add the same import next pass, and the
+ * add/remove cycle then stacks one blank line per pass forever (prod chat
+ * f98fd5c0 went 7 -> 9 -> 21 -> 17 blank lines above the imports in every
+ * `components/ui/*` file, growing with each generation). Consume the trailing
+ * newline so a removed line actually disappears.
+ */
+function endOfRemovedImportLine(code: string, importEnd: number): number {
+  let idx = importEnd;
+  while (idx < code.length && (code[idx] === " " || code[idx] === "\t")) idx += 1;
+  if (code[idx] === "\r") idx += 1;
+  if (code[idx] === "\n") return idx + 1;
+  return importEnd;
+}
+
 function shouldDropConflictingImportBinding(
   code: string,
   declarations: Set<string>,
@@ -664,7 +683,11 @@ export function fixImportedDeclarationConflicts(
       // Self-module-path import: drop the whole statement (default + named).
       removedBindings.push(defaultLocal);
       for (const spec of namedSpecsParsed) removedBindings.push(spec.local);
-      patches.push({ start: offset, end: importEnd, replacement: "" });
+      patches.push({
+        start: offset,
+        end: endOfRemovedImportLine(code, importEnd),
+        replacement: "",
+      });
       continue;
     }
 
@@ -707,7 +730,11 @@ export function fixImportedDeclarationConflicts(
     }
 
     if (replacement !== full) {
-      patches.push({ start: offset, end: importEnd, replacement });
+      patches.push({
+        start: offset,
+        end: replacement === "" ? endOfRemovedImportLine(code, importEnd) : importEnd,
+        replacement,
+      });
     }
   }
 
@@ -724,7 +751,11 @@ export function fixImportedDeclarationConflicts(
     if (selfSpecifiers.has(source)) {
       // Self-module-path import: drop every named binding (remove the line).
       for (const spec of namedSpecsParsed) removedBindings.push(spec.local);
-      patches.push({ start: offset, end: importEnd, replacement: "" });
+      patches.push({
+        start: offset,
+        end: endOfRemovedImportLine(code, importEnd),
+        replacement: "",
+      });
       continue;
     }
 
@@ -753,7 +784,11 @@ export function fixImportedDeclarationConflicts(
         ? ""
         : `${prefix}{ ${keptNamed.map(formatNamedImportSpecifier).join(", ")} } from "${source}";`;
 
-    patches.push({ start: offset, end: importEnd, replacement });
+    patches.push({
+      start: offset,
+      end: replacement === "" ? endOfRemovedImportLine(code, importEnd) : importEnd,
+      replacement,
+    });
   }
 
   patches.sort((a, b) => b.start - a.start);

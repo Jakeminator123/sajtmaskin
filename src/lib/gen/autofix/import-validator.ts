@@ -1,5 +1,6 @@
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
+import { extractLocalComponentDeclarations } from "./local-declarations";
 import {
   findNearestIcon,
   isLucideTypeOnlyExport,
@@ -562,6 +563,15 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
   const bound = collectImportBoundNames(code);
   const importedNames = new Set<string>([...bound.value, ...bound.typeOnly]);
 
+  // A name the file DECLARES itself is never a missing import. Without this
+  // guard a shadcn component file gets a self-import injected (`DialogPortal`
+  // is `const DialogPortal = DialogPrimitive.Portal` in `ui/dialog.tsx`, and
+  // also a key in SHADCN_COMPONENTS), which `fixImportDeclarationConflicts`
+  // strips again on the same pass — an add/remove cycle that stacked blank
+  // lines above the imports on every generation (prod chat f98fd5c0).
+  // `jsx-checker` and `common-import-fixer` already apply the same guard.
+  const localDeclarations = extractLocalComponentDeclarations(code);
+
   const jsxTagRe = /<([A-Z][A-Za-z0-9]*)\b/g;
   const jsxTags = new Set<string>();
   for (const m of code.matchAll(jsxTagRe)) {
@@ -586,6 +596,7 @@ function detectMissingImports(code: string): { code: string; fixes: AutoFixEntry
 
   for (const tag of jsxTags) {
     if (importedNames.has(tag)) continue;
+    if (localDeclarations.has(tag)) continue;
 
     if (NEXT_AUTO_IMPORTS[tag]) {
       newImports.push(NEXT_AUTO_IMPORTS[tag]);

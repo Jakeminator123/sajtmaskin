@@ -129,6 +129,77 @@ export function cn(...inputs: ClassValue[]) {
     expect(utilsFile?.content).toContain("export function cn(...inputs: ClassValue[])");
   });
 
+  // Prod chat f98fd5c0: `components/ui/dialog.tsx` declares `DialogPortal` /
+  // `DialogOverlay` locally AND uses them as JSX. Both are keys in
+  // SHADCN_COMPONENTS, so import-validator injected a self-import which
+  // fixImportDeclarationConflicts stripped again — leaving the newline behind.
+  // Every pass added blank lines above the imports: 7 -> 9 -> 21 -> 17 across
+  // four real versions, in 11-12 files at once.
+  const shadcnDialog: CodeFile = {
+    path: "components/ui/dialog.tsx",
+    language: "tsx",
+    content: `'use client'
+
+import * as React from 'react'
+import { Dialog as DialogPrimitive } from "radix-ui"
+import { X } from 'lucide-react'
+
+import { cn } from '@/lib/utils'
+
+const Dialog = DialogPrimitive.Root
+const DialogPortal = DialogPrimitive.Portal
+
+const DialogOverlay = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Overlay ref={ref} className={cn("fixed inset-0", className)} {...props} />
+))
+DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
+
+const DialogContent = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPortal>
+    <DialogOverlay />
+    <DialogPrimitive.Content ref={ref} className={cn("fixed", className)} {...props}>
+      {children}
+      <DialogPrimitive.Close>
+        <X className="h-4 w-4" />
+      </DialogPrimitive.Close>
+    </DialogPrimitive.Content>
+  </DialogPortal>
+))
+DialogContent.displayName = DialogPrimitive.Content.displayName
+
+export { Dialog, DialogPortal, DialogOverlay, DialogContent }
+`,
+  };
+
+  const blankLinesBeforeImports = (content: string): number => {
+    const lines = content.split("\n");
+    const firstImport = lines.findIndex((line) => /^\s*import\s/.test(line));
+    if (firstImport <= 0) return 0;
+    return lines.slice(0, firstImport).filter((line) => line.trim() === "").length;
+  };
+
+  it("does not accumulate blank lines above the imports across repeated passes", () => {
+    const baseline = blankLinesBeforeImports(shadcnDialog.content);
+    let files = [shadcnDialog];
+    for (let pass = 0; pass < 4; pass += 1) {
+      files = repairGeneratedFiles(files).files;
+      const dialog = files.find((f) => f.path === "components/ui/dialog.tsx");
+      expect(blankLinesBeforeImports(dialog!.content)).toBeLessThanOrEqual(baseline);
+    }
+  });
+
+  it("keeps a shadcn component file byte-stable after the first pass", () => {
+    const once = repairGeneratedFiles([shadcnDialog]);
+    const twice = repairGeneratedFiles(once.files);
+    expect(stableStringify(twice.files)).toBe(stableStringify(once.files));
+  });
+
   it("normalizes raw icon component values to render-safe JSX and stable keys", () => {
     const repaired = repairGeneratedFiles([
       {

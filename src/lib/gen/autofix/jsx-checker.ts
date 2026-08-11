@@ -1,6 +1,7 @@
 import { LUCIDE_ICONS } from "@/lib/gen/data/lucide-icons";
 import { SHADCN_COMPONENTS } from "@/lib/gen/data/shadcn-components";
 import type { AutoFixEntry } from "./pipeline";
+import { extractLocalComponentDeclarations as extractLocalDeclarations } from "./local-declarations";
 import { resolveOwnComponentImports } from "./deterministic-import-repair";
 import {
   countParseErrors,
@@ -235,26 +236,6 @@ function extractUsedComponents(code: string): Set<string> {
   }
 
   return used;
-}
-
-function extractLocalDeclarations(code: string): Set<string> {
-  const decls = new Set<string>();
-  const FUNC_RE = /(?:function|const|let|var)\s+([A-Z]\w*)\s*[=(]/g;
-  for (const m of code.matchAll(FUNC_RE)) {
-    decls.add(m[1]);
-  }
-  // SAJ-63: also capture `type Foo = ...`, `interface Foo`, `class Foo` so
-  // jsx-checker does not (a) emit phantom imports for names that are local TS
-  // types used in generic position (`useState<GamePhase>(...)` paired with
-  // `type GamePhase = "idle" | "playing" | "finished"`) and (b) raise tag-
-  // mismatch warnings for those same TS-generic positions.
-  // Direct follow-up to SAJ-61b (which only covered `type Lane = ...` via the
-  // import path) — this also hardens `checkTagMatching` and `interface`/`class`.
-  const TYPE_RE = /(?:type|interface|class)\s+([A-Z]\w*)\b/g;
-  for (const m of code.matchAll(TYPE_RE)) {
-    decls.add(m[1]);
-  }
-  return decls;
 }
 
 function findLastImportLine(lines: string[]): number {
