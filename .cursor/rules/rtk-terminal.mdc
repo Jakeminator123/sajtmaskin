@@ -1,0 +1,57 @@
+---
+description: "RTK komprimerar Shell-output globalt i Cursor. Läs vid konstig/kort terminaloutput, git-historikbeslut eller RTK-felsökning."
+alwaysApply: false
+---
+
+# RTK (terminalkomprimering)
+
+Ägaren har **RTK** (v0.45+) installerat globalt. Cursor-hooken
+(`%USERPROFILE%\.cursor\hooks.json` → `preToolUse` / `rtk hook cursor`) wrappar
+Shell så agenten ofta ser **filtrerad** output. Projektets
+`.cursor/hooks.json` (`beforeShellExecution`-guards) är separat och ska lämnas.
+
+## Agentbeteende
+
+| Gör | Undvik |
+|---|---|
+| Lita på **exit code** (`$LASTEXITCODE`) framför hur kort stdout ser ut | Tolka kort lyckad output som "kommandot gjorde nästan ingenting" |
+| Vid fail: läs tee-filen om RTK skriver `full output: …` | Anta att RTK gör farliga git-kommandon säkra |
+| Historik/merge: plain `git log` (exclude) eller `gh` | `rtk git log` manuellt — döljer merge-commits utan `-N` |
+| Acceptera komprimering av status/fetch/diff/test/lint | "Fixa" bort RTK eller kämpa emot hooken |
+
+## Override (en kommandosträng)
+
+Hooken förstår **unix-prefix**, inte pwsh-env:
+
+```text
+RTK_DISABLED=1 git status --short
+```
+
+Inte `$env:RTK_DISABLED='1'; …` — det omskrivs ändå.
+
+## Ägar-config (maskin-lokal, inte i git)
+
+Fil: `%APPDATA%\rtk\config.toml`
+
+Förväntat minimum:
+
+```toml
+[telemetry]
+enabled = false
+
+[tee]
+enabled = true
+mode = "failures"
+
+[hooks]
+exclude_commands = ["git log", "git rebase", "git cherry-pick"]
+```
+
+- **`git log` måste vara excluded.** `rtk git log` utan `-N` injicerar `--no-merges` → fel HEAD efter merge (öppen RTK-bugg). `[git] no_merges = false` ignoreras i 0.45.
+- `git rebase` / `git cherry-pick`: defensivt (RTK:s egen rekommendation).
+- Verifiera omskrivning: `rtk hook check --agent cursor "git log -1"` → `No rewrite for: …`
+- Statistik: `rtk gain --history` (tecken/4; bara terminaltokens). Varningen `No hook installed` kan vara falsk om Cursor-hooken redan wrappar.
+
+## Scope
+
+RTK sparar **inte** tokens från Read/Grep, rules, MCP eller modellens svar.

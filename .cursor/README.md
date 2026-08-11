@@ -61,6 +61,7 @@ Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler ko
 | [bash-och-pwsh-fel.mdc](rules/bash-och-pwsh-fel.mdc)         | PowerShell-felkatalog / heredoc / LF — bifoga vid pwsh-fel                     |
 | [local-tooling-mcp.mdc](rules/local-tooling-mcp.mdc)         | Lokal MCP/Vercel/Supabase/shadcn-setup — läs vid tooling-problem eller ny worktree |
 | [pr-merge.mdc](rules/pr-merge.mdc)                           | **Kanonisk merge-grind** — grind, bot-fyndsvep, `merge:ready`-sign-off, vem som mergar. Läs före granskning/merge |
+| [rtk-terminal.mdc](rules/rtk-terminal.mdc)                   | RTK komprimerar Shell-output globalt — exit code > kort stdout; `git log` undantagen |
 | [useful-commands.mdc](rules/useful-commands.mdc)             | Snabb kommandoöversikt; `package.json` är kanonisk källa                       |
 
 I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
