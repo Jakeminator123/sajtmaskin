@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import hashlib
 import os
@@ -48,6 +49,11 @@ def _dossier_mutation_locked(
     def locked(*args: _P.args, **kwargs: _P.kwargs) -> tuple[bool, str]:
         try:
             with repo_mutation_lock(_facade().REPO_ROOT, "dossiers"):
+                recovered, recovery_message = (
+                    _recover_pending_default_transaction_locked()
+                )
+                if not recovered:
+                    return False, recovery_message
                 return operation(*args, **kwargs)
         except RepoMutationLockTimeout:
             return False, (
@@ -210,8 +216,24 @@ def _atomic_replace_bytes(path: Path, content: bytes) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(staged, path)
+        _fsync_directory(path.parent)
     finally:
         staged.unlink(missing_ok=True)
+
+
+def _fsync_directory(path: Path) -> None:
+    """Persist a directory entry where the platform supports directory fsync."""
+    if os.name == "nt":
+        return
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _json_bytes(data: dict[str, Any]) -> bytes:
+    return (json.dumps(data, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
 
 def _restore_file_bytes(path: Path, content: bytes) -> str | None:
@@ -411,10 +433,7 @@ def _default_invariant_errors_after_change(
 def _save_json(path: Path, data: dict[str, Any]) -> None:
     # Stage complete LF bytes before replacing live state. Backups and CAS are
     # owned by the surrounding transaction, never by this low-level primitive.
-    _atomic_replace_bytes(
-        path,
-        (json.dumps(data, indent=2, ensure_ascii=False) + "\n").encode("utf-8"),
-    )
+    _atomic_replace_bytes(path, _json_bytes(data))
 
 
 def _list_dossier_dirs(root: Path) -> list[Path]:
@@ -650,6 +669,26 @@ def _save_manifest_with_default_handoff(
     backups = [backup_file(path, _facade().REPO_ROOT) for path in originals]
     if any(path is None for path in backups):
         return False, "Kunde inte säkerhetskopiera båda manifesten — inget ändrades."
+    journal = {
+        "version": 1,
+        "operation": "manifest-handoff",
+        "capability": str(successor.get("capability") or "").strip().lower(),
+        "primary": _manifest_transaction_entry(
+            primary_path,
+            dossier_class=primary_class,
+            original=primary_original,
+            desired=_json_bytes(primary_manifest),
+        ),
+        "successor": _manifest_transaction_entry(
+            successor_path,
+            dossier_class="hard",
+            original=successor_original,
+            desired=_json_bytes(successor),
+        ),
+    }
+    journal_ok, journal_error = _write_default_transaction_journal(journal)
+    if not journal_ok:
+        return False, journal_error
     try:
         # Successorn skrivs först: om processen avbryts mellan filerna finns
         # åtminstone ett explicit default kvar. Ett fåtal millisekunders dubbel
@@ -665,12 +704,17 @@ def _save_manifest_with_default_handoff(
                     rollback_errors.append(f"{path}: {rollback_error}")
             except OSError as rollback_exc:
                 rollback_errors.append(f"{path}: {rollback_exc}")
+        recovered, recovery_error = _recover_pending_default_transaction_locked()
         if not isinstance(exc, OSError):
             if rollback_errors and hasattr(exc, "add_note"):
                 exc.add_note(
                     "Rollbacken blev ofullständig: " + "; ".join(rollback_errors)
                 )
+            if not recovered and hasattr(exc, "add_note"):
+                exc.add_note(f"Beständig recovery misslyckades: {recovery_error}")
             raise
+        if not recovered:
+            rollback_errors.append(f"beständig recovery: {recovery_error}")
         if rollback_errors:
             return False, (
                 f"Standardvals-flytten misslyckades ({exc}) och rollbacken blev ofullständig:\n"
@@ -680,6 +724,9 @@ def _save_manifest_with_default_handoff(
             False,
             f"Standardvals-flytten misslyckades ({exc}) — båda manifesten rullades tillbaka.",
         )
+    recovered, recovery_error = _recover_pending_default_transaction_locked()
+    if not recovered:
+        return False, recovery_error
     return True, ""
 
 
@@ -1206,6 +1253,749 @@ def _transaction_root() -> tuple[Path | None, str | None]:
     return resolved, None
 
 
+_DEFAULT_TRANSACTION_JOURNAL = "_pending-default-transaction.json"
+_DELETE_QUARANTINE_RE = re.compile(
+    r"^_[a-z0-9]+(?:-[a-z0-9]+)*\.backoffice-delete-[0-9a-f]{32}$"
+)
+_TREE_SWAP_OLD_RE = re.compile(r"^_[a-z0-9]+(?:-[a-z0-9]+)*\.replaced-[0-9a-f]{32}$")
+_TREE_SWAP_STAGE_RE = re.compile(
+    r"^_[a-z0-9]+(?:-[a-z0-9]+)*\.(?:curate|promote)-stage-[0-9a-f]{32}$"
+)
+
+
+def _encode_transaction_bytes(content: bytes) -> str:
+    return base64.b64encode(content).decode("ascii")
+
+
+def _decode_transaction_bytes(
+    value: object, *, field: str
+) -> tuple[bytes | None, str | None]:
+    if not isinstance(value, str):
+        return None, f"Transaktionsjournalens `{field}` är ogiltigt."
+    try:
+        return base64.b64decode(value, validate=True), None
+    except (ValueError, TypeError):
+        return None, f"Transaktionsjournalens `{field}` är inte giltig base64."
+
+
+def _manifest_transaction_entry(
+    path: Path,
+    *,
+    dossier_class: str,
+    original: bytes,
+    desired: bytes,
+) -> dict[str, str]:
+    return {
+        "class": dossier_class,
+        "id": path.parent.name,
+        "original": _encode_transaction_bytes(original),
+        "desired": _encode_transaction_bytes(desired),
+    }
+
+
+def _tree_snapshot_digest(snapshot: dict[str, bytes | None]) -> str:
+    digest = hashlib.sha256()
+    for relative_path, content in sorted(snapshot.items()):
+        encoded_path = relative_path.encode("utf-8")
+        digest.update(len(encoded_path).to_bytes(8, "big"))
+        digest.update(encoded_path)
+        if content is None:
+            digest.update(b"D")
+        else:
+            digest.update(b"F")
+            digest.update(len(content).to_bytes(8, "big"))
+            digest.update(content)
+    return digest.hexdigest()
+
+
+def _same_volume(left: Path, right: Path) -> bool:
+    try:
+        return os.stat(left).st_dev == os.stat(right).st_dev
+    except OSError:
+        return False
+
+
+def _transaction_journal_path() -> tuple[Path | None, str | None]:
+    root, error = _transaction_root()
+    if error or root is None:
+        return None, error or "Transaktionsytan kunde inte verifieras."
+    path = root / _DEFAULT_TRANSACTION_JOURNAL
+    if _is_link_like(path):
+        return None, "Transaktionsjournalen är en länk/junction; recovery vägrades."
+    return path, None
+
+
+def _write_default_transaction_journal(journal: dict[str, Any]) -> tuple[bool, str]:
+    path, error = _transaction_journal_path()
+    if error or path is None:
+        return False, error or "Transaktionsjournalen kunde inte verifieras."
+    if path.exists():
+        return False, "En tidigare Standardvals-transaktion väntar på recovery."
+    try:
+        _atomic_replace_bytes(path, _json_bytes(journal))
+    except OSError as exc:
+        return False, f"Kunde inte skriva beständig transaktionsjournal: {exc}"
+    return True, ""
+
+
+def _clear_default_transaction_journal() -> tuple[bool, str]:
+    path, error = _transaction_journal_path()
+    if error or path is None:
+        return False, error or "Transaktionsjournalen kunde inte verifieras."
+    if not path.exists():
+        return True, ""
+    if not path.is_file():
+        return False, "Transaktionsjournalen är inte en vanlig fil; cleanup vägrades."
+    try:
+        path.unlink()
+        _fsync_directory(path.parent)
+    except OSError as exc:
+        return False, f"Kunde inte kvittera transaktionsjournalen: {exc}"
+    return True, ""
+
+
+def _journal_manifest_path(
+    entry: object, *, label: str
+) -> tuple[Path | None, bytes | None, bytes | None, str | None]:
+    if not isinstance(entry, dict):
+        return None, None, None, f"Journalens `{label}`-post är ogiltig."
+    dossier_class = entry.get("class")
+    dossier_id = entry.get("id")
+    if dossier_class not in ("hard", "soft") or not isinstance(dossier_id, str):
+        return None, None, None, f"Journalens `{label}`-identitet är ogiltig."
+    target, target_error = _verified_live_target(dossier_class, dossier_id)
+    if target_error or target is None:
+        return (
+            None,
+            None,
+            None,
+            target_error or f"Journalens `{label}` kunde inte verifieras.",
+        )
+    manifest_path = target / "manifest.json"
+    if _is_link_like(manifest_path):
+        return None, None, None, f"Journalens `{label}`-manifest är en länk/junction."
+    original, original_error = _decode_transaction_bytes(
+        entry.get("original"), field=f"{label}.original"
+    )
+    desired, desired_error = _decode_transaction_bytes(
+        entry.get("desired"), field=f"{label}.desired"
+    )
+    return manifest_path, original, desired, original_error or desired_error
+
+
+def _exact_default_owner_error(capability: str) -> str | None:
+    owners: list[str] = []
+    for dossier_class in ("hard", "soft"):
+        probe, error = _verified_live_target(dossier_class, "recovery-probe")
+        if error or probe is None:
+            return error or "Dossier-poolen kunde inte verifieras efter recovery."
+        try:
+            entries = sorted(probe.parent.iterdir())
+        except OSError as exc:
+            return f"Dossier-poolen kunde inte läsas efter recovery: {exc}"
+        for dossier_dir in entries:
+            if dossier_dir.name.startswith("_"):
+                continue
+            if _is_link_like(dossier_dir):
+                continue
+            manifest_path = dossier_dir / "manifest.json"
+            if not manifest_path.exists():
+                continue
+            if _is_link_like(manifest_path) or not manifest_path.is_file():
+                continue
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                # Match the normal affected-family gate: an unreadable entry
+                # cannot be attributed to this capability and must not turn an
+                # unrelated pre-existing defect into a global write blockade.
+                continue
+            if str(manifest.get("capability") or "").strip().lower() != capability:
+                continue
+            if is_default_for_capability(manifest):
+                owners.append(f"{dossier_class}/{dossier_dir.name}")
+    if len(owners) != 1:
+        return (
+            f"Recovery gav {len(owners)} Standardval för `{capability}` "
+            f"({', '.join(owners) or 'inga'}); journalen behålls och nya skrivningar blockeras."
+        )
+    return None
+
+
+def _affected_default_invariant_error(capabilities: set[str]) -> str | None:
+    """Validate the runtime/CI default rules for journal-affected families."""
+    rows: list[tuple[str, str, dict[str, Any]]] = []
+    for dossier_class in ("hard", "soft"):
+        probe, error = _verified_live_target(dossier_class, "recovery-probe")
+        if error or probe is None:
+            return error or "Dossier-poolen kunde inte verifieras efter tree-swap."
+        try:
+            entries = sorted(probe.parent.iterdir())
+        except OSError as exc:
+            return f"Dossier-poolen kunde inte läsas efter tree-swap: {exc}"
+        for dossier_dir in entries:
+            if dossier_dir.name.startswith("_") or _is_link_like(dossier_dir):
+                continue
+            manifest_path = dossier_dir / "manifest.json"
+            if not manifest_path.is_file() or _is_link_like(manifest_path):
+                continue
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                continue
+            capability = str(manifest.get("capability") or "").strip().lower()
+            if capability in capabilities:
+                rows.append((dossier_class, dossier_dir.name, manifest))
+    for capability in sorted(capabilities):
+        family = [
+            row
+            for row in rows
+            if str(row[2].get("capability") or "").strip().lower() == capability
+        ]
+        defaults = [
+            f"{dossier_class}/{dossier_id}"
+            for dossier_class, dossier_id, manifest in family
+            if is_default_for_capability(manifest)
+        ]
+        if len(defaults) > 1:
+            return (
+                f"Tree-swap-recovery gav {len(defaults)} Standardval för "
+                f"`{capability}` ({', '.join(defaults)})."
+            )
+        hard_family = [row for row in family if row[0] == "hard"]
+        if len(hard_family) > 1 and not any(
+            is_default_for_capability(manifest) for _, _, manifest in hard_family
+        ):
+            return f"Tree-swap-recovery lämnade `{capability}` utan hard-Standardval."
+    return None
+
+
+def _tree_state(path: Path) -> tuple[str | None, str | None]:
+    """Return a byte-tree digest, None when absent, or a safety error."""
+    if _is_link_like(path):
+        return None, f"Transaktionsträdet är en länk/junction: {path}"
+    if not path.exists():
+        return None, None
+    if not path.is_dir():
+        return None, f"Transaktionsträdet är inte en katalog: {path}"
+    snapshot, error = _tree_byte_snapshot(path)
+    if error or snapshot is None:
+        return None, error or f"Transaktionsträdet kunde inte läsas: {path}"
+    return _tree_snapshot_digest(snapshot), None
+
+
+def _decoded_manifest(
+    content: bytes, *, label: str
+) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        manifest = json.loads(content.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return None, f"Journalens `{label}`-manifest är ogiltigt: {exc}"
+    if not isinstance(manifest, dict):
+        return None, f"Journalens `{label}`-manifest är inte ett JSON-objekt."
+    return manifest, None
+
+
+def _validate_journal_transition(
+    journal: dict[str, Any],
+    *,
+    operation: str,
+    primary_original: bytes,
+    primary_desired: bytes,
+    successor_original: bytes,
+    successor_desired: bytes,
+) -> str | None:
+    decoded: dict[str, dict[str, Any]] = {}
+    for label, content in (
+        ("primary.original", primary_original),
+        ("primary.desired", primary_desired),
+        ("successor.original", successor_original),
+        ("successor.desired", successor_desired),
+    ):
+        manifest, error = _decoded_manifest(content, label=label)
+        if error or manifest is None:
+            return error or f"Journalens `{label}` kunde inte verifieras."
+        decoded[label] = manifest
+    capability = str(journal["capability"])
+    primary_entry = journal.get("primary")
+    successor_entry = journal.get("successor")
+    if not isinstance(primary_entry, dict) or not isinstance(successor_entry, dict):
+        return "Journalens manifestidentiteter är ogiltiga."
+    for prefix, entry in (("primary", primary_entry), ("successor", successor_entry)):
+        if entry.get("class") != "hard":
+            return "Standardvals-journalen får bara referera till hard-dossiers."
+        dossier_id = entry.get("id")
+        for state in ("original", "desired"):
+            manifest = decoded[f"{prefix}.{state}"]
+            if manifest.get("id") != dossier_id:
+                return f"Journalens `{prefix}.{state}` har fel manifest.id."
+            manifest_capability = str(manifest.get("capability") or "").strip().lower()
+            primary_moves_family = (
+                operation == "manifest-handoff"
+                and prefix == "primary"
+                and state == "desired"
+            )
+            if not primary_moves_family and manifest_capability != capability:
+                return f"Journalens `{prefix}.{state}` har fel capability."
+            if primary_moves_family and not _facade()._KEBAB_RE.match(
+                manifest_capability
+            ):
+                return "Journalens `primary.desired` har ogiltig capability."
+    if decoded["primary.original"].get("defaultForCapability") is not True:
+        return "Journalens primary var inte ett explicit Standardval."
+    if decoded["successor.original"].get("defaultForCapability") is True:
+        return "Journalens successor var redan ett Standardval."
+    if decoded["successor.desired"].get("defaultForCapability") is not True:
+        return "Journalens successor-transition skapar inget Standardval."
+    primary_after = decoded["primary.desired"].get("defaultForCapability")
+    if operation == "manifest-handoff" and primary_after is True:
+        return "Journalens handoff avmarkerar inte primary-Standardvalet."
+    if operation == "delete-handoff" and primary_desired != primary_original:
+        return "Journalens delete får inte skriva om primary-manifestet."
+    return None
+
+
+def _read_pending_default_transaction() -> tuple[dict[str, Any] | None, str | None]:
+    path, error = _transaction_journal_path()
+    if error or path is None:
+        return None, error
+    if not path.exists():
+        return None, None
+    if not path.is_file():
+        return None, "Transaktionsjournalen är inte en vanlig fil."
+    try:
+        journal = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return None, f"Transaktionsjournalen är oläsbar: {exc}"
+    if not isinstance(journal, dict) or journal.get("version") != 1:
+        return None, "Transaktionsjournalens format stöds inte."
+    capability = journal.get("capability")
+    if not isinstance(capability, str) or not _facade()._KEBAB_RE.match(capability):
+        return None, "Transaktionsjournalens capability är ogiltig."
+    return journal, None
+
+
+def _recover_manifest_handoff(journal: dict[str, Any]) -> tuple[bool, str]:
+    primary, primary_original, primary_desired, primary_error = _journal_manifest_path(
+        journal.get("primary"), label="primary"
+    )
+    successor, successor_original, successor_desired, successor_error = (
+        _journal_manifest_path(journal.get("successor"), label="successor")
+    )
+    error = primary_error or successor_error
+    if (
+        error
+        or primary is None
+        or successor is None
+        or primary_original is None
+        or primary_desired is None
+        or successor_original is None
+        or successor_desired is None
+    ):
+        return False, error or "Transaktionsjournalens manifestposter är ofullständiga."
+    if primary == successor:
+        return (
+            False,
+            "Transaktionsjournalens primary och successor pekar på samma manifest.",
+        )
+    transition_error = _validate_journal_transition(
+        journal,
+        operation="manifest-handoff",
+        primary_original=primary_original,
+        primary_desired=primary_desired,
+        successor_original=successor_original,
+        successor_desired=successor_desired,
+    )
+    if transition_error:
+        return False, transition_error
+    try:
+        primary_current = primary.read_bytes()
+        successor_current = successor.read_bytes()
+    except OSError as exc:
+        return False, f"Recovery kunde inte läsa båda live-manifesten: {exc}"
+    if primary_current not in (primary_original, primary_desired):
+        return False, "Primary-manifestet ändrades utanför den avbrutna transaktionen."
+    if successor_current not in (successor_original, successor_desired):
+        return (
+            False,
+            "Successor-manifestet ändrades utanför den avbrutna transaktionen.",
+        )
+
+    # Both desired bytes means the handoff committed before the process died.
+    # Every other reachable state is rolled back. Primary is restored first so
+    # a second hard kill during recovery can only expose two defaults, never zero.
+    if not (
+        primary_current == primary_desired and successor_current == successor_desired
+    ):
+        try:
+            if primary_current != primary_original:
+                _atomic_replace_bytes(primary, primary_original)
+            if successor_current != successor_original:
+                _atomic_replace_bytes(successor, successor_original)
+        except OSError as exc:
+            return (
+                False,
+                f"Standardvals-recovery kunde inte rulla tillbaka byte-exakt: {exc}",
+            )
+    invariant_error = _exact_default_owner_error(str(journal["capability"]))
+    if invariant_error:
+        return False, invariant_error
+    cleared, clear_error = _clear_default_transaction_journal()
+    if not cleared:
+        return False, clear_error
+    return True, "Återhämtade en avbruten Standardvals-flytt."
+
+
+def _recover_delete_handoff(journal: dict[str, Any]) -> tuple[bool, str]:
+    primary, primary_original, _primary_desired, primary_error = _journal_manifest_path(
+        journal.get("primary"), label="primary"
+    )
+    successor, successor_original, successor_desired, successor_error = (
+        _journal_manifest_path(journal.get("successor"), label="successor")
+    )
+    error = primary_error or successor_error
+    if (
+        error
+        or primary is None
+        or successor is None
+        or primary_original is None
+        or successor_original is None
+        or successor_desired is None
+    ):
+        return False, error or "Delete-journalens manifestposter är ofullständiga."
+    if primary == successor:
+        return False, "Delete-journalens primary och successor pekar på samma manifest."
+    transition_error = _validate_journal_transition(
+        journal,
+        operation="delete-handoff",
+        primary_original=primary_original,
+        primary_desired=primary_original,
+        successor_original=successor_original,
+        successor_desired=successor_desired,
+    )
+    if transition_error:
+        return False, transition_error
+    quarantine_name = journal.get("quarantine")
+    if not isinstance(quarantine_name, str) or not _DELETE_QUARANTINE_RE.match(
+        quarantine_name
+    ):
+        return False, "Delete-journalens quarantine-sökväg är ogiltig."
+    if not quarantine_name.startswith(f"_{primary.parent.name}.backoffice-delete-"):
+        return False, "Delete-journalens quarantine matchar inte primary-identiteten."
+    expected_tree_digest = journal.get("quarantineTreeSha256")
+    if not isinstance(expected_tree_digest, str) or not re.fullmatch(
+        r"[0-9a-f]{64}", expected_tree_digest
+    ):
+        return False, "Delete-journalens trädhash är ogiltig."
+    transaction_root, root_error = _transaction_root()
+    if root_error or transaction_root is None:
+        return False, root_error or "Transaktionsytan kunde inte verifieras."
+    quarantine = transaction_root / quarantine_name
+    if _is_link_like(quarantine):
+        return False, "Delete-journalens quarantine är en länk/junction."
+    target_dir = primary.parent
+    if _is_link_like(target_dir):
+        return False, "Delete-journalens live-target är en länk/junction."
+    try:
+        successor_current = successor.read_bytes()
+    except OSError as exc:
+        return False, f"Recovery kunde inte läsa successor-manifestet: {exc}"
+    if successor_current not in (successor_original, successor_desired):
+        return False, "Successor-manifestet ändrades utanför den avbrutna deleten."
+
+    if target_dir.exists():
+        target_snapshot, target_snapshot_error = _tree_byte_snapshot(target_dir)
+        if (
+            target_snapshot_error
+            or target_snapshot is None
+            or _tree_snapshot_digest(target_snapshot) != expected_tree_digest
+        ):
+            return False, (
+                "Delete-recovery är tvetydig: live-target finns men matchar inte "
+                "det journalförda dossierträdet. Journalen behålls."
+            )
+        try:
+            primary_current = primary.read_bytes()
+        except OSError as exc:
+            return False, f"Recovery kunde inte läsa primary-manifestet: {exc}"
+        if primary_current != primary_original:
+            return False, "Primary-manifestet ändrades utanför den avbrutna deleten."
+        if successor_current != successor_original:
+            try:
+                _atomic_replace_bytes(successor, successor_original)
+            except OSError as exc:
+                return False, f"Delete-recovery kunde inte återställa successor: {exc}"
+    else:
+        if not quarantine.exists() and successor_current == successor_original:
+            return False, (
+                "Delete-recovery är tvetydig: primary och quarantine saknas medan "
+                "successor fortfarande har originalbytes. Journalen behålls."
+            )
+        if successor_current != successor_desired:
+            try:
+                _atomic_replace_bytes(successor, successor_desired)
+            except OSError as exc:
+                return False, f"Delete-recovery kunde inte slutföra successor: {exc}"
+
+    cleanup_safe = False
+    if quarantine.exists():
+        quarantine_snapshot, quarantine_error = _tree_byte_snapshot(quarantine)
+        cleanup_safe = (
+            quarantine_error is None
+            and quarantine_snapshot is not None
+            and _tree_snapshot_digest(quarantine_snapshot) == expected_tree_digest
+        )
+    invariant_error = _exact_default_owner_error(str(journal["capability"]))
+    if invariant_error:
+        return False, invariant_error
+    cleared, clear_error = _clear_default_transaction_journal()
+    if not cleared:
+        return False, clear_error
+    if quarantine.exists() and cleanup_safe:
+        cleanup_error = _cleanup_tree(quarantine)
+        if cleanup_error:
+            return True, (
+                "Återhämtade dossier-raderingen; en verifierad quarantine-rest "
+                f"kunde inte städas ({cleanup_error})."
+            )
+    if quarantine.exists():
+        return True, (
+            "Återhämtade dossier-raderingen men lämnade en ändrad/osäker "
+            f"quarantine-rest i `{quarantine.name}`."
+        )
+    return True, "Återhämtade en avbruten dossier-radering."
+
+
+def _recover_tree_swap(journal: dict[str, Any]) -> tuple[bool, str]:
+    dossier_class = journal.get("class")
+    dossier_id = journal.get("id")
+    stage_name = journal.get("stage")
+    old_name = journal.get("old")
+    had_old = journal.get("hadOld")
+    old_digest = journal.get("oldTreeSha256")
+    desired_digest = journal.get("desiredTreeSha256")
+    affected = journal.get("affectedCapabilities")
+    if (
+        dossier_class not in ("hard", "soft")
+        or not isinstance(dossier_id, str)
+        or not _facade()._KEBAB_RE.match(dossier_id)
+        or not isinstance(stage_name, str)
+        or not _TREE_SWAP_STAGE_RE.match(stage_name)
+        or not stage_name.startswith(f"_{dossier_id}.")
+        or not isinstance(old_name, str)
+        or not _TREE_SWAP_OLD_RE.match(old_name)
+        or not old_name.startswith(f"_{dossier_id}.replaced-")
+        or not isinstance(had_old, bool)
+        or not isinstance(desired_digest, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", desired_digest)
+        or not isinstance(affected, list)
+    ):
+        return False, "Tree-swap-journalens schema eller identitet är ogiltig."
+    capabilities = {
+        str(value).strip().lower()
+        for value in affected
+        if isinstance(value, str) and _facade()._KEBAB_RE.match(value)
+    }
+    if len(capabilities) != len(affected) or not capabilities:
+        return False, "Tree-swap-journalens affectedCapabilities är ogiltiga."
+    if had_old:
+        if not isinstance(old_digest, str) or not re.fullmatch(
+            r"[0-9a-f]{64}", old_digest
+        ):
+            return False, "Tree-swap-journalens originalhash är ogiltig."
+    elif old_digest is not None:
+        return False, "Tree-swap utan original får inte ha en originalhash."
+
+    desired_manifest, desired_manifest_error = _decode_transaction_bytes(
+        journal.get("desiredManifest"), field="desiredManifest"
+    )
+    if desired_manifest_error or desired_manifest is None:
+        return False, desired_manifest_error or "Önskat manifest saknas i journalen."
+    desired_data, desired_error = _decoded_manifest(
+        desired_manifest, label="desiredManifest"
+    )
+    if desired_error or desired_data is None:
+        return False, desired_error or "Önskat manifest är ogiltigt."
+    if (
+        desired_data.get("id") != dossier_id
+        or str(desired_data.get("capability") or "").strip().lower() not in capabilities
+    ):
+        return False, "Tree-swap-journalens önskade manifest har fel identitet."
+    desired_validation_errors = _validate_manifest(desired_data, dossier_class)
+    try:
+        desired_schema_errors = validate_json_against_schema(
+            desired_data, _facade().STRICT_SCHEMA_PATH
+        )
+    except Exception as exc:  # noqa: BLE001 - recovery must fail closed
+        desired_schema_errors = [f"Strict-schemavalidering kunde inte köras: {exc}"]
+    if desired_validation_errors or desired_schema_errors:
+        return False, "Tree-swap-journalens önskade manifest är ogiltigt."
+    old_manifest: bytes | None = None
+    if had_old:
+        old_manifest, old_manifest_error = _decode_transaction_bytes(
+            journal.get("oldManifest"), field="oldManifest"
+        )
+        if old_manifest_error or old_manifest is None:
+            return False, old_manifest_error or "Originalmanifest saknas i journalen."
+        old_data, old_error = _decoded_manifest(old_manifest, label="oldManifest")
+        if old_error or old_data is None:
+            return False, old_error or "Originalmanifestet är ogiltigt."
+        if (
+            old_data.get("id") != dossier_id
+            or str(old_data.get("capability") or "").strip().lower() not in capabilities
+        ):
+            return False, "Tree-swap-journalens originalmanifest har fel identitet."
+    elif journal.get("oldManifest") is not None:
+        return False, "Tree-swap utan original får inte ha ett originalmanifest."
+
+    target, target_error = _verified_live_target(dossier_class, dossier_id)
+    transaction_root, root_error = _transaction_root()
+    if target_error or target is None or root_error or transaction_root is None:
+        return (
+            False,
+            target_error or root_error or "Tree-swap-sökvägar kunde inte verifieras.",
+        )
+    stage = transaction_root / stage_name
+    old = transaction_root / old_name
+    target_state, target_state_error = _tree_state(target)
+    stage_state, stage_state_error = _tree_state(stage)
+    old_state, old_state_error = _tree_state(old)
+    state_error = target_state_error or stage_state_error or old_state_error
+    if state_error:
+        return False, state_error
+
+    def manifest_matches(path: Path, expected: bytes) -> bool:
+        try:
+            return (path / "manifest.json").read_bytes() == expected
+        except OSError:
+            return False
+
+    if target_state == desired_digest and not manifest_matches(
+        target, desired_manifest
+    ):
+        return False, "Live-targetens manifest matchar inte tree-swap-journalen."
+    if (
+        had_old
+        and target_state == old_digest
+        and not manifest_matches(target, old_manifest or b"")
+    ):
+        return False, "Live-targetens originalmanifest matchar inte journalen."
+    if stage_state == desired_digest and not manifest_matches(stage, desired_manifest):
+        return False, "Stage-manifestet matchar inte tree-swap-journalen."
+    if (
+        had_old
+        and old_state == old_digest
+        and not manifest_matches(old, old_manifest or b"")
+    ):
+        return False, "Undanflyttat original matchar inte tree-swap-journalen."
+    if target_state not in (None, desired_digest, old_digest if had_old else None):
+        return False, "Live-targeten har oväntade bytes; tree-swap-recovery vägrades."
+
+    committed = target_state == desired_digest and stage_state is None
+    rolled_back = had_old and target_state == old_digest and old_state is None
+    if not had_old and old_state is not None:
+        return False, "Tree-swap utan original har en oväntad old-katalog."
+    if committed:
+        invariant_error = _affected_default_invariant_error(capabilities)
+        if invariant_error:
+            return False, invariant_error
+        cleanup_warning = None
+        if old_state is not None:
+            if old_state == old_digest:
+                cleanup_warning = _cleanup_tree(old)
+            else:
+                cleanup_warning = "undanflyttat original är ändrat och lämnades kvar"
+        cleared, clear_error = _clear_default_transaction_journal()
+        if not cleared:
+            return False, clear_error
+        return True, (
+            "Återhämtade en committad dossier-tree-swap."
+            + (f" Varning: {cleanup_warning}." if cleanup_warning else "")
+        )
+    if rolled_back:
+        if stage_state not in (None, desired_digest):
+            return False, "Tree-swap-stage är ändrad; rollback-recovery vägrades."
+        cleared, clear_error = _clear_default_transaction_journal()
+        if not cleared:
+            return False, clear_error
+        cleanup_warning = None
+        if stage_state is not None:
+            cleanup_warning = (
+                _cleanup_tree(stage)
+                if stage_state == desired_digest
+                else "stage är ändrad och lämnades kvar"
+            )
+        return True, (
+            "Rullade tillbaka en förberedd dossier-tree-swap."
+            + (f" Varning: {cleanup_warning}." if cleanup_warning else "")
+        )
+    if had_old and target_state is None:
+        if old_state != old_digest or stage_state != desired_digest:
+            return False, (
+                "Tree-swap-recovery är tvetydig medan live-target saknas; "
+                "journalen behålls."
+            )
+        try:
+            old.rename(target)
+            _fsync_directory(old.parent)
+            _fsync_directory(target.parent)
+        except OSError as exc:
+            return False, f"Kunde inte återställa undanflyttat dossierträd: {exc}"
+        cleared, clear_error = _clear_default_transaction_journal()
+        if not cleared:
+            return False, clear_error
+        cleanup_warning = _cleanup_tree(stage)
+        return True, (
+            "Återställde originalet efter en avbruten dossier-tree-swap."
+            + (f" Varning: {cleanup_warning}." if cleanup_warning else "")
+        )
+    if not had_old and target_state is None and old_state is None:
+        # No live state existed before the transaction. Missing stage means a
+        # no-op rollback; an intact stage is still disposable preparation.
+        if stage_state not in (None, desired_digest):
+            return False, "Tree-swap-stage är ändrad; recovery vägrades."
+        cleared, clear_error = _clear_default_transaction_journal()
+        if not cleared:
+            return False, clear_error
+        cleanup_warning = _cleanup_tree(stage) if stage_state else None
+        return True, (
+            "Rullade tillbaka en avbruten ny dossier-tree-swap."
+            + (f" Varning: {cleanup_warning}." if cleanup_warning else "")
+        )
+    return False, "Tree-swap-journalens observerade läge är tvetydigt."
+
+
+def _recover_pending_default_transaction_locked() -> tuple[bool, str]:
+    journal, error = _read_pending_default_transaction()
+    if error:
+        return False, (
+            f"Beständig Standardvals-recovery misslyckades: {error} "
+            "Nya dossier-skrivningar blockeras."
+        )
+    if journal is None:
+        return True, ""
+    operation = journal.get("operation")
+    if operation == "manifest-handoff":
+        return _recover_manifest_handoff(journal)
+    if operation == "delete-handoff":
+        return _recover_delete_handoff(journal)
+    if operation == "tree-swap":
+        return _recover_tree_swap(journal)
+    return (
+        False,
+        "Transaktionsjournalens operation är okänd; nya skrivningar blockeras.",
+    )
+
+
+def _recover_pending_default_transaction() -> tuple[bool, str]:
+    """Startup-safe recovery boundary for the Backoffice dossier page."""
+    try:
+        with repo_mutation_lock(_facade().REPO_ROOT, "dossiers"):
+            return _recover_pending_default_transaction_locked()
+    except RepoMutationLockTimeout:
+        return False, "En annan Backoffice-process ändrar byggblock just nu."
+
+
 def _verified_transaction_stage(path: Path) -> tuple[Path | None, str | None]:
     root, error = _transaction_root()
     if error or root is None:
@@ -1343,7 +2133,7 @@ def _swap_staged_directory(
     *,
     operation: str,
 ) -> tuple[bool, str]:
-    """Atomically expose a staged tree and restore the old tree on failure."""
+    """Expose a staged tree with durable restart recovery around both renames."""
     transaction_root, root_error = _transaction_root()
     if root_error or transaction_root is None:
         return False, root_error or "Transaktionsytan saknas."
@@ -1351,12 +2141,97 @@ def _swap_staged_directory(
     if stage_error or verified_stage is None:
         return False, stage_error or "Stage kunde inte verifieras."
     staged_dir = verified_stage
+    dossier_class = target_dir.parent.name
+    expected_target, target_error = _verified_live_target(
+        dossier_class, target_dir.name
+    )
+    if (
+        target_error
+        or expected_target is None
+        or expected_target.absolute() != target_dir.absolute()
+    ):
+        return False, target_error or "Tree-swap-targeten kunde inte verifieras."
+    desired_snapshot, desired_snapshot_error = _tree_byte_snapshot(staged_dir)
+    if desired_snapshot_error or desired_snapshot is None:
+        return False, desired_snapshot_error or "Tree-swap-stage kunde inte snapshotas."
+    desired_manifest = desired_snapshot.get("manifest.json")
+    if not isinstance(desired_manifest, bytes):
+        return False, "Tree-swap-stage saknar ett vanligt manifest.json."
+    desired_data, desired_error = _decoded_manifest(
+        desired_manifest, label="tree-swap desired"
+    )
+    if desired_error or desired_data is None:
+        return False, desired_error or "Tree-swap-stage har ogiltigt manifest."
+    if desired_data.get("id") != target_dir.name:
+        return False, "Tree-swap-stage manifest.id matchar inte target."
     old_dir = transaction_root / f"_{target_dir.name}.replaced-{uuid4().hex}"
     had_old = target_dir.exists()
+    old_snapshot: dict[str, bytes | None] | None = None
+    old_manifest: bytes | None = None
+    if had_old:
+        old_snapshot, old_snapshot_error = _tree_byte_snapshot(target_dir)
+        if old_snapshot_error or old_snapshot is None:
+            return (
+                False,
+                old_snapshot_error or "Tree-swap-originalet kunde inte snapshotas.",
+            )
+        old_manifest = old_snapshot.get("manifest.json")  # type: ignore[assignment]
+        if not isinstance(old_manifest, bytes):
+            return False, "Tree-swap-originalet saknar ett vanligt manifest.json."
+    affected_capabilities = {str(desired_data.get("capability") or "").strip().lower()}
+    if old_manifest is not None:
+        old_data, old_error = _decoded_manifest(old_manifest, label="tree-swap old")
+        if old_error or old_data is None or old_data.get("id") != target_dir.name:
+            return (
+                False,
+                old_error or "Tree-swap-originalets manifest har fel identitet.",
+            )
+        affected_capabilities.add(str(old_data.get("capability") or "").strip().lower())
+    if any(not _facade()._KEBAB_RE.match(value) for value in affected_capabilities):
+        return False, "Tree-swap-manifestens capability är ogiltig."
+    if not _same_volume(staged_dir, target_dir.parent):
+        return False, "Tree-swap-stage och live-pool ligger inte på samma volym."
+    journal = {
+        "version": 1,
+        "operation": "tree-swap",
+        "capability": sorted(affected_capabilities)[0],
+        "class": dossier_class,
+        "id": target_dir.name,
+        "stage": staged_dir.name,
+        "old": old_dir.name,
+        "hadOld": had_old,
+        "oldTreeSha256": (
+            _tree_snapshot_digest(old_snapshot) if old_snapshot is not None else None
+        ),
+        "desiredTreeSha256": _tree_snapshot_digest(desired_snapshot),
+        "oldManifest": (
+            _encode_transaction_bytes(old_manifest)
+            if old_manifest is not None
+            else None
+        ),
+        "desiredManifest": _encode_transaction_bytes(desired_manifest),
+        "affectedCapabilities": sorted(affected_capabilities),
+    }
+    journal_ok, journal_error = _write_default_transaction_journal(journal)
+    if not journal_ok:
+        return False, journal_error
+    if not _matches_tree_snapshot(staged_dir, desired_snapshot) or (
+        old_snapshot is not None
+        and not _matches_tree_snapshot(target_dir, old_snapshot)
+    ):
+        recovered, recovery_error = _recover_pending_default_transaction_locked()
+        return False, (
+            "Tree-swap-källan ändrades medan journalen skrevs."
+            + (f" Recovery misslyckades: {recovery_error}" if not recovered else "")
+        )
     try:
         if had_old:
             target_dir.rename(old_dir)
+            _fsync_directory(target_dir.parent)
+            _fsync_directory(old_dir.parent)
         staged_dir.rename(target_dir)
+        _fsync_directory(staged_dir.parent)
+        _fsync_directory(target_dir.parent)
     except BaseException as exc:
         rollback_errors: list[str] = []
         if target_dir.exists() and not staged_dir.exists():
@@ -1369,9 +2244,9 @@ def _swap_staged_directory(
                 old_dir.rename(target_dir)
             except BaseException as rollback_exc:
                 rollback_errors.append(f"gammalt träd: {rollback_exc}")
-        cleanup_error = _cleanup_tree(staged_dir)
-        if cleanup_error:
-            rollback_errors.append(f"stage: {cleanup_error}")
+        recovered, recovery_error = _recover_pending_default_transaction_locked()
+        if not recovered:
+            rollback_errors.append(f"beständig recovery: {recovery_error}")
         if not isinstance(exc, OSError):
             if rollback_errors and hasattr(exc, "add_note"):
                 exc.add_note(
@@ -1384,14 +2259,10 @@ def _swap_staged_directory(
                 + "; ".join(rollback_errors)
             )
         return False, f"{operation} misslyckades ({exc}); live-trädet återställdes."
-
-    cleanup_warning = _cleanup_tree(old_dir)
-    if cleanup_warning:
-        return True, (
-            f"{operation} slutfördes, men en ignorerad ersättningskatalog kunde "
-            f"inte städas bort ({cleanup_warning})."
-        )
-    return True, ""
+    recovered, recovery_message = _recover_pending_default_transaction_locked()
+    if not recovered:
+        return False, recovery_message
+    return True, recovery_message
 
 
 @_dossier_mutation_locked
@@ -1508,6 +2379,44 @@ def _delete_dossier_dir(
     quarantine_dir = transaction_root / (
         f"_{target_dir.name}.backoffice-delete-{uuid4().hex}"
     )
+    if not _same_volume(target_dir, transaction_root):
+        return False, (
+            "Live-poolen och transaktionsytan ligger inte på samma volym; "
+            "atomisk quarantine-flytt kan inte garanteras."
+        )
+    source_tree, source_tree_error = _tree_byte_snapshot(target_dir)
+    if source_tree_error or source_tree is None:
+        return False, source_tree_error or "Dossierträdet kunde inte snapshotas."
+    if successor is not None and replacement_default_path is not None:
+        assert successor_original is not None
+        journal = {
+            "version": 1,
+            "operation": "delete-handoff",
+            "capability": str(primary_manifest.get("capability") or "").strip().lower(),
+            "primary": _manifest_transaction_entry(
+                manifest_path,
+                dossier_class=dossier_class,
+                original=primary_original,
+                desired=primary_original,
+            ),
+            "successor": _manifest_transaction_entry(
+                replacement_default_path,
+                dossier_class="hard",
+                original=successor_original,
+                desired=_json_bytes(successor),
+            ),
+            "quarantine": quarantine_dir.name,
+            "quarantineTreeSha256": _tree_snapshot_digest(source_tree),
+        }
+        journal_ok, journal_error = _write_default_transaction_journal(journal)
+        if not journal_ok:
+            return False, journal_error
+        if not _matches_tree_snapshot(target_dir, source_tree):
+            recovered, recovery_error = _recover_pending_default_transaction_locked()
+            return False, (
+                "Dossierträdet ändrades medan delete-journalen skrevs; inget raderades."
+                + (f" Recovery misslyckades: {recovery_error}" if not recovered else "")
+            )
 
     def restore_successor() -> str | None:
         if successor_original is None or replacement_default_path is None:
@@ -1532,12 +2441,21 @@ def _delete_dossier_dir(
             _save_json(replacement_default_path, successor)
         except BaseException as exc:
             successor_rollback_error = restore_successor()
+            recovered, recovery_error = _recover_pending_default_transaction_locked()
             if not isinstance(exc, OSError):
                 if successor_rollback_error and hasattr(exc, "add_note"):
                     exc.add_note(
                         f"Successor-rollbacken misslyckades: {successor_rollback_error}"
                     )
+                if not recovered and hasattr(exc, "add_note"):
+                    exc.add_note(f"Beständig recovery misslyckades: {recovery_error}")
                 raise
+            if not recovered:
+                successor_rollback_error = (
+                    f"{successor_rollback_error}; {recovery_error}"
+                    if successor_rollback_error
+                    else recovery_error
+                )
             if successor_rollback_error:
                 return False, (
                     f"Kunde inte skriva det nya Standardvalet ({exc}) och rollbacken "
@@ -1550,6 +2468,13 @@ def _delete_dossier_dir(
             )
     if not _matches_file_snapshot(manifest_path, primary_original):
         successor_rollback_error = restore_successor()
+        recovered, recovery_error = _recover_pending_default_transaction_locked()
+        if not recovered:
+            successor_rollback_error = (
+                f"{successor_rollback_error}; {recovery_error}"
+                if successor_rollback_error
+                else recovery_error
+            )
         return False, (
             "Dossiern ändrades före quarantine-flytten; successor återställdes"
             + (
@@ -1561,6 +2486,8 @@ def _delete_dossier_dir(
         )
     try:
         target_dir.rename(quarantine_dir)
+        _fsync_directory(target_dir.parent)
+        _fsync_directory(quarantine_dir.parent)
     except BaseException as exc:
         primary_rollback_error: str | None = None
         if not target_dir.exists():
@@ -1572,11 +2499,12 @@ def _delete_dossier_dir(
         # this rollback is itself interrupted, live state still has at least
         # one default instead of briefly becoming ownerless.
         successor_rollback_error = restore_successor()
+        recovered, recovery_error = _recover_pending_default_transaction_locked()
         rollback_errors = [
             error
             for error in (successor_rollback_error, primary_rollback_error)
             if error
-        ]
+        ] + ([] if recovered else [recovery_error])
         if not isinstance(exc, OSError):
             if rollback_errors and hasattr(exc, "add_note"):
                 exc.add_note(
@@ -1604,6 +2532,9 @@ def _delete_dossier_dir(
             for error in (successor_rollback_error, primary_rollback_error)
             if error
         ]
+        recovered, recovery_error = _recover_pending_default_transaction_locked()
+        if not recovered:
+            rollback_errors.append(recovery_error)
         if not isinstance(exc, OSError):
             if rollback_errors and hasattr(exc, "add_note"):
                 exc.add_note(
@@ -1621,10 +2552,15 @@ def _delete_dossier_dir(
             "Standardvalet återställdes byte-exakt från snapshot. En ignorerad "
             f"quarantine-rest kan ligga kvar i `{quarantine_dir.name}`."
         )
+    if successor is not None:
+        recovered, recovery_error = _recover_pending_default_transaction_locked()
+        if not recovered:
+            return False, recovery_error
     return True, (
         f"Raderade `{rel_path}`.\n\n"
         + (
-            "Standardvalet flyttades atomiskt till det valda syskonet.\n\n"
+            "Standardvalet flyttades med beständig crash-recovery till det valda "
+            "syskonet.\n\n"
             if successor
             else ""
         )

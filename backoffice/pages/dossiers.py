@@ -66,6 +66,7 @@ from .dossiers_lib.io import (
     _existing_default_for_capability,
     _load_json,
     _save_json,
+    _recover_pending_default_transaction,
     _list_dossier_dirs,
     _walk_all_dossiers,
     _validate_manifest,
@@ -173,6 +174,7 @@ __all__ = [
     "_prospect_root",
     "_read_prospect_verdict_files",
     "_rebuild_capability_map",
+    "_recover_pending_default_transaction",
     "_render_delete_body",
     "_render_dossier_flash",
     "_run_capability_map_write",
@@ -208,6 +210,12 @@ __all__ = [
 
 
 def render(ctx) -> None:
+    recovered, recovery_message = _recover_pending_default_transaction()
+    if not recovered:
+        st.error(recovery_message)
+        return
+    if recovery_message:
+        st.info(recovery_message)
     # `app_main` sätter redan sidtiteln — sidan ska bara ha sin egen rubrik.
     st.header("Byggblock (dossiers)")
     _render_dossier_flash()

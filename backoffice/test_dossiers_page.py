@@ -9,6 +9,8 @@ temporär katalogstruktur med monkeypatchade modulkonstanter.
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -119,6 +121,269 @@ class DeleteDossierDirTests(unittest.TestCase):
         )
         return path
 
+    def _run_killed_delete(self, phase: str) -> subprocess.CompletedProcess[str]:
+        script = r"""
+import os
+import sys
+from pathlib import Path
+
+from backoffice.pages import dossiers as page
+from backoffice.pages.dossiers_lib import io
+
+root = Path(sys.argv[1])
+phase = sys.argv[2]
+page.REPO_ROOT = root
+page.DOSSIER_ROOT = root / "data" / "dossiers"
+page.HARD_ROOT = page.DOSSIER_ROOT / "hard"
+page.SOFT_ROOT = page.DOSSIER_ROOT / "soft"
+
+if phase == "after-successor":
+    original_save = io._save_json
+    def kill_after_successor(path, data):
+        original_save(path, data)
+        if path.parent.name == "beta-cms":
+            os._exit(71)
+    io._save_json = kill_after_successor
+elif phase == "after-quarantine":
+    original_rmtree = io.shutil.rmtree
+    def kill_before_quarantine_delete(path, *args, **kwargs):
+        if ".backoffice-delete-" in Path(path).name:
+            os._exit(72)
+        return original_rmtree(path, *args, **kwargs)
+    io.shutil.rmtree = kill_before_quarantine_delete
+elif phase == "after-delete":
+    original_recovery = io._recover_pending_default_transaction_locked
+    calls = 0
+    def kill_before_journal_clear():
+        global calls
+        calls += 1
+        if calls == 2:
+            os._exit(73)
+        return original_recovery()
+    io._recover_pending_default_transaction_locked = kill_before_journal_clear
+
+page._delete_dossier_dir(
+    {
+        "id": "acme-cms",
+        "_class": "hard",
+        "_path": "data/dossiers/hard/acme-cms",
+    },
+    replacement_default_path=page.DOSSIER_ROOT / "hard" / "beta-cms" / "manifest.json",
+)
+os._exit(90)
+"""
+        return subprocess.run(
+            [sys.executable, "-c", script, str(self.repo_root), phase],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+
+    def _assert_single_cms_default(self) -> None:
+        defaults = []
+        for manifest_path in self.dossier_root.glob("*/*/manifest.json"):
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if (
+                manifest.get("capability") == "cms"
+                and manifest.get("defaultForCapability") is True
+            ):
+                defaults.append(manifest_path.parent.name)
+        self.assertEqual(len(defaults), 1, defaults)
+
+    def test_process_kill_after_successor_write_recovers_by_rollback(self) -> None:
+        self._write_hard_manifest("acme-cms", capability="cms", is_default=True)
+        successor = self._write_hard_manifest(
+            "beta-cms", capability="cms", is_default=False
+        )
+        self._write_hard_manifest("gamma-cms", capability="cms", is_default=False)
+
+        result = self._run_killed_delete("after-successor")
+        self.assertEqual(result.returncode, 71, result.stderr)
+        self.assertTrue((self.dossier_root / "hard" / "acme-cms").exists())
+        self.assertTrue(json.loads(successor.read_text())["defaultForCapability"])
+
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+        self.assertTrue(ok, msg)
+        self._assert_single_cms_default()
+        self.assertFalse(json.loads(successor.read_text())["defaultForCapability"])
+
+    def test_process_kill_after_quarantine_rename_recovers_by_rollforward(self) -> None:
+        self._write_hard_manifest("acme-cms", capability="cms", is_default=True)
+        successor = self._write_hard_manifest(
+            "beta-cms", capability="cms", is_default=False
+        )
+        self._write_hard_manifest("gamma-cms", capability="cms", is_default=False)
+
+        result = self._run_killed_delete("after-quarantine")
+        self.assertEqual(result.returncode, 72, result.stderr)
+        self.assertFalse((self.dossier_root / "hard" / "acme-cms").exists())
+
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+        self.assertTrue(ok, msg)
+        self._assert_single_cms_default()
+        self.assertTrue(json.loads(successor.read_text())["defaultForCapability"])
+
+    def test_process_kill_after_quarantine_delete_recovers_committed_state(
+        self,
+    ) -> None:
+        self._write_hard_manifest("acme-cms", capability="cms", is_default=True)
+        successor = self._write_hard_manifest(
+            "beta-cms", capability="cms", is_default=False
+        )
+        self._write_hard_manifest("gamma-cms", capability="cms", is_default=False)
+
+        result = self._run_killed_delete("after-delete")
+        self.assertEqual(result.returncode, 73, result.stderr)
+        self.assertFalse((self.dossier_root / "hard" / "acme-cms").exists())
+
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+        self.assertTrue(ok, msg)
+        self._assert_single_cms_default()
+        self.assertTrue(json.loads(successor.read_text())["defaultForCapability"])
+
+    def test_semantically_invalid_journal_blocks_without_writing_live_files(
+        self,
+    ) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        primary = self._write_hard_manifest(
+            "acme-cms", capability="cms", is_default=True
+        )
+        successor = self._write_hard_manifest(
+            "beta-cms", capability="cms", is_default=False
+        )
+        primary_before = primary.read_bytes()
+        successor_before = successor.read_bytes()
+        invalid = {
+            "version": 1,
+            "operation": "manifest-handoff",
+            "capability": "cms",
+            "primary": dossiers_io._manifest_transaction_entry(
+                primary,
+                dossier_class="hard",
+                original=primary_before,
+                desired=primary_before,
+            ),
+            "successor": dossiers_io._manifest_transaction_entry(
+                successor,
+                dossier_class="hard",
+                original=successor_before,
+                desired=successor_before,
+            ),
+        }
+        journal_ok, journal_msg = dossiers_io._write_default_transaction_journal(
+            invalid
+        )
+        self.assertTrue(journal_ok, journal_msg)
+
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+
+        self.assertFalse(ok)
+        self.assertIn("skapar inget Standardval", msg)
+        self.assertEqual(primary.read_bytes(), primary_before)
+        self.assertEqual(successor.read_bytes(), successor_before)
+
+    def test_same_target_journal_blocks_before_any_recovery_write(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        primary = self._write_hard_manifest(
+            "acme-cms", capability="cms", is_default=True
+        )
+        primary_before = primary.read_bytes()
+        primary_false = json.loads(primary_before.decode("utf-8"))
+        primary_false["defaultForCapability"] = False
+        false_bytes = dossiers_io._json_bytes(primary_false)
+        same_target = {
+            "version": 1,
+            "operation": "manifest-handoff",
+            "capability": "cms",
+            "primary": dossiers_io._manifest_transaction_entry(
+                primary,
+                dossier_class="hard",
+                original=primary_before,
+                desired=false_bytes,
+            ),
+            "successor": dossiers_io._manifest_transaction_entry(
+                primary,
+                dossier_class="hard",
+                original=false_bytes,
+                desired=primary_before,
+            ),
+        }
+        journal_ok, journal_msg = dossiers_io._write_default_transaction_journal(
+            same_target
+        )
+        self.assertTrue(journal_ok, journal_msg)
+
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+
+        self.assertFalse(ok)
+        self.assertIn("samma manifest", msg)
+        self.assertEqual(primary.read_bytes(), primary_before)
+
+    def test_recovery_never_deletes_tampered_quarantine(self) -> None:
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        primary = self._write_hard_manifest(
+            "acme-cms", capability="cms", is_default=True
+        )
+        successor = self._write_hard_manifest(
+            "beta-cms", capability="cms", is_default=False
+        )
+        self._write_hard_manifest("gamma-cms", capability="cms", is_default=False)
+        primary_before = primary.read_bytes()
+        successor_before = successor.read_bytes()
+        successor_manifest = json.loads(successor_before.decode("utf-8"))
+        successor_manifest["defaultForCapability"] = True
+        successor_desired = dossiers_io._json_bytes(successor_manifest)
+        source_tree, snapshot_error = dossiers_io._tree_byte_snapshot(primary.parent)
+        self.assertIsNone(snapshot_error)
+        assert source_tree is not None
+        transaction_root, root_error = dossiers_io._transaction_root()
+        self.assertIsNone(root_error)
+        assert transaction_root is not None
+        quarantine = (
+            transaction_root
+            / "_acme-cms.backoffice-delete-0123456789abcdef0123456789abcdef"
+        )
+        journal = {
+            "version": 1,
+            "operation": "delete-handoff",
+            "capability": "cms",
+            "primary": dossiers_io._manifest_transaction_entry(
+                primary,
+                dossier_class="hard",
+                original=primary_before,
+                desired=primary_before,
+            ),
+            "successor": dossiers_io._manifest_transaction_entry(
+                successor,
+                dossier_class="hard",
+                original=successor_before,
+                desired=successor_desired,
+            ),
+            "quarantine": quarantine.name,
+            "quarantineTreeSha256": dossiers_io._tree_snapshot_digest(source_tree),
+        }
+        journal_ok, journal_msg = dossiers_io._write_default_transaction_journal(
+            journal
+        )
+        self.assertTrue(journal_ok, journal_msg)
+        dossiers_io._atomic_replace_bytes(successor, successor_desired)
+        primary.parent.rename(quarantine)
+        marker = quarantine / "tampered-after-crash.txt"
+        marker.write_text("do not delete", encoding="utf-8")
+
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+
+        self.assertTrue(ok, msg)
+        self.assertIn("ändrad/osäker", msg)
+        self.assertTrue(marker.exists())
+        self.assertFalse(primary.parent.exists())
+        self._assert_single_cms_default()
+
     def test_deletes_the_walked_directory(self) -> None:
         ok, msg = dossiers_page._delete_dossier_dir(self._chosen())
         self.assertTrue(ok, msg)
@@ -154,7 +419,7 @@ class DeleteDossierDirTests(unittest.TestCase):
         )
 
         self.assertTrue(ok, msg)
-        self.assertIn("flyttades atomiskt", msg)
+        self.assertIn("beständig crash-recovery", msg)
         self.assertFalse((self.dossier_root / "hard" / "acme-cms").exists())
         self.assertTrue(
             json.loads(successor.read_text(encoding="utf-8"))["defaultForCapability"]
@@ -1332,6 +1597,91 @@ class ApplyManifestFieldEditsTests(unittest.TestCase):
     def _saved(self, path: Path | None = None) -> dict:
         return json.loads((path or self.manifest_path).read_text(encoding="utf-8"))
 
+    def _run_killed_manifest_handoff(
+        self, phase: str, successor: Path
+    ) -> subprocess.CompletedProcess[str]:
+        script = r"""
+import os
+import sys
+from pathlib import Path
+
+from backoffice.pages import dossiers as page
+from backoffice.pages.dossiers_lib import io
+
+root = Path(sys.argv[1])
+phase = sys.argv[2]
+page.REPO_ROOT = root
+page.DOSSIER_ROOT = root / "data" / "dossiers"
+page.HARD_ROOT = page.DOSSIER_ROOT / "hard"
+page.SOFT_ROOT = page.DOSSIER_ROOT / "soft"
+primary = page.HARD_ROOT / "acme-cms" / "manifest.json"
+successor = page.HARD_ROOT / "beta-cms" / "manifest.json"
+
+if phase == "after-successor":
+    original_save = io._save_json
+    def kill_after_successor(path, data):
+        original_save(path, data)
+        if path == successor:
+            os._exit(81)
+    io._save_json = kill_after_successor
+elif phase == "after-primary":
+    original_recovery = io._recover_pending_default_transaction_locked
+    calls = 0
+    def kill_before_journal_clear():
+        global calls
+        calls += 1
+        if calls == 2:
+            os._exit(82)
+        return original_recovery()
+    io._recover_pending_default_transaction_locked = kill_before_journal_clear
+
+page._apply_manifest_field_edits(
+    primary,
+    {"mock": "seed", "defaultForCapability": False},
+    dossier_class="hard",
+    replacement_default_path=successor,
+)
+os._exit(90)
+"""
+        return subprocess.run(
+            [sys.executable, "-c", script, str(self.repo_root), phase],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+
+    def test_process_kill_mid_manifest_handoff_recovers_by_rollback(self) -> None:
+        current = self._saved()
+        current.update({"mock": "seed", "defaultForCapability": True})
+        self.manifest_path.write_text(json.dumps(current), encoding="utf-8")
+        successor = self._write_manifest(
+            "hard", "beta-cms", "cms", mock="seed", defaultForCapability=False
+        )
+
+        result = self._run_killed_manifest_handoff("after-successor", successor)
+        self.assertEqual(result.returncode, 81, result.stderr)
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+        self.assertTrue(ok, msg)
+        self.assertTrue(self._saved()["defaultForCapability"])
+        self.assertFalse(self._saved(successor)["defaultForCapability"])
+
+    def test_process_kill_after_complete_manifest_handoff_keeps_commit(self) -> None:
+        current = self._saved()
+        current.update({"mock": "seed", "defaultForCapability": True})
+        self.manifest_path.write_text(json.dumps(current), encoding="utf-8")
+        successor = self._write_manifest(
+            "hard", "beta-cms", "cms", mock="seed", defaultForCapability=False
+        )
+
+        result = self._run_killed_manifest_handoff("after-primary", successor)
+        self.assertEqual(result.returncode, 82, result.stderr)
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+        self.assertTrue(ok, msg)
+        self.assertFalse(self._saved()["defaultForCapability"])
+        self.assertTrue(self._saved(successor)["defaultForCapability"])
+
     def test_valid_edit_is_saved(self) -> None:
         ok, msg = dossiers_page._apply_manifest_field_edits(
             self.manifest_path,
@@ -2108,6 +2458,164 @@ class CuratedDossierTransactionTests(unittest.TestCase):
             encoding="utf-8",
         )
         return path
+
+    def _run_killed_tree_swap(
+        self, phase: str, stage: Path, target: Path
+    ) -> subprocess.CompletedProcess[str]:
+        script = r"""
+import os
+import sys
+from pathlib import Path
+
+from backoffice.pages import dossiers as page
+from backoffice.pages.dossiers_lib import io
+from backoffice.shared_lib.repo_lock import repo_mutation_lock
+
+root = Path(sys.argv[1])
+phase = sys.argv[2]
+stage = Path(sys.argv[3])
+target = Path(sys.argv[4])
+page.REPO_ROOT = root
+page.DOSSIER_ROOT = root / "data" / "dossiers"
+page.HARD_ROOT = page.DOSSIER_ROOT / "hard"
+page.SOFT_ROOT = page.DOSSIER_ROOT / "soft"
+original_rename = Path.rename
+
+def kill_at_boundary(path, destination):
+    result = original_rename(path, destination)
+    if phase == "after-old" and path == target:
+        os._exit(91)
+    if phase == "after-new" and path == stage:
+        os._exit(92)
+    return result
+
+Path.rename = kill_at_boundary
+with repo_mutation_lock(root, "dossiers"):
+    io._swap_staged_directory(target, stage, operation="kill-test")
+os._exit(90)
+"""
+        return subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                script,
+                str(self.repo_root),
+                phase,
+                str(stage),
+                str(target),
+            ],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+
+    def _prepare_default_tree_swap(self) -> tuple[Path, Path, bytes, bytes]:
+        stage = self._stage()
+        desired_instructions = (stage / "instructions.md").read_bytes()
+        staged_manifest = json.loads(
+            (stage / "manifest.json").read_text(encoding="utf-8")
+        )
+        staged_manifest["defaultForCapability"] = True
+        (stage / "manifest.json").write_text(
+            json.dumps(staged_manifest), encoding="utf-8"
+        )
+        target = self.dossier_root / "hard" / "acme-pay"
+        target.mkdir(parents=True)
+        (target / "manifest.json").write_text(
+            json.dumps(staged_manifest), encoding="utf-8"
+        )
+        old_instructions = b"old default instructions\r\n"
+        (target / "instructions.md").write_bytes(old_instructions)
+        return stage, target, old_instructions, desired_instructions
+
+    def test_process_kill_after_old_tree_rename_restores_default_target(self) -> None:
+        stage, target, old_instructions, _desired = self._prepare_default_tree_swap()
+
+        result = self._run_killed_tree_swap("after-old", stage, target)
+        self.assertEqual(result.returncode, 91, result.stderr)
+        self.assertFalse(target.exists())
+
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+
+        self.assertTrue(ok, msg)
+        self.assertEqual((target / "instructions.md").read_bytes(), old_instructions)
+        self.assertTrue(
+            json.loads((target / "manifest.json").read_text())["defaultForCapability"]
+        )
+
+    def test_process_kill_after_new_tree_rename_keeps_committed_default(self) -> None:
+        stage, target, _old, desired_instructions = self._prepare_default_tree_swap()
+
+        result = self._run_killed_tree_swap("after-new", stage, target)
+        self.assertEqual(result.returncode, 92, result.stderr)
+        self.assertTrue(target.exists())
+
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+
+        self.assertTrue(ok, msg)
+        self.assertEqual(
+            (target / "instructions.md").read_bytes(), desired_instructions
+        )
+        self.assertTrue(
+            json.loads((target / "manifest.json").read_text())["defaultForCapability"]
+        )
+
+    def test_tree_swap_recovery_blocks_tampered_old_tree(self) -> None:
+        stage, target, _old, _desired = self._prepare_default_tree_swap()
+        result = self._run_killed_tree_swap("after-old", stage, target)
+        self.assertEqual(result.returncode, 91, result.stderr)
+        transaction_root = (
+            self.repo_root / "data" / "backoffice" / "staging" / "dossiers"
+        )
+        old = next(transaction_root.glob("_acme-pay.replaced-*"))
+        marker = old / "tampered-after-crash.txt"
+        marker.write_text("keep", encoding="utf-8")
+
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+
+        self.assertFalse(ok)
+        self.assertIn("tvetydig", msg)
+        self.assertTrue(marker.exists())
+        self.assertFalse(target.exists())
+        self.assertTrue(stage.exists())
+
+    def test_tree_swap_rollback_clears_journal_for_preexisting_invalid_family(
+        self,
+    ) -> None:
+        stage = self._stage()
+        desired = json.loads((stage / "manifest.json").read_text(encoding="utf-8"))
+        desired["defaultForCapability"] = True
+        (stage / "manifest.json").write_text(json.dumps(desired), encoding="utf-8")
+        target = self.dossier_root / "hard" / "acme-pay"
+        target.mkdir(parents=True)
+        old = {**desired, "defaultForCapability": False}
+        (target / "manifest.json").write_text(json.dumps(old), encoding="utf-8")
+        (target / "instructions.md").write_text("old", encoding="utf-8")
+        sibling = self.dossier_root / "hard" / "beta-pay"
+        sibling.mkdir(parents=True)
+        (sibling / "manifest.json").write_text(
+            json.dumps({**old, "id": "beta-pay"}), encoding="utf-8"
+        )
+
+        result = self._run_killed_tree_swap("after-old", stage, target)
+        self.assertEqual(result.returncode, 91, result.stderr)
+        ok, msg = dossiers_page._recover_pending_default_transaction()
+
+        self.assertTrue(ok, msg)
+        self.assertFalse(
+            json.loads((target / "manifest.json").read_text())["defaultForCapability"]
+        )
+        journal = (
+            self.repo_root
+            / "data"
+            / "backoffice"
+            / "staging"
+            / "dossiers"
+            / "_pending-default-transaction.json"
+        )
+        self.assertFalse(journal.exists())
 
     def test_stage_is_outside_live_pool_and_publishes_both_files_together(self) -> None:
         from backoffice.pages.dossiers_lib import io as dossiers_io
