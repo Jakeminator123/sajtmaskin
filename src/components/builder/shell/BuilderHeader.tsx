@@ -34,7 +34,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  AlertTriangle,
   Bot,
   ChevronDown,
   Download,
@@ -52,7 +51,6 @@ import {
   Plus,
   Lightbulb,
   Globe,
-  Rocket,
   Save,
   Settings2,
   Wand2,
@@ -63,6 +61,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { BuilderPublishControl } from "./BuilderPublishControl";
 import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 
 export function BuilderHeader(props: {
@@ -710,251 +709,31 @@ export function BuilderHeader(props: {
           </Button>
         ) : null}
 
-        {deploymentHistoryHydrationFailed ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-amber-500/60 text-amber-600 dark:text-amber-400"
-                  onClick={() => onRetryDeploymentHistory?.()}
-                  aria-label="Kunde inte hämta publiceringsstatus"
-                >
-                  <AlertTriangle className="h-4 w-4" />
-                  <span className="hidden sm:inline">Status</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-sm text-xs">
-                <p>
-                  Kunde inte hämta publiceringsstatus efter omladdning. Publiceringsknappen kan visa
-                  fel läge tills du försöker igen.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
-
-        {/* A4: tydlig felstate när en publicering failat asynkront (Vercel-
-            build-fel). Ren presentation — visas oavsett om repair-knappen
-            (A3) är tillgänglig. Länken till byggloggarna är valfri (finns
-            inte alltid inspectorUrl). */}
-        {deploymentStatus === "error" ? (
-          <div className="flex items-center gap-1.5">
-            <AlertTriangle
-              className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400"
-              aria-hidden
-            />
-            <div className="flex flex-col leading-tight">
-              <span className="text-xs font-medium text-red-600 dark:text-red-400">
-                Publiceringen misslyckades
-              </span>
-              {deploymentInspectorUrl ? (
-                <a
-                  href={deploymentInspectorUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-foreground text-[11px] underline underline-offset-2"
-                >
-                  Visa byggloggar
-                </a>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {/* A3: en publicering som failat asynkront (Vercel-build-fel) får en
-            MANUELL "Publicera om med fix"-knapp. Den kör en repair mot den
-            failade versionen och guidar till accept + ompublicering — den
-            redeployar ALDRIG automatiskt (Ö3). */}
-        {deploymentStatus === "error" && onRepublishWithFix ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-red-500 text-red-600 dark:text-red-400"
-                  onClick={() => runDeferredAction(onRepublishWithFix)}
-                  disabled={isBusy || isRepublishRepairing}
-                >
-                  {isRepublishRepairing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Wrench className="h-4 w-4" />
-                  )}
-                  <span className="hidden sm:inline">Publicera om med fix</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-sm text-xs">
-                <p>
-                  Publiceringen misslyckades i bygget. Kör en automatisk fix mot den failade
-                  versionen — granska och acceptera reparationen, publicera sedan om.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
-
-        {(() => {
-          // Domän lives inside the publish control now (split button): a small
-          // chevron next to Publicera/Publicerad opens a menu with domain
-          // actions, so the header keeps one publishing-related control instead
-          // of a separate Domän button. Gated on `canManageDomain`.
-          const domainMenu = (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={isBusy}
-                  aria-label="Fler publiceringsval: domän"
-                  title="Domän och publiceringsval"
-                  className="px-2"
-                >
-                  <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuLabel>Publicering</DropdownMenuLabel>
-                <DropdownMenuItem
-                  disabled={!canManageDomain || isBusy}
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    runDeferredAction(onDomainSearch);
-                  }}
-                >
-                  <Globe className="mr-2 h-4 w-4" />
-                  Hantera domän
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-
-          // In-session build always wins (SSE), so the button reflects the
-          // live deploy while it is running. Keep the domain menu reachable
-          // during the async build window (canManageDomain does not depend on
-          // the build finishing) so moving Domän into the split control never
-          // hides it mid-deploy.
-          if (deploymentStatus === "building") {
-            return (
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant="outline" disabled aria-label="Bygger publiceringen">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="hidden sm:inline">Bygger...</span>
-                </Button>
-                {domainMenu}
-              </div>
-            );
+        <BuilderPublishControl
+          activeVersionId={activeVersionId}
+          canDeploy={canDeploy}
+          canManageDomain={canManageDomain}
+          deployDisabledReason={deployDisabledReason}
+          deploymentHistoryHydrationFailed={deploymentHistoryHydrationFailed}
+          deploymentInspectorUrl={deploymentInspectorUrl}
+          deploymentStatus={deploymentStatus}
+          deploymentUrl={deploymentUrl}
+          isBusy={isBusy}
+          isDeploying={isDeploying}
+          isRepublishRepairing={isRepublishRepairing}
+          liveDeploymentUrl={liveDeploymentUrl}
+          liveDeploymentVersionId={liveDeploymentVersionId}
+          onDeployProduction={() =>
+            runDeferredAction(() => {
+              void onDeployProduction();
+            })
           }
-
-          // Resolve the live deployment. An in-session SSE "ready" deploy is by
-          // definition the newest one, so it wins over hydrated DB state until
-          // the post-deploy refetch lands (otherwise a re-publish would briefly
-          // open the PREVIOUS live URL). After a reload there is no session
-          // deploy and the hydrated state is the source of truth.
-          const sessionReadyUrl =
-            deploymentStatus === "ready" && deploymentUrl ? deploymentUrl : null;
-          const resolvedLiveUrl = sessionReadyUrl ?? liveDeploymentUrl;
-          const resolvedLiveVersionId =
-            sessionReadyUrl && sessionReadyUrl !== liveDeploymentUrl
-              ? // Fresh deploy whose row hasn't been refetched yet — the active
-                // version is the one that was just published.
-                activeVersionId
-              : liveDeploymentUrl
-                ? (liveDeploymentVersionId ?? null)
-                : sessionReadyUrl
-                  ? activeVersionId
-                  : null;
-          const liveHref = resolvedLiveUrl
-            ? resolvedLiveUrl.startsWith("http")
-              ? resolvedLiveUrl
-              : `https://${resolvedLiveUrl}`
-            : null;
-          const hasLive = Boolean(liveHref);
-          // Only claim "in sync" (green Publicerad) when the live version is
-          // actually known — an unknown live version must not read as synced
-          // (false-green). `!activeVersionId` only happens while versions are
-          // still loading; treat that brief window as synced to avoid a
-          // flickering "Publicera ändringar".
-          const liveMatchesActive =
-            hasLive &&
-            Boolean(resolvedLiveVersionId) &&
-            (!activeVersionId || resolvedLiveVersionId === activeVersionId);
-          const hasUnpublishedChanges = hasLive && !liveMatchesActive;
-
-          // (a) Published and the live version === the active version.
-          if (hasLive && liveMatchesActive && liveHref) {
-            return (
-              <div className="flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-green-500 text-green-600"
-                  onClick={() => window.open(liveHref, "_blank", "noopener,noreferrer")}
-                  aria-label="Publicerad — öppna den live-publicerade sajten i ny flik"
-                  title="Öppna den publicerade sajten"
-                >
-                  <Globe className="h-4 w-4" />
-                  <span className="hidden sm:inline">Publicerad</span>
-                </Button>
-                {domainMenu}
-              </div>
-            );
+          onDomainSearch={() => runDeferredAction(onDomainSearch)}
+          onRepublishWithFix={
+            onRepublishWithFix ? () => runDeferredAction(onRepublishWithFix) : undefined
           }
-
-          // (b) A newer/other version than the live one → "Publicera ändringar"
-          //     (with an indicator dot). (c) Nothing live yet → "Publicera".
-          //     Both use the same deploy action + gating.
-          const label = hasUnpublishedChanges ? "Publicera ändringar" : "Publicera";
-          const publishTooltip = !canDeploy
-            ? deployDisabledReason
-            : hasUnpublishedChanges
-              ? "Du har ändringar som inte är publicerade ännu. Publicera för att uppdatera den live-sajten."
-              : null;
-          return (
-            <div className="flex items-center gap-1">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span tabIndex={0}>
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          runDeferredAction(() => {
-                            void onDeployProduction();
-                          })
-                        }
-                        disabled={!canDeploy || isBusy || isDeploying}
-                        className="relative"
-                        aria-label={label}
-                      >
-                        {isDeploying ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Rocket className="h-4 w-4" />
-                        )}
-                        <span className="hidden sm:inline">{label}</span>
-                        {hasUnpublishedChanges && (
-                          <span
-                            className="ring-background absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-amber-400 ring-2"
-                            aria-hidden
-                          />
-                        )}
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  {publishTooltip ? (
-                    <TooltipContent side="bottom" className="max-w-sm text-xs">
-                      <p>{publishTooltip}</p>
-                    </TooltipContent>
-                  ) : null}
-                </Tooltip>
-              </TooltipProvider>
-              {domainMenu}
-            </div>
-          );
-        })()}
+          onRetryDeploymentHistory={onRetryDeploymentHistory}
+        />
       </div>
 
       <Dialog open={isInstructionsOpen} onOpenChange={setIsInstructionsOpen}>
