@@ -129,7 +129,11 @@ export type CapabilityMap = {
 };
 
 function sha256File(path: string): string {
-  return createHash("sha256").update(readFileSync(path)).digest("hex");
+  // Normalize CRLF→LF before hashing. Windows backoffice can write manifests
+  // with CRLF while Git/CI store LF (`.gitattributes`); without this the
+  // capability-map `sourceFiles` gate goes red after a local dossier edit.
+  const normalized = readFileSync(path, "utf8").replace(/\r\n/g, "\n");
+  return createHash("sha256").update(normalized, "utf8").digest("hex");
 }
 
 export function collectSourceFiles(): Record<string, string> {

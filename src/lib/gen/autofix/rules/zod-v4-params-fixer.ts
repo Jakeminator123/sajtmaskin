@@ -57,7 +57,13 @@ export function fixZodV4Params(code: string, filePath: string): ZodFixResult {
   }
 
   let count = 0;
-  const next = code.replace(ERROR_MAP_MESSAGE_RE, (_match, literal: string) => {
+  const next = code.replace(ERROR_MAP_MESSAGE_RE, (match, literal: string) => {
+    // Template literals that interpolate `${issue…}` would leave `issue`
+    // outside scope after rewrite (`message: \`Bad ${issue.code}\``). Leave
+    // those for the LLM fixer — same policy as expression-bodied errorMaps.
+    if (literal.startsWith("`") && literal.includes("${")) {
+      return match;
+    }
     count += 1;
     return `message: ${literal}`;
   });

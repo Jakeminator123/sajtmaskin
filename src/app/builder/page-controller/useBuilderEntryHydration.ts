@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { normalizeBuildIntent, type BuildIntent, type BuildMethod } from "@/lib/builder/build-intent";
+import { resetInitBuildChoices } from "@/lib/builder/init-build-choices";
 import type { ChatMessage } from "@/lib/builder/types";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuilderEntryState } from "../builder-entry";
@@ -249,6 +250,11 @@ export function useBuilderEntryHydration({
     pendingBriefRef.current = null;
 
     if (shouldResetChatState) {
+      // Drop abandoned Byggval from the previous chat session so a later new
+      // chat cannot inherit plan/contract choices that never produced a version.
+      // Only here — not on prompt-handoff re-fetch alone — so a failed create
+      // can still retry with the same Byggval store.
+      resetInitBuildChoices();
       // PR #355-triage #7 (backlog): en pågående generation-stream från den
       // förra sessionen måste avbrytas INNAN chat-state nollställs — annars
       // fortsätter den gamla streamen skriva meddelanden/versioner in i den

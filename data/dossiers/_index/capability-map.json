@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-08-11T05:55:26.506Z",
+  "generatedAt": "2026-08-11T07:31:01.674Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -1037,7 +1037,7 @@
     "data/dossiers/soft/three-fiber-canvas/manifest.json": "a465b0c30f26663c8b0067f16f4e99ec2bfae59d3463d170a38c04d3f6bffad2",
     "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
     "docs/schemas/strict/dossier.schema.json": "454912f6f36ba3e565d0a1e3d65863b849387c5eff0ba68fe5347a54849787ab",
-    "scripts/dossiers/regenerate-capability-map.ts": "2a032e44adf000b9b163954bdfee57e5d572e7454e4382e75d7b208f320813e5",
+    "scripts/dossiers/regenerate-capability-map.ts": "ce15a798da3ac8056091104ae83854a2a92ade98b8468b077e1ebc4977035163",
     "src/lib/builder/dossier-axes.ts": "8b515284e97918c790573c4ce572db797cac8e1ae68ceb13c6f612e24a9eae69",
     "src/lib/builder/dossier-groups.ts": "67adc554dafd00c54766c732af6600737f6194138c7773ee09a977c03d97fd59",
     "src/lib/gen/dossiers/f2-mute.ts": "f9fe5879bdd327277423c2a82374c11d303b6c1484fb17b88edb6d8bbd6882ed",

@@ -190,6 +190,13 @@ function followUpMeta(
     scaffoldMode: "auto",
     scaffoldId: null,
     lifecycleStage: "design",
+    pageCountHint: null,
+    styleKeywordsHint: [],
+    toneKeywordsHint: [],
+    styleChoiceHint: null,
+    colorModeHint: null,
+    complexityHint: null,
+    buildIntentExplicit: false,
   };
 }
 

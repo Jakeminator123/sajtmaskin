@@ -26,6 +26,15 @@ export interface BuildFollowUpOrchestrationInputParams {
     | "scaffoldMode"
     | "scaffoldId"
     | "lifecycleStage"
+    // Byggval hints: only consumed when `!hasFollowUpBase` (first codegen
+    // after plan/contract). Normal follow-ups ignore them.
+    | "pageCountHint"
+    | "styleKeywordsHint"
+    | "toneKeywordsHint"
+    | "styleChoiceHint"
+    | "colorModeHint"
+    | "complexityHint"
+    | "buildIntentExplicit"
   >;
   resolvedImageGenerations: boolean;
   designReferences: OrchestrationInput["designReferences"];
@@ -155,6 +164,26 @@ export function buildFollowUpOrchestrationInput(
   // let marked link text (e.g. PORTFOLIO) drive keyword route inference.
   const routePlanPrompt = stripFocusPointAppendix(params.message);
 
+  // First codegen after plan/contract has no version base yet — Byggval
+  // hints from the answering turn must reach orchestrate the same way init
+  // create does. Once a follow-up base exists, route freeze / snapshot own
+  // these signals and client-sent leftovers must not override them.
+  const initBuildHints = params.hasFollowUpBase
+    ? null
+    : {
+        pageCountHint: params.parsedMeta.pageCountHint,
+        styleKeywordsHint: params.parsedMeta.styleKeywordsHint.length
+          ? params.parsedMeta.styleKeywordsHint
+          : undefined,
+        toneKeywordsHint: params.parsedMeta.toneKeywordsHint.length
+          ? params.parsedMeta.toneKeywordsHint
+          : undefined,
+        styleChoiceHint: params.parsedMeta.styleChoiceHint,
+        colorModeHint: params.parsedMeta.colorModeHint,
+        complexityHint: params.parsedMeta.complexityHint,
+        buildIntentExplicit: params.parsedMeta.buildIntentExplicit || undefined,
+      };
+
   const commonInput: OrchestrationInput = {
     prompt: params.optimizedMessage,
     rawPrompt: params.message,
@@ -170,6 +199,7 @@ export function buildFollowUpOrchestrationInput(
     scaffoldMode: importedRepoMode ? "off" : params.parsedMeta.scaffoldMode,
     scaffoldId: importedRepoMode ? null : params.parsedMeta.scaffoldId,
     importedRepoMode,
+    ...(initBuildHints ?? {}),
     brief: resolveFollowUpActiveBrief(params),
     themeColors: params.parsedMeta.themeColors,
     imageGenerations: params.resolvedImageGenerations,

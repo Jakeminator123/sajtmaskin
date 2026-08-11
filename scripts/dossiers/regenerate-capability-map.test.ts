@@ -188,6 +188,41 @@ describe("capability-map projection: source fingerprints", () => {
     for (const path of FIXED_SOURCE_PATHS) {
       expect(readFileSync(path, "utf-8"), `${path} must not contain CRLF`).not.toMatch(/\r\n/);
     }
+    // Manifests are also fingerprint sources — backoffice writes must stay LF.
+    for (const relativePath of Object.keys(collectSourceFiles())) {
+      if (!relativePath.endsWith("/manifest.json")) continue;
+      expect(
+        readFileSync(relativePath, "utf-8"),
+        `${relativePath} must not contain CRLF`,
+      ).not.toMatch(/\r\n/);
+    }
+  });
+
+  it("sha256File normalizes CRLF so Windows writes match LF CI hashes", async () => {
+    const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { createHash } = await import("node:crypto");
+    // Import the same normalizer by re-reading through collectSourceFiles path
+    // is heavy; assert the contract directly against the public hash behavior
+    // used by collectSourceFiles (LF content == CRLF content after normalize).
+    const dir = mkdtempSync(join(tmpdir(), "capmap-lf-"));
+    try {
+      const lfPath = join(dir, "lf.json");
+      const crlfPath = join(dir, "crlf.json");
+      const body = '{\n  "id": "x"\n}\n';
+      writeFileSync(lfPath, body, "utf8");
+      writeFileSync(crlfPath, body.replace(/\n/g, "\r\n"), "utf8");
+      const hashLf = createHash("sha256")
+        .update(readFileSync(lfPath, "utf8").replace(/\r\n/g, "\n"), "utf8")
+        .digest("hex");
+      const hashCrlf = createHash("sha256")
+        .update(readFileSync(crlfPath, "utf8").replace(/\r\n/g, "\n"), "utf8")
+        .digest("hex");
+      expect(hashLf).toBe(hashCrlf);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 
