@@ -79,17 +79,29 @@ function isFeatureFlagEnabled(): boolean {
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
 }
 
+// turbopackIgnore: the cache root is runtime-resolved (env override, test
+// override or os.tmpdir()), so Turbopack's static analysis saw a fully dynamic
+// fs path and traced the whole project into every route importing the finalize
+// pipeline (build warning: "matches 141577 files" at the existsSync call site).
+// The cache is a runtime write/read target under /tmp, never a bundle asset.
+// Every path handed to fs in this module is routed through `opaqueCachePath`
+// so no raw dynamic string reaches the tracer. Same treatment as
+// RUNS_ROOT_DIR in src/lib/logging/event-bus.ts.
+function opaqueCachePath(dir: string, ...segments: string[]): string {
+  return join(/* turbopackIgnore: true */ dir, ...segments);
+}
+
 function resolveCacheRoot(): string {
   const override = process.env[CACHE_ROOT_ENV]?.trim();
-  if (override) return override;
-  return join(tmpdir(), "sajtmaskin", "typecheck-cache");
+  if (override) return opaqueCachePath(override);
+  return opaqueCachePath(tmpdir(), "sajtmaskin", "typecheck-cache");
 }
 
 function resolveCacheForScaffold(scaffoldId: string | null | undefined): string | null {
   const id = scaffoldId?.trim();
   if (!id) return null;
   const root = resolveCacheRoot();
-  return join(root, id);
+  return opaqueCachePath(root, id);
 }
 
 /**
@@ -107,8 +119,8 @@ function resolveCacheForScaffold(scaffoldId: string | null | undefined): string 
  */
 function describeCacheProblem(cacheDir: string): string | null {
   if (!existsSync(cacheDir)) return "cache dir missing";
-  if (!existsSync(join(cacheDir, "node_modules"))) return "node_modules missing";
-  const tsconfigPath = join(cacheDir, "tsconfig.json");
+  if (!existsSync(opaqueCachePath(cacheDir, "node_modules"))) return "node_modules missing";
+  const tsconfigPath = opaqueCachePath(cacheDir, "tsconfig.json");
   if (!existsSync(tsconfigPath)) return "tsconfig.json missing";
   let paths: Record<string, unknown>;
   try {
@@ -140,7 +152,7 @@ function writeFilesIntoCache(cacheDir: string, files: CodeFile[]): string[] {
     // (`app/docs/[...slug]/page.tsx`) from the warm cache, so tsc could
     // report green without ever checking the route that runs in preview.
     if (hasTraversalSegment(safe) || safe.startsWith("/")) continue;
-    const dest = join(cacheDir, safe);
+    const dest = opaqueCachePath(cacheDir, safe);
     mkdirSync(dirname(dest), { recursive: true });
     writeFileSync(dest, file.content, "utf8");
     written.push(safe);
@@ -150,7 +162,7 @@ function writeFilesIntoCache(cacheDir: string, files: CodeFile[]): string[] {
 
 function cleanupWrittenFiles(cacheDir: string, paths: string[]): void {
   for (const rel of paths) {
-    const dest = join(cacheDir, rel);
+    const dest = opaqueCachePath(cacheDir, rel);
     try {
       rmSync(dest, { force: true });
     } catch {
@@ -202,8 +214,9 @@ export async function runPreVmTypecheck(
   if (!params.files || params.files.length === 0) {
     return { ok: true, skipped: "no_files", diagnostics: [], durationMs: 0 };
   }
-  const cacheDir =
-    params.cacheDirOverride ?? resolveCacheForScaffold(params.scaffoldId);
+  const cacheDir = params.cacheDirOverride
+    ? opaqueCachePath(params.cacheDirOverride)
+    : resolveCacheForScaffold(params.scaffoldId);
   const coldResult: PreVmTypecheckResult = {
     ok: true,
     skipped: "cache_cold",

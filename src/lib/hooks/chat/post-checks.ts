@@ -144,13 +144,27 @@ export function buildProductPostcheckLogItems(
 ): VersionErrorLogPayload[] {
   if (!result) return [];
   if (result.skipped) {
+    // Krasch-skäl (Playwright dog, navigering föll, timeout) är INTE policy-skips
+    // och ska synas i defect-aggregatet — prod-körningen 2026-08-11 visade sex
+    // "skipped"-rader i rad som i själva verket var en kraschad Chromium
+    // (/tmp-svält). `warning` påverkar inga gates: verdikt-läsarna ankrar på
+    // `preflight:quality-gate`/`quality-gate:*` och readiness-kortets
+    // preview-filter på `preview|render-telemetry|deploy`. Policy-skips
+    // (feature av, ingen URL, otillåten host) förblir `info`.
+    const crashReasons = new Set([
+      "playwright_unavailable",
+      "navigation_failed",
+      "timeout",
+      "runtime_error",
+    ]);
+    const skippedReason = result.skippedReason ?? "unknown";
     return [
       {
-        level: "info",
+        level: crashReasons.has(skippedReason) ? "warning" : "info",
         category: "product_postcheck.skipped",
         message: "F2 Product Postcheck skipped.",
         meta: {
-          skippedReason: result.skippedReason ?? "unknown",
+          skippedReason,
           durationMs: result.durationMs ?? null,
           checkedUrl: result.checkedUrl ?? null,
         },

@@ -300,13 +300,40 @@ function checkMissingImportFinding(
  */
 const PACKAGE_CLASS_ID_RE = /(?:package|dependenc|version|script|build|manifest)/i;
 
+/**
+ * Subordinate justification/consequence clause after a manifest claim —
+ * ", although app/layout.tsx imports Next.js" / ", so app/layout.tsx cannot
+ * build or run". The code file there MOTIVATES the manifest claim; it is not
+ * an independent claim about the code file. Prod chat `72cbc979` v4+v5
+ * (2026-08-11): the merged package.json satisfied every claim, but the
+ * justification clause kept the finding outside the package class, so the
+ * already-resolved finding kept suppressing promotion on every F3 run.
+ *
+ * Deliberately narrow: only justification conjunctions (although/though/
+ * because/since/so). Coordinating "and" (a genuinely mixed claim) and
+ * contrastive while/whereas stay excluded — those clauses can carry an
+ * independent code-file blocker the manifest re-check cannot confirm.
+ * The inner `\.(?!\s|$)` keeps dots inside filenames (`app/layout.tsx`,
+ * `Next.js`) from ending the clause early, so no `absent.tsx`-style artifact
+ * survives the strip. Only used for the CLASS-membership test; the claim
+ * re-check still reads the full detail.
+ */
+const MANIFEST_JUSTIFICATION_CLAUSE_RE =
+  /[,;—–]\s+(?:although|though|even though|because|since|so(?:\s+that)?)\b(?:[^.;]|\.(?!\s|$))*[.;]?/gi;
+
 function isPackageJsonClassFinding(finding: VerifierBlockingFinding): boolean {
   if (!/package\.json/i.test(finding.detail)) return false;
   if (!PACKAGE_CLASS_ID_RE.test(finding.id)) return false;
   // FILE_PATH_RE only matches code extensions, never `package.json` itself —
-  // any hit means the claim is (also) about a code file, not purely the
-  // manifest, so it stays outside this class.
-  return !FILE_PATH_RE.test(finding.detail);
+  // a hit means the claim is (also) about a code file, not purely the
+  // manifest, so it stays outside this class. Justification clauses are
+  // stripped first (see MANIFEST_JUSTIFICATION_CLAUSE_RE): a file mentioned
+  // only as motivation must not veto the manifest re-check.
+  const detailWithoutJustification = finding.detail.replace(
+    MANIFEST_JUSTIFICATION_CLAUSE_RE,
+    "",
+  );
+  return !FILE_PATH_RE.test(detailWithoutJustification);
 }
 
 /** `name@spec` tokens (`ai@^7`, `@ai-sdk/react@^2.0.3`). */

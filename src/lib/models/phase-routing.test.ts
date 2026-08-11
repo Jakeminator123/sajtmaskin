@@ -7,7 +7,9 @@ import {
 } from "./phase-routing";
 
 describe("resolvePhaseModel", () => {
-  it("uses GPT-5.6 Sol for all phases in the Premium tier", () => {
+  it("uses GPT-5.6 Sol for Premium build phases; fixer pinned to gpt-5.3-codex", () => {
+    // Ägarbeslut 2026-08-11: the heavy build model timed out as fixer — the
+    // Premium fixer is pinned to the lighter gpt-5.3-codex (same as Max).
     const planner = resolvePhaseModel("premium", "planner");
     const generator = resolvePhaseModel("premium", "generator");
     const fixer = resolvePhaseModel("premium", "fixer");
@@ -16,7 +18,8 @@ describe("resolvePhaseModel", () => {
 
     expect(planner.modelId).toBe("gpt-5.6-sol");
     expect(generator.modelId).toBe("gpt-5.6-sol");
-    expect(fixer.modelId).toBe("gpt-5.6-sol");
+    expect(fixer.modelId).toBe("gpt-5.3-codex");
+    expect(fixer.reason).toBe("manifest-phase-override");
     expect(verifier.modelId).toBe("gpt-5.6-sol");
     expect(deploy.modelId).toBe("gpt-5.6-sol");
     expect(planner.reason).toBe("premium-tier-unified");
@@ -149,6 +152,15 @@ describe("resolvePhaseThinking", () => {
     expect(resolvePhaseThinking("pro", "fixer").thinking).toBe(false);
     expect(resolvePhaseThinking("pro", "verifier").thinking).toBe(false);
     expect(resolvePhaseThinking("pro", "deploy-assistant").thinking).toBe(false);
+  });
+
+  it("premium fixer runs without thinking, medium effort (ägarbeslut 2026-08-11)", () => {
+    expect(resolvePhaseThinking("premium", "fixer")).toEqual({
+      phase: "fixer",
+      thinking: false,
+      reasoningEffort: "medium",
+      reason: "manifest-phase-thinking",
+    });
   });
 
   it("anthropic tier disables thinking on fixer/verifier (Opus cost control)", () => {
