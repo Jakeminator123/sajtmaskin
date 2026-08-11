@@ -119,6 +119,17 @@ class SharedFacadeContractTests(unittest.TestCase):
         actual = {name for name in dir(shared) if not name.startswith("_")}
         self.assertEqual(actual, EXPECTED_PUBLIC_NAMES)
 
+    def test_all_matches_the_frozen_surface(self) -> None:
+        """``__all__`` finns för lintern (`npm run lint:py`) och får inte glida.
+
+        Glider den blir konsekvensen tyst: ruff börjar rapportera riktiga
+        re-exporter som oanvända, och den som "städar" dem bryter fasaden.
+        ``annotations`` hör inte i ``__all__`` (``__future__``-import), medan
+        ``_escape_ts_string`` måste med — den är privat men re-exporteras.
+        """
+        expected = (EXPECTED_PUBLIC_NAMES - {"annotations"}) | {"_escape_ts_string"}
+        self.assertEqual(set(shared.__all__), expected)
+
     def test_compat_private_export_used_by_scaffold_lifecycle_remains(self) -> None:
         self.assertTrue(callable(shared._escape_ts_string))
 

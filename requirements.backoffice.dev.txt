@@ -1,0 +1,11 @@
+# Dev-verktyg för backoffice-Python. Installera med `npm run lint:py:install`.
+#
+# Runtime-beroendena ligger i `requirements.backoffice.txt` och dras in nedan,
+# så en installation räcker för att både köra och linta backoffice lokalt.
+#
+# CI:s `backoffice-tests`-jobb installerar bara runtime-filen — inget här är
+# nödvändigt för att testerna ska passera.
+-r requirements.backoffice.txt
+
+# Linter, konfigurerad i `ruff.toml`. Ersätter flake8/pyflakes/isort.
+ruff>=0.14,<1

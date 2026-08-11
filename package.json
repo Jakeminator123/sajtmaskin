@@ -40,6 +40,8 @@
     "lint": "eslint . --cache --cache-location .eslintcache",
     "lint:fix": "eslint . --cache --cache-location .eslintcache --fix",
     "lint:watch": "npx nodemon --ext ts,tsx,js,jsx --exec \"eslint . --cache --cache-location .eslintcache --fix\"",
+    "lint:py": "node scripts/dev/run-python.mjs -m ruff check backoffice sajtmaskin_backoffice.py",
+    "lint:py:install": "node scripts/dev/run-python.mjs -m pip install -r requirements.backoffice.dev.txt",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "typecheck": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
