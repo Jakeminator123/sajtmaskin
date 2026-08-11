@@ -15,7 +15,7 @@
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
-import { getScaffoldById } from "./registry";
+import { getScaffoldById, getScaffoldIds } from "./registry";
 import {
   searchScaffoldsWithDiagnostics,
   type ScaffoldSearchResponse,
@@ -688,7 +688,7 @@ export async function matchScaffoldAuto(
   const lowerScaffold = scaffoldPrompt.toLowerCase();
 
   const embeddingPromise = useEmbeddings
-    ? searchScaffoldsWithDiagnostics(scaffoldPrompt, 3)
+    ? searchScaffoldsWithDiagnostics(scaffoldPrompt, getScaffoldIds().length)
     : Promise.resolve(EMPTY_SEMANTIC_RESPONSE);
 
   const baseKeywordScores = applyBriefKeywordBoost(

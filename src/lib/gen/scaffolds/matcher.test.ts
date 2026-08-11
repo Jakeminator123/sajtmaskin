@@ -5,7 +5,7 @@ vi.mock("./scaffold-search", () => ({
 }));
 
 import { searchScaffoldsWithDiagnostics } from "./scaffold-search";
-import { getScaffoldById } from "./registry";
+import { getScaffoldById, getScaffoldIds } from "./registry";
 import { inferCapabilities } from "../capability-inference";
 import { matchScaffold, matchScaffoldAuto } from "./matcher";
 
@@ -393,6 +393,46 @@ describe("matchScaffold", () => {
     expect(result.meta.selectedScaffold).toBe(result.scaffold?.id);
     expect(result.meta.embeddingTopResult?.id).toBe("app-shell");
     expect(result.meta.topCandidates.some((candidate) => candidate.id === "ecommerce")).toBe(false);
+  });
+
+  it("searches past three ineligible embeddings for the first intent-safe candidate", async () => {
+    const ecommerce = getScaffoldById("ecommerce");
+    const landingPage = getScaffoldById("landing-page");
+    const portfolio = getScaffoldById("portfolio");
+    const appShell = getScaffoldById("app-shell");
+    expect(ecommerce).toBeTruthy();
+    expect(landingPage).toBeTruthy();
+    expect(portfolio).toBeTruthy();
+    expect(appShell).toBeTruthy();
+    mockedSearchScaffoldsWithDiagnostics.mockResolvedValue({
+      results: [
+        { scaffold: ecommerce!, score: 0.94 },
+        { scaffold: landingPage!, score: 0.9 },
+        { scaffold: portfolio!, score: 0.86 },
+        { scaffold: appShell!, score: 0.72 },
+      ],
+      diagnostics: {
+        attempted: true,
+        available: true,
+        failed: false,
+        unavailableReason: null,
+        errorMessage: null,
+        durationMs: 10,
+      },
+    });
+
+    const result = await matchScaffoldAuto(
+      "Bygg en app med workspace, portal och inställningar.",
+      "app",
+    );
+
+    expect(mockedSearchScaffoldsWithDiagnostics).toHaveBeenCalledWith(
+      expect.any(String),
+      getScaffoldIds().length,
+    );
+    expect(result.scaffold?.id).toBe("app-shell");
+    expect(result.meta.selectedScaffold).toBe(result.scaffold?.id);
+    expect(result.meta.embeddingTopResult).toEqual({ id: "app-shell", score: 0.72 });
   });
 
   it("reports selectionMethod=agreement when keyword and embedding converge on the same scaffold", async () => {
