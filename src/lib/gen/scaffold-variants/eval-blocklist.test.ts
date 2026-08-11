@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   getBlockedVariantIds,
@@ -17,7 +17,9 @@ import { getVariantsForScaffold } from "./registry";
  * removal and the picker kept serving it.
  *
  * Reports under `data/scaffold-eval/reports/` are per-machine (gitignored).
- * Tests that need a report write a temporary fixture and clean up.
+ * Staleness tests may overwrite the real latest path; they restore any
+ * pre-existing bytes afterwards so a local `npm run scaffolds:eval` artifact
+ * is not deleted by the suite.
  */
 describe("variant eval blocklist — filename contract", () => {
   it("derives the report name from the scaffold id", () => {
@@ -50,15 +52,32 @@ describe("variant eval blocklist — staleness guard", () => {
     ],
   };
 
+  let previousReport: string | null = null;
+
+  beforeEach(() => {
+    previousReport = existsSync(reportPath) ? readFileSync(reportPath, "utf-8") : null;
+  });
+
   afterEach(() => {
-    if (existsSync(reportPath)) {
-      rmSync(reportPath, { force: true });
+    if (previousReport === null) {
+      if (existsSync(reportPath)) {
+        rmSync(reportPath, { force: true });
+      }
+      return;
     }
+    mkdirSync(dirname(reportPath), { recursive: true });
+    writeFileSync(reportPath, previousReport, "utf-8");
   });
 
   function writeFixture(body: typeof fixture = fixture) {
     mkdirSync(dirname(reportPath), { recursive: true });
     writeFileSync(reportPath, `${JSON.stringify(body, null, 2)}\n`, "utf-8");
+  }
+
+  function clearReport() {
+    if (existsSync(reportPath)) {
+      rmSync(reportPath, { force: true });
+    }
   }
 
   it("applies candidatesForRemoval when the report evaluated every known variant", () => {
@@ -81,6 +100,7 @@ describe("variant eval blocklist — staleness guard", () => {
   });
 
   it("treats a missing report as no blocklist (clean checkout)", () => {
+    clearReport();
     expect(existsSync(reportPath)).toBe(false);
     const liveIds = getVariantsForScaffold("landing-page").map((variant) => variant.id);
     expect(getBlockedVariantIds("landing-page", liveIds).size).toBe(0);
