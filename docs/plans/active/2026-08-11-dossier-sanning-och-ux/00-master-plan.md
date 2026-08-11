@@ -2,7 +2,7 @@
 
 **Startad:** 2026-08-11 · **Ägare:** Jakeminator123 · **Status:** 01 **levererad** (#875, 2026-08-11 —
 projektionen CI-grindad, F2-mute flyttad till egen ägare `src/lib/gen/dossiers/f2-mute.ts`, Systemkartan i backoffice).
-02–04 planerade, ej påbörjade. Delplan 05: fas A klar + ägarbeslut mergade (#877); fas B ej påbörjad.
+02–04 planerade, ej påbörjade. Delplan 05: fas A + fas B klara 2026-08-11 (PR mot master, väntar på merge).
 **Byggs av:** separata agenter per delplan. **Reviewas av:** ägaren + granskande agent (bugbot-pass per PR).
 
 ## Målbild (ägarens krav, destillerade)

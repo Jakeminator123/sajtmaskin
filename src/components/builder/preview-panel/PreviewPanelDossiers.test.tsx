@@ -302,10 +302,111 @@ describe("PreviewPanelDossiers", () => {
     expect(screen.getByRole("tab", { name: "Inkopplade (1)" }).getAttribute("data-state")).toBe(
       "active",
     );
-    expect(screen.getByText("Version: 0 kopplade · 1 fristående")).toBeTruthy();
+    // Lucka 2 (ägarbeslut 2026-08-11): the old "Version: N kopplade · M
+    // fristående" line is gone — it duplicated the "Inkopplade (N)" tab and
+    // the catalog filters without saying WHICH version the status describes.
+    // Without `activeVersionMeta` we still fall back to a short id from
+    // `versionId` (Bugbot: meta often lags right after F3 settle) rather than
+    // leaving the header blank while dossiers for that version are visible.
+    expect(screen.queryByText(/kopplade ·.*fristående/)).toBeNull();
+    expect(screen.getByText("Version #ver_1")).toBeTruthy();
     // The catalog tab's content is not shown by default when something is
     // already wired.
     expect(screen.queryByText("Stripe Checkout")).toBeNull();
+  });
+
+  // Lucka 2 (ägarbeslut 2026-08-11): the popover header now says WHICH
+  // version the wired-list status describes, buried by the removed
+  // "Version: N kopplade · M fristående" line (see the test above).
+  it("lucka 2: shows the active version's identity in the popover header instead of a redundant counter", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 0, soft: 1, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 0 },
+        dossiers: [
+          {
+            id: "gallery-lightbox",
+            label: "Bildgalleri med lightbox",
+            class: "soft",
+            capability: "gallery-lightbox",
+            summary: "Click-to-enlarge image gallery.",
+            complexity: "simple",
+            requiresF3: false,
+            configured: true,
+            dependencies: [],
+            envVars: [],
+            status: "self-contained",
+            missingKeys: [],
+            missingLiveKeys: [],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        activeVersionMeta={{ versionNumber: 4, createdAt: "2026-08-11T12:32:00.000Z" }}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    await waitFor(() => {
+      // Time zone may shift the hour; locale is pinned to sv-SE 24h in
+      // `describeActiveVersionLabel`, so the shape is always HH:MM (no AM/PM).
+      expect(screen.getByText(/^Version 4 · byggd \d{1,2}:\d{2}$/)).toBeTruthy();
+    });
+  });
+
+  // Bugbot on this diff: `activeVersionMeta` comes from `effectiveVersionsList`,
+  // which often lags behind `activeVersionId` (e.g. F3 settle selects the new
+  // id before `mutateVersions()` finishes). While dossiers for that versionId
+  // are already loaded, the header must not go blank — fall back to a short id.
+  it("lucka 2: falls back to a short versionId when activeVersionMeta has not landed yet", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 0, soft: 1, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 0 },
+        dossiers: [
+          {
+            id: "gallery-lightbox",
+            label: "Bildgalleri med lightbox",
+            class: "soft",
+            capability: "gallery-lightbox",
+            summary: "Click-to-enlarge image gallery.",
+            complexity: "simple",
+            requiresF3: false,
+            configured: true,
+            dependencies: [],
+            envVars: [],
+            status: "self-contained",
+            missingKeys: [],
+            missingLiveKeys: [],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_f3_abc123"
+        activeVersionMeta={null}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Version #ver_f3")).toBeTruthy();
+    });
+    expect(screen.queryByText(/kopplade ·.*fristående/)).toBeNull();
   });
 
   // De tre axlarna (hard/soft, demoläge, F2/F3) är oberoende. Panelen visade
@@ -995,6 +1096,526 @@ describe("PreviewPanelDossiers", () => {
 
     await waitFor(() => {
       expect(wiredCallCount()).toBeGreaterThan(callsBeforeRefresh);
+    });
+  });
+
+  // Lucka 1 (ägarbeslut 2026-08-11): the generic "Miljövariabler sparade"
+  // toast (`useBuilderVmPreview.ts`) is gone — the receipt now lives inline,
+  // in the same row the key was typed into, and says what actually happened
+  // to the byggblock (not just "saved"). Status word ("Byggd — live") comes
+  // straight from `describeDossierStatus`; "Previewn" is the glossary term.
+  it("lucka 1: shows an inline receipt with the new status after a successful save (replaces the removed toast)", async () => {
+    let saved = false;
+    const demoDossier = {
+      id: "openai-chat",
+      label: "OpenAI Chat",
+      class: "hard" as const,
+      capability: "ai-chat",
+      summary: "Chatbot via OpenAI.",
+      complexity: "medium" as const,
+      requiresF3: true,
+      configured: false,
+      dependencies: [],
+      envVars: [
+        {
+          key: "OPENAI_API_KEY",
+          required: true,
+          enforcement: "feature-runtime" as const,
+          purpose: "OpenAI auth.",
+          hasRealValue: false,
+          placeholderCovered: true,
+        },
+      ],
+      status: "built-demo" as const,
+      missingKeys: [],
+      missingLiveKeys: ["OPENAI_API_KEY"],
+      lastVerified: "2026-01-01",
+    };
+    const liveDossier = {
+      ...demoDossier,
+      configured: true,
+      envVars: [{ ...demoDossier.envVars[0], hasRealValue: true, placeholderCovered: false }],
+      status: "built-live" as const,
+      missingLiveKeys: [],
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) {
+        saved = true;
+        return Response.json({ success: true });
+      }
+      if (url.includes("/api/dossiers/catalog")) return Response.json(catalogResponse());
+      if (url.includes("/dossiers")) {
+        return Response.json(
+          wiredResponse({
+            counts: saved
+              ? { total: 1, hard: 1, soft: 0, builtLive: 1, builtDemo: 0, blockedBuild: 0, planned: 0 }
+              : { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
+            dossiers: [saved ? liveDossier : demoDossier],
+          }),
+        );
+      }
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["OPENAI_API_KEY"]);
+    });
+
+    const input = await screen.findByLabelText("Värde för OPENAI_API_KEY");
+    fireEvent.change(input, { target: { value: "sk-my-secret-key" } });
+    // No confirmation before the save.
+    expect(screen.queryByText(/Previewn startas om/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Ifylld — byggblocket är nu "Byggd — live". Previewn startas om med det nya värdet.',
+        ),
+      ).toBeTruthy();
+    });
+  });
+
+  // Bugbot on this diff (lucka 1 follow-up): the receipt quotes ONE version's
+  // dossier status. Switching version — even within the same chat, where
+  // secret drafts intentionally survive (see the chat-switch test above) —
+  // must drop a shown/pending receipt instead of leaving a stale claim about
+  // the OLD version under the new one.
+  it("clears the save receipt when only the version changes (not just the chat)", async () => {
+    let saved = false;
+    const demoDossier = {
+      id: "openai-chat",
+      label: "OpenAI Chat",
+      class: "hard" as const,
+      capability: "ai-chat",
+      summary: "Chatbot via OpenAI.",
+      complexity: "medium" as const,
+      requiresF3: true,
+      configured: false,
+      dependencies: [],
+      envVars: [
+        {
+          key: "OPENAI_API_KEY",
+          required: true,
+          enforcement: "feature-runtime" as const,
+          purpose: "OpenAI auth.",
+          hasRealValue: false,
+          placeholderCovered: true,
+        },
+      ],
+      status: "built-demo" as const,
+      missingKeys: [],
+      missingLiveKeys: ["OPENAI_API_KEY"],
+      lastVerified: "2026-01-01",
+    };
+    const liveDossier = {
+      ...demoDossier,
+      configured: true,
+      envVars: [{ ...demoDossier.envVars[0], hasRealValue: true, placeholderCovered: false }],
+      status: "built-live" as const,
+      missingLiveKeys: [],
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) {
+        saved = true;
+        return Response.json({ success: true });
+      }
+      if (url.includes("/api/dossiers/catalog")) return Response.json(catalogResponse());
+      if (url.includes("/dossiers")) {
+        return Response.json(
+          wiredResponse({
+            counts: saved
+              ? { total: 1, hard: 1, soft: 0, builtLive: 1, builtDemo: 0, blockedBuild: 0, planned: 0 }
+              : { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
+            dossiers: [saved ? liveDossier : demoDossier],
+          }),
+        );
+      }
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["OPENAI_API_KEY"]);
+    });
+
+    const input = await screen.findByLabelText("Värde för OPENAI_API_KEY");
+    fireEvent.change(input, { target: { value: "sk-my-secret-key" } });
+    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Previewn startas om/)).toBeTruthy();
+    });
+
+    // Same chat, new version: the receipt must not survive.
+    rerender(<PreviewPanelDossiers chatId="chat_1" versionId="ver_2" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Previewn startas om/)).toBeNull();
+    });
+
+    // The version switch also collapses the row (a separate, pre-existing
+    // reset), which alone would hide the receipt regardless of whether
+    // `saveConfirmation` itself got cleared. Re-expand it to check the
+    // actual state, not the collapse: a missing reset would resurface the
+    // stale receipt right here, since the new version's dossier list still
+    // contains the same dossier id.
+    fireEvent.click(screen.getByRole("button", { name: /OpenAI Chat/i }));
+    expect(screen.queryByText(/Previewn startas om/)).toBeNull();
+  });
+
+  // Bugbot on this diff (lucka 1 follow-up): removing the generic toast
+  // (`useBuilderVmPreview.ts`) also silenced custom-key saves — dossier rows
+  // got the inline receipt above, but "Egna nycklar" has no per-row status to
+  // quote, so it needs its own plain "it saved" confirmation instead of none.
+  it("shows a save confirmation for custom (unowned) keys too, not just dossier rows", async () => {
+    const savedCalls: Array<{ url: string; body: unknown }> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) {
+        savedCalls.push({ url, body: JSON.parse(String(init?.body ?? "null")) });
+        return Response.json({ success: true });
+      }
+      if (url.includes("/api/dossiers/catalog")) {
+        return Response.json(catalogResponse());
+      }
+      if (url.includes("/dossiers")) {
+        return Response.json(wiredResponse());
+      }
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["MY_CUSTOM_SERVICE_KEY"]);
+    });
+
+    const input = await screen.findByLabelText("Värde för MY_CUSTOM_SERVICE_KEY");
+    fireEvent.change(input, { target: { value: "real-secret-value" } });
+    // No confirmation before the save.
+    expect(screen.queryByText(/Previewn startas om/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+
+    await waitFor(() => {
+      expect(savedCalls.length).toBe(1);
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/Sparat\. Previewn startas om med de nya värdena\./)).toBeTruthy();
+    });
+  });
+
+  // Bugbot follow-up (second pass on this diff): handleSaveCustomKeys
+  // dispatches dispatchProjectEnvVarsUpdated with the OLD versionId to
+  // restart THAT version's preview, so this receipt is just as version-scoped
+  // as the dossier-row one above and must not survive a version switch.
+  it("clears the custom-key save confirmation when only the version changes (not just the chat)", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) {
+        return Response.json({ success: true });
+      }
+      if (url.includes("/api/dossiers/catalog")) {
+        return Response.json(catalogResponse());
+      }
+      if (url.includes("/dossiers")) {
+        return Response.json(wiredResponse());
+      }
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["MY_CUSTOM_SERVICE_KEY"]);
+    });
+
+    const input = await screen.findByLabelText("Värde för MY_CUSTOM_SERVICE_KEY");
+    fireEvent.change(input, { target: { value: "real-secret-value" } });
+    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Sparat\. Previewn startas om med de nya värdena\./)).toBeTruthy();
+    });
+
+    // Same chat, new version: the custom-key receipt must not survive.
+    rerender(<PreviewPanelDossiers chatId="chat_1" versionId="ver_2" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Sparat\. Previewn startas om med de nya värdena\./)).toBeNull();
+    });
+  });
+
+  // Bugbot follow-up (3rd pass on this diff): the two tests above cover a
+  // version switch AFTER a save already completed. This covers the narrower
+  // race where the switch happens WHILE the save's own POST is still
+  // in-flight -- the late completion must not re-arm a receipt for the
+  // version it actually targeted, now that the user is looking at a
+  // different one. Mirrors the `detail.versionId !== activeVersionId` guard
+  // useBuilderVmPreview.ts already applies to this same dispatched event.
+  it("does not resurrect the dossier-row save receipt if the version changes before the save's POST resolves", async () => {
+    const demoDossier = {
+      id: "openai-chat",
+      label: "OpenAI Chat",
+      class: "hard" as const,
+      capability: "ai-chat",
+      summary: "Chatbot via OpenAI.",
+      complexity: "medium" as const,
+      requiresF3: true,
+      configured: false,
+      dependencies: [],
+      envVars: [
+        {
+          key: "OPENAI_API_KEY",
+          required: true,
+          enforcement: "feature-runtime" as const,
+          purpose: "OpenAI auth.",
+          hasRealValue: false,
+          placeholderCovered: true,
+        },
+      ],
+      status: "built-demo" as const,
+      missingKeys: [],
+      missingLiveKeys: ["OPENAI_API_KEY"],
+      lastVerified: "2026-01-01",
+    };
+    let resolveSave: ((value: Response) => void) | null = null;
+    const savePromise = new Promise<Response>((resolve) => {
+      resolveSave = resolve;
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) return savePromise;
+      if (url.includes("/api/dossiers/catalog")) return Response.json(catalogResponse());
+      if (url.includes("/dossiers")) {
+        return Response.json(
+          wiredResponse({
+            counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
+            dossiers: [demoDossier],
+          }),
+        );
+      }
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["OPENAI_API_KEY"]);
+    });
+
+    const input = await screen.findByLabelText("Värde för OPENAI_API_KEY");
+    fireEvent.change(input, { target: { value: "sk-my-secret-key" } });
+    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+
+    // Switch version WHILE the save's own POST is still unresolved.
+    await act(async () => {
+      rerender(<PreviewPanelDossiers chatId="chat_1" versionId="ver_2" />);
+    });
+
+    // The save's POST finally resolves, late, after the switch above. Flush
+    // several macrotask ticks so the dispatch-triggered refetch chain
+    // (fetch resolve -> response.json() -> setData commit -> resolving
+    // effect) has every chance to run before we assert.
+    await act(async () => {
+      resolveSave?.(Response.json({ success: true }));
+      for (let i = 0; i < 6; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    });
+
+    // The version switch above also collapses the row (separate, pre-existing
+    // reset), which alone would hide the receipt regardless of whether the
+    // state bug this test targets is fixed. Re-expand it to check the actual
+    // state, not the collapse: if `pendingSaveConfirmationRef` wrongly got
+    // re-armed by the late completion, the receipt reappears right here.
+    fireEvent.click(screen.getByRole("button", { name: /OpenAI Chat/i }));
+    expect(screen.queryByText(/Previewn startas om/)).toBeNull();
+  });
+
+  it("does not resurrect the custom-key save confirmation if the version changes before the save's POST resolves", async () => {
+    let resolveSave: ((value: Response) => void) | null = null;
+    const savePromise = new Promise<Response>((resolve) => {
+      resolveSave = resolve;
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) return savePromise;
+      if (url.includes("/api/dossiers/catalog")) return Response.json(catalogResponse());
+      if (url.includes("/dossiers")) return Response.json(wiredResponse());
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["MY_CUSTOM_SERVICE_KEY"]);
+    });
+
+    const input = await screen.findByLabelText("Värde för MY_CUSTOM_SERVICE_KEY");
+    fireEvent.change(input, { target: { value: "real-secret-value" } });
+    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+
+    // Switch version WHILE the save's own POST is still unresolved.
+    await act(async () => {
+      rerender(<PreviewPanelDossiers chatId="chat_1" versionId="ver_2" />);
+    });
+
+    // The save's POST finally resolves, late, after the switch above. Flush
+    // several macrotask ticks so the dispatch-triggered refetch chain has
+    // every chance to run before we assert.
+    await act(async () => {
+      resolveSave?.(Response.json({ success: true }));
+      for (let i = 0; i < 6; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    });
+
+    expect(screen.queryByText(/Sparat\. Previewn startas om med de nya värdena\./)).toBeNull();
+  });
+
+  // Bugbot follow-up (4th pass on this diff): saveError/customError describe
+  // ONE save attempt just as much as the success receipts above, but were
+  // only ever reset on a full chat change -- a plain version switch (same
+  // chat) left a failed-on-the-old-version message able to resurface.
+  it("clears the dossier-row save error when only the version changes (not just the chat)", async () => {
+    const demoDossier = {
+      id: "openai-chat",
+      label: "OpenAI Chat",
+      class: "hard" as const,
+      capability: "ai-chat",
+      summary: "Chatbot via OpenAI.",
+      complexity: "medium" as const,
+      requiresF3: true,
+      configured: false,
+      dependencies: [],
+      envVars: [
+        {
+          key: "OPENAI_API_KEY",
+          required: true,
+          enforcement: "feature-runtime" as const,
+          purpose: "OpenAI auth.",
+          hasRealValue: false,
+          placeholderCovered: true,
+        },
+      ],
+      status: "built-demo" as const,
+      missingKeys: [],
+      missingLiveKeys: ["OPENAI_API_KEY"],
+      lastVerified: "2026-01-01",
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) {
+        return Response.json({ success: false, error: "Ogiltig nyckel." }, { status: 400 });
+      }
+      if (url.includes("/api/dossiers/catalog")) return Response.json(catalogResponse());
+      if (url.includes("/dossiers")) {
+        return Response.json(
+          wiredResponse({
+            counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
+            dossiers: [demoDossier],
+          }),
+        );
+      }
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["OPENAI_API_KEY"]);
+    });
+
+    const input = await screen.findByLabelText("Värde för OPENAI_API_KEY");
+    fireEvent.change(input, { target: { value: "sk-my-secret-key" } });
+    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Ogiltig nyckel.")).toBeTruthy();
+    });
+
+    // Same chat, new version: the error must not survive.
+    rerender(<PreviewPanelDossiers chatId="chat_1" versionId="ver_2" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Ogiltig nyckel.")).toBeNull();
+    });
+
+    // The version switch also collapses the row (a separate, pre-existing
+    // reset), which alone would hide the error regardless of whether
+    // `saveError` itself got cleared. Re-expand it to check the actual
+    // state, not the collapse.
+    fireEvent.click(screen.getByRole("button", { name: /OpenAI Chat/i }));
+    expect(screen.queryByText("Ogiltig nyckel.")).toBeNull();
+  });
+
+  it("clears the custom-key save error when only the version changes (not just the chat)", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) {
+        return Response.json({ success: false, error: "Ogiltig nyckel." }, { status: 400 });
+      }
+      if (url.includes("/api/dossiers/catalog")) return Response.json(catalogResponse());
+      if (url.includes("/dossiers")) return Response.json(wiredResponse());
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["MY_CUSTOM_SERVICE_KEY"]);
+    });
+
+    const input = await screen.findByLabelText("Värde för MY_CUSTOM_SERVICE_KEY");
+    fireEvent.change(input, { target: { value: "real-secret-value" } });
+    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Ogiltig nyckel.")).toBeTruthy();
+    });
+
+    // Same chat, new version: the error must not survive (not gated by row
+    // expansion -- "Egna nycklar" is a fixed section, not a dossier row).
+    rerender(<PreviewPanelDossiers chatId="chat_1" versionId="ver_2" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Ogiltig nyckel.")).toBeNull();
+    });
+  });
+
+  // Lucka 3 (ägarbeslut 2026-08-11): `builder-shell-content/` weaves these
+  // counts into the F3-trigger's success title — this is the ONLY fetch of
+  // `/dossiers`'s counts; `PreviewPanelF3Trigger` must never fetch it again.
+  it("lucka 3: reports counts via onCountsChange on every fetch instead of a separate consumer fetch", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 2, hard: 1, soft: 1, builtLive: 1, builtDemo: 0, blockedBuild: 0, planned: 1 },
+      }),
+    });
+    const onCountsChange = vi.fn();
+
+    render(
+      <PreviewPanelDossiers chatId="chat_1" versionId="ver_1" onCountsChange={onCountsChange} />,
+    );
+
+    await waitFor(() => {
+      expect(onCountsChange).toHaveBeenCalledWith(
+        expect.objectContaining({ total: 2, builtLive: 1, builtDemo: 0 }),
+      );
     });
   });
 });

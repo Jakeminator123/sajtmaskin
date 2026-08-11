@@ -6,12 +6,14 @@ import {
   readF3RequirementsDetail,
   readF3StatusDetail,
   readProjectEnvVarsUpdatedDetail,
+  resolveF3StatusTitle,
   subtractSavedKeysFromF3Requirements,
 } from "@/lib/builder/project-env-events";
 import type {
   F3BuilderStatus,
   F3MissingIntegration,
 } from "@/components/builder/F3RequirementsSurface";
+import type { DossierOverviewResponse } from "@/lib/builder/dossier-overview";
 import { compressAssistantCodeBlocks } from "@/lib/builder/openclaw-context-messages";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -36,6 +38,36 @@ export function useShellF3TipsChrome(vm: BuilderViewModel, sendMessage: BuilderV
   } | null>(null);
   const [f3Status, setF3Status] = useState<F3BuilderStatus | null>(null);
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
+
+  // Lucka 3 (ägarbeslut 2026-08-11): Byggblock-panelen (PreviewPanelDossiers)
+  // rapporterar sina counts hit via `onCountsChange` — samma data F3-triggerns
+  // framgångstitel behöver, utan att triggern hämtar `/dossiers` själv (se
+  // noten i 05-builder-statussanning.md).
+  //
+  // Counts are stored WITH the chat/version scope they were reported under.
+  // At read time we only trust them when that scope still matches the live
+  // `activeVersionId` (Bugbot on this diff): a `useEffect` reset would clear
+  // one paint too late, so `resolveF3StatusTitle` below could briefly weave
+  // the PREVIOUS version's live/demo numbers into the new version's success
+  // title. Scoping at read time also covers the unmount case where
+  // `PreviewPanelDossiers` (the only `onCountsChange` source) is gone between
+  // versions (`BuilderPreviewTools` returns null when there's no preview
+  // surface yet) and nothing would call back to clear us.
+  const countsScopeKey = `${vm.chatId ?? ""}::${vm.activeVersionId ?? ""}`;
+  const [dossierCountsState, setDossierCountsState] = useState<{
+    scope: string;
+    counts: DossierOverviewResponse["counts"] | null;
+  } | null>(null);
+  const handleDossierCountsChange = useCallback(
+    (counts: DossierOverviewResponse["counts"] | null) => {
+      setDossierCountsState({ scope: countsScopeKey, counts });
+    },
+    [countsScopeKey],
+  );
+  const dossierCounts =
+    dossierCountsState && dossierCountsState.scope === countsScopeKey
+      ? dossierCountsState.counts
+      : null;
 
   // (Prompt-prefill-lyssnaren togs bort 2026-07-31: Byggval-reglagen skriver
   // inte längre i chattens input, och exempel-chipsen försvann med #673.)
@@ -204,10 +236,26 @@ export function useShellF3TipsChrome(vm: BuilderViewModel, sendMessage: BuilderV
   // dropping the event on arrival: a verdict for a version that is activated a
   // moment later (the fresh-build lane from #639) becomes visible as soon as
   // `vm.activeVersionId` catches up.
-  const visibleF3Status =
+  const scopedF3Status =
     f3Status?.versionId && vm.activeVersionId && f3Status.versionId !== vm.activeVersionId
       ? null
       : f3Status;
+  // `usesLiveDossierCounts` (Bugbot, 5th pass on this diff): the F3 success
+  // title cannot be computed correctly at report time — the only counts
+  // `PreviewPanelF3Trigger` can reach describe the OLD parent version, never
+  // the version this status is about. `resolveF3StatusTitle` re-derives it
+  // from `dossierCounts` instead: the guard above already guarantees
+  // `scopedF3Status.versionId` (when set) equals `vm.activeVersionId`, and
+  // `dossierCounts` is null whenever the stored counts were reported under a
+  // DIFFERENT chat/version scope (see the scoped `dossierCountsState` above —
+  // a useEffect reset would be one paint too late) and only ever non-null
+  // after a fetch scoped to THAT same `vm.activeVersionId` (see
+  // `PreviewPanelDossiers`'s own `dataKey`/`overviewKey` guard). Recomputing
+  // at render time (not once, at report time) means the title self-corrects
+  // as soon as the fresh fetch resolves, with no new fetch of its own.
+  const visibleF3Status = scopedF3Status
+    ? resolveF3StatusTitle(scopedF3Status, dossierCounts)
+    : null;
 
   useEffect(() => {
     setF3Requirements(null);
@@ -356,6 +404,7 @@ export function useShellF3TipsChrome(vm: BuilderViewModel, sendMessage: BuilderV
     setF3Status,
     visibleF3Status,
     visibleF3Requirements,
+    handleDossierCountsChange,
     mobileTab,
     setMobileTab,
     githubExportOpen,

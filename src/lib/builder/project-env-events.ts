@@ -77,6 +77,48 @@ export type F3StatusDetail = {
   chatId?: string | null;
 };
 
+/**
+ * Lucka 3 (ägarbeslut 2026-08-11): "ReleaseGate godkänd" was gate-speak —
+ * users wanted to know what they GET, not the gate's name. Also merges
+ * "ReleaseGate godkänd" and "ReleaseGate var redan godkänd" into one
+ * phrasing: that difference was an implementation detail, not something the
+ * user needs to distinguish. "live"/"demo aktiv" come from
+ * `describeDossierStatus` (`built-live`/`built-demo`) — no new status
+ * variant.
+ *
+ * Shared between `PreviewPanelF3Trigger` (which reports the initial status)
+ * and `use-f3-tips-chrome.ts` (which re-derives the title reactively once
+ * FRESH counts for the version this status describes arrive — Bugbot, 5th
+ * pass on this diff: `PreviewPanelF3Trigger` only has access to whatever
+ * dossier counts were fetched for the PARENT version before the click, never
+ * the just-created/promoted F3 `versionId` this status is actually about).
+ */
+export function describeF3SuccessTitle(
+  counts: { builtLive: number; builtDemo: number } | null | undefined,
+): string {
+  const parts: string[] = [];
+  if (counts && counts.builtLive > 0) parts.push(`${counts.builtLive} live`);
+  if (counts && counts.builtDemo > 0) parts.push(`${counts.builtDemo} demo aktiv`);
+  return parts.length > 0 ? `Byggd — ${parts.join(", ")}` : "Byggd — integrationerna är inbyggda";
+}
+
+/**
+ * Re-derive a status's `title` from FRESH dossier counts, at render time,
+ * instead of trusting whatever was baked in when the status was reported
+ * (Bugbot, 5th pass on this diff — see `usesLiveDossierCounts`'s doc on
+ * `F3BuilderStatus`). Pure so it's testable without mounting the shell hook
+ * that calls it (`use-f3-tips-chrome.ts`), which owns both `status` (already
+ * version-scoped there — see its `f3Status.versionId !== activeVersionId`
+ * guard) and `dossierCounts` (reset on every chat/version change, only ever
+ * populated by a fetch scoped to the CURRENT version).
+ */
+export function resolveF3StatusTitle<
+  T extends { title: string; usesLiveDossierCounts?: boolean },
+>(status: T, dossierCounts: { builtLive: number; builtDemo: number } | null | undefined): T {
+  if (!status.usesLiveDossierCounts || !dossierCounts) return status;
+  return { ...status, title: describeF3SuccessTitle(dossierCounts) };
+}
+
 export const F3_STATUS_EVENT = "sajtmaskin:f3-status";
 
 export function dispatchF3Status(detail: F3StatusDetail): void {

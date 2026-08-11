@@ -30,6 +30,7 @@ export function usePreviewPanelDossiersController({
   lifecycleStage,
   onRequestDossier,
   catalogPickDisabled = false,
+  onCountsChange,
 }: PreviewPanelDossiersProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<PanelTab>("wired");
@@ -43,6 +44,16 @@ export function usePreviewPanelDossiersController({
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const overviewKey = `${chatId}::${versionId ?? ""}`;
+  // Always-current identity for async save completions to check against
+  // (Bugbot, 3rd pass on this diff): handleSaveKeys/handleSaveCustomKeys
+  // close over chatId/versionId at call-start, so a save still in flight
+  // when the user switches chat/version has no other way to notice. Mirrors
+  // the `detail.versionId !== activeVersionId` guard useBuilderVmPreview.ts
+  // already applies to the same dispatchProjectEnvVarsUpdated event.
+  const latestOverviewKeyRef = useRef(overviewKey);
+  useEffect(() => {
+    latestOverviewKeyRef.current = overviewKey;
+  }, [overviewKey]);
 
   // Tracks the single in-flight request so a newer load (e.g. a post-save
   // refetch) aborts an earlier one. Without this, a slow initial load could
@@ -240,6 +251,19 @@ export function usePreviewPanelDossiersController({
   const stage =
     freshData?.lifecycleStage ?? (lifecycleStage === "integrations" ? "integrations" : "design");
   const count = freshData?.counts.total ?? null;
+
+  // Lucka 3 (ägarbeslut 2026-08-11): F3-statusradens framgångstitel behöver
+  // counts.builtLive/builtDemo. Byggblock-panelen hämtar redan denna data —
+  // vävs bara in uppåt (shell-lagret) i stället för att PreviewPanelF3Trigger
+  // börjar hämta /dossiers själv. Ref håller lyssnaren stabil mot en
+  // oflemoiserad callback-prop.
+  const onCountsChangeRef = useRef(onCountsChange);
+  useEffect(() => {
+    onCountsChangeRef.current = onCountsChange;
+  }, [onCountsChange]);
+  useEffect(() => {
+    onCountsChangeRef.current?.(freshData?.counts ?? null);
+  }, [freshData]);
   const catalogCounts = useMemo(() => {
     const counts = { total: 0, hard: 0, soft: 0 };
     for (const group of catalogData?.groups ?? []) {
@@ -273,6 +297,11 @@ export function usePreviewPanelDossiersController({
   const [customKeyDraftError, setCustomKeyDraftError] = useState<string | null>(null);
   const [customSaving, setCustomSaving] = useState(false);
   const [customError, setCustomError] = useState<string | null>(null);
+  // Lucka 1 (ägarbeslut 2026-08-11) removed the generic toast on save. Dossier
+  // rows got an inline receipt quoting the new status; custom keys have no
+  // per-row status to quote, so this is a plain "it saved" flag (Bugbot on
+  // this diff: without it, a custom-key save gave the user no feedback at all).
+  const [customSaveConfirmation, setCustomSaveConfirmation] = useState(false);
 
   // Resolve a pending focus request once fresh data is available: expand the
   // first dossier that owns one of the requested keys. The pending list is
@@ -343,6 +372,15 @@ export function usePreviewPanelDossiersController({
   const [saveError, setSaveError] = useState<{ dossierId: string; message: string } | null>(
     null,
   );
+  // Lucka 1 (ägarbeslut 2026-08-11): inline-kvitto som ersätter den borttagna
+  // "Miljövariabler sparade"-toasten. En POST-framgång vet ännu inte
+  // byggblockets NYA status — det avgörs av `freshData` som refetchen (via
+  // `dispatchProjectEnvVarsUpdated`) snart levererar. `pendingSaveConfirmationRef`
+  // håller vilken dossier som väntar; effekten nedan löser den mot första
+  // `freshData` som landar (garanterat post-save — `load()` aborterar allt
+  // äldre i flykt).
+  const [saveConfirmation, setSaveConfirmation] = useState<{ dossierId: string } | null>(null);
+  const pendingSaveConfirmationRef = useRef<string | null>(null);
   // Key currently being deleted ("Ta bort" on a configured key) — the only
   // remaining delete surface after ProjectEnvVarsPanel was removed (P2
   // BB#envdel1): a wrong/secret value must be removable from the product UI.
@@ -357,12 +395,50 @@ export function usePreviewPanelDossiersController({
     setKeyValues({});
     setEditingKeys(new Set());
     setSaveError(null);
+    setSaveConfirmation(null);
+    pendingSaveConfirmationRef.current = null;
     setPendingFocusKeys(null);
     setCustomFocusKeys([]);
     setCustomKeyDraft("");
     setCustomKeyDraftError(null);
     setCustomError(null);
+    setCustomSaveConfirmation(false);
   }, [chatId]);
+
+  // Resolve the pending save confirmation once the save-triggered refetch
+  // lands. Runs after every `freshData` update, but only acts while a
+  // confirmation is actually pending (see `pendingSaveConfirmationRef`).
+  useEffect(() => {
+    const pendingId = pendingSaveConfirmationRef.current;
+    if (!pendingId || !freshData) return;
+    pendingSaveConfirmationRef.current = null;
+    if (freshData.dossiers.some((dossier) => dossier.id === pendingId)) {
+      setSaveConfirmation({ dossierId: pendingId });
+    }
+  }, [freshData]);
+
+  // Version switch must drop a pending/shown receipt (Bugbot on this diff):
+  // the message quotes ONE version's dossier status, so a still-in-flight
+  // refetch from the OLD version must not resolve into the new version's
+  // view, and an already-shown receipt must not linger under it. Unlike the
+  // secret drafts above, this is a completed-save receipt, not user input —
+  // safe to drop on every version change, even within the same chat.
+  // customSaveConfirmation is the same kind of receipt for "Egna nycklar"
+  // (handleSaveCustomKeys dispatches dispatchProjectEnvVarsUpdated with the
+  // OLD versionId to restart that version's preview), so it must drop here
+  // too (Bugbot follow-up on this diff) — not just on chatId change below.
+  // saveError/customError describe the same ONE save attempt just as much as
+  // the receipts do (Bugbot, 4th pass on this diff) — previously only reset
+  // on a full chat change below, so a plain version switch (same chat) could
+  // leave a failed-on-version-A message to resurface if the user re-expands
+  // the same dossier row under version B.
+  useEffect(() => {
+    setSaveConfirmation(null);
+    pendingSaveConfirmationRef.current = null;
+    setCustomSaveConfirmation(false);
+    setSaveError(null);
+    setCustomError(null);
+  }, [chatId, versionId]);
 
   const handleSaveKeys = useCallback(
     async (dossier: DossierOverviewEntry) => {
@@ -376,6 +452,7 @@ export function usePreviewPanelDossiersController({
       if (filled.length === 0) return;
       setSavingDossierId(dossier.id);
       setSaveError(null);
+      setSaveConfirmation(null);
       try {
         const vars = filled.map((key) => ({
           key,
@@ -395,10 +472,16 @@ export function usePreviewPanelDossiersController({
           error?: string;
         } | null;
         if (!response.ok || !data?.success) {
-          setSaveError({
-            dossierId: dossier.id,
-            message: data?.error || "Kunde inte spara nycklarna.",
-          });
+          // Same late-completion guard as the success receipt below (Bugbot,
+          // 4th pass on this diff): a failure for a save the user already
+          // switched away from must not surface under a DIFFERENT
+          // chat/version's row — that would misattribute the failure.
+          if (latestOverviewKeyRef.current === overviewKey) {
+            setSaveError({
+              dossierId: dossier.id,
+              message: data?.error || "Kunde inte spara nycklarna.",
+            });
+          }
           return;
         }
         setKeyValues((current) => {
@@ -420,19 +503,34 @@ export function usePreviewPanelDossiersController({
           versionId,
           envKeys: filled,
         });
+        // The refetch the event above triggers is what will reveal the
+        // dossier's POST-save status (live vs. still demo) — see the
+        // resolving effect near `saveConfirmation`. Only arm it if the user
+        // is still on the chat/version this save targeted (Bugbot, 3rd pass
+        // on this diff): a chat/version switch during the awaited POST above
+        // must not let this late completion re-show a receipt under a
+        // DIFFERENT identity's view — the reset effect already cleared it
+        // once for that new identity, so re-arming here would resurrect it
+        // wrongly (same class of bug the reset effect above fixes, just for
+        // a save that hadn't finished yet when the switch happened).
+        if (latestOverviewKeyRef.current === overviewKey) {
+          pendingSaveConfirmationRef.current = dossier.id;
+        }
       } catch (error) {
-        setSaveError({
-          dossierId: dossier.id,
-          message:
-            error instanceof Error
-              ? `Kunde inte spara nycklarna: ${error.message}`
-              : "Kunde inte spara nycklarna.",
-        });
+        if (latestOverviewKeyRef.current === overviewKey) {
+          setSaveError({
+            dossierId: dossier.id,
+            message:
+              error instanceof Error
+                ? `Kunde inte spara nycklarna: ${error.message}`
+                : "Kunde inte spara nycklarna.",
+          });
+        }
       } finally {
         setSavingDossierId(null);
       }
     },
-    [chatId, editingKeys, keyValues, projectId, savingDossierId, versionId],
+    [chatId, editingKeys, keyValues, overviewKey, projectId, savingDossierId, versionId],
   );
 
   // Delete a stored key via the canonical DELETE API (same route the removed
@@ -443,6 +541,7 @@ export function usePreviewPanelDossiersController({
       if (!projectId || savingDossierId || deletingKey) return;
       setDeletingKey(envKey);
       setSaveError(null);
+      setSaveConfirmation(null);
       try {
         const response = await fetch(
           `/api/v0/projects/${encodeURIComponent(projectId)}/env-vars`,
@@ -457,10 +556,16 @@ export function usePreviewPanelDossiersController({
           error?: string;
         } | null;
         if (!response.ok || !data?.success) {
-          setSaveError({
-            dossierId: dossier.id,
-            message: data?.error || `Kunde inte ta bort ${envKey}.`,
-          });
+          // Same late-completion guard as handleSaveKeys above (Bugbot, 4th
+          // pass on this diff): a delete failure for a chat/version the user
+          // already switched away from must not surface under a DIFFERENT
+          // one's row.
+          if (latestOverviewKeyRef.current === overviewKey) {
+            setSaveError({
+              dossierId: dossier.id,
+              message: data?.error || `Kunde inte ta bort ${envKey}.`,
+            });
+          }
           return;
         }
         dispatchProjectEnvVarsUpdated({
@@ -471,18 +576,20 @@ export function usePreviewPanelDossiersController({
           action: "deleted",
         });
       } catch (error) {
-        setSaveError({
-          dossierId: dossier.id,
-          message:
-            error instanceof Error
-              ? `Kunde inte ta bort ${envKey}: ${error.message}`
-              : `Kunde inte ta bort ${envKey}.`,
-        });
+        if (latestOverviewKeyRef.current === overviewKey) {
+          setSaveError({
+            dossierId: dossier.id,
+            message:
+              error instanceof Error
+                ? `Kunde inte ta bort ${envKey}: ${error.message}`
+                : `Kunde inte ta bort ${envKey}.`,
+          });
+        }
       } finally {
         setDeletingKey(null);
       }
     },
-    [chatId, deletingKey, projectId, savingDossierId, versionId],
+    [chatId, deletingKey, overviewKey, projectId, savingDossierId, versionId],
   );
 
   // Save filled custom keys to the same canonical env-vars API the dossier
@@ -496,6 +603,7 @@ export function usePreviewPanelDossiersController({
     if (filled.length === 0) return;
     setCustomSaving(true);
     setCustomError(null);
+    setCustomSaveConfirmation(false);
     try {
       const vars = filled.map((key) => ({
         key,
@@ -515,7 +623,12 @@ export function usePreviewPanelDossiersController({
         error?: string;
       } | null;
       if (!response.ok || !data?.success) {
-        setCustomError(data?.error || "Kunde inte spara nycklarna.");
+        // Same late-completion guard as handleSaveKeys above (Bugbot, 4th
+        // pass on this diff): a failure for a chat/version the user already
+        // switched away from must not surface under a different one.
+        if (latestOverviewKeyRef.current === overviewKey) {
+          setCustomError(data?.error || "Kunde inte spara nycklarna.");
+        }
         return;
       }
       setKeyValues((current) => {
@@ -524,6 +637,12 @@ export function usePreviewPanelDossiersController({
         return next;
       });
       setCustomFocusKeys((current) => current.filter((key) => !filled.includes(key)));
+      // Same late-completion guard as handleSaveKeys above (Bugbot, 3rd pass
+      // on this diff): don't resurrect a receipt for a chat/version the user
+      // has already switched away from.
+      if (latestOverviewKeyRef.current === overviewKey) {
+        setCustomSaveConfirmation(true);
+      }
       dispatchProjectEnvVarsUpdated({
         projectId,
         chatId,
@@ -531,15 +650,26 @@ export function usePreviewPanelDossiersController({
         envKeys: filled,
       });
     } catch (error) {
-      setCustomError(
-        error instanceof Error
-          ? `Kunde inte spara nycklarna: ${error.message}`
-          : "Kunde inte spara nycklarna.",
-      );
+      if (latestOverviewKeyRef.current === overviewKey) {
+        setCustomError(
+          error instanceof Error
+            ? `Kunde inte spara nycklarna: ${error.message}`
+            : "Kunde inte spara nycklarna.",
+        );
+      }
     } finally {
       setCustomSaving(false);
     }
-  }, [chatId, customFocusKeys, customSaving, keyValues, projectId, savingDossierId, versionId]);
+  }, [
+    chatId,
+    customFocusKeys,
+    customSaving,
+    keyValues,
+    overviewKey,
+    projectId,
+    savingDossierId,
+    versionId,
+  ]);
 
   // Manual add of an arbitrary UPPER_SNAKE key (the removed
   // ProjectEnvVarsPanel was the only surface that could do this). Client-side
@@ -647,12 +777,14 @@ export function usePreviewPanelDossiersController({
     customKeyDraftError,
     customSaving,
     customError,
+    customSaveConfirmation,
     keyValues,
     setKeyValues,
     editingKeys,
     setEditingKeys,
     savingDossierId,
     saveError,
+    saveConfirmation,
     deletingKey,
     projectId,
     handleSaveKeys,

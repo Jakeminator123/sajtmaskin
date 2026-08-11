@@ -64,6 +64,30 @@ describe("F3RequirementsSurface", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  // Lucka 3 (ägarbeslut 2026-08-11): the component's own "allt klart"-state
+  // ("Alla nycklar är sparade") is gone — it never actually disappeared, so
+  // it duplicated `F3StatusSurface` above it. The caller
+  // (`builder-shell-content/shell-content.tsx`) now decides whether to
+  // render this component at all (while an F3-blocked episode is tracked),
+  // but the retry button below must survive regardless of the missing-key
+  // count — it's the only caller of `requestF3Rebuild` (Bugbot, 4th pass on
+  // this diff: gating on `missingByIntegration.length > 0` in the caller
+  // silently removed this button right when a user finishes filling the
+  // last key, not just the removed empty-state text).
+  it("lucka 3: no longer renders its own empty-state copy when missingByIntegration is empty, but keeps the retry button", () => {
+    const onRetry = vi.fn();
+    render(
+      <F3RequirementsSurface projectId="project_1" missingByIntegration={[]} onRetry={onRetry} />,
+    );
+
+    expect(screen.queryByText(/alla nycklar är sparade/i)).toBeNull();
+    expect(screen.queryByText(/designpreviewn är kvar i f2/i)).toBeNull();
+    const retryButton = screen.getByRole("button", { name: /fortsätt integrationsbygget/i });
+    expect(retryButton).toBeTruthy();
+    fireEvent.click(retryButton);
+    expect(onRetry).toHaveBeenCalledOnce();
+  });
+
   it("offers an explicit retry without closing the persistent surface", () => {
     const onRetry = vi.fn();
     render(

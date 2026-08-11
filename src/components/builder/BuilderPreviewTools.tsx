@@ -10,6 +10,7 @@ import {
 } from "@/lib/builder/icon-language";
 import { PreviewCodeViewMenu } from "@/components/builder/preview-panel/PreviewCodeViewMenu";
 import { PreviewPanelDossiers } from "@/components/builder/preview-panel/PreviewPanelDossiers";
+import type { PreviewPanelDossiersProps } from "@/components/builder/preview-panel/dossiers/dossiers-shared";
 import {
   PreviewPanelF3Trigger,
   type PreviewPanelF3TriggerProps,
@@ -35,6 +36,17 @@ export interface BuilderPreviewToolsProps {
   onF3Status?: PreviewPanelF3TriggerProps["onStatus"];
   /** Ö4a: readiness-buren väg för "Bygg integrationer" (kostnads-tooltip). */
   f3RequiresRealBuildKeys?: PreviewPanelF3TriggerProps["requiresRealBuildKeys"];
+  /**
+   * Lucka 3 (ägarbeslut 2026-08-11): Byggblock-panelens senaste counts,
+   * vävda vidare till F3-statusradens framgångstitel via shell-lagret —
+   * ingen andra hämtning av `/dossiers`. Konsumeras av `use-f3-tips-chrome.ts`
+   * direkt (inte av `PreviewPanelF3Trigger` — Bugbot, 5:e passet på denna
+   * diff: triggern har bara tillgång till FÖRÄLDERVERSIONENS counts, aldrig
+   * den nya F3-versionens som framgångstiteln faktiskt beskriver).
+   */
+  onDossierCountsChange?: PreviewPanelDossiersProps["onCountsChange"];
+  /** Lucka 2 (ägarbeslut 2026-08-11): buren av versionslistan, ingen ny signal. */
+  activeVersionMeta?: PreviewPanelDossiersProps["activeVersionMeta"];
 }
 
 /**
@@ -58,6 +70,8 @@ export function BuilderPreviewTools({
   onF3ReleaseSettled,
   onF3Status,
   f3RequiresRealBuildKeys = null,
+  onDossierCountsChange,
+  activeVersionMeta,
 }: BuilderPreviewToolsProps) {
   // Klustret växer inte fram i headern förrän det finns en preview att styra.
   // Kodvyn räknas också: där är previewUrl inte det som visas, men användaren
@@ -88,6 +102,8 @@ export function BuilderPreviewTools({
           lifecycleStage={lifecycleStage}
           onRequestDossier={onRequestDossier}
           catalogPickDisabled={catalogPickDisabled}
+          onCountsChange={onDossierCountsChange}
+          activeVersionMeta={activeVersionMeta}
           className="text-muted-foreground hover:text-foreground h-8 px-1.5 text-[12px]"
         />
       ) : null}

@@ -282,8 +282,10 @@ export function useBuilderDeployActions({
               },
             ]);
           }
+          // Ö2 (ägarbeslut 2026-08-11): panelen "Projektets miljövariabler"
+          // togs bort 2026-07-22 — nycklar bor i Byggblock-popovern i previewen.
           const hint = missing
-            ? ` Saknas: ${missing.join(", ")}. Lägg till dem under Projektets miljövariabler.`
+            ? ` Saknas: ${missing.join(", ")}. Lägg till dem under Byggblock i previewen.`
             : "";
           throw new Error(`${base}${hint}`);
         }
@@ -340,8 +342,10 @@ export function useBuilderDeployActions({
             )
           : [];
         if (envSyncWarnings.length > 0) {
+          // Ö2 (ägarbeslut 2026-08-11): panelen "Projektets miljövariabler"
+          // togs bort 2026-07-22 — nycklar bor i Byggblock-popovern i previewen.
           toast.warning(
-            "Vissa miljövariabler kunde inte sparas hos hosting-leverantören för framtida ombyggen. Publiceringen lyckades – men byggs sajten om utanför Sajtmaskin kan du behöva spara om dina integrationer under Projektets miljövariabler.",
+            "Vissa miljövariabler kunde inte sparas hos hosting-leverantören för framtida ombyggen. Publiceringen lyckades – men byggs sajten om utanför Sajtmaskin kan du behöva spara om dina integrationer under Byggblock i previewen.",
             { duration: 12000 },
           );
         }

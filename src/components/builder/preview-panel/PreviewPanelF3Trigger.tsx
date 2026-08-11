@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Wand2 } from "lucide-react";
 import type { F3BuilderStatus } from "@/components/builder/F3RequirementsSurface";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { F3_REBUILD_REQUEST_EVENT } from "@/lib/builder/project-env-events";
+import {
+  F3_REBUILD_REQUEST_EVENT,
+  describeF3SuccessTitle,
+} from "@/lib/builder/project-env-events";
 import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
 
 export interface PreviewPanelF3TriggerProps {
@@ -233,9 +236,16 @@ export function PreviewPanelF3Trigger({
         selectVersion: !result.superseded,
       });
       if (result.ok) {
+        // No dossier counts available here describe `result.versionId` — the
+        // only counts this component could reach were fetched for the OLD
+        // parent version, before this exact click (Bugbot, 5th pass on this
+        // diff). `describeF3SuccessTitle(null)` is the honest fallback;
+        // `usesLiveDossierCounts` tells the shell layer to swap in the real
+        // title once ITS refetch for `result.versionId` resolves.
         reportStatus({
           tone: "success",
-          title: result.alreadyPromoted ? "ReleaseGate var redan godkänd" : "ReleaseGate godkänd",
+          title: describeF3SuccessTitle(null),
+          usesLiveDossierCounts: true,
           description:
             "F3-versionen använder exakt samma filer och visuella fallback som F2.",
         }, result.versionId);
