@@ -407,6 +407,31 @@ class ProjectionReaderTests(unittest.TestCase):
             frozenset(),
         )
 
+    def test_missing_policy_on_disk_refreshes_before_fail_closed(self) -> None:
+        # Äldre projektion utan policy-nod ska synkas — inte tyst neka analytics.
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        stale = {"capabilities": {}, "dossiers": [], "groups": {}, "f2Policy": {}}
+        refreshed = {
+            "policy": {"mocklessCapabilityExceptions": ["analytics"]},
+            "labelsSv": {},
+            "dossiers": [],
+            "groups": {},
+            "f2Policy": {},
+        }
+        with mock.patch.object(
+            dossiers_io, "_load_json", return_value=stale
+        ), mock.patch.object(
+            dossiers_page,
+            "_ensure_capability_map_current",
+            return_value=(refreshed, None),
+        ) as ensure:
+            self.assertEqual(
+                dossiers_page._load_mockless_capability_exceptions(),
+                frozenset({"analytics"}),
+            )
+            ensure.assert_called_once()
+
     def test_requires_f3_reads_projection_for_saved_dossier(self) -> None:
         projection = {
             "dossiers": [

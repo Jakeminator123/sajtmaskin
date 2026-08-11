@@ -68,13 +68,21 @@ def _load_mockless_capability_exceptions(
 
     Läses ur projektionens ``policy.mocklessCapabilityExceptions`` (genererad
     från ``MOCKLESS_CAPABILITY_EXCEPTIONS`` i validate-manifest.ts). Python
-    parsar inte TS-källan. Saknas/ trasig projektion → tom mängd (fail-closed:
-    strängare än CI, aldrig mer tillåtande).
+    parsar inte TS-källan.
+
+    Saknas ``policy``-noden försöker vi synka projektionen en gång (äldre map
+    utan plan-02-fält). Misslyckas det → tom mängd (fail-closed: strängare än
+    CI, aldrig mer tillåtande / aldrig krasch).
     """
     data = projection
     if data is None:
         data = _load_json(_facade().CAPABILITY_MAP_PATH) or {}
     policy = data.get("policy") if isinstance(data, dict) else None
+    if not isinstance(policy, dict) and projection is None:
+        # Explicit fixture/test projections stay untouched; live disk maps refresh.
+        refreshed, _warning = _facade()._ensure_capability_map_current()
+        data = refreshed
+        policy = data.get("policy") if isinstance(data, dict) else None
     raw = policy.get("mocklessCapabilityExceptions") if isinstance(policy, dict) else None
     if not isinstance(raw, list):
         return frozenset()
@@ -382,6 +390,8 @@ def _ensure_capability_map_current() -> tuple[dict[str, Any], str | None]:
         isinstance(current.get("dossiers"), list)
         and isinstance(current.get("groups"), dict)
         and isinstance(current.get("f2Policy"), dict)
+        and isinstance(current.get("labelsSv"), dict)
+        and isinstance(current.get("policy"), dict)
     )
     if required_views and not _capability_map_is_stale(current):
         return current, None
@@ -393,6 +403,8 @@ def _ensure_capability_map_current() -> tuple[dict[str, Any], str | None]:
             isinstance(refreshed.get("dossiers"), list)
             and isinstance(refreshed.get("groups"), dict)
             and isinstance(refreshed.get("f2Policy"), dict)
+            and isinstance(refreshed.get("labelsSv"), dict)
+            and isinstance(refreshed.get("policy"), dict)
             and not _capability_map_is_stale(refreshed)
         ):
             return refreshed, None
