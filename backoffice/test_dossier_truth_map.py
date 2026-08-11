@@ -24,6 +24,7 @@ from backoffice.pages.dossiers_lib.truth_map import (
     build_system_map_dot,
     build_system_map_rows,
     filter_system_map_rows,
+    index_dossiers_by_class_and_id,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -148,6 +149,45 @@ class BuildSystemMapRowsTests(unittest.TestCase):
     def test_groups_view_of_wrong_type_does_not_crash(self) -> None:
         rows = build_system_map_rows({"groups": "nope", "dossiers": PROJECTION["dossiers"]})
         self.assertEqual({row["group_id"] for row in rows}, {"other"})
+
+
+class IndexDossiersByClassAndIdTests(unittest.TestCase):
+    """Systemkartans radvy slår upp rå-manifestet (`_walk_all_dossiers()`-
+    formen, med `_class`/`_path`) via denna lookup — inte projektionsraden."""
+
+    def test_looks_up_by_class_and_id_tuple(self) -> None:
+        pool = [
+            {"_class": "hard", "id": "stripe-checkout", "_path": "data/dossiers/hard/stripe-checkout"},
+            {"_class": "soft", "id": "local-site-search", "_path": "data/dossiers/soft/local-site-search"},
+        ]
+        index = index_dossiers_by_class_and_id(pool)
+        self.assertEqual(
+            index[("hard", "stripe-checkout")]["_path"],
+            "data/dossiers/hard/stripe-checkout",
+        )
+        self.assertEqual(len(index), 2)
+
+    def test_same_id_in_both_classes_does_not_collide(self) -> None:
+        pool = [
+            {"_class": "hard", "id": "dup"},
+            {"_class": "soft", "id": "dup"},
+        ]
+        index = index_dossiers_by_class_and_id(pool)
+        self.assertEqual(len(index), 2)
+        self.assertIsNot(index[("hard", "dup")], index[("soft", "dup")])
+
+    def test_non_dict_entries_are_skipped_not_raised(self) -> None:
+        pool = [{"_class": "hard", "id": "ok"}, "nope", None, 7]
+        index = index_dossiers_by_class_and_id(pool)
+        self.assertEqual(list(index.keys()), [("hard", "ok")])
+
+    def test_missing_class_or_id_falls_back_to_empty_string_key(self) -> None:
+        index = index_dossiers_by_class_and_id([{"id": "no-class"}])
+        self.assertIn(("", "no-class"), index)
+
+    def test_unknown_lookup_key_is_a_plain_miss(self) -> None:
+        index = index_dossiers_by_class_and_id([{"_class": "hard", "id": "acme"}])
+        self.assertIsNone(index.get(("hard", "missing")))
 
 
 class FilterSystemMapRowsTests(unittest.TestCase):

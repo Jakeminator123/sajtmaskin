@@ -72,6 +72,26 @@ def build_system_map_rows(projection: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: (row["group_label"], row["capability"], row["id"]))
 
 
+def index_dossiers_by_class_and_id(
+    dossiers: Iterable[dict[str, Any]],
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Lookup from ``(class, id)`` to the raw, disk-walked manifest dict
+    (``_walk_all_dossiers()``).
+
+    The Systemkarta row-detail view needs fields the generated projection
+    does not carry (full per-key ``envVars`` with ``required``, raw
+    ``complexity`` …) and the exact write path needs ``_path`` — this avoids
+    a second disk walk just to resolve a projection row back to its manifest.
+    Non-dict entries are skipped rather than raising, mirroring
+    ``build_system_map_rows``'s tolerance for a malformed pool entry.
+    """
+    return {
+        (str(d.get("_class") or ""), str(d.get("id") or "")): d
+        for d in dossiers
+        if isinstance(d, dict)
+    }
+
+
 def filter_system_map_rows(
     rows: Iterable[dict[str, Any]],
     *,

@@ -98,7 +98,6 @@ from .dossiers_lib.io import (
 )
 
 from .dossiers_lib.ui_overview import (
-    _section_overview,
     _section_list,
     _section_enforcement_overview,
     _section_capability_tiers,
@@ -231,25 +230,25 @@ def render(ctx) -> None:
         st.markdown("- Validera efter ändring: `npm run dossiers:validate-all`")
 
     dossiers = _walk_all_dossiers()
-    # Sex tabbar. OBS: st.tabs kör ALLA tab-bodies vid
-    # varje rerun — tunga subprocess-anrop (hälsokoll, validate-all, kuration,
+    # Fem tabbar — Översikt är konsoliderad in i Systemkarta (som är NAV: se →
+    # redigera → byt capability → radera på samma rad, se 04-backoffice-
+    # systemkarta.md). OBS: st.tabs kör ALLA tab-bodies vid varje rerun —
+    # tunga subprocess-anrop (hälsokoll, validate-all, kuration,
     # capability-map-bygge) ska ligga bakom knappar, aldrig i default-vyn.
-    tabs = st.tabs(["Översikt", "Lista", "Systemkarta", "Redigera", "Skapa", "Kontroller"])
+    tabs = st.tabs(["Systemkarta", "Lista", "Redigera", "Skapa", "Kontroller"])
     with tabs[0]:
-        _section_overview(dossiers)
+        _section_system_map(dossiers)
     with tabs[1]:
         _section_list(dossiers)
     with tabs[2]:
-        _section_system_map()
-    with tabs[3]:
         _section_edit(dossiers)
         _section_delete(dossiers)
-    with tabs[4]:
+    with tabs[3]:
         _section_curate()
         st.divider()
         _section_legacy_prospect(dossiers)
         _section_create_from_scratch()
-    with tabs[5]:
+    with tabs[4]:
         _section_enforcement_overview(dossiers)
         st.divider()
         _section_capability_tiers()
