@@ -1,0 +1,53 @@
+name: PR AI review
+
+# Privileged event by design: the workflow and every executable file come from
+# trusted `master`. PR content is fetched through GitHub's API as data only and
+# is never checked out, installed, imported, or executed.
+on:
+  pull_request_target:
+    branches: [master]
+    types: [opened, reopened, synchronize, converted_to_draft, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  checks: read
+
+# Different PRs run in parallel. Every delivery for one PR queues and executes
+# serially so two events cannot create duplicate exhaustive reviews or race the
+# persistent state comment.
+concurrency:
+  group: pr-ai-review-${{ github.event.pull_request.number }}
+  queue: max
+
+jobs:
+  review:
+    # GitHub treats Dependabot pull_request_target runs as fork-like and withholds
+    # normal Actions secrets. Skip before checkout instead of producing a false
+    # provider failure. Ordinary forks remain supported safely as diff-only data.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout trusted reviewer from master
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install trusted dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Review pull request
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scripts/pr-review/run.mjs
