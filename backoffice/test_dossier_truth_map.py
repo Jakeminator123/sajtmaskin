@@ -31,6 +31,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CAPABILITY_MAP_PATH = REPO_ROOT / "data" / "dossiers" / "_index" / "capability-map.json"
 
 
+def _source_file_sha256(path: Path) -> str:
+    """Match the capability-map generator's platform-stable LF hash."""
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
 PROJECTION = {
     "groups": {
         "payments": {"label": "Betalningar", "capabilities": ["payments"]},
@@ -310,7 +315,7 @@ class CapabilityMapFreshnessTests(unittest.TestCase):
             self.addCleanup(patch.stop)
 
     def _sha(self, path: Path) -> str:
-        return hashlib.sha256(path.read_bytes()).hexdigest()
+        return _source_file_sha256(path)
 
     def _fresh_projection(self) -> dict:
         return {
@@ -327,6 +332,16 @@ class CapabilityMapFreshnessTests(unittest.TestCase):
 
     def test_matching_hashes_are_not_stale(self) -> None:
         self.assertFalse(dossiers_io._capability_map_is_stale(self._fresh_projection()))
+
+    def test_crlf_source_matches_lf_projection_and_real_drift_is_stale(self) -> None:
+        self.source.write_bytes(b"export const x = 1;\n")
+        projection = self._fresh_projection()
+
+        self.source.write_bytes(b"export const x = 1;\r\n")
+        self.assertFalse(dossiers_io._capability_map_is_stale(projection))
+
+        self.source.write_bytes(b"export const x = 2;\r\n")
+        self.assertTrue(dossiers_io._capability_map_is_stale(projection))
 
     def test_content_drift_in_a_recorded_source_is_stale(self) -> None:
         projection = self._fresh_projection()
@@ -444,9 +459,7 @@ class EnsureCapabilityMapCurrentTests(unittest.TestCase):
                     "labelsSv": {"class": {}, "mock": {}, "requiresF3": {}},
                     "policy": {"mocklessCapabilityExceptions": ["analytics"]},
                     "sourceFiles": {
-                        "src/lib/gen/dossiers/f2-mute.ts": hashlib.sha256(
-                            source.read_bytes()
-                        ).hexdigest()
+                        "src/lib/gen/dossiers/f2-mute.ts": _source_file_sha256(source),
                     },
                 }
             ),
