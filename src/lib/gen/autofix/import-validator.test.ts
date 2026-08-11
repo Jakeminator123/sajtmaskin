@@ -124,6 +124,17 @@ describe("import-validator locally declared components (prod chat f98fd5c0)", ()
     expect(result.code).not.toContain("@/components/ui/button");
     expect(result.code).toBe(page);
   });
+
+  it("does not import Button when a module-level function Button is declared below", () => {
+    const page = [
+      "export default function Page() {",
+      "  return <Button>Klicka</Button>;",
+      "}",
+      "function Button() { return <button type=\"button\" />; }",
+      "",
+    ].join("\n");
+    expect(runImportValidator(page).code).not.toContain("@/components/ui/button");
+  });
 });
 
 describe("import-validator multi-line import bindings (M#imp1, prod cc10e7de v8)", () => {

@@ -27,9 +27,9 @@ describe("extractLocalComponentDeclarations", () => {
     expect(extractLocalComponentDeclarations(code).has("Button")).toBe(true);
   });
 
-  it("ignores nested declarations inside functions for the flat Set (back-compat note)", () => {
-    // Flat Set still lists nested values (they exist somewhere). Import
-    // decisions must use isValueInScope — see tests below.
+  it("ignores nested declarations inside functions for the flat Set", () => {
+    // Flat Set is module-scope values + types only (tag-mismatch back-compat).
+    // Import decisions use isValueInScope — see tests below.
     const code = [
       "function helper() {",
       "  const Button = () => null;",
@@ -37,7 +37,7 @@ describe("extractLocalComponentDeclarations", () => {
       "}",
       "export function Page() { return <Button /> }",
     ].join("\n");
-    expect(extractLocalComponentDeclarations(code).has("Button")).toBe(true);
+    expect(extractLocalComponentDeclarations(code).has("Button")).toBe(false);
   });
 
   it("does not treat braces inside strings as scope", () => {

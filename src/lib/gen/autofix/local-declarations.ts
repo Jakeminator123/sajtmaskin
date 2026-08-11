@@ -45,6 +45,8 @@ interface ValueBinding {
   from: number;
   /** Exclusive end index — when the enclosing block closes (or EOF). */
   to: number;
+  /** True when declared in module scope (not inside a nested `{...}`). */
+  moduleScope: boolean;
 }
 
 type DeclKind = "function" | "var" | "let-const-class";
@@ -149,7 +151,12 @@ function collectValueBindings(blanked: string): ValueBinding[] {
   const stack: {
     /** Index where this scope's body became active (module=0, else `{` index). */
     scopeFrom: number;
-    decls: { name: string; from: number; declKind: DeclKind }[];
+    decls: {
+      name: string;
+      from: number;
+      declKind: DeclKind;
+      moduleScope: boolean;
+    }[];
   }[] = [{ scopeFrom: 0, decls: [] }];
   const bindings: ValueBinding[] = [];
 
@@ -165,7 +172,12 @@ function collectValueBindings(blanked: string): ValueBinding[] {
         isModuleScope || event.declKind === "function" || event.declKind === "var"
           ? frame.scopeFrom
           : event.index;
-      frame.decls.push({ name: event.name, from, declKind: event.declKind });
+      frame.decls.push({
+        name: event.name,
+        from,
+        declKind: event.declKind,
+        moduleScope: isModuleScope,
+      });
       continue;
     }
     if (event.kind === "open") {
@@ -179,7 +191,12 @@ function collectValueBindings(blanked: string): ValueBinding[] {
     }
     const frame = stack.pop()!;
     for (const d of frame.decls) {
-      bindings.push({ name: d.name, from: d.from, to: event.index });
+      bindings.push({
+        name: d.name,
+        from: d.from,
+        to: event.index,
+        moduleScope: d.moduleScope,
+      });
     }
   }
 
@@ -188,7 +205,12 @@ function collectValueBindings(blanked: string): ValueBinding[] {
   while (stack.length > 0) {
     const frame = stack.pop()!;
     for (const d of frame.decls) {
-      bindings.push({ name: d.name, from: d.from, to: eof });
+      bindings.push({
+        name: d.name,
+        from: d.from,
+        to: eof,
+        moduleScope: d.moduleScope,
+      });
     }
   }
 
@@ -210,9 +232,11 @@ export interface LocalDeclarationIndex {
   /** Type-only names (`type` / `interface`) anywhere in the file. */
   typeNames: ReadonlySet<string>;
   /**
-   * Union of every value name that has at least one binding, plus type names.
-   * Used by tag-mismatch filters where a local type in a generic position must
-   * not look like a JSX tag. Prefer `isValueInScope` for import decisions.
+   * Module-scope value names plus all type names.
+   * Used by tag-mismatch filters (`checkTagMatching`) so a local type in a
+   * generic position is not treated as a JSX tag — without letting a nested
+   * `const Button` mute mismatch checks for a top-level `<Button>`.
+   * Prefer `isValueInScope` for import decisions.
    */
   allNames: ReadonlySet<string>;
 }
@@ -224,8 +248,10 @@ export function buildLocalDeclarationIndex(code: string): LocalDeclarationIndex 
   const blanked = blankCommentsAndStrings(code);
   const bindings = collectValueBindings(blanked);
   const typeNames = collectTypeNames(blanked);
-  const valueNames = new Set(bindings.map((b) => b.name));
-  const allNames = new Set<string>([...valueNames, ...typeNames]);
+  const moduleValueNames = new Set(
+    bindings.filter((b) => b.moduleScope).map((b) => b.name),
+  );
+  const allNames = new Set<string>([...moduleValueNames, ...typeNames]);
 
   return {
     isValueInScope(name: string, atIndex: number): boolean {
@@ -240,7 +266,7 @@ export function buildLocalDeclarationIndex(code: string): LocalDeclarationIndex 
 }
 
 /**
- * Back-compat Set: every local value or type name in the file.
+ * Back-compat Set: module-scope values + type names.
  *
  * Prefer `buildLocalDeclarationIndex` + `isValueInScope` when deciding whether
  * a specific JSX usage needs an import — this Set cannot express nested scope.
