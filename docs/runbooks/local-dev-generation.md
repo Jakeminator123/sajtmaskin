@@ -78,7 +78,9 @@ PowerShell från repo-roten:
    Undvik `SKIP_PREDEV=1` / enbart `node scripts/dev/next-runner.mjs dev` tills
    schemat är aktuellt. Om varning om saknade migrationer: `npm run db:ensure`.
 3. Bekräfta preview-host innan generate — öppna hostens `/health` (Fly-bas-URL
-   eller lokal `:8080`).
+   eller lokal `:8080`). Hybrid mot **icke-lokal** host (t.ex. Fly) kräver
+   `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens `.env.local` (samma secret som
+   hostens `PREVIEW_HOST_API_KEY`) — se [`docs/ENV.md`](../ENV.md).
 4. Logga in med en adress i `ADMIN_EMAILS` så guest-gratisgenereringen inte
    stoppar dig.
 5. Generera en gång. Om stream svarar 404 direkt efter restart: vänta några
@@ -98,12 +100,12 @@ När du behöver deterministisk preview utan att röra prod-Fly:
    ```powershell
    npm ci --prefix preview-host
    ```
-2. Starta host:
+2. Starta host från **repo-roten** (inte `npm start` i roten — det startar
+   Next-appen):
    ```powershell
-   # från preview-host/
    $env:HOST = "127.0.0.1"
    $env:PREVIEW_BASE_URL = "http://localhost:8080"
-   npm start
+   npm start --prefix preview-host
    ```
    `HOST=127.0.0.1` gör miljön “lokal” så `PREVIEW_HOST_API_KEY` inte krävs.
    Default `HOST=0.0.0.0` kräver nyckel.
