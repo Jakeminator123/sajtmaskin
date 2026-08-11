@@ -306,6 +306,12 @@ export function isPreviewHostBootPage(input: {
   ) {
     return true;
   }
+  // Fly readiness also treats HTTP 200 with an empty body as "not ready"
+  // (compiling / blank page). Without this, postcheck can false-green on a
+  // still-warming runtime that never rendered the Startar-preview placeholder.
+  if (!title && !h1 && body.length === 0) {
+    return true;
+  }
   return false;
 }
 

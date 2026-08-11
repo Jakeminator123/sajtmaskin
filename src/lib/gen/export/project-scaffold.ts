@@ -803,6 +803,22 @@ function buildBaselineOwnedStems(): Map<string, string> {
 }
 
 /**
+ * Baseline helpers where generated/repair content must NEVER win — even when
+ * the path matches exactly. These are runtime-provided import targets; a
+ * hand-rolled stub (or import-validator repair file) would otherwise replace
+ * the lint-safe baseline and re-break quality-gate `tsc`.
+ *
+ * Deliberately excludes mergeable baseline files like `package.json` /
+ * `tsconfig.json` / `app/layout.tsx`.
+ */
+const BASELINE_FORCE_OWNED_STEMS = new Set<string>([
+  "lib/utils",
+  "lib/hooks/use-mobile",
+  "hooks/use-mobile",
+  "hooks/use-reduced-motion",
+]);
+
+/**
  * Canonical shadcn component stems (kebab-case import subpaths such as
  * `carousel`, `alert-dialog`, `sonner`). Derived from the registry *values*
  * because keys are the PascalCase exported names while the file stem under
@@ -857,6 +873,11 @@ export function buildCompleteProject(
   const filteredGeneratedFiles: CodeFile[] = [];
   for (const file of generatedFiles) {
     const stem = moduleStemForCollision(file.path);
+    if (stem !== null && BASELINE_FORCE_OWNED_STEMS.has(stem)) {
+      // Drop ANY generated sibling (same path or extension collision) so the
+      // canonical baseline file is the single source after merge.
+      continue;
+    }
     if (stem !== null && baselineOwnedStems.has(stem)) {
       const canonicalPath = baselineOwnedStems.get(stem);
       if (canonicalPath !== file.path.replace(/\\/g, "/")) {

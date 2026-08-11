@@ -358,6 +358,30 @@ describe("buildCompleteProject", () => {
     const mobileFiles = merged.filter((f) => f.path.startsWith("lib/hooks/use-mobile"));
     expect(mobileFiles).toHaveLength(1);
     expect(mobileFiles[0]!.path).toBe("lib/hooks/use-mobile.ts");
+    expect(mobileFiles[0]!.content).toContain("useSyncExternalStore");
+
+    // Same-path repair/generated content must also lose to the baseline.
+    const samePath: CodeFile[] = [
+      ...generated,
+      {
+        path: "lib/hooks/use-mobile.ts",
+        content: [
+          '"use client";',
+          "import { useEffect, useState } from \"react\";",
+          "export function useIsMobile() {",
+          "  const [v, setV] = useState(false);",
+          "  useEffect(() => setV(true), []);",
+          "  return v;",
+          "}",
+        ].join("\n"),
+        language: "tsx",
+      },
+    ];
+    const forced = buildCompleteProject(samePath);
+    const forcedHook = forced.find((f) => f.path === "lib/hooks/use-mobile.ts");
+    expect(forcedHook).toBeDefined();
+    expect(forcedHook!.content).toContain("useSyncExternalStore");
+    expect(forcedHook!.content).not.toContain("useEffect");
   });
 
   it("uses useSyncExternalStore (lint-safe) instead of a setState-in-effect guard", () => {

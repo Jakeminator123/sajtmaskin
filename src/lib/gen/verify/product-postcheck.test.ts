@@ -285,7 +285,14 @@ describe("isPreviewHostBootPage", () => {
         bodyText: "Handplockade premiumboenden i Palma.",
       }),
     ).toBe(false);
-    expect(isPreviewHostBootPage({ title: "", h1: null, bodyText: "" })).toBe(false);
+    expect(isPreviewHostBootPage({ title: "", h1: null, bodyText: "" })).toBe(true);
+    expect(
+      isPreviewHostBootPage({
+        title: "Home",
+        h1: null,
+        bodyText: "",
+      }),
+    ).toBe(false);
   });
 });
 
