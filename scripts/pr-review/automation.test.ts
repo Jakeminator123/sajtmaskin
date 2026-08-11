@@ -182,6 +182,38 @@ describe("PR review automation integration", () => {
     });
   });
 
+  it("does not heal a failed follow-up into completed", async () => {
+    const harness = createHarness();
+    await runReviewAutomation({ github: harness.github, model: harness.model, prNumber: 88 });
+    harness.pr.headSha = "b".repeat(40);
+    harness.model.followUp = async () => {
+      harness.calls.followUp += 1;
+      throw new Error("follow-up provider down");
+    };
+    await expect(
+      runReviewAutomation({ github: harness.github, model: harness.model, prNumber: 88 }),
+    ).rejects.toThrow("follow-up provider down");
+    expect(currentState(harness).lastRun).toMatchObject({
+      kind: "follow-up",
+      status: "failed",
+    });
+
+    harness.model.followUp = async (_input: string, expectedIds: string[]) => {
+      harness.calls.followUp += 1;
+      return {
+        statuses: expectedIds.map((findingId) => ({
+          findingId,
+          status: "fixed",
+          reason: "Recovered after reclaim.",
+        })),
+      };
+    };
+    await runReviewAutomation({ github: harness.github, model: harness.model, prNumber: 88 });
+    expect(harness.calls.followUp).toBe(2);
+    expect(currentState(harness).lastRun.status).toBe("completed");
+    expect(currentState(harness).totalRunCount).toBe(2);
+  });
+
   it("uses later synchronize events only for existing findings", async () => {
     const harness = createHarness();
     await runReviewAutomation({ github: harness.github, model: harness.model, prNumber: 88 });

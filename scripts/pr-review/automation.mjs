@@ -139,9 +139,13 @@ async function loadAndReconcileState({ github, pr, now }) {
   } else if (exhaustiveReview) {
     const before = state;
     state = enrichFindingCommentIds(state, reviewComments);
-    // Heal sticky incomplete lastRun when the exhaustive review already exists
-    // (state comment may still say running/failed after a mid-persist crash).
-    if (state.lastRun?.status !== "completed") {
+    // Heal only a sticky incomplete *exhaustive* claim. Never rewrite a
+    // follow-up lastRun to completed — that would disable reclaim and burn
+    // another MAX_RUNS slot on the next synchronize.
+    const incompleteExhaustiveClaim =
+      state.lastRun?.status !== "completed" &&
+      (state.lastRun?.kind ?? "exhaustive") === "exhaustive";
+    if (incompleteExhaustiveClaim) {
       const snapshot = decodeMarker(exhaustiveReview.body, EXHAUSTIVE_MARKER_PREFIX);
       const headSha = snapshot?.headSha ?? state.latestProcessedHeadSha ?? pr.headSha;
       const at = now.toISOString();
@@ -149,7 +153,7 @@ async function loadAndReconcileState({ github, pr, now }) {
         ...state,
         latestProcessedHeadSha: state.latestProcessedHeadSha ?? headSha,
         lastRun: {
-          kind: state.lastRun?.kind ?? "exhaustive",
+          kind: "exhaustive",
           headSha,
           status: "completed",
           at,
