@@ -8,7 +8,7 @@
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { PaletteState } from "@/lib/builder/palette";
-import type { ThemeColors } from "@/lib/builder/theme-presets";
+import type { ThemeColors, ThemePalette } from "@/lib/builder/theme-presets";
 import type { BuildSpec } from "../build-spec";
 import type { PreGenerationContractContext } from "../contract/pre-generation-contracts";
 import type {
@@ -119,6 +119,13 @@ export interface DynamicContextOptions {
   tier3ApprovedProviders?: readonly string[] | null;
   componentPalette?: PaletteState | null;
   designThemePreset?: string | null;
+  /**
+   * Byggval "Färg": full surface palette for the chosen cluster, already resolved
+   * against the Färgläge choice. Locks color over the variant's `themeTokens`.
+   */
+  lockedColorPalette?: ThemePalette | null;
+  /** Swedish label of the chosen cluster, for the prompt block's wording. */
+  lockedColorPaletteLabel?: string | null;
   designReferences?: DesignReferenceAsset[];
   /** User-supplied custom instructions from the builder UI */
   customInstructions?: string;

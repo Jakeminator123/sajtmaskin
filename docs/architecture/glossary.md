@@ -97,6 +97,53 @@ Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nyck
 | CapabilitySmoke | Capability-specifik DOM/render-smoke. | product postcheck |
 | Defektsignatur | Stabil nyckel per **felklass** i `engine_version_error_logs`, skriven som `meta.defect.{kind,signature}` på den kanoniska skrivvägen. Två rader med samma signatur är samma fel även i olika chattar, vilket är det som gör "hur ofta händer det här" mätbart. Beskriver inte allvarlighet — vad som blockerar avgörs av gates. | `classifyVersionDefect`, `meta.defect` |
 
+## Byggval: reglage → signal → mottagare
+
+Reglagen i builderns välkomstläge (`PreviewPanelInitControls`). Svensk etikett är vad användaren ser; signalen är fältet i request-meta; mottagaren är den kod som faktiskt avgör utfallet. **Hård** betyder att valet vinner över vad prompten annars hade gett.
+
+| Etikett (UI) | Signal (kod) | Mottagare | Hård? |
+|---|---|---|---|
+| Hemsida eller app | `meta.buildIntent` + `buildIntentExplicit` | `BuildIntent` → scaffold-matcher, route-patterns, `BuildSpec` | Ja — filtrerar Typ av sajt, stoppar auto-promoteringen website→app, och avvisar en automatchad scaffold som inte tillåter valet. Undantag nedan. |
+| Typ av sajt | `meta.scaffoldId` + `scaffoldMode: "manual"` | `getScaffoldById` | Ja |
+| Antal sidor | `meta.pageCountHint` | `buildRoutePlan`, tak `MAX_ROUTES_PER_GENERATION` | Ja |
+| Komplexitet | `meta.complexityHint` + svenskt direktiv | `deriveBuildSpec` + `customInstructions` | Delvis |
+| Stil | `meta.styleChoiceHint` (+ `styleKeywordsHint`) | `resolveVariantForStyleChoice` → `persistedVariantId` | Ja när paret är mappat, annars viktning |
+| Ton | `meta.toneKeywordsHint` + svenskt direktiv | variant-scorern (`toneKeywords`) + `Tone Adaptation` | Nej — viktning och copy-regler |
+| Färg | `meta.designTheme` + `themeColors` | `resolveThemePalette` → promptblocket `Locked Color Palette` | Ja — överordnad variantens `themeTokens` |
+| Färgläge | `meta.colorModeHint` (+ `styleKeywordsHint`) | väljer klustrets ljusa/mörka palett | Ja för paletten, viktning för varianten |
+
+Stil→variant-mappningen är avsiktligt **partiell**: ett scaffold med två varianter kan inte uttrycka fem stilar, så omappade par faller tillbaka på matchningen i stället för att tvinga fram ett dåligt val. Se `src/lib/gen/scaffold-variants/style-choice-variants.ts`.
+
+**Två undantag där Hemsida/App inte vinner** — båda dokumenterade i koden, ingen av dem ett fel:
+
+1. **En manuellt pinnad app-scaffold trumfar.** Väljer du Hemsida i Byggval men har `dashboard`/`app-skal` pinnat i builderns header-meny, blir bygget en app. Byggval kan inte själv skapa den kombinationen (motsägande sajttyp släpps), så det kräver att två ytor säger emot varandra. `dashboard` tillåter bara `app`, så att behålla `website` vore en värre motsägelse.
+2. **`clear-redesign` släpper valet.** `buildIntentExplicit` skickas bara vid init och lagras inte i orchestration-snapshoten. Neutrala follow-ups är täckta av den befintliga scaffold-frysningen, men en "gör om hela sajten" släpper låsen med flit och kan promotera till app igen. Att bära valet över rundor kräver att flaggan persisteras.
+
+### Färg och theme tokens (1:1 kod ↔ svenska)
+
+Kodnamnen är CSS-variabler i den genererade sajtens `@theme inline` och behålls på engelska (samma fältnamn i variantens `themeTokens` och i `ThemePalette`). Kolumnen "På svenska" är hur vi pratar om dem i UI och löptext.
+
+| Kod-token | På svenska | Vad det styr |
+|---|---|---|
+| `background` | Sidbakgrund | Sidans grundyta |
+| `foreground` | Textfärg | Brödtext och rubriker mot sidbakgrunden |
+| `card` | Kortbakgrund | Ytan på kort, paneler och boxar |
+| `cardForeground` | Korttext | Text ovanpå kortbakgrunden |
+| `primary` | Huvudfärg | Primära knappar, länkar, aktiv markering |
+| `primaryForeground` | Text på huvudfärg | Textfärgen ovanpå huvudfärgen (kontrastkritisk) |
+| `secondary` | Kompletterande färg | Sekundära knappar och lugnare ytor |
+| `secondaryForeground` | Text på kompletterande färg | Text ovanpå den kompletterande färgen |
+| `muted` | Dämpad yta | Bakgrundsband, inaktiva ytor, tabellrader |
+| `mutedForeground` | Dämpad text | Hjälptext, etiketter, metadata |
+| `accent` | Accentfärg | Detaljer och höjdpunkter som ska sticka ut |
+| `accentForeground` | Text på accentfärg | Text ovanpå accentfärgen |
+| `border` | Kantlinje | Ramar, avdelare, hårstrecksgränser |
+| `ring` | Fokusring | Tangentbordsfokus-markeringen |
+| `radius` | Hörnradie | Rundade hörn — **ägs av varianten**, inte av Färg-valet |
+| `bodyBackgroundImage` | Bakgrundsrecept | Gradient/tvätt på `body` — ägs av varianten |
+
+Färg-klustren (`THEME_CLUSTERS` i `src/lib/builder/theme-presets.ts`) sätter de fjorton färgtokens ovan i både ljust och mörkt läge. `radius` och `bodyBackgroundImage` lämnas medvetet utanför: ett färgval får inte tyst ändra geometri. Kluster-id:n (`blue`, `green`, …) är persisterade i request-meta och får inte döpas om — svensk etikett byts i `DESIGN_THEME_OPTIONS`.
+
 ## Namnskuggor
 
 | Säg inte bara | Skriv hellre |

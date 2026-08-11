@@ -87,6 +87,7 @@ import {
   renderDesignReferencesBlock,
   renderGuidanceBlocks,
   renderImageryBlock,
+  renderLockedColorPaletteBlock,
   renderMediaCatalogBlock,
   renderSeoBlock,
   renderUiRecipesBlock,
@@ -228,6 +229,16 @@ export function buildDynamicContext(
       brief,
       themeOverride,
     }),
+  );
+  // Placed immediately before the variant block it supersedes. Deliberately not
+  // gated on `compactFollowUpContext`: the caller already decides that this is
+  // init-only (see `finalize-prompts.ts`), so an empty value here means "no
+  // palette", not "compact mode dropped it".
+  parts.push(
+    ...renderLockedColorPaletteBlock(
+      options.lockedColorPalette,
+      options.lockedColorPaletteLabel,
+    ),
   );
   parts.push(
     ...renderScaffoldVariantBlock(effectiveVariant, {

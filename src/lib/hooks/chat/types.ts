@@ -275,6 +275,11 @@ export type ChatMessagingParams = {
   promptAssistDeep?: boolean;
   promptAssistMode?: "polish" | "rewrite" | null;
   buildIntent?: BuildIntent;
+  /**
+   * Persist Byggval's Hemsida/App into builder state so follow-ups keep the
+   * same intent (URL/default alone would flip e.g. auth-pages back to website).
+   */
+  setBuildIntent?: (intent: BuildIntent) => void;
   buildMethod?: BuildMethod | null;
   scaffoldMode?: ScaffoldMode;
   scaffoldId?: string | null;

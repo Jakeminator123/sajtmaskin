@@ -429,6 +429,7 @@ export function useBuilderPageController() {
       promptAssistDeep: state.promptAssistDeep,
       promptAssistMode: state.promptAssistMode,
       buildIntent: state.resolvedBuildIntent,
+      setBuildIntent: state.setBuildIntent,
       buildMethod: state.buildMethod,
       scaffoldMode: state.scaffoldMode,
       scaffoldId: state.scaffoldId,

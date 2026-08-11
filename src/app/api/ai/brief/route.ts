@@ -13,6 +13,11 @@ import {
   validateBriefModelForHttp,
 } from "@/lib/builder/site-brief-generation";
 import {
+  briefBuildChoicesCacheExtras,
+  type BriefBuildChoicesInput,
+} from "@/lib/builder/brief-build-choices";
+import { formatBriefBuildChoicesForPrompt } from "@/lib/builder/brief-build-choices-format";
+import {
   buildBriefCacheKey,
   readBriefCache,
   writeBriefCache,
@@ -75,9 +80,37 @@ export async function POST(req: Request) {
         );
       }
 
-      const { prompt, provider, model, temperature, imageGenerations, maxTokens, source } = parsed.data;
+      const {
+        prompt,
+        provider,
+        model,
+        temperature,
+        imageGenerations,
+        maxTokens,
+        source,
+        buildIntent,
+        scaffoldId,
+        pageCountHint,
+        styleChoiceHint,
+        styleKeywordsHint,
+        toneKeywordsHint,
+        colorModeHint,
+        complexityHint,
+      } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const briefSource = source?.trim() || "unspecified_client";
+      const buildChoices: BriefBuildChoicesInput = {
+        buildIntent,
+        scaffoldId,
+        pageCountHint,
+        styleChoiceHint,
+        styleKeywordsHint,
+        toneKeywordsHint,
+        colorModeHint,
+        complexityHint,
+      };
+      const buildChoicesExtras = briefBuildChoicesCacheExtras(buildChoices);
+      const buildChoicesHints = formatBriefBuildChoicesForPrompt(buildChoices);
       const trace = buildBriefTrace({
         source: briefSource,
         prompt,
@@ -85,6 +118,7 @@ export async function POST(req: Request) {
         imageGenerations,
         temperature,
         maxTokens,
+        extraHashFields: buildChoicesExtras,
       });
 
       const validationError = validateBriefModelForHttp(normalizedModel, provider);
@@ -102,6 +136,7 @@ export async function POST(req: Request) {
           imageGenerations,
           temperature: typeof temperature === "number" ? temperature : null,
           maxTokens: typeof maxTokens === "number" ? maxTokens : null,
+          ...buildChoicesExtras,
         },
       });
 
@@ -141,6 +176,8 @@ export async function POST(req: Request) {
           temperature,
           maxTokens,
           source: briefSource,
+          variantHints: buildChoicesHints,
+          extraHashFields: buildChoicesExtras,
         });
         if (!result) {
           return NextResponse.json(

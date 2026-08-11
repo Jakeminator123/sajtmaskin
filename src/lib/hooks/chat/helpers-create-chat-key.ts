@@ -18,6 +18,11 @@ export type CreateChatKeyJobFields = {
   scaffoldId?: string | null;
   buildMethod?: string | null;
   buildIntent?: string | null;
+  /**
+   * Byggval: an explicit Hemsida choice suppresses website→app promotion, so two
+   * creates that agree on `buildIntent: "website"` can still be different jobs.
+   */
+  buildIntentExplicit?: boolean;
   planMode?: boolean;
   promptAssistMode?: string | null;
   promptAssistModel?: string | null;
@@ -28,6 +33,12 @@ export type CreateChatKeyJobFields = {
   pageCountHint?: number | null;
   /** Byggval: structured style keywords — distinct hints are distinct jobs. */
   styleKeywordsHint?: string[] | null;
+  /** Byggval: raw style choice — pins a different variant, so a different job. */
+  styleChoiceHint?: string | null;
+  /** Byggval: structured tone keywords — distinct hints are distinct jobs. */
+  toneKeywordsHint?: string[] | null;
+  /** Byggval: ljust/mörkt — selects a different color palette, so a different job. */
+  colorModeHint?: string | null;
 };
 
 function stablePaletteFingerprint(paletteState: unknown): string {
@@ -71,6 +82,7 @@ export function buildCreateChatKey(
     `scaffoldId:${job?.scaffoldId ?? ""}`,
     `buildMethod:${job?.buildMethod ?? ""}`,
     `buildIntent:${job?.buildIntent ?? ""}`,
+    `buildIntentExplicit:${job?.buildIntentExplicit ? "1" : "0"}`,
     `planMode:${planMode ? "1" : "0"}`,
     `promptAssistMode:${job?.promptAssistMode ?? ""}`,
     `promptAssistModel:${job?.promptAssistModel ?? ""}`,
@@ -78,6 +90,9 @@ export function buildCreateChatKey(
     `palette:${stablePaletteFingerprint(job?.paletteState)}`,
     `pageCountHint:${job?.pageCountHint ?? ""}`,
     `styleKeywordsHint:${(job?.styleKeywordsHint ?? []).join("|")}`,
+    `styleChoiceHint:${job?.styleChoiceHint ?? ""}`,
+    `toneKeywordsHint:${(job?.toneKeywordsHint ?? []).join("|")}`,
+    `colorModeHint:${job?.colorModeHint ?? ""}`,
   ].join("::");
   return hashString(fingerprint);
 }

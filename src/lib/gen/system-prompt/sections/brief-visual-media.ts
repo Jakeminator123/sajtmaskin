@@ -8,7 +8,7 @@
  */
 
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import type { ThemeColors } from "@/lib/builder/theme-presets";
+import type { ThemeColors, ThemePalette } from "@/lib/builder/theme-presets";
 import { isDomainProfile } from "@/lib/builder/domain-inference";
 import { resolveGuidanceBlocks, type ColorPalette } from "../../guidance-resolvers";
 import type { Brief, DesignReferenceAsset, MediaCatalogItem } from "../types";
@@ -178,6 +178,59 @@ export function renderBriefLockedDesignValuesBlock(params: {
     "",
   );
   return parts;
+}
+
+/**
+ * Byggval "Färg": the chosen cluster's full surface palette, locked.
+ *
+ * Rendered as its own block rather than folded into Visual Identity because it
+ * has to outrank a different source than that block does. Visual Identity locks
+ * three brand colors; the scaffold variant meanwhile ships a complete
+ * `themeTokens` set labelled "variant defaults", which is what previously
+ * decided background, card and muted. Without an explicit supersede the user
+ * could pick Tegelröd and still get the variant's neutral grey shell.
+ */
+export function renderLockedColorPaletteBlock(
+  palette: ThemePalette | null | undefined,
+  clusterLabel: string | null | undefined,
+): string[] {
+  if (!palette) return [];
+
+  // Tailwind v4 `@theme inline` names color tokens `--color-*`, which is what
+  // every scaffold's `app/globals.css` actually ships. Emitting the bare
+  // `--background` form this block used to print would leave `bg-background` and
+  // `text-foreground` unmapped, so a "locked" palette could silently not apply.
+  const entries: Array<[string, string]> = [
+    ["--color-background", palette.background],
+    ["--color-foreground", palette.foreground],
+    ["--color-card", palette.card],
+    ["--color-card-foreground", palette.cardForeground],
+    ["--color-primary", palette.primary],
+    ["--color-primary-foreground", palette.primaryForeground],
+    ["--color-secondary", palette.secondary],
+    ["--color-secondary-foreground", palette.secondaryForeground],
+    ["--color-muted", palette.muted],
+    ["--color-muted-foreground", palette.mutedForeground],
+    ["--color-accent", palette.accent],
+    ["--color-accent-foreground", palette.accentForeground],
+    ["--color-border", palette.border],
+    ["--color-ring", palette.ring],
+  ];
+
+  return [
+    "## Locked Color Palette",
+    "",
+    `The user picked this palette explicitly${clusterLabel ? ` (${clusterLabel})` : ""}. It is the highest color authority in this generation and **supersedes the Scaffold Variant theme tokens**.`,
+    "",
+    "- **Emit exactly these values in `app/globals.css` inside `@theme inline`:**",
+    ...entries.map(([token, value]) => `  - ${token}: ${value}`),
+    "",
+    "- Keep the `--color-` prefix exactly as written: that is the Tailwind v4 form the scaffold uses, and it is what makes `bg-background`, `text-foreground` and `border-border` resolve.",
+    "- Derive any additional shade from these values (e.g. `color-mix(in oklab, var(--color-primary) 12%, transparent)`) instead of introducing an unrelated hue.",
+    "- Keep the variant's radius, typography, spacing rhythm and signature motifs — this block governs color only.",
+    "- Do not fall back to a neutral grey surface: `--color-background` and `--color-card` above are the surface.",
+    "",
+  ];
 }
 
 export function renderVisualIdentityBlock(params: {

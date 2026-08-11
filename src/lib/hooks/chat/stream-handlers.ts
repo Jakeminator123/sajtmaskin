@@ -197,5 +197,6 @@ export async function handleSseStream(
     streamQuality,
     chatIdFromStream: state.chatIdFromStream,
     hasRecoveredArtifact: state.recoveredArtifactSignal,
+    versionIdFromStream: state.versionIdFromStream,
   };
 }
