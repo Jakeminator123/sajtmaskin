@@ -335,7 +335,7 @@ const MANIFEST_JUSTIFICATION_CLAUSE_RE =
  * modules", "cannot build or run") contain none of them.
  */
 const INDEPENDENT_CLAIM_MARKER_RE =
-  /(?:undefined|undeclared|not\s+(?:defined|declared|imported)|missing|never|without|unused|unresolved|syntax|crash|throw|error|broken|invalid|incorrect|wrong|fake|dead)/i;
+  /(?:undefined|undeclared|not\s+(?:defined|declared|imported)|missing|never|without|unused|unresolved|fail(?:s|ed)?\s+to\s+await\b|syntax|crash|throw|error|broken|invalid|incorrect|wrong|fake|dead)/i;
 
 function stripManifestJustificationClauses(detail: string): string {
   return detail.replace(MANIFEST_JUSTIFICATION_CLAUSE_RE, (clause) =>

@@ -413,6 +413,26 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
     expect(result.dropped).toHaveLength(0);
   });
 
+  it("keeps a so-clause that reports an independent code failure", () => {
+    const finding = {
+      id: "incomplete-package-manifest",
+      detail: "package.json lacks `next`, so src/app/page.tsx fails to await params.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("drops a so-clause whose compile failure is only a consequence of the stale manifest claim", () => {
+    const finding = {
+      id: "incomplete-package-manifest",
+      detail: "package.json lacks `next`, so src/app/page.tsx fails to compile.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
   it("bugbot high: keeps a compound finding whose so-clause is followed by a coordinated code-file claim", () => {
     // ", so …" får inte svälja en självständig ", and <kodfil> …"-sats — då
     // skulle ett blandat fynd omklassas till manifest-only och släppas trots
