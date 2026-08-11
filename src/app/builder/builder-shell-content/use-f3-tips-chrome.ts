@@ -6,6 +6,7 @@ import {
   readF3RequirementsDetail,
   readF3StatusDetail,
   readProjectEnvVarsUpdatedDetail,
+  resolveF3StatusTitle,
   subtractSavedKeysFromF3Requirements,
 } from "@/lib/builder/project-env-events";
 import type {
@@ -230,10 +231,25 @@ export function useShellF3TipsChrome(vm: BuilderViewModel, sendMessage: BuilderV
   // dropping the event on arrival: a verdict for a version that is activated a
   // moment later (the fresh-build lane from #639) becomes visible as soon as
   // `vm.activeVersionId` catches up.
-  const visibleF3Status =
+  const scopedF3Status =
     f3Status?.versionId && vm.activeVersionId && f3Status.versionId !== vm.activeVersionId
       ? null
       : f3Status;
+  // `usesLiveDossierCounts` (Bugbot, 5th pass on this diff): the F3 success
+  // title cannot be computed correctly at report time — the only counts
+  // `PreviewPanelF3Trigger` can reach describe the OLD parent version, never
+  // the version this status is about. `resolveF3StatusTitle` re-derives it
+  // from `dossierCounts` instead: the guard above already guarantees
+  // `scopedF3Status.versionId` (when set) equals `vm.activeVersionId`, and
+  // `dossierCounts` is reset to null on every version change and only ever
+  // populated by a fetch scoped to THAT same `vm.activeVersionId` (see
+  // `PreviewPanelDossiers`'s own `dataKey`/`overviewKey` guard) — so the two
+  // are already version-consistent whenever both are non-null. Recomputing at
+  // render time (not once, at report time) means the title self-corrects as
+  // soon as the fresh fetch resolves, with no new fetch of its own.
+  const visibleF3Status = scopedF3Status
+    ? resolveF3StatusTitle(scopedF3Status, dossierCounts)
+    : null;
 
   useEffect(() => {
     setF3Requirements(null);
@@ -382,7 +398,6 @@ export function useShellF3TipsChrome(vm: BuilderViewModel, sendMessage: BuilderV
     setF3Status,
     visibleF3Status,
     visibleF3Requirements,
-    dossierCounts,
     handleDossierCountsChange,
     mobileTab,
     setMobileTab,

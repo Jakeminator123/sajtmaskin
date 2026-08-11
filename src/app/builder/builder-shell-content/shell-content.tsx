@@ -60,7 +60,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     setF3Status,
     visibleF3Status,
     visibleF3Requirements,
-    dossierCounts,
     handleDossierCountsChange,
     mobileTab,
     setMobileTab,
@@ -212,11 +211,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             }
             onDossierCountsChange={handleDossierCountsChange}
             activeVersionMeta={activeVersionSummary}
-            f3BuiltCounts={
-              dossierCounts
-                ? { builtLive: dossierCounts.builtLive, builtDemo: dossierCounts.builtDemo }
-                : null
-            }
           />
         }
       />

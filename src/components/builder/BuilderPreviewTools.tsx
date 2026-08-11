@@ -39,13 +39,14 @@ export interface BuilderPreviewToolsProps {
   /**
    * Lucka 3 (ägarbeslut 2026-08-11): Byggblock-panelens senaste counts,
    * vävda vidare till F3-statusradens framgångstitel via shell-lagret —
-   * ingen andra hämtning av `/dossiers`.
+   * ingen andra hämtning av `/dossiers`. Konsumeras av `use-f3-tips-chrome.ts`
+   * direkt (inte av `PreviewPanelF3Trigger` — Bugbot, 5:e passet på denna
+   * diff: triggern har bara tillgång till FÖRÄLDERVERSIONENS counts, aldrig
+   * den nya F3-versionens som framgångstiteln faktiskt beskriver).
    */
   onDossierCountsChange?: PreviewPanelDossiersProps["onCountsChange"];
   /** Lucka 2 (ägarbeslut 2026-08-11): buren av versionslistan, ingen ny signal. */
   activeVersionMeta?: PreviewPanelDossiersProps["activeVersionMeta"];
-  /** Lucka 3: samma counts vidarebefordrade till F3-triggerns framgångstitel. */
-  f3BuiltCounts?: PreviewPanelF3TriggerProps["builtCounts"];
 }
 
 /**
@@ -71,7 +72,6 @@ export function BuilderPreviewTools({
   f3RequiresRealBuildKeys = null,
   onDossierCountsChange,
   activeVersionMeta,
-  f3BuiltCounts = null,
 }: BuilderPreviewToolsProps) {
   // Klustret växer inte fram i headern förrän det finns en preview att styra.
   // Kodvyn räknas också: där är previewUrl inte det som visas, men användaren
@@ -117,7 +117,6 @@ export function BuilderPreviewTools({
           onReleaseSettled={onF3ReleaseSettled}
           isBusy={isBusy}
           requiresRealBuildKeys={f3RequiresRealBuildKeys}
-          builtCounts={f3BuiltCounts}
           iconOnly
           className="h-8 w-8 bg-violet-600 p-0 text-white hover:bg-violet-500"
         />

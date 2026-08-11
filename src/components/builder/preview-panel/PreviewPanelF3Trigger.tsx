@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Wand2 } from "lucide-react";
 import type { F3BuilderStatus } from "@/components/builder/F3RequirementsSurface";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import { F3_REBUILD_REQUEST_EVENT } from "@/lib/builder/project-env-events";
+import {
+  F3_REBUILD_REQUEST_EVENT,
+  describeF3SuccessTitle,
+} from "@/lib/builder/project-env-events";
 import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
 
 export interface PreviewPanelF3TriggerProps {
@@ -67,30 +70,6 @@ export interface PreviewPanelF3TriggerProps {
    * Härleds ALDRIG ur `buildBlockingKeys` här (den ljuger när nyckeln redan är ifylld).
    */
   requiresRealBuildKeys?: boolean | null;
-  /**
-   * Lucka 3 (ägarbeslut 2026-08-11): Byggblock-panelens `counts.builtLive`/
-   * `counts.builtDemo`, vävda in via shell-lagret (`builder-shell-content/`)
-   * — den här komponenten hämtar INTE `/dossiers` själv (se noten i
-   * `05-builder-statussanning.md`). `null` = räknarna har inte hunnit
-   * fram än (t.ex. Byggblock-panelen aldrig öppnad); framgångstiteln
-   * faller då tillbaka till en räknarlös formulering.
-   */
-  builtCounts?: { builtLive: number; builtDemo: number } | null;
-}
-
-/**
- * Lucka 3 (ägarbeslut 2026-08-11): "ReleaseGate godkänd" var gate-språk —
- * användaren ville veta vad hen FÅR, inte grindens namn. Slår samtidigt ihop
- * "ReleaseGate godkänd" och "ReleaseGate var redan godkänd" till samma
- * formulering: den skillnaden var implementationsdetalj, inte något
- * användaren behöver skilja på. Ordet "live"/"demo aktiv" kommer från
- * `describeDossierStatus` (`built-live`/`built-demo`) — ingen ny statusvariant.
- */
-function describeF3SuccessTitle(counts: { builtLive: number; builtDemo: number } | null | undefined): string {
-  const parts: string[] = [];
-  if (counts && counts.builtLive > 0) parts.push(`${counts.builtLive} live`);
-  if (counts && counts.builtDemo > 0) parts.push(`${counts.builtDemo} demo aktiv`);
-  return parts.length > 0 ? `Byggd — ${parts.join(", ")}` : "Byggd — integrationerna är inbyggda";
 }
 
 type DiagnosticsResponse = {
@@ -128,7 +107,6 @@ export function PreviewPanelF3Trigger({
   isBusy = false,
   iconOnly = false,
   requiresRealBuildKeys = null,
-  builtCounts = null,
 }: PreviewPanelF3TriggerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [productBlocked, setProductBlocked] = useState(false);
@@ -258,9 +236,16 @@ export function PreviewPanelF3Trigger({
         selectVersion: !result.superseded,
       });
       if (result.ok) {
+        // No dossier counts available here describe `result.versionId` — the
+        // only counts this component could reach were fetched for the OLD
+        // parent version, before this exact click (Bugbot, 5th pass on this
+        // diff). `describeF3SuccessTitle(null)` is the honest fallback;
+        // `usesLiveDossierCounts` tells the shell layer to swap in the real
+        // title once ITS refetch for `result.versionId` resolves.
         reportStatus({
           tone: "success",
-          title: describeF3SuccessTitle(builtCounts),
+          title: describeF3SuccessTitle(null),
+          usesLiveDossierCounts: true,
           description:
             "F3-versionen använder exakt samma filer och visuella fallback som F2.",
         }, result.versionId);
@@ -316,7 +301,6 @@ export function PreviewPanelF3Trigger({
     productBlocked,
     isBusy,
     isLoading,
-    builtCounts,
   ]);
   const handleClick = useCallback(() => {
     void runF3Flow(versionId);

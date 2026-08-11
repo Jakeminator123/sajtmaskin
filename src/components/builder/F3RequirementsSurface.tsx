@@ -24,6 +24,15 @@ export type F3BuilderStatus = {
    * #639). Null when the outcome precedes any version (e.g. "no version yet").
    */
   versionId?: string | null;
+  /**
+   * `title` was computed from possibly-stale dossier counts (a snapshot for
+   * a DIFFERENT version than `versionId` — Bugbot, 5th pass on this diff).
+   * When true, the shell layer (`use-f3-tips-chrome.ts`) re-derives `title`
+   * from the freshest `dossierCounts` it has, once that describes THIS
+   * status's `versionId` (its own reset-on-version-change guard already
+   * ensures that). Cheap no-op read-time recompute, not a new fetch.
+   */
+  usesLiveDossierCounts?: boolean;
 };
 
 interface F3RequirementsSurfaceProps {

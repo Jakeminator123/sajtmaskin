@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DOSSIERS_PANEL_OPEN_EVENT,
   F3_REBUILD_REQUEST_EVENT,
+  describeF3SuccessTitle,
   openDossiersPanel,
   readDossiersPanelOpenDetail,
   readF3StatusDetail,
   readProjectEnvVarsUpdatedDetail,
   requestF3Rebuild,
+  resolveF3StatusTitle,
   subtractSavedKeysFromF3Requirements,
   type F3RequirementsDetail,
 } from "./project-env-events";
@@ -166,5 +168,61 @@ describe("readF3StatusDetail", () => {
     expect(readF3StatusDetail(eventWith(null))).toBeNull();
     expect(readF3StatusDetail(eventWith({ tone: "nope", title: "T", description: "D" }))).toBeNull();
     expect(readF3StatusDetail(eventWith({ tone: "error", description: "D" }))).toBeNull();
+  });
+});
+
+describe("describeF3SuccessTitle", () => {
+  it("names both live and demo counts together", () => {
+    expect(describeF3SuccessTitle({ builtLive: 2, builtDemo: 1 })).toBe(
+      "Byggd — 2 live, 1 demo aktiv",
+    );
+  });
+
+  it("omits a zero bucket instead of naming it", () => {
+    expect(describeF3SuccessTitle({ builtLive: 1, builtDemo: 0 })).toBe("Byggd — 1 live");
+    expect(describeF3SuccessTitle({ builtLive: 0, builtDemo: 3 })).toBe("Byggd — 3 demo aktiv");
+  });
+
+  it("falls back to a counts-free phrase when counts are unknown", () => {
+    expect(describeF3SuccessTitle(null)).toBe("Byggd — integrationerna är inbyggda");
+    expect(describeF3SuccessTitle(undefined)).toBe("Byggd — integrationerna är inbyggda");
+    expect(describeF3SuccessTitle({ builtLive: 0, builtDemo: 0 })).toBe(
+      "Byggd — integrationerna är inbyggda",
+    );
+  });
+});
+
+// Bugbot, 5th pass on this diff: `PreviewPanelF3Trigger` only ever has
+// dossier counts fetched for the OLD parent version, never the version its
+// success message is about (it reports the just-created/promoted F3
+// versionId). `usesLiveDossierCounts` + this resolver let the shell layer
+// (`use-f3-tips-chrome.ts`) swap in the REAL count-based title from ITS OWN
+// fresher, version-scoped `dossierCounts` — see that file's
+// `visibleF3Status` derivation for the other half of this contract.
+describe("resolveF3StatusTitle", () => {
+  it("leaves an ordinary status untouched", () => {
+    const status = { title: "ReleaseGate behöver åtgärdas", tone: "error" as const };
+    expect(resolveF3StatusTitle(status, { builtLive: 5, builtDemo: 0 })).toBe(status);
+  });
+
+  it("keeps the reported (counts-free) title when fresh counts aren't available yet", () => {
+    const status = {
+      title: "Byggd — integrationerna är inbyggda",
+      usesLiveDossierCounts: true,
+    };
+    expect(resolveF3StatusTitle(status, null)).toEqual(status);
+    expect(resolveF3StatusTitle(status, undefined)).toEqual(status);
+  });
+
+  it("swaps in the counts-based title once fresh counts arrive", () => {
+    const status = {
+      title: "Byggd — integrationerna är inbyggda",
+      usesLiveDossierCounts: true,
+      tone: "success" as const,
+    };
+    expect(resolveF3StatusTitle(status, { builtLive: 2, builtDemo: 1 })).toEqual({
+      ...status,
+      title: "Byggd — 2 live, 1 demo aktiv",
+    });
   });
 });

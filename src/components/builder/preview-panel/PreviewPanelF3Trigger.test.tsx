@@ -249,11 +249,14 @@ describe("PreviewPanelF3Trigger", () => {
     });
     // The promoted F3 fork is the version the gate judged — not the F2 base
     // the run started from. Lucka 3 (ägarbeslut 2026-08-11): "ReleaseGate
-    // godkänd" was gate-speak — without counts (not passed here) the title
-    // falls back to a counts-free honest phrase, never the grind's name.
+    // godkänd" was gate-speak — the title falls back to a counts-free honest
+    // phrase (never the grind's name); `usesLiveDossierCounts` asks the shell
+    // layer to swap in a counts-based title once ITS fresher, version-scoped
+    // counts are available (Bugbot, 5th pass on this diff).
     expect(onStatus).toHaveBeenCalledWith({
       tone: "success",
       title: "Byggd — integrationerna är inbyggda",
+      usesLiveDossierCounts: true,
       description: expect.stringContaining("exakt samma filer"),
       versionId: "ver_f3",
     });
@@ -261,7 +264,15 @@ describe("PreviewPanelF3Trigger", () => {
     vi.unstubAllGlobals();
   });
 
-  it("lucka 3 (ägarbeslut 2026-08-11): weaves builtCounts into the success title instead of gate-speak", async () => {
+  // Bugbot, 5th pass on this diff: this component has no reliable dossier
+  // counts for `result.versionId` (the just-created/promoted F3 version) —
+  // only ever the OLD parent version's, fetched before this exact click. It
+  // now always reports the counts-free title plus a marker
+  // (`usesLiveDossierCounts`) so the shell layer (`use-f3-tips-chrome.ts`,
+  // `resolveF3StatusTitle`) can re-derive the real title from ITS fresher
+  // `dossierCounts` once that describes this version — see
+  // `project-env-events.test.ts` for that half of the contract.
+  it("lucka 3 (ägarbeslut 2026-08-11): reports a counts-free title + usesLiveDossierCounts marker, never a stale count", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
@@ -286,26 +297,24 @@ describe("PreviewPanelF3Trigger", () => {
     );
     const onStatus = vi.fn();
 
-    render(
-      <PreviewPanelF3Trigger
-        chatId="chat_1"
-        versionId="ver_f2"
-        onStatus={onStatus}
-        builtCounts={{ builtLive: 2, builtDemo: 1 }}
-      />,
-    );
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" onStatus={onStatus} />);
 
     fireEvent.click(screen.getByRole("button", { name: /bygg integrationer/i }));
 
     await waitFor(() => {
       expect(onStatus).toHaveBeenCalledWith(
-        expect.objectContaining({ tone: "success", title: "Byggd — 2 live, 1 demo aktiv" }),
+        expect.objectContaining({
+          tone: "success",
+          title: "Byggd — integrationerna är inbyggda",
+          usesLiveDossierCounts: true,
+          versionId: "ver_f3",
+        }),
       );
     });
     vi.unstubAllGlobals();
   });
 
-  it("lucka 3: merges the 'already promoted' outcome into the same counts-based title", async () => {
+  it("lucka 3: merges the 'already promoted' outcome into the same counts-aware title contract", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
@@ -327,22 +336,19 @@ describe("PreviewPanelF3Trigger", () => {
     );
     const onStatus = vi.fn();
 
-    render(
-      <PreviewPanelF3Trigger
-        chatId="chat_1"
-        versionId="ver_f2"
-        onStatus={onStatus}
-        builtCounts={{ builtLive: 1, builtDemo: 0 }}
-      />,
-    );
+    render(<PreviewPanelF3Trigger chatId="chat_1" versionId="ver_f2" onStatus={onStatus} />);
 
     fireEvent.click(screen.getByRole("button", { name: /bygg integrationer/i }));
 
-    // Same title as a fresh ReleaseGate pass — "redan godkänd" was an
-    // implementation detail the user never needed to distinguish.
+    // Same title contract as a fresh ReleaseGate pass — "redan godkänd" was
+    // an implementation detail the user never needed to distinguish.
     await waitFor(() => {
       expect(onStatus).toHaveBeenCalledWith(
-        expect.objectContaining({ tone: "success", title: "Byggd — 1 live" }),
+        expect.objectContaining({
+          tone: "success",
+          title: "Byggd — integrationerna är inbyggda",
+          usesLiveDossierCounts: true,
+        }),
       );
     });
     expect(onStatus).not.toHaveBeenCalledWith(
