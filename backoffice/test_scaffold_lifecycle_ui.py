@@ -96,9 +96,10 @@ LABEL_SURFACES = (
 # nämnas — rutan lovade "det här skrivs" och räknade inte upp allt.
 #
 # Raderna nedan binder varje npm-nyckel till skriptet, till symbolen som skickas
-# till `writeFileSync` och till konstanterna som ger symbolen sin sökväg. Ett
-# test som bara letade efter strängen `variant-embeddings.json` i UI:t hade
-# tystnat den dag skriptet bytte utdata; det här faller i stället.
+# till write (writeFileSync eller saveEmbeddingsArtifact) och till konstanterna
+# som ger sökvägen. Ett test som bara letade efter strängen
+# `variant-embeddings.json` i UI:t hade tystnat den dag skriptet bytte utdata;
+# det här faller i stället.
 AUTORUN_WRITE_SOURCES: dict[str, dict] = {
     "scaffolds:variant-patterns": {
         "source": "scripts/scaffolds/auto-curate-variant-patterns.ts",
@@ -112,12 +113,13 @@ AUTORUN_WRITE_SOURCES: dict[str, dict] = {
     },
     "scaffolds:variant-embeddings": {
         "source": "scripts/scaffolds/generate-variant-embeddings.ts",
-        "write_targets": {"OUTPUT_PATH"},
+        # Blob + lokal cache via shared storage (inte längre writeFileSync(OUTPUT_PATH)).
+        "write_targets": {"saveEmbeddingsArtifact:variant"},
         "path_constants": (
             'const VARIANTS_ROOT = resolve(WORKSPACE_ROOT, "config", "scaffold-variants")',
-            'const INDEX_DIR = join(VARIANTS_ROOT, "_index")',
-            'const OUTPUT_PATH = join(INDEX_DIR, "variant-embeddings.json")',
+            'saveEmbeddingsArtifact("variant"',
         ),
+        # Lokal cache-path (gitignored); Blob-nyckel = embeddings/variant-embeddings.json.
         "path": "config/scaffold-variants/_index/variant-embeddings.json",
     },
 }
@@ -127,6 +129,7 @@ AUTORUN_WRITE_SOURCES: dict[str, dict] = {
 READ_ONLY_AUTORUN_SCRIPTS = {"scaffolds:validate"}
 
 WRITE_CALL_RE = re.compile(r"write(?:FileSync|File)\(\s*([A-Za-z_$][\w.$]*)")
+SAVE_EMBEDDINGS_RE = re.compile(r"""saveEmbeddingsArtifact\(\s*["'](\w+)["']""")
 
 
 def _npm_scripts() -> dict[str, str]:
@@ -141,7 +144,10 @@ def _npm_script_names(command: tuple[str, ...]) -> list[str]:
 
 def _write_targets(rel_source: str) -> set[str]:
     text = (REPO_ROOT / rel_source).read_text(encoding="utf-8")
-    return set(WRITE_CALL_RE.findall(text))
+    targets = set(WRITE_CALL_RE.findall(text))
+    for artifact_id in SAVE_EMBEDDINGS_RE.findall(text):
+        targets.add(f"saveEmbeddingsArtifact:{artifact_id}")
+    return targets
 
 
 def _function_ast(func) -> ast.FunctionDef:
