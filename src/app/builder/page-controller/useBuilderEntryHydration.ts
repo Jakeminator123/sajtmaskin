@@ -248,11 +248,13 @@ export function useBuilderEntryHydration({
     if (!shouldResetChatState && !shouldResetResolvedPrompt) return;
 
     pendingBriefRef.current = null;
-    // Drop abandoned Byggval (plan/contract never produced a version) so the
-    // next new chat in this SPA session cannot inherit the previous panel.
-    resetInitBuildChoices();
 
     if (shouldResetChatState) {
+      // Drop abandoned Byggval from the previous chat session so a later new
+      // chat cannot inherit plan/contract choices that never produced a version.
+      // Only here — not on prompt-handoff re-fetch alone — so a failed create
+      // can still retry with the same Byggval store.
+      resetInitBuildChoices();
       // PR #355-triage #7 (backlog): en pågående generation-stream från den
       // förra sessionen måste avbrytas INNAN chat-state nollställs — annars
       // fortsätter den gamla streamen skriva meddelanden/versioner in i den

@@ -202,7 +202,7 @@ export function useSendMessage(
         },
       ]);
 
-      const handleNonStreamingSend = async (data: Record<string, unknown>) => {
+      const handleNonStreamingSend = async (data: Record<string, unknown>): Promise<string | null> => {
         const latestVersion = data?.latestVersion as Record<string, unknown> | undefined;
         const previewResolved =
           resolveInboundPreviewUrl(data as { previewUrl?: unknown; demoUrl?: unknown }) ||
@@ -295,6 +295,7 @@ export function useSendMessage(
             onComplete: onVersionStatusRefresh,
           });
         }
+        return resolvedVersionId ? String(resolvedVersionId) : null;
       };
 
       let requestBody: Record<string, unknown> | null = null;
@@ -768,7 +769,10 @@ export function useSendMessage(
               );
             }
             const data = await fallbackRes.json();
-            await handleNonStreamingSend(data);
+            const fallbackVersionId = await handleNonStreamingSend(data);
+            if (isFirstBuildAfterGate && fallbackVersionId) {
+              resetInitBuildChoices();
+            }
             return { status: "started", via: "messages_fallback" };
           } catch (fallbackErr) {
             if (isClientInitiatedAbort(fallbackErr, fallbackController)) {
