@@ -218,12 +218,14 @@ export function validateExhaustiveResult(result, locationIndex) {
     const rangeIsValid =
       Number.isInteger(line) &&
       line > 0 &&
-      location?.rightLines.has(line) &&
+      Boolean(location?.rightLines?.has(line)) &&
       (endLine == null ||
-        (Number.isInteger(endLine) && endLine >= line && location.rightLines.has(endLine)));
+        (Number.isInteger(endLine) &&
+          endLine >= line &&
+          Boolean(location?.rightLines?.has(endLine))));
     const findingIsValid =
       rangeIsValid &&
-      location.status !== "removed" &&
+      location?.status !== "removed" &&
       typeof raw.title === "string" &&
       raw.title.trim().length > 0 &&
       typeof raw.body === "string" &&
