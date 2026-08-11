@@ -4,7 +4,7 @@
 > Source: `src/lib/ai-models/load-manifest.ts#getAiModelsManifest`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:97b6e582d8cc734d -->
+<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:4a115703980b8151 -->
 <!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:a88c74e67e978b81 -->
 
 # Models

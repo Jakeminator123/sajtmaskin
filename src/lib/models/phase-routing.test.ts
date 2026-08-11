@@ -7,9 +7,8 @@ import {
 } from "./phase-routing";
 
 describe("resolvePhaseModel", () => {
-  it("uses GPT-5.6 Sol for Premium build phases; fixer pinned to gpt-5.3-codex", () => {
-    // Ägarbeslut 2026-08-11: the heavy build model timed out as fixer — the
-    // Premium fixer is pinned to the lighter gpt-5.3-codex (same as Max).
+  it("uses GPT-5.6 Sol for Premium build phases; fixer pinned to gpt-5.6-sol without thinking", () => {
+    // Ägarbeslut 2026-08-11: Premium fixer uses Sol (not Codex); thinking stays off.
     const planner = resolvePhaseModel("premium", "planner");
     const generator = resolvePhaseModel("premium", "generator");
     const fixer = resolvePhaseModel("premium", "fixer");
@@ -18,7 +17,7 @@ describe("resolvePhaseModel", () => {
 
     expect(planner.modelId).toBe("gpt-5.6-sol");
     expect(generator.modelId).toBe("gpt-5.6-sol");
-    expect(fixer.modelId).toBe("gpt-5.3-codex");
+    expect(fixer.modelId).toBe("gpt-5.6-sol");
     expect(fixer.reason).toBe("manifest-phase-override");
     expect(verifier.modelId).toBe("gpt-5.6-sol");
     expect(deploy.modelId).toBe("gpt-5.6-sol");
@@ -89,6 +88,9 @@ describe("getPhaseRoutingSummary", () => {
     }
     expect(summary.planner).toBe("gpt-5.6-sol");
     expect(summary.generator).toBe("gpt-5.6-sol");
+    expect(summary.fixer).toBe("gpt-5.6-sol");
+    expect(summary.verifier).toBe("gpt-5.6-sol");
+    expect(summary["deploy-assistant"]).toBe("gpt-5.6-sol");
   });
 
   it("splits pro tier: all phases use gpt-5.3-codex", () => {

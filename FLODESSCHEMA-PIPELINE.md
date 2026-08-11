@@ -66,7 +66,7 @@ backoffice → LLM-konfig).
 |---|---|---|---|---|
 | Planerare (planner) | GPT-5.6 Sol 🧠 | gpt-5.3-codex 🧠 | gpt-5.5 🧠 | Claude Opus 4.8 🧠 |
 | Kodskrivare (generator) | GPT-5.6 Sol 🧠 | gpt-5.3-codex 🧠 | gpt-5.5 🧠 | Claude Opus 4.8 🧠 |
-| **Fixare (fixer)** | **gpt-5.3-codex** (lättare, utan 🧠 — bytt 2026-08-11, den tunga hann timeouta) | gpt-5.3-codex | gpt-5.3-codex | Claude Opus 4.8 (utan 🧠) |
+| **Fixare (fixer)** | **GPT-5.6 Sol** (utan 🧠 — ägarbeslut 2026-08-11) | gpt-5.3-codex | gpt-5.3-codex | Claude Opus 4.8 (utan 🧠) |
 | Granskare (verifier) | GPT-5.6 Sol 🧠 | gpt-5.3-codex | gpt-5.3-codex | Claude Opus 4.8 |
 | Deploy-hjälp | GPT-5.6 Sol 🧠 | gpt-5.3-codex | gpt-5.3-codex | Claude Opus 4.8 |
 
