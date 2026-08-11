@@ -58,10 +58,12 @@ export type StreamHandlerResult = {
   /**
    * True när done-eventet bar en riktig artefakt (version, preview,
    * plan-artefakt eller awaiting-input). False vid tomma/failade
-   * generationer — Byggval-storen ska då INTE nollställas (valen bevaras
-   * till nästa försök).
+   * generationer. Byggval-reset styrs separat via `versionIdFromStream` —
+   * plan/klargörande får behålla valen tills första riktiga versionen.
    */
   hasRecoveredArtifact: boolean;
+  /** Version id from the done event when a real build landed; otherwise null. */
+  versionIdFromStream: string | null;
 };
 
 export type PostCheckQueueItem = {

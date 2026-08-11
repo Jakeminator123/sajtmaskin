@@ -198,10 +198,16 @@ export async function finalizeOrchestrationPrompts(
   // through Visual Identity, and that lock is mode-agnostic — it cannot flip a
   // surface. Persisting the resolved mode in the orchestration snapshot would let
   // the block render on follow-ups too; that is a schema change, not a fix here.
+  //
+  // On init with Färgläge=Auto, inherit the resolved variant's light/dark mode
+  // so a dark terminal variant does not get a forced light palette that then
+  // claims to supersede the variant's own tokens.
   const normalizedDesignTheme = normalizeDesignTheme(designThemePreset);
   const lockedColorPalette =
     resolvedMode === "init"
-      ? resolveThemePalette(normalizedDesignTheme, input.colorModeHint ?? "auto")
+      ? resolveThemePalette(normalizedDesignTheme, input.colorModeHint ?? "auto", {
+          variantColorMode: resolvedVariant?.colorMode ?? null,
+        })
       : null;
   const lockedColorPaletteLabel = lockedColorPalette
     ? (THEME_CLUSTERS[normalizedDesignTheme as ThemeClusterId]?.label ?? null)

@@ -47,6 +47,15 @@ export const briefRequestSchema = z.object({
   imageGenerations: z.boolean().optional().default(true),
   maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
   source: z.string().trim().max(80).optional(),
+  /** Byggval Hemsida/App — hard intent for the brief LLM. */
+  buildIntent: z.enum(["website", "app"]).optional(),
+  scaffoldId: z.string().trim().min(1).max(80).optional(),
+  pageCountHint: z.number().int().min(1).max(3).optional(),
+  styleChoiceHint: z.string().trim().min(1).max(40).optional(),
+  styleKeywordsHint: z.array(z.string().trim().min(1).max(40)).max(8).optional(),
+  toneKeywordsHint: z.array(z.string().trim().min(1).max(40)).max(8).optional(),
+  colorModeHint: z.enum(["light", "dark"]).optional(),
+  complexityHint: z.enum(["simple", "medium", "complex"]).optional(),
 });
 
 function resolveMaxTokens(requested: number | undefined): number {
@@ -88,6 +97,8 @@ export function buildBriefTrace(input: {
   imageGenerations: boolean;
   temperature?: number;
   maxTokens?: number;
+  /** Extra fields hashed into promptHash (Byggval, etc.). */
+  extraHashFields?: Record<string, unknown>;
 }): BriefTrace {
   const source = normalizeBriefLogSource(input.source);
   const promptHash = createHash("sha256")
@@ -97,6 +108,7 @@ export function buildBriefTrace(input: {
         imageGenerations: input.imageGenerations,
         temperature: typeof input.temperature === "number" ? input.temperature : null,
         maxTokens: typeof input.maxTokens === "number" ? input.maxTokens : null,
+        ...(input.extraHashFields ?? {}),
       }),
       "utf8",
     )
@@ -508,6 +520,8 @@ export async function generateSiteBriefObject(
     source?: string;
     variantHints?: string;
     priorDesignContext?: string;
+    /** Extra fields hashed into the brief trace (Byggval cache identity). */
+    extraHashFields?: Record<string, unknown>;
   },
 ): Promise<SiteBriefGenerationResult> {
   const {
@@ -520,6 +534,7 @@ export async function generateSiteBriefObject(
     source,
     variantHints,
     priorDesignContext,
+    extraHashFields,
   } = input;
   const resolvedProvider = resolvePromptAssistProvider(normalizedModel);
   const logProvider = resolvedProvider;
@@ -546,6 +561,7 @@ export async function generateSiteBriefObject(
     imageGenerations,
     temperature,
     maxTokens: requestedMaxTokens,
+    extraHashFields,
   });
 
   debugLog("AI", "Brief model call started (same request, direct provider)", {

@@ -180,18 +180,25 @@ export const THEME_CLUSTERS: Record<
  * The full palette for a theme choice, or `null` when the user left Färg off (or
  * on a custom palette) and the variant/brief should keep deciding.
  *
- * `colorMode` is the Byggval Färgläge choice. On `auto` we return the light
- * palette: it is the safer default for a marketing site, and a variant whose own
- * `colorMode` is dark still carries its dark treatment through its own block.
+ * `colorMode` is the Byggval Färgläge choice. On `auto`, prefer the resolved
+ * variant's light/dark mode when one exists; otherwise light (safer default for
+ * marketing sites). Explicit light/dark always wins over the variant.
  */
 export function resolveThemePalette(
   theme: DesignTheme,
   colorMode: "auto" | "light" | "dark",
+  options?: { variantColorMode?: "light" | "dark" | "either" | null },
 ): ThemePalette | null {
   if (theme === "off" || theme === "custom") return null;
   const cluster = THEME_CLUSTERS[theme];
   if (!cluster) return null;
-  return colorMode === "dark" ? cluster.dark : cluster.light;
+  const resolvedMode: "light" | "dark" =
+    colorMode === "auto"
+      ? options?.variantColorMode === "dark"
+        ? "dark"
+        : "light"
+      : colorMode;
+  return resolvedMode === "dark" ? cluster.dark : cluster.light;
 }
 
 /** Get the color palette for a theme, or null if off/custom */

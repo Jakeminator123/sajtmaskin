@@ -64,6 +64,7 @@ export function useCreateChat(
     promptAssistDeep,
     promptAssistMode,
     buildIntent,
+    setBuildIntent,
     buildMethod,
     scaffoldMode,
     scaffoldId,
@@ -141,6 +142,14 @@ export function useCreateChat(
       // Byggval's Hemsida/App choice is a deliberate act and outranks the intent
       // derived from the landing entry the user happened to arrive through.
       const effectiveBuildIntent = initChoicesMeta.buildIntent ?? buildIntent;
+      // Persist into builder state + URL so follow-ups keep the same intent.
+      // Without this, auth-pages (allowed for both) can flip back to website.
+      if (
+        initChoicesMeta.buildIntentExplicit &&
+        (effectiveBuildIntent === "website" || effectiveBuildIntent === "app")
+      ) {
+        setBuildIntent?.(effectiveBuildIntent);
+      }
 
       const createKey = buildCreateChatKey(
         initialMessage,
@@ -175,6 +184,7 @@ export function useCreateChat(
             const p = buildBuilderParams({
               chatId: existingLock.chatId,
               project: appProjectId ?? undefined,
+              buildIntent: effectiveBuildIntent,
             });
             router.replace(`/builder?${p.toString()}`);
           }
@@ -226,10 +236,10 @@ export function useCreateChat(
       ]);
       setIsCreatingChat(true);
 
-      // Returnerar true när svaret bar en riktig artefakt (version/preview) —
-      // samma gate som SSE-vägens hasRecoveredArtifact, så Byggval-storen
-      // behandlas lika oavsett transport.
-      const handleNonStreamingCreate = async (data: Record<string, unknown>): Promise<boolean> => {
+      // Returns whether a version was persisted — Byggval resets only then.
+      const handleNonStreamingCreate = async (
+        data: Record<string, unknown>,
+      ): Promise<{ hasRecoveredArtifact: boolean; versionId: string | null }> => {
         const meta =
           data?.meta && typeof data.meta === "object"
             ? (data.meta as Record<string, unknown>)
@@ -359,6 +369,7 @@ export function useCreateChat(
           const p = buildBuilderParams({
             chatId: String(newChatId),
             project: appProjectId ?? undefined,
+            buildIntent: effectiveBuildIntent,
           });
           router.replace(`/builder?${p.toString()}`);
         }
@@ -408,10 +419,8 @@ export function useCreateChat(
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
         );
-        // Spegla SSE-vägens hasRecoveredArtifact: version, KANONISK preview
-        // (shim-URL:er räknas inte som riktig artefakt där heller),
-        // awaiting-input eller plan-artefakt. previewPending räknas INTE —
-        // det gör den inte på SSE-vägen heller.
+        // Spegla SSE-vägens "riktig artefakt"-signal för empty-output-hantering,
+        // men Byggval-reset styrs separat via version (se createProducedVersion).
         const planArtifact = normalizePlanArtifact(data.planArtifact);
         const hasPlanArtifact = Boolean(
           planArtifact && (planArtifact.steps.length > 0 || planArtifact.blockers.length > 0),
@@ -420,12 +429,15 @@ export function useCreateChat(
           resolvedDemoUrl && !isCompatibilityShimPreviewUrl(resolvedDemoUrl)
             ? resolvedDemoUrl
             : null;
-        return Boolean(
-          resolvedVersionId ||
-            canonicalDemoUrl ||
-            data.awaitingInput === true ||
-            hasPlanArtifact,
-        );
+        return {
+          hasRecoveredArtifact: Boolean(
+            resolvedVersionId ||
+              canonicalDemoUrl ||
+              data.awaitingInput === true ||
+              hasPlanArtifact,
+          ),
+          versionId: resolvedVersionId ? String(resolvedVersionId) : null,
+        };
       };
 
       let requestBody: Record<string, unknown> | null = null;
@@ -553,10 +565,9 @@ export function useCreateChat(
         }
 
         const contentType = response.headers.get("content-type") || "";
-        // Byggval nollställs bara vid en GENUINT lyckad skapning: SSE-vägen
-        // kan lösa utan throw men med tom generation (ingen version/preview/
-        // plan/awaiting-input) — då bevaras valen till nästa försök.
-        let createProducedArtifact = true;
+        // Byggval nollställs först när en riktig version landat — awaitingInput
+        // och planartefakt behåller valen till det första bygget.
+        let createdVersionId: string | null = null;
         if (contentType.includes("text/event-stream")) {
           const streamResult = await handleSseStream(
             response,
@@ -591,19 +602,19 @@ export function useCreateChat(
             },
             streamController.signal,
           );
-          createProducedArtifact = streamResult.hasRecoveredArtifact;
+          createdVersionId = streamResult.versionIdFromStream;
         } else {
           const data = await response.json();
-          createProducedArtifact = await handleNonStreamingCreate(data);
+          const nonStreamResult = await handleNonStreamingCreate(data);
+          createdVersionId = nonStreamResult.versionId;
         }
         // Brief consumed by server — clear only on success so retries can reuse it.
         if (pendingBriefRef?.current) {
           pendingBriefRef.current = null;
         }
-        // Byggval consumed — clear on success (same retry rationale as brief)
-        // so a later new chat in the same session starts from auto. The
-        // welcome panel re-reads the store on its next mount, so UI follows.
-        if (createProducedArtifact) {
+        // Byggval consumed — clear only after the first real version so plan /
+        // clarifying rounds keep scaffold, style, tone, pages, and color mode.
+        if (createdVersionId) {
           resetInitBuildChoices();
         }
       } catch (error) {
@@ -645,12 +656,12 @@ export function useCreateChat(
               );
             }
             const data = await fallbackRes.json();
-            const fallbackProducedArtifact = await handleNonStreamingCreate(data);
+            const fallbackResult = await handleNonStreamingCreate(data);
             // Lyckad skapning via fallback — samma konsumtion som happy path.
             if (pendingBriefRef?.current) {
               pendingBriefRef.current = null;
             }
-            if (fallbackProducedArtifact) {
+            if (fallbackResult.versionId) {
               resetInitBuildChoices();
             }
             return true;
@@ -716,6 +727,7 @@ export function useCreateChat(
       mutateVersions,
       buildBuilderParams,
       buildIntent,
+      setBuildIntent,
       buildMethod,
       scaffoldMode,
       scaffoldId,

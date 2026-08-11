@@ -38,7 +38,8 @@ const STYLE_CHOICE_VARIANTS: Partial<
     warm: "friendly-saas",
     corporate: "friendly-saas",
     bold: "dev-terminal",
-    minimal: "dev-terminal",
+    // minimal deliberately unmapped: the only dark/dense option is Dev Terminal,
+    // which contradicts "minimal". Matcher + styleKeywordsHint decide.
   },
   portfolio: {
     corporate: "minimal-studio",
@@ -61,7 +62,8 @@ const STYLE_CHOICE_VARIANTS: Partial<
   dashboard: {
     corporate: "glass-frosted",
     bold: "dense-terminal",
-    minimal: "dense-terminal",
+    // minimal deliberately unmapped: Dense Terminal is dense/dark/ops — the
+    // opposite of minimal. Matcher + styleKeywordsHint decide.
   },
   "app-shell": {
     corporate: "clean-utility",

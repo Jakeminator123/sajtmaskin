@@ -7,6 +7,11 @@ import {
   normalizeAssistModel,
   resolvePromptAssistProvider,
 } from "@/lib/builder/prompt-assist";
+import {
+  buildInitBuildChoicesMeta,
+  getCurrentInitBuildChoices,
+} from "@/lib/builder/init-build-choices";
+import { briefBuildChoicesFromMeta } from "@/lib/builder/brief-build-choices";
 import { ASSIST_MODEL } from "@/lib/gen/defaults";
 import { debugLog } from "@/lib/utils/debug";
 import { useCallback } from "react";
@@ -115,6 +120,9 @@ export function useInitBrief(params: PromptAssistConfig) {
       try {
         dispatchInitBriefStatus("Skapar brief och dynamiska instruktioner innan own-engine startar…");
 
+        const buildChoices = briefBuildChoicesFromMeta(
+          buildInitBuildChoicesMeta(getCurrentInitBuildChoices()),
+        );
         const res = await fetch("/api/ai/brief", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -126,6 +134,7 @@ export function useInitBrief(params: PromptAssistConfig) {
             prompt: originalPrompt,
             imageGenerations,
             source: BRIEF_SOURCE_DYNAMIC_INSTRUCTIONS,
+            ...buildChoices,
           }),
         });
 

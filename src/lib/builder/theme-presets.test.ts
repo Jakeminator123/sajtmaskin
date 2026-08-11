@@ -91,18 +91,32 @@ describe("resolveThemePalette", () => {
     expect(resolveThemePalette("blue", "light")).toEqual(THEME_CLUSTERS.blue.light);
   });
 
-  it("falls back to the light palette on auto", () => {
+  it("falls back to the light palette on auto without a variant hint", () => {
     expect(resolveThemePalette("red", "auto")).toEqual(THEME_CLUSTERS.red.light);
+  });
+
+  it("follows the variant's dark mode when Färgläge is auto", () => {
+    expect(resolveThemePalette("blue", "auto", { variantColorMode: "dark" })).toEqual(
+      THEME_CLUSTERS.blue.dark,
+    );
+    expect(resolveThemePalette("blue", "auto", { variantColorMode: "light" })).toEqual(
+      THEME_CLUSTERS.blue.light,
+    );
+    // Explicit Färgläge still wins over the variant.
+    expect(resolveThemePalette("blue", "light", { variantColorMode: "dark" })).toEqual(
+      THEME_CLUSTERS.blue.light,
+    );
   });
 
   /**
    * Regression guard for the mid-project surface flip.
    *
    * The Färgläge choice only reaches the server on init. Deriving it from the
-   * pinned variant's `colorMode` looks reasonable but breaks the exact case this
-   * asserts: Färgläge=mörkt with a LIGHT variant would re-resolve to the light
-   * palette on every follow-up and flip a dark site back. `finalize-prompts.ts`
-   * therefore renders the locked palette on init only — the mode is never guessed.
+   * pinned variant's `colorMode` on follow-ups looks reasonable but breaks the
+   * exact case this asserts: Färgläge=mörkt with a LIGHT variant would
+   * re-resolve to the light palette on every follow-up and flip a dark site
+   * back. `finalize-prompts.ts` therefore renders the locked palette on init
+   * only — the mode is never guessed on follow-ups.
    */
   it("resolves dark and light to genuinely opposite surfaces, so a wrong mode is never cosmetic", () => {
     const dark = resolveThemePalette("blue", "dark")!;
@@ -110,7 +124,7 @@ describe("resolveThemePalette", () => {
     expect(dark.background).not.toBe(light.background);
     expect(dark.foreground).not.toBe(light.foreground);
     expect(dark.card).not.toBe(light.card);
-    // `auto` must never silently mean "dark" — that is what makes guessing unsafe.
+    // Bare `auto` (no variant) must never silently mean "dark".
     expect(resolveThemePalette("blue", "auto")).toEqual(light);
   });
 });
