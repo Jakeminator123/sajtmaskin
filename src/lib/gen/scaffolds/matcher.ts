@@ -15,7 +15,7 @@
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
-import { getScaffoldById } from "./registry";
+import { getScaffoldById, getScaffoldIds } from "./registry";
 import {
   searchScaffoldsWithDiagnostics,
   type ScaffoldSearchResponse,
@@ -62,6 +62,29 @@ function countPortfolioSignalBoost(text: string): number {
 
 /** Minimum score to prefer a specific scaffold over fallbacks */
 const MIN_SCORE = 2;
+
+/**
+ * Positive capability/brief boosts may reorder scaffolds that already clear
+ * MIN_SCORE on unboosted keyword evidence. They must not promote a
+ * sub-threshold candidate across the selection floor (e.g. raw app-shell=1
+ * + needsAppShell +2 must not beat a website default).
+ * Negative amounts (penalties) always apply.
+ */
+function boostScore(
+  scores: Array<{ id: string; score: number }>,
+  id: string,
+  amount: number,
+): void {
+  const entry = scores.find((s) => s.id === id);
+  if (!entry) return;
+  if (amount < 0) {
+    entry.score += amount;
+    return;
+  }
+  if (entry.score >= MIN_SCORE) {
+    entry.score += amount;
+  }
+}
 
 export type ScaffoldSelectionMethod =
   | "off"
@@ -136,29 +159,24 @@ function buildKeywordScores(
   ];
 
   if (capabilities) {
-    const boost = (id: string, amount: number) => {
-      const entry = scores.find((s) => s.id === id);
-      if (entry) entry.score += amount;
-    };
-    if (capabilities.needsDataUI) boost("dashboard", 2);
-    if (capabilities.needsCharts) boost("dashboard", 2);
-    if (capabilities.needsAppShell) boost("app-shell", 2);
-    if (capabilities.needsAuth) boost("auth-pages", 2);
-    if (capabilities.needsEcommerce) boost("ecommerce", 2);
+    if (capabilities.needsDataUI) boostScore(scores, "dashboard", 2);
+    if (capabilities.needsCharts) boostScore(scores, "dashboard", 2);
+    if (capabilities.needsAppShell) boostScore(scores, "app-shell", 2);
+    if (capabilities.needsAuth) boostScore(scores, "auth-pages", 2);
+    if (capabilities.needsEcommerce) boostScore(scores, "ecommerce", 2);
     // Game builds belong on a minimal runtime, not a landing/marketing
     // scaffold — landing-page/saas-landing drag in hero+features+pricing
-    // sections that directly compete with the playable area. We boost
-    // app-shell and base-nextjs, and concurrently push landing/saas down
-    // so they cannot win unless the prompt has an overwhelming marketing
-    // signal (site about a game company, with a hero+features+pricing
-    // request; `landingScore` then still outpaces the -3 penalty).
+    // sections that directly compete with the playable area. Positive
+    // boosts only reorder already-eligible scores; penalties always apply
+    // so marketing scaffolds cannot win on weak game prompts. Sync path
+    // also uses `applyGameKeywordPreference` for noun/verb game gates.
     if (capabilities.needsGame) {
-      boost("app-shell", 3);
-      boost("base-nextjs", 3);
-      boost("landing-page", -3);
-      boost("saas-landing", -3);
-      boost("portfolio", -2);
-      boost("blog", -2);
+      boostScore(scores, "app-shell", 3);
+      boostScore(scores, "base-nextjs", 3);
+      boostScore(scores, "landing-page", -3);
+      boostScore(scores, "saas-landing", -3);
+      boostScore(scores, "portfolio", -2);
+      boostScore(scores, "blog", -2);
     }
   }
 
@@ -182,28 +200,18 @@ function applyBriefKeywordBoost(
     .toLowerCase();
   if (!combinedText.trim()) return scores;
 
-  const boosts = new Map<string, number>();
-  const addBoost = (id: string, amount: number) => boosts.set(id, (boosts.get(id) ?? 0) + amount);
-
-  if (countKeywordMatches(combinedText, AUTH_KEYWORDS) > 0) addBoost("auth-pages", 2);
-  if (countKeywordMatches(combinedText, ECOMMERCE_KEYWORDS) > 0) {
-    const briefHospitality = countKeywordMatches(combinedText, HOSPITALITY_SERVICE_KEYWORDS);
-    const briefStrongEcommerce = countKeywordMatches(combinedText, STRONG_ECOMMERCE_INTENT);
-    if (briefHospitality === 0 || briefStrongEcommerce > 0) {
-      addBoost("ecommerce", 2);
-    }
-  }
-  if (countKeywordMatches(combinedText, DASHBOARD_KEYWORDS) > 0) addBoost("dashboard", 2);
-  if (countKeywordMatches(combinedText, APP_KEYWORDS) > 0) addBoost("app-shell", 2);
-  if (countKeywordMatches(combinedText, BLOG_KEYWORDS) > 0) addBoost("blog", 2);
-  if (countKeywordMatches(combinedText, PORTFOLIO_KEYWORDS) > 0) addBoost("portfolio", 2);
-  if (countKeywordMatches(combinedText, SAAS_KEYWORDS) > 0) addBoost("saas-landing", 2);
-  if (countKeywordMatches(combinedText, LANDING_KEYWORDS) > 0) addBoost("landing-page", 2);
-
-  if (boosts.size === 0) return scores;
+  // Brief contributes real keyword counts (unboosted eligibility), not a
+  // flat +2 that could promote a single-token hit over MIN_SCORE. Same
+  // hospitality ecommerce veto as prompt-side scoring.
+  //
+  // Use max() rather than sum so restating a prompt token in the brief
+  // ("portal" again) cannot manufacture a second hit and cross MIN_SCORE.
+  // Complementary brief-only signals still win via Math.max(0, briefScore).
+  const briefScores = buildKeywordScores(combinedText);
+  const briefById = new Map(briefScores.map((entry) => [entry.id, entry.score]));
   return scores.map((entry) => ({
     ...entry,
-    score: entry.score + (boosts.get(entry.id) ?? 0),
+    score: Math.max(entry.score, briefById.get(entry.id) ?? 0),
   }));
 }
 
@@ -314,6 +322,47 @@ function withEmbeddingCandidate(
   return sortScoresDesc(withEmbedding).slice(0, 3);
 }
 
+/**
+ * Website is the only provisional intent that may legitimately rank an app
+ * scaffold: orchestration can promote an inherited website default to app,
+ * but only after the prompt/brief contains the same two raw app/dashboard
+ * signals required by keyword ranking. Capability boosts and embedding
+ * similarity are not promotion evidence by themselves.
+ * Explicit Byggval is clamped by `scaffoldForExplicitIntent`, while the final
+ * effective-intent invariant in orchestration covers every selection source.
+ */
+function canRankForBuildIntent(
+  scaffold: ScaffoldManifest,
+  buildIntent?: BuildIntent | null,
+  provisionalWebsiteAppEvidence = 0,
+): boolean {
+  if (buildIntent !== "website" && buildIntent !== "app" && buildIntent !== "template") {
+    return true;
+  }
+  if (scaffold.allowedBuildIntents.includes(buildIntent)) return true;
+  return (
+    buildIntent === "website" &&
+    scaffold.allowedBuildIntents.includes("app") &&
+    provisionalWebsiteAppEvidence >= MIN_SCORE
+  );
+}
+
+function eligibleKeywordScores(
+  scores: Array<{ id: string; score: number }>,
+  buildIntent?: BuildIntent | null,
+  prompt = "",
+): Array<{ id: string; score: number }> {
+  const provisionalWebsiteAppEvidence =
+    countKeywordMatches(prompt.toLowerCase(), APP_KEYWORDS) +
+    countKeywordMatches(prompt.toLowerCase(), DASHBOARD_KEYWORDS);
+  return scores.filter((entry) => {
+    const scaffold = getScaffoldById(entry.id);
+    return Boolean(
+      scaffold && canRankForBuildIntent(scaffold, buildIntent, provisionalWebsiteAppEvidence),
+    );
+  });
+}
+
 /** Picks the best scaffold from scored candidates, or null if none meets threshold */
 function pickBestScaffold(
   scores: Array<{ id: string; score: number }>,
@@ -329,11 +378,10 @@ function pickBestScaffold(
  * Fast and deterministic -- used as the primary matcher.
  */
 /**
- * Narrow game-prompt gate for the synchronous matcher. The async
- * matcher already boosts/penalises via `buildKeywordScores`
- * + `capabilities.needsGame`, but `matchScaffold()` (the synchronous
- * path used before orchestration has inferred capabilities) would
- * otherwise hand a Pac-Man / Snake prompt to `landing-page`.
+ * Narrow game-prompt gate shared by synchronous and async keyword ranking.
+ * Capability inference also boosts/penalises via `buildKeywordScores`, but
+ * the synchronous path runs before orchestration has inferred capabilities
+ * and would otherwise hand a Pac-Man / Snake prompt to `landing-page`.
  *
  * Narrow by design — pattern must name an actual game noun or verb,
  * not just the token `spel` (which collides with "tv-spel butik" or
@@ -358,6 +406,40 @@ const GAME_SYNC_PATTERN =
 const GAME_SYNC_VETO_PATTERN =
   /(?<![\p{L}\p{N}_])(?:tv-?spel\s+butik|spel[-\s]?butik|game[-\s]?store|gaming[-\s]?news|gaming[-\s]?blog|e-?sport(?:[-\s]?nyheter)?|esport[-\s]?site)(?![\p{L}\p{N}_])/iu;
 
+function applyGameKeywordPreference(
+  scores: Array<{ id: string; score: number }>,
+  prompt: string,
+  buildIntent?: BuildIntent | null,
+): Array<{ id: string; score: number }> {
+  if (!GAME_SYNC_PATTERN.test(prompt) || GAME_SYNC_VETO_PATTERN.test(prompt)) {
+    return scores;
+  }
+
+  const preferredId = buildIntent === "app" ? "app-shell" : "base-nextjs";
+  const highestScore = Math.max(...scores.map((entry) => entry.score), MIN_SCORE - 1);
+  return scores.map((entry) =>
+    entry.id === preferredId ? { ...entry, score: highestScore + 1 } : entry,
+  );
+}
+
+function rankKeywordScaffolds(
+  prompt: string,
+  scores: Array<{ id: string; score: number }>,
+  buildIntent?: BuildIntent | null,
+): {
+  scores: Array<{ id: string; score: number }>;
+  eligibleScores: Array<{ id: string; score: number }>;
+  scaffold: ScaffoldManifest;
+} {
+  const gameAdjustedScores = applyGameKeywordPreference(scores, prompt, buildIntent);
+  const eligibleScores = eligibleKeywordScores(gameAdjustedScores, buildIntent, prompt);
+  return {
+    scores: gameAdjustedScores,
+    eligibleScores,
+    scaffold: pickBestScaffold(eligibleScores) ?? defaultScaffoldForIntent(buildIntent),
+  };
+}
+
 export function matchScaffold(
   prompt: string,
   buildIntent?: BuildIntent | null,
@@ -366,77 +448,11 @@ export function matchScaffold(
     return defaultScaffoldForIntent(buildIntent);
   }
 
-  const lower = prompt.toLowerCase();
-
-  // Game intent wins before auth/ecommerce/landing — the game-specific
-  // runtime surface (state+loop+controls) is orthogonal to these scaffolds.
-  // Veto first: retail/news pages that mention game nouns are NOT game
-  // builds and must fall through to the normal keyword/embedding matcher.
-  if (GAME_SYNC_PATTERN.test(prompt) && !GAME_SYNC_VETO_PATTERN.test(prompt)) {
-    // Apps (explicit buildIntent=app) get app-shell; everything else
-    // gets base-nextjs so the game owns the route without marketing
-    // chrome fighting for attention.
-    return getScaffoldById(buildIntent === "app" ? "app-shell" : "base-nextjs");
-  }
-
-  const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
-  if (authScore >= MIN_SCORE) {
-    return getScaffoldById("auth-pages");
-  }
-
-  const ecommerceScore = countKeywordMatches(lower, ECOMMERCE_KEYWORDS);
-  if (ecommerceScore >= MIN_SCORE) {
-    const hospitalityScore = countKeywordMatches(lower, HOSPITALITY_SERVICE_KEYWORDS);
-    const strongEcommerceScore = countKeywordMatches(lower, STRONG_ECOMMERCE_INTENT);
-    if (hospitalityScore > 0 && strongEcommerceScore === 0) {
-      // Domain is hospitality/service — weak ecommerce signals (e.g. "produkt", "meny")
-      // are false positives. Fall through to landing-page matching.
-    } else {
-      return getScaffoldById("ecommerce");
-    }
-  }
-
-  if (buildIntent === "app") {
-    const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
-    const appScore = countKeywordMatches(lower, APP_KEYWORDS);
-    if (dashboardScore >= MIN_SCORE && dashboardScore >= appScore) {
-      return getScaffoldById("dashboard");
-    }
-    return getScaffoldById("app-shell");
-  }
-
-  const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
-  const appScore = countKeywordMatches(lower, APP_KEYWORDS);
-  if (appScore >= MIN_SCORE || dashboardScore >= MIN_SCORE) {
-    if (dashboardScore >= appScore) {
-      return getScaffoldById("dashboard");
-    }
-    return getScaffoldById("app-shell");
-  }
-
-  const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);
-  const portfolioScore =
-    countKeywordMatches(lower, PORTFOLIO_KEYWORDS) +
-    countPortfolioSignalBoost(lower);
-  const landingScore = countKeywordMatches(lower, LANDING_KEYWORDS);
-  const blogScore = countKeywordMatches(lower, BLOG_KEYWORDS);
-
-  const bestContent = pickBestScaffold([
-    { id: "saas-landing", score: saasScore },
-    { id: "portfolio", score: portfolioScore },
-    { id: "landing-page", score: landingScore },
-    { id: "blog", score: blogScore },
-  ]);
-
-  if (bestContent) {
-    return bestContent;
-  }
-
-  if (buildIntent === "website" || buildIntent === "template") {
-    return getScaffoldById("landing-page");
-  }
-
-  return getScaffoldById("base-nextjs");
+  return rankKeywordScaffolds(
+    prompt,
+    buildKeywordScores(prompt.toLowerCase()),
+    buildIntent,
+  ).scaffold;
 }
 
 const EMBEDDING_MIN_SCORE = 0.35;
@@ -490,6 +506,19 @@ export function defaultScaffoldForIntent(buildIntent?: BuildIntent | null): Scaf
   return getScaffoldById("base-nextjs")!;
 }
 
+/** Resolves any manifest mismatch against a final, authoritative build intent. */
+export function scaffoldForIntent(
+  scaffold: ScaffoldManifest | null | undefined,
+  buildIntent: BuildIntent | null | undefined,
+): ScaffoldManifest | null {
+  if (!scaffold) return null;
+  if (buildIntent !== "website" && buildIntent !== "app" && buildIntent !== "template") {
+    return scaffold;
+  }
+  if (scaffold.allowedBuildIntents.includes(buildIntent)) return scaffold;
+  return defaultScaffoldForIntent(buildIntent);
+}
+
 /**
  * Keep a scaffold pick honest against an EXPLICIT Hemsida/App choice.
  *
@@ -508,12 +537,7 @@ export function scaffoldForExplicitIntent(
   scaffold: ScaffoldManifest | null | undefined,
   buildIntent: BuildIntent | null | undefined,
 ): ScaffoldManifest | null {
-  if (!scaffold) return null;
-  if (buildIntent !== "website" && buildIntent !== "app" && buildIntent !== "template") {
-    return scaffold;
-  }
-  if (scaffold.allowedBuildIntents.includes(buildIntent)) return scaffold;
-  return defaultScaffoldForIntent(buildIntent);
+  return scaffoldForIntent(scaffold, buildIntent);
 }
 
 function normalizedKeywordStrength(score: number): number {
@@ -658,35 +682,45 @@ export async function matchScaffoldAuto(
         (options.queryContext.styleKeywords && options.queryContext.styleKeywords.length > 0) ||
         (options.queryContext.domainHints && options.queryContext.domainHints.length > 0)),
   );
-  // Embedding query + the sync `matchScaffold` baseline benefit from the
-  // combined prompt+brief text (a brief that explicitly says "Login page"
-  // should be allowed to promote auth-pages). The diagnostic
-  // `keywordScores` map in meta, however, must NOT double-count brief
-  // signals: when brief text is already merged into `scaffoldPrompt`,
-  // `buildKeywordScores` would count brief words and
-  // `applyBriefKeywordBoost` would then boost the same words a second
-  // time, inflating confidence and topCandidates ordering. So we score
-  // against the original prompt and let `applyBriefKeywordBoost` be the
-  // single brief-injection point in the diagnostics.
+  // Embedding query uses prompt+brief (`scaffoldPrompt`). Keyword selection
+  // scores the original prompt, then `applyBriefKeywordBoost` adds real
+  // brief keyword counts (not a flat +2) so brief evidence can meet
+  // MIN_SCORE without double-counting the same tokens via a second boost.
   const lowerPrompt = prompt.toLowerCase();
   const lowerScaffold = scaffoldPrompt.toLowerCase();
 
   const embeddingPromise = useEmbeddings
-    ? searchScaffoldsWithDiagnostics(scaffoldPrompt, 3)
+    ? searchScaffoldsWithDiagnostics(scaffoldPrompt, getScaffoldIds().length)
     : Promise.resolve(EMPTY_SEMANTIC_RESPONSE);
 
-  const keywordResult = matchScaffold(scaffoldPrompt, buildIntent);
   const baseKeywordScores = applyBriefKeywordBoost(
     buildKeywordScores(lowerPrompt, options.capabilities),
     options.queryContext,
   );
   const keywordsDisabled = isScaffoldKeywordMatchDisabled();
-  const keywordScores = keywordsDisabled
+  const unrankedKeywordScores = keywordsDisabled
     ? baseKeywordScores.map((entry) => ({ ...entry, score: 0 }))
     : baseKeywordScores;
+  const keywordRanking = keywordsDisabled
+    ? {
+        scores: unrankedKeywordScores,
+        eligibleScores: eligibleKeywordScores(
+          unrankedKeywordScores,
+          buildIntent,
+          scaffoldPrompt,
+        ),
+        scaffold: defaultScaffoldForIntent(buildIntent),
+      }
+    : rankKeywordScaffolds(scaffoldPrompt, unrankedKeywordScores, buildIntent);
+  const keywordScores = keywordRanking.scores;
+  const keywordEligibleScores = keywordRanking.eligibleScores;
+  const keywordResult = keywordRanking.scaffold;
 
-  const keywordTopCandidates = getTopKeywordCandidates(keywordScores, keywordResult?.id ?? null);
-  const maxKeywordScore = Math.max(...keywordScores.map((entry) => entry.score), 0);
+  const keywordTopCandidates = getTopKeywordCandidates(
+    keywordEligibleScores,
+    keywordResult?.id ?? null,
+  );
+  const maxKeywordScore = Math.max(...keywordEligibleScores.map((entry) => entry.score), 0);
   const keywordMethod = keywordsDisabled
     ? "default"
     : inferKeywordSelectionMethod({
@@ -726,11 +760,15 @@ export async function matchScaffoldAuto(
   const strongEcommerceScore = countKeywordMatches(lowerScaffold, STRONG_ECOMMERCE_INTENT);
   const embedBias = readEmbedVsKeywordBias();
 
+  const provisionalWebsiteAppEvidence = appScore + dashboardScore;
+  const top = semantic.results.find((result) =>
+    canRankForBuildIntent(result.scaffold, buildIntent, provisionalWebsiteAppEvidence),
+  );
   const embeddingTopResult =
-    semantic.results.length > 0
+    top
       ? {
-          id: semantic.results[0].scaffold.id,
-          score: semantic.results[0].score,
+          id: top.scaffold.id,
+          score: top.score,
         }
       : null;
 
@@ -751,14 +789,12 @@ export async function matchScaffoldAuto(
     briefContextApplied,
   };
 
-  if (semantic.results.length === 0) {
+  if (!top) {
     return {
       scaffold: keywordResult,
       meta: fallbackMeta,
     };
   }
-
-  const top = semantic.results[0]!;
 
   if (
     keywordResult &&
@@ -812,4 +848,3 @@ export async function matchScaffoldAuto(
     meta: fallbackMeta,
   };
 }
-
