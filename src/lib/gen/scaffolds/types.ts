@@ -105,14 +105,27 @@ export interface ScaffoldManifest {
   research?: ScaffoldResearchMetadata;
 }
 
-export const SCAFFOLD_CLIENT_LIST: ReadonlyArray<{ id: ScaffoldId; label: string; description: string }> = [
-  { id: "base-nextjs", label: "Base Next.js", description: "Minimal Next.js starter with Tailwind, App Router, and dark theme." },
-  { id: "landing-page", label: "Landing Page", description: "Marketing landing page with hero, services, testimonials, and CTA." },
-  { id: "saas-landing", label: "SaaS Landing", description: "SaaS marketing site with pricing tiers, features, and trial CTA." },
-  { id: "portfolio", label: "Portfolio", description: "Creative portfolio with project gallery, case studies, and contact." },
-  { id: "blog", label: "Blog", description: "Editorial blog with article list, categories, and author pages." },
-  { id: "dashboard", label: "Dashboard", description: "Analytics dashboard with charts, KPI cards, and data tables." },
-  { id: "auth-pages", label: "Auth Pages", description: "Authentication pages: sign in, sign up, and password reset." },
-  { id: "ecommerce", label: "E-handel", description: "E-commerce storefront with product grid, cart, and checkout." },
-  { id: "app-shell", label: "App Shell", description: "Application shell with sidebar, settings, and workspace layout." },
+/**
+ * Metadata-light projection of the registry for client bundles: importing
+ * `registry.ts` would pull every scaffold's `files` into the browser.
+ *
+ * `allowedBuildIntents` is mirrored from each manifest so Byggval can filter the
+ * "Typ av sajt" chips by the chosen Hemsida/App target without that import.
+ * `scaffold-client-list.test.ts` fails if the mirror drifts from the manifests.
+ */
+export const SCAFFOLD_CLIENT_LIST: ReadonlyArray<{
+  id: ScaffoldId;
+  label: string;
+  description: string;
+  allowedBuildIntents: ReadonlyArray<"website" | "app" | "template">;
+}> = [
+  { id: "base-nextjs", label: "Base Next.js", description: "Minimal Next.js starter with Tailwind, App Router, and dark theme.", allowedBuildIntents: ["website", "template"] },
+  { id: "landing-page", label: "Landing Page", description: "Marketing landing page with hero, services, testimonials, and CTA.", allowedBuildIntents: ["website", "template"] },
+  { id: "saas-landing", label: "SaaS Landing", description: "SaaS marketing site with pricing tiers, features, and trial CTA.", allowedBuildIntents: ["website", "template"] },
+  { id: "portfolio", label: "Portfolio", description: "Creative portfolio with project gallery, case studies, and contact.", allowedBuildIntents: ["website", "template"] },
+  { id: "blog", label: "Blog", description: "Editorial blog with article list, categories, and author pages.", allowedBuildIntents: ["website", "template"] },
+  { id: "dashboard", label: "Dashboard", description: "Analytics dashboard with charts, KPI cards, and data tables.", allowedBuildIntents: ["app"] },
+  { id: "auth-pages", label: "Auth Pages", description: "Authentication pages: sign in, sign up, and password reset.", allowedBuildIntents: ["website", "app", "template"] },
+  { id: "ecommerce", label: "E-handel", description: "E-commerce storefront with product grid, cart, and checkout.", allowedBuildIntents: ["website", "template"] },
+  { id: "app-shell", label: "App Shell", description: "Application shell with sidebar, settings, and workspace layout.", allowedBuildIntents: ["app"] },
 ] as const;

@@ -17,6 +17,19 @@ import {
 import { APP_ROUTE_PATTERNS, WEBSITE_ROUTE_PATTERNS } from "./route-patterns";
 import type { PlannedRoute, RoutePlan, RoutePlanSiteType, RoutePlanSource } from "./route-plan-types";
 
+/**
+ * Hard ceiling on how many routes a single generation round may plan.
+ *
+ * Byggval's slider tops out at the same number, but three other sources could
+ * each push past it on their own: prompt text ("5 sidor"), a Deep Brief with up
+ * to ten pages, and scaffold defaults. The ceiling therefore lives here, after
+ * every source has been merged, rather than in any one of them.
+ *
+ * Follow-ups measure only NEW routes against it. A site is allowed to grow past
+ * three pages across several rounds — it just cannot get there in one.
+ */
+export const MAX_ROUTES_PER_GENERATION = 3;
+
 function inferSiteType(buildIntent: BuildIntent, routeCount: number): RoutePlanSiteType {
   if (buildIntent === "app") return "app-shell";
   if (routeCount <= 1) return "one-page";
@@ -209,7 +222,15 @@ export function buildRoutePlan(params: {
     pageCountHint <= 20
       ? pageCountHint
       : null;
-  const earlyExplicitPageCount = structuredPageCount ?? detectExplicitPageCount(prompt);
+  const requestedExplicitPageCount = structuredPageCount ?? detectExplicitPageCount(prompt);
+  // Clamp to the per-round ceiling before anything reads the value, so neither
+  // `reason` nor `siteType` can promise more pages than the cap below allows.
+  // Follow-ups keep the raw number: their ceiling counts new routes only, and
+  // the frozen set is not known to be under it.
+  const earlyExplicitPageCount =
+    requestedExplicitPageCount !== null && !useFollowUpFreeze
+      ? Math.min(requestedExplicitPageCount, MAX_ROUTES_PER_GENERATION)
+      : requestedExplicitPageCount;
   const pathsBeforeScaffoldDefaults = new Set(
     routes.map((route) => normalizeRoutePath(route.path)),
   );
@@ -228,8 +249,9 @@ export function buildRoutePlan(params: {
   // patterns produce more. Trim happens in two passes:
   //   pass 1: drop routes flagged required:false (rare — most adders use true)
   //   pass 2: drop routes that are not from the brief and not "/"
-  // Brief-origin routes are preserved even if the total still exceeds the
-  // cap (logged via `reason` so the LLM resolves the conflict).
+  // Brief-origin routes are exempt here, but no longer survive the run: the
+  // per-round ceiling below trims whatever is still over the stricter of the cap
+  // and the ceiling, brief or not.
   let trimmedRouteCount = 0;
   if (!useFollowUpFreeze && earlyExplicitPageCount !== null && routes.length > earlyExplicitPageCount) {
     for (let i = routes.length - 1; i >= 0 && routes.length > earlyExplicitPageCount; i -= 1) {
@@ -254,6 +276,39 @@ export function buildRoutePlan(params: {
   // variants and the LLM emits inconsistent links across them.
   dedupePlannedRoutesInPlaceByLocale(routes, locale);
 
+  // Per-round ceiling. Runs last so it sees the final path set: locale dedupe may
+  // already have removed a pair.
+  //
+  // The effective limit is the STRICTER of the ceiling and an explicit page count.
+  // The explicit-count trim above deliberately exempts brief routes, so a
+  // five-page brief against "2 sidor" reaches this point with five routes; taking
+  // only the ceiling would settle on three and quietly ignore the stricter choice.
+  //
+  // Trimming from the end respects the insertion order used above — brief pages,
+  // then explicitly named pages, then keyword patterns, then scaffold defaults —
+  // so the least user-driven routes go first. Unlike the explicit-count trim,
+  // brief routes are NOT exempt here: the ceiling is absolute, and a ten-page
+  // brief would otherwise walk straight through it.
+  const effectiveRouteCeiling =
+    !useFollowUpFreeze && earlyExplicitPageCount !== null
+      ? Math.min(MAX_ROUTES_PER_GENERATION, earlyExplicitPageCount)
+      : MAX_ROUTES_PER_GENERATION;
+  const frozenRoutePaths = useFollowUpFreeze
+    ? new Set(normalizedExistingPaths)
+    : new Set<string>();
+  let newRouteCount = routes.filter(
+    (route) => !frozenRoutePaths.has(normalizeRoutePath(route.path)),
+  ).length;
+  let ceilingTrimmedCount = 0;
+  for (let i = routes.length - 1; i >= 0 && newRouteCount > effectiveRouteCeiling; i -= 1) {
+    const normalizedPath = normalizeRoutePath(routes[i]!.path);
+    if (normalizedPath === "/") continue;
+    if (frozenRoutePaths.has(normalizedPath)) continue;
+    routes.splice(i, 1);
+    newRouteCount -= 1;
+    ceilingTrimmedCount += 1;
+  }
+
   const sources: RoutePlanSource[] = [];
   if (hasBriefRoutes) sources.push("brief");
   if (promptAddedRoutes || sources.length === 0) sources.push("prompt");
@@ -268,7 +323,7 @@ export function buildRoutePlan(params: {
   const explicitPageCountActive = explicitPageCount !== null && explicitPageCount > routes.length && !useFollowUpFreeze;
   const explicitPageCountTrimmed = trimmedRouteCount > 0;
 
-  const reason = useFollowUpFreeze
+  const baseReason = useFollowUpFreeze
     ? explicitRouteRemovals.size > 0
       ? "Follow-up mode preserves existing App Router routes by default, while explicit route-removal intent can remove selected pages."
       : "Follow-up mode preserves existing App Router routes by default; only explicit user intent should add new pages."
@@ -287,6 +342,11 @@ export function buildRoutePlan(params: {
     : routes.length > 1
       ? "Prompt analysis suggests a multi-route build; keep real App Router pages instead of collapsing everything into one page."
       : "Prompt analysis suggests a compact default route structure unless the model has strong evidence to add more pages.";
+
+  const reason =
+    ceilingTrimmedCount > 0
+      ? `${baseReason} Per-round page ceiling of ${effectiveRouteCeiling} applied: trimmed ${ceilingTrimmedCount} route(s). Remaining pages can be added in a later round.`
+      : baseReason;
 
   const effectiveRouteCount = explicitPageCountActive
     ? Math.max(routes.length, explicitPageCount)

@@ -397,6 +397,53 @@ export function extractStyleKeywordsHintFromMeta(meta: unknown): string[] {
   return keywords;
 }
 
+/**
+ * Byggval "Ton": structured keywords so the choice reaches the variant scorer.
+ * Same shape and bounds as the style hints.
+ */
+export function extractToneKeywordsHintFromMeta(meta: unknown): string[] {
+  if (!isRecord(meta) || !Array.isArray(meta.toneKeywordsHint)) return [];
+  const seen = new Set<string>();
+  const keywords: string[] = [];
+  for (const entry of meta.toneKeywordsHint) {
+    if (typeof entry !== "string") continue;
+    const trimmed = entry.trim();
+    if (!trimmed || trimmed.length > 40) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    keywords.push(trimmed);
+    if (keywords.length >= 8) break;
+  }
+  return keywords;
+}
+
+/**
+ * Byggval "Stil" as the raw choice. Kept as an enum rather than a variant id so
+ * the client never names a variant: the scaffold is often still unresolved at
+ * request time (site type = Auto), and only the server can map the pair.
+ */
+export function extractStyleChoiceHintFromMeta(
+  meta: unknown,
+): "warm" | "corporate" | "bold" | "editorial" | "minimal" | null {
+  if (!isRecord(meta)) return null;
+  const raw = asTrimmedString(meta.styleChoiceHint);
+  return raw === "warm" ||
+    raw === "corporate" ||
+    raw === "bold" ||
+    raw === "editorial" ||
+    raw === "minimal"
+    ? raw
+    : null;
+}
+
+/** Byggval "Färgläge": picks which palette a color cluster resolves to. */
+export function extractColorModeHintFromMeta(meta: unknown): "light" | "dark" | null {
+  if (!isRecord(meta)) return null;
+  const raw = asTrimmedString(meta.colorModeHint);
+  return raw === "light" || raw === "dark" ? raw : null;
+}
+
 export function extractScaffoldSettingsFromMeta(meta: unknown): {
   scaffoldMode: "auto" | "manual" | "off";
   scaffoldId: string | null;

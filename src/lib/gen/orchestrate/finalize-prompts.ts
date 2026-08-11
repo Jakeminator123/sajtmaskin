@@ -5,10 +5,17 @@
  */
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import {
+  normalizeDesignTheme,
+  resolveThemePalette,
+  THEME_CLUSTERS,
+  type ThemeClusterId,
+} from "@/lib/builder/theme-presets";
+import {
   buildVariantTemplateReferenceAttachments,
   getVariantById,
   resolveVariantTemplateInspiration,
 } from "../scaffold-variants";
+import { resolveVariantForStyleChoice } from "../scaffold-variants/style-choice-variants";
 import { resolveScaffoldVariant } from "./scaffold-variant-resolver";
 import { lockedVariantForFollowUp } from "../scaffold-variants/matcher";
 import {
@@ -83,7 +90,20 @@ export async function finalizeOrchestrationPrompts(
     (!variantLockReleased && input.persistedVariantId && scaffoldIdForVariant
       ? getVariantById(scaffoldIdForVariant, input.persistedVariantId)
       : null);
+  // Byggval "Stil" → a pinned variant, resolved against the FINAL scaffold.
+  //
+  // Deliberately ahead of `persistedVariant` on init: create-chat pre-matches a
+  // variant from a keyword-only scaffold guess and passes it as
+  // `persistedVariantId`, so leaving the pin behind it would let that guess beat
+  // the user's explicit choice. Follow-ups are excluded — a frozen project keeps
+  // its style, and the pin has already become the persisted variant by then.
+  const styleChoiceVariant =
+    resolvedMode === "init"
+      ? resolveVariantForStyleChoice(scaffoldIdForVariant, input.styleChoiceHint)
+      : null;
+
   let resolvedVariant =
+    styleChoiceVariant ??
     persistedVariant ??
     (await resolveScaffoldVariant(
       scaffoldIdForVariant,
@@ -94,6 +114,7 @@ export async function finalizeOrchestrationPrompts(
       // Byggval (init controls): structured style keywords participate in
       // the fresh pick. No-op on follow-ups (persisted/locked variant wins).
       input.styleKeywordsHint,
+      input.toneKeywordsHint,
     ));
 
   // ── 5-3 freeze-enforcement (variant) ──
@@ -160,6 +181,32 @@ export async function finalizeOrchestrationPrompts(
 
   const finalBuildIntent: BuildIntent = base.buildSpec.buildIntent;
 
+  // Byggval "Färg" → the cluster's full surface palette, locked over the
+  // variant's own `themeTokens`.
+  //
+  // INIT ONLY, and that restriction is load-bearing. Resolving the palette needs
+  // the Färgläge choice, which only Byggval sends — but `designTheme` rides along
+  // on every follow-up. A later round would therefore re-resolve the cluster
+  // without knowing the mode. Guessing it from the pinned variant's `colorMode`
+  // is not a fix: pick Färgläge=mörkt with a light variant (minimal → the light
+  // `minimalist-mag`) and every follow-up would re-lock the LIGHT palette and
+  // flip a dark site back mid-project.
+  //
+  // On a follow-up the palette is already baked into the project's own
+  // `app/globals.css`, which the model receives as file context, so nothing is
+  // lost by staying quiet. `themeColors` still locks primary/secondary/accent
+  // through Visual Identity, and that lock is mode-agnostic — it cannot flip a
+  // surface. Persisting the resolved mode in the orchestration snapshot would let
+  // the block render on follow-ups too; that is a schema change, not a fix here.
+  const normalizedDesignTheme = normalizeDesignTheme(designThemePreset);
+  const lockedColorPalette =
+    resolvedMode === "init"
+      ? resolveThemePalette(normalizedDesignTheme, input.colorModeHint ?? "auto")
+      : null;
+  const lockedColorPaletteLabel = lockedColorPalette
+    ? (THEME_CLUSTERS[normalizedDesignTheme as ThemeClusterId]?.label ?? null)
+    : null;
+
   const dynamicOpts: DynamicContextOptions = {
     intent: finalBuildIntent,
     brief: brief as DynamicContextOptions["brief"],
@@ -174,6 +221,8 @@ export async function finalizeOrchestrationPrompts(
     tier3ApprovedProviders: input.dossierProviderHints,
     componentPalette,
     designThemePreset,
+    lockedColorPalette,
+    lockedColorPaletteLabel,
     designReferences,
     buildSpec: base.buildSpec,
     customInstructions,

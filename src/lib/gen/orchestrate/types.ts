@@ -94,6 +94,30 @@ export interface OrchestrationInput {
    */
   styleKeywordsHint?: string[];
   /**
+   * Byggval (init controls): the user picked Hemsida/App themselves, so
+   * `buildIntent` is a decision rather than an inherited default. Suppresses the
+   * website→app promotion in `resolveBuildIntentPromotion`.
+   */
+  buildIntentExplicit?: boolean;
+  /**
+   * Byggval (init controls): structured tone keywords, merged with the brief's
+   * `toneAndVoice` in scaffold-variant matching. Init-only.
+   */
+  toneKeywordsHint?: string[];
+  /**
+   * Byggval (init controls): the raw style choice. On init it resolves to a
+   * concrete variant id and PINS it, so the choice cannot lose the scorer's
+   * keyword contest against the user's own prompt wording. Init-only —
+   * follow-ups keep the frozen variant.
+   */
+  styleChoiceHint?: string | null;
+  /**
+   * Byggval (init controls): ljust/mörkt. Selects which palette a color cluster
+   * resolves to. Absent on follow-ups, where the frozen variant's own
+   * `colorMode` stands in.
+   */
+  colorModeHint?: "light" | "dark" | null;
+  /**
    * Byggval (init controls): structured complexity choice, forwarded to
    * `deriveBuildSpec` (`complex` → premium-golv + heavy context-bias,
    * `simple` → lättare context-bias, `medium` → no-op). Init-only.

@@ -10,6 +10,7 @@ import type { ScaffoldManifest } from "../scaffolds/types";
 import {
   getScaffoldById,
   matchScaffoldAuto,
+  scaffoldForExplicitIntent,
   type ScaffoldSelectionMeta,
 } from "../scaffolds";
 import {
@@ -269,6 +270,29 @@ export async function resolveOrchestrationBase(
     resolvedScaffold = autoSelection.scaffold;
     scaffoldSelection = autoSelection.meta;
 
+    // An explicit Byggval Hemsida/App choice also binds the SCAFFOLD, not just the
+    // intent — see `scaffoldForExplicitIntent` for why. The create-chat pre-match
+    // applies the same helper, so the Deep Brief and codegen agree on which
+    // scaffold survived.
+    if (input.buildIntentExplicit === true && resolvedScaffold) {
+      const intentSafeScaffold = scaffoldForExplicitIntent(resolvedScaffold, buildIntent);
+      if (intentSafeScaffold?.id !== resolvedScaffold.id) {
+        console.info("[scaffold] scaffold_rejected_for_explicit_intent", {
+          chatId: input.chatId ?? null,
+          buildIntent,
+          rejectedScaffoldId: resolvedScaffold.id,
+          fallbackScaffoldId: intentSafeScaffold?.id ?? null,
+        });
+        resolvedScaffold = intentSafeScaffold;
+        scaffoldSelection = {
+          ...scaffoldSelection,
+          selectedScaffold: intentSafeScaffold?.id ?? null,
+          selectionMethod: "keyword",
+          selectionConfidence: "medium",
+        };
+      }
+    }
+
     if (scaffoldSelection.semanticUnavailableReason) {
       console.info("[scaffold] scaffold_semantic_unavailable", {
         reason: scaffoldSelection.semanticUnavailableReason,
@@ -346,6 +370,7 @@ export async function resolveOrchestrationBase(
     resolvedMode,
     persistedScaffoldId,
     ignorePersistedScaffoldForMatch,
+    buildIntentExplicit: input.buildIntentExplicit === true,
   });
   const intentPromotionBlockedForFollowUp =
     intentPromotionDecision.blockedForFollowUp;

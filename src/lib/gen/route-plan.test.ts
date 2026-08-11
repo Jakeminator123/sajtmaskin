@@ -5,6 +5,7 @@ import {
   hasExplicitAddRouteIntent,
   neutralizeExplicitPageNameLiterals,
 } from "./route-plan/planning-helpers";
+import { MAX_ROUTES_PER_GENERATION } from "./route-plan/route-plan-builder";
 import {
   buildRoutePlan,
   deduplicateLocaleAlternateRoutes,
@@ -845,6 +846,144 @@ describe("buildRoutePlan — explicit page count", () => {
     expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
     expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
     expect(plan.routes.length).toBeLessThanOrEqual(1);
+  });
+});
+
+// Per-round ceiling (ägarbeslut 2026-08-11). Byggval's slider already stopped
+// at three, but a brief, prompt text and scaffold defaults could each exceed it
+// independently — so the ceiling is enforced after every source has merged.
+describe("buildRoutePlan — per-round page ceiling", () => {
+  const websiteBase = {
+    buildIntent: "website" as const,
+    resolvedScaffold: null,
+    brief: undefined as undefined,
+  };
+
+  it("exposes the ceiling as a constant", () => {
+    expect(MAX_ROUTES_PER_GENERATION).toBe(3);
+  });
+
+  it("trims a brief with more pages than the ceiling", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/om", name: "Om oss", purpose: "Företaget" },
+          { path: "/tjanster", name: "Tjänster", purpose: "Utbud" },
+          { path: "/priser", name: "Priser", purpose: "Prislista" },
+          { path: "/kontakt", name: "Kontakt", purpose: "Kontaktuppgifter" },
+        ],
+      },
+    });
+    expect(plan.routes).toHaveLength(MAX_ROUTES_PER_GENERATION);
+    expect(plan.routes.some((r) => r.path === "/")).toBe(true);
+    expect(plan.reason).toMatch(/ceiling/i);
+  });
+
+  it("keeps the earliest brief pages and drops the trailing ones", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/om", name: "Om oss", purpose: "Företaget" },
+          { path: "/tjanster", name: "Tjänster", purpose: "Utbud" },
+          { path: "/priser", name: "Priser", purpose: "Prislista" },
+        ],
+      },
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/", "/om", "/tjanster"]);
+  });
+
+  it("clamps an explicit page count above the ceiling instead of promising more", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg en sajt med kontakt, blogg, priser och om oss. 6 sidor.",
+    });
+    expect(plan.routes.length).toBeLessThanOrEqual(MAX_ROUTES_PER_GENERATION);
+    expect(plan.explicitPageCount).toBe(MAX_ROUTES_PER_GENERATION);
+    expect(plan.reason).not.toMatch(/6 pages/);
+  });
+
+  // The explicit-count trim exempts brief routes, so a five-page brief against
+  // "2 sidor" reaches the ceiling pass with five routes. Applying only the
+  // ceiling would settle on three and quietly ignore the stricter choice.
+  it("honors a page hint that is STRICTER than the ceiling, even for brief pages", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen.",
+      pageCountHint: 2,
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/om", name: "Om oss", purpose: "Företaget" },
+          { path: "/tjanster", name: "Tjänster", purpose: "Utbud" },
+          { path: "/priser", name: "Priser", purpose: "Prislista" },
+          { path: "/kontakt", name: "Kontakt", purpose: "Kontaktuppgifter" },
+        ],
+      },
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/", "/om"]);
+    expect(plan.reason).toMatch(/ceiling of 2/i);
+  });
+
+  it("still applies the ceiling when the page hint is looser than it", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Bygg enligt briefen. 6 sidor.",
+      brief: {
+        pages: [
+          { path: "/", name: "Hem", purpose: "Landningssida" },
+          { path: "/om", name: "Om oss", purpose: "Företaget" },
+          { path: "/tjanster", name: "Tjänster", purpose: "Utbud" },
+          { path: "/priser", name: "Priser", purpose: "Prislista" },
+        ],
+      },
+    });
+    expect(plan.routes).toHaveLength(MAX_ROUTES_PER_GENERATION);
+  });
+
+  it("caps scaffold defaults stacked on top of prompt patterns", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Webbutik med kontaktsida, blogg och prissida.",
+      resolvedScaffold: getScaffoldById("ecommerce"),
+    });
+    expect(plan.routes.length).toBeLessThanOrEqual(MAX_ROUTES_PER_GENERATION);
+  });
+
+  it("never trims frozen existing routes on a follow-up, even above the ceiling", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Putsa typografin lite.",
+      generationMode: "followUp",
+      existingRoutePaths: ["/", "/om", "/tjanster", "/priser", "/kontakt"],
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual([
+      "/",
+      "/om",
+      "/tjanster",
+      "/priser",
+      "/kontakt",
+    ]);
+  });
+
+  it("caps how many NEW routes one follow-up round may add", () => {
+    const existing = ["/", "/tjanster"];
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Lägg till en ny sida för kontakt, en blogg, priser och om oss.",
+      generationMode: "followUp",
+      existingRoutePaths: existing,
+    });
+    const added = plan.routes.filter((r) => !existing.includes(r.path));
+    expect(added.length).toBe(MAX_ROUTES_PER_GENERATION);
+    for (const path of existing) {
+      expect(plan.routes.some((r) => r.path === path)).toBe(true);
+    }
   });
 });
 

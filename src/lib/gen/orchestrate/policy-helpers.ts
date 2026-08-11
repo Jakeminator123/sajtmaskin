@@ -23,6 +23,25 @@ export interface BuildIntentPromotionInput {
   resolvedMode: "init" | "followUp";
   persistedScaffoldId: string | null | undefined;
   ignorePersistedScaffoldForMatch: boolean;
+  /**
+   * The user picked Hemsida/App themselves in Byggval, rather than the intent
+   * being inherited from whichever landing entry they arrived through.
+   *
+   * Promotion exists for the inherited case: `website` was then a default, so an
+   * auto-matched dashboard was better evidence of what the user wanted. An
+   * explicit "Hemsida" is not a default, and overriding it would let a stray
+   * "dashboard" in the prompt hand back an app the user just declined.
+   *
+   * INIT-SCOPED. Byggval sends the flag on the create request only; it is not
+   * stored in the orchestration snapshot, so follow-ups arrive without it. Neutral
+   * follow-ups are covered anyway by `blockedForFollowUp` (a persisted non-app
+   * scaffold already blocks promotion). A `clear-redesign` follow-up is NOT: it
+   * releases the scaffold lock on purpose, so app vocabulary in the redesign
+   * prompt can still promote. That matches the behaviour before this flag existed
+   * — carrying the choice across rounds means persisting it in the snapshot, which
+   * is a schema decision rather than a tweak here.
+   */
+  buildIntentExplicit?: boolean;
 }
 
 export interface BuildIntentPromotionDecision {
@@ -39,6 +58,7 @@ export function resolveBuildIntentPromotion(
 ): BuildIntentPromotionDecision {
   const wouldPromote =
     input.buildIntent === "website" &&
+    input.buildIntentExplicit !== true &&
     input.scaffoldMode === "auto" &&
     isAppScaffold(input.resolvedScaffoldId) &&
     input.selectionConfidence !== "low";

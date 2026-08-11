@@ -138,6 +138,9 @@ export function useCreateChat(
         effectiveScaffoldMode = "manual";
         effectiveScaffoldId = initChoicesMeta.scaffoldId;
       }
+      // Byggval's Hemsida/App choice is a deliberate act and outranks the intent
+      // derived from the landing entry the user happened to arrive through.
+      const effectiveBuildIntent = initChoicesMeta.buildIntent ?? buildIntent;
 
       const createKey = buildCreateChatKey(
         initialMessage,
@@ -149,7 +152,8 @@ export function useCreateChat(
           scaffoldMode: effectiveScaffoldMode,
           scaffoldId: effectiveScaffoldId,
           buildMethod,
-          buildIntent,
+          buildIntent: effectiveBuildIntent,
+          buildIntentExplicit: Boolean(initChoicesMeta.buildIntentExplicit),
           planMode: options.planMode,
           promptAssistMode,
           promptAssistModel,
@@ -158,6 +162,9 @@ export function useCreateChat(
           // Byggval-hints skiljer jobb åt även när text/system är identiska.
           pageCountHint: initChoicesMeta.pageCountHint ?? null,
           styleKeywordsHint: initChoicesMeta.styleKeywordsHint ?? null,
+          styleChoiceHint: initChoicesMeta.styleChoiceHint ?? null,
+          toneKeywordsHint: initChoicesMeta.toneKeywordsHint ?? null,
+          colorModeHint: initChoicesMeta.colorModeHint ?? null,
         },
       );
       const existingLock = getActiveCreateChatLock(createKey);
@@ -459,7 +466,8 @@ export function useCreateChat(
         if (promptAssistModel) promptMeta.promptAssistModel = promptAssistModel;
         if (typeof promptAssistDeep === "boolean") promptMeta.promptAssistDeep = promptAssistDeep;
         if (promptAssistMode) promptMeta.promptAssistMode = promptAssistMode;
-        if (buildIntent) promptMeta.buildIntent = buildIntent;
+        if (effectiveBuildIntent) promptMeta.buildIntent = effectiveBuildIntent;
+        if (initChoicesMeta.buildIntentExplicit) promptMeta.buildIntentExplicit = true;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
         if (effectiveScaffoldMode && effectiveScaffoldMode !== "off") promptMeta.scaffoldMode = effectiveScaffoldMode;
         if (effectiveScaffoldId) promptMeta.scaffoldId = effectiveScaffoldId;
@@ -472,6 +480,15 @@ export function useCreateChat(
         }
         if (initChoicesMeta.styleKeywordsHint?.length) {
           promptMeta.styleKeywordsHint = initChoicesMeta.styleKeywordsHint;
+        }
+        if (initChoicesMeta.styleChoiceHint) {
+          promptMeta.styleChoiceHint = initChoicesMeta.styleChoiceHint;
+        }
+        if (initChoicesMeta.toneKeywordsHint?.length) {
+          promptMeta.toneKeywordsHint = initChoicesMeta.toneKeywordsHint;
+        }
+        if (initChoicesMeta.colorModeHint) {
+          promptMeta.colorModeHint = initChoicesMeta.colorModeHint;
         }
         if (initChoicesMeta.complexityHint) {
           promptMeta.complexityHint = initChoicesMeta.complexityHint;

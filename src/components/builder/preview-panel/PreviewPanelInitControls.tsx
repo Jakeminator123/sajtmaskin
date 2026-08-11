@@ -5,7 +5,9 @@ import { useRef, useState } from "react";
 import {
   MAX_PAGE_COUNT_CHOICE,
   getCurrentInitBuildChoices,
+  isSiteTypeAllowedForTarget,
   setCurrentInitBuildChoices,
+  type BuildTargetChoice,
   type ColorModeChoice,
   type ComplexityChoice,
   type InitBuildChoices,
@@ -21,13 +23,23 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
+const BUILD_TARGET_OPTIONS: Array<{ value: BuildTargetChoice; label: string }> = [
+  { value: "auto", label: "Auto" },
+  { value: "website", label: "Hemsida" },
+  { value: "app", label: "App" },
+];
+
 const SITE_TYPE_OPTIONS: Array<{ value: SiteTypeChoice; label: string }> = [
   { value: "auto", label: "Auto" },
   { value: "landing", label: "Landningssida" },
+  { value: "saas", label: "SaaS" },
   { value: "portfolio", label: "Portfolio" },
   { value: "blog", label: "Blogg" },
   { value: "shop", label: "Webbutik" },
+  { value: "starter", label: "Enkel start" },
   { value: "dashboard", label: "Dashboard" },
+  { value: "appshell", label: "App-skal" },
+  { value: "auth", label: "Inloggning" },
 ];
 
 const COMPLEXITY_OPTIONS: Array<{ value: ComplexityChoice; label: string }> = [
@@ -174,11 +186,36 @@ export function PreviewPanelInitControls({
         ? "1 sida"
         : `${choices.pageCount} sidor`;
 
+  // Hemsida and App do not share scaffolds: the matcher's app branch only ever
+  // reaches Dashboard/App-skal, so offering Landningssida under App would be a
+  // chip the engine refuses to honor.
+  const siteTypeOptions = SITE_TYPE_OPTIONS.filter((option) =>
+    isSiteTypeAllowedForTarget(option.value, choices.buildTarget),
+  );
+
+  // Switching target can strand the current site type on a hidden chip. Reset it
+  // in the same update so the store never holds a combination the UI stopped
+  // showing (`buildInitBuildChoicesMeta` drops it too, as a second line of
+  // defence for a store rehydrated from an older session).
+  const applyBuildTarget = (buildTarget: BuildTargetChoice) => {
+    const siteType = isSiteTypeAllowedForTarget(choices.siteType, buildTarget)
+      ? choices.siteType
+      : ("auto" as SiteTypeChoice);
+    applyChoices({ buildTarget, siteType });
+  };
+
   return (
     <div className="grid gap-4 text-left">
       <ChoiceChipRow
+        label="Hemsida eller app"
+        options={BUILD_TARGET_OPTIONS}
+        value={choices.buildTarget}
+        onChange={applyBuildTarget}
+      />
+
+      <ChoiceChipRow
         label="Typ av sajt"
-        options={SITE_TYPE_OPTIONS}
+        options={siteTypeOptions}
         value={choices.siteType}
         onChange={(siteType) => applyChoices({ siteType })}
       />
@@ -229,7 +266,7 @@ export function PreviewPanelInitControls({
 
       {onDesignThemeChange ? (
         <ChoiceChipRow
-          label="Tema"
+          label="Färg"
           options={THEME_CHIP_OPTIONS}
           value={designTheme ?? "off"}
           onChange={(theme) => onDesignThemeChange(theme)}

@@ -23,6 +23,12 @@ export async function resolveScaffoldVariant(
    * merged after the brief-derived keywords (deduped, case-insensitive).
    */
   extraStyleKeywords?: string[],
+  /**
+   * Byggval (init controls): structured tone keywords, merged after the brief's
+   * `toneAndVoice` the same way. Before this existed the tone chips reached the
+   * model only as a Swedish copy directive, so they never touched the scorer.
+   */
+  extraToneKeywords?: string[],
 ): Promise<ScaffoldVariant | null> {
   const briefStyleKeywords = Array.isArray(
     (brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection
@@ -51,7 +57,7 @@ export async function resolveScaffoldVariant(
     styleKeywords.push(trimmed);
   }
 
-  const toneKeywords = Array.isArray(
+  const briefToneKeywords = Array.isArray(
     (brief as { toneAndVoice?: unknown } | null)?.toneAndVoice,
   )
     ? ((brief as { toneAndVoice?: unknown[] } | null)?.toneAndVoice ?? []).filter(
@@ -59,6 +65,20 @@ export async function resolveScaffoldVariant(
           typeof keyword === "string" && keyword.trim().length > 0,
       )
     : [];
+
+  const seenToneKeywords = new Set(
+    briefToneKeywords.map((keyword) => keyword.trim().toLowerCase()),
+  );
+  const toneKeywords = [...briefToneKeywords];
+  for (const keyword of extraToneKeywords ?? []) {
+    if (typeof keyword !== "string") continue;
+    const trimmed = keyword.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seenToneKeywords.has(key)) continue;
+    seenToneKeywords.add(key);
+    toneKeywords.push(trimmed);
+  }
 
   return pickScaffoldVariantAsync({
     prompt,
