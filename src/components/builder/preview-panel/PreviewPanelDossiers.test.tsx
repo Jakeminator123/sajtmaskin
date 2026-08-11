@@ -1253,6 +1253,48 @@ describe("PreviewPanelDossiers", () => {
     });
   });
 
+  // Bugbot follow-up (second pass on this diff): handleSaveCustomKeys
+  // dispatches dispatchProjectEnvVarsUpdated with the OLD versionId to
+  // restart THAT version's preview, so this receipt is just as version-scoped
+  // as the dossier-row one above and must not survive a version switch.
+  it("clears the custom-key save confirmation when only the version changes (not just the chat)", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/env-vars")) {
+        return Response.json({ success: true });
+      }
+      if (url.includes("/api/dossiers/catalog")) {
+        return Response.json(catalogResponse());
+      }
+      if (url.includes("/dossiers")) {
+        return Response.json(wiredResponse());
+      }
+      return Response.json({}, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { rerender } = render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel(["MY_CUSTOM_SERVICE_KEY"]);
+    });
+
+    const input = await screen.findByLabelText("Värde för MY_CUSTOM_SERVICE_KEY");
+    fireEvent.change(input, { target: { value: "real-secret-value" } });
+    fireEvent.click(screen.getByRole("button", { name: /Spara och aktivera/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Sparat\. Previewn startas om med de nya värdena\./)).toBeTruthy();
+    });
+
+    // Same chat, new version: the custom-key receipt must not survive.
+    rerender(<PreviewPanelDossiers chatId="chat_1" versionId="ver_2" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Sparat\. Previewn startas om med de nya värdena\./)).toBeNull();
+    });
+  });
+
   // Lucka 3 (ägarbeslut 2026-08-11): `builder-shell-content/` weaves these
   // counts into the F3-trigger's success title — this is the ONLY fetch of
   // `/dossiers`'s counts; `PreviewPanelF3Trigger` must never fetch it again.

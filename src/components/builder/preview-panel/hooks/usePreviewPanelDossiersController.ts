@@ -413,9 +413,14 @@ export function usePreviewPanelDossiersController({
   // view, and an already-shown receipt must not linger under it. Unlike the
   // secret drafts above, this is a completed-save receipt, not user input —
   // safe to drop on every version change, even within the same chat.
+  // customSaveConfirmation is the same kind of receipt for "Egna nycklar"
+  // (handleSaveCustomKeys dispatches dispatchProjectEnvVarsUpdated with the
+  // OLD versionId to restart that version's preview), so it must drop here
+  // too (Bugbot follow-up on this diff) — not just on chatId change below.
   useEffect(() => {
     setSaveConfirmation(null);
     pendingSaveConfirmationRef.current = null;
+    setCustomSaveConfirmation(false);
   }, [chatId, versionId]);
 
   const handleSaveKeys = useCallback(
