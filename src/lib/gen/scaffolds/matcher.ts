@@ -63,6 +63,29 @@ function countPortfolioSignalBoost(text: string): number {
 /** Minimum score to prefer a specific scaffold over fallbacks */
 const MIN_SCORE = 2;
 
+/**
+ * Positive capability/brief boosts may reorder scaffolds that already clear
+ * MIN_SCORE on unboosted keyword evidence. They must not promote a
+ * sub-threshold candidate across the selection floor (e.g. raw app-shell=1
+ * + needsAppShell +2 must not beat a website default).
+ * Negative amounts (penalties) always apply.
+ */
+function boostScore(
+  scores: Array<{ id: string; score: number }>,
+  id: string,
+  amount: number,
+): void {
+  const entry = scores.find((s) => s.id === id);
+  if (!entry) return;
+  if (amount < 0) {
+    entry.score += amount;
+    return;
+  }
+  if (entry.score >= MIN_SCORE) {
+    entry.score += amount;
+  }
+}
+
 export type ScaffoldSelectionMethod =
   | "off"
   | "manual"
@@ -136,29 +159,24 @@ function buildKeywordScores(
   ];
 
   if (capabilities) {
-    const boost = (id: string, amount: number) => {
-      const entry = scores.find((s) => s.id === id);
-      if (entry) entry.score += amount;
-    };
-    if (capabilities.needsDataUI) boost("dashboard", 2);
-    if (capabilities.needsCharts) boost("dashboard", 2);
-    if (capabilities.needsAppShell) boost("app-shell", 2);
-    if (capabilities.needsAuth) boost("auth-pages", 2);
-    if (capabilities.needsEcommerce) boost("ecommerce", 2);
+    if (capabilities.needsDataUI) boostScore(scores, "dashboard", 2);
+    if (capabilities.needsCharts) boostScore(scores, "dashboard", 2);
+    if (capabilities.needsAppShell) boostScore(scores, "app-shell", 2);
+    if (capabilities.needsAuth) boostScore(scores, "auth-pages", 2);
+    if (capabilities.needsEcommerce) boostScore(scores, "ecommerce", 2);
     // Game builds belong on a minimal runtime, not a landing/marketing
     // scaffold — landing-page/saas-landing drag in hero+features+pricing
-    // sections that directly compete with the playable area. We boost
-    // app-shell and base-nextjs, and concurrently push landing/saas down
-    // so they cannot win unless the prompt has an overwhelming marketing
-    // signal (site about a game company, with a hero+features+pricing
-    // request; `landingScore` then still outpaces the -3 penalty).
+    // sections that directly compete with the playable area. Positive
+    // boosts only reorder already-eligible scores; penalties always apply
+    // so marketing scaffolds cannot win on weak game prompts. Sync path
+    // also uses `applyGameKeywordPreference` for noun/verb game gates.
     if (capabilities.needsGame) {
-      boost("app-shell", 3);
-      boost("base-nextjs", 3);
-      boost("landing-page", -3);
-      boost("saas-landing", -3);
-      boost("portfolio", -2);
-      boost("blog", -2);
+      boostScore(scores, "app-shell", 3);
+      boostScore(scores, "base-nextjs", 3);
+      boostScore(scores, "landing-page", -3);
+      boostScore(scores, "saas-landing", -3);
+      boostScore(scores, "portfolio", -2);
+      boostScore(scores, "blog", -2);
     }
   }
 
@@ -182,28 +200,18 @@ function applyBriefKeywordBoost(
     .toLowerCase();
   if (!combinedText.trim()) return scores;
 
-  const boosts = new Map<string, number>();
-  const addBoost = (id: string, amount: number) => boosts.set(id, (boosts.get(id) ?? 0) + amount);
-
-  if (countKeywordMatches(combinedText, AUTH_KEYWORDS) > 0) addBoost("auth-pages", 2);
-  if (countKeywordMatches(combinedText, ECOMMERCE_KEYWORDS) > 0) {
-    const briefHospitality = countKeywordMatches(combinedText, HOSPITALITY_SERVICE_KEYWORDS);
-    const briefStrongEcommerce = countKeywordMatches(combinedText, STRONG_ECOMMERCE_INTENT);
-    if (briefHospitality === 0 || briefStrongEcommerce > 0) {
-      addBoost("ecommerce", 2);
-    }
-  }
-  if (countKeywordMatches(combinedText, DASHBOARD_KEYWORDS) > 0) addBoost("dashboard", 2);
-  if (countKeywordMatches(combinedText, APP_KEYWORDS) > 0) addBoost("app-shell", 2);
-  if (countKeywordMatches(combinedText, BLOG_KEYWORDS) > 0) addBoost("blog", 2);
-  if (countKeywordMatches(combinedText, PORTFOLIO_KEYWORDS) > 0) addBoost("portfolio", 2);
-  if (countKeywordMatches(combinedText, SAAS_KEYWORDS) > 0) addBoost("saas-landing", 2);
-  if (countKeywordMatches(combinedText, LANDING_KEYWORDS) > 0) addBoost("landing-page", 2);
-
-  if (boosts.size === 0) return scores;
+  // Brief contributes real keyword counts (unboosted eligibility), not a
+  // flat +2 that could promote a single-token hit over MIN_SCORE. Same
+  // hospitality ecommerce veto as prompt-side scoring.
+  //
+  // Use max() rather than sum so restating a prompt token in the brief
+  // ("portal" again) cannot manufacture a second hit and cross MIN_SCORE.
+  // Complementary brief-only signals still win via Math.max(0, briefScore).
+  const briefScores = buildKeywordScores(combinedText);
+  const briefById = new Map(briefScores.map((entry) => [entry.id, entry.score]));
   return scores.map((entry) => ({
     ...entry,
-    score: entry.score + (boosts.get(entry.id) ?? 0),
+    score: Math.max(entry.score, briefById.get(entry.id) ?? 0),
   }));
 }
 
@@ -674,16 +682,10 @@ export async function matchScaffoldAuto(
         (options.queryContext.styleKeywords && options.queryContext.styleKeywords.length > 0) ||
         (options.queryContext.domainHints && options.queryContext.domainHints.length > 0)),
   );
-  // Embedding query + the sync `matchScaffold` baseline benefit from the
-  // combined prompt+brief text (a brief that explicitly says "Login page"
-  // should be allowed to promote auth-pages). The diagnostic
-  // `keywordScores` map in meta, however, must NOT double-count brief
-  // signals: when brief text is already merged into `scaffoldPrompt`,
-  // `buildKeywordScores` would count brief words and
-  // `applyBriefKeywordBoost` would then boost the same words a second
-  // time, inflating confidence and topCandidates ordering. So we score
-  // against the original prompt and let `applyBriefKeywordBoost` be the
-  // single brief-injection point in the diagnostics.
+  // Embedding query uses prompt+brief (`scaffoldPrompt`). Keyword selection
+  // scores the original prompt, then `applyBriefKeywordBoost` adds real
+  // brief keyword counts (not a flat +2) so brief evidence can meet
+  // MIN_SCORE without double-counting the same tokens via a second boost.
   const lowerPrompt = prompt.toLowerCase();
   const lowerScaffold = scaffoldPrompt.toLowerCase();
 

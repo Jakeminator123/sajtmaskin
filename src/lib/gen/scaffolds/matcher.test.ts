@@ -147,11 +147,43 @@ describe("matchScaffold", () => {
       capabilities: inferCapabilities(prompt),
     });
 
-    expect(result.meta.keywordScores["app-shell"]).toBeGreaterThanOrEqual(2);
+    // Single raw APP_KEYWORD ("portal") stays sub-threshold; needsAppShell
+    // must not inflate it across MIN_SCORE.
+    expect(result.meta.keywordScores["app-shell"]).toBeLessThan(2);
     expect(result.scaffold?.allowedBuildIntents).toContain("website");
     expect(result.scaffold?.id).not.toBe("app-shell");
     expect(result.meta.selectedScaffold).toBe(result.scaffold?.id);
     expect(result.meta.topCandidates.some((candidate) => candidate.id === "app-shell")).toBe(false);
+  });
+
+  it("does not let capability/brief boosts promote app-shell from a portal+dashboard website prompt", async () => {
+    // Raw app+dashboard evidence is 1+1 (enough for canRankForBuildIntent),
+    // but unboosted app-shell/dashboard scores stay at 1. Capability boosts
+    // and brief restatements must not push either over MIN_SCORE.
+    const prompt = "hemsida med portal och dashboard";
+    const capabilities = {
+      ...inferCapabilities(prompt),
+      needsAppShell: true,
+      needsDataUI: true,
+    };
+
+    const result = await matchScaffoldAuto(prompt, "website", {
+      useEmbeddings: false,
+      capabilities,
+      queryContext: {
+        // Restates the same single app/dashboard tokens — must not act like
+        // the old flat +2 brief boost that promoted sub-threshold scores.
+        domainHints: ["portal", "dashboard"],
+        briefPages: [{ name: "Portal", purpose: "Dashboard home" }],
+      },
+    });
+
+    expect(result.meta.keywordScores["app-shell"]).toBeLessThan(2);
+    expect(result.meta.keywordScores.dashboard).toBeLessThan(2);
+    expect(result.scaffold?.id).not.toBe("app-shell");
+    expect(result.scaffold?.id).not.toBe("dashboard");
+    expect(result.scaffold?.allowedBuildIntents).toContain("website");
+    expect(result.meta.selectedScaffold).toBe(result.scaffold?.id);
   });
 
   it("does NOT reroute a 'tv-spel butik' retail prompt to base-nextjs", () => {
@@ -279,8 +311,10 @@ describe("matchScaffold", () => {
       needsEcommerce: true,
     };
 
+    // Ecommerce must already clear MIN_SCORE on unboosted keywords; the
+    // capability boost may then reorder it above auth-pages.
     const result = await matchScaffoldAuto(
-      "Skapa login och signup för en webshop.",
+      "Skapa login och signup för en webshop med varukorg.",
       "website",
       { useEmbeddings: false, capabilities },
     );
