@@ -134,7 +134,64 @@ export function buildStructuredOriginDiagnostics(
       lines.push(`${location} [${diagnostic.source}] ${diagnostic.message}`);
     }
   }
-  return lines;
+  return collapseCascadeDiagnostics(lines);
+}
+
+/** Shape emitted by the structured-tsc branch above. */
+const STRUCTURED_TSC_LINE_RE =
+  /^(?<file>\S+):(?<line>\d+):(?<column>\d+) (?:error|warning) (?<code>TS\d+): (?<message>.+)$/;
+
+const MAX_LISTED_REPEAT_LINES = 6;
+
+/**
+ * Collapse cascade repeats so the root cause is not drowned out.
+ *
+ * One wrong schema param fans out through inferred types: prod chat
+ * `fc0f053b` (2026-08-11) had a single Zod 3 `errorMap` on line 76 of
+ * `components/contact-form.tsx` produce the IDENTICAL TS2322 message on 8
+ * other lines (196, 210, 238, 252 …). The repair prompt presented all of them
+ * as equal-weight primary diagnostics, the fixer chased the symptoms, and
+ * server repair gave up after 2 passes.
+ *
+ * Same (file, TS-code, message) at different lines keeps only its FIRST
+ * occurrence, annotated with the repeat count/locations and a nudge toward
+ * the first error in the file. Also flattens the typecheck/build overlap —
+ * `next build` re-runs tsc, so both failed checks usually contain the same
+ * lines. Non-tsc-shaped lines pass through untouched.
+ */
+export function collapseCascadeDiagnostics(lines: string[]): string[] {
+  const out: string[] = [];
+  const byKey = new Map<string, { index: number; seenLines: Set<string>; extraLines: string[] }>();
+
+  for (const line of lines) {
+    const match = line.match(STRUCTURED_TSC_LINE_RE);
+    if (!match?.groups) {
+      out.push(line);
+      continue;
+    }
+    const { file, code, message } = match.groups;
+    const lineNumber = match.groups.line;
+    const key = `${file}|${code}|${message}`;
+    const seen = byKey.get(key);
+    if (!seen) {
+      byKey.set(key, { index: out.length, seenLines: new Set([lineNumber]), extraLines: [] });
+      out.push(line);
+      continue;
+    }
+    if (seen.seenLines.has(lineNumber)) continue; // typecheck/build overlap
+    seen.seenLines.add(lineNumber);
+    seen.extraLines.push(lineNumber);
+  }
+
+  for (const { index, extraLines } of byKey.values()) {
+    if (extraLines.length === 0) continue;
+    const listed = extraLines.slice(0, MAX_LISTED_REPEAT_LINES).join(", ");
+    const suffix = extraLines.length > MAX_LISTED_REPEAT_LINES ? ", …" : "";
+    out[index] =
+      `${out[index]} [same error repeats at line${extraLines.length === 1 ? "" : "s"} ${listed}${suffix} — likely a cascade from one root cause; fix the FIRST error in this file and the repeats usually disappear]`;
+  }
+
+  return out;
 }
 
 export function parseFilesFromErrorLines(lines: string[]): string[] {

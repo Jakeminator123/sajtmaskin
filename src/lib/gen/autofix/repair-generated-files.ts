@@ -2,6 +2,7 @@ import type { CodeFile } from "@/lib/gen/parser";
 import {
   buildProjectExportIndex,
   buildProjectModuleExportIndex,
+  buildProjectTypeOnlyExportIndex,
   fixImportedDeclarationConflicts,
   fixLocalDefaultImportMismatches,
   fixLocalNamedImportDefaultMismatches,
@@ -13,6 +14,7 @@ import {
 import { fixCnImportConflict } from "@/lib/gen/autofix/rules/metadata-import-fixer";
 import { fixAsConstBooleanKeys } from "@/lib/gen/autofix/rules/as-const-boolean-keys";
 import { fixR3FVectorTuples } from "@/lib/gen/autofix/rules/r3f-vector-tuple-fixer";
+import { fixZodV4Params } from "@/lib/gen/autofix/rules/zod-v4-params-fixer";
 import { fixTypeOnlyImports } from "@/lib/gen/autofix/rules/type-only-import-fixer";
 import { fixValueUsedFromTypeImport } from "@/lib/gen/autofix/rules/value-used-from-type-import-fixer";
 import { fixFontImport } from "@/lib/gen/autofix/rules/font-import-fixer";
@@ -49,6 +51,7 @@ export function repairGeneratedFiles(files: CodeFile[]): {
 } {
   const fixes: FixEntryDraft[] = [];
   const exportIndex = buildProjectExportIndex(files);
+  const typeOnlyExportIndex = buildProjectTypeOnlyExportIndex(files);
   const moduleExportIndex = buildProjectModuleExportIndex(files);
 
   const repairedFiles = files.map((file) => {
@@ -253,6 +256,14 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       }
     }
 
+    const zodParamsResult = fixZodV4Params(content, file.path);
+    if (zodParamsResult.fixed) {
+      content = zodParamsResult.code;
+      for (const fix of zodParamsResult.fixes) {
+        fixes.push(fix);
+      }
+    }
+
     const typeOnlyResult = fixTypeOnlyImports(content, file.path);
     if (typeOnlyResult.fixed) {
       content = typeOnlyResult.code;
@@ -371,7 +382,12 @@ export function repairGeneratedFiles(files: CodeFile[]): {
       }
     }
 
-    const symbolResult = fixMissingLocalSymbolImports(content, file.path, exportIndex);
+    const symbolResult = fixMissingLocalSymbolImports(
+      content,
+      file.path,
+      exportIndex,
+      typeOnlyExportIndex,
+    );
     if (symbolResult.fixed) {
       content = symbolResult.code;
       fixes.push({
