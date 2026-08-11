@@ -46,7 +46,7 @@ Noll nya begrepp: bara orden som redan finns i `dossier-axes.ts`/`dossier-overvi
 | Lucka 2 — vilken version statusen gäller | **Ja**, med klockslag | Popoverns huvudrad, `DossiersPopoverView.tsx:362-366` | Raden `Version: N kopplade · M fristående` — dubblerar fliken `Inkopplade (N)` och katalogfiltren |
 | Lucka 3 — F3-utfall på användarspråk | **Ja, fulla varianten** med räknare | F3-statusraden; strängarna ägs av `PreviewPanelF3Trigger.tsx:238-241` | Kravytans tomma läge (`F3RequirementsSurface.tsx:135-147`); `ReleaseGate var redan godkänd` slås ihop med `ReleaseGate godkänd` |
 | Ö2 — tooltipen pekar på en borttagen yta | **Ja**, i samma PR | `use-deploy-domain.ts:57` (+ `useBuilderDeployActions.ts:286`, `:344`) | Formuleringen "Projektets miljövariabler" — panelen togs bort 2026-07-22, nycklar bor i Byggblock |
-| Ö6 — död sträng `Verify-lane OK` | **Nej**, till backloggen | — | `SM-032` i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) |
+| Ö6 — död sträng `Verify-lane OK` | **Nej**, till backloggen | — | `SM-031` i [`BUG-SWARM-BACKLOG.md`](../../../../BUG-SWARM-BACKLOG.md) |
 
 Endast framgångstitlarna i lucka 3 skrivs om. Felutfallen (`ReleaseGate behöver åtgärdas`) behåller
 sin formulering — de länkar till diagnostiken, och där är grindens namn rätt ord.
