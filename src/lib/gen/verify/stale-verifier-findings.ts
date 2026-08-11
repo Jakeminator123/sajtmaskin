@@ -380,13 +380,14 @@ function isPackageJsonClassFinding(finding: VerifierBlockingFinding): boolean {
 /**
  * Return one self-contained package.json claim, or null for compound prose.
  * Class re-checks may only drop what they can fully prove resolved; a second
- * sentence/clause after `;` or a sentence-ending period is an unknown claim
- * and therefore remains fail-closed.
+ * sentence/clause before `package.json`, after `;`, or after a sentence-ending
+ * period is an unknown claim and therefore remains fail-closed.
  */
 function extractSinglePackageJsonClaim(detail: string): string | null {
   const stripped = stripManifestJustificationClauses(detail);
   const packageIndex = stripped.search(/package\.json/i);
   if (packageIndex < 0) return null;
+  if (stripped.slice(0, packageIndex).trim().length > 0) return null;
   const claimAndTail = stripped.slice(packageIndex).trim();
   const boundaryMatches = [
     claimAndTail.indexOf(";"),

@@ -375,6 +375,29 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
     expect(result.dropped).toHaveLength(0);
   });
 
+  it("keeps an independent failure that precedes a satisfied package.json claim", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail: "The app crashes at runtime, and package.json omits next.",
+    };
+    const result = dropResolvedVerifierFindings(
+      [finding],
+      [packageJsonFile(), PAGE_FILE],
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
+  it("still drops a satisfied package.json claim with leading whitespace only", () => {
+    const finding = {
+      id: "missing-framework-dependencies",
+      detail: "  \n\tpackage.json omits next.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile()]);
+    expect(result.dropped).toHaveLength(1);
+    expect(result.kept).toHaveLength(0);
+  });
+
   it("prod 72cbc979 v4: drops a satisfied manifest claim whose code-file mention is only justification (', although …')", () => {
     // Verifier phrasing from the 2026-08-11 F3 run: the file appears in a
     // subordinate clause that motivates the claim. The merged manifest has
