@@ -324,6 +324,25 @@ const PACKAGE_CLASS_ID_RE = /(?:package|dependenc|version|script|build|manifest)
 const MANIFEST_JUSTIFICATION_CLAUSE_RE =
   /[,;—–]\s+(?:although|though|even though|because|since|so(?:\s+that)?)\b(?:(?!,\s+(?:and|but|or)\b)(?:[^.;]|\.(?!\s|$)))*[.;]?/gi;
 
+/**
+ * Markers of an INDEPENDENT defect claim inside a justification clause
+ * (bugbot medium, round 3): "…, although app/page.tsx also calls an
+ * `undefined` helper" is not mere motivation — the clause carries its own
+ * blocker that the manifest re-check can never confirm. A clause containing
+ * any of these words is NOT stripped, so the code-file mention keeps the
+ * finding outside the package class (kept blocking, fail-closed). The prod
+ * justifications this feature exists for ("imports Next.js and React
+ * modules", "cannot build or run") contain none of them.
+ */
+const INDEPENDENT_CLAIM_MARKER_RE =
+  /(?:undefined|undeclared|not\s+(?:defined|declared|imported)|missing|never|without|unused|unresolved|syntax|crash|throw|error|broken|invalid|incorrect|wrong|fake|dead)/i;
+
+function stripManifestJustificationClauses(detail: string): string {
+  return detail.replace(MANIFEST_JUSTIFICATION_CLAUSE_RE, (clause) =>
+    INDEPENDENT_CLAIM_MARKER_RE.test(clause) ? clause : "",
+  );
+}
+
 function isPackageJsonClassFinding(finding: VerifierBlockingFinding): boolean {
   if (!/package\.json/i.test(finding.detail)) return false;
   if (!PACKAGE_CLASS_ID_RE.test(finding.id)) return false;
@@ -332,10 +351,7 @@ function isPackageJsonClassFinding(finding: VerifierBlockingFinding): boolean {
   // manifest, so it stays outside this class. Justification clauses are
   // stripped first (see MANIFEST_JUSTIFICATION_CLAUSE_RE): a file mentioned
   // only as motivation must not veto the manifest re-check.
-  const detailWithoutJustification = finding.detail.replace(
-    MANIFEST_JUSTIFICATION_CLAUSE_RE,
-    "",
-  );
+  const detailWithoutJustification = stripManifestJustificationClauses(finding.detail);
   return !FILE_PATH_RE.test(detailWithoutJustification);
 }
 

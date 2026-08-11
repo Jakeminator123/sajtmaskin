@@ -400,6 +400,19 @@ describe("dropResolvedVerifierFindings — package.json class", () => {
     expect(result.kept).toHaveLength(0);
   });
 
+  it("bugbot round 3: keeps a finding whose although-clause carries an independent code-claim", () => {
+    // Klausulen är inte ren motivering — den påstår ett eget fel ("undefined
+    // helper") som manifest-omkontrollen aldrig kan bekräfta löst.
+    const finding = {
+      id: "incomplete-package-manifest",
+      detail:
+        "package.json lacks `next`, although src/app/page.tsx also calls an undefined helper.",
+    };
+    const result = dropResolvedVerifierFindings([finding], [packageJsonFile(), PAGE_FILE]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped).toHaveLength(0);
+  });
+
   it("bugbot high: keeps a compound finding whose so-clause is followed by a coordinated code-file claim", () => {
     // ", so …" får inte svälja en självständig ", and <kodfil> …"-sats — då
     // skulle ett blandat fynd omklassas till manifest-only och släppas trots
