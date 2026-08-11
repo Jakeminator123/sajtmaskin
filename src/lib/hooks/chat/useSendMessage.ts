@@ -303,6 +303,8 @@ export function useSendMessage(
       // aborts (we cancelled this controller) vs server/provider-initiated
       // aborts (controller still un-aborted but `fetch` rejected).
       let streamController: AbortController | null = null;
+      // Hoisted for the /messages fallback path (same Byggval reset rule).
+      const isFirstBuildAfterGate = !activeVersionId;
 
       try {
         // Follow-ups are delta operations; keep the user's wording intact.
@@ -316,7 +318,6 @@ export function useSendMessage(
         // First codegen after plan/contract: chat exists but no version yet.
         // Re-forward Byggval hints so the answering turn does not ignore the
         // welcome-panel choices kept in the store until the first version.
-        const isFirstBuildAfterGate = !activeVersionId;
         const activeInitChoices = isFirstBuildAfterGate
           ? getCurrentInitBuildChoices()
           : null;
