@@ -414,6 +414,7 @@
           "codeEntry": { "type": "array", "items": { "type": "string" } },
           "authEnv": { "type": "array", "items": { "type": "string" } },
           "defaultModel": { "type": "string" },
+          "followUpModel": { "type": "string" },
           "fallbackModels": { "type": "array", "items": { "type": "string" } },
           "visionModels": { "type": "array", "items": { "type": "string" } },
           "envOverrides": { "type": "object", "additionalProperties": { "type": "string" } },
