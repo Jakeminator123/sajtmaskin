@@ -74,6 +74,7 @@ const SELF_LOG = {
 };
 
 beforeEach(() => {
+  process.env.VERCEL_LOG_DRAIN_ENABLED = "true";
   process.env.VERCEL_LOG_DRAIN_SECRET = SECRET;
   process.env.VERCEL_PROJECT_ID = "prj_test";
   query.mockReset();
@@ -83,6 +84,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  delete process.env.VERCEL_LOG_DRAIN_ENABLED;
   delete process.env.VERCEL_LOG_DRAIN_SECRET;
   delete process.env.VERCEL_PROJECT_ID;
   vi.restoreAllMocks();
@@ -142,13 +144,50 @@ describe("POST /api/drains/vercel", () => {
     expect(query).not.toHaveBeenCalled();
   });
 
+  it("refuses signed deliveries when the kill switch is off (default)", async () => {
+    delete process.env.VERCEL_LOG_DRAIN_ENABLED;
+
+    const res = await POST(makeRequest(JSON.stringify([ERROR_LOG])));
+
+    expect(res.status).toBe(410);
+    await expect(res.json()).resolves.toMatchObject({ error: "Log drain disabled" });
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("refuses signed deliveries when ENABLED is anything other than exact true", async () => {
+    process.env.VERCEL_LOG_DRAIN_ENABLED = "1";
+
+    const res = await POST(makeRequest(JSON.stringify([ERROR_LOG])));
+
+    expect(res.status).toBe(410);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("still answers the ownership probe when the kill switch is off", async () => {
+    delete process.env.VERCEL_LOG_DRAIN_ENABLED;
+    delete process.env.VERCEL_LOG_DRAIN_SECRET;
+
+    const res = await POST(
+      new Request("http://localhost/api/drains/vercel", {
+        method: "POST",
+        body: "",
+        headers: { "x-vercel-verify": "probe-while-disabled" },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-vercel-verify")).toBe("probe-while-disabled");
+  });
+
   it("refuses to accept anything when no secret is configured", async () => {
     delete process.env.VERCEL_LOG_DRAIN_SECRET;
 
     const res = await POST(makeRequest(JSON.stringify([ERROR_LOG])));
 
-    expect(res.status).toBe(503);
-    expect(res.headers.get("Retry-After")).toBe("300");
+    expect(res.status).toBe(410);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "Log drain secret not configured",
+    });
     expect(query).not.toHaveBeenCalled();
   });
 

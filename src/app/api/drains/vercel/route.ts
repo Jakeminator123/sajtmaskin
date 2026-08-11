@@ -11,25 +11,39 @@ import {
 export const runtime = "nodejs";
 
 /**
+ * True only when `VERCEL_LOG_DRAIN_ENABLED` is exactly `"true"`.
+ * Default off — a mis-pointed drain must not start accepting signed traffic
+ * just because a secret exists in env.
+ */
+export function isVercelLogDrainEnabled(
+  value: string | undefined = process.env.VERCEL_LOG_DRAIN_ENABLED,
+): boolean {
+  return value === "true";
+}
+
+/**
  * Receiver for Vercel Log Drains (see `src/lib/vercel-log-drain.ts`).
  *
- * This path is what goes in the drain's **URL** field in the Vercel dashboard
- * (Team → Settings → Drains → Add Drain → Logs → Custom Endpoint):
+ * Dashboard URL (not an env var):
  *
  *     https://sajtmaskin.vercel.app/api/drains/vercel
  *
- * The dialog's "Signature Verification Secret" must be stored as
- * `VERCEL_LOG_DRAIN_SECRET` in Vercel env, otherwise this route rejects every
- * delivery — a drain endpoint with no secret is an open write surface for
- * anyone who guesses the URL.
+ * Two env gates, both required for signed deliveries:
+ * 1. `VERCEL_LOG_DRAIN_ENABLED=true` — explicit opt-in kill switch (default off)
+ * 2. `VERCEL_LOG_DRAIN_SECRET` — Signature Verification Secret from the drain dialog
  *
- * Kept lines land in `vercel_log_drain_events` and are read back via
- * `dump-logs.mjs --kinds=drain` (backoffice Logg-export, `/logg` step 3c).
+ * When either gate is off the route answers **410 Gone** (not 503). Retries from
+ * a misconfigured same-app drain caused a multi-million invocation feedback loop
+ * on 2026-08-11; 410 tells Vercel to stop and mark the drain errored instead of
+ * hammering us. The unsigned `x-vercel-verify` ownership probe still returns 200
+ * so the dashboard Verify/Create handshake works before you flip the switch.
+ *
+ * Kept lines land in `vercel_log_drain_events` (`dump-logs.mjs --kinds=drain`).
  */
 export async function POST(req: Request) {
   // Vercel Custom Endpoint ownership probe: unsigned POST with
   // `x-vercel-verify`. Echo the header and 200 so dashboard Verify/Create works
-  // before the signed secret is wired. Real deliveries always carry a signature.
+  // before ENABLED + secret are wired. Real deliveries always carry a signature.
   const verifyToken = req.headers.get("x-vercel-verify");
   if (verifyToken && !req.headers.get("x-vercel-signature")) {
     return new NextResponse("OK", {
@@ -38,14 +52,26 @@ export async function POST(req: Request) {
     });
   }
 
+  if (!isVercelLogDrainEnabled()) {
+    // 410 (not 503): intentionally off. Do not invite retries — a same-app drain
+    // that keeps retrying recreates the 2026-08-11 feedback loop.
+    return NextResponse.json(
+      {
+        error: "Log drain disabled",
+        stored: false,
+        hint: "Set VERCEL_LOG_DRAIN_ENABLED=true in production and redeploy to accept deliveries.",
+      },
+      { status: 410 },
+    );
+  }
+
   const secret = process.env.VERCEL_LOG_DRAIN_SECRET;
   if (!secret) {
-    // 503 rather than 500: this is a configuration state, and answering
-    // non-2xx keeps Vercel retrying instead of spending the delivery on a
-    // receiver that cannot verify it.
+    // Same 410 rationale as the ENABLED gate: missing secret is a config state
+    // that retries will not fix until a human deploys the env var.
     return NextResponse.json(
-      { error: "Log drain not configured", stored: false },
-      { status: 503, headers: { "Retry-After": "300" } },
+      { error: "Log drain secret not configured", stored: false },
+      { status: 410 },
     );
   }
 

@@ -28,41 +28,50 @@ Mottagaren fail-closed-filtrerar på `VERCEL_PROJECT_ID` och kastar rader från 
 projekt — men felkonfigurerad bred drain är fortfarande onödig trafik.
 
 **Verify/Create-probe:** osignerad POST med `x-vercel-verify` får `200` + samma header
-ekoas tillbaka (Vercels ownership-handshake). Signerade leveranser kräver
-`VERCEL_LOG_DRAIN_SECRET`.
+ekoas tillbaka (Vercels ownership-handshake) **även när kill-switchen är av**. Signerade
+leveranser kräver **både** `VERCEL_LOG_DRAIN_ENABLED=true` och `VERCEL_LOG_DRAIN_SECRET`.
 
 ### Vad som är env och vad som inte är det
 
 | Namn | Rätt? | Var |
 |---|---|---|
+| `VERCEL_LOG_DRAIN_ENABLED=true` | **Ja** — kill-switch, måste vara exakt `true` | Vercel **production**-env |
 | `VERCEL_LOG_DRAIN_SECRET=<secret från dialogen>` | **Ja** | Vercel **production**-env (valfritt i `.env.local` bara om du testar mottagaren lokalt) |
 | `DRAIN=…` | **Nej** — koden läser inte det | — |
 | `POST_DRAIN=https://…` | **Nej** — URL:en är **inte** en env-variabel | Vercel-dialogen → fältet **URL** |
 
 URL:en pekar drainen mot mottagaren. Secreten verifierar `x-vercel-signature`.
-Blanda inte ihop dem, och döp inte om secreten till `DRAIN`.
+`ENABLED` är den manuella brytaren. Blanda inte ihop dem, och döp inte om secreten
+till `DRAIN`.
 
-### Secreten hör hemma i Vercel-env, inte i git
+### Secreten + kill-switchen hör hemma i Vercel-env, inte i git
 
 Det genererade värdet är den **enda** grinden mot att vem som helst som gissar
-URL:en kan skriva rader i vår databas. Lägg det som `VERCEL_LOG_DRAIN_SECRET`
-(från länkad repo-rot, inte en worktree utan `.vercel/`):
+URL:en kan skriva rader i vår databas — men **utan** `ENABLED=true` tar vi ändå
+inte emot något (410). Lägg båda (från länkad repo-rot, inte en worktree utan
+`.vercel/`):
 
 ```powershell
 # från C:\Users\jakem\dev\projects\sajtmaskin (huvudcheckouten):
 $secret = Read-Host "Klistra in Signature Verification Secret"
 $secret | vercel env add VERCEL_LOG_DRAIN_SECRET production --yes
+"true" | vercel env add VERCEL_LOG_DRAIN_ENABLED production --yes
 ```
 
 Sedan **en ny production-deploy**, annars ser den körande funktionen inte
-variabeln. Ordningen spelar roll: skapar du drainen innan variabeln finns svarar
-routen `503` på varje leverans (den vägrar ta emot osignerbar data). Det är
-ofarligt — Vercel försöker igen — men "Test"-knappen i dialogen kommer att se
-misslyckad ut tills variabeln är på plats och deployad.
+variablerna. Rekommenderad ordning:
 
-Sätt den **bara i production**. Preview-deployer behöver den inte, och varje
-extra miljö är ett extra ställe secreten kan läcka från. Lägg **inte**
-`POST_DRAIN` i Vercel-env — det gör ingenting.
+1. Deploya koden (ENABLED unset → default av).
+2. Skapa drainen i dashboarden (ownership-proben fungerar utan ENABLED).
+3. Sätt `VERCEL_LOG_DRAIN_SECRET` + `VERCEL_LOG_DRAIN_ENABLED=true`.
+4. Deploya igen — först då accepteras signerade leveranser.
+
+Saknas ENABLED eller secret svarar routen `410 Gone` (inte `503`). Det är medvetet:
+efter incidenten 2026-08-11 vill vi att Vercel **slutar retrysa** och markerar
+drainen som errored, inte att den fortsätter hamra oss.
+
+Sätt dem **bara i production**. Preview-deployer behöver dem inte. Lägg **inte**
+`POST_DRAIN` eller `DRAIN` i Vercel-env — det gör ingenting.
 
 ### Testa själv med en signerad request
 
@@ -133,25 +142,36 @@ på `log_timestamp` mot körningens `created_at`, eller på `request_id`.
 
 ## Sådant som förvånar
 
-**Drainen matar sig själv.** Vercel levererar även loggarna från
-`/api/drains/vercel`, som ju är en vanlig funktion. Mottagaren kastar alltid de
-raderna (`isSelfDrainLog`), så tabellen förblir ren — men *anropen* fortsätter:
-varje leverans föder en ny requestrad som kommer tillbaka i nästa batch. Det
-blir en tunn, stabil ström (en in → en ut, inte exponentiellt), inte en storm.
-Stör den ändå: peka drainen på ett separat Vercel-projekt i stället.
+**Same-app-drain kan bli en kostnadsbomb.** 2026-08-11 pekade `loggning-drain`
+mot `https://sajtmaskin.vercel.app/api/drains/vercel` innan mottagaren var
+färdig/aktiverad. Varje leverans skapade nya function-loggar som drainen skickade
+tillbaka → ~2,8M invocations på en timme. **Fixen är att radera drainen i
+dashboarden**, inte bara hoppas på kodfilter. Kill-switchen
+(`VERCEL_LOG_DRAIN_ENABLED`) + `410` gör att en felaktigt återskapad drain
+snabbt går till errored i stället för att retrysa i evighet — men den stoppar
+inte anropen förrän Vercel ger upp, så radera fortfarande drainen vid storm.
+
+Mottagaren kastar alltid egna ingest-rader (`isSelfDrainLog`) så *tabellen*
+förblir ren, men *anropen* fortsätter så länge drainen är aktiv. Föredra en
+extern mottagare (Axiom / separat projekt) om du vill undvika loopen helt.
 
 **Endpointen är nere när appen är nere.** Det är precis då du vill läsa
-loggarna. Vercel gör om leveransen ett antal gånger, så en kort incident hämtar
-sig, men en längre nertid betyder att fönstret saknas i Postgres. Vercels egna
-loggar finns kvar — `vercel logs` är fortfarande sanningen när det brinner.
+loggarna. Vercel gör om leveransen ett antal gånger vid tillfälliga 5xx, så en
+kort incident hämtar sig, men en längre nertid betyder att fönstret saknas i
+Postgres. Vercels egna loggar finns kvar — `vercel logs` är fortfarande
+sanningen när det brinner.
 
-**`503` i loggen betyder oftast "ingen secret".** Routen vägrar ta emot data
-den inte kan verifiera. Kolla att `VERCEL_LOG_DRAIN_SECRET` finns i production
-**och** att en deploy skett efter att den lades till.
+**`410` i loggen betyder "avstängd eller ingen secret".** Routen vägrar ta emot
+data den inte ska / inte kan verifiera, utan att bjuda in retries. Kolla att
+`VERCEL_LOG_DRAIN_ENABLED=true` **och** `VERCEL_LOG_DRAIN_SECRET` finns i
+production **och** att en deploy skett efter att de lades till.
+
+**Spend Management.** Sätt en spend alert i Vercel Billing — det är
+nödbromsen om en loop skulle återkomma.
 
 ## Related
 
-- Env-sanning: [`docs/ENV.md`](../ENV.md) → raden `VERCEL_LOG_DRAIN_SECRET`
+- Env-sanning: [`docs/ENV.md`](../ENV.md) → `VERCEL_LOG_DRAIN_ENABLED` + `VERCEL_LOG_DRAIN_SECRET`
 - Loggöversikt: [`.cursor/skills/logg/SKILL.md`](../../.cursor/skills/logg/SKILL.md) steg 2c
 - Migration: `src/lib/db/migrations/add-vercel-log-drain-events.sql`
 - Vercels dokumentation: [Drains](https://vercel.com/docs/drains) · [Logs-schema](https://vercel.com/docs/drains/reference/logs) · [Säkerhet](https://vercel.com/docs/drains/security)

@@ -154,7 +154,8 @@ vercel logs https://sajtmaskin.vercel.app --json | Set-Content -Encoding utf8 .c
 
    och skriv i rapporten `App-console: vercel logs (drain tom/ej aktiv)`.
    En tom lyckad query betyder **inte** att drainen är aktiv — tabellen kan
-   finnas efter migration medan `VERCEL_LOG_DRAIN_SECRET` fortfarande saknas.
+   finnas efter migration medan `VERCEL_LOG_DRAIN_ENABLED=true` /
+   `VERCEL_LOG_DRAIN_SECRET` fortfarande saknas.
 
 Kinden bär **ingen** `chat_id` — korrelera på `log_timestamp` mot körningens
 `created_at` eller på `request_id`.

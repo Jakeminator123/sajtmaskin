@@ -261,6 +261,7 @@
     "USE_RESPONSES_API",
     "VERCEL",
     "VERCEL_ENV",
+    "VERCEL_LOG_DRAIN_ENABLED",
     "VERCEL_LOG_DRAIN_SECRET",
     "VERCEL_OIDC_TOKEN",
     "VERCEL_URL",
@@ -535,10 +536,16 @@
       "notes": "Validates inbound Vercel webhooks."
     },
     {
+      "key": "VERCEL_LOG_DRAIN_ENABLED",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Opt-in kill switch for POST /api/drains/vercel. Must be exactly the string true; unset/false/1 all keep the receiver at 410 Gone so a same-app Log Drain cannot start a feedback loop by accident. Set only after VERCEL_LOG_DRAIN_SECRET is deployed. Not the same as DRAIN or POST_DRAIN (those names are ignored)."
+    },
+    {
       "key": "VERCEL_LOG_DRAIN_SECRET",
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["production"],
-      "notes": "Signature Verification Secret from the Vercel Log Drain dialog (Team Settings → Drains → Add Drain → Logs → Custom Endpoint, URL https://sajtmaskin.vercel.app/api/drains/vercel). The receiver verifies x-vercel-signature (HMAC-SHA1 over the raw body) against it; without it POST /api/drains/vercel answers 503 and nothing is stored. Kept lines land in vercel_log_drain_events (dump-logs.mjs --kinds=drain). Not the same secret as VERCEL_WEBHOOK_SECRET, which validates deployment webhooks on /api/webhooks/vercel."
+      "notes": "Signature Verification Secret from the Vercel Log Drain dialog (Team Settings → Drains → Add Drain → Logs → Custom Endpoint, URL https://sajtmaskin.vercel.app/api/drains/vercel). Required together with VERCEL_LOG_DRAIN_ENABLED=true; missing either → 410 (not 503) so misconfigured drains stop retrying. Verifies x-vercel-signature (HMAC-SHA1 over the raw body). Kept lines land in vercel_log_drain_events (dump-logs.mjs --kinds=drain). Not the same secret as VERCEL_WEBHOOK_SECRET (/api/webhooks/vercel)."
     },
     {
       "key": "VERCEL_OIDC_TOKEN",
