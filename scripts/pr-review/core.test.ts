@@ -52,14 +52,63 @@ describe("PR review state machine", () => {
     const state = createInitialState(PR);
     expect(decideReview({ pr: PR, state })).toEqual({ kind: "exhaustive" });
     const claimed = claimRun(state, { kind: "exhaustive", headSha: PR.headSha });
-    expect(decideReview({ pr: PR, state: claimed })).toEqual({
+    expect(claimed.latestProcessedHeadSha).toBeNull();
+    // Incomplete claim must be reclaimable — not a permanent skip.
+    expect(decideReview({ pr: PR, state: claimed })).toEqual({ kind: "exhaustive" });
+    const reclaimed = claimRun(claimed, { kind: "exhaustive", headSha: PR.headSha });
+    expect(reclaimed.totalRunCount).toBe(1);
+
+    const completed = {
+      ...reclaimed,
+      exhaustiveReviewCompleted: true,
+      latestProcessedHeadSha: PR.headSha,
+      lastRun: { ...reclaimed.lastRun, status: "completed", error: null },
+    };
+    expect(decideReview({ pr: PR, state: completed })).toEqual({
       kind: "skip",
       reason: "head-already-processed",
     });
-    expect(decideReview({ pr: { ...PR, headSha: "c".repeat(40) }, state: claimed })).toEqual({
+    expect(decideReview({ pr: { ...PR, headSha: "c".repeat(40) }, state: completed })).toEqual({
+      kind: "skip",
+      reason: "nothing-to-follow-up",
+    });
+  });
+
+  it("skips a second exhaustive attempt only after a completed claim", () => {
+    const state = {
+      ...createInitialState(PR),
+      totalRunCount: 1,
+      exhaustiveReviewCompleted: false,
+      latestProcessedHeadSha: null,
+      lastRun: {
+        kind: "exhaustive",
+        headSha: PR.headSha,
+        status: "completed",
+        at: "2026-08-11T00:00:00.000Z",
+        error: null,
+      },
+    };
+    expect(decideReview({ pr: { ...PR, headSha: "c".repeat(40) }, state })).toEqual({
       kind: "skip",
       reason: "exhaustive-attempt-already-used",
     });
+  });
+
+  it("reclaims after a failed claim without burning another run slot", () => {
+    const failed = {
+      ...claimRun(createInitialState(PR), { kind: "exhaustive", headSha: PR.headSha }),
+      lastRun: {
+        kind: "exhaustive",
+        headSha: PR.headSha,
+        status: "failed",
+        at: "2026-08-11T00:00:00.000Z",
+        error: "runner killed",
+      },
+    };
+    expect(decideReview({ pr: PR, state: failed })).toEqual({ kind: "exhaustive" });
+    const reclaimed = claimRun(failed, { kind: "exhaustive", headSha: PR.headSha });
+    expect(reclaimed.totalRunCount).toBe(1);
+    expect(reclaimed.latestProcessedHeadSha).toBeNull();
   });
 
   it("uses synchronize only for finding-specific follow-up", () => {

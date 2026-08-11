@@ -196,9 +196,8 @@ async function runExhaustive({ github, model, pr, state, now }) {
 
   const raw = await model.exhaustive(exhaustiveInput(pr, diff));
   const result = validateExhaustiveResult(raw, buildDiffLocationIndex(files));
-  if (result.discardedFindings > 0) {
-    throw new Error("OpenAI-reviewn innehöll fynd med ogiltig eller overifierbar diffposition");
-  }
+  // Discarded (unanchored) findings must not abort the whole review — publish
+  // the valid subset. Callers can still see discardedFindings on the result.
   const review = await github.createReview(pr.number, {
     commit_id: pr.headSha,
     event: "COMMENT",

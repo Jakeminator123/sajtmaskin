@@ -94,15 +94,23 @@ export function parseStateComment(body) {
   return parsed;
 }
 
+function lastRunIncomplete(state) {
+  return Boolean(state.lastRun && state.lastRun.status !== "completed");
+}
+
 export function decideReview({ pr, state }) {
   if (pr.mergedAt) return { kind: "skip", reason: "merged" };
   if (pr.baseRef !== TARGET_BASE_BRANCH) return { kind: "skip", reason: "wrong-base" };
-  if (state.totalRunCount >= MAX_RUNS) return { kind: "skip", reason: "run-limit" };
-  if (state.latestProcessedHeadSha === pr.headSha) {
+  if (state.totalRunCount >= MAX_RUNS && !lastRunIncomplete(state)) {
+    return { kind: "skip", reason: "run-limit" };
+  }
+  // Only completed processing of this head is sticky. A claim that dies mid-run
+  // must not permanently skip via head-already-processed / exhaustive-attempt.
+  if (state.latestProcessedHeadSha === pr.headSha && !lastRunIncomplete(state)) {
     return { kind: "skip", reason: "head-already-processed" };
   }
   if (!state.exhaustiveReviewCompleted) {
-    if (state.totalRunCount > 0) {
+    if (state.totalRunCount > 0 && !lastRunIncomplete(state)) {
       return { kind: "skip", reason: "exhaustive-attempt-already-used" };
     }
     return { kind: "exhaustive" };
@@ -116,12 +124,16 @@ export function decideReview({ pr, state }) {
 }
 
 export function claimRun(state, { kind, headSha, now = new Date() }) {
-  if (state.totalRunCount >= MAX_RUNS) throw new Error("PR review run limit reached");
+  const reclaiming = lastRunIncomplete(state);
+  if (!reclaiming && state.totalRunCount >= MAX_RUNS) {
+    throw new Error("PR review run limit reached");
+  }
   const at = nowIso(now);
   return {
     ...state,
-    totalRunCount: state.totalRunCount + 1,
-    latestProcessedHeadSha: headSha,
+    // Do not set latestProcessedHeadSha here — only markRun completion paths
+    // should, otherwise a killed job permanently skips the head.
+    totalRunCount: reclaiming ? state.totalRunCount : state.totalRunCount + 1,
     updatedAt: at,
     lastRun: { kind, headSha, status: "running", at, error: null },
   };
@@ -281,6 +293,7 @@ export function applyFollowUpStatuses(state, statuses, now = new Date()) {
   const updatedAt = nowIso(now);
   return {
     ...state,
+    latestProcessedHeadSha: state.lastRun?.headSha ?? state.latestProcessedHeadSha,
     findings: state.findings.map((finding) => {
       const next = byId.get(finding.id);
       return next

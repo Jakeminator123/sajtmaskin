@@ -183,7 +183,7 @@ describe("PR review automation integration", () => {
     expect(harness.writes).toBe(0);
   });
 
-  it("records provider failure without claiming a successful exhaustive review", async () => {
+  it("records provider failure and allows reclaim on a later head", async () => {
     const harness = createHarness();
     harness.model.exhaustive = async () => {
       harness.calls.exhaustive += 1;
@@ -195,12 +195,18 @@ describe("PR review automation integration", () => {
     expect(currentState(harness)).toMatchObject({
       totalRunCount: 1,
       exhaustiveReviewCompleted: false,
+      latestProcessedHeadSha: null,
       lastRun: { status: "failed" },
     });
     expect(harness.reviews).toHaveLength(0);
     harness.pr.headSha = "b".repeat(40);
+    harness.model.exhaustive = async () => {
+      harness.calls.exhaustive += 1;
+      return { summary: "Recovered.", findings: [] };
+    };
     await runReviewAutomation({ github: harness.github, model: harness.model, prNumber: 88 });
-    expect(harness.calls.exhaustive).toBe(1);
+    expect(harness.calls.exhaustive).toBe(2);
+    expect(currentState(harness).lastRun.status).toBe("completed");
   });
 
   it("never re-runs a clean exhaustive review on a later head", async () => {
@@ -216,13 +222,22 @@ describe("PR review automation integration", () => {
     expect(harness.reviews).toHaveLength(1);
   });
 
-  it("fails closed instead of publishing hallucinated inline locations", async () => {
+  it("publishes the valid subset when some inline locations are hallucinated", async () => {
     const harness = createHarness();
     harness.model.exhaustive = async () => {
       harness.calls.exhaustive += 1;
       return {
-        summary: "Unverifiable.",
+        summary: "One real, one invented.",
         findings: [
+          {
+            title: "Valid",
+            body: "Changed line is broken.",
+            impact: 8,
+            confidence: 95,
+            path: "src/example.ts",
+            line: 2,
+            endLine: null,
+          },
           {
             title: "Not in diff",
             body: "The model invented this location.",
@@ -235,13 +250,15 @@ describe("PR review automation integration", () => {
         ],
       };
     };
-    await expect(
-      runReviewAutomation({ github: harness.github, model: harness.model, prNumber: 88 }),
-    ).rejects.toThrow("ogiltig eller overifierbar diffposition");
-    expect(harness.reviews).toHaveLength(0);
-    expect(currentState(harness).lastRun.status).toBe("failed");
+    await runReviewAutomation({ github: harness.github, model: harness.model, prNumber: 88 });
+    expect(harness.reviews).toHaveLength(1);
+    expect(currentState(harness)).toMatchObject({
+      exhaustiveReviewCompleted: true,
+      lastRun: { status: "completed" },
+    });
+    expect(currentState(harness).findings).toHaveLength(1);
+    expect(currentState(harness).findings[0]?.title).toBe("Valid");
   });
-
   it("keeps GitHub publication errors non-green", async () => {
     const harness = createHarness();
     harness.github.createReview = async () => {
