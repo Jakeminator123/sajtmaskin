@@ -121,6 +121,8 @@ AUTORUN_WRITE_SOURCES: dict[str, dict] = {
         ),
         # Lokal cache-path (gitignored); Blob-nyckel = embeddings/variant-embeddings.json.
         "path": "config/scaffold-variants/_index/variant-embeddings.json",
+        # saveEmbeddingsArtifact uppdaterar även den committade URL-manifesten vid Blob-upload.
+        "extra_paths": ("config/embeddings-blob-manifest.json",),
     },
 }
 
@@ -444,14 +446,27 @@ class PlannedWritesTests(unittest.TestCase):
                 planned,
                 f"{script} skriver {expected['path']} men skrivplanen nämner den inte",
             )
+            for extra in expected.get("extra_paths", ()):
+                self.assertIn(
+                    extra,
+                    planned,
+                    f"{script} skriver även {extra} men skrivplanen nämner den inte",
+                )
 
     def test_plan_rows_match_what_the_scripts_actually_write(self) -> None:
         """Varje rad pekar på skriptet som skriver den — och skriptet skriver dit."""
-        rows = {row["script"]: row for row in sw._autorun_writes(self._draft("new-variant"))}
+        rows_by_script: dict[str, list[dict]] = {}
+        for row in sw._autorun_writes(self._draft("new-variant")):
+            rows_by_script.setdefault(row["script"], []).append(row)
         for script, expected in AUTORUN_WRITE_SOURCES.items():
-            row = rows.get(script)
-            self.assertIsNotNone(row, f"{script} saknas i skrivplanen")
-            self.assertEqual(row["source"], expected["source"])
+            script_rows = rows_by_script.get(script) or []
+            self.assertTrue(script_rows, f"{script} saknas i skrivplanen")
+            primary = next(
+                (row for row in script_rows if row["path"] == expected["path"]),
+                None,
+            )
+            self.assertIsNotNone(primary, f"{script} saknar rad för {expected['path']}")
+            self.assertEqual(primary["source"], expected["source"])
             self.assertEqual(
                 _write_targets(expected["source"]),
                 expected["write_targets"],
@@ -465,6 +480,11 @@ class PlannedWritesTests(unittest.TestCase):
                     source_text,
                     f"{expected['source']} byggde sökvägen annorlunda — "
                     f"kontrollera att planen fortfarande säger {expected['path']}",
+                )
+            for extra in expected.get("extra_paths", ()):
+                self.assertTrue(
+                    any(row["path"] == extra for row in script_rows),
+                    f"{script} ska även lista {extra}",
                 )
 
     def test_every_writing_step_in_the_chain_is_accounted_for(self) -> None:
@@ -497,6 +517,7 @@ class PlannedWritesTests(unittest.TestCase):
             rendered = "\n".join(str(call[0][0]) for call in markdown.call_args_list)
             self.assertIn("OPENAI_API_KEY", rendered, "villkoret ska stå i rutan")
             self.assertIn("config/scaffold-variants/_index/variant-embeddings.json", rendered)
+            self.assertIn("config/embeddings-blob-manifest.json", rendered)
             if autorun:
                 self.assertIn("automatiskt", rendered)
             else:

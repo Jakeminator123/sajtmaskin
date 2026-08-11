@@ -739,7 +739,13 @@ def _autorun_writes(draft: dict[str, Any]) -> list[dict[str, str]]:
             "path": "config/scaffold-variants/_index/variant-embeddings.json",
             "script": "scaffolds:variant-embeddings",
             "source": "scripts/scaffolds/generate-variant-embeddings.ts",
-            "note": "Blob + lokal cache byggs om för hela matchningsindexet",
+            "note": "lokal cache (gitignorerad); Blob-nyckel embeddings/variant-embeddings.json",
+        },
+        {
+            "path": "config/embeddings-blob-manifest.json",
+            "script": "scaffolds:variant-embeddings",
+            "source": "scripts/scaffolds/generate-variant-embeddings.ts",
+            "note": "committad URL-manifest uppdateras när BLOB_READ_WRITE_TOKEN + upload lyckas",
         },
     ]
 
