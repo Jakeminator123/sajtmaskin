@@ -192,7 +192,34 @@ Vercel-projekt `sajtmaskin-<chatId>`):
 
 Om ingen deploy-rad finns: sajten är sannolikt bara en preview (F2) — notera det och hoppa till steg 4.
 
-**c) DB-pool-hälsa** (återkommande fråga — logga den så den inte utreds från noll varje gång):
+**c) Appens `console.warn`/`console.error` under körningen — KÖR ALLTID.**
+
+Det här steget lades till 2026-08-11 efter att en session missade fyra riktiga
+defekter. `engine_version_error_logs` innehåller bara det pipelinen medvetet
+persisterar; rutternas egna `console`-rader finns **enbart** i Vercel. Sex
+körningar i rad rapporterade artigt `product_postcheck.skipped` medan Vercel-loggen
+visade en kraschad Chromium.
+
+```powershell
+vercel logs https://sajtmaskin.vercel.app --json | Set-Content -Encoding utf8 .cursor/tmp-app-runtime.jsonl
+```
+
+MCP-motsvarighet: `get_runtime_logs { level: ["error","warning"] }`. Loggfönstret i
+UI:t: `…/logs?search=level%3Aerror%2Cfatal%2Cwarn&timeline=past12Hours`.
+
+Sök minst efter dessa och rapportera träffar med tidsstämpel:
+
+| Mönster | Betyder |
+|---|---|
+| `[product-postcheck] skipped` | Postcheck kraschade — läs `skippedReason` i DB (`playwright_unavailable`/`navigation_failed` = krasch, inte policy) |
+| `free space in temporary directory` · `AllocateRingBuffer` | `/tmp` slut i funktionen → Chromium dör (se dok B, 2026-08-11) |
+| `Thumbnail capture failed` | samma rotorsak som ovan |
+| `stillMissing: [` | scaffold-skyddad fil droppades och kunde **inte** återinjiceras |
+| `Vercel Runtime Timeout Error` | rutt slog i sin `maxDuration` |
+| `[CSP Violation]` | egen CSP blockerar en resurs sajten behöver |
+| `AI SDK Warning` | modell-/parameterproblem som annars är osynligt |
+
+**d) DB-pool-hälsa** (återkommande fråga — logga den så den inte utreds från noll varje gång):
 
 - Sök i appens runtime-loggar från (a) efter `timeout exceeded when trying to connect` och `EMAXCONNSESSION: max clients reached`. **0 träffar = poolen frisk** (normalläget; koden försvarar sig redan mot svälten).
 - Valfritt live-mått (om Supabase-MCP är inloggad, **read-only**): `pg_stat_activity` — aktiva vs idle backends mot poolerns tak (Pro ~60, Free ~15 sessioner). Detta är *nuläge*, inte körningsfönstret.

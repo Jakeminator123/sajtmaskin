@@ -178,6 +178,17 @@ export function normalizeVercelDrainLog(record: unknown): VercelDrainLogRow | nu
       : null;
 
   const rawMessage = str(r.message);
+  const topStatus = num(r.statusCode);
+  const proxyStatus = proxy ? num(proxy.statusCode) : null;
+  // Top-level `statusCode: -1` means the function crashed. Proxy's `-1` is
+  // normal background revalidation noise — never promote that sentinel.
+  const statusCode =
+    topStatus !== null
+      ? topStatus
+      : proxyStatus !== null && proxyStatus >= 0
+        ? proxyStatus
+        : null;
+
   return {
     logId,
     logTimestamp: timestampMs !== null ? new Date(timestampMs) : null,
@@ -187,7 +198,7 @@ export function normalizeVercelDrainLog(record: unknown): VercelDrainLogRow | nu
     environment: str(r.environment),
     host: str(r.host),
     path: str(r.path) ?? (proxy ? str(proxy.path) : null),
-    statusCode: num(r.statusCode) ?? (proxy ? num(proxy.statusCode) : null),
+    statusCode,
     requestId: str(r.requestId),
     deploymentId: str(r.deploymentId),
     projectId: str(r.projectId),
@@ -211,11 +222,24 @@ export function isSelfDrainLog(row: VercelDrainLogRow): boolean {
 }
 
 /**
+ * Drains are created at team scope and can deliver every project's logs.
+ * Only keep rows whose `projectId` matches this app's `VERCEL_PROJECT_ID`.
+ * Fail closed when the env is unset — better an empty table than a cross-
+ * project dump of customer-site deploys.
+ */
+export function isAllowedDrainProjectId(projectId: string | null): boolean {
+  const allowed = process.env.VERCEL_PROJECT_ID?.trim();
+  if (!allowed) return false;
+  return projectId === allowed;
+}
+
+/**
  * Keep only lines worth reading later. Everything a healthy request produces is
  * dropped — the point of the table is the tail of things that went wrong.
  */
 export function shouldPersistDrainLog(row: VercelDrainLogRow): boolean {
   if (isSelfDrainLog(row)) return false;
+  if (!isAllowedDrainProjectId(row.projectId)) return false;
 
   const level = row.level?.toLowerCase();
   if (level && KEPT_LEVELS.has(level)) return true;
@@ -223,7 +247,7 @@ export function shouldPersistDrainLog(row: VercelDrainLogRow): boolean {
   const type = row.type?.toLowerCase();
   if (type && KEPT_TYPES.has(type)) return true;
 
-  // -1 means the function crashed without returning a response.
+  // -1 means the function crashed without returning a response (top-level only).
   if (row.statusCode !== null && (row.statusCode >= 500 || row.statusCode === -1)) return true;
 
   const message = row.message?.toLowerCase();

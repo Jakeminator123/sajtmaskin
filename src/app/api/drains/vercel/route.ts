@@ -27,6 +27,17 @@ export const runtime = "nodejs";
  * `dump-logs.mjs --kinds=drain` (backoffice Logg-export, `/logg` step 3c).
  */
 export async function POST(req: Request) {
+  // Vercel Custom Endpoint ownership probe: unsigned POST with
+  // `x-vercel-verify`. Echo the header and 200 so dashboard Verify/Create works
+  // before the signed secret is wired. Real deliveries always carry a signature.
+  const verifyToken = req.headers.get("x-vercel-verify");
+  if (verifyToken && !req.headers.get("x-vercel-signature")) {
+    return new NextResponse("OK", {
+      status: 200,
+      headers: { "x-vercel-verify": verifyToken },
+    });
+  }
+
   const secret = process.env.VERCEL_LOG_DRAIN_SECRET;
   if (!secret) {
     // 503 rather than 500: this is a configuration state, and answering

@@ -65,14 +65,19 @@ google-services.json
 # blockerar LÄSNING, och det är poängen här — cachen är en flera megabyte stor
 # enradig JSON som förstör kontexten för den agent som råkar öppna den.
 .eslintcache
-# --- Embedding-JSON (Read-fälla) ---
-# Redan i .cursorindexingignore (osökbara) men fortfarande läsbara. En enda
-# Read på template-embeddings.json (~9 MB, en rad) förstör kontexten — samma
-# klass som .eslintcache ovan. Runtime/scripts läser via Node/terminal.
+# --- Stora genererade JSON (Read-fälla) ---
+# Dessa ÄR spårade i git med flit (runtime/prebuild importerar dem).
+# .gitignore tar INTE bort dem från repot. Den här filen är det enda som
+# stoppar agent-Read. Terminal/Node kringgår — det är meningen.
+# Indexering: även i .cursorindexingignore.
 **/template-embeddings.json
 **/scaffold-embeddings.json
 **/variant-embeddings.json
 **/dossier-embeddings.json
+**/variant-template-addenda.json
+**/template-blob-manifest.json
+src/lib/templates/templates.json
+src/lib/gen/scaffolds/scaffold-research.generated.json
 # --- Archived / agent dump secrets (spegel av .gitignore) ---
 # Att de är gitignorerade skyddar inte mot Read — spegla hit.
 docs/old/**/*.env.local

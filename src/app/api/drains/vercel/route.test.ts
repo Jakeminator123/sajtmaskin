@@ -75,6 +75,7 @@ const SELF_LOG = {
 
 beforeEach(() => {
   process.env.VERCEL_LOG_DRAIN_SECRET = SECRET;
+  process.env.VERCEL_PROJECT_ID = "prj_test";
   query.mockReset();
   dbState.configured = true;
   afterCallbacks.length = 0;
@@ -83,10 +84,24 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.VERCEL_LOG_DRAIN_SECRET;
+  delete process.env.VERCEL_PROJECT_ID;
   vi.restoreAllMocks();
 });
 
 describe("POST /api/drains/vercel", () => {
+  it("echoes x-vercel-verify for the unsigned ownership probe", async () => {
+    delete process.env.VERCEL_LOG_DRAIN_SECRET;
+    const res = await POST(
+      new Request("http://localhost/api/drains/vercel", {
+        method: "POST",
+        body: "",
+        headers: { "x-vercel-verify": "probe-token-abc" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-vercel-verify")).toBe("probe-token-abc");
+    expect(query).not.toHaveBeenCalled();
+  });
   it("stores the interesting lines of a signed delivery", async () => {
     query.mockResolvedValueOnce({ rowCount: 1 });
     const body = JSON.stringify([ERROR_LOG, BORING_LOG]);

@@ -23,6 +23,14 @@ returnerar tom lista.
 
 Dialogen når du via Vercel-dashboarden → **Team Settings → Drains → Add Drain**.
 
+**Projektscope:** skapa drainen avgränsad till **Sajtmaskin-appen** (inte hela teamet).
+Mottagaren fail-closed-filtrerar på `VERCEL_PROJECT_ID` och kastar rader från andra
+projekt — men felkonfigurerad bred drain är fortfarande onödig trafik.
+
+**Verify/Create-probe:** osignerad POST med `x-vercel-verify` får `200` + samma header
+ekoas tillbaka (Vercels ownership-handshake). Signerade leveranser kräver
+`VERCEL_LOG_DRAIN_SECRET`.
+
 ### Vad som är env och vad som inte är det
 
 | Namn | Rätt? | Var |

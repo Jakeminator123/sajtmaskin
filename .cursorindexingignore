@@ -2,8 +2,8 @@
 #
 # Skillnad mot .cursorignore: filer här indexeras inte och dyker inte upp i
 # kodbas-sökning, men agenten kan fortfarande öppna dem med @ eller Read när
-# de faktiskt behövs (t.ex. vid felsökning av en körning). .cursorignore
-# blockerar läsningen helt och är reserverad för secrets.
+# de faktiskt behövs (t.ex. vid felsökning). .cursorignore blockerar läsning
+# helt — secrets + megabyte-JSON som förstör kontext (embeddings m.m.).
 #
 # Cursor exkluderar redan .gitignore + en inbyggd default-lista (binärer,
 # media som *.mp4/*.png, lockfiles, node_modules, .next, __pycache__ …).
@@ -34,6 +34,7 @@ next-env.d.ts
 package-lock.json
 
 # --- Tunga genererade artefakter (spårade i git → ej täckta av .gitignore) ---
+# Spegla stora JSON här (sök) + i .cursorignore (Read). Spårade i git med flit.
 config/variant-template-addenda.json
 src/lib/templates/template-embeddings.json
 src/lib/templates/template-blob-manifest.json

@@ -53,6 +53,7 @@ beforeEach(() => {
   query.mockReset();
   dbState.configured = true;
   resetPruneScheduleForTests();
+  process.env.VERCEL_PROJECT_ID = "prj_test";
 });
 
 describe("verifyVercelDrainSignature", () => {
@@ -169,6 +170,18 @@ describe("normalizeVercelDrainLog", () => {
     expect(row?.statusCode).toBe(502);
   });
 
+  it("does not promote proxy.statusCode -1 (ISR revalidation noise)", () => {
+    const row = normalizeVercelDrainLog(
+      logRecord({ statusCode: undefined, proxy: { path: "/x", statusCode: -1 } }),
+    );
+    expect(row?.statusCode).toBeNull();
+  });
+
+  it("keeps top-level statusCode -1 (function crash)", () => {
+    const row = normalizeVercelDrainLog(logRecord({ statusCode: -1 }));
+    expect(row?.statusCode).toBe(-1);
+  });
+
   it("drops proxy.clientIp from the stored payload", () => {
     const row = normalizeVercelDrainLog(
       logRecord({ proxy: { path: "/x", clientIp: "120.75.16.101", region: "arn1" } }),
@@ -216,6 +229,15 @@ describe("shouldPersistDrainLog", () => {
     expect(shouldPersistDrainLog(row({ level: "info", statusCode: 503 }))).toBe(true);
     expect(shouldPersistDrainLog(row({ level: "info", statusCode: -1 }))).toBe(true);
     expect(shouldPersistDrainLog(row({ level: "info", statusCode: 200 }))).toBe(false);
+  });
+
+  it("drops rows from other Vercel projects", () => {
+    expect(shouldPersistDrainLog(row({ level: "error", projectId: "prj_other" }))).toBe(false);
+  });
+
+  it("drops everything when VERCEL_PROJECT_ID is unset (fail closed)", () => {
+    delete process.env.VERCEL_PROJECT_ID;
+    expect(shouldPersistDrainLog(row({ level: "error" }))).toBe(false);
   });
 
   it("keeps the /logg step 3c patterns even at info level", () => {

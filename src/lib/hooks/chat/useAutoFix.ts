@@ -313,6 +313,11 @@ function isNoiseForAutoFix(log: PersistedVersionLog): boolean {
   if (level === "info") return true;
   if (!message) return true;
   if (category === "preflight:summary") return true;
+  // En överhoppad Postcheck är infrastruktur (kraschad Chromium//tmp-svält),
+  // aldrig något en kodreparation kan åtgärda. Krascher loggas som `warning`
+  // sedan 2026-08-11 så de syns i defect-aggregatet — men de får inte mata
+  // repair-prompten (bugbot-fynd på samma diff).
+  if (category === "product_postcheck.skipped") return true;
   if (message.includes("Preview rendered successfully")) return true;
   return false;
 }

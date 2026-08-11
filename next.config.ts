@@ -45,6 +45,10 @@ const nextConfig: NextConfig = {
       "./templates_v0/**",
       "./archive/**",
       "./output/**",
+      // Event-bus run NDJSON (dev write target; /tmp on Vercel). Without this,
+      // the dynamic path.join in event-bus.ts made NFT trace the whole project
+      // into every route importing the bus ("matches 10194 files" warning).
+      "./data/runs/**",
     ],
   },
   experimental: {
