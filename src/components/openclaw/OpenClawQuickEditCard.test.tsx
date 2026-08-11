@@ -43,6 +43,15 @@ function quickEditMessage(): Msg {
   };
 }
 
+/** Both gates open for quick edits: the env flag AND the user's ticked power. */
+function grantQuickEdit() {
+  useOpenClawStore.setState({
+    editEnabled: true,
+    powersOn: true,
+    grantedPowers: ["quick_edit"],
+  });
+}
+
 beforeEach(() => {
   window.__SITEMASKIN_CONTEXT = { chatId: "chat-1", activeVersionId: "v-1" };
 });
@@ -52,23 +61,54 @@ afterEach(() => {
   // Store-återställning medan kort fortfarande är monterade → wrappa i act
   // så React inte varnar för osynkade state-uppdateringar.
   act(() => {
-    useOpenClawStore.setState({ editEnabled: false, armedMandate: null });
+    useOpenClawStore.setState({
+      editEnabled: false,
+      powersOn: false,
+      grantedPowers: [],
+      armedMandate: null,
+    });
   });
   vi.clearAllMocks();
 });
 
 describe("OpenClawQuickEditCard — gating", () => {
-  it("renders the OC_EDIT-off info box instead of an approval card when editEnabled is false", () => {
-    useOpenClawStore.setState({ editEnabled: false });
+  it("renders the info box instead of an approval card when OC_EDIT is off", () => {
+    useOpenClawStore.setState({ editEnabled: false, powersOn: true, grantedPowers: ["quick_edit"] });
     render(<OpenClawMessage msg={quickEditMessage()} />);
 
-    expect(screen.getByText(/Redigeringsläge är av — aktivera OC_EDIT/)).toBeTruthy();
+    expect(screen.getByText(/Snabbändringar är inaktiverade/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Godkänn och genomför" })).toBeNull();
     expect(quickEditMock).not.toHaveBeenCalled();
   });
 
-  it("renders the approval card with label, reason and affected files when editEnabled is true", () => {
-    useOpenClawStore.setState({ editEnabled: true });
+  it("renders the info box when OC_EDIT is on but the powers button is off", () => {
+    useOpenClawStore.setState({
+      editEnabled: true,
+      powersOn: false,
+      grantedPowers: ["quick_edit"],
+    });
+    render(<OpenClawMessage msg={quickEditMessage()} />);
+
+    expect(screen.getByText(/Snabbändringar är inaktiverade/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Godkänn och genomför" })).toBeNull();
+    expect(quickEditMock).not.toHaveBeenCalled();
+  });
+
+  it("renders the info box when the button is on but quick edits are not ticked", () => {
+    useOpenClawStore.setState({
+      editEnabled: true,
+      powersOn: true,
+      grantedPowers: ["armed_autonomy"],
+    });
+    render(<OpenClawMessage msg={quickEditMessage()} />);
+
+    expect(screen.getByText(/Snabbändringar är inaktiverade/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Godkänn och genomför" })).toBeNull();
+    expect(quickEditMock).not.toHaveBeenCalled();
+  });
+
+  it("renders the approval card with label, reason and affected files when granted", () => {
+    grantQuickEdit();
     render(<OpenClawMessage msg={quickEditMessage()} />);
 
     expect(screen.getByText("Snabbändringsförslag")).toBeTruthy();
@@ -87,8 +127,9 @@ describe("OpenClawQuickEditCard — gating", () => {
   });
 
   it("never auto-executes — even with an active armed mandate", async () => {
+    grantQuickEdit();
     useOpenClawStore.setState({
-      editEnabled: true,
+      grantedPowers: ["armed_autonomy", "quick_edit"],
       armedMandate: {
         mode: "followups",
         remaining: 5,
@@ -109,7 +150,7 @@ describe("OpenClawQuickEditCard — gating", () => {
 
   it("fails with a clear message when no builder version exists at approval", async () => {
     delete window.__SITEMASKIN_CONTEXT;
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     render(<OpenClawMessage msg={quickEditMessage()} />);
 
     expect(screen.getByText(/Kräver en öppen version i buildern/)).toBeTruthy();
@@ -124,7 +165,7 @@ describe("OpenClawQuickEditCard — gating", () => {
 
 describe("OpenClawQuickEditCard — execution", () => {
   it("runs quickEditChatFiles with the active chat/version on approval and shows the result", async () => {
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     quickEditMock.mockResolvedValue({
       ok: true,
       versionId: "v-2",
@@ -155,7 +196,7 @@ describe("OpenClawQuickEditCard — execution", () => {
   });
 
   it("dispatches the quick-edit-applied window event so the builder syncs to the new version", async () => {
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     quickEditMock.mockResolvedValue({
       ok: true,
       versionId: "v-2",
@@ -188,7 +229,7 @@ describe("OpenClawQuickEditCard — execution", () => {
   });
 
   it("does not dispatch the quick-edit-applied event on failure", async () => {
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     quickEditMock.mockResolvedValue({ ok: false, error: "stale_base_version" });
     const handler = vi.fn();
     window.addEventListener(QUICK_EDIT_APPLIED_EVENT_NAME, handler as EventListener);
@@ -207,7 +248,7 @@ describe("OpenClawQuickEditCard — execution", () => {
   });
 
   it("translates stale_base_version to the Swedish reload copy", async () => {
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     quickEditMock.mockResolvedValue({ ok: false, error: "stale_base_version" });
     render(<OpenClawMessage msg={quickEditMessage()} />);
 
@@ -223,7 +264,7 @@ describe("OpenClawQuickEditCard — execution", () => {
   });
 
   it("translates base_busy to the Swedish verify-lock copy", async () => {
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     quickEditMock.mockResolvedValue({
       ok: false,
       error: "Base version is busy",
@@ -239,7 +280,7 @@ describe("OpenClawQuickEditCard — execution", () => {
   });
 
   it("blocks replace_content on a file missing from the version (no silent file create)", async () => {
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ files: [{ name: "app/page.tsx" }] }),
@@ -278,7 +319,7 @@ describe("OpenClawQuickEditCard — execution", () => {
   });
 
   it("lets replace_content through when the file exists and fails closed when the list cannot be fetched", async () => {
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     const existingFileAction = JSON.stringify({
       type: "apply_quick_edit",
       label: "Uppdatera sidan",
@@ -328,7 +369,7 @@ describe("OpenClawQuickEditCard — execution", () => {
   });
 
   it("pins ops to the version the model saw at send time, not the active one at approval", async () => {
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     quickEditMock.mockResolvedValue({
       ok: true,
       versionId: "v-2",
@@ -362,7 +403,7 @@ describe("OpenClawQuickEditCard — execution", () => {
   });
 
   it("resolves the live builder target at CLICK time when the message carries none", async () => {
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     delete window.__SITEMASKIN_CONTEXT;
     quickEditMock.mockResolvedValue({
       ok: true,
@@ -392,7 +433,7 @@ describe("OpenClawQuickEditCard — execution", () => {
   });
 
   it("guards against double-click: two rapid approvals run quickEditChatFiles once", async () => {
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     let resolveQuickEdit: ((value: Awaited<ReturnType<typeof quickEditChatFiles>>) => void) | null =
       null;
     quickEditMock.mockImplementation(
@@ -428,7 +469,7 @@ describe("OpenClawQuickEditCard — execution", () => {
   });
 
   it("declines without calling quickEditChatFiles", () => {
-    useOpenClawStore.setState({ editEnabled: true });
+    grantQuickEdit();
     render(<OpenClawMessage msg={quickEditMessage()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Avböj" }));

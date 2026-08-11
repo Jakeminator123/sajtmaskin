@@ -32,6 +32,7 @@ import {
 import { useOpenClawChat } from "./useOpenClawChat";
 import { useOpenClawArmedContinuation } from "./useOpenClawArmedContinuation";
 import { OpenClawMessage } from "./OpenClawMessage";
+import { OpenClawPowersControl } from "./OpenClawPowersControl";
 import { describeMandate, isMandateActive } from "@/lib/openclaw/debug/armed-mandate";
 
 const DEFAULT_STARTER_PROMPTS = [
@@ -441,6 +442,7 @@ export function OpenClawChatPanel({
           </div>
         </div>
         <div data-no-drag className="flex items-center gap-0.5">
+          <OpenClawPowersControl />
           {showAvatar ? (
             <button
               type="button"

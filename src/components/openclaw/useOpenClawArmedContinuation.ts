@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import { readOpenClawPowers, useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { readBuilderTurnSnapshot } from "@/lib/openclaw/builder-target";
 import {
   buildArmedContinuationPrompt,
@@ -53,7 +53,9 @@ export function useOpenClawArmedContinuation(send: SendFn): void {
       const decision = decideArmedContinuation({
         watch: observed,
         mandate: state.armedMandate,
-        editEnabled: state.editEnabled,
+        // Revoking the power mid-run must end the loop, not just stop the next
+        // card from rendering — `decide` already owns that abort path.
+        editEnabled: readOpenClawPowers().armedAutonomy,
         openClawStreaming: state.isStreaming,
         snapshot,
         now: Date.now(),

@@ -63,7 +63,12 @@ beforeEach(() => {
 
 afterEach(() => {
   act(() => {
-    useOpenClawStore.setState({ editEnabled: false, armedMandate: null });
+    useOpenClawStore.setState({
+      editEnabled: false,
+      powersOn: false,
+      grantedPowers: [],
+      armedMandate: null,
+    });
   });
   vi.clearAllMocks();
 });
@@ -73,6 +78,8 @@ describe("OpenClawMessage — review_next vs armed auto-send", () => {
     const armedAt = Date.now() - 1_000;
     useOpenClawStore.setState({
       editEnabled: true,
+      powersOn: true,
+      grantedPowers: ["armed_autonomy"],
       armedMandate: {
         mode: "review_next",
         remaining: 1,
@@ -131,6 +138,8 @@ describe("OpenClawMessage — armed auto-send överlever omrenderingar (SM-026)"
     const armedAt = Date.now() - 1_000;
     useOpenClawStore.setState({
       editEnabled: true,
+      powersOn: true,
+      grantedPowers: ["armed_autonomy"],
       // remaining: 2 så mandatet överlever klicket — annars konsumeras sista
       // steget, kortet byts mot manuella "Fältförslag" och sent-texten syns
       // aldrig i DOM:en.

@@ -44,7 +44,7 @@ import {
   resolveOpenClawPreparedPromptSource,
   type OpenClawPreparedPromptSource,
 } from "@/lib/openclaw/prepared-prompt";
-import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
+import { readOpenClawPowers, useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import {
   INSPECT_CAPTURE_EVENT,
   type InspectCapturedElement,
@@ -590,13 +590,14 @@ export function ChatInterface({
       const payload = await buildMessagePayload(baseMessage);
       if (!payload.finalMessage.trim()) return;
       // OpenClaw prepared-prompt fast lane: tag a follow-up send whose FINAL
-      // message is exactly what OpenClaw filled into this composer (edit gate
-      // on, no user edits, no appended Figma/inspect blocks or attachments).
-      // Init sends never tag — the lane only skips the follow-up delta-brief.
+      // message is exactly what OpenClaw filled into this composer (a power
+      // granted, no user edits, no appended Figma/inspect blocks or
+      // attachments). Init sends never tag — the lane only skips the follow-up
+      // delta-brief.
       const openClawState = useOpenClawStore.getState();
       const openClawPromptSource = chatId
         ? resolveOpenClawPreparedPromptSource({
-            editEnabled: openClawState.editEnabled,
+            editEnabled: readOpenClawPowers().any,
             preparedFill: openClawState.preparedFill,
             message: payload.finalMessage,
             hasAttachments: Boolean(payload.finalAttachments?.length),

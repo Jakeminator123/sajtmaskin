@@ -115,6 +115,8 @@ afterEach(() => {
   act(() => {
     useOpenClawStore.setState({
       editEnabled: false,
+      powersOn: false,
+      grantedPowers: [],
       armedMandate: null,
       armedContinuation: null,
       messages: [],
@@ -129,6 +131,8 @@ describe("armed autonomy — continuation handshake", () => {
     act(() => {
       useOpenClawStore.setState({
         editEnabled: true,
+        powersOn: true,
+        grantedPowers: ["armed_autonomy"],
         armedMandate: {
           mode: "followups",
           remaining: 2,
@@ -199,6 +203,8 @@ describe("armed autonomy — continuation handshake", () => {
     act(() => {
       useOpenClawStore.setState({
         editEnabled: true,
+        powersOn: true,
+        grantedPowers: ["armed_autonomy"],
         armedMandate: {
           mode: "review_next",
           remaining: 1,
@@ -225,6 +231,8 @@ describe("armed autonomy — continuation handshake", () => {
     act(() => {
       useOpenClawStore.setState({
         editEnabled: true,
+        powersOn: true,
+        grantedPowers: ["armed_autonomy"],
         armedMandate: {
           mode: "followups",
           remaining: 3,
@@ -254,6 +262,8 @@ describe("armed autonomy — continuation handshake", () => {
     act(() => {
       useOpenClawStore.setState({
         editEnabled: true,
+        powersOn: true,
+        grantedPowers: ["armed_autonomy"],
         armedMandate: {
           mode: "followups",
           remaining: 3,
@@ -304,6 +314,8 @@ describe("armed autonomy — continuation handshake", () => {
     act(() => {
       useOpenClawStore.setState({
         editEnabled: true,
+        powersOn: true,
+        grantedPowers: ["armed_autonomy"],
         armedMandate: {
           mode: "followups",
           remaining: 3,
@@ -337,6 +349,8 @@ describe("armed autonomy — continuation handshake", () => {
     act(() => {
       useOpenClawStore.setState({
         editEnabled: true,
+        powersOn: true,
+        grantedPowers: ["armed_autonomy"],
         isStreaming: true,
         armedMandate: {
           mode: "followups",
