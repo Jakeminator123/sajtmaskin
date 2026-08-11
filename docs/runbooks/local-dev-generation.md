@@ -111,14 +111,18 @@ När du behöver deterministisk preview utan att röra prod-Fly:
      känna igen Fly-URL:er)
 4. Starta om Next så `NEXT_PUBLIC_*` plockas upp.
 
-Detaljerat Cloud-pod-recept (samma preview-mekanik):  
-[`cursor-cloud-agent.md`](cursor-cloud-agent.md) § lokal preview-host.
+Detaljerat Cloud-pod-recept (samma preview-mekanik, inkl. lokal preview-host
+under **Gotchas**): [`cursor-cloud-agent.md`](cursor-cloud-agent.md).
 
 ## Embeddings och warm-cache (soft-fail)
 
+Scaffold-/template-embeddings läses via
+`src/lib/gen/embeddings/embeddings-storage.ts` (lokal diskcache + Blob/manifest)
+— **inte** via `STORAGE_BACKEND` (den styr backoffice template-generator).
+
 | Saknas lokalt | Effekt | Åtgärd |
 |---|---|---|
-| Embeddings på disk (`STORAGE_BACKEND=fs`) | Sämre/baseline scaffold-val (`missing_embeddings`), sällan hård crash | `npm run embeddings:ensure` eller `npm run embeddings:sync` |
+| Embeddings-diskcache / Blob-sync | Sämre/baseline scaffold-val (`missing_embeddings`), sällan hård crash | `npm run embeddings:ensure` eller `npm run embeddings:sync` |
 | Warm-cache | Pre-VM typecheck skippar fail-open om flagga på men cache kall | [`warm-cache-setup.md`](warm-cache-setup.md) → `npm run provision:warm-cache` |
 
 ## Behåll DEV ≈ PROD (schema)
