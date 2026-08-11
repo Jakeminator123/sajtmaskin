@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { normalizeBuildIntent, type BuildIntent, type BuildMethod } from "@/lib/builder/build-intent";
+import { resetInitBuildChoices } from "@/lib/builder/init-build-choices";
 import type { ChatMessage } from "@/lib/builder/types";
 import { debugLog } from "@/lib/utils/debug";
 import type { BuilderEntryState } from "../builder-entry";
@@ -247,6 +248,9 @@ export function useBuilderEntryHydration({
     if (!shouldResetChatState && !shouldResetResolvedPrompt) return;
 
     pendingBriefRef.current = null;
+    // Drop abandoned Byggval (plan/contract never produced a version) so the
+    // next new chat in this SPA session cannot inherit the previous panel.
+    resetInitBuildChoices();
 
     if (shouldResetChatState) {
       // PR #355-triage #7 (backlog): en pågående generation-stream från den

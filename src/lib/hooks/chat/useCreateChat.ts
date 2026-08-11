@@ -580,7 +580,15 @@ export function useCreateChat(
               touchStreamSafetyTimer,
               setChatId,
               chatIdParam,
-              buildBuilderParams,
+              // Force Byggval-effective intent into SSE URL writes. Without this
+              // the shared builder falls back to stale React state (landing
+              // website) while setBuildIntent is still settling — reload then
+              // restores the wrong mode.
+              buildBuilderParams: (entries) =>
+                buildBuilderParams({
+                  ...entries,
+                  buildIntent: effectiveBuildIntent,
+                }),
               router,
               appProjectId,
               pendingCreateKeyRef,

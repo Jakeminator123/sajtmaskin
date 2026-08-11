@@ -613,6 +613,15 @@ class CreateDossierSkeletonTests(unittest.TestCase):
         self.assertIn("# When to use", instructions)
         self.assertIn("# How to integrate", instructions)
 
+    def test_skeleton_manifest_is_written_with_lf_newlines(self) -> None:
+        # Windows Path.write_text defaults to CRLF without newline="\n"; that
+        # desyncs capability-map sourceFiles hashes vs Git/CI LF normalization.
+        ok, msg = self._create()
+        self.assertTrue(ok, msg)
+        raw = (self.dossier_root / "hard" / "acme-maps" / "manifest.json").read_bytes()
+        self.assertNotIn(b"\r\n", raw, "manifest must be LF-only for capability-map hashes")
+        self.assertTrue(raw.endswith(b"\n"))
+
     def test_invalid_id_is_rejected_before_any_write(self) -> None:
         for bad_id in ("Not Kebab", "a", "-leading", "trailing-", "a" * 61, ""):
             ok, msg = self._create(target_id=bad_id)

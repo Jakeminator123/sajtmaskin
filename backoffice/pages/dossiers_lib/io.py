@@ -173,7 +173,13 @@ def _load_json(path: Path) -> dict[str, Any] | None:
 def _save_json(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     backup_file(path, _facade().REPO_ROOT)
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    # Force LF even on Windows — capability-map hashes raw bytes, while Git/CI
+    # normalize text to LF (`.gitattributes`). CRLF here makes the check red.
+    path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 
@@ -365,7 +371,11 @@ def _capability_map_source_fingerprints(current: dict[str, Any]) -> dict[str, st
     fingerprints: dict[str, str] = {}
     try:
         for relative, path in entries:
-            fingerprints[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+            # Match TS `sha256File`: hash LF-normalized bytes so Windows CRLF
+            # writes cannot drift the capability-map sourceFiles gate vs CI.
+            fingerprints[relative] = hashlib.sha256(
+                path.read_bytes().replace(b"\r\n", b"\n")
+            ).hexdigest()
     except OSError:
         return None
     return dict(sorted(fingerprints.items()))
@@ -1101,9 +1111,15 @@ def _create_dossier_skeleton(
         )
     try:
         (target_dir / "manifest.json").write_text(
-            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+            newline="\n",
         )
-        (target_dir / "instructions.md").write_text(_facade()._INSTRUCTIONS_STUB, encoding="utf-8")
+        (target_dir / "instructions.md").write_text(
+            _facade()._INSTRUCTIONS_STUB,
+            encoding="utf-8",
+            newline="\n",
+        )
     except OSError as exc:
         # Rulla tillbaka katalogen vi själva just skapade. Utan detta lämnar ett
         # avbrott mellan de två skrivningarna ett halvskrivet byggblock kvar, och

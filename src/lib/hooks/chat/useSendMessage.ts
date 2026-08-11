@@ -28,6 +28,12 @@ import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatib
 import { normalizePreviewUrl } from "@/lib/gen/preview/preview-url-classifier";
 import { runF3FinalizeAction } from "@/lib/builder/f3-finalize-action";
 import { dispatchF3Requirements, dispatchF3Status } from "@/lib/builder/project-env-events";
+import {
+  buildInitBuildChoicesInstructions,
+  buildInitBuildChoicesMeta,
+  getCurrentInitBuildChoices,
+  resetInitBuildChoices,
+} from "@/lib/builder/init-build-choices";
 
 export function useSendMessage(
   params: ChatMessagingParams,
@@ -60,6 +66,7 @@ export function useSendMessage(
     promptAssistDeep,
     promptAssistMode,
     buildIntent,
+    setBuildIntent,
     buildMethod,
     scaffoldMode,
     scaffoldId,
@@ -305,8 +312,36 @@ export function useSendMessage(
           options.attachmentPrompt,
           options.attachments,
         );
-        const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
-        const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
+        // First codegen after plan/contract: chat exists but no version yet.
+        // Re-forward Byggval hints so the answering turn does not ignore the
+        // welcome-panel choices kept in the store until the first version.
+        const isFirstBuildAfterGate = !activeVersionId;
+        const activeInitChoices = isFirstBuildAfterGate
+          ? getCurrentInitBuildChoices()
+          : null;
+        const initChoicesMeta = activeInitChoices
+          ? buildInitBuildChoicesMeta(activeInitChoices)
+          : null;
+        const initChoicesInstructions = activeInitChoices
+          ? buildInitBuildChoicesInstructions(activeInitChoices)
+          : "";
+        let effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
+        let effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
+        if (
+          initChoicesMeta?.scaffoldId &&
+          (effectiveScaffoldMode ?? "auto") === "auto" &&
+          !effectiveScaffoldId
+        ) {
+          effectiveScaffoldMode = "manual";
+          effectiveScaffoldId = initChoicesMeta.scaffoldId;
+        }
+        const effectiveBuildIntent = initChoicesMeta?.buildIntent ?? buildIntent;
+        if (
+          initChoicesMeta?.buildIntentExplicit &&
+          (effectiveBuildIntent === "website" || effectiveBuildIntent === "app")
+        ) {
+          setBuildIntent?.(effectiveBuildIntent);
+        }
         const thinkingForTier = enableThinking;
         const promptMeta: Record<string, unknown> = {
           promptOriginal: messageText,
@@ -317,7 +352,8 @@ export function useSendMessage(
           attachmentsCount: options.attachments?.length ?? 0,
           isFirstPrompt: false,
         };
-        if (buildIntent) promptMeta.buildIntent = buildIntent;
+        if (effectiveBuildIntent) promptMeta.buildIntent = effectiveBuildIntent;
+        if (initChoicesMeta?.buildIntentExplicit) promptMeta.buildIntentExplicit = true;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
         if (effectiveScaffoldMode && effectiveScaffoldMode !== "off") promptMeta.scaffoldMode = effectiveScaffoldMode;
         if (effectiveScaffoldId) promptMeta.scaffoldId = effectiveScaffoldId;
@@ -325,6 +361,24 @@ export function useSendMessage(
         if (designThemePreset) promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;
         if (paletteState?.selections?.length) promptMeta.palette = paletteState;
+        if (initChoicesMeta?.pageCountHint) {
+          promptMeta.pageCountHint = initChoicesMeta.pageCountHint;
+        }
+        if (initChoicesMeta?.styleKeywordsHint?.length) {
+          promptMeta.styleKeywordsHint = initChoicesMeta.styleKeywordsHint;
+        }
+        if (initChoicesMeta?.styleChoiceHint) {
+          promptMeta.styleChoiceHint = initChoicesMeta.styleChoiceHint;
+        }
+        if (initChoicesMeta?.toneKeywordsHint?.length) {
+          promptMeta.toneKeywordsHint = initChoicesMeta.toneKeywordsHint;
+        }
+        if (initChoicesMeta?.colorModeHint) {
+          promptMeta.colorModeHint = initChoicesMeta.colorModeHint;
+        }
+        if (initChoicesMeta?.complexityHint) {
+          promptMeta.complexityHint = initChoicesMeta.complexityHint;
+        }
         if (options.planMode) promptMeta.planMode = true;
         if (options.promptSourceMeta) {
           promptMeta.promptSourceKind = options.promptSourceMeta.sourceKind;
@@ -391,9 +445,13 @@ export function useSendMessage(
         if (options.promptSource) {
           requestBody.promptSource = options.promptSource;
         }
-        const trimmedSystem = systemPrompt?.trim();
+        const effectiveSystemPrompt = [systemPrompt?.trim(), initChoicesInstructions]
+          .filter(Boolean)
+          .join("\n\n");
+        const trimmedSystem = effectiveSystemPrompt.trim();
         const shouldSendSystem =
-          Boolean(trimmedSystem) && trimmedSystem !== lastSentSystemPromptRef.current;
+          Boolean(trimmedSystem) &&
+          (isFirstBuildAfterGate || trimmedSystem !== lastSentSystemPromptRef.current);
         if (trimmedSystem && shouldSendSystem) {
           requestBody.system = trimmedSystem;
           lastSentSystemPromptRef.current = trimmedSystem;
@@ -630,7 +688,7 @@ export function useSendMessage(
           );
         }
 
-        await handleSseStream(
+        const streamResult = await handleSseStream(
           response,
           {
             streamType: "send",
@@ -656,6 +714,12 @@ export function useSendMessage(
           },
           streamController.signal,
         );
+        // Byggval consumed on the answering turn — clear once a real version
+        // lands so abandoned plan/contract choices cannot leak into the next
+        // new chat in the same SPA session.
+        if (isFirstBuildAfterGate && streamResult?.versionIdFromStream) {
+          resetInitBuildChoices();
+        }
         return { status: "started", via: "stream" };
       } catch (error) {
         if (isClientInitiatedAbort(error, streamController)) {
@@ -761,6 +825,7 @@ export function useSendMessage(
       onPreviewSessionMeta,
       selectedModelTier,
       buildIntent,
+      setBuildIntent,
       buildMethod,
       scaffoldMode,
       scaffoldId,

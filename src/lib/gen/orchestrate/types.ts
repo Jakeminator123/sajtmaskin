@@ -84,13 +84,14 @@ export interface OrchestrationInput {
   /**
    * Byggval (init controls): structured page-count hint (1–20). Takes
    * precedence over `detectExplicitPageCount(prompt)` in `buildRoutePlan`.
-   * Init-only — follow-up callers never set it (route freeze owns page
-   * structure on follow-ups).
+   * Init and first codegen after plan/contract (no follow-up base). Normal
+   * follow-ups leave it unset — route freeze owns page structure.
    */
   pageCountHint?: number | null;
   /**
    * Byggval (init controls): structured style keywords merged with the
-   * brief-derived keywords in scaffold-variant matching. Init-only.
+   * brief-derived keywords in scaffold-variant matching. Init / first
+   * codegen after plan-contract only.
    */
   styleKeywordsHint?: string[];
   /**
@@ -101,26 +102,28 @@ export interface OrchestrationInput {
   buildIntentExplicit?: boolean;
   /**
    * Byggval (init controls): structured tone keywords, merged with the brief's
-   * `toneAndVoice` in scaffold-variant matching. Init-only.
+   * `toneAndVoice` in scaffold-variant matching. Init / first codegen after
+   * plan-contract only.
    */
   toneKeywordsHint?: string[];
   /**
-   * Byggval (init controls): the raw style choice. On init it resolves to a
-   * concrete variant id and PINS it, so the choice cannot lose the scorer's
-   * keyword contest against the user's own prompt wording. Init-only —
-   * follow-ups keep the frozen variant.
+   * Byggval (init controls): the raw style choice. On init (and first codegen
+   * after plan/contract) it resolves to a concrete variant id and PINS it, so
+   * the choice cannot lose the scorer's keyword contest against the user's own
+   * prompt wording. Follow-ups with a base keep the frozen variant.
    */
   styleChoiceHint?: string | null;
   /**
    * Byggval (init controls): ljust/mörkt. Selects which palette a color cluster
-   * resolves to. Absent on follow-ups, where the frozen variant's own
-   * `colorMode` stands in.
+   * resolves to. Absent once a follow-up base exists, where the frozen
+   * variant's own `colorMode` stands in.
    */
   colorModeHint?: "light" | "dark" | null;
   /**
    * Byggval (init controls): structured complexity choice, forwarded to
    * `deriveBuildSpec` (`complex` → premium-golv + heavy context-bias,
-   * `simple` → lättare context-bias, `medium` → no-op). Init-only.
+   * `simple` → lättare context-bias, `medium` → no-op). Init / first codegen
+   * after plan-contract only.
    */
   complexityHint?: BuildSpecComplexityHint | null;
   brief?: Record<string, unknown> | null;

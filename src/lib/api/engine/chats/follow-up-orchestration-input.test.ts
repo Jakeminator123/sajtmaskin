@@ -52,6 +52,13 @@ function followUpMeta(): Pick<
   | "scaffoldMode"
   | "scaffoldId"
   | "lifecycleStage"
+  | "pageCountHint"
+  | "styleKeywordsHint"
+  | "toneKeywordsHint"
+  | "styleChoiceHint"
+  | "colorModeHint"
+  | "complexityHint"
+  | "buildIntentExplicit"
 > {
   return {
     brief: { requestedCapabilities: ["payments"] },
@@ -61,6 +68,13 @@ function followUpMeta(): Pick<
     scaffoldMode: "auto",
     scaffoldId: null,
     lifecycleStage: "design",
+    pageCountHint: null,
+    styleKeywordsHint: [],
+    toneKeywordsHint: [],
+    styleChoiceHint: null,
+    colorModeHint: null,
+    complexityHint: null,
+    buildIntentExplicit: false,
   };
 }
 
@@ -283,5 +297,46 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     expect(planInput.capabilities).toBeUndefined();
     expect(codegenInput.capabilities).toBeUndefined();
     expect(codegenInput.followUpIntent).toBeUndefined();
+  });
+
+  it("forwards Byggval hints on first codegen after plan/contract (!hasFollowUpBase)", () => {
+    const params = baseParams({
+      hasFollowUpBase: false,
+      persistedScaffoldId: "landing-page",
+      parsedMeta: {
+        ...followUpMeta(),
+        pageCountHint: 2,
+        styleKeywordsHint: ["minimal", "clean"],
+        toneKeywordsHint: ["professional"],
+        styleChoiceHint: "minimal",
+        colorModeHint: "dark",
+        complexityHint: "simple",
+        buildIntentExplicit: true,
+      },
+    });
+
+    const codegenInput = buildFollowUpOrchestrationInput({ ...params, mode: "codegen" });
+    expect(codegenInput.pageCountHint).toBe(2);
+    expect(codegenInput.styleKeywordsHint).toEqual(["minimal", "clean"]);
+    expect(codegenInput.toneKeywordsHint).toEqual(["professional"]);
+    expect(codegenInput.styleChoiceHint).toBe("minimal");
+    expect(codegenInput.colorModeHint).toBe("dark");
+    expect(codegenInput.complexityHint).toBe("simple");
+    expect(codegenInput.buildIntentExplicit).toBe(true);
+
+    const withBase = buildFollowUpOrchestrationInput(
+      baseParams({
+        hasFollowUpBase: true,
+        parsedMeta: {
+          ...followUpMeta(),
+          pageCountHint: 2,
+          styleChoiceHint: "minimal",
+          buildIntentExplicit: true,
+        },
+      }),
+    );
+    expect(withBase.pageCountHint).toBeUndefined();
+    expect(withBase.styleChoiceHint).toBeUndefined();
+    expect(withBase.buildIntentExplicit).toBeUndefined();
   });
 });

@@ -54,6 +54,18 @@ const s = z.string({
     expect(result.code).toBe(code);
   });
 
+  it("does NOT rewrite template literals that interpolate the issue argument", () => {
+    const code = `import { z } from "zod";
+const s = z.string({
+  errorMap: (issue) => ({ message: \`Bad \${issue.code}\` }),
+});
+`;
+    const result = fixZodV4Params(code, "lib/schema.ts");
+    expect(result.fixed).toBe(false);
+    expect(result.code).toBe(code);
+    expect(result.code).toContain("errorMap");
+  });
+
   it("does NOT touch files that do not import zod", () => {
     const code = `const config = { errorMap: () => ({ message: "custom" }) };\n`;
     const result = fixZodV4Params(code, "lib/other.ts");
