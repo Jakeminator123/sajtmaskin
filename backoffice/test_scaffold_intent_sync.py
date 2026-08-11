@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -118,7 +119,9 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
             variants_dir=self.variants_dir,
         )
 
-    def _create(self, intents: list[str]) -> None:
+    def _create(
+        self, intents: list[str], *, create_start_variant: bool = False
+    ) -> None:
         _create_scaffold(
             self.ctx,
             source_scaffold_id="base-nextjs",
@@ -135,8 +138,15 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
             prompt_hints=["First hint", "Second hint"],
             quality_checklist=["First", "Second", "Third"],
             upgrade_targets=["More routes"],
-            create_start_variant=False,
+            create_start_variant=create_start_variant,
         )
+
+    def _repo_snapshot(self) -> dict[str, bytes]:
+        return {
+            path.relative_to(self.root).as_posix(): path.read_bytes()
+            for path in self.root.rglob("*")
+            if path.is_file()
+        }
 
     def test_create_writes_intents_to_manifest_and_client_projection(self) -> None:
         self._create(["app", "template"])
@@ -161,6 +171,80 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "allowedBuildIntents"):
                     self._create(intents)
                 self.assertFalse((self.scaffolds_dir / "new-app").exists())
+
+    def test_create_rejects_stale_projections_before_writing(self) -> None:
+        types_path = self.scaffolds_dir / "types.ts"
+        registry_path = self.scaffolds_dir / "registry.ts"
+        locale_path = self.scaffolds_dir / "scaffold-embedding-locale.ts"
+        original_types = types_path.read_text(encoding="utf-8")
+        original_registry = registry_path.read_text(encoding="utf-8")
+        original_locale = locale_path.read_text(encoding="utf-8")
+        stale_states = {
+            "union": (
+                types_path,
+                original_types.replace(
+                    '  | "base-nextjs";', '  | "base-nextjs"\n  | "new-app";'
+                ),
+            ),
+            "client": (
+                types_path,
+                original_types.replace(
+                    "] as const;",
+                    '  { id: "new-app", label: "Old", description: "Stale", '
+                    'allowedBuildIntents: ["website"] },\n] as const;',
+                ),
+            ),
+            "registry": (
+                registry_path,
+                original_registry.replace(
+                    "  baseNextjsManifest,",
+                    "  baseNextjsManifest,\n  newAppManifest,",
+                ),
+            ),
+            "locale": (
+                locale_path,
+                original_locale.replace(
+                    "};",
+                    '  "new-app": { labelSv: "Gammal", descriptionSv: "Gammal", '
+                    'keywordsSv: [] },\n};',
+                ),
+            ),
+        }
+
+        for case, (path, stale_text) in stale_states.items():
+            with self.subTest(case=case):
+                path.write_text(stale_text, encoding="utf-8", newline="\n")
+                before = self._repo_snapshot()
+                with self.assertRaisesRegex(ValueError, "projektion|finns redan"):
+                    self._create(["app"])
+                self.assertEqual(self._repo_snapshot(), before)
+                self.assertFalse((self.scaffolds_dir / "new-app").exists())
+                self.assertFalse((self.variants_dir / "new-app").exists())
+                path.write_text(
+                    {
+                        types_path: original_types,
+                        registry_path: original_registry,
+                        locale_path: original_locale,
+                    }[path],
+                    encoding="utf-8",
+                    newline="\n",
+                )
+
+    def test_create_rejects_malformed_client_list_before_writing(self) -> None:
+        types_path = self.scaffolds_dir / "types.ts"
+        malformed_types = types_path.read_text(encoding="utf-8").replace(
+            "] as const;",
+            "];\n\nexport const OTHER_LIST = [] as const;",
+        )
+        types_path.write_text(malformed_types, encoding="utf-8", newline="\n")
+        before = self._repo_snapshot()
+
+        with self.assertRaisesRegex(ValueError, "SCAFFOLD_CLIENT_LIST"):
+            self._create(["app"])
+
+        self.assertEqual(self._repo_snapshot(), before)
+        self.assertFalse((self.scaffolds_dir / "new-app").exists())
+        self.assertFalse((self.variants_dir / "new-app").exists())
 
     def test_create_rolls_back_all_files_after_types_write_succeeds(self) -> None:
         tracked_paths = [
@@ -195,6 +279,112 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
         self.assertTrue(registry_failed_once)
         self.assertFalse((self.scaffolds_dir / "new-app").exists())
         self.assertFalse((self.variants_dir / "new-app").exists())
+        for path, original in originals.items():
+            with self.subTest(path=path):
+                self.assertEqual(path.read_text(encoding="utf-8"), original)
+
+    def test_create_rollback_continues_after_restore_failure(self) -> None:
+        tracked_paths = [
+            self.scaffolds_dir / "types.ts",
+            self.scaffolds_dir / "registry.ts",
+            self.scaffolds_dir / "scaffold-embedding-locale.ts",
+            self.schema_path,
+        ]
+        originals = {path: path.read_text(encoding="utf-8") for path in tracked_paths}
+        types_path = self.scaffolds_dir / "types.ts"
+        restored_after_failure: list[Path] = []
+        types_was_mutated = False
+
+        def fail_types_restore(path: Path, content: str) -> None:
+            nonlocal types_was_mutated
+            if path == types_path and content == originals[types_path] and types_was_mutated:
+                raise OSError("simulated types restore failure")
+            write_text(path, content)
+            if path == types_path and content != originals[types_path]:
+                types_was_mutated = True
+            elif content == originals.get(path):
+                restored_after_failure.append(path)
+
+        with (
+            mock.patch(
+                "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops.write_text",
+                side_effect=fail_types_restore,
+            ),
+            mock.patch(
+                "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops.write_json",
+                side_effect=OSError("simulated variant write failure"),
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Rollbacken") as raised:
+                self._create(["app"], create_start_variant=True)
+
+        self.assertIsInstance(raised.exception.__cause__, OSError)
+        self.assertIn("simulated variant write failure", str(raised.exception.__cause__))
+        self.assertIn("simulated types restore failure", str(raised.exception))
+        self.assertTrue(types_was_mutated)
+        self.assertEqual(
+            restored_after_failure,
+            tracked_paths[1:],
+            "later originals must still be restored after the first restore fails",
+        )
+        self.assertFalse((self.scaffolds_dir / "new-app").exists())
+        self.assertFalse((self.variants_dir / "new-app").exists())
+        for path in tracked_paths[1:]:
+            with self.subTest(path=path):
+                self.assertEqual(path.read_text(encoding="utf-8"), originals[path])
+
+    def test_create_rollback_continues_after_first_cleanup_failure(self) -> None:
+        tracked_paths = [
+            self.scaffolds_dir / "types.ts",
+            self.scaffolds_dir / "registry.ts",
+            self.scaffolds_dir / "scaffold-embedding-locale.ts",
+            self.schema_path,
+        ]
+        originals = {path: path.read_text(encoding="utf-8") for path in tracked_paths}
+        mutated_paths: set[Path] = set()
+        restore_attempts: list[Path] = []
+        cleanup_attempts: list[Path] = []
+        variant_dir = self.variants_dir / "new-app"
+        scaffold_dir = self.scaffolds_dir / "new-app"
+        real_rmtree = shutil.rmtree
+
+        def track_writes(path: Path, content: str) -> None:
+            if path in mutated_paths and content == originals.get(path):
+                restore_attempts.append(path)
+            write_text(path, content)
+            if path in originals and content != originals[path]:
+                mutated_paths.add(path)
+
+        def fail_first_cleanup(path: Path) -> None:
+            cleanup_attempts.append(path)
+            if path == variant_dir:
+                raise OSError("simulated variant cleanup failure")
+            real_rmtree(path)
+
+        with (
+            mock.patch(
+                "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops.write_text",
+                side_effect=track_writes,
+            ),
+            mock.patch(
+                "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops.write_json",
+                side_effect=OSError("simulated variant write failure"),
+            ),
+            mock.patch(
+                "backoffice.pages.scaffold_lifecycle_lib.scaffold_ops.shutil.rmtree",
+                side_effect=fail_first_cleanup,
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Rollbacken") as raised:
+                self._create(["app"], create_start_variant=True)
+
+        self.assertIsInstance(raised.exception.__cause__, OSError)
+        self.assertIn("simulated variant write failure", str(raised.exception.__cause__))
+        self.assertIn("simulated variant cleanup failure", str(raised.exception))
+        self.assertEqual(restore_attempts, tracked_paths)
+        self.assertEqual(cleanup_attempts, [variant_dir, scaffold_dir])
+        self.assertTrue(variant_dir.is_dir())
+        self.assertFalse(scaffold_dir.exists())
         for path, original in originals.items():
             with self.subTest(path=path):
                 self.assertEqual(path.read_text(encoding="utf-8"), original)
@@ -274,7 +464,7 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
 
         types_path.write_text(original_types, encoding="utf-8", newline="\n")
 
-    def test_edit_rolls_back_manifest_when_client_projection_write_fails(self) -> None:
+    def test_edit_restores_both_files_after_partial_client_projection_write(self) -> None:
         manifest_path = self.scaffolds_dir / "base-nextjs" / "manifest.ts"
         types_path = self.scaffolds_dir / "types.ts"
         original_manifest = manifest_path.read_text(encoding="utf-8")
@@ -282,13 +472,18 @@ class ScaffoldIntentWriterTests(unittest.TestCase):
 
         def fail_types_write(path: Path, content: str) -> None:
             if path == types_path:
-                raise OSError("simulated types write failure")
+                path.write_text(
+                    content[: max(1, len(content) // 3)],
+                    encoding="utf-8",
+                    newline="\n",
+                )
+                raise OSError("simulated partial types write failure")
             write_text(path, content)
 
         with mock.patch(
             "backoffice.pages.scaffolds.write_text", side_effect=fail_types_write
         ):
-            with self.assertRaisesRegex(OSError, "simulated types write failure"):
+            with self.assertRaisesRegex(OSError, "simulated partial types write failure"):
                 _save_scaffold_metadata(
                     self.ctx,
                     scaffold_id="base-nextjs",
