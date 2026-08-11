@@ -35,8 +35,10 @@ describe("resolveVariantForStyleChoice", () => {
     expect(resolveVariantForStyleChoice("landing-page", null)).toBeNull();
     expect(resolveVariantForStyleChoice(null, "minimal")).toBeNull();
     expect(resolveVariantForStyleChoice("no-such-scaffold", "minimal")).toBeNull();
-    // dashboard has no honest "warm" variant — the matcher should decide.
+    // dashboard has no honest "warm" or "minimal" variant — the matcher should decide.
     expect(resolveVariantForStyleChoice("dashboard", "warm")).toBeNull();
+    expect(resolveVariantForStyleChoice("dashboard", "minimal")).toBeNull();
+    expect(resolveVariantForStyleChoice("saas-landing", "minimal")).toBeNull();
   });
 
   it("pins distinct variants for opposing styles on the same scaffold", () => {
