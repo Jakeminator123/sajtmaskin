@@ -386,7 +386,9 @@ export function useBuilderPageController() {
       setPreviewPending(false);
     },
   });
+  /* eslint-disable react-hooks/refs -- wire bootstrap success callback without putting resetRecoverAttempts in effect deps */
   resetRecoverAfterBootstrapRef.current = resetRecoverAttempts;
+  /* eslint-enable react-hooks/refs */
 
   const resetBeforeCreateChat = useCallback(() => {
     setCurrentPreviewUrl(null);

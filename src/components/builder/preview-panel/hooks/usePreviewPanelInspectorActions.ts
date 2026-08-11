@@ -163,7 +163,16 @@ export function usePreviewPanelInspectorActions({
         setInspectEditBusy(false);
       }
     },
-    [chatId, versionId, onFilesSaved, reloadFilesForVersion, composerBaseVersionRef],
+    [
+      chatId,
+      versionId,
+      onFilesSaved,
+      reloadFilesForVersion,
+      composerBaseVersionRef,
+      inspectEditInFlightRef,
+      setInspectEditBusy,
+      setInspectEditError,
+    ],
   );
 
   const handleInspectSaveText = useCallback(
@@ -183,7 +192,7 @@ export function usePreviewPanelInspectorActions({
       const saved = await applyInspectorEdit(ops, "Texten uppdaterades");
       if (saved) setInspectMenu(null);
     },
-    [inspectMenu, applyInspectorEdit, setInspectMenu],
+    [inspectMenu, applyInspectorEdit, setInspectMenu, setInspectEditError],
   );
 
   const handleInspectReplaceImage = useCallback(
@@ -338,7 +347,14 @@ export function usePreviewPanelInspectorActions({
     } finally {
       setRegionImagePending(false);
     }
-  }, [inspectRegion, previewUrl, regionImagePending, setInspectMode, setInspectRegion]);
+  }, [
+    inspectRegion,
+    previewUrl,
+    regionImagePending,
+    setInspectMode,
+    setInspectRegion,
+    setRegionImagePending,
+  ]);
 
   // Bildbytet går genom projektets mediabibliotek. Är biblioteket avstängt är
   // raden gråad med det skälet i stället för att öppna en tom låda.

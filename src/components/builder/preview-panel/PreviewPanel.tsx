@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
@@ -126,12 +127,13 @@ export function PreviewPanel({
   } = surface;
   const isCodeView = viewMode !== "preview";
   // "Lägg till"-ytan (tabbad panel) — flag-gated via NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL.
-  // Läs EFTER mount (initial false) för att undvika SSR/CSR-hydratmismatch, samma
-  // mönster som inspect-bridge-flaggan. Flagga av = dagens fristående Composer-palette.
-  const [addPanelEnabled, setAddPanelEnabled] = useState(false);
-  useEffect(() => {
-    setAddPanelEnabled(isAddPanelEnabled());
-  }, []);
+  // Server-snapshot false + klient-läsning undviker SSR/CSR-hydratmismatch (samma
+  // intent som inspect-bridge-flaggan). Flagga av = dagens fristående Composer-palette.
+  const addPanelEnabled = useSyncExternalStore(
+    () => () => {},
+    () => isAddPanelEnabled(),
+    () => false,
+  );
   const {
     files,
     setFiles,
@@ -309,7 +311,10 @@ export function PreviewPanel({
     placementScopeRef.current = { chatId, versionId };
     const chatSwitched = Boolean(previous.chatId) && previous.chatId !== chatId;
     const versionSwitched = Boolean(previous.versionId) && previous.versionId !== versionId;
-    if (chatSwitched || versionSwitched) resolveShadcnPlacementPick("aborted");
+    if (!chatSwitched && !versionSwitched) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- abort stale placement pick when chat/version switches mid-pick */
+    resolveShadcnPlacementPick("aborted");
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [chatId, versionId, resolveShadcnPlacementPick]);
 
   const handlePickShadcnPlacement = useCallback(
@@ -570,12 +575,16 @@ export function PreviewPanel({
   // ingen meny bli kvar svävande över en yta den inte längre beskriver.
   useEffect(() => {
     if (inspectMode) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- drop floating inspect UI when leaving inspect mode */
     setInspectMenu(null);
     setInspectRegion(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [inspectMode]);
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- drop floating inspect UI when preview identity or code view changes */
     setInspectMenu(null);
     setInspectRegion(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [previewUrl, isCodeView]);
 
   const iframeRunbookLines = useMemo(
@@ -589,8 +598,10 @@ export function PreviewPanel({
   // Kod-meny, så valet nollställs här i stället för i menyn.
   useEffect(() => {
     if (viewMode !== "code") return;
+    /* eslint-disable react-hooks/set-state-in-effect -- clear registry selection when switching to code view */
     setSelectedRegistryId(null);
     setSelectedRegistryLine(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [viewMode]);
 
   const {
