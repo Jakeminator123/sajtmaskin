@@ -138,6 +138,10 @@ export const serverSchema = z.object({
    *  plattforms-webhooks på POST /api/webhooks/openai (kvitton för
    *  background-/batch-jobb — inte pipelines synkrona anrop). */
   OPENAI_WEBHOOK: z.string().optional(),
+  /** Signature Verification Secret för Vercel Log Drain → POST /api/drains/vercel.
+   *  Utan den avvisar routen varje leverans (503) och inga plattformsloggar
+   *  hamnar i `vercel_log_drain_events`. */
+  VERCEL_LOG_DRAIN_SECRET: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
   /** Fail fast when required generated template/scaffold artifacts are missing or empty outside test. */
   SAJTMASKIN_STRICT_GENERATED_ARTIFACTS: z.string().optional(),

@@ -80,6 +80,10 @@ export const MIGRATION_ORDER = [
   // version så force-restart/quick-edit-fallback bygger samma F2 mock-seedade
   // .env.local som första boot. Additiv nullable jsonb; basen skapas tidigare.
   "add-engine-version-selected-dossier-env-keys.sql",
+  // Inbox för Vercel Log Drain-leveranser (POST /api/drains/vercel) — gör
+  // appens console.warn/error läsbara för /logg via SQL i stället för bara
+  // `vercel logs`. Fristående CREATE — inga beroenden på andra tabeller.
+  "add-vercel-log-drain-events.sql",
   // Live dev↔prod-paritet (2026-08-05): prod-tabeller födda under äldre
   // CREATE TABLE-definitioner får dagens form (TIMESTAMPTZ, UNIQUE/FK-
   // constraints), dev tappar redundanta dubblett-index. Allt guardat via

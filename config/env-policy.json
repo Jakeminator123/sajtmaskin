@@ -261,6 +261,7 @@
     "USE_RESPONSES_API",
     "VERCEL",
     "VERCEL_ENV",
+    "VERCEL_LOG_DRAIN_SECRET",
     "VERCEL_OIDC_TOKEN",
     "VERCEL_URL",
     "VERCEL_WEBHOOK_SECRET"
@@ -532,6 +533,12 @@
       "classification": "optional_runtime",
       "recommendedVercelTargets": ["development", "preview", "production"],
       "notes": "Validates inbound Vercel webhooks."
+    },
+    {
+      "key": "VERCEL_LOG_DRAIN_SECRET",
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["production"],
+      "notes": "Signature Verification Secret from the Vercel Log Drain dialog (Team Settings → Drains → Add Drain → Logs → Custom Endpoint, URL https://sajtmaskin.vercel.app/api/drains/vercel). The receiver verifies x-vercel-signature (HMAC-SHA1 over the raw body) against it; without it POST /api/drains/vercel answers 503 and nothing is stored. Kept lines land in vercel_log_drain_events (dump-logs.mjs --kinds=drain). Not the same secret as VERCEL_WEBHOOK_SECRET, which validates deployment webhooks on /api/webhooks/vercel."
     },
     {
       "key": "VERCEL_OIDC_TOKEN",
