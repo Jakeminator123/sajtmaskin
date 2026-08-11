@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  briefBuildChoicesCacheExtras,
-  formatBriefBuildChoicesForPrompt,
-} from "./brief-build-choices";
+import { briefBuildChoicesCacheExtras } from "./brief-build-choices";
+import { formatBriefBuildChoicesForPrompt } from "./brief-build-choices-format";
 
 describe("formatBriefBuildChoicesForPrompt", () => {
   it("returns undefined when nothing is selected", () => {

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { getScaffoldIds } from "../scaffolds";
+import { getScaffoldIds } from "../scaffolds/registry";
 import type { ScaffoldId } from "../scaffolds/types";
 import { deepFreeze } from "@/lib/utils/deep-freeze";
 import type {

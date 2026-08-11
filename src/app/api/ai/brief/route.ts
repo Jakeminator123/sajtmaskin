@@ -14,9 +14,9 @@ import {
 } from "@/lib/builder/site-brief-generation";
 import {
   briefBuildChoicesCacheExtras,
-  formatBriefBuildChoicesForPrompt,
   type BriefBuildChoicesInput,
 } from "@/lib/builder/brief-build-choices";
+import { formatBriefBuildChoicesForPrompt } from "@/lib/builder/brief-build-choices-format";
 import {
   buildBriefCacheKey,
   readBriefCache,
