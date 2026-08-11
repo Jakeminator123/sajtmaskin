@@ -107,4 +107,39 @@ describe("buildLocalDeclarationIndex — usage scope", () => {
     const usage = code.indexOf("<Button");
     expect(idx.isValueInScope("Button", usage)).toBe(true);
   });
+
+  it("treats module-level function declarations as hoisted", () => {
+    const code = [
+      "export default function Page() { return <Button>Klicka</Button>; }",
+      "function Button() { return <button type=\"button\" />; }",
+    ].join("\n");
+    const idx = buildLocalDeclarationIndex(code);
+    const usage = code.indexOf("<Button>");
+    expect(idx.isValueInScope("Button", usage)).toBe(true);
+  });
+
+  it("treats module-scope const as visible to earlier function bodies", () => {
+    // Module evaluation finishes before Page() runs, so a later const Button is
+    // a real local — do not inject a shadcn import.
+    const code = [
+      "export default function Page() { return <Button>Klicka</Button>; }",
+      "const Button = () => <button type=\"button\" />;",
+    ].join("\n");
+    const idx = buildLocalDeclarationIndex(code);
+    const usage = code.indexOf("<Button>");
+    expect(idx.isValueInScope("Button", usage)).toBe(true);
+  });
+
+  it("does not hoist nested const above its declaration inside the same block", () => {
+    const code = [
+      "export default function Page() {",
+      "  const el = <Button>Klicka</Button>;",
+      "  const Button = () => <button type=\"button\" />;",
+      "  return el;",
+      "}",
+    ].join("\n");
+    const idx = buildLocalDeclarationIndex(code);
+    const usage = code.indexOf("<Button>");
+    expect(idx.isValueInScope("Button", usage)).toBe(false);
+  });
 });

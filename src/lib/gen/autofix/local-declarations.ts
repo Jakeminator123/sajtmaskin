@@ -26,9 +26,12 @@
  * `const Foo: React.FC<{…}> =`, `let Foo`, `var Foo`, `class Foo`.
  * Type annotations may contain nested `<>` / `{}`, so we allow any non-`=`
  * (and non-newline) run between `:` and the `=` / `(`.
+ *
+ * Capture groups: [1]=function, [2]=const/let/var keyword, [3]=const/let/var
+ * name, [4]=class name.
  */
 const LOCAL_VALUE_DECL_RE =
-  /(?:(?:function|const|let|var)\s+([A-Z]\w*)(?:\s*:\s*[^=\n]+)?\s*[=(]|class\s+([A-Z]\w*)\b)/g;
+  /(?:function\s+([A-Z]\w*)\s*\(|(const|let|var)\s+([A-Z]\w*)(?:\s*:\s*[^=\n]+)?\s*=|class\s+([A-Z]\w*)\b)/g;
 
 /**
  * Type-only declarations: `type Foo = …`, `interface Foo`.
@@ -38,11 +41,13 @@ const LOCAL_TYPE_DECL_RE = /(?:type|interface)\s+([A-Z]\w*)\b/g;
 
 interface ValueBinding {
   name: string;
-  /** Inclusive start index of the binding. */
+  /** Inclusive start index of the binding (0 for hoisted function/var in scope). */
   from: number;
   /** Exclusive end index — when the enclosing block closes (or EOF). */
   to: number;
 }
+
+type DeclKind = "function" | "var" | "let-const-class";
 
 /**
  * Replace comments and string/template literals with same-length spaces so
@@ -101,10 +106,12 @@ function blankCommentsAndStrings(source: string): string {
 type ScopeEvent =
   | { index: number; kind: "open" }
   | { index: number; kind: "close" }
-  | { index: number; kind: "decl"; name: string };
+  | { index: number; kind: "decl"; name: string; declKind: DeclKind };
 
 /**
  * Build value-binding ranges with lexical brace scope on blanked source.
+ * `function` / `var` are treated as hoisted to the start of their enclosing
+ * scope (matching JS); `const` / `let` / `class` start at the declaration.
  */
 function collectValueBindings(blanked: string): ValueBinding[] {
   const events: ScopeEvent[] = [];
@@ -116,9 +123,20 @@ function collectValueBindings(blanked: string): ValueBinding[] {
 
   LOCAL_VALUE_DECL_RE.lastIndex = 0;
   for (const m of blanked.matchAll(LOCAL_VALUE_DECL_RE)) {
-    const name = m[1] ?? m[2];
+    let name: string | undefined;
+    let declKind: DeclKind;
+    if (m[1]) {
+      name = m[1];
+      declKind = "function";
+    } else if (m[3]) {
+      name = m[3];
+      declKind = m[2] === "var" ? "var" : "let-const-class";
+    } else {
+      name = m[4];
+      declKind = "let-const-class";
+    }
     if (!name) continue;
-    events.push({ index: m.index ?? 0, kind: "decl", name });
+    events.push({ index: m.index ?? 0, kind: "decl", name, declKind });
   }
 
   events.sort((a, b) => {
@@ -128,16 +146,30 @@ function collectValueBindings(blanked: string): ValueBinding[] {
     return rank(a) - rank(b);
   });
 
-  const stack: { decls: { name: string; from: number }[] }[] = [{ decls: [] }];
+  const stack: {
+    /** Index where this scope's body became active (module=0, else `{` index). */
+    scopeFrom: number;
+    decls: { name: string; from: number; declKind: DeclKind }[];
+  }[] = [{ scopeFrom: 0, decls: [] }];
   const bindings: ValueBinding[] = [];
 
   for (const event of events) {
     if (event.kind === "decl") {
-      stack[stack.length - 1]!.decls.push({ name: event.name, from: event.index });
+      const frame = stack[stack.length - 1]!;
+      // Module-scope bindings are visible to earlier function bodies once the
+      // module has finished evaluating (typical React: Page above, const Button
+      // below). Nested `function`/`var` hoist to the start of their block;
+      // nested `const`/`let`/`class` start at the declaration (TDZ).
+      const isModuleScope = stack.length === 1;
+      const from =
+        isModuleScope || event.declKind === "function" || event.declKind === "var"
+          ? frame.scopeFrom
+          : event.index;
+      frame.decls.push({ name: event.name, from, declKind: event.declKind });
       continue;
     }
     if (event.kind === "open") {
-      stack.push({ decls: [] });
+      stack.push({ scopeFrom: event.index, decls: [] });
       continue;
     }
     // close
