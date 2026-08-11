@@ -30,10 +30,10 @@ from backoffice.pages.scaffold_lifecycle import (
     _create_scaffold,
     _dead_source_template_ids,
     _dead_source_template_ids_message,
-    _delete_scaffold,
     _slugify,
     _validate_variant_payload,
     _variant_payload,
+    _variant_template_reference_errors,
 )
 from backoffice.shared import (
     BackofficeContext,
@@ -46,6 +46,7 @@ from backoffice.shared import (
     tech_details,
     write_json,
 )
+from backoffice.pages.scaffold_lifecycle_lib.formatting import _exception_message
 
 PAGE_NAME = "Guide: ny scaffold eller variant (AI)"
 
@@ -842,31 +843,42 @@ def _run_checks(ctx: BackofficeContext, draft: dict[str, Any]) -> tuple[list[dic
             not target_path.exists(),
             target_path.relative_to(ctx.repo_root).as_posix(),
         )
-        default_conflict = ""
-        if payload is not None and payload.get("default"):
-            variant_dir = ctx.variants_dir / scaffold_id
-            if variant_dir.is_dir():
-                for sibling in variant_dir.glob("*.json"):
-                    try:
-                        sibling_payload = read_json(sibling)
-                    except Exception:
-                        continue
-                    if isinstance(sibling_payload, dict) and sibling_payload.get("default"):
-                        default_conflict = f"`{sibling.stem}` är redan default"
-                        break
-        add(
-            "Ingen default-krock",
-            not default_conflict,
-            default_conflict or "konvention: exakt en default per scaffold",
-        )
+
+    sibling_defaults: list[str] = []
+    if not new_scaffold:
+        variant_dir = ctx.variants_dir / scaffold_id
+        if variant_dir.is_dir():
+            for sibling in variant_dir.glob("*.json"):
+                try:
+                    sibling_payload = read_json(sibling)
+                except Exception:
+                    continue
+                if isinstance(sibling_payload, dict) and sibling_payload.get("default") is True:
+                    sibling_defaults.append(sibling.stem)
+    default_count = len(sibling_defaults) + int(
+        bool(payload is not None and payload.get("default") is True)
+    )
+    add(
+        "Exakt en default-variant",
+        default_count == 1,
+        (
+            "default efter skapandet: "
+            + str(default_count)
+            + (
+                " (befintliga: " + ", ".join(sibling_defaults) + ")"
+                if sibling_defaults
+                else ""
+            )
+        ),
+    )
 
     if payload is not None:
         if new_scaffold:
             # The new scaffold's id isn't in the on-disk schema enum yet, so use
             # the in-memory enum patch. But ALSO run the Blob sourceTemplateIds
-            # integrity check (variant-integrity.test.ts gate) that
+            # integrity checks (variant-integrity.test.ts gate) that
             # _validate_variant_payload does — schema validation alone won't
-            # catch a sourceTemplateId missing from template-blob-manifest.json.
+            # catch a dead, runtime-ineligible or addendum-less source.
             schema = wiz.load_variant_schema(ctx.repo_root)
             errors = wiz.validate_variant_payload_against_schema(
                 payload, schema, extra_scaffold_id=scaffold_id
@@ -874,8 +886,18 @@ def _run_checks(ctx: BackofficeContext, draft: dict[str, Any]) -> tuple[list[dic
             dead = _dead_source_template_ids(ctx, payload)
             if dead:
                 errors = [*errors, _dead_source_template_ids_message(dead)]
+            errors = [*errors, *_variant_template_reference_errors(ctx, payload)]
         else:
             errors = _validate_variant_payload(ctx, payload)
+        source_ids = payload.get("sourceTemplateIds")
+        if not (
+            isinstance(source_ids, list)
+            and any(isinstance(value, str) and value.strip() for value in source_ids)
+        ):
+            errors = [
+                *errors,
+                "Varianten måste ha minst ett runtime-valbart `sourceTemplateIds`-id.",
+            ]
         add(
             "Varianten klarar det strikta schemat",
             not errors,
@@ -913,22 +935,9 @@ def _apply(ctx: BackofficeContext, draft: dict[str, Any], payload: dict[str, Any
             prompt_hints=_normalize_lines(str(scaffold.get("hintsText", ""))),
             quality_checklist=_normalize_lines(str(scaffold.get("qualityText", ""))),
             upgrade_targets=_normalize_lines(str(scaffold.get("upgradesText", ""))),
-            create_start_variant=False,
+            create_start_variant=True,
+            starter_variant_payload=payload,
         )
-        try:
-            variant_dir = ctx.variants_dir / scaffold_id
-            variant_dir.mkdir(parents=True, exist_ok=True)
-            write_json(variant_dir / f"{variant['id']}.json", payload)
-        except Exception:
-            # Rulla tillbaka den nyss skapade scaffolden. Best-effort +
-            # snapshot=False: en fabriks-fräsch scaffold behöver ingen
-            # undo-snapshot, och en fail-closed städning får aldrig maskera
-            # det ursprungliga variant-skrivfelet nedan.
-            try:
-                _delete_scaffold(ctx, scaffold_id, snapshot=False)
-            except Exception:
-                pass
-            raise
         return (
             f"Skapade scaffolden `{scaffold_id}` (klonad från `{scaffold['cloneFrom']}`) "
             f"med startvarianten `{variant['id']}`."
@@ -987,7 +996,10 @@ def _render_step_validate(ctx: BackofficeContext) -> None:
             try:
                 message = _apply(ctx, draft, payload)
             except Exception as error:
-                st.error(f"Skapandet misslyckades (rollback körd där möjligt): {error}")
+                st.error(
+                    "Skapandet misslyckades (rollback körd där möjligt): "
+                    + _exception_message(error)
+                )
                 return
             # Behåll steget på 4 och byt till den persistenta slutför-panelen.
             # Efter-stegen (designmönster → embeddings → validering) körs
@@ -1069,15 +1081,52 @@ def _variant_has_patterns(ctx: BackofficeContext, scaffold_id: str, variant_id: 
     return bool(sp.get("layouts") and sp.get("motifs") and sp.get("antiPatterns"))
 
 
+def _post_create_validation_passed(results: dict[str, Any]) -> bool:
+    """True only after the canonical scaffold integrity command passed.
+
+    Creation itself proves that files were written, not that generated indexes
+    and every committed invariant are current. Keep the completion status bound
+    to ``scaffolds:validate`` so the wizard cannot celebrate a false green.
+    """
+    validation = results.get("validate")
+    return bool(
+        isinstance(validation, dict)
+        and validation.get("ok")
+        and not validation.get("skipped")
+    )
+
+
+def _invalidate_validation_after_mutation(
+    results: dict[str, Any], step_key: str
+) -> None:
+    """A write after validation makes that validation result historical."""
+    if step_key in {"patterns", "embeddings"}:
+        results.pop("validate", None)
+
+
 def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None:
     variant_id = str(created.get("variantId", ""))
     scaffold_id = str(created.get("scaffoldId", ""))
+    results: dict[str, Any] = st.session_state.setdefault("swz_cmd_results", {})
+    validation_passed = _post_create_validation_passed(results)
 
-    st.subheader("Klart — varianten är skapad")
-    st.success(created.get("message", "Varianten skapades."))
-    if not st.session_state.get("swz_balloons_shown"):
-        st.balloons()
-        st.session_state["swz_balloons_shown"] = True
+    if validation_passed:
+        st.subheader("Integritetsgrinden är grön")
+        st.success(
+            f"{created.get('message', 'Varianten skapades.')} "
+            "`npm run scaffolds:validate` passerar. Granska fortfarande diffen "
+            "innan commit eller merge."
+        )
+        if not st.session_state.get("swz_balloons_shown"):
+            st.balloons()
+            st.session_state["swz_balloons_shown"] = True
+    else:
+        st.subheader("Varianten är skapad — integritetskontroller återstår")
+        st.info(created.get("message", "Varianten skapades."))
+        st.warning(
+            "Filerna finns i worktreet, men ändringen är inte integritetsklar eller "
+            "redo för master förrän efter-stegen avslutas med en grön validering."
+        )
 
     if variant_id and scaffold_id:
         st.caption(
@@ -1099,9 +1148,9 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
         )
 
     steps = _post_create_steps(variant_id)
-    results: dict[str, Any] = st.session_state.setdefault("swz_cmd_results", {})
-
     def _run(step: dict[str, Any]) -> None:
+        _invalidate_validation_after_mutation(results, str(step["key"]))
+        st.session_state["swz_cmd_results"] = results
         with st.spinner(f"Kör: {step['label']} …"):
             res = run_repo_command(ctx.repo_root, step["command"])
         # Curation exits 0 even on LLM failure/skip — verify the file really got
@@ -1193,10 +1242,17 @@ def _render_post_create(ctx: BackofficeContext, created: dict[str, Any]) -> None
                 st.caption("(ingen output)")
 
     st.divider()
-    st.caption(
-        "Kvar manuellt: granska diffen och committa när du är nöjd. Ångra allt? Fliken "
-        "**Farlig zon** i **Scaffolds & varianter** återställer till `scaffold-baseline-v1`."
-    )
+    if validation_passed:
+        st.caption(
+            "Kvar manuellt: granska diffen och committa när du är nöjd. Ångra allt? "
+            "Fliken **Farlig zon** i **Scaffolds & varianter** återställer till "
+            "`scaffold-baseline-v1`."
+        )
+    else:
+        st.caption(
+            "Kör efter-stegen tills **3. Validera** är grön. Granska och committa "
+            "inte en halvfärdig variant."
+        )
     if st.button("Skapa en till variant / börja om"):
         for key in (
             "swz_created",

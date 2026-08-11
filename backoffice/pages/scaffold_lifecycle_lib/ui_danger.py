@@ -14,8 +14,13 @@ from backoffice.shared import (
 )
 
 from .constants import BASELINE_TAG, BASELINE_PATHS
+from .formatting import _exception_message
 
-from .variants import _prune_variant_embeddings
+from .variants import (
+    _handoff_default_variant,
+    _prune_variant_embeddings,
+    _would_leave_no_default_variant,
+)
 
 from .scaffold_ops import _scan_scaffold_dependencies, _delete_scaffold
 
@@ -67,10 +72,44 @@ def _render_delete_variant(
         )
         return
 
-    if selected_variant.get("default"):
-        st.warning(
-            "Varianten är markerad `default`. Konventionen är exakt en default per "
-            "scaffold — markera en syskonvariant som default efter raderingen."
+    remaining_defaults = [
+        variant
+        for variant in variants
+        if variant is not selected_variant and variant.get("default") is True
+    ]
+    if len(remaining_defaults) > 1:
+        st.error(
+            "Raderingen skulle lämna flera default-varianter. Reparera scaffoldens "
+            "defaultmarkeringar till exakt en innan du raderar fler varianter."
+        )
+        return
+
+    successor_variant: dict[str, Any] | None = None
+    if _would_leave_no_default_variant(selected_variant, variants):
+        successor_candidates = [
+            variant
+            for variant in variants
+            if variant is not selected_variant
+            and isinstance(variant.get("_path"), Path)
+            and not variant.get("_error")
+        ]
+        if not successor_candidates:
+            st.error("Ingen läsbar syskonvariant kan ta över som default.")
+            return
+        successor_labels = [
+            f"{variant.get('label', variant.get('id', '?'))} "
+            f"({variant.get('id', '?')})"
+            for variant in successor_candidates
+        ]
+        successor_label = st.selectbox(
+            "Ny default-variant efter raderingen",
+            successor_labels,
+            key=f"delete_variant_successor_{selected_scaffold}_{variant_path.stem}",
+        )
+        successor_variant = successor_candidates[successor_labels.index(successor_label)]
+        st.info(
+            "Defaultmarkeringen flyttas och den valda varianten raderas i en "
+            "byte-säker transaktion."
         )
 
     variant_id = str(selected_variant.get("id", "")) or variant_path.stem
@@ -94,25 +133,58 @@ def _render_delete_variant(
         return
 
     # Fail-closed: radera inte om snapshoten (Återställning) inte kunde tas.
-    if variant_path.is_file() and backup_file(variant_path, ctx.repo_root) is None:
+    snapshot_paths = [variant_path]
+    successor_path: Path | None = None
+    if successor_variant is not None:
+        candidate_path = successor_variant.get("_path")
+        if not isinstance(candidate_path, Path):
+            st.error("Efterträdaren saknar filpath; inget togs bort.")
+            return
+        successor_path = candidate_path
+        snapshot_paths.append(successor_path)
+    for snapshot_path in snapshot_paths:
+        if snapshot_path.is_file() and backup_file(snapshot_path, ctx.repo_root) is None:
+            st.error(
+                "Kunde inte ta snapshot av alla berörda variantfiler — "
+                "avbröt raderingen, inget togs bort."
+            )
+            return
+
+    try:
+        if successor_path is not None:
+            _handoff_default_variant(
+                ctx,
+                scaffold_id=selected_scaffold,
+                current_path=variant_path,
+                successor_path=successor_path,
+                delete_current=True,
+            )
+        else:
+            variant_path.unlink(missing_ok=True)
+    except Exception as error:
         st.error(
-            "Kunde inte ta en snapshot av variant-filen — "
-            "avbröt raderingen, inget togs bort."
+            "Raderingen avbröts – default-transaktionen misslyckades: "
+            + _exception_message(error)
         )
         return
-    variant_path.unlink(missing_ok=True)
+
     removed = _prune_variant_embeddings(ctx, selected_scaffold, [variant_id])
     rel = variant_path.relative_to(ctx.repo_root).as_posix()
+    handoff_note = (
+        f" Default flyttades till `{successor_variant.get('id', '')}`."
+        if successor_variant is not None
+        else ""
+    )
     if removed:
         note = (
             f"Raderade `{rel}` och rensade {removed} post ur matchnings-indexet "
             "(`variant-embeddings.json`) så CI-grinden inte fäller en förlegad post. "
-            "En snapshot ligger kvar under **Återställning**."
+            f"{handoff_note} En snapshot ligger kvar under **Återställning**."
         )
     else:
         note = (
             f"Raderade `{rel}` (ingen matchande post i `variant-embeddings.json`). "
-            "En snapshot ligger kvar under **Återställning**."
+            f"{handoff_note} En snapshot ligger kvar under **Återställning**."
         )
     _flash_note(note, level="success")
     st.rerun()

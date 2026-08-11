@@ -51,6 +51,7 @@ from .scaffold_lifecycle_lib.constants import (
 
 from .scaffold_lifecycle_lib.formatting import (
     _unique_preserving_order,
+    _exception_message,
     _normalize_lines,
     _slugify,
     _format_string_list,
@@ -64,10 +65,12 @@ from .scaffold_lifecycle_lib.variants import (
     _variant_payload,
     _dead_source_template_ids,
     _dead_source_template_ids_message,
+    _variant_template_reference_errors,
     _validate_variant_payload,
     _signature_patterns_ok,
     _sibling_default_variant_ids,
     _variant_integrity_errors,
+    _handoff_default_variant,
     _variant_embeddings_index_path,
     _prune_variant_embeddings,
     _load_variants,
@@ -159,6 +162,7 @@ __all__ = [
     "_clean_generated_scaffold_artifacts",
     "_dead_source_template_ids",
     "_dead_source_template_ids_message",
+    "_variant_template_reference_errors",
     "_delete_scaffold",
     "_embedding_locale_path",
     "_escape_ts_string",
@@ -167,6 +171,7 @@ __all__ = [
     "_factory_reset_to_baseline",
     "_files_dir",
     "_manifest_path",
+    "_handoff_default_variant",
     "_neutral_starter_signature_patterns",
     "_neutral_variant_payload",
     "_normalize_scaffold_union_semicolon",
@@ -369,7 +374,8 @@ def _render_create_variant(scaffold_ids: list[str], ctx: BackofficeContext) -> N
     errors = _validate_variant_payload(ctx, payload)
     if errors:
         st.error(
-            "Varianten sparades inte – schemavalideringen misslyckades:\n\n"
+            "Varianten sparades inte – schema- eller referensvalideringen "
+            "misslyckades:\n\n"
             + "\n".join(f"- {message}" for message in errors)
         )
         st.stop()
@@ -493,6 +499,10 @@ def _render_edit_variant(
             field_label("default"),
             value=defaults["default"],
             key=f"edit_default_{variant_key}",
+        )
+        st.caption(
+            "Om en annan variant redan är default flyttas markeringen atomiskt "
+            "till den här varianten när du sparar."
         )
         edited_keywords = st.text_area(
             field_label("keywords", hint="en per rad"),
@@ -623,17 +633,25 @@ def _render_edit_variant(
     errors = _validate_variant_payload(ctx, payload)
     if errors:
         st.error(
-            "Varianten sparades inte – schemavalideringen misslyckades:\n\n"
+            "Varianten sparades inte – schema- eller referensvalideringen "
+            "misslyckades:\n\n"
             + "\n".join(f"- {message}" for message in errors)
         )
         st.stop()
 
+    sibling_default_ids = _sibling_default_variant_ids(
+        ctx, selected_scaffold, exclude_id=defaults["id"]
+    )
+    handoff_current_id: str | None = None
+    projected_sibling_defaults = sibling_default_ids
+    if payload.get("default") is True and not defaults["default"] and len(sibling_default_ids) == 1:
+        handoff_current_id = sibling_default_ids[0]
+        projected_sibling_defaults = []
+
     integrity_errors = _variant_integrity_errors(
         ctx,
         payload,
-        sibling_defaults=_sibling_default_variant_ids(
-            ctx, selected_scaffold, exclude_id=defaults["id"]
-        ),
+        sibling_defaults=projected_sibling_defaults,
     )
     if integrity_errors:
         st.error(
@@ -643,8 +661,34 @@ def _render_edit_variant(
         )
         st.stop()
 
-    write_json(variant_path, payload)
-    st.success(f"Sparade `{variant_path.relative_to(ctx.repo_root).as_posix()}`.")
+    try:
+        if handoff_current_id is not None:
+            _handoff_default_variant(
+                ctx,
+                scaffold_id=selected_scaffold,
+                current_path=ctx.variants_dir
+                / selected_scaffold
+                / f"{handoff_current_id}.json",
+                successor_path=variant_path,
+                successor_payload=payload,
+            )
+        else:
+            write_json(variant_path, payload)
+    except Exception as error:
+        st.error(
+            "Varianten sparades inte – default-transaktionen misslyckades: "
+            + _exception_message(error)
+        )
+        return
+
+    rel = variant_path.relative_to(ctx.repo_root).as_posix()
+    if handoff_current_id is not None:
+        st.success(
+            f"Sparade `{rel}` och flyttade default från `{handoff_current_id}` "
+            f"till `{defaults['id']}`."
+        )
+    else:
+        st.success(f"Sparade `{rel}`.")
     st.rerun()
 
 
@@ -869,12 +913,15 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
             create_start_variant=create_start_variant,
         )
     except Exception as error:
-        st.error(str(error))
+        st.error(_exception_message(error))
         return
 
-    st.success(
-        f"Skapade scaffolden `{scaffold_id}` från `{source_scaffold_id}`. "
-        "Bygg om embeddings och research när du vill göra den fullt synlig i generated artifacts."
+    _flash_note(
+        f"Skapade scaffolden `{scaffold_id}` från `{source_scaffold_id}` med en "
+        "schema- och provenance-validerad startvariant. Den är ännu inte "
+        "integritetsklar: bygg om embeddings/research och kör "
+        "`npm run scaffolds:validate` innan ändringen bedöms redo för master.",
+        level="warning",
     )
     st.rerun()
 

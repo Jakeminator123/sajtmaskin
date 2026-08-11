@@ -13,9 +13,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { getScaffoldIds } from "@/lib/gen/scaffolds/registry";
 import { computeExtractorSha256 } from "./extractor-fingerprint";
-import { selectVariantTemplateReference } from "./template-inspiration";
 import { parseVariantTemplateAddendaRegistry } from "./variant-template-addendum";
+import { validateVariantTemplateReferences } from "./variant-template-reference-integrity";
 
 const ROOT = process.cwd();
 const VARIANTS_ROOT = path.join(ROOT, "config", "scaffold-variants");
@@ -60,6 +61,22 @@ function loadVariantFiles(): Array<{ relPath: string; variant: RawVariant }> {
 
 const variantFiles = loadVariantFiles();
 
+function collectDefaultVariantIds(
+  scaffoldIds: readonly string[],
+  files: Array<{ variant: RawVariant }>,
+): Map<string, string[]> {
+  const defaultsByScaffold = new Map(
+    scaffoldIds.map((scaffoldId) => [scaffoldId, [] as string[]]),
+  );
+  for (const { variant } of files) {
+    const scaffoldId = String(variant.scaffoldId ?? "");
+    const list = defaultsByScaffold.get(scaffoldId) ?? [];
+    if (variant.default === true) list.push(String(variant.id ?? ""));
+    defaultsByScaffold.set(scaffoldId, list);
+  }
+  return defaultsByScaffold;
+}
+
 describe("scaffold-variant integrity", () => {
   it("finds at least one variant (sanity)", () => {
     expect(variantFiles.length).toBeGreaterThan(0);
@@ -87,9 +104,9 @@ describe("scaffold-variant integrity", () => {
     const unresolved = variantFiles
       .filter(
         ({ variant }) =>
-          !selectVariantTemplateReference({
-            sourceTemplateIds: variant.sourceTemplateIds ?? [],
-          }),
+          validateVariantTemplateReferences(variant.sourceTemplateIds ?? []).issues.some(
+            (issue) => issue.code === "no-runtime-selectable-template",
+          ),
       )
       .map(({ relPath }) => relPath);
 
@@ -99,39 +116,31 @@ describe("scaffold-variant integrity", () => {
     ).toEqual([]);
   });
 
-  it("every referenced template has a current or explicitly disabled addendum", () => {
-    const manifest = JSON.parse(fs.readFileSync(BLOB_MANIFEST_PATH, "utf-8")) as {
-      templates?: Array<{ id?: string; archiveSha256?: string }>;
-    };
-    const archiveShaById = new Map(
-      (manifest.templates ?? []).flatMap((template) =>
-        template.id && template.archiveSha256
-          ? [[template.id, template.archiveSha256] as const]
-          : [],
-      ),
-    );
-    const addenda = parseVariantTemplateAddendaRegistry(
-      JSON.parse(fs.readFileSync(TEMPLATE_ADDENDA_PATH, "utf-8")) as unknown,
-    );
-    const addendumById = new Map(addenda.templates.map((entry) => [entry.templateId, entry]));
-    const missingOrStale = new Set<string>();
+  it("uses the same runtime-selectability and addendum decision for save-time checks", () => {
+    expect(validateVariantTemplateReferences(["8Y9E0cStKrW"])).toMatchObject({
+      selectedTemplateId: "8Y9E0cStKrW",
+      issues: [],
+    });
 
-    for (const { variant } of variantFiles) {
-      for (const id of variant.sourceTemplateIds ?? []) {
-        const addendum = addendumById.get(id);
-        if (!addendum) {
-          missingOrStale.add(`${id}: missing`);
-        } else if (
-          addendum.reviewStatus !== "disabled" &&
-          addendum.sourceArchiveSha256 !== archiveShaById.get(id)
-        ) {
-          missingOrStale.add(`${id}: stale sha`);
-        }
-      }
-    }
+    const invalid = validateVariantTemplateReferences(["0NFF1rjZrz5"]);
+    expect(invalid.selectedTemplateId).toBeNull();
+    expect(invalid.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "no-runtime-selectable-template" }),
+        expect.objectContaining({ code: "missing-addendum", templateId: "0NFF1rjZrz5" }),
+      ]),
+    );
+  });
+
+  it("every referenced template has a current or explicitly disabled addendum", () => {
+    const missingOrStale = variantFiles.flatMap(({ relPath, variant }) =>
+      validateVariantTemplateReferences(variant.sourceTemplateIds ?? []).issues
+        .filter((issue) => issue.code.endsWith("addendum"))
+        .map((issue) => `${relPath}: ${issue.detail}`),
+    );
 
     expect(
-      [...missingOrStale].sort(),
+      missingOrStale.sort(),
       "variant template addenda must cover every cited Blob id; run npm run templates:addenda -- --write",
     ).toEqual([]);
   });
@@ -206,18 +215,19 @@ describe("scaffold-variant integrity", () => {
   });
 
   it("each scaffold has exactly one default variant", () => {
-    const defaultsByScaffold = new Map<string, string[]>();
-    for (const { variant } of variantFiles) {
-      const scaffoldId = String(variant.scaffoldId ?? "");
-      const list = defaultsByScaffold.get(scaffoldId) ?? [];
-      if (variant.default === true) list.push(String(variant.id ?? ""));
-      defaultsByScaffold.set(scaffoldId, list);
-    }
+    const defaultsByScaffold = collectDefaultVariantIds(getScaffoldIds(), variantFiles);
     // "At most one" left the zero-default case green, and a scaffold with no
     // default silently falls back to the first alphabetically sorted variant in
     // `getDefaultVariantForScaffold` — a design direction chosen by filename.
     const wrong = [...defaultsByScaffold.entries()].filter(([, ids]) => ids.length !== 1);
     expect(wrong, "convention: exactly one default variant per scaffold").toEqual([]);
+  });
+
+  it("seeds canonical scaffolds so a zero-variant family fails exact-one-default", () => {
+    const defaultsByScaffold = collectDefaultVariantIds(["empty-scaffold"], []);
+    const wrong = [...defaultsByScaffold.entries()].filter(([, ids]) => ids.length !== 1);
+
+    expect(wrong).toEqual([["empty-scaffold", []]]);
   });
 
   it("every variant declares at least one sourceTemplateId", () => {
