@@ -23,6 +23,7 @@ policies kan äga olika beslut.
 | Hur jobbar flera agenter samtidigt? | [`runbooks/git-worktree.md`](runbooks/git-worktree.md)                   |
 | Hur provisionerar jag warm-cachen?  | [`runbooks/warm-cache-setup.md`](runbooks/warm-cache-setup.md)           |
 | Varför ser merge-grinden ut så?     | [`runbooks/pr-merge-gate.md`](runbooks/pr-merge-gate.md)                 |
+| Hur körs automatisk PR-granskning?  | [`runbooks/github-pr-review-automation.md`](runbooks/github-pr-review-automation.md) |
 | Vad applicerar DB-migrationerna?    | [`runbooks/db-migrations.md`](runbooks/db-migrations.md)                 |
 | Var hamnar appens console-loggar?   | [`runbooks/vercel-log-drain.md`](runbooks/vercel-log-drain.md)           |
 | Vilka manuella underhållsknappar?   | [`../UNDERHALL.md`](../UNDERHALL.md)                                     |

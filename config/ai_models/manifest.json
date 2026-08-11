@@ -864,6 +864,22 @@
       "notes": "Uses the verifier phase from phaseRouting for the active build tier. Read-only; telemetry and optional future UX."
     },
     {
+      "id": "github_pr_reviewer",
+      "title": "GitHub pull request reviewer",
+      "description": "Event-driven exhaustive PR bug review plus at most two finding-specific follow-ups.",
+      "invocation": "openai_responses_create",
+      "provider": "openai_direct",
+      "codeEntry": [
+        "scripts/pr-review/run.mjs",
+        "scripts/pr-review/automation.mjs",
+        "scripts/pr-review/core.mjs"
+      ],
+      "authEnv": ["OPENAI_API_KEY"],
+      "defaultModel": "gpt-5.6-sol",
+      "followUpModel": "gpt-5.6-luna",
+      "notes": "The exhaustive pass uses high reasoning. Follow-ups use low reasoning and a schema that can only classify existing finding IDs; model selection is read here at runtime and is not duplicated in the workflow."
+    },
+    {
       "id": "runtime_embeddings_query",
       "title": "Runtime embedding queries",
       "description": "OpenAI SDK embeddings.create for live query vectors against precomputed scaffold/gallery indexes.",
