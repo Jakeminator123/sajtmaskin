@@ -1,190 +1,69 @@
 # Dossier cheatsheet
 
-Snabbreferens för dossier-systemet (v2).
+Kort användarguide. Full sanningsmodell:
+[`docs/contracts/dossier-system.md`](../contracts/dossier-system.md).
+Begreppsöversikt: [`FUSKLAPP-BYGGBLOCK.md`](../../FUSKLAPP-BYGGBLOCK.md).
+Aktuell katalog: [`docs/generated/capabilities.generated.md`](../generated/capabilities.generated.md)
+/ [`docs/generated/dossiers.generated.md`](../generated/dossiers.generated.md).
 
 | Behöver du… | Läs |
 |---|---|
-| Full modell / invariants | [`docs/contracts/dossier-system.md`](../contracts/dossier-system.md) |
 | Urval + prompt-injection | [`dossier-selection-flow.md`](dossier-selection-flow.md) |
-| Skriva ny dossier (AI-kontrakt) | [`dossier-author-template.md`](dossier-author-template.md) |
+| Skriva ny dossier | [`dossier-author-template.md`](dossier-author-template.md) |
+| Axlar / F2–F3 / mock | [`dossier-system.md` § Tre oberoende axlar](../contracts/dossier-system.md#tre-oberoende-axlar-läs-denna-innan-du-drar-en-slutsats-om-en-dossier) |
 
-## Tre axlar — svara på rätt fråga
+## Tre axlar (kort)
 
-Ingen av dem följer av någon annan. Full tabell + exempel:
-[`dossier-system.md` § Tre oberoende axlar](../contracts/dossier-system.md#tre-oberoende-axlar-läs-denna-innan-du-drar-en-slutsats-om-en-dossier).
+Ingen följer av någon annan. Vanligaste felslutet: "Kopplad ⇒ kräver F3".
 
 | Axel | Fråga | Källa |
 |---|---|---|
-| Kopplad / Fristående | Finns ett externt provider-/runtimekontrakt? | mappen `hard/` vs `soft/`; `hard` deklarerar `providers`, `soft` utelämnar fältet |
-| Demoläge (`mock`) | Hur ser F2 ut utan nyckel? | manifestfältet på den **valda** dossiern |
-| Kräver F3 | Byggs den riktiga integrationen i eget steg? | `dossierRequiresF3()` — build-nyckel **eller** serverfil |
+| Kopplad / Fristående | Extern provider? | mappen `hard/` vs `soft/` |
+| Demoläge (`mock`) | F2 utan nyckel? | `manifest.mock` |
+| Kräver F3 | Eget integrationssteg? | `dossierRequiresF3()` |
 
-Vanligaste felslutet är "Kopplad ⇒ hemligheter ⇒ kräver F3". `vercel-analytics`
-är Kopplad utan egna env-nycklar och ändå klar i designläget;
-`resend-contact-form` har inga build-nycklar men kräver F3 för sin serverfil.
+Exempel: `vercel-analytics` är Kopplad, har `envVars: []`, kräver inte F3.
+`resend-contact-form` kräver F3 för serverfilen, inte för build-nycklar.
 
-För dossier-backade integrationer äger `manifest.json` provider-identitet,
-`envVars` och `envVars[].enforcement`. `providers` beskriver kodkontraktet; det
-provisionerar inte konton eller resurser. Marketplace/provisioning är ett senare
-lager och ska inte modelleras som en parallell sanning här.
-
-## Embeddings — finns det några?
-
-**Nej.** Det nya dossier-systemet använder **inga embeddings alls**. Urvalet är deterministic:
-
-- Brief-LLM:n deklarerar `requestedCapabilities: string[]` (t.ex. `["payments", "ai-chat"]`).
-- `selectDossiersForRequest` matchar varje capability 1:1 mot en dossier i `data/dossiers/{hard|soft}/<id>/`.
-- Tie-break: dependency-/alias-pin → explicit `relevanceKeywords`-träff →
-  `defaultForCapability: true` → id-sort som sista fallback.
-
-Alla gamla embedding-filer ligger i `archive/dossiers-legacy-2026-04-20/index/dossier-embeddings.json` (gitignored, läses inte av runtime). Det finns inget skript att köra för att bygga embeddings.
-
-OBS: scaffold-systemet (separat från dossiers) **använder fortfarande embeddings** för scaffold-pick. Den lever i `src/lib/gen/scaffolds/scaffold-embeddings.json` och regenereras med `npx tsx scripts/embeddings/generate-scaffold-embeddings.ts`. Den har inget med dossiers att göra.
-
-## Toggle on/off
+## Toggle
 
 ```
-SAJTMASKIN_DOSSIER_PIPELINE=true   # på (kod-default i alla miljöer)
+SAJTMASKIN_DOSSIER_PIPELINE=true   # på (kod-default)
 SAJTMASKIN_DOSSIER_PIPELINE=false  # av (explicit opt-out)
 ```
 
-**Nuvarande deploy-status (sedan 2026-04-23):** explicit satt till `true` på alla tre Vercel-miljöer (Development / Preview / Production), så pipelinen är aktiv överallt.
+## Lägg till dossier (minimum)
 
-Sätt i `.env.local` lokalt eller via `vercel env add SAJTMASKIN_DOSSIER_PIPELINE` per miljö.
+1. Mapp `data/dossiers/<hard|soft>/<id>/` + `manifest.json` + `instructions.md`.
+2. `hard` → icke-tom `providers`; `soft` → utelämna fältet. Hard: `mock ≠ none`
+   om capabilityn inte står i `MOCKLESS_CAPABILITY_EXCEPTIONS`.
+3. `npm run dossiers:validate-all` (CI-blockerande).
+4. Bygg om capability-map (`npm run dossiers:capability-map:write` eller backoffice).
 
-## Lägg till en ny dossier
-
-### A. Hand-skriven (snabb om du vet vad du vill)
-
-1. Skapa mapp `data/dossiers/<hard|soft>/<id>/`.
-2. Skriv `manifest.json` (validera mot `docs/schemas/strict/dossier.schema.json`):
-   `hard` måste ha en icke-tom `providers`-lista; `soft` måste utelämna fältet.
-3. Skriv `instructions.md` med de två obligatoriska sektionerna **When to use**
-   och **How to integrate**, plus helst **UX rules**, **Avoid** och
-   **Verification**.
-4. Lägg ev. komponentfiler under `<id>/components/`.
-5. Kör `npm run dossiers:validate-all` — CI-blockerande. Obs mock-invarianten (per-dossier sedan 2026-07-12): **varje** hard-dossier måste ha `mock ≠ none` (eller capabilityn stå i `MOCKLESS_CAPABILITY_EXCEPTIONS`) — se `docs/contracts/dossier-system.md` § CI-invariant.
-6. Backoffice → "Dossiers" → "Capability map" → "Bygg om" så `_index/capability-map.json` uppdateras.
-
-### A2. Ny leverantör under en BEFINTLIG capability
-
-Billigaste vägen — ingen ändring i urvalskoden behövs:
-
-1. Ny mapp med **samma `capability`** som syskonet,
-   `providers: ["<leverantör>"]` och `defaultForCapability: false`.
-2. `relevanceKeywords: ["klarna", …]` styr explicit prompt-urval;
-   providerägarskapet kommer från `providers`, inte från id, dependency eller
-   kategori.
-3. `mock ≠ none` (garantin gäller per dossier — väljs din leverantör är det din
-   fallback besökaren ser).
-4. Lägg monteringsfallet i `src/lib/gen/dossiers/dossier-client-mount.test.tsx`
-   för varje renderbar `client`/`shared`-komponent, annars fäller
-   täckningsgrinden.
-
-Tidsåtgång: manifest + instruktioner under en timme; **degraderingskoden** (att
-komponenten monterar utan nödvändig konfiguration och visar en ärlig notis) är
-det egentliga arbetet. Full checklista + vad en ny *capability* kostar extra:
-[`dossier-system.md` § Ny LEVERANTÖR](../contracts/dossier-system.md#ny-leverantör-under-en-befintlig-capability-den-billiga-vägen).
-
-### B. AI-kuration från ett klonat upstream-repo
-
-Förutsättning: repo-mappen finns under `data/template-references/repos/<reference-id>/`.
-
-```bash
-npm run dossiers:curate -- \
-  --reference=<reference-id> \
-  --class=<hard|soft> \
-  --id=<dossier-id>
-```
-
-Exempel:
-
-```bash
-# Stripe
-npm run dossiers:curate -- --reference=payments-simple-online-store-with-stripe --class=hard --id=stripe-store
-
-# Clerk
-npm run dossiers:curate -- --reference=auth-clerk-authentication-starter --class=hard --id=clerk
-
-# Fal image generator
-npm run dossiers:curate -- --reference=<reference-id> --class=hard --id=<nytt-dossier-id>
-```
-
-Skriptet:
-1. Läser `README.md`, `package.json`, `.env.example`, ~6 source-filer från upstream-repo.
-2. Väljer modell från workload `backoffice_dossier_curation` i
-   `config/ai_models/manifest.json` (nu `gpt-5.5`, fallback
-   `gpt-5.4-mini`); `--model=<id>` får bara välja en modell som workloaden
-   tillåter.
-3. Skriver `manifest.json` + `instructions.md` till `data/dossiers/<class>/<id>/`.
-4. Vägrar skriva över befintlig dossier (lägg till `--force` om det är meningen).
-
-Kostnad och tid beror på vald modell och inputstorlek; skriptet loggar vald
-modell och faktisk svarstid. Hårdkoda inte gamla GPT-4o-mini-estimat här.
-
-**Granska alltid utkastet** i backoffice (Dossiers-sidan → Redigera-tab) innan du litar på det. Dossier-id sätts till exakt vad du angav (`--id=`). `lastVerified` sätts till dagens datum men utkastet får `verificationStatus: "unverified"`; byt till `accepted` först när acceptansbevis finns.
-
-### Backoffice-flikarna (Dossiers-sidan)
-
-- **Lista** har en valfri gruppvy per dossier-grupp/kategori (läser `groups`-fältet ur capability-map — kör "Bygg om" om vyn saknas/är inaktuell).
-- **Redigera** har även **Radera dossier**: checklista per `dossier-rules.mdc` + exakt id-bekräftelse innan katalogen tas bort.
-- **AI-kuration** kan skapa inom vald kategori: grupp → capability-väljare (+ fritt kebab-case-fält) som sätter draftens `capability` efter kurationen.
-- **Capability map → "Bygg om"** kör TS-scriptet (`npm run dossiers:capability-map:write`) så `groups`-vyn aldrig driftar från `dossier-groups.ts`.
+Ny leverantör under befintlig capability, AI-kuration och borttagningschecklista:
+[`dossier-system.md`](../contracts/dossier-system.md).
 
 ## Verifiera generering
 
-Efter att du satt `SAJTMASKIN_DOSSIER_PIPELINE=true`, trigga en generering med en prompt som behöver en capability och kolla loggen:
+Logg efter prompt som behöver en capability:
 
 ```
 [orchestrate] dossiers_selected { count: 1, byCapability: { payments: ["stripe-checkout"] } }
 ```
 
-Om brief-LLM:n deklarerar en capability som ingen dossier täcker:
-
-```
-[orchestrate] dossier_capability_unresolved { requested: ["mailing-list"], resolved: [], unresolved: ["mailing-list"] }
-```
-
-→ Lägg till en dossier för den capability eller justera brief-prompten.
-
-Om en hard-dossier har obligatoriska `envVars` men saknar ett riktigt värde
-(kollas mot **projektets** sparade env-nycklar, inte plattformens `process.env`)
-renderas `[UNCONFIGURED — render placeholder UI]` i system-promptens
-`## Available Dossiers`-block. En nyckelfri hard-dossier är däremot
-`configured: true`. Codegen-LLM:n får dossierns `mock`-läge
-(`canned`/`seed`/`success`/`visual`/`none`) så demo-ytan fungerar i F2. Se
-[`dossier-system.md`](../contracts/dossier-system.md) § Mock/demo-läge.
-
-## Mappstruktur
-
-```
-data/
-  dossiers/                              ← runtime
-    hard/<id>/manifest.json + instructions.md + components/
-    soft/<id>/manifest.json + instructions.md + components/
-    _index/capability-map.json           ← genererad översikt
-  template-references/                   ← input till AI-kuration (gitignored)
-    repos/<reference-id>/
-    _metadata/<reference-id>.github.json
-
-archive/dossiers-legacy-2026-04-20/      ← gamla pipen, gitignored, läses inte
-```
+Oupplöst capability → `dossier_capability_unresolved`. Saknad required env →
+`[UNCONFIGURED …]` i `## Available Dossiers`. Detaljer i
+[`dossier-selection-flow.md`](dossier-selection-flow.md).
 
 ## Vanliga filändringar
 
 | Vad | Var |
 |---|---|
-| Lägg till capability LLM kan deklarera | `src/lib/builder/site-brief-generation.ts` (BRIEF_SYSTEM_PROMPT) |
-| Ändra urvalsalgoritm | `src/lib/gen/dossiers/select.ts` |
-| Ändra hur dossiers renderas i prompten | `src/lib/gen/system-prompt/` |
-| Ändra schema | `docs/schemas/strict/dossier.schema.json` + `src/lib/gen/dossiers/types.ts` |
-| Backoffice-UI | `backoffice/pages/dossiers.py` |
+| Capability LLM kan deklarera | `src/lib/builder/site-brief-generation.ts` |
+| Urval | `src/lib/gen/dossiers/select.ts` |
+| Prompt-render | `src/lib/gen/system-prompt/` |
+| Schema | `docs/schemas/strict/dossier.schema.json` + `src/lib/gen/dossiers/types.ts` |
+| Backoffice | `backoffice/pages/dossiers.py` (+ `dossiers_lib/`) |
 
-## När arkivet kan raderas
-
-`archive/dossiers-legacy-2026-04-20/` är säkert att radera när:
-
-1. v2-pipen kört utan dossier-relaterade fel i development i 1-2 veckor.
-2. Du inte längre planerar att kurera in fler från arkivet med `npm run dossiers:curate`.
-
-`data/template-references/repos/` kan behållas oavsett — den används bara av AI-kuration on demand.
+**Inga embeddings** i dossier-urvalet (deterministiskt). Scaffold-pick använder
+fortfarande embeddings — separat system.

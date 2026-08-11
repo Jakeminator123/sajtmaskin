@@ -184,27 +184,19 @@ Read-only vid runtime — dossier-registry walkar `data/dossiers/{hard,soft}/` d
 
 ## Nuvarande pool
 
-Per 2026-07-22 (taxonomi-omtaget): **27 dossiers över 23 capabilities**
-(18 `hard`, 9 `soft`). Elva soft-sektionsdossiers parkerades 2026-07-22
-(träd borttaget 2026-08-10; git-historik — rena innehållssektioner/CSS-effekter
-som codegen-LLM:en skriver bättre frihand), `command-search` heter numera
-`command-palette`, `supabase-auth` är sammanslagen i `auth` (två
-leverantörsdossiers under en capability), och `map-display` (maplibre-map) +
-`site-search` (local-site-search) tillkom som nyckelfria capabilities.
+Handskriven text räknar inte poolen. Aktuell katalog:
 
-Den kanoniska, alltid-aktuella listan är den genererade vyn
-[`data/dossiers/_index/capability-map.json`](../../data/dossiers/_index/capability-map.json)
-(capability → dossier-id). Hårdkoda inte en kopia här — den driftar. Regenerera
-via `npm run dossiers:capability-map:write` (eller backoffice-tabben).
+| Yta | Vad den visar |
+|---|---|
+| [`docs/generated/capabilities.generated.md`](../generated/capabilities.generated.md) | Capabilities + klasser + F2/F3-axlar |
+| [`docs/generated/dossiers.generated.md`](../generated/dossiers.generated.md) | Per-dossier katalog |
+| [`data/dossiers/_index/capability-map.json`](../../data/dossiers/_index/capability-map.json) | Runtime-projektion (capability → dossier-id + `groups`) |
 
-- `hard` (Kopplad) implementerar externa provider-/runtimekontrakt — t.ex.
-  nyckelfria `vercel-analytics`, `payments` (stripe-checkout),
-  `auth` (clerk-auth default + supabase-auth), `ai-chat` (openai-chat),
-  `contact-form` (resend-contact-form), `newsletter-subscribe`
-  (mailchimp-newsletter), `analytics` (vercel-analytics).
-- `soft` (Fristående) är självförsörjande mönster — `carousel`,
-  `command-palette`, `gallery-lightbox`, `map-display`, `site-search`,
-  `visual-3d`, `physics-3d`, `interactive-game`, `dashboard-charts`.
+Regenerera projektionen med `npm run dossiers:capability-map:write` (eller
+backoffice-tabben) och kontraktsdocs med `npm run docs:generate`.
+
+Klasserna: `hard` (Kopplad) = externt provider-/runtimekontrakt; `soft`
+(Fristående) = självförsörjande mönster (npm tillåtet).
 
 ## Felsökning
 

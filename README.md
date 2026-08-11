@@ -42,13 +42,15 @@ Den tunna kodkartan finns i
 ## Dokumentation
 
 1. [`docs/README.md`](docs/README.md) — dokumentationsrouter.
-2. [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md)
+2. [`FUSKLAPP-BYGGBLOCK.md`](FUSKLAPP-BYGGBLOCK.md) — Byggblock/dossiers på en sida
+   (inga poolantal; koden vinner vid drift).
+3. [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md)
    — stabil huvudloop.
-3. [`docs/concepts/mental-model.md`](docs/concepts/mental-model.md) —
+4. [`docs/concepts/mental-model.md`](docs/concepts/mental-model.md) —
    begreppen i ett sammanhang.
-4. [`docs/architecture/runtime-contracts.md`](docs/architecture/runtime-contracts.md)
+5. [`docs/architecture/runtime-contracts.md`](docs/architecture/runtime-contracts.md)
    — invariants och signalägare.
-5. [`.cursor/README.md`](.cursor/README.md) — agentregler och arbetsflöden.
+6. [`.cursor/README.md`](.cursor/README.md) — agentregler och arbetsflöden.
 
 Canonical owner avgörs per faktatyp. Runtimekod, manifest, registries och
 policies kan äga olika beslut; genererad eller handskriven dokumentation är
