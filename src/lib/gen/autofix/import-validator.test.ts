@@ -1,6 +1,59 @@
 import { describe, expect, it } from "vitest";
 import { runImportValidator, runImportValidatorGuarded } from "./import-validator";
 
+describe("import-validator locally declared components (prod chat f98fd5c0)", () => {
+  // `components/ui/dialog.tsx` declares `DialogPortal` / `DialogOverlay` itself
+  // AND uses them as JSX. Both are keys in SHADCN_COMPONENTS, so the validator
+  // proposed a SELF-import — an import of the file from itself. The conflict
+  // fixer stripped it again on the same pass, and the leftover newline stacked
+  // one blank line per generation above the imports (7 -> 9 -> 21 -> 17 across
+  // four real versions, in 11-12 `components/ui/*` files at once).
+  const DIALOG = [
+    "'use client'",
+    "",
+    "import * as React from 'react'",
+    'import { Dialog as DialogPrimitive } from "radix-ui"',
+    "",
+    "const DialogPortal = DialogPrimitive.Portal",
+    "",
+    "const DialogOverlay = React.forwardRef((props, ref) => (",
+    "  <DialogPrimitive.Overlay ref={ref} {...props} />",
+    "))",
+    "",
+    "export function DialogContent({ children }) {",
+    "  return (",
+    "    <DialogPortal>",
+    "      <DialogOverlay />",
+    "      {children}",
+    "    </DialogPortal>",
+    "  );",
+    "}",
+    "",
+  ].join("\n");
+
+  it("never proposes an import for a name the file declares itself", () => {
+    const result = runImportValidator(DIALOG);
+    expect(result.code).not.toContain("@/components/ui/dialog");
+    expect(
+      result.fixes.filter((fix) => /DialogPortal|DialogOverlay/.test(fix.description)),
+    ).toEqual([]);
+  });
+
+  it("leaves a locally-complete shadcn file untouched", () => {
+    expect(runImportValidator(DIALOG).code).toBe(DIALOG);
+  });
+
+  it("still imports a shadcn component the file does NOT declare", () => {
+    const page = [
+      "export default function Page() {",
+      "  return <Button>Klicka</Button>;",
+      "}",
+      "",
+    ].join("\n");
+    expect(runImportValidator(page).code).toContain('from "@/components/ui/button"');
+  });
+});
+
 describe("import-validator multi-line import bindings (M#imp1, prod cc10e7de v8)", () => {
   // Minimized from prod version 4a29c7b4's app/page.tsx: a MULTI-LINE lucide
   // import block + icons used as `icon:` values + <Badge>/<Button> JSX with
