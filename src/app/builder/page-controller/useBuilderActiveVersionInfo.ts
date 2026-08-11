@@ -25,8 +25,10 @@ export function useBuilderActiveVersionInfo({
 }: Params) {
   const selectedVersionIdRef = useRef<string | null>(null);
   const latestVersionIdRef = useRef<string | null>(null);
+  /* eslint-disable react-hooks/refs -- keep latest ids for async deploy callbacks without rebinding handlers */
   selectedVersionIdRef.current = selectedVersionId;
   latestVersionIdRef.current = latestVersionId;
+  /* eslint-enable react-hooks/refs */
 
   /** Active live-preview URL for the version. */
   const activeVersionAlternatePreview = useMemo(() => {

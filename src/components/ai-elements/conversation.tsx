@@ -178,6 +178,7 @@ function ScrollerConversationContent({
   const messageIds = useMemo(() => messageIdsFromChildren(children), [children]);
 
   const liveAnchorIds = useMemo(() => {
+    /* eslint-disable react-hooks/refs -- scroll anchors compare prior transcript ids committed in layout effect */
     const next = new Set(committedLiveAnchorIdsRef.current);
     const previous = previousMessageIdsRef.current;
     if (previous === null) return next;
@@ -189,6 +190,7 @@ function ScrollerConversationContent({
     const appendedStart = previousStart + previous.length;
     for (const id of messageIds.slice(appendedStart)) next.add(id);
     return next;
+    /* eslint-enable react-hooks/refs */
   }, [messageIds]);
 
   useLayoutEffect(() => {

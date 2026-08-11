@@ -15,8 +15,9 @@ import { isAffirmativeEnvValue, sanitizeEnvString } from "@/lib/env-affirmative"
  * (Fas 2 v1 + Fas 3).
  *
  * OBS för konsumenter i klientkomponenter: `NEXT_PUBLIC_*` inlineas vid build men
- * läs ändå flaggan EFTER mount (useEffect → state, initialt `false`) för att undvika
- * SSR/CSR-hydratmismatch — samma mönster som `inspect-bridge-feature.ts`.
+ * läs flaggan hydrat-säkert (t.ex. `useSyncExternalStore` med server-snapshot
+ * `false`, eller useEffect → state med initialt `false`) för att undvika
+ * SSR/CSR-mismatch — samma mönster som `inspect-bridge-feature.ts`.
  */
 export function isAddPanelEnabled(): boolean {
   const raw = sanitizeEnvString(process.env.NEXT_PUBLIC_SAJTMASKIN_ADD_PANEL)?.toLowerCase();
