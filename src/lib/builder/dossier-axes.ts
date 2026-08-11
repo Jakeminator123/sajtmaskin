@@ -20,7 +20,10 @@
  * Canonical contract: `docs/contracts/dossier-system.md` § Tre oberoende axlar.
  */
 
-import type { DossierMockMode } from "@/lib/gen/dossiers/types";
+import type {
+  DossierEnvVarEnforcement,
+  DossierMockMode,
+} from "@/lib/gen/dossiers/types";
 
 export interface DossierAxisDescriptor {
   /** Short badge/chip label. */
@@ -28,6 +31,13 @@ export interface DossierAxisDescriptor {
   /** Longer tooltip text — always says what the user actually gets. */
   hint: string;
 }
+
+/** Short UI labels for the manifest's per-key enforcement contract. */
+export const DOSSIER_ENV_ENFORCEMENT_LABELS: Record<DossierEnvVarEnforcement, string> = {
+  build: "krävs",
+  "feature-runtime": "vid användning",
+  "warn-only": "valfri",
+};
 
 /**
  * Demo-mode labels. Projected into `capability-map.json` (`labelsSv.mock`) for

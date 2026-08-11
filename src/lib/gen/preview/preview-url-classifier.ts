@@ -1,9 +1,9 @@
 /**
  * Preview URL classification for tier-2 (Fly-VM / sandbox) live previews.
  *
- * This module owns the host-suffix detection and "alternate preview" banner
- * logic that the builder UI uses to recognise an active tier-2 preview vs the
- * legacy compatibility shim. It is intentionally independent of
+ * This module owns the host-suffix detection that the builder UI uses to
+ * recognise an active tier-2 preview vs the legacy compatibility shim. It is
+ * intentionally independent of
  * `legacy/compatibility-shim.ts` so the F1 shim helpers can be retired in
  * isolation — see docs/architecture/llm-pipeline.md.
  */
@@ -18,11 +18,6 @@ const PREVIEW_URL_BASE = "https://preview.local";
  * is removed entirely.
  */
 const COMPAT_SHIM_PATH = "/api/preview-render";
-
-export type AlternatePreviewUrls = {
-  /** Persisted tier-2 / VM preview URL for this version (not Vercel Sandbox). */
-  storedLivePreviewUrl: string | null;
-};
 
 export function normalizePreviewUrl(url: string | null | undefined): string | null {
   return typeof url === "string" && url.trim().length > 0 ? url.trim() : null;
@@ -137,15 +132,6 @@ export function isSameTier2PreviewSession(
   } catch {
     return false;
   }
-}
-
-export function resolveAlternatePreviewUrls(params: {
-  storedLivePreviewUrl?: string | null;
-}): AlternatePreviewUrls {
-  const storedLivePreviewUrl = normalizePreviewUrl(params.storedLivePreviewUrl);
-  return {
-    storedLivePreviewUrl,
-  };
 }
 
 export type PreviewHandoffAction = "noop" | "set-url" | "bump";

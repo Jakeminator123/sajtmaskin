@@ -168,14 +168,14 @@ Ingen LLM-flow-refactor, ingen finalize-runner-ändring.
 
 | Fil | Ändring |
 |-----|---------|
-| `src/components/builder/SeoOptInPanel.tsx` (ny) | Komponent enligt mönster från `F3PlaceholderToggle.tsx`. Checkbox + siteUrl-input + brand-fields (collapsible). |
-| `src/components/builder/DeployNameDialog.tsx` | Bädda in `SeoOptInPanel`. Skicka `seo`-state till `onConfirm`. |
+| `src/components/builder/publishing/SeoOptInPanel.tsx` (ny) | Komponent enligt mönster från `F3PlaceholderToggle.tsx`. Checkbox + siteUrl-input + brand-fields (collapsible). |
+| `src/components/builder/publishing/DeployNameDialog.tsx` | Bädda in `SeoOptInPanel`. Skicka `seo`-state till `onConfirm`. |
 | `src/app/builder/useBuilderDeployActions.ts` | `deployActiveVersionToVercel` tar emot `seo`-objekt och skickar med i `/api/v0/deployments`-body. |
 | `src/app/api/v0/deployments/route.ts` | Acceptera optional `seo`-fält i body (zod). Skicka vidare till deploy-pipeline. |
 | `src/lib/gen/stream/finalize-version/runner.ts` (eller `fast-path.ts`) | När `previewPolicy === "fidelity3"` (eller motsvarande F3-promotion-signal): läs `seo`-options (från body eller `project_data.meta.seo`) → skicka till `applyScaffoldSeoDefaults({ siteUrl, brand })` i scaffold-resolveringen. |
-| `src/components/builder/SeoOptInPanel.test.tsx` (ny) | RTL-test för panelen. |
+| `src/components/builder/publishing/SeoOptInPanel.test.tsx` (ny) | RTL-test för panelen. |
 | `src/app/api/v0/deployments/route.test.ts` | Test för `seo`-body-fältet. |
-| `src/components/builder/DomainManager.tsx` (lite ändring) | När en domän verifieras → visa "Vill du uppdatera SEO till nya domänen?"-toast med "Update"-knapp som PATCHar `preferences.seo.siteUrl`. (Kan eventuellt skjutas till PR-C för att hålla PR-B liten.) |
+| `src/components/builder/publishing/domains/DomainManager.tsx` (lite ändring) | När en domän verifieras → visa "Vill du uppdatera SEO till nya domänen?"-toast med "Update"-knapp som PATCHar `preferences.seo.siteUrl`. (Kan eventuellt skjutas till PR-C för att hålla PR-B liten.) |
 
 ### Källa till `seo`-options vid deploy
 

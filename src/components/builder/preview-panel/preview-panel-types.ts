@@ -4,9 +4,7 @@ import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
 import type { DesignTheme } from "@/lib/builder/theme-presets";
 import type { EngineVersionLifecycleStage } from "@/lib/db/engine-version-lifecycle";
 import type { VersionDisplayStatus } from "@/lib/builder/version-status-display";
-import type { AlternatePreviewUrls } from "@/lib/gen/preview/preview-url-classifier";
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
-import type { PreviewIssuePayload } from "./iframe-diagnostics";
 import type { PreviewSurfaceState } from "./usePreviewSurfaceMode";
 
 export type CaptureResponse = {
@@ -42,12 +40,6 @@ export type InspectPulseMarker = {
   key: number;
 };
 
-export type PreviewIframeMessage = {
-  source?: string;
-  type?: "preview-error" | "preview-ready" | "navigation-attempt";
-  payload?: PreviewIssuePayload & { href?: string | null };
-};
-
 export interface PreviewPanelProps {
   chatId: string | null;
   versionId: string | null;
@@ -62,8 +54,6 @@ export interface PreviewPanelProps {
   themeLocked?: boolean;
   /** Active preview URL (iframe target); not the API JSON field name. */
   previewUrl: string | null;
-  /** Tier 1 + tier 2 URLs stored on the active version — se `docs/architecture/llm-pipeline.md`. */
-  alternatePreviewUrls?: AlternatePreviewUrls;
   onNavigatePreviewUrl?: (url: string) => void;
   isLoading?: boolean;
   /**
@@ -74,8 +64,6 @@ export interface PreviewPanelProps {
    * starta en NY generering måste läsa den här, inte `isLoading`.
    */
   isGenerating?: boolean;
-  /** Rensa-knappen bor i headerns verktygskluster; panelen kallar den inte själv. */
-  onClear?: () => void;
   onFixPreview?: () => void;
   /**
    * P0 stream-abort recovery (2026-04-26). When true, the most recent

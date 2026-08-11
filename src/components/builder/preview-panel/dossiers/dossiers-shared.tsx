@@ -3,7 +3,6 @@
 import { Badge } from "@/components/ui/badge";
 import { describeF3Requirement } from "@/lib/builder/dossier-axes";
 import type {
-  DossierOverviewEntry,
   DossierOverviewResponse,
   DossierStatusDescriptor,
 } from "@/lib/builder/dossier-overview";
@@ -90,15 +89,6 @@ export const TONE_BADGE_CLASS: Record<DossierStatusDescriptor["tone"], string> =
   success: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200",
   warning: "border-amber-500/40 bg-amber-500/10 text-amber-200",
   muted: "border-gray-600/50 bg-gray-500/10 text-gray-300",
-};
-
-export const ENFORCEMENT_LABEL: Record<
-  DossierOverviewEntry["envVars"][number]["enforcement"],
-  string
-> = {
-  build: "krävs",
-  "feature-runtime": "vid användning",
-  "warn-only": "valfri",
 };
 
 /**

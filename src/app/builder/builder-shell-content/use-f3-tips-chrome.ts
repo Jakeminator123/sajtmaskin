@@ -9,10 +9,7 @@ import {
   resolveF3StatusTitle,
   subtractSavedKeysFromF3Requirements,
 } from "@/lib/builder/project-env-events";
-import type {
-  F3BuilderStatus,
-  F3MissingIntegration,
-} from "@/components/builder/F3RequirementsSurface";
+import type { F3BuilderStatus, F3MissingIntegration } from "@/lib/builder/f3-status";
 import type { DossierOverviewResponse } from "@/lib/builder/dossier-overview";
 import { compressAssistantCodeBlocks } from "@/lib/builder/openclaw-context-messages";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";

@@ -18,7 +18,7 @@ import type { DesignTheme } from "@/lib/builder/theme-presets";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PreviewPanelInitControls } from "./PreviewPanelInitControls";
+import { PreviewPanelInitControls } from "./composer/PreviewPanelInitControls";
 import { useRepairBlocked } from "@/lib/builder/repair-blocked";
 import { cn } from "@/lib/utils";
 

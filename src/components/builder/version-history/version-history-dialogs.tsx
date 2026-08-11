@@ -9,10 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { VersionDiagnosticsDialog } from "@/components/builder/VersionDiagnosticsDialog";
-import { VersionCompareDialog } from "@/components/builder/VersionCompareDialog";
-import { VersionCollaboration } from "@/components/builder/VersionCollaboration";
-import { GitHubExportDialog } from "@/components/builder/GitHubExportDialog";
+import { VersionDiagnosticsDialog } from "@/components/builder/diagnostics/VersionDiagnosticsDialog";
+import { VersionCompareDialog } from "@/components/builder/version-history/VersionCompareDialog";
+import { VersionCollaboration } from "@/components/builder/version-history/VersionCollaboration";
+import { GitHubExportDialog } from "@/components/builder/project-transfer/GitHubExportDialog";
 import { Loader2 } from "lucide-react";
 import type { VersionSummary } from "./types";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { DeployNameDialog } from "@/components/builder/DeployNameDialog";
+import { DeployNameDialog } from "@/components/builder/publishing/DeployNameDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,10 +11,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
-import { DomainManager } from "@/components/builder/DomainManager";
-import { SeoReportDialog } from "@/components/builder/SeoReportDialog";
-import { GitHubExportDialog } from "@/components/builder/GitHubExportDialog";
+import { DomainSearchDialog } from "@/components/builder/publishing/domains/DomainSearchDialog";
+import { DomainManager } from "@/components/builder/publishing/domains/DomainManager";
+import { SeoReportDialog } from "@/components/builder/publishing/SeoReportDialog";
+import { GitHubExportDialog } from "@/components/builder/project-transfer/GitHubExportDialog";
 import type { BuilderViewModel } from "../useBuilderPageController";
 
 type ShellDialogsProps = {

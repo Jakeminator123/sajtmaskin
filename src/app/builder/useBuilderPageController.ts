@@ -167,7 +167,6 @@ export function useBuilderPageController() {
   const {
     selectedVersionIdRef,
     latestVersionIdRef,
-    activeVersionAlternatePreview,
     activeVersionFailedWithoutPreviewUrl,
   } = useBuilderActiveVersionInfo({
     selectedVersionId: state.selectedVersionId,
@@ -866,7 +865,6 @@ export function useBuilderPageController() {
     // External data
     versions,
     effectiveVersionsList: derived.effectiveVersionsList,
-    activeVersionAlternatePreview,
     mutateVersions,
 
     // Messaging

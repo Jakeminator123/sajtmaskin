@@ -12,7 +12,7 @@ type ViewModeUpdate = PreviewViewMode | ((prev: PreviewViewMode) => PreviewViewM
  * uteslutningen är strukturell i stället för två useState som synkas mot
  * varandra i effekter.
  */
-export type PreviewSurfaceMode = "none" | "composer" | "inspect";
+type PreviewSurfaceMode = "none" | "composer" | "inspect";
 
 export interface PreviewSurfaceState {
   composerMode: boolean;

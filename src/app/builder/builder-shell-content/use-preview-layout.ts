@@ -1,4 +1,4 @@
-import { useChatOutputCollapse } from "@/components/builder/useChatOutputCollapse";
+import { useChatOutputCollapse } from "@/components/builder/chat/useChatOutputCollapse";
 import { usePreviewSurfaceMode } from "@/components/builder/preview-panel/usePreviewSurfaceMode";
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import { postPreviewDestroy } from "@/lib/builder/preview-session/api";
@@ -8,7 +8,7 @@ import {
   readAutofixLocalStorageOnly,
   writeAutofixLocalStorage,
 } from "@/lib/hooks/chat/useAutoFix";
-import type { F3BuilderStatus, F3MissingIntegration } from "@/components/builder/F3RequirementsSurface";
+import type { F3BuilderStatus, F3MissingIntegration } from "@/lib/builder/f3-status";
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
 import type { BuilderViewModel } from "../useBuilderPageController";

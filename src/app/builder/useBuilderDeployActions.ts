@@ -1,7 +1,7 @@
 "use client";
 
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
-import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog";
+import type { DomainSearchResult } from "@/lib/builder/domain-types";
 import type { ChatReadiness } from "@/lib/chat-readiness";
 import type { ImageAssetStrategy } from "@/lib/imageAssets";
 import type { SeoReportPayload } from "@/app/api/v0/deployments/seo-publish";

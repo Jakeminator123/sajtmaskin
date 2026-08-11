@@ -1,6 +1,6 @@
 "use client";
 
-import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog";
+import type { DomainSearchResult } from "@/lib/builder/domain-types";
 import type { SeoReportPayload } from "@/app/api/v0/deployments/seo-publish";
 import type { ChatMessage } from "@/lib/builder/types";
 import {
