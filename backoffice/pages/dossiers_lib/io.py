@@ -92,6 +92,8 @@ from .labels import (
     is_default_for_capability,
 )
 
+from . import capability_projection as _capability_projection
+
 
 def _load_mockless_capability_exceptions(
     projection: dict[str, Any] | None = None,
@@ -810,102 +812,26 @@ def _summarize_enforcement(data: dict[str, Any]) -> str:
 
 
 def _load_group_view() -> dict[str, Any]:
-    """Read the generated dossier-grupp (kategori) view from
-    `capability-map.json`'s `groups` field. Never a hand-written Python copy
-    of the capability→group mapping — the canonical source is
-    `src/lib/builder/dossier-groups.ts` (`DOSSIER_GROUP_ORDER` /
-    `resolveDossierGroup`), rendered into this view by
-    `scripts/dossiers/regenerate-capability-map.ts`. Returns `{}` when the
-    map hasn't been regenerated since this view was added (fallback callers
-    should fall back to "Övrigt" and prompt a "Bygg om")."""
-    data = _load_json(_facade().CAPABILITY_MAP_PATH) or {}
-    groups = data.get("groups")
-    return groups if isinstance(groups, dict) else {}
+    """Load the group projection using the facade's late-bound map path."""
+    return _capability_projection._load_group_view(_facade().CAPABILITY_MAP_PATH)
 
 
-_MANIFEST_SOURCE_RE = re.compile(r"^data/dossiers/(?:hard|soft)/[^/]+/manifest\.json$")
-
-
-def _is_repo_relative_key(key: str) -> bool:
-    """Reject absolute or parent-escaping keys from a corrupt/hand-edited map.
-
-    Keys are joined onto ``REPO_ROOT`` and read, so anything that could escape
-    the repo — or that pathlib would treat as an absolute path and silently
-    substitute for the base — must not become a path at all.
-    """
-    if (
-        not key
-        or key.startswith("/")
-        or key.startswith("\\")
-        or "\\" in key
-        or ":" in key
-    ):
-        return False
-    return ".." not in key.split("/")
-
-
-def _capability_map_source_paths(
-    current: dict[str, Any],
-) -> list[tuple[str, Path]] | None:
-    """The files the TS projection itself says it depends on, plus manifests.
-
-    Returns ``(repo-relative key, absolute path)`` pairs. The non-manifest paths
-    are read out of the projection's own ``sourceFiles`` keys rather than a
-    Python copy of ``FIXED_SOURCE_PATHS`` — one owner, no second list to drift.
-    Manifests are globbed here instead, because an added/removed dossier
-    directory is by definition absent from the stored keys; globbing is what
-    makes pool changes detectable at all.
-
-    Known limit (accepted, see plan 01 step 6): if TypeScript *adds* a fixed
-    source path and nobody regenerates, Python cannot know about it. The CI
-    staleness gate (`npm run dossiers:capability-map:check`) is what keeps
-    master's projection fresh, so the stored key set is current in any clean
-    checkout.
-    """
-    stored = current.get("sourceFiles")
-    if not isinstance(stored, dict):
-        return None
-    fixed = sorted(
-        key
-        for key in stored
-        if isinstance(key, str)
-        and not _MANIFEST_SOURCE_RE.match(key)
-        and _is_repo_relative_key(key)
-    )
-    if not fixed:
-        return None
-    repo_root = _facade().REPO_ROOT
-    entries = [(key, repo_root / key) for key in fixed]
-    for klass in ("hard", "soft"):
-        for path in sorted((_facade().DOSSIER_ROOT / klass).glob("*/manifest.json")):
-            entries.append((path.relative_to(repo_root).as_posix(), path))
-    return sorted(entries, key=lambda entry: entry[0])
-
-
-def _capability_map_source_fingerprints(
-    current: dict[str, Any],
-) -> dict[str, str] | None:
-    entries = _capability_map_source_paths(current)
-    if entries is None:
-        return None
-    fingerprints: dict[str, str] = {}
-    try:
-        for relative, path in entries:
-            # Match TS `sha256File`: hash LF-normalized bytes so Windows CRLF
-            # writes cannot drift the capability-map sourceFiles gate vs CI.
-            fingerprints[relative] = hashlib.sha256(
-                path.read_bytes().replace(b"\r\n", b"\n")
-            ).hexdigest()
-    except OSError:
-        return None
-    return dict(sorted(fingerprints.items()))
+# Compatibility exports for live callers that historically imported these
+# private helpers from ``io``. Their implementation now lives in the read-only
+# owner; source-path internals are intentionally not re-exported.
+_extract_ts_union_values = _capability_projection._extract_ts_union_values
+_group_label_for_capability = _capability_projection._group_label_for_capability
+_groups_view_is_stale = _capability_projection._groups_view_is_stale
+_rebuild_capability_map = _capability_projection._rebuild_capability_map
 
 
 def _capability_map_is_stale(current: dict[str, Any]) -> bool:
-    """Compare exact source hashes, not mtimes/counts, with the TS projection."""
-    expected = _capability_map_source_fingerprints(current)
-    stored = current.get("sourceFiles")
-    return expected is None or not isinstance(stored, dict) or stored != expected
+    """Compare exact hashes using the facade's late-bound repo paths."""
+    return _capability_projection._capability_map_is_stale(
+        current,
+        repo_root=_facade().REPO_ROOT,
+        dossier_root=_facade().DOSSIER_ROOT,
+    )
 
 
 def _ensure_capability_map_current() -> tuple[dict[str, Any], str | None]:
@@ -964,42 +890,6 @@ def _rerun_after_dossier_mutation(message: str) -> None:
     st.rerun()
 
 
-def _group_label_for_capability(capability: str | None, groups: dict[str, Any]) -> str:
-    """Look up a capability's Swedish dossier-grupp label in the generated
-    `groups` view. Falls back to "Övrigt" for a capability that isn't listed
-    under any group yet (e.g. a brand-new capability before the next
-    'Bygg om'). Case-insensitive + trimmed, mirroring `resolveDossierGroup`."""
-    key = (capability or "").strip().lower()
-    if key:
-        for info in groups.values():
-            listed = [str(c).strip().lower() for c in (info.get("capabilities") or [])]
-            if key in listed:
-                return info.get("label") or "Övrigt"
-    return "Övrigt"
-
-
-def _groups_view_is_stale(
-    groups: dict[str, Any], dossiers: list[dict[str, Any]]
-) -> bool:
-    """True when the generated `groups` view no longer covers the live pool's
-    capability set (e.g. a new capability added since the last 'Bygg om').
-    Python cannot recompute the TS group mapping, but it CAN detect coverage
-    drift — label/bucket drift inside `dossier-groups.ts` is caught by the TS
-    check (`regenerate-capability-map.ts` check-mode) instead."""
-    if not groups:
-        return True
-    covered: set[str] = set()
-    for info in groups.values():
-        for cap in info.get("capabilities") or []:
-            covered.add(str(cap).strip().lower())
-    live = {
-        str(d.get("capability") or "").strip().lower()
-        for d in dossiers
-        if d.get("capability")
-    }
-    return not live.issubset(covered)
-
-
 @_dossier_mutation_locked
 def _run_capability_map_write() -> tuple[bool, str]:
     """Regenerate capability-map.json via the canonical TS script
@@ -1024,49 +914,6 @@ def _run_capability_map_write() -> tuple[bool, str]:
         )
     except FileNotFoundError as exc:
         return False, f"Saknar binär (npm): {exc}"
-
-
-def _rebuild_capability_map(dossiers: list[dict[str, Any]]) -> dict[str, Any]:
-    """DRIFT-PREVIEW ONLY — computes the expected `capabilities` field so the
-    Capability map tab can warn when the file is stale. It is NEVER written to
-    disk anymore: 'Bygg om' shells out to the canonical TS script
-    (`npm run dossiers:capability-map:write`), which also derives the `groups`
-    view from `dossier-groups.ts` — something Python deliberately cannot do."""
-    by_cap: dict[str, list[str]] = {}
-    for d in dossiers:
-        # Trim to mirror the TS script (`cap.trim()`), keeping the drift
-        # preview byte-identical with what --write would produce.
-        cap = str(d.get("capability") or "").strip() or "uncategorized"
-        # Key by DIRECTORY name (last segment of _path), not manifest.id — the
-        # canonical TS script keys ids by folder name, and a divergent
-        # manifest.id would otherwise show "out of sync" forever even right
-        # after a successful rebuild (Bugbot medium on #500, round 2).
-        dir_name = (
-            str(d.get("_path") or "").replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
-        )
-        by_cap.setdefault(cap, []).append(dir_name or str(d.get("id") or ""))
-    for cap in by_cap:
-        by_cap[cap].sort()
-    return {
-        "generatedAt": datetime.now(timezone.utc).isoformat(),
-        "capabilities": dict(sorted(by_cap.items())),
-    }
-
-
-def _extract_ts_union_values(path: Path, type_name: str) -> list[str]:
-    if not path.exists():
-        return []
-    text = path.read_text(encoding="utf-8")
-    pattern = rf"type\s+{re.escape(type_name)}\s*=\s*([^;]+);"
-    match = re.search(pattern, text, re.DOTALL)
-    if not match:
-        return []
-    values: list[str] = []
-    for token in match.group(1).split("|"):
-        value = token.strip().strip('"').strip("'")
-        if value:
-            values.append(value)
-    return values
 
 
 @_dossier_mutation_locked
