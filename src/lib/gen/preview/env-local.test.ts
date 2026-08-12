@@ -197,3 +197,77 @@ describe("resolvePreviewEnvLayers", () => {
     expect(merged.CONTACT_EMAIL_TO).toBeUndefined();
   });
 });
+
+describe("resolvePreviewEnvLayers — catalog scoping (scopePlaceholdersToFiles)", () => {
+  it("keeps the full catalogs when no files are supplied (legacy behaviour)", async () => {
+    const { merged } = await resolvePreviewEnvLayers({});
+    // Unreferenced catalog keys survive without a scan.
+    expect(merged.MONGODB_URI).toBeTruthy();
+    expect(merged.RESEND_API_KEY).toBeTruthy();
+  });
+
+  it("drops catalog keys the project never references", async () => {
+    const { merged, provenance } = await resolvePreviewEnvLayers({
+      scopePlaceholdersToFiles: [
+        {
+          name: "app/api/chat/route.ts",
+          content: "const key = process.env.OPENAI_API_KEY;",
+        },
+      ],
+    });
+    expect(merged.OPENAI_API_KEY).toBeTruthy();
+    expect(provenance.OPENAI_API_KEY).toBe("tier3-stub");
+    expect(merged.MONGODB_URI).toBeUndefined();
+    expect(merged.STRIPE_SECRET_KEY).toBeUndefined();
+    expect(merged.NEXT_PUBLIC_SUPABASE_URL).toBeUndefined();
+    expect(merged.AUTH_SECRET).toBeUndefined();
+  });
+
+  it("keeps selected dossier keys with their catalog placeholder values", async () => {
+    const { merged, provenance } = await resolvePreviewEnvLayers({
+      scopePlaceholdersToFiles: [
+        { name: "app/page.tsx", content: "export default function Page() {}" },
+      ],
+      selectedDossierEnvKeys: ["RESEND_API_KEY", "CONTACT_EMAIL_TO"],
+    });
+    // Catalog-covered dossier key keeps the real catalog stub value.
+    expect(merged.RESEND_API_KEY).toBe("re_placeholder_preview_not_a_real_key");
+    expect(provenance.RESEND_API_KEY).toBe("tier3-stub");
+    // Non-catalog dossier key still gets the deterministic F2 mock seed.
+    expect(merged.CONTACT_EMAIL_TO).toBe("contact_email_to_placeholder_preview_not_real");
+    // Unrelated catalog keys are dropped.
+    expect(merged.STRIPE_SECRET_KEY).toBeUndefined();
+  });
+
+  it("never filters user or generated layers", async () => {
+    const { getStoredProjectEnvVarMap } = await import("@/lib/project-env-vars");
+    vi.mocked(getStoredProjectEnvVarMap).mockResolvedValueOnce({
+      MY_USER_KEY: "user_value",
+    });
+    const { merged, provenance } = await resolvePreviewEnvLayers({
+      appProjectId: "proj_test",
+      generatedEnvLocal: "GEN_ONLY_KEY=gen_value",
+      scopePlaceholdersToFiles: [
+        { name: "app/page.tsx", content: "export default function Page() {}" },
+      ],
+    });
+    expect(merged.MY_USER_KEY).toBe("user_value");
+    expect(provenance.MY_USER_KEY).toBe("user");
+    expect(merged.GEN_ONLY_KEY).toBe("gen_value");
+    expect(provenance.GEN_ONLY_KEY).toBe("generated");
+    expect(merged.NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID).toBe("proj_test");
+  });
+
+  it("cannot be defeated by a catalog dump inside env artifacts", async () => {
+    const { merged } = await resolvePreviewEnvLayers({
+      scopePlaceholdersToFiles: [
+        {
+          name: "env.example",
+          content: "MONGODB_URI=placeholder\nSTRIPE_SECRET_KEY=placeholder",
+        },
+      ],
+    });
+    expect(merged.MONGODB_URI).toBeUndefined();
+    expect(merged.STRIPE_SECRET_KEY).toBeUndefined();
+  });
+});

@@ -3,6 +3,7 @@
   "id": "plausible-analytics",
   "label": "Besöksstatistik — Plausible",
   "capability": "analytics",
+  "providers": ["plausible"],
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": false,

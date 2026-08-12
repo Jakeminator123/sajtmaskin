@@ -6,8 +6,10 @@
  * Architecture:    docs/contracts/dossier-system.md
  *
  * Two classes (encoded in folder path):
- *   - hard: needs external secrets (Stripe, Auth.js, OpenAI). Preflight checks envVars.
- *   - soft: self-contained (UI sections, R3F 3D, animation patterns).
+ *   - hard: provider/service-coupled (may have secrets, public config, SDKs,
+ *     server code, or a client-only provider contract).
+ *   - soft: self-contained without an external provider/secret; npm packages
+ *     and runtime patterns are allowed.
  *
  * Two code-fidelities (per-dossier default, per-file override):
  *   - verbatim:   LLM emits files unchanged (auth glue, webhooks, SDK init).
@@ -40,10 +42,10 @@ export type Capability = string;
 /**
  * How strictly the F3 readiness gate enforces a given env var.
  *
- * - `"build"` (default when omitted): real value required before F3
- *   ("Bygg integrationer") build can succeed at runtime. Stripe secrets,
- *   Supabase URLs, database connections — anything where a placeholder
- *   value crashes the deploy.
+ * - `"build"` (default when omitted): the F3 build needs either a real value
+ *   or a catalog-approved placeholder. Missing both blocks before codegen.
+ *   Use only where an unconfigured value would break the build/runtime
+ *   contract (currently Clerk's required auth configuration).
  * - `"feature-runtime"`: the SDK is imported but the dossier's UI mounts a
  *   configuration banner / popup at runtime when the value is missing or
  *   placeholder. F3 reports this as a warning, not a blocker. The
@@ -92,6 +94,8 @@ export interface DossierEnvVar {
   key: string;
   required: boolean;
   purpose: string;
+  /** Official provider page explaining where/how to obtain this value. */
+  setupUrl?: string;
   /** Defaults to `"build"` when omitted. */
   enforcement?: DossierEnvVarEnforcement;
 }
@@ -119,6 +123,12 @@ export interface DossierEntry {
   label: string;
   /** Abstract capability matched against `brief.requestedCapabilities`. */
   capability: Capability;
+  /**
+   * Canonical external provider identities implemented by this dossier.
+   * Required for `hard` manifests and forbidden for `soft` manifests by the
+   * validator. Composite dossiers may name more than one provider.
+   */
+  providers?: string[];
   /** Default injection mode for files in this dossier. */
   codeFidelity: CodeFidelity;
   complexity: DossierComplexity;
@@ -144,8 +154,10 @@ export interface DossierEntry {
   dependencies?: string[];
   files?: DossierFile[];
   exposes?: DossierExposes[];
-  /** ISO date YYYY-MM-DD when a human last validated the dossier. */
+  /** ISO date for accepted evidence, or imported source date while unverified. */
   lastVerified: string;
+  /** Explicit false-green guard for imported/draft dossiers. */
+  verificationStatus?: "accepted" | "unverified";
   sourceRepoUrl?: string;
   notes?: string;
   /** How much of instructions.md reaches the prompt. Default "compact". */
@@ -217,9 +229,7 @@ export function defaultInjectionMode(file: DossierFile, entry: DossierEntry): Co
  * Extend the rule HERE if a future case needs it — never re-derive the
  * boundary in a separate hardcoded list.
  */
-export function dossierRequiresF3(
-  entry: Pick<DossierEntry, "envVars" | "files">,
-): boolean {
+export function dossierRequiresF3(entry: Pick<DossierEntry, "envVars" | "files">): boolean {
   if ((entry.envVars ?? []).some((env) => (env.enforcement ?? "build") === "build")) {
     return true;
   }

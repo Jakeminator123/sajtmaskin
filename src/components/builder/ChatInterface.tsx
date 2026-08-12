@@ -20,42 +20,37 @@ import { MediaDrawer } from "@/components/media/media-drawer";
 import { TextUploader } from "@/components/media/text-uploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { DESIGN_THEME_OPTIONS, type DesignTheme } from "@/lib/builder/theme-presets";
-import {
-  ChevronDown,
   FileText,
   ImageIcon,
   Layers,
   Loader2,
-  Palette,
   Plus,
   Search,
-  SlidersHorizontal,
+  SearchX,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { builderModeToggleClassName } from "@/lib/builder/icon-language";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type PromptSourceMeta } from "@/lib/builder/prompt-builder";
 import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
+import { buildInspectPointsPrompt } from "@/lib/builder/focus-point-prompt";
+import {
+  FIGMA_PREVIEW_NOT_CONFIGURED,
+  type FigmaPreviewResponse,
+} from "@/lib/api/figma-preview-contract";
+import {
+  resolveOpenClawPreparedPromptSource,
+  type OpenClawPreparedPromptSource,
+} from "@/lib/openclaw/prepared-prompt";
+import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import {
   INSPECT_CAPTURE_EVENT,
   type InspectCapturedElement,
   type InspectCaptureEventDetail,
 } from "@/lib/builder/inspect-events";
-import {
-  PROMPT_PREFILL_EVENT,
-  type PromptPrefillEventDetail,
-} from "@/lib/builder/prompt-prefill-event";
+import { INIT_BRIEF_STATUS_EVENT, type InitBriefStatusDetail } from "@/lib/hooks/useInitBrief";
 import { toast } from "sonner";
 
 type MessageOptions = {
@@ -63,12 +58,8 @@ type MessageOptions = {
   attachmentPrompt?: string;
   planMode?: boolean;
   promptSourceMeta?: PromptSourceMeta;
-};
-
-type FigmaPreviewResponse = {
-  imageUrl?: string;
-  fileName?: string;
-  error?: string;
+  /** OpenClaw prepared-prompt fast lane — see `prepared-prompt.ts`. */
+  promptSource?: OpenClawPreparedPromptSource;
 };
 
 type InspectPointToken = {
@@ -129,45 +120,6 @@ function getExtensionFromDataUrl(dataUrl?: string): string {
   return "png";
 }
 
-function buildInspectPointsPrompt(points: InspectPointToken[]): string {
-  if (!points.length) return "";
-  const sourceUrls = Array.from(new Set(points.map((point) => point.demoUrl).filter(Boolean)));
-  const lines = points.map((point, index) => {
-    const imagePart = point.filename ? `, bildfil: ${point.filename}` : "";
-    const base = `- Punkt ${index + 1}: x=${point.xPercent.toFixed(1)}%, y=${point.yPercent.toFixed(1)}%, viewport=${Math.round(point.viewportWidth)}x${Math.round(point.viewportHeight)}${imagePart}`;
-    const extras: string[] = [];
-    if (point.pointSummary) extras.push(`  - Sammanfattning: ${point.pointSummary}`);
-    if (point.capturedUrl && point.capturedUrl !== point.demoUrl) {
-      extras.push(`  - Slutlig capture-URL: ${point.capturedUrl}`);
-    }
-    if (point.element) {
-      const elementParts = [
-        point.element.tag ? `<${point.element.tag}>` : null,
-        point.element.id ? `#${point.element.id}` : null,
-        point.element.className ? `.${point.element.className.split(/\s+/).slice(0, 3).join(".")}` : null,
-      ].filter(Boolean);
-      if (elementParts.length > 0) {
-        extras.push(`  - DOM-träff: ${elementParts.join(" ")}`);
-      }
-      if (point.element.selector) extras.push(`  - CSS-selector: ${point.element.selector}`);
-      if (point.element.nearestHeading) extras.push(`  - Närmaste rubrik: ${point.element.nearestHeading}`);
-      if (point.element.text) extras.push(`  - Träff-text: ${point.element.text}`);
-      if (point.element.ariaLabel) extras.push(`  - Aria-label: ${point.element.ariaLabel}`);
-    }
-    if (point.clip) {
-      extras.push(`  - Bildutsnitt: x=${point.clip.x}, y=${point.clip.y}, w=${point.clip.width}, h=${point.clip.height}`);
-    }
-    if (point.source) {
-      extras.push(`  - Capture-källa: ${point.source}`);
-    }
-    return [base, ...extras].join("\n");
-  });
-  const sourcePart = sourceUrls.length
-    ? `\nKälla: ${sourceUrls.join(" | ")}`
-    : "";
-  return `Användarens markerade fokuspunkter i preview:${sourcePart}\n${lines.join("\n")}\nPrioritera ändringar nära dessa punkter. Om informationen krockar med resten av sidan, utgå från punktens DOM-träff/selector före antaganden.`;
-}
-
 interface ChatInterfaceProps {
   chatId: string | null;
   initialPrompt?: string | null;
@@ -183,16 +135,6 @@ interface ChatInterfaceProps {
   isPreparingPrompt?: boolean;
   mediaEnabled?: boolean;
   continuePlanMode?: boolean;
-  /** Färgtema (design tokens) som skickas till genereringen. Renderas i
-   * "Avancerat"-overlayn ovanför chatinputen när båda props finns. */
-  designTheme?: DesignTheme;
-  onDesignThemeChange?: (theme: DesignTheme) => void;
-  /**
-   * True medan en generering streamar. Speglar headerns tidigare
-   * `isConfigLocked` (= isAnyStreaming) så tema-väljaren bara låses under
-   * streaming — inte under chat-skapande/prompt-prep som `isBusy` gör.
-   */
-  isConfigLocked?: boolean;
   /**
    * P19 Steg 3 — basversions-indikator. When the active (selected) version
    * differs from the preferred usable version (`selectPreferredEngineVersion`),
@@ -277,14 +219,10 @@ export function ChatInterface({
   isPreparingPrompt = false,
   mediaEnabled = false,
   continuePlanMode = false,
-  designTheme,
-  onDesignThemeChange,
-  isConfigLocked = false,
   followUpBaseInfo,
   previewModes,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
@@ -295,6 +233,8 @@ export function ChatInterface({
   const [figmaPreviewName, setFigmaPreviewName] = useState<string | null>(null);
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
   const [figmaPreviewLoading, setFigmaPreviewLoading] = useState(false);
+  /** Server has no Figma token — expected state, not an error the user can fix. */
+  const [figmaPreviewUnavailable, setFigmaPreviewUnavailable] = useState(false);
   const [inspectPoints, setInspectPoints] = useState<InspectPointToken[]>([]);
   const isFigmaInputOpen = controlledFigmaInputOpen ?? internalFigmaInputOpen;
   const setFigmaInputOpen = useCallback(
@@ -309,13 +249,29 @@ export function ChatInterface({
     [isFigmaInputOpen, onFigmaInputOpenChange],
   );
 
-  const currentThemeLabel =
-    DESIGN_THEME_OPTIONS.find((option) => option.value === designTheme)?.label ?? "Av";
   const hasUploading = files.some((file) => file.status === "uploading");
   const hasSuccessFiles = files.some((file) => file.status === "success");
   const inputDisabled = isSending || isBusy;
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
+
+  // N4/A2: Deep Brief-statusen ("Skapar brief...", "Brief klar...") kommer
+  // som ett window-event från useInitBrief.ts — den körs innan chatten (och
+  // därmed AgentLogCard) ens finns, så den kan inte gå via chat-state/props.
+  // Faller tillbaka till den generiska texten nedan om inget event hunnit
+  // komma (t.ex. prompt-assist av).
+  const [initBriefStatus, setInitBriefStatus] = useState<string | null>(null);
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<InitBriefStatusDetail>).detail;
+      setInitBriefStatus(typeof detail?.status === "string" ? detail.status : null);
+    };
+    window.addEventListener(INIT_BRIEF_STATUS_EVENT, handler as EventListener);
+    return () => window.removeEventListener(INIT_BRIEF_STATUS_EVENT, handler as EventListener);
+  }, []);
+  useEffect(() => {
+    if (!isPreparingPrompt) setInitBriefStatus(null);
+  }, [isPreparingPrompt]);
 
   const handleInputChange = (value: string) => {
     setInput(value);
@@ -353,6 +309,7 @@ export function ChatInterface({
       setFigmaPreviewName(null);
       setFigmaPreviewError(null);
       setFigmaPreviewLoading(false);
+      setFigmaPreviewUnavailable(false);
       return;
     }
 
@@ -361,6 +318,7 @@ export function ChatInterface({
     const debounceId = window.setTimeout(async () => {
       setFigmaPreviewLoading(true);
       setFigmaPreviewError(null);
+      setFigmaPreviewUnavailable(false);
 
       try {
         const response = await fetch("/api/figma/preview", {
@@ -372,6 +330,13 @@ export function ChatInterface({
 
         const data = (await response.json().catch(() => ({}))) as FigmaPreviewResponse;
         if (!response.ok) {
+          if (data?.code === FIGMA_PREVIEW_NOT_CONFIGURED) {
+            if (!isActive) return;
+            setFigmaPreviewUrl(null);
+            setFigmaPreviewName(null);
+            setFigmaPreviewUnavailable(true);
+            return;
+          }
           const message =
             (data && typeof data === "object" && data.error) ||
             `Preview failed (HTTP ${response.status})`;
@@ -535,18 +500,9 @@ export function ChatInterface({
     return () => window.removeEventListener(INSPECT_CAPTURE_EVENT, handler as EventListener);
   }, [uploadInspectPreview]);
 
-  // Exempelprompter från preview-panelens empty state fyller chattens input
-  // (skickar INTE automatiskt — användaren får redigera och trycka Enter).
-  useEffect(() => {
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent<PromptPrefillEventDetail>).detail;
-      if (typeof detail?.text !== "string" || !detail.text.trim()) return;
-      setInput(detail.text);
-      onPromptAssistModeReset?.();
-    };
-    window.addEventListener(PROMPT_PREFILL_EVENT, handler);
-    return () => window.removeEventListener(PROMPT_PREFILL_EVENT, handler);
-  }, [onPromptAssistModeReset]);
+  // (Prompt-prefill-lyssnaren togs bort 2026-07-31: Byggval-reglagen går
+  // strukturerat via INIT_BUILD_CHOICES_EVENT → useCreateChat och skriver
+  // aldrig i chattens input; exempel-chipsen försvann med #673.)
 
   const handlePlanRequest = async () => {
     if (inputDisabled) return;
@@ -633,11 +589,26 @@ export function ChatInterface({
     try {
       const payload = await buildMessagePayload(baseMessage);
       if (!payload.finalMessage.trim()) return;
+      // OpenClaw prepared-prompt fast lane: tag a follow-up send whose FINAL
+      // message is exactly what OpenClaw filled into this composer (edit gate
+      // on, no user edits, no appended Figma/inspect blocks or attachments).
+      // Init sends never tag — the lane only skips the follow-up delta-brief.
+      const openClawState = useOpenClawStore.getState();
+      const openClawPromptSource = chatId
+        ? resolveOpenClawPreparedPromptSource({
+            editEnabled: openClawState.editEnabled,
+            preparedFill: openClawState.preparedFill,
+            message: payload.finalMessage,
+            hasAttachments: Boolean(payload.finalAttachments?.length),
+            attachmentPrompt: payload.attachmentPrompt,
+          })
+        : null;
       const msgOpts: MessageOptions = {
         attachments: payload.finalAttachments,
         attachmentPrompt: payload.attachmentPrompt,
         planMode: options.planMode,
         promptSourceMeta: options.promptSourceMeta,
+        promptSource: openClawPromptSource ?? undefined,
       };
       if (!chatId) {
         if (!onCreateChat) return;
@@ -654,6 +625,14 @@ export function ChatInterface({
         // i tråden i stället och utkastet rensas — annars finns den på två
         // ställen och ett omsänd kan dubblera turen (bugbot på #610).
         if (outcome.status === "rejected" && !outcome.turnRecorded) return;
+      }
+      // The fill was consumed by THIS send (tagged or not) — drop the marker
+      // unconditionally so a later send can't inherit it. Deliberately outside
+      // the clearDraft-branch (Bugbot): plan-läge skickar med clearDraft:false,
+      // och markören fick inte överleva dit — ett senare codegen-utskick med
+      // samma text ska ta normalvägen, inte ärva taggen.
+      if (openClawState.preparedFill) {
+        useOpenClawStore.getState().setPreparedFill(null);
       }
       if (options.clearDraft !== false) {
         setInput("");
@@ -755,72 +734,22 @@ export function ChatInterface({
             Verktyg
           </p>
           <div className="flex flex-wrap gap-1.5">
-            <Popover open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-                  title="Avancerade verktyg: plan och färgtema"
-                >
-                  <SlidersHorizontal className="size-3" />
-                  Avancerat
-                  <ChevronDown className="size-3 opacity-50" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="start" side="top" className="w-64 p-3">
-                <p className="text-muted-foreground mb-2 text-[11px] font-medium">Avancerat</p>
-                <div className="flex flex-col gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="justify-start"
-                    onClick={() => {
-                      setIsAdvancedOpen(false);
-                      void handlePlanRequest();
-                    }}
-                    disabled={inputDisabled || !input.trim()}
-                    title="Gör en plan eller PRD innan kod"
-                  >
-                    <FileText className="h-4 w-4" />
-                    Plan
-                  </Button>
-                  {onDesignThemeChange && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="justify-start"
-                          disabled={isConfigLocked}
-                          title="Färgtema som skickas till genereringen (design tokens)"
-                        >
-                          <Palette className="h-4 w-4" />
-                          <span className="max-w-[140px] truncate">
-                            Tema: {currentThemeLabel}
-                          </span>
-                          <ChevronDown className="ml-auto h-3 w-3 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-56">
-                        <DropdownMenuLabel>Färgtema</DropdownMenuLabel>
-                        <DropdownMenuRadioGroup
-                          value={designTheme ?? "off"}
-                          onValueChange={(v) => onDesignThemeChange(v as DesignTheme)}
-                        >
-                          {DESIGN_THEME_OPTIONS.map((option) => (
-                            <DropdownMenuRadioItem key={option.value} value={option.value}>
-                              {option.label}
-                            </DropdownMenuRadioItem>
-                          ))}
-                        </DropdownMenuRadioGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
+            {/* "Avancerat"-popovern togs bort 2026-07-31: efter att
+                temaväljaren flyttade till Byggval-reglagen (ägarbeslut,
+                se preview-panelens välkomstläge) blev popovern en
+                enda-knapps-meny som bara gömde "Plan" bakom ett extra
+                klick. Plan renderas nu som en vanlig verktygsknapp,
+                samma mönster som de andra Verktyg-radsknapparna nedan. */}
+            <button
+              type="button"
+              onClick={() => void handlePlanRequest()}
+              disabled={inputDisabled || !input.trim()}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
+              title="Gör en plan eller PRD innan kod"
+            >
+              <FileText className="size-3" />
+              Plan
+            </button>
             {previewModes ? (
               <>
                 <button
@@ -828,15 +757,18 @@ export function ChatInterface({
                   onClick={previewModes.onToggleComposer}
                   disabled={previewModes.composerDisabled}
                   aria-pressed={previewModes.composerOpen}
+                  aria-label={previewModes.composerOpen ? "Stäng block" : "Lägg till block"}
                   title="Lägg till färdiga block och innehåll i previewen"
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
-                    previewModes.composerOpen &&
-                      "border-violet-500/60 bg-violet-900/50 text-violet-100",
-                  )}
+                  className={builderModeToggleClassName(previewModes.composerOpen, "violet")}
                 >
-                  <Plus className="size-3" />
-                  {previewModes.composerOpen ? "Stäng block" : "Lägg till block"}
+                  {/* Ikon-only (Del D): av/på bärs av färg + aria-pressed. Öppet
+                      läge byter dessutom ikon (Plus → X) så läget syns på en
+                      skärmdump utan text. */}
+                  {previewModes.composerOpen ? (
+                    <X className="size-3" />
+                  ) : (
+                    <Plus className="size-3" />
+                  )}
                 </button>
                 {previewModes.inspectAvailable ? (
                   <button
@@ -844,15 +776,17 @@ export function ChatInterface({
                     onClick={previewModes.onToggleInspect}
                     disabled={previewModes.inspectDisabled}
                     aria-pressed={previewModes.inspectOpen}
+                    aria-label={
+                      previewModes.inspectOpen ? "Sluta inspektera" : "Inspektera preview"
+                    }
                     title="Klicka på något i previewen för att ändra text, byta bild, ta bort det eller skicka det till chatten"
-                    className={cn(
-                      "inline-flex h-7 items-center gap-1.5 rounded-md border border-zinc-700/60 bg-zinc-800/50 px-2.5 text-[11px] text-zinc-300 transition-colors hover:bg-zinc-700/60 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40",
-                      previewModes.inspectOpen &&
-                        "border-emerald-500/60 bg-emerald-900/50 text-emerald-100",
-                    )}
+                    className={builderModeToggleClassName(previewModes.inspectOpen, "emerald")}
                   >
-                    <Search className="size-3" />
-                    {previewModes.inspectOpen ? "Sluta inspektera" : "Inspektera preview"}
+                    {previewModes.inspectOpen ? (
+                      <SearchX className="size-3" />
+                    ) : (
+                      <Search className="size-3" />
+                    )}
                   </button>
                 ) : null}
               </>
@@ -888,9 +822,9 @@ export function ChatInterface({
               <div className="text-muted-foreground text-xs">Hämtar Figma-preview...</div>
             )}
             {figmaPreviewError && <div className="text-xs text-red-500">{figmaPreviewError}</div>}
-            {!figmaPreviewUrl && !figmaPreviewLoading && (
+            {figmaPreviewUnavailable && (
               <div className="text-muted-foreground text-[11px]">
-                Kräver FIGMA_ACCESS_TOKEN för preview.
+                Förhandsbild är inte aktiverad. Länken skickas ändå med som designreferens.
               </div>
             )}
             {figmaPreviewUrl && (
@@ -1013,7 +947,7 @@ export function ChatInterface({
           {showPreparingPrompt && (
             <div className="text-muted-foreground flex items-center gap-2 text-xs">
               <Loader2 className="size-3.5 animate-spin" />
-              Förbereder prompt...
+              {initBriefStatus ?? "Förbereder prompt..."}
             </div>
           )}
           <div className="flex items-end justify-between gap-2">

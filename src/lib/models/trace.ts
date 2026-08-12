@@ -89,7 +89,8 @@ export type PerTierPhaseMatrixRow = {
   phase: "planner" | "generator" | "fixer" | "verifier" | "deploy-assistant";
   modelId: string;
   thinking: boolean;
-  reasoningEffort: "none" | "low" | "medium" | "high";
+  reasoningEffort: "none" | "low" | "medium" | "high" | "xhigh" | "max";
+  reasoningMode?: "standard" | "pro";
 };
 
 export interface ModelTraceSnapshot {
@@ -294,19 +295,12 @@ export function buildModelTraceSnapshot(params: ModelTraceRequest = {}): ModelTr
     );
   }
   if (!selectedAssistAllowed) {
-    warnings.push(
-      `Prompt assist model "${selectedAssistModel}" is not on the current allowlist.`,
-    );
+    warnings.push(`Prompt assist model "${selectedAssistModel}" is not on the current allowlist.`);
   }
   if (selectedAssistProvider === "openai" && !auth.openai) {
-    warnings.push(
-      "OpenAI prompt assist is selected, but OPENAI_API_KEY is missing.",
-    );
+    warnings.push("OpenAI prompt assist is selected, but OPENAI_API_KEY is missing.");
   }
-  if (
-    selectedAssistProviderFamily !== "off" &&
-    !hasProviderKey(selectedAssistProviderFamily)
-  ) {
+  if (selectedAssistProviderFamily !== "off" && !hasProviderKey(selectedAssistProviderFamily)) {
     warnings.push(
       `Prompt assist model "${selectedAssistModel}" needs ${selectedAssistProviderFamily.toUpperCase()} credentials, but that key is missing.`,
     );

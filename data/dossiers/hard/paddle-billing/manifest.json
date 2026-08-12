@@ -4,6 +4,7 @@
   "mock": "visual",
   "label": "Prenumerationer — Paddle",
   "capability": "subscriptions",
+  "providers": ["paddle", "supabase"],
   "codeFidelity": "verbatim",
   "complexity": "advanced",
   "defaultForCapability": true,
@@ -13,30 +14,35 @@
     {
       "key": "NEXT_PUBLIC_SUPABASE_URL",
       "required": true,
+      "setupUrl": "https://supabase.com/docs/guides/getting-started/api-keys",
       "purpose": "Supabase project URL for the server auth client (reads the signed-in user) and the admin write client (webhook upserts). Tagged 'feature-runtime': the routes return 503 'subscriptions-not-configured' when it is missing or a placeholder, so it never crashes the build.",
       "enforcement": "feature-runtime"
     },
     {
       "key": "SUPABASE_SERVICE_ROLE_KEY",
       "required": true,
+      "setupUrl": "https://supabase.com/docs/guides/getting-started/api-keys",
       "purpose": "Server-only Supabase service-role key used by webhook processing to upsert subscription rows. Never exposed to client code. Tagged 'feature-runtime': the admin client is lazy and the webhook route returns 503 when it is missing instead of failing the build.",
       "enforcement": "feature-runtime"
     },
     {
       "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
       "required": true,
+      "setupUrl": "https://supabase.com/docs/guides/getting-started/api-keys",
       "purpose": "Supabase anon key for the server-side auth client that reads the signed-in user in the customer-portal route. Tagged 'feature-runtime': the route returns 503 when it is missing or a placeholder instead of constructing a client with an invalid key.",
       "enforcement": "feature-runtime"
     },
     {
       "key": "PADDLE_API_KEY",
       "required": true,
+      "setupUrl": "https://developer.paddle.com/api-reference/about/authentication/",
       "purpose": "Server-only Paddle API key used to verify webhooks via the Paddle SDK and create customer-portal sessions. Get it from Paddle developer tools for the matching environment. Tagged 'feature-runtime': the SDK is lazy-instantiated after the route's env guard, so a missing key degrades to 503, not a build crash.",
       "enforcement": "feature-runtime"
     },
     {
       "key": "PADDLE_NOTIFICATION_WEBHOOK_SECRET",
       "required": true,
+      "setupUrl": "https://developer.paddle.com/webhooks/about/signature-verification/",
       "purpose": "Paddle notification destination secret used to verify the paddle-signature header against the raw webhook body. Get it from the Paddle webhook destination settings. Tagged 'feature-runtime': the webhook route returns 503 when it is missing instead of verifying with an empty secret.",
       "enforcement": "feature-runtime"
     },

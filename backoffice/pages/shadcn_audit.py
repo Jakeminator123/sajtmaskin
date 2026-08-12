@@ -6,7 +6,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from backoffice.shared import BackofficeContext, read_json, render_where_panel, write_json
+from backoffice.shared import BackofficeContext, read_json, write_json
 
 
 def _count_component_entries(components_ts: Path) -> int:
@@ -88,7 +88,6 @@ def _render_community_registries(ctx: BackofficeContext) -> None:
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("shadcn Ecosystem")
 
     _render_sync_status(ctx)
@@ -98,7 +97,6 @@ def render(ctx: BackofficeContext) -> None:
 
     st.divider()
     st.subheader("shadcn-mirror-audit-policy.json")
-    render_where_panel("shadcn-audit", domain_map)
     sp = ctx.config_dir / "shadcn-mirror-audit-policy.json"
     sh = read_json(sp)
     st.json(sh)

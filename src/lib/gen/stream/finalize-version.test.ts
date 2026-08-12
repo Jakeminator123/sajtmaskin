@@ -29,6 +29,11 @@ const mergeVersionFilesWithWarnings = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
 const subscribeEventBus = vi.hoisted(() => vi.fn());
+const recordPhaseDuration = vi.hoisted(() => vi.fn());
+const observePhase = vi.hoisted(() =>
+  vi.fn(async (_params: unknown, run: () => unknown) => run()),
+);
+const incPartialFileRepair = vi.hoisted(() => vi.fn());
 
 // Mock the FEATURES gate so optional dossier RAG / recurring-patterns
 // blocks stay deterministic in tests. The repair-pass / verifier-rerun /
@@ -90,6 +95,10 @@ vi.mock("@/lib/gen/verify/verifier-pass", () => ({
   // pre-fix behaviour has its own focused suite in `verifier-phase.test.ts`.
   parseUndefinedJsxSymbolFinding: () => null,
   checkUndefinedJsxSymbols: () => [],
+  // Tier-3 policy filter — inert here (identity) so these tests keep asserting
+  // the unfiltered verifier→repair flow. Its own behaviour is covered in
+  // `verifier-pass.test.ts`.
+  suppressTier3StrippedImportFindings: <T,>(findings: T) => findings,
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
@@ -103,6 +112,7 @@ vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
 
 vi.mock("@/lib/gen/export/project-scaffold", () => ({
   buildCompleteProject,
+  SCAFFOLD_BASELINE_FILE_PATHS: [],
 }));
 
 vi.mock("@/lib/gen/export/project-scaffold-ui-reader", () => ({
@@ -169,7 +179,14 @@ vi.mock("@/lib/gen/validation/seo-preflight", () => ({
   runSeoPreflightChecks: vi.fn().mockReturnValue([]),
 }));
 
+vi.mock("@/lib/observability/metrics", () => ({
+  recordPhaseDuration,
+  observePhase,
+  incPartialFileRepair,
+}));
+
 import { finalizeAndSaveVersion } from "./finalize-version";
+import { persistOrchestrationSnapshot } from "./finalize-version/persist-side-effects";
 import type { BuildSpec } from "@/lib/gen/build-spec";
 
 const BASIC_GENERATED_CONTENT =
@@ -236,6 +253,10 @@ describe("finalizeAndSaveVersion", () => {
     validateGeneratedCode.mockReset();
     emitBusEvent.mockReset();
     subscribeEventBus.mockReset();
+    recordPhaseDuration.mockReset();
+    observePhase.mockClear();
+    observePhase.mockImplementation(async (_params: unknown, run: () => unknown) => run());
+    incPartialFileRepair.mockReset();
 
     runAutoFix.mockResolvedValue({
       fixedContent: '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
@@ -446,6 +467,63 @@ export default function Page() {
       );
     });
 
+    it("persists selected dossier env keys on the create path (dossier-env rehydrering)", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent: BASIC_GENERATED_CONTENT,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        orchestrationStreamMeta: { requestedCapabilities: ["payments"] },
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      const call = addAssistantMessageAndCreateDraftVersion.mock.calls[0];
+      expect(call?.[3]).toEqual(
+        expect.objectContaining({
+          selectedDossierEnvKeys: expect.arrayContaining(["STRIPE_SECRET_KEY"]),
+        }),
+      );
+    });
+
+    it("backfills selected dossier env keys on the repair path (COALESCE — never overwrites)", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent: BASIC_GENERATED_CONTENT,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        orchestrationStreamMeta: { requestedCapabilities: ["payments"] },
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+        targetVersionId: "ver_existing",
+      });
+
+      expect(addAssistantMessageAndUpdateExistingVersion).toHaveBeenCalledTimes(1);
+      const call = addAssistantMessageAndUpdateExistingVersion.mock.calls[0];
+      expect(call?.[4]).toEqual(
+        expect.objectContaining({
+          selectedDossierEnvKeysBackfill: expect.arrayContaining(["STRIPE_SECRET_KEY"]),
+        }),
+      );
+    });
+
+    it("passes selectedDossierEnvKeysBackfill: null on the repair path without dossiers", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent: BASIC_GENERATED_CONTENT,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+        targetVersionId: "ver_existing",
+      });
+
+      const call = addAssistantMessageAndUpdateExistingVersion.mock.calls[0];
+      expect(call?.[4]).toEqual(
+        expect.objectContaining({ selectedDossierEnvKeysBackfill: null }),
+      );
+    });
+
     it("passes thinking: null when no reasoning was collected", async () => {
       await finalizeAndSaveVersion({
         accumulatedContent:
@@ -532,6 +610,72 @@ export default function Page() {
     expect(saved?.scaffoldId).toBe("scaffold_prev");
     expect(saved?.promptStrategy).toBe("deep");
     expect(saved?.lastVersionId).toBe("ver_1");
+  });
+
+  it("keeps selected MongoDB pending when the persisted post-merge version has no MongoDB files", async () => {
+    getChatOrchestrationSnapshot.mockResolvedValueOnce({
+      mutedCapabilities: ["database"],
+      mutedDossierIds: ["mongodb-atlas"],
+    });
+
+    await persistOrchestrationSnapshot({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      filesJson: JSON.stringify([{ path: "app/page.tsx" }]),
+      orchestrationStreamMeta: {
+        selectedDossierIds: ["mongodb-atlas"],
+        mutedCapabilities: [],
+        mutedDossierIds: [],
+        // Stale base-version evidence must be overwritten by the final files.
+        fileEvidenceCapabilities: ["database"],
+      },
+      lineageHash: null,
+      buildIntent: undefined,
+    });
+
+    const saved = updateChatOrchestrationSnapshot.mock.calls[0]?.[1] as Record<
+      string,
+      unknown
+    >;
+    expect(saved.fileEvidenceCapabilities).toEqual([]);
+    expect(saved.fileEvidenceDossierIds).toEqual([]);
+    expect(saved.mutedCapabilities).toEqual(["database"]);
+    expect(saved.mutedDossierIds).toEqual(["mongodb-atlas"]);
+  });
+
+  it("clears pending capability and exact id when the persisted version has MongoDB files", async () => {
+    getChatOrchestrationSnapshot.mockResolvedValueOnce({
+      mutedCapabilities: ["database"],
+      mutedDossierIds: ["mongodb-atlas"],
+    });
+
+    await persistOrchestrationSnapshot({
+      chatId: "chat_1",
+      versionId: "ver_1",
+      filesJson: JSON.stringify([
+        { path: "lib/mongodb.ts" },
+        { path: "lib/seed-data.ts" },
+        { path: "components/db-config-notice.tsx" },
+        { path: "app/api/health/db/route.ts" },
+      ]),
+      orchestrationStreamMeta: {
+        selectedDossierIds: ["mongodb-atlas"],
+        mutedCapabilities: [],
+        mutedDossierIds: [],
+        fileEvidenceCapabilities: [],
+      },
+      lineageHash: null,
+      buildIntent: undefined,
+    });
+
+    const saved = updateChatOrchestrationSnapshot.mock.calls[0]?.[1] as Record<
+      string,
+      unknown
+    >;
+    expect(saved.fileEvidenceCapabilities).toEqual(["database"]);
+    expect(saved.fileEvidenceDossierIds).toEqual(["mongodb-atlas"]);
+    expect(saved.mutedCapabilities).toEqual([]);
+    expect(saved.mutedDossierIds).toEqual([]);
   });
 
   it("propagates when transactional assistant+draft persist fails (no manual message delete)", async () => {
@@ -2232,6 +2376,63 @@ export default function Page() {
               verifier: expect.objectContaining({
                 status: "skipped",
                 reason: "light_followup_fast_policy",
+              }),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("deep path registers materialize_images via recordPhaseDuration", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent: BASIC_GENERATED_CONTENT,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: baseBuildSpec({ qualityTarget: "premium" }),
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(materializeImages).toHaveBeenCalled();
+      expect(recordPhaseDuration).toHaveBeenCalledWith(
+        "materialize_images",
+        expect.any(Number),
+        expect.objectContaining({ kind: "init" }),
+      );
+    });
+
+    it("light path still records materialize_images as 0 ms (skipped, intentional)", async () => {
+      await finalizeAndSaveVersion({
+        accumulatedContent: BASIC_GENERATED_CONTENT,
+        chatId: "chat_1",
+        model: "gpt-5.4",
+        buildIntent: "website",
+        buildSpec: baseBuildSpec({
+          generationMode: "followUp",
+          changeScope: "copy",
+          qualityTarget: "standard",
+          verificationPolicy: "fast",
+          contextPolicy: "light",
+        }),
+        resolvedScaffold: null,
+        urlMap: {},
+        startedAt: Date.now() - 500,
+      });
+
+      expect(materializeImages).not.toHaveBeenCalled();
+      expect(recordPhaseDuration).toHaveBeenCalledWith(
+        "materialize_images",
+        0,
+        expect.objectContaining({ kind: "followup" }),
+      );
+      expect(createGenerationTelemetryRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          meta: expect.objectContaining({
+            postStreamSteps: expect.objectContaining({
+              materialize_images: expect.objectContaining({
+                status: "skipped",
               }),
             }),
           }),

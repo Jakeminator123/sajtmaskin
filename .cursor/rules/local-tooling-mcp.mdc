@@ -1,6 +1,6 @@
 ---
-description: "Lokal MCP/Git/Vercel/Supabase/shadcn-setup för Cursor på denna maskin + worktrees. Följ vid tooling, deploy-loggar, DB-introspekt eller ny worktree."
-alwaysApply: true
+description: "Lokal MCP/Git/Vercel/Supabase/shadcn-setup för Cursor på denna maskin. Läs vid MCP-problem, Vercel-deploy/loggar, Supabase-introspektion, shadcn-registry eller ny worktree utan MCP-config."
+alwaysApply: false
 ---
 
 # Lokal tooling (MCP / Git / Vercel / Supabase)
@@ -28,6 +28,8 @@ Plugins (`.cursor/settings.json`): `vercel` + `supabase` enabled.
 
 ## MCP-servrar i detta repo
 
+Kanonisk lista = nycklarna i `.cursor/mcp.json.example`. Tabellen nedan speglar den; lägger du till en server där, lägg till raden här i samma ändring.
+
 | Server | URL / kommando | När |
 |---|---|---|
 | `vercel` | `https://mcp.vercel.com/jakeminator123s-projects/sajtmaskin` | Deploy/loggar för **denna** app |
@@ -35,8 +37,14 @@ Plugins (`.cursor/settings.json`): `vercel` + `supabase` enabled.
 | `supabase` | `…?project_ref=yubbckduwblyrbnlglwf&read_only=true` | **DEV**-schema/SQL, read-only |
 | `supabase-prod` | `…?project_ref=egcitvwgettkftkyzbvn&read_only=true` | **PROD**-schema/rader vid felsökning, read-only |
 | `shadcn` | `scripts/cursor/shadcn-mcp.cmd` → `shadcn@4.13.1 mcp` | Registry-sök/install |
+| `openclaw-docs` | `https://docs.openclaw.ai/mcp` | Dokumentation för **externa** OpenClaw-produkten (gateway, CLI, nodes, kanaler, plugins, browser-verktyget). Ett verktyg: `search_open_claw` |
+| `openai-docs` | `https://developers.openai.com/mcp` | OpenAI-docs + API-spec: `search_openai_docs`, `list_openai_docs`, `fetch_openai_doc`, `list_api_endpoints`, `get_openapi_spec` |
+| `v0` | `https://mcp.v0.dev` | v0:s chat-API (`createChat`, `sendChatMessage`, …) — **inte** docs, och inte own-engine. Legacy-yta; kräver nyckel för riktiga anrop |
+
+**`openclaw-docs` beskriver inte Sajtmaskins OpenClaw-lager.** Servern dokumenterar den externa produkten vi bryggar mot. Armerad autonomi, mandaträknaren, `armedContinuation`-watchen och `<openclaw-action>`-envelopen är Sajtmaskin-lokala begrepp och bor i `src/lib/openclaw/` + [`openclaw-bridge.mdc`](openclaw-bridge.mdc) — sök inte efter dem i docs-servern (verifierat 2026-08-05: `autonomy mandate follow-up` ger `No results`).
 
 - OAuth: Settings → Tools & MCP (grön status). Reload fönster efter `mcp.json`-ändring.
+- De tre sista raderna är hostade HTTP-endpoints **utan** auth-headers i mallen, så de kräver ingen OAuth-runda för att listas.
 - `plugin-vercel-vercel` kan ge 403 → använd `vercel` / `user-vercel`.
 - Appens `VERCEL_PROJECT_ID` ≠ användarsajters per-deploy `vercel_project_id`.
 - Supabase-MCP: **ingen destruktiv SQL**. Ignorera RLS-varning på `public.schema_migrations` om inte explicit ombedd (migrationsmetadata, inte appdata).

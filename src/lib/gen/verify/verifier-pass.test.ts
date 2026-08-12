@@ -8,6 +8,7 @@ import {
   extractFilePathsFromVerifierFindings,
   formatVerifierFindingsAsFixerErrors,
   promoteForcedBlockingFindings,
+  suppressTier3StrippedImportFindings,
   suppressValidInPageAnchorNavigationFindings,
 } from "./verifier-pass";
 
@@ -798,6 +799,119 @@ describe("suppressValidInPageAnchorNavigationFindings", () => {
           content: "export default function SpelPage() { return <main />; }",
         },
       ],
+    );
+
+    expect(findings.blocking).toHaveLength(1);
+  });
+});
+
+describe("suppressTier3StrippedImportFindings", () => {
+  // Prod 2026-07-22 → 07-29: samma fynd på app/api/contact/route.ts vecka
+  // efter vecka. F2 strippar `resend` med flit, verifier läser det som en bugg
+  // och LLM-fixaren rapporterar `still-failing` varje gång — den får inte
+  // lägga tillbaka importen.
+  it("drops a missing tier-3 SDK import in F2 — the guard removed it on purpose", () => {
+    const findings = suppressTier3StrippedImportFindings(
+      {
+        blocking: [
+          {
+            id: "missing-imports",
+            detail:
+              "app/api/contact/route.ts constructs `new Resend(apiKey)` but does not import Resend from \"resend\".",
+          },
+        ],
+        quality: [],
+      },
+      { previewPolicy: "fidelity2" },
+    );
+
+    expect(findings.blocking).toEqual([]);
+  });
+
+  it("drops it även när detaljen bara namnger symbolen, inte modulen", () => {
+    const findings = suppressTier3StrippedImportFindings(
+      {
+        blocking: [
+          {
+            id: "missing-import",
+            detail: "app/api/contact/route.ts uses `new Resend(apiKey)` but has no `Resend` import.",
+          },
+        ],
+        quality: [],
+      },
+      { previewPolicy: "fidelity2" },
+    );
+
+    expect(findings.blocking).toEqual([]);
+  });
+
+  it("keeps the finding in F3 — there the SDK is installed and a missing import is real", () => {
+    const findings = suppressTier3StrippedImportFindings(
+      {
+        blocking: [
+          {
+            id: "missing-import-stripe",
+            detail:
+              "app/api/checkout-session/route.ts uses `new Stripe(secretKey)` but has no `import Stripe from \"stripe\"`.",
+          },
+        ],
+        quality: [],
+      },
+      { previewPolicy: "fidelity3" },
+    );
+
+    expect(findings.blocking).toHaveLength(1);
+  });
+
+  it("keeps non-tier-3 missing imports in F2 — zod and next/server must still be fixed", () => {
+    const findings = suppressTier3StrippedImportFindings(
+      {
+        blocking: [
+          {
+            id: "missing-imports-nextresponse-zod",
+            detail:
+              "app/api/contact-request/route.ts uses NextResponse.json and z.object but imports for `next/server` and `zod` are missing.",
+          },
+        ],
+        quality: [],
+      },
+      { previewPolicy: "fidelity2" },
+    );
+
+    expect(findings.blocking).toHaveLength(1);
+  });
+
+  it("keeps a finding that mixes a tier-3 SDK with a real non-tier-3 import error", () => {
+    const findings = suppressTier3StrippedImportFindings(
+      {
+        blocking: [
+          {
+            id: "missing-imports",
+            detail:
+              "app/api/contact/route.ts is missing imports: `Resend` from `resend` and `z` from `zod`.",
+          },
+        ],
+        quality: [],
+      },
+      { previewPolicy: "fidelity2" },
+    );
+
+    // Dropping this wholesale would take the legitimate zod error with it.
+    expect(findings.blocking).toHaveLength(1);
+  });
+
+  it("leaves findings that are not about imports alone, even when they name an SDK", () => {
+    const findings = suppressTier3StrippedImportFindings(
+      {
+        blocking: [
+          {
+            id: "navigation-placeholder-actions",
+            detail: 'app/page.tsx: <Button> for `stripe` checkout uses href="#".',
+          },
+        ],
+        quality: [],
+      },
+      { previewPolicy: "fidelity2" },
     );
 
     expect(findings.blocking).toHaveLength(1);

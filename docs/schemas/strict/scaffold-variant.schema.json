@@ -147,7 +147,7 @@
       "type": "array",
       "items": { "type": "string" },
       "maxItems": 6,
-      "description": "Inspiration reference ids: v0-mall Blob ids resolved against template-blob-manifest.json (written by the backoffice Scaffold Wizard / Lifecycle). Since 2026-07-22 every id MUST exist in the Blob manifest — enforced by variant-integrity.test.ts and the backoffice save guard. Rendered as a prompt line only — nothing is injected."
+      "description": "Ordered inspiration candidates: v0-mall Blob ids resolved against template-blob-manifest.json (written by the backoffice Scaffold Wizard / Lifecycle). Every id MUST exist in the Blob manifest. On init, runtime selects at most one candidate whose category denotes a complete site/app, sends its still image as style-only vision input, and may inject bounded frontend excerpts from the same Blob ZIP. Component/animation/layout/design-system and ambiguous AI categories are excluded."
     },
     "default": {
       "type": "boolean",

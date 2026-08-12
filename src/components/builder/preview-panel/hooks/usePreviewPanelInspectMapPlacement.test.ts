@@ -119,18 +119,7 @@ describe("usePreviewPanelInspectMapPlacement — placement dedupe", () => {
     } as unknown as MouseEvent<HTMLDivElement>;
   }
 
-  beforeEach(() => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ success: true, elements: ELEMENTS }),
-      })),
-    );
-  });
-
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -138,12 +127,24 @@ describe("usePreviewPanelInspectMapPlacement — placement dedupe", () => {
     let renders = 0;
     const rendered = harness({
       placementMode: true,
-      // Bridge engine skips the pre-warm loop; the zone fetch still runs, so we
-      // get section zones without any pending timers to manage here.
+      // Bridge-engine: zoner kommer via applyBridgeSectionCandidates (inte Playwright).
       inspectEngine: "bridge",
       onRender: () => {
         renders += 1;
       },
+    });
+    act(() => {
+      rendered.result.current.applyBridgeSectionCandidates(
+        ELEMENTS.map((el) => ({
+          tag: el.tag,
+          id: el.id,
+          className: el.className,
+          text: el.text,
+          selector: el.selector,
+          vpPercent: el.vpPercent,
+          rect: el.rect,
+        })),
+      );
     });
     await waitFor(() => expect(rendered.result.current.sectionZones.length).toBe(2));
     return { rendered, renderCount: () => renders };

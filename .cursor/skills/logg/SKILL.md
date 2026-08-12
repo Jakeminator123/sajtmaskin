@@ -27,8 +27,9 @@ Read-only. Skriv aldrig till prod. Hämtar bara. Se Guardrails.
 | Prompt-events | Postgres `prompt_logs` | `dump-logs --kinds=prompts` |
 | Generering (model/tokens/tid) | Postgres `engine_generation_logs` | `--kinds=generations` |
 | Versioner (verify/release/preview_url) | Postgres `engine_versions` | `--kinds=versions` |
-| **Telemetri** (scaffold/retry/autofix/quality gate/preview) | Postgres `generation_telemetry` | `--kinds=telemetry` |
+| **Telemetri** (scaffold/retry/autofix/quality gate/preview + fas-tider i `meta`) | Postgres `generation_telemetry` | `--kinds=telemetry` |
 | Pipeline-fel + `[BUGGFYND]` | Postgres `engine_version_error_logs` | `--kinds=errors` |
+| **Defektklasser med räknare** (samma fel över tid/chattar) | Samma tabell, grupperad på `meta.defect.signature` | `--kinds=defects` |
 | Chat-metadata | Postgres `engine_chats` | `--kinds=chats` |
 | **OpenClaw bug-hunt-fynd** (Mode B) | Postgres `oc_debug_findings` | `--kinds=oc` |
 | RAG fault/fix-telemetri | Postgres `error_log_events` | `--kinds=ragevents` |
@@ -81,8 +82,13 @@ Kopiera checklistan och bocka av:
 ### 1. Hitta senaste genererade sajten
 
 ```powershell
-npm run db:latest -- --prod
+npm run db:latest:prod
 ```
+
+> OBS: skriv INTE `npm run db:latest -- --prod`. npm expanderar `--prod` till sin
+> egen `--production`-flagga (även efter `--`), argumentet når aldrig skriptet
+> och du läser tyst DEV-databasen. Alias:et ovan (eller
+> `node scripts/db/latest-site.mjs --prod`) är den säkra vägen.
 
 Plocka ut `chatId`, `versionId`, `projectId`, `model`, `scaffoldId`, `previewUrl`,
 `created_at` och telemetri-blocket. Spara `created_at` — det blir tidsfönstret för Vercel.
@@ -93,13 +99,33 @@ Plocka ut `chatId`, `versionId`, `projectId`, `model`, `scaffoldId`, `previewUrl
 ```powershell
 node scripts/db/dump-logs.mjs --json `
   --env=.env.vercel.production.pulled `
-  --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys `
+  --kinds=prompts,generations,versions,telemetry,errors,chats,oc,ragevents,deploys,defects `
   --chat=<chatId> --limit=100 --allow-insecure-ssl
 ```
 
 Detta ger telemetri, fel, OpenClaw bug-hunt-fynd (`oc`), RAG-events (`ragevents`) och
 deploy-raden (`deploys`) i ett svep. Notera från `deploys`: `vercel_deployment_id`,
 `vercel_project_id`, `url`, `status` — de behövs i steg 3.
+
+#### 2b. Är felet chattens eller plattformens?
+
+`defects` grupperar `engine_version_error_logs` på `meta.defect.signature` i stället
+för att lista händelser. Kör den **en gång till utan `--chat`**:
+
+```powershell
+node scripts/db/dump-logs.mjs --json `
+  --env=.env.vercel.production.pulled `
+  --kinds=defects --limit=40 --allow-insecure-ssl
+```
+
+Jämför signaturerna från chatt-körningen mot den repo-breda listan. En signatur med
+högt `chats`-tal är ett **plattformsfel** som råkade synas i den här sajten — det hör
+hemma i rapportens bedömning, inte som "den här genereringen gick dåligt". En signatur
+som bara finns i en chatt är chattspecifik. `first_seen` visar om felklassen är ny
+(regression efter en deploy) eller gammal.
+
+Rader utan `meta.defect` är skrivna före klassificeraren fanns; de saknas i aggregatet
+men syns fortfarande under `errors`.
 
 ### 3. Vercel-loggar (MCP-server `vercel` — projekt-scopad, eller `user-vercel`)
 
@@ -164,9 +190,10 @@ Bedömning: <lyckad / delvis / misslyckad> — <1–2 meningar varför>
 |---|---|---|
 | Prompt/brief | build_intent, model_tier | prompt_logs |
 | Generering | tokens, duration, success | engine_generation_logs |
-| Telemetri | retry_count, autofix, quality_gate, preview_success, preflight_errors | generation_telemetry |
+| Telemetri | retry_count, autofix, quality_gate, preview_success, preflight_errors, **`meta`** (`streamMs`, `postStreamSteps`, `buildSpec`, …) | generation_telemetry |
 | Pipeline-fel | level/category/message (+ `meta` när relevant) | engine_version_error_logs |
 | F3 env-readiness | `category=f3-readiness:missing-env` → `meta.missingByIntegration` | engine_version_error_logs |
+| Plan-lägets turer | `event=plan_mode_turn_entry` / `plan_mode_turn_exit` (→ `meta.outcome`) · `plan_mode_credit_gate_rejected`. Entry **utan** exit = turen dog tyst mellan planner-start och persistering | prompt_logs |
 | OpenClaw-fynd | severity/build_result/repair_outcome | oc_debug_findings (+ [BUGGFYND]) |
 | Deploy | status, url | deployments |
 | Vercel build | pass/fail + felrad | MCP get_deployment_build_logs |

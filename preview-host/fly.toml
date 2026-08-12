@@ -20,6 +20,29 @@ swap_size_mb = 2048
   PREVIEW_BASE_URL = "https://vm-fly-jakem.fly.dev"
   PREVIEW_SESSION_TTL_MS = "7200000"
   PREVIEW_HOST_DATA_DIR = "/data"
+  # Package caches belong on the mounted volume, never the rootfs. The rootfs
+  # is a ~8 GB ephemeral layer that no cleanup path reclaims; npm's default
+  # cache (/root/.npm) filled it to 0 bytes free on 2026-07-31 and every
+  # preview boot then died with ENOSPC (npm exit 228) while /data still had
+  # 17 GB free. runtime.js sets the same values per spawned install; this entry
+  # covers anything that runs outside that path and documents the invariant.
+  #
+  # Every key is the one its tool actually reads. `PNPM_STORE_DIR` is NOT a
+  # pnpm variable (pnpm takes config from PNPM_CONFIG_*), and Yarn Berry
+  # ignores YARN_CACHE_FOLDER because its global cache — enabled by default —
+  # lives under YARN_GLOBAL_FOLDER. Both would have kept filling the rootfs.
+  NPM_CONFIG_CACHE = "/data/package-caches/npm"
+  PNPM_CONFIG_STORE_DIR = "/data/package-caches/pnpm"
+  YARN_CACHE_FOLDER = "/data/package-caches/yarn"
+  YARN_GLOBAL_FOLDER = "/data/package-caches/yarn-berry"
+  # Corepack downloads the project-pinned package manager itself; `corepack
+  # enable` runs in the Dockerfile, so this cache is live on every install.
+  COREPACK_HOME = "/data/package-caches/corepack"
+  # Back-stop for anything resolving its default through XDG — notably pnpm's
+  # own default store ($XDG_DATA_HOME/pnpm/store) on versions that predate the
+  # PNPM_CONFIG_* convention.
+  XDG_DATA_HOME = "/data/package-caches/xdg-data"
+  XDG_CACHE_HOME = "/data/package-caches/xdg-cache"
   PREVIEW_HOST_RUNTIME_READY_MAX_MS = "600000"
   # Fast Edit Lane Fas 4: proxy Next dev HMR WebSocket to the runtime (true hot
   # reload, no iframe refresh). Reversible: set to "false" (or remove) + redeploy
@@ -35,7 +58,8 @@ swap_size_mb = 2048
   force_https = true
   auto_stop_machines = "off"
   auto_start_machines = true
-  min_machines_running = 0
+  # Guarantees no cold wake after a crash or deploy; auto_stop is already off.
+  min_machines_running = 1
   processes = ["app"]
 
   [[http_service.checks]]

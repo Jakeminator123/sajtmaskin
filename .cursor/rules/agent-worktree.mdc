@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Agent worktree-isolation
 
-**Kärnregel:** huvudcheckouten delas av användaren och agenter. `git checkout`/`git switch` flyttar HEAD globalt och kan sabotera någon annans arbete.
+**Kärnregel:** huvudcheckouten delas av användaren och andra agenter. `git checkout`/`git switch` flyttar HEAD globalt och kan sabotera någon annans arbete.
 
 ## Förbjudet i huvudcheckouten
 
@@ -13,64 +13,25 @@ alwaysApply: true
 - `git reset --hard <annan-ref>`
 - lång `rebase` / konfliktfylld merge
 - `git stash pop` utan att först läsa `git stash list`
+- `git add -A` — stage bara **egna** filer (`git add <path>`)
 
-## Tillåtet
-
-- läsa filer, `git status`, `git diff`, `git log`, `git fetch`
-- köra typecheck/test mot aktuell HEAD
-- `git push origin <local>:<remote>` om användaren bett om push
-- `git stash push -m "namn" -- <filer>` vid räddning
+Läsning, `git status/diff/log/fetch`, tester och `git push origin <local>:<remote>` (på begäran) är OK.
 
 ## Skrivarbete som kan ta tid
 
-Skapa separat worktree bredvid repo-roten, aldrig under `.cursor/`:
+Egen worktree bredvid repo-roten, aldrig under `.cursor/`:
 
 ```powershell
 git worktree add ..\sajtmaskin-feat-X -b feat/X
-Set-Location ..\sajtmaskin-feat-X
-# jobba, testa, commit/push vid OK
-Set-Location ..\sajtmaskin
-npm run worktree:remove -- ..\sajtmaskin-feat-X
+npm run worktree:remove -- ..\sajtmaskin-feat-X   # städa så här, inte med git worktree remove
 ```
 
-### Städa alltid med `npm run worktree:remove`
+**Junction-fällan:** kör aldrig rå `git worktree remove` på en worktree med junction-länkad `node_modules` — den följer länken och tömmer **huvudcheckoutens** `node_modules`. Att utelämna `--force` skyddar inte: git vägrar bara vid smutsig tree eller **ospårade** filer, och en junctionad `node_modules` är *ignorerad*, alltså osynlig för den kontrollen. Använd `npm run worktree:remove`, som kopplar loss länken först. Hooken `.cursor/hooks/worktree-force-guard.mjs` blockerar båda varianterna.
 
-Kommandot kopplar loss eventuella länkar **innan** det kör
-`git worktree remove`, och vägrar köra mot huvudcheckouten eller mot en katalog
-som inte är en registrerad worktree. Ett bart `git worktree remove` är bara
-säkert när du vet att worktreen saknar länkar — och det vet du sällan.
+Flera agenter samtidigt: max **en** git-mutator i huvudcheckouten, övriga i egen worktree. En branch som "försvinner" är oftast redan mergad — verifiera med `git log`/`gh pr view` innan du tror att arbete gått förlorat.
 
-Utan `--force` vägrar det också om worktreen har ocommittat eller ospårat
-innehåll, precis som `git worktree remove` gör, och lämnar då länkarna orörda.
-Rädda i så fall med `git stash push -u -m ...` innan du kör om.
-
-### Varför: junction-fällan
-
-En färsk worktree saknar `node_modules`. Att länka den till huvudcheckoutens
-sparar flera minuters `npm ci` — men `git worktree remove --force` **följer
-junctionen och tömmer länkens mål**, alltså huvudcheckoutens `node_modules`.
-Symptomet kommer senare och ser ut som ett trasigt repo:
-`ERR_MODULE_NOT_FOUND: Cannot find package 'dotenv'`. (Inträffade 2026-07-27.)
-
-```powershell
-npm run worktree:link -- ..\sajtmaskin-feat-X     # junction till huvudcheckoutens node_modules
-npm run worktree:remove -- ..\sajtmaskin-feat-X   # kopplar loss länken först, sedan git worktree remove
-```
-
-Måste du göra det för hand är ordningen hela poängen: `cmd /c rmdir node_modules`
-(tar bort LÄNKEN, rör inte målet) **före** `git worktree remove`.
-
-Har det redan hänt: `npm ci` i huvudcheckouten återställer (~4 min). Inget
-spårat innehåll går förlorat — `node_modules` är gitignorerad.
-
-## Flera agenter samtidigt
-
-Delad checkout = **en** HEAD, **ett** index, **ett** working tree. Körs flera agenter parallellt:
-
-- **Max en git-mutator i huvudcheckouten.** Alla andra som ska committa/pusha/branch:a gör det i **egen worktree** (ovan) — aldrig `switch`/`merge`/`pull`/`reset` i den delade checkouten medan någon annan är aktiv.
-- **En merge-agent landar allt.** Övriga agenter lämnar antingen en pushad worktree-branch + PR, eller en ocommittad diff som merge-agenten tar. Stage bara **egna** filer (`git add <path>`), aldrig `git add -A` i delad tree.
-- **HEAD kan flyttas under dig** av en parallell process — en branch som "försvinner" är oftast redan mergad, inte tappad. Verifiera med `git log`/`gh pr view` innan du tror att arbete gått förlorat; rädda ocommittat med `git stash push -m ... -- <filer>`.
+Recept, återställning och hela bakgrunden: [`docs/runbooks/git-worktree.md`](../../docs/runbooks/git-worktree.md).
 
 ## Om regeln brutits
 
-Stoppa. Kör `git status`. Rädda ändringar med `git stash push -u -m "rescue-<kort>-<tid>"`. Rapportera branch, stash-namn och ändrade filer.
+Stoppa. Kör `git status`. Rädda med `git stash push -u -m "rescue-<kort>-<tid>"`. Rapportera branch, stash-namn och ändrade filer.

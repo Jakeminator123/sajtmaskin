@@ -93,36 +93,80 @@ export function findMainWorktree(worktrees) {
 }
 
 /**
- * Depth-1 entries of the worktree that are links rather than real directories.
+ * A directory named `node_modules` is where the scan STOPS, never where it
+ * continues. It is still checked for being a link — that is the whole point —
+ * but it is never entered, so the ~765-package tree this mechanism exists to
+ * avoid copying is also never walked. `.git` is excluded for the same reason.
+ */
+const LINK_SCAN_LEAF_DIRS = new Set(["node_modules", ".git"]);
+
+/**
+ * Belt-and-braces bound on repo layout, not a performance measure — the leaf
+ * rule above is what keeps the walk cheap. Depth 2 covers
+ * `<sub-project>/node_modules`; the extra level is headroom.
+ */
+const LINK_SCAN_MAX_DEPTH = 3;
+
+/**
+ * Every link inside the worktree that must be detached before
+ * `git worktree remove` runs.
  *
- * Depth 1 is deliberate: the only link anyone creates is `node_modules` at the
- * root, and descending into a real `node_modules` would cost more than the
- * `npm ci` this whole mechanism exists to avoid.
+ * The scan used to stop at depth 1, reasoning that the only junction anyone
+ * creates is `node_modules` at the root. That stopped being true once
+ * sub-projects needed their own linked `node_modules` (see
+ * {@link NESTED_NODE_MODULES}). On 2026-08-01 a hand-made
+ * `preview-host/node_modules` junction was invisible here: detaching skipped
+ * it, and `git worktree remove` then followed it into the main checkout and
+ * emptied the real directory — the exact failure the depth-1 scan was written
+ * to prevent, one level down.
+ *
+ * Nested links are now created by {@link commandLink} rather than by hand, and
+ * found here, so the two halves stay in step.
  *
  * @param {string} worktreePath
- * @param {{ readdir?: (p: string) => string[], lstat?: (p: string) => { isSymbolicLink: () => boolean } }} [io]
+ * @param {{ readdir?: (p: string) => string[], lstat?: (p: string) => { isSymbolicLink: () => boolean, isDirectory?: () => boolean } }} [io]
  * @returns {string[]} absolute paths
  */
 export function findLinkedEntries(worktreePath, io = {}) {
   const readdir = io.readdir ?? ((p) => readdirSync(p));
   const lstat = io.lstat ?? ((p) => lstatSync(p));
 
-  let entries;
-  try {
-    entries = readdir(worktreePath);
-  } catch {
-    return [];
-  }
-
   const linked = [];
-  for (const entry of entries) {
-    const full = join(worktreePath, entry);
+
+  const walk = (dir, depth) => {
+    let entries;
     try {
-      if (lstat(full).isSymbolicLink()) linked.push(full);
+      entries = readdir(dir);
     } catch {
-      // A racing delete is not our problem — it is already gone.
+      return;
     }
-  }
+
+    for (const entry of entries) {
+      const full = join(dir, entry);
+      let stats;
+      try {
+        stats = lstat(full);
+      } catch {
+        // A racing delete is not our problem — it is already gone.
+        continue;
+      }
+      // Order matters: a junction reports as a link, so a LINKED node_modules
+      // is collected here and never reaches the leaf rule below.
+      if (stats.isSymbolicLink()) {
+        linked.push(full);
+        continue;
+      }
+      if (
+        depth < LINK_SCAN_MAX_DEPTH &&
+        !LINK_SCAN_LEAF_DIRS.has(entry) &&
+        stats.isDirectory?.()
+      ) {
+        walk(full, depth + 1);
+      }
+    }
+  };
+
+  walk(worktreePath, 1);
   return linked;
 }
 
@@ -143,6 +187,60 @@ export function parseDirtyEntries(porcelainStatus) {
     .filter(Boolean);
 }
 
+/**
+ * Message for a `git worktree remove` that failed AFTER the links were already
+ * detached.
+ *
+ * The raw failure reads like the junction trap this script exists to prevent —
+ * a stacktrace right after "unlinked … (target untouched)" looks like the
+ * shared `node_modules` just got emptied. It did not: detaching happened first
+ * and succeeded, which is the whole point of the ordering. Say so before
+ * anything else, then say what actually failed and how to finish by hand.
+ *
+ * Observed twice on 2026-07-29 and again 2026-07-30: git reports
+ * `Permission denied` from a lingering file handle (a watcher or a just-ended
+ * test run still holding the directory) while the git metadata is ALREADY
+ * gone, so the worktree vanishes from `git worktree list` and an empty folder
+ * stays on disk.
+ *
+ * @param {{ worktreePath: string, detachedLinks: string[], stillRegistered: boolean, message: string }} input
+ * @returns {string}
+ */
+export function describeRemovalFailure({
+  worktreePath,
+  detachedLinks,
+  stillRegistered,
+  message,
+}) {
+  const lines = [];
+  if (detachedLinks.length > 0) {
+    lines.push(
+      `[worktree] The shared node_modules is SAFE: ${detachedLinks.length} link(s) were ` +
+        "detached before the removal was attempted, and detaching never follows a junction.",
+    );
+  }
+  lines.push(`[worktree] What failed is the directory removal itself: ${message.trim()}`);
+  lines.push(
+    "[worktree] Most likely a lingering file handle (a watcher or a just-finished test run) " +
+      "is still holding the directory.",
+  );
+  if (stillRegistered) {
+    lines.push(
+      `[worktree] git still lists ${worktreePath} as a worktree, so nothing is half-removed. ` +
+        "Close whatever holds it and rerun this command.",
+    );
+  } else {
+    lines.push(
+      `[worktree] git no longer lists ${worktreePath}, so only the folder is left over. ` +
+        "Finish by hand:\n" +
+        "  git worktree prune\n" +
+        `  Remove-Item -LiteralPath "${worktreePath}" -Recurse -Force   # pwsh\n` +
+        `  rm -rf "${worktreePath}"                                      # bash`,
+    );
+  }
+  return lines.join("\n");
+}
+
 /** Remove a link without following it. Junctions are directories; file symlinks are not. */
 function removeLink(linkPath) {
   try {
@@ -160,8 +258,37 @@ function git(args) {
   return execFileSync("git", args, { cwd: REPO_ROOT, encoding: "utf8" });
 }
 
+/** Block the (fully synchronous) script briefly without pulling in a dependency. */
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function listWorktrees() {
   return parseWorktreeList(git(["worktree", "list", "--porcelain"]));
+}
+
+/**
+ * Sub-projects that carry their own `node_modules` and therefore get their own
+ * junction alongside the root one.
+ *
+ * `preview-host` has a separate dependency set, so
+ * `npm --prefix preview-host run test:guards` dies with MODULE_NOT_FOUND in a
+ * fresh worktree unless this is linked too. It used to be created by hand with
+ * `mklink /J` — which is precisely how the 2026-08-01 incident happened, since
+ * a hand-made link is one the remove path never knew to detach. Creating it
+ * here is what makes {@link findLinkedEntries} sufficient rather than merely
+ * broader.
+ */
+const NESTED_NODE_MODULES = ["preview-host"];
+
+/** `true` when the path exists, without following it. */
+function pathExists(candidate) {
+  try {
+    lstatSync(candidate);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function commandLink(targetPath) {
@@ -181,19 +308,35 @@ function commandLink(targetPath) {
   const linkPath = join(plan.worktreePath, "node_modules");
   const source = join(mainWorktree, "node_modules");
 
-  try {
-    if (lstatSync(linkPath)) {
-      console.error(
-        `[worktree] ${linkPath} already exists. Remove it first if you want to relink.`,
-      );
-      process.exit(1);
-    }
-  } catch {
-    // Missing is the expected happy path.
+  if (pathExists(linkPath)) {
+    console.error(
+      `[worktree] ${linkPath} already exists. Remove it first if you want to relink.`,
+    );
+    process.exit(1);
   }
 
   symlinkSync(source, linkPath, "junction");
   console.log(`[worktree] linked ${linkPath} -> ${source}`);
+
+  // Best-effort by design: a missing sub-project or an already-present link is
+  // not a reason to fail a link that otherwise succeeded. Skipping is safe —
+  // what is NOT safe is a link nobody records, which is why these are created
+  // here instead of by hand.
+  for (const project of NESTED_NODE_MODULES) {
+    const nestedLink = join(plan.worktreePath, project, "node_modules");
+    const nestedSource = join(mainWorktree, project, "node_modules");
+    if (pathExists(nestedLink)) {
+      console.log(`[worktree] skipped ${nestedLink} — already exists.`);
+      continue;
+    }
+    if (!pathExists(nestedSource)) {
+      console.log(`[worktree] skipped ${project}/node_modules — ${nestedSource} does not exist.`);
+      continue;
+    }
+    symlinkSync(nestedSource, nestedLink, "junction");
+    console.log(`[worktree] linked ${nestedLink} -> ${nestedSource}`);
+  }
+
   console.log(
     "[worktree] IMPORTANT: tear this worktree down with `npm run worktree:remove -- <path>`, " +
       "never a bare `git worktree remove` — that follows the junction and empties the shared node_modules.",
@@ -229,8 +372,34 @@ function commandRemove(targetPath, { force }) {
     console.log("[worktree] no links found — nothing to detach.");
   }
 
-  git(["worktree", "remove", ...(force ? ["--force"] : []), plan.worktreePath]);
-  console.log(`[worktree] removed ${plan.worktreePath}`);
+  // Retried once: the usual cause is a file handle that has just been released
+  // but not yet reaped by the OS, and a second attempt a moment later succeeds.
+  let lastError = null;
+  for (const delayMs of [0, 750]) {
+    if (delayMs > 0) sleepSync(delayMs);
+    try {
+      git(["worktree", "remove", ...(force ? ["--force"] : []), plan.worktreePath]);
+      console.log(`[worktree] removed ${plan.worktreePath}`);
+      return;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  const stillRegistered = resolveTargetWorktree({
+    targetPath: plan.worktreePath,
+    worktrees: listWorktrees(),
+  }).ok;
+  console.error(
+    describeRemovalFailure({
+      worktreePath: plan.worktreePath,
+      detachedLinks: links,
+      stillRegistered,
+      message:
+        (lastError && (lastError.stderr?.toString() || lastError.message)) || "unknown error",
+    }),
+  );
+  process.exit(1);
 }
 
 function main() {

@@ -5,8 +5,11 @@ import { inferPreGenerationContracts } from "@/lib/gen/contract/pre-generation-c
 import { deriveBuildSpec } from "@/lib/gen/build-spec";
 import type { RoutePlan } from "@/lib/gen/route-plan";
 import {
+  classifyFollowUpClarificationAnswerIntent,
   classifyFollowUpIntent,
+  collectFollowUpClarificationAnswer,
   hasDesignFollowUpSignal,
+  persistFollowUpClarification,
   resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
 } from "./follow-up-clarification";
@@ -68,6 +71,48 @@ describe("follow-up clarification intent classification", () => {
     // "snyggare färgschema" har noun (färg) men inget redesign-verb -> faller
     // ner i andra grenar; ska inte plötsligt klassas som clear-redesign.
     expect(classifyFollowUpIntent("snyggare färgschema")).not.toBe("clear-redesign");
+  });
+
+  // QW-hover (prod chat 0d52e5c9, 2026-07-31): en hover-mikrointeraktion med
+  // fokuspunkter klassades som clear-redesign via verb+noun-kombon
+  // ("ändra" + "färger") och skrev om hela den importerade templaten.
+  it("does NOT escalate an interaction-scoped color edit to clear-redesign (QW-hover)", () => {
+    const prodPrompt =
+      "Om jag hoovrar över dena ytavill jag att färgerna på text och ikoner ska ändra färger\n\n" +
+      "Användarens markerade fokuspunkter i preview:\n" +
+      "Källa: https://vm-fly-jakem.fly.dev/0d52e5c9\n" +
+      "- Punkt 1: x=49.4%, y=319.0%, viewport=1322x1170\n" +
+      "Prioritera ändringar nära dessa punkter.";
+
+    expect(classifyFollowUpIntent(prodPrompt)).toBe("clear-refine");
+  });
+
+  it("does NOT escalate hover/click/scroll-scoped design combos to clear-redesign (QW-hover)", () => {
+    expect(classifyFollowUpIntent("när man hovrar över kortet ska färgerna ändras")).not.toBe(
+      "clear-redesign",
+    );
+    expect(classifyFollowUpIntent("byt bakgrundsfärg när man klickar på knappen")).not.toBe(
+      "clear-redesign",
+    );
+    expect(
+      classifyFollowUpIntent("change the theme colors on hover for the nav links"),
+    ).not.toBe("clear-redesign");
+  });
+
+  it("suppresses the verb+noun combo when focus points are attached, without breaking explicit redesigns (QW-hover)", () => {
+    const focusBlock =
+      "\n\nAnvändarens markerade fokuspunkter i preview:\n- Punkt 1: x=10%, y=20%";
+    // Svag kombo + fokuspunkt → riktad edit, inte redesign.
+    expect(classifyFollowUpIntent(`ändra färgerna här${focusBlock}`)).not.toBe(
+      "clear-redesign",
+    );
+    // Explicit redesign-fras trumfar alltid dämpningen.
+    expect(classifyFollowUpIntent(`gör om hela layouten${focusBlock}`)).toBe(
+      "clear-redesign",
+    );
+    expect(
+      classifyFollowUpIntent("gör om hela layouten, och vid klick ska menyn öppnas"),
+    ).toBe("clear-redesign");
   });
 
   // 2026-04-22 audit (rapport 05 + 06): Unicode-\b + "byt"-token regressionskydd.
@@ -402,5 +447,284 @@ describe("follow-up signal regression matrix (3D / game / refine / modify)", () 
     expect(detection.capabilityIds).toContain("visual-3d");
     expect(detection.referencesExistingCapability).toBe(true);
     expect(detection.modifyReferenceMatches).toContain("pricken");
+  });
+});
+
+// Prod chat e8bd3ba6: the quick-reply answer to a follow-up scope
+// clarification became the WHOLE next prompt — the user's original detailed
+// follow-up was thrown away. The collector below recovers it from the
+// persisted `followUpClarification` marker.
+describe("collectFollowUpClarificationAnswer", () => {
+  const originalPrompt =
+    "Kan du fixa felet där sidan laddas om två gånger vid start? Det känns som ett hydration-problem i Next.js som behöver åtgärdas ordentligt.";
+  const question = "Vad vill du att jag fokuserar på i nästa ändring?";
+  const options = [
+    "Layout och design",
+    "Text och innehåll",
+    "Ny sektion eller sida",
+    "Tydlig redesign",
+  ];
+
+  function buildMarkerMessages() {
+    return [
+      { role: "user" as const, content: originalPrompt, ui_parts: null },
+      {
+        role: "assistant" as const,
+        content: question,
+        ui_parts: [
+          {
+            type: "tool:awaiting-input",
+            toolName: "Klargörande fråga",
+            state: "approval-requested",
+            output: {
+              question,
+              options,
+              kind: "scope",
+              blocking: true,
+              reason: "followup_edit_underspecified",
+              awaitingInput: true,
+              followUpClarification: true,
+              sourceUserMessage: originalPrompt,
+            },
+          },
+        ],
+      },
+    ];
+  }
+
+  it("consumes a quick-reply option and returns the original source prompt", () => {
+    const result = collectFollowUpClarificationAnswer(
+      buildMarkerMessages(),
+      "Layout och design",
+    );
+
+    expect(result).toEqual({
+      sourceUserMessage: originalPrompt,
+      question,
+      answer: "Layout och design",
+      consumed: true,
+    });
+  });
+
+  it("matches options with trimming and case-insensitivity (client sends verbatim)", () => {
+    const result = collectFollowUpClarificationAnswer(
+      buildMarkerMessages(),
+      "  tydlig redesign  ",
+    );
+
+    expect(result?.answer).toBe("Tydlig redesign");
+    expect(result?.sourceUserMessage).toBe(originalPrompt);
+  });
+
+  it("does NOT consume a free-typed reply that is not one of the options (new prompt)", () => {
+    expect(
+      collectFollowUpClarificationAnswer(
+        buildMarkerMessages(),
+        "Gör hero-sektionen större och byt bakgrundsbilden",
+      ),
+    ).toBeNull();
+  });
+
+  it("does NOT consume when a DIFFERENT later user message superseded the question", () => {
+    const messages = [
+      ...buildMarkerMessages(),
+      { role: "user" as const, content: "Gör footern blå i stället", ui_parts: null },
+      { role: "assistant" as const, content: "Klart!", ui_parts: null },
+    ];
+
+    expect(
+      collectFollowUpClarificationAnswer(messages, "Layout och design"),
+    ).toBeNull();
+  });
+
+  it("consumes again when the identical reply was already persisted (failed codegen → retry)", () => {
+    // Retry-semantik (bugbot på denna diff): handlern persisterar user-raden
+    // före codegen, så en failad generering lämnar alternativtexten i
+    // historiken. En identisk re-send ska fortfarande återfå originalprompten.
+    const messages = [
+      ...buildMarkerMessages(),
+      { role: "user" as const, content: "Layout och design", ui_parts: null },
+      { role: "assistant" as const, content: "Klart!", ui_parts: null },
+    ];
+
+    const result = collectFollowUpClarificationAnswer(messages, "Layout och design");
+    expect(result?.consumed).toBe(true);
+    expect(result?.sourceUserMessage).toBe(originalPrompt);
+  });
+
+  it("ignores contract-clarification markers (separate flow)", () => {
+    const messages = [
+      { role: "user" as const, content: originalPrompt, ui_parts: null },
+      {
+        role: "assistant" as const,
+        content: "Vilken auth?",
+        ui_parts: [
+          {
+            type: "tool:awaiting-input",
+            output: {
+              contractClarification: true,
+              kind: "auth",
+              question: "Vilken auth?",
+              options: ["Ingen auth ännu", "Clerk"],
+              blocking: true,
+              reason: "auth",
+            },
+          },
+        ],
+      },
+    ];
+
+    expect(
+      collectFollowUpClarificationAnswer(messages, "Ingen auth ännu"),
+    ).toBeNull();
+  });
+
+  it("returns null for an empty current reply", () => {
+    expect(collectFollowUpClarificationAnswer(buildMarkerMessages(), "")).toBeNull();
+    expect(collectFollowUpClarificationAnswer(buildMarkerMessages(), null)).toBeNull();
+  });
+
+  it("roundtrips: persistFollowUpClarification writes a marker the collector can consume", async () => {
+    const clarification = resolveFollowUpClarification("Kan du förbättra den lite?");
+    expect(clarification).not.toBeNull();
+
+    const persisted: Array<{
+      role: string;
+      content: string;
+      uiParts?: Array<Record<string, unknown>>;
+    }> = [];
+    await persistFollowUpClarification({
+      chatId: "chat_1",
+      message: originalPrompt,
+      clarification: clarification!,
+      addMessage: async (_chatId, role, content, _parent, uiParts) => {
+        persisted.push({ role, content, uiParts });
+        return null;
+      },
+    });
+
+    expect(persisted).toHaveLength(2);
+    const messages = persisted.map((entry) => ({
+      role: entry.role as "user" | "assistant",
+      content: entry.content,
+      ui_parts: entry.uiParts ?? null,
+    }));
+    const result = collectFollowUpClarificationAnswer(
+      messages,
+      clarification!.options[0],
+    );
+
+    expect(result).toEqual({
+      sourceUserMessage: originalPrompt,
+      question: clarification!.question,
+      answer: clarification!.options[0],
+      consumed: true,
+    });
+  });
+});
+
+describe("classifyFollowUpClarificationAnswerIntent", () => {
+  const ambiguousRedesignPrompt = "Jag vill ha en ny hemsida, kan du bygga om den?";
+
+  it("answer-first: redesign-alternativet ger clear-redesign trots ambiguous originalprompt", () => {
+    expect(
+      classifyFollowUpClarificationAnswerIntent(
+        "Gör en tydlig redesign i samma projekt",
+        ambiguousRedesignPrompt,
+      ),
+    ).toBe("clear-redesign");
+  });
+
+  it("answer-first: 'Starta om från en ny grund' ger clear-redesign", () => {
+    expect(
+      classifyFollowUpClarificationAnswerIntent(
+        "Starta om från en ny grund",
+        ambiguousRedesignPrompt,
+      ),
+    ).toBe("clear-redesign");
+  });
+
+  it("answer-first: 'Förfina nuvarande design' ger clear-refine", () => {
+    expect(
+      classifyFollowUpClarificationAnswerIntent(
+        "Förfina nuvarande design",
+        ambiguousRedesignPrompt,
+      ),
+    ).toBe("clear-refine");
+  });
+
+  it("faller tillbaka på originalprompten när svaret är neutralt", () => {
+    // "Layout och design" klassar neutral; originalet bär refine-signal.
+    expect(
+      classifyFollowUpClarificationAnswerIntent(
+        "Layout och design",
+        "Byt hero-bilden och förbättra texten",
+      ),
+    ).toBe("clear-refine");
+  });
+
+  it("returnerar aldrig ambiguous — resolverad fråga får inte återuppstå", () => {
+    const result = classifyFollowUpClarificationAnswerIntent(
+      "Ny sektion eller sida",
+      ambiguousRedesignPrompt,
+    );
+    expect(result).not.toMatch(/^ambiguous-/);
+    expect(result).toBe("neutral");
+  });
+});
+
+describe("collectFollowUpClarificationAnswer — retry efter persisterad svarsrad", () => {
+  const marker = (question: string, options: string[], sourceUserMessage: string) => ({
+    role: "assistant" as const,
+    content: question,
+    ui_parts: [
+      {
+        type: "tool:awaiting-input",
+        output: {
+          question,
+          options,
+          kind: "scope",
+          blocking: true,
+          reason: "followup_redesign_ambiguous",
+          awaitingInput: true,
+          followUpClarification: true,
+          sourceUserMessage,
+        },
+      },
+    ],
+  });
+
+  const original = "Fixa hydration-felet i src/app/page.tsx enligt felmeddelandet i konsolen";
+  const options = [
+    "Förfina nuvarande design",
+    "Gör en tydlig redesign i samma projekt",
+    "Starta om från en ny grund",
+  ];
+
+  it("konsumerar igen när en identisk svarsrad redan persisterats (failad codegen → retry)", () => {
+    const messages = [
+      { role: "user" as const, content: original, ui_parts: null },
+      marker("Vill du förfina eller göra en redesign?", options, original),
+      // Turn 2 persisterade user-raden men genereringen föll — retry skickar samma alternativ.
+      { role: "user" as const, content: "Förfina nuvarande design", ui_parts: null },
+    ];
+    const result = collectFollowUpClarificationAnswer(messages, "Förfina nuvarande design");
+    expect(result).toEqual({
+      sourceUserMessage: original,
+      question: "Vill du förfina eller göra en redesign?",
+      answer: "Förfina nuvarande design",
+      consumed: true,
+    });
+  });
+
+  it("konsumerar inte när ett ANNAT user-meddelande kommit efter markören", () => {
+    const messages = [
+      { role: "user" as const, content: original, ui_parts: null },
+      marker("Vill du förfina eller göra en redesign?", options, original),
+      { role: "user" as const, content: "Gör footern blå", ui_parts: null },
+    ];
+    expect(
+      collectFollowUpClarificationAnswer(messages, "Förfina nuvarande design"),
+    ).toBeNull();
   });
 });

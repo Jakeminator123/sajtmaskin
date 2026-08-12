@@ -8,7 +8,12 @@
  * (`/settings`, `/billing`, `/login`, …).
  *
  * Extracted from `src/lib/gen/route-plan.ts` 2026-04-21.
+ *
+ * New Swedish (or mixed) keyword patterns must use `uWordRegex` — ASCII `\b`
+ * does not treat å/ä/ö as word characters.
  */
+
+import { uWordRegex } from "@/lib/utils/unicode-word-boundary";
 
 export type RoutePatternEntry = {
   match: RegExp;
@@ -43,6 +48,18 @@ export const WEBSITE_ROUTE_PATTERNS: RoutePatternEntry[] = [
   { match: /\b(docs|documentation|kunskapsbank|guide|guides)\b/i, path: "/docs", name: "Docs", intent: "Provide structured documentation or help content." },
   { match: /\b(support|help center|faq|kundservice)\b/i, path: "/support", name: "Support", intent: "Answer common questions and support flows." },
   { match: /\b(portfolio|case study|case studies|work|projekt)\b/i, path: "/work", name: "Work", intent: "Show portfolio pieces, projects, or case studies." },
+  {
+    match: uWordRegex("bilder|galleri", "iu"),
+    path: "/bilder",
+    name: "Bilder",
+    intent: "Show a photo gallery or image collection page.",
+  },
+  {
+    match: uWordRegex("gallery|images", "iu"),
+    path: "/gallery",
+    name: "Gallery",
+    intent: "Show a photo gallery or image collection page.",
+  },
   { match: /\b(team\s+page|employees|staff\s+page|medarbetare\s*sida|our team|vårt team)\b/i, path: "/team", name: "Team", intent: "Introduce people behind the company or product." },
   { match: /\b(testimonial|reviews|recensioner|omdömen)\b/i, path: "/testimonials", name: "Testimonials", intent: "Show social proof and customer outcomes." },
   { match: /\b(shop|store|butik|products|product|catalog|katalog)\b/i, path: "/products", name: "Products", intent: "Show product catalog or product overview." },

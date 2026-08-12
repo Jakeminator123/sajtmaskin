@@ -26,7 +26,7 @@ function isPlaceholderValue(value: string | undefined | null): boolean {
 const DEMO_REPLY =
   'Hej! Jag är en demo-assistent och det här är ett förhandsvisat exempelsvar — inget riktigt AI- eller verktygsanrop görs ännu. ' +
   'Så här kommer assistenten att kännas i chatten. ' +
-  'När sajten kopplas till en riktig nyckel under "Bygg integrationer" svarar jag på riktigt och kan använda verktygen.';
+  'När en riktig OpenAI-nyckel sparas under "Byggblock" i byggaren (och sajten publiceras om) svarar jag på riktigt och kan använda verktygen.';
 
 /**
  * Stream a canned reply over the same UI-message-stream protocol the client's

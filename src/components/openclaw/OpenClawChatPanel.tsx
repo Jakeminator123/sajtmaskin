@@ -30,6 +30,7 @@ import {
   truncateForSpeech,
 } from "@/lib/openclaw/use-did-avatar";
 import { useOpenClawChat } from "./useOpenClawChat";
+import { useOpenClawArmedContinuation } from "./useOpenClawArmedContinuation";
 import { OpenClawMessage } from "./OpenClawMessage";
 import { describeMandate, isMandateActive } from "@/lib/openclaw/debug/armed-mandate";
 
@@ -111,7 +112,12 @@ export function OpenClawChatPanel({
   isOpen?: boolean;
 }) {
   const { messages, isStreaming, send, stop, clearConversation } = useOpenClawChat();
-  const { avatarMode, setAvatarMode, setDebugEnabled, armedMandate } = useOpenClawStore();
+  // Closes the armed-autonomy loop: an auto-send registers a watch and this
+  // resumes OpenClaw once the builder turn it started is done. The panel stays
+  // mounted while collapsed, so a running mandate survives a closed chat.
+  useOpenClawArmedContinuation(send);
+  const { avatarMode, setAvatarMode, setDebugEnabled, setEditEnabled, armedMandate } =
+    useOpenClawStore();
   const avatar = useDidAvatar({ enabled: avatarMode && isOpen });
   const [input, setInput] = useState("");
   const [avatarExpanded, setAvatarExpanded] = useState(false);
@@ -147,16 +153,25 @@ export function OpenClawChatPanel({
     void (async () => {
       try {
         const res = await fetch("/api/openclaw/health");
-        const data = (await res.json().catch(() => null)) as { debugEnabled?: boolean } | null;
-        if (!cancelled) setDebugEnabled(data?.debugEnabled === true);
+        const data = (await res.json().catch(() => null)) as {
+          debugEnabled?: boolean;
+          editEnabled?: boolean;
+        } | null;
+        if (!cancelled) {
+          setDebugEnabled(data?.debugEnabled === true);
+          setEditEnabled(data?.editEnabled === true);
+        }
       } catch {
-        if (!cancelled) setDebugEnabled(false);
+        if (!cancelled) {
+          setDebugEnabled(false);
+          setEditEnabled(false);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [setDebugEnabled]);
+  }, [setDebugEnabled, setEditEnabled]);
 
   // A brand-new message (sent or received) always re-pins and jumps to the
   // bottom; content GROWTH during streaming is handled by the ResizeObserver

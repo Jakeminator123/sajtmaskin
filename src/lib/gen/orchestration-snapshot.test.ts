@@ -8,6 +8,7 @@ import {
   prependOrchestrationContinuityToFollowUp,
   readF3ApprovedFromSnapshot,
   readMutedCapabilitiesFromSnapshot,
+  readMutedDossierIdsFromSnapshot,
   sanitizeOrchestrationSnapshotForStorage,
 } from "./orchestration-snapshot";
 
@@ -47,6 +48,80 @@ describe("deferred integrations (mutedCapabilities)", () => {
   });
 });
 
+describe("deferred provider identity (mutedDossierIds)", () => {
+  it("survives a neutral F2 follow-up", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas"] },
+      { mutedDossierIds: [] },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["mongodb-atlas"]);
+  });
+
+  it("keeps selected MongoDB pending when the final version has no MongoDB files", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas"] },
+      {
+        selectedDossierIds: ["mongodb-atlas"],
+        fileEvidenceDossierIds: [],
+        mutedDossierIds: [],
+      },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["mongodb-atlas"]);
+  });
+
+  it("clears MongoDB only when the final version has exact MongoDB file evidence", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas"] },
+      {
+        selectedDossierIds: ["mongodb-atlas"],
+        fileEvidenceDossierIds: ["mongodb-atlas"],
+        mutedDossierIds: [],
+      },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual([]);
+  });
+
+  it("replaces an older sibling when the user changes provider", () => {
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas", "stripe-checkout"] },
+      { mutedDossierIds: ["postgres-drizzle"] },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual([
+      "stripe-checkout",
+      "postgres-drizzle",
+    ]);
+  });
+
+  it("städas av capability-tombstonen även utan removedDossierIds", () => {
+    // Tas capability:n bort INNAN några filer byggts finns inget
+    // removedDossierIds att filtrera på. Utan tombstone-filtret överlever id:t
+    // och bygger tyst tillbaka just det syskon användaren tog bort.
+    const merged = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas", "stripe-checkout"] },
+      { removedCapabilities: ["database"] },
+    );
+
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["stripe-checkout"]);
+  });
+
+  it("släpper tillbaka syskonet när capability:n uttryckligen läggs till igen", () => {
+    const removed = mergePersistedOrchestrationSnapshots(
+      { mutedDossierIds: ["mongodb-atlas"] },
+      { removedCapabilities: ["database"] },
+    );
+    const readded = mergePersistedOrchestrationSnapshots(removed, {
+      readdedCapabilities: ["database"],
+      mutedDossierIds: ["mongodb-atlas"],
+    });
+
+    expect(readMutedDossierIdsFromSnapshot(readded)).toEqual(["mongodb-atlas"]);
+  });
+});
+
 describe("sanitizeOrchestrationSnapshotForStorage", () => {
   it("drops sensitive key names", () => {
     const out = sanitizeOrchestrationSnapshotForStorage({
@@ -57,6 +132,35 @@ describe("sanitizeOrchestrationSnapshotForStorage", () => {
     expect(out.modelTier).toBe("max");
     expect(out.api_secret).toBeUndefined();
     expect((out.nested as Record<string, unknown>)?.refreshToken).toBeUndefined();
+  });
+
+  it("keeps contractAuthProvider (provider name, not a secret)", () => {
+    const out = sanitizeOrchestrationSnapshotForStorage({
+      contractAuthProvider: "clerk",
+      contractDataMode: "static",
+      contractPaymentProvider: null,
+    });
+    expect(out.contractAuthProvider).toBe("clerk");
+    expect(out.contractDataMode).toBe("static");
+    expect(out.contractPaymentProvider).toBeNull();
+  });
+
+  it("still drops credential-shaped keys near auth", () => {
+    const out = sanitizeOrchestrationSnapshotForStorage({
+      authToken: "tok",
+      authorization: "Bearer x",
+      password: "p",
+      apiKey: "k",
+      clientSecret: "s",
+      cookie: "c",
+      contractAuthProvider: "clerk",
+    });
+    expect(out.authToken).toBeUndefined();
+    expect(out.authorization).toBeUndefined();
+    expect(out.password).toBeUndefined();
+    expect(out.apiKey).toBeUndefined();
+    expect(out.clientSecret).toBeUndefined();
+    expect(out.cookie).toBeUndefined();
   });
 
   it("truncates oversized string values", () => {
@@ -155,6 +259,7 @@ function realisticStreamMeta(): Record<string, unknown> {
     mutedCapabilities: ["newsletter-subscribe"],
     mutedCapabilityLabels: ["Nyhetsbrev — Mailchimp"],
     fileEvidenceCapabilities: ["contact-form"],
+    fileEvidenceDossierIds: ["resend-contact-form"],
     removedCapabilities: ["payments"],
     readdedCapabilities: [],
     removedDossierIds: [],
@@ -197,6 +302,7 @@ describe("capability-signalnycklar överlever nyckelbudgeten (spår 01 steg 3)",
     });
 
     expect(out.fileEvidenceCapabilities).toEqual(["contact-form"]);
+    expect(out.fileEvidenceDossierIds).toEqual(["resend-contact-form"]);
     expect(out.requestedCapabilities).toEqual(["contact-form"]);
     expect(out.selectedDossierIds).toEqual(["resend-contact-form"]);
     expect(out.f3ApprovedCapabilities).toEqual(["contact-form"]);

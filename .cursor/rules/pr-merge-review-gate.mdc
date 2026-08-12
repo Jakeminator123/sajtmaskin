@@ -38,9 +38,9 @@ En **välmotiverad förbättring stoppas aldrig av smaknit** — logga niten (P2
 Ingen merge — **inte ens admin** — förrän minst en extern buggkoll hunnit köra. Detta är **mergarens** kontroll precis före merge, skild från författarens bugg-efterkontroll (nedan) som körs direkt när PR:en öppnas. Det är ett merge-grind-villkor i `auto-merge-automation.mdc`, inte valfritt.
 
 1. **PR ≥ 7 min gammal.** Merga aldrig sekunder efter att PR öppnats — externa granskare (Codex/Vercel Agent) hinner inte titta. Verifiera: `gh pr view <n> --json createdAt`. Detta är numera **tekniskt tvingat** av required-checken `review-window` (`.github/workflows/review-window.yml`), som håller sig pending tills PR ≥ 7 min **och** de kända botarna för head-SHA är klara (max 10 min). En vanlig `gh pr merge` kan alltså inte ske för tidigt; `--admin` kan dock överstyra checken, så verifiera åldern manuellt vid admin-merge.
-2. **Codex-fönster = 7 min (bounded).** Ge Codex upp till 7 min från PR-skapandet att lägga en review. Kommer ingen: vänta inte längre — författarens bugbot-pass (kört före push/vid PR-skapandet för aktuell head-SHA, se `Bugg-efterkontroll` nedan) täcker redan oberoende ögon. Har inget bugbot-pass körts för aktuell SHA (eller landade en ny commit efteråt) → kör **Cursor-bugbot-subagenten** (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`) nu och dokumentera fynden.
+2. **Codex-fönster = 7 min (bounded).** Ge Codex upp till 7 min från PR-skapandet att lägga en review. Kommer ingen: vänta inte längre — författarens bugbot-pass (kört före push/vid PR-skapandet för aktuell head-SHA, se `Bugg-efterkontroll` nedan) täcker redan oberoende ögon. Har inget bugbot-pass körts för aktuell SHA (eller landade en ny commit efteråt) → kör **Cursor-bugbot-subagenten** (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"`) nu och dokumentera fynden.
 3. **Landar Codex-review inom fönstret** → läs och triagera den (spårningstabellen nedan); redan gjort bugbot-pass behöver inte köras om — men kör bugbot ändå på protected paths. Codex ersätter **aldrig** författarens obligatoriska bugg-efterkontroll (bugbot **eller** dokumenterad manuell review, se `Bugg-efterkontroll` nedan) — den krävs alltid; Codex är ett tillägg, inte en ersättning.
-4. Ett **bugbot-pass på egen diff** ska ha körts vid PR-skapandet (se `workflow.mdc`/`git.mdc`) — samma obligatoriska bugg-efterkontroll som punkt 2/3 och `Bugg-efterkontroll`-sektionen nedan (kör bugbot om på varje ny commit + på protected paths). (`/granska`-svärmen är numera valfri, ej krav.) Det ersätter inte den externa buggkollen ovan.
+4. Ett **bugbot-pass på egen diff** ska ha körts vid PR-skapandet (se `workflow.mdc`/`git.mdc`) — samma obligatoriska bugg-efterkontroll som punkt 2/3 och `Bugg-efterkontroll`-sektionen nedan (kör bugbot om på varje ny commit + på protected paths). Det ersätter inte den externa buggkollen ovan.
 
 ### Spendera fönstret utan att blocka (token-hygien)
 
@@ -49,7 +49,7 @@ Väggklockan (7 min + bot-settle) går **inte** att korta bort — `review-windo
 | Diff-typ | Mönster |
 |---|---|
 | **Default (docs/lågrisk/de flesta PR:er)** | Kör bugbot-passet **före** PR-skapandet (det obligatoriska för-filtret, per `git.mdc`/`workflow.mdc`) → posta PR → starta **EN** bakgrundsshell som sover till minst 7-min-**golvet** (räkna med upp till ~10 min: `review-window` kan ligga pending tills botarna settlar) och sedan dumpar `gh pr checks <n>` + nya review-kommentarer (`gh api …/pulls/<n>/comments`) till fil → **avsluta turen**. Slutförande-notisen tar agenten tillbaka i en kort ny tur för triage + merge (kör om bugbot om en ny commit landat efter för-filtret). Ingen blockerande poll. |
-| **Protected paths / risk ≥ 3** | Uppgradera bevakaren till en **bakgrunds-subagent** (`run_in_background: true`, `readonly: true`, en **billig** modell — t.ex. `composer-2.5` — och tidsbudget **≤ 10 min**) som *bevakar och ytar* inkommande Codex/Vercel/Bugbot-fynd + check-status och rapporterar tillbaka, sedan självdör. Fångar en sen P1 direkt. |
+| **Protected paths / risk ≥ 3** | Uppgradera bevakaren till en **bakgrunds-subagent** (`run_in_background: true`, `readonly: true`, en **billig** modell — `<grok-4.5>`, scan-rollen i `.cursor/README.md § Modellval för subagenter` — och tidsbudget **≤ 10 min**) som *bevakar och ytar* inkommande Codex/Vercel/Bugbot-fynd + check-status och rapporterar tillbaka, sedan självdör. Fångar en sen P1 direkt. |
 
 **Rollsplit — billig bevakare, dyr beslutsfattare:** bevakaren (bakgrundsshell **eller** subagent) *larmar bara* — den **triagerar aldrig och mergar aldrig själv**. Pollning kräver ingen intelligens (spendera inte en dyr modell på att idla ≤ 10 min); triage + merge-beslutet ligger **alltid** hos den starka orkestratorn/merge-agenten. En svag agent som mergar = false-green-risk — samma skäl som dashboard-auto-mergaren är AV (`auto-merge-automation.mdc` → "Vem mergar").
 
@@ -57,12 +57,16 @@ Oavsett mönster: sov-timern är bara ett **golv, aldrig ett merge-kvitto** — 
 
 ## merge:ready — författar-sign-off (maskinläsbart godkännande)
 
-Ingen agent mergar en PR utan att författaren först intygat att buggkollen är gjord. Signalen är en **label + en sign-off-rad** så mergaren kan verifiera den utan att gissa:
+Ingen agent mergar en PR utan att författaren först intygat att buggkollen är gjord. Signalen är en **sign-off-rad + en label**, i den ordningen, så mergaren kan verifiera den utan att gissa:
 
-1. PR-agenten sätter labeln `merge:ready` **först efter** att bug-efterkontrollen är klar (bugbot/Codex triagerad, inga öppna P0/P1): `gh pr edit <n> --add-label "merge:ready"`.
-2. Samma agent skriver en sign-off-rad i PR-body/kommentar: `merge:ready — sha: <40-tecken head-SHA>, at: <ISO8601 UTC>, bugkoll: <bugbot|manual|codex>, triage: <fixat/loggat/avfärdat>, P0/P1: 0` (exempel: `at: 2026-07-29T02:15:00Z`).
-3. **Mergaren verifierar** labeln + sign-off-raden + att **head-SHA är oförändrad sedan labeln sattes** (`gh pr view <n> --json headRefOid` — jämför mot SHA:t i sign-off-raden) + hela merge-grinden (`auto-merge-automation.mdc`) innan `gh pr merge`. Saknas labeln, eller har en nyare commit landat efter sign-off → `NEEDS_HUMAN`, aldrig merge.
-4. **Ny commit eller bot-fynd efter sign-off ogiltigförklarar labeln.** Workflow `merge-ready-freshness.yml` tar bort `merge:ready` vid `synchronize` och vid bot-`pull_request_review` / inline-kommentar / vanlig PR-kommentar som är nyare än `at:` (R9). Ett `at:` som ligger i framtiden räknas som ogiltigt och river labeln direkt — datera inte fram sign-offen. `vercel[bot]` räknas på review-vägarna (Vercel Agent Review postar riktiga logikfynd där) men inte som issue-kommentar (deploy-brus). Gör om buggkollen och sätt labeln på nytt.
+1. PR-agenten skriver sign-off-raden **som PR-kommentar**, **först efter** att bug-efterkontrollen är klar (bugbot/Codex triagerad, inga öppna P0/P1): `merge:ready — sha: <40-tecken head-SHA>, at: <ISO8601 UTC>, bugkoll: <bugbot|bugbot-local|manual|codex>, triage: <fixat/loggat/avfärdat>, P0/P1: 0` (exempel: `at: 2026-07-29T02:15:00Z`). Kommentar, inte PR-body: freshness-grinden använder GitHubs `created_at` på kommentaren som tidpunkt, och en body har ingen sådan. `at:`-fältet är läsbarhet för människor — det avgör ingenting, eftersom författarstyrd text inte kan vara ordningsgrund i en säkerhetsgrind.
+2. **Sedan** sätter samma agent labeln: `gh pr edit <n> --add-label "merge:ready"`.
+
+   **Ordningen är inte kosmetisk — omvänd ordning fäller grinden mot dig.** `merge-ready-freshness.yml` triggar bland annat på bot-`issue_comment`, och sekunder efter att en PR öppnas postar Codex och Bugbot nästan alltid en kommentar (numera ofta bara "usage limit reached"). Den körningen tar ~20 s och läser PR:ens labels **och** kommentarer från API:t när den väl kommer fram. Sätter du labeln inuti det fönstret, innan sign-off-kommentaren finns, ser körningen en labelad PR utan sign-off och river labeln med skälet "merge:ready utan giltig sign-off-rad" — trots grön grind och oförändrad head-SHA.
+
+   Hände skarpt på **#665** 2026-07-30: bot-kommentarer 20:12:08–09 startade två körningar 20:12:12–13 som avslutades 20:12:31–33; labeln sattes 20:12:24 och sign-offen 20:12:27, alltså båda mitt i fönstret, och labeln revs 20:12:27. Mergaren såg då "författaren är inte klar" på en PR som var helt färdig. Skriver du sign-offen **först** finns den när körningen läser, och dess tidsstämpel är nyare än bot-kommentaren → labeln behålls. Har det redan hänt: sign-offen ligger kvar, så det räcker att sätta labeln igen.
+3. **Mergaren verifierar** labeln + sign-off-raden + att **head-SHA är oförändrad sedan sign-off skrevs** (`gh pr view <n> --json headRefOid` — jämför mot SHA:t i sign-off-raden) + hela merge-grinden (`auto-merge-automation.mdc`) innan `gh pr merge`. Saknas labeln, eller har en nyare commit landat efter sign-off → `NEEDS_HUMAN`, aldrig merge.
+4. **Ny commit eller bot-fynd efter sign-off ogiltigförklarar labeln.** Workflow `merge-ready-freshness.yml` tar bort `merge:ready` vid `synchronize` och vid bot-`pull_request_review` / inline-kommentar / vanlig PR-kommentar som landat **efter sign-off-kommentarens GitHub-tidsstämpel** (R9). Beslutslogiken ligger i `scripts/ci/merge-ready-freshness.mjs` och är enhetstestad. `vercel[bot]` räknas på review-vägarna (Vercel Agent Review postar riktiga logikfynd där) men inte som issue-kommentar (deploy-brus). Gör om buggkollen och signera på nytt — **i samma ordning som steg 1–2**: ny sign-off-kommentar för aktuell head-SHA först, label sedan. Att bara sätta tillbaka labeln på en sign-off som gäller en äldre SHA är inget godkännande.
    - **Kvarvarande lucka, medvetet:** sätts labeln *efter* ett otriagerat bot-fynd triggar workflowen inget — den jämför händelser mot sign-off-tiden och en färsk sign-off är alltid nyast. Att stänga det kräver verdict-kunskap workflowen inte har; det ansvaret ligger kvar på författaren och mergaren (`pr-bot-findings-sweep.mdc`).
 5. På protected paths räcker inte labeln själv: bugbot-subagentens oberoende pass krävs (se `Author-is-merger` nedan). Labeln bekräftar att passet gjorts, den ersätter det inte.
 
@@ -76,7 +80,7 @@ Labeln skyddar bara om PR:ens synliga tillstånd följer arbetet. Håll ordninge
 |---|---|
 | Arbetar fortfarande, allt är inte pushat | **Draft.** Mergare rör aldrig drafts |
 | Allt pushat, granskning pågår | Ready for review, **ingen** `merge:ready` |
-| Bugg-efterkontroll klar, inga öppna P0/P1 | `merge:ready` + sign-off-rad |
+| Bugg-efterkontroll klar, inga öppna P0/P1 | Sign-off-rad **först**, `merge:ready` sedan (ordningen ovan) |
 
 Två konsekvenser:
 
@@ -113,9 +117,12 @@ Att merga med kvarvarande P2 **utan** att fixa eller logga dem är ett regelbrot
 
 **Codex-review (`chatgpt-codex-connector`) kan vara på eller av beroende på credits** (av 2026-07-02, tillbaka 2026-07-08). Vänta aldrig på att den ska dyka upp och räkna inte dess frånvaro som ett gap — men **finns en Codex-review ska den läsas och triageras** (den kan landa strax efter grönt CI). Oavsett Codex är det **agenten som skapade PR:en** som äger bugg-efterkontrollen, före eller direkt efter att PR:en öppnas:
 
-- Spawna `bugbot`-subagenten (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`) eller använd `review-bugbot`-skillen. Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
-- Är Bugbot otillgänglig: gör en strukturerad manuell diff-granskning + repo-verifieringar och dokumentera fynd med fil-/radreferenser.
-- Triagera fynd enligt spårningstabellen ovan (Fixat / Loggat / Avfärdat) och **dokumentera i PR:en** vilken väg som användes (`bugbot` eller `manual local bug review`).
+- Spawna `bugbot`-subagenten (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"`) eller använd `review-bugbot`-skillen — den globala skillen sätter **varken** `model` eller `readonly`, så ange dem själv den vägen. Subagenten är en separat agentinstans, så passet räknas som oberoende ögon även när författaren startar det.
+- **Fallback-stege — hoppa inte över steg 2.** Den GitHub-integrerade Bugbot:en delar teamets budget och postar `Bugbot couldn't run - usage limit reached` när den tar slut (hände 2026-08-01 samtidigt som Codex slog i sitt tak, så #703/#704 stod utan externa ögon). Slut budget på GitHub är **inget skäl att hoppa till manuell review** — den lokala subagenten är en egen väg:
+  1. GitHub-integrerad Bugbot på PR:en.
+  2. Slut/utebliven → **berörd agent kör Cursor Bugbot-passet lokalt** via subagenten ovan.
+  3. Först om även det misslyckas → strukturerad manuell diff-granskning + repo-verifieringar med fil-/radreferenser.
+- Triagera fynd enligt spårningstabellen ovan (Fixat / Loggat / Avfärdat) och **dokumentera i PR:en** vilket steg som användes (`bugbot`, `bugbot-local` eller `manual local bug review`). Samma värde går i `bugkoll:`-fältet i `merge:ready`-sign-offen.
 - P1/High/säkerhet blockerar merge; P2 fixas eller loggas i `BUG-SWARM-BACKLOG.md`.
 
 Den GitHub-integrerade "Cursor Automation: Find critical bugs" kan dessutom sättas att köra på **varje** PR i Cursor-dashboarden som stående skyddsnät.
@@ -129,11 +136,11 @@ Självgranskning räcker inte när författaren själv mergar:
 - Är agenten som mergar **samma** agent som skapade PR:en, räknas inte "jag läste min egen diff igen" som granskning — `bugbot`-subagent-passet är minimum, särskilt på protected paths.
 - Mergar en **annan** agent: kör inte om författarens efterkontroll — verifiera att den är dokumenterad i PR:en, att checks är gröna och att inga P0/P1 står öppna.
 - Dokumentera vald väg i slutrapporten: `bugbot` (Cursor-subagent) eller `manual local bug review`.
-- Full guide: [`AGENTS.md`](../../AGENTS.md) → "Review guidelines".
+- Den här filen är den fulla guiden; [`AGENTS.md`](../../AGENTS.md) → "Review guidelines" är bara ingången.
 
 ## GitHub-verklighet (verifierat 2026-07-08)
 
-"Protect master"-ruleset kräver **1 review + code-owner-review** (`@Jakeminator123` via `.github/CODEOWNERS`) **och required status checks** `quality`, `backoffice-tests`, `schema-drift` (tillagda 2026-07-08) samt `review-window` (workflow tillagd 2026-07-11, tvingar 7-min/bot-fönstret — läggs till som required check i rulesetet via GitHub-API i samma rollout, ligger inte i repo-diffen):
+"Protect master"-ruleset kräver **1 review + code-owner-review** (`@Jakeminator123` via `.github/CODEOWNERS`) **och required status checks** `quality`, `backoffice-tests`, `schema-drift` (tillagda 2026-07-08), `review-window` (workflow tillagd 2026-07-11, tvingar 7-min/bot-fönstret — läggs till som required check i rulesetet via GitHub-API i samma rollout, ligger inte i repo-diffen) samt `build` (tillagd 2026-07-30 via #660, verifierad mot rulesetet 2026-07-31):
 
 - Extern PR (t.ex. `chgenberg`) blockeras tills Jake godkänt — det är rulesetens syfte.
 - Jakes egna PR:er kan inte självgodkännas → mergas via `gh pr merge --admin` (admin bypassar **allt**, inklusive required checks). Avsett — men bara **efter** att merge-grinden i `auto-merge-automation.mdc` är uppfylld (grönt + bugbot-pass + extern buggkoll + PR ≥ 7 min). `--admin` är inte en genväg förbi granskning.

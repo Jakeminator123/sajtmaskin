@@ -86,6 +86,26 @@ describe("generateCode providerOptions", () => {
     });
   });
 
+  it("passes GPT-5.6 high effort and pro reasoning mode", async () => {
+    const { generateCode } = await loadEngineModule();
+
+    generateCode({
+      prompt: "Build this",
+      systemPrompt: "System",
+      model: "gpt-5.6-sol",
+      thinking: true,
+      reasoningEffort: "high",
+      reasoningMode: "pro",
+    });
+
+    expect(streamTextMock.mock.calls[0][0].providerOptions).toEqual({
+      openai: {
+        reasoningEffort: "high",
+        reasoningMode: "pro",
+      },
+    });
+  });
+
   it("disables Anthropic thinking but keeps explicit effort when thinking is off", async () => {
     const { generateCode } = await loadEngineModule();
 

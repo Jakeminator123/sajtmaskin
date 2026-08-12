@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   describePreviewHostHttpFailure,
+  fetchPreviewHostFilesManifest,
+  fetchPreviewHostReadinessVerdict,
   fetchPreviewHostStatus,
   isPreviewHostDiskFullMessage,
   LEASE_HOLDING_ROUTE_MAX_DURATION_S,
@@ -473,7 +475,14 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     });
 
     const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
-    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+    expect(result).toEqual({
+      previewSessionId: "ps_1",
+      primaryUrl: "https://live.example",
+      readinessState: null,
+      httpReady: false,
+      readinessError: null,
+      regeneratedLockfile: null,
+    });
   });
 
   it("refuses to resume when the host serves a different version (no stale/white iframe)", async () => {
@@ -490,7 +499,12 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     expect(result).toBeNull();
   });
 
-  it("keeps prior behaviour when the host omits versionId (older deploys)", async () => {
+  // Detta test låste tidigare motsatt beteende ("saknat eko = OK", bakåtkompat
+  // med hostar som inte returnerade versionId). Hosten ekar alltid versionen i
+  // dag, så den motiveringen är förbrukad — det enda mönstret fortfarande
+  // skyddar är false-green: en anropare som VET vilken version den väntar sig
+  // återupptar en session som ingen har bekräftat.
+  it("refuses to resume when the host echoes no versionId at all (silence is not a match)", async () => {
     process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
     stubStatus({
       ok: true,
@@ -500,7 +514,7 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     });
 
     const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
-    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+    expect(result).toBeNull();
   });
 
   it("does not gate when no expected version is provided (back-compat)", async () => {
@@ -514,7 +528,140 @@ describe("fetchPreviewHostStatus version pinning (BUG-SWARM rank 1)", () => {
     });
 
     const result = await fetchPreviewHostStatus("ps_1");
-    expect(result).toEqual({ previewSessionId: "ps_1", primaryUrl: "https://live.example" });
+    expect(result).toEqual({
+      previewSessionId: "ps_1",
+      primaryUrl: "https://live.example",
+      readinessState: null,
+      httpReady: false,
+      readinessError: null,
+      regeneratedLockfile: null,
+    });
+  });
+
+  it("surfaces readinessState=ready + httpReady from the host body", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      httpReady: true,
+      readinessState: "ready",
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result).toMatchObject({
+      readinessState: "ready",
+      httpReady: true,
+      readinessError: null,
+    });
+  });
+
+  it("surfaces readinessState=failed + readinessError (running but build-error overlay)", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      httpReady: false,
+      readinessState: "failed",
+      readinessError: "Module not found: Can't resolve 'radix-ui'",
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result).toMatchObject({
+      readinessState: "failed",
+      httpReady: false,
+      readinessError: "Module not found: Can't resolve 'radix-ui'",
+    });
+  });
+
+  it("surfaces the regenerated lockfile after a stale-lockfile reconcile", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: true,
+      httpReady: true,
+      readinessState: "ready",
+      previewSessionId: "ps_1",
+      previewUrl: "https://live.example",
+      versionId: "v3",
+      regeneratedLockfile: { path: "pnpm-lock.yaml", content: "lockfileVersion: '9.0'\n" },
+    });
+
+    const result = await fetchPreviewHostStatus("ps_1", { expectedVersionId: "v3" });
+    expect(result?.regeneratedLockfile).toEqual({
+      path: "pnpm-lock.yaml",
+      content: "lockfileVersion: '9.0'\n",
+    });
+  });
+});
+
+describe("fetchPreviewHostFilesManifest", () => {
+  function stubManifest(body: Record<string, unknown>, status = 200) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        new Response(JSON.stringify(body), {
+          status,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  }
+
+  const validBody = {
+    ok: true,
+    previewSessionId: "ps_1",
+    versionId: "v3",
+    running: true,
+    hashAlgorithm: "sha256",
+    files: { "app/page.tsx": "a".repeat(64) },
+  };
+
+  it("parses the host manifest", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest(validBody);
+
+    const result = await fetchPreviewHostFilesManifest("ps_1");
+    expect(result).toEqual({
+      previewSessionId: "ps_1",
+      versionId: "v3",
+      running: true,
+      files: { "app/page.tsx": "a".repeat(64) },
+    });
+  });
+
+  it("returns null on 404 so an older preview-host simply falls back to update", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest({ error: "not_found" }, 404);
+
+    expect(await fetchPreviewHostFilesManifest("ps_1")).toBeNull();
+  });
+
+  it("refuses a manifest hashed with anything but sha256", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest({ ...validBody, hashAlgorithm: "blake3" });
+
+    expect(await fetchPreviewHostFilesManifest("ps_1")).toBeNull();
+  });
+
+  it("refuses a manifest with a non-string hash entry", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest({ ...validBody, files: { "app/page.tsx": 42 } });
+
+    expect(await fetchPreviewHostFilesManifest("ps_1")).toBeNull();
+  });
+
+  it("reports a null versionId when the host session is unpinned", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubManifest({ ...validBody, versionId: null });
+
+    const result = await fetchPreviewHostFilesManifest("ps_1");
+    expect(result?.versionId).toBeNull();
   });
 });
 
@@ -556,5 +703,108 @@ describe("resolvePreviewHostVerifyTimeoutMs (#286 per-call verify cap)", () => {
     expect(resolvePreviewHostVerifyTimeoutMs(-5_000)).toBe(1);
     expect(resolvePreviewHostVerifyTimeoutMs(Number.NaN)).toBe(staticMs);
     expect(resolvePreviewHostVerifyTimeoutMs(Number.POSITIVE_INFINITY)).toBe(staticMs);
+  });
+});
+
+// En boot som dör före dev-processen (install-fel, misslyckad postcondition,
+// readiness-deadline) lämnar `running:false` men `readinessState:"failed"`.
+// Resume-vägen svarar null där — den frågar "går sessionen att återuppta?" —
+// så utan denna avläsning stämplas aldrig preview_success=false och RepairGate
+// får aldrig veta att previewn bevisligen inte kan komma upp.
+describe("fetchPreviewHostReadinessVerdict — läser verdikt även utan levande process", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL;
+  });
+
+  function stubStatus(body: Record<string, unknown>) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  }
+
+  it("returnerar failed-verdiktet när processen aldrig startade", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: false,
+      httpReady: false,
+      readinessState: "failed",
+      readinessError: "npm error code ENOSPC",
+      versionId: "v3",
+      previewSessionId: "ps_1",
+    });
+
+    const verdict = await fetchPreviewHostReadinessVerdict("ps_1", { expectedVersionId: "v3" });
+
+    expect(verdict).toMatchObject({
+      running: false,
+      readinessState: "failed",
+      readinessError: "npm error code ENOSPC",
+      versionId: "v3",
+    });
+  });
+
+  it("returnerar null när hosten pratar om en annan version", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: false,
+      readinessState: "failed",
+      readinessError: "boom",
+      versionId: "v2",
+      previewSessionId: "ps_1",
+    });
+
+    expect(await fetchPreviewHostReadinessVerdict("ps_1", { expectedVersionId: "v3" })).toBeNull();
+  });
+
+  it("returnerar null när hosten inte ekar någon version alls", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: false,
+      readinessState: "failed",
+      readinessError: "boom",
+      previewSessionId: "ps_1",
+    });
+
+    // Ett verdikt utan versionsattribution får inte stämplas på anroparens
+    // version: det skulle antingen godkänna en version vi aldrig sett bekräftad
+    // eller trigga RepairGate på ett fel som hör till en annan version.
+    expect(await fetchPreviewHostReadinessVerdict("ps_1", { expectedVersionId: "v3" })).toBeNull();
+  });
+
+  it("returnerar verdiktet när anroparen inte har någon förväntad version", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({
+      ok: true,
+      running: false,
+      readinessState: "failed",
+      readinessError: "boom",
+      previewSessionId: "ps_1",
+    });
+
+    expect(await fetchPreviewHostReadinessVerdict("ps_1")).toMatchObject({
+      readinessState: "failed",
+      readinessError: "boom",
+      versionId: null,
+    });
+  });
+
+  it("returnerar null när hosten inte svarar ok", async () => {
+    process.env.SAJTMASKIN_PREVIEW_HOST_BASE_URL = "https://preview-host.example.com";
+    stubStatus({ ok: false });
+    expect(await fetchPreviewHostReadinessVerdict("ps_1")).toBeNull();
+  });
+
+  it("returnerar null utan konfigurerad host", async () => {
+    expect(await fetchPreviewHostReadinessVerdict("ps_1")).toBeNull();
   });
 });

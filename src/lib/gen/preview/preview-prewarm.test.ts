@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import type { ScaffoldManifest } from "@/lib/gen/scaffolds/types";
 
 const h = vi.hoisted(() => ({
   featureState: { previewPrewarm: false as boolean },
   baseUrlRef: { value: "https://preview-host.example" as string | null },
   startSpy: vi.fn(),
   buildSpy: vi.fn(),
+  getScaffoldByIdSpy: vi.fn((_id: string): ScaffoldManifest | null => null),
 }));
 
 vi.mock("@/lib/config", () => ({
@@ -17,19 +19,31 @@ vi.mock("@/lib/gen/preview/tier2-config", () => ({
 vi.mock("@/lib/gen/preview/preview-host-client", () => ({
   startPreviewHostSession: (params: unknown) => h.startSpy(params),
 }));
-vi.mock("@/lib/gen/export/project-scaffold", () => ({
-  buildCompleteProject: (...args: unknown[]) => {
-    h.buildSpy(...args);
-    return [
-      { path: "package.json", content: '{"name":"x"}', language: "json" },
-      { path: "app/layout.tsx", content: "export default function L(){return null}", language: "typescript" },
-      {
-        path: ".env.local",
-        content: "NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID=baseline",
-        language: "text",
-      },
-    ];
-  },
+// Only `buildCompleteProject` is overridden — `mergePackageJsonWithBaseline`
+// stays the REAL implementation so the scaffold-aware package.json tests
+// exercise the exact same merge the finalize path runs (project-scaffold.ts).
+vi.mock("@/lib/gen/export/project-scaffold", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/gen/export/project-scaffold")>();
+  return {
+    ...actual,
+    buildCompleteProject: (...args: unknown[]) => {
+      h.buildSpy(...args);
+      return [
+        { path: "package.json", content: '{"name":"x"}', language: "json" },
+        { path: "app/layout.tsx", content: "export default function L(){return null}", language: "typescript" },
+        {
+          path: ".env.local",
+          content: "NEXT_PUBLIC_SAJTMASKIN_PROJECT_ID=baseline",
+          language: "text",
+        },
+      ];
+    },
+  };
+});
+// `runDepCompleter` stays the REAL implementation (pure, no I/O for
+// known packages) so the scaffold-file-scan is exercised end-to-end.
+vi.mock("@/lib/gen/scaffolds/registry", () => ({
+  getScaffoldById: (id: string) => h.getScaffoldByIdSpy(id),
 }));
 
 import {
@@ -48,6 +62,8 @@ describe("prewarmPreviewSession", () => {
     h.baseUrlRef.value = "https://preview-host.example";
     h.startSpy.mockReset();
     h.buildSpy.mockReset();
+    h.getScaffoldByIdSpy.mockReset();
+    h.getScaffoldByIdSpy.mockReturnValue(null);
     h.startSpy.mockResolvedValue(OK);
     vi.stubEnv("SAJTMASKIN_PREVIEW_HOST_API_KEY", "unit-test-preview-host-key");
   });
@@ -102,6 +118,55 @@ describe("prewarmPreviewSession", () => {
     );
     // SCAFFOLD_FILES ships no app/page.tsx; prewarm injects a placeholder so the boot goes green.
     expect(arg.filesJson["app/page.tsx"]).toBeTruthy();
+  });
+
+  it("keeps the fixed baseline package.json when no scaffoldId is resolved", async () => {
+    await prewarmPreviewSession("chat1", { leaseKey: LEASE_KEY });
+    expect(h.getScaffoldByIdSpy).not.toHaveBeenCalled();
+    const arg = h.startSpy.mock.calls[0][0] as { filesJson: Record<string, string> };
+    expect(arg.filesJson["package.json"]).toBe('{"name":"x"}');
+  });
+
+  it("keeps the fixed baseline package.json when the resolved scaffold id is unknown", async () => {
+    h.getScaffoldByIdSpy.mockReturnValue(null);
+    await prewarmPreviewSession("chat1", { leaseKey: LEASE_KEY, scaffoldId: "not-a-real-scaffold" });
+    expect(h.getScaffoldByIdSpy).toHaveBeenCalledWith("not-a-real-scaffold");
+    const arg = h.startSpy.mock.calls[0][0] as { filesJson: Record<string, string> };
+    expect(arg.filesJson["package.json"]).toBe('{"name":"x"}');
+  });
+
+  it("builds a scaffold-aware package.json from the resolved scaffold's own files", async () => {
+    h.getScaffoldByIdSpy.mockReturnValue({
+      id: "landing-page",
+      label: "Landing Page",
+      description: "test",
+      allowedBuildIntents: ["website"],
+      tags: [],
+      promptHints: [],
+      files: [
+        { path: "app/page.tsx", content: 'import axios from "axios";\nexport default function Page() { return null; }' },
+      ],
+    } as unknown as ScaffoldManifest);
+
+    await prewarmPreviewSession("chat1", { leaseKey: LEASE_KEY, scaffoldId: "landing-page" });
+
+    expect(h.getScaffoldByIdSpy).toHaveBeenCalledWith("landing-page");
+    // Prewarm always builds the skeleton from the same generic-baseline call
+    // (`buildCompleteProject([])`); only the package.json is swapped afterwards.
+    expect(h.buildSpy).toHaveBeenCalledWith([]);
+    const arg = h.startSpy.mock.calls[0][0] as { filesJson: Record<string, string> };
+    const packageJson = JSON.parse(arg.filesJson["package.json"]) as {
+      dependencies: Record<string, string>;
+    };
+    // `axios` is not part of the baseline dependency set — its presence proves
+    // the scaffold's own files (not the generic baseline) drove the merge.
+    expect(packageJson.dependencies.axios).toBeTruthy();
+    // The baseline pins still apply (mergePackageJsonWithBaseline force-pins
+    // react/next/lucide-react regardless of what the scaffold code detects).
+    expect(packageJson.dependencies.next).toBeTruthy();
+    expect(packageJson.dependencies.react).toBeTruthy();
+    // Placeholder page behavior is unchanged — only the dependency set differs.
+    expect(arg.filesJson["app/page.tsx"]).toContain("Förbereder förhandsvisning");
   });
 
   it("dedupes: a second prewarm for the same chat does not fire again", async () => {

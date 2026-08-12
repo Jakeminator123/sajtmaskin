@@ -195,7 +195,14 @@ export type VersionDegradationKind =
   | "typecheck_advisory"
   /** ReleaseGate passed with project-local ESLint warnings. Errors still
    * block; warnings remain visible without starting RepairGate. */
-  | "lint_advisory";
+  | "lint_advisory"
+  /** Innehållsrevision steg 3: det terminala bus-verdiktet beskriver en ANNAN
+   *  innehållsrevision än den versionsraden håller nu (t.ex. efter en user-edit
+   *  via `/files`). Aldrig emitterad på bussen — injiceras av
+   *  `reconcileTerminalDbState` när `files_revision` bevisar mismatchen, så en
+   *  terminal `done` inte kan läsas som "Klar" för innehåll ingen gate sett.
+   *  Kräver flaggan `SAJTMASKIN_CONTENT_REVISION_GATE`. */
+  | "stale_content_revision";
 
 export interface VersionDegradedEvent extends EngineEventBase {
   t: "version.degraded";

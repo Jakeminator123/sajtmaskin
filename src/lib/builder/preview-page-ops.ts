@@ -566,10 +566,11 @@ function insertDataNavEntry(content: string, route: string, label: string): stri
 
   const newEntry = `{ ${labelKey}: "${escapeJsDoubleQuoted(label)}", href: "${escapeJsDoubleQuoted(route)}" }`;
   const insertAt = (entryMatch.index ?? 0) + template.length;
-  const before = content.slice(0, insertAt);
-  const after = content.slice(insertAt);
-  const separator = after.trimStart().startsWith(",") ? " " : ", ";
-  return `${before}${separator}${newEntry}${after}`;
+  // The new entry lands directly after the template entry, so it always needs
+  // its own leading `, `. A comma already present in `after` separates the new
+  // entry from the NEXT element — it can never stand in for this one (prod
+  // 2026-08-01, chat 435baa63: `{…} {…},` broke the header build).
+  return `${content.slice(0, insertAt)}, ${newEntry}${content.slice(insertAt)}`;
 }
 
 /**

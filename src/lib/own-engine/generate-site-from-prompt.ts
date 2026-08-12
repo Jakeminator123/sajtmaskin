@@ -125,10 +125,11 @@ export async function generateOwnEngineSiteFromPrompt(
     requestedCapabilityTiers: capabilityDetection.tierByCapability,
   } as const;
   const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
-  const { engineSystemPrompt } = await finalizeOrchestrationPrompts(
+  const finalizedOrchestration = await finalizeOrchestrationPrompts(
     orchestrationBase,
     orchestrationInput,
   );
+  const { engineSystemPrompt } = finalizedOrchestration;
   dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
     source: "own-engine/non-stream-generate",
   });
@@ -150,6 +151,8 @@ export async function generateOwnEngineSiteFromPrompt(
     thinking,
     tools: getAgentTools(),
     maxSteps: 4,
+    referenceAttachments:
+      finalizedOrchestration.variantTemplateReferenceAttachments,
   });
 
   const reader = pipelineStream.getReader();
@@ -299,6 +302,7 @@ export async function generateOwnEngineSiteFromPrompt(
       chatId: chat.id,
       appProjectId: projectId,
       versionIdForSession: finalized.version.id,
+      filesRevisionForSession: finalized.version.files_revision,
       // Våg 2: seed F2 preview `.env.local` with stubs for the selected
       // dossiers' env keys so the dossier UI renders its demo/mock mode.
       selectedDossierEnvKeys: finalized.selectedDossierEnvKeys,

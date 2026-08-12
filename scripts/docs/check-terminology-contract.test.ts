@@ -73,7 +73,7 @@ describe("terminology contract", () => {
 
     const ignoredErrors = await run(fixture(), {
       "docs/contracts/example.md": "Use `LLM-fix` only as a code identifier.",
-      "docs/archive/old.md": "Historical LLM-fix wording.",
+      "docs/plans/archived/old.md": "Historical LLM-fix wording.",
     });
     expect(ignoredErrors).toEqual([]);
   });

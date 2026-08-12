@@ -22,12 +22,17 @@ import type {
   PreGenerationContractContext,
 } from "../contract/pre-generation-contracts";
 import type { OrchestrationContract } from "../orchestration-contract";
-import type { BuildSpec, BuildSpecQualityTarget } from "../build-spec";
+import type {
+  BuildSpec,
+  BuildSpecComplexityHint,
+  BuildSpecQualityTarget,
+} from "../build-spec";
 import type { ShadcnUiRecipe } from "../data/shadcn-ui-recipes";
 import type { DossierSelectionResult } from "../dossiers";
 import type { FollowUpContract } from "../orchestration-snapshot";
 import type { RequestKindClass } from "../request-kind";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
+import type { RequestAttachment } from "../request-metadata";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -76,6 +81,24 @@ export interface OrchestrationInput {
   buildIntent: BuildIntent;
   scaffoldMode?: "auto" | "manual" | "off";
   scaffoldId?: string | null;
+  /**
+   * Byggval (init controls): structured page-count hint (1–20). Takes
+   * precedence over `detectExplicitPageCount(prompt)` in `buildRoutePlan`.
+   * Init-only — follow-up callers never set it (route freeze owns page
+   * structure on follow-ups).
+   */
+  pageCountHint?: number | null;
+  /**
+   * Byggval (init controls): structured style keywords merged with the
+   * brief-derived keywords in scaffold-variant matching. Init-only.
+   */
+  styleKeywordsHint?: string[];
+  /**
+   * Byggval (init controls): structured complexity choice, forwarded to
+   * `deriveBuildSpec` (`complex` → premium-golv + heavy context-bias,
+   * `simple` → lättare context-bias, `medium` → no-op). Init-only.
+   */
+  complexityHint?: BuildSpecComplexityHint | null;
   brief?: Record<string, unknown> | null;
   themeColors?: ThemeColors | null;
   imageGenerations?: boolean;
@@ -317,6 +340,12 @@ export interface OrchestrationBase {
    */
   mutedCapabilities?: string[];
   /**
+   * Exact provider-specific dossiers deferred by the F2 mute. Unlike
+   * `mutedCapabilities`, this preserves sibling identity (`mongodb-atlas`
+   * versus the `database` default) until the explicit F3 build.
+   */
+  mutedDossierIds?: string[];
+  /**
    * Dossier capabilities with real FILE EVIDENCE in the base version
    * (`resolveCapabilitiesPresentInVersion` over `previousFilePaths`) — the
    * same presence primitive the Byggblock panel reads. Lets status surfaces
@@ -389,4 +418,6 @@ export interface FinalizedOrchestrationContext {
   dynamicContextPruning: DynamicContextPruning;
   dynamicContextBlocks: DynamicContextBlockTrace[];
   variantId: string | null;
+  variantTemplateId: string | null;
+  variantTemplateReferenceAttachments: RequestAttachment[];
 }

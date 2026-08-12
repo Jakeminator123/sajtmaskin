@@ -155,7 +155,7 @@
       ]
     },
     "Scaffolds: titta & justera": {
-      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/promptHints/qualityChecklist). Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab (v0-mallar i Blob). Skapa/klona/radera görs i 'Scaffolds & varianter: skapa, klona, ta bort'.",
+      "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens urklipp, översikt, termguide, detaljer och redigering av manifest-metadata (tags/intents/promptHints/qualityChecklist). Kanoniska runtime-scaffolds som own-engine använder. Val: manual / persisted / auto — auto använder keyword-match primärt och scaffold-embeddings när träff saknas eller resultatet blir generiskt (t.ex. landing-page, base-nextjs). Route plan (RoutePlan.provenance: primarySource + sources), pre-generation contracts och deriveBuildSpec körs i resolveOrchestrationBase (orchestrate.ts); tydliga redesign-follow-ups kan låsa upp persisted scaffold i auto-läge (shouldIgnorePersistedScaffoldForMatch). Traits + filträd + kritiska filer serialiseras i serialize.ts. Skilj från Mallar-tab (v0-mallar i Blob). Skapa/klona/radera görs i 'Scaffolds & varianter: skapa, klona, ta bort'.",
       "canonicalPaths": [
         "src/lib/gen/scaffolds/",
         "src/lib/gen/scaffolds/protected-paths.ts",
@@ -169,6 +169,7 @@
         "docs/architecture/llm-pipeline.md"
       ],
       "codeReaders": [
+        "backoffice/pages/scaffolds.py",
         "src/lib/gen/scaffolds/protected-paths.ts",
         "src/lib/gen/scaffolds/registry.ts",
         "src/lib/gen/scaffolds/matcher.ts",
@@ -207,6 +208,8 @@
       "canonicalPaths": [
         "backoffice/pages/scaffold_wizard.py",
         "backoffice/wizard_support.py",
+        "config/ai_models/manifest.json",
+        "backoffice/ai_workloads.py",
         "src/lib/templates/template-blob-manifest.json",
         "config/scaffold-variants/",
         "data/scaffold-wizard-drafts/"
@@ -417,7 +420,7 @@
       ]
     },
     "Generation History": {
-      "summary": "Read-only genererings-historik per användarsida + vad varje steg gjorde (scaffold, model, retry/autofix, preflight, quality gate, preview-utfall). Kör scripts/db/generation-history.mjs via subprocess read-only mot DB:n som .env.local pekar på. Källor: generation_telemetry, engine_versions, engine_version_error_logs, engine_generation_logs.",
+      "summary": "Read-only genererings-historik per användarsida + vad varje steg gjorde (scaffold, model, retry/Normalize, preflight, RenderGate/ReleaseGate, preview-utfall). Kör scripts/db/generation-history.mjs via subprocess read-only mot DB:n som .env.local pekar på. Källor: generation_telemetry, engine_versions, engine_version_error_logs, engine_generation_logs.",
       "canonicalPaths": [
         "backoffice/pages/generation_history.py",
         "scripts/db/generation-history.mjs",
@@ -502,7 +505,9 @@
         "data/dossiers/",
         "data/dossiers/_index/capability-map.json",
         "backoffice/pages/dossiers.py",
-        "scripts/dossiers/"
+        "scripts/dossiers/",
+        "backoffice/ai_workloads.py",
+        "config/ai_models/manifest.json"
       ],
       "docsPaths": [
         "docs/contracts/dossier-system.md",

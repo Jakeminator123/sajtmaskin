@@ -4,6 +4,7 @@
   "mock": "seed",
   "label": "Databas — MongoDB Atlas",
   "capability": "database",
+  "providers": ["mongodb"],
   "codeFidelity": "verbatim",
   "complexity": "simple",
   "defaultForCapability": false,
@@ -14,13 +15,12 @@
     {
       "key": "MONGODB_URI",
       "required": true,
+      "setupUrl": "https://www.mongodb.com/docs/atlas/connect-to-database-deployment/",
       "purpose": "MongoDB Atlas connection string used by the server helper to connect to the cluster. Get it from Atlas Connect > Drivers and store it only in server-side environment variables. Tagged feature-runtime because the dossier degrades gracefully without it: isDbConfigured() gates all access, pages render seedData + DbConfigNotice, and /api/health/db returns 503.",
       "enforcement": "feature-runtime"
     }
   ],
-  "dependencies": [
-    "mongodb"
-  ],
+  "dependencies": ["mongodb"],
   "files": [
     {
       "path": "components/lib/mongodb.ts",
@@ -71,6 +71,7 @@
     }
   ],
   "lastVerified": "2026-04-17",
+  "verificationStatus": "unverified",
   "sourceRepoUrl": "https://github.com/mongodb-developer/nextjs-template-mongodb",
   "notes": "Non-relational alternative under capability 'database' — only picked on explicit MongoDB/Atlas intent via relevanceKeywords (postgres-drizzle is default). Legacy import wave 2: lazy client init (never module-level connect), dev hot-reload cache on global preserved, concurrent requests share the pending connection promise, F2 seed-fallback contract added. lastVerified carries the legacy source's date until the first preview/generate-test selects this dossier (no-false-green).",
   "promptInstructionMode": "selected-sections"

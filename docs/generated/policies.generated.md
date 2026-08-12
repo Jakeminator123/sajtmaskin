@@ -8,9 +8,9 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:37830733916d1db6 -->
+<!-- source-fingerprint: config/env-policy.json sha256:30f8348d64521b5a -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:a7ae6fe0c958cb99 -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:40181cc99930d580 -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:1d4c06457cec3a1e -->
 
 # Policies
 
@@ -78,13 +78,14 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `NEXT_PUBLIC_SAJTMASKIN_TIER2_PREVIEW_HOST_SUFFIXES` | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `NODE_ENV`                                           | `vercel_managed`       | —                                      | No            | Yes          |
 | `OC_DEBUG`                                           | `optional_runtime`     | `development`, `preview`               | No            | No           |
-| `OC_DEBUG_ALLOW_PROD`                                | `optional_runtime`     | —                                      | No            | No           |
 | `OC_DEBUG_RUN_TOKEN`                                 | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_DEBUGG`                                          | `optional_runtime`     | `development`, `preview`               | No            | No           |
+| `OC_EDIT`                                            | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_REPO_READ_TOKEN`                                 | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_REPO_SLUG`                                       | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OPENAI_ADMIN_KEY`                                   | `local_only`           | —                                      | No            | No           |
 | `OPENAI_API_KEY`                                     | `shared_runtime`       | `development`, `preview`, `production` | No            | No           |
+| `OPENAI_WEBHOOK`                                     | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `OPENCLAW_GATEWAY_TOKEN`                             | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `OPENCLAW_GATEWAY_URL`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `POSTGRES_CONNECT_TIMEOUT_MS`                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
@@ -100,12 +101,15 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_BLOCKING_ESLINT`                         | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_BLOCKING_ESLINT_MAX_WARNINGS`            | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_BRANDED_LIVE_URLS`                       | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `SAJTMASKIN_CONTENT_REVISION_GATE`                   | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
+| `SAJTMASKIN_CONTEXT_POLICY_HEAVY_THRESHOLD`          | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_DEFAULT_THINKING`                        | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_DEFER_EXTRA_ROUTES_ON_INIT`              | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_DEV_LOG`                                 | `local_only`           | —                                      | No            | Yes          |
 | `SAJTMASKIN_DISABLE_QUALITY_GATE`                    | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
+| `SAJTMASKIN_DOMAIN_PURCHASE`                         | `optional_runtime`     | `development`, `preview`               | Yes           | No           |
 | `SAJTMASKIN_DOSSIER_PIPELINE`                        | `environment_specific` | `development`, `preview`, `production` | No            | No           |
-| `SAJTMASKIN_F2_PRODUCT_POSTCHECK`                    | `optional_runtime`     | `development`, `preview`               | Yes           | No           |
+| `SAJTMASKIN_F2_PRODUCT_POSTCHECK`                    | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_LIVE_SITE_DOMAIN`                        | `environment_specific` | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_LLM_FIXER_TIMEOUT_MS`                    | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_LLM_FIXER_TIMEOUT_RETRY_MS`              | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
@@ -116,8 +120,8 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_METRICS_TOKEN`                           | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_MODEL_ANTHROPIC`                         | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_MODEL_CODEX`                             | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
-| `SAJTMASKIN_MODEL_FAST`                              | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_MODEL_MAX`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
+| `SAJTMASKIN_MODEL_PREMIUM`                           | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_MODEL_PRO`                               | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `SAJTMASKIN_PHASE_FORCE_AUDIT_CHARS`                 | `environment_specific` | `production`                           | No            | No           |
 | `SAJTMASKIN_PHASE_FORCE_CHARS`                       | `environment_specific` | `production`                           | No            | No           |
@@ -128,10 +132,11 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `SAJTMASKIN_PRE_VM_TYPECHECK_CACHE_ROOT`             | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_PREVIEW_HOST_API_KEY`                    | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_PREVIEW_HOST_BASE_URL`                   | `environment_specific` | `development`, `preview`, `production` | Yes           | No           |
-| `SAJTMASKIN_PREVIEW_PREWARM`                         | `optional_runtime`     | `development`, `preview`               | Yes           | No           |
+| `SAJTMASKIN_PREVIEW_PREWARM`                         | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_PROMPT_DUMP`                             | `local_only`           | —                                      | No            | No           |
 | `SAJTMASKIN_RATE_LIMIT_ALLOW_MEMORY_IN_PROD`         | `optional_runtime`     | —                                      | Yes           | No           |
 | `SAJTMASKIN_REFUSE_DOSSIER_STUBS`                    | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
+| `SAJTMASKIN_SANITY_ALLOW_UNRESOLVED_IMPORT_WARNINGS` | `optional_runtime`     | —                                      | Yes           | No           |
 | `SAJTMASKIN_SHADCN_RESOLVER_SEARCH`                  | `optional_runtime`     | `development`, `preview`, `production` | Yes           | No           |
 | `SAJTMASKIN_SHIM_PREVIEW_DISABLED`                   | `optional_runtime`     | `preview`, `production`                | No            | No           |
 | `SAJTMASKIN_SOFT_TARGET_APP_CHARS`                   | `environment_specific` | `production`                           | No            | No           |
@@ -224,7 +229,7 @@ This index contains 34 control-plane entries. It is a map to canonical owners, n
 | `domain-rules`                      | `policy`            | `config/domain-rules.json`                                | `backoffice:test`       | `hard`    | `wired`         | Yes              |
 | `env-policy`                        | `policy`            | `config/env-policy.json`                                  | `env:audit`             | `manual`  | `declared-only` | No               |
 | `generated-site-placeholders`       | `policy`            | `config/ai_models/40-harmless-placeholders.env.txt`       | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `manifest-per-tier-briefing`        | `policy`            | `config/ai_models/manifest.json#perTierBriefing`          | `control-plane:check`   | `warn`    | `declared-only` | No               |
+| `manifest-per-tier-briefing`        | `policy`            | `config/ai_models/manifest.json#perTierBriefing`          | `control-plane:check`   | `hard`    | `wired`         | Yes              |
 | `manifest-per-tier-repair-policies` | `policy`            | `config/ai_models/manifest.json#perTierRepairPolicies`    | `control-plane:check`   | `warn`    | `declared-only` | No               |
 | `manifest-per-tier-timeouts`        | `policy`            | `config/ai_models/manifest.json#perTierTimeouts`          | `control-plane:check`   | `warn`    | `declared-only` | No               |
 | `manifest-pre-generation-contracts` | `policy`            | `config/ai_models/manifest.json#preGenerationContracts`   | `test:ci`               | `hard`    | `wired`         | Yes              |

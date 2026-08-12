@@ -72,12 +72,15 @@ export interface ScaffoldVariant {
   signaturePatterns?: ScaffoldVariantSignaturePatterns;
   themeTokens?: ScaffoldVariantThemeTokens;
   /**
-   * Inspiration reference ids: v0-mall Blob ids resolved against
+   * Ordered inspiration candidates: v0-mall Blob ids resolved against
    * `src/lib/templates/template-blob-manifest.json` (written by the
    * backoffice Scaffold Wizard/Lifecycle). Since 2026-07-22 every id must
    * exist in the Blob manifest (legacy labels were remapped) — enforced by
-   * `variant-integrity.test.ts`. Runtime only renders them as a
-   * "Derived from curated references" prompt line — nothing is injected.
+   * `variant-integrity.test.ts`. Init runtime selects at most one candidate
+   * from the complete-site/app category allowlist, attaches its still as a
+   * style-only vision reference, and may include bounded frontend excerpts.
+   * SHA-bound `config/variant-template-addenda.json` is read first; the Blob
+   * ZIP is only a compatibility fallback. The scaffold remains authoritative.
    */
   sourceTemplateIds?: string[];
   default?: boolean;

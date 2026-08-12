@@ -1,7 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
-    "src/instrumentation-client.ts",
     "src/lib/mcp/generate-site.ts",
     "src/lib/observability/fault-promotion-report-cli.ts",
     "src/lib/gen/scaffolds/scaffold-scoring.ts",

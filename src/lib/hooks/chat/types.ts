@@ -6,6 +6,7 @@ import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import type { PaletteState } from "@/lib/builder/palette";
 import type { PromptSourceMeta } from "@/lib/builder/prompt-builder";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
+import type { OpenClawPreparedPromptSource } from "@/lib/openclaw/prepared-prompt";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
 import type { MutableRefObject } from "react";
@@ -26,6 +27,15 @@ export type MessageOptions = {
   attachmentPrompt?: string;
   planMode?: boolean;
   promptSourceMeta?: PromptSourceMeta;
+  /**
+   * OpenClaw prepared-prompt fast lane: set by the builder composer when the
+   * outgoing message is EXACTLY an OpenClaw `fill_text_field` payload and the
+   * store's `editEnabled` (OC_EDIT) is on. Forwarded as a top-level
+   * `promptSource` field on the follow-up stream request body so the server
+   * may skip the redundant delta-brief LLM pass (see `prepared-prompt.ts`).
+   * Distinct from `promptSourceMeta.sourceKind` (prompt-builder envelopes).
+   */
+  promptSource?: OpenClawPreparedPromptSource;
   scaffoldModeOverride?: ScaffoldMode;
   scaffoldIdOverride?: string | null;
   /** Override the follow-up base version instead of using current builder selection. */
@@ -146,6 +156,12 @@ export type VersionEntry = {
   verificationSummary?: string | null;
   /** `"design"` (F2) or `"integrations"` (F3) — from `engine_versions.lifecycle_stage`. */
   lifecycleStage?: string | null;
+  /**
+   * Provenance from `engine_versions.edit_kind` (`quick_edit`, `imported_repo`,
+   * `restore`, or null for normal generated rows). Post-checks read it to
+   * mirror the server's imported-repo sanity policy.
+   */
+  editKind?: string | null;
   hasPendingRepair?: boolean;
   repairAvailableAt?: string | null;
   promotedAt?: string | null;

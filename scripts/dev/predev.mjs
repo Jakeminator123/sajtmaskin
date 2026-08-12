@@ -27,6 +27,9 @@ const chain = [
   "npm run preflight:common",
   "npm run shadcn:sync:soft",
   "node scripts/dev/refresh-token.mjs",
+  // Installerar schema-synk-hookarna om de saknas. Tyst när de redan finns, så
+  // en färsk clone/worktree får dem utan att någon behöver komma ihåg det.
+  "npm run hooks:install:soft",
   "npm run db:init:soft",
   "npm run db:perf-indexes:soft",
 ].join(" && ");

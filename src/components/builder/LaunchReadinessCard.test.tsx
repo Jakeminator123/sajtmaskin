@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { buildChatReadiness } from "@/lib/chat-readiness";
 import { LaunchReadinessCard } from "./LaunchReadinessCard";
@@ -7,8 +7,15 @@ vi.mock("@/lib/builder/project-env-events", () => ({
   openDossiersPanel: vi.fn(),
 }));
 
+const emptyInfo = {
+  versionId: "ver_1",
+  requiredEnvKeys: [],
+  configuredEnvKeys: [],
+  missingEnvKeys: [],
+};
+
 describe("LaunchReadinessCard", () => {
-  it("visar separata grupper för Blocker och Advisory", () => {
+  it("visar separata grupper för Blocker och Advisory när raden fälls ut", () => {
     const readiness = buildChatReadiness({
       blockers: [
         {
@@ -28,41 +35,113 @@ describe("LaunchReadinessCard", () => {
           action: "seo",
         },
       ],
-      info: {
-        versionId: "ver_1",
-        lifecycleStatus: "failed",
-        requiredEnvKeys: [],
-        configuredEnvKeys: [],
-        missingEnvKeys: [],
-      },
+      info: { ...emptyInfo, lifecycleStatus: "failed" },
     });
 
-    const { container } = render(<LaunchReadinessCard readiness={readiness} />);
+    render(<LaunchReadinessCard readiness={readiness} hasAnyVersion />);
+
+    // Del F2: default är kollapsad — detaljerna syns först efter "Visa".
+    expect(screen.queryByText("Blockerar publicering")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Publiceringsstatus" }));
 
     expect(screen.getByText("Blockerar publicering")).toBeTruthy();
-    expect(
-      screen.getByText("Rekommendationer — blockerar inte"),
-    ).toBeTruthy();
+    expect(screen.getByText("Rekommendationer — blockerar inte")).toBeTruthy();
     expect(
       screen.getByText("Koden går inte att bygga än — vi försöker reparera."),
     ).toBeTruthy();
     expect(screen.getByText("Sidans titel saknas.")).toBeTruthy();
-    expect(container.firstChild).toMatchSnapshot();
   });
 
   it("döljer kortet helt när status är ready (B2)", () => {
     const readiness = buildChatReadiness({
-      info: {
-        versionId: "ver_1",
-        lifecycleStatus: "passed",
-        requiredEnvKeys: [],
-        configuredEnvKeys: [],
-        missingEnvKeys: [],
-      },
+      info: { ...emptyInfo, lifecycleStatus: "passed" },
     });
 
     const { container } = render(<LaunchReadinessCard readiness={readiness} />);
     expect(container.firstChild).toBeNull();
     expect(screen.queryByText("Lansering")).toBeNull();
+  });
+
+  it("döljer kortet helt när no-version är ensam OCH ingen version finns (F1, tomt projekt)", () => {
+    const readiness = buildChatReadiness({
+      blockers: [
+        {
+          id: "no-version",
+          title: "Ingen version är vald.",
+          severity: "blocker",
+          category: "blocker",
+          action: "versions",
+        },
+      ],
+      info: { ...emptyInfo, versionId: null },
+    });
+
+    const { container } = render(
+      <LaunchReadinessCard readiness={readiness} hasAnyVersion={false} />,
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("behåller kortet som kollapsad rad när no-version är ensam MEN versioner finns (F1, handlingsbart)", () => {
+    // Skyddar mot förenklingen "dölj alltid vid no-version": här FINNS versioner
+    // (t.ex. medan SWR:en laddar en chat med latestVersion), så "välj en i listan"
+    // är en konkret åtgärd som inte får gömmas.
+    const readiness = buildChatReadiness({
+      blockers: [
+        {
+          id: "no-version",
+          title: "Ingen version är vald.",
+          severity: "blocker",
+          category: "blocker",
+          action: "versions",
+        },
+      ],
+      info: { ...emptyInfo, versionId: null },
+    });
+
+    render(<LaunchReadinessCard readiness={readiness} hasAnyVersion />);
+
+    // Kollapsad rad renderas: badgen bär signalen ("1 spärr"), men detaljerna
+    // är dolda tills användaren fäller ut.
+    expect(screen.getByText("1 spärr")).toBeTruthy();
+    expect(screen.queryByText("Ingen version är vald.")).toBeNull();
+  });
+
+  it("växlar mellan kollapsat och expanderat för ett flerspärrsfall", () => {
+    const readiness = buildChatReadiness({
+      blockers: [
+        {
+          id: "version-failed",
+          title: "Koden går inte att bygga än — vi försöker reparera.",
+          severity: "blocker",
+          category: "blocker",
+          action: "versions",
+        },
+        {
+          id: "release-gate-not-green",
+          title: "Kontrollen har inte godkänt versionen.",
+          severity: "blocker",
+          category: "blocker",
+          action: "versions",
+        },
+      ],
+      info: { ...emptyInfo, lifecycleStatus: "failed" },
+    });
+
+    render(<LaunchReadinessCard readiness={readiness} hasAnyVersion />);
+
+    // Kollapsat: badge "2 spärrar", inga detaljer.
+    expect(screen.getByText("2 spärrar")).toBeTruthy();
+    expect(screen.queryByText("Koden går inte att bygga än — vi försöker reparera.")).toBeNull();
+
+    const toggle = screen.getByRole("button", { name: "Publiceringsstatus" });
+    fireEvent.click(toggle);
+    expect(
+      screen.getByText("Koden går inte att bygga än — vi försöker reparera."),
+    ).toBeTruthy();
+    expect(screen.getByText("Kontrollen har inte godkänt versionen.")).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByText("Koden går inte att bygga än — vi försöker reparera.")).toBeNull();
   });
 });

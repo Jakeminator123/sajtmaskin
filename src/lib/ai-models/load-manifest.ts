@@ -6,9 +6,7 @@ const docLinkSchema = z.object({
   title: z.string(),
   url: z.string().url(),
   /** What this doc describes: direct OpenAI/Anthropic APIs vs gateway proxy vs SDK. */
-  appliesTo: z
-    .enum(["direct_provider_api", "sdk_or_tooling"])
-    .optional(),
+  appliesTo: z.enum(["direct_provider_api", "sdk_or_tooling"]).optional(),
 });
 
 const tokenBudgetSchema = z.object({
@@ -32,7 +30,7 @@ const numericEnvSettingSchema = z.object({
   max: z.number(),
 });
 
-const _buildProfileIdSchema = z.enum(["fast", "pro", "max", "codex", "anthropic"]);
+const _buildProfileIdSchema = z.enum(["premium", "pro", "max", "codex", "anthropic"]);
 const _generationPhaseSchema = z.enum([
   "planner",
   "generator",
@@ -40,18 +38,19 @@ const _generationPhaseSchema = z.enum([
   "verifier",
   "deploy-assistant",
 ]);
-const reasoningEffortSchema = z.enum(["none", "low", "medium", "high"]);
+const reasoningEffortSchema = z.enum(["none", "low", "medium", "high", "xhigh", "max"]);
+const reasoningModeSchema = z.enum(["standard", "pro"]);
 
 const buildProfilesSchema = z.object({
   defaults: z.object({
-    fast: z.string(),
+    premium: z.string(),
     pro: z.string(),
     max: z.string(),
     codex: z.string(),
     anthropic: z.string(),
   }),
   envKeys: z.object({
-    fast: z.string(),
+    premium: z.string(),
     pro: z.string(),
     max: z.string(),
     codex: z.string(),
@@ -105,6 +104,7 @@ const phaseRoutingTierSchema = z.object({
 const phaseThinkingSchema = z.object({
   thinking: z.boolean(),
   reasoningEffort: reasoningEffortSchema,
+  reasoningMode: reasoningModeSchema.optional(),
 });
 
 const phaseThinkingTierSchema = z.object({
@@ -117,7 +117,7 @@ const phaseThinkingTierSchema = z.object({
 
 const phaseRoutingSchema = z.object({
   defaultByTier: z.object({
-    fast: phaseRoutingTierSchema,
+    premium: phaseRoutingTierSchema,
     pro: phaseRoutingTierSchema,
     max: phaseRoutingTierSchema,
     codex: phaseRoutingTierSchema,
@@ -125,7 +125,7 @@ const phaseRoutingSchema = z.object({
   }),
   thinkingByTier: z
     .object({
-      fast: phaseThinkingTierSchema,
+      premium: phaseThinkingTierSchema,
       pro: phaseThinkingTierSchema,
       max: phaseThinkingTierSchema,
       codex: phaseThinkingTierSchema,
@@ -211,6 +211,14 @@ const workloadSchema = z.object({
   authEnv: z.array(z.string()),
   defaultModel: z.string().optional(),
   fallbackModels: z.array(z.string()).optional(),
+  /**
+   * Subset of `defaultModel` + `fallbackModels` that may receive images. A
+   * workload without this key has no vision path; callers must then send text
+   * only. Declared here so the field is a contract instead of a convention —
+   * Zod strips unknown keys, so an undeclared field would vanish for TS callers
+   * while Python read it, and the two surfaces would drift silently.
+   */
+  visionModels: z.array(z.string()).optional(),
   envOverrides: z.record(z.string(), z.string()).optional(),
   tokenBudget: tokenBudgetSchema.optional(),
   notes: z.string().optional(),
@@ -269,14 +277,14 @@ const generatedSiteIntegrationPlaceholdersSchema = z.object({
  *
  * VALIDATE-ONLY: these are present in config/ai_models/manifest.json and shown
  * read-only in backoffice, but nothing in the generation pipeline consumes them
- * yet. Global routeTimeouts / repairPolicies / briefing defaults are what apply
- * at runtime. See config/control-plane/policy-registry.json
- * (manifest-per-tier-* entries, runtimeStatus "declared-only"). Do NOT wire the
- * getters below into the pipeline without flipping those registry entries.
+ * yet. Global routeTimeouts / repairPolicies are what apply at runtime.
+ * `perTierBriefing` is the exception: create-chat and clear-redesign consume
+ * its selected tier entry, with the global briefing default as fallback.
+ * See config/control-plane/policy-registry.json for each field's runtimeStatus.
  */
 function tierKeyedSchema<T extends z.ZodTypeAny>(inner: T) {
   return z.object({
-    fast: inner,
+    premium: inner,
     pro: inner,
     max: inner,
     codex: inner,
@@ -325,7 +333,7 @@ export const aiModelsManifestSchema = z.object({
   phaseRouting: phaseRoutingSchema,
   repairPolicies: repairPoliciesSchema,
   qualityGateTiers: qualityGateTiersSchema,
-  // VALIDATE-ONLY per-tier policy overrides (declared-only, not wired to runtime).
+  // Timeout/repair overrides are validate-only; perTierBriefing is runtime-wired.
   perTierTimeouts: perTierTimeoutsSchema.optional(),
   perTierRepairPolicies: perTierRepairPoliciesSchema.optional(),
   perTierBriefing: perTierBriefingSchema.optional(),
@@ -348,8 +356,7 @@ export const aiModelsManifestSchema = z.object({
   // Omitting it (or any point) keeps the current-default method, so the
   // switch is a no-op until a point is explicitly set to a new strategy.
   matching: matchingSchema.optional(),
-  generatedSiteIntegrationPlaceholders:
-    generatedSiteIntegrationPlaceholdersSchema.optional(),
+  generatedSiteIntegrationPlaceholders: generatedSiteIntegrationPlaceholdersSchema.optional(),
   workloads: z.array(workloadSchema),
 });
 
@@ -358,6 +365,7 @@ export type BuildProfileId = z.infer<typeof _buildProfileIdSchema>;
 export type QualityLevelFromManifest = z.infer<typeof _qualityLevelSchema>;
 export type GenerationPhaseFromManifest = z.infer<typeof _generationPhaseSchema>;
 export type ReasoningEffortFromManifest = z.infer<typeof reasoningEffortSchema>;
+export type ReasoningModeFromManifest = z.infer<typeof reasoningModeSchema>;
 export type PhaseRoutingTierFromManifest = z.infer<typeof phaseRoutingTierSchema>;
 export type PhaseThinkingConfigFromManifest = z.infer<typeof phaseThinkingSchema>;
 export type PhaseThinkingTierFromManifest = z.infer<typeof phaseThinkingTierSchema>;
@@ -377,23 +385,22 @@ function parseManifest(): AiModelsManifest {
   const parsed = aiModelsManifestSchema.safeParse(rawManifest);
   if (!parsed.success) {
     const detail = parsed.error.flatten();
-    throw new Error(`[sajtmaskin] Invalid config/ai_models/manifest.json: ${JSON.stringify(detail)}`);
+    throw new Error(
+      `[sajtmaskin] Invalid config/ai_models/manifest.json: ${JSON.stringify(detail)}`,
+    );
   }
   return parsed.data;
 }
 
 let cached: AiModelsManifest | null = null;
 
-const DEFAULT_PHASE_THINKING_BY_TIER: Record<
-  BuildProfileId,
-  PhaseThinkingTierFromManifest
-> = {
-  fast: {
-    planner: { thinking: true, reasoningEffort: "medium" },
-    generator: { thinking: true, reasoningEffort: "medium" },
-    fixer: { thinking: false, reasoningEffort: "medium" },
-    verifier: { thinking: false, reasoningEffort: "medium" },
-    "deploy-assistant": { thinking: false, reasoningEffort: "medium" },
+const DEFAULT_PHASE_THINKING_BY_TIER: Record<BuildProfileId, PhaseThinkingTierFromManifest> = {
+  premium: {
+    planner: { thinking: true, reasoningEffort: "high", reasoningMode: "pro" },
+    generator: { thinking: true, reasoningEffort: "high", reasoningMode: "pro" },
+    fixer: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
+    verifier: { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
+    "deploy-assistant": { thinking: true, reasoningEffort: "high", reasoningMode: "standard" },
   },
   pro: {
     planner: { thinking: true, reasoningEffort: "medium" },
@@ -532,15 +539,11 @@ function getWorkloadByIdFromManifest(
   return getAiModelsManifest().workloads.find((workload) => workload.id === workloadId);
 }
 
-export function getWorkloadDefaultModelFromManifest(
-  workloadId: string,
-): string | undefined {
+export function getWorkloadDefaultModelFromManifest(workloadId: string): string | undefined {
   return getWorkloadByIdFromManifest(workloadId)?.defaultModel;
 }
 
-export function getWorkloadFallbackModelsFromManifest(
-  workloadId: string,
-): readonly string[] {
+export function getWorkloadFallbackModelsFromManifest(workloadId: string): readonly string[] {
   return getWorkloadByIdFromManifest(workloadId)?.fallbackModels ?? [];
 }
 
@@ -569,19 +572,18 @@ export function getMatchStrategy(point: MatchPoint): MatchStrategy {
 }
 
 /**
- * VALIDATE-ONLY read-only accessors for the per-tier policy overrides.
+ * Read-only accessors for the per-tier policy overrides.
  *
- * These intentionally do NOT alter runtime behavior — they only expose the
- * validated (optional) manifest fields so backoffice/tooling can read them.
- * The generation pipeline still uses the global routeTimeouts / repairPolicies /
- * briefing defaults. See the note above `perTierTimeoutsSchema` before wiring
- * any of these into the pipeline.
+ * Timeout and repair entries remain validate-only. `perTierBriefing` is read
+ * by server auto-brief model selection; its optional shape preserves the
+ * global briefing default as a compatibility fallback.
  */
 export function getPerTierTimeoutsFromManifest(): PerTierTimeoutsFromManifest | undefined {
   return getAiModelsManifest().perTierTimeouts;
 }
 
-export function getPerTierRepairPoliciesFromManifest(): PerTierRepairPoliciesFromManifest | undefined {
+export function getPerTierRepairPoliciesFromManifest():
+  PerTierRepairPoliciesFromManifest | undefined {
   return getAiModelsManifest().perTierRepairPolicies;
 }
 
@@ -591,7 +593,6 @@ export function getPerTierBriefingFromManifest(): PerTierBriefingFromManifest | 
 
 /** Metadata for generated-site preview env placeholders (see config/ai_models/). */
 export function getGeneratedSiteIntegrationPlaceholdersMeta():
-  | z.infer<typeof generatedSiteIntegrationPlaceholdersSchema>
-  | undefined {
+  z.infer<typeof generatedSiteIntegrationPlaceholdersSchema> | undefined {
   return getAiModelsManifest().generatedSiteIntegrationPlaceholders;
 }

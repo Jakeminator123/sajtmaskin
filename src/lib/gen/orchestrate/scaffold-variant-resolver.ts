@@ -18,8 +18,13 @@ export async function resolveScaffoldVariant(
   brief: Record<string, unknown> | null,
   generationMode: "init" | "followUp",
   sessionSeed?: string,
+  /**
+   * Byggval (init controls): structured style keywords from the client,
+   * merged after the brief-derived keywords (deduped, case-insensitive).
+   */
+  extraStyleKeywords?: string[],
 ): Promise<ScaffoldVariant | null> {
-  const styleKeywords = Array.isArray(
+  const briefStyleKeywords = Array.isArray(
     (brief as { visualDirection?: { styleKeywords?: unknown } } | null)?.visualDirection
       ?.styleKeywords,
   )
@@ -31,6 +36,20 @@ export async function resolveScaffoldVariant(
           typeof keyword === "string" && keyword.trim().length > 0,
       )
     : [];
+
+  const seenStyleKeywords = new Set(
+    briefStyleKeywords.map((keyword) => keyword.trim().toLowerCase()),
+  );
+  const styleKeywords = [...briefStyleKeywords];
+  for (const keyword of extraStyleKeywords ?? []) {
+    if (typeof keyword !== "string") continue;
+    const trimmed = keyword.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (seenStyleKeywords.has(key)) continue;
+    seenStyleKeywords.add(key);
+    styleKeywords.push(trimmed);
+  }
 
   const toneKeywords = Array.isArray(
     (brief as { toneAndVoice?: unknown } | null)?.toneAndVoice,

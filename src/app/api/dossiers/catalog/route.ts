@@ -13,6 +13,7 @@
  */
 import { NextResponse } from "next/server";
 import { getAllDossiers } from "@/lib/gen/dossiers/registry";
+import { dossierRequiresF3 } from "@/lib/gen/dossiers/types";
 import { DOSSIER_GROUP_ORDER, resolveDossierGroup } from "@/lib/builder/dossier-groups";
 import type {
   DossierCatalogEntry,
@@ -36,6 +37,10 @@ export async function GET() {
       summary: entry.summary,
       summarySv: entry.summarySv,
       envVarCount: (entry.envVars ?? []).length,
+      // Same helper the wired-overview route uses — the F2/F3 boundary is
+      // derived once, never re-implemented per surface.
+      requiresF3: dossierRequiresF3(entry),
+      mock: entry.mock,
       groupId: group.id,
       groupLabel: group.label,
     };

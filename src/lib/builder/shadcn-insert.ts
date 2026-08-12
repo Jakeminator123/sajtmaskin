@@ -47,16 +47,46 @@ export type ShadcnInsertSelection = {
   /** Var valet gjordes. Styr inte prompt-innehållet — bara telemetri/copy. */
   origin: "browse" | "describe";
   /**
-   * Placeringsankare från drag-and-drop mot previewn (`buildComposerDropDetail`
-   * → `nearestInsertionPoint`): t.ex. `top`, `bottom`, `after-hero`. Saknas vid
-   * klick-insättning → prompten får dagens default ("Längst ner").
+   * Placeringsankare från drag-and-drop eller klick-placeringsläge mot previewn
+   * (`nearestInsertionPoint` / `handlePlacementClick`): t.ex. `top`, `bottom`,
+   * `after-hero`. Saknas → prompten får dagens default ("Längst ner").
    */
   placement?: string;
   /** Svensk placeringslabel för prompt-kuvertet, t.ex. "Efter Hero". */
   placementLabel?: string;
-  /** Label på den detekterade ankarsektionen (om droppen träffade en). */
+  /** Label på den detekterade ankarsektionen (om droppen/klicket träffade en). */
   anchorSectionLabel?: string;
 };
+
+/**
+ * Ankare som klick-placeringsläget returnerar innan insättningen skickas.
+ * `null` = användaren avbröt (Esc/klick utanför) → default "Längst ner".
+ */
+export type ShadcnPlacementAnchor = {
+  placement: string;
+  placementLabel: string;
+  anchorSectionLabel?: string;
+};
+
+/**
+ * Utfall från placeringspickern:
+ * - ankare → insättning med placeringsfält,
+ * - `null` → placeringsläget kunde inte visas (ingen inspector/preview) →
+ *   insättning med dagens default ("Längst ner"),
+ * - `"aborted"` → användaren avbröt (Esc/klick utanför) eller kontextbyte
+ *   (chatt-/versionsbyte, unmount) → INGEN insättning alls (bugbot-fynd: en
+ *   oavsiktlig generation får aldrig starta från ett avbrutet val).
+ */
+export type ShadcnPlacementPickResult = ShadcnPlacementAnchor | null | "aborted";
+
+/**
+ * Aktiverar befintligt placeringsläge mot previewn. Resolvar med ankare vid
+ * klick i previewn, `null` när läget inte kan visas, `"aborted"` vid
+ * avbrott/kontextbyte.
+ */
+export type ShadcnPlacementPicker = (
+  selection: ShadcnInsertSelection,
+) => Promise<ShadcnPlacementPickResult>;
 
 /**
  * Insättningshandler genom hela kedjan (`onShadcnItemInsert` →

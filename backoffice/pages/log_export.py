@@ -27,9 +27,7 @@ import streamlit as st
 
 from backoffice.shared import (
     BackofficeContext,
-    read_json,
     render_save_scope,
-    render_where_panel,
 )
 from backoffice.subprocess_runners import resolve_node_command
 
@@ -51,6 +49,7 @@ _KIND_LABELS: dict[str, tuple[str, str]] = {
     "oc": ("OpenClaw-fynd (oc_debug_findings)", "Bug-hunt (Mode B): severity, build_result, repair_outcome."),
     "ragevents": ("RAG-events (error_log_events)", "Durabel fault/fix-telemetri: fault, fix_text, result."),
     "deploys": ("Deploys (deployments)", "Vercel-deploy per sajt: deployment/project-id, url, status."),
+    "openai": ("OpenAI-webhooks (openai_webhook_events)", "Verifierade plattforms-webhooks: event-typ, status, payload."),
 }
 _DEFAULT_KINDS = ["prompts", "generations", "versions", "telemetry", "errors"]
 
@@ -156,13 +155,6 @@ def render(ctx: BackofficeContext) -> None:
         "och ladda ner som JSON/CSV. **Read-only** (SELECT). Kan peka mot dev "
         "(`.env.local`) eller produktion (`.env.vercel.production.pulled`)."
     )
-
-    domain_map = (
-        read_json(ctx.domain_map_json)
-        if ctx.domain_map_json.is_file()
-        else {"pages": {}, "repoSiblings": {}}
-    )
-    render_where_panel("Logg-export", domain_map)
     render_save_scope(
         "prod",
         note="Exporten är read-only (SELECT), men kan läsa **produktionsdatabasen** "
@@ -269,7 +261,8 @@ def render(ctx: BackofficeContext) -> None:
         value=True,
         help=(
             "Supabase-poolern uppfattas ofta som självsignerad i den här miljön "
-            "(se AGENTS.md: DB_SSL_REJECT_UNAUTHORIZED=false). Lämna ikryssad om du "
+            "(se docs/runbooks/cursor-cloud-agent.md: DB_SSL_REJECT_UNAUTHORIZED=false). "
+            "Lämna ikryssad om du "
             "får 'self-signed certificate in certificate chain'."
         ),
         key="log_export_ssl",

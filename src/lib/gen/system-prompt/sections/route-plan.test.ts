@@ -8,7 +8,11 @@ vi.mock("../recurring-failures", () => ({
   renderRecurringFailuresBlockLines: renderRecurringFailuresBlockLinesMock,
 }));
 
-import { renderRequiredImportsChecklistBlock, renderRoutePlanBlock } from "./routing-and-tooling";
+import {
+  renderExistingRoutePagesBlock,
+  renderRequiredImportsChecklistBlock,
+  renderRoutePlanBlock,
+} from "./routing-and-tooling";
 
 function makeRoutePlan(): RoutePlan {
   return {
@@ -171,5 +175,72 @@ describe("renderRoutePlanBlock recurring-pattern gating", () => {
     expect(output).toContain("Button");
     expect(output).toContain("Card");
     expect(output).toContain("Badge");
+  });
+});
+
+describe("renderExistingRoutePagesBlock", () => {
+  it("renders existing route map and anti-duplicate rules on follow-up", () => {
+    const lines = renderExistingRoutePagesBlock({
+      isFollowUp: true,
+      previousFilePaths: [
+        "app/page.tsx",
+        "app/priser/page.tsx",
+        "app/terms/page.tsx",
+        "components/site-nav.tsx",
+        "lib/utils.ts",
+      ],
+    });
+
+    const output = lines.join("\n");
+    expect(output).toContain("## Existing Route Pages (do not duplicate)");
+    expect(output).toContain("- `/`");
+    expect(output).toContain("- `/priser`");
+    expect(output).toContain("- `/terms`");
+    // Non-page files must not leak into the route map.
+    expect(output).not.toContain("site-nav");
+    expect(output).toContain(
+      "Only create NEW pages the user explicitly asked for in this request.",
+    );
+    expect(output).toContain(
+      "Never create a route that semantically duplicates an existing or requested page in another language",
+    );
+    expect(output).toContain(
+      "Do not remove or rename existing routes unless the user explicitly asked for it.",
+    );
+  });
+
+  it("normalizes src/app paths, route groups and dynamic segments", () => {
+    const lines = renderExistingRoutePagesBlock({
+      isFollowUp: true,
+      previousFilePaths: [
+        "src/app/(marketing)/om-oss/page.tsx",
+        "src/app/blogg/[slug]/page.tsx",
+      ],
+    });
+
+    const output = lines.join("\n");
+    expect(output).toContain("- `/om-oss`");
+    expect(output).toContain("- `/blogg/[slug]`");
+  });
+
+  it("renders nothing on init", () => {
+    expect(
+      renderExistingRoutePagesBlock({
+        isFollowUp: false,
+        previousFilePaths: ["app/page.tsx", "app/priser/page.tsx"],
+      }),
+    ).toEqual([]);
+  });
+
+  it("renders nothing when the previous version has no route pages", () => {
+    expect(
+      renderExistingRoutePagesBlock({
+        isFollowUp: true,
+        previousFilePaths: ["components/site-nav.tsx"],
+      }),
+    ).toEqual([]);
+    expect(
+      renderExistingRoutePagesBlock({ isFollowUp: true, previousFilePaths: null }),
+    ).toEqual([]);
   });
 });

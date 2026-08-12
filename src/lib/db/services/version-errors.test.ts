@@ -9,10 +9,15 @@ const whereSpy = vi.fn();
 const returningSpy = vi.fn();
 const insertRows = vi.fn(() => [] as unknown[]);
 const selectRows = vi.fn(() => [] as unknown[]);
+/** Fångar raderna som faktiskt skulle skrivas, så metan går att granska. */
+const insertValuesSpy = vi.fn();
 
 vi.mock("@/lib/db/client", () => {
   const insertChain = () => ({
-    values: () => ({ returning: () => Promise.resolve(insertRows()) }),
+    values: (values: unknown) => {
+      insertValuesSpy(values);
+      return { returning: () => Promise.resolve(insertRows()) };
+    },
   });
   return {
     db: {
@@ -70,6 +75,7 @@ vi.mock("next/server", () => ({ after: vi.fn() }));
 import { PgDialect } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db/client";
 import { F3_READINESS_MISSING_ENV_CATEGORY } from "@/lib/integrations/log-tier3-missing-env";
+import { PREVIEW_CLIENT_ERROR_CATEGORY } from "@/lib/builder/preview-client-error-report";
 import {
   createEngineVersionErrorLogs,
   PRUNE_EXEMPT_CATEGORIES,
@@ -148,6 +154,15 @@ describe("pruneStaleVersionErrorLogs", () => {
   it("undantagslistan täcker R7:s kategori", () => {
     expect(PRUNE_EXEMPT_CATEGORIES).toContain(F3_READINESS_MISSING_ENV_CATEGORY);
   });
+
+  /**
+   * Browser-runtime-fel från previewn (steg 3, hydration-reparationskedjan)
+   * är också gate-observationer utan `meta.repairPassIndex` — utan undantaget
+   * raderas de vid nästa rena follow-up på samma version.
+   */
+  it("undantagslistan täcker preview:client-error", () => {
+    expect(PRUNE_EXEMPT_CATEGORIES).toContain(PREVIEW_CLIENT_ERROR_CATEGORY);
+  });
 });
 
 describe("createEngineVersionErrorLogs (lock-timeout degrade)", () => {
@@ -202,5 +217,62 @@ describe("createEngineVersionErrorLogs (lock-timeout degrade)", () => {
     await expect(
       createEngineVersionErrorLogs(onePayload, { lockTimeoutMs: 3000 }),
     ).rejects.toThrow("boom");
+  });
+});
+
+describe("createEngineVersionErrorLogs — defektklassificering", () => {
+  beforeEach(() => {
+    insertValuesSpy.mockClear();
+    selectRows.mockReturnValue([]);
+  });
+
+  function writtenRows() {
+    const values = insertValuesSpy.mock.calls[0]?.[0];
+    return (Array.isArray(values) ? values : [values]) as Array<{
+      meta?: { defect?: { kind?: string; signature?: string } } | null;
+    }>;
+  }
+
+  it("sätter kind och signature på varje rad utan att anroparen ber om det", async () => {
+    await createEngineVersionErrorLogs([
+      {
+        chatId: "c1",
+        versionId: "v1",
+        level: "warning",
+        category: PREVIEW_CLIENT_ERROR_CATEGORY,
+        message: "[hydration] Hydration failed because the server rendered text didn't match.",
+        meta: { kind: "hydration" },
+      },
+    ]);
+
+    const defect = writtenRows()[0]?.meta?.defect;
+    expect(defect?.kind).toBe("hydration");
+    expect(defect?.signature).toMatch(/^[0-9a-f]{12}$/);
+  });
+
+  it("rör inte en defect som anroparen redan satt", async () => {
+    await createEngineVersionErrorLogs([
+      {
+        chatId: "c1",
+        versionId: "v1",
+        level: "error",
+        category: "syntax",
+        message: "boom",
+        meta: { defect: { kind: "compile", signature: "handpicked00" } },
+      },
+    ]);
+
+    expect(writtenRows()[0]?.meta?.defect).toEqual({
+      kind: "compile",
+      signature: "handpicked00",
+    });
+  });
+
+  it("klassificerar även när chat-uppslaget hoppas över (tom chatId)", async () => {
+    await createEngineVersionErrorLogs([
+      { chatId: "", versionId: "v1", level: "error", category: "syntax", message: "boom" },
+    ]);
+
+    expect(writtenRows()[0]?.meta?.defect?.kind).toBe("compile");
   });
 });

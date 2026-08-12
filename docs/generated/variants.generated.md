@@ -4,7 +4,7 @@
 > Source: `config/scaffold-variants/<scaffold>/<variant>.json`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/scaffold-variants/<scaffold>/<variant>.json#runtime-projection sha256:ba4a310bf3732288 -->
+<!-- source-fingerprint: config/scaffold-variants/<scaffold>/<variant>.json#runtime-projection sha256:81431cd9fe491b3d -->
 
 # Scaffold variants
 
@@ -29,7 +29,7 @@ Canonical owner: variant JSON files. Runtime consumer/validator: scaffold-varian
 | `ecommerce`    | `boutique-warm`                 | Boutique Warm                         | `light`    | No      | `DM Serif Display / Inter`                                                         | editorial storefront framing, warm surfaces, and tactile merchandising                                                 |
 | `ecommerce`    | `megastore-clean`               | Megastore Clean                       | `light`    | Yes     | `Inter / Inter`                                                                    | clean retail IA, strong faceting rhythm, and conversion-first clarity                                                  |
 | `ecommerce`    | `streetwear-bold`               | Streetwear Bold                       | `dark`     | No      | `Bebas Neue / Inter`                                                               | hard contrast, oversized type, and campaign-led product storytelling                                                   |
-| `landing-page` | `asymmetric-stack`              | Asymmetric Stack                      | `light`    | No      | `Fraunces / Inter`, `Bricolage Grotesque / Inter`, `Instrument Serif / DM Sans`    | alternating left/right typography blocks, floating fragments bleed across boundaries, vertical rhythm not hero-split   |
+| `landing-page` | `asymmetric-stack`              | Asymmetric Stack                      | `light`    | No      | `Fraunces / Inter`, `Bricolage Grotesque / Inter`, `Instrument Serif / DM Sans`    | alternating left/right typography blocks, floating fragments across boundaries, tall rhythm with deliberate space      |
 | `landing-page` | `bold-startup`                  | Bold Startup                          | `dark`     | No      | `Space Grotesk / Inter`, `Bricolage Grotesque / Plus Jakarta Sans`                 | high-contrast headlines, sharp gradients, and velocity-driven proof blocks                                             |
 | `landing-page` | `corporate-grid`                | Corporate Grid                        | `light`    | Yes     | `Manrope / Inter`, `Plus Jakarta Sans / IBM Plex Sans`                             | B2B trust signals, partner logos, enterprise case studies, and measured consulting hierarchy on a precise neutral grid |
 | `landing-page` | `editorial-lux`                 | Editorial Lux                         | `dark`     | No      | `Cormorant Garamond / Raleway`, `EB Garamond / Outfit`                             | editorial framing, premium contrast, and restrained luxury accents                                                     |

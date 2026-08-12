@@ -6,6 +6,87 @@ import { isNodeCoreModule } from "@/lib/gen/validation/node-core-modules";
 const PACKAGE_SOURCE_PATTERN = String.raw`((?:@[^/"']+\/[^"']+)|(?:[^"'./@][^"']*))`;
 
 /**
+ * Stale-lockfile protocol (prod incident 2026-07-31, chat 0d52e5c9 → radix-ui).
+ *
+ * When we mutate `package.json` (pin a missing dependency) while a lockfile
+ * exists, the lockfile is now inaccurate. The preview host must run its package
+ * manager WITHOUT `--frozen-lockfile` once (otherwise `pnpm install
+ * --frozen-lockfile` against warm `node_modules` answers "Already up to date",
+ * exit 0, installs nothing, and the new dependency fingerprint is stamped →
+ * runtime shows a Next build-error overlay forever). We signal that by writing
+ * this sentinel into the project files; the host reads it, runs one non-frozen
+ * install, regenerates the lockfile, and returns it so it can be persisted back
+ * into `engine_versions.files_json` (clearing this marker in the same write).
+ *
+ * This is NOT "delete the lockfile as a general fix" — the lockfile is kept and
+ * regenerated; only the frozen mode is skipped for exactly one install.
+ *
+ * The path + JSON shape are a cross-process contract with
+ * `preview-host/src/runtime.js` (`LOCKFILE_STALE_MARKER_PATH`,
+ * `readStaleLockfileMarker`). Keep both sides in sync.
+ */
+export const LOCKFILE_STALE_MARKER_PATH = ".sajtmaskin/lockfile-stale.json";
+
+export type LockfilePackageManager = "pnpm" | "yarn" | "npm";
+
+/**
+ * Detect which package manager's lockfile the file set carries, or null when
+ * there is no lockfile (nothing to mark stale — a fresh `install` regenerates
+ * from scratch anyway).
+ */
+export function detectLockfilePackageManager<T extends { path: string }>(
+  files: readonly T[],
+): LockfilePackageManager | null {
+  const paths = new Set(files.map((f) => f.path.replace(/\\/g, "/")));
+  if (paths.has("pnpm-lock.yaml") || paths.has("pnpm-lock.yml")) return "pnpm";
+  if (paths.has("yarn.lock")) return "yarn";
+  if (paths.has("package-lock.json")) return "npm";
+  return null;
+}
+
+/** Build the stale-lockfile sentinel JSON body (host-readable shape). */
+export function buildStaleLockfileMarkerContent(params: {
+  reason: string;
+  packageManager: LockfilePackageManager;
+  mutatedAt?: string;
+}): string {
+  return JSON.stringify(
+    {
+      reason: params.reason,
+      packageManager: params.packageManager,
+      mutatedAt: params.mutatedAt ?? new Date().toISOString(),
+    },
+    null,
+    2,
+  );
+}
+
+/**
+ * Add (or replace) the stale-lockfile sentinel in a file set. Returns a new
+ * array; the original is not mutated. Callers only invoke this when they both
+ * mutated `package.json` AND a lockfile is present (see
+ * {@link detectLockfilePackageManager}).
+ */
+export function markLockfileStaleInFiles<T extends { path: string; content: string }>(
+  files: readonly T[],
+  params: { reason: string; packageManager: LockfilePackageManager; makeFile: (path: string, content: string) => T },
+): T[] {
+  const content = buildStaleLockfileMarkerContent({
+    reason: params.reason,
+    packageManager: params.packageManager,
+  });
+  const idx = files.findIndex(
+    (f) => f.path.replace(/\\/g, "/") === LOCKFILE_STALE_MARKER_PATH,
+  );
+  if (idx >= 0) {
+    const next = [...files];
+    next[idx] = params.makeFile(LOCKFILE_STALE_MARKER_PATH, content);
+    return next;
+  }
+  return [...files, params.makeFile(LOCKFILE_STALE_MARKER_PATH, content)];
+}
+
+/**
  * Static dependency sources in generated code. Supports:
  * - `import x from "pkg"`
  * - `import "pkg/styles.css"`
@@ -367,6 +448,94 @@ export function mergeMissingDependenciesIntoPackageJson(
     nextPackageJson.dependencies = dependencies;
   }
   return { packageJson: nextPackageJson, mergedCount };
+}
+
+const PROJECT_CODE_FILE_RE = /\.(?:tsx?|jsx?|mjs|cjs)$/i;
+
+/**
+ * Deterministic project-wide dependency completion for imported repos
+ * (v0 templates / ZIP / GitHub imports).
+ *
+ * Imported repos skip `buildCompleteProject` (verbatim policy — no baseline
+ * force-pins, no scaffold deps), so a follow-up that introduces a new import
+ * (e.g. `@clerk/nextjs`) without emitting `package.json` used to leave the
+ * template's own `package.json` untouched. The preview host fingerprints only
+ * `package.json` + lockfiles, so install was skipped and the runtime 500:ade
+ * on the missing module (prod chat 0d52e5c9, 2026-07-31).
+ *
+ * This helper scans every code file for third-party imports and merges the
+ * ones with a KNOWN version pin into the project's EXISTING `package.json`.
+ * It never touches already-declared versions (dependencies or
+ * devDependencies), so template framework majors and lockfile identities stay
+ * intact. Unknown packages are reported but never pinned — guessing "latest"
+ * for an arbitrary specifier could break an install that currently works.
+ */
+export function completeProjectDependencies<
+  T extends { path: string; content: string },
+>(
+  files: T[],
+): {
+  files: T[];
+  pinnedDependencies: Record<string, string>;
+  unknownPackages: string[];
+} {
+  const pkgIdx = files.findIndex((file) => file.path === "package.json");
+  if (pkgIdx === -1) {
+    return { files, pinnedDependencies: {}, unknownPackages: [] };
+  }
+
+  let pkg: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(files[pkgIdx].content) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { files, pinnedDependencies: {}, unknownPackages: [] };
+    }
+    pkg = parsed as Record<string, unknown>;
+  } catch {
+    return { files, pinnedDependencies: {}, unknownPackages: [] };
+  }
+
+  const declared = new Set([
+    ...Object.keys(toDependencyRecord(pkg.dependencies)),
+    ...Object.keys(toDependencyRecord(pkg.devDependencies)),
+  ]);
+
+  const collected: Record<string, string> = {};
+  const unknown = new Set<string>();
+  for (const file of files) {
+    if (!PROJECT_CODE_FILE_RE.test(file.path)) continue;
+    const result = runDepCompleter(file.content);
+    for (const [name, version] of Object.entries(result.dependencies)) {
+      if (declared.has(name)) continue;
+      collected[name] = version;
+    }
+    for (const name of result.unknownPackages) {
+      if (!declared.has(name)) unknown.add(name);
+    }
+  }
+
+  if (Object.keys(collected).length === 0) {
+    return { files, pinnedDependencies: {}, unknownPackages: [...unknown] };
+  }
+
+  const { packageJson, mergedCount } = mergeMissingDependenciesIntoPackageJson(
+    pkg,
+    collected,
+  );
+  if (mergedCount === 0) {
+    return { files, pinnedDependencies: {}, unknownPackages: [...unknown] };
+  }
+
+  const nextFiles = [...files];
+  nextFiles[pkgIdx] = {
+    ...files[pkgIdx],
+    content: JSON.stringify(packageJson, null, 2),
+  };
+  return {
+    files: nextFiles,
+    pinnedDependencies: collected,
+    unknownPackages: [...unknown],
+  };
 }
 
 /**

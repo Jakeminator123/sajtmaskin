@@ -42,7 +42,10 @@ import {
 import { resolveModelSelection } from "@/lib/models/selection";
 import { wrapStreamForPromptToDoneMetric } from "@/lib/observability/prompt-to-done-stream";
 import {
+  FOLLOW_UP_CLARIFICATION_ANSWER_HEADING,
   buildAwaitingClarificationStream,
+  classifyFollowUpClarificationAnswerIntent,
+  collectFollowUpClarificationAnswer,
   persistFollowUpClarification,
   resolveFollowUpClarification,
   shouldIgnorePersistedScaffoldForMatch,
@@ -76,6 +79,7 @@ import {
 } from "./f3-continuation-phase";
 import { runF3ReadinessGate } from "./f3-readiness-gate";
 import { recordFollowUpPromptLog } from "./follow-up-prompt-log";
+import { recordPlanModeCreditGateRejectedDetached } from "./plan-mode-trace";
 import { runPlanModeTurn } from "./plan-mode-turn";
 
 /** Follow-up chat stream (own-engine). Route files set `runtime` / `maxDuration`. */
@@ -121,6 +125,7 @@ export async function handleMessageStreamRequest(
         imageGenerations,
         system,
         meta,
+        promptSource,
       } =
         validationResult.data;
       const requestAttachments = normalizeRequestAttachments(attachments);
@@ -241,6 +246,15 @@ export async function handleMessageStreamRequest(
         const metaPromptAssistMode = parsedMeta.promptAssistMode;
         const designReferences = summarizeDesignReferences(requestAttachments);
         const contractAnswerContext = collectConfirmedContractAnswers(engineChat.messages, message);
+        // Scope-clarification retry (prod chat e8bd3ba6): when the previous
+        // turn stopped on a follow-up scope clarification and the current
+        // message is one of its quick-reply options, recover the ORIGINAL
+        // detailed request — the option text alone must never become the
+        // whole generation prompt.
+        const followUpClarificationAnswer = collectFollowUpClarificationAnswer(
+          engineChat.messages,
+          message,
+        );
 
         if (metaAppProjectId && engineChat.project_id !== metaAppProjectId) {
           // IDOR guard: the caller can request a re-mapping to any
@@ -270,7 +284,11 @@ export async function handleMessageStreamRequest(
         }
 
         const promptOrchestration = orchestratePromptMessage({
-          message,
+          // On a consumed scope-clarification answer, orchestrate the ORIGINAL
+          // request so the follow-up wrapping below carries the user's detailed
+          // instructions as the "Requested Changes" body (the chosen option is
+          // re-attached in the clarification-answer wrapper further down).
+          message: followUpClarificationAnswer?.sourceUserMessage ?? message,
           buildMethod: metaBuildMethod,
           buildIntent: metaBuildIntent,
           isFirstPrompt: false,
@@ -414,23 +432,38 @@ export async function handleMessageStreamRequest(
 
         const skipIntentClassification =
           metaPromptSourcePreservePayload || metaPromptSourceTechnical;
-        // Contract-gate retries send a short answer as the current message.
-        // Classify intent against the original gated request so clear-redesign
-        // keeps its delta-brief/scaffold-unlock semantics on turn 2.
+        // Contract-gate retries and scope-clarification answers send a short
+        // reply as the current message. Classify intent against the original
+        // gated request so clear-redesign keeps its delta-brief/scaffold-unlock
+        // semantics on turn 2.
         const followUpIntentMessage =
           contractAnswerContext.currentReplyWasConsumed &&
           contractAnswerContext.consumedReplyContext?.sourceUserMessage
             ? contractAnswerContext.consumedReplyContext.sourceUserMessage
-            : message;
+            : (followUpClarificationAnswer?.sourceUserMessage ?? message);
+        // A consumed clarification answer must never stop the turn again with
+        // a new scope question — the user just answered one.
         const skipFollowUpClarification =
-          skipIntentClassification || contractAnswerContext.currentReplyWasConsumed;
+          skipIntentClassification ||
+          contractAnswerContext.currentReplyWasConsumed ||
+          followUpClarificationAnswer !== null;
         // Backoffice 2.0 fas 6: strategy-aware classification. Default
         // manifest config is "keyword", so this resolves to the exact same
         // deterministic result as before; only an explicit `small-llm` opt-in
         // takes the LLM path (with fail-safe fallback to the same keyword
         // classifier). See follow-up-intent-router.ts.
         const followUpIntent = hasFollowUpBase && !skipIntentClassification
-          ? await classifyFollowUpIntentWithStrategy(followUpIntentMessage)
+          ? followUpClarificationAnswer
+            ? // The chosen quick-reply carries the intent the original prompt
+              // lacked ("Gör en tydlig redesign …" → clear-redesign). Classify
+              // answer-first so delta-brief/scaffold-unlock still fire, while
+              // capability detection and the wrapper below keep reading the
+              // original detailed request.
+              classifyFollowUpClarificationAnswerIntent(
+                followUpClarificationAnswer.answer,
+                followUpClarificationAnswer.sourceUserMessage,
+              )
+            : await classifyFollowUpIntentWithStrategy(followUpIntentMessage)
           : "neutral";
         // Plan 06 (2026-04-24): detect dossier-mappable capabilities in the
         // follow-up text so `selectDossiersForRequest` actually sees the
@@ -511,21 +544,27 @@ export async function handleMessageStreamRequest(
 
         // Delta-brief for clear-redesign follow-ups (see
         // `runClearRedesignDeltaBriefPhase` — also writes back to
-        // `parsedMeta.brief`).
-        metaBrief = await runClearRedesignDeltaBriefPhase({
+        // `parsedMeta.brief`). The phase may skip its LLM pass for an
+        // OpenClaw-prepared prompt (`promptSource: "openclaw-prepared"`,
+        // OC_EDIT-gated) — `skipReason` is telemetry-only.
+        const deltaBriefPhase = await runClearRedesignDeltaBriefPhase({
           chatId,
           engineChat,
           followUpIntent,
           hasFollowUpBase,
           followUpIntentMessage,
+          message,
+          requestPromptSource: typeof promptSource === "string" ? promptSource : null,
           metaScaffoldMode,
           metaScaffoldId,
           metaBuildIntent,
           metaPromptAssistModel,
+          resolvedModelTier,
           resolvedImageGenerations,
           req,
           parsedMeta,
         });
+        metaBrief = deltaBriefPhase.brief;
 
         if (hasFollowUpBase) {
           const followUpFileContext = buildFollowUpFileContextDecision({
@@ -607,6 +646,25 @@ export async function handleMessageStreamRequest(
           }
         }
 
+        if (followUpClarificationAnswer) {
+          // Mirror of the contract-answer wrapper: the trailing body is the
+          // ORIGINAL request (already orchestrated + follow-up-wrapped above),
+          // so the LLM sees both the detailed instructions and the chosen
+          // scope option.
+          optimizedMessage = wrapWithSection({
+            heading: FOLLOW_UP_CLARIFICATION_ANSWER_HEADING,
+            introLines: [
+              "The user is answering the previous scope clarification question about their follow-up request.",
+              `Question: ${followUpClarificationAnswer.question}`,
+              `Answer: ${followUpClarificationAnswer.answer}`,
+              "",
+              "Apply the user's original request below with this confirmed scope. Do not ask the same clarification again.",
+            ],
+            divider: true,
+            trailingBody: optimizedMessage,
+          });
+        }
+
         optimizedMessage = await appendHydratedTextAttachmentExcerpts(
           optimizedMessage,
           requestAttachments,
@@ -623,6 +681,21 @@ export async function handleMessageStreamRequest(
           sessionId,
         });
         if (!creditCheck.ok) {
+          // Grinden ligger före prompt-loggen och före user-raden, så ett avslag
+          // i plan-läget lämnade tidigare inget durabelt spår alls — en av de
+          // öppna kandidaterna bakom prod-chatten 785c8d7a. Se plan-mode-trace.
+          if (metaPlanMode) {
+            recordPlanModeCreditGateRejectedDetached({
+              chatId,
+              sessionId,
+              userId: usageOwnerId,
+              appProjectId: metaAppProjectId,
+              modelTier: resolvedModelTier,
+              status: creditCheck.response.status,
+              cost: creditCheck.cost,
+              promptChars: message.length,
+            });
+          }
           return attachSessionCookie(creditCheck.response);
         }
         // The host enforces this opaque subject lease before it creates a
@@ -698,6 +771,8 @@ export async function handleMessageStreamRequest(
             requestAttachments,
             commitCreditsOnce,
             promptStartedAt,
+            sessionId,
+            usageOwnerId,
             req,
             attachSessionCookie,
           });
@@ -759,6 +834,7 @@ export async function handleMessageStreamRequest(
           metaEngineBaseVersionId,
           parsedMeta,
           metaBrief,
+          deltaBriefSkipReason: deltaBriefPhase.skipReason,
           hasPersistedBrief,
           resolvedModelId,
           resolvedModelTier,

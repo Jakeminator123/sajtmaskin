@@ -166,3 +166,130 @@ describe("reconcileTerminalDbState", () => {
     expect(out.degradations).toHaveLength(1);
   });
 });
+
+/**
+ * Innehållsrevision steg 3, bugg-typ 3: en terminal bus-status kan beskriva ett
+ * äldre innehåll (user-edit via `/files` skriver om `files_json` medan bussen —
+ * per-instans in-memory — behåller sitt `done`).
+ *
+ * Regressionsfällan planen namnger är förslag 2: att låta DB-`pending` degradera
+ * ett terminalt `done`. Bus-`done` + DB-`pending` är OCKSÅ det normala
+ * render-first-läget mellan finalize och bakgrundsverify, så det skulle flappa
+ * varje normal generation tillbaka till spinner. Därför testas render-first
+ * uttryckligen som en no-op nedan.
+ */
+describe("reconcileTerminalDbState — innehållsrevision (steg 3)", () => {
+  const REVISION_VERDICT = "1".repeat(32);
+  const REVISION_CURRENT = "2".repeat(32);
+
+  it("degraderar ett terminalt done vars verdikt gäller en äldre revision — utan att röra fasen", () => {
+    const done = makeStatus({ phase: "done", done: true });
+
+    const out = reconcileTerminalDbState(done, "pending", "draft", {
+      verdictRevision: REVISION_VERDICT,
+      currentRevision: REVISION_CURRENT,
+    });
+
+    // Fasen är kvar terminal: klientens poll-stopp och terminal-detektering
+    // påverkas inte, det är bara claimen som degraderas.
+    expect(out.phase).toBe("done");
+    expect(out.done).toBe(true);
+    expect(out.degradations).toHaveLength(1);
+    expect(out.degradations[0]?.kind).toBe("stale_content_revision");
+    expect(out.degradations[0]?.meta).toEqual({
+      verdictRevision: REVISION_VERDICT,
+      currentRevision: REVISION_CURRENT,
+    });
+  });
+
+  it("rör INTE det normala render-first-fönstret (samma revision, DB pending)", () => {
+    const done = makeStatus({ phase: "done", done: true });
+
+    const out = reconcileTerminalDbState(done, "pending", "draft", {
+      verdictRevision: REVISION_CURRENT,
+      currentRevision: REVISION_CURRENT,
+    });
+
+    expect(out).toBe(done);
+    expect(out.degradations).toHaveLength(0);
+  });
+
+  it("okänd revision degraderar ingenting (fail-open, beslut 1b)", () => {
+    const done = makeStatus({ phase: "done", done: true });
+
+    expect(
+      reconcileTerminalDbState(done, "pending", "draft", {
+        verdictRevision: null,
+        currentRevision: REVISION_CURRENT,
+      }),
+    ).toBe(done);
+    expect(
+      reconcileTerminalDbState(done, "pending", "draft", {
+        verdictRevision: REVISION_VERDICT,
+        currentRevision: null,
+      }),
+    ).toBe(done);
+  });
+
+  it("utan revisionskontext (flagga av hos anroparen) är funktionen oförändrad", () => {
+    const done = makeStatus({ phase: "done", done: true });
+    expect(reconcileTerminalDbState(done, "pending", "draft")).toBe(done);
+  });
+
+  it("ett terminalt failed förblir rött men bär noten (att måla om rött vore false-green)", () => {
+    const failed = makeStatus({ phase: "failed" });
+
+    const out = reconcileTerminalDbState(failed, "failed", "draft", {
+      verdictRevision: REVISION_VERDICT,
+      currentRevision: REVISION_CURRENT,
+    });
+
+    expect(out.phase).toBe("failed");
+    expect(out.degradations[0]?.kind).toBe("stale_content_revision");
+  });
+
+  it("degraderar inte en icke-terminal status — där finns ingen claim att degradera", () => {
+    const verifying = makeStatus({ phase: "verifying" });
+
+    const out = reconcileTerminalDbState(verifying, "pending", "draft", {
+      verdictRevision: REVISION_VERDICT,
+      currentRevision: REVISION_CURRENT,
+    });
+
+    expect(out).toBe(verifying);
+  });
+
+  it("dubblerar inte noten om den redan finns", () => {
+    const done = makeStatus({
+      phase: "done",
+      done: true,
+      degradations: [{ kind: "stale_content_revision", message: "redan noterad", meta: null }],
+    });
+
+    const out = reconcileTerminalDbState(done, "pending", "draft", {
+      verdictRevision: REVISION_VERDICT,
+      currentRevision: REVISION_CURRENT,
+    });
+
+    expect(out).toBe(done);
+    expect(out.degradations).toHaveLength(1);
+  });
+
+  it("bevarar befintliga degraderingar och lägger noten sist", () => {
+    const done = makeStatus({
+      phase: "done",
+      done: true,
+      degradations: [{ kind: "product_postcheck_skipped", message: "skip", meta: null }],
+    });
+
+    const out = reconcileTerminalDbState(done, "passed", "promoted", {
+      verdictRevision: REVISION_VERDICT,
+      currentRevision: REVISION_CURRENT,
+    });
+
+    expect(out.degradations.map((d) => d.kind)).toEqual([
+      "product_postcheck_skipped",
+      "stale_content_revision",
+    ]);
+  });
+});

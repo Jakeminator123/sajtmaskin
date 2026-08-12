@@ -66,7 +66,7 @@ const DEFAULT_MODEL = "gpt-5.5";
 /** Per-file cap keeps worst-case prompt size bounded (biggest prospect ≈ 30 kb total). */
 const MAX_FILE_CHARS = 12_000;
 
-interface ProspectPlan {
+export interface ProspectPlan {
   legacyId: string;
   targetId: string;
   targetClass: "hard" | "soft";
@@ -145,7 +145,7 @@ interface KeepFileMapping {
   to: string;
 }
 
-interface ReviewOutput {
+export interface ReviewOutput {
   verdict: "accept" | "reject";
   reason?: string;
   concerns?: string[];
@@ -155,7 +155,7 @@ interface ReviewOutput {
   instructions?: string;
 }
 
-function buildSystemPrompt(plan: ProspectPlan): string {
+export function buildSystemPrompt(plan: ProspectPlan): string {
   const today = new Date().toISOString().slice(0, 10);
   return `You are a STRICT reviewer + normalizer for "dossiers" — small reusable capability modules injected into a website-generation LLM pipeline (Sajtmaskin). You receive ONE legacy (v1) dossier: its old manifest, instructions and extracted source files. Your job:
 
@@ -167,10 +167,10 @@ B) If acceptable, produce:
    - class: "${plan.targetClass}" (encoded by folder, NOT a manifest field — do not emit a "class" field)
    - capability: "${plan.targetCapability}"
    - defaultForCapability: ${plan.defaultForCapability}
-   Manifest schema (additionalProperties=false — legacy fields like category/kind/qualityScore/tags/scaffoldFit/providers/description/_status MUST be dropped):
+   Manifest schema (additionalProperties=false — legacy fields like category/kind/qualityScore/tags/scaffoldFit/description/_status MUST be dropped; legacy provider claims MUST NOT be copied blindly):
    {
      "id", "label" (2-80 chars), "capability", "codeFidelity": "verbatim"|"rewritable",
-     "complexity": "simple"|"medium"|"advanced", "defaultForCapability": boolean,
+${plan.targetClass === "hard" ? '     "providers": ["canonical-kebab-provider-id"],\n' : ""}     "complexity": "simple"|"medium"|"advanced", "defaultForCapability": boolean,
      "summary" (30-600 chars, written for an LLM deciding WHEN to use the dossier, no marketing),
      "envVars": [{"key" (SCREAMING_SNAKE), "required": bool, "purpose" (10-400 chars),
                   "enforcement": "build"|"feature-runtime"|"warn-only"}],
@@ -179,6 +179,7 @@ B) If acceptable, produce:
                 "injectionMode": "verbatim"|"rewritable" (optional per-file override)}],
      "exposes": [{"name", "type": "component"|"function"|"hook"|"constant", "import"}],
      "lastVerified": "${today}",
+     "verificationStatus": "unverified",
      "sourceRepoUrl" (optional), "notes" (optional, ≤600 chars, curator-facing),
      "promptInstructionMode": "compact"|"selected-sections"|"full" (optional)
    }
@@ -197,6 +198,7 @@ Domain rules (Sajtmaskin contracts — violating these means reject or flag):
 - enforcement semantics: "build" = a real secret is required before the integrations build (F3) can succeed (placeholder crashes the deploy). "feature-runtime" = SDK imported but UI degrades gracefully (config banner / 503 route) when the value is missing. "warn-only" = code self-disables silently on empty value. Choose per key based on how the CODE actually behaves, not aspiration.
 - Env-dependent SDK clients must NOT be constructed at module top-level (import-time crash breaks the enforcement contract). If the code does this, list it under requiredCodeChanges (accept) or reject if pervasive.
 - codeFidelity: "verbatim" for integration glue (webhooks, auth callbacks, SDK init, API routes — protected from creative rewriting); "rewritable" for UI. Use per-file injectionMode when mixed.
+- providers: for class "hard", emit a non-empty array of canonical provider identities confirmed by the shipped SDK/API; for class "soft", OMIT the property entirely. Re-derive this from the code and source material rather than copying a legacy label.
 - class "soft" must be fully self-contained: NO envVars with enforcement "build" and NO files with role "server". If the material cannot satisfy that, reject (the plan's class is fixed).
 - envVars: only keys the shipped code actually reads. purpose should say what it does + where to get it.
 - dependencies: only packages the kept files import. Prefer unpinned names unless a major-version pin is required.
@@ -210,9 +212,7 @@ function buildUserPrompt(
   legacyInstructions: string | null,
   files: { relPath: string; body: string }[],
 ): string {
-  const fileBlocks = files
-    .map((f) => `### ${f.relPath}\n\`\`\`\n${f.body}\n\`\`\``)
-    .join("\n\n");
+  const fileBlocks = files.map((f) => `### ${f.relPath}\n\`\`\`\n${f.body}\n\`\`\``).join("\n\n");
   return `Curation plan for this prospect:
 - legacyId: ${plan.legacyId}
 - targetId: ${plan.targetId}
@@ -245,7 +245,8 @@ const RESPONSE_SCHEMA = {
     requiredCodeChanges: {
       type: "array",
       items: { type: "string" },
-      description: "Code fixes a human/agent must apply before promotion (e.g. lazy-init an SDK client).",
+      description:
+        "Code fixes a human/agent must apply before promotion (e.g. lazy-init an SDK client).",
     },
     keepFiles: {
       type: "array",
@@ -255,7 +256,10 @@ const RESPONSE_SCHEMA = {
         required: ["from", "to"],
         properties: {
           from: { type: "string", description: "Input path exactly as given." },
-          to: { type: "string", description: "v2 dossier path (components/...), equals manifest files[].path." },
+          to: {
+            type: "string",
+            description: "v2 dossier path (components/...), equals manifest files[].path.",
+          },
         },
       },
     },
@@ -317,7 +321,7 @@ interface MechanicalCheckResult {
 }
 
 /** Deterministic guards the LLM cannot talk its way past. */
-function runMechanicalChecks(
+export function runMechanicalChecks(
   plan: ProspectPlan,
   output: ReviewOutput,
   prospectDir: string,
@@ -325,6 +329,7 @@ function runMechanicalChecks(
   const errors: string[] = [];
   const manifest = output.manifest as
     | {
+        providers?: unknown;
         envVars?: { key?: string; enforcement?: string }[];
         files?: { path?: string; role?: string }[];
       }
@@ -366,9 +371,18 @@ function runMechanicalChecks(
       errors.push(`manifest.files path not in keepFiles.to: ${file.path}`);
     }
   }
-  if (plan.targetClass === "soft") {
+  if (plan.targetClass === "hard") {
+    if (!Array.isArray(manifest.providers) || manifest.providers.length === 0) {
+      errors.push("hard dossier must declare a non-empty providers array");
+    }
+  } else {
+    if (Object.prototype.hasOwnProperty.call(manifest, "providers")) {
+      errors.push("soft dossier must omit providers");
+    }
     if ((manifest.envVars ?? []).some((e) => (e.enforcement ?? "build") === "build")) {
-      errors.push("soft dossier must not have build-enforced envVars (dossierRequiresF3 would flip)");
+      errors.push(
+        "soft dossier must not have build-enforced envVars (dossierRequiresF3 would flip)",
+      );
     }
     if ((manifest.files ?? []).some((f) => f.role === "server")) {
       errors.push("soft dossier must not ship files with role 'server'");
@@ -389,17 +403,16 @@ interface ReportRow {
   at: string;
 }
 
-function writeDraft(
-  plan: ProspectPlan,
-  output: ReviewOutput,
-  prospectDir: string,
-): void {
+function writeDraft(plan: ProspectPlan, output: ReviewOutput, prospectDir: string): void {
   const draftDir = join(prospectDir, "_v2-draft");
   rmSync(draftDir, { recursive: true, force: true });
   mkdirSync(draftDir, { recursive: true });
   const manifest = {
     $schema: "../../../../docs/schemas/strict/dossier.schema.json",
     ...(output.manifest as Record<string, unknown>),
+    // A normalized legacy prospect is still a draft. Never inherit or invent
+    // accepted evidence from the source snapshot.
+    verificationStatus: "unverified",
   };
   writeFileSync(join(draftDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf-8");
   writeFileSync(join(draftDir, "instructions.md"), output.instructions ?? "", "utf-8");
@@ -496,7 +509,9 @@ async function main() {
       continue;
     }
 
-    console.log(`[normalize] ${plan.legacyId} → ${plan.targetClass}/${plan.targetId} (${args.model})`);
+    console.log(
+      `[normalize] ${plan.legacyId} → ${plan.targetClass}/${plan.targetId} (${args.model})`,
+    );
     const t0 = Date.now();
     const output = await reviewProspect(openai, args.model, plan, prospectDir);
     const elapsed = Math.round((Date.now() - t0) / 1000);

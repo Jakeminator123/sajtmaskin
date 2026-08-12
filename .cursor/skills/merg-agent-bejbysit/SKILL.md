@@ -2,7 +2,7 @@
 name: merg-agent-bejbysit
 description: >-
   Sätter agenten i rollen som stående merge-agent för Sajtmaskin: tar först ett
-  rollansvarstest (rätt checkout, ren tree, master i synk, gh-åtkomst), sveper
+  rollansvarstest (rätt checkout, ingen lokal master-commit, gh-åtkomst), sveper
   sedan alla öppna PR:er, verifierar att buggranskning är gjord och triagerad,
   och mergar de som är gröna + mogna enligt 15-min-regeln (minsta av
   head-synlighet och PR-ålder, så både en sen push och en gammal lokal commit i
@@ -37,8 +37,7 @@ Set-Location <repo-rot>; git rev-parse --show-toplevel; git status --short --bra
 |---|---|
 | Rätt plats | Du står i **huvudcheckouten** (`git rev-parse --show-toplevel` = repo-roten), inte en worktree |
 | På trunk | HEAD är `master` |
-| Ren tree | `git status --short` är tom — främmande ocommitterat arbete = avböj, rör det aldrig |
-| Master i synk | `git rev-list --left-right --count origin/master...HEAD` = `0 0`. Är du efter: `git pull --ff-only`. Är du **före** = någon har committat lokalt på master → avböj och rapportera |
+| Ingen lokal master-commit | `git rev-list --left-right --count origin/master...HEAD` — är högersiffran > 0 har någon committat lokalt på master → avböj och rapportera |
 | GitHub-åtkomst | `gh auth status` visar inloggad |
 | Ensam mutator | Ingen annan agent håller på att merga just nu (fråga användaren vid tvekan) |
 
@@ -46,13 +45,27 @@ Accepterar du: säg det i en mening och gå vidare. Håll dig sedan i huvudcheck
 under hela passet — merge-agenten checkar aldrig ut branches, gör aldrig rebase och
 committar aldrig till master.
 
+**Varken ocommitterat arbete eller en eftersläpande lokal master avböjer rollen.**
+Merge-agenten arbetar via `gh` och rör aldrig working tree, så inget av det
+påverkar dess uppgift. Ocommitterat är dessutom normalt pågående arbete enligt
+[`git.mdc`](../../rules/git.mdc) — rör det inte, staga det aldrig.
+
+Ligger du efter origin: kör `git pull --ff-only` för ordningens skull. Felar den
+(t.ex. för att ocommitterat arbete skulle skrivas över) — notera det och gå vidare
+ändå. Att göra den pullen till ett rollkrav skulle låsa agenten ute permanent så
+fort någon har en fil öppen, och det skyddar ingenting.
+
+Det enda som avböjer är att någon **committat lokalt på master**: det är arbete
+som ingen PR äger, och det ska redas ut innan något mergas.
+
 ## Steg 1 — svep läget (billigt)
 
 ```powershell
-gh pr list --state open --json number,title,isDraft,createdAt,labels --jq '.[] | "\(.number)|\(.title)|draft=\(.isDraft)|\(.createdAt)"'
+gh pr list --state open --json number,title,isDraft,createdAt,labels,author --jq '.[] | "\(.number)|\(.title)|draft=\(.isDraft)|\(.createdAt)|\(.author.login)|\([.labels[].name] | join(","))"'
 ```
 
-Hoppa över drafts. Ta en PR i taget, äldst först.
+Hoppa över drafts. Ta en PR i taget, äldst först. Labels och författare kostar
+inget extra att hämta här och avgör i Steg 3 om PR:en över huvud taget får röras.
 
 ## Steg 2 — per PR: checks, mognad, fynd
 
@@ -69,12 +82,8 @@ Frågan är **"är varje fynd på den här PR:en åtgärdat på nuvarande head?"
 "har något nytt landat sedan jag sist tittade?". Ett fynd hör till en SHA och till
 om det är fixat, inte till när du råkade titta.
 
-Ett tidsfilter felar åt **båda** hållen, och båda inträffade 2026-07-25:
-
-| Fel | Vad som hände |
-|---|---|
-| Filtrerar bort ett olöst fynd | #610 mergades förbi ett Vercel-fynd från 05:47 eftersom svepet frågade efter fynd nyare än 05:55. Författarens sista fix kapades och fick bli #619 |
-| Blockerar på ett redan löst fynd | #613 blockerades på tre fynd som låg på en äldre commit och var åtgärdade sedan länge. Kostade en aktiv agent en runda i onödan |
+Ett tidsfilter felar åt **båda** hållen — det har både släppt förbi ett olöst fynd
+och blockerat på ett redan löst ([`references/incidenter.md`](references/incidenter.md)).
 
 Hämta därför alltid hela listan och jämför varje fynds `original_commit_id` mot
 nuvarande head. Ligger ett fynd på en äldre SHA: kontrollera i koden eller i
@@ -113,11 +122,10 @@ täcka två olika sätt att smita förbi granskning:
 | När head:et blev **synligt** (push) | En sen push precis före merge — nytt head startar om väntan |
 | PR:ens `createdAt` | En gammal lokal commit som pushas som ny PR; den har inte varit synlig för Codex/Vercel/Bugbot en enda minut |
 
-Mät head-klockan från **pushen**, inte från `.commit.committer.date`. Commit-tiden
-är metadata: en författare kan committa 03:00 och pusha till en befintlig PR strax
-före merge, och då hade commit-tiden sagt "en timme gammal" i samma stund som koden
-blev granskningsbar. CI triggas av pushen, så tidigaste `started_at` bland head:ets
-check-runs är rätt proxy. Finns inga check-runs är head:et nyss pushat → 0 minuter.
+Mät head-klockan från **pushen**, inte från `.commit.committer.date` — commit-tiden
+är metadata och kan vara timmar äldre än ögonblicket koden blev granskningsbar
+([`references/incidenter.md`](references/incidenter.md)). CI triggas av pushen, så
+tidigaste `started_at` bland head:ets check-runs är rätt proxy.
 
 Innehållet blev granskningsbart vid den **senaste** av de två händelserna, så den
 förflutna tiden är den **minsta** av de två åldrarna:
@@ -150,12 +158,54 @@ behandla som inte mogen och ta reda på varför check-runs uteblir.
 Under 15 → merga inte. Går en av tiderna inte att läsa: behandla som **inte
 mogen**, aldrig som "då gäller den andra" — en gate faller stängd.
 
-Detta är **strängare** än CI-checken `review-window` (7 min från `created_at`,
-förlängs inte av nya commits), och gäller även vid `--admin`, som överstyr checken.
+Detta är **strängare** än CI-checken `review-window`, och gäller även vid `--admin`,
+som överstyr checken helt. Checkens 7-min-golv räknas från `created_at` och
+förlängs inte av nya commits — men själva fönstret **startar om** vid varje push
+(`on: synchronize` + `cancel-in-progress`), så nya head-SHA:t får ett eget
+settle-golv på 3 min plus kravet att botarna för det SHA:t hunnit bli klara. Läs
+aldrig av checken som "7 min sedan PR:en skapades, alltså klart".
 
 ## Steg 3 — bedöm
 
-Merga när **allt** stämmer:
+### Hårda stopp — läs dessa först
+
+De kostar inget: labels, författare och `mergeStateStatus` är redan hämtade i
+Steg 1–2. Faller någon rad är PR:en färdigbehandlad för det här svepet — lägg
+inga tokens på fynd-svep eller mognadsräkning.
+
+| Signal | Läge |
+|---|---|
+| `isDraft: true` | Rör aldrig |
+| Label `do-not-merge` | Stopp. Kräver medvetet ägarbeslut — gäller **även** om `merge:ready` sitter kvar |
+| Label `agent:needs-human` | Stopp. Rapportera, merga inte |
+| Label `risk:4` / `risk:5` | Stopp. Eskalera till ägaren |
+| `mergeStateStatus: DIRTY` | Konflikt — författaren måste lösa. Se konfliktordningen i Steg 4 |
+| `mergeStateStatus: BLOCKED` | Ett gate-krav saknas. Ta reda på **vilket** innan du ens överväger `--admin` |
+| Författare `dependabot[bot]` | Egen rutt, se nedan |
+
+En label som säger stopp väger alltid tyngre än en som säger klart. `merge:ready`
+betyder "författaren är färdig", inte "det här får merge:as".
+
+### Dependabot-PR:er — egen rutt
+
+De har ingen författaragent som kan skriva sign-off, och `package.json` /
+`package-lock.json` är protected path där övertagande av författarrollen är
+förbjudet. Utan en egen rutt fastnar de för alltid.
+
+Merge-agenten mergar dem därför **inte** på eget initiativ — rapportera dem som
+egen rad i svepet (`#N dependabot — väntar på ägarbeslut`). Har ägaren uttryckligen
+bett dig ta dem: kör `bugbot`-subagenten på diffen och kontrollera att `quality` är
+grön (den fångar baseline-pinnade paket). Signera sedan som vanligt enligt Steg 4 —
+**hela** `merge:ready`-raden som PR-kommentar först, labeln sedan — med
+`bugkoll: bugbot (dependabot, ingen författaragent — ägaren delegerade)`. Ett löst
+`bugkoll:`-fragment är ingen sign-off och skulle rivas av freshness-grinden.
+
+Labeln `dependabot-patch-safe` betyder bara att workflowen klassat uppdateringen
+som patch + icke-core. Den är metadata, inte ett godkännande.
+
+### Merga när allt stämmer
+
+Passerar PR:en de hårda stoppen, merga när **allt** stämmer:
 
 1. Alla required checks gröna på **nuvarande** head-SHA (inte en tidigare).
 2. Författarens bugg-efterkontroll finns dokumenterad i PR:en — verifiera, **kör inte om den**.
@@ -173,12 +223,9 @@ och kör om grinden på den nya SHA:n. Rör aldrig CI-checkar för att få grön
 
 Skriv inte "säg till när den är grön, så mergar jag" eller "jag mergar när klockan
 gått". Grönt CI och en passerad klocka säger att *det som är pushat* håller — inte
-att författaren är färdig med att pusha. Det kan bara författaren säga.
-
-Ett sådant löfte gör dessutom att du mergar utan att någon signal begärts, vilket
-är exakt vad `merge:ready` finns för att förhindra. Det hände på #610: en
-konfliktnot innehöll löftet, PR:en blev grön, och mergen kapade en pågående fix
-med en minuts marginal.
+att författaren är färdig med att pusha. Det kan bara författaren säga, och ett
+sådant löfte har redan kapat en pågående fix
+([`references/incidenter.md`](references/incidenter.md)).
 
 Rätt formulering: *"ping mig när du är klar, så tar jag grinden."*
 
@@ -200,8 +247,8 @@ fönstret, gör en dokumenterad manuell slutgranskning av diffen och notera båd
 ## Steg 4 — merga
 
 **`merge:ready` är författarens godkännande, inte mergarens.** Grinden är en
-tvåpartskontroll: författaragenten sätter labeln och sign-off-raden när dess
-bugg-efterkontroll är klar, och mergaren *verifierar* dem. Sätter mergaren själv
+tvåpartskontroll: författaragenten skriver sign-off-raden och sätter sedan labeln
+när dess bugg-efterkontroll är klar, och mergaren *verifierar* dem. Sätter mergaren själv
 labeln kollapsar kontrollen till en part — samma blindfläck som `Author-is-merger`
 finns till för att stoppa.
 
@@ -229,19 +276,35 @@ gh pr view <n> --json headRefOid,body,comments --jq '.headRefOid as $head | [.bo
 Träffar ingen sign-off exakt men en kortform ser rätt ut: behandla som
 **overifierad** och be författaren skriva om raden med full SHA. Gissa inte.
 
-Två fällor värda att minnas, båda upptäckta i skarp körning på just detta uttryck:
+**Att labeln finns bevisar ingenting om vilken SHA den avser.** Labeln ska tas bort
+vid ny commit, men det är disciplin och inte tvingat, så en kvarglömd label kan
+peka bakåt. Bevakarens `label:merge:ready` betyder just labelns existens — inte att
+sign-offen gäller. En tidigare variant av uttrycket ovan svarade dessutom alltid
+sant ([`references/incidenter.md`](references/incidenter.md)), så kör alltid
+kontrollen mot en PR med känt inaktuell sign-off innan du litar på den.
 
-- `. as $s` behövdes i den tidigare varianten eftersom `.` blir ombundet av pipen — utan bindningen jämförde uttrycket `$head` med sig självt och svarade **alltid** sant.
-- Att labeln finns bevisar ingenting om vilken SHA den avser. Labeln ska tas bort vid ny commit, men det är disciplin och inte tvingat, så en kvarglömd label kan peka bakåt. Bevakarens `label:merge:ready` betyder just labelns existens — inte att sign-offen gäller.
+Labeln finns **och** sign-off-radens SHA matchar nuvarande head → merga.
 
-Kör alltid kontrollen mot en PR med känt inaktuell sign-off innan du litar på den.
-
-Labeln finns **och** sign-off-radens SHA matchar nuvarande head → merga:
+**Försök alltid utan `--admin` först.**
 
 ```powershell
-gh pr merge <n> --squash --admin
+gh pr merge <n> --squash
 gh pr view <n> --json state,mergeCommit --jq '{state,sha:.mergeCommit.oid}'
 ```
+
+`--admin` överstyr **allt**: alla required checks (`quality`, `backoffice-tests`,
+`schema-drift`, `review-window`, `build`), code-owner-review och 7-min-fönstret.
+Kör du det direkt vilar hela grinden på att du själv kollade rätt — plain merge
+låter i stället GitHub falla stängd åt dig. Samma skäl som `--admin`-förbudet i
+[`auto-merge-automation.mdc`](../../rules/auto-merge-automation.mdc).
+
+Faller den: läs felet innan du eskalerar.
+
+| Felet säger | Betyder | Gör |
+|---|---|---|
+| Required checks röda/pending | Grinden gör sitt jobb | Merga inte. `--admin` hade tyst kringgått det |
+| Approving review saknas på **ägarens egen** PR | Kan inte självgodkännas — enda legitima `--admin`-fallet | `gh pr merge <n> --squash --admin` |
+| Code-owner-review saknas på **extern** PR (t.ex. `chgenberg`) | Precis vad rulesetet finns till för | Merga inte — ägaren godkänner själv |
 
 | Läge | Gör |
 |---|---|
@@ -263,10 +326,6 @@ oberoende andra parten — bugbot-subagenten är då enda kvarvarande skydd, vil
 sign-offen vilken av de två grunderna som gällde.
 
 ### Avsaknad av `merge:ready` betyder "författaren är inte klar"
-
-Detta är den regel som kostade oss en extra runda 2026-07-25: #607 mergades på
-grönt CI medan dess författaragent fortfarande hade en commit på gång till samma
-PR. Arbetet gick inte förlorat, men det fick brytas ut till en egen PR i efterhand.
 
 Grönt CI säger att *det som är pushat* håller. Det säger ingenting om huruvida
 författaren är **färdig med att pusha**. Bara labeln säger det. Att sätta den åt
@@ -291,10 +350,8 @@ Sign-off-raden:
 merge:ready — sha: <hela 40-teckens head-SHA>, at: <ISO8601 UTC>, bugkoll: <bugbot|codex|manual>, triage: <n fixat / n loggat / n avfärdat>, P0/P1: 0
 ```
 
-`--admin` behövs för ägarens egna PR:er (kan inte självgodkännas) — aldrig som
-genväg förbi röda checks eller utebliven granskning.
-
 Efter merge: `git pull --ff-only` i huvudcheckouten så lokal master följer origin.
+Felar den på ocommitterat arbete: låt det ligga, rapportera, och gå vidare.
 
 ### Merge-ordning när flera PR:er delar en högfrekvent fil
 
@@ -354,7 +411,7 @@ Merge-agenten läser mycket och skriver lite. Håll kostnaden nere:
 | **En** bakgrundsshell som sover och sedan dumpar `gh pr checks` | Upprepad polling i förgrunden |
 | Avsluta turen under väntan — notisen tar dig tillbaka | Blockera på `AwaitShell` i 15 min |
 | Verifiera författarens bugbot-pass | Köra om ett pass som redan är dokumenterat |
-| `bugbot`-subagent bara när du själv rört koden, eller på protected path utan oberoende pass | `/granska`-svärmen (8 rapporter, dyrt — bara på uttrycklig begäran) |
+| `bugbot`-subagent bara när du själv rört koden, eller på protected path utan oberoende pass | En egen agentsvärm ovanpå bugbot-passet (togs bort med `/granska` 2026-08-02) |
 
 Väntemönster — låt **exit-koden** avgöra (`0` = alla gröna, `8` = pending). Att
 läsa stdout och tolka "inget 'pending'" som klart gör ett gh-fel, ett auth-utgånget
@@ -365,8 +422,13 @@ foreach ($i in 1..20) { Start-Sleep -Seconds 50; $out = gh pr checks <n> 2>&1 | 
 ```
 
 Starta den i bakgrunden, avsluta turen, triagera när notisen kommer. Föredra
-`scripts/watch-prs.ps1` när flera PR:er ska bevakas — den gör samma sak för hela
-kön och larmar även på nya PR:er och nya commits.
+[`scripts/watch-prs.ps1`](scripts/watch-prs.ps1) när flera PR:er ska bevakas — den
+gör samma sak för hela kön, larmar även på nya PR:er och nya commits, och tystar
+PR:er med blockerande label:
+
+```powershell
+pwsh -File .cursor/skills/merg-agent-bejbysit/scripts/watch-prs.ps1 -Cycles 40
+```
 
 ## Rapportformat
 

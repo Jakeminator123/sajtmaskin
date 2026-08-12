@@ -18,7 +18,7 @@ from typing import Any
 
 import streamlit as st
 
-from backoffice.shared import BackofficeContext, read_json, render_where_panel
+from backoffice.shared import BackofficeContext, read_json
 
 PAGE_NAME = "Control Plane (cockpit)"
 
@@ -137,11 +137,7 @@ def _render_registry_table(
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = (
-        read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
-    )
     st.header("Control Plane — cockpit (read-only)")
-    render_where_panel(PAGE_NAME, domain_map)
 
     st.caption(
         "Denna vy läser control-plane-registren "

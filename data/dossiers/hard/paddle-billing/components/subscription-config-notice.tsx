@@ -1,6 +1,7 @@
 /**
  * Calm, theme-aware notice for subscription/billing UI when Paddle Billing is
- * not configured yet (mock: "none" — billing cannot be meaningfully mocked).
+ * not configured yet (mock: "visual" — the subscription surface renders and the
+ * action opens an honest demo notice; no charge is ever simulated).
  * Render it next to the pricing / manage-billing CTA and keep the CTA in a
  * disabled demo state instead of crashing or showing a raw error. Uses
  * neutral/muted tokens (never error-red) so an unconfigured integration reads

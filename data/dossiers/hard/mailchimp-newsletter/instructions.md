@@ -19,7 +19,7 @@ Do not use for:
 The dossier ships a client `<NewsletterForm />` and a server `route.ts` at `/api/newsletter-subscribe`. Drop them in unchanged unless explicitly overridden:
 
 1. Copy `components/newsletter-form.tsx` to `components/newsletter-form.tsx`. Restyle freely — change copy, swap layout from inline to stacked, add a checkbox for marketing consent. Keep the four UX states (`idle` / `submitting` / `success` / `error`).
-2. Copy `components/api/newsletter-subscribe/route.ts` to `app/api/newsletter-subscribe/route.ts`. Do NOT paraphrase — the SHA256-of-lowercased-email subscriber-id pattern and the PUT-vs-POST upsert flow are how Mailchimp distinguishes "new" from "already-subscribed".
+2. Copy `components/api/newsletter-subscribe/route.ts` to `app/api/newsletter-subscribe/route.ts`. Do NOT paraphrase — the MD5-of-lowercased-email subscriber-id pattern and the PUT-vs-POST upsert flow are how Mailchimp distinguishes "new" from "already-subscribed".
 3. Mount `<NewsletterForm />` wherever the CTA belongs:
 
 ```tsx

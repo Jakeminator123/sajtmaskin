@@ -4,11 +4,30 @@ import {
   type BuilderStreamEvent,
   type BuilderToolCallPayload,
 } from "@/lib/gen/stream/builder-stream-contract";
+import { planArtifactHasSubstance } from "@/lib/gen/plan/review";
 import { parseSSEBuffer } from "@/lib/gen/stream/sse-parser";
 import { formatSSEEvent } from "@/lib/streaming";
 
 type ToolCallRecord = Record<string, unknown>;
 type PlanArtifact = Record<string, unknown>;
+
+/**
+ * Vad strömmen faktiskt löste ut. Persist-callbacken behöver det för att kunna
+ * skilja en riktig plan från en icke-plan-utdata: `planData` är alltid ett
+ * objekt (tomt när inget plan-artifact fanns), så den ensam går inte att läsa
+ * som "blev det en plan?".
+ */
+export type PlanModeResolvedContext = {
+  /**
+   * True bara när artifacten har substans (`planArtifactHasSubstance`):
+   * planner-utdata som parsas till ett tomt objekt (t.ex. `{}`) ska
+   * persisteras som prosa, inte som en påhittad plansummering.
+   */
+  hasPlanArtifact: boolean;
+  /** Ackumulerad text från planner-strömmens `content`-event. */
+  accumulatedContent: string;
+  upstreamErrorMessage: string | null;
+};
 
 function getToolName(toolData: ToolCallRecord): string {
   return typeof toolData.toolName === "string" ? toolData.toolName : "";
@@ -37,7 +56,11 @@ export function createPlanModeStream(params: {
     toolPlanArtifact: PlanArtifact | null,
   ) => PlanArtifact | null;
   enrichPlanArtifact?: (toolArgs: Record<string, unknown>) => PlanArtifact | null;
-  persistAssistantSummary: (planData: PlanArtifact, hasBlockers: boolean) => Promise<void>;
+  persistAssistantSummary: (
+    planData: PlanArtifact,
+    hasBlockers: boolean,
+    context: PlanModeResolvedContext,
+  ) => Promise<void>;
   buildDonePayload: (planData: PlanArtifact, hasBlockers: boolean) => Record<string, unknown>;
   commitCredits: () => Promise<void>;
   commitCreditsPosition?: "before-done" | "after-done";
@@ -209,13 +232,13 @@ export function createPlanModeStream(params: {
           }
         }
       } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Plan generation failed";
+        // Utan detta ser persist-callbacken och exit-klassningen turen som
+        // felfri, och krediterna committas trots att strömmen kastade.
+        upstreamErrorMessage = message;
         if (!controllerClosed) {
-          safeEnqueue(
-            createBuilderStreamEvent("error", {
-              message:
-                error instanceof Error ? error.message : "Plan generation failed",
-            }),
-          );
+          safeEnqueue(createBuilderStreamEvent("error", { message }));
         }
       } finally {
         try {
@@ -225,13 +248,18 @@ export function createPlanModeStream(params: {
         }
       }
 
-      const planData = resolvePlanArtifact(accumulatedContent, toolPlanArtifact) ?? {};
+      const resolvedPlanArtifact = resolvePlanArtifact(accumulatedContent, toolPlanArtifact);
+      const planData = resolvedPlanArtifact ?? {};
       const hasBlockers =
         upstreamErrorMessage !== null ||
         (Array.isArray(planData?.blockers) && (planData.blockers as unknown[]).length > 0);
 
       await onResolved?.(planData, hasBlockers, accumulatedContent);
-      await persistAssistantSummary(planData, hasBlockers);
+      await persistAssistantSummary(planData, hasBlockers, {
+        hasPlanArtifact: planArtifactHasSubstance(resolvedPlanArtifact),
+        accumulatedContent,
+        upstreamErrorMessage,
+      });
 
       const shouldCommitCredits = upstreamErrorMessage === null;
 

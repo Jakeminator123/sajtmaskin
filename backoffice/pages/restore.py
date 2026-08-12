@@ -22,8 +22,6 @@ from backoffice.shared import (
     list_backup_trees,
     list_snapshots_for,
     list_tree_snapshots_for,
-    read_json,
-    render_where_panel,
     restore_backup,
     restore_tree,
 )
@@ -41,9 +39,7 @@ def _snapshot_label(name: str) -> str:
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("Återställning")
-    render_where_panel("Återställning", domain_map)
 
     st.info(
         "**Så funkar skyddet:** varje gång du sparar en fil i backoffice tas först en "

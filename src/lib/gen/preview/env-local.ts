@@ -21,6 +21,11 @@
  *
  * Output is grouped by provenance so generated `.env.local` documents
  * which tier each variable belongs to.
+ *
+ * The two CATALOG layers (harmless + tier3-stub) are additionally scoped to
+ * project-relevant keys when the caller supplies `scopePlaceholdersToFiles`
+ * (see `relevant-env-keys.ts`) — a plain landing page no longer boots with
+ * the full ~55-key catalog. Layers 3–5 are never filtered.
  */
 
 import {
@@ -29,6 +34,10 @@ import {
   readTier3StubPlaceholdersEnvText,
 } from "@/lib/ai-models/load-generated-site-placeholders";
 import { buildProjectPreviewPlaceholderRecord } from "@/lib/gen/preview/project-preview-env";
+import {
+  collectRelevantPreviewEnvKeys,
+  type RelevanceScanFile,
+} from "@/lib/gen/preview/relevant-env-keys";
 
 export type EnvVarProvenance =
   | "harmless"
@@ -260,14 +269,46 @@ export async function resolvePreviewEnvLayers(params: {
    * never mask a missing real value or reach a deploy.
    */
   selectedDossierEnvKeys?: string[];
+  /**
+   * Project/runtime files used to scope the placeholder CATALOGS (harmless +
+   * tier-3 stub) to keys that are actually relevant for this project: keys
+   * referenced by name in a file, keys an imported SDK reads internally, or
+   * keys declared by a selected dossier — see
+   * {@link collectRelevantPreviewEnvKeys}. Omitted → full catalogs (legacy
+   * behaviour), so callers that cannot supply files never lose boot stubs.
+   * Only the catalog layers are filtered; `project-preview`, `user` and
+   * `generated` layers always pass through untouched.
+   */
+  scopePlaceholdersToFiles?: ReadonlyArray<RelevanceScanFile>;
 }): Promise<{
   merged: Record<string, string>;
   provenance: Record<string, EnvVarProvenance>;
 }> {
   const lifecycleStage = params.lifecycleStage ?? "design";
-  const harmless = loadHarmlessPlaceholderRecord();
-  const tier3Stub =
+  let harmless = loadHarmlessPlaceholderRecord();
+  let tier3Stub =
     lifecycleStage === "design" ? loadTier3StubPlaceholderRecord() : {};
+
+  // Catalog scoping: with project files available, keep only the catalog
+  // keys this project plausibly uses (name-referenced in a file, read
+  // internally by an imported SDK, or declared by a selected dossier) so a
+  // plain landing page no longer boots with the full ~55-key catalog.
+  // Without files the full catalogs are kept — fail-open by design.
+  const scanFiles = params.scopePlaceholdersToFiles;
+  if (scanFiles && scanFiles.length > 0) {
+    const keep = collectRelevantPreviewEnvKeys({
+      files: scanFiles,
+      catalogKeys: [...Object.keys(harmless), ...Object.keys(tier3Stub)],
+    });
+    for (const rawKey of params.selectedDossierEnvKeys ?? []) {
+      const key = typeof rawKey === "string" ? rawKey.trim() : "";
+      if (key) keep.add(key);
+    }
+    const filterToKeep = (record: Record<string, string>) =>
+      Object.fromEntries(Object.entries(record).filter(([key]) => keep.has(key)));
+    harmless = filterToKeep(harmless);
+    tier3Stub = filterToKeep(tier3Stub);
+  }
 
   let project: Record<string, string> = {};
   const pid = typeof params.appProjectId === "string" ? params.appProjectId.trim() : "";
@@ -379,6 +420,12 @@ export async function buildPreviewEnvLocalContents(params: {
    * unset (design stage only). See {@link resolvePreviewEnvLayers}.
    */
   selectedDossierEnvKeys?: string[];
+  /**
+   * Project/runtime files that scope the placeholder catalogs to relevant
+   * keys. Omit for the legacy full-catalog dump. See
+   * {@link resolvePreviewEnvLayers}.
+   */
+  scopePlaceholdersToFiles?: ReadonlyArray<RelevanceScanFile>;
 }): Promise<string> {
   const { merged, provenance } = await resolvePreviewEnvLayers(params);
   return `${FILE_HEADER}\n${formatGroupedDotenvBody(merged, provenance)}\n`;

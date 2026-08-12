@@ -99,25 +99,50 @@ def render(ctx: BackofficeContext) -> None:
         )
 
     cmd = _build_command(scope, keep, specific_email, specific_user_id, apply_mode=False)
-    st.code(" ".join(cmd[1:]), language="bash")
+    scope_incomplete = cmd is None
+    if scope_incomplete:
+        # Fail-closed: inget kommando visas och båda knapparna är disabled —
+        # tom specifik scope får aldrig breddas till --all-test-users.
+        if scope == "specific_email":
+            st.error("Ange en email innan du kör DRY-RUN/APPLY — tomt fält breddar inte till alla.")
+        elif scope == "specific_user_id":
+            st.error("Ange ett user_id innan du kör DRY-RUN/APPLY — tomt fält breddar inte till alla.")
+        else:
+            st.error("Ogiltigt scope — inget kommando byggs.")
+    else:
+        st.code(" ".join(cmd[1:]), language="bash")
 
     st.divider()
 
     col_dry, col_apply = st.columns(2)
 
     with col_dry:
-        if st.button("🔍 Kör DRY-RUN", type="secondary", use_container_width=True):
-            with st.spinner("Kör DRY-RUN…"):
-                result = _run_script(ctx, cmd)
-            st.session_state["projects_admin_last_dry"] = result
-            st.session_state.pop("projects_admin_apply_confirmed", None)
+        if st.button(
+            "🔍 Kör DRY-RUN",
+            type="secondary",
+            use_container_width=True,
+            disabled=scope_incomplete,
+        ):
+            # Belt-and-suspenders: never run a broadened command even if the
+            # button somehow fires while scope is incomplete.
+            if cmd is None:
+                st.error("Kan inte köra DRY-RUN utan giltigt scope.")
+            else:
+                with st.spinner("Kör DRY-RUN…"):
+                    result = _run_script(ctx, cmd)
+                st.session_state["projects_admin_last_dry"] = result
+                st.session_state.pop("projects_admin_apply_confirmed", None)
 
     with col_apply:
         confirm = st.checkbox(
             "Jag förstår att detta raderar rader permanent",
             key="projects_admin_apply_confirm_checkbox",
         )
-        apply_disabled = not confirm or "projects_admin_last_dry" not in st.session_state
+        apply_disabled = (
+            scope_incomplete
+            or not confirm
+            or "projects_admin_last_dry" not in st.session_state
+        )
         if st.button(
             "🗑 KÖR APPLY",
             type="primary",
@@ -128,12 +153,17 @@ def render(ctx: BackofficeContext) -> None:
                 "Använder samma argument som DRY-RUN-knappen visade."
             ),
         ):
-            apply_cmd = _build_command(scope, keep, specific_email, specific_user_id, apply_mode=True)
-            with st.spinner("Kör APPLY…"):
-                result = _run_script(ctx, apply_cmd)
-            st.session_state["projects_admin_last_apply"] = result
-            # Tvinga ny DRY-RUN-bekräftelse innan nästa apply.
-            st.session_state.pop("projects_admin_last_dry", None)
+            apply_cmd = _build_command(
+                scope, keep, specific_email, specific_user_id, apply_mode=True
+            )
+            if apply_cmd is None:
+                st.error("Kan inte köra APPLY utan giltigt scope — ingen radering utförd.")
+            else:
+                with st.spinner("Kör APPLY…"):
+                    result = _run_script(ctx, apply_cmd)
+                st.session_state["projects_admin_last_apply"] = result
+                # Tvinga ny DRY-RUN-bekräftelse innan nästa apply.
+                st.session_state.pop("projects_admin_last_dry", None)
 
     st.divider()
 
@@ -156,14 +186,28 @@ def _build_command(
     specific_user_id: str,
     *,
     apply_mode: bool,
-) -> list[str]:
+) -> list[str] | None:
+    """Bygg argv för cleanup-scriptet.
+
+    Fail-closed: när operatören valt specifik email/user_id men fältet är
+    tomt returneras ``None`` — aldrig en tyst breddning till
+    ``--all-test-users``. Okänt scope ger också ``None``.
+    """
     cmd = ["node", _SCRIPT_REL, "--keep", str(int(keep))]
-    if scope == "specific_email" and specific_email.strip():
-        cmd.extend(["--user", specific_email.strip()])
-    elif scope == "specific_user_id" and specific_user_id.strip():
-        cmd.extend(["--user-id", specific_user_id.strip()])
-    else:
+    if scope == "specific_email":
+        email = specific_email.strip()
+        if not email:
+            return None
+        cmd.extend(["--user", email])
+    elif scope == "specific_user_id":
+        user_id = specific_user_id.strip()
+        if not user_id:
+            return None
+        cmd.extend(["--user-id", user_id])
+    elif scope == "all_test_users":
         cmd.append("--all-test-users")
+    else:
+        return None
     if apply_mode:
         cmd.append("--apply")
     return cmd

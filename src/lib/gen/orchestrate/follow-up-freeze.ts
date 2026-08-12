@@ -67,6 +67,15 @@ export interface FollowUpVariantFreezeInput {
   resolvedMode: "init" | "followUp";
   /** clear-redesign releases the variant lock (matcher picks a fresh look). */
   followUpIntent: FollowUpIntentMode | null | undefined;
+  /**
+   * The scaffold-side redesign unlock. Mirrors
+   * {@link FollowUpScaffoldFreezeInput.ignorePersistedScaffoldForMatch}: when the
+   * scaffold lock is released the variant clamp must stand down too, otherwise
+   * the freeze pulls the freshly picked variant back to the contract variant and
+   * the redesign renders in the style the user asked to replace. Optional /
+   * defaults to `false` (back-compat).
+   */
+  ignorePersistedScaffoldForMatch?: boolean;
   contractVariantId: string | null;
   resolvedVariantId: string | null;
 }
@@ -80,7 +89,8 @@ export interface FollowUpVariantFreezeDecision {
  * Decide whether a follow-up's resolved variant drifted from the frozen
  * contract variant. `lockedVariantForFollowUp` already pins neutral follow-ups
  * to the prior variant; this is the assertion/clamp safety net for the residual
- * case where the lock fell through to a fresh pick. clear-redesign is exempt.
+ * case where the lock fell through to a fresh pick. clear-redesign and the
+ * scaffold-side unlock (`ignorePersistedScaffoldForMatch`) are exempt.
  */
 export function enforceFollowUpVariantFreeze(
   input: FollowUpVariantFreezeInput,
@@ -89,6 +99,7 @@ export function enforceFollowUpVariantFreeze(
   if (
     resolvedMode !== "followUp" ||
     followUpIntent === "clear-redesign" ||
+    input.ignorePersistedScaffoldForMatch === true ||
     !contractVariantId ||
     !resolvedVariantId ||
     resolvedVariantId === contractVariantId

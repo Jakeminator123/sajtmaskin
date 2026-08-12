@@ -58,10 +58,37 @@ const COMPONENT_MEDIA_RE =
 
 const SVG_BLOCK_RE = /<svg[\s>][\s\S]{200,}?<\/svg>/i;
 
+/**
+ * Play-control heuristic. The leading boundary is load-bearing: the previous
+ * pattern only anchored the END of the word, so `display` (which literally
+ * ends in `play`) matched. Every file containing `display: flex` or
+ * `Inter({ display: "swap" })` was therefore inventoried as holding a "play
+ * button / video placeholder UI", and the Element Preservation Guard reverted
+ * any follow-up that rewrote such a file without re-introducing the phantom
+ * element. Boundaries are unicode-aware per `unicode-regex.mdc`.
+ */
 const PLAY_BUTTON_RE =
-  /(?:play|Play|▶|⏵|playback|play_circle|play-button|PlayCircle|PlayIcon)\b/;
+  /(?<![\p{L}\p{N}_])(?:play|playback|play_circle|play-button|playcircle|playicon|playbutton)(?![\p{L}\p{N}_])|[▶⏵]/iu;
+
+/**
+ * True when a file is an auto-generated placeholder from the cross-file import
+ * checker (`autofix/rules/cross-file-import-checker.ts`).
+ *
+ * Such a file has no content worth preserving — it exists only until the model
+ * emits the real component. Treating it as structurally significant inverts
+ * the guard's purpose: because the stub body carries inline styles, it used to
+ * register as a structural element and then BLOCKED the real implementation
+ * from replacing it, permanently freezing the placeholder into the site.
+ */
+export function isAutofixStubContent(content: string): boolean {
+  return /autofix-stub:|data-autofix-stub/.test(content);
+}
 
 export function extractStructuralElements(content: string): StructuralElement[] {
+  // An autofix stub is a placeholder, not content to protect. Reporting no
+  // elements keeps it out of both the prompt inventory and the merge guard.
+  if (isAutofixStubContent(content)) return [];
+
   const found: StructuralElement[] = [];
   const seen = new Set<string>();
 

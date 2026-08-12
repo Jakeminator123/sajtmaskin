@@ -2,6 +2,7 @@
 
 import { INSPECT_BRIDGE_MESSAGE } from "@/lib/builder/inspect-bridge-feature";
 import { dispatchInspectCaptureEvent } from "@/lib/builder/inspect-events";
+import type { BridgeSectionCandidate } from "@/lib/builder/sectionAnalyzer";
 import {
   matchCapturedElement,
   type JsxElementRegistryItem,
@@ -35,6 +36,8 @@ export type BridgeElement = {
   href?: string | null;
   selector?: string | null;
   nearestHeading?: string | null;
+  /** From `data-sajtmaskin-source` when the preview annotates DOM nodes. */
+  sourcePath?: string | null;
   rect?: BridgeRect;
   viewport?: { w: number; h: number };
   /** Faktisk klickpunkt i viewport-koordinater (B-fix #164/#197). */
@@ -54,6 +57,14 @@ export type BridgePick = {
 export type BridgeRegion = {
   rect: BridgeRect;
   viewport: { w: number; h: number };
+  /**
+   * Previewens scroll-läge när rektangeln drogs.
+   *
+   * `rect` är viewport-relativ. En konsument som återskapar sidan någon
+   * annanstans (bildfångsten laddar den på nytt, alltid vid scroll 0) måste
+   * rulla hit först, annars pekar rektangeln på fel del av dokumentet.
+   */
+  scroll: { x: number; y: number };
   elements: Array<{ element: BridgeElement & { tag: string }; match: RegistryMatch | null }>;
 };
 
@@ -91,7 +102,11 @@ export function dispatchBridgeInspectPoint(pick: BridgePick, previewUrl: string 
   const vh = viewport.h || rect?.height || 1;
   const xPercent = Number(((click.x / vw) * 100).toFixed(2));
   const yPercent = Number(((click.y / vh) * 100).toFixed(2));
-  const matchHint = match ? ` → ${match.item.filePath}:${match.item.lineNumber}` : "";
+  const sourcePath = match?.item.filePath || element.sourcePath || null;
+  const sourceLine = match?.item.lineNumber ?? null;
+  const matchHint = sourcePath
+    ? ` → ${sourcePath}${sourceLine != null ? `:${sourceLine}` : ""}`
+    : "";
 
   dispatchInspectCaptureEvent({
     id: `bridge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -111,6 +126,8 @@ export function dispatchBridgeInspectPoint(pick: BridgePick, previewUrl: string 
       href: element.href ?? null,
       selector: element.selector ?? null,
       nearestHeading: element.nearestHeading ?? null,
+      sourcePath,
+      sourceLine,
     },
     source: "local",
   });
@@ -158,6 +175,25 @@ export function usePreviewInspectBridge(options: {
    * lämna inspektorn inert.
    */
   onBridgeUnavailable?: () => void;
+  /**
+   * Motsatsen till `onBridgeUnavailable`: bron annonserade `ready`. Lyssnaren
+   * lever så länge `enabled` är sant — även när callern fallit ner till map —
+   * så att en preview som blir injektionsbar först efter VM-booten kan tas i
+   * bruk utan full sidladdning.
+   */
+  onBridgeReady?: () => void;
+  /**
+   * När true: be child om sektionsrektanglar (placement/composer). Kräver inte
+   * att inspect-läget är på — placering stänger inspect men behöver zoner.
+   */
+  requestSections?: boolean;
+  /** Sektionskandidater från bron → matas in i extractSectionZones-vägen. */
+  onSections?: (candidates: BridgeSectionCandidate[]) => void;
+  /**
+   * Browser-runtime-fel från preview-iframen (hydration/uncaught/…).
+   * Accepteras även när inspectMode är av — felen uppstår utan inspektion.
+   */
+  onClientError?: (payload: unknown) => void;
 }) {
   const {
     enabled,
@@ -173,6 +209,10 @@ export function usePreviewInspectBridge(options: {
     onRect,
     onRegion,
     onBridgeUnavailable,
+    onBridgeReady,
+    requestSections = false,
+    onSections,
+    onClientError,
   } = options;
 
   const childReadyRef = useRef(false);
@@ -198,6 +238,21 @@ export function usePreviewInspectBridge(options: {
     [iframeRef, targetOrigin],
   );
 
+  const postRequestSections = useCallback(() => {
+    const win = iframeRef.current?.contentWindow;
+    if (!win || !targetOrigin) return;
+    try {
+      win.postMessage({ type: INSPECT_BRIDGE_MESSAGE.requestSections }, targetOrigin);
+    } catch {
+      /* cross-origin race during reload; ignore */
+    }
+  }, [iframeRef, targetOrigin]);
+
+  const requestSectionsRef = useRef(requestSections);
+  useEffect(() => {
+    requestSectionsRef.current = requestSections;
+  }, [requestSections]);
+
   // Ny preview-laddning → scriptet måste re-announcera 'ready'.
   useEffect(() => {
     childReadyRef.current = false;
@@ -209,6 +264,13 @@ export function usePreviewInspectBridge(options: {
     if (!childReadyRef.current) return;
     postMode(inspectMode);
   }, [enabled, active, inspectMode, postMode]);
+
+  // Placement/composer: hämta sektionszoner via bron (inte Playwright).
+  useEffect(() => {
+    if (!enabled || !active || !requestSections) return;
+    if (!childReadyRef.current) return;
+    postRequestSections();
+  }, [enabled, active, requestSections, previewUrl, postRequestSections]);
 
   // Förladda filer så pick → registry-match funkar.
   useEffect(() => {
@@ -222,6 +284,14 @@ export function usePreviewInspectBridge(options: {
   useEffect(() => {
     onBridgeUnavailableRef.current = onBridgeUnavailable;
   }, [onBridgeUnavailable]);
+  const onBridgeReadyRef = useRef(onBridgeReady);
+  useEffect(() => {
+    onBridgeReadyRef.current = onBridgeReady;
+  }, [onBridgeReady]);
+  const onClientErrorRef = useRef(onClientError);
+  useEffect(() => {
+    onClientErrorRef.current = onClientError;
+  }, [onClientError]);
   useEffect(() => {
     if (!enabled || !active || !inspectMode) return;
     if (childReadyRef.current) return;
@@ -235,7 +305,7 @@ export function usePreviewInspectBridge(options: {
   }, [enabled, active, inspectMode, previewUrl, setInspectStatus]);
 
   useEffect(() => {
-    if (!enabled || !active) return;
+    if (!enabled) return;
     const allowed = originForUrl(previewUrl);
 
     const handler = (event: MessageEvent) => {
@@ -254,7 +324,8 @@ export function usePreviewInspectBridge(options: {
             type?: string;
             source?: string;
             payload?: BridgeElement & {
-              elements?: BridgeElement[];
+              elements?: Array<BridgeElement | BridgeSectionCandidate>;
+              scroll?: { x?: number; y?: number };
             };
           }
         | null;
@@ -266,7 +337,28 @@ export function usePreviewInspectBridge(options: {
 
       if (data.type === INSPECT_BRIDGE_MESSAGE.ready) {
         childReadyRef.current = true;
+        onBridgeReadyRef.current?.();
         postMode(liveRef.current);
+        // Placement kan redan vara aktiv när bron blir ready.
+        if (requestSectionsRef.current) postRequestSections();
+        return;
+      }
+
+      // Browser-fel: före active/liveRef — fångas utan inspect-läge (scriptet
+      // finns bara i builder-previews). Parent POST:ar vidare till error-log.
+      if (data.type === INSPECT_BRIDGE_MESSAGE.clientError) {
+        onClientErrorRef.current?.(data.payload);
+        return;
+      }
+
+      if (!active) return;
+
+      // Sektionszoner för placement — tillåtna även när inspectMode är av
+      // (placering stänger inspect men behöver fortfarande ankare).
+      if (data.type === INSPECT_BRIDGE_MESSAGE.sections) {
+        if (!requestSectionsRef.current) return;
+        const raw = Array.isArray(data.payload?.elements) ? data.payload.elements : [];
+        onSections?.(raw as BridgeSectionCandidate[]);
         return;
       }
 
@@ -304,6 +396,10 @@ export function usePreviewInspectBridge(options: {
         onRegion?.({
           rect,
           viewport: payload?.viewport ?? { w: rect.width, h: rect.height },
+          scroll: {
+            x: Math.max(0, Math.round(Number(payload?.scroll?.x) || 0)),
+            y: Math.max(0, Math.round(Number(payload?.scroll?.y) || 0)),
+          },
           elements,
         });
         return;
@@ -354,8 +450,10 @@ export function usePreviewInspectBridge(options: {
     setInspectStatus,
     setLastCodeMatch,
     postMode,
+    postRequestSections,
     onPick,
     onRect,
     onRegion,
+    onSections,
   ]);
 }

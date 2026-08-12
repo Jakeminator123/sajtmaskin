@@ -58,6 +58,15 @@ export interface PreviewPanelF3TriggerProps {
   isBusy?: boolean;
   /** Ikonläge för headerns verktygskluster — etiketten bärs av tooltip/aria. */
   iconOnly?: boolean;
+  /**
+   * Ö4a: vilken väg `/finalize-design` tar för den aktiva versionen, buren av
+   * readiness (`info.hasRealBuildIntegrations` = pending dossier OR
+   * `hasRequiredRealBuildKeys(spec)`).
+   * `true` → `llm_ready` (LLM-runda, ~4–6 diamonds); `false` → `deterministic_release`
+   * (0 diamonds); `null`/`undefined` → okänd → ärlig villkorad kostnad i tooltipen.
+   * Härleds ALDRIG ur `buildBlockingKeys` här (den ljuger när nyckeln redan är ifylld).
+   */
+  requiresRealBuildKeys?: boolean | null;
 }
 
 type DiagnosticsResponse = {
@@ -94,6 +103,7 @@ export function PreviewPanelF3Trigger({
   className,
   isBusy = false,
   iconOnly = false,
+  requiresRealBuildKeys = null,
 }: PreviewPanelF3TriggerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [productBlocked, setProductBlocked] = useState(false);
@@ -317,6 +327,21 @@ export function PreviewPanelF3Trigger({
   // to a parent version. Discovered in Wave 5 race-condition audit.
   const noVersion = !versionId;
   const disabledByProduct = productBlocked && !noVersion;
+  // Ö4a: samma knapp gör två helt olika saker och kostar olika. Säg vilken väg
+  // klicket tar och vad det kostar. Vägen kommer från readiness-ägaren
+  // (`requiresRealBuildKeys`), inte från en gissning i UI:t.
+  const costTag =
+    requiresRealBuildKeys == null
+      ? "0 eller ~4–6 diamonds"
+      : requiresRealBuildKeys
+        ? "~4–6 diamonds"
+        : "0 diamonds";
+  const enabledTitle =
+    requiresRealBuildKeys === false
+      ? "Bygg integrationer — stämplar om designversionens filer till en publicerbar F3-version och kör ReleaseGate. Ingen LLM, ingen ny chatt (0 diamonds)."
+      : requiresRealBuildKeys === true
+        ? "Bygg integrationer — startar en LLM-runda som bygger riktig integrationskod (~4–6 diamonds). Byggnödvändiga nycklar efterfrågas före bygget; övriga kör i demo-läge tills du sparar dem under Byggblock."
+        : "Bygg integrationer — 0 diamonds om inga riktiga nycklar krävs (filerna stämplas bara om), annars ~4–6 diamonds för en LLM-runda som bygger riktig integrationskod.";
   return (
     <Button
       type="button"
@@ -331,9 +356,9 @@ export function PreviewPanelF3Trigger({
             ? "Vänta tills första versionen är skapad innan du startar integrationsbygget."
             : disabledByProduct
               ? "Product Postcheck hittade blockerande F2-previewproblem. Åtgärda dem innan du startar integrationsbygget."
-            : "Bygg integrationer — bygger riktig integrationskod. Byggnödvändiga nycklar (t.ex. inloggning) efterfrågas före bygget; övriga (t.ex. Stripe, OpenAI) kör i demo-läge tills du sparar dem under Byggblock."
+            : enabledTitle
       }
-      aria-label={iconOnly ? "Bygg integrationer" : undefined}
+      aria-label={iconOnly ? `Bygg integrationer (${costTag})` : undefined}
       className={className}
     >
       {isLoading ? (

@@ -1,6 +1,14 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
+import {
+  buildInitBuildChoicesInstructions,
+  buildInitBuildChoicesMeta,
+  getCurrentInitBuildChoices,
+  resetInitBuildChoices,
+} from "@/lib/builder/init-build-choices";
 import { resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/prompt-assist";
+import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
+import { isCompatibilityShimPreviewUrl } from "@/lib/gen/preview/legacy/compatibility-shim";
 import { MODEL_LABELS, canonicalizeModelId, canonicalModelIdToOwnModelId, getBuildProfileId } from "@/lib/models/catalog";
 import { debugLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
@@ -98,9 +106,38 @@ export function useCreateChat(
         return false;
       }
 
-      const effectiveSystemPrompt = systemPromptOverride ?? systemPrompt;
-      const effectiveScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
-      const effectiveScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
+      const baseSystemPrompt = systemPromptOverride ?? systemPrompt;
+      const baseScaffoldMode = options.scaffoldModeOverride ?? scaffoldMode;
+      const baseScaffoldId = options.scaffoldIdOverride ?? scaffoldId;
+
+      // Byggval (init controls): strukturerade signaler för denna skapning,
+      // lästa från den delade storen (samma källa som panelens UI-state).
+      // Sajttypsvalet blir manuellt scaffold-val ENDAST när varken explicit
+      // override eller header-valet redan pekat ut en scaffold — prioritet:
+      // explicit override > header-manual > Byggval > auto.
+      const activeInitChoices = getCurrentInitBuildChoices();
+      const initChoicesMeta = buildInitBuildChoicesMeta(activeInitChoices);
+      // Komplexitet går strukturerat (meta.complexityHint → BuildSpec) OCH
+      // som sektionsdirektiv; färgläge/ton saknar pipeline-fält och åker som
+      // svenska direktiv i custom-instructions-kanalen (body.system →
+      // customInstructions → dynamic context) — aldrig i chattens input.
+      // Medveten bieffekt: ett aktivt val räknas som custom system prompt
+      // och stänger av simple-website-fastlanen (klassificeraren läser
+      // hasCustomSystem) — rimligt, valet ÄR en medveten konfiguration.
+      const initChoicesInstructions = buildInitBuildChoicesInstructions(activeInitChoices);
+      const effectiveSystemPrompt = [baseSystemPrompt?.trim(), initChoicesInstructions]
+        .filter(Boolean)
+        .join("\n\n");
+      let effectiveScaffoldMode = baseScaffoldMode;
+      let effectiveScaffoldId = baseScaffoldId;
+      if (
+        initChoicesMeta.scaffoldId &&
+        (baseScaffoldMode ?? "auto") === "auto" &&
+        !baseScaffoldId
+      ) {
+        effectiveScaffoldMode = "manual";
+        effectiveScaffoldId = initChoicesMeta.scaffoldId;
+      }
 
       const createKey = buildCreateChatKey(
         initialMessage,
@@ -118,6 +155,9 @@ export function useCreateChat(
           promptAssistModel,
           promptAssistDeep,
           paletteState,
+          // Byggval-hints skiljer jobb åt även när text/system är identiska.
+          pageCountHint: initChoicesMeta.pageCountHint ?? null,
+          styleKeywordsHint: initChoicesMeta.styleKeywordsHint ?? null,
         },
       );
       const existingLock = getActiveCreateChatLock(createKey);
@@ -132,6 +172,11 @@ export function useCreateChat(
             router.replace(`/builder?${p.toString()}`);
           }
           toast.success("Återansluter till pågående skapning");
+          // Ingen store-reset här: den URSPRUNGLIGA skapningen läste storen
+          // synkront och äger livscykeln — den nollställer själv när (och
+          // bara när) den gav en riktig artefakt. En eager reset vid
+          // reconnect kunde annars tömma valen medan originalet fortfarande
+          // streamar eller slutade tomt.
         } else {
           toast("En skapning med samma prompt pågår redan. Vänta en stund och försök igen.");
         }
@@ -174,7 +219,10 @@ export function useCreateChat(
       ]);
       setIsCreatingChat(true);
 
-      const handleNonStreamingCreate = async (data: Record<string, unknown>) => {
+      // Returnerar true när svaret bar en riktig artefakt (version/preview) —
+      // samma gate som SSE-vägens hasRecoveredArtifact, så Byggval-storen
+      // behandlas lika oavsett transport.
+      const handleNonStreamingCreate = async (data: Record<string, unknown>): Promise<boolean> => {
         const meta =
           data?.meta && typeof data.meta === "object"
             ? (data.meta as Record<string, unknown>)
@@ -353,6 +401,24 @@ export function useCreateChat(
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
         );
+        // Spegla SSE-vägens hasRecoveredArtifact: version, KANONISK preview
+        // (shim-URL:er räknas inte som riktig artefakt där heller),
+        // awaiting-input eller plan-artefakt. previewPending räknas INTE —
+        // det gör den inte på SSE-vägen heller.
+        const planArtifact = normalizePlanArtifact(data.planArtifact);
+        const hasPlanArtifact = Boolean(
+          planArtifact && (planArtifact.steps.length > 0 || planArtifact.blockers.length > 0),
+        );
+        const canonicalDemoUrl =
+          resolvedDemoUrl && !isCompatibilityShimPreviewUrl(resolvedDemoUrl)
+            ? resolvedDemoUrl
+            : null;
+        return Boolean(
+          resolvedVersionId ||
+            canonicalDemoUrl ||
+            data.awaitingInput === true ||
+            hasPlanArtifact,
+        );
       };
 
       let requestBody: Record<string, unknown> | null = null;
@@ -401,6 +467,15 @@ export function useCreateChat(
         if (designThemePreset) promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;
         if (paletteState?.selections?.length) promptMeta.palette = paletteState;
+        if (initChoicesMeta.pageCountHint) {
+          promptMeta.pageCountHint = initChoicesMeta.pageCountHint;
+        }
+        if (initChoicesMeta.styleKeywordsHint?.length) {
+          promptMeta.styleKeywordsHint = initChoicesMeta.styleKeywordsHint;
+        }
+        if (initChoicesMeta.complexityHint) {
+          promptMeta.complexityHint = initChoicesMeta.complexityHint;
+        }
         if (options.planMode) promptMeta.planMode = true;
         if (options.promptSourceMeta) {
           promptMeta.promptSourceKind = options.promptSourceMeta.sourceKind;
@@ -461,8 +536,12 @@ export function useCreateChat(
         }
 
         const contentType = response.headers.get("content-type") || "";
+        // Byggval nollställs bara vid en GENUINT lyckad skapning: SSE-vägen
+        // kan lösa utan throw men med tom generation (ingen version/preview/
+        // plan/awaiting-input) — då bevaras valen till nästa försök.
+        let createProducedArtifact = true;
         if (contentType.includes("text/event-stream")) {
-          await handleSseStream(
+          const streamResult = await handleSseStream(
             response,
             {
               streamType: "create",
@@ -495,13 +574,20 @@ export function useCreateChat(
             },
             streamController.signal,
           );
+          createProducedArtifact = streamResult.hasRecoveredArtifact;
         } else {
           const data = await response.json();
-          await handleNonStreamingCreate(data);
+          createProducedArtifact = await handleNonStreamingCreate(data);
         }
         // Brief consumed by server — clear only on success so retries can reuse it.
         if (pendingBriefRef?.current) {
           pendingBriefRef.current = null;
+        }
+        // Byggval consumed — clear on success (same retry rationale as brief)
+        // so a later new chat in the same session starts from auto. The
+        // welcome panel re-reads the store on its next mount, so UI follows.
+        if (createProducedArtifact) {
+          resetInitBuildChoices();
         }
       } catch (error) {
         if (isClientInitiatedAbort(error, streamController)) {
@@ -542,7 +628,14 @@ export function useCreateChat(
               );
             }
             const data = await fallbackRes.json();
-            await handleNonStreamingCreate(data);
+            const fallbackProducedArtifact = await handleNonStreamingCreate(data);
+            // Lyckad skapning via fallback — samma konsumtion som happy path.
+            if (pendingBriefRef?.current) {
+              pendingBriefRef.current = null;
+            }
+            if (fallbackProducedArtifact) {
+              resetInitBuildChoices();
+            }
             return true;
           } catch (fallbackErr) {
             if (isClientInitiatedAbort(fallbackErr, fallbackController)) {

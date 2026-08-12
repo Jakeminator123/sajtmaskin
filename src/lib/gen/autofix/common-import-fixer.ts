@@ -55,6 +55,21 @@ function findFirstLocalBindingDeclarationIndex(code: string, name: string): numb
   return best;
 }
 
+/**
+ * True when the file carries a local VALUE declaration of `name`
+ * (function/class/const/let/var/enum — the declarations that can serve value
+ * usages after a conflicting import is removed). Interface/type declarations
+ * are deliberately excluded: dropping a value-used import in favour of a
+ * local type would trade TS2440 for TS2304 (that sub-case is owned by
+ * `fixDuplicateImportAndLocalTypeCollision`, which checks value usage).
+ */
+function hasLocalValueDeclaration(code: string, name: string): boolean {
+  const escaped = escapeRegExp(name);
+  return new RegExp(
+    `\\b(?:function|class|const|let|var|enum)\\s+${escaped}\\b`,
+  ).test(code);
+}
+
 /** e.g. `function X({ foo: bar }` — local name is `bar`. */
 function findFirstDestructuredAliasBindingIndex(code: string, localName: string): number | null {
   const escaped = escapeRegExp(localName);
@@ -75,13 +90,26 @@ function findFirstShadowingIndex(code: string, name: string): number | null {
 /**
  * Drop an import binding only when it truly shadows a local declaration later in the file
  * and the imported name is not used between the end of the import and that declaration.
+ *
+ * `confirmedConflicts` (compiler-confirmed TS2440 names from the diagnostic
+ * message) relaxes the heuristic guards: the compiler has already proven the
+ * import and a local declaration collide, so the import binding is unusable —
+ * every reference must resolve against the local declaration. The only check
+ * kept is that a local VALUE declaration actually exists in the current
+ * content (the diagnostic may be stale, and a local *type* declaration can
+ * not serve value usages — that sub-case stays with the type-collision
+ * fixer / the LLM).
  */
 function shouldDropConflictingImportBinding(
   code: string,
   declarations: Set<string>,
   bindingLocal: string,
   importStatementEnd: number,
+  confirmedConflicts?: ReadonlySet<string>,
 ): boolean {
+  if (confirmedConflicts?.has(bindingLocal)) {
+    return hasLocalValueDeclaration(code, bindingLocal);
+  }
   if (!declarations.has(bindingLocal)) return false;
   const shadowIdx = findFirstShadowingIndex(code, bindingLocal);
   if (shadowIdx === null) return false;
@@ -398,6 +426,32 @@ export function buildProjectModuleExportIndex(files: CodeFile[]): ModuleExportIn
   return index;
 }
 
+/**
+ * Default-export index: exported name → alias import path(s) of the own-project
+ * files that default-export it.
+ *
+ * `buildProjectExportIndex` only sees NAMED exports, so `components/reveal.tsx`
+ * with `export default function Reveal` is invisible there. Same file filter
+ * (`isIndexableSharedFile`) as the named index, so `app/` pages and the shadcn
+ * lane stay out. Consumers must only inject an import when a name maps to
+ * exactly ONE module — a name exported by several files is ambiguous and is
+ * left for the repair loop.
+ */
+export function buildProjectDefaultExportIndex(files: CodeFile[]): Map<string, string[]> {
+  const index = new Map<string, string[]>();
+
+  for (const [path, entry] of buildProjectModuleExportIndex(files)) {
+    if (!entry.hasDefault || !entry.defaultName) continue;
+    if (!isIndexableSharedFile(path)) continue;
+    const modulePath = toAliasImportPath(path);
+    const bucket = index.get(entry.defaultName) ?? [];
+    if (!bucket.includes(modulePath)) bucket.push(modulePath);
+    index.set(entry.defaultName, bucket);
+  }
+
+  return index;
+}
+
 export function fixMissingLocalSymbolImports(
   code: string,
   filePath: string,
@@ -559,15 +613,34 @@ function computeSelfImportSpecifiers(filePath: string): Set<string> {
 export function fixImportedDeclarationConflicts(
   code: string,
   filePath?: string,
+  options?: {
+    /**
+     * Local binding names the compiler has CONFIRMED conflict with a local
+     * declaration (parsed from `TS2440: Import declaration conflicts with
+     * local declaration of 'X'`). For these, the usage-between-import-and-
+     * declaration guard is skipped — the file does not compile with the
+     * conflict in place, so dropping the import in favour of an existing
+     * local VALUE declaration is the deterministic resolution (prod chat
+     * `85f8db72`: `CircleDot` imported from lucide-react AND declared as a
+     * local component, used in JSX above the declaration — the heuristic
+     * guard refused, two runs never reached `passed`).
+     */
+    confirmedConflicts?: ReadonlySet<string>;
+  },
 ): { code: string; fixed: boolean; removedBindings: string[] } {
   const declarations = extractLocalDeclarations(code);
+  const confirmedConflicts = options?.confirmedConflicts;
   // When the file path is known, treat self-module-path imports as conflicts
   // unconditionally (a module cannot meaningfully import from itself), in
   // addition to the general local-redeclaration rule below.
   const selfSpecifiers = filePath
     ? computeSelfImportSpecifiers(filePath)
     : new Set<string>();
-  if (declarations.size === 0 && selfSpecifiers.size === 0) {
+  if (
+    declarations.size === 0 &&
+    selfSpecifiers.size === 0 &&
+    (confirmedConflicts?.size ?? 0) === 0
+  ) {
     return { code, fixed: false, removedBindings: [] };
   }
 
@@ -596,14 +669,28 @@ export function fixImportedDeclarationConflicts(
     }
 
     const keptNamed = namedSpecsParsed.filter((spec) => {
-      if (!shouldDropConflictingImportBinding(code, declarations, spec.local, importEnd)) {
+      if (
+        !shouldDropConflictingImportBinding(
+          code,
+          declarations,
+          spec.local,
+          importEnd,
+          confirmedConflicts,
+        )
+      ) {
         return true;
       }
       removedBindings.push(spec.local);
       return false;
     });
 
-    const defaultDrop = shouldDropConflictingImportBinding(code, declarations, defaultLocal, importEnd);
+    const defaultDrop = shouldDropConflictingImportBinding(
+      code,
+      declarations,
+      defaultLocal,
+      importEnd,
+      confirmedConflicts,
+    );
     if (defaultDrop) {
       removedBindings.push(defaultLocal);
     }
@@ -642,7 +729,15 @@ export function fixImportedDeclarationConflicts(
     }
 
     const keptNamed = namedSpecsParsed.filter((spec) => {
-      if (!shouldDropConflictingImportBinding(code, declarations, spec.local, importEnd)) {
+      if (
+        !shouldDropConflictingImportBinding(
+          code,
+          declarations,
+          spec.local,
+          importEnd,
+          confirmedConflicts,
+        )
+      ) {
         return true;
       }
       removedBindings.push(spec.local);

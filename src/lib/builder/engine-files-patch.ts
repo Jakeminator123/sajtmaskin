@@ -42,8 +42,16 @@ export async function quickEditChatFiles(params: {
   engineLatestKnownVersionId?: string;
   ops: QuickEditClientOp[];
   summary?: string;
+  /**
+   * Set to `false` only for content a PERSON typed (the code view's save
+   * button): the server otherwise refuses an op set that leaves a file with
+   * more syntax errors than it had, and a half-finished manual edit must still
+   * be savable. Machine-authored ops leave this on.
+   */
+  guardSyntax?: boolean;
 }): Promise<QuickEditClientResult> {
-  const { chatId, baseVersionId, engineLatestKnownVersionId, ops, summary } = params;
+  const { chatId, baseVersionId, engineLatestKnownVersionId, ops, summary, guardSyntax } =
+    params;
   try {
     const response = await fetch(`${engineChatBaseUrl(chatId)}/quick-edit`, {
       method: "POST",
@@ -52,6 +60,7 @@ export async function quickEditChatFiles(params: {
         ...(baseVersionId ? { baseVersionId } : {}),
         ...(engineLatestKnownVersionId ? { engineLatestKnownVersionId } : {}),
         ...(summary ? { summary } : {}),
+        ...(guardSyntax === false ? { guardSyntax: false } : {}),
         ops,
       }),
     });
@@ -106,8 +115,11 @@ export type PatchEngineChatFileResult =
  * returns the optimistic-concurrency 409 as the bare token
  * `stale_base_version` (no readable sentence); every other decline already
  * carries a human-readable `error` from the quick-edit engine.
+ *
+ * Exported so other quick-edit callers (OpenClaws `apply_quick_edit`-kort)
+ * shares exactly one Swedish translation of the hard failure tokens.
  */
-function describeQuickEditHardError(result: { error: string; reason?: string }): string {
+export function describeQuickEditHardError(result: { error: string; reason?: string }): string {
   if (result.error === "stale_base_version") {
     return "En nyare version finns redan. Ladda om för att fortsätta från den senaste versionen.";
   }
@@ -159,8 +171,15 @@ export async function patchEngineChatFile(params: {
    * forking history.
    */
   engineLatestKnownVersionId?: string;
+  /**
+   * Forwarded to `quickEditChatFiles`. Pass `false` ONLY for content a PERSON
+   * typed (the code view's save button) — machine-authored callers (undo/redo,
+   * composer drop) must leave this unset so the server's syntax guard stays on.
+   */
+  guardSyntax?: boolean;
 }): Promise<PatchEngineChatFileResult> {
-  const { chatId, versionId, fileName, content, engineLatestKnownVersionId } = params;
+  const { chatId, versionId, fileName, content, engineLatestKnownVersionId, guardSyntax } =
+    params;
 
   if (isQuickEditEnabled()) {
     const result = await quickEditChatFiles({
@@ -168,6 +187,7 @@ export async function patchEngineChatFile(params: {
       baseVersionId: versionId,
       engineLatestKnownVersionId,
       ops: [{ kind: "replace_content", path: fileName, content }],
+      guardSyntax,
     });
     if (result.ok) {
       return {

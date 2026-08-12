@@ -373,6 +373,7 @@ export function MiljoSection() {
               <Badge variant="outline">Ytan är avstängd</Badge>
             )}
             {openclaw.debugEnabled && <Badge variant="outline">Debugläge</Badge>}
+            {openclaw.editEnabled && <Badge variant="outline">Editläge</Badge>}
           </div>
           {openclaw.blockers.length > 0 && (
             <div className="mt-3">

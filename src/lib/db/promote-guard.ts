@@ -8,12 +8,24 @@
  * finalize verifier-LLM rejected (`verifier_failed`) could still be promoted
  * and stamped `verified`, masking the failure (the false-green bug).
  *
+ * Innehållsrevision steg 3 (flagga `SAJTMASKIN_CONTENT_REVISION_GATE`) lägger till
+ * den andra halvan: ett verdikt gäller ett INNEHÅLL, inte ett `versionId`. Bär
+ * verdiktet en revision som bevisligen inte är innehållets är det inget svar —
+ * symmetriskt, både `passed` och `failed` (planens beslut 1a) — och versionen
+ * räknas som overifierad tills en gate körts för det nya innehållet (beslut 1b).
+ * Saknas revisionen är läget okänt och guarden är fail-open precis som förut.
+ *
  * Scope (intentionally narrow): this only adds a refusal at the promote
  * chokepoint. It does NOT decouple `verificationState`/`releaseState` or
  * rework the status model — that is a separate follow-up.
  */
 
-import { getLatestQualityGateResultForVersion } from "./services/generation-telemetry";
+import {
+  getLatestQualityGateSignalForVersion,
+  type QualityGateSignal,
+} from "./services/generation-telemetry";
+import { shortRevision } from "@/lib/gen/verify/content-revision";
+import { incContentRevisionMismatch } from "@/lib/observability/metrics";
 
 /**
  * Finalize quality-gate results that must block promotion. `preflight_passed`
@@ -27,14 +39,30 @@ export const PROMOTE_BLOCKING_QUALITY_GATE_RESULTS = [
 export type PromoteGuardDecision =
   | { allowed: true }
   | { allowed: false; signal: string; reason: string }
-  // `indeterminate` = the guard could not READ the finalize signal (e.g. a DB
-  // error), so it cannot prove the version is clean. Distinct from an explicit
-  // block: callers that opt into fail-closed should treat this as "do not
-  // promote, but the row is NOT verifier-rejected" (retryable, not terminal).
-  | { allowed: false; indeterminate: true; reason: string };
+  // `indeterminate` = the guard could not obtain a verdict that applies to the
+  // content being promoted — either the finalize signal could not be READ (e.g. a
+  // DB error) or (revision gate on) the only signal describes a DIFFERENT content
+  // revision. Distinct from an explicit block: callers that opt into fail-closed
+  // should treat this as "do not promote, but the row is NOT verifier-rejected"
+  // (retryable, not terminal).
+  | {
+      allowed: false;
+      indeterminate: true;
+      reason: string;
+      /** Set when the indeterminacy is a KNOWN revision mismatch, not a read error. */
+      staleRevision?: true;
+    };
 
-/** Injectable signal reader (defaults to telemetry). Eases unit testing. */
-export type QualityGateSignalReader = (versionId: string) => Promise<string | null>;
+/**
+ * Injectable signal reader (defaults to telemetry). Eases unit testing.
+ *
+ * A plain `string | null` is still accepted (and treated as an unknown-revision
+ * signal, i.e. today's semantics) so existing call sites and tests that inject a
+ * simple verdict keep working.
+ */
+export type QualityGateSignalReader = (
+  versionId: string,
+) => Promise<string | null | QualityGateSignal>;
 
 /** Behaviour when the finalize signal read throws (e.g. DB unavailable). */
 export type PromoteGuardOptions = {
@@ -48,7 +76,28 @@ export type PromoteGuardOptions = {
    * the `/quality-gate` route hardens to fail-closed.
    */
   onReadError?: "allow" | "indeterminate";
+  /**
+   * The exact `files_json` about to be promoted when it is NOT what the version
+   * row currently holds. Only `acceptRepair` needs it: it promotes the content
+   * from `repaired_files_json` in the same transaction, so comparing against the
+   * version's current (pre-accept) revision would call the repair verdict stale.
+   * Same explicit pattern as `assessedFilesJson` (#646) — compare against the
+   * content the verdict actually describes, never re-stamp the receipt.
+   */
+  promotedFilesJson?: string | null;
 };
+
+function normalizeSignal(raw: string | null | QualityGateSignal): QualityGateSignal {
+  if (raw === null || typeof raw === "string") {
+    return {
+      result: raw,
+      revisionMatch: "unknown",
+      verdictRevision: null,
+      contentRevision: null,
+    };
+  }
+  return raw;
+}
 
 /**
  * Decide whether `versionId` may be promoted.
@@ -63,15 +112,26 @@ export type PromoteGuardOptions = {
  * DB/guard failure can no longer false-green a `verifier_failed` version into
  * `promoted`. A `null` (no telemetry row) is NOT an error and still allows —
  * the back-compat path is unchanged regardless of this option.
+ *
+ * Known revision mismatch (gate on) is ALWAYS retryable-indeterminate,
+ * independent of `onReadError`: we know the content changed and that no gate has
+ * seen the new content, so promoting would be a false-green with a known cause —
+ * while terminal-failing would invent a verdict nobody produced.
  */
 export async function assertPromoteAllowed(
   versionId: string,
-  readSignal: QualityGateSignalReader = getLatestQualityGateResultForVersion,
+  readSignal?: QualityGateSignalReader,
   opts?: PromoteGuardOptions,
 ): Promise<PromoteGuardDecision> {
-  let signal: string | null = null;
+  let signal: QualityGateSignal;
   try {
-    signal = await readSignal(versionId);
+    signal = normalizeSignal(
+      readSignal
+        ? await readSignal(versionId)
+        : await getLatestQualityGateSignalForVersion(versionId, {
+            promotedFilesJson: opts?.promotedFilesJson ?? null,
+          }),
+    );
   } catch (err) {
     if (opts?.onReadError === "indeterminate") {
       return {
@@ -85,11 +145,27 @@ export async function assertPromoteAllowed(
     return { allowed: true };
   }
 
-  if (signal && (PROMOTE_BLOCKING_QUALITY_GATE_RESULTS as readonly string[]).includes(signal)) {
+  if (signal.revisionMatch === "stale") {
+    incContentRevisionMismatch("promote_guard", { verdict: signal.result });
     return {
       allowed: false,
-      signal,
-      reason: `finalize quality gate = ${signal}`,
+      indeterminate: true,
+      staleRevision: true,
+      reason:
+        `promote guard signal describes another content revision ` +
+        `(verdikt ${shortRevision(signal.verdictRevision)} = ${signal.result ?? "inget"}, ` +
+        `innehåll ${shortRevision(signal.contentRevision)}) — kör gaten igen`,
+    };
+  }
+
+  if (
+    signal.result &&
+    (PROMOTE_BLOCKING_QUALITY_GATE_RESULTS as readonly string[]).includes(signal.result)
+  ) {
+    return {
+      allowed: false,
+      signal: signal.result,
+      reason: `finalize quality gate = ${signal.result}`,
     };
   }
 

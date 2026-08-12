@@ -935,6 +935,50 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     expect(logGenerationMock).toHaveBeenCalledTimes(1);
   });
 
+  it("a SURVIVED fault charges normally and files no failure row when the run ends awaiting input", async () => {
+    // The `error` case only breaks its own switch, so the stream keeps reading:
+    // a transient 429 early in the run is still recorded when the model then
+    // makes a blocking tool call and the run ends the way it was designed to.
+    // Filing `success=false` with the provider's message there is a false-red —
+    // a generation row describes the outcome, not the worst moment along the
+    // way (ägarbeslut 2026-07-30).
+    const EmptyGenerationError = (await import("@/lib/gen/stream/finalize-version"))
+      .EmptyGenerationError;
+    finalizeAndSaveVersionMock.mockRejectedValueOnce(
+      new EmptyGenerationError("chat_survived_429", null),
+    );
+    const params = providerFaultParams("chat_survived_429", {});
+    const out = createOwnEngineGenerationStream({
+      ...params,
+      pipelineStream: pipelineStreamFromSsePayload(
+        formatSSEEvent("error", {
+          message: "Modellen är överbelastad just nu.",
+          code: "rate_limit_exceeded",
+          providerFault: true,
+        }) +
+          formatSSEEvent("tool-call", {
+            toolName: "suggestIntegration",
+            args: { provider: "stripe", name: "Stripe", envVars: ["STRIPE_SECRET_KEY"] },
+          }) +
+          formatSSEEvent("done", { promptTokens: 2, completionTokens: 1 }),
+      ),
+    });
+
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    // The run reached the terminal state it was supposed to.
+    expect(doneData.versionId).toBeNull();
+    expect(doneData.awaitingInput).toBe(true);
+    // No row claiming the run failed on the provider.
+    expect(logGenerationMock).not.toHaveBeenCalled();
+    // Charged like every other awaiting-input round. The survived blip is
+    // invisible to the user, so it must not change the price (ägarbeslut
+    // 2026-07-30, credit-halvan) — the guard withholds credits only when the
+    // provider fault is why the run produced nothing.
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+  });
+
   it("still charges when the model itself answered nothing (no provider fault)", async () => {
     const out = createOwnEngineGenerationStream(
       providerFaultParams("chat_silent_model", {
@@ -948,5 +992,99 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     // generation, however disappointing. Only OUR failures are free.
     expect(commitCredits).toHaveBeenCalledTimes(1);
     expect(logGenerationMock).not.toHaveBeenCalled();
+  });
+
+  // ── A stream that dies must say so ────────────────────────────────────────
+  // The last-resort `done` in the finally block used to carry no `reason` and no
+  // progress event at all: the client got "klart" with a null versionId and the
+  // logs held nothing to explain the round — while the credit was still charged.
+  it("gives the client a reason when the pipeline ends without a done event", async () => {
+    const out = createOwnEngineGenerationStream(
+      providerFaultParams("chat_no_done", {
+        message: "Model produced no text events (silent output).",
+      }),
+    );
+
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    expect(doneData.versionId).toBeNull();
+    expect(doneData.reason).toBe("stream_ended_empty_output");
+    expect(doneData.awaitingInput).toBe(false);
+
+    const progress = events
+      .filter((e) => e.event === "progress")
+      .map((e) => e.data as Record<string, unknown>);
+    expect(progress).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          step: "generation",
+          phase: "empty-output",
+          reason: "stream_ended_empty_output",
+        }),
+      ]),
+    );
+    // A genuinely empty round keeps the empty_generation devlog label —
+    // `site.stream_without_version` is reserved for streamed-but-unsaved.
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "site.empty_generation",
+        reason: "stream_ended_empty_output",
+      }),
+    );
+    // Charging semantics are unchanged by the added reason.
+    expect(commitCredits).toHaveBeenCalledTimes(1);
+  });
+
+  it("distinguishes 'content arrived but no version was saved' from an empty round", async () => {
+    // Content streamed, then finalize threw for a non-empty reason and the
+    // fallback finalize threw too. Same terminal state, different cause — and
+    // the whole reporting chain (reason, progress phase, devlog type) must
+    // tell them apart: the user SAW text in the chat, so neither the UI nor
+    // the logs may call the round "empty output".
+    finalizeAndSaveVersionMock.mockRejectedValue(new Error("persist exploded"));
+    const params = providerFaultParams("chat_finalize_threw", {});
+    const out = createOwnEngineGenerationStream({
+      ...params,
+      pipelineStream: pipelineStreamFromSsePayload(
+        formatSSEEvent("content", { text: '```tsx file="app/page.tsx"\nexport default 1\n```' }),
+      ),
+    });
+
+    const events = await collectSseEvents(out);
+    const doneData = events.find((e) => e.event === "done")?.data as Record<string, unknown>;
+
+    expect(doneData.versionId).toBeNull();
+    expect(doneData.reason).toBe("stream_ended_without_version");
+
+    const progress = events
+      .filter((e) => e.event === "progress")
+      .map((e) => e.data as Record<string, unknown>);
+    expect(progress).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          step: "generation",
+          phase: "stream-without-version",
+          reason: "stream_ended_without_version",
+        }),
+      ]),
+    );
+    expect(progress).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ phase: "empty-output" })]),
+    );
+
+    expect(devLogAppend).toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({
+        type: "site.stream_without_version",
+        chatId: "chat_finalize_threw",
+        reason: "stream_ended_without_version",
+      }),
+    );
+    expect(devLogAppend).not.toHaveBeenCalledWith(
+      "in-progress",
+      expect.objectContaining({ type: "site.empty_generation" }),
+    );
   });
 });

@@ -39,6 +39,14 @@ export type BuildSpecChangeScope =
   | "redesign"
   | "integration";
 export type BuildSpecQualityTarget = "standard" | "premium" | "release-candidate";
+/**
+ * Byggval (init controls): structured user-chosen complexity. `complex`
+ * floors qualityTarget at premium and biases contextPolicy heavier;
+ * `simple` only biases contextPolicy lighter (never demotes qualityTarget —
+ * multipage/F3 promotions and safety floors stay authoritative);
+ * `medium` is a recorded no-op. Init-only.
+ */
+export type BuildSpecComplexityHint = "simple" | "medium" | "complex";
 export type BuildSpecPreviewPolicy = "fidelity2" | "fidelity3";
 export type BuildSpecVerificationPolicy = "fast" | "standard" | "strict";
 export type BuildSpecContextPolicy = "light" | "normal" | "heavy";

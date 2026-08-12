@@ -18,7 +18,7 @@ import type {
   FinalizeStepTelemetryMap,
   FinalizeSyntaxResult,
 } from "./types";
-import type { AutofixRiskSummary } from "./pre-phases";
+import type { AutofixFixerSummary, AutofixRiskSummary } from "./pre-phases";
 
 export async function persistTelemetryRecord(params: {
   chatId: string;
@@ -45,6 +45,15 @@ export async function persistTelemetryRecord(params: {
   hasPreflightVerificationErrors?: boolean;
   previewBlockingReason: string | null;
   startedAt: number;
+  /**
+   * Wall-clock ms from engine stream wrapper start (`startedAt` =
+   * `engineStartedAt` in generation-stream) until finalize begins.
+   * Measured at the stream→finalize boundary in runner.ts
+   * (`finalizePipelineStartedAt - startedAt`). Brief and orchestration run
+   * before that wrapper and are **not** included — this is codegen SSE
+   * read time only.
+   */
+  streamMs: number;
   tokenUsage?: { prompt?: number; completion?: number };
   preflightFileCount: number;
   scaffoldRetry: ScaffoldRetrySuggestion | null;
@@ -54,6 +63,22 @@ export async function persistTelemetryRecord(params: {
   autoFixWarningCount: number;
   autoFixDependencyCount: number;
   autoFixRisk: AutofixRiskSummary;
+  /**
+   * Per-fixer utfall för den här körningen (`summarizeAutofixFixers`).
+   * Persisteras i `meta.autofix.fixers` så frågan "vilken fixer ingriper
+   * faktiskt, och hur ofta?" går att besvara med SQL i efterhand. Utan den
+   * fanns bara `fixCount` (hur många fixar totalt) och `riskyFixerIds` (vilka
+   * riskklassade fixers som rörde koden, utan antal) — vilket gjorde det
+   * omöjligt att se vilka av de ~50 fixarna som bär sin vikt. Ephemer
+   * event-bus/devLog-data överlever inte serverless, så DB är enda durabla
+   * ytan. Tom lista skrivs INTE (samma meta-hygien som `selectedDossierIds`).
+   *
+   * Sedan 2026-08-01 ingår även post_merge-lanen (`repairGeneratedFiles` i
+   * finalize-preflight, lane-taggad `post_merge`) — den mutera(de) persistade
+   * filer helt osynligt i prod (layout-provider-fixer, chat e8bd3ba6).
+   * `fixCount`/riskfälten är fortsatt Normalize-lanen enbart.
+   */
+  autoFixFixers?: AutofixFixerSummary[];
   verifierBlocked: boolean;
   verifierBlockingFindings: Array<{ id: string; detail: string }>;
   preflightIssueCount: number;
@@ -86,6 +111,7 @@ export async function persistTelemetryRecord(params: {
     hasVerificationBlockingErrors,
     previewBlockingReason,
     startedAt,
+    streamMs,
     tokenUsage,
     preflightFileCount,
     scaffoldRetry,
@@ -95,6 +121,7 @@ export async function persistTelemetryRecord(params: {
     autoFixWarningCount,
     autoFixDependencyCount,
     autoFixRisk,
+    autoFixFixers,
     verifierBlocked,
     verifierBlockingFindings,
     preflightIssueCount,
@@ -109,6 +136,8 @@ export async function persistTelemetryRecord(params: {
     const telemetryMeta: Record<string, unknown> = {
       finalizePath: finalizePath.runDeepPath ? "full" : "light",
       finalizePathReason: finalizePath.reason,
+      // See `streamMs` param JSDoc — direct measure at stream→finalize boundary.
+      streamMs: Math.max(0, streamMs),
       postStreamSteps: finalizeStepTelemetry,
       repairPassIndex,
       autofix: {
@@ -118,6 +147,9 @@ export async function persistTelemetryRecord(params: {
         safeFixCount: autoFixRisk.safeFixCount,
         riskyFixCount: autoFixRisk.riskyFixCount,
         riskyFixerIds: autoFixRisk.riskyFixerIds,
+        ...(autoFixFixers && autoFixFixers.length > 0
+          ? { fixers: autoFixFixers }
+          : {}),
       },
       preflight: {
         previewBlocked: hasPreviewBlockingPreflightErrors,
@@ -167,6 +199,15 @@ export async function persistTelemetryRecord(params: {
     const briefInfluencedSelection =
       scaffoldSelection?.briefContextApplied === true;
 
+    // Orchestrate-låst scaffold-variant för den här körningen. Samma källa
+    // som runnerns autofix-läsning (`orchestrationStreamMeta.variantId`);
+    // null för legacy-snapshots, eval och repair-only-vägar.
+    const variantId =
+      typeof orchestrationStreamMeta?.variantId === "string" &&
+      orchestrationStreamMeta.variantId.trim().length > 0
+        ? orchestrationStreamMeta.variantId
+        : null;
+
     const telemetryRecord = await createGenerationTelemetryRecord({
       chatId,
       versionId,
@@ -174,6 +215,7 @@ export async function persistTelemetryRecord(params: {
       scaffoldSelectionMethod,
       scaffoldSelectionConfidence,
       briefInfluencedSelection,
+      variantId,
       model,
       buildIntent: buildIntent ?? null,
       retryCount: repairPassIndex,

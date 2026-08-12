@@ -48,6 +48,9 @@ const LOADING_OVERLAY_DEBOUNCE_MS = 350;
 // tar längre än normal). Tvingar bort overlayen efter denna tid oavsett
 // state — det är bättre att visa innehållet (även halvfärdig preview)
 // än att låta spinnern hänga kvar för evigt.
+//
+// Obs (ägarbeslut 2026-08-01): efter capen är ytan medvetet tyst. Den
+// tidigare "slow boot"-raden (N6/Del C) togs bort — se mvp-scope-freeze.mdc.
 const LOADING_OVERLAY_HARD_CAP_MS = 6_000;
 
 // Hur länge "klicka för att fokusera"-ledtråden visas innan den auto-göms,
@@ -85,16 +88,19 @@ export function PreviewPanelFrame({
     const hardCapId = window.setTimeout(() => {
       setHardCapReached(true);
     }, LOADING_OVERLAY_HARD_CAP_MS);
-    // Cleanup handles both (a) isLoading → false and (b) unmount. Resetting
-    // the flags here — rather than in the effect body — prepares for the
-    // next rising edge without cascading renders on the current one.
+    // Cleanup handles (a) isLoading → false, (b) ny previewSrc och (c) unmount.
+    // Resetting the flags here — rather than in the effect body — prepares for
+    // the next rising edge without cascading renders on the current one.
+    // `previewSrc` är med i deps så en NY laddning (route-byte medan isLoading
+    // förblir sann) re-armar debounce/hard-cap i stället för att ärva en
+    // förbrukad cap och bli helt tyst (Bugbot-fynd 2026-08-01).
     return () => {
       window.clearTimeout(debounceId);
       window.clearTimeout(hardCapId);
       setDebounceElapsed(false);
       setHardCapReached(false);
     };
-  }, [isLoading]);
+  }, [isLoading, previewSrc]);
 
   const topBarVisible = isLoading && !hardCapReached;
   const overlayVisible = isLoading && debounceElapsed && !hardCapReached;

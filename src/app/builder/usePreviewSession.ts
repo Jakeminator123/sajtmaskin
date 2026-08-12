@@ -11,7 +11,7 @@ import {
 } from "@/lib/gen/preview/preview-url-classifier";
 import type { VersionMismatchOverlayPayload } from "@/lib/gen/preview/preview-host-client";
 
-export type UsePreviewSessionParams = {
+type UsePreviewSessionParams = {
   chatId: string | null;
   activeVersionId: string | null;
   /**
@@ -30,7 +30,9 @@ export type UsePreviewSessionParams = {
   onRecoverFailed?: (params: {
     chatId: string;
     versionId: string;
-    reason: "max_attempts" | "status_unavailable";
+    reason: "max_attempts" | "status_unavailable" | "build_error";
+    /** Host readiness/build-error detail when `reason === "build_error"`. */
+    detail?: string | null;
   }) => void;
   /**
    * Overridable clock for tests. `Date.now` in production. Lets the
@@ -295,6 +297,30 @@ export function usePreviewSession(params: UsePreviewSessionParams) {
           setCurrentPreviewUrl(serverUrl);
         }
       }
+      return;
+    }
+
+    if (statusPayload.status === "build_error") {
+      // Deterministic compile/build failure (host `waitForReady` saw a Next.js
+      // build-error overlay / HTTP 500). This is TERMINAL for the current
+      // version — a forced VM restart just re-runs the same failing build and
+      // hides `readinessError`. Stop the recover loop and surface the error so
+      // RepairGate / the UI banner can act on it instead of looping.
+      previewRecoverAttemptsRef.current = 0;
+      setPreviewSessionRecovering(false);
+      logPreviewLifecycleTelemetry({
+        kind: "recover",
+        phase: "failed",
+        chatId,
+        versionId,
+        detail: "build_error",
+      });
+      onRecoverFailed?.({
+        chatId,
+        versionId,
+        reason: "build_error",
+        detail: statusPayload.readinessError ?? statusPayload.message ?? null,
+      });
       return;
     }
 

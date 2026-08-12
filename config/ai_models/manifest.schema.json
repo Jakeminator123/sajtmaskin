@@ -3,7 +3,21 @@
   "$id": "https://sajtmaskin.local/config/ai_models/manifest.schema.json",
   "title": "Sajtmaskin AI models manifest",
   "type": "object",
-  "required": ["schemaVersion", "buildProfiles", "promptAssist", "briefing", "phaseRouting", "repairPolicies", "qualityGateTiers", "promptOrchestration", "postGenerationPasses", "preGenerationContracts", "tokenBudgets", "routeTimeouts", "workloads"],
+  "required": [
+    "schemaVersion",
+    "buildProfiles",
+    "promptAssist",
+    "briefing",
+    "phaseRouting",
+    "repairPolicies",
+    "qualityGateTiers",
+    "promptOrchestration",
+    "postGenerationPasses",
+    "preGenerationContracts",
+    "tokenBudgets",
+    "routeTimeouts",
+    "workloads"
+  ],
   "additionalProperties": false,
   "properties": {
     "schemaVersion": { "type": "integer", "minimum": 1 },
@@ -35,12 +49,12 @@
       "properties": {
         "defaults": {
           "type": "object",
-          "required": ["fast", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic"],
           "additionalProperties": { "type": "string" }
         },
         "envKeys": {
           "type": "object",
-          "required": ["fast", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic"],
           "additionalProperties": { "type": "string" }
         }
       }
@@ -124,9 +138,9 @@
       "properties": {
         "defaultByTier": {
           "type": "object",
-          "required": ["fast", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic"],
           "properties": {
-            "fast": { "$ref": "#/$defs/phaseRoutingTier" },
+            "premium": { "$ref": "#/$defs/phaseRoutingTier" },
             "pro": { "$ref": "#/$defs/phaseRoutingTier" },
             "max": { "$ref": "#/$defs/phaseRoutingTier" },
             "codex": { "$ref": "#/$defs/phaseRoutingTier" },
@@ -135,9 +149,9 @@
         },
         "thinkingByTier": {
           "type": "object",
-          "required": ["fast", "pro", "max", "codex", "anthropic"],
+          "required": ["premium", "pro", "max", "codex", "anthropic"],
           "properties": {
-            "fast": { "$ref": "#/$defs/phaseThinkingTier" },
+            "premium": { "$ref": "#/$defs/phaseThinkingTier" },
             "pro": { "$ref": "#/$defs/phaseThinkingTier" },
             "max": { "$ref": "#/$defs/phaseThinkingTier" },
             "codex": { "$ref": "#/$defs/phaseThinkingTier" },
@@ -149,7 +163,14 @@
     },
     "repairPolicies": {
       "type": "object",
-      "required": ["deterministicAutofixPasses", "syntaxFixPasses", "manualRepairRouteLlmPasses", "serverRepairPasses", "repairAcceptTimeoutMinutes", "partialFileRepairMaxAttempts"],
+      "required": [
+        "deterministicAutofixPasses",
+        "syntaxFixPasses",
+        "manualRepairRouteLlmPasses",
+        "serverRepairPasses",
+        "repairAcceptTimeoutMinutes",
+        "partialFileRepairMaxAttempts"
+      ],
       "properties": {
         "deterministicAutofixPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
         "syntaxFixPasses": { "type": "integer", "minimum": 1, "maximum": 10 },
@@ -170,9 +191,9 @@
     "perTierTimeouts": {
       "type": "object",
       "description": "VALIDATE-ONLY per-tier timeout overrides. Declared-only: validated but not wired to runtime (global routeTimeouts apply). See config/control-plane/policy-registry.json.",
-      "required": ["fast", "pro", "max", "codex", "anthropic"],
+      "required": ["premium", "pro", "max", "codex", "anthropic"],
       "properties": {
-        "fast": { "$ref": "#/$defs/perTierTimeout" },
+        "premium": { "$ref": "#/$defs/perTierTimeout" },
         "pro": { "$ref": "#/$defs/perTierTimeout" },
         "max": { "$ref": "#/$defs/perTierTimeout" },
         "codex": { "$ref": "#/$defs/perTierTimeout" },
@@ -182,9 +203,9 @@
     "perTierRepairPolicies": {
       "type": "object",
       "description": "VALIDATE-ONLY per-tier repair-pass overrides. Declared-only: validated but not wired to runtime (global repairPolicies apply).",
-      "required": ["fast", "pro", "max", "codex", "anthropic"],
+      "required": ["premium", "pro", "max", "codex", "anthropic"],
       "properties": {
-        "fast": { "$ref": "#/$defs/perTierRepairPolicy" },
+        "premium": { "$ref": "#/$defs/perTierRepairPolicy" },
         "pro": { "$ref": "#/$defs/perTierRepairPolicy" },
         "max": { "$ref": "#/$defs/perTierRepairPolicy" },
         "codex": { "$ref": "#/$defs/perTierRepairPolicy" },
@@ -193,10 +214,10 @@
     },
     "perTierBriefing": {
       "type": "object",
-      "description": "VALIDATE-ONLY per-tier briefing-model overrides. Declared-only: validated but not wired to runtime (global briefing defaults apply).",
-      "required": ["fast", "pro", "max", "codex", "anthropic"],
+      "description": "Runtime-wired per-tier auto-brief model defaults. Explicit prompt-assist selection and the selected provider's auto-brief env override take precedence; global briefing defaults are the compatibility fallback.",
+      "required": ["premium", "pro", "max", "codex", "anthropic"],
       "properties": {
-        "fast": { "$ref": "#/$defs/perTierBriefingEntry" },
+        "premium": { "$ref": "#/$defs/perTierBriefingEntry" },
         "pro": { "$ref": "#/$defs/perTierBriefingEntry" },
         "max": { "$ref": "#/$defs/perTierBriefingEntry" },
         "codex": { "$ref": "#/$defs/perTierBriefingEntry" },
@@ -264,11 +285,7 @@
     },
     "postGenerationPasses": {
       "type": "object",
-      "required": [
-        "verifierMaxOutputTokens",
-        "verifierTimeoutMs",
-        "verifierSnippetCharsPerFile"
-      ],
+      "required": ["verifierMaxOutputTokens", "verifierTimeoutMs", "verifierSnippetCharsPerFile"],
       "additionalProperties": false,
       "properties": {
         "verifierMaxOutputTokens": { "$ref": "#/$defs/numericEnvSetting" },
@@ -297,14 +314,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": [
-              "kind",
-              "provider",
-              "name",
-              "envVars",
-              "matchPatterns",
-              "reason"
-            ],
+            "required": ["kind", "provider", "name", "envVars", "matchPatterns", "reason"],
             "properties": {
               "kind": {
                 "type": "string",
@@ -386,7 +396,15 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "title", "description", "invocation", "provider", "codeEntry", "authEnv"],
+        "required": [
+          "id",
+          "title",
+          "description",
+          "invocation",
+          "provider",
+          "codeEntry",
+          "authEnv"
+        ],
         "properties": {
           "id": { "type": "string" },
           "title": { "type": "string" },
@@ -397,6 +415,7 @@
           "authEnv": { "type": "array", "items": { "type": "string" } },
           "defaultModel": { "type": "string" },
           "fallbackModels": { "type": "array", "items": { "type": "string" } },
+          "visionModels": { "type": "array", "items": { "type": "string" } },
           "envOverrides": { "type": "object", "additionalProperties": { "type": "string" } },
           "tokenBudget": {
             "type": "object",
@@ -457,7 +476,11 @@
       "required": ["thinking", "reasoningEffort"],
       "properties": {
         "thinking": { "type": "boolean" },
-        "reasoningEffort": { "type": "string", "enum": ["none", "low", "medium", "high"] }
+        "reasoningEffort": {
+          "type": "string",
+          "enum": ["none", "low", "medium", "high", "xhigh", "max"]
+        },
+        "reasoningMode": { "type": "string", "enum": ["standard", "pro"] }
       }
     },
     "phaseThinkingTier": {

@@ -322,9 +322,13 @@ export function PreviewPanelChrome({
         )
       ) : null}
 
-      {!isCodeView && (previewRoutesLoading || previewRoutes.length > 0 || canManagePages) ? (
+      {/* The row stays mounted for the whole preview view even when it has no
+          routes yet: gating it on loaded content let it mount from zero height
+          once routes arrived, which moves the preview body below it. min-h-6
+          reserves one filled chip row. */}
+      {!isCodeView ? (
         <div className="border-b border-gray-800 bg-black/30 px-4 py-1">
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex min-h-6 flex-wrap items-center gap-1.5">
             {previewRoutesLoading && previewRoutes.length === 0 ? (
               <span className="text-[11px] text-gray-500">Läser routes från versionens filer...</span>
             ) : (

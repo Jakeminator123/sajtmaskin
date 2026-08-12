@@ -13,8 +13,9 @@ alwaysApply: false
 | `npm run dev:clean` | rensa Next-cache + start |
 | `npm run typecheck` | TypeScript-check |
 | `npm run lint` | ESLint |
-| `npm run test:ci` | hela Vitest-sviten |
+| `npm run test:ci` | hela Vitest-sviten (körs **utan** databas, med flit) |
 | `npm run test:focused` | snabb kärnsubset |
+| `npm run test:postgres` | DB-backade kontrakt (`*.postgres.test.ts`) mot en riktig dev-Postgres. Skippas utan `POSTGRES_URL`; vägrar prod. Se [`docs/testing.md`](../../docs/testing.md) |
 | `npm run devtest` | typecheck + scaffold/dossier/test/lint |
 | `npm run backoffice` | starta Streamlit-backoffice |
 | `npm run scaffolds:validate` | validera scaffold-manifests |
@@ -40,7 +41,7 @@ Gäller **brus**, inte kontroller: verifieringsdjup, tester och bugbot-pass ska 
 | `npm ci --silent --no-progress --no-audit --no-fund` | full npm-progress |
 | **Strömma aldrig** `gh pr checks --watch` in i kontext: kör bakgrundspoll och läs bara svansen (`… --watch 2>&1 \| Select-Object -Last 15`), engångs-`gh pr checks <n>`, eller `notify_on_output` med sentinel | `gh pr checks --watch` som skriver hela 13-raderstabellen var 30:e sek in i svaret |
 | **PR-vänta icke-blockerande:** kör bugbot (för-filtret) **före** PR, posta PR, starta **EN** bakgrundsshell (`Start-Sleep` till minst 7-min-golvet — räkna med upp till ~10 min → dumpa `gh pr checks` + nya review-kommentarer till fil), **avsluta turen** och merga på slutförande-notisen **först när `review-window` + alla required checks är gröna** (timern är ett golv, inte ett kvitto). Protected paths → billig `readonly`-bakgrunds-subagent (≤10 min) som **larmar** om fynd (triage + merge hos orkestratorn, aldrig watchern). Detalj: `pr-merge-review-gate.mdc` → "Spendera fönstret utan att blocka" | blocka hela 7–13-min-fönstret med `AwaitShell`/`gh run watch`, merga på ren timer utan att kolla att `review-window` blev grön, eller låta den billiga watchern triagera/merga |
-| **PR-body till `gh pr create --body-file`:** Shell-verktygets `$env:TEMP` (`C:\WINDOWS\TEMP`) är **inte** samma som Write-verktygets temp (`…\AppData\Local\Temp`) → skriv body till en **specifikt gitignorerad** scratch-path (`.cursor/tmp/` eller `.cursor/swarms/` — inte godtyckligt under `.cursor/`, som inte är ignorerat) och referera exakt den, **eller** skapa filen i samma shell (`New-TemporaryFile`) | `--body-file "$env:TEMP\…"` efter Write-verktyget, eller `.cursor/pr-body.md` (ej ignorerat → riskerar committas) → "file not found" resp. läckt scratch-fil |
+| **PR-body och commit-meddelande till fil:** Shell-verktygets `$env:TEMP` (`C:\WINDOWS\TEMP`) är **inte** samma som Write-verktygets temp (`…\AppData\Local\Temp`). Skriv alltid scratch till **`.cursor/tmp/`** — enda tillåtna scratch-pathen — och referera exakt den, **eller** skapa filen i samma shell (`New-TemporaryFile`). Radera efter användning. | `--body-file "$env:TEMP\…"` efter Write-verktyget → "file not found". **Att hitta på ett eget filnamn direkt under `.cursor/`** (`_tmp-pr.md`, `pr-body.md`, `tmp-diff.txt`) → filerna blir kvar och dränker `git status`. Det hände: 21 `_tmp-*`-filer på en dag, för att `.gitignore` bara täckte prefixet `tmp-`. |
 | Läs stora filer riktat: `Grep`-slice eller `Read` med offset+limit; läs en fil **en gång** per session | full `Read` av 1000+ raders filer, upprepat i varje worktree |
 | Subagenter: terse output (tabell, bara fynd med impact ≥ 3, en rad styck); färre vinklar på lågrisk-diff | långa fritextrapporter · fler agenter än nödvändigt på lågrisk-diff (för-filtrets omfång styrs i `git.mdc`/`workflow.mdc`, inte här) |
 

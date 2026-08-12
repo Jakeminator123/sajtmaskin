@@ -4,14 +4,16 @@
   "label": "Warm Editorial",
   "description": "Broader content-first variant for publishing, CMS-led sites, and service storytelling.",
   "keywords": [
-    "content",
     "story",
     "editorial",
     "cms",
     "warm",
     "publishing",
     "magazine",
-    "community"
+    "community",
+    "berättelse",
+    "tidning",
+    "gemenskap"
   ],
   "fontPairings": [
     {

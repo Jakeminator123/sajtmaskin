@@ -14,33 +14,21 @@ import {
   type VersionDisplayStatus,
 } from "@/lib/builder/version-status-display";
 import type { PreviewLifecycleState } from "@/lib/builder/preview-lifecycle";
-import { dispatchPromptPrefill } from "@/lib/builder/prompt-prefill-event";
+import type { DesignTheme } from "@/lib/builder/theme-presets";
+import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PreviewPanelInitControls } from "./PreviewPanelInitControls";
+import { useRepairBlocked } from "@/lib/builder/repair-blocked";
 import { cn } from "@/lib/utils";
-
-/** Klickbara exempelprompter i välkomst-läget — fyller chattens input. */
-const EXAMPLE_PROMPTS = [
-  {
-    label: "Frisörsalong med bokning",
-    prompt:
-      "En modern sajt för min frisörsalong i Göteborg med prislista, öppettider och en tydlig boka tid-knapp.",
-  },
-  {
-    label: "Konsult-landningssida",
-    prompt:
-      "En professionell landningssida för min konsultverksamhet inom ekonomi, med tjänster, referenser och kontaktformulär.",
-  },
-  {
-    label: "Fotograf-portfolio",
-    prompt:
-      "En portfolio för en fotograf med bildgalleri, om-sida och prisexempel för bröllop och företagsfoto.",
-  },
-] as const;
 
 interface PreviewPanelEmptyStateProps {
   chatId: string | null;
   versionId: string | null;
+  /** Färgtema-preset till Byggval-reglagen (flyttad från Avancerat). */
+  designTheme?: DesignTheme;
+  onDesignThemeChange?: (theme: DesignTheme) => void;
+  themeLocked?: boolean;
   externalLoading: boolean;
   awaitingInput: boolean;
   awaitingInputQuestion?: string | null;
@@ -55,6 +43,12 @@ interface PreviewPanelEmptyStateProps {
   activeVersionRepairPassIndex?: number;
   onFixPreview?: (() => void) | null;
   /**
+   * Sant när appen redan arbetar med en generering. Samma grind som i
+   * `PreviewPanelFrame`: "Försök reparera preview" startar en ny debiterad
+   * körning, så den får inte erbjudas mitt i en pågående.
+   */
+  isGenerating?: boolean;
+  /**
    * P0 stream-abort recovery (2026-04-26). True when the most recent
    * generation/repair stream for this chat died before any version was
    * created. Forces the action area into "Starta om generation" mode
@@ -68,6 +62,9 @@ interface PreviewPanelEmptyStateProps {
 export function PreviewPanelEmptyState({
   chatId,
   versionId,
+  designTheme,
+  onDesignThemeChange,
+  themeLocked = false,
   externalLoading,
   awaitingInput,
   awaitingInputQuestion,
@@ -80,10 +77,21 @@ export function PreviewPanelEmptyState({
   activeVersionIsLatest = true,
   activeVersionRepairPassIndex = 0,
   onFixPreview,
+  isGenerating = false,
   versionlessAborted = false,
   onRestartGeneration,
 }: PreviewPanelEmptyStateProps) {
-  const isInitialEmpty = !chatId && !versionId && !externalLoading;
+  // Täcker både pågående generering och deterministisk /finalize-design.
+  const repairBlocked = useRepairBlocked(isGenerating);
+  // A template entry (`?templateId=...`) is never a blank onboarding start:
+  // the template already decides site type/pages/style, and the chat is being
+  // initialized in the background. Until `chatId` hydrates, show the loading
+  // state instead of the Byggval onboarding controls. `useSearchParams` is
+  // null outside a router context (e.g. component tests), which safely
+  // disables this branch there.
+  const searchParams = useSearchParams();
+  const pendingTemplateInit = Boolean(searchParams?.get("templateId")) && !chatId;
+  const isInitialEmpty = !chatId && !versionId && !externalLoading && !pendingTemplateInit;
   const normalizedAwaitingQuestion =
     typeof awaitingInputQuestion === "string" && awaitingInputQuestion.trim()
       ? awaitingInputQuestion.trim()
@@ -133,6 +141,8 @@ export function PreviewPanelEmptyState({
         : activeStatusTitle ??
           (previewPending
             ? "Startar VM-preview"
+            : pendingTemplateInit
+              ? "Läser in mallen"
             : awaitingInput
               ? "AI väntar på ditt svar"
               : isInitialEmpty
@@ -151,6 +161,8 @@ export function PreviewPanelEmptyState({
         : activeStatusSubtitle ??
           (previewPending
             ? "Sajten startar och visas så snart den är klar."
+            : pendingTemplateInit
+              ? "Mallen importeras och förhandsvisningen öppnas strax."
             : awaitingInput
               ? "AI behöver ditt svar innan nästa preview kan genereras."
               : externalLoading
@@ -170,7 +182,10 @@ export function PreviewPanelEmptyState({
     !versionlessAborted &&
       onFixPreview &&
       !externalLoading &&
+      !repairBlocked &&
       !isInitialEmpty &&
+      // No chat exists yet during a template init — nothing to repair.
+      !pendingTemplateInit &&
       !awaitingInput &&
       !previewPending,
   );
@@ -178,7 +193,7 @@ export function PreviewPanelEmptyState({
     ? AlertCircle
     : versionlessAborted
       ? RotateCcw
-      : previewPending
+      : previewPending || pendingTemplateInit
         ? Loader2
         : awaitingInput
           ? MessageCircleQuestion
@@ -187,7 +202,8 @@ export function PreviewPanelEmptyState({
             : AlertCircle;
 
   // Välkomst-läget (ingen chat/version ännu) är ett riktigt onboarding-steg:
-  // förklara nästa steg och erbjud exempelprompter — inte bara en tom yta.
+  // Byggval-reglagen låter användaren styra typ, sidantal, komplexitet, stil
+  // och färgläge — valen skrivs in som ett eget stycke i chattens input.
   const showWelcome =
     isInitialEmpty && !previewBuildError && !awaitingInput && !previewPending;
 
@@ -202,43 +218,19 @@ export function PreviewPanelEmptyState({
             Vad vill du bygga?
           </h2>
           <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
-            Beskriv din sajt i chatten till vänster så genererar vi en första version med
-            live-förhandsvisning här. Du kan sedan förfina den steg för steg.
+            Beskriv din sajt i chatten till vänster. Gör gärna några byggval nedan — de styr
+            första versionen.
           </p>
 
-          <ol className="text-muted-foreground mx-auto mb-7 grid max-w-sm gap-2 text-left text-sm">
-            {[
-              "Beskriv företaget och vad sajten ska göra",
-              "Få en förhandsvisning på ca 2 minuter",
-              "Justera med följdfrågor och publicera",
-            ].map((step, i) => (
-              <li key={step} className="flex items-start gap-3">
-                <span className="bg-secondary text-foreground mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
-                  {i + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
+          <PreviewPanelInitControls
+            designTheme={designTheme}
+            onDesignThemeChange={onDesignThemeChange}
+            themeLocked={themeLocked}
+          />
 
-          <p className="text-muted-foreground/80 mb-2.5 text-xs font-medium tracking-wide uppercase">
-            Eller börja från ett exempel
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {EXAMPLE_PROMPTS.map((example) => (
-              <button
-                key={example.label}
-                type="button"
-                onClick={() => dispatchPromptPrefill(example.prompt)}
-                className="border-border/60 bg-secondary/40 text-foreground hover:border-primary/40 hover:bg-secondary/70 rounded-full border px-3.5 py-1.5 text-xs transition-colors"
-                title={example.prompt}
-              >
-                {example.label}
-              </button>
-            ))}
-          </div>
-
-          <p className="text-muted-foreground/70 mt-6 inline-flex items-center gap-1.5 text-xs">
+          {/* Full opacitet: /70 mot builder-bakgrunden gav ~3.7:1 och föll på
+              WCAG 2 AA (4.5:1) i Vercel-toolbarens a11y-kontroll. */}
+          <p className="text-muted-foreground mt-6 inline-flex items-center gap-1.5 text-xs">
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
             Skriv i chatten till vänster för att starta
           </p>
@@ -249,7 +241,9 @@ export function PreviewPanelEmptyState({
 
   return (
     <div className="text-muted-foreground flex h-full flex-col items-center justify-center bg-black/20 px-6 text-center">
-      <EmptyIcon className={cn("mb-4 h-12 w-12", previewPending && "animate-spin")} />
+      <EmptyIcon
+        className={cn("mb-4 h-12 w-12", (previewPending || pendingTemplateInit) && "animate-spin")}
+      />
       <p className="text-foreground mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>
         {title}
       </p>
@@ -283,7 +277,11 @@ export function PreviewPanelEmptyState({
         </Button>
       ) : null}
       {showFixAction ? (
-        <Button className="mt-4" onClick={onFixPreview!} disabled={externalLoading}>
+        <Button
+          className="mt-4"
+          onClick={onFixPreview!}
+          disabled={externalLoading || repairBlocked}
+        >
           Försök reparera preview
         </Button>
       ) : null}

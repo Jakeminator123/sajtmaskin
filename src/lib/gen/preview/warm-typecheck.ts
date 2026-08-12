@@ -9,10 +9,13 @@
  *    fails, the function returns `{ ok: true, skipped: "cache_cold", … }`
  *    so the finalize pipeline never blocks on infrastructure that hasn't
  *    been provisioned in this environment.
- *  - **Bounded by feature flag:** disabled unless
- *    `SAJTMASKIN_PRE_VM_TYPECHECK` is truthy. F3 generations can opt in
- *    by passing `force: true` (set by `runPreVmTypecheck` callers when
- *    `previewPolicy === "fidelity3"`).
+ *  - **Two ways in:** the env flag `SAJTMASKIN_PRE_VM_TYPECHECK`, OR
+ *    `force: true` — which `fast-path.ts` sets unconditionally for F3
+ *    (`previewPolicy === "fidelity3"`). F3 therefore runs this pass with the
+ *    flag unset; the flag is not a global on/off switch. It is skipped only
+ *    when neither applies, or when a planned quality gate already covers
+ *    typecheck (`qualityGatePlanned`), where the flag wins and forces the
+ *    pass anyway.
  *  - **Scoped tsc:** runs `tsc --noEmit --project <cache>/tsconfig.json`
  *    inside `tmp/sajtmaskin/typecheck-cache/<scaffoldId>` after the
  *    generated files are written into the cache root. Intended for
@@ -215,7 +218,7 @@ export async function runPreVmTypecheck(
     // normal unprovisioned case and already warned about by the caller.)
     if (existsSync(cacheDir)) {
       console.warn(
-        `[warm-typecheck] Warm cache at ${cacheDir} is stale — ${cacheProblem}. Treating it as cold; run \`npm run provision:warm-cache\` (see docs/howto/warm-cache-setup.md).`,
+        `[warm-typecheck] Warm cache at ${cacheDir} is stale — ${cacheProblem}. Treating it as cold; run \`npm run provision:warm-cache\` (see docs/runbooks/warm-cache-setup.md).`,
       );
     }
     return coldResult;

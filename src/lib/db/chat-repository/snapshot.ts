@@ -73,6 +73,15 @@ export async function appendF3ApprovedToSnapshot(
   chatId: string,
   capabilities: string[],
   providers: string[],
+  /**
+   * Provider-/dossier-id som det här godkännandet ERSÄTTER — syskon till de
+   * capabilities som godkänns nu. Utan dem blir unionen fel sorts minne: ett
+   * tidigare godkänt `postgres-drizzle` som aldrig gav filbevis ligger kvar när
+   * användaren byter till `mongodb-atlas`, båda matar `dossierProviderHints`,
+   * och `pickForCapability` föredrar defaulten vid dubbelträff — alltså byggs
+   * Postgres igen trots bytet.
+   */
+  supersededProviders: string[] = [],
 ): Promise<boolean> {
   const cleanCapabilities = Array.from(
     new Set(
@@ -91,14 +100,31 @@ export async function appendF3ApprovedToSnapshot(
     ),
   );
   if (cleanCapabilities.length === 0 && cleanProviders.length === 0) return false;
+  // Ett id som godkänns nu får aldrig städas bort av sin egen ersättningslista.
+  const cleanSuperseded = Array.from(
+    new Set(
+      supersededProviders
+        .filter((p): p is string => typeof p === "string")
+        .map((p) => p.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ).filter((p) => !cleanProviders.includes(p));
   const capabilitiesJson = JSON.stringify(cleanCapabilities);
   const providersJson = JSON.stringify(cleanProviders);
-  const unionExpr = (key: string, incomingJson: string) =>
+  const supersededJson = JSON.stringify(cleanSuperseded);
+  // Tom ersättningslista ⇒ subfrågan ger inga rader ⇒ `NOT IN` är sant för
+  // alla, alltså exakt den gamla rena unionen.
+  const unionExpr = (key: string, incomingJson: string, dropJson?: string) =>
     sql`(SELECT coalesce(jsonb_agg(DISTINCT value), '[]'::jsonb)
       FROM jsonb_array_elements_text(
         coalesce(${engineChats.orchestrationSnapshot}->${key}, '[]'::jsonb)
         || ${incomingJson}::jsonb
-      ) AS entries(value))`;
+      ) AS entries(value)
+      WHERE value NOT IN (
+        SELECT dropped FROM jsonb_array_elements_text(
+          ${dropJson ?? "[]"}::jsonb
+        ) AS superseded(dropped)
+      ))`;
   const result = await db
     .update(engineChats)
     .set({
@@ -110,7 +136,7 @@ export async function appendF3ApprovedToSnapshot(
           true
         ),
         '{f3ApprovedProviders}'::text[],
-        ${unionExpr("f3ApprovedProviders", providersJson)},
+        ${unionExpr("f3ApprovedProviders", providersJson, supersededJson)},
         true
       )`,
       updatedAt: new Date(),

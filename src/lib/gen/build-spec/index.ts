@@ -15,6 +15,7 @@ export type {
   BuildSpec,
   BuildSpecCapabilityFlags,
   BuildSpecChangeScope,
+  BuildSpecComplexityHint,
   BuildSpecContextPolicy,
   BuildSpecGenerationMode,
   BuildSpecPreviewPolicy,

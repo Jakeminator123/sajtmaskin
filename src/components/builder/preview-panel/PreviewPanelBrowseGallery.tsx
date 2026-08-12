@@ -19,6 +19,7 @@ import {
   SHADCN_ITEM_DND_TYPE,
   type ShadcnInsertHandler,
   type ShadcnInsertSelection,
+  type ShadcnPlacementPicker,
 } from "@/lib/builder/shadcn-insert";
 import { RegistryItemThumb } from "./RegistryItemThumb";
 
@@ -45,6 +46,13 @@ export interface PreviewPanelBrowseGalleryProps {
   disabled?: boolean;
   /** Insättnings-lane v1 (own-engine). Saknas → detaljvyns knapp är disabled. */
   onInsertItem?: ShadcnInsertHandler;
+  /**
+   * Klick-väg: aktivera befintligt placeringsläge mot previewn innan
+   * `onInsertItem` anropas. Saknas → insätt direkt (default "Längst ner").
+   * `null` = läget kunde inte visas → samma default. `"aborted"` =
+   * Esc/klick utanför/kontextbyte → ingen insättning.
+   */
+  onPickPlacement?: ShadcnPlacementPicker;
   /** Aktiverar Composer-overlayns drop-yta medan ett kort dras (samma som Block-fliken). */
   onDragStart?: () => void;
   onDragEnd?: () => void;
@@ -69,6 +77,7 @@ const ITEM_TYPE_TABS: { id: BrowseItemType; label: string }[] = [
 export function PreviewPanelBrowseGallery({
   disabled = false,
   onInsertItem,
+  onPickPlacement,
   onDragStart,
   onDragEnd,
 }: PreviewPanelBrowseGalleryProps) {
@@ -151,6 +160,7 @@ export function PreviewPanelBrowseGallery({
           item={selectedItem}
           onBack={() => setSelectedItem(null)}
           onInsertItem={onInsertItem}
+          onPickPlacement={onPickPlacement}
           panelDisabled={disabled}
         />
       ) : (
@@ -345,7 +355,12 @@ function BrowseCard({
       }
     >
       <div className="flex aspect-video items-center justify-center overflow-hidden bg-zinc-900/80">
-        <RegistryItemThumb src={thumb} alt={item.title} />
+        <RegistryItemThumb
+          src={thumb}
+          alt={item.title}
+          previewKind={item.previewKind}
+          iconKey={item.iconKey}
+        />
       </div>
       <div className="space-y-0.5 px-2 py-1.5">
         <div className="truncate text-[11px] font-medium text-violet-100">{item.title}</div>
@@ -363,11 +378,13 @@ function BrowseDetailView({
   item,
   onBack,
   onInsertItem,
+  onPickPlacement,
   panelDisabled = false,
 }: {
   item: ComponentItem;
   onBack: () => void;
   onInsertItem?: ShadcnInsertHandler;
+  onPickPlacement?: ShadcnPlacementPicker;
   /**
    * Panelens disabled-läge (saknad preview, placement mode, composer-historik).
    * Wrappern har bara `pointer-events-none` — utan detta kan tangentbordet
@@ -383,24 +400,33 @@ function BrowseDetailView({
   // stoppar det andra klicket från att trigga en duplicerad generation.
   const insertingRef = useRef(false);
 
-  // Insättnings-lane v1 (Fas 2): kortvalets metadata → `shadcn-insert.ts` →
-  // BEFINTLIGA sendMessage/own-engine-vägen → generering + verify → ny version.
-  // Aldrig rå filpatch. SEAM (Fas 2 v2, utanför v1-scope): en deterministisk
-  // recipe-lane (getRegistryItems → rewriteRegistryImports → dep-completer →
-  // recipe-injektion i own-engine-turn) kan senare ersätta prompt-vägen — samma
-  // `ShadcnInsertSelection` som ingång.
+  // Insättnings-lane v1 (Fas 2): kortvalets metadata → (valfritt placeringsläge)
+  // → `shadcn-insert.ts` → BEFINTLIGA sendMessage/own-engine-vägen → generering
+  // + verify → ny version. Aldrig rå filpatch. SEAM (Fas 2 v2, utanför
+  // v1-scope): en deterministisk recipe-lane kan senare ersätta prompt-vägen —
+  // samma `ShadcnInsertSelection` som ingång.
   const handleInsert = useCallback(async () => {
     if (!onInsertItem || insertingRef.current) return;
     insertingRef.current = true;
     setInserting(true);
     setInserted(false);
     try {
+      const selection = toBrowseSelection(item);
+      // Klick-väg: samma placeringsfält som drag-and-drop sätter, via befintligt
+      // placeringsläge. null (läget kunde inte visas) → default "Längst ner".
+      const picked = onPickPlacement ? await onPickPlacement(selection) : null;
+      // "aborted" = Esc/klick utanför/kontextbyte → ingen insättning alls
+      // (finally återställer knappen).
+      if (picked === "aborted") return;
       const outcome = await onInsertItem({
-        name: item.name,
-        registry: OFFICIAL_SHADCN_REGISTRY,
-        title: item.title,
-        description: item.description || undefined,
-        origin: "browse",
+        ...selection,
+        ...(picked
+          ? {
+              placement: picked.placement,
+              placementLabel: picked.placementLabel,
+              anchorSectionLabel: picked.anchorSectionLabel,
+            }
+          : {}),
       });
       // Markera bara "Skickat" när en generation faktiskt startade. Hanterade
       // avslag (409 stale base, 412 tier-3-env) resolvar utan kast och visade
@@ -415,7 +441,7 @@ function BrowseDetailView({
       insertingRef.current = false;
       setInserting(false);
     }
-  }, [onInsertItem, item]);
+  }, [onInsertItem, onPickPlacement, item]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -431,7 +457,13 @@ function BrowseDetailView({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <div className="mb-3 flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-violet-900/50 bg-zinc-900/80">
-          <RegistryItemThumb src={thumb} alt={item.title} fallbackLabel="Ingen förhandsbild" />
+          <RegistryItemThumb
+            src={thumb}
+            alt={item.title}
+            fallbackLabel="Ingen förhandsbild"
+            previewKind={item.previewKind}
+            iconKey={item.iconKey}
+          />
         </div>
         <h3 className="text-sm font-semibold text-violet-100">{item.title}</h3>
         <p className="mt-0.5 font-mono text-[10px] text-zinc-500">{item.name}</p>

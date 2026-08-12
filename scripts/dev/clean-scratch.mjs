@@ -2,13 +2,14 @@
  * Removes local scratch / cache / stale-artifact files that accumulate during
  * development but are NOT tracked by git (they are gitignored). Unlike
  * `clean-orphans.mjs` (which only sweeps __pycache__ and empty dirs), this
- * script targets the growing scratch trees: .tmp, caches, rotated logs and
- * timestamped env-backups.
+ * script targets the growing scratch trees: .tmp, caches, agent scratch under
+ * .cursor/, rotated logs and timestamped env-backups.
  *
  * Why this exists:
- * `.tmp/`, `logs/*` and `.env-backups/` are gitignored, so `git clean` in a
- * normal workflow never touches them and they grow unbounded on disk. This is
- * the repeatable "empty them" button the repo-cleanup plan asked for.
+ * `.tmp/`, `logs/*`, `.env-backups/` and `.cursor/` scratch are gitignored, so
+ * `git clean` in a normal workflow never touches them and they grow unbounded
+ * on disk. This is the repeatable "empty them" button the repo-cleanup plan
+ * asked for.
  *
  * Safety model:
  *   - Dry-run by DEFAULT. Nothing is removed unless you pass --apply.
@@ -39,9 +40,16 @@ const RETAIN_DAYS = 14;
 const RETAIN_MS = RETAIN_DAYS * 24 * 60 * 60 * 1000;
 
 /** Fully-cleared trees (pure cache/scratch — safe to wipe contents entirely). */
-const WIPE_TREES = [".tmp", ".pytest_cache"];
+const WIPE_TREES = [".tmp", ".pytest_cache", ".cursor/tmp"];
 /** Single cache files removed outright. */
 const WIPE_FILES = [".eslintcache"];
+/**
+ * Agents sometimes drop PR bodies and diff probes straight under `.cursor/`
+ * instead of in `.cursor/tmp/`. `.gitignore` hides them from `git status`,
+ * which also means nothing else ever sweeps them. Same loose "name contains
+ * tmp" match as `.gitignore` — no legitimate `.cursor/` entry contains it.
+ */
+const STRAY_TREES = [{ rel: ".cursor", match: /tmp/i, own: new Set(["tmp"]) }];
 /** Age-based trees: keep newest RETAIN_COUNT + anything younger than RETAIN_DAYS. */
 const AGE_TREES = ["logs", ".env-backups"];
 /**
@@ -106,10 +114,35 @@ function removeEntry(abs, label) {
   if (apply) fs.rmSync(abs, { recursive: true, force: true });
 }
 
+/**
+ * True when the path is a symlink or (on Windows) a junction. `readdirSync`
+ * and `rmSync` follow such a link and operate on its TARGET, so wiping the
+ * "contents" of a linked tree empties whatever it points at — the same trap
+ * `scripts/cursor/worktree.mjs` exists to avoid for `node_modules`. We refuse
+ * instead of unlinking: this script's job is emptying scratch, not managing
+ * links someone else created on purpose.
+ */
+function isLinkedPath(abs) {
+  try {
+    return fs.lstatSync(abs).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 /** Wipe a whole scratch/cache tree (skips tracked files if any sneak in). */
 function wipeTree(rel) {
   const dir = path.join(root, rel);
   if (!fs.existsSync(dir)) return;
+  if (isLinkedPath(dir)) {
+    skippedTracked.push(dir);
+    // `rel` nedan är deklarerad efter den här körningen — använd path direkt.
+    console.warn(
+      `[clean-scratch] ${path.relative(root, dir)} is a link — skipped. ` +
+        "Emptying it would empty the link target, not the scratch tree.",
+    );
+    return;
+  }
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -123,6 +156,27 @@ function wipeTree(rel) {
       continue;
     }
     removeEntry(abs, `wipe:${rel}`);
+  }
+}
+
+/** Remove untracked direct children of `rel` whose name matches `match`. */
+function wipeStray({ rel, match, own }) {
+  const dir = path.join(root, rel);
+  if (!fs.existsSync(dir)) return;
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    if (!match.test(e.name) || own.has(e.name)) continue; // `own` is WIPE_TREES' job
+    const abs = path.join(dir, e.name);
+    if (e.isDirectory() ? containsTrackedFile(abs) : isTracked(abs)) {
+      skippedTracked.push(abs);
+      continue;
+    }
+    removeEntry(abs, `stray:${rel}`);
   }
 }
 
@@ -182,6 +236,7 @@ function pruneByAge(rel) {
 }
 
 for (const t of WIPE_TREES) wipeTree(t);
+for (const s of STRAY_TREES) wipeStray(s);
 for (const f of WIPE_FILES) wipeFile(f);
 for (const t of AGE_TREES) pruneByAge(t);
 

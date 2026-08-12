@@ -1,3 +1,9 @@
+import {
+  validateOpenClawApplyQuickEditAction,
+  type OpenClawApplyQuickEditAction,
+} from "./quick-edit-action";
+
+const OPENCLAW_ACTION_OPEN_TAG = "<openclaw-action>";
 const OPENCLAW_ACTION_CLOSE_TAG = "</openclaw-action>";
 const OPENCLAW_TEXT_FIELD_SELECTOR = "[data-openclaw-text-target]";
 const OPENCLAW_SEND_TARGET_SELECTOR = "[data-openclaw-send-target]";
@@ -46,7 +52,7 @@ export interface OpenClawRequestRepairAction {
 
 /**
  * Debug-mode only: OpenClaw confirms an arming handshake and creates a bounded
- * autonomy mandate (Mode A). The client gates this on OPENCLAW.debugEnabled and
+ * autonomy mandate (Mode A). The client gates this on OPENCLAW.editEnabled and
  * sets the mandate in the store; outside debug it is ignored.
  */
 export interface OpenClawStartBugHuntAction {
@@ -59,12 +65,25 @@ export interface OpenClawStartBugHuntAction {
 export type OpenClawAction =
   | OpenClawFillTextFieldAction
   | OpenClawRequestRepairAction
-  | OpenClawStartBugHuntAction;
+  | OpenClawStartBugHuntAction
+  | OpenClawApplyQuickEditAction;
 
 export interface ParsedOpenClawMessage {
   visibleContent: string;
   action: OpenClawAction | null;
+  /**
+   * Ett action-block saknar sin stängningstagg. Kan vara satt SAMTIDIGT som
+   * `action`: ett komplett första block följt av ett andra som fortfarande
+   * strömmar in.
+   */
   hasIncompleteAction: boolean;
+  /**
+   * Svensk orsak till att ett KOMPLETT action-block avvisades, annars null.
+   * Sätts aldrig samtidigt som `action` — blocket klipps bort ur den synliga
+   * texten oavsett, så utan den här strängen ser en avvisning ut som att
+   * Sajtagenten struntade i förfrågan.
+   */
+  actionError: string | null;
 }
 
 export interface ApplyOpenClawTextFieldActionResult {
@@ -156,62 +175,116 @@ export function applyOpenClawTextFieldAction(
   };
 }
 
+/**
+ * Klipp ut varje komplett action-block ur texten och behåll nyttolasten från
+ * det FÖRSTA. Systemprompten ber om exakt ett block, men en modell som bryter
+ * mot det (typiskt i armerat läge, där den både ska bekräfta ett mandat och
+ * skicka en follow-up) fick förut sitt andra block renderat som rå JSON i
+ * chattbubblan — bara det första klipptes bort. Extra block tolkas aldrig:
+ * ett meddelande utlöser som mest en action.
+ */
 export function parseOpenClawMessage(
   content: string,
 ): ParsedOpenClawMessage {
   const rawContent = typeof content === "string" ? content : "";
-  const openMatch = rawContent.match(/<openclaw-action>/i);
-  if (!openMatch || openMatch.index === undefined) {
-    return {
-      visibleContent: rawContent.trim(),
-      action: null,
-      hasIncompleteAction: false,
-    };
+  const lowerContent = rawContent.toLowerCase();
+
+  const visibleParts: string[] = [];
+  let actionPayload: string | null = null;
+  let hasIncompleteAction = false;
+  let cursor = 0;
+
+  for (;;) {
+    const openIndex = lowerContent.indexOf(OPENCLAW_ACTION_OPEN_TAG, cursor);
+    if (openIndex === -1) {
+      visibleParts.push(rawContent.slice(cursor));
+      break;
+    }
+    visibleParts.push(rawContent.slice(cursor, openIndex));
+
+    const afterOpenTag = openIndex + OPENCLAW_ACTION_OPEN_TAG.length;
+    const closeIndex = lowerContent.indexOf(OPENCLAW_ACTION_CLOSE_TAG, afterOpenTag);
+    if (closeIndex === -1) {
+      // Blocket strömmar fortfarande in (eller är avhugget): allt efter
+      // öppningstaggen hålls utanför den synliga texten.
+      hasIncompleteAction = true;
+      break;
+    }
+    if (actionPayload === null) {
+      actionPayload = rawContent.slice(afterOpenTag, closeIndex).trim();
+    }
+    cursor = closeIndex + OPENCLAW_ACTION_CLOSE_TAG.length;
   }
 
-  const actionStart = openMatch.index;
-  const afterOpenTag = actionStart + openMatch[0].length;
-  const closeIndex = rawContent.toLowerCase().indexOf(
-    OPENCLAW_ACTION_CLOSE_TAG,
-    afterOpenTag,
-  );
-  const beforeAction = rawContent.slice(0, actionStart).trimEnd();
-
-  if (closeIndex === -1) {
-    return {
-      visibleContent: beforeAction.trim(),
-      action: null,
-      hasIncompleteAction: true,
-    };
-  }
-
-  const actionPayload = rawContent.slice(afterOpenTag, closeIndex).trim();
-  const afterAction = rawContent
-    .slice(closeIndex + OPENCLAW_ACTION_CLOSE_TAG.length)
+  const visibleContent = visibleParts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("\n\n")
     .trim();
-  const visibleContent = [beforeAction, afterAction].filter(Boolean).join("\n\n").trim();
+
+  if (actionPayload === null) {
+    return { visibleContent, action: null, hasIncompleteAction, actionError: null };
+  }
 
   let action: OpenClawAction | null = null;
+  let actionError: string | null = null;
   try {
-    action = parseOpenClawAction(JSON.parse(actionPayload));
+    const result = parseOpenClawAction(JSON.parse(actionPayload));
+    action = result.action;
+    actionError = result.error;
   } catch {
-    action = null;
+    actionError = "Actionblocket är inte giltig JSON.";
+  }
+
+  return { visibleContent, action, hasIncompleteAction, actionError };
+}
+
+/** Antingen en godkänd action, eller en svensk orsak till avvisningen. */
+interface OpenClawActionParseResult {
+  action: OpenClawAction | null;
+  error: string | null;
+}
+
+function parseOpenClawAction(value: unknown): OpenClawActionParseResult {
+  if (!value || typeof value !== "object") {
+    return { action: null, error: "Actionblocket är inte ett JSON-objekt." };
+  }
+  const type = (value as Record<string, unknown>).type;
+
+  if (type === "fill_text_field") {
+    const parsed = parseOpenClawFillTextFieldAction(value);
+    return parsed
+      ? { action: parsed, error: null }
+      : { action: null, error: "Fältförslaget saknar ett giltigt målfält eller text att fylla i." };
+  }
+  if (type === "request_repair") {
+    const parsed = parseOpenClawRequestRepairAction(value);
+    return parsed
+      ? { action: parsed, error: null }
+      : { action: null, error: "Reparationsförslaget gick inte att tolka." };
+  }
+  if (type === "start_bug_hunt") {
+    const parsed = parseOpenClawStartBugHuntAction(value);
+    return parsed
+      ? { action: parsed, error: null }
+      : { action: null, error: "Buggjaktsförslaget gick inte att tolka." };
+  }
+  if (type === "apply_quick_edit") {
+    // Validera i stället för att parsa: förfiltret har redan tydliga svenska
+    // fel (skyddad sökväg, för många ops, okänd op-typ …) som ska visas ordagrant.
+    const validation = validateOpenClawApplyQuickEditAction(value);
+    return validation.ok
+      ? { action: validation.action, error: null }
+      : { action: null, error: validation.error };
   }
 
   return {
-    visibleContent,
-    action,
-    hasIncompleteAction: false,
+    action: null,
+    error:
+      typeof type === "string" && type.trim()
+        ? `Okänd action-typ "${type.trim().slice(0, 60)}".`
+        : "Actionblocket saknar en action-typ.",
   };
-}
-
-function parseOpenClawAction(value: unknown): OpenClawAction | null {
-  if (!value || typeof value !== "object") return null;
-  const type = (value as Record<string, unknown>).type;
-  if (type === "fill_text_field") return parseOpenClawFillTextFieldAction(value);
-  if (type === "request_repair") return parseOpenClawRequestRepairAction(value);
-  if (type === "start_bug_hunt") return parseOpenClawStartBugHuntAction(value);
-  return null;
 }
 
 function parseOpenClawStartBugHuntAction(

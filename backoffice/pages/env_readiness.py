@@ -26,7 +26,7 @@ from typing import Any
 
 import streamlit as st
 
-from backoffice.shared import BackofficeContext, read_json, render_where_panel
+from backoffice.shared import BackofficeContext, read_json
 
 PAGE_NAME = "Env Readiness (read-only)"
 
@@ -237,11 +237,7 @@ def _build_row(
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = (
-        read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
-    )
     st.header("Env Readiness — cockpit (read-only)")
-    render_where_panel(PAGE_NAME, domain_map)
 
     st.warning(
         "**Värden är maskerade by design.** Den här vyn visar bara nyckelns "

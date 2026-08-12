@@ -12,6 +12,7 @@ import {
 } from "@/lib/builder/defaults";
 import { DEFAULT_DESIGN_THEME, type DesignTheme } from "@/lib/builder/theme-presets";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
+import { suggestProjectNameFromPrompt } from "@/lib/builder/project-name-suggestion";
 import { createProject, saveProjectData } from "@/lib/project-client";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction, type TransitionStartFunction } from "react";
@@ -128,17 +129,20 @@ export function useBuilderProjectActions({
   );
 
   const resolveSuggestedProjectName = useCallback(() => {
+    // An explicitly chosen name is used verbatim — never truncated.
     const preferred = pendingProjectName?.trim();
     if (preferred) return preferred;
     const firstUserMessage = messages.find(
       (m) => m.role === "user" && typeof m.content === "string",
     );
-    const base =
-      firstUserMessage?.content?.trim() ||
-      resolvedPrompt?.trim() ||
-      (chatId ? `sajtmaskin-${chatId}` : "sajtmaskin");
-    const singleLine = base.split("\n")[0]?.trim();
-    return singleLine || "sajtmaskin";
+    // Prompt-derived suggestions are capped on a word boundary: a full
+    // free-form prompt is not a usable project name (prod 2026-08-01).
+    const promptBase = firstUserMessage?.content?.trim() || resolvedPrompt?.trim();
+    if (promptBase) {
+      const suggestion = suggestProjectNameFromPrompt(promptBase);
+      if (suggestion) return suggestion;
+    }
+    return chatId ? `sajtmaskin-${chatId}` : "sajtmaskin";
   }, [pendingProjectName, messages, resolvedPrompt, chatId]);
 
   const handleSaveProject = useCallback(async () => {

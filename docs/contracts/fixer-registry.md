@@ -1,8 +1,19 @@
 # Fixer Registry
 
-Single source of truth for every fixer/validator the generation pipeline runs.
+Katalog över de fixers/validators som körs inne i `runAutoFix()`, plus
+RepairGate-faserna och verifier.
 
 **Source of truth:** `src/lib/gen/autofix/fixer-registry.ts` (TS const array `FIXER_REGISTRY`).
+
+**Utanför registret:** två steg ändrar genererad kod utan att gå via
+`runAutoFix` och utan att emittera `FixEntry`, så de har inget id att
+registrera. Leta här först när en ändring i genererad kod saknar matchande
+registerpost:
+
+| Steg | Källa | Varför utanför |
+|---|---|---|
+| `checkCrossFileImports` | `src/lib/gen/autofix/rules/cross-file-import-checker.ts` | Körs från `finalize-merge.ts` — behöver det mergade filsetet för att veta vad som finns. Stubbar/vägrar import av lokala moduler som saknas; rapporteras som `merge:cross-file-stub`-rader. |
+| `runSecurityChecks` | `src/lib/gen/security/run-security-checks.ts` | Sista steget i autofix-pipelinen, warning-only. |
 
 **Visualised in:** `backoffice/pages/fixer_registry.py` (Streamlit table grouped by category + phase).
 
@@ -137,7 +148,7 @@ Lane-kontrakten för fixer-systemet. Målet är tydliga entrypoints per lane, in
 Lane-gränser:
 
 - `runAutoFix()` är entrypoint för Normalize-lanen; den producerar lane-taggade `FixEntry` (`mechanical`).
-- `repairGeneratedFiles()` är separat post-merge lane; samma fixer-id kan förekomma men taggas `post_merge`.
+- `repairGeneratedFiles()` är separat post-merge lane; samma fixer-id kan förekomma men taggas `post_merge`. Fixar från finalize-preflight-anropet persisteras i `generation_telemetry.meta.autofix.fixers` (sedan 2026-08-01); anropen i preview-/exportvägarna loggar fortsatt bara till devLog.
 - `createDefaultRules()` är enda default-väg till suspense-rules i streaming-lane.
 - Server-repair (`runRepairLoop`) är separat lane men skickar LLM-residual via RepairGate.
 
@@ -178,11 +189,23 @@ andra försök. Ägare: `src/lib/gen/verify/repair-blockers.ts`.
    Note: the original `finalize-version.ts` monolith was split during OMTAG 03; the
    verifier-pass logic now lives under `src/lib/gen/stream/finalize-version/`.
 2. Append a `FixerRegistryEntry` in `fixer-registry.ts` with full metadata.
-3. The parity test (`fixer-registry.test.ts`) enforces:
+3. `fixer-registry.test.ts` kontrollerar registrets **struktur**:
    - Unique IDs
    - Non-empty triggers + targetFailureMode
    - sourcePath under `src/lib/gen/autofix/` or finalize-version/verify roots
-4. If the fixer emits to telemetry, set `telemetryCounter` to the metric name.
+   - risk-klass satt
+
+   Testet kör inte pipelinen och kan därför inte bevisa att varje id som
+   emitteras i runtime är registrerat. En oregistrerad fixer fångas i stället
+   vid körning: `summarizeAutofixRisk` failar stängt och klassar okänt id som
+   `risky`.
+4. Sätt `telemetryCounter` **bara** när en verkligt skriven signal finns.
+   Namnge aldrig en räknare som inget ökar — en fantomräknare läses som
+   "det här mäts" och skickar nästa läsare att leta efter data som aldrig
+   skrevs. Mekaniska fixers behöver ingen post: de täcks av
+   `generation_telemetry.meta->'autofix'->'fixers'` (antal per fixer per
+   version), som exponeras som `fixersByName` i
+   `scripts/db/control-stats.mjs`.
 5. The Streamlit backoffice page reads the registry directly via `mcp__filesystem__read`
    on a generated JSON snapshot (see `scripts/observability/dump-fixer-registry.mjs`).
 

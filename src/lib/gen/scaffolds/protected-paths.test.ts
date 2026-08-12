@@ -62,6 +62,15 @@ describe("isScaffoldProtectedPath", () => {
     expect(isScaffoldProtectedPath("app\\api\\placeholder\\route.ts")).toBe(true);
   });
 
+  it("collapses duplicate slashes and strips a leading separator", () => {
+    // The guard is the last word before persist, so a stray slash in an LLM path
+    // must not be enough to walk past it.
+    expect(isScaffoldProtectedPath("//app/api/placeholder/route.ts")).toBe(true);
+    expect(isScaffoldProtectedPath("app//api//placeholder//route.ts")).toBe(true);
+    expect(isScaffoldProtectedPath("/app/icon.svg")).toBe(true);
+    expect(isScaffoldProtectedPath("./app/icon.svg")).toBe(true);
+  });
+
   it("returns false for unrelated paths", () => {
     expect(isScaffoldProtectedPath("app/page.tsx")).toBe(false);
     expect(isScaffoldProtectedPath("app/api/contact/route.ts")).toBe(false);

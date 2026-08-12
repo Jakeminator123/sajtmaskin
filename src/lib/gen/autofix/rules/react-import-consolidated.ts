@@ -370,14 +370,16 @@ function formatReactSpecifier(spec: ReactSpec): string {
 
 /**
  * Merge duplicate single-line `react` imports. Only fires when an actual
- * duplicate local name exists across the mergeable react imports, so legitimate
- * pairs such as `import React from "react"` + `import { useState } from "react"`
- * stay untouched and the transform is idempotent. `import * as React` namespace
- * lines are left in place (they can't merge into a named list); only the
- * value/default/type imports are consolidated, and any named/type binding whose
- * local collides with a namespace binding is dropped so we never re-declare it.
- * Bails on any specifier it cannot confidently parse, so it can never emit
- * broken syntax. Returns the de-duplicated local names for telemetry.
+ * duplicate local name exists across the react imports, so legitimate pairs
+ * such as `import React from "react"` + `import { useState } from "react"`
+ * stay untouched and the transform is idempotent. `import * as React`
+ * namespace lines cannot merge into a named list, so they are either left
+ * alone or — when the namespace name is ALSO bound by a value import, which is
+ * a hard TS2300 — dropped in favour of the value import. A named/type binding
+ * whose local collides with a KEPT namespace binding is dropped instead, so
+ * either way the name is declared exactly once. Bails on any specifier it
+ * cannot confidently parse, so it can never emit broken syntax. Returns the
+ * de-duplicated local names for telemetry.
  *
  * Exported (Fas 1 kontrollflöde): besides running first inside
  * `fixReactAndNavigationImports` (the `runAutoFix` mechanical lane), this is
@@ -406,16 +408,49 @@ export function consolidateReactImports(code: string): { code: string; deduped: 
   // `import * as React` namespace lines can't be merged into a named import
   // list without breaking syntax, so leave those lines untouched and consolidate
   // only the value/default/type react imports. A named/type binding whose local
-  // collides with a namespace binding is dropped (re-declaring it → TS2300).
+  // collides with a KEPT namespace binding is dropped (re-declaring it → TS2300).
   const namespaceNames = new Set<string>();
+  const namespacePositions: number[] = [];
   const valuePositions: number[] = [];
   for (let k = 0; k < parsed.length; k += 1) {
-    if (parsed[k].namespace) namespaceNames.add(parsed[k].namespace!);
-    else valuePositions.push(k);
+    if (parsed[k].namespace) {
+      namespaceNames.add(parsed[k].namespace!);
+      namespacePositions.push(k);
+    } else valuePositions.push(k);
   }
 
-  // Need 2+ mergeable (non-namespace) react imports for a duplicate to exist.
-  if (valuePositions.length < 2) return { code, deduped: [] };
+  // `import React from "react"` next to `import * as React from "react"` binds
+  // React twice (TS2300 → typecheck exit 2 → the version is never promoted;
+  // prod 2026-08-01, template chats cb529c3c + d9cab01d). The value import
+  // carries the file's other react bindings and `React.…` still resolves
+  // through it, so the namespace line is the one that goes.
+  // Type-only bindings (`import type { X as React }` / inline `type X as React`)
+  // do NOT provide a value binding, so they must never cause the namespace line
+  // — the only VALUE binding of that name — to be dropped.
+  const valueLocals = new Set<string>();
+  for (const k of valuePositions) {
+    if (parsed[k].isTypeOnly) continue;
+    if (parsed[k].default) valueLocals.add(parsed[k].default!);
+    for (const s of parsed[k].specs) {
+      if (s.isType) continue;
+      valueLocals.add(s.local);
+    }
+  }
+  const droppedNamespaceLines = new Set<number>();
+  const droppedNamespaceNames: string[] = [];
+  for (const k of namespacePositions) {
+    const name = parsed[k].namespace!;
+    if (!valueLocals.has(name)) continue;
+    droppedNamespaceLines.add(reactIdx[k]);
+    droppedNamespaceNames.push(name);
+    namespaceNames.delete(name);
+  }
+
+  // A duplicate needs either 2+ mergeable (non-namespace) react imports, or a
+  // namespace line colliding with one of them.
+  if (valuePositions.length < 2 && droppedNamespaceLines.size === 0) {
+    return { code, deduped: [] };
+  }
 
   const valueParsed = valuePositions.map((k) => parsed[k]);
   const valueLineIdx = valuePositions.map((k) => reactIdx[k]);
@@ -426,10 +461,12 @@ export function consolidateReactImports(code: string): { code: string; deduped: 
     if (p.default) localCount.set(p.default, (localCount.get(p.default) ?? 0) + 1);
     for (const s of p.specs) localCount.set(s.local, (localCount.get(s.local) ?? 0) + 1);
   }
-  const deduped = [...localCount.entries()]
-    .filter(([, count]) => count >= 2)
-    .map(([name]) => name)
-    .sort();
+  const deduped = [
+    ...new Set([
+      ...[...localCount.entries()].filter(([, count]) => count >= 2).map(([name]) => name),
+      ...droppedNamespaceNames,
+    ]),
+  ].sort();
   if (deduped.length === 0) return { code, deduped: [] };
 
   let defaultName: string | undefined;
@@ -488,13 +525,14 @@ export function consolidateReactImports(code: string): { code: string; deduped: 
   if (block.length === 0) return { code, deduped: [] };
 
   // Replace the first value/default/type react import with the merged block and
-  // drop the remaining ones; namespace lines are kept exactly where they are.
+  // drop the remaining ones, plus any namespace line whose binding the merged
+  // block now owns. Non-colliding namespace lines stay exactly where they are.
   const blockLineIdx = valueLineIdx[0];
   const removeRest = new Set(valueLineIdx.slice(1));
   const out: string[] = [];
   for (let i = 0; i < lines.length; i += 1) {
     if (i === blockLineIdx) out.push(block.join("\n"));
-    else if (removeRest.has(i)) continue;
+    else if (removeRest.has(i) || droppedNamespaceLines.has(i)) continue;
     else out.push(lines[i]);
   }
   return { code: out.join("\n"), deduped };

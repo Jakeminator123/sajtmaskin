@@ -1,24 +1,23 @@
-# Cursor index — hålls borta från semantisk sökning; öppna med @ eller Read vid behov.
-# Ignorera INTE docs/plans/avklarat/ (historik ska kunna indexeras).
-
-# --- Build & cache ---
-node_modules
-.next
-out
-.cache
-dist
-build
-coverage
-playwright-report
-test-results
-__pycache__
-.venv
-venv
-
+# .cursorignore = BLOCKERAR ÅTKOMST — inte bara indexering.
+#
+# En fil som matchar här kan agenten varken indexera, @-nämna eller läsa:
+# Read/Grep/Glob svarar "Permission denied". (Terminal och MCP kringgår det,
+# så detta är ett brusfilter — inte en säkerhetsgräns.)
+#
+# Vill du bara hålla något UTANFÖR semantisk sökning men fortfarande läsbart
+# vid felsökning → använd .cursorindexingignore i stället.
+#
+# Därför ligger BARA sådant här som är direkt skadligt att få in i
+# LLM-kontexten. Allt som bara är stort, genererat eller brusigt hör hemma i
+# .cursorindexingignore.
+#
+# Cursor exkluderar redan .gitignore + en inbyggd default-lista (binärer,
+# media som *.mp4/*.png, lockfiles, node_modules, .next, __pycache__ …) från
+# indexering. Upprepa inte sådant här — det gör bara filer oläsbara i onödan.
 
 # --- Secrets (spegel av .gitignore) ---
-# Cursor ska aldrig indexera dessa — de kan innehålla API-nycklar som
-# smugglas in i LLM-kontexten via sökning.
+# Dessa kan innehålla API-nycklar som annars smugglas in i LLM-kontexten
+# via sökning eller filläsning.
 .env
 .env.*
 !.env.example
@@ -36,127 +35,11 @@ git_env.txt
 .env*.local
 files_envvars
 
-# --- Git / lockfile ---
-.git
-tsconfig.tsbuildinfo
-package-lock.json
-
-# --- Eval runs (metadata ja, fil-dumps nej) ---
-data/eval-runs/**
-!data/eval-runs/
-!data/eval-runs/README.md
-!data/eval-runs/latest/
-!data/eval-runs/latest/summary.json
-!data/eval-runs/latest/summary.md
-!data/eval-runs/runs/
-!data/eval-runs/runs/**/
-!data/eval-runs/runs/**/summary.json
-!data/eval-runs/runs/**/checks.json
-!data/eval-runs/runs/**/preflight.json
-data/prompt-dumps/*
-!data/prompt-dumps/README.md
-!data/prompt-dumps/own-engine-codegen/
-!data/prompt-dumps/own-engine-codegen/meta.json
-!data/prompt-dumps/own-engine-codegen/full-system.md
-!data/prompt-dumps/own-engine-codegen/dynamic-context.md
-!data/prompt-dumps/orchestration-dynamic/
-!data/prompt-dumps/orchestration-dynamic/meta.json
-!data/prompt-dumps/orchestration-dynamic/latest.md
-
-# --- Tunga genererade artefakter ---
-src/lib/templates/template-embeddings.json
-src/lib/gen/scaffolds/scaffold-embeddings.json
-src/lib/gen/scaffolds/scaffold-research.generated.json
-config/scaffold-variants/_index/variant-embeddings.json
-
-# --- Cursor session / automation / migration ---
-.cursor/automation/runs/
-.cursor/automation/archive/
-.cursor/automation/input/
-.cursor/migration-archive/
-# Local IDE MCP config (may hold tokens/machine paths; template: .cursor/mcp.json.example)
+# Lokal IDE-MCP-config (kan hålla tokens; mall: .cursor/mcp.json.example)
 .cursor/mcp.json
 
-# --- Media ---
-public/video/
-public/images/
-*.mp4
-*.webm
-
-# --- Logs ---
-logs/**
-#!logs/
-!logs/generationslogg/
-!logs/generationslogg/_latest.txt
-!logs/generationslogg/**/
-!logs/generationslogg/**/summary.md
-!logs/site-observability/
-!logs/site-observability/**/
-!logs/site-observability/**/observability.json
-!logs/site-observability/**/fix-patterns.json
-!logs/llm-segmentts-and-index/
-!logs/llm-segmentts-and-index/readme.txt
-!logs/generationslogg/**/meta.json
-!logs/generationslogg/**/timeline.ndjson
-!logs/generationslogg/**/observability.json
-!logs/generationslogg/**/fault-fix-index.csv
-!logs/generationslogg/**/fault-fix-index.md
-!logs/generationslogg/_index/
-!logs/generationslogg/_index/chat-to-run.json
-!logs/site-observability/**/history.ndjson
-!logs/site-observability/**/_source_run.txt
-!logs/llm-segmentts-and-index/error-log.csv
-!logs/llm-segmentts-and-index/error-log.ndjson
-
-# RAG snapshots / event mirrors
-data/observability/error-log-tfidf-*.json
-data/runs/**
-
-# --- Template references / local archives ---
-data/template-references/repos/**
-data/template-references/_metadata/**
-
-# --- Local scratch / old roots ---
-scratch-*.mjs
-manual_log/
-input_files_for_cursor/
-.preprompt_history.json
-DOM_dev_tols.txt
-chat_till_vanster.txt
-eval-output/
-output/generations/
-# Local v0-template intake (maintainer only; blob is prod source)
-templates_v0/
-
-# --- MCP/docs/logs ---
-#services/mpc/docs/**
-#services/mpc/logs/
-
-
-# --- Dossier-pipeline ---
-data/dossiers/_raw/playwright-catalog-light.json
-data/dossiers/_raw/_enriched/**
-data/dossiers/_raw/_curation-queue.md
-data/dossiers/_raw/_import-summary.json
-data/dossiers/_raw/*/skiss.json
-data/dossiers/_index/dossier-embeddings.json
-data/dossiers/_repo-cache/**
-data/dossiers/_index/master.json
-data/dossiers/_index/by-category.json
-data/dossiers/*/_removed/**
-
-# --- Generated TS env ---
-next-env.d.ts
-
-# Parkeringsyta: filer/mappar man jobbar med 'senare'. Ej indexerad, ej bevakad
-# (se .vscode/settings.json watcherExclude/search.exclude). Fortfarande i git.
-_parkering/
-
-
-# Anvandarens personliga publiceringsmaterial (spegel av .gitignore)
-/publicerings-material/
-
-# Genererad Blob-manifest + template-registry (ren data, inget kodvärde för
-# semantisk sökning). Öppna med @ eller Read vid behov.
-src/lib/templates/template-blob-manifest.json
-src/lib/templates/templates.json
+# Undantag från "upprepa inte .gitignore" ovan: .eslintcache ÄR gitignorerad och
+# därmed redan oindexerad, men den raden gäller indexering. Den här filen
+# blockerar LÄSNING, och det är poängen här — cachen är en flera megabyte stor
+# enradig JSON som förstör kontexten för den agent som råkar öppna den.
+.eslintcache

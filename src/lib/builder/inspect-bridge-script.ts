@@ -25,8 +25,15 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     pick: "sajtmaskin:inspect:pick",
     ready: "sajtmaskin:inspect:ready",
     rect: "sajtmaskin:inspect:rect",
-    region: "sajtmaskin:inspect:region"
+    region: "sajtmaskin:inspect:region",
+    requestSections: "sajtmaskin:inspect:request-sections",
+    sections: "sajtmaskin:inspect:sections",
+    clientError: "sajtmaskin:inspect:client-error"
   };
+  var MAX_SECTION_CANDIDATES = 40;
+  var MAX_CLIENT_ERRORS = 5;
+  var postedClientErrors = 0;
+  var seenClientErrorMessages = Object.create(null);
   var enabled = false;
   var box = null;
   var selBox = null;
@@ -97,6 +104,15 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     return parts.join(" > ") || null;
   }
   function isRoot(el) { var t = el && el.tagName ? el.tagName.toLowerCase() : ""; return t === "html" || t === "body"; }
+  function sourcePathOf(el) {
+    var cur = el;
+    while (cur && cur.nodeType === 1) {
+      var v = cur.getAttribute ? cur.getAttribute("data-sajtmaskin-source") : null;
+      if (v) return cleanMax(v, 240);
+      cur = cur.parentElement;
+    }
+    return null;
+  }
   function describe(el) {
     if (!el) return null;
     var heading = el.closest ? el.closest("h1,h2,h3,h4,h5,h6") : null;
@@ -121,6 +137,7 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
       href: el.tagName === "A" ? clean(el.href) : clean(el.getAttribute && el.getAttribute("href")),
       selector: selectorFor(el),
       nearestHeading: heading ? clean(heading.innerText || heading.textContent) : null,
+      sourcePath: sourcePathOf(el),
       rect: { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) },
       viewport: { w: window.innerWidth, h: window.innerHeight }
     };
@@ -136,6 +153,67 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
   function post(type, payload) {
     try { window.parent.postMessage({ type: type, source: "sajtmaskin-inspect", payload: payload }, PARENT || "*"); } catch (e) {}
   }
+  function truncateStr(v, max) {
+    if (v == null) return "";
+    var s = String(v);
+    return s.length > max ? s.slice(0, max) : s;
+  }
+  function postClientError(kind, message, stack) {
+    if (postedClientErrors >= MAX_CLIENT_ERRORS) return;
+    var msg = truncateStr(message, 500).trim();
+    if (!msg) return;
+    if (seenClientErrorMessages[msg]) return;
+    seenClientErrorMessages[msg] = 1;
+    postedClientErrors += 1;
+    var payload = {
+      kind: kind,
+      message: msg,
+      href: location.pathname || "/"
+    };
+    if (stack) payload.stack = truncateStr(stack, 1000);
+    post(T.clientError, payload);
+  }
+  function messageFromUnknown(v) {
+    if (v == null) return "";
+    if (typeof v === "string") return v;
+    if (v && typeof v.message === "string") return v.message;
+    try { return String(v); } catch (e) { return ""; }
+  }
+  function stackFromUnknown(v) {
+    if (v && typeof v.stack === "string") return v.stack;
+    return "";
+  }
+  window.addEventListener("error", function (e) {
+    if (!e) return;
+    if (!e.message && !e.error) return;
+    var msg = e.message || messageFromUnknown(e.error) || "Script error";
+    var stack = stackFromUnknown(e.error) || "";
+    postClientError("uncaught", msg, stack);
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    if (!e) return;
+    var reason = e.reason;
+    postClientError("unhandledrejection", messageFromUnknown(reason) || "Unhandled rejection", stackFromUnknown(reason));
+  });
+  (function wrapConsoleError() {
+    var orig = console.error;
+    if (typeof orig !== "function") return;
+    console.error = function () {
+      try {
+        var first = arguments.length > 0 ? arguments[0] : "";
+        var text = typeof first === "string" ? first : messageFromUnknown(first);
+        if (text && /hydrat|server[- ]rendered|not match|didn.t match|mismatch/i.test(text)) {
+          var stack = "";
+          for (var i = 0; i < arguments.length; i++) {
+            var s = stackFromUnknown(arguments[i]);
+            if (s) { stack = s; break; }
+          }
+          postClientError("hydration", text, stack);
+        }
+      } catch (ignore) {}
+      return orig.apply(console, arguments);
+    };
+  })();
   function pickAt(x, y) {
     var stack = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [document.elementFromPoint(x, y)];
     for (var i = 0; i < stack.length; i++) {
@@ -197,6 +275,70 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
     if (!document.contains(tracked)) { tracked = null; return; }
     post(T.rect, { rect: rectOf(tracked), viewport: { w: window.innerWidth, h: window.innerHeight } });
   }
+  /**
+   * True när barnets vertikala utsträckning är nästan identisk med förälderns
+   * (topp- och bottendiff < 1 % av viewporten). Speglar
+   * isNearIdenticalParentSectionRect i sectionAnalyzer.ts — håll i synk.
+   * querySelectorAll är document-order (förälder före barn), så den yttersta
+   * i en wrapper-stack räknas mot taket; nästlade dubbletter hoppas över.
+   */
+  function isNearIdenticalParent(el, r, vh) {
+    var parent = el.parentElement;
+    if (!parent || !parent.getBoundingClientRect) return false;
+    var pr = parent.getBoundingClientRect();
+    var threshold = (vh || 1) * 0.01;
+    return Math.abs(r.top - pr.top) < threshold && Math.abs(r.bottom - pr.bottom) < threshold;
+  }
+  /**
+   * Sektionskandidater för placement-overlay (drag-and-drop). Körs även när
+   * inspect-läget är av — placering stänger inspect men behöver fortfarande
+   * DOM-rektanglar i prod där Playwright/element-map saknas.
+   */
+  function collectSections() {
+    var vw = window.innerWidth || 1;
+    var vh = window.innerHeight || 1;
+    var nodes = document.querySelectorAll("section,main,header,footer,article,div");
+    var out = [];
+    for (var i = 0; i < nodes.length && out.length < MAX_SECTION_CANDIDATES; i++) {
+      var el = nodes[i];
+      if (!el || el.id === BOX_ID || el.id === SEL_ID || (el.getAttribute && el.getAttribute(MARK_ATTR))) continue;
+      var r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      var vpW = (r.width / vw) * 100;
+      var vpH = (r.height / vh) * 100;
+      // Samma grova storleksgolv som extractSectionZones — håll payloaden liten.
+      if (vpW < 45 || vpH < 8) continue;
+      // Wrapper-stack: räkna bara yttersta mot MAX_SECTION_CANDIDATES.
+      if (isNearIdenticalParent(el, r, vh)) continue;
+      out.push({
+        tag: el.tagName.toLowerCase(),
+        id: el.id || null,
+        className: (typeof el.className === "string" ? el.className.trim() : "") || null,
+        text: cleanMax(el.innerText || el.textContent, 80),
+        selector: selectorFor(el),
+        rect: {
+          x: Math.round(r.left),
+          y: Math.round(r.top),
+          width: Math.round(r.width),
+          height: Math.round(r.height)
+        },
+        vpPercent: {
+          x: Number(((r.left / vw) * 100).toFixed(2)),
+          y: Number(((r.top / vh) * 100).toFixed(2)),
+          w: Number(vpW.toFixed(2)),
+          h: Number(vpH.toFixed(2))
+        },
+        viewport: { w: vw, h: vh }
+      });
+    }
+    return out;
+  }
+  function postSections() {
+    post(T.sections, {
+      elements: collectSections(),
+      viewport: { w: window.innerWidth, h: window.innerHeight }
+    });
+  }
   function onViewportChange() {
     if (!enabled || !tracked || rafPending) return;
     rafPending = true;
@@ -244,7 +386,15 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
       for (var i = 0; i < els.length; i++) payload.push(describe(els[i]));
       markElements(els);
       tracked = null;
-      post(T.region, { rect: b, elements: payload, viewport: { w: window.innerWidth, h: window.innerHeight } });
+      // Rektangeln är i VIEWPORT-koordinater. Skicka med sidans scroll-läge:
+      // den som sedan ska fotografera ytan laddar sidan på nytt vid scroll 0
+      // och måste rulla tillbaka hit, annars beskär den fel del av dokumentet.
+      post(T.region, {
+        rect: b,
+        elements: payload,
+        viewport: { w: window.innerWidth, h: window.innerHeight },
+        scroll: { x: Math.round(window.scrollX), y: Math.round(window.scrollY) }
+      });
       // Mouseup följs av ett click-event — utan spärren skulle rektangeln
       // också plocka ett enskilt element och öppna elementmenyn.
       suppressClick = true;
@@ -293,9 +443,16 @@ export const INSPECT_BRIDGE_SCRIPT = String.raw`(function () {
   }
   function originOk(origin) { if (!PARENT) return true; return origin === PARENT; }
   window.addEventListener("message", function (e) {
-    if (!e || !e.data || e.data.type !== T.setMode) return;
+    if (!e || !e.data || typeof e.data.type !== "string") return;
     if (!originOk(e.origin)) return;
-    setEnabled(!!e.data.enabled);
+    if (e.data.type === T.setMode) {
+      setEnabled(!!e.data.enabled);
+      return;
+    }
+    // Placement frågar efter zoner utan att slå på inspect-läget.
+    if (e.data.type === T.requestSections) {
+      postSections();
+    }
   });
   post(T.ready, { href: location.href });
 })();

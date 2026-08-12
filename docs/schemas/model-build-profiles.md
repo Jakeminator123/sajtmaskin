@@ -6,14 +6,14 @@ manifestet och ska inte kopieras hit.
 
 ## Canonical ownership
 
-| Faktatyp | Ägare |
-| --- | --- |
-| Tillåtna profiler, konkreta modell-ID-defaults och phase routing-policy | [`config/ai_models/manifest.json`](../../config/ai_models/manifest.json) |
-| Builderns valda standardprofil | [`DEFAULT_MODEL_ID` i `catalog.ts`](../../src/lib/models/catalog.ts), konsumerad av [`chatSchemas.ts`](../../src/lib/validations/chatSchemas.ts) och builderdefaults |
-| Validering av manifestet | [`load-manifest.ts`](../../src/lib/ai-models/load-manifest.ts) |
-| Requestvalidering och inkommande alias | [`chatSchemas.ts`](../../src/lib/validations/chatSchemas.ts) |
-| Runtimeval per fas | [`phase-routing.ts`](../../src/lib/models/phase-routing.ts) och [`selection.ts`](../../src/lib/models/selection.ts) |
-| Genererad mänsklig referens | [`models.generated.md`](../generated/models.generated.md) |
+| Faktatyp                                                                | Ägare                                                                                                                                                                |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tillåtna profiler, konkreta modell-ID-defaults och phase routing-policy | [`config/ai_models/manifest.json`](../../config/ai_models/manifest.json)                                                                                             |
+| Builderns valda standardprofil                                          | [`DEFAULT_MODEL_ID` i `catalog.ts`](../../src/lib/models/catalog.ts), konsumerad av [`chatSchemas.ts`](../../src/lib/validations/chatSchemas.ts) och builderdefaults |
+| Validering av manifestet                                                | [`load-manifest.ts`](../../src/lib/ai-models/load-manifest.ts)                                                                                                       |
+| Requestvalidering och inkommande alias                                  | [`chatSchemas.ts`](../../src/lib/validations/chatSchemas.ts)                                                                                                         |
+| Runtimeval per fas                                                      | [`phase-routing.ts`](../../src/lib/models/phase-routing.ts) och [`selection.ts`](../../src/lib/models/selection.ts)                                                  |
+| Genererad mänsklig referens                                             | [`models.generated.md`](../generated/models.generated.md)                                                                                                            |
 
 Vid konflikt vinner ägaren för den konkreta faktatypen. Den genererade
 referensen är en projektion och detta dokument är endast en mental modell.
@@ -25,7 +25,7 @@ Buildern har tre modellrelaterade lanes och en separat flagga:
 1. **Build profile** väljer generationens profil och runtime-routing.
 2. **Prompt assist** förbättrar eller strukturerar användarens prompt före
    generation.
-3. **Polish** är en billig, textbaserad omskrivning.
+3. **Polish** är en separat, textbaserad omskrivning.
 4. **Thinking** påverkar reasoning för de faser där manifestet tillåter det men
    skapar inte en ny profil eller lane.
 
@@ -47,6 +47,12 @@ Det stabila flödet är:
 
 Compatibility-alias är en inputgräns. De ska inte bli nya kanoniska profiler
 eller återberättas som nuvarande defaults i docs.
+
+Den tidigare kanoniska profilen `fast` är pensionerad. Äldre requests och
+persisterade val normaliseras till `premium`, men nya UI-, manifest- och
+env-värden använder `premium` / `SAJTMASKIN_MODEL_PREMIUM`. Premium kör
+GPT-5.6 Sol i hela phase-routing-kedjan. GPT-5.6 Terra och Luna finns som
+explicita backoffice-val för faser, men är inte Premium-profilens default.
 
 ## Ändringsregel
 

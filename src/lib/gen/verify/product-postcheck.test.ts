@@ -1,10 +1,29 @@
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const launchCaptureBrowserMock = vi.hoisted(() => vi.fn());
+const applyCaptureRequestGateMock = vi.hoisted(() => vi.fn(async () => {}));
+
+vi.mock("@/lib/capture/browser", () => ({
+  launchCaptureBrowser: launchCaptureBrowserMock,
+  applyCaptureRequestGate: applyCaptureRequestGateMock,
+}));
+
 import {
+  evaluateBrowserRuntimeIssues,
   evaluateProductDomSnapshot,
   evaluateRuntimeErrors,
   isAllowedProductPostcheckUrl,
+  isHydrationConsoleError,
   isRenderFatalError,
   productPostcheckSkipReasonFromError,
+  runProductPostcheck,
+  selectCrawlRoutes,
+  shouldIgnoreConsoleError,
+  shouldIgnoreFailedRequest,
+  shouldIgnoreHttpStatus,
+  type BrowserRuntimeIssue,
   type ProductDomEvaluation,
   type ProductPostcheckWarning,
 } from "./product-postcheck";
@@ -256,5 +275,349 @@ describe("evaluateRuntimeErrors (M#f2et — never green when the preview is dead
     const result = evaluateRuntimeErrors([elementTypeInvalid, elementTypeInvalid, elementTypeInvalid]);
     expect(result.productBlocked).toBe(true);
     expect(result.warnings).toHaveLength(1);
+  });
+});
+
+/**
+ * Postchecken importerade tidigare `playwright` rakt av. Den är en
+ * devDependency vars Chromium aldrig installeras på Vercel, så launchen kastade
+ * i prod → `playwright_unavailable` → `skipped: true, productBlocked: false`.
+ * Kontrollen rapporterade alltså tyst grönt utan att någonsin ha kört. Samma
+ * fälla som `@/lib/capture/browser` skapades för att stänga för miniatyrer och
+ * inspector-capture; detta test låser att postchecken använder den startpunkten.
+ */
+describe("runProductPostcheck browser-startpunkt", () => {
+  function fakePage(results: unknown[]) {
+    let call = 0;
+    return {
+      on: vi.fn(),
+      goto: vi.fn(async () => {}),
+      waitForLoadState: vi.fn(async () => {}),
+      evaluate: vi.fn(async () => results[call++]),
+      close: vi.fn(async () => {}),
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    applyCaptureRequestGateMock.mockResolvedValue(undefined);
+    const desktop = fakePage([{ anchors: [], images: [], ctas: [], forms: [] }, false]);
+    const mobile = fakePage([{ status: "not_applicable" }, false]);
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+  });
+
+  it("startar Chromium via den delade, prod-dugliga startpunkten", async () => {
+    const result = await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    expect(launchCaptureBrowserMock).toHaveBeenCalledTimes(1);
+    expect(result.skipped).toBe(false);
+    expect(result.skippedReason).toBeNull();
+  });
+
+  it("lägger SSRF-grinden på båda viewporterna", async () => {
+    await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    expect(applyCaptureRequestGateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("rapporterar en kraschad undersida utan att blockera versionen", async () => {
+    const desktop = fakePage([
+      { anchors: [], images: [], ctas: [], forms: [] },
+      false, // startsidans overlay — previewen lever
+      ["/chat_1/om-oss"], // länkar att crawla
+      true, // undersidans overlay — kraschad
+    ]);
+    const mobile = fakePage([{ status: "not_applicable" }, false]);
+    const pages = [desktop, mobile];
+    let index = 0;
+    launchCaptureBrowserMock.mockResolvedValue({
+      newPage: vi.fn(async () => pages[index++]),
+      close: vi.fn(async () => {}),
+    });
+
+    const result = await runProductPostcheck({
+      previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+      chatId: "chat_1",
+      versionId: "v1",
+    });
+
+    // Startsidan lever → versionen får inte blockeras av en undersida.
+    expect(result.productBlocked).toBe(false);
+    expect(result.routesChecked).toBe(2);
+    expect(result.warnings.some((w) => w.route === "/chat_1/om-oss")).toBe(true);
+  });
+
+  /**
+   * Crawlen navigerar bort desktop-sidan från startsidan. `catch`-blockets
+   * overlay-omprövning får därför inte längre lita på att `page` beskriver
+   * startsidan — annars kan en död startsida läsas som grön, och en kraschad
+   * undersida kan blockera fast happy-pathen bara varnar för den.
+   */
+  describe("overlay-omprövning efter att crawlen flyttat desktop-sidan", () => {
+    function browserWhereMobileFails(desktopResults: unknown[]) {
+      const desktop = fakePage(desktopResults);
+      let call = 0;
+      return {
+        newPage: vi.fn(async () => {
+          call += 1;
+          if (call === 1) return desktop;
+          throw new Error("mobile viewport failed");
+        }),
+        close: vi.fn(async () => {}),
+      };
+    }
+
+    it("blockerar fortfarande när STARTSIDAN var död", async () => {
+      launchCaptureBrowserMock.mockResolvedValue(
+        browserWhereMobileFails([
+          { anchors: [], images: [], ctas: [], forms: [] },
+          true, // startsidan visade felöverlägget
+          ["/chat_1/om-oss"],
+          false,
+        ]),
+      );
+
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(result.productBlocked).toBe(true);
+      expect(result.skipped).toBe(false);
+    });
+
+    it("blockerar inte när bara en UNDERSIDA var död", async () => {
+      launchCaptureBrowserMock.mockResolvedValue(
+        browserWhereMobileFails([
+          { anchors: [], images: [], ctas: [], forms: [] },
+          false, // startsidan var frisk
+          ["/chat_1/om-oss"],
+          true, // undersidan kraschade
+        ]),
+      );
+
+      const result = await runProductPostcheck({
+        previewUrl: "https://vm-fly-jakem.fly.dev/chat_1",
+        chatId: "chat_1",
+        versionId: "v1",
+      });
+
+      expect(result.productBlocked).toBe(false);
+    });
+  });
+});
+
+/**
+ * NFT tappar Chromium-binären för varje serverless-funktion som saknar egen
+ * spårningspost, och funktionen dör då vid browser-launch med grönt bygge
+ * (Codex P1 på #729). Enhetstester som mockar `executablePath` kan inte fånga
+ * det — därför granskas konfigurationen direkt.
+ */
+describe("outputFileTracingIncludes för browser-routes", () => {
+  const routesThatLaunchChromium = [
+    "/api/projects/*/thumbnail",
+    "/api/inspector-capture",
+    "/api/engine/chats/*/product-postcheck",
+  ];
+
+  it("ger varje Chromium-route en egen spårningspost", () => {
+    const config = readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");
+    for (const route of routesThatLaunchChromium) {
+      expect(config).toContain(`"${route}"`);
+    }
+  });
+});
+
+describe("shouldIgnoreConsoleError", () => {
+  it("ignorerar Next-dev / React-devtools-brus och tom text", () => {
+    expect(shouldIgnoreConsoleError("")).toBe(true);
+    expect(shouldIgnoreConsoleError("   ")).toBe(true);
+    expect(shouldIgnoreConsoleError("Download the React DevTools for a better development experience")).toBe(true);
+    expect(shouldIgnoreConsoleError("[Fast Refresh] rebuilding")).toBe(true);
+    expect(shouldIgnoreConsoleError("[HMR] connected")).toBe(true);
+    expect(shouldIgnoreConsoleError("webpack-hmr disconnected")).toBe(true);
+  });
+
+  it("släpper igenom riktiga console-fel", () => {
+    expect(shouldIgnoreConsoleError("TypeError: x is not a function")).toBe(false);
+    expect(shouldIgnoreConsoleError("Failed to load resource")).toBe(false);
+  });
+});
+
+describe("shouldIgnoreFailedRequest", () => {
+  it("ignorerar SSRF-grindens blockedbyclient och ERR_ABORTED", () => {
+    expect(shouldIgnoreFailedRequest("https://evil.example/x", "blockedbyclient")).toBe(true);
+    expect(shouldIgnoreFailedRequest("https://evil.example/x", "net::ERR_BLOCKED_BY_CLIENT")).toBe(true);
+    expect(shouldIgnoreFailedRequest("https://cdn.example/a.js", "net::ERR_ABORTED")).toBe(true);
+  });
+
+  it("ignorerar HMR och source maps", () => {
+    expect(shouldIgnoreFailedRequest("https://host/_next/webpack-hmr", "socket hang up")).toBe(true);
+    expect(shouldIgnoreFailedRequest("https://host/app.js.map", "net::ERR_FAILED")).toBe(true);
+  });
+
+  it("släpper igenom riktiga request-fel", () => {
+    expect(shouldIgnoreFailedRequest("https://host/api/data", "net::ERR_FAILED")).toBe(false);
+  });
+});
+
+describe("shouldIgnoreHttpStatus", () => {
+  it("ignorerar favicon, maps, HMR och 4xx på /_next/", () => {
+    expect(shouldIgnoreHttpStatus("https://host/favicon.ico", 404)).toBe(true);
+    expect(shouldIgnoreHttpStatus("https://host/static/app.js.map", 404)).toBe(true);
+    expect(shouldIgnoreHttpStatus("https://host/_next/webpack-hmr", 500)).toBe(true);
+    expect(shouldIgnoreHttpStatus("https://host/_next/static/chunks/main.js", 404)).toBe(true);
+  });
+
+  it("ignorerar inte dokument-nivå 4xx/5xx eller 5xx utanför /_next/-4xx-regeln", () => {
+    expect(shouldIgnoreHttpStatus("https://host/chat_1/about", 404)).toBe(false);
+    expect(shouldIgnoreHttpStatus("https://host/chat_1", 500)).toBe(false);
+    expect(shouldIgnoreHttpStatus("https://host/_next/static/chunks/main.js", 500)).toBe(false);
+  });
+});
+
+describe("isHydrationConsoleError", () => {
+  it("matchar React hydration-formuleringar", () => {
+    expect(isHydrationConsoleError("Hydration failed because the initial UI does not match")).toBe(true);
+    expect(isHydrationConsoleError("Error while hydrating")).toBe(true);
+    expect(isHydrationConsoleError("A tree hydrated but some attributes of the server rendered HTML didn't match")).toBe(true);
+    expect(isHydrationConsoleError("Text content did not match. Server: \"A\" Client: \"B\"")).toBe(true);
+    expect(isHydrationConsoleError("Text content does not match server-rendered HTML")).toBe(true);
+    expect(isHydrationConsoleError("Didn't match the client")).toBe(true);
+    expect(isHydrationConsoleError("server-rendered HTML")).toBe(true);
+  });
+
+  it("matchar inte bare 'mismatch' eller orelaterade fel", () => {
+    expect(isHydrationConsoleError("Type mismatch in props")).toBe(false);
+    expect(isHydrationConsoleError("schema mismatch")).toBe(false);
+    expect(isHydrationConsoleError("TypeError: x is not a function")).toBe(false);
+  });
+});
+
+describe("evaluateBrowserRuntimeIssues (advisory-only)", () => {
+  it("klassificerar hydration vs console vs request vs http och blockar aldrig", () => {
+    const issues: BrowserRuntimeIssue[] = [
+      { kind: "console", route: "/chat_1", message: "Hydration failed because UI mismatch" },
+      { kind: "console", route: "/chat_1", message: "TypeError: boom" },
+      {
+        kind: "requestfailed",
+        route: "/chat_1",
+        message: "GET https://host/api/x: net::ERR_FAILED",
+        url: "https://host/api/x",
+      },
+      {
+        kind: "http",
+        route: "/chat_1/about",
+        message: "404 https://host/chat_1/about",
+        url: "https://host/chat_1/about",
+        status: 404,
+      },
+    ];
+    const result = evaluateBrowserRuntimeIssues(issues);
+    expect(result.productBlocked).toBe(false);
+    expect(codes(result)).toEqual([
+      "console_error",
+      "http_error",
+      "hydration_mismatch",
+      "request_failed",
+    ]);
+    expect(result.warnings.every((w) => w.route)).toBe(true);
+  });
+
+  it("filtrerar brus och cappar till 3 per kod", () => {
+    const issues: BrowserRuntimeIssue[] = [
+      { kind: "console", route: "/", message: "Download the React DevTools" },
+      {
+        kind: "requestfailed",
+        route: "/",
+        message: "GET https://evil/x: blockedbyclient",
+        url: "https://evil/x",
+      },
+      {
+        kind: "http",
+        route: "/",
+        message: "404 https://host/favicon.ico",
+        url: "https://host/favicon.ico",
+        status: 404,
+      },
+      ...Array.from({ length: 5 }, (_, i) => ({
+        kind: "console" as const,
+        route: "/",
+        message: `Real error ${i}`,
+      })),
+    ];
+    const result = evaluateBrowserRuntimeIssues(issues);
+    expect(result.productBlocked).toBe(false);
+    expect(result.warnings).toHaveLength(3);
+    expect(result.warnings.every((w) => w.code === "console_error")).toBe(true);
+  });
+
+  it("dedupar på code|route|message", () => {
+    const issues: BrowserRuntimeIssue[] = [
+      { kind: "console", route: "/a", message: "same" },
+      { kind: "console", route: "/a", message: "same" },
+      { kind: "console", route: "/b", message: "same" },
+    ];
+    const result = evaluateBrowserRuntimeIssues(issues);
+    expect(result.warnings).toHaveLength(2);
+  });
+});
+
+describe("selectCrawlRoutes", () => {
+  const start = "https://vm-fly-jakem.fly.dev/chat_1";
+
+  it("behåller same-origin under pathname-prefix, droppar start/hash/externa, stabil ordning", () => {
+    expect(
+      selectCrawlRoutes(
+        [
+          "/chat_1/about",
+          "#section",
+          "https://evil.example/x",
+          "/chat_1",
+          "/chat_1/about?x=1",
+          "/chat_1/pricing#top",
+          "/chat_10/other",
+          "https://vm-fly-jakem.fly.dev/chat_1/contact",
+        ],
+        start,
+        5,
+      ),
+    ).toEqual([
+      "https://vm-fly-jakem.fly.dev/chat_1/about",
+      "https://vm-fly-jakem.fly.dev/chat_1/pricing",
+      "https://vm-fly-jakem.fly.dev/chat_1/contact",
+    ]);
+  });
+
+  it("crawlar även när previewen ligger i roten (lokal dev)", () => {
+    // Prefixet är "/" här. Naiv prefix-matchning bygger "//" och matchar
+    // ingenting alls, så crawlen blir tyst tom i lokal utveckling.
+    expect(
+      selectCrawlRoutes(["/om-oss", "/blogg"], "http://localhost:3000/", 5),
+    ).toEqual(["http://localhost:3000/om-oss", "http://localhost:3000/blogg"]);
+  });
+
+  it("respekterar max och returnerar tom lista vid ogiltig start", () => {
+    expect(
+      selectCrawlRoutes(["/chat_1/a", "/chat_1/b", "/chat_1/c"], start, 2),
+    ).toEqual([
+      "https://vm-fly-jakem.fly.dev/chat_1/a",
+      "https://vm-fly-jakem.fly.dev/chat_1/b",
+    ]);
+    expect(selectCrawlRoutes(["/chat_1/a"], "not-a-url", 5)).toEqual([]);
   });
 });

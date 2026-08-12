@@ -37,8 +37,6 @@ bli en parallell runtime-owner.
 | `docs/plans/active/`                | Planer som styr arbete nu                                     | Färdiga planer                                     |
 | `docs/plans/avklarat/`              | Avklarade beslut med fortsatt referensvärde                   | Aktiv status                                       |
 | `docs/plans/archived/`              | Parkerade, ersatta eller skrotade planer                      | Runtime-vägledning                                 |
-| `docs/archive/`                     | Avslutad icke-plan-historik                                   | Aktivt arbete och genererad referens               |
-| `docs/old/`                         | Pekare till borttagen historik i git                          | Nytt arbetsmaterial                                |
 
 `docs/README.md` är dokumentationsroutern. Root `README.md`, `AGENTS.md` och
 `.cursor/README.md` ska peka vidare, inte kopiera fulla inventarier.
@@ -62,8 +60,10 @@ När genererade referenser finns ska `docs/README.md` länka deras router.
 som generatorn slutat äga får inte ligga kvar och se canonical ut.
 
 `docs:links` ska verifiera relativa fil- och kataloglänkar i aktiva Markdown-
-ytor. Daterade audits, arkiv och avklarade planer ligger utanför den
-blockerande mängden; de ska städas eller märkas i separata historik-PR:er.
+ytor. Bara arkiverade och avklarade planer plus `_parkering/` ligger utanför den
+blockerande mängden; de ska städas eller märkas i separata historik-PR:er. Nya
+historikytor ska inte läggas till i undantaget — daterade revisioner och
+ögonblicksstatus hör i git, inte i en egen docs-katalog.
 
 ## Terminologi
 
@@ -80,7 +80,7 @@ rådgivande eftersom kodidentifierare kan behöva behålla äldre namn.
 | Aktiv              | `docs/plans/active/`   | Styr pågående arbete               |
 | Avklarad           | `docs/plans/avklarat/` | Behåll bara fortsatt referensvärde |
 | Arkiverad          | `docs/plans/archived/` | Inte aktuell arkitektur            |
-| Icke-plan-historik | `docs/archive/`        | Märk ersättare eller använd git    |
+| Icke-plan-historik | git                    | Ingen docs-yta; git är arkivet     |
 
 Arkiverade dokument som ligger kvar ska ange:
 
@@ -99,6 +99,37 @@ statusdriften medan header-/deletion-long-tail städas separat.
 Rena agentprompter, genomförda checklistor och ögonblicksstatus kan tas bort när
 git-historiken ger tillräckligt bevis. Externa caller-risker och produktbeslut
 ska dokumenteras i stället för att döljas som docs-cleanup.
+
+## Stoppunkter för städning
+
+Städning får inte smyga in ett produktbeslut. Dessa punkter gäller oavsett hur
+gammal en fil eller yta ser ut:
+
+1. Ingen route- eller featureradering utan bevis på att externa callers saknas.
+2. Ingen sammanslagning av owners med olika semantik.
+3. Ingen generator som gör runtime-koden mer indirekt.
+4. Ingen docs-PR som samtidigt ändrar produktbeteende.
+
+Att repot är publikt gör git-historik och callergranskning reproducerbara, men
+ersätter inte produktionstrafik. En yta som är aktiv och kan ha externa eller
+sällsynta callers kräver därför minst 30 dagars aggregerad
+route-/featuretelemetri — request count, last seen, mätperiod och caller-risk —
+plus ett produktägarbeslut KEEP / DEPRECATE / DELETE. Issue #538 äger det
+underlaget; payloads, `.env`-filer, tokens och secrets hör varken i issuen eller
+i docs.
+
+Beslutsläget för ytorna som issuet listar:
+
+| Yta | Beslut | Grund |
+|---|---|---|
+| `src/app/api/wizard/` | KEEP (2026-07-18) | Aktiv produktfunktion via förstasidans flöde |
+| `src/components/audit/` | KEEP (2026-07-18) | Aktiv produktfunktion via förstasidans flöde |
+| `src/app/api/integrations/marketplace/` | DELETE (2026-08-04) | Enda anroparen `ProjectEnvVarsPanel` togs bort i #573; noll rader i prodtabellen `user_integrations` |
+| `src/app/api/integrations/mcp/` | DELETE (2026-08-04) | Noll anropare; returnerade enbart hårdkodad statisk JSON |
+| `src/app/api/v0/projects/instructions` | DELETE (2026-08-04) | 410-tombstone utan anropare; svarar nu 404 |
+| `src/app/api/figma/` | Väntar på beslut | Fortfarande inkopplad i buildern (`ChatInterface`), men `FIGMA_ACCESS_TOKEN` saknas i prod |
+
+En yta utan dokumenterat DELETE-beslut är KEEP.
 
 ## Ändringsregel
 

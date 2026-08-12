@@ -11,11 +11,13 @@ import {
 } from "@/lib/gen/preview/env-local";
 import {
   destroyPreviewHostSession,
+  fetchPreviewHostFilesManifest,
   patchPreviewHostSession,
   startPreviewHostSession,
   updatePreviewHostSession,
   type PreviewHostPatchMode,
 } from "@/lib/gen/preview/preview-host-client";
+import { planPreviewPatch } from "@/lib/gen/preview/preview-patch-plan";
 import {
   clearPreviewSessionAsync,
   getActivePreviewSessionAsync,
@@ -63,6 +65,8 @@ export interface PreviewSessionResult {
    * here means "not yet confirmed ready" (pending), NOT "failed".
    */
   runtimeReady: boolean;
+  /** DB revision of the exact file set pinned to this preview session. */
+  filesRevision: string | null;
   /** Telemetry / UI hints for the tier-2 provider. */
   tier2Meta?: PreviewSessionTier2Meta;
 }
@@ -158,6 +162,7 @@ export type TryPatchPreviewSessionResult =
 export async function tryPatchPreviewSession(params: {
   chatId: string;
   versionId: string;
+  filesRevision?: string | null;
   changedFiles: Record<string, string>;
   removedPaths?: string[];
   /**
@@ -181,8 +186,13 @@ export async function tryPatchPreviewSession(params: {
   if (!sess?.previewSessionId) {
     return { ok: false, reason: "no_session" };
   }
+  // STRICT: the stored pointer must BE the expected base, not merely "not a
+  // different one". A session without a version is unknown ground, and merging
+  // a partial diff into unknown ground is the hybrid-file-set bug — so it bails
+  // to a full (re)start just like a real mismatch. The host re-checks the same
+  // rule under its store lock and answers 409.
   const expectedBase = params.expectedBaseVersionId?.trim();
-  if (expectedBase && sess.versionId && sess.versionId !== expectedBase) {
+  if (expectedBase && sess.versionId?.trim() !== expectedBase) {
     return { ok: false, reason: "base_mismatch" };
   }
   const patched = await patchPreviewHostSession({
@@ -200,6 +210,7 @@ export async function tryPatchPreviewSession(params: {
       previewSessionId: patched.previewSessionId,
       previewUrl: patched.previewUrl,
       versionId,
+      filesRevision: params.filesRevision,
       tier2Provider: "preview_host",
     });
     return {
@@ -216,6 +227,132 @@ export async function tryPatchPreviewSession(params: {
     return { ok: false, reason: "base_mismatch", message: patched.message };
   }
   return { ok: false, reason: "host_error", message: patched.message };
+}
+
+/**
+ * Fast Edit Lane for a FOLLOW-UP generation (new versionId on a live session).
+ *
+ * The full `/update` path replaces every file and makes preview-host restart
+ * Next dev, so each follow-up pays a boot + first compile even when only page
+ * content changed. When the host can tell us exactly what it is holding, the
+ * same change can be pushed as a partial `/preview/session/patch` that writes
+ * only the changed paths into the live workspace.
+ *
+ * Strictly an optimisation with a single fallback: return `null` and the caller
+ * runs the untouched `/update` path, i.e. today's behaviour. It is only taken
+ * when all of these hold:
+ *
+ * 1. the patch lane flag is on,
+ * 2. the host still serves the exact base version our session pointer claims
+ *    (`files-manifest` reports `versionId` + `running`),
+ * 3. the diff has no structural/dependency path and is small enough
+ *    ({@link planPreviewPatch}),
+ * 4. the host accepts the patch under its own base-version lock and echoes the
+ *    NEW versionId back, so `/status` and resume stay correct.
+ *
+ * `updatePayload` must be the exact payload `/update` would have sent — the
+ * patch is a strict subset of it, so a patched VM ends up with the same files.
+ */
+async function tryFollowUpPatchLane(params: {
+  chatId: string;
+  previewSessionId: string;
+  /** Version the live session is pinned to (the base we diff against). */
+  baseVersionId: string | null;
+  versionId: string;
+  filesRevision: string | null;
+  updatePayload: Record<string, string>;
+  previewMode: PreviewSessionMode;
+}): Promise<PreviewSessionResult | null> {
+  const startedAt = Date.now();
+  const fallBackToUpdate = (reason: string, detail?: string): null => {
+    logPreviewLifecycleTelemetry({
+      kind: "preview_followup_lane",
+      chatId: params.chatId,
+      versionId: params.versionId,
+      baseVersionId: params.baseVersionId,
+      lane: "update",
+      reason,
+      ...(detail ? { detail } : {}),
+      durationMs: Math.max(0, Date.now() - startedAt),
+    });
+    return null;
+  };
+
+  if (!isPreviewPatchLaneEnabled()) return fallBackToUpdate("patch_lane_disabled");
+  if (!params.baseVersionId) return fallBackToUpdate("unknown_base_version");
+
+  const manifest = await fetchPreviewHostFilesManifest(params.previewSessionId);
+  // No manifest = older host without the route, an unusable session, or a
+  // network blip. All of them mean "we do not know what is live" -> update.
+  if (!manifest) return fallBackToUpdate("manifest_unavailable");
+  if (!manifest.running) return fallBackToUpdate("runtime_not_running");
+  if (manifest.versionId !== params.baseVersionId) {
+    return fallBackToUpdate("host_version_mismatch", `host=${manifest.versionId ?? "none"}`);
+  }
+
+  const plan = planPreviewPatch({
+    hostFileHashes: manifest.files,
+    nextFiles: params.updatePayload,
+  });
+  if (!plan.ok) return fallBackToUpdate(plan.reason);
+
+  const patched = await patchPreviewHostSession({
+    previewSessionId: params.previewSessionId,
+    versionId: params.versionId,
+    files: plan.changedFiles,
+    ...(plan.removedPaths.length > 0 ? { removedPaths: plan.removedPaths } : {}),
+    // Re-checked under the host store lock: a session that advanced between the
+    // manifest read and the write is refused (409) instead of merging our diff
+    // into a workspace it was never derived from.
+    expectedBaseVersionId: params.baseVersionId,
+  });
+  if (!patched.ok) return fallBackToUpdate("host_patch_failed", patched.message);
+  if (patched.hostVersionId !== params.versionId) {
+    // STRICT: the host must positively confirm it pinned the NEW version. A
+    // missing echo (older host build, stripped field) is treated exactly like
+    // a mismatch — otherwise the app would record a version the host never
+    // acknowledged and resume/`/status` would disagree with reality. Let the
+    // full update re-pin it instead.
+    return fallBackToUpdate(
+      "host_version_not_recorded",
+      `host=${patched.hostVersionId ?? "none"}`,
+    );
+  }
+
+  await touchPreviewSessionAsync({
+    chatId: params.chatId,
+    previewSessionId: patched.previewSessionId,
+    previewUrl: patched.previewUrl,
+    versionId: params.versionId,
+    filesRevision: params.filesRevision,
+    tier2Provider: "preview_host",
+  });
+  logPreviewLifecycleTelemetry({
+    kind: "preview_followup_lane",
+    chatId: params.chatId,
+    versionId: params.versionId,
+    baseVersionId: params.baseVersionId,
+    lane: "patch",
+    patchMode: patched.patchMode,
+    ...(patched.patchReason ? { detail: patched.patchReason } : {}),
+    changedFiles: Object.keys(plan.changedFiles).length,
+    removedPaths: plan.removedPaths.length,
+    durationMs: Math.max(0, Date.now() - startedAt),
+  });
+  return {
+    previewUrl: patched.previewUrl,
+    previewSessionId: patched.previewSessionId,
+    previewMode: params.previewMode,
+    fidelityTier: 2,
+    startOutcome: "resumed",
+    // A hot patch inherits the PREVIOUS boot's readiness receipt: Next dev is
+    // alive but has not recompiled the new files yet, and `restarted`/`booted`
+    // modes have only queued a boot. Not a per-version runtime-ready receipt —
+    // heartbeat/status confirms it, exactly as for the update path (M#pv1).
+    runtimeReady: false,
+    filesRevision: params.filesRevision,
+    tier2Meta: { tier2Provider: "preview_host" },
+  };
 }
 
 export type StartPreviewSessionOptions = {
@@ -235,6 +372,8 @@ export type StartPreviewSessionOptions = {
    * session still points at a running runtime (avoids duplicate boots on reopen / bootstrap).
    */
   versionIdForSession?: string | null;
+  /** DB revision captured when this version's files are sent to the host. */
+  filesRevisionForSession?: string | null;
   /**
    * Skip `repairGeneratedFiles` when files already went through finalize preflight repair
    * (`filesJson` from DB / own-engine stream). Use `false` when parsing from raw `contentForVersion`.
@@ -316,6 +455,11 @@ async function runStartPreviewSession(
       ? options.versionIdForSession.trim()
       : null;
   const hostVersionId = vid;
+  const filesRevision =
+    typeof options?.filesRevisionForSession === "string" &&
+    options.filesRevisionForSession.trim()
+      ? options.filesRevisionForSession.trim()
+      : null;
 
   if (cid && options?.forceRestart) {
     // forceRestart is the user's signal that the previous preview session should
@@ -325,16 +469,28 @@ async function runStartPreviewSession(
 
   if (cid && vid && options?.forceRestart !== true) {
     const sess = await getActivePreviewSessionAsync(cid);
-    if (sess?.versionId === vid && sess.previewSessionId) {
+    const samePinnedContent =
+      sess?.versionId === vid &&
+      // Older session entries have no revision. When the caller now knows the
+      // revision, treat that unknown pointer as stale and resend the files;
+      // otherwise a same-version repair rewrite (N -> N+1) could resume a VM
+      // still serving N and then falsely relabel it as N+1.
+      (!filesRevision || sess.filesRevision === filesRevision);
+    if (samePinnedContent && sess.previewSessionId) {
       // Snabb-resume: samma versionId betyder att host troligen redan
       // har korrekta filer + warm Next dev. Bara verifiera och returnera.
       const resumed = await tryResumeTier2Runtime(sess);
-      if (resumed) {
+      // Readiness ≠ liveness (req A5): a session whose host `readinessState` is
+      // "failed" (process alive, Next build-error overlay) must NOT resume as a
+      // healthy preview — fall through to destroy + re-pin so the fresh boot can
+      // re-run install/repair instead of surfacing the broken overlay as live.
+      if (resumed && resumed.readinessState !== "failed") {
         await touchPreviewSessionAsync({
           chatId: cid,
           previewSessionId: resumed.previewSessionId,
           previewUrl: resumed.primaryUrl,
           versionId: vid,
+          filesRevision: filesRevision ?? sess.filesRevision,
           tier2Provider: "preview_host",
         });
         return {
@@ -345,9 +501,14 @@ async function runStartPreviewSession(
             previewMode: resolvedMode,
             fidelityTier: 2,
             startOutcome: "resumed",
-            // Confirmed runtime-ready: tryResumeTier2Runtime only returns a
-            // session when preview-host `/status` reported `running: true`.
-            runtimeReady: true,
+            // Runtime-ready ONLY on a confirmed `ready` verdict (Bugbot finding
+            // 1): unknown readiness (host omitted the field / boot hasn't
+            // recorded it yet → null) and `starting` are NOT success, so the
+            // preview-session route must not stamp `preview_success=true` off
+            // mere liveness. The heartbeat/status receipt path stamps once the
+            // host reports a real `ready`.
+            runtimeReady: resumed.readinessState === "ready" && resumed.httpReady !== false,
+            filesRevision: filesRevision ?? sess.filesRevision,
             tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };
@@ -372,7 +533,10 @@ async function runStartPreviewSession(
 
   if (cid && vid && options?.forceRestart !== true) {
     const sess = await getActivePreviewSessionAsync(cid);
-    if (sess?.previewSessionId && sess.versionId !== vid) {
+    const sessionContentMismatch =
+      sess?.versionId !== vid ||
+      Boolean(filesRevision && sess.filesRevision !== filesRevision);
+    if (sess?.previewSessionId && sessionContentMismatch) {
       const skipRepairForUpdate = options?.skipRepair === true;
       const skipScaffoldForUpdate = options?.skipProjectScaffold === true;
       let updateFiles: CodeFile[];
@@ -424,11 +588,30 @@ async function runStartPreviewSession(
         generatedEnvLocal: priorEnvLocal,
         lifecycleStage: options?.lifecycleStage,
         selectedDossierEnvKeys: options?.selectedDossierEnvKeys,
+        // Scope placeholder catalogs to keys this project actually uses
+        // (.env.local is already spliced out; env artifacts are excluded
+        // from the scan inside the builder).
+        scopePlaceholdersToFiles: runtimeForUpdate,
       });
       runtimeForUpdate.push({ name: envLocalPath, content: envBody });
       const updatePayload = Object.fromEntries(
         runtimeForUpdate.map((f) => [f.name, f.content]),
       );
+      // Fast Edit Lane first: push only what actually differs from the live VM
+      // and skip the Next dev restart. Any doubt -> `null` -> the full update
+      // below (unchanged behaviour).
+      const patchedResult = await tryFollowUpPatchLane({
+        chatId: cid,
+        previewSessionId: sess.previewSessionId,
+        baseVersionId: sess.versionId,
+        versionId: vid,
+        filesRevision,
+        updatePayload,
+        previewMode: resolvedMode,
+      });
+      if (patchedResult) {
+        return { ok: true, result: patchedResult };
+      }
       const updated = await updatePreviewHostSession({
         previewSessionId: sess.previewSessionId,
         versionId: vid,
@@ -440,6 +623,7 @@ async function runStartPreviewSession(
           previewSessionId: updated.previewSessionId,
           previewUrl: updated.previewUrl,
           versionId: vid,
+          filesRevision,
           tier2Provider: "preview_host",
         });
         return {
@@ -454,6 +638,7 @@ async function runStartPreviewSession(
             // Next dev — the update response returns before that boot is
             // serving, so the runtime is NOT yet confirmed ready.
             runtimeReady: false,
+            filesRevision,
             tier2Meta: { tier2Provider: "preview_host" as const },
           },
         };
@@ -520,6 +705,8 @@ async function runStartPreviewSession(
     generatedEnvLocal: priorEnvLocal,
     lifecycleStage: options?.lifecycleStage,
     selectedDossierEnvKeys: options?.selectedDossierEnvKeys,
+    // Same catalog scoping as the update path above.
+    scopePlaceholdersToFiles: runtimeFiles,
   });
   runtimeFiles.push({ name: envLocalPath, content: envBody });
 
@@ -573,6 +760,7 @@ async function runStartPreviewSession(
     previewSessionId: started.previewSessionId,
     previewUrl: started.previewUrl,
     versionId: vid,
+    filesRevision,
     tier2Provider: "preview_host",
   });
   return {
@@ -588,8 +776,8 @@ async function runStartPreviewSession(
       // confirmed ready. `preview_success` stays pending (null) until a real
       // runtime-ready receipt arrives (M#pv1).
       runtimeReady: false,
+      filesRevision,
       tier2Meta: { tier2Provider: "preview_host" },
     },
   };
 }
-

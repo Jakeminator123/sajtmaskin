@@ -36,6 +36,7 @@ import {
 } from "./prompt-patterns";
 import type {
   BuildSpecChangeScope,
+  BuildSpecComplexityHint,
   BuildSpecContextPolicy,
   BuildSpecGenerationMode,
   BuildSpecPreviewPolicy,
@@ -195,6 +196,8 @@ export function inferQualityTarget(params: {
   previewPolicy: BuildSpecPreviewPolicy;
   isFirstCodeGeneration?: boolean | null;
   brief?: BuildSpecBriefSignals;
+  /** Byggval (init controls): structured complexity choice. */
+  complexityHint?: BuildSpecComplexityHint | null;
 }): BuildSpecQualityTarget {
   const {
     prompt,
@@ -207,8 +210,24 @@ export function inferQualityTarget(params: {
     previewPolicy,
     isFirstCodeGeneration,
     brief,
+    complexityHint,
   } = params;
   if (previewPolicy === "fidelity3") return "release-candidate";
+
+  // Byggval: ett explicit "Komplex"-val golvar init-kvaliteten på premium —
+  // samma styrka som brief.qualityBar. "simple" demotar MEDVETET inte:
+  // multipage-/signal-promotions skyddar flersidiga byggen från att en
+  // enkel-flagga sänker budgeten under vad routes/integrationer kräver.
+  if (generationMode === "init" && complexityHint === "complex") {
+    console.info("[build-spec] quality_target_promoted_for_complexity_hint", {
+      complexityHint,
+      generationMode,
+      buildIntent,
+      from: "standard",
+      to: "premium",
+    });
+    return "premium";
+  }
 
   const briefQualityBar =
     typeof brief?.qualityBar === "string" ? brief.qualityBar.trim() : "";
@@ -391,6 +410,7 @@ function scoreContextPolicy(params: {
   capabilityHeavy: boolean;
   isFirstCodeGeneration?: boolean | null;
   brief?: BuildSpecBriefSignals;
+  complexityHint?: BuildSpecComplexityHint | null;
 }): number {
   const {
     generationMode,
@@ -402,6 +422,7 @@ function scoreContextPolicy(params: {
     capabilityHeavy,
     isFirstCodeGeneration,
     brief,
+    complexityHint,
   } = params;
   let score = 0;
 
@@ -411,6 +432,11 @@ function scoreContextPolicy(params: {
   if (generationMode === "init" && brief?.qualityBar === "bold-dramatic") score += 2;
   else if (generationMode === "init" && brief?.qualityBar === "premium") score += 1;
   if (generationMode === "init" && brief?.motionLevel === "lively") score += 1;
+  // Byggval: samma viktklass som brief-signalerna — "komplex" ger heavy-bias,
+  // "enkel" drar EN poäng lättare (tunga signaler som integrationer/app-shell
+  // vinner fortfarande enkelt över den).
+  if (generationMode === "init" && complexityHint === "complex") score += 2;
+  else if (generationMode === "init" && complexityHint === "simple") score -= 1;
 
   if (
     promptStrategyMeta?.strategy === "phase_plan_build_refine" ||
@@ -464,6 +490,8 @@ export function inferContextPolicy(params: {
   scaffoldUnlockedForMatch?: boolean | null;
   isFirstCodeGeneration?: boolean | null;
   brief?: BuildSpecBriefSignals;
+  /** Byggval (init controls): structured complexity choice. */
+  complexityHint?: BuildSpecComplexityHint | null;
 }): { policy: BuildSpecContextPolicy; score: number } {
   const {
     prompt,

@@ -190,6 +190,21 @@ describe("5-3 freeze-enforcement — enforceFollowUpVariantFreeze (unit)", () =>
     });
     expect(decision.clamped).toBe(false);
   });
+
+  it("stands down when the scaffold lock is released (variant follows the scaffold exemption)", () => {
+    // The scaffold freeze already exempts `ignorePersistedScaffoldForMatch`. The
+    // variant clamp did not, so a full-redesign phrasing that unlocks the
+    // scaffold on `neutral` intent got its freshly picked variant pulled back to
+    // the contract variant — a rematched scaffold in the old style.
+    const decision = enforceFollowUpVariantFreeze({
+      resolvedMode: "followUp",
+      followUpIntent: "neutral",
+      ignorePersistedScaffoldForMatch: true,
+      contractVariantId: "warm-local",
+      resolvedVariantId: "corporate-grid",
+    });
+    expect(decision).toEqual({ variantId: "corporate-grid", clamped: false });
+  });
 });
 
 describe("5-3 freeze-enforcement — detectFollowUpRouteDrift (unit)", () => {

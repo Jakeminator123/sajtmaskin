@@ -13,13 +13,13 @@ import { hasToolData, type AIElementsMessage, type MessagePart } from "@/lib/bui
 import { openDossiersPanel } from "@/lib/builder/project-env-events";
 import { isGenericIntegrationName, resolveIntegrationDisplayName } from "@/lib/integrations/suggestion-display";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Loader2 } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ToolUIPart } from "ai";
 import {
   PostCheckPanel,
@@ -81,6 +81,8 @@ export type EnvRequirementHint = {
 
 type AgentLogItem = {
   label: string;
+  /** Satt bara när steget faktiskt felade, så en bock aldrig hamnar på ett fel. */
+  failed?: boolean;
 };
 
 type ToolQuestionPrompt = {
@@ -157,31 +159,200 @@ type ServerRepairSummary = {
   earlyStopReason: string | null;
 };
 
-export function AgentLogCard({ items }: { items: AgentLogItem[] }) {
-  const [open, setOpen] = useState(false);
-  if (items.length === 0) return null;
+const PRE_STREAM_ACTIVITY = "Förbereder byggunderlag och startar own-engine.";
+const BETWEEN_PHASES_ACTIVITY = "Fortsätter med nästa byggsteg.";
+
+export function AgentLogCard({
+  items,
+  activeLabel,
+  isActive = false,
+}: {
+  items: AgentLogItem[];
+  activeLabel?: string | null;
+  isActive?: boolean;
+}) {
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const activeStartedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+    if (activeStartedAtRef.current === null) {
+      activeStartedAtRef.current = Date.now();
+    }
+    const timer = window.setInterval(() => {
+      const startedAt = activeStartedAtRef.current;
+      if (startedAt !== null) {
+        setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+      }
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [isActive]);
+
+  if (items.length === 0 && !isActive) return null;
+  return (
+    <AgentLogCardContent
+      key={isActive ? "active" : "complete"}
+      items={items}
+      activeLabel={activeLabel}
+      isActive={isActive}
+      elapsedSeconds={elapsedSeconds}
+    />
+  );
+}
+
+function AgentLogCardContent({
+  items,
+  activeLabel,
+  isActive,
+  elapsedSeconds,
+}: {
+  items: AgentLogItem[];
+  activeLabel?: string | null;
+  isActive: boolean;
+  elapsedSeconds: number;
+}) {
+  const [open, setOpen] = useState(isActive);
+
+  const currentLabel =
+    activeLabel?.trim() ||
+    (items.length === 0 ? PRE_STREAM_ACTIVITY : BETWEEN_PHASES_ACTIVITY);
+  const matchingActiveIndex = isActive
+    ? items.map((item) => item.label).lastIndexOf(currentLabel)
+    : -1;
+  const visibleItems =
+    isActive && matchingActiveIndex === -1
+      ? [...items, { label: currentLabel }]
+      : items;
+  const activeItemIndex =
+    isActive && matchingActiveIndex === -1 ? visibleItems.length - 1 : matchingActiveIndex;
+  const hasFailures = items.some((item) => item.failed);
+  const activeItemFailed =
+    activeItemIndex >= 0 && visibleItems[activeItemIndex]?.failed === true;
+  const surfaceFailure = hasFailures;
 
   return (
     <Collapsible
       open={open}
       onOpenChange={setOpen}
-      className="border-border bg-muted/30 mb-3 rounded-md border"
+      className={cn(
+        "mb-3 overflow-hidden rounded-lg border transition-colors",
+        surfaceFailure
+          ? "border-destructive/35 bg-destructive/5"
+          : isActive
+            ? "border-primary/35 bg-primary/5"
+            : "border-border bg-muted/30",
+      )}
     >
-      <CollapsibleTrigger className="text-muted-foreground hover:bg-muted/50 flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs font-medium transition-colors">
-        <span>Slutsteg ({items.length}) — visa detaljer</span>
+      <CollapsibleTrigger className="hover:bg-muted/40 flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors">
+        <span
+          className={cn(
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+            surfaceFailure
+              ? "bg-destructive/15 text-destructive"
+              : isActive
+                ? "bg-primary/15 text-primary"
+                : "bg-muted text-muted-foreground",
+          )}
+        >
+          {surfaceFailure ? (
+            <AlertTriangle className="h-3.5 w-3.5" aria-label="Ett byggsteg misslyckades" />
+          ) : isActive ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <Check className="h-3.5 w-3.5" aria-hidden />
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2 text-xs font-semibold">
+            {isActive
+              ? activeItemFailed
+                ? "Ett byggsteg misslyckades"
+                : hasFailures
+                  ? "Arbetar vidare efter fel"
+                  : "Arbetar med din sajt"
+              : `Slutsteg (${items.length})${hasFailures ? " · fel" : ""}`}
+            {isActive ? (
+              <span className="text-muted-foreground font-normal tabular-nums">
+                {elapsedSeconds}s
+              </span>
+            ) : null}
+          </span>
+          <span
+            className={cn(
+              "mt-0.5 block truncate text-xs",
+              isActive ? "text-foreground/80" : "text-muted-foreground",
+            )}
+            aria-live="polite"
+          >
+            {isActive
+              ? currentLabel
+              : open
+                ? "Dölj detaljer"
+                : hasFailures
+                  ? "Fel upptäcktes — visa detaljer"
+                  : "Visa detaljer"}
+          </span>
+        </span>
         <ChevronDown
-          className={cn("h-4 w-4 shrink-0 transition-transform", open && "rotate-180")}
+          className={cn(
+            "text-muted-foreground h-4 w-4 shrink-0 transition-transform",
+            open && "rotate-180",
+          )}
           aria-hidden
         />
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <ul className="text-muted-foreground space-y-1 px-3 pb-3 text-xs">
-          {items.map((item, index) => (
-            <li key={`agent-${index}`} className="flex gap-2">
-              <span className="bg-muted-foreground/70 mt-1 h-1.5 w-1.5 rounded-full" />
-              <span>{item.label}</span>
+        <ul className="border-border/60 space-y-1 border-t px-3 py-2.5 text-xs">
+          {visibleItems.length === 0 ? (
+            <li className="text-foreground/80 flex items-center gap-2 py-1">
+              <Loader2 className="text-primary h-3.5 w-3.5 animate-spin" aria-hidden />
+              <span>{currentLabel}</span>
             </li>
-          ))}
+          ) : (
+            visibleItems.map((item, index) => {
+              const itemIsActive = isActive && index === activeItemIndex;
+              return (
+                <li
+                  key={`agent-${index}`}
+                  className={cn(
+                    "flex items-start gap-2 rounded-md px-2 py-1.5 transition-colors",
+                    item.failed
+                      ? "bg-destructive/10 text-destructive"
+                      : itemIsActive
+                        ? "bg-primary/10 text-foreground"
+                        : "text-muted-foreground",
+                  )}
+                >
+                  {item.failed ? (
+                    <AlertTriangle
+                      className="text-destructive mt-0.5 h-3.5 w-3.5 shrink-0"
+                      aria-label="Steget misslyckades"
+                    />
+                  ) : itemIsActive ? (
+                    <Loader2
+                      className="text-primary mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin"
+                      aria-hidden
+                    />
+                  ) : (
+                    <Check
+                      className="text-muted-foreground/70 mt-0.5 h-3.5 w-3.5 shrink-0"
+                      aria-hidden
+                    />
+                  )}
+                  <span className="min-w-0 flex-1">{item.label}</span>
+                  {item.failed ? (
+                    <span className="text-destructive shrink-0 text-[10px] font-medium uppercase tracking-wide">
+                      Fel
+                    </span>
+                  ) : itemIsActive ? (
+                    <span className="text-primary shrink-0 text-[10px] font-medium uppercase tracking-wide">
+                      Pågår
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })
+          )}
         </ul>
       </CollapsibleContent>
     </Collapsible>
@@ -533,16 +704,50 @@ export function buildAgentLogItems(toolParts: ToolPart[]) {
     const { toolTitle } = resolveToolLabels(tool);
     const steps = extractToolSteps(tool);
 
+    const toolFailed = toolState === "output-error";
+
     if (steps.length > 0) {
-      steps.forEach((step) => {
-        items.push({ label: step });
+      steps.forEach((step, stepIndex) => {
+        const isLastStep = stepIndex === steps.length - 1;
+        items.push(
+          toolFailed && isLastStep ? { label: step, failed: true } : { label: step },
+        );
       });
     } else {
-      items.push({ label: `${toolTitle} • ${getToolStateLabel(toolState)}` });
+      const label = `${toolTitle} • ${getToolStateLabel(toolState)}`;
+      items.push(toolFailed ? { label, failed: true } : { label });
     }
   });
 
   return items;
+}
+
+export function getActiveAgentLogLabel(
+  toolParts: ToolPart[],
+  options: { includePipelineProgress?: boolean } = {},
+): string | null {
+  const includePipelineProgress = options.includePipelineProgress !== false;
+  for (let index = toolParts.length - 1; index >= 0; index -= 1) {
+    const tool = toolParts[index]?.tool as Partial<ToolUIPart> & {
+      type?: string;
+      input?: unknown;
+    };
+    if (tool?.state !== "input-streaming") continue;
+    const toolType = String(tool.type ?? "");
+    if (
+      !includePipelineProgress &&
+      toolType.startsWith("tool:engine-") &&
+      toolType !== "tool:engine-preview"
+    ) {
+      continue;
+    }
+    const steps = extractToolSteps(tool);
+    const latestStep = steps.at(-1)?.trim();
+    if (latestStep) return latestStep;
+    const { toolTitle } = resolveToolLabels(tool);
+    return `${toolTitle} • ${getToolStateLabel(tool.state)}`;
+  }
+  return null;
 }
 
 function extractToolSteps(tool: Partial<ToolUIPart> & { input?: unknown }) {

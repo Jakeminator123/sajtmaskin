@@ -1,6 +1,7 @@
-import { resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  describeRemovalFailure,
   findLinkedEntries,
   findMainWorktree,
   parseDirtyEntries,
@@ -140,5 +141,160 @@ describe("findLinkedEntries", () => {
         },
       }),
     ).toEqual([]);
+  });
+});
+
+describe("describeRemovalFailure", () => {
+  const failure = (over: Partial<Parameters<typeof describeRemovalFailure>[0]> = {}) =>
+    describeRemovalFailure({
+      worktreePath: FEATURE,
+      detachedLinks: [`${FEATURE}/node_modules`],
+      stillRegistered: false,
+      message: "error: failed to delete '...': Permission denied",
+      ...over,
+    });
+
+  // The reason this message exists: a raw stacktrace right after
+  // "unlinked … (target untouched)" reads like the junction trap fired and the
+  // shared node_modules was just emptied. It was not — detaching runs first.
+  it("leads with the shared node_modules being safe when links were detached", () => {
+    const lines = failure().split("\n");
+    expect(lines[0]).toContain("SAFE");
+    expect(lines[0]).toContain("detached before the removal");
+  });
+
+  it("says nothing about links when there were none to detach", () => {
+    expect(failure({ detachedLinks: [] })).not.toContain("SAFE");
+  });
+
+  it("separates the actual failure from the junction question", () => {
+    expect(failure()).toContain("What failed is the directory removal itself");
+    expect(failure()).toContain("Permission denied");
+  });
+
+  // Observed twice: git drops the metadata BEFORE the directory delete fails,
+  // so the worktree is gone from `git worktree list` and an empty folder stays.
+  it("gives prune + manual-delete steps when git already dropped the worktree", () => {
+    const text = failure({ stillRegistered: false });
+    expect(text).toContain("git worktree prune");
+    expect(text).toContain("Remove-Item");
+    expect(text).toContain(FEATURE);
+  });
+
+  it("tells the user to just rerun when git still tracks the worktree", () => {
+    const text = failure({ stillRegistered: true });
+    expect(text).toContain("nothing is half-removed");
+    expect(text).toContain("rerun this command");
+    expect(text).not.toContain("git worktree prune");
+  });
+});
+
+/**
+ * Nästlade junctions — regression för 2026-08-01.
+ *
+ * Skyddet fanns, men scanningen stannade på djup 1. En `preview-host/node_modules`
+ * som skapats för hand med `mklink /J` var därmed osynlig: den kopplades aldrig
+ * loss, och `git worktree remove` följde den in i huvudcheckouten och tömde den
+ * riktiga katalogen.
+ */
+describe("findLinkedEntries — nästlade länkar", () => {
+  type Entry = { name: string; link?: boolean; dir?: boolean };
+
+  /** Trädmedveten io: readdir/lstat svarar per sökväg, inte platt. */
+  const treeIo = (tree: Record<string, Entry[]>) => {
+    const key = (p: string) => resolve(p).toLowerCase();
+    const indexed = Object.fromEntries(
+      Object.entries(tree).map(([path, entries]) => [key(path), entries]),
+    );
+    return {
+      readdir: (p: string) => {
+        const entries = indexed[key(p)];
+        if (!entries) throw new Error(`ENOENT ${p}`);
+        return entries.map((e) => e.name);
+      },
+      lstat: (p: string) => {
+        const entry = indexed[key(dirname(p))]?.find((e) => e.name === basename(p));
+        if (!entry) throw new Error(`ENOENT ${p}`);
+        return {
+          isSymbolicLink: () => entry.link === true,
+          isDirectory: () => entry.dir === true,
+        };
+      },
+    };
+  };
+
+  it("hittar en junctionad preview-host/node_modules på djup 2", () => {
+    const linked = findLinkedEntries(
+      FEATURE,
+      treeIo({
+        [FEATURE]: [
+          { name: "node_modules", link: true },
+          { name: "preview-host", dir: true },
+          { name: "src", dir: true },
+        ],
+        [join(FEATURE, "preview-host")]: [{ name: "node_modules", link: true }],
+        [join(FEATURE, "src")]: [],
+      }),
+    );
+
+    expect(linked).toHaveLength(2);
+    expect(linked.some((p) => p === join(FEATURE, "node_modules"))).toBe(true);
+    expect(linked.some((p) => p === join(FEATURE, "preview-host", "node_modules"))).toBe(true);
+  });
+
+  // Leaf-regeln är det som håller walken billig: en RIKTIG node_modules
+  // (~765 paket) får aldrig gås igenom, bara kontrolleras om den är en länk.
+  it("går aldrig in i en riktig node_modules", () => {
+    const linked = findLinkedEntries(
+      FEATURE,
+      treeIo({
+        [FEATURE]: [{ name: "node_modules", dir: true }],
+        // Skulle scanningen descenda hit vore länken med i resultatet.
+        [join(FEATURE, "node_modules")]: [{ name: "some-package", link: true }],
+      }),
+    );
+
+    expect(linked).toEqual([]);
+  });
+
+  it("går inte in i .git", () => {
+    const linked = findLinkedEntries(
+      FEATURE,
+      treeIo({
+        [FEATURE]: [{ name: ".git", dir: true }],
+        [join(FEATURE, ".git")]: [{ name: "worktrees", link: true }],
+      }),
+    );
+
+    expect(linked).toEqual([]);
+  });
+
+  it("slutar descenda vid djuptaket", () => {
+    const linked = findLinkedEntries(
+      FEATURE,
+      treeIo({
+        [FEATURE]: [{ name: "a", dir: true }],
+        [join(FEATURE, "a")]: [{ name: "b", dir: true }],
+        [join(FEATURE, "a", "b")]: [{ name: "c", dir: true }],
+        [join(FEATURE, "a", "b", "c")]: [{ name: "too-deep", link: true }],
+      }),
+    );
+
+    expect(linked).toEqual([]);
+  });
+
+  it("hoppar över en underkatalog som inte går att läsa i stället för att kasta", () => {
+    const linked = findLinkedEntries(
+      FEATURE,
+      treeIo({
+        [FEATURE]: [
+          { name: "node_modules", link: true },
+          { name: "unreadable", dir: true },
+        ],
+        // "unreadable" saknas i trädet -> readdir kastar.
+      }),
+    );
+
+    expect(linked).toEqual([join(FEATURE, "node_modules")]);
   });
 });

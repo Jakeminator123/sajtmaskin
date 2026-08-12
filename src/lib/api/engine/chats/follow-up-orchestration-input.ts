@@ -1,5 +1,6 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
+import { stripFocusPointAppendix } from "@/lib/builder/focus-point-prompt";
 import { inferCapabilities } from "@/lib/gen/capability-inference";
 import {
   buildFollowUpBriefFromSnapshot,
@@ -126,6 +127,14 @@ function resolveFollowUpActiveBrief(
 export function buildFollowUpOrchestrationInput(
   params: BuildFollowUpOrchestrationInputParams,
 ): OrchestrationInput {
+  const followUpContract = buildFollowUpContract({
+    snapshot: params.orchestrationSnapshot,
+    persistedScaffoldId: params.persistedScaffoldId,
+    persistedVariantId: params.persistedVariantId,
+    existingRoutePaths: params.existingRoutePaths,
+    existingShellRoutePaths: params.existingShellRoutePaths,
+    priorQualityTarget: params.priorQualityTarget,
+  });
   const detectedDossierCapabilities =
     params.hasFollowUpBase &&
     params.followUpCapabilityDetection.capabilityIds.length > 0 &&
@@ -142,10 +151,14 @@ export function buildFollowUpOrchestrationInput(
 
   const importedRepoMode = params.importedRepoMode === true;
 
+  // Keep focus-point metadata on the model prompt / raw message, but do not
+  // let marked link text (e.g. PORTFOLIO) drive keyword route inference.
+  const routePlanPrompt = stripFocusPointAppendix(params.message);
+
   const commonInput: OrchestrationInput = {
     prompt: params.optimizedMessage,
     rawPrompt: params.message,
-    routePlanPrompt: params.message,
+    routePlanPrompt,
     buildSpecPrompt: params.message,
     contractsPrompt: params.message,
     capabilitiesPrompt: params.message,
@@ -185,10 +198,22 @@ export function buildFollowUpOrchestrationInput(
       );
       return merged.length > 0 ? merged : undefined;
     })(),
-    dossierProviderHints:
-      params.approvedProviders && params.approvedProviders.length > 0
-        ? params.approvedProviders
-        : undefined,
+    dossierProviderHints: (() => {
+      if (params.approvedProviders && params.approvedProviders.length > 0) {
+        return params.approvedProviders;
+      }
+      // The explicit “Bygg integrationer” transition persists exact dossier
+      // ids as F3-approved provider hints. Reuse them on every F3 round so a
+      // generic button message cannot swap MongoDB/Neon/Supabase/Clerk back to
+      // the capability default.
+      if (
+        params.parsedMeta.lifecycleStage === "integrations" &&
+        (followUpContract.f3ApprovedProviders?.length ?? 0) > 0
+      ) {
+        return followUpContract.f3ApprovedProviders;
+      }
+      return undefined;
+    })(),
     requestedCapabilityTiers: detectedDossierCapabilities
       ? params.followUpCapabilityDetection.tierByCapability
       : undefined,
@@ -200,14 +225,7 @@ export function buildFollowUpOrchestrationInput(
     // 5-1: consolidate the scattered inherited/frozen follow-up signals into
     // one readable object. Additive — does not change how the fields above
     // are read by orchestrate (parity preserved).
-    followUpContract: buildFollowUpContract({
-      snapshot: params.orchestrationSnapshot,
-      persistedScaffoldId: params.persistedScaffoldId,
-      persistedVariantId: params.persistedVariantId,
-      existingRoutePaths: params.existingRoutePaths,
-      existingShellRoutePaths: params.existingShellRoutePaths,
-      priorQualityTarget: params.priorQualityTarget,
-    }),
+    followUpContract,
   };
 
   if (params.mode === "plan") {

@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { getAllDossiers } from "@/lib/gen/dossiers/registry";
+
 import {
   DOSSIER_GROUPS,
   DOSSIER_GROUP_ORDER,
@@ -22,9 +24,22 @@ function readCapabilityMapCapabilities(): string[] {
   return Object.keys(readCapabilityMap().capabilities ?? {});
 }
 
+/**
+ * Capabilities that ACTUALLY exist on disk, read through the same registry
+ * runtime uses. The guarantee-tests below deliberately do NOT read
+ * `capability-map.json` for this: that file is a generated projection with no
+ * CI freshness gate (removed as maintenance tax, `ci.yml`), so a new dossier
+ * whose capability lacks a group mapping would land in "Övrigt" in the builder
+ * while a stale map kept the test green. Deriving from the manifests makes the
+ * projection non-load-bearing instead of adding a gate to keep it fresh.
+ */
+function liveCapabilities(): string[] {
+  return [...new Set(getAllDossiers().map((entry) => entry.capability))].sort();
+}
+
 describe("resolveDossierGroup", () => {
-  it("assigns every capability in capability-map.json to a real (non-Övrigt) group", () => {
-    const capabilities = readCapabilityMapCapabilities();
+  it("assigns every capability present in the dossier pool to a real (non-Övrigt) group", () => {
+    const capabilities = liveCapabilities();
     expect(capabilities.length).toBeGreaterThan(0);
     const unassigned = capabilities.filter(
       (capability) => resolveDossierGroup(capability).id === "other",
@@ -82,11 +97,11 @@ describe("resolveDossierGroup", () => {
       });
     }
 
-    // Every capability in the generated capability-map must be covered by the
-    // canonical table above — a NEW capability without a decided bucket fails
-    // here instead of silently landing in "Övrigt".
+    // Every capability in the LIVE pool must be covered by the canonical table
+    // above — a NEW dossier whose capability has no decided bucket fails here
+    // instead of silently landing in "Övrigt" in the builder.
     const mapped = new Set(Object.keys(expectedGroupByCapability));
-    const uncovered = readCapabilityMapCapabilities().filter((cap) => !mapped.has(cap));
+    const uncovered = liveCapabilities().filter((cap) => !mapped.has(cap));
     expect(uncovered).toEqual([]);
   });
 

@@ -77,6 +77,56 @@ describe("GET /api/dossiers/catalog", () => {
     expect(searchMaps?.dossiers[0]?.id).toBe("local-site-search");
   });
 
+  // Katalogen är en VALYTA: användaren måste kunna se att den riktiga
+  // integrationen byggs i F3 innan hen väljer byggblocket. hard/soft svarar
+  // inte på den frågan — `dossierRequiresF3()` gör det (build-nyckel ELLER
+  // serverfil), och routen får aldrig re-implementera den regeln.
+  it("carries the derived F3 requirement and the demo mode per entry", async () => {
+    getAllDossiers.mockReturnValue([
+      // Build-enforced key ⇒ kräver F3 via env-vägen.
+      dossier({
+        id: "clerk-auth",
+        capability: "auth",
+        mock: "visual",
+        envVars: [
+          { key: "CLERK_SECRET_KEY", required: true, purpose: "auth", enforcement: "build" },
+        ],
+      }),
+      // Inga build-nycklar men en serverfil ⇒ kräver F3 via server-vägen.
+      dossier({
+        id: "resend-contact-form",
+        capability: "contact-form",
+        mock: "success",
+        envVars: [
+          { key: "RESEND_API_KEY", required: true, purpose: "mail", enforcement: "feature-runtime" },
+        ],
+        files: [{ path: "components/api/contact/route.ts", role: "server" }],
+      }),
+      // Kopplad, men klientfil + feature-runtime ⇒ klar redan i F2.
+      dossier({
+        id: "vercel-analytics",
+        capability: "analytics",
+        envVars: [
+          { key: "ANALYTICS_ID", required: false, purpose: "id", enforcement: "warn-only" },
+        ],
+        files: [{ path: "components/analytics.tsx", role: "client" }],
+      }),
+    ]);
+
+    const body = (await (await GET()).json()) as DossierCatalogResponse;
+    const byId = new Map(
+      body.groups.flatMap((group) => group.dossiers).map((entry) => [entry.id, entry]),
+    );
+
+    expect(byId.get("clerk-auth")?.requiresF3).toBe(true);
+    expect(byId.get("resend-contact-form")?.requiresF3).toBe(true);
+    expect(byId.get("vercel-analytics")?.requiresF3).toBe(false);
+    expect(byId.get("resend-contact-form")?.mock).toBe("success");
+    // Utelämnat manifestfält lämnas utelämnat — konsumenten tolkar det som
+    // `none`, precis som runtime gör.
+    expect(byId.get("vercel-analytics")?.mock).toBeUndefined();
+  });
+
   it("omits empty groups and returns an empty catalog when the registry is empty", async () => {
     getAllDossiers.mockReturnValue([]);
 

@@ -19,12 +19,19 @@ placeholder files described below** — they hold fake/test placeholders only.
 | Environment                    | What it is                                                                             | Key authority                                                                                             | Classification authority                                                                                                          |
 | ------------------------------ | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | **Sajtmaskin app env**         | The control-plane app's own runtime env (this Next.js app)                             | [`src/lib/env.ts`](../../src/lib/env.ts) `serverSchema` (ultimate authority for which keys the app reads) | [`config/env-policy.json`](../../config/env-policy.json) (per-key classification + Vercel targets)                                |
-| **Generated-site preview env** | The `.env.local` injected into a **generated user site** when it boots in preview / VM | [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts) (merge order)                | [`src/lib/integrations/placeholder-harmless.ts`](../../src/lib/integrations/placeholder-harmless.ts) (harmless vs tier-3 per key) |
+| **Generated-site preview env** | The `.env.local` injected into a **generated user site** when it boots in preview / VM | [`src/lib/gen/preview/env-local.ts`](../../src/lib/gen/preview/env-local.ts) (merge order)                | [`placeholder-harmless.ts`](../../src/lib/integrations/placeholder-harmless.ts) owns placeholder class; each selected dossier's `manifest.json` owns its env enforcement |
 
 The same key _name_ can appear in both (e.g. `OPENAI_API_KEY`, `REDIS_URL`,
 `POSTGRES_URL`). That is **not** a duplicate: in the app env it is the
 Sajtmaskin app's own credential; in the generated-site env it is a placeholder
 injected into a user's preview site. Different environment, different meaning.
+
+For dossier-backed integrations, `manifest.json` is the authority for
+`providers`, `envVars` and `envVars[].enforcement`. A `hard` dossier may be
+keyless (for example Vercel Analytics); `hard` means provider/runtime-coupled,
+not "has secrets". The manifest describes the code/runtime contract only:
+Marketplace resource provisioning and automatic credential delivery are a
+later layer, not a second env/provider registry today.
 
 ## Sajtmaskin app env — classification (`config/env-policy.json`)
 
@@ -66,6 +73,18 @@ harmless  →  tier3-stub  →  project-preview  →  user  →  generated
 Read at runtime via
 [`src/lib/ai-models/load-generated-site-placeholders.ts`](../../src/lib/ai-models/load-generated-site-placeholders.ts).
 
+**Catalog scoping (preview `.env.local`):** the two catalog layers (`harmless`
++ `tier3-stub`) are filtered to project-relevant keys before merging, via
+[`src/lib/gen/preview/relevant-env-keys.ts`](../../src/lib/gen/preview/relevant-env-keys.ts):
+a catalog key is kept only when its name appears in a project file, an imported
+SDK reads it internally (e.g. `@vercel/postgres` → `POSTGRES_URL`, Clerk,
+next-auth), or a selected dossier declares it. Env artifacts (`.env*`,
+`env.example`) are excluded from the scan so old catalog dumps cannot defeat
+the filter. A plain landing page therefore no longer boots with the full
+~55-key catalog. The scan is fail-open: callers that cannot supply files
+(`scopePlaceholdersToFiles` omitted) keep the full catalogs, and the
+`project-preview`/`user`/`generated` layers are never filtered.
+
 **F2 dossier-mock-seed (design only):** on top of the layers above, F2 seeds a
 deterministic stub (`dossierMockPreviewEnvValue` → `<key>_placeholder_preview_not_real`)
 for every selected dossier env key still unset after the real layers — even keys
@@ -76,30 +95,39 @@ lifecycle: F2-only, stripped in F3), is never run in F3, never persisted to
 `projectEnvVars`, and never reaches a deploy. The stub vocabulary matches
 [`stub-env-filter.ts`](../../src/lib/integrations/stub-env-filter.ts) so it is
 never read as evidence of a configured integration. A real user/generated value
-always wins.
+always wins. The key LIST (not the stub values) is persisted per version in
+`engine_versions.selected_dossier_env_keys`, so a preview force-restart
+(`POST /preview-session`) and the quick-edit preview fallback rebuild the same
+mock-seeded `.env.local` as the first post-finalize boot instead of silently
+dropping demo mode.
 
 ## F2 vs F3 — the one rule that matters
 
 | Stage (`PreviewLifecycleStage`) | Meaning                            | tier3-stub layer                                                                                                                                                           |
 | ------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `design` (**F2**)               | Design / preview                   | **included** — stubs boot the project so the preview renders                                                                                                               |
-| `integrations` (**F3**)         | Bygg integrationer / real services | **stripped for normal F3 codegen** — the project must supply real values via `projectEnvVars`; missing build keys surface via `tier3-build-spec.ts`. Deterministic no-build-key forks preserve the exact F2 files but stubs remain Advisory/icke-bevis. |
+| `integrations` (**F3**)         | Bygg integrationer / real services | **stripped for normal F3 codegen** — a build-enforced key needs either a real `projectEnvVars` value or a catalog-approved placeholder; otherwise it surfaces via `tier3-build-spec.ts`. Deterministic no-build-key forks preserve the exact F2 files but stubs remain Advisory/icke-bevis. |
 
 So:
 
 - **harmless placeholder** = safe to leave fake in **both F2 and F3**. Stripe
   _publishable_ test key, `AUTH_SECRET` (any 32-char string), public analytics
   IDs, public CMS/search read keys, local base URLs.
-- **tier3-stub placeholder** = present in **F2 only**. A real value is required
-  before F3 succeeds — this is what "blocks F3" means. Stripe _secret_ key,
-  Supabase URL + anon key, Clerk secret, OpenAI key, Redis/DB URLs, Upstash
-  tokens, Resend, etc.
+- **tier3-stub placeholder** = present in **F2 only** and stripped during normal
+  F3 codegen. Whether its absence blocks F3 comes from the selected dossier's
+  `envVars[].enforcement` **and** catalog coverage: `build` blocks only when
+  neither a real project value nor an approved placeholder exists;
+  `feature-runtime` and `warn-only` remain Advisory. Examples include Stripe
+  secret keys, Supabase URL + anon key, Clerk, OpenAI, Redis/DB URLs, Upstash
+  and Resend.
 
-Classification is **per env-KEY**, not per integration: `STRIPE_SECRET_KEY` is
-tier-3 (blocks F3) regardless of which integration uses it, while
-`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is harmless. The `.txt` fragment files are
-organized to match the set in `placeholder-harmless.ts` and are kept honest by
-`src/lib/integrations/placeholder-harmless.parity.test.ts`.
+Placeholder classification is **per env-KEY**, but F3 blocking is per selected
+dossier declaration plus placeholder coverage: a key blocks only when the
+dossier marks it `enforcement: "build"` and both a real project value and an
+approved catalog placeholder are absent. `STRIPE_SECRET_KEY` is a tier3-stub,
+while `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is harmless. The `.txt` fragment
+files are organized to match the set in `placeholder-harmless.ts` and are kept
+honest by `src/lib/integrations/placeholder-harmless.parity.test.ts`.
 
 ## Demo/mock-läge (F2) och ärlig publiceringsgrind
 
@@ -107,16 +135,18 @@ F2 ska rendera en trovärdig demo utan riktiga nycklar; F3-publicering ska bara
 blockera på det som verkligen kräver en riktig integration.
 
 - **Demo i F2:** varje hard-dossier deklarerar ett `mock`-läge
-  (`canned`/`seed`/`success`/`none`, se
+  (`canned`/`seed`/`success`/`visual`/`none`, se
   [`dossier-system.md`](dossier-system.md)) som driver dossierns egen
   degraderingskod. Kombinerat med F2-mock-seeden ovan renderar preview-ytan utan
   riktiga nycklar. `mock` aktiveras när nyckeln saknas **eller** är en stub.
 - **Enforcement styr blockering, inte "finns nyckeln i `env.example`".**
-  `buildBlockingKeys` (`src/lib/project-env-resolver.ts`) = de okonfigurerade
-  nycklar vars dossier-`enforcement` är `"build"`. Efter #468 har bara
-  `clerk-auth` `build`-nycklar (`CLERK_SECRET_KEY` +
-  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`) — trasig inloggning är värre än
-  demo-friktion. `openai-chat`s `OPENAI_API_KEY` flyttades `build` → `feature-runtime`.
+  `buildBlockingKeys` (`src/lib/project-env-resolver.ts`) = de build-enforced
+  nycklar som saknar både ett riktigt projektvärde och en godkänd
+  katalog-placeholder. Efter #468 är `clerk-auth` den enda dossiern med
+  `build`-nycklar (`CLERK_SECRET_KEY` +
+  `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`), men båda har i dag katalogstöd och kan
+  därför köra demo utan att automatiskt blockera. `openai-chat`s
+  `OPENAI_API_KEY` flyttades `build` → `feature-runtime`.
 - **Deploy-grind:** `POST /api/v0/deployments` ger `409 DEPLOY_MISSING_ENV` på
   `buildBlockingKeys` i **F3** — där blockerar `feature-runtime`/placeholder-nycklar
   aldrig; de surfar som icke-blockerande `EnvDegradationWarning`
@@ -128,14 +158,17 @@ blockera på det som verkligen kräver en riktig integration.
   `process.env.<KEY>`-referenser utanför katalogen (t.ex. ett eget
   `EMAIL_FROM`) kan fortfarande 409:a en F2-publicering.
 - **F3-readiness/stream:** `finalize-design` och stream-routen gatar på samma
-  riktiga build-nycklar (`412 tier3_env_not_ready`) och pekar mot
-  builderns persistenta, icke-modala F3-kravyta. Den visar exakt
-  `missingByIntegration` från servern, sparar via projektets env-vars-API och
-  erbjuder explicit retry. ReleaseGate-resultat (startad, promoted, superseded,
-  retryable eller Blocker) visas på samma beständiga builderyta i stället för
-  toastar. Byggblock-popovern är kvar för katalog/status men öppnas inte
-  automatiskt för nyckelinsamling; env-frågor hör aldrig hemma i F2/F3-chatten
-  (se [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)).
+  otäckta build-nycklar (`412 tier3_env_not_ready`). **Byggblock-popovern är den
+  enda editorn för projekt-env i F2/F3** (ägarbeslut 2026-07-22), och vid 412
+  öppnar/fokuserar buildern rätt dossier där automatiskt. Bredvid popovern
+  ligger [`F3RequirementsSurface`](../../src/components/builder/F3RequirementsSurface.tsx)
+  — en beständig, icke-modal builderyta som listar serverns
+  `missingByIntegration` som den är, deep-linkar till Byggblock och erbjuder
+  explicit retry. Den har medvetet **ingen egen editor** mot env-API:t.
+  ReleaseGate-resultat (startad, promoted, superseded, retryable eller Blocker)
+  visas på motsvarande `F3StatusSurface` i stället för toastar. Env-frågor hör
+  aldrig hemma i F2/F3-chatten (se
+  [`env-flow-f2-mute`](../../.cursor/rules/env-flow-f2-mute.mdc)).
   Är alla `requiredRealEnvKeys` i den valda versionens F3-krav tomma startas
   ingen generell F3-LLM-runda. I stället skapas en ny `integrations`-version
   med exakt samma filer och `parent_version_id` som pekar på F2-basen;
@@ -156,5 +189,6 @@ blockera på det som verkligen kräver en riktig integration.
 | What placeholder lines get injected (harmless)?      | `config/ai_models/40-harmless-placeholders.env.txt`      |
 | What boot-only stubs get injected (F2)?              | `config/ai_models/41-tier3-stub-placeholders.env.txt`    |
 | In what order do preview layers merge / who wins?    | `src/lib/gen/preview/env-local.ts` (generated wins)      |
+| Which provider, env keys and enforcement does a dossier own? | `data/dossiers/<class>/<id>/manifest.json` |
 | What does each app key value mean / deploy status?   | `docs/ENV.md`                                            |
 | Read-only operator matrix of all of the above        | `backoffice/pages/env_readiness.py` (Env Readiness page) |

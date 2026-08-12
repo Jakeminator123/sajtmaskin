@@ -228,7 +228,10 @@ export function SiteAuditSection({
             <>
               <Search className="h-5 w-5 transition-transform group-hover:scale-110" />
               <span>Välj analysnivå</span>
-              <span className="flex items-center gap-1 rounded-md bg-primary-foreground/20 px-2 py-0.5 text-sm">
+              {/* bg-white/20 (inte bg-primary-foreground/20): --primary-foreground är
+                  numera mörk, så en fg-baserad scrim skulle mörka chipen och tappa
+                  AA-kontrast (~3.5:1) för den mörka texten. Ljus scrim ger ~6.5:1. */}
+              <span className="flex items-center gap-1 rounded-md bg-white/20 px-2 py-0.5 text-sm">
                 <Coins className="h-3.5 w-3.5" />
                 <span>
                   {AUDIT_COSTS.basic}/{AUDIT_COSTS.advanced}

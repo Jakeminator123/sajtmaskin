@@ -9,13 +9,21 @@ En Cursor-side automation ("PR-mergare") kan merga PR:er och bor **inte** i repo
 
 ## Merge-grind — merga BARA när allt är sant
 
-ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`, `review-window`) · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2\*** · **inga protected paths\*** · head-SHA stabil · PR-body beskriver ändringen · **bugbot-pass kört på diffen** · **minst en extern buggkoll gjord** (Codex inom 7-min-fönstret, annars Cursor-bugbot — se `pr-merge-review-gate.mdc`) · **PR ≥ 7 min gammal** (numera tekniskt tvingat av required-checken `review-window`) · **`merge:ready`-label + sign-off satt av PR-agenten** (se `pr-merge-review-gate.mdc`).
+ej draft · base master · mergeable · **alla required checks gröna** (`quality`, `backoffice-tests`, `schema-drift`, `build`, `review-window`) · Vercel ok/saknas · inga requested changes/blocking threads · **risk 1–2\*** · **inga protected paths\*** · head-SHA stabil · PR-body beskriver ändringen · **bugbot-pass kört på diffen** · **minst en extern buggkoll gjord** (Codex inom 7-min-fönstret, annars Cursor-bugbot — se `pr-merge-review-gate.mdc`) · **PR ≥ 7 min gammal** (numera tekniskt tvingat av required-checken `review-window`) · **`merge:ready`-label + sign-off satt av PR-agenten** (se `pr-merge-review-gate.mdc`).
 
 ## review-window — 7-min/bot-fönstret är tekniskt tvingat
 
 Den required-checken `review-window` (`.github/workflows/review-window.yml`) håller sig **pending** — och blockerar därmed en icke-admin-merge via grenskyddet — tills (1) PR:en är ≥ 7 min gammal **och** (2) de kända externa bot-granskarna (Vercel Agent Review, Cursor "Find critical bugs", GitGuardian, ev. Codex) för nuvarande head-SHA är klara, dock aldrig längre än ett 10-min-tak (så den fastnar inte om en bot är avstängd). Den gör ingen verdict-bedömning — triagen av fynd är fortfarande agentens jobb (spårningstabellen nedan). Den gör bara det tidigare "mjuka" 7-min-fönstret till en hård grind. **`gh pr merge --admin` kan fortfarande överstyra den** — därför gäller `--admin`-förbudet nedan oförändrat.
 
 Faller ett enda villkor → `NEEDS_HUMAN`, ingen merge.
+
+## Blockerande labels — väger tyngre än `merge:ready`
+
+`do-not-merge`, `agent:needs-human`, `risk:4` och `risk:5` betyder **stopp tills ägaren beslutat**, oavsett hur grön PR:en är. De gäller även när `merge:ready` sitter kvar: en label som säger stopp väger alltid tyngre än en som säger klart (`merge:ready` betyder "författaren är färdig", inte "detta får merge:as"). Labels är gratis att läsa i samma `gh pr list` som resten av svepet — läs dem före allt dyrt arbete.
+
+## Dependabot-PR:er — ingen författaragent finns
+
+De kan inte signeras av en författaragent, och `package.json`/`package-lock.json` är protected path där övertagande av författarrollen är förbjudet. En agent mergar dem därför inte på eget initiativ utan rapporterar dem för ägarbeslut. `dependabot-patch-safe` är workflowens klassning (patch + icke-core), inte ett godkännande; `dependabot-safe-automerge.yml` labelar bara — automerge är AV bakom `DEPENDABOT_AUTOMERGE_ENABLED`.
 
 **\* Auto- vs agent-merge (separata kriterier):** `inga protected paths` + `risk 1–2` gäller **helautomatisk** merge. Agent-mergaren (läget vi valt) får merga protected-path/risk ≥ 3-PR:er **efter** ett oberoende bugbot-subagent-pass (se `Protected paths` + `Vem mergar` nedan). Alla övriga villkor (grönt CI, 7-min, `merge:ready` + sign-off, stabil SHA) gäller **alltid**, oavsett mergare.
 

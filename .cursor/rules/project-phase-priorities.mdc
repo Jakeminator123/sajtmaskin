@@ -14,6 +14,14 @@ Prioritera fungerande end-to-end och små kontrakt. Lägg inte till stora säker
 - Dataförlust och tyst korruption fixas alltid.
 - Ta inte bort fungerande krypto/nyckelhantering om det kan göra sparad data oläsbar.
 
+## Tooling-säkerhet (alltid)
+
+- **Supabase-MCP: `supabase` = dev, `supabase-prod` = prod.** Svara aldrig om prod utifrån dev-projektet. Ingen destruktiv SQL via MCP.
+- `.cursor/mcp.json` är gitignorerad och kan hålla tokens — committa aldrig.
+- Appens `VERCEL_PROJECT_ID` ≠ användarsajters per-deploy `vercel_project_id`.
+
+Full tooling-setup: [`local-tooling-mcp.mdc`](local-tooling-mcp.mdc).
+
 ## Undvik utan explicit scope
 
 - ny auth-gate

@@ -1,13 +1,248 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
+  AgentLogCard,
   buildAgentLogItems,
   CompactToolParts,
+  getActiveAgentLogLabel,
   isActionableToolPart,
   StructuredToolParts,
 } from "./BuilderMessageTooling";
 
 describe("StructuredToolParts", () => {
+  it("shows the current measured activity while work is running and collapses when done", async () => {
+    const items = [
+      { label: "Startar own-engine-strömmen." },
+      { label: "Validerar genererad kod." },
+    ];
+    const { rerender } = render(
+      <AgentLogCard
+        items={items}
+        activeLabel="Validerar genererad kod."
+        isActive
+      />,
+    );
+
+    expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
+    expect(screen.getAllByText("Validerar genererad kod.").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Pågår")).toBeTruthy();
+
+    rerender(<AgentLogCard items={items} isActive={false} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Slutsteg (2)")).toBeTruthy();
+      expect(screen.queryByText("Pågår")).toBeNull();
+    });
+  });
+
+  it("shows an honest pre-stream activity before the first SSE event arrives", () => {
+    render(<AgentLogCard items={[]} isActive />);
+
+    expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
+    expect(
+      screen.getAllByText("Förbereder byggunderlag och startar own-engine.").length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  it("uses a neutral handoff status between measured phases instead of repeating pre-stream copy", () => {
+    render(
+      <AgentLogCard
+        items={[{ label: "Generering klar. Startar efterkontroller och slutsteg." }]}
+        isActive
+      />,
+    );
+
+    expect(
+      screen.getAllByText("Fortsätter med nästa byggsteg.").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.queryByText("Förbereder byggunderlag och startar own-engine."),
+    ).toBeNull();
+  });
+
+  it("keeps the elapsed timer across the handoff from stream to post-check work", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-31T12:00:00Z"));
+    try {
+      const items = [{ label: "Genererar innehåll och filer från prompten." }];
+      const { rerender } = render(
+        <AgentLogCard
+          items={items}
+          activeLabel="Genererar innehåll och filer från prompten."
+          isActive
+        />,
+      );
+
+      act(() => vi.advanceTimersByTime(2_100));
+      expect(screen.getByText("2s")).toBeTruthy();
+
+      rerender(<AgentLogCard items={items} isActive={false} />);
+      act(() => vi.advanceTimersByTime(5_000));
+      rerender(
+        <AgentLogCard
+          items={items}
+          activeLabel="RenderGate • Förbereder"
+          isActive
+        />,
+      );
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(screen.getByText("8s")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("resolves the latest input-streaming tool step as current activity", () => {
+    expect(
+      getActiveAgentLogLabel([
+        {
+          type: "tool",
+          tool: {
+            type: "tool:engine-generation",
+            state: "output-available",
+            output: { steps: ["Generering klar."] },
+          },
+        } as never,
+        {
+          type: "tool",
+          tool: {
+            type: "tool:engine-autofix",
+            state: "input-streaming",
+            output: {
+              steps: ["Mekanisk autofix startad.", "Kontrollerar importer."],
+            },
+          },
+        } as never,
+      ]),
+    ).toBe("Kontrollerar importer.");
+  });
+
+  it("uses the same pending label for an empty streaming tool in header and log", () => {
+    const toolParts = [
+      {
+        type: "tool",
+        tool: {
+          type: "tool:quality-gate",
+          toolName: "Quality gate",
+          state: "input-streaming",
+        },
+      } as never,
+    ];
+
+    expect(getActiveAgentLogLabel(toolParts)).toBe("Quality gate • Förbereder");
+    expect(buildAgentLogItems(toolParts)).toEqual([
+      { label: "Quality gate • Förbereder" },
+    ]);
+  });
+
+  it("marks a failed tool so the log never stamps an error as done", () => {
+    expect(
+      buildAgentLogItems([
+        {
+          type: "tool",
+          tool: {
+            type: "tool:engine-preview",
+            toolName: "Preview",
+            state: "output-error",
+          },
+        } as never,
+      ]),
+    ).toEqual([{ label: "Preview • Fel", failed: true }]);
+
+    expect(
+      buildAgentLogItems([
+        {
+          type: "tool",
+          tool: {
+            type: "tool:engine-preview",
+            toolName: "Preview",
+            state: "output-error",
+            output: { steps: ["Startar preview.", "Bygget misslyckades."] },
+          },
+        } as never,
+      ]),
+    ).toEqual([
+      { label: "Startar preview." },
+      { label: "Bygget misslyckades.", failed: true },
+    ]);
+  });
+
+  it("renders a warning icon instead of a checkmark for a failed step", () => {
+    render(
+      <AgentLogCard
+        items={[{ label: "Bygget misslyckades.", failed: true }]}
+        activeLabel="Försöker igen."
+        isActive
+      />,
+    );
+
+    expect(screen.getByLabelText("Steget misslyckades")).toBeTruthy();
+  });
+
+  it("keeps failure status visible in the collapsed completed header", () => {
+    render(
+      <AgentLogCard
+        items={[{ label: "Preview kunde inte starta.", failed: true }]}
+        isActive={false}
+      />,
+    );
+
+    expect(screen.getByLabelText("Ett byggsteg misslyckades")).toBeTruthy();
+    expect(screen.getByText("Slutsteg (1) · fel")).toBeTruthy();
+    expect(screen.getByText("Fel upptäcktes — visa detaljer")).toBeTruthy();
+  });
+
+  it("keeps an earlier failure visible while a later post-check is active", () => {
+    render(
+      <AgentLogCard
+        items={[
+          { label: "Preview kunde inte starta.", failed: true },
+          { label: "Efterkontrollerar filer och preview." },
+        ]}
+        activeLabel="Efterkontrollerar filer och preview."
+        isActive
+      />,
+    );
+
+    expect(screen.getByText("Arbetar vidare efter fel")).toBeTruthy();
+    expect(screen.getByLabelText("Ett byggsteg misslyckades")).toBeTruthy();
+    expect(
+      screen.getAllByText("Efterkontrollerar filer och preview.").length,
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  it("ignores stale pipeline progress after the message stream ends but keeps client post-checks", () => {
+    const staleGeneration = {
+      type: "tool",
+      tool: {
+        type: "tool:engine-generation",
+        toolName: "Generering",
+        state: "input-streaming",
+        output: { steps: ["Genererar innehåll och filer från prompten."] },
+      },
+    } as never;
+    const activeQualityGate = {
+      type: "tool",
+      tool: {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        state: "input-streaming",
+      },
+    } as never;
+
+    expect(
+      getActiveAgentLogLabel([staleGeneration], {
+        includePipelineProgress: false,
+      }),
+    ).toBeNull();
+    expect(
+      getActiveAgentLogLabel([staleGeneration, activeQualityGate], {
+        includePipelineProgress: false,
+      }),
+    ).toBe("Quality gate • Förbereder");
+  });
+
   it("extracts detailed server-repair steps for the agent log", () => {
     expect(
       buildAgentLogItems([

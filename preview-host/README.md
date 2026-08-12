@@ -32,7 +32,10 @@ legacy-alias där kontraktet fortfarande kräver kompatibilitet. En `previewUrl`
 
 Exakta payloadfält och statustyper ägs av runtimekoden och schemas, inte denna
 README. Börja i `src/validate.js`, `src/runtime.js`, `src/store.js` och
-huvudappens `src/lib/gen/preview/preview-host-client.ts`.
+huvudappens `src/lib/gen/preview/preview-host-client.ts`. `src/runtime.js` är
+en fasad; implementationen ligger i ansvarsmoduler under `src/runtime/`
+(shared, workspace-files, package-install, verify-jobs, process-lifecycle,
+preview-proxy, storage-cleanup).
 
 ## Lokal verifiering
 
@@ -56,6 +59,7 @@ Starta därefter tjänsten med `npm start` och verifiera `GET /health`.
 - `POST /preview/session/destroy`
 - `GET /preview/session/:id`
 - `GET /preview/session/:previewSessionId/status`
+- `GET /preview/session/:previewSessionId/files-manifest`
 - `GET /preview/logs/:previewSessionId`
 - `POST /preview/verify`
 - `GET /health`

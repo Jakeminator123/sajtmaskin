@@ -14,7 +14,8 @@ Målet i Fas 1 är att bygga ett rent underlag till orkestreringen.
 
 - Raw prompt är användarens text.
 - Init kan få Deep Brief och variant pre-match.
-- Follow-up får Snapshot-Brief och tidigare orchestration snapshot.
+- Init kan även bära **Byggval** (init-reglagen i preview-panelens välkomstläge) som strukturerade request-meta-signaler: `scaffoldMode/scaffoldId` (sajttyp), `pageCountHint` (vinner över sidantal-regexen i route-planen), `styleKeywordsHint` (variantmatchning) och `complexityHint` (BuildSpec). Komplexitet/färgläge/ton skickar dessutom svenska direktiv via custom-instructions-kanalen — aldrig via chattens input. Medvetet beslut: ingen global hård sidgräns på servern — reglaget cappar på 3, men explicit prompt-text ("5 sidor") respekteras fortfarande.
+- Follow-up får Snapshot-Brief och tidigare orchestration snapshot. Byggval-hintarna är init-only — follow-up-frysen äger scaffold/variant/routes.
 - Build intent, generation mode, follow-up intent och requested capabilities ska bestämmas innan prompten byggs.
 
 Kodankare:
@@ -55,18 +56,32 @@ similar past builds` i system-prompten för både init och follow-up när
 
 När `SAJTMASKIN_PREVIEW_PREWARM` är explicit aktiverad kan en ny chats första
 riktiga codegen-körning samtidigt väcka preview-hosten och starta en
-baseline-installation. Det är en best-effort latensoptimering, inte en
+installation. Det är en best-effort latensoptimering, inte en
 preview-klar-signal: ingen preview-URL eller app-side sessionpekare publiceras
 före finalize. Plan-mode, kontraktsklargörande och vanliga follow-ups hoppar över
-förvärmningen. Hosten accepterar prewarm endast för en oägd chat och en aktiv
-kanonisk rate-limit-subject-lease; sena prewarm-anrop kan därför aldrig nedgradera
-en riktig version. Lease-HMAC kräver konfigurerad preview-host API-nyckel; annars
-skippar appen optional prewarm. Skelettet hålls bakom hostens auto-refreshande
-HTTP-sida och alla WS-upgrades nekas tills riktig replacement passerat readiness.
-Misslyckat övertagande ger stabil 503 tills explicit retry; bootfel behåller
-lease-cooldown mot install-spray. Normal credit commit/refund ändras inte.
-Preview-host måste deployas och verifieras före appen; flaggan är default av och
-aktiveras inte av denna ändring. Se `docs/ENV.md` och
+förvärmningen. Skelettets `package.json` byggs numera scaffold-medvetet:
+orkestreringen har redan valt `ScaffoldId` innan prewarm anropas, så
+`prewarmPreviewSession` skannar den valda scaffoldens egna
+prompt-filer (`gen/scaffolds/<id>/files/`) med samma `mergePackageJsonWithBaseline`
++ dep-completer-mekanism som finalize-vägen kör över modellens riktiga output —
+samma dependency-källa, olika kod. Matchar modellens genererade kod scaffoldens
+importer (vanligt, då modellen prompt:as med exakt det innehållet) och emitterar
+modellen ingen egen `package.json`, blir finalize-filen byte-identisk med den
+prewarm installerade och hostens fingerprint-jämförelse (paket.json/lockfiles)
+träffar → installationen skippas. Vid mismatch (dep-completer eller modellen
+lägger till paket scaffolden inte importerar) körs en riktig install vid
+finalize, men npm återanvänder det redan varma `node_modules` — fortfarande en
+vinst. Utan känd scaffold-id faller skelettet tillbaka till den fasta baslinjen
+(oförändrat från tidigare). Hosten accepterar prewarm endast för en oägd chat
+och en aktiv kanonisk rate-limit-subject-lease; sena prewarm-anrop kan därför
+aldrig nedgradera en riktig version. Lease-HMAC kräver konfigurerad
+preview-host API-nyckel; annars skippar appen optional prewarm. Skelettet
+hålls bakom hostens auto-refreshande HTTP-sida och alla WS-upgrades nekas
+tills riktig replacement passerat readiness. Misslyckat övertagande ger
+stabil 503 tills explicit retry; bootfel behåller lease-cooldown mot
+install-spray. Normal credit commit/refund ändras inte. Preview-host måste
+deployas och verifieras före appen; flaggan är default av och aktiveras inte
+av denna ändring. Se `docs/ENV.md` och
 `docs/schemas/preview-session-contract.md`.
 
 Kodankare:
@@ -94,7 +109,7 @@ Typisk ordning i runtime:
 3. syntax/esbuild körs; när syntax är ren kan warm-tsc köras. Warm-cachen ser
    inte dossier-egna SDK:er (VM:en installerar dem senare), så olösbara
    modul-diagnostiker för dossier-deklarerade paket släpps i st.f. att gissa —
-   se [`warm-cache-setup.md`](../howto/warm-cache-setup.md). Warm ESLint är
+   se [`warm-cache-setup.md`](../runbooks/warm-cache-setup.md). Warm ESLint är
    endast opt-in lokal diagnostik och ingår inte i finalize/RepairGate.
 4. deterministisk diagnostikdriven import-repair
    (`autofix/deterministic-import-repair.ts`: kända imports, egna komponenter,
@@ -103,22 +118,30 @@ Typisk ordning i runtime:
    residual som Normalize och statiska kontroller inte löste. Samma ledger
    dedupe:ar syntax-, warm-tsc-, verifier- och preflight-repair
    inom en finalize-run.
-6. verifiern körs riskstyrt: `safe_fixes_only` kan hoppa över verifiern när
+6. `materialize_images` (deep path) byter bildplatshållare mot riktiga URL:er
+   och registreras i Prometheus `sajtmaskin_phase_duration_ms` samt i
+   `generation_telemetry.meta.postStreamSteps`. Light path hoppar steget och
+   registrerar fasen som 0 ms. Steget ligger **efter** hela
+   `validateAndFix`-blocket (steg 3–5) — i `fast-path.ts` är syntax, warm-tsc,
+   import-repair och RepairGate Phase 1, och bildmaterialiseringen Phase 2.
+7. verifiern körs riskstyrt: `safe_fixes_only` kan hoppa över verifiern när
    grundpolicyn redan säger `run`, men aldrig vid 3D-signal; `risky_fixes`
    behåller verifier-täckning.
-7. parse/merge applicerar scaffold-skydd, dossier verbatim policy och
+8. parse/merge applicerar scaffold-skydd, dossier verbatim policy och
    follow-up-bevarande mot tidigare version.
-8. preflight kontrollerar preview-/verification-blockers före persist.
-9. persist sparar assistant-rad, version, snapshot, preflight-loggar,
-   telemetry och event/status-underlag.
-10. preview startas, patchas eller resyncas mot den persistade versionen. En
-    tidigare best-effort-förvärmning får återanvändas, men är aldrig själv ett
-    bevis på att den persistade versionen är redo.
-11. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
+9. preflight kontrollerar preview-/verification-blockers före persist.
+10. persist sparar assistant-rad, version, snapshot, preflight-loggar,
+   telemetry (`meta.streamMs` = codegen-SSE wall-clock till finalize-start;
+   `meta.postStreamSteps` = per-steg-tider inkl. `materialize_images`) och
+   event/status-underlag.
+11. preview startas, patchas eller resyncas mot den persistade versionen. En
+   tidigare best-effort-förvärmning får återanvändas, men är aldrig själv ett
+   bevis på att den persistade versionen är redo.
+12. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
     typecheck är Advisory utom render-risk-koder. Ägare: **klienten**
     (`post-checks.ts` → `POST /quality-gate`) — server-verify skippas för F2
     (`design_preview_skip_verify`, M#vlane1).
-12. ReleaseGate (kod: `integrationsBuild` quality gate) kör F3 i en
+13. ReleaseGate (kod: `integrationsBuild` quality gate) kör F3 i en
     auktoritativ VM-gate: typecheck → build. Env-krav täcks av placeholders
     (alltid tillåtna — demoläge tills riktiga nycklar fylls i via Byggblock).
     Lint togs bort ur den blockerande lanen 2026-07-22 (stilregler blockerade
@@ -128,7 +151,7 @@ Typisk ordning i runtime:
     `integrations`-versioner utan följer utfallet via status-polling. Den
     deterministiska F3-forken (finalize-design utan LLM) är undantaget: där
     är klientens `runF3FinalizeAction` enda gate-anropare.
-13. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån
+14. promote, `repair_available`, Blocker eller Advisory-status skrivs utifrån
     gate-resultat och promote-guard. En version som hinner ersättas av en
     nyare under gaten settlas terminal-neutralt som `superseded` ("Ersatt",
     aldrig rött `failed`; se `docs/schemas/quality-gate.md`).
@@ -136,6 +159,20 @@ Typisk ordning i runtime:
 Viktig ordningsregel: Normalize, verifier och preflight ligger före persist.
 VM-gaten (RenderGate/ReleaseGate) ligger efter persist och arbetar på den
 sparade versionen.
+
+**Follow-up-preview: patch före full update.** Steg 11 för en follow-up (ny
+version på en levande session) bygger fortfarande hela update-payloaden, men
+försöker först Fast Edit Lane: appen hämtar hostens filmanifest
+(`GET /preview/session/:id/files-manifest`, sha256 per path), diffar payloaden mot
+det och skickar bara ändrade filer + `removedPaths` till
+`POST /preview/session/patch` — ingen omstart av Next dev. Patchen körs bara när
+hosten kör, servar exakt den basversion sessionspekaren påstår, och diffen är
+liten och saknar strukturella paths (`package.json`, lockfiles, `next.config.*`,
+`tsconfig*`, `.env*`, postcss/tailwind). Allt annat — inklusive uteblivet
+manifest från en äldre host — faller tillbaka till `POST /preview/session/update`
+med full payload och omstart, dvs. exakt tidigare beteende. Valet loggas som
+`kind=preview_followup_lane` (`lane=patch|update` + orsak). Kontrakt och
+fallback-tabell: [`../schemas/preview-session-contract.md`](../schemas/preview-session-contract.md).
 
 **Dossier-scopade env-artefakter:** under finalize genereras/uppdateras både
 projektets `env.example` och pipeline-ägda `.env.local` från valda dossiers
@@ -164,7 +201,11 @@ Kodankare:
 Follow-up är en deltaoperation. Standardläget är bevarande:
 
 - scaffold fryses om inte redesign uttryckligen låser upp matchning
-- variant fryses för att undvika visuell drift
+- variant fryses för att undvika visuell drift — men följer scaffoldens
+  upplåsning: samma signal som släpper scaffold-rematchen
+  (`clear-redesign` ELLER `ignorePersistedScaffoldForMatch`, t.ex. "gör om hela
+  sajten") släpper också variantlåset, annars renderas den nymatchade
+  scaffolden i just den stil användaren bad om att byta
 - routes är ett floor, inte ett ceiling
 - capabilities får växa men ska inte tyst tappas (can-only-grow). Golvet körs i ALLA follow-up-rundor; i F3-bygget (`integrations`) FILTRERAR därefter ett scope-steg det restaurerade setet — se F3-capability-scope nedan.
 - high-value UI-element ska inte tappas utan tydlig anledning
@@ -186,16 +227,24 @@ bevaras när ett fortsatt valt Byggblock också äger dem.
 
 F3 ska triggas explicit, t.ex. via finalize-design-flöde. Prompten ska inte auto-promota till F3 bara för att den nämner Stripe, auth eller databas.
 
-**Deterministisk F3 utan build-nycklar:** `buildBlockingKeys` är en
-säkerhetsgate per env-nyckel, inte ett capability-register. Om samtliga valda
-Byggblocks F3-krav har tomma `requiredRealEnvKeys` skapar `finalize-design` en
-ny `integrations`-version med byte-för-byte samma `files_json` som den valda
-F2-basen och `parent_version_id = <F2>`. Ingen LLM/codegen körs. ReleaseGate
-verifierar och promotar den nya F3-raden; F2-raden och dess visuella fallback
-lämnas orörda. Finns minst en required build-nyckel används den befintliga
-412-/F3-LLM-vägen oförändrad.
+**Planerad dossier utlöser F3-codegen:** `buildBlockingKeys` är en env-gate,
+inte ett register över arbete som återstår. F2 persisterar därför både
+`mutedCapabilities` och provider-exakta `mutedDossierIds`. `finalize-design`
+subtraherar dossier-filbevis; finns någon planerad dossier kvar godkänns dess
+capability + dossier-id durabelt och F3-LLM-rundan körs även när alla nycklar är
+`feature-runtime`/`warn-only`. Dossier-id:t återanvänds som selection-hint så
+ett generiskt knappmeddelande inte faller tillbaka till ett providersyskons
+default. `selectedDossierIds` är alltså byggavsikt, inte leveransbevis. Efter
+persist härleder finalize `fileEvidenceDossierIds` och
+`fileEvidenceCapabilities` ur den slutligt sparade versionens filer; bara detta
+filbevis (eller explicit borttagning) rensar pending.
 
-**Demo-läge i F2:** en F2-preview ska se trovärdig ut utan riktiga nycklar. Varje hard-dossier deklarerar ett `mock`-läge (`canned`/`seed`/`success`/`none`, se [`dossier-system.md`](../contracts/dossier-system.md)) som driver dossierns egen degraderingskod, och finalize seedar valda dossiers env-nycklar med deterministiska stub-värden i preview-`.env.local` (`env-local.ts`) så UI:t renderar. Stubbarna persisteras aldrig och når aldrig en deploy. Ärlig publiceringsgrind: deploy-409 (`DEPLOY_MISSING_ENV`) blockerar bara på `buildBlockingKeys` i F3 (efter #468 enbart `clerk-auth`s nycklar), F2 förblir demo-publicerbart; `feature-runtime`/placeholder surfar som icke-blockerande `EnvDegradationWarning`. Detaljer: [`env-flow.md`](../contracts/env-flow.md), [`ENV.md`](../ENV.md).
+**Deterministisk F3 när inget återstår att bygga:** bara om inga planerade
+dossier-filer saknas och den filhärledda specen inte kräver en generell
+LLM-runda skapar `finalize-design` en ny `integrations`-version med byte-för-byte
+samma `files_json` som F2-basen. ReleaseGate körs utan codegen; F2 lämnas orörd.
+
+**Demo-läge i F2:** en F2-preview ska se trovärdig ut utan riktiga nycklar. Varje hard-dossier deklarerar ett `mock`-läge (`canned`/`seed`/`success`/`visual`/`none`, se [`dossier-system.md`](../contracts/dossier-system.md)) som driver dossierns egen degraderingskod, och finalize seedar valda dossiers env-nycklar med deterministiska stub-värden i preview-`.env.local` (`env-local.ts`) så UI:t renderar. Stubbarna persisteras aldrig och når aldrig en deploy. Ärlig publiceringsgrind: deploy-409 (`DEPLOY_MISSING_ENV`) blockerar bara på `buildBlockingKeys` i F3 (efter #468 enbart `clerk-auth`s nycklar), F2 förblir demo-publicerbart; `feature-runtime`/placeholder surfar som icke-blockerande `EnvDegradationWarning`. Detaljer: [`env-flow.md`](../contracts/env-flow.md), [`ENV.md`](../ENV.md).
 
 ### ReleaseGate → publicera-lås
 
@@ -249,8 +298,8 @@ parkerades 2026-07-22 — vanligt frihandsinnehåll numera).
 **F3-build-plan från basversionen:** stream-routens auktoritativa readiness-gate
 detekterar integrationer och valda Byggblock från den exakta parent-versionens
 filer. Samma `Tier3BuildSpec` trådas vidare till systempromptens build-plan;
-explicit godkända providers från den aktuella rundan läggs till eftersom de
-ännu inte kan ha filbevis. Övriga `preGenerationContracts` används bara som
+planerade exakta dossier-id:n och explicit godkända providers läggs till eftersom
+de ännu inte kan ha filbevis. Övriga `preGenerationContracts` används bara som
 fallback när filspec saknas eller är tom. Därmed kan inte ett driftat
 promptkontrakt dölja befintliga integrationer eller återinflatera spekulativa.
 
@@ -267,6 +316,14 @@ Fast Edit Lane är inte en follow-up-codegen. Den är deterministisk och skapar 
 - Ingen dossier selection.
 - Försöker patcha live preview; fallback är full preview start.
 - Ska inte köras på F3/integrations-versioner.
+
+**Syntaxgrind (enda verifieringen i lanen).** Inget steg nedströms kontrollerar
+en quick edit innan den når preview-VM:en, så `applyQuickEdits` avvisar hela
+op-satsen (`parse_regression`, HTTP 422) när en ändrad fil får *fler*
+parse-fel än den hade — mätt med `countParseErrors` (TS-parsern) server-side.
+Redan trasiga filer får förbli lika trasiga; grinden stoppar bara
+försämringar. Undantag: kodvyns spar-knapp skickar `guardSyntax: false`,
+eftersom en människa måste kunna spara en halvskriven fil.
 
 Två ingångar, samma lane: kodvyns spar och inspektorsmenyn i previewen. Menyn
 öppnas vid muspekaren i inspect-läget och erbjuder ändra text, byt bild och ta

@@ -21,7 +21,7 @@ function wiredResponse(overrides: Partial<DossierOverviewResponse> = {}): Dossie
 function catalogResponse(overrides: Partial<DossierCatalogResponse> = {}): DossierCatalogResponse {
   return {
     success: true,
-    total: 2,
+    total: 3,
     groups: [
       {
         id: "commerce",
@@ -34,18 +34,42 @@ function catalogResponse(overrides: Partial<DossierCatalogResponse> = {}): Dossi
             class: "hard",
             summary: "Stripe-baserad checkout.",
             envVarCount: 2,
+            requiresF3: true,
+            mock: "visual",
             groupId: "commerce",
             groupLabel: "Betalning & handel",
           },
           {
+            // Kopplad MEN F2-klar (feature-runtime-nycklar, inga serverfiler)
+            // — beviset för att hard/soft inte kan härledas till F2/F3.
             id: "klarna-checkout",
             label: "Klarna Checkout",
             capability: "payments",
             class: "hard",
             summary: "Klarna-baserad checkout.",
             envVarCount: 1,
+            requiresF3: false,
+            mock: "visual",
             groupId: "commerce",
             groupLabel: "Betalning & handel",
+          },
+        ],
+      },
+      {
+        id: "media",
+        label: "Media & galleri",
+        dossiers: [
+          {
+            id: "gallery-lightbox",
+            label: "Bildgalleri med lightbox",
+            capability: "gallery-lightbox",
+            class: "soft",
+            summary: "Click-to-enlarge image gallery.",
+            summarySv: "Bildgalleri där bilder kan förstoras.",
+            envVarCount: 0,
+            requiresF3: false,
+            groupId: "media",
+            groupLabel: "Media & galleri",
           },
         ],
       },
@@ -108,9 +132,72 @@ describe("PreviewPanelDossiers", () => {
     });
     expect(screen.getByText("Stripe Checkout")).toBeTruthy();
     expect(screen.getByText("Klarna Checkout")).toBeTruthy();
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Inkopplade (0)" }).getAttribute("data-state")).toBe(
+      "inactive",
+    );
+    expect(
+      screen.getByRole("tab", { name: "Bläddra katalog (3)" }).getAttribute("data-state"),
+    ).toBe("active");
+    expect(screen.getByText("Katalog: 3 totalt · 2 kopplade · 1 fristående")).toBeTruthy();
     // The "Inkopplade"-tab's empty-state copy must NOT be what greets the
     // user when there is nothing wired — the catalog tab is shown instead.
     expect(screen.queryByText("Inga byggblock är inkopplade i den här versionen.")).toBeNull();
+  });
+
+  it("filters the catalog by Kopplade and Fristående without hiding the F3 signal", async () => {
+    stubFetch({ wired: wiredResponse() });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const standaloneFilter = await screen.findByRole("button", { name: "Fristående (1)" });
+    fireEvent.click(standaloneFilter);
+
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
+    expect(screen.queryByText("Stripe Checkout")).toBeNull();
+    expect(screen.queryByText("Betalning & handel")).toBeNull();
+    expect(standaloneFilter.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Kopplade (2)" }));
+
+    expect(screen.getByText("Stripe Checkout")).toBeTruthy();
+    expect(screen.getByText("Klarna Checkout")).toBeTruthy();
+    expect(screen.queryByText("Bildgalleri med lightbox")).toBeNull();
+    expect(screen.getAllByText("Kopplad")).toHaveLength(2);
+    expect(screen.getAllByText("Kräver F3")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Alla (3)" }));
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
+  });
+
+  it("resets the class filter when the popover closes so the next open shows the full catalog", async () => {
+    stubFetch({ wired: wiredResponse() });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const standaloneFilter = await screen.findByRole("button", { name: "Fristående (1)" });
+    fireEvent.click(standaloneFilter);
+    expect(screen.queryByText("Stripe Checkout")).toBeNull();
+
+    // Close (Escape) and reopen: a leftover filter must not make the catalog
+    // look truncated on the next, unrelated open.
+    fireEvent.keyDown(document, { key: "Escape" });
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const allFilter = await screen.findByRole("button", { name: "Alla (3)" });
+    expect(allFilter.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("Stripe Checkout")).toBeTruthy();
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
   });
 
   it("sends id+label via onRequestDossier when a catalog row is picked and keeps the popover open with a design-stage surface-only notice for a HARD dossier", async () => {
@@ -212,9 +299,72 @@ describe("PreviewPanelDossiers", () => {
     await waitFor(() => {
       expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
     });
+    expect(screen.getByRole("tab", { name: "Inkopplade (1)" }).getAttribute("data-state")).toBe(
+      "active",
+    );
+    expect(screen.getByText("Version: 0 kopplade · 1 fristående")).toBeTruthy();
     // The catalog tab's content is not shown by default when something is
     // already wired.
     expect(screen.queryByText("Stripe Checkout")).toBeNull();
+  });
+
+  // De tre axlarna (hard/soft, demoläge, F2/F3) är oberoende. Panelen visade
+  // förut bara den första och lät användaren gissa resten: en Kopplad dossier
+  // såg ut att kräva F3 även när den var klar i designläget, och demoläget —
+  // det enda som säger vad besökaren faktiskt ser utan nycklar — syntes inte
+  // alls. Katalogen visar F3-kravet FÖRE valet, raden efter valet.
+  it("visar alla tre axlarna: Kopplad/Fristående, Kräver F3 och demoläget", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
+        dossiers: [
+          {
+            id: "postgres-drizzle",
+            label: "Databas — Postgres",
+            class: "hard",
+            capability: "database",
+            summary: "Postgres via Drizzle.",
+            complexity: "medium",
+            requiresF3: true,
+            mock: "seed",
+            configured: false,
+            dependencies: [],
+            envVars: [],
+            status: "built-demo",
+            missingKeys: [],
+            missingLiveKeys: ["POSTGRES_URL"],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const row = await screen.findByText("Databas — Postgres");
+    expect(screen.getByText("Kopplad")).toBeTruthy();
+    expect(screen.getByText("Kräver F3")).toBeTruthy();
+    // Demoläget bor i den expanderade raden (där det finns plats för det).
+    expect(screen.queryByText(/Demoläge: Medskickad demo-data/)).toBeNull();
+    fireEvent.click(row);
+    expect(screen.getByText(/Demoläge: Medskickad demo-data/)).toBeTruthy();
+  });
+
+  it("sätter INGEN Kräver F3-badge på ett kopplat byggblock som är klart i designläget", async () => {
+    stubFetch({ wired: wiredResponse() /* total: 0 → katalog-tabben */ });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    await screen.findByText("Klarna Checkout");
+    // Båda katalograderna är Kopplade; bara Stripe kräver F3.
+    expect(screen.getAllByText("Kopplad")).toHaveLength(2);
+    expect(screen.getAllByText("Kräver F3")).toHaveLength(1);
   });
 
   // Owner decision 2026-07-13 (replaces the old catalog/status-only lock):
@@ -241,6 +391,7 @@ describe("PreviewPanelDossiers", () => {
                 required: true,
                 enforcement: "build",
                 purpose: "Server-side Stripe auth.",
+                setupUrl: "https://docs.stripe.com/keys",
                 hasRealValue: false,
                 placeholderCovered: false,
               },
@@ -267,6 +418,10 @@ describe("PreviewPanelDossiers", () => {
     });
     expect(screen.getByLabelText("Värde för STRIPE_SECRET_KEY")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Spara och aktivera/i })).toBeTruthy();
+    expect(screen.getByText("Server-side Stripe auth.")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Hämta värde/i }).getAttribute("href"),
+    ).toBe("https://docs.stripe.com/keys");
   });
 
   // Regression (owner spec PR 1): saving a key goes straight to the canonical

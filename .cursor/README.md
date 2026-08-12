@@ -22,45 +22,57 @@ Se [`docs/README.md`](../docs/README.md) — tunn dokumentationsrouter. Snabb or
 
 ## Projektregler (`.cursor/rules/*.mdc`)
 
+Tabellerna nedan speglar filernas faktiska frontmatter. Always-applied regler kostar tokens i **varje** tur — håll dem korta och flytta detaljer till `docs/` eller till en requestable regel.
+
 ### Generella (alwaysApply: true)
 
-| Regel                                                        | Syfte                                                                                                                        |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| [agent-worktree.mdc](rules/agent-worktree.mdc)               | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
-| [auto-merge-automation.mdc](rules/auto-merge-automation.mdc) | En Cursor-side automation kan auto-merga gröna PR:er — håll risk-/runtime-PR:er som draft tills granskade                    |
-| [local-tooling-mcp.mdc](rules/local-tooling-mcp.mdc)         | Lokal MCP/Git/Vercel/Supabase/shadcn-setup (worktrees, OAuth, fallbacks) — IDE-tooling, inte runtime                         |
-| [repo-router.mdc](rules/repo-router.mdc)                     | Snabb repo-router + env/indexering                                                                                           |
-| [response-format.mdc](rules/response-format.mdc)             | Hur agenten svarar — kort, matris/flöde, svenska vid behov                                                                   |
-| [terminology.mdc](rules/terminology.mdc)                     | Snabb förväxlingstabell + signal-ownership; pekar till glossaryn                                                             |
-| [workflow.mdc](rules/workflow.mdc)                           | Git, filstruktur, städning, verifiering — hur ändringar utförs                                                               |
+| Regel                                                              | Syfte                                                                                                                        |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| [agent-worktree.mdc](rules/agent-worktree.mdc)                     | Flera agenter delar working tree — använd `git worktree`, inte `git checkout`, så HEAD inte driver under användarens session |
+| [bash-och-pwsh.mdc](rules/bash-och-pwsh.mdc)                       | PowerShell-syntax först; vanliga hårda felkällor på Windows                                                                  |
+| [git.mdc](rules/git.mdc)                                           | Inga PR:er; commit/push/merge bara på explicit begäran + ignore-filsbefogenhet                                               |
+| [mvp-scope-freeze.mdc](rules/mvp-scope-freeze.mdc)                 | MVP-frys: stabilitet före coolhet — inga nya features, ytor eller UI-element utan uttrycklig begäran                         |
+| [project-phase-priorities.mdc](rules/project-phase-priorities.mdc) | Projektprioritet, grundhygien och tooling-säkerhet (dev vs prod Supabase)                                                    |
+| [repo-router.mdc](rules/repo-router.mdc)                           | Snabb repo-router + env/indexering                                                                                           |
+| [response-format.mdc](rules/response-format.mdc)                   | Hur agenten svarar — kort, matris/flöde, svenska vid behov                                                                   |
+| [sok-index-fallback.mdc](rules/sok-index-fallback.mdc)             | 0 träffar i Glob/Grep betyder inte att filen saknas — verifiera med Read                                                     |
+| [svenska-tech-synonymer.mdc](rules/svenska-tech-synonymer.mdc)     | Kort parentesförklaring första gången ett otydligt tech-ord används                                                          |
+| [subagent-models.mdc](rules/subagent-models.mdc)                   | Grok 4.5 = default för ALLA subagenter inkl. bugg-/kodgranskning; slug slås upp per session                                  |
+| [terminology.mdc](rules/terminology.mdc)                           | Snabb förväxlingstabell; kanonisk ordlista är `docs/architecture/glossary.md`                                                |
+| [workflow.mdc](rules/workflow.mdc)                                 | Git, filstruktur, städning, verifiering — hur ändringar utförs                                                               |
 
 ### Glob-triggrade (aktiveras vid relevanta filer)
 
-| Regel                                              | Trigger                                                                              | Syfte                                                                    |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
-| [env-flow-f2-mute.mdc](rules/env-flow-f2-mute.mdc) | engine/chats, own-engine, gen/preview, ProjectEnvVarsPanel                           | F2 får aldrig generera env-frågor — all env-trafik gates till F3         |
-| [openclaw-bridge.mdc](rules/openclaw-bridge.mdc)   | `.cursor/openclaw-bridge/**`                                                         | OpenClaw inbox/outbox (opt-in)                                           |
-| [pipeline-rules.mdc](rules/pipeline-rules.mdc)     | backoffice, config/codegen, prompt-core, ai_models, scaffold-variants                | Pipeline-enkelhet + docs/schemas/backoffice-sync vid LLM-flödesändringar |
-| [plan-lifecycle.mdc](rules/plan-lifecycle.mdc)     | `docs/plans/**`, `.cursor/bugs/**`                                                   | När planer ska skapas, parkas, avklaras och raderas                      |
-| [scaffold-rules.mdc](rules/scaffold-rules.mdc)     | gen/scaffolds, gen/orchestrate, gen/system-prompt, gen/build-spec, scripts/scaffolds | Agentregler vid scaffold-ändringar                                       |
+| Regel                                              | Trigger                          | Syfte                                                                    |
+| -------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------ |
+| [db-env-parity.mdc](rules/db-env-parity.mdc)       | `src/lib/db/**`                  | DB-/env-paritet mellan lager                                             |
+| [dossier-rules.mdc](rules/dossier-rules.mdc)       | `data/dossiers/**`               | Regler vid dossier-ändringar                                             |
+| [env-flow-f2-mute.mdc](rules/env-flow-f2-mute.mdc) | `src/lib/api/engine/chats/**`    | F2 får aldrig generera env-frågor — all env-trafik gates till F3         |
+| [openclaw-bridge.mdc](rules/openclaw-bridge.mdc)   | `.cursor/openclaw-bridge/**`     | OpenClaw inbox/outbox (opt-in)                                           |
+| [pipeline-rules.mdc](rules/pipeline-rules.mdc)     | `sajtmaskin_backoffice.py`       | Pipeline-enkelhet + docs/schemas/backoffice-sync vid LLM-flödesändringar |
+| [plan-lifecycle.mdc](rules/plan-lifecycle.mdc)     | `docs/plans/**`                  | När planer ska skapas, parkas, avklaras och raderas                      |
+| [scaffold-rules.mdc](rules/scaffold-rules.mdc)     | `src/lib/gen/scaffolds/**`       | Agentregler vid scaffold-ändringar                                       |
+| [unicode-regex.mdc](rules/unicode-regex.mdc)       | `src/lib/gen/**`                 | Regex för mänsklig text — alltid Unicode-medveten, aldrig ASCII `\b`     |
 
 ### Manuellt bifogade (alwaysApply: false, ingen glob)
 
-| Regel                                                | Syfte                                                                |
-| ---------------------------------------------------- | -------------------------------------------------------------------- |
-| [agent-observatory.mdc](rules/agent-observatory.mdc) | Var agenter hittar per-körning- och per-chat-loggar                  |
-| [git.mdc](rules/git.mdc)                             | Inga PRs; commit/push/merge bara på explicit begäran                 |
-| [platform-quirks.mdc](rules/platform-quirks.mdc)     | Windows/PowerShell och repo-specifika fallgropar                     |
-| [unicode-regex.mdc](rules/unicode-regex.mdc)         | Regex för mänsklig text — alltid Unicode-medveten, aldrig ASCII `\b` |
-| [useful-commands.mdc](rules/useful-commands.mdc)     | Snabb kommandoöversikt; `package.json` är kanonisk källa             |
+| Regel                                                        | Syfte                                                                          |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| [agent-observatory.mdc](rules/agent-observatory.mdc)         | Var agenter hittar per-körning- och per-chat-loggar                            |
+| [auto-merge-automation.mdc](rules/auto-merge-automation.mdc) | Vem mergar, och när `--admin` är tillåtet                                      |
+| [local-tooling-mcp.mdc](rules/local-tooling-mcp.mdc)         | Lokal MCP/Vercel/Supabase/shadcn-setup — läs vid tooling-problem eller ny worktree |
+| [platform-quirks.mdc](rules/platform-quirks.mdc)             | Windows och repo-specifika fallgropar                                          |
+| [pr-bot-findings-sweep.mdc](rules/pr-bot-findings-sweep.mdc) | Hämta och triagera externa bot-fynd vid PR-granskning                          |
+| [pr-merge-review-gate.mdc](rules/pr-merge-review-gate.mdc)   | Kanonisk merge-grind — läs före merge/approval                                 |
+| [useful-commands.mdc](rules/useful-commands.mdc)             | Snabb kommandoöversikt; `package.json` är kanonisk källa                       |
 
 I chat: bifoga en regel med `@` + sökväg, t.ex. `@.cursor/rules/terminology.mdc`.
 
 ## Terminologi
 
-**Kanonisk ordlista:** [`docs/architecture/glossary.md`](../docs/architecture/glossary.md) — alla ~100 begrepp med livscykelstatus, namnskuggor, fasindelning.
+**Kanonisk och enda ordlista:** [`docs/architecture/glossary.md`](../docs/architecture/glossary.md) — kärntermer, namnskuggor, legacy, URL-nivåer, fas-skillnad och agent-/modellplan.
 
-**Snabb förväxlingstabell:** [rules/terminology.mdc](rules/terminology.mdc) — kort version med de vanligaste felen.
+**Snabb förväxlingstabell:** [rules/terminology.mdc](rules/terminology.mdc) — always-applied stub med de vanligaste felen; allt innehåll bor i glossaryn.
 
 I chat: `@terminology` eller `@.cursor/rules/terminology.mdc`.
 
@@ -77,12 +89,35 @@ parallell owner.
 
 ## Slash-kommandon (`.cursor/commands/*.md`)
 
-- `/818` = **en** fråga, **åtta** parallella read-only Composer-agenter (korta röster, gärna %), du sammanfattar, gör **minimal** ändring, verifierar, **review-pass** på diffen. Se `.cursor/skills/818-swarm-decide/SKILL.md`.
-- `/automat` = **flera** sekventiella read-only audit-svärmar (default 3 rundor, 8 agenter/runda; `/automat 7` = 7 rundor). Roterar lanes, för in värdefulla fynd i gitignored `.cursor/swarms/FINDINGS.md`. Audit mode (ändrar aldrig kod). Se `.cursor/skills/automat-swarm/SKILL.md`.
+- `/818` = **ett beslut** (inte en bugg): **tre** parallella read-only agenter med icke-överlappande vinklar (konsekvens · motståndaren · kanon), du verifierar deras påståenden mot koden, gör **minimal** ändring, verifierar, **review-pass** på diffen. Namnet är historiskt — åtta agenter blev tre 2026-08-02, eftersom åtta röster på samma fråga var korrelerat brus. Se `.cursor/skills/818-swarm-decide/SKILL.md`.
+- `/automat` = **flera** sekventiella read-only audit-svärmar som **växlar** scan (8 agenter i roterande lanes) och falsifiering (en agent per overifierat fynd, uppdrag: motbevisa det). Default 3 rundor; `/automat 7` = 7 rundor. Fynd hamnar i gitignored `.cursor/swarms/FINDINGS.md`. Audit mode (ändrar aldrig kod). Se `.cursor/skills/automat-swarm/SKILL.md`.
 - `/avslutning` = stäng arbete: review, scoped cleanup, docs-/schema-/backoffice-sync, verifiering, commit + push. Hanterar både vanligt slutpass och stängning av hela arbetsspår.
 - `/buggrapport` = lägg en bugg i `BUG-SWARM-BACKLOG.md` (rot) — `## Aktiv kö` för defekter, valfri lokal evidens i `.cursor/bugs/`. Ingen Linear.
+- `/kedja` = **fix mode**-motsvarigheten till `/automat`: en bugg genom sju steg (ram → worktrees → failande test → tre lokaliseringsagenter → du väljer rotorsak → N fix-kandidater i varsin worktree → maskinell dom → bugbot). Kandidatdiffar i gitignored `.cursor/kedja/`; vinnaren lämnas **ocommittad** i sin worktree. Se `.cursor/skills/kedja-fix-pipeline/SKILL.md`.
 - `/logg` = hämta **alla** loggar för senaste genererade prod-sajten (produktionsdatabas inkl. telemetri + OpenClaw-fynd, Vercel build/runtime via MCP, Fly preview-host) och sammanfatta hur körningen gick. Read-only mot prod. Se `.cursor/skills/logg/SKILL.md`.
 - `/logg-internet` = **live** prod-session i Cursor-browsern: verifiera inloggning på `sajtmaskin.vercel.app`, skriv en friprompt + ~2 uppföljningar och **anteckna** hur körningen går (Observatörspersona, jagar inte fel som default). Drar credits på riktigt. Notiser i gitignored `.cursor/logg-internet/`. Se `.cursor/skills/logg-internet/SKILL.md`.
+
+### Modellval för subagenter (kanonisk tabell)
+
+Kommandon och skills som startar `Task`-subagenter hämtar sin **roll** härifrån. Slugen bor däremot inte i repot — den slås upp per session, se nedan.
+
+**Grok 4.5 = default för ALLA subagenter** — scan, omdöme, destillering, kedja-runner **och** bugg-/kodgranskning. Composer (`composer-2.5` / `composer-2.5-fast`) kan finnas i Task-utbudet men är **inte** default. Se även `rules/subagent-models.mdc`.
+
+`<grok-4.5>` nedan är en **platshållare, inte en slug**: slå upp posten som börjar på `cursor-grok-4.5` i din egen sessions `<available_subagent_models>` och använd den exakt.
+
+| Roll | Slug | Används av |
+| ------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------- |
+| **Scan** — bred inventering, hög volym | `<grok-4.5>` | `/automat` scan-rundor, `/818` insamling, `/kedja` lokalisering, `/post-review`, bakgrundsbevakaren i `pr-merge-review-gate.mdc` |
+| **Omdöme** — falsifiera fynd, skriva kod, review-pass | `<grok-4.5>` | `/automat` falsifieringsrundor, `/818` review-pass, `/kedja` repro- och fix-agenter |
+| **Destillering** — läsa råa `runs/`-rapporter, returnera topp-N | `<grok-4.5>` | `/automat` |
+| **Kedja-runner / billig orkestrator-delegering** | `<grok-4.5>` | `/kedja` delegerat läge (steg 1–6) |
+| **Bugg-grind / kodgranskning** | `<grok-4.5>` | `bugbot`-subagenten (`model:`-parametern) — obligatoriskt pass före push/PR |
+
+- **Hård regel — dyra tänkande modeller.** `claude-opus-5-thinking-xhigh` och andra dyra tänkande modeller får **inte** användas som buggranskare/review-subagent som default. De får bara användas när ägaren uttryckligen ber om en specialkoll.
+- **Skriv aldrig av en slug ur en äldre textrad.** Formen varierar mellan sessioner: 2026-08-05 observerades `cursor-grok-4.5-high` i en session och `cursor-grok-4.5-high-fast` i en annan **samma dag**. Fel form avvisas med `Invalid model selection` — och svaret listar de tillåtna, så en felgissning rättar sig själv. Det tystare utfallet är värre: en slug som inte valideras faller tillbaka på **orkestratorns** modell, så en "billig" subagent kan köra dyrt utan att något syns.
+- **Skicka alltid `model`.** Utelämnas parametern ärver subagenten din egen modell — samma dyra utfall som en tyst fallback, bara utan att någon skrev fel. `Task`-verktyget säger själv *"use `inherit` unless the user explicitly requested another listed model"*; ägarens stående begäran (se `rules/subagent-models.mdc`) **är** den begäran, så `inherit` är inte defaultvalet här. Mätt 2026-08-05: **118 av 147** `Task`-anrop under tre dygn saknade `model` helt.
+- **Håll volymrapporter korta.** Samma Grok-slug används för scan och omdöme; kostnaden sitter i *rapportlängd × orkestratorns kontext*. Scan/destill ska returnera tabellrader, inte prosa.
+- **Kostnaden sitter i orkestratorn, inte i antalet subagenter.** Varje returnerad rapport skickas om i *varje* efterföljande tur. Kör därför långa svärmsessioner med en **billig orkestrator** (Grok 4.5) och håll subagent-svaren korta — inte som den modell som bär hela historiken.
 
 ## Backoffice
 
@@ -101,6 +136,6 @@ parallell owner.
 
 ## MCP (`mcp.json`)
 
-Valfria repo-/plattforms-MCP: **`shadcn`** (repo-local wrapper → `shadcn@4.13.1 mcp`), **`vercel`** (projekt-scopad) + **`user-vercel`** (konto-bred), **`supabase`** (project_ref + read-only), samt vid behov v0 / OpenAI-docs / `openclaw-docs`. Global fallback ligger i `%USERPROFILE%\.cursor\mcp.json` så worktrees utan lokal fil fortfarande får Vercel/Supabase/shadcn. Detta är **IDE-lokal utvecklarintegration**, inte runtime för own-engine-genereringen. Repoets `components.json` använder style `radix-vega` (en schema-giltig CLI-alias; runtime coerce:ar officiella alias till den kompletta `new-york-v4`-uppsättningen i `registry-url.ts`) med `@shadcn` pinnad till den stilbundna live-registryn, så att Cursor-MCP:n kan lista och visa samma registry-items som buildern använder. **Hur Sajtmaskin fungerar** läses i **`docs/`**, `.cursor/rules/` och `sajtmaskin-context`-skillen.
+Valfria repo-/plattforms-MCP: **`shadcn`** (repo-local wrapper → `shadcn@4.13.1 mcp`), **`vercel`** (projekt-scopad) + **`user-vercel`** (konto-bred), **`supabase`** (project_ref + read-only), samt vid behov **`openclaw-docs`** / **`openai-docs`** / **`v0`** (hostade endpoints utan auth — `openclaw-docs` beskriver den externa OpenClaw-produkten, inte Sajtmaskins openclaw-lager). Global fallback ligger i `%USERPROFILE%\.cursor\mcp.json` så worktrees utan lokal fil fortfarande får Vercel/Supabase/shadcn. Detta är **IDE-lokal utvecklarintegration**, inte runtime för own-engine-genereringen. Repoets `components.json` använder style `radix-vega` (en schema-giltig CLI-alias; runtime coerce:ar officiella alias till den kompletta `new-york-v4`-uppsättningen i `registry-url.ts`) med `@shadcn` pinnad till den stilbundna live-registryn, så att Cursor-MCP:n kan lista och visa samma registry-items som buildern använder. **Hur Sajtmaskin fungerar** läses i **`docs/`**, `.cursor/rules/` och `sajtmaskin-context`-skillen.
 
-**GitHub:** `.cursor/mcp.json` är **ignorerad**; synka med `pwsh -File scripts/cursor/sync-mcp-json.ps1` (eller `-AllWorktrees`) från `.cursor/mcp.json.example`. Autentisera Vercel/Supabase via Cursor Settings → Tools & MCP (OAuth). Se även alltid-på-regeln [`rules/local-tooling-mcp.mdc`](rules/local-tooling-mcp.mdc).
+**GitHub:** `.cursor/mcp.json` är **ignorerad**; synka med `pwsh -File scripts/cursor/sync-mcp-json.ps1` (eller `-AllWorktrees`) från `.cursor/mcp.json.example`. Autentisera Vercel/Supabase via Cursor Settings → Tools & MCP (OAuth). Detaljer i [`rules/local-tooling-mcp.mdc`](rules/local-tooling-mcp.mdc) (bifoga med `@` vid behov); de säkerhetskritiska raderna (dev vs prod Supabase, ingen destruktiv SQL) ligger kvar alltid-på i [`rules/project-phase-priorities.mdc`](rules/project-phase-priorities.mdc).

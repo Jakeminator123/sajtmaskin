@@ -14,9 +14,13 @@ export interface OpenClawSurfaceSnapshot {
   surfaceEnabled: boolean;
   surfaceStatus: OpenClawSurfaceStatus;
   blockers: string[];
-  /** OC_DEBUG gate (production-safeguarded). Lets the client unlock the armed
-   * autonomy / debug surfaces. Not a blocker for the normal surface. */
+  /** OC_DEBUG gate — read/diagnostics side (debug context). Not a blocker for
+   * the normal surface. */
   debugEnabled: boolean;
+  /** OC_EDIT gate — act side. Lets the client unlock armed autonomy (auto-send
+   * follow-ups through the ordinary builder pipeline). Not a blocker for the
+   * normal surface. */
+  editEnabled: boolean;
 }
 
 export interface OpenClawGatewayHealth extends OpenClawSurfaceSnapshot {
@@ -30,6 +34,7 @@ export function describeOpenClawSurface(input: {
   gatewayTokenConfigured: boolean;
   implementationFlagEnabled: boolean;
   debugEnabled?: boolean;
+  editEnabled?: boolean;
 }): OpenClawSurfaceSnapshot {
   const blockers: string[] = [];
 
@@ -66,6 +71,7 @@ export function describeOpenClawSurface(input: {
     surfaceStatus,
     blockers,
     debugEnabled: input.debugEnabled === true,
+    editEnabled: input.editEnabled === true,
   };
 }
 
@@ -75,6 +81,7 @@ export function getOpenClawSurfaceStatus(): OpenClawSurfaceSnapshot {
     gatewayTokenConfigured: OPENCLAW.tokenConfigured,
     implementationFlagEnabled: OPENCLAW.implementationFlagEnabled,
     debugEnabled: OPENCLAW.debugEnabled,
+    editEnabled: OPENCLAW.editEnabled,
   });
 }
 

@@ -11,6 +11,7 @@ from backoffice.shared import (
     PHASE_LABELS,
     PHASE_ORDER,
     REASONING_EFFORT_OPTIONS,
+    REASONING_MODE_OPTIONS,
     BackofficeContext,
     build_profile_defaults,
     describe_workload_model_resolution,
@@ -23,7 +24,6 @@ from backoffice.shared import (
     read_json,
     read_route_maxduration_literals,
     read_text,
-    render_where_panel,
     validate_manifest_or_error,
     write_json,
     write_phase_thinking,
@@ -146,9 +146,9 @@ def _render_generator_chain(
         "Latens i vanliga website-flöden styrs inte bara av vald modell, utan också av `BuildSpec`: `qualityTarget`, `contextPolicy`, deep-brief-gating och `reasoning_effort`."
     )
 
-    st.markdown("### Byggprofiler (själva kodgeneratorn)")
+    st.markdown("### Byggprofiler (own-engine, den som skriver sajtens kod)")
     profile_labels = {
-        "fast": "Fast / Snabb",
+        "premium": "Premium / GPT-5.6 Sol",
         "pro": "Pro / Lagom",
         "max": "Max / Tänker",
         "codex": "Codex / Kod Max",
@@ -156,7 +156,7 @@ def _render_generator_chain(
     }
     profile_inputs: dict[str, str] = {}
     cols = st.columns(5, gap="small")
-    for col, key in zip(cols, ["fast", "pro", "max", "codex", "anthropic"]):
+    for col, key in zip(cols, ["premium", "pro", "max", "codex", "anthropic"]):
         with col:
             profile_inputs[key] = st.text_input(
                 profile_labels[key],
@@ -195,16 +195,20 @@ def _render_generator_chain(
                 current_thinking_cfg = tier_thinking.get(phase) or {}
                 current_thinking = bool(current_thinking_cfg.get("thinking", False))
                 current_effort = str(current_thinking_cfg.get("reasoningEffort", "medium")).strip() or "medium"
+                current_mode = str(current_thinking_cfg.get("reasoningMode", "")).strip()
                 budget = phase_token_budget_entry(manifest, phase)
                 st.markdown(f"#### {PHASE_LABELS.get(phase, phase)}")
-                c1, c2, c3, c4 = st.columns([1.8, 0.9, 1.1, 1.1])
+                c1, c2, c3, c4, c5 = st.columns([1.7, 0.8, 1.0, 1.0, 1.1])
                 with c1:
+                    # Keep unknown/legacy stored ids visible so a save does not
+                    # silently rewrite them to selected_build_model (index 0).
+                    model_choices = list(AVAILABLE_PHASE_MODELS)
+                    if current_model not in model_choices:
+                        model_choices = [current_model, *model_choices]
                     model_value = st.selectbox(
                         "Model",
-                        AVAILABLE_PHASE_MODELS,
-                        index=AVAILABLE_PHASE_MODELS.index(current_model)
-                        if current_model in AVAILABLE_PHASE_MODELS
-                        else 0,
+                        model_choices,
+                        index=model_choices.index(current_model),
                         key=f"cfg_phase_model_{tier}_{phase}",
                         format_func=lambda model_id, _tier=tier: phase_model_display_label(
                             model_id,
@@ -212,6 +216,12 @@ def _render_generator_chain(
                             build_profiles,
                         ),
                     )
+                resolved_model_value = (
+                    build_profiles.get(tier, "").strip()
+                    if model_value == "selected_build_model"
+                    else model_value
+                )
+                supports_reasoning_mode = resolved_model_value.startswith("gpt-5.6-")
                 with c2:
                     thinking_value = st.toggle(
                         "Thinking",
@@ -229,11 +239,18 @@ def _render_generator_chain(
                         disabled=not thinking_value,
                     )
                 with c4:
-                    resolved_model_value = (
-                        build_profiles.get(tier, "").strip()
-                        if model_value == "selected_build_model"
-                        else model_value
+                    mode_options = ("", *REASONING_MODE_OPTIONS)
+                    mode_value = st.selectbox(
+                        "Reasoning mode",
+                        mode_options,
+                        index=mode_options.index(current_mode)
+                        if current_mode in mode_options
+                        else 0,
+                        key=f"cfg_phase_mode_{tier}_{phase}",
+                        format_func=lambda value: value or "—",
+                        disabled=not thinking_value or not supports_reasoning_mode,
                     )
+                with c5:
                     st.text_input(
                         "Resolved model",
                         value=human_model_label(resolved_model_value),
@@ -247,6 +264,7 @@ def _render_generator_chain(
                 edited_thinking[tier][phase] = {
                     "thinking": thinking_value,
                     "reasoningEffort": effort_value,
+                    "reasoningMode": mode_value if supports_reasoning_mode else "",
                 }
 
     st.markdown("### Repair-kedjor som påverkas av samma routing")
@@ -269,6 +287,7 @@ def _render_generator_chain(
                     phase,
                     bool(cfg.get("thinking", False)),
                     str(cfg.get("reasoningEffort", "medium")),
+                    str(cfg.get("reasoningMode", "")),
                 )
         _guard_manifest_or_stop(manifest)
         write_json(man_path, manifest)
@@ -726,38 +745,36 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
 def _render_per_tier_policies(manifest: dict[str, Any]) -> None:
     """Surface tier-differentierade fält (perTierTimeouts/RepairPolicies/Briefing).
 
-    Declared-only: dessa fält valideras (Zod i `load-manifest.ts` + JSON Schema)
-    och kan läsas via `getPerTier*FromManifest()`, men inget i generationsflödet
-    konsumerar dem ännu — globala `routeTimeouts`/`repairPolicies`/`briefing`
-    gäller vid körning. Read-only-vy: fälten ligger som top-level-objekt i
-    manifestet och bevaras vid all edit (write_json skriver tillbaka hela
-    manifestet). Edit görs via manifest.json-tabben.
+    Timeout/repair är declared-only. Briefing är wired: create-chat och
+    clear-redesign väljer modell från den aktiva byggprofilens post, med global
+    briefing-default som fallback. Read-only-vy: fälten ligger som top-level-
+    objekt i manifestet och bevaras vid all edit (write_json skriver tillbaka
+    hela manifestet). Edit görs via manifest.json-tabben.
     """
 
     timeouts = manifest.get("perTierTimeouts") or {}
     policies = manifest.get("perTierRepairPolicies") or {}
     briefing = manifest.get("perTierBriefing") or {}
 
-    st.markdown("### Tier-differentierade policys · declared-only (EJ wired till runtime)")
+    st.markdown("### Tier-differentierade policys")
     st.caption(
-        "**Declared-only / EJ wired till runtime (valideras men styr inte runtime ännu).** "
-        "`perTier*`-fälten valideras (Zod i `load-manifest.ts` + JSON Schema), men ingen "
-        "kod i generationsflödet läser dem. De globala fälten (`routeTimeouts`, "
-        "`repairPolicies`, `briefing`) är det som faktiskt gäller vid körning. "
-        "Se `config/control-plane/policy-registry.json` (`manifest-per-tier-*`, "
-        "runtimeStatus `declared-only`). Read-only-vy; edit görs via manifest.json-tabben."
+        "`perTierTimeouts` och `perTierRepairPolicies` är **declared-only / EJ wired**; "
+        "globala timeout- och repairvärden gäller. `perTierBriefing` är **wired** och "
+        "väljer auto-brief-modell efter byggprofil. Explicit prompt-assist-modell och "
+        "vald providers auto-brief-env vinner; global briefing-default används om "
+        "tier-posten saknas. Read-only-vy; edit görs via manifest.json-tabben."
     )
 
     has_any = bool(timeouts or policies or briefing)
     if not has_any:
         st.info(
             "Inga `perTier*`-fält hittades i manifestet. Förvänta sig 5 tiers "
-            "(fast/pro/max/codex/anthropic) i vart och ett av `perTierTimeouts`, "
+            "(premium/pro/max/codex/anthropic) i vart och ett av `perTierTimeouts`, "
             "`perTierRepairPolicies`, `perTierBriefing`."
         )
         return
 
-    tiers = ["fast", "pro", "max", "codex", "anthropic"]
+    tiers = ["premium", "pro", "max", "codex", "anthropic"]
 
     if timeouts:
         st.markdown("#### perTierTimeouts")
@@ -801,7 +818,7 @@ def _render_per_tier_policies(manifest: dict[str, Any]) -> None:
         )
 
     if briefing:
-        st.markdown("#### perTierBriefing")
+        st.markdown("#### perTierBriefing · wired till runtime")
         st.dataframe(
             [
                 {
@@ -911,9 +928,7 @@ def _render_manifest_json(ctx: BackofficeContext, man_path, manifest: dict[str, 
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("config/ai_models")
-    render_where_panel("ai_models", domain_map)
     man_path = ctx.config_dir / "ai_models" / "manifest.json"
     manifest = read_json(man_path)
     st.info(

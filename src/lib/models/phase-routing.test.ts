@@ -7,19 +7,19 @@ import {
 } from "./phase-routing";
 
 describe("resolvePhaseModel", () => {
-  it("uses same model for all phases when fast tier", () => {
-    const planner = resolvePhaseModel("fast", "planner");
-    const generator = resolvePhaseModel("fast", "generator");
-    const fixer = resolvePhaseModel("fast", "fixer");
-    const verifier = resolvePhaseModel("fast", "verifier");
-    const deploy = resolvePhaseModel("fast", "deploy-assistant");
+  it("uses GPT-5.6 Sol for all phases in the Premium tier", () => {
+    const planner = resolvePhaseModel("premium", "planner");
+    const generator = resolvePhaseModel("premium", "generator");
+    const fixer = resolvePhaseModel("premium", "fixer");
+    const verifier = resolvePhaseModel("premium", "verifier");
+    const deploy = resolvePhaseModel("premium", "deploy-assistant");
 
-    expect(planner.modelId).toBe("gpt-5.4-mini");
-    expect(generator.modelId).toBe("gpt-5.4-mini");
-    expect(fixer.modelId).toBe("gpt-5.4-mini");
-    expect(verifier.modelId).toBe("gpt-5.4-mini");
-    expect(deploy.modelId).toBe("gpt-5.4-mini");
-    expect(planner.reason).toBe("fast-tier-no-downgrade");
+    expect(planner.modelId).toBe("gpt-5.6-sol");
+    expect(generator.modelId).toBe("gpt-5.6-sol");
+    expect(fixer.modelId).toBe("gpt-5.6-sol");
+    expect(verifier.modelId).toBe("gpt-5.6-sol");
+    expect(deploy.modelId).toBe("gpt-5.6-sol");
+    expect(planner.reason).toBe("premium-tier-unified");
   });
 
   it("uses full tier for planner/generator/fixer on pro; verifier/deploy on gpt-5.3-codex", () => {
@@ -28,9 +28,7 @@ describe("resolvePhaseModel", () => {
     expect(resolvePhaseModel("pro", "fixer").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("pro", "fixer").reason).toBe("fixer-tier-primary");
     expect(resolvePhaseModel("pro", "verifier").modelId).toBe("gpt-5.3-codex");
-    expect(resolvePhaseModel("pro", "deploy-assistant").modelId).toBe(
-      "gpt-5.3-codex",
-    );
+    expect(resolvePhaseModel("pro", "deploy-assistant").modelId).toBe("gpt-5.3-codex");
   });
 
   it("uses full tier for planner/generator on max; fixer/verifier/deploy on gpt-5.3-codex", () => {
@@ -44,9 +42,7 @@ describe("resolvePhaseModel", () => {
 
   it("uses full tier for planner/generator/fixer on codex; verifier/deploy on gpt-5.3-codex", () => {
     expect(resolvePhaseModel("codex", "planner").modelId).toBe("gpt-5.3-codex");
-    expect(resolvePhaseModel("codex", "generator").modelId).toBe(
-      "gpt-5.3-codex",
-    );
+    expect(resolvePhaseModel("codex", "generator").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("codex", "fixer").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("codex", "verifier").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("codex", "deploy-assistant").modelId).toBe("gpt-5.3-codex");
@@ -66,20 +62,17 @@ describe("resolvePhaseModel", () => {
   });
 
   it("generator always uses full tier for OpenAI profiles", () => {
+    expect(resolvePhaseModel("premium", "generator").modelId).toBe("gpt-5.6-sol");
     expect(resolvePhaseModel("pro", "generator").modelId).toBe("gpt-5.3-codex");
     expect(resolvePhaseModel("max", "generator").modelId).toBe("gpt-5.5");
-    expect(resolvePhaseModel("codex", "generator").modelId).toBe(
-      "gpt-5.3-codex",
-    );
-    expect(resolvePhaseModel("anthropic", "generator").modelId).toBe(
-      "claude-opus-4.8",
-    );
+    expect(resolvePhaseModel("codex", "generator").modelId).toBe("gpt-5.3-codex");
+    expect(resolvePhaseModel("anthropic", "generator").modelId).toBe("claude-opus-4.8");
   });
 });
 
 describe("getPhaseRoutingSummary", () => {
-  it("returns all 5 phases for fast tier", () => {
-    const summary = getPhaseRoutingSummary("fast");
+  it("returns all 5 phases for Premium tier", () => {
+    const summary = getPhaseRoutingSummary("premium");
     const phases: GenerationPhase[] = [
       "planner",
       "generator",
@@ -91,8 +84,8 @@ describe("getPhaseRoutingSummary", () => {
       expect(summary).toHaveProperty(phase);
       expect(typeof summary[phase]).toBe("string");
     }
-    expect(summary.planner).toBe("gpt-5.4-mini");
-    expect(summary.generator).toBe("gpt-5.4-mini");
+    expect(summary.planner).toBe("gpt-5.6-sol");
+    expect(summary.generator).toBe("gpt-5.6-sol");
   });
 
   it("splits pro tier: all phases use gpt-5.3-codex", () => {
@@ -115,19 +108,41 @@ describe("getPhaseRoutingSummary", () => {
 });
 
 describe("resolvePhaseThinking", () => {
-  it("fast tier uses thinking on planner (low) and generator (medium) per manifest", () => {
-    expect(resolvePhaseThinking("fast", "planner")).toEqual({
+  it("Premium uses pro mode with high reasoning across build phases", () => {
+    expect(resolvePhaseThinking("premium", "planner")).toEqual({
       phase: "planner",
       thinking: true,
-      reasoningEffort: "low",
+      reasoningEffort: "high",
+      reasoningMode: "pro",
       reason: "manifest-phase-thinking",
     });
-    expect(resolvePhaseThinking("fast", "generator")).toEqual({
+    expect(resolvePhaseThinking("premium", "generator")).toEqual({
       phase: "generator",
       thinking: true,
-      reasoningEffort: "medium",
+      reasoningEffort: "high",
+      reasoningMode: "pro",
       reason: "manifest-phase-thinking",
     });
+  });
+
+  it("omits GPT-5.6-only reasoning mode for a non-5.6 Premium env override", () => {
+    const previous = process.env.SAJTMASKIN_MODEL_PREMIUM;
+    process.env.SAJTMASKIN_MODEL_PREMIUM = "gpt-5.5";
+    try {
+      expect(resolvePhaseModel("premium", "planner").modelId).toBe("gpt-5.5");
+      expect(resolvePhaseThinking("premium", "planner")).toEqual({
+        phase: "planner",
+        thinking: true,
+        reasoningEffort: "high",
+        reason: "manifest-phase-thinking",
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.SAJTMASKIN_MODEL_PREMIUM;
+      } else {
+        process.env.SAJTMASKIN_MODEL_PREMIUM = previous;
+      }
+    }
   });
 
   it("disables fixer/verifier thinking by default", () => {

@@ -280,6 +280,100 @@ describe("common-import-fixer", () => {
     expect(result.code).toContain('import { Carousel } from "@/components/ui/carousel"');
   });
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Compiler-bekräftade TS2440-konflikter (prod chat 85f8db72: CircleDot
+  // importerad från lucide-react OCH deklarerad lokalt, använd i JSX ovanför
+  // den lokala deklarationen — heuristik-guarden vägrade och två körningar
+  // nådde aldrig `passed`).
+  // ───────────────────────────────────────────────────────────────────────────
+
+  describe("fixImportedDeclarationConflicts — confirmedConflicts (TS2440)", () => {
+    const PROD_SHAPE = [
+      '"use client";',
+      "",
+      'import { Calendar as CalendarIcon, Clock, CircleDot } from "lucide-react";',
+      "",
+      "export function BookingForm() {",
+      '  return <div><CircleDot className="h-4 w-4" /><Clock /><CalendarIcon /></div>;',
+      "}",
+      "",
+      "function CircleDot({ className }: { className?: string }) {",
+      "  return <span className={className}>*</span>;",
+      "}",
+    ].join("\n");
+
+    it("släpper bekräftad binding trots användning mellan import och deklaration", () => {
+      const result = fixImportedDeclarationConflicts(
+        PROD_SHAPE,
+        "components/booking-form.tsx",
+        { confirmedConflicts: new Set(["CircleDot"]) },
+      );
+
+      expect(result.fixed).toBe(true);
+      expect(result.removedBindings).toEqual(["CircleDot"]);
+      expect(result.code).toContain(
+        'import { Calendar as CalendarIcon, Clock } from "lucide-react";',
+      );
+      expect(result.code).toContain("function CircleDot");
+    });
+
+    it("utan bekräftelse vägrar heuristiken samma form (guard-beteendet kvar)", () => {
+      const result = fixImportedDeclarationConflicts(
+        PROD_SHAPE,
+        "components/booking-form.tsx",
+      );
+      expect(result.fixed).toBe(false);
+      expect(result.code).toBe(PROD_SHAPE);
+    });
+
+    it("rör inget när bekräftat namn saknar lokal värdedeklaration (tvetydigt)", () => {
+      const code = [
+        'import { CircleDot } from "lucide-react";',
+        "export function Widget({ CircleDot: dot }: { CircleDot?: string }) {",
+        "  return <span>{dot}<CircleDot /></span>;",
+        "}",
+      ].join("\n");
+      const result = fixImportedDeclarationConflicts(code, "components/widget.tsx", {
+        confirmedConflicts: new Set(["CircleDot"]),
+      });
+      expect(result.fixed).toBe(false);
+      expect(result.code).toBe(code);
+    });
+
+    it("rör inget när den lokala deklarationen är type-only (interface/type)", () => {
+      const code = [
+        'import { Badge } from "@/components/ui/badge";',
+        "",
+        "interface Badge { label: string }",
+        "",
+        "export function Card() {",
+        "  return <Badge>x</Badge>;",
+        "}",
+      ].join("\n");
+      const result = fixImportedDeclarationConflicts(code, "components/card.tsx", {
+        confirmedConflicts: new Set(["Badge"]),
+      });
+      expect(result.fixed).toBe(false);
+      expect(result.code).toBe(code);
+    });
+
+    it("släpper en bekräftad default-import som kolliderar med lokal deklaration", () => {
+      const code = [
+        'import CircleDot from "@/components/circle-dot";',
+        "export function Page() {",
+        "  return <CircleDot />;",
+        "}",
+        "const CircleDot = () => null;",
+      ].join("\n");
+      const result = fixImportedDeclarationConflicts(code, "app/page.tsx", {
+        confirmedConflicts: new Set(["CircleDot"]),
+      });
+      expect(result.fixed).toBe(true);
+      expect(result.removedBindings).toEqual(["CircleDot"]);
+      expect(result.code).not.toContain('from "@/components/circle-dot"');
+    });
+  });
+
   // ─────────────────────────────────────────────────────────────────────────
   // SAJ-61 P0/c1: bredda export-indexet
   // ─────────────────────────────────────────────────────────────────────────

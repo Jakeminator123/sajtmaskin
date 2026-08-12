@@ -3,7 +3,7 @@
  * option.
  *
  * Why one owner: `sslmode=disable` (the documented local-Postgres setup, see
- * AGENTS.md) means "no TLS at all", and every script that opens a pool has to
+ * docs/runbooks/cursor-cloud-agent.md) means "no TLS at all", and every script that opens a pool has to
  * agree on that. When they drift, the failure is confusing rather than obvious
  * — e.g. `db:init` connecting happily while `db:migrate` fails on SSL against
  * the exact same URL, so the fix a guard points you at is the one command that

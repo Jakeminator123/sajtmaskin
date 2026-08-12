@@ -118,6 +118,7 @@ function makePreflight(): RunFinalizePreflightResult {
       blockingCategories: [],
     },
     unresolvedImportFallbackUsed: false,
+    postMergeFixes: [],
   } as RunFinalizePreflightResult;
 }
 

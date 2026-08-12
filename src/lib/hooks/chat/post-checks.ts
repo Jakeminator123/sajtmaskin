@@ -181,6 +181,10 @@ export function buildProductPostcheckLogItems(
       productBlocked: result.productBlocked === true,
       durationMs: result.durationMs ?? null,
       checkedUrl: result.checkedUrl ?? null,
+      // Hur många routes crawlen hann med innan deadline. Underlaget för
+      // beslutet om kontrollen ska flyttas före preview-länken (masterplanens
+      // steg 4) — utan det i DB:n går täckningen inte att mäta i efterhand.
+      routesChecked: result.routesChecked ?? null,
     },
   });
   return logs;
@@ -270,6 +274,17 @@ export async function runPostGenerationChecks(params: {
   } = params;
   const toolCallId = `post-check:${versionId}`;
   const controller = new AbortController();
+
+  appendToolPartToMessage(setMessages, assistantMessageId, {
+    type: "tool:post-check",
+    toolName: "Post-check",
+    toolCallId,
+    state: "input-streaming",
+    input: { chatId, versionId },
+    output: {
+      steps: ["Efterkontrollerar filer och preview."],
+    },
+  });
 
   try {
     const [currentFiles, versions] = await Promise.all([

@@ -46,7 +46,7 @@ import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import { resolveDossiersPresentInVersion } from "@/lib/gen/dossiers/version-presence";
 import type { DossierEntry } from "@/lib/gen/dossiers/types";
 import { resolveFinalizePathPolicy } from "./policy";
-import { runAutofixPrePhase, runUrlExpandPhase } from "./pre-phases";
+import { runAutofixPrePhase, runUrlExpandPhase, summarizeAutofixFixers } from "./pre-phases";
 import {
   buildAndPersistPreflightLogs,
   maybeFailVersionVerification,
@@ -270,6 +270,9 @@ export async function finalizeAndSaveVersion(
     finalizePath: finalizePath.runDeepPath ? "full" : "light",
     finalizePathReason: finalizePath.reason,
   });
+  // Same wall-clock as meta.streamMs below (engine start → finalize start).
+  // Keep both expressions identical — Prometheus `codegen` phase and telemetry
+  // `streamMs` are two names for one measurement.
   recordPhaseDuration(
     "codegen",
     Math.max(0, finalizePipelineStartedAt - startedAt),
@@ -380,6 +383,17 @@ export async function finalizeAndSaveVersion(
     repairScopeId,
   });
   contentForVersion = fastPathContent;
+  // Post-merge lane (`repairGeneratedFiles` in finalize-preflight) previously
+  // only reached the ephemeral devLog — invisible in prod telemetry, so a
+  // post-merge fixer that mutated persisted files could not be traced
+  // afterwards (layout-provider-fixer, prod chat e8bd3ba6 2026-08-01). Merge
+  // its per-fixer summary into the durable `meta.autofix.fixers` surface.
+  // Note: `fixCount`/risk counters intentionally stay Normalize-lane-only so
+  // the verifier trigger semantics are unchanged.
+  const allAutoFixFixers = [
+    ...autoFixFixers,
+    ...summarizeAutofixFixers(preflightResult.postMergeFixes ?? []),
+  ];
   const effectiveVerifierBlockingFindings = [
     ...previewBlockingWarnings.map((warning) => ({
       id: "autofix-preview-blocking",
@@ -391,6 +405,14 @@ export async function finalizeAndSaveVersion(
   recordPhaseDuration("syntax-validate", resolveStepDurationMs("validate_syntax"), {
     kind: latencyBudgetKind,
   });
+  // Skipped steps (light path) resolve to 0 ms — they contributed nothing to
+  // wall-clock. Per-run status ("done" | "skipped" | …) lives in JSONB meta
+  // (`postStreamSteps`), same pattern as syntax-validate / preflight.
+  recordPhaseDuration(
+    "materialize_images",
+    resolveStepDurationMs("materialize_images"),
+    { kind: latencyBudgetKind },
+  );
   recordPhaseDuration("preflight", resolveStepDurationMs("parse_merge_preflight"), {
     kind: latencyBudgetKind,
   });
@@ -403,18 +425,38 @@ export async function finalizeAndSaveVersion(
     typeof params.accumulatedThinking === "string" && params.accumulatedThinking.length > 0
       ? params.accumulatedThinking
       : null;
+  // Våg 2 + dossier-env rehydrering: the selected dossiers' declared env keys,
+  // deduped. Threaded into the first preview boot (FinalizeResult) AND
+  // persisted on the version row, so a later force-restart or quick-edit
+  // preview fallback rebuilds the same F2 mock-seeded `.env.local` surface.
+  const selectedDossierEnvKeys = Array.from(
+    new Set(
+      selectedDossiers.flatMap((dossier) =>
+        (dossier.envVars ?? []).map((envVar) => envVar.key),
+      ),
+    ),
+  );
   const { message: assistantMsg, version: initialVersion } = targetVersionId
     ? await chatRepo.addAssistantMessageAndUpdateExistingVersion(
         chatId,
         targetVersionId,
         contentForVersion,
         filesJson,
-        { thinking: thinkingForPersist },
+        {
+          thinking: thinkingForPersist,
+          // COALESCE-backfill: a repair never rewrites an existing selection,
+          // but a legacy NULL row gets this run's keys so later restarts keep
+          // the F2 mock-seed.
+          selectedDossierEnvKeysBackfill:
+            selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
+        },
       )
     : await chatRepo.addAssistantMessageAndCreateDraftVersion(chatId, contentForVersion, filesJson, {
         lifecycleStage: buildSpec?.previewPolicy === "fidelity3" ? "integrations" : "design",
         parentVersionId: lifecycleParentVersionId ?? null,
         thinking: thinkingForPersist,
+        // Null when empty — the column means "no dossier declared env keys".
+        selectedDossierEnvKeys: selectedDossierEnvKeys.length > 0 ? selectedDossierEnvKeys : null,
       });
   let version = initialVersion;
   const finalizeRunId = repairPassIndex > 0 ? `repair-${repairPassIndex}` : undefined;
@@ -476,7 +518,7 @@ export async function finalizeAndSaveVersion(
     riskyFixCount: autoFixRisk.riskyFixCount,
     riskyFixerIds: autoFixRisk.riskyFixerIds,
     previewBlockingWarnings: previewBlockingWarnings.length,
-    fixers: autoFixFixers,
+    fixers: allAutoFixFixers,
   });
   emitBusEvent({
     t: "version.syntax.pass",
@@ -501,6 +543,7 @@ export async function finalizeAndSaveVersion(
   await persistOrchestrationSnapshot({
     chatId,
     versionId: version.id,
+    filesJson,
     orchestrationStreamMeta,
     lineageHash,
     buildIntent,
@@ -669,6 +712,9 @@ export async function finalizeAndSaveVersion(
     hasPreflightVerificationErrors: hasVerificationBlockingPreflightErrors,
     previewBlockingReason,
     startedAt,
+    // Direct stream wall-clock: engine wrapper start → finalize start.
+    // Same expression as recordPhaseDuration("codegen", …) above — keep in sync.
+    streamMs: Math.max(0, finalizePipelineStartedAt - startedAt),
     tokenUsage,
     preflightFileCount,
     scaffoldRetry,
@@ -678,6 +724,7 @@ export async function finalizeAndSaveVersion(
     autoFixWarningCount,
     autoFixDependencyCount,
     autoFixRisk,
+    autoFixFixers: allAutoFixFixers,
     verifierBlocked,
     verifierBlockingFindings: effectiveVerifierBlockingFindings,
     preflightIssueCount: preflightIssues.length,
@@ -800,12 +847,8 @@ export async function finalizeAndSaveVersion(
     // Våg 2: the selected dossiers' declared env keys, so the F2 preview
     // `.env.local` can seed a stub for each and the dossier UI renders its
     // demo/mock mode. Deduped; empty when no dossier declares env vars.
-    selectedDossierEnvKeys: Array.from(
-      new Set(
-        selectedDossiers.flatMap((dossier) =>
-          (dossier.envVars ?? []).map((envVar) => envVar.key),
-        ),
-      ),
-    ),
+    // Also persisted on the version row (see the persist step above) so
+    // restarts rebuild the same surface.
+    selectedDossierEnvKeys,
   };
 }

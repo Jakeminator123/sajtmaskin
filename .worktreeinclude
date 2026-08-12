@@ -1,0 +1,4 @@
+# Files copied into Codex-managed worktrees.
+# Keep this list short: these files are ignored by git and may contain secrets.
+
+.env.local

@@ -14,6 +14,99 @@ vi.mock("@streamdown/code", () => ({
 }));
 
 describe("MessageList", () => {
+  it("renders current engine progress prominently while the assistant is streaming", () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "assistant_live_progress",
+        role: "assistant",
+        content: "",
+        isStreaming: true,
+        uiParts: [
+          {
+            type: "tool:engine-validate_syntax",
+            toolName: "Validering (syntax + typecheck)",
+            toolCallId: "progress:validate_syntax",
+            state: "input-streaming",
+            output: {
+              steps: ["Validerar genererad kod (pass 1)."],
+            },
+          },
+        ],
+      },
+    ];
+
+    render(<MessageList chatId="chat_live_progress" messages={messages} isStreaming />);
+
+    expect(screen.getByText("Arbetar med din sajt")).toBeTruthy();
+    expect(
+      screen.getAllByText("Validerar genererad kod (pass 1).").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Pågår")).toBeTruthy();
+  });
+
+  it("surfaces a terminal tool error in the live header while the stream continues", () => {
+    const messages: ChatMessage[] = [
+      {
+        id: "assistant_live_error",
+        role: "assistant",
+        content: "",
+        isStreaming: true,
+        uiParts: [
+          {
+            type: "tool:engine-preview",
+            toolName: "Live-preview",
+            toolCallId: "progress:preview",
+            state: "output-error",
+            output: {
+              steps: ["Live-preview kunde inte starta: npm failed"],
+            },
+          },
+        ],
+      },
+    ];
+
+    render(<MessageList chatId="chat_live_error" messages={messages} isStreaming />);
+
+    expect(screen.getByText("Ett byggsteg misslyckades")).toBeTruthy();
+    expect(
+      screen.getAllByText("Live-preview kunde inte starta: npm failed").length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Fortsätter med nästa byggsteg.")).toBeNull();
+  });
+
+  it("never leaves an older turn active after the user starts a newer generation", () => {
+    const messages: ChatMessage[] = [
+      { id: "user_old", role: "user", content: "Bygg första versionen." },
+      {
+        id: "assistant_old",
+        role: "assistant",
+        content: "Första versionen är klar.",
+        isStreaming: false,
+        uiParts: [
+          {
+            type: "tool:quality-gate",
+            toolName: "Quality gate",
+            toolCallId: "quality-gate:old",
+            state: "input-streaming",
+          },
+        ],
+      },
+      { id: "user_new", role: "user", content: "Gör nästa ändring." },
+      {
+        id: "assistant_new",
+        role: "assistant",
+        content: "",
+        isStreaming: true,
+        uiParts: [],
+      },
+    ];
+
+    render(<MessageList chatId="chat_newer_turn" messages={messages} isStreaming />);
+
+    expect(screen.getAllByText("Arbetar med din sajt")).toHaveLength(1);
+    expect(screen.getByText("Slutsteg (1)")).toBeTruthy();
+  });
+
   it("renders suggestIntegration approvals inline in compact mode without opening reply dialog", async () => {
     // Ägarbeslut 2026-07-03: integrations-/env-frågor ska stanna inline
     // i chatten (compact cards) och inte driva plan-dialogen.

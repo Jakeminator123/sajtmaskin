@@ -1,4 +1,4 @@
-"""Scaffolds — samlad vy: översikt, termguide, detaljer och metadata-redigering.
+"""Scaffolds — dynamiska filträd, översikt, detaljer och metadata-redigering.
 
 Konsoliderad 2026-07-21 från tre tidigare sidor: `Runtime scaffolds` (read-only
 detaljvy + termguide), `Scaffolds` (tabell + manifest.ts-redigering) och
@@ -9,27 +9,362 @@ varianter) bor kvar i **Scaffold Lifecycle**; AI-guidat skapande i
 
 from __future__ import annotations
 
+import html
+import json
 import re
-from pathlib import Path
-from typing import Any
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
+from typing import Any, Iterator
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from backoffice.shared import (
     BackofficeContext,
     _escape_ts_string,
     extract_ts_string_array_field,
     extract_ts_string_field,
+    field_label,
     read_json,
     read_text,
     render_building_blocks_nav,
     render_save_scope,
-    render_where_panel,
     tech_details,
     write_text,
 )
 
 PAGE_NAME = "Scaffolds: titta & justera"
+
+
+@dataclass(frozen=True)
+class ScaffoldTreeSnapshot:
+    """On-disk scaffold tree captured for one Streamlit render."""
+
+    scaffold_id: str
+    label: str
+    site_kind: str
+    complexity: str
+    relative_paths: tuple[str, ...]
+
+    @property
+    def runtime_file_count(self) -> int:
+        return sum(path.startswith("files/") for path in self.relative_paths)
+
+    @property
+    def route_count(self) -> int:
+        return sum(
+            path.endswith("/page.tsx")
+            and (path.startswith("files/app/") or path.startswith("files/src/app/"))
+            for path in self.relative_paths
+        )
+
+    @property
+    def component_count(self) -> int:
+        return sum(
+            path.startswith("files/components/")
+            or path.startswith("files/src/components/")
+            for path in self.relative_paths
+        )
+
+    @property
+    def directory_count(self) -> int:
+        directories: set[str] = set()
+        for relative_path in self.relative_paths:
+            parts = PurePosixPath(relative_path).parts
+            directories.update("/".join(parts[:index]) for index in range(1, len(parts)))
+        return len(directories)
+
+
+TreeNode = tuple[int, str, str, bool]
+
+
+def _tree_trie(relative_paths: tuple[str, ...]) -> dict[str, dict]:
+    trie: dict[str, dict] = {}
+    for relative_path in relative_paths:
+        cursor = trie
+        for part in PurePosixPath(relative_path).parts:
+            cursor = cursor.setdefault(part, {})
+    return trie
+
+
+def _iter_tree_nodes(relative_paths: tuple[str, ...]) -> Iterator[TreeNode]:
+    """Yield depth, display name, full path and directory flag."""
+
+    def walk(node: dict[str, dict], *, depth: int, parent: str) -> Iterator[TreeNode]:
+        for name, children in node.items():
+            path = f"{parent}/{name}" if parent else name
+            is_directory = bool(children)
+            yield depth, name, path, is_directory
+            if children:
+                yield from walk(children, depth=depth + 1, parent=path)
+
+    yield from walk(_tree_trie(relative_paths), depth=0, parent="")
+
+
+def _format_scaffold_tree(snapshot: ScaffoldTreeSnapshot) -> str:
+    """Plain-text representation copied to the operator's clipboard."""
+
+    def walk(node: dict[str, dict], *, prefix: str) -> list[str]:
+        lines: list[str] = []
+        items = list(node.items())
+        for index, (name, children) in enumerate(items):
+            is_last = index == len(items) - 1
+            connector = "└──" if is_last else "├──"
+            suffix = "/" if children else ""
+            lines.append(f"{prefix}{connector} {name}{suffix}")
+            if children:
+                child_prefix = prefix + ("    " if is_last else "│   ")
+                lines.extend(walk(children, prefix=child_prefix))
+        return lines
+
+    return "\n".join(
+        [f"{snapshot.scaffold_id}/", *walk(_tree_trie(snapshot.relative_paths), prefix="")]
+    )
+
+
+def _discover_scaffold_trees(scaffolds_dir: Path) -> list[ScaffoldTreeSnapshot]:
+    """Read every current scaffold root directly from disk, without caching."""
+
+    snapshots: list[ScaffoldTreeSnapshot] = []
+    if not scaffolds_dir.is_dir():
+        return snapshots
+
+    for scaffold_dir in sorted(path for path in scaffolds_dir.iterdir() if path.is_dir()):
+        manifest_path = scaffold_dir / "manifest.ts"
+        files_dir = scaffold_dir / "files"
+        if not manifest_path.is_file() or not files_dir.is_dir():
+            continue
+
+        manifest_text = read_text(manifest_path)
+        relative_paths = tuple(
+            path.relative_to(scaffold_dir).as_posix()
+            for path in sorted(scaffold_dir.rglob("*"))
+            if path.is_file()
+        )
+        snapshots.append(
+            ScaffoldTreeSnapshot(
+                scaffold_id=scaffold_dir.name,
+                label=extract_ts_string_field(manifest_text, "label") or scaffold_dir.name,
+                site_kind=extract_ts_string_field(manifest_text, "siteKind") or "-",
+                complexity=extract_ts_string_field(manifest_text, "complexity") or "-",
+                relative_paths=relative_paths,
+            )
+        )
+    return snapshots
+
+
+def _render_tree_styles() -> None:
+    st.markdown(
+        """
+<style>
+  .sm-scaffold-tree {
+    border: 1px solid color-mix(in srgb, var(--text-color) 16%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--secondary-background-color) 70%, transparent);
+    padding: 0.55rem;
+    margin: 0.35rem 0 0.55rem;
+  }
+  .sm-tree-node {
+    display: flex;
+    align-items: center;
+    gap: 0.42rem;
+    min-height: 1.85rem;
+    border-radius: 0.42rem;
+    padding-top: 0.18rem;
+    padding-bottom: 0.18rem;
+    color: var(--text-color);
+  }
+  .sm-tree-node:hover {
+    background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+  }
+  .sm-tree-node--directory {
+    font-weight: 650;
+  }
+  .sm-tree-icon {
+    flex: 0 0 1.15rem;
+    width: 1.15rem;
+    text-align: center;
+    font-size: 0.88rem;
+  }
+  .sm-tree-name {
+    overflow-wrap: anywhere;
+    font-family: var(--font-monospace, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+    font-size: 0.79rem;
+    line-height: 1.25rem;
+  }
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_tree_graph(snapshot: ScaffoldTreeSnapshot) -> None:
+    rows: list[str] = []
+    for depth, name, path, is_directory in _iter_tree_nodes(snapshot.relative_paths):
+        kind = "directory" if is_directory else "file"
+        icon = "📁" if is_directory else "📄"
+        rows.append(
+            f'<div class="sm-tree-node sm-tree-node--{kind}" '
+            f'role="treeitem" aria-level="{depth + 1}" '
+            f'data-scaffold-path="{html.escape(path, quote=True)}" '
+            f'style="padding-left:{0.45 + depth * 1.05:.2f}rem">'
+            f'<span class="sm-tree-icon" aria-hidden="true">{icon}</span>'
+            f'<span class="sm-tree-name">{html.escape(name)}</span>'
+            "</div>"
+        )
+    st.markdown(
+        '<div class="sm-scaffold-tree" role="tree">' + "".join(rows) + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _copy_tree_button_html(snapshot: ScaffoldTreeSnapshot) -> str:
+    """Self-contained browser clipboard component for one scaffold tree."""
+
+    payload = json.dumps(_format_scaffold_tree(snapshot), ensure_ascii=False).replace("</", "<\\/")
+    return f"""
+<!doctype html>
+<html lang="sv">
+<head>
+  <style>
+    :root {{ color-scheme: light dark; }}
+    body {{ margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }}
+    button {{
+      appearance: none;
+      border: 1px solid #64748b;
+      border-radius: 0.5rem;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 650;
+      padding: 0.42rem 0.72rem;
+    }}
+    button:hover {{ border-color: #14b8a6; color: #0f766e; }}
+    button:focus-visible {{ outline: 2px solid #14b8a6; outline-offset: 2px; }}
+    #status {{ margin-left: 0.55rem; font-size: 0.78rem; color: #0f766e; }}
+  </style>
+</head>
+<body>
+  <button id="copy-tree" type="button">Kopiera filträd</button>
+  <span id="status" role="status" aria-live="polite"></span>
+  <script>
+    const value = {payload};
+    const button = document.getElementById("copy-tree");
+    const status = document.getElementById("status");
+
+    function fallbackCopy(text) {{
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      const copied = document.execCommand("copy");
+      document.body.removeChild(area);
+      if (!copied) throw new Error("copy command failed");
+    }}
+
+    button.addEventListener("click", async () => {{
+      try {{
+        if (navigator.clipboard && window.isSecureContext) {{
+          await navigator.clipboard.writeText(value);
+        }} else {{
+          fallbackCopy(value);
+        }}
+        status.textContent = "Kopierat ✓";
+      }} catch (error) {{
+        try {{
+          fallbackCopy(value);
+          status.textContent = "Kopierat ✓";
+        }} catch (fallbackError) {{
+          status.textContent = "Kunde inte kopiera";
+        }}
+      }}
+    }});
+  </script>
+</body>
+</html>
+"""
+
+
+def _render_copy_tree_button(snapshot: ScaffoldTreeSnapshot) -> None:
+    markup = _copy_tree_button_html(snapshot)
+    iframe = getattr(st, "iframe", None)
+    if callable(iframe):
+        iframe(markup, height=42)
+    else:
+        # Streamlit 1.49 compatibility. `st.iframe` replaces this API in 1.60,
+        # but requirements.backoffice.txt still intentionally permits 1.49+.
+        components.html(markup, height=42, scrolling=False)
+
+
+def _render_scaffold_tree_view(ctx: BackofficeContext) -> None:
+    snapshots = _discover_scaffold_trees(ctx.scaffolds_dir)
+    if not snapshots:
+        st.info("Inga kompletta scaffold-rötter med `manifest.ts` och `files/` hittades.")
+        return
+
+    _render_tree_styles()
+    total_routes = sum(snapshot.route_count for snapshot in snapshots)
+    metric1, metric2, metric3 = st.columns(3)
+    metric1.metric("Scaffolds på disk", len(snapshots))
+    metric2.metric("Runtimefiler", sum(snapshot.runtime_file_count for snapshot in snapshots))
+    metric3.metric("Routefiler", total_routes)
+
+    st.markdown(
+        "Filträden läses direkt från `src/lib/gen/scaffolds/<id>/` vid varje rendering. "
+        "De visar endast filer som verkligen finns i repot — runtime-tillägg som "
+        "`app/icon.svg` visas därför inte här."
+    )
+
+    preferred_defaults = (
+        "landing-page",
+        "blog",
+        "dashboard",
+        "ecommerce",
+        "app-shell",
+    )
+    by_id = {snapshot.scaffold_id: snapshot for snapshot in snapshots}
+    default_ids = [scaffold_id for scaffold_id in preferred_defaults if scaffold_id in by_id]
+    if len(default_ids) < min(5, len(snapshots)):
+        default_ids.extend(
+            snapshot.scaffold_id
+            for snapshot in snapshots
+            if snapshot.scaffold_id not in default_ids
+        )
+    default_ids = default_ids[:5]
+
+    selected_ids = st.multiselect(
+        "Visa upp till fem scaffolds",
+        options=list(by_id),
+        default=default_ids,
+        max_selections=5,
+        format_func=lambda scaffold_id: f"{by_id[scaffold_id].label} ({scaffold_id})",
+        help="Urvalet påverkar bara vyn. Filerna läses alltid från respektive scaffold-rot.",
+    )
+    if not selected_ids:
+        st.info("Välj minst en scaffold för att visa dess filträd.")
+        return
+
+    columns = st.columns(2)
+    for index, scaffold_id in enumerate(selected_ids):
+        snapshot = by_id[scaffold_id]
+        with columns[index % 2]:
+            with st.container(border=True):
+                st.markdown(f"### {snapshot.label}")
+                st.caption(
+                    f"`{snapshot.scaffold_id}` · {snapshot.site_kind} · {snapshot.complexity}"
+                )
+                st.caption(
+                    f"{snapshot.runtime_file_count} runtimefiler · "
+                    f"{snapshot.route_count} routes · "
+                    f"{snapshot.component_count} komponentfiler · "
+                    f"{snapshot.directory_count} mappar"
+                )
+                _render_tree_graph(snapshot)
+                _render_copy_tree_button(snapshot)
 
 
 def _count_variants(ctx: BackofficeContext) -> int:
@@ -183,27 +518,29 @@ def _render_editor(ctx: BackofficeContext, picked: dict[str, Any]) -> None:
     edit_col1, edit_col2 = st.columns(2)
     with edit_col1:
         new_tags_str = st.text_area(
-            "Tags (en per rad) — matchningssignaler",
+            field_label("tags", hint="en per rad"),
             value="\n".join(picked["tags"]),
             height=150,
             key=f"tags_{selected_id}",
+            help="Matchningssignaler: orden matchern väger scaffolden mot.",
         )
         all_intents = ["website", "app", "template"]
         new_intents = st.multiselect(
-            "Allowed Build Intents — vilka byggen scaffolden får användas för",
+            field_label("allowedBuildIntents"),
             options=all_intents,
             default=[i for i in picked["allowedBuildIntents"] if i in all_intents],
             key=f"intents_{selected_id}",
+            help="Vilka byggen scaffolden får användas för.",
         )
     with edit_col2:
         new_hints_str = st.text_area(
-            "Prompt Hints (en per rad) — instruktioner till own-engine",
+            field_label("promptHints", hint="en per rad"),
             value="\n".join(picked["promptHints"]),
             height=150,
             key=f"hints_{selected_id}",
         )
         new_checklist_str = st.text_area(
-            "Quality Checklist (en per rad) — kvalitetskrav",
+            field_label("qualityChecklist", hint="en per rad"),
             value="\n".join(picked["qualityChecklist"]),
             height=150,
             key=f"checklist_{selected_id}",
@@ -237,7 +574,6 @@ def _render_editor(ctx: BackofficeContext, picked: dict[str, Any]) -> None:
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("Scaffolds: titta & justera")
     render_building_blocks_nav(PAGE_NAME)
     st.markdown(
@@ -248,6 +584,17 @@ def render(ctx: BackofficeContext) -> None:
         "Skapa, klona eller ta bort gör du i **Scaffolds & varianter** — eller med "
         "AI-hjälp i **Guide**. Länkarna ligger i kedjan högst upp."
     )
+
+    tree_tab, metadata_tab = st.tabs(["Filstruktur", "Översikt & metadata"])
+    with tree_tab:
+        _render_scaffold_tree_view(ctx)
+
+    with metadata_tab:
+        _render_scaffold_metadata_view(ctx)
+
+
+def _render_scaffold_metadata_view(ctx: BackofficeContext) -> None:
+    """Befintlig scaffold-översikt/editor, separerad från den nya trädfliken."""
 
     manifests = sorted(ctx.scaffolds_dir.glob("*/manifest.ts"))
     research_path = ctx.research_json
@@ -267,7 +614,6 @@ def render(ctx: BackofficeContext) -> None:
             f"`scaffold-embeddings.json` ({'finns' if embeddings_path.is_file() else 'saknas'})"
         )
         st.markdown("- Validera efter ändring: `npm run scaffolds:validate`")
-        render_where_panel(PAGE_NAME, domain_map)
 
     _render_termguide()
     _render_mental_model(ctx)

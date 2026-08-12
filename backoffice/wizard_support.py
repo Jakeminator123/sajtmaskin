@@ -39,9 +39,11 @@ MAX_EXCERPT_CHARS = 3500
 MAX_TOTAL_EXCERPT_CHARS = 24000
 
 OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
-# gpt-4o är repo-beprövad för vision (analyze_presentation_vision i
-# config/ai_models/manifest.json). Övriga id:n kommer från samma manifest.
-WIZARD_MODEL_CHOICES = ("gpt-4o", "gpt-5.4-mini", "gpt-5.5")
+
+# Modellvalen ägs av `config/ai_models/manifest.json` och läses via
+# `backoffice/ai_workloads.py` (Fas D) — ingen modell-id-lista i den här filen.
+# Wizardens två poster (`..._persona` med vision, `..._guide` ren text) är
+# separata med flit, och ingen av dem är `analyze_presentation_vision`.
 
 KEY_FILE_PATTERNS = (
     re.compile(r"(^|/)package\.json$"),
@@ -114,7 +116,23 @@ Regler:
 - Rekommendera "new-scaffold" BARA om mallens struktur/genre inte täcks av någon befintlig scaffold. Annars "new-variant".
 - "scaffoldDraft" fylls bara i när recommendation är "new-scaffold", annars null.
 - themeTokens: använd oklch() för färger. Utelämna nycklar du är osäker på.
-- Var SPECIFIK ("asymmetrisk hero med flytande produktkort"), aldrig abstrakt ("modern layout").
+
+Konkretionskrav (utkastet ska klara wizardens checklista direkt):
+- variantDraft.id: kebab-case, börjar med en bokstav, bara a-z 0-9 och bindestreck.
+- signatureMotif: EN konkret fras som namnger ett visuellt grepp någon kan peka på
+  ("diagonalt delad hero med överlappande produktkort"). Får inte bestå av bara
+  värdeord — "modern", "clean", "minimalistisk", "elegant", "professionell",
+  "snygg", "tidlös" duger aldrig som motiv i sig.
+- promptHints: minst 2 rader (scaffoldDraft.promptHints likaså), varje rad minst
+  10 tecken och ett direktiv en kodgenerator kan följa ("sektionsrubriker i 72px
+  serif med 4px understrykning"), aldrig en känsla ("gör det luftigt").
+- description/personaNotes: nämn konkreta grepp — inte "modern design".
+- scaffoldDraft, när den fylls: tags 5-10 rader, qualityChecklist minst 3 rader,
+  upgradeTargets minst 1 rad. Färre rader fälls av checklistan i steg 4.
+- Varför konkretionen spelar roll: efter att varianten skapats kurerar
+  `scaffolds:variant-patterns` fram dess `signaturePatterns` (layouts, motifs,
+  antiPatterns) ur just de här fälten. Generiska fraser in ger tomma eller
+  värdelösa mönster ut, och då matchar varianten sämre i runtime.
 """
 
 
@@ -227,6 +245,18 @@ def get_openai_api_key() -> str | None:
     return key or None
 
 
+def usable_still_image_url(template_meta: dict[str, Any]) -> str:
+    """Mallens stillbild om den går att skicka till OpenAI, annars tom sträng.
+
+    Bara `https://` duger: API:t hämtar bilden själv, så en relativ sökväg eller
+    en `http://`-URL når den inte. **Enda** stället där kravet avgörs, så UI:t
+    inte kan säga "stillbilden skickas med" om en URL som anropet tystar bort
+    (Cursor-bugbot, medium, på #656).
+    """
+    url = str(template_meta.get("stillImageUrl", "") or "").strip()
+    return url if url.startswith("https://") else ""
+
+
 def _post_openai_chat(payload: dict[str, Any], api_key: str, *, timeout: int = 180) -> str:
     request = urllib.request.Request(
         OPENAI_CHAT_URL,
@@ -279,6 +309,21 @@ def _is_reasoning_model(model: str) -> bool:
     return m.startswith(("gpt-5", "o1", "o3", "o4"))
 
 
+# Reasoning-modeller räknar sina DOLDA reasoning-tokens mot
+# `max_completion_tokens`. En budget som räckte för gpt-4o kan därför konsumeras
+# helt av tänkandet innan ett enda synligt tecken skrivs — svaret blir tomt
+# `content` och `_post_openai_chat` kastar. Det slog till direkt av Fas D:
+# guidens default gick från gpt-4o till gpt-5.4-mini med samma 500-tak
+# (Vercel Agent Review på #656). Faktorn ger plats för resonemanget; det synliga
+# svaret är fortfarande kort.
+_REASONING_TOKEN_HEADROOM = 4
+
+
+def _completion_budget(model: str, visible_tokens: int) -> int:
+    """Budget för `max_completion_tokens` givet önskad synlig svarslängd."""
+    return visible_tokens * _REASONING_TOKEN_HEADROOM if _is_reasoning_model(model) else visible_tokens
+
+
 def _chat_payload(
     *,
     model: str,
@@ -311,14 +356,27 @@ def run_persona_analysis(
     template_meta: dict[str, Any],
     repo_summary: dict[str, Any] | None,
     scaffold_options: list[dict[str, str]],
+    vision_capable: bool,
 ) -> dict[str, Any]:
     """Run the persona over the selected blob template and return the parsed
-    draft JSON. Raises RuntimeError/ValueError with readable messages."""
+    draft JSON. Raises RuntimeError/ValueError with readable messages.
+
+    ``vision_capable`` styr bildskickningen: bara när manifestet pekar ut det
+    valda modell-id:t som vision-kapabelt
+    (``ai_workloads.model_supports_vision``) bifogas mallens stillbild. Annars
+    går prompten ut som ren text — med en rad som säger att bilden saknas, så
+    personan inte hittar på visuella detaljer den inte kunnat se.
+
+    Argumentet har medvetet **inget default**: en glömd parameter ska bli ett
+    ``TypeError`` här och inte en tyst bild till en textmodell.
+    """
     scaffold_lines = "\n".join(
         f"- {option['id']}: {option.get('label', '')} — {option.get('description', '')[:140]}"
         for option in scaffold_options
     )
     user_parts: list[dict[str, Any]] = []
+    still_url = usable_still_image_url(template_meta)
+    send_image = vision_capable and bool(still_url)
 
     summary_lines = [
         f"Mall (v0-mall i Vercel Blob): {template_meta.get('title', '?')}",
@@ -347,13 +405,21 @@ def run_persona_analysis(
     else:
         summary_lines += [
             "",
-            "(Ingen kodanalys tillgänglig — bedöm utifrån stillbilden och metadatan.)",
+            "(Ingen kodanalys tillgänglig — bedöm utifrån "
+            + ("stillbilden och metadatan.)" if send_image else "metadatan.)"),
+        ]
+
+    if not send_image:
+        summary_lines += [
+            "",
+            "(Ingen stillbild bifogad i det här anropet — beskriv bara visuella "
+            "grepp du kan belägga i kodutdragen/metadatan, och hitta inte på "
+            "detaljer du inte har underlag för.)",
         ]
 
     user_parts.append({"type": "text", "text": "\n".join(summary_lines)})
 
-    still_url = str(template_meta.get("stillImageUrl", "")).strip()
-    if still_url.startswith("https://"):
+    if send_image:
         user_parts.append(
             {
                 "type": "image_url",
@@ -367,7 +433,7 @@ def run_persona_analysis(
             {"role": "system", "content": persona_prompt.strip() + "\n\n" + _OUTPUT_CONTRACT},
             {"role": "user", "content": user_parts},
         ],
-        max_tokens=2000,
+        max_tokens=_completion_budget(model, 2000),
         temperature=0.6,
         response_format={"type": "json_object"},
     )
@@ -382,7 +448,13 @@ def ask_guide(
     question: str,
 ) -> str:
     """Small interactive helper: answers operator questions about the current
-    wizard step in plain Swedish."""
+    wizard step in plain Swedish.
+
+    Svaret ska vara kort (max 6 meningar), men budgeten skalas för
+    reasoning-modeller — se :data:`_REASONING_TOKEN_HEADROOM`. Guidens
+    manifest-default är en gpt-5-modell, så utan skalningen kunde tänkandet äta
+    hela taket och lämna ett tomt svar.
+    """
     payload = _chat_payload(
         model=model,
         messages=[
@@ -397,7 +469,7 @@ def ask_guide(
             },
             {"role": "user", "content": question},
         ],
-        max_tokens=500,
+        max_tokens=_completion_budget(model, 500),
         temperature=0.4,
     )
     return _post_openai_chat(payload, api_key).strip()

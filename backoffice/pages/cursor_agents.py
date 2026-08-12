@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from backoffice.shared import BackofficeContext, read_json, read_text, render_where_panel, write_text
+from backoffice.shared import BackofficeContext, read_text, write_text
 
 CURSOR_AGENT_DOCUMENTS: tuple[tuple[str, str], ...] = (
     (
@@ -17,12 +17,10 @@ CURSOR_AGENT_DOCUMENTS: tuple[tuple[str, str], ...] = (
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("Cursor-agenter — terminologi")
     st.markdown(
         "Här redigerar du **samma filer** som Cursor använder som ordlista och kontext för agenter."
     )
-    render_where_panel("Cursor-agenter", domain_map)
 
     labels = [pair[1] for pair in CURSOR_AGENT_DOCUMENTS]
     picked = st.radio("Välj dokument", labels, horizontal=True, key="cursor_agent_doc")

@@ -1,8 +1,10 @@
 import { previewUrlField } from "@/lib/api/preview-url-contract";
+import { FOCUS_POINT_MARKER as FOLLOW_UP_FOCUS_POINT_MARKER } from "@/lib/builder/focus-point-prompt";
 import { formatSSEEvent } from "@/lib/streaming";
 import { detectFollowUpCapabilities } from "@/lib/builder/follow-up-capability-detection";
 import { hasNegatedRedesignIntent } from "@/lib/builder/prompt-negation";
 import { type FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
+import type { Message } from "@/lib/db/chat-repository-pg";
 
 export type { FollowUpIntentMode };
 
@@ -113,6 +115,31 @@ function hasRedesignVerbNounCombo(message: string): boolean {
   if (!hasVerb) return false;
   const hasNoun = FOLLOW_UP_REDESIGN_NOUN_PATTERNS.some((re) => re.test(message));
   return hasNoun;
+}
+
+/**
+ * Interaktions-scopade prompts ("när jag hovrar …", "vid klick …") beskriver
+ * micro-interaktioner på befintliga element — aldrig en helsajtsredesign.
+ * `h[oå]o?vr` täcker hovra/hovrar och vanliga felstavningar ("hoovrar").
+ */
+// Unicode-aware look-arounds (se kommentar vid FOLLOW_UP_DESIGN_PIN_PATTERNS).
+const FOLLOW_UP_INTERACTION_SCOPE_PATTERNS: RegExp[] = [
+  /(?<![\p{L}\p{N}_])(?:h[oå]o?vr\w*|hover(?:ing|s)?|mouse\s*over|muspekar\w*)(?![\p{L}\p{N}_])/iu,
+  /(?<![\p{L}\p{N}_])(?:klick\w*|click\w*|scroll\w*)(?![\p{L}\p{N}_])/iu,
+];
+
+/**
+ * QW-hover (prod chat 0d52e5c9, 2026-07-31): "…vill jag att färgerna på text
+ * och ikoner ska ändra färger" vid hover + fokuspunkter klassades som
+ * `clear-redesign` via verb+noun-kombon ("ändra" + "färger") och skrev om
+ * hela templaten aggressivt. Kombon är en SVAG signal och får inte ensam
+ * eskalera en interaktions-scopad eller element-utpekad prompt till redesign.
+ * Explicita redesign-fraser ({@link FOLLOW_UP_REDESIGN_PATTERNS}) påverkas
+ * inte av den här dämpningen.
+ */
+function hasTargetedInteractionScope(message: string): boolean {
+  if (message.includes(FOLLOW_UP_FOCUS_POINT_MARKER)) return true;
+  return FOLLOW_UP_INTERACTION_SCOPE_PATTERNS.some((re) => re.test(message));
 }
 
 /**
@@ -237,7 +264,11 @@ export function classifyFollowUpIntent(message: string): FollowUpIntentMode {
   if (!suppressRedesign && FOLLOW_UP_REDESIGN_PATTERNS.some((pattern) => pattern.test(trimmed))) {
     return "clear-redesign";
   }
-  if (!suppressRedesign && hasRedesignVerbNounCombo(trimmed)) {
+  if (
+    !suppressRedesign &&
+    !hasTargetedInteractionScope(trimmed) &&
+    hasRedesignVerbNounCombo(trimmed)
+  ) {
     return "clear-redesign";
   }
   if (!suppressRedesign && looksLikeDetailedNewSiteBrief(trimmed)) {
@@ -346,11 +377,144 @@ export async function persistFollowUpClarification(params: {
         blocking: true,
         reason: clarification.reason,
         awaitingInput: true,
+        // Machine-readable retry marker (prod chat e8bd3ba6): the next turn's
+        // collectFollowUpClarificationAnswer() recovers the ORIGINAL follow-up
+        // prompt when the user answers with a quick-reply option — otherwise
+        // the short option text becomes the whole generation prompt.
+        // Deliberately NOT `contractClarification` (would be consumed by
+        // collectConfirmedContractAnswers) and NOT `f3Continuation` — same
+        // marker discipline as buildF3AwaitingInputUiPart.
+        followUpClarification: true,
+        sourceUserMessage: message,
       },
     }]);
   } catch {
     // Best effort persistence only.
   }
+}
+
+/**
+ * Heading for the wrapped retry prompt once a follow-up scope clarification
+ * has been answered. Lives next to the clarification contract it belongs to;
+ * deliberately distinct from `PROMPT_WRAPPER_HEADINGS.contractClarificationAnswer`
+ * so the two clarification flows stay tellable-apart in prompt dumps.
+ */
+export const FOLLOW_UP_CLARIFICATION_ANSWER_HEADING =
+  "## Follow-up Scope Clarification Answer";
+
+export type FollowUpClarificationAnswerContext = {
+  /** The original detailed follow-up request that triggered the clarification. */
+  sourceUserMessage: string;
+  question: string;
+  /** The quick-reply option the user chose. */
+  answer: string;
+  consumed: true;
+};
+
+function readFollowUpClarificationMarker(
+  message: Pick<Message, "ui_parts">,
+): { question: string; options: string[]; sourceUserMessage: string } | null {
+  const parts = Array.isArray(message.ui_parts) ? message.ui_parts : [];
+  for (const part of parts) {
+    if (!part || typeof part !== "object") continue;
+    if ((part as { type?: unknown }).type !== "tool:awaiting-input") continue;
+    const output = (part as { output?: unknown }).output;
+    if (!output || typeof output !== "object") continue;
+    const record = output as Record<string, unknown>;
+    if (record.followUpClarification !== true) continue;
+    const question =
+      typeof record.question === "string" ? record.question.trim() : "";
+    const sourceUserMessage =
+      typeof record.sourceUserMessage === "string"
+        ? record.sourceUserMessage.trim()
+        : "";
+    const options = Array.isArray(record.options)
+      ? record.options
+          .map((option) => (typeof option === "string" ? option.trim() : ""))
+          .filter(Boolean)
+      : [];
+    if (!question || !sourceUserMessage || options.length === 0) continue;
+    return { question, options, sourceUserMessage };
+  }
+  return null;
+}
+
+/**
+ * Mirror of `collectConfirmedContractAnswers` for follow-up SCOPE
+ * clarifications ({@link persistFollowUpClarification}). Finds the latest
+ * assistant message carrying the `followUpClarification` marker with no user
+ * message after it (same pending semantics as `getLatestPendingReply` /
+ * `hasUserMessageAfter` in BuilderMessageTooling), and treats `currentReply`
+ * as the clarification answer ONLY when it matches one of the persisted
+ * options (trimmed, case-insensitive — the client sends the option verbatim).
+ * A free-typed different reply is a NEW prompt and must not be consumed.
+ */
+export function collectFollowUpClarificationAnswer(
+  messages: Array<Pick<Message, "role" | "content" | "ui_parts">>,
+  currentReply?: string | null,
+): FollowUpClarificationAnswerContext | null {
+  const reply = typeof currentReply === "string" ? currentReply.trim() : "";
+  if (!reply) return null;
+  if (!Array.isArray(messages)) return null;
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message) continue;
+    // A DIFFERENT user message after the clarification means the question was
+    // superseded — nothing pending. A user message IDENTICAL to the current
+    // reply is a prior attempt of the same answer (the handler persists the
+    // user row before codegen, so a failed/retried generation leaves the
+    // option text in history — bugbot on this diff): skip it so the retry
+    // still recovers the original prompt instead of re-orchestrating the bare
+    // option. Trade-off, mirrored from how rare it is: re-sending the exact
+    // option string after a SUCCESSFUL turn also re-consumes the marker and
+    // re-attaches the original request — coherent (same instruction, same
+    // scope) and far less harmful than the lost-instructions failure.
+    if (message.role === "user") {
+      const content = typeof message.content === "string" ? message.content.trim() : "";
+      if (content.toLowerCase() === reply.toLowerCase()) continue;
+      return null;
+    }
+    if (message.role !== "assistant") continue;
+    const marker = readFollowUpClarificationMarker(message);
+    if (!marker) continue;
+    const matchedOption = marker.options.find(
+      (option) => option.toLowerCase() === reply.toLowerCase(),
+    );
+    if (!matchedOption) return null;
+    return {
+      sourceUserMessage: marker.sourceUserMessage,
+      question: marker.question,
+      answer: matchedOption,
+      consumed: true,
+    };
+  }
+  return null;
+}
+
+/**
+ * Intent for the turn that CONSUMES a scope-clarification answer. The chosen
+ * quick-reply option carries intent the original (ambiguous) prompt lacked —
+ * "Gör en tydlig redesign i samma projekt" must classify `clear-redesign`
+ * exactly as it did when the option text was the whole message, otherwise
+ * delta-brief/scaffold-unlock never run despite the user's explicit choice.
+ * Precedence: a clear signal in the answer wins; otherwise a clear signal in
+ * the original prompt; never an `ambiguous-*` mode — the user just resolved
+ * the ambiguity, and the consuming turn skips re-clarification.
+ * Deterministic by design (the options are a fixed set), so this deliberately
+ * bypasses the small-llm strategy router.
+ */
+export function classifyFollowUpClarificationAnswerIntent(
+  answer: string,
+  sourceUserMessage: string,
+): FollowUpIntentMode {
+  const isClear = (mode: FollowUpIntentMode) =>
+    mode !== "neutral" && mode !== "ambiguous-redesign" && mode !== "ambiguous-followup";
+  const fromAnswer = classifyFollowUpIntent(answer);
+  if (isClear(fromAnswer)) return fromAnswer;
+  const fromSource = classifyFollowUpIntent(sourceUserMessage);
+  if (isClear(fromSource)) return fromSource;
+  return "neutral";
 }
 
 export function buildAwaitingClarificationStream(params: {

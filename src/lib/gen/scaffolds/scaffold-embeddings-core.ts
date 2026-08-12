@@ -83,10 +83,18 @@ export async function generateScaffoldEmbeddings(
     );
   }
 
-  const embeddings: ScaffoldEmbeddingEntry[] = inputs.map((input, idx) => ({
-    id: input.id,
-    embedding: response.data[idx].embedding,
-  }));
+  // Map by the response's own `index`, not by array position: the embeddings API
+  // documents `index` precisely because the items are not guaranteed to come back
+  // in request order. A reordered response would otherwise pair every scaffold
+  // with the wrong vector — a silent matcher corruption with no failing check.
+  const byIndex = new Map(response.data.map((item) => [item.index, item.embedding]));
+  const embeddings: ScaffoldEmbeddingEntry[] = inputs.map((input, idx) => {
+    const embedding = byIndex.get(idx);
+    if (!embedding) {
+      throw new Error(`Embedding response missing index ${idx} (scaffold "${input.id}")`);
+    }
+    return { id: input.id, embedding };
+  });
 
   return {
     _meta: {

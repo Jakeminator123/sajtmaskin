@@ -33,6 +33,12 @@ import {
   validateDossierManifest,
 } from "./validate-manifest";
 import type { DossierMockFallbackEntry } from "./validate-manifest";
+import {
+  buildSystemPrompt as buildNormalizerSystemPrompt,
+  runMechanicalChecks as runNormalizerMechanicalChecks,
+  type ProspectPlan,
+  type ReviewOutput,
+} from "../../../../scripts/dossiers/normalize-legacy-prospect";
 
 const VALID_MANIFEST = {
   $schema: "../../../../docs/schemas/strict/dossier.schema.json",
@@ -46,6 +52,29 @@ const VALID_MANIFEST = {
     "A placeholder example dossier used in tests. Demonstrates the minimum shape that passes AJV validation without envVars, files, or exposes.",
   lastVerified: "2026-04-23",
 };
+
+const VALID_HARD_MANIFEST = {
+  ...VALID_MANIFEST,
+  providers: ["example-provider"],
+};
+
+const NORMALIZER_HARD_PLAN: ProspectPlan = {
+  legacyId: "legacy-stripe",
+  targetId: "stripe-checkout",
+  targetClass: "hard",
+  targetCapability: "payments",
+  defaultForCapability: true,
+};
+
+function normalizerReviewOutput(manifest: Record<string, unknown>): ReviewOutput {
+  return {
+    verdict: "accept",
+    manifest,
+    instructions:
+      "# When to use\n\n- Use it.\n\n# How to integrate\n\n- Wire it.\n\n# UX rules\n\n- Be clear.\n\n# Avoid\n\n- Avoid secrets.\n\n# Verification\n\n- Test it.",
+    keepFiles: [],
+  };
+}
 
 describe("validateDossierManifest — happy path", () => {
   it("accepts a minimal valid manifest", () => {
@@ -65,7 +94,7 @@ describe("validateDossierManifest — mock field (Våg 2)", () => {
   it("accepts a manifest with a valid mock mode", () => {
     for (const mock of ["canned", "seed", "success", "none"] as const) {
       const result = validateDossierManifest(
-        { ...VALID_MANIFEST, mock },
+        { ...VALID_HARD_MANIFEST, mock },
         { expectedId: "example-dossier", class: "hard" },
       );
       expect(result.valid).toBe(true);
@@ -82,13 +111,77 @@ describe("validateDossierManifest — mock field (Våg 2)", () => {
 
   it("rejects an unknown mock mode", () => {
     const result = validateDossierManifest(
-      { ...VALID_MANIFEST, mock: "sqlite" },
+      { ...VALID_HARD_MANIFEST, mock: "sqlite" },
       { expectedId: "example-dossier", class: "hard" },
     );
     expect(result.valid).toBe(false);
     if (!result.valid) {
       expect(result.errors.some((e) => e.includes("mock"))).toBe(true);
     }
+  });
+});
+
+describe("validateDossierManifest — provider ownership", () => {
+  it("requires a non-empty providers array for hard manifests", () => {
+    const result = validateDossierManifest(VALID_MANIFEST, {
+      expectedId: "example-dossier",
+      class: "hard",
+    });
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors).toContain("hard manifests must declare a non-empty providers array");
+    }
+  });
+
+  it("forbids providers on soft manifests", () => {
+    const result = validateDossierManifest(VALID_HARD_MANIFEST, {
+      expectedId: "example-dossier",
+      class: "soft",
+    });
+    expect(result.valid).toBe(false);
+    if (!result.valid) {
+      expect(result.errors).toContain("soft manifests must not declare providers");
+    }
+  });
+
+  it("accepts one or more canonical providers on hard manifests", () => {
+    const result = validateDossierManifest(
+      { ...VALID_HARD_MANIFEST, providers: ["openai", "postgres"] },
+      { expectedId: "example-dossier", class: "hard" },
+    );
+    expect(result.valid).toBe(true);
+  });
+});
+
+describe("legacy normalizer — provider ownership", () => {
+  it("asks hard normalization to re-derive explicit providers", () => {
+    const prompt = buildNormalizerSystemPrompt(NORMALIZER_HARD_PLAN);
+    expect(prompt).toContain('"providers": ["canonical-kebab-provider-id"]');
+    expect(prompt).toContain("legacy provider claims MUST NOT be copied blindly");
+  });
+
+  it("omits providers from the soft manifest shape", () => {
+    const prompt = buildNormalizerSystemPrompt({
+      ...NORMALIZER_HARD_PLAN,
+      targetClass: "soft",
+    });
+    expect(prompt).not.toContain('"providers": ["canonical-kebab-provider-id"]');
+  });
+
+  it("fails hard output without providers and soft output that declares them", () => {
+    const hard = runNormalizerMechanicalChecks(
+      NORMALIZER_HARD_PLAN,
+      normalizerReviewOutput({}),
+      "/tmp/prospect",
+    );
+    expect(hard.errors).toContain("hard dossier must declare a non-empty providers array");
+
+    const soft = runNormalizerMechanicalChecks(
+      { ...NORMALIZER_HARD_PLAN, targetClass: "soft" },
+      normalizerReviewOutput({ providers: ["stripe"] }),
+      "/tmp/prospect",
+    );
+    expect(soft.errors).toContain("soft dossier must omit providers");
   });
 });
 
@@ -141,9 +234,7 @@ describe("validateDossierManifest — id/directory mismatch", () => {
     });
     expect(result.valid).toBe(false);
     if (!result.valid) {
-      expect(
-        result.errors.some((e) => e.includes("does not match directory name")),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.includes("does not match directory name"))).toBe(true);
     }
   });
 });
@@ -356,9 +447,7 @@ describe("findMissingInstructionsHeadingsPartitioned", () => {
     const md = `# When to use\n\nbody\n# How to integrate\n`;
     const result = findMissingInstructionsHeadingsPartitioned(md);
     expect(result.missingRequired).toEqual([]);
-    expect(result.missingRecommended.sort()).toEqual(
-      [...RECOMMENDED_INSTRUCTIONS_HEADINGS].sort(),
-    );
+    expect(result.missingRecommended.sort()).toEqual([...RECOMMENDED_INSTRUCTIONS_HEADINGS].sort());
   });
 
   it("matches substring so 'Verification checklist (…)' satisfies 'Verification'", () => {
@@ -369,10 +458,7 @@ describe("findMissingInstructionsHeadingsPartitioned", () => {
 });
 
 describe("findModuleLevelSdkConstructions (B5-standard)", () => {
-  function withTempDossier(
-    source: string,
-    run: (root: string) => void,
-  ): void {
+  function withTempDossier(source: string, run: (root: string) => void): void {
     const tempRoot = mkdtempSync(join(tmpdir(), "dossier-sdk-init-"));
     try {
       mkdirSync(join(tempRoot, "components/api/checkout"), { recursive: true });

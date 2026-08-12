@@ -12,19 +12,21 @@ import { cosineSimilarity } from "@/lib/gen/embeddings/cosine";
 import { recordLlmUsage } from "@/lib/observability/llm-usage";
 import type { FollowUpIntentMode } from "@/lib/gen/follow-up-intent-types";
 
-/**
- * Bakåtkompatibilitets-alias. Den ursprungliga lokala typen är borttagen;
- * matchern lutar sig nu mot den delade `FollowUpIntentMode` i
- * `src/lib/gen/follow-up-intent-types.ts`. Aliasen ligger kvar i fall
- * något test eller framtida konsument importerar det gamla namnet.
- */
-export type LockedVariantFollowUpIntent = FollowUpIntentMode;
-
 export interface LockedVariantForFollowUpInput {
   chatId?: string | null;
   intent: FollowUpIntentMode;
   scaffoldId: string | null | undefined;
   priorVariantId: string | null | undefined;
+  /**
+   * The scaffold-side redesign unlock (`ignorePersistedScaffoldForMatch`).
+   * Some full-redesign phrasings ("gör om hela sajten") unlock the scaffold via
+   * the supplement patterns in `follow-up-clarification.ts` while the intent
+   * classifier still reports `neutral`. Without this input the variant stayed
+   * pinned to the old look, so the user got a rematched scaffold rendered in the
+   * exact style they asked to replace. Optional/back-compat: absent = locked as
+   * before.
+   */
+  scaffoldUnlocked?: boolean;
 }
 
 /**
@@ -37,6 +39,7 @@ export interface LockedVariantForFollowUpInput {
  *
  * Returnerar `null` när:
  *  - intent === 'clear-redesign'
+ *  - `scaffoldUnlocked` (scaffold-sidans redesign-unlock) är satt
  *  - prior-id eller scaffold-id saknas
  *  - prior-id inte längre resolvar i registret
  *
@@ -47,9 +50,10 @@ export interface LockedVariantForFollowUpInput {
 export function lockedVariantForFollowUp(
   input: LockedVariantForFollowUpInput,
 ): ScaffoldVariant | null {
-  if (input.intent === "clear-redesign") {
+  if (input.intent === "clear-redesign" || input.scaffoldUnlocked === true) {
     console.info("[scaffold-variant] variant_lock_skip", {
-      reason: "clear_redesign_intent",
+      reason:
+        input.intent === "clear-redesign" ? "clear_redesign_intent" : "scaffold_unlocked_for_match",
       chatId: input.chatId ?? null,
       scaffoldId: input.scaffoldId ?? null,
       priorVariantId: input.priorVariantId ?? null,
@@ -127,7 +131,10 @@ function applyEvalBlocklist(
   scaffoldId: string | null | undefined,
 ): ScaffoldVariant[] {
   if (!scaffoldId) return variants;
-  const blocked = getBlockedVariantIds(scaffoldId);
+  const blocked = getBlockedVariantIds(
+    scaffoldId,
+    variants.map((variant) => variant.id),
+  );
   if (blocked.size === 0) return variants;
   const filtered = variants.filter((variant) => !blocked.has(variant.id));
   return filtered.length > 0 ? filtered : variants;
@@ -162,6 +169,37 @@ function buildVariantSeedKey(input: PickScaffoldVariantInput): string {
  */
 const VARIANT_EMBEDDING_MIN_SCORE = 0.25;
 
+/**
+ * When #1 leads #2 by at least this margin, pick the winner outright instead
+ * of seed-hash rotating among the top pool. Shared by keyword and embedding
+ * paths; keyword scores are integers so any positive gap clears 0.05.
+ */
+const VARIANT_DOMINANT_MARGIN = 0.05;
+
+/**
+ * Ordgräns-mönster med svensk böjningstolerans: för keywords ≥ 4 tecken får
+ * stammen följas av upp till 4 extra bokstäver, så "natur" träffar
+ * "naturen"/"naturens", "skog" träffar "skogen"/"skogarna" och "kafé" träffar
+ * "kaféet". Korta keywords ("eco", "law", "b2b") förblir exakta ord, och
+ * taket på 4 hindrar breda felträffar ("product" träffar inte
+ * "productivity"). Sammansättningar täcks medvetet inte
+ * ("trädgårdsplanering" kräver eget keyword) — precision före recall.
+ * Exporterad för test.
+ */
+export function buildKeywordWordPattern(keyword: string): RegExp {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Böjningstoleransen gäller bara en-ords-keywords. För fraser ("dark
+  // theme", "white-space") skulle suffixet tyst töja sista ledet ("dark
+  // themed") — fraser matchas ordagrant (bugbot-fynd 2026-07-31).
+  const isSingleWord = !/[\s-]/.test(keyword);
+  const inflectionSuffix =
+    isSingleWord && keyword.length >= 4 ? "\\p{L}{0,4}" : "";
+  return new RegExp(
+    `(?:^|[^\\p{L}\\p{N}])${escaped}${inflectionSuffix}(?:[^\\p{L}\\p{N}]|$)`,
+    "iu",
+  );
+}
+
 function scoreVariant(
   variant: ScaffoldVariant,
   promptLower: string,
@@ -179,10 +217,7 @@ function scoreVariant(
   let keywordHits = 0;
   for (const keyword of variant.keywords) {
     const lower = keyword.toLowerCase();
-    const wordBoundary = new RegExp(
-      `(?:^|[^\\p{L}\\p{N}])${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[^\\p{L}\\p{N}]|$)`,
-      "iu",
-    );
+    const wordBoundary = buildKeywordWordPattern(lower);
     if (wordBoundary.test(promptLower)) {
       keywordHits += 1;
       continue;
@@ -198,10 +233,14 @@ function scoreVariant(
 
   score += keywordHits * 3;
   if (keywordHits >= 2) score += keywordHits * 2;
-  if (variant.colorMode === "dark" && /\b(dark|mörk|noir|black|svart|terminal)\b/i.test(promptLower)) {
+  // Färglägesboosten läser prompt + strukturerade style/tone-keywords: Byggval
+  // skickar "dark mode"/"light mode" via styleKeywordsHint i stället för
+  // prompt-text, och brief-keywords kan bära samma signal.
+  const colorSignalText = [promptLower, ...styleKeywordsLower, ...toneKeywordsLower].join(" ");
+  if (variant.colorMode === "dark" && /\b(dark|mörk|noir|black|svart|terminal)\b/i.test(colorSignalText)) {
     score += 2;
   }
-  if (variant.colorMode === "light" && /\b(light|ljus|airy|clean|ren)\b/i.test(promptLower)) {
+  if (variant.colorMode === "light" && /\b(light|ljus|airy|clean|ren)\b/i.test(colorSignalText)) {
     score += 1;
   }
 
@@ -227,13 +266,33 @@ export function pickScaffoldVariant(
     .sort((a, b) => b.score - a.score || a.variant.id.localeCompare(b.variant.id));
 
   const topScore = ranked[0]?.score ?? 0;
-  const topCandidates =
-    topScore > 0
-      ? ranked.filter((entry) => entry.score > 0).slice(0, 4)
-      : ranked.slice(0, 4);
+  // Vid nollpoäng finns ingen rankning att bevara: `ranked` är då sorterad
+  // enbart på variant-id, så `slice(0, 4)` gjorde bara de fyra första
+  // varianterna i bokstavsordning nåbara. Under `landing-page` kunde t.ex.
+  // hero-fullbleed-bg, nature-flow och warm-editorial ALDRIG väljas för
+  // prompts utan keyword-träff (vanligt för svenska prompts — "skogen"
+  // matchar inte "forest"). Rotera i stället över hela kandidatfältet;
+  // seed-hashen håller valet deterministiskt per prompt/session.
+  if (topScore <= 0) {
+    const hash = hashSeed(buildVariantSeedKey(input));
+    return ranked[hash % ranked.length]?.variant ?? variants[0] ?? null;
+  }
 
+  // Speglar embedding-vägens dominance-margin: när #1 leder klart över #2
+  // vinner toppen rakt av. Seed-hash-rotation bara när poängfältet är jämnt.
+  const positive = ranked.filter((entry) => entry.score > 0);
+  const top = positive[0]!;
+  if (
+    positive.length === 1 ||
+    top.score - positive[1]!.score >= VARIANT_DOMINANT_MARGIN
+  ) {
+    return top.variant;
+  }
+  const tiedCandidates = positive
+    .filter((entry) => top.score - entry.score < VARIANT_DOMINANT_MARGIN)
+    .slice(0, 4);
   const hash = hashSeed(buildVariantSeedKey(input));
-  return topCandidates[hash % topCandidates.length]?.variant ?? variants[0] ?? null;
+  return tiedCandidates[hash % tiedCandidates.length]?.variant ?? top.variant;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -389,7 +448,6 @@ export async function pickScaffoldVariantAsync(
   // `VARIANT_DOMINANT_MARGIN` för att rotationen ska slå in; annars vinner
   // toppen rakt av. Bevarar variation mellan sessioner när cosine-fältet är
   // jämnt men skyddar dominanta embedding-vinster.
-  const VARIANT_DOMINANT_MARGIN = 0.05;
   const top = qualifying[0]!;
   if (
     qualifying.length === 1 ||

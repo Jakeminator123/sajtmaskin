@@ -340,6 +340,13 @@ export const users = pgTable(
   }),
 );
 
+/**
+ * No app code reads or writes this table since the Vercel Marketplace routes
+ * were removed (2026-08-04, zero callers and zero rows in production). The
+ * definition stays because `db-init.mjs` still creates the table and
+ * `db-health-check.mjs` asserts it — dropping either side alone causes schema
+ * drift. Retiring the table is a separate owner decision.
+ */
 export const userIntegrations = pgTable(
   "user_integrations",
   {
@@ -660,6 +667,18 @@ export const engineVersions = pgTable(
      * mekanismer för två jobb, och värdena är olika.
      */
     filesRevision: text("files_revision").generatedAlwaysAs(sql`md5(files_json)`),
+    /**
+     * Env keys declared by the dossiers selected for the generation that
+     * produced this version (deduped; null when none). Preview/F2-only
+     * mock-seed contract: `startPreviewSession` threads these into
+     * `resolvePreviewEnvLayers`, which stub-seeds each still-unset key in the
+     * preview `.env.local` so the dossier UI renders its demo/mock mode —
+     * `lifecycleStage === "design"` only. Persisted so force-restart
+     * (`POST /preview-session`) and the quick-edit preview fallback rebuild
+     * the same env surface as the first post-finalize boot. Never shipped to
+     * F3/deploy env vars — the seed layer is stripped in F3.
+     */
+    selectedDossierEnvKeys: jsonb("selected_dossier_env_keys").$type<string[] | null>(),
     createdAt: timestamptz("created_at").defaultNow().notNull(),
   },
   (table) => ({
@@ -801,6 +820,12 @@ export const generationTelemetry = pgTable(
     scaffoldSelectionMethod: text("scaffold_selection_method"),
     scaffoldSelectionConfidence: text("scaffold_selection_confidence"),
     briefInfluencedSelection: boolean("brief_influenced_selection").default(false).notNull(),
+    /**
+     * Scaffold-variant (stilriktning) som orkestreringen låste för den här
+     * generationen, t.ex. `corporate-grid`. `null` = rad skriven före
+     * kolumnen fanns, eller körning utan variant (legacy-snapshot, eval).
+     */
+    variantId: text("variant_id"),
     model: text("model").notNull(),
     modelTier: text("model_tier"),
     buildIntent: text("build_intent"),
@@ -933,6 +958,21 @@ export const llmUsage = pgTable(
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Domain purchase orders.
+ *
+ * `customer_price` / `vercel_cost` / `years` / `order_id` are LEGACY columns
+ * from the table's dormant era (created by db-init.mjs, never written to).
+ * The live purchase flow uses `price_ore` / `wholesale_ore` instead: Stripe
+ * charges integer minor units, and keeping the ledger in the same unit removes
+ * the rounding step where "shown" and "charged" could drift apart.
+ *
+ * Idempotency lives in two partial unique indexes declared in
+ * `add-domain-purchase-orders.sql` (Drizzle cannot express partial uniques, so
+ * they are SQL-only and asserted by the Postgres-backed test):
+ *   - unique `stripe_session_id` — a redelivered webhook cannot double-charge.
+ *   - unique `lower(domain)` over live statuses — one live order per name.
+ */
 export const domainOrders = pgTable(
   "domain_orders",
   {
@@ -948,9 +988,27 @@ export const domainOrders = pgTable(
     domain_added_to_project: boolean("domain_added_to_project").default(false).notNull(),
     created_at: timestamptz("created_at").defaultNow().notNull(),
     updated_at: timestamptz("updated_at").defaultNow().notNull(),
+    user_id: text("user_id"),
+    chat_id: text("chat_id"),
+    vercel_project_id: text("vercel_project_id"),
+    registrar: text("registrar"),
+    stripe_session_id: text("stripe_session_id"),
+    stripe_payment_intent: text("stripe_payment_intent"),
+    stripe_refund_id: text("stripe_refund_id"),
+    /** Customer-facing amount in öre, frozen at checkout. */
+    price_ore: integer("price_ore"),
+    /** Registrar wholesale in öre at quote time, for margin reporting. */
+    wholesale_ore: integer("wholesale_ore"),
+    paid_at: timestamptz("paid_at"),
+    registered_at: timestamptz("registered_at"),
+    refunded_at: timestamptz("refunded_at"),
+    expires_at: timestamptz("expires_at"),
+    failure_reason: text("failure_reason"),
   },
   (table) => ({
     projectIdx: index("idx_domain_orders_project").on(table.project_id),
     orderIdx: index("idx_domain_orders_order").on(table.order_id),
+    userIdx: index("idx_domain_orders_user").on(table.user_id, table.created_at),
+    statusIdx: index("idx_domain_orders_status").on(table.status),
   }),
 );

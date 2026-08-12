@@ -31,7 +31,6 @@ from backoffice.shared import (
     read_markdown_table_cell,
     render_building_blocks_nav,
     render_save_scope,
-    render_where_panel,
     tech_details,
 )
 
@@ -264,7 +263,6 @@ def _render_tech_details(ctx: BackofficeContext, domain_map: dict) -> None:
             "Sökvägarna ovan speglas i `config/dashboard/domain-map.json`; "
             "kodägarskapet per beslut finns i vyn **Control Plane (cockpit)**."
         )
-        render_where_panel(PAGE_NAME, domain_map)
 
 
 def render(ctx: BackofficeContext) -> None:

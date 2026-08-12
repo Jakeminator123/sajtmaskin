@@ -129,9 +129,7 @@ export function logQualityGateFailuresBestEffort(params: {
   }
 }
 
-export function partitionServerVerifyFailures(
-  results: QualityGateCheckResult[],
-): {
+export function partitionServerVerifyFailures(results: QualityGateCheckResult[]): {
   failedOutputs: ServerVerifyFailedOutput[];
   nonRepairableFailures: QualityGateCheckResult[];
 } {
@@ -170,10 +168,7 @@ type LeaseOutcome = { proceed: true; runId?: string } | { proceed: false };
  *    fire-and-forget job (the additive migration ships before this code per the
  *    plan's deploy order, so this window is normally zero).
  */
-async function acquireVerifyLease(
-  versionId: string,
-  kind: VersionJobKind,
-): Promise<LeaseOutcome> {
+async function acquireVerifyLease(versionId: string, kind: VersionJobKind): Promise<LeaseOutcome> {
   try {
     const lease = await acquireVersionLease(versionId, kind);
     if (!lease) return { proceed: false };
@@ -194,8 +189,9 @@ async function releaseVerifyLease(versionId: string, runId: string | undefined):
 }
 
 async function isLatestVersionForChat(chatId: string, versionId: string): Promise<boolean> {
-  const preferred = (await getPreferredVersion(chatId).catch(() => null))
-    ?? (await getLatestVersion(chatId).catch(() => null));
+  const preferred =
+    (await getPreferredVersion(chatId).catch(() => null)) ??
+    (await getLatestVersion(chatId).catch(() => null));
   return !preferred || preferred.id === versionId;
 }
 
@@ -269,14 +265,16 @@ export async function triggerServerVerification(params: {
   try {
     if (!(await isLatestVersionForChat(chatId, versionId))) {
       await markVersionSupersededByRepair(versionId, null, runId).catch(() => null);
-      await createEngineVersionErrorLogs([{
-        chatId,
-        versionId,
-        level: "warning",
-        category: "server-verify:superseded",
-        message: "Background verification skipped because a newer version already exists.",
-        meta: { serverOwned: true },
-      }]).catch(() => null);
+      await createEngineVersionErrorLogs([
+        {
+          chatId,
+          versionId,
+          level: "warning",
+          category: "server-verify:superseded",
+          message: "Background verification skipped because a newer version already exists.",
+          meta: { serverOwned: true },
+        },
+      ]).catch(() => null);
       return;
     }
     const snapshot = await getVersionFilesSnapshot(versionId);
@@ -292,8 +290,7 @@ export async function triggerServerVerification(params: {
     // + lint) and is never green-lit on the F2/design (typecheck-only) lane
     // (#291 Codex P1 — the first gate can `promoteVersion` before the repair
     // branch is ever reached).
-    const previewPolicy =
-      snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
+    const previewPolicy = snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2";
 
     await markVersionVerifying(versionId, undefined, runId).catch(() => null);
 
@@ -314,7 +311,11 @@ export async function triggerServerVerification(params: {
       checks: resolvePostRepairGateChecks(forceBuildCheck, previewPolicy),
     });
     if (!gateResult) {
-      await failVersionVerification(versionId, "Quality gate unavailable during verification.", runId).catch(() => null);
+      await failVersionVerification(
+        versionId,
+        "Quality gate unavailable during verification.",
+        runId,
+      ).catch(() => null);
       return;
     }
 
@@ -371,15 +372,17 @@ export async function triggerServerVerification(params: {
     // backstop if nothing promotes. Failing the row here would also clobber the
     // owning run on a lease takeover.
     if (advisoryPromote && !advisoryPromoted) {
-      await createEngineVersionErrorLogs([{
-        chatId,
-        versionId,
-        level: "info",
-        category: "quality-gate:typecheck-advisory",
-        message:
-          "F2 render-first: advisory-promotering utfördes inte (lease/guard/DB) — lämnar terminalstatus till DB/route/watchdog.",
-        meta: { serverOwned: true, advisory: true, advisoryPromoted: false },
-      }]).catch(() => null);
+      await createEngineVersionErrorLogs([
+        {
+          chatId,
+          versionId,
+          level: "info",
+          category: "quality-gate:typecheck-advisory",
+          message:
+            "F2 render-first: advisory-promotering utfördes inte (lease/guard/DB) — lämnar terminalstatus till DB/route/watchdog.",
+          meta: { serverOwned: true, advisory: true, advisoryPromoted: false },
+        },
+      ]).catch(() => null);
       return;
     }
 
@@ -427,33 +430,34 @@ export async function triggerServerVerification(params: {
         versionId,
         chatId,
         kind: "typecheck_advisory",
-        message:
-          "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
+        message: "F2 render-first: versionen promotades med typecheck-varningar (advisory).",
         meta: { advisoryChecks: ["typecheck"] },
       });
     }
-    await createEngineVersionErrorLogs([{
-      chatId,
-      versionId,
-      level: passed
-        ? lintAdvisories.length > 0
-          ? "warning"
-          : "info"
-        : advisoryPromoted
-          ? "warning"
-          : "error",
-      category: advisoryPromoted ? "quality-gate:typecheck-advisory" : "preflight:quality-gate",
-      message: passed
-        ? lintAdvisories.length > 0
-          ? "Server verify passed with lint warnings (advisory)."
-          : "Server verify passed."
-        : advisoryPromoted
-          ? "F2 render-first: typecheck-varning (advisory) — previewen renderar; server-verify promotade utan repair."
-          : "Server verify failed.",
-      meta: advisoryPromoted
-        ? { ...qualityGateMeta, advisory: true, failedChecks: ["typecheck"] }
-        : qualityGateMeta,
-    }]).catch((err) => {
+    await createEngineVersionErrorLogs([
+      {
+        chatId,
+        versionId,
+        level: passed
+          ? lintAdvisories.length > 0
+            ? "warning"
+            : "info"
+          : advisoryPromoted
+            ? "warning"
+            : "error",
+        category: advisoryPromoted ? "quality-gate:typecheck-advisory" : "preflight:quality-gate",
+        message: passed
+          ? lintAdvisories.length > 0
+            ? "Server verify passed with lint warnings (advisory)."
+            : "Server verify passed."
+          : advisoryPromoted
+            ? "F2 render-first: typecheck-varning (advisory) — previewen renderar; server-verify promotade utan repair."
+            : "Server verify failed.",
+        meta: advisoryPromoted
+          ? { ...qualityGateMeta, advisory: true, failedChecks: ["typecheck"] }
+          : qualityGateMeta,
+      },
+    ]).catch((err) => {
       console.warn("[server-verify] Failed to persist quality gate summary log:", err);
     });
 
@@ -468,15 +472,17 @@ export async function triggerServerVerification(params: {
         // because verifier-blocking findings (which the caller
         // explicitly knew about when picking diagnosticOnly) still
         // disallow promotion regardless of build/typecheck status.
-        await createEngineVersionErrorLogs([{
-          chatId,
-          versionId,
-          level: "info",
-          category: "server-verify:diagnostic",
-          message:
-            "Server verify gate passed but promotion is suppressed (verifier blockers exist).",
-          meta: { serverOwned: true, diagnosticOnly: true },
-        }]).catch(() => null);
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId,
+            level: "info",
+            category: "server-verify:diagnostic",
+            message:
+              "Server verify gate passed but promotion is suppressed (verifier blockers exist).",
+            meta: { serverOwned: true, diagnosticOnly: true },
+          },
+        ]).catch(() => null);
         // 2026-04-23 (showcase-bug rootfix, fas D2): terminal-state resolve.
         // Since runner.ts no longer pre-commits `failed` for verifier-only
         // blocking, server-verify is the authority that must set terminal
@@ -520,8 +526,9 @@ export async function triggerServerVerification(params: {
       return;
     }
 
-    const { failedOutputs, nonRepairableFailures } =
-      partitionServerVerifyFailures(gateResult.results);
+    const { failedOutputs, nonRepairableFailures } = partitionServerVerifyFailures(
+      gateResult.results,
+    );
     if (nonRepairableFailures.length > 0) {
       await createEngineVersionErrorLogs(
         nonRepairableFailures.map((result) => ({
@@ -560,19 +567,21 @@ export async function triggerServerVerification(params: {
       // failures is enough; manual repair via the explicit
       // `/api/engine/chats/.../repair` HTTP path is still available
       // for the user.
-      await createEngineVersionErrorLogs([{
-        chatId,
-        versionId,
-        level: "warning",
-        category: "server-verify:diagnostic",
-        message:
-          "Server verify gate failed but auto-repair suppressed (verifier blockers already exist; surface findings for inspection only).",
-        meta: {
-          serverOwned: true,
-          diagnosticOnly: true,
-          failedChecks: failedOutputs.map((f) => f.check),
+      await createEngineVersionErrorLogs([
+        {
+          chatId,
+          versionId,
+          level: "warning",
+          category: "server-verify:diagnostic",
+          message:
+            "Server verify gate failed but auto-repair suppressed (verifier blockers already exist; surface findings for inspection only).",
+          meta: {
+            serverOwned: true,
+            diagnosticOnly: true,
+            failedChecks: failedOutputs.map((f) => f.check),
+          },
         },
-      }]).catch(() => null);
+      ]).catch(() => null);
       // 2026-04-23 (showcase-bug rootfix, fas D2): terminal-state resolve.
       // See matching comment in the `passed` branch above. Here verifier-LLM
       // and server-verify both agree the version is broken, so resolve to
@@ -724,11 +733,7 @@ export type BuildErrorRepairOutcome = {
   repairAvailable: boolean;
   /** Varför loopen inte kördes, när `started === false`. */
   skippedReason?:
-    | "auto_repair_disabled"
-    | "not_eligible"
-    | "lease_busy"
-    | "not_latest"
-    | "no_files";
+    "auto_repair_disabled" | "not_eligible" | "lease_busy" | "not_latest" | "no_files";
 };
 
 export async function triggerBuildErrorRepair(params: {
@@ -851,8 +856,7 @@ export async function triggerBuildErrorRepair(params: {
       versionId,
       codeFiles,
       baseFilesJson,
-      previewPolicy:
-        snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2",
+      previewPolicy: snapshot.lifecycleStage === "integrations" ? "fidelity3" : "fidelity2",
       failedOutputs: [failedOutput],
       verifyLaneDurationMs: 0,
       firstFailureCheck: "build",
@@ -1043,7 +1047,10 @@ async function tryServerRepairLoop(params: {
   });
   const initialContent = serializeCodeProject(exportable);
 
-  async function tryPromoteAfterGate(projectContent: string, method: "deterministic" | "llm"): Promise<boolean> {
+  async function tryPromoteAfterGate(
+    projectContent: string,
+    method: "deterministic" | "llm",
+  ): Promise<boolean> {
     // Codex P2 (renew before the post-repair gate): the per-pass onBeforePass
     // renewal only covers the LLM passes. shouldPromoteAfterRepair below runs a
     // preview-host verify that can take up to 300s, after which the
@@ -1059,8 +1066,7 @@ async function tryServerRepairLoop(params: {
     // from `codeFiles` (the pre-repair persisted version) which already
     // carries the canonical scaffold/previous content. See
     // `@/lib/gen/scaffolds/protected-paths` for context.
-    const protectedPartition =
-      partitionGeneratedFilesForProtectedPaths(rawRepairedFiles);
+    const protectedPartition = partitionGeneratedFilesForProtectedPaths(rawRepairedFiles);
     const reinjection = reinjectProtectedPathsFromFallback({
       kept: protectedPartition.kept,
       droppedPaths: protectedPartition.dropped.map((f) => f.path),
@@ -1118,25 +1124,25 @@ async function tryServerRepairLoop(params: {
         console.warn("[server-verify] Post-repair visual QA error (non-fatal):", vqaErr);
       },
     });
-    const visualQAMeta = visualQA
-      ? compactVisualQAForQualityGateLog(visualQA)
-      : undefined;
+    const visualQAMeta = visualQA ? compactVisualQAForQualityGateLog(visualQA) : undefined;
     const postRepairLintAdvisories = collectLintAdvisories(decision.results);
     let promoted = false;
     if (decision.promote) {
       if (!(await isLatestVersionForChat(chatId, versionId))) {
         await markVersionSupersededByRepair(versionId, null, runId).catch(() => null);
-        await createEngineVersionErrorLogs([{
-          chatId,
-          versionId,
-          level: "warning",
-          category: "server-verify:superseded",
-          message: "Post-repair promotion skipped because a newer version already exists.",
-          meta: {
-            method,
-            serverOwned: true,
+        await createEngineVersionErrorLogs([
+          {
+            chatId,
+            versionId,
+            level: "warning",
+            category: "server-verify:superseded",
+            message: "Post-repair promotion skipped because a newer version already exists.",
+            meta: {
+              method,
+              serverOwned: true,
+            },
           },
-        }]).catch(() => null);
+        ]).catch(() => null);
         return false;
       }
       const filesJson = JSON.stringify(repairedFiles);
@@ -1149,7 +1155,13 @@ async function tryServerRepairLoop(params: {
       // status='running'); if another run took over, saveRepairedFiles's
       // lease-conditioned write no-ops, so we never clobber a newer repair.
       if (runId) await renewVersionLease(versionId, runId).catch(() => {});
-      const saveResult = await saveRepairedFiles(versionId, filesJson, msg, runId, baseFilesJson).catch((err) => {
+      const saveResult = await saveRepairedFiles(
+        versionId,
+        filesJson,
+        msg,
+        runId,
+        baseFilesJson,
+      ).catch((err) => {
         console.warn("[server-verify] Failed to save repaired version files:", err);
         return { status: "failed" as const };
       });
@@ -1288,6 +1300,7 @@ async function tryServerRepairLoop(params: {
     fixerModel,
     fixerThinking: fixerThinking?.thinking,
     fixerReasoningEffort: fixerThinking?.reasoningEffort,
+    fixerReasoningMode: fixerThinking?.reasoningMode,
     recurringPatterns: readRecurringPatternsForChat(chatId),
     hasActionableErrorContext: hadQualityGateFailures,
     repairLedger,
@@ -1328,15 +1341,17 @@ async function tryServerRepairLoop(params: {
   if (!loopResult.promoted && loopResult.earlyStopReason === "superseded") {
     if (supersededKind === "newer_version") {
       await markVersionSupersededByRepair(versionId, null, runId).catch(() => null);
-      await createEngineVersionErrorLogs([{
-        chatId,
-        versionId,
-        level: "warning",
-        category: "server-verify:superseded",
-        message:
-          "Server repair aborted early: a newer version exists, so the repair result would be discarded.",
-        meta: { serverOwned: true, supersededKind },
-      }]).catch(() => null);
+      await createEngineVersionErrorLogs([
+        {
+          chatId,
+          versionId,
+          level: "warning",
+          category: "server-verify:superseded",
+          message:
+            "Server repair aborted early: a newer version exists, so the repair result would be discarded.",
+          meta: { serverOwned: true, supersededKind },
+        },
+      ]).catch(() => null);
       logRepairOutcome(
         chatId,
         versionId,
@@ -1379,15 +1394,17 @@ async function tryServerRepairLoop(params: {
     // failed from a stale repair(A). Signal the caller to re-verify the current
     // files (B) on a fresh lease so B reaches an honest terminal state instead
     // of lingering in `repairing` (where the readiness watchdog could fail it).
-    await createEngineVersionErrorLogs([{
-      chatId,
-      versionId,
-      level: "warning",
-      category: "server-verify:stale-base-skip",
-      message:
-        "Post-repair finalize skipped: files_json advanced (concurrent edit); re-verifying the current files instead of failing from stale repair.",
-      meta: { serverOwned: true, staleBaseNoOp: true },
-    }]).catch(() => null);
+    await createEngineVersionErrorLogs([
+      {
+        chatId,
+        versionId,
+        level: "warning",
+        category: "server-verify:stale-base-skip",
+        message:
+          "Post-repair finalize skipped: files_json advanced (concurrent edit); re-verifying the current files instead of failing from stale repair.",
+        meta: { serverOwned: true, staleBaseNoOp: true },
+      },
+    ]).catch(() => null);
     logRepairOutcome(
       chatId,
       versionId,
@@ -1481,30 +1498,32 @@ function logRepairOutcome(
     syntaxCleanGateFailed: outcomeQualifier?.syntaxCleanGateFailed,
     earlyStopReason,
   });
-  createEngineVersionErrorLogs([{
-    chatId,
-    versionId,
-    level: repaired ? "info" : "warning",
-    category: "server-repair",
-    message,
-    meta: {
-      ...buildServerRepairOutcomeMeta({
-        method,
-        llmPasses,
-        repaired,
-        remainingErrors,
-        remainingErrorsSource: outcomeQualifier?.remainingErrorsSource,
-        syntaxCleanGateFailed: outcomeQualifier?.syntaxCleanGateFailed,
-        earlyStopReason,
-        verifyLaneDurationMs: verifyContext?.verifyLaneDurationMs ?? 0,
-        firstFailureCheck: verifyContext?.firstFailureCheck ?? null,
-        jobStartedAt: verifyContext?.jobStartedAt ?? null,
-        jobFinishedAt: verifyContext?.jobFinishedAt ?? null,
-        errorManifest: errorManifest ?? null,
-      }),
-      ...(fixerModelId ? { fixerModelId } : {}),
+  createEngineVersionErrorLogs([
+    {
+      chatId,
+      versionId,
+      level: repaired ? "info" : "warning",
+      category: "server-repair",
+      message,
+      meta: {
+        ...buildServerRepairOutcomeMeta({
+          method,
+          llmPasses,
+          repaired,
+          remainingErrors,
+          remainingErrorsSource: outcomeQualifier?.remainingErrorsSource,
+          syntaxCleanGateFailed: outcomeQualifier?.syntaxCleanGateFailed,
+          earlyStopReason,
+          verifyLaneDurationMs: verifyContext?.verifyLaneDurationMs ?? 0,
+          firstFailureCheck: verifyContext?.firstFailureCheck ?? null,
+          jobStartedAt: verifyContext?.jobStartedAt ?? null,
+          jobFinishedAt: verifyContext?.jobFinishedAt ?? null,
+          errorManifest: errorManifest ?? null,
+        }),
+        ...(fixerModelId ? { fixerModelId } : {}),
+      },
     },
-  }]).catch((err) => {
+  ]).catch((err) => {
     console.warn("[server-verify] Failed to persist server-repair outcome log:", err);
   });
 }

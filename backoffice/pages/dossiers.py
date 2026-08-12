@@ -1,21 +1,27 @@
 """
-Backoffice page: Dossiers (capability-driven, v2 layout).
+Backoffice page: Byggblock (dossiers) — capability-driven, v2 layout.
 
-Reads the new minimal layout:
+Reads the minimal layout:
     data/dossiers/hard/<id>/manifest.json
     data/dossiers/soft/<id>/manifest.json
     data/dossiers/_index/capability-map.json
 
+Five tabs (Fas C): Översikt · Lista · Redigera · Skapa · Kontroller.
 Lets you:
-- Browse all dossiers (hard + soft) with the 4-field summary, optionally
-  grouped per dossier-grupp (kategori).
-- Edit a manifest in-place (text area, validates JSON before save).
-- Delete a dossier from the live pool (dossier-rules checklist + explicit
-  id confirmation).
-- Trigger an AI-curation run from a template-references repo (single dossier
-  at a time, not batch), optionally within a chosen kategori/capability.
+- Browse all byggblock (hard + soft) with Swedish labels, optionally grouped
+  per dossier-grupp; the technical column view lives in the tech expander.
+- Edit the safe manifest fields via a form (fail-closed chain:
+  `_validate_manifest` → strict schema → `backup_file` → write), or the raw
+  JSON in the tech expander (same class-aware pre-check + strict schema before
+  backup/write).
+- Delete a byggblock from the live pool (danger zone: dossier-rules checklist
+  + typed id confirmation + zip snapshot).
+- Create a byggblock from scratch (manifest skeleton + instructions stub,
+  strict schema green BEFORE anything is written, never overwrites).
+- Trigger an AI-curation run from a template-references repo, or the
+  legacy-import normalizer.
 - Rebuild capability-map.json (incl. the groups view) via the canonical TS
-  script.
+  script (Kontroller tab).
 
 Source-of-truth for the format: docs/contracts/dossier-system.md
 """
@@ -32,14 +38,18 @@ from typing import Any
 
 import streamlit as st
 
+from backoffice.ai_workloads import WORKLOAD_DOSSIER_CURATION, resolve_model_choices
 from backoffice.shared import (
     backup_file,
     backup_tree,
-    read_json,
+    confirm_by_typing,
+    danger_zone,
+    field_label,
     render_building_blocks_nav,
     render_save_scope,
-    render_where_panel,
+    run_repo_command,
     tech_details,
+    validate_json_against_schema,
 )
 
 PAGE_NAME = "Byggblock (dossiers)"
@@ -58,6 +68,180 @@ CAPABILITY_TIERS_PATH = (
 )
 
 REQUIRED_FIELDS = ("id", "label", "capability", "codeFidelity", "complexity", "summary", "lastVerified")
+
+VALIDATE_MANIFEST_TS_PATH = (
+    REPO_ROOT / "src" / "lib" / "gen" / "dossiers" / "validate-manifest.ts"
+)
+
+# Kebab-case + längd 2-60: samma regler som strict-schemat ställer på
+# `capability`; id-mönstret i schemat saknar längdgräns men delar formen.
+_KEBAB_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+# --- Glossary-svenska (C3) -----------------------------------------------------
+# UI-etiketter för manifest-/klassvärden. Kod-id, manifestfält och enum-värden
+# behåller sina engelska namn — bara etiketten är svensk, med det tekniska
+# värdet i parentes (samma mönster som `field_label`). Kanonisk ordkälla:
+# docs/architecture/glossary.md (raden "Dossier" + "Mock mode (dossier)").
+
+CLASS_LABELS: dict[str, str] = {
+    "hard": "Kopplad",
+    "soft": "Fristående",
+}
+
+MOCK_LABELS: dict[str, str] = {
+    "canned": "Fabricerat demo-svar",
+    "seed": "Medskickad demo-data",
+    "success": "Fejkad success + demo-notis",
+    "visual": "Full yta, ärlig demo-notis",
+    "none": "Ingen demo-yta",
+}
+
+
+def class_label(klass: str) -> str:
+    """Svensk etikett för dossier-klassen, tekniskt värde i parentes:
+    ``class_label("hard")`` → ``Kopplad (hard)``. Okänt värde renderas rått
+    (hellre ärligt tekniskt än en påhittad översättning)."""
+    label = CLASS_LABELS.get(klass, "").strip()
+    return f"{label} ({klass})" if label else str(klass)
+
+
+def mock_label(mock: str | None) -> str:
+    """Svensk etikett för demoläget (`mock`), tekniskt värde i parentes.
+    Utelämnat fält räknas som `none`, precis som i runtime."""
+    value = (mock or "none").strip() or "none"
+    label = MOCK_LABELS.get(value, "").strip()
+    return f"{label} ({value})" if label else str(value)
+
+
+def requires_f3(manifest: dict[str, Any]) -> bool:
+    """Kräver byggblocket ett eget F3-steg ("Bygg integrationer")?
+
+    Spegling av ``dossierRequiresF3()`` i ``src/lib/gen/dossiers/types.ts``,
+    som är den kanoniska källan. Två regler, båda måste vara falska för att
+    byggblocket ska vara klart redan i designläget:
+
+    1. en ``envVars``-post med ``enforcement: "build"`` (default när fältet
+       utelämnas), eller
+    2. en ``files``-post med ``role: "server"``.
+
+    Regeln bor i två skrivvägar (TS + Python) därför att listvyn inte ska
+    behöva ett Node-anrop per rendering; pariteten mot TS-källan grindas i
+    ``backoffice/test_dossiers_page.py``. Ändra alltid TS först.
+
+    **Obs:** detta är en egen axel — den följer varken av Kopplad/Fristående
+    eller av demoläget.
+    """
+    for env in manifest.get("envVars") or []:
+        if isinstance(env, dict) and (env.get("enforcement") or "build") == "build":
+            return True
+    for file_entry in manifest.get("files") or []:
+        if isinstance(file_entry, dict) and file_entry.get("role") == "server":
+            return True
+    return False
+
+
+# Dokumenterat fallback-par (docs/contracts/dossier-system.md) om TS-filen
+# inte kan tolkas. Paritet mot den kanoniska källan grindas i
+# backoffice/test_dossiers_page.py.
+_MOCKLESS_FALLBACK = frozenset({"analytics", "error-tracking"})
+
+
+def _load_mockless_capability_exceptions() -> frozenset[str]:
+    """Capabilities där `mock: none` är legitimt för en Kopplad (hard) dossier.
+
+    Kanonisk källa är ``MOCKLESS_CAPABILITY_EXCEPTIONS`` i
+    ``src/lib/gen/dossiers/validate-manifest.ts`` — nycklarna läses därifrån
+    (aldrig en egen Python-lista som kan drifta). Kan filen inte läsas/tolkas
+    används det dokumenterade paret, så skapa-formuläret aldrig blir mer
+    tillåtande än CI-invarianten."""
+    try:
+        text = VALIDATE_MANIFEST_TS_PATH.read_text(encoding="utf-8")
+    except OSError:
+        return _MOCKLESS_FALLBACK
+    match = re.search(
+        r"export const MOCKLESS_CAPABILITY_EXCEPTIONS[^=]*=\s*\{(.*?)\}\s*as const",
+        text,
+        re.DOTALL,
+    )
+    if not match:
+        return _MOCKLESS_FALLBACK
+    keys = re.findall(
+        r'^\s*(?:"([^"\n]+)"|([A-Za-z0-9_-]+))\s*:', match.group(1), re.MULTILINE
+    )
+    found = frozenset(quoted or bare for quoted, bare in keys)
+    return found or _MOCKLESS_FALLBACK
+
+
+_COMPLEXITY_FALLBACK = ("simple", "medium", "advanced")
+_MOCK_FALLBACK = ("canned", "seed", "success", "visual", "none")
+
+
+def _schema_enum(field: str, fallback: tuple[str, ...]) -> tuple[str, ...]:
+    """Enum-värdena för ett manifestfält, lästa ur strict-schemat.
+
+    ``docs/schemas/strict/dossier.schema.json`` äger enum:arna. En handskriven
+    kopia i UI:t driftar tyst så fort schemat får ett nytt värde — formuläret
+    slutar erbjuda det utan att något fäller — så listorna läses därifrån.
+    Kan schemat inte läsas används fallbacken, så formulären aldrig blir tomma.
+    Pariteten grindas i ``backoffice/test_dossiers_page.py``.
+    """
+    try:
+        schema = json.loads(STRICT_SCHEMA_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return fallback
+    field_schema = (schema.get("properties") or {}).get(field) or {}
+    values = tuple(
+        str(v) for v in (field_schema.get("enum") or []) if str(v).strip()
+    )
+    return values or fallback
+
+
+def is_default_for_capability(manifest: dict[str, Any] | None) -> bool:
+    """Strikt ``defaultForCapability is True`` — samma regel som valideraren.
+
+    ``scripts/dossiers/validate-all.ts:117`` räknar bara ``=== true``, och
+    rå-JSON-vägens medvetet lättare kedja kan lägga en sträng i fältet.
+    ``"false"`` är truthy i Python, så en falsy-koll gör UI:t och grindarna
+    osanna åt olika håll: listan visar en bock som CI inte ser, och kryssrutan
+    renderas ikryssad så nästa sparning skriver ett äkta ``true``. Läs fältet
+    genom denna hjälpare, aldrig med en rå truthiness-koll.
+    """
+    return (manifest or {}).get("defaultForCapability") is True
+
+
+def _existing_default_for_capability(capability: str, *, exclude: Path) -> str | None:
+    """``<klass>/<id>`` för det byggblock som redan är Standardval, om något.
+
+    Unikheten är ett **kors-manifest**-krav som bara
+    ``npm run dossiers:validate-all`` kontrollerar (`defaultForCapability
+    uniqueness`) — varken strict-schemat eller ``_validate_manifest`` ser
+    syskonen, eftersom båda validerar ett manifest i taget. Utan denna
+    scanning kan en sparning lämna poolen i ett läge där två byggblock gör
+    anspråk på samma funktion, och felet syns först i CI eller vid selektion.
+    """
+    cap = capability.strip().lower()
+    if not cap:
+        return None
+    try:
+        exclude_resolved = exclude.resolve()
+    except OSError:
+        exclude_resolved = exclude
+    for class_dir in ("hard", "soft"):
+        root = DOSSIER_ROOT / class_dir
+        if not root.is_dir():
+            continue
+        for manifest_path in sorted(root.glob("*/manifest.json")):
+            try:
+                if manifest_path.resolve() == exclude_resolved:
+                    continue
+            except OSError:
+                pass
+            data = _load_json(manifest_path) or {}
+            if not is_default_for_capability(data):
+                continue
+            if str(data.get("capability") or "").strip().lower() == cap:
+                return f"{class_dir}/{manifest_path.parent.name}"
+    return None
 
 
 def _load_json(path: Path) -> dict[str, Any] | None:
@@ -97,7 +281,9 @@ def _walk_all_dossiers() -> list[dict[str, Any]]:
 _ALLOWED_ENFORCEMENT = {"build", "feature-runtime", "warn-only"}
 
 
-def _validate_manifest(data: dict[str, Any]) -> list[str]:
+def _validate_manifest(
+    data: dict[str, Any], dossier_class: str | None = None
+) -> list[str]:
     errors: list[str] = []
     for f in REQUIRED_FIELDS:
         if f not in data:
@@ -108,6 +294,13 @@ def _validate_manifest(data: dict[str, Any]) -> list[str]:
         errors.append("complexity must be 'simple' | 'medium' | 'advanced'")
     if "id" in data and not isinstance(data["id"], str):
         errors.append("id must be a string")
+    providers = data.get("providers")
+    if dossier_class == "hard" and (
+        not isinstance(providers, list) or not providers
+    ):
+        errors.append("hard manifests must declare a non-empty providers array")
+    elif dossier_class == "soft" and "providers" in data:
+        errors.append("soft manifests must not declare providers")
     # P31: per-envVar `enforcement` is optional but, when present, must be one
     # of the three documented values. Defaults to "build" downstream.
     env_vars = data.get("envVars") or []
@@ -124,6 +317,30 @@ def _validate_manifest(data: dict[str, Any]) -> list[str]:
                     f"{sorted(_ALLOWED_ENFORCEMENT)} (got {enforcement!r})"
                 )
     return errors
+
+
+def _save_raw_manifest(
+    manifest_path: Path, manifest: dict[str, Any], *, dossier_class: str
+) -> tuple[bool, str]:
+    """Fail-closed raw-editor write: class-aware pre-check + strict schema
+    before the shared backup/write helper. Raw JSON gives access to every
+    schema field, not permission to bypass the runtime contract."""
+    errors = _validate_manifest(manifest, dossier_class)
+    if errors:
+        return False, "Validering misslyckades — sparade inte:\n" + "\n".join(
+            f"- {error}" for error in errors
+        )
+    try:
+        schema_errors = validate_json_against_schema(manifest, STRICT_SCHEMA_PATH)
+    except Exception as exc:  # noqa: BLE001 - fail closed, never save unvalidated
+        schema_errors = [f"Strict-schemavalidering kunde inte köras: {exc}"]
+    if schema_errors:
+        return False, (
+            "Strict-schema (samma regler som runtime/CI) misslyckades — sparade inte:\n"
+            + "\n".join(f"- {error}" for error in schema_errors)
+        )
+    _save_json(manifest_path, manifest)
+    return True, ""
 
 
 def _summarize_enforcement(data: dict[str, Any]) -> str:
@@ -268,38 +485,55 @@ def _section_overview(dossiers: list[dict[str, Any]]) -> None:
     soft = [d for d in dossiers if d["_class"] == "soft"]
     cols = st.columns(4)
     cols[0].metric("Totalt", len(dossiers))
-    cols[1].metric("Hard", len(hard))
-    cols[2].metric("Soft", len(soft))
+    cols[1].metric("Kopplade (hard)", len(hard))
+    cols[2].metric("Fristående (soft)", len(soft))
     caps = {d.get("capability", "?") for d in dossiers}
-    cols[3].metric("Capabilities", len(caps))
+    cols[3].metric("Funktioner (capabilities)", len(caps))
+    st.caption(
+        "**Kopplad** = kräver en extern tjänst/nycklar (Stripe, databas …). "
+        "**Fristående** = behöver bara npm-paket. Varje byggblock hör till "
+        "exakt en **funktion** (capability) — det är funktionen briefen ber "
+        "om som styr vilket byggblock som väljs."
+    )
 
 
 def _section_list(dossiers: list[dict[str, Any]]) -> None:
-    st.subheader("Alla dossiers")
+    st.subheader("Alla byggblock")
     if not dossiers:
-        st.info("Inga dossiers ännu. Skapa en under `data/dossiers/hard/` eller `soft/`, eller använd AI-kurations-tabben nedan.")
+        st.info(
+            "Inga byggblock ännu. Skapa ett i Skapa-tabben (från grunden eller "
+            "via AI-kuration), eller lägg en katalog under `data/dossiers/hard/` "
+            "eller `soft/` för hand."
+        )
         return
     rows: list[dict[str, Any]] = []
     for d in dossiers:
         rows.append({
             "id": d.get("id"),
-            "class": d["_class"],
-            "capability": d.get("capability"),
-            "codeFidelity": d.get("codeFidelity"),
-            "complexity": d.get("complexity"),
-            "default": "✓" if d.get("defaultForCapability") else "",
-            "envVars": len(d.get("envVars") or []),
-            # B = build, F = feature-runtime, W = warn-only enforcement counts.
-            "enforcement": _summarize_enforcement(d),
-            "deps": len(d.get("dependencies") or []),
-            "files": len(d.get("files") or []),
-            "lastVerified": d.get("lastVerified"),
+            "Klass": class_label(d["_class"]),
+            "Funktion": d.get("capability"),
+            "Standardval": "✓" if is_default_for_capability(d) else "",
+            "Demoläge": mock_label(d.get("mock")) if d["_class"] == "hard" else "—",
+            "Kräver F3": "✓" if requires_f3(d) else "",
+            "Kodtrohet": d.get("codeFidelity"),
+            "Komplexitet": d.get("complexity"),
+            "Nycklar": len(d.get("envVars") or []),
+            "Senast verifierad": d.get("lastVerified"),
+            # Bara för sortering/gruppering — visas inte som egen kolumn.
+            "_class": d["_class"],
+            "_enforcement": _summarize_enforcement(d),
+            "_deps": len(d.get("dependencies") or []),
+            "_files": len(d.get("files") or []),
         })
 
-    caption = (
-        "Enforcement-kolumn: B=build (blockerar F3), F=feature-runtime "
-        "(UI-banner / popup vid runtime), W=warn-only (komponent self-disablar). "
-        "Saknat tag på en envVar tolkas som B."
+    st.caption(
+        "**Standardval** = vinner när flera byggblock delar samma funktion. "
+        "**Demoläge** = hur ett Kopplat byggblock ser ut i preview utan riktig "
+        "nyckel. **Kräver F3** = den riktiga integrationen byggs i ett eget "
+        "steg (byggnödvändig nyckel eller serverfil) — det följer *inte* av "
+        "Kopplad/Fristående, och ett Kopplat byggblock kan mycket väl vara "
+        "klart redan i designläget. Leverantörssyskon = flera byggblock under "
+        "samma funktion."
     )
 
     groups = _load_group_view()
@@ -310,77 +544,253 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
             "Grupperar listan efter dossier-grupp — läst från "
             "capability-map.json:s genererade `groups`-fält (kanonisk källa: "
             "src/lib/builder/dossier-groups.ts). Kör 'Bygg om' i "
-            "Capability map-fliken om grupperna saknas/är inaktuella."
+            "Kontroller-tabben om grupperna saknas/är inaktuella."
         ),
     )
     if grouped_view and not groups:
         st.warning(
             "`capability-map.json` saknar `groups`-fältet ännu — kör 'Bygg om' "
-            "i Capability map-fliken (eller `npm run dossiers:capability-map:write`) "
+            "i Kontroller-tabben (eller `npm run dossiers:capability-map:write`) "
             "för att aktivera gruppvyn."
         )
         grouped_view = False
     elif grouped_view and _groups_view_is_stale(groups, dossiers):
         st.warning(
-            "`groups`-vyn täcker inte alla capabilities i live-poolen (inaktuell) "
-            "— rader kan hamna under Övrigt. Kör 'Bygg om' i Capability map-fliken."
+            "`groups`-vyn täcker inte alla funktioner i live-poolen (inaktuell) "
+            "— rader kan hamna under Övrigt. Kör 'Bygg om' i Kontroller-tabben."
         )
 
+    def _display(row: dict[str, Any]) -> dict[str, Any]:
+        return {k: v for k, v in row.items() if not k.startswith("_")}
+
     if not grouped_view:
-        rows.sort(key=lambda r: (r["class"], r["capability"] or "", r["id"]))
-        st.dataframe(rows, width="stretch", hide_index=True)
-        st.caption(caption)
-        return
+        rows.sort(key=lambda r: (r["_class"], r["Funktion"] or "", r["id"]))
+        st.dataframe([_display(r) for r in rows], width="stretch", hide_index=True)
+    else:
+        rows_by_label: dict[str, list[dict[str, Any]]] = {}
+        for row in rows:
+            label = _group_label_for_capability(row["Funktion"], groups)
+            rows_by_label.setdefault(label, []).append(row)
 
-    rows_by_label: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        label = _group_label_for_capability(row["capability"], groups)
-        rows_by_label.setdefault(label, []).append(row)
+        ordered_labels = [info.get("label") or "Övrigt" for info in groups.values()]
+        for label in ordered_labels:
+            group_rows = rows_by_label.pop(label, None)
+            if not group_rows:
+                continue
+            group_rows.sort(key=lambda r: (r["Funktion"] or "", r["_class"], r["id"]))
+            st.markdown(f"**{label}** ({len(group_rows)})")
+            st.dataframe([_display(r) for r in group_rows], width="stretch", hide_index=True)
+        # Safety net: any label not present in the generated view (should not
+        # happen once regenerated, but never silently drop rows).
+        for label, group_rows in rows_by_label.items():
+            group_rows.sort(key=lambda r: (r["Funktion"] or "", r["_class"], r["id"]))
+            st.markdown(f"**{label}** ({len(group_rows)})")
+            st.dataframe([_display(r) for r in group_rows], width="stretch", hide_index=True)
 
-    ordered_labels = [info.get("label") or "Övrigt" for info in groups.values()]
-    for label in ordered_labels:
-        group_rows = rows_by_label.pop(label, None)
-        if not group_rows:
-            continue
-        group_rows.sort(key=lambda r: (r["capability"] or "", r["class"], r["id"]))
-        st.markdown(f"**{label}** ({len(group_rows)})")
-        st.dataframe(group_rows, width="stretch", hide_index=True)
-    # Safety net: any label not present in the generated view (should not
-    # happen once regenerated, but never silently drop rows).
-    for label, group_rows in rows_by_label.items():
-        group_rows.sort(key=lambda r: (r["capability"] or "", r["class"], r["id"]))
-        st.markdown(f"**{label}** ({len(group_rows)})")
-        st.dataframe(group_rows, width="stretch", hide_index=True)
+    # Teknisk kolumnvy (C3): enforcement-profilen är kuratorsjargong och bor i
+    # teknik-expandern i stället för i default-listan.
+    with tech_details("Visa teknisk kolumnvy (enforcement, deps, filer)"):
+        st.caption(
+            "Enforcement-kolumn: B=build (blockerar F3), F=feature-runtime "
+            "(UI-banner / popup vid runtime), W=warn-only (komponent self-disablar). "
+            "Saknat tag på en envVar tolkas som B."
+        )
+        tech_rows = [
+            {
+                "id": r["id"],
+                "class": r["_class"],
+                "capability": r["Funktion"],
+                "enforcement": r["_enforcement"],
+                "envVars": r["Nycklar"],
+                "deps": r["_deps"],
+                "files": r["_files"],
+            }
+            for r in rows
+        ]
+        tech_rows.sort(key=lambda r: (r["class"], r["capability"] or "", r["id"]))
+        st.dataframe(tech_rows, width="stretch", hide_index=True)
 
-    st.caption(caption)
+
+def _apply_manifest_field_edits(
+    manifest_path: Path, updates: dict[str, Any], *, dossier_class: str
+) -> tuple[bool, str]:
+    """Patcha de trygga fälten i ett befintligt manifest (C4). Pure (ingen
+    Streamlit) så skrivvägen är enhetstestbar. Samma fail-closed-kedja som
+    rå-JSON-editorn: ``_validate_manifest`` → strict-schema → ``_save_json``
+    (backup + skriv). ``None`` som värde tar bort ett valfritt fält
+    (`summarySv`, `mock`, `defaultForCapability`). Inget skrivs om någon av
+    valideringarna faller.
+
+    ``dossier_class`` är obligatorisk och keyword-only därför att den sista
+    grinden behöver den: en Kopplad (hard) dossier får inte sparas utan
+    demoläge om capabilityn inte står på ``MOCKLESS_CAPABILITY_EXCEPTIONS``.
+    Samma regel som :func:`_create_dossier_skeleton` — utan den kunde
+    skapa-vägen vägra ett tillstånd som redigera-vägen sedan skrev, och
+    resultatet fällde ``npm run dossiers:validate-all`` i stället. Varken
+    strict-schemat eller ``_validate_manifest`` fångar det, eftersom ``mock``
+    är valfritt för båda. Ett redan trasigt manifest kan alltså inte sparas
+    vidare utan att demoläget sätts i samma formulär. Rå-JSON-editorn ger
+    fortfarande full kontroll över schemafälten men kör alltid klassregeln och
+    strict-schemat före skrivning."""
+    manifest = _load_json(manifest_path)
+    if not manifest:
+        return False, f"Kunde inte läsa `{manifest_path}` (saknad eller ogiltig JSON)."
+    for key, value in updates.items():
+        if value is None:
+            manifest.pop(key, None)
+        else:
+            manifest[key] = value
+    errors = _validate_manifest(manifest, dossier_class)
+    if errors:
+        return False, "Validering misslyckades — sparade inte:\n" + "\n".join(
+            f"- {e}" for e in errors
+        )
+    try:
+        schema_errors = validate_json_against_schema(manifest, STRICT_SCHEMA_PATH)
+    except Exception as exc:  # noqa: BLE001 - fail closed, never save unvalidated
+        schema_errors = [f"Strict-schemavalidering kunde inte köras: {exc}"]
+    if schema_errors:
+        return False, (
+            "Strict-schema (samma regler som runtime/CI) misslyckades — sparade inte:\n"
+            + "\n".join(f"- {e}" for e in schema_errors)
+        )
+    capability = str(manifest.get("capability") or "").strip()
+    if dossier_class == "hard":
+        mock_value = str(manifest.get("mock") or "").strip() or None
+        exceptions = _load_mockless_capability_exceptions()
+        if (mock_value is None or mock_value == "none") and capability not in exceptions:
+            return False, (
+                "En Kopplad (hard) dossier måste ha ett demoläge (`mock` ≠ `none`) "
+                f"— funktionen `{capability}` står inte på undantagslistan "
+                f"({', '.join(sorted(exceptions))}). Sparade inte."
+            )
+    if is_default_for_capability(manifest):
+        taken = _existing_default_for_capability(capability, exclude=manifest_path)
+        if taken:
+            return False, (
+                f"`{taken}` är redan Standardval för funktionen `{capability}` — "
+                "två byggblock kan inte vara det samtidigt (det fälls av "
+                "`npm run dossiers:validate-all`). Ta bort Standardval där först. "
+                "Sparade inte."
+            )
+    _save_json(manifest_path, manifest)
+    return True, ""
+
+
+_COMPLEXITY_OPTIONS = _schema_enum("complexity", _COMPLEXITY_FALLBACK)
+_MOCK_OPTIONS = _schema_enum("mock", _MOCK_FALLBACK)
 
 
 def _section_edit(dossiers: list[dict[str, Any]]) -> None:
-    st.subheader("Redigera manifest")
+    st.subheader("Redigera byggblock")
     if not dossiers:
         return
     options = {f"{d['_class']}/{d['id']}": d for d in dossiers}
-    pick_key = st.selectbox("Välj dossier", list(options.keys()))
+    pick_key = st.selectbox(
+        "Välj byggblock",
+        list(options.keys()),
+        format_func=lambda k: f"{options[k]['id']} — {class_label(options[k]['_class'])}",
+    )
     if not pick_key:
         return
     chosen = options[pick_key]
     manifest_path = REPO_ROOT / chosen["_path"] / "manifest.json"
-    raw = manifest_path.read_text(encoding="utf-8")
-    edited = st.text_area("manifest.json", value=raw, height=400, key=f"edit_{pick_key}")
-    if st.button("Spara", type="primary", key=f"save_{pick_key}"):
-        try:
-            parsed = json.loads(edited)
-        except json.JSONDecodeError as exc:
-            st.error(f"Ogiltig JSON: {exc}")
-            return
-        errors = _validate_manifest(parsed)
-        if errors:
-            st.error("Validering misslyckades:\n" + "\n".join(f"- {e}" for e in errors))
-            return
-        backup_file(manifest_path, REPO_ROOT)
-        manifest_path.write_text(json.dumps(parsed, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        st.success(f"Sparat {manifest_path.relative_to(REPO_ROOT)}")
-        st.cache_data.clear()
+    manifest = _load_json(manifest_path)
+
+    if manifest:
+        st.caption(
+            f"{field_label('capability')}: `{manifest.get('capability')}` · "
+            f"Klass: {class_label(chosen['_class'])} — funktion och klass byts "
+            "via rå JSON (teknik-expandern nedan)."
+        )
+        current_mock = str(manifest.get("mock") or "none")
+        mock_index = (
+            _MOCK_OPTIONS.index(current_mock) if current_mock in _MOCK_OPTIONS else len(_MOCK_OPTIONS) - 1
+        )
+        current_complexity = str(manifest.get("complexity") or "medium")
+        complexity_index = (
+            _COMPLEXITY_OPTIONS.index(current_complexity)
+            if current_complexity in _COMPLEXITY_OPTIONS
+            else 1
+        )
+        with st.form(f"dossier_field_form_{pick_key}"):
+            edited_label = st.text_input(
+                field_label("label"), value=str(manifest.get("label") or "")
+            )
+            edited_summary_sv = st.text_area(
+                field_label("summarySv", hint="visas för användare, aldrig i prompten"),
+                value=str(manifest.get("summarySv") or ""),
+                height=80,
+                help="Minst 20 tecken, eller tomt för att ta bort fältet (UI faller då tillbaka på engelska `summary`).",
+            )
+            edited_complexity = st.selectbox(
+                field_label("complexity"), list(_COMPLEXITY_OPTIONS), index=complexity_index
+            )
+            edited_default = st.checkbox(
+                field_label("defaultForCapability", hint="vinner när flera byggblock delar funktion"),
+                value=is_default_for_capability(manifest),
+            )
+            edited_mock = st.selectbox(
+                field_label("mock", hint="hur ytan fungerar i preview utan riktig nyckel"),
+                list(_MOCK_OPTIONS),
+                index=mock_index,
+                format_func=mock_label,
+            )
+            if chosen["_class"] == "hard":
+                st.caption(
+                    "`none` godtas bara för funktioner på undantagslistan "
+                    f"(`{'`, `'.join(sorted(_load_mockless_capability_exceptions()))}`) "
+                    "— annars vägrar sparningen, precis som i skapa-formuläret."
+                )
+            submitted = st.form_submit_button("Spara fält", type="primary")
+        if submitted:
+            if not edited_label.strip():
+                st.error(f"{field_label('label')} krävs.")
+            else:
+                updates: dict[str, Any] = {
+                    "label": edited_label.strip(),
+                    "complexity": edited_complexity,
+                    "summarySv": edited_summary_sv.strip() or None,
+                    # `none` är samma sak som utelämnat fält — skriv inte in det.
+                    "mock": edited_mock if edited_mock != "none" else None,
+                    # Sätt bara False explicit om fältet redan finns i filen.
+                    "defaultForCapability": True
+                    if edited_default
+                    else (False if "defaultForCapability" in manifest else None),
+                }
+                ok, msg = _apply_manifest_field_edits(
+                    manifest_path, updates, dossier_class=chosen["_class"]
+                )
+                if ok:
+                    st.success(f"Sparat {manifest_path.relative_to(REPO_ROOT)}")
+                    st.cache_data.clear()
+                else:
+                    st.error(msg)
+    else:
+        st.warning(
+            "Manifestet kunde inte läsas som JSON — rätta det via rå-JSON-editorn nedan."
+        )
+
+    # Rå JSON = full kontroll över alla schemafält (envVars, files, exposes …),
+    # men samma klassregel + strict-schema som runtime måste vara gröna före
+    # backup/skrivning.
+    with tech_details("Rå JSON (full kontroll över alla fält)"):
+        raw = manifest_path.read_text(encoding="utf-8")
+        edited = st.text_area("manifest.json", value=raw, height=400, key=f"edit_{pick_key}")
+        if st.button("Spara rå JSON", type="primary", key=f"save_{pick_key}"):
+            try:
+                parsed = json.loads(edited)
+            except json.JSONDecodeError as exc:
+                st.error(f"Ogiltig JSON: {exc}")
+                return
+            ok, msg = _save_raw_manifest(
+                manifest_path, parsed, dossier_class=chosen["_class"]
+            )
+            if not ok:
+                st.error(msg)
+                return
+            st.success(f"Sparat {manifest_path.relative_to(REPO_ROOT)}")
+            st.cache_data.clear()
 
 
 def _is_link_like(path: Path) -> bool:
@@ -435,25 +845,41 @@ def _delete_dossier_dir(chosen: dict[str, Any]) -> tuple[bool, str]:
     shutil.rmtree(target_dir)
     return True, (
         f"Raderade `{rel_path}`.\n\n"
-        "Nästa steg: bygg om capability-map (Capability map-fliken) och kör "
+        "Nästa steg: bygg om capability-map (Kontroller-tabben) och kör "
         "`npm run dossiers:validate-all`. Ångra: en zip-snapshot av katalogen "
         "togs precis före raderingen — återställ den via sidan **Återställning** "
-        "(git funkar också för redan incheckade dossiers)."
+        "(git funkar också för redan incheckade byggblock)."
     )
 
 
 def _section_delete(dossiers: list[dict[str, Any]]) -> None:
-    """Radera en dossier ur live-poolen med checklistan från
+    """Radera ett byggblock ur live-poolen med checklistan från
     `.cursor/rules/dossier-rules.mdc` (capability, defaultForCapability,
     envVars, dependencies, capability-map) renderad som konkret läges-info
-    för just den valda dossiern. Kräver kryssad checklista + exakt
-    id-bekräftelse."""
+    för just det valda byggblocket. Farlig zon-mönstret från Fas B:
+    `danger_zone` + kryssad checklista + `confirm_by_typing` i ett formulär."""
     st.divider()
-    st.subheader("Radera dossier")
     if not dossiers:
         return
+    zone = danger_zone(
+        "Radera byggblock",
+        help_text=(
+            "Tar bort byggblockets katalog ur live-poolen. En zip-snapshot tas "
+            "först (se Återställning) — kan den inte tas händer ingenting."
+        ),
+    )
+    with zone:
+        _render_delete_body(dossiers)
+
+
+def _render_delete_body(dossiers: list[dict[str, Any]]) -> None:
     options = {f"{d['_class']}/{d['id']}": d for d in dossiers}
-    pick_key = st.selectbox("Välj dossier att radera", list(options.keys()), key="delete_pick")
+    pick_key = st.selectbox(
+        "Välj byggblock att radera",
+        list(options.keys()),
+        key="delete_pick",
+        format_func=lambda k: f"{options[k]['id']} — {class_label(options[k]['_class'])}",
+    )
     if not pick_key:
         return
     chosen = options[pick_key]
@@ -475,26 +901,26 @@ def _section_delete(dossiers: list[dict[str, Any]]) -> None:
 
     if siblings:
         cap_line = (
-            f"{len(siblings)} syskon-dossier(s) kvar under `{capability}`: "
+            f"{len(siblings)} leverantörssyskon kvar under `{capability}`: "
             + ", ".join(sorted(str(d.get("id")) for d in siblings))
             + "."
         )
     else:
         cap_line = (
-            f"detta är ENDA dossiern under `{capability}` — capabilityn försvinner "
+            f"detta är ENDA byggblocket under `{capability}` — funktionen försvinner "
             "ur poolen; kontrollera referenser (brief-prompt, follow-up-vokabulär, "
             "capability-inference)."
         )
-    if chosen.get("defaultForCapability") and siblings:
+    if is_default_for_capability(chosen) and siblings:
         default_line = (
-            "denna är capabilityns **default** — flagga ett syskon som ny default, "
-            "annars stoppar `dossiers:validate-all` (mock-fallback-invarianten "
-            "kräver en upplösbar default)."
+            "detta är funktionens **Standardval** — flagga ett syskon som nytt "
+            "standardval, annars stoppar `dossiers:validate-all` "
+            "(mock-fallback-invarianten kräver en upplösbar default)."
         )
-    elif chosen.get("defaultForCapability"):
-        default_line = "denna är default, men hela capabilityn försvinner med den."
+    elif is_default_for_capability(chosen):
+        default_line = "detta är Standardval, men hela funktionen försvinner med det."
     else:
-        default_line = "ingen default-flytt behövs (dossiern är inte default)."
+        default_line = "ingen standardvals-flytt behövs (byggblocket är inte Standardval)."
 
     st.markdown(
         "**Checklista före radering** (per `dossier-rules.mdc`):\n"
@@ -502,23 +928,28 @@ def _section_delete(dossiers: list[dict[str, Any]]) -> None:
         f"- **defaultForCapability**: {default_line}\n"
         f"- **envVars**: {', '.join(env_keys) if env_keys else 'inga'} — städa ev. lagrade projekt-env/placeholder-flöden.\n"
         f"- **dependencies**: {', '.join(deps) if deps else 'inga'}.\n"
-        "- **capability-map**: bygg om efter radering (Capability map-fliken) och kör `npm run dossiers:validate-all`."
+        "- **capability-map**: bygg om efter radering (Kontroller-tabben) och kör `npm run dossiers:validate-all`."
     )
 
-    ack = st.checkbox("Jag har gått igenom checklistan ovan", key="delete_ack")
-    confirm = st.text_input(
-        f"Skriv dossierns id (`{chosen.get('id')}`) för att bekräfta",
-        key="delete_confirm",
-    ).strip()
-    if st.button(
-        "Radera från live-poolen",
-        type="primary",
-        key="delete_button",
-        disabled=not ack,
-    ):
-        target_id = str(chosen.get("id") or "")
-        if confirm != target_id:
-            st.error("Bekräftelsen matchar inte dossierns id — inget raderades.")
+    # Bekräftelsen ligger i ett formulär, samma mönster som scaffold-/variant-
+    # raderingen i Fas B: fritextfältet skickar sitt värde först vid submit, så
+    # ingen halvskriven bekräftelse kan råka gälla.
+    with st.form("delete_dossier_form"):
+        ack = st.checkbox("Jag har gått igenom checklistan ovan", key="delete_ack")
+        confirmed = confirm_by_typing(
+            str(chosen.get("id") or ""),
+            "delete_confirm",
+            label="Bekräfta genom att skriva byggblockets id",
+        )
+        submitted = st.form_submit_button("Radera från live-poolen", type="primary")
+    if submitted:
+        if not ack:
+            st.error("Du måste gå igenom checklistan ovan först — inget raderades.")
+            return
+        if not confirmed:
+            st.error(
+                f"Bekräftelsetexten måste vara exakt `{chosen.get('id')}` — inget raderades."
+            )
             return
         ok, msg = _delete_dossier_dir(chosen)
         (st.success if ok else st.error)(msg)
@@ -732,7 +1163,13 @@ def _list_template_refs() -> list[str]:
     return sorted(d.name for d in TEMPLATE_REFS_ROOT.iterdir() if d.is_dir())
 
 
-def _run_curate(reference_id: str, target_class: str, target_id: str) -> tuple[bool, str]:
+def _run_curate(
+    reference_id: str, target_class: str, target_id: str, model: str = ""
+) -> tuple[bool, str]:
+    """Kör kurations-skriptet. ``model`` skickas bara vidare när operatören valt
+    ett id; utan flagga använder skriptet manifestets `defaultModel` för
+    workloaden `backoffice_dossier_curation` (Fas D). Ett id skriptet inte
+    känner igen fälls där, före LLM-anropet."""
     cmd = [
         "npx",
         "tsx",
@@ -741,6 +1178,8 @@ def _run_curate(reference_id: str, target_class: str, target_id: str) -> tuple[b
         f"--class={target_class}",
         f"--id={target_id}",
     ]
+    if model.strip():
+        cmd.append(f"--model={model.strip()}")
     try:
         result = subprocess.run(
             cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, check=False, timeout=300,
@@ -772,9 +1211,12 @@ def _apply_capability_override(target_class: str, target_id: str, capability: st
     # true, och mot en BEFINTLIG capability med redan flaggad default skulle
     # det ge dubbla defaults (stoppas först i validate-all). Tvinga false;
     # default-flytt är ett medvetet kuratorsbeslut i Redigera-tabben.
+    # Medvetet rå truthiness-koll och inte is_default_for_capability: här ska
+    # varje icke-boolean värde normaliseras till False, inte läsas som "är
+    # standardval".
     if manifest.get("defaultForCapability"):
         manifest["defaultForCapability"] = False
-    errors = _validate_manifest(manifest)
+    errors = _validate_manifest(manifest, target_class)
     if errors:
         return False, "Manifestet blev ogiltigt efter capability-bytet:\n" + "\n".join(f"- {e}" for e in errors)
     try:
@@ -853,7 +1295,7 @@ def _section_curate() -> None:
     if not groups:
         st.info(
             "Ingen `groups`-vy hittad i capability-map.json ännu — kör 'Bygg om' "
-            "i Capability map-fliken för att välja kategori här. Du kan ändå "
+            "i Kontroller-tabben för att välja kategori här. Du kan ändå "
             "skriva en capability fritt nedan."
         )
     group_ids = list(groups.keys())
@@ -900,6 +1342,20 @@ def _section_curate() -> None:
     with cols[2]:
         suggested = ref_id.replace("_", "-").replace(" ", "-").lower() if ref_id else ""
         target_id = st.text_input("Ny dossier-id", value=suggested)
+    # Modellvalen ägs av manifestet (workload `backoffice_dossier_curation`),
+    # inte av den här sidan och inte av en hårdkodad rad i skriptet.
+    curation_models = resolve_model_choices(REPO_ROOT, WORKLOAD_DOSSIER_CURATION)
+    curation_model = st.selectbox(
+        "Modell för kurationen",
+        list(curation_models),
+        key="curate_model",
+        help=(
+            "Kommer ur `config/ai_models/manifest.json` → workload "
+            f"`{WORKLOAD_DOSSIER_CURATION}`: första valet är dess `defaultModel`, "
+            "resten dess `fallbackModels`. Skickas som `--model=` till "
+            "`scripts/dossiers/curate-from-reference.ts`."
+        ),
+    )
     if st.button("🤖 Kurera utkast", type="primary"):
         if not target_id:
             st.error("Ange ett ID för den nya dossiern.")
@@ -917,7 +1373,7 @@ def _section_curate() -> None:
             )
             return
         with st.spinner("Kör kurations-skriptet…"):
-            ok, output = _run_curate(ref_id, target_class, target_id)
+            ok, output = _run_curate(ref_id, target_class, target_id, curation_model)
         override_failed = False
         if ok and decided_capability:
             override_ok, override_msg = _apply_capability_override(target_class, target_id, decided_capability)
@@ -1071,7 +1527,7 @@ def _promote_prospect(root: Path, entry: dict[str, Any], force: bool) -> tuple[b
             f"plan-postens targetCapability ({plan_capability!r}). Kör om "
             "normaliseringen mot aktuell plan (eller uppdatera prospects.json)."
         )
-    errors = _validate_manifest(manifest)
+    errors = _validate_manifest(manifest, klass)
     if errors:
         return False, "Manifest-validering misslyckades:\n" + "\n".join(f"- {e}" for e in errors)
     # Canonical strict-schema gate (additionalProperties:false, kebab/id/label
@@ -1107,7 +1563,7 @@ def _promote_prospect(root: Path, entry: dict[str, Any], force: bool) -> tuple[b
     rel = target_dir.relative_to(REPO_ROOT)
     return True, (
         f"Promoterade utkast till `{rel}`.\n\n"
-        "Nästa steg: bygg om capability-map (fliken 'Capability map'), kör "
+        "Nästa steg: bygg om capability-map (Kontroller-tabben), kör "
         "`npm run dossiers:validate-all`, applicera kodfixarna i REVIEW och "
         "koppla ev. ny capability i brief-prompten + follow-up-vokabulären."
     )
@@ -1271,6 +1727,320 @@ def _section_legacy_prospect(dossiers: list[dict[str, Any]]) -> None:
         st.info("Inte behandlad ännu. Klicka 'Normalisera denna' för att skapa ett utkast.")
 
 
+# ── Skapa byggblock från grunden (C5) ───────────────────────────────────────
+# Formulär → manifest-skelett + instructions.md-stub. Fail-closed hela vägen:
+# id/capability valideras före allt annat, strict-schemat måste vara grönt
+# INNAN något skrivs, och en befintlig katalog skrivs aldrig över.
+
+# Stub med de två H1-rubriker som `dossiers:validate-all` KRÄVER ("When to
+# use", "How to integrate") plus de tre rekommenderade — se
+# REQUIRED_INSTRUCTIONS_HEADINGS i src/lib/gen/dossiers/validate-manifest.ts.
+_INSTRUCTIONS_STUB = """# When to use
+
+- [1-3 punkter: när detta byggblock är rätt val]
+
+# How to integrate
+
+1. [Numrerade steg: import, env-nycklar, monteringspunkt]
+
+# UX rules
+
+- [Feedback, validering, mobil, tillgänglighet]
+
+# Avoid
+
+- [Konkreta fällor som codegen-LLM:en annars går i]
+
+# Verification
+
+- [Manuella röktester som visar att byggblocket fungerar]
+"""
+
+
+def _create_dossier_skeleton(
+    target_class: str,
+    target_id: str,
+    *,
+    label: str,
+    capability: str,
+    summary: str,
+    providers: list[str] | None = None,
+    complexity: str = "medium",
+    code_fidelity: str = "rewritable",
+    mock: str | None = None,
+    summary_sv: str = "",
+    default_for_capability: bool = False,
+) -> tuple[bool, str]:
+    """Skapa ett nytt byggblock: manifest-skelett + instructions.md-stub under
+    ``data/dossiers/<klass>/<id>/``. Pure (ingen Streamlit) så skrivvägen är
+    enhetstestbar.
+
+    Fail-closed i strikt ordning:
+    1. id + capability valideras (kebab-case, 2-60 tecken) INNAN något skrivs;
+    2. en Kopplad (hard) dossier måste deklarera minst ett explicit provider-id;
+    3. en Kopplad (hard) dossier måste ha `mock` ≠ `none` om inte capabilityn
+       står på `MOCKLESS_CAPABILITY_EXCEPTIONS` (läst ur validate-manifest.ts);
+    4. manifestet måste passera `_validate_manifest` OCH strict-schemat
+       (`docs/schemas/strict/dossier.schema.json`) INNAN skrivning;
+    5. en befintlig katalog skrivs ALDRIG över — `mkdir(exist_ok=False)` är
+       själva vakten, så inte heller ett race förbi exists-kollen kan skriva
+       över något.
+    """
+    if target_class not in ("hard", "soft"):
+        return False, f"Ogiltig klass: {target_class!r} — inget skapades."
+    for field_name, value in (("id", target_id), ("capability", capability)):
+        if (
+            not isinstance(value, str)
+            or not _KEBAB_RE.match(value)
+            or not (2 <= len(value) <= 60)
+        ):
+            return False, (
+                f"Ogiltigt {field_name} (kebab-case, 2-60 tecken, t.ex. "
+                f"`image-generation`): {value!r} — inget skapades."
+            )
+    provider_values = [value.strip() for value in (providers or []) if value.strip()]
+    if target_class == "hard" and not provider_values:
+        return False, (
+            "En Kopplad (hard) dossier måste ha minst ett explicit provider-id "
+            "i kebab-case (t.ex. `stripe`) — inget skapades."
+        )
+    if target_class == "soft" and provider_values:
+        return False, "Fristående (soft) dossiers får inte deklarera providers — inget skapades."
+    for provider in provider_values:
+        if not _KEBAB_RE.match(provider):
+            return False, (
+                "Ogiltigt provider-id (kebab-case, t.ex. `vercel-analytics`): "
+                f"{provider!r} — inget skapades."
+            )
+    mock_value = (mock or "").strip() or None
+    if target_class == "hard":
+        exceptions = _load_mockless_capability_exceptions()
+        if (mock_value is None or mock_value == "none") and capability not in exceptions:
+            return False, (
+                "En Kopplad (hard) dossier måste ha ett demoläge (`mock` ≠ `none`) "
+                f"— funktionen `{capability}` står inte på undantagslistan "
+                f"({', '.join(sorted(exceptions))}). Inget skapades."
+            )
+
+    manifest: dict[str, Any] = {
+        "$schema": "../../../../docs/schemas/strict/dossier.schema.json",
+        "id": target_id,
+        "label": label.strip(),
+        "capability": capability,
+        "codeFidelity": code_fidelity,
+        "complexity": complexity,
+        "summary": summary.strip(),
+        "lastVerified": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "verificationStatus": "unverified",
+    }
+    if summary_sv.strip():
+        manifest["summarySv"] = summary_sv.strip()
+    if default_for_capability:
+        manifest["defaultForCapability"] = True
+    if target_class == "hard":
+        manifest["providers"] = provider_values
+    if mock_value and mock_value != "none":
+        manifest["mock"] = mock_value
+
+    errors = _validate_manifest(manifest, target_class)
+    if errors:
+        return False, "Validering misslyckades — inget skapades:\n" + "\n".join(
+            f"- {e}" for e in errors
+        )
+    try:
+        schema_errors = validate_json_against_schema(manifest, STRICT_SCHEMA_PATH)
+    except Exception as exc:  # noqa: BLE001 - fail closed, never write unvalidated
+        schema_errors = [f"Strict-schemavalidering kunde inte köras: {exc}"]
+    if schema_errors:
+        return False, (
+            "Strict-schema (samma regler som runtime/CI) misslyckades — inget skapades:\n"
+            + "\n".join(f"- {e}" for e in schema_errors)
+        )
+
+    target_dir = DOSSIER_ROOT / target_class / target_id
+    rel = f"data/dossiers/{target_class}/{target_id}"
+    if default_for_capability:
+        taken = _existing_default_for_capability(
+            capability, exclude=target_dir / "manifest.json"
+        )
+        if taken:
+            return False, (
+                f"`{taken}` är redan Standardval för funktionen `{capability}` — "
+                "två byggblock kan inte vara det samtidigt (det fälls av "
+                "`npm run dossiers:validate-all`). Skapa byggblocket utan "
+                "Standardval, eller ta bort det där först. Inget skapades."
+            )
+    if target_dir.exists():
+        return False, (
+            f"Katalogen finns redan: `{rel}` — ett befintligt byggblock skrivs "
+            "aldrig över härifrån. Redigera det i Redigera-tabben eller radera "
+            "det först."
+        )
+    try:
+        target_dir.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
+        return False, (
+            f"Katalogen finns redan: `{rel}` — ett befintligt byggblock skrivs "
+            "aldrig över härifrån."
+        )
+    try:
+        (target_dir / "manifest.json").write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        (target_dir / "instructions.md").write_text(_INSTRUCTIONS_STUB, encoding="utf-8")
+    except OSError as exc:
+        # Rulla tillbaka katalogen vi själva just skapade. Utan detta lämnar ett
+        # avbrott mellan de två skrivningarna ett halvskrivet byggblock kvar, och
+        # eftersom en befintlig katalog aldrig skrivs över blockeras id:t för
+        # gott. Bara våra egna två filer tas bort, och `rmdir` vägrar en icke-tom
+        # katalog — rollbacken kan alltså inte radera något annat.
+        for name in ("manifest.json", "instructions.md"):
+            try:
+                (target_dir / name).unlink(missing_ok=True)
+            except OSError:
+                pass
+        try:
+            target_dir.rmdir()
+        except OSError:
+            return False, (
+                f"Skrivningen misslyckades ({exc}) och `{rel}` kunde inte städas "
+                "bort automatiskt. Ta bort katalogen manuellt innan du försöker "
+                "igen — annars rapporteras id:t som upptaget."
+            )
+        return False, (
+            f"Skrivningen misslyckades ({exc}) — `{rel}` rullades tillbaka och "
+            "ingenting ligger kvar på disk."
+        )
+    return True, (
+        f"Skapade `{rel}/manifest.json` + `instructions.md`-stub.\n\n"
+        "Nästa steg: fyll i instructions.md (rubrikerna är obligatoriska), lägg "
+        "ev. `envVars`/`files`/komponenter via Redigera-tabben, kör "
+        "`npm run dossiers:validate-all` (knappen nedan) och bygg om "
+        "capability-map i Kontroller-tabben."
+    )
+
+
+def _section_create_from_scratch() -> None:
+    st.divider()
+    st.subheader("Skapa byggblock från grunden")
+    st.caption(
+        "Skapar ett manifest-skelett + `instructions.md`-stub under "
+        "`data/dossiers/<klass>/<id>/`. Strict-schemat måste vara grönt innan "
+        "något skrivs, och en befintlig katalog skrivs aldrig över. Kod, filer "
+        "och env-nycklar lägger du till efteråt via Redigera-tabben."
+    )
+    # Klassvalet ligger utanför formuläret så demoläges-fältet kan reagera på
+    # det direkt (widgets inne i ett st.form uppdateras först vid submit).
+    target_class = st.radio(
+        "Klass",
+        ["soft", "hard"],
+        horizontal=True,
+        key="create_scratch_class",
+        format_func=class_label,
+        help=(
+            "Fristående (soft) = bara npm-paket. Kopplad (hard) = kräver en "
+            "extern tjänst/nycklar och måste därför deklarera ett demoläge."
+        ),
+    )
+    with st.form("create_dossier_scratch_form", clear_on_submit=False):
+        target_id = st.text_input(
+            field_label("id", hint="kebab-case, blir katalognamnet"),
+            key="create_scratch_id",
+        )
+        new_label = st.text_input(field_label("label"), key="create_scratch_label")
+        capability = st.text_input(
+            field_label("capability", hint="kebab-case, t.ex. `payments` — återanvänd hellre en befintlig"),
+            key="create_scratch_capability",
+        )
+        cols = st.columns(2)
+        with cols[0]:
+            complexity = st.selectbox(
+                field_label("complexity"),
+                list(_COMPLEXITY_OPTIONS),
+                index=1 if len(_COMPLEXITY_OPTIONS) > 1 else 0,
+            )
+        with cols[1]:
+            code_fidelity = st.selectbox(
+                field_label("codeFidelity", hint="verbatim = LLM:en får inte skriva om filerna"),
+                ["rewritable", "verbatim"],
+            )
+        summary = st.text_area(
+            field_label("summary", hint="engelska, 30-600 tecken — går till codegen-prompten"),
+            height=80,
+            key="create_scratch_summary",
+        )
+        summary_sv = st.text_area(
+            field_label("summarySv", hint="valfri, minst 20 tecken — visas för användare"),
+            height=80,
+            key="create_scratch_summary_sv",
+        )
+        default_flag = st.checkbox(
+            field_label("defaultForCapability", hint="vinner när flera byggblock delar funktion"),
+            key="create_scratch_default",
+        )
+        provider_ids: list[str] | None = None
+        mock_choice: str | None = None
+        if target_class == "hard":
+            provider_text = st.text_input(
+                field_label(
+                    "providers",
+                    hint="obligatoriska provider-id:n, kommaseparerade; t.ex. `stripe`",
+                ),
+                key="create_scratch_providers",
+            )
+            provider_ids = [
+                value.strip()
+                for value in re.split(r"[,\n]", provider_text)
+                if value.strip()
+            ]
+            mock_choice = st.selectbox(
+                field_label("mock", hint="obligatoriskt för Kopplade byggblock"),
+                list(_MOCK_OPTIONS),
+                # Enum:arna kommer från schemat, så "visual" kan inte antas finnas.
+                index=_MOCK_OPTIONS.index("visual") if "visual" in _MOCK_OPTIONS else 0,
+                format_func=mock_label,
+            )
+            st.caption(
+                "`none` godtas bara för funktioner på undantagslistan "
+                f"(`{'`, `'.join(sorted(_load_mockless_capability_exceptions()))}`) "
+                "— annars stoppar både formuläret och `dossiers:validate-all`."
+            )
+        submitted = st.form_submit_button("Skapa byggblock", type="primary")
+
+    if submitted:
+        ok, msg = _create_dossier_skeleton(
+            target_class,
+            target_id.strip(),
+            label=new_label,
+            capability=capability.strip(),
+            providers=provider_ids,
+            summary=summary,
+            complexity=complexity,
+            code_fidelity=code_fidelity,
+            mock=mock_choice,
+            summary_sv=summary_sv,
+            default_for_capability=default_flag,
+        )
+        (st.success if ok else st.error)(msg)
+        if ok:
+            st.session_state["create_scratch_created"] = (
+                f"data/dossiers/{target_class}/{target_id.strip()}"
+            )
+            st.cache_data.clear()
+
+    created = st.session_state.get("create_scratch_created")
+    if created:
+        st.info(f"Senast skapat härifrån: `{created}`.")
+        # Tungt subprocess-anrop — ligger bakom knapp, aldrig i default-vyn.
+        if st.button("Kör `npm run dossiers:validate-all`", key="create_scratch_validate"):
+            with st.spinner("Kör dossiers:validate-all…"):
+                result = run_repo_command(
+                    REPO_ROOT, ("npm", "run", "dossiers:validate-all"), timeout=300
+                )
+            output = (result["stdoutTail"] + "\n" + result["stderrTail"]).strip()
+            (st.success if result["ok"] else st.error)(output[-3000:] or "Ingen output.")
+
+
 def render(ctx) -> None:
     # `app_main` sätter redan sidtiteln — sidan ska bara ha sin egen rubrik.
     st.header("Byggblock (dossiers)")
@@ -1282,52 +2052,38 @@ def render(ctx) -> None:
         "funktioner briefen ber om."
     )
     render_save_scope("repo", paths=("data/dossiers/hard/", "data/dossiers/soft/"))
-    domain_map = (
-        read_json(ctx.domain_map_json)
-        if getattr(ctx, "domain_map_json", None) and ctx.domain_map_json.is_file()
-        else {"pages": {}}
-    )
     with tech_details():
         st.markdown("- Disk: `data/dossiers/{hard|soft}/<id>/manifest.json`")
         st.markdown("- Strict-schema: `docs/schemas/strict/dossier.schema.json`")
         st.markdown("- Kontrakt: `docs/contracts/dossier-system.md`")
         st.markdown(
             "- Genererad vy: `data/dossiers/_index/capability-map.json` "
-            "(byggs om i fliken Capability map)"
+            "(byggs om i Kontroller-tabben)"
         )
         st.markdown("- Validera efter ändring: `npm run dossiers:validate-all`")
-        render_where_panel(PAGE_NAME, domain_map)
 
     dossiers = _walk_all_dossiers()
-    tabs = st.tabs(
-        [
-            "Översikt",
-            "Lista",
-            "Enforcement",
-            "Capability tiers",
-            "Redigera",
-            "Capability map",
-            "Hälsokoll",
-            "AI-kuration",
-            "Legacy-import",
-        ]
-    )
+    # Fem tabbar (Fas C, tidigare nio). OBS: st.tabs kör ALLA tab-bodies vid
+    # varje rerun — tunga subprocess-anrop (hälsokoll, validate-all, kuration,
+    # capability-map-bygge) ska ligga bakom knappar, aldrig i default-vyn.
+    tabs = st.tabs(["Översikt", "Lista", "Redigera", "Skapa", "Kontroller"])
     with tabs[0]:
         _section_overview(dossiers)
     with tabs[1]:
         _section_list(dossiers)
     with tabs[2]:
-        _section_enforcement_overview(dossiers)
-    with tabs[3]:
-        _section_capability_tiers()
-    with tabs[4]:
         _section_edit(dossiers)
         _section_delete(dossiers)
-    with tabs[5]:
-        _section_capability_map(dossiers)
-    with tabs[6]:
-        _section_health()
-    with tabs[7]:
+    with tabs[3]:
         _section_curate()
-    with tabs[8]:
+        st.divider()
         _section_legacy_prospect(dossiers)
+        _section_create_from_scratch()
+    with tabs[4]:
+        _section_enforcement_overview(dossiers)
+        st.divider()
+        _section_capability_tiers()
+        st.divider()
+        _section_capability_map(dossiers)
+        st.divider()
+        _section_health()

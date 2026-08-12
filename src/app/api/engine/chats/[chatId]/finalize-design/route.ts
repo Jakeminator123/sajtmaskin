@@ -8,12 +8,13 @@
  * pointing at the F2 version we forked from.
  *
  * Responses:
- *  - `200 OK` with the normal F3 stream metadata when a real build key is
- *    required and ready.
- *  - `200 OK` with `action: "deterministic_release"` when the selected
- *    Byggblock need no real build key — this route forks a new F3 row from the
- *    exact F2 files, and the client runs ReleaseGate on that F3 version without
- *    starting a general F3 LLM round.
+ *  - `200 OK` with the normal F3 stream metadata when at least one planned
+ *    integration dossier still needs to be wired (or a detected integration
+ *    has a real build requirement).
+ *  - `200 OK` with `action: "deterministic_release"` when no planned dossier
+ *    remains to be installed and the already-present integration code needs no
+ *    real build key. This route then forks a new F3 row from the exact F2 files,
+ *    and the client runs ReleaseGate without a general F3 LLM round.
  *  - `412 Precondition Failed` with `{ ready: false, missingByIntegration }`
  *    — show the env form and have the user fill in the missing keys.
  *  - `404 Not Found` — chat or version not visible to caller.
@@ -26,10 +27,16 @@ import {
 } from "@/lib/tenant";
 import {
   createDraftVersion,
+  appendF3ApprovedToSnapshot,
   getLatestVersion,
   getPreferredVersion,
   getVersionsByChat,
 } from "@/lib/db/chat-repository-pg";
+import { getVersionFiles } from "@/lib/gen/version-manager";
+import {
+  getDossiersByCapability,
+  resolvePendingIntegrationDossiers,
+} from "@/lib/gen/dossiers";
 import {
   checkTier3ReadinessForVersion,
 } from "@/lib/integrations/tier3-readiness-gate";
@@ -117,6 +124,13 @@ export async function POST(
       );
     }
 
+    const versionFiles = await getVersionFiles(baseVersion.id).catch(() => null);
+    const pendingDossiers = resolvePendingIntegrationDossiers({
+      snapshot: chat.orchestration_snapshot as Record<string, unknown> | null,
+      versionFiles,
+    });
+    const pendingDossierIds = pendingDossiers.map((selected) => selected.entry.id);
+
     // `checkTier3ReadinessForVersion` is the shared owner used by the stream
     // route as well. It resolves snapshot ∪ version-presence, Product
     // Postcheck, and per-key build enforcement once, so the F3 entry points
@@ -127,6 +141,8 @@ export async function POST(
         versionId: baseVersion.id,
         orchestrationSnapshot: chat.orchestration_snapshot,
         projectId: chat.project_id,
+        preloadedFiles: versionFiles,
+        pendingApprovedDossierIds: pendingDossierIds,
       });
     } catch (error) {
       console.warn("[finalize-design] F3 readiness unavailable:", error);
@@ -202,13 +218,61 @@ export async function POST(
       );
     }
 
-    // A valid gate has a spec. `requiredRealEnvKeys`, rather than the presence
-    // of a dossier/requirement, decides whether a new F3 LLM build is useful:
-    // hard and soft Byggblock with only feature-runtime/warn-only configuration
-    // keep their existing F2 visual fallback. The files are copied byte-for-byte
-    // into a NEW integrations row so lifecycle/readiness/deploy semantics remain
-    // F3-owned while the selected F2 row remains untouched.
+    // A valid gate has a spec. A planned dossier always needs one LLM round so
+    // its provider-specific files can be installed, independently of env-key
+    // enforcement. Only when no dossier remains pending may an empty/no-build-
+    // key spec use the byte-for-byte F3 fork below.
     const requirements = gate.spec.requirements;
+    if (pendingDossiers.length > 0) {
+      const pendingCapabilities = Array.from(
+        new Set(pendingDossiers.map((selected) => selected.entry.capability)),
+      );
+      // Godkännandet ERSÄTTER tidigare val för samma capability. Selektionen
+      // tillåter bara ett syskon per capability, så ett kvarliggande
+      // `postgres-drizzle` (godkänt förut, aldrig levererat) skulle mata
+      // `dossierProviderHints` samtidigt som det nyvalda `mongodb-atlas` — och
+      // vid dubbelträff föredrar `pickForCapability` defaulten, alltså byggs
+      // fel provider. Peka ut syskonen så unionen får släppa dem.
+      const approvedIds = new Set(pendingDossierIds);
+      const supersededDossierIds = pendingCapabilities.flatMap((capability) =>
+        getDossiersByCapability(capability)
+          .map((sibling) => sibling.id)
+          .filter((id) => !approvedIds.has(id)),
+      );
+      try {
+        const persisted = await appendF3ApprovedToSnapshot(
+          chat.id,
+          pendingCapabilities,
+          pendingDossierIds,
+          supersededDossierIds,
+        );
+        if (!persisted) throw new Error("approval snapshot was not updated");
+      } catch (error) {
+        console.warn("[finalize-design] planned dossier approval unavailable:", error);
+        return NextResponse.json(
+          {
+            ready: false,
+            reason: "f3_approval_unavailable",
+            parentVersionId: baseVersion.id,
+            message:
+              "Kunde inte låsa de planerade byggblocken för F3. Försök igen.",
+          },
+          { status: 409 },
+        );
+      }
+
+      return NextResponse.json({
+        ready: true,
+        parentVersionId: baseVersion.id,
+        requirements,
+        plannedDossierIds: pendingDossierIds,
+        streamMeta: {
+          lifecycleStage: "integrations",
+          parentVersionId: baseVersion.id,
+        },
+      });
+    }
+
     if (!hasRequiredRealBuildKeys(gate.spec)) {
       if (typeof baseVersion.files_json !== "string" || !baseVersion.files_json.trim()) {
         return NextResponse.json(
@@ -253,6 +317,14 @@ export async function POST(
             {
               stage: "integrations",
               parentVersionId: baseVersion.id,
+              // Copy the F2 base's persisted dossier env keys for consistency
+              // with the exact-file fork. Harmless on an F3 row: the mock-seed
+              // only runs for design-stage previews.
+              selectedDossierEnvKeys:
+                Array.isArray(baseVersion.selected_dossier_env_keys) &&
+                baseVersion.selected_dossier_env_keys.length > 0
+                  ? baseVersion.selected_dossier_env_keys
+                  : null,
             },
           ));
       } catch (error) {

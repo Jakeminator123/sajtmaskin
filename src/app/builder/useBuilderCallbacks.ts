@@ -8,7 +8,7 @@ import {
   isTier2LivePreviewUrl,
   normalizePreviewUrl,
 } from "@/lib/gen/preview/preview-url-classifier";
-import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
+import type { MessageOptions, SendMessageOutcome } from "@/lib/hooks/chat/types";
 
 export type VersionLike = {
   versionId?: string | null;
@@ -48,7 +48,10 @@ function pickEngineIframeUrl(match: VersionLike, explicitDemo?: string | null): 
 type UseBuilderCallbacksArgs = {
   chatId: string | null;
   currentPreviewUrl: string | null;
-  sendMessage: (message: string) => Promise<SendMessageOutcome>;
+  sendMessage: (
+    message: string,
+    options?: MessageOptions,
+  ) => Promise<SendMessageOutcome>;
   effectiveVersionsList: VersionLike[];
   bumpPreviewRefreshToken: () => void;
   setCurrentPreviewUrl: Dispatch<SetStateAction<string | null>>;
@@ -78,7 +81,20 @@ export function useBuilderCallbacks({
     const prompt = currentPreviewUrl
       ? "Preview verkar vara fel eller laddar inte. Fixa versionen och returnera en fungerande VM-preview (previewUrl). Behåll layouten om möjligt. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt."
       : "VM-preview saknas eller laddar inte. Regenerera eller starta om preview för senaste versionen. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt.";
-    await sendMessage(prompt);
+    // Samma diskriminator som auto-repair-sends (useAutoFix): den här canned
+    // reparations-texten är maskin-genererad och får inte tolkas som
+    // användarintention. Utan markören intent-klassades texten ("starta om…")
+    // som en vanlig follow-up och kunde trigga klargörande frågor i stället
+    // för en reparation (prod chat 785c8d7a, 2026-07-30: repair-knappen i en
+    // versionslös audit-chat gav inga byggen). Teknisk källa ⇒ servern hoppar
+    // över intent-/klargörande-klassning och bevarar prompten ordagrant.
+    await sendMessage(prompt, {
+      promptSourceMeta: {
+        sourceKind: "autofix",
+        isTechnical: true,
+        preservePayload: true,
+      },
+    });
   }, [chatId, currentPreviewUrl, sendMessage]);
 
   // P0 stream-abort recovery (2026-04-26). When the chat is versionless +

@@ -184,6 +184,25 @@ export function assertSafeWriteTarget({
     throw new Error(`[${commandName}] Missing database connection URL.`);
   }
 
+  // Registry check FIRST, and independent of the pulled snapshot. The snapshot
+  // comparison below can only ever answer "is this the same target as a file
+  // that happens to exist locally" — no file, no protection, which turned the
+  // guard off exactly on the machines least likely to have pulled prod env.
+  // `config/db-targets.json` knows prod's Supabase project ref unconditionally,
+  // so identity is decided by the registry and the snapshot is only a fallback
+  // for targets the registry does not know.
+  //
+  // This matters more since the schema-sync git hooks: an automatic write path
+  // must not depend on a file being present to refuse production.
+  if (
+    resolveDbEnvironmentName(inspection.current) === "prod" &&
+    env[allowEnvVar] !== "1"
+  ) {
+    throw new Error(
+      `[${commandName}] Refusing to run write operation: current DB target ${summarizeTarget(inspection.current)} is the PRODUCTION project in config/db-targets.json. Point your connection at dev, or rerun with ${allowEnvVar}=1 if you have explicitly decided to write to production.`,
+    );
+  }
+
   if (!inspection.production) {
     logger.warn(
       `[${commandName}] No .env.vercel.production.pulled found; cannot compare current target to a pulled production snapshot.`,

@@ -23,6 +23,7 @@ function harness(overrides?: {
   const setRecovering = vi.fn();
   const setForceKey = vi.fn();
   const setRetryNonce = vi.fn();
+  const onRecoverFailed = vi.fn();
   const bootstrapDone = { current: new Set<string>() } as MutableRefObject<Set<string>>;
   const rendered = renderHook(
     (props: { activeVersionFailedWithoutPreviewUrl?: boolean }) =>
@@ -37,6 +38,7 @@ function harness(overrides?: {
         previewBootstrapDoneKeysRef: bootstrapDone,
         setForcedPreviewRestartKey: setForceKey,
         setPreviewBootstrapRetryNonce: setRetryNonce,
+        onRecoverFailed,
         now: overrides?.now,
       }),
     {
@@ -46,7 +48,7 @@ function harness(overrides?: {
       },
     },
   );
-  return { rendered, setRecovering, setForceKey, setRetryNonce, bootstrapDone };
+  return { rendered, setRecovering, setForceKey, setRetryNonce, onRecoverFailed, bootstrapDone };
 }
 
 const mismatch = (
@@ -287,6 +289,72 @@ describe("usePreviewSession — version_mismatch auto-resync + loop-skydd", () =
     });
     await waitFor(() => {
       expect(h.rendered.result.current.versionMismatchPayload).toBeNull();
+    });
+  });
+
+  it("behandlar build_error som terminalt: ingen forcerad omstart, ytar readinessError, stoppar loopen", async () => {
+    vi.mocked(fetchPreviewStatus).mockResolvedValue({
+      ok: true,
+      status: "build_error",
+      previewSessionId: "sbx_1",
+      previewUrl: TIER2_URL,
+      versionId: "ver_2",
+      sessionExpiresAt: null,
+      reason: "build_error_overlay",
+      readinessError: "Module not found: Can't resolve 'radix-ui'",
+    });
+
+    const h = harness();
+
+    await act(async () => {
+      await h.rendered.result.current.handlePreviewSessionSuspect();
+    });
+
+    // Deterministiskt byggfel → INGEN forcerad omstart (skulle bara köra om
+    // samma trasiga bygge och dölja readinessError).
+    expect(h.setForceKey).not.toHaveBeenCalled();
+    expect(h.setRetryNonce).not.toHaveBeenCalled();
+    // Loopen stoppas och felet ytas med readinessError-detaljen.
+    expect(h.setRecovering).toHaveBeenLastCalledWith(false);
+    expect(h.onRecoverFailed).toHaveBeenCalledWith({
+      chatId: "chat_1",
+      versionId: "ver_2",
+      reason: "build_error",
+      detail: "Module not found: Can't resolve 'radix-ui'",
+    });
+    expect(h.rendered.result.current.versionMismatchPayload).toBeNull();
+  });
+
+  it("build_error triggar aldrig forcerad omstart ens vid upprepade poll", async () => {
+    vi.mocked(fetchPreviewStatus).mockResolvedValue({
+      ok: true,
+      status: "build_error",
+      previewSessionId: "sbx_1",
+      previewUrl: TIER2_URL,
+      versionId: "ver_2",
+      sessionExpiresAt: null,
+      reason: "build_error_overlay",
+      readinessError: null,
+    });
+
+    let clock = 9_000_000;
+    const h = harness({ now: () => clock });
+
+    for (let i = 0; i < 6; i += 1) {
+      await act(async () => {
+        await h.rendered.result.current.handlePreviewSessionSuspect();
+      });
+      clock += 12_001;
+    }
+
+    expect(h.setForceKey).not.toHaveBeenCalled();
+    expect(h.setRetryNonce).not.toHaveBeenCalled();
+    // Ingen detaljerad readinessError → detail null, fortfarande reason build_error.
+    expect(h.onRecoverFailed).toHaveBeenLastCalledWith({
+      chatId: "chat_1",
+      versionId: "ver_2",
+      reason: "build_error",
+      detail: null,
     });
   });
 

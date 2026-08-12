@@ -25,6 +25,11 @@ import {
 import { resolveAppProjectIdForRequest } from "@/lib/tenant";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { startPreviewSession } from "@/lib/gen/preview/preview-session";
+import {
+  completeProjectDependencies,
+  detectLockfilePackageManager,
+  markLockfileStaleInFiles,
+} from "@/lib/gen/autofix/dep-completer";
 import { runHydrationPreflightChecks } from "@/lib/gen/validation/hydration-preflight";
 import { devLogAppend } from "@/lib/logging/devLog";
 
@@ -175,19 +180,48 @@ async function initializeLocalTemplateProject(params: {
     throw new Error("Lokal template-zip saknas eller kunde inte lasas.");
   }
 
+  // First-preview installability (req A1): an imported v0 template starts its
+  // preview verbatim (skipRepair + skipProjectScaffold), so a template that
+  // imports a package it never declared (e.g. `import … from "radix-ui"`) would
+  // otherwise reach the preview host with an incomplete package.json → Next
+  // build-error overlay. Run deterministic dependency completion here so KNOWN
+  // missing deps are pinned before the first boot. When that mutates a template
+  // that carries its own lockfile, mark the lockfile stale so the host runs one
+  // non-frozen install (the readiness gate now fails a still-broken template
+  // visibly instead of stamping it healthy).
+  const depCompletion = completeProjectDependencies(imported.files);
+  let preparedFiles = depCompletion.files;
+  const pinnedDependencies = Object.keys(depCompletion.pinnedDependencies);
+  if (pinnedDependencies.length > 0) {
+    const lockfilePackageManager = detectLockfilePackageManager(preparedFiles);
+    if (lockfilePackageManager) {
+      preparedFiles = markLockfileStaleInFiles(preparedFiles, {
+        reason: `dep-completer pinned ${pinnedDependencies.length} dependency/-ies on import: ${pinnedDependencies.join(", ")}`,
+        packageManager: lockfilePackageManager,
+        makeFile: (path, content) => ({ path, content, language: "json" }),
+      });
+    }
+    console.info(
+      "[API /template] Pinned missing dependencies before first preview:",
+      pinnedDependencies.join(", "),
+      depCompletion.unknownPackages.length > 0
+        ? `(unknown, not pinned: ${depCompletion.unknownPackages.join(", ")})`
+        : "",
+    );
+  }
+
   const engineModel = resolveEngineModelId(DEFAULT_MODEL_ID);
   const categoryId = getTemplateCategoryId(template);
   const categoryTitle = getTemplateCategoryTitle(template);
 
   const chat = await chatRepo.createChat(projectId, String(engineModel));
-  const assistantSummary =
-    "Projektet importerades fran lokal v0-template och ar redo for vidare andringar i buildern.";
+  const assistantSummary = "Välkommen. Här är en template som vi utgår från.";
   const assistantMessage = await chatRepo.addMessage(chat.id, "assistant", assistantSummary);
-  const files = toLegacyTemplateFiles(imported.files);
+  const files = toLegacyTemplateFiles(preparedFiles);
   const version = await chatRepo.createDraftVersion(
     chat.id,
     assistantMessage.id,
-    JSON.stringify(imported.files),
+    JSON.stringify(preparedFiles),
     undefined,
     // Mark the imported v0 repo so follow-up generations treat it as a
     // verbatim repo edit (skip scaffold assembly + relax scaffold-only
@@ -198,10 +232,11 @@ async function initializeLocalTemplateProject(params: {
   let previewUrl: string | null = null;
   let previewStartFailed = false;
   let previewStartError: string | null = null;
-  const previewSessionStarted = await startPreviewSession(imported.files, {
+  const previewSessionStarted = await startPreviewSession(preparedFiles, {
     chatId: chat.id,
     appProjectId: projectId,
     versionIdForSession: version.id,
+    filesRevisionForSession: version.files_revision,
     skipRepair: true,
     skipProjectScaffold: true,
   });
@@ -229,7 +264,7 @@ async function initializeLocalTemplateProject(params: {
   // of leaving the user with only an opaque console error. Never throws.
   try {
     const hydrationIssues = runHydrationPreflightChecks(
-      imported.files.map((f) => ({ path: f.path, content: f.content, language: "tsx" })),
+      preparedFiles.map((f) => ({ path: f.path, content: f.content, language: "tsx" })),
     );
     if (hydrationIssues.length > 0) {
       const { createEngineVersionErrorLogs } = await import(

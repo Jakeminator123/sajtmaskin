@@ -1,8 +1,8 @@
 {
   "_comment": "Small validation dictionary for documentation terminology. The canonical human source is docs/architecture/glossary.md. The structural contract is blocking; the broad occurrence scan remains advisory because runtime identifiers may legitimately keep legacy names.",
   "_source": [
-    ".cursor/rules/terminology.mdc#forvaxlingstabell",
-    "docs/architecture/glossary.md#legacy-inte-aterintroducera"
+    "docs/architecture/glossary.md#namnskuggor",
+    "docs/architecture/glossary.md#legacy--undvik-i-ny-text"
   ],
   "_notes": "This is a validation seed, not a second glossary or a runtime registry. check:terms:contract blocks owner/duplicate/deprecated-canonical drift. check:terms reports broader occurrences without failing. Per-entry knobs: caseSensitive, scope, ignorePathContains and blockInActiveDocs.",
   "forbiddenAliases": [

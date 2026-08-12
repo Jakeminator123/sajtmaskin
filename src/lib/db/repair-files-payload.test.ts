@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   REPAIRED_FILES_ENVELOPE_VERSION,
@@ -16,6 +17,23 @@ describe("hashFilesJson", () => {
     expect(hashFilesJson(BASE_A)).not.toBe(hashFilesJson(BASE_B));
     // SHA-256 hex.
     expect(hashFilesJson(BASE_A)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  /**
+   * Innehållsrevisionens beslut 2: `files_revision` (md5, DB-genererad) och
+   * `hashFilesJson` (sha256, app-sidan) är TVÅ mekanismer för två jobb.
+   * Repair-revisionsbindningen (`baseFilesHash`) äger sha256 och ska inte
+   * "förenas" med revisionskolumnen — värdena är per konstruktion olika, så en
+   * jämförelse mellan dem skulle alltid se ut som en mismatch.
+   */
+  it("äger repair-bindningen med sha256 — aldrig samma värde som files_revision (md5)", () => {
+    const md5 = createHash("md5").update(BASE_A, "utf8").digest("hex");
+    expect(hashFilesJson(BASE_A)).not.toBe(md5);
+    expect(hashFilesJson(BASE_A)).toHaveLength(64);
+    expect(md5).toHaveLength(32);
+    expect(hashFilesJson(BASE_A)).toBe(
+      createHash("sha256").update(BASE_A, "utf8").digest("hex"),
+    );
   });
 });
 

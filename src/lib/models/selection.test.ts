@@ -40,16 +40,16 @@ describe("resolveModelSelection", () => {
   it("resolves legacy alias in requestedModelTier", () => {
     const result = resolveModelSelection({ requestedModelTier: "v0-max" });
     expect(result).toEqual({
-      modelId: "fast",
-      modelTier: "fast",
+      modelId: "premium",
+      modelTier: "premium",
     });
   });
 
   it("accepts v0-1.5-sm as alias for Max Fast", () => {
     const result = resolveModelSelection({ requestedModelId: "v0-1.5-sm" });
     expect(result).toEqual({
-      modelId: "fast",
-      modelTier: "fast",
+      modelId: "premium",
+      modelTier: "premium",
     });
   });
 
@@ -64,10 +64,34 @@ describe("resolveModelSelection", () => {
 
 describe("resolveEngineModelId", () => {
   it("maps the canonical profile to the own-engine model", () => {
-    expect(resolveEngineModelId("fast")).toBe("gpt-5.4-mini");
+    expect(resolveEngineModelId("premium")).toBe("gpt-5.6-sol");
+    expect(
+      resolveEngineModelId(resolveModelSelection({ requestedModelId: "fast" }).modelTier),
+    ).toBe("gpt-5.6-sol");
     expect(resolveEngineModelId("pro")).toBe("gpt-5.3-codex");
     expect(resolveEngineModelId("codex")).toBe("gpt-5.3-codex");
     expect(resolveEngineModelId("max")).toBe("gpt-5.5");
     expect(resolveEngineModelId("anthropic")).toBe("claude-opus-4.8");
+  });
+
+  it("honors retired SAJTMASKIN_MODEL_FAST when Premium env is unset", () => {
+    const previousPremium = process.env.SAJTMASKIN_MODEL_PREMIUM;
+    const previousFast = process.env.SAJTMASKIN_MODEL_FAST;
+    delete process.env.SAJTMASKIN_MODEL_PREMIUM;
+    process.env.SAJTMASKIN_MODEL_FAST = "gpt-5.5";
+    try {
+      expect(resolveEngineModelId("premium")).toBe("gpt-5.5");
+    } finally {
+      if (previousPremium === undefined) {
+        delete process.env.SAJTMASKIN_MODEL_PREMIUM;
+      } else {
+        process.env.SAJTMASKIN_MODEL_PREMIUM = previousPremium;
+      }
+      if (previousFast === undefined) {
+        delete process.env.SAJTMASKIN_MODEL_FAST;
+      } else {
+        process.env.SAJTMASKIN_MODEL_FAST = previousFast;
+      }
+    }
   });
 });

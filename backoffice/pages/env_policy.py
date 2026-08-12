@@ -7,16 +7,13 @@ import streamlit as st
 from backoffice.shared import (
     BackofficeContext,
     read_json,
-    render_where_panel,
     validate_json_against_schema,
     write_json,
 )
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("env-policy.json")
-    render_where_panel("env-policy", domain_map)
     ep = ctx.config_dir / "env-policy.json"
     env_data = read_json(ep)
 

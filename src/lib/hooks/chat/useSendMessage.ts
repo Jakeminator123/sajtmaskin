@@ -384,6 +384,13 @@ export function useSendMessage(
           imageGenerations: enableImageGenerations,
           meta: promptMeta,
         };
+        // OpenClaw prepared-prompt fast lane: top-level body tag (NOT meta —
+        // the prompt-log meta already has a different `promptSource` key from
+        // strategyMeta). Server-side it is honored only when OC_EDIT is on
+        // and the prompt passes the deterministic structure check.
+        if (options.promptSource) {
+          requestBody.promptSource = options.promptSource;
+        }
         const trimmedSystem = systemPrompt?.trim();
         const shouldSendSystem =
           Boolean(trimmedSystem) && trimmedSystem !== lastSentSystemPromptRef.current;

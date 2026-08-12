@@ -1,8 +1,45 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runF3FinalizeAction } from "./f3-finalize-action";
+import { isF3FinalizeActive, resetF3FinalizeActivity } from "./repair-blocked";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  resetF3FinalizeActivity();
+});
+
+describe("runF3FinalizeAction — reparationsgrind", () => {
+  it("håller grinden stängd under körningen och öppnar den efteråt", async () => {
+    let activeDuringCall: boolean | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        activeDuringCall = isF3FinalizeActive();
+        return new Response(JSON.stringify({ ready: true, parentVersionId: "ver_f2" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+
+    await runF3FinalizeAction({ chatId: "chat_1", parentVersionId: "ver_f2" });
+
+    expect(activeDuringCall).toBe(true);
+    expect(isF3FinalizeActive()).toBe(false);
+  });
+
+  it("öppnar grinden även när nätverksanropet kastar", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("boom");
+      }),
+    );
+
+    const result = await runF3FinalizeAction({ chatId: "chat_1", parentVersionId: "ver_f2" });
+
+    expect(result.kind).toBe("error");
+    expect(isF3FinalizeActive()).toBe(false);
+  });
 });
 
 describe("runF3FinalizeAction", () => {

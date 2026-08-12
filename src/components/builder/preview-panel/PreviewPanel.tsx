@@ -19,6 +19,7 @@ import {
   INSPECT_BRIDGE_QUERY_PARAM,
   isInspectBridgeEnabled,
 } from "@/lib/builder/inspect-bridge-feature";
+import { reportPreviewClientError } from "@/lib/builder/preview-client-error-report";
 import type { FileNode } from "@/lib/builder/types";
 import { buildJsxElementRegistry, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import {
@@ -66,10 +67,15 @@ import {
 import { usePreviewPanelCodeFiles } from "./hooks/usePreviewPanelCodeFiles";
 import { usePreviewPanelPreviewRoutes } from "./hooks/usePreviewPanelPreviewRoutes";
 import type {
+  CaptureResponse,
   ComposerAiFallbackPayload,
   InspectEngine,
   PreviewPanelProps,
 } from "./preview-panel-types";
+import {
+  dispatchInspectCaptureEvent,
+  type PlacementSelectEventDetail,
+} from "@/lib/builder/inspect-events";
 import { usePreviewSurfaceMode } from "./usePreviewSurfaceMode";
 import {
   buildExternalRoutePreviewUrl,
@@ -86,6 +92,8 @@ import { getPageBlockById } from "@/lib/builder/page-blocks-catalog";
 import {
   parseShadcnDragPayload,
   SHADCN_ITEM_DND_TYPE,
+  type ShadcnInsertSelection,
+  type ShadcnPlacementPickResult,
 } from "@/lib/builder/shadcn-insert";
 import {
   resolveHomePageFilePath,
@@ -180,9 +188,13 @@ function composerDropStatusLabel(
 export function PreviewPanel({
   chatId,
   versionId,
+  designTheme,
+  onDesignThemeChange,
+  themeLocked = false,
   previewUrl,
   onNavigatePreviewUrl,
   isLoading: externalLoading = false,
+  isGenerating = false,
   onFixPreview,
   versionlessAborted = false,
   onRestartGeneration,
@@ -241,6 +253,16 @@ export function PreviewPanel({
   const [composerUndoStack, setComposerUndoStack] = useState<ComposerPatchHistoryEntry[]>([]);
   const [composerRedoStack, setComposerRedoStack] = useState<ComposerPatchHistoryEntry[]>([]);
   const [composerHistoryBusy, setComposerHistoryBusy] = useState(false);
+  // Klick-väg från Bläddra/Beskriv: aktivera befintligt placeringsläge (overlay +
+  // toast) i stället för att skicka utan ankare. Shell-ägda placementMode-props
+  // förblir externa; detta är den lokala pickern som kopplar Add-panelen.
+  const [shadcnPlacementPickItem, setShadcnPlacementPickItem] = useState<{
+    title: string;
+    description?: string | null;
+  } | null>(null);
+  const shadcnPlacementPickResolverRef = useRef<
+    ((value: ShadcnPlacementPickResult) => void) | null
+  >(null);
   const [lastComposerActionLabel, setLastComposerActionLabel] = useState<string | null>(null);
   const {
     files,
@@ -292,10 +314,24 @@ export function PreviewPanel({
   const [inspectEngine, setInspectEngine] = useState<InspectEngine>(
     bridgeEnabled ? "bridge" : "map",
   );
+  // Bara en automatisk nedfällning får återhämtas. Ett manuellt motorval (map/
+  // ai/playwright i inspektorpanelen) ska inte ryckas tillbaka av ett sent `ready`.
+  const autoFellBackFromBridgeRef = useRef(false);
+  const selectInspectEngine = useCallback(
+    (engine: InspectEngine) => {
+      // Ett klick på den redan valda motorn är inget val — hade det räknats
+      // skulle en felklick på Map släcka återhämtningen och lämna inspektorn
+      // död i prod, där kartan är 503.
+      if (engine !== inspectEngine) autoFellBackFromBridgeRef.current = false;
+      setInspectEngine(engine);
+    },
+    [inspectEngine],
+  );
   const [inspectStatus, setInspectStatus] = useState<string | null>(null);
   const [lastCodeMatch, setLastCodeMatch] = useState<RegistryMatch | null>(null);
   const [inspectMenu, setInspectMenu] = useState<InspectMenuState | null>(null);
   const [inspectRegion, setInspectRegion] = useState<InspectRegionState | null>(null);
+  const [regionImagePending, setRegionImagePending] = useState(false);
   const [inspectEditBusy, setInspectEditBusy] = useState(false);
   const [inspectEditError, setInspectEditError] = useState<string | null>(null);
   // Synkron spärr: `inspectEditBusy` hinner inte uppdateras innan ett andra
@@ -403,6 +439,104 @@ export function PreviewPanel({
     }
   }, [composerMode]);
 
+  const resolveShadcnPlacementPick = useCallback((value: ShadcnPlacementPickResult) => {
+    const resolve = shadcnPlacementPickResolverRef.current;
+    if (!resolve) return;
+    shadcnPlacementPickResolverRef.current = null;
+    setShadcnPlacementPickItem(null);
+    resolve(value);
+  }, []);
+
+  // Chatt-/versionsbyte medan placeringsvalet pågår: avbryt HELT (ingen
+  // insättning). Utan detta kunde ett val som startade i en chatt fullföljas
+  // mot den nya aktiva chatten, eller lämna insertingRef låst (bugbot-fynd).
+  // Första hydreringen är inget byte: placeringsläget kräver bara `previewUrl`,
+  // som kan finnas innan versionslistan laddat, så en abort när `versionId` går
+  // från tomt till sitt första värde hade tyst svalt ett val användaren redan
+  // startat. Bara ett skifte FRÅN ett satt id räknas därför som byte.
+  const placementScopeRef = useRef({ chatId, versionId });
+  useEffect(() => {
+    const previous = placementScopeRef.current;
+    placementScopeRef.current = { chatId, versionId };
+    const chatSwitched = Boolean(previous.chatId) && previous.chatId !== chatId;
+    const versionSwitched = Boolean(previous.versionId) && previous.versionId !== versionId;
+    if (chatSwitched || versionSwitched) resolveShadcnPlacementPick("aborted");
+  }, [chatId, versionId, resolveShadcnPlacementPick]);
+
+  const handlePickShadcnPlacement = useCallback(
+    (selection: ShadcnInsertSelection) => {
+      // Utan inspector/preview kan overlayn inte visas — behåll dagens default.
+      if (!inspectorEnabled || !previewUrl) {
+        return Promise.resolve(null);
+      }
+      if (shadcnPlacementPickResolverRef.current) {
+        // Ett nytt val ersätter ett pågående — det gamla får aldrig insättas.
+        shadcnPlacementPickResolverRef.current("aborted");
+        shadcnPlacementPickResolverRef.current = null;
+      }
+      return new Promise<ShadcnPlacementPickResult>((resolve) => {
+        shadcnPlacementPickResolverRef.current = resolve;
+        setShadcnPlacementPickItem({
+          title: selection.title?.trim() || selection.name,
+          description: selection.description ?? null,
+        });
+      });
+    },
+    [inspectorEnabled, previewUrl],
+  );
+
+  const handlePlacementCompleteMerged = useCallback(
+    (detail: PlacementSelectEventDetail) => {
+      onPlacementComplete?.(detail);
+      if (!shadcnPlacementPickResolverRef.current) return;
+      resolveShadcnPlacementPick({
+        placement: detail.placement,
+        placementLabel: detail.placementLabel,
+        anchorSectionLabel: detail.anchorSection?.label,
+      });
+    },
+    [onPlacementComplete, resolveShadcnPlacementPick],
+  );
+
+  // Esc / klick utanför overlay → avbryt HELT (ingen insättning). Klick på
+  // fryst chrome (disablad panel, tabbar) är inte "sätt in längst ner" —
+  // bugbot-fynd: null här startade en oavsiktlig generation. Default-insättning
+  // utan ankare finns kvar bara när overlayn inte kan visas alls (pickern
+  // resolvar null direkt i handlePickShadcnPlacement).
+  useEffect(() => {
+    if (!shadcnPlacementPickItem) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      resolveShadcnPlacementPick("aborted");
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('[data-testid="placement-overlay"]')) return;
+      resolveShadcnPlacementPick("aborted");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [shadcnPlacementPickItem, resolveShadcnPlacementPick]);
+
+  useEffect(() => {
+    return () => {
+      if (!shadcnPlacementPickResolverRef.current) return;
+      // Unmount = användaren lämnade ytan — avbryt utan insättning
+      // (bugbot-fynd: `null` här startade en oavsiktlig generation).
+      shadcnPlacementPickResolverRef.current("aborted");
+      shadcnPlacementPickResolverRef.current = null;
+    };
+  }, []);
+
+  const effectivePlacementMode = Boolean(placementMode || shadcnPlacementPickItem);
+  const effectivePendingPlacementItem = pendingPlacementItem ?? shadcnPlacementPickItem;
+
   const {
     elementMap,
     elementMapLoading,
@@ -413,6 +547,7 @@ export function PreviewPanel({
     setHoveredPlacement,
     handleToggleInspect,
     sectionZones,
+    applyBridgeSectionCandidates,
     handlePlacementMouseMove,
     handlePlacementClick,
     handleInspectMouseMove,
@@ -420,7 +555,7 @@ export function PreviewPanel({
     inspectorEnabled,
     previewUrl,
     versionId,
-    placementMode: Boolean(placementMode),
+    placementMode: effectivePlacementMode,
     composerMode,
     inspectMode,
     setInspectMode,
@@ -430,7 +565,7 @@ export function PreviewPanel({
     fetchFilesForRegistry,
     setInspectStatus,
     setLastCodeMatch,
-    onPlacementComplete,
+    onPlacementComplete: handlePlacementCompleteMerged,
     inspectEngine,
   });
 
@@ -537,6 +672,13 @@ export function PreviewPanel({
     });
   }, []);
 
+  const handleBridgeClientError = useCallback(
+    (payload: unknown) => {
+      reportPreviewClientError(chatId, versionId, payload);
+    },
+    [chatId, versionId],
+  );
+
   usePreviewInspectBridge({
     enabled: bridgeEnabled,
     active: inspectEngine === "bridge",
@@ -550,9 +692,29 @@ export function PreviewPanel({
     onPick: handleBridgePick,
     onRect: handleBridgeRect,
     onRegion: handleBridgeRegion,
+    onClientError: handleBridgeClientError,
     // A-fix (#164/#197): bron annonserade aldrig `ready` → previewn saknar
     // injektionen. Växla till kartmotorn i stället för en inert inspektor.
-    onBridgeUnavailable: () => setInspectEngine("map"),
+    onBridgeUnavailable: () => {
+      autoFellBackFromBridgeRef.current = true;
+      setInspectEngine("map");
+    },
+    // Kommer `ready` sent (VM:en bootade klart och iframen laddades om) tas
+    // sessionen tillbaka till bron i stället för att sitta fast i en död karta.
+    onBridgeReady: () => {
+      if (!autoFellBackFromBridgeRef.current) return;
+      autoFellBackFromBridgeRef.current = false;
+      setInspectEngine("bridge");
+      setInspectStatus("Inspektera: klicka på ett element i previewn.");
+    },
+    // Placement/composer behöver sektionsankare i prod (ingen Playwright-map).
+    // effectivePlacementMode: även klick-pickerns lokala placeringsläge
+    // (Bläddra/Beskriv) ska trigga zon-hämtning, inte bara shell-propen.
+    requestSections:
+      bridgeEnabled &&
+      inspectEngine === "bridge" &&
+      (effectivePlacementMode || composerMode),
+    onSections: applyBridgeSectionCandidates,
   });
 
   // Menyn hör till inspect-läget: lämnar man läget (eller previewen byts) ska
@@ -642,6 +804,11 @@ export function PreviewPanel({
         // that base as the latest-known signal so the server's stale-base 409
         // fires when another writer advanced the chat head past it.
         engineLatestKnownVersionId: base,
+        // History restore, not new machine content: the snapshot is a state
+        // the file has already been in (possibly a deliberately saved broken
+        // draft from the code view). Gating it would strand the user with no
+        // way back — and unlike the composer drop there is no AI fallback.
+        guardSyntax: false,
       });
       if (!saved.ok) {
         toast.error(saved.error);
@@ -679,6 +846,8 @@ export function PreviewPanel({
         // See handleComposerUndo: chain off the latest composer version (FEL-2)
         // and forward it as the latest-known signal for the stale-base 409.
         engineLatestKnownVersionId: base,
+        // History restore — same rationale as handleComposerUndo above.
+        guardSyntax: false,
       });
       if (!saved.ok) {
         toast.error(saved.error);
@@ -1002,23 +1171,40 @@ export function PreviewPanel({
         const pagePath = pageFilePathForRoute(route, appDir);
         const label = defaultLabelForRoute(route);
         const nav = buildAddNavLinkOps(files, route, label);
-        const result = await quickEditChatFiles({
-          chatId,
-          baseVersionId: versionId,
-          // Forward the active version as the latest-known signal so the server's
-          // stale-base 409 fires if another writer advanced the chat head.
-          engineLatestKnownVersionId: versionId,
-          ops: [
-            { kind: "replace_content", path: pagePath, content: buildNewPageContent(route, label) },
-            ...nav.ops,
-          ],
-          summary: `La till sidan ${route}`,
-        });
+        const pageOp: QuickEditClientOp = {
+          kind: "replace_content",
+          path: pagePath,
+          content: buildNewPageContent(route, label),
+        };
+        const runOps = (ops: QuickEditClientOp[]) =>
+          quickEditChatFiles({
+            chatId,
+            baseVersionId: versionId,
+            // Forward the active version as the latest-known signal so the server's
+            // stale-base 409 fires if another writer advanced the chat head.
+            engineLatestKnownVersionId: versionId,
+            ops,
+            summary: `La till sidan ${route}`,
+          });
+        let result = await runOps([pageOp, ...nav.ops]);
+        let navRejected = false;
+        if (!result.ok && result.reason === "parse_regression" && nav.ops.length > 0) {
+          // The server's syntax gate rejected the menu rewrite. The page itself
+          // is independent of it, so create the page without the link instead of
+          // dropping the whole action.
+          navRejected = true;
+          result = await runOps([pageOp]);
+        }
         if (!result.ok) {
           toast.error(result.error || "Kunde inte skapa sidan.");
           return;
         }
-        if (nav.navUpdated) {
+        if (navRejected) {
+          toast.message(`Sidan ${route} skapades`, {
+            description:
+              "Menyn kunde inte uppdateras automatiskt utan att koden gick sönder — be i chatten att länka sidan.",
+          });
+        } else if (nav.navUpdated) {
           toast.success(`Sidan ${route} skapades och länkades i menyn.`);
         } else {
           toast.message(`Sidan ${route} skapades`, {
@@ -1271,6 +1457,81 @@ export function PreviewPanel({
     setInspectMode(false);
   }, [inspectRegion, previewUrl, setInspectMode]);
 
+  /**
+   * Bild av den uppdragna ytan, bifogad i chatten.
+   *
+   * Punktvägen finns redan och tar en fast 420×280-ruta runt en koordinat.
+   * Den duger för "vad är det här elementet?" men inte för "titta på den här
+   * ytan": användaren har redan sagt exakt vilken yta som menas genom att dra
+   * rutan, och den avgränsningen är hela poängen. Regionen skickas därför i
+   * procent till samma route, som klipper precis den och hoppar över
+   * hårkorset — bilden ÄR markeringen.
+   */
+  const handleInspectRegionSendImage = useCallback(async () => {
+    const state = inspectRegion;
+    if (!state || !previewUrl || regionImagePending) return;
+    const { rect, viewport, scroll } = state.region;
+    if (viewport.w <= 0 || viewport.h <= 0) return;
+
+    const captureId = `region-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const centerXPercent = Number((((rect.x + rect.width / 2) / viewport.w) * 100).toFixed(2));
+    const centerYPercent = Number((((rect.y + rect.height / 2) / viewport.h) * 100).toFixed(2));
+
+    setRegionImagePending(true);
+    try {
+      const response = await fetch("/api/inspector-capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: previewUrl,
+          xPercent: centerXPercent,
+          yPercent: centerYPercent,
+          viewportWidth: Math.round(viewport.w),
+          viewportHeight: Math.round(viewport.h),
+          // Rektangeln är viewport-relativ, så fångsten måste rulla dit först
+          // — annars fotograferar den sidans topp och kallar det markeringen.
+          scrollX: scroll.x,
+          scrollY: scroll.y,
+          region: {
+            xPercent: Number(((rect.x / viewport.w) * 100).toFixed(2)),
+            yPercent: Number(((rect.y / viewport.h) * 100).toFixed(2)),
+            widthPercent: Number(((rect.width / viewport.w) * 100).toFixed(2)),
+            heightPercent: Number(((rect.height / viewport.h) * 100).toFixed(2)),
+          },
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as CaptureResponse | null;
+
+      if (!response.ok || !data?.previewDataUrl) {
+        toast.error(data?.error || "Kunde inte ta bild av ytan.");
+        return;
+      }
+
+      dispatchInspectCaptureEvent({
+        id: captureId,
+        demoUrl: previewUrl,
+        xPercent: centerXPercent,
+        yPercent: centerYPercent,
+        viewportWidth: Math.round(viewport.w),
+        viewportHeight: Math.round(viewport.h),
+        capturedUrl: data.capturedUrl,
+        previewDataUrl: data.previewDataUrl,
+        pointSummary:
+          data.pointSummary ??
+          `Markerad yta ${Math.round(rect.width)}×${Math.round(rect.height)} px`,
+        clip: data.clip,
+        source: data.source,
+      });
+      toast.success("Bild av ytan tillagd i chatten.");
+      setInspectRegion(null);
+      setInspectMode(false);
+    } catch {
+      toast.error("Nätverksfel när bilden skulle tas.");
+    } finally {
+      setRegionImagePending(false);
+    }
+  }, [inspectRegion, previewUrl, regionImagePending, setInspectMode]);
+
   const blobStatus = useMemo(
     () => integrationStatus?.items.find((item) => item.id === "vercel-blob") || null,
     [integrationStatus],
@@ -1352,9 +1613,9 @@ export function PreviewPanel({
         showImagesDisabledWarning ||
         showImagesUnsupportedWarning),
   );
-  const showPlacementOverlay = inspectorEnabled && placementMode && Boolean(previewUrl);
+  const showPlacementOverlay = inspectorEnabled && effectivePlacementMode && Boolean(previewUrl);
   const showComposerOverlay =
-    composerMode && Boolean(previewUrl) && !placementMode && !isCodeView;
+    composerMode && Boolean(previewUrl) && !effectivePlacementMode && !isCodeView;
   // Bridge-engine renderar INTE den täckande overlayn — preview-iframen måste
   // få mus-eventen själv (det injicerade scriptet ritar highlight + postar pick).
   const showInspectOverlay =
@@ -1407,6 +1668,9 @@ export function PreviewPanel({
       <PreviewPanelEmptyState
         chatId={chatId}
         versionId={versionId}
+        designTheme={designTheme}
+        onDesignThemeChange={onDesignThemeChange}
+        themeLocked={themeLocked}
         versionlessAborted={versionlessAborted}
         onRestartGeneration={onRestartGeneration}
         externalLoading={externalLoading}
@@ -1421,6 +1685,7 @@ export function PreviewPanel({
         activeVersionIsLatest={activeVersionIsLatest}
         activeVersionRepairPassIndex={activeVersionRepairPassIndex}
         onFixPreview={onFixPreview}
+        isGenerating={isGenerating}
       />
     );
   }
@@ -1527,14 +1792,17 @@ export function PreviewPanel({
           {composerMode ? (
             addPanelEnabled ? (
               <PreviewPanelAddPanel
-                disabled={!previewUrl || Boolean(placementMode) || composerHistoryBusy}
+                disabled={!previewUrl || effectivePlacementMode || composerHistoryBusy}
                 onDragStart={() => setIsComposerDragging(true)}
                 onDragEnd={() => setIsComposerDragging(false)}
                 onInsertShadcnItem={onShadcnItemInsert}
+                onPickPlacement={
+                  onShadcnItemInsert ? handlePickShadcnPlacement : undefined
+                }
               />
             ) : (
               <PreviewPanelComposerPalette
-                disabled={!previewUrl || Boolean(placementMode) || composerHistoryBusy}
+                disabled={!previewUrl || effectivePlacementMode || composerHistoryBusy}
                 onDragStart={() => setIsComposerDragging(true)}
                 onDragEnd={() => setIsComposerDragging(false)}
               />
@@ -1585,7 +1853,7 @@ export function PreviewPanel({
                   handlePlacementMouseMove={handlePlacementMouseMove}
                   onPlacementMouseLeave={() => setHoveredPlacement(null)}
                   hoveredPlacement={hoveredPlacement}
-                  pendingPlacementItem={pendingPlacementItem}
+                  pendingPlacementItem={effectivePendingPlacementItem}
                   elementMapLoading={elementMapLoading}
                   sectionZonesCount={sectionZones.length}
                   isCapturePending={isCapturePending}
@@ -1599,7 +1867,7 @@ export function PreviewPanel({
                   inspectEngine={inspectEngine}
                   hoveredMapElement={hoveredMapElement}
                   inspectPulse={inspectPulse}
-                  setInspectEngine={setInspectEngine}
+                  setInspectEngine={selectInspectEngine}
                   inspectorUnavailable={inspectorUnavailable}
                   elementMapCount={elementMap.length}
                   totalAiCostUsd={totalAiCostUsd}
@@ -1654,6 +1922,10 @@ export function PreviewPanel({
                     describeRegionElement(entry.element),
                   )}
                   onSendToChat={handleInspectRegionSendPoints}
+                  onSendImageToChat={
+                    inspectorEnabled ? () => void handleInspectRegionSendImage() : undefined
+                  }
+                  imagePending={regionImagePending}
                   onClose={() => setInspectRegion(null)}
                 />
               ) : null}

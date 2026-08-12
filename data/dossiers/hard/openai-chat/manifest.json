@@ -4,6 +4,7 @@
   "mock": "canned",
   "label": "AI-chatt — OpenAI",
   "capability": "ai-chat",
+  "providers": ["openai"],
   "codeFidelity": "rewritable",
   "complexity": "medium",
   "defaultForCapability": true,
@@ -14,6 +15,7 @@
       "key": "OPENAI_API_KEY",
       "required": true,
       "enforcement": "feature-runtime",
+      "setupUrl": "https://platform.openai.com/api-keys",
       "purpose": "Server-side OpenAI API authentication. Find it at platform.openai.com/api-keys. Tagged 'feature-runtime': the chat route now degrades gracefully (mock: canned) — when the key is missing or a preview stub it streams a canned demo reply over the same UI-message-stream protocol instead of calling OpenAI, so F3 reports a warning rather than blocking the build."
     }
   ],

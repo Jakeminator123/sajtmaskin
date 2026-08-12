@@ -119,7 +119,10 @@ function listFilesRecursive(dir) {
 }
 
 function relPath(file) {
-  return file.replace(ROOT + "\\", "").replace(ROOT + "/", "").replace(/\\/g, "/");
+  return file
+    .replace(ROOT + "\\", "")
+    .replace(ROOT + "/", "")
+    .replace(/\\/g, "/");
 }
 
 function main() {
@@ -164,7 +167,12 @@ function main() {
     process.exit(failed ? 1 : 0);
   }
 
-  console.log(`Dossier SDK-version check — ${checked.length} pinned apiVersion(s) checked\n`);
+  console.log(`Dossier SDK apiVersion check — ${checked.length} explicit pin(s) checked\n`);
+  if (checked.length === 0 && skipped.length === 0 && unreadable.length === 0) {
+    console.log(
+      "INFO  No explicit SDK apiVersion literals found. This is valid: unpinned clients follow the installed SDK default; package ranges are checked by dossiers:check-dependencies.",
+    );
+  }
   for (const c of checked) {
     const status = c.pinned === c.expected ? "OK   " : "DRIFT";
     console.log(`${status} ${c.file}  [${c.sdk}] pinned=${c.pinned} expected=${c.expected}`);
@@ -173,7 +181,9 @@ function main() {
     console.log(`SKIP  ${s.file}  pinned=${s.pinned} (${s.reason})`);
   }
   for (const u of unreadable) {
-    console.error(`FAIL  ${u.file}  [${u.sdk}] pinned=${u.pinned} — installed SDK version could not be read`);
+    console.error(
+      `FAIL  ${u.file}  [${u.sdk}] pinned=${u.pinned} — installed SDK version could not be read`,
+    );
   }
   if (failed) {
     if (drifts.length > 0) {
@@ -191,7 +201,7 @@ function main() {
     }
     process.exit(1);
   }
-  console.log("\nAll pinned dossier SDK apiVersions match the installed SDKs.");
+  console.log("\nAll explicit dossier SDK apiVersions match the installed SDKs.");
 }
 
 // Only run when invoked directly (so the test can import evaluatePins without

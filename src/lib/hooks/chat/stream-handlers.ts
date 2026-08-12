@@ -24,7 +24,7 @@ import {
   recordStreamText,
 } from "./helpers";
 import type { PreviewPreflightState } from "@/lib/gen/preview/diagnostics";
-import { normalizePlanArtifact } from "@/lib/gen/plan/schema";
+import { planArtifactHasSubstance } from "@/lib/gen/plan/review";
 import { runPostGenerationChecks } from "./post-checks";
 import {
   F3_APPROVAL_NOTHING_TO_BUILD_REASON,
@@ -92,9 +92,20 @@ export async function handleSseStream(
   response: Response,
   ctx: StreamContext,
   signal: AbortSignal,
-): Promise<{ streamQuality: StreamQualitySignal; chatIdFromStream: string | null }> {
+): Promise<{
+  streamQuality: StreamQualitySignal;
+  chatIdFromStream: string | null;
+  /**
+   * True när done-eventet bar en riktig artefakt (version, preview,
+   * plan-artefakt eller awaiting-input). False vid tomma/failade
+   * generationer — Byggval-storen ska då INTE nollställas (valen bevaras
+   * till nästa försök).
+   */
+  hasRecoveredArtifact: boolean;
+}> {
   let chatIdFromStream: string | null = null;
   let versionIdFromStream: string | null = null;
+  let recoveredArtifactSignal = false;
   let linkedProjectIdFromStream: string | null = null;
   let accumulatedThinking = "";
   let accumulatedContent = "";
@@ -249,6 +260,17 @@ export async function handleSseStream(
       if (phase === "reasoning") {
         return ["Modellen analyserar uppgiften innan första synliga outputen kommer."];
       }
+      if (phase === "reasoning-slow") {
+        const elapsedMs =
+          typeof payload.elapsedMs === "number" && Number.isFinite(payload.elapsedMs)
+            ? payload.elapsedMs
+            : null;
+        return [
+          elapsedMs !== null
+            ? `Modellen analyserar fortfarande uppgiften (${formatSeconds(elapsedMs)}).`
+            : "Modellen analyserar fortfarande uppgiften.",
+        ];
+      }
       if (phase === "awaiting-output") {
         return ["Väntar på första kod- eller textoutput från modellen."];
       }
@@ -258,6 +280,11 @@ export async function handleSseStream(
       }
       if (phase === "empty-output") {
         return ["Genereringen avslutades utan användbar kod eller preview-artifact."];
+      }
+      if (phase === "stream-without-version") {
+        return [
+          "Innehåll strömmades till chatten men kunde inte sparas som version. Texten ovan finns kvar.",
+        ];
       }
       if (phase === "tool") {
         const toolName = typeof payload.toolName === "string" ? payload.toolName.trim() : "";
@@ -429,6 +456,14 @@ export async function handleSseStream(
       if (phase === "starting") {
         return ["Startar tier-2-preview (VM) ..."];
       }
+      if (phase === "boot-queued") {
+        return [
+          "Preview-sessionen är skapad. Miljön fortsätter starta i previewytan.",
+        ];
+      }
+      if (phase === "ready") {
+        return ["Live-preview är klar."];
+      }
       if (phase === "build-verified") {
         return ["Production build (npm run build) lyckades i verifierings-VM — separat från dev-preview."];
       }
@@ -437,21 +472,37 @@ export async function handleSseStream(
           "Production build misslyckades i verifierings-VM. Dev-server-preview kan ändå vara användbar.",
         ];
       }
+      if (phase === "error") {
+        const message =
+          typeof payload.message === "string" && payload.message.trim()
+            ? payload.message.trim()
+            : null;
+        return [
+          message
+            ? `Live-preview kunde inte starta: ${message}`
+            : "Live-preview kunde inte starta.",
+        ];
+      }
     }
     return [`${getProgressToolName(step)}: ${phase}`];
   };
 
   const appendProgressPart = (step: string, phase: string, payload: Record<string, unknown> = {}) => {
+    const completed =
+      phase === "passed" ||
+      phase === "done" ||
+      (step === "preview" &&
+        (phase === "boot-queued" || phase === "ready" || phase === "build-verified"));
+    const failed =
+      phase === "error" ||
+      phase === "gave-up" ||
+      phase === "reverted" ||
+      (step === "preview" && phase === "build-failed");
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: `tool:engine-${step}` as const,
       toolName: getProgressToolName(step),
       toolCallId: `progress:${step}`,
-      state:
-        phase === "passed" || phase === "done"
-          ? "output-available"
-          : phase === "error" || phase === "gave-up" || phase === "reverted"
-            ? "output-error"
-            : "input-streaming",
+      state: completed ? "output-available" : failed ? "output-error" : "input-streaming",
       output: {
         step,
         phase,
@@ -914,7 +965,15 @@ export async function handleSseStream(
             }
 
             if (previewUrl && Object.keys(tierMeta).length > 0 && pb === undefined) {
-              appendProgressPart("preview", "ready", tierMeta);
+              const runtimeConfirmed =
+                typeof previewData.runtimeConfirmed === "boolean"
+                  ? previewData.runtimeConfirmed
+                  : undefined;
+              appendProgressPart(
+                "preview",
+                runtimeConfirmed === false ? "boot-queued" : "ready",
+                { ...tierMeta, ...(runtimeConfirmed === undefined ? {} : { runtimeConfirmed }) },
+              );
             }
             break;
           }
@@ -927,7 +986,7 @@ export async function handleSseStream(
               stage,
               message,
             });
-            appendProgressPart("build-error", "error", { stage, message });
+            appendProgressPart("preview", "error", { stage, message });
             toast.error(
               `Live-preview gick inte [${stage}]: ${message.slice(0, 400)}. Ingen live-preview förrän VM-previewn lyckas.`,
             );
@@ -1032,17 +1091,19 @@ export async function handleSseStream(
             // rått blev en misslyckad planering "Plan skapad!" plus ett tomt
             // kort — falsk grönt. Detta är samma normalisering som
             // `BuildPlanCard` renderar ur, så toasten och kortet kan inte säga
-            // emot varandra.
-            const hasPlanArtifact = (() => {
-              const plan = normalizePlanArtifact(doneData.planArtifact);
-              if (!plan) return false;
-              return plan.steps.length > 0 || plan.blockers.length > 0;
-            })();
+            // emot varandra. Substanspredikatet delas med serverns
+            // persist-beslut (`planArtifactHasSubstance` räknar även
+            // pages/scope — en sidplan utan steg är en riktig plan), så
+            // klientens toast kan inte säga emot vad servern sparade.
+            const hasPlanArtifact = planArtifactHasSubstance(
+              (doneData.planArtifact ?? null) as Record<string, unknown> | null,
+            );
             const hasRecoveredArtifact =
               awaitingInput ||
               Boolean(resolvedVersionId) ||
               Boolean(effectiveDoneDemo) ||
               hasPlanArtifact;
+            recoveredArtifactSignal = hasRecoveredArtifact;
             const emptyGenerationReason =
               typeof doneData.reason === "string" && doneData.reason.trim().length > 0
                 ? doneData.reason.trim()
@@ -1091,6 +1152,42 @@ export async function handleSseStream(
             }
 
             if (!awaitingInput && !hasRecoveredArtifact) {
+              // Strömmad assistenttext som nådde chatten är inte "ingenting":
+              // när innehåll finns (eller servern uttryckligen sa
+              // `stream_ended_without_version`) får varken feltoasten eller
+              // empty-output-fasen påstå att inget kom tillbaka. Medvetet
+              // INTE inbakat i `hasRecoveredArtifact` — den signalen betyder
+              // "riktig artefakt" och styr bl.a. Byggval-reset i
+              // useCreateChat, där strömmad text utan version inte ska räknas.
+              const hasStreamedContent =
+                accumulatedContent.trim().length > 0 ||
+                emptyGenerationReason === "stream_ended_without_version";
+              if (hasStreamedContent) {
+                if (doneData.planMode === true) {
+                  // Plan-läge utan substansplan: servern persisterar prosan
+                  // som planner-text — ett medvetet utfall, inte ett
+                  // persist-fel. Ingen codegen-fas ("kunde inte sparas som
+                  // version" vore lögn) och ingen toast; texten är
+                  // resultatet. Completion-hooken körs som på den lyckade
+                  // planvägen så UI:t inte fastnar i genererings-läge.
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
+                    ),
+                  );
+                  onGenerationComplete?.({ chatId: nextId });
+                  break;
+                }
+                appendProgressPart("generation", "stream-without-version", {
+                  reason: emptyGenerationReason,
+                });
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
+                  ),
+                );
+                break;
+              }
               appendProgressPart("generation", "empty-output", { reason: emptyGenerationReason });
               const explicitFailureMessage =
                 pendingStreamErrorMessage ||
@@ -1382,5 +1479,5 @@ export async function handleSseStream(
     });
   }
 
-  return { streamQuality, chatIdFromStream };
+  return { streamQuality, chatIdFromStream, hasRecoveredArtifact: recoveredArtifactSignal };
 }

@@ -4,6 +4,7 @@
   "mock": "canned",
   "label": "AI-chatt på eget innehåll (RAG)",
   "capability": "rag-chat",
+  "providers": ["openai", "postgres"],
   "codeFidelity": "verbatim",
   "complexity": "advanced",
   "defaultForCapability": true,
@@ -13,6 +14,7 @@
     {
       "key": "OPENAI_API_KEY",
       "required": true,
+      "setupUrl": "https://platform.openai.com/api-keys",
       "purpose": "Server-side OpenAI key used for embeddings (text-embedding-3-small) and chat generation. Get it at platform.openai.com/api-keys. Tagged feature-runtime because isRagConfigured() gates every model call: missing or placeholder key → the route streams a canned demo reply (mock: canned) and the UI shows a discreet demo notice instead of throwing.",
       "enforcement": "feature-runtime"
     },
@@ -112,6 +114,7 @@
     }
   ],
   "lastVerified": "2026-04-18",
+  "verificationStatus": "unverified",
   "sourceRepoUrl": "https://github.com/vercel-labs/ai-sdk-preview-rag",
   "notes": "Hard dossier: server routes + pgvector Postgres. Capability 'rag-chat' must NOT compete with 'ai-chat' (openai-chat owns generic chatbots) — explicit RAG intent only. Legacy import final wave: lazy OpenAI + lazy getDb()/getPool(), same UI-message stream contract as openai-chat, isRagConfigured() placeholder-guards on BOTH keys, mock: canned, pgvector migration shipped as rag-migrations.sql (no auto-migrate at boot). lastVerified carries the legacy source date until a preview/generate-test selects it (no-false-green).",
   "promptInstructionMode": "selected-sections"

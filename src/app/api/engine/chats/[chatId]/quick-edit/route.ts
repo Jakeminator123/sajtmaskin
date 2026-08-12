@@ -46,6 +46,12 @@ const bodySchema = z.object({
   engineLatestKnownVersionId: z.string().min(1).optional(),
   summary: z.string().max(300).optional(),
   ops: z.array(opSchema).min(1).max(50),
+  /**
+   * Syntax gate, on unless explicitly disabled. Only the code view's manual
+   * save opts out (human-authored, possibly half-finished content must still be
+   * savable) — every machine-authored op set is gated.
+   */
+  guardSyntax: z.boolean().optional(),
 });
 
 function httpStatusForQuickEditFailure(reason: string): number {
@@ -62,6 +68,7 @@ function httpStatusForQuickEditFailure(reason: string): number {
     case "no_match":
     case "no_base_files":
     case "jsx_delete_unsafe":
+    case "parse_regression":
       return 422;
     case "no_change":
       return 200;
@@ -163,6 +170,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         ops: parsed.data.ops as QuickEditOp[],
         appProjectId,
         summary: parsed.data.summary,
+        guardSyntax: parsed.data.guardSyntax,
       });
 
       if (!result.ok) {

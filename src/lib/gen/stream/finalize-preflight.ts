@@ -15,6 +15,12 @@ import {
   type RoutePlan,
 } from "@/lib/gen/route-plan";
 import { repairGeneratedFiles } from "@/lib/gen/autofix/repair-generated-files";
+import type { FixEntry } from "@/lib/gen/autofix/types";
+import {
+  completeProjectDependencies,
+  detectLockfilePackageManager,
+  markLockfileStaleInFiles,
+} from "@/lib/gen/autofix/dep-completer";
 import { capDegeneratePayload, detectDegenerateFiles } from "@/lib/gen/verify/degeneracy-guard";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { RepairLedger, runLlmRepairGate } from "@/lib/gen/autofix/llm-repair-gate";
@@ -88,6 +94,15 @@ export interface RunFinalizePreflightParams {
    */
   projectEnvLocalOptions?: ProjectEnvLocalOptions;
   /**
+   * Base-version files (previous version / imported template) the merged
+   * output was built on. Used ONLY to protect inherited content from the
+   * degeneracy cap: a merged file whose content is byte-identical with the
+   * base version is by definition not this round's degenerate output and must
+   * never be stubbed (prod chat 4d6b5546: an imported template's 1.3 MB
+   * texture was destroyed by the cap on the first follow-up).
+   */
+  previousFiles?: ReadonlyArray<Pick<CodeFile, "path" | "content">>;
+  /**
    * True for verbatim imported-repo edits (v0-template chats). Two effects:
    *
    * 1. Skips the own-engine project assembly (`buildCompleteProject` +
@@ -117,6 +132,14 @@ export interface RunFinalizePreflightResult {
   previewBlockingReason: string | null;
   previewStart: PreviewStartContract;
   unresolvedImportFallbackUsed: boolean;
+  /**
+   * Fixes from the post-merge `repairGeneratedFiles()` lane that mutated the
+   * PERSISTED files. Previously these only reached the ephemeral devLog, so a
+   * post-merge fixer that broke a site (layout-provider-fixer, prod chat
+   * e8bd3ba6 2026-08-01) was invisible in prod telemetry. The finalize runner
+   * merges these into `generation_telemetry.meta.autofix.fixers`.
+   */
+  postMergeFixes: FixEntry[];
 }
 
 function inferCodeFenceLanguage(path: string): string {
@@ -936,6 +959,25 @@ function collectOrchestrationContractIssues(
   return issues;
 }
 
+/**
+ * Paths whose content is byte-identical with the base version. Inherited
+ * content is not this round's degenerate output, so the degeneracy cap must
+ * never stub it (prod chat 4d6b5546).
+ */
+function collectBaseIdenticalPaths(
+  files: ReadonlyArray<{ path: string; content: string }>,
+  previousContentByPath: ReadonlyMap<string, string>,
+): Set<string> {
+  const paths = new Set<string>();
+  if (previousContentByPath.size === 0) return paths;
+  for (const file of files) {
+    if (previousContentByPath.get(file.path) === file.content) {
+      paths.add(file.path);
+    }
+  }
+  return paths;
+}
+
 export async function runFinalizePreflight({
   chatId,
   model: _model,
@@ -949,14 +991,19 @@ export async function runFinalizePreflight({
   repairScopeId,
   projectEnvLocalOptions,
   importedRepoMode = false,
+  previousFiles,
 }: RunFinalizePreflightParams): Promise<RunFinalizePreflightResult> {
   const repairLedger = providedRepairLedger ?? new RepairLedger();
+  const previousContentByPath = new Map(
+    (previousFiles ?? []).map((file) => [file.path, file.content] as const),
+  );
   let nextFilesJson = filesJson;
   const preflightIssues: FinalizePreflightIssue[] = [];
   let preflightFileCount = 0;
   let previewBlockingReason: string | null = null;
   let finalizedFilesForPreview: CodeFile[] = [];
   let unresolvedImportFallbackUsed = false;
+  let postMergeFixes: FixEntry[] = [];
   let previewStart = buildPreviewStartContract({
     issues: [],
     finalizedPreviewFileCount: 0,
@@ -1016,9 +1063,17 @@ export async function runFinalizePreflight({
         // largest until total is under cap) — not just the single named file —
         // so the total-size / split-bloat case is handled here too and the
         // merged-syntax repair below never runs on bloat (Bugbot #322).
-        const capped = capDegeneratePayload(finalFiles, degeneracy.reason);
-        finalFiles = capped.files;
-        nextFilesJson = JSON.stringify(finalFiles);
+        // The cap is binary-aware and skips base-identical inherited content,
+        // so it can legitimately stub NOTHING (e.g. detection flagged an
+        // imported template's large binary asset — prod chat 4d6b5546); the
+        // blocking issue below still gates preview either way.
+        const capped = capDegeneratePayload(finalFiles, degeneracy.reason, {
+          preservePaths: collectBaseIdenticalPaths(finalFiles, previousContentByPath),
+        });
+        if (capped.stubbedPaths.length > 0) {
+          finalFiles = capped.files;
+          nextFilesJson = JSON.stringify(finalFiles);
+        }
         preflightIssues.push(
           createIssue(
             degeneracy.file ?? "preflight",
@@ -1072,6 +1127,7 @@ export async function runFinalizePreflight({
       ? { files: finalFiles, fixes: [] }
       : repairGeneratedFiles(finalFiles);
     finalFiles = repairResult.files;
+    postMergeFixes = repairResult.fixes;
     if (repairResult.fixes.length > 0) {
       nextFilesJson = JSON.stringify(finalFiles);
       devLogAppend("in-progress", {
@@ -1111,7 +1167,10 @@ export async function runFinalizePreflight({
         const mechanicalResult = await runAutoFix(mergedProjectContent, {
           chatId,
           model: _model,
-          previewPolicy: undefined,
+          // Thread the version's real policy: with `undefined` the tier-3 SDK
+          // guard in the autofix pipeline treats the project as F2 and can
+          // strip genuine integration imports from an F3 (fidelity3) build.
+          previewPolicy: buildSpec?.previewPolicy,
         });
         mergedProjectContent = mechanicalResult.fixedContent;
         mergedSyntax = await validateGeneratedCode(mergedProjectContent);
@@ -1368,11 +1427,55 @@ export async function runFinalizePreflight({
             projectEnvLocalOptions,
           ),
         ).files;
+    let importedRepoPinnedDependencies: string[] = [];
     if (importedRepoMode) {
+      // Verbatim assembly must still be installable: a follow-up that
+      // introduces a new import (e.g. `@clerk/nextjs`) without emitting
+      // `package.json` leaves the template's own manifest untouched, the
+      // preview host's dependency fingerprint (package.json + lockfiles)
+      // stays identical, install is skipped and the runtime 500s on the
+      // missing module (prod chat 0d52e5c9, 2026-07-31). Pin missing KNOWN
+      // packages into the template's existing package.json — never touch
+      // declared versions, framework majors or lockfile identity.
+      const depCompletion = completeProjectDependencies(completeProjectFiles);
+      importedRepoPinnedDependencies = Object.keys(
+        depCompletion.pinnedDependencies,
+      );
+      if (importedRepoPinnedDependencies.length > 0) {
+        completeProjectFiles = depCompletion.files;
+        // Stale-lockfile protocol: we just mutated package.json while the
+        // template still carries its own lockfile. Mark it stale so the preview
+        // host runs one non-frozen install (otherwise a frozen install against
+        // warm node_modules answers "Already up to date" and never installs the
+        // newly-pinned dep — the radix-ui incident). Only when a lockfile is
+        // actually present; a fresh install regenerates from scratch otherwise.
+        const lockfilePackageManager =
+          detectLockfilePackageManager(completeProjectFiles);
+        if (lockfilePackageManager) {
+          completeProjectFiles = markLockfileStaleInFiles(completeProjectFiles, {
+            reason: `dep-completer pinned ${importedRepoPinnedDependencies.length} dependency/-ies: ${importedRepoPinnedDependencies.join(", ")}`,
+            packageManager: lockfilePackageManager,
+            makeFile: (path, content) => ({ path, content, language: "json" }),
+          });
+        }
+        preflightIssues.push(
+          createIssue(
+            "package.json",
+            "warning",
+            `Pinned ${importedRepoPinnedDependencies.length} missing ${
+              importedRepoPinnedDependencies.length === 1
+                ? "dependency"
+                : "dependencies"
+            } in the imported template's package.json: ${importedRepoPinnedDependencies.join(", ")}.`,
+            "non_blocking_quality_warning",
+          ),
+        );
+      }
       devLogAppend("in-progress", {
         type: "preflight.imported-repo.assembly-skipped",
         chatId,
         fileCount: completeProjectFiles.length,
+        pinnedDependencies: importedRepoPinnedDependencies,
       });
     }
     // Final degenerate-payload guard (Codex #322): the ASSEMBLED project — not
@@ -1388,6 +1491,12 @@ export async function runFinalizePreflight({
         const capped = capDegeneratePayload(
           completeProjectFiles,
           assembledDegeneracy.reason,
+          {
+            preservePaths: collectBaseIdenticalPaths(
+              completeProjectFiles,
+              previousContentByPath,
+            ),
+          },
         );
         if (capped.stubbedPaths.length > 0) {
           completeProjectFiles = capped.files;
@@ -1623,5 +1732,6 @@ export async function runFinalizePreflight({
     previewBlockingReason,
     previewStart,
     unresolvedImportFallbackUsed,
+    postMergeFixes,
   };
 }

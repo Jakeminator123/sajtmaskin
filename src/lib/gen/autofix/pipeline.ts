@@ -5,6 +5,7 @@ import {
   buildProjectModuleExportIndex,
   fixImportedDeclarationConflicts,
   fixLocalNamedImportDefaultMismatches,
+  buildProjectDefaultExportIndex,
   buildProjectExportIndex,
   fixLocalDefaultImportMismatches,
   fixMissingLocalSymbolImports,
@@ -447,6 +448,10 @@ async function runAutoFixSinglePass(
   const fixedFiles: CodeFile[] = [];
   const exportIndex = buildProjectExportIndex(project.files);
   const moduleExportIndex = buildProjectModuleExportIndex(project.files);
+  // jsx-checker only generates a component import when the project itself
+  // exports the name — named exports via `exportIndex`, default exports via
+  // this one. Without it the checker would have to guess a path (M#gs1).
+  const defaultExportIndex = buildProjectDefaultExportIndex(project.files);
   // F2 SDK guard runs whenever we are NOT in F3. Backend SDK imports leaking
   // into a design-phase build are a hard preview-blocker, so absent
   // `previewPolicy` defaults to "guard on" — legacy callers that genuinely
@@ -1182,7 +1187,10 @@ async function runAutoFixSinglePass(
       // if it ever turns parseable code unparseable.
       try {
         const beforeJsxChecker = currentCode;
-        const jsxResult = runJsxChecker(currentCode, file.path);
+        const jsxResult = runJsxChecker(currentCode, file.path, {
+          exportIndex,
+          defaultExportsByName: defaultExportIndex,
+        });
         const guarded = await guardFixerSyntax(
           beforeJsxChecker,
           jsxResult.code,
@@ -1461,8 +1469,6 @@ export function rebuildContent(
     const match = result.match(fenceRe);
     if (match) {
       result = result.replace(fenceRe, `$1${fixed.content}$3`);
-    } else {
-      result = result.replace(orig.content, fixed.content);
     }
   }
 

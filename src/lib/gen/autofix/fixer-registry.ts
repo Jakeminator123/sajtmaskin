@@ -1,8 +1,19 @@
 /**
- * Fixer Registry — single source of truth for every fixer/validator the
- * generation pipeline runs. Built so a reader can answer "what touches our
- * generated code, where does it run, what failure mode does it catch?"
- * without grep:ing through 40+ files.
+ * Fixer Registry — the fixers/validators that run inside `runAutoFix()` plus
+ * the LLM repair phases and the verifier. Built so a reader can answer "what
+ * touches our generated code, where does it run, what failure mode does it
+ * catch?" without grep:ing through 40+ files.
+ *
+ * NOT in this registry (two code-mutating steps run outside `runAutoFix` and
+ * emit no `FixEntry`, so they have no id to register — look here first when a
+ * change to generated code has no matching registry entry):
+ *
+ * - `checkCrossFileImports` (`autofix/rules/cross-file-import-checker.ts`) —
+ *   runs from `finalize-merge.ts` because it needs the merged file set to know
+ *   what exists. Stubs or refuses imports of local modules the merge result
+ *   does not contain; reports as `merge:cross-file-stub` error-log rows.
+ * - `runSecurityChecks` (`gen/security/run-security-checks.ts`) — last step of
+ *   the autofix pipeline, warning-only.
  *
  * Categories follow the lifecycle the fixer participates in:
  *
@@ -23,8 +34,12 @@
  * Adding a new fixer:
  *  1. Implement and wire it into the appropriate runner.
  *  2. Append a `FixerRegistryEntry` here with full metadata.
- *  3. The parity test in `fixer-registry.test.ts` will fail unless every
- *     fixer ID emitted by `runAutoFix` is also in this registry.
+ *  3. `fixer-registry.test.ts` checks the registry's STRUCTURE (unique ids,
+ *     non-empty triggers/failure mode, source paths under a known root, risk
+ *     class present). It does NOT execute the pipeline, so it cannot prove
+ *     that every id emitted at runtime is registered — an unregistered fixer
+ *     is caught at runtime instead, where `summarizeAutofixRisk` fails closed
+ *     and classifies an unknown id as `risky`.
  */
 
 export type FixerCategory =
@@ -82,7 +97,17 @@ export interface FixerRegistryEntry {
    * their secondary phases here.
    */
   additionalOwnerPhases?: FixerOwnerPhase[];
-  /** Prometheus/dev metric counter name (when wired). */
+  /**
+   * Where this fixer's activity is actually observable — set ONLY when a
+   * real, written signal exists. Leave unset rather than naming a metric that
+   * nothing increments: a phantom counter here reads as "this is measured"
+   * and sends the next reader (human or agent) looking for data that was
+   * never written.
+   *
+   * Mechanical fixers do not need an entry — they are all covered by
+   * `generation_telemetry.meta->'autofix'->'fixers'` (per-fixer counts per
+   * version, surfaced as `fixersByName` in `scripts/db/control-stats.mjs`).
+   */
   telemetryCounter?: string;
   /** Free text — design decisions, links to plans, deprecation notes. */
   notes?: string;
@@ -655,7 +680,6 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     triggers: ["esbuild transform fail"],
     status: "active",
     ownerPhase: "post-syntax",
-    telemetryCounter: "sajtmaskin_syntax_validator_total",
   },
   {
     id: "jsx-checker",
@@ -672,7 +696,13 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
       "mis-paired JSX tag always breaks parsing). This stops false " +
       "preview-blocking findings on valid 3D/R3F shapes the count regexes " +
       "mis-read (nested self-closing in props, `=>` in props, imported types " +
-      "in generic position) — prod incident retro-3D 'Monster 3D'.",
+      "in generic position) — prod incident retro-3D 'Monster 3D'. Component " +
+      "imports for the non-lucide/non-shadcn residue require exactly one " +
+      "matching export in the project's own files (same unique-match rule as " +
+      "`fixMissingLocalSymbolImports`); an unresolved symbol is left " +
+      "unimported for the `undefined-jsx-symbol` lane instead of getting a " +
+      "made-up `@/components/<kebab>` path that the stub creator would then " +
+      "hide behind a placeholder module (M#gs1).",
   },
   {
     id: "dep-completer",
@@ -705,7 +735,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     triggers: ["validateAndFix() escalates to LLM after mechanical pass"],
     status: "active",
     ownerPhase: "post-syntax",
-    telemetryCounter: 'sajtmaskin_fixer_call_total{phase="syntax"}',
+    telemetryCounter: "generation_telemetry.syntax_fixer_used",
     notes: "Bounded by syntaxFixPasses (1–4) and time budget.",
   },
   {
@@ -717,7 +747,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     triggers: ["verifier blocking findings > 0"],
     status: "active",
     ownerPhase: "verifier",
-    telemetryCounter: 'sajtmaskin_fixer_call_total{phase="verifier"}',
+    telemetryCounter: "error_log_events.fixer='llm-verifier-fixer'",
     notes:
       "The verifier re-runs once after this fixer pass to confirm the fix " +
       "actually addressed the finding (unconditional since 2026-04-28).",
@@ -743,7 +773,7 @@ export const FIXER_REGISTRY: readonly FixerRegistryEntry[] = [
     triggers: ["server-verify or quality-gate fails"],
     status: "active",
     ownerPhase: "server-repair",
-    telemetryCounter: 'sajtmaskin_fixer_call_total{phase="server"}',
+    telemetryCounter: "error_log_events.fixer='repair-loop:llm'",
     notes: "Up to maxLlmPasses with early-stop policy.",
   },
   // ---- verifier-pass itself (read-only LLM) ----

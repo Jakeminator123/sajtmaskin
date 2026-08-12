@@ -6,6 +6,8 @@ const getLatestVersion = vi.hoisted(() => vi.fn());
 const getPreferredVersion = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() => vi.fn());
 const createDraftVersion = vi.hoisted(() => vi.fn());
+const appendF3ApprovedToSnapshot = vi.hoisted(() => vi.fn());
+const getVersionFiles = vi.hoisted(() => vi.fn());
 const checkTier3ReadinessForVersion = vi.hoisted(() => vi.fn());
 const logTier3MissingEnvBlockedDetached = vi.hoisted(() => vi.fn());
 
@@ -19,6 +21,11 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   getPreferredVersion,
   getVersionsByChat,
   createDraftVersion,
+  appendF3ApprovedToSnapshot,
+}));
+
+vi.mock("@/lib/gen/version-manager", () => ({
+  getVersionFiles,
 }));
 
 vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
@@ -72,6 +79,10 @@ describe("POST finalize-design", () => {
       release_state: "draft",
       verification_state: "pending",
     });
+    appendF3ApprovedToSnapshot.mockResolvedValue(true);
+    getVersionFiles.mockResolvedValue([
+      { path: "app/page.tsx", content: "F2 exact" },
+    ]);
     checkTier3ReadinessForVersion.mockResolvedValue({
       ok: true,
       spec: { requirements: [] },
@@ -92,11 +103,13 @@ describe("POST finalize-design", () => {
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.ready).toBe(false);
     expect(body.reason).toBe("product_postcheck_blocked");
-    expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith({
-      versionId: "ver_current",
-      orchestrationSnapshot: null,
-      projectId: null,
-    });
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        versionId: "ver_current",
+        orchestrationSnapshot: null,
+        projectId: null,
+      }),
+    );
   });
 
   it("rejects an explicit stale design version before deriving F3 requirements", async () => {
@@ -218,7 +231,41 @@ describe("POST finalize-design", () => {
       {
         stage: "integrations",
         parentVersionId: "ver_current",
+        // No keys persisted on the F2 base in this fixture → explicit null.
+        selectedDossierEnvKeys: null,
       },
+    );
+  });
+
+  // Dossier-env rehydrering: the exact-file F3 fork copies the F2 base's
+  // persisted dossier env keys so the row carries the same preview env
+  // contract (harmless on F3 — the mock-seed only runs in design stage).
+  it("copies the F2 base's persisted selected_dossier_env_keys onto the deterministic F3 fork", async () => {
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      version: {
+        id: "ver_current",
+        chat_id: "chat_1",
+        lifecycle_stage: "design",
+        files_json: '[{"path":"app/page.tsx","content":"F2 exact"}]',
+        selected_dossier_env_keys: ["STRIPE_SECRET_KEY", "EMAIL_FROM"],
+      },
+    });
+
+    const res = await POST(request({ versionId: "ver_current" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(createDraftVersion).toHaveBeenCalledWith(
+      "chat_1",
+      null,
+      expect.any(String),
+      undefined,
+      expect.objectContaining({
+        stage: "integrations",
+        parentVersionId: "ver_current",
+        selectedDossierEnvKeys: ["STRIPE_SECRET_KEY", "EMAIL_FROM"],
+      }),
     );
   });
 
@@ -235,6 +282,66 @@ describe("POST finalize-design", () => {
       requirements: [],
     });
     expect(createDraftVersion).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts the LLM build for an exact planned dossier even without build-enforced keys", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({
+      id: "chat_1",
+      project_id: null,
+      orchestration_snapshot: {
+        mutedCapabilities: ["payments"],
+        mutedDossierIds: ["stripe-checkout"],
+      },
+    });
+    checkTier3ReadinessForVersion.mockResolvedValue({
+      ok: true,
+      spec: {
+        requirements: [
+          {
+            key: "stripe-checkout",
+            name: "Betalning — Stripe",
+            requiredRealEnvKeys: [],
+            featureRuntimeEnvKeys: ["STRIPE_SECRET_KEY"],
+            placeholderOkEnvKeys: ["NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"],
+            warnOnlyEnvKeys: [],
+          },
+        ],
+      },
+    });
+
+    const res = await POST(request({ versionId: "ver_current" }), {
+      params: Promise.resolve({ chatId: "chat_1" }),
+    });
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({
+      ready: true,
+      parentVersionId: "ver_current",
+      plannedDossierIds: ["stripe-checkout"],
+      streamMeta: {
+        lifecycleStage: "integrations",
+        parentVersionId: "ver_current",
+      },
+    });
+    expect(body.action).toBeUndefined();
+    // Fjärde argumentet ersätter tidigare val för samma capability: syskonen
+    // till det godkända id:t pekas ut så en gammal, aldrig levererad approval
+    // inte ligger kvar och vinner över det nya valet i dossierProviderHints.
+    expect(appendF3ApprovedToSnapshot).toHaveBeenCalledWith(
+      "chat_1",
+      ["payments"],
+      ["stripe-checkout"],
+      expect.not.arrayContaining(["stripe-checkout"]),
+    );
+    const supersededArg = appendF3ApprovedToSnapshot.mock.calls[0]?.[3] as string[];
+    expect(Array.isArray(supersededArg)).toBe(true);
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pendingApprovedDossierIds: ["stripe-checkout"],
+      }),
+    );
+    expect(createDraftVersion).not.toHaveBeenCalled();
   });
 
   it("reuses an already-promoted exact F3 fork without demoting it", async () => {

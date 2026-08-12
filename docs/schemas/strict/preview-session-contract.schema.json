@@ -517,6 +517,34 @@
           "note": "Stable reason such as structural_change, runtime_not_running, runtime_booting or prewarm_replacement (real patch claimed a prewarm session and forced readiness-gated restart)."
         }
       }
+    },
+    "PreviewHostFilesManifestResponse": {
+      "route": "GET /preview/session/:previewSessionId/files-manifest",
+      "purpose": "Read side of the Fast Edit Lane. sha256-per-path view of the file set the host currently holds, so the app can diff a new version against live state and send only the changed paths to /preview/session/patch instead of a full /update + restart. Read-only: never queues a boot.",
+      "type": "object",
+      "required": ["ok", "previewSessionId", "versionId", "running", "hashAlgorithm", "files"],
+      "properties": {
+        "ok": { "type": "boolean", "required": true, "const": true },
+        "previewSessionId": { "type": "string", "required": true },
+        "chatId": { "type": "string", "required": false },
+        "versionId": { "type": ["string", "null"], "required": true },
+        "status": { "type": "string", "required": false },
+        "running": {
+          "type": "boolean",
+          "required": true,
+          "note": "Same prewarm-aware public-running rule as /status: an unclaimed prewarm skeleton is never reported as running, so it can never be patched onto."
+        },
+        "hashAlgorithm": { "type": "string", "required": true, "const": "sha256" },
+        "fileCount": { "type": "number", "required": false },
+        "files": {
+          "type": "object",
+          "required": true,
+          "note": "path -> sha256 hex of the stored file content."
+        }
+      },
+      "errorResponses": {
+        "404": "session_not_found — unknown, destroyed or expired session; caller falls back to the full update path (as it also does for a host deployed before this route existed)."
+      }
     }
   }
 }

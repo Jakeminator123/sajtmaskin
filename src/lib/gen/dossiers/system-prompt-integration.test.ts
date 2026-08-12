@@ -104,7 +104,9 @@ describe("buildDynamicContext + new dossier shape", () => {
     expect(result.context).toContain("## Selected Dossier Instructions");
     expect(result.context).toContain("### Stripe Checkout");
     expect(result.context).toContain("compact instructions");
-    expect(result.context).toContain("Env vars: STRIPE_SECRET_KEY (required).");
+    expect(result.context).toContain(
+      "Env vars: STRIPE_SECRET_KEY (required; build) — API auth.",
+    );
     expect(result.context).not.toContain("# When to use");
   });
 

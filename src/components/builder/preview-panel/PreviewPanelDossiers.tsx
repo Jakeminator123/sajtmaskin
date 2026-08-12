@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Boxes, ChevronRight, KeyRound, Loader2 } from "lucide-react";
+import { Boxes, ChevronRight, ExternalLink, KeyRound, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,11 @@ import {
   DOSSIER_GROUP_ORDER,
   resolveDossierGroup,
 } from "@/lib/builder/dossier-groups";
+import {
+  describeDossierClass,
+  describeDossierMockMode,
+  describeF3Requirement,
+} from "@/lib/builder/dossier-axes";
 import { cn } from "@/lib/utils";
 
 export interface PreviewPanelDossiersProps {
@@ -58,6 +63,7 @@ export interface PreviewPanelDossiersProps {
 }
 
 type PanelTab = "wired" | "catalog";
+type CatalogClassFilter = "all" | DossierCatalogEntry["class"];
 
 const TONE_BADGE_CLASS: Record<DossierStatusDescriptor["tone"], string> = {
   neutral: "border-sky-500/40 bg-sky-500/10 text-sky-200",
@@ -74,6 +80,27 @@ const ENFORCEMENT_LABEL: Record<
   "feature-runtime": "vid användning",
   "warn-only": "valfri",
 };
+
+/**
+ * Presentation-only heading tooltip. The group buckets rows for reading; it
+ * never influences which dossier the pipeline picks (that is the capability).
+ */
+const GROUP_HEADING_TITLE =
+  "Bara en rubrik för läsbarhet — gruppen påverkar aldrig vilket byggblock som väljs. Det gör funktionen (capability) som briefen ber om.";
+
+/** Amber "Kräver F3" badge — the axis hard/soft does NOT answer. */
+function RequiresF3Badge() {
+  const descriptor = describeF3Requirement(true);
+  return (
+    <Badge
+      variant="outline"
+      className="shrink-0 border-violet-500/40 bg-violet-500/10 text-[9px] text-violet-200"
+      title={descriptor.hint}
+    >
+      {descriptor.label}
+    </Badge>
+  );
+}
 
 /**
  * Toolbar "Byggblock" popover: the primary user surface for selecting,
@@ -101,6 +128,7 @@ export function PreviewPanelDossiers({
 }: PreviewPanelDossiersProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<PanelTab>("wired");
+  const [catalogClassFilter, setCatalogClassFilter] = useState<CatalogClassFilter>("all");
   const [data, setData] = useState<DossierOverviewResponse | null>(null);
   // Identity (`chatId::versionId`) the held `data` was fetched for, so we can
   // ignore it when the builder switches chat/version while the popover holds
@@ -242,6 +270,9 @@ export function PreviewPanelDossiers({
       // A focus request that never matched must not linger into a later,
       // unrelated open (it would surprise-expand a row).
       setPendingFocusKeys(null);
+      // A leftover class filter must not make the catalog look truncated on
+      // the next, unrelated open.
+      setCatalogClassFilter("all");
     }
   }, []);
 
@@ -304,6 +335,26 @@ export function PreviewPanelDossiers({
   const stage =
     freshData?.lifecycleStage ?? (lifecycleStage === "integrations" ? "integrations" : "design");
   const count = freshData?.counts.total ?? null;
+  const catalogCounts = useMemo(() => {
+    const counts = { total: 0, hard: 0, soft: 0 };
+    for (const group of catalogData?.groups ?? []) {
+      for (const dossier of group.dossiers) {
+        counts.total += 1;
+        counts[dossier.class] += 1;
+      }
+    }
+    return counts;
+  }, [catalogData]);
+  const filteredCatalogGroups = useMemo(() => {
+    if (!catalogData) return [];
+    if (catalogClassFilter === "all") return catalogData.groups;
+    return catalogData.groups
+      .map((group) => ({
+        ...group,
+        dossiers: group.dossiers.filter((dossier) => dossier.class === catalogClassFilter),
+      }))
+      .filter((group) => group.dossiers.length > 0);
+  }, [catalogData, catalogClassFilter]);
 
   // Custom env-blockers (Codex P2 on #573): a `custom-env` key detected in
   // generated code is not owned by any dossier, so a 412/deploy focus request
@@ -669,7 +720,9 @@ export function PreviewPanelDossiers({
   }, [freshData]);
 
   const renderRow = (entry: DossierOverviewEntry) => {
-    const descriptor = describeDossierStatus(entry.status, stage);
+    const descriptor = describeDossierStatus(entry.status, stage, entry.class);
+    const classDescriptor = describeDossierClass(entry.class);
+    const mockDescriptor = describeDossierMockMode(entry.mock);
     const isExpanded = expandedId === entry.id;
     return (
       <li key={entry.id} className="rounded-md border border-gray-800 bg-black/20">
@@ -695,22 +748,22 @@ export function PreviewPanelDossiers({
               {resolveDossierGroup(entry.capability).label}
             </span>
           </span>
+          {/* Tre oberoende axlar, i den ordning de betyder något för
+              användaren: behöver den nycklar → byggs den i F3 → var i flödet
+              står den nu. Ingen av dem kan härledas ur någon annan. */}
           <Badge
             variant="outline"
             className={cn(
-              "text-[9px]",
+              "shrink-0 text-[9px]",
               entry.class === "hard"
                 ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
                 : "border-gray-600/50 bg-gray-500/10 text-gray-300",
             )}
-            title={
-              entry.class === "hard"
-                ? "Hårt byggblock — kräver riktiga nycklar"
-                : "Mjukt byggblock — självförsörjande, kräver inga externa nycklar"
-            }
+            title={classDescriptor.hint}
           >
-            {entry.class === "hard" ? "Hård" : "Mjuk"}
+            {classDescriptor.label}
           </Badge>
+          {entry.requiresF3 ? <RequiresF3Badge /> : null}
           <Badge
             variant="outline"
             className={cn("text-[10px]", TONE_BADGE_CLASS[descriptor.tone])}
@@ -723,11 +776,18 @@ export function PreviewPanelDossiers({
           <div className="space-y-2 border-t border-gray-800 px-2.5 py-2 text-[11px] text-gray-300">
             <p className="text-gray-400">{entry.summarySv ?? entry.summary}</p>
             <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-500">
-              <span className="rounded bg-gray-800/60 px-1.5 py-0.5">
+              <span className="rounded bg-gray-800/60 px-1.5 py-0.5" title={classDescriptor.hint}>
                 {entry.class === "hard"
                   ? "Kopplad (kräver extern tjänst/nycklar)"
                   : "Fristående (inga nycklar behövs)"}
               </span>
+              {/* Demoläget är den enda av de tre axlarna som säger vad
+                  besökaren faktiskt ser innan nycklarna finns. */}
+              {entry.class === "hard" ? (
+                <span className="rounded bg-gray-800/60 px-1.5 py-0.5" title={mockDescriptor.hint}>
+                  Demoläge: {mockDescriptor.label}
+                </span>
+              ) : null}
               <span className="rounded bg-gray-800/60 px-1.5 py-0.5">
                 Komplexitet: {entry.complexity}
               </span>
@@ -764,6 +824,20 @@ export function PreviewPanelDossiers({
                           >
                             {valueState.label}
                           </Badge>
+                        </span>
+                        <span className="flex items-start justify-between gap-2 text-[10px] text-gray-400">
+                          <span>{env.purpose}</span>
+                          {env.setupUrl ? (
+                            <a
+                              href={env.setupUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex shrink-0 items-center gap-1 text-sky-300 hover:text-sky-200"
+                            >
+                              Hämta värde
+                              <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                            </a>
+                          ) : null}
                         </span>
                         {/* Write-only masked input for keys without a stored
                             real value — available in both F2 and F3 (owner
@@ -913,9 +987,16 @@ export function PreviewPanelDossiers({
               <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
             ) : null}
           </span>
-          {freshData ? (
+          {activeTab === "catalog" && catalogData ? (
             <span className="text-[10px] text-gray-500">
-              {freshData.counts.hard} hård · {freshData.counts.soft} mjuk
+              Katalog: {catalogCounts.total} totalt · {catalogCounts.hard} kopplade ·{" "}
+              {catalogCounts.soft} fristående
+            </span>
+          ) : activeTab === "catalog" && catalogLoading ? (
+            <span className="text-[10px] text-gray-500">Katalog: läser…</span>
+          ) : freshData ? (
+            <span className="text-[10px] text-gray-500">
+              Version: {freshData.counts.hard} kopplade · {freshData.counts.soft} fristående
             </span>
           ) : null}
         </div>
@@ -933,13 +1014,13 @@ export function PreviewPanelDossiers({
               value="wired"
               className="rounded-none border-0 px-1.5 py-1 text-[11px] text-gray-400 shadow-none data-[state=active]:bg-transparent data-[state=active]:text-white"
             >
-              Inkopplade
+              Inkopplade{freshData ? ` (${freshData.counts.total})` : ""}
             </TabsTrigger>
             <TabsTrigger
               value="catalog"
               className="rounded-none border-0 px-1.5 py-1 text-[11px] text-gray-400 shadow-none data-[state=active]:bg-transparent data-[state=active]:text-white"
             >
-              Bläddra katalog
+              Bläddra katalog{catalogData ? ` (${catalogCounts.total})` : ""}
             </TabsTrigger>
           </TabsList>
 
@@ -960,7 +1041,10 @@ export function PreviewPanelDossiers({
             <div className="space-y-3">
               {groupedDossiers.map(({ group, rows }) => (
                 <div key={group.id} className="space-y-1.5">
-                  <p className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase">
+                  <p
+                    className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase"
+                    title={GROUP_HEADING_TITLE}
+                  >
                     {group.label}
                   </p>
                   <ul className="space-y-1.5">{rows.map(renderRow)}</ul>
@@ -1069,8 +1153,8 @@ export function PreviewPanelDossiers({
 
           {freshData && !freshData.versionFilesAvailable ? (
             <p className="mt-2 border-t border-gray-800 px-1 pt-2 text-[10px] text-gray-500">
-              Byggstatus kunde inte läsas (versionens filer saknas) — hård-status
-              visas som ej byggd tills filerna finns.
+              Byggstatus kunde inte läsas (versionens filer saknas) — kopplade
+              byggblock visas som ej byggda tills filerna finns.
             </p>
           ) : null}
             </div>
@@ -1095,6 +1179,44 @@ export function PreviewPanelDossiers({
               </p>
             ) : null}
             <div className="max-h-105 overflow-y-auto p-2">
+              {catalogData && catalogData.groups.length > 0 ? (
+                <div
+                  role="group"
+                  aria-label="Filtrera katalogen"
+                  className="mb-2 flex items-center gap-1"
+                >
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={catalogClassFilter === "all" ? "secondary" : "ghost"}
+                    className="h-6 px-2 text-[10px]"
+                    aria-pressed={catalogClassFilter === "all"}
+                    onClick={() => setCatalogClassFilter("all")}
+                  >
+                    Alla ({catalogCounts.total})
+                  </Button>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={catalogClassFilter === "hard" ? "secondary" : "ghost"}
+                    className="h-6 px-2 text-[10px]"
+                    aria-pressed={catalogClassFilter === "hard"}
+                    onClick={() => setCatalogClassFilter("hard")}
+                  >
+                    Kopplade ({catalogCounts.hard})
+                  </Button>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={catalogClassFilter === "soft" ? "secondary" : "ghost"}
+                    className="h-6 px-2 text-[10px]"
+                    aria-pressed={catalogClassFilter === "soft"}
+                    onClick={() => setCatalogClassFilter("soft")}
+                  >
+                    Fristående ({catalogCounts.soft})
+                  </Button>
+                </div>
+              ) : null}
               {catalogLoading && !catalogData ? (
                 <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1114,11 +1236,19 @@ export function PreviewPanelDossiers({
                 </div>
               ) : catalogData && catalogData.groups.length === 0 ? (
                 <p className="px-1 py-3 text-[11px] text-gray-400">Katalogen är tom.</p>
+              ) : catalogData && filteredCatalogGroups.length === 0 ? (
+                <p className="px-1 py-3 text-[11px] text-gray-400">
+                  Inga {catalogClassFilter === "hard" ? "kopplade" : "fristående"} byggblock i
+                  katalogen.
+                </p>
               ) : (
                 <div className="space-y-3">
-                  {(catalogData?.groups ?? []).map((group) => (
+                  {filteredCatalogGroups.map((group) => (
                     <div key={group.id} className="space-y-1.5">
-                      <p className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase">
+                      <p
+                        className="px-1 text-[10px] font-medium tracking-wide text-gray-500 uppercase"
+                        title={GROUP_HEADING_TITLE}
+                      >
                         {group.label}
                       </p>
                       <ul className="space-y-1.5">
@@ -1143,7 +1273,7 @@ export function PreviewPanelDossiers({
                                 className="flex w-full items-start gap-2 rounded-md border border-gray-800 bg-black/20 px-2.5 py-2 text-left hover:bg-gray-800/40 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 <span className="min-w-0 flex-1">
-                                  <span className="flex items-center gap-1.5">
+                                  <span className="flex flex-wrap items-center gap-1.5">
                                     <span className="truncate text-[12px] font-medium text-gray-100">
                                       {entry.label}
                                     </span>
@@ -1155,9 +1285,14 @@ export function PreviewPanelDossiers({
                                           ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
                                           : "border-gray-600/50 bg-gray-500/10 text-gray-300",
                                       )}
+                                      title={describeDossierClass(entry.class).hint}
                                     >
-                                      {entry.class === "hard" ? "Kopplad" : "Fristående"}
+                                      {describeDossierClass(entry.class).label}
                                     </Badge>
+                                    {/* Kräver F3 måste synas FÖRE valet — det
+                                        är den axeln som avgör när användaren
+                                        får den riktiga funktionen. */}
+                                    {entry.requiresF3 ? <RequiresF3Badge /> : null}
                                   </span>
                                   <span className="mt-0.5 block truncate text-[10px] text-gray-500">
                                     {entry.summarySv ?? entry.summary}

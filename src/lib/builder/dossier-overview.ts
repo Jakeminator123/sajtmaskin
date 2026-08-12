@@ -7,7 +7,8 @@
  * share it without pulling server-only code into the client bundle.
  */
 
-import type { SelectedDossier } from "@/lib/gen/dossiers/types";
+import type { DossierMockMode, SelectedDossier } from "@/lib/gen/dossiers/types";
+import type { DossierLifecycleOverviewStatus } from "@/lib/gen/dossiers/lifecycle";
 
 /**
  * Hard-dossier status model (PR 1 av Byggblock-ägarbeslutet 2026-07-13).
@@ -18,26 +19,26 @@ import type { SelectedDossier } from "@/lib/gen/dossiers/types";
  *   surface as per-key badges, never as blocked-build — the finalize gate
  *   only validates detected integrations (+ pending approved providers).
  * - `blocked-build` — the readiness gate reports a `build`-enforced key
- *   without a real value for a DETECTED integration. "Bygg integrationer"
- *   would 412 before credits (#517).
+ *   without either a real value or an approved placeholder for a DETECTED
+ *   integration. "Bygg integrationer" would 412 before credits (#517).
  * - `built-demo` — real integration code is in the version but at least one
  *   `feature-runtime` key lacks a real value → the shipped demo fallback
- *   (canned/seed/success) is what actually runs.
- * - `built-live` — code is in the version and every build/feature-runtime
- *   key has a stored real value.
+ *   (canned/seed/success) is what actually runs. Also the cap (M#li1) when
+ *   the block lacks server-side file evidence in the version (manifest
+ *   server file or an API route referencing its env keys) — filled keys
+ *   alone never make a client-side mock "live".
+ * - `built-live` — code is in the version, every build/feature-runtime key
+ *   has a stored real value, AND the server side is evidenced in the
+ *   version's files.
  */
-export type DossierStatus =
-  | "self-contained"
-  | "planned"
-  | "blocked-build"
-  | "built-demo"
-  | "built-live";
+export type DossierStatus = DossierLifecycleOverviewStatus;
 
 export interface DossierOverviewEnvVar {
   key: string;
   required: boolean;
   enforcement: "build" | "feature-runtime" | "warn-only";
   purpose: string;
+  setupUrl?: string;
   /**
    * True when the user has stored a non-empty real value for this key
    * (`project_data.meta.projectEnvVars`). Lets the UI show "Ifylld" without a
@@ -62,13 +63,20 @@ export interface DossierOverviewEntry {
   summarySv?: string;
   complexity: "simple" | "medium" | "advanced";
   requiresF3: boolean;
+  /**
+   * Manifest `mock` — how the surface behaves in F2 without a real key.
+   * Omitted = `none`, same as runtime. Independent of both `class` and
+   * `requiresF3`; see `dossier-axes.ts`.
+   */
+  mock?: DossierMockMode;
   configured: boolean;
   dependencies: string[];
   envVars: DossierOverviewEnvVar[];
   status: DossierStatus;
   /**
-   * Missing BUILD-enforced real env keys (the F3-blocking set — same scope
-   * as the 412 gate's `missingByIntegration`). Non-empty ⇒ `blocked-build`.
+   * BUILD-enforced env keys lacking both a real value and placeholder coverage
+   * (the F3-blocking set — same scope as the 412 gate's
+   * `missingByIntegration`). Non-empty ⇒ `blocked-build`.
    */
   missingKeys: string[];
   /**
@@ -115,9 +123,7 @@ export interface DossierOverviewResponse {
  * are filled with harmless, valid placeholders (they never influence detection)
  * so the result is a well-typed `SelectedDossier` without a cast.
  */
-export function selectedDossiersFromOverview(
-  dossiers: DossierOverviewEntry[],
-): SelectedDossier[] {
+export function selectedDossiersFromOverview(dossiers: DossierOverviewEntry[]): SelectedDossier[] {
   return dossiers.map((dossier) => ({
     entry: {
       class: dossier.class,
@@ -133,6 +139,7 @@ export function selectedDossiersFromOverview(
         key: env.key,
         required: env.required,
         purpose: env.purpose,
+        setupUrl: env.setupUrl,
         enforcement: env.enforcement,
       })),
       lastVerified: dossier.lastVerified,
@@ -152,17 +159,27 @@ export interface DossierStatusDescriptor {
 /**
  * Human-facing status label + tone for a dossier row. Kept here (not in the
  * component) so the route's status enum and the UI copy stay in one place.
+ *
+ * `dossierClass` is optional but matters for `self-contained`: the route sets
+ * that status from `!requiresF3`, which a KOPPLAD (hard) dossier can also
+ * reach (e.g. the analytics dossiers — warn-only keys, no server file). Saying
+ * "inga externa nycklar behövs" about a dossier that does have keys is simply
+ * false, so the hard variant gets its own honest wording.
  */
 export function describeDossierStatus(
   status: DossierStatus,
   lifecycleStage: "design" | "integrations",
+  dossierClass?: "hard" | "soft",
 ): DossierStatusDescriptor {
   switch (status) {
     case "self-contained":
       return {
         label: "Inkopplad",
         tone: "neutral",
-        hint: "Självförsörjande byggblock — inga externa nycklar behövs.",
+        hint:
+          dossierClass === "hard"
+            ? "Kräver ingen \u201dBygg integrationer\u201d-runda. Nycklarna är valfria — utan dem stänger funktionen av sig själv."
+            : "Självförsörjande byggblock — inga externa nycklar behövs.",
       };
     case "built-live":
       return {
@@ -174,7 +191,10 @@ export function describeDossierStatus(
       return {
         label: "Byggd — demo aktiv",
         tone: "warning",
-        hint: "Riktig integrationskod är inkopplad, men en runtime-nyckel saknas — funktionen kör i demo-läge tills du sparar nyckeln här.",
+        // Two causes share this status (M#li1): a missing runtime key, or
+        // filled keys WITHOUT server-side file evidence in the version — the
+        // copy must not claim the code is wired when the cap was evidence.
+        hint: "Funktionen kör i demo-läge — en runtime-nyckel saknas, eller så är integrationens serverkod inte påvisad i den här versionen ännu.",
       };
     case "blocked-build":
       return {

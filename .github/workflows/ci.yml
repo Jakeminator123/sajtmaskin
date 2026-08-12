@@ -15,6 +15,35 @@ jobs:
   quality:
     runs-on: ubuntu-latest
 
+    # Efemär Postgres för de DB-backade kontraktstesterna (t.ex.
+    # `scripts/db/files-revision-contract.postgres.test.ts`). Föds och dör med
+    # jobbet, så inget delat tillstånd och ingen secret behövs.
+    #
+    # Varför INTE dev-Supabase här: varje PR skulle skriva rader i en delad
+    # databas, två samtidiga PR:er kan kollidera, och testet blir beroende av
+    # att en extern tjänst är uppe. Testet självt vägrar dessutom allt utom en
+    # dev-target — se `check-db-env-target.mjs` — och en lokal Postgres räknas
+    # som dev.
+    # `trust` i stället för ett lösenord: containern är efemär och nås bara över
+    # localhost inuti jobbet, så det finns inget att skydda — och ett inbäddat
+    # lösenord i en committad fil är ett hardcoded-credential-mönster som
+    # GitGuardian (korrekt) flaggade på första försöket. Utan lösenord finns
+    # ingen hemlighet i filen alls, vilket är en riktig lösning i stället för
+    # ett undantag i skannern.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: sajtmaskin_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -34,8 +63,35 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # `POSTGRES_URL` sätts medvetet BARA på de två DB-stegen nedan, aldrig på
+      # jobbnivå: standard-sviten körs utan databas, och flera tester verifierar
+      # att appen degraderar snyggt när den saknas. En jobbnivå-variabel hade
+      # ändrat förutsättningen för dem tyst.
       - name: Test
         run: npm run test:ci
+
+      # Applicerar schema + alla migrationer i MIGRATION_ORDER, inklusive
+      # add-files-revision.sql, mot den efemära databasen.
+      - name: Initiera testdatabasen
+        if: ${{ !cancelled() }}
+        env:
+          # `sslmode=disable` = ingen TLS mot service-containern (resolveSslConfig
+          # i scripts/db/db-ssl.mjs äger den tolkningen).
+          POSTGRES_URL: postgresql://postgres@localhost:5432/sajtmaskin_test?sslmode=disable
+        run: npm run db:init
+
+      # DB-backade kontraktstester (files_revision m.fl.). Egen lane, så de kan
+      # inte påverka `test:ci` och vice versa.
+      #
+      # `REQUIRE_POSTGRES_TESTS=1` gör att ett HOPP räknas som fel här. Utan den
+      # skulle en försvunnen databas ge "skipped" → exit 0 → grön grind som inte
+      # bevisat något, alltså precis den false-green testet finns för att stänga.
+      - name: DB-backade kontraktstester
+        if: ${{ !cancelled() }}
+        env:
+          POSTGRES_URL: postgresql://postgres@localhost:5432/sajtmaskin_test?sslmode=disable
+          REQUIRE_POSTGRES_TESTS: "1"
+        run: npm run test:postgres
 
       # Grandmaster 5-7: the follow-up CONTRACT invariants (5-3/5-3b scaffold+route
       # freeze/clamp, 5-5 capability floor) are deterministic hard contracts — promote
@@ -94,14 +150,66 @@ jobs:
         run: npm run route-timeouts:check
 
       # CI/Vercel-paritet (2026-07-03): Vercels prebuild kör `preflight:common`
-      # (inkl. check-bug-backlog) — men detta jobb gjorde det inte, så en commit
-      # kunde bli CI-grön och ändå fälla prod-deployen (hänt: #368, stängd
-      # [x]-rad kvar i Aktiv kö → check-bug-backlog fällde bygget efter merge).
-      # Kör samma sanity-checks här så draft-PR:er fångar det före merge.
+      # — men detta jobb gjorde det inte, så en commit kunde bli CI-grön och
+      # ändå fälla prod-deployen (hänt: #368). Kör samma sanity-checks här så
+      # draft-PR:er fångar det före merge.
       # route-timeouts:check dubblas medvetet (billig, redan grön ovan).
       - name: Preflight parity with Vercel prebuild (blocking)
         if: ${{ !cancelled() }}
         run: npm run preflight:common
+
+      # Bug-backloggens formatkontroll låg tidigare INUTI `preflight:common`, dvs
+      # även i Vercels prebuild — en avbockad [x]-rad kvar i Aktiv kö kunde alltså
+      # fälla PROD-BYGGET (hänt: #368). Bokföring i en markdown-fil ska inte kunna
+      # stoppa en deploy, så checken är flyttad hit: fortfarande blockerande på PR
+      # (samma enforcement, snabbare feedback) men utanför build-kedjan.
+      - name: Bug-backlog sanity (blocking)
+        if: ${{ !cancelled() }}
+        run: npm run check:bug-backlog
+
+      # Andra halvan av Vercels prebuild (`prebuild` = preflight:common +
+      # scaffolds:embeddings:check) som CI tidigare saknade: en ny scaffold utan
+      # regenererade embeddings blev CI-grön och fällde prod-bygget. Checken är
+      # snabb och nyckelfri (jämför bara JSON-filens id-mängd mot registryt, inga
+      # API-anrop), så det fanns aldrig ett skäl att utelämna den.
+      - name: Scaffold embeddings in sync (blocking)
+        if: ${{ !cancelled() }}
+        run: npm run scaffolds:embeddings:check
+
+  # Produktionsbygge (2026-07-29). `next build` kördes INGENSTANS före merge:
+  # preview-deployer är avstängda i `vercel.json` (`deploymentEnabled` bara för
+  # `master`), så första riktiga bygget av en ändring var prod-deployen EFTER
+  # merge. typecheck + lint fångar det mesta men inte build-tidsfel (route-
+  # config, RSC-gränser, prerender/`generateStaticParams`, felaktig
+  # `vercel.json`-funktionsmatchning).
+  #
+  # Verifierat att bygget går igenom helt utan secrets, så jobbet får medvetet
+  # INGA credentials — samma nyckelfria princip som schema-drift. `npm run build`
+  # kör `prebuild` (preflight + scaffold-embeddings) och sedan Turbopack-bygget,
+  # vilket också gör detta till den enda platsen där hela prebuild-kedjan körs
+  # exakt som Vercel kör den.
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build (blocking, no secrets)
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
 
   # Backoffice Python tests: control-plane/domain-map parity, matching-config
   # strict-schema validate-on-save, manifest parity and page-import smoke.
@@ -238,6 +346,8 @@ jobs:
   #   2. Orphan-FIL-grind (blockerande): en genuint oimporterad källfil rödar CI. Fixa
   #      genom att radera den — eller, om den är runtime-/tooling-laddad, lägg till den i
   #      knip.json `entry`. Runbook: docs/runbooks/hygiene.md.
+  # Som `preview-host-guards`: jobbet failar hårt, men det är ännu INTE en required
+  # check på master-rulesetet, så ett rött resultat blockerar inte merge av sig självt.
   dead-code:
     runs-on: ubuntu-latest
 

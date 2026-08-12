@@ -7,15 +7,12 @@ import streamlit as st
 from backoffice.shared import (
     BackofficeContext,
     collect_prompt_dump_statuses,
-    read_json,
-    render_where_panel,
+    render_static_reference,
 )
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("Preview och versioner")
-    render_where_panel("Preview och versioner", domain_map)
     log_dir = ctx.repo_root / "logs" / "generationslogg"
     latest_runs = (
         sorted([p for p in log_dir.iterdir() if p.is_dir()], key=lambda p: p.stat().st_mtime, reverse=True)[:5]
@@ -65,6 +62,7 @@ def render(ctx: BackofficeContext) -> None:
     )
 
     st.subheader("Fas 3-status (RepairGate / release)")
+    render_static_reference(source="docs/architecture/llm-pipeline.md")
     st.markdown(
         """
 - **`repair_available`**: serverrepair passerade RenderGate/ReleaseGate men väntar på `accept-repair`.
@@ -76,6 +74,7 @@ def render(ctx: BackofficeContext) -> None:
     )
 
     st.subheader("F2 / F3 livscykel: RenderGate och ReleaseGate")
+    render_static_reference(source="docs/schemas/quality-gate.md")
     st.markdown(
         """
 - **F2 (`previewPolicy: fidelity2`)** — design-loopen. RenderGate (kod: `designPreview` quality gate) kör endast `["typecheck"]` med render-first Advisory-semantik. Tier-3 SDK-imports

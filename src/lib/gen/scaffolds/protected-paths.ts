@@ -43,7 +43,14 @@ export const SCAFFOLD_PROTECTED_PATHS: ReadonlySet<string> = new Set([
 ]);
 
 function normalize(path: string): string {
-  return path.replace(/\\/g, "/");
+  // Collapse duplicate separators and strip a leading `./` or `/` so that
+  // `//app/icon.svg` or `/app/api/placeholder/route.ts` are recognised too — the
+  // guard's whole job is to be the last word before persist, and an LLM path with
+  // a stray slash used to slip past it in all three persist pipelines.
+  return path
+    .replace(/\\/g, "/")
+    .replace(/\/{2,}/g, "/")
+    .replace(/^\.?\//, "");
 }
 
 export function isScaffoldProtectedPath(path: string): boolean {

@@ -132,6 +132,17 @@ Verify-lane kan också returnera informativa install-signaler i `results[]`:
 | `install-cache-share` | Verify workspace kopierade `node_modules` från live workspace vid exakt dependency fingerprint + install-policy-match; installationen hoppas då över |
 | `install-peer-fallback` | Peer-konflikt upptäcktes och fallback med `--legacy-peer-deps` användes |
 
+### Svaret måste vara komplett (M#gs8)
+
+`runQualityGateChecks` kräver att **varje begärd** check ovan finns bland
+`results[]`. Saknas någon i ett svar där inget failat behandlas körningen som
+`unavailable` (`QualityGateUnavailableError`, ej retrybar) — samma fail-closed-väg
+som en onåbar verify-lane, i stället för att `qualityGateAllPassed` läser de
+returnerade raderna som "alla passed". Kollen gäller bara när inget failat:
+verify-lanen avbryter medvetet före de kanoniska checkarna när `install` failar,
+och det svaret är redan rött (och ofta repairable), så det behåller sitt
+failure-verdikt.
+
 ## Standardprofiler
 
 Profilerna laddas från `config/ai_models/manifest.json` under
@@ -564,6 +575,32 @@ finalize-telemetrin (`generation_telemetry.quality_gate_result`) säger
   `promoteVersion`/`acceptRepair` behåller default-fail-open på läsfel; routen opt:ar in i
   fail-closed via `onReadError`.
 
+### Innehållsrevision: ett verdikt gäller ett innehåll (steg 3, flaggad)
+
+Bakom `SAJTMASKIN_CONTENT_REVISION_GATE` (**default av** — att släppa flaggan är ett
+ägarbeslut) läser guarden `getLatestQualityGateSignalForVersion`, som väljer senaste
+telemetri-raden för **aktuell** `files_revision` i stället för senaste raden för
+`versionId`.
+
+| Läge | Guardens svar | Varför |
+|---|---|---|
+| Revisionen matchar innehållet | dagens beslut (`preflight_passed` → allow, `verifier_failed`/`preflight_failed` → explicit block) | verdiktet är ett svar om det innehåll som promotas |
+| **Känd mismatch** (verdiktet bär en annan revision) | `{ allowed: false, indeterminate: true, staleRevision: true }` | Symmetriskt: ett `passed` från revision N får inte grönmarkera N+1, och ett `failed` från N får inte terminal-faila N+1. `indeterminate` betyder "kör gaten igen" — `promoteVersion` returnerar `null` (ej promotad, retrybart) och `promoteVersionIfUnleased` settlar **inte** raden terminalt |
+| Okänd revision (rad före steg 2, versionslös rad, flagga av) | dagens fail-open | Back-compat: "vet inte" får aldrig bli en spärr |
+
+`acceptRepair` skickar `promotedFilesJson` (den avkodade reparerade payloaden) till
+guarden. Innehållet som promotas ligger i `repaired_files_json` fram till samma
+UPDATE, så en jämförelse mot versionens nuvarande `files_json` skulle kalla
+repair-passets verdikt stale och kila fast varje legitim accept. Samma explicita
+mönster som `assessedFilesJson` (#646): jämför mot det innehåll verdiktet gäller —
+stämpla aldrig om en befintlig telemetrirads revision.
+
+Frekvensen av känd mismatch mäts med Prometheus-räknaren
+`sajtmaskin_content_revision_mismatch_total{surface,verdict}` (`surface` =
+`promote_guard` · `preview_receipt` · `status_projection` · `versions_list`).
+`versions_list` (historiklistan `GET .../versions`, restlista-R15) tickar per
+poll så länge en stale rad visas — läs den som varaktighet, inte händelseantal.
+
 ## Server-repair outcome metadata (Wave 5 hot-fix #3)
 
 `buildServerRepairOutcomeMeta` i `src/lib/gen/verify/server-verify-log-meta.ts`
@@ -624,12 +661,31 @@ bucketar dem som `(historisk/utan-outcome)`.
 
 | Fält / plats | Skrivs av | Läses av |
 |---|---|---|
+| `meta.streamMs` (`number`) | `persistTelemetryRecord` (wall-clock engine-stream-start → finalize-start; samma mått som Prometheus-fasen `codegen`) | `/logg` via `dump-logs --kinds=telemetry`, latensanalys |
+| `meta.postStreamSteps` (per-steg-map, inkl. `materialize_images`) | `persistTelemetryRecord` från finalize `finalizeStepTelemetry` | `/logg`, latensanalys; Prometheus speglar faserna via `sajtmaskin_phase_duration_ms` |
 | `meta.selectedDossierIds` (`string[]`) | `persistTelemetryRecord` (endast när ≥1 dossier valdes) | `control-stats` (`dossierUsage`) |
 | `deploy_result` (kolumn, t.ex. `production:ready` / `preview:queued` / `production:error`) | `recordDeployResultForVersion` från `POST /api/v0/deployments` (best-effort, senaste telemetri-raden för versionId) | `control-stats` (`deployOutcomes`), backoffice generation-history |
 
 Ingen migration: `deploy_result`-kolumnen finns redan och dossier-val lagras i
 befintlig `meta` (jsonb). Tomma dossier-listor skrivs inte → historiska rader
 utan nyckeln = "ingen dossier".
+
+## Telemetri-fält: `variant_id` (scaffold-variant per generation)
+
+`generation_telemetry.variant_id` (kolumn, text nullable; migration
+`add-generation-telemetry-variant-id.sql`) är den orchestrate-låsta
+scaffold-varianten (stilriktningen) för generationen, t.ex. `corporate-grid`.
+
+| Läge | Betyder |
+|---|---|
+| `"<variant-id>"` | Varianten som `finalizeOrchestrationPrompts` låste — samma värde som `orchestrationStreamMeta.variantId` / snapshotens `variantId`. |
+| `null` | Rad skriven före kolumnen fanns, legacy-snapshot utan variant, eller eval/synthetisk körning. |
+
+Skrivs av `persistTelemetryRecord` (finalize) och ärvs av repair-raden i
+`recordRepairPassedQualityGate` (samma princip som `chatId`/`model`). Innan
+kolumnen fanns var enda källan `engine_chats.orchestration_snapshot.variantId`,
+som bara håller chattens *senaste* tillstånd — per-version-historik och
+fördelningsanalys över tid var omöjlig.
 
 ## Telemetri-fält: ärlig `preview_success` (M#pv1)
 
@@ -657,9 +713,30 @@ blockerar aldrig status-svaret) och writerns per-instans confirmed-cache gör
 upprepade polls efter bekräftelse helt DB-fria. Stämplar bara när versionen är
 knuten till sessionen (`/preview-status` kräver session↔version-match innan
 running-grenen, och hostens `/status` re-verifierar versionId). Ingen ny
-polling — alla stämpelpunkter hänger på befintliga anrop. Känt smalt kant-race
-(kvittot binds till versionId, inte till innehållsrevisionen VM:en servar) är
-loggat som P3 (M#pv4) i `BUG-SWARM-BACKLOG.md`.
+polling — alla stämpelpunkter hänger på befintliga anrop.
+
+**Innehållsrevision steg 3 (flagga `SAJTMASKIN_CONTENT_REVISION_GATE`, default av)
+stänger M#pv4:** kvittot band sig till `versionId`, inte till innehållsrevisionen
+VM:en servar, så ett `running:true` för den gamla sessionen kunde stämpla en NY
+telemetrirad grön (ett repair-varv som passerade sin gate skapar en rad för
+innehåll i `repaired_files_json` som aldrig bootats). Med flaggan på:
+
+- **Stämpeln** får en revisionsgrind i samma villkorade UPDATE som monotoniteten —
+  målraden är senaste raden som INTE är en känd mismatch (`files_revision IS NULL`
+  = okänd, fortfarande stämpelbar, eller lika med versionens nuvarande revision).
+  Subselecten utvärderas vid exekvering, så en omskrivning mellan förläsning och
+  skrivning kan inte göra en mismatchad rad till mål.
+- **Cachen** nycklas på revision i stället för `versionId`
+  (`shouldVerifyPreviewRuntimeReceipt`), så en same-version-rewrite inte
+  kortsluter stämplingen av den nya raden på en instans som redan sett ett kvitto.
+  Den extra `files_revision`-läsningen sker bara för versioner instansen redan
+  bekräftat; en aldrig bekräftad version svarar DB-fritt som förut.
+- **Residual (dokumenterad, konservativ riktning):** "det VM:en servar" härleds ur
+  versionens nuvarande revision, inte ur ett revisionsfält på preview-sessionen.
+  Efter en accepterad repair håller `files_json` det reparerade innehållet medan
+  VM:en kan servera det gamla tills nästa update — då kan kvittot landa på den
+  reparerade raden. En exakt bindning kräver att sessionen bär revisionen
+  (`session-store.ts`), vilket är en egen leverans.
 
 **Varför:** preview-host `/preview/session/start` (+ `/update`) köar bootet och
 svarar `201` **innan** `npm run dev` servar. Session-skapad ≠ runtime-överlevde.

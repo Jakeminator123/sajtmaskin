@@ -102,6 +102,7 @@ function loadEntry(klass: DossierClass, id: string): DossierEntry | null {
     id,
     label: data.label,
     capability: data.capability,
+    providers: data.providers,
     codeFidelity: data.codeFidelity,
     complexity: data.complexity,
     defaultForCapability: data.defaultForCapability === true,
@@ -113,6 +114,7 @@ function loadEntry(klass: DossierClass, id: string): DossierEntry | null {
     files: data.files,
     exposes: data.exposes,
     lastVerified: data.lastVerified,
+    verificationStatus: data.verificationStatus,
     sourceRepoUrl: data.sourceRepoUrl,
     notes: data.notes,
     promptInstructionMode: data.promptInstructionMode,
@@ -148,6 +150,62 @@ export function getAllDossiers(): DossierEntry[] {
   }
   _listCache = { signature, entries: out };
   return out;
+}
+
+export type DossierProviderResolutionStatus = "dossierless" | "unique" | "ambiguous";
+
+export interface DossierProviderResolution {
+  provider: string;
+  status: DossierProviderResolutionStatus;
+  dossierIds: string[];
+  capabilities: string[];
+  dossiers: DossierEntry[];
+}
+
+function normalizeProvider(provider: string): string {
+  return provider.trim().toLowerCase();
+}
+
+/** Sorted projection of the provider identities explicitly owned by manifests. */
+export function getDossierProviderCatalog(
+  dossiers: readonly DossierEntry[] = getAllDossiers(),
+): string[] {
+  const providers = new Set<string>();
+  for (const dossier of dossiers) {
+    for (const provider of dossier.providers ?? []) {
+      const normalized = normalizeProvider(provider);
+      if (normalized) providers.add(normalized);
+    }
+  }
+  return [...providers].sort();
+}
+
+/**
+ * Resolve provider ownership using only `manifest.providers` — never ids,
+ * capabilities, npm dependencies, or integration categories.
+ */
+export function resolveDossierProvider(
+  provider: string,
+  dossiers: readonly DossierEntry[] = getAllDossiers(),
+): DossierProviderResolution {
+  const normalized = normalizeProvider(provider);
+  const matches = normalized
+    ? dossiers
+        .filter((dossier) =>
+          (dossier.providers ?? []).some(
+            (candidate) => normalizeProvider(candidate) === normalized,
+          ),
+        )
+        .sort((a, b) => a.id.localeCompare(b.id))
+    : [];
+
+  return {
+    provider: normalized,
+    status: matches.length === 0 ? "dossierless" : matches.length === 1 ? "unique" : "ambiguous",
+    dossierIds: matches.map((dossier) => dossier.id),
+    capabilities: [...new Set(matches.map((dossier) => dossier.capability))].sort(),
+    dossiers: matches,
+  };
 }
 
 export function getDossierById(id: string): DossierEntry | null {

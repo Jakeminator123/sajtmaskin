@@ -116,6 +116,32 @@ describe("extractStructuralElements", () => {
     const videoEntries = result.filter((e) => e.kind === "video");
     expect(videoEntries).toHaveLength(1);
   });
+
+  // `display` ends in `play`. The play-button heuristic used to anchor only the
+  // trailing word boundary, so ordinary styling registered as a play control.
+  it.each([
+    ['inline style', `<span style={{ display: "inline-flex" }}>Hi</span>`],
+    ['next/font option', `const inter = Inter({ subsets: ["latin"], display: "swap" });`],
+    ['plain CSS', `.card { display: grid; }`],
+  ])("does not read %s as a play button", (_label, content) => {
+    const result = extractStructuralElements(content);
+    expect(result.some((e) => e.kind === "play-button-ui")).toBe(false);
+  });
+
+  it("still detects a real play control", () => {
+    const result = extractStructuralElements(`<button aria-label="Play"><PlayCircle /></button>`);
+    expect(result.some((e) => e.kind === "play-button-ui")).toBe(true);
+  });
+
+  it("reports no elements for an autofix stub placeholder", () => {
+    const stub = [
+      `export function ArticleBlockView() {`,
+      `  // autofix-stub:ArticleBlockView — model did not emit a real implementation.`,
+      `  return <span role="status" data-autofix-stub="ArticleBlockView" style={{ display: "inline-flex" }}>Platshållare</span>;`,
+      `}`,
+    ].join("\n");
+    expect(extractStructuralElements(stub)).toEqual([]);
+  });
 });
 
 describe("detectDroppedElements", () => {
@@ -172,6 +198,25 @@ describe("detectDroppedElements", () => {
     const next = [makeFile("lib/utils.ts", `export function cn() { return ""; }`)];
     const warnings = detectDroppedElements(prev, next);
     expect(warnings).toHaveLength(0);
+  });
+
+  // The stub is what the pipeline writes when the model forgets a component.
+  // Letting it win over the model's later real implementation freezes the
+  // placeholder into the finished site.
+  it("lets a real implementation replace an autofix stub", () => {
+    const prev = [
+      makeFile(
+        "components/article-block-view.tsx",
+        `export function ArticleBlockView() {\n  // autofix-stub:ArticleBlockView\n  return <span data-autofix-stub="ArticleBlockView" style={{ display: "inline-flex" }}>Platshållare</span>;\n}`,
+      ),
+    ];
+    const next = [
+      makeFile(
+        "components/article-block-view.tsx",
+        `export function ArticleBlockView({ block }: { block: Block }) {\n  return <article className="prose">{block.text}</article>;\n}`,
+      ),
+    ];
+    expect(detectDroppedElements(prev, next)).toHaveLength(0);
   });
 });
 

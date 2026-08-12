@@ -4,8 +4,8 @@
 > Source: `src/lib/ai-models/load-manifest.ts#getAiModelsManifest`
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
-<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:7e0dca8c5bffb182 -->
-<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:a13b7f2b78943c1a -->
+<!-- source-fingerprint: config/ai_models/manifest.json#full-manifest sha256:d11c1c88c85906bd -->
+<!-- source-fingerprint: config/ai_models/manifest.json#model-summary sha256:a88c74e67e978b81 -->
 
 # Models
 
@@ -18,17 +18,17 @@ Canonical owner: committed AI-model manifest. Validator/runtime consumer: `getAi
 | ----------- | ----------------- | ---------------------------- |
 | `anthropic` | `claude-opus-4.8` | `SAJTMASKIN_MODEL_ANTHROPIC` |
 | `codex`     | `gpt-5.3-codex`   | `SAJTMASKIN_MODEL_CODEX`     |
-| `fast`      | `gpt-5.4-mini`    | `SAJTMASKIN_MODEL_FAST`      |
 | `max`       | `gpt-5.5`         | `SAJTMASKIN_MODEL_MAX`       |
+| `premium`   | `gpt-5.6-sol`     | `SAJTMASKIN_MODEL_PREMIUM`   |
 | `pro`       | `gpt-5.3-codex`   | `SAJTMASKIN_MODEL_PRO`       |
 
 ## Quality mapping
 
 | Quality    | Own-engine model |
 | ---------- | ---------------- |
-| `light`    | `gpt-5.4-mini`   |
+| `light`    | `gpt-5.6-sol`    |
 | `max`      | `gpt-5.3-codex`  |
-| `premium`  | `gpt-5.5`        |
+| `premium`  | `gpt-5.6-sol`    |
 | `pro`      | `gpt-5.3-codex`  |
 | `standard` | `gpt-5.3-codex`  |
 
@@ -36,5 +36,5 @@ Canonical owner: committed AI-model manifest. Validator/runtime consumer: `getAi
 
 | Workload | Default model          | Override env key          |
 | -------- | ---------------------- | ------------------------- |
-| `assist` | `openai/gpt-5.5`       | `SAJTMASKIN_ASSIST_MODEL` |
+| `assist` | `openai/gpt-5.6-sol`   | `SAJTMASKIN_ASSIST_MODEL` |
 | `polish` | `openai/gpt-5.3-codex` | `SAJTMASKIN_POLISH_MODEL` |

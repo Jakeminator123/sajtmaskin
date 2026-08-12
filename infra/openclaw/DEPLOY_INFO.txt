@@ -58,6 +58,10 @@ Recommended / instance-specific:
     is built entirely from this var + SAJTAGENT_TARGET_SITE_URL at boot;
     http://localhost:3000 is always included. No hostname is hardcoded, so a
     new deployment URL works without a code change.
+    Paste the VALUE only. Pasting a whole "KEY=value" line into the hosting
+    dashboard's value field is silent: the boot log then shows a junk origin
+    such as "SAJTAGENT_ALLOWED_ORIGINS=https://..." in
+    controlUi.allowedOrigins. Check that line after changing env.
 
 Optional environment variables (have safe defaults):
 - OPENCLAW_GATEWAY_PORT=10000
@@ -135,6 +139,33 @@ Fix:     gateway.http.endpoints.chatCompletions.enabled must be true.
 
 Symptom: "No API key found for provider openai-codex"
 Fix:     Set OPENAI_API_KEY on the hosting platform.
+
+Symptom: Chat returns HTTP 401 "All models failed (N): openai/gpt-5.5:
+         unexpected status 401 Unauthorized: Incorrect API key provided:
+         sk-proj-...<suffix>", where <suffix> does NOT match the current
+         OPENAI_API_KEY -- while `openclaw models status` on the host reports
+         the correct env key as `usable` and `openclaw models auth list
+         --provider openai` returns `profiles: []`.
+Cause:   openai/* runs through the bundled Codex app-server harness
+         (models status prints `source=codex-app-server`). That harness reads
+         the agent-scoped Codex home FIRST --
+         /root/.openclaw/agents/sajtagenten/agent/codex-home/auth.json -- and
+         only falls back to CODEX_API_KEY / OPENAI_API_KEY when that home has
+         no account. Since /root/.openclaw is a mounted persistent disk (see
+         render.yaml), a stale key in that auth.json survives env edits,
+         redeploys AND "Clear cache & rebuild". The credential is not an
+         OpenClaw auth profile, which is why the auth store looks empty.
+Fix:     On the gateway host (Render -> "Shell"):
+           rm -f /root/.openclaw/agents/sajtagenten/agent/codex-home/auth.json
+         then RESTART the service -- the running gateway holds the old key in
+         memory, so deleting the file alone changes nothing. Verify with
+         POST <gateway-url>/v1/chat/completions -> HTTP 200.
+Note:    python3 and the `codex` CLI are NOT in this image; plain `rm` plus a
+         restart is the whole fix. `openclaw models auth logout` does not help
+         (nothing is stored there) and `--yes` is not a valid flag in 2026.7.x.
+         Old failed runs keep the provider-masked key string in
+         /root/.openclaw/agents/<agent>/sessions/*.trajectory.jsonl -- delete
+         those before pasting logs anywhere public. Diagnosed 2026-07-31.
 
 Symptom: Chat returns HTTP 200 but the app shows an empty answer, and the
          gateway logs "FallbackSummaryError: All models failed (N): ...

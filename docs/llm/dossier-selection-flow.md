@@ -1,6 +1,6 @@
 # Dossier — urvalsflöde och prompt-injection
 
-**Källtruth:** `src/lib/gen/dossiers/select.ts` + `src/lib/gen/system-prompt/`. **Schema:** `docs/schemas/strict/dossier.schema.json`. **Operativ guide:** `docs/operating/dossier-cheatsheet.md`. **Uppdaterad:** 2026-04-21.
+**Källtruth:** `src/lib/gen/dossiers/select.ts` + `src/lib/gen/system-prompt/`. **Schema:** `docs/schemas/strict/dossier.schema.json`. **Operativ guide:** `docs/operating/dossier-cheatsheet.md`. **Uppdaterad:** 2026-08-05.
 
 Den här filen visar **hur** en dossier väljs och **var** den landar i prompten — komplement till [`dossier-system.md`](../contracts/dossier-system.md) som beskriver **vad** systemet är.
 
@@ -28,17 +28,20 @@ Brief deklarerar requestedCapabilities: ["payments", "auth", ...]
        Sortera id-deterministiskt
                 │
                 ▼
-       defaultForCapability=true vinner
-       (annars första id-sorterade)
+       Dependency-/alias-pin vinner;
+       annars explicit relevanceKeyword-träff;
+       annars defaultForCapability=true
+       (sist första id-sorterade)
                 │
                 ▼
-       hard-class? → kolla envVars mot projektets sparade nycklar
+       required envVars? → kolla mot projektets sparade nycklar
                 │
                 ▼
        configured: true|false
                 │
                 ▼
-       Eager-load instructions.md
+       Ladda instructions.md;
+       rendera enligt promptInstructionMode
                 │
                 ▼
        SelectedDossier {entry, reason, configured}
@@ -50,10 +53,21 @@ Brief deklarerar requestedCapabilities: ["payments", "auth", ...]
 
 | Klass | Path | När |
 |-------|------|-----|
-| `hard` | `data/dossiers/hard/<id>/` | Behöver `process.env`-secrets (Stripe-key, OpenAI-key, DB-URL). |
-| `soft` | `data/dossiers/soft/<id>/` | Självförsörjande (UI-sektioner, R3F-scener, FAQ-accordions). |
+| `hard` | `data/dossiers/hard/<id>/` | Kopplad till extern provider, tjänst eller runtimekontrakt; kan vara nyckelfri. Måste deklarera `providers`. |
+| `soft` | `data/dossiers/soft/<id>/` | Självförsörjande utan extern provider/account. Måste utelämna `providers`. |
 
-`hard`-dossiers utan satta env-vars **injiceras ändå** men markeras `configured: false`. `configured` läses mot **projektets** sparade env-nycklar (`configuredEnvKeys`, trädat från `getStoredProjectEnvVarMap`) — inte plattformens `process.env` (deprecerad fallback för callers utan projekt-env-map). Flaggan är en prompt-signal, aldrig kopplad till en gate. Codegen-LLM:n får dessutom dossierns `mock`-läge (`describeMockMode`) så demo-ytan renderar i F2 utan riktig nyckel i stället för att krascha.
+Manifestets `providers` är kanonisk provider→dossier-sanning; provider-id:n
+härleds inte ur dossier-id, dependencies eller integrationskategori. Manifestet
+äger även `envVars` och deras `enforcement`.
+
+`hard`-dossiers med obligatoriska env-vars men utan sparade värden **injiceras
+ändå** och markeras `configured: false`; en nyckelfri hard-dossier blir
+`configured: true`. `configured` läses mot **projektets** sparade env-nycklar
+(`configuredEnvKeys`, trädat från `getStoredProjectEnvVarMap`) — inte
+plattformens `process.env` (deprecerad fallback för callers utan
+projekt-env-map). Flaggan är en prompt-signal, aldrig kopplad till en gate.
+Codegen-LLM:n får dessutom dossierns `mock`-läge (`describeMockMode`) så
+demo-ytan renderar i F2 utan riktig nyckel i stället för att krascha.
 
 ## Två kod-fideliteter (per-dossier default + per-fil override)
 
@@ -84,24 +98,17 @@ Kompakt lista. Per dossier: id, label, capability, configured-status. Format:
 
 ### 2. `## Selected Dossier Instructions`
 
-Full `instructions.md` per vald dossier. Fem fasta sektioner:
+Renderingen styrs av manifestets `promptInstructionMode`:
 
-```
-# When to use
-[1-3 bullets där denna dossier är rätt val]
+| Läge | Vad codegen-prompten får |
+|---|---|
+| `compact` eller utelämnat (default) | Manifest-härledd sammanfattning av capability, mock, env, dependencies och exports; brödtexten i `instructions.md` injiceras inte. |
+| `selected-sections` | De avgränsade H1-sektionerna **When to use**, **How to integrate** och **Avoid**; kodblock tas bort och varje sektion kapas. |
+| `full` | Hela `instructions.md`; används bara när manifestet uttryckligen väljer det eller för det äldre beyond-dossier-3D-undantaget. |
 
-# How to integrate
-[Numrerade steg: import, env, mount-point]
-
-# UX rules
-[Feedback, validering, mobil, accessibility]
-
-# Avoid
-[Konkreta don'ts som LLM:n naivt skulle prova]
-
-# Verification
-[Manuella smoke checks utvecklaren kan köra]
-```
+Författarkontraktet kräver H1-rubrikerna **When to use** och **How to
+integrate**. **UX rules**, **Avoid** och **Verification** rekommenderas och ger
+varningar om de saknas, men blockerar inte pool-laddningen.
 
 ### 3. `## Dossier Files To Emit Verbatim`
 
@@ -136,8 +143,11 @@ Två vägar (full guide i [`docs/operating/dossier-cheatsheet.md`](../operating/
 ### A. Hand-skriven
 
 1. Skapa mapp `data/dossiers/<class>/<id>/`.
-2. Skriv `manifest.json` (validera mot [`dossier.schema.json`](../schemas/strict/dossier.schema.json)).
-3. Skriv `instructions.md` (5 sektioner).
+2. Skriv `manifest.json` (validera mot
+   [`dossier.schema.json`](../schemas/strict/dossier.schema.json)); `hard`
+   deklarerar en icke-tom `providers`-lista och `soft` utelämnar fältet.
+3. Skriv `instructions.md` med de två obligatoriska och helst de tre
+   rekommenderade H1-sektionerna.
 4. Lägg ev. komponentfiler under `<id>/components/`.
 5. Kör `npm run dossiers:validate-all` (CI-blockerande; inkluderar mock-fallback-invarianten — **varje** hard-dossier behöver `mock ≠ none` eller ett dokumenterat capability-undantag, per-dossier sedan 2026-07-12, se `docs/contracts/dossier-system.md`).
 6. Backoffice → Dossiers → Capability map → "Bygg om" så `_index/capability-map.json` synkar.
@@ -187,7 +197,8 @@ Den kanoniska, alltid-aktuella listan är den genererade vyn
 (capability → dossier-id). Hårdkoda inte en kopia här — den driftar. Regenerera
 via `npm run dossiers:capability-map:write` (eller backoffice-tabben).
 
-- `hard` (Kopplad) kräver env-secrets — t.ex. `payments` (stripe-checkout),
+- `hard` (Kopplad) implementerar externa provider-/runtimekontrakt — t.ex.
+  nyckelfria `vercel-analytics`, `payments` (stripe-checkout),
   `auth` (clerk-auth default + supabase-auth), `ai-chat` (openai-chat),
   `contact-form` (resend-contact-form), `newsletter-subscribe`
   (mailchimp-newsletter), `analytics` (plausible-analytics + vercel-analytics),
@@ -202,6 +213,6 @@ via `npm run dossiers:capability-map:write` (eller backoffice-tabben).
 |---------|--------------|-----------|
 | `## Available Dossiers` saknas | `SAJTMASKIN_DOSSIER_PIPELINE=false` ELLER brief har inga `requestedCapabilities` | `.env.local` + prompt-dump `generation-input-package.json` |
 | Capability deklareras men ingen dossier väljs | Ingen dossier täcker capability | Logg: `dossier_capability_unresolved` |
-| Hard-dossier renderas som UNCONFIGURED | required env-vars saknar sparat värde för projektet | `manifest.json → envVars[].required` vs projektets `projectEnvVars` (`configuredEnvKeys`) |
-| Två dossiers delar capability — fel vald | Saknad eller dubbel `defaultForCapability=true` | `defaults.length > 1`-warning i logg |
+| Hard-dossier med required env renderas som UNCONFIGURED | required env-vars saknar sparat värde för projektet | `manifest.json → envVars[].required` vs projektets `projectEnvVars` (`configuredEnvKeys`) |
+| Två dossiers delar capability — fel vald | Fel dependency/alias-pin, oväntad `relevanceKeywords`-träff, saknad/dubbel default eller id-sort som sista fallback | Kontrollera i ordning: pin → `relevanceKeywords` → `defaultForCapability` → id |
 | Capability-map ej uppdaterad efter ny dossier | Glömt klicka "Bygg om" i backoffice | `data/dossiers/_index/capability-map.json` |

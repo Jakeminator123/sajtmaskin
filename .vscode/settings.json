@@ -26,6 +26,15 @@
   "files.autoSave": "afterDelay",
 
   // ── Dölj i Explorer ──
+  // Verktygskonfig MÅSTE ligga i roten (next, eslint, prettier, pyright m.fl. söker
+  // bara där) — nesting kollapsar den visuellt under package.json utan att flytta något.
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "package.json": "package-lock.json, .npmrc, tsconfig*.json, tsconfig.tsbuildinfo, next.config.*, next-env.d.ts, postcss.config.*, tailwind.config.*, eslint.config.*, .eslintcache, prettier.config.*, .prettierignore, knip.json, drizzle.config.*, components.json, vercel.json, vitest.*.ts, playwright*.config.ts, skills-lock.json, pyrightconfig.json, .token-status.json, requirements.*.txt, .editorconfig, .gitattributes, .node-version, .nvmrc, .tool-versions, .markdownlint.json, .markdownlintignore, sajtmaskin.code-workspace*",
+    ".gitignore": ".cursorignore, .cursorindexingignore"
+  },
+
   "files.exclude": {
     "**/.git": true,
     "**/.next": true,

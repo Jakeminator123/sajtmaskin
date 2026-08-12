@@ -772,6 +772,46 @@ def render_save_scope(
         st.info(body)
 
 
+# Text som är handskriven i Python och INTE läses ur kod/disk/DB/API ser
+# likadan ut som live-data i Streamlit — samma rubriker, samma punktlistor. En
+# operatör som läser en beskrivning av F2/F3-livscykeln har inget sätt att se om
+# den speglar koden idag eller skrevs för tre månader sedan. Badgen säger det
+# rakt ut (P2-2), med en pekare till ytan som äger sanningen.
+STATIC_REFERENCE_BADGE = "Statisk referens — senast uppdaterad manuellt"
+
+
+def render_static_reference(*, source: str = "", note: str = "") -> None:
+    """Märk ett avsnitt som handskriven referenstext, inte läst data.
+
+    Använd den **bara** när avsnittet inte läser disk, DB eller API. Läser
+    sidan värdena live (som `orchestration.py`, som parsar TS-filer vid varje
+    rendering) är badgen osann och ska inte sättas — skriv i stället i captionen
+    var värdena kommer ifrån.
+
+    ``source`` pekar ut den yta som äger sanningen (doc, kontrakt eller kodfil)
+    så läsaren vet vad texten ska kontrolleras mot.
+
+    ``st.badge`` finns i nyare Streamlit men inte i hela intervallet som
+    `requirements.backoffice.txt` tillåter (`>=1.49`). Saknas den renderas samma
+    text som fet markdown-rad i st.f. att sidan kraschar på ett API som inte
+    finns — märkningen är viktigare än chip-utseendet.
+    """
+    badge = getattr(st, "badge", None)
+    if callable(badge):
+        badge(STATIC_REFERENCE_BADGE, icon="📄", color="orange")
+    else:
+        st.markdown(f"📄 **{STATIC_REFERENCE_BADGE}**")
+    tail = ""
+    if source:
+        tail = f" Kontrollera mot `{source}` innan du litar på den."
+    if note:
+        tail += f" {note}"
+    st.caption(
+        "Texten nedan är skriven för hand i backoffice-koden — den läses inte ur "
+        "koden och kan därför ligga efter." + tail
+    )
+
+
 def tech_details(label: str = "Visa tekniska detaljer", *, expanded: bool = False):
     """Standard collapsed expander for jargon (paths, schemas, script names).
 
@@ -1007,10 +1047,16 @@ MODEL_LABELS = {
     "openai/gpt-5.5": "OpenAI GPT-5.5",
     "openai/gpt-5.4": "OpenAI GPT-5.4",
     "openai/gpt-5.3-codex": "OpenAI GPT-5.3 Codex",
+    "openai/gpt-5.6-sol": "OpenAI GPT-5.6 Sol",
+    "openai/gpt-5.6-terra": "OpenAI GPT-5.6 Terra",
+    "openai/gpt-5.6-luna": "OpenAI GPT-5.6 Luna",
     "openai/gpt-5.2": "OpenAI GPT-5.2",
     "openai/gpt-5-mini": "OpenAI GPT-5 mini",
     "gpt-4o-mini": "GPT-4o mini (legacy)",
     "gpt-4.1": "GPT-4.1",
+    "gpt-5.6-sol": "GPT-5.6 Sol",
+    "gpt-5.6-terra": "GPT-5.6 Terra",
+    "gpt-5.6-luna": "GPT-5.6 Luna",
     "gpt-5.5": "GPT-5.5",
     "gpt-5-mini": "GPT-5 mini",
     "gpt-5-nano": "GPT-5 nano",
@@ -1030,7 +1076,7 @@ MODEL_LABELS = {
     "selected_build_model": "Följ vald byggprofil (`selected_build_model`)",
 }
 
-BUILD_PROFILE_ORDER = ("fast", "pro", "max", "codex", "anthropic")
+BUILD_PROFILE_ORDER = ("premium", "pro", "max", "codex", "anthropic")
 PHASE_ORDER = (
     "planner",
     "generator",
@@ -1038,15 +1084,18 @@ PHASE_ORDER = (
     "verifier",
     "deploy-assistant",
 )
-REASONING_EFFORT_OPTIONS = ("none", "low", "medium", "high")
+REASONING_EFFORT_OPTIONS = ("none", "low", "medium", "high", "xhigh", "max")
+REASONING_MODE_OPTIONS = ("standard", "pro")
 AVAILABLE_PHASE_MODELS = (
     "selected_build_model",
-    "gpt-4.1",
-    "gpt-5.2",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
     "gpt-5.5",
     "gpt-5.4",
-    "gpt-5.4-mini",
     "gpt-5.3-codex",
+    "gpt-5.2",
+    "gpt-4.1",
     "claude-sonnet-4.6",
     "claude-opus-4.8",
     "claude-opus-4.6",
@@ -1059,12 +1108,12 @@ PHASE_LABELS = {
     "deploy-assistant": "Deploy-assistant",
 }
 DEFAULT_PHASE_THINKING_BY_TIER: dict[str, dict[str, dict[str, Any]]] = {
-    "fast": {
-        "planner": {"thinking": True, "reasoningEffort": "medium"},
-        "generator": {"thinking": True, "reasoningEffort": "medium"},
-        "fixer": {"thinking": False, "reasoningEffort": "medium"},
-        "verifier": {"thinking": False, "reasoningEffort": "medium"},
-        "deploy-assistant": {"thinking": False, "reasoningEffort": "medium"},
+    "premium": {
+        "planner": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "pro"},
+        "generator": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "pro"},
+        "fixer": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
+        "verifier": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
+        "deploy-assistant": {"thinking": True, "reasoningEffort": "high", "reasoningMode": "standard"},
     },
     "pro": {
         "planner": {"thinking": True, "reasoningEffort": "medium"},
@@ -1200,13 +1249,19 @@ def phase_thinking_defaults(manifest: dict[str, Any]) -> dict[str, dict[str, dic
                 {"thinking": False, "reasoningEffort": "medium"},
             )
             phase_cfg = tier_stored.get(phase) if isinstance(tier_stored, dict) else {}
-            normalized[phase] = {
+            normalized_phase = {
                 "thinking": bool(phase_cfg.get("thinking", default_cfg["thinking"])),
                 "reasoningEffort": str(
                     phase_cfg.get("reasoningEffort", default_cfg["reasoningEffort"])
                 ).strip()
                 or str(default_cfg["reasoningEffort"]),
             }
+            reasoning_mode = str(
+                phase_cfg.get("reasoningMode", default_cfg.get("reasoningMode", ""))
+            ).strip()
+            if reasoning_mode:
+                normalized_phase["reasoningMode"] = reasoning_mode
+            normalized[phase] = normalized_phase
         result[tier] = normalized
     return result
 
@@ -1217,14 +1272,19 @@ def write_phase_thinking(
     phase: str,
     thinking: bool,
     effort: str,
+    mode: str = "",
 ) -> None:
     phase_routing = manifest.setdefault("phaseRouting", {})
     thinking_by_tier = phase_routing.setdefault("thinkingByTier", {})
     tier_cfg = thinking_by_tier.setdefault(tier, {})
-    tier_cfg[phase] = {
+    phase_cfg = {
         "thinking": bool(thinking),
         "reasoningEffort": (effort or "medium").strip() or "medium",
     }
+    normalized_mode = (mode or "").strip()
+    if normalized_mode:
+        phase_cfg["reasoningMode"] = normalized_mode
+    tier_cfg[phase] = phase_cfg
 
 
 def phase_token_budget_entry(manifest: dict[str, Any], phase: str) -> dict[str, Any]:
@@ -1664,4 +1724,109 @@ def extract_ts_union_values(text: str, type_name: str) -> list[str] | None:
     if not m:
         return None
     return re.findall(r'"([^"]+)"', m.group(1))
+
+
+# --- Fältetiketter: ett språk per fält ----------------------------------------
+# Samma manifest-/variantfält renderades tidigare med engelsk etikett i
+# `scaffold_lifecycle.py` och `scaffold_wizard.py` men svensk i `scaffolds.py`,
+# så operatören mötte två namn på samma sak. Kanoniskt namn bor här, den
+# tekniska nyckeln följer alltid med i parentes så den som läser schemat eller
+# `manifest.ts` hittar tillbaka. `backoffice/test_scaffold_lifecycle_ui.py`
+# grindar att ytorna använder tabellen i stället för egna strängar.
+FIELD_LABELS: dict[str, str] = {
+    "scaffoldId": "Scaffold",
+    "label": "Namn",
+    "description": "Beskrivning",
+    "tags": "Matchord",
+    "keywords": "Matchord",
+    "promptHints": "Instruktioner till own-engine",
+    "qualityChecklist": "Kvalitetskrav",
+    "allowedBuildIntents": "Får användas för",
+    "siteKind": "Typ av sajt",
+    "complexity": "Komplexitet",
+    "structureProfile": "Struktur",
+    "contentProfile": "Innehåll",
+    "features": "Funktioner",
+    "upgradeTargets": "Förbättringsmål",
+    "signatureMotif": "Visuellt signum",
+    "colorMode": "Ljus eller mörk",
+    "fontPairings": "Typsnittspar",
+    "themeTokens": "Färg-/formvärden",
+    "signaturePatterns.layouts": "Signaturmönster – layouter",
+    "signaturePatterns.motifs": "Signaturmönster – motiv",
+    "signaturePatterns.antiPatterns": "Signaturmönster – undvik",
+    "styleRules": "Stilregler",
+    "sectionInventory": "Sektionslista",
+    "avoidPatterns": "Undvik",
+    "worldClassRubric": "Kvalitetsribba",
+    "sourceTemplateIds": "Inspirationskällor",
+    "referenceScaffoldIds": "Referens-scaffolds",
+    "default": "Standardvariant",
+    # Dossier-/byggblocksfält (Fas C) — svenska UI-ord ur docs/architecture/glossary.md.
+    "id": "Tekniskt ID",
+    "capability": "Funktion",
+    "summary": "Sammanfattning",
+    "summarySv": "Svensk katalogtext",
+    "codeFidelity": "Kodtrohet",
+    "defaultForCapability": "Standardval",
+    "mock": "Demoläge",
+    "lastVerified": "Senast verifierad",
+}
+
+
+def field_label(key: str, *, hint: str = "") -> str:
+    """Svensk etikett för ett scaffold-/variantfält, teknisk nyckel i parentes.
+
+    ``field_label("tags", hint="en per rad")`` → ``Matchord, en per rad (`tags`)``.
+    Okänd nyckel höjer ``KeyError`` i stället för att tyst rendera den råa
+    nyckeln, så en felstavning syns direkt i stället för att bli UI-copy.
+    """
+    if key not in FIELD_LABELS:
+        raise KeyError(
+            f"Okänt fält {key!r} — lägg till det i FIELD_LABELS i stället för att "
+            "skriva en egen etikettsträng."
+        )
+    label = FIELD_LABELS[key]
+    prefix = f"{label}, {hint}" if hint else label
+    return f"{prefix} (`{key}`)"
+
+
+# --- Farlig zon: destruktiva åtgärder ramas in och kräver typad bekräftelse ---
+# Radering låg tidigare i samma flöde som skapa/ändra, med olika friktion per
+# yta (kryssruta här, inskriven text där). Helpers först nu, där de används.
+
+def danger_zone(label: str, *, help_text: str = ""):
+    """Röd rubrik + kort förklaring runt en destruktiv åtgärd.
+
+    Returnerar en ram-container så anropet kan användas som context manager
+    (``with danger_zone("Radera variant"): ...``) och innehållet visuellt hör
+    ihop med varningen.
+    """
+    container = st.container(border=True)
+    with container:
+        st.markdown(f"##### 🔴 {label}")
+        if help_text:
+            st.caption(help_text)
+    return container
+
+
+def confirm_by_typing(
+    expected: str,
+    key: str,
+    *,
+    label: str = "Bekräfta genom att skriva namnet",
+) -> bool:
+    """Typad bekräftelse före en radering — samma mönster som baseline-fliken.
+
+    Returnerar ``True`` bara när operatören skrivit ``expected`` exakt
+    (omgivande blanktecken ignoreras). Fail-closed: ett tomt ``expected`` kan
+    aldrig bekräftas, annars skulle ett orört fält räknas som ett godkännande.
+    """
+    target = expected.strip()
+    typed = st.text_input(
+        label,
+        key=key,
+        help=f"Skriv exakt `{expected}` för att tillåta åtgärden.",
+    )
+    return bool(target) and typed.strip() == target
 

@@ -23,8 +23,12 @@
  *
  *   - `fixKnownTs2304Imports`               (TS2304 / TS2552, known libraries)
  *   - `fixMissingLocalSymbolImports`        (TS2304 residue: own project files)
- *   - `fixValueUsedFromTypeImport`          (TS1361, with confirmed symbols)
- *   - `fixImportedDeclarationConflicts`     (TS2440, path-aware self-import)
+ *   - `fixValueUsedFromTypeImport`          (TS1361 + TS2693 with a confirmed
+ *                                            type-only import — statement AND
+ *                                            inline `{ type X }` form)
+ *   - `fixImportedDeclarationConflicts`     (TS2440: self-import + compiler-
+ *                                            confirmed import-vs-local-value
+ *                                            collisions)
  *   - `consolidateReactImports`             (TS2300, overlapping react imports)
  *   - `fixDuplicateImportBindings`          (TS2300)
  *   - `fixDuplicateImportAndLocalTypeCollision` (TS2300 / TS2440 type collision)
@@ -50,13 +54,13 @@ import {
   type CannotFindNameResidualReason,
 } from "./rules/ts2304-known-import-fixer";
 import { fixValueUsedFromTypeImport } from "./rules/value-used-from-type-import-fixer";
+import { collectImportBoundNames } from "./import-validator";
 import {
+  buildProjectDefaultExportIndex,
   buildProjectExportIndex,
-  buildProjectModuleExportIndex,
   fixImportedDeclarationConflicts,
   fixMissingLocalSymbolImports,
   insertImportAfterDirectives,
-  isIndexableSharedFile,
   toAliasImportPath,
 } from "./common-import-fixer";
 import { fixDuplicateImportBindings } from "./rules/duplicate-import-binding-fixer";
@@ -89,9 +93,17 @@ const TS2552_NAME_SUGGESTION_RE =
   /Cannot find name '[^']+'\.\s*Did you mean '[^']+'\?/;
 const TS1361_RE =
   /'([^']+)' cannot be used as a value because it was imported using 'import type'/;
+// TS2693 "'X' only refers to a type, but is being used as a value here." is
+// the sibling of TS1361: tsc reports 2693 (instead of 1361) when the
+// type-only-imported symbol resolves to a TYPE in the target module's
+// typings. Only names the file actually type-only-imports are treated as
+// this class (confirmed per file below) — a TS2693 on e.g. a local
+// `interface` is not import-fixable and stays with the LLM.
+const TS2693_RE =
+  /'([^']+)' only refers to a type, but is being used as a value here/;
 const DUPLICATE_IDENTIFIER_RE = /Duplicate identifier '[^']+'/;
 const IMPORT_CONFLICT_RE =
-  /Import declaration conflicts with local declaration of '[^']+'/;
+  /Import declaration conflicts with local declaration of '([^']+)'/;
 
 /**
  * Minimal diagnostic shape this module consumes. Structurally compatible with
@@ -187,8 +199,12 @@ function collectImportedBindingNames(code: string, filePath: string): Set<string
  * (cross-file-checker/stub downstream) — normalize never creates new silent
  * stubs. No component registry — just the classification
  * known library vs own file vs unknown.
+ *
+ * Exported because `jsx-checker`'s `fixMissingImports` resolves its PascalCase
+ * JSX residue through the exact same unique-match rule instead of fabricating
+ * an `@/components/<kebab>` path (M#gs1).
  */
-function resolveOwnComponentImports(params: {
+export function resolveOwnComponentImports(params: {
   code: string;
   filePath: string;
   missingNames: ReadonlySet<string>;
@@ -334,7 +350,17 @@ export function runDeterministicImportRepair(
   const ts2304Diagnostics: DeterministicImportRepairDiagnostic[] = [];
   const cannotFindNamesByFile = new Map<string, Set<string>>();
   const ts1361SymbolsByFile = new Map<string, Set<string>>();
+  // TS2693 candidates — only confirmed as the type-flip class at per-file
+  // pass time, when the file demonstrably type-only-imports the name.
+  const ts2693SymbolsByFile = new Map<string, Set<string>>();
+  // `file::name` → the code(s) that reported the type-flip symbol (TS1361
+  // and/or TS2693), so a resolved flip records the actual originating code.
+  const typeFlipCodes = new Map<string, Set<string>>();
   const conflictFiles = new Set<string>();
+  // Compiler-confirmed TS2440 binding names per file (from the diagnostic
+  // message) — lets the conflict fixer drop exactly those bindings without
+  // its usage-between-import-and-declaration heuristic guard.
+  const conflictNamesByFile = new Map<string, Set<string>>();
   const duplicateIdentifierFiles = new Set<string>();
   // `file::name` → the distinct cannot-find-name code(s) the gate reported for
   // that symbol in that file (TS2304 and/or its TS2552 "did you mean" variant).
@@ -363,10 +389,19 @@ export function runDeterministicImportRepair(
     const ts1361 = diagnostic.message.match(TS1361_RE);
     if (ts1361) {
       ensureSet(ts1361SymbolsByFile, file).add(ts1361[1]);
+      ensureSet(typeFlipCodes, cannotFindNameKey(file, ts1361[1])).add("TS1361");
       continue;
     }
-    if (IMPORT_CONFLICT_RE.test(diagnostic.message)) {
+    const ts2693 = diagnostic.message.match(TS2693_RE);
+    if (ts2693) {
+      ensureSet(ts2693SymbolsByFile, file).add(ts2693[1]);
+      ensureSet(typeFlipCodes, cannotFindNameKey(file, ts2693[1])).add("TS2693");
+      continue;
+    }
+    const conflict = diagnostic.message.match(IMPORT_CONFLICT_RE);
+    if (conflict) {
       conflictFiles.add(file);
+      ensureSet(conflictNamesByFile, file).add(conflict[1]);
       continue;
     }
     if (DUPLICATE_IDENTIFIER_RE.test(diagnostic.message)) {
@@ -425,6 +460,7 @@ export function runDeterministicImportRepair(
   const needsPerFilePass =
     cannotFindNamesByFile.size > 0 ||
     ts1361SymbolsByFile.size > 0 ||
+    ts2693SymbolsByFile.size > 0 ||
     conflictFiles.size > 0 ||
     duplicateIdentifierFiles.size > 0;
 
@@ -455,16 +491,7 @@ export function runDeterministicImportRepair(
       let defaultExportsByName: Map<string, string[]> | null = null;
       if (ownComponentResidualByFile.size > 0) {
         exportIndex = buildProjectExportIndex(project.files);
-        defaultExportsByName = new Map<string, string[]>();
-        const moduleIndex = buildProjectModuleExportIndex(project.files);
-        for (const [path, entry] of moduleIndex) {
-          if (!entry.hasDefault || !entry.defaultName) continue;
-          if (!isIndexableSharedFile(path)) continue;
-          const modulePath = toAliasImportPath(path);
-          const bucket = defaultExportsByName.get(entry.defaultName) ?? [];
-          if (!bucket.includes(modulePath)) bucket.push(modulePath);
-          defaultExportsByName.set(entry.defaultName, bucket);
-        }
+        defaultExportsByName = buildProjectDefaultExportIndex(project.files);
       }
 
       const fixedFiles = project.files.map((file) => {
@@ -514,8 +541,19 @@ export function runDeterministicImportRepair(
           }
         }
 
-        const forcedValueSymbols = ts1361SymbolsByFile.get(posix);
-        if (forcedValueSymbols && forcedValueSymbols.size > 0) {
+        const forcedValueSymbols = new Set(ts1361SymbolsByFile.get(posix) ?? []);
+        // TS2693 names count as the type-flip class ONLY when the file
+        // demonstrably type-only-imports them (statement `import type { X }`
+        // or inline `{ type X }`). A TS2693 pointing at e.g. a local
+        // interface has no import to flip and stays with the LLM.
+        const ts2693Names = ts2693SymbolsByFile.get(posix);
+        if (ts2693Names && ts2693Names.size > 0) {
+          const typeOnlyBound = collectImportBoundNames(code).typeOnly;
+          for (const name of ts2693Names) {
+            if (typeOnlyBound.has(name)) forcedValueSymbols.add(name);
+          }
+        }
+        if (forcedValueSymbols.size > 0) {
           const result = fixValueUsedFromTypeImport(
             code,
             file.path,
@@ -524,13 +562,25 @@ export function runDeterministicImportRepair(
           if (result.fixed) {
             code = result.code;
             fileFixes.push(...result.fixes);
-            fileHandledCodes.add("TS1361");
+            // Record the code(s) each converted symbol was actually reported
+            // under (TS1361 and/or TS2693); statement-form flips can convert
+            // sibling bindings the gate never named — those record nothing.
+            let recordedAny = false;
+            for (const symbol of result.convertedSymbols) {
+              const codes = typeFlipCodes.get(cannotFindNameKey(posix, symbol));
+              if (!codes) continue;
+              for (const c of codes) fileHandledCodes.add(c);
+              recordedAny = true;
+            }
+            if (!recordedAny) fileHandledCodes.add("TS1361");
             changed = true;
           }
         }
 
         if (conflictFiles.has(posix)) {
-          const result = fixImportedDeclarationConflicts(code, file.path);
+          const result = fixImportedDeclarationConflicts(code, file.path, {
+            confirmedConflicts: conflictNamesByFile.get(posix),
+          });
           if (result.fixed) {
             code = result.code;
             fileFixes.push({
@@ -539,6 +589,20 @@ export function runDeterministicImportRepair(
               description: `Dropped import(s) conflicting with local declaration (TS2440): ${result.removedBindings.join(", ")}`,
               file: file.path,
             });
+            fileHandledCodes.add("TS2440");
+            changed = true;
+          }
+          // Import-vs-local-TYPE collision (e.g. value import + local
+          // `interface X` with the import never value-used): owned by the
+          // type-collision fixer, which drops the import only when no value
+          // usage depends on it. Idempotent no-op otherwise.
+          const typeCollision = fixDuplicateImportAndLocalTypeCollision(
+            code,
+            file.path,
+          );
+          if (typeCollision.fixed) {
+            code = typeCollision.code;
+            fileFixes.push(...typeCollision.fixes);
             fileHandledCodes.add("TS2440");
             changed = true;
           }

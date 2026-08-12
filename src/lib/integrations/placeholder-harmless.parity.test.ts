@@ -14,9 +14,10 @@
  *    merge (F3 drops the tier-3-stub layer) even though the runtime
  *    classifier says it's safe to keep.
  *
- *  - A registry-declared `envVars` entry that has no placeholder in
- *    either file would crash F2 preview the moment the user picks an
- *    integration that uses it (e.g. Sanity adding `SANITY_API_TOKEN`).
+ *  - A registry-declared `envVars` entry for a generic, ambiguous, or
+ *    dossierless provider that has no placeholder in either file would crash
+ *    F2 preview. A uniquely dossier-owned provider is different: selected
+ *    dossier keys receive deterministic fallback values in `env-local.ts`.
  *
  * The third check is the one that historically caught Sanity, MongoDB
  * and Vercel KV missing from the stub file even though their
@@ -29,6 +30,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { resolveDossierProvider } from "@/lib/gen/dossiers/registry";
+import { dossierMockPreviewEnvValue } from "@/lib/gen/preview/env-local";
+
+import { isLikelyStubEnvValue } from "./stub-env-filter";
 import { integrationRegistry } from "./registry";
 import { PLACEHOLDER_HARMLESS_ENV_KEYS } from "./placeholder-harmless";
 
@@ -50,16 +55,22 @@ function parseEnvFragmentKeys(absPath: string): string[] {
   return keys;
 }
 
-const HARMLESS_FRAGMENT = repoPath(
-  "config",
-  "ai_models",
-  "40-harmless-placeholders.env.txt",
-);
-const TIER3_STUB_FRAGMENT = repoPath(
-  "config",
-  "ai_models",
-  "41-tier3-stub-placeholders.env.txt",
-);
+const HARMLESS_FRAGMENT = repoPath("config", "ai_models", "40-harmless-placeholders.env.txt");
+const TIER3_STUB_FRAGMENT = repoPath("config", "ai_models", "41-tier3-stub-placeholders.env.txt");
+
+function catalogPlaceholderKeys(): Set<string> {
+  return new Set([
+    ...parseEnvFragmentKeys(HARMLESS_FRAGMENT),
+    ...parseEnvFragmentKeys(TIER3_STUB_FRAGMENT),
+  ]);
+}
+
+function missingCatalogEnvVars(providerKey: string): string[] {
+  const definition = integrationRegistry.find((entry) => entry.key === providerKey);
+  if (!definition) return [];
+  const catalogKeys = catalogPlaceholderKeys();
+  return definition.envVars.filter((key) => !catalogKeys.has(key)).sort();
+}
 
 describe("placeholder-harmless × env-fragment parity", () => {
   it("PLACEHOLDER_HARMLESS_ENV_KEYS is exactly the key set of 40-harmless-placeholders.env.txt", () => {
@@ -88,20 +99,56 @@ describe("placeholder-harmless × env-fragment parity", () => {
     ).toEqual([]);
   });
 
-  it("every integrationRegistry envVar has a placeholder in either 40- or 41-", () => {
-    const harmlessKeys = new Set(parseEnvFragmentKeys(HARMLESS_FRAGMENT));
-    const tier3Keys = new Set(parseEnvFragmentKeys(TIER3_STUB_FRAGMENT));
+  it("requires catalog placeholders unless a unique dossier owns the provider", () => {
+    const catalogKeys = catalogPlaceholderKeys();
     const missing: string[] = [];
     for (const def of integrationRegistry) {
+      const provider = (def.provider ?? def.key).trim().toLowerCase();
+      if (resolveDossierProvider(provider).status === "unique") continue;
       for (const envVar of def.envVars) {
-        if (!harmlessKeys.has(envVar) && !tier3Keys.has(envVar)) {
+        if (!catalogKeys.has(envVar)) {
           missing.push(`${def.key}: ${envVar}`);
         }
       }
     }
     expect(
       missing,
-      `Registry-declared envVars without any placeholder (F2 preview will crash when these integrations are picked):\n  ${missing.join("\n  ") || "(none)"}`,
+      `Generic/ambiguous/dossierless registry envVars without a catalog placeholder:\n  ${missing.join("\n  ") || "(none)"}`,
     ).toEqual([]);
+  });
+
+  it("lets unique Resend and Sentry use selected-dossier fallback values", () => {
+    expect(resolveDossierProvider("resend").status).toBe("unique");
+    expect(missingCatalogEnvVars("resend")).toEqual(["CONTACT_EMAIL_TO", "EMAIL_FROM"]);
+
+    expect(resolveDossierProvider("sentry").status).toBe("unique");
+    expect(missingCatalogEnvVars("sentry")).toEqual([
+      "SENTRY_ENVIRONMENT",
+      "SENTRY_TRACES_SAMPLE_RATE",
+    ]);
+  });
+
+  it("generates a recognized stub for every uncovered unique-provider env", () => {
+    const catalogKeys = catalogPlaceholderKeys();
+    const fallbackKeys: string[] = [];
+    for (const definition of integrationRegistry) {
+      const provider = (definition.provider ?? definition.key).trim().toLowerCase();
+      if (resolveDossierProvider(provider).status !== "unique") continue;
+      for (const key of definition.envVars) {
+        if (catalogKeys.has(key)) continue;
+        const fallback = dossierMockPreviewEnvValue(key);
+        expect(fallback).toBeTruthy();
+        expect(isLikelyStubEnvValue(fallback), `${definition.key}: ${key}`).toBe(true);
+        fallbackKeys.push(`${definition.key}: ${key}`);
+      }
+    }
+    expect(fallbackKeys).toEqual(
+      expect.arrayContaining([
+        "resend: EMAIL_FROM",
+        "resend: CONTACT_EMAIL_TO",
+        "sentry: SENTRY_ENVIRONMENT",
+        "sentry: SENTRY_TRACES_SAMPLE_RATE",
+      ]),
+    );
   });
 });

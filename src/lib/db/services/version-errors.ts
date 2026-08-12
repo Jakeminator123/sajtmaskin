@@ -6,6 +6,7 @@ import { engineChats, engineVersionErrorLogs } from "@/lib/db/schema";
 import { assertDbConfigured } from "./shared";
 import type { VersionErrorLog } from "./shared";
 import { appendBugRegisterEntries } from "@/lib/logging/bug-register";
+import { classifyVersionDefect } from "@/lib/logging/version-defect-signature";
 
 type VersionErrorLogPayload = {
   chatId: string;
@@ -26,8 +27,15 @@ type VersionErrorLogPayload = {
  * sätter därför aldrig fältet — utan det här undantaget räknas den som pass 0
  * och raderas vid nästa rena follow-up på samma version. Det träffade R7:s
  * missing-env-rad, vars enda syfte är att vara durabel (granskning 2026-07-29).
+ *
+ * `preview:client-error` (browser-runtime-fel speglade från preview-iframen,
+ * se `src/lib/builder/preview-client-error-report.ts`) är samma sorts
+ * observation och sätter heller aldrig `meta.repairPassIndex`.
  */
-export const PRUNE_EXEMPT_CATEGORIES = ["f3-readiness:missing-env"] as const;
+export const PRUNE_EXEMPT_CATEGORIES = [
+  "f3-readiness:missing-env",
+  "preview:client-error",
+] as const;
 
 type EngineScaffoldContext = {
   scaffoldId: string;
@@ -85,11 +93,48 @@ function mergeScaffoldContext(
   };
 }
 
+/**
+ * Sätt `meta.defect` ({ kind, signature, file?, line? }) på varje rad.
+ *
+ * Här och ingen annanstans: liggaren har ett fyrtiotal producenter, och en
+ * signatur som bara vissa av dem sätter går inte att räkna på. En anropare som
+ * redan skickat `meta.defect` får behålla sin — den vet mer om raden än vad en
+ * textklassificerare kan läsa ut.
+ */
+function mergeDefectClassification(payload: VersionErrorLogPayload): VersionErrorLogPayload {
+  const meta = payload.meta && typeof payload.meta === "object" ? payload.meta : null;
+  if (meta?.defect) return payload;
+
+  // Klassificeringen är en bekvämlighet ovanpå en rad som ska skrivas oavsett.
+  // Den kör på VARJE skrivning till felliggaren, inklusive den best-effort-väg
+  // som redan degraderar vid låskonflikt — ett kast här skulle förvandla en
+  // diagnostikrad som tidigare gick igenom till ett 500-svar på routen. En
+  // saknad signatur är bara en rad som uteblir ur aggregatet.
+  let defect: ReturnType<typeof classifyVersionDefect> = null;
+  try {
+    defect = classifyVersionDefect({
+      category: payload.category,
+      message: payload.message,
+      meta,
+    });
+  } catch (err) {
+    console.warn("[version-errors] defect classification failed:", err);
+    return payload;
+  }
+  if (!defect) return payload;
+
+  return { ...payload, meta: { ...(meta ?? {}), defect } };
+}
+
 async function enrichEnginePayloads(
   payloads: VersionErrorLogPayload[],
 ): Promise<VersionErrorLogPayload[]> {
-  const chatIds = Array.from(new Set(payloads.map((payload) => payload.chatId).filter(Boolean)));
-  if (chatIds.length === 0) return payloads;
+  // Klassificeringen är ren och kräver ingen DB — den ska därför ske även när
+  // scaffold-uppslaget nedan hoppas över, annars tappar just de raderna sin
+  // signatur och blir osynliga i aggregatet.
+  const classified = payloads.map(mergeDefectClassification);
+  const chatIds = Array.from(new Set(classified.map((payload) => payload.chatId).filter(Boolean)));
+  if (chatIds.length === 0) return classified;
 
   const rows = await db
     .select({
@@ -103,7 +148,7 @@ async function enrichEnginePayloads(
     rows.map((row) => [row.id, buildEngineScaffoldContext(row.scaffoldId ?? null)]),
   );
 
-  return payloads.map((payload) => ({
+  return classified.map((payload) => ({
     ...payload,
     meta: mergeScaffoldContext(payload.meta, byChatId.get(payload.chatId) ?? null),
   }));

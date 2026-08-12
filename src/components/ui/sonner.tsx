@@ -26,9 +26,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
+          // --popover/--border är råa "H S% L%"-tripplar, men sonner
+          // konsumerar dessa variabler direkt som färgvärden
+          // (`background: var(--normal-bg)`). Utan hsl()-wrappern blir de
+          // ogiltiga och bakgrunden faller till transparent. --radius är
+          // redan ett giltigt längdvärde.
+          "--normal-bg": "hsl(var(--popover))",
+          "--normal-text": "hsl(var(--popover-foreground))",
+          "--normal-border": "hsl(var(--border))",
           "--border-radius": "var(--radius)",
         } as React.CSSProperties
       }

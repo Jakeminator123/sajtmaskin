@@ -13,6 +13,7 @@
 
 import type { ScaffoldVariant, ScaffoldVariantThemeTokens } from "./types";
 import type { ScaffoldManifest } from "../scaffolds/types";
+import { selectVariantTemplateReference } from "./template-inspiration";
 
 /**
  * Compact theme-token snapshot passed to Brief-LLM as exact starting values
@@ -58,6 +59,12 @@ export interface VariantHints {
    * color demands. Calibrated per variant — do not "improve".
    */
   themeTokens: VariantThemeTokenHints | null;
+  /** The single eligible complete-project reference, when this variant has one. */
+  sourceTemplate: {
+    id: string;
+    title: string;
+    category: string;
+  } | null;
 }
 
 function pickTokenHints(
@@ -89,6 +96,7 @@ export function buildVariantHintsForBrief(
   variant: ScaffoldVariant | null,
 ): VariantHints | null {
   if (!variant) return null;
+  const sourceTemplate = selectVariantTemplateReference(variant);
   return {
     scaffoldLabel: scaffold?.label ?? variant.scaffoldId,
     colorMode: variant.colorMode,
@@ -101,6 +109,13 @@ export function buildVariantHintsForBrief(
     signatureLayouts: variant.signaturePatterns?.layouts.slice(0, 3) ?? [],
     signatureMotifs: variant.signaturePatterns?.motifs.slice(0, 2) ?? [],
     themeTokens: pickTokenHints(variant.themeTokens),
+    sourceTemplate: sourceTemplate
+      ? {
+          id: sourceTemplate.templateId,
+          title: sourceTemplate.title,
+          category: sourceTemplate.category,
+        }
+      : null,
   };
 }
 
@@ -125,6 +140,17 @@ export function formatVariantHintsForPrompt(hints: VariantHints): string {
   }
   if (hints.signatureMotifs.length > 0) {
     lines.push(`- Signature motifs: ${hints.signatureMotifs.join(" | ")}`);
+  }
+  if (hints.sourceTemplate) {
+    // Titeln utelämnas medvetet. Den är ofta domänspecifik ("MindSpace Mental
+    // Health Platform"), och det här är BRIEF-steget — där varumärke, målgrupp,
+    // copy och sidplan avgörs, långt innan codegen får sin "bara stil"-regel.
+    // En titel här kan alltså göra referensens bransch mer styrande än
+    // användarens egen, kanske knapphändiga, prompt. Kategorin är en
+    // designgenre, inte ett varumärke, och bär inte samma risk.
+    lines.push(
+      `- Curated full-project reference: a ${hints.sourceTemplate.category} design. Use it for VISUAL properties only (layout, density, spacing, composition). Never adopt its brand, product name, audience, copy or page plan — those follow the user's request alone. Code generation may inspect one matching still image and bounded frontend structure later.`,
+    );
   }
   if (hints.themeTokens) {
     const t = hints.themeTokens;

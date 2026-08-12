@@ -3,71 +3,32 @@ description: "Terminologi och namnskuggor: använd etablerade begrepp och undvik
 alwaysApply: true
 ---
 
-# Terminology snapshot
+# Terminologi
 
-Full ordlista: `docs/architecture/glossary.md`. Arkitekturprinciper/målbild: `docs/architecture/README.md`. Signalägare/runtime-kontrakt: `docs/architecture/runtime-contracts.md`.
+**Kanonisk och enda ordlista:** [`docs/architecture/glossary.md`](../../docs/architecture/glossary.md) — kärntermer, namnskuggor, legacy, URL-nivåer, fas-skillnad och agent-/modellplan bor där. Slå upp den när en term är oklar. `config/naming-dictionary.json` är en valideringsseed, inte ett andra glossary.
 
-## Grundregel
+Inför inte nya svåra begrepp om ett befintligt ord räcker. Ändrar en term semantik: uppdatera glossaryn **och** den faktiska signalägaren.
 
-`docs/architecture/glossary.md` är den enda kanoniska glossary-ytan.
-`config/naming-dictionary.json` är en liten valideringsseed, inte ett andra
-glossary eller ett runtime-registry.
+## De vanligaste förväxlingarna
 
-Inför inte nya svåra begrepp om befintligt ord räcker. Om en term ändrar
-semantik: uppdatera glossaryn och den faktiska signalägaren. Kör
-`npm run check:terms:contract` för blockerande owner-/aliasstruktur och
-`npm run check:terms` för rådgivande bred träffscanning.
-
-## Skriv hellre höger än vänster
-
-| Undvik / legacy | Använd |
+| Undvik | Använd |
 |---|---|
 | generatorn, v0-motorn | `own-engine` |
 | sandbox, demo | `preview` / `VM` / `preview_host` |
 | mallar/templates för runtime-startpunkter | `scaffolds` |
-| "templates" om capability-moduler | `dossiers` — templates (= v0-mallar, Blob-galleriet) är ett helt separat system |
-| dossiers i user-synlig UI-copy | `Byggblock` (UI-label; kodidentifierare/routes behåller `dossier`) |
-| "hård"/"mjuk" dossier i user-synlig copy | `Kopplad` (hard — kräver extern tjänst/nycklar) / `Fristående` (soft — bara npm) |
-| "mock", "mockup", "fallback" om dossier-demo | `Demoläge` (manifestfältet `mock`: `seed`/`canned`/`success`/`visual`/`none`) |
-| `supabase-auth` som capability | `auth` — en capability sedan 2026-07-22; `supabase-auth` är dossier-/leverantörs-id under den (alias+pin i `select.ts`) |
-| `command-search` | `command-palette` (capability-id sedan 2026-07-22) |
-| "dossier" om galleri-mallar | `Template (v0-mall)` — dossiers har inga kategorier/thumbnails |
-| "kategori"/"grupp" som synonym för capability | `dossier-grupp` för UI-bucketen (10 st, presentations-lager i backoffice/builder) — `capability` är den selektionsstyrande funktionen, grupp styr aldrig val |
-| scaffold family, style direction | `scaffold variant` |
-| blandad “brief” | `Deep Brief` för init, `Snapshot-Brief` för follow-up |
-| blandad “autofix”, mekanisk autofix, url-expand, deterministisk import-repair | `Normalize` |
-| LLM-fix, syntax-fixer, verifier-fixer, server-repair-LLM | `RepairGate` |
-| quality gate / preview-check i F2-löptext | `RenderGate` |
-| build gate, readiness eller integrationsBuild-gate i F3-löptext | `ReleaseGate` |
-| warning, soft fail, degraded/typecheck_advisory | `Advisory` |
-| hard fail, blocking, preview-blocking | `Blocker` |
-| product postcheck | `CapabilitySmoke` |
-| `demoUrl` | `previewUrl` |
-| blandad "publicerad URL" | `liveUrl` (publicerad prod-URL) vs `previewUrl` (VM-länk) vs `customDomain` (egen domän) |
-| "Vercel" i användarsynlig copy | leverantörsneutralt: "publicera", "hosting", "domän" |
-| dashboard om adminytan | `backoffice/` eller `sajtmaskin_backoffice.py` |
-| prompt-static | `Core Rules` |
-| tier 2/tier 3 för produktläge | F2 (`fidelity2`) / F3 (`fidelity3`) |
+| "templates" om capability-moduler | `dossiers` (UI-label: **Byggblock**) — v0-mallar i galleriet är ett separat system |
+| capability och dossier som synonymer | `Capability` = behov/intentnyckel; `Dossier`/Byggblock = vald implementation/provider |
+| hard = kräver alltid F3 | `Kopplad` (`hard`) = extern provider; `Kräver F3` härleds separat av `dossierRequiresF3()` |
+| soft = ingen dependency | `Fristående` (`soft`) = ingen extern provider/secret; npm-paket kan fortfarande finnas |
+| tier 2/tier 3 | F2 (`fidelity2`) / F3 (`fidelity3`) |
+| "Bygg integrationer" = märk F2 som klar | Bygg alla planerade, ännu obyggda Byggblock som kräver F3 i en separat F3-version; exakt fork bara när inget återstår att bygga |
+| `sourceRepoUrl` som setup-länk | `envVars[].setupUrl` för användarens nyckelhämtning; `sourceRepoUrl` för källproveniens |
+| autofix, url-expand, import-repair | `Normalize` · LLM-fix → `RepairGate` |
+| quality gate / preview-check | `RenderGate` (F2) · build gate/readiness → `ReleaseGate` (F3) |
+| warning, soft fail, degraded | `Advisory` · hard fail/blocking → `Blocker` |
+| `demoUrl`, "publicerad URL" | `previewUrl` (VM) vs `liveUrl` (prod) vs `customDomain` |
+| dashboard om adminytan | `backoffice/` |
 
-Kontrollbegreppen ovan styr hur agenter skriver i docs/PR-text. Befintliga kodidentifierare, filnamn, telemetri-nycklar, event-typer, enum-värden och DB-strängar behåller sina legacy-namn.
+Kodidentifierare, filnamn, telemetri-nycklar, event-typer, enum-värden och DB-strängar behåller sina legacy-namn — mappa i text i stället för att döpa om.
 
-## Fas-skillnad
-
-- Init = ny artifact graph. Full Deep Brief, scaffold/variant/dossier/route-plan från scratch.
-- Follow-up = delta på existerande graph. Snapshot-brief, fryst scaffold/variant/routes utom `clear-redesign`.
-- F2 = design/preview. F3 = integrationer/build, explicit användarval.
-
-## Agent- och modellplan
-
-Blanda inte ihop:
-
-- **Extern coach/LLM** = användarens externa ChatGPT/LLM-råd. Inte automatiskt en repo-aktör.
-- **Cursor/IDE-agent** = bygger repot via `.cursor/**` + `Task`-subagenter. Modellnamn = Cursor-slug:ar.
-- **GitHub/Vercel-botar** = Codex-review, checks, Vercel deploy-preview. Codex-review ≠ Sajtmaskins `verifier`-fas; Vercel "Ready" = deploy-status, inte kodkvalitet.
-- **Sajtmaskins produktmodeller** = own-engine, prompt-assist, Deep Brief, verifier, embeddings. Styrs av `config/ai_models/manifest.json` + `src/lib/models/`; id-format `gpt-5.5`, `claude-opus-4.8`.
-
-Gissa aldrig slug, modell-id eller botstatus — fråga vid oklarhet. Användarens vardagsspråk ("agent", "modell", "review") är löst; tolka via kontext, lås inte ett casual ord till en exakt definition.
-
-## Signal-gate
-
-Ny signal? Hitta canonical source först. Ändra ägaren, inte fem konsumenter.
+**Signal-gate:** ny signal? Hitta canonical source först. Ändra ägaren, inte fem konsumenter.

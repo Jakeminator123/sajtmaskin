@@ -46,6 +46,12 @@ const promptMetaSchema = z
     promptSourceKind: z.string().max(MAX_PROMPT_META_LABEL_CHARS).optional(),
     promptSourceTechnical: z.boolean().optional(),
     promptSourcePreservePayload: z.boolean().optional(),
+    /** Byggval (init controls): structured page-count hint for the route plan. */
+    pageCountHint: z.number().int().min(1).max(20).optional(),
+    /** Byggval (init controls): structured style keywords for variant matching. */
+    styleKeywordsHint: z.array(z.string().trim().min(1).max(40)).max(8).optional(),
+    /** Byggval (init controls): structured complexity choice for BuildSpec. */
+    complexityHint: z.enum(["simple", "medium", "complex"]).optional(),
   })
   .partial()
   .passthrough();
@@ -79,5 +85,12 @@ export const sendMessageSchema = z.object({
   thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
   designSystemId: z.string().optional(),
+  /**
+   * OpenClaw prepared-prompt fast lane: `"openclaw-prepared"` marks a
+   * follow-up whose message is EXACTLY what OpenClaw filled into the builder
+   * composer (client-tagged only when OC_EDIT is on). Loose string on purpose
+   * — an unknown value must fail open to the normal path, never 400.
+   */
+  promptSource: z.string().max(40).optional(),
   meta: promptMetaSchema.optional(),
 });

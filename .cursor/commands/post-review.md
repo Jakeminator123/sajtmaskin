@@ -48,7 +48,7 @@ Parent-agenten äger beslutet. Subagenter ger korta risksignaler, inte facit.
    - `bugagent` om kod/pipeline/API/runtime ändrats.
    - `docs-backoffice-schema-agent` om docs/schemas/backoffice/config/dossiers/scripts kan ha driftat.
    - `städagent` bara vid stor/stökig diff, cleanup/rename, eller många otrackade filer.
-   - Använd modell `composer-2-fast` om en explicit modell väljs.
+   - Använd modell `<grok-4.5>` om en explicit modell väljs (scan-rollen i [`.cursor/README.md § Modellval för subagenter`](../README.md#modellval-för-subagenter-kanonisk-tabell)).
 5. Subagenternas format ska vara kort:
 
 ```text
@@ -70,7 +70,7 @@ Minimal fix: <1 mening>
    - **Fixade i svepet:** om en rad i `## Aktiv kö` adresserades → **flytta** den till arkivet (`docs/plans/avklarat/bug-swarm/backlog-arkiv-*.md`) som `[x]` med commit/PR-ref. Bocka inte av på plats.
    - **Nya bekräftade defekter:** lägg en `[ ]`-rad i `## Aktiv kö` (källa `M#<n>`) med fil-ankare, per `/buggrapport`-formatet.
    - **Visade sig vara val/repro:** flytta till `## Beslut & policy` eller `## Behöver repro` i stället.
-   - Skriv aldrig "FIXAD" i prosan på en `[ ]`-rad (preflighten `check-bug-backlog.mjs` failar på motsägelsen).
+   - Skriv aldrig "FIXAD" i prosan på en `[ ]`-rad (`npm run check:bug-backlog` failar på motsägelsen).
    - Detta är den löpande sanningsmekanismen — backloggen får aldrig driva ur fas med koden.
 8. Verifiera med minsta relevanta set:
    - Alltid vid TS-kod: `npm run typecheck`

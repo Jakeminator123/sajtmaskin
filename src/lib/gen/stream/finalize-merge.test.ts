@@ -233,6 +233,104 @@ describe("OMTAG 1·05 — scaffold-default blocking for app/page.tsx", () => {
   });
 });
 
+// Regression (2026-07-31): the blog scaffold ships `app/blog/**`, the Swedish
+// route plan settles on `/blogg`, and the model emits `app/blogg/**`. Both used
+// to land in the project, so the finished site had `/blog` and `/blog/[slug]`
+// with no navigation pointing at them.
+describe("locale-superseded scaffold routes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function makeBlogScaffold(): ScaffoldManifest {
+    const scaffold = makeScaffold();
+    return {
+      ...scaffold,
+      files: [
+        ...scaffold.files,
+        { path: "app/blog/page.tsx", content: "export default function Blog() { return <div>Blog</div>; }" },
+        {
+          path: "app/blog/[slug]/page.tsx",
+          content: "export default function Post() { return <article>Post</article>; }",
+        },
+      ],
+    } as unknown as ScaffoldManifest;
+  }
+
+  it("drops the scaffold's /blog when the model emitted /blogg", () => {
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-locale-1",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        { path: "app/page.tsx", content: "export default function Page() { return <h1>Hem</h1>; }", language: "tsx" },
+        { path: "app/blogg/page.tsx", content: "export default function Blogg() { return <h1>Blogg</h1>; }", language: "tsx" },
+        {
+          path: "app/blogg/[slug]/page.tsx",
+          content: "export default function Inlagg() { return <article>Inlägg</article>; }",
+          language: "tsx",
+        },
+      ],
+      resolvedScaffold: makeBlogScaffold(),
+      previousFiles: undefined,
+    });
+
+    const paths = new Set((JSON.parse(result.filesJson) as Array<{ path: string }>).map((f) => f.path));
+    expect(paths.has("app/blogg/page.tsx")).toBe(true);
+    expect(paths.has("app/blog/page.tsx")).toBe(false);
+    expect(paths.has("app/blog/[slug]/page.tsx")).toBe(false);
+  });
+
+  it("keeps the scaffold's /blog when the model emitted no Swedish alternate", () => {
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-locale-2",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        { path: "app/page.tsx", content: "export default function Page() { return <h1>Hem</h1>; }", language: "tsx" },
+      ],
+      resolvedScaffold: makeBlogScaffold(),
+      previousFiles: undefined,
+    });
+
+    const paths = new Set((JSON.parse(result.filesJson) as Array<{ path: string }>).map((f) => f.path));
+    expect(paths.has("app/blog/page.tsx")).toBe(true);
+    expect(paths.has("app/blog/[slug]/page.tsx")).toBe(true);
+  });
+
+  // The mirror direction, exercised through the real merge rather than the
+  // helper alone. While the merge asked for superseded routes with a hardcoded
+  // `"sv"`, this case reported nothing and the orphaned `/kontakt` survived.
+  it("drops a Swedish scaffold route when the model emitted the English one", () => {
+    const scaffold = makeScaffold();
+    const result = mergeGeneratedProjectFiles({
+      chatId: "c-locale-3",
+      originalFilesJson: "[]",
+      generatedFiles: [
+        { path: "app/page.tsx", content: "export default function Page() { return <h1>Home</h1>; }", language: "tsx" },
+        {
+          path: "app/contact/page.tsx",
+          content: "export default function Contact() { return <h1>Contact</h1>; }",
+          language: "tsx",
+        },
+      ],
+      resolvedScaffold: {
+        ...scaffold,
+        files: [
+          ...scaffold.files,
+          {
+            path: "app/kontakt/page.tsx",
+            content: "export default function Kontakt() { return <h1>Kontakt</h1>; }",
+          },
+        ],
+      } as unknown as ScaffoldManifest,
+      previousFiles: undefined,
+    });
+
+    const paths = new Set((JSON.parse(result.filesJson) as Array<{ path: string }>).map((f) => f.path));
+    expect(paths.has("app/contact/page.tsx")).toBe(true);
+    expect(paths.has("app/kontakt/page.tsx")).toBe(false);
+  });
+});
+
 describe("explicit dossier removal", () => {
   beforeEach(() => {
     checkCrossFileImports.mockClear();

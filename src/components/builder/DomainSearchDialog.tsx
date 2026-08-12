@@ -10,13 +10,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ExternalLink, Globe, Loader2, Server } from "lucide-react";
+import { DomainPriceLabel } from "./domain-price-label";
 
 export type DomainSearchResult = {
   domain: string;
   available: boolean | null;
   price: number | null;
   currency: string;
-  provider: "vercel" | "loopia" | "dns";
+  provider: "vercel" | "loopia" | "dns" | "none";
+  /**
+   * `true` when `price` is a per-TLD reference figure rather than a registrar
+   * quote. The UI must label it — an estimate rendered like a real price is
+   * what made the numbers look arbitrary, and it can never be charged.
+   */
+  priceEstimated?: boolean;
+  /** `true` when the domain can be bought in-app right now. */
+  purchasable?: boolean;
+  purchaseBlockedReason?: string | null;
   purchaseUrl: string | null;
   error: string | null;
 };
@@ -51,7 +61,7 @@ function ProviderBadge({ provider }: { provider: DomainSearchResult["provider"] 
   return (
     <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
       <Globe className="h-2.5 w-2.5" />
-      DNS
+      {provider === "none" ? "Okänd" : "DNS"}
     </span>
   );
 }
@@ -118,11 +128,7 @@ export function DomainSearchDialog({
                   <div className="flex items-center gap-3">
                     {result.available === true ? (
                       <>
-                        {result.price != null && (
-                          <span className="text-muted-foreground">
-                            {result.price} {result.currency}/år
-                          </span>
-                        )}
+                        <DomainPriceLabel result={result} className="text-muted-foreground" />
                         {result.purchaseUrl ? (
                           <a
                             href={result.purchaseUrl}

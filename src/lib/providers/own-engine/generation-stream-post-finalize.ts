@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { recordPreviewRuntimeOutcomeForVersion } from "@/lib/db/services/generation-telemetry";
@@ -35,6 +36,25 @@ export type PostFinalizeSse = {
 };
 
 const THREE_D_STUB_NAME_RE = /3d|three|webgl|canvas-?scene/i;
+
+/**
+ * Hand a fire-and-forget verify/repair job to the platform so the serverless
+ * invocation stays alive until the job settles. Both jobs take a per-version
+ * lease and release it in a `finally`; if the invocation freezes when the SSE
+ * stream closes, that `finally` never runs and the lease is stranded `running`
+ * until it expires. Same failure mode as the lost `preview_url` writes — see
+ * `keepWriteAlive` in `observability/llm-usage.ts`.
+ *
+ * Outside a request scope (scripts, tests) `after()` throws; there is no
+ * invocation that can freeze there, so plain fire-and-forget is correct.
+ */
+function keepJobAlive(pending: Promise<unknown>): void {
+  try {
+    after(pending);
+  } catch {
+    void pending;
+  }
+}
 
 function normalizeRequestedCapabilities(input: unknown): string[] {
   if (!Array.isArray(input) || input.length === 0) return [];
@@ -202,6 +222,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
   // This replaces the old finalize-time `!hasPreviewBlockingPreflightErrors`
   // false-green, which claimed success before the runtime was ever attempted.
   let previewRuntimeOutcome: boolean | null = previewBlocked ? false : null;
+  let bootedFilesRevision: string | null = finalized.version.files_revision;
 
   // `done` confirms that version persistence/finalize finished. Live preview is a separate
   // post-done phase and only becomes canonical on `preview-ready` (or explicit GET status/routes).
@@ -353,6 +374,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
           previewPolicy: buildSpec.previewPolicy,
           verificationPolicy: buildSpec.verificationPolicy,
           versionIdForSession: finalized.version.id,
+          filesRevisionForSession: finalized.version.files_revision,
           // F3 previews must strip tier3-stub placeholders so missing real
           // env vars surface as a runtime failure instead of being silently
           // backfilled with `sk_test_...`-style stubs.
@@ -397,6 +419,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
       });
       if (previewSessionResult.ok) {
         const sr = previewSessionResult.result;
+        bootedFilesRevision = sr.filesRevision;
         // Only a confirmed runtime-ready receipt (resume-verified `running:true`)
         // counts as success. A freshly-created/updated session has only queued
         // the boot, so it stays pending (null) until confirmed elsewhere.
@@ -504,36 +527,38 @@ export async function runOwnEngineStreamPostFinalize(params: {
         // Opt-in (env-gated) auto-repair so VM build failures loop back
         // through `runRepairLoop` automatically instead of waiting for
         // a manual click on "Repair". See `triggerBuildErrorRepair`.
-        triggerBuildErrorRepair({
-          chatId,
-          versionId: finalized.version.id,
-          buildError: {
-            stage: previewSessionResult.error.stage,
-            message: previewSessionResult.error.message,
-            failureCode: previewSessionResult.error.failureCode ?? null,
-          },
-          // Fas 3 (RepairGate): finalize's ledger — dedupes a server-repair of
-          // content+diagnostics already LLM-repaired during finalize.
-          repairLedger: finalized.repairLedger,
-          repairScopeId: finalized.repairScopeId,
-          onRepairAvailable: (payload) => {
-            safeEnqueue(
-              enc.encode(
-                formatSSEEvent("version-repair-available", {
-                  versionId: payload.versionId,
-                  summary: payload.summary,
-                  repairAvailableAt: payload.repairAvailableAt,
-                }),
-              ),
-            );
-          },
-        }).catch((repairErr) => {
-          warnLog("engine", "build_error_repair_trigger_failed", {
+        keepJobAlive(
+          triggerBuildErrorRepair({
             chatId,
             versionId: finalized.version.id,
-            message: repairErr instanceof Error ? repairErr.message : "unknown",
-          });
-        });
+            buildError: {
+              stage: previewSessionResult.error.stage,
+              message: previewSessionResult.error.message,
+              failureCode: previewSessionResult.error.failureCode ?? null,
+            },
+            // Fas 3 (RepairGate): finalize's ledger — dedupes a server-repair of
+            // content+diagnostics already LLM-repaired during finalize.
+            repairLedger: finalized.repairLedger,
+            repairScopeId: finalized.repairScopeId,
+            onRepairAvailable: (payload) => {
+              safeEnqueue(
+                enc.encode(
+                  formatSSEEvent("version-repair-available", {
+                    versionId: payload.versionId,
+                    summary: payload.summary,
+                    repairAvailableAt: payload.repairAvailableAt,
+                  }),
+                ),
+              );
+            },
+          }).catch((repairErr) => {
+            warnLog("engine", "build_error_repair_trigger_failed", {
+              chatId,
+              versionId: finalized.version.id,
+              message: repairErr instanceof Error ? repairErr.message : "unknown",
+            });
+          }),
+        );
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Preview start failed";
@@ -563,33 +588,35 @@ export async function runOwnEngineStreamPostFinalize(params: {
           }),
         ),
       );
-      triggerBuildErrorRepair({
-        chatId,
-        versionId: finalized.version.id,
-        buildError: {
-          stage: "preview-start",
-          message,
-        },
-        repairLedger: finalized.repairLedger,
-        repairScopeId: finalized.repairScopeId,
-        onRepairAvailable: (payload) => {
-          safeEnqueue(
-            enc.encode(
-              formatSSEEvent("version-repair-available", {
-                versionId: payload.versionId,
-                summary: payload.summary,
-                repairAvailableAt: payload.repairAvailableAt,
-              }),
-            ),
-          );
-        },
-      }).catch((repairErr) => {
-        warnLog("engine", "build_error_repair_trigger_failed", {
+      keepJobAlive(
+        triggerBuildErrorRepair({
           chatId,
           versionId: finalized.version.id,
-          message: repairErr instanceof Error ? repairErr.message : "unknown",
-        });
-      });
+          buildError: {
+            stage: "preview-start",
+            message,
+          },
+          repairLedger: finalized.repairLedger,
+          repairScopeId: finalized.repairScopeId,
+          onRepairAvailable: (payload) => {
+            safeEnqueue(
+              enc.encode(
+                formatSSEEvent("version-repair-available", {
+                  versionId: payload.versionId,
+                  summary: payload.summary,
+                  repairAvailableAt: payload.repairAvailableAt,
+                }),
+              ),
+            );
+          },
+        }).catch((repairErr) => {
+          warnLog("engine", "build_error_repair_trigger_failed", {
+            chatId,
+            versionId: finalized.version.id,
+            message: repairErr instanceof Error ? repairErr.message : "unknown",
+          });
+        }),
+      );
     }
   }
 
@@ -597,10 +624,13 @@ export async function runOwnEngineStreamPostFinalize(params: {
   // throws). Pending (null) is left as the finalize writer wrote it, so the row
   // honestly reads "unconfirmed" rather than a premature green.
   if (previewRuntimeOutcome !== null && dbConfigured) {
-    await recordPreviewRuntimeOutcomeForVersion(
-      finalized.version.id,
-      previewRuntimeOutcome,
-    );
+    if (bootedFilesRevision) {
+      await recordPreviewRuntimeOutcomeForVersion(finalized.version.id, previewRuntimeOutcome, {
+        bootedFilesRevision,
+      });
+    } else {
+      await recordPreviewRuntimeOutcomeForVersion(finalized.version.id, previewRuntimeOutcome);
+    }
   }
 
   const serverVerifyDecision = resolvePostFinalizeServerVerifyDecision({
@@ -661,27 +691,29 @@ export async function runOwnEngineStreamPostFinalize(params: {
   });
 
   if (serverVerifyDecision.run) {
-    triggerServerVerification({
-      chatId,
-      versionId: finalized.version.id,
-      diagnosticOnly: serverVerifyDecision.diagnosticOnly === true,
-      // Fas 3 (RepairGate): finalize's ledger + scope so the server-repair
-      // lane dedupes against LLM repairs already attempted in finalize.
-      repairLedger: finalized.repairLedger,
-      repairScopeId: finalized.repairScopeId,
-      onRepairAvailable: (payload) => {
-        safeEnqueue(
-          enc.encode(
-            formatSSEEvent("version-repair-available", {
-              versionId: payload.versionId,
-              summary: payload.summary,
-              repairAvailableAt: payload.repairAvailableAt,
-            }),
-          ),
-        );
-      },
-    }).catch((err) => {
-      console.warn("[engine] Background server verification failed:", err);
-    });
+    keepJobAlive(
+      triggerServerVerification({
+        chatId,
+        versionId: finalized.version.id,
+        diagnosticOnly: serverVerifyDecision.diagnosticOnly === true,
+        // Fas 3 (RepairGate): finalize's ledger + scope so the server-repair
+        // lane dedupes against LLM repairs already attempted in finalize.
+        repairLedger: finalized.repairLedger,
+        repairScopeId: finalized.repairScopeId,
+        onRepairAvailable: (payload) => {
+          safeEnqueue(
+            enc.encode(
+              formatSSEEvent("version-repair-available", {
+                versionId: payload.versionId,
+                summary: payload.summary,
+                repairAvailableAt: payload.repairAvailableAt,
+              }),
+            ),
+          );
+        },
+      }).catch((err) => {
+        console.warn("[engine] Background server verification failed:", err);
+      }),
+    );
   }
 }

@@ -4,7 +4,7 @@ import { DEFAULT_MODEL_ID, type CanonicalModelId } from "@/lib/models/catalog";
 import { resolvePhaseModel, resolvePhaseThinking } from "@/lib/models/phase-routing";
 import { readRecurringPatternsForChat } from "@/lib/logging/recurring-patterns-reader";
 import { devLogAppend } from "@/lib/logging/devLog";
-import type { ReasoningEffort } from "../engine";
+import type { ReasoningEffort, ReasoningMode } from "../engine";
 import type { RecurringFailurePattern } from "./fixer-prompt";
 import { runLlmFixer, type FixerResult } from "./llm-fixer";
 
@@ -12,6 +12,7 @@ export interface LlmRepairConfig {
   fixerModel: string;
   thinking?: boolean;
   reasoningEffort?: ReasoningEffort;
+  reasoningMode?: ReasoningMode;
 }
 
 export function resolveLlmRepairConfig(resolvedTier?: CanonicalModelId): LlmRepairConfig {
@@ -22,6 +23,7 @@ export function resolveLlmRepairConfig(resolvedTier?: CanonicalModelId): LlmRepa
     fixerModel,
     thinking: fixerThinking?.thinking,
     reasoningEffort: fixerThinking?.reasoningEffort,
+    reasoningMode: fixerThinking?.reasoningMode,
   };
 }
 
@@ -69,7 +71,8 @@ export class RepairLedger {
     errors: string[];
     requiredFiles?: string[];
     phase?: string;
-  }): { allowed: true; record: RepairLedgerRecord } | { allowed: false; record: RepairLedgerRecord } {
+  }):
+    { allowed: true; record: RepairLedgerRecord } | { allowed: false; record: RepairLedgerRecord } {
     const key = this.keyFor(params);
     const now = Date.now();
     const existing = this.records.get(key);
@@ -219,10 +222,10 @@ export async function runLlmRepairGate(params: {
       model: config.fixerModel,
       thinking: config.thinking,
       reasoningEffort: config.reasoningEffort,
+      reasoningMode: config.reasoningMode,
       maxTokens: params.maxTokens,
       requiredFiles: params.requiredFiles,
-      recurringPatterns:
-        params.recurringPatterns ?? readRecurringPatternsForChat(params.chatId),
+      recurringPatterns: params.recurringPatterns ?? readRecurringPatternsForChat(params.chatId),
       abortSignal: abort.signal,
     });
     if (ledger && ledgerKey) ledger.complete(ledgerKey, result);

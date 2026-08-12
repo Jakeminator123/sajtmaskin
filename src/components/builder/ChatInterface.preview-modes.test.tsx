@@ -54,10 +54,13 @@ function buildPreviewModes(
 }
 
 describe("ChatInterface — previewlägen i Verktyg-raden", () => {
-  it("renderar Lägg till block och Inspektera preview bredvid Avancerat", () => {
+  it("renderar Lägg till block och Inspektera preview bredvid Plan", () => {
     render(<ChatInterface chatId="chat_1" previewModes={buildPreviewModes()} />);
 
-    expect(screen.getByRole("button", { name: "Avancerat" })).toBeTruthy();
+    // "Avancerat"-popovern togs bort 2026-07-31: när temaväljaren flyttade
+    // till Byggval-reglagen blev popovern en enda-knapps-meny (bara "Plan"),
+    // så Plan renderas nu som en vanlig verktygsknapp utan popover-omslag.
+    expect(screen.getByRole("button", { name: "Plan" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Lägg till block" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Inspektera preview" })).toBeTruthy();
   });

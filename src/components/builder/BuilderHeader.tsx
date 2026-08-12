@@ -223,15 +223,14 @@ export function BuilderHeader(props: {
       ? "Av"
       : scaffoldMode === "auto"
         ? "Auto"
-        : SCAFFOLD_CLIENT_LIST.find((scaffold) => scaffold.id === scaffoldId)?.label ?? "Välj";
+        : (SCAFFOLD_CLIENT_LIST.find((scaffold) => scaffold.id === scaffoldId)?.label ?? "Välj");
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
-  const assistStatusSummary = promptAssistDeep && canUseDeepBrief
-    ? "Deep Brief aktiv"
-    : "Assist aktiv";
+  const assistStatusSummary =
+    promptAssistDeep && canUseDeepBrief ? "Deep Brief aktiv" : "Assist aktiv";
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();
@@ -251,14 +250,17 @@ export function BuilderHeader(props: {
     runDeferredAction(onGoHome);
   }, [logout, onGoHome, runDeferredAction]);
 
+  // Headerns höjd är ett golv, inte ett tak: högergruppen är `flex-wrap`, så en
+  // smal skärm lägger knapparna på flera rader. Med fast `h-14` ritades de
+  // raderna utanför headern, ovanpå mobilflikarna och previewen.
   return (
-    <header className="border-border bg-background flex h-14 items-center justify-between border-b px-4">
+    <header className="border-border bg-background flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-4 py-2">
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onGoHome}
           className="text-xl font-semibold tracking-tight transition-opacity hover:opacity-80"
-          aria-label="Gå till startsidan"
+          aria-label="Sajtmaskin — gå till startsidan"
           title="Till startsidan"
         >
           Sajtmaskin
@@ -272,64 +274,10 @@ export function BuilderHeader(props: {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {<><DropdownMenu>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={isConfigLocked}>
-                    <Bot className="h-4 w-4" />
-                    <span className="hidden max-w-[220px] truncate sm:inline">
-                      Modell: {modelButtonLabel}
-                    </span>
-                    
-                    <ChevronDown className="h-3 w-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Byggmodell: {modelButtonLabel}</p>
-                <p>{assistStatusSummary}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel className="flex items-center gap-2">
-              <span>Byggmodell</span>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-muted-foreground ml-auto flex cursor-help items-center">
-                      <HelpCircle className="h-3 w-3" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="max-w-xs">
-                    <p className="text-xs">
-                      Byggprofiler: Snabb, Lagom, Tänker, Kod Max och Anthropic. Varje profil väljer en
-                      konkret modell i den egna motorn. Förbättra nedan är separat och används till
-                      promptförbättring, mallval och designbrief innan första bygget.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={selectedModelTier}
-              onValueChange={(v) => onSelectedModelTierChange(v as ModelTier)}
-            >
-              {MODEL_TIER_OPTIONS.map((option) => (
-                <DropdownMenuRadioItem key={option.value} value={option.value}>
-                  <span className="font-medium">{option.label}</span>
-                  <span className="text-muted-foreground ml-2 text-xs">{option.description}</span>
-                  {option.hint && (
-                    <span className="text-primary ml-1 text-xs">({option.hint})</span>
-                  )}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
+        {/* Byggmodell-väljaren flyttade in i Mer → Inställningar 2026-07-31
+            (Ö1, meny-konsolidering N2) — ingen genväg eller kompakt etikett
+            kvar i headern. Vald profil syns första klicket in i Inställningar
+            (sub-triggerns "Byggmodell: <profil>"-etikett nedan). */}
         <DropdownMenu>
           <TooltipProvider>
             <Tooltip>
@@ -337,13 +285,14 @@ export function BuilderHeader(props: {
                 <DropdownMenuTrigger asChild>
                   {/* Triggern lämnas aktiv — varje item/submeny har egen spärr
                       (isBusy för import/export och Spara, isConfigLocked för
-                      scaffold/inställningar), så scaffold och inställningar
-                      förblir nåbara under chat-skapande precis som tidigare. */}
+                      inställningar och dess nästlade scaffold-/byggmodellval),
+                      så inställningar förblir nåbara under chat-skapande
+                      precis som tidigare. */}
                   <Button
                     variant="outline"
                     size="sm"
-                    aria-label="Fler åtgärder: spara, scaffold, inställningar, import och export"
-                    title="Spara, scaffold, inställningar, import och export"
+                    aria-label="Mer — spara, inställningar, import och export"
+                    title="Spara, inställningar, import och export"
                   >
                     <MoreHorizontal className="h-4 w-4" />
                     <span className="hidden sm:inline">Mer</span>
@@ -352,7 +301,7 @@ export function BuilderHeader(props: {
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Spara projektet, välj scaffold, ändra inställningar eller importera/exportera</p>
+                <p>Spara projektet, ändra inställningar eller importera/exportera</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -378,74 +327,144 @@ export function BuilderHeader(props: {
             <DropdownMenuSeparator />
             <DropdownMenuSub>
               <DropdownMenuSubTrigger disabled={isConfigLocked}>
-                <Layers className="mr-2 h-4 w-4" />
-                <span className="max-w-[160px] truncate">Scaffold: {scaffoldButtonLabel}</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-56">
-                <DropdownMenuLabel>Scaffold</DropdownMenuLabel>
-                <DropdownMenuRadioGroup
-                  value={scaffoldMode === "manual" ? `manual:${scaffoldId ?? ""}` : scaffoldMode}
-                  onValueChange={(v) => {
-                    if (v === "off" || v === "auto") {
-                      onScaffoldModeChange(v);
-                      onScaffoldIdChange(null);
-                    } else if (v.startsWith("manual:")) {
-                      const id = v.slice("manual:".length);
-                      onScaffoldModeChange("manual");
-                      onScaffoldIdChange(id || null);
-                    }
-                  }}
-                >
-                  <DropdownMenuRadioItem value="off">Av</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="auto">Auto</DropdownMenuRadioItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-                    Välj själv
-                  </DropdownMenuLabel>
-                  {SCAFFOLD_CLIENT_LIST.map((scaffold) => (
-                    <DropdownMenuRadioItem
-                      key={scaffold.id}
-                      value={`manual:${scaffold.id}`}
-                    >
-                      <span className="font-medium">{scaffold.label}</span>
-                      <span className="text-muted-foreground ml-2 text-xs">
-                        {scaffold.description}
-                      </span>
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger disabled={isConfigLocked}>
                 <Settings2 className="mr-2 h-4 w-4" />
                 Inställningar
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-56">
-            <DropdownMenuLabel>Generering</DropdownMenuLabel>
-            {/* Fast-tier (gpt-5.4-fast) does not support reasoning deltas
-                in the manifest — server-side phase routing already forces
-                thinking=false for this tier. We mirror that here so the
-                user gets immediate feedback instead of toggling a setting
-                that has no effect. */}
-            {(() => {
-              const thinkingUnsupportedForTier = selectedModelTier === "fast";
-              return (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger disabled={isConfigLocked}>
+                    <Layers className="mr-2 h-4 w-4" />
+                    <span className="max-w-[160px] truncate">Scaffold: {scaffoldButtonLabel}</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-56">
+                    <DropdownMenuLabel>Scaffold</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={
+                        scaffoldMode === "manual" ? `manual:${scaffoldId ?? ""}` : scaffoldMode
+                      }
+                      onValueChange={(v) => {
+                        if (v === "off" || v === "auto") {
+                          onScaffoldModeChange(v);
+                          onScaffoldIdChange(null);
+                        } else if (v.startsWith("manual:")) {
+                          const id = v.slice("manual:".length);
+                          onScaffoldModeChange("manual");
+                          onScaffoldIdChange(id || null);
+                        }
+                      }}
+                    >
+                      <DropdownMenuRadioItem value="off">Av</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="auto">Auto</DropdownMenuRadioItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                        Välj själv
+                      </DropdownMenuLabel>
+                      {SCAFFOLD_CLIENT_LIST.map((scaffold) => (
+                        <DropdownMenuRadioItem key={scaffold.id} value={`manual:${scaffold.id}`}>
+                          <span className="font-medium">{scaffold.label}</span>
+                          <span className="text-muted-foreground ml-2 text-xs">
+                            {scaffold.description}
+                          </span>
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger disabled={isConfigLocked}>
+                    <Bot className="mr-2 h-4 w-4" />
+                    <span className="max-w-[160px] truncate">Byggmodell: {modelButtonLabel}</span>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-64">
+                    <DropdownMenuLabel className="flex items-center gap-2">
+                      <span>Byggmodell</span>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-muted-foreground ml-auto flex cursor-help items-center">
+                              <HelpCircle className="h-3 w-3" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="max-w-xs">
+                            <p className="text-xs">
+                              Byggprofiler: Premium, Lagom, Tänker, Kod Max och Anthropic. Varje
+                              profil väljer en konkret modell i den egna motorn. Förbättra nedan är
+                              separat och används till promptförbättring, mallval och designbrief
+                              innan första bygget.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </DropdownMenuLabel>
+                    {/* assistStatusSummary bodde tidigare bara i trigger-tooltipen
+                    på den fristående Modell-knappen. Den knappen är borta
+                    (Ö1), så det här är nu den enda ytan som visar
+                    prompt-assist-statusen. */}
+                    <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                      {assistStatusSummary}
+                    </DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={selectedModelTier}
+                      onValueChange={(v) => onSelectedModelTierChange(v as ModelTier)}
+                    >
+                      {MODEL_TIER_OPTIONS.map((option) => (
+                        <DropdownMenuRadioItem key={option.value} value={option.value}>
+                          <span className="font-medium">{option.label}</span>
+                          <span className="text-muted-foreground ml-2 text-xs">
+                            {option.description}
+                          </span>
+                          {option.hint && (
+                            <span className="text-primary ml-1 text-xs">({option.hint})</span>
+                          )}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Generering</DropdownMenuLabel>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div>
                         <DropdownMenuCheckboxItem
-                          checked={enableThinking && !thinkingUnsupportedForTier}
+                          checked={enableThinking}
                           onCheckedChange={onEnableThinkingChange}
-                          disabled={isConfigLocked || thinkingUnsupportedForTier}
+                          disabled={isConfigLocked}
                         >
                           <Wand2 className="mr-2 h-4 w-4" />
                           Resonemang
-                          {thinkingUnsupportedForTier && (
+                        </DropdownMenuCheckboxItem>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-xs">
+                      <p className="text-xs">
+                        Aktiverar provider-reasoning. Premium använder GPT-5.6 Sol med high och
+                        pro-läge enligt fasinställningarna.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <DropdownMenuCheckboxItem
+                          checked={enableImageGenerations}
+                          onCheckedChange={onEnableImageGenerationsChange}
+                          disabled={!isImageGenerationsSupported || isConfigLocked}
+                        >
+                          <ImageIcon className="mr-2 h-4 w-4" />
+                          AI-bilder
+                          {!isImageGenerationsSupported && (
                             <span className="text-muted-foreground ml-2 text-xs">
-                              (ej i Snabb)
+                              (ej tillgängligt)
+                            </span>
+                          )}
+                          {isImageGenerationsSupported && !isMediaEnabled && (
+                            <span className="text-muted-foreground ml-2 text-xs">
+                              (blob saknas)
                             </span>
                           )}
                         </DropdownMenuCheckboxItem>
@@ -453,177 +472,146 @@ export function BuilderHeader(props: {
                     </TooltipTrigger>
                     <TooltipContent side="left" className="max-w-xs">
                       <p className="text-xs">
-                        {thinkingUnsupportedForTier
-                          ? "Snabb-modellen stödjer inte resonemang. Välj Lagom eller Tänker för att aktivera resonemang."
-                          : "Aktiverar mer resonemang i AI-svaret. Ger högre kvalitet men kan ta längre tid."}
+                        Slå på för att be AI om bilder. Om Blob saknas kan bilder saknas i
+                        förhandsvisningen.
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-              );
-            })()}
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={enableImageGenerations}
-                      onCheckedChange={onEnableImageGenerationsChange}
-                      disabled={!isImageGenerationsSupported || isConfigLocked}
-                    >
-                      <ImageIcon className="mr-2 h-4 w-4" />
-                      AI-bilder
-                      {!isImageGenerationsSupported && (
-                        <span className="text-muted-foreground ml-2 text-xs">
-                          (ej tillgängligt)
-                        </span>
-                      )}
-                      {isImageGenerationsSupported && !isMediaEnabled && (
-                        <span className="text-muted-foreground ml-2 text-xs">(blob saknas)</span>
-                      )}
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    Slå på för att be AI om bilder. Om Blob saknas kan bilder saknas i förhandsvisningen.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <DropdownMenuCheckboxItem
+                          checked={enableBlobMedia}
+                          onCheckedChange={onEnableBlobMediaChange}
+                          disabled={isConfigLocked}
+                        >
+                          <ImageIcon className="mr-2 h-4 w-4" />
+                          Blob-bilder
+                          {!isMediaEnabled && (
+                            <span className="text-muted-foreground ml-2 text-xs">
+                              (blob saknas)
+                            </span>
+                          )}
+                        </DropdownMenuCheckboxItem>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-xs">
+                      <p className="text-xs">
+                        Kopierar externa bildadresser till bildlagring vid publicering. Stäng av om
+                        du vill behålla externa länkar som de är.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={enableBlobMedia}
-                      onCheckedChange={onEnableBlobMediaChange}
-                      disabled={isConfigLocked}
-                    >
-                      <ImageIcon className="mr-2 h-4 w-4" />
-                      Blob-bilder
-                      {!isMediaEnabled && (
-                        <span className="text-muted-foreground ml-2 text-xs">(blob saknas)</span>
-                      )}
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    Kopierar externa bildadresser till bildlagring vid publicering. Stäng av om du vill
-                    behålla externa länkar som de är.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <DropdownMenuCheckboxItem
+                          checked={enableAutofix}
+                          onCheckedChange={onEnableAutofixChange}
+                          disabled={isConfigLocked}
+                        >
+                          <Wrench className="mr-2 h-4 w-4" />
+                          Åtgärda fel automatiskt
+                        </DropdownMenuCheckboxItem>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-xs">
+                      <p className="text-xs">
+                        När kvalitetskontrollen eller förhandsvisningen misslyckas skickas
+                        automatiskt en reparationsprompt. Stäng av om du vill styra allt manuellt.
+                        Parametrarna ?autofix och ?noautofix i URL:en åsidosätter tillfälligt.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={enableAutofix}
-                      onCheckedChange={onEnableAutofixChange}
-                      disabled={isConfigLocked}
-                    >
-                      <Wrench className="mr-2 h-4 w-4" />
-                      Åtgärda fel automatiskt
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    När kvalitetskontrollen eller förhandsvisningen misslyckas skickas automatiskt en
-                    reparationsprompt. Stäng av om du vill styra allt manuellt. Parametrarna ?autofix och
-                    ?noautofix i URL:en åsidosätter tillfälligt.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <DropdownMenuCheckboxItem
+                          checked={chatPrivacy === "unlisted"}
+                          onCheckedChange={(checked) =>
+                            onChatPrivacyChange(checked ? "unlisted" : "private")
+                          }
+                          disabled={isConfigLocked}
+                        >
+                          <Globe className="mr-2 h-4 w-4" />
+                          Publik preview
+                        </DropdownMenuCheckboxItem>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-xs">
+                      <p className="text-xs">
+                        Gör demosidan nåbar via länk (olistad). Krävs för inspektionsläget eftersom
+                        servern måste kunna läsa förhandsvisningen.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={chatPrivacy === "unlisted"}
-                      onCheckedChange={(checked) =>
-                        onChatPrivacyChange(checked ? "unlisted" : "private")
-                      }
-                      disabled={isConfigLocked}
-                    >
-                      <Globe className="mr-2 h-4 w-4" />
-                      Publik preview
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    Gör demosidan nåbar via länk (olistad). Krävs för inspektionsläget eftersom
-                    servern måste kunna läsa förhandsvisningen.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Inmatning</DropdownMenuLabel>
-            <DropdownMenuItem
-              disabled={isConfigLocked}
-              onSelect={(event) => {
-                event.preventDefault();
-                onToggleFigmaInput();
-              }}
-            >
-              <Link2 className="mr-2 h-4 w-4" />
-              {isFigmaInputOpen ? "Dölj Figma-länk" : "Visa Figma-länk"}
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Instruktioner</DropdownMenuLabel>
-            <DropdownMenuItem
-              disabled={isConfigLocked}
-              onSelect={(event) => {
-                event.preventDefault();
-                setIsInstructionsOpen(true);
-              }}
-            >
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Egna instruktioner
-              {hasCustomInstructions && (
-                <span className="text-muted-foreground ml-2 text-xs">Aktiv</span>
-              )}
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
-            {showDebugViewToggle && (
-              <>
-                <DropdownMenuLabel>Chattvy</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem
-                  checked={showStructuredChat}
-                  onCheckedChange={onShowStructuredChatChange}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Inmatning</DropdownMenuLabel>
+                <DropdownMenuItem
                   disabled={isConfigLocked}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    onToggleFigmaInput();
+                  }}
+                >
+                  <Link2 className="mr-2 h-4 w-4" />
+                  {isFigmaInputOpen ? "Dölj Figma-länk" : "Visa Figma-länk"}
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Instruktioner</DropdownMenuLabel>
+                <DropdownMenuItem
+                  disabled={isConfigLocked}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    setIsInstructionsOpen(true);
+                  }}
                 >
                   <MessageSquare className="mr-2 h-4 w-4" />
-                  Felsökningsvy (verktygsblock)
-                </DropdownMenuCheckboxItem>
-              </>
-            )}
+                  Egna instruktioner
+                  {hasCustomInstructions && (
+                    <span className="text-muted-foreground ml-2 text-xs">Aktiv</span>
+                  )}
+                </DropdownMenuItem>
 
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
-              Tips · 2 credits per hämtning
-            </DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={tipsEnabled}
-              onCheckedChange={(checked) => onTipsEnabledChange(Boolean(checked))}
-              disabled={isConfigLocked}
-            >
-              <Lightbulb className="mr-2 h-4 w-4" />
-              Visa tips efter AI-svar
-            </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+                {showDebugViewToggle && (
+                  <>
+                    <DropdownMenuLabel>Chattvy</DropdownMenuLabel>
+                    <DropdownMenuCheckboxItem
+                      checked={showStructuredChat}
+                      onCheckedChange={onShowStructuredChatChange}
+                      disabled={isConfigLocked}
+                    >
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Felsökningsvy (verktygsblock)
+                    </DropdownMenuCheckboxItem>
+                  </>
+                )}
+
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                  Tips · 2 credits per hämtning
+                </DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={tipsEnabled}
+                  onCheckedChange={(checked) => onTipsEnabledChange(Boolean(checked))}
+                  disabled={isConfigLocked}
+                >
+                  <Lightbulb className="mr-2 h-4 w-4" />
+                  Visa tips efter AI-svar
+                </DropdownMenuCheckboxItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
 
@@ -655,18 +643,29 @@ export function BuilderHeader(props: {
               <Download className="mr-2 h-4 w-4" />
               Ladda ner som ZIP
             </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!chatId || !activeVersionId || isBusy}
-              onSelect={(event) => {
-                event.preventDefault();
-                runDeferredAction(onExportGitHub);
-              }}
-            >
-              <Github className="mr-2 h-4 w-4" />
-              Exportera till GitHub
-            </DropdownMenuItem>
+            {/* Bara export ligger under GitHub-subben (Ö2, 2026-07-31).
+                Importvalet ovan hanterar både GitHub och ZIP, så det får
+                inte gömmas under en GitHub-rubrik. */}
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger disabled={!chatId || !activeVersionId || isBusy}>
+                <Github className="mr-2 h-4 w-4" />
+                GitHub
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-56">
+                <DropdownMenuItem
+                  disabled={!chatId || !activeVersionId || isBusy}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    runDeferredAction(onExportGitHub);
+                  }}
+                >
+                  <Github className="mr-2 h-4 w-4" />
+                  Exportera till GitHub
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
           </DropdownMenuContent>
-        </DropdownMenu></>}
+        </DropdownMenu>
 
         {isBusy ? (
           <Button
@@ -728,8 +727,8 @@ export function BuilderHeader(props: {
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-sm text-xs">
                 <p>
-                  Kunde inte hämta publiceringsstatus efter omladdning. Publiceringsknappen kan
-                  visa fel läge tills du försöker igen.
+                  Kunde inte hämta publiceringsstatus efter omladdning. Publiceringsknappen kan visa
+                  fel läge tills du försöker igen.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -742,7 +741,10 @@ export function BuilderHeader(props: {
             inte alltid inspectorUrl). */}
         {deploymentStatus === "error" ? (
           <div className="flex items-center gap-1.5">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden />
+            <AlertTriangle
+              className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400"
+              aria-hidden
+            />
             <div className="flex flex-col leading-tight">
               <span className="text-xs font-medium text-red-600 dark:text-red-400">
                 Publiceringen misslyckades
@@ -752,7 +754,7 @@ export function BuilderHeader(props: {
                   href={deploymentInspectorUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-muted-foreground text-[11px] underline underline-offset-2 hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground text-[11px] underline underline-offset-2"
                 >
                   Visa byggloggar
                 </a>
@@ -786,9 +788,8 @@ export function BuilderHeader(props: {
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-sm text-xs">
                 <p>
-                  Publiceringen misslyckades i bygget. Kör en automatisk fix mot den
-                  failade versionen — granska och acceptera reparationen, publicera
-                  sedan om.
+                  Publiceringen misslyckades i bygget. Kör en automatisk fix mot den failade
+                  versionen — granska och acceptera reparationen, publicera sedan om.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -838,7 +839,7 @@ export function BuilderHeader(props: {
           if (deploymentStatus === "building") {
             return (
               <div className="flex items-center gap-1">
-                <Button size="sm" variant="outline" disabled>
+                <Button size="sm" variant="outline" disabled aria-label="Bygger publiceringen">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="hidden sm:inline">Bygger...</span>
                 </Button>
@@ -861,7 +862,7 @@ export function BuilderHeader(props: {
                 // version is the one that was just published.
                 activeVersionId
               : liveDeploymentUrl
-                ? liveDeploymentVersionId ?? null
+                ? (liveDeploymentVersionId ?? null)
                 : sessionReadyUrl
                   ? activeVersionId
                   : null;
@@ -891,6 +892,8 @@ export function BuilderHeader(props: {
                   variant="outline"
                   className="border-green-500 text-green-600"
                   onClick={() => window.open(liveHref, "_blank", "noopener,noreferrer")}
+                  aria-label="Publicerad — öppna den live-publicerade sajten i ny flik"
+                  title="Öppna den publicerade sajten"
                 >
                   <Globe className="h-4 w-4" />
                   <span className="hidden sm:inline">Publicerad</span>
@@ -924,6 +927,7 @@ export function BuilderHeader(props: {
                         }
                         disabled={!canDeploy || isBusy || isDeploying}
                         className="relative"
+                        aria-label={label}
                       >
                         {isDeploying ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -991,7 +995,9 @@ export function BuilderHeader(props: {
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => onCustomInstructionsChange(getDefaultCustomInstructions(scaffoldMode))}
+                onClick={() =>
+                  onCustomInstructionsChange(getDefaultCustomInstructions(scaffoldMode))
+                }
                 disabled={isBusy || isDefaultInstructions}
               >
                 Använd standard

@@ -34,6 +34,16 @@
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
       "description": "Abstract capability matched against brief.requestedCapabilities. Free-form kebab-case. The canonical source of currently-defined capabilities is whatever is on disk; run `npm run dossiers:capability-map:write` to regenerate data/dossiers/_index/capability-map.json after adding or renaming. Prefer reusing an existing capability id (so multiple dossiers can compete under the same label, e.g. stripe-checkout + klarna-checkout both use 'payments') over coining a new one."
     },
+    "providers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+      },
+      "description": "Canonical provider identities implemented by a hard dossier. Required for hard manifests and forbidden for soft manifests by validateDossierManifest. Composite dossiers may list multiple providers."
+    },
     "codeFidelity": {
       "type": "string",
       "enum": ["verbatim", "rewritable"],
@@ -76,7 +86,18 @@
         "properties": {
           "key": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
           "required": { "type": "boolean" },
-          "purpose": { "type": "string", "minLength": 10, "maxLength": 400, "description": "Short prose describing what the key does + how to get it. Keep ≤ ~240 chars when possible; hard max 400 to give room for enforcement-tagging rationales like 'tagged build because ...'." },
+          "purpose": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 400,
+            "description": "Short prose describing what the key does + how to get it. Keep ≤ ~240 chars when possible; hard max 400 to give room for enforcement-tagging rationales like 'tagged build because ...'."
+          },
+          "setupUrl": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://",
+            "description": "Optional official provider documentation/dashboard URL that helps the project owner obtain this exact value. This is user setup guidance, not source provenance (use sourceRepoUrl for that)."
+          },
           "enforcement": {
             "type": "string",
             "enum": ["build", "feature-runtime", "warn-only"],
@@ -129,7 +150,12 @@
     "lastVerified": {
       "type": "string",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
-      "description": "ISO date YYYY-MM-DD when a human last validated the dossier against a real preview build."
+      "description": "ISO date YYYY-MM-DD for the latest acceptance evidence, or the imported source date while verificationStatus is 'unverified'."
+    },
+    "verificationStatus": {
+      "type": "string",
+      "enum": ["accepted", "unverified"],
+      "description": "Explicit evidence state. 'unverified' always fails the dedicated freshness gate, regardless of how recent lastVerified looks. Omitted is accepted only for backward compatibility with manifests that already used lastVerified as acceptance evidence."
     },
     "sourceRepoUrl": {
       "type": "string",

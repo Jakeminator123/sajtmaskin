@@ -4,6 +4,7 @@
   "mock": "canned",
   "label": "AI-bildgenerering — Fal",
   "capability": "image-generation",
+  "providers": ["fal"],
   "codeFidelity": "verbatim",
   "complexity": "medium",
   "defaultForCapability": true,
@@ -13,14 +14,12 @@
     {
       "key": "FAL_API_KEY",
       "required": true,
+      "setupUrl": "https://fal.ai/docs/documentation/setting-up/authentication",
       "purpose": "Fal API key used only by the server API route to authenticate image generation requests. Create or copy it from the Fal dashboard/account settings.",
       "enforcement": "feature-runtime"
     }
   ],
-  "dependencies": [
-    "ai",
-    "@ai-sdk/fal"
-  ],
+  "dependencies": ["ai", "@ai-sdk/fal"],
   "files": [
     {
       "path": "components/api/generate-images/route.ts",
@@ -56,6 +55,7 @@
     }
   ],
   "lastVerified": "2026-04-18",
+  "verificationStatus": "unverified",
   "sourceRepoUrl": "https://github.com/vercel-labs/vercel-fal-image-generator",
   "notes": "Focused Fal-only extraction; omit template UI, analytics, layout, provider matrices. Route uses `generateImage` from ai v7 (renamed from experimental_generateImage). lastVerified carries the legacy source's date until the first preview/generate-test selects this dossier (no-false-green rule from PR #422).",
   "promptInstructionMode": "compact"

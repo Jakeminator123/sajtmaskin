@@ -15,6 +15,7 @@ Invariants:
 - `contextPolicy` och tokenbudget styr Dynamic Context, inte godtyckliga promptlängder.
 - `routeRealization` ska göra multipage/init hanterbart utan att dölja routes.
 - `capabilityFlags` ska bära capability-heaviness så downstream inte räknar om.
+- `complexityHint` (Byggval, init-only) får golva `qualityTarget` uppåt och bias:a `contextPolicy` — men aldrig demota quality under vad routes/integrationer kräver.
 
 ## Promptkontrakt
 
@@ -144,6 +145,52 @@ Invariants:
   med outcome `superseded_by_newer_version`, inte jobba-klart-och-kastas.
   Lease släpps alltid.
 - `resolveServerRepairOutcome` är enda ägaren av repair-outcome-strängar.
+- Starta aldrig en repair som en annan policy förbjuder att lyckas. Konkret:
+  F2 strippar tier-3-SDK-importer med flit (`tier3-sdk-guard-fixer`) och
+  `deterministic-import-repair` vägrar lägga tillbaka dem i F2 — därför
+  suppimeras verifier-fynd om saknad tier-3-import i F2
+  (`suppressTier3StrippedImportFindings`). Utan den blev det en loop: guarden
+  tog bort, verifier larmade som om det vore en bugg, RepairGate brände ett
+  LLM-anrop och rapporterade `still-failing`. Prod 2026-07-22→29 visar samma
+  fynd på `app/api/contact/route.ts` vecka efter vecka. I F3 är SDK:n
+  installerad, så där är samma fynd ett äkta fel och suppimeras inte.
+
+## Mätning av kontroll-lagren
+
+Frågan "vilket reparationslager ingriper faktiskt, och bär det sin vikt?"
+besvaras **bara** ur databasen. Prometheus-räknarna i
+`src/lib/observability/metrics.ts` är in-memory per serverless-instans och
+nollställs när instansen återvinns — de duger för spot-koll, aldrig för
+"hur ofta över tid". Samma sak för event-bus och devLog: ephemera i prod.
+
+Ägs av: `persist-telemetry.ts` (skriver `generation_telemetry`),
+`failure-log.ts` + `persist-side-effects.ts` (skriver
+`engine_version_error_logs`), `error-log-rag.ts` (skriver `error_log_events`).
+
+| Lager | Durabel signal |
+|---|---|
+| Normalize + post_merge, per fixer | `generation_telemetry.meta->'autofix'->'fixers'` — `{fixer, category, lane, count, files}` per version (post_merge-lanen inkluderad sedan 2026-08-01; tidigare bara devLog) |
+| Normalize, aggregat | `generation_telemetry.autofix_applied`, `meta.autofix.fixCount`, `safeFixCount`/`riskyFixCount`/`riskyFixerIds` (Normalize-lanen enbart) |
+| RepairGate (syntax) | `generation_telemetry.syntax_fixer_used` |
+| RepairGate (verifier / repair-loop) | `error_log_events.fixer` + `.result` (`fixed` / `still-failing` / `noop`) |
+| Verifier-fynd | `engine_version_error_logs` category `quality-gate:verifier-blocking` |
+| Preflight | `preflight_error_count` / `preflight_warning_count` + `meta.issues` |
+| RenderGate/ReleaseGate | `engine_version_error_logs` category `preflight:quality-gate` (`meta.checks`, `firstFailureCheck`) |
+
+Invariants:
+
+- Lägg aldrig ett fixer-/gate-utfall enbart på en Prometheus-räknare, event-buss
+  eller devLog. Ska utfallet gå att svara på i efterhand måste det nå en av
+  tabellerna ovan.
+- Namnge ingen räknare i `FIXER_REGISTRY.telemetryCounter` som inget skriver.
+  En fantomräknare läses som "det här mäts" och skickar nästa läsare att leta
+  efter data som aldrig skrevs.
+- `scripts/db/control-stats.mjs` är den samlade läsvyn (`fixersByName`,
+  `autofixRisk`, `qualityGateChecks`, `errorsByCategory`). Nya signaler
+  exponeras där, inte i en ny egen rapport.
+- `generation_telemetry.quality_gate_result` bär trots namnet **finalize**-utfallet
+  (`preflight_passed` / `preflight_failed` / `verifier_failed`) — aldrig
+  VM-gatens verdikt. Det ligger i `engine_version_error_logs`.
 
 ## Versionstatus och event-bus
 

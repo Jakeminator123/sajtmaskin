@@ -880,6 +880,123 @@ describe("runFinalizePreflight", () => {
     expect(JSON.parse(persistedPkg!.content).dependencies.next).toBe("14.2.3");
   });
 
+  it("imported-repo mode: pins a missing known dependency into the template's own package.json", async () => {
+    // Regression (prod chat 0d52e5c9, 2026-07-31): a follow-up added
+    // `@clerk/nextjs` imports without emitting package.json. Verbatim mode
+    // skipped every dependency merge, the preview host's fingerprint
+    // (package.json + lockfiles) stayed unchanged, install was skipped and
+    // the runtime 500:ade on the missing module. Imported-repo finalize must
+    // pin missing KNOWN packages while leaving the template's declared
+    // versions untouched.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    runProjectSanityChecks.mockReturnValue({ valid: true, issues: [] });
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_imported_missing_dep",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+        {
+          path: "middleware.ts",
+          content:
+            'import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";\n' +
+            "export default clerkMiddleware();\n",
+          language: "ts",
+        },
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            dependencies: { next: "14.2.3", react: "18.3.1", "react-dom": "18.3.1" },
+            scripts: { dev: "next dev" },
+          }),
+          language: "json",
+        },
+      ]),
+      importedRepoMode: true,
+    });
+
+    const persistedPkg = (JSON.parse(result.filesJson) as Array<{ path: string; content: string }>)
+      .find((f) => f.path === "package.json");
+    expect(persistedPkg).toBeDefined();
+    const parsedPkg = JSON.parse(persistedPkg!.content) as {
+      dependencies: Record<string, string>;
+    };
+    // The missing import got pinned — package.json content changes, so the
+    // preview host's dependency fingerprint changes and install re-runs.
+    expect(parsedPkg.dependencies["@clerk/nextjs"]).toMatch(/^\^?\d/);
+    // Template's own pins stay verbatim.
+    expect(parsedPkg.dependencies.next).toBe("14.2.3");
+    expect(parsedPkg.dependencies.react).toBe("18.3.1");
+    // The pin is reported as a non-blocking informational issue.
+    const pinIssue = result.preflightIssues.find(
+      (i) => i.file === "package.json" && /Pinned 1 missing dependency/.test(i.message),
+    );
+    expect(pinIssue?.severity).toBe("warning");
+    expect(result.previewStart.canStartPreview).toBe(true);
+    // Still no scaffold assembly in verbatim mode.
+    expect(buildCompleteProject).not.toHaveBeenCalled();
+  });
+
+  it("degeneracy cap never stubs base-identical inherited content (prod chat 4d6b5546)", async () => {
+    // Regression: an imported v0-template carried a large file that the
+    // degeneracy DETECTION flagged on the first follow-up, and the cap then
+    // stubbed it in the persisted version — silent destruction of inherited
+    // template content. `previousFiles` must thread through to the cap so
+    // byte-identical inherited files are protected, while this round's own
+    // oversized output is still stubbed.
+    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
+    const inheritedBig = {
+      path: "data/catalog.ts",
+      content: `export const catalog = "${"x".repeat(900_000)}";`,
+      language: "ts",
+    };
+    const generatedBloat = {
+      path: "components/generated-bloat.tsx",
+      content: "y".repeat(800_000),
+      language: "tsx",
+    };
+
+    const result = await runFinalizePreflight({
+      chatId: "chat_degen_inherited",
+      model: "gpt-5.4",
+      filesJson: JSON.stringify([
+        { path: "app/page.tsx", content: RICH_PAGE_CONTENT, language: "tsx" },
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            dependencies: { next: "14.2.3", react: "18.3.1", "react-dom": "18.3.1" },
+            scripts: { dev: "next dev" },
+          }),
+          language: "json",
+        },
+        inheritedBig,
+        generatedBloat,
+      ]),
+      importedRepoMode: true,
+      previousFiles: [{ path: inheritedBig.path, content: inheritedBig.content }],
+    });
+
+    const persisted = JSON.parse(result.filesJson) as Array<{
+      path: string;
+      content: string;
+    }>;
+    // Inherited content survives byte-identically.
+    expect(persisted.find((f) => f.path === inheritedBig.path)!.content).toBe(
+      inheritedBig.content,
+    );
+    // This round's own bloat is still stubbed.
+    expect(
+      persisted.find((f) => f.path === generatedBloat.path)!.content.length,
+    ).toBeLessThan(200);
+    // Detection still blocks the version — the cap only prevents destruction.
+    expect(
+      result.preflightIssues.some((i) =>
+        i.message.startsWith("Degenerate output blocked"),
+      ),
+    ).toBe(true);
+    expect(result.previewStart.canStartPreview).toBe(false);
+  });
+
   it("does not flag a composed home route that delegates to a real local component", async () => {
     // Regression: prod chat bb918df9 (version 103e60b5) shipped a thin
     // `app/page.tsx` that delegated its whole body to `<PalmaGuide />`.

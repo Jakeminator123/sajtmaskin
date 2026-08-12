@@ -1,5 +1,7 @@
 import * as prom from "prom-client";
 
+import type { ContentRevisionSurface } from "@/lib/gen/verify/content-revision";
+
 /**
  * Canonical pipeline phase names observed via {@link recordPhaseDuration}.
  * Note: `pre_vm_typecheck` was merged into `validate_syntax` in 2026-04-20 W3
@@ -72,12 +74,12 @@ type MetricsBundle = {
   register: prom.Registry;
   phaseDuration: prom.Histogram<string>;
   promptToDone: prom.Histogram<string>;
-  fixerCall: prom.Counter<string>;
   verifierBlocking: prom.Counter<string>;
   partialFileRepair: prom.Counter<string>;
   earlyStop: prom.Counter<string>;
   ingressEvent: prom.Counter<string>;
   briefCache: prom.Counter<string>;
+  contentRevisionMismatch: prom.Counter<string>;
 };
 
 declare global {
@@ -114,13 +116,6 @@ function initMetrics(): MetricsBundle {
       "until the SSE `done` event is emitted (or the stream errors/aborts).",
     labelNames: ["outcome", "kind"],
     buckets: PROMPT_TO_DONE_BUCKETS_MS,
-    registers: [register],
-  });
-
-  const fixerCall = new prom.Counter({
-    name: "sajtmaskin_fixer_call_total",
-    help: "Total number of autofix invocations, partitioned by fixer + outcome.",
-    labelNames: ["fixer", "outcome"],
     registers: [register],
   });
 
@@ -164,16 +159,26 @@ function initMetrics(): MetricsBundle {
     registers: [register],
   });
 
+  const contentRevisionMismatch = new prom.Counter({
+    name: "sajtmaskin_content_revision_mismatch_total",
+    help:
+      "Innehållsrevision steg 3: antal gånger en läsare hittade en KÄND mismatch " +
+      "(verdiktet/kvittot bär en revision som inte är innehållets), partitionerat " +
+      "på yta och verdikt. Okänd revision räknas inte — den är fail-open.",
+    labelNames: ["surface", "verdict"],
+    registers: [register],
+  });
+
   const bundle: MetricsBundle = {
     register,
     phaseDuration,
     promptToDone,
-    fixerCall,
     verifierBlocking,
     partialFileRepair,
     earlyStop,
     ingressEvent,
     briefCache,
+    contentRevisionMismatch,
   };
 
   globalThis.__sajtmaskinMetricsRegistry = bundle;
@@ -225,13 +230,6 @@ export async function observePhase<T>(
   }
 }
 
-export function incFixerCall(
-  fixerName: string,
-  outcome: "applied" | "noop" | "error" = "applied",
-): void {
-  metrics.fixerCall.inc({ fixer: fixerName, outcome });
-}
-
 export function incVerifierBlocking(findingId: string): void {
   metrics.verifierBlocking.inc({ finding_id: findingId });
 }
@@ -269,6 +267,24 @@ export function incIngressEvent(
 }
 
 /**
+ * Innehållsrevision steg 3: en läsare avvisade ett verdikt/kvitto vars revision
+ * bevisligen inte är innehållets. Detta är mätunderlaget flaggan
+ * (`SAJTMASKIN_CONTENT_REVISION_GATE`) finns för att samla in — okänd revision
+ * räknas medvetet INTE, eftersom den är fail-open och inte en mismatch.
+ *
+ * `verdict` hålls lågkardinell (gate-resultatsträngen eller `""`) så
+ * Prometheus-label-setet förblir stabilt.
+ */
+export function incContentRevisionMismatch(
+  surface: ContentRevisionSurface,
+  attrs?: { verdict?: string | null },
+): void {
+  const verdict =
+    typeof attrs?.verdict === "string" && attrs.verdict.length > 0 ? attrs.verdict : "";
+  metrics.contentRevisionMismatch.inc({ surface, verdict });
+}
+
+/**
  * Observe the end-to-end "prompt → done" duration in milliseconds. `kind`
  * distinguishes the initial chat-creation stream from follow-up streams;
  * `outcome` separates successful `done` emissions from client aborts and
@@ -300,10 +316,10 @@ export function getPrometheusMetrics(): Promise<string> {
 export function resetMetricsForTest(): void {
   metrics.phaseDuration.reset();
   metrics.promptToDone.reset();
-  metrics.fixerCall.reset();
   metrics.verifierBlocking.reset();
   metrics.partialFileRepair.reset();
   metrics.earlyStop.reset();
   metrics.ingressEvent.reset();
   metrics.briefCache.reset();
+  metrics.contentRevisionMismatch.reset();
 }

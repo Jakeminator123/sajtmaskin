@@ -1256,3 +1256,104 @@ describe("detectFollowUpCapabilities — rag-chat", () => {
     expect(result.capabilityIds).not.toContain("rag-chat");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Detection-gate robustness (prod 2026-07-31, "springa"-sajten): en chatbot-
+// follow-up med stavfel ("vil ah" för "vill ha") + V2-ordföljd ("ska jag
+// kunna") + credential-omnämnande ("openai-api-key") passerade INTE gaten —
+// openai-chat-dossiern injicerades aldrig, modellen frihandsgenererade en
+// hårdkodad demo-chatbot utan /api/chat, och användarens riktiga nyckel +
+// F3 + publicering kunde aldrig ge en fungerande chat.
+// ─────────────────────────────────────────────────────────────────────────
+describe("detectFollowUpCapabilities — gate robustness (typos / V2 / credential cue)", () => {
+  it("detects ai-chat in the verbatim prod prompt despite typos hiding every add-verb", () => {
+    const result = detectFollowUpCapabilities(
+      'Jag vil ah en "sko" som är som en ikon för en chatbot. Denna ska jag ' +
+        "klunna klicka på och ställa frågar till angående löpning. Jag har en " +
+        "openai-api-key so mjag sean skulle vilja sätta in i produktion för " +
+        "att få allt å riktigt",
+    );
+    expect(result.capabilityIds).toContain("ai-chat");
+  });
+
+  it("accepts V2 word order 'ska jag kunna' as an add-verb", () => {
+    const result = detectFollowUpCapabilities(
+      "En chatbot ska jag kunna klicka fram och ställa frågor till",
+    );
+    expect(result.capabilityIds).toContain("ai-chat");
+  });
+
+  it("accepts polite 'skulle vilja ha' as an add-verb", () => {
+    const result = detectFollowUpCapabilities(
+      "jag skulle vilja ha en chatbot på startsidan",
+    );
+    expect(result.capabilityIds).toContain("ai-chat");
+  });
+
+  it("opens the gate on an API-key mention (Swedish 'api-nyckel')", () => {
+    const result = detectFollowUpCapabilities(
+      "här är min api-nyckel från OpenAI, chatbot i produktion tack",
+    );
+    expect(result.capabilityIds).toContain("ai-chat");
+  });
+
+  // Gate-öppning är inte detektion: ett credential-omnämnande utan
+  // capability-substantiv detekterar fortfarande ingenting.
+  it("does NOT detect anything for a bare key rotation ask", () => {
+    const result = detectFollowUpCapabilities("byt ut api-nyckeln mot en ny");
+    expect(result.capabilityIds).toEqual([]);
+  });
+
+  // "skulle vilja ändra" är refine — det artiga önskeläget öppnar bara gaten
+  // med ett efterföljande add-verb.
+  it("does NOT let 'skulle vilja ändra' open the gate", () => {
+    const result = detectFollowUpCapabilities(
+      "jag skulle vilja ändra texten under kartan",
+    );
+    expect(result.capabilityIds).toEqual([]);
+  });
+
+  // Add-verb-vakten måste vinna när refine-verb (`flytta`) och ett nyare
+  // add-mönster (`ska … jag … kunna`) samexisterar — annars klassas en
+  // layout-flytt av befintligt kontaktformulär som capability-add och
+  // dossier-skal återinjiceras.
+  it("does NOT detect capability-add when flytta co-occurs with 'ska jag kunna'", () => {
+    const result = detectFollowUpCapabilities(
+      "Flytta kontaktformulär under footern — det ska jag kunna nå från mobilmenyn",
+    );
+    expect(result.capabilityIds).toEqual([]);
+  });
+
+  // Samma veto med ett annat svagt önskeverb, så fixen inte bara täcker
+  // V2-formen ovan.
+  it("does NOT detect capability-add when flytta co-occurs with 'behöver'", () => {
+    const result = detectFollowUpCapabilities(
+      "Flytta kontaktformuläret, vi behöver det högst upp på sidan",
+    );
+    expect(result.capabilityIds).toEqual([]);
+  });
+
+  // Motprov till de tre ovan. Ett refine-verb får INTE veta ett handlingsverb:
+  // en add med en placeringsönskan är fortfarande en add, och en tyst
+  // uteblivning är dyrare än ett onödigt dossier-skal.
+  it("still detects capability-add when a strong add verb co-occurs with flytta", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till ett kontaktformulär och flytta det högst upp",
+    );
+    expect(result.capabilityIds).toContain("contact-form");
+  });
+
+  it("still detects capability-add when a strong add verb co-occurs with byt", () => {
+    const result = detectFollowUpCapabilities(
+      "lägg till kortbetalning och byt färg på knappen",
+    );
+    expect(result.capabilityIds).toContain("payments");
+  });
+
+  it("still detects capability-add for the English add + move combination", () => {
+    const result = detectFollowUpCapabilities(
+      "add a contact form and move the hero above it",
+    );
+    expect(result.capabilityIds).toContain("contact-form");
+  });
+});

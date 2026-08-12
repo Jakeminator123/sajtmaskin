@@ -30,7 +30,7 @@ export interface SelfProjectIdentity {
 
 function readLinkedProjectId(): string | null {
   // Local, `vercel link`-ed checkouts keep the ids in a gitignored `.vercel/`
-  // directory (documented in AGENTS.md). Absent in serverless runtimes, so this
+  // directory (see .cursor/rules/local-tooling-mcp.mdc). Absent in serverless runtimes, so this
   // is strictly a best-effort fallback — never a requirement.
   const candidates: { file: string; pick: (data: unknown) => string | null }[] = [
     {

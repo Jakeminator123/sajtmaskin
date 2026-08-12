@@ -5,7 +5,6 @@ import {
   getPrometheusMetrics,
   incBriefCache,
   incEarlyStop,
-  incFixerCall,
   observePhase,
   incIngressEvent,
   incPartialFileRepair,
@@ -65,6 +64,25 @@ describe("observability/metrics", () => {
     expect(text).toMatch(/kind="unknown"/);
   });
 
+  it("records materialize_images in the canonical observed set", async () => {
+    expect(OBSERVED_PHASES).toContain("materialize_images");
+    recordPhaseDuration("materialize_images", 42, { kind: "init" });
+    const text = await getPrometheusMetrics();
+    expect(text).toMatch(
+      /sajtmaskin_phase_duration_ms_count\{[^}]*phase="materialize_images"[^}]*kind="init"[^}]*\}\s+1/,
+    );
+  });
+
+  it("still records sibling finalize phases alongside materialize_images (motprov)", async () => {
+    recordPhaseDuration("materialize_images", 10, { kind: "followup" });
+    recordPhaseDuration("validate_syntax", 20, { kind: "followup" });
+    recordPhaseDuration("verifier", 30, { kind: "followup" });
+    const text = await getPrometheusMetrics();
+    expect(text).toMatch(/phase="materialize_images"/);
+    expect(text).toMatch(/phase="validate_syntax"/);
+    expect(text).toMatch(/phase="verifier"/);
+  });
+
   it("observePhase records latency-budget timing with an explicit init/followup kind", async () => {
     await observePhase({ phase: "persist", kind: "followup" }, async () => {
       // no-op
@@ -73,30 +91,6 @@ describe("observability/metrics", () => {
     expect(text).toMatch(
       /sajtmaskin_phase_duration_ms_count\{[^}]*phase="persist"[^}]*kind="followup"[^}]*\}\s+1/,
     );
-  });
-
-  it("counts fixer calls partitioned by fixer + outcome", async () => {
-    incFixerCall("react-import-fixer", "applied");
-    incFixerCall("react-import-fixer", "applied");
-    incFixerCall("react-import-fixer", "noop");
-
-    const text = await getPrometheusMetrics();
-    expect(text).toContain("sajtmaskin_fixer_call_total");
-    expect(text).toMatch(
-      /sajtmaskin_fixer_call_total\{[^}]*fixer="react-import-fixer"[^}]*outcome="applied"[^}]*\}\s+2/,
-    );
-    expect(text).toMatch(
-      /sajtmaskin_fixer_call_total\{[^}]*outcome="noop"[^}]*\}\s+1/,
-    );
-  });
-
-  it("defaults fixer outcome to 'applied' when omitted", async () => {
-    incFixerCall("dep-completer");
-    const values = await getCounterValues("sajtmaskin_fixer_call_total");
-    const match = values.find(
-      (v) => v.labels.fixer === "dep-completer" && v.labels.outcome === "applied",
-    );
-    expect(match?.value).toBe(1);
   });
 
   it("records blocking verifier findings by finding_id", async () => {
@@ -126,14 +120,20 @@ describe("observability/metrics", () => {
   });
 
   it("resets custom counters back to zero via resetMetricsForTest", async () => {
-    incFixerCall("react-import-fixer", "applied");
-    let values = await getCounterValues("sajtmaskin_fixer_call_total");
-    expect(values.find((v) => v.labels.fixer === "react-import-fixer")?.value).toBe(1);
+    incVerifierBlocking("navigation-placeholder-actions");
+    let values = await getCounterValues("sajtmaskin_verifier_blocking_total");
+    expect(
+      values.find(
+        (v) => v.labels.finding_id === "navigation-placeholder-actions",
+      )?.value,
+    ).toBe(1);
 
     resetMetricsForTest();
 
-    values = await getCounterValues("sajtmaskin_fixer_call_total");
-    const after = values.find((v) => v.labels.fixer === "react-import-fixer");
+    values = await getCounterValues("sajtmaskin_verifier_blocking_total");
+    const after = values.find(
+      (v) => v.labels.finding_id === "navigation-placeholder-actions",
+    );
     // After reset the label combination is no longer present (or value is 0).
     expect(after?.value ?? 0).toBe(0);
   });

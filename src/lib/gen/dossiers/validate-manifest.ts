@@ -89,13 +89,21 @@ export function validateDossierManifest(
   }
 
   if (typeof raw === "object" && raw !== null) {
-    const id = (raw as { id?: unknown }).id;
+    const manifest = raw as { id?: unknown; providers?: unknown };
+    const id = manifest.id;
     if (id !== context.expectedId) {
       errors.push(
         `manifest.id (${JSON.stringify(id)}) does not match directory name (${JSON.stringify(
           context.expectedId,
         )})`,
       );
+    }
+    if (context.class === "hard") {
+      if (!Array.isArray(manifest.providers) || manifest.providers.length === 0) {
+        errors.push("hard manifests must declare a non-empty providers array");
+      }
+    } else if (Object.prototype.hasOwnProperty.call(manifest, "providers")) {
+      errors.push("soft manifests must not declare providers");
     }
   } else {
     errors.push("manifest must be a JSON object");
@@ -197,7 +205,10 @@ const RESOLUTION_CANDIDATES = [
 ] as const;
 
 function normalizeFilePath(path: string): string {
-  return path.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/^\/+/, "");
+  return path
+    .replace(/\\/g, "/")
+    .replace(/^\.\/+/, "")
+    .replace(/^\/+/, "");
 }
 
 /**
@@ -275,9 +286,7 @@ export function validateDossierImportClosure(
     while ((match = CODE_IMPORT_RE.exec(source)) !== null) {
       const importPath = match[1];
       const isProjectImport =
-        importPath.startsWith("@/") ||
-        importPath.startsWith("./") ||
-        importPath.startsWith("../");
+        importPath.startsWith("@/") || importPath.startsWith("./") || importPath.startsWith("../");
 
       if (!isProjectImport) {
         if (!isRuntimeProvidedImport(importPath)) {
@@ -373,9 +382,7 @@ export function findModuleLevelSdkConstructions(
   dossierRoot: string,
 ): ModuleLevelSdkIssue[] {
   const issues: ModuleLevelSdkIssue[] = [];
-  const dependencyPackages = new Set(
-    (manifest.dependencies ?? []).map(dependencyPackageName),
-  );
+  const dependencyPackages = new Set((manifest.dependencies ?? []).map(dependencyPackageName));
   if (dependencyPackages.size === 0) return issues;
 
   for (const fileEntry of manifest.files ?? []) {

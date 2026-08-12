@@ -19,6 +19,14 @@ vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
   checkTier3ReadinessForVersion: vi.fn(),
 }));
 const logTier3MissingEnvBlockedDetached = vi.hoisted(() => vi.fn());
+const readF3ApprovedFromSnapshot = vi.hoisted(() =>
+  vi.fn(
+    (): { providers: string[]; capabilities: string[] } => ({
+      providers: [],
+      capabilities: [],
+    }),
+  ),
+);
 vi.mock("@/lib/integrations/log-tier3-missing-env", () => ({
   logTier3MissingEnvBlockedDetached,
 }));
@@ -26,7 +34,7 @@ vi.mock("@/lib/gen/orchestration-snapshot", () => ({
   // Both fields: the real reader always returns them, and the approve path maps
   // over `capabilities` (f3-approve-round.ts), so a providers-only stub throws
   // and the gate answers `tier3_readiness_unavailable` instead of its verdict.
-  readF3ApprovedFromSnapshot: vi.fn(() => ({ providers: [], capabilities: [] })),
+  readF3ApprovedFromSnapshot,
 }));
 vi.mock("@/lib/logging/devLog", () => ({ devLogAppend: vi.fn() }));
 vi.mock("@/lib/utils/debug", () => ({ debugLog: vi.fn() }));
@@ -84,6 +92,10 @@ function gateParams(overrides: {
     attachSessionCookie: (response: Response) => response,
   };
 }
+
+beforeEach(() => {
+  readF3ApprovedFromSnapshot.mockReturnValue({ providers: [], capabilities: [] });
+});
 
 describe("runF3ReadinessGate — f3ResolvedBaseVersionId (lineage source)", () => {
   beforeEach(() => {
@@ -209,6 +221,33 @@ describe("runF3ReadinessGate — deterministic release reports user-row persiste
     expect(body.error).toBe("f3_deterministic_release_required");
     expect(body.userTurnPersisted).toBe(false);
     expect(vi.mocked(chatRepo.addMessage)).not.toHaveBeenCalled();
+  });
+
+  it("allows the LLM round when an approved dossier is still absent from the parent", async () => {
+    readF3ApprovedFromSnapshot.mockReturnValue({
+      providers: ["stripe-checkout"],
+      capabilities: ["payments"],
+    });
+    mockDeterministicRelease();
+    vi.mocked(resolveChatPreferredVersionId).mockResolvedValue("v-parent");
+
+    const result = await runF3ReadinessGate({
+      ...gateParams({
+        parsedMeta: makeParsedMeta("v-parent"),
+        metaEngineBaseVersionId: null,
+      }),
+      previousFiles: [
+        { path: "app/page.tsx", content: "F2 exact", language: "tsx" },
+      ],
+    });
+
+    expect(result).not.toBeInstanceOf(Response);
+    if (result instanceof Response) throw new Error("unreachable");
+    expect(checkTier3ReadinessForVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pendingApprovedDossierIds: ["stripe-checkout"],
+      }),
+    );
   });
 
   it("reports true once the approve continuation persisted the row", async () => {

@@ -5,38 +5,39 @@
  * POST /api/domains/check
  * Body: { query: string }
  *
- * Checks availability + pricing across providers:
- *  - .se / .nu  -> Loopia XML-RPC API (or DNS fallback)
- *  - .com / .io / .app / .net / .dev / .co -> Vercel Registrar API
+ * Availability + price for a name (or a spread of TLDs when the query has
+ * none). Everything comes from `resolveDomainOffer`, the same resolver the
+ * purchase route uses, so search and checkout can no longer disagree about
+ * whether a name is free or what it costs.
  *
- * Returns: { results: DomainCheckResult[] }
+ * The response distinguishes a real quote from an estimate (`priceEstimated`)
+ * and says whether the name can actually be bought here (`purchasable` +
+ * `purchaseBlockedReason`). Before that split every result rendered as a bare
+ * number, so a reference figure for a `.se` was indistinguishable from a
+ * registrar quote for a `.com` — which is what made the prices look arbitrary.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getDomainPrice,
-  checkDomainAvailability,
-  isVercelConfigured,
-} from "@/lib/vercel/vercel-client";
-import { domainIsFree, isLoopiaConfigured } from "@/lib/loopia/loopia-client";
-import {
-  applyMarkupSek,
-  customerPriceFromUsd,
-  fallbackCustomerPriceSek,
-} from "@/lib/domains/pricing";
+import { isVercelConfigured } from "@/lib/vercel/vercel-client";
+import { isLoopiaConfigured } from "@/lib/loopia/loopia-client";
+import { resolveDomainOffer, type DomainOffer } from "@/lib/domains/registrar";
 import { lookupWhois, summarizeWhois, type WhoisSummary } from "@/lib/domains/rdap-client";
 import { withRateLimit } from "@/lib/rateLimit";
 
 export const maxDuration = 20;
-
-const SWEDISH_TLDS = new Set(["se", "nu"]);
 
 export interface DomainCheckResult {
   domain: string;
   available: boolean | null;
   price: number | null;
   currency: string;
-  provider: "vercel" | "loopia" | "dns";
+  provider: "vercel" | "loopia" | "dns" | "none";
+  /** True when `price` is a per-TLD reference figure, not a registrar quote. */
+  priceEstimated: boolean;
+  /** True when the name can be bought in-app right now. */
+  purchasable: boolean;
+  purchaseBlockedReason: string | null;
+  /** External registrar link, offered only when we cannot sell it ourselves. */
   purchaseUrl: string | null;
   error: string | null;
   /**
@@ -47,105 +48,27 @@ export interface DomainCheckResult {
   whois?: WhoisSummary | null;
 }
 
-async function checkViaDns(domain: string): Promise<boolean | null> {
-  try {
-    const res = await fetch(`https://dns.google/resolve?name=${domain}&type=A`, {
-      signal: AbortSignal.timeout(4000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data.Status === 3) return true;
-    if (data.Status === 0 && data.Answer) return false;
-    return null;
-  } catch {
-    return null;
-  }
+function externalPurchaseUrl(domain: string, tld: string): string {
+  return tld === "se" || tld === "nu"
+    ? `https://www.loopia.se/domannamn/?q=${encodeURIComponent(domain)}`
+    : `https://vercel.com/domains/search?q=${encodeURIComponent(domain)}`;
 }
 
-/**
- * Wholesale .se/.nu reference price in SEK before markup. These are the
- * approximate Loopia-style wholesale numbers used as fallbacks when the
- * registrar API doesn't return a price of its own.
- */
-const SWEDISH_WHOLESALE_SEK: Record<string, number> = { se: 99, nu: 99 };
-
-async function checkSwedishDomain(domain: string): Promise<DomainCheckResult> {
-  const tld = domain.split(".").pop()!;
-  const wholesale = SWEDISH_WHOLESALE_SEK[tld] ?? 99;
-  const customerPrice = applyMarkupSek(wholesale);
-
-  if (isLoopiaConfigured()) {
-    try {
-      const status = await domainIsFree(domain);
-      const available = status === "OK" ? true : status === "DOMAIN_OCCUPIED" ? false : null;
-      return {
-        domain,
-        available,
-        price: customerPrice,
-        currency: "SEK",
-        provider: "loopia",
-        purchaseUrl: available
-          ? `https://www.loopia.se/domannamn/?q=${encodeURIComponent(domain)}`
-          : null,
-        error: status === "AUTH_ERROR" ? "Loopia authentication failed" : null,
-      };
-    } catch (err) {
-      console.error(`[domains/check] Loopia error for ${domain}:`, err);
-    }
-  }
-
-  const available = await checkViaDns(domain);
+function toCheckResult(offer: DomainOffer): DomainCheckResult {
   return {
-    domain,
-    available,
-    price: customerPrice,
-    currency: "SEK",
-    provider: "dns",
-    purchaseUrl: available
-      ? `https://www.loopia.se/domannamn/?q=${encodeURIComponent(domain)}`
-      : null,
-    error: null,
-  };
-}
-
-async function checkVercelDomain(domain: string): Promise<DomainCheckResult> {
-  if (isVercelConfigured()) {
-    try {
-      const [priceData, availData] = await Promise.all([
-        getDomainPrice(domain).catch(() => null),
-        checkDomainAvailability(domain).catch(() => null),
-      ]);
-
-      const vercelPriceUsd = priceData?.price ?? 0;
-      const priceSek = vercelPriceUsd > 0 ? customerPriceFromUsd(vercelPriceUsd) : null;
-
-      return {
-        domain,
-        available: availData?.available ?? null,
-        price: priceSek,
-        currency: "SEK",
-        provider: "vercel",
-        purchaseUrl: availData?.available
-          ? `https://vercel.com/domains/search?q=${encodeURIComponent(domain)}`
-          : null,
-        error: null,
-      };
-    } catch (err) {
-      console.error(`[domains/check] Vercel error for ${domain}:`, err);
-    }
-  }
-
-  const tld = domain.split(".").pop()?.toLowerCase() ?? "com";
-  const available = await checkViaDns(domain);
-  return {
-    domain,
-    available,
-    price: fallbackCustomerPriceSek(tld),
-    currency: "SEK",
-    provider: "dns",
-    purchaseUrl: available
-      ? `https://vercel.com/domains/search?q=${encodeURIComponent(domain)}`
-      : null,
+    domain: offer.domain,
+    available: offer.available,
+    price: offer.quote.customerSek,
+    currency: offer.quote.currency,
+    provider: offer.availabilitySource,
+    priceEstimated: !offer.quote.binding,
+    purchasable: offer.purchasable,
+    purchaseBlockedReason: offer.purchaseBlockedReason,
+    // Only point people elsewhere when we genuinely cannot complete the sale.
+    purchaseUrl:
+      offer.available === true && !offer.purchasable
+        ? externalPurchaseUrl(offer.domain, offer.tld)
+        : null,
     error: null,
   };
 }
@@ -191,32 +114,24 @@ export async function POST(req: NextRequest) {
       }
 
       const hasTld = rawQuery.includes(".");
-      let domains: string[];
-
-      if (hasTld) {
-        domains = [rawQuery];
-      } else {
-        domains = [
-          `${rawQuery}.se`,
-          `${rawQuery}.com`,
-          `${rawQuery}.nu`,
-          `${rawQuery}.io`,
-          `${rawQuery}.app`,
-          `${rawQuery}.net`,
-        ];
-      }
+      const domains = hasTld
+        ? [rawQuery]
+        : [
+            `${rawQuery}.se`,
+            `${rawQuery}.com`,
+            `${rawQuery}.nu`,
+            `${rawQuery}.io`,
+            `${rawQuery}.app`,
+            `${rawQuery}.net`,
+          ];
 
       const results = await Promise.all(
         domains.map(async (domain, index): Promise<DomainCheckResult> => {
           if (index > 0) {
             await new Promise((r) => setTimeout(r, index * 150));
           }
-
-          const tld = domain.split(".").pop()?.toLowerCase() ?? "";
-          const base = SWEDISH_TLDS.has(tld)
-            ? await checkSwedishDomain(domain)
-            : await checkVercelDomain(domain);
-          return enrichWithWhois(base);
+          const offer = await resolveDomainOffer(domain);
+          return enrichWithWhois(toCheckResult(offer));
         }),
       );
 

@@ -35,6 +35,14 @@ describe("parseArmingDirective", () => {
     expect(directive?.count).toBe(MAX_FOLLOWUP_COUNT);
   });
 
+  it("clamps a follow-up count under 1 to the default", () => {
+    const directive = parseArmingDirective("gör 0 follow-ups");
+    expect(directive?.mode).toBe("followups");
+    expect(directive?.count).toBe(DEFAULT_FOLLOWUP_COUNT);
+    const mandate = createArmedMandate({ mode: "followups", count: 0, reason: "x" });
+    expect(mandate.remaining).toBe(DEFAULT_FOLLOWUP_COUNT);
+  });
+
   it("detects a review-next mandate", () => {
     const directive = parseArmingDirective(
       "granska nästa meddelande jag skapar och ta notis om allt",
@@ -70,6 +78,12 @@ describe("parseStopDirective", () => {
     }
   });
 
+  it("detects Swedish stop variants including avsluta and halt", () => {
+    for (const text of ["avsluta", "Avsluta nu", "halt", "halt please"]) {
+      expect(parseStopDirective(text)).toBe(true);
+    }
+  });
+
   it("ignores unrelated text", () => {
     expect(parseStopDirective("fortsätt gärna")).toBe(false);
   });
@@ -90,6 +104,13 @@ describe("mandate lifecycle", () => {
     expect(isMandateActive(after2)).toBe(false);
   });
 
+  it("consumeMandateStep clears the mandate when the last step is consumed", () => {
+    const mandate = createArmedMandate({ mode: "review_next", count: 1, reason: "x" }, 1000);
+    expect(mandate.remaining).toBe(1);
+    expect(consumeMandateStep(mandate)).toBeNull();
+    expect(consumeMandateStep(null)).toBeNull();
+  });
+
   it("describeMandate reflects state", () => {
     expect(describeMandate(null)).toMatch(/ingen aktiv/i);
     expect(describeMandate(createArmedMandate({ mode: "review_next", count: 1, reason: "" }))).toMatch(
@@ -98,5 +119,22 @@ describe("mandate lifecycle", () => {
     expect(
       describeMandate(createArmedMandate({ mode: "followups", count: 3, reason: "" })),
     ).toMatch(/3 follow-up/i);
+  });
+});
+
+describe("describeMandate", () => {
+  it("describes review_next as a passive mode (user sends the next message)", () => {
+    const label = describeMandate(
+      createArmedMandate({ mode: "review_next", count: 1, reason: "granska nästa" }),
+    );
+    expect(label).toBe("Armerad: granskar nästa meddelande du skickar");
+    // Must not imply the agent drives/builds on its own.
+    expect(label).not.toMatch(/svar|följer upp|auto|bygg/i);
+  });
+
+  it("describes followups with the remaining step count", () => {
+    expect(
+      describeMandate(createArmedMandate({ mode: "followups", count: 5, reason: "gör 5" })),
+    ).toBe("Armerad: 5 follow-up(s) kvar");
   });
 });

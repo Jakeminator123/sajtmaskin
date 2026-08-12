@@ -159,6 +159,27 @@ describe("acceptRepair — envelope base-hash guard, atomic promote, missing-tab
     expect(acceptSelectForUpdate.value).toBe(true);
   });
 
+  /**
+   * Innehållsrevision steg 3: guarden jämför verdiktets revision mot innehållet
+   * som promotas. Här är det den reparerade payloaden — versionens `files_json`
+   * håller fortfarande basen tills UPDATE:n i samma transaktion kör. Utan
+   * `promotedFilesJson` skulle repair-passets verdikt (stämplat med den
+   * reparerade revisionen av `saveRepairedFiles`) läsas som stale och kila fast
+   * varje legitim accept.
+   */
+  it("skickar det promotbara innehållet till promote-guarden, inte versionens bas", async () => {
+    mockLeaseTableExists(true);
+    await acceptRepair("ver-1");
+    expect(assertPromoteAllowed).toHaveBeenCalledWith(
+      "ver-1",
+      undefined,
+      expect.objectContaining({
+        onReadError: "indeterminate",
+        promotedFilesJson: REPAIRED_JSON,
+      }),
+    );
+  });
+
   it("binds the UPDATE to the exact selected payload AND enforces no-active-lease when the table exists", async () => {
     mockLeaseTableExists(true);
     await acceptRepair("ver-1");

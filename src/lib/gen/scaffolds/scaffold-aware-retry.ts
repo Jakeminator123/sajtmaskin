@@ -42,7 +42,16 @@ interface InferScaffoldRetryParams {
   finalizedFilesForPreview: CodeFile[];
 }
 
-const APP_SCAFFOLD_IDS = new Set(["dashboard", "app-shell"]);
+/**
+ * App-like scaffolds, derived from the manifests' own `siteKind` instead of a
+ * hand-maintained list. The hardcoded set omitted `auth-pages` (`siteKind:
+ * "app"`), so an `app` build that legitimately matched auth-pages was classified
+ * as `app-shell-mismatch` on any blocking preflight and the retry hint pushed it
+ * away from the right scaffold with `confidence: "high"`.
+ */
+function isAppScaffold(scaffoldId: string): boolean {
+  return getScaffoldById(scaffoldId)?.siteKind === "app";
+}
 
 function hasRouteCount(files: CodeFile[], minimum: number): boolean {
   // Dual-support: counts routes in either `app/`- or `src/app/`-rooted output.
@@ -66,13 +75,14 @@ function classifyFailureType(
     .join("\n")
     .toLowerCase();
 
-  if (buildIntent === "app" && !APP_SCAFFOLD_IDS.has(resolvedScaffold.id)) {
+  if (buildIntent === "app" && !isAppScaffold(resolvedScaffold.id)) {
     return "app-shell-mismatch";
   }
 
   if (
     buildIntent !== "app" &&
-    APP_SCAFFOLD_IDS.has(resolvedScaffold.id) &&
+    isAppScaffold(resolvedScaffold.id) &&
+    !resolvedScaffold.allowedBuildIntents.includes(buildIntent) &&
     !hasRouteCount(finalizedFilesForPreview, 3)
   ) {
     return "site-shell-mismatch";

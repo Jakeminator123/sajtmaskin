@@ -9,6 +9,7 @@
     NEWPR      #<n>  ny öppen PR upptäckt
     NEWCOMMIT  #<n>  head-SHA ändrad (mognadsklockan startar om)
     FAILED     #<n>  minst en check röd
+    BLOCKED    #<n>  bär en blockerande label (do-not-merge m.fl.) - kräver ägarbeslut
     ACTIONABLE #<n>  alla checks klara + gröna OCH >= MinutesMature granskningsbar
                      (minsta av head-synlighet och PR-ålder - se Get-ReviewableMinutes)
 
@@ -37,7 +38,10 @@ param(
   # författaren lade sign-off eller triagerade ett fynd) - då kommer ingen ny
   # sentinel och agenten väcks aldrig.
   [int]$ReAnnounceCycles = 15,
-  [string]$Repo = "Jakeminator123/sajtmaskin"
+  [string]$Repo = "Jakeminator123/sajtmaskin",
+  # Labels som betyder "rör inte utan medvetet ägarbeslut". De larmar aldrig som
+  # ACTIONABLE oavsett hur grön och mogen PR:en är.
+  [string[]]$BlockingLabels = @("do-not-merge", "agent:needs-human", "risk:4", "risk:5")
 )
 
 $ErrorActionPreference = "Continue"
@@ -64,16 +68,22 @@ function Announce([string]$key, [string]$message, [int]$cycle) {
 # UTC-offseten (upptäckt i skarp körning: en 3 min gammal PR såg 125 min ut).
 function Get-OpenPrs {
   $raw = gh pr list --repo $Repo --state open --json number,isDraft,headRefOid,createdAt,labels `
-    --jq '.[] | select(.isDraft == false) | "\(.number)|\(.headRefOid)|\(.createdAt)|\([.labels[].name] | index("merge:ready") != null)"' 2>$null | Out-String
+    --jq '.[] | select(.isDraft == false) | "\(.number)|\(.headRefOid)|\(.createdAt)|\([.labels[].name] | index("merge:ready") != null)|\([.labels[].name] | join(","))"' 2>$null | Out-String
   if ($LASTEXITCODE -ne 0) { return $null }
   $out = @()
   foreach ($line in @($raw -split "`n" | Where-Object { $_ -match "\S" })) {
     $parts = $line.Trim() -split "\|"
-    if ($parts.Count -lt 4) { continue }
+    if ($parts.Count -lt 5) { continue }
+    $labels = @($parts[4] -split "," | Where-Object { $_ -match "\S" } | ForEach-Object { $_.Trim() })
     $out += [pscustomobject]@{
       Number  = [int]$parts[0]
       Sha     = $parts[1]
       Created = $parts[2]
+      # En label som säger stopp väger tyngre än en som säger klart: en PR kan
+      # bära kvarglömd merge:ready OCH do-not-merge samtidigt. Bevakaren larmar
+      # då BLOCKED i stället för ACTIONABLE, så ingen agent väcks till en PR som
+      # kräver ett medvetet ägarbeslut.
+      Blocked = @($labels | Where-Object { $BlockingLabels -contains $_ })
       # ENBART att labeln finns - inte att sign-offen avser nuvarande head.
       # Labeln ska tas bort vid ny commit, men det är agent-disciplin och inte
       # tvingat, så en kvarglömd label kan peka på en äldre SHA. Larmet säger
@@ -206,7 +216,16 @@ for ($i = 1; $i -le $Cycles; $i++) {
     $summary += "#$n=$state/$ageText"
 
     $signed = $(if ($pr.Signed) { "label:merge:ready" } else { "OSIGNERAD" })
-    if ($state -eq "failed") { Announce "$n/$sha/failed" "FAILED #$n" $i }
+    # BLOCKED före FAILED. Kommentaren vid `Blocked` ovan säger att en
+    # stopp-label väger tyngre, men ordningen här gjorde motsatsen: en PR med
+    # do-not-merge OCH röd CI larmade FAILED, vilket väcker en agent till
+    # CI-felsökning på en PR som väntar på ett medvetet ägarbeslut. Röd CI är
+    # dessutom ofta en följd av att arbetet medvetet parkerats. Larmnyckeln
+    # bär läget, så en PR som senare bara är röd får sitt FAILED-larm då.
+    if (@($pr.Blocked).Count -gt 0) {
+      Announce "$n/$sha/blocked" ("BLOCKED #$n (" + (@($pr.Blocked) -join ",") + ")") $i
+    }
+    elseif ($state -eq "failed") { Announce "$n/$sha/failed" "FAILED #$n" $i }
     elseif ($state -eq "green" -and $age -ge $MinutesMature -and $ignoredPrs -notcontains $n) {
       # Signaturläget ingår i nyckeln: när författaren sätter merge:ready UTAN
       # ny commit ändras varken SHA eller läge, och utan detta hade larmet tystats

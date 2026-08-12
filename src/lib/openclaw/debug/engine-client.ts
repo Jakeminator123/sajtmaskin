@@ -36,7 +36,7 @@ export interface HttpEngineClientOptions {
   baseUrl: string;
   /** Forwarded auth headers from the authenticated owner (cookie + authorization). */
   authHeaders?: Record<string, string>;
-  /** Model tier for created chats. Defaults to "fast" (Max Fast). */
+  /** Model tier for created chats. Defaults to the GPT-5.6 Sol Premium lane. */
   modelId?: string;
   /**
    * App project id minted debug chats are created under, sent as
@@ -99,8 +99,7 @@ function readVersionPhase(data: unknown): { phase: string; settled: boolean } {
   if (status && typeof status === "object") {
     const obj = status as { phase?: unknown; done?: unknown };
     const phase = typeof obj.phase === "string" ? obj.phase : "unknown";
-    const settled =
-      obj.done === true || (SETTLED_PHASES as Set<string>).has(phase);
+    const settled = obj.done === true || (SETTLED_PHASES as Set<string>).has(phase);
     return { phase, settled };
   }
   return { phase: "unknown", settled: false };
@@ -136,12 +135,10 @@ function extractIdsFromSse(text: string): { chatId?: string; versionId?: string 
   return out;
 }
 
-export function createHttpEngineClient(
-  options: HttpEngineClientOptions,
-): BugHuntEngineClient {
+export function createHttpEngineClient(options: HttpEngineClientOptions): BugHuntEngineClient {
   const baseUrl = options.baseUrl.replace(/\/+$/, "");
   const doFetch = options.fetchImpl ?? fetch;
-  const modelId = options.modelId ?? "fast";
+  const modelId = options.modelId ?? "premium";
   const appProjectId = options.appProjectId?.trim() || undefined;
   const projectId = options.projectId?.trim() || undefined;
   const timeoutMs = options.requestTimeoutMs ?? 290_000;
@@ -167,13 +164,18 @@ export function createHttpEngineClient(
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!res.ok) return null;
-      const data = (await res.json().catch(() => null)) as
-        | { versions?: Array<Record<string, unknown>> }
-        | null;
+      const data = (await res.json().catch(() => null)) as {
+        versions?: Array<Record<string, unknown>>;
+      } | null;
       const list = Array.isArray(data?.versions) ? data.versions : [];
       if (list.length === 0) return null;
       const newest = sortEngineVersionsNewestFirst(
-        list as Array<{ versionId?: string | null; id?: string | null; versionNumber?: number | null; createdAt?: string | null }>,
+        list as Array<{
+          versionId?: string | null;
+          id?: string | null;
+          versionNumber?: number | null;
+          createdAt?: string | null;
+        }>,
       )[0];
       return (newest?.versionId as string) || (newest?.id as string) || null;
     } catch {
@@ -253,13 +255,19 @@ export function createHttpEngineClient(
       return consumeStreamAndResolveRef(res, chatId);
     },
 
-    async waitForVersionSettled(ref: EngineVersionRef): Promise<{ state: string; settled: boolean }> {
+    async waitForVersionSettled(
+      ref: EngineVersionRef,
+    ): Promise<{ state: string; settled: boolean }> {
       let lastState = "unknown";
       for (let i = 0; i < settleMaxPolls; i += 1) {
         try {
           const res = await doFetch(
             `${baseUrl}/api/engine/chats/${ref.chatId}/version-status?versionId=${encodeURIComponent(ref.versionId)}`,
-            { method: "GET", headers: headers(), signal: AbortSignal.timeout(settleRequestTimeoutMs) },
+            {
+              method: "GET",
+              headers: headers(),
+              signal: AbortSignal.timeout(settleRequestTimeoutMs),
+            },
           );
           if (res.ok) {
             const data = await res.json().catch(() => null);
@@ -298,20 +306,18 @@ export function createHttpEngineClient(
         if (!res.ok) {
           return { result: "unknown", detail: `HTTP ${res.status}` };
         }
-        const data = (await res.json().catch(() => null)) as
-          | {
-              passed?: boolean;
-              firstFailureCheck?: string | null;
-              checks?: Array<{
-                check?: string;
-                passed?: boolean;
-                repairable?: boolean;
-                exitCode?: number;
-                output?: string;
-                durationMs?: number | null;
-              }>;
-            }
-          | null;
+        const data = (await res.json().catch(() => null)) as {
+          passed?: boolean;
+          firstFailureCheck?: string | null;
+          checks?: Array<{
+            check?: string;
+            passed?: boolean;
+            repairable?: boolean;
+            exitCode?: number;
+            output?: string;
+            durationMs?: number | null;
+          }>;
+        } | null;
         // Carry failed checks so repair has actionable context. Only the three
         // gate checks the repair endpoint accepts are kept.
         const allowed = new Set(["typecheck", "lint", "build"]);
@@ -319,10 +325,7 @@ export function createHttpEngineClient(
           ? data!.checks
               .filter(
                 (c) =>
-                  c &&
-                  c.passed === false &&
-                  c.repairable !== false &&
-                  allowed.has(String(c.check)),
+                  c && c.passed === false && c.repairable !== false && allowed.has(String(c.check)),
               )
               .map((c) => ({
                 check: c.check as EngineRepairGateFailure["check"],
@@ -359,15 +362,20 @@ export function createHttpEngineClient(
         if (!res.ok) {
           return { outcome: `repair_http_${res.status}`, versionId: ref.versionId };
         }
-        const data = (await res.json().catch(() => null)) as
-          | { status?: string; repaired?: boolean; newVersionId?: string | null }
-          | null;
+        const data = (await res.json().catch(() => null)) as {
+          status?: string;
+          repaired?: boolean;
+          newVersionId?: string | null;
+        } | null;
         return {
           outcome: data?.status || (data?.repaired ? "repaired" : "completed"),
           versionId: data?.newVersionId || ref.versionId,
         };
       } catch (err) {
-        return { outcome: err instanceof Error ? err.message : "repair_error", versionId: ref.versionId };
+        return {
+          outcome: err instanceof Error ? err.message : "repair_error",
+          versionId: ref.versionId,
+        };
       }
     },
 

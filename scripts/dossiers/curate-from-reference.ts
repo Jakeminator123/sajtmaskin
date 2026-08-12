@@ -17,19 +17,31 @@
  *
  * Behavior:
  *   - Reads README.md, package.json, .env.example, and a sample of source files.
- *   - Calls OpenAI gpt-4o-mini with a structured prompt to produce a v2 manifest.
+ *   - Calls the model from `config/ai_models/manifest.json`
+ *     (`backoffice_dossier_curation`) with a structured prompt to produce a v2
+ *     manifest. `--model=<id>` picks another id from the same entry; an id the
+ *     entry does not list is rejected BEFORE the network call.
  *   - Writes a draft. Will refuse to overwrite an existing dossier unless --force.
  *
- * Cost: ~$0.01-0.05 per dossier. Latency: ~10-30s.
+ * Cost/latency depend on the picked model. The old hardcoded `gpt-4o-mini` ran
+ * ~$0.01-0.05 and ~10-30s per dossier; the manifest default is now a reasoning
+ * model, so expect a higher cost and a longer run (the backoffice caller allows
+ * up to 300s).
  *
  * NOTE: This is the *only* dossier script. The legacy 16-script pipeline
  * was archived 2026-04-20 to archive/dossiers-legacy-2026-04-20/scripts/.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import OpenAI from "openai";
 
+import {
+  getWorkloadDefaultModelFromManifest,
+  getWorkloadFallbackModelsFromManifest,
+} from "../../src/lib/ai-models/load-manifest";
+import { getTemperatureConfig } from "../../src/lib/builder/direct-model";
 import { validateDossierManifest } from "../../src/lib/gen/dossiers/validate-manifest";
 
 const REPO_ROOT = resolve(process.cwd());
@@ -37,23 +49,67 @@ const REFERENCES_ROOT = join(REPO_ROOT, "data", "template-references", "repos");
 const METADATA_ROOT = join(REPO_ROOT, "data", "template-references", "_metadata");
 const DOSSIERS_ROOT = join(REPO_ROOT, "data", "dossiers");
 
+/** Manifest entry that owns this script's model choice (Fas D). */
+export const CURATION_WORKLOAD_ID = "backoffice_dossier_curation";
+
 interface Args {
   reference: string;
   class: "hard" | "soft";
   id: string;
   force: boolean;
+  model: string;
 }
 
-function parseArgs(argv: string[]): Args {
+/**
+ * Model ids this script accepts: the workload's `defaultModel` first, then its
+ * `fallbackModels`. The manifest owns the choice — no hardcoded id here.
+ */
+export function allowedCurationModels(): readonly string[] {
+  const preferred = getWorkloadDefaultModelFromManifest(CURATION_WORKLOAD_ID);
+  const fallbacks = getWorkloadFallbackModelsFromManifest(CURATION_WORKLOAD_ID);
+  const ordered = [...(preferred ? [preferred] : []), ...fallbacks].filter(
+    (id) => id.trim().length > 0,
+  );
+  return [...new Set(ordered)];
+}
+
+/**
+ * Resolve `--model=<id>` against the manifest entry. An unknown id fails here —
+ * before the OpenAI call — so a typo costs nothing instead of a ~30s request
+ * that either 404s on the model or, worse, silently runs on the wrong one.
+ */
+export function resolveCurationModel(requested: string | undefined): string {
+  const allowed = allowedCurationModels();
+  if (allowed.length === 0) {
+    throw new Error(
+      `config/ai_models/manifest.json has no models for workload "${CURATION_WORKLOAD_ID}" — ` +
+        "add a defaultModel there instead of hardcoding one here.",
+    );
+  }
+  const wanted = (requested ?? "").trim();
+  if (!wanted) return allowed[0];
+  if (!allowed.includes(wanted)) {
+    throw new Error(
+      `--model=${wanted} is not listed for workload "${CURATION_WORKLOAD_ID}" in ` +
+        `config/ai_models/manifest.json. Allowed: ${allowed.join(", ")}`,
+    );
+  }
+  return wanted;
+}
+
+export function parseArgs(argv: string[]): Args {
   const args: Partial<Args> = { force: false };
+  let requestedModel: string | undefined;
   for (const a of argv.slice(2)) {
     if (a === "--force") args.force = true;
     else if (a.startsWith("--reference=")) args.reference = a.slice("--reference=".length);
     else if (a.startsWith("--class=")) {
       const v = a.slice("--class=".length);
-      if (v !== "hard" && v !== "soft") throw new Error(`--class must be 'hard' or 'soft' (got: ${v})`);
+      if (v !== "hard" && v !== "soft")
+        throw new Error(`--class must be 'hard' or 'soft' (got: ${v})`);
       args.class = v;
     } else if (a.startsWith("--id=")) args.id = a.slice("--id=".length);
+    else if (a.startsWith("--model=")) requestedModel = a.slice("--model=".length);
   }
   if (!args.reference) throw new Error("--reference=<id> is required");
   if (!args.class) throw new Error("--class=hard|soft is required");
@@ -61,6 +117,7 @@ function parseArgs(argv: string[]): Args {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(args.id)) {
     throw new Error(`--id must be kebab-case (got: ${args.id})`);
   }
+  args.model = resolveCurationModel(requestedModel);
   return args as Args;
 }
 
@@ -111,7 +168,13 @@ function listSourceFiles(refDir: string, maxFiles = 6): string[] {
 function readMetadata(referenceId: string): string | null {
   if (!existsSync(METADATA_ROOT)) return null;
   const metaFiles = readdirSync(METADATA_ROOT).filter(
-    (f) => f.includes(referenceId.replace(/^(ai|auth|cms|database|payments|realtime|ui-content|ui-marketing)-/, "")) && f.endsWith(".github.json"),
+    (f) =>
+      f.includes(
+        referenceId.replace(
+          /^(ai|auth|cms|database|payments|realtime|ui-content|ui-marketing)-/,
+          "",
+        ),
+      ) && f.endsWith(".github.json"),
   );
   if (metaFiles.length === 0) return null;
   return readIfExists(join(METADATA_ROOT, metaFiles[0]), 2_000);
@@ -121,15 +184,26 @@ interface DraftManifest {
   id: string;
   label: string;
   capability: string;
+  providers?: string[];
   codeFidelity: "verbatim" | "rewritable";
   complexity: "simple" | "medium" | "advanced";
   defaultForCapability: boolean;
+  mock?: "canned" | "seed" | "success" | "visual" | "none";
   summary: string;
-  envVars?: { key: string; required: boolean; purpose: string }[];
+  envVars?: { key: string; required: boolean; purpose: string; setupUrl?: string }[];
   dependencies?: string[];
-  files?: { path: string; role: "client" | "server" | "shared"; injectionMode?: "verbatim" | "rewritable" }[];
-  exposes?: { name: string; type: "component" | "function" | "hook" | "constant"; import: string }[];
+  files?: {
+    path: string;
+    role: "client" | "server" | "shared";
+    injectionMode?: "verbatim" | "rewritable";
+  }[];
+  exposes?: {
+    name: string;
+    type: "component" | "function" | "hook" | "constant";
+    import: string;
+  }[];
   lastVerified: string;
+  verificationStatus?: "accepted" | "unverified";
   sourceRepoUrl?: string;
   notes?: string;
 }
@@ -169,23 +243,25 @@ function assertCurationOutput(
   // Coerce id before validation so the caller's --id argument wins over the
   // LLM's guess and the kebab-case regex check passes consistently.
   (root.manifest as Record<string, unknown>).id = expectedId;
+  // AI curation creates a draft, never acceptance evidence. A human may flip
+  // this only after the dossier acceptance checklist has been completed.
+  (root.manifest as Record<string, unknown>).verificationStatus = "unverified";
   const result = validateDossierManifest(root.manifest, { expectedId, class: klass });
   if (!result.valid) {
-    throw new Error(
-      `LLM manifest failed schema validation:\n  - ${result.errors.join("\n  - ")}`,
-    );
+    throw new Error(`LLM manifest failed schema validation:\n  - ${result.errors.join("\n  - ")}`);
   }
 }
 
-async function callLLM(args: Args, sources: { name: string; body: string }[]): Promise<CurationOutput> {
+async function callLLM(
+  args: Args,
+  sources: { name: string; body: string }[],
+): Promise<CurationOutput> {
   const apiKey = (process.env.OPENAI_API_KEY ?? "").trim();
   if (!apiKey) throw new Error("OPENAI_API_KEY is missing");
   const openai = new OpenAI({ apiKey });
 
   const today = new Date().toISOString().slice(0, 10);
-  const sourcesBlock = sources
-    .map((s) => `### ${s.name}\n\`\`\`\n${s.body}\n\`\`\``)
-    .join("\n\n");
+  const sourcesBlock = sources.map((s) => `### ${s.name}\n\`\`\`\n${s.body}\n\`\`\``).join("\n\n");
 
   const system = `You are curating a dossier (a reusable building block) for a website-generation pipeline. Read the provided template repo and produce:
 
@@ -194,24 +270,26 @@ async function callLLM(args: Args, sources: { name: string; body: string }[]): P
   "id": "<kebab-case>",
   "label": "<short human label>",
   "capability": "<single kebab-case capability the dossier delivers, e.g. 'payments', 'auth', 'ai-chat', 'image-gen', 'pricing-section', 'visual-3d'>",
-  "codeFidelity": "verbatim" | "rewritable",
+${args.class === "hard" ? '  "providers": ["<canonical kebab-case provider id, e.g. stripe or openai>"],\n' : ""}  "codeFidelity": "verbatim" | "rewritable",
   "complexity": "simple" | "medium" | "advanced",
   "defaultForCapability": false,
-  "mock": "canned" | "seed" | "success" | "none",
+  "mock": "canned" | "seed" | "success" | "visual" | "none",
   "summary": "<1-3 sentences: what it does + when to use it>",
-  "envVars": [{"key":"FOO","required":true,"purpose":"<concrete reason>"}],
+  "envVars": [{"key":"FOO","required":true,"purpose":"<concrete reason>","setupUrl":"<official provider URL when known>"}],
   "dependencies": ["..."],
   "files": [{"path":"components/<...>","role":"client|server|shared","injectionMode":"verbatim|rewritable"}],
   "exposes": [{"name":"X","type":"component","import":"@/components/x"}],
   "lastVerified": "${today}",
+  "verificationStatus": "unverified",
   "sourceRepoUrl": "<url if known>"
 }
 
 Rules:
-- Class is "${args.class}" (already decided): hard = needs external secrets, soft = self-contained.
+- Class is "${args.class}" (already decided): hard = coupled to an external provider, service, or runtime contract; soft = self-contained.
+- providers: REQUIRED and non-empty for hard dossiers; list the canonical external provider identities implemented by the shipped code. OMIT the property entirely for soft dossiers. Never copy a legacy or guessed provider label without confirming it from the source SDK/API.
 - codeFidelity: "verbatim" for integration glue (auth callbacks, webhooks, SDK init, api-routes); "rewritable" for UI components.
 - envVars: only ones that come from the .env.example AND are actually used in the source code. Skip placeholders.
-- mock (hard dossiers): declare how the VISUAL surface works in preview WITHOUT a real key — "canned" (server route returns a believable fabricated response), "seed" (data layer falls back to shipped seed data), "success" (mutation endpoints return a fake success + demo notice), or "none" (cannot be mocked meaningfully, e.g. payments/auth — a discreet config banner is shown). CI requires EVERY hard dossier to have mock != "none" unless the capability is on the documented exception list, so prefer a real mock mode. Omit for soft dossiers.
+- mock (hard dossiers): declare how the VISUAL surface works in preview WITHOUT a real key — "canned" (server route returns a believable fabricated response), "seed" (data layer falls back to shipped seed data), "success" (mutation endpoints return a fake success + demo notice), "visual" (the interactive surface renders but actions show an honest demo notice), or "none" (no meaningful demo surface; a discreet config banner is shown or the feature self-disables). CI requires EVERY hard dossier to have mock != "none" unless the capability is on the documented exception list, so prefer a real mock mode. Omit for soft dossiers.
 - files: list only files that should be injected into the user's project. Strip the upstream's "src/" prefix; output paths should start with "components/".
 - summary: write it for an LLM that needs to decide *when* to use this dossier. No marketing language.
 
@@ -235,7 +313,7 @@ Source material:
 ${sourcesBlock}`;
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: args.model,
     messages: [
       { role: "system", content: system },
       { role: "user", content: user },
@@ -260,17 +338,32 @@ ${sourcesBlock}`;
               type: "object",
               additionalProperties: false,
               required: [
-                "id", "label", "capability", "codeFidelity", "complexity",
-                "summary", "lastVerified",
+                "id",
+                "label",
+                "capability",
+                "codeFidelity",
+                "complexity",
+                "summary",
+                "lastVerified",
+                ...(args.class === "hard" ? ["providers"] : []),
               ],
               properties: {
                 id: { type: "string" },
                 label: { type: "string" },
                 capability: { type: "string" },
+                providers: {
+                  type: "array",
+                  minItems: 1,
+                  uniqueItems: true,
+                  items: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" },
+                },
                 codeFidelity: { type: "string", enum: ["verbatim", "rewritable"] },
                 complexity: { type: "string", enum: ["simple", "medium", "advanced"] },
                 defaultForCapability: { type: "boolean" },
-                mock: { type: "string", enum: ["canned", "seed", "success", "none"] },
+                mock: {
+                  type: "string",
+                  enum: ["canned", "seed", "success", "visual", "none"],
+                },
                 summary: { type: "string" },
                 envVars: {
                   type: "array",
@@ -282,6 +375,7 @@ ${sourcesBlock}`;
                       key: { type: "string" },
                       required: { type: "boolean" },
                       purpose: { type: "string" },
+                      setupUrl: { type: "string" },
                     },
                   },
                 },
@@ -313,6 +407,7 @@ ${sourcesBlock}`;
                   },
                 },
                 lastVerified: { type: "string" },
+                verificationStatus: { type: "string", enum: ["unverified"] },
                 sourceRepoUrl: { type: "string" },
               },
             },
@@ -321,7 +416,11 @@ ${sourcesBlock}`;
         },
       },
     },
-    temperature: 0.2,
+    // Reasoning models (the gpt-5 family) reject a custom temperature with a
+    // HTTP 400, so the rule lives with its canonical owner instead of a fourth
+    // copy: getTemperatureConfig returns {} for those ids and {temperature}
+    // for classic ones. Relevant since the manifest default is a gpt-5 id.
+    ...getTemperatureConfig(args.model, 0.2),
   });
 
   const content = response.choices[0]?.message?.content;
@@ -361,13 +460,20 @@ async function main() {
   }
 
   const sources: { name: string; body: string }[] = [];
-  for (const candidate of ["README.md", "readme.md", "package.json", ".env.example", "components.json"]) {
+  for (const candidate of [
+    "README.md",
+    "readme.md",
+    "package.json",
+    ".env.example",
+    "components.json",
+  ]) {
     const body = readIfExists(join(refDir, candidate));
     if (body) sources.push({ name: candidate, body });
   }
   for (const path of listSourceFiles(refDir)) {
     const body = readIfExists(path);
-    if (body) sources.push({ name: path.replace(refDir + "\\", "").replace(refDir + "/", ""), body });
+    if (body)
+      sources.push({ name: path.replace(refDir + "\\", "").replace(refDir + "/", ""), body });
   }
   const meta = readMetadata(args.reference);
   if (meta) sources.push({ name: "_metadata.github.json", body: meta });
@@ -378,6 +484,7 @@ async function main() {
 
   console.log(`[curate] reference=${args.reference} class=${args.class} id=${args.id}`);
   console.log(`[curate] sources: ${sources.length} file(s) sampled`);
+  console.log(`[curate] model=${args.model} (workload ${CURATION_WORKLOAD_ID})`);
   console.log(`[curate] calling OpenAI…`);
 
   const t0 = Date.now();
@@ -387,12 +494,17 @@ async function main() {
 
   // Sanity-check: enforce the id/class the user asked for.
   output.manifest.id = args.id;
-  if (!output.manifest.lastVerified) output.manifest.lastVerified = new Date().toISOString().slice(0, 10);
+  if (!output.manifest.lastVerified)
+    output.manifest.lastVerified = new Date().toISOString().slice(0, 10);
 
   mkdirSync(targetDir, { recursive: true });
   writeFileSync(
     join(targetDir, "manifest.json"),
-    JSON.stringify({ $schema: "../../../../docs/schemas/strict/dossier.schema.json", ...output.manifest }, null, 2) + "\n",
+    JSON.stringify(
+      { $schema: "../../../../docs/schemas/strict/dossier.schema.json", ...output.manifest },
+      null,
+      2,
+    ) + "\n",
     "utf-8",
   );
   writeFileSync(join(targetDir, "instructions.md"), output.instructions, "utf-8");
@@ -402,7 +514,23 @@ async function main() {
   console.log(`[curate] DONE — review the draft and edit before relying on it.`);
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+// Only run when invoked directly, so the regression test can import
+// parseArgs/resolveCurationModel without starting a curation run. Same
+// URL-string comparison as normalize-legacy-prospect.ts (robust across Windows
+// backslash/drive-letter differences).
+function isInvokedDirectly(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return import.meta.url === pathToFileURL(entry).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isInvokedDirectly()) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

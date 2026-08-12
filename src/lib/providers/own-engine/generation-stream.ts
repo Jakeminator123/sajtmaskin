@@ -116,10 +116,22 @@ export interface GenerationStreamMeta extends Record<string, unknown> {
    * the mute being invisible to the user.
    */
   mutedCapabilities?: string[];
+  /** Provider-specific dossier ids deferred by the F2 mute. */
+  mutedDossierIds?: string[];
   /** Swedish user-facing names for `mutedCapabilities` (dossier labels). */
   mutedCapabilityLabels?: string[];
-  /** Dossier capabilities with real file evidence in the base version. */
+  /**
+   * Dossier capabilities with real file evidence in the base version.
+   * Finalize overwrites this with the final persisted version's evidence
+   * before saving the orchestration snapshot.
+   */
   fileEvidenceCapabilities?: string[];
+  /**
+   * Exact dossier ids with file evidence in the final persisted version.
+   * Finalize owns this signal because selection happens before the post-merge
+   * file set exists.
+   */
+  fileEvidenceDossierIds?: string[];
   removedDossierIds?: string[];
   f3ApprovedCapabilities?: string[];
   f3ApprovedProviders?: string[];
@@ -277,8 +289,40 @@ export function createOwnEngineGenerationStream(
        */
       let providerFault: { message: string; code: string | null } | null = null;
 
-      const commitCreditsUnlessProviderFault = async () => {
+      /**
+       * `endedAsDesigned` marks the terminal states the run CHOSE rather than
+       * fell into: the model made a blocking tool call and we are asking the
+       * user something. That matters because the flag above outlives the event
+       * that set it — the `error` case only breaks its `switch`, so the stream
+       * keeps reading, and a transient 429 early in the run is still recorded
+       * when the run later ends exactly the way it was supposed to.
+       *
+       * A generation row must describe the OUTCOME, not the worst moment along
+       * the way (ägarbeslut 2026-07-30). Filing `success=false` with the
+       * provider's message for a run that ended as designed is a false-red, and
+       * `generation_telemetry` is the same table other decisions are measured
+       * from — innehållsrevisionens steg 3 counts mismatch frequency out of it.
+       *
+       * The same rule governs credits (ägarbeslut 2026-07-30, credit-halvan):
+       * a run that ended as designed charges like any other run that ended that
+       * way. Skipping the charge would price two identical user-visible outcomes
+       * differently based on a blip the user never saw. The guard below withholds
+       * credits only for the runs it was built for — the ones that produced
+       * nothing BECAUSE the provider or our account failed.
+       */
+      const commitCreditsUnlessProviderFault = async (options?: {
+        endedAsDesigned?: boolean;
+      }) => {
         if (!providerFault) {
+          await commitCredits();
+          return;
+        }
+        if (options?.endedAsDesigned) {
+          warnLog("engine", "Provider fault survived — run ended as designed, charging normally", {
+            chatId,
+            code: providerFault.code,
+            message: providerFault.message,
+          });
           await commitCredits();
           return;
         }
@@ -316,8 +360,19 @@ export function createOwnEngineGenerationStream(
         didSendDone = true;
         const toolCalls = Array.from(toolCallNames);
         const awaitingInput = options?.awaitingInput ?? sawBlockingToolCall;
+        // "Output existed but could not be saved" är inte samma sak som
+        // "ingen output": när strömmen levererade innehåll men ingen version
+        // persisterades (reason `stream_ended_without_version` från
+        // finally-vägen) får varken progress-fasen eller devloggen kalla det
+        // empty-output — användaren SER ju text i chatten.
+        const streamedWithoutVersion =
+          !awaitingInput && reason === "stream_ended_without_version";
         emitProgress("generation", {
-          phase: awaitingInput ? "awaiting-input" : "empty-output",
+          phase: awaitingInput
+            ? "awaiting-input"
+            : streamedWithoutVersion
+              ? "stream-without-version"
+              : "empty-output",
           reason,
         });
 
@@ -343,7 +398,11 @@ export function createOwnEngineGenerationStream(
         );
 
         devLogAppend("in-progress", {
-          type: awaitingInput ? "site.awaiting_input" : "site.empty_generation",
+          type: awaitingInput
+            ? "site.awaiting_input"
+            : streamedWithoutVersion
+              ? "site.stream_without_version"
+              : "site.empty_generation",
           chatId,
           reason,
           toolCalls,
@@ -351,7 +410,7 @@ export function createOwnEngineGenerationStream(
           message: options?.userMessage ?? null,
         });
         devLogFinalizeSite();
-        await commitCreditsUnlessProviderFault();
+        await commitCreditsUnlessProviderFault({ endedAsDesigned: awaitingInput });
       };
 
       const handleEmptyGeneration = async (reason: string, error: EmptyGenerationError) => {
@@ -898,17 +957,20 @@ export function createOwnEngineGenerationStream(
           }
 
           if (!didSendDone) {
-            safeEnqueue(
-              enc.encode(
-                formatSSEEvent("done", {
-                  chatId,
-                  versionId: null,
-                  messageId: null,
-                  ...previewUrlField(null),
-                }),
-              ),
+            // Sista utvägen: strömmen tog slut utan att någon version
+            // persisterades. Tidigare skickades ett `done` helt utan `reason`
+            // och utan progress-event, så klienten och loggarna fick "klart"
+            // utan att någonstans säga vad som hände — trots att krediten
+            // debiterades. `finishWithoutVersion` ger samma debitering men med
+            // reason, progress-event och devlog-rad. `awaitingInput: false`:
+            // hit kommer vi bara när strömmen dog, inte när modellen bad om
+            // input (den vägen skickar sitt eget done).
+            await finishWithoutVersion(
+              accumulatedContent
+                ? "stream_ended_without_version"
+                : "stream_ended_empty_output",
+              { awaitingInput: false },
             );
-            await commitCreditsUnlessProviderFault();
           }
         }
         safeClose();

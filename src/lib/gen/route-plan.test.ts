@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { getScaffoldById } from "./scaffolds/registry";
 import {
+  extractExplicitNamedPages,
+  hasExplicitAddRouteIntent,
+  neutralizeExplicitPageNameLiterals,
+} from "./route-plan/planning-helpers";
+import {
   buildRoutePlan,
   deduplicateLocaleAlternateRoutes,
   detectExplicitPageCount,
+  findSupersededScaffoldRoutes,
   findMissingPlannedRoutes,
   parseRoutePlanFromUnknown,
 } from "./route-plan";
@@ -198,6 +204,125 @@ describe("buildRoutePlan", () => {
     });
     expect(plan.routes.some((r) => r.path === "/contact")).toBe(true);
     expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
+  });
+
+  it("maps Swedish bilder/galleri keywords to /bilder with unicode word boundaries", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Vi behöver en bilder-sida och ett galleri för foton.",
+    });
+    expect(plan.routes.some((r) => r.path === "/bilder")).toBe(true);
+  });
+
+  it("maps English gallery/images keywords to /gallery", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Add a gallery page for product images.",
+    });
+    expect(plan.routes.some((r) => r.path === "/gallery")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/bilder")).toBe(false);
+  });
+
+  it("explicit page name wins over focus-point PORTFOLIO text (no /work)", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: [
+        'Skapa en ny sida som ska heta "Bilder".',
+        "",
+        "Användarens markerade fokuspunkter i preview:",
+        "- Punkt 1: x=12.0%, y=8.0%",
+        "  - Träff-text: PORTFOLIO",
+        "  - href: #portfolio",
+      ].join("\n"),
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((r) => r.path === "/bilder")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/work")).toBe(false);
+  });
+
+  it('extracts "en ny sida som ska heta Bilder" as /bilder', () => {
+    const named = extractExplicitNamedPages('Skapa en ny sida som ska heta "Bilder".');
+    expect(named).toEqual([{ name: "Bilder", path: "/bilder" }]);
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: 'en ny sida som ska heta "Bilder"',
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((r) => r.path === "/bilder")).toBe(true);
+  });
+
+  it("does not treat copy-edit ska heta as a new page", () => {
+    for (const prompt of [
+      'Rubriken ska heta "Välkommen"',
+      'Knappen ska heta "Skicka"',
+    ]) {
+      expect(extractExplicitNamedPages(prompt)).toEqual([]);
+      expect(hasExplicitAddRouteIntent(prompt)).toBe(false);
+      const plan = buildRoutePlan({
+        ...websiteBase,
+        prompt,
+        generationMode: "followUp",
+        existingRoutePaths: ["/"],
+      });
+      expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+      expect(plan.routes.some((r) => r.path === "/valkommen")).toBe(false);
+      expect(plan.routes.some((r) => r.path === "/skicka")).toBe(false);
+    }
+  });
+
+  it("does not treat incidental English page called phrasing as a new page", () => {
+    const prompt = "Fix the login page called from the navbar";
+    expect(extractExplicitNamedPages(prompt)).toEqual([]);
+    expect(hasExplicitAddRouteIntent(prompt)).toBe(false);
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt,
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.map((r) => r.path)).toEqual(["/"]);
+    expect(plan.routes.some((r) => r.path === "/from")).toBe(false);
+    expect(plan.routes.some((r) => r.path === "/login")).toBe(false);
+  });
+
+  it("extracts English create/new page called|named intents", () => {
+    expect(extractExplicitNamedPages('create a page named "Gallery"')).toEqual([
+      { name: "Gallery", path: "/gallery" },
+    ]);
+    expect(extractExplicitNamedPages('new page called "Images"')).toEqual([
+      { name: "Images", path: "/images" },
+    ]);
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: 'create a page named "Gallery"',
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((r) => r.path === "/gallery")).toBe(true);
+  });
+
+  it("neutralizeExplicitPageNameLiterals does not strip short names inside other words", () => {
+    const out = neutralizeExplicitPageNameLiterals(
+      'Skapa en sida som ska heta "Art". This is part of our contact page.',
+      ["Art"],
+    );
+    expect(out).toContain("part");
+    expect(out).toMatch(/contact/i);
+    expect(out).not.toMatch(/(?<![\p{L}\p{N}_])Art(?![\p{L}\p{N}_])/u);
+  });
+
+  it("explicit short page name Art does not break unrelated keyword routes", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt:
+        'Skapa en ny sida som ska heta "Art". Add a contact page as part of the site.',
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((r) => r.path === "/art")).toBe(true);
+    expect(plan.routes.some((r) => r.path === "/contact")).toBe(true);
   });
 
   it("merges brief routes with prompt-requested additions instead of early returning brief only", () => {
@@ -556,6 +681,54 @@ describe("deduplicateLocaleAlternateRoutes", () => {
   });
 });
 
+// Regression: the blog scaffold ships `/blog`, the Swedish plan settles on
+// `/blogg`, and the model emits `app/blogg/**`. Both used to survive into the
+// finished project, leaving `/blog` and `/blog/[slug]` with nothing linking to
+// them (2026-07-31 — the user saw six pages, three unreachable).
+describe("findSupersededScaffoldRoutes", () => {
+  it("supersedes the scaffold's /blog when the model emitted /blogg", () => {
+    expect(
+      findSupersededScaffoldRoutes(["/", "/blogg", "/blogg/[slug]"], ["/", "/blog"]),
+    ).toEqual(["/blog"]);
+  });
+
+  it("supersedes every alternate the model replaced, not just the first", () => {
+    expect(
+      findSupersededScaffoldRoutes(["/", "/om", "/blogg"], ["/", "/about", "/blog"]),
+    ).toEqual(["/about", "/blog"]);
+  });
+
+  it("supersedes nothing when the model kept the scaffold's own route", () => {
+    expect(
+      findSupersededScaffoldRoutes(["/", "/blog", "/blog/[slug]"], ["/", "/blog"]),
+    ).toEqual([]);
+  });
+
+  it("never supersedes when the model deliberately emitted both variants", () => {
+    expect(findSupersededScaffoldRoutes(["/", "/blog", "/blogg"], ["/", "/blog"])).toEqual(
+      [],
+    );
+  });
+
+  // The mirror case. A locale-parameterised version defaulting to `sv` reported
+  // nothing here, so an English build silently kept the orphaned Swedish page.
+  it("supersedes a Swedish scaffold route when the model emitted the English one", () => {
+    expect(findSupersededScaffoldRoutes(["/", "/contact"], ["/", "/kontakt"])).toEqual([
+      "/kontakt",
+    ]);
+  });
+
+  it("supersedes nothing when the scaffold does not ship the alternate", () => {
+    expect(findSupersededScaffoldRoutes(["/", "/blogg"], ["/", "/meny"])).toEqual([]);
+  });
+
+  it("returns nothing for a project with no locale-alternate routes", () => {
+    expect(findSupersededScaffoldRoutes(["/", "/meny", "/galleri"], ["/", "/meny"])).toEqual(
+      [],
+    );
+  });
+});
+
 describe("detectExplicitPageCount", () => {
   it("detects Swedish page count", () => {
     expect(detectExplicitPageCount("Jag vill ha 3 sidor")).toBe(3);
@@ -571,6 +744,51 @@ describe("detectExplicitPageCount", () => {
   it("rejects unreasonable counts", () => {
     expect(detectExplicitPageCount("jag vill ha 0 sidor")).toBeNull();
     expect(detectExplicitPageCount("50 pages of nonsense")).toBeNull();
+  });
+});
+
+describe("buildRoutePlan — structured pageCountHint (Byggval)", () => {
+  it("applies the hint without any page-count text in the prompt", () => {
+    const plan = buildRoutePlan({
+      prompt: "En hemsida om en arkad.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+      pageCountHint: 3,
+    });
+    expect(plan.siteType).not.toBe("one-page");
+    expect(plan.explicitPageCount).toBe(3);
+  });
+
+  it("prefers the structured hint over prompt-text detection", () => {
+    const plan = buildRoutePlan({
+      prompt: "En hemsida om en arkad. 5 sidor.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+      pageCountHint: 2,
+    });
+    expect(plan.explicitPageCount).toBe(2);
+  });
+
+  it("trims optional routes down to the hinted count", () => {
+    const plan = buildRoutePlan({
+      prompt: "Snickerifirma med kontakt, tjänster, blogg och priser.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+      pageCountHint: 2,
+    });
+    expect(plan.routes.length).toBe(2);
+    expect(plan.routes.some((r) => r.path === "/")).toBe(true);
+    expect(plan.reason).toMatch(/trimmed/i);
+  });
+
+  it("ignores out-of-range hints and falls back to prompt detection", () => {
+    const plan = buildRoutePlan({
+      prompt: "En hemsida om en arkad. 3 sidor.",
+      buildIntent: "website",
+      resolvedScaffold: null,
+      pageCountHint: 50,
+    });
+    expect(plan.explicitPageCount).toBe(3);
   });
 });
 
@@ -627,5 +845,84 @@ describe("buildRoutePlan — explicit page count", () => {
     expect(plan.routes.some((r) => r.path === "/products")).toBe(false);
     expect(plan.routes.some((r) => r.path === "/cart")).toBe(false);
     expect(plan.routes.length).toBeLessThanOrEqual(1);
+  });
+});
+
+// Regression: en fri instruktion har varken komma eller punkt mellan titeln och
+// resten av meningen, så den girige svansen slukade hela satsen och skapade
+// `/bilder-och-lanka-den-i-headern`. Obundna namn kapas nu vid första
+// konjunktionen/prepositionen; citerade namn lämnas hela.
+describe("extractExplicitNamedPages — obundna namn kapas vid satsgräns", () => {
+  const websiteBase = {
+    buildIntent: "website" as const,
+    resolvedScaffold: null,
+    brief: undefined as undefined,
+  };
+
+  it("stannar vid svenskt 'och' i stället för att sluka hela instruktionen", () => {
+    expect(
+      extractExplicitNamedPages("Skapa en sida som ska heta Bilder och länka den i headern"),
+    ).toEqual([{ name: "Bilder", path: "/bilder" }]);
+  });
+
+  it("stannar vid engelskt 'and'", () => {
+    expect(
+      extractExplicitNamedPages("create a page called Gallery and link it in the header"),
+    ).toEqual([{ name: "Gallery", path: "/gallery" }]);
+  });
+
+  it.each([
+    ["samt", "Skapa en ny sida som ska heta Priser samt visa den i menyn", "/priser"],
+    ["eller", "Skapa en sida som ska heta Kontakt eller Support", "/kontakt"],
+    ["med", "Skapa en sida som ska heta Tjänster med tre sektioner", "/tjanster"],
+    ["på", "Skapa en sida som ska heta Om på svenska", "/om"],
+    ["som", "Skapa en sida som ska heta Blogg som listar inlägg", "/blogg"],
+  ])("kapar vid svensk konjunktion/preposition '%s'", (_word, prompt, expected) => {
+    expect(extractExplicitNamedPages(prompt).map((page) => page.path)).toEqual([expected]);
+  });
+
+  it.each([
+    ["with", "create a page called Pricing with three tiers", "/pricing"],
+    ["that", "create a page called Blog that lists posts", "/blog"],
+    ["in", "create a page called About in the footer", "/about"],
+    ["then", "create a page called Team then style it", "/team"],
+  ])("kapar vid engelsk konjunktion/preposition '%s'", (_word, prompt, expected) => {
+    expect(extractExplicitNamedPages(prompt).map((page) => page.path)).toEqual([expected]);
+  });
+
+  it("behåller ett citerat flerordsnamn i sin helhet", () => {
+    expect(
+      extractExplicitNamedPages('Skapa en sida som ska heta "Bilder och video" och länka den'),
+    ).toEqual([{ name: "Bilder och video", path: "/bilder-och-video" }]);
+  });
+
+  it("behåller ett citerat engelskt flerordsnamn", () => {
+    expect(
+      extractExplicitNamedPages('create a page called "Our Work and Cases" and link it'),
+    ).toEqual([{ name: "Our Work and Cases", path: "/our-work-and-cases" }]);
+  });
+
+  it("behåller en inledande artikel — den är en del av titeln, inte en satsgräns", () => {
+    expect(extractExplicitNamedPages("create a page called The Team")).toEqual([
+      { name: "The Team", path: "/the-team" },
+    ]);
+  });
+
+  it("bundar ett obundet namn till några få ord", () => {
+    const [page] = extractExplicitNamedPages(
+      "Skapa en sida som ska heta Alfa Beta Gamma Delta Epsilon Zeta",
+    );
+    expect(page?.name.split(" ")).toHaveLength(4);
+  });
+
+  it("planerar /bilder — inte den slukade varianten — för hela instruktionen", () => {
+    const plan = buildRoutePlan({
+      ...websiteBase,
+      prompt: "Skapa en sida som ska heta Bilder och länka den i headern",
+      generationMode: "followUp",
+      existingRoutePaths: ["/"],
+    });
+    expect(plan.routes.some((route) => route.path === "/bilder")).toBe(true);
+    expect(plan.routes.some((route) => route.path.startsWith("/bilder-och"))).toBe(false);
   });
 });

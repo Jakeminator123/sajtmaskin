@@ -15,12 +15,15 @@ from backoffice.shared import (
     _escape_ts_string,
     backup_file,
     backup_tree,
+    confirm_by_typing,
+    danger_zone,
+    field_label,
     get_all_manifests,
+    nav_link_button,
     read_json,
     read_text,
     render_building_blocks_nav,
     render_save_scope,
-    render_where_panel,
     tech_details,
     validate_json_against_schema,
     write_json,
@@ -932,93 +935,101 @@ def _render_create_variant(scaffold_ids: list[str], ctx: BackofficeContext) -> N
         return
 
     with st.form("create_variant_form", clear_on_submit=False):
-        scaffold_id = st.selectbox("Scaffold", scaffold_ids, key="create_variant_scaffold")
-        label = st.text_input("Label", key="create_variant_label")
+        scaffold_id = st.selectbox(
+            field_label("scaffoldId"), scaffold_ids, key="create_variant_scaffold"
+        )
+        label = st.text_input(field_label("label"), key="create_variant_label")
         suggested_id = _slugify(label)
         variant_id = st.text_input(
-            "Variant ID",
+            "Variant-ID (`id`)",
             value=suggested_id,
             key="create_variant_id",
             help="Kebab-case rekommenderas.",
         )
-        description = st.text_area("Description", height=80, key="create_variant_description")
-        signature_motif = st.text_input("Signature Motif", key="create_variant_signature_motif")
+        description = st.text_area(
+            field_label("description"), height=80, key="create_variant_description"
+        )
+        signature_motif = st.text_input(
+            field_label("signatureMotif"), key="create_variant_signature_motif"
+        )
         color_mode = st.selectbox(
-            "Color Mode",
+            field_label("colorMode"),
             ["light", "dark", "either"],
             index=2,
             key="create_variant_color_mode",
         )
-        default_variant = st.checkbox("Default variant", value=False, key="create_variant_default")
+        default_variant = st.checkbox(
+            field_label("default"), value=False, key="create_variant_default"
+        )
         keywords_text = st.text_area(
-            "Keywords (one per line)",
+            field_label("keywords", hint="en per rad"),
             height=120,
             key="create_variant_keywords",
         )
         font_pairings_text = st.text_area(
-            "Font Pairings (`Heading | Body` per line)",
+            field_label("fontPairings", hint="`Rubrik | Brödtext` per rad"),
             height=100,
             key="create_variant_font_pairings",
         )
         prompt_hints_text = st.text_area(
-            "Prompt Hints (one per line)",
+            field_label("promptHints", hint="en per rad"),
             height=100,
             key="create_variant_prompt_hints",
         )
         theme_tokens_text = st.text_area(
-            "Theme Tokens (`token = value` per line)",
+            field_label("themeTokens", hint="`token = värde` per rad"),
             height=140,
             key="create_variant_theme_tokens",
         )
-        st.markdown("**Signature patterns** — krävs av CI-grinden (`variant-integrity.test.ts`).")
+        st.markdown("**Signaturmönster** — krävs av CI-grinden (`variant-integrity.test.ts`).")
         st.caption(
             f"Minst {_SIG_MIN_LAYOUTS} layouts, {_SIG_MIN_MOTIFS} motifs och "
             f"{_SIG_MIN_ANTI} antiPatterns (en konkret mening per rad). Vill du hellre "
             "AI-kurera dem? Skapa varianten via **Guide** i stället."
         )
         signature_layouts_text = st.text_area(
-            "Signature layouts (one per line)",
+            field_label("signaturePatterns.layouts", hint="en per rad"),
             height=120,
             key="create_variant_sig_layouts",
         )
         signature_motifs_text = st.text_area(
-            "Signature motifs (one per line)",
+            field_label("signaturePatterns.motifs", hint="en per rad"),
             height=100,
             key="create_variant_sig_motifs",
         )
         signature_anti_patterns_text = st.text_area(
-            "Signature antiPatterns (one per line)",
+            field_label("signaturePatterns.antiPatterns", hint="en per rad"),
             height=100,
             key="create_variant_sig_anti",
         )
-        with st.expander("Advanced fields", expanded=False):
+        with st.expander("Fler fält (avancerat)", expanded=False):
             style_rules_text = st.text_area(
-                "Style Rules (one per line)",
+                field_label("styleRules", hint="en per rad"),
                 height=100,
                 key="create_variant_style_rules",
             )
             section_inventory_text = st.text_area(
-                "Section Inventory (one per line)",
+                field_label("sectionInventory", hint="en per rad"),
                 height=100,
                 key="create_variant_section_inventory",
             )
             avoid_patterns_text = st.text_area(
-                "Avoid Patterns (one per line)",
+                field_label("avoidPatterns", hint="en per rad"),
                 height=100,
                 key="create_variant_avoid_patterns",
             )
             world_class_text = st.text_area(
-                "World Class Rubric (one per line)",
+                field_label("worldClassRubric", hint="en per rad"),
                 height=100,
                 key="create_variant_world_class",
             )
             source_template_ids_text = st.text_area(
-                "Source Template IDs (one per line)",
+                field_label("sourceTemplateIds", hint="ett v0-mall-id per rad"),
                 height=100,
                 key="create_variant_source_ids",
             )
             reference_scaffold_ids_text = st.text_area(
-                "Reference Scaffold IDs (one per line)",
+                field_label("referenceScaffoldIds", hint="en per rad"),
                 height=80,
                 key="create_variant_reference_scaffold_ids",
             )
@@ -1030,13 +1041,13 @@ def _render_create_variant(scaffold_ids: list[str], ctx: BackofficeContext) -> N
 
     variant_id = variant_id.strip() or suggested_id
     if not variant_id:
-        st.error("Variant ID krävs.")
+        st.error("Variant-ID (`id`) krävs.")
         return
     if not label.strip():
-        st.error("Label krävs.")
+        st.error(f"{field_label('label')} krävs.")
         return
     if not signature_motif.strip():
-        st.error("Signature Motif krävs.")
+        st.error(f"{field_label('signatureMotif')} krävs.")
         return
 
     target_path = ctx.variants_dir / scaffold_id / f"{variant_id}.json"
@@ -1113,7 +1124,7 @@ def _render_edit_variant(
         return
 
     selected_scaffold = st.selectbox(
-        "Scaffold",
+        field_label("scaffoldId"),
         scaffold_choices,
         key="edit_variant_scaffold_selector",
     )
@@ -1162,28 +1173,30 @@ def _render_edit_variant(
         return
 
     with st.form(f"edit_variant_form_{variant_key}"):
-        edited_label = st.text_input("Label", value=defaults["label"], key=f"edit_label_{variant_key}")
+        edited_label = st.text_input(
+            field_label("label"), value=defaults["label"], key=f"edit_label_{variant_key}"
+        )
         edited_id = st.text_input(
-            "Variant ID",
+            "Variant-ID (`id`)",
             value=defaults["id"],
             key=f"edit_id_{variant_key}",
             help="Byt bara ID om du vill skriva till en ny fil och ta bort den gamla manuellt.",
             disabled=True,
         )
         edited_description = st.text_area(
-            "Description",
+            field_label("description"),
             value=defaults["description"],
             height=80,
             key=f"edit_description_{variant_key}",
         )
         edited_signature_motif = st.text_input(
-            "Signature Motif",
+            field_label("signatureMotif"),
             value=defaults["signatureMotif"],
             key=f"edit_signature_{variant_key}",
         )
         color_options = ["light", "dark", "either"]
         edited_color_mode = st.selectbox(
-            "Color Mode",
+            field_label("colorMode"),
             color_options,
             index=color_options.index(defaults["colorMode"])
             if defaults["colorMode"] in color_options
@@ -1191,91 +1204,91 @@ def _render_edit_variant(
             key=f"edit_color_{variant_key}",
         )
         edited_default = st.checkbox(
-            "Default variant",
+            field_label("default"),
             value=defaults["default"],
             key=f"edit_default_{variant_key}",
         )
         edited_keywords = st.text_area(
-            "Keywords (one per line)",
+            field_label("keywords", hint="en per rad"),
             value=defaults["keywords"],
             height=120,
             key=f"edit_keywords_{variant_key}",
         )
         edited_font_pairings = st.text_area(
-            "Font Pairings (`Heading | Body` per line)",
+            field_label("fontPairings", hint="`Rubrik | Brödtext` per rad"),
             value=defaults["fontPairings"],
             height=100,
             key=f"edit_fonts_{variant_key}",
         )
         edited_prompt_hints = st.text_area(
-            "Prompt Hints (one per line)",
+            field_label("promptHints", hint="en per rad"),
             value=defaults["promptHints"],
             height=100,
             key=f"edit_prompt_hints_{variant_key}",
         )
         edited_theme_tokens = st.text_area(
-            "Theme Tokens (`token = value` per line)",
+            field_label("themeTokens", hint="`token = värde` per rad"),
             value=defaults["themeTokens"],
             height=140,
             key=f"edit_theme_tokens_{variant_key}",
         )
-        st.markdown("**Signature patterns** — krävs av CI-grinden (`variant-integrity.test.ts`).")
+        st.markdown("**Signaturmönster** — krävs av CI-grinden (`variant-integrity.test.ts`).")
         st.caption(
             f"Minst {_SIG_MIN_LAYOUTS} layouts, {_SIG_MIN_MOTIFS} motifs och "
             f"{_SIG_MIN_ANTI} antiPatterns. Töm alla tre fälten för att behålla "
             "de befintliga mönstren oförändrade."
         )
         edited_signature_layouts = st.text_area(
-            "Signature layouts (one per line)",
+            field_label("signaturePatterns.layouts", hint="en per rad"),
             value=defaults["signatureLayouts"],
             height=120,
             key=f"edit_sig_layouts_{variant_key}",
         )
         edited_signature_motifs = st.text_area(
-            "Signature motifs (one per line)",
+            field_label("signaturePatterns.motifs", hint="en per rad"),
             value=defaults["signatureMotifs"],
             height=100,
             key=f"edit_sig_motifs_{variant_key}",
         )
         edited_signature_anti_patterns = st.text_area(
-            "Signature antiPatterns (one per line)",
+            field_label("signaturePatterns.antiPatterns", hint="en per rad"),
             value=defaults["signatureAntiPatterns"],
             height=100,
             key=f"edit_sig_anti_{variant_key}",
         )
-        with st.expander("Advanced fields", expanded=False):
+        with st.expander("Fler fält (avancerat)", expanded=False):
             edited_style_rules = st.text_area(
-                "Style Rules (one per line)",
+                field_label("styleRules", hint="en per rad"),
                 value=defaults["styleRules"],
                 height=100,
                 key=f"edit_style_rules_{variant_key}",
             )
             edited_section_inventory = st.text_area(
-                "Section Inventory (one per line)",
+                field_label("sectionInventory", hint="en per rad"),
                 value=defaults["sectionInventory"],
                 height=100,
                 key=f"edit_section_inventory_{variant_key}",
             )
             edited_avoid_patterns = st.text_area(
-                "Avoid Patterns (one per line)",
+                field_label("avoidPatterns", hint="en per rad"),
                 value=defaults["avoidPatterns"],
                 height=100,
                 key=f"edit_avoid_patterns_{variant_key}",
             )
             edited_world_class = st.text_area(
-                "World Class Rubric (one per line)",
+                field_label("worldClassRubric", hint="en per rad"),
                 value=defaults["worldClassRubric"],
                 height=100,
                 key=f"edit_world_class_{variant_key}",
             )
             edited_source_ids = st.text_area(
-                "Source Template IDs (one per line)",
+                field_label("sourceTemplateIds", hint="ett v0-mall-id per rad"),
                 value=defaults["sourceTemplateIds"],
                 height=100,
                 key=f"edit_source_ids_{variant_key}",
             )
             edited_reference_scaffold_ids = st.text_area(
-                "Reference Scaffold IDs (one per line)",
+                field_label("referenceScaffoldIds", hint="en per rad"),
                 value=defaults["referenceScaffoldIds"],
                 height=80,
                 key=f"edit_reference_scaffolds_{variant_key}",
@@ -1287,10 +1300,10 @@ def _render_edit_variant(
         return
 
     if not edited_label.strip():
-        st.error("Label krävs.")
+        st.error(f"{field_label('label')} krävs.")
         return
     if not edited_signature_motif.strip():
-        st.error("Signature Motif krävs.")
+        st.error(f"{field_label('signatureMotif')} krävs.")
         return
 
     try:
@@ -1360,7 +1373,7 @@ def _render_delete_variant(
         return
 
     selected_scaffold = st.selectbox(
-        "Scaffold",
+        field_label("scaffoldId"),
         scaffold_choices,
         key="delete_variant_scaffold_selector",
     )
@@ -1380,7 +1393,7 @@ def _render_delete_variant(
     if len(variants) <= 1:
         st.error(
             "Det här är scaffoldens **sista** variant. En scaffold utan varianter är "
-            "ogiltig — radera hela scaffolden i fliken **Radera scaffold** i stället, "
+            "ogiltig — radera hela scaffolden längre ned i **Farlig zon** i stället, "
             "eller skapa en ersättningsvariant först."
         )
         return
@@ -1391,40 +1404,49 @@ def _render_delete_variant(
             "scaffold — markera en syskonvariant som default efter raderingen."
         )
 
+    variant_id = str(selected_variant.get("id", "")) or variant_path.stem
     st.caption(f"Fil: `{variant_path.relative_to(ctx.repo_root).as_posix()}`")
-    confirm = st.checkbox(
-        "Jag vill radera den här variant-filen",
-        key=f"delete_variant_confirm_{selected_scaffold}_{selected_variant.get('id', '')}",
-    )
-    if st.button(
-        "Radera variant",
-        key=f"delete_variant_button_{selected_scaffold}_{selected_variant.get('id', '')}",
-        disabled=not confirm,
-    ):
-        # Fail-closed: radera inte om snapshoten (Återställning) inte kunde tas.
-        if variant_path.is_file() and backup_file(variant_path, ctx.repo_root) is None:
-            st.error(
-                "Kunde inte ta en snapshot av variant-filen — "
-                "avbröt raderingen, inget togs bort."
-            )
-            return
-        variant_path.unlink(missing_ok=True)
-        variant_id = str(selected_variant.get("id", "")) or variant_path.stem
-        removed = _prune_variant_embeddings(ctx, selected_scaffold, [variant_id])
-        rel = variant_path.relative_to(ctx.repo_root).as_posix()
-        if removed:
-            note = (
-                f"Raderade `{rel}` och rensade {removed} post ur matchnings-indexet "
-                "(`variant-embeddings.json`) så CI-grinden inte fäller en förlegad post. "
-                "En snapshot ligger kvar under **Återställning**."
-            )
-        else:
-            note = (
-                f"Raderade `{rel}` (ingen matchande post i `variant-embeddings.json`). "
-                "En snapshot ligger kvar under **Återställning**."
-            )
-        _flash_note(note, level="success")
-        st.rerun()
+
+    # Bekräftelsen ligger i ett formulär, precis som scaffold-raderingen: ett
+    # fritextfält utanför formulär skickar sitt värde först vid blur/Enter, och
+    # en knapp som är `disabled` tills dess går inte att klicka fram värdet med.
+    with st.form(f"delete_variant_form_{selected_scaffold}_{variant_id}"):
+        confirmed = confirm_by_typing(
+            variant_id,
+            f"delete_variant_confirm_{selected_scaffold}_{variant_id}",
+            label="Bekräfta genom att skriva variantens ID",
+        )
+        submitted = st.form_submit_button("Radera variant", type="primary")
+
+    if not submitted:
+        return
+    if not confirmed:
+        st.error(f"Bekräftelsetexten måste vara exakt `{variant_id}`.")
+        return
+
+    # Fail-closed: radera inte om snapshoten (Återställning) inte kunde tas.
+    if variant_path.is_file() and backup_file(variant_path, ctx.repo_root) is None:
+        st.error(
+            "Kunde inte ta en snapshot av variant-filen — "
+            "avbröt raderingen, inget togs bort."
+        )
+        return
+    variant_path.unlink(missing_ok=True)
+    removed = _prune_variant_embeddings(ctx, selected_scaffold, [variant_id])
+    rel = variant_path.relative_to(ctx.repo_root).as_posix()
+    if removed:
+        note = (
+            f"Raderade `{rel}` och rensade {removed} post ur matchnings-indexet "
+            "(`variant-embeddings.json`) så CI-grinden inte fäller en förlegad post. "
+            "En snapshot ligger kvar under **Återställning**."
+        )
+    else:
+        note = (
+            f"Raderade `{rel}` (ingen matchande post i `variant-embeddings.json`). "
+            "En snapshot ligger kvar under **Återställning**."
+        )
+    _flash_note(note, level="success")
+    st.rerun()
 
 
 def _update_types_for_created_scaffold(
@@ -1706,16 +1728,20 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
     source_upgrades = source_defaults.get("upgradeTargets") or _default_upgrade_targets(default_label)
 
     with st.form(form_key, clear_on_submit=False):
-        label = st.text_input("Label", value=default_label, key=f"create_scaffold_label_{source_scaffold_id}")
+        label = st.text_input(
+            field_label("label"),
+            value=default_label,
+            key=f"create_scaffold_label_{source_scaffold_id}",
+        )
         suggested_id = _slugify(label)
         scaffold_id = st.text_input(
-            "Scaffold ID",
+            "Scaffold-ID (`id`)",
             value=suggested_id,
             key=f"create_scaffold_id_{source_scaffold_id}",
             help="Kebab-case. Måste börja med en bokstav.",
         )
         description = st.text_area(
-            "Description",
+            field_label("description"),
             value=default_description,
             height=90,
             key=f"create_scaffold_description_{source_scaffold_id}",
@@ -1724,7 +1750,7 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
         with c1:
             site_kind_options = [""] + list(SITE_KIND_OPTIONS)
             site_kind = st.selectbox(
-                "Site Kind",
+                field_label("siteKind"),
                 site_kind_options,
                 index=site_kind_options.index(str(source_defaults.get("siteKind", "")))
                 if str(source_defaults.get("siteKind", "")) in site_kind_options
@@ -1732,12 +1758,12 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
                 key=f"create_scaffold_site_kind_{source_scaffold_id}",
             )
             structure_profile = st.text_input(
-                "Structure Profile",
+                field_label("structureProfile"),
                 value=str(source_defaults.get("structureProfile", "")),
                 key=f"create_scaffold_structure_profile_{source_scaffold_id}",
             )
             features_text = st.text_area(
-                "Features (one per line)",
+                field_label("features", hint="en per rad"),
                 value=_format_string_list(source_defaults.get("features", [])),
                 height=100,
                 key=f"create_scaffold_features_{source_scaffold_id}",
@@ -1745,7 +1771,7 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
         with c2:
             complexity_options = [""] + list(COMPLEXITY_OPTIONS)
             complexity = st.selectbox(
-                "Complexity",
+                field_label("complexity"),
                 complexity_options,
                 index=complexity_options.index(str(source_defaults.get("complexity", "")))
                 if str(source_defaults.get("complexity", "")) in complexity_options
@@ -1753,12 +1779,12 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
                 key=f"create_scaffold_complexity_{source_scaffold_id}",
             )
             content_profile = st.text_input(
-                "Content Profile",
+                field_label("contentProfile"),
                 value=str(source_defaults.get("contentProfile", "")),
                 key=f"create_scaffold_content_profile_{source_scaffold_id}",
             )
             allowed_build_intents = st.multiselect(
-                "Allowed Build Intents",
+                field_label("allowedBuildIntents"),
                 options=list(BUILD_INTENT_OPTIONS),
                 default=[
                     intent
@@ -1769,31 +1795,31 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
             )
 
         tags_text = st.text_area(
-            "Tags (one per line)",
+            field_label("tags", hint="en per rad"),
             value=_format_string_list(source_defaults.get("tags", [])),
             height=120,
             key=f"create_scaffold_tags_{source_scaffold_id}",
         )
         prompt_hints_text = st.text_area(
-            "Prompt Hints (one per line)",
+            field_label("promptHints", hint="en per rad, minst 2"),
             value=_format_string_list(source_prompt_hints),
             height=120,
             key=f"create_scaffold_prompt_hints_{source_scaffold_id}",
         )
         quality_checklist_text = st.text_area(
-            "Quality Checklist (one per line)",
+            field_label("qualityChecklist", hint="en per rad, minst 3"),
             value=_format_string_list(source_quality),
             height=120,
             key=f"create_scaffold_quality_{source_scaffold_id}",
         )
         upgrade_targets_text = st.text_area(
-            "Research Upgrade Targets (one per line)",
+            field_label("upgradeTargets", hint="en per rad, minst 1"),
             value=_format_string_list(source_upgrades),
             height=100,
             key=f"create_scaffold_upgrade_targets_{source_scaffold_id}",
         )
         create_start_variant = st.checkbox(
-            "Create neutral starter variant",
+            "Skapa neutral startvariant",
             value=True,
             key=f"create_scaffold_variant_{source_scaffold_id}",
         )
@@ -1810,18 +1836,18 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
         st.error(f"Scaffold `{scaffold_id}` finns redan.")
         return
     if not label.strip():
-        st.error("Label krävs.")
+        st.error(f"{field_label('label')} krävs.")
         return
     if not description.strip():
-        st.error("Description krävs.")
+        st.error(f"{field_label('description')} krävs.")
         return
     if not allowed_build_intents:
-        st.error("Välj minst ett build intent.")
+        st.error(f"Välj minst ett värde under {field_label('allowedBuildIntents')}.")
         return
     if not create_start_variant:
         st.error(
             "En scaffold måste ha minst en variant för att kunna väljas av matchern. "
-            "Låt 'Create neutral starter variant' vara ikryssad — eller skapa scaffolden "
+            "Låt 'Skapa neutral startvariant' vara ikryssad — eller skapa scaffolden "
             "via **Guide**, som alltid skriver en startvariant."
         )
         return
@@ -1833,13 +1859,13 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
     upgrade_targets = _normalize_lines(upgrade_targets_text)
 
     if len(prompt_hints) < 2:
-        st.error("Prompt hints bör innehålla minst 2 rader.")
+        st.error(f"{field_label('promptHints')} behöver minst 2 rader.")
         return
     if len(quality_checklist) < 3:
-        st.error("Quality checklist bör innehålla minst 3 rader.")
+        st.error(f"{field_label('qualityChecklist')} behöver minst 3 rader.")
         return
     if len(upgrade_targets) < 1:
-        st.error("Ange minst en upgrade target.")
+        st.error(f"{field_label('upgradeTargets')} behöver minst 1 rad.")
         return
 
     try:
@@ -2255,10 +2281,10 @@ def _render_delete_scaffold(
             "Jag vill rensa den valda scaffolden och dess variantmapp.",
             key=f"delete_scaffold_confirm_{selected_scaffold}",
         )
-        typed_value = st.text_input(
-            "Bekräfta scaffold-ID",
-            key=f"delete_scaffold_type_{selected_scaffold}",
-            help=f"Skriv exakt `{selected_scaffold}` för att tillåta radering.",
+        typed_ok = confirm_by_typing(
+            selected_scaffold,
+            f"delete_scaffold_type_{selected_scaffold}",
+            label="Bekräfta genom att skriva scaffold-ID",
         )
         submitted = st.form_submit_button("Radera scaffold", type="primary")
 
@@ -2271,7 +2297,7 @@ def _render_delete_scaffold(
     if not confirm_cleanup:
         st.error("Du måste bekräfta att scaffolden och variantmappen ska rensas.")
         return
-    if typed_value.strip() != selected_scaffold:
+    if not typed_ok:
         st.error(f"Bekräftelsetexten måste vara exakt `{selected_scaffold}`.")
         return
 
@@ -2538,16 +2564,17 @@ def _render_baseline_tab(ctx: BackofficeContext) -> None:
             acknowledge = st.checkbox(
                 "Jag har läst listan och förstår att avvikelserna ovan försvinner."
             )
-            typed = st.text_input(
-                "Bekräfta genom att skriva taggens namn",
-                help=f"Skriv exakt `{BASELINE_TAG}`.",
+            typed_ok = confirm_by_typing(
+                BASELINE_TAG,
+                "baseline_reset_confirm",
+                label="Bekräfta genom att skriva taggens namn",
             )
             submitted = st.form_submit_button("Fabriksåterställ scaffold-ytorna", type="primary")
         if submitted:
             if not acknowledge:
                 st.error("Du måste bekräfta att du läst listan.")
                 return
-            if typed.strip() != BASELINE_TAG:
+            if not typed_ok:
                 st.error(f"Bekräftelsetexten måste vara exakt `{BASELINE_TAG}`.")
                 return
             try:
@@ -2593,7 +2620,6 @@ def _render_pipeline_tools(ctx: BackofficeContext) -> None:
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     manifests = get_all_manifests(ctx)
     scaffold_ids = [str(manifest.get("id", "")).strip() for manifest in manifests if manifest.get("id")]
     variants = _load_variants(ctx)
@@ -2627,13 +2653,19 @@ def render(ctx: BackofficeContext) -> None:
             "`scaffold-embedding-locale.ts`; misslyckas något rullas allt tillbaka."
         )
         st.markdown("- Validera efter ändring: `npm run scaffolds:validate`")
-        render_where_panel(PAGE_NAME, domain_map)
 
-    overview_tab, create_tab, variants_tab, delete_tab, pipeline_tab, baseline_tab = st.tabs(
-        ["Översikt", "Skapa scaffold", "Varianter", "Radera scaffold", "Pipeline", "Baseline"]
+    # Post-action-noten ligger utanför tabbarna: create/edit/delete bor numera i
+    # var sin tabb, och `st.rerun()` landar alltid på den första. Renderades noten
+    # inne i en tabb skulle "kör om embeddings"-påminnelsen bli osynlig.
+    _render_flashed_note()
+
+    # Tabbarna följer verben: var tittar jag / var skapar jag / var ändrar jag /
+    # var är det farligt / vad kör jag efteråt.
+    view_tab, create_tab, edit_tab, danger_tab, maintenance_tab = st.tabs(
+        ["Titta", "Skapa", "Ändra", "Farlig zon", "Underhåll"]
     )
 
-    with overview_tab:
+    with view_tab:
         _render_tree_view(
             ctx,
             manifests,
@@ -2644,32 +2676,66 @@ def render(ctx: BackofficeContext) -> None:
         )
 
     with create_tab:
+        st.caption(
+            "Vill du ha AI-hjälp med utkastet? **Guide: ny scaffold eller variant (AI)** "
+            "föreslår fält, kurerar designmönster och skriver ingenting förrän "
+            "checklistan är grön."
+        )
+        nav_link_button(
+            "Öppna Guide (AI)",
+            "Guide: ny scaffold eller variant (AI)",
+            key="lifecycle_create_open_wizard",
+        )
+        st.divider()
         st.subheader("Skapa ny scaffold")
         st.caption(
             "Det här skapar scaffold-shell, registry-kopplingar och embedding-locale. "
             "Matcher/retry/eval-kurering görs separat."
         )
         _render_create_scaffold(ctx, manifests)
-
-    with variants_tab:
-        _render_flashed_note()
+        st.divider()
         st.subheader("Skapa ny variant")
         _render_create_variant(scaffold_ids, ctx)
-        st.divider()
-        st.subheader("Redigera variant")
+
+    with edit_tab:
+        st.subheader("Ändra variant")
         _render_edit_variant(ctx, scaffold_ids, variants_by_scaffold)
         st.divider()
-        st.subheader("Radera variant")
-        _render_delete_variant(ctx, scaffold_ids, variants_by_scaffold)
+        st.caption(
+            "Scaffoldens egen metadata (matchord, instruktioner till own-engine, "
+            "kvalitetskrav) ändrar du i **Scaffolds: titta & justera**."
+        )
+        nav_link_button(
+            "Öppna Scaffolds: titta & justera",
+            "Scaffolds: titta & justera",
+            key="lifecycle_edit_open_scaffolds",
+        )
 
-    with delete_tab:
-        st.subheader("Beroendevalidering före scaffold-radering")
-        _render_delete_scaffold(ctx, scaffold_ids, variants)
+    with danger_tab:
+        st.caption(
+            "Allt som raderar eller rullar tillbaka ligger här. Varje åtgärd kräver att "
+            "du skriver namnet, och det som tas bort säkerhetskopieras först — kan en "
+            "säkerhetskopia inte tas händer ingenting alls. Snapshots hittar du i "
+            "**Återställning**."
+        )
+        with danger_zone(
+            "Radera variant",
+            help_text="Tar bort en enskild variantfil och dess post i matchnings-indexet.",
+        ):
+            _render_delete_variant(ctx, scaffold_ids, variants_by_scaffold)
+        with danger_zone(
+            "Radera scaffold",
+            help_text="Tar bort scaffold-mappen, hela variantmappen och registry-länkarna.",
+        ):
+            st.caption("Beroendevalidering före scaffold-radering")
+            _render_delete_scaffold(ctx, scaffold_ids, variants)
+        with danger_zone(
+            "Fabriksåterställ till baseline",
+            help_text="Återställer hela scaffold-ytan till baseline-taggen och raderar "
+            "det som tillkommit efter den.",
+        ):
+            _render_baseline_tab(ctx)
 
-    with pipeline_tab:
+    with maintenance_tab:
         st.subheader("Scaffold/variant-pipeline")
         _render_pipeline_tools(ctx)
-
-    with baseline_tab:
-        st.subheader("Baseline / fabriksåterställning")
-        _render_baseline_tab(ctx)

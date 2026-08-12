@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import streamlit as st
 
-from backoffice.shared import BackofficeContext, read_json, read_text, render_where_panel, write_text
+from backoffice.shared import BackofficeContext, read_text, write_text
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("Core Rules (config/prompt-core)")
-    render_where_panel("prompt-core", domain_map)
 
     st.info(
         "**Core Rules** är oföränderliga produktregler som aldrig varierar per request. "

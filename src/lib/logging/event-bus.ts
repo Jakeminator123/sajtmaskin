@@ -52,9 +52,40 @@ import type {
  * and silently disabling on-disk replay. Mirror to `os.tmpdir()` on Vercel so
  * within-instance replay keeps working without the noise; local/dev keeps the
  * repo-relative path so `data/runs/` stays inspectable.
+ *
+ * The same mirror applies under vitest: most suites emit events without
+ * redirecting cwd, which wrote ~20 KB of fixture runs (`ver_1`, `ver_golden_1`,
+ * …) into the real `data/runs/` on every `vitest run` — and since the NDJSON is
+ * append-only, it grew without bound. Suites that DO isolate themselves by
+ * chdir:ing into a temp dir (event-bus.test.ts) are recognised by the cwd check
+ * and keep the relative path, so their FS assertions still target their own tree.
  */
+/**
+ * Sökvägsjämförelse som tål plattformarnas egna former av samma katalog.
+ * `os.tmpdir()` och `process.cwd()` behöver inte stavas lika för samma
+ * plats: macOS ger `/var/folders/…` mot symlänkupplösta `/private/var/…`,
+ * och Windows kan blanda 8.3-form och skiftläge. En felaktig jämförelse
+ * skickar en chdir-isolerad testsvit till tmp-spegeln i stället för sitt
+ * eget träd, och sviten faller på ENOENT utan synlig orsak.
+ */
+function isInsideTmpDir(dir: string): boolean {
+  const normalize = (p: string) => {
+    let resolved = path.resolve(p);
+    try {
+      resolved = fs.realpathSync.native(resolved);
+    } catch {
+      /* katalogen kan saknas — jämför på den oupplösta formen */
+    }
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  };
+  const root = normalize(os.tmpdir());
+  const target = normalize(dir);
+  return target === root || target.startsWith(root + path.sep);
+}
+
 function resolveRunsRootDir(): string {
-  if (process.env.VERCEL) {
+  const testWritingIntoRepo = isTestRuntime() && !isInsideTmpDir(process.cwd());
+  if (process.env.VERCEL || testWritingIntoRepo) {
     return path.join(os.tmpdir(), "sajtmaskin", "data", "runs");
   }
   // turbopackIgnore keeps this dev-only cwd() out of Turbopack's NFT file trace.
@@ -133,11 +164,18 @@ function appendRunIndex(versionId: string, entry: RunIndexEntry): void {
   fs.writeFileSync(file, `${JSON.stringify(existing, null, 2)}\n`, "utf8");
 }
 
-function isTest(): boolean {
-  // Vitest sets VITEST / NODE_ENV=test. We still persist during tests
-  // because the projection tests don't rely on FS — but individual
-  // callers can opt out via `mirrorToDisk: false`.
-  return process.env.NODE_ENV === "test" || process.env.VITEST === "true";
+/**
+ * Ett enda testpredikat för hela filen. Förut fanns två: sökvägsvalet såg
+ * bara `VITEST`, loggdämpningen även `NODE_ENV=test`. En körning som satte
+ * `NODE_ENV=test` utan `VITEST` (node-skript, framtida runner) skrev därför
+ * fortfarande in i repots `data/runs` — precis det som skulle stoppas.
+ *
+ * `VITEST` läses inte som ren truthiness: strängen `"false"` är sann i JS.
+ */
+function isTestRuntime(): boolean {
+  const vitest = process.env.VITEST?.trim().toLowerCase();
+  const vitestOn = Boolean(vitest) && vitest !== "false" && vitest !== "0";
+  return process.env.NODE_ENV === "test" || vitestOn;
 }
 
 // ── Public API ─────────────────────────────────────────────────────────
@@ -290,7 +328,7 @@ function mirrorToDisk(event: EngineEvent): void {
   try {
     appendNdjsonLine(ndjsonPath(event.versionId, event.runId), event);
   } catch (err) {
-    if (!isTest()) {
+    if (!isTestRuntime()) {
       console.warn(
         "[event-bus] mirrorToDisk failed:",
         err instanceof Error ? err.message : err,

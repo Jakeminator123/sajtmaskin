@@ -11,6 +11,13 @@ export type InspectCapturedElement = {
   href: string | null;
   selector: string | null;
   nearestHeading: string | null;
+  /**
+   * Resolved source component path when the inspect bridge / registry /
+   * `data-sajtmaskin-source` annotation can identify it. Used to pin the
+   * real file into follow-up model context.
+   */
+  sourcePath?: string | null;
+  sourceLine?: number | null;
 };
 
 export type InspectCaptureEventDetail = {

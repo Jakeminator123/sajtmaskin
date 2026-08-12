@@ -30,7 +30,7 @@ import {
   resolveServerRepairEarlyStopReason,
 } from "./server-repair-policy";
 import { collectRepairBlockers, introducedRepairBlockers } from "./repair-blockers";
-import type { ReasoningEffort } from "@/lib/gen/engine";
+import type { ReasoningEffort, ReasoningMode } from "@/lib/gen/engine";
 
 export type RepairMethod = "deterministic" | "llm";
 
@@ -115,6 +115,7 @@ export type RunRepairLoopParams<TPayload = unknown> = {
   fixerModel?: string;
   fixerThinking?: boolean;
   fixerReasoningEffort?: ReasoningEffort;
+  fixerReasoningMode?: ReasoningMode;
   fixerMaxTokens?: number;
   // Återkommande felmönster från tidigare runs i samma chat-session.
   // Anroparen läser via `readRecurringPatternsForChat(chatId)` (i
@@ -214,9 +215,7 @@ function buildImportGraph(content: string): {
   return { dependsOn, importedBy };
 }
 
-function sortManifestByDependencyPriority(
-  manifest: RepairErrorManifest,
-): RepairErrorManifest {
+function sortManifestByDependencyPriority(manifest: RepairErrorManifest): RepairErrorManifest {
   return [...manifest].sort((a, b) => {
     if (b.importedByCount !== a.importedByCount) {
       return b.importedByCount - a.importedByCount;
@@ -239,10 +238,7 @@ function buildRepairErrorManifest(params: {
     : { dependsOn: new Map<string, Set<string>>(), importedBy: new Map<string, Set<string>>() };
   const { dependsOn, importedBy } = graph;
 
-  const pushDiagnostic = (
-    file: string,
-    diagnostic: RepairErrorManifestDiagnostic,
-  ) => {
+  const pushDiagnostic = (file: string, diagnostic: RepairErrorManifestDiagnostic) => {
     const normalizedFile = toPosixPath(file);
     if (!normalizedFile) return;
     if (!diagnosticsByFile.has(normalizedFile)) {
@@ -366,9 +362,7 @@ function resolveImportPath(
   }
   if (!importPath.startsWith(".")) return null;
 
-  const base = path.posix.normalize(
-    path.posix.join(path.posix.dirname(importerPath), importPath),
-  );
+  const base = path.posix.normalize(path.posix.join(path.posix.dirname(importerPath), importPath));
   if (knownFiles.has(base)) return base;
 
   const extCandidates = [
@@ -568,15 +562,17 @@ export async function runRepairLoop<TPayload = unknown>(
   // failure unrelated to those imports would have its valid backend SDK
   // imports (stripe / @clerk/nextjs/server / supabase) stripped here — the
   // same policy the deterministic pre-pass already honours (Codex P1).
-  let content = (await runAutoFix(params.initialContent, {
-    previewPolicy: params.previewPolicy,
-  })).fixedContent;
+  let content = (
+    await runAutoFix(params.initialContent, {
+      previewPolicy: params.previewPolicy,
+    })
+  ).fixedContent;
 
   // Deterministic, diagnostic-driven import repair (runs BEFORE the LLM fixer).
   // The quality gate that produced `failedOutputs` already ran tsc; its
   // diagnostics name the exact symbol + file for import-only failures
-  // (TS2304/TS2552 missing import, TS1361 import-type-used-as-value, TS2440
-  // import/local conflict, TS2300 duplicate identifier). Resolve those
+  // (TS2304/TS2552 missing import, TS1361/TS2693 import-type-used-as-value,
+  // TS2440 import/local conflict, TS2300 duplicate identifier). Resolve those
   // mechanically and instantly so the deterministic promotion below can pass the
   // gate without a slow (~90s) LLM round-trip. Ambiguous / logic errors are left
   // for the LLM fixer. Shared implementation with the finalize warm-tsc
@@ -623,8 +619,7 @@ export async function runRepairLoop<TPayload = unknown>(
   // pre-fix content and discard the LLM's real fix at the final gate (prod
   // "could not resolve after 1 attempt"), and (2) the syntax-clean break would
   // stop after a single pass. Pure-syntax repairs keep their existing behavior.
-  const gateClassFailure =
-    initialSyntaxErrorCount === 0 && params.failedOutputs.length > 0;
+  const gateClassFailure = initialSyntaxErrorCount === 0 && params.failedOutputs.length > 0;
   let errorManifest = buildRepairErrorManifest({
     failedOutputs: params.failedOutputs,
     syntaxErrors: syntaxResult.errors,
@@ -708,8 +703,7 @@ export async function runRepairLoop<TPayload = unknown>(
   // Baseline after deterministic pre-pass (autofix + import-repair). LLM
   // abort/partial must not discard progress measured against THIS snapshot.
   const preLlmBaselineContent = content;
-  const hasDeterministicProgress =
-    importRepair.fixed || content !== params.initialContent;
+  const hasDeterministicProgress = importRepair.fixed || content !== params.initialContent;
 
   let bestContent = content;
   let bestErrorCount = syntaxResult.errors.length;
@@ -727,9 +721,7 @@ export async function runRepairLoop<TPayload = unknown>(
   // TSxxxx codes preserved. Without these, a tsc-origin repair fed the model
   // only esbuild syntax output + secondary context — the model optimized
   // against the wrong signal ("0 errors remain" → gate failed anyway).
-  const originPrimaryDiagnostics = buildStructuredOriginDiagnostics(
-    params.failedOutputs,
-  );
+  const originPrimaryDiagnostics = buildStructuredOriginDiagnostics(params.failedOutputs);
   // Fas 3: notes about previous failed passes so pass > 0 does not repeat the
   // exact patch that already failed. Bounded to the most recent 2 passes.
   const priorAttemptNotes: string[] = [];
@@ -742,6 +734,7 @@ export async function runRepairLoop<TPayload = unknown>(
         fixerModel: params.fixerModel,
         thinking: params.fixerThinking,
         reasoningEffort: params.fixerReasoningEffort,
+        reasoningMode: params.fixerReasoningMode,
       }
     : undefined;
 
@@ -813,6 +806,8 @@ export async function runRepairLoop<TPayload = unknown>(
     const originalMaxTokens = params.fixerMaxTokens ?? AUTOFIX_MAX_OUTPUT_TOKENS;
     const reducedMaxTokens = Math.max(1, Math.floor(originalMaxTokens * 0.5));
     let fixerAttemptCount = 0;
+    /** The exact string handed to the last fixer attempt — the only honest baseline for "did the model change anything". */
+    let lastFixerInput: string | null = null;
     // Fas 3 (RepairGate): the loop's LLM calls go through the SAME
     // `runLlmRepairGate` as every finalize repair lane — one port, one
     // ledger. A shared ledger (threaded from finalize via the caller)
@@ -825,6 +820,7 @@ export async function runRepairLoop<TPayload = unknown>(
     ): Promise<FixerResult> => {
       const activeBundle = bundleOverride ?? targetedBundle;
       const activeFixerInput = activeBundle?.contentForFixer ?? content;
+      lastFixerInput = activeFixerInput;
       const gate = await runLlmRepairGate({
         content: activeFixerInput,
         errors: attemptErrors,
@@ -850,9 +846,7 @@ export async function runRepairLoop<TPayload = unknown>(
       bundle: TargetedRepairBundle | null,
     ): Promise<void> => {
       if (!result.partial || result.fixedFiles.length === 0) return;
-      const fixerOutput = bundle
-        ? bundle.mergeBack(result.fixedContent)
-        : result.fixedContent;
+      const fixerOutput = bundle ? bundle.mergeBack(result.fixedContent) : result.fixedContent;
       const reFixed = await runAutoFix(fixerOutput, {
         previewPolicy: params.previewPolicy,
       });
@@ -864,9 +858,7 @@ export async function runRepairLoop<TPayload = unknown>(
       }
     };
 
-    const buildRetryTargetedBundle = (
-      result: FixerResult,
-    ): TargetedRepairBundle | null => {
+    const buildRetryTargetedBundle = (result: FixerResult): TargetedRepairBundle | null => {
       if (params.enableTargetedRepair === false) return null;
       const retryBrokenFiles = [
         ...new Set([
@@ -1027,12 +1019,17 @@ export async function runRepairLoop<TPayload = unknown>(
     });
     errorManifest = groupedAfterFix.errorManifest;
     // The LLM "changed something" when either the raw output differs from
-    // the targeted input we handed it OR the post-autofix content differs
-    // from what the loop had at the top of this iteration. Either signal
-    // means the model did not regurgitate the same bytes verbatim.
-    const fixerInputForPass = activeBundle?.contentForFixer ?? content;
-    const contentChanged =
-      fixerOutput !== fixerInputForPass || content !== contentBeforePass;
+    // the exact input we handed it OR the post-autofix content differs from
+    // what the loop had at the top of this iteration. Either signal means the
+    // model did not regurgitate the same bytes verbatim.
+    //
+    // Compare against `lastFixerInput`, not the merged output: with targeted
+    // repair (the default) `fixerOutput` is the merged FULL project while the
+    // input was a PARTIAL bundle, so the old comparison was between two
+    // different formats and therefore always unequal — the `no_improvement`
+    // stop was dead code and an echoing model bought another paid pass.
+    const fixerEchoedInput = lastFixerInput !== null && fixerResult.fixedContent === lastFixerInput;
+    const contentChanged = !fixerEchoedInput || content !== contentBeforePass;
     const stopReason = resolveServerRepairEarlyStopReason({
       fixerProducedOutput: true,
       errorsBefore,
@@ -1090,9 +1087,7 @@ export async function runRepairLoop<TPayload = unknown>(
   }
 
   const finalSyntaxResult =
-    bestContent === content
-      ? syntaxResult
-      : await validateGeneratedCode(bestContent);
+    bestContent === content ? syntaxResult : await validateGeneratedCode(bestContent);
   const finalErrorManifest = buildRepairErrorManifest({
     failedOutputs: params.failedOutputs,
     syntaxErrors: finalSyntaxResult.errors,
@@ -1117,11 +1112,7 @@ export async function runRepairLoop<TPayload = unknown>(
   // skip the (expensive) final gate — the base-bound save would discard the
   // result anyway. `earlyStopReason` may already be "superseded" from the
   // per-pass check above.
-  if (
-    syntaxClean &&
-    earlyStopReason !== "superseded" &&
-    (await params.shouldAbortSuperseded?.())
-  ) {
+  if (syntaxClean && earlyStopReason !== "superseded" && (await params.shouldAbortSuperseded?.())) {
     earlyStopReason = "superseded";
   }
   if (syntaxClean && earlyStopReason !== "superseded") {

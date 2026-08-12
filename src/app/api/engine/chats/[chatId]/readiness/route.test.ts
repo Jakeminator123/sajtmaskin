@@ -22,6 +22,7 @@ const resolveEnvRequirementsFromVersionFiles = vi.hoisted(() => vi.fn());
 const readAllowPlaceholdersInF3 = vi.hoisted(() => vi.fn());
 const resolveSelectedDossiersFromSnapshot = vi.hoisted(() => vi.fn());
 const settleStaleVerificationIfNeeded = vi.hoisted(() => vi.fn());
+const deriveTier3BuildSpecForVersion = vi.hoisted(() => vi.fn());
 const emit = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/client", () => ({ db: {}, dbConfigured: false }));
@@ -67,6 +68,10 @@ vi.mock("@/lib/gen/verify/settle-stale-verification", () => ({
   RECONCILED_PROMOTE_SUMMARY: "Rekoncilierad (test)",
 }));
 
+vi.mock("@/lib/integrations/tier3-readiness-gate", () => ({
+  deriveTier3BuildSpecForVersion,
+}));
+
 const { GET } = await import("./route");
 
 function readinessRequest(chatId = "chat_1") {
@@ -84,6 +89,7 @@ function emptyEnvRequirements() {
     buildBlockingKeys: [],
     featureRuntimeKeys: [],
     warnOnlyKeys: [],
+    designDeployBlockingKeys: [],
   };
 }
 
@@ -94,7 +100,7 @@ type ReadinessBody = {
     status: string;
     blockers: Array<{ id: string }>;
     warnings: Array<{ id: string }>;
-    info: { lifecycleStage?: string | null };
+    info: { lifecycleStage?: string | null; hasRealBuildIntegrations?: boolean };
   };
 };
 
@@ -120,6 +126,7 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     resolveSelectedDossiersFromSnapshot.mockReturnValue([]);
     getEngineVersionErrorLogs.mockResolvedValue([]);
     createEngineVersionErrorLogs.mockResolvedValue(undefined);
+    deriveTier3BuildSpecForVersion.mockResolvedValue({ requirements: [] });
   });
 
   // A1: the readiness poll is one of the four reads that 500:ed 29 times during
@@ -191,6 +198,47 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
     expect(json.readiness?.blockers.map((b) => b.id)).not.toContain("release-gate-not-green");
   });
 
+  // Ö4a: `hasRealBuildIntegrations` styr vad "Bygg integrationer" LOVAR om
+  // kostnad. En spec som inte går att härleda är samma `null` som får den
+  // delade gaten att svara `version_files_unavailable` → 409 från
+  // `/finalize-design`. Rapporteras den som `false` lovar knappen den gratis
+  // deterministiska vägen för ett klick som felar.
+  it("säger 'vet ej' i stället för 'gratis' när build-specen inte går att härleda", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: null,
+      verification_summary: null,
+    });
+    deriveTier3BuildSpecForVersion.mockResolvedValue(null);
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.info.hasRealBuildIntegrations).toBeUndefined();
+  });
+
+  it("rapporterar true när en härledd spec kräver riktiga byggnycklar", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "passed",
+      release_state: null,
+      verification_summary: null,
+    });
+    deriveTier3BuildSpecForVersion.mockResolvedValue({
+      requirements: [{ key: "stripe", requiredRealEnvKeys: ["STRIPE_SECRET_KEY"] }],
+    });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.info.hasRealBuildIntegrations).toBe(true);
+  });
+
   it("does not release-gate-block an F2 (design) version (soft gate)", async () => {
     getPreferredVersion.mockResolvedValue({
       id: "ver_1",
@@ -207,6 +255,90 @@ describe("GET readiness — ReleaseGate paritet (A#25 / A#12)", () => {
 
     expect(json.readiness?.blockers.map((b) => b.id)).not.toContain("release-gate-not-green");
     expect(json.readiness?.canDeploy).toBe(true);
+  });
+
+  // M#li2-paritet: deploy-routens F2-gren 409:ar (`DEPLOY_MISSING_ENV`) på den
+  // delade mängden `designDeployBlockingKeys` — readiness måste blocka samma
+  // version, annars ljuger `canDeploy:true` tills användaren klickar Publicera.
+  it("F2: blocks canDeploy on the shared designDeployBlockingKeys set (M#li2)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "pending",
+      release_state: null,
+      verification_summary: null,
+    });
+    resolveEnvRequirementsFromVersionFiles.mockReturnValue({
+      ...emptyEnvRequirements(),
+      requiredEnvKeys: ["MY_SECRET_TOKEN"],
+      missingEnvKeys: ["MY_SECRET_TOKEN"],
+      buildBlockingKeys: ["MY_SECRET_TOKEN"],
+      designDeployBlockingKeys: ["MY_SECRET_TOKEN"],
+    });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(false);
+    expect(json.readiness?.blockers.map((b) => b.id)).toContain("missing-env");
+  });
+
+  // Bugbot on the M#li2 fix: an unsaved chat cannot store keys — the deploy
+  // route 403:ar on the missing project link before the env backstop, so the
+  // F2 blocker must name the project save, not missing env (same guard as
+  // the integrations branch).
+  it("F2: names project-context-missing (not missing-env) for an unsaved chat", async () => {
+    getEngineChatByIdForRequest.mockResolvedValue({ id: "chat_1", project_id: null });
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "pending",
+      release_state: null,
+      verification_summary: null,
+    });
+    resolveEnvRequirementsFromVersionFiles.mockReturnValue({
+      ...emptyEnvRequirements(),
+      requiredEnvKeys: ["MY_SECRET_TOKEN"],
+      missingEnvKeys: ["MY_SECRET_TOKEN"],
+      buildBlockingKeys: ["MY_SECRET_TOKEN"],
+      designDeployBlockingKeys: ["MY_SECRET_TOKEN"],
+    });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(false);
+    const blockerIds = json.readiness?.blockers.map((b) => b.id) ?? [];
+    expect(blockerIds).toContain("project-context-missing");
+    expect(blockerIds).not.toContain("missing-env");
+  });
+
+  it("F2: does NOT block on truly-absent feature-runtime keys (Resend, prod 2026-08-01)", async () => {
+    getPreferredVersion.mockResolvedValue({
+      id: "ver_1",
+      chat_id: "chat_1",
+      lifecycle_stage: "design",
+      verification_state: "pending",
+      release_state: null,
+      verification_summary: null,
+    });
+    // Exactly the observed prod shape: feature-runtime keys land in
+    // `missingEnvKeys` but the resolver excludes them from the shared set.
+    resolveEnvRequirementsFromVersionFiles.mockReturnValue({
+      ...emptyEnvRequirements(),
+      requiredEnvKeys: ["RESEND_API_KEY", "EMAIL_FROM", "CONTACT_EMAIL_TO"],
+      missingEnvKeys: ["EMAIL_FROM", "CONTACT_EMAIL_TO"],
+      featureRuntimeKeys: ["EMAIL_FROM", "CONTACT_EMAIL_TO"],
+      designDeployBlockingKeys: [],
+    });
+
+    const { req, ctx } = readinessRequest();
+    const json = (await (await GET(req, ctx)).json()) as ReadinessBody;
+
+    expect(json.readiness?.canDeploy).toBe(true);
+    expect(json.readiness?.blockers.map((b) => b.id)).not.toContain("missing-env");
   });
 
   it("returns 404 when the chat is not owned by the caller", async () => {

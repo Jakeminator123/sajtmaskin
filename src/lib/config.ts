@@ -7,7 +7,7 @@ import path from "path";
 import { pickVercelAccessTokenFromEnv } from "@/lib/vercel";
 import { getAppBaseUrl } from "./app-url";
 import { getServerEnv } from "./env";
-import { isAffirmativeEnvValue } from "./env-affirmative";
+import { isAffirmativeEnvValue, sanitizeEnvString } from "./env-affirmative";
 
 const env = getServerEnv();
 
@@ -334,20 +334,24 @@ export const OPENCLAW = {
     return this.enabled && this.tokenConfigured && this.implementationFlagEnabled;
   },
   /**
-   * Debug-mode gate. When affirmative (OC_DEBUG or OC_DEBUGG), OpenClaw gets
-   * privileged debug context (full code + findings + repo-context) and may run
-   * the armed bug-hunt autonomy. Hard production safeguard: never active in
-   * production unless OC_DEBUG_ALLOW_PROD is also affirmative, so a stray prod
-   * env value can't silently arm an autonomous loop.
+   * Debug-mode gate — READ side only. When affirmative (OC_DEBUG or OC_DEBUGG),
+   * OpenClaw gets privileged debug context (full code + findings + repo-context)
+   * in every environment, production included. The former OC_DEBUG_ALLOW_PROD
+   * double-gate was removed 2026-07-31: OC_DEBUG is the single read gate.
+   * Acting (armed autonomy / auto-send) is gated separately by OC_EDIT.
    */
   get debugEnabled(): boolean {
-    const requested =
-      isAffirmativeEnvValue(env.OC_DEBUG) || isAffirmativeEnvValue(env.OC_DEBUGG);
-    if (!requested) return false;
-    if (RUNTIME_ENVIRONMENT === "production" && !isAffirmativeEnvValue(env.OC_DEBUG_ALLOW_PROD)) {
-      return false;
-    }
-    return true;
+    return isAffirmativeEnvValue(env.OC_DEBUG) || isAffirmativeEnvValue(env.OC_DEBUGG);
+  },
+  /**
+   * Edit gate — ACT side. When affirmative (OC_EDIT), OpenClaw may drive edits
+   * of USER SITES, exclusively through the ordinary builder pipeline (armed
+   * autonomy fills the builder prompt and clicks the same send button the user
+   * would; Mode B drives the same follow-up generation server-side). Never a
+   * direct write path against preview-host/Fly or Sajtmaskin's own code.
+   */
+  get editEnabled(): boolean {
+    return isAffirmativeEnvValue(env.OC_EDIT);
   },
   /** Read-only GitHub token for the debug repo-context reader (contents:read). */
   get repoReadToken(): string {
@@ -370,10 +374,18 @@ export const OPENCLAW = {
  */
 export const FEATURES = {
   useRedisCache: REDIS_CONFIG.enabled,
-  // Spår 02: F2 Product Postcheck. Server-side Playwright DOM checks
-  // against trusted preview URLs only. Default off while we measure flake
-  // rate and runtime cost.
-  f2ProductPostcheck: isAffirmativeEnvValue(env.SAJTMASKIN_F2_PRODUCT_POSTCHECK),
+  // F2 Product Postcheck. Server-side Playwright DOM checks against trusted
+  // preview URLs only. Default ON now that the check runs on a prod-capable
+  // Chromium (`launchCaptureBrowser`) and browser-runtime findings are
+  // advisory — keeping it default-off left the signal unused. Set
+  // `SAJTMASKIN_F2_PRODUCT_POSTCHECK=false` to disable (kill switch).
+  //
+  // Tåligare än de råa `!== "false"`-jämförelserna längre ned med flit: det här
+  // är nödbromsen för en kontroll som nu kör i produktion som default, och en
+  // deploy-plattform som skickar `False` eller ` false ` får inte tyst låta den
+  // fortsätta köra.
+  f2ProductPostcheck:
+    sanitizeEnvString(env.SAJTMASKIN_F2_PRODUCT_POSTCHECK)?.toLowerCase() !== "false",
 
   // Grandmaster område 7 / A7-2 (BUG-SWARM N#1): when ON, the cross-file
   // import checker refuses to fabricate a silent null-render stub for a
@@ -477,6 +489,17 @@ export const FEATURES = {
   useGitHubAuth: Boolean(SECRETS.githubClientId && SECRETS.githubClientSecret),
 
   useStripePayments: Boolean(SECRETS.stripeSecretKey),
+
+  /**
+   * In-app domain purchase. Requires Stripe (we charge) AND an explicit opt-in
+   * (we spend at the registrar). Kept separate from `useVercelApi` on purpose:
+   * the deploy token and the mandate to buy domains on the owner's registrar
+   * account are different decisions, and conflating them would turn any
+   * environment that can deploy into one that can place real orders.
+   */
+  useDomainPurchase:
+    Boolean(SECRETS.stripeSecretKey) &&
+    isAffirmativeEnvValue(env.SAJTMASKIN_DOMAIN_PURCHASE),
 
   // NOTE: `usePexels` removed 2026-04-20 (audit §3.7). Had 0 callsites in
   // runtime code — Unsplash is the active stock-image source. To re-enable

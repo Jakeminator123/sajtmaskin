@@ -67,6 +67,7 @@ import {
   renderScaffoldContextBlock,
   renderScaffoldResearchBlock,
   renderScaffoldVariantBlock,
+  renderVariantTemplateInspirationBlock,
   renderToolkitBlock,
 } from "./sections/scaffold-stack";
 import {
@@ -74,6 +75,8 @@ import {
   renderDossierBlocks,
 } from "./sections/dossiers";
 import {
+  renderExistingRoutePagesBlock,
+  renderHydrationDeterminismBlock,
   renderLucideIconsReminderBlock,
   renderRequiredImportsChecklistBlock,
   renderRoutePlanBlock,
@@ -231,6 +234,13 @@ export function buildDynamicContext(
       compact: compactFollowUpContext,
     }),
   );
+  if (!compactFollowUpContext) {
+    parts.push(
+      ...renderVariantTemplateInspirationBlock(
+        options.variantTemplateInspiration,
+      ),
+    );
+  }
   parts.push(...renderDesignPriorityBlock());
 
   // ── Import Rules & Known Pitfalls live in config/prompt-core/01-behavioral-contract.md
@@ -273,7 +283,18 @@ export function buildDynamicContext(
       ragContext,
     }),
   );
+  // Follow-up route-drift guard: existing `app/**/page.tsx` routes rendered
+  // as an explicit no-duplicate / no-unrequested-pages contract, right after
+  // the route plan so the model reads "planned paths" and "already existing
+  // pages" together. Init renders nothing (no previous version).
+  parts.push(
+    ...renderExistingRoutePagesBlock({
+      isFollowUp,
+      previousFilePaths: options.previousFilePaths ?? null,
+    }),
+  );
   parts.push(...renderScaffoldProtectedPathsBlock());
+  parts.push(...renderHydrationDeterminismBlock());
   // E4 (OMTAG fas 2·C) — deterministic shadcn imports checklist. Placed
   // right after the route plan so the LLM has scaffold + route context
   // in mind when it reads which components are about to be in play.

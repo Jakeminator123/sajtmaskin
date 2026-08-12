@@ -193,8 +193,10 @@ export interface FinalizeResult {
    * Threaded into the F2 preview `.env.local` seed so each selected dossier's
    * declared key gets a stub value and the dossier renders its demo/mock mode
    * — see `startPreviewSession` → `resolvePreviewEnvLayers`. Preview/F2 only;
-   * never persisted or shipped to F3/deploy. Empty/omitted when no dossiers
-   * declared env keys.
+   * never shipped to F3/deploy env vars. Also persisted on the version row
+   * (`engine_versions.selected_dossier_env_keys`) so force-restart and the
+   * quick-edit preview fallback rebuild the same surface. Empty/omitted when
+   * no dossiers declared env keys.
    */
   selectedDossierEnvKeys?: string[];
 }

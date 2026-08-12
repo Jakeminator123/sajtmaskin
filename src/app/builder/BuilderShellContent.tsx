@@ -9,6 +9,7 @@ import { BuilderPreviewTools } from "@/components/builder/BuilderPreviewTools";
 import { ChatOutputCollapseBar } from "@/components/builder/ChatOutputCollapseBar";
 import { useChatOutputCollapse } from "@/components/builder/useChatOutputCollapse";
 import { usePreviewSurfaceMode } from "@/components/builder/preview-panel/usePreviewSurfaceMode";
+import { resolveChatCollapseStatusText } from "@/lib/builder/chat-collapse-status";
 import { isBuilderInspectorEnabled } from "@/lib/builder/inspector-feature";
 import type { ComposerAiFallbackPayload } from "@/components/builder/preview-panel/preview-panel-types";
 import { VersionHistory } from "@/components/builder/VersionHistory";
@@ -34,8 +35,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
 import { DomainManager } from "@/components/builder/DomainManager";
+import { SeoReportDialog } from "@/components/builder/SeoReportDialog";
 import { GitHubExportDialog } from "@/components/builder/GitHubExportDialog";
-import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { useAuth, useAuthStore } from "@/lib/auth/auth-store";
@@ -53,7 +54,6 @@ import {
   subtractSavedKeysFromF3Requirements,
 } from "@/lib/builder/project-env-events";
 import { buildAddDossierMessage } from "@/lib/builder/dossier-id-request";
-import { PROMPT_PREFILL_EVENT } from "@/lib/builder/prompt-prefill-event";
 import { buildPromptSourceMessage } from "@/lib/builder/prompt-builder";
 import {
   buildShadcnInsertMessage,
@@ -81,6 +81,9 @@ import {
 } from "@/lib/hooks/chat/useAutoFix";
 import { useVersionStatus } from "@/lib/hooks/chat/useVersionStatus";
 import { shouldBlockPreviewWithLoadingOverlay } from "@/lib/builder/preview-lifecycle";
+import type { SendMessageOutcome } from "@/lib/hooks/chat/types";
+import { isOpenClawPreparedSend } from "@/lib/openclaw/prepared-prompt";
+import { useOpenClawStore } from "@/lib/openclaw/openclaw-store";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -239,7 +242,54 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.activeVersionId,
     vm.latestVersionId,
   ]);
-  const sendMessage = vm.sendMessage;
+  // `sendMessage` already reports how a turn ended (`SendMessageOutcome`), but
+  // nothing kept the answer around. Armed autonomy needs it: a send stopped by
+  // stale-base, an F3 env gate or the credit gate leaves the focused version on
+  // its previous terminal status, which otherwise reads exactly like a finished
+  // build — and the handshake would wake up and spend another mandate step on a
+  // turn that never ran. It is reported for EVERY outcome, not just refusals:
+  // the handshake resumes only on a send that says it ran, so the absence of an
+  // answer has to stop the run too.
+  // Numbered per send rather than time-stamped: the builder has many senders,
+  // and the handshake owns exactly one of them. A manual retry, a catalogue
+  // insert or a plan decision that fails while an autonomous turn is running
+  // must not end a mandate whose own send can still succeed.
+  const sendSeqRef = useRef(0);
+
+  const latestPendingReply = useMemo(
+    () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
+    [vm.messages],
+  );
+  const rawSendMessage = vm.sendMessage;
+  const sendMessage = useCallback<typeof rawSendMessage>(
+    async (...args) => {
+      const seq = (sendSeqRef.current += 1);
+      // Naming the turn from inside the send that owns it is what makes the
+      // match exact: the composer awaits an attachment step between the click
+      // and this call, and a predicted id could be taken by another sender in
+      // that window. The armed auto-send is recognised by the text OpenClaw
+      // filled into the composer — not merely by a fill being recorded, since a
+      // catalogue pick landing in the same window would then claim the watch
+      // and the mandate would read its own refused turn as someone else's.
+      const openClaw = useOpenClawStore.getState();
+      if (isOpenClawPreparedSend({ preparedFill: openClaw.preparedFill, message: args[0] })) {
+        openClaw.bindArmedContinuationSend(seq);
+      }
+      let outcome: SendMessageOutcome | undefined;
+      try {
+        outcome = await rawSendMessage(...args);
+        return outcome;
+      } finally {
+        // A send that threw or resolved with nothing did not run a turn either,
+        // so it reports as a failure rather than leaving the watch waiting for
+        // an answer that will never come.
+        useOpenClawStore
+          .getState()
+          .settleArmedContinuationSend(seq, outcome?.status ?? "failed");
+      }
+    },
+    [rawSendMessage],
+  );
 
   // Byggblock-panelen (PreviewPanelDossiers) refetchar sin "inkopplade"-lista
   // på versionId-byte + popover-open + env-var-sparning, men INTE när en ny
@@ -293,6 +343,21 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const hasPublication = Boolean(
     vm.liveDeploymentUrl || vm.hydratedVercelProjectId || vm.lastDeployVercelProjectId,
   );
+
+  // Returning from Stripe after a domain purchase. The redirect lands on the
+  // builder with `?domainOrder=…`; without this the customer would come back
+  // to an ordinary builder view with no sign that a charge just happened, and
+  // the outcome (registered / refunded) is only knowable by polling the order.
+  // Runs as an effect rather than lazy initial state so SSR and hydration
+  // agree on the closed dialog.
+  const setDomainManagerOpen = vm.setDomainManagerOpen;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).has("domainOrder")) {
+      setDomainManagerOpen(true);
+    }
+  }, [setDomainManagerOpen]);
+
   const deployReadinessBlocker = vm.deployReadiness?.blockers[0] ?? null;
   // Ö1-paritet (A#12): medan readiness laddar (SWR initial load) vet vi inte
   // om servern skulle 409:a — håll knappen disablad i stället för att
@@ -332,14 +397,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [f3Status, setF3Status] = useState<F3BuilderStatus | null>(null);
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
 
-  // Exempelprompt-chip i preview-panelens välkomstläge fyller chattens input —
-  // på mobil ligger inputen bakom Chat-tabben, så byt tab så användaren ser
-  // den ifyllda prompten direkt. No-op på desktop (chatten är alltid synlig).
-  useEffect(() => {
-    const handler = () => setMobileTab("chat");
-    window.addEventListener(PROMPT_PREFILL_EVENT, handler);
-    return () => window.removeEventListener(PROMPT_PREFILL_EVENT, handler);
-  }, []);
+  // (Prompt-prefill-lyssnaren togs bort 2026-07-31: Byggval-reglagen skriver
+  // inte längre i chattens input, och exempel-chipsen försvann med #673.)
   const [githubExportOpen, setGithubExportOpen] = useState(false);
   const [enableAutofix, setEnableAutofix] = useState(true);
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
@@ -497,6 +556,26 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         : current,
     );
   }, [vm.activeVersionId]);
+
+  // The effect above only runs when the ACTIVE version changes. A late status
+  // event for another version (e.g. a slow ReleaseGate verdict landing after
+  // the user switched back to an older version) would otherwise render on top
+  // of the wrong version until the next switch. Gate at render time instead of
+  // dropping the event on arrival: a verdict for a version that is activated a
+  // moment later (the fresh-build lane from #639) becomes visible as soon as
+  // `vm.activeVersionId` catches up.
+  const visibleF3Status =
+    f3Status?.versionId && vm.activeVersionId && f3Status.versionId !== vm.activeVersionId
+      ? null
+      : f3Status;
+
+  // Ö9: nedfällt läge döljer chattflödet, så en spärr som bara syns där måste
+  // följa med upp i raden — annars gömmer nedfällningen felet.
+  const chatCollapseStatusText = resolveChatCollapseStatusText({
+    activeVersionStatus,
+    deployBlocker: deployReadinessBlocker,
+    f3Status: visibleF3Status,
+  });
 
   useEffect(() => {
     setF3Requirements(null);
@@ -705,6 +784,24 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       recentMessages: buildRecentContextMessages(vm.messages),
       currentCode: vm.currentPageCode?.slice(0, OPENCLAW_CONTEXT_CODE_MAX_CHARS) || null,
       isStreaming: vm.isAnyStreaming,
+      // `isStreaming` drops as soon as the stream closes, while post-checks may
+      // still be running. The armed-autonomy handshake needs the version phase
+      // too, so it resumes on a genuinely terminal turn and stops on a failed
+      // one (`debug/armed-continuation.ts`). `activeVersionIsLatest` comes with
+      // it because the status is projected for the FOCUSED version — a user
+      // reading version history would otherwise report a terminal status while
+      // a newer version is still being built.
+      activeVersionStatus,
+      activeVersionIsLatest,
+      // Monotonic, unlike the truncated `recentMessages` — growth is how the
+      // handshake recognises a turn too short to catch mid-stream.
+      chatMessageCount: vm.messages.length,
+      // A pending question or plan approval belongs to the user, not to armed
+      // autonomy: sending past it would start a new generation and drop the
+      // plan the builder is holding. Both halves are needed — `isAwaitingInput`
+      // only sees the `awaiting-input` tool part, while a held plan shows up as
+      // a pending reply (the same pair that gates the dossier catalogue below).
+      awaitingInput: vm.isAwaitingInput || Boolean(latestPendingReply),
     };
     return () => {
       delete window.__SITEMASKIN_CONTEXT;
@@ -723,12 +820,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.messages,
     vm.currentPageCode,
     vm.isAnyStreaming,
+    activeVersionStatus,
+    activeVersionIsLatest,
+    vm.isAwaitingInput,
+    latestPendingReply,
   ]);
-
-  const latestPendingReply = useMemo(
-    () => getLatestPendingReplyFromTooling(vm.messages.map(toAIElementsFormat)),
-    [vm.messages],
-  );
 
   // Katalogval i Byggblock-panelen skickar via vm.sendMessage, som ABORTAR en
   // pågående stream. Ett val mitt i en generation skulle alltså döda den, och
@@ -925,13 +1021,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       // a new engine_versions row with `lifecycle_stage = "integrations"` and
       // `parent_version_id` set to the F2 version we just finalized.
       setF3Requirements(null);
-      void vm.sendMessage("Bygg integrationer nu utifrån den finaliserade designversionen.", {
+      void sendMessage("Bygg integrationer nu utifrån den finaliserade designversionen.", {
         lifecycleStageOverride: "integrations",
         parentVersionIdOverride: payload.parentVersionId,
         engineBaseVersionIdOverride: payload.parentVersionId,
       });
     },
-    [vm],
+    [sendMessage],
   );
 
   // Previewens lägen (composer/inspect/vy) har EN ägare här: kontrollerna sitter
@@ -1045,6 +1141,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             onF3Status={setF3Status}
             onF3Ready={handleF3Ready}
             onF3ReleaseSettled={vm.handleDeterministicF3Settled}
+            f3RequiresRealBuildKeys={
+              vm.deployReadiness?.info?.hasRealBuildIntegrations ?? null
+            }
           />
         }
       />
@@ -1117,6 +1216,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             readiness={vm.deployReadiness}
             isLoading={vm.isDeployReadinessLoading}
             lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+            hasAnyVersion={vm.effectiveVersionsList.length > 0}
           />
           {visibleF3Requirements ? (
             <F3RequirementsSurface
@@ -1127,17 +1227,16 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               }
             />
           ) : null}
-          {f3Status ? (
+          {visibleF3Status ? (
             <F3StatusSurface
-              status={f3Status}
+              status={visibleF3Status}
               chatId={vm.chatId}
-              versionId={f3Status.versionId ?? null}
+              versionId={visibleF3Status.versionId ?? null}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
             />
           ) : null}
           {/* Ägarbeslut 2026-07-22: ProjectEnvVarsPanel är borttagen — Byggblock-
               popovern (PreviewPanelDossiers) är den enda env-ytan i både F2 och F3. */}
-          <ThinkingOverlay isVisible={vm.isAnyStreaming} />
           <div
             id="builder-chat-output"
             className={cn(
@@ -1151,7 +1250,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               messages={vm.messages}
               showStructuredParts={vm.showStructuredChat}
               onQuickReply={async (text, options) => {
-                await vm.sendMessage(text, options);
+                await sendMessage(text, options);
               }}
               onApproveBuildPlan={handleApproveBuildPlan}
               quickReplyDisabled={isBusy}
@@ -1168,19 +1267,29 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onClose={() => setTipPanelOpen(false)}
             />
           </div>
-          {vm.messages.length > 0 ? (
-            <ChatOutputCollapseBar
-              isCollapsed={isChatOutputCollapsed}
-              onToggle={chatOutputCollapse.toggle}
-              messageCount={vm.messages.length}
-              isStreaming={vm.isAnyStreaming}
-            />
-          ) : null}
-          <ChatInterface
+          {/* Ö3/Del B: i nedfällt läge centreras BARA chatten (fliken + inputen)
+              som en box i mitten — inte Lansering-panelen (Del F) ovanför. På
+              smal skärm ger `w-full` full bredd så boxen inte blir en remsa. */}
+          <div
+            className={cn(
+              "flex flex-col",
+              isChatOutputCollapsed && "mx-auto w-full max-w-2xl",
+            )}
+          >
+            {vm.messages.length > 0 ? (
+              <ChatOutputCollapseBar
+                isCollapsed={isChatOutputCollapsed}
+                onToggle={chatOutputCollapse.toggle}
+                messageCount={vm.messages.length}
+                isStreaming={vm.isAnyStreaming}
+                statusText={chatCollapseStatusText}
+              />
+            ) : null}
+            <ChatInterface
             chatId={vm.chatId}
             initialPrompt={vm.initialPrompt}
             onCreateChat={vm.requestCreateChat}
-            onSendMessage={vm.sendMessage}
+            onSendMessage={sendMessage}
             onPromptAssistModeReset={vm.handlePromptAssistModeReset}
             isFigmaInputOpen={isFigmaInputOpen}
             onFigmaInputOpenChange={setIsFigmaInputOpen}
@@ -1188,9 +1297,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             isPreparingPrompt={vm.isPreparingPrompt}
             mediaEnabled={vm.mediaEnabled}
             continuePlanMode={Boolean(latestPendingReply?.planMode)}
-            designTheme={vm.designTheme}
-            onDesignThemeChange={vm.setDesignTheme}
-            isConfigLocked={vm.isAnyStreaming}
             followUpBaseInfo={followUpBaseInfo}
             previewModes={
               vm.currentPreviewUrl
@@ -1206,6 +1312,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 : null
             }
           />
+          </div>
           <DeployNameDialog
             open={vm.deployNameDialogOpen}
             deployName={vm.deployNameInput}
@@ -1266,6 +1373,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             deploymentId={vm.activeDeploymentId ?? vm.liveDeploymentId}
           />
 
+          <SeoReportDialog
+            report={vm.seoReport}
+            onClose={() => vm.setSeoReport(null)}
+          />
+
           <GitHubExportDialog
             open={githubExportOpen}
             onClose={() => setGithubExportOpen(false)}
@@ -1290,6 +1402,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             <PreviewPanel
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
+              designTheme={vm.designTheme}
+              onDesignThemeChange={vm.setDesignTheme}
+              themeLocked={vm.isAnyStreaming}
               previewUrl={vm.currentPreviewUrl}
               alternatePreviewUrls={vm.activeVersionAlternatePreview}
               previewBuildError={vm.previewBuildError}
@@ -1313,6 +1428,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
                 vm.setCurrentPreviewUrl(url);
               }}
               isLoading={isPreviewLoading}
+              isGenerating={isBusy}
               imageGenerationsEnabled={vm.enableImageGenerations}
               imageGenerationsSupported={vm.isImageGenerationsSupported}
               isBlobConfigured={vm.isMediaEnabled}

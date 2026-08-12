@@ -146,6 +146,71 @@ describe("runQuickEdit — textändring blir en ny minorversion", () => {
   });
 });
 
+// Bug-swarm 2026-08-01 (dossier-env rehydrering): a quick edit changes files,
+// never the dossier selection, so the minor version must inherit the base's
+// persisted `selected_dossier_env_keys`, and the full-preview fallback must
+// thread them into startPreviewSession — otherwise the rebuilt `.env.local`
+// loses the F2 mock-seed and dossier demo mode silently disappears.
+describe("runQuickEdit — dossier-env-nycklar ärvs och rehydreras", () => {
+  const baseVersionWithKeys = {
+    ...(baseVersion as unknown as Record<string, unknown>),
+    selected_dossier_env_keys: ["STRIPE_SECRET_KEY", "EMAIL_FROM"],
+  } as unknown as Version;
+
+  it("minorversionen ärver basens persisterade env-nycklar", async () => {
+    const result = await runQuickEdit({ ...runParams(), baseVersion: baseVersionWithKeys });
+    expect(result.ok).toBe(true);
+    const [, , , options] = addAssistantMessageAndCreateDraftVersion.mock.calls[0] ?? [];
+    expect(options).toMatchObject({
+      editKind: "quick_edit",
+      selectedDossierEnvKeys: ["STRIPE_SECRET_KEY", "EMAIL_FROM"],
+    });
+  });
+
+  it("fallback-starten trådar nycklarna till startPreviewSession när patch-lanen inte kan användas", async () => {
+    tryPatchPreviewSession.mockResolvedValue({ ok: false, reason: "no_session" });
+    startPreviewSession.mockResolvedValue({
+      ok: true,
+      result: {
+        previewUrl: "https://preview.example/chat_1",
+        previewSessionId: "ps_2",
+        startOutcome: "recreated",
+      },
+    });
+
+    const result = await runQuickEdit({ ...runParams(), baseVersion: baseVersionWithKeys });
+    expect(result.ok).toBe(true);
+    expect(startPreviewSession).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        lifecycleStage: "design",
+        selectedDossierEnvKeys: ["STRIPE_SECRET_KEY", "EMAIL_FROM"],
+      }),
+    );
+  });
+
+  it("bas utan nycklar ger null på minorn och undefined till fallback-starten", async () => {
+    tryPatchPreviewSession.mockResolvedValue({ ok: false, reason: "no_session" });
+    startPreviewSession.mockResolvedValue({
+      ok: true,
+      result: {
+        previewUrl: "https://preview.example/chat_1",
+        previewSessionId: "ps_2",
+        startOutcome: "recreated",
+      },
+    });
+
+    const result = await runQuickEdit(runParams());
+    expect(result.ok).toBe(true);
+    const [, , , options] = addAssistantMessageAndCreateDraftVersion.mock.calls[0] ?? [];
+    expect(options).toMatchObject({ selectedDossierEnvKeys: null });
+    expect(startPreviewSession).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ selectedDossierEnvKeys: undefined }),
+    );
+  });
+});
+
 describe("runQuickEdit — previewUrl persist logging (M#qe2)", () => {
   it("logs a warning when the previewUrl persist fails instead of swallowing", async () => {
     updateVersionPreviewUrl.mockRejectedValue(new Error("write timeout"));

@@ -26,7 +26,11 @@ import {
   resolveHarmlessPlaceholdersPath,
   resolveTier3StubPlaceholdersPath,
 } from "@/lib/ai-models/load-generated-site-placeholders";
-import { canonicalModelIdToOwnModelId, DEFAULT_OWN_MODEL_ID, QUALITY_TO_OPENAI_MODEL } from "@/lib/models/catalog";
+import {
+  canonicalModelIdToOwnModelId,
+  DEFAULT_OWN_MODEL_ID,
+  QUALITY_TO_OPENAI_MODEL,
+} from "@/lib/models/catalog";
 import {
   DESIGN_PREVIEW_QUALITY_GATE_CHECKS,
   INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS,
@@ -72,8 +76,11 @@ describe("config/ai_models/manifest.json parity", () => {
       expect(isPromptAssistModelAllowed(id)).toBe(true);
     }
 
-    // The new #221 ids must remain present alongside the back-compat ones.
+    // Current defaults must remain present alongside the back-compat ones.
     for (const id of [
+      "openai/gpt-5.6-sol",
+      "openai/gpt-5.6-terra",
+      "openai/gpt-5.6-luna",
       "openai/gpt-5.5",
       "anthropic/claude-opus-4.8",
       "anthropic-direct/claude-opus-4-8",
@@ -84,10 +91,7 @@ describe("config/ai_models/manifest.json parity", () => {
 
     // Sonnet 4.6 was retired from the allow-list but persisted selections must
     // still pass via aliasRetiredModelId() — never 400 on /api/ai/chat or brief.
-    for (const id of [
-      "anthropic/claude-sonnet-4.6",
-      "anthropic-direct/claude-sonnet-4-6",
-    ]) {
+    for (const id of ["anthropic/claude-sonnet-4.6", "anthropic-direct/claude-sonnet-4-6"]) {
       expect(allowed.models).not.toContain(id);
       expect(isPromptAssistModelAllowed(id)).toBe(true);
     }
@@ -95,27 +99,33 @@ describe("config/ai_models/manifest.json parity", () => {
 
   it("build profile defaults in manifest match getters", () => {
     const m = getAiModelsManifest();
-    expect(getBuildProfileDefaultOwnEngineModel("fast")).toBe(m.buildProfiles.defaults.fast);
+    expect(getBuildProfileDefaultOwnEngineModel("premium")).toBe(m.buildProfiles.defaults.premium);
     expect(getBuildProfileDefaultOwnEngineModel("pro")).toBe(m.buildProfiles.defaults.pro);
     expect(getBuildProfileDefaultOwnEngineModel("max")).toBe(m.buildProfiles.defaults.max);
     expect(getBuildProfileDefaultOwnEngineModel("codex")).toBe(m.buildProfiles.defaults.codex);
-    expect(getBuildProfileDefaultOwnEngineModel("anthropic")).toBe(m.buildProfiles.defaults.anthropic);
+    expect(getBuildProfileDefaultOwnEngineModel("anthropic")).toBe(
+      m.buildProfiles.defaults.anthropic,
+    );
     expect(DEFAULT_OWN_MODEL_ID).toBe(m.buildProfiles.defaults.max);
   });
 
   it("catalog tier resolution matches manifest when SAJTMASKIN_MODEL_* are unset", () => {
     const keys = [
-      "SAJTMASKIN_MODEL_FAST",
+      "SAJTMASKIN_MODEL_PREMIUM",
       "SAJTMASKIN_MODEL_PRO",
       "SAJTMASKIN_MODEL_MAX",
       "SAJTMASKIN_MODEL_CODEX",
       "SAJTMASKIN_MODEL_ANTHROPIC",
     ] as const;
     if (keys.some((k) => process.env[k]?.trim())) return;
-    expect(canonicalModelIdToOwnModelId("fast")).toBe(getBuildProfileDefaultOwnEngineModel("fast"));
+    expect(canonicalModelIdToOwnModelId("premium")).toBe(
+      getBuildProfileDefaultOwnEngineModel("premium"),
+    );
     expect(canonicalModelIdToOwnModelId("pro")).toBe(getBuildProfileDefaultOwnEngineModel("pro"));
     expect(canonicalModelIdToOwnModelId("max")).toBe(getBuildProfileDefaultOwnEngineModel("max"));
-    expect(canonicalModelIdToOwnModelId("codex")).toBe(getBuildProfileDefaultOwnEngineModel("codex"));
+    expect(canonicalModelIdToOwnModelId("codex")).toBe(
+      getBuildProfileDefaultOwnEngineModel("codex"),
+    );
     expect(canonicalModelIdToOwnModelId("anthropic")).toBe(
       getBuildProfileDefaultOwnEngineModel("anthropic"),
     );
@@ -145,7 +155,7 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(briefing.serverAutoOpenAI).toBeTruthy();
     expect(briefing.serverAutoAnthropic).toBeTruthy();
 
-    expect(phaseRouting.fast.planner).toBeTruthy();
+    expect(phaseRouting.premium.planner).toBeTruthy();
     expect(phaseRouting.pro.verifier).toBeTruthy();
     expect(phaseRouting.max.fixer).toBeTruthy();
 
@@ -194,7 +204,7 @@ describe("config/ai_models/manifest.json parity", () => {
 
   it("per-tier policy overrides, when present, cover all 5 tiers (validate-only)", () => {
     const m = getAiModelsManifest();
-    const tiers = ["fast", "pro", "max", "codex", "anthropic"] as const;
+    const tiers = ["premium", "pro", "max", "codex", "anthropic"] as const;
 
     if (m.perTierTimeouts) {
       for (const tier of tiers) {
@@ -232,6 +242,35 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(verifier?.invocation).toBe("ai_generateObject");
     expect(verifier?.codeEntry).toContain("src/lib/gen/verify/verifier-pass.ts");
     expect(m.workloads.some((w) => w.id === "post_generation_polish")).toBe(false);
+  });
+
+  it("documents the three backoffice AI workloads as separate entries (Fas D)", () => {
+    // The wizard persona (vision), the wizard guide (text) and dossier curation
+    // are deliberately THREE entries: merging persona+guide would force a cheap
+    // Q&A onto a vision model and make the vision gate meaningless. None of them
+    // may be analyze_presentation_vision, which belongs to the body-language
+    // feature in src/app/api/analyze-presentation/route.ts.
+    const m = getAiModelsManifest();
+    const persona = m.workloads.find((w) => w.id === "backoffice_scaffold_wizard_persona");
+    const guide = m.workloads.find((w) => w.id === "backoffice_scaffold_wizard_guide");
+    const curation = m.workloads.find((w) => w.id === "backoffice_dossier_curation");
+
+    for (const entry of [persona, guide, curation]) {
+      expect(entry?.defaultModel).toBeTruthy();
+      expect(entry?.authEnv).toEqual(["OPENAI_API_KEY"]);
+    }
+    expect(persona?.defaultModel).not.toBe(guide?.defaultModel);
+
+    // visionModels must survive the Zod parse (an undeclared key would be
+    // stripped here while Python still read it — silent drift between surfaces).
+    expect(persona?.visionModels?.length).toBeGreaterThan(0);
+    expect(persona?.visionModels).toContain(persona?.defaultModel);
+    expect(guide?.visionModels).toBeUndefined();
+    // Every vision id must also be selectable, or it is dead configuration.
+    const offered = new Set([persona?.defaultModel, ...(persona?.fallbackModels ?? [])]);
+    for (const id of persona?.visionModels ?? []) expect(offered.has(id)).toBe(true);
+
+    expect(curation?.codeEntry).toContain("scripts/dossiers/curate-from-reference.ts");
   });
 
   it("exposes the matchStrategy switch defaulting every point to its current method (B2.0 fas 6)", () => {

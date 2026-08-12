@@ -1,5 +1,6 @@
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { INTEGRATIONS_BUILD_QUALITY_GATE_CHECKS } from "@/lib/gen/verify/quality-gate-checks";
+import { beginF3Finalize } from "@/lib/builder/repair-blocked";
 
 export type F3RequirementSummary = {
   key: string;
@@ -121,6 +122,22 @@ function errorResult(params: {
  * deterministic branch invokes the existing ReleaseGate route.
  */
 export async function runF3FinalizeAction(params: {
+  chatId: string;
+  parentVersionId: string;
+  onDeterministicReleaseStarted?: (versionId: string) => void;
+}): Promise<F3FinalizeActionResult> {
+  // Reparera-ytorna har ingen annan väg att veta att en deterministisk F3
+  // pågår: den kör utan chat-stream, så builderns `isBusy` är falsk hela
+  // tiden. Grinden hålls därför här, runt hela körningen.
+  const releaseRepairGate = beginF3Finalize();
+  try {
+    return await runF3FinalizeRequest(params);
+  } finally {
+    releaseRepairGate();
+  }
+}
+
+async function runF3FinalizeRequest(params: {
   chatId: string;
   parentVersionId: string;
   onDeterministicReleaseStarted?: (versionId: string) => void;

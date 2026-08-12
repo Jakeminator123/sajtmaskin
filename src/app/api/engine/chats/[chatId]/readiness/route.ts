@@ -36,6 +36,9 @@ import {
   resolveEnvRequirementsFromVersionFiles,
 } from "@/lib/project-env-resolver";
 import { resolveSelectedDossiersWithVersionPresence } from "@/lib/gen/dossiers/version-presence";
+import { resolvePendingIntegrationDossiers } from "@/lib/gen/dossiers";
+import { deriveTier3BuildSpecForVersion } from "@/lib/integrations/tier3-readiness-gate";
+import { hasRequiredRealBuildKeys } from "@/lib/integrations/tier3-build-spec";
 import {
   getEngineChatByIdForRequest,
   getEngineVersionForChatByIdForRequest,
@@ -469,6 +472,7 @@ async function buildEngineReadiness(
     buildBlockingKeys,
     featureRuntimeKeys,
     warnOnlyKeys,
+    designDeployBlockingKeys,
   } = envRequirements;
 
   if (envGateActive) {
@@ -495,6 +499,27 @@ async function buildEngineReadiness(
     if (featureRuntimeKeys.length > 0) {
       warnings.push(buildFeatureRuntimeEnvInfo(featureRuntimeKeys));
     }
+  } else if (designDeployBlockingKeys.length > 0) {
+    // M#li2 parity: the deploy route's F2 backstop 409:ar (`DEPLOY_MISSING_ENV`)
+    // on exactly this shared set (`designDeployBlockingKeys`, resolver-derived).
+    // Readiness must block the same version — `canDeploy` may never lie.
+    // Feature-runtime/warn-only keys are excluded by the resolver, so the
+    // F2-mute contract (demo publishes stay green) is untouched.
+    if (!chat.project_id) {
+      // Same guard as the integrations branch: without a saved project no
+      // keys can be stored, and the deploy route 403:ar on the missing
+      // project link before it ever reaches the env backstop — a missing-env
+      // blocker would name the wrong obstacle.
+      blockers.push({
+        id: "project-context-missing",
+        title: "Projektet måste sparas innan miljövariabler kan kopplas.",
+        detail: "Spara projektet först så nycklarna kopplas rätt.",
+        severity: "blocker",
+        action: "env",
+      });
+    } else {
+      blockers.push(buildMissingEnvBlocker(designDeployBlockingKeys));
+    }
   }
 
   const latestPreviewSignal = errorLogs.find(
@@ -515,6 +540,34 @@ async function buildEngineReadiness(
     warnings.push(...buildSeoAdvisoriesFromMeta(latestSeoWarning.meta));
   }
 
+  // Ö4a: mirrors the LLM-vs-deterministic branch in `/finalize-design`:
+  // a provider-specific dossier still waiting to be installed OR an already-
+  // present integration with a real build requirement needs the LLM path.
+  // Derived from the same snapshot and preloaded files as the shared gate, so
+  // the "Bygg integrationer" tooltip does not guess from flat key lists.
+  //
+  // En spec som inte går att härleda ger `undefined`, aldrig `false`: samma
+  // `null` får `checkTier3ReadinessForVersion` att svara
+  // `version_files_unavailable`, vilket `/finalize-design` returnerar som 409.
+  // `false` hade alltså lovat den gratis deterministiska vägen för ett klick
+  // som i själva verket felar. Bara en härledd spec får uttala sig.
+  let hasRealBuildIntegrations: boolean | undefined;
+  try {
+    const tier3Spec = await deriveTier3BuildSpecForVersion(version.id, selectedDossiers, {
+      preloadedFiles: files,
+    });
+    const pendingDossiers = resolvePendingIntegrationDossiers({
+      snapshot: chat.orchestration_snapshot as Record<string, unknown> | null,
+      versionFiles: files,
+      configuredEnvKeys: new Set(configuredEnvKeys),
+    });
+    hasRealBuildIntegrations = tier3Spec
+      ? pendingDossiers.length > 0 || hasRequiredRealBuildKeys(tier3Spec)
+      : undefined;
+  } catch {
+    hasRealBuildIntegrations = undefined;
+  }
+
   return buildReadinessPayload({
     blockers,
     warnings,
@@ -531,6 +584,7 @@ async function buildEngineReadiness(
       buildBlockingKeys,
       featureRuntimeKeys,
       warnOnlyKeys,
+      hasRealBuildIntegrations,
     },
   });
 }

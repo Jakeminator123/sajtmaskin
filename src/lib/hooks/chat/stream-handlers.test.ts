@@ -245,6 +245,56 @@ describe("handleSseStream", () => {
     expect(store.getMessages()[0]?.isStreaming).toBe(false);
   });
 
+  // Row A/B (bug-swarm 2026-08-01): innehåll som strömmades till chatten men
+  // aldrig blev en version är inte "tom utdata". Användaren ser texten, så
+  // feltoasten "inget kom tillbaka" och empty-output-fasen får inte fyra —
+  // progresspart:en ska i stället spegla serverns reason.
+  it("skippar feltoasten och empty-output-fasen när innehåll strömmades men ingen version sparades", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: "<main>Här är sajten du bad om</main>" }, "");
+        onEvent(
+          "done",
+          { chatId: "chat_1", versionId: null, reason: "stream_ended_without_version" },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    const result = await handleSseStream(
+      new Response(null),
+      ctx,
+      new AbortController().signal,
+    );
+
+    expect(result.chatIdFromStream).toBe("chat_1");
+    // Ingen riktig artefakt — Byggval-reset i useCreateChat ska inte luras.
+    expect(result.hasRecoveredArtifact).toBe(false);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(spies.onGenerationComplete).not.toHaveBeenCalled();
+    expect(runPostGenerationChecks).not.toHaveBeenCalled();
+    // Den strömmade texten behålls som meddelandeinnehåll.
+    expect(store.getMessages()[0]?.content).toContain("Här är sajten du bad om");
+    expect(store.getMessages()[0]?.isStreaming).toBe(false);
+    const generationPart = (store.getMessages()[0]?.uiParts ?? []).find(
+      (part) => (part as { type?: string }).type === "tool:engine-generation",
+    ) as { output?: { phase?: string; reason?: string; steps?: unknown } } | undefined;
+    expect(generationPart?.output?.phase).toBe("stream-without-version");
+    expect(generationPart?.output?.reason).toBe("stream_ended_without_version");
+    expect(
+      Array.isArray(generationPart?.output?.steps) ? generationPart.output.steps : [],
+    ).toContain(
+      "Innehåll strömmades till chatten men kunde inte sparas som version. Texten ovan finns kvar.",
+    );
+  });
+
   // Plan-läget avslutar utan version och utan preview — planen är resultatet.
   // Utan planArtifact i `hasRecoveredArtifact` tog empty-output-grenen över och
   // visade ett fel för en fullt lyckad plan.
@@ -282,6 +332,76 @@ describe("handleSseStream", () => {
     // Ingen version finns, så inga versionsberoende efterkontroller ska köras.
     expect(runPostGenerationChecks).not.toHaveBeenCalled();
     expect(spies.onGenerationComplete).toHaveBeenCalled();
+  });
+
+  // Bugbot på MVP-svepet: serverns persist-beslut räknar pages/scope som
+  // plansubstans (`planArtifactHasSubstance`) — klienten måste använda samma
+  // predikat, annars får en sidplan utan steg fel-toasten trots att servern
+  // sparade en riktig plan.
+  it("behandlar en pages/scope-only-plan (utan steg) som lyckad", async () => {
+    const planArtifact = {
+      goal: "Ny sajtstruktur",
+      scope: ["app/om/page.tsx", "app/kontakt/page.tsx"],
+      pages: [
+        { name: "Om oss", path: "/om" },
+        { name: "Kontakt", path: "/kontakt" },
+      ],
+      steps: [],
+      blockers: [],
+    };
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: "Här är sidplanen." }, "");
+        onEvent("done", { chatId: "chat_1", planMode: true, planArtifact, versionId: null }, "");
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith("Plan skapad!");
+    expect(store.getMessages()[0]?.uiParts?.some((part) => part.type === "plan")).toBe(true);
+  });
+
+  // Bugbot på MVP-svepet (pass 4): plan-läge som strömmar prosa men inte får
+  // en substansplan är ett medvetet planner-text-utfall (servern persisterar
+  // prosan) — inte ett codegen-persist-fel. Ingen "kunde inte sparas som
+  // version"-fas, ingen toast, och completion-hooken körs.
+  it("behandlar plan-prosa utan substansplan som lugn avslutning, inte stream-without-version", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent("content", { text: "Bygget är klart, men previewen svarar inte." }, "");
+        onEvent("done", { chatId: "chat_1", planMode: true, planArtifact: {}, versionId: null }, "");
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx, spies } = createContext(store.setMessages);
+
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    expect(toast.error).not.toHaveBeenCalled();
+    const message = store.getMessages()[0];
+    expect(message?.content).toContain("Bygget är klart");
+    expect(message?.isStreaming).toBe(false);
+    const progressPart = message?.uiParts?.find(
+      (part) => part.type === "tool:engine-generation",
+    ) as { output?: { phase?: string } } | undefined;
+    expect(progressPart?.output?.phase).not.toBe("stream-without-version");
+    expect(spies.onGenerationComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ chatId: "chat_1" }),
+    );
   });
 
   // Bugbot på #629: plan-mode-stream skickar `resolvePlanArtifact(...) ?? {}`,
@@ -476,6 +596,13 @@ describe("handleSseStream", () => {
       logSnippet: "Error: failed",
     });
     expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://sandbox.example");
+    const failedPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string } | undefined;
+    expect(failedPreviewProgress?.state).toBe("output-error");
   });
 
   it("does not set preview iframe on empty preview-ready (build_only) but records prod build", async () => {
@@ -529,6 +656,13 @@ describe("handleSseStream", () => {
       logSnippet: undefined,
     });
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
+    const verifiedPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string } | undefined;
+    expect(verifiedPreviewProgress?.state).toBe("output-available");
   });
 
   it("clears prod-build banner when preview-ready omits prodBuildVerified (preview_host tier-2)", async () => {
@@ -560,6 +694,7 @@ describe("handleSseStream", () => {
             previewUrl: "https://preview.example",
             previewSessionId: "sb_1",
             previewTier: 2,
+            runtimeConfirmed: false,
           },
           "",
         );
@@ -577,6 +712,21 @@ describe("handleSseStream", () => {
 
     expect(setPreviewProdBuild).toHaveBeenCalledWith(null);
     expect(spies.setCurrentPreviewUrl).toHaveBeenCalledWith("https://preview.example");
+    const readyPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string; output?: { phase?: string; steps?: unknown } } | undefined;
+    expect(readyPreviewProgress?.state).toBe("output-available");
+    expect(readyPreviewProgress?.output?.phase).toBe("boot-queued");
+    expect(
+      Array.isArray(readyPreviewProgress?.output?.steps)
+        ? readyPreviewProgress.output.steps
+        : [],
+    ).toContain(
+      "Preview-sessionen är skapad. Miljön fortsätter starta i previewytan.",
+    );
   });
 
   it("does not set iframe URL from done when previewUrl is compatibility shim only", async () => {
@@ -685,6 +835,14 @@ describe("handleSseStream", () => {
           "",
         );
         onEvent(
+          "progress",
+          {
+            step: "preview",
+            phase: "starting",
+          },
+          "",
+        );
+        onEvent(
           "build-error",
           {
             stage: "install",
@@ -701,6 +859,18 @@ describe("handleSseStream", () => {
     await handleSseStream(new Response(null), ctx, new AbortController().signal);
 
     expect(spies.setCurrentPreviewUrl).not.toHaveBeenCalled();
+    const failedPreviewProgress = store
+      .getMessages()
+      .find((message) => message.id === "assistant_1")
+      ?.uiParts?.find(
+        (part) => (part as { type?: string }).type === "tool:engine-preview",
+      ) as { state?: string; output?: { steps?: unknown } } | undefined;
+    expect(failedPreviewProgress?.state).toBe("output-error");
+    expect(
+      Array.isArray(failedPreviewProgress?.output?.steps)
+        ? failedPreviewProgress.output.steps
+        : [],
+    ).toContain("Live-preview kunde inte starta: npm failed");
   });
 
   // Regression (2026-07 preview-lifecycle simplification, punkt 1): the old
@@ -883,6 +1053,53 @@ describe("handleSseStream", () => {
         expect.stringContaining("Generering klar (2.1s)."),
         expect.stringContaining("reasoning 1.2s, output 0.9s."),
       ]),
+    );
+  });
+
+  it("renders a friendly live status when model reasoning takes longer than usual", async () => {
+    consumeSseResponse.mockImplementation(
+      async (
+        _response: Response,
+        onEvent: (event: string, data: unknown, raw: string) => void,
+      ) => {
+        onEvent("chatId", { id: "chat_1" }, "");
+        onEvent(
+          "progress",
+          {
+            step: "generation",
+            phase: "reasoning-slow",
+            elapsedMs: 30_500,
+          },
+          "",
+        );
+        onEvent(
+          "done",
+          {
+            chatId: "chat_1",
+            versionId: "ver_1",
+            messageId: "msg_1",
+            previewUrl: null,
+            preflight: {
+              previewBlocked: false,
+              verificationBlocked: false,
+              previewBlockingReason: null,
+            },
+          },
+          "",
+        );
+      },
+    );
+
+    const store = createMessageStore();
+    const { ctx } = createContext(store.setMessages);
+    await handleSseStream(new Response(null), ctx, new AbortController().signal);
+
+    const assistant = store.getMessages().find((message) => message.id === "assistant_1");
+    const progress = (assistant?.uiParts ?? []).find(
+      (part) => (part as { type?: string }).type === "tool:engine-generation",
+    ) as { output?: { steps?: unknown } } | undefined;
+    expect(Array.isArray(progress?.output?.steps) ? progress.output.steps : []).toContain(
+      "Modellen analyserar fortfarande uppgiften (31s).",
     );
   });
 });

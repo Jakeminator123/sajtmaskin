@@ -126,6 +126,8 @@ export interface RunPreVmEslintParams {
   cacheDirOverride?: string;
   /** Override max warnings threshold; defaults to env or 20. */
   maxWarningsOverride?: number;
+  /** Deterministic process seam for tests; production uses node:child_process. */
+  spawnSyncOverride?: typeof spawnSync;
 }
 
 export async function runPreVmEslint(
@@ -175,7 +177,7 @@ export async function runPreVmEslint(
         durationMs: Date.now() - startedAt,
       };
     }
-    const result = spawnSync(
+    const result = (params.spawnSyncOverride ?? spawnSync)(
       "npx",
       [
         "--no-install",

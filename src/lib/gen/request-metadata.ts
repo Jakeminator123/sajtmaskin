@@ -12,6 +12,9 @@ export type RequestAttachment = {
   purpose?: string;
 };
 
+export const VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE =
+  "variant-template-style-reference";
+
 type UserPromptContent =
   | string
   | Array<{ type: "text"; text: string } | { type: "image"; image: string; mediaType?: string }>;
@@ -70,6 +73,12 @@ function isVideoAttachment(attachment: RequestAttachment): boolean {
   return /\.(mp4|webm|mov|m4v|avi)(\?|#|$)/i.test(source);
 }
 
+function isVariantTemplateStyleReference(
+  attachment: RequestAttachment,
+): boolean {
+  return attachment.purpose === VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE;
+}
+
 /** MIME type for an attachment (filename/url fallback). */
 export function getRequestAttachmentMediaType(
   attachment: RequestAttachment,
@@ -90,7 +99,10 @@ function formatNonImageAttachmentDescriptors(attachments: RequestAttachment[]): 
   // explicit "embed with the exact URL" instructions). This block covers the
   // remaining document/reference files (PDF, text, etc.).
   const nonVisual = attachments.filter(
-    (a) => !isImageAttachment(a) && !isVideoAttachment(a),
+    (a) =>
+      !isVariantTemplateStyleReference(a) &&
+      !isImageAttachment(a) &&
+      !isVideoAttachment(a),
   );
   if (nonVisual.length === 0) return "";
 
@@ -125,7 +137,14 @@ export function normalizeRequestAttachments(input: unknown): RequestAttachment[]
       if (!url) return null;
       const filename = asTrimmedString(value.filename);
       const mimeType = asTrimmedString(value.mimeType);
-      const purpose = asTrimmedString(value.purpose);
+      // Markören är serverreserverad — pipelinen sätter den på sina egna
+      // stilreferenser. Släpps en klientsatt variant igenom kan en användarbild
+      // maskera sig som systemreferens och därmed uteslutas ur URL-textblocket:
+      // modellen ser bilden på visionkanalen men får aldrig adressen, och
+      // hittar då på en lokal /media/-sökväg i stället för att bädda in den.
+      const rawPurpose = asTrimmedString(value.purpose);
+      const purpose =
+        rawPurpose === VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE ? undefined : rawPurpose;
       const type = asTrimmedString(value.type);
       const size =
         typeof value.size === "number" && Number.isFinite(value.size) && value.size >= 0
@@ -148,8 +167,18 @@ function getVisualReferenceAttachments(
   attachments: RequestAttachment[],
   max = 4,
 ): RequestAttachment[] {
-  return attachments
-    .filter((attachment) => isImageAttachment(attachment))
+  const images = attachments.filter((attachment) => isImageAttachment(attachment));
+  // Systemets stilreferens läggs FÖRST i listan av anroparen, men den är det
+  // enda i budgeten som inte är användarens eget innehåll — den är dessutom
+  // märkt "do not embed", så platsen den tar kan aldrig bli en bild i sajten.
+  // Ryms inte allt ska referensen falla bort, aldrig en användarbild.
+  const userImages = images.filter(
+    (attachment) => !isVariantTemplateStyleReference(attachment),
+  );
+  const styleReferences = images.filter((attachment) =>
+    isVariantTemplateStyleReference(attachment),
+  );
+  return [...userImages, ...styleReferences]
     .slice(0, max)
     .map((attachment) => ({
       ...attachment,
@@ -166,8 +195,11 @@ function getVisualReferenceAttachments(
  * "Attached media wins" rule in config/prompt-core/04-coding-direction.md).
  */
 function formatEmbeddableMediaReferences(attachments: RequestAttachment[]): string {
-  const images = attachments.filter((a) => isImageAttachment(a));
-  const videos = attachments.filter((a) => isVideoAttachment(a));
+  const embeddable = attachments.filter(
+    (attachment) => !isVariantTemplateStyleReference(attachment),
+  );
+  const images = embeddable.filter((a) => isImageAttachment(a));
+  const videos = embeddable.filter((a) => isVideoAttachment(a));
   if (images.length === 0 && videos.length === 0) return "";
 
   const describe = (a: RequestAttachment, fallback: string): string[] => {
@@ -205,19 +237,46 @@ function formatEmbeddableMediaReferences(attachments: RequestAttachment[]): stri
   return lines.join("\n").trimEnd();
 }
 
+function formatVariantTemplateStyleReferences(
+  attachments: RequestAttachment[],
+): string {
+  const references = attachments.filter(
+    (attachment) =>
+      isVariantTemplateStyleReference(attachment) &&
+      isImageAttachment(attachment),
+  );
+  if (references.length === 0) return "";
+
+  return [
+    "## Variant template style reference (system-selected — do not embed)",
+    "",
+    "One reference image is supplied on the vision channel. Inspect it for visual hierarchy, density, spacing rhythm, composition, and interaction cues only.",
+    "Do NOT embed the reference image or its URL in the generated project. Do NOT copy its brand, text, logos, or assets. Adapt the visual ideas to the user's brief and the selected scaffold.",
+  ].join("\n");
+}
+
 export function buildUserPromptContent(
   prompt: string,
   attachments?: RequestAttachment[],
 ): UserPromptContent {
   const list = attachments ?? [];
   const trimmed = prompt.trimEnd();
+  const visualAttachments = getVisualReferenceAttachments(list);
   const mediaReferenceBlock = formatEmbeddableMediaReferences(list);
   const descriptorBlock = formatNonImageAttachmentDescriptors(list);
-  const textPrompt = [trimmed, mediaReferenceBlock, descriptorBlock]
+  // Härledd ur det som faktiskt ryms i visionbudgeten, inte ur hela listan:
+  // texten säger "One reference image is supplied on the vision channel", och
+  // det får inte stå kvar när referensen trängdes ut av användarens bilder.
+  const styleReferenceBlock = formatVariantTemplateStyleReferences(visualAttachments);
+  const textPrompt = [
+    trimmed,
+    mediaReferenceBlock,
+    descriptorBlock,
+    styleReferenceBlock,
+  ]
     .filter((section) => section.length > 0)
     .join("\n\n");
 
-  const visualAttachments = getVisualReferenceAttachments(list);
   if (visualAttachments.length === 0) return textPrompt;
 
   const parts: Array<
@@ -290,6 +349,52 @@ export function extractPaletteStateFromMeta(meta: unknown): PaletteState | null 
 export function extractAppProjectIdFromMeta(meta: unknown): string {
   if (!isRecord(meta)) return "";
   return asTrimmedString(meta.appProjectId);
+}
+
+/**
+ * Byggval (init controls): structured page-count hint. Clamped to the same
+ * 1–20 range as `detectExplicitPageCount` so a malformed client can never
+ * push the route plan outside what prompt text is allowed to.
+ */
+export function extractPageCountHintFromMeta(meta: unknown): number | null {
+  if (!isRecord(meta)) return null;
+  const raw = meta.pageCountHint;
+  if (typeof raw !== "number" || !Number.isInteger(raw)) return null;
+  return raw >= 1 && raw <= 20 ? raw : null;
+}
+
+/**
+ * Byggval (init controls): structured complexity choice for BuildSpec
+ * (`complex` → premium-golv + heavy context-bias; `simple` → lättare
+ * context-bias; `medium` → recorded no-op).
+ */
+export function extractComplexityHintFromMeta(
+  meta: unknown,
+): "simple" | "medium" | "complex" | null {
+  if (!isRecord(meta)) return null;
+  const raw = meta.complexityHint;
+  return raw === "simple" || raw === "medium" || raw === "complex" ? raw : null;
+}
+
+/**
+ * Byggval (init controls): structured style keywords for scaffold-variant
+ * matching. Trimmed, deduped and capped to 8 entries of max 40 chars.
+ */
+export function extractStyleKeywordsHintFromMeta(meta: unknown): string[] {
+  if (!isRecord(meta) || !Array.isArray(meta.styleKeywordsHint)) return [];
+  const seen = new Set<string>();
+  const keywords: string[] = [];
+  for (const entry of meta.styleKeywordsHint) {
+    if (typeof entry !== "string") continue;
+    const trimmed = entry.trim();
+    if (!trimmed || trimmed.length > 40) continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    keywords.push(trimmed);
+    if (keywords.length >= 8) break;
+  }
+  return keywords;
 }
 
 export function extractScaffoldSettingsFromMeta(meta: unknown): {

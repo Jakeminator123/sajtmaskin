@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildUserPromptContent,
+  extractComplexityHintFromMeta,
+  extractPageCountHintFromMeta,
+  extractStyleKeywordsHintFromMeta,
   isVideoRequestAttachment,
   normalizeRequestAttachments,
+  VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
   type RequestAttachment,
 } from "./request-metadata";
 
@@ -34,6 +38,31 @@ describe("buildUserPromptContent — attached media", () => {
       const imagePart = content.find((p) => p.type === "image");
       expect(imagePart && imagePart.type === "image" ? imagePart.image : "").toBe(
         `${BLOB}/john-hampus.jpg`,
+      );
+    }
+  });
+
+  it("passes a variant template still to vision without exposing it as an embeddable asset", () => {
+    const referenceUrl = `${BLOB}/template-still.jpg`;
+    const content = buildUserPromptContent("Bygg sajten", [
+      {
+        type: "system_reference",
+        url: referenceUrl,
+        filename: "template-style-reference.jpg",
+        mimeType: "image/jpeg",
+        purpose: VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
+      },
+    ]);
+
+    expect(Array.isArray(content)).toBe(true);
+    const text = textOf(content);
+    expect(text).toContain("Variant template style reference");
+    expect(text).toContain("do not embed");
+    expect(text).not.toContain(referenceUrl);
+    expect(text).not.toContain("use these exact assets");
+    if (Array.isArray(content)) {
+      expect(content.some((part) => part.type === "image" && part.image === referenceUrl)).toBe(
+        true,
       );
     }
   });
@@ -98,5 +127,121 @@ describe("buildUserPromptContent — attached media", () => {
     expect(normalized).toHaveLength(1);
     expect(normalized[0].url).toBe(`${BLOB}/a.jpg`);
     expect(normalized[0].size).toBe(1234);
+  });
+
+  it("offrar systemreferensen, inte en användarbild, när budgeten är full", () => {
+    // Anroparen lägger mallbilden först och visionkanalen tar bara fyra bilder.
+    // Med fyra användarbilder måste referensen falla bort — den är en stilhint
+    // som dessutom är märkt "do not embed", så platsen den tar kan aldrig bli
+    // en bild i den genererade sajten.
+    const attachments: RequestAttachment[] = [
+      {
+        url: `${BLOB}/template.png`,
+        mimeType: "image/png",
+        purpose: VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
+      },
+      ...[1, 2, 3, 4].map((n) => ({
+        url: `${BLOB}/user-${n}.jpg`,
+        mimeType: "image/jpeg",
+      })),
+    ];
+
+    const content = buildUserPromptContent("bygg en sajt", attachments);
+    const images = Array.isArray(content)
+      ? content.filter((part) => part.type === "image").map((part) => part.image)
+      : [];
+
+    expect(images).toEqual([1, 2, 3, 4].map((n) => `${BLOB}/user-${n}.jpg`));
+    expect(images).not.toContain(`${BLOB}/template.png`);
+    // Textblocket lovar "One reference image is supplied on the vision
+    // channel" — det får inte stå kvar när referensen inte kom med.
+    expect(textOf(content)).not.toContain("Variant template style reference");
+  });
+
+  it("behåller systemreferensen när det finns plats kvar", () => {
+    const attachments: RequestAttachment[] = [
+      {
+        url: `${BLOB}/template.png`,
+        mimeType: "image/png",
+        purpose: VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
+      },
+      { url: `${BLOB}/user-1.jpg`, mimeType: "image/jpeg" },
+    ];
+
+    const content = buildUserPromptContent("bygg en sajt", attachments);
+    const images = Array.isArray(content)
+      ? content.filter((part) => part.type === "image").map((part) => part.image)
+      : [];
+
+    expect(images).toContain(`${BLOB}/template.png`);
+    expect(images).toContain(`${BLOB}/user-1.jpg`);
+    expect(textOf(content)).toContain("Variant template style reference");
+  });
+
+  it("normalizeRequestAttachments låter inte en klient sätta systemreferens-markören", () => {
+    // Markören är serverreserverad. Går den igenom klassas användarbilden som
+    // systemreferens och utesluts ur URL-textblocket — modellen ser bilden men
+    // saknar adressen och hittar på en lokal /media/-sökväg.
+    const normalized = normalizeRequestAttachments([
+      {
+        url: `${BLOB}/mine.jpg`,
+        mimeType: "image/jpeg",
+        purpose: VARIANT_TEMPLATE_STYLE_REFERENCE_PURPOSE,
+      },
+    ]);
+
+    expect(normalized[0].purpose).toBeUndefined();
+    expect(textOf(buildUserPromptContent("bygg en sajt", normalized))).toContain(
+      `${BLOB}/mine.jpg`,
+    );
+  });
+});
+
+describe("extractPageCountHintFromMeta (Byggval)", () => {
+  it("accepts integers in the 1–20 range", () => {
+    expect(extractPageCountHintFromMeta({ pageCountHint: 3 })).toBe(3);
+    expect(extractPageCountHintFromMeta({ pageCountHint: 1 })).toBe(1);
+    expect(extractPageCountHintFromMeta({ pageCountHint: 20 })).toBe(20);
+  });
+
+  it("rejects out-of-range, non-integer and malformed values", () => {
+    expect(extractPageCountHintFromMeta({ pageCountHint: 0 })).toBeNull();
+    expect(extractPageCountHintFromMeta({ pageCountHint: 21 })).toBeNull();
+    expect(extractPageCountHintFromMeta({ pageCountHint: 2.5 })).toBeNull();
+    expect(extractPageCountHintFromMeta({ pageCountHint: "3" })).toBeNull();
+    expect(extractPageCountHintFromMeta({})).toBeNull();
+    expect(extractPageCountHintFromMeta(null)).toBeNull();
+  });
+});
+
+describe("extractComplexityHintFromMeta (Byggval)", () => {
+  it("accepts exactly the three enum values", () => {
+    expect(extractComplexityHintFromMeta({ complexityHint: "simple" })).toBe("simple");
+    expect(extractComplexityHintFromMeta({ complexityHint: "medium" })).toBe("medium");
+    expect(extractComplexityHintFromMeta({ complexityHint: "complex" })).toBe("complex");
+  });
+
+  it("rejects everything else", () => {
+    expect(extractComplexityHintFromMeta({ complexityHint: "auto" })).toBeNull();
+    expect(extractComplexityHintFromMeta({ complexityHint: 3 })).toBeNull();
+    expect(extractComplexityHintFromMeta({})).toBeNull();
+    expect(extractComplexityHintFromMeta(null)).toBeNull();
+  });
+});
+
+describe("extractStyleKeywordsHintFromMeta (Byggval)", () => {
+  it("trims, dedupes case-insensitively and caps at 8", () => {
+    expect(
+      extractStyleKeywordsHintFromMeta({
+        styleKeywordsHint: [" warm ", "Warm", "lokal", 42, "", "a".repeat(41)],
+      }),
+    ).toEqual(["warm", "lokal"]);
+    const many = Array.from({ length: 12 }, (_, i) => `kw${i}`);
+    expect(extractStyleKeywordsHintFromMeta({ styleKeywordsHint: many })).toHaveLength(8);
+  });
+
+  it("returns empty array for malformed meta", () => {
+    expect(extractStyleKeywordsHintFromMeta({ styleKeywordsHint: "warm" })).toEqual([]);
+    expect(extractStyleKeywordsHintFromMeta(null)).toEqual([]);
   });
 });

@@ -35,6 +35,7 @@ import {
 } from "./references";
 import type {
   BuildSpec,
+  BuildSpecComplexityHint,
   BuildSpecGenerationMode,
   BuildSpecPreviewPolicy,
 } from "./types";
@@ -84,6 +85,12 @@ type DeriveBuildSpecParams = {
    * Omit (or pass <= 0) to use the legacy default budgets unchanged.
    */
   modelContextWindowTokens?: number;
+  /**
+   * Byggval (init controls): structured user-chosen complexity.
+   * `complex` floors qualityTarget at premium and adds heavy context bias;
+   * `simple` only biases context lighter. See {@link BuildSpecComplexityHint}.
+   */
+  complexityHint?: BuildSpecComplexityHint | null;
 };
 
 export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
@@ -102,6 +109,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     previewPolicyOverride,
     scaffoldUnlockedForMatch,
     modelContextWindowTokens,
+    complexityHint = null,
   } = params;
 
   const capabilityFlags = deriveCapabilityFlags(capabilities);
@@ -133,6 +141,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     previewPolicy,
     isFirstCodeGeneration,
     brief,
+    complexityHint,
   });
   const verificationPolicy = inferVerificationPolicy({
     generationMode,
@@ -154,6 +163,7 @@ export function deriveBuildSpec(params: DeriveBuildSpecParams): BuildSpec {
     scaffoldUnlockedForMatch,
     isFirstCodeGeneration,
     brief,
+    complexityHint,
   });
 
   const styleResult = inferStylePack(prompt, buildIntent, resolvedScaffold, changeScope, brief);

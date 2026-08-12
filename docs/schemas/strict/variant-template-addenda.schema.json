@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sajtmaskin.local/schemas/variant-template-addenda.schema.json",
+  "title": "Variant Template Addenda Registry",
+  "description": "SHA-bound, reviewable frontend excerpts used by scaffold variants before the runtime falls back to reading a template ZIP.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "_comment", "_version", "templates"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "../docs/schemas/strict/variant-template-addenda.schema.json"
+    },
+    "_comment": { "type": "string", "minLength": 1 },
+    "_version": { "type": "string", "const": "1.0.0" },
+    "templates": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/addendum" }
+    }
+  },
+  "definitions": {
+    "structuralReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "language", "reason", "excerpt"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "\\.(?:tsx|jsx|ts|js|css)$",
+          "description": "Normalized relative frontend path limited to .tsx/.jsx/.ts/.js/.css, so lockfiles and package manifests cannot be cited. Runtime additionally rejects traversal, API paths, NUL bytes, and backslashes."
+        },
+        "language": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]{1,24}$"
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["primary-page", "direct-component", "global-styles", "root-layout"]
+        },
+        "excerpt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 9000,
+          "description": "Prompt-safe excerpt. Runtime rejects Markdown fence and H2 boundaries; combined entry budget is 9000 characters."
+        }
+      }
+    },
+    "addendum": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "reviewStatus": { "const": "disabled" } },
+            "required": ["reviewStatus"]
+          },
+          "then": {
+            "properties": { "structuralReferences": { "maxItems": 0 } }
+          }
+        }
+      ],
+      "required": ["templateId", "sourceArchiveSha256", "reviewStatus", "structuralReferences"],
+      "properties": {
+        "templateId": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "sourceArchiveSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "extractorSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "SHA-256 over the LF-normalized sources that produce these excerpts (template-inspiration.ts plus local-v0-template-source.ts). Records are bound to the extractor as well as the input archive, so a changed extraction rule cannot leave stale excerpts cached. Required in practice for generated records; omitted for disabled ones."
+        },
+        "reviewStatus": {
+          "type": "string",
+          "enum": ["generated", "reviewed", "disabled"]
+        },
+        "reviewNotes": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "structuralReferences": {
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/definitions/structuralReference" }
+        }
+      }
+    }
+  }
+}

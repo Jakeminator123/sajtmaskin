@@ -11,6 +11,7 @@ from backoffice.shared import (
     build_backoffice_context,
     ensure_utf8_stdio,
     load_domain_map,
+    render_where_panel,
 )
 
 
@@ -144,5 +145,17 @@ def run_backoffice_app(
         st.caption(page_summary)
     elif spec.blurb:
         st.caption(spec.blurb)
+
+    # "Var ligger detta?" är en standardrad i sidmallen sedan P2-5, inte något
+    # varje sida får komma ihåg att kalla. Det var opt-in tidigare och satt då på
+    # 23 av 36 sidor — de 13 som saknade den var inte enklare sidor, bara sidor
+    # där ingen råkat lägga till anropet (`generation_history.py`,
+    # `observability.py`, `projects_admin.py` …). Panelen är en kollapsad
+    # expander, så default-ytan förblir ren i Fas A:s mening: sökvägar och
+    # schema-id:n ligger bakom ett klick, inte i produktägarens vy.
+    #
+    # Sidorna ska INTE kalla `render_where_panel` själva längre — då renderas den
+    # två gånger. Det grindas i `backoffice/test_page_template.py`.
+    render_where_panel(page, domain_map)
 
     spec.render(ctx)

@@ -5,8 +5,13 @@ import { getAllDossiers } from "@/lib/gen/dossiers/registry";
 import { selectDossiersForRequest } from "@/lib/gen/dossiers/select";
 import {
   buildDossierDeclaredVersions,
+  buildStaleLockfileMarkerContent,
+  completeProjectDependencies,
+  detectLockfilePackageManager,
   isBuiltinPackage,
   KNOWN_PACKAGES,
+  LOCKFILE_STALE_MARKER_PATH,
+  markLockfileStaleInFiles,
   mergeMissingDependenciesIntoPackageJson,
   parseManifestDependencySpec,
   resolveCapabilityDependencies,
@@ -487,5 +492,164 @@ describe("dep-completer", () => {
     const result = runDepCompleter('import MiniSearch from "minisearch";\nvoid MiniSearch;\n');
     expect(result.dependencies.minisearch).toBe(resolveExportableVersion("minisearch"));
     expect(result.unknownPackages).not.toContain("minisearch");
+  });
+});
+
+// Regression suite for the imported-repo dependency gap (prod chat 0d52e5c9,
+// 2026-07-31): a follow-up added `@clerk/nextjs` imports without emitting
+// package.json — the template's own manifest stayed untouched, the preview
+// host skipped install (fingerprint unchanged) and the runtime 500:ade.
+describe("completeProjectDependencies", () => {
+  const templatePackageJson = JSON.stringify({
+    name: "aether-template",
+    dependencies: { next: "14.2.0", react: "^18" },
+    devDependencies: { typescript: "^5" },
+  });
+
+  it("pins a missing known package imported by a code file into package.json", () => {
+    const result = completeProjectDependencies([
+      { path: "package.json", content: templatePackageJson },
+      {
+        path: "middleware.ts",
+        content:
+          'import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";\n',
+      },
+    ]);
+
+    expect(result.pinnedDependencies["@clerk/nextjs"]).toBe(
+      KNOWN_PACKAGES["@clerk/nextjs"],
+    );
+    const pkg = JSON.parse(
+      result.files.find((f) => f.path === "package.json")!.content,
+    ) as { dependencies: Record<string, string> };
+    expect(pkg.dependencies["@clerk/nextjs"]).toBe(KNOWN_PACKAGES["@clerk/nextjs"]);
+    // Existing template pins stay verbatim — no baseline force-pins.
+    expect(pkg.dependencies.next).toBe("14.2.0");
+    expect(pkg.dependencies.react).toBe("^18");
+  });
+
+  it("does not pin packages already declared in dependencies or devDependencies", () => {
+    const result = completeProjectDependencies([
+      { path: "package.json", content: templatePackageJson },
+      { path: "app/page.tsx", content: 'import ts from "typescript";\nimport React from "react";\n' },
+    ]);
+
+    expect(result.pinnedDependencies).toEqual({});
+    expect(result.files.find((f) => f.path === "package.json")!.content).toBe(
+      templatePackageJson,
+    );
+  });
+
+  it("reports unknown packages without pinning a guessed version", () => {
+    const result = completeProjectDependencies([
+      { path: "package.json", content: templatePackageJson },
+      { path: "lib/x.ts", content: 'import weird from "some-unknown-npm-thing";\n' },
+    ]);
+
+    expect(result.unknownPackages).toContain("some-unknown-npm-thing");
+    expect(result.pinnedDependencies).toEqual({});
+    expect(result.files.find((f) => f.path === "package.json")!.content).toBe(
+      templatePackageJson,
+    );
+  });
+
+  it("ignores import-looking text in non-code files", () => {
+    const result = completeProjectDependencies([
+      { path: "package.json", content: templatePackageJson },
+      { path: "README.md", content: 'import { z } from "zod";\n' },
+      { path: "pnpm-lock.yaml", content: 'import { z } from "zod";\n' },
+    ]);
+
+    expect(result.pinnedDependencies).toEqual({});
+  });
+
+  it("is a no-op without a package.json or with invalid JSON", () => {
+    const noPkg = completeProjectDependencies([
+      { path: "middleware.ts", content: 'import { clerkMiddleware } from "@clerk/nextjs/server";\n' },
+    ]);
+    expect(noPkg.pinnedDependencies).toEqual({});
+
+    const badPkg = completeProjectDependencies([
+      { path: "package.json", content: "{ not json" },
+      { path: "middleware.ts", content: 'import { clerkMiddleware } from "@clerk/nextjs/server";\n' },
+    ]);
+    expect(badPkg.pinnedDependencies).toEqual({});
+    expect(badPkg.files.find((f) => f.path === "package.json")!.content).toBe("{ not json");
+  });
+});
+
+describe("stale-lockfile marker contract (req A2)", () => {
+  it("detects the package manager from the lockfile present", () => {
+    expect(detectLockfilePackageManager([{ path: "pnpm-lock.yaml" }])).toBe("pnpm");
+    expect(detectLockfilePackageManager([{ path: "yarn.lock" }])).toBe("yarn");
+    expect(detectLockfilePackageManager([{ path: "package-lock.json" }])).toBe("npm");
+  });
+
+  it("returns null when no lockfile is present (fresh install regenerates anyway)", () => {
+    expect(detectLockfilePackageManager([{ path: "package.json" }])).toBeNull();
+  });
+
+  it("emits a host-readable sentinel body", () => {
+    const parsed = JSON.parse(
+      buildStaleLockfileMarkerContent({ reason: "pinned radix-ui", packageManager: "pnpm" }),
+    ) as { reason: string; packageManager: string; mutatedAt: string };
+    expect(parsed.reason).toBe("pinned radix-ui");
+    expect(parsed.packageManager).toBe("pnpm");
+    expect(typeof parsed.mutatedAt).toBe("string");
+  });
+
+  it("adds the sentinel file exactly once (idempotent replace)", () => {
+    const base = [
+      { path: "package.json", content: "{}" },
+      { path: "pnpm-lock.yaml", content: "old" },
+    ];
+    const once = markLockfileStaleInFiles(base, {
+      reason: "r1",
+      packageManager: "pnpm",
+      makeFile: (path, content) => ({ path, content }),
+    });
+    expect(once.filter((f) => f.path === LOCKFILE_STALE_MARKER_PATH)).toHaveLength(1);
+
+    const twice = markLockfileStaleInFiles(once, {
+      reason: "r2",
+      packageManager: "pnpm",
+      makeFile: (path, content) => ({ path, content }),
+    });
+    expect(twice.filter((f) => f.path === LOCKFILE_STALE_MARKER_PATH)).toHaveLength(1);
+    const marker = JSON.parse(
+      twice.find((f) => f.path === LOCKFILE_STALE_MARKER_PATH)!.content,
+    ) as { reason: string };
+    expect(marker.reason).toBe("r2");
+  });
+});
+
+// Regression 6 (building block): a broken imported template — one that imports a
+// package it never declared — gets that dependency pinned by the same
+// dep-completer the /template first-preview path runs, and (because a lockfile
+// is present) the stale marker is added. The preview host then runs one
+// non-frozen install + a readiness gate, so the template can no longer reach
+// preview as "healthy" with an undeclared import.
+describe("imported template dependency completion + stale marker (req A1)", () => {
+  it("pins an undeclared import and marks the pnpm lockfile stale", () => {
+    const files = [
+      { path: "package.json", content: '{"name":"t","dependencies":{}}' },
+      { path: "pnpm-lock.yaml", content: "lockfileVersion: '9.0'\n" },
+      { path: "app/page.tsx", content: 'import { z } from "zod";\nexport default function P(){return null;}\n' },
+    ];
+    const completed = completeProjectDependencies(files);
+    expect(Object.keys(completed.pinnedDependencies)).toContain("zod");
+
+    const pm = detectLockfilePackageManager(completed.files);
+    expect(pm).toBe("pnpm");
+    const marked = markLockfileStaleInFiles(completed.files, {
+      reason: "pinned zod on import",
+      packageManager: pm!,
+      makeFile: (path, content) => ({ path, content }),
+    });
+    expect(marked.some((f) => f.path === LOCKFILE_STALE_MARKER_PATH)).toBe(true);
+    const pkg = JSON.parse(
+      marked.find((f) => f.path === "package.json")!.content,
+    ) as { dependencies?: Record<string, string> };
+    expect(pkg.dependencies?.zod).toBeTruthy();
   });
 });

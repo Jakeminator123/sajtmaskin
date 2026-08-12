@@ -6,6 +6,7 @@ import {
   createGenerationPipeline,
   type PipelineOptions,
   type ReasoningEffort,
+  type ReasoningMode,
 } from "@/lib/gen/engine";
 import { getAgentTools } from "@/lib/gen/agent-tools";
 import { PROMPT_DUMP_CATEGORY, writeLatestPromptDump } from "@/lib/gen/prompt-dump";
@@ -20,8 +21,7 @@ export type PlanModePlannerOrchestrationSlice = {
 };
 
 export type PlanModeDumpRoute =
-  | "POST /api/engine/chats/stream"
-  | "POST /api/engine/chats/[chatId]/stream";
+  "POST /api/engine/chats/stream" | "POST /api/engine/chats/[chatId]/stream";
 
 export function computePlanModePlannerPrompts(
   planOrchestration: PlanModePlannerOrchestrationSlice,
@@ -51,13 +51,19 @@ export function dumpPlanModePlannerPrompts(
 export function resolvePlanModePlannerSettings(
   resolvedModelTier: CanonicalModelId,
   requestedThinking: boolean,
-): { modelId: string; thinking: boolean; reasoningEffort: ReasoningEffort } {
+): {
+  modelId: string;
+  thinking: boolean;
+  reasoningEffort: ReasoningEffort;
+  reasoningMode?: ReasoningMode;
+} {
   const modelId = resolvePhaseModel(resolvedModelTier, "planner").modelId;
   const thinkingConfig = resolvePhaseThinking(resolvedModelTier, "planner");
   return {
     modelId,
     thinking: requestedThinking && thinkingConfig.thinking,
     reasoningEffort: thinkingConfig.reasoningEffort,
+    reasoningMode: thinkingConfig.reasoningMode,
   };
 }
 
@@ -87,6 +93,7 @@ export function createPlanModePipelineStream(params: {
   planModel: string;
   plannerThinking: boolean;
   plannerReasoningEffort: ReasoningEffort;
+  plannerReasoningMode?: ReasoningMode;
   abortSignal: AbortSignal;
   chatHistory?: PipelineOptions["chatHistory"];
   referenceAttachments?: PipelineOptions["referenceAttachments"];
@@ -97,6 +104,7 @@ export function createPlanModePipelineStream(params: {
     model: params.planModel,
     thinking: params.plannerThinking,
     reasoningEffort: params.plannerReasoningEffort,
+    reasoningMode: params.plannerReasoningMode,
     abortSignal: params.abortSignal,
     tools: getAgentTools({ includePlanArtifact: true, includeClarifyingQuestion: true }),
     maxSteps: 2,

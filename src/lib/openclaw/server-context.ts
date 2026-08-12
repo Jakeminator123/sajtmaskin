@@ -35,6 +35,8 @@ type BuildOpenClawContextSystemMessageParams = {
   fullFileLimit?: number;
   /** Debug-mode (OC_DEBUG): force full code context for the open chat. */
   debug?: boolean;
+  /** Edit-mode (OC_EDIT): allow bounded manifest/light code context on edit intent. */
+  edit?: boolean;
   /**
    * Ownership gate for generated file/code context. Generated files are fetched
    * ONLY for ids this verifier confirms the caller owns. Fail-closed: when it is
@@ -140,6 +142,7 @@ export async function buildOpenClawContextSystemMessage(
     manifestFileLimit = 16,
     fullFileLimit = 24,
     debug = false,
+    edit = false,
     verifyOwnership,
   } = params;
 
@@ -149,6 +152,7 @@ export async function buildOpenClawContextSystemMessage(
     chatId: context.chatId,
     currentCode: context.currentCode,
     debug,
+    edit,
   });
 
   let fileBlock: string | null = null;

@@ -27,7 +27,6 @@ from backoffice.shared import (
     phase_routing_defaults,
     read_autofix_runtime_config,
     read_json,
-    render_where_panel,
     resolve_phase_models_for_dashboard,
 )
 
@@ -66,9 +65,7 @@ REPAIR_LOOP_TUNABLE = (
 
 
 def render(ctx: BackofficeContext) -> None:
-    domain_map = read_json(ctx.domain_map_json) if ctx.domain_map_json.is_file() else {"pages": {}}
     st.header("Normalize / RepairGate & Kvalitet")
-    render_where_panel("Normalize / RepairGate & Kvalitet", domain_map)
     st.caption(
         "Samlad **läsvy** för Normalize (kod: autofix), RepairGate (kod: LLM-fixer), "
         "kvalitetspass och repair-loop-hardening. Vill du ändra pass-gränser, "

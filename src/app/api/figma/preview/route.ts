@@ -1,5 +1,6 @@
 import { FEATURES, SECRETS } from "@/lib/config";
 import { requireNotBot } from "@/lib/botProtection";
+import { FIGMA_PREVIEW_NOT_CONFIGURED } from "@/lib/api/figma-preview-contract";
 import { withRateLimit } from "@/lib/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 import { parseFigmaUrl } from "./figma-url";
@@ -106,19 +107,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Figma URL is required" }, { status: 400 });
     }
 
+    // URL-formen avgörs före token-läget. Annars döljer den neutrala
+    // "inte konfigurerad"-notisen att länken är otolkbar — och eftersom
+    // token saknas i produktion gällde det varje trasig figma.com-länk.
+    const parsed = parseFigmaUrl(figmaUrl);
+    if (!parsed) {
+      return NextResponse.json({ success: false, error: "Invalid Figma URL" }, { status: 400 });
+    }
+
     if (!FEATURES.useFigmaApi) {
       return NextResponse.json(
         {
           success: false,
+          code: FIGMA_PREVIEW_NOT_CONFIGURED,
           error: "Figma API token not configured",
         },
         { status: 400 },
       );
-    }
-
-    const parsed = parseFigmaUrl(figmaUrl);
-    if (!parsed) {
-      return NextResponse.json({ success: false, error: "Invalid Figma URL" }, { status: 400 });
     }
 
     try {

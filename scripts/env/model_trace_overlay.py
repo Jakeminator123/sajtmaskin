@@ -80,7 +80,7 @@ def quote_if_needed(value: str) -> str:
 def build_target_env(args: argparse.Namespace) -> OrderedDict[str, str]:
     return OrderedDict(
         [
-            ("SAJTMASKIN_MODEL_FAST", args.fast_model),
+            ("SAJTMASKIN_MODEL_PREMIUM", args.premium_model),
             ("SAJTMASKIN_MODEL_PRO", args.pro_model),
             ("SAJTMASKIN_MODEL_MAX", args.max_model),
             ("SAJTMASKIN_MODEL_CODEX", args.codex_model),
@@ -196,12 +196,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Open the overlay URL after apply",
     )
 
-    parser.add_argument("--fast-model", default="gpt-4.1")
+    parser.add_argument("--premium-model", default="gpt-5.6-sol")
     parser.add_argument("--pro-model", default="gpt-5.3-codex")
     parser.add_argument("--max-model", default="gpt-5.4")
     parser.add_argument("--codex-model", default="gpt-5.3-codex")
     parser.add_argument("--anthropic-model", default="claude-opus-4.8")
-    parser.add_argument("--assist-model", default="openai/gpt-5.4")
+    parser.add_argument("--assist-model", default="openai/gpt-5.6-sol")
     parser.add_argument("--polish-model", default="openai/gpt-5.3-codex")
 
     return parser

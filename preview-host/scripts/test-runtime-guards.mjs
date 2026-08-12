@@ -17,6 +17,7 @@
 import { createRequire } from "node:module";
 import { EventEmitter } from "node:events";
 import {
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -99,7 +100,37 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("closed socket releases viewer", activePreviewSocketCount("guard-chat") === 0);
 }
 
-// 5. Per-chat boot serialization (prod-incident 2026-07-03, chat e8420220):
+// 5. Repeated unexpected clean exits are bounded per session+version window.
+//    Before this guard every proxy refresh queued another boot and each boot
+//    rewrote readiness to `starting`, so the app never received a failure.
+{
+  const {
+    classifyRuntimeCleanExitLoop,
+    RUNTIME_CLEAN_EXIT_LIMIT,
+    RUNTIME_CLEAN_EXIT_WINDOW_MS,
+  } = runtime.__testing;
+  let timestamps = [];
+  const startedAt = 1_000_000;
+  for (let index = 0; index < RUNTIME_CLEAN_EXIT_LIMIT; index += 1) {
+    const result = classifyRuntimeCleanExitLoop({
+      timestamps,
+      now: startedAt + index * 1_000,
+    });
+    timestamps = result.timestamps;
+    check(
+      `clean exit ${index + 1} has expected terminal state`,
+      result.failed === (index + 1 >= RUNTIME_CLEAN_EXIT_LIMIT),
+    );
+  }
+  const afterWindow = classifyRuntimeCleanExitLoop({
+    timestamps,
+    now: startedAt + RUNTIME_CLEAN_EXIT_WINDOW_MS + 5_000,
+  });
+  check("clean-exit window expires old attempts", afterWindow.failed === false);
+  check("clean-exit window retains only the new attempt", afterWindow.timestamps.length === 1);
+}
+
+// 6. Per-chat boot serialization (prod-incident 2026-07-03, chat e8420220):
 //    concurrent `restart: true` boots must NEVER run bootRuntimeForSession
 //    concurrently — the old "await existing, then run" released all waiters in
 //    parallel, spawning two dev servers (EADDRINUSE) and orphaning a child
@@ -457,6 +488,563 @@ writeFileSync(hangScript, "setTimeout(() => {}, 60000)\n");
   check("_next asset path matches the Next-internal matcher", NEXT_INTERNAL_ROOT_PATH_RE.test("/_next/static/media/x.woff2"));
   check("plain site route does NOT match the matcher", !NEXT_INTERNAL_ROOT_PATH_RE.test("/om/kontakt"));
   check("chatId-prefixed path does NOT match the matcher", !NEXT_INTERNAL_ROOT_PATH_RE.test("/7e8f51e0-abc/__nextjs_font/geist-latin.woff2"));
+}
+
+// 10. Stale-lockfile protocol (prod incident 2026-07-31, radix-ui): when the
+//     app marks a mutated lockfile stale, resolveInstallCommand must run the
+//     package manager WITHOUT frozen-lockfile as the PRIMARY command so the
+//     newly-pinned dependency is actually installed and the lockfile updated.
+{
+  const { resolveInstallCommand, readStaleLockfileMarker, LOCKFILE_STALE_MARKER_PATH } =
+    runtime.__testing;
+  const staleMarker = JSON.stringify({
+    reason: "dep-completer pinned radix-ui",
+    packageManager: "pnpm",
+    mutatedAt: new Date().toISOString(),
+  });
+  const pnpmStale = resolveInstallCommand({
+    "package.json": "{}",
+    "pnpm-lock.yaml": "lockfileVersion: 9",
+    [LOCKFILE_STALE_MARKER_PATH]: staleMarker,
+  });
+  check("stale pnpm lock installs WITHOUT --frozen-lockfile", /--no-frozen-lockfile/.test(pnpmStale.command));
+  check("stale pnpm lock never runs frozen as primary", !/\s--frozen-lockfile/.test(pnpmStale.command));
+  check("stale pnpm lock is flagged for lockfile capture", pnpmStale.lockfileStale === true && pnpmStale.packageManager === "pnpm");
+
+  const npmStale = resolveInstallCommand({
+    "package.json": "{}",
+    "package-lock.json": "{}",
+    [LOCKFILE_STALE_MARKER_PATH]: staleMarker,
+  });
+  check("stale npm lock uses `npm install` not `npm ci`", /^npm install/.test(npmStale.command) && !/npm ci/.test(npmStale.command));
+
+  const yarnStale = resolveInstallCommand({
+    "package.json": "{}",
+    "yarn.lock": "",
+    [LOCKFILE_STALE_MARKER_PATH]: staleMarker,
+  });
+  check("stale yarn lock drops --frozen-lockfile", !/--frozen-lockfile/.test(yarnStale.command));
+
+  // Non-stale keeps today's frozen behaviour.
+  const pnpmFresh = resolveInstallCommand({ "package.json": "{}", "pnpm-lock.yaml": "lockfileVersion: 9" });
+  check("fresh pnpm lock still runs frozen", /--frozen-lockfile/.test(pnpmFresh.command) && pnpmFresh.lockfileStale === false);
+
+  check("stale marker parses shape", readStaleLockfileMarker({ [LOCKFILE_STALE_MARKER_PATH]: staleMarker })?.packageManager === "pnpm");
+  check("absent stale marker is null", readStaleLockfileMarker({ "package.json": "{}" }) === null);
+}
+
+// 11. Readiness ≠ process running: the Next build-error overlay is HTTP 200
+//     HTML with visible text, so waitForReady must REJECT it instead of
+//     accepting it as ready (the false-green behind the incident).
+{
+  const { htmlLooksLikeBuildError, waitForReady } = runtime.__testing;
+  const { createServer } = await import("node:http");
+  const overlayHtml =
+    "<!doctype html><html><head><title>Build Error</title></head><body><nextjs-portal></nextjs-portal><pre>Module not found: Can't resolve 'radix-ui'</pre></body></html>";
+  const goodHtml =
+    "<!doctype html><html><head><title>My site</title></head><body><main><h1>Welcome to the homepage</h1><p>Lots of real visible content here for readiness.</p></main></body></html>";
+
+  check("overlay HTML is detected as a build error", htmlLooksLikeBuildError(overlayHtml) === true);
+  check("normal HTML is not a build error", htmlLooksLikeBuildError(goodHtml) === false);
+
+  // A HEALTHY preview whose content legitimately renders error prose (error
+  // dashboards, log viewers, monitoring UIs — the kind of v0 project this host
+  // serves) must NOT be flagged: generic phrases only count alongside a Next
+  // dev-overlay structural marker.
+  const errorDashboardHtml =
+    "<!doctype html><html><head><title>Error Dashboard</title></head><body><main><h1>Incidents</h1><ul><li>Unhandled Runtime Error &mdash; 12 events</li><li>Module not found &mdash; 3 events</li></ul><p>Cannot find module errors are trending down. 0 Build Errors today.</p></main></body></html>";
+  check(
+    "healthy error-dashboard content is NOT a build error",
+    htmlLooksLikeBuildError(errorDashboardHtml) === false,
+  );
+  check(
+    "generic error prose alongside a Next overlay marker IS a build error",
+    htmlLooksLikeBuildError(
+      "<!doctype html><html><body><div data-nextjs-dialog>Unhandled Runtime Error</div></body></html>",
+    ) === true,
+  );
+  check(
+    "the Next compiler prose alone is a build error",
+    htmlLooksLikeBuildError(
+      "<!doctype html><html><body><h1>Failed to compile</h1><pre>./app/page.tsx</pre></body></html>",
+    ) === true,
+  );
+  check("empty HTML is not a build error", htmlLooksLikeBuildError("") === false);
+
+  async function withServer(html, fn) {
+    const server = createServer((_req, res) => {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(html);
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address();
+    try {
+      return await fn(`http://127.0.0.1:${port}/`);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  }
+
+  let overlayRejected = false;
+  let overlayMessage = "";
+  await withServer(overlayHtml, async (url) => {
+    try {
+      await waitForReady(url);
+    } catch (err) {
+      overlayRejected = true;
+      overlayMessage = err instanceof Error ? err.message : String(err);
+    }
+  });
+  check("waitForReady rejects a persistent build-error overlay", overlayRejected === true);
+  check("waitForReady rejection names the build error", /build error overlay/i.test(overlayMessage));
+
+  let goodResolved = false;
+  await withServer(goodHtml, async (url) => {
+    try {
+      await waitForReady(url);
+      goodResolved = true;
+    } catch {
+      goodResolved = false;
+    }
+  });
+  check("waitForReady accepts a real ready page", goodResolved === true);
+
+  let dashboardResolved = false;
+  await withServer(errorDashboardHtml, async (url) => {
+    try {
+      await waitForReady(url);
+      dashboardResolved = true;
+    } catch {
+      dashboardResolved = false;
+    }
+  });
+  check("waitForReady accepts a healthy page that renders error prose", dashboardResolved === true);
+}
+
+// 12. PM-safe dependency postcondition: prefer the package manager's own view,
+//     fail closed when a declared direct dep is missing from the installed graph.
+{
+  const { verifyInstalledDependencies, collectInstalledDirectDepNames } = runtime.__testing;
+  const filesJson = {
+    "package.json": JSON.stringify({
+      dependencies: { next: "15.0.0", react: "18", "radix-ui": "^1" },
+      devDependencies: { typescript: "5" },
+    }),
+    "package-lock.json": "{}",
+  };
+  const wsDir = join(dataDir, "postcond-ws");
+  mkdirSync(wsDir, { recursive: true });
+
+  const lsWithAll = JSON.stringify({
+    dependencies: { next: { version: "15" }, react: { version: "18" }, "radix-ui": { version: "1" } },
+    devDependencies: { typescript: { version: "5" } },
+  });
+  const lsMissingRadix = JSON.stringify({
+    dependencies: { next: { version: "15" }, react: { version: "18" } },
+    devDependencies: { typescript: { version: "5" } },
+  });
+
+  const okResult = await verifyInstalledDependencies(wsDir, filesJson, {
+    packageManager: "npm",
+    commandRunner: async () => ({ exitCode: 0, output: lsWithAll, timedOut: false }),
+  });
+  check("postcondition passes when all direct deps present (PM view)", okResult.ok === true && okResult.checkedWith === "npm-ls");
+
+  const missingResult = await verifyInstalledDependencies(wsDir, filesJson, {
+    packageManager: "npm",
+    commandRunner: async () => ({ exitCode: 1, output: lsMissingRadix, timedOut: false }),
+  });
+  check("postcondition fails closed when a direct dep is missing", missingResult.ok === false && missingResult.missing.includes("radix-ui"));
+
+  check(
+    "collectInstalledDirectDepNames parses pnpm array shape",
+    collectInstalledDirectDepNames(JSON.stringify([{ dependencies: { "radix-ui": { version: "1" } } }]), "pnpm")?.has("radix-ui") === true,
+  );
+  check(
+    "collectInstalledDirectDepNames parses yarn tree shape",
+    collectInstalledDirectDepNames('{"type":"tree","data":{"trees":[{"name":"radix-ui@1.0.0"}]}}', "yarn")?.has("radix-ui") === true,
+  );
+}
+
+// 13. REPRO (old behavior false-greened): warm node_modules + stale pnpm lock +
+//     a newly pinned dep. runInstallCommand must (a) NOT stamp the dependency
+//     fingerprint when install exits 0 but the dep is still missing, and (b)
+//     stamp it AND return the regenerated lockfile only after the postcondition
+//     confirms the dep is present. On master, install exit 0 stamped the
+//     fingerprint unconditionally → the missing dep was cached as "installed".
+{
+  const {
+    runInstallCommand,
+    dependencyStatePathForWorkspace,
+    setBootInstallRunnersForTesting,
+    LOCKFILE_STALE_MARKER_PATH,
+  } = runtime.__testing;
+
+  const filesJson = {
+    "package.json": JSON.stringify({
+      dependencies: { next: "15.0.0", react: "18", "react-dom": "18", "radix-ui": "^1" },
+    }),
+    "pnpm-lock.yaml": "lockfileVersion: 9\n# stale: missing radix-ui\n",
+    [LOCKFILE_STALE_MARKER_PATH]: JSON.stringify({
+      reason: "dep-completer pinned radix-ui",
+      packageManager: "pnpm",
+      mutatedAt: new Date().toISOString(),
+    }),
+  };
+
+  // (a) install exits 0 but installs nothing (the stale-lockfile bug) → the
+  //     postcondition catches the still-missing dep and the fingerprint is NOT
+  //     written, so the next boot re-runs install (no false green).
+  {
+    const wsDir = join(dataDir, "repro-falsegreen");
+    mkdirSync(join(wsDir, "node_modules"), { recursive: true }); // warm modules
+    setBootInstallRunnersForTesting({
+      installRunner: async () => ({
+        passed: true,
+        exitCode: 0,
+        durationMs: 1,
+        output: "Already up to date",
+        usedFallback: false,
+        peerConflictDetected: false,
+      }),
+      // PM view reports radix-ui is NOT installed (install did nothing).
+      postconditionCommandRunner: async () => ({
+        exitCode: 0,
+        output: JSON.stringify({
+          dependencies: { next: { version: "15" }, react: { version: "18" }, "react-dom": { version: "18" } },
+        }),
+        timedOut: false,
+      }),
+    });
+    let threw = false;
+    try {
+      await runInstallCommand(wsDir, "ps_repro_a", filesJson);
+    } catch {
+      threw = true;
+    } finally {
+      setBootInstallRunnersForTesting();
+    }
+    check("repro(a): install exit 0 but missing dep throws", threw === true);
+    check(
+      "repro(a): dependency fingerprint NOT written on failed postcondition",
+      !existsSync(dependencyStatePathForWorkspace(wsDir)),
+    );
+  }
+
+  // (b) the fix: the non-frozen install actually installs radix-ui and
+  //     regenerates the lockfile → postcondition passes, fingerprint is stamped,
+  //     and the regenerated lockfile is returned for persistence.
+  {
+    const wsDir = join(dataDir, "repro-fixed");
+    mkdirSync(join(wsDir, "node_modules"), { recursive: true });
+    setBootInstallRunnersForTesting({
+      installRunner: async (workspaceDir) => {
+        // Simulate a real non-frozen install: materialize the dep + rewrite lock.
+        mkdirSync(join(workspaceDir, "node_modules", "radix-ui"), { recursive: true });
+        writeFileSync(
+          join(workspaceDir, "pnpm-lock.yaml"),
+          "lockfileVersion: 9\n# regenerated: includes radix-ui\n",
+          "utf8",
+        );
+        return {
+          passed: true,
+          exitCode: 0,
+          durationMs: 1,
+          output: "pnpm install passed.",
+          usedFallback: false,
+          peerConflictDetected: false,
+        };
+      },
+      postconditionCommandRunner: async () => ({
+        exitCode: 0,
+        output: JSON.stringify({
+          dependencies: {
+            next: { version: "15" },
+            react: { version: "18" },
+            "react-dom": { version: "18" },
+            "radix-ui": { version: "1" },
+          },
+        }),
+        timedOut: false,
+      }),
+    });
+    let outcome = null;
+    try {
+      outcome = await runInstallCommand(wsDir, "ps_repro_b", filesJson);
+    } finally {
+      setBootInstallRunnersForTesting();
+    }
+    check("repro(b): fingerprint written only after postcondition passes", existsSync(dependencyStatePathForWorkspace(wsDir)));
+    check("repro(b): regenerated lockfile returned for persistence", outcome?.regeneratedLockfile?.path === "pnpm-lock.yaml");
+    check(
+      "repro(b): regenerated lockfile content reflects the reinstall",
+      /regenerated: includes radix-ui/.test(outcome?.regeneratedLockfile?.content ?? ""),
+    );
+    check("repro(b): stale marker cleared flag set", outcome?.staleCleared === true);
+  }
+}
+
+// 14. GUARD (Bugbot finding 2): a fingerprint-match skip must NOT ignore the
+//     stale-lockfile marker. A prior boot may have stamped this exact
+//     fingerprint BEFORE the lockfile was marked stale, so a plain
+//     fingerprint-equality early-return would skip the one non-frozen reconcile
+//     forever. With the marker present, runInstallCommand must fall through to
+//     the (non-frozen) install + postcondition even though the fingerprint
+//     matches the prior stamp.
+{
+  const {
+    runInstallCommand,
+    dependencyFingerprint,
+    dependencyStatePathForWorkspace,
+    setBootInstallRunnersForTesting,
+    resolveInstallCommand,
+    LOCKFILE_STALE_MARKER_PATH,
+  } = runtime.__testing;
+
+  const filesJson = {
+    "package.json": JSON.stringify({
+      dependencies: { next: "15.0.0", react: "18", "react-dom": "18", "radix-ui": "^1" },
+    }),
+    "pnpm-lock.yaml": "lockfileVersion: 9\n# stale: missing radix-ui\n",
+    [LOCKFILE_STALE_MARKER_PATH]: JSON.stringify({
+      reason: "dep-completer pinned radix-ui after a prior fingerprint stamp",
+      packageManager: "pnpm",
+      mutatedAt: new Date().toISOString(),
+    }),
+  };
+
+  // Sanity: the marker makes resolveInstallCommand pick the non-frozen path.
+  check(
+    "finding2: stale marker selects the non-frozen install command",
+    resolveInstallCommand(filesJson).lockfileStale === true,
+  );
+
+  const wsDir = join(dataDir, "finding2-stale-skip");
+  mkdirSync(join(wsDir, "node_modules"), { recursive: true }); // warm modules
+  // Pre-stamp the SAME fingerprint a prior boot would have written — this is the
+  // exact condition the plain skip would short-circuit on.
+  writeFileSync(
+    dependencyStatePathForWorkspace(wsDir),
+    JSON.stringify({ fingerprint: dependencyFingerprint(filesJson) }, null, 2),
+    "utf8",
+  );
+
+  let installRan = false;
+  let postconditionRan = false;
+  setBootInstallRunnersForTesting({
+    installRunner: async (workspaceDir) => {
+      installRan = true;
+      mkdirSync(join(workspaceDir, "node_modules", "radix-ui"), { recursive: true });
+      writeFileSync(
+        join(workspaceDir, "pnpm-lock.yaml"),
+        "lockfileVersion: 9\n# regenerated: includes radix-ui\n",
+        "utf8",
+      );
+      return {
+        passed: true,
+        exitCode: 0,
+        durationMs: 1,
+        output: "pnpm install --no-frozen-lockfile passed.",
+        usedFallback: false,
+        peerConflictDetected: false,
+      };
+    },
+    postconditionCommandRunner: async () => {
+      postconditionRan = true;
+      return {
+        exitCode: 0,
+        output: JSON.stringify({
+          dependencies: {
+            next: { version: "15" },
+            react: { version: "18" },
+            "react-dom": { version: "18" },
+            "radix-ui": { version: "1" },
+          },
+        }),
+        timedOut: false,
+      };
+    },
+  });
+
+  let outcome = null;
+  try {
+    outcome = await runInstallCommand(wsDir, "ps_finding2", filesJson);
+  } finally {
+    setBootInstallRunnersForTesting();
+  }
+
+  check("finding2: fingerprint match + stale marker does NOT skip install", installRan === true);
+  check("finding2: postcondition runs on the forced reconcile", postconditionRan === true);
+  check("finding2: install was not reported as skipped", outcome?.skipped !== true);
+  check(
+    "finding2: regenerated lockfile returned for persistence",
+    outcome?.regeneratedLockfile?.path === "pnpm-lock.yaml",
+  );
+}
+
+// Disk budget: package caches must live on the mounted volume, and a disk-full
+// install must be recognised as such. Before this, npm cached into the Fly
+// rootfs (`/root/.npm`) — a layer no cleanup path reclaims — and filled it to 0
+// bytes free, after which every preview boot died with ENOSPC while `/data`
+// still had 17 GB free (2026-07-31).
+{
+  const { isNoSpaceInstallFailure, sanitizedEnv, PACKAGE_CACHE_DIR, NPM_CACHE_DIR } =
+    runtime.__testing;
+
+  check(
+    "package cache dir is inside the data volume",
+    PACKAGE_CACHE_DIR.startsWith(dataDir),
+  );
+
+  // Each key below is the one its tool actually reads. Getting the NAME wrong
+  // fails silently — the tool just keeps using its rootfs default — so these
+  // assertions are the only thing standing between a typo and a wedged VM.
+  // `PNPM_STORE_DIR` (no CONFIG) and a bare `YARN_CACHE_FOLDER` were exactly
+  // that mistake: pnpm reads PNPM_CONFIG_*, and Yarn Berry's default global
+  // cache overrides cacheFolder entirely.
+  const env = sanitizedEnv();
+  check("npm cache env points at the volume", env.NPM_CONFIG_CACHE === NPM_CACHE_DIR);
+  check(
+    "pnpm store env uses the PNPM_CONFIG_ prefix pnpm actually reads",
+    String(env.PNPM_CONFIG_STORE_DIR).startsWith(dataDir),
+  );
+  check("yarn classic cache env points at the volume", String(env.YARN_CACHE_FOLDER).startsWith(dataDir));
+  check(
+    "yarn berry global folder points at the volume",
+    String(env.YARN_GLOBAL_FOLDER).startsWith(dataDir),
+  );
+  check("corepack home points at the volume", String(env.COREPACK_HOME).startsWith(dataDir));
+  check("XDG data home points at the volume", String(env.XDG_DATA_HOME).startsWith(dataDir));
+  check("XDG cache home points at the volume", String(env.XDG_CACHE_HOME).startsWith(dataDir));
+  check(
+    "no cache env var still points at the rootfs home",
+    !Object.entries(env)
+      .filter(([key]) => /CACHE|STORE_DIR|COREPACK|XDG/.test(key))
+      .some(([, value]) => /^\/root\//.test(String(value))),
+  );
+
+  // Allowlist-kopieringen lät en ÄRVD cache-variabel vinna över den beräknade
+  // sökvägen. `NPM_CONFIG_CACHE=/root/.npm` är npm:s egen default och lätt att
+  // ärva från en basbild eller ett `fly secrets`-misstag — och då är hela
+  // volym-fixen ovan verkningslös utan att något test märkte det, eftersom
+  // sviten körs utan variabeln satt.
+  {
+    const prior = process.env.NPM_CONFIG_CACHE;
+    // `npm run` injicerar sin egen konfiguration som `npm_config_*` i GEMENER.
+    // Windows env-namn är skiftlägesokänsliga men BEHÅLLER det skiftläge som
+    // sattes först, så en tilldelning till `NPM_CONFIG_CACHE` här skulle dyka
+    // upp som `npm_config_cache` i `Object.entries` och missa allowlisten —
+    // varpå testet nedan hade blivit grönt utan att bevisa någonting. Radera
+    // först, så äger vi skiftläget.
+    const setCache = (value) => {
+      delete process.env.NPM_CONFIG_CACHE;
+      process.env.NPM_CONFIG_CACHE = value;
+    };
+    try {
+      setCache("/root/.npm");
+      check(
+        "an inherited cache path outside the volume is ignored",
+        sanitizedEnv().NPM_CONFIG_CACHE === NPM_CACHE_DIR,
+      );
+
+      // Men en ärvd sökväg som ligger PÅ volymen är ett legitimt val (t.ex.
+      // fly.toml:s egen rad) och ska respekteras.
+      const onVolume = join(dataDir, "package-caches", "npm-custom");
+      setCache(onVolume);
+      check(
+        "an inherited cache path inside the volume is respected",
+        sanitizedEnv().NPM_CONFIG_CACHE === onVolume,
+      );
+
+      // En syskonmapp med samma prefix ligger INTE i volymen.
+      setCache(`${dataDir}-elsewhere`);
+      check(
+        "a sibling path that merely shares the prefix is ignored",
+        sanitizedEnv().NPM_CONFIG_CACHE === NPM_CACHE_DIR,
+      );
+    } finally {
+      delete process.env.NPM_CONFIG_CACHE;
+      if (prior !== undefined) process.env.NPM_CONFIG_CACHE = prior;
+    }
+  }
+
+  check(
+    "npm ENOSPC output is recognised as disk-full",
+    isNoSpaceInstallFailure("npm error code ENOSPC\nnpm error syscall write"),
+  );
+  check(
+    "plain-text no-space message is recognised",
+    isNoSpaceInstallFailure("Error: no space left on device"),
+  );
+  check(
+    "an ordinary dependency failure is NOT disk-full",
+    !isNoSpaceInstallFailure("npm error code ERESOLVE\nnpm error ERESOLVE unable to resolve"),
+  );
+  check("empty output is NOT disk-full", !isNoSpaceInstallFailure(""));
+
+  // Forced purge must empty the cache tree but leave the directories usable.
+  mkdirSync(join(NPM_CACHE_DIR, "_cacache"), { recursive: true });
+  writeFileSync(join(NPM_CACHE_DIR, "_cacache", "blob.bin"), "x".repeat(2048));
+  const purge = await runtime.cleanupPackageCaches({ force: true });
+  check("forced purge reports the reclaimed size", purge.cacheBytesBefore >= 2048);
+  check("forced purge removed the cached blob", !existsSync(join(NPM_CACHE_DIR, "_cacache", "blob.bin")));
+  check("forced purge recreated the cache dir", existsSync(NPM_CACHE_DIR));
+
+  // A small cache is under budget and must be kept warm.
+  writeFileSync(join(NPM_CACHE_DIR, "small.bin"), "y".repeat(64));
+  const keep = await runtime.cleanupPackageCaches();
+  check("cache under budget is not purged", keep.purgedCache === false);
+  check("cache under budget survives cleanup", existsSync(join(NPM_CACHE_DIR, "small.bin")));
+
+  // Storage reporting must surface the cache so a full disk is diagnosable
+  // from `GET /admin/storage` instead of requiring `fly ssh`.
+  const described = await runtime.describePackageCacheStorage();
+  check("storage report includes the cache dir", described.dir === PACKAGE_CACHE_DIR);
+  check("storage report includes a byte count", Number.isFinite(described.bytes));
+  const reused = await runtime.describePackageCacheStorage({ knownBytes: 4242 });
+  check("storage report can reuse an already-measured size", reused.bytes === 4242);
+
+  // The size walk is async by construction (`fsp.readdir` / `fsp.lstat`). A
+  // timer-based "did the event loop tick" assertion is flaky: on a fast CI
+  // host a one-file tree completes as a chain of already-resolved microtasks
+  // before a 1 ms interval ever fires, even though the walk never blocked.
+  // Assert the contract we can actually observe — it returns a Promise and a
+  // correct byte count — and leave the non-blocking property to code review
+  // of the `await fsp.*` body.
+  writeFileSync(join(NPM_CACHE_DIR, "loop.bin"), "z".repeat(1024));
+  const measuredPromise = runtime.directorySizeBytes(PACKAGE_CACHE_DIR);
+  check(
+    "directory size walk returns a Promise",
+    typeof measuredPromise?.then === "function",
+  );
+  const measured = await measuredPromise;
+  check("directory size walk returns a byte count", measured >= 1024);
+
+  // A purge requested from outside an install (background sweep, admin
+  // endpoint) must take the install slot, or it can `rm -rf` the cache out from
+  // under an in-flight `npm install` and fail it with a bogus ENOENT.
+  const { runInInstallSlot } = runtime.__testing;
+  const order = [];
+  const slowInstall = runInInstallSlot(async () => {
+    order.push("install:start");
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    order.push("install:end");
+  });
+  const purgeDuringInstall = runtime.cleanupPackageCaches({ force: true }).then(() => {
+    order.push("purge");
+  });
+  await Promise.all([slowInstall, purgeDuringInstall]);
+  check(
+    "external cache purge waits for the in-flight install",
+    order.join(",") === "install:start,install:end,purge",
+  );
+
+  // ...while the ENOSPC path inside an install purges WITHOUT the slot, since
+  // it already holds it. Queuing there would deadlock the whole VM.
+  const inSlot = await runInInstallSlot(async () =>
+    runtime.__testing.cleanupPackageCachesUnqueued({ force: true }),
+  );
+  check("in-slot purge completes without deadlocking", inSlot.purgedCache === true);
 }
 
 rmSync(dataDir, { recursive: true, force: true });

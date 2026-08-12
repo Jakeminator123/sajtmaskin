@@ -165,6 +165,10 @@ google-services.json
 # README:n committas så konventionen är synlig för agenter på andra maskiner.
 .cursor/logg-internet/*
 !.cursor/logg-internet/README.md
+# Sparade kandidat-diffar från /kedja (fix-pipeline, per-maskin — vinnaren lever i sin worktree).
+# README:n committas så konventionen är synlig för agenter på andra maskiner.
+.cursor/kedja/*
+!.cursor/kedja/README.md
 
 # Logs
 *.log
@@ -173,7 +177,7 @@ yarn-debug.log*
 pnpm-debug.log*
 mcp-monitoring-report.txt
 # logs/ innehåller runtime-artefakter (NDJSON/CSV/JSON som växer per körning).
-# Capping/retention sker i src/lib/logging/generation-log-writer.ts:
+# Capping/retention styrs av src/lib/logging/generation-log-writer/constants.ts:
 #   - generationslogg/<run>/   max 5 mappar
 #   - site-observability/<chat>/ history cap 5 rader/chat + max 5 chat-mappar (LRU)
 #   - generationslogg/_unrouted/<bucket>/ max 5 mappar (LRU)
@@ -275,8 +279,11 @@ data/template-references/_metadata/
 
 # Agent-session scratchpad (PR bodies, diff probes, cherry-pick logs)
 .cursor/tmp/
-# Ad-hoc one-off debug scripts agents sometimes drop straight under .cursor/ (not .cursor/tmp/)
-.cursor/tmp-*
+# Scratch agents drop straight under .cursor/ instead of in .cursor/tmp/. The
+# glob is deliberately loose: the previous `.cursor/tmp-*` missed the `_tmp-*`
+# prefix an agent invented, so 21 scratch files sat in `git status` for a day.
+# No legitimate .cursor/ entry contains "tmp".
+.cursor/*tmp*
 
 # Local agent-conversation dumps (often contain pasted .env secrets — NEVER commit)
 trött_agent.txt
@@ -296,8 +303,6 @@ scratch-*.json
 # Cursor-agent run logs from orchestrator background tasks (pure observability noise)
 docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
-
-.vercel
 
 # Local agent tooling (Cursor skills symlink) — never deployed, keep out of git
 .agents/

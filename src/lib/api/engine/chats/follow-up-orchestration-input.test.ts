@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
+import { FOCUS_POINT_MARKER } from "@/lib/builder/focus-point-prompt";
 
 import {
   buildFollowUpOrchestrationInput,
@@ -122,6 +123,25 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     expect(planInput.engineModelId).toBe("gpt-5.4");
   });
 
+  it("strips focus-point appendix from routePlanPrompt but keeps it on rawPrompt", () => {
+    const message = [
+      'Skapa en ny sida som ska heta "Bilder".',
+      "",
+      FOCUS_POINT_MARKER,
+      "- Punkt 1: x=10.0%, y=5.0%",
+      "  - Träff-text: PORTFOLIO",
+    ].join("\n");
+    const planInput = buildFollowUpOrchestrationInput(
+      baseParams({ mode: "plan", message, optimizedMessage: message }),
+    );
+
+    expect(planInput.rawPrompt).toContain(FOCUS_POINT_MARKER);
+    expect(planInput.rawPrompt).toContain("PORTFOLIO");
+    expect(planInput.routePlanPrompt).toBe('Skapa en ny sida som ska heta "Bilder".');
+    expect(planInput.routePlanPrompt).not.toContain("PORTFOLIO");
+    expect(planInput.routePlanPrompt).not.toContain(FOCUS_POINT_MARKER);
+  });
+
   it("codegen-mode mirrors plan-mode common fields exactly", () => {
     const planInput = buildFollowUpOrchestrationInput(baseParams({ mode: "plan" }));
     const codegenInput = buildFollowUpOrchestrationInput(baseParams({ mode: "codegen" }));
@@ -211,6 +231,22 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
       baseParams({ mode: "codegen", approvedProviders: [] }),
     );
     expect(emptyProviders.dossierProviderHints).toBeUndefined();
+  });
+
+  it("reuses the exact dossier id persisted by the Bygg integrationer transition", () => {
+    const input = buildFollowUpOrchestrationInput(
+      baseParams({
+        mode: "codegen",
+        parsedMeta: { ...followUpMeta(), lifecycleStage: "integrations" },
+        orchestrationSnapshot: {
+          f3ApprovedCapabilities: ["database"],
+          f3ApprovedProviders: ["mongodb-atlas"],
+        },
+      }),
+    );
+
+    expect(input.dossierProviderHints).toEqual(["mongodb-atlas"]);
+    expect(input.followUpContract?.f3ApprovedProviders).toEqual(["mongodb-atlas"]);
   });
 
   it("importedRepoMode forces scaffoldMode off and threads the flag (v0-template follow-ups)", () => {

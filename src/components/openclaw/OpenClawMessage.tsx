@@ -12,9 +12,24 @@ import {
   type OpenClawRequestRepairAction,
   type OpenClawStartBugHuntAction,
 } from "@/lib/openclaw/text-field-actions";
+import {
+  describeOpenClawQuickEditOp,
+  type OpenClawApplyQuickEditAction,
+} from "@/lib/openclaw/quick-edit-action";
+import {
+  describeQuickEditHardError,
+  quickEditChatFiles,
+} from "@/lib/builder/engine-files-patch";
+import { dispatchQuickEditAppliedEvent } from "@/lib/builder/quick-edit-applied-event";
+import {
+  readActiveBuilderTarget,
+  readBuilderTurnSnapshot,
+} from "@/lib/openclaw/builder-target";
+import { createArmedContinuationWatch } from "@/lib/openclaw/debug/armed-continuation";
 import { dispatchAutoFixEvent } from "@/lib/hooks/chat/auto-fix-events";
 import { engineChatBaseUrl } from "@/lib/api/engine-chats-path";
 import { sortEngineVersionsNewestFirst } from "@/lib/db/engine-version-lifecycle";
+import { OPENCLAW_BUILDER_CHAT_TARGET } from "@/lib/openclaw/prepared-prompt";
 import { useOpenClawStore, type OpenClawMessage as Msg } from "@/lib/openclaw/openclaw-store";
 import {
   consumeMandateStep,
@@ -25,13 +40,26 @@ import { useSmoothText } from "./useSmoothText";
 
 /**
  * Per-message dedup for armed auto-send (Bugbot). The armed card auto-submits on
- * mount, but the card can remount (debugEnabled flips after the health check, a
+ * mount, but the card can remount (editEnabled flips after the health check, a
  * parent re-render, or the manual→armed card swap). A mount-scoped ref alone
  * would let the SAME assistant `submit:true` action fire again and spend extra
  * mandate steps. This module-scoped set records message ids that have already
  * auto-sent in this session, so each action auto-sends at most once.
  */
 const consumedArmedSends = new Set<string>();
+
+/**
+ * Record a successful builder-composer fill so the composer can tag an
+ * UNEDITED send of exactly this content as `promptSource: "openclaw-prepared"`
+ * (see `prepared-prompt.ts`). Only when the act gate (OC_EDIT → store
+ * `editEnabled`) is on — without it the fast-lane tag must never be set.
+ */
+function recordOpenClawPreparedFill(action: OpenClawFillTextFieldAction) {
+  const { editEnabled, setPreparedFill } = useOpenClawStore.getState();
+  if (!editEnabled) return;
+  if (action.target !== OPENCLAW_BUILDER_CHAT_TARGET) return;
+  setPreparedFill({ target: OPENCLAW_BUILDER_CHAT_TARGET, value: action.value });
+}
 
 export function OpenClawMessage({
   msg,
@@ -42,20 +70,23 @@ export function OpenClawMessage({
   streaming?: boolean;
 }) {
   const isUser = msg.role === "user";
-  const debugEnabled = useOpenClawStore((s) => s.debugEnabled);
+  const editEnabled = useOpenClawStore((s) => s.editEnabled);
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
   const parsed = parseOpenClawMessage(msg.content);
   const action = !isUser ? parsed.action : null;
+  const rejectedActionReason = !isUser ? parsed.actionError : null;
   // Smooth typewriter reveal: gateway chunks arrive in bursts, so ease the
   // visible text toward the full content instead of jumping per chunk.
   const displayedContent = useSmoothText(parsed.visibleContent, streaming && !isUser);
   const isTyping = !isUser && (streaming || displayedContent.length < parsed.visibleContent.length);
-  const shouldRenderBubble = Boolean(parsed.visibleContent) || !action;
+  // Utan `!rejectedActionReason` skulle ett action-block som avvisats och som
+  // saknar synlig text rendera väntprickarna för alltid bredvid felkortet.
+  const shouldRenderBubble = Boolean(parsed.visibleContent) || (!action && !rejectedActionReason);
 
-  // Armed-autonomy gate (Mode A): only auto-send when OC_DEBUG is on AND the
-  // user has armed a still-active mandate AND the action explicitly asked to
-  // submit. Otherwise a `submit:true` action degrades to the normal manual fill
-  // suggestion (fill but never send) — defense in depth.
+  // Armed-autonomy gate (Mode A): only auto-send when OC_EDIT (the act gate) is
+  // on AND the user has armed a still-active mandate AND the action explicitly
+  // asked to submit. Otherwise a `submit:true` action degrades to the normal
+  // manual fill suggestion (fill but never send) — defense in depth.
   //
   // Bind to the CURRENT mandate (Codex P2): an older assistant action authored
   // BEFORE the active mandate was armed must never auto-send when the user later
@@ -66,7 +97,7 @@ export function OpenClawMessage({
     !isUser &&
     action?.type === "fill_text_field" &&
     action.submit === true &&
-    debugEnabled &&
+    editEnabled &&
     isMandateActive(armedMandate) &&
     !!armedMandate &&
     // Only a `followups` mandate authorizes auto-send (Bugbot). A `review_next`
@@ -127,10 +158,39 @@ export function OpenClawMessage({
           <OpenClawStartBugHuntCard
             key="start_bug_hunt"
             action={action}
-            debugEnabled={debugEnabled}
+            editEnabled={editEnabled}
           />
         ) : null}
+
+        {!isUser && action?.type === "apply_quick_edit" ? (
+          <OpenClawQuickEditCard
+            key="apply_quick_edit"
+            action={action}
+            editEnabled={editEnabled}
+            builderTarget={msg.builderTarget ?? null}
+          />
+        ) : null}
+
+        {!isUser && !action && rejectedActionReason ? (
+          <OpenClawRejectedActionCard key="rejected_action" reason={rejectedActionReason} />
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Kort för ett action-block som avvisades redan i parsningen. Det bär ingen
+ * action och har inga knappar — rent informativt, så inget kan köras den här
+ * vägen. Alternativet vore att blocket försvinner spårlöst ur texten.
+ */
+function OpenClawRejectedActionCard({ reason }: { reason: string }) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-rose-400/20 bg-slate-900/70 p-3 text-slate-100">
+      <p className="text-[11px] font-medium tracking-[0.16em] text-rose-200/80 uppercase">
+        Förslaget kunde inte tolkas
+      </p>
+      <p className="mt-1 text-xs leading-5 wrap-break-word text-rose-300">{reason}</p>
     </div>
   );
 }
@@ -150,6 +210,7 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
       setActionError(result.error ?? "Kunde inte fylla fältet.");
       return;
     }
+    recordOpenClawPreparedFill(action);
     setActionState("approved");
     setActionError(null);
   };
@@ -220,18 +281,18 @@ function OpenClawFillTextFieldCard({ action }: { action: OpenClawFillTextFieldAc
  */
 function OpenClawStartBugHuntCard({
   action,
-  debugEnabled,
+  editEnabled,
 }: {
   action: OpenClawStartBugHuntAction;
-  debugEnabled: boolean;
+  editEnabled: boolean;
 }) {
   const armedMandate = useOpenClawStore((s) => s.armedMandate);
 
-  if (!debugEnabled) {
+  if (!editEnabled) {
     return (
       <div className="min-w-0 rounded-2xl border border-white/10 bg-slate-900/70 p-3 text-slate-100">
         <p className="text-xs leading-5 text-slate-300">
-          Debug-läge är av — armerad autonomi är inaktiverad. (Aktivera OC_DEBUG.)
+          Redigeringsläge är av — armerad autonomi är inaktiverad. (Aktivera OC_EDIT.)
         </p>
       </div>
     );
@@ -242,7 +303,7 @@ function OpenClawStartBugHuntCard({
   return (
     <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
       <p className="text-[11px] font-medium tracking-[0.16em] text-fuchsia-200/80 uppercase">
-        Armerad bug-hunt
+        {armedMandate?.mode === "review_next" ? "Armerad granskning" : "Armerad bug-hunt"}
       </p>
       <p className="mt-1 text-sm font-semibold text-white">
         {active
@@ -262,7 +323,7 @@ function OpenClawStartBugHuntCard({
 }
 
 /**
- * Armed-autonomy auto-send card (Mode A). Rendered only when OC_DEBUG is on and
+ * Armed-autonomy auto-send card (Mode A). Rendered only when OC_EDIT is on and
  * a user-armed mandate is active. On mount it fills the builder prompt, waits
  * for the real send button to become enabled, clicks it, and consumes one step
  * of the mandate. OpenClaw never writes files — it drives the same visible send
@@ -278,6 +339,8 @@ function OpenClawArmedSendCard({
   messageId: string;
 }) {
   const setArmedMandate = useOpenClawStore((s) => s.setArmedMandate);
+  const setArmedContinuation = useOpenClawStore((s) => s.setArmedContinuation);
+  const armedMandate = useOpenClawStore((s) => s.armedMandate);
   const [state, setState] = useState<"sending" | "sent" | "failed">(
     consumedArmedSends.has(messageId) ? "sent" : "sending",
   );
@@ -307,6 +370,7 @@ function OpenClawArmedSendCard({
         setError(fill.error ?? "Kunde inte fylla fältet.");
         return;
       }
+      recordOpenClawPreparedFill(action);
       timer = setTimeout(trySend, 100);
     };
 
@@ -321,7 +385,16 @@ function OpenClawArmedSendCard({
           consumedArmedSends.add(messageId);
           setState("sent");
           // Consume one authorized step; clears the mandate when exhausted.
-          setArmedMandate(consumeMandateStep(useOpenClawStore.getState().armedMandate));
+          const nextMandate = consumeMandateStep(useOpenClawStore.getState().armedMandate);
+          setArmedMandate(nextMandate);
+          // Hand the builder turn over to the continuation handshake, but only
+          // while the mandate still authorizes another step — an exhausted
+          // mandate must end here, not wake OpenClaw one more time.
+          if (nextMandate) {
+            // The watch registers without a send id; the send this click just
+            // started binds its own once it reaches the builder.
+            setArmedContinuation(createArmedContinuationWatch(readBuilderTurnSnapshot()));
+          }
           return;
         }
       }
@@ -338,7 +411,7 @@ function OpenClawArmedSendCard({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [action, setArmedMandate, messageId]);
+  }, [action, setArmedMandate, setArmedContinuation, messageId]);
 
   return (
     <div className="min-w-0 rounded-2xl border border-fuchsia-400/25 bg-slate-900/70 p-3 text-slate-100">
@@ -357,7 +430,9 @@ function OpenClawArmedSendCard({
         ) : null}
         {state === "sent" ? (
           <p className="text-xs text-emerald-300">
-            Skickad. Jag läser resultatet och fortsätter enligt mandatet.
+            {armedMandate && armedMandate.remaining > 0
+              ? `Skickad till buildern. Mandatet har ${armedMandate.remaining} steg kvar — jag fortsätter automatiskt när bygget är klart.`
+              : "Skickad till buildern. Mandatet är slut, så jag stannar här."}
           </p>
         ) : null}
         {state === "failed" ? (
@@ -366,15 +441,6 @@ function OpenClawArmedSendCard({
       </div>
     </div>
   );
-}
-
-function readActiveBuilderTarget(): { chatId: string; versionId: string } | null {
-  if (typeof window === "undefined") return null;
-  const ctx = window.__SITEMASKIN_CONTEXT;
-  const chatId = typeof ctx?.chatId === "string" ? ctx.chatId : null;
-  const versionId = typeof ctx?.activeVersionId === "string" ? ctx.activeVersionId : null;
-  if (!chatId || !versionId) return null;
-  return { chatId, versionId };
 }
 
 /**
@@ -508,6 +574,259 @@ function OpenClawRepairRequestCard({ action }: { action: OpenClawRequestRepairAc
         {actionState === "failed" ? (
           <p className="text-xs text-rose-300">
             {actionError ?? "Kunde inte starta reparationen."}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Godkännandekort för `apply_quick_edit`: Sajtagenten föreslår små exakta
+ * filändringar som körs genom den befintliga Fast Edit Lane-klienten
+ * (`quickEditChatFiles`) FÖRST när användaren godkänner.
+ *
+ * Medveten v1-begränsning: kortet exekverar ALDRIG automatiskt — inte ens
+ * när ett armerat mandat (Mode A) är aktivt. Mandatet auktoriserar bara
+ * auto-send av builder-prompter genom den vanliga pipelinen; direkta
+ * filändringar kräver alltid ett manuellt klick på Godkänn.
+ */
+function OpenClawQuickEditCard({
+  action,
+  editEnabled,
+  builderTarget,
+}: {
+  action: OpenClawApplyQuickEditAction;
+  editEnabled: boolean;
+  /** Builder-mål bundet när turen SKICKADES (versionen modellen såg), eller null. */
+  builderTarget: { chatId: string; versionId: string } | null;
+}) {
+  const [actionState, setActionState] = useState<
+    "pending" | "working" | "applied" | "declined" | "failed"
+  >("pending");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [applied, setApplied] = useState<{ versionId: string; changedFiles: string[] } | null>(
+    null,
+  );
+  // Bind förslaget till versionen som var aktiv när TUREN SKICKADES — det är
+  // den kod modellen faktiskt såg (Bugbot rond 7+8). Ett godkännande senare
+  // får inte tyst appliceras mot en annan bas: ops:en skickas med förslagets
+  // version som bas + engineLatestKnownVersionId, så serverns stale-base-guard
+  // svarar 409 om huvudet hunnit flytta (samma svenska copy som kodvyn).
+  //
+  // Fallback utan send-tidens mål (Bugbot rond 9): builder-kontexten muterar
+  // window utan att OpenClaw-panelen re-renderar, så en render-ögonblicksbild
+  // vore både för pessimistisk (knappen fastnar avstängd) och för optimistisk
+  // (stale bas vid klick). Därför: hint-texten använder render-läsningen, men
+  // knappen är alltid klickbar och SJÄLVA målet löses om vid klicktillfället —
+  // samma mönster som reparationskortet. Saknas mål då: tydligt fel, inget körs.
+  const renderTarget = builderTarget ?? readActiveBuilderTarget();
+  const actionLabel = action.label || "Liten kodändring på sajten";
+  // Synkron dubbelklicksvakt (Bugbot): setActionState döljer knapparna först
+  // efter re-render, så två snabba klick kan annars starta överlappande
+  // POST:ar mot samma bas (forkad historik / förvirrande stale_base_version).
+  const approveInFlightRef = useRef(false);
+
+  if (!editEnabled) {
+    return (
+      <div className="min-w-0 rounded-2xl border border-white/10 bg-slate-900/70 p-3 text-slate-100">
+        <p className="text-xs leading-5 text-slate-300">
+          Redigeringsläge är av — aktivera OC_EDIT för att kunna godkänna snabbändringar.
+        </p>
+      </div>
+    );
+  }
+
+  const handleApprove = async () => {
+    if (approveInFlightRef.current) return;
+    approveInFlightRef.current = true;
+    try {
+      // Send-tidens mål vinner; annars klicktidens live-läsning (rond 9).
+      const effectiveTarget = builderTarget ?? readActiveBuilderTarget();
+      if (!effectiveTarget) {
+        setActionState("failed");
+        setActionError("Ingen aktiv version hittades. Öppna versionen i buildern och försök igen.");
+        return;
+      }
+      setActionState("working");
+      setActionError(null);
+
+      await runApprovedOps(effectiveTarget);
+    } finally {
+      approveInFlightRef.current = false;
+    }
+  };
+
+  const runApprovedOps = async (current: { chatId: string; versionId: string }) => {
+    // Kontraktsvakt (Bugbot): replace_content på en okänd path skulle SKAPA en
+    // ny fil server-side, men OC-kontraktet lovar "endast befintliga filer".
+    // Verifiera därför mot versionens fillista innan något skrivs. Fail-closed:
+    // kan listan inte hämtas genomförs ingen ändring.
+    const replaceContentPaths = action.ops
+      .filter((op) => op.kind === "replace_content")
+      .map((op) => op.path);
+    if (replaceContentPaths.length > 0) {
+      let existingPaths: Set<string> | null = null;
+      try {
+        const res = await fetch(
+          `${engineChatBaseUrl(current.chatId)}/files?versionId=${encodeURIComponent(current.versionId)}`,
+        );
+        const data = (await res.json().catch(() => null)) as {
+          files?: Array<{ name?: unknown }>;
+        } | null;
+        if (res.ok && Array.isArray(data?.files)) {
+          existingPaths = new Set(
+            data.files
+              .map((f) => (typeof f.name === "string" ? f.name : ""))
+              .filter(Boolean),
+          );
+        }
+      } catch {
+        // fail-closed nedan
+      }
+      if (!existingPaths) {
+        setActionState("failed");
+        setActionError("Kunde inte verifiera versionens filer — försök igen om en stund.");
+        return;
+      }
+      const missing = replaceContentPaths.filter((path) => !existingPaths.has(path));
+      if (missing.length > 0) {
+        setActionState("failed");
+        setActionError(
+          `Filen finns inte i versionen: ${missing.join(", ")}. Nya filer kan inte skapas via snabbändring — använd en vanlig follow-up-prompt i stället.`,
+        );
+        return;
+      }
+    }
+
+    // Kör ops:en genom Fast Edit Lane med FÖRSLAGETS version som bas.
+    // `engineLatestKnownVersionId` = samma version så serverns stale-base-
+    // guard avvisar med 409 när chatten hunnit få en nyare version sedan
+    // förslaget skrevs (samma trade-off som patchEngineChatFile dokumenterar).
+    const result = await quickEditChatFiles({
+      chatId: current.chatId,
+      baseVersionId: current.versionId,
+      engineLatestKnownVersionId: current.versionId,
+      ops: action.ops,
+      summary: action.label,
+    });
+
+    if (!result.ok) {
+      setActionState("failed");
+      setActionError(describeQuickEditHardError(result));
+      return;
+    }
+    // Sync the builder (Bugbot P1): without this the builder keeps the
+    // superseded base selected — the version list misses the new v.x row and
+    // the NEXT quick edit gets a stale_base_version 409. The controller's
+    // handleFilesSaved listener selects the new version and threads the
+    // preview-session meta (no-restart fast path).
+    dispatchQuickEditAppliedEvent({
+      chatId: current.chatId,
+      versionId: result.versionId,
+      previewUrl: result.previewUrl,
+      previewSessionId: result.previewSessionId,
+      previewMode: result.previewMode,
+    });
+    setApplied({ versionId: result.versionId, changedFiles: result.changedFiles });
+    setActionState("applied");
+  };
+
+  const handleDecline = () => {
+    setActionState("declined");
+    setActionError(null);
+  };
+
+  return (
+    <div className="min-w-0 rounded-2xl border border-emerald-400/20 bg-slate-900/70 p-3 text-slate-100">
+      <p className="text-[11px] font-medium tracking-[0.16em] text-emerald-200/80 uppercase">
+        Snabbändringsförslag
+      </p>
+      <p className="mt-1 text-sm font-semibold text-white">{actionLabel}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-300">
+        {renderTarget
+          ? "Jag genomför ändringen först när du godkänner. Den skapar en ny version och uppdaterar förhandsvisningen."
+          : "Kräver en öppen version i buildern — godkännandet kontrollerar detta."}
+      </p>
+      {action.reason ? (
+        <div className="mt-2 max-h-32 overflow-x-hidden overflow-y-auto rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
+          {action.reason}
+        </div>
+      ) : null}
+      {/* Full payload-transparens (Bugbot): användaren ska se exakt VAD som
+          skrivs innan godkännande — inte bara op-typ + fil. Fill-kortet visar
+          hela texten; samma princip här, avgränsat och scrollbart. */}
+      <ul className="mt-2 space-y-2 rounded-xl border border-white/10 bg-black/20 p-2 text-xs leading-5 text-slate-200">
+        {action.ops.map((op, index) => (
+          <li key={`${op.kind}:${op.path}:${index}`} className="min-w-0">
+            <div className="flex min-w-0 items-baseline gap-2">
+              <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-300">
+                {describeOpenClawQuickEditOp(op)}
+              </span>
+              <span className="min-w-0 truncate font-mono text-[11px] text-slate-100">
+                {op.path}
+              </span>
+            </div>
+            {op.kind === "replace_text" ? (
+              <div className="mt-1 max-h-32 overflow-x-hidden overflow-y-auto rounded-lg border border-white/10 bg-black/30 p-2 font-mono text-[11px] leading-5 wrap-break-word whitespace-pre-wrap">
+                <span className="text-rose-300/90 line-through">{op.find}</span>
+                <span className="text-slate-400"> → </span>
+                <span className="text-emerald-300/90">{op.replace}</span>
+              </div>
+            ) : null}
+            {op.kind === "replace_content" ? (
+              <details className="mt-1 rounded-lg border border-white/10 bg-black/30 p-2">
+                <summary className="cursor-pointer text-[11px] text-slate-300 select-none">
+                  Visa nytt filinnehåll ({op.content.length} tecken)
+                </summary>
+                <pre className="mt-1 max-h-40 overflow-x-hidden overflow-y-auto font-mono text-[11px] leading-5 wrap-break-word whitespace-pre-wrap text-slate-200">
+                  {op.content}
+                </pre>
+              </details>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {actionState === "pending" ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void handleApprove()}
+              className="rounded-full bg-emerald-300 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Godkänn och genomför
+            </button>
+            <button
+              type="button"
+              onClick={handleDecline}
+              className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:bg-white/5"
+            >
+              Avböj
+            </button>
+          </>
+        ) : null}
+
+        {actionState === "working" ? (
+          <p className="text-xs text-slate-300">Genomför ändringen…</p>
+        ) : null}
+
+        {actionState === "applied" ? (
+          <p className="text-xs text-emerald-300">
+            Klart — ny version skapad ({applied?.versionId}).{" "}
+            {applied && applied.changedFiles.length > 0
+              ? `Ändrade filer: ${applied.changedFiles.join(", ")}`
+              : "Inga filer rapporterades ändrade."}
+          </p>
+        ) : null}
+
+        {actionState === "declined" ? (
+          <p className="text-xs text-slate-300">Förslaget avböjdes.</p>
+        ) : null}
+
+        {actionState === "failed" ? (
+          <p className="text-xs text-rose-300">
+            {actionError ?? "Kunde inte genomföra ändringen."}
           </p>
         ) : null}
       </div>

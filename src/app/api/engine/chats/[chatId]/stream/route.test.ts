@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const delegatedPost = vi.hoisted(() => vi.fn());
 
@@ -50,6 +50,7 @@ const createPreGenerationContractGateReadableStream = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() =>
   vi.fn(async (): Promise<Array<{ id: string }>> => []),
 );
+const updateChatScaffoldId = vi.hoisted(() => vi.fn());
 const readyF3GateResult = {
   ok: true,
   spec: {
@@ -208,6 +209,24 @@ vi.mock("@/lib/builder/site-brief-generation", () => ({
   tryGenerateServerAutoBrief: vi.fn(async () => null),
 }));
 
+// OpenClaw prepared-prompt fast lane: controllable OC_EDIT act gate. Only
+// `OPENCLAW.editEnabled` is overridden — the rest of the real config module is
+// kept as-is so unrelated consumers behave exactly like production.
+const openClawEditEnabled = vi.hoisted(() => ({ value: false }));
+
+vi.mock("@/lib/config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/config")>();
+  return {
+    ...actual,
+    OPENCLAW: {
+      ...actual.OPENCLAW,
+      get editEnabled() {
+        return openClawEditEnabled.value;
+      },
+    },
+  };
+});
+
 vi.mock("@/lib/api/preview-url-contract", () => ({
   previewUrlField: (url: string | null | undefined) => ({
     previewUrl: url == null || url === "" ? null : String(url),
@@ -250,6 +269,11 @@ vi.mock("@/lib/gen/plan/prompt", () => ({
 }));
 
 vi.mock("@/lib/gen/plan/review", () => ({
+  buildPlanModeAssistantMessage: vi.fn(() => ({
+    content: "plan",
+    uiParts: undefined,
+    kind: "plan",
+  })),
   buildPlanSummaryMessage: vi.fn(),
   buildPlanUiPart: vi.fn(),
   enrichPlanArtifactForReview: vi.fn(),
@@ -267,12 +291,15 @@ vi.mock("@/lib/gen/agent-tools", () => ({
 vi.mock("@/lib/gen/request-metadata", () => ({
   extractAppProjectIdFromMeta: () => "app_proj_1",
   extractBriefFromMeta: () => null,
+  extractComplexityHintFromMeta: () => null,
   extractDesignThemePresetFromMeta: () => null,
+  extractPageCountHintFromMeta: () => null,
   extractPaletteStateFromMeta: () => null,
   extractScaffoldSettingsFromMeta: () => ({
     scaffoldMode: "auto",
     scaffoldId: null,
   }),
+  extractStyleKeywordsHintFromMeta: () => [],
   extractThemeColorsFromMeta: () => null,
   normalizeRequestAttachments: (attachments: unknown[] | undefined) => attachments ?? [],
   summarizeDesignReferences: () => [],
@@ -299,7 +326,7 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
   updateChatProjectId,
   addMessage,
   createChat: vi.fn(),
-  updateChatScaffoldId: vi.fn(),
+  updateChatScaffoldId,
   failVersionVerification,
   getVersionById,
   getVersionsByChat,
@@ -437,6 +464,7 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
 
 import { tryGenerateServerAutoBrief } from "@/lib/builder/site-brief-generation";
 import { buildFollowUpBriefFromSnapshot } from "@/lib/gen/orchestration-snapshot";
+import { devLogAppend } from "@/lib/logging/devLog";
 import { buildF3AwaitingInputUiPart } from "@/lib/gen/stream/f3-continuation";
 import { createOwnEnginePipelineAndGenerationStream } from "@/lib/own-engine/session/own-engine-pipeline-generation";
 
@@ -510,6 +538,7 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
   beforeEach(async () => {
     vi.clearAllMocks();
     addMessage.mockResolvedValue(null);
+    updateChatScaffoldId.mockResolvedValue(true);
     failVersionVerification.mockResolvedValue(null);
     createPromptLog.mockResolvedValue(undefined);
     buildFileContext.mockReset();
@@ -670,6 +699,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         keptBlockKeys: ["build_intent_website"],
       },
       dynamicContextBlocks: [],
+      // Spridd med `...` i plan-mode-turn — utelämnad blir den `undefined` och kastar.
+      variantTemplateReferenceAttachments: [],
     });
     resolveOrchestrationBase.mockResolvedValue({
       resolvedScaffold: {
@@ -731,6 +762,8 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
         keptBlockKeys: ["build_intent_website"],
       },
       dynamicContextBlocks: [],
+      variantTemplateId: null,
+      variantTemplateReferenceAttachments: [],
     });
     finalizeOrHandleEmptyGeneration.mockResolvedValue({
       version: { id: "ver_2" },
@@ -884,6 +917,61 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
   });
 
+  // M#gs2: a gate-only exit rematched on an INCOMPLETE prompt. Persisting that
+  // match would make the answering turn read it as `persistedScaffoldId` and
+  // skip the rematch, so the unfinished guess would stick for the whole chat.
+  it("does NOT persist the rematched scaffold when the contract gate aborts the round", async () => {
+    buildContractClarificationQuestion.mockReturnValueOnce({
+      kind: "auth",
+      question: "Vilken autentisering ska vi bygga mot innan vi går vidare?",
+      options: ["Ingen auth ännu", "Clerk"],
+      blocking: true,
+      reason: "Auth krävs men provider är inte vald ännu.",
+    });
+    createPreGenerationContractGateReadableStream.mockReturnValueOnce(
+      buildPipelineStream([{ event: "done", data: {} }]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(resolveOrchestrationBase).toHaveBeenCalled();
+    expect(createGenerationPipeline).not.toHaveBeenCalled();
+    expect(updateChatScaffoldId).not.toHaveBeenCalled();
+  });
+
+  it("persists the rematched scaffold once the contract gate lets the round through", async () => {
+    createGenerationPipeline.mockReturnValue(
+      buildPipelineStream([
+        { event: "content", data: { text: "<main>Updated follow-up</main>" } },
+        { event: "done", data: {} },
+      ]),
+    );
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "Uppdatera hero copy och CTA-knappen men behåll nuvarande design.",
+        }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateChatScaffoldId).toHaveBeenCalledWith("chat_1", "scaffold_1");
+  });
+
   it("does NOT prewarm a plan-mode follow-up", async () => {
     computePlanModePlannerPrompts.mockReturnValueOnce({
       planPreamble: "PLAN",
@@ -931,6 +1019,54 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(prepareGenerationContext).toHaveBeenCalled();
     expect(createGenerationPipeline).not.toHaveBeenCalled();
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
+  });
+
+  // Kreditgrinden ligger före prompt-loggen och före user-raden, så ett avslag
+  // i plan-läget lämnade tidigare INGET durabelt spår — en av de öppna
+  // kandidaterna bakom prod-chatten 785c8d7a. Se `plan-mode-trace.ts`.
+  it("spårar kreditgrindens avslag för en plan-lägestur", async () => {
+    prepareCredits.mockResolvedValueOnce({
+      ok: false,
+      cost: 12,
+      response: new Response(JSON.stringify({ error: "insufficient_credits" }), {
+        status: 402,
+        headers: { "Content-Type": "application/json" },
+      }),
+    });
+    sendMessageSchemaSafeParse.mockImplementationOnce((body: Record<string, unknown>) => ({
+      success: true,
+      data: {
+        message: typeof body.message === "string" ? body.message : "",
+        attachments: [],
+        modelId: "test-model-id",
+        thinking: true,
+        imageGenerations: true,
+        system: "",
+        designSystemId: null,
+        meta: { appProjectId: "app_proj_1", planMode: true },
+      },
+    }));
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/chat_1/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Planera nästa iteration." }),
+      }),
+      { params: Promise.resolve({ chatId: "chat_1" }) },
+    );
+
+    expect(response.status).toBe(402);
+    await vi.waitFor(() => {
+      expect(createPromptLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "plan_mode_credit_gate_rejected",
+          chatId: "chat_1",
+          meta: expect.objectContaining({ planMode: true, status: 402, cost: 12 }),
+        }),
+      );
+    });
+    expect(prepareGenerationContext).not.toHaveBeenCalled();
   });
 
   it("passes engineBaseVersionId from meta into follow-up base resolution", async () => {
@@ -1098,9 +1234,15 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
 
     expect(response.status).toBe(200);
     expect(createGenerationPipeline).toHaveBeenCalled();
+    // The resolved scaffold id is threaded through so the prewarm skeleton's
+    // package.json can mirror that scaffold's own dependencies instead of the
+    // generic baseline.
     expect(prewarmPreviewSession).toHaveBeenCalledWith(
       "chat_1",
-      expect.objectContaining({ leaseKey: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+      expect.objectContaining({
+        leaseKey: expect.stringMatching(/^[a-f0-9]{64}$/),
+        scaffoldId: "scaffold_1",
+      }),
     );
   });
 
@@ -1783,6 +1925,352 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     };
     expect(orchestrationInput.brief).toEqual(deltaBrief);
     expect(orchestrationInput.brief).not.toEqual(buildFollowUpBriefFromSnapshot(snapshot));
+  });
+
+  // Prod chat e8bd3ba6: a follow-up scope clarification threw away the user's
+  // original detailed prompt. Turn 1 stops on the clarification and persists a
+  // `followUpClarification` marker with the source prompt; turn 2 (the
+  // quick-reply option) must rebuild the generation prompt from BOTH the
+  // original request and the chosen option — and must not stop on a second
+  // clarification.
+  describe("follow-up scope clarification retry (prod chat e8bd3ba6)", () => {
+    const originalDetailedPrompt =
+      "Bygg bort felet där sidan laddas om två gånger vid start på vår sajt. " +
+      "Det verkar vara ett hydration-problem i Next.js: konsolen visar en hydration mismatch " +
+      "när man öppnar den första gången, och innehållet blinkar till innan det stabiliserar sig.";
+    const clarificationQuestion =
+      "Vill du att jag förfinar den nuvarande sajten eller behandlar detta som en riktig redesign?";
+    const chosenOption = "Förfina nuvarande design";
+
+    it("turn 1: stops on the clarification and persists the marker with the source prompt", async () => {
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: originalDetailedPrompt }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(createGenerationPipeline).not.toHaveBeenCalled();
+
+      const events = await readSseEvents(response);
+      expect(events.find((event) => event.event === "done")?.data).toMatchObject({
+        awaitingInput: true,
+        awaitingInputPrompt: clarificationQuestion,
+        reason: "followup_redesign_ambiguous",
+      });
+
+      // The assistant clarification row carries the machine-readable marker
+      // + the ORIGINAL prompt so the answering turn can recover it.
+      const assistantCall = addMessage.mock.calls.find((call) => call[1] === "assistant");
+      expect(assistantCall?.[2]).toBe(clarificationQuestion);
+      const uiPart = (assistantCall?.[4] as Array<Record<string, unknown>>)?.[0];
+      expect(uiPart).toMatchObject({
+        type: "tool:awaiting-input",
+        output: expect.objectContaining({
+          followUpClarification: true,
+          sourceUserMessage: originalDetailedPrompt,
+          options: expect.arrayContaining([chosenOption]),
+        }),
+      });
+    });
+
+    it("turn 2: the quick-reply option rebuilds the prompt from the ORIGINAL request and does not re-ask", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: null,
+        orchestration_snapshot: null,
+        // History as persisted by turn 1: the original follow-up, then the
+        // clarification question with the followUpClarification marker.
+        messages: [
+          { role: "user", content: originalDetailedPrompt },
+          {
+            role: "assistant",
+            content: clarificationQuestion,
+            ui_parts: [
+              {
+                type: "tool:awaiting-input",
+                toolName: "Klargörande fråga",
+                state: "approval-requested",
+                output: {
+                  question: clarificationQuestion,
+                  options: [
+                    chosenOption,
+                    "Gör en tydlig redesign i samma projekt",
+                    "Starta om från en ny grund",
+                  ],
+                  kind: "scope",
+                  blocking: true,
+                  reason: "followup_redesign_ambiguous",
+                  awaitingInput: true,
+                  followUpClarification: true,
+                  sourceUserMessage: originalDetailedPrompt,
+                },
+              },
+            ],
+          },
+        ],
+      });
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Hydration fixed</main>" } },
+          { event: "done", data: { promptTokens: 9, completionTokens: 15 } },
+        ]),
+      );
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: chosenOption }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      // The turn must generate — never stop on a second clarification.
+      expect(createGenerationPipeline).toHaveBeenCalledTimes(1);
+      const events = await readSseEvents(response);
+      expect(
+        events.find(
+          (event) =>
+            event.event === "tool-call" &&
+            (event.data as { toolName?: string })?.toolName === "askClarifyingQuestion",
+        ),
+      ).toBeUndefined();
+      expect(events.find((event) => event.event === "done")?.data).not.toMatchObject({
+        awaitingInput: true,
+      });
+
+      // The generation prompt carries BOTH the original detailed request and
+      // the chosen scope option (Question + Answer wrapper).
+      const pipelinePrompt = (
+        createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string }
+      ).prompt;
+      expect(pipelinePrompt).toContain("## Follow-up Scope Clarification Answer");
+      expect(pipelinePrompt).toContain(`Question: ${clarificationQuestion}`);
+      expect(pipelinePrompt).toContain(`Answer: ${chosenOption}`);
+      expect(pipelinePrompt).toContain(originalDetailedPrompt);
+
+      // The user turn persisted is what the user actually sent (the option).
+      const userCall = addMessage.mock.calls.find((call) => call[1] === "user");
+      expect(userCall?.[2]).toBe(chosenOption);
+    });
+
+    it("turn 2 negative: a free-typed different reply is a NEW prompt, not a clarification answer", async () => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce({
+        id: "chat_1",
+        project_id: "app_proj_1",
+        scaffold_id: null,
+        orchestration_snapshot: null,
+        messages: [
+          { role: "user", content: originalDetailedPrompt },
+          {
+            role: "assistant",
+            content: clarificationQuestion,
+            ui_parts: [
+              {
+                type: "tool:awaiting-input",
+                output: {
+                  question: clarificationQuestion,
+                  options: [
+                    chosenOption,
+                    "Gör en tydlig redesign i samma projekt",
+                    "Starta om från en ny grund",
+                  ],
+                  kind: "scope",
+                  blocking: true,
+                  reason: "followup_redesign_ambiguous",
+                  awaitingInput: true,
+                  followUpClarification: true,
+                  sourceUserMessage: originalDetailedPrompt,
+                },
+              },
+            ],
+          },
+        ],
+      });
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>New edit</main>" } },
+          { event: "done", data: { promptTokens: 9, completionTokens: 15 } },
+        ]),
+      );
+      const freeTypedPrompt = "Byt hero-bilden till en elefant";
+
+      const response = await POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: freeTypedPrompt }),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(createGenerationPipeline).toHaveBeenCalledTimes(1);
+      const pipelinePrompt = (
+        createGenerationPipeline.mock.calls[0]?.[0] as { prompt: string }
+      ).prompt;
+      // The free-typed message runs as its own prompt — no clarification-answer
+      // wrapper, no smuggled-in original request.
+      expect(pipelinePrompt).not.toContain("## Follow-up Scope Clarification Answer");
+      expect(pipelinePrompt).toContain(freeTypedPrompt);
+      expect(pipelinePrompt).not.toContain(originalDetailedPrompt);
+    });
+  });
+
+  // ── OpenClaw prepared-prompt fast lane (delta-brief skip) ────────────────
+  // A follow-up tagged `promptSource: "openclaw-prepared"` may skip the
+  // clear-redesign delta-brief LLM pass — ONLY when the server act gate
+  // (OPENCLAW.editEnabled / OC_EDIT) is on AND the prompt passes the
+  // deterministic structure check. Everything else runs today's path.
+  describe("OpenClaw prepared-prompt fast lane", () => {
+    // Classifies as clear-redesign (keyword classifier runs for real) AND
+    // passes the structure validator (≥200 chars, ≥2 sections, ≥3 bullets).
+    const preparedRedesignPrompt = [
+      "Gör om från grunden med mörk editorial stil och ny layout.",
+      "",
+      "Mål:",
+      "- Ny visuell identitet med mörk bakgrund och stor typografi",
+      "- Tydligare fokus på byråns senaste projekt",
+      "",
+      "Sektioner:",
+      "- Hero med stort namn och kort positionering",
+      "- Projektgrid med tre utvalda case och hovringseffekt",
+      "- Kontaktband med e-post och sociala länkar",
+      "",
+      "Design:",
+      "- Serif-rubriker, sans-serif brödtext och generös luft",
+    ].join("\n");
+
+    const chatWithLockedScaffold = {
+      id: "chat_1",
+      project_id: "app_proj_1",
+      scaffold_id: "scaffold_locked",
+      messages: [],
+      orchestration_snapshot: {
+        briefSummary: {
+          projectTitle: "SNAPSHOT_BASE_BRIEF",
+          requestedCapabilities: ["contact-form"],
+        },
+      },
+    };
+
+    /** safeParse mock that ALSO forwards the top-level promptSource tag. */
+    function mockParseWithPromptSource() {
+      sendMessageSchemaSafeParse.mockImplementationOnce(
+        (body: Record<string, unknown>) => ({
+          success: true,
+          data: {
+            message: typeof body.message === "string" ? body.message : "",
+            attachments: [],
+            modelId: "test-model-id",
+            thinking: true,
+            imageGenerations: true,
+            system: "",
+            designSystemId: null,
+            promptSource:
+              typeof body.promptSource === "string" ? body.promptSource : undefined,
+            meta: {
+              appProjectId: "app_proj_1",
+            },
+          },
+        }),
+      );
+    }
+
+    function postPrepared(message: string, promptSource?: string) {
+      return POST(
+        new Request("https://example.com/api/engine/chats/chat_1/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            promptSource ? { message, promptSource } : { message },
+          ),
+        }),
+        { params: Promise.resolve({ chatId: "chat_1" }) },
+      );
+    }
+
+    beforeEach(() => {
+      getEngineChatByIdForRequest.mockResolvedValueOnce(chatWithLockedScaffold);
+      createGenerationPipeline.mockReturnValue(
+        buildPipelineStream([
+          { event: "content", data: { text: "<main>Redesigned</main>" } },
+          { event: "done", data: { promptTokens: 9, completionTokens: 15 } },
+        ]),
+      );
+    });
+
+    afterEach(() => {
+      openClawEditEnabled.value = false;
+    });
+
+    it("skips the delta-brief LLM pass for a tagged structured prompt when OC_EDIT is on", async () => {
+      openClawEditEnabled.value = true;
+      mockParseWithPromptSource();
+
+      const response = await postPrepared(preparedRedesignPrompt, "openclaw-prepared");
+
+      expect(response.status).toBe(200);
+      // The ONLY skipped step is the delta-brief LLM pass…
+      expect(tryGenerateServerAutoBrief).not.toHaveBeenCalled();
+      // …the rest of the turn runs unchanged: orchestration + generation…
+      expect(resolveOrchestrationBase).toHaveBeenCalled();
+      expect(createGenerationPipeline).toHaveBeenCalled();
+      // …and the existing follow-up timeline event carries the skip reason.
+      const followupEvent = vi
+        .mocked(devLogAppend)
+        .mock.calls.find(
+          ([, entry]) =>
+            (entry as { type?: string }).type === "comm.request.followup",
+        )?.[1] as Record<string, unknown> | undefined;
+      expect(followupEvent?.briefSkipReason).toBe("structured_prompt");
+    });
+
+    it("runs the normal delta-brief pass when the tag is present but OC_EDIT is off", async () => {
+      openClawEditEnabled.value = false;
+      mockParseWithPromptSource();
+
+      const response = await postPrepared(preparedRedesignPrompt, "openclaw-prepared");
+
+      expect(response.status).toBe(200);
+      expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
+      const followupEvent = vi
+        .mocked(devLogAppend)
+        .mock.calls.find(
+          ([, entry]) =>
+            (entry as { type?: string }).type === "comm.request.followup",
+        )?.[1] as Record<string, unknown> | undefined;
+      expect(followupEvent?.briefSkipReason).toBeUndefined();
+    });
+
+    it("fails open to the normal delta-brief pass when the tagged prompt is unstructured", async () => {
+      openClawEditEnabled.value = true;
+      mockParseWithPromptSource();
+
+      const response = await postPrepared(
+        "Gör om från grunden med mörk editorial stil och ny layout.",
+        "openclaw-prepared",
+      );
+
+      expect(response.status).toBe(200);
+      expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
+    });
+
+    it("runs the normal delta-brief pass without the tag even when OC_EDIT is on", async () => {
+      openClawEditEnabled.value = true;
+      // Default safeParse mock — no promptSource forwarded.
+
+      const response = await postPrepared(preparedRedesignPrompt);
+
+      expect(response.status).toBe(200);
+      expect(tryGenerateServerAutoBrief).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("keeps using the snapshot brief for a neutral follow-up (no F1 regression)", async () => {

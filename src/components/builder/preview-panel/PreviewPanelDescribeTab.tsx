@@ -9,7 +9,9 @@ import {
   SHADCN_ITEM_DND_TYPE,
   type ShadcnInsertHandler,
   type ShadcnInsertSelection,
+  type ShadcnPlacementPicker,
 } from "@/lib/builder/shadcn-insert";
+import { resolveShadcnComponentMetadata } from "@/lib/builder/shadcn-component-metadata";
 import { RegistryItemThumb } from "./RegistryItemThumb";
 
 /**
@@ -33,6 +35,12 @@ export interface PreviewPanelDescribeTabProps {
    * visas korten utan "Lägg till"-knapp aktiv.
    */
   onInsertItem?: ShadcnInsertHandler;
+  /**
+   * Klick-väg: aktivera befintligt placeringsläge innan `onInsertItem`.
+   * Saknas / resolvar `null` (läget kunde inte visas) → default "Längst ner".
+   * `"aborted"` (Esc/utanför/kontextbyte) → ingen insättning.
+   */
+  onPickPlacement?: ShadcnPlacementPicker;
   /** Aktiverar Composer-overlayns drop-yta medan ett kandidatkort dras. */
   onDragStart?: () => void;
   onDragEnd?: () => void;
@@ -69,6 +77,7 @@ function errorMessageForStatus(status: number): string {
 export function PreviewPanelDescribeTab({
   disabled = false,
   onInsertItem,
+  onPickPlacement,
   onDragStart,
   onDragEnd,
 }: PreviewPanelDescribeTabProps) {
@@ -124,7 +133,20 @@ export function PreviewPanelDescribeTab({
       setInsertingKey(key);
       setInsertedKey(null);
       try {
-        const outcome = await onInsertItem(toSelection(candidate));
+        const selection = toSelection(candidate);
+        const picked = onPickPlacement ? await onPickPlacement(selection) : null;
+        // "aborted" = Esc/utanför/kontextbyte → ingen insättning alls.
+        if (picked === "aborted") return;
+        const outcome = await onInsertItem({
+          ...selection,
+          ...(picked
+            ? {
+                placement: picked.placement,
+                placementLabel: picked.placementLabel,
+                anchorSectionLabel: picked.anchorSectionLabel,
+              }
+            : {}),
+        });
         // Samma ärlighetsregel som Bläddra-kortet: bara ett startat bygge får
         // visa "Skickat". Hanterade avslag (409/412) resolvar utan kast.
         if (outcome.status !== "started") return;
@@ -139,7 +161,7 @@ export function PreviewPanelDescribeTab({
         setInsertingKey(null);
       }
     },
-    [onInsertItem],
+    [onInsertItem, onPickPlacement],
   );
 
   return (
@@ -250,6 +272,10 @@ function DescribeCandidateCard({
   onDragEnd?: () => void;
 }) {
   const title = candidate.title || candidate.name;
+  // `previewLight` sätts bara för det officiella registret, så community-träffar
+  // har aldrig en bild. Metadatan härleds här i st.f. att bäras av
+  // `DescribeCandidate` — samma rena funktion som `registry-service` använder.
+  const metadata = resolveShadcnComponentMetadata(candidate.name, candidate.description);
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     if (!draggable) return;
     e.dataTransfer.setData(SHADCN_ITEM_DND_TYPE, serializeShadcnDragPayload(toSelection(candidate)));
@@ -265,7 +291,12 @@ function DescribeCandidateCard({
       title={draggable ? "Dra till previewn för att välja placering" : undefined}
     >
       <div className="flex aspect-video items-center justify-center overflow-hidden bg-zinc-900/80">
-        <RegistryItemThumb src={candidate.previewLight} alt={title} />
+        <RegistryItemThumb
+          src={candidate.previewLight}
+          alt={title}
+          previewKind={metadata.previewKind}
+          iconKey={metadata.iconKey}
+        />
       </div>
       <div className="space-y-1 px-2 py-1.5">
         <div className="flex items-baseline justify-between gap-2">

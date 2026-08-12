@@ -1,7 +1,7 @@
 ---
 name: automat-swarm
 description: >-
-  Runs N sequential read-only audit swarms (default 3), each launching 8 cheap Composer subagents that hunt bugs, dead code, naming overlaps, improvements, optimizations, test gaps and security/drift across rotating repo lanes. The orchestrator distills every round into one separate, gitignored findings list (.cursor/swarms/FINDINGS.md) for the user to triage later. Use when the user runs /automat, says "automat", or wants repeated high-volume read-only audit swarms. Audit mode only — never fixes code, never touches git.
+  Runs N sequential read-only audit swarms (default 3) that alternate: odd rounds launch 8 cheap subagents hunting bugs, dead code, naming overlaps, improvements, optimizations, test gaps and security/drift across rotating repo lanes; even rounds launch one reasoning agent per unverified finding whose only job is to disprove it. A distill agent curates each round into one separate, gitignored findings list (.cursor/swarms/FINDINGS.md) for the user to triage later. Use when the user runs /automat, says "automat", or wants repeated high-volume read-only audit swarms. Audit mode only — never fixes code, never touches git.
 ---
 
 # Automat — sequential audit swarms
@@ -10,11 +10,11 @@ A **report factory**: the orchestrator (the main agent running `/automat`) launc
 
 ## Trigger & argument parsing
 
-- `/automat` → **3** rounds, **8** agents per round.
-- `/automat <N>` → **N** rounds, 8 agents per round.
-- Agent override: `/automat <N> agenter=<K>` (or natural language in the same message, e.g. "med 12 agenter").
+- `/automat` → **3** rounds (scan → falsify → scan), **8** agents per scan round.
+- `/automat <N>` → **N** alternating rounds, 8 agents per scan round.
+- Agent override: `/automat <N> agenter=<K>` (or natural language in the same message, e.g. "med 12 agenter"). Applies to scan rounds; a falsification round is sized by the number of unverified findings, capped at 8.
 - Lane override: if the message names areas ("bara backend", "fokus preview/env"), use those instead of rotation. Otherwise **rotate** through the lane table below.
-- Rounds run **sequentially**; the 8 (or K) agents **within** a round run in **parallel**.
+- Rounds run **sequentially**; the agents **within** a round run in **parallel**.
 
 ## Hard rules
 
@@ -22,20 +22,39 @@ A **report factory**: the orchestrator (the main agent running `/automat`) launc
 2. **No git.** No commit/branch/checkout/push. Writing to `.cursor/swarms/` is safe because it is gitignored (no HEAD movement, no worktree needed).
 3. **Write only to `.cursor/swarms/`.** Raw reports → `runs/<ts>/`, curated findings → `FINDINGS.md`. Nothing else is written.
 4. **Never auto-touch `BUG-SWARM-BACKLOG.md`.** Promotion of a confirmed finding is a separate manual `/buggrapport` step.
-5. **Keep volume cheap.** Use `composer-2.5-fast` for subagents (high volume, low cost); `composer-2.5` only if a lane needs more reasoning.
+5. **Keep volume cheap.** Models come from the canonical table in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `<grok-4.5>` for every round — scan, distill and falsification alike. `<grok-4.5>` is a placeholder: resolve it against the `cursor-grok-4.5` entry in your own session's `<available_subagent_models>`. Never copy a slug from an older line — the exact form differs between sessions, and a slug that is not validated silently runs on the (expensive) parent model.
+6. **Keep reports short.** Max **6** table rows per agent and no closing prose. Every returned line lands in the orchestrator's context and is re-sent on every later turn — brevity in the subagent prompt is the main cost lever in this skill.
 
-## Per-round workflow
+## Round types — rounds alternate
 
-For each round `r` of `N` (sequential):
+More breadth on top of unverified findings just grows the pile. Odd rounds widen, even rounds prune.
 
-1. **Pick lanes.** Take the next 8 lanes from the rotation cursor (wrap around the table). Round 1 = lanes 1–8, round 2 = lanes 9–13 then 1–3, etc. If agents `K` ≠ 8, map `K` agents to lanes (split a lane into sub-areas when `K` > lane count). Honor any lane override from the message.
+| Round | Type | Agents | Model | Job |
+|---|---|---|---|---|
+| 1, 3, 5 … | **Scan** | 8, one lane each | `<grok-4.5>` | find new candidates in rotating lanes |
+| 2, 4, 6 … | **Falsification** | one per unverified finding, max 8 | `<grok-4.5>` | try to prove the finding is **not** a bug |
+
+`/automat 3` is therefore scan → falsify → scan. If a falsification round has no unverified findings left, run a scan round instead. A finding is falsified **at most once** — an `oklar` verdict stays unverified and is never re-swarmed.
+
+Status lives in the `A#` id itself, so `FINDINGS.md` needs no new column: `A#12` = unverified, `A#12✔` = survived falsification. Falsified findings are **removed** from `FINDINGS.md` and recorded in that round's `index.md`.
+
+### Scan round
+
+1. **Pick lanes.** Take the next 8 lanes from the rotation cursor (wrap around the table). Round 1 = lanes 1–8, round 3 = lanes 9–13 then 1–3, etc. If agents `K` ≠ 8, map `K` agents to lanes (split a lane into sub-areas when `K` > lane count). Honor any lane override from the message.
 2. **Resolve paths.** For each lane, get exact repo paths from [`repo-router.mdc`](../../rules/repo-router.mdc) so subagents look in the right place.
-3. **Launch the swarm.** In **one** assistant turn, fire 8 parallel `Task` calls (`subagent_type: explore`, `readonly: true`, `model: composer-2.5-fast`), one lane each, using the prompt template below.
+3. **Launch the swarm.** In **one** assistant turn, fire 8 parallel `Task` calls (`subagent_type: explore`, `readonly: true`, `model: <grok-4.5>`), one lane each, using the scan prompt below.
 4. **Persist raw reports.** Write each returned report verbatim to `.cursor/swarms/runs/<YYYY-MM-DD_HHMM>/r<r>-<lane-slug>.md`.
-5. **Distill → `FINDINGS.md`.** Append only high-value findings (filter below), dedup by `fil:rad` anchor + similarity, assign `A#<n>` ids.
+5. **Distill via one subagent, not yourself.** Fire a single `Task` (`explore`, `readonly: true`, `<grok-4.5>`) pointed at `runs/<ts>/r<r>-*.md` **and** `.cursor/swarms/FINDINGS.md`, asking for **at most 5** new high-value findings that are not already in `FINDINGS.md` (value filter below), each returned as one finished table row. Write those rows and assign `A#<n>` ids. Doing the cross-round merge this way keeps the growing `FINDINGS.md` and every earlier round out of your own context — you never re-read them.
 6. **Round note.** Update `runs/<ts>/index.md` with one line per lane (top pick + confidence).
 
-After the last round, give the user a short summary table: rounds, lanes covered, new `A#` findings count by prio, and a pointer to `FINDINGS.md`.
+### Falsification round
+
+1. **Pick targets.** Unverified `A#` findings in `FINDINGS.md`, highest impact first, max 8. One agent per finding — never two agents on the same finding.
+2. **Launch.** Parallel `Task` calls (`subagent_type: explore`, `readonly: true`, `model: <grok-4.5>`) with the falsification prompt below.
+3. **Apply verdicts.** `falsk` → delete the row from `FINDINGS.md`. `bekräftad` → append `✔` to its id. `oklar` → leave as is; it is now spent and will not be falsified again.
+4. **Round note.** One line per finding in `runs/<ts>/index.md`: id, verdict, and the one-line reason (the reason for a deleted row only survives here).
+
+After the last round, give the user a short summary table: rounds by type, lanes covered, new `A#` findings by prio, how many were falsified away, and a pointer to `FINDINGS.md`.
 
 ### Value filter (what gets into FINDINGS.md)
 
@@ -62,9 +81,11 @@ The orchestrator rotates through these. Slugs are used in filenames.
 | 13 | `quality/tests` | testluckor, false-green |
 | 14 | `ops/github-vercel-bots` | missade fynd från Codex/Vercel/Bugbot PR-kommentarer + `BUG-SWARM-BACKLOG.md`-luckor |
 
-## Subagent prompt template
+## Prompt templates
 
-Fill `{LANE}`, `{PATHS}`, `{TS}`, `{ROUND}` and pass to each `Task`:
+### Scan agent
+
+Fill `{LANE}`, `{PATHS}` and pass to each `Task`:
 
 ```text
 You are a cheap READ-ONLY auditor for the Sajtmaskin repo. Lane: {LANE}.
@@ -74,15 +95,56 @@ Hunt for (any that apply): Bug, Dead code, Naming overlap/shadowing, Improvement
 Optimization, Test gap, Security, Drift vs docs/architecture/glossary.md.
 
 Rules: read-only (do NOT edit anything). Be concrete. Cite fil:rad anchors.
-No prose, no preamble. Max ~10 lines total. Skip findings you can't anchor.
+No prose, no preamble, no closing line. Skip findings you can't anchor.
+Hard cap: 6 table rows. Fewer good rows beats six weak ones.
 
 Return EXACTLY this table (drop the example row), best findings first:
 
 | # | Typ | Fynd (fil:rad) | Impact | Konfidens | Fix |
 |---|-----|----------------|--------|-----------|-----|
 | 1 | Bug | kort fynd (src/...:rad) | 80% | 70% | S |
+```
 
-Then ONE line: "Nästa: <smalt nästa steg för det viktigaste fyndet>".
+### Falsification agent
+
+One per finding. Fill `{ID}`, `{FYND}`, `{ANKARE}`:
+
+```text
+READ-ONLY. Your job is to DISPROVE a reported finding in the Sajtmaskin repo,
+not to confirm it. Assume it is wrong until the code says otherwise.
+
+Finding {ID}: {FYND}
+Anchor: {ANKARE}
+
+Read the actual file(s) around the anchor and the call sites. Look specifically
+for: a guard/early return that already handles it, a caller that never hits the
+path, a type that makes it impossible, a test that already covers it, or an
+anchor that points at the wrong line entirely.
+
+Return EXACTLY three lines, nothing else:
+Verdikt: falsk | bekräftad | oklar
+Bevis: <fil:rad + one sentence>
+Ändrad bild: <one sentence, or "-">
+```
+
+`falsk` requires evidence, not absence of proof. No evidence either way is `oklar`.
+
+### Distill agent
+
+One per scan round:
+
+```text
+READ-ONLY. Read these raw audit reports: {RUN_PATHS}
+Then read the existing curated list: .cursor/swarms/FINDINGS.md
+
+Return AT MOST 5 findings that are (a) not already in FINDINGS.md by fil:rad
+anchor or by meaning, and (b) high value per this order: P0/P1 runtime
+regressions, false-green gates, cross-tenant/data-loss, security, broken
+LLM-pipeline contracts, then dead code, naming overlap, optimizations, test
+gaps, doc drift.
+
+Output only finished table rows in FINDINGS.md's existing column format —
+no ids, no preamble, no explanation of what you skipped.
 ```
 
 ## Anti-patterns
@@ -92,6 +154,8 @@ Then ONE line: "Nästa: <smalt nästa steg för det viktigaste fyndet>".
 - `readonly: false` on any audit agent, or any code/git change (this is audit mode).
 - Writing findings anywhere but `.cursor/swarms/`, or auto-appending to `BUG-SWARM-BACKLOG.md`.
 - Dumping low-value noise into `FINDINGS.md` — only curated, anchored, high-value findings.
+- Doing the cross-round dedup yourself by re-reading `FINDINGS.md` and old `runs/` files — that is what the distill agent exists to keep out of your context.
+- Re-falsifying an `oklar` finding in a later round, or scanning two rounds in a row while unverified findings pile up.
 
 ## Related
 

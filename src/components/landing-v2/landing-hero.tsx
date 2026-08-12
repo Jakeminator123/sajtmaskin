@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUp, ChevronDown, Mic, Play, Video, X } from "lucide-react"
+import { ArrowUp, Mic, Play, Video, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"
@@ -49,7 +49,7 @@ export function LandingHero({
   const { ref: headlineRef, handleMove: onHeadlineMove, handleLeave: onHeadlineLeave } = headlineTilt
 
   return (
-    <section className="flex min-h-[calc(100vh-57px)] flex-col items-center justify-center px-6 pt-10 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-16 md:pb-12">
+    <section className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-6 pt-8 pb-4 md:pt-12 md:pb-6">
       {heroPrefix}
       <div className="relative mb-5 animate-fade-up" style={{ animationDelay: "0.1s" }}>
         <ParticleOrb />
@@ -80,21 +80,36 @@ export function LandingHero({
         >
           <span aria-hidden="true">
             Din n&auml;sta{" "}
-            <span className="relative inline-grid max-w-full align-baseline">
+            <span className="inline-grid max-w-full justify-items-start align-baseline">
               {/* Osynlig platshållare (längsta ordet) delar grid-cell med det
-                  synliga ordet och reserverar bredd/höjd — rubriken hoppar
-                  aldrig och understrykningen spänner alltid ordets yta.
-                  Under sm döljs platshållaren: på mycket smala mobiler skulle
-                  längsta ordets reserverade bredd annars kunna klippas av
-                  sidans overflow-x-hidden — där sätter det synliga ordet
-                  cellens bredd i stället (understrykningen följer ordet). */}
-              <span className="invisible whitespace-nowrap [grid-area:1/1] max-sm:hidden">{longestSiteType}</span>
-              <span
-                className={`text-primary whitespace-nowrap text-center [grid-area:1/1] transition-all duration-300 motion-reduce:transition-none ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
-              >
-                {rotatingType.text}
+                  synliga ordet och reserverar bredd/höjd, så rubriken inte
+                  hoppar när ordet byts.
+
+                  `justify-items-start` gör att ordet BÖRJAR på samma ställe
+                  varje gång, tätt efter "Din nästa", i stället för att
+                  centreras i den reserverade bredden — ett kort ord låg annars
+                  och flöt en bit ut till höger med ett hål framför sig.
+
+                  Platshållaren visas bara från md, där radbrytningen nedan
+                  lägger "på 30 sekunder" på egen rad: då är den reserverade
+                  extrabredden osynlig radslut. Under md skulle den i stället
+                  bli ett synligt glapp mitt i meningen, så där sätter det
+                  synliga ordet cellens bredd (raden får hoppa i stället — den
+                  är centrerad och bryter ändå om). */}
+              <span className="invisible hidden whitespace-nowrap [grid-area:1/1] md:inline">
+                {longestSiteType}
               </span>
-              <span className="absolute -bottom-1 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/60 to-transparent" />
+              <span
+                className={`[grid-area:1/1] transition-all duration-300 motion-reduce:transition-none ${rotatingType.visible ? "opacity-100 translate-y-0 blur-0" : "opacity-0 -translate-y-3 blur-sm"}`}
+              >
+                {/* Understrykningen sitter INNE i ordet, inte på grid-cellen:
+                    på cellen spände den den reserverade bredden och stack ut
+                    långt förbi ett kort ord. */}
+                <span className="text-primary relative whitespace-nowrap">
+                  {rotatingType.text}
+                  <span className="absolute -bottom-1 left-0 right-0 h-px bg-linear-to-r from-transparent via-primary/60 to-transparent" />
+                </span>
+              </span>
             </span>
             <br className="hidden md:block" /> p&aring; 30 sekunder
           </span>
@@ -311,12 +326,6 @@ export function LandingHero({
         ))}
       </div>
 
-      <div className="mt-12 animate-fade-up opacity-40" style={{ animationDelay: "1s" }}>
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Scrolla ner</span>
-          <ChevronDown className="w-4 h-4 text-muted-foreground animate-bounce" />
-        </div>
-      </div>
     </section>
   )
 }

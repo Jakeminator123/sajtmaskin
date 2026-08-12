@@ -1038,3 +1038,55 @@ export default function OmOssPage() {
     expect(isShellPageContent("x".repeat(9000))).toBe(false);
   });
 });
+
+describe("deriveBuildSpec — Byggval complexityHint", () => {
+  // Neutral en-sidesinit utan premium-signaler: qualityTarget = standard.
+  const neutralBase = {
+    prompt: "En sajt för min lilla verksamhet i Göteborg.",
+    buildIntent: "website" as const,
+    generationMode: "init" as const,
+    resolvedScaffold: null,
+    routePlan: marketingRoutePlan,
+    preGenerationContracts: emptyContracts,
+  };
+
+  it("floors qualityTarget at premium for 'complex' on an otherwise standard init", () => {
+    expect(deriveBuildSpec(neutralBase).qualityTarget).toBe("standard");
+    expect(
+      deriveBuildSpec({ ...neutralBase, complexityHint: "complex" }).qualityTarget,
+    ).toBe("premium");
+  });
+
+  it("never demotes qualityTarget for 'simple' (multipage promotion wins)", () => {
+    const multipage = { ...neutralBase, routePlan: multiPageWebsiteRoutePlan };
+    expect(deriveBuildSpec(multipage).qualityTarget).toBe("premium");
+    expect(
+      deriveBuildSpec({ ...multipage, complexityHint: "simple" }).qualityTarget,
+    ).toBe("premium");
+  });
+
+  it("biases contextPolicy score: complex +2, simple -1, medium no-op", () => {
+    const baseScore = deriveBuildSpec(neutralBase).contextPolicyScore ?? 0;
+    expect(
+      deriveBuildSpec({ ...neutralBase, complexityHint: "complex" }).contextPolicyScore,
+    ).toBe(baseScore + 2);
+    expect(
+      deriveBuildSpec({ ...neutralBase, complexityHint: "simple" }).contextPolicyScore,
+    ).toBe(baseScore - 1);
+    expect(
+      deriveBuildSpec({ ...neutralBase, complexityHint: "medium" }).contextPolicyScore,
+    ).toBe(baseScore);
+  });
+
+  it("ignores the hint on follow-ups (init-only)", () => {
+    const followUp = {
+      ...neutralBase,
+      generationMode: "followUp" as const,
+      prompt: "Gör om hela sajten från grunden med mycket mer innehåll.",
+    };
+    const without = deriveBuildSpec(followUp);
+    const withHint = deriveBuildSpec({ ...followUp, complexityHint: "complex" });
+    expect(withHint.qualityTarget).toBe(without.qualityTarget);
+    expect(withHint.contextPolicyScore).toBe(without.contextPolicyScore);
+  });
+});

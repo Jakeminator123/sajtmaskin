@@ -52,10 +52,7 @@ import {
 import { getDossierById } from "@/lib/gen/dossiers";
 import { getDefaultThinkingEnabled } from "@/lib/gen/default-thinking";
 import { compressUrls } from "@/lib/gen/url-compress";
-import {
-  buildPlanSummaryMessage,
-  buildPlanUiPart,
-} from "@/lib/gen/plan/review";
+import { buildPlanModeAssistantMessage } from "@/lib/gen/plan/review";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import {
@@ -240,7 +237,16 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           ? getScaffoldById(parsedMeta.scaffoldId)
           : matchScaffold(message, metaBuildIntent as BuildIntent | null);
       const preMatchVariant = preMatchScaffold
-        ? pickScaffoldVariant({ prompt: message, scaffoldId: preMatchScaffold.id })
+        ? pickScaffoldVariant({
+            prompt: message,
+            scaffoldId: preMatchScaffold.id,
+            // Byggval (init controls): structured style keywords steer the
+            // keyword pre-match so brief hints and the pinned variant agree
+            // with the user's chosen style.
+            styleKeywords: parsedMeta.styleKeywordsHint.length
+              ? parsedMeta.styleKeywordsHint
+              : undefined,
+          })
         : null;
       const variantHints = buildVariantHintsForBrief(preMatchScaffold, preMatchVariant);
       const variantHintsText = variantHints
@@ -295,6 +301,7 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         const autoBriefStartedAt = Date.now();
         const generated = await tryGenerateServerAutoBrief({
           prompt: message,
+          modelTier: resolvedModelTier,
           assistModelHint,
           imageGenerations: resolvedImageGenerations,
           signal: req.signal,
@@ -518,8 +525,23 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           buildIntent: engineIntent,
           scaffoldMode: parsedMeta.scaffoldMode,
           scaffoldId: parsedMeta.scaffoldId,
+          // Byggval (init controls): spegla huvudflödet så plan-läge får
+          // samma route-plan, variantmatchning och BuildSpec som vanlig init.
+          pageCountHint: parsedMeta.pageCountHint,
+          styleKeywordsHint: parsedMeta.styleKeywordsHint.length
+            ? parsedMeta.styleKeywordsHint
+            : undefined,
+          complexityHint: parsedMeta.complexityHint,
           brief: effectiveBrief,
           themeColors: parsedMeta.themeColors,
+          // Samma paritet för custom instructions (bär även Byggvals
+          // komplexitet/färgläge/ton-direktiv) — annars planerar plan-läget
+          // utan direktiv som codegen sedan får.
+          customInstructions: trimmedSystemPrompt || undefined,
+          // Pinna samma pre-match-variant som huvudflödet (pre-matchen läser
+          // styleKeywordsHint) så plan-orkestreringen inte async-väljer en
+          // annan variant än brief-hints/codegen.
+          persistedVariantId: preMatchVariant?.id ?? null,
           promptStrategyMeta: strategyMeta,
           // Bug 04#3 (2026-04-22 audit): plan mode skickade tidigare inte
           // engineModelId/lifecycleStage. Det gav divergent BuildSpec mellan
@@ -555,7 +577,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           planModel,
           plannerThinking: plannerSettings.thinking,
           plannerReasoningEffort: plannerSettings.reasoningEffort,
+          plannerReasoningMode: plannerSettings.reasoningMode,
           abortSignal: req.signal,
+          referenceAttachments: [
+            ...planOrchestration.variantTemplateReferenceAttachments,
+            ...requestAttachments,
+          ],
         });
 
         const projectIdForChat = await resolveAppProjectIdForRequest(
@@ -629,15 +656,24 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               contentLength: accumulatedContent.length,
             });
           },
-          persistAssistantSummary: async (planData, hasBlockers) => {
+          // Samma persist-kontrakt som follow-up-turen (plan-mode-turn.ts):
+          // en icke-plan-utdata ska persistera sin egen text, inte en påhittad
+          // plansummering.
+          persistAssistantSummary: async (planData, hasBlockers, context) => {
+            const assistantMessage = buildPlanModeAssistantMessage({
+              planData,
+              hasBlockers,
+              hasPlanArtifact: context.hasPlanArtifact,
+              plannerText: context.accumulatedContent,
+              upstreamErrorMessage: context.upstreamErrorMessage,
+            });
             try {
-              const storedPlanPart = buildPlanUiPart(planData);
               await chatRepo.addMessage(
                 plannerChat.id,
                 "assistant",
-                buildPlanSummaryMessage(planData, hasBlockers),
+                assistantMessage.content,
                 undefined,
-                storedPlanPart ? [storedPlanPart] : undefined,
+                assistantMessage.uiParts,
               );
             } catch (error) {
               console.warn("[plan] Failed to persist planner assistant summary:", error);
@@ -732,6 +768,14 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
           buildIntent: engineIntent,
           scaffoldMode: metaScaffoldMode,
           scaffoldId: metaScaffoldId,
+          // Byggval (init controls): structured hints — page count wins over
+          // prompt-text regex in buildRoutePlan; style keywords merge into
+          // scaffold-variant matching; complexity biases BuildSpec.
+          pageCountHint: parsedMeta.pageCountHint,
+          styleKeywordsHint: parsedMeta.styleKeywordsHint.length
+            ? parsedMeta.styleKeywordsHint
+            : undefined,
+          complexityHint: parsedMeta.complexityHint,
           brief: metaBrief,
           themeColors: metaThemeColors,
           imageGenerations: resolvedImageGenerations,
@@ -804,11 +848,15 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         }
         if (contractClarification) {
           const contractGateDbStartedAt = Date.now();
+          // No scaffold id on the gate-only exit: the match was made on an
+          // INCOMPLETE prompt, and a pinned `scaffold_id` would make the
+          // answering turn read it as `persistedScaffoldId` and skip the
+          // rematch — the first, unfinished guess would stick for the whole
+          // chat. The scaffold is persisted first when a round actually
+          // generates (own-engine path below / `codegen-turn.ts`).
           const engineChat = await chatRepo.createChat(
             projectIdForChat,
             engineModel,
-            undefined,
-            resolvedScaffold?.id,
           );
           await chatRepo.addMessage(engineChat.id, "user", message);
           setLlmUsageContext({ chatId: engineChat.id });
@@ -938,11 +986,18 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         // primary init/create path — the chat is created, credits already
         // passed the `prompt.create` gate above, and heavy codegen streaming is
         // about to start. Warm the preview host now so `npm install` overlaps
-        // LLM streaming. Fire-and-forget + self-gating (flag / tier-2 / dedup);
-        // never blocks or throws. Only the own-engine generation path reaches
-        // here (plan-mode and the contract-clarification gate return earlier and
-        // do not generate a site yet). See src/lib/gen/preview/preview-prewarm.ts.
-        void prewarmPreviewSession(engineChat.id, { leaseKey: prewarmLeaseKey });
+        // LLM streaming. Orchestration has already resolved above, so pass the
+        // selected scaffold id — the skeleton's `package.json` is built from
+        // that scaffold's own dependencies instead of the generic baseline
+        // (higher fingerprint-hit rate at finalize). Fire-and-forget +
+        // self-gating (flag / tier-2 / dedup); never blocks or throws. Only the
+        // own-engine generation path reaches here (plan-mode and the
+        // contract-clarification gate return earlier and do not generate a
+        // site yet). See src/lib/gen/preview/preview-prewarm.ts.
+        void prewarmPreviewSession(engineChat.id, {
+          leaseKey: prewarmLeaseKey,
+          scaffoldId: resolvedScaffold?.id ?? null,
+        });
         devLogAppend("in-progress", {
           type: "contracts.inferred",
           chatId: engineChat.id,
@@ -985,7 +1040,10 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
               userMessage: message,
               isFollowUp: false,
             }),
-            referenceAttachments: requestAttachments,
+            referenceAttachments: [
+              ...finalized.variantTemplateReferenceAttachments,
+              ...requestAttachments,
+            ],
           },
           meta: buildOwnEngineGenerationStreamMeta({
             routeVariant: "new-chat",
@@ -1048,4 +1106,3 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
     }),
   );
 }
-

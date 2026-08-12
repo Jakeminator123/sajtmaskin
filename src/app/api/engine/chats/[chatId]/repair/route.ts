@@ -7,10 +7,7 @@ import {
   safeUsageOwnerId,
   setLlmUsageContext,
 } from "@/lib/observability/llm-usage";
-import {
-  getEngineVersionForChatByIdForRequest,
-  getRequestUserId,
-} from "@/lib/tenant";
+import { getEngineVersionForChatByIdForRequest, getRequestUserId } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
 import { dbConfigured } from "@/lib/db/client";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
@@ -136,10 +133,7 @@ function normalizeRepairContextLines(lines: string[] | undefined, label: string)
     .map((line) => `[${label}] ${line}`);
 }
 
-export async function POST(
-  req: Request,
-  ctx: { params: Promise<{ chatId: string }> },
-) {
+export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   // Manuell repair är en egen request — utan ett eget scope skulle RepairGate:s
   // tokenrader sakna ägare (chatten sätts så snart params är lästa).
   return withRateLimit(req, "engine:repair", () =>
@@ -147,10 +141,7 @@ export async function POST(
   );
 }
 
-async function handlePOST(
-  req: Request,
-  ctx: { params: Promise<{ chatId: string }> },
-) {
+async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   // #284 follow-up (wall-clock graceful stop): bound the repair loop to this
   // route's static maxDuration, measured from request entry, so a slow multi-
   // pass repair stops and releases its lease before the platform hard-kills the
@@ -219,16 +210,9 @@ async function handlePOST(
       repairContext.qualityGateMeta?.firstFailureCheck === "build" ||
       (repairContext.qualityGate?.some((failure) => failure.check === "build") ?? false);
 
-    const scopedVersion = await getEngineVersionForChatByIdForRequest(
-      req,
-      chatId,
-      versionId,
-    );
+    const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
     if (!scopedVersion) {
-      return NextResponse.json(
-        { error: "Version not found for chat" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Version not found for chat" }, { status: 404 });
     }
 
     internalVersionId = scopedVersion.version.id;
@@ -244,7 +228,8 @@ async function handlePOST(
         if (!lease) {
           return NextResponse.json(
             {
-              error: "Version is busy (another verify/repair job holds the lock). Try again shortly.",
+              error:
+                "Version is busy (another verify/repair job holds the lock). Try again shortly.",
               code: "version_busy",
             },
             { status: 409 },
@@ -259,10 +244,7 @@ async function handlePOST(
 
     const snapshot = await getVersionFilesSnapshot(internalVersionId);
     if (!snapshot || snapshot.files.length === 0) {
-      return NextResponse.json(
-        { error: "No files found for version" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "No files found for version" }, { status: 404 });
     }
     const codeFiles = snapshot.files;
     // #260 / P2 #5: the exact files_json this repair is based on. saveRepairedFiles
@@ -303,9 +285,7 @@ async function handlePOST(
     // re-gated on the full integrations lane so a preserved/re-added backend SDK
     // import cannot be promoted after tsc-only.
     const previewPolicy =
-      scopedVersion.version.lifecycle_stage === "integrations"
-        ? "fidelity3"
-        : "fidelity2";
+      scopedVersion.version.lifecycle_stage === "integrations" ? "fidelity3" : "fidelity2";
 
     async function promoteIfPostRepairGatePasses(params: {
       projectContent: string;
@@ -330,8 +310,7 @@ async function handlePOST(
       // pre-repair persisted version fetched at the top of handlePOST,
       // so it carries the canonical scaffold/previous content for any
       // protected path the LLM regenerated.
-      const protectedPartition =
-        partitionGeneratedFilesForProtectedPaths(rawRepairedFiles);
+      const protectedPartition = partitionGeneratedFilesForProtectedPaths(rawRepairedFiles);
       const reinjection = reinjectProtectedPathsFromFallback({
         kept: protectedPartition.kept,
         droppedPaths: protectedPartition.dropped.map((f) => f.path),
@@ -396,9 +375,7 @@ async function handlePOST(
           console.warn("[repair] Post-repair visual QA error (non-fatal):", vqaErr);
         },
       });
-      const visualQAMeta = visualQA
-        ? compactVisualQAForQualityGateLog(visualQA)
-        : undefined;
+      const visualQAMeta = visualQA ? compactVisualQAForQualityGateLog(visualQA) : undefined;
       let promoted = false;
       let newVersionId: string | null = null;
       if (decision.promote && dbConfigured) {
@@ -407,7 +384,13 @@ async function handlePOST(
         // the TTL. Renew re-extends while we still own it; if another run took
         // over, the lease-conditioned write in saveRepairedFiles no-ops.
         if (leaseRunId) await renewVersionLease(currentVersionId, leaseRunId).catch(() => {});
-        const saveResult = await saveRepairedFiles(currentVersionId, filesJson, promoteReason, leaseRunId, baseFilesJson).catch((err) => {
+        const saveResult = await saveRepairedFiles(
+          currentVersionId,
+          filesJson,
+          promoteReason,
+          leaseRunId,
+          baseFilesJson,
+        ).catch((err) => {
           console.warn("[repair] Failed to save repaired version files:", err);
           return { status: "failed" as const };
         });
@@ -430,8 +413,7 @@ async function handlePOST(
             versionId: currentVersionId,
             chatId,
             kind: "lint_advisory",
-            message:
-              "Manuell post-repair ReleaseGate godkändes med ESLint-varningar (advisory).",
+            message: "Manuell post-repair ReleaseGate godkändes med ESLint-varningar (advisory).",
             meta: {
               advisoryChecks: ["lint"],
               warningCount: postRepairLintAdvisories.reduce(
@@ -515,9 +497,7 @@ async function handlePOST(
     const fixerModel = originatingTier
       ? resolvePhaseModel(originatingTier, "fixer").modelId
       : undefined;
-    const fixerThinking = originatingTier
-      ? resolvePhaseThinking(originatingTier, "fixer")
-      : null;
+    const fixerThinking = originatingTier ? resolvePhaseThinking(originatingTier, "fixer") : null;
 
     const loopResult = await runRepairLoop<{ newVersionId: string | null }>({
       initialContent,
@@ -534,6 +514,7 @@ async function handlePOST(
       fixerModel,
       fixerThinking: fixerThinking?.thinking,
       fixerReasoningEffort: fixerThinking?.reasoningEffort,
+      fixerReasoningMode: fixerThinking?.reasoningMode,
       recurringPatterns: readRecurringPatternsForChat(chatId),
       // Fas 3 (RepairGate): the manual route is a separate HTTP invocation, so
       // it gets a fresh per-run ledger (no in-memory finalize ledger to reuse)
@@ -656,8 +637,7 @@ async function handlePOST(
           deterministic: false,
           remainingErrors: loopResult.remainingErrors,
           status: "superseded",
-          reason:
-            "Versionen ändrades under reparationen — den här reparationen sparades inte.",
+          reason: "Versionen ändrades under reparationen — den här reparationen sparades inte.",
         });
       }
       return NextResponse.json({
@@ -681,9 +661,7 @@ async function handlePOST(
     }
 
     if (!loopResult.promoted && dbConfigured && !staleBaseNoOp) {
-      const stopSuffix = loopResult.earlyStopReason
-        ? ` (${loopResult.earlyStopReason})`
-        : "";
+      const stopSuffix = loopResult.earlyStopReason ? ` (${loopResult.earlyStopReason})` : "";
       // Keep this stored summary consistent with the JSON `reason` below: when
       // the loop stopped on the wall-clock budget the cause is time, not an
       // unresolved gate, so don't blame the gate (Bugbot #318).

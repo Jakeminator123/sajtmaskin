@@ -109,15 +109,20 @@ export const serverSchema = z.object({
   // OpenClaw (Sajtagenten)
   OPENCLAW_GATEWAY_URL: z.string().optional(),
   OPENCLAW_GATEWAY_TOKEN: z.string().optional(),
-  /** OpenClaw debug-mode gate. Affirmative (1/true/yes/y/on) unlocks privileged
-   * debug context + armed bug-hunt autonomy. Default off; blocked in production
-   * unless OC_DEBUG_ALLOW_PROD is also affirmative. Read via OPENCLAW.debugEnabled. */
+  /** OpenClaw debug-mode gate — the SINGLE flag for the read/diagnostics side
+   * (full generated code, persisted findings, read-only Sajtmaskin repo-context).
+   * Affirmative (1/true/yes/y/on) enables it in every environment, production
+   * included (the former OC_DEBUG_ALLOW_PROD double-gate was removed 2026-07-31).
+   * Does NOT authorize editing — that is OC_EDIT. Read via OPENCLAW.debugEnabled. */
   OC_DEBUG: z.string().optional(),
   /** Alias for OC_DEBUG (the user types "OC_DEBUGG=y"). Either key unlocks debug-mode. */
   OC_DEBUGG: z.string().optional(),
-  /** Escape hatch to allow OC_DEBUG in production. Default unset = debug-mode never
-   * activates in production even if OC_DEBUG is affirmative. */
-  OC_DEBUG_ALLOW_PROD: z.string().optional(),
+  /** OpenClaw edit gate — the flag for the acting/editing side: armed autonomy
+   * (fill builder prompt + auto-send follow-ups) and the Mode B bug-hunt run
+   * route. Edits always go through the ordinary builder pipeline (own-engine →
+   * verify → preview), never directly against preview-host/Fly. Default off.
+   * Read via OPENCLAW.editEnabled. */
+  OC_EDIT: z.string().optional(),
   /** Read-only GitHub token (contents:read) used by the debug repo-context reader so
    * OpenClaw can understand where the Sajtmaskin platform itself is buggy. No write/PR scope. */
   OC_REPO_READ_TOKEN: z.string().optional(),
@@ -129,6 +134,10 @@ export const serverSchema = z.object({
 
   // AI – Direct OpenAI (Responses API)
   OPENAI_API_KEY: z.string().optional(),
+  /** Standard Webhooks-signeringssecret (whsec_…) för inkommande OpenAI
+   *  plattforms-webhooks på POST /api/webhooks/openai (kvitton för
+   *  background-/batch-jobb — inte pipelines synkrona anrop). */
+  OPENAI_WEBHOOK: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
   /** Fail fast when required generated template/scaffold artifacts are missing or empty outside test. */
   SAJTMASKIN_STRICT_GENERATED_ARTIFACTS: z.string().optional(),
@@ -142,6 +151,10 @@ export const serverSchema = z.object({
   SAJTMASKIN_LIVE_SITE_DOMAIN: z.string().optional(),
   /** Fast Edit Lane hot patch (server): when `"true"`, a quick edit pushes changed files into the live preview VM workspace without restarting Next dev. Read via `isPreviewPatchLaneEnabled` in `src/lib/gen/preview/preview-session.ts`. Default off. */
   SAJTMASKIN_PREVIEW_PATCH_LANE: z.string().optional(),
+  /** Innehållsrevision steg 3: when `"true"`, verdict/receipt readers compare `files_revision` instead of trusting `versionId` (promote-guard, preview-ready receipt + cache, terminal status projection). Known mismatch only; unknown revision stays fail-open. Read via `isContentRevisionGateEnabled` in `src/lib/gen/verify/content-revision.ts`. Default off. */
+  SAJTMASKIN_CONTENT_REVISION_GATE: z.string().optional(),
+  /** In-app domain purchase: when `"true"`, a domain order may place a REAL registrar order and charge the customer's card. Default off — a Vercel token that exists for deploys must not by itself imply consent to spend money at the registrar. Read via `FEATURES.useDomainPurchase`. */
+  SAJTMASKIN_DOMAIN_PURCHASE: z.string().optional(),
   /** Canonical server-side default for own-engine reasoning/thinking when the client omits an explicit toggle. */
   SAJTMASKIN_DEFAULT_THINKING: z.string().optional(),
   AI_BRIEF_MAX_TOKENS: z.string().optional(),
@@ -160,7 +173,7 @@ export const serverSchema = z.object({
   SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS: z.string().optional(),
 
   // AI – Model overrides per tier (see src/lib/models/catalog.ts, src/lib/gen/defaults.ts)
-  SAJTMASKIN_MODEL_FAST: z.string().optional(),
+  SAJTMASKIN_MODEL_PREMIUM: z.string().optional(),
   SAJTMASKIN_MODEL_PRO: z.string().optional(),
   SAJTMASKIN_MODEL_MAX: z.string().optional(),
   SAJTMASKIN_MODEL_CODEX: z.string().optional(),

@@ -238,7 +238,7 @@ redeploy med hård polling).
 
 | Klient | Path | Användning |
 |---|---|---|
-| `ioredis` (TCP) | `src/lib/data/redis.ts`, `src/lib/redis-pubsub.ts` | Sessioner, cache, project-files, video jobs, deploy-status pub/sub |
+| `ioredis` (TCP) | `src/lib/data/redis.ts`, `src/lib/redis-pubsub.ts` | Ad-hoc cache, prompt-handoff, audit-cache, preview-session, deploy-status pub/sub |
 | `@upstash/redis` (HTTP/REST) | `src/lib/rateLimit.ts` | Rate-limiting (cold-start-vänligt i serverless) |
 
 Båda pratar med samma Upstash-instans. Detta är teknisk skuld vi
@@ -253,10 +253,9 @@ Alla nycklar prefixas per miljö så dev/preview/prod inte kolliderar
 även om de delar databas (vilket de gör idag):
 
 ```
-dev:user:session:{userId}            → CachedUser JSON, TTL 7 dagar
 dev:cache:{key}                      → ad-hoc cache, TTL 1h
+dev:prompt_handoff:{id}              → prompt-handoff, TTL 7 dagar
 dev:audit:{auditId}                  → audit-resultat, TTL 24h
-dev:project:files:{projectId}        → ProjectFile[], TTL 1h
 dev:preview-session:session:{chatId} → Tier-2 VM-session, TTL 2h
 dev:brief:v1:{model}:{chat}:{hash}   → /api/ai/brief cache, TTL 24h
 sajtmaskin:dev:ratelimit:{endpoint}:{client}  → rate-limit räknare
@@ -273,8 +272,8 @@ Mappade mot Redis-skill-reglerna:
 - **`data-key-naming`** ✅ — strikta prefix per kategori + miljö
 - **`ram-ttl`** ✅ — TTL satt på alla cache-nycklar (ingen "för alltid")
 - **`conn-pooling`** ✅ — singleton-klient per process
-- **`conn-blocking`** ⚠️ — `listUserTakenOverProjects` använder SCAN; bör
-  ersättas med en sekundär index-set på sikt (P3 i roadmap)
+- **`conn-blocking`** ✅ — inga `KEYS`-anrop; kvarvarande SCAN sitter i
+  `flushRedisCache` (batchad, hård cap) och i diagnos-scripten
 - **`security-auth`** ✅ — credentials i `.env.local`, aldrig committat
 - **`observe-commands`** ✅ — `DBSIZE` + `INFO` exponerat via Redis-hälsa-sidan
 
@@ -361,8 +360,6 @@ leverantörsbyte ligger på dig.
   `ioredis` till `@upstash/redis` (HTTP). Pub/sub i `redis-pubsub.ts` får
   bytas mot DB-polling eller en webhook (REST stödjer inte pub/sub).
   Vinst: mindre cold-start, mindre bundle-size.
-- **P3: Sekundär index-set för `listUserTakenOverProjects`.** Ersätt SCAN
-  med ett SADD/SMEMBERS-mönster (`prod:user:{userId}:projects`).
 - **Zod-validering på alla API-routes.** Strikt input-validering. Stort
   arbete (40+ routes), men gör API:et idiotsäkert mot LLM-inducerad skräp-payload.
 - **Drift-flag mellan `schema.ts` och `db-init.mjs`.** Idag är de två

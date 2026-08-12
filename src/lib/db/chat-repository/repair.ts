@@ -234,8 +234,15 @@ export async function acceptRepair(
     // fails closed-but-retryable (M#pg1 / B08 follow-up) — returning null keeps
     // the pending repair intact so a later accept can retry; only a no-telemetry
     // row (signal === null) keeps the historic fail-open.
+    //
+    // `promotedFilesJson` is what makes the revision-aware guard (steg 3) correct
+    // here: the content being promoted is the repaired payload, not the version's
+    // current `files_json`. Without it the repair verdict — stamped with the
+    // repaired revision by `saveRepairedFiles` — would read as a stale revision
+    // against the pre-accept base and wedge every legitimate accept.
     const guard = await assertPromoteAllowed(versionId, undefined, {
       onReadError: "indeterminate",
+      promotedFilesJson: payload.filesJson,
     });
     if (!guard.allowed) {
       console.warn(

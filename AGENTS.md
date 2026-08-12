@@ -20,10 +20,22 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 - **Git / commit / workflow:** [`git.mdc`](.cursor/rules/git.mdc), [`workflow.mdc`](.cursor/rules/workflow.mdc), [`agent-worktree.mdc`](.cursor/rules/agent-worktree.mdc) (flera agenter → använd `git worktree`)
 - **Plattform:** [`platform-quirks.mdc`](.cursor/rules/platform-quirks.mdc) (Windows/PowerShell), [`unicode-regex.mdc`](.cursor/rules/unicode-regex.mdc)
 - **Repo-router:** [`repo-router.mdc`](.cursor/rules/repo-router.mdc)
+- **Lokal tooling (MCP/Vercel/Supabase/shadcn):** [`local-tooling-mcp.mdc`](.cursor/rules/local-tooling-mcp.mdc)
 - **OpenClaw / env-flow:** [`openclaw-bridge.mdc`](.cursor/rules/openclaw-bridge.mdc), [`env-flow-f2-mute.mdc`](.cursor/rules/env-flow-f2-mute.mdc)
 - **Observability:** [`agent-observatory.mdc`](.cursor/rules/agent-observatory.mdc), [`useful-commands.mdc`](.cursor/rules/useful-commands.mdc)
 - **Plan-/bug-livscykel:** [`plan-lifecycle.mdc`](.cursor/rules/plan-lifecycle.mdc) — när planer ska parkas/avklaras/raderas + frontmatter-krav. Avklarad historik: läs det tunna indexet [`docs/plans/avklarat/README.md`](docs/plans/avklarat/README.md) + git — gräv inte i eller återskapa stora plandetaljfiler.
 - **Terminologi / ton:** [`terminology.mdc`](.cursor/rules/terminology.mdc), [`response-format.mdc`](.cursor/rules/response-format.mdc)
+- **MVP-fas:** [`mvp-scope-freeze.mdc`](.cursor/rules/mvp-scope-freeze.mdc) — stabilitet före coolhet; inga nya features, ytor eller UI-element utan uttrycklig begäran
+
+## Codex Desktop
+
+Projektets Codex-lager finns i [`.codex/README.md`](.codex/README.md) och
+[`.codex/config.toml`](.codex/config.toml). Starta nya Codex-chattar med
+repo-roten `C:\Users\jakem\dev\projects\sajtmaskin` som primary folder; då
+upptäcks `AGENTS.md`, projektkonfig och worktree-regler på samma sätt varje gång.
+Codex har ingen `.codexignore`; `.cursorignore` gäller Cursor, medan Codex
+förlitar sig på `.gitignore`, instruktionerna här och `.worktreeinclude` för
+hanterade worktrees.
 
 ## Allmänt per-PR-klart
 
@@ -34,47 +46,32 @@ Välj utifrån vad du gör — komplett tabell finns i [`.cursor/README.md`](.cu
 - `npm run hygiene` → docs-färskhet + dödkod/orphan-filer i **en knapp** (grönt = rent, rött pekar på exakt problem). Full dödkods-lista: `npm run knip` (läs deps-kategorin försiktigt — mest falska positiver, se runbook). Städning + hur man läser knip: [`docs/runbooks/hygiene.md`](docs/runbooks/hygiene.md). CI blockerar på orphan-**filer** och docs-gates automatiskt.
 - Synk docs/schemas/backoffice vid pipeline-ändringar (se [`pipeline-rules.mdc`](.cursor/rules/pipeline-rules.mdc))
 - Commit- och PR-hygien enligt [`git.mdc`](.cursor/rules/git.mdc) och [`workflow.mdc`](.cursor/rules/workflow.mdc)
-- **Alla PR:er går mot `master`** (trunk) — ingen direktcommit/-push till master. Kör ett **bugbot-pass** (bugbot-subagent) på egen diff före PR/push. Se [`git.mdc`](.cursor/rules/git.mdc) → "Branch-modell".
+- **Alla PR:er går mot `master`** (trunk) — ingen direktcommit/-push till master. Kör ett **bugbot-pass** (bugbot-subagent, `model: <grok-4.5>`) på egen diff före PR/push. Se [`git.mdc`](.cursor/rules/git.mdc) → "Branch-modell".
 
-## Vercel-åtkomst (CLI + MCP) — inloggat läge
+## Vercel-åtkomst
 
-Lokala maskinen är **inloggad och länkad** mot Vercel (verifierat 2026-07-02):
+Maskinen är inloggad och länkad mot Vercel (`vercel whoami` → `jakeminator0`, projekt `sajtmaskin`). CLI-loggar: `vercel logs <dpl>` (runtime), `vercel inspect <dpl> --logs` (build). Samlad logghämtning: `/logg`.
 
-- **CLI:** `vercel whoami` → `jakeminator0`. Repot är länkat via `vercel link --yes` → `.vercel/repo.json` (gitignored) med projekt `sajtmaskin` (`prj_AK7FqC8NwKorjoxGpkXi6nKGUsoe`, team `jakeminator123s-projects`). Länka om med `npm run vercel:link` om `.vercel/` saknas.
-- **Loggar via CLI:** `vercel logs <deployment-url|dpl_id>` (runtime, live), `vercel inspect <dpl> --logs` (build). Prod-env: `npm run env:pull:prod-snapshot`.
-- **MCP:** `.cursor/mcp.json` har projekt-scopad server `vercel` (`https://mcp.vercel.com/jakeminator123s-projects/sajtmaskin`) — engångs-OAuth via "Needs login" i Cursor. Fungerar även: user-nivå `user-vercel`. **Obs:** plugin-varianten (`plugin-vercel-vercel`) kan ge 403 — byt server i stället för att felsöka.
-- **Samlad logg-hämtning:** `/logg` (senaste prod-sajten, alla källor) · `node scripts/db/control-stats.mjs --json --env=.env.vercel.production.pulled --days=14 --allow-insecure-ssl` (kvantitativ kontroll-statistik) · `node scripts/db/dump-logs.mjs` (rå export).
+Servrar, projekt-id:n, OAuth och 403-felsökning: [`local-tooling-mcp.mdc`](.cursor/rules/local-tooling-mcp.mdc).
 
-## Review guidelines (PR author owns the bug post-check)
+## Review guidelines
 
-**Codex review may be on or off depending on credits** (off 2026-07-02, back 2026-07-08). Never _block indefinitely_ on `chatgpt-codex-connector` or treat its absence as a gap (a **bounded** 7-min window applies before merge — see below — after which the author's bugbot pass covers external eyes) — but **if a Codex review is present, read and triage it** (it can land a few minutes after CI goes green, so re-read reviews right before merge). Regardless of Codex, the **PR-authoring agent** owns the bug post-check. Canonical merge-gate detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc).
+PR-författaren äger bugg-efterkontrollen. Kör ett **Cursor Bugbot-pass** på egen diff (`bugbot`-subagent, `readonly: true`, `model: <grok-4.5>`) före PR **och** före push till master — samma pass täcker både för-filter och efterkontroll för den head-SHA:n. Det finns **ingen** `bugbot run` CLI i repot; använd `review-bugbot`-skillen eller subagenten. Obs: `review-bugbot` är en global skill utanför repot och sätter **varken** `model` eller `readonly` — kör du den vägen måste du ange dem själv, annars ärvs sessionens modell tyst.
 
-**A review prioritizes P0/P1:** runtime regressions; false-green (a gate that turns green without real verification — verify / quality-gate / server-verify / promote / lifecycle / status); preview/VM failures; DB/schema drift; env/secret leaks; security/cross-tenant risk; broken LLM-pipeline contracts.
+**Faller Bugbot bort, gå nedåt i stegen — hoppa inte direkt till manuell review.** Den GitHub-integrerade Bugbot:en delar teamets budget och svarar `Bugbot couldn't run - usage limit reached` när den är slut. Att budgeten är slut på GitHub betyder **inte** att passet ska utebli: den lokala `bugbot`-subagenten är en egen väg och ska köras då.
 
-- Flag F2/F3 status that goes green **without** real verification as **P1**.
-- Flag **missing tests as P1** when the change touches pipeline, preview, DB, autofix, dependency handling, or any runtime contract.
-- Ignore taste/style unless it is a real UX/runtime/maintainability risk. Keep comments to concrete, merge-blocking problems.
-- **Proportionality (the gate protects, it does not brake):** a well-motivated improvement is **never** held back by style nits — log the nit (P2/backlog) and merge. Restrictive on real breakage (P0/P1, security, broken schema/policy/test/contract, false-green), generous on value. A nitpicky/flaky gate that catches no real risk → log + merge, fix the gate separately. Canonical table: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc) → "Proportionalitet".
+1. GitHub-integrerad Bugbot på PR:en (gratis oberoende ögon när budgeten räcker).
+2. Är den slut eller utebliven → **berörd agent kör Cursor Bugbot-passet lokalt** (`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"`).
+3. Först om även det misslyckas → strukturerad manuell diff-granskning med fil- och radreferenser.
 
-**Before opening the PR:** run a **Cursor Bugbot pass** on your own diff (`bugbot` subagent, `readonly: true`) as the pre-filter — also before any push to master. This IS the author bug post-check below (same pass), just run before push instead of after open, so it satisfies both for that head SHA. The rules below are unchanged: **re-run bugbot on every new commit** (SHA-freshness / `merge:ready`), and the protected-path pass + 7-min/Codex window still apply. See [`git.mdc`](.cursor/rules/git.mdc). (The old 8-agent `/granska` swarm is now an **optional** manual deep-dive — costly in orchestrator context — not a requirement.)
+Dokumentera alltid i PR:en vilket steg som användes: `bugbot` (GitHub), `bugbot-local` (subagent) eller `manual local bug review`. Samma värde går i `bugkoll:`-fältet i `merge:ready`-sign-offen.
 
-**Bug post-check (run by the PR author, before or right after opening the PR):**
+Utöver den generella P0/P1-listan, flagga som **P1**:
 
-1. Spawn a Cursor Bugbot pass — the `review-bugbot` skill or the `bugbot` subagent (`subagent_type: "bugbot"`, `readonly: true`). The subagent is a separate agent instance, so this satisfies the independent-eyes requirement even though the author drives it. There is **no** `bugbot run` CLI in this repo.
-2. If Bugbot is unavailable, do a structured manual review of the diff: read `git diff`, identify changed owners/files, hunt for regressions / missing tests / env-DB-preview risk / false-green / broken contracts, run the repo verifications (`npm run typecheck`, targeted `npx vitest run`, `npm run lint`, `npm run db:schema-drift`, …), and summarize findings with file/line refs.
-3. Document the outcome in the PR (which path was used + finding triage) so the merging agent does not redo the pass — the merger's job is to verify the post-check is documented, checks are green, and no P0/P1 is open.
+- F2/F3-status som blir grön **utan** verklig verifiering.
+- **Saknade tester** när ändringen rör pipeline, preview, DB, autofix, dependency-hantering eller något runtime-kontrakt.
 
-**7-min external-review window:** after opening the PR, wait up to 7 min for a Codex review to land; if none does, run the `bugbot` subagent (above) — unless the current head SHA's pre-push bugbot pass already covers it and no new commit has landed since. Never merge a PR younger than 7 min (`gh pr view <n> --json createdAt`) — external reviewers need time to look. This window is now **technically enforced** by the required check `review-window` (`.github/workflows/review-window.yml`), which stays pending until the PR is ≥ 7 min old **and** the known external bots for the head SHA have finished (10-min cap). A normal `gh pr merge` therefore cannot happen too early; `--admin` can still override it, so verify age manually on admin merges. Detail: [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc) → "Minsta granskning innan merge".
-
-**Author-is-merger rule:** re-reading your own diff is never review. The `bugbot` subagent pass (a separate agent) is the minimum on protected paths (`src/lib/db|auth|tenant|gen|providers|integrations|logging`, `src/app/api`, CI, `package*`, `migrations`, `env*`, grandmaster-docs, `BUG-SWARM-BACKLOG.md`). Don't self-approve around a `NEEDS_HUMAN` verdict. (The dashboard PR Auto-Merger is off per the 2026-07-09 agent-merger decision; if it is ever re-enabled, the same no-self-approval rule applies to its verdict.)
-
-**Merge-ready criteria:**
-
-- The author's bug post-check ran (bugbot subagent, or documented manual review when Bugbot is unavailable), no open P0/P1, verification passed, PR ≥ 7 min old with the external-review window satisfied → merge-ready.
-- The author then applies the **`merge:ready`** label + a sign-off line; the **merge-agent** (a Cursor agent) verifies the label + gate and runs `gh pr merge`. There is **no** dashboard auto-merger in the flow (decision 2026-07-09: agent-merger) — see [`auto-merge-automation.mdc`](.cursor/rules/auto-merge-automation.mdc) → "Vem mergar".
-- Codex may be present or absent depending on credits — never block _waiting_ for it to appear, but if a Codex review **is** present, read and triage its findings like any other bot (a P1/security finding blocks merge; P2 is fixed or logged — see [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
-- Always state in the PR/final report which review path was used: `bugbot` (Cursor subagent) or `manual local bug review`.
-- Triage every finding to exactly one of fixed / logged in [`BUG-SWARM-BACKLOG.md`](BUG-SWARM-BACKLOG.md) / dismissed (per [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc)).
+Canonical merge-grind (7-min-fönster, `merge:ready`-ordning, proportionalitet, protected paths, Codex-triage, author-is-merger): [`pr-merge-review-gate.mdc`](.cursor/rules/pr-merge-review-gate.mdc) · [`git.mdc`](.cursor/rules/git.mdc) · [`auto-merge-automation.mdc`](.cursor/rules/auto-merge-automation.mdc).
 
 ## Canonical owner-regel
 
@@ -84,43 +81,8 @@ exekverbart beteende; manifest, registries och policies kan äga deklarativa
 beslut. Genererad Markdown är projektion. Introducera inte nya begrepp utan att
 registrera dem i glossaryn.
 
-## Cursor Cloud specific instructions
+## Cursor Cloud Agent
 
-### Environment
+Pod-specifik miljö och gotchas (injicerade secrets, Postgres/SSL, OpenAI-kvot, admin-email, `predev` i `dash`): [`docs/runbooks/cursor-cloud-agent.md`](docs/runbooks/cursor-cloud-agent.md).
 
-- Node.js 22.23.1 (pinned via Volta in `package.json`). The `.cursor/Dockerfile` builds from `node:22.23.1-bookworm`.
-- Package manager: **npm** (lockfile: `package-lock.json`). Use `npm ci --no-audit --no-fund` to install.
-- `.env.local` is gitignored. Secrets are injected as environment variables by the Cloud Agent platform; write them to `.env.local` before running the app (Next.js reads from dotenv).
-
-### Running services
-
-| Service     | Command                                | Notes                                                                                                                                                          |
-| ----------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Next.js dev | `node scripts/dev/next-runner.mjs dev` | Starts on port 3000. Bypasses `predev` if DB init already done. Full `npm run dev` runs `predev` first (preflight checks, schema-drift, shadcn sync, db:init). |
-
-### Gotchas
-
-- **Some Cloud Agent pods start "just-in-time" with NO secrets injected at all** (`environment-info` reports `environment: null`; `env` has no `POSTGRES_URL`, no `ANTHROPIC_API_KEY`/`OPENAI_API_KEY`, no `ADMIN_EMAILS`). The app still boots (`npm run dev`), lint/typecheck/`test:ci` all pass, but any DB-backed or generation flow needs you to supply the pieces yourself: spin up a local Postgres (see the local-Postgres bullet below) and provide an LLM provider key (`ANTHROPIC_API_KEY` works end-to-end; `OPENAI_API_KEY` alone is out of quota — see the LLM-provider bullet below) as a secret. With those, register the `ADMIN_EMAILS` account to get credits and the full landing → login → builder → generate loop runs.
-- `npm run dev` runs a `predev` hook that includes `db:perf-indexes:soft`. This may fail with `sh: Syntax error` in minimal shells (dash vs bash). It is soft-failing (`|| echo ...`) and does not block the dev server from starting. If `predev` exits non-zero, run `node scripts/dev/next-runner.mjs dev` directly.
-- The `db:init` script requires `POSTGRES_URL` to be set. Without it, the script exits with code 1 — but the Next.js app itself starts fine (DB features degrade gracefully).
-- **Not every flow degrades gracefully without a DB — the landing→builder entry flow needs Postgres:** the landing-page prompt submit calls `POST /api/projects`, which requires a DB. With no `POSTGRES_URL` set, that route returns an HTML `500` and the landing submit fails client-side with `SyntaxError: Unexpected token '<', "<!DOCTYPE"... is not valid JSON` (never navigating to `/builder`). If the Cloud Agent env has **no** injected Postgres at all, spin up a throwaway local Postgres (`apt-get install -y postgresql`, `pg_ctlcluster 16 main start`, create a DB) and point `POSTGRES_URL=postgresql://postgres:postgres@localhost:5432/<db>?sslmode=disable` in `.env.local`, then run `npm run db:init` and restart the dev server so it picks up `.env.local`.
-- **Local Postgres SSL:** For local Postgres without SSL, add `?sslmode=disable` to `POSTGRES_URL`. Both `db-init.mjs` and the runtime client respect this parameter.
-- **Cloud Agent injected Postgres (self-signed cert):** The platform-injected Supabase `POSTGRES_URL` uses TLS with a **self-signed certificate chain**, so `db-init` and runtime DB queries fail with `self-signed certificate in certificate chain` under the default strict verification. Set `DB_SSL_REJECT_UNAUTHORIZED=false` (e.g. add it to a gitignored `.env.local`) before running `db:init` or any DB-backed flow (saving projects/chats/versions). Both `scripts/db/db-init.mjs` and `src/lib/db/client.ts` honor this flag. The app still boots without it, but DB persistence degrades.
-- **`predev` `db:init:soft` aborts in `dash` — FIXED:** the `|| echo ...` fallbacks in `db:init:soft` / `db:perf-indexes:soft` used to carry unquoted parens (`(DB unreachable)`), which fail at shell-parse time in `dash`/`sh` (`sh: Syntax error: "(" unexpected`) regardless of whether `db-init` itself succeeded — so `predev`'s `&&` chain exited non-zero and `npm run dev` never reached `next dev`. The parens are gone; `npm run dev` works in `dash`. Keep new `|| echo` fallbacks paren-free. `node scripts/dev/next-runner.mjs dev` and `SKIP_PREDEV=1 npm run dev` still work as fast paths.
-- **Migration ordering:** Fixed -- `db-init.mjs` runs dependency migrations first automatically. No manual steps needed on fresh DB.
-- **Local schema stays in sync automatically, and says so when it does not:** `predev` → `db:init` applies every migration in `MIGRATION_ORDER` on each `npm run dev`. Because the fast paths (`SKIP_PREDEV=1`, running `next-runner.mjs` directly) skip that, `next-runner.mjs` also starts `scripts/db/ensure-schema.mjs --check-only --soft --quiet-ok` in the background on every dev start: silent when the DB is current, a bordered warning listing the missing migrations when it is behind. Never blocks startup and never runs DDL itself. Fix with **`npm run db:ensure`** (check → `db:migrate` → re-verify). See [`docs/contracts/data-layer.md`](docs/contracts/data-layer.md) → "Lokal schema-vakt".
-- **Testing the generate flow (own-engine → preview):** Generation starts only after an explicit send in the builder chat input — the landing-page prompt just creates the project and pre-fills the input. Anonymous sessions get **one** free generation (`guestLimit: 1` for `prompt.create`/`prompt.template` in `src/lib/credits/server.ts`), after which the builder shows the "Du har använt din gratis generation"-gate. To run or repeat full generations, use an account with credits: set `ADMIN_EMAILS=<email>` for the dev process and register that email (auto-verified, auto-logged-in, large credit grant), then log in and generate. Full generation streams files locally and then renders a live preview on the remote preview host (`SAJTMASKIN_PREVIEW_HOST_BASE_URL`, a Fly.dev VM) — confirm that host is reachable before relying on preview-based E2E tests; the full prompt → generate → preview loop takes ~2 min end-to-end.
-- **`.env.local` does NOT override Cloud-injected env vars (admin-email gotcha):** Next.js dotenv only fills vars that are _not already set_ in the real process env. The Cloud Agent platform injects `ADMIN_EMAILS`/`NEXT_PUBLIC_ADMIN_EMAILS` (a redacted real admin email) into the environment, so appending your own test email to `.env.local` is silently ignored — `isAdminEmail()`/`isTestUser()` read the injected value, the account is treated as a normal guest (email-verification required, `0 credits`, credit gate blocks generation), and `bootstrapAdminUser` never grants diamonds. To use a self-chosen admin test email, **export it in the dev process** so it wins, e.g. start the server with `ADMIN_EMAILS="$ADMIN_EMAILS,you@test.dev" NEXT_PUBLIC_ADMIN_EMAILS="$NEXT_PUBLIC_ADMIN_EMAILS,you@test.dev" node scripts/dev/next-runner.mjs dev`. Then registering + logging in that email auto-verifies it and grants 10 000 diamonds on login (`src/lib/auth/auth.ts` `bootstrapAdminUser`). (Alternatively, just grant diamonds directly via SQL: `UPDATE users SET diamonds=10000 WHERE email='<you>'`.)
-- **First request to a freshly-restarted dev server can 404 (Turbopack cold compile):** right after restarting the dev server, the very first hit to an on-demand-compiled API route (e.g. `/api/engine/chats/stream`) may briefly return `HTTP 404` / "Failed to create chat (HTTP 404)" before the route finishes compiling. Retry after a couple seconds; it resolves once the route is built.
-- **LLM provider keys in Cloud Agent env — OpenAI is out of quota:** The injected `OPENAI_API_KEY` authenticates (HTTP 200) but has **no billing quota** (every call returns `429 You exceeded your current quota`). So any build profile that routes codegen through OpenAI — **Snabb / Lagom (default) / Tanker / Kod Max** — fails the generation stream instantly with `Stream error` → `Model produced no text events (silent output). No code was emitted`. The injected `ANTHROPIC_API_KEY` **works** (its account exposes `claude-opus-4-8` etc.). To exercise end-to-end site generation in the builder, select the **"Anthropic"** build profile (header model selector "Modell: …"), which routes the `generator`/brief phases to `claude-opus-4.8` (normalized to `claude-opus-4-8`). The dependent OpenAI-only steps (server auto-brief, scaffold embeddings, post-gen verifier/autofix) soft-fail/degrade and do not block code generation. Anthropic-tier generation streams real files and starts a preview session on the configured preview host.
-- **Guest Deep Brief returns 401 by design:** `/api/ai/brief` (client-triggered Deep Brief) intentionally returns 401 for guest/anonymous users — that is by design and is soft (server auto-brief covers create-chat), not a misconfiguration. (The guest generation quota itself is covered above: one free generation per session cookie.)
-- Typecheck uses `--max-old-space-size=8192`; ensure sufficient memory.
-- All test files pass as of 2026-05. If a test fails, investigate — it is likely a real regression, not a pre-existing environment issue. **Exception in the Cloud Agent env:** `npm run test:ci` reports 3 failures (`src/lib/kostnadsfri/index.test.ts`, `src/app/api/kostnadsfri/[slug]/verify/route.test.ts`, `src/app/api/admin/vercel/projects/[projectId]/route.test.ts`) that are caused purely by platform-injected secrets (`VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`, `KOSTNADSFRI_API_KEY`, `KOSTNADSFRI_PASSWORD_SEED`) — these negative-path tests assume those vars are unset. They are not regressions; they pass when those vars are unset (e.g. `env -u VERCEL_PROJECT_ID -u VERCEL_TEAM_ID -u KOSTNADSFRI_API_KEY -u KOSTNADSFRI_PASSWORD_SEED npx vitest run <files>`). Other known pre-existing test failures are tracked in [`BUG-SWARM-BACKLOG.md`](BUG-SWARM-BACKLOG.md) (e.g. 2 `PreviewPanel.test.tsx` save-flow tests) — check there before assuming a regression.
-
-### Useful commands (see `package.json` for full list)
-
-- `npm run typecheck` — TypeScript check (0 errors expected)
-- `npm run lint` — ESLint (0 errors expected)
-- `npm run test:ci` — Vitest run all tests
-- `npm run dev` — Full dev startup with preflight
-- `node scripts/dev/next-runner.mjs dev` — Dev server only (skip predev)
+Snabbstart oavsett miljö: `npm ci --no-audit --no-fund`, sedan `npm run dev` (eller `node scripts/dev/next-runner.mjs dev` för att hoppa över `predev`). Node 22.23.1 via Volta.

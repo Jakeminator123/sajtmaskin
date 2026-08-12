@@ -1,4 +1,5 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { escapeRegexLiteral, uWordRegex } from "@/lib/utils/unicode-word-boundary";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import { APP_ROUTE_PATTERNS, type RoutePatternEntry, WEBSITE_ROUTE_PATTERNS } from "./route-patterns";
 import { normalizeRoutePath } from "./path-utils";
@@ -113,6 +114,126 @@ export function collectExplicitRouteRemovals(
 
 export function hasExplicitAddRouteIntent(prompt: string): boolean {
   return EXPLICIT_ADD_ROUTE_PATTERNS.some((pattern) => pattern.test(prompt));
+}
+
+/**
+ * Explicit named-page intents where the user states a PAGE title, e.g.
+ * `en ny sida som ska heta "Bilder"` / `a new page called Gallery`.
+ * Bare copy edits (`Rubriken ska heta "…"`, `login page called from…`)
+ * must NOT match — English requires create/new intent before called/named.
+ *
+ * Each pattern exposes exactly two capture groups, in this order:
+ *   1. the QUOTED name — everything between the quotes, verbatim
+ *   2. the BARE name — the unquoted tail, which still has to be trimmed
+ *
+ * The split matters. A quoted name states explicitly where the title ends, so a
+ * multi-word one ("Bilder och video") is kept whole. An unquoted one has no such
+ * marker: `Skapa en sida som ska heta Bilder och länka den i headern` contains
+ * no comma or period, so a greedy tail swallowed the whole instruction and
+ * produced `/bilder-och-lanka-den-i-headern`. Bare names are therefore cut at
+ * the first conjunction/preposition ({@link PAGE_NAME_STOP_WORDS}) and bounded
+ * to a handful of words.
+ */
+const NAME_CAPTURE = String.raw`(?:["'«»“”]([^"'«»“”\n]{1,60})["'«»“”]|([^"'«»“”.\n,;]+))`;
+
+const EXPLICIT_NAMED_PAGE_PATTERNS: RegExp[] = [
+  new RegExp(String.raw`(?:ny\s+)?(?:sida|page|route)\s+som\s+ska\s+heta\s+${NAME_CAPTURE}`, "giu"),
+  new RegExp(
+    String.raw`(?:create|add|make)\s+(?:a\s+)?(?:new\s+)?(?:page|route)\s+(?:called|named)\s+${NAME_CAPTURE}`,
+    "giu",
+  ),
+  new RegExp(String.raw`new\s+(?:page|route)\s+(?:called|named)\s+${NAME_CAPTURE}`, "giu"),
+  new RegExp(
+    String.raw`(?:page|route)\s+that\s+should\s+be\s+(?:called|named)\s+${NAME_CAPTURE}`,
+    "giu",
+  ),
+];
+
+/**
+ * Words that end an unquoted page name. Everything from here on belongs to the
+ * rest of the instruction ("…och länka den i headern", "…and link it in the
+ * header"), never to the title.
+ *
+ * A stop word in FIRST position is kept — `a page called The Team` is a real
+ * title that happens to start with an article.
+ */
+const PAGE_NAME_STOP_WORDS = new Set([
+  // svenska
+  "och", "samt", "eller", "men", "som", "så", "sedan", "därefter", "med", "utan",
+  "i", "på", "till", "från", "för", "under", "över", "vid", "av", "genom", "mot",
+  "den", "det", "de", "dem", "denna", "detta", "dessa", "där", "när", "innan",
+  "efter", "plus", "ovanför", "nedanför", "bredvid",
+  // engelska
+  "and", "or", "but", "then", "with", "without", "in", "on", "to", "from", "for",
+  "under", "over", "at", "of", "by", "that", "which", "it", "them", "this",
+  "these", "after", "before", "plus", "above", "below", "next",
+]);
+
+/** Bare names are titles, not sentences. */
+const EXPLICIT_PAGE_NAME_MAX_WORDS = 4;
+
+/**
+ * Cut an unquoted name at the first clause boundary and bound its length.
+ */
+function trimBarePageName(raw: string): string {
+  const tokens = raw.trim().split(/\s+/).filter(Boolean);
+  const kept: string[] = [];
+  for (const token of tokens) {
+    const word = token.replace(/[^\p{L}\p{N}]/gu, "").toLowerCase();
+    if (kept.length > 0 && PAGE_NAME_STOP_WORDS.has(word)) break;
+    kept.push(token);
+    if (kept.length >= EXPLICIT_PAGE_NAME_MAX_WORDS) break;
+  }
+  return kept.join(" ");
+}
+
+export type ExplicitNamedPage = {
+  name: string;
+  path: string;
+};
+
+function cleanExplicitPageName(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^["'«»“”]+|["'«»“”]+$/g, "")
+    .replace(/\s+/g, " ")
+    .slice(0, 48);
+}
+
+export function extractExplicitNamedPages(prompt: string): ExplicitNamedPage[] {
+  if (!prompt) return [];
+  const seenPaths = new Set<string>();
+  const out: ExplicitNamedPage[] = [];
+  for (const pattern of EXPLICIT_NAMED_PAGE_PATTERNS) {
+    pattern.lastIndex = 0;
+    for (const match of prompt.matchAll(pattern)) {
+      const quoted = match[1];
+      const raw =
+        typeof quoted === "string" ? quoted : trimBarePageName(match[2] ?? "");
+      const name = cleanExplicitPageName(raw);
+      if (!name || name.length < 2) continue;
+      const path = inferPathFromPageName(name);
+      if (path === "/" || seenPaths.has(path)) continue;
+      seenPaths.add(path);
+      out.push({ name, path });
+    }
+  }
+  return out;
+}
+
+/** Remove already-resolved explicit page-name literals before keyword matching. */
+export function neutralizeExplicitPageNameLiterals(
+  prompt: string,
+  names: string[],
+): string {
+  let out = prompt;
+  for (const name of names) {
+    const trimmed = name.trim();
+    if (trimmed.length < 2) continue;
+    // Unicode word boundaries so short names like "Art" do not match inside "part".
+    out = out.replace(uWordRegex(escapeRegexLiteral(trimmed), "giu"), " ");
+  }
+  return out;
 }
 
 /**

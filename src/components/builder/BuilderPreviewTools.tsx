@@ -2,6 +2,12 @@
 
 import { ExternalLink, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import {
+  BUILDER_DESTRUCTIVE_ICON_CLASS,
+  BUILDER_HEADER_ICON_CLASS,
+  BUILDER_LIGHT_ICON_CLASS,
+} from "@/lib/builder/icon-language";
 import { PreviewCodeViewMenu } from "@/components/builder/preview-panel/PreviewCodeViewMenu";
 import { PreviewPanelDossiers } from "@/components/builder/preview-panel/PreviewPanelDossiers";
 import {
@@ -27,6 +33,8 @@ export interface BuilderPreviewToolsProps {
   onF3MissingEnv?: PreviewPanelF3TriggerProps["onMissingEnv"];
   onF3ReleaseSettled?: PreviewPanelF3TriggerProps["onReleaseSettled"];
   onF3Status?: PreviewPanelF3TriggerProps["onStatus"];
+  /** Ö4a: readiness-buren väg för "Bygg integrationer" (kostnads-tooltip). */
+  f3RequiresRealBuildKeys?: PreviewPanelF3TriggerProps["requiresRealBuildKeys"];
 }
 
 /**
@@ -49,6 +57,7 @@ export function BuilderPreviewTools({
   onF3MissingEnv,
   onF3ReleaseSettled,
   onF3Status,
+  f3RequiresRealBuildKeys = null,
 }: BuilderPreviewToolsProps) {
   // Klustret växer inte fram i headern förrän det finns en preview att styra.
   // Kodvyn räknas också: där är previewUrl inte det som visas, men användaren
@@ -91,6 +100,7 @@ export function BuilderPreviewTools({
           onReady={onF3Ready}
           onReleaseSettled={onF3ReleaseSettled}
           isBusy={isBusy}
+          requiresRealBuildKeys={f3RequiresRealBuildKeys}
           iconOnly
           className="h-8 w-8 bg-violet-600 p-0 text-white hover:bg-violet-500"
         />
@@ -102,8 +112,8 @@ export function BuilderPreviewTools({
           onClick={onClear}
           disabled={clearDisabled}
           aria-label="Rensa preview"
-          title="Rensa preview"
-          className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
+          title="Rensa preview — river preview-sessionen på förhandsvisnings-VM:en direkt (den städas annars inte förrän sessionen går ut)."
+          className={cn(BUILDER_HEADER_ICON_CLASS, BUILDER_DESTRUCTIVE_ICON_CLASS)}
         >
           <Trash2 className="h-4 w-4" />
         </Button>
@@ -117,7 +127,7 @@ export function BuilderPreviewTools({
         disabled={!previewUrl}
         aria-label="Öppna i ny flik"
         title="Öppna i ny flik"
-        className="text-muted-foreground hover:text-foreground h-8 w-8 p-0"
+        className={cn(BUILDER_HEADER_ICON_CLASS, BUILDER_LIGHT_ICON_CLASS)}
       >
         <ExternalLink className="h-4 w-4" />
       </Button>

@@ -115,8 +115,10 @@ export function usePreviewPanelInspectCapture(options: {
         });
         setLastCodeMatch(codeMatch);
 
-        const matchHint = codeMatch
-          ? ` → ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}`
+        const sourcePath = codeMatch?.item.filePath ?? null;
+        const sourceLine = codeMatch?.item.lineNumber ?? null;
+        const matchHint = sourcePath
+          ? ` → ${sourcePath}${sourceLine != null ? `:${sourceLine}` : ""}`
           : "";
         setInspectStatus(`<${el.tag}>${el.text ? ` "${el.text.slice(0, 50)}"` : ""}${matchHint}`);
         dispatchInspectCaptureEvent({
@@ -137,6 +139,8 @@ export function usePreviewPanelInspectCapture(options: {
             href: null,
             selector: el.selector,
             nearestHeading: null,
+            sourcePath,
+            sourceLine,
           },
           source: "local",
         });
@@ -235,6 +239,8 @@ export function usePreviewPanelInspectCapture(options: {
               href: null,
               selector: null,
               nearestHeading: null,
+              sourcePath: el.filePath || registryHit?.item.filePath || null,
+              sourceLine: el.lineNumber ?? registryHit?.item.lineNumber ?? null,
             },
             source: "local",
           });
@@ -271,6 +277,17 @@ export function usePreviewPanelInspectCapture(options: {
 
         const data = (await response.json().catch(() => null)) as CaptureResponse | null;
 
+        const codeMatch = data?.element
+          ? matchCapturedElement(elementRegistryRef.current, {
+              tag: data.element.tag,
+              id: data.element.id,
+              className: data.element.className,
+              text: data.element.text,
+              selector: data.element.selector,
+            })
+          : null;
+        setLastCodeMatch(codeMatch);
+
         dispatchInspectCaptureEvent({
           id: captureId,
           demoUrl: previewUrl,
@@ -292,6 +309,8 @@ export function usePreviewPanelInspectCapture(options: {
                 href: data.element.href || null,
                 selector: data.element.selector || null,
                 nearestHeading: data.element.nearestHeading || null,
+                sourcePath: codeMatch?.item.filePath ?? null,
+                sourceLine: codeMatch?.item.lineNumber ?? null,
               }
             : undefined,
           clip: data?.clip,
@@ -306,17 +325,6 @@ export function usePreviewPanelInspectCapture(options: {
         }
 
         toast.success("Punkt tillagd i chatten.");
-
-        const codeMatch = data?.element
-          ? matchCapturedElement(elementRegistryRef.current, {
-              tag: data.element.tag,
-              id: data.element.id,
-              className: data.element.className,
-              text: data.element.text,
-              selector: data.element.selector,
-            })
-          : null;
-        setLastCodeMatch(codeMatch);
 
         if (data?.pointSummary) {
           const matchHint = codeMatch

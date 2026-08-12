@@ -28,14 +28,36 @@ const CONTEXT_BLOCK_PRIORITY_RULES: Array<{
   { match: /^brief-locked design values$/i, priority: 94, required: true },
   { match: /^generation profile$/i, priority: 92, required: true },
   { match: /^file surface budget$/i, priority: 91, required: true },
-  { match: /^scaffold variant \(this generation\)$/i, priority: 91 },
+  // The variant block carries the locked design direction (tokens, signature
+  // patterns, antiPatterns). At priority 91 without `required` it was still
+  // DROPPED outright under a tight budget — `buildBudgetedSystemPrompt` only
+  // truncates required blocks — which silently returned the generation to a
+  // style-less default while telemetry still reported the picked variant.
+  { match: /^scaffold variant \(this generation\)$/i, priority: 91, required: true },
+  { match: /^variant template inspiration$/i, priority: 84 },
+  // Brief "Must Have" is explicit user intent and the ownership block is what
+  // keeps two dossiers from emitting the same surface. Both used to fall through
+  // to the default (priority 60, prunable), i.e. they were among the FIRST
+  // blocks dropped when the budget got tight.
+  { match: /^must have$/i, priority: 88, required: true },
+  { match: /^capability surface ownership/i, priority: 87, required: true },
   { match: /^design priority$/i, priority: 89, required: true },
   { match: /^scaffold$/i, priority: 90, required: true },
   { match: /^scaffold:\s/i, priority: 90, required: true },
   { match: /^layout & theme files/i, priority: 85 },
   { match: /^import reference/i, priority: 75 },
   { match: /^route plan$/i, priority: 90, required: true },
+  // Follow-up route-drift guard (existing pages + no-duplicate contract).
+  // Short block; high priority but not `required` — required blocks get
+  // truncated instead of dropped, and a truncated route list would be worse
+  // than no list (the model could read absence of a route as license to
+  // recreate it). Follows the pattern of other small non-required sections.
+  { match: /^existing route pages/i, priority: 88 },
   { match: /^scaffold-default files$/i, priority: 90, required: true },
+  // Render-determinism (hydration) rule: dropping it under a tight budget
+  // silently reintroduces the nondeterministic-render pattern the advisory
+  // detector keeps flagging (same rationale as the AI SDK contract block).
+  { match: /^render determinism/i, priority: 88, required: true },
   { match: /^required imports checklist$/i, priority: 83 },
   { match: /^your toolkit$/i, priority: 85, required: true },
   { match: /^available dossiers$/i, priority: 87 },

@@ -91,6 +91,12 @@ vi.mock("@/lib/gen/verify/server-verify", () => ({
   triggerBuildErrorRepair: vi.fn(() => Promise.resolve()),
 }));
 
+const afterMock = vi.hoisted(() => vi.fn((_pending: Promise<unknown>) => {}));
+
+vi.mock("next/server", () => ({
+  after: afterMock,
+}));
+
 vi.mock("@/lib/streaming", () => ({
   formatSSEEvent: formatSSEEventMock,
 }));
@@ -1556,5 +1562,106 @@ describe("runOwnEngineStreamPostFinalize preview_success runtime outcome (M#pv1)
     await runPreview();
 
     expect(recordPreviewRuntimeOutcomeForVersion).toHaveBeenCalledWith("ver_1", false);
+  });
+});
+
+// Prod incident 2026-07-13: three expired `running` leases in the job table.
+// `triggerServerVerification` and `triggerBuildErrorRepair` both take a
+// per-version lease and release it in a `finally`, but both are launched
+// fire-and-forget from here. When the serverless invocation froze after the SSE
+// stream closed, that `finally` never ran and the lease stayed `running` until
+// expiry. `after()` hands the job to the platform so the invocation survives
+// long enough to release it.
+describe("runOwnEngineStreamPostFinalize keeps background jobs alive for lease release", () => {
+  const verifyBuildSpec = {
+    buildIntent: "website",
+    generationMode: "init",
+    changeScope: "redesign",
+    scaffoldId: null,
+    routePlanSummary: "prompt:one-page:/",
+    stylePack: "brand-led",
+    qualityTarget: "standard",
+    previewPolicy: "fidelity3",
+    verificationPolicy: "standard",
+    contextPolicy: "normal",
+    referenceCategories: [],
+    forbiddenPatterns: [],
+    tokenBudgets: {
+      scaffoldChars: 48_000,
+      refsChars: 24_000,
+      systemContextChars: 96_000,
+    },
+  } as const;
+
+  async function run(buildSpec: unknown) {
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits: async () => {},
+      buildSpec: buildSpec as never,
+    });
+  }
+
+  beforeEach(async () => {
+    afterMock.mockReset();
+    afterMock.mockImplementation(() => {});
+    isServerVerifyEligible.mockReset();
+    isServerVerifyEligible.mockReturnValue(true);
+    shouldStartOwnEnginePreview.mockReturnValue(false);
+    isTier2PreviewConfigured.mockReturnValue(false);
+    getChat.mockReset();
+    getChat.mockResolvedValue({ project_id: "proj_1" });
+    startPreviewSessionMock.mockReset();
+
+    const serverVerify = await import("@/lib/gen/verify/server-verify");
+    vi.mocked(serverVerify.triggerServerVerification).mockReset();
+    vi.mocked(serverVerify.triggerServerVerification).mockResolvedValue(undefined);
+    vi.mocked(serverVerify.triggerBuildErrorRepair).mockReset();
+    vi.mocked(serverVerify.triggerBuildErrorRepair).mockResolvedValue(undefined as never);
+  });
+
+  it("registers the background verify with after() instead of dropping it", async () => {
+    const serverVerify = await import("@/lib/gen/verify/server-verify");
+
+    await run(verifyBuildSpec);
+
+    expect(serverVerify.triggerServerVerification).toHaveBeenCalledTimes(1);
+    expect(afterMock).toHaveBeenCalledTimes(1);
+    await expect(afterMock.mock.calls[0][0]).resolves.toBeUndefined();
+  });
+
+  it("registers the build-error repair with after() when the preview fails to start", async () => {
+    const serverVerify = await import("@/lib/gen/verify/server-verify");
+    shouldStartOwnEnginePreview.mockReturnValue(true);
+    isTier2PreviewConfigured.mockReturnValue(true);
+    startPreviewSessionMock.mockResolvedValue({
+      ok: false,
+      error: { stage: "preview-start", message: "host unreachable" },
+    });
+
+    await run({ ...verifyBuildSpec, previewPolicy: "fidelity2" });
+
+    expect(serverVerify.triggerBuildErrorRepair).toHaveBeenCalledTimes(1);
+    expect(afterMock).toHaveBeenCalledTimes(1);
+    await expect(afterMock.mock.calls[0][0]).resolves.toBeUndefined();
+  });
+
+  // Counter-test. The cheapest wrong way to stop a dropped job is to make the
+  // call unconditional — but `after()` throws outside a request scope (scripts,
+  // tests, cron). The job must still run there, and post-finalize must not
+  // throw, otherwise this fix trades a stranded lease for a broken script.
+  it("still runs the job when after() is unavailable (no request scope)", async () => {
+    const serverVerify = await import("@/lib/gen/verify/server-verify");
+    afterMock.mockImplementation(() => {
+      throw new Error("`after` was called outside a request scope");
+    });
+
+    await expect(run(verifyBuildSpec)).resolves.toBeUndefined();
+
+    expect(serverVerify.triggerServerVerification).toHaveBeenCalledTimes(1);
   });
 });
