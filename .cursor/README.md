@@ -6,10 +6,11 @@ Se [`docs/README.md`](../docs/README.md) — tunn dokumentationsrouter. Snabb or
 
 ## Workspace (en rot, samma verktygsinställningar)
 
-- Öppna projektet med **`sajtmaskin.code-workspace`** i repots rot (en mapp: `.`), eller öppna själva **`sajtmaskin`**-mappen. Workspace-filen är **gitignorerad** (lokala inställningar). Om repot har en mall **`sajtmaskin.code-workspace.example`**, kopiera den till **`sajtmaskin.code-workspace`**; annars räcker det att öppna mappen eller skapa en enkel workspace-fil som pekar på **`.`**. Lägg inte till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`, worktrees) som extra workspace-mappar om du vill undvika brus i Problems (markdownlint, sökning, m.m.).
-- **Standard nu:** öppna huvudcheckouten `…\sajtmaskin` på `master` i ett eget fönster. Om du **medvetet** skapar ett separat worktree för isolering, öppna bara den checkouten i sitt eget fönster och ta bort worktreet när det inte längre bär unikt arbete.
-- **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`**. **`sajtmaskin.code-workspace`** innehåller samma `settings`-block så att beteendet matchar oavsett om du öppnar mappen eller workspace-filen.
-- **Endast Cursor**: **`.cursor/settings.json`** (t.ex. Vercel-plugin). Den ersätter inte `.vscode` för vanliga tillägg; håll verktygsignorer synkade mellan **`.vscode/settings.json`** och **`sajtmaskin.code-workspace`**.
+- **Föredra** att öppna **`sajtmaskin.code-workspace`** i repots rot (`File → Open Workspace from File…`). Den är committad, pekar på en rot (`.`) med visningsnamnet `sajtmaskin`, och håller Cursor-sessionen konsekvent. Att öppna bara mappen fungerar också, men skapa inte två parallella fönster (folder + workspace) mot samma checkout.
+- Lägg **inte** till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`) eller andra worktrees som extra workspace-mappar — det ger brus i Problems/sök.
+- **Standard:** huvudcheckouten `…\sajtmaskin` på `master` i ett eget fönster. Separata worktrees öppnas i egna fönster och tas bort när de inte längre bär unikt arbete.
+- **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`** (canonical). Workspace-filen duplicerar dem **inte** — folder-settings gäller ändå när roten ingår i workspace.
+- **Endast Cursor**: **`.cursor/settings.json`** (t.ex. plugins). Den ersätter inte `.vscode` för vanliga tillägg.
 - Markdown-projektkonfiguration: **`.markdownlint.json`**, **`.markdownlintignore`**. Filer _utanför_ repot kräver i regel **User Settings** (`markdownlint.ignore`) eller att de inte ingår i workspace.
 
 ## Prioriteringsordning

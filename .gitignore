@@ -236,7 +236,6 @@ git_env.txt
 
 /old/
 senaste_miljovariablar/
-sajtmaskin.code-workspace
 
 # Archived secret dumps should never be versioned
 docs/old/**/*.env.local
