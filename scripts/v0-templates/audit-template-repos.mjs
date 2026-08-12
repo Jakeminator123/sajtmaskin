@@ -45,7 +45,8 @@ const BLOCKED_PREFIXES = [
   "coverage/",
   "out/",
 ];
-const SOURCE_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs|astro|svelte)$/i;
+const SOURCE_EXT = /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs|astro|svelte)$/i;
+const DECLARATION_SOURCE_EXT = /\.d\.(?:ts|mts|cts)$/i;
 const ENV_KEY_RE = /^[A-Z][A-Z0-9_]*$/;
 const SVELTE_ENV_MODULE_RE = /^\$env\/(static|dynamic)\/(private|public)$/;
 const IMPORT_META_BUILTIN_ENV_KEYS = new Set(["MODE", "BASE_URL", "PROD", "DEV", "SSR"]);
@@ -312,6 +313,7 @@ function envScriptKind(file) {
   if (/\.tsx$/i.test(file)) return ts.ScriptKind.TSX;
   if (/\.jsx$/i.test(file)) return ts.ScriptKind.JSX;
   if (/\.(?:js|mjs|cjs)$/i.test(file)) return ts.ScriptKind.JS;
+  if (/\.(?:ts|mts|cts)$/i.test(file)) return ts.ScriptKind.TS;
   return ts.ScriptKind.TS;
 }
 
@@ -320,27 +322,22 @@ function identifierIs(node, text) {
 }
 
 function isProcessEnvBase(node) {
-  return (
-    ts.isPropertyAccessExpression(node) &&
-    identifierIs(node.expression, "process") &&
-    identifierIs(node.name, "env")
-  );
+  const access = staticMemberAccess(unwrapExpression(node));
+  return access?.key === "env" && identifierIs(access.base, "process");
 }
 
 function isImportMeta(node) {
+  const current = unwrapExpression(node);
   return (
-    ts.isMetaProperty(node) &&
-    node.keywordToken === ts.SyntaxKind.ImportKeyword &&
-    identifierIs(node.name, "meta")
+    ts.isMetaProperty(current) &&
+    current.keywordToken === ts.SyntaxKind.ImportKeyword &&
+    identifierIs(current.name, "meta")
   );
 }
 
 function isImportMetaEnvBase(node) {
-  return (
-    ts.isPropertyAccessExpression(node) &&
-    isImportMeta(node.expression) &&
-    identifierIs(node.name, "env")
-  );
+  const access = staticMemberAccess(unwrapExpression(node));
+  return access?.key === "env" && isImportMeta(access.base);
 }
 
 function stringLiteralValue(node) {
@@ -360,16 +357,39 @@ function unwrapExpression(node) {
   return current;
 }
 
+function staticMemberAccess(node) {
+  if (ts.isPropertyAccessExpression(node))
+    return { base: unwrapExpression(node.expression), key: node.name.text };
+  if (ts.isElementAccessExpression(node))
+    return {
+      base: unwrapExpression(node.expression),
+      key: stringLiteralValue(node.argumentExpression),
+    };
+  return null;
+}
+
+function isTransparentExpressionParent(parent, child) {
+  return (
+    (ts.isParenthesizedExpression(parent) ||
+      ts.isAsExpression(parent) ||
+      ts.isTypeAssertionExpression(parent) ||
+      ts.isSatisfiesExpression(parent) ||
+      ts.isNonNullExpression(parent)) &&
+    parent.expression === child
+  );
+}
+
+function outerTransparentExpression(node) {
+  let current = node;
+  while (current.parent && isTransparentExpressionParent(current.parent, current))
+    current = current.parent;
+  return current;
+}
+
 function directEnvAccess(node) {
-  let base = null;
-  let key = null;
-  if (ts.isPropertyAccessExpression(node)) {
-    base = node.expression;
-    key = node.name.text;
-  } else if (ts.isElementAccessExpression(node)) {
-    base = node.expression;
-    key = stringLiteralValue(node.argumentExpression);
-  }
+  const access = staticMemberAccess(node);
+  const base = access?.base;
+  const key = access?.key;
   if (!base || !ENV_KEY_RE.test(key ?? "")) return null;
   if (isProcessEnvBase(base)) return { key, importMeta: false };
   if (isImportMetaEnvBase(base)) return { key, importMeta: true };
@@ -439,6 +459,7 @@ function scanEnvReferences(source, file, role) {
   const matches = [];
   const matchIds = new Set();
   let truncated = false;
+  let dynamicAccess = false;
 
   const addMatch = (key, nodeOrIndex, functionDepth, ignored = false) => {
     if (ignored || !ENV_KEY_RE.test(key ?? "")) return;
@@ -476,6 +497,39 @@ function scanEnvReferences(source, file, role) {
     }
   };
 
+  const scanEnvObjectUsage = (node, functionDepth) => {
+    if (!isProcessEnvBase(node) && !isImportMetaEnvBase(node)) return;
+    const expression = outerTransparentExpression(node);
+    const parent = expression.parent;
+    if (
+      parent &&
+      (ts.isPropertyAccessExpression(parent) || ts.isElementAccessExpression(parent)) &&
+      parent.expression === expression
+    ) {
+      if (!ENV_KEY_RE.test(staticMemberAccess(parent)?.key ?? "")) dynamicAccess = true;
+      return;
+    }
+    if (
+      parent &&
+      ts.isVariableDeclaration(parent) &&
+      parent.initializer === expression &&
+      ts.isObjectBindingPattern(parent.name)
+    ) {
+      for (const element of parent.name.elements) {
+        if (element.dotDotDotToken) {
+          dynamicAccess = true;
+          continue;
+        }
+        const key = importedBindingKey(element);
+        if (ENV_KEY_RE.test(key ?? ""))
+          addMatch(key, element.propertyName ?? element.name, functionDepth);
+        else dynamicAccess = true;
+      }
+      return;
+    }
+    dynamicAccess = true;
+  };
+
   const scanSvelteImport = (node, functionDepth) => {
     if (!ts.isImportDeclaration(node)) return;
     const envModule = svelteEnvModule(node.moduleSpecifier);
@@ -511,6 +565,50 @@ function scanEnvReferences(source, file, role) {
         functionDepth,
       );
     }
+  };
+
+  const scanSvelteExport = (node, functionDepth) => {
+    if (!ts.isExportDeclaration(node) || node.isTypeOnly || !node.moduleSpecifier) return;
+    const envModule = svelteEnvModule(node.moduleSpecifier);
+    if (!envModule) return;
+    const exports = node.exportClause;
+    if (envModule.kind === "dynamic" || !exports || !ts.isNamedExports(exports)) {
+      addMatch(
+        syntheticSvelteEnvKey(envModule.kind, envModule.visibility),
+        node.moduleSpecifier,
+        functionDepth,
+      );
+      return;
+    }
+    for (const element of exports.elements) {
+      if (element.isTypeOnly) continue;
+      const key = importedBindingKey(element);
+      if (ENV_KEY_RE.test(key ?? ""))
+        addMatch(key, element.propertyName ?? element.name, functionDepth);
+      else
+        addMatch(
+          syntheticSvelteEnvKey(envModule.kind, envModule.visibility),
+          element,
+          functionDepth,
+        );
+      if (truncated) return;
+    }
+  };
+
+  const scanSvelteDynamicImport = (node, functionDepth) => {
+    if (
+      !ts.isCallExpression(node) ||
+      node.expression.kind !== ts.SyntaxKind.ImportKeyword ||
+      node.arguments.length < 1
+    )
+      return;
+    const envModule = svelteEnvModule(node.arguments[0]);
+    if (!envModule) return;
+    addMatch(
+      syntheticSvelteEnvKey(envModule.kind, envModule.visibility),
+      node.arguments[0],
+      functionDepth,
+    );
   };
 
   const scanSvelteRequire = (node, functionDepth) => {
@@ -589,7 +687,10 @@ function scanEnvReferences(source, file, role) {
           access.importMeta && IMPORT_META_BUILTIN_ENV_KEYS.has(access.key),
         );
       }
+      scanEnvObjectUsage(node, functionDepth);
       scanSvelteImport(node, functionDepth);
+      scanSvelteExport(node, functionDepth);
+      scanSvelteDynamicImport(node, functionDepth);
       scanSvelteRequire(node, functionDepth);
       if (truncated) break;
       const children = [];
@@ -614,6 +715,7 @@ function scanEnvReferences(source, file, role) {
   return {
     evidence: matches,
     truncated,
+    dynamicAccess,
     parseIncomplete,
   };
 }
@@ -875,7 +977,11 @@ export async function analyzeZipBuffer(buffer, meta = {}) {
       record.envFilesShipped.push(item.path);
       continue;
     }
-    if (!SOURCE_EXT.test(item.path) || item.path.toLowerCase().startsWith("components/ui/"))
+    if (
+      !SOURCE_EXT.test(item.path) ||
+      DECLARATION_SOURCE_EXT.test(item.path) ||
+      item.path.toLowerCase().startsWith("components/ui/")
+    )
       continue;
     const size = Number(zip.files[item.original]?._data?.uncompressedSize ?? 0);
     if (size > MAX_SOURCE_BYTES) {
@@ -899,6 +1005,7 @@ export async function analyzeZipBuffer(buffer, meta = {}) {
     }
     const scan = scanEnvReferences(source, item.path, fileRole(item.path));
     if (scan.truncated) incompleteEnvScanReasons.add("evidence-cap");
+    if (scan.dynamicAccess) incompleteEnvScanReasons.add("dynamic-access");
     if (scan.parseIncomplete) incompleteEnvScanReasons.add("parse");
     for (let index = 0; index < scan.evidence.length; index++) {
       const evidence = scan.evidence[index];

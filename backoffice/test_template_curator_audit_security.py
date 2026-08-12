@@ -401,6 +401,188 @@ class TemplateCuratorAuditSecurityTests(unittest.TestCase):
             audit,
         )
 
+    def test_wrapped_and_bracket_env_bases_are_detected_without_literal_false_positives(self) -> None:
+        payload = _next_project(
+            "const wrapped = (process.env).WRAPPED_PROCESS_SECRET;\n"
+            "const nonNull = process.env!.NON_NULL_PROCESS_SECRET;\n"
+            "const castMeta = (import.meta.env as any).VITE_CAST_META_SECRET;\n"
+            "const bracketProcess = process['env'].BRACKET_PROCESS_SECRET;\n"
+            'const bracketMeta = import.meta["env"]["VITE_BRACKET_META_SECRET"];\n'
+            'const literal = "(process.env).FAKE_WRAPPED_LITERAL";\n'
+            "const template = `process['env'].FAKE_BRACKET_TEMPLATE`;\n"
+            "// (import.meta.env as any).FAKE_CAST_COMMENT\n"
+            "export default function Page(){"
+            "return <main>{String(wrapped || nonNull || castMeta || bracketProcess || "
+            "bracketMeta || literal || template)}</main>}"
+        )
+        audit = self._run_audit({"wrapped-env-bases": payload})["wrapped-env-bases"]
+        self.assertEqual(
+            set(audit["envUncovered"]),
+            {
+                "WRAPPED_PROCESS_SECRET",
+                "NON_NULL_PROCESS_SECRET",
+                "VITE_CAST_META_SECRET",
+                "BRACKET_PROCESS_SECRET",
+                "VITE_BRACKET_META_SECRET",
+            },
+            audit,
+        )
+        self.assertFalse(
+            {"FAKE_WRAPPED_LITERAL", "FAKE_BRACKET_TEMPLATE", "FAKE_CAST_COMMENT"}
+            & set(audit["envUncovered"]),
+            audit,
+        )
+        self.assertFalse(
+            any(issue.startswith("env-scan-incomplete(") for issue in audit["issues"]),
+            audit,
+        )
+
+    def test_static_env_object_destructuring_adds_exact_evidence(self) -> None:
+        payload = _next_project(
+            "const { DESTRUCTURED_PROCESS_SECRET: processAlias } = process.env;\n"
+            "const { VITE_DESTRUCTURED_META_SECRET: metaAlias } = import.meta.env;\n"
+            "export default function Page(){"
+            "return <main>{processAlias + metaAlias}</main>}"
+        )
+        audit = self._run_audit({"destructured-env-object": payload})[
+            "destructured-env-object"
+        ]
+        self.assertEqual(
+            set(audit["envUncovered"]),
+            {"DESTRUCTURED_PROCESS_SECRET", "VITE_DESTRUCTURED_META_SECRET"},
+            audit,
+        )
+        self.assertFalse(
+            any(issue.startswith("env-scan-incomplete(") for issue in audit["issues"]),
+            audit,
+        )
+
+    def test_dynamic_or_bare_env_object_access_forces_review(self) -> None:
+        payload = _next_project(
+            "const key = 'RUNTIME_SECRET';\n"
+            "const dynamic = process.env[key];\n"
+            "function consume(value: unknown) { return value; }\n"
+            "const forwarded = consume(import.meta.env);\n"
+            "export default function Page(){return <main>{String(dynamic || forwarded)}</main>}"
+        )
+        audit = self._run_audit({"dynamic-env-object": payload})["dynamic-env-object"]
+        self.assertIn("env-scan-incomplete(dynamic-access)", audit["issues"])
+        digest = hashlib.sha256(payload).hexdigest()
+        profile = profile_template(
+            {
+                "id": "dynamic-env-object",
+                "title": "dynamic-env-object",
+                "category": "test",
+                "archiveUrl": "https://unit.public.blob.vercel-storage.com/dynamic-env.zip",
+                "archiveSizeBytes": len(payload),
+                "archiveSha256": digest,
+            },
+            audit,
+            host_packages={},
+            extractor_sha256="a" * 64,
+        )
+        self.assertEqual(profile["decision"], "review")
+
+    def test_env_object_rest_destructuring_is_dynamic_not_an_exact_key(self) -> None:
+        payload = _next_project(
+            "const { ...REST } = process.env;\n"
+            "export default function Page(){return <main>{String(REST)}</main>}"
+        )
+        audit = self._run_audit({"env-object-rest": payload})["env-object-rest"]
+        self.assertNotIn("REST", audit["envUncovered"], audit)
+        self.assertEqual(audit["envRefCount"], 0, audit)
+        self.assertIn("env-scan-incomplete(dynamic-access)", audit["issues"])
+
+    def test_mts_and_cts_env_reads_are_scanned_but_declarations_are_not_executable(self) -> None:
+        payload = _next_project(
+            "import '../config.mts'; import '../legacy.cts';\n"
+            "export default function Page(){return <main>ready</main>}",
+            **{
+                "config.mts": "export const token = process.env.MTS_CONFIG_SECRET;",
+                "legacy.cts": 'export const token = process.env["CTS_CONFIG_SECRET"];',
+                "types.d.mts": (
+                    "declare const invalidRuntime: typeof process.env.DECLARATION_ONLY_SECRET;"
+                ),
+            },
+        )
+        audit = self._run_audit({"module-ts-env": payload})["module-ts-env"]
+        self.assertEqual(
+            set(audit["envUncovered"]),
+            {"MTS_CONFIG_SECRET", "CTS_CONFIG_SECRET"},
+            audit,
+        )
+        self.assertNotIn("DECLARATION_ONLY_SECRET", audit["envUncovered"], audit)
+        digest = hashlib.sha256(payload).hexdigest()
+        profile = profile_template(
+            {
+                "id": "module-ts-env",
+                "title": "module-ts-env",
+                "category": "test",
+                "archiveUrl": "https://unit.public.blob.vercel-storage.com/module-ts.zip",
+                "archiveSizeBytes": len(payload),
+                "archiveSha256": digest,
+            },
+            audit,
+            host_packages={},
+            extractor_sha256="a" * 64,
+        )
+        self.assertEqual(profile["decision"], "review")
+
+    def test_svelte_env_reexports_and_dynamic_imports_require_review(self) -> None:
+        payload = _zip_bytes(
+            {
+                "package.json": json.dumps(
+                    {
+                        "scripts": {"dev": "vite dev"},
+                        "dependencies": {"@sveltejs/kit": "2.0.0"},
+                    }
+                ),
+                "svelte.config.js": "export default {}",
+                "src/routes/+page.svelte": (
+                    "<script context='module' lang='ts'>\n"
+                    "export { REEXPORTED_SECRET } from '$env/static/private';\n"
+                    "export * from '$env/static/public';\n"
+                    "</script>\n"
+                    "<script lang='ts'>\n"
+                    "const load = () => import('$env/dynamic/private');\n"
+                    "const loadWithOptions = () => import('$env/dynamic/public', {});\n"
+                    "</script>\n"
+                    "<main>{String(load || loadWithOptions)}</main>"
+                ),
+            }
+        )
+        audit = self._run_audit({"svelte-env-exports": payload})[
+            "svelte-env-exports"
+        ]
+        self.assertEqual(
+            set(audit["envUncovered"]),
+            {
+                "REEXPORTED_SECRET",
+                "PUBLIC_SVELTEKIT_STATIC",
+                "SVELTEKIT_DYNAMIC_PRIVATE",
+                "PUBLIC_SVELTEKIT_DYNAMIC",
+            },
+            audit,
+        )
+        details = {item["key"]: item for item in audit["envPlacementDetail"]}
+        self.assertTrue(details["REEXPORTED_SECRET"]["topLevel"])
+        self.assertFalse(details["SVELTEKIT_DYNAMIC_PRIVATE"]["topLevel"])
+        digest = hashlib.sha256(payload).hexdigest()
+        profile = profile_template(
+            {
+                "id": "svelte-env-exports",
+                "title": "svelte-env-exports",
+                "category": "test",
+                "archiveUrl": "https://unit.public.blob.vercel-storage.com/svelte-exports.zip",
+                "archiveSizeBytes": len(payload),
+                "archiveSha256": digest,
+            },
+            audit,
+            host_packages={},
+            extractor_sha256="a" * 64,
+        )
+        self.assertNotEqual(profile["decision"], "qualified")
+
     def test_env_like_regex_text_and_comments_stay_ignored(self) -> None:
         payload = _next_project(
             "const envPattern = /process\\.env\\.FAKE_REGEX[\"']/gi;\n"
