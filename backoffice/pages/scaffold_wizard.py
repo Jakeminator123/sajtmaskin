@@ -693,6 +693,7 @@ def _planned_writes(draft: dict[str, Any]) -> list[str]:
             f"src/lib/gen/scaffolds/{scaffold_id}/manifest.ts",
             f"src/lib/gen/scaffolds/{scaffold_id}/files/{cloned}",
             "src/lib/gen/scaffolds/types.ts",
+            "src/lib/gen/scaffolds/scaffold-client-list.generated.ts",
             "src/lib/gen/scaffolds/registry.ts",
             "src/lib/gen/scaffolds/scaffold-embedding-locale.ts",
             "docs/schemas/strict/scaffold-variant.schema.json",

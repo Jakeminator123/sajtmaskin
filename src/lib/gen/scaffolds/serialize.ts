@@ -24,7 +24,7 @@ export interface ScaffoldSerializeOptions {
  * `renderSelectedScaffoldFiles`. Manifest authors can set
  * `role`/`serialization`/`maxPromptChars` on `ScaffoldFile`. When the
  * fields are absent the default policy is derived from the file path
- * via `defaultRoleForPath()` so all 9 existing scaffolds shrink without
+ * via `defaultRoleForPath()` so every existing scaffold shrinks without
  * touching any manifest.
  */
 const ROUTE_PAGE_BODY_BUDGET_CHARS = 900;

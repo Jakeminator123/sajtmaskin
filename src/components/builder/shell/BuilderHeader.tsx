@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
-import { SCAFFOLD_CLIENT_LIST } from "@/lib/gen/scaffolds/types";
+import { SCAFFOLD_CLIENT_LIST } from "@/lib/gen/scaffolds/scaffold-client-list.generated";
 import { useSearchParams } from "next/navigation";
 import {
   DropdownMenu,

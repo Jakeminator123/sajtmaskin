@@ -17,11 +17,175 @@ export function resolveHomePageFilePath(files: FlatFile[]): string | null {
   return null;
 }
 
+/** Markörer som matchar sektionens *identitet* (klass/id/komponentnamn), inte generiska HTML-taggar. */
+const AFTER_SECTION_MARKERS: Record<string, RegExp[]> = {
+  // Avoid lone /\bbanner\b/ — cookie-/promo-banner would steal after-hero.
+  hero: [/\bhero\b/i, /\bjumbotron\b/i, /\bHero(?:Section|Block|Banner)?\b/],
+  header: [/\bheader\b/i, /\bnavbar\b/i, /\bnav-bar\b/i, /\btopbar\b/i],
+  features: [/\bfeatures?\b/i, /\bbenefits?\b/i, /\bservices?\b/i],
+  pricing: [/\bpricing\b/i, /\bplans?\b/i, /\bpackages?\b/i],
+  testimonials: [/\btestimonials?\b/i, /\breviews?\b/i],
+  cta: [/\bcta\b/i, /\bcall-?to-?action\b/i],
+  faq: [/\bfaq\b/i, /\baccordion\b/i],
+  contact: [/\bcontact\b/i],
+  about: [/\babout\b/i],
+  team: [/\bteam\b/i],
+  stats: [/\bstats\b/i, /\bmetrics\b/i],
+  gallery: [/\bgallery\b/i, /\bportfolio\b/i],
+  form: [/\bnewsletter\b/i, /\bsignup-?form\b/i],
+  footer: [/\bfooter\b/i],
+};
+
+const PREFERRED_SECTION_TAGS = new Set([
+  "section",
+  "header",
+  "footer",
+  "article",
+  "main",
+  "nav",
+]);
+
+/** Reject weak sole matches (e.g. nested utility class without a real host). */
+const MIN_ACCEPT_SCORE = 3;
+
+function isSelfClosingTag(tag: string, slash: string): boolean {
+  if (slash) return true;
+  const lower = tag.toLowerCase();
+  return lower === "img" || lower === "input" || lower === "br" || lower === "hr";
+}
+
+/**
+ * Mask comments so regex matching cannot latch onto commented-out JSX.
+ * Replaces comment bodies with spaces to preserve indices.
+ */
+export function maskJsxCommentsForScan(source: string): string {
+  return source
+    .replace(/\{\/\*[\s\S]*?\*\//g, (m) => " ".repeat(m.length))
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => " ".repeat(m.length))
+    .replace(/(^|[^:])\/\/[^\n]*/g, (m) => " ".repeat(m.length));
+}
+
+function looksLikeConditionalJsxHost(source: string, openStart: number, end: number): boolean {
+  const before = source.slice(Math.max(0, openStart - 48), openStart);
+  if (/(&&|\|\||\?\s*$|\?\s*<)/.test(before.replace(/\s+/g, " "))) return true;
+  // Ternary / logical before the tag: `{cond && <Hero` or `{cond ? <Hero`
+  if (/[{(]\s*(?:[\w.?!"'`]+|\([^)]*\))\s*(&&|\|\||\?)\s*$/.test(before.replace(/\n/g, " "))) {
+    return true;
+  }
+  const after = source.slice(end, Math.min(source.length, end + 24));
+  // Closing the expression right after the host: `<Hero />}` / `<Hero></Hero> )`
+  if (/^\s*[})]/.test(after)) return true;
+  if (/^\s*:/.test(after)) return true;
+  return false;
+}
+
+/**
+ * Hitta slutindex (exklusivt) för det bästa JSX-elementet vars öppningstag
+ * matchar sektionstypen. Fail-closed: returnerar null vid tvetydighet.
+ */
+function findSectionEndIndex(pageContent: string, sectionType: string): number | null {
+  const markers = AFTER_SECTION_MARKERS[sectionType];
+  if (!markers || markers.length === 0) return null;
+
+  const scan = maskJsxCommentsForScan(pageContent);
+
+  type Candidate = { score: number; end: number; openStart: number };
+  const candidates: Candidate[] = [];
+
+  const openRe = /<([A-Za-z][\w.-]*)\b([^>]*)(\/?)>/g;
+  let match: RegExpExecArray | null;
+  while ((match = openRe.exec(scan)) !== null) {
+    const tag = match[1];
+    const rawAttrs = match[2] ?? "";
+    const selfClosing =
+      Boolean(match[3]) ||
+      /\/\s*$/.test(rawAttrs) ||
+      isSelfClosingTag(tag, "");
+    const attrs = rawAttrs.replace(/\/\s*$/, "").trimEnd();
+    const haystack = `${tag} ${attrs}`;
+    if (!markers.some((re) => re.test(haystack))) continue;
+
+    // Prefer semantic section hosts / PascalCase components over nested cards.
+    let score = 0;
+    if (PREFERRED_SECTION_TAGS.has(tag.toLowerCase())) score += 3;
+    if (/^[A-Z]/.test(tag)) score += 2;
+    if (markers.some((re) => re.test(tag))) score += 2;
+    if (new RegExp(`\\b${sectionType}\\b`, "i").test(haystack)) score += 2;
+    // Nested utility classes like "hero-card" inside a real hero score lower.
+    if (/className\s*=/.test(attrs) && new RegExp(`\\b${sectionType}-`, "i").test(attrs)) {
+      score -= 1;
+    }
+
+    const openStart = match.index;
+    const openEnd = openRe.lastIndex;
+    let end: number;
+    if (selfClosing) {
+      end = openEnd;
+    } else {
+      const closed = findMatchingCloseEnd(scan, tag, openEnd);
+      if (closed == null) continue;
+      end = closed;
+    }
+
+    // Conditional/ternary hosts must go to AI — inserting siblings breaks JSX.
+    if (looksLikeConditionalJsxHost(scan, openStart, end)) continue;
+
+    candidates.push({ score, end, openStart });
+  }
+
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => b.score - a.score || a.openStart - b.openStart);
+  const best = candidates[0];
+  if (best.score < MIN_ACCEPT_SCORE) return null;
+  // Ambiguous: two top-scoring matches → fail closed to AI.
+  if (candidates.length > 1 && candidates[1].score === best.score) {
+    return null;
+  }
+  return best.end;
+}
+
+function findMatchingCloseEnd(
+  pageContent: string,
+  tag: string,
+  fromIndex: number,
+): number | null {
+  const openToken = new RegExp(`<${tag}\\b([^>]*)(\\/?)>`, "gi");
+  const closeToken = new RegExp(`</${tag}\\s*>`, "gi");
+  let depth = 1;
+  let cursor = fromIndex;
+
+  while (depth > 0 && cursor < pageContent.length) {
+    openToken.lastIndex = cursor;
+    closeToken.lastIndex = cursor;
+    const nextOpen = openToken.exec(pageContent);
+    const nextClose = closeToken.exec(pageContent);
+    if (!nextClose) return null;
+
+    if (nextOpen && nextOpen.index < nextClose.index) {
+      const rawAttrs = nextOpen[1] ?? "";
+      const innerSelfClosing =
+        Boolean(nextOpen[2]) ||
+        /\/\s*$/.test(rawAttrs) ||
+        isSelfClosingTag(tag, "");
+      cursor = openToken.lastIndex;
+      if (!innerSelfClosing) depth += 1;
+      continue;
+    }
+
+    depth -= 1;
+    cursor = closeToken.lastIndex;
+    if (depth === 0) return cursor;
+  }
+  return null;
+}
+
 /**
  * Deterministisk infogning i landningssidan.
  *
  * - `top` / `bottom`: säkra när `<main>...</main>` finns.
- * - Övriga placeringar (t.ex. `after-hero`): returnerar `ok: false` så anroparen kan använda AI-fallback.
+ * - `after-<type>`: best-effort direkt efter bästa matchande sektions-/
+ *   komponenttaggen; fail-closed till AI vid tvetydighet eller saknad match.
  */
 export function tryInsertPageBlockIntoHomePage(
   pageContent: string,
@@ -31,13 +195,6 @@ export function tryInsertPageBlockIntoHomePage(
   const trimmed = jsxSnippet.trimEnd();
   if (!trimmed) {
     return { ok: false, reason: "Tomt block." };
-  }
-
-  if (placement !== "top" && placement !== "bottom") {
-    return {
-      ok: false,
-      reason: `Placering "${placement}" stöds inte för direkt patch ännu — använd AI.`,
-    };
   }
 
   const mainOpen = pageContent.match(/<main\b[^>]*>/i);
@@ -56,6 +213,29 @@ export function tryInsertPageBlockIntoHomePage(
     return { ok: true, content: next };
   }
 
-  const next = `${pageContent.slice(0, mainClose)}\n${trimmed}\n${pageContent.slice(mainClose)}`;
-  return { ok: true, content: next };
+  if (placement === "bottom") {
+    const next = `${pageContent.slice(0, mainClose)}\n${trimmed}\n${pageContent.slice(mainClose)}`;
+    return { ok: true, content: next };
+  }
+
+  if (placement.startsWith("after-")) {
+    const sectionType = placement.slice("after-".length).trim().toLowerCase();
+    if (!sectionType || !(sectionType in AFTER_SECTION_MARKERS)) {
+      return { ok: false, reason: "Okänd after-placering — använd AI." };
+    }
+    const endIndex = findSectionEndIndex(pageContent, sectionType);
+    if (endIndex == null || endIndex <= openEnd || endIndex > mainClose) {
+      return {
+        ok: false,
+        reason: `Kunde inte hitta sektion "${sectionType}" för direkt patch — använd AI.`,
+      };
+    }
+    const next = `${pageContent.slice(0, endIndex)}\n${trimmed}\n${pageContent.slice(endIndex)}`;
+    return { ok: true, content: next };
+  }
+
+  return {
+    ok: false,
+    reason: `Placering "${placement}" stöds inte för direkt patch ännu — använd AI.`,
+  };
 }

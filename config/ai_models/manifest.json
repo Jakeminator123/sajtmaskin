@@ -712,7 +712,7 @@
     "harmlessEnvFragmentFile": "40-harmless-placeholders.env.txt",
     "tier3StubEnvFragmentFile": "41-tier3-stub-placeholders.env.txt",
     "policyDocRelativeToConfig": "user_degraded_env.txt",
-    "preGenerationContractsEntry": "src/lib/gen/pre-generation-contracts.ts",
+    "preGenerationContractsEntry": "src/lib/gen/contract/pre-generation-contracts.ts",
     "notes": "Targets generated user Next.js apps, not Sajtmaskin app env. F2 ('design preview') merges BOTH layers into `.env.local`. F3 ('bygg integrationer') strips the tier-3-stub layer and requires real values from project env vars (validated by `tier3-build-spec.ts`). Per-key classification lives in `src/lib/integrations/placeholder-harmless.ts`. Loader: `readGeneratedSitePlaceholdersEnvText()` in `load-generated-site-placeholders.ts`."
   },
   "workloads": [

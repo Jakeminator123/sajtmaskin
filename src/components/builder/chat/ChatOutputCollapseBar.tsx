@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import type { PointerEventHandler } from "react";
 import { cn } from "@/lib/utils";
 
 interface ChatOutputCollapseBarProps {
@@ -15,6 +16,12 @@ interface ChatOutputCollapseBarProps {
    * användaren behöver se.
    */
   statusText?: string | null;
+  /** Desktop float: baren (utanför toggle) är drag-handtag. */
+  dragEnabled?: boolean;
+  onDragHandlePointerDown?: PointerEventHandler<HTMLDivElement>;
+  onDragHandlePointerMove?: PointerEventHandler<HTMLDivElement>;
+  onDragHandlePointerUp?: PointerEventHandler<HTMLDivElement>;
+  onDragHandlePointerCancel?: PointerEventHandler<HTMLDivElement>;
 }
 
 function formatMessageCount(count: number): string {
@@ -32,6 +39,11 @@ export function ChatOutputCollapseBar({
   messageCount,
   isStreaming,
   statusText = null,
+  dragEnabled = false,
+  onDragHandlePointerDown,
+  onDragHandlePointerMove,
+  onDragHandlePointerUp,
+  onDragHandlePointerCancel,
 }: ChatOutputCollapseBarProps) {
   const Chevron = isCollapsed ? ChevronUp : ChevronDown;
   // Fullständigt namn bärs av aria-label + title (Del A) — själva fliken visar
@@ -45,12 +57,24 @@ export function ChatOutputCollapseBar({
       className={cn(
         "border-border text-muted-foreground flex items-center gap-2 border-t px-3 py-1 text-xs",
         isCollapsed && "bg-muted/30",
+        dragEnabled && "cursor-grab touch-none active:cursor-grabbing",
+        // Floating card already has an outer border — drop the top rule there.
+        dragEnabled && "rounded-t-lg border-t-0",
       )}
       data-testid="chat-output-collapse-bar"
+      title={dragEnabled ? "Dra för att flytta" : undefined}
+      onPointerDown={dragEnabled ? onDragHandlePointerDown : undefined}
+      onPointerMove={dragEnabled ? onDragHandlePointerMove : undefined}
+      onPointerUp={dragEnabled ? onDragHandlePointerUp : undefined}
+      onPointerCancel={dragEnabled ? onDragHandlePointerCancel : undefined}
     >
       <button
         type="button"
         onClick={onToggle}
+        onPointerDown={(event) => {
+          // Keep toggle clicks from starting a drag on the parent handle.
+          event.stopPropagation();
+        }}
         aria-expanded={!isCollapsed}
         aria-controls="builder-chat-output"
         aria-label={label}
