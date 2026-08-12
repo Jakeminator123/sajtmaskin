@@ -126,8 +126,9 @@ def _section_list(dossiers: list[dict[str, Any]]) -> None:
 
     st.caption(
         "**Standardval** = vinner när flera byggblock delar samma funktion. "
-        "**Demoläge** = hur ett Kopplat byggblock ser ut i preview utan riktig "
-        "nyckel. **Kräver F3** = den riktiga integrationen byggs i ett eget "
+        "**Demoläge** = hur ett Kopplat byggblock beter sig i F2 utan "
+        "livekonfiguration. "
+        "**Kräver F3** = den riktiga integrationen byggs i ett eget "
         "steg (byggnödvändig nyckel eller serverfil) — det följer *inte* av "
         "Kopplad/Fristående, och ett Kopplat byggblock kan mycket väl vara "
         "klart redan i designläget. Leverantörssyskon = flera byggblock under "

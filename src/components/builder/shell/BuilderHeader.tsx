@@ -9,11 +9,12 @@ import {
 } from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
-import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
-import {
-  MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST,
-  SCAFFOLD_CLIENT_LIST,
-} from "@/lib/gen/scaffolds/types";
+import { SCAFFOLD_OFF_BASELINE_ID, type ScaffoldMode } from "@/lib/gen/scaffolds/types";
+import { SCAFFOLD_CLIENT_LIST } from "@/lib/gen/scaffolds/scaffold-client-list.generated";
+
+const MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST = SCAFFOLD_CLIENT_LIST.filter(
+  ({ id }) => id !== SCAFFOLD_OFF_BASELINE_ID,
+);
 import { useSearchParams } from "next/navigation";
 import {
   DropdownMenu,

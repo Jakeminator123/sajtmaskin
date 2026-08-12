@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import re
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +19,7 @@ from backoffice.shared import (
 
 from .constants import BUILD_INTENT_OPTIONS
 from .formatting import _unique_preserving_order
+from . import client_projection
 
 from .variants import (
     _prune_variant_embeddings,
@@ -33,6 +36,7 @@ from .scaffold_text import (
     _upsert_scaffold_union_entry,
     _normalize_scaffold_union_semicolon,
     _types_path,
+    _client_list_path,
     _registry_path,
     _embedding_locale_path,
     _remove_locale_block,
@@ -59,10 +63,6 @@ def _normalize_allowed_build_intents(values: list[str]) -> list[str]:
     return normalized
 
 
-def _inline_ts_string_array(values: list[str]) -> str:
-    return "[" + ", ".join(f'"{_escape_ts_string(value)}"' for value in values) + "]"
-
-
 def _scaffold_projection_conflicts(
     *,
     scaffold_id: str,
@@ -78,8 +78,6 @@ def _scaffold_projection_conflicts(
         rf'^\s*\|\s*"{escaped_id}"\s*;?\s*$', types_text, flags=re.MULTILINE
     ):
         conflicts.append("ScaffoldId")
-    if re.search(rf'\bid:\s*"{escaped_id}"', types_text):
-        conflicts.append("SCAFFOLD_CLIENT_LIST")
     if (
         re.search(rf'from\s+"\./{escaped_id}/manifest"', registry_text)
         or re.search(rf"\b{re.escape(export_name)}\b", registry_text)
@@ -90,75 +88,18 @@ def _scaffold_projection_conflicts(
     return conflicts
 
 
-def _insert_client_list_entry_text(text: str, client_entry: str) -> str:
-    """Insert one row into the exact SCAFFOLD_CLIENT_LIST array or fail closed."""
-    start_pattern = re.compile(
-        r"export const SCAFFOLD_CLIENT_LIST:\s*ReadonlyArray<.*?>\s*=\s*\[\r?\n",
-        flags=re.DOTALL,
-    )
-    starts = list(start_pattern.finditer(text))
-    if len(starts) != 1:
-        raise ValueError(
-            "Kunde inte hitta exakt en SCAFFOLD_CLIENT_LIST i types.ts. "
-            "Ingen fil ändrades."
-        )
-    end_match = re.compile(
-        r"^\s*\](?:\s+as const)?;\s*$", flags=re.MULTILINE
-    ).search(text, starts[0].end())
-    if end_match is None or end_match.group(0).strip() != "] as const;":
-        raise ValueError(
-            "Kunde inte hitta exakt ett giltigt SCAFFOLD_CLIENT_LIST-slut i types.ts. "
-            "Ingen fil ändrades."
-        )
-    return (
-        text[: end_match.start()]
-        + client_entry
-        + text[end_match.start() :]
-    )
-
-
-def _update_client_list_allowed_build_intents_text(
-    text: str,
-    scaffold_id: str,
-    allowed_build_intents: list[str],
-) -> str:
-    """Update one existing SCAFFOLD_CLIENT_LIST row or fail before writing."""
-    intents = _normalize_allowed_build_intents(allowed_build_intents)
-    pattern = re.compile(
-        rf'^(?P<prefix>\s*\{{\s*id:\s*"{re.escape(scaffold_id)}"\s*,.*?'
-        rf'allowedBuildIntents:\s*)\[[^\]]*\](?P<suffix>\s*\}},\s*)$',
-        flags=re.MULTILINE,
-    )
-    updated, count = pattern.subn(
-        lambda match: (
-            f"{match.group('prefix')}{_inline_ts_string_array(intents)}"
-            f"{match.group('suffix')}"
-        ),
-        text,
-    )
-    if count != 1:
-        raise ValueError(
-            "Kunde inte hitta exakt en SCAFFOLD_CLIENT_LIST-post för "
-            f"`{scaffold_id}` i types.ts. Ingen fil ändrades."
-        )
-    return updated
-
-
-
 def _update_types_for_created_scaffold(
     ctx: BackofficeContext,
     *,
     scaffold_id: str,
-    label: str,
-    description: str,
     allowed_build_intents: list[str],
 ) -> None:
-    intents = _normalize_allowed_build_intents(allowed_build_intents)
-    path = _types_path(ctx)
-    text = read_text(path)
+    _normalize_allowed_build_intents(allowed_build_intents)
+    types_path = _types_path(ctx)
+    types_text = read_text(types_path)
     conflicts = _scaffold_projection_conflicts(
         scaffold_id=scaffold_id,
-        types_text=text,
+        types_text=types_text,
         registry_text="",
         locale_text="",
     )
@@ -168,16 +109,9 @@ def _update_types_for_created_scaffold(
             + ", ".join(conflicts)
             + ". Ingen fil ändrades."
         )
-    updated = _upsert_scaffold_union_entry(text, scaffold_id)
-    client_entry = (
-        f'  {{ id: "{_escape_ts_string(scaffold_id)}", '
-        f'label: "{_escape_ts_string(label)}", '
-        f'description: "{_escape_ts_string(description)}", '
-        f'allowedBuildIntents: {_inline_ts_string_array(intents)} }},\n'
-    )
-    updated = _insert_client_list_entry_text(updated, client_entry)
-    if updated != text:
-        write_text(path, updated)
+    updated_types = _upsert_scaffold_union_entry(types_text, scaffold_id)
+    if updated_types != types_text:
+        write_text(types_path, updated_types)
 
 
 
@@ -284,6 +218,7 @@ def _update_variant_schema_enum(ctx: BackofficeContext, scaffold_id: str, *, add
 
 
 
+@client_projection.scaffold_mutation_locked
 def _create_scaffold(
     ctx: BackofficeContext,
     *,
@@ -320,20 +255,24 @@ def _create_scaffold(
 
     # Rollback is byte-preserving. A text snapshot would normalize CRLF/BOM on
     # Windows and leave a diff even though the logical content was restored.
-    originals = {
+    originals: dict[Path, bytes | None] = {
         _types_path(ctx): _types_path(ctx).read_bytes(),
         _registry_path(ctx): _registry_path(ctx).read_bytes(),
         _embedding_locale_path(ctx): _embedding_locale_path(ctx).read_bytes(),
     }
+    client_list_path = _client_list_path(ctx)
+    originals[client_list_path] = (
+        client_list_path.read_bytes() if client_list_path.is_file() else None
+    )
     schema_path = _variant_schema_path(ctx)
     if schema_path.is_file():
         originals[schema_path] = schema_path.read_bytes()
 
     projection_conflicts = _scaffold_projection_conflicts(
         scaffold_id=scaffold_id,
-        types_text=originals[_types_path(ctx)].decode("utf-8"),
-        registry_text=originals[_registry_path(ctx)].decode("utf-8"),
-        locale_text=originals[_embedding_locale_path(ctx)].decode("utf-8"),
+        types_text=(originals[_types_path(ctx)] or b"").decode("utf-8"),
+        registry_text=(originals[_registry_path(ctx)] or b"").decode("utf-8"),
+        locale_text=(originals[_embedding_locale_path(ctx)] or b"").decode("utf-8"),
     )
     if projection_conflicts:
         raise ValueError(
@@ -341,9 +280,6 @@ def _create_scaffold(
             + ", ".join(projection_conflicts)
             + ". Rensa den gamla projektionen innan scaffolden skapas. Ingen fil ändrades."
         )
-    # Preflight: fail closed if SCAFFOLD_CLIENT_LIST cannot be located.
-    _insert_client_list_entry_text(originals[_types_path(ctx)].decode("utf-8"), "")
-
     created_scaffold_dir = False
     created_variant_dir = False
     try:
@@ -372,8 +308,6 @@ def _create_scaffold(
         _update_types_for_created_scaffold(
             ctx,
             scaffold_id=scaffold_id,
-            label=label,
-            description=description,
             allowed_build_intents=allowed_build_intents,
         )
         _update_registry_for_created_scaffold(ctx, scaffold_id)
@@ -428,6 +362,7 @@ def _create_scaffold(
                 variant_dir / f"{starter_variant_id}.json",
                 starter_payload,
             )
+        client_projection.regenerate_scaffold_client_projection(ctx.repo_root)
     except Exception as error:
         rollback_errors: list[str] = []
         cleanup_retries: list[tuple[Path, str]] = []
@@ -440,7 +375,11 @@ def _create_scaffold(
 
         for path, original in reversed(list(originals.items())):
             try:
-                path.write_bytes(original)
+                if original is None:
+                    if path.exists():
+                        path.unlink()
+                else:
+                    path.write_bytes(original)
             except Exception as rollback_error:
                 rollback_errors.append(f"{path}: {rollback_error}")
 
@@ -470,62 +409,179 @@ def _create_scaffold(
 
 
 
-def _update_types_for_deleted_scaffold(ctx: BackofficeContext, scaffold_id: str) -> None:
-    path = _types_path(ctx)
-    text = read_text(path)
-    updated = re.sub(
-        rf'^\s*\|\s*"{re.escape(scaffold_id)}";?\n',
-        "",
-        text,
-        count=1,
+def _remove_exact_union_member_text(text: str, scaffold_id: str) -> str:
+    marker = re.search(r"\r?\n\r?\nexport type ScaffoldMode\s*=", text)
+    if marker is None:
+        raise ValueError("Kunde inte hitta ScaffoldId-unionens slut i types.ts.")
+    union_end = marker.start()
+    union_starts = list(
+        re.finditer(r"^export type ScaffoldId\s*=", text[:union_end], flags=re.MULTILINE)
+    )
+    if len(union_starts) != 1:
+        raise ValueError("Kunde inte hitta exakt en ScaffoldId-union i types.ts.")
+    member_pattern = re.compile(
+        rf'^\s*\|\s*"{re.escape(_escape_ts_string(scaffold_id))}"\s*;?\s*\r?\n?',
         flags=re.MULTILINE,
     )
-    updated = re.sub(
-        rf'^\s*\{{ id: "{re.escape(scaffold_id)}".*?\}},\n',
-        "",
-        updated,
-        count=1,
-        flags=re.MULTILINE,
-    )
-    updated = _normalize_scaffold_union_semicolon(updated)
-    if updated != text:
-        write_text(path, updated)
-
-
-
-
-def _update_registry_for_deleted_scaffold(ctx: BackofficeContext, scaffold_id: str) -> None:
-    path = _registry_path(ctx)
-    text = read_text(path)
-    match = re.search(
-        rf'^import \{{ (?P<alias>\w+) \}} from "\./{re.escape(scaffold_id)}/manifest";\n',
-        text,
-        flags=re.MULTILINE,
-    )
-    updated = text
-    alias = match.group("alias") if match else None
-    if match:
-        updated = updated[: match.start()] + updated[match.end() :]
-    if alias:
-        updated = re.sub(
-            rf"^\s*{re.escape(alias)},\n",
-            "",
-            updated,
-            count=1,
-            flags=re.MULTILINE,
+    union_start = union_starts[0].start()
+    union_text = text[union_start:union_end]
+    matches = list(member_pattern.finditer(union_text))
+    if len(matches) != 1:
+        raise ValueError(
+            f"Scaffold `{scaffold_id}` måste finnas exakt en gång i ScaffoldId-unionen. "
+            "Ingen fil eller mapp ändrades."
         )
-    if updated != text:
-        write_text(path, updated)
+    match = matches[0]
+    updated_union = union_text[: match.start()] + union_text[match.end() :]
+    return _normalize_scaffold_union_semicolon(
+        text[:union_start] + updated_union + text[union_end:]
+    )
 
 
+def _remove_exact_registry_projection_text(text: str, scaffold_id: str) -> str:
+    escaped_id = re.escape(_escape_ts_string(scaffold_id))
+    import_pattern = re.compile(
+        rf'^import\s+\{{\s*(?P<alias>\w+)\s*\}}\s+from\s+"\./{escaped_id}/manifest";\r?\n',
+        flags=re.MULTILINE,
+    )
+    imports = list(import_pattern.finditer(text))
+    if len(imports) != 1:
+        raise ValueError(
+            f"Scaffold `{scaffold_id}` måste ha exakt en manifest-import i registry.ts. "
+            "Ingen fil eller mapp ändrades."
+        )
+    alias = imports[0].group("alias")
+    registry_blocks = list(
+        re.finditer(
+            r"const BASE_SCAFFOLDS(?:\s*:\s*[^=]+)?\s*=\s*\[(?P<body>.*?)^\];",
+            text,
+            flags=re.DOTALL | re.MULTILINE,
+        )
+    )
+    if len(registry_blocks) != 1:
+        raise ValueError(
+            "Kunde inte hitta exakt en BASE_SCAFFOLDS-lista i registry.ts. "
+            "Ingen fil eller mapp ändrades."
+        )
+    block = registry_blocks[0]
+    alias_pattern = re.compile(
+        rf"^\s*{re.escape(alias)},\s*\r?\n?", flags=re.MULTILINE
+    )
+    alias_rows = list(alias_pattern.finditer(block.group("body")))
+    if len(alias_rows) != 1:
+        raise ValueError(
+            f"Scaffold `{scaffold_id}` måste finnas exakt en gång i BASE_SCAFFOLDS. "
+            "Ingen fil eller mapp ändrades."
+        )
+    import_match = imports[0]
+    without_import = text[: import_match.start()] + text[import_match.end() :]
+    return alias_pattern.sub("", without_import, count=1)
 
 
-def _update_embedding_locale_for_deleted_scaffold(ctx: BackofficeContext, scaffold_id: str) -> None:
-    path = _embedding_locale_path(ctx)
-    text = read_text(path)
+def _remove_exact_locale_projection_text(text: str, scaffold_id: str) -> str:
+    key_pattern = re.compile(
+        rf'^\s*(?:"{re.escape(_escape_ts_string(scaffold_id))}"|'
+        rf"{re.escape(scaffold_id)}):\s*\{{\s*\r?$",
+        flags=re.MULTILINE,
+    )
+    if len(list(key_pattern.finditer(text))) != 1:
+        raise ValueError(
+            f"Scaffold `{scaffold_id}` måste ha exakt en locale-post. "
+            "Ingen fil eller mapp ändrades."
+        )
     updated = _remove_locale_block(text, scaffold_id)
-    if updated != text:
-        write_text(path, updated)
+    if updated == text:
+        raise ValueError(
+            f"Locale-posten för scaffold `{scaffold_id}` är malformed. "
+            "Ingen fil eller mapp ändrades."
+        )
+    return updated
+
+
+def _remove_exact_schema_projection_text(text: str, scaffold_id: str) -> str:
+    anchor_matches = list(re.finditer(r'^\s*"scaffoldId"\s*:\s*\{', text, re.MULTILINE))
+    if len(anchor_matches) != 1:
+        raise ValueError(
+            "Kunde inte hitta exakt ett scaffoldId-schema. Ingen fil eller mapp ändrades."
+        )
+    enum_start = text.find('"enum": [', anchor_matches[0].end())
+    enum_end = text.find("]", enum_start)
+    if enum_start < 0 or enum_end < 0:
+        raise ValueError(
+            "Kunde inte hitta scaffoldId-enumen. Ingen fil eller mapp ändrades."
+        )
+    block = text[enum_start:enum_end]
+    entry_pattern = re.compile(
+        rf'^\s*"{re.escape(_escape_ts_string(scaffold_id))}"\s*,?\s*\r?\n?',
+        flags=re.MULTILINE,
+    )
+    entries = list(entry_pattern.finditer(block))
+    if len(entries) != 1:
+        raise ValueError(
+            f"Scaffold `{scaffold_id}` måste finnas exakt en gång i scaffoldId-enumen. "
+            "Ingen fil eller mapp ändrades."
+        )
+    entry = entries[0]
+    updated_block = block[: entry.start()] + block[entry.end() :]
+    updated_block = re.sub(r",(\s*)$", r"\1", updated_block)
+    updated = text[:enum_start] + updated_block + text[enum_end:]
+    try:
+        json.loads(updated)
+    except json.JSONDecodeError as error:
+        raise ValueError(
+            "Scaffold-schemat blev ogiltigt under delete-preflight. "
+            "Ingen fil eller mapp ändrades."
+        ) from error
+    return updated
+
+
+def _remove_research_entry_text(text: str, scaffold_id: str) -> str:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise ValueError(
+            "Scaffold research-filen är inte giltig JSON. Ingen fil eller mapp ändrades."
+        ) from error
+    if not isinstance(payload, dict) or not isinstance(payload.get("scaffolds"), dict):
+        raise ValueError(
+            "Scaffold research-filen måste innehålla ett `scaffolds`-objekt. "
+            "Ingen fil eller mapp ändrades."
+        )
+    # Newly created scaffolds legitimately have no legacy research snapshot,
+    # so a missing exact key is a validated no-op rather than a delete blocker.
+    if scaffold_id not in payload["scaffolds"]:
+        return text
+    payload["scaffolds"].pop(scaffold_id)
+    return json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+
+
+def _plan_scaffold_delete_file_updates(
+    ctx: BackofficeContext, scaffold_id: str
+) -> tuple[dict[Path, bytes], dict[Path, str]]:
+    paths = (
+        _types_path(ctx),
+        _registry_path(ctx),
+        _embedding_locale_path(ctx),
+        _variant_schema_path(ctx),
+        ctx.research_json,
+    )
+    missing = [path for path in paths if not path.is_file()]
+    if missing:
+        raise ValueError(
+            "Delete-preflight saknar ägarfiler: "
+            + ", ".join(path.relative_to(ctx.repo_root).as_posix() for path in missing)
+            + ". Ingen fil eller mapp ändrades."
+        )
+    originals = {path: path.read_bytes() for path in paths}
+    texts = {path: original.decode("utf-8") for path, original in originals.items()}
+    updates = {
+        paths[0]: _remove_exact_union_member_text(texts[paths[0]], scaffold_id),
+        paths[1]: _remove_exact_registry_projection_text(texts[paths[1]], scaffold_id),
+        paths[2]: _remove_exact_locale_projection_text(texts[paths[2]], scaffold_id),
+        paths[3]: _remove_exact_schema_projection_text(texts[paths[3]], scaffold_id),
+        paths[4]: _remove_research_entry_text(texts[paths[4]], scaffold_id),
+    }
+    return originals, updates
 
 
 
@@ -533,6 +589,7 @@ def _update_embedding_locale_for_deleted_scaffold(ctx: BackofficeContext, scaffo
 def _scan_manual_code_references(ctx: BackofficeContext, scaffold_id: str) -> list[dict[str, Any]]:
     ignored = {
         _types_path(ctx).resolve(),
+        _client_list_path(ctx).resolve(),
         _registry_path(ctx).resolve(),
         _embedding_locale_path(ctx).resolve(),
     }
@@ -540,7 +597,7 @@ def _scan_manual_code_references(ctx: BackofficeContext, scaffold_id: str) -> li
     for root in (ctx.repo_root / "src", ctx.repo_root / "scripts", ctx.repo_root / "backoffice"):
         if not root.exists():
             continue
-        for pattern in ("*.ts", "*.tsx", "*.py"):
+        for pattern in ("*.ts", "*.tsx", "*.js", "*.jsx", "*.mjs", "*.cjs", "*.py"):
             for file_path in sorted(root.rglob(pattern)):
                 resolved = file_path.resolve()
                 if resolved in ignored:
@@ -617,6 +674,15 @@ def _scan_scaffold_dependencies(
             embeddings_entry_present = False
 
     types_text = read_text(_types_path(ctx))
+    client_list_present = False
+    client_list_status = "ok"
+    try:
+        client_list_text = read_text(_client_list_path(ctx))
+        client_list_present = f'id: "{scaffold_id}"' in client_list_text
+    except FileNotFoundError:
+        client_list_status = "missing"
+    except (OSError, UnicodeError):
+        client_list_status = "unreadable"
     registry_text = read_text(_registry_path(ctx))
     locale_text = read_text(_embedding_locale_path(ctx))
 
@@ -634,7 +700,8 @@ def _scan_scaffold_dependencies(
         "scaffoldDirExists": scaffold_dir.is_dir(),
         "referenceHits": reference_hits,
         "typesUnionPresent": f'"{scaffold_id}"' in types_text,
-        "clientListPresent": f'id: "{scaffold_id}"' in types_text,
+        "clientListPresent": client_list_present,
+        "clientListStatus": client_list_status,
         "registryImportPresent": bool(registry_import_match),
         "registryArrayPresent": bool(
             registry_alias
@@ -650,16 +717,6 @@ def _scan_scaffold_dependencies(
 
 
 def _clean_generated_scaffold_artifacts(ctx: BackofficeContext, scaffold_id: str) -> None:
-    if ctx.research_json.is_file():
-        try:
-            payload = read_json(ctx.research_json)
-            if isinstance(payload, dict) and isinstance(payload.get("scaffolds"), dict):
-                if scaffold_id in payload["scaffolds"]:
-                    payload["scaffolds"].pop(scaffold_id, None)
-                    write_json(ctx.research_json, payload)
-        except Exception:
-            pass
-
     if ctx.embeddings_json.is_file():
         try:
             payload = read_json(ctx.embeddings_json)
@@ -679,11 +736,22 @@ def _clean_generated_scaffold_artifacts(ctx: BackofficeContext, scaffold_id: str
 
 
 
+@client_projection.scaffold_mutation_locked
 def _delete_scaffold(
     ctx: BackofficeContext, scaffold_id: str, *, snapshot: bool = True
 ) -> None:
     variant_dir = ctx.variants_dir / scaffold_id
     scaffold_dir = ctx.scaffolds_dir / scaffold_id
+
+    # Every owned projection is parsed and transformed in memory before the
+    # first directory or file is touched. A stale/malformed projection must not
+    # turn a delete into an unrecoverable half-delete.
+    planned_originals, updates = _plan_scaffold_delete_file_updates(ctx, scaffold_id)
+    originals: dict[Path, bytes | None] = dict(planned_originals)
+    client_list_path = _client_list_path(ctx)
+    originals[client_list_path] = (
+        client_list_path.read_bytes() if client_list_path.is_file() else None
+    )
 
     # Fail-closed: ta zip-snapshots (Återställning) FÖRE någon radering.
     # Misslyckas en snapshot avbryts hela raderingen utan att röra disken.
@@ -698,16 +766,59 @@ def _delete_scaffold(
                     f"Kunde inte ta zip-snapshot av `{directory}` — "
                     "avbröt raderingen, inget togs bort."
                 )
-    if variant_dir.is_dir():
-        shutil.rmtree(variant_dir)
-    if scaffold_dir.is_dir():
-        shutil.rmtree(scaffold_dir)
 
-    _update_types_for_deleted_scaffold(ctx, scaffold_id)
-    _update_registry_for_deleted_scaffold(ctx, scaffold_id)
-    _update_embedding_locale_for_deleted_scaffold(ctx, scaffold_id)
-    _update_variant_schema_enum(ctx, scaffold_id, add=False)
+    with tempfile.TemporaryDirectory(prefix="sajtmaskin-scaffold-delete-") as temp_raw:
+        temp_root = Path(temp_raw)
+        directory_backups: list[tuple[Path, Path]] = []
+        for label, directory in (
+            ("variant", variant_dir),
+            ("scaffold", scaffold_dir),
+        ):
+            if directory.is_dir():
+                backup = temp_root / label
+                shutil.copytree(directory, backup)
+                directory_backups.append((directory, backup))
+
+        try:
+            if variant_dir.is_dir():
+                shutil.rmtree(variant_dir)
+            if scaffold_dir.is_dir():
+                shutil.rmtree(scaffold_dir)
+            for path, updated in updates.items():
+                if planned_originals[path] != updated.encode("utf-8"):
+                    write_text(path, updated)
+            client_projection.regenerate_scaffold_client_projection(ctx.repo_root)
+        except Exception as error:
+            rollback_errors: list[str] = []
+            for path, original in reversed(list(originals.items())):
+                try:
+                    if original is None:
+                        if path.exists():
+                            path.unlink()
+                    else:
+                        path.write_bytes(original)
+                except Exception as rollback_error:
+                    rollback_errors.append(f"{path}: {rollback_error}")
+            for directory, backup in directory_backups:
+                try:
+                    if directory.exists():
+                        shutil.rmtree(directory)
+                    shutil.copytree(backup, directory)
+                except Exception as rollback_error:
+                    rollback_errors.append(f"{directory}: {rollback_error}")
+            if rollback_errors:
+                error.add_note(
+                    "Delete-rollback blev ofullständig efter originalfelet: "
+                    + "; ".join(rollback_errors)
+                )
+            raise
+
     _clean_generated_scaffold_artifacts(ctx, scaffold_id)
     # Prune the deleted scaffold's variant-embeddings entries too, otherwise the
     # integrity gate (variant-integrity.test.ts) fails on stale index rows.
-    _prune_variant_embeddings(ctx, scaffold_id)
+    try:
+        _prune_variant_embeddings(ctx, scaffold_id)
+    except Exception:
+        # This cache/prune helper is explicitly best-effort and must not turn a
+        # committed repo transaction into an apparent failed delete.
+        pass

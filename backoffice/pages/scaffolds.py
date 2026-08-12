@@ -33,10 +33,8 @@ from backoffice.shared import (
     write_text,
 )
 from .scaffold_lifecycle_lib.constants import BUILD_INTENT_OPTIONS
-from .scaffold_lifecycle_lib.scaffold_ops import (
-    _normalize_allowed_build_intents,
-    _update_client_list_allowed_build_intents_text,
-)
+from .scaffold_lifecycle_lib import client_projection
+from .scaffold_lifecycle_lib.scaffold_ops import _normalize_allowed_build_intents
 
 PAGE_NAME = "Scaffolds: titta & justera"
 
@@ -438,6 +436,7 @@ def _write_ts_multiline_string_array(text: str, field: str, values: list[str]) -
     return re.sub(pattern, rf"\g<1>[\n{items}\n  ]", text, count=1, flags=re.DOTALL)
 
 
+@client_projection.scaffold_mutation_locked
 def _save_scaffold_metadata(
     ctx: BackofficeContext,
     *,
@@ -447,12 +446,19 @@ def _save_scaffold_metadata(
     prompt_hints: list[str],
     quality_checklist: list[str],
 ) -> bool:
-    """Persist manifest metadata and its client projection as one transaction."""
+    """Persist canonical metadata, then regenerate its client projection."""
     intents = _normalize_allowed_build_intents(allowed_build_intents)
     manifest_path = ctx.scaffolds_dir / scaffold_id / "manifest.ts"
-    types_path = ctx.scaffolds_dir / "types.ts"
-    manifest_text = read_text(manifest_path)
-    types_text = read_text(types_path)
+    client_list_path = ctx.scaffolds_dir / "scaffold-client-list.generated.ts"
+    original_bytes: dict[Path, bytes | None] = {
+        manifest_path: manifest_path.read_bytes(),
+        client_list_path: (
+            client_list_path.read_bytes() if client_list_path.is_file() else None
+        ),
+    }
+    manifest_text = (original_bytes[manifest_path] or b"").decode("utf-8").replace(
+        "\r\n", "\n"
+    )
 
     if re.search(r"allowedBuildIntents:\s*\[", manifest_text) is None:
         raise ValueError(
@@ -470,31 +476,22 @@ def _save_scaffold_metadata(
     updated_manifest = _write_ts_multiline_string_array(
         updated_manifest, "qualityChecklist", quality_checklist
     )
-    updated_types = _update_client_list_allowed_build_intents_text(
-        types_text, scaffold_id, intents
-    )
-
-    changes = [
-        (manifest_path, manifest_text, updated_manifest),
-        (types_path, types_text, updated_types),
-    ]
-    pending = [
-        (path, original, updated)
-        for path, original, updated in changes
-        if updated != original
-    ]
-    if not pending:
+    if updated_manifest == manifest_text:
         return False
 
     try:
-        for path, _original, updated in pending:
-            write_text(path, updated)
+        write_text(manifest_path, updated_manifest)
+        client_projection.regenerate_scaffold_client_projection(ctx.repo_root)
     except Exception as error:
         rollback_errors: list[str] = []
-        for path, original, _updated in changes:
+        for path, original in original_bytes.items():
             try:
-                path.write_text(original, encoding="utf-8", newline="\n")
-            except OSError as rollback_error:
+                if original is None:
+                    if path.exists():
+                        path.unlink()
+                else:
+                    path.write_bytes(original)
+            except Exception as rollback_error:
                 rollback_errors.append(f"{path}: {rollback_error}")
         if rollback_errors:
             raise RuntimeError(
@@ -585,7 +582,10 @@ def _render_editor(ctx: BackofficeContext, picked: dict[str, Any]) -> None:
     )
     render_save_scope(
         "repo",
-        paths=(picked["manifestPath"], "src/lib/gen/scaffolds/types.ts"),
+        paths=(
+            picked["manifestPath"],
+            "src/lib/gen/scaffolds/scaffold-client-list.generated.ts",
+        ),
     )
     manifest_text = read_text(manifest_path)
 

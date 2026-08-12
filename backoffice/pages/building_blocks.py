@@ -7,12 +7,13 @@
 * **Den här sidan** äger bara en sak: vad scaffold / variant / byggblock / mall
   är, hur de hänger ihop, hur de väljs, och vad en sparning påverkar.
 
-Förklaringstexterna är därför INTE skrivna i Python. De renderas från de
-kanoniska docs-ytorna (`docs/architecture/glossary.md`,
+Förklaringstexterna är därför INTE skrivna i Python. Korttexterna renderas från
+de kanoniska docs-ytorna (`docs/architecture/glossary.md`,
 `docs/contracts/scaffold-system.md`, `docs/contracts/dossier-system.md`) via
 `shared.read_markdown_table_cell` / `shared.read_doc_section`. Saknas ett
 avsnitt visas en ärlig notis med länk — aldrig en tyst kopia som kan åldras.
-Siffrorna läses från disk vid varje rendering.
+Klassförklaringarna läses ur den genererade dossierprojektionen. Siffrorna
+läses från disk vid varje rendering.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from backoffice.shared import (
     render_save_scope,
     tech_details,
 )
+from backoffice.pages.dossiers_lib.labels import class_description
 
 PAGE_NAME = "Byggstenar: översikt"
 
@@ -53,6 +55,16 @@ PROD_SURFACES: tuple[tuple[str, str], ...] = (
     ("Databashälsa", "kan applicera index i databasen"),
     ("Logg-export", "kan läsa produktionsdatabasen"),
 )
+
+
+def _dossier_count_caption(hard: int, soft: int) -> str:
+    hard_description = class_description("hard").rstrip(".")
+    soft_description = class_description("soft").rstrip(".")
+    return (
+        f"Byggblock: {hard} × {hard_description}; "
+        f"{soft} × {soft_description}. "
+        "Siffrorna läses från disk varje gång sidan visas."
+    )
 
 
 @dataclass(frozen=True)
@@ -289,10 +301,7 @@ def render(ctx: BackofficeContext) -> None:
     cols[1].metric("Varianter", variants)
     cols[2].metric("Byggblock", hard + soft, help="Kopplade (hard) + fristående (soft).")
     cols[3].metric("Mallar (v0)", templates)
-    st.caption(
-        f"Byggblock: {hard} kopplade (kräver extern tjänst/nycklar) och {soft} "
-        "fristående (bara npm-paket). Siffrorna läses från disk varje gång sidan visas."
-    )
+    st.caption(_dossier_count_caption(hard, soft))
 
     st.subheader("De fyra byggstenarna")
     top = st.columns(2)

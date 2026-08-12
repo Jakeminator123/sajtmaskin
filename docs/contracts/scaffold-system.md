@@ -98,7 +98,7 @@ därför inte den gamla repo-cache-/template-library-mappen.
 | 1 | VAD ska byggas? | `BuildIntent` | `template` / `website` / `app` |
 | 2 | HUR kom requesten in? | `BuildMethod` | `wizard` / `category` / `audit` / `freeform` / `kostnadsfri` |
 | 2 | Prompt-typ | `PromptType` | `wizard` / `freeform` / `template` / `audit` / `followup_*` |
-| 3 | VILKEN startstruktur? | `ScaffoldMode` + `ScaffoldId` | `off` / `auto` / `manual` × 9 scaffold-ids |
+| 3 | VILKEN startstruktur? | `ScaffoldMode` + `ScaffoldId` | `off` / `auto` / `manual` × 10 scaffold-ids |
 | 4 | HUR MYCKET styr scaffolden? | `ScaffoldSerializeMode` | `structural` / `inspirational` (init/followUp + contextPolicy) |
 | 5 | VAD BERIKAR scaffolden? | Buildtime/runtime stöddata | dossiers, `scaffold-research.generated.json`, scaffold/variant embeddings |
 
@@ -116,14 +116,18 @@ Strukturerat objekt: projectTitle, brandName, oneSentencePitch, pages[], visualD
 
 ```
 scaffoldMode?
-├─ "off"     → inget scaffold
+├─ "off"     → projekt-bas-app (fritext/init; importerade repo:n förblir scaffold-lösa)
 ├─ "manual"  → getScaffoldById(scaffoldId)
 ├─ persisted → getScaffoldById(persistedScaffoldId)  [follow-up]
 └─ "auto"    → matchScaffoldAuto(prompt, buildIntent, options)
-                 ├─ 3a Keyword (synkron): 9 listor + intent-boost + brief context
+                 ├─ 3a Keyword (synkron): 9 auto-listor + intent-boost + brief context
                  ├─ 3b Embedding (parallell): cosine vs förgenererade vektorer
                  └─ 3c Merge-policy: agreement / keyword vinner / embedding override
 ```
+
+`projekt-bas-app` är den tionde registrerade scaffolden men är uttryckligen
+utesluten ur Auto-matchning. Den används bara som tunn bas för `off` i
+fritext/init, medan importerade repo-flöden fortfarande kör utan scaffold.
 
 | Meta-fält | Värden |
 |---|---|
@@ -317,7 +321,8 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 
 | Yta | Fil | Vad |
 |---|---|---|
-| Runtime-typ | `src/lib/gen/scaffolds/types.ts` | `ScaffoldId` union, `SCAFFOLD_CLIENT_LIST` |
+| Runtime-typ | `src/lib/gen/scaffolds/types.ts` | `ScaffoldId` union och manifesttyper |
+| Klientprojektion | `src/lib/gen/scaffolds/scaffold-client-list.generated.ts` | Genererad, browser-safe `SCAFFOLD_CLIENT_LIST` i registry-ordning |
 | Runtime-registry | `src/lib/gen/scaffolds/registry.ts` | `BASE_SCAFFOLDS` array |
 | Variant-typ | `src/lib/gen/scaffold-variants/types.ts` | Vid fältborttagning |
 | Variant-registry | `src/lib/gen/scaffold-variants/registry.ts` | Parser-kod |
@@ -338,7 +343,9 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 
 | Kommando | Vad |
 |---|---|
-| `npm run scaffolds:validate` | Validerar scaffold-manifest via test |
+| `npm run scaffolds:client-list:check` | Blockerar drift mellan runtime-registret och den browser-safe klientprojektionen |
+| `npm run scaffolds:client-list:write` | Regenererar den committade klientprojektionen från runtime-registret |
+| `npm run scaffolds:validate` | Validerar klientprojektion, scaffold-manifest, embeddings-paritet och variants |
 | `npm run scaffolds:embeddings:check` | Kontrollerar scaffold-embeddings inför build |
 | `npm run embeddings:ensure` | Auto-synk + URL-check + registry-paritet (CI/prebuild) |
 | `npm run embeddings:sync` | Laddar ner embedding-JSON från Blob/manifest → lokal cache |

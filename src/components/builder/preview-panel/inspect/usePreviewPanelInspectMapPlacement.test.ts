@@ -16,6 +16,8 @@ function harness(overrides?: {
   previewUrl?: string | null;
   inspectEngine?: InspectEngine;
   placementMode?: boolean;
+  composerMode?: boolean;
+  homePageCode?: string | null;
   onRender?: () => void;
 }) {
   const iframeRef = { current: null } as RefObject<HTMLIFrameElement | null>;
@@ -28,6 +30,7 @@ function harness(overrides?: {
       previewUrl: overrides?.previewUrl ?? "https://chat-1.fly.dev/preview",
       versionId: "ver_1",
       placementMode: overrides?.placementMode ?? false,
+      composerMode: overrides?.composerMode ?? false,
       inspectMode,
       setInspectMode,
       iframeLoading: false,
@@ -37,6 +40,7 @@ function harness(overrides?: {
       setInspectStatus: vi.fn(),
       setLastCodeMatch: vi.fn(),
       inspectEngine: overrides?.inspectEngine ?? "map",
+      homePageCode: overrides?.homePageCode ?? null,
     });
   });
 }
@@ -186,6 +190,26 @@ describe("usePreviewPanelInspectMapPlacement — placement dedupe", () => {
     expect(atFooter?.placement).toBe("after-footer");
     expect(atFooter).not.toBe(atHero);
 
+    rendered.unmount();
+  });
+
+  it("falls back to code-derived section zones when bridge map is empty", () => {
+    const rendered = harness({
+      composerMode: true,
+      inspectEngine: "bridge",
+      homePageCode: `
+export default function Page() {
+  return (
+    <main>
+      <section className="hero-banner">Welcome</section>
+      <section className="pricing-table">Plans</section>
+    </main>
+  );
+}
+`,
+    });
+    expect(rendered.result.current.sectionZones.length).toBeGreaterThanOrEqual(2);
+    expect(rendered.result.current.sectionZones.some((z) => z.type === "hero")).toBe(true);
     rendered.unmount();
   });
 });

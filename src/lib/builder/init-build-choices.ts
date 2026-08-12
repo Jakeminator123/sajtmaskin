@@ -28,7 +28,7 @@
  * `designTheme`/`themeColors` shell state, which follow-ups also carry.
  */
 
-import { SCAFFOLD_CLIENT_LIST } from "@/lib/gen/scaffolds/types";
+import { SCAFFOLD_CLIENT_LIST } from "@/lib/gen/scaffolds/scaffold-client-list.generated";
 
 /**
  * Hemsida vs App. Maps onto the existing `BuildIntent` (`website` | `app`), which
@@ -113,9 +113,9 @@ export const SITE_TYPE_SCAFFOLD_IDS: Record<Exclude<SiteTypeChoice, "auto">, str
 /**
  * Whether a site type can be built for the chosen target.
  *
- * The allow-list lives on the scaffold manifests and is mirrored into
- * `SCAFFOLD_CLIENT_LIST` (guarded by `scaffold-client-list.test.ts`) so this stays
- * client-safe. Offering Dashboard under "Hemsida" would be a dead end: the
+ * The allow-list lives on the scaffold manifests and is generated into
+ * `SCAFFOLD_CLIENT_LIST` (byte- and parity-gated) so this stays client-safe.
+ * Offering Dashboard under "Hemsida" would be a dead end: the
  * matcher's app branch and the embedding guards both refuse that combination.
  */
 export function isSiteTypeAllowedForTarget(

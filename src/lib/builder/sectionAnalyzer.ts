@@ -249,6 +249,42 @@ export function analyzeSections(code: string): DetectedSection[] {
 }
 
 /**
+ * Approximate viewport bands from homepage source when live inspect/bridge
+ * zones are missing. Order follows `analyzeSections` (line order). Bands are
+ * proportional to `lineStart` when available so taller early sections get more
+ * vertical room than a flat even split — still approximate vs rendered geometry.
+ */
+export function sectionZonesFromCode(code: string): SectionZone[] {
+  const sections = analyzeSections(code);
+  if (sections.length === 0) return [];
+
+  const usable = sections.slice(0, 10);
+  const totalLines = Math.max(
+    code.split("\n").length,
+    ...usable.map((section) => section.lineStart ?? 1),
+    1,
+  );
+
+  return usable.map((section, index) => {
+    const line = Math.max(1, section.lineStart ?? index + 1);
+    const nextLine =
+      index + 1 < usable.length
+        ? Math.max(line + 1, usable[index + 1]?.lineStart ?? totalLines)
+        : totalLines;
+    const top = clampPercent((line / totalLines) * 92);
+    const bottom = clampPercent(Math.max(top + 6, (nextLine / totalLines) * 92));
+    return {
+      id: `code-${section.id}`,
+      label: section.nameSv,
+      type: section.type,
+      top,
+      bottom,
+      height: Math.max(0, bottom - top),
+    } satisfies SectionZone;
+  });
+}
+
+/**
  * Convert a placement value to a prompt instruction
  */
 export function placementToInstruction(placement: string, sections: DetectedSection[]): string {

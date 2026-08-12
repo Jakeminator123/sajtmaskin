@@ -7,7 +7,9 @@ This document describes the current runtime scaffold contract.
 Primary code sources:
 
 - `src/lib/gen/scaffolds/types.ts`
+- `src/lib/gen/scaffolds/scaffold-client-list.generated.ts`
 - `src/lib/gen/scaffolds/registry.ts`
+- `scripts/scaffolds/generate-client-list.ts`
 - `src/lib/gen/scaffolds/scaffold-manifest-validation.ts`
 - `src/lib/gen/scaffolds/serialize.ts`
 - `src/lib/gen/build-spec/` (post-OMTAG-03 package; `builder.ts` orchestrator, `types.ts`, peer modules)
@@ -149,6 +151,7 @@ Current `ScaffoldId` values:
 - `dashboard`
 - `auth-pages`
 - `ecommerce`
+- `projekt-bas-app`
 
 `id` is scaffoldens kanoniska runtime-identifierare and is used for registry
 lookup, matching, embeddings, and telemetry. `ScaffoldFamily`/`family` is
@@ -164,8 +167,9 @@ Create-flödet:
 
 - klonar `files/` från en vald källscaffold
 - skriver en ny `manifest.ts` (innehåller `qualityChecklist` och `upgradeTargets` som inline-defaults)
-- patchar `ScaffoldId`, `SCAFFOLD_CLIENT_LIST`, `registry.ts` och
-  `scaffold-embedding-locale.ts`
+- patchar `ScaffoldId` i `types.ts`, `registry.ts` och
+  `scaffold-embedding-locale.ts`, och regenererar därefter den browser-safe
+  klientprojektionen `scaffold-client-list.generated.ts` via dess TypeScript-generator
 - kan skapa en neutral startvariant under `config/scaffold-variants/`
 
 `scripts/template-library/build-template-library.ts` togs bort 2026-04-17 (commit

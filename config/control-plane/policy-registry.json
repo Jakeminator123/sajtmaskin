@@ -129,7 +129,7 @@
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
-        "surface": "Codegen Core",
+        "surface": "Codegen core",
         "editable": true,
         "writePath": "config/domain-rules.json",
         "danger": "low"
@@ -146,7 +146,7 @@
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
-        "surface": "Orchestration",
+        "surface": "Codegen core",
         "editable": true,
         "writePath": "config/prompt-heuristic-tokens.json",
         "danger": "low"
@@ -164,8 +164,8 @@
       "runtimeStatus": "wired",
       "backoffice": {
         "surface": null,
-        "editable": true,
-        "writePath": "config/integrations/tier3-sdk-deny.json",
+        "editable": false,
+        "writePath": null,
         "danger": "low"
       },
       "mobility": "risky",
@@ -175,18 +175,18 @@
       "id": "naming-dictionary",
       "sourceOfTruth": "config/naming-dictionary.json",
       "type": "policy",
-      "validator": "check:terms",
-      "ciStatus": "warn",
+      "validator": "check:terms:contract",
+      "ciStatus": "hard",
       "runtimeEnforced": false,
-      "runtimeStatus": "declared-only",
+      "runtimeStatus": "n/a",
       "backoffice": {
         "surface": null,
-        "editable": true,
-        "writePath": "config/naming-dictionary.json",
+        "editable": false,
+        "writePath": null,
         "danger": "low"
       },
       "mobility": "safe",
-      "notes": "CI terminology check only (check-term-coverage.mjs); not app runtime."
+      "notes": "CI/tooling-only: check:terms:contract blocks glossary ownership and active-doc alias drift; the broader check:terms scan remains advisory. Not app runtime."
     },
     {
       "id": "shadcn-mirror-audit-policy",
@@ -214,13 +214,13 @@
       "runtimeEnforced": false,
       "runtimeStatus": "declared-only",
       "backoffice": {
-        "surface": "User Degraded Env",
-        "editable": false,
-        "writePath": null,
+        "surface": "user_degraded_env",
+        "editable": true,
+        "writePath": "config/user_degraded_env.txt",
         "danger": "low"
       },
       "mobility": "safe",
-      "notes": "human policy text for generated-site degraded env; no runtime loader reads it."
+      "notes": "Human policy text with a Backoffice editor; no runtime loader reads it."
     },
     {
       "id": "placeholder-harmless",

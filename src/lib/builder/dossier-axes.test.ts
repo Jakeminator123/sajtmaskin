@@ -60,10 +60,42 @@ describe("dossier-axes", () => {
     }
   });
 
-  it("does not claim a Kopplad dossier is missing from the preview", () => {
-    // The whole point of the mock contract: a hard dossier is always injected
-    // and degrades — the copy must not say the opposite.
-    expect(describeDossierClass("hard").hint).toContain("läggs ändå alltid in");
+  it("does not equate Kopplad with keys, F2 insertion or F3", () => {
+    const analyticsPath = join(
+      process.cwd(),
+      "data",
+      "dossiers",
+      "hard",
+      "vercel-analytics",
+      "manifest.json",
+    );
+    const analytics = JSON.parse(readFileSync(analyticsPath, "utf8")) as {
+      envVars?: unknown[];
+      providers?: unknown[];
+    };
+    expect(analytics.providers?.length).toBeGreaterThan(0);
+    expect(analytics.envVars).toEqual([]);
+
+    const hardHint = describeDossierClass("hard").hint;
+    expect(hardHint).toMatch(/provider|runtime-kontrakt/i);
+    expect(hardHint).not.toMatch(/kräver.{0,30}nyck/i);
+    expect(hardHint).not.toMatch(/alltid.{0,30}(in|F2)/i);
+    expect(hardHint).toContain("avgörs separat");
+
+    const softHint = describeDossierClass("soft").hint;
+    const mapSourcePath = join(
+      process.cwd(),
+      "data",
+      "dossiers",
+      "soft",
+      "maplibre-map",
+      "components",
+      "map-display.tsx",
+    );
+    expect(readFileSync(mapSourcePath, "utf8")).toMatch(/https:\/\//);
+    expect(softHint).toMatch(/ingen deklarerad extern provider/i);
+    expect(softHint).toMatch(/publika nyckelfria resurser/i);
+    expect(softHint).not.toMatch(/bara npm/i);
   });
 
   it("names the F3 step for a dossier that requires it, and says so plainly when it does not", () => {

@@ -7,8 +7,8 @@
  *
  * | Axel | Fråga | Ägare (kanonisk) |
  * |---|---|---|
- * | Kopplad/Fristående | Behövs en extern tjänst med nycklar? | mappen `data/dossiers/{hard,soft}/` |
- * | Demoläge (`mock`) | Hur beter sig ytan i F2 utan riktig nyckel? | manifestfältet `mock` |
+ * | Kopplad/Fristående | Har implementationen en deklarerad provider-/integrationskoppling? | mappen `data/dossiers/{hard,soft}/` |
+ * | Demoläge (`mock`) | Hur beter sig ytan i F2/designläget utan livekonfiguration? | manifestfältet `mock` |
  * | Kräver F3 | Måste den riktiga integrationen byggas i ett eget steg? | `dossierRequiresF3()` (build-nyckel ELLER serverfil) |
  *
  * Every user-facing surface that shows a dossier reads its labels here so the
@@ -63,25 +63,26 @@ const MOCK_MODE_HINTS: Record<DossierMockMode, string> = {
 };
 
 /**
- * Axis 1 — does the dossier need an external service? Deliberately does NOT
- * claim the surface is broken without keys: a hard dossier is always injected
- * and degrades through its demo mode.
+ * Axis 1 — does the manifest declare a provider/integration coupling?
+ * Deliberately says nothing about env keys, F2 materialization, mock behavior
+ * or F3: those are independent contracts. Keyless public resources alone do
+ * not make a dossier hard; hard manifests declare `providers`.
  */
 export function describeDossierClass(dossierClass: "hard" | "soft"): DossierAxisDescriptor {
   if (dossierClass === "hard") {
     return {
       label: "Kopplad",
-      hint: "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge.",
+      hint: "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat.",
     };
   }
   return {
     label: "Fristående",
-    hint: "Behöver bara npm-paket — inga externa konton eller nycklar.",
+    hint: "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser.",
   };
 }
 
 /**
- * Axis 2 — how the surface behaves in F2/preview without a real key. An
+ * Axis 2 — how the surface behaves in F2/preview without live configuration. An
  * omitted manifest field means `none`, exactly like runtime reads it.
  */
 export function describeDossierMockMode(

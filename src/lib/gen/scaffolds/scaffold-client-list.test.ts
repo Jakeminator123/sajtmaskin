@@ -1,25 +1,24 @@
 import { describe, expect, it } from "vitest";
 
 import { getAllScaffolds } from "./registry";
-import {
-  MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST,
-  SCAFFOLD_CLIENT_LIST,
-  SCAFFOLD_OFF_BASELINE_ID,
-} from "./types";
+import { SCAFFOLD_CLIENT_LIST } from "./scaffold-client-list.generated";
+import { SCAFFOLD_OFF_BASELINE_ID } from "./types";
 
 const ALL_SCAFFOLDS = getAllScaffolds();
 
+const MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST = SCAFFOLD_CLIENT_LIST.filter(
+  ({ id }) => id !== SCAFFOLD_OFF_BASELINE_ID,
+);
+
 /**
- * `SCAFFOLD_CLIENT_LIST` is a hand-maintained projection of the registry, kept
- * separate so client bundles do not import every scaffold's `files`. That makes
- * silent drift the obvious failure mode: Byggval renders label/description and
- * filters its "Typ av sajt" chips on the mirrored `allowedBuildIntents`, so all
- * three fields must follow their manifest owner.
+ * `SCAFFOLD_CLIENT_LIST` is generated from the registry but kept in a standalone
+ * literal module so client bundles do not import every scaffold's `files`.
+ * This semantic parity test complements the generator's byte-exact check.
  */
 describe("SCAFFOLD_CLIENT_LIST mirrors the registry", () => {
   it("covers exactly the registered scaffold ids", () => {
-    expect([...SCAFFOLD_CLIENT_LIST].map((entry) => entry.id).sort()).toEqual(
-      ALL_SCAFFOLDS.map((scaffold) => scaffold.id).sort(),
+    expect([...SCAFFOLD_CLIENT_LIST].map((entry) => entry.id)).toEqual(
+      ALL_SCAFFOLDS.map((scaffold) => scaffold.id),
     );
   });
 
@@ -34,9 +33,16 @@ describe("SCAFFOLD_CLIENT_LIST mirrors the registry", () => {
       );
     }
   });
+
+  it("keeps the Scaffold: Av baseline client-selectable without making it an auto rule", () => {
+    expect(SCAFFOLD_CLIENT_LIST.at(-1)).toMatchObject({
+      id: "projekt-bas-app",
+      allowedBuildIntents: ["app", "website"],
+    });
+  });
 });
 
-describe("MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST", () => {
+describe("manual scaffold picker excludes Scaffold: Av baseline", () => {
   it("keeps registry-backed choices while excluding the internal Scaffold: Av baseline", () => {
     expect(MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST.map((entry) => entry.id)).toEqual(
       SCAFFOLD_CLIENT_LIST.filter(({ id }) => id !== SCAFFOLD_OFF_BASELINE_ID).map(

@@ -67,6 +67,12 @@ type UsePreviewPanelComposerActionsParams = {
   versionId: string | null | undefined;
   composerMode: boolean;
   sectionZones: SectionZone[];
+  /**
+   * True when zones come from homepage source fallback (not live inspect/bridge).
+   * Mid-page `after-*` must not use deterministic file patch — Y→section mapping
+   * is approximate — so those drops go to AI with the placement label.
+   */
+  sectionZonesApproximate?: boolean;
   iframeLoading: boolean;
   externalLoading: boolean;
   handlePlacementMouseMove: (event: MouseEvent<HTMLDivElement>) => void;
@@ -81,6 +87,7 @@ export function usePreviewPanelComposerActions({
   versionId,
   composerMode,
   sectionZones,
+  sectionZonesApproximate = false,
   iframeLoading,
   externalLoading,
   handlePlacementMouseMove,
@@ -340,6 +347,26 @@ export function usePreviewPanelComposerActions({
           return;
         }
 
+        // Approximate (code-derived) zones: keep the Efter-label in the AI
+        // prompt, but do not mutate the file with a Y-mapped after-* guess.
+        if (
+          sectionZonesApproximate &&
+          detail.placement !== "top" &&
+          detail.placement !== "bottom"
+        ) {
+          toast.message("Composer → AI", {
+            description: "Sektionsplacering uppskattad — skickar till AI.",
+          });
+          await runComposerAiFallback(
+            {
+              ...fallbackBase,
+              homePageContent,
+            },
+            "visual-reorder",
+          );
+          return;
+        }
+
         const patchResult = tryInsertPageBlockIntoHomePage(
           homePageContent,
           block.jsxSnippet,
@@ -406,6 +433,7 @@ export function usePreviewPanelComposerActions({
       chatId,
       versionId,
       sectionZones,
+      sectionZonesApproximate,
       iframeLoading,
       externalLoading,
       composerHistoryBusy,
