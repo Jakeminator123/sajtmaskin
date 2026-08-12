@@ -1,6 +1,5 @@
 import type { CodeFile } from "@/lib/gen/parser";
 import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
-import { runSeoPreflightChecks } from "@/lib/gen/validation/seo-preflight";
 import { runHydrationPreflightChecks } from "@/lib/gen/validation/hydration-preflight";
 import {
   crossCheckHrefsAgainstRoutes,
@@ -13,7 +12,6 @@ import { collectTier2HygieneIssues } from "./tier2-hygiene";
 type FinalizePreflightPassId =
   | "tier2_hygiene"
   | "project_sanity"
-  | "seo_preflight"
   | "hydration_preflight"
   | "href_route_cross_check";
 
@@ -52,10 +50,6 @@ export function runFinalizePreflightAll(params: {
     );
   });
 
-  const seoIssues = runSeoPreflightChecks(params.files).map((issue) =>
-    createIssue(issue.file || "seo", issue.severity, issue.message, issue.category),
-  );
-
   // Non-deterministic-render (hydration-risk) advisory. Always non-blocking —
   // it never gates preview, only surfaces a concrete message so the user isn't
   // left with an opaque console hydration mismatch. Runs for imported-repo
@@ -78,7 +72,6 @@ export function runFinalizePreflightAll(params: {
   const passes: FinalizePreflightPassResult[] = [
     { pass: "tier2_hygiene", issues: tier2Issues },
     { pass: "project_sanity", issues: sanityIssues },
-    { pass: "seo_preflight", issues: seoIssues },
     { pass: "hydration_preflight", issues: hydrationIssues },
     { pass: "href_route_cross_check", issues: hrefIssues },
   ];

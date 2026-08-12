@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "product-postcheck.schema.json",
-  "title": "F2 Product Postcheck",
-  "description": "Subset-kontrakt för product_postcheck.* logs. Product Postcheck kör DOM-/iframe-nära F2-kontroller (anchors, bilder, CTA, mobilmeny, formulär) bakom feature flag. Det är warnings/status, inte F3 build/lint/typecheck.",
+  "title": "Product Postcheck",
+  "description": "Subset-kontrakt för product_postcheck.* logs. Product Postcheck kör en begränsad DOM-/runtimekontroll av previewn. Den ersätter inte F3 build/typecheck men productBlocked kan stoppa integrationsreadiness.",
   "type": "object",
   "additionalProperties": false,
   "required": ["level", "category", "message"],
@@ -36,7 +36,12 @@
             "cta_no_handler",
             "mobile_menu_failed",
             "fake_form",
-            "runtime_crash"
+            "runtime_crash",
+            "preview_boot_page",
+            "hydration_mismatch",
+            "console_error",
+            "request_failed",
+            "http_error"
           ]
         },
         "href": { "type": ["string", "null"] },

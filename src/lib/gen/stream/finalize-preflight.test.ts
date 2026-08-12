@@ -9,7 +9,6 @@ const parseFilesFromContent = vi.hoisted(() => vi.fn());
 const validateGeneratedCode = vi.hoisted(() => vi.fn());
 const runLlmFixer = vi.hoisted(() => vi.fn());
 const runLlmRepairGate = vi.hoisted(() => vi.fn());
-const runSeoPreflightChecks = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/gen/autofix/pipeline", () => ({
   runAutoFix,
@@ -29,10 +28,6 @@ vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
 
 vi.mock("@/lib/gen/validation/project-sanity", () => ({
   runProjectSanityChecks,
-}));
-
-vi.mock("@/lib/gen/validation/seo-preflight", () => ({
-  runSeoPreflightChecks,
 }));
 
 vi.mock("@/lib/gen/version-manager", () => ({
@@ -176,7 +171,6 @@ describe("runFinalizePreflight", () => {
     buildCompleteProject.mockReset();
     repairGeneratedFiles.mockReset();
     runProjectSanityChecks.mockReset();
-    runSeoPreflightChecks.mockReset();
     parseFilesFromContent.mockReset();
     validateGeneratedCode.mockReset();
     runLlmFixer.mockReset();
@@ -185,7 +179,6 @@ describe("runFinalizePreflight", () => {
     repairGeneratedFiles.mockImplementation((files: unknown) => ({ files, fixes: [] }));
     buildCompleteProject.mockImplementation((files: unknown) => withMinimalBaseline(files));
     runProjectSanityChecks.mockReturnValue({ valid: true, issues: [] });
-    runSeoPreflightChecks.mockReturnValue([]);
     validateGeneratedCode.mockResolvedValue({ valid: true, errors: [] });
     runLlmFixer.mockResolvedValue({ success: false });
     runLlmRepairGate.mockResolvedValue({ result: { success: false }, fixerModel: "gpt-5.4" });
@@ -472,40 +465,6 @@ describe("runFinalizePreflight", () => {
     });
     expect(result.previewStart.canStartPreview).toBe(false);
     expect(result.previewStart.hasCriticalInstallRisk).toBe(true);
-  });
-
-  it("keeps preview eligible when SEO preflight only reports non-blocking quality issues", async () => {
-    buildPreviewHtml.mockReturnValue("<html><body>preview</body></html>");
-    runSeoPreflightChecks.mockReturnValue([
-      {
-        file: "src/app/layout.tsx",
-        severity: "error",
-        code: "missing-title",
-        message: "Metadata saknar title.",
-        category: "non_blocking_quality_warning",
-      },
-    ]);
-
-    const result = await runFinalizePreflight({
-      chatId: "chat_1",
-      model: "gpt-5.4",
-      filesJson: JSON.stringify([
-        {
-          path: "src/app/page.tsx",
-          content: RICH_PAGE_CONTENT,
-          language: "tsx",
-        },
-      ]),
-    });
-
-    expect(result.preflightIssues).toContainEqual({
-      file: "src/app/layout.tsx",
-      severity: "error",
-      message: "Metadata saknar title.",
-      category: "non_blocking_quality_warning",
-    });
-    expect(result.previewStart.canStartPreview).toBe(true);
-    expect(result.previewStart.primaryPreviewTarget).toBe("preview");
   });
 
   it("backfills deferred init shell routes before route-plan preflight checks", async () => {

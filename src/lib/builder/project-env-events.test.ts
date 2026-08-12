@@ -174,20 +174,31 @@ describe("readF3StatusDetail", () => {
 describe("describeF3SuccessTitle", () => {
   it("names both live and demo counts together", () => {
     expect(describeF3SuccessTitle({ builtLive: 2, builtDemo: 1 })).toBe(
-      "Byggd — 2 live, 1 demo aktiv",
+      "Byggblock — 2 live, 1 demo",
     );
   });
 
+  it("keeps mixed per-building-block truth instead of rating the whole site", () => {
+    expect(
+      describeF3SuccessTitle({
+        builtLive: 1,
+        builtDemo: 1,
+        blockedBuild: 1,
+        planned: 2,
+      }),
+    ).toBe("Byggblock — 1 live, 1 demo, 1 väntar på nyckel, 2 inte byggd");
+  });
+
   it("omits a zero bucket instead of naming it", () => {
-    expect(describeF3SuccessTitle({ builtLive: 1, builtDemo: 0 })).toBe("Byggd — 1 live");
-    expect(describeF3SuccessTitle({ builtLive: 0, builtDemo: 3 })).toBe("Byggd — 3 demo aktiv");
+    expect(describeF3SuccessTitle({ builtLive: 1, builtDemo: 0 })).toBe("Byggblock — 1 live");
+    expect(describeF3SuccessTitle({ builtLive: 0, builtDemo: 3 })).toBe("Byggblock — 3 demo");
   });
 
   it("falls back to a counts-free phrase when counts are unknown", () => {
-    expect(describeF3SuccessTitle(null)).toBe("Byggd — integrationerna är inbyggda");
-    expect(describeF3SuccessTitle(undefined)).toBe("Byggd — integrationerna är inbyggda");
+    expect(describeF3SuccessTitle(null)).toBe("Integrationsbygget är klart");
+    expect(describeF3SuccessTitle(undefined)).toBe("Integrationsbygget är klart");
     expect(describeF3SuccessTitle({ builtLive: 0, builtDemo: 0 })).toBe(
-      "Byggd — integrationerna är inbyggda",
+      "Integrationsbygget är klart",
     );
   });
 });
@@ -207,7 +218,7 @@ describe("resolveF3StatusTitle", () => {
 
   it("keeps the reported (counts-free) title when fresh counts aren't available yet", () => {
     const status = {
-      title: "Byggd — integrationerna är inbyggda",
+      title: "Integrationsbygget är klart",
       usesLiveDossierCounts: true,
     };
     expect(resolveF3StatusTitle(status, null)).toEqual(status);
@@ -216,13 +227,13 @@ describe("resolveF3StatusTitle", () => {
 
   it("swaps in the counts-based title once fresh counts arrive", () => {
     const status = {
-      title: "Byggd — integrationerna är inbyggda",
+      title: "Integrationsbygget är klart",
       usesLiveDossierCounts: true,
       tone: "success" as const,
     };
     expect(resolveF3StatusTitle(status, { builtLive: 2, builtDemo: 1 })).toEqual({
       ...status,
-      title: "Byggd — 2 live, 1 demo aktiv",
+      title: "Byggblock — 2 live, 1 demo",
     });
   });
 });

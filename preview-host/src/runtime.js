@@ -92,6 +92,7 @@ module.exports = {
     registerPreviewSocket: shared.registerPreviewSocket,
     activePreviewSocketCount: shared.activePreviewSocketCount,
     chatIdFromReferer: previewProxy.chatIdFromReferer,
+    APP_API_ROOT_PATH_RE: previewProxy.APP_API_ROOT_PATH_RE,
     NEXT_INTERNAL_ROOT_PATH_RE: previewProxy.NEXT_INTERNAL_ROOT_PATH_RE,
     shouldHoldPrewarmTraffic: previewProxy.shouldHoldPrewarmTraffic,
     setRuntimeStateForTesting: processLifecycle.setRuntimeStateForTesting,

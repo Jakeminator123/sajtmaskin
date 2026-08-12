@@ -17,44 +17,6 @@ export type SuspiciousUseCall = {
   snippet: string;
 };
 
-export type SeoIssue = {
-  severity: "warning" | "error";
-  code:
-    | "missing-metadata"
-    | "missing-title"
-    | "missing-description"
-    | "missing-canonical"
-    | "missing-open-graph"
-    | "missing-og-image"
-    | "missing-twitter"
-    | "missing-robots"
-    | "missing-sitemap"
-    | "missing-json-ld"
-    | "missing-h1"
-    | "multiple-h1"
-    | "heading-hierarchy";
-  message: string;
-  file?: string | null;
-};
-
-export type SeoReview = {
-  passed: boolean;
-  issues: SeoIssue[];
-  signals: {
-    metadata: boolean;
-    title: boolean;
-    description: boolean;
-    canonical: boolean;
-    openGraph: boolean;
-    ogImage: boolean;
-    twitter: boolean;
-    robots: boolean;
-    sitemap: boolean;
-    jsonLd: boolean;
-    homeH1Count: number | null;
-  };
-};
-
 export type PostCheckBaseline = {
   previousVersionId: string | null;
   changes: FileDiff | null;
@@ -64,12 +26,6 @@ export type PostCheckBaseline = {
   lucideLinkMisuse: string[];
   suspiciousUseCalls: SuspiciousUseCall[];
   designTokens: DesignTokenSummary | null;
-  /**
-   * Advisory-only SEO scan. Not shown in the chat post-check anymore
-   * (2026-07-23 declutter) — kept because the `seo` error-log row feeds the
-   * launch-readiness advisories and the publish surface.
-   */
-  seoReview: SeoReview;
   sanity: SanityResult;
   sanityIssues: SanityIssue[];
   sanityErrors: SanityIssue[];
@@ -196,193 +152,6 @@ function findLucideLinkMisuse(files: FileEntry[]): string[] {
   return Array.from(affected);
 }
 
-function findFileBySuffix(files: FileEntry[], suffixes: string[]): FileEntry | null {
-  return (
-    files.find((file) =>
-      suffixes.some((suffix) => file.name === suffix || file.name.endsWith(`/${suffix}`)),
-    ) ?? null
-  );
-}
-
-function countMatches(content: string, regex: RegExp): number {
-  return (content.match(regex) || []).length;
-}
-
-function hasBrokenHeadingHierarchy(content: string): boolean {
-  const headingMatches = Array.from(content.matchAll(/<h([1-6])\b/gi));
-  if (headingMatches.length <= 1) return false;
-  let previousLevel: number | null = null;
-  for (const match of headingMatches) {
-    const currentLevel = Number(match[1]);
-    if (!Number.isFinite(currentLevel)) continue;
-    if (previousLevel !== null && currentLevel - previousLevel > 1) {
-      return true;
-    }
-    previousLevel = currentLevel;
-  }
-  return false;
-}
-
-function buildSeoReview(files: FileEntry[]): SeoReview {
-  const layoutFile = findFileBySuffix(files, ["app/layout.tsx", "src/app/layout.tsx"]);
-  const homePageFile = findFileBySuffix(files, ["app/page.tsx", "src/app/page.tsx"]);
-  const robotsFile = findFileBySuffix(files, ["app/robots.ts", "src/app/robots.ts"]);
-  const sitemapFile = findFileBySuffix(files, ["app/sitemap.ts", "src/app/sitemap.ts"]);
-  const opengraphFile = findFileBySuffix(files, [
-    "app/opengraph-image.tsx",
-    "src/app/opengraph-image.tsx",
-    "app/opengraph-image.png",
-    "src/app/opengraph-image.png",
-    "app/opengraph-image.jpg",
-    "src/app/opengraph-image.jpg",
-    "app/opengraph-image.jpeg",
-    "src/app/opengraph-image.jpeg",
-  ]);
-
-  const layoutContent = layoutFile?.content ?? "";
-  const metadata = /\bexport\s+const\s+metadata\b/.test(layoutContent);
-  const title = metadata && /\btitle\s*:/.test(layoutContent);
-  const description = metadata && /\bdescription\s*:/.test(layoutContent);
-  const canonical = metadata && (/\balternates\s*:/.test(layoutContent) || /\bcanonical\s*:/.test(layoutContent) || /rel=["']canonical["']/.test(layoutContent));
-  const openGraph = metadata && /\bopenGraph\s*:/.test(layoutContent);
-  const ogImage = (openGraph && /\bimages\s*:/.test(layoutContent)) || Boolean(opengraphFile);
-  const twitter = metadata && /\btwitter\s*:/.test(layoutContent);
-  const robots = Boolean(robotsFile);
-  const sitemap = Boolean(sitemapFile);
-  const jsonLd = files.some((file) =>
-    /application\/ld\+json|json-ld/i.test(file.content ?? ""),
-  );
-  const homeH1Count = homePageFile?.content ? countMatches(homePageFile.content, /<h1\b/gi) : null;
-  const pageFiles = files.filter((file) =>
-    /(^|\/)app\/.*page\.(tsx|jsx)$/.test(file.name) || /(^|\/)src\/app\/.*page\.(tsx|jsx)$/.test(file.name),
-  );
-
-  const issues: SeoIssue[] = [];
-
-  if (!metadata) {
-    issues.push({
-      severity: "warning",
-      code: "missing-metadata",
-      message: "Layouten saknar export av metadata för title/description.",
-      file: layoutFile?.name ?? null,
-    });
-  }
-  if (metadata && !title) {
-    issues.push({
-      severity: "warning",
-      code: "missing-title",
-      message: "Metadata saknar title.",
-      file: layoutFile?.name ?? null,
-    });
-  }
-  if (metadata && !description) {
-    issues.push({
-      severity: "warning",
-      code: "missing-description",
-      message: "Metadata saknar description.",
-      file: layoutFile?.name ?? null,
-    });
-  }
-  if (metadata && !canonical) {
-    issues.push({
-      severity: "warning",
-      code: "missing-canonical",
-      message: "Metadata saknar canonical-strategi.",
-      file: layoutFile?.name ?? null,
-    });
-  }
-  if (metadata && !openGraph) {
-    issues.push({
-      severity: "warning",
-      code: "missing-open-graph",
-      message: "Metadata saknar Open Graph-falt.",
-      file: layoutFile?.name ?? null,
-    });
-  }
-  if (openGraph && !ogImage) {
-    issues.push({
-      severity: "warning",
-      code: "missing-og-image",
-      message: "Open Graph saknar bildstrategi (metadata images eller opengraph-image-fil).",
-      file: layoutFile?.name ?? null,
-    });
-  }
-  if (metadata && !twitter) {
-    issues.push({
-      severity: "warning",
-      code: "missing-twitter",
-      message: "Metadata saknar Twitter-kort.",
-      file: layoutFile?.name ?? null,
-    });
-  }
-  if (!robots) {
-    issues.push({
-      severity: "warning",
-      code: "missing-robots",
-      message: "Projektet saknar app/robots.ts.",
-      file: null,
-    });
-  }
-  if (!sitemap) {
-    issues.push({
-      severity: "warning",
-      code: "missing-sitemap",
-      message: "Projektet saknar app/sitemap.ts.",
-      file: null,
-    });
-  }
-  if (!jsonLd) {
-    issues.push({
-      severity: "warning",
-      code: "missing-json-ld",
-      message: "Ingen JSON-LD/schema.org-markup hittades.",
-      file: null,
-    });
-  }
-  if (homeH1Count === 0) {
-    issues.push({
-      severity: "warning",
-      code: "missing-h1",
-      message: "Startsidan saknar h1-rubrik.",
-      file: homePageFile?.name ?? null,
-    });
-  } else if (homeH1Count !== null && homeH1Count > 1) {
-    issues.push({
-      severity: "warning",
-      code: "multiple-h1",
-      message: "Startsidan har flera h1-rubriker.",
-      file: homePageFile?.name ?? null,
-    });
-  }
-  for (const pageFile of pageFiles.slice(0, 12)) {
-    if (hasBrokenHeadingHierarchy(pageFile.content ?? "")) {
-      issues.push({
-        severity: "warning",
-        code: "heading-hierarchy",
-        message: "Rubrikhierarkin hoppar över nivåer (t.ex. h1 -> h3).",
-        file: pageFile.name,
-      });
-    }
-  }
-
-  return {
-    passed: issues.length === 0,
-    issues,
-    signals: {
-      metadata,
-      title,
-      description,
-      canonical,
-      openGraph,
-      ogImage,
-      twitter,
-      robots,
-      sitemap,
-      jsonLd,
-      homeH1Count,
-    },
-  };
-}
 
 export function buildPostCheckBaseline(params: {
   currentFiles: FileEntry[];
@@ -412,7 +181,6 @@ export function buildPostCheckBaseline(params: {
   const missingRoutes = findMissingRoutes(internalLinks, routePaths);
   const missingPlannedRoutes = findMissingPlannedRoutes(preflight?.routePlan, routePaths);
   const lucideLinkMisuse = findLucideLinkMisuse(currentFiles);
-  const seoReview = buildSeoReview(currentFiles);
   const sanity = runProjectSanityChecks(
     currentFiles.map((file) => ({
       path: file.name,
@@ -462,10 +230,6 @@ export function buildPostCheckBaseline(params: {
   if (sanityErrors.length > 0 || sanityWarnings.length > 0) {
     warnings.push(`Kodsanity: ${sanityErrors.length} error, ${sanityWarnings.length} warning.`);
   }
-  // SEO is advisory-only and no longer part of the user-facing warning
-  // baseline (2026-07-23 declutter). The `seo` error-log row below still
-  // feeds the launch-readiness advisories.
-
   const versionEntry = versions.find(
     (entry) => entry.versionId === versionId || entry.id === versionId,
   );
@@ -486,7 +250,6 @@ export function buildPostCheckBaseline(params: {
     lucideLinkMisuse,
     suspiciousUseCalls,
     designTokens,
-    seoReview,
     sanity,
     sanityIssues,
     sanityErrors,

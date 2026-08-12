@@ -175,22 +175,22 @@ export function describeDossierStatus(
   switch (status) {
     case "self-contained":
       return {
-        label: "Inkopplad",
+        label: "Klar",
         tone: "neutral",
         hint:
           dossierClass === "hard"
-            ? "Kräver ingen \u201dBygg integrationer\u201d-runda. Nycklarna är valfria — utan dem stänger funktionen av sig själv."
-            : "Självförsörjande byggblock — inga externa nycklar behövs.",
+            ? "Fungerar utan ett separat integrationsbygge. Valfria nycklar kan slå på mer funktion."
+            : "Fungerar direkt — inga externa konton eller nycklar behövs.",
       };
     case "built-live":
       return {
-        label: "Byggd — live",
+        label: "Live",
         tone: "success",
-        hint: "Integrationskoden är inkopplad och alla nycklar har riktiga värden — funktionen kör på riktigt.",
+        hint: "Funktionen använder den externa tjänsten och kör på riktigt.",
       };
     case "built-demo":
       return {
-        label: "Byggd — demo aktiv",
+        label: "Demo",
         tone: "warning",
         // Two causes share this status (M#li1): a missing runtime key, or
         // filled keys WITHOUT server-side file evidence in the version — the
@@ -199,22 +199,19 @@ export function describeDossierStatus(
       };
     case "blocked-build":
       return {
-        label: "Blockerad — nyckel krävs",
+        label: "Nyckel krävs",
         tone: "warning",
-        hint: "En byggnödvändig nyckel saknar riktigt värde. \u201dBygg integrationer\u201d stoppas (utan kostnad) tills den fyllts i.",
+        hint: "Lägg till den saknade nyckeln innan du kör \u201dBygg integrationer\u201d.",
       };
     case "planned":
     default:
       return {
-        label:
-          lifecycleStage === "integrations"
-            ? "Planerad — ej byggd"
-            : "Planerad — kopplas in i nästa steg",
+        label: "Inte byggd än",
         tone: "muted",
         hint:
           lifecycleStage === "integrations"
-            ? "Integrationens riktiga kod är ännu inte inkopplad i versionen."
-            : "Designsteget ritar bara ytan — knappen eller formuläret syns, men ingen tjänst är inkopplad ännu. Det sker vid \u201dBygg integrationer\u201d.",
+            ? "Funktionen blev inte färdig i integrationsbygget. Kör \u201dBygg integrationer\u201d igen."
+            : "Ytan kan visas som demo. Kör \u201dBygg integrationer\u201d för riktig funktion.",
       };
   }
 }
@@ -240,23 +237,23 @@ export function describeEnvKeyValueState(
   }
   if (env.enforcement === "build") {
     return {
-      label: "Kräver riktigt värde",
+      label: "Lägg till före bygge",
       tone: "warning",
-      hint: "Nödvändig nyckel — integrationsbygget (F3) blockeras tills ett riktigt värde finns.",
+      hint: "Integrationsbygget väntar tills ett riktigt värde finns.",
     };
   }
   if (env.enforcement === "feature-runtime") {
     return {
-      label: "Lägg till för livefunktion",
+      label: "Lägg till för att gå live",
       tone: "warning",
       hint: "Blockerar inte bygget — funktionen kör i demo-läge tills du sparar ett riktigt värde.",
     };
   }
   if (env.placeholderCovered) {
     return {
-      label: "Auto-placeholder i F2",
+      label: "Demo-värde används",
       tone: "muted",
-      hint: "Täcks av en automatisk platshållare i F2-previewn — inget riktigt värde krävs för att bygga.",
+      hint: "Previewn använder ett ofarligt demo-värde. Inget riktigt värde krävs för att bygga.",
     };
   }
   return {

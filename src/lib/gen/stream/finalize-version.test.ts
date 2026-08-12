@@ -175,10 +175,6 @@ vi.mock("@/lib/gen/scaffolds/scaffold-aware-retry", () => ({
   inferScaffoldRetrySuggestion: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock("@/lib/gen/validation/seo-preflight", () => ({
-  runSeoPreflightChecks: vi.fn().mockReturnValue([]),
-}));
-
 vi.mock("@/lib/observability/metrics", () => ({
   recordPhaseDuration,
   observePhase,

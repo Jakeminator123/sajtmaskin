@@ -1901,6 +1901,58 @@ describe("POST /api/v0/deployments", () => {
     expect(filePaths).toContain("package.json");
   });
 
+  it("delivers every configured project env value inline and to the Vercel project", async () => {
+    const commit = vi.fn(async () => undefined);
+    const refund = vi.fn(async () => undefined);
+    const configuredEnv = {
+      OPENAI_API_KEY: "openai-runtime-sentinel",
+      RESEND_API_KEY: "resend-runtime-sentinel",
+      CONTACT_EMAIL_TO: "shoes@example.test",
+    };
+    prepareCredits.mockImplementation(async () => ({ ok: true, commit, refund }));
+    getStoredProjectEnvVarMap.mockResolvedValue(configuredEnv);
+    createDeploymentRecord.mockResolvedValue("dep_1");
+    createVercelDeployment.mockResolvedValue({
+      vercelDeploymentId: "dpl_1",
+      vercelProjectId: "vp_1",
+      url: "https://example.vercel.app",
+      inspectorUrl: null,
+      readyState: "READY",
+    });
+    getVersionFiles.mockResolvedValue([
+      { path: "package.json", content: '{"name":"demo","private":true}' },
+      {
+        path: "env.example",
+        content: "OPENAI_API_KEY=\nRESEND_API_KEY=\nCONTACT_EMAIL_TO=\n",
+      },
+    ]);
+
+    const res = await POST(
+      new Request("http://localhost/api/v0/deployments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatId: "chat_1", versionId: "ver_1" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(createVercelDeployment).toHaveBeenCalledWith(
+      expect.objectContaining({ envVars: configuredEnv }),
+    );
+    expect(syncEnvVarsToVercelProject).toHaveBeenCalledWith("vp_1", configuredEnv);
+
+    const deployCall = createVercelDeployment.mock.calls[0][0] as {
+      files: Array<{ name: string; content: string }>;
+    };
+    const envExample = deployCall.files.find((file) => file.name === "env.example");
+    expect(envExample?.content).toContain("OPENAI_API_KEY=");
+    expect(envExample?.content).toContain("RESEND_API_KEY=");
+    expect(envExample?.content).toContain("CONTACT_EMAIL_TO=");
+    for (const value of Object.values(configuredEnv)) {
+      expect(envExample?.content).not.toContain(value);
+    }
+  });
+
   // BUG-fix: env-var project sync errors used to be swallowed into a
   // `console.warn` only — the caller (and therefore the UI) had no way to
   // know integrations might not survive a future dashboard-triggered

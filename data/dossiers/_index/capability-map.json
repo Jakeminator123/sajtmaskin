@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-08-11T19:21:30.534Z",
+  "generatedAt": "2026-08-12T00:29:48.308Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -183,8 +183,8 @@
           "hint": "Ytan renderas fullt ut, men handlingen öppnar en ärlig demo-notis i stället för en riktig betalning eller inloggning."
         },
         "requiresF3": {
-          "label": "Kräver F3",
-          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+          "label": "Bygg integrationer",
+          "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
     },
@@ -239,8 +239,8 @@
           "hint": "Formuläret går igenom och svarar med en ärlig demo-notis — inget mejl och ingen prenumeration skickas på riktigt."
         },
         "requiresF3": {
-          "label": "Kräver F3",
-          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+          "label": "Bygg integrationer",
+          "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
     },
@@ -289,8 +289,8 @@
           "hint": "Servern svarar med ett trovärdigt påhittat svar (chatten streamar ett förberett svar) tills en riktig nyckel sparas."
         },
         "requiresF3": {
-          "label": "Kräver F3",
-          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+          "label": "Bygg integrationer",
+          "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
     },
@@ -341,8 +341,8 @@
           "hint": "Data-lagret använder medskickad exempeldata och en diskret notis tills en riktig databas kopplas in."
         },
         "requiresF3": {
-          "label": "Kräver F3",
-          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+          "label": "Bygg integrationer",
+          "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
     },
@@ -400,8 +400,8 @@
           "hint": "Formuläret går igenom och svarar med en ärlig demo-notis — inget mejl och ingen prenumeration skickas på riktigt."
         },
         "requiresF3": {
-          "label": "Kräver F3",
-          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+          "label": "Bygg integrationer",
+          "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
     },
@@ -469,8 +469,8 @@
           "hint": "Data-lagret använder medskickad exempeldata och en diskret notis tills en riktig databas kopplas in."
         },
         "requiresF3": {
-          "label": "Kräver F3",
-          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+          "label": "Bygg integrationer",
+          "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
     },
@@ -524,8 +524,8 @@
           "hint": "Ytan renderas fullt ut, men handlingen öppnar en ärlig demo-notis i stället för en riktig betalning eller inloggning."
         },
         "requiresF3": {
-          "label": "Kräver F3",
-          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+          "label": "Bygg integrationer",
+          "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
     },
@@ -579,8 +579,8 @@
           "hint": "Ytan renderas fullt ut, men handlingen öppnar en ärlig demo-notis i stället för en riktig betalning eller inloggning."
         },
         "requiresF3": {
-          "label": "Kräver F3",
-          "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+          "label": "Bygg integrationer",
+          "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
         }
       }
     },
@@ -619,7 +619,7 @@
           "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
         },
         "requiresF3": {
-          "label": "Klar i designläget",
+          "label": "Klar utan extra bygge",
           "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
         }
       }
@@ -656,7 +656,7 @@
           "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
         },
         "requiresF3": {
-          "label": "Klar i designläget",
+          "label": "Klar utan extra bygge",
           "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
         }
       }
@@ -696,7 +696,7 @@
           "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
         },
         "requiresF3": {
-          "label": "Klar i designläget",
+          "label": "Klar utan extra bygge",
           "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
         }
       }
@@ -734,7 +734,7 @@
           "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
         },
         "requiresF3": {
-          "label": "Klar i designläget",
+          "label": "Klar utan extra bygge",
           "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
         }
       }
@@ -769,7 +769,7 @@
           "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
         },
         "requiresF3": {
-          "label": "Klar i designläget",
+          "label": "Klar utan extra bygge",
           "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
         }
       }
@@ -802,7 +802,7 @@
           "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
         },
         "requiresF3": {
-          "label": "Klar i designläget",
+          "label": "Klar utan extra bygge",
           "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
         }
       }
@@ -839,7 +839,7 @@
           "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
         },
         "requiresF3": {
-          "label": "Klar i designläget",
+          "label": "Klar utan extra bygge",
           "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
         }
       }
@@ -876,7 +876,7 @@
           "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
         },
         "requiresF3": {
-          "label": "Klar i designläget",
+          "label": "Klar utan extra bygge",
           "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
         }
       }
@@ -915,7 +915,7 @@
           "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
         },
         "requiresF3": {
-          "label": "Klar i designläget",
+          "label": "Klar utan extra bygge",
           "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
         }
       }
@@ -950,7 +950,7 @@
           "hint": "Ingen användarsynlig demo-yta — komponenten stänger av sig själv eller visar en konfigurationsnotis."
         },
         "requiresF3": {
-          "label": "Klar i designläget",
+          "label": "Klar utan extra bygge",
           "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
         }
       }
@@ -991,11 +991,11 @@
     },
     "requiresF3": {
       "true": {
-        "label": "Kräver F3",
-        "hint": "Den riktiga integrationen byggs i steget \"Bygg integrationer\" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget."
+        "label": "Bygg integrationer",
+        "hint": "Den riktiga funktionen skapas när du kör \"Bygg integrationer\". Innan dess kan ytan visas som demo."
       },
       "false": {
-        "label": "Klar i designläget",
+        "label": "Klar utan extra bygge",
         "hint": "Fungerar färdigt redan i designläget — ingen \"Bygg integrationer\"-runda behövs."
       }
     }
@@ -1038,7 +1038,7 @@
     "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
     "docs/schemas/strict/dossier.schema.json": "454912f6f36ba3e565d0a1e3d65863b849387c5eff0ba68fe5347a54849787ab",
     "scripts/dossiers/regenerate-capability-map.ts": "ce15a798da3ac8056091104ae83854a2a92ade98b8468b077e1ebc4977035163",
-    "src/lib/builder/dossier-axes.ts": "cdd0dfe5ae7fb34e1d97a78d2e318800e54b5dc726ae9f588bbac7b4bea44160",
+    "src/lib/builder/dossier-axes.ts": "55ce87bc934c1135d891c4a992ac7e775cca195313c7c28c62287e7390f6b9fc",
     "src/lib/builder/dossier-groups.ts": "67adc554dafd00c54766c732af6600737f6194138c7773ee09a977c03d97fd59",
     "src/lib/gen/dossiers/f2-mute.ts": "f9fe5879bdd327277423c2a82374c11d303b6c1484fb17b88edb6d8bbd6882ed",
     "src/lib/gen/dossiers/registry.ts": "2766260fb71f0bef126a9f30274869b507bc466b84edb50501568a8b9cee7c11",

@@ -192,7 +192,7 @@ från exakt samma F2-filer och kör ReleaseGate utan LLM. `feature-runtime` och
 `warn-only` förblir Advisory tills användaren senare sparar riktiga
 `projectEnvVars`; den visuella Byggblock-fallbacken bevaras.
 
-**Ärlig publiceringsgrind (deploy-409):** `POST /api/v0/deployments` blockerar med `409 DEPLOY_MISSING_ENV` på `buildBlockingKeys` i F3 (`integrations`) — där hård-blockerar `feature-runtime` eller placeholder-täckta nycklar aldrig; de syns som icke-blockerande `EnvDegradationWarning` (`src/app/api/v0/deployments/env-degradation-warnings.ts`). I F2 (`design`) gäller `missingEnvKeys`-backstoppen (medvetet, #461): en okonfigurerad nyckel **utan katalog-placeholder** blockerar oavsett enforcement — dossier-nycklar träffas normalt inte i F2 (server-filer strippas, `env.example`-stubbar filtreras ur detektionen), men modellskrivna `process.env`-referenser utanför katalogen kan 409:a även en F2-publicering. F3-stream/finalize-design gatar på samma otäckta build-nycklar (`412 tier3_env_not_ready`); Byggblock-popovern är den enda projekt-env-editorn och öppnar/fokuserar rätt dossier från serverns `missingByIntegration`.
+**Ärlig publiceringsgrind (deploy-409):** `POST /api/v0/deployments` blockerar med `409 DEPLOY_MISSING_ENV` på `buildBlockingKeys` i F3 (`integrations`) — där hård-blockerar `feature-runtime` eller placeholder-täckta nycklar aldrig; de syns som icke-blockerande `EnvDegradationWarning` (`src/app/api/v0/deployments/env-degradation-warnings.ts`). I F2 (`design`) gäller `designDeployBlockingKeys`: bara verkligt saknade `build`-nycklar kan blockera, medan feature-runtime, adressvärden och demo-/warn-only-kontrakt förblir icke-blockerande. F3-stream/finalize-design gatar på samma otäckta build-nycklar (`412 tier3_env_not_ready`); Byggblock-popovern är den enda projekt-env-editorn och öppnar/fokuserar rätt dossier från serverns `missingByIntegration`.
 
 ---
 
@@ -216,7 +216,7 @@ Djupare ämnen:
 
 Sajtmaskin **≠** den genererade Next-appen i preview-/VM-runtime. Merge av placeholders och projekt-env i VM sker i kod (`src/lib/gen/preview/env-local.ts`) med underlag från `config/ai_models/` — se **llm-pipeline.md**, avsnitt om tier-2 preview `.env.local`.
 
-**F2-mock-seed:** i F2 (`design`) får varje vald dossiers env-nyckel som fortfarande saknar värde efter de vanliga lagren ett deterministiskt stub-värde (`dossierMockPreviewEnvValue`) i preview-`.env.local`, så dossierns UI renderar sitt mock-/demo-läge — även nycklar utanför placeholder-katalogen (t.ex. `EMAIL_FROM`, `CONTACT_EMAIL_TO`, `FAL_API_KEY`, `MAILCHIMP_*`). Seeden körs **aldrig** i F3 (stub-lagret strippas, riktiga värden krävs), persisteras **aldrig** till `projectEnvVars` och når **aldrig** en deploy, och matchar `stub-env-filter.ts` så den aldrig räknas som integrationsbevis. Ett riktigt användar-/modell-värde vinner alltid över seeden.
+**F2-mock-seed:** i F2 (`design`) får varje vald dossiers env-nyckel som fortfarande saknar värde efter de vanliga lagren ett deterministiskt stub-värde (`dossierMockPreviewEnvValue`) i preview-`.env.local`, så dossierns UI renderar sitt mock-/demo-läge — även nycklar utanför placeholder-katalogen (t.ex. `EMAIL_FROM`, `CONTACT_EMAIL_TO`, `FAL_API_KEY`, `MAILCHIMP_*`). Seeden hör inte till normal F3-codegen, persisteras **aldrig** till `projectEnvVars` och når **aldrig** en deploy. Dossierns enforcement avgör om ett riktigt värde krävs: `build` kan blockera, medan `feature-runtime` får fortsätta som ärlig demo. Stubben matchar `stub-env-filter.ts` och räknas aldrig som integrationsbevis. Ett riktigt användar-/modell-värde vinner alltid över seeden.
 
 ### Project env file (`env.example`) — användar­synlig dokumentationsfil
 
@@ -237,7 +237,7 @@ modell-emitterad `.env.local` utan pipeline-markören lämnas däremot orörd.
 Preview-VM:n bygger fortsatt sin separata runtime-fil med projektets riktiga
 `projectEnvVars`; export/deploy strippar `.env.local` vid gränsen.
 
-För dossier-nycklar utan katalog-placeholder skiljer sig F2 och F3: i **F2** får varje sådan nyckel ett deterministiskt demo-värde (`<key>_placeholder_preview_not_real` via `dossierMockPreviewEnvValue`) så den nedladdade filen dokumenterar exakt den stub preview-VM:en bootar med; i **F3** blir det i stället en tom `KEY=`-rad med `purpose`-kommentar eftersom ett riktigt värde krävs. Demo-värdet innehåller stub-vokabulären (`placeholder` + `not_real`) som `stub-env-filter.ts` känner igen, så det aldrig läses som integrationsbevis.
+För dossier-nycklar utan katalog-placeholder skiljer sig F2 och F3: i **F2** får varje sådan nyckel ett deterministiskt demo-värde (`<key>_placeholder_preview_not_real` via `dossierMockPreviewEnvValue`) så mallen dokumenterar demoläget; i **F3** blir det i stället en tom `KEY=`-rad med `purpose`-kommentar. Om tomt värde blockerar eller ger demo avgörs av dossierns enforcement, inte av fasnamnet. Demo-värdet innehåller stub-vokabulären (`placeholder` + `not_real`) som `stub-env-filter.ts` känner igen, så det aldrig läses som integrationsbevis.
 
 | Stage | Innehåll i `env.example` | Källor |
 |-------|---------------------|--------|

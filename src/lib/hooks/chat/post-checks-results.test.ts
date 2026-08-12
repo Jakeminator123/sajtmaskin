@@ -1,24 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { buildPostCheckArtifacts } from "./post-checks-results";
-import type { SeoReview } from "./post-checks-analysis";
-
-const emptySeoReview: SeoReview = {
-  passed: true,
-  issues: [],
-  signals: {
-    metadata: true,
-    title: true,
-    description: true,
-    canonical: true,
-    openGraph: true,
-    ogImage: true,
-    twitter: true,
-    robots: true,
-    sitemap: true,
-    jsonLd: true,
-    homeH1Count: 1,
-  },
-};
 
 describe("post-checks-results", () => {
   it("describes preflight blockers without pretending quality gate already ran", () => {
@@ -56,7 +37,6 @@ describe("post-checks-results", () => {
       lucideLinkMisuse: [],
       suspiciousUseCalls: [],
       designTokens: null,
-      seoReview: emptySeoReview,
       sanityIssues: [],
       sanityErrors: [],
       sanityWarnings: [],
@@ -105,7 +85,6 @@ describe("post-checks-results", () => {
       lucideLinkMisuse: [],
       suspiciousUseCalls: [],
       designTokens: null,
-      seoReview: emptySeoReview,
       sanityIssues: [],
       sanityErrors: [],
       sanityWarnings: [],
@@ -160,7 +139,6 @@ describe("post-checks-results", () => {
       lucideLinkMisuse: [],
       suspiciousUseCalls: [],
       designTokens: null,
-      seoReview: emptySeoReview,
       sanityIssues: [],
       sanityErrors: [],
       sanityWarnings: [],
@@ -174,57 +152,4 @@ describe("post-checks-results", () => {
     );
   });
 
-  it("writes the advisory seo error-log row but keeps SEO out of the chat steps", () => {
-    const artifacts = buildPostCheckArtifacts({
-      currentFileCount: 1,
-      versionId: "ver_test",
-      changes: null,
-      warnings: [],
-      preflight: null,
-      previousVersionId: null,
-      streamQuality: undefined,
-      missingRoutes: [],
-      missingPlannedRoutes: [],
-      lucideLinkMisuse: [],
-      suspiciousUseCalls: [],
-      designTokens: null,
-      seoReview: {
-        passed: false,
-        issues: [
-          {
-            severity: "warning",
-            code: "missing-metadata",
-            message: "Layouten saknar export av metadata för title/description.",
-            file: "app/layout.tsx",
-          },
-        ],
-        signals: {
-          metadata: false,
-          title: false,
-          description: false,
-          canonical: false,
-          openGraph: false,
-          ogImage: false,
-          twitter: false,
-          robots: false,
-          sitemap: false,
-          jsonLd: false,
-          homeH1Count: 1,
-        },
-      },
-      sanityIssues: [],
-      sanityErrors: [],
-      sanityWarnings: [],
-      imageValidation: null,
-      resolvedDemoUrl: "https://preview.example/ver_test",
-    });
-
-    // Advisory row persists (launch readiness reads it) …
-    const seoLog = artifacts.logItems.find((item) => item.category === "seo");
-    expect(seoLog).toBeDefined();
-    expect(seoLog?.level).toBe("warning");
-    // … but the chat post-check steps and warning reasons stay SEO-free.
-    expect(artifacts.output.steps.some((step) => step.includes("SEO"))).toBe(false);
-    expect(artifacts.warningReasons).toEqual([]);
-  });
 });

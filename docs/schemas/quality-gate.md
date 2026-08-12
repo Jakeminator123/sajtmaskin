@@ -57,8 +57,9 @@ De är alltså inte samma sak som:
   och gate:ar F2-verifiering; de force-promotas även från `quality`-
   till `blocking`-lanen om modellen felbucketar dem
 - live-previewns `npm run dev`
-- CapabilitySmoke (kod: `product_postcheck.*`) som gör capability-specifik
-  DOM/render-smoke efter preview och rapporterar varningar/degradations
+- CapabilitySmoke (kod: `product_postcheck.*`) som gör en begränsad
+  DOM-/runtime-smoke efter preview och rapporterar varningar/degradations; den
+  skickar inte verkliga provideranrop för varje Byggblock
 
 ## Verifier-pass policy efter Normalize
 

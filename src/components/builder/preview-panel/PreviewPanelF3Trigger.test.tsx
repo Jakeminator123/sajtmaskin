@@ -255,7 +255,7 @@ describe("PreviewPanelF3Trigger", () => {
     // counts are available (Bugbot, 5th pass on this diff).
     expect(onStatus).toHaveBeenCalledWith({
       tone: "success",
-      title: "Byggd — integrationerna är inbyggda",
+      title: "Integrationsbygget är klart",
       usesLiveDossierCounts: true,
       description: expect.stringContaining("exakt samma filer"),
       versionId: "ver_f3",
@@ -305,7 +305,7 @@ describe("PreviewPanelF3Trigger", () => {
       expect(onStatus).toHaveBeenCalledWith(
         expect.objectContaining({
           tone: "success",
-          title: "Byggd — integrationerna är inbyggda",
+          title: "Integrationsbygget är klart",
           usesLiveDossierCounts: true,
           versionId: "ver_f3",
         }),
@@ -346,7 +346,7 @@ describe("PreviewPanelF3Trigger", () => {
       expect(onStatus).toHaveBeenCalledWith(
         expect.objectContaining({
           tone: "success",
-          title: "Byggd — integrationerna är inbyggda",
+          title: "Integrationsbygget är klart",
           usesLiveDossierCounts: true,
         }),
       );
