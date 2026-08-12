@@ -70,13 +70,13 @@ const MOCK_MODE_HINTS: Record<DossierMockMode, string> = {
 export function describeDossierClass(dossierClass: "hard" | "soft"): DossierAxisDescriptor {
   if (dossierClass === "hard") {
     return {
-      label: "Extern tjänst",
-      hint: "Använder en extern tjänst. Utan nycklar visar byggblocket sitt demoläge.",
+      label: "Kopplad",
+      hint: "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge.",
     };
   }
   return {
-    label: "Ingen extern tjänst",
-    hint: "Fungerar utan externa konton eller nycklar.",
+    label: "Fristående",
+    hint: "Behöver bara npm-paket — inga externa konton eller nycklar.",
   };
 }
 

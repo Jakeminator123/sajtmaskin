@@ -51,19 +51,19 @@ describe("dossier-axes", () => {
     expect(describeDossierMockMode(null)).toEqual(describeDossierMockMode("none"));
   });
 
-  it("uses plain service wording, never hard/soft or F2/F3 jargon", () => {
-    expect(describeDossierClass("hard").label).toBe("Extern tjänst");
-    expect(describeDossierClass("soft").label).toBe("Ingen extern tjänst");
+  it("uses the user-facing Kopplad/Fristående wording, never hård/mjuk", () => {
+    expect(describeDossierClass("hard").label).toBe("Kopplad");
+    expect(describeDossierClass("soft").label).toBe("Fristående");
     for (const dossierClass of ["hard", "soft"] as const) {
       expect(describeDossierClass(dossierClass).hint.toLowerCase()).not.toContain("hård");
       expect(describeDossierClass(dossierClass).hint.toLowerCase()).not.toContain("mjuk");
     }
   });
 
-  it("does not claim an external dossier is missing from the preview", () => {
+  it("does not claim a Kopplad dossier is missing from the preview", () => {
     // The whole point of the mock contract: a hard dossier is always injected
     // and degrades — the copy must not say the opposite.
-    expect(describeDossierClass("hard").hint).toContain("demoläge");
+    expect(describeDossierClass("hard").hint).toContain("läggs ändå alltid in");
   });
 
   it("names the F3 step for a dossier that requires it, and says so plainly when it does not", () => {

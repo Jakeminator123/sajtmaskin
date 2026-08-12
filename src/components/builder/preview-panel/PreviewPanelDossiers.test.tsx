@@ -155,7 +155,7 @@ describe("PreviewPanelDossiers", () => {
     });
 
     const standaloneFilter = await screen.findByRole("button", {
-      name: "Ingen extern tjänst (1)",
+      name: "Fristående (1)",
     });
     fireEvent.click(standaloneFilter);
 
@@ -164,12 +164,12 @@ describe("PreviewPanelDossiers", () => {
     expect(screen.queryByText("Betalning & handel")).toBeNull();
     expect(standaloneFilter.getAttribute("aria-pressed")).toBe("true");
 
-    fireEvent.click(screen.getByRole("button", { name: "Extern tjänst (2)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Kopplad (2)" }));
 
     expect(screen.getByText("Stripe Checkout")).toBeTruthy();
     expect(screen.getByText("Klarna Checkout")).toBeTruthy();
     expect(screen.queryByText("Bildgalleri med lightbox")).toBeNull();
-    expect(screen.getAllByText("Extern tjänst")).toHaveLength(2);
+    expect(screen.getAllByText("Kopplad")).toHaveLength(2);
     expect(screen.getAllByText("Bygg integrationer")).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Alla (3)" }));
@@ -186,7 +186,7 @@ describe("PreviewPanelDossiers", () => {
     });
 
     const standaloneFilter = await screen.findByRole("button", {
-      name: "Ingen extern tjänst (1)",
+      name: "Fristående (1)",
     });
     fireEvent.click(standaloneFilter);
     expect(screen.queryByText("Stripe Checkout")).toBeNull();
@@ -451,11 +451,11 @@ describe("PreviewPanelDossiers", () => {
 
     const row = await screen.findByText("Databas — Postgres");
     expect(screen.getByText("Demo")).toBeTruthy();
-    expect(screen.queryByText("Extern tjänst")).toBeNull();
+    expect(screen.queryByText("Kopplad")).toBeNull();
     // Demoläget bor i den expanderade raden (där det finns plats för det).
     expect(screen.queryByText(/Demoläge: Medskickad demo-data/)).toBeNull();
     fireEvent.click(row);
-    expect(screen.getByText("Extern tjänst")).toBeTruthy();
+    expect(screen.getByText("Kopplad")).toBeTruthy();
     expect(screen.getByText(/Demoläge: Medskickad demo-data/)).toBeTruthy();
   });
 
@@ -470,7 +470,7 @@ describe("PreviewPanelDossiers", () => {
     await screen.findByText("Klarna Checkout");
     // Båda katalograderna använder en extern tjänst; bara Stripe behöver
     // det separata integrationsbygget.
-    expect(screen.getAllByText("Extern tjänst")).toHaveLength(2);
+    expect(screen.getAllByText("Kopplad")).toHaveLength(2);
     expect(screen.getAllByText("Bygg integrationer")).toHaveLength(1);
   });
 

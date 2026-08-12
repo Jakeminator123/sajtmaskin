@@ -147,9 +147,7 @@ export function DossiersPopoverView({
             <p className="text-gray-400">{entry.summarySv ?? entry.summary}</p>
             <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-500">
               <span className="rounded bg-gray-800/60 px-1.5 py-0.5" title={classDescriptor.hint}>
-                {entry.class === "hard"
-                  ? "Extern tjänst"
-                  : "Ingen extern tjänst"}
+                {classDescriptor.label}
               </span>
               {/* Demoläget är den enda av de tre axlarna som säger vad
                   besökaren faktiskt ser innan nycklarna finns. */}
@@ -602,7 +600,7 @@ export function DossiersPopoverView({
                     aria-pressed={catalogClassFilter === "hard"}
                     onClick={() => setCatalogClassFilter("hard")}
                   >
-                    Extern tjänst ({catalogCounts.hard})
+                    {describeDossierClass("hard").label} ({catalogCounts.hard})
                   </Button>
                   <Button
                     type="button"
@@ -612,7 +610,7 @@ export function DossiersPopoverView({
                     aria-pressed={catalogClassFilter === "soft"}
                     onClick={() => setCatalogClassFilter("soft")}
                   >
-                    Ingen extern tjänst ({catalogCounts.soft})
+                    {describeDossierClass("soft").label} ({catalogCounts.soft})
                   </Button>
                 </div>
               ) : null}
