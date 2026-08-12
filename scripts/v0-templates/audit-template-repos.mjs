@@ -516,6 +516,10 @@ function scanEnvReferences(source, file, role) {
       ts.isObjectBindingPattern(parent.name)
     ) {
       for (const element of parent.name.elements) {
+        if (element.dotDotDotToken) {
+          dynamicAccess = true;
+          continue;
+        }
         const key = importedBindingKey(element);
         if (ENV_KEY_RE.test(key ?? ""))
           addMatch(key, element.propertyName ?? element.name, functionDepth);
@@ -595,7 +599,7 @@ function scanEnvReferences(source, file, role) {
     if (
       !ts.isCallExpression(node) ||
       node.expression.kind !== ts.SyntaxKind.ImportKeyword ||
-      node.arguments.length !== 1
+      node.arguments.length < 1
     )
       return;
     const envModule = svelteEnvModule(node.arguments[0]);

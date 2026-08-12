@@ -483,6 +483,16 @@ class TemplateCuratorAuditSecurityTests(unittest.TestCase):
         )
         self.assertEqual(profile["decision"], "review")
 
+    def test_env_object_rest_destructuring_is_dynamic_not_an_exact_key(self) -> None:
+        payload = _next_project(
+            "const { ...REST } = process.env;\n"
+            "export default function Page(){return <main>{String(REST)}</main>}"
+        )
+        audit = self._run_audit({"env-object-rest": payload})["env-object-rest"]
+        self.assertNotIn("REST", audit["envUncovered"], audit)
+        self.assertEqual(audit["envRefCount"], 0, audit)
+        self.assertIn("env-scan-incomplete(dynamic-access)", audit["issues"])
+
     def test_mts_and_cts_env_reads_are_scanned_but_declarations_are_not_executable(self) -> None:
         payload = _next_project(
             "import '../config.mts'; import '../legacy.cts';\n"
@@ -535,8 +545,9 @@ class TemplateCuratorAuditSecurityTests(unittest.TestCase):
                     "</script>\n"
                     "<script lang='ts'>\n"
                     "const load = () => import('$env/dynamic/private');\n"
+                    "const loadWithOptions = () => import('$env/dynamic/public', {});\n"
                     "</script>\n"
-                    "<main>{String(load)}</main>"
+                    "<main>{String(load || loadWithOptions)}</main>"
                 ),
             }
         )
@@ -549,6 +560,7 @@ class TemplateCuratorAuditSecurityTests(unittest.TestCase):
                 "REEXPORTED_SECRET",
                 "PUBLIC_SVELTEKIT_STATIC",
                 "SVELTEKIT_DYNAMIC_PRIVATE",
+                "PUBLIC_SVELTEKIT_DYNAMIC",
             },
             audit,
         )
