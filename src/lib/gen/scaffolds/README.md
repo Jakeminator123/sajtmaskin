@@ -4,10 +4,10 @@ Large generated JSON sits in `.cursorindexingignore` — out of semantic search,
 
 ## What Lives Here
 
-This directory holds the 9 runtime scaffolds:
+This directory holds the 10 runtime scaffolds:
 
 `base-nextjs`, `landing-page`, `saas-landing`, `portfolio`, `blog`,
-`dashboard`, `auth-pages`, `ecommerce`, `app-shell`.
+`dashboard`, `auth-pages`, `ecommerce`, `app-shell`, `projekt-bas-app`.
 
 > Historisk not: den tidigare marketing-scaffolden slogs ihop med
 > `landing-page` 2026-04-23 (OMTAG fas 2·B / M1). `warm-editorial` och
@@ -27,15 +27,16 @@ when generating code.
 
 | File | Size | What it is |
 |------|------|-----------|
-| `scaffold-embeddings.json` | ~0.4 MB (lokal cache) | OpenAI vectors for the 9 scaffolds. **SoT:** Vercel Blob `embeddings/scaffold-embeddings.json`. Used by `searchScaffolds()`. |
+| `scaffold-embeddings.json` | ~0.4 MB (lokal cache) | OpenAI vectors for the 10 scaffolds. **SoT:** Vercel Blob `embeddings/scaffold-embeddings.json`. Used by `searchScaffolds()`. |
 | `scaffold-research.generated.json` | ~1 MB | Generated per-scaffold `qualityChecklist` and `research` (`upgradeTargets`, legacy `referenceTemplates`). Historically built from the removed external template-library pipeline. Runtime renders checklist/upgrade targets but no longer renders the legacy template list. |
 
 ## Indexed files (readable by agents)
 
 | File | What it does |
 |------|-------------|
-| `registry.ts` | Imports the 9 manifests (see `BASE_SCAFFOLDS`) and merges in generated research overrides. This is the single source of truth for runtime scaffold objects. |
+| `registry.ts` | Imports the 10 manifests (see `BASE_SCAFFOLDS`) and merges in generated research overrides. This is the single source of truth for runtime scaffold objects. |
 | `types.ts` | `ScaffoldManifest`, `ScaffoldFile`, `ScaffoldResearchMetadata` types. `id` is scaffoldens kanoniska runtime-nyckel; äldre docs kan fortfarande nämna `family` som legacy-alias. |
+| `scaffold-client-list.generated.ts` | Committed browser-safe projection of client-visible manifest metadata. Regenerate with `npm run scaffolds:client-list:write`; freshness is checked by `npm run scaffolds:validate`. |
 | `matcher.ts` | Primary keyword-based scaffold matching. `matchScaffoldAuto()` uses keyword matching first and only uses embeddings when the keyword result is missing or too generic. |
 | `serialize.ts` | `serializeScaffoldForPrompt()` — turns the resolved scaffold into prompt context. |
 | `scaffold-search.ts` | Embedding-based `searchScaffolds()`; expands SV<->EN query hints before cosine ranking. |
@@ -57,5 +58,6 @@ when generating code.
 ## Regeneration Notes
 
 - `scaffold-research.generated.json` was historically rebuilt by `scripts/template-library/build-template-library.ts`. That script + its `template-library:*` npm targets are removed (see `registry.ts` header). Treat `referenceTemplates` as retained legacy data, not runtime prompt input; current variant inspiration comes from one allowlisted Blob template via `scaffold-variants/template-inspiration.ts`.
+- `scaffold-client-list.generated.ts` rebuilds via `npm run scaffolds:client-list:write`. Do not import `registry.ts` from client code; the committed projection keeps Node-only manifest loading out of the browser graph.
 - `scaffold-embeddings.json` rebuilds via `npm run scaffolds:embeddings` (writes Vercel Blob + local cache). Sync cache with `npm run embeddings:sync`.
 - If scaffold research changes, regenerate embeddings too so semantic matching uses the same merged scaffold data as runtime.

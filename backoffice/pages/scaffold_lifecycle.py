@@ -107,9 +107,6 @@ from .scaffold_lifecycle_lib.scaffold_ops import (
     _update_embedding_locale_for_created_scaffold,
     _update_variant_schema_enum,
     _create_scaffold,
-    _update_types_for_deleted_scaffold,
-    _update_registry_for_deleted_scaffold,
-    _update_embedding_locale_for_deleted_scaffold,
     _scan_manual_code_references,
     _scan_scaffold_dependencies,
     _clean_generated_scaffold_artifacts,
@@ -193,11 +190,8 @@ __all__ = [
     "_types_path",
     "_unique_preserving_order",
     "_update_embedding_locale_for_created_scaffold",
-    "_update_embedding_locale_for_deleted_scaffold",
     "_update_registry_for_created_scaffold",
-    "_update_registry_for_deleted_scaffold",
     "_update_types_for_created_scaffold",
-    "_update_types_for_deleted_scaffold",
     "_update_variant_schema_enum",
     "_upsert_scaffold_union_entry",
     "_variant_embeddings_index_path",
@@ -740,7 +734,7 @@ def _render_create_scaffold(ctx: BackofficeContext, manifests: list[dict[str, An
     )
     with st.expander("Vad skapas automatiskt?", expanded=False):
         st.markdown("- `manifest.ts` + klonad `files/` från vald källscaffold")
-        st.markdown("- `ScaffoldId` + `SCAFFOLD_CLIENT_LIST` i `types.ts`")
+        st.markdown("- `ScaffoldId` i `types.ts` + klientlistan i `scaffold-client-list.generated.ts`")
         st.markdown("- import + registrering i `registry.ts`")
         st.markdown("- svensk embedding-locale i `scaffold-embedding-locale.ts`")
         st.markdown("- neutral startvariant i `config/scaffold-variants/` om du lämnar checkboxen på")
@@ -965,8 +959,9 @@ def render(ctx: BackofficeContext) -> None:
             "pool: se sidan **Byggblock (dossiers)**."
         )
         st.markdown(
-            "- Skapande skriver även `types.ts`, `registry.ts` och "
-            "`scaffold-embedding-locale.ts`; misslyckas något rullas allt tillbaka."
+            "- Skapande skriver även `types.ts`, `scaffold-client-list.generated.ts`, "
+            "`registry.ts` och `scaffold-embedding-locale.ts`; misslyckas något "
+            "rullas allt tillbaka."
         )
         st.markdown("- Validera efter ändring: `npm run scaffolds:validate`")
 
