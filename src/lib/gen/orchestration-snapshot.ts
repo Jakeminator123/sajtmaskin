@@ -191,6 +191,13 @@ export function mergePersistedOrchestrationSnapshots(
   }
 
   const merged = { ...base, ...next };
+  // An imported-repo baseline is a write-once record of the exact initialized
+  // revision. Follow-up finalizers shallow-merge their current orchestration
+  // state into this snapshot, but must never turn that moving state into a new
+  // "baseline" (or let an accidental stream-meta key replace history).
+  if (isPlainObjectRecord(base.importedRepoBaseline)) {
+    merged.importedRepoBaseline = base.importedRepoBaseline;
+  }
   // Protect stable identity fields from null-overwrites in later finalize
   // passes that lost these values during sanitization.
   if (typeof base.variantId === "string" && next.variantId === null) {
@@ -221,9 +228,7 @@ export function mergePersistedOrchestrationSnapshots(
   // so in practice this runs on every follow-up merge — harmless, since every
   // consumer gates on `length > 0`, and an empty tombstone never suppresses.
   const hasCapabilitySignal =
-    "removedCapabilities" in base ||
-    "removedCapabilities" in next ||
-    "readdedCapabilities" in next;
+    "removedCapabilities" in base || "removedCapabilities" in next || "readdedCapabilities" in next;
   if (hasCapabilitySignal) {
     const readded = new Set(normalizeCapabilityList(next.readdedCapabilities));
     const unioned = new Set([
@@ -281,12 +286,10 @@ export function mergePersistedOrchestrationSnapshots(
         .map((dossierId) => getDossierById(dossierId)?.capability.toLowerCase())
         .filter((capability): capability is string => Boolean(capability)),
     );
-    const retainedBaseIds = normalizeCapabilityList(base.mutedDossierIds).filter(
-      (dossierId) => {
-        const capability = getDossierById(dossierId)?.capability.toLowerCase();
-        return !capability || !replacedCapabilities.has(capability);
-      },
-    );
+    const retainedBaseIds = normalizeCapabilityList(base.mutedDossierIds).filter((dossierId) => {
+      const capability = getDossierById(dossierId)?.capability.toLowerCase();
+      return !capability || !replacedCapabilities.has(capability);
+    });
     const unionedMutedIds = new Set([...retainedBaseIds, ...nextMutedIds]);
     merged.mutedDossierIds = Array.from(unionedMutedIds).filter((dossierId) => {
       if (deliveredOrRemoved.has(dossierId)) return false;
@@ -367,18 +370,13 @@ function readStringArraySnapshotKey(
  * The tombstone is only cleared by an explicit re-add
  * (`mergePersistedOrchestrationSnapshots`), after which approvals flow again.
  */
-export function readF3ApprovedFromSnapshot(
-  snapshot: Record<string, unknown> | null | undefined,
-): { capabilities: string[]; providers: string[] } {
+export function readF3ApprovedFromSnapshot(snapshot: Record<string, unknown> | null | undefined): {
+  capabilities: string[];
+  providers: string[];
+} {
   const removed = readStringArraySnapshotKey(snapshot, "removedCapabilities");
-  const capabilities = readStringArraySnapshotKey(
-    snapshot,
-    F3_APPROVED_CAPABILITIES_SNAPSHOT_KEY,
-  );
-  const providers = readStringArraySnapshotKey(
-    snapshot,
-    F3_APPROVED_PROVIDERS_SNAPSHOT_KEY,
-  );
+  const capabilities = readStringArraySnapshotKey(snapshot, F3_APPROVED_CAPABILITIES_SNAPSHOT_KEY);
+  const providers = readStringArraySnapshotKey(snapshot, F3_APPROVED_PROVIDERS_SNAPSHOT_KEY);
   if (removed.length === 0) {
     return { capabilities, providers };
   }
@@ -703,21 +701,15 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
         )
       : [];
   const hasExplicitRemoval =
-    Array.isArray(
-      (snapshot as Record<string, unknown> | null)?.removedCapabilities,
-    ) &&
-    (
-      (snapshot as Record<string, unknown>)
-        .removedCapabilities as unknown[]
-    ).length > 0;
+    Array.isArray((snapshot as Record<string, unknown> | null)?.removedCapabilities) &&
+    ((snapshot as Record<string, unknown>).removedCapabilities as unknown[]).length > 0;
   // Empty is authoritative only with an explicit-removal tombstone. Ordinary
   // F2 snapshots intentionally mute integrations at the top level and must
   // still inherit them from the brief when the user later enters F3.
   const inheritedFloor =
-    Array.isArray(topLevelRaw) &&
-    (mergedCapabilities.length > 0 || hasExplicitRemoval)
-    ? mergedCapabilities
-    : briefCapabilities;
+    Array.isArray(topLevelRaw) && (mergedCapabilities.length > 0 || hasExplicitRemoval)
+      ? mergedCapabilities
+      : briefCapabilities;
   // Durable-removal override (Codex P1 + coach review on #494): a capability in
   // the persisted removal tombstone stays OUT of the effective capabilities even
   // when the floor or brief carries it back — otherwise entering F3 (where the
@@ -727,9 +719,7 @@ export function buildFollowUpContract(input: BuildFollowUpContractInput): Follow
   // re-add (`readdedCapabilities`, in `mergePersistedOrchestrationSnapshots`),
   // so once the user says "lägg tillbaka Stripe" the capability flows again.
   const removedTombstone = new Set(
-    normalizeCapabilityList(
-      (snapshot as Record<string, unknown> | null)?.removedCapabilities,
-    ),
+    normalizeCapabilityList((snapshot as Record<string, unknown> | null)?.removedCapabilities),
   );
   const inheritedCapabilities = inheritedFloor.filter(
     (capability) => !removedTombstone.has(capability.trim().toLowerCase()),
@@ -820,7 +810,10 @@ export function prependOrchestrationContinuityToFollowUp(
   if (briefSummary) {
     const parts: string[] = [];
     if (typeof briefSummary.projectTitle === "string") parts.push(briefSummary.projectTitle);
-    if (typeof briefSummary.brandName === "string" && briefSummary.brandName !== briefSummary.projectTitle) {
+    if (
+      typeof briefSummary.brandName === "string" &&
+      briefSummary.brandName !== briefSummary.projectTitle
+    ) {
       parts.push(`(${briefSummary.brandName})`);
     }
     if (Array.isArray(briefSummary.styleKeywords) && briefSummary.styleKeywords.length > 0) {

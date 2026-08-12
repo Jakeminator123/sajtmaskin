@@ -7,6 +7,8 @@ import {
   buildFollowUpContract,
 } from "@/lib/gen/orchestration-snapshot";
 import type { OrchestrationInput } from "@/lib/gen/orchestrate";
+import type { CodeFile } from "@/lib/gen/parser";
+import { buildImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
 
 import type { ParsedChatRequestMeta } from "./parse-chat-request-meta";
 
@@ -52,6 +54,8 @@ export interface BuildFollowUpOrchestrationInputParams {
    * that don't carry the full file list.
    */
   previousFilePaths?: string[];
+  /** Exact selected parent-version files used to derive imported-repo current state. */
+  previousFiles?: readonly CodeFile[];
   followUpCapabilityDetection: FollowUpCapabilityDetection;
   followUpIntent: OrchestrationInput["followUpIntent"] | null;
   /**
@@ -199,6 +203,10 @@ export function buildFollowUpOrchestrationInput(
     scaffoldMode: importedRepoMode ? "off" : params.parsedMeta.scaffoldMode,
     scaffoldId: importedRepoMode ? null : params.parsedMeta.scaffoldId,
     importedRepoMode,
+    importedRepoContractContext:
+      importedRepoMode && params.previousFiles
+        ? buildImportedRepoContractContext(params.previousFiles, params.orchestrationSnapshot)
+        : undefined,
     ...(initBuildHints ?? {}),
     brief: resolveFollowUpActiveBrief(params),
     themeColors: params.parsedMeta.themeColors,
@@ -209,8 +217,7 @@ export function buildFollowUpOrchestrationInput(
     persistedScaffoldId: params.persistedScaffoldId,
     previousFilesCount: params.previousFilesCount,
     generationMode: params.hasFollowUpBase ? "followUp" : undefined,
-    isFirstCodeGeneration:
-      !params.hasFollowUpBase && Boolean(params.persistedScaffoldId),
+    isFirstCodeGeneration: !params.hasFollowUpBase && Boolean(params.persistedScaffoldId),
     ignorePersistedScaffoldForMatch: params.ignorePersistedScaffoldForMatch,
     promptStrategyMeta: params.promptStrategyMeta,
     existingRoutePaths: params.existingRoutePaths,
@@ -220,9 +227,7 @@ export function buildFollowUpOrchestrationInput(
     requestedDossierCapabilities: (() => {
       const merged = Array.from(
         new Set([
-          ...(detectedDossierCapabilities
-            ? params.followUpCapabilityDetection.capabilityIds
-            : []),
+          ...(detectedDossierCapabilities ? params.followUpCapabilityDetection.capabilityIds : []),
           ...(params.additionalDossierCapabilities ?? []),
         ]),
       );
@@ -268,7 +273,7 @@ export function buildFollowUpOrchestrationInput(
     contractAnswers: params.contractAnswers,
     customInstructions: params.customInstructions,
     chatId: params.chatId,
-    followUpIntent: params.hasFollowUpBase ? params.followUpIntent ?? undefined : undefined,
+    followUpIntent: params.hasFollowUpBase ? (params.followUpIntent ?? undefined) : undefined,
     priorQualityTarget: params.priorQualityTarget,
     requestKind: params.requestKind ?? null,
   };

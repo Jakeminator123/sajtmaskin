@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
 import { FOCUS_POINT_MARKER } from "@/lib/builder/focus-point-prompt";
+import { buildImportedRepoBaselineSnapshot } from "@/lib/templates/imported-repo-contract";
 
 import {
   buildFollowUpOrchestrationInput,
@@ -32,9 +33,7 @@ function emptyCapabilityDetection(): FollowUpCapabilityDetection {
 
 function detectedCapabilityFixture(): FollowUpCapabilityDetection {
   return {
-    capabilities: [
-      { capability: "visual-3d", tier: "specific", matchedKeywords: ["3d-kub"] },
-    ],
+    capabilities: [{ capability: "visual-3d", tier: "specific", matchedKeywords: ["3d-kub"] }],
     capabilityIds: ["visual-3d"],
     tierByCapability: { "visual-3d": "specific" },
     wordCount: 6,
@@ -169,9 +168,7 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
   });
 
   it("codegen-only fields appear only in codegen-mode output", () => {
-    const codegenInput = buildFollowUpOrchestrationInput(
-      baseParams({ mode: "codegen" }),
-    );
+    const codegenInput = buildFollowUpOrchestrationInput(baseParams({ mode: "codegen" }));
 
     expect(codegenInput.persistedVariantId).toBe("minimalist-mag");
     expect(codegenInput.contractAnswers).toEqual([]);
@@ -279,6 +276,57 @@ describe("buildFollowUpOrchestrationInput — plan/codegen parity", () => {
     const normalInput = buildFollowUpOrchestrationInput(baseParams({ mode: "codegen" }));
     expect(normalInput.scaffoldMode).toBe("auto");
     expect(normalInput.importedRepoMode).toBe(false);
+  });
+
+  it("derives the same baseline/current repo contract for plan and codegen", () => {
+    const importedFiles = [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          scripts: { dev: "next dev", build: "next build" },
+          dependencies: { next: "16.2.10", react: "19.2.7" },
+          packageManager: "pnpm@11.0.0",
+        }),
+        language: "json",
+      },
+      {
+        path: "src/app/page.tsx",
+        content: "export default function Page() { return null }",
+        language: "tsx",
+      },
+      { path: "pnpm-lock.yaml", content: "lockfileVersion: '9.0'", language: "yaml" },
+    ];
+    const baseline = buildImportedRepoBaselineSnapshot({
+      files: importedFiles,
+      origin: { kind: "v0_template", templateId: "tmpl_1" },
+      versionId: "version_1",
+      filesRevision: "revision_1",
+      capturedAt: "2026-08-12T08:00:00.000Z",
+    });
+    const currentFiles = [
+      ...importedFiles,
+      {
+        path: "src/app/about/page.tsx",
+        content: "export default function About() { return null }",
+        language: "tsx",
+      },
+    ];
+    const params = baseParams({
+      importedRepoMode: true,
+      previousFiles: currentFiles,
+      previousFilesCount: currentFiles.length,
+      orchestrationSnapshot: { importedRepoBaseline: baseline },
+    });
+
+    const planInput = buildFollowUpOrchestrationInput({ ...params, mode: "plan" });
+    const codegenInput = buildFollowUpOrchestrationInput({ ...params, mode: "codegen" });
+
+    expect(planInput.importedRepoContractContext).toEqual(codegenInput.importedRepoContractContext);
+    expect(planInput.importedRepoContractContext?.baseline?.versionId).toBe("version_1");
+    expect(planInput.importedRepoContractContext?.current.structure.routes).toContain("/about");
+    expect(planInput.importedRepoContractContext?.current.contractHash).not.toBe(
+      baseline.contract.contractHash,
+    );
   });
 
   it("hasFollowUpBase=false suppresses follow-up-only signals on both modes", () => {

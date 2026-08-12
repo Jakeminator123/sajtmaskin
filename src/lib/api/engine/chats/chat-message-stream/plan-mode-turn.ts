@@ -150,6 +150,7 @@ export async function runPlanModeTurn(params: {
       existingRoutePaths,
       existingShellRoutePaths,
       previousFilePaths: hasFollowUpBase ? previousFiles.map((file) => file.path) : [],
+      previousFiles: hasFollowUpBase ? previousFiles : [],
       followUpCapabilityDetection,
       followUpIntent,
       orchestrationSnapshot: engineChat.orchestration_snapshot as Record<string, unknown> | null,

@@ -9,8 +9,9 @@ import {
 } from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
-import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
+import { SCAFFOLD_OFF_BASELINE_ID, type ScaffoldMode } from "@/lib/gen/scaffolds/types";
 import { SCAFFOLD_CLIENT_LIST } from "@/lib/gen/scaffolds/scaffold-client-list.generated";
+
 import { useSearchParams } from "next/navigation";
 import {
   DropdownMenu,
@@ -63,6 +64,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { BuilderPublishControl } from "./BuilderPublishControl";
 import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
+
+const MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST = SCAFFOLD_CLIENT_LIST.filter(
+  ({ id }) => id !== SCAFFOLD_OFF_BASELINE_ID,
+);
 
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
@@ -358,7 +363,7 @@ export function BuilderHeader(props: {
                       <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
                         Välj själv
                       </DropdownMenuLabel>
-                      {SCAFFOLD_CLIENT_LIST.map((scaffold) => (
+                      {MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST.map((scaffold) => (
                         <DropdownMenuRadioItem key={scaffold.id} value={`manual:${scaffold.id}`}>
                           <span className="font-medium">{scaffold.label}</span>
                           <span className="text-muted-foreground ml-2 text-xs">

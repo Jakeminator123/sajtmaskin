@@ -13,6 +13,8 @@ const prepareCredits = vi.hoisted(() => vi.fn());
 const commitCredits = vi.hoisted(() => vi.fn());
 const resolveAppProjectIdForRequest = vi.hoisted(() => vi.fn());
 const startPreviewSession = vi.hoisted(() => vi.fn());
+const persistImportedRepoInitialization = vi.hoisted(() => vi.fn());
+const recordImportedRepoPreviewOutcome = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/projects", () => ({
   createProject,
@@ -47,6 +49,11 @@ vi.mock("@/lib/gen/preview/preview-session", () => ({
   startPreviewSession,
 }));
 
+vi.mock("@/lib/templates/imported-repo-initialization", () => ({
+  persistImportedRepoInitialization,
+  recordImportedRepoPreviewOutcome,
+}));
+
 vi.mock("@/lib/models/selection", () => ({
   resolveEngineModelId: () => "gpt-5.4",
 }));
@@ -71,6 +78,8 @@ describe("POST /api/engine/chats/init", () => {
     commitCredits.mockReset();
     resolveAppProjectIdForRequest.mockReset();
     startPreviewSession.mockReset();
+    persistImportedRepoInitialization.mockReset();
+    recordImportedRepoPreviewOutcome.mockReset();
 
     getCurrentUser.mockResolvedValue(null);
     prepareCredits.mockResolvedValue({ ok: true, commit: commitCredits });
@@ -83,6 +92,8 @@ describe("POST /api/engine/chats/init", () => {
         previewMode: "dev_only",
         fidelityTier: 2,
         startOutcome: "recreated",
+        runtimeReady: false,
+        filesRevision: "revision_import",
         tier2Meta: { tier2Provider: "preview_host" },
       },
     });
@@ -91,13 +102,24 @@ describe("POST /api/engine/chats/init", () => {
     addMessage
       .mockResolvedValueOnce({ id: "msg_user" })
       .mockResolvedValueOnce({ id: "msg_assistant" });
-    createDraftVersion.mockResolvedValue({ id: "ver_import" });
+    createDraftVersion.mockResolvedValue({
+      id: "ver_import",
+      files_revision: "revision_import",
+    });
     getChat.mockResolvedValue({ messages: [{ id: "msg_assistant", role: "assistant" }] });
+    persistImportedRepoInitialization.mockResolvedValue({
+      snapshotPersisted: true,
+      telemetryPersisted: true,
+    });
+    recordImportedRepoPreviewOutcome.mockResolvedValue(false);
   });
 
   it("imports ZIP content into an own-engine chat and first version", async () => {
     const zip = new JSZip();
-    zip.file("repo-root/src/app/page.tsx", 'export default function Page() { return <div>Hej</div>; }');
+    zip.file(
+      "repo-root/src/app/page.tsx",
+      "export default function Page() { return <div>Hej</div>; }",
+    );
     zip.file("repo-root/package.json", '{ "name": "demo" }');
     zip.file("repo-root/pnpm-lock.yaml", "lockfileVersion: '9.0'");
     const buffer = await zip.generateAsync({ type: "nodebuffer" });
@@ -137,6 +159,26 @@ describe("POST /api/engine/chats/init", () => {
       undefined,
       { editKind: "imported_repo" },
     );
+    expect(persistImportedRepoInitialization).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat_import",
+        versionId: "ver_import",
+        filesRevision: "revision_import",
+        origin: { kind: "zip" },
+        baseline: expect.objectContaining({
+          versionId: "ver_import",
+          filesRevision: "revision_import",
+        }),
+      }),
+    );
+    expect(persistImportedRepoInitialization.mock.invocationCallOrder[0]).toBeLessThan(
+      startPreviewSession.mock.invocationCallOrder[0],
+    );
+    expect(recordImportedRepoPreviewOutcome).toHaveBeenCalledWith({
+      versionId: "ver_import",
+      filesRevision: "revision_import",
+      outcome: "pending",
+    });
     expect(saveProjectData).toHaveBeenCalled();
     expect(commitCredits).toHaveBeenCalled();
   });
@@ -146,7 +188,10 @@ describe("POST /api/engine/chats/init", () => {
   // host falls back to `npm install` instead of `yarn install --frozen-lockfile`.
   it("preserves yarn.lock from ZIP so the preview host selects yarn install", async () => {
     const zip = new JSZip();
-    zip.file("repo-root/src/app/page.tsx", 'export default function Page() { return <div>Hi</div>; }');
+    zip.file(
+      "repo-root/src/app/page.tsx",
+      "export default function Page() { return <div>Hi</div>; }",
+    );
     zip.file("repo-root/package.json", '{ "name": "yarn-repo" }');
     zip.file("repo-root/yarn.lock", "# yarn lockfile v1\n");
     const buffer = await zip.generateAsync({ type: "nodebuffer" });
@@ -171,5 +216,85 @@ describe("POST /api/engine/chats/init", () => {
       undefined,
       { editKind: "imported_repo" },
     );
+  });
+
+  it("records an explicit failed outcome when imported preview startup fails", async () => {
+    const zip = new JSZip();
+    zip.file("repo-root/src/app/page.tsx", "export default function Page() { return null }");
+    zip.file("repo-root/package.json", '{"scripts":{"dev":"next dev"}}');
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+    startPreviewSession.mockResolvedValueOnce({
+      ok: false,
+      error: { stage: "preview-start", message: "host unavailable" },
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(recordImportedRepoPreviewOutcome).toHaveBeenCalledWith({
+      versionId: "ver_import",
+      outcome: "failed",
+    });
+  });
+
+  it("records runtime-ready only after the preview host confirms readiness", async () => {
+    const zip = new JSZip();
+    zip.file("repo-root/src/app/page.tsx", "export default function Page() { return null }");
+    zip.file("repo-root/package.json", '{"scripts":{"dev":"next dev"}}');
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+    startPreviewSession.mockResolvedValueOnce({
+      ok: true,
+      result: {
+        previewUrl: "https://example-preview.test/?chatId=chat_import",
+        runtimeReady: true,
+        filesRevision: "booted_revision",
+      },
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(recordImportedRepoPreviewOutcome).toHaveBeenCalledWith({
+      versionId: "ver_import",
+      filesRevision: "booted_revision",
+      outcome: "runtime-ready",
+    });
+  });
+
+  it("records failure when preview startup returns no usable URL", async () => {
+    const zip = new JSZip();
+    zip.file("repo-root/src/app/page.tsx", "export default function Page() { return null }");
+    zip.file("repo-root/package.json", '{"scripts":{"dev":"next dev"}}');
+    const buffer = await zip.generateAsync({ type: "nodebuffer" });
+    startPreviewSession.mockResolvedValueOnce({
+      ok: true,
+      result: { previewUrl: "   ", runtimeReady: false, filesRevision: "revision_import" },
+    });
+
+    const response = await POST(
+      new Request("https://example.com/api/engine/chats/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: { type: "zip", content: buffer.toString("base64") } }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(recordImportedRepoPreviewOutcome).toHaveBeenCalledWith({
+      versionId: "ver_import",
+      outcome: "failed",
+    });
   });
 });
