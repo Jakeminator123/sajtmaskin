@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -8,6 +9,7 @@ from backoffice.shared import (
     BackofficeContext,
     read_json,
     resolve_command,
+    run_repo_command,
     validate_json_against_schema,
     write_json,
 )
@@ -136,6 +138,72 @@ def _dead_source_template_ids_message(dead: list[str]) -> str:
     )
 
 
+def _variant_template_reference_errors(
+    ctx: BackofficeContext, payload: dict[str, Any]
+) -> list[str]:
+    """Ask the canonical TypeScript owners whether the references are usable.
+
+    Blob existence alone is insufficient: runtime only accepts complete-project
+    categories (plus tightly reviewed exceptions), and every cited source must
+    have a current or explicitly disabled addendum. Calling the TS composition
+    helper keeps Backoffice from copying either policy into Python.
+    """
+    source_ids = payload.get("sourceTemplateIds") or []
+    if not isinstance(source_ids, list):
+        return []
+    normalized_ids = [
+        value.strip()
+        for value in source_ids
+        if isinstance(value, str) and value.strip()
+    ]
+    if not normalized_ids:
+        return []
+
+    result = run_repo_command(
+        ctx.repo_root,
+        (
+            "node",
+            "--import",
+            "tsx",
+            "scripts/scaffolds/check-variant-template-references.ts",
+            *normalized_ids,
+        ),
+        timeout=30,
+    )
+    stdout = str(result.get("stdoutTail") or "").strip()
+    try:
+        response = json.loads(stdout.splitlines()[-1])
+    except (IndexError, json.JSONDecodeError, TypeError):
+        detail = str(result.get("stderrTail") or "").strip()
+        return [
+            "Kunde inte kontrollera sourceTemplateIds mot runtime/addendum-grinden"
+            + (f": {detail}" if detail else ".")
+        ]
+
+    issues = response.get("issues") if isinstance(response, dict) else None
+    if not isinstance(issues, list):
+        return [
+            "Runtime/addendum-grinden gav ett ogiltigt svar för sourceTemplateIds."
+        ]
+
+    errors = [
+        str(issue.get("detail") or issue.get("code") or "okänt referensfel")
+        for issue in issues
+        if isinstance(issue, dict)
+    ]
+    if errors:
+        return [
+            "sourceTemplateIds klarar inte runtime/addendum-grinden: "
+            + "; ".join(errors)
+        ]
+    if not result.get("ok"):
+        return [
+            "Runtime/addendum-grinden rapporterade fel trots att inga detaljer "
+            "returnerades."
+        ]
+    return []
+
+
 
 
 def _validate_variant_payload(ctx: BackofficeContext, payload: dict[str, Any]) -> list[str]:
@@ -147,10 +215,10 @@ def _validate_variant_payload(ctx: BackofficeContext, payload: dict[str, Any]) -
     schema-breaking edit is blocked with ``st.error`` instead of corrupting the
     matching config.
 
-    Utöver schemat blockeras döda ``sourceTemplateIds``: varje id måste finnas
-    i Blob-manifestet (`template-blob-manifest.json`). Detta speglar
-    CI-grinden i ``src/lib/gen/scaffold-variants/variant-integrity.test.ts``
-    så en variant aldrig kan sparas med en referens som testet sedan fäller.
+    Utöver schemat blockeras döda ``sourceTemplateIds``, källor som runtime inte
+    får välja och källor utan aktuellt/explicit avstängt addendum. Besluten
+    hämtas från samma TypeScript-ägare som CI-grinden använder, så Backoffice
+    inte kan spara en referens som ``variant-integrity.test.ts`` sedan fäller.
     """
     schema_path = (
         ctx.repo_root / "docs" / "schemas" / "strict" / "scaffold-variant.schema.json"
@@ -160,6 +228,7 @@ def _validate_variant_payload(ctx: BackofficeContext, payload: dict[str, Any]) -
     dead = _dead_source_template_ids(ctx, payload)
     if dead:
         errors.append(_dead_source_template_ids_message(dead))
+    errors.extend(_variant_template_reference_errors(ctx, payload))
     return errors
 
 
@@ -214,22 +283,30 @@ def _variant_integrity_errors(
     ctx: BackofficeContext,
     payload: dict[str, Any],
     *,
-    sibling_defaults: list[str] | None = None,
+    sibling_defaults: list[str],
+    require_signature_patterns: bool = True,
 ) -> list[str]:
     """Mirror the parts of the CI gate (`variant-integrity.test.ts`) that the
     JSON schema alone does NOT enforce, so the Lifecycle create/edit forms can
     block a save that would later fail ``npm run scaffolds:validate``:
 
     - curated ``signaturePatterns`` (>=3 layouts / >=2 motifs / >=2 antiPatterns);
-    - at most one ``default: true`` per scaffold.
+    - exactly one ``default: true`` per scaffold;
+    - at least one ``sourceTemplateIds`` entry.
 
-    (``sourceTemplateIds`` resolvability is covered by ``_validate_variant_payload``.
-    Embeddings-index membership is intentionally NOT checked here: a new entry
-    needs an embedding vector — the flow tells the operator to run
-    ``npm run scaffolds:variant-embeddings`` instead.)
+    ``require_signature_patterns`` defaults to True (fail-closed for real
+    curations). Pass False for the Scaffold Wizard new-scaffold starter: the
+    wizard checklist never asks for patterns, and
+    ``scaffolds:variant-patterns`` writes them in the post-create step.
+
+    (``sourceTemplateIds`` existence, runtime eligibility and addenda are
+    covered by ``_validate_variant_payload``. Embeddings-index membership is
+    intentionally NOT checked here: a new entry needs an embedding vector —
+    the flow tells the operator to run ``npm run scaffolds:variant-embeddings``
+    instead.)
     """
     errors: list[str] = []
-    if not _signature_patterns_ok(payload):
+    if require_signature_patterns and not _signature_patterns_ok(payload):
         errors.append(
             "signaturePatterns saknas eller är ofullständig — CI-grinden "
             "(`variant-integrity.test.ts`) kräver minst "
@@ -237,14 +314,170 @@ def _variant_integrity_errors(
             f"{_SIG_MIN_ANTI} antiPatterns. Fyll i fälten under **Advanced**, "
             "eller skapa varianten via **Guide** som AI-kurerar mönstren."
         )
-    if payload.get("default") is True and sibling_defaults:
+    final_default_count = len(sibling_defaults) + int(payload.get("default") is True)
+    if final_default_count > 1:
         errors.append(
-            "Det finns redan en default-variant för scaffolden: "
+            "Scaffolden skulle ha "
+            f"{final_default_count} default-varianter (befintliga: "
             + ", ".join(f"`{sibling}`" for sibling in sibling_defaults)
-            + ". Konventionen är exakt en default per scaffold — avmarkera den "
-            "andra först (eller lämna den här som icke-default)."
+            + "). Konventionen är exakt en default per scaffold — avmarkera "
+            "övriga defaults innan du sparar."
+        )
+    elif final_default_count == 0:
+        errors.append(
+            "Scaffolden skulle sakna default-variant. Exakt en variant per scaffold "
+            "måste ha `default: true` — markera den här eller en syskonvariant som "
+            "default innan du sparar."
+        )
+
+    source_ids = payload.get("sourceTemplateIds")
+    if not (
+        isinstance(source_ids, list)
+        and any(isinstance(value, str) and value.strip() for value in source_ids)
+    ):
+        errors.append(
+            "Varianten saknar `sourceTemplateIds`. CI-grinden kräver minst ett "
+            "runtime-valbart v0-mall-id från Blob-manifestet."
         )
     return errors
+
+
+def _projected_default_variant_ids(
+    ctx: BackofficeContext,
+    scaffold_id: str,
+    *,
+    replacements: dict[Path, dict[str, Any] | None],
+) -> list[str]:
+    """Return defaults after applying an in-memory multi-file mutation."""
+    variant_dir = ctx.variants_dir / scaffold_id
+    projected: list[str] = []
+    seen: set[Path] = set()
+    missing = object()
+
+    for path in sorted(variant_dir.glob("*.json")):
+        replacement = replacements.get(path, missing)
+        seen.add(path)
+        if replacement is None:
+            continue
+        if replacement is missing:
+            try:
+                payload = read_json(path)
+            except Exception as error:
+                raise ValueError(f"Kunde inte läsa varianten `{path.name}`: {error}") from error
+        else:
+            payload = replacement
+        if not isinstance(payload, dict):
+            raise ValueError(f"Varianten `{path.name}` måste innehålla ett JSON-objekt.")
+        if payload.get("default") is True:
+            projected.append(str(payload.get("id", "")).strip() or path.stem)
+
+    unknown_paths = set(replacements) - seen
+    if unknown_paths:
+        names = ", ".join(f"`{path.name}`" for path in sorted(unknown_paths))
+        raise ValueError(f"Default-transaktionen saknar befintliga variantfiler: {names}.")
+    return projected
+
+
+def _handoff_default_variant(
+    ctx: BackofficeContext,
+    *,
+    scaffold_id: str,
+    current_path: Path,
+    successor_path: Path,
+    successor_payload: dict[str, Any] | None = None,
+    delete_current: bool = False,
+) -> None:
+    """Atomically promote one variant while demoting or deleting another.
+
+    The two JSON files are snapshotted as raw bytes before either mutation. The
+    projected family must contain exactly one default; if the second operation
+    fails, both files are restored byte-for-byte and the original error wins.
+    """
+    variant_dir = ctx.variants_dir / scaffold_id
+    if current_path == successor_path:
+        raise ValueError("Nuvarande default och efterträdare måste vara olika varianter.")
+    if current_path.parent != variant_dir or successor_path.parent != variant_dir:
+        raise ValueError("Default-transaktionen får bara röra varianter i samma scaffold.")
+    if not current_path.is_file() or not successor_path.is_file():
+        raise ValueError("Båda varianterna måste finnas innan default kan flyttas.")
+
+    current = read_json(current_path)
+    successor = successor_payload if successor_payload is not None else read_json(successor_path)
+    if not isinstance(current, dict) or not isinstance(successor, dict):
+        raise ValueError("Båda variantfilerna måste innehålla JSON-objekt.")
+    if str(current.get("scaffoldId", "")).strip() != scaffold_id or str(
+        successor.get("scaffoldId", "")
+    ).strip() != scaffold_id:
+        raise ValueError("Båda varianterna måste tillhöra scaffolden som uppdateras.")
+
+    current_after = dict(current)
+    current_after["default"] = False
+    successor_after = {
+        key: value for key, value in successor.items() if not str(key).startswith("_")
+    }
+    successor_after["default"] = True
+    replacements: dict[Path, dict[str, Any] | None] = {
+        current_path: None if delete_current else current_after,
+        successor_path: successor_after,
+    }
+    projected_defaults = _projected_default_variant_ids(
+        ctx,
+        scaffold_id,
+        replacements=replacements,
+    )
+    if len(projected_defaults) != 1:
+        rendered = ", ".join(f"`{variant_id}`" for variant_id in projected_defaults) or "inga"
+        raise ValueError(
+            "Default-transaktionen skulle lämna "
+            f"{len(projected_defaults)} defaults ({rendered}); exakt en krävs."
+        )
+
+    originals = {
+        current_path: current_path.read_bytes(),
+        successor_path: successor_path.read_bytes(),
+    }
+    try:
+        # Promote first so even the transient on-disk state never has zero defaults.
+        write_json(successor_path, successor_after)
+        if delete_current:
+            write_json(current_path, current_after)
+            current_path.unlink()
+        else:
+            write_json(current_path, current_after)
+    except Exception as error:
+        rollback_errors: list[str] = []
+        try:
+            current_path.write_bytes(originals[current_path])
+        except Exception as rollback_error:
+            rollback_errors.append(f"{current_path}: {rollback_error}")
+            # Keep the promoted successor intact. Restoring it to non-default
+            # after current restoration failed could leave the family at zero.
+        else:
+            try:
+                successor_path.write_bytes(originals[successor_path])
+            except Exception as rollback_error:
+                rollback_errors.append(f"{successor_path}: {rollback_error}")
+        if rollback_errors:
+            error.add_note(
+                "Default-rollback blev ofullständig efter originalfelet: "
+                + "; ".join(rollback_errors)
+            )
+        raise
+
+
+def _would_leave_no_default_variant(
+    selected_variant: dict[str, Any], variants: list[dict[str, Any]]
+) -> bool:
+    """Whether deleting ``selected_variant`` would leave zero defaults.
+
+    A broken pre-existing scaffold with two defaults may be repaired by deleting
+    one of them. Zero projected defaults means the delete UI must atomically
+    promote a readable sibling before it removes the selected variant.
+    """
+    return not any(
+        variant is not selected_variant and variant.get("default") is True
+        for variant in variants
+    )
 
 
 
@@ -507,6 +740,17 @@ def _neutral_variant_payload(
         except Exception:
             base_payload = {}
 
+    source_template_ids = [
+        str(value).strip()
+        for value in (base_payload.get("sourceTemplateIds") or [])
+        if str(value).strip()
+    ]
+    if not source_template_ids:
+        raise ValueError(
+            "Kunde inte skapa neutral startvariant: "
+            "`base-nextjs/starter-neutral.json` saknar `sourceTemplateIds`."
+        )
+
     keywords = _unique_preserving_order(
         tags
         + scaffold_id.split("-")
@@ -541,7 +785,10 @@ def _neutral_variant_payload(
                 f"Keep {label} flexible and extension-friendly when the prompt is underspecified.",
                 "Preserve structural clarity first, then adapt the expression to the user's actual domain.",
             ],
-            "sourceTemplateIds": [],
+            # The neutral starter copies visual tokens and provenance from the
+            # same canonical base variant. An empty list passes JSON Schema but
+            # fails variant-integrity.test.ts, so fail closed above instead.
+            "sourceTemplateIds": source_template_ids,
             "signaturePatterns": _neutral_starter_signature_patterns(label),
             "default": True,
         }

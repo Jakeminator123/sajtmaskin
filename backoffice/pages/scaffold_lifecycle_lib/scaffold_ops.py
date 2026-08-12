@@ -18,7 +18,12 @@ from backoffice.shared import (
 from .constants import BUILD_INTENT_OPTIONS
 from .formatting import _unique_preserving_order
 
-from .variants import _prune_variant_embeddings, _neutral_variant_payload
+from .variants import (
+    _prune_variant_embeddings,
+    _neutral_variant_payload,
+    _validate_variant_payload,
+    _variant_integrity_errors,
+)
 
 from .scaffold_text import (
     _scaffold_dir,
@@ -297,6 +302,7 @@ def _create_scaffold(
     quality_checklist: list[str],
     upgrade_targets: list[str],
     create_start_variant: bool,
+    starter_variant_payload: dict[str, Any] | None = None,
 ) -> None:
     allowed_build_intents = _normalize_allowed_build_intents(allowed_build_intents)
     scaffold_dir = _scaffold_dir(ctx, scaffold_id)
@@ -309,21 +315,25 @@ def _create_scaffold(
     source_files_dir = _files_dir(ctx, source_scaffold_id)
     if not source_files_dir.is_dir():
         raise ValueError(f"Källscaffolden `{source_scaffold_id}` saknar `files/`.")
+    if starter_variant_payload is not None and not create_start_variant:
+        raise ValueError("En angiven startvariant måste skapas i samma transaktion.")
 
+    # Rollback is byte-preserving. A text snapshot would normalize CRLF/BOM on
+    # Windows and leave a diff even though the logical content was restored.
     originals = {
-        _types_path(ctx): read_text(_types_path(ctx)),
-        _registry_path(ctx): read_text(_registry_path(ctx)),
-        _embedding_locale_path(ctx): read_text(_embedding_locale_path(ctx)),
+        _types_path(ctx): _types_path(ctx).read_bytes(),
+        _registry_path(ctx): _registry_path(ctx).read_bytes(),
+        _embedding_locale_path(ctx): _embedding_locale_path(ctx).read_bytes(),
     }
     schema_path = _variant_schema_path(ctx)
     if schema_path.is_file():
-        originals[schema_path] = read_text(schema_path)
+        originals[schema_path] = schema_path.read_bytes()
 
     projection_conflicts = _scaffold_projection_conflicts(
         scaffold_id=scaffold_id,
-        types_text=originals[_types_path(ctx)],
-        registry_text=originals[_registry_path(ctx)],
-        locale_text=originals[_embedding_locale_path(ctx)],
+        types_text=originals[_types_path(ctx)].decode("utf-8"),
+        registry_text=originals[_registry_path(ctx)].decode("utf-8"),
+        locale_text=originals[_embedding_locale_path(ctx)].decode("utf-8"),
     )
     if projection_conflicts:
         raise ValueError(
@@ -331,10 +341,14 @@ def _create_scaffold(
             + ", ".join(projection_conflicts)
             + ". Rensa den gamla projektionen innan scaffolden skapas. Ingen fil ändrades."
         )
-    _insert_client_list_entry_text(originals[_types_path(ctx)], "")
+    # Preflight: fail closed if SCAFFOLD_CLIENT_LIST cannot be located.
+    _insert_client_list_entry_text(originals[_types_path(ctx)].decode("utf-8"), "")
 
+    created_scaffold_dir = False
+    created_variant_dir = False
     try:
         scaffold_dir.mkdir(parents=True, exist_ok=False)
+        created_scaffold_dir = True
         shutil.copytree(source_files_dir, scaffold_dir / "files")
         write_text(
             scaffold_dir / "manifest.ts",
@@ -373,40 +387,84 @@ def _create_scaffold(
         _update_variant_schema_enum(ctx, scaffold_id, add=True)
 
         if create_start_variant:
-            variant_dir.mkdir(parents=True, exist_ok=False)
-            write_json(
-                variant_dir / "neutral-core.json",
-                _neutral_variant_payload(
+            starter_payload = (
+                dict(starter_variant_payload)
+                if starter_variant_payload is not None
+                else _neutral_variant_payload(
                     ctx,
                     scaffold_id=scaffold_id,
                     label=label,
                     description=description,
                     tags=tags,
-                ),
+                )
+            )
+            if str(starter_payload.get("scaffoldId", "")).strip() != scaffold_id:
+                raise ValueError(
+                    "Startvariantens `scaffoldId` måste matcha scaffolden som skapas."
+                )
+            starter_errors = _validate_variant_payload(ctx, starter_payload)
+            # Wizard starters omit signaturePatterns until post-create
+            # `scaffolds:variant-patterns`. Neutral auto-starters already ship
+            # curated patterns, so keep that gate fail-closed for them.
+            starter_errors.extend(
+                _variant_integrity_errors(
+                    ctx,
+                    starter_payload,
+                    sibling_defaults=[],
+                    require_signature_patterns=starter_variant_payload is None,
+                )
+            )
+            if starter_errors:
+                raise ValueError(
+                    "Startvarianten klarar inte integritetsgrinden:\n- "
+                    + "\n- ".join(starter_errors)
+                )
+            starter_variant_id = str(starter_payload.get("id", "")).strip()
+            if not starter_variant_id:
+                raise ValueError("Startvarianten saknar `id`.")
+            variant_dir.mkdir(parents=True, exist_ok=False)
+            created_variant_dir = True
+            write_json(
+                variant_dir / f"{starter_variant_id}.json",
+                starter_payload,
             )
     except Exception as error:
         rollback_errors: list[str] = []
-        for path, original in originals.items():
-            try:
-                write_text(path, original)
-            except Exception as rollback_error:
-                rollback_errors.append(f"restore {path}: {rollback_error}")
-        if variant_dir.is_dir():
+        cleanup_retries: list[tuple[Path, str]] = []
+
+        if created_variant_dir:
             try:
                 shutil.rmtree(variant_dir)
+            except Exception:
+                cleanup_retries.append((variant_dir, "variantmappen"))
+
+        for path, original in reversed(list(originals.items())):
+            try:
+                path.write_bytes(original)
             except Exception as rollback_error:
-                rollback_errors.append(f"remove {variant_dir}: {rollback_error}")
-        if scaffold_dir.is_dir():
+                rollback_errors.append(f"{path}: {rollback_error}")
+
+        if created_scaffold_dir:
             try:
                 shutil.rmtree(scaffold_dir)
+            except Exception:
+                cleanup_retries.append((scaffold_dir, "scaffoldmappen"))
+
+        # A transient Windows file lock must not strand one of the owned dirs.
+        # Retry failed cleanup only after every other rollback target was tried.
+        for directory, label_name in cleanup_retries:
+            if not directory.exists():
+                continue
+            try:
+                shutil.rmtree(directory)
             except Exception as rollback_error:
-                rollback_errors.append(f"remove {scaffold_dir}: {rollback_error}")
+                rollback_errors.append(f"{label_name}: {rollback_error}")
+
         if rollback_errors:
-            raise RuntimeError(
-                f"Scaffold-skapandet misslyckades ({error}). "
-                "Rollbacken fick dessutom fel: "
+            error.add_note(
+                "Rollback blev ofullständig efter originalfelet: "
                 + "; ".join(rollback_errors)
-            ) from error
+            )
         raise
 
 

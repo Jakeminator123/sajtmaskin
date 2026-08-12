@@ -6,6 +6,12 @@ from typing import Any
 from .constants import THEME_TOKEN_KEYS
 
 
+def _exception_message(error: BaseException) -> str:
+    """Keep the original error visible together with any rollback notes."""
+    notes = [str(note).strip() for note in getattr(error, "__notes__", []) if str(note).strip()]
+    return "\n".join([str(error), *notes])
+
+
 
 def _normalize_lines(value: str) -> list[str]:
     return [line.strip() for line in value.splitlines() if line.strip()]
