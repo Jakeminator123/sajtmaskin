@@ -106,6 +106,7 @@ export function DossiersPopoverView({
         ? entry.envVars
             .filter(
               (env) =>
+                env.required &&
                 !env.hasRealValue &&
                 (env.enforcement === "build" || env.enforcement === "feature-runtime"),
             )
