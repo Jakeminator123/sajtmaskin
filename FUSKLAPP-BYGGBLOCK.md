@@ -21,8 +21,9 @@ flowchart TD
 - **Dossier-familj** = syskonen under samma capability (`clerk-auth` + `supabase-auth` är auth-familjen).
   Pedagogiskt ord — inget manifestfält. Exakt en i familjen är `defaultForCapability`.
 - **Provider** = den externa tjänsten en **Kopplad** (`hard`) dossier ansluter till. Deklareras i `manifest.providers`.
-- **Fristående** (`soft`) dossiers har ingen provider — bara **teknik** (npm-bibliotek som Embla, MapLibre, MiniSearch).
-  Teknik är ett beroende, inte en leverantör: inget konto, ingen nyckel.
+- **Fristående** (`soft`) dossiers har ingen deklarerad integrationsprovider eller hemlighet. De kan använda
+  lokala filer, publika nyckelfria resurser och **teknik** (npm-bibliotek som Embla, MapLibre, MiniSearch).
+  Teknik är ett beroende, inte en leverantör.
 
 ## Orden — vad de är och inte är
 
@@ -43,8 +44,8 @@ Ingen av dessa kan härledas ur någon annan:
 
 | Axel | Fråga | Värden | Ägare |
 |---|---|---|---|
-| Klass | Behövs extern tjänst? | Kopplad (`hard`) / Fristående (`soft`) | mappen `data/dossiers/{hard,soft}/` |
-| Demoläge | Hur ser ytan ut i F2 utan riktig nyckel? | `canned` / `seed` / `success` / `visual` / `none` | `manifest.mock` |
+| Klass | Har implementationen en deklarerad provider-/integrationskoppling? | Kopplad (`hard`) / Fristående (`soft`) | mappen `data/dossiers/{hard,soft}/` |
+| Demoläge | Hur beter sig ytan i F2/designläget utan livekonfiguration? | `canned` / `seed` / `success` / `visual` / `none` | `manifest.mock` |
 | Kräver F3 | Måste riktiga integrationen byggas i eget steg? | ja / nej | `dossierRequiresF3()` — build-nyckel ELLER serverfil |
 
 Exempel på oberoendet: `vercel-analytics` är Kopplad men kräver **inte** F3.
@@ -69,7 +70,7 @@ Valfritt: `envVars[]` (med `enforcement` och `setupUrl`), `dependencies` (npm), 
 | `feature-runtime` | vid användning | Bygget går igenom; funktionen kör demo tills värdet sparas |
 | `warn-only` | valfri | Funktionen stänger av sig själv tyst utan värde |
 
-## Demolägen (vad besökaren ser utan riktig nyckel)
+## Demolägen (vad besökaren ser i F2 utan livekonfiguration)
 
 | `mock` | Besökaren får |
 |---|---|

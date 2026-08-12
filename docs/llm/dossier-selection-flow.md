@@ -53,8 +53,8 @@ Brief deklarerar requestedCapabilities: ["payments", "auth", ...]
 
 | Klass | Path | När |
 |-------|------|-----|
-| `hard` | `data/dossiers/hard/<id>/` | Kopplad till extern provider, tjänst eller runtimekontrakt; kan vara nyckelfri. Måste deklarera `providers`. |
-| `soft` | `data/dossiers/soft/<id>/` | Självförsörjande utan extern provider/account. Måste utelämna `providers`. |
+| `hard` | `data/dossiers/hard/<id>/` | Deklarerar koppling till extern provider/tjänst eller integrations-/runtimekontrakt; kan vara nyckelfri. Måste deklarera `providers`. |
+| `soft` | `data/dossiers/soft/<id>/` | Saknar deklarerad integrationsprovider/account; publika nyckelfria resurser är tillåtna. Måste utelämna `providers`. |
 
 Manifestets `providers` är kanonisk provider→dossier-sanning; provider-id:n
 härleds inte ur dossier-id, dependencies eller integrationskategori. Manifestet
@@ -67,7 +67,7 @@ härleds inte ur dossier-id, dependencies eller integrationskategori. Manifestet
 plattformens `process.env` (deprecerad fallback för callers utan
 projekt-env-map). Flaggan är en prompt-signal, aldrig kopplad till en gate.
 Codegen-LLM:n får dessutom dossierns `mock`-läge (`describeMockMode`) så
-demo-ytan renderar i F2 utan riktig nyckel i stället för att krascha.
+demo-ytan renderar i F2 utan livekonfiguration i stället för att krascha.
 
 ## Två kod-fideliteter (per-dossier default + per-fil override)
 
@@ -195,8 +195,9 @@ Handskriven text räknar inte poolen. Aktuell katalog:
 Regenerera projektionen med `npm run dossiers:capability-map:write` (eller
 backoffice-tabben) och kontraktsdocs med `npm run docs:generate`.
 
-Klasserna: `hard` (Kopplad) = externt provider-/runtimekontrakt; `soft`
-(Fristående) = självförsörjande mönster (npm tillåtet).
+Klasserna: `hard` (Kopplad) = deklarerat provider-/integrationskontrakt;
+`soft` (Fristående) = ingen deklarerad integrationsprovider/hemlighet
+(npm, lokala filer och publika nyckelfria resurser är tillåtna).
 
 ## Felsökning
 

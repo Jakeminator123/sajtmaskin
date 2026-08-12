@@ -841,6 +841,29 @@ class ManifestClassValidationTests(unittest.TestCase):
             ),
         )
 
+    def test_raw_soft_manifest_forbids_non_empty_env_vars(self) -> None:
+        self.assertIn(
+            "soft manifests must not declare non-empty envVars",
+            dossiers_page._validate_manifest(
+                {
+                    "id": "acme",
+                    "envVars": [
+                        {
+                            "key": "ACME_TOKEN",
+                            "required": False,
+                            "purpose": "Configures the Acme integration.",
+                            "enforcement": "warn-only",
+                        }
+                    ],
+                },
+                "soft",
+            ),
+        )
+        self.assertNotIn(
+            "soft manifests must not declare non-empty envVars",
+            dossiers_page._validate_manifest({"id": "acme", "envVars": []}, "soft"),
+        )
+
     def test_raw_save_rejects_schema_invalid_provider_before_write(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo_root = Path(tmp)
@@ -1287,11 +1310,14 @@ class SwedishLabelCoverageTests(unittest.TestCase):
 
     def test_every_class_value_has_swedish_label(self) -> None:
         for klass in ("hard", "soft"):
-            label = str(
-                (self.labels["class"].get(klass) or {}).get("label") or ""
-            ).strip()
+            descriptor = self.labels["class"].get(klass) or {}
+            label = str(descriptor.get("label") or "").strip()
+            hint = str(descriptor.get("hint") or "").strip()
             self.assertTrue(
                 label, f"_class-värdet {klass!r} saknar svensk etikett i projektionen"
+            )
+            self.assertTrue(
+                hint, f"_class-värdet {klass!r} saknar svensk förklaring i projektionen"
             )
 
     def test_every_mock_enum_value_has_swedish_label(self) -> None:
@@ -1333,10 +1359,21 @@ class SwedishLabelCoverageTests(unittest.TestCase):
         self.assertEqual(
             dossiers_page.mock_label("weird", projection=self.projection), "weird"
         )
+        self.assertEqual(
+            dossiers_page.class_hint("weird", projection=self.projection), ""
+        )
+        self.assertEqual(
+            dossiers_page.class_description("weird", projection=self.projection),
+            "weird",
+        )
 
     def test_missing_projection_falls_back_to_raw_technical_value(self) -> None:
         empty = {"labelsSv": {}}
         self.assertEqual(dossiers_page.class_label("hard", projection=empty), "hard")
+        self.assertEqual(dossiers_page.class_hint("hard", projection=empty), "")
+        self.assertEqual(
+            dossiers_page.class_description("hard", projection=empty), "hard"
+        )
         self.assertEqual(dossiers_page.mock_label("seed", projection=empty), "seed")
         with mock.patch.object(
             dossiers_page, "CAPABILITY_MAP_PATH", Path("saknas-capability-map.json")
@@ -1347,6 +1384,8 @@ class SwedishLabelCoverageTests(unittest.TestCase):
                 labels_mod, "CAPABILITY_MAP_PATH", Path("saknas-capability-map.json")
             ):
                 self.assertEqual(dossiers_page.class_label("hard"), "hard")
+                self.assertEqual(dossiers_page.class_hint("hard"), "")
+                self.assertEqual(dossiers_page.class_description("hard"), "hard")
                 self.assertEqual(dossiers_page.mock_label("seed"), "seed")
 
     def test_field_labels_cover_the_dossier_form_fields(self) -> None:
@@ -1375,6 +1414,34 @@ class ProjectionReaderTests(unittest.TestCase):
         broken = {"labelsSv": {"class": {"hard": {"label": "   ", "hint": "x"}}}}
         self.assertEqual(dossiers_page.class_label("hard", projection=broken), "hard")
         self.assertNotEqual(dossiers_page.class_label("hard", projection=broken), "")
+
+    def test_class_hint_and_description_read_the_projection(self) -> None:
+        projection = {
+            "labelsSv": {
+                "class": {
+                    "hard": {
+                        "label": "Kanonisk",
+                        "hint": "Text direkt ur projektionen.",
+                    }
+                }
+            }
+        }
+        self.assertEqual(
+            dossiers_page.class_hint("hard", projection=projection),
+            "Text direkt ur projektionen.",
+        )
+        self.assertEqual(
+            dossiers_page.class_description("hard", projection=projection),
+            "Kanonisk (hard): Text direkt ur projektionen.",
+        )
+
+    def test_class_hint_never_invents_copy_for_broken_projection(self) -> None:
+        broken = {"labelsSv": {"class": {"hard": {"label": "Kopplad"}}}}
+        self.assertEqual(dossiers_page.class_hint("hard", projection=broken), "")
+        self.assertEqual(
+            dossiers_page.class_description("hard", projection=broken),
+            "Kopplad (hard)",
+        )
 
     def test_mockless_exceptions_come_from_policy_node(self) -> None:
         projection = {

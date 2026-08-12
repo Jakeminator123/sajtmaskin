@@ -53,6 +53,7 @@ PROJECTION = {
             "envVars": [
                 {"key": "STRIPE_SECRET_KEY", "required": True, "enforcement": "build"},
                 {"key": "STRIPE_PUBLIC_KEY", "required": False},
+                {"key": "STRIPE_TELEMETRY", "required": False, "enforcement": "warn-only"},
             ],
             "fileRoles": {"client": 2, "server": 1},
             "dependencies": ["stripe"],
@@ -91,7 +92,7 @@ PROJECTION = {
             "providers": [],
             "defaultForCapability": True,
             "mock": None,
-            "envVars": [{"key": "SEARCH_HINT", "required": False, "enforcement": "warn-only"}],
+            "envVars": [],
             "fileRoles": {},
             "dependencies": [],
             "summarySv": "Söker lokalt.",
@@ -131,10 +132,8 @@ class BuildSystemMapRowsTests(unittest.TestCase):
         buckets = self.by_id["stripe-checkout"]["env_by_enforcement"]
         self.assertEqual(buckets["build"], ["STRIPE_PUBLIC_KEY", "STRIPE_SECRET_KEY"])
         self.assertEqual(buckets["feature-runtime"], [])
-        self.assertEqual(buckets["warn-only"], [])
-        self.assertEqual(
-            self.by_id["local-site-search"]["env_by_enforcement"]["warn-only"], ["SEARCH_HINT"]
-        )
+        self.assertEqual(buckets["warn-only"], ["STRIPE_TELEMETRY"])
+        self.assertEqual(self.by_id["local-site-search"]["env_by_enforcement"]["warn-only"], [])
 
     def test_axes_are_carried_through_untouched(self) -> None:
         analytics = self.by_id["vercel-analytics"]

@@ -5,7 +5,7 @@ iteration. F3 prioriterar riktiga integrationer, build och deploybarhet.
 
 De är **versions- och gate-lanes**, inte ett svartvitt mognadsbetyg på hela
 sajten. Demo/live/planerad avgörs per Byggblock. En OpenAI-chatt kan därför
-vara live i en integrationsversion samtidigt som tre andra hårda Byggblock
+vara live i en integrationsversion samtidigt som tre andra Kopplade Byggblock
 fortfarande är planerade eller kör demo. Ett lyckat integrationsbygge ska inte
 förändra chattens visuella design; det byter wiring och verifieringskrav.
 
@@ -28,13 +28,14 @@ checkout ska inte oavsiktligt kräva secrets, server-wiring och en full release.
 
 ## Mocks och placeholders i F2
 
-Ett valt hard-dossier deklarerar hur dess visuella yta fungerar i F2 genom
-manifestets `mock`-policy. Preview kan också få pipeline-skapade, ofarliga
-placeholdervärden för valda dossiers.
+Ett valt Kopplat Byggblocks effektiva demoläge beskriver hur dess visuella yta
+fungerar i F2. Det läses ur manifestets `mock`-policy; utelämnat fält betyder
+`none`. Preview kan också få pipeline-skapade, ofarliga placeholdervärden för
+valda dossiers.
 
 F2-fallbacken ska:
 
-- visa den avsedda upplevelsen utan riktiga nycklar,
+- visa den avsedda upplevelsen utan livekonfiguration,
 - vara tydligt skild från konfigurerad integration,
 - aldrig persistera previewvärden som riktiga projektvärden,
 - aldrig användas som bevis på release-readiness.

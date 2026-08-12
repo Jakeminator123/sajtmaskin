@@ -13,7 +13,8 @@ import type { DossierLifecycleOverviewStatus } from "@/lib/gen/dossiers/lifecycl
 /**
  * Hard-dossier status model (PR 1 av Byggblock-ägarbeslutet 2026-07-13).
  *
- * - `self-contained` — soft dossier, no external keys.
+ * - `self-contained` — no separate integration build is required; this can
+ *   apply to either class (for example keyless, client-only analytics).
  * - `planned` — requested but its real integration code is not in the
  *   version yet (F2 renders the mock/demo surface). Missing manifest keys
  *   surface as per-key badges, never as blocked-build — the finalize gate
@@ -64,7 +65,7 @@ export interface DossierOverviewEntry {
   complexity: "simple" | "medium" | "advanced";
   requiresF3: boolean;
   /**
-   * Manifest `mock` — how the surface behaves in F2 without a real key.
+   * Manifest `mock` — how the surface behaves in F2 without live configuration.
    * Omitted = `none`, same as runtime. Independent of both `class` and
    * `requiresF3`; see `dossier-axes.ts`.
    */
@@ -163,9 +164,8 @@ export interface DossierStatusDescriptor {
  * `dossierClass` is optional but matters for `self-contained`: the route sets
  * that status from `!requiresF3`, which a KOPPLAD (hard) dossier can also
  * reach (e.g. vercel-analytics — `envVars: []`, client-only, self-disables
- * without a hosting token). Saying "inga externa nycklar behövs" about a
- * dossier that does have keys is simply false, so the hard variant gets its
- * own honest wording.
+ * without a hosting token). A hard dossier can still have optional keys, so
+ * its wording stays neutral about configuration and live behavior.
  */
 export function describeDossierStatus(
   status: DossierStatus,
@@ -179,8 +179,8 @@ export function describeDossierStatus(
         tone: "neutral",
         hint:
           dossierClass === "hard"
-            ? "Fungerar utan ett separat integrationsbygge. Valfria nycklar kan slå på mer funktion."
-            : "Fungerar direkt — inga externa konton eller nycklar behövs.",
+            ? "Providerkopplingen kräver inget separat integrationsbygge. Konfiguration och livebeteende avgörs separat."
+            : "Fungerar direkt — ingen deklarerad integrationsprovider eller hemlig nyckel behövs.",
       };
     case "built-live":
       return {

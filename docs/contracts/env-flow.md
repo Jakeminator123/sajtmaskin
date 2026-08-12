@@ -142,11 +142,13 @@ honest by `src/lib/integrations/placeholder-harmless.parity.test.ts`.
 F2 ska rendera en trovärdig demo utan riktiga nycklar; F3-publicering ska bara
 blockera på det som verkligen kräver en riktig integration.
 
-- **Demo i F2:** varje hard-dossier deklarerar ett `mock`-läge
-  (`canned`/`seed`/`success`/`visual`/`none`, se
+- **Demo i F2:** varje hard-dossier har ett effektivt `mock`-läge
+  (`canned`/`seed`/`success`/`visual`/`none`; utelämnat = `none`, se
   [`dossier-system.md`](dossier-system.md)) som driver dossierns egen
-  degraderingskod. Kombinerat med F2-mock-seeden ovan renderar preview-ytan utan
-  riktiga nycklar. `mock` aktiveras när nyckeln saknas **eller** är en stub.
+  degraderingskod. För dossiers med env-kontrakt kombineras det med F2-mock-
+  seeden ovan så preview-ytan renderar när nyckeln saknas **eller** är en stub.
+  Nyckelfria dossiers, som analytics, använder sitt effektiva läge utan att
+  hitta på ett env-krav.
 - **Enforcement styr blockering, inte "finns nyckeln i `env.example`".**
   `buildBlockingKeys` (`src/lib/project-env-resolver.ts`) = de build-enforced
   nycklar som saknar både ett riktigt projektvärde och en godkänd

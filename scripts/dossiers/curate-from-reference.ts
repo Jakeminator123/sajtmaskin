@@ -55,6 +55,35 @@ const DOSSIERS_ROOT = join(REPO_ROOT, "data", "dossiers");
 /** Manifest entry that owns this script's model choice (Fas D). */
 export const CURATION_WORKLOAD_ID = "backoffice_dossier_curation";
 
+/** Shared class truth embedded in the curation prompt; exported for parity tests. */
+export const CURATION_CLASS_RULE =
+  "hard = declares an external provider/service or integration-runtime coupling; " +
+  "soft = no declared integration provider/secret. Public keyless resources are allowed " +
+  "for soft dossiers and do not by themselves make a dossier hard.";
+
+/** Mock truth embedded in the curation prompt; key-neutral for hard dossiers without env. */
+export const CURATION_MOCK_RULE =
+  'declare how the VISUAL surface works in F2/preview WITHOUT live configuration — "canned" ' +
+  '(server route returns a believable fabricated response), "seed" (data layer falls back ' +
+  'to shipped seed data), "success" (mutation endpoints return a fake success + demo notice), ' +
+  '"visual" (the interactive surface renders but actions show an honest demo notice), or ' +
+  '"none" (no meaningful demo surface; a discreet config banner is shown or the feature ' +
+  "self-disables).";
+
+/** Class-aware env truth embedded in the curation prompt. */
+export function curationEnvRule(klass: "hard" | "soft"): string {
+  return klass === "soft"
+    ? "envVars: OMIT the property for soft dossiers; they must not declare external configuration or secrets."
+    : "envVars: include only keys that come from the .env.example AND are actually used in the source code. Skip placeholders.";
+}
+
+/** Class-aware manifest example fragment used by the actual curation prompt. */
+export function curationEnvSchemaLine(klass: "hard" | "soft"): string {
+  return klass === "hard"
+    ? '  "envVars": [{"key":"FOO","required":true,"purpose":"<concrete reason>","setupUrl":"<official provider URL when known>"}],\n'
+    : "";
+}
+
 interface Args {
   reference: string;
   class: "hard" | "soft";
@@ -373,8 +402,7 @@ ${args.class === "hard" ? '  "providers": ["<canonical kebab-case provider id, e
   "defaultForCapability": false,
   "mock": "canned" | "seed" | "success" | "visual" | "none",
   "summary": "<1-3 sentences: what it does + when to use it>",
-  "envVars": [{"key":"FOO","required":true,"purpose":"<concrete reason>","setupUrl":"<official provider URL when known>"}],
-  "dependencies": ["..."],
+${curationEnvSchemaLine(args.class)}  "dependencies": ["..."],
   "files": [{"path":"components/<...>","role":"client|server|shared","injectionMode":"verbatim|rewritable"}],
   "exposes": [{"name":"X","type":"component","import":"@/components/x"}],
   "lastVerified": "${today}",
@@ -383,11 +411,11 @@ ${args.class === "hard" ? '  "providers": ["<canonical kebab-case provider id, e
 }
 
 Rules:
-- Class is "${args.class}" (already decided): hard = coupled to an external provider, service, or runtime contract; soft = self-contained.
+- Class is "${args.class}" (already decided): ${CURATION_CLASS_RULE}
 - providers: REQUIRED and non-empty for hard dossiers; list the canonical external provider identities implemented by the shipped code. OMIT the property entirely for soft dossiers. Never copy a legacy or guessed provider label without confirming it from the source SDK/API.
 - codeFidelity: "verbatim" for integration glue (auth callbacks, webhooks, SDK init, api-routes); "rewritable" for UI components.
-- envVars: only ones that come from the .env.example AND are actually used in the source code. Skip placeholders.
-- mock (hard dossiers): declare how the VISUAL surface works in preview WITHOUT a real key — "canned" (server route returns a believable fabricated response), "seed" (data layer falls back to shipped seed data), "success" (mutation endpoints return a fake success + demo notice), "visual" (the interactive surface renders but actions show an honest demo notice), or "none" (no meaningful demo surface; a discreet config banner is shown or the feature self-disables). CI requires EVERY hard dossier to have mock != "none" unless the capability is on the documented exception list, so prefer a real mock mode. Omit for soft dossiers.
+- ${curationEnvRule(args.class)}
+- mock (hard dossiers): ${CURATION_MOCK_RULE} CI requires EVERY hard dossier to have mock != "none" unless the capability is on the documented exception list, so prefer a real mock mode. Omit for soft dossiers.
 - files: list only files that should be injected into the user's project. Strip the upstream's "src/" prefix; output paths should start with "components/".
 - summary: write it for an LLM that needs to decide *when* to use this dossier. No marketing language.
 
@@ -422,7 +450,7 @@ ${sourcesBlock}`;
         name: "DossierCuration",
         // strict mode requires every property to be in `required`, which would
         // force the LLM to emit empty arrays for `envVars`/`dependencies`/`files`/
-        // `exposes` even on soft self-contained dossiers — and that contradicts
+        // `exposes` even on soft provider-free dossiers — and that contradicts
         // `docs/schemas/strict/dossier.schema.json` (the canonical schema), where
         // those fields are optional. We mirror the strict schema's required-set
         // here and run a post-call sanity check (`assertManifestShape`) instead.

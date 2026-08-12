@@ -18,8 +18,8 @@ Ingen följer av någon annan. Vanligaste felslutet: "Kopplad ⇒ kräver F3".
 
 | Axel | Fråga | Källa |
 |---|---|---|
-| Kopplad / Fristående | Extern provider? | mappen `hard/` vs `soft/` |
-| Demoläge (`mock`) | F2 utan nyckel? | `manifest.mock` |
+| Kopplad / Fristående | Deklarerad provider-/integrationskoppling? | mappen `hard/` vs `soft/` |
+| Demoläge (`mock`) | F2 utan livekonfiguration? | `manifest.mock` |
 | Kräver F3 | Eget integrationssteg? | `dossierRequiresF3()` |
 
 Exempel: `vercel-analytics` är Kopplad, har `envVars: []`, kräver inte F3.

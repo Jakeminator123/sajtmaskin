@@ -7,7 +7,7 @@ from typing import Any
 import streamlit as st
 
 from .io import _ensure_capability_map_current, _load_json
-from .labels import class_label, mock_label
+from .labels import class_hint, class_label, mock_label
 from .truth_map import (
     build_system_map_dot,
     build_system_map_rows,
@@ -184,9 +184,15 @@ def _section_system_map(dossiers: list[dict[str, Any]]) -> None:
         "Build/server-krav", sum(row["build_server_requirement"] for row in rows)
     )
     # Från gamla Översikt-fliken (konsoliderad hit, inte duplicerad).
+    hard_label = class_label("hard", projection=projection)
+    hard_hint = class_hint("hard", projection=projection)
+    soft_label = class_label("soft", projection=projection)
+    soft_hint = class_hint("soft", projection=projection)
+    hard_description = f"**{hard_label}**" + (f": {hard_hint}" if hard_hint else "")
+    soft_description = f"**{soft_label}**" + (f": {soft_hint}" if soft_hint else "")
     st.caption(
-        "**Kopplad** = kräver en extern tjänst/nycklar (Stripe, databas …). "
-        "**Fristående** = behöver bara npm-paket. Varje byggblock hör till "
+        f"{hard_description} {soft_description} "
+        "Varje byggblock hör till "
         "exakt en **funktion** (capability) — det är funktionen briefen ber "
         "om som styr vilket byggblock som väljs."
     )
