@@ -528,6 +528,23 @@
       "docsPaths": [],
       "codeReaders": ["backoffice/pages/templates_blob.py", "src/lib/templates/"]
     },
+    "Mallar (v0): kurera Blob-arkiv": {
+      "summary": "Read-only urval av Template-arkiv följt av en explicit, SHA-verifierad statisk analys. Mallkod extraheras eller exekveras aldrig; lokala rapporter beskriver app/website, paket, feature-kandidater, implementationssökvägar och addendum-status.",
+      "canonicalPaths": [
+        "src/lib/templates/template-blob-manifest.json",
+        "src/lib/templates/templates.json",
+        "src/lib/templates/template-data.ts",
+        "config/scaffold-variants/",
+        "config/variant-template-addenda.json",
+        "scripts/template_curator/"
+      ],
+      "docsPaths": ["docs/architecture/templates.md", "scripts/template_curator/README.md"],
+      "codeReaders": [
+        "backoffice/pages/template_curator.py",
+        "scripts/template_curator/catalog.py",
+        "scripts/template_curator/runner.py"
+      ]
+    },
     "Cursor-agenter": {
       "summary": "Ordlista och struktur för agenter — projektreglernas kanoniska katalog under .cursor/rules/ och den tunna kodkartan. Regelindex och slash-kommandon finns i .cursor/README.md.",
       "canonicalPaths": [".cursor/rules/", "docs/architecture/code-map.md"],

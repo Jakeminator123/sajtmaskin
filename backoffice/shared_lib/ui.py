@@ -41,6 +41,7 @@ BUILDING_BLOCK_CHAIN: tuple[tuple[str, str], ...] = (
     ("Guide (AI)", "Guide: ny scaffold eller variant (AI)"),
     ("Byggblock", "Byggblock (dossiers)"),
     ("Mallar (v0)", "Mallar (v0): inspiration & uppladdning"),
+    ("Kurera mallar", "Mallar (v0): kurera Blob-arkiv"),
 )
 
 

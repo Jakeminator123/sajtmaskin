@@ -3,7 +3,7 @@
 Bakgrund: Byggstenar-sidorna döptes om 2026-07-24 till svenska verb-namn och fick
 en hub (`Byggstenar: översikt`). Tre saker måste då hållas sanna över tid:
 
-1. **Navigationen** — hubben finns, gruppen innehåller exakt de sex ytorna i
+1. **Navigationen** — hubben finns, gruppen innehåller exakt de sju ytorna i
    arbetsordning, och alla gamla `?nav=`-slugs/sidnamn fortsätter resolvera
    (deep links, docs och `config/control-plane/policy-registry.json` pekar på dem).
 2. **Spara-lägena** — texten "sparar en fil i repot" respektive "sparar bara
@@ -39,6 +39,7 @@ EXPECTED_BUILDING_BLOCK_ORDER = (
     "Guide: ny scaffold eller variant (AI)",
     "Byggblock (dossiers)",
     "Mallar (v0): inspiration & uppladdning",
+    "Mallar (v0): kurera Blob-arkiv",
 )
 
 # Gamla namn/slugs som MÅSTE fortsätta fungera (permanenta alias).
@@ -87,7 +88,7 @@ class BuildingBlocksNavigationTests(unittest.TestCase):
         self.assertEqual(group_pages[0], "Byggstenar: översikt")
         self.assertEqual(PAGE_MAP["Byggstenar: översikt"].mode, "read")
 
-    def test_building_blocks_group_is_exactly_the_six_surfaces_in_order(self) -> None:
+    def test_building_blocks_group_is_exactly_the_seven_surfaces_in_order(self) -> None:
         group_pages = tuple(spec.name for spec in PAGE_SPECS if spec.group == "Byggstenar")
         self.assertEqual(group_pages, EXPECTED_BUILDING_BLOCK_ORDER)
 

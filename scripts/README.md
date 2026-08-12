@@ -6,20 +6,21 @@ scriptinventariet eller historiken för borttagna pipelines.
 
 ## Börja här
 
-| Behov | Kommando eller ägare |
-| --- | --- |
-| Repo-verifiering | `npm run typecheck`, `npm run lint`, `npm run test:ci` |
-| Genererade kontraktsdocs | `npm run docs:generate`, `npm run docs:check`, `npm run docs:test` |
-| Aktiva dokumentationslänkar | `npm run docs:links` |
-| Historiska planstatusar | `npm run plans:history:check`, [`plans/`](plans/) |
-| Scaffolds | `npm run scaffolds:validate`, [`scaffolds/`](scaffolds/) |
-| Dossiers | `npm run dossiers:validate-all`, [`dossiers/`](dossiers/) |
-| Control plane | `npm run control-plane:check`, [`control-plane/`](control-plane/) |
-| Databas och migrationer | [`db/`](db/) — prod-migrationer appliceras av CI-jobben `prod-migrations-apply`/`prod-migrations-applied` (`db/migrate-prod.mjs` + `db/check-migrations-applied.mjs`), inte av Vercel-deployen; dev-DB:n synkas + live-pariteten verifieras av `db-schema-parity` (`db/check-schema-parity.mjs`) |
-| Env-drift | [`env/`](env/), [`../docs/ENV.md`](../docs/ENV.md) |
-| Preview-host | [`../preview-host/README.md`](../preview-host/README.md) |
-| Eval | [`eval/`](eval/) |
-| Observability | [`observability/`](observability/) |
+| Behov                              | Kommando eller ägare                                                                                                                                                                                                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Repo-verifiering                   | `npm run typecheck`, `npm run lint`, `npm run test:ci`                                                                                                                                                                                                                                           |
+| Genererade kontraktsdocs           | `npm run docs:generate`, `npm run docs:check`, `npm run docs:test`                                                                                                                                                                                                                               |
+| Aktiva dokumentationslänkar        | `npm run docs:links`                                                                                                                                                                                                                                                                             |
+| Historiska planstatusar            | `npm run plans:history:check`, [`plans/`](plans/)                                                                                                                                                                                                                                                |
+| Scaffolds                          | `npm run scaffolds:validate`, [`scaffolds/`](scaffolds/)                                                                                                                                                                                                                                         |
+| Dossiers                           | `npm run dossiers:validate-all`, [`dossiers/`](dossiers/)                                                                                                                                                                                                                                        |
+| Control plane                      | `npm run control-plane:check`, [`control-plane/`](control-plane/)                                                                                                                                                                                                                                |
+| Databas och migrationer            | [`db/`](db/) — prod-migrationer appliceras av CI-jobben `prod-migrations-apply`/`prod-migrations-applied` (`db/migrate-prod.mjs` + `db/check-migrations-applied.mjs`), inte av Vercel-deployen; dev-DB:n synkas + live-pariteten verifieras av `db-schema-parity` (`db/check-schema-parity.mjs`) |
+| Env-drift                          | [`env/`](env/), [`../docs/ENV.md`](../docs/ENV.md)                                                                                                                                                                                                                                               |
+| Preview-host                       | [`../preview-host/README.md`](../preview-host/README.md)                                                                                                                                                                                                                                         |
+| Eval                               | [`eval/`](eval/)                                                                                                                                                                                                                                                                                 |
+| Observability                      | [`observability/`](observability/)                                                                                                                                                                                                                                                               |
+| Statisk kurering av Template-arkiv | `npm run templates:curator -- --help`, `scripts/template_curator/`                                                                                                                                                                                                                               |
 
 ## Viktiga gränser
 
@@ -29,6 +30,8 @@ scriptinventariet eller historiken för borttagna pipelines.
   dossiermanifesten direkt.
 - `scripts/v0-templates/` hanterar galleriets Template (v0-mall)-spår. Det är
   inte samma system som scaffold eller dossier.
+- `scripts/template_curator/` läser katalogen och SHA-verifierade ZIP-filer
+  statiskt. Den exekverar aldrig mallkod och skriver inte variant-addenda.
 - `scripts/scaffolds/` får inte skapa ett parallellt scaffold-registry.
 - Databas- och env-script ska använda repots befintliga guards; kringgå inte
   target-, migration- eller secret-kontroller.

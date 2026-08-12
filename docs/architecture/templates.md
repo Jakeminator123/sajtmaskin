@@ -6,10 +6,10 @@ Hur "Templates" (builderns Mallar-tab / förstasidan → **Templates** → kateg
 
 ## 1. Två dataset, länkade via `id`
 
-| Dataset | Fil (incheckad) | Roll |
-|---|---|---|
-| Galleri/katalog | `src/lib/templates/templates.json` + `template-categories.json` | Vad som **visas/klickas** på `/templates` och `/category/[type]` |
-| Körbart arkiv | `src/lib/templates/template-blob-manifest.json` | Vilken **ZIP** som hämtas vid klick (id → `archiveUrl` + SHA-256 + previewFit) |
+| Dataset         | Fil (incheckad)                                                 | Roll                                                                           |
+| --------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Galleri/katalog | `src/lib/templates/templates.json` + `template-categories.json` | Vad som **visas/klickas** på `/templates` och `/category/[type]`               |
+| Körbart arkiv   | `src/lib/templates/template-blob-manifest.json`                 | Vilken **ZIP** som hämtas vid klick (id → `archiveUrl` + SHA-256 + previewFit) |
 
 Båda länkas via mall-`id`. Alla tre filerna **genereras** — se §5. Klientkoden läser lib-modulerna direkt (`template-data.ts` → `template-catalog.ts` → `client.ts`); det finns ingen runtime-DB för mallkatalogen.
 
@@ -39,13 +39,13 @@ Båda länkas via mall-`id`. Alla tre filerna **genereras** — se §5. Klientko
 
 ## 4. Verbatim-import vs fritext (den viktiga skillnaden)
 
-| Aspekt | Template (denna väg) | Fritext / scaffold |
-|---|---|---|
-| Innehåll | Färdig ZIP från Blob | `own-engine` genererar filer |
-| package.json | Mallens **egna** versioner | Fast baseline (`project-scaffold.ts`) |
-| LLM vid init | Nej | Ja |
-| Repair/scaffold-merge | Hoppas över (`skipRepair`, `skipProjectScaffold`) | Körs (`buildCompleteProject`) |
-| Provenance | `editKind: "imported_repo"` | normal |
+| Aspekt                | Template (denna väg)                              | Fritext / scaffold                    |
+| --------------------- | ------------------------------------------------- | ------------------------------------- |
+| Innehåll              | Färdig ZIP från Blob                              | `own-engine` genererar filer          |
+| package.json          | Mallens **egna** versioner                        | Fast baseline (`project-scaffold.ts`) |
+| LLM vid init          | Nej                                               | Ja                                    |
+| Repair/scaffold-merge | Hoppas över (`skipRepair`, `skipProjectScaffold`) | Körs (`buildCompleteProject`)         |
+| Provenance            | `editKind: "imported_repo"`                       | normal                                |
 
 **Vid follow-up-redigering** av en importerad mall gäller **imported repo mode** (detekteras via `edit_kind="imported_repo"` i chattens versionshistorik, `chatHasImportedRepoVersion`):
 
@@ -97,15 +97,15 @@ Uploadern exkluderar mallar som överskrider preview-host-taken från galleriet 
 
 Verifierat i `preview-host/`:
 
-| Guardrail | Värde |
-|---|---|
-| Node | 22.x |
-| Start | `npm run dev -- --hostname 127.0.0.1 --port N` → **kräver `dev`-script** |
-| Install | Lockfil-drivet: `pnpm-lock.yaml`→pnpm, `yarn.lock`→yarn, `package-lock.json`→`npm ci`, annars `npm install`. Timeout 10 min. |
-| Payload-tak | **500 filer · 2 MiB/fil · 12 MiB totalt** (`preview-host/src/validate.js`) |
-| `next.config.*` | Patchas med `basePath` — måste tåla det |
-| Paket allow/deny | Finns inte — mallens `package.json` körs som den är |
-| Env | `.env.local` byggs om i lager (harmless + tier3-stub i F2 → project-preview → user → mallens egen). Nycklar utanför det setet är `undefined` i F2. |
+| Guardrail        | Värde                                                                                                                                              |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Node             | 22.x                                                                                                                                               |
+| Start            | `npm run dev -- --hostname 127.0.0.1 --port N` → **kräver `dev`-script**                                                                           |
+| Install          | Lockfil-drivet: `pnpm-lock.yaml`→pnpm, `yarn.lock`→yarn, `package-lock.json`→`npm ci`, annars `npm install`. Timeout 10 min.                       |
+| Payload-tak      | **500 filer · 2 MiB/fil · 12 MiB totalt** (`preview-host/src/validate.js`)                                                                         |
+| `next.config.*`  | Patchas med `basePath` — måste tåla det                                                                                                            |
+| Paket allow/deny | Finns inte — mallens `package.json` körs som den är                                                                                                |
+| Env              | `.env.local` byggs om i lager (harmless + tier3-stub i F2 → project-preview → user → mallens egen). Nycklar utanför det setet är `undefined` i F2. |
 
 ## 7. Exkludering (att gömma en mall)
 
@@ -123,16 +123,42 @@ node scripts/v0-templates/audit-template-repos.mjs --dir <mapp med zip:ar>
 
 Skriptet läser bara `package.json` + struktur + `process.env`-referenser ur varje ZIP och aggregerar (dumpar aldrig repo-innehåll). Full per-mall-data skrivs till `--out` (default `scratch-template-audit.json`).
 
+### Backoffice-kuratorn
+
+Backoffice-vyn **Mallar (v0): kurera Blob-arkiv** samlar samma statiska
+granskning i ett explicit urvalsflöde. Katalogen och filtren är lokala och
+nätverksfria. Först när operatören har valt exakta mall-id:n och klickar
+**Analysera valda** hämtas deras ZIP-filer.
+
+Fem populationer kan väljas utan att skriva data: alla rader i Blob-manifestet,
+de som ryms i preview, de som finns i den genererade gallerifilen, de som
+faktiskt är synliga på sajten efter exkludering samt de som citeras av
+scaffold-varianter. Analysen klassar bara struktur och metadata: beslut
+(`qualified`, `review`, `rejected`), typ (`app`, `website`), paketkompatibilitet,
+feature-kandidater och avgränsade implementationssökvägar.
+
+Arkivet storleksbegränsas och verifieras mot manifestets SHA-256. ZIP-innehållet
+behandlas som data; inget packas upp till ett körbart repo och ingen mallkod,
+install eller dev-server exekveras. Rapporter sparas lokalt under den
+gitignorerade `data/backoffice/template-curator/`-ytan och binds till det
+ordnade urvalet, varje arkiv-SHA, aktuell extractor-SHA samt addendum-postens
+status/innehåll. En gammal rapport visas därför inte som aktuell efter drift.
+
+Kuratorn skriver aldrig `config/variant-template-addenda.json`. UI:t visar i
+stället exakt `templates:addenda`-kommando för det valda urvalet. Att ersätta
+en `reviewed`-post kräver fortfarande den separata, uttryckliga
+`--refresh-reviewed`-flaggan.
+
 ## 9. Termer — Template ≠ Scaffold ≠ Dossier
 
 **"Templates" och "v0-mallar" är samma sak** (historiskt skrapade från v0.dev, numera Blob-hostade). Fyra begrepp som inte får blandas:
 
-| Begrepp | Vad | Var | Används av |
-|---|---|---|---|
+| Begrepp                | Vad                                                                                                                 | Var                                         | Används av                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------- |
 | **Template (v0-mall)** | Färdig sajt-ZIP; importeras **verbatim** när användaren väljer den, eller används som begränsad variant-inspiration | Vercel Blob (`template-blob-manifest.json`) | `/templates`, Mallar-tab, `POST /api/template`, own-engine init |
-| **Scaffold** | Runtime-startpunkt för fritext-generering | `src/lib/gen/scaffolds/` | own-engine init |
-| **Dossier** | Capability-modul som injiceras i own-engine-prompten | `data/dossiers/{hard,soft}/` | dossier-pipelinen (`select.ts`) |
-| **Template-referens** | Klonat upstream-repo, input till dossier-kuration | `data/template-references/` | `dossiers:curate` |
+| **Scaffold**           | Runtime-startpunkt för fritext-generering                                                                           | `src/lib/gen/scaffolds/`                    | own-engine init                                                 |
+| **Dossier**            | Capability-modul som injiceras i own-engine-prompten                                                                | `data/dossiers/{hard,soft}/`                | dossier-pipelinen (`select.ts`)                                 |
+| **Template-referens**  | Klonat upstream-repo, input till dossier-kuration                                                                   | `data/template-references/`                 | `dossiers:curate`                                               |
 
 Dossiers har inga kategorier, inga thumbnails och syns aldrig i template-galleriet. Template-referenser hör till dossier-systemet trots namnet. `/api/v0/` = API-versionering, inte den externa v0-providern.
 
