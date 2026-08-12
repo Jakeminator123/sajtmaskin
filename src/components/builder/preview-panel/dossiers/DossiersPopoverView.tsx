@@ -101,6 +101,26 @@ export function DossiersPopoverView({
     const isExpanded = expandedId === entry.id;
     const labelId = `dossier-label-${entry.id}`;
     const detailsId = `dossier-details-${entry.id}`;
+    const builtDemoKeysNeedingRealValue =
+      entry.status === "built-demo" && entry.missingLiveKeys.length === 0
+        ? entry.envVars
+            .filter(
+              (env) =>
+                !env.hasRealValue &&
+                (env.enforcement === "build" || env.enforcement === "feature-runtime"),
+            )
+            .map((env) => env.key)
+        : [];
+    const builtDemoDetailCopy =
+      entry.status !== "built-demo"
+        ? null
+        : entry.missingLiveKeys.length > 0
+          ? `Demo just nu. Lägg till ${entry.missingLiveKeys.join(", ")} för att gå live.`
+          : builtDemoKeysNeedingRealValue.length > 0
+            ? `Demo just nu. Lägg till ${builtDemoKeysNeedingRealValue.join(", ")} för att gå live.`
+            : // Server-evidence gap (or equivalent) — same wording as the status hint.
+              // Do not push "Bygg integrationer igen" as the only fix.
+              descriptor.hint;
     return (
       <li key={entry.id} className="rounded-md border border-gray-800 bg-black/20">
         <button
@@ -165,15 +185,8 @@ export function DossiersPopoverView({
                 Lägg till {entry.missingKeys.join(", ")} innan du kör &quot;Bygg integrationer&quot;.
               </p>
             ) : null}
-            {entry.status === "built-demo" && entry.missingLiveKeys.length > 0 ? (
-              <p className="text-amber-300">
-                Demo just nu. Lägg till {entry.missingLiveKeys.join(", ")} för att gå live.
-              </p>
-            ) : null}
-            {entry.status === "built-demo" && entry.missingLiveKeys.length === 0 ? (
-              <p className="text-amber-300">
-                Demo just nu. Kör &quot;Bygg integrationer&quot; igen för riktig funktion.
-              </p>
+            {builtDemoDetailCopy ? (
+              <p className="text-amber-300">{builtDemoDetailCopy}</p>
             ) : null}
             {entry.status === "planned" ? (
               <p className="text-gray-300">
