@@ -1,13 +1,15 @@
 /**
- * Schema-drift-test mellan fyra källor:
+ * Schema-drift-test mellan fem källor:
  *   1) `src/lib/db/schema.ts`                    (Drizzle-typmetadata)
  *   2) `scripts/db/db-init.mjs`                  (CREATE TABLE/INDEX runtime)
  *   3) `scripts/db/add-performance-indexes.mjs`  (perf-migration)
  *   4) `src/lib/db/migrations/*.sql`             (legacy SQL-migrations som
  *                                                 db-init.mjs kör in-line)
+ *   5) `scripts/db/pydatabastest.py`              (live dev/prod-syncens
+ *                                                 tabellklassificering)
  *
- * Idag är (1) och (2)+(3)+(4) separata sources of truth som måste synkas
- * manuellt. Detta test fångar drift INNAN den når DB:n.
+ * Källorna är separata sources of truth som måste synkas manuellt. Detta test
+ * fångar drift INNAN den når DB:n.
  *
  * Testen är medvetet **icke-strikt** på vissa punkter:
  *   - Tillåter att (2) har FLER index än (1) — t.ex. `idx_gen_telemetry_chat`
@@ -333,6 +335,16 @@ describe("schema-drift mellan schema.ts, db-init.mjs och add-performance-indexes
           `Flytta migration-only-tabeller till KNOWN_EXTRA_TABLES, eller ta bort raden.`,
       );
     }
+  });
+
+  it("pydatabastest.py klassar alla migration-only-tabeller som required known-extra", () => {
+    const runtimeOnlyTables = new Set(
+      [...createdTables].filter((table) => !drizzleTables.has(table)),
+    );
+    expect(
+      pyKnownExtra,
+      "KNOWN_EXTRA_TABLES ska vara exakt de CREATE TABLE-källor som saknar pgTable()-ägare",
+    ).toEqual(runtimeOnlyTables);
   });
 
   it("klassar engine_version_jobs som rad-behållande (ej EMPTY) — Codex P1 #267", () => {
