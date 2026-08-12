@@ -145,6 +145,34 @@ describe("validateDossierManifest — provider ownership", () => {
     }
   });
 
+  it("forbids non-empty envVars on soft manifests but accepts an empty list", () => {
+    const withSecret = validateDossierManifest(
+      {
+        ...VALID_MANIFEST,
+        envVars: [
+          {
+            key: "ACME_TOKEN",
+            required: true,
+            purpose: "Authenticates calls to the Acme provider.",
+            enforcement: "feature-runtime",
+          },
+        ],
+      },
+      { expectedId: "example-dossier", class: "soft" },
+    );
+    expect(withSecret.valid).toBe(false);
+    if (!withSecret.valid) {
+      expect(withSecret.errors).toContain("soft manifests must not declare non-empty envVars");
+    }
+
+    expect(
+      validateDossierManifest(
+        { ...VALID_MANIFEST, envVars: [] },
+        { expectedId: "example-dossier", class: "soft" },
+      ).valid,
+    ).toBe(true);
+  });
+
   it("accepts one or more canonical providers on hard manifests", () => {
     const result = validateDossierManifest(
       { ...VALID_HARD_MANIFEST, providers: ["openai", "postgres"] },
@@ -169,7 +197,7 @@ describe("legacy normalizer — provider ownership", () => {
     expect(prompt).not.toContain('"providers": ["canonical-kebab-provider-id"]');
   });
 
-  it("fails hard output without providers and soft output that declares them", () => {
+  it("fails hard output without providers and soft output that declares providers or envVars", () => {
     const hard = runNormalizerMechanicalChecks(
       NORMALIZER_HARD_PLAN,
       normalizerReviewOutput({}),
@@ -183,6 +211,22 @@ describe("legacy normalizer — provider ownership", () => {
       "/tmp/prospect",
     );
     expect(soft.errors).toContain("soft dossier must omit providers");
+
+    const softWithEnv = runNormalizerMechanicalChecks(
+      { ...NORMALIZER_HARD_PLAN, targetClass: "soft" },
+      normalizerReviewOutput({
+        envVars: [
+          {
+            key: "PUBLIC_MAP_TOKEN",
+            required: false,
+            purpose: "Configures the remote map service.",
+            enforcement: "warn-only",
+          },
+        ],
+      }),
+      "/tmp/prospect",
+    );
+    expect(softWithEnv.errors).toContain("soft dossier must not declare non-empty envVars");
   });
 });
 

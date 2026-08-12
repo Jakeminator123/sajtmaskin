@@ -25,12 +25,30 @@ def _axis_label(entry: Any) -> str:
     return ""
 
 
+def _axis_hint(entry: Any) -> str:
+    if isinstance(entry, dict):
+        return str(entry.get("hint") or "").strip()
+    return ""
+
+
 def _labels_sv_vocab(projection: dict[str, Any] | None = None) -> dict[str, Any]:
     data = projection if projection is not None else _load_projection()
     if not data:
         return {}
     labels = data.get("labelsSv")
     return labels if isinstance(labels, dict) else {}
+
+
+def _class_descriptor(
+    klass: str,
+    *,
+    projection: dict[str, Any] | None = None,
+) -> tuple[str, str]:
+    vocab = _labels_sv_vocab(projection).get("class")
+    if not isinstance(vocab, dict):
+        return "", ""
+    entry = vocab.get(klass)
+    return _axis_label(entry), _axis_hint(entry)
 
 
 def class_label(klass: str, *, projection: dict[str, Any] | None = None) -> str:
@@ -40,13 +58,27 @@ def class_label(klass: str, *, projection: dict[str, Any] | None = None) -> str:
     Läses ur projektionens ``labelsSv.class``. Saknas/ trasig projektion eller
     okänt värde → rått tekniskt värde (aldrig gissa svenska ord).
     """
-    vocab = _labels_sv_vocab(projection).get("class")
-    label = ""
-    if isinstance(vocab, dict):
-        label = _axis_label(vocab.get(klass))
+    label, _hint = _class_descriptor(klass, projection=projection)
     if not label:
         return str(klass)
     return f"{label} ({klass})"
+
+
+def class_hint(klass: str, *, projection: dict[str, Any] | None = None) -> str:
+    """Kanonisk svensk förklaring av dossier-klassen.
+
+    Läses ur projektionens ``labelsSv.class.<klass>.hint``. Saknas/trasig
+    projektion eller okänt värde → tom sträng; Python hittar aldrig på copy.
+    """
+    _label, hint = _class_descriptor(klass, projection=projection)
+    return hint
+
+
+def class_description(klass: str, *, projection: dict[str, Any] | None = None) -> str:
+    """Teknisk etikett + kanonisk hint, med ärlig fallback till rå klass."""
+    label, hint = _class_descriptor(klass, projection=projection)
+    display_label = f"{label} ({klass})" if label else str(klass)
+    return f"{display_label}: {hint}" if hint else display_label
 
 
 def mock_label(mock: str | None, *, projection: dict[str, Any] | None = None) -> str:

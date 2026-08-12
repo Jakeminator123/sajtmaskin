@@ -21,6 +21,7 @@ import unittest
 
 from backoffice import REPO_ROOT
 from backoffice.pages import PAGE_MAP, PAGE_NAMES, PAGE_QUERY_ALIASES, PAGE_SPECS, building_blocks
+from backoffice.pages.dossiers_lib.labels import class_description
 from backoffice.shared import (
     BUILDING_BLOCK_CHAIN,
     SAVE_SCOPE_MESSAGES,
@@ -73,6 +74,13 @@ def _git(args: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 class BuildingBlocksNavigationTests(unittest.TestCase):
+    def test_hub_dossier_caption_reads_the_generated_class_copy(self) -> None:
+        caption = building_blocks._dossier_count_caption(2, 3)
+        self.assertIn(f"2 × {class_description('hard').rstrip('.')}", caption)
+        self.assertIn(f"3 × {class_description('soft').rstrip('.')}", caption)
+        self.assertNotIn("kräver extern tjänst/nycklar", caption)
+        self.assertNotIn("bara npm-paket", caption)
+
     def test_hub_page_is_registered_and_first_in_group(self) -> None:
         self.assertIn("Byggstenar: översikt", PAGE_NAMES)
         group_pages = [spec.name for spec in PAGE_SPECS if spec.group == "Byggstenar"]

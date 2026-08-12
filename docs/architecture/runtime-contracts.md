@@ -48,7 +48,8 @@ Invariants:
 - En capability kan välja en dossier via registry/selection.
 - Init och follow-up ska mata samma named capability-detektor till
   `requestedDossierCapabilities`; bred `inferCapabilities` är ett komplement.
-- `hard` och `soft` beskriver extern secret-tyngd, inte F2/F3 i sig.
+- `hard` och `soft` beskriver deklarerad provider-/integrationskoppling, inte
+  secret-tyngd eller F2/F3 i sig. Kopplade dossiers kan vara nyckelfria.
 - F3-krav härleds från dossier-kontrakt: build-enforced env var eller server file surface.
 - Verbatim-filer ska skyddas både i prompt och post-merge.
 - `selectedDossierIds` är exakt signal för vilka dossiers som var aktiva i generationen.

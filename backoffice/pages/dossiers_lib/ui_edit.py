@@ -175,7 +175,7 @@ def _render_manifest_edit_controls(
                 )
             edited_mock = st.selectbox(
                 field_label(
-                    "mock", hint="hur ytan fungerar i preview utan riktig nyckel"
+                    "mock", hint="hur ytan fungerar i F2 utan livekonfiguration"
                 ),
                 list(_facade()._MOCK_OPTIONS),
                 index=mock_index,

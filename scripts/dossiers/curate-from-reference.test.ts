@@ -5,7 +5,11 @@ import {
   applyCuratorCapabilityChoice,
   curationAllocateArgs,
   curationCleanupArgs,
+  curationEnvRule,
+  curationEnvSchemaLine,
   curationTransactionArgs,
+  CURATION_CLASS_RULE,
+  CURATION_MOCK_RULE,
   CURATION_WORKLOAD_ID,
   parseArgs,
   resolveCurationModel,
@@ -96,6 +100,25 @@ describe("curation model resolution", () => {
 });
 
 describe("curator capability enforcement", () => {
+  it("does not misclassify public keyless resources as provider integrations", () => {
+    expect(CURATION_CLASS_RULE).toContain("no declared integration provider/secret");
+    expect(CURATION_CLASS_RULE).toContain("Public keyless resources are allowed");
+    expect(CURATION_CLASS_RULE).not.toMatch(/soft = self-contained\.?$/i);
+  });
+
+  it("describes mock behavior without inventing an env key", () => {
+    expect(CURATION_MOCK_RULE).toContain("WITHOUT live configuration");
+    expect(CURATION_MOCK_RULE).not.toMatch(/without a real key/i);
+  });
+
+  it("omits envVars for soft curation and scopes hard envVars to used source keys", () => {
+    expect(curationEnvRule("soft")).toContain("OMIT the property");
+    expect(curationEnvRule("soft")).toContain("must not declare external configuration");
+    expect(curationEnvRule("hard")).toContain("actually used in the source code");
+    expect(curationEnvSchemaLine("soft")).toBe("");
+    expect(curationEnvSchemaLine("hard")).toContain('"envVars"');
+  });
+
   it("overwrites capability and refuses defaultForCapability when curator chose one", () => {
     const patched = applyCuratorCapabilityChoice(
       { capability: "llm-guess", defaultForCapability: true },

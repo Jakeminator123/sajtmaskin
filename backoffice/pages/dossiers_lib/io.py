@@ -485,6 +485,8 @@ def _validate_manifest(
     # P31: per-envVar `enforcement` is optional but, when present, must be one
     # of the three documented values. Defaults to "build" downstream.
     env_vars = data.get("envVars") or []
+    if dossier_class == "soft" and isinstance(env_vars, list) and env_vars:
+        errors.append("soft manifests must not declare non-empty envVars")
     if isinstance(env_vars, list):
         for idx, ev in enumerate(env_vars):
             if not isinstance(ev, dict):

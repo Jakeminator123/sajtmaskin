@@ -6,10 +6,11 @@
  * Architecture:    docs/contracts/dossier-system.md
  *
  * Two classes (encoded in folder path):
- *   - hard: provider/service-coupled (may have secrets, public config, SDKs,
- *     server code, or a client-only provider contract).
- *   - soft: self-contained without an external provider/secret; npm packages
- *     and runtime patterns are allowed.
+ *   - hard: declares an external provider/service or integration-runtime
+ *     coupling (may have secrets, public config, SDKs, server code, or a
+ *     client-only provider contract).
+ *   - soft: no declared integration provider/secret; npm packages, local
+ *     files, runtime patterns, and public keyless resources are allowed.
  *
  * Two code-fidelities (per-dossier default, per-file override):
  *   - verbatim:   LLM emits files unchanged (auth glue, webhooks, SDK init).
@@ -224,8 +225,8 @@ export function defaultInjectionMode(file: DossierFile, entry: DossierEntry): Co
  *    all its env keys are `feature-runtime` (rule 1 is false), yet the
  *    integration itself belongs in F3; F2 renders the form as a mockup.
  *
- * `envVars: []` + client-only files (soft/self-contained dossiers, e.g.
- * `interactive-game-loop`, `three-fiber-canvas`) => fully F2-usable.
+ * `envVars: []` + client-only files (for example provider-free soft dossiers
+ * such as `interactive-game-loop` and `three-fiber-canvas`) => fully F2-usable.
  * Extend the rule HERE if a future case needs it — never re-derive the
  * boundary in a separate hardcoded list.
  */

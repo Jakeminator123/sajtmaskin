@@ -1,6 +1,6 @@
 {
   "$comment": "Generated tooling projection from the validated runtime registry: dossier facts, capability → dossier ids, presentation groups from src/lib/builder/dossier-groups.ts, Swedish labels from src/lib/builder/dossier-axes.ts, mockless policy from validate-manifest.ts, and the F2 integration-mute from src/lib/gen/dossiers/f2-mute.ts#getF2MutedIntegrationCapabilities. Regenerated automatically by backoffice/pages/dossiers.py on source drift, explicitly with `npm run dossiers:capability-map:write`, and CI-gated by `npm run dossiers:capability-map:check`. Runtime walks data/dossiers/{hard,soft}/ directly; this file is not a runtime owner. Do not hand-edit.",
-  "generatedAt": "2026-08-12T00:29:48.308Z",
+  "generatedAt": "2026-08-12T07:04:01.559Z",
   "capabilities": {
     "ai-chat": [
       "openai-chat"
@@ -176,7 +176,7 @@
       "labelsSv": {
         "class": {
           "label": "Kopplad",
-          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+          "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
         },
         "mock": {
           "label": "Full yta, ärlig demo-notis",
@@ -232,7 +232,7 @@
       "labelsSv": {
         "class": {
           "label": "Kopplad",
-          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+          "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
         },
         "mock": {
           "label": "Fejkad success + demo-notis",
@@ -282,7 +282,7 @@
       "labelsSv": {
         "class": {
           "label": "Kopplad",
-          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+          "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
         },
         "mock": {
           "label": "Fabricerat demo-svar",
@@ -334,7 +334,7 @@
       "labelsSv": {
         "class": {
           "label": "Kopplad",
-          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+          "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
         },
         "mock": {
           "label": "Medskickad demo-data",
@@ -393,7 +393,7 @@
       "labelsSv": {
         "class": {
           "label": "Kopplad",
-          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+          "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
         },
         "mock": {
           "label": "Fejkad success + demo-notis",
@@ -462,7 +462,7 @@
       "labelsSv": {
         "class": {
           "label": "Kopplad",
-          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+          "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
         },
         "mock": {
           "label": "Medskickad demo-data",
@@ -517,7 +517,7 @@
       "labelsSv": {
         "class": {
           "label": "Kopplad",
-          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+          "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
         },
         "mock": {
           "label": "Full yta, ärlig demo-notis",
@@ -572,7 +572,7 @@
       "labelsSv": {
         "class": {
           "label": "Kopplad",
-          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+          "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
         },
         "mock": {
           "label": "Full yta, ärlig demo-notis",
@@ -612,7 +612,7 @@
       "labelsSv": {
         "class": {
           "label": "Kopplad",
-          "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+          "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
         },
         "mock": {
           "label": "Ingen demo-yta",
@@ -649,7 +649,7 @@
       "labelsSv": {
         "class": {
           "label": "Fristående",
-          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
         },
         "mock": {
           "label": "Ingen demo-yta",
@@ -689,7 +689,7 @@
       "labelsSv": {
         "class": {
           "label": "Fristående",
-          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
         },
         "mock": {
           "label": "Ingen demo-yta",
@@ -727,7 +727,7 @@
       "labelsSv": {
         "class": {
           "label": "Fristående",
-          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
         },
         "mock": {
           "label": "Ingen demo-yta",
@@ -762,7 +762,7 @@
       "labelsSv": {
         "class": {
           "label": "Fristående",
-          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
         },
         "mock": {
           "label": "Ingen demo-yta",
@@ -795,7 +795,7 @@
       "labelsSv": {
         "class": {
           "label": "Fristående",
-          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
         },
         "mock": {
           "label": "Ingen demo-yta",
@@ -832,7 +832,7 @@
       "labelsSv": {
         "class": {
           "label": "Fristående",
-          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
         },
         "mock": {
           "label": "Ingen demo-yta",
@@ -869,7 +869,7 @@
       "labelsSv": {
         "class": {
           "label": "Fristående",
-          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
         },
         "mock": {
           "label": "Ingen demo-yta",
@@ -908,7 +908,7 @@
       "labelsSv": {
         "class": {
           "label": "Fristående",
-          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
         },
         "mock": {
           "label": "Ingen demo-yta",
@@ -943,7 +943,7 @@
       "labelsSv": {
         "class": {
           "label": "Fristående",
-          "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+          "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
         },
         "mock": {
           "label": "Ingen demo-yta",
@@ -960,11 +960,11 @@
     "class": {
       "hard": {
         "label": "Kopplad",
-        "hint": "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge."
+        "hint": "Har en deklarerad koppling till en extern provider/tjänst eller dess integrations-/runtimekontrakt. Kan använda nycklar, SDK eller serverkod; demoläge och behov av extra bygge avgörs separat."
       },
       "soft": {
         "label": "Fristående",
-        "hint": "Behöver bara npm-paket — inga externa konton eller nycklar."
+        "hint": "Har ingen deklarerad extern provider eller hemlig nyckel. Kan använda npm-paket, lokala filer och publika nyckelfria resurser."
       }
     },
     "mock": {
@@ -1036,13 +1036,13 @@
     "data/dossiers/soft/maplibre-map/manifest.json": "95308e041fcb3b18a3a38aea6d745a7f2103cd4384b6d476beaa17e1230ed442",
     "data/dossiers/soft/three-fiber-canvas/manifest.json": "a465b0c30f26663c8b0067f16f4e99ec2bfae59d3463d170a38c04d3f6bffad2",
     "data/dossiers/soft/three-fiber-physics/manifest.json": "2a5e800eec37b151ba4f63b449a9e9a9c038984f872cb9c962f0f098e10eff72",
-    "docs/schemas/strict/dossier.schema.json": "454912f6f36ba3e565d0a1e3d65863b849387c5eff0ba68fe5347a54849787ab",
+    "docs/schemas/strict/dossier.schema.json": "b4b7495489428fe74222370cbb143c7883101c17cb9e6d3018db9bb3a314e332",
     "scripts/dossiers/regenerate-capability-map.ts": "ce15a798da3ac8056091104ae83854a2a92ade98b8468b077e1ebc4977035163",
-    "src/lib/builder/dossier-axes.ts": "55ce87bc934c1135d891c4a992ac7e775cca195313c7c28c62287e7390f6b9fc",
+    "src/lib/builder/dossier-axes.ts": "161ff805c6c5d39028b1322589b951c55d37c32de7fa4398238ac3be671b73a6",
     "src/lib/builder/dossier-groups.ts": "67adc554dafd00c54766c732af6600737f6194138c7773ee09a977c03d97fd59",
     "src/lib/gen/dossiers/f2-mute.ts": "f9fe5879bdd327277423c2a82374c11d303b6c1484fb17b88edb6d8bbd6882ed",
     "src/lib/gen/dossiers/registry.ts": "2766260fb71f0bef126a9f30274869b507bc466b84edb50501568a8b9cee7c11",
-    "src/lib/gen/dossiers/types.ts": "b08f15c5d4e15b25d627d3d004b13606c81e963f41c468871fe03259581662ec",
-    "src/lib/gen/dossiers/validate-manifest.ts": "bea0a961faedc86de17551f9435cd6eadd609df04165619f23d4a6b1ebc6e7f4"
+    "src/lib/gen/dossiers/types.ts": "6e03fc552401f362352746f96b9fe5a1f394b72d033287b86d2dd404c4f763c9",
+    "src/lib/gen/dossiers/validate-manifest.ts": "2dd162db2796daec5a18a5d5c3ed308a1de4944abea2c837015a4d7019c72ecc"
   }
 }

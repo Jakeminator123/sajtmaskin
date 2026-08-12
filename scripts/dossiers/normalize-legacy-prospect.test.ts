@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseProspectsPlanFile } from "./normalize-legacy-prospect";
+import { buildSystemPrompt, parseProspectsPlanFile } from "./normalize-legacy-prospect";
 
 /**
  * Regression test for backlog A#15 (#419): a broken prospects.json crashed
@@ -43,5 +43,20 @@ describe("parseProspectsPlanFile", () => {
     expect(() => parseProspectsPlanFile("null", PLAN_PATH)).toThrow(
       /must contain a "prospects" array/,
     );
+  });
+});
+
+describe("legacy normalization class truth", () => {
+  it("allows public keyless resources without inventing a provider integration", () => {
+    const prompt = buildSystemPrompt({
+      legacyId: "old-map",
+      targetId: "public-map",
+      targetClass: "soft",
+      targetCapability: "map-display",
+      defaultForCapability: false,
+    });
+    expect(prompt).toContain("NO declared integration provider/secret");
+    expect(prompt).toContain("Public keyless resources are allowed");
+    expect(prompt).not.toContain('class "soft" must be fully self-contained');
   });
 });

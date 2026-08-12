@@ -184,10 +184,11 @@ describe("detectIntegrations + best-matching-cluster on shared env keys", () => 
     reason: "capability-match",
     configured: true,
     entry: {
-      class: "soft",
+      class: "hard",
       id: "prisma-orm",
       label: "Prisma ORM",
       capability: "orm",
+      providers: ["prisma"],
       codeFidelity: "rewritable",
       complexity: "simple",
       defaultForCapability: false,

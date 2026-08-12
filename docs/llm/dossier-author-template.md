@@ -26,11 +26,12 @@ Encoded in the folder path. Pick exactly one:
 
 | Class | Folder | Use when |
 |---|---|---|
-| `hard` | `data/dossiers/hard/<id>/` | The dossier is coupled to an **external provider, service, or runtime contract**. It usually declares `envVars`, but keyless provider SDKs such as Vercel Analytics are still hard. Examples: Stripe, Clerk, OpenAI, Resend. |
-| `soft` | `data/dossiers/soft/<id>/` | The dossier is **self-contained** (interaction patterns, R3F shells, key-free features). No envVars. Examples: three-fiber-canvas, maplibre-map, local-site-search, gallery-lightbox. |
+| `hard` | `data/dossiers/hard/<id>/` | The dossier declares a coupling to an **external provider/service or integration-runtime contract**. It usually declares `envVars`, but keyless provider SDKs such as Vercel Analytics are still hard. Examples: Stripe, Clerk, OpenAI, Resend. |
+| `soft` | `data/dossiers/soft/<id>/` | The dossier has **no declared integration provider or secret** (interaction patterns, R3F shells, key-free features). npm packages, local files, and public keyless resources are allowed. Examples: three-fiber-canvas, maplibre-map, local-site-search, gallery-lightbox. |
 
-If the reference implements an external provider/runtime contract → `hard`.
-If it is a self-contained React/CSS/npm pattern → `soft`.
+If the reference implements a declared provider/integration-runtime contract → `hard`.
+If it has no declared integration provider/secret → `soft`; use of a public
+keyless resource alone does not make it `hard`.
 
 Every hard manifest must declare a non-empty `providers` array containing the
 canonical provider identities its shipped code implements. Soft manifests must
