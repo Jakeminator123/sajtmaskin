@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   allowedCurationModels,
+  applyCuratorCapabilityChoice,
+  curationAllocateArgs,
+  curationCleanupArgs,
+  curationTransactionArgs,
   CURATION_WORKLOAD_ID,
   parseArgs,
   resolveCurationModel,
@@ -60,9 +64,7 @@ describe("curation model resolution", () => {
     expect(() => resolveCurationModel("gpt-4o-mini")).toThrow(
       new RegExp(allowedCurationModels().join(", ")),
     );
-    expect(() => parseArgs([...BASE_ARGV, "--model=totally-made-up"])).toThrow(
-      /Allowed:/,
-    );
+    expect(() => parseArgs([...BASE_ARGV, "--model=totally-made-up"])).toThrow(/Allowed:/);
   });
 
   it("no longer hardcodes the legacy gpt-4o-mini id", () => {
@@ -79,5 +81,47 @@ describe("curation model resolution", () => {
     expect(() =>
       parseArgs(["node", "s.ts", "--reference=r", "--class=soft", "--id=Not_Kebab"]),
     ).toThrow(/--id must be kebab-case/);
+    expect(parseArgs([...BASE_ARGV, "--capability=content-hub"]).capability).toBe("content-hub");
+    expect(() => parseArgs([...BASE_ARGV, "--capability=Not Valid"])).toThrow(
+      /--capability must be kebab-case/,
+    );
+  });
+
+  it("accepts --stage-only and rejects unknown flags", () => {
+    expect(parseArgs([...BASE_ARGV, "--stage-only"]).stageOnly).toBe(true);
+    expect(() => parseArgs([...BASE_ARGV, "--capabilty=content-hub"])).toThrow(
+      /Unknown argument: --capabilty=content-hub/,
+    );
+  });
+});
+
+describe("curator capability enforcement", () => {
+  it("overwrites capability and refuses defaultForCapability when curator chose one", () => {
+    const patched = applyCuratorCapabilityChoice(
+      { capability: "llm-guess", defaultForCapability: true },
+      "content-hub",
+    );
+    expect(patched.capability).toBe("content-hub");
+    expect(patched.defaultForCapability).toBe(false);
+  });
+
+  it("rejects an invalid curator capability before any write", () => {
+    expect(() =>
+      applyCuratorCapabilityChoice({ capability: "cms", defaultForCapability: false }, "Not Valid"),
+    ).toThrow(/--capability must be kebab-case/);
+  });
+});
+
+describe("curation transaction owner", () => {
+  it("routes direct CLI commits through the Python transaction adapter", () => {
+    const parsed = parseArgs([...BASE_ARGV, "--force"]);
+    const args = curationTransactionArgs("C:/repo/data/backoffice/staging/dossiers/_stage", parsed);
+    expect(args.some((arg) => arg.endsWith("transaction_adapter.py"))).toBe(true);
+    expect(args).toContain("curate");
+    expect(args).toContain("--force");
+    expect(curationAllocateArgs("fal-image-generator")).toContain("allocate");
+    expect(curationCleanupArgs("C:/repo/data/backoffice/staging/dossiers/_stage")).toContain(
+      "cleanup",
+    );
   });
 });

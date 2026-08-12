@@ -33,7 +33,8 @@
  * The legacy 16-script pipeline was archived 2026-04-20 to
  * archive/dossiers-legacy-2026-04-20/scripts/.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -59,7 +60,38 @@ interface Args {
   class: "hard" | "soft";
   id: string;
   force: boolean;
+  /** When true, write the sibling stage and print STAGE_PATH=… — do not publish. */
+  stageOnly: boolean;
   model: string;
+  capability?: string;
+}
+
+/** Machine-readable marker for Backoffice `_run_curate` stage-only mode. */
+export const CURATE_STAGE_PATH_PREFIX = "STAGE_PATH=";
+
+/**
+ * Apply a curator-chosen capability onto an LLM draft.
+ * Always clears `defaultForCapability` so a picked capability cannot land as a
+ * duplicate Standardval; the curator promotes defaults later in Redigera.
+ */
+export function applyCuratorCapabilityChoice<T extends { capability?: string; defaultForCapability?: boolean }>(
+  manifest: T,
+  capability: string,
+): T {
+  const trimmed = capability.trim();
+  if (
+    !trimmed ||
+    !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(trimmed) ||
+    trimmed.length < 2 ||
+    trimmed.length > 60
+  ) {
+    throw new Error(`--capability must be kebab-case with 2-60 characters`);
+  }
+  return {
+    ...manifest,
+    capability: trimmed,
+    defaultForCapability: false,
+  };
 }
 
 /**
@@ -100,10 +132,11 @@ export function resolveCurationModel(requested: string | undefined): string {
 }
 
 export function parseArgs(argv: string[]): Args {
-  const args: Partial<Args> = { force: false };
+  const args: Partial<Args> = { force: false, stageOnly: false };
   let requestedModel: string | undefined;
   for (const a of argv.slice(2)) {
     if (a === "--force") args.force = true;
+    else if (a === "--stage-only") args.stageOnly = true;
     else if (a.startsWith("--reference=")) args.reference = a.slice("--reference=".length);
     else if (a.startsWith("--class=")) {
       const v = a.slice("--class=".length);
@@ -111,13 +144,23 @@ export function parseArgs(argv: string[]): Args {
         throw new Error(`--class must be 'hard' or 'soft' (got: ${v})`);
       args.class = v;
     } else if (a.startsWith("--id=")) args.id = a.slice("--id=".length);
+    else if (a.startsWith("--capability=")) args.capability = a.slice("--capability=".length);
     else if (a.startsWith("--model=")) requestedModel = a.slice("--model=".length);
+    else {
+      // Fail closed: silent ignore previously discarded Backoffice `--capability`
+      // and would hide typos like `--capabilty=…`.
+      throw new Error(`Unknown argument: ${a}`);
+    }
   }
   if (!args.reference) throw new Error("--reference=<id> is required");
   if (!args.class) throw new Error("--class=hard|soft is required");
   if (!args.id) throw new Error("--id=<dossier-id> is required");
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(args.id)) {
     throw new Error(`--id must be kebab-case (got: ${args.id})`);
+  }
+  if (args.capability) {
+    // Validate via the shared enforcer so CLI and post-LLM patch stay aligned.
+    applyCuratorCapabilityChoice({ capability: "placeholder" }, args.capability);
   }
   args.model = resolveCurationModel(requestedModel);
   return args as Args;
@@ -213,6 +256,59 @@ interface DraftManifest {
 interface CurationOutput {
   manifest: DraftManifest;
   instructions: string;
+}
+
+export function curationTransactionArgs(stage: string, args: Args): string[] {
+  return [
+    join(REPO_ROOT, "scripts", "dev", "run-python.mjs"),
+    join(REPO_ROOT, "scripts", "dossiers", "transaction_adapter.py"),
+    "curate",
+    `--stage=${stage}`,
+    `--class=${args.class}`,
+    `--id=${args.id}`,
+    ...(args.force ? ["--force"] : []),
+  ];
+}
+
+function runTransactionAdapter(args: string[]): string {
+  const result = spawnSync(process.execPath, args, {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error((result.stderr || result.stdout || "Dossier transaction failed").trim());
+  }
+  return result.stdout.trim();
+}
+
+function transactionAdapterBase(): string[] {
+  return [
+    join(REPO_ROOT, "scripts", "dev", "run-python.mjs"),
+    join(REPO_ROOT, "scripts", "dossiers", "transaction_adapter.py"),
+  ];
+}
+
+export function curationAllocateArgs(targetId: string): string[] {
+  return [...transactionAdapterBase(), "allocate", `--id=${targetId}`];
+}
+
+export function curationCleanupArgs(stage: string): string[] {
+  return [...transactionAdapterBase(), "cleanup", `--stage=${stage}`];
+}
+
+function allocateCurationStage(targetId: string): string {
+  return runTransactionAdapter(curationAllocateArgs(targetId));
+}
+
+function cleanupCurationStage(stage: string): void {
+  runTransactionAdapter(curationCleanupArgs(stage));
+}
+
+function commitCurationStage(stage: string, args: Args): void {
+  const output = runTransactionAdapter(curationTransactionArgs(stage, args));
+  if (output) console.log(`[curate] ${output}`);
 }
 
 /**
@@ -496,20 +592,44 @@ async function main() {
 
   // Sanity-check: enforce the id/class the user asked for.
   output.manifest.id = args.id;
+  // AI drafts never enter as Standardval. When the curator also picked a
+  // capability, that choice wins over the LLM guess.
+  output.manifest.defaultForCapability = false;
+  if (args.capability) {
+    output.manifest = applyCuratorCapabilityChoice(output.manifest, args.capability);
+  }
   if (!output.manifest.lastVerified)
     output.manifest.lastVerified = new Date().toISOString().slice(0, 10);
 
-  mkdirSync(targetDir, { recursive: true });
-  writeFileSync(
-    join(targetDir, "manifest.json"),
-    JSON.stringify(
-      { $schema: "../../../../docs/schemas/strict/dossier.schema.json", ...output.manifest },
-      null,
-      2,
-    ) + "\n",
-    "utf-8",
-  );
-  writeFileSync(join(targetDir, "instructions.md"), output.instructions, "utf-8");
+  const manifestToWrite = {
+    $schema: "../../../../docs/schemas/strict/dossier.schema.json",
+    ...output.manifest,
+  };
+  const stagedDir = allocateCurationStage(args.id);
+  try {
+    writeFileSync(
+      join(stagedDir, "manifest.json"),
+      JSON.stringify(manifestToWrite, null, 2) + "\n",
+      "utf-8",
+    );
+    writeFileSync(join(stagedDir, "instructions.md"), output.instructions, "utf-8");
+    if (args.stageOnly) {
+      // Backoffice owns the locked publish + capability override in-process.
+      console.log(`${CURATE_STAGE_PATH_PREFIX}${stagedDir}`);
+      console.log(`[curate] stage-only — skipped live publish`);
+      return;
+    }
+    commitCurationStage(stagedDir, args);
+  } catch (error) {
+    try {
+      cleanupCurationStage(stagedDir);
+    } catch (cleanupError) {
+      console.warn(
+        `[curate] stage cleanup also failed: ${cleanupError instanceof Error ? cleanupError.message : cleanupError}`,
+      );
+    }
+    throw error;
+  }
 
   console.log(`[curate] wrote ${join(targetDir, "manifest.json")}`);
   console.log(`[curate] wrote ${join(targetDir, "instructions.md")}`);

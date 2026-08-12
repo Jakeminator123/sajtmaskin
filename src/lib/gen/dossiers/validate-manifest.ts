@@ -502,6 +502,45 @@ export interface DossierMockFallbackEntry {
   mock?: DossierMockMode;
 }
 
+function groupHardDossiersByCapability(
+  entries: DossierMockFallbackEntry[],
+): Map<string, DossierMockFallbackEntry[]> {
+  const hardByCap = new Map<string, DossierMockFallbackEntry[]>();
+  for (const entry of entries) {
+    if (entry.class !== "hard") continue;
+    const list = hardByCap.get(entry.capability) ?? [];
+    list.push(entry);
+    hardByCap.set(entry.capability, list);
+  }
+  return hardByCap;
+}
+
+/**
+ * Default-resolution half of the hard-dossier fallback invariant.
+ *
+ * Exported separately so every writer can validate a projected pool before it
+ * makes a manifest live. A sole hard dossier resolves implicitly; two or more
+ * require exactly one explicit default. Duplicate explicit defaults remain
+ * owned by {@link findDuplicateDefaults}.
+ */
+export function findUnresolvableHardCapabilityDefaults(
+  entries: DossierMockFallbackEntry[],
+): string[] {
+  const errors: string[] = [];
+  for (const [capability, dossiers] of groupHardDossiersByCapability(entries)) {
+    const flaggedDefaults = dossiers.filter((dossier) => dossier.defaultForCapability);
+    if (flaggedDefaults.length === 0 && dossiers.length > 1) {
+      errors.push(
+        `hard capability "${capability}" has ${dossiers.length} dossiers but none with defaultForCapability=true — no resolvable default demo (candidates: ${dossiers
+          .map((dossier) => dossier.id)
+          .sort()
+          .join(", ")})`,
+      );
+    }
+  }
+  return errors;
+}
+
 /**
  * Fallback-invariant (plan: dossier-grupper-och-fallback-kontrakt, etapp 4;
  * skärpt till PER-DOSSIER på ägarbeslut 2026-07-12).
@@ -532,15 +571,8 @@ export interface DossierMockFallbackEntry {
  * Called by `scripts/dossiers/validate-all.ts`.
  */
 export function findMissingMockFallbacks(entries: DossierMockFallbackEntry[]): string[] {
-  const hardByCap = new Map<string, DossierMockFallbackEntry[]>();
-  for (const e of entries) {
-    if (e.class !== "hard") continue;
-    const list = hardByCap.get(e.capability) ?? [];
-    list.push(e);
-    hardByCap.set(e.capability, list);
-  }
-
-  const errors: string[] = [];
+  const hardByCap = groupHardDossiersByCapability(entries);
+  const errors = findUnresolvableHardCapabilityDefaults(entries);
   for (const [cap, dossiers] of hardByCap) {
     // Default resolution runs for EVERY hard capability — including exempt
     // ones. The exception only waives the mock requirement below; an exempt
@@ -549,18 +581,10 @@ export function findMissingMockFallbacks(entries: DossierMockFallbackEntry[]): s
     // let e.g. `analytics` lose its default silently while select.ts fell
     // back to id-sort — exactly the false-green this invariant exists for).
     const flaggedDefaults = dossiers.filter((d) => d.defaultForCapability);
-    if (flaggedDefaults.length === 0 && dossiers.length > 1) {
-      errors.push(
-        `hard capability "${cap}" has ${dossiers.length} dossiers but none with defaultForCapability=true — no resolvable default demo (candidates: ${dossiers
-          .map((d) => d.id)
-          .sort()
-          .join(", ")})`,
-      );
-      continue;
-    }
-    // Several flagged defaults → owned by findDuplicateDefaults; skip the
-    // mock check to avoid double-reporting on an already-failing pool.
-    if (flaggedDefaults.length > 1) continue;
+    // Missing or duplicate explicit default on a multi-dossier family is
+    // already owned by the projected-default/duplicate checks. Skip the mock
+    // pass to avoid double-reporting on an already-failing pool.
+    if (dossiers.length > 1 && flaggedDefaults.length !== 1) continue;
 
     if (Object.prototype.hasOwnProperty.call(MOCKLESS_CAPABILITY_EXCEPTIONS, cap)) continue;
 
