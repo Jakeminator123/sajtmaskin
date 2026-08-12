@@ -20,6 +20,7 @@ type Params = {
   chatId: string | null;
   chatIdParam: string | null;
   entryKind: BuilderEntryKind;
+  forceNew: boolean;
   hasEntryParams: boolean;
   isAuthLoading: boolean;
   paletteState: PaletteState;
@@ -53,6 +54,7 @@ export function useBuilderProjectHydration({
   chatId,
   chatIdParam,
   entryKind,
+  forceNew,
   hasEntryParams,
   isAuthLoading,
   paletteState,
@@ -100,10 +102,12 @@ export function useBuilderProjectHydration({
     }
 
     let restored: string | null = null;
-    try {
-      restored = localStorage.getItem("sajtmaskin:lastProjectId");
-    } catch {
-      restored = null;
+    if (!forceNew) {
+      try {
+        restored = localStorage.getItem("sajtmaskin:lastProjectId");
+      } catch {
+        restored = null;
+      }
     }
 
     if (restored) {
@@ -129,6 +133,7 @@ export function useBuilderProjectHydration({
               /* ignore */
             }
             const params = new URLSearchParams(searchParams.toString());
+            params.delete("new");
             params.set("project", project.id);
             router.replace(`/builder?${params.toString()}`);
           })
@@ -154,6 +159,7 @@ export function useBuilderProjectHydration({
     projectParam,
     chatIdParam,
     hasEntryParams,
+    forceNew,
     isAuthLoading,
     autoProjectInitRef,
     setAppProjectId,
@@ -247,7 +253,21 @@ export function useBuilderProjectHydration({
     return () => {
       isActive = false;
     };
-  }, [appProjectId, setAppProjectName, setPaletteState, paletteLoadedRef, lastPaletteSavedRef, lastProjectIdRef, setServerProjectChatId, setServerProjectMessages, setServerProjectDemoUrl, setServerProjectPreviewOverrideUrl, setServerProjectPreviewOverrideVersionId, setClearedPreviewVersionId, setAppProjectId]);
+  }, [
+    appProjectId,
+    setAppProjectName,
+    setPaletteState,
+    paletteLoadedRef,
+    lastPaletteSavedRef,
+    lastProjectIdRef,
+    setServerProjectChatId,
+    setServerProjectMessages,
+    setServerProjectDemoUrl,
+    setServerProjectPreviewOverrideUrl,
+    setServerProjectPreviewOverrideVersionId,
+    setClearedPreviewVersionId,
+    setAppProjectId,
+  ]);
 
   // Palette persist
   useEffect(() => {

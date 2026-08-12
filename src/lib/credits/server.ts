@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { createTransaction } from "@/lib/db/services/transactions";
-import { getOrCreateGuestUsage, incrementGuestUsage } from "@/lib/db/services/guests";
 import { isTestUser } from "@/lib/db/services/users";
 import type { User } from "@/lib/db/services/shared";
 import {
@@ -14,29 +12,19 @@ import {
   type PricingContext,
 } from "./pricing";
 
-type GuestUsageType = "generate" | "refine";
-
-type ActionRule = {
-  allowGuest: boolean;
-  guestUsageType?: GuestUsageType;
-  guestLimit?: number;
-};
-
-const ACTION_RULES: Record<CreditAction, ActionRule> = {
-  "prompt.create": { allowGuest: true, guestUsageType: "generate", guestLimit: 1 },
-  "prompt.refine": { allowGuest: true, guestUsageType: "refine", guestLimit: 1 },
-  "prompt.template": { allowGuest: true, guestUsageType: "generate", guestLimit: 1 },
-  "prompt.registry": { allowGuest: true, guestUsageType: "generate", guestLimit: 1 },
-  "prompt.vercelTemplate": { allowGuest: true, guestUsageType: "generate", guestLimit: 1 },
-  "wizard.enrich": { allowGuest: false },
-  "deploy.preview": { allowGuest: false },
-  "deploy.production": { allowGuest: false },
-  "audit.basic": { allowGuest: false },
-  "audit.advanced": { allowGuest: false },
-  "openclaw.tip": { allowGuest: false },
-};
+const VERSION_SETTLED_GENERATION_ACTIONS = new Set<CreditAction>([
+  "prompt.create",
+  "prompt.refine",
+]);
 
 const AUTH_REQUIRED_MESSAGES: Partial<Record<CreditAction, string>> = {
+  "prompt.create":
+    "Skapa ett konto eller logga in för att generera. Ditt konto får en kostnadsfri första generering.",
+  "prompt.refine":
+    "Logga in för att fortsätta bygga. Ditt konto får en kostnadsfri första generering.",
+  "prompt.template": "Skapa ett konto eller logga in för att använda mallen.",
+  "prompt.registry": "Skapa ett konto eller logga in för att generera från komponenten.",
+  "prompt.vercelTemplate": "Skapa ett konto eller logga in för att använda mallen.",
   "wizard.enrich": "Du måste vara inloggad för att använda wizard-läget.",
   "audit.basic": "Du måste vara inloggad för att använda audit-funktionen.",
   "audit.advanced": "Du måste vara inloggad för att använda audit-funktionen.",
@@ -45,26 +33,14 @@ const AUTH_REQUIRED_MESSAGES: Partial<Record<CreditAction, string>> = {
   "openclaw.tip": "Du måste vara inloggad för att använda AI-tips.",
 };
 
-const GUEST_LIMIT_MESSAGES: Record<GuestUsageType, string> = {
-  generate: "Du har använt din gratis generation. Skapa ett konto för att fortsätta bygga!",
-  refine: "Du har använt din gratis förfining. Skapa ett konto för att fortsätta förfina!",
-};
-
 export type CreditsEvaluation = {
   allowed: boolean;
   cost: number;
   reason: string | null;
   user: User | null;
   isTest: boolean;
-  sessionId: string | null;
-  guestUsageType: GuestUsageType | null;
-  guest?: {
-    generationsUsed: number;
-    refinesUsed: number;
-    canGenerate: boolean;
-    canRefine: boolean;
-  } | null;
-  failureType?: "auth" | "insufficient" | "guest_limit" | "session_missing";
+  usingFreeGeneration: boolean;
+  failureType?: "auth" | "insufficient";
   currentBalance?: number;
 };
 
@@ -72,15 +48,23 @@ async function evaluateCredits(
   req: Request,
   action: CreditAction,
   context: PricingContext = {},
-  options: { sessionId?: string | null } = {},
+  options: { sessionId?: string | null; allowFreeGeneration?: boolean } = {},
 ): Promise<CreditsEvaluation> {
   const cost = getCreditCost(action, context);
   const user = await getCurrentUser(req);
-  const sessionId = options.sessionId ?? getSessionIdFromRequest(req);
 
   if (user) {
     const isTest = isTestUser(user);
-    const canProceed = isTest || user.diamonds >= cost;
+    // This is a preliminary request gate, not the authoritative entitlement
+    // claim. Version settlement locks the user row, grants the entitlement to
+    // at most one completed version, and rejects a concurrent paid loser when
+    // the freshly locked balance cannot cover its calculated usage.
+    const usingFreeGeneration =
+      !isTest &&
+      options.allowFreeGeneration === true &&
+      VERSION_SETTLED_GENERATION_ACTIONS.has(action) &&
+      user.free_generation_available;
+    const canProceed = isTest || usingFreeGeneration || user.diamonds >= cost;
     return {
       allowed: canProceed,
       cost,
@@ -89,65 +73,20 @@ async function evaluateCredits(
         : `Du behöver minst ${cost} credits för ${getActionLabel(action)}. Du har ${user.diamonds} credits.`,
       user,
       isTest,
-      sessionId,
-      guestUsageType: null,
-      guest: null,
+      usingFreeGeneration,
       failureType: canProceed ? undefined : "insufficient",
       currentBalance: user.diamonds,
     };
   }
 
-  const rule = ACTION_RULES[action];
-  if (!rule.allowGuest) {
-    return {
-      allowed: false,
-      cost,
-      reason: AUTH_REQUIRED_MESSAGES[action] || "Du måste vara inloggad för att fortsätta.",
-      user: null,
-      isTest: false,
-      sessionId,
-      guestUsageType: null,
-      guest: null,
-      failureType: "auth",
-    };
-  }
-
-  if (!sessionId) {
-    return {
-      allowed: false,
-      cost,
-      reason: "Session saknas. Ladda om sidan och försök igen.",
-      user: null,
-      isTest: false,
-      sessionId: null,
-      guestUsageType: rule.guestUsageType || null,
-      guest: null,
-      failureType: "session_missing",
-    };
-  }
-
-  const guestUsage = await getOrCreateGuestUsage(sessionId);
-  const guestUsageType = rule.guestUsageType || null;
-  const guestLimit = rule.guestLimit ?? 0;
-  const usedCount =
-    guestUsageType === "generate" ? guestUsage.generations_used : guestUsage.refines_used;
-  const guestBlocked = guestLimit > 0 && usedCount >= guestLimit;
-
   return {
-    allowed: !guestBlocked,
+    allowed: false,
     cost,
-    reason: guestBlocked && guestUsageType ? GUEST_LIMIT_MESSAGES[guestUsageType] : null,
+    reason: AUTH_REQUIRED_MESSAGES[action] || "Du måste vara inloggad för att fortsätta.",
     user: null,
     isTest: false,
-    sessionId,
-    guestUsageType,
-    guest: {
-      generationsUsed: guestUsage.generations_used,
-      refinesUsed: guestUsage.refines_used,
-      canGenerate: guestUsage.generations_used < 1,
-      canRefine: guestUsage.refines_used < 1,
-    },
-    failureType: guestBlocked ? "guest_limit" : undefined,
+    usingFreeGeneration: false,
+    failureType: "auth",
   };
 }
 
@@ -157,10 +96,9 @@ export type PreparedCredits =
       cost: number;
       action: CreditAction;
       context: PricingContext;
-      user: User | null;
+      user: User;
       isTest: boolean;
-      sessionId: string | null;
-      guestUsageType: GuestUsageType | null;
+      usingFreeGeneration: boolean;
       /**
        * Charge the credits. Pass `{ rejectIfNegative: true }` from charge-FIRST
        * call sites so a raced/insufficient debit throws `InsufficientCreditsError`
@@ -169,11 +107,7 @@ export type PreparedCredits =
        * already-delivered charge is never silently dropped).
        */
       commit: (options?: { rejectIfNegative?: boolean }) => Promise<void>;
-      /**
-       * Reverse a previously committed charge (credits the same cost back).
-       * Used by charge-FIRST paths when the delivered action fails after the
-       * debit landed. No-op for guests / test users / zero-cost actions.
-       */
+      /** Reverse a previously committed fixed charge. */
       refund: () => Promise<void>;
     }
   | { ok: false; cost: number; response: Response };
@@ -182,22 +116,17 @@ export async function prepareCredits(
   req: Request,
   action: CreditAction,
   context: PricingContext = {},
-  options: { sessionId?: string | null } = {},
+  options: { sessionId?: string | null; allowFreeGeneration?: boolean } = {},
 ): Promise<PreparedCredits> {
   const evaluation = await evaluateCredits(req, action, context, options);
 
   if (!evaluation.allowed) {
-    const status =
-      evaluation.failureType === "auth"
-        ? 401
-        : evaluation.failureType === "session_missing"
-          ? 400
-          : 402;
+    const status = evaluation.failureType === "auth" ? 401 : 402;
     const response = NextResponse.json(
       {
         success: false,
         error: evaluation.reason || "Du kan inte fortsätta.",
-        requiresAuth: evaluation.failureType === "auth" || evaluation.failureType === "guest_limit",
+        requiresAuth: evaluation.failureType === "auth",
         insufficientCredits: evaluation.failureType === "insufficient",
         required: evaluation.failureType === "insufficient" ? evaluation.cost : undefined,
         current: evaluation.currentBalance,
@@ -208,29 +137,22 @@ export async function prepareCredits(
   }
 
   const commit = async (commitOptions?: { rejectIfNegative?: boolean }) => {
-    if (evaluation.user) {
-      if (evaluation.isTest || evaluation.cost <= 0) return;
-      await createTransaction(
-        evaluation.user.id,
-        getCreditTransactionType(action),
-        -evaluation.cost,
-        getCreditDescription(action, context),
-        undefined,
-        undefined,
-        commitOptions,
-      );
-      return;
-    }
-
-    if (evaluation.guestUsageType && evaluation.sessionId) {
-      await incrementGuestUsage(evaluation.sessionId, evaluation.guestUsageType);
-    }
+    if (evaluation.isTest || evaluation.usingFreeGeneration || evaluation.cost <= 0) return;
+    await createTransaction(
+      evaluation.user!.id,
+      getCreditTransactionType(action),
+      -evaluation.cost,
+      getCreditDescription(action, context),
+      undefined,
+      undefined,
+      commitOptions,
+    );
   };
 
   const refund = async () => {
-    if (!evaluation.user || evaluation.isTest || evaluation.cost <= 0) return;
+    if (evaluation.isTest || evaluation.usingFreeGeneration || evaluation.cost <= 0) return;
     await createTransaction(
-      evaluation.user.id,
+      evaluation.user!.id,
       `${getCreditTransactionType(action)}_refund`,
       evaluation.cost,
       `Återbetalning: ${getCreditDescription(action, context)}`,
@@ -242,10 +164,9 @@ export async function prepareCredits(
     cost: evaluation.cost,
     action,
     context,
-    user: evaluation.user,
+    user: evaluation.user!,
     isTest: evaluation.isTest,
-    sessionId: evaluation.sessionId,
-    guestUsageType: evaluation.guestUsageType,
+    usingFreeGeneration: evaluation.usingFreeGeneration,
     commit,
     refund,
   };

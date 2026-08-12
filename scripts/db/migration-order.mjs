@@ -43,6 +43,21 @@ export const MIGRATION_ORDER = [
   "add-cascade-to-engine-fks.sql",
   "add-oc-debug-findings.sql",
   "add-llm-usage.sql",
+  // Usage-baserad kostnad/debitering bygger på llm_usage och lägger dessutom
+  // till cache_write_tokens på bastabellen.
+  "add-generation-billing.sql",
+  // Persistenta request-claim-nycklar gör att en avbruten usage-attach kan
+  // köras om exakt. Egen fil krävs eftersom billing-migrationen redan har
+  // ledgerförts i dev; färska databaser får kolumnen från basfilen ovan.
+  "add-generation-billing-claim-keys.sql",
+  // Explicitly separates successful generation markers from markers created
+  // only to bill historical/imported post-processing. This follow-up runs
+  // after the already-ledgered claim-key migration in existing dev databases.
+  "add-generation-billing-free-eligibility.sql",
+  // Existing databases may already have ledgered every earlier billing
+  // migration. This nullable per-marker lower bound prevents a newly created
+  // historical repair marker from charging the version's old usage.
+  "add-generation-billing-usage-start.sql",
   "add-app-projects-vercel-project.sql",
   "add-branded-site-domains.sql",
   "drop-deployments-legacy-fks.sql",
@@ -120,9 +135,7 @@ export function resolveMigrationRunOrder(filesOnDisk) {
 
   const missing = MIGRATION_ORDER.filter((f) => !onDisk.has(f));
   if (missing.length > 0) {
-    throw new Error(
-      `MIGRATION_ORDER lists migration(s) not found on disk: ${missing.join(", ")}`,
-    );
+    throw new Error(`MIGRATION_ORDER lists migration(s) not found on disk: ${missing.join(", ")}`);
   }
 
   return [...MIGRATION_ORDER];

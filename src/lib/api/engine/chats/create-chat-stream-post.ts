@@ -55,10 +55,7 @@ import { compressUrls } from "@/lib/gen/url-compress";
 import { buildPlanModeAssistantMessage } from "@/lib/gen/plan/review";
 import { dumpOwnEngineCodegenFromFullSystem } from "@/lib/gen/prompt-dump";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
-import {
-  normalizeRequestAttachments,
-  summarizeDesignReferences,
-} from "@/lib/gen/request-metadata";
+import { normalizeRequestAttachments, summarizeDesignReferences } from "@/lib/gen/request-metadata";
 import { parseChatRequestMeta } from "./parse-chat-request-meta";
 import { createCommitCreditsOnce } from "./credits-handler";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
@@ -103,832 +100,981 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
     // codegen, verifier och RepairGate hamnar på rätt chat/användare utan att
     // varje mellanliggande funktion behöver bära id:n.
     runWithLlmUsageContext({}, async () => {
-    const requestStartedAt = Date.now();
-    const requestId = req.headers.get("x-vercel-id") || "unknown";
-    const session = ensureSessionIdFromRequest(req);
-    const sessionId = session.sessionId;
-    setLlmUsageContext({ sessionId });
-    const attachSessionCookie = (response: Response) => {
-      if (session.setCookie) {
-        response.headers.set("Set-Cookie", session.setCookie);
-      }
-      return response;
-    };
-    try {
-      const botError = requireNotBot(req);
-      if (botError) return attachSessionCookie(botError);
-
-      const body = await req.json().catch(() => ({}));
-
-      const validationResult = createChatSchema.safeParse(body);
-      if (!validationResult.success) {
-        return attachSessionCookie(
-          NextResponse.json(
-            { error: "Validation failed", details: validationResult.error.issues },
-            { status: 400 },
-          ),
-        );
-      }
-
-      const {
-        message,
-        attachments,
-        projectId,
-        system,
-        modelId = DEFAULT_MODEL_ID,
-        thinking,
-        imageGenerations,
-        chatPrivacy,
-        meta,
-      } = validationResult.data;
-      const requestAttachments = normalizeRequestAttachments(attachments);
-      const parsedMeta = parseChatRequestMeta(meta);
-      const modelSelection = resolveModelSelection({
-        requestedModelId: modelId,
-        requestedModelTier: parsedMeta.modelTier,
-        fallbackTier: DEFAULT_MODEL_ID,
-      });
-      const resolvedModelId = modelSelection.modelId;
-      const resolvedModelTier = modelSelection.modelTier;
-      const metaBuildMethod = parsedMeta.buildMethod;
-      const metaBuildIntent = parsedMeta.buildIntent;
-      const metaPromptSourceKind = parsedMeta.promptSourceKind;
-      const metaPromptSourceTechnical = parsedMeta.promptSourceTechnical;
-      const metaPromptSourcePreservePayload = parsedMeta.promptSourcePreservePayload;
-      const metaPlanMode = parsedMeta.planMode;
-      const metaAppProjectId = parsedMeta.appProjectId;
-      const promptOrchestration = orchestratePromptMessage({
-        message,
-        buildMethod: metaBuildMethod,
-        buildIntent: metaBuildIntent,
-        isFirstPrompt: true,
-        attachmentsCount: requestAttachments.length,
-        hardCap: MAX_PROMPT_HANDOFF_CHARS,
-        promptSourceKind: metaPromptSourceKind,
-        promptSourceTechnical: metaPromptSourceTechnical,
-        promptSourcePreservePayload: metaPromptSourcePreservePayload,
-      });
-      const strategyMeta = promptOrchestration.strategyMeta;
-      let optimizedMessage = promptOrchestration.finalMessage;
-      const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
-      const hasSystemPrompt = Boolean(trimmedSystemPrompt);
-      const resolvedThinking =
-        typeof thinking === "boolean"
-          ? thinking
-          : getDefaultThinkingEnabled();
-      const resolvedImageGenerations =
-        typeof imageGenerations === "boolean" ? imageGenerations : true;
-      const resolvedChatPrivacy = chatPrivacy ?? "private";
-      if (
-        message.length > WARN_CHAT_MESSAGE_CHARS ||
-        optimizedMessage.length > WARN_CHAT_MESSAGE_CHARS ||
-        trimmedSystemPrompt.length > WARN_CHAT_SYSTEM_CHARS
-      ) {
-        devLogAppend("in-progress", {
-          type: "prompt.size.warning",
-          messageLength: optimizedMessage.length,
-          originalMessageLength: message.length,
-          systemLength: trimmedSystemPrompt.length,
-          warnMessageChars: WARN_CHAT_MESSAGE_CHARS,
-          warnSystemChars: WARN_CHAT_SYSTEM_CHARS,
-        });
-      }
-      const creditContext = {
-        modelId: resolvedModelId,
-        thinking: resolvedThinking,
-        imageGenerations: resolvedImageGenerations,
-        attachmentsCount: requestAttachments.length,
+      const requestStartedAt = Date.now();
+      const requestId = req.headers.get("x-vercel-id") || "unknown";
+      const session = ensureSessionIdFromRequest(req);
+      const sessionId = session.sessionId;
+      setLlmUsageContext({ sessionId });
+      const attachSessionCookie = (response: Response) => {
+        if (session.setCookie) {
+          response.headers.set("Set-Cookie", session.setCookie);
+        }
+        return response;
       };
-      const creditCheck = await prepareCredits(req, "prompt.create", creditContext, { sessionId });
-      if (!creditCheck.ok) {
-        return attachSessionCookie(creditCheck.response);
-      }
-      // `prepareCredits` is only an eligibility check. Prewarm is deliberately
-      // lease-bound by the canonical rate-limit subject (verified user, else
-      // trusted IP; never the rotatable guest cookie), so an aborted stream
-      // cannot repeatedly consume host install capacity before settlement.
-      const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
-        userId: creditCheck.user?.id,
-      });
-      // Samma identitetsform som tenant-lagret (`getRequestUserId`), så gäst-
-      // förbrukning kan attribueras i stället för att bli NULL.
-      setLlmUsageContext({
-        userId: creditCheck.user?.id ?? `guest:${sessionId}`,
-      });
-      optimizedMessage = await appendHydratedTextAttachmentExcerpts(
-        optimizedMessage,
-        requestAttachments,
-        { signal: req.signal },
-      );
-
-      const clientBriefFromMeta = parsedMeta.brief;
-      const assistModelHint = parsedMeta.promptAssistModel;
-
-      // Fast pre-match: keyword-only scaffold + variant (~1ms) to give Brief-LLM design hints.
-      // Intentionally NOT pickScaffoldVariantAsync — that would add a +500ms OpenAI embedding
-      // round-trip just for hint generation.
-      // The picked preMatchVariant.id is later passed as orchestrationInput.persistedVariantId
-      // so the same variant is reused by finalizeOrchestrationPrompts (no async re-pick), keeping
-      // brief-LLM hints and codegen aligned.
-      // Scaffold: Av → thin baseline (`projekt-bas-app`) so Deep Brief / variant
-      // hints align with resolveOrchestrationBase. Template imports never send
-      // scaffoldMode off via this path (they use importedRepoMode instead).
-      const scaffoldModeIsOff = parsedMeta.scaffoldMode === "off";
-      const preMatchScaffoldRaw = scaffoldModeIsOff
-        ? getScaffoldById(SCAFFOLD_OFF_BASELINE_ID)
-        : parsedMeta.scaffoldId
-          ? getScaffoldById(parsedMeta.scaffoldId)
-          : matchScaffold(message, metaBuildIntent as BuildIntent | null);
-      // Same intent guard orchestration applies (`resolve-base`). Without it an
-      // explicit Hemsida choice could still let app vocabulary steer the Deep
-      // Brief toward `dashboard`, while orchestration rejects that scaffold and
-      // generates against the website default — brief and codegen would describe
-      // different projects.
-      const preMatchScaffold = parsedMeta.buildIntentExplicit
-        ? scaffoldForExplicitIntent(preMatchScaffoldRaw, metaBuildIntent as BuildIntent | null)
-        : preMatchScaffoldRaw;
-      const preMatchVariant = preMatchScaffold
-        ? // An explicit Byggval style pins the variant here too, so the Deep
-          // Brief's hints describe the same style codegen will be pinned to.
-          // Without it the brief could be told "corporate grid" while finalize
-          // pins the minimal variant.
-          //
-          // Only as accurate as `preMatchScaffold`: with site type on Auto that is
-          // a keyword-only guess, and orchestration may still land on a different
-          // scaffold via embeddings. Then these hints describe the right style on
-          // the wrong scaffold. Pre-existing for the keyword pick below too —
-          // closing it means making brief generation wait for the embedding
-          // scaffold resolution, which costs a round-trip on every init.
-          (resolveVariantForStyleChoice(preMatchScaffold.id, parsedMeta.styleChoiceHint) ??
-          pickScaffoldVariant({
-            prompt: message,
-            scaffoldId: preMatchScaffold.id,
-            // Byggval (init controls): structured style keywords steer the
-            // keyword pre-match so brief hints and the pinned variant agree
-            // with the user's chosen style.
-            styleKeywords: parsedMeta.styleKeywordsHint.length
-              ? parsedMeta.styleKeywordsHint
-              : undefined,
-            toneKeywords: parsedMeta.toneKeywordsHint.length
-              ? parsedMeta.toneKeywordsHint
-              : undefined,
-          }))
-        : null;
-      const variantHints = buildVariantHintsForBrief(preMatchScaffold, preMatchVariant);
-      const variantHintsText = variantHints
-        ? formatVariantHintsForPrompt(variantHints)
-        : undefined;
-      const initCapabilities = inferCapabilities(message);
-      const initCapabilityDetection = mergeDossierIdCapabilities(
-        detectFollowUpCapabilities(message, { mode: "init" }),
-        message,
-        (id) => getDossierById(id)?.capability ?? null,
-      );
-      const simpleWebsitePath = classifySimpleWebsitePath({
-        generationMode: "init",
-        planMode: Boolean(metaPlanMode),
-        hasClientBrief: Boolean(clientBriefFromMeta),
-        attachmentsCount: requestAttachments.length,
-        hasCustomSystem: hasSystemPrompt,
-        promptSourceTechnical: metaPromptSourceTechnical,
-        promptSourcePreservePayload: metaPromptSourcePreservePayload,
-        buildIntent:
-          metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
-            ? (metaBuildIntent as BuildIntent)
-            : "website",
-        promptStrategyMeta: strategyMeta,
-        prompt: message,
-        preMatchScaffold,
-        capabilities: initCapabilities,
-        requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
-      });
-      devLogAppend("in-progress", {
-        type: "orchestration.simple_website_path",
-        enabled: simpleWebsitePath.enabled,
-        reason: simpleWebsitePath.reason,
-        scaffoldId: simpleWebsitePath.scaffoldId,
-      });
-
-      let serverAutoBrief: Record<string, unknown> | null = null;
-      let serverAutoBriefModel: string | null = null;
-      let serverAutoBriefTrace: BriefTrace | null = null;
-      if (
-        !simpleWebsitePath.enabled &&
-        shouldRunServerAutoBrief({
-          hasClientBrief: Boolean(clientBriefFromMeta),
-          promptSourceTechnical: metaPromptSourceTechnical,
-          promptSourcePreservePayload: metaPromptSourcePreservePayload,
-          promptType: strategyMeta.promptType,
-          orchestrationReason: strategyMeta.reason,
-          prompt: message,
-          buildIntent: metaBuildIntent,
-        })
-      ) {
-        const autoBriefStartedAt = Date.now();
-        const generated = await tryGenerateServerAutoBrief({
-          prompt: message,
-          modelTier: resolvedModelTier,
-          assistModelHint,
-          imageGenerations: resolvedImageGenerations,
-          signal: req.signal,
-          variantHints: variantHintsText,
-        });
-        if (generated) {
-          serverAutoBrief = generated.brief;
-          serverAutoBriefModel = generated.modelUsed;
-          serverAutoBriefTrace = generated.trace;
-          debugLog("orchestration", "Server auto brief applied", {
-            durationMs: Date.now() - autoBriefStartedAt,
-            modelUsed: serverAutoBriefModel,
-            traceId: serverAutoBriefTrace.traceId,
-            promptHash: serverAutoBriefTrace.promptHash,
-            pages: Array.isArray(serverAutoBrief?.pages) ? serverAutoBrief.pages.length : 0,
-          });
-          devLogAppend("in-progress", {
-            type: "orchestration.server_auto_brief",
-            status: "applied",
-            source: serverAutoBriefTrace.source,
-            model: serverAutoBriefModel,
-            traceId: serverAutoBriefTrace.traceId,
-            promptHash: serverAutoBriefTrace.promptHash,
-            durationMs: Date.now() - autoBriefStartedAt,
-            pages: Array.isArray(serverAutoBrief?.pages) ? serverAutoBrief.pages.length : 0,
-          });
-        } else {
-          debugLog("orchestration", "Server auto brief skipped or returned empty", {
-            durationMs: Date.now() - autoBriefStartedAt,
-          });
-          devLogAppend("in-progress", {
-            type: "orchestration.server_auto_brief",
-            status: "skipped_or_empty",
-            durationMs: Date.now() - autoBriefStartedAt,
-          });
-        }
-      }
-      const effectiveBrief = clientBriefFromMeta ?? serverAutoBrief;
-      const briefQuality: "full" | "server-auto" | "none" = (() => {
-        const clientQuality = clientBriefFromMeta?.briefQuality;
-        if (clientQuality === "full" || clientQuality === "server-auto") return clientQuality;
-        if (serverAutoBrief) return "server-auto";
-        return "none";
-      })();
-
-      const creditUser = creditCheck.user;
-      const commitCreditsOnce = createCommitCreditsOnce(creditCheck);
-
       try {
-        const metaPayload =
-          meta && typeof meta === "object"
-            ? (() => {
-                const copy = { ...(meta as Record<string, unknown>) };
-                delete copy.promptOriginal;
-                delete copy.promptFormatted;
-                copy.promptStrategy = strategyMeta.strategy;
-                copy.promptType = strategyMeta.promptType;
-                copy.promptSource = strategyMeta.promptSource;
-                copy.promptBudgetTarget = strategyMeta.budgetTarget;
-                copy.promptOptimizedLength = strategyMeta.optimizedLength;
-                copy.promptReductionRatio = strategyMeta.reductionRatio;
-                copy.promptStrategyReason = strategyMeta.reason;
-                copy.promptComplexityScore = strategyMeta.complexityScore;
-                copy.serverAutoBriefGenerated = Boolean(serverAutoBrief);
-                copy.briefQuality = briefQuality;
-                if (serverAutoBriefModel) copy.serverAutoBriefModel = serverAutoBriefModel;
-                if (serverAutoBriefTrace) {
-                  copy.serverAutoBriefTraceId = serverAutoBriefTrace.traceId;
-                  copy.serverAutoBriefPromptHash = serverAutoBriefTrace.promptHash;
-                }
-                return Object.keys(copy).length > 0 ? copy : null;
-              })()
-            : {
-                promptStrategy: strategyMeta.strategy,
-                promptType: strategyMeta.promptType,
-                promptSource: strategyMeta.promptSource,
-                promptBudgetTarget: strategyMeta.budgetTarget,
-                promptOptimizedLength: strategyMeta.optimizedLength,
-                promptReductionRatio: strategyMeta.reductionRatio,
-                promptStrategyReason: strategyMeta.reason,
-                promptComplexityScore: strategyMeta.complexityScore,
-                serverAutoBriefGenerated: Boolean(serverAutoBrief),
-                briefQuality,
-                ...(serverAutoBriefModel ? { serverAutoBriefModel } : {}),
-                ...(serverAutoBriefTrace
-                  ? {
-                      serverAutoBriefTraceId: serverAutoBriefTrace.traceId,
-                      serverAutoBriefPromptHash: serverAutoBriefTrace.promptHash,
-                    }
-                  : {}),
-              };
-        const metaObj = meta && typeof meta === "object" ? (meta as Record<string, unknown>) : null;
-        const promptOriginal =
-          typeof metaObj?.promptOriginal === "string"
-            ? String(metaObj.promptOriginal)
-            : message ?? null;
-        const promptFormatted =
-          typeof metaObj?.promptFormatted === "string"
-            ? String(metaObj.promptFormatted)
-            : optimizedMessage ?? null;
-        await createPromptLog({
-          event: "create_chat",
-          userId: creditUser?.id || null,
-          sessionId,
-          appProjectId: metaAppProjectId || null,
-          v0ProjectId: projectId ?? null,
-          chatId: null,
-          promptOriginal,
-          promptFormatted,
-          systemPrompt: trimmedSystemPrompt || null,
-          promptAssistModel: parsedMeta.promptAssistModel,
-          promptAssistDeep: parsedMeta.promptAssistDeep,
-          promptAssistMode: parsedMeta.promptAssistMode,
-          buildIntent: metaBuildIntent,
-          buildMethod: metaBuildMethod,
-          modelTier: resolvedModelTier,
-          imageGenerations: resolvedImageGenerations,
-          thinking: resolvedThinking,
-          attachmentsCount: requestAttachments.length,
-          meta: metaPayload,
-        });
-      } catch (error) {
-        console.warn("[prompt-log] Failed to record prompt log:", error);
-      }
+        const botError = requireNotBot(req);
+        if (botError) return attachSessionCookie(botError);
 
-      const buildProfileId = getBuildProfileId(resolvedModelTier);
-      debugLog("build", "Chat stream request", {
-        buildProfileId,
-        buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-        internalModelSelection: resolvedModelTier,
-        enginePath: "own-engine",
-        engineModel: canonicalModelIdToOwnModelId(resolvedModelTier),
-        promptLength: optimizedMessage.length,
-        originalPromptLength: message.length,
-        attachments: requestAttachments.length,
-        systemProvided: hasSystemPrompt,
-        systemApplied: hasSystemPrompt,
-        systemIgnored: false,
-        thinking: resolvedThinking,
-        imageGenerations: resolvedImageGenerations,
-        chatPrivacy: resolvedChatPrivacy,
-        promptStrategy: strategyMeta.strategy,
-        promptType: strategyMeta.promptType,
-      });
-      devLogStartNewSite({
-        message: optimizedMessage,
-        modelId: resolvedModelId,
-        thinking: resolvedThinking,
-        imageGenerations: resolvedImageGenerations,
-        projectId,
-        slug: metaBuildMethod || metaBuildIntent || undefined,
-      });
-      devLogAppend("in-progress", {
-        type: "comm.request.create",
-        modelId: resolvedModelId,
-        modelTier: resolvedModelTier,
-        buildProfileId,
-        buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-        chatPrivacy: resolvedChatPrivacy,
-        buildIntent: metaBuildIntent,
-        buildMethod: metaBuildMethod,
-        message: optimizedMessage,
-        slug: metaBuildMethod || metaBuildIntent || undefined,
-        promptType: strategyMeta.promptType,
-        // Plan 03 (short): mirror promptSource into the init devlog so
-        // observability gets the same auto-repair vs user discriminator
-        // on init as it does on follow-ups (init is always "user" today
-        // since autofix only fires on existing chats, but we surface the
-        // field uniformly).
-        promptSource: strategyMeta.promptSource,
-        promptStrategy: strategyMeta.strategy,
-        promptBudgetTarget: strategyMeta.budgetTarget,
-        originalLength: strategyMeta.originalLength,
-        optimizedLength: strategyMeta.optimizedLength,
-        reductionRatio: strategyMeta.reductionRatio,
-        strategyReason: strategyMeta.reason,
-        attachmentsCount: requestAttachments.length,
-        thinking: resolvedThinking,
-        imageGenerations: resolvedImageGenerations,
-      });
-      debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {
-        promptAssistModel: parsedMeta.promptAssistModel,
-        promptAssistDeep: parsedMeta.promptAssistDeep,
-        promptAssistMode: parsedMeta.promptAssistMode,
-        promptStrategy: strategyMeta.strategy,
-        promptType: strategyMeta.promptType,
-      });
+        const body = await req.json().catch(() => ({}));
 
-      // ── Plan Mode Path ────────────────────────────────────────────────
-      if (metaPlanMode) {
-        const plannerSettings = resolvePlanModePlannerSettings(
-          resolvedModelTier,
-          resolvedThinking,
-        );
-        const planModel = plannerSettings.modelId;
-        let engineIntent: BuildIntent =
-          metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
-            ? (metaBuildIntent as BuildIntent)
-            : "website";
-        // A manually pinned app scaffold outranks even an explicit Byggval
-        // "Hemsida", so this deliberately ignores `buildIntentExplicit`.
-        //
-        // Byggval cannot produce that pair itself — it drops a site type that
-        // contradicts the target — so reaching here means the builder header's
-        // scaffold menu pinned dashboard/app-shell while Byggval said Hemsida.
-        // `dashboard` declares `allowedBuildIntents: ["app"]`, so honouring the
-        // intent instead would run an app-only scaffold under a website intent:
-        // exactly the mismatch `scaffoldForExplicitIntent` exists to prevent.
-        // Flipping the intent is the self-consistent read of two contradicting
-        // surfaces; which one SHOULD win is a product decision, not a fix here.
-        if (engineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
-          engineIntent = "app";
-        }
-        const planOrchestrationStartedAt = Date.now();
-        const planOrchestration = await prepareGenerationContext({
-          prompt: optimizedMessage,
-          rawPrompt: message,
-          // 2026-04-22 follow-up audit: plan mode saknade tidigare samma
-          // rå-signalpaket som huvudflödet fick i fix 07#1 — route-plan,
-          // BuildSpec, contracts, capability- och scaffold-match drevs av
-          // wrappad `optimizedMessage` i plan-LLM:n medan senare codegen
-          // fick rå `message`. Det riskerade planner-vs-codegen-drift när
-          // filkontext/bilagor i wrappen drog klassifiering åt annat håll.
-          routePlanPrompt: message,
-          buildSpecPrompt: message,
-          contractsPrompt: message,
-          scaffoldMatchPrompt: message,
-          capabilitiesPrompt: message,
-          capabilities: initCapabilities,
-          requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
-          requestedCapabilityTiers: initCapabilityDetection.tierByCapability,
-          buildIntent: engineIntent,
-          scaffoldMode: parsedMeta.scaffoldMode,
-          scaffoldId: parsedMeta.scaffoldId,
-          // Byggval (init controls): spegla huvudflödet så plan-läge får
-          // samma route-plan, variantmatchning och BuildSpec som vanlig init.
-          pageCountHint: parsedMeta.pageCountHint,
-          styleKeywordsHint: parsedMeta.styleKeywordsHint.length
-            ? parsedMeta.styleKeywordsHint
-            : undefined,
-          toneKeywordsHint: parsedMeta.toneKeywordsHint.length
-            ? parsedMeta.toneKeywordsHint
-            : undefined,
-          styleChoiceHint: parsedMeta.styleChoiceHint,
-          colorModeHint: parsedMeta.colorModeHint,
-          buildIntentExplicit: parsedMeta.buildIntentExplicit,
-          complexityHint: parsedMeta.complexityHint,
-          brief: effectiveBrief,
-          themeColors: parsedMeta.themeColors,
-          // Samma paritet för custom instructions (bär även Byggvals
-          // komplexitet/färgläge/ton-direktiv) — annars planerar plan-läget
-          // utan direktiv som codegen sedan får.
-          customInstructions: trimmedSystemPrompt || undefined,
-          // Pinna samma pre-match-variant som huvudflödet (pre-matchen läser
-          // styleKeywordsHint) så plan-orkestreringen inte async-väljer en
-          // annan variant än brief-hints/codegen.
-          persistedVariantId: preMatchVariant?.id ?? null,
-          promptStrategyMeta: strategyMeta,
-          // Bug 04#3 (2026-04-22 audit): plan mode skickade tidigare inte
-          // engineModelId/lifecycleStage. Det gav divergent BuildSpec mellan
-          // planerings-LLM (200k-baseline, default livscykel) och faktisk
-          // codegen (1M-fönster + F2/F3). Spegla samma fält som huvudflödet.
-          engineModelId: resolveEngineModelId(resolvedModelTier),
-          lifecycleStage: parsedMeta.lifecycleStage,
-        });
-        debugLog("orchestration", "Plan mode orchestration prepared", {
-          durationMs: Date.now() - planOrchestrationStartedAt,
-          qualityTarget: planOrchestration.buildSpec.qualityTarget,
-          contextPolicy: planOrchestration.buildSpec.contextPolicy,
-          scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
-        });
-
-        const { planPreamble, planSystemPrompt } = computePlanModePlannerPrompts(planOrchestration);
-        dumpPlanModePlannerPrompts(
-          planPreamble,
-          planOrchestration,
-          planSystemPrompt,
-          "POST /api/engine/chats/stream",
-        );
-        logPlanModeGenerationStart({
-          planModel,
-          promptLength: optimizedMessage.length,
-          scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
-          resolvedThinking: plannerSettings.thinking,
-        });
-
-        const pipelineStream = createPlanModePipelineStream({
-          optimizedMessage,
-          planSystemPrompt,
-          planModel,
-          plannerThinking: plannerSettings.thinking,
-          plannerReasoningEffort: plannerSettings.reasoningEffort,
-          plannerReasoningMode: plannerSettings.reasoningMode,
-          abortSignal: req.signal,
-          referenceAttachments: [
-            ...planOrchestration.variantTemplateReferenceAttachments,
-            ...requestAttachments,
-          ],
-        });
-
-        const projectIdForChat = await resolveAppProjectIdForRequest(
-          req,
-          { appProjectId: metaAppProjectId, projectId },
-          { sessionId },
-        );
-        if (!projectIdForChat) {
+        const validationResult = createChatSchema.safeParse(body);
+        if (!validationResult.success) {
           return attachSessionCookie(
             NextResponse.json(
-              {
-                error:
-                  "Plan mode requires a valid app project id. Create or resolve a project before retrying.",
-              },
+              { error: "Validation failed", details: validationResult.error.issues },
               { status: 400 },
             ),
           );
         }
-        const plannerChatDbStartedAt = Date.now();
-        const plannerChat = await chatRepo.createChat(
-          projectIdForChat,
-          planModel,
-          planSystemPrompt,
-          planOrchestration.resolvedScaffold?.id,
+
+        const {
+          message,
+          attachments,
+          projectId,
+          system,
+          modelId = DEFAULT_MODEL_ID,
+          thinking,
+          imageGenerations,
+          chatPrivacy,
+          meta,
+        } = validationResult.data;
+        const requestAttachments = normalizeRequestAttachments(attachments);
+        const parsedMeta = parseChatRequestMeta(meta);
+        const modelSelection = resolveModelSelection({
+          requestedModelId: modelId,
+          requestedModelTier: parsedMeta.modelTier,
+          fallbackTier: DEFAULT_MODEL_ID,
+        });
+        const resolvedModelId = modelSelection.modelId;
+        const resolvedModelTier = modelSelection.modelTier;
+        const metaBuildMethod = parsedMeta.buildMethod;
+        const metaBuildIntent = parsedMeta.buildIntent;
+        const metaPromptSourceKind = parsedMeta.promptSourceKind;
+        const metaPromptSourceTechnical = parsedMeta.promptSourceTechnical;
+        const metaPromptSourcePreservePayload = parsedMeta.promptSourcePreservePayload;
+        const metaPlanMode = parsedMeta.planMode;
+        const metaAppProjectId = parsedMeta.appProjectId;
+        const promptOrchestration = orchestratePromptMessage({
+          message,
+          buildMethod: metaBuildMethod,
+          buildIntent: metaBuildIntent,
+          isFirstPrompt: true,
+          attachmentsCount: requestAttachments.length,
+          hardCap: MAX_PROMPT_HANDOFF_CHARS,
+          promptSourceKind: metaPromptSourceKind,
+          promptSourceTechnical: metaPromptSourceTechnical,
+          promptSourcePreservePayload: metaPromptSourcePreservePayload,
+        });
+        const strategyMeta = promptOrchestration.strategyMeta;
+        let optimizedMessage = promptOrchestration.finalMessage;
+        const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
+        const hasSystemPrompt = Boolean(trimmedSystemPrompt);
+        const resolvedThinking =
+          typeof thinking === "boolean" ? thinking : getDefaultThinkingEnabled();
+        const resolvedImageGenerations =
+          typeof imageGenerations === "boolean" ? imageGenerations : true;
+        const resolvedChatPrivacy = chatPrivacy ?? "private";
+        if (
+          message.length > WARN_CHAT_MESSAGE_CHARS ||
+          optimizedMessage.length > WARN_CHAT_MESSAGE_CHARS ||
+          trimmedSystemPrompt.length > WARN_CHAT_SYSTEM_CHARS
+        ) {
+          devLogAppend("in-progress", {
+            type: "prompt.size.warning",
+            messageLength: optimizedMessage.length,
+            originalMessageLength: message.length,
+            systemLength: trimmedSystemPrompt.length,
+            warnMessageChars: WARN_CHAT_MESSAGE_CHARS,
+            warnSystemChars: WARN_CHAT_SYSTEM_CHARS,
+          });
+        }
+        const creditContext = {
+          modelId: resolvedModelId,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+          attachmentsCount: requestAttachments.length,
+        };
+        const creditCheck = await prepareCredits(req, "prompt.create", creditContext, {
+          sessionId,
+          allowFreeGeneration: !metaPlanMode,
+        });
+        if (!creditCheck.ok) {
+          return attachSessionCookie(creditCheck.response);
+        }
+        // `prepareCredits` is only an eligibility check. Prewarm is deliberately
+        // lease-bound by the canonical rate-limit subject (verified user, else
+        // trusted IP; never the rotatable guest cookie), so an aborted stream
+        // cannot repeatedly consume host install capacity before settlement.
+        const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
+          userId: creditCheck.user.id,
+        });
+        setLlmUsageContext({
+          userId: creditCheck.user.id,
+        });
+        optimizedMessage = await appendHydratedTextAttachmentExcerpts(
+          optimizedMessage,
+          requestAttachments,
+          { signal: req.signal },
         );
-        await chatRepo.addMessage(plannerChat.id, "user", message);
-        // Tredje chat-skapande vägen (utöver own-engine och kontraktsgrinden):
-        // brief och scaffold-embeddings har redan kört, och planner-strömmen
-        // loggar mer förbrukning efter detta.
-        setLlmUsageContext({ chatId: plannerChat.id });
-        attachChatToPendingUsage(sessionId, plannerChat.id);
-        debugLog("engine", "Chat DB bootstrap complete", {
-          durationMs: Date.now() - plannerChatDbStartedAt,
-          mode: "plan",
-          chatId: plannerChat.id,
+
+        const clientBriefFromMeta = parsedMeta.brief;
+        const assistModelHint = parsedMeta.promptAssistModel;
+
+        // Fast pre-match: keyword-only scaffold + variant (~1ms) to give Brief-LLM design hints.
+        // Intentionally NOT pickScaffoldVariantAsync — that would add a +500ms OpenAI embedding
+        // round-trip just for hint generation.
+        // The picked preMatchVariant.id is later passed as orchestrationInput.persistedVariantId
+        // so the same variant is reused by finalizeOrchestrationPrompts (no async re-pick), keeping
+        // brief-LLM hints and codegen aligned.
+        // Scaffold: Av → thin baseline (`projekt-bas-app`) so Deep Brief / variant
+        // hints align with resolveOrchestrationBase. Template imports never send
+        // scaffoldMode off via this path (they use importedRepoMode instead).
+        const scaffoldModeIsOff = parsedMeta.scaffoldMode === "off";
+        const preMatchScaffoldRaw = scaffoldModeIsOff
+          ? getScaffoldById(SCAFFOLD_OFF_BASELINE_ID)
+          : parsedMeta.scaffoldId
+            ? getScaffoldById(parsedMeta.scaffoldId)
+            : matchScaffold(message, metaBuildIntent as BuildIntent | null);
+        // Same intent guard orchestration applies (`resolve-base`). Without it an
+        // explicit Hemsida choice could still let app vocabulary steer the Deep
+        // Brief toward `dashboard`, while orchestration rejects that scaffold and
+        // generates against the website default — brief and codegen would describe
+        // different projects.
+        const preMatchScaffold = parsedMeta.buildIntentExplicit
+          ? scaffoldForExplicitIntent(preMatchScaffoldRaw, metaBuildIntent as BuildIntent | null)
+          : preMatchScaffoldRaw;
+        const preMatchVariant = preMatchScaffold
+          ? // An explicit Byggval style pins the variant here too, so the Deep
+            // Brief's hints describe the same style codegen will be pinned to.
+            // Without it the brief could be told "corporate grid" while finalize
+            // pins the minimal variant.
+            //
+            // Only as accurate as `preMatchScaffold`: with site type on Auto that is
+            // a keyword-only guess, and orchestration may still land on a different
+            // scaffold via embeddings. Then these hints describe the right style on
+            // the wrong scaffold. Pre-existing for the keyword pick below too —
+            // closing it means making brief generation wait for the embedding
+            // scaffold resolution, which costs a round-trip on every init.
+            (resolveVariantForStyleChoice(preMatchScaffold.id, parsedMeta.styleChoiceHint) ??
+            pickScaffoldVariant({
+              prompt: message,
+              scaffoldId: preMatchScaffold.id,
+              // Byggval (init controls): structured style keywords steer the
+              // keyword pre-match so brief hints and the pinned variant agree
+              // with the user's chosen style.
+              styleKeywords: parsedMeta.styleKeywordsHint.length
+                ? parsedMeta.styleKeywordsHint
+                : undefined,
+              toneKeywords: parsedMeta.toneKeywordsHint.length
+                ? parsedMeta.toneKeywordsHint
+                : undefined,
+            }))
+          : null;
+        const variantHints = buildVariantHintsForBrief(preMatchScaffold, preMatchVariant);
+        const variantHintsText = variantHints
+          ? formatVariantHintsForPrompt(variantHints)
+          : undefined;
+        const initCapabilities = inferCapabilities(message);
+        const initCapabilityDetection = mergeDossierIdCapabilities(
+          detectFollowUpCapabilities(message, { mode: "init" }),
+          message,
+          (id) => getDossierById(id)?.capability ?? null,
+        );
+        const simpleWebsitePath = classifySimpleWebsitePath({
+          generationMode: "init",
+          planMode: Boolean(metaPlanMode),
+          hasClientBrief: Boolean(clientBriefFromMeta),
+          attachmentsCount: requestAttachments.length,
+          hasCustomSystem: hasSystemPrompt,
+          promptSourceTechnical: metaPromptSourceTechnical,
+          promptSourcePreservePayload: metaPromptSourcePreservePayload,
+          buildIntent:
+            metaBuildIntent === "template" ||
+            metaBuildIntent === "website" ||
+            metaBuildIntent === "app"
+              ? (metaBuildIntent as BuildIntent)
+              : "website",
+          promptStrategyMeta: strategyMeta,
+          prompt: message,
+          preMatchScaffold,
+          capabilities: initCapabilities,
+          requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
         });
         devLogAppend("in-progress", {
-          type: "site.chatId",
-          chatId: plannerChat.id,
+          type: "orchestration.simple_website_path",
+          enabled: simpleWebsitePath.enabled,
+          reason: simpleWebsitePath.reason,
+          scaffoldId: simpleWebsitePath.scaffoldId,
         });
 
-        const planModeResponse = createOwnEnginePlanModeResponse({
-          pipelineStream,
-          chatId: plannerChat.id,
+        let serverAutoBrief: Record<string, unknown> | null = null;
+        let serverAutoBriefModel: string | null = null;
+        let serverAutoBriefTrace: BriefTrace | null = null;
+        if (
+          !simpleWebsitePath.enabled &&
+          shouldRunServerAutoBrief({
+            hasClientBrief: Boolean(clientBriefFromMeta),
+            promptSourceTechnical: metaPromptSourceTechnical,
+            promptSourcePreservePayload: metaPromptSourcePreservePayload,
+            promptType: strategyMeta.promptType,
+            orchestrationReason: strategyMeta.reason,
+            prompt: message,
+            buildIntent: metaBuildIntent,
+          })
+        ) {
+          const autoBriefStartedAt = Date.now();
+          const generated = await tryGenerateServerAutoBrief({
+            prompt: message,
+            modelTier: resolvedModelTier,
+            assistModelHint,
+            imageGenerations: resolvedImageGenerations,
+            signal: req.signal,
+            variantHints: variantHintsText,
+          });
+          if (generated) {
+            serverAutoBrief = generated.brief;
+            serverAutoBriefModel = generated.modelUsed;
+            serverAutoBriefTrace = generated.trace;
+            debugLog("orchestration", "Server auto brief applied", {
+              durationMs: Date.now() - autoBriefStartedAt,
+              modelUsed: serverAutoBriefModel,
+              traceId: serverAutoBriefTrace.traceId,
+              promptHash: serverAutoBriefTrace.promptHash,
+              pages: Array.isArray(serverAutoBrief?.pages) ? serverAutoBrief.pages.length : 0,
+            });
+            devLogAppend("in-progress", {
+              type: "orchestration.server_auto_brief",
+              status: "applied",
+              source: serverAutoBriefTrace.source,
+              model: serverAutoBriefModel,
+              traceId: serverAutoBriefTrace.traceId,
+              promptHash: serverAutoBriefTrace.promptHash,
+              durationMs: Date.now() - autoBriefStartedAt,
+              pages: Array.isArray(serverAutoBrief?.pages) ? serverAutoBrief.pages.length : 0,
+            });
+          } else {
+            debugLog("orchestration", "Server auto brief skipped or returned empty", {
+              durationMs: Date.now() - autoBriefStartedAt,
+            });
+            devLogAppend("in-progress", {
+              type: "orchestration.server_auto_brief",
+              status: "skipped_or_empty",
+              durationMs: Date.now() - autoBriefStartedAt,
+            });
+          }
+        }
+        const effectiveBrief = clientBriefFromMeta ?? serverAutoBrief;
+        const briefQuality: "full" | "server-auto" | "none" = (() => {
+          const clientQuality = clientBriefFromMeta?.briefQuality;
+          if (clientQuality === "full" || clientQuality === "server-auto") return clientQuality;
+          if (serverAutoBrief) return "server-auto";
+          return "none";
+        })();
+
+        const creditUser = creditCheck.user;
+        const commitCreditsOnce = createCommitCreditsOnce(creditCheck, {
+          rejectIfNegativeFixedCommit: Boolean(metaPlanMode),
+        });
+
+        try {
+          const metaPayload =
+            meta && typeof meta === "object"
+              ? (() => {
+                  const copy = { ...(meta as Record<string, unknown>) };
+                  delete copy.promptOriginal;
+                  delete copy.promptFormatted;
+                  copy.promptStrategy = strategyMeta.strategy;
+                  copy.promptType = strategyMeta.promptType;
+                  copy.promptSource = strategyMeta.promptSource;
+                  copy.promptBudgetTarget = strategyMeta.budgetTarget;
+                  copy.promptOptimizedLength = strategyMeta.optimizedLength;
+                  copy.promptReductionRatio = strategyMeta.reductionRatio;
+                  copy.promptStrategyReason = strategyMeta.reason;
+                  copy.promptComplexityScore = strategyMeta.complexityScore;
+                  copy.serverAutoBriefGenerated = Boolean(serverAutoBrief);
+                  copy.briefQuality = briefQuality;
+                  if (serverAutoBriefModel) copy.serverAutoBriefModel = serverAutoBriefModel;
+                  if (serverAutoBriefTrace) {
+                    copy.serverAutoBriefTraceId = serverAutoBriefTrace.traceId;
+                    copy.serverAutoBriefPromptHash = serverAutoBriefTrace.promptHash;
+                  }
+                  return Object.keys(copy).length > 0 ? copy : null;
+                })()
+              : {
+                  promptStrategy: strategyMeta.strategy,
+                  promptType: strategyMeta.promptType,
+                  promptSource: strategyMeta.promptSource,
+                  promptBudgetTarget: strategyMeta.budgetTarget,
+                  promptOptimizedLength: strategyMeta.optimizedLength,
+                  promptReductionRatio: strategyMeta.reductionRatio,
+                  promptStrategyReason: strategyMeta.reason,
+                  promptComplexityScore: strategyMeta.complexityScore,
+                  serverAutoBriefGenerated: Boolean(serverAutoBrief),
+                  briefQuality,
+                  ...(serverAutoBriefModel ? { serverAutoBriefModel } : {}),
+                  ...(serverAutoBriefTrace
+                    ? {
+                        serverAutoBriefTraceId: serverAutoBriefTrace.traceId,
+                        serverAutoBriefPromptHash: serverAutoBriefTrace.promptHash,
+                      }
+                    : {}),
+                };
+          const metaObj =
+            meta && typeof meta === "object" ? (meta as Record<string, unknown>) : null;
+          const promptOriginal =
+            typeof metaObj?.promptOriginal === "string"
+              ? String(metaObj.promptOriginal)
+              : (message ?? null);
+          const promptFormatted =
+            typeof metaObj?.promptFormatted === "string"
+              ? String(metaObj.promptFormatted)
+              : (optimizedMessage ?? null);
+          await createPromptLog({
+            event: "create_chat",
+            userId: creditUser?.id || null,
+            sessionId,
+            appProjectId: metaAppProjectId || null,
+            v0ProjectId: projectId ?? null,
+            chatId: null,
+            promptOriginal,
+            promptFormatted,
+            systemPrompt: trimmedSystemPrompt || null,
+            promptAssistModel: parsedMeta.promptAssistModel,
+            promptAssistDeep: parsedMeta.promptAssistDeep,
+            promptAssistMode: parsedMeta.promptAssistMode,
+            buildIntent: metaBuildIntent,
+            buildMethod: metaBuildMethod,
+            modelTier: resolvedModelTier,
+            imageGenerations: resolvedImageGenerations,
+            thinking: resolvedThinking,
+            attachmentsCount: requestAttachments.length,
+            meta: metaPayload,
+          });
+        } catch (error) {
+          console.warn("[prompt-log] Failed to record prompt log:", error);
+        }
+
+        const buildProfileId = getBuildProfileId(resolvedModelTier);
+        debugLog("build", "Chat stream request", {
+          buildProfileId,
+          buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+          internalModelSelection: resolvedModelTier,
+          enginePath: "own-engine",
+          engineModel: canonicalModelIdToOwnModelId(resolvedModelTier),
+          promptLength: optimizedMessage.length,
+          originalPromptLength: message.length,
+          attachments: requestAttachments.length,
+          systemProvided: hasSystemPrompt,
+          systemApplied: hasSystemPrompt,
+          systemIgnored: false,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+          chatPrivacy: resolvedChatPrivacy,
+          promptStrategy: strategyMeta.strategy,
+          promptType: strategyMeta.promptType,
+        });
+        devLogStartNewSite({
+          message: optimizedMessage,
+          modelId: resolvedModelId,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+          projectId,
+          slug: metaBuildMethod || metaBuildIntent || undefined,
+        });
+        devLogAppend("in-progress", {
+          type: "comm.request.create",
+          modelId: resolvedModelId,
           modelTier: resolvedModelTier,
           buildProfileId,
           buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-          thinking: plannerSettings.thinking,
-          promptStrategyMeta: strategyMeta,
-          buildSpec: planOrchestration.buildSpec,
-          resolvedScaffold: planOrchestration.resolvedScaffold,
-          scaffoldMode: parsedMeta.scaffoldMode,
-          onResolved: (planData, hasBlockers, accumulatedContent) => {
-            const blockerCount = Array.isArray(planData?.blockers)
-              ? (planData.blockers as unknown[]).length
-              : 0;
-            const stepCount = Array.isArray(planData?.steps)
-              ? (planData.steps as unknown[]).length
-              : 0;
-            const assumptionCount = Array.isArray(planData?.assumptions)
-              ? (planData.assumptions as unknown[]).length
-              : 0;
-
-            devLogAppend("in-progress", {
-              type: "plan.generation.done",
-              parsed: planData !== null,
-              steps: stepCount,
-              blockers: blockerCount,
-              assumptions: assumptionCount,
-              awaitingInput: hasBlockers,
-              contentLength: accumulatedContent.length,
-            });
-          },
-          // Samma persist-kontrakt som follow-up-turen (plan-mode-turn.ts):
-          // en icke-plan-utdata ska persistera sin egen text, inte en påhittad
-          // plansummering.
-          persistAssistantSummary: async (planData, hasBlockers, context) => {
-            const assistantMessage = buildPlanModeAssistantMessage({
-              planData,
-              hasBlockers,
-              hasPlanArtifact: context.hasPlanArtifact,
-              plannerText: context.accumulatedContent,
-              upstreamErrorMessage: context.upstreamErrorMessage,
-            });
-            try {
-              await chatRepo.addMessage(
-                plannerChat.id,
-                "assistant",
-                assistantMessage.content,
-                undefined,
-                assistantMessage.uiParts,
-              );
-            } catch (error) {
-              console.warn("[plan] Failed to persist planner assistant summary:", error);
-            }
-          },
-          buildDonePayload: (planData, hasBlockers) => ({
-            chatId: plannerChat.id,
-            planArtifact: planData,
-            awaitingInput: hasBlockers,
-            planMode: true,
-          }),
-          commitCredits: commitCreditsOnce,
-          commitCreditsPosition: "before-done",
-        });
-        debugLog("engine", "Create chat pre-stream complete", {
-          durationMs: Date.now() - requestStartedAt,
-          mode: "plan",
-          chatId: plannerChat.id,
-        });
-        return attachSessionCookie(
-          withPromptToDoneMetricResponse(planModeResponse, {
-            kind: "init",
-            promptStartedAt: requestStartedAt,
-            signal: req.signal,
-            chatId: plannerChat.id,
-          }),
-        );
-      }
-
-      // ── Own Engine Path ───────────────────────────────────────────────
-      {
-        let engineIntent: BuildIntent =
-          metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
-            ? (metaBuildIntent as BuildIntent)
-            : "website";
-        // A manually pinned app scaffold outranks even an explicit Byggval
-        // "Hemsida", so this deliberately ignores `buildIntentExplicit`.
-        //
-        // Byggval cannot produce that pair itself — it drops a site type that
-        // contradicts the target — so reaching here means the builder header's
-        // scaffold menu pinned dashboard/app-shell while Byggval said Hemsida.
-        // `dashboard` declares `allowedBuildIntents: ["app"]`, so honouring the
-        // intent instead would run an app-only scaffold under a website intent:
-        // exactly the mismatch `scaffoldForExplicitIntent` exists to prevent.
-        // Flipping the intent is the self-consistent read of two contradicting
-        // surfaces; which one SHOULD win is a product decision, not a fix here.
-        if (engineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
-          engineIntent = "app";
-        }
-        const metaScaffoldMode = parsedMeta.scaffoldMode;
-        const metaScaffoldId = parsedMeta.scaffoldId;
-        const metaThemeColors = parsedMeta.themeColors;
-        const metaBrief = effectiveBrief;
-        const metaDesignThemePreset = parsedMeta.designThemePreset;
-        const metaPalette = parsedMeta.palette;
-        const designReferences = summarizeDesignReferences(requestAttachments);
-
-        const engineModel = resolveEngineModelId(resolvedModelTier);
-        // MB-3: the actual codegen + telemetry model is the generator-phase
-        // model (manifest phaseRouting). In the current default config it equals
-        // `engineModel` on every tier (the anthropic tier's build-default is now
-        // Claude Opus 4.8 too after Sonnet was retired 2026-06-28). We keep
-        // `engineModel` for `chat.model` so repair/server-verify can round-trip
-        // the tier from it via ownModelIdToCanonicalModelId.
-        const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
-
-        // Resolved here (and reused below for `createChat`) because the
-        // orchestration input needs the project's stored env keys — see
-        // `configuredEnvKeys` further down. Tenant-checked, so a foreign
-        // project id resolves to null and contributes no keys.
-        const projectIdForChat = await resolveAppProjectIdForRequest(
-          req,
-          { appProjectId: metaAppProjectId, projectId },
-          { sessionId },
-        );
-        // Restlistan R6: init körs ofta på ett projekt som redan har sparade
-        // nycklar (ny chat i samma projekt), så en tom mängd ljög om
-        // `configured` och lät Kopplade byggblock rendera sin okonfigurerade
-        // placeholder-UI. Läs projektets env-karta i stället — men aldrig
-        // `undefined`, som skulle falla tillbaka på plattformens process.env.
-        const configuredEnvKeys = await resolveConfiguredEnvKeys(projectIdForChat);
-
-        const orchestrationInput = {
-          prompt: optimizedMessage,
-          rawPrompt: message,
-          // Bug 07#1 (2026-04-22 audit): init tappade tidigare alla rå-prompt-
-          // fält som follow-up skickar explicit. Det innebar att route-plan,
-          // build-spec och contract-inferens i init gick på `optimizedMessage`
-          // (wrappat med filkontext, guidance, templates) medan follow-up gick
-          // på rå `message`. Samma användaravsikt kunde därför få olika
-          // BuildSpec/route/contract-beslut beroende på mode. Spegla follow-
-          // upens rå-källor så signalerna blir konsekventa.
-          routePlanPrompt: message,
-          buildSpecPrompt: message,
-          contractsPrompt: message,
-          scaffoldMatchPrompt: message,
-          // QW-1: capability inference (needsAuth/needsEcommerce/needsCharts…)
-          // är keyword-baserad. Använd rå user-message så bifogade text-utdrag
-          // (PDFs/.docx) inte triggar capabilities som skuggar prompt-intent.
-          capabilitiesPrompt: message,
-          requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
-          requestedCapabilityTiers: initCapabilityDetection.tierByCapability,
-          buildIntent: engineIntent,
-          scaffoldMode: metaScaffoldMode,
-          scaffoldId: metaScaffoldId,
-          // Byggval (init controls): structured hints — page count wins over
-          // prompt-text regex in buildRoutePlan; style keywords merge into
-          // scaffold-variant matching; complexity biases BuildSpec.
-          pageCountHint: parsedMeta.pageCountHint,
-          styleKeywordsHint: parsedMeta.styleKeywordsHint.length
-            ? parsedMeta.styleKeywordsHint
-            : undefined,
-          toneKeywordsHint: parsedMeta.toneKeywordsHint.length
-            ? parsedMeta.toneKeywordsHint
-            : undefined,
-          styleChoiceHint: parsedMeta.styleChoiceHint,
-          colorModeHint: parsedMeta.colorModeHint,
-          buildIntentExplicit: parsedMeta.buildIntentExplicit,
-          complexityHint: parsedMeta.complexityHint,
-          brief: metaBrief,
-          themeColors: metaThemeColors,
+          chatPrivacy: resolvedChatPrivacy,
+          buildIntent: metaBuildIntent,
+          buildMethod: metaBuildMethod,
+          message: optimizedMessage,
+          slug: metaBuildMethod || metaBuildIntent || undefined,
+          promptType: strategyMeta.promptType,
+          // Plan 03 (short): mirror promptSource into the init devlog so
+          // observability gets the same auto-repair vs user discriminator
+          // on init as it does on follow-ups (init is always "user" today
+          // since autofix only fires on existing chats, but we surface the
+          // field uniformly).
+          promptSource: strategyMeta.promptSource,
+          promptStrategy: strategyMeta.strategy,
+          promptBudgetTarget: strategyMeta.budgetTarget,
+          originalLength: strategyMeta.originalLength,
+          optimizedLength: strategyMeta.optimizedLength,
+          reductionRatio: strategyMeta.reductionRatio,
+          strategyReason: strategyMeta.reason,
+          attachmentsCount: requestAttachments.length,
+          thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
-          componentPalette: metaPalette,
-          designThemePreset: metaDesignThemePreset,
-          designReferences,
-          customInstructions: trimmedSystemPrompt || undefined,
-          promptStrategyMeta: strategyMeta,
-          // Lock variant to the pre-match pick so brief-LLM hints (variantHints
-          // built above) and the final codegen variant agree. Without this the
-          // async embedding-driven picker in finalizeOrchestrationPrompts can
-          // land on a different variant after brief is ready, causing
-          // brief→codegen drift. If preMatchVariant is null, async picker runs.
-          // getVariantById fallback in orchestrate.ts re-picks if id is stale.
-          persistedVariantId: preMatchVariant?.id ?? null,
-          embeddingScaffoldMatch: !simpleWebsitePath.enabled,
-          simpleWebsitePath: simpleWebsitePath.enabled,
-          // Q5a + MB-3: pass the generator-phase model id so deriveBuildSpec
-          // scales tokenBudgets to the context window of the model that
-          // actually generates (e.g. Opus 4.8's larger window on the anthropic
-          // tier), not the tier build-default.
-          engineModelId: generatorModel,
-          configuredEnvKeys,
-        };
-        const orchestrationStartedAt = Date.now();
-        const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
-        debugLog("orchestration", "Orchestration base resolved", {
-          durationMs: Date.now() - orchestrationStartedAt,
-          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
-          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
-          scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
-          serializeMode: orchestrationBase.serializeMode,
-          routeCount: orchestrationBase.routePlan.routes.length,
         });
-        devLogAppend("in-progress", {
-          type: "orchestration.resolved",
-          scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
-          serializeMode: orchestrationBase.serializeMode,
-          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
-          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
-        });
-        const {
-          resolvedScaffold,
-          routePlan,
-          preGenerationContracts,
-          capabilities: engineCapabilities,
-        } = orchestrationBase;
-        const contractClarification = buildContractClarificationQuestion({
-          buildIntent: engineIntent,
-          context: preGenerationContracts,
+        debugLog("orchestration", "Create chat prompt assist + strategy (request meta)", {
+          promptAssistModel: parsedMeta.promptAssistModel,
+          promptAssistDeep: parsedMeta.promptAssistDeep,
+          promptAssistMode: parsedMeta.promptAssistMode,
+          promptStrategy: strategyMeta.strategy,
+          promptType: strategyMeta.promptType,
         });
 
-        debugLog("engine", "Own engine model resolved", {
-          resolvedModelTier,
-          engineModel,
-          generatorModel,
-          fallback: false,
-        });
+        // ── Plan Mode Path ────────────────────────────────────────────────
+        if (metaPlanMode) {
+          const plannerSettings = resolvePlanModePlannerSettings(
+            resolvedModelTier,
+            resolvedThinking,
+          );
+          const planModel = plannerSettings.modelId;
+          let engineIntent: BuildIntent =
+            metaBuildIntent === "template" ||
+            metaBuildIntent === "website" ||
+            metaBuildIntent === "app"
+              ? (metaBuildIntent as BuildIntent)
+              : "website";
+          // A manually pinned app scaffold outranks even an explicit Byggval
+          // "Hemsida", so this deliberately ignores `buildIntentExplicit`.
+          //
+          // Byggval cannot produce that pair itself — it drops a site type that
+          // contradicts the target — so reaching here means the builder header's
+          // scaffold menu pinned dashboard/app-shell while Byggval said Hemsida.
+          // `dashboard` declares `allowedBuildIntents: ["app"]`, so honouring the
+          // intent instead would run an app-only scaffold under a website intent:
+          // exactly the mismatch `scaffoldForExplicitIntent` exists to prevent.
+          // Flipping the intent is the self-consistent read of two contradicting
+          // surfaces; which one SHOULD win is a product decision, not a fix here.
+          if (
+            engineIntent === "website" &&
+            parsedMeta.scaffoldMode === "manual" &&
+            isAppScaffold(parsedMeta.scaffoldId)
+          ) {
+            engineIntent = "app";
+          }
+          const planOrchestrationStartedAt = Date.now();
+          const planOrchestration = await prepareGenerationContext({
+            prompt: optimizedMessage,
+            rawPrompt: message,
+            // 2026-04-22 follow-up audit: plan mode saknade tidigare samma
+            // rå-signalpaket som huvudflödet fick i fix 07#1 — route-plan,
+            // BuildSpec, contracts, capability- och scaffold-match drevs av
+            // wrappad `optimizedMessage` i plan-LLM:n medan senare codegen
+            // fick rå `message`. Det riskerade planner-vs-codegen-drift när
+            // filkontext/bilagor i wrappen drog klassifiering åt annat håll.
+            routePlanPrompt: message,
+            buildSpecPrompt: message,
+            contractsPrompt: message,
+            scaffoldMatchPrompt: message,
+            capabilitiesPrompt: message,
+            capabilities: initCapabilities,
+            requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
+            requestedCapabilityTiers: initCapabilityDetection.tierByCapability,
+            buildIntent: engineIntent,
+            scaffoldMode: parsedMeta.scaffoldMode,
+            scaffoldId: parsedMeta.scaffoldId,
+            // Byggval (init controls): spegla huvudflödet så plan-läge får
+            // samma route-plan, variantmatchning och BuildSpec som vanlig init.
+            pageCountHint: parsedMeta.pageCountHint,
+            styleKeywordsHint: parsedMeta.styleKeywordsHint.length
+              ? parsedMeta.styleKeywordsHint
+              : undefined,
+            toneKeywordsHint: parsedMeta.toneKeywordsHint.length
+              ? parsedMeta.toneKeywordsHint
+              : undefined,
+            styleChoiceHint: parsedMeta.styleChoiceHint,
+            colorModeHint: parsedMeta.colorModeHint,
+            buildIntentExplicit: parsedMeta.buildIntentExplicit,
+            complexityHint: parsedMeta.complexityHint,
+            brief: effectiveBrief,
+            themeColors: parsedMeta.themeColors,
+            // Samma paritet för custom instructions (bär även Byggvals
+            // komplexitet/färgläge/ton-direktiv) — annars planerar plan-läget
+            // utan direktiv som codegen sedan får.
+            customInstructions: trimmedSystemPrompt || undefined,
+            // Pinna samma pre-match-variant som huvudflödet (pre-matchen läser
+            // styleKeywordsHint) så plan-orkestreringen inte async-väljer en
+            // annan variant än brief-hints/codegen.
+            persistedVariantId: preMatchVariant?.id ?? null,
+            promptStrategyMeta: strategyMeta,
+            // Bug 04#3 (2026-04-22 audit): plan mode skickade tidigare inte
+            // engineModelId/lifecycleStage. Det gav divergent BuildSpec mellan
+            // planerings-LLM (200k-baseline, default livscykel) och faktisk
+            // codegen (1M-fönster + F2/F3). Spegla samma fält som huvudflödet.
+            engineModelId: resolveEngineModelId(resolvedModelTier),
+            lifecycleStage: parsedMeta.lifecycleStage,
+          });
+          debugLog("orchestration", "Plan mode orchestration prepared", {
+            durationMs: Date.now() - planOrchestrationStartedAt,
+            qualityTarget: planOrchestration.buildSpec.qualityTarget,
+            contextPolicy: planOrchestration.buildSpec.contextPolicy,
+            scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
+          });
 
-        if (!projectIdForChat) {
+          const { planPreamble, planSystemPrompt } =
+            computePlanModePlannerPrompts(planOrchestration);
+          dumpPlanModePlannerPrompts(
+            planPreamble,
+            planOrchestration,
+            planSystemPrompt,
+            "POST /api/engine/chats/stream",
+          );
+          logPlanModeGenerationStart({
+            planModel,
+            promptLength: optimizedMessage.length,
+            scaffoldId: planOrchestration.resolvedScaffold?.id ?? null,
+            resolvedThinking: plannerSettings.thinking,
+          });
+
+          const pipelineStream = createPlanModePipelineStream({
+            optimizedMessage,
+            planSystemPrompt,
+            planModel,
+            plannerThinking: plannerSettings.thinking,
+            plannerReasoningEffort: plannerSettings.reasoningEffort,
+            plannerReasoningMode: plannerSettings.reasoningMode,
+            abortSignal: req.signal,
+            referenceAttachments: [
+              ...planOrchestration.variantTemplateReferenceAttachments,
+              ...requestAttachments,
+            ],
+          });
+
+          const projectIdForChat = await resolveAppProjectIdForRequest(
+            req,
+            { appProjectId: metaAppProjectId, projectId },
+            { sessionId },
+          );
+          if (!projectIdForChat) {
+            return attachSessionCookie(
+              NextResponse.json(
+                {
+                  error:
+                    "Plan mode requires a valid app project id. Create or resolve a project before retrying.",
+                },
+                { status: 400 },
+              ),
+            );
+          }
+          const plannerChatDbStartedAt = Date.now();
+          const plannerChat = await chatRepo.createChat(
+            projectIdForChat,
+            planModel,
+            planSystemPrompt,
+            planOrchestration.resolvedScaffold?.id,
+          );
+          await chatRepo.addMessage(plannerChat.id, "user", message);
+          // Tredje chat-skapande vägen (utöver own-engine och kontraktsgrinden):
+          // brief och scaffold-embeddings har redan kört, och planner-strömmen
+          // loggar mer förbrukning efter detta.
+          setLlmUsageContext({ chatId: plannerChat.id });
+          attachChatToPendingUsage(sessionId, plannerChat.id);
+          debugLog("engine", "Chat DB bootstrap complete", {
+            durationMs: Date.now() - plannerChatDbStartedAt,
+            mode: "plan",
+            chatId: plannerChat.id,
+          });
+          devLogAppend("in-progress", {
+            type: "site.chatId",
+            chatId: plannerChat.id,
+          });
+
+          const planModeResponse = createOwnEnginePlanModeResponse({
+            pipelineStream,
+            chatId: plannerChat.id,
+            modelTier: resolvedModelTier,
+            buildProfileId,
+            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+            thinking: plannerSettings.thinking,
+            promptStrategyMeta: strategyMeta,
+            buildSpec: planOrchestration.buildSpec,
+            resolvedScaffold: planOrchestration.resolvedScaffold,
+            scaffoldMode: parsedMeta.scaffoldMode,
+            onResolved: (planData, hasBlockers, accumulatedContent) => {
+              const blockerCount = Array.isArray(planData?.blockers)
+                ? (planData.blockers as unknown[]).length
+                : 0;
+              const stepCount = Array.isArray(planData?.steps)
+                ? (planData.steps as unknown[]).length
+                : 0;
+              const assumptionCount = Array.isArray(planData?.assumptions)
+                ? (planData.assumptions as unknown[]).length
+                : 0;
+
+              devLogAppend("in-progress", {
+                type: "plan.generation.done",
+                parsed: planData !== null,
+                steps: stepCount,
+                blockers: blockerCount,
+                assumptions: assumptionCount,
+                awaitingInput: hasBlockers,
+                contentLength: accumulatedContent.length,
+              });
+            },
+            // Samma persist-kontrakt som follow-up-turen (plan-mode-turn.ts):
+            // en icke-plan-utdata ska persistera sin egen text, inte en påhittad
+            // plansummering.
+            persistAssistantSummary: async (planData, hasBlockers, context) => {
+              const assistantMessage = buildPlanModeAssistantMessage({
+                planData,
+                hasBlockers,
+                hasPlanArtifact: context.hasPlanArtifact,
+                plannerText: context.accumulatedContent,
+                upstreamErrorMessage: context.upstreamErrorMessage,
+              });
+              try {
+                await chatRepo.addMessage(
+                  plannerChat.id,
+                  "assistant",
+                  assistantMessage.content,
+                  undefined,
+                  assistantMessage.uiParts,
+                );
+              } catch (error) {
+                console.warn("[plan] Failed to persist planner assistant summary:", error);
+              }
+            },
+            buildDonePayload: (planData, hasBlockers) => ({
+              chatId: plannerChat.id,
+              planArtifact: planData,
+              awaitingInput: hasBlockers,
+              planMode: true,
+            }),
+            commitCredits: commitCreditsOnce,
+            commitCreditsPosition: "before-done",
+          });
+          debugLog("engine", "Create chat pre-stream complete", {
+            durationMs: Date.now() - requestStartedAt,
+            mode: "plan",
+            chatId: plannerChat.id,
+          });
           return attachSessionCookie(
-            NextResponse.json(
-              {
-                error:
-                  "Own-engine generation requires a valid app project id. Create or resolve a project before retrying.",
-              },
-              { status: 400 },
-            ),
+            withPromptToDoneMetricResponse(planModeResponse, {
+              kind: "init",
+              promptStartedAt: requestStartedAt,
+              signal: req.signal,
+              chatId: plannerChat.id,
+            }),
           );
         }
-        if (contractClarification) {
-          const contractGateDbStartedAt = Date.now();
-          // No scaffold id on the gate-only exit: the match was made on an
-          // INCOMPLETE prompt, and a pinned `scaffold_id` would make the
-          // answering turn read it as `persistedScaffoldId` and skip the
-          // rematch — the first, unfinished guess would stick for the whole
-          // chat. The scaffold is persisted first when a round actually
-          // generates (own-engine path below / `codegen-turn.ts`).
+
+        // ── Own Engine Path ───────────────────────────────────────────────
+        {
+          let engineIntent: BuildIntent =
+            metaBuildIntent === "template" ||
+            metaBuildIntent === "website" ||
+            metaBuildIntent === "app"
+              ? (metaBuildIntent as BuildIntent)
+              : "website";
+          // A manually pinned app scaffold outranks even an explicit Byggval
+          // "Hemsida", so this deliberately ignores `buildIntentExplicit`.
+          //
+          // Byggval cannot produce that pair itself — it drops a site type that
+          // contradicts the target — so reaching here means the builder header's
+          // scaffold menu pinned dashboard/app-shell while Byggval said Hemsida.
+          // `dashboard` declares `allowedBuildIntents: ["app"]`, so honouring the
+          // intent instead would run an app-only scaffold under a website intent:
+          // exactly the mismatch `scaffoldForExplicitIntent` exists to prevent.
+          // Flipping the intent is the self-consistent read of two contradicting
+          // surfaces; which one SHOULD win is a product decision, not a fix here.
+          if (
+            engineIntent === "website" &&
+            parsedMeta.scaffoldMode === "manual" &&
+            isAppScaffold(parsedMeta.scaffoldId)
+          ) {
+            engineIntent = "app";
+          }
+          const metaScaffoldMode = parsedMeta.scaffoldMode;
+          const metaScaffoldId = parsedMeta.scaffoldId;
+          const metaThemeColors = parsedMeta.themeColors;
+          const metaBrief = effectiveBrief;
+          const metaDesignThemePreset = parsedMeta.designThemePreset;
+          const metaPalette = parsedMeta.palette;
+          const designReferences = summarizeDesignReferences(requestAttachments);
+
+          const engineModel = resolveEngineModelId(resolvedModelTier);
+          // MB-3: the actual codegen + telemetry model is the generator-phase
+          // model (manifest phaseRouting). In the current default config it equals
+          // `engineModel` on every tier (the anthropic tier's build-default is now
+          // Claude Opus 4.8 too after Sonnet was retired 2026-06-28). We keep
+          // `engineModel` for `chat.model` so repair/server-verify can round-trip
+          // the tier from it via ownModelIdToCanonicalModelId.
+          const generatorModel = resolvePhaseModel(resolvedModelTier, "generator").modelId;
+
+          // Resolved here (and reused below for `createChat`) because the
+          // orchestration input needs the project's stored env keys — see
+          // `configuredEnvKeys` further down. Tenant-checked, so a foreign
+          // project id resolves to null and contributes no keys.
+          const projectIdForChat = await resolveAppProjectIdForRequest(
+            req,
+            { appProjectId: metaAppProjectId, projectId },
+            { sessionId },
+          );
+          // Restlistan R6: init körs ofta på ett projekt som redan har sparade
+          // nycklar (ny chat i samma projekt), så en tom mängd ljög om
+          // `configured` och lät Kopplade byggblock rendera sin okonfigurerade
+          // placeholder-UI. Läs projektets env-karta i stället — men aldrig
+          // `undefined`, som skulle falla tillbaka på plattformens process.env.
+          const configuredEnvKeys = await resolveConfiguredEnvKeys(projectIdForChat);
+
+          const orchestrationInput = {
+            prompt: optimizedMessage,
+            rawPrompt: message,
+            // Bug 07#1 (2026-04-22 audit): init tappade tidigare alla rå-prompt-
+            // fält som follow-up skickar explicit. Det innebar att route-plan,
+            // build-spec och contract-inferens i init gick på `optimizedMessage`
+            // (wrappat med filkontext, guidance, templates) medan follow-up gick
+            // på rå `message`. Samma användaravsikt kunde därför få olika
+            // BuildSpec/route/contract-beslut beroende på mode. Spegla follow-
+            // upens rå-källor så signalerna blir konsekventa.
+            routePlanPrompt: message,
+            buildSpecPrompt: message,
+            contractsPrompt: message,
+            scaffoldMatchPrompt: message,
+            // QW-1: capability inference (needsAuth/needsEcommerce/needsCharts…)
+            // är keyword-baserad. Använd rå user-message så bifogade text-utdrag
+            // (PDFs/.docx) inte triggar capabilities som skuggar prompt-intent.
+            capabilitiesPrompt: message,
+            requestedDossierCapabilities: initCapabilityDetection.capabilityIds,
+            requestedCapabilityTiers: initCapabilityDetection.tierByCapability,
+            buildIntent: engineIntent,
+            scaffoldMode: metaScaffoldMode,
+            scaffoldId: metaScaffoldId,
+            // Byggval (init controls): structured hints — page count wins over
+            // prompt-text regex in buildRoutePlan; style keywords merge into
+            // scaffold-variant matching; complexity biases BuildSpec.
+            pageCountHint: parsedMeta.pageCountHint,
+            styleKeywordsHint: parsedMeta.styleKeywordsHint.length
+              ? parsedMeta.styleKeywordsHint
+              : undefined,
+            toneKeywordsHint: parsedMeta.toneKeywordsHint.length
+              ? parsedMeta.toneKeywordsHint
+              : undefined,
+            styleChoiceHint: parsedMeta.styleChoiceHint,
+            colorModeHint: parsedMeta.colorModeHint,
+            buildIntentExplicit: parsedMeta.buildIntentExplicit,
+            complexityHint: parsedMeta.complexityHint,
+            brief: metaBrief,
+            themeColors: metaThemeColors,
+            imageGenerations: resolvedImageGenerations,
+            componentPalette: metaPalette,
+            designThemePreset: metaDesignThemePreset,
+            designReferences,
+            customInstructions: trimmedSystemPrompt || undefined,
+            promptStrategyMeta: strategyMeta,
+            // Lock variant to the pre-match pick so brief-LLM hints (variantHints
+            // built above) and the final codegen variant agree. Without this the
+            // async embedding-driven picker in finalizeOrchestrationPrompts can
+            // land on a different variant after brief is ready, causing
+            // brief→codegen drift. If preMatchVariant is null, async picker runs.
+            // getVariantById fallback in orchestrate.ts re-picks if id is stale.
+            persistedVariantId: preMatchVariant?.id ?? null,
+            embeddingScaffoldMatch: !simpleWebsitePath.enabled,
+            simpleWebsitePath: simpleWebsitePath.enabled,
+            // Q5a + MB-3: pass the generator-phase model id so deriveBuildSpec
+            // scales tokenBudgets to the context window of the model that
+            // actually generates (e.g. Opus 4.8's larger window on the anthropic
+            // tier), not the tier build-default.
+            engineModelId: generatorModel,
+            configuredEnvKeys,
+          };
+          const orchestrationStartedAt = Date.now();
+          const orchestrationBase = await resolveOrchestrationBase(orchestrationInput);
+          debugLog("orchestration", "Orchestration base resolved", {
+            durationMs: Date.now() - orchestrationStartedAt,
+            qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+            contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+            scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+            serializeMode: orchestrationBase.serializeMode,
+            routeCount: orchestrationBase.routePlan.routes.length,
+          });
+          devLogAppend("in-progress", {
+            type: "orchestration.resolved",
+            scaffoldId: orchestrationBase.resolvedScaffold?.id ?? null,
+            serializeMode: orchestrationBase.serializeMode,
+            qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+            contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+          });
+          const {
+            resolvedScaffold,
+            routePlan,
+            preGenerationContracts,
+            capabilities: engineCapabilities,
+          } = orchestrationBase;
+          const contractClarification = buildContractClarificationQuestion({
+            buildIntent: engineIntent,
+            context: preGenerationContracts,
+          });
+
+          debugLog("engine", "Own engine model resolved", {
+            resolvedModelTier,
+            engineModel,
+            generatorModel,
+            fallback: false,
+          });
+
+          if (!projectIdForChat) {
+            return attachSessionCookie(
+              NextResponse.json(
+                {
+                  error:
+                    "Own-engine generation requires a valid app project id. Create or resolve a project before retrying.",
+                },
+                { status: 400 },
+              ),
+            );
+          }
+          if (contractClarification) {
+            const contractGateDbStartedAt = Date.now();
+            // No scaffold id on the gate-only exit: the match was made on an
+            // INCOMPLETE prompt, and a pinned `scaffold_id` would make the
+            // answering turn read it as `persistedScaffoldId` and skip the
+            // rematch — the first, unfinished guess would stick for the whole
+            // chat. The scaffold is persisted first when a round actually
+            // generates (own-engine path below / `codegen-turn.ts`).
+            const engineChat = await chatRepo.createChat(projectIdForChat, engineModel);
+            await chatRepo.addMessage(engineChat.id, "user", message);
+            setLlmUsageContext({ chatId: engineChat.id });
+            attachChatToPendingUsage(sessionId, engineChat.id);
+            debugLog("engine", "Chat DB bootstrap complete", {
+              durationMs: Date.now() - contractGateDbStartedAt,
+              mode: "pre-generation-contract-gate",
+              chatId: engineChat.id,
+            });
+            devLogAppend("in-progress", {
+              type: "site.chatId",
+              chatId: engineChat.id,
+            });
+            devLogAppend("in-progress", {
+              type: "contracts.inferred",
+              chatId: engineChat.id,
+              dataMode: preGenerationContracts.contracts.dataMode,
+              databaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
+              authProvider: preGenerationContracts.contracts.authProvider ?? null,
+              paymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
+              integrations: preGenerationContracts.contracts.integrations.map(
+                (entry) => entry.provider,
+              ),
+              envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
+              unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map(
+                (entry) => entry.kind,
+              ),
+            });
+            const assistantQuestion = await chatRepo
+              .addMessage(engineChat.id, "assistant", contractClarification.question, undefined, [
+                buildStoredContractClarificationUiPart(contractClarification),
+              ])
+              .catch(() => null);
+            devLogAppend("in-progress", {
+              type: "contracts.clarification-requested",
+              chatId: engineChat.id,
+              kind: contractClarification.kind,
+              reason: contractClarification.reason,
+            });
+            const contractGateStream = createPreGenerationContractGateReadableStream(
+              buildPreGenerationContractGateParams({
+                routeVariant: "new-chat",
+                sseChatId: engineChat.id,
+                assistantMessageId: assistantQuestion?.id ?? null,
+                contractClarification,
+                preGenerationContracts,
+                engineModel,
+                resolvedModelTier,
+                buildProfileId,
+                buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+                resolvedThinking,
+                resolvedImageGenerations,
+                resolvedScaffold,
+                strategyMeta,
+                buildSpec: orchestrationBase.buildSpec,
+                metaBriefApplied: Boolean(metaBrief),
+                customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
+                chatPrivacy: resolvedChatPrivacy,
+                scaffoldLabel: resolvedScaffold?.label ?? null,
+                capabilities: engineCapabilities,
+              }),
+            );
+            debugLog("engine", "Create chat pre-stream complete", {
+              durationMs: Date.now() - requestStartedAt,
+              mode: "pre-generation-contract-gate",
+              chatId: engineChat.id,
+            });
+            return attachSessionCookie(
+              new Response(
+                wrapStreamForPromptToDoneMetric(contractGateStream, {
+                  kind: "init",
+                  promptStartedAt: requestStartedAt,
+                  signal: req.signal,
+                  chatId: engineChat.id,
+                }),
+                { headers: createSSEHeaders() },
+              ),
+            );
+          }
+          const finalizePromptStartedAt = Date.now();
+          const finalized = await finalizeOrchestrationPrompts(
+            orchestrationBase,
+            orchestrationInput,
+          );
+          const { engineSystemPrompt } = finalized;
+          debugLog("orchestration", "System prompt finalized", {
+            durationMs: Date.now() - finalizePromptStartedAt,
+            routeCount: orchestrationBase.routePlan.routes.length,
+            qualityTarget: orchestrationBase.buildSpec.qualityTarget,
+            contextPolicy: orchestrationBase.buildSpec.contextPolicy,
+            scaffoldVariant: finalized.variantId,
+          });
+          if (finalized.variantId) {
+            devLogAppend("in-progress", {
+              type: "orchestration.styleDirection",
+              styleDirection: finalized.variantId,
+            });
+          }
+          const generationInputPackage = buildGenerationInputPackage(
+            orchestrationBase,
+            orchestrationInput,
+            finalized,
+          );
+          const lineageHash = generationInputPackage.lineageHash;
+          writeOrchestrationDynamicDump(generationInputPackage);
+          dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
+            route: "POST /api/engine/chats/stream",
+            planMode: false,
+          });
+          const promptLengths = getSystemPromptLengths(engineSystemPrompt);
+          debugLog("prompt-cache", "System prompt lengths", promptLengths);
+
+          const engineChatDbStartedAt = Date.now();
           const engineChat = await chatRepo.createChat(
             projectIdForChat,
             engineModel,
+            engineSystemPrompt,
+            resolvedScaffold?.id,
           );
           await chatRepo.addMessage(engineChat.id, "user", message);
           setLlmUsageContext({ chatId: engineChat.id });
+          // Brief och scaffold-embeddings kördes innan chatten fanns — claima dem.
           attachChatToPendingUsage(sessionId, engineChat.id);
           debugLog("engine", "Chat DB bootstrap complete", {
-            durationMs: Date.now() - contractGateDbStartedAt,
-            mode: "pre-generation-contract-gate",
+            durationMs: Date.now() - engineChatDbStartedAt,
+            mode: "own-engine",
             chatId: engineChat.id,
           });
           devLogAppend("in-progress", {
             type: "site.chatId",
             chatId: engineChat.id,
+          });
+          // Preview prewarm (FEATURES.previewPrewarm, default OFF): this is the
+          // primary init/create path — the chat is created, credits already
+          // passed the `prompt.create` gate above, and heavy codegen streaming is
+          // about to start. Warm the preview host now so `npm install` overlaps
+          // LLM streaming. Orchestration has already resolved above, so pass the
+          // selected scaffold id — the skeleton's `package.json` is built from
+          // that scaffold's own dependencies instead of the generic baseline
+          // (higher fingerprint-hit rate at finalize). Fire-and-forget +
+          // self-gating (flag / tier-2 / dedup); never blocks or throws. Only the
+          // own-engine generation path reaches here (plan-mode and the
+          // contract-clarification gate return earlier and do not generate a
+          // site yet). See src/lib/gen/preview/preview-prewarm.ts.
+          void prewarmPreviewSession(engineChat.id, {
+            leaseKey: prewarmLeaseKey,
+            scaffoldId: resolvedScaffold?.id ?? null,
           });
           devLogAppend("in-progress", {
             type: "contracts.inferred",
@@ -937,232 +1083,107 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
             databaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
             authProvider: preGenerationContracts.contracts.authProvider ?? null,
             paymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
-            integrations: preGenerationContracts.contracts.integrations.map((entry) => entry.provider),
+            integrations: preGenerationContracts.contracts.integrations.map(
+              (entry) => entry.provider,
+            ),
             envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
-            unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
+            unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map(
+              (entry) => entry.kind,
+            ),
           });
-          const assistantQuestion = await chatRepo.addMessage(
-            engineChat.id,
-            "assistant",
-            contractClarification.question,
-            undefined,
-            [buildStoredContractClarificationUiPart(contractClarification)],
-          ).catch(() => null);
-          devLogAppend("in-progress", {
-            type: "contracts.clarification-requested",
+          const compressUrlsStartedAt = Date.now();
+          const { compressed: enginePrompt, urlMap } = compressUrls(optimizedMessage);
+          debugLog("engine", "Prompt URL compression complete", {
+            durationMs: Date.now() - compressUrlsStartedAt,
+            originalPromptLength: optimizedMessage.length,
+            compressedPromptLength: enginePrompt.length,
+            compressedUrlCount: Object.keys(urlMap).length,
             chatId: engineChat.id,
-            kind: contractClarification.kind,
-            reason: contractClarification.reason,
           });
-          const contractGateStream = createPreGenerationContractGateReadableStream(
-            buildPreGenerationContractGateParams({
+          const generatorThinking = resolvePhaseThinking(resolvedModelTier, "generator");
+          const effectiveGeneratorThinking = resolvedThinking && generatorThinking.thinking;
+          const engineStream = createOwnEnginePipelineAndGenerationStream({
+            chatId: engineChat.id,
+            resolvedTier: resolvedModelTier,
+            // F2-init must NEVER surface env-var prompts in chat. Tier-3 env
+            // input belongs in the F3 ("Bygg integrationer") flow, which goes
+            // through `chat-message-stream-post.ts` with
+            // `meta.lifecycleStage: "integrations"` and gates the tools there.
+            includeIntegrationSignals: false,
+            pipeline: {
+              prompt: enginePrompt,
+              systemPrompt: engineSystemPrompt,
+              model: generatorModel,
+              thinking: effectiveGeneratorThinking,
+              abortSignal: req.signal,
+              maxSteps: resolveOwnEngineMaxSteps({
+                buildSpec: orchestrationBase.buildSpec,
+                userMessage: message,
+                isFollowUp: false,
+              }),
+              referenceAttachments: [
+                ...finalized.variantTemplateReferenceAttachments,
+                ...requestAttachments,
+              ],
+            },
+            meta: buildOwnEngineGenerationStreamMeta({
               routeVariant: "new-chat",
-              sseChatId: engineChat.id,
-              assistantMessageId: assistantQuestion?.id ?? null,
-              contractClarification,
-              preGenerationContracts,
-              engineModel,
+              chatPrivacy: resolvedChatPrivacy,
+              scaffoldLabel: resolvedScaffold?.label ?? null,
+              engineModel: generatorModel,
               resolvedModelTier,
               buildProfileId,
               buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-              resolvedThinking,
+              resolvedThinking: effectiveGeneratorThinking,
               resolvedImageGenerations,
-              resolvedScaffold,
               strategyMeta,
+              orchestrationBase,
               buildSpec: orchestrationBase.buildSpec,
+              engineSystemPromptLength: engineSystemPrompt.length,
               metaBriefApplied: Boolean(metaBrief),
               customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
-              chatPrivacy: resolvedChatPrivacy,
-              scaffoldLabel: resolvedScaffold?.label ?? null,
-              capabilities: engineCapabilities,
+              scaffoldId: resolvedScaffold?.id ?? null,
+              variantId: finalized.variantId,
             }),
-          );
+            engineModel: generatorModel,
+            optimizedMessage,
+            rawPrompt: message,
+            engineIntent,
+            buildSpec: orchestrationBase.buildSpec,
+            routePlan: routePlan ?? null,
+            orchestrationContract: orchestrationBase.orchestrationContract,
+            resolvedScaffold: resolvedScaffold ?? null,
+            lineageHash,
+            urlMap,
+            commitCredits: commitCreditsOnce,
+          });
+
           debugLog("engine", "Create chat pre-stream complete", {
             durationMs: Date.now() - requestStartedAt,
-            mode: "pre-generation-contract-gate",
+            mode: "own-engine",
             chatId: engineChat.id,
           });
-          return attachSessionCookie(new Response(
-            wrapStreamForPromptToDoneMetric(contractGateStream, {
-              kind: "init",
-              promptStartedAt: requestStartedAt,
-              signal: req.signal,
-              chatId: engineChat.id,
-            }),
-            { headers: createSSEHeaders() },
-          ));
-        }
-        const finalizePromptStartedAt = Date.now();
-        const finalized = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
-        const { engineSystemPrompt } = finalized;
-        debugLog("orchestration", "System prompt finalized", {
-          durationMs: Date.now() - finalizePromptStartedAt,
-          routeCount: orchestrationBase.routePlan.routes.length,
-          qualityTarget: orchestrationBase.buildSpec.qualityTarget,
-          contextPolicy: orchestrationBase.buildSpec.contextPolicy,
-          scaffoldVariant: finalized.variantId,
-        });
-        if (finalized.variantId) {
-          devLogAppend("in-progress", {
-            type: "orchestration.styleDirection",
-            styleDirection: finalized.variantId,
+          return buildEngineStreamResponse({
+            engineStream,
+            req,
+            promptStartedAt: requestStartedAt,
+            kind: "init",
+            attachSessionCookie,
+            chatId: engineChat.id,
           });
         }
-        const generationInputPackage = buildGenerationInputPackage(
-          orchestrationBase,
-          orchestrationInput,
-          finalized,
-        );
-        const lineageHash = generationInputPackage.lineageHash;
-        writeOrchestrationDynamicDump(generationInputPackage);
-        dumpOwnEngineCodegenFromFullSystem(engineSystemPrompt, {
-          route: "POST /api/engine/chats/stream",
-          planMode: false,
-        });
-        const promptLengths = getSystemPromptLengths(engineSystemPrompt);
-        debugLog("prompt-cache", "System prompt lengths", promptLengths);
-
-        const engineChatDbStartedAt = Date.now();
-        const engineChat = await chatRepo.createChat(
-          projectIdForChat,
-          engineModel,
-          engineSystemPrompt,
-          resolvedScaffold?.id,
-        );
-        await chatRepo.addMessage(engineChat.id, "user", message);
-        setLlmUsageContext({ chatId: engineChat.id });
-        // Brief och scaffold-embeddings kördes innan chatten fanns — claima dem.
-        attachChatToPendingUsage(sessionId, engineChat.id);
-        debugLog("engine", "Chat DB bootstrap complete", {
-          durationMs: Date.now() - engineChatDbStartedAt,
-          mode: "own-engine",
-          chatId: engineChat.id,
-        });
-        devLogAppend("in-progress", {
-          type: "site.chatId",
-          chatId: engineChat.id,
-        });
-        // Preview prewarm (FEATURES.previewPrewarm, default OFF): this is the
-        // primary init/create path — the chat is created, credits already
-        // passed the `prompt.create` gate above, and heavy codegen streaming is
-        // about to start. Warm the preview host now so `npm install` overlaps
-        // LLM streaming. Orchestration has already resolved above, so pass the
-        // selected scaffold id — the skeleton's `package.json` is built from
-        // that scaffold's own dependencies instead of the generic baseline
-        // (higher fingerprint-hit rate at finalize). Fire-and-forget +
-        // self-gating (flag / tier-2 / dedup); never blocks or throws. Only the
-        // own-engine generation path reaches here (plan-mode and the
-        // contract-clarification gate return earlier and do not generate a
-        // site yet). See src/lib/gen/preview/preview-prewarm.ts.
-        void prewarmPreviewSession(engineChat.id, {
-          leaseKey: prewarmLeaseKey,
-          scaffoldId: resolvedScaffold?.id ?? null,
-        });
-        devLogAppend("in-progress", {
-          type: "contracts.inferred",
-          chatId: engineChat.id,
-          dataMode: preGenerationContracts.contracts.dataMode,
-          databaseProvider: preGenerationContracts.contracts.databaseProvider ?? null,
-          authProvider: preGenerationContracts.contracts.authProvider ?? null,
-          paymentProvider: preGenerationContracts.contracts.paymentProvider ?? null,
-          integrations: preGenerationContracts.contracts.integrations.map((entry) => entry.provider),
-          envVars: preGenerationContracts.contracts.envVars.map((entry) => entry.key),
-          unresolvedDecisions: preGenerationContracts.unresolvedDecisions.map((entry) => entry.kind),
-        });
-        const compressUrlsStartedAt = Date.now();
-        const { compressed: enginePrompt, urlMap } = compressUrls(optimizedMessage);
-        debugLog("engine", "Prompt URL compression complete", {
-          durationMs: Date.now() - compressUrlsStartedAt,
-          originalPromptLength: optimizedMessage.length,
-          compressedPromptLength: enginePrompt.length,
-          compressedUrlCount: Object.keys(urlMap).length,
-          chatId: engineChat.id,
-        });
-        const generatorThinking = resolvePhaseThinking(resolvedModelTier, "generator");
-        const effectiveGeneratorThinking =
-          resolvedThinking && generatorThinking.thinking;
-        const engineStream = createOwnEnginePipelineAndGenerationStream({
-          chatId: engineChat.id,
-          resolvedTier: resolvedModelTier,
-          // F2-init must NEVER surface env-var prompts in chat. Tier-3 env
-          // input belongs in the F3 ("Bygg integrationer") flow, which goes
-          // through `chat-message-stream-post.ts` with
-          // `meta.lifecycleStage: "integrations"` and gates the tools there.
-          includeIntegrationSignals: false,
-          pipeline: {
-            prompt: enginePrompt,
-            systemPrompt: engineSystemPrompt,
-            model: generatorModel,
-            thinking: effectiveGeneratorThinking,
-            abortSignal: req.signal,
-            maxSteps: resolveOwnEngineMaxSteps({
-              buildSpec: orchestrationBase.buildSpec,
-              userMessage: message,
-              isFollowUp: false,
-            }),
-            referenceAttachments: [
-              ...finalized.variantTemplateReferenceAttachments,
-              ...requestAttachments,
-            ],
-          },
-          meta: buildOwnEngineGenerationStreamMeta({
-            routeVariant: "new-chat",
-            chatPrivacy: resolvedChatPrivacy,
-            scaffoldLabel: resolvedScaffold?.label ?? null,
-            engineModel: generatorModel,
-            resolvedModelTier,
-            buildProfileId,
-            buildProfileLabel: MODEL_LABELS[resolvedModelTier],
-            resolvedThinking: effectiveGeneratorThinking,
-            resolvedImageGenerations,
-            strategyMeta,
-            orchestrationBase,
-            buildSpec: orchestrationBase.buildSpec,
-            engineSystemPromptLength: engineSystemPrompt.length,
-            metaBriefApplied: Boolean(metaBrief),
-            customInstructionsLength: trimmedSystemPrompt?.length ?? 0,
-            scaffoldId: resolvedScaffold?.id ?? null,
-            variantId: finalized.variantId,
-          }),
-          engineModel: generatorModel,
-          optimizedMessage,
-          rawPrompt: message,
-          engineIntent,
-          buildSpec: orchestrationBase.buildSpec,
-          routePlan: routePlan ?? null,
-          orchestrationContract: orchestrationBase.orchestrationContract,
-          resolvedScaffold: resolvedScaffold ?? null,
-          lineageHash,
-          urlMap,
-          commitCredits: commitCreditsOnce,
-        });
-
-        debugLog("engine", "Create chat pre-stream complete", {
-          durationMs: Date.now() - requestStartedAt,
-          mode: "own-engine",
-          chatId: engineChat.id,
-        });
-        return buildEngineStreamResponse({
-          engineStream,
+      } catch (err) {
+        return buildStreamErrorResponse({
+          err,
           req,
+          requestId,
           promptStartedAt: requestStartedAt,
           kind: "init",
+          logLabel: "Create chat error",
+          devLogType: "comm.error.create",
           attachSessionCookie,
-          chatId: engineChat.id,
         });
       }
-    } catch (err) {
-      return buildStreamErrorResponse({
-        err,
-        req,
-        requestId,
-        promptStartedAt: requestStartedAt,
-        kind: "init",
-        logLabel: "Create chat error",
-        devLogType: "comm.error.create",
-        attachSessionCookie,
-      });
-    }
     }),
   );
 }

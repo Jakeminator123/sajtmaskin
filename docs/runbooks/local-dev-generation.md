@@ -81,8 +81,8 @@ PowerShell från repo-roten:
    eller lokal `:8080`). Hybrid mot **icke-lokal** host (t.ex. Fly) kräver
    `SAJTMASKIN_PREVIEW_HOST_API_KEY` i appens `.env.local` (samma secret som
    hostens `PREVIEW_HOST_API_KEY`) — se [`docs/ENV.md`](../ENV.md).
-4. Logga in med en adress i `ADMIN_EMAILS` så guest-gratisgenereringen inte
-   stoppar dig.
+4. Logga in. Anonyma sessioner får inte generera; vanliga konton får en
+   versionsbunden gratisgenerering och adresser i `ADMIN_EMAILS` är testkonton.
 5. Generera en gång. Om stream svarar 404 direkt efter restart: vänta några
    sekunder och försök igen (Turbopack cold compile).
 6. Preview strejkar? Felsök Fly/session först (`preview_session_disabled`, vit

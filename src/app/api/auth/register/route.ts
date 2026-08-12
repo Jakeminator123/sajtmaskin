@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
             name: result.user.name,
             image: result.user.image,
             diamonds,
+            freeGenerationAvailable: result.user.free_generation_available,
             provider: result.user.provider,
             emailVerified: true,
           },
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
       }
 
       const message = emailVerificationSent
-        ? "Vi har skickat ett verifieringsmail. Bekräfta din e-post för att aktivera konto och välkomstcredits."
+        ? "Vi har skickat ett verifieringsmail. Bekräfta din e-post för att aktivera kontot och din kostnadsfria första generering."
         : emailVerificationReason === "provider_missing"
           ? "Konto skapat, men verifieringsmail kunde inte skickas just nu eftersom e-posttjänsten saknas."
           : emailVerificationReason === "recipient_restricted"

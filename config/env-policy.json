@@ -687,9 +687,9 @@
     },
     {
       "key": "OPENAI_ADMIN_KEY",
-      "classification": "local_only",
-      "recommendedVercelTargets": [],
-      "notes": "OpenAI ADMIN-nyckel (sk-admin-…) som last-generated-usersite.py använder för organisationens usage/costs. Ger läsning på hela organisationen och ska aldrig deployas — appen använder OPENAI_API_KEY."
+      "classification": "optional_runtime",
+      "recommendedVercelTargets": ["development", "preview", "production"],
+      "notes": "Server-only OpenAI Admin key (sk-admin-…) for the admin-gated organization Costs API reconciliation and the local last-generated-usersite.py report. It is never exposed to the browser and never used for generation."
     },
     {
       "key": "DID_API_KEY",

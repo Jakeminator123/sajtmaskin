@@ -71,10 +71,7 @@ function extractReasoningTokens(streamResponse: unknown): number | undefined {
   if (!streamResponse || typeof streamResponse !== "object") return undefined;
   const root = streamResponse as Record<string, unknown>;
 
-  const candidates: unknown[] = [
-    root.reasoningTokens,
-    root.reasoning_tokens,
-  ];
+  const candidates: unknown[] = [root.reasoningTokens, root.reasoning_tokens];
 
   const usage =
     typeof root.usage === "object" && root.usage !== null
@@ -151,7 +148,7 @@ export interface GenerationStreamParams {
   orchestrationContract?: OrchestrationContract | null;
   resolvedScaffold: ScaffoldManifest | null;
   urlMap: UrlMap;
-  commitCredits: () => Promise<void>;
+  commitCredits: (target?: { chatId: string; versionId: string }) => Promise<void>;
   previousFiles?: CodeFile[];
   /** SHA-256 of deterministic generation inputs (prompt lineage). */
   lineageHash?: string | null;
@@ -233,6 +230,7 @@ export function createOwnEngineGenerationStream(
       let sseBuffer = "";
       let accumulatedContent = "";
       let didSendDone = false;
+      let postFinalizeError: unknown = null;
       let fallbackVerificationSummary =
         "Återställd ofullständig version efter streamavbrott. Automatisk verifiering hoppades över.";
       const toolSignaledProviders = new Set<string>();
@@ -268,6 +266,17 @@ export function createOwnEngineGenerationStream(
           controller.close();
         } catch {
           /* already closed */
+        }
+      };
+
+      const safeError = (error: unknown) => {
+        if (engineControllerClosed) return;
+        engineControllerClosed = true;
+        stopEnginePing();
+        try {
+          controller.error(error);
+        } catch {
+          /* already closed or errored */
         }
       };
 
@@ -310,9 +319,7 @@ export function createOwnEngineGenerationStream(
        * credits only for the runs it was built for — the ones that produced
        * nothing BECAUSE the provider or our account failed.
        */
-      const commitCreditsUnlessProviderFault = async (options?: {
-        endedAsDesigned?: boolean;
-      }) => {
+      const commitCreditsUnlessProviderFault = async (options?: { endedAsDesigned?: boolean }) => {
         if (!providerFault) {
           await commitCredits();
           return;
@@ -365,8 +372,7 @@ export function createOwnEngineGenerationStream(
         // persisterades (reason `stream_ended_without_version` från
         // finally-vägen) får varken progress-fasen eller devloggen kalla det
         // empty-output — användaren SER ju text i chatten.
-        const streamedWithoutVersion =
-          !awaitingInput && reason === "stream_ended_without_version";
+        const streamedWithoutVersion = !awaitingInput && reason === "stream_ended_without_version";
         emitProgress("generation", {
           phase: awaitingInput
             ? "awaiting-input"
@@ -651,7 +657,8 @@ export function createOwnEngineGenerationStream(
         orchestrationStreamMeta: meta as Record<string, unknown>,
         tokenUsage: {
           prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
-          completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
+          completion:
+            typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
         },
         previousFiles,
         onProgress: emitProgress,
@@ -682,19 +689,28 @@ export function createOwnEngineGenerationStream(
         finalized: FinalizeResult,
         options?: { recoveredAfterStreamAbort?: boolean },
       ) => {
-        didSendDone = true;
-        await runOwnEngineStreamPostFinalize({
-          sse: { enc, safeEnqueue },
-          chatId,
-          finalized,
-          accumulatedContent,
-          toolSignaledProviders,
-          engineStartedAt,
-          commitCredits,
-          buildSpec,
-          recoveredAfterStreamAbort: options?.recoveredAfterStreamAbort === true,
-          repairPassIndex: targetVersionId ? 1 : 0,
-        });
+        let doneEmitted = false;
+        try {
+          await runOwnEngineStreamPostFinalize({
+            sse: { enc, safeEnqueue },
+            chatId,
+            finalized,
+            accumulatedContent,
+            toolSignaledProviders,
+            engineStartedAt,
+            commitCredits,
+            buildSpec,
+            onDoneEmitted: () => {
+              doneEmitted = true;
+              didSendDone = true;
+            },
+            recoveredAfterStreamAbort: options?.recoveredAfterStreamAbort === true,
+            repairPassIndex: targetVersionId ? 1 : 0,
+          });
+        } catch (error) {
+          if (!doneEmitted) postFinalizeError = error;
+          throw error;
+        }
       };
 
       try {
@@ -753,9 +769,7 @@ export function createOwnEngineGenerationStream(
                       malformedIntegrationToolCallCount += 1;
                     },
                     lifecycleStage:
-                      buildSpec.previewPolicy === "fidelity3"
-                        ? "integrations"
-                        : "design",
+                      buildSpec.previewPolicy === "fidelity3" ? "integrations" : "design",
                   },
                   toolData,
                 );
@@ -804,9 +818,7 @@ export function createOwnEngineGenerationStream(
                     type: "stream.token-usage",
                     chatId,
                     promptTokens:
-                      typeof doneData?.promptTokens === "number"
-                        ? doneData.promptTokens
-                        : null,
+                      typeof doneData?.promptTokens === "number" ? doneData.promptTokens : null,
                     outputTokens:
                       typeof doneData?.completionTokens === "number"
                         ? doneData.completionTokens
@@ -888,6 +900,15 @@ export function createOwnEngineGenerationStream(
           /* Reader may already be released */
         }
 
+        // A persisted version may only close successfully after post-finalize
+        // has created its durable billing marker. Re-running finalize cannot
+        // repair a failed post-finalize step and risks a duplicate version or
+        // a second `done`, so surface the original terminal error instead.
+        if (postFinalizeError) {
+          safeError(postFinalizeError);
+          return;
+        }
+
         if (sseBuffer.trim()) {
           const { events: finalEvents } = parseSSEBuffer(sseBuffer + "\n");
           for (const evt of finalEvents) {
@@ -921,9 +942,18 @@ export function createOwnEngineGenerationStream(
               });
               if (!bufFinalized) break;
 
-              await emitDoneWithVersion(bufFinalized);
+              try {
+                await emitDoneWithVersion(bufFinalized);
+              } catch {
+                break;
+              }
             }
           }
+        }
+
+        if (postFinalizeError) {
+          safeError(postFinalizeError);
+          return;
         }
 
         if (!didSendDone) {
@@ -953,7 +983,11 @@ export function createOwnEngineGenerationStream(
                 });
               }
             } catch {
-              /* ignore persistence errors in cleanup */
+              if (postFinalizeError) {
+                safeError(postFinalizeError);
+                return;
+              }
+              /* ignore finalize persistence errors in cleanup */
             }
           }
 
@@ -967,9 +1001,7 @@ export function createOwnEngineGenerationStream(
             // hit kommer vi bara när strömmen dog, inte när modellen bad om
             // input (den vägen skickar sitt eget done).
             await finishWithoutVersion(
-              accumulatedContent
-                ? "stream_ended_without_version"
-                : "stream_ended_empty_output",
+              accumulatedContent ? "stream_ended_without_version" : "stream_ended_empty_output",
               { awaitingInput: false },
             );
           }

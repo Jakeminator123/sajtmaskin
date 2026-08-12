@@ -2,6 +2,11 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { llmUsage } from "@/lib/db/schema";
+import {
+  calculateModelCost,
+  costUsdToMicroUsd,
+  MODEL_PRICE_VERSION,
+} from "@/lib/billing/model-cost";
 import { assertDbConfigured } from "./shared";
 
 /**
@@ -25,8 +30,12 @@ export type CreateLlmUsageRecord = {
   modelTier?: string | null;
   inputTokens?: number | null;
   cachedInputTokens?: number | null;
+  cacheWriteTokens?: number | null;
   outputTokens?: number | null;
   reasoningTokens?: number | null;
+  costMicroUsd?: number | null;
+  pricingVersion?: string | null;
+  costBreakdown?: Record<string, unknown> | null;
   durationMs?: number | null;
   ok?: boolean;
   errorCode?: string | null;
@@ -37,6 +46,30 @@ export type LlmUsageRow = typeof llmUsage.$inferSelect;
 
 export async function createLlmUsageRecord(record: CreateLlmUsageRecord): Promise<LlmUsageRow> {
   assertDbConfigured();
+  const hasTokenUsage = [
+    record.inputTokens,
+    record.cachedInputTokens,
+    record.cacheWriteTokens,
+    record.outputTokens,
+    record.reasoningTokens,
+  ].some((value) => value !== null && value !== undefined);
+  const calculated = hasTokenUsage
+    ? calculateModelCost(record.model, {
+        inputTokens: record.inputTokens ?? null,
+        cachedInputTokens: record.cachedInputTokens ?? null,
+        cacheWriteTokens: record.cacheWriteTokens ?? null,
+        outputTokens: record.outputTokens ?? null,
+        reasoningTokens: record.reasoningTokens ?? null,
+      })
+    : null;
+  const frozenCostMicroUsd =
+    record.costMicroUsd ?? (calculated ? costUsdToMicroUsd(calculated.costUsd) : null);
+  const frozenPricingVersion = record.pricingVersion ?? (calculated ? MODEL_PRICE_VERSION : null);
+  const frozenCostBreakdown =
+    record.costBreakdown ??
+    (calculated
+      ? ({ ...calculated, priceVersion: MODEL_PRICE_VERSION } as Record<string, unknown>)
+      : null);
   const rows = await db
     .insert(llmUsage)
     .values({
@@ -53,8 +86,12 @@ export async function createLlmUsageRecord(record: CreateLlmUsageRecord): Promis
       model_tier: record.modelTier ?? null,
       input_tokens: record.inputTokens ?? null,
       cached_input_tokens: record.cachedInputTokens ?? null,
+      cache_write_tokens: record.cacheWriteTokens ?? null,
       output_tokens: record.outputTokens ?? null,
       reasoning_tokens: record.reasoningTokens ?? null,
+      cost_microusd: frozenCostMicroUsd,
+      pricing_version: frozenPricingVersion,
+      cost_breakdown: frozenCostBreakdown,
       duration_ms: record.durationMs ?? null,
       ok: record.ok ?? true,
       error_code: record.errorCode ?? null,
@@ -110,8 +147,13 @@ export async function attachChatToUnassignedLlmUsage(
  * här efterstämplingen faller de utanför körningens summa och kostnaden per
  * körning blir systematiskt underskattad.
  *
- * Två gränser hindrar att en TIDIGARE generations föräldralösa rader knyts till
- * den här versionen och blåser upp dess kostnad:
+ * När `claimKey` finns är den request-unik och därför den starkaste gränsen.
+ * Då får en redan versionsstämplad, senare rad med samma nyckel inte kapa bort
+ * äldre rader vid en retry: exakt samma request kan ha skrivit verifieringsraden
+ * efter att den första efterstämplingen redan körde.
+ *
+ * Utan `claimKey` hindrar två legacy-gränser att en TIDIGARE generations
+ * föräldralösa rader knyts till den här versionen och blåser upp dess kostnad:
  *
  * 1. raden måste vara nyare än chattens senast attribuerade rad (allt äldre hör
  *    per definition till en föregående körning), och
@@ -123,10 +165,11 @@ export async function attachChatToUnassignedLlmUsage(
 export async function attachVersionToUnassignedLlmUsage(
   chatId: string,
   versionId: string,
-  options?: { maxAgeMinutes?: number },
+  options?: { maxAgeMinutes?: number; claimKey?: string | null },
 ): Promise<number> {
   assertDbConfigured();
   const maxAgeMinutes = Math.min(Math.max(options?.maxAgeMinutes ?? 30, 1), 24 * 60);
+  const claimKey = options?.claimKey?.trim() || null;
   const rows = await db
     .update(llmUsage)
     .set({ version_id: versionId })
@@ -134,15 +177,20 @@ export async function attachVersionToUnassignedLlmUsage(
       and(
         eq(llmUsage.chat_id, chatId),
         sql`${llmUsage.version_id} IS NULL`,
+        ...(claimKey ? [sql`${llmUsage.meta} ->> 'claimKey' = ${claimKey}`] : []),
         gt(llmUsage.created_at, sql`now() - (${String(maxAgeMinutes)} || ' minutes')::interval`),
-        sql`${llmUsage.created_at} > COALESCE(
-          (
-            SELECT MAX(prior.created_at)
-            FROM ${llmUsage} AS prior
-            WHERE prior.chat_id = ${chatId} AND prior.version_id IS NOT NULL
-          ),
-          '-infinity'::timestamptz
-        )`,
+        ...(!claimKey
+          ? [
+              sql`${llmUsage.created_at} > COALESCE(
+                (
+                  SELECT MAX(prior.created_at)
+                  FROM ${llmUsage} AS prior
+                  WHERE prior.chat_id = ${chatId} AND prior.version_id IS NOT NULL
+                ),
+                '-infinity'::timestamptz
+              )`,
+            ]
+          : []),
       ),
     )
     .returning({ id: llmUsage.id });

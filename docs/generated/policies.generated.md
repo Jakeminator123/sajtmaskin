@@ -8,7 +8,7 @@
 > Generator: `scripts/docs/generate-contract-docs.mjs`
 
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
-<!-- source-fingerprint: config/env-policy.json sha256:c3e6f7135e30415e -->
+<!-- source-fingerprint: config/env-policy.json sha256:9a6a41ad676f3084 -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:1df82ad99d801a14 -->
 <!-- source-fingerprint: config/control-plane/*-registry.json sha256:f2212a0ead2a11ad -->
 
@@ -83,7 +83,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 | `OC_EDIT`                                            | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_REPO_READ_TOKEN`                                 | `optional_runtime`     | `development`, `preview`               | No            | No           |
 | `OC_REPO_SLUG`                                       | `optional_runtime`     | `development`, `preview`               | No            | No           |
-| `OPENAI_ADMIN_KEY`                                   | `local_only`           | —                                      | No            | No           |
+| `OPENAI_ADMIN_KEY`                                   | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `OPENAI_API_KEY`                                     | `shared_runtime`       | `development`, `preview`, `production` | No            | No           |
 | `OPENAI_WEBHOOK`                                     | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |
 | `OPENCLAW_GATEWAY_TOKEN`                             | `optional_runtime`     | `development`, `preview`, `production` | No            | No           |

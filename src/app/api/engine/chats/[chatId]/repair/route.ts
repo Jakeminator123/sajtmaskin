@@ -9,7 +9,13 @@ import {
 } from "@/lib/observability/llm-usage";
 import { getEngineVersionForChatByIdForRequest, getRequestUserId } from "@/lib/tenant";
 import { createEngineVersionErrorLogs } from "@/lib/db/services/version-errors";
+import {
+  appendGenerationBillingClaimKey,
+  establishGenerationBilling,
+  getGenerationBillingMarkerPolicy,
+} from "@/lib/db/services/generation-billing";
 import { dbConfigured } from "@/lib/db/client";
+import { prepareCredits } from "@/lib/credits/server";
 import { getVersionFilesSnapshot } from "@/lib/gen/version-manager";
 import {
   markVersionRepairing,
@@ -195,11 +201,23 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     }
 
     const { versionId, repairContext } = validation.data;
+    const usageOwnerId = await safeUsageOwnerId(() => getRequestUserId(req));
     setLlmUsageContext({
       chatId,
       versionId,
-      userId: await safeUsageOwnerId(() => getRequestUserId(req)),
+      userId: usageOwnerId,
     });
+    if (!usageOwnerId || usageOwnerId.startsWith("guest:")) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Skapa ett konto eller logga in för att fortsätta bygga. Kontot får en kostnadsfri första generering.",
+          requiresAuth: true,
+        },
+        { status: 401 },
+      );
+    }
 
     // #260 Codex P2 (route re-verify build-gate): compute the build-origin signal
     // once here, at a scope visible to the finally-block after() re-verify. A
@@ -216,6 +234,69 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     }
 
     internalVersionId = scopedVersion.version.id;
+
+    // A current generation gets its completion marker from successful
+    // finalize. Historical/imported rows predate that contract and can be
+    // markerless, but a manual RepairGate may still spend LLM tokens. Create an
+    // explicitly non-free post-processing marker before taking the lease or
+    // calling the fixer, and use the existing fixed refine price only as an
+    // eligibility preflight. Dynamic usage settlement remains the only debit.
+    try {
+      const billingMarker = await getGenerationBillingMarkerPolicy(internalVersionId);
+      const repairableState = ["failed", "repair_available"].includes(
+        scopedVersion.version.verification_state,
+      );
+      if (
+        (!billingMarker || billingMarker.freeGenerationApplied) &&
+        !repairableState
+      ) {
+        return NextResponse.json(
+          {
+            error: "Versionen är inte redo för en separat reparation ännu.",
+            code: "generation_not_finalized",
+            retryable: true,
+          },
+          { status: 409 },
+        );
+      }
+      const claimKey = getLlmUsageContext().claimKey;
+      if (!billingMarker || !billingMarker.freeGenerationApplied) {
+        const creditCheck = await prepareCredits(
+          req,
+          "prompt.refine",
+          { modelId: scopedVersion.chat.model },
+          { allowFreeGeneration: false },
+        );
+        if (!creditCheck.ok) return creditCheck.response;
+        if (!billingMarker) {
+          await establishGenerationBilling({
+            chatId,
+            versionId: internalVersionId,
+            userId: creditCheck.user.id,
+            isTest: creditCheck.isTest,
+            claimKey,
+            freeGenerationEligible: false,
+            usageStartsAtNow: true,
+          });
+        } else {
+          await appendGenerationBillingClaimKey({ versionId: internalVersionId, claimKey });
+        }
+      } else {
+        // The original generation remains free even when a failed version is
+        // repaired, but persist its request key so late usage is recoverable.
+        await appendGenerationBillingClaimKey({ versionId: internalVersionId, claimKey });
+      }
+    } catch (error) {
+      console.error("[repair] Billing preflight unavailable; refusing untracked LLM work:", error);
+      return NextResponse.json(
+        {
+          error: "Kostnadskontrollen kunde inte slutföras. Försök igen om en stund.",
+          code: "billing_preflight_unavailable",
+          retryable: true,
+        },
+        { status: 503 },
+      );
+    }
 
     if (dbConfigured) {
       // Distributed lease (Plan C / P1 + Codex P2): acquire the per-version

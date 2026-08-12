@@ -150,6 +150,8 @@ EMPTY_TABLES: Tuple[str, ...] = (
 PRESERVED_TABLES: Tuple[str, ...] = (
     "users",
     "transactions",
+    "generation_billing_settings",
+    "generation_billings",
     "domain_orders",
     "kostnadsfri_pages",
     "user_integrations",

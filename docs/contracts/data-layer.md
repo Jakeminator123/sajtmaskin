@@ -27,12 +27,12 @@ bara långsammare.
 
 ## TL;DR — vad ligger var?
 
-| Vad | Var | Klient | Varför |
-|---|---|---|---|
-| Användare, projekt, chats, versioner, telemetri, allt "permanent" | **Postgres hos Supabase** (`*.pooler.supabase.com`) | `pg` + Drizzle ORM | Strukturerad data med relationer |
-| Sessioner, cache, rate-limits, preview-state, kortlivade jobb | **Redis hos Upstash** (`alert-silkworm-17000.upstash.io`) | `ioredis` (TCP) **+** `@upstash/redis` (HTTP) | Snabb nyckel/värde-lookup, TTL-baserad utgång |
-| Användarbilder & filuppladdningar | Lokalt FS (`data/uploads/`) i dev, **Vercel Blob** i prod | `@vercel/blob` | Fil-storlek, CDN-leverans |
-| Generationsmetrics-tidsserie | Prometheus expo via `/api/metrics` | `prom-client` | Backofficens Observability-sida |
+| Vad                                                               | Var                                                       | Klient                                        | Varför                                        |
+| ----------------------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------- | --------------------------------------------- |
+| Användare, projekt, chats, versioner, telemetri, allt "permanent" | **Postgres hos Supabase** (`*.pooler.supabase.com`)       | `pg` + Drizzle ORM                            | Strukturerad data med relationer              |
+| Sessioner, cache, rate-limits, preview-state, kortlivade jobb     | **Redis hos Upstash** (`alert-silkworm-17000.upstash.io`) | `ioredis` (TCP) **+** `@upstash/redis` (HTTP) | Snabb nyckel/värde-lookup, TTL-baserad utgång |
+| Användarbilder & filuppladdningar                                 | Lokalt FS (`data/uploads/`) i dev, **Vercel Blob** i prod | `@vercel/blob`                                | Fil-storlek, CDN-leverans                     |
+| Generationsmetrics-tidsserie                                      | Prometheus expo via `/api/metrics`                        | `prom-client`                                 | Backofficens Observability-sida               |
 
 Vi använder **inte** Supabase Auth, Storage, Realtime eller PostgREST — bara
 Postgres-protokollet rakt av. Det är därför Supabase-dashboardens räknare
@@ -92,10 +92,10 @@ vägen. Tre sätt att tappa det tyst:
 
 `scripts/db/ensure-schema.mjs` täpper till alla tre:
 
-| Läge | Vem kör | Beteende |
-|---|---|---|
+| Läge                             | Vem kör                                 | Beteende                                                                                                                                                        |
+| -------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--check-only --soft --quiet-ok` | `next-runner.mjs` vid varje `dev`-start | Read-only ledger-SELECT i bakgrunden. Helt tyst när allt är rätt, ramad varning som listar saknade migrationer när DB:n ligger efter. Blockerar aldrig starten. |
-| `npm run db:ensure` | du, manuellt | Kollar → applicerar saknade via `npm run db:migrate` → verifierar om. Ett kommando som svar på "min lokala DB har fel schema". |
+| `npm run db:ensure`              | du, manuellt                            | Kollar → applicerar saknade via `npm run db:migrate` → verifierar om. Ett kommando som svar på "min lokala DB har fel schema".                                  |
 
 Vakten kör **aldrig** DDL själv: den delegerar till `run-migrations.ts`, som
 förblir enda ägaren av apply-loopen och prod-skrivskyddet
@@ -127,17 +127,48 @@ befintlig tabell).
 
 ### Hot-path-tabeller (de som måste vara snabba)
 
-| Tabell | Hot path | Krav |
-|---|---|---|
-| `engine_chats` | Builder-laddning | PK-lookup |
-| `engine_messages` | `getChat()` läser ALLA meddelanden per chat | **Index på `(chat_id, created_at)`** |
-| `engine_versions` | Versionshistorik per chat (repair-flöden) | **Index på `(chat_id, created_at)`** + unique `(chat_id, version_number)` |
-| `generation_telemetry` | Eval, observability | Index på `chat_id`, `version_id`, `created_at` |
-| `llm_usage` | Tokenförbrukning per LLM-anrop (skrivs av varje fas, läses av kostnadsrollups) | Index på `chat_id`, `version_id`, `(user_id, created_at)`, `created_at` |
-| `deployments` | SSE-events under deploy (`GET /api/v0/deployments/[id]/events`) | Index på `chat_id`, `version_id`, `vercel_deployment_id` |
+| Tabell                 | Hot path                                                                       | Krav                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `engine_chats`         | Builder-laddning                                                               | PK-lookup                                                                      |
+| `engine_messages`      | `getChat()` läser ALLA meddelanden per chat                                    | **Index på `(chat_id, created_at)`**                                           |
+| `engine_versions`      | Versionshistorik per chat (repair-flöden)                                      | **Index på `(chat_id, created_at)`** + unique `(chat_id, version_number)`      |
+| `generation_telemetry` | Eval, observability                                                            | Index på `chat_id`, `version_id`, `created_at`                                 |
+| `llm_usage`            | Tokenförbrukning per LLM-anrop (skrivs av varje fas, läses av kostnadsrollups) | Index på `chat_id`, `version_id`, `(user_id, created_at)`, `created_at`        |
+| `generation_billings`  | Kostnads- och debiteringssnapshot per version                                  | Unique `version_id`, index på `chat_id`, `(user_id, created_at)`, `created_at` |
+| `deployments`          | SSE-events under deploy (`GET /api/v0/deployments/[id]/events`)                | Index på `chat_id`, `version_id`, `vercel_deployment_id`                       |
 
 Långbänk 2026-04-24 lade till de saknade index ovan via
 `scripts/db/add-performance-indexes.mjs` (idempotent — kör om-och-om-igen).
+
+`users.free_generation_available` är den kontoägda engångsentitlementen. Den
+claimas tillsammans med `free_generation_claimed_version_id` under användarens
+radlås i samma transaktion som `generation_billings` och `transactions`; en
+anonym sessionscookie får aldrig motsvarande rättighet. Vid migreringen räknas
+historiska own-engine-genereringar från den durabla persistenssignalen: en
+`engine_versions`-rad med tillhörande assistant-rad i `engine_messages` och
+`edit_kind IS NULL`. Därmed får äldre persisterade genereringar utan best-effort
+`llm_usage` inte en ny gratisrunda, medan importer, restore/quick-edit och
+deterministiska F3-forkar inte felaktigt förbrukar entitlementen.
+
+`generation_billings.claim_keys` är en append-only JSON-lista med de unika
+requestnycklar som hör till versionens slutförda generering. Den ekonomiska
+pris-snapshoten ändras inte när en ny nyckel läggs till. Admin-omstämning
+markerar raden `pending`, attribuerar fortfarande ospärrade `llm_usage`-rader
+exakt via nycklarna och settlement körs först därefter.
+
+`generation_billings.free_generation_eligible` skiljer en lyckad own-engine-
+generering från en ekonomisk marker som skapats enbart för senare
+post-processing. Historiska/importerade markerlösa versioner får värdet
+`false` innan manuell LLM-repair, så deras nya usage kan debiteras och stämmas
+av utan att claima användarens kostnadsfria första sajtgenerering.
+
+`generation_billings.usage_started_at` är en nullable, inklusiv nedre gräns
+för markerens debiterbara `llm_usage`. Normal finalize lämnar den `NULL` och
+inkluderar därmed brief/codegen-usage som skrevs före markern. En marker som
+skapas precis före LLM-post-processing på en äldre/importerad version får
+databasens `NOW()` och exkluderar versionens historiska usage. Efterföljande
+repair-upserts bevarar både gränsen och den frysta pris-snapshoten, men lägger
+till requestens claim-nyckel.
 
 ### Säkerhets-strikthet (constraints i DB:n)
 
@@ -158,6 +189,7 @@ DB:n vägrar dålig data oavsett vad koden försöker spara:
 - **`default(0)` / `default(false)`** på flag-kolumner som måste vara satta.
 
 Vad som **inte** finns idag (känt gap, dokumenterat):
+
 - Zod-validering på inkommande API-payloads — finns sporadiskt men inte
   systematiskt. Nästa runda. (Se §"Framtida arbete" nedan.)
 
@@ -166,6 +198,7 @@ Vad som **inte** finns idag (känt gap, dokumenterat):
 `src/lib/db/client.ts` cachar en `pg.Pool` på `globalThis` så Next.js HMR i
 dev inte skapar en ny pool per Fast Refresh (det skulle uttömma Supabase
 pgbouncer). Pool-storleken anpassas efter typ av connection:
+
 - Mot pgbouncer/pooler-host → `max: 3` (pgbouncer cap:ar aggressivt)
 - Direkt Postgres → `max: 10`
 
@@ -177,10 +210,10 @@ Poolstorlek är **samtidighet, inte hastighet**, och de två felen som drabbar
 oss kräver **motsatta** fixar. Att gissa gör alltså aktivt skada. Mät båda
 sidorna först:
 
-| Sida | Fel det ger | Var siffran finns | Vad den säger |
-|---|---|---|---|
-| **Appens egen pool** (per serverless-instans) | `timeout exceeded when trying to connect` | appens loggar: 503-raden från [`transient-db-response.ts`](../../src/lib/api/transient-db-response.ts) bär `[pool=3/3 idle=0 waiting=7 at-ceiling]` | `at-ceiling` ⇒ instansen kunde inte lämna ut en klient ur sitt eget `max` ⇒ riktningen är att **höja** |
-| **Server/pooler** | `EMAXCONNSESSION: max clients reached` | `npm run db:health` → `connections` (`total`, `usable_connections`, `headroom`, `used_pct`) | lite `headroom` ⇒ fler instanser × högre max slår i taket i stället ⇒ **höj inte**, gå på `POSTGRES_URL_NON_POOLING` för långlivade vägar eller höj poolerns tak |
+| Sida                                          | Fel det ger                               | Var siffran finns                                                                                                                                   | Vad den säger                                                                                                                                                    |
+| --------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Appens egen pool** (per serverless-instans) | `timeout exceeded when trying to connect` | appens loggar: 503-raden från [`transient-db-response.ts`](../../src/lib/api/transient-db-response.ts) bär `[pool=3/3 idle=0 waiting=7 at-ceiling]` | `at-ceiling` ⇒ instansen kunde inte lämna ut en klient ur sitt eget `max` ⇒ riktningen är att **höja**                                                           |
+| **Server/pooler**                             | `EMAXCONNSESSION: max clients reached`    | `npm run db:health` → `connections` (`total`, `usable_connections`, `headroom`, `used_pct`)                                                         | lite `headroom` ⇒ fler instanser × högre max slår i taket i stället ⇒ **höj inte**, gå på `POSTGRES_URL_NON_POOLING` för långlivade vägar eller höj poolerns tak |
 
 Två fällor i läsningen av dessa siffror, båda funna av bugbot-passet på diffen:
 
@@ -243,14 +276,15 @@ redeploy med hård polling).
 
 ### Två klienter, samma databas
 
-| Klient | Path | Användning |
-|---|---|---|
-| `ioredis` (TCP) | `src/lib/data/redis.ts`, `src/lib/redis-pubsub.ts` | Ad-hoc cache, prompt-handoff, audit-cache, preview-session, deploy-status pub/sub |
-| `@upstash/redis` (HTTP/REST) | `src/lib/rateLimit.ts` | Rate-limiting (cold-start-vänligt i serverless) |
+| Klient                       | Path                                               | Användning                                                                        |
+| ---------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `ioredis` (TCP)              | `src/lib/data/redis.ts`, `src/lib/redis-pubsub.ts` | Ad-hoc cache, prompt-handoff, audit-cache, preview-session, deploy-status pub/sub |
+| `@upstash/redis` (HTTP/REST) | `src/lib/rateLimit.ts`                             | Rate-limiting (cold-start-vänligt i serverless)                                   |
 
 Båda pratar med samma Upstash-instans. Detta är teknisk skuld vi
 medvetet bär — full migration till HTTP-klienten lever på P2-listan.
 Till dess krymper båda klienternas connection-overhead via:
+
 - `lazyConnect: true` (TCP öppnas först vid första anropet)
 - `maxRetriesPerRequest: 1–3` (kort fail-fast)
 
@@ -304,29 +338,30 @@ Mappade mot Redis-skill-reglerna:
 
 ### Alternativa diagnostikvägar
 
-| Verktyg | Var | Använd när |
-|---|---|---|
-| `npm run db:rows` | CLI | Snabb rad-överblick utan backoffice |
-| `npm run db:health` | CLI | Samma som backofficen, JSON-svar i terminal |
-| `npm run db:perf-indexes:dry` | CLI | Se vilka index som SKULLE skapas utan att göra det |
-| `npm run db:perf-indexes` | CLI | Faktiskt skapa saknade index (idempotent, säkert mot prod) |
-| `npm run db:perf-indexes:soft` | CLI / `predev` | Som ovan men felar tyst (auto-applicering) |
-| `npm run db:ensure` | CLI | Applicera saknade migrationer på den lokala DB:n + verifiera (svaret på "fel schema lokalt") |
-| `npm run db:migrate:check` | CLI | Read-only: ligger den lokala DB:n efter? (samma gate CI kör mot prod) |
-| `npm run redis:health` | CLI | Redis-statusen i JSON |
-| `/api/health` | HTTP | Snabb live-check (Redis + features) |
-| `/api/metrics` | HTTP | Prometheus-expo (renderas i Observability-sidan) |
+| Verktyg                        | Var            | Använd när                                                                                   |
+| ------------------------------ | -------------- | -------------------------------------------------------------------------------------------- |
+| `npm run db:rows`              | CLI            | Snabb rad-överblick utan backoffice                                                          |
+| `npm run db:health`            | CLI            | Samma som backofficen, JSON-svar i terminal                                                  |
+| `npm run db:perf-indexes:dry`  | CLI            | Se vilka index som SKULLE skapas utan att göra det                                           |
+| `npm run db:perf-indexes`      | CLI            | Faktiskt skapa saknade index (idempotent, säkert mot prod)                                   |
+| `npm run db:perf-indexes:soft` | CLI / `predev` | Som ovan men felar tyst (auto-applicering)                                                   |
+| `npm run db:ensure`            | CLI            | Applicera saknade migrationer på den lokala DB:n + verifiera (svaret på "fel schema lokalt") |
+| `npm run db:migrate:check`     | CLI            | Read-only: ligger den lokala DB:n efter? (samma gate CI kör mot prod)                        |
+| `npm run redis:health`         | CLI            | Redis-statusen i JSON                                                                        |
+| `/api/health`                  | HTTP           | Snabb live-check (Redis + features)                                                          |
+| `/api/metrics`                 | HTTP           | Prometheus-expo (renderas i Observability-sidan)                                             |
 
 ## Kostnads­bild — vad kostar vad?
 
-| Tjänst | Plan idag | Pris/månad | Vad du faktiskt använder |
-|---|---|---|---|
-| **Supabase** | Pro | ~$25 | BARA Postgres + connection pooler. Ingen Auth, Storage, Realtime, PostgREST. |
-| **Upstash Redis** | Free | $0 | 82k/500k commands per månad — gott om utrymme |
-| **Vercel** | Pro | $20 | Hosting + Functions + Blob |
-| **Anthropic + OpenAI** | Pay-per-use | varierar | LLM-anrop |
+| Tjänst                 | Plan idag   | Pris/månad | Vad du faktiskt använder                                                     |
+| ---------------------- | ----------- | ---------- | ---------------------------------------------------------------------------- |
+| **Supabase**           | Pro         | ~$25       | BARA Postgres + connection pooler. Ingen Auth, Storage, Realtime, PostgREST. |
+| **Upstash Redis**      | Free        | $0         | 82k/500k commands per månad — gott om utrymme                                |
+| **Vercel**             | Pro         | $20        | Hosting + Functions + Blob                                                   |
+| **Anthropic + OpenAI** | Pay-per-use | varierar   | LLM-anrop                                                                    |
 
 **Supabase Pro motiveras av**:
+
 - Längre query-loggar (7 dagar vs 1 dag på Free)
 - Point-in-time recovery
 - Större compute (du kör Micro idag)
@@ -418,15 +453,16 @@ flowchart TD
 
 ### Tabeller utanför cascade-kedjan (medvetet)
 
-| Tabell | Varför ingen cascade |
-| --- | --- |
-| `media_library` | Ägs av användaren, kan delas mellan projekt — ska överleva projekt-radering |
-| `domain_orders` | Finansiella records, raderas explicit i `deleteProject()` och cleanup-scriptet |
-| `company_profiles` | `project_id` är `TEXT` **utan FK** → kaskaderar INTE, och `deleteProject()` raderar den inte explicit (kommentaren där säger felaktigt "FK CASCADE"). **Orphan-rader vid projekt-radering** — spårad bugg i `BUG-SWARM-BACKLOG.md`. |
-| `prompt_logs` | Telemetri, ska överleva projekt-radering så analytics inte tappas |
-| `llm_usage` | Förbrukning är en ekonomisk händelse: `chat_id`/`version_id`/`user_id` är `TEXT` **utan FK** så kostnadshistoriken överlever att chatten städas bort, och anrop kan loggas innan en version finns (brief, scaffold-val). `wipe-generated-sites.mjs` rensar den vid dev-reset. |
-| Externa Supabase/Neon hos genererade sajter | Ägs av användarens egna konto, helt utanför sajtmaskins DB |
-| Vercel Blob/S3-payloads | Lever utanför Postgres, separat städ-flöde |
+| Tabell                                                | Varför ingen cascade                                                                                                                                                                                                                                                          |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `media_library`                                       | Ägs av användaren, kan delas mellan projekt — ska överleva projekt-radering                                                                                                                                                                                                   |
+| `domain_orders`                                       | Finansiella records, raderas explicit i `deleteProject()` och cleanup-scriptet                                                                                                                                                                                                |
+| `company_profiles`                                    | `project_id` är `TEXT` **utan FK** → kaskaderar INTE, och `deleteProject()` raderar den inte explicit (kommentaren där säger felaktigt "FK CASCADE"). **Orphan-rader vid projekt-radering** — spårad bugg i `BUG-SWARM-BACKLOG.md`.                                           |
+| `prompt_logs`                                         | Telemetri, ska överleva projekt-radering så analytics inte tappas                                                                                                                                                                                                             |
+| `llm_usage`                                           | Förbrukning är en ekonomisk händelse: `chat_id`/`version_id`/`user_id` är `TEXT` **utan FK** så kostnadshistoriken överlever att chatten städas bort, och anrop kan loggas innan en version finns (brief, scaffold-val). `wipe-generated-sites.mjs` rensar den vid dev-reset. |
+| `generation_billing_settings` / `generation_billings` | Prisregeln och de ekonomiska snapshotsen saknar innehålls-FK. Historiska debiteringar ska kunna revideras även efter att en chat/version har städats bort.                                                                                                                    |
+| Externa Supabase/Neon hos genererade sajter           | Ägs av användarens egna konto, helt utanför sajtmaskins DB                                                                                                                                                                                                                    |
+| Vercel Blob/S3-payloads                               | Lever utanför Postgres, separat städ-flöde                                                                                                                                                                                                                                    |
 
 ## Referenser
 

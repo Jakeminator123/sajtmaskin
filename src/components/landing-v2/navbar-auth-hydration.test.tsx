@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 // Samma stubbdisciplin som navbar-footer-links.test.tsx — men med styrbar
 // auth-state så hydration-fönstret (isInitialized=false) kan testas.
 vi.mock("next/image", () => ({ default: () => null }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {} }) }));
+const routerPush = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: routerPush }) }));
 
 const authState = {
   isAuthenticated: false,
@@ -23,6 +24,7 @@ afterEach(() => {
   cleanup();
   authState.isAuthenticated = false;
   authState.isInitialized = true;
+  routerPush.mockClear();
 });
 
 /**
@@ -53,5 +55,9 @@ describe("Navbar auth-hydration", () => {
     expect(screen.getByText("Mina projekt")).toBeTruthy();
     expect(screen.getByText("Öppna builder")).toBeTruthy();
     expect(screen.queryByText("Logga in")).toBeNull();
+    expect(screen.queryByText("Admin")).toBeNull();
+
+    fireEvent.click(screen.getByText("Öppna builder"));
+    expect(routerPush).toHaveBeenCalledWith("/builder?new=1");
   });
 });

@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
           name: result.user.name,
           image: result.user.image,
           diamonds: result.user.diamonds,
+          freeGenerationAvailable: result.user.free_generation_available,
           provider: result.user.provider,
           emailVerified: result.user.email_verified,
         },

@@ -2,12 +2,12 @@
 
 Läsverktyg för att förstå hur en körning gick. Allt här är read-only.
 
-| Script | Vad |
-| --- | --- |
-| [`last-generated-usersite.py`](last-generated-usersite.py) | Drar hem **alla** loggar för den senast genererade användarsajten (Postgres, Vercel, Fly preview-host, OpenAI, D-ID) och skriver en körningsmapp med sammanfattning + tokenrapport. |
-| `control-stats-baseline-*.json` | Fryst jämförelsebas för `compare-control-stats.mjs`. |
-| `compare-control-stats.mjs` | Jämför aktuell kontrollstatistik mot baseline. |
-| `fault-matrix.mjs`, `index-error-log-rag.mjs`, `dump-fixer-registry.mjs`, `report-fault-promotion-candidates.mjs` | Fault-/RAG-verktyg. |
+| Script                                                                                                            | Vad                                                                                                                                                                                 |
+| ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`last-generated-usersite.py`](last-generated-usersite.py)                                                        | Drar hem **alla** loggar för den senast genererade användarsajten (Postgres, Vercel, Fly preview-host, OpenAI, D-ID) och skriver en körningsmapp med sammanfattning + tokenrapport. |
+| `control-stats-baseline-*.json`                                                                                   | Fryst jämförelsebas för `compare-control-stats.mjs`.                                                                                                                                |
+| `compare-control-stats.mjs`                                                                                       | Jämför aktuell kontrollstatistik mot baseline.                                                                                                                                      |
+| `fault-matrix.mjs`, `index-error-log-rag.mjs`, `dump-fixer-registry.mjs`, `report-fault-promotion-candidates.mjs` | Fault-/RAG-verktyg.                                                                                                                                                                 |
 
 ## `last-generated-usersite.py`
 
@@ -33,24 +33,24 @@ när du är klar.
 `data/gen-logs/<datum>_<chat>/` (gitignorerad). Högst `MAX_GEN_LOGS` mappar
 sparas — default **10**, `--max-logs` överstyr.
 
-| Fil | Innehåll |
-| --- | --- |
-| `summary.md` | Svensk sammanfattning: bedömning först, sedan identitet, tokens och källstatus. |
-| `report.html` | Självständig rapport (canvas) — öppna direkt i webbläsaren. |
-| `tokens.json` | Tokenrollup per modell/fas för **versionen**, chat-summan separat, vad som **inte** mäts, samt org-siffror. |
-| `index.json` | Hela manifestet (identitet, fönster, signaler, källstatus, filer). |
-| `db/*.json` | En fil per loggtyp: prompts, generations, versions, telemetry, errors, oc, ragevents, deploys, llmusage. |
-| `vercel/`, `fly/`, `openai/`, `did/` | Råsvar per extern källa + logg-tails. |
+| Fil                                  | Innehåll                                                                                                    |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `summary.md`                         | Svensk sammanfattning: bedömning först, sedan identitet, tokens och källstatus.                             |
+| `report.html`                        | Självständig rapport (canvas) — öppna direkt i webbläsaren.                                                 |
+| `tokens.json`                        | Tokenrollup per modell/fas för **versionen**, chat-summan separat, vad som **inte** mäts, samt org-siffror. |
+| `index.json`                         | Hela manifestet (identitet, fönster, signaler, källstatus, filer).                                          |
+| `db/*.json`                          | En fil per loggtyp: prompts, generations, versions, telemetry, errors, oc, ragevents, deploys, llmusage.    |
+| `vercel/`, `fly/`, `openai/`, `did/` | Råsvar per extern källa + logg-tails.                                                                       |
 
 ### Vad som krävs per källa
 
-| Källa | Env | Utan den |
-| --- | --- | --- |
-| Postgres | `POSTGRES_URL` (eller `..._NON_POOLING`/`STORAGE_*`/`DATABASE_URL`) | Skriptet avbryter — sajten kan inte identifieras |
-| Vercel | `VERCEL_TOKEN` (+ `VERCEL_TEAM_ID`/`VERCEL_PROJECT_ID` eller `.vercel/project.json`) | Bygg-/runtime-loggar hoppas över |
-| Fly preview-host | `SAJTMASKIN_PREVIEW_HOST_BASE_URL` + `SAJTMASKIN_PREVIEW_HOST_API_KEY` | Preview-loggar hoppas över |
-| OpenAI | `OPENAI_ADMIN_KEY` (admin-nyckel, `sk-admin-…`) | Org-förbrukning hoppas över |
-| D-ID | `DID_API_KEY` (`API_USER:API_PASSWORD`) | Credits hoppas över |
+| Källa            | Env                                                                                  | Utan den                                         |
+| ---------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| Postgres         | `POSTGRES_URL` (eller `..._NON_POOLING`/`STORAGE_*`/`DATABASE_URL`)                  | Skriptet avbryter — sajten kan inte identifieras |
+| Vercel           | `VERCEL_TOKEN` (+ `VERCEL_TEAM_ID`/`VERCEL_PROJECT_ID` eller `.vercel/project.json`) | Bygg-/runtime-loggar hoppas över                 |
+| Fly preview-host | `SAJTMASKIN_PREVIEW_HOST_BASE_URL` + `SAJTMASKIN_PREVIEW_HOST_API_KEY`               | Preview-loggar hoppas över                       |
+| OpenAI           | `OPENAI_ADMIN_KEY` (admin-nyckel, `sk-admin-…`)                                      | Org-förbrukning hoppas över                      |
+| D-ID             | `DID_API_KEY` (`API_USER:API_PASSWORD`)                                              | Credits hoppas över                              |
 
 `OPENAI_API_KEY` räcker **inte** för usage/costs, och de publika
 `NEXT_PUBLIC_AVATAR_*` är client-nycklar — inte D-ID:s server-API-nyckel.
@@ -75,28 +75,30 @@ sparas — default **10**, `--max-logs` överstyr.
   Minsta bucket är en minut, och `group_by=user_id` betyder organisationens
   medlem — inte Sajtmaskins `users.id`.
 - **D-ID mäter credits, inte tokens.** Saldot är ett nuläge, inte körningens pris.
-- **Kostnaden är alltid en uppskattning.** `llm_usage`-rader bär
-  `cached_input_tokens` sedan #613, så cachade tokens prissätts till cache-taxan
-  i stället för full input — det tar bort en av överskattningarna, men gör inte
-  siffran exakt. `config/ai_models/pricing.json` flaggar vissa taxor som
-  `estimated`, och varken kontext-upliften (>272K tokens) eller det regionala
-  10 %-påslaget modelleras. Rader utan `cached_input_tokens` prissätts som helt
-  ocachade och är därför en **övre** gräns.
+- **Kostnaden är en reproducerbar beräkning, inte fakturaraden.** Runtime sparar
+  `cached_input_tokens` och `cache_write_tokens`; kostnadsmotorn prissätter
+  ordinarie input, cache read, cache write och output separat och applicerar
+  modellens dokumenterade long-context-uplift per anrop. Vissa äldre/estimerade
+  modeller, avtalsrabatter, separat prissatta serververktyg och regionalt
+  inference-påslag kan fortfarande avvika från leverantörens faktura. Därför
+  stäms periodsumma av mot konto-API:t, medan per-version-attributionen kommer
+  från `llm_usage`.
 
-### Vad mätningen är till för (beslut 2026-07-28)
+### Vad mätningen är till för (ägarbeslut 2026-08-12)
 
-Tokenmätningens steg 1–2 är levererade (#609/#613). Steg 3 var frågan "vad ska
-mätningen användas till?". Beslut av agent på ägarens delegation; vänd det fritt,
-men skriv om detta stycke då.
+Tokenmätningen är både ett internt modell-/kostnadsunderlag och debiteringsgrund
+för own-engine-genereringar. Det fulla kontraktet finns i
+[`docs/architecture/llm-pipeline.md`](../../docs/architecture/llm-pipeline.md#generationskostnad-och-credit-debitering).
 
-| Fråga | Beslut | Varför |
-|---|---|---|
-| Ska diamonds bli per-token i stället för fast pris per åtgärd? | **Nej.** Fast pris per åtgärd står kvar. Mätningen är ett **internt kostnads- och modellvalsunderlag**, inte en debiteringsgrund. | Siffran är enligt gränserna ovan en undre gräns med `estimated`-taxor — man kan inte fakturera på ett tal vars egen dokumentation säger att det är ofullständigt. Dessutom kan användaren inte förutse tokenkostnaden innan hon skickar, och priset skulle bli en funktion av ett modellval vi byter ofta. |
-| Ska sekundära ytor (wizard, audit, analyze, transcribe, inspector) instrumenteras? | **Inte som eget projekt.** I stället en stående regel: **en yta som drar diamonds ska logga `llm_usage` i samma PR som den börjar dra dem.** | De omätta ytorna är operatörs-/backofficeverktyg. Att mäta dem nu ökar täckningsprocenten men ändrar inget beslut. Regeln fångar dem automatiskt den dag de blir användarbetalda — utan att någon behöver komma ihåg en backlog-rad. |
-| Ska OpenClaw-förbrukning rapporteras tillbaka, och D-ID:s credits läsas före/efter i appen? | **Skjuts upp.** Båda fortsätter redovisas **separat** (de finns redan i `/logg`), aldrig invävda i körningens tokensumma. | OpenClaw kör utanför appen och D-ID mäter credits, inte tokens. Att slå ihop dem till ett tal blandar två enheter och gör summan mindre sann, inte mer komplett. Vill man ha en gemensam kostnadsbild ska den byggas som en kostnadsvy i valuta — inte genom att tokenfältet får betyda flera saker. |
+| Fråga                                                                                       | Beslut                                                                                                                                                                                                             | Varför                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ska credits dras från tokenkostnaden?                                                       | **Ja, för own-engine-genereringar.** Versionens beräknade leverantörskostnad × adminstyrt X-påslag omvandlas till hela credits. Det tidigare fasta priset är förhandsgrind och reservpris, inte dubbel debitering. | Usage-svaret är den enda källan som kan knyta alla fasers kostnad till Sajtmaskins användare/version. Pris, FX och multiplikator fryses i en revisionsbar snapshot; sena verifier-/repair-anrop debiterar bara positiv differens.                                                                    |
+| Ska sekundära ytor (wizard, audit, analyze, transcribe, inspector) instrumenteras?          | **Inte som eget projekt.** I stället en stående regel: **en yta som drar diamonds ska logga `llm_usage` i samma PR som den börjar dra dem.**                                                                       | De omätta ytorna är operatörs-/backofficeverktyg. Att mäta dem nu ökar täckningsprocenten men ändrar inget beslut. Regeln fångar dem automatiskt den dag de blir användarbetalda — utan att någon behöver komma ihåg en backlog-rad.                                                                 |
+| Ska OpenClaw-förbrukning rapporteras tillbaka, och D-ID:s credits läsas före/efter i appen? | **Skjuts upp.** Båda fortsätter redovisas **separat** (de finns redan i `/logg`), aldrig invävda i körningens tokensumma.                                                                                          | OpenClaw kör utanför appen och D-ID mäter credits, inte tokens. Att slå ihop dem till ett tal blandar två enheter och gör summan mindre sann, inte mer komplett. Vill man ha en gemensam kostnadsbild ska den byggas som en kostnadsvy i valuta — inte genom att tokenfältet får betyda flera saker. |
 
-Konsekvens för `coverage.unmeasuredPhases`: den är en **avsiktlig** lista, inte en
-restlista. Låt den vara olistad täckning tills en yta börjar debitera.
+Konsekvens för `coverage.unmeasuredPhases`: den visar ytor som inte ingår i den
+usage-baserade generationsdebiteringen. En ny användarbetald AI-yta ska logga
+`llm_usage` och få en uttrycklig billing-owner i samma ändring.
 
 ### Säkerhet
 

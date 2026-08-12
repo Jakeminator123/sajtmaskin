@@ -17,6 +17,7 @@ policies kan äga olika beslut.
 | Hur skiljer sig F2 och F3?                | [`concepts/f2-and-f3.md`](concepts/f2-and-f3.md)                                     |
 | Vilka invariants gäller?                  | [`architecture/runtime-contracts.md`](architecture/runtime-contracts.md)             |
 | Hur körs generationen?                    | [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md)                       |
+| Hur räknas och debiteras AI-kostnaden?    | [`architecture/llm-pipeline.md`](architecture/llm-pipeline.md#generationskostnad-och-credit-debitering) |
 | Vilket schema gäller?                     | [`schemas/README.md`](schemas/README.md)                                             |
 | Vilka kontraktsindex genereras?           | [`generated/README.md`](generated/README.md)                                         |
 | Hur felsöker jag preview?                 | [`runbooks/preview-white-screen.md`](runbooks/preview-white-screen.md)               |

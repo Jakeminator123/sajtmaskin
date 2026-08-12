@@ -372,6 +372,18 @@ export async function POST(req: Request) {
 
       const { source, message, projectId, lockConfigFiles, lockedFiles } = validationResult.data;
       const user = await getCurrentUser(req);
+      if (!user) {
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              success: false,
+              error: "Skapa ett konto eller logga in för att importera ett projekt.",
+              requiresAuth: true,
+            },
+            { status: 401 },
+          ),
+        );
+      }
       const configLockedFiles =
         lockedFiles ||
         (lockConfigFiles

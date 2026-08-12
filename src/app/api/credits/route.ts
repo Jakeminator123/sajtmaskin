@@ -6,8 +6,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getOrCreateGuestUsage } from "@/lib/db/services/guests";
 import { getUserTransactions } from "@/lib/db/services/transactions";
 
 /**
@@ -26,6 +24,7 @@ export async function GET(req: NextRequest) {
         success: true,
         authenticated: true,
         balance: user.diamonds,
+        freeGenerationAvailable: user.free_generation_available,
         transactions: transactions.map((t) => ({
           id: t.id,
           type: t.type,
@@ -37,32 +36,14 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Not authenticated - return guest usage
-    const sessionId = getSessionIdFromRequest(req);
-
-    if (!sessionId) {
-      return NextResponse.json({
-        success: true,
-        authenticated: false,
-        guest: {
-          generationsUsed: 0,
-          refinesUsed: 0,
-          canGenerate: true,
-          canRefine: true,
-        },
-      });
-    }
-
-    const guestUsage = await getOrCreateGuestUsage(sessionId);
-
     return NextResponse.json({
       success: true,
       authenticated: false,
       guest: {
-        generationsUsed: guestUsage.generations_used,
-        refinesUsed: guestUsage.refines_used,
-        canGenerate: guestUsage.generations_used < 1,
-        canRefine: guestUsage.refines_used < 1,
+        generationsUsed: 0,
+        refinesUsed: 0,
+        canGenerate: false,
+        canRefine: false,
       },
     });
   } catch (error) {

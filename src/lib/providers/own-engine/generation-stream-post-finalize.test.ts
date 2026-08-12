@@ -3,6 +3,7 @@ import {
   resolvePostFinalizeServerVerifyDecision,
   shouldTriggerPostFinalizeServerVerify,
 } from "@/lib/gen/stream/post-finalize-policies";
+import type { BuildSpec } from "@/lib/gen/build-spec";
 import { runOwnEngineStreamPostFinalize } from "./generation-stream-post-finalize";
 
 const createEngineVersionErrorLogsMock = vi.hoisted(() =>
@@ -140,6 +141,26 @@ const finalized = {
   crossFileStubs: [],
 } as const;
 
+const billingOrderBuildSpec: BuildSpec = {
+  buildIntent: "website",
+  generationMode: "init",
+  changeScope: "redesign",
+  scaffoldId: null,
+  routePlanSummary: "prompt:one-page:/",
+  stylePack: "brand-led",
+  qualityTarget: "standard",
+  previewPolicy: "fidelity2",
+  verificationPolicy: "fast",
+  contextPolicy: "light",
+  referenceCategories: [],
+  forbiddenPatterns: [],
+  tokenBudgets: {
+    scaffoldChars: 36_000,
+    refsChars: 12_000,
+    systemContextChars: 48_000,
+  },
+};
+
 describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
   beforeEach(() => {
     getChat.mockReset();
@@ -156,6 +177,52 @@ describe("runOwnEngineStreamPostFinalize (stream recovery)", () => {
     getPreviewHostBaseUrl.mockReturnValue(null);
     updateVersionPreviewUrl.mockResolvedValue(true);
     formatSSEEventMock.mockClear();
+  });
+
+  it("establishes durable billing before emitting done", async () => {
+    const onDoneEmitted = vi.fn();
+    const commitCredits = vi.fn(async () => {
+      expect(formatSSEEventMock.mock.calls.some(([event]) => event === "done")).toBe(false);
+      expect(onDoneEmitted).not.toHaveBeenCalled();
+    });
+
+    await runOwnEngineStreamPostFinalize({
+      sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+      chatId: "chat_1",
+      finalized: finalized as never,
+      accumulatedContent: "prefix",
+      toolSignaledProviders: new Set(),
+      engineStartedAt: Date.now(),
+      commitCredits,
+      buildSpec: billingOrderBuildSpec,
+      onDoneEmitted,
+    });
+
+    expect(commitCredits).toHaveBeenCalledWith({ chatId: "chat_1", versionId: "ver_1" });
+    expect(formatSSEEventMock.mock.calls.some(([event]) => event === "done")).toBe(true);
+    expect(onDoneEmitted).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not emit done when the durable billing marker cannot be established", async () => {
+    const onDoneEmitted = vi.fn();
+    await expect(
+      runOwnEngineStreamPostFinalize({
+        sse: { enc: new TextEncoder(), safeEnqueue: () => {} },
+        chatId: "chat_1",
+        finalized: finalized as never,
+        accumulatedContent: "prefix",
+        toolSignaledProviders: new Set(),
+        engineStartedAt: Date.now(),
+        commitCredits: async () => {
+          throw new Error("marker unavailable");
+        },
+        buildSpec: billingOrderBuildSpec,
+        onDoneEmitted,
+      }),
+    ).rejects.toThrow("marker unavailable");
+
+    expect(formatSSEEventMock.mock.calls.some(([event]) => event === "done")).toBe(false);
+    expect(onDoneEmitted).not.toHaveBeenCalled();
   });
 
   it("parses accumulatedContent when recovery flag is set and saved files are empty", async () => {

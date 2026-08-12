@@ -81,7 +81,13 @@ describe("POST /api/engine/chats/init", () => {
     persistImportedRepoInitialization.mockReset();
     recordImportedRepoPreviewOutcome.mockReset();
 
-    getCurrentUser.mockResolvedValue(null);
+    getCurrentUser.mockResolvedValue({
+      id: "user_import",
+      email: "importer@example.com",
+      diamonds: 0,
+      free_generation_available: true,
+      github_token: null,
+    });
     prepareCredits.mockResolvedValue({ ok: true, commit: commitCredits });
     resolveAppProjectIdForRequest.mockResolvedValue(null);
     startPreviewSession.mockResolvedValue({

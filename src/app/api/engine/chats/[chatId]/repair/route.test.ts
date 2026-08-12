@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const withRateLimit = vi.hoisted(() => vi.fn());
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
+const getRequestUserId = vi.hoisted(() => vi.fn());
 const getVersionFilesSnapshot = vi.hoisted(() => vi.fn());
 const acquireVersionLease = vi.hoisted(() => vi.fn());
 const releaseVersionLease = vi.hoisted(() => vi.fn());
@@ -19,6 +20,10 @@ const resetVersionVerificationToPending = vi.hoisted(() => vi.fn());
 const saveRepairedFiles = vi.hoisted(() => vi.fn());
 const getChat = vi.hoisted(() => vi.fn());
 const createEngineVersionErrorLogs = vi.hoisted(() => vi.fn());
+const getGenerationBillingMarkerPolicy = vi.hoisted(() => vi.fn());
+const establishGenerationBilling = vi.hoisted(() => vi.fn());
+const appendGenerationBillingClaimKey = vi.hoisted(() => vi.fn());
+const prepareCredits = vi.hoisted(() => vi.fn());
 const runRepairLoop = vi.hoisted(() => vi.fn());
 const shouldPromoteAfterRepair = vi.hoisted(() => vi.fn());
 const triggerServerVerification = vi.hoisted(() => vi.fn());
@@ -42,10 +47,19 @@ vi.mock("@/lib/rateLimit", () => ({
     return fn();
   },
 }));
-vi.mock("@/lib/tenant", () => ({ getEngineVersionForChatByIdForRequest }));
+vi.mock("@/lib/tenant", () => ({
+  getEngineVersionForChatByIdForRequest,
+  getRequestUserId,
+}));
 vi.mock("@/lib/db/client", () => ({ dbConfigured: true }));
 vi.mock("@/lib/gen/version-manager", () => ({ getVersionFilesSnapshot }));
 vi.mock("@/lib/db/services/version-errors", () => ({ createEngineVersionErrorLogs }));
+vi.mock("@/lib/db/services/generation-billing", () => ({
+  getGenerationBillingMarkerPolicy,
+  establishGenerationBilling,
+  appendGenerationBillingClaimKey,
+}));
+vi.mock("@/lib/credits/server", () => ({ prepareCredits }));
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   markVersionRepairing,
   failVersionVerification,
@@ -129,16 +143,48 @@ function req(body: unknown) {
   });
 }
 
+beforeEach(() => {
+  getGenerationBillingMarkerPolicy.mockReset().mockResolvedValue({
+    freeGenerationEligible: true,
+    freeGenerationApplied: false,
+  });
+  establishGenerationBilling.mockReset().mockResolvedValue(undefined);
+  appendGenerationBillingClaimKey.mockReset().mockResolvedValue(undefined);
+  prepareCredits.mockReset().mockResolvedValue({
+    ok: true,
+    user: { id: "user-1" },
+    isTest: false,
+  });
+});
+
 describe("POST repair — lease before snapshot (Codex P2)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getRequestUserId.mockResolvedValue("user-1");
     getEngineVersionForChatByIdForRequest.mockResolvedValue({
-      chat: { id: "chat-1" },
-      version: { id: "ver-1" },
+      chat: { id: "chat-1", model: "pro" },
+      version: { id: "ver-1", verification_state: "failed" },
     });
     acquireVersionLease.mockResolvedValue({ runId: "run-1" });
     releaseVersionLease.mockResolvedValue(undefined);
     createEngineVersionErrorLogs.mockResolvedValue([]);
+  });
+
+  it("rejects guests before reading version state or starting repair work", async () => {
+    getRequestUserId.mockResolvedValue("guest:session-1");
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toMatchObject({
+      success: false,
+      requiresAuth: true,
+    });
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(runRepairLoop).not.toHaveBeenCalled();
   });
 
   it("acquires the lease BEFORE reading version files", async () => {
@@ -174,6 +220,181 @@ describe("POST repair — lease before snapshot (Codex P2)", () => {
     expect(body.code).toBe("version_busy");
     expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
     expect(markVersionRepairing).not.toHaveBeenCalled();
+  });
+
+  it("creates a non-free marker before paid repair work on a historical version", async () => {
+    getGenerationBillingMarkerPolicy.mockResolvedValue(null);
+    getVersionFilesSnapshot.mockResolvedValue({ files: [], filesJson: "[]" });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(prepareCredits).toHaveBeenCalledWith(
+      expect.any(Request),
+      "prompt.refine",
+      { modelId: "pro" },
+      { allowFreeGeneration: false },
+    );
+    expect(establishGenerationBilling).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat-1",
+        versionId: "ver-1",
+        userId: "user-1",
+        freeGenerationEligible: false,
+        usageStartsAtNow: true,
+      }),
+    );
+    expect(establishGenerationBilling.mock.invocationCallOrder[0]).toBeLessThan(
+      acquireVersionLease.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("returns 402 before lease or LLM work when markerless repair lacks credits", async () => {
+    getGenerationBillingMarkerPolicy.mockResolvedValue(null);
+    prepareCredits.mockResolvedValue({
+      ok: false,
+      response: new Response(JSON.stringify({ insufficientCredits: true }), {
+        status: 402,
+        headers: { "Content-Type": "application/json" },
+      }),
+    });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(402);
+    expect(establishGenerationBilling).not.toHaveBeenCalled();
+    expect(acquireVersionLease).not.toHaveBeenCalled();
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(runRepairLoop).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before lease or LLM work when the marker cannot be persisted", async () => {
+    getGenerationBillingMarkerPolicy.mockResolvedValue(null);
+    establishGenerationBilling.mockRejectedValue(new Error("db unavailable"));
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({
+      code: "billing_preflight_unavailable",
+      retryable: true,
+    });
+    expect(acquireVersionLease).not.toHaveBeenCalled();
+    expect(getVersionFilesSnapshot).not.toHaveBeenCalled();
+    expect(runRepairLoop).not.toHaveBeenCalled();
+  });
+
+  it("does not let a markerless in-progress generation create a post-processing marker", async () => {
+    getGenerationBillingMarkerPolicy.mockResolvedValue(null);
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", model: "pro" },
+      version: { id: "ver-1", verification_state: "pending" },
+    });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "generation_not_finalized" });
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(establishGenerationBilling).not.toHaveBeenCalled();
+    expect(acquireVersionLease).not.toHaveBeenCalled();
+    expect(runRepairLoop).not.toHaveBeenCalled();
+  });
+
+  it("rechecks credit eligibility on every non-free post-processing retry", async () => {
+    getGenerationBillingMarkerPolicy.mockResolvedValue({
+      freeGenerationEligible: false,
+      freeGenerationApplied: false,
+    });
+    prepareCredits.mockResolvedValue({
+      ok: false,
+      response: new Response(JSON.stringify({ insufficientCredits: true }), { status: 402 }),
+    });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(402);
+    expect(establishGenerationBilling).not.toHaveBeenCalled();
+    expect(acquireVersionLease).not.toHaveBeenCalled();
+    expect(runRepairLoop).not.toHaveBeenCalled();
+  });
+
+  it("appends the request claim key after every successful non-free preflight", async () => {
+    getGenerationBillingMarkerPolicy.mockResolvedValue({
+      freeGenerationEligible: false,
+      freeGenerationApplied: false,
+    });
+    getVersionFilesSnapshot.mockResolvedValue({ files: [], filesJson: "[]" });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(prepareCredits).toHaveBeenCalledOnce();
+    expect(establishGenerationBilling).not.toHaveBeenCalled();
+    expect(appendGenerationBillingClaimKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        versionId: "ver-1",
+        claimKey: expect.any(String),
+      }),
+    );
+    expect(appendGenerationBillingClaimKey.mock.invocationCallOrder[0]).toBeLessThan(
+      acquireVersionLease.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("preflights an ordinary paid generation marker before repair", async () => {
+    getGenerationBillingMarkerPolicy.mockResolvedValue({
+      freeGenerationEligible: true,
+      freeGenerationApplied: false,
+    });
+    getVersionFilesSnapshot.mockResolvedValue({ files: [], filesJson: "[]" });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(prepareCredits).toHaveBeenCalledWith(
+      expect.any(Request),
+      "prompt.refine",
+      { modelId: "pro" },
+      { allowFreeGeneration: false },
+    );
+    expect(appendGenerationBillingClaimKey).toHaveBeenCalledOnce();
+    expect(acquireVersionLease).toHaveBeenCalledOnce();
+  });
+
+  it("rejects repeat repair of a free marker that is not failed or repair-available", async () => {
+    getGenerationBillingMarkerPolicy.mockResolvedValue({
+      freeGenerationEligible: true,
+      freeGenerationApplied: true,
+    });
+    getEngineVersionForChatByIdForRequest.mockResolvedValue({
+      chat: { id: "chat-1", model: "pro" },
+      version: { id: "ver-1", verification_state: "passed" },
+    });
+
+    const res = await POST(req({ versionId: "ver-1", repairContext: {} }), {
+      params: Promise.resolve({ chatId: "chat-1" }),
+    });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "generation_not_finalized" });
+    expect(prepareCredits).not.toHaveBeenCalled();
+    expect(appendGenerationBillingClaimKey).not.toHaveBeenCalled();
+    expect(acquireVersionLease).not.toHaveBeenCalled();
   });
 });
 

@@ -3,14 +3,8 @@ import { join } from "path";
 import { Pool } from "pg";
 import { config } from "dotenv";
 import { assertSafeWriteTarget, normalizeEnvUrl } from "./db-target-guard.mjs";
-import {
-  resolveMigrationRunOrder,
-  isAlreadyExistsError,
-} from "./migration-order.mjs";
-import {
-  ensureMigrationLedger,
-  recordAppliedMigration,
-} from "./migration-ledger.mjs";
+import { resolveMigrationRunOrder, isAlreadyExistsError } from "./migration-order.mjs";
+import { ensureMigrationLedger, recordAppliedMigration } from "./migration-ledger.mjs";
 import { resolveSslConfig } from "./db-ssl.mjs";
 
 config({ path: ".env.local" });
@@ -213,7 +207,10 @@ const setupQueries = [
     github_id TEXT,
     github_username TEXT,
     github_token TEXT,
-    diamonds INTEGER DEFAULT 50 NOT NULL,
+    diamonds INTEGER DEFAULT 0 NOT NULL,
+    free_generation_available BOOLEAN DEFAULT TRUE NOT NULL,
+    free_generation_claimed_version_id TEXT,
+    free_generation_claimed_at TIMESTAMPTZ,
     tier TEXT,
     email_verified BOOLEAN DEFAULT FALSE NOT NULL,
     verification_token TEXT,
@@ -480,7 +477,7 @@ const schemaQueries = [
   // preview mock-seed). Kanonisk migration: add-engine-version-selected-dossier-env-keys.sql.
   `ALTER TABLE engine_versions ADD COLUMN IF NOT EXISTS selected_dossier_env_keys JSONB`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE NOT NULL`,
-  `ALTER TABLE users ALTER COLUMN diamonds SET DEFAULT 50`,
+  `ALTER TABLE users ALTER COLUMN diamonds SET DEFAULT 0`,
   `ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token_expires TIMESTAMPTZ`,
@@ -694,6 +691,8 @@ const ALL_TABLES = [
   "error_log_events",
   "oc_debug_findings",
   "llm_usage",
+  "generation_billing_settings",
+  "generation_billings",
   "openai_webhook_events",
   "vercel_log_drain_events",
 ];
@@ -754,7 +753,7 @@ function buildRlsQueries() {
             USING (true)
             WITH CHECK (true);
         END IF;
-      END $$`
+      END $$`,
     );
   }
   return queries;

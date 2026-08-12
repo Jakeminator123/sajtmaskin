@@ -107,6 +107,7 @@ function pruneUndefined(context: LlmUsageContext): LlmUsageContext {
 export type NormalizedUsage = {
   inputTokens: number | null;
   cachedInputTokens: number | null;
+  cacheWriteTokens: number | null;
   outputTokens: number | null;
   reasoningTokens: number | null;
 };
@@ -114,6 +115,7 @@ export type NormalizedUsage = {
 const EMPTY_USAGE: NormalizedUsage = {
   inputTokens: null,
   cachedInputTokens: null,
+  cacheWriteTokens: null,
   outputTokens: null,
   reasoningTokens: null,
 };
@@ -151,21 +153,40 @@ export function normalizeUsage(raw: unknown): NormalizedUsage {
   const inputDetails = nested(usage, "input_tokens_details");
   const completionDetails = nested(usage, "completion_tokens_details");
   const outputDetails = nested(usage, "output_tokens_details");
+  const aiSdkInputDetails = nested(usage, "inputTokenDetails");
+  const aiSdkOutputDetails = nested(usage, "outputTokenDetails");
+  const rawInputTokens = firstNum(usage.input_tokens, usage.prompt_tokens);
+  const rawAnthropicCacheRead = firstNum(usage.cache_read_input_tokens);
+  const rawAnthropicCacheWrite = firstNum(usage.cache_creation_input_tokens);
+  const normalizedRawInputTokens =
+    rawInputTokens !== null && (rawAnthropicCacheRead !== null || rawAnthropicCacheWrite !== null)
+      ? rawInputTokens + (rawAnthropicCacheRead ?? 0) + (rawAnthropicCacheWrite ?? 0)
+      : rawInputTokens;
 
   return {
     inputTokens: firstNum(
       usage.inputTokens,
       usage.promptTokens,
-      usage.input_tokens,
-      usage.prompt_tokens,
+      normalizedRawInputTokens,
       // AI SDK `embed`/`embedMany`: { tokens }
       usage.tokens,
     ),
     cachedInputTokens: firstNum(
+      aiSdkInputDetails?.cacheReadTokens,
+      usage.cacheReadTokens,
       usage.cachedInputTokens,
       usage.cached_input_tokens,
+      usage.cache_read_input_tokens,
       promptDetails?.cached_tokens,
       inputDetails?.cached_tokens,
+    ),
+    cacheWriteTokens: firstNum(
+      aiSdkInputDetails?.cacheWriteTokens,
+      usage.cacheWriteTokens,
+      usage.cache_write_tokens,
+      usage.cache_creation_input_tokens,
+      promptDetails?.cache_write_tokens,
+      inputDetails?.cache_write_tokens,
     ),
     outputTokens: firstNum(
       usage.outputTokens,
@@ -174,6 +195,7 @@ export function normalizeUsage(raw: unknown): NormalizedUsage {
       usage.completion_tokens,
     ),
     reasoningTokens: firstNum(
+      aiSdkOutputDetails?.reasoningTokens,
       usage.reasoningTokens,
       usage.reasoning_tokens,
       completionDetails?.reasoning_tokens,
@@ -186,6 +208,7 @@ export function usageIsEmpty(usage: NormalizedUsage): boolean {
   return (
     usage.inputTokens === null &&
     usage.cachedInputTokens === null &&
+    usage.cacheWriteTokens === null &&
     usage.outputTokens === null &&
     usage.reasoningTokens === null
   );
@@ -272,7 +295,7 @@ export function buildLlmUsageRecord(input: RecordLlmUsageInput): CreateLlmUsageR
     model,
     provider,
     workload: input.workload ?? null,
-    runId: input.runId ?? context.runId ?? null,
+    runId: input.runId ?? context.runId ?? context.claimKey ?? null,
     chatId: input.chatId ?? context.chatId ?? null,
     versionId: input.versionId ?? context.versionId ?? null,
     userId: input.userId ?? context.userId ?? null,
@@ -280,6 +303,7 @@ export function buildLlmUsageRecord(input: RecordLlmUsageInput): CreateLlmUsageR
     modelTier: input.modelTier ?? context.modelTier ?? null,
     inputTokens: usage.inputTokens,
     cachedInputTokens: usage.cachedInputTokens,
+    cacheWriteTokens: usage.cacheWriteTokens,
     outputTokens: usage.outputTokens,
     reasoningTokens: usage.reasoningTokens,
     durationMs: input.durationMs ?? null,
@@ -287,7 +311,7 @@ export function buildLlmUsageRecord(input: RecordLlmUsageInput): CreateLlmUsageR
     errorCode: input.errorCode ?? null,
     meta: context.claimKey
       ? { ...(input.meta ?? {}), claimKey: context.claimKey }
-      : input.meta ?? null,
+      : (input.meta ?? null),
   };
 }
 
@@ -347,7 +371,27 @@ export async function recordLlmUsageAsync(input: RecordLlmUsageInput): Promise<v
     const { dbConfigured } = await import("@/lib/db/client");
     if (!dbConfigured) return;
     const { createLlmUsageRecord } = await import("@/lib/db/services/llm-usage");
-    await createLlmUsageRecord(record);
+    const created = await createLlmUsageRecord(record);
+    // En versionerad usage-rad kan även skrivas medan finalize fortfarande
+    // pågår. Räkna därför bara om när finalize redan etablerat versionens
+    // billing-rad; usage får aldrig själv skapa completion-markören eller
+    // claima gratisgenereringen.
+    if (created.version_id && created.chat_id) {
+      try {
+        const { settleExistingGenerationBillingIfPresent } =
+          await import("@/lib/db/services/generation-billing");
+        await settleExistingGenerationBillingIfPresent({
+          chatId: created.chat_id,
+          versionId: created.version_id,
+          userId: created.user_id,
+        });
+      } catch (billingError) {
+        console.error(
+          "[generation-billing] Kunde inte räkna om sen usage:",
+          billingError instanceof Error ? billingError.message : billingError,
+        );
+      }
+    }
   } catch (error) {
     if (!warnedOnce) {
       warnedOnce = true;
@@ -385,18 +429,20 @@ export async function safeUsageOwnerId(
  */
 export function attachChatToPendingUsage(sessionId: string, chatId: string): void {
   const { claimKey } = getLlmUsageContext();
-  keepWriteAlive((async () => {
-    try {
-      if (!sessionId || !chatId || !dbEnvPresent()) return;
-      await flushPendingUsageWrites();
-      const { dbConfigured } = await import("@/lib/db/client");
-      if (!dbConfigured) return;
-      const { attachChatToUnassignedLlmUsage } = await import("@/lib/db/services/llm-usage");
-      await attachChatToUnassignedLlmUsage(sessionId, chatId, { claimKey });
-    } catch {
-      // Claim är en förbättring, inte ett krav.
-    }
-  })());
+  keepWriteAlive(
+    (async () => {
+      try {
+        if (!sessionId || !chatId || !dbEnvPresent()) return;
+        await flushPendingUsageWrites();
+        const { dbConfigured } = await import("@/lib/db/client");
+        if (!dbConfigured) return;
+        const { attachChatToUnassignedLlmUsage } = await import("@/lib/db/services/llm-usage");
+        await attachChatToUnassignedLlmUsage(sessionId, chatId, { claimKey });
+      } catch {
+        // Claim är en förbättring, inte ett krav.
+      }
+    })(),
+  );
 }
 
 /**
@@ -406,19 +452,28 @@ export function attachChatToPendingUsage(sessionId: string, chatId: string): voi
  * skapas. Utan det här hamnar de utanför körningens summa och kostnaden per
  * körning blir för låg. Fire-and-forget, som all annan loggning här.
  */
+export async function attachVersionToPendingUsageAsync(
+  chatId: string,
+  versionId: string,
+  claimKey?: string | null,
+): Promise<void> {
+  if (!chatId || !versionId || !dbEnvPresent()) return;
+  await flushPendingUsageWrites();
+  const { dbConfigured } = await import("@/lib/db/client");
+  if (!dbConfigured) return;
+  const { attachVersionToUnassignedLlmUsage } = await import("@/lib/db/services/llm-usage");
+  await attachVersionToUnassignedLlmUsage(chatId, versionId, { claimKey });
+}
+
 export function attachVersionToPendingUsage(chatId: string, versionId: string): void {
-  keepWriteAlive((async () => {
-    try {
-      if (!chatId || !versionId || !dbEnvPresent()) return;
-      await flushPendingUsageWrites();
-      const { dbConfigured } = await import("@/lib/db/client");
-      if (!dbConfigured) return;
-      const { attachVersionToUnassignedLlmUsage } = await import("@/lib/db/services/llm-usage");
-      await attachVersionToUnassignedLlmUsage(chatId, versionId);
-    } catch {
-      // Efterstämpling är en förbättring, inte ett krav.
-    }
-  })());
+  const { claimKey } = getLlmUsageContext();
+  keepWriteAlive(
+    attachVersionToPendingUsageAsync(chatId, versionId, claimKey).catch(() => {
+      // Efterstämpling är en förbättring för observability-anropare. Den
+      // väntbara varianten ovan används av billing när resultatet måste vara
+      // komplett före slutdebitering.
+    }),
+  );
 }
 
 /** Nollställer engångsvarningen. Endast för tester. */
