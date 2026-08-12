@@ -10,6 +10,7 @@ import {
   extractSectionZones,
   isSameInsertionPoint,
   nearestInsertionPoint,
+  sectionZonesFromCode,
   type BridgeSectionCandidate,
   type InsertionPoint,
 } from "@/lib/builder/sectionAnalyzer";
@@ -48,6 +49,11 @@ export function usePreviewPanelInspectMapPlacement(options: {
   setLastCodeMatch: Dispatch<SetStateAction<RegistryMatch | null>>;
   onPlacementComplete?: (detail: PlacementSelectEventDetail) => void;
   inspectEngine: InspectEngine;
+  /**
+   * Startsida-källa för zon-fallback när bridge/elementkarta är tom.
+   * Utan den faller placering tillbaka till bara topp/botten.
+   */
+  homePageCode?: string | null;
 }) {
   const {
     inspectorEnabled,
@@ -65,6 +71,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
     setLastCodeMatch,
     onPlacementComplete,
     inspectEngine,
+    homePageCode = null,
   } = options;
 
   const zonesActive = placementMode || Boolean(composerMode);
@@ -200,7 +207,17 @@ export function usePreviewPanelInspectMapPlacement(options: {
     setLastCodeMatch,
   ]);
 
-  const sectionZones = useMemo(() => extractSectionZones(elementMap), [elementMap]);
+  const liveSectionZones = useMemo(() => extractSectionZones(elementMap), [elementMap]);
+  const codeSectionZones = useMemo(
+    () => (homePageCode ? sectionZonesFromCode(homePageCode) : []),
+    [homePageCode],
+  );
+  // Live inspect/bridge vinner; kodbaserad fallback gör att drag/placement
+  // fortfarande kan erbjuda "Efter Hero" när preview-zoner saknas.
+  const sectionZones = useMemo(
+    () => (liveSectionZones.length > 0 ? liveSectionZones : codeSectionZones),
+    [liveSectionZones, codeSectionZones],
+  );
 
   /**
    * Bridge → elementMap → extractSectionZones. Anropas från usePreviewInspectBridge

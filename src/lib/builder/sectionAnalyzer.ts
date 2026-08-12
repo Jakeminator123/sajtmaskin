@@ -249,6 +249,32 @@ export function analyzeSections(code: string): DetectedSection[] {
 }
 
 /**
+ * Approximate viewport bands from homepage source when live inspect/bridge
+ * zones are missing. Order follows `analyzeSections` (line order). Bands are
+ * evenly spaced so drag/placement can still offer "Efter Hero" etc. instead of
+ * only top/bottom — geometry is approximate, labels/anchors are the point.
+ */
+export function sectionZonesFromCode(code: string): SectionZone[] {
+  const sections = analyzeSections(code);
+  if (sections.length === 0) return [];
+
+  const usable = sections.slice(0, 10);
+  const band = 90 / usable.length;
+  return usable.map((section, index) => {
+    const top = clampPercent(5 + index * band);
+    const bottom = clampPercent(5 + (index + 1) * band);
+    return {
+      id: `code-${section.id}`,
+      label: section.nameSv,
+      type: section.type,
+      top,
+      bottom,
+      height: Math.max(0, bottom - top),
+    } satisfies SectionZone;
+  });
+}
+
+/**
  * Convert a placement value to a prompt instruction
  */
 export function placementToInstruction(placement: string, sections: DetectedSection[]): string {

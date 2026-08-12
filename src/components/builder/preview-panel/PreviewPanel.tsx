@@ -16,6 +16,7 @@ import {
 } from "@/lib/builder/inspect-bridge-feature";
 import { reportPreviewClientError } from "@/lib/builder/preview-client-error-report";
 import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
+import { resolveHomePageFilePath } from "@/lib/builder/page-block-patch";
 import type {
   ShadcnInsertSelection,
   ShadcnPlacementPickResult,
@@ -391,6 +392,28 @@ export function PreviewPanel({
   const effectivePlacementMode = Boolean(placementMode || shadcnPlacementPickItem);
   const effectivePendingPlacementItem = pendingPlacementItem ?? shadcnPlacementPickItem;
 
+  // Startsida för kodbaserad sektionszon-fallback (drag/placement utan bridge-zoner).
+  const homePageCode = useMemo(() => {
+    const flat: Array<{ name: string; content: string }> = [];
+    const walk = (nodes: FileNode[]) => {
+      for (const node of nodes) {
+        if (node.type === "file" && node.content) {
+          flat.push({ name: node.path, content: node.content });
+        }
+        if (node.children?.length) walk(node.children);
+      }
+    };
+    walk(files);
+    const path = resolveHomePageFilePath(flat);
+    if (!path) return null;
+    return flat.find((f) => f.name === path)?.content ?? null;
+  }, [files]);
+
+  useEffect(() => {
+    if (!composerMode && !effectivePlacementMode) return;
+    void fetchFilesForRegistry();
+  }, [composerMode, effectivePlacementMode, fetchFilesForRegistry]);
+
   const {
     elementMap,
     elementMapLoading,
@@ -421,6 +444,7 @@ export function PreviewPanel({
     setLastCodeMatch,
     onPlacementComplete: handlePlacementCompleteMerged,
     inspectEngine,
+    homePageCode,
   });
 
   const flatFilesForAi = useMemo(() => {

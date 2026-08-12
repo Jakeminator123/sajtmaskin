@@ -49,9 +49,67 @@ describe("tryInsertPageBlockIntoHomePage", () => {
     }
   });
 
-  it("rejects after-hero for MVP", () => {
+  it("rejects after-hero when no matching section exists", () => {
     const r = tryInsertPageBlockIntoHomePage(PAGE, snippet, "after-hero");
     expect(r.ok).toBe(false);
+  });
+
+  it("inserts after a matching hero section when present", () => {
+    const withHero = `export default function Page() {
+  return (
+    <main>
+      <section className="hero banner">Hi</section>
+      <section className="features">More</section>
+    </main>
+  );
+}
+`;
+    const r = tryInsertPageBlockIntoHomePage(withHero, snippet, "after-hero");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const heroClose = r.content.indexOf("</section>");
+      const inserted = r.content.indexOf(snippet);
+      const features = r.content.indexOf('className="features"');
+      expect(inserted).toBeGreaterThan(heroClose);
+      expect(inserted).toBeLessThan(features);
+    }
+  });
+
+  it("fails closed for after-content (no deterministic marker)", () => {
+    const r = tryInsertPageBlockIntoHomePage(
+      `export default function Page() {
+  return (
+    <main>
+      <section className="hero">Hi</section>
+    </main>
+  );
+}
+`,
+      snippet,
+      "after-content",
+    );
+    expect(r.ok).toBe(false);
+  });
+
+  it("prefers the section host over a nested hero-card child", () => {
+    const page = `export default function Page() {
+  return (
+    <main>
+      <section className="hero">
+        <div className="hero-card" />
+        <p>Hi</p>
+      </section>
+      <section className="features">More</section>
+    </main>
+  );
+}
+`;
+    const r = tryInsertPageBlockIntoHomePage(page, snippet, "after-hero");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.content.indexOf(snippet)).toBeGreaterThan(r.content.indexOf("</section>"));
+      expect(r.content.indexOf(snippet)).toBeLessThan(r.content.indexOf('className="features"'));
+    }
   });
 
   it("rejects when main is missing", () => {
