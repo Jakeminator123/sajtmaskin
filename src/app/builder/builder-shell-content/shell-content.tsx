@@ -496,7 +496,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         </div>
       </div>
 
-      {hasMountedImportModal ? (
+      {hasMountedImportModal || vm.isImportModalOpen ? (
         <InitFromRepoModal
           isOpen={vm.isImportModalOpen}
           onClose={() => vm.setIsImportModalOpen(false)}
