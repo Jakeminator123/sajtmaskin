@@ -13,11 +13,11 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import tempfile
 import urllib.request
-import uuid
 import zipfile
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
@@ -717,11 +717,50 @@ def curate_templates(
 
 def write_report(report: Mapping[str, Any], repo_root: Path, *, output_path: Path | None = None) -> Path:
     reports_dir = repo_root / "data" / "backoffice" / "template-curator" / "reports"
-    reports_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    destination = output_path or reports_dir / f"template-curation-{stamp}-{uuid.uuid4().hex}.json"
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = destination.with_name(f".{destination.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
-    temporary.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(destination)
-    return destination
+    destination_parent = output_path.parent if output_path is not None else reports_dir
+    destination_parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            prefix=".template-curation-",
+            suffix=".tmp",
+            dir=destination_parent,
+            delete=False,
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            temporary.write(payload)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+
+        if output_path is not None:
+            # An explicit path retains its previous replace semantics, while
+            # the unique staging file prevents concurrent writers from
+            # sharing or truncating one another's temporary file.
+            os.replace(temporary_path, output_path)
+            temporary_path = None
+            return output_path
+
+        timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S-%f")
+        for _attempt in range(128):
+            destination = reports_dir / (
+                f"template-curation-{timestamp}-{os.getpid()}-"
+                f"{secrets.token_hex(8)}.json"
+            )
+            try:
+                # Hard-link publication is exclusive (never overwrites an
+                # existing report) and exposes only the fully fsynced inode.
+                os.link(temporary_path, destination)
+            except FileExistsError:
+                continue
+            temporary_path.unlink()
+            temporary_path = None
+            return destination
+        raise CuratorError("could not allocate a unique report path")
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)

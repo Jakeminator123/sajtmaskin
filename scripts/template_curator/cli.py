@@ -11,6 +11,8 @@ from typing import Any
 from scripts.template_curator import catalog
 from scripts.template_curator.runner import curate_templates, write_report
 
+MAX_ANALYZE_TEMPLATES = 100
+
 
 def _enum_values() -> list[str]:
     return [str(item.value) for item in catalog.CatalogScope]
@@ -36,10 +38,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output", type=Path, help="Optional report JSON path (analysis mode only).")
     return parser
-
-
-def _bounded_analyze_selectors(args: argparse.Namespace) -> bool:
-    return bool(_parse_csv(args.ids) or _parse_csv(args.category) or args.limit)
 
 
 def _selection(snapshot: Any, args: argparse.Namespace) -> list[Any]:
@@ -86,19 +84,38 @@ def _row(record: Any) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
     if args.limit is not None and args.limit < 1:
-        raise SystemExit("--limit must be a positive integer")
-    repo_root = args.repo_root.resolve()
-    if args.analyze and not _bounded_analyze_selectors(args):
-        raise SystemExit(
-            "--analyze requires --ids, --category, and/or --limit so Blob downloads stay bounded.",
+        parser.error("--limit must be a positive integer")
+    explicit_ids = _parse_csv(args.ids)
+    explicit_categories = _parse_csv(args.category)
+    if args.analyze and not (
+        explicit_ids or explicit_categories or args.limit is not None
+    ):
+        parser.error(
+            "--analyze requires an explicit selector: --ids, --category, "
+            "or a positive --limit"
         )
+    if (
+        args.analyze
+        and args.limit is not None
+        and args.limit > MAX_ANALYZE_TEMPLATES
+    ):
+        parser.error(
+            f"--limit may not exceed {MAX_ANALYZE_TEMPLATES} in analysis mode"
+        )
+    repo_root = args.repo_root.resolve()
     snapshot = catalog.load_catalog(repo_root=repo_root)
     records = _selection(snapshot, args)
     if not args.analyze:
         print(json.dumps({"scope": args.scope, "count": len(records), "templates": [_row(record) for record in records]}, ensure_ascii=False, indent=2))
         return 0
+    if len(records) > MAX_ANALYZE_TEMPLATES:
+        parser.error(
+            f"analysis selected {len(records)} templates; refine the selector "
+            f"to at most {MAX_ANALYZE_TEMPLATES}"
+        )
 
     counts = getattr(snapshot, "counts", None)
     if callable(counts):

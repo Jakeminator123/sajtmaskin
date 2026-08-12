@@ -153,6 +153,268 @@ class TemplateCuratorAuditSecurityTests(unittest.TestCase):
         self.assertEqual(audit["envPlacement"], "lazy-only")
         self.assertFalse(audit["envPlacementDetail"][0]["topLevel"])
 
+    def test_regex_literal_quotes_do_not_mask_a_following_env_read(self) -> None:
+        payload = _next_project(
+            'const re = /["\']/; const quotient = 10 / 2;\n'
+            "const token = process.env.SECRET_AFTER_REGEX + String(quotient);\n"
+            'const bracketToken = process.env["SECRET_BRACKET_AFTER_REGEX"];\n'
+            'const escaped = /[\\/"\'\\]]+/gimu;\n'
+            "export default function Page() {"
+            " return <main>{token + bracketToken + String(re) + escaped.source}</main>"
+            " }"
+        )
+        audit = self._run_audit({"regex-before-env": payload})["regex-before-env"]
+        self.assertEqual(
+            audit["envUncovered"],
+            ["SECRET_AFTER_REGEX", "SECRET_BRACKET_AFTER_REGEX"],
+        )
+        self.assertIn("env-missing-server(2)", audit["issues"])
+
+    def test_regex_expression_after_control_heads_and_block_keeps_scanning(self) -> None:
+        suffix = (
+            " const token = process.env.SECRET_AFTER_STATEMENT_REGEX;"
+            " export default function Page(){return <main>{token}</main>}"
+        )
+        sources = {
+            "if-regex": "const gate=true; if (gate) /[\"']/.test('x');" + suffix,
+            "while-regex": "let gate=false; while (gate) /[\"']/.test('x');" + suffix,
+            "block-regex": "{} /[\"']/.test('x');" + suffix,
+        }
+        audits = self._run_audit(
+            {name: _next_project(source) for name, source in sources.items()}
+        )
+        for name, audit in audits.items():
+            with self.subTest(name=name):
+                self.assertEqual(audit["envUncovered"], ["SECRET_AFTER_STATEMENT_REGEX"])
+                self.assertIn("env-missing-server(1)", audit["issues"])
+
+    def test_call_and_parenthesized_division_do_not_start_regex_literals(self) -> None:
+        payload = _next_project(
+            "const factory = () => 8;\n"
+            'const callRatio = factory() / "\'".length;\n'
+            "const groupedRatio = (10 + 2) / 2;\n"
+            "const catchRatio = Promise.resolve(8).catch(() => 8) / 2;\n"
+            "const token = process.env.SECRET_AFTER_DIVISION;\n"
+            "export default function Page() {"
+            " return <main>{token + callRatio + groupedRatio + catchRatio}</main>"
+            " }"
+        )
+        audit = self._run_audit({"call-division": payload})["call-division"]
+        self.assertEqual(audit["envUncovered"], ["SECRET_AFTER_DIVISION"])
+        self.assertIn("env-missing-server(1)", audit["issues"])
+
+    def test_typescript_parser_handles_previously_ambiguous_grammar(self) -> None:
+        sources = {
+            "for-await": (
+                "async function consume(stream) {"
+                " for await (const item of stream) /[\"']/.test(item);"
+                " return process.env.LAZY_FOR_AWAIT;"
+                " }"
+                " export default function Page(){return null}"
+            ),
+            "case-block": (
+                "const mode = 1; switch (mode) { case 1: { /[\"']/.test('x'); break; } }"
+                " const token = process.env.SECRET_AFTER_CASE_BLOCK;"
+                " export default function Page(){return <main>{token}</main>}"
+            ),
+            "function-division": (
+                "const ratio = function () { return 8 } / 2;"
+                " const token = process.env.SECRET_AFTER_FUNCTION_DIVISION;"
+                " export default function Page(){return <main>{token + ratio}</main>}"
+            ),
+            "template-object-division": (
+                "const value = `${{ amount: 8 }.amount / 2}`;"
+                " const token = process.env.SECRET_AFTER_TEMPLATE_DIVISION;"
+                " export default function Page(){return <main>{token + value}</main>}"
+            ),
+        }
+        audits = self._run_audit(
+            {name: _next_project(source) for name, source in sources.items()}
+        )
+        expected = {
+            "for-await": "LAZY_FOR_AWAIT",
+            "case-block": "SECRET_AFTER_CASE_BLOCK",
+            "function-division": "SECRET_AFTER_FUNCTION_DIVISION",
+            "template-object-division": "SECRET_AFTER_TEMPLATE_DIVISION",
+        }
+        for name, key in expected.items():
+            with self.subTest(name=name):
+                audit = audits[name]
+                self.assertEqual(audit["envUncovered"], [key], audit)
+                self.assertFalse(
+                    any(issue.startswith("env-scan-incomplete(parse)") for issue in audit["issues"]),
+                    audit,
+                )
+        self.assertEqual(audits["for-await"]["envPlacement"], "lazy-only")
+        self.assertFalse(audits["for-await"]["envPlacementDetail"][0]["topLevel"])
+
+    def test_parse_diagnostic_with_env_candidate_forces_review(self) -> None:
+        payload = _next_project(
+            "const broken = ; const token = process . env . SECRET_WITH_PARSE_ERROR;"
+            " export default function Page(){return <main>{token}</main>}"
+        )
+        audit = self._run_audit({"parse-error": payload})["parse-error"]
+        self.assertIn("env-scan-incomplete(parse)", audit["issues"])
+        digest = hashlib.sha256(payload).hexdigest()
+        profile = profile_template(
+            {
+                "id": "parse-error",
+                "title": "parse-error",
+                "category": "test",
+                "archiveUrl": "https://unit.public.blob.vercel-storage.com/parse-error.zip",
+                "archiveSizeBytes": len(payload),
+                "archiveSha256": digest,
+            },
+            audit,
+            host_packages={},
+            extractor_sha256="a" * 64,
+        )
+        self.assertEqual(profile["decision"], "review")
+
+    def test_unclosed_framework_code_region_forces_parse_review(self) -> None:
+        astro = _zip_bytes(
+            {
+                "package.json": json.dumps(
+                    {"scripts": {"dev": "astro dev"}, "dependencies": {"astro": "5.0.0"}}
+                ),
+                "astro.config.mjs": "export default {}",
+                "src/pages/index.astro": "---\nconst token = import.meta.env.ASTRO_UNCLOSED;",
+            }
+        )
+        svelte = _zip_bytes(
+            {
+                "package.json": json.dumps(
+                    {
+                        "scripts": {"dev": "vite dev"},
+                        "dependencies": {"@sveltejs/kit": "2.0.0"},
+                    }
+                ),
+                "svelte.config.js": "export default {}",
+                "src/routes/+page.svelte": (
+                    "<script>const token = import.meta.env.PUBLIC_UNCLOSED;"
+                ),
+            }
+        )
+        audits = self._run_audit({"astro-unclosed": astro, "svelte-unclosed": svelte})
+        for name, audit in audits.items():
+            with self.subTest(name=name):
+                self.assertIn("env-scan-incomplete(parse)", audit["issues"], audit)
+
+    def test_svelte_require_wrappers_and_property_access_are_not_clean(self) -> None:
+        payload = _next_project(
+            "const direct = require('$env/static/private').SVELTE_DIRECT_SECRET;\n"
+            "const { SVELTE_CAST_SECRET } ="
+            " require('$env/static/private') as { SVELTE_CAST_SECRET: string };\n"
+            "const { ...rest } = require('$env/static/private');\n"
+            "const dynamicEnv = require('$env/dynamic/private')!;\n"
+            "export default function Page(){"
+            "return <main>{String(direct || dynamicEnv || rest)}</main>}"
+        )
+        audit = self._run_audit({"svelte-require-wrappers": payload})[
+            "svelte-require-wrappers"
+        ]
+        self.assertTrue(
+            {
+                "SVELTE_DIRECT_SECRET",
+                "SVELTE_CAST_SECRET",
+                "SVELTEKIT_STATIC_PRIVATE",
+                "SVELTEKIT_DYNAMIC_PRIVATE",
+            }.issubset(set(audit["envUncovered"])),
+            audit,
+        )
+        self.assertIn("env-missing-server(4)", audit["issues"])
+
+    def test_svelte_require_inside_fallback_expression_is_not_clean(self) -> None:
+        payload = _next_project(
+            "const nullish = require('$env/static/private').NULLISH_SECRET ?? 'fallback';\n"
+            "const either = require('$env/static/private').OR_SECRET || 'fallback';\n"
+            "const { DESTRUCTURED_SECRET } = require('$env/static/private') ?? {};\n"
+            "export default function Page(){"
+            "return <main>{nullish + either + DESTRUCTURED_SECRET}</main>}"
+        )
+        audit = self._run_audit({"svelte-require-fallback": payload})[
+            "svelte-require-fallback"
+        ]
+        self.assertTrue(
+            {"NULLISH_SECRET", "OR_SECRET", "DESTRUCTURED_SECRET"}.issubset(
+                set(audit["envUncovered"])
+            ),
+            audit,
+        )
+        self.assertIn("env-missing-server(3)", audit["issues"])
+
+    def test_svelte_require_inside_arrow_uses_lazy_placement(self) -> None:
+        payload = _next_project(
+            "const load = () => require('$env/static/private').LAZY_REQUIRE_SECRET;\n"
+            "export default function Page(){return <main>{String(load)}</main>}"
+        )
+        audit = self._run_audit({"svelte-require-arrow": payload})[
+            "svelte-require-arrow"
+        ]
+        details = {item["key"]: item for item in audit["envPlacementDetail"]}
+        self.assertFalse(details["LAZY_REQUIRE_SECRET"]["topLevel"])
+        self.assertEqual(audit["envPlacement"], "lazy-only")
+
+    def test_computed_method_env_reads_are_top_level_but_function_body_is_lazy(self) -> None:
+        payload = _next_project(
+            "class C { [process.env.COMPUTED_CLASS_SECRET]() {} }\n"
+            "const object = { [process.env.COMPUTED_OBJECT_SECRET]() {} };\n"
+            "const lazy = () => process.env.LAZY_FUNCTION_SECRET;\n"
+            "export default function Page(){return <main>{String(object || lazy || C)}</main>}"
+        )
+        audit = self._run_audit({"computed-method-env": payload})["computed-method-env"]
+        details = {item["key"]: item for item in audit["envPlacementDetail"]}
+        self.assertTrue(details["COMPUTED_CLASS_SECRET"]["topLevel"])
+        self.assertTrue(details["COMPUTED_OBJECT_SECRET"]["topLevel"])
+        self.assertFalse(details["LAZY_FUNCTION_SECRET"]["topLevel"])
+        self.assertEqual(audit["envPlacement"], "crash-on-load")
+
+    def test_parameter_decorator_is_eager_but_default_value_is_lazy(self) -> None:
+        payload = _next_project(
+            "function dec(value: string) { return () => value; }\n"
+            "class C { method("
+            "@dec(process.env.PARAM_DECORATOR_SECRET) "
+            "value: string = process.env.PARAM_DEFAULT_SECRET) {} }\n"
+            "function read({ token = process.env.NESTED_DEFAULT_SECRET } = {}) {"
+            " return token; }\n"
+            "export default function Page(){return <main>{String(C)}</main>}"
+        )
+        audit = self._run_audit({"parameter-decorator-env": payload})[
+            "parameter-decorator-env"
+        ]
+        details = {item["key"]: item for item in audit["envPlacementDetail"]}
+        self.assertTrue(details["PARAM_DECORATOR_SECRET"]["topLevel"])
+        self.assertFalse(details["PARAM_DEFAULT_SECRET"]["topLevel"])
+        self.assertFalse(details["NESTED_DEFAULT_SECRET"]["topLevel"])
+        self.assertEqual(audit["envPlacement"], "crash-on-load")
+
+    def test_unicode_escaped_process_env_identifier_is_parsed(self) -> None:
+        payload = _next_project(
+            r"const token = process.\u0065nv.UNICODE_ENV_SECRET;"
+            r" const other = pr\u006fcess.env.UNICODE_PROCESS_SECRET;"
+            " export default function Page(){return <main>{token + other}</main>}"
+        )
+        audit = self._run_audit({"unicode-env": payload})["unicode-env"]
+        self.assertEqual(
+            audit["envUncovered"],
+            ["UNICODE_ENV_SECRET", "UNICODE_PROCESS_SECRET"],
+            audit,
+        )
+
+    def test_env_like_regex_text_and_comments_stay_ignored(self) -> None:
+        payload = _next_project(
+            "const envPattern = /process\\.env\\.FAKE_REGEX[\"']/gi;\n"
+            'const text = "process.env.FAKE_TEXT";\n'
+            "const template = `process.env.FAKE_TEMPLATE`;\n"
+            "// process.env.FAKE_LINE_COMMENT\n"
+            "/* process.env.FAKE_BLOCK_COMMENT */\n"
+            'const ratio = envPattern.source.length / "\'".length;\n'
+            "export default function Page() { return <main>{text + template + ratio}</main> }"
+        )
+        audit = self._run_audit({"regex-env-literals": payload})["regex-env-literals"]
+        self.assertEqual(audit["envRefCount"], 0, audit)
+        self.assertFalse(any(issue.startswith("env-missing-") for issue in audit["issues"]))
+
     def test_vite_astro_and_sveltekit_env_syntax_requires_review(self) -> None:
         vite = _zip_bytes(
             {
@@ -318,21 +580,35 @@ class TemplateCuratorAuditSecurityTests(unittest.TestCase):
         self.assertIn("env-scan-incomplete(evidence-cap)", audit["issues"])
         self.assertLessEqual(len(audit["envPlacementDetail"]), 40)
 
-    def test_regex_literal_quotes_do_not_mask_later_env_reads(self) -> None:
-        payload = _next_project(
-            'const re = /["\' ]/; const token = process.env.REGEX_FOLLOWED_SECRET;\n'
-            "export default function Page() { return <main>{token}</main> }"
-        )
-        audit = self._run_audit({"regex-env": payload})["regex-env"]
-        self.assertIn("REGEX_FOLLOWED_SECRET", audit["envUncovered"])
+    def test_template_evidence_cap_reports_unprocessed_same_file(self) -> None:
+        def env_source(start: int, count: int) -> str:
+            return "\n".join(
+                f"export const value{index} = process.env.SECRET_{index};"
+                for index in range(start, start + count)
+            )
 
-    def test_env_like_text_inside_regex_literals_is_not_an_env_read(self) -> None:
-        payload = _next_project(
-            "const re = /process.env.FAKE_IN_REGEX/;\n"
-            "export default function Page() { return <main /> }"
+        payload = _zip_bytes(
+            {
+                "package.json": json.dumps(
+                    {
+                        "scripts": {"dev": "vite"},
+                        "dependencies": {"vite": "7.0.0"},
+                    }
+                ),
+                "index.html": "<div id='app'></div>",
+                "src/chunk-0.ts": env_source(0, 40),
+                "src/chunk-1.ts": env_source(40, 40),
+                "src/chunk-2.ts": env_source(80, 40),
+                "src/chunk-3.ts": env_source(120, 40),
+                "src/chunk-4.ts": env_source(160, 30),
+                "src/chunk-5.ts": env_source(190, 20),
+            }
         )
-        audit = self._run_audit({"regex-fake": payload})["regex-fake"]
-        self.assertNotIn("FAKE_IN_REGEX", audit["envUncovered"])
+        audit = self._run_audit({"template-evidence-budget": payload})[
+            "template-evidence-budget"
+        ]
+        self.assertIn("env-scan-incomplete(evidence-cap)", audit["issues"])
+        self.assertEqual(audit["envRefCount"], 200)
 
     def test_node_downloader_restricts_urls_and_disables_redirects(self) -> None:
         program = """

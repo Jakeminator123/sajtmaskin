@@ -7,9 +7,14 @@ import subprocess
 import tempfile
 import unittest
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import redirect_stderr, redirect_stdout
+from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
-from scripts.template_curator.cli import main as curator_cli_main
+from scripts.template_curator import cli
 from scripts.template_curator.runner import (
     MAX_ARCHIVE_BYTES,
     CuratorError,
@@ -235,21 +240,158 @@ class TemplateCuratorProfileTests(unittest.TestCase):
         self.assertFalse(profile["addendum"]["automaticMutation"])
 
 
-class TemplateCuratorReportAndCliGuardTests(unittest.TestCase):
-    def test_write_report_does_not_overwrite_same_second_runs(self) -> None:
-        with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            first = write_report({"run": 1}, root)
-            second = write_report({"run": 2}, root)
+class TemplateCuratorReportWriterTests(unittest.TestCase):
+    def test_immediate_default_writes_never_overwrite_one_another(self) -> None:
+        fixed = datetime(2026, 8, 13, 10, 11, 12, tzinfo=UTC)
+        with (
+            tempfile.TemporaryDirectory() as raw,
+            mock.patch(
+                "scripts.template_curator.runner.datetime"
+            ) as mocked_datetime,
+        ):
+            mocked_datetime.now.return_value = fixed
+            first = write_report({"run": 1}, Path(raw))
+            second = write_report({"run": 2}, Path(raw))
             self.assertNotEqual(first, second)
-            self.assertTrue(first.is_file())
-            self.assertTrue(second.is_file())
-            self.assertEqual(json.loads(first.read_text(encoding="utf-8"))["run"], 1)
-            self.assertEqual(json.loads(second.read_text(encoding="utf-8"))["run"], 2)
+            self.assertEqual(json.loads(first.read_text(encoding="utf-8")), {"run": 1})
+            self.assertEqual(json.loads(second.read_text(encoding="utf-8")), {"run": 2})
 
-    def test_analyze_requires_an_explicit_bounded_selector(self) -> None:
-        with self.assertRaisesRegex(SystemExit, "requires --ids, --category, and/or --limit"):
-            curator_cli_main(["--analyze"])
+    def test_concurrent_default_writes_are_distinct_and_complete(self) -> None:
+        fixed = datetime(2026, 8, 13, 10, 11, 12, tzinfo=UTC)
+        with (
+            tempfile.TemporaryDirectory() as raw,
+            mock.patch(
+                "scripts.template_curator.runner.datetime"
+            ) as mocked_datetime,
+        ):
+            mocked_datetime.now.return_value = fixed
+            root = Path(raw)
+
+            def write(index: int) -> Path:
+                return write_report({"run": index}, root)
+
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                paths = list(pool.map(write, range(24)))
+            self.assertEqual(len(set(paths)), 24)
+            self.assertEqual(
+                {json.loads(path.read_text(encoding="utf-8"))["run"] for path in paths},
+                set(range(24)),
+            )
+            report_dir = (
+                root / "data" / "backoffice" / "template-curator" / "reports"
+            )
+            self.assertFalse(any(path.suffix == ".tmp" for path in report_dir.iterdir()))
+
+    def test_explicit_output_path_is_atomically_replaced(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            destination = Path(raw) / "chosen" / "report.json"
+            self.assertEqual(
+                write_report({"run": 1}, Path(raw), output_path=destination),
+                destination,
+            )
+            self.assertEqual(
+                write_report({"run": 2}, Path(raw), output_path=destination),
+                destination,
+            )
+            self.assertEqual(
+                json.loads(destination.read_text(encoding="utf-8")),
+                {"run": 2},
+            )
+            self.assertEqual(list(destination.parent.iterdir()), [destination])
+
+
+class TemplateCuratorCliGuardsTests(unittest.TestCase):
+    @staticmethod
+    def _snapshot() -> SimpleNamespace:
+        return SimpleNamespace(
+            scope_counts={},
+            extractor_sha256="e" * 64,
+            error=None,
+            addenda_valid=True,
+        )
+
+    def test_analyze_without_selector_fails_before_catalog_or_runner(self) -> None:
+        stderr = io.StringIO()
+        with (
+            mock.patch.object(cli.catalog, "load_catalog") as load_catalog,
+            mock.patch.object(cli, "curate_templates") as curate,
+            redirect_stderr(stderr),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            cli.main(["--analyze"])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("requires an explicit selector", stderr.getvalue())
+        load_catalog.assert_not_called()
+        curate.assert_not_called()
+
+    def test_network_free_listing_without_selector_remains_allowed(self) -> None:
+        stdout = io.StringIO()
+        with (
+            mock.patch.object(
+                cli.catalog, "load_catalog", return_value=self._snapshot()
+            ),
+            mock.patch.object(cli, "_selection", return_value=[]),
+            mock.patch.object(cli, "curate_templates") as curate,
+            redirect_stdout(stdout),
+        ):
+            self.assertEqual(cli.main([]), 0)
+        self.assertEqual(json.loads(stdout.getvalue())["count"], 0)
+        curate.assert_not_called()
+
+    def test_each_explicit_selector_allows_a_bounded_analysis(self) -> None:
+        record = {"id": "one"}
+        for selector in (
+            ["--ids", "one"],
+            ["--category", "landing-pages"],
+            ["--limit", "1"],
+        ):
+            with (
+                self.subTest(selector=selector),
+                tempfile.TemporaryDirectory() as raw,
+                mock.patch.object(
+                    cli.catalog, "load_catalog", return_value=self._snapshot()
+                ),
+                mock.patch.object(cli, "_selection", return_value=[record]),
+                mock.patch.object(
+                    cli, "curate_templates", return_value={"profiles": []}
+                ) as curate,
+                mock.patch.object(
+                    cli,
+                    "write_report",
+                    return_value=Path(raw) / "report.json",
+                ),
+                redirect_stdout(io.StringIO()),
+            ):
+                self.assertEqual(cli.main(["--analyze", *selector]), 0)
+                curate.assert_called_once()
+
+    def test_analysis_rejects_limit_or_selection_above_bound(self) -> None:
+        stderr = io.StringIO()
+        with (
+            mock.patch.object(cli.catalog, "load_catalog") as load_catalog,
+            redirect_stderr(stderr),
+            self.assertRaises(SystemExit),
+        ):
+            cli.main(
+                ["--analyze", "--limit", str(cli.MAX_ANALYZE_TEMPLATES + 1)]
+            )
+        load_catalog.assert_not_called()
+
+        with (
+            mock.patch.object(
+                cli.catalog, "load_catalog", return_value=self._snapshot()
+            ),
+            mock.patch.object(
+                cli,
+                "_selection",
+                return_value=[object()] * (cli.MAX_ANALYZE_TEMPLATES + 1),
+            ),
+            mock.patch.object(cli, "curate_templates") as curate,
+            redirect_stderr(io.StringIO()),
+            self.assertRaises(SystemExit),
+        ):
+            cli.main(["--analyze", "--category", "broad"])
+        curate.assert_not_called()
 
 
 if __name__ == "__main__":

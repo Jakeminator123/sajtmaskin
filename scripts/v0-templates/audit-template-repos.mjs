@@ -6,6 +6,7 @@
 // reads only bounded metadata and a bounded set of text files.
 
 import JSZip from "jszip";
+import ts from "typescript";
 import { createHash } from "node:crypto";
 import { readFile, readdir, mkdir, writeFile, stat, open, rename, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -45,18 +46,8 @@ const BLOCKED_PREFIXES = [
   "out/",
 ];
 const SOURCE_EXT = /\.(?:ts|tsx|js|jsx|mjs|cjs|astro|svelte)$/i;
-const DOT_ENV_RE = /process\.env\.([A-Z][A-Z0-9_]*)/g;
-const BRACKET_ENV_RE = /process\.env\[\s*["']([A-Z][A-Z0-9_]*)["']\s*\]/g;
-const DOT_IMPORT_META_ENV_RE = /import\.meta\.env\.([A-Z][A-Z0-9_]*)/g;
-const BRACKET_IMPORT_META_ENV_RE = /import\.meta\.env\[\s*["']([A-Z][A-Z0-9_]*)["']\s*\]/g;
-const SVELTE_NAMED_ENV_IMPORT_RE =
-  /\bimport\s*\{([^}]{1,4096})\}\s*from\s*(["'])\$env\/(static|dynamic)\/(private|public)\2/g;
-const SVELTE_NAMESPACE_ENV_IMPORT_RE =
-  /\bimport\s+\*\s+as\s+[A-Za-z_$][\w$]*\s+from\s*(["'])\$env\/(static|dynamic)\/(private|public)\1/g;
-const SVELTE_NAMED_ENV_REQUIRE_RE =
-  /\b(?:const|let|var)\s*\{([^}]{1,4096})\}\s*=\s*require\s*\(\s*(["'])\$env\/(static|dynamic)\/(private|public)\2\s*\)/g;
-const SVELTE_NAMESPACE_ENV_REQUIRE_RE =
-  /\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*require\s*\(\s*(["'])\$env\/(static|dynamic)\/(private|public)\1\s*\)/g;
+const ENV_KEY_RE = /^[A-Z][A-Z0-9_]*$/;
+const SVELTE_ENV_MODULE_RE = /^\$env\/(static|dynamic)\/(private|public)$/;
 const IMPORT_META_BUILTIN_ENV_KEYS = new Set(["MODE", "BASE_URL", "PROD", "DEV", "SSR"]);
 const BUILTIN_ENV_KEYS = new Set([
   "NODE_ENV",
@@ -240,182 +231,10 @@ function boundedStringMap(value, label, issues) {
   return result;
 }
 
-// Replace comments and literal text with equal-length spaces. Template expression code
-// is preserved while the surrounding literal is masked. The stack-based lexer visits
-// each source character at most once, including nested template expressions.
-// Regex literals are a distinct state so quotes inside `/["']/` cannot swallow
-// later `process.env` / `import.meta.env` reads.
-const REGEX_PREFIX_CHARS = new Set("=(,;:!&|?+-*%^~[{".split(""));
-const REGEX_KEYWORD_PREFIXES = new Set([
-  "return",
-  "throw",
-  "case",
-  "else",
-  "do",
-  "typeof",
-  "void",
-  "yield",
-  "await",
-  "new",
-  "delete",
-  "in",
-  "of",
-]);
-
-function codeView(source) {
-  const out = new Array(source.length);
-  const stack = [{ kind: "code", templateExpression: false, braceDepth: 0 }];
-  let regexAllowed = true;
-  let ident = "";
-  const finishIdent = () => {
-    if (ident && REGEX_KEYWORD_PREFIXES.has(ident)) regexAllowed = true;
-    ident = "";
-  };
-  const noteCodeChar = (emitted) => {
-    if (/[A-Za-z_$]/u.test(emitted)) {
-      ident += emitted;
-      regexAllowed = false;
-      return;
-    }
-    if (ident && /[0-9]/u.test(emitted)) {
-      ident += emitted;
-      regexAllowed = false;
-      return;
-    }
-    if (/\s/u.test(emitted)) {
-      finishIdent();
-      return;
-    }
-    finishIdent();
-    regexAllowed = REGEX_PREFIX_CHARS.has(emitted);
-  };
-  const enterNonCode = () => {
-    finishIdent();
-    regexAllowed = false;
-  };
-  for (let i = 0; i < source.length; i++) {
-    const char = source[i],
-      next = source[i + 1];
-    const state = stack[stack.length - 1];
-    if (state.kind === "code") {
-      if (state.templateExpression && char === "}" && state.braceDepth === 0) {
-        out[i] = " ";
-        stack.pop();
-        continue;
-      }
-      if (char === "/" && next === "/") {
-        enterNonCode();
-        out[i] = out[i + 1] = " ";
-        i++;
-        stack.push({ kind: "line" });
-        continue;
-      }
-      if (char === "/" && next === "*") {
-        enterNonCode();
-        out[i] = out[i + 1] = " ";
-        i++;
-        stack.push({ kind: "block" });
-        continue;
-      }
-      if (char === "/" && regexAllowed) {
-        enterNonCode();
-        out[i] = " ";
-        stack.push({ kind: "re", inClass: false });
-        continue;
-      }
-      if (char === "'") {
-        enterNonCode();
-        out[i] = " ";
-        stack.push({ kind: "sq" });
-        continue;
-      }
-      if (char === '"') {
-        enterNonCode();
-        out[i] = " ";
-        stack.push({ kind: "dq" });
-        continue;
-      }
-      if (char === "`") {
-        enterNonCode();
-        out[i] = " ";
-        stack.push({ kind: "tpl" });
-        continue;
-      }
-      if (state.templateExpression) {
-        if (char === "{") state.braceDepth++;
-        else if (char === "}") state.braceDepth--;
-      }
-      out[i] = char;
-      noteCodeChar(char);
-      continue;
-    }
-    if (state.kind === "line") {
-      out[i] = char === "\n" ? "\n" : " ";
-      if (char === "\n") {
-        stack.pop();
-        regexAllowed = true;
-      }
-      continue;
-    }
-    if (state.kind === "block") {
-      if (char === "*" && next === "/") {
-        out[i] = out[i + 1] = " ";
-        i++;
-        stack.pop();
-        regexAllowed = true;
-      } else out[i] = char === "\n" ? "\n" : " ";
-      continue;
-    }
-    if (state.kind === "re") {
-      if (char === "\\") {
-        out[i] = " ";
-        if (i + 1 < source.length) out[++i] = " ";
-        continue;
-      }
-      if (state.inClass) {
-        out[i] = char === "\n" ? "\n" : " ";
-        if (char === "]") state.inClass = false;
-        continue;
-      }
-      if (char === "[") {
-        out[i] = " ";
-        state.inClass = true;
-        continue;
-      }
-      out[i] = char === "\n" ? "\n" : " ";
-      if (char === "/") stack.pop();
-      continue;
-    }
-    if (char === "\\") {
-      out[i] = " ";
-      if (i + 1 < source.length) out[++i] = " ";
-      continue;
-    }
-    if (state.kind === "tpl" && char === "$" && next === "{") {
-      out[i] = out[i + 1] = " ";
-      i++;
-      stack.push({ kind: "code", templateExpression: true, braceDepth: 0 });
-      regexAllowed = true;
-      ident = "";
-      continue;
-    }
-    const closes =
-      (state.kind === "sq" && char === "'") ||
-      (state.kind === "dq" && char === '"') ||
-      (state.kind === "tpl" && char === "`");
-    out[i] = char === "\n" ? "\n" : " ";
-    if (closes) {
-      stack.pop();
-      regexAllowed = false;
-      ident = "";
-    }
-  }
-  return out.join("");
-}
-
 function copyScriptBodies(source, copyRange) {
   const lower = source.toLowerCase();
   let cursor = 0;
+  let incomplete = false;
   while (cursor < source.length) {
     const commentStart = lower.indexOf("<!--", cursor);
     const scriptStart = lower.indexOf("<script", cursor);
@@ -439,21 +258,30 @@ function copyScriptBodies(source, copyRange) {
       } else if (char === '"' || char === "'") quote = char;
       else if (char === ">") break;
     }
-    if (tagEnd >= source.length) break;
+    if (tagEnd >= source.length) {
+      incomplete = true;
+      break;
+    }
     const bodyEnd = lower.indexOf("</script", tagEnd + 1);
-    if (bodyEnd < 0) break;
+    if (bodyEnd < 0) {
+      incomplete = true;
+      break;
+    }
     copyRange(tagEnd + 1, bodyEnd);
     const closeEnd = lower.indexOf(">", bodyEnd + "</script".length);
+    if (closeEnd < 0) incomplete = true;
     cursor = closeEnd < 0 ? source.length : closeEnd + 1;
   }
+  return incomplete;
 }
 
 // Astro and Svelte mix markup with executable source. Only frontmatter and script
 // bodies are copied into this equal-length view, so prose and HTML comments cannot
 // masquerade as env access while all scan/evidence offsets remain stable.
 function executableSourceView(source, file) {
-  if (!/\.(?:astro|svelte)$/i.test(file)) return source;
+  if (!/\.(?:astro|svelte)$/i.test(file)) return { text: source, incomplete: false };
   const out = new Array(source.length).fill(" ");
+  let incomplete = false;
   const copyRange = (start, end) => {
     for (let index = start; index < end; index++) out[index] = source[index];
   };
@@ -461,230 +289,332 @@ function executableSourceView(source, file) {
     const opening = /^(?:\uFEFF)?---[ \t]*\r?\n/.exec(source);
     if (opening) {
       let lineStart = opening[0].length;
+      let foundClosingFence = false;
       while (lineStart <= source.length) {
         const newline = source.indexOf("\n", lineStart);
         const lineEnd = newline < 0 ? source.length : newline;
         if (source.slice(lineStart, lineEnd).replace(/\r$/, "").trim() === "---") {
           copyRange(opening[0].length, lineStart);
+          foundClosingFence = true;
           break;
         }
         if (newline < 0) break;
         lineStart = newline + 1;
       }
+      if (!foundClosingFence) incomplete = true;
     }
   }
-  copyScriptBodies(source, copyRange);
-  return out.join("");
+  if (copyScriptBodies(source, copyRange)) incomplete = true;
+  return { text: out.join(""), incomplete };
 }
 
-function isFunctionBraceBounded(view, position) {
-  const start = Math.max(0, position - 512);
-  const before = view.slice(start, position).trimEnd();
-  if (/=>\s*$/.test(before)) return true;
-  if (!before.endsWith(")"))
-    return /(?:^|\W)(?:function|constructor|get|set)\s+[\w$]*\s*$/.test(before);
-  let depth = 0;
-  let openPos = -1;
-  for (let i = before.length - 1; i >= 0; i--) {
-    if (before[i] === ")") depth++;
-    else if (before[i] === "(" && --depth === 0) {
-      openPos = i;
-      break;
-    }
-  }
-  if (openPos < 0) return false;
-  const prefix = before.slice(0, openPos).trimEnd();
-  const word = prefix.match(/([A-Za-z_$][\w$]*)$/)?.[1] ?? "";
-  if (["if", "for", "while", "switch", "catch", "with"].includes(word)) return false;
-  return word === "function" || /(?:function\s+[\w$]*|[A-Za-z_$][\w$]*|\))$/.test(prefix);
+function envScriptKind(file) {
+  if (/\.tsx$/i.test(file)) return ts.ScriptKind.TSX;
+  if (/\.jsx$/i.test(file)) return ts.ScriptKind.JSX;
+  if (/\.(?:js|mjs|cjs)$/i.test(file)) return ts.ScriptKind.JS;
+  return ts.ScriptKind.TS;
 }
 
-function functionDepthAt(view, positions) {
-  const sorted = [...new Set(positions)].sort((a, b) => a - b);
-  const result = new Map();
-  const stack = [];
-  const expressionArrows = [];
-  let functionDepth = 0,
-    cursor = 0,
-    parenDepth = 0,
-    bracketDepth = 0,
-    braceDepth = 0,
-    pendingArrow = false;
+function identifierIs(node, text) {
+  return ts.isIdentifier(node) && node.text === text;
+}
 
-  const atOrOutside = (context) =>
-    parenDepth <= context.parenDepth &&
-    bracketDepth <= context.bracketDepth &&
-    braceDepth <= context.braceDepth;
+function isProcessEnvBase(node) {
+  return (
+    ts.isPropertyAccessExpression(node) &&
+    identifierIs(node.expression, "process") &&
+    identifierIs(node.name, "env")
+  );
+}
 
-  for (const target of sorted) {
-    while (cursor < target) {
-      const char = view[cursor],
-        next = view[cursor + 1];
-      if (char === "=" && next === ">") {
-        pendingArrow = true;
-        cursor += 2;
-        continue;
-      }
-      if (pendingArrow && !/\s/.test(char)) {
-        if (char !== "{") expressionArrows.push({ parenDepth, bracketDepth, braceDepth });
-        pendingArrow = false;
-      }
+function isImportMeta(node) {
+  return (
+    ts.isMetaProperty(node) &&
+    node.keywordToken === ts.SyntaxKind.ImportKeyword &&
+    identifierIs(node.name, "meta")
+  );
+}
 
-      if (char === ";") {
-        while (expressionArrows.length && atOrOutside(expressionArrows.at(-1)))
-          expressionArrows.pop();
-      } else if (char === ",") {
-        while (expressionArrows.length && atOrOutside(expressionArrows.at(-1)))
-          expressionArrows.pop();
-      } else if (char === ")") {
-        while (
-          expressionArrows.length &&
-          parenDepth <= expressionArrows.at(-1).parenDepth &&
-          bracketDepth <= expressionArrows.at(-1).bracketDepth &&
-          braceDepth <= expressionArrows.at(-1).braceDepth
-        )
-          expressionArrows.pop();
-      } else if (char === "]") {
-        while (
-          expressionArrows.length &&
-          bracketDepth <= expressionArrows.at(-1).bracketDepth &&
-          parenDepth <= expressionArrows.at(-1).parenDepth &&
-          braceDepth <= expressionArrows.at(-1).braceDepth
-        )
-          expressionArrows.pop();
-      } else if (char === "}") {
-        while (
-          expressionArrows.length &&
-          braceDepth <= expressionArrows.at(-1).braceDepth &&
-          parenDepth <= expressionArrows.at(-1).parenDepth &&
-          bracketDepth <= expressionArrows.at(-1).bracketDepth
-        )
-          expressionArrows.pop();
-      }
+function isImportMetaEnvBase(node) {
+  return (
+    ts.isPropertyAccessExpression(node) &&
+    isImportMeta(node.expression) &&
+    identifierIs(node.name, "env")
+  );
+}
 
-      if (char === "{") {
-        const isFn = isFunctionBraceBounded(view, cursor);
-        stack.push(isFn);
-        if (isFn) functionDepth++;
-        braceDepth++;
-      } else if (char === "}") {
-        const wasFn = stack.pop();
-        if (wasFn) functionDepth--;
-        braceDepth = Math.max(0, braceDepth - 1);
-      } else if (char === "(") parenDepth++;
-      else if (char === ")") parenDepth = Math.max(0, parenDepth - 1);
-      else if (char === "[") bracketDepth++;
-      else if (char === "]") bracketDepth = Math.max(0, bracketDepth - 1);
-      cursor++;
-    }
-    if (pendingArrow && target < view.length && !/\s/.test(view[target])) {
-      if (view[target] !== "{") expressionArrows.push({ parenDepth, bracketDepth, braceDepth });
-      pendingArrow = false;
-    }
-    result.set(target, Math.max(0, functionDepth + expressionArrows.length));
+function stringLiteralValue(node) {
+  return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) ? node.text : null;
+}
+
+function unwrapExpression(node) {
+  let current = node;
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isTypeAssertionExpression(current) ||
+    ts.isSatisfiesExpression(current) ||
+    ts.isNonNullExpression(current)
+  )
+    current = current.expression;
+  return current;
+}
+
+function directEnvAccess(node) {
+  let base = null;
+  let key = null;
+  if (ts.isPropertyAccessExpression(node)) {
+    base = node.expression;
+    key = node.name.text;
+  } else if (ts.isElementAccessExpression(node)) {
+    base = node.expression;
+    key = stringLiteralValue(node.argumentExpression);
   }
-  return result;
+  if (!base || !ENV_KEY_RE.test(key ?? "")) return null;
+  if (isProcessEnvBase(base)) return { key, importMeta: false };
+  if (isImportMetaEnvBase(base)) return { key, importMeta: true };
+  return null;
+}
+
+function svelteEnvModule(node) {
+  const value = stringLiteralValue(node);
+  const match = value?.match(SVELTE_ENV_MODULE_RE);
+  return match ? { kind: match[1], visibility: match[2] } : null;
+}
+
+function syntheticSvelteEnvKey(kind, visibility) {
+  return visibility === "public"
+    ? "PUBLIC_SVELTEKIT_" + kind.toUpperCase()
+    : "SVELTEKIT_" + kind.toUpperCase() + "_PRIVATE";
+}
+
+function importedBindingKey(binding) {
+  const imported = binding.propertyName ?? binding.name;
+  if (ts.isIdentifier(imported) || ts.isStringLiteral(imported)) return imported.text;
+  return null;
+}
+
+function findSvelteRequire(expression) {
+  const current = unwrapExpression(expression);
+  if (
+    ts.isCallExpression(current) &&
+    identifierIs(current.expression, "require") &&
+    current.arguments.length === 1
+  ) {
+    const envModule = svelteEnvModule(current.arguments[0]);
+    return envModule ? { envModule, key: null, keyNode: current.arguments[0], direct: true } : null;
+  }
+  if (!ts.isPropertyAccessExpression(current) && !ts.isElementAccessExpression(current))
+    return null;
+  const nested = findSvelteRequire(current.expression);
+  if (!nested) return null;
+  const key = ts.isPropertyAccessExpression(current)
+    ? current.name.text
+    : stringLiteralValue(current.argumentExpression);
+  if (nested.direct)
+    return {
+      envModule: nested.envModule,
+      key,
+      keyNode: ts.isPropertyAccessExpression(current) ? current.name : current.argumentExpression,
+      direct: false,
+    };
+  return nested;
 }
 
 function scanEnvReferences(source, file, role) {
-  const executable = executableSourceView(source, file);
-  const view = codeView(executable);
+  const extracted = executableSourceView(source, file);
+  const executable = extracted.text;
+  let sourceFile;
+  try {
+    sourceFile = ts.createSourceFile(
+      file,
+      executable,
+      ts.ScriptTarget.Latest,
+      true,
+      envScriptKind(file),
+    );
+  } catch {
+    return { evidence: [], truncated: false, parseIncomplete: true };
+  }
   const matches = [];
-  const hasCapacity = () => matches.length <= MAX_ENV_EVIDENCE_PER_FILE;
-  const addMatch = (key, index, ignored = false) => {
-    if (!ignored && hasCapacity()) matches.push({ key, index });
-  };
-  const scanDotAccess = (regex, syntax) => {
-    if (!hasCapacity()) return;
-    regex.lastIndex = 0;
-    for (let match; (match = regex.exec(view)) !== null;) {
-      addMatch(
-        match[1],
-        match.index,
-        syntax === "import-meta" && IMPORT_META_BUILTIN_ENV_KEYS.has(match[1]),
-      );
-      if (!hasCapacity()) break;
-    }
-  };
-  const scanBracketAccess = (regex, prefix, syntax) => {
-    if (!hasCapacity()) return;
-    regex.lastIndex = 0;
-    for (let match; (match = regex.exec(executable)) !== null;) {
-      if (view.slice(match.index, match.index + prefix.length) === prefix) {
-        addMatch(
-          match[1],
-          match.index,
-          syntax === "import-meta" && IMPORT_META_BUILTIN_ENV_KEYS.has(match[1]),
-        );
-      }
-      if (!hasCapacity()) break;
-    }
-  };
-  const addSvelteModule = (kind, visibility, index, clause = null) => {
-    if (kind === "dynamic" || clause === null) {
-      const key =
-        visibility === "public"
-          ? `PUBLIC_SVELTEKIT_${kind.toUpperCase()}`
-          : `SVELTEKIT_${kind.toUpperCase()}_PRIVATE`;
-      addMatch(key, index);
+  const matchIds = new Set();
+  let truncated = false;
+
+  const addMatch = (key, nodeOrIndex, functionDepth, ignored = false) => {
+    if (ignored || !ENV_KEY_RE.test(key ?? "")) return;
+    if (matches.length >= MAX_ENV_EVIDENCE_PER_FILE) {
+      truncated = true;
       return;
     }
-    const binding = /(?:^|,)\s*(?:type\s+)?([A-Z][A-Z0-9_]*)(?=\s*(?:as|:|,|$))/g;
-    for (let match; (match = binding.exec(clause)) !== null;) {
-      addMatch(match[1], index + match.index);
-      if (!hasCapacity()) break;
-    }
+    const index = typeof nodeOrIndex === "number" ? nodeOrIndex : nodeOrIndex.getStart(sourceFile);
+    const id = `${key}\0${index}\0${functionDepth}`;
+    if (matchIds.has(id)) return;
+    matchIds.add(id);
+    matches.push({ key, index, topLevel: functionDepth === 0, role, file });
   };
-  const statementSurvived = (index, form) => {
-    const prefix = view.slice(index, index + 6);
-    return form === "import" ? prefix === "import" : /^(?:const|let|var)\b/.test(prefix);
-  };
-  const scanSvelteNamedModules = (regex, form) => {
-    if (!hasCapacity()) return;
-    regex.lastIndex = 0;
-    for (let match; (match = regex.exec(executable)) !== null;) {
-      if (!statementSurvived(match.index, form)) continue;
-      const clauseOffset = match[0].indexOf(match[1]);
-      const clauseView = view.slice(
-        match.index + clauseOffset,
-        match.index + clauseOffset + match[1].length,
+
+  const addSvelteBindings = (envModule, binding, functionDepth, fallbackNode) => {
+    if (envModule.kind === "dynamic" || !ts.isObjectBindingPattern(binding)) {
+      addMatch(
+        syntheticSvelteEnvKey(envModule.kind, envModule.visibility),
+        fallbackNode,
+        functionDepth,
       );
-      addSvelteModule(match[3], match[4], match.index + clauseOffset, clauseView);
-      if (!hasCapacity()) break;
+      return;
     }
-  };
-  const scanSvelteNamespaceModules = (regex, form) => {
-    if (!hasCapacity()) return;
-    regex.lastIndex = 0;
-    for (let match; (match = regex.exec(executable)) !== null;) {
-      if (!statementSurvived(match.index, form)) continue;
-      addSvelteModule(match[2], match[3], match.index);
-      if (!hasCapacity()) break;
+    for (const element of binding.elements) {
+      const key = importedBindingKey(element);
+      if (ENV_KEY_RE.test(key ?? ""))
+        addMatch(key, element.propertyName ?? element.name, functionDepth);
+      else
+        addMatch(
+          syntheticSvelteEnvKey(envModule.kind, envModule.visibility),
+          element,
+          functionDepth,
+        );
+      if (truncated) return;
     }
   };
 
-  scanDotAccess(DOT_ENV_RE, "process");
-  scanBracketAccess(BRACKET_ENV_RE, "process.env", "process");
-  scanDotAccess(DOT_IMPORT_META_ENV_RE, "import-meta");
-  scanBracketAccess(BRACKET_IMPORT_META_ENV_RE, "import.meta.env", "import-meta");
-  scanSvelteNamedModules(SVELTE_NAMED_ENV_IMPORT_RE, "import");
-  scanSvelteNamespaceModules(SVELTE_NAMESPACE_ENV_IMPORT_RE, "import");
-  scanSvelteNamedModules(SVELTE_NAMED_ENV_REQUIRE_RE, "require");
-  scanSvelteNamespaceModules(SVELTE_NAMESPACE_ENV_REQUIRE_RE, "require");
+  const scanSvelteImport = (node, functionDepth) => {
+    if (!ts.isImportDeclaration(node)) return;
+    const envModule = svelteEnvModule(node.moduleSpecifier);
+    const clause = node.importClause;
+    if (!envModule || !clause || clause.isTypeOnly) return;
+    if (envModule.kind === "dynamic") {
+      addMatch(
+        syntheticSvelteEnvKey(envModule.kind, envModule.visibility),
+        node.moduleSpecifier,
+        functionDepth,
+      );
+      return;
+    }
+    const bindings = clause.namedBindings;
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) {
+        if (element.isTypeOnly) continue;
+        const key = importedBindingKey(element);
+        if (ENV_KEY_RE.test(key ?? ""))
+          addMatch(key, element.propertyName ?? element.name, functionDepth);
+        else
+          addMatch(
+            syntheticSvelteEnvKey(envModule.kind, envModule.visibility),
+            element,
+            functionDepth,
+          );
+        if (truncated) return;
+      }
+    } else if (bindings || clause.name) {
+      addMatch(
+        syntheticSvelteEnvKey(envModule.kind, envModule.visibility),
+        bindings ?? clause.name,
+        functionDepth,
+      );
+    }
+  };
 
+  const scanSvelteRequire = (node, functionDepth) => {
+    const requirement = findSvelteRequire(node);
+    if (!requirement) return;
+    if (
+      node.parent &&
+      (ts.isPropertyAccessExpression(node.parent) || ts.isElementAccessExpression(node.parent)) &&
+      node.parent.expression === node
+    )
+      return;
+    let bindingDeclaration = null;
+    let ancestor = node;
+    while (ancestor.parent && !ts.isFunctionLike(ancestor.parent)) {
+      if (
+        ts.isVariableDeclaration(ancestor.parent) &&
+        ancestor.parent.initializer &&
+        ancestor.getStart(sourceFile) >= ancestor.parent.initializer.getStart(sourceFile) &&
+        ancestor.end <= ancestor.parent.initializer.end
+      ) {
+        bindingDeclaration = ancestor.parent;
+        break;
+      }
+      if (ts.isStatement(ancestor.parent)) break;
+      ancestor = ancestor.parent;
+    }
+    if (bindingDeclaration && ts.isObjectBindingPattern(bindingDeclaration.name)) {
+      addSvelteBindings(
+        requirement.envModule,
+        bindingDeclaration.name,
+        functionDepth,
+        requirement.keyNode,
+      );
+      return;
+    }
+    const declaration = node.parent;
+    if (ts.isVariableDeclaration(declaration) && declaration.initializer === node) {
+      if (ts.isCallExpression(unwrapExpression(node)))
+        addSvelteBindings(
+          requirement.envModule,
+          declaration.name,
+          functionDepth,
+          requirement.keyNode,
+        );
+      else if (ENV_KEY_RE.test(requirement.key ?? ""))
+        addMatch(requirement.key, requirement.keyNode, functionDepth);
+      else
+        addMatch(
+          syntheticSvelteEnvKey(requirement.envModule.kind, requirement.envModule.visibility),
+          requirement.keyNode,
+          functionDepth,
+        );
+      return;
+    }
+    if (ENV_KEY_RE.test(requirement.key ?? ""))
+      addMatch(requirement.key, requirement.keyNode, functionDepth);
+    else
+      addMatch(
+        syntheticSvelteEnvKey(requirement.envModule.kind, requirement.envModule.visibility),
+        requirement.keyNode,
+        functionDepth,
+      );
+  };
+
+  let parseIncomplete = extracted.incomplete || sourceFile.parseDiagnostics.length > 0;
+  try {
+    const pending = [{ node: sourceFile, functionDepth: 0 }];
+    while (pending.length && !truncated) {
+      const { node, functionDepth } = pending.pop();
+      const access = directEnvAccess(node);
+      if (access) {
+        addMatch(
+          access.key,
+          node,
+          functionDepth,
+          access.importMeta && IMPORT_META_BUILTIN_ENV_KEYS.has(access.key),
+        );
+      }
+      scanSvelteImport(node, functionDepth);
+      scanSvelteRequire(node, functionDepth);
+      if (truncated) break;
+      const children = [];
+      ts.forEachChild(node, (child) => {
+        children.push(child);
+      });
+      for (let index = children.length - 1; index >= 0; index--) {
+        const child = children[index];
+        const invocationChild =
+          (ts.isFunctionLike(node) && child === node.body) ||
+          (ts.isParameter(node) && ts.isFunctionLike(node.parent) && !ts.isDecorator(child));
+        pending.push({
+          node: child,
+          functionDepth: functionDepth + (invocationChild ? 1 : 0),
+        });
+      }
+    }
+  } catch {
+    parseIncomplete = true;
+  }
   matches.sort((a, b) => a.index - b.index);
-  const depths = functionDepthAt(
-    view,
-    matches.map((match) => match.index),
-  );
   return {
-    evidence: matches.slice(0, MAX_ENV_EVIDENCE_PER_FILE).map((match) => ({
-      key: match.key,
-      topLevel: depths.get(match.index) === 0,
-      role,
-      file,
-    })),
-    truncated: matches.length > MAX_ENV_EVIDENCE_PER_FILE,
+    evidence: matches,
+    truncated,
+    parseIncomplete,
   };
 }
 
@@ -967,15 +897,11 @@ export async function analyzeZipBuffer(buffer, meta = {}) {
     } catch {
       continue;
     }
-    if (
-      !source.includes("process.env") &&
-      !source.includes("import.meta.env") &&
-      !source.includes("$env/")
-    )
-      continue;
     const scan = scanEnvReferences(source, item.path, fileRole(item.path));
     if (scan.truncated) incompleteEnvScanReasons.add("evidence-cap");
-    for (const evidence of scan.evidence) {
+    if (scan.parseIncomplete) incompleteEnvScanReasons.add("parse");
+    for (let index = 0; index < scan.evidence.length; index++) {
+      const evidence = scan.evidence[index];
       if (
         BUILTIN_ENV_KEYS.has(evidence.key) ||
         (perKey.get(evidence.key) ?? 0) >= MAX_ENV_EVIDENCE_PER_KEY
@@ -983,7 +909,10 @@ export async function analyzeZipBuffer(buffer, meta = {}) {
         continue;
       envEvidence.push(evidence);
       perKey.set(evidence.key, (perKey.get(evidence.key) ?? 0) + 1);
-      if (envEvidence.length >= MAX_ENV_EVIDENCE) break;
+      if (envEvidence.length >= MAX_ENV_EVIDENCE) {
+        if (index + 1 < scan.evidence.length) incompleteEnvScanReasons.add("evidence-cap");
+        break;
+      }
     }
   }
   if (incompleteEnvScanReasons.size) {
