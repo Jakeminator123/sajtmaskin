@@ -11,7 +11,7 @@ const f3BuildSpec = {
 } as BuildSpec;
 
 describe("renderImportedRepoBlock", () => {
-  it("renders an authoritative current contract beside the immutable baseline", () => {
+  it("renders authoritative current structure beside the historical import reference", () => {
     const importedFiles = [
       {
         path: "package.json",
@@ -47,11 +47,11 @@ describe("renderImportedRepoBlock", () => {
 
     const rendered = renderImportedRepoBlock(true, context).join("\n");
 
-    expect(rendered).toContain("synthetic context, not a scaffold");
-    expect(rendered).toContain("Current is authoritative");
+    expect(rendered).toContain("Imported repository context (not a Scaffold)");
+    expect(rendered).toContain("current project structure is authoritative");
     expect(rendered).toContain("`/about`");
-    expect(rendered).toContain("Original import baseline from version version_1");
-    expect(rendered).toContain("never restore, regenerate, or overwrite current files");
+    expect(rendered).toContain("Initial import reference from version version_1");
+    expect(rendered).toContain("must never restore, regenerate, or overwrite current files");
   });
 
   it("never renders contract context for an ordinary project", () => {

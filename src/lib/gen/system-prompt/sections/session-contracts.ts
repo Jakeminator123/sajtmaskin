@@ -90,30 +90,30 @@ function renderImportedRepoContractContext(
 ): string[] {
   if (!context) return [];
   const lines = [
-    "### Imported repo contract (synthetic context, not a scaffold)",
+    "### Imported repository context (not a Scaffold)",
     "",
-    "The current contract below was derived from the exact parent-version files for this turn. **Current is authoritative.** The baseline is immutable historical orientation only: never restore, regenerate, or overwrite current files merely to make them match the baseline.",
+    "This Dynamic Context is derived from the exact selected parent-version files. **The current project structure is authoritative.** The import reference is historical only and must never restore, regenerate, or overwrite current files. It contains only bounded structural and source metadata—never file contents, environment values, or secrets.",
     "",
     ...renderImportedRepoContractSummary("Current project structure", context.current),
   ];
   if (!context.baseline) {
     lines.push(
-      "#### Import baseline",
+      "#### Import reference",
       "",
-      "No immutable import baseline exists for this legacy chat. Use the current contract and Current Project Files; do not infer a standard scaffold.",
+      "No initialization reference exists for this legacy chat. Use the current project structure and Current Project Files; do not infer a standard Scaffold.",
       "",
     );
   } else if (context.baseline.contract.contractHash === context.current.contractHash) {
     lines.push(
-      "#### Import baseline",
+      "#### Import reference",
       "",
-      `The current structural contract still matches imported version \`${context.baseline.versionId}\` (hash \`${context.baseline.contract.contractHash.slice(0, 16)}\`).`,
+      `The current project structure still matches imported version \`${context.baseline.versionId}\` (hash \`${context.baseline.contract.contractHash.slice(0, 16)}\`).`,
       "",
     );
   } else {
     lines.push(
       ...renderImportedRepoContractSummary(
-        `Original import baseline from version ${context.baseline.versionId} (historical only)`,
+        `Initial import reference from version ${context.baseline.versionId} (historical only)`,
         context.baseline.contract,
       ),
     );
