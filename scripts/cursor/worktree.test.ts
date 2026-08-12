@@ -6,11 +6,15 @@ import {
   findMainWorktree,
   parseDirtyEntries,
   parseWorktreeList,
+  protectedRemovalPaths,
+  removeLink,
   resolveTargetWorktree,
 } from "./worktree.mjs";
 
 const MAIN = resolve("C:/repo/sajtmaskin");
 const FEATURE = resolve("C:/repo/sajtmaskin-feat-x");
+const PERMANENT_CODEX = resolve("C:/repo/sajtmaskin-codex");
+const REGISTERED_PERMANENT = resolve("C:/agent-worktrees/ed66/sajtmaskin-codex");
 
 const WORKTREES = [
   { path: MAIN, isMain: true },
@@ -69,6 +73,44 @@ describe("resolveTargetWorktree", () => {
       worktrees: WORKTREES,
     });
     expect(plan.ok).toBe(true);
+  });
+
+  it("refuses the current control-plane worktree during removal", () => {
+    const plan = resolveTargetWorktree({
+      targetPath: FEATURE,
+      worktrees: WORKTREES,
+      protectedWorktreePaths: protectedRemovalPaths(WORKTREES, FEATURE),
+    });
+    expect(plan.ok).toBe(false);
+    expect("reason" in plan && plan.reason).toContain("protected permanent/current");
+  });
+
+  it("refuses the conventional permanent Codex checkout during removal", () => {
+    const worktrees = [...WORKTREES, { path: PERMANENT_CODEX, isMain: false }];
+    const plan = resolveTargetWorktree({
+      targetPath: PERMANENT_CODEX,
+      worktrees,
+      protectedWorktreePaths: protectedRemovalPaths(worktrees, FEATURE),
+    });
+    expect(plan.ok).toBe(false);
+    expect("reason" in plan && plan.reason).toContain("protected permanent/current");
+  });
+
+  it("refuses a registry-protected worktree when called from another checkout", () => {
+    const worktrees = [
+      ...WORKTREES,
+      { path: PERMANENT_CODEX, isMain: false },
+      { path: REGISTERED_PERMANENT, isMain: false },
+    ];
+    const plan = resolveTargetWorktree({
+      targetPath: REGISTERED_PERMANENT,
+      worktrees,
+      protectedWorktreePaths: protectedRemovalPaths(worktrees, PERMANENT_CODEX, [
+        REGISTERED_PERMANENT,
+      ]),
+    });
+    expect(plan.ok).toBe(false);
+    expect("reason" in plan && plan.reason).toContain("protected permanent/current");
   });
 });
 
@@ -141,6 +183,37 @@ describe("findLinkedEntries", () => {
         },
       }),
     ).toEqual([]);
+  });
+});
+
+describe("removeLink", () => {
+  it("falls back to unlink when Windows rmdir reports ENOENT for a file symlink", () => {
+    const calls: string[] = [];
+
+    removeLink(`${FEATURE}/.env.local`, {
+      rmdir: () => {
+        calls.push("rmdir");
+        throw Object.assign(new Error("not found"), { code: "ENOENT" });
+      },
+      unlink: () => {
+        calls.push("unlink");
+      },
+    });
+
+    expect(calls).toEqual(["rmdir", "unlink"]);
+  });
+
+  it("accepts a link that disappeared between discovery and removal", () => {
+    expect(() =>
+      removeLink(`${FEATURE}/.env.local`, {
+        rmdir: () => {
+          throw Object.assign(new Error("not a directory"), { code: "EPERM" });
+        },
+        unlink: () => {
+          throw Object.assign(new Error("not found"), { code: "ENOENT" });
+        },
+      }),
+    ).not.toThrow();
   });
 });
 
