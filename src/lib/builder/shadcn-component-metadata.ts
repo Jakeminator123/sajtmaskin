@@ -36,19 +36,6 @@ const DEFAULT_COMPONENT_METADATA: ShadcnComponentMetadata = {
   usageHint: "Bra bas-komponent att anpassa efter din layout och ditt innehåll.",
 };
 
-const CATEGORY_LABELS_SV: Record<ShadcnComponentCategoryId, string> = {
-  inputs: "Inmatning",
-  forms: "Formulär",
-  overlay: "Overlay",
-  navigation: "Navigation",
-  layout: "Layout",
-  feedback: "Feedback",
-  data: "Data",
-  table: "Tabeller",
-  typography: "Typografi",
-  other: "Övrigt",
-};
-
 const CURATED_COMPONENT_METADATA: Record<string, ShadcnComponentMetadata> = {
   accordion: {
     category: "layout",
@@ -481,9 +468,4 @@ export function resolveShadcnComponentMetadata(
   const curated = CURATED_COMPONENT_METADATA[normalizedName];
   if (curated) return curated;
   return resolveFromHeuristics(normalizedName, normalizedDescription);
-}
-
-export function getShadcnComponentCategoryLabelSv(category: string): string {
-  const key = category.trim().toLowerCase() as ShadcnComponentCategoryId;
-  return CATEGORY_LABELS_SV[key] ?? CATEGORY_LABELS_SV.other;
 }

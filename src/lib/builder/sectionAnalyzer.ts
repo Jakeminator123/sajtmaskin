@@ -249,45 +249,6 @@ export function analyzeSections(code: string): DetectedSection[] {
 }
 
 /**
- * Generate placement options based on detected sections
- */
-export function generatePlacementOptions(sections: DetectedSection[]): {
-  value: string;
-  label: string;
-  description: string;
-}[] {
-  const options: { value: string; label: string; description: string }[] = [];
-
-  // Always include "top" option
-  options.push({
-    value: "top",
-    label: "Längst upp",
-    description: "Överst på sidan, före allt annat innehåll",
-  });
-
-  // Add options based on detected sections
-  for (const section of sections) {
-    // Don't add "after header" - that's usually where hero goes
-    if (section.type === "header") continue;
-
-    options.push({
-      value: `after-${section.type}`,
-      label: `Efter ${section.nameSv}`,
-      description: `Placera direkt efter ${section.nameSv.toLowerCase()}-sektionen`,
-    });
-  }
-
-  // Always include "bottom" option
-  options.push({
-    value: "bottom",
-    label: "Längst ner",
-    description: "Allra längst ner på sidan",
-  });
-
-  return options;
-}
-
-/**
  * Convert a placement value to a prompt instruction
  */
 export function placementToInstruction(placement: string, sections: DetectedSection[]): string {
@@ -315,7 +276,6 @@ export function placementToInstruction(placement: string, sections: DetectedSect
   // Default fallback
   return "Add it as a new section on the homepage below existing content.";
 }
-
 
 /**
  * Untrusted sektionskandidat från inspect-bridge (postMessage).

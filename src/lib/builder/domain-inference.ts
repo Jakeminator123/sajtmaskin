@@ -93,16 +93,3 @@ export function inferSiteTypeHintFromDomain(prompt: string): string | null {
   }
   return null;
 }
-
-/** Expose rules for tooling/backoffice inspection. */
-export function getDomainRules(): ReadonlyArray<{
-  domain: DomainProfile;
-  briefHint: string;
-  keywords: string[];
-}> {
-  return rulesJson.map((entry) => ({
-    domain: entry.domain as DomainProfile,
-    briefHint: entry.briefHint,
-    keywords: [...entry.keywords_sv, ...entry.keywords_en],
-  }));
-}
