@@ -4,9 +4,14 @@ alwaysApply: true
 
 # Ema/Emil PR-spärr (ägarbeslut 2026-08-05, tillfällig)
 
-- PR:er författade av GitHub-kontot **`EmaCodeHero`** (Emil; branch `ema`, t.ex. #801)
-  får **ALDRIG** mergas av en agent — oavsett grönt CI, `merge:ready` eller andra
-  labels. Endast ägaren (`Jakeminator123`) beslutar om merge, uttryckligen per PR.
+- PR:er författade av GitHub-kontot **`EmaCodeHero`** (Emil; t.ex. #801)
+  får **ALDRIG** mergas av en agent till **`master`** — oavsett grönt CI,
+  `merge:ready` eller andra labels. Endast ägaren (`Jakeminator123`) beslutar
+  om merge, uttryckligen per PR.
+- **Base ska vara `ema`, inte `master`.** Ema-arbete landar på branchen `ema`
+  (Vercel auto-deploy där). Hittar en agent en Ema-PR mot `master`: retargeta
+  till `ema` (`gh pr edit <n> --base ema`) i stället för att merga till master.
+  Ägarens Accept/Merge ska då skriva in i `ema`.
 - Omvänt gäller samma spärr åt andra hållet: EmaCodeHero ska inte merga ägarens
   eller agenternas PR:er. Upptäcker en agent en sådan merge: rapportera direkt
   till ägaren, agera inte själv.
