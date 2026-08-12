@@ -51,10 +51,10 @@ export function parseWorktreeList(porcelain) {
  * paths so `..\name`, a trailing slash and a different drive-letter case all
  * match. Refuses the main checkout — it is shared with the user.
  *
- * @param {{ targetPath: string, worktrees: { path: string, isMain: boolean }[] }} input
+ * @param {{ targetPath: string, worktrees: { path: string, isMain: boolean }[], protectedWorktreePaths?: string[] }} input
  * @returns {{ ok: true, worktreePath: string } | { ok: false, reason: string }}
  */
-export function resolveTargetWorktree({ targetPath, worktrees }) {
+export function resolveTargetWorktree({ targetPath, worktrees, protectedWorktreePaths = [] }) {
   const wanted = normalizePath(targetPath);
   const match = worktrees.find((w) => normalizePath(w.path) === wanted);
 
@@ -70,7 +70,35 @@ export function resolveTargetWorktree({ targetPath, worktrees }) {
       reason: `${targetPath} is the MAIN checkout, not a worktree. Refusing — removing it would delete the shared working tree.`,
     };
   }
+  if (protectedWorktreePaths.some((path) => normalizePath(path) === wanted)) {
+    return {
+      ok: false,
+      reason: `${targetPath} is a protected permanent/current worktree. Refusing removal.`,
+    };
+  }
   return { ok: true, worktreePath: match.path };
+}
+
+/**
+ * Protect both the checkout running this script and the repo-conventional
+ * permanent Codex checkout next to the main checkout.
+ *
+ * @param {{ path: string, isMain: boolean }[]} worktrees
+ * @param {string} [currentWorktreePath]
+ * @param {string[]} [configuredPaths]
+ * @returns {string[]}
+ */
+export function protectedRemovalPaths(
+  worktrees,
+  currentWorktreePath = REPO_ROOT,
+  configuredPaths = [],
+) {
+  const mainWorktree = findMainWorktree(worktrees);
+  return [
+    currentWorktreePath,
+    ...(mainWorktree ? [`${mainWorktree}-codex`] : []),
+    ...configuredPaths,
+  ];
 }
 
 function normalizePath(p) {
@@ -241,13 +269,30 @@ export function describeRemovalFailure({
   return lines.join("\n");
 }
 
-/** Remove a link without following it. Junctions are directories; file symlinks are not. */
-function removeLink(linkPath) {
+/**
+ * Remove a link without following it. Junctions are directories; file symlinks are not.
+ *
+ * On Windows, `rmdirSync` can report ENOENT for a file symlink even though
+ * `lstatSync` just found it. Falling back to `unlinkSync` on ENOENT is safe:
+ * unlink removes the link itself, never its target. If the entry raced away,
+ * unlink returns ENOENT and the desired end state is already true.
+ *
+ * @param {string} linkPath
+ * @param {{ rmdir?: (p: string) => void, unlink?: (p: string) => void }} [io]
+ */
+export function removeLink(linkPath, io = {}) {
+  const rmdir = io.rmdir ?? rmdirSync;
+  const unlink = io.unlink ?? unlinkSync;
   try {
-    rmdirSync(linkPath);
+    rmdir(linkPath);
   } catch (err) {
-    if (err.code === "ENOTDIR" || err.code === "EPERM") {
-      unlinkSync(linkPath);
+    if (err.code === "ENOTDIR" || err.code === "EPERM" || err.code === "ENOENT") {
+      try {
+        unlink(linkPath);
+      } catch (unlinkError) {
+        if (unlinkError.code === "ENOENT") return;
+        throw unlinkError;
+      }
       return;
     }
     throw err;
@@ -265,6 +310,17 @@ function sleepSync(ms) {
 
 function listWorktrees() {
   return parseWorktreeList(git(["worktree", "list", "--porcelain"]));
+}
+
+function configuredProtectedWorktreePaths() {
+  try {
+    return git(["config", "--get-all", "sajtmaskin.protectedWorktree"])
+      .split(/\r?\n/u)
+      .map((path) => path.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -344,7 +400,16 @@ function commandLink(targetPath) {
 }
 
 function commandRemove(targetPath, { force }) {
-  const plan = resolveTargetWorktree({ targetPath, worktrees: listWorktrees() });
+  const worktrees = listWorktrees();
+  const plan = resolveTargetWorktree({
+    targetPath,
+    worktrees,
+    protectedWorktreePaths: protectedRemovalPaths(
+      worktrees,
+      REPO_ROOT,
+      configuredProtectedWorktreePaths(),
+    ),
+  });
   if (!plan.ok) {
     console.error(`[worktree] ${plan.reason}`);
     process.exit(1);
