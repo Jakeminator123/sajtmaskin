@@ -1,12 +1,10 @@
 "use client";
 
 import { ChatInterface } from "@/components/builder/chat/ChatInterface";
-import { InitFromRepoModal } from "@/components/builder/project-transfer/InitFromRepoModal";
 import { MessageList } from "@/components/builder/chat/MessageList";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
 import { BuilderPreviewTools } from "@/components/builder/shell/BuilderPreviewTools";
 import { ChatOutputCollapseBar } from "@/components/builder/chat/ChatOutputCollapseBar";
-import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/shell/BuilderHeader";
 import { ModelTraceOverlay } from "@/components/builder/diagnostics/ModelTraceOverlay";
 import { LaunchReadinessCard } from "@/components/builder/readiness/LaunchReadinessCard";
@@ -22,6 +20,7 @@ import { resolveChatCollapseStatusText } from "@/lib/builder/chat-collapse-statu
 import { localizeVerificationSummary } from "@/lib/builder/version-history-status-labels";
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
+import dynamic from "next/dynamic";
 import { BuilderLayout } from "../BuilderLayout";
 import type { BuilderViewModel } from "../useBuilderPageController";
 import { BuilderShellDialogs } from "./shell-dialogs";
@@ -31,6 +30,22 @@ import { useShellF3TipsChrome } from "./use-f3-tips-chrome";
 import { useShellPreviewLayout } from "./use-preview-layout";
 import { useShellRegistryInsert } from "./use-registry-insert";
 import { useShellVersionFollowup } from "./use-version-followup";
+
+const InitFromRepoModal = dynamic(
+  () =>
+    import("@/components/builder/project-transfer/InitFromRepoModal").then((mod) => ({
+      default: mod.InitFromRepoModal,
+    })),
+  { ssr: false },
+);
+
+const VersionHistory = dynamic(
+  () =>
+    import("@/components/builder/VersionHistory").then((mod) => ({
+      default: mod.VersionHistory,
+    })),
+  { ssr: false },
+);
 
 export function BuilderShellContent(vm: BuilderViewModel) {
   const {
