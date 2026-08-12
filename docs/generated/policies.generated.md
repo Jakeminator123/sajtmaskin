@@ -10,7 +10,7 @@
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:c3e6f7135e30415e -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:1df82ad99d801a14 -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:239e3dad449cb1b8 -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:61d087c0fc21260e -->
 
 # Policies
 
@@ -219,7 +219,7 @@ This index contains 42 control-plane entries. It is a map to canonical owners, n
 | `manifest-pre-generation-contracts`           | `policy`            | `config/ai_models/manifest.json#preGenerationContracts`      | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `manifest-quality-gate-tiers`                 | `policy`            | `config/ai_models/manifest.json#qualityGateTiers`            | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `manifest-repair-policies`                    | `policy`            | `config/ai_models/manifest.json#repairPolicies`              | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `naming-dictionary`                           | `policy`            | `config/naming-dictionary.json`                              | `check:terms`           | `warn`    | `declared-only` | No               |
+| `naming-dictionary`                           | `policy`            | `config/naming-dictionary.json`                              | `check:terms:contract`  | `hard`    | `n/a`           | No               |
 | `placeholder-harmless`                        | `policy`            | `src/lib/integrations/placeholder-harmless.ts`               | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `prompt-heuristic-tokens`                     | `policy`            | `config/prompt-heuristic-tokens.json`                        | `backoffice:test`       | `hard`    | `wired`         | Yes              |
 | `shadcn-mirror-audit-policy`                  | `policy`            | `config/shadcn-mirror-audit-policy.json`                     | `mirror:audit`          | `manual`  | `declared-only` | No               |
