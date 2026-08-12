@@ -1,7 +1,7 @@
 {
   "$schema": "../docs/schemas/strict/embeddings-blob-manifest.schema.json",
   "_meta": {
-    "updatedAt": "2026-08-12T06:02:28.849Z"
+    "updatedAt": "2026-08-12T06:10:59.182Z"
   },
   "artifacts": {
     "template": {
@@ -17,7 +17,7 @@
     "variant": {
       "key": "embeddings/variant-embeddings.json",
       "url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/embeddings/variant-embeddings.json",
-      "updatedAt": "2026-08-12T06:02:28.847Z"
+      "updatedAt": "2026-08-12T06:10:59.181Z"
     }
   }
 }

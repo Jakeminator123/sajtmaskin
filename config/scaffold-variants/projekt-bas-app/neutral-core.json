@@ -25,7 +25,7 @@
     "border": "oklch(0.28 0.004 0)",
     "ring": "oklch(0.58 0.16 258)",
     "radius": "0.625rem",
-    "bodyBackgroundImage": "radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 8%, transparent) 0%, transparent 32%), radial-gradient(circle at bottom right, color-mix(in oklab, var(--color-foreground) 4%, transparent) 0%, transparent 38%)"
+    "bodyBackgroundImage": "none"
   },
   "id": "neutral-core",
   "scaffoldId": "projekt-bas-app",
@@ -53,16 +53,16 @@
   ],
   "signaturePatterns": {
     "layouts": [
-      "Lead with a clear single-column hero: concise headline, one supporting sentence, and a single primary call-to-action.",
-      "Stack content in evenly spaced full-width sections with generous vertical rhythm and a consistent container width.",
-      "Use a simple responsive card grid (2-3 columns) for feature or content blocks that collapses to one column on mobile."
+      "Start from a single primary screen with clear hierarchy; add routes only when the prompt needs them.",
+      "Keep the first viewport calm: one title, one short supporting line, and space for the product UI to emerge.",
+      "Use a simple full-width content column with consistent spacing — no forced multi-section marketing stack."
     ],
     "motifs": [
       "Neutral surfaces with a single restrained accent color, comfortable spacing, and a readable typographic hierarchy.",
       "Soft consistent corner radius and light borders so components read as calm and extension-friendly."
     ],
     "antiPatterns": [
-      "Avoid loud gradients, dense dashboards, or heavy decoration that would fight a neutral, adaptable starter.",
+      "Avoid hero+CTA marketing landings, feature-card grids, sidebars, or dashboards unless the user asked for them.",
       "Do not lock in a strong niche aesthetic; keep the expression flexible until the user's actual domain is known."
     ]
   },

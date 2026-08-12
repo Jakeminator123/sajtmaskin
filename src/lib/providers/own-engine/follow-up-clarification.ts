@@ -178,8 +178,10 @@ export function shouldIgnorePersistedScaffoldForMatch(params: {
 }): boolean {
   const { hasPreviousFiles, followUpIntent, message, scaffoldMode, scaffoldId } = params;
   if (!hasPreviousFiles) return false;
-  if (scaffoldMode === "off") return false;
-  if (scaffoldMode !== "auto") return false;
+  // "off" (Scaffold: Av) must still allow clear-redesign unlock — otherwise Av
+  // in the header freezes the contract forever. Unlock re-applies the Av
+  // baseline via resolve-base (persisted cleared → off branch).
+  if (scaffoldMode !== "auto" && scaffoldMode !== "off") return false;
   if (scaffoldId) return false;
 
   const wantsUnlock =

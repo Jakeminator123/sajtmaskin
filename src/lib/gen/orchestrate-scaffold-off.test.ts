@@ -56,4 +56,21 @@ describe("resolveOrchestrationBase scaffoldMode off (builder Scaffold: Av)", () 
     expect(base.resolvedScaffold).toBeNull();
     expect(base.scaffoldSelection?.selectionMethod).toBe("off");
   });
+
+  it("does not override a persisted scaffold on follow-up when header is still Av", async () => {
+    const base = await resolveOrchestrationBase({
+      prompt: "Byt rubriken till Hej",
+      buildIntent: "website",
+      scaffoldMode: "off",
+      persistedScaffoldId: "landing-page",
+      embeddingScaffoldMatch: false,
+      capabilities: noCapabilities,
+      generationMode: "followUp",
+      previousFilesCount: 12,
+      existingRoutePaths: ["/"],
+    });
+
+    expect(base.resolvedScaffold?.id).toBe("landing-page");
+    expect(base.scaffoldSelection?.selectionMethod).toBe("persisted");
+  });
 });
