@@ -63,6 +63,7 @@ describe("PreviewPanelAddPanel", () => {
   it("defaults to the Block tab with the composer blocks (no registry fetch)", () => {
     render(<PreviewPanelAddPanel />);
 
+    expect(screen.getByText("Lägg till i sajten")).toBeTruthy();
     // Ett av de 8 Composer-blocken syns
     expect(screen.getByText("Enkel hero")).toBeTruthy();
     // Bläddra har inte hämtat något förrän fliken öppnas

@@ -204,10 +204,10 @@ export function PreviewPanelComposerOverlay(props: {
         </div>
       ) : null}
       <div className="pointer-events-none absolute right-3 bottom-3 left-3 z-30 max-w-md rounded border border-violet-800/60 bg-violet-950/90 px-3 py-2 text-[11px] text-violet-100 shadow-lg backdrop-blur-sm">
-        <span className="font-semibold text-violet-300">Visual Composer</span>
+        <span className="font-semibold text-violet-300">Släpp i previewn</span>
         <p className="mt-1 text-violet-200/85">
-          Dra ett block från vänster och släpp här. Släpp nära överkant eller underkant för direkt infogning i{" "}
-          <code className="rounded bg-black/30 px-1">app/page.tsx</code>.
+          Dra ett block eller kort från vänster och släpp där det ska sitta. Linjen visar
+          placering (t.ex. Efter Hero) — nära överkant/underkant ger längst upp/ner.
         </p>
         {lastActionLabel ? (
           <p className="mt-1.5 text-violet-200/95">
