@@ -14,11 +14,6 @@ export type PaletteState = {
   updatedAt?: string;
 };
 
-export type PaletteSpec = {
-  selections: PaletteSelection[];
-  updatedAt?: string;
-};
-
 const MAX_PALETTE_ITEMS = 16;
 
 const DEFAULT_PALETTE_SELECTIONS: PaletteSelection[] = [
@@ -137,14 +132,6 @@ export function mergePaletteSelection(
   return {
     selections: Array.from(existing.values()),
     updatedAt: new Date().toISOString(),
-  };
-}
-
-export function toPaletteSpec(state?: PaletteState | null): PaletteSpec | undefined {
-  if (!state?.selections?.length) return undefined;
-  return {
-    selections: state.selections.slice(0, MAX_PALETTE_ITEMS),
-    updatedAt: state.updatedAt,
   };
 }
 
