@@ -146,6 +146,21 @@ export const SCAFFOLD_EMBEDDING_LOCALE: Record<ScaffoldId, ScaffoldEmbeddingLoca
       "kontrollpanel",
     ],
   },
+  "projekt-bas-app": {
+    labelSv: "Projekt bas-app",
+    descriptionSv:
+      "Minimal app-bas för Scaffold: Av i fritext. Körbar Next.js-start utan färdig produktstruktur — LLM bygger vidare från prompten.",
+    keywordsSv: [
+      "projekt",
+      "bas",
+      "app",
+      "minimal",
+      "starter",
+      "scaffold av",
+      "startpunkt",
+      "grundstruktur",
+    ],
+  },
 };
 
 export function buildIntentBilingual(

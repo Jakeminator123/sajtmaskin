@@ -368,6 +368,18 @@ describe("shouldIgnorePersistedScaffoldForMatch", () => {
       }),
     ).toBe(false);
   });
+
+  it("allows clear-redesign unlock when Scaffold: Av (off) is selected", () => {
+    expect(
+      shouldIgnorePersistedScaffoldForMatch({
+        hasPreviousFiles: true,
+        followUpIntent: "clear-redesign",
+        message: "Redesign everything from scratch",
+        scaffoldMode: "off",
+        scaffoldId: null,
+      }),
+    ).toBe(true);
+  });
 });
 
 // 2026-05-01: end-to-end regressionsmatris som binder ihop

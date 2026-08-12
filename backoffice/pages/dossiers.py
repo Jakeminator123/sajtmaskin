@@ -52,6 +52,8 @@ from .dossiers_lib.constants import (
 )
 
 from .dossiers_lib.labels import (
+    class_description,
+    class_hint,
     class_label,
     mock_label,
     requires_f3,
@@ -189,6 +191,8 @@ __all__ = [
     "_validate_manifest",
     "backup_file",
     "backup_tree",
+    "class_description",
+    "class_hint",
     "class_label",
     "confirm_by_typing",
     "danger_zone",

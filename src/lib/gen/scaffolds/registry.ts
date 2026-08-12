@@ -18,6 +18,7 @@ import { blogManifest } from "./blog/manifest";
 import { dashboardManifest } from "./dashboard/manifest";
 import { authPagesManifest } from "./auth-pages/manifest";
 import { ecommerceManifest } from "./ecommerce/manifest";
+import { projektBasAppManifest } from "./projekt-bas-app/manifest";
 import { getScaffoldResearchOverrides } from "./scaffold-research";
 import { applyScaffoldSeoDefaults } from "./seo-defaults";
 import { deepFreeze } from "@/lib/utils/deep-freeze";
@@ -47,6 +48,7 @@ const BASE_SCAFFOLDS: ScaffoldManifest[] = [
   authPagesManifest,
   ecommerceManifest,
   appShellManifest,
+  projektBasAppManifest,
 ];
 
 function mergeUniqueStrings(base: string[] = [], override: string[] = []): string[] {

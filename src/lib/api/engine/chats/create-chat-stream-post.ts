@@ -82,6 +82,7 @@ import { createOwnEnginePlanModeResponse } from "@/lib/providers/own-engine/plan
 import { createPreGenerationContractGateReadableStream } from "@/lib/providers/own-engine/pre-generation-contract-gate";
 import { matchScaffold, scaffoldForExplicitIntent } from "@/lib/gen/scaffolds/matcher";
 import { getScaffoldById } from "@/lib/gen/scaffolds/registry";
+import { SCAFFOLD_OFF_BASELINE_ID } from "@/lib/gen/scaffolds/types";
 import {
   createPreviewPrewarmLeaseKey,
   prewarmPreviewSession,
@@ -229,11 +230,12 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
       // The picked preMatchVariant.id is later passed as orchestrationInput.persistedVariantId
       // so the same variant is reused by finalizeOrchestrationPrompts (no async re-pick), keeping
       // brief-LLM hints and codegen aligned.
-      // Only runs when scaffoldMode is not "off" — if off, resolveOrchestrationBase will
-      // also skip scaffold selection, so we should not inject stale variant hints.
+      // Scaffold: Av → thin baseline (`projekt-bas-app`) so Deep Brief / variant
+      // hints align with resolveOrchestrationBase. Template imports never send
+      // scaffoldMode off via this path (they use importedRepoMode instead).
       const scaffoldModeIsOff = parsedMeta.scaffoldMode === "off";
       const preMatchScaffoldRaw = scaffoldModeIsOff
-        ? null
+        ? getScaffoldById(SCAFFOLD_OFF_BASELINE_ID)
         : parsedMeta.scaffoldId
           ? getScaffoldById(parsedMeta.scaffoldId)
           : matchScaffold(message, metaBuildIntent as BuildIntent | null);

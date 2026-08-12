@@ -54,6 +54,7 @@ from .constants import (
 )
 
 from .labels import (
+    class_description,
     class_label,
     mock_label,
     is_default_for_capability,
@@ -115,8 +116,8 @@ def _section_create_from_scratch() -> None:
         key="create_scratch_class",
         format_func=class_label,
         help=(
-            "Fristående (soft) = bara npm-paket. Kopplad (hard) = kräver en "
-            "extern tjänst/nycklar och måste därför deklarera ett demoläge."
+            f"{class_description('soft')} "
+            f"{class_description('hard')}"
         ),
     )
     with st.form("create_dossier_scratch_form", clear_on_submit=False):

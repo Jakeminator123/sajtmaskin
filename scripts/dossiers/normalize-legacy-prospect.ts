@@ -21,7 +21,7 @@
  *   - "accept": v2 manifest + instructions + which component files to keep.
  *   - "reject": a concrete reason ("inte bra nog eftersom …").
  * Accepted manifests are validated with the SAME AJV validator as runtime/CI
- * (`validateDossierManifest`) plus mechanical guards (soft ⇒ no build-env /
+ * (`validateDossierManifest`) plus mechanical guards (soft ⇒ no envVars /
  * no server files; every manifest file must exist among kept components).
  *
  * Promotion to data/dossiers/{hard,soft}/ is a SEPARATE, manual step —
@@ -199,7 +199,7 @@ Domain rules (Sajtmaskin contracts — violating these means reject or flag):
 - Env-dependent SDK clients must NOT be constructed at module top-level (import-time crash breaks the enforcement contract). If the code does this, list it under requiredCodeChanges (accept) or reject if pervasive.
 - codeFidelity: "verbatim" for integration glue (webhooks, auth callbacks, SDK init, API routes — protected from creative rewriting); "rewritable" for UI. Use per-file injectionMode when mixed.
 - providers: for class "hard", emit a non-empty array of canonical provider identities confirmed by the shipped SDK/API; for class "soft", OMIT the property entirely. Re-derive this from the code and source material rather than copying a legacy label.
-- class "soft" must be fully self-contained: NO envVars with enforcement "build" and NO files with role "server". If the material cannot satisfy that, reject (the plan's class is fixed).
+- class "soft" must have NO declared integration provider/secret, NO non-empty envVars, and NO files with role "server". Public keyless resources are allowed and do not by themselves make it hard. If the material cannot satisfy that, reject (the plan's class is fixed).
 - envVars: only keys the shipped code actually reads. purpose should say what it does + where to get it.
 - dependencies: only packages the kept files import. Prefer unpinned names unless a major-version pin is required.
 
@@ -379,10 +379,8 @@ export function runMechanicalChecks(
     if (Object.prototype.hasOwnProperty.call(manifest, "providers")) {
       errors.push("soft dossier must omit providers");
     }
-    if ((manifest.envVars ?? []).some((e) => (e.enforcement ?? "build") === "build")) {
-      errors.push(
-        "soft dossier must not have build-enforced envVars (dossierRequiresF3 would flip)",
-      );
+    if ((manifest.envVars ?? []).length > 0) {
+      errors.push("soft dossier must not declare non-empty envVars");
     }
     if ((manifest.files ?? []).some((f) => f.role === "server")) {
       errors.push("soft dossier must not ship files with role 'server'");

@@ -89,7 +89,7 @@ export function validateDossierManifest(
   }
 
   if (typeof raw === "object" && raw !== null) {
-    const manifest = raw as { id?: unknown; providers?: unknown };
+    const manifest = raw as { id?: unknown; providers?: unknown; envVars?: unknown };
     const id = manifest.id;
     if (id !== context.expectedId) {
       errors.push(
@@ -102,8 +102,13 @@ export function validateDossierManifest(
       if (!Array.isArray(manifest.providers) || manifest.providers.length === 0) {
         errors.push("hard manifests must declare a non-empty providers array");
       }
-    } else if (Object.prototype.hasOwnProperty.call(manifest, "providers")) {
-      errors.push("soft manifests must not declare providers");
+    } else {
+      if (Object.prototype.hasOwnProperty.call(manifest, "providers")) {
+        errors.push("soft manifests must not declare providers");
+      }
+      if (Array.isArray(manifest.envVars) && manifest.envVars.length > 0) {
+        errors.push("soft manifests must not declare non-empty envVars");
+      }
     }
   } else {
     errors.push("manifest must be a JSON object");
