@@ -272,7 +272,7 @@ def _render_tech_details(ctx: BackofficeContext, domain_map: dict) -> None:
         for line in (SCAFFOLD_DOC_REL, DOSSIER_DOC_REL, GLOSSARY_REL):
             st.markdown(f"- `{line}`")
         st.caption(
-            "Sökvägarna ovan speglas i `config/dashboard/domain-map.json`; "
+            "Sökvägarna ovan speglas i `config/backoffice/domain-map.json`; "
             "kodägarskapet per beslut finns i vyn **Control Plane (cockpit)**."
         )
 

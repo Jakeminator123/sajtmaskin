@@ -34,7 +34,7 @@ export function resolveInboundPreviewUrl(
 }
 
 /** Normalize candidate preview URL and drop compatibility shim URLs from canonical live-preview paths. */
-export function resolveCanonicalLivePreviewUrl(url: string | null | undefined): string | null {
+function resolveCanonicalLivePreviewUrl(url: string | null | undefined): string | null {
   const normalized = normalizePreviewUrl(url);
   if (!normalized || isCompatibilityShimPreviewUrl(normalized)) return null;
   return normalized;

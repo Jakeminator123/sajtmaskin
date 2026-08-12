@@ -136,7 +136,7 @@ class BuildingBlocksNavigationTests(unittest.TestCase):
         self.assertEqual(unknown, [], f"Hubben länkar till okända sidor: {unknown}")
 
     def test_hub_has_domain_map_entry_with_docs_paths(self) -> None:
-        domain_map = read_json(REPO_ROOT / "config" / "dashboard" / "domain-map.json")
+        domain_map = read_json(REPO_ROOT / "config" / "backoffice" / "domain-map.json")
         entry = (domain_map.get("pages") or {}).get("Byggstenar: översikt")
         self.assertIsNotNone(entry, "Hubben saknar post i domain-map.json")
         assert entry is not None

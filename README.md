@@ -26,18 +26,9 @@ Dev-servern kan startas utan predev med
 
 ## Hitta rätt kod
 
-| Område                           | Börja här                                                               |
-| -------------------------------- | ----------------------------------------------------------------------- |
-| Builder och chat                 | `src/app/builder/`, `src/components/builder/`, `src/lib/hooks/chat/`    |
-| Own-engine och generation        | `src/lib/own-engine/`, `src/lib/providers/own-engine/`, `src/lib/gen/`  |
-| Scaffolds, variants och dossiers | `src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/` |
-| Preview                          | `src/lib/gen/preview/`, `preview-host/`                                 |
-| Persistens                       | `src/lib/db/`, `scripts/db/`                                            |
-| Publicering                      | `src/app/api/v0/deployments/`, `src/lib/deploy/`                        |
-| Konfiguration                    | `config/`, `src/lib/env.ts`                                             |
-
-Den tunna kodkartan finns i
-[`docs/architecture/code-map.md`](docs/architecture/code-map.md).
+Kodens kanoniska router finns i
+[`docs/architecture/code-map.md`](docs/architecture/code-map.md). Uppdatera
+kodkartan när ett ansvar flyttar; skapa inte en parallell sökvägstabell här.
 
 ## Dokumentation
 
@@ -52,22 +43,14 @@ Den tunna kodkartan finns i
    — invariants och signalägare.
 6. [`.cursor/README.md`](.cursor/README.md) — agentregler och arbetsflöden.
 
-Canonical owner avgörs per faktatyp. Runtimekod, manifest, registries och
-policies kan äga olika beslut; genererad eller handskriven dokumentation är
-projektion respektive mental modell. Owner-modellen finns i
+Canonical owner och dokumentationsnivåer definieras i
 [`docs/documentation-lifecycle.md`](docs/documentation-lifecycle.md).
 
 ## Verifiera repot
 
-```text
-npm run typecheck
-npm run lint
-npm run test:ci
-npm run build
-npm run scaffolds:validate
-npm run dossiers:validate-all
-```
-
-`package.json` är kanonisk källa för tillgängliga kommandon.
-Manuella underhållsknappar (scratch, worktrees, env) som CI *inte* kör:
+`package.json` är kanonisk källa för tillgängliga kommandon. Minsta verifiering
+per ändringstyp finns i [`.cursor/rules/workflow.mdc`](.cursor/rules/workflow.mdc)
+och den tunna kommandoöversikten i
+[`.cursor/rules/useful-commands.mdc`](.cursor/rules/useful-commands.mdc).
+Manuella underhållsknappar (scratch, worktrees, env) som CI _inte_ kör:
 [`UNDERHALL.md`](UNDERHALL.md).

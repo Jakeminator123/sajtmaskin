@@ -25,7 +25,7 @@ Runbooks ska ligga utanför denna kärna, t.ex. `docs/runbooks/preview-white-scr
 - **Init är inte follow-up.** Init väljer grund; follow-up ändrar en befintlig graph.
 - **F2 är inte F3.** F2 är design/preview; F3 är integration/build/deploybarhet.
 - **Orkestrering före specialfall.** Lägg nya signaler i rätt ägare i stället för att sprida heuristik i fem konsumenter.
-- **Mekanisk fix före LLM-fix.** Deterministiska fixers ska ta det som inte kräver modellbedömning.
+- **Normalize före RepairGate.** Deterministiska fixers ska ta det som inte kräver modellbedömning.
 - **False-green är värre än blocker.** Om en version är användbar men degraderad ska statusen säga det.
 - **Inventarier ska genereras eller läsas från kod.** Handhåll inte counts för scaffolds, dossiers, fixers, env-vars eller modeller i architecture-docs.
 

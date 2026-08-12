@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sajtmaskin.local/docs/schemas/strict/backoffice-domain-map.schema.json",
+  "title": "Sajtmaskin Backoffice domain map",
+  "description": "Strict schema for config/backoffice/domain-map.json, the metadata projection that maps every registered Backoffice page to canonical files, documentation, schemas and code readers.",
+  "type": "object",
+  "required": ["$schema", "schemaVersion", "title", "repoSiblings", "pages"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "const": "../../docs/schemas/strict/backoffice-domain-map.schema.json"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "repoSiblings": {
+      "type": "object",
+      "required": ["config", "backoffice", "docs", ".cursor"],
+      "additionalProperties": false,
+      "properties": {
+        "config": { "$ref": "#/$defs/nonEmptyText" },
+        "backoffice": { "$ref": "#/$defs/nonEmptyText" },
+        "docs": { "$ref": "#/$defs/nonEmptyText" },
+        ".cursor": { "$ref": "#/$defs/nonEmptyText" }
+      }
+    },
+    "pages": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^\\S(?:.*\\S)?$"
+      },
+      "additionalProperties": { "$ref": "#/$defs/page" }
+    }
+  },
+  "$defs": {
+    "nonEmptyText": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$"
+    },
+    "repoRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))\\S(?:.*\\S)?$"
+    },
+    "pathList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/repoRelativePath" }
+    },
+    "page": {
+      "type": "object",
+      "required": ["summary", "canonicalPaths"],
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "$ref": "#/$defs/nonEmptyText" },
+        "canonicalPaths": { "$ref": "#/$defs/pathList" },
+        "docsPaths": { "$ref": "#/$defs/pathList" },
+        "humanSchemaPaths": { "$ref": "#/$defs/pathList" },
+        "strictSchemaPaths": { "$ref": "#/$defs/pathList" },
+        "codeReaders": { "$ref": "#/$defs/pathList" }
+      }
+    }
+  }
+}

@@ -1,8 +1,9 @@
 {
+  "$schema": "../../docs/schemas/strict/backoffice-domain-map.schema.json",
   "schemaVersion": 1,
-  "title": "Karta: dashboard-vy → kataloger",
+  "title": "Karta: Backoffice-vy → kataloger",
   "repoSiblings": {
-    "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen dashboard/ innehåller nu främst legacy wrappers och stöddata till den konsoliderade Streamlit-backoffice-appen.",
+    "config": "Kanoniska källfiler (JSON, markdown, txt) som appen, bygget och skript läser. Undermappen backoffice/ innehåller stöddata till den konsoliderade Streamlit-backoffice-appen.",
     "backoffice": "Kanonisk Python-kod för den konsoliderade Streamlit-backoffice-appen: delad helperlogik, sidmoduler och huvudskal.",
     "docs": "Förklaringar, arkitektur och runbooks. Vanligtvis manuellt; undantag: vyn Cursor-agenter kan spara code-map.md.",
     ".cursor": "Cursor-projektregler (`.cursor/rules/*.mdc`) och skills. Komplett, aktuellt regelindex med kategorier: `.cursor/README.md` (source of truth — räkna/lista inte reglerna här, det driftar). Slash-kommandon: `/avslutning`, `/buggrapport`."
@@ -21,16 +22,12 @@
       ],
       "docsPaths": [
         "docs/architecture/code-map.md",
-        "config/dashboard/domain-map.json",
+        "config/backoffice/domain-map.json",
         "docs/architecture/README.md",
         "docs/architecture/llm-pipeline.md"
       ],
-      "humanSchemaPaths": [
-        "docs/schemas/preview-session-contract.md"
-      ],
-      "strictSchemaPaths": [
-        "docs/schemas/strict/preview-session-contract.schema.json"
-      ],
+      "humanSchemaPaths": ["docs/schemas/preview-session-contract.md"],
+      "strictSchemaPaths": ["docs/schemas/strict/preview-session-contract.schema.json"],
       "codeReaders": []
     },
     "LLM-faser & runtime-sanning": {
@@ -49,9 +46,7 @@
         "docs/schemas/quality-gate.md",
         "docs/architecture/llm-pipeline.md"
       ],
-      "humanSchemaPaths": [
-        "docs/schemas/model-build-profiles.md"
-      ],
+      "humanSchemaPaths": ["docs/schemas/model-build-profiles.md"],
       "codeReaders": [
         "src/lib/ai-models/load-manifest.ts",
         "src/lib/models/phase-routing.ts",
@@ -68,10 +63,7 @@
         "config/domain-rules.json",
         "config/prompt-heuristic-tokens.json"
       ],
-      "docsPaths": [
-        "docs/architecture/llm-pipeline.md",
-        "docs/architecture/glossary.md"
-      ],
+      "docsPaths": ["docs/architecture/llm-pipeline.md", "docs/architecture/glossary.md"],
       "codeReaders": [
         "src/lib/gen/static-core-loader.ts",
         "src/lib/gen/system-prompt/build-dynamic-context.ts",
@@ -81,17 +73,9 @@
     },
     "prompt-core": {
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-request-data.",
-      "canonicalPaths": [
-        "config/prompt-core/",
-        "config/prompt-core/_READ_ME_FIRST.md"
-      ],
-      "docsPaths": [
-        "docs/architecture/llm-pipeline.md",
-        "docs/architecture/glossary.md"
-      ],
-      "codeReaders": [
-        "src/lib/gen/static-core-loader.ts"
-      ]
+      "canonicalPaths": ["config/prompt-core/", "config/prompt-core/_READ_ME_FIRST.md"],
+      "docsPaths": ["docs/architecture/llm-pipeline.md", "docs/architecture/glossary.md"],
+      "codeReaders": ["src/lib/gen/static-core-loader.ts"]
     },
     "ai_models": {
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placeholders för genererade sajter. Här ska panelen spegla faktisk runtime, inte definiera den. Faktisk LLM-input (system vs user-turn, pruning): docs/architecture/llm-pipeline.md § FAS 2. Post-stream finalize/verifier/server-verify: docs/architecture/llm-pipeline.md § FAS 2. `qualityToOwnEngineModel` mappar UI-byggprofiler till modeller; `BuildSpec.qualityTarget` (standard|premium|release-candidate) härleds separat i build-spec.ts för codegen/finalize/verify-policy — samma ord betyder alltså inte samma sak.",
@@ -103,13 +87,8 @@
         "config/ai_models/40-harmless-placeholders.env.txt",
         "config/ai_models/41-tier3-stub-placeholders.env.txt"
       ],
-      "docsPaths": [
-        "docs/schemas/model-build-profiles.md",
-        "docs/architecture/llm-pipeline.md"
-      ],
-      "humanSchemaPaths": [
-        "docs/schemas/model-build-profiles.md"
-      ],
+      "docsPaths": ["docs/schemas/model-build-profiles.md", "docs/architecture/llm-pipeline.md"],
+      "humanSchemaPaths": ["docs/schemas/model-build-profiles.md"],
       "codeReaders": [
         "src/lib/ai-models/load-manifest.ts",
         "src/lib/ai-models/load-generated-site-placeholders.ts",
@@ -244,15 +223,9 @@
         "src/lib/integrations/placeholder-harmless.ts",
         "src/lib/gen/preview/warm-typecheck.ts"
       ],
-      "docsPaths": [
-        "docs/architecture/llm-pipeline.md"
-      ],
-      "humanSchemaPaths": [
-        "docs/schemas/preview-session-contract.md"
-      ],
-      "strictSchemaPaths": [
-        "docs/schemas/strict/preview-session-contract.schema.json"
-      ],
+      "docsPaths": ["docs/architecture/llm-pipeline.md"],
+      "humanSchemaPaths": ["docs/schemas/preview-session-contract.md"],
+      "strictSchemaPaths": ["docs/schemas/strict/preview-session-contract.schema.json"],
       "codeReaders": [
         "src/app/builder/useBuilderPageController.ts",
         "src/components/builder/VersionHistory.tsx",
@@ -261,15 +234,9 @@
     },
     "env-policy": {
       "summary": "Policy för kända env-nycklar och regler (Sajtmaskin-appen). För mänsklig dokumentation av värden se docs/ENV.md.",
-      "canonicalPaths": [
-        "config/env-policy.json"
-      ],
-      "docsPaths": [
-        "docs/ENV.md"
-      ],
-      "codeReaders": [
-        "src/lib/env-audit.ts"
-      ]
+      "canonicalPaths": ["config/env-policy.json"],
+      "docsPaths": ["docs/ENV.md"],
+      "codeReaders": ["src/lib/env-audit.ts"]
     },
     "Control Plane (cockpit)": {
       "summary": "Read-only operatörsöversikt (Backoffice 2.0 fas 1) över control-plane-registren: schema- + policy-registret renderas som en samlad cockpit (source of truth, validator, ciStatus, runtimeEnforced/runtimeStatus, backoffice-redigerbarhet/danger, mobility, notes). Ingen redigering här — `backoffice.writePath`/`surface` pekar operatören till respektive ägaryta. Strict-schema för registren själva och human-läsbar karta listas som sökvägar.",
@@ -280,15 +247,9 @@
         "backoffice/pages/control_plane.py",
         "scripts/control-plane/check-registry.mjs"
       ],
-      "docsPaths": [
-        "config/control-plane/README.md"
-      ],
-      "strictSchemaPaths": [
-        "docs/schemas/strict/control-plane-registry.schema.json"
-      ],
-      "codeReaders": [
-        "src/lib/control-plane/registry.test.ts"
-      ]
+      "docsPaths": ["config/control-plane/README.md"],
+      "strictSchemaPaths": ["docs/schemas/strict/control-plane-registry.schema.json"],
+      "codeReaders": ["src/lib/control-plane/registry.test.ts"]
     },
     "Env Readiness (read-only)": {
       "summary": "Read-only operatörsmatris (Backoffice 2.0 fas 2) över env-lagren: Sajtmaskin-appens egen env (klassning i config/env-policy.json, ultimat auktoritet src/lib/env.ts serverSchema) vs den genererade sajtens preview-env (placeholder-fragment + mergeordning i src/lib/gen/preview/env-local.ts där generated vinner). Per nyckel: source/provenance, requiredFor (app|preview-host|F2|F3|deploy), enforcement, hasValue (maskerad boolean), isPlaceholder, blocksF3 och sourceOfTruth. Värden är maskerade by design — inga hemligheter visas eller loggas. harmless = safe in F3, tier3-stub = F2-only (stripped in F3). Ingen redigering här.",
@@ -300,10 +261,7 @@
         "src/lib/gen/preview/env-local.ts",
         "backoffice/pages/env_readiness.py"
       ],
-      "docsPaths": [
-        "docs/contracts/env-flow.md",
-        "docs/ENV.md"
-      ],
+      "docsPaths": ["docs/contracts/env-flow.md", "docs/ENV.md"],
       "codeReaders": [
         "src/lib/env.ts",
         "src/lib/env-audit.ts",
@@ -330,9 +288,7 @@
         "docs/llm/dossier-selection-flow.md",
         "docs/contracts/scaffold-system.md"
       ],
-      "humanSchemaPaths": [
-        "docs/schemas/orchestration-signal-contract.md"
-      ],
+      "humanSchemaPaths": ["docs/schemas/orchestration-signal-contract.md"],
       "codeReaders": [
         "backoffice/pages/selection_rationale.py",
         "backoffice/pages/llm_flode_telemetry.py",
@@ -342,16 +298,9 @@
     },
     "shadcn-audit": {
       "summary": "Målstack och sökvägar för audit-skript mot shadcn-mirror-repon (bygg-/CI-verktyg, inte runtime i appen).",
-      "canonicalPaths": [
-        "config/shadcn-mirror-audit-policy.json"
-      ],
-      "docsPaths": [
-        "docs/ENV.md",
-        "config/prompt-core/00-core-contract.md"
-      ],
-      "codeReaders": [
-        "scripts/audit/audit-shadcn-mirror-repos.mjs"
-      ]
+      "canonicalPaths": ["config/shadcn-mirror-audit-policy.json"],
+      "docsPaths": ["docs/ENV.md", "config/prompt-core/00-core-contract.md"],
+      "codeReaders": ["scripts/audit/audit-shadcn-mirror-repos.mjs"]
     },
     "Databashälsa": {
       "summary": "Read-only diagnos av Postgres-tabeller och index + APPLY-flöde för saknade index (idempotent CREATE INDEX IF NOT EXISTS, audit-loggat). Kör scripts/db/db-health-check.mjs via subprocess. Stödskript: scripts/db/add-performance-indexes.mjs (perf-migration), scripts/db/drop-legacy-index-aliases.mjs (opt-in cleanup). Auto-applicering på `npm run dev` via predev-hooken.",
@@ -362,12 +311,8 @@
         "scripts/db/drop-legacy-index-aliases.mjs",
         "src/lib/db/schema.ts"
       ],
-      "docsPaths": [
-        "docs/contracts/data-layer.md"
-      ],
-      "humanSchemaPaths": [
-        "docs/schemas/integrations-and-data.md"
-      ],
+      "docsPaths": ["docs/contracts/data-layer.md"],
+      "humanSchemaPaths": ["docs/schemas/integrations-and-data.md"],
       "strictSchemaPaths": [
         "docs/schemas/strict/db-health-check-report.schema.json",
         "docs/schemas/strict/db-perf-indexes-audit-line.schema.json"
@@ -387,17 +332,10 @@
         "src/lib/redis-pubsub.ts",
         "src/lib/rateLimit.ts"
       ],
-      "docsPaths": [
-        "docs/contracts/data-layer.md"
-      ],
+      "docsPaths": ["docs/contracts/data-layer.md"],
       "humanSchemaPaths": [],
-      "strictSchemaPaths": [
-        "docs/schemas/strict/redis-health-check-report.schema.json"
-      ],
-      "codeReaders": [
-        "backoffice/test_database_health_smoke.py",
-        "src/app/api/health/route.ts"
-      ]
+      "strictSchemaPaths": ["docs/schemas/strict/redis-health-check-report.schema.json"],
+      "codeReaders": ["backoffice/test_database_health_smoke.py", "src/app/api/health/route.ts"]
     },
     "user_degraded_env": {
       "summary": "Policytext för degraded/placeholder-miljö i användarprojekt. Lista med nycklar pekas från manifest m.m.",
@@ -406,12 +344,8 @@
         "config/ai_models/40-harmless-placeholders.env.txt",
         "config/ai_models/41-tier3-stub-placeholders.env.txt"
       ],
-      "docsPaths": [
-        "docs/schemas/integrations-and-data.md"
-      ],
-      "humanSchemaPaths": [
-        "docs/schemas/integrations-and-data.md"
-      ],
+      "docsPaths": ["docs/schemas/integrations-and-data.md"],
+      "humanSchemaPaths": ["docs/schemas/integrations-and-data.md"],
       "codeReaders": [
         "src/lib/gen/contract/pre-generation-contracts.ts",
         "src/lib/ai-models/load-generated-site-placeholders.ts",
@@ -444,10 +378,7 @@
         "scripts/db/env-merge.mjs",
         "scripts/debug/latest-generations.mjs"
       ],
-      "docsPaths": [
-        "docs/ENV.md",
-        ".cursor/rules/db-env-parity.mdc"
-      ],
+      "docsPaths": ["docs/ENV.md", ".cursor/rules/db-env-parity.mdc"],
       "codeReaders": [
         "backoffice/pages/__init__.py",
         "backoffice/shared.py",
@@ -463,9 +394,7 @@
         "data/scaffold-eval/reports/ (lokal JSON via npm run scaffolds:eval / eval-landing-variants; gitignorerad, ej i CI)",
         "docs/evals/"
       ],
-      "docsPaths": [
-        "src/lib/gen/eval/README.md"
-      ],
+      "docsPaths": ["src/lib/gen/eval/README.md"],
       "codeReaders": [
         "backoffice/pages/eval_page.py",
         "scripts/scaffolds/eval-scaffold-selection.ts",
@@ -480,10 +409,7 @@
         "backoffice/pages/restore.py"
       ],
       "docsPaths": [],
-      "codeReaders": [
-        "backoffice/pages/restore.py",
-        "backoffice/test_backup_restore.py"
-      ]
+      "codeReaders": ["backoffice/pages/restore.py", "backoffice/test_backup_restore.py"]
     },
     "Scaffold-poäng": {
       "summary": "Read-only poängvy per scaffold från generation_telemetry (kör scripts/db/scaffold-scores.mjs via subprocess mot DB:n som .env.local pekar på). Beslutsunderlag för vilka scaffolds som presterar — ingen redigering här.",
@@ -491,12 +417,8 @@
         "backoffice/pages/scaffold_performance.py",
         "scripts/db/scaffold-scores.mjs"
       ],
-      "docsPaths": [
-        "docs/contracts/scaffold-system.md"
-      ],
-      "codeReaders": [
-        "backoffice/pages/scaffold_performance.py"
-      ]
+      "docsPaths": ["docs/contracts/scaffold-system.md"],
+      "codeReaders": ["backoffice/pages/scaffold_performance.py"]
     },
     "Byggblock (dossiers)": {
       "summary": "Adminvy för byggblocken (runtime dossiers/capability-moduler; UI-label Byggblock, kod-id dossier) under data/dossiers/{hard,soft}/: bläddra per dossier-grupp, redigera manifest (validerar mot strict-schema före save), radera (checklist + id-bekräftelse + zip-snapshot till Återställning), AI-kurering från template-references och ombyggnad av capability-map (genererad vy).",
@@ -508,17 +430,9 @@
         "backoffice/ai_workloads.py",
         "config/ai_models/manifest.json"
       ],
-      "docsPaths": [
-        "docs/contracts/dossier-system.md",
-        ".cursor/rules/dossier-rules.mdc"
-      ],
-      "strictSchemaPaths": [
-        "docs/schemas/strict/dossier.schema.json"
-      ],
-      "codeReaders": [
-        "src/lib/gen/dossiers/registry.ts",
-        "backoffice/test_dossiers_page.py"
-      ]
+      "docsPaths": ["docs/contracts/dossier-system.md", ".cursor/rules/dossier-rules.mdc"],
+      "strictSchemaPaths": ["docs/schemas/strict/dossier.schema.json"],
+      "codeReaders": ["src/lib/gen/dossiers/registry.ts", "backoffice/test_dossiers_page.py"]
     },
     "Orchestration Map": {
       "summary": "Statisk referenskarta: parsar TS-typer (ScaffoldId, BuildIntent, PromptType m.fl.) direkt ur källfilerna och visar hur orkestreringssignalerna hänger ihop. Read-only — åldras bara om TS-filerna byter form.",
@@ -527,12 +441,8 @@
         "src/lib/gen/scaffolds/types.ts",
         "src/lib/builder/build-intent.ts"
       ],
-      "docsPaths": [
-        "docs/architecture/llm-pipeline.md"
-      ],
-      "codeReaders": [
-        "backoffice/pages/orchestration.py"
-      ]
+      "docsPaths": ["docs/architecture/llm-pipeline.md"],
+      "codeReaders": ["backoffice/pages/orchestration.py"]
     },
     "Normalize / RepairGate & Kvalitet": {
       "summary": "Read-only samlad vy för fix-pipelinen: Normalize (kod: autofix), RepairGate (kod: LLM-fixer), kvalitetspass, fix-statistik ur error-log.csv och repair-loop-hardening-historik (fd. sidan Repair Loop). All redigering av repair-pass/tokenbudgetar/phase routing görs på ai_models-sidan — enda skrivytan för config/ai_models/manifest.json.",
@@ -542,13 +452,8 @@
         "src/lib/hooks/chat/useAutoFix.ts",
         "src/lib/config.ts (FEATURES)"
       ],
-      "docsPaths": [
-        "docs/architecture/llm-pipeline.md",
-        "docs/architecture/glossary.md"
-      ],
-      "codeReaders": [
-        "backoffice/pages/autofix.py"
-      ]
+      "docsPaths": ["docs/architecture/llm-pipeline.md", "docs/architecture/glossary.md"],
+      "codeReaders": ["backoffice/pages/autofix.py"]
     },
     "Fixer Registry": {
       "summary": "Katalog över alla fixers (Normalize/RepairGate) ur FIXER_REGISTRY-snapshoten: kategori, fas, risk, status, triggers och telemetri. Snapshoten regenereras vid npm run dev|build|start och kan byggas om från vyn.",
@@ -557,12 +462,8 @@
         "data/observability/fixer-registry.snapshot.json",
         "scripts/observability/dump-fixer-registry.mjs"
       ],
-      "docsPaths": [
-        "docs/architecture/llm-pipeline.md"
-      ],
-      "codeReaders": [
-        "backoffice/pages/fixer_registry.py"
-      ]
+      "docsPaths": ["docs/architecture/llm-pipeline.md"],
+      "codeReaders": ["backoffice/pages/fixer_registry.py"]
     },
     "Error-log RAG": {
       "summary": "Status för fel-loggens TF-IDF-RAG (producer-NDJSON + indexer-snapshot), kan tvinga omindexering (npm run rag:error-log:reindex) och läsa prod-fault-matrisen ur error_log_events (read-only SELECT via subprocess).",
@@ -571,12 +472,8 @@
         "data/observability/",
         "scripts/observability/fault-matrix.mjs"
       ],
-      "docsPaths": [
-        "docs/architecture/llm-pipeline.md"
-      ],
-      "codeReaders": [
-        "backoffice/pages/error_log_rag.py"
-      ]
+      "docsPaths": ["docs/architecture/llm-pipeline.md"],
+      "codeReaders": ["backoffice/pages/error_log_rag.py"]
     },
     "Pipeline Health": {
       "summary": "Kör underhållsskript (embeddings, shadcn-sync, deps-baseline m.m.) med stale-detektion mot genererade artefakter, och persisterar körstatus lokalt i data/backoffice/pipeline-health-state.json. Obs: 'pipeline' här = underhålls-/asset-pipelinen, inte generierings-latens.",
@@ -585,9 +482,7 @@
         "data/backoffice/pipeline-health-state.json"
       ],
       "docsPaths": [],
-      "codeReaders": [
-        "backoffice/test_pipeline_health_script_parity.py"
-      ]
+      "codeReaders": ["backoffice/test_pipeline_health_script_parity.py"]
     },
     "Observability": {
       "summary": "Live-metrics från appens /api/metrics (Prometheus-format): fas-latens, fixer-utfall, verifier-counters. Kräver att dev-servern (eller prod-endpoint via SAJTMASKIN_METRICS_BASE_URL + token) är igång. Read-only.",
@@ -597,22 +492,13 @@
         "backoffice/observability_io.py"
       ],
       "docsPaths": [],
-      "codeReaders": [
-        "backoffice/test_observability_io.py"
-      ]
+      "codeReaders": ["backoffice/test_observability_io.py"]
     },
     "LLM-flöde telemetri": {
       "summary": "Read-only aggregerad tidslinje ur generationsloggen (logs/generationslogg/*/timeline.ndjson), waves 1–7: event-typer, fas-latens och utfall per körning. Kompletterar Selection Rationale (varför-valdes) och Generation History (DB-historik).",
-      "canonicalPaths": [
-        "logs/generationslogg/",
-        "src/lib/logging/generation-log-writer.ts"
-      ],
-      "docsPaths": [
-        "docs/architecture/runtime-contracts.md"
-      ],
-      "codeReaders": [
-        "backoffice/pages/llm_flode_telemetry.py"
-      ]
+      "canonicalPaths": ["logs/generationslogg/", "src/lib/logging/generation-log-writer.ts"],
+      "docsPaths": ["docs/architecture/runtime-contracts.md"],
+      "codeReaders": ["backoffice/pages/llm_flode_telemetry.py"]
     },
     "LLM-flöde status": {
       "summary": "Deterministisk statuskarta över LLM-flödet: renderar docs/canvases/llm-flow.canvas.json (gitignorerad sidecar, byggs om vid backoffice-start och via knapp) med processstatus, backlog och eval-scorecard.",
@@ -622,10 +508,7 @@
         "docs/canvases/llm-flow.canvas.txt"
       ],
       "docsPaths": [],
-      "codeReaders": [
-        "backoffice/pages/llm_flow_status.py",
-        "backoffice/app_main.py"
-      ]
+      "codeReaders": ["backoffice/pages/llm_flow_status.py", "backoffice/app_main.py"]
     },
     "Projekt-admin (radera)": {
       "summary": "DESTRUKTIV: massradera testkontons projekt i databasen via scripts/db/cleanup-test-projects.mjs. Dry-run är default; apply kräver explicit bekräftelse och föregående dry-run. DB-rader kan inte återställas via backoffice — dubbelkolla mål-DB:n.",
@@ -633,12 +516,8 @@
         "backoffice/pages/projects_admin.py",
         "scripts/db/cleanup-test-projects.mjs"
       ],
-      "docsPaths": [
-        ".cursor/rules/db-env-parity.mdc"
-      ],
-      "codeReaders": [
-        "backoffice/pages/projects_admin.py"
-      ]
+      "docsPaths": [".cursor/rules/db-env-parity.mdc"],
+      "codeReaders": ["backoffice/pages/projects_admin.py"]
     },
     "Mallar (v0): inspiration & uppladdning": {
       "summary": "Laddar upp v0-mallar (zip) till Vercel Blob och uppdaterar template-blob-manifest.json + galleri-katalogen via scripts/v0-templates/upload-mallar-blob.mjs. Mallar (v0-mallar i Blob-galleriet) är ett separat system från scaffolds och dossiers.",
@@ -647,34 +526,12 @@
         "scripts/v0-templates/upload-mallar-blob.mjs"
       ],
       "docsPaths": [],
-      "codeReaders": [
-        "backoffice/pages/templates_blob.py",
-        "src/lib/templates/"
-      ]
+      "codeReaders": ["backoffice/pages/templates_blob.py", "src/lib/templates/"]
     },
     "Cursor-agenter": {
-      "summary": "Ordlista, struktur och aktiv backlog — projektreglerna i .cursor/rules/ + arkitektur + en samlad planfil. Slash-kommandon: /avslutning, /buggrapport.",
-      "canonicalPaths": [
-        ".cursor/rules/agent-observatory.mdc",
-        ".cursor/rules/env-flow-f2-mute.mdc",
-        ".cursor/rules/git.mdc",
-        ".cursor/rules/openclaw-bridge.mdc",
-        ".cursor/rules/pipeline-rules.mdc",
-        ".cursor/rules/plan-lifecycle.mdc",
-        ".cursor/rules/pr-merge.mdc",
-        ".cursor/rules/repo-router.mdc",
-        ".cursor/rules/response-format.mdc",
-        ".cursor/rules/scaffold-rules.mdc",
-        ".cursor/rules/terminology.mdc",
-        ".cursor/rules/useful-commands.mdc",
-        ".cursor/rules/unicode-regex.mdc",
-        ".cursor/rules/workflow.mdc",
-        "docs/architecture/code-map.md"
-      ],
-      "docsPaths": [
-        ".cursor/README.md",
-        "docs/README.md"
-      ],
+      "summary": "Ordlista och struktur för agenter — projektreglernas kanoniska katalog under .cursor/rules/ och den tunna kodkartan. Regelindex och slash-kommandon finns i .cursor/README.md.",
+      "canonicalPaths": [".cursor/rules/", "docs/architecture/code-map.md"],
+      "docsPaths": [".cursor/README.md", "docs/README.md"],
       "codeReaders": []
     }
   }

@@ -20,5 +20,5 @@ begäran, så `Task`-verktygets default (`inherit`) gäller inte här.
   `claude-opus-5-thinking-xhigh` — får inte vara buggranskare/review-subagent
   som default. Bara när ägaren uttryckligen ber om en specialkoll.
 
-Kanonisk tabell, mätdata och felsökning av `Invalid model selection`:
-[`.cursor/README.md` § Modellval för subagenter](../README.md#modellval-för-subagenter-kanonisk-tabell).
+Kommandot eller skillen som startar subagenten äger rollens exakta uppdrag och
+antal. Den här regeln äger enbart modellvalet.

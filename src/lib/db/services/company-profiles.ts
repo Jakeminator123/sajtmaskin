@@ -24,10 +24,7 @@ function buildOwnerCondition(scope: OwnerScope) {
   return null;
 }
 
-async function verifyProjectOwnership(
-  projectId: string,
-  scope: OwnerScope,
-): Promise<boolean> {
+async function verifyProjectOwnership(projectId: string, scope: OwnerScope): Promise<boolean> {
   const condition = buildOwnerCondition(scope);
   if (!condition) return false;
   const rows = await db
@@ -98,16 +95,6 @@ export async function getCompanyProfileByProjectId(
   return rows[0] ?? null;
 }
 
-export async function getCompanyProfileByName(name: string): Promise<CompanyProfile | null> {
-  assertDbConfigured();
-  const rows = await db
-    .select()
-    .from(companyProfiles)
-    .where(eq(companyProfiles.company_name, name))
-    .limit(1);
-  return rows[0] ?? null;
-}
-
 export async function getCompanyProfileByNameForOwner(
   name: string,
   scope: OwnerScope,
@@ -118,7 +105,9 @@ export async function getCompanyProfileByNameForOwner(
   const rows = await db
     .select()
     .from(companyProfiles)
-    .where(and(eq(companyProfiles.company_name, name), inArray(companyProfiles.project_id, projectIds)))
+    .where(
+      and(eq(companyProfiles.company_name, name), inArray(companyProfiles.project_id, projectIds)),
+    )
     .limit(1);
   return rows[0] ?? null;
 }

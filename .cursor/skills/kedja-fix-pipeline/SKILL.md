@@ -17,8 +17,8 @@ The orchestrator is the cheap model in the user's chat. Subagents are cheap too;
 1. **No writes in the main checkout.** Every write step runs inside a worktree created in step 1. No `git checkout`/`switch` in the main checkout (`agent-worktree.mdc`).
 2. **No push, rebase or PR** (`git.mdc`) — but the WINNER is committed on its `kedja/<slug>-<x>` branch as the final step. An uncommitted winner looks like debris to every other agent's cleanup sweep (`kedja-clean` refuses branches with own commits — a commit is the winner's life insurance; two uncommitted winners were swept 2026-08-04). Losers stay uncommitted and are torn down after their diffs are saved.
 3. **One bug.** Adjacent findings go to `/buggrapport`, not into the diff (`mvp-scope-freeze.mdc`).
-4. **Models from the canonical table** in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `<grok-4.5>` for localisation, repro and fix agents, and for step 7 `bugbot` (`model: <grok-4.5>`). `<grok-4.5>` is a placeholder — resolve it against the `cursor-grok-4.5` entry in your own session's `<available_subagent_models>` rather than copying a slug from an older line. Never default to Opus/expensive thinking models.
-5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only. Raw `git worktree remove` follows the `node_modules` junction and empties the main checkout's copy — and dropping `--force` does not help, because git only refuses on dirty or *untracked* entries while a junctioned `node_modules` is *ignored*. A hook denies both forms.
+4. **Models from the canonical rule** in [`subagent-models.mdc`](../../rules/subagent-models.mdc): `<grok-4.5>` for localisation, repro and fix agents, and for step 7 `bugbot` (`model: <grok-4.5>`). `<grok-4.5>` is a placeholder — resolve it against the `cursor-grok-4.5` entry in your own session's `<available_subagent_models>` rather than copying a slug from an older line. Never default to Opus/expensive thinking models.
+5. **Never remove a worktree with raw git.** `npm run worktree:remove -- <path> [--force]` only. Raw `git worktree remove` follows the `node_modules` junction and empties the main checkout's copy — and dropping `--force` does not help, because git only refuses on dirty or _untracked_ entries while a junctioned `node_modules` is _ignored_. A hook denies both forms.
 6. **One retry, then stop.** Two red judging rounds means the bug is too big for the chain; report that instead of looping.
 
 ## Worktree recipe
@@ -79,11 +79,11 @@ step 5/6 so all candidates are judged by the exact same red test + counter-test
 
 Same bug and same test output for all three; only the angle differs.
 
-| # | Angle |
-|---|---|
-| 1 | The code path — read the owner file and follow the values that reach the failing assertion |
-| 2 | The call sites — who calls this, with what, and which caller would change behaviour if the owner changed |
-| 3 | The test and its neighbours — what existing tests lock in today's behaviour, and which one must be rewritten alongside the fix |
+| #   | Angle                                                                                                                          |
+| --- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | The code path — read the owner file and follow the values that reach the failing assertion                                     |
+| 2   | The call sites — who calls this, with what, and which caller would change behaviour if the owner changed                       |
+| 3   | The test and its neighbours — what existing tests lock in today's behaviour, and which one must be rewritten alongside the fix |
 
 ```text
 READ-ONLY. Do not edit anything.
@@ -142,41 +142,41 @@ Risk: <the caller most likely to be affected, or "-">
 
 ### Step 7 — review
 
-**Read the test diff line by line, not just its outcome.** The whole chain rests on the step 2 test measuring the right thing; if it does not, the mechanical verdict is worthless, and red-before/green-after will not reveal it. Before opening a PR the orchestrator reads the test addition itself and asks: does the red test measure the bug or a proxy? Is the counter-test the *closest legitimate* case? And — easiest to miss — **does the test assert what the fix deliberately gives up?** On #780 `rebuild-content.test.ts` locked that the wrong file is not corrupted but said nothing about the right file's fix now being dropped on a fence miss; the trade-off lived only in the head of whoever read the diff. One more assertion turned it into a contract.
+**Read the test diff line by line, not just its outcome.** The whole chain rests on the step 2 test measuring the right thing; if it does not, the mechanical verdict is worthless, and red-before/green-after will not reveal it. Before opening a PR the orchestrator reads the test addition itself and asks: does the red test measure the bug or a proxy? Is the counter-test the _closest legitimate_ case? And — easiest to miss — **does the test assert what the fix deliberately gives up?** On #780 `rebuild-content.test.ts` locked that the wrong file is not corrupted but said nothing about the right file's fix now being dropped on a fence miss; the trade-off lived only in the head of whoever read the diff. One more assertion turned it into a contract.
 
-`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"` (bug-grind role in the canonical table — never Opus/expensive thinking models as default), prompt form per `AGENTS.md § Review guidelines`:
+`subagent_type: "bugbot"`, `readonly: true`, `description: "Bugbot"`, `model: "<grok-4.5>"` (bug-grind role in the canonical rule — never Opus/expensive thinking models as default), prompt form per `AGENTS.md § Review guidelines`:
 
 ```text
 Full Repository Path: {WINNER_WORKTREE_PATH}
 Diff: uncommitted changes
 ```
 
-**"diff is empty" fallback (verified 2026-08-05).** Use the form above first. Bugbot may answer *"the diff … is empty"* on a kedja worktree; that means the pass did NOT run — never record it as "no findings". Observed: an unpushed kedja branch returned empty for both `uncommitted changes` and `branch changes`, while the same form worked in a linked worktree whose branch had a pushed upstream. On an empty answer:
+**"diff is empty" fallback (verified 2026-08-05).** Use the form above first. Bugbot may answer _"the diff … is empty"_ on a kedja worktree; that means the pass did NOT run — never record it as "no findings". Observed: an unpushed kedja branch returned empty for both `uncommitted changes` and `branch changes`, while the same form worked in a linked worktree whose branch had a pushed upstream. On an empty answer:
 
 1. Save the patch with `git add -A -N` then `git diff HEAD` — the same procedure as `captureDiff` in `scripts/cursor/kedja-clean.mjs`. A plain `git diff` omits the untracked repro test, so Bugbot would review an incomplete winner.
 2. Run the pass against the MAIN checkout with `Diff: natural language`, a per-file Change Description, and Custom Instructions telling it to read `.cursor/kedja/<run>/kandidat-<x>.diff` and review it as if applied.
 
 Document the pass as `bugbot-local`.
 
-**Read the answer critically — the pass does not always see the whole branch.** On a multi-commit branch Bugbot can judge a subset and report findings that are false against the whole. Reproduced twice on #780: it claimed three backlog rows were deleted without archival *and* that all three defects were still in the code, while the archive rows and all three fixes sat in the same diff. Verify every finding against the actual end state before acting — and never dismiss one without doing that, since the same weakness can just as easily hide a real finding.
+**Read the answer critically — the pass does not always see the whole branch.** On a multi-commit branch Bugbot can judge a subset and report findings that are false against the whole. Reproduced twice on #780: it claimed three backlog rows were deleted without archival _and_ that all three defects were still in the code, while the archive rows and all three fixes sat in the same diff. Verify every finding against the actual end state before acting — and never dismiss one without doing that, since the same weakness can just as easily hide a real finding.
 
 Which command shows the truth depends on where you are, and getting it wrong is easy:
 
-| State | Verify with |
-|---|---|
+| State                                              | Verify with                                                                                                                                                                        |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Step 7, winner **not yet committed** (the default) | `git add -A -N` + `git diff master` in the worktree, or read the file on disk. `HEAD` does not contain the fix yet, so `git show HEAD:<file>` would falsely "confirm" the finding. |
-| After *After the run* step 2, or on a PR branch | `git diff master...HEAD` and `git show HEAD:<file>` |
+| After _After the run_ step 2, or on a PR branch    | `git diff master...HEAD` and `git show HEAD:<file>`                                                                                                                                |
 
 ## Judging order
 
 Cheapest signal first, so a broken candidate is eliminated before it costs a typecheck.
 
-| # | Check | Applies to |
-|---|---|---|
-| 1 | `npx vitest run <testfil>` — red test **and** counter-test | every candidate |
-| 2 | Remaining tests in the owner's directory | candidates that passed 1 |
-| 3 | `npm run typecheck` | candidates that passed 2 |
-| 4 | `node scripts/dev/check-unicode-regex.mjs` | only if the diff touches regex |
+| #   | Check                                                      | Applies to                     |
+| --- | ---------------------------------------------------------- | ------------------------------ |
+| 1   | `npx vitest run <testfil>` — red test **and** counter-test | every candidate                |
+| 2   | Remaining tests in the owner's directory                   | candidates that passed 1       |
+| 3   | `npm run typecheck`                                        | candidates that passed 2       |
+| 4   | `node scripts/dev/check-unicode-regex.mjs`                 | only if the diff touches regex |
 
 Winner = the **smallest** diff that clears every applicable check. Compare with `git diff --stat` in each worktree; do not pick on elegance.
 
@@ -196,16 +196,16 @@ The lesson generalises: when the fix direction is "make X stop happening", the c
 ## Report format
 
 ```markdown
-| Steg | Utfall |
-|---|---|
-| Acceptans | `npx vitest run …` — rött före, grönt efter |
-| Rotorsak | <one sentence + fil:rad> |
+| Steg       | Utfall                                                                                        |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| Acceptans  | `npx vitest run …` — rött före, grönt efter                                                   |
+| Rotorsak   | <one sentence + fil:rad>                                                                      |
 | Kandidat a | <ansats> · grön · 12 rader · **vinnare** · `..\sajtmaskin-kedja-<slug>-a` på `kedja/<slug>-a` |
-| Kandidat b | <ansats> · röd i steg 2 av domen (bröt <test>) · worktree riven, diff kvar |
-| Utfört av | repro: <roll/modell> · fix a/b: <roll/modell> · dom: orkestratorn maskinellt |
-| Bugbot | <findings, or "inga fynd"> |
-| Diffar | `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-*.diff` (även utslagna) |
-| Ligger i | `..\sajtmaskin-kedja-<slug>-a` på `kedja/<slug>-a`, committad (ej pushad) |
+| Kandidat b | <ansats> · röd i steg 2 av domen (bröt <test>) · worktree riven, diff kvar                    |
+| Utfört av  | repro: <roll/modell> · fix a/b: <roll/modell> · dom: orkestratorn maskinellt                  |
+| Bugbot     | <findings, or "inga fynd">                                                                    |
+| Diffar     | `.cursor/kedja/<YYYY-MM-DD_HHMM>/kandidat-*.diff` (även utslagna)                             |
+| Ligger i   | `..\sajtmaskin-kedja-<slug>-a` på `kedja/<slug>-a`, committad (ej pushad)                     |
 ```
 
 Every row that names a worktree must give the **absolute or repo-relative disk

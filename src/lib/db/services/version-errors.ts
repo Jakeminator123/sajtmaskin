@@ -71,10 +71,7 @@ function mergeScaffoldContext(
   meta: Record<string, unknown> | null | undefined,
   scaffoldContext: EngineScaffoldContext | null,
 ) {
-  const base =
-    meta && typeof meta === "object"
-      ? { ...meta }
-      : {};
+  const base = meta && typeof meta === "object" ? { ...meta } : {};
   if (!scaffoldContext) {
     return Object.keys(base).length > 0 ? base : null;
   }
@@ -152,21 +149,6 @@ async function enrichEnginePayloads(
     ...payload,
     meta: mergeScaffoldContext(payload.meta, byChatId.get(payload.chatId) ?? null),
   }));
-}
-
-export async function createEngineVersionErrorLog(
-  payload: VersionErrorLogPayload,
-): Promise<VersionErrorLog> {
-  assertDbConfigured();
-  const now = new Date();
-  const [enrichedPayload] = await enrichEnginePayloads([payload]);
-  const rows = await db
-    .insert(engineVersionErrorLogs)
-    .values(mapLogPayload(enrichedPayload, now))
-    .returning();
-  // Fas 2: mirror bug-level findings to the flat JSONL bug register (best-effort).
-  appendBugRegisterEntries([enrichedPayload]);
-  return rows[0] as VersionErrorLog;
 }
 
 /**

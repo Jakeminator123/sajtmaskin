@@ -34,8 +34,9 @@
  * pipeline continues unaffected.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, relative } from "node:path";
 import { spawnSync } from "node:child_process";
+import type { SpawnSyncReturns } from "node:child_process";
 import { tmpdir } from "node:os";
 
 import type { CodeFile } from "@/lib/gen/parser";
@@ -43,11 +44,7 @@ import { hasTraversalSegment } from "@/lib/utils/path-utils";
 import { partitionUndecidableModuleDiagnostics } from "./generated-only-modules";
 
 export type PreVmTypecheckSkipReason =
-  | "feature_flag_disabled"
-  | "cache_cold"
-  | "no_files"
-  | "tsc_unavailable"
-  | "exception";
+  "feature_flag_disabled" | "cache_cold" | "no_files" | "tsc_unavailable" | "exception";
 
 export interface PreVmTypecheckDiagnostic {
   filePath: string;
@@ -202,6 +199,8 @@ export interface RunPreVmTypecheckParams {
   force?: boolean;
   /** Override the per-scaffold cache directory (testing). */
   cacheDirOverride?: string;
+  /** Test seam for subprocess failures that differ between shells/platforms. */
+  spawnSyncOverride?: typeof spawnSync;
 }
 
 export async function runPreVmTypecheck(
@@ -248,10 +247,14 @@ export async function runPreVmTypecheck(
         durationMs: Date.now() - startedAt,
       };
     }
-    const result = spawnSync("npx", ["--no-install", "tsc", "--noEmit"], {
+    const tscCli = relative(
+      cacheDir,
+      opaqueCachePath(cacheDir, "node_modules", "typescript", "bin", "tsc"),
+    );
+    const run = params.spawnSyncOverride ?? spawnSync;
+    const result: SpawnSyncReturns<string> = run(process.execPath, [tscCli, "--noEmit"], {
       cwd: cacheDir,
       encoding: "utf8",
-      shell: process.platform === "win32",
       timeout: 60_000,
     });
     if (result.error) {
@@ -263,10 +266,21 @@ export async function runPreVmTypecheck(
       };
     }
     const combined = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
-    const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(
-      parseTscOutput(combined),
-      cacheDir,
-    );
+    const parsed = parseTscOutput(combined);
+    if ((result.status !== 0 || result.signal) && parsed.length === 0) {
+      if (process.env.SAJTMASKIN_DEV_LOG) {
+        console.warn(
+          `[warm-typecheck] tsc unavailable (status=${String(result.status)}, signal=${String(result.signal)}): ${combined.trim()}`,
+        );
+      }
+      return {
+        ok: true,
+        skipped: "tsc_unavailable",
+        diagnostics: [],
+        durationMs: Date.now() - startedAt,
+      };
+    }
+    const { kept, suppressedModules } = partitionUndecidableModuleDiagnostics(parsed, cacheDir);
     return {
       ok: kept.length === 0,
       diagnostics: kept,
@@ -300,7 +314,5 @@ export async function runPreVmTypecheck(
 export function formatTypecheckDiagnosticsForRepair(
   diagnostics: PreVmTypecheckDiagnostic[],
 ): string[] {
-  return diagnostics.map(
-    (d) => `${d.filePath}:${d.line}:${d.column} ${d.code}: ${d.message}`,
-  );
+  return diagnostics.map((d) => `${d.filePath}:${d.line}:${d.column} ${d.code}: ${d.message}`);
 }

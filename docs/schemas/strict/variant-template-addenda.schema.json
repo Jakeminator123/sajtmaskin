@@ -1,5 +1,5 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sajtmaskin.local/schemas/variant-template-addenda.schema.json",
   "title": "Variant Template Addenda Registry",
   "description": "SHA-bound, reviewable frontend excerpts used by scaffold variants before the runtime falls back to reading a template ZIP.",
@@ -15,10 +15,10 @@
     "_version": { "type": "string", "const": "1.0.0" },
     "templates": {
       "type": "array",
-      "items": { "$ref": "#/definitions/addendum" }
+      "items": { "$ref": "#/$defs/addendum" }
     }
   },
-  "definitions": {
+  "$defs": {
     "structuralReference": {
       "type": "object",
       "additionalProperties": false,
@@ -81,7 +81,7 @@
         "structuralReferences": {
           "type": "array",
           "maxItems": 3,
-          "items": { "$ref": "#/definitions/structuralReference" }
+          "items": { "$ref": "#/$defs/structuralReference" }
         }
       }
     }

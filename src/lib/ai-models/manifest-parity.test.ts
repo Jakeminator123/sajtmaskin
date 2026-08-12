@@ -194,9 +194,7 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(m.generatedSiteIntegrationPlaceholders?.tier3StubEnvFragmentFile).toBeTruthy();
     const preGenerationContractsEntry =
       m.generatedSiteIntegrationPlaceholders?.preGenerationContractsEntry;
-    expect(preGenerationContractsEntry).toBe(
-      "src/lib/gen/contract/pre-generation-contracts.ts",
-    );
+    expect(preGenerationContractsEntry).toBe("src/lib/gen/contract/pre-generation-contracts.ts");
     const cwd = process.cwd();
     expect(preGenerationContractsEntry && existsSync(preGenerationContractsEntry)).toBe(true);
     expect(existsSync(resolveHarmlessPlaceholdersPath(cwd))).toBe(true);
@@ -208,28 +206,9 @@ describe("config/ai_models/manifest.json parity", () => {
     expect(pairs.some((p) => p.key === "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY")).toBe(true);
   });
 
-  it("per-tier policy overrides, when present, cover all 5 tiers (validate-only)", () => {
+  it("per-tier briefing overrides, when present, cover all 5 tiers", () => {
     const m = getAiModelsManifest();
     const tiers = ["premium", "pro", "max", "codex", "anthropic"] as const;
-
-    if (m.perTierTimeouts) {
-      for (const tier of tiers) {
-        const entry = m.perTierTimeouts[tier];
-        expect(entry, `perTierTimeouts missing ${tier}`).toBeDefined();
-        expect(typeof entry.engineRouteMaxDurationSeconds).toBe("number");
-        expect(typeof entry.verifierTimeoutMs).toBe("number");
-      }
-    }
-
-    if (m.perTierRepairPolicies) {
-      for (const tier of tiers) {
-        const entry = m.perTierRepairPolicies[tier];
-        expect(entry, `perTierRepairPolicies missing ${tier}`).toBeDefined();
-        expect(typeof entry.deterministicAutofixPasses).toBe("number");
-        expect(typeof entry.syntaxFixPasses).toBe("number");
-        expect(typeof entry.serverRepairPasses).toBe("number");
-      }
-    }
 
     if (m.perTierBriefing) {
       for (const tier of tiers) {

@@ -26,18 +26,18 @@ bli en parallell runtime-owner.
 
 ## Ytor
 
-| Område                              | Här hör                                                       | Hit hör inte                                       |
-| ----------------------------------- | ------------------------------------------------------------- | -------------------------------------------------- |
-| `docs/architecture/`                | Tunna systemöversikter, gränser, körflöde och kodkarta        | Inventarier, fil:rad-matriser och ändringshistorik |
-| `docs/concepts/`                    | Pedagogiska mentala modeller och stabil terminologi           | Runtimefält, fulla enumlistor och callsites        |
-| `docs/contracts/`                   | Kod- och schemanära policies och invariants                   | En andra arkitekturberättelse                      |
-| `docs/decisions/`                   | Gällande ratificerade ägarbeslut, pekare till kanonisk källa  | Väntande beslutsfrågor (backlog), planstatus       |
-| `docs/generated/`                   | Deterministisk referens från registries, schemas och policies | Handskriven prosa och manuella korrigeringar       |
-| `docs/schemas/`                     | Mänskliga schemaförklaringar och `strict/` JSON schemas       | Osäkra utkast                                      |
-| `docs/runbooks/`                    | Felsökning och drift                                          | Arkitekturindex och planarbete                     |
-| `docs/plans/active/`                | Planer som styr arbete nu                                     | Färdiga planer                                     |
-| `docs/plans/avklarat/`              | Avklarade beslut med fortsatt referensvärde                   | Aktiv status                                       |
-| `docs/plans/archived/`              | Parkerade, ersatta eller skrotade planer                      | Runtime-vägledning                                 |
+| Område                 | Här hör                                                       | Hit hör inte                                       |
+| ---------------------- | ------------------------------------------------------------- | -------------------------------------------------- |
+| `docs/architecture/`   | Tunna systemöversikter, gränser, körflöde och kodkarta        | Inventarier, fil:rad-matriser och ändringshistorik |
+| `docs/concepts/`       | Pedagogiska mentala modeller och stabil terminologi           | Runtimefält, fulla enumlistor och callsites        |
+| `docs/contracts/`      | Kod- och schemanära policies och invariants                   | En andra arkitekturberättelse                      |
+| `docs/decisions/`      | Gällande ratificerade ägarbeslut, pekare till kanonisk källa  | Väntande beslutsfrågor (backlog), planstatus       |
+| `docs/generated/`      | Deterministisk referens från registries, schemas och policies | Handskriven prosa och manuella korrigeringar       |
+| `docs/schemas/`        | Mänskliga schemaförklaringar och `strict/` JSON schemas       | Osäkra utkast                                      |
+| `docs/runbooks/`       | Felsökning och drift                                          | Arkitekturindex och planarbete                     |
+| `docs/plans/active/`   | Planer som styr arbete nu                                     | Färdiga planer                                     |
+| `docs/plans/avklarat/` | Avklarade beslut med fortsatt referensvärde                   | Aktiv status                                       |
+| `docs/plans/archived/` | Parkerade, ersatta eller skrotade planer                      | Runtime-vägledning                                 |
 
 `docs/README.md` är dokumentationsroutern. Root `README.md`, `AGENTS.md` och
 `.cursor/README.md` ska peka vidare, inte kopiera fulla inventarier.
@@ -75,11 +75,15 @@ i git, inte i en egen docs-katalog.
 
 ## Terminologi
 
-`docs/architecture/glossary.md` är den enda kanoniska glossary-ytan.
-`config/naming-dictionary.json` är en valideringsseed och får inte bli ett
-parallellt runtime-registry eller en andra ordlista. `check:terms:contract`
-blockerar strukturell drift; `check:terms` rapporterar bredare legacyträffar
-rådgivande eftersom kodidentifierare kan behöva behålla äldre namn.
+| Faktatyp                               | Kanonisk ägare                                                      | Roll                                                                                                             |
+| -------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Mänsklig terminologisemantik           | [`docs/architecture/glossary.md`](architecture/glossary.md)         | Enda handskrivna ägaren av begrepp, namnskuggor och rekommenderade ersättningar.                                 |
+| Maskinmatchning och allowlist          | [`config/naming-dictionary.json`](../config/naming-dictionary.json) | Valideringsseed som väljer matchning, mål och allvarlighetsgrad; inga egna definitioner eller förklarande noter. |
+| Exekverbart beteende bakom ett begrepp | Faktatypens runtime-owner                                           | Kod, manifest eller policy vinner när beteendet ska avgöras.                                                     |
+
+`check:terms:contract` blockerar ägar- och strukturdrift samt blockerande alias i
+aktiv prosa. `check:terms` är en rådgivande prose-scan; kodidentifierare,
+genererade docs och historiska planer ligger utanför dess migrationssignal.
 
 ## Planer och historik
 

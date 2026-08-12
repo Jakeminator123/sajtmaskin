@@ -6,11 +6,11 @@ Kör **flera** read-only svärmningar i rad. Rundorna **växlar**: udda rundor b
 
 ## Argument
 
-| Kommando | Rundor | Agenter/scan-runda |
-|---|---|---|
-| `/automat` | 3 (scan → falsifiera → scan) | 8 |
-| `/automat 7` | 7 | 8 |
-| `/automat 5 agenter=12` | 5 | 12 |
+| Kommando                | Rundor                       | Agenter/scan-runda |
+| ----------------------- | ---------------------------- | ------------------ |
+| `/automat`              | 3 (scan → falsifiera → scan) | 8                  |
+| `/automat 7`            | 7                            | 8                  |
+| `/automat 5 agenter=12` | 5                            | 12                 |
 
 - **Alltid 8 agenter per scan-runda** om inget annat anges. Falsifieringsrundan har en agent per overifierat fynd, max 8.
 - **Rundor körs sekventiellt**; agenterna inom en runda körs parallellt (ett `Task`-anrop per agent, alla i samma assistant-turn).
@@ -34,15 +34,15 @@ Kör **flera** read-only svärmningar i rad. Rundorna **växlar**: udda rundor b
 
 Efter sista rundan: kort summering till användaren (rundor per typ, lanes, antal nya `A#`-fynd per prio, antal bortfalsifierade, pekare till `FINDINGS.md`).
 
-Modellval kommer från [`.cursor/README.md § Modellval för subagenter`](../README.md#modellval-för-subagenter-kanonisk-tabell) — hitta inte på slugar.
+Modellval kommer från [`subagent-models.mdc`](../rules/subagent-models.mdc) — hitta inte på slugar.
 
 ## Var saker hamnar
 
-| Plats | Innehåll |
-|---|---|
-| `.cursor/swarms/FINDINGS.md` | kuraterad rollande fynd-lista (plocka härifrån) |
-| `.cursor/swarms/runs/<ts>/` | rå per-agent-rapporter + `index.md` |
-| `BUG-SWARM-BACKLOG.md` | **rörs aldrig automatiskt** — endast manuellt via `/buggrapport` |
+| Plats                        | Innehåll                                                         |
+| ---------------------------- | ---------------------------------------------------------------- |
+| `.cursor/swarms/FINDINGS.md` | kuraterad rollande fynd-lista (plocka härifrån)                  |
+| `.cursor/swarms/runs/<ts>/`  | rå per-agent-rapporter + `index.md`                              |
+| `BUG-SWARM-BACKLOG.md`       | **rörs aldrig automatiskt** — endast manuellt via `/buggrapport` |
 
 ## Anti-mönster
 

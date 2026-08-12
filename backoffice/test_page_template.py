@@ -77,7 +77,7 @@ class WherePanelIsPartOfThePageTemplateTests(unittest.TestCase):
         import json
 
         domain_map = json.loads(
-            (REPO_ROOT / "config" / "dashboard" / "domain-map.json").read_text(
+            (REPO_ROOT / "config" / "backoffice" / "domain-map.json").read_text(
                 encoding="utf-8"
             )
         )
