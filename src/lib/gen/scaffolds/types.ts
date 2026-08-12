@@ -7,9 +7,17 @@ export type ScaffoldId =
   | "blog"
   | "dashboard"
   | "auth-pages"
-  | "ecommerce";
+  | "ecommerce"
+  | "projekt-bas-app";
 
 export type ScaffoldMode = "off" | "auto" | "manual";
+
+/**
+ * Baseline used when the builder Scaffold menu is set to "Av" (`scaffoldMode: "off"`)
+ * for freeform/init. Template / imported-repo chats must NOT use this — they stay
+ * truly scaffold-less (`importedRepoMode`).
+ */
+export const SCAFFOLD_OFF_BASELINE_ID: ScaffoldId = "projekt-bas-app";
 
 export type ScaffoldSiteKind = "marketing" | "app" | "commerce" | "editorial";
 export type ScaffoldComplexity = "simple" | "medium" | "advanced";
@@ -128,4 +136,5 @@ export const SCAFFOLD_CLIENT_LIST: ReadonlyArray<{
   { id: "auth-pages", label: "Auth Pages", description: "Login, signup, and forgot-password pages with form layout, validation-ready structure, and minimal branding.", allowedBuildIntents: ["website", "app", "template"] },
   { id: "ecommerce", label: "E-handel", description: "Storefront starter with product grid, category filtering, product detail page, cart drawer, and checkout-ready layout.", allowedBuildIntents: ["website", "template"] },
   { id: "app-shell", label: "App Shell", description: "Operational app shell with sidebar navigation, workspace summaries, queue tables, and execution-focused content areas.", allowedBuildIntents: ["app"] },
+  { id: "projekt-bas-app", label: "Projekt bas-app", description: "Minimal app-bas för Scaffold: Av i fritext — körbar Next.js-start utan färdig produktstruktur.", allowedBuildIntents: ["app", "website"] },
 ] as const;

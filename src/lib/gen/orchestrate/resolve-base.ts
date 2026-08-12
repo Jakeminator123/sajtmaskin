@@ -7,6 +7,7 @@ import { detectCapabilityRemoval } from "@/lib/builder/follow-up-capability-remo
 import { isAppScaffold, type BuildIntent } from "@/lib/builder/build-intent";
 import { buildScaffoldQueryContext } from "./scaffold-query-context";
 import type { ScaffoldManifest } from "../scaffolds/types";
+import { SCAFFOLD_OFF_BASELINE_ID } from "../scaffolds/types";
 import {
   getScaffoldById,
   matchScaffoldAuto,
@@ -232,8 +233,21 @@ export async function resolveOrchestrationBase(
   let uiRecipes: ShadcnUiRecipe[] = [];
   let resolvedUiRecipes = false;
 
-  if (effectiveScaffoldMode === "off") {
+  // Builder "Scaffold: Av" maps to the thin baseline scaffold for freeform.
+  // Imported templates keep a true null scaffold (preserve-first / no injection).
+  if (importedRepoMode) {
     resolvedScaffold = null;
+  } else if (effectiveScaffoldMode === "off") {
+    resolvedScaffold = getScaffoldById(SCAFFOLD_OFF_BASELINE_ID);
+    scaffoldSelection = {
+      ...scaffoldSelection,
+      selectedScaffold: resolvedScaffold?.id ?? null,
+      selectionMethod: "off",
+      selectionConfidence: resolvedScaffold ? "high" : "low",
+      topCandidates: resolvedScaffold
+        ? [{ id: resolvedScaffold.id, score: 1, source: "keyword" }]
+        : [],
+    };
   } else if (effectiveScaffoldMode === "manual" && scaffoldId) {
     resolvedScaffold = getScaffoldById(scaffoldId);
     scaffoldSelection = {

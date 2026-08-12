@@ -95,5 +95,6 @@ function getAllScaffoldIds(): string[] {
     "auth-pages",
     "ecommerce",
     "app-shell",
+    "projekt-bas-app",
   ];
 }

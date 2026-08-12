@@ -15,6 +15,7 @@ export type {
   ScaffoldMode,
   ScaffoldSiteKind,
 } from "./types";
+export { SCAFFOLD_OFF_BASELINE_ID } from "./types";
 export { getScaffoldById, getScaffoldIds } from "./registry";
 export {
   defaultScaffoldForIntent,

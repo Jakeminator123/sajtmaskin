@@ -481,8 +481,10 @@ export function useCreateChat(
         if (effectiveBuildIntent) promptMeta.buildIntent = effectiveBuildIntent;
         if (initChoicesMeta.buildIntentExplicit) promptMeta.buildIntentExplicit = true;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
-        if (effectiveScaffoldMode && effectiveScaffoldMode !== "off") promptMeta.scaffoldMode = effectiveScaffoldMode;
-        if (effectiveScaffoldId) promptMeta.scaffoldId = effectiveScaffoldId;
+        if (effectiveScaffoldMode) promptMeta.scaffoldMode = effectiveScaffoldMode;
+        if (effectiveScaffoldMode !== "off" && effectiveScaffoldId) {
+          promptMeta.scaffoldId = effectiveScaffoldId;
+        }
         if (appProjectId) promptMeta.appProjectId = appProjectId;
         if (designThemePreset) promptMeta.designTheme = designThemePreset;
         if (themeColors) promptMeta.themeColors = themeColors;
