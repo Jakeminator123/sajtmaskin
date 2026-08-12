@@ -1,0 +1,4 @@
+interface:
+  display_name: "Godnatt bugg"
+  short_description: "Kör säkra buggvarv från backlogg till merge"
+  default_prompt: "Use $godnatt-bugg to run one pilot pass ending at a draft PR; do not merge."
