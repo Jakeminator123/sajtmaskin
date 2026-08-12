@@ -192,7 +192,13 @@ describe("config/ai_models/manifest.json parity", () => {
     const m = getAiModelsManifest();
     expect(m.generatedSiteIntegrationPlaceholders?.harmlessEnvFragmentFile).toBeTruthy();
     expect(m.generatedSiteIntegrationPlaceholders?.tier3StubEnvFragmentFile).toBeTruthy();
+    const preGenerationContractsEntry =
+      m.generatedSiteIntegrationPlaceholders?.preGenerationContractsEntry;
+    expect(preGenerationContractsEntry).toBe(
+      "src/lib/gen/contract/pre-generation-contracts.ts",
+    );
     const cwd = process.cwd();
+    expect(preGenerationContractsEntry && existsSync(preGenerationContractsEntry)).toBe(true);
     expect(existsSync(resolveHarmlessPlaceholdersPath(cwd))).toBe(true);
     expect(existsSync(resolveTier3StubPlaceholdersPath(cwd))).toBe(true);
     const raw = readGeneratedSitePlaceholdersEnvText(cwd);

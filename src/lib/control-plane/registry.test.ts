@@ -95,6 +95,21 @@ describe.each(REGISTRIES)("control-plane $name", ({ file, requiredIds }) => {
       expect(typeof entry.runtimeEnforced).toBe("boolean");
       expect(DANGER).toContain(entry.backoffice.danger);
       expect(typeof entry.backoffice.editable).toBe("boolean");
+      if (entry.backoffice.editable) {
+        expect(
+          entry.backoffice.surface,
+          `entry ${entry.id} is editable but has no Backoffice surface`,
+        ).not.toBeNull();
+        expect(
+          entry.backoffice.writePath,
+          `entry ${entry.id} is editable but has no Backoffice write path`,
+        ).not.toBeNull();
+      } else {
+        expect(
+          entry.backoffice.writePath,
+          `entry ${entry.id} is read-only but declares a Backoffice write path`,
+        ).toBeNull();
+      }
 
       // hard gate must carry a validator
       if (entry.ciStatus === "hard") expect(entry.validator).not.toBeNull();
@@ -147,5 +162,63 @@ describe.each(REGISTRIES)("control-plane $name", ({ file, requiredIds }) => {
     for (const requiredId of requiredIds) {
       expect(ids.has(requiredId), `missing known-authority id ${requiredId}`).toBe(true);
     }
+  });
+});
+
+describe("control-plane Backoffice and CI truth", () => {
+  const policyRegistry = loadRegistry("config/control-plane/policy-registry.json");
+  const schemaRegistry = loadRegistry("config/control-plane/schema-registry.json");
+  const byId = new Map(policyRegistry.entries.map((entry) => [entry.id, entry]));
+  const schemaById = new Map(schemaRegistry.entries.map((entry) => [entry.id, entry]));
+
+  it("points Codegen policies and schemas at their real editor", () => {
+    expect(byId.get("domain-rules")?.backoffice).toMatchObject({
+      surface: "Codegen core",
+      editable: true,
+      writePath: "config/domain-rules.json",
+    });
+    expect(byId.get("prompt-heuristic-tokens")?.backoffice).toMatchObject({
+      surface: "Codegen core",
+      editable: true,
+      writePath: "config/prompt-heuristic-tokens.json",
+    });
+    for (const id of ["domain-rules-schema", "prompt-heuristic-tokens-schema"]) {
+      expect(schemaById.get(id)?.backoffice).toMatchObject({
+        surface: "Codegen core",
+        editable: false,
+        writePath: null,
+      });
+    }
+  });
+
+  it("keeps read-only policies out of the editor map", () => {
+    for (const id of ["tier3-sdk-deny", "naming-dictionary"]) {
+      expect(byId.get(id)?.backoffice).toMatchObject({
+        surface: null,
+        editable: false,
+        writePath: null,
+      });
+    }
+  });
+
+  it("records the blocking terminology contract", () => {
+    expect(byId.get("naming-dictionary")).toMatchObject({
+      validator: "check:terms:contract",
+      ciStatus: "hard",
+      runtimeEnforced: false,
+      runtimeStatus: "n/a",
+    });
+  });
+
+  it("records the user degraded-env editor without claiming runtime wiring", () => {
+    expect(byId.get("user-degraded-env")).toMatchObject({
+      runtimeEnforced: false,
+      runtimeStatus: "declared-only",
+      backoffice: {
+        surface: "user_degraded_env",
+        editable: true,
+        writePath: "config/user_degraded_env.txt",
+      },
+    });
   });
 });
