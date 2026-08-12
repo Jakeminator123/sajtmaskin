@@ -11,6 +11,7 @@ import {
   readMutedDossierIdsFromSnapshot,
   sanitizeOrchestrationSnapshotForStorage,
 } from "./orchestration-snapshot";
+import { buildImportedRepoBaselineSnapshot } from "@/lib/templates/imported-repo-contract";
 
 describe("deferred integrations (mutedCapabilities)", () => {
   it("survives a later round that defers nothing", () => {
@@ -19,9 +20,7 @@ describe("deferred integrations (mutedCapabilities)", () => {
       { mutedCapabilities: [] },
     );
 
-    expect(readMutedCapabilitiesFromSnapshot(merged)).toEqual([
-      "newsletter-subscribe",
-    ]);
+    expect(readMutedCapabilitiesFromSnapshot(merged)).toEqual(["newsletter-subscribe"]);
   });
 
   it("clears once the integration is actually delivered in the version", () => {
@@ -90,10 +89,7 @@ describe("deferred provider identity (mutedDossierIds)", () => {
       { mutedDossierIds: ["clerk-auth"] },
     );
 
-    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual([
-      "stripe-checkout",
-      "clerk-auth",
-    ]);
+    expect(readMutedDossierIdsFromSnapshot(merged)).toEqual(["stripe-checkout", "clerk-auth"]);
   });
 
   it("städas av capability-tombstonen även utan removedDossierIds", () => {
@@ -169,6 +165,42 @@ describe("sanitizeOrchestrationSnapshotForStorage", () => {
     const note = out.note as string;
     expect(note.endsWith("…")).toBe(true);
     expect(note.length).toBe(12_001);
+  });
+
+  it("keeps a bounded imported-repo baseline intact", () => {
+    const baseline = buildImportedRepoBaselineSnapshot({
+      files: [
+        {
+          path: "package.json",
+          content: JSON.stringify({
+            scripts: { dev: "next dev" },
+            dependencies: { next: "16.2.10", react: "19.2.7" },
+          }),
+          language: "json",
+        },
+        {
+          path: "src/app/page.tsx",
+          content:
+            "const key = process.env.NEXT_PUBLIC_SITE_ID; export default function Page(){return null}",
+          language: "tsx",
+        },
+        {
+          path: "tsconfig.json",
+          content: JSON.stringify({
+            compilerOptions: { paths: { "@auth/*": ["src/auth/*"] } },
+          }),
+          language: "json",
+        },
+      ],
+      origin: { kind: "v0_template", templateId: "tmpl_1" },
+      versionId: "version_1",
+      filesRevision: "revision_1",
+      capturedAt: "2026-08-12T08:00:00.000Z",
+    });
+
+    const out = sanitizeOrchestrationSnapshotForStorage({ importedRepoBaseline: baseline });
+
+    expect(out.importedRepoBaseline).toEqual(baseline);
   });
 });
 
@@ -348,11 +380,27 @@ describe("capability-signalnycklar överlever nyckelbudgeten (spår 01 steg 3)",
 
 describe("mergePersistedOrchestrationSnapshots", () => {
   it("overlays next onto previous", () => {
-    const out = mergePersistedOrchestrationSnapshots(
-      { a: 1, b: 2 },
-      { b: 3, c: 4 },
-    );
+    const out = mergePersistedOrchestrationSnapshots({ a: 1, b: 2 }, { b: 3, c: 4 });
     expect(out).toEqual({ a: 1, b: 3, c: 4 });
+  });
+
+  it("keeps an imported-repo baseline immutable across later finalization", () => {
+    const baseline = { schemaVersion: 1, versionId: "version_1", contract: { contractHash: "a" } };
+    const out = mergePersistedOrchestrationSnapshots(
+      { importedRepoBaseline: baseline, capturedAt: "2026-08-12T08:00:00Z" },
+      {
+        importedRepoBaseline: {
+          schemaVersion: 1,
+          versionId: "version_2",
+          contract: { contractHash: "b" },
+        },
+        lastVersionId: "version_2",
+        capturedAt: "2026-08-12T09:00:00Z",
+      },
+    );
+
+    expect(out.importedRepoBaseline).toBe(baseline);
+    expect(out.lastVersionId).toBe("version_2");
   });
 
   it("lets an explicit removal overwrite stale F3 approvals with empty arrays", () => {

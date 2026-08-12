@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { getAllScaffolds } from "./registry";
-import { SCAFFOLD_CLIENT_LIST } from "./types";
+import {
+  MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST,
+  SCAFFOLD_CLIENT_LIST,
+  SCAFFOLD_OFF_BASELINE_ID,
+} from "./types";
 
 const ALL_SCAFFOLDS = getAllScaffolds();
 
@@ -29,5 +33,18 @@ describe("SCAFFOLD_CLIENT_LIST mirrors the registry", () => {
         [...manifest!.allowedBuildIntents].sort(),
       );
     }
+  });
+});
+
+describe("MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST", () => {
+  it("keeps registry-backed choices while excluding the internal Scaffold: Av baseline", () => {
+    expect(MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST.map((entry) => entry.id)).toEqual(
+      SCAFFOLD_CLIENT_LIST.filter(({ id }) => id !== SCAFFOLD_OFF_BASELINE_ID).map(
+        (entry) => entry.id,
+      ),
+    );
+    expect(MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST).not.toContainEqual(
+      expect.objectContaining({ id: SCAFFOLD_OFF_BASELINE_ID }),
+    );
   });
 });

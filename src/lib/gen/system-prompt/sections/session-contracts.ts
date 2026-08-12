@@ -17,6 +17,10 @@ import {
 import { BUILD_INTENT_GUIDANCE } from "../../intent-guidance";
 import type { BuildSpec } from "../../build-spec";
 import type { PreGenerationContractContext } from "../../contract/pre-generation-contracts";
+import type {
+  ImportedRepoContractContext,
+  ImportedRepoContractV1,
+} from "@/lib/templates/imported-repo-contract";
 
 export function renderGenerationModeBlock(isFollowUp: boolean): string[] {
   if (!isFollowUp) return [];
@@ -31,9 +35,9 @@ export function renderGenerationModeBlock(isFollowUp: boolean): string[] {
     "",
     "- If you emit `app/page.tsx`, every section, component, media element, and interactive block from the previous version MUST appear in your output unless the user explicitly asked to remove it.",
     "- Pay special attention to: `<video>` elements, video placeholder UIs (play buttons, poster images), `<canvas>`, `<iframe>`, `<form>`, 3D scenes (`<Canvas>`, `<Physics>`), inline SVGs, and custom media components.",
-    "- \"Change the hero\" means change its styling/content — NOT remove the video player or media element inside it.",
+    '- "Change the hero" means change its styling/content — NOT remove the video player or media element inside it.',
     "- The host merge guard will reject your file and keep the old version if it detects structural elements were dropped. Write the complete file correctly the first time.",
-    "**Ordningsregel:** Den här bevarings-regeln (follow-up preservation) går före scaffold-variant \"adapt freely\"-instruktionen senare i prompten. Variant-estetik får aldrig motivera att ta bort, byta typ på, eller flytta bevarade element vid follow-up. Vid clear-redesign-intent gäller variant-frihet i stället.",
+    '**Ordningsregel:** Den här bevarings-regeln (follow-up preservation) går före scaffold-variant "adapt freely"-instruktionen senare i prompten. Variant-estetik får aldrig motivera att ta bort, byta typ på, eller flytta bevarade element vid follow-up. Vid clear-redesign-intent gäller variant-frihet i stället.',
     "",
   ];
 }
@@ -46,7 +50,81 @@ export function renderGenerationModeBlock(isFollowUp: boolean): string[] {
  * tends to "normalize" the repo toward the standard scaffold stack, which
  * breaks lockfile-frozen installs and working templates.
  */
-export function renderImportedRepoBlock(importedRepoMode: boolean | undefined): string[] {
+function compactContractList(values: readonly string[], limit = 12): string {
+  if (values.length === 0) return "none detected";
+  const shown = values.slice(0, limit).map((value) => `\`${value}\``);
+  return `${shown.join(", ")}${values.length > limit ? ` (+${values.length - limit} more)` : ""}`;
+}
+
+function renderImportedRepoContractSummary(
+  label: string,
+  contract: ImportedRepoContractV1,
+): string[] {
+  const scripts = Object.entries(contract.package.scripts).map(
+    ([name, family]) => `${name}:${family}`,
+  );
+  const versions = Object.entries(contract.package.frameworkVersions).map(
+    ([name, version]) => `${name}@${version}`,
+  );
+  const aliases = contract.structure.aliases.map(({ name, target }) => `${name} -> ${target}`);
+  return [
+    `#### ${label}`,
+    "",
+    `- Contract hash: \`${contract.contractHash.slice(0, 16)}\``,
+    `- Runtime shape: framework=\`${contract.structure.framework}\`, router=\`${contract.structure.router}\`, source-root=\`${contract.structure.sourceRoot}\`, package-manager=\`${contract.package.manager}\``,
+    `- Package manifest: ${contract.package.packageJsonPath ? `\`${contract.package.packageJsonPath}\`` : "not found"}; lockfiles: ${compactContractList(contract.package.lockfiles, 4)}`,
+    `- Script families: ${compactContractList(scripts, 3)}; framework packages: ${compactContractList(versions, 10)}`,
+    `- Entry/layout files: ${compactContractList(contract.structure.entries, 10)}`,
+    `- Routes: ${compactContractList(contract.structure.routes, 14)}`,
+    `- Config files: ${compactContractList(contract.structure.configs, 10)}`,
+    `- Global/style entry files: ${compactContractList(contract.structure.styles, 8)}`,
+    `- Path aliases: ${compactContractList(aliases, 8)}`,
+    `- Environment key names referenced (values are never captured): ${compactContractList(contract.envKeys, 12)}`,
+    `- Deterministic risk flags: ${compactContractList(contract.risks, 12)}`,
+    "",
+  ];
+}
+
+function renderImportedRepoContractContext(
+  context: ImportedRepoContractContext | undefined,
+): string[] {
+  if (!context) return [];
+  const lines = [
+    "### Imported repo contract (synthetic context, not a scaffold)",
+    "",
+    "The current contract below was derived from the exact parent-version files for this turn. **Current is authoritative.** The baseline is immutable historical orientation only: never restore, regenerate, or overwrite current files merely to make them match the baseline.",
+    "",
+    ...renderImportedRepoContractSummary("Current project structure", context.current),
+  ];
+  if (!context.baseline) {
+    lines.push(
+      "#### Import baseline",
+      "",
+      "No immutable import baseline exists for this legacy chat. Use the current contract and Current Project Files; do not infer a standard scaffold.",
+      "",
+    );
+  } else if (context.baseline.contract.contractHash === context.current.contractHash) {
+    lines.push(
+      "#### Import baseline",
+      "",
+      `The current structural contract still matches imported version \`${context.baseline.versionId}\` (hash \`${context.baseline.contract.contractHash.slice(0, 16)}\`).`,
+      "",
+    );
+  } else {
+    lines.push(
+      ...renderImportedRepoContractSummary(
+        `Original import baseline from version ${context.baseline.versionId} (historical only)`,
+        context.baseline.contract,
+      ),
+    );
+  }
+  return lines;
+}
+
+export function renderImportedRepoBlock(
+  importedRepoMode: boolean | undefined,
+  contractContext?: ImportedRepoContractContext,
+): string[] {
   if (!importedRepoMode) return [];
   return [
     "## Imported Template Project (verbatim repo)",
@@ -59,6 +137,7 @@ export function renderImportedRepoBlock(importedRepoMode: boolean | undefined): 
     "- **Emit only the files you change.** The rest of the repo is preserved as-is.",
     "- Use the libraries and versions the repo already depends on. Check `## Current Project Files` for what exists before importing anything new.",
     "",
+    ...renderImportedRepoContractContext(contractContext),
   ];
 }
 
@@ -106,7 +185,7 @@ function renderF2MutedCapabilitiesLines(
     "",
     "- Do NOT create any file under `app/api/**` for it — no route handler, no webhook, no server action that talks to the service.",
     "- Do NOT import its SDK or client library, and do NOT read its `process.env` keys.",
-    "- DO render the full, beautiful surface the user would see (subscribe field, form, list, button) with local `useState` and a Swedish demo toast, e.g. `toast.success(\"Tack! Anmälan sparas när tjänsten kopplas in.\")`.",
+    '- DO render the full, beautiful surface the user would see (subscribe field, form, list, button) with local `useState` and a Swedish demo toast, e.g. `toast.success("Tack! Anmälan sparas när tjänsten kopplas in.")`.',
     "- Do NOT claim in UI copy that the service is connected. The builder tells the user separately that it is planned for the next step.",
     "",
   ];
@@ -135,35 +214,28 @@ export function renderF2ContractBlock(
     "",
     "**INSTEAD in F2, for any 'backend' need:**",
     "",
-    "- Mock all data inline as TypeScript constants: `const ROOMS = [{ id: \"1\", name: \"Skogssvit\", price: 1290 }, ...]`.",
-    "- Forms: use `useState` + `toast.success(\"Bokningen mottagen!\")` on submit. No POST endpoint, no DB.",
+    '- Mock all data inline as TypeScript constants: `const ROOMS = [{ id: "1", name: "Skogssvit", price: 1290 }, ...]`.',
+    '- Forms: use `useState` + `toast.success("Bokningen mottagen!")` on submit. No POST endpoint, no DB.',
     "- Contact/booking forms that would SEND EMAIL: still render the full, beautiful form UI (name/email/message fields, validation, loading state) — but the submit handler is a pure client-side mock (`toast.success(\"Meddelandet mottaget! (demo — mejl aktiveras i 'Bygg integrationer')\")`). Do NOT emit an email API route, do NOT import an email SDK, and do NOT reference `process.env` for email addresses — never invent env keys like `BOOKING_TO_EMAIL`, `CONTACT_EMAIL_TO` or other `*_EMAIL` variables. Real email delivery is wired in F3 via the contact-form dossier's canonical keys (`RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL_TO`).",
-    "- Auth UIs: render a beautiful `<LoginForm>` with email/password fields that calls `toast.success(\"Inloggad (demo)\")` on submit. No real session.",
+    '- Auth UIs: render a beautiful `<LoginForm>` with email/password fields that calls `toast.success("Inloggad (demo)")` on submit. No real session.',
     "- Payments UIs: render a beautiful checkout summary card with a `<Button>Betala (demo)</Button>` that opens a `<Dialog>` saying \"Riktiga betalningar aktiveras i F3 — klicka 'Bygg integrationer' i previewpanelen.\" No Stripe, no API call.",
     "- Search: client-side `Array.filter()` over the inline mock data.",
     "",
     ...renderF2MutedCapabilitiesLines(mutedCapabilities),
-    "Why: the user will click **\"Bygg integrationer\"** in the preview panel when they want to lift the site to F3 / integrations stage. THAT is when real keys, SDKs and API routes get wired in — by a separate generation pass with a separate prompt that explicitly asks for it. Right now, your job is to make the visual frontend perfect.",
+    'Why: the user will click **"Bygg integrationer"** in the preview panel when they want to lift the site to F3 / integrations stage. THAT is when real keys, SDKs and API routes get wired in — by a separate generation pass with a separate prompt that explicitly asks for it. Right now, your job is to make the visual frontend perfect.',
     "",
   ];
 }
 
 export function renderBuildIntentBlock(intent: BuildIntent): string[] {
   const guidance = BUILD_INTENT_GUIDANCE[intent];
-  return [
-    `## Build Intent: ${guidance.label}`,
-    "",
-    ...guidance.rules.map((r) => `- ${r}`),
-    "",
-  ];
+  return [`## Build Intent: ${guidance.label}`, "", ...guidance.rules.map((r) => `- ${r}`), ""];
 }
 
 export function renderGenerationProfileBlock(buildSpec: BuildSpec | null | undefined): string[] {
   if (!buildSpec) return [];
   const referenceFamilies =
-    buildSpec.referenceCategories.length > 0
-      ? buildSpec.referenceCategories.join(", ")
-      : "general";
+    buildSpec.referenceCategories.length > 0 ? buildSpec.referenceCategories.join(", ") : "general";
   const styleDirection = buildSpec.stylePackSecondary
     ? `${buildSpec.stylePack} (with hints of ${buildSpec.stylePackSecondary})`
     : buildSpec.stylePack;
@@ -174,18 +246,11 @@ export function renderGenerationProfileBlock(buildSpec: BuildSpec | null | undef
     `- **Quality tier:** ${buildSpec.qualityTarget}`,
     `- **Reference families:** ${referenceFamilies}`,
   ];
-  if (
-    buildSpec.capabilityFlags?.heavy &&
-    (buildSpec.capabilityFlags.signals?.length ?? 0) > 0
-  ) {
-    profileLines.push(
-      `- **Capability signals:** ${buildSpec.capabilityFlags.signals.join(", ")}`,
-    );
+  if (buildSpec.capabilityFlags?.heavy && (buildSpec.capabilityFlags.signals?.length ?? 0) > 0) {
+    profileLines.push(`- **Capability signals:** ${buildSpec.capabilityFlags.signals.join(", ")}`);
   }
   if (buildSpec.forbiddenPatterns.length > 0) {
-    profileLines.push(
-      `- **Forbidden patterns:** ${buildSpec.forbiddenPatterns.join(", ")}`,
-    );
+    profileLines.push(`- **Forbidden patterns:** ${buildSpec.forbiddenPatterns.join(", ")}`);
   }
   profileLines.push("");
   return profileLines;
@@ -220,16 +285,8 @@ export function renderTier3IntegrationBlock(params: {
   tier3BuildSpec?: Tier3BuildSpec | null;
   approvedProviders?: readonly string[] | null;
 }): string[] {
-  const {
-    buildSpec,
-    preGenerationContracts,
-    tier3BuildSpec,
-    approvedProviders,
-  } = params;
-  const fileDerivedSpec =
-    (tier3BuildSpec?.requirements.length ?? 0) > 0
-      ? tier3BuildSpec
-      : null;
+  const { buildSpec, preGenerationContracts, tier3BuildSpec, approvedProviders } = params;
+  const fileDerivedSpec = (tier3BuildSpec?.requirements.length ?? 0) > 0 ? tier3BuildSpec : null;
   const hasApprovedProviders = (approvedProviders?.length ?? 0) > 0;
   // ── Tier-3 Integration Build Plan (F3 only) ────────────────────────────
   // When previewPolicy is fidelity3 we render the structured tier-3 spec
@@ -239,8 +296,7 @@ export function renderTier3IntegrationBlock(params: {
     buildSpec?.previewPolicy !== "fidelity3" ||
     (!fileDerivedSpec &&
       !hasApprovedProviders &&
-      (!preGenerationContracts ||
-        preGenerationContracts.contracts.integrations.length === 0))
+      (!preGenerationContracts || preGenerationContracts.contracts.integrations.length === 0))
   ) {
     return [];
   }
@@ -256,35 +312,25 @@ export function renderTier3IntegrationBlock(params: {
     const fileKeys = new Set(
       fileDerivedSpec?.requirements.map((requirement) => requirement.key) ?? [],
     );
-    const approvedProviderSpec =
-      deriveTier3BuildSpecForProviderKeys(approvedProviders ?? []);
-    const approvedCandidates = [
-      ...approvedProviderSpec.requirements,
-      ...contractSpec.requirements,
-    ];
+    const approvedProviderSpec = deriveTier3BuildSpecForProviderKeys(approvedProviders ?? []);
+    const approvedCandidates = [...approvedProviderSpec.requirements, ...contractSpec.requirements];
     const approvedRequirements =
       approved.size > 0
         ? approvedCandidates.filter((requirement, index, all) => {
-            const providerKey = requirement.provider
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "");
-            const requirementKey = requirement.key
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "");
+            const providerKey = requirement.provider.toLowerCase().replace(/[^a-z0-9]+/g, "");
+            const requirementKey = requirement.key.toLowerCase().replace(/[^a-z0-9]+/g, "");
             return (
               !fileKeys.has(requirement.key) &&
-              all.findIndex((candidate) => candidate.key === requirement.key) ===
-                index &&
+              all.findIndex((candidate) => candidate.key === requirement.key) === index &&
               (approved.has(providerKey) || approved.has(requirementKey))
             );
           })
         : [];
     const spec = fileDerivedSpec
       ? {
-          requirements: [
-            ...fileDerivedSpec.requirements,
-            ...approvedRequirements,
-          ].sort((a, b) => a.key.localeCompare(b.key)),
+          requirements: [...fileDerivedSpec.requirements, ...approvedRequirements].sort((a, b) =>
+            a.key.localeCompare(b.key),
+          ),
         }
       : approved.size > 0
         ? { requirements: approvedRequirements }
@@ -342,7 +388,9 @@ export function renderPreGenerationContractsBlock(
     parts.push(
       ...contracts.envVars
         .slice(0, 10)
-        .map((envVar) => `  - ${envVar.key} — ${envVar.reason}${envVar.required ? " (required)" : ""}`),
+        .map(
+          (envVar) => `  - ${envVar.key} — ${envVar.reason}${envVar.required ? " (required)" : ""}`,
+        ),
     );
   }
   parts.push(

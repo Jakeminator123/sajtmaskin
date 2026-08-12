@@ -22,17 +22,14 @@ import type {
   PreGenerationContractContext,
 } from "../contract/pre-generation-contracts";
 import type { OrchestrationContract } from "../orchestration-contract";
-import type {
-  BuildSpec,
-  BuildSpecComplexityHint,
-  BuildSpecQualityTarget,
-} from "../build-spec";
+import type { BuildSpec, BuildSpecComplexityHint, BuildSpecQualityTarget } from "../build-spec";
 import type { ShadcnUiRecipe } from "../data/shadcn-ui-recipes";
 import type { DossierSelectionResult } from "../dossiers";
 import type { FollowUpContract } from "../orchestration-snapshot";
 import type { RequestKindClass } from "../request-kind";
 import type { FollowUpIntentMode } from "../follow-up-intent-types";
 import type { RequestAttachment } from "../request-metadata";
+import type { ImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
 
 export interface OrchestrationInput {
   prompt: string;
@@ -155,10 +152,7 @@ export interface OrchestrationInput {
    */
   embeddingScaffoldMatch?: boolean;
   /** Optional prompt strategy metadata from builder orchestration. */
-  promptStrategyMeta?: Pick<
-    PromptStrategyMeta,
-    "strategy" | "promptType"
-  > &
+  promptStrategyMeta?: Pick<PromptStrategyMeta, "strategy" | "promptType"> &
     Partial<Pick<PromptStrategyMeta, "complexityScore">>;
   /** Existing App Router paths from previous version files (follow-up route freeze/clamp). */
   existingRoutePaths?: string[];
@@ -336,6 +330,13 @@ export interface OrchestrationInput {
    * skip scaffold assembly + baseline dependency force-pins.
    */
   importedRepoMode?: boolean;
+  /**
+   * Compact structural map for a verbatim repo import. `baseline` describes
+   * the exact imported revision; `current` is re-derived from the follow-up's
+   * selected parent files. It is prompt context only and never activates the
+   * normal scaffold/project merge path.
+   */
+  importedRepoContractContext?: ImportedRepoContractContext;
 }
 
 export interface OrchestrationBase {

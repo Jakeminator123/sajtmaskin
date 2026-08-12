@@ -1,10 +1,63 @@
 import { describe, expect, it } from "vitest";
 import type { BuildSpec } from "../../build-spec";
-import { renderTier3IntegrationBlock } from "./session-contracts";
+import {
+  buildImportedRepoBaselineSnapshot,
+  buildImportedRepoContractContext,
+} from "@/lib/templates/imported-repo-contract";
+import { renderImportedRepoBlock, renderTier3IntegrationBlock } from "./session-contracts";
 
 const f3BuildSpec = {
   previewPolicy: "fidelity3",
 } as BuildSpec;
+
+describe("renderImportedRepoBlock", () => {
+  it("renders an authoritative current contract beside the immutable baseline", () => {
+    const importedFiles = [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          scripts: { dev: "next dev", build: "next build" },
+          dependencies: { next: "16.2.10", react: "19.2.7" },
+        }),
+        language: "json",
+      },
+      {
+        path: "src/app/page.tsx",
+        content: "export default function Page() { return null }",
+        language: "tsx",
+      },
+    ];
+    const baseline = buildImportedRepoBaselineSnapshot({
+      files: importedFiles,
+      origin: { kind: "v0_template", templateId: "tmpl_1" },
+      versionId: "version_1",
+      capturedAt: "2026-08-12T08:00:00.000Z",
+    });
+    const context = buildImportedRepoContractContext(
+      [
+        ...importedFiles,
+        {
+          path: "src/app/about/page.tsx",
+          content: "export default function About() { return null }",
+          language: "tsx",
+        },
+      ],
+      { importedRepoBaseline: baseline },
+    );
+
+    const rendered = renderImportedRepoBlock(true, context).join("\n");
+
+    expect(rendered).toContain("synthetic context, not a scaffold");
+    expect(rendered).toContain("Current is authoritative");
+    expect(rendered).toContain("`/about`");
+    expect(rendered).toContain("Original import baseline from version version_1");
+    expect(rendered).toContain("never restore, regenerate, or overwrite current files");
+  });
+
+  it("never renders contract context for an ordinary project", () => {
+    expect(renderImportedRepoBlock(false, undefined)).toEqual([]);
+  });
+});
 
 describe("renderTier3IntegrationBlock", () => {
   it("prefers the file-derived parent-version spec over empty prompt contracts", () => {

@@ -42,15 +42,9 @@ import { debugLog } from "@/lib/utils/debug";
 import { SCAFFOLD_PROTECTED_PATHS } from "../scaffolds/protected-paths";
 import { pickScaffoldVariant } from "../scaffold-variants";
 import { BUILD_INTENT_GUIDANCE } from "../intent-guidance";
-import {
-  buildBudgetedSystemPrompt,
-  type PromptBudgetBlock,
-} from "../tokens";
+import { buildBudgetedSystemPrompt, type PromptBudgetBlock } from "../tokens";
 import { splitContextIntoBudgetBlocks, DEFAULT_DYNAMIC_CONTEXT_BUDGET_TOKENS } from "./budget";
-import type {
-  BuildDynamicContextResult,
-  DynamicContextOptions,
-} from "./types";
+import type { BuildDynamicContextResult, DynamicContextOptions } from "./types";
 import {
   renderBuildIntentBlock,
   renderCustomInstructionsBlock,
@@ -70,10 +64,7 @@ import {
   renderVariantTemplateInspirationBlock,
   renderToolkitBlock,
 } from "./sections/scaffold-stack";
-import {
-  renderCapabilityModifyHintBlock,
-  renderDossierBlocks,
-} from "./sections/dossiers";
+import { renderCapabilityModifyHintBlock, renderDossierBlocks } from "./sections/dossiers";
 import {
   renderExistingRoutePagesBlock,
   renderHydrationDeterminismBlock,
@@ -120,9 +111,7 @@ function renderScaffoldProtectedPathsBlock(): string[] {
  * Builds the dynamic (per-request) portion of the system prompt.
  * Contains build intent guidance, project context, visual identity, and media catalog.
  */
-export function buildDynamicContext(
-  options: DynamicContextOptions,
-): BuildDynamicContextResult {
+export function buildDynamicContext(options: DynamicContextOptions): BuildDynamicContextResult {
   const {
     intent,
     brief,
@@ -212,7 +201,9 @@ export function buildDynamicContext(
 
   const parts: string[] = [];
   parts.push(...renderGenerationModeBlock(isFollowUp));
-  parts.push(...renderImportedRepoBlock(options.importedRepoMode));
+  parts.push(
+    ...renderImportedRepoBlock(options.importedRepoMode, options.importedRepoContractContext),
+  );
   parts.push(...renderCustomInstructionsBlock(customInstructions));
   parts.push(...renderF2ContractBlock(buildSpec, options.mutedCapabilities));
   parts.push(...renderBuildIntentBlock(intent));
@@ -235,10 +226,7 @@ export function buildDynamicContext(
   // init-only (see `finalize-prompts.ts`), so an empty value here means "no
   // palette", not "compact mode dropped it".
   parts.push(
-    ...renderLockedColorPaletteBlock(
-      options.lockedColorPalette,
-      options.lockedColorPaletteLabel,
-    ),
+    ...renderLockedColorPaletteBlock(options.lockedColorPalette, options.lockedColorPaletteLabel),
   );
   parts.push(
     ...renderScaffoldVariantBlock(effectiveVariant, {
@@ -246,11 +234,7 @@ export function buildDynamicContext(
     }),
   );
   if (!compactFollowUpContext) {
-    parts.push(
-      ...renderVariantTemplateInspirationBlock(
-        options.variantTemplateInspiration,
-      ),
-    );
+    parts.push(...renderVariantTemplateInspirationBlock(options.variantTemplateInspiration));
   }
   parts.push(...renderDesignPriorityBlock());
 
@@ -335,14 +319,10 @@ export function buildDynamicContext(
   // the sole integration authority; rendering prompt-derived contracts beside
   // it could reintroduce speculative providers that are absent from the code.
   if ((tier3BuildSpec?.requirements.length ?? 0) === 0) {
-    parts.push(
-      ...renderPreGenerationContractsBlock(preGenerationContracts, buildSpec),
-    );
+    parts.push(...renderPreGenerationContractsBlock(preGenerationContracts, buildSpec));
   }
   parts.push(...renderBriefBlocks(brief));
-  parts.push(
-    ...renderVisualIdentityBlock({ themeOverride, brief, designThemePreset }),
-  );
+  parts.push(...renderVisualIdentityBlock({ themeOverride, brief, designThemePreset }));
   parts.push(...renderDesignReferencesBlock(designReferences));
   parts.push(
     ...renderGuidanceBlocks({

@@ -13,10 +13,7 @@ import type { OrchestrationBase } from "./orchestrate";
 import type { BuildSpec } from "./build-spec";
 import type { RequestAttachment } from "./request-metadata";
 import type { DynamicContextBlockTrace, DynamicContextPruning } from "./system-prompt";
-import {
-  buildPromptSizeMetrics,
-  type PromptSizeMetrics,
-} from "./prompt-size-metrics";
+import { buildPromptSizeMetrics, type PromptSizeMetrics } from "./prompt-size-metrics";
 
 export interface GenerationInputPackage extends OrchestrationBase {
   /** User-turn text that shaped orchestration/system assembly for this run. */
@@ -43,6 +40,9 @@ export interface GenerationInputPackage extends OrchestrationBase {
   variantTemplateId: string | null;
   /** Style-only vision attachment corresponding to `variantTemplateId`. */
   variantTemplateReferenceAttachments: RequestAttachment[];
+  /** Imported repos remain scaffold-less; these hashes bind the prompt to its structural map. */
+  importedRepoMode: boolean;
+  importedRepoContractHashes: { baseline: string | null; current: string } | null;
   /** SHA-256 of deterministic inputs for lineage tracking. */
   lineageHash: string;
 }
@@ -73,6 +73,9 @@ export function computeLineageHash(pkg: {
   designReferences?: unknown;
   variantId?: string | null;
   variantTemplateId?: string | null;
+  importedRepoMode?: boolean;
+  importedRepoBaselineHash?: string | null;
+  importedRepoCurrentHash?: string | null;
 }): string {
   const h = createHash("sha256");
   h.update(pkg.userPrompt);
@@ -89,6 +92,9 @@ export function computeLineageHash(pkg: {
   h.update(JSON.stringify(pkg.designReferences ?? null));
   h.update(pkg.variantId ?? "");
   h.update(pkg.variantTemplateId ?? "");
+  h.update(pkg.importedRepoMode ? "imported-repo" : "standard-project");
+  h.update(pkg.importedRepoBaselineHash ?? "");
+  h.update(pkg.importedRepoCurrentHash ?? "");
   return h.digest("hex");
 }
 
@@ -97,9 +103,7 @@ export function computeLineageHash(pkg: {
  * Omits the full system prompt (large, already dumped separately) and keeps
  * only a length indicator.
  */
-export function serializePackageForDump(
-  pkg: GenerationInputPackage,
-): Record<string, unknown> {
+export function serializePackageForDump(pkg: GenerationInputPackage): Record<string, unknown> {
   return {
     lineageHash: pkg.lineageHash,
     userPrompt: pkg.userPrompt,
@@ -120,16 +124,15 @@ export function serializePackageForDump(
     promptSize: pkg.promptSize,
     variantId: pkg.variantId,
     variantTemplateId: pkg.variantTemplateId,
+    importedRepoMode: pkg.importedRepoMode,
+    importedRepoContractHashes: pkg.importedRepoContractHashes,
   };
 }
 
 export function buildGenerationPromptSize(
   pkg: Pick<
     GenerationInputPackage,
-    | "engineSystemPrompt"
-    | "dynamicContext"
-    | "dynamicContextPruning"
-    | "dynamicContextBlocks"
+    "engineSystemPrompt" | "dynamicContext" | "dynamicContextPruning" | "dynamicContextBlocks"
   >,
 ): PromptSizeMetrics {
   return buildPromptSizeMetrics({

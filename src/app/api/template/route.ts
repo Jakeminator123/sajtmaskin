@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as chatRepo from "@/lib/db/chat-repository-pg";
-import {
-  createProject as createAppProject,
-  saveProjectData,
-} from "@/lib/db/services/projects";
+import { createProject as createAppProject, saveProjectData } from "@/lib/db/services/projects";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
@@ -32,6 +29,11 @@ import {
 } from "@/lib/gen/autofix/dep-completer";
 import { runHydrationPreflightChecks } from "@/lib/gen/validation/hydration-preflight";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { buildImportedRepoBaselineSnapshot } from "@/lib/templates/imported-repo-contract";
+import {
+  persistImportedRepoInitialization,
+  recordImportedRepoPreviewOutcome,
+} from "@/lib/templates/imported-repo-initialization";
 
 // Allow 5 minutes for own-engine generation
 export const maxDuration = 300;
@@ -71,7 +73,7 @@ function buildTemplateSourceMetadata(
     stale,
     sourceSlugs: [...source.sourceSlugs],
     categoryLabel: source.categoryLabel,
-    archiveUrl: source.sourceKind === "blob" ? source.archiveUrl ?? null : null,
+    archiveUrl: source.sourceKind === "blob" ? (source.archiveUrl ?? null) : null,
   };
 }
 
@@ -91,7 +93,9 @@ type LegacyTemplateFile = {
   content: string;
 };
 
-function toLegacyTemplateFiles(files: Array<{ path: string; content: string }>): LegacyTemplateFile[] {
+function toLegacyTemplateFiles(
+  files: Array<{ path: string; content: string }>,
+): LegacyTemplateFile[] {
   return files.map((file) => ({
     name: file.path,
     content: file.content,
@@ -213,6 +217,8 @@ async function initializeLocalTemplateProject(params: {
   const engineModel = resolveEngineModelId(DEFAULT_MODEL_ID);
   const categoryId = getTemplateCategoryId(template);
   const categoryTitle = getTemplateCategoryTitle(template);
+  const templateBuildIntent =
+    getTemplateCatalogItemById(template.id)?.buildIntent === "app" ? "app" : "template";
 
   const chat = await chatRepo.createChat(projectId, String(engineModel));
   const assistantSummary = "Välkommen. Här är en template som vi utgår från.";
@@ -228,6 +234,33 @@ async function initializeLocalTemplateProject(params: {
     // preflight gates) instead of forcing the landing-page scaffold contract.
     { editKind: "imported_repo" },
   );
+
+  // Imported repositories stay truly scaffold-less. Instead, bind a compact,
+  // immutable structural contract to the exact normalized version before the
+  // first preview starts. Follow-ups compare that baseline with their actual
+  // parent files; metadata failures never block a valid import.
+  const importedRepoOrigin = {
+    kind: "v0_template" as const,
+    templateId: imported.source.templateId,
+    templateCategory: categoryId,
+    archiveSha256: imported.source.archiveSha256 ?? undefined,
+  };
+  const importedRepoBaseline = buildImportedRepoBaselineSnapshot({
+    files: preparedFiles,
+    origin: importedRepoOrigin,
+    versionId: version.id,
+    filesRevision: version.files_revision ?? null,
+  });
+  await persistImportedRepoInitialization({
+    chatId: chat.id,
+    versionId: version.id,
+    filesRevision: version.files_revision ?? null,
+    model: String(engineModel),
+    buildIntent: templateBuildIntent,
+    files: preparedFiles,
+    origin: importedRepoOrigin,
+    baseline: importedRepoBaseline,
+  });
 
   let previewUrl: string | null = null;
   let previewStartFailed = false;
@@ -256,6 +289,17 @@ async function initializeLocalTemplateProject(params: {
       previewSessionStarted.error.message,
     );
   }
+  await recordImportedRepoPreviewOutcome({
+    versionId: version.id,
+    filesRevision: previewSessionStarted.ok
+      ? (previewSessionStarted.result.filesRevision ?? version.files_revision ?? null)
+      : null,
+    outcome: previewSessionStarted.ok
+      ? previewSessionStarted.result.runtimeReady === true
+        ? "runtime-ready"
+        : "pending"
+      : "failed",
+  });
 
   // Imported templates skip the generation preflight (skipRepair +
   // skipProjectScaffold), so run the hydration-risk detector here too and log a
@@ -267,9 +311,7 @@ async function initializeLocalTemplateProject(params: {
       preparedFiles.map((f) => ({ path: f.path, content: f.content, language: "tsx" })),
     );
     if (hydrationIssues.length > 0) {
-      const { createEngineVersionErrorLogs } = await import(
-        "@/lib/db/services/version-errors"
-      );
+      const { createEngineVersionErrorLogs } = await import("@/lib/db/services/version-errors");
       await createEngineVersionErrorLogs(
         [
           {
@@ -308,8 +350,7 @@ async function initializeLocalTemplateProject(params: {
     templateTitle: template.title,
     templateCategoryId: categoryId,
     templateCategoryTitle: categoryTitle,
-    templateBuildIntent:
-      getTemplateCatalogItemById(template.id)?.buildIntent === "app" ? "app" : "template",
+    templateBuildIntent,
     projectDataSource: "template-init:local-v0-import",
   });
 
@@ -347,16 +388,11 @@ export async function POST(request: NextRequest) {
         projectId?: string;
       };
       const requestedProjectId =
-        typeof body?.projectId === "string" && body.projectId.trim()
-          ? body.projectId.trim()
-          : null;
+        typeof body?.projectId === "string" && body.projectId.trim() ? body.projectId.trim() : null;
 
       if (!templateId) {
         return attachSessionCookie(
-          NextResponse.json(
-            { success: false, error: "Template ID is required" },
-            { status: 400 },
-          ),
+          NextResponse.json({ success: false, error: "Template ID is required" }, { status: 400 }),
         );
       }
 

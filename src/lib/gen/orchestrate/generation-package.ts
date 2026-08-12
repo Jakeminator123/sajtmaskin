@@ -5,6 +5,7 @@ import {
   computeLineageHash,
   serializePackageForDump,
 } from "../generation-input-package";
+import type { ImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
 
 interface OrchestrationBaseLike {
   resolvedScaffold: GenerationInputPackage["resolvedScaffold"];
@@ -35,6 +36,8 @@ interface OrchestrationInputLike {
   themeColors?: unknown;
   componentPalette?: unknown;
   designReferences?: unknown;
+  importedRepoMode?: boolean;
+  importedRepoContractContext?: ImportedRepoContractContext;
 }
 
 interface FinalizedOrchestrationContextLike {
@@ -68,6 +71,10 @@ export function buildGenerationInputPackage(
     designReferences: input.designReferences ?? null,
     variantId: finalized.variantId,
     variantTemplateId: finalized.variantTemplateId,
+    importedRepoMode: input.importedRepoMode === true,
+    importedRepoBaselineHash:
+      input.importedRepoContractContext?.baseline?.contract.contractHash ?? null,
+    importedRepoCurrentHash: input.importedRepoContractContext?.current.contractHash ?? null,
   });
 
   const promptSize = buildGenerationPromptSize({
@@ -90,8 +97,14 @@ export function buildGenerationInputPackage(
     promptSize,
     variantId: finalized.variantId,
     variantTemplateId: finalized.variantTemplateId,
-    variantTemplateReferenceAttachments:
-      finalized.variantTemplateReferenceAttachments,
+    variantTemplateReferenceAttachments: finalized.variantTemplateReferenceAttachments,
+    importedRepoMode: input.importedRepoMode === true,
+    importedRepoContractHashes: input.importedRepoContractContext
+      ? {
+          baseline: input.importedRepoContractContext.baseline?.contract.contractHash ?? null,
+          current: input.importedRepoContractContext.current.contractHash,
+        }
+      : null,
     lineageHash,
   };
 }
@@ -105,35 +118,27 @@ export function writeOrchestrationDynamicDump(pkg: GenerationInputPackage): void
   // writer uses to decide whether files are written: isPromptDumpEnabled()).
   const files: Record<string, string> = { "latest.md": pkg.dynamicContext };
   if (isPromptDumpEnabled()) {
-    files["generation-input-package.json"] = JSON.stringify(
-      serializePackageForDump(pkg),
-      null,
-      2,
-    );
+    files["generation-input-package.json"] = JSON.stringify(serializePackageForDump(pkg), null, 2);
   }
-  writeLatestPromptDump(
-    PROMPT_DUMP_CATEGORY.orchestrationDynamic,
-    files,
-    {
-      lineageHash: pkg.lineageHash,
-      buildIntent: pkg.buildSpec.buildIntent,
-      scaffoldId: pkg.resolvedScaffold?.id ?? null,
-      buildSpecChangeScope: pkg.buildSpec.changeScope,
-      buildSpecContextPolicy: pkg.buildSpec.contextPolicy,
-      buildSpecPreviewPolicy: pkg.buildSpec.previewPolicy,
-      promptLength: pkg.userPrompt.length,
-      engineSystemPromptLength: pkg.promptSize.total.chars,
-      engineSystemPromptEstimatedTokens: pkg.promptSize.total.estimatedTokens,
-      staticCoreLength: pkg.promptSize.staticCore.chars,
-      staticCoreEstimatedTokens: pkg.promptSize.staticCore.estimatedTokens,
-      dynamicContextLength: pkg.promptSize.dynamicContext.chars,
-      dynamicContextEstimatedTokens: pkg.promptSize.dynamicContext.estimatedTokens,
-      dynamicContextBudgetTokens: pkg.dynamicContextPruning.budgetTokens,
-      dynamicContextUsedTokens: pkg.dynamicContextPruning.usedTokens,
-      dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
-      dynamicContextLargestBlocks: pkg.promptSize.blocks.largest,
-      variantId: pkg.variantId ?? null,
-      variantTemplateId: pkg.variantTemplateId ?? null,
-    },
-  );
+  writeLatestPromptDump(PROMPT_DUMP_CATEGORY.orchestrationDynamic, files, {
+    lineageHash: pkg.lineageHash,
+    buildIntent: pkg.buildSpec.buildIntent,
+    scaffoldId: pkg.resolvedScaffold?.id ?? null,
+    buildSpecChangeScope: pkg.buildSpec.changeScope,
+    buildSpecContextPolicy: pkg.buildSpec.contextPolicy,
+    buildSpecPreviewPolicy: pkg.buildSpec.previewPolicy,
+    promptLength: pkg.userPrompt.length,
+    engineSystemPromptLength: pkg.promptSize.total.chars,
+    engineSystemPromptEstimatedTokens: pkg.promptSize.total.estimatedTokens,
+    staticCoreLength: pkg.promptSize.staticCore.chars,
+    staticCoreEstimatedTokens: pkg.promptSize.staticCore.estimatedTokens,
+    dynamicContextLength: pkg.promptSize.dynamicContext.chars,
+    dynamicContextEstimatedTokens: pkg.promptSize.dynamicContext.estimatedTokens,
+    dynamicContextBudgetTokens: pkg.dynamicContextPruning.budgetTokens,
+    dynamicContextUsedTokens: pkg.dynamicContextPruning.usedTokens,
+    dynamicContextDroppedBlocks: pkg.dynamicContextPruning.droppedBlockKeys,
+    dynamicContextLargestBlocks: pkg.promptSize.blocks.largest,
+    variantId: pkg.variantId ?? null,
+    variantTemplateId: pkg.variantTemplateId ?? null,
+  });
 }

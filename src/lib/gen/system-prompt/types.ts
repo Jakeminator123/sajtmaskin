@@ -11,16 +11,14 @@ import type { PaletteState } from "@/lib/builder/palette";
 import type { ThemeColors, ThemePalette } from "@/lib/builder/theme-presets";
 import type { BuildSpec } from "../build-spec";
 import type { PreGenerationContractContext } from "../contract/pre-generation-contracts";
-import type {
-  ScaffoldVariant,
-  VariantTemplateInspiration,
-} from "../scaffold-variants";
+import type { ScaffoldVariant, VariantTemplateInspiration } from "../scaffold-variants";
 import type { RoutePlan } from "../route-plan";
 import type { ScaffoldManifest } from "../scaffolds/types";
 import type { PromptBudgetBlock } from "../tokens";
 import type { DossierSelectionResult } from "../dossiers";
 import type { ShadcnUiRecipe } from "../data/shadcn-ui-recipes";
 import type { Tier3BuildSpec } from "@/lib/integrations/tier3-build-spec";
+import type { ImportedRepoContractContext } from "@/lib/templates/imported-repo-contract";
 
 export interface Brief {
   projectTitle?: string;
@@ -140,8 +138,17 @@ export interface DynamicContextOptions {
    * manager) instead of assuming the own-engine scaffold stack.
    */
   importedRepoMode?: boolean;
+  /** Baseline + current structural contract for a verbatim imported repo. */
+  importedRepoContractContext?: ImportedRepoContractContext;
   /** Follow-up intent helps choose compact context; heavy context and redesign still keep full context. */
-  followUpIntent?: "clear-refine" | "clear-redesign" | "ambiguous-redesign" | "ambiguous-followup" | "capability-add" | "capability-modify" | "neutral";
+  followUpIntent?:
+    | "clear-refine"
+    | "clear-redesign"
+    | "ambiguous-redesign"
+    | "ambiguous-followup"
+    | "capability-add"
+    | "capability-modify"
+    | "neutral";
   buildSpec?: BuildSpec | null;
   /** Per-session seed (chatId or similar) to vary scaffold variant selection across sessions with identical prompts. */
   sessionSeed?: string;

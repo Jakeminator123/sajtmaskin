@@ -56,10 +56,7 @@ import { buildFollowUpOrchestrationInput } from "../follow-up-orchestration-inpu
 import { buildBoundedChatHistory } from "../follow-up-history";
 import type { ParsedChatRequestMeta } from "../parse-chat-request-meta";
 import type { F3ContinuationDecision } from "./f3-continuation-phase";
-import {
-  buildQaShortCircuitStream,
-  generateQaShortCircuitText,
-} from "./qa-short-circuit";
+import { buildQaShortCircuitStream, generateQaShortCircuitText } from "./qa-short-circuit";
 
 /** Runs the codegen turn end-to-end and returns the streaming Response. */
 export async function runCodegenTurn(params: {
@@ -173,12 +170,14 @@ export async function runCodegenTurn(params: {
   const promptForLlm = optimizedMessage;
 
   let engineIntent: BuildIntent =
-    metaBuildIntent === "template" ||
-    metaBuildIntent === "website" ||
-    metaBuildIntent === "app"
+    metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
       ? (metaBuildIntent as BuildIntent)
       : "website";
-  if (engineIntent === "website" && parsedMeta.scaffoldMode === "manual" && isAppScaffold(parsedMeta.scaffoldId)) {
+  if (
+    engineIntent === "website" &&
+    parsedMeta.scaffoldMode === "manual" &&
+    isAppScaffold(parsedMeta.scaffoldId)
+  ) {
     engineIntent = "app";
   }
   const trimmedSystem = typeof system === "string" ? system.trim() : "";
@@ -211,8 +210,7 @@ export async function runCodegenTurn(params: {
     (PRIOR_QUALITY_TARGETS as readonly string[]).includes(rawPriorQualityTarget)
       ? (rawPriorQualityTarget as (typeof PRIOR_QUALITY_TARGETS)[number])
       : null;
-  const requestKindResult =
-    hasFollowUpBase ? classifyRequestKind(followUpIntentMessage) : null;
+  const requestKindResult = hasFollowUpBase ? classifyRequestKind(followUpIntentMessage) : null;
   if (requestKindResult?.kind === "qa-or-score") {
     devLogAppend("in-progress", {
       type: "request.kind.shortcircuit",
@@ -230,15 +228,17 @@ export async function runCodegenTurn(params: {
         chatId,
         text: assistantText,
       });
-      return attachSessionCookie(new Response(
-        wrapStreamForPromptToDoneMetric(qaStream, {
-          kind: "followup",
-          promptStartedAt,
-          signal: req.signal,
-          chatId,
-        }),
-        { headers: createSSEHeaders() },
-      ));
+      return attachSessionCookie(
+        new Response(
+          wrapStreamForPromptToDoneMetric(qaStream, {
+            kind: "followup",
+            promptStartedAt,
+            signal: req.signal,
+            chatId,
+          }),
+          { headers: createSSEHeaders() },
+        ),
+      );
     } catch (err) {
       devLogAppend("in-progress", {
         type: "request.kind.shortcircuit.fallback",
@@ -278,9 +278,8 @@ export async function runCodegenTurn(params: {
     promptStrategyMeta: promptOrchestration.strategyMeta,
     existingRoutePaths,
     existingShellRoutePaths,
-    previousFilePaths: hasFollowUpBase
-      ? previousFiles.map((file) => file.path)
-      : [],
+    previousFilePaths: hasFollowUpBase ? previousFiles.map((file) => file.path) : [],
+    previousFiles: hasFollowUpBase ? previousFiles : [],
     followUpCapabilityDetection,
     followUpIntent,
     additionalDossierCapabilities: f3ApprovedDossierCapabilities,
@@ -292,8 +291,7 @@ export async function runCodegenTurn(params: {
       f3ApprovalBuildRound && f3EffectiveApprovedProviders.length > 0
         ? f3EffectiveApprovedProviders
         : null,
-    orchestrationSnapshot:
-      engineChat.orchestration_snapshot as Record<string, unknown> | null,
+    orchestrationSnapshot: engineChat.orchestration_snapshot as Record<string, unknown> | null,
     // Q5a + MB-3: budget scales to the generator-phase model's context
     // window (Opus 4.8 on the anthropic tier), not the tier build-default.
     engineModelId: generatorModel,
@@ -399,8 +397,7 @@ export async function runCodegenTurn(params: {
     // through the wrapped optimizedMessage. Bekräftar samtidigt att
     // LLM:en faktiskt får råa intentet — det ligger sist i
     // optimizedMessage under rubriken "Begärda ändringar".
-    rawMessage:
-      message.length > 500 ? `${message.slice(0, 500)}…` : message,
+    rawMessage: message.length > 500 ? `${message.slice(0, 500)}…` : message,
     rawMessageLength: message.length,
     slug: metaBuildMethod || metaBuildIntent || undefined,
     promptType: promptOrchestration.strategyMeta.promptType,
@@ -425,13 +422,11 @@ export async function runCodegenTurn(params: {
     ...(deltaBriefSkipReason ? { briefSkipReason: deltaBriefSkipReason } : {}),
   });
   if (contractClarification) {
-    const assistantQuestion = await chatRepo.addMessage(
-      chatId,
-      "assistant",
-      contractClarification.question,
-      undefined,
-      [buildStoredContractClarificationUiPart(contractClarification)],
-    ).catch(() => null);
+    const assistantQuestion = await chatRepo
+      .addMessage(chatId, "assistant", contractClarification.question, undefined, [
+        buildStoredContractClarificationUiPart(contractClarification),
+      ])
+      .catch(() => null);
     devLogAppend("in-progress", {
       type: "contracts.clarification-requested",
       chatId,
@@ -458,15 +453,17 @@ export async function runCodegenTurn(params: {
         customInstructionsLength: trimmedSystem?.length ?? 0,
       }),
     );
-    return attachSessionCookie(new Response(
-      wrapStreamForPromptToDoneMetric(contractGateStream, {
-        kind: "followup",
-        promptStartedAt,
-        signal: req.signal,
-        chatId,
-      }),
-      { headers: createSSEHeaders() },
-    ));
+    return attachSessionCookie(
+      new Response(
+        wrapStreamForPromptToDoneMetric(contractGateStream, {
+          kind: "followup",
+          promptStartedAt,
+          signal: req.signal,
+          chatId,
+        }),
+        { headers: createSSEHeaders() },
+      ),
+    );
   }
   // Persisted only AFTER the contract gate let the round through: a gate-only
   // exit matched on an INCOMPLETE prompt, and pinning that match would make
@@ -480,7 +477,9 @@ export async function runCodegenTurn(params: {
   ) {
     try {
       await chatRepo.updateChatScaffoldId(chatId, resolvedScaffold.id);
-    } catch { /* best-effort persist */ }
+    } catch {
+      /* best-effort persist */
+    }
   }
   const finalizePromptStartedAt = Date.now();
   const finalized = await finalizeOrchestrationPrompts(orchestrationBase, orchestrationInput);
@@ -516,8 +515,7 @@ export async function runCodegenTurn(params: {
 
   const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
   const generatorThinking = resolvePhaseThinking(resolvedModelTier, "generator");
-  const effectiveGeneratorThinking =
-    resolvedThinking && generatorThinking.thinking;
+  const effectiveGeneratorThinking = resolvedThinking && generatorThinking.thinking;
   // Preview prewarm (FEATURES.previewPrewarm, default OFF): fire ONLY here,
   // where real codegen is about to start — every non-generating early
   // return (plan mode, contract clarification, 409 guard, credit gate) is
@@ -534,11 +532,7 @@ export async function runCodegenTurn(params: {
   // scaffold orchestration already resolved above so the skeleton's
   // `package.json` mirrors that scaffold's own dependencies instead of the
   // generic baseline (higher fingerprint-hit rate at finalize).
-  if (
-    !hasFollowUpBase &&
-    versionsQuerySucceeded &&
-    existingVersionsForChat.length === 0
-  ) {
+  if (!hasFollowUpBase && versionsQuerySucceeded && existingVersionsForChat.length === 0) {
     void prewarmPreviewSession(chatId, {
       leaseKey: prewarmLeaseKey,
       scaffoldId: resolvedScaffold?.id ?? null,

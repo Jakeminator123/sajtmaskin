@@ -15,6 +15,8 @@ const chatRepoCreateDraftVersion = vi.hoisted(() => vi.fn());
 const chatRepoUpdateVersionPreviewUrl = vi.hoisted(() => vi.fn());
 const chatRepoGetChat = vi.hoisted(() => vi.fn());
 const devLogAppend = vi.hoisted(() => vi.fn());
+const persistImportedRepoInitialization = vi.hoisted(() => vi.fn());
+const recordImportedRepoPreviewOutcome = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/services/projects", () => ({
   createProject,
@@ -60,6 +62,11 @@ vi.mock("@/lib/rateLimit", () => ({
 
 vi.mock("@/lib/logging/devLog", () => ({
   devLogAppend,
+}));
+
+vi.mock("@/lib/templates/imported-repo-initialization", () => ({
+  persistImportedRepoInitialization,
+  recordImportedRepoPreviewOutcome,
 }));
 
 vi.mock("@/lib/templates/template-data", () => ({
@@ -110,6 +117,8 @@ describe("POST /api/template", () => {
     chatRepoUpdateVersionPreviewUrl.mockReset();
     chatRepoGetChat.mockReset();
     devLogAppend.mockReset();
+    persistImportedRepoInitialization.mockReset();
+    recordImportedRepoPreviewOutcome.mockReset();
 
     getCurrentUser.mockResolvedValue(null);
     resolveAppProjectIdForRequest.mockResolvedValue(null);
@@ -123,15 +132,25 @@ describe("POST /api/template", () => {
         previewMode: "dev_only",
         fidelityTier: 2,
         startOutcome: "recreated",
+        runtimeReady: false,
+        filesRevision: "revision_import",
       },
     });
     chatRepoCreateChat.mockResolvedValue({ id: "chat_import" });
     chatRepoAddMessage.mockResolvedValue({ id: "msg_import" });
-    chatRepoCreateDraftVersion.mockResolvedValue({ id: "ver_import" });
+    chatRepoCreateDraftVersion.mockResolvedValue({
+      id: "ver_import",
+      files_revision: "revision_import",
+    });
     chatRepoUpdateVersionPreviewUrl.mockResolvedValue(true);
     chatRepoGetChat.mockResolvedValue({ messages: [] });
     prepareCredits.mockResolvedValue({ ok: true, commit: commitCredits });
     createProject.mockResolvedValue({ id: "proj_new" });
+    persistImportedRepoInitialization.mockResolvedValue({
+      snapshotPersisted: true,
+      telemetryPersisted: true,
+    });
+    recordImportedRepoPreviewOutcome.mockResolvedValue(false);
   });
 
   it("rejects v0 templates that are not available as local repo zips", async () => {
@@ -166,6 +185,7 @@ describe("POST /api/template", () => {
       sourceLabelsSv: ["AI"],
       categoryLabel: "AI",
       timestamp: sourceTimestamp,
+      archiveSha256: "b".repeat(64),
     });
     loadLocalV0TemplateFiles.mockResolvedValue({
       source: {
@@ -175,6 +195,7 @@ describe("POST /api/template", () => {
         sourceLabelsSv: ["AI"],
         categoryLabel: "AI",
         timestamp: sourceTimestamp,
+        archiveSha256: "a".repeat(64),
       },
       files: [
         {
@@ -245,6 +266,33 @@ describe("POST /api/template", () => {
         skipProjectScaffold: true,
       }),
     );
+    expect(persistImportedRepoInitialization).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: "chat_import",
+        versionId: "ver_import",
+        filesRevision: "revision_import",
+        origin: expect.objectContaining({
+          kind: "v0_template",
+          templateId: "tmpl_1",
+          archiveSha256: "a".repeat(64),
+        }),
+        baseline: expect.objectContaining({
+          versionId: "ver_import",
+          filesRevision: "revision_import",
+          contract: expect.objectContaining({
+            origin: expect.objectContaining({ archiveSha256: "a".repeat(64) }),
+          }),
+        }),
+      }),
+    );
+    expect(persistImportedRepoInitialization.mock.invocationCallOrder[0]).toBeLessThan(
+      startPreviewSession.mock.invocationCallOrder[0],
+    );
+    expect(recordImportedRepoPreviewOutcome).toHaveBeenCalledWith({
+      versionId: "ver_import",
+      filesRevision: "revision_import",
+      outcome: "pending",
+    });
     expect(chatRepoUpdateVersionPreviewUrl).toHaveBeenCalledWith(
       "ver_import",
       "https://vm-fly-jakem.fly.dev/chat_import",
@@ -321,6 +369,11 @@ describe("POST /api/template", () => {
     expect(json.previewStartError).not.toMatch(/fly|vercel/i);
     expect(chatRepoCreateDraftVersion).toHaveBeenCalled();
     expect(chatRepoUpdateVersionPreviewUrl).not.toHaveBeenCalled();
+    expect(recordImportedRepoPreviewOutcome).toHaveBeenCalledWith({
+      versionId: "ver_import",
+      filesRevision: null,
+      outcome: "failed",
+    });
     expect(commitCredits).toHaveBeenCalled();
   });
 

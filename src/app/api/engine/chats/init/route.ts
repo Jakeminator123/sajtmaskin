@@ -16,6 +16,11 @@ import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { inferFileLanguage } from "@/lib/utils/infer-file-language";
 import { isBlockedEnvImportFilename } from "@/lib/templates/env-import-guard";
 import { normalizeImportedRepoFiles } from "@/lib/templates/normalize-imported-package-json";
+import { buildImportedRepoBaselineSnapshot } from "@/lib/templates/imported-repo-contract";
+import {
+  persistImportedRepoInitialization,
+  recordImportedRepoPreviewOutcome,
+} from "@/lib/templates/imported-repo-initialization";
 
 export const runtime = "nodejs";
 
@@ -31,9 +36,7 @@ const BLOCKED_IMPORT_PREFIXES = [
   "coverage/",
   "out/",
 ] as const;
-const SKIPPED_IMPORT_FILENAMES = new Set([
-  ".ds_store",
-]);
+const SKIPPED_IMPORT_FILENAMES = new Set([".ds_store"]);
 const TEXT_EXTENSIONS = new Set([
   ".ts",
   ".tsx",
@@ -527,6 +530,23 @@ export async function POST(req: Request) {
         undefined,
         { editKind: "imported_repo" },
       );
+      const importedRepoOrigin = { kind: source.type } as const;
+      const importedRepoBaseline = buildImportedRepoBaselineSnapshot({
+        files: importedFiles,
+        origin: importedRepoOrigin,
+        versionId: version.id,
+        filesRevision: version.files_revision ?? null,
+      });
+      await persistImportedRepoInitialization({
+        chatId: chat.id,
+        versionId: version.id,
+        filesRevision: version.files_revision ?? null,
+        model: engineModel,
+        buildIntent: null,
+        files: importedFiles,
+        origin: importedRepoOrigin,
+        baseline: importedRepoBaseline,
+      });
       const previewSessionStarted = await startPreviewSession(importedFiles, {
         chatId: chat.id,
         appProjectId: project.id,
@@ -537,14 +557,27 @@ export async function POST(req: Request) {
         skipProjectScaffold: true,
       });
       if (!previewSessionStarted.ok) {
+        await recordImportedRepoPreviewOutcome({
+          versionId: version.id,
+          outcome: "failed",
+        });
         throw new Error(
           `Tier-2 preview failed (${previewSessionStarted.error.stage}): ${previewSessionStarted.error.message}`,
         );
       }
       const previewUrl = previewSessionStarted.result.previewUrl?.trim();
       if (!previewUrl) {
+        await recordImportedRepoPreviewOutcome({
+          versionId: version.id,
+          outcome: "failed",
+        });
         throw new Error("Tier-2 preview started without a preview URL.");
       }
+      await recordImportedRepoPreviewOutcome({
+        versionId: version.id,
+        filesRevision: previewSessionStarted.result.filesRevision ?? version.files_revision ?? null,
+        outcome: previewSessionStarted.result.runtimeReady === true ? "runtime-ready" : "pending",
+      });
       await chatRepo.updateVersionPreviewUrl(version.id, previewUrl);
 
       await saveProjectData({
@@ -586,16 +619,12 @@ export async function POST(req: Request) {
     } catch (err) {
       console.error("Init chat error:", err);
       const message = err instanceof Error ? err.message : "Unknown error";
-      const status =
-        message.includes("Connect GitHub") ? 401 :
-        message.includes("too large") ? 413 :
-        500;
-      return attachSessionCookie(
-        NextResponse.json(
-          { error: message },
-          { status },
-        ),
-      );
+      const status = message.includes("Connect GitHub")
+        ? 401
+        : message.includes("too large")
+          ? 413
+          : 500;
+      return attachSessionCookie(NextResponse.json({ error: message }, { status }));
     }
   });
 }

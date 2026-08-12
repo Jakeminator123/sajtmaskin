@@ -1,6 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { resolveOrchestrationBase } from "./orchestrate";
+vi.mock("./system-prompt", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./system-prompt")>();
+  return {
+    ...actual,
+    // The static-core loader intentionally uses runtime require(), which is
+    // outside this orchestration regression's scope and is not TS-resolvable
+    // from Vitest's module graph. Keep the dynamic context observable here.
+    composeEngineSystemPrompt: (dynamicContext: string) => dynamicContext,
+  };
+});
+
+import { finalizeOrchestrationPrompts, resolveOrchestrationBase } from "./orchestrate";
 import type { InferredCapabilities } from "./capability-inference";
 import { SCAFFOLD_OFF_BASELINE_ID } from "./scaffolds/types";
 
@@ -38,6 +49,24 @@ describe("resolveOrchestrationBase scaffoldMode off (builder Scaffold: Av)", () 
     expect(base.resolvedScaffold?.id).toBe(SCAFFOLD_OFF_BASELINE_ID);
     expect(base.scaffoldSelection?.selectionMethod).toBe("off");
     expect(base.scaffoldSelection?.selectedScaffold).toBe(SCAFFOLD_OFF_BASELINE_ID);
+  });
+
+  it("keeps Scaffold: Av free from v0 template inspiration", async () => {
+    const input = {
+      prompt: "Bygg en enkel todo-app",
+      buildIntent: "app" as const,
+      scaffoldMode: "off" as const,
+      embeddingScaffoldMatch: false,
+      capabilities: noCapabilities,
+      generationMode: "init" as const,
+    };
+    const base = await resolveOrchestrationBase(input);
+    const finalized = await finalizeOrchestrationPrompts(base, input);
+
+    expect(base.resolvedScaffold?.id).toBe(SCAFFOLD_OFF_BASELINE_ID);
+    expect(finalized.variantTemplateId).toBeNull();
+    expect(finalized.variantTemplateReferenceAttachments).toEqual([]);
+    expect(finalized.dynamicContext).not.toContain("## Variant Template Inspiration");
   });
 
   it("keeps importedRepoMode truly scaffold-less even when scaffoldMode is off", async () => {

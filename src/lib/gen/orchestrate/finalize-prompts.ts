@@ -15,6 +15,7 @@ import {
   getVariantById,
   resolveVariantTemplateInspiration,
 } from "../scaffold-variants";
+import { SCAFFOLD_OFF_BASELINE_ID } from "../scaffolds/types";
 import { resolveVariantForStyleChoice } from "../scaffold-variants/style-choice-variants";
 import { resolveScaffoldVariant } from "./scaffold-variant-resolver";
 import { lockedVariantForFollowUp } from "../scaffold-variants/matcher";
@@ -26,11 +27,7 @@ import {
 import { filterRemovedCapabilitiesFromBriefSummary } from "../capability-removal";
 import { emitFollowUpFreezeDrift, enforceFollowUpVariantFreeze } from "./follow-up-freeze";
 import { resolveGenerationMode } from "./generation-mode";
-import type {
-  FinalizedOrchestrationContext,
-  OrchestrationBase,
-  OrchestrationInput,
-} from "./types";
+import type { FinalizedOrchestrationContext, OrchestrationBase, OrchestrationInput } from "./types";
 
 /**
  * Build full system prompt from a resolved orchestration base.
@@ -144,11 +141,14 @@ export async function finalizeOrchestrationPrompts(
   }
 
   const variantTemplateInspiration =
-    resolvedMode === "init" && input.importedRepoMode !== true
+    resolvedMode === "init" &&
+    input.importedRepoMode !== true &&
+    scaffoldIdForVariant !== SCAFFOLD_OFF_BASELINE_ID
       ? await resolveVariantTemplateInspiration(resolvedVariant)
       : null;
-  const variantTemplateReferenceAttachments =
-    buildVariantTemplateReferenceAttachments(variantTemplateInspiration);
+  const variantTemplateReferenceAttachments = buildVariantTemplateReferenceAttachments(
+    variantTemplateInspiration,
+  );
 
   // ── Dossier capability vs final selection diff (v2 — capability-driven) ──
   // Logs which REQUESTED capabilities resolved to dossiers and which did not.
@@ -167,7 +167,9 @@ export async function finalizeOrchestrationPrompts(
         .map((c) => c.trim().toLowerCase())
         .filter(Boolean),
     );
-    const resolved = new Set(Object.keys(base.dossierSelection.byCapability).map((c) => c.toLowerCase()));
+    const resolved = new Set(
+      Object.keys(base.dossierSelection.byCapability).map((c) => c.toLowerCase()),
+    );
     const unresolved = [...requested].filter((c) => !resolved.has(c));
     if (unresolved.length > 0) {
       console.info("[orchestrate] dossier_capability_unresolved", {
@@ -235,6 +237,7 @@ export async function finalizeOrchestrationPrompts(
     userPrompt: input.prompt,
     generationMode: resolvedMode,
     importedRepoMode: input.importedRepoMode === true,
+    importedRepoContractContext: input.importedRepoContractContext,
     followUpIntent: input.followUpIntent,
     sessionSeed: input.sessionSeed,
     chatId: input.chatId ?? null,

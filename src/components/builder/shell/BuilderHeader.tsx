@@ -10,7 +10,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds/types";
-import { SCAFFOLD_CLIENT_LIST } from "@/lib/gen/scaffolds/types";
+import {
+  MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST,
+  SCAFFOLD_CLIENT_LIST,
+} from "@/lib/gen/scaffolds/types";
 import { useSearchParams } from "next/navigation";
 import {
   DropdownMenu,
@@ -358,7 +361,7 @@ export function BuilderHeader(props: {
                       <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
                         Välj själv
                       </DropdownMenuLabel>
-                      {SCAFFOLD_CLIENT_LIST.map((scaffold) => (
+                      {MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST.map((scaffold) => (
                         <DropdownMenuRadioItem key={scaffold.id} value={`manual:${scaffold.id}`}>
                           <span className="font-medium">{scaffold.label}</span>
                           <span className="text-muted-foreground ml-2 text-xs">
