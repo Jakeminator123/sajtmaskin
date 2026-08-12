@@ -396,7 +396,9 @@ Organisations-API:t används därför fortsatt för periodisk avstämning.
    best-effort-attachningen kan därför inte ta bort admin-retryvägen.
 3. Settlement räknar sedan om hela versionen och låser billingraden.
 4. Skillnaden mot redan dragna credits debiteras eller återbetalas. Användarsaldo,
-   `transactions` och billingraden uppdateras i samma DB-transaktion.
+   `transactions` och billingraden uppdateras i samma DB-transaktion. Ett positivt
+   debiteringsdelta som överstiger saldot avvisas under användarradens lås; det
+   får aldrig skriva ett negativt saldo eller en missvisande transaktionsrad.
 5. Sena verifier-/repair-anrop triggar samma settlement igen endast när
    finalize-markören redan finns. Usage som skrivs medan finalize pågår får
    aldrig själv markera versionen som slutförd eller claima gratisgenereringen.
@@ -418,8 +420,14 @@ kostnadsfri, slutförd own-engine-version; entitlementen claimas under samma
 användarradslås som settlement och samma version förblir gratis vid idempotenta
 omkörningar och sen usage. Testkonton får kostnadsspår men inget credit-drag.
 Om usage eller ett verifierat modellpris saknas markeras raden för avstämning
-utan ett osäkert reservdrag. Den befintliga fasta modellkostnaden används
+utan ett osäkert reservdrag. Gratisrättigheten och avstämningsstatusen är
+oberoende: den första slutförda versionen förblir gratis, men visas som
+`no_usage`, `usage_incomplete`, `unpriced` eller `needs_reconciliation` tills
+kostnadsunderlaget är komplett. Den befintliga fasta modellkostnaden används
 fortfarande som förhandsgrind eftersom exakt slutusage är okänd före körningen.
+Credits-checkens informations-API kräver dessutom explicit
+`executionMode=codegen` för att annonsera gratisrättigheten; planläge, manuell
+repair samt saknat eller okänt läge får aldrig återanvända den signalen.
 Settlement lämnar en durabel `pending`-rad före debittransaktionen; admin kan
 köra en idempotent omstämning av väntande billingrader. Om attachningen bröts
 använder omstämningen de sparade claim-nycklarna för exakt attribuering utan

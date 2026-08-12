@@ -725,7 +725,9 @@ export async function handleMessageStreamRequest(
           requestAttachments,
           promptOrchestration,
         });
-        const commitCreditsOnce = createCommitCreditsOnce(creditCheck);
+        const commitCreditsOnce = createCommitCreditsOnce(creditCheck, {
+          rejectIfNegativeFixedCommit: Boolean(metaPlanMode),
+        });
 
         const persistedScaffoldId = engineChat.scaffold_id;
         // Imported-repo detection (verbatim v0-template / ZIP chats): reuses

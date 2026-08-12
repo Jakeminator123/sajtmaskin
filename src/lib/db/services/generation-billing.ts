@@ -22,6 +22,7 @@ import {
 } from "@/lib/db/schema";
 import { isTestUser } from "./users";
 import { assertDbConfigured } from "./shared";
+import { InsufficientCreditsError } from "./transactions";
 
 export const GENERATION_BILLING_SETTINGS_ID = "generation";
 
@@ -410,8 +411,12 @@ export function resolveGenerationChargeDecision(input: {
     desiredCredits = 0;
     status = "test";
   } else if (freeGenerationApplied) {
+    // The first successfully-finalized version owns the entitlement even when
+    // its telemetry still needs reconciliation. Waive/refund the customer
+    // charge independently, but retain the diagnostic status until the usage
+    // snapshot is complete enough to label `free_generation`.
     desiredCredits = 0;
-    status = "free_generation";
+    if (input.hasCompletePrice) status = "free_generation";
   } else if (input.hasCompletePrice && desiredCredits === 0) {
     status = "zero_cost";
   }
@@ -534,6 +539,9 @@ export async function settleGenerationBilling(
     const transactionIds = Array.isArray(locked.transaction_ids) ? [...locked.transaction_ids] : [];
 
     if (owner && !ownerIsTest && lockedUser && creditsToAdd > 0) {
+      if (lockedUser.diamonds < creditsToAdd) {
+        throw new InsufficientCreditsError(creditsToAdd, lockedUser.diamonds);
+      }
       const balanceAfter = lockedUser.diamonds - creditsToAdd;
       await tx
         .update(users)

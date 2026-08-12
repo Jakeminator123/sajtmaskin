@@ -888,6 +888,15 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     expect(prepareGenerationContext).toHaveBeenCalled();
     expect(createGenerationPipeline).not.toHaveBeenCalled();
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
+
+    const planResponseParams = createOwnEnginePlanModeResponse.mock.calls[0]?.[0] as {
+      commitCredits: () => Promise<void>;
+      commitCreditsPosition: string;
+    };
+    expect(planResponseParams.commitCreditsPosition).toBe("before-done");
+    await planResponseParams.commitCredits();
+    expect(commitCredits).toHaveBeenCalledOnce();
+    expect(commitCredits).toHaveBeenCalledWith({ rejectIfNegative: true });
   });
 
   it("does NOT prewarm a create/init contract-clarification gate", async () => {

@@ -13,6 +13,18 @@ vi.mock("@/lib/db/services/generation-billing", () => ({
   establishGenerationBilling,
   settleGenerationBilling,
 }));
+vi.mock("@/lib/db/services/transactions", () => ({
+  InsufficientCreditsError: class InsufficientCreditsError extends Error {
+    readonly code = "INSUFFICIENT_CREDITS";
+    constructor(
+      readonly required: number,
+      readonly available: number,
+    ) {
+      super(`Insufficient credits: need ${required}, have ${available}`);
+      this.name = "InsufficientCreditsError";
+    }
+  },
+}));
 
 const { createCommitCreditsOnce } = await import("./credits-handler");
 
@@ -91,6 +103,31 @@ describe("createCommitCreditsOnce", () => {
     expect(settleGenerationBilling).not.toHaveBeenCalled();
   });
 
+  it("guards a targetless fixed commit against a raced negative balance", async () => {
+    const { InsufficientCreditsError } = await import("@/lib/db/services/transactions");
+    const error = new InsufficientCreditsError(4, 0);
+    const check = creditCheck({ commit: vi.fn().mockRejectedValue(error) });
+    const commit = createCommitCreditsOnce(check as never, {
+      rejectIfNegativeFixedCommit: true,
+    });
+
+    await expect(commit()).rejects.toBe(error);
+    expect(check.commit).toHaveBeenCalledOnce();
+    expect(check.commit).toHaveBeenCalledWith({ rejectIfNegative: true });
+    expect(establishGenerationBilling).not.toHaveBeenCalled();
+  });
+
+  it("keeps the historical targetless charge-after path tolerant", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const error = new Error("fixed debit unavailable");
+    const check = creditCheck({ commit: vi.fn().mockRejectedValue(error) });
+    const commit = createCommitCreditsOnce(check as never);
+
+    await expect(commit()).resolves.toBeUndefined();
+    expect(check.commit).toHaveBeenCalledWith();
+    expect(errorSpy).toHaveBeenCalledWith("[credits] Failed to charge:", error);
+  });
+
   it("establishes the retry marker before attachment and leaves attachment failure pending", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     attachVersionToPendingUsageAsync.mockRejectedValue(new Error("usage attachment unavailable"));
@@ -154,6 +191,18 @@ describe("createCommitCreditsOnce", () => {
     expect(check.commit).not.toHaveBeenCalled();
     expect(settleGenerationBilling).toHaveBeenCalledTimes(2);
     expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("propagates insufficient credits immediately instead of retrying or overdrafting", async () => {
+    const { InsufficientCreditsError } = await import("@/lib/db/services/transactions");
+    const error = new InsufficientCreditsError(2, 0);
+    settleGenerationBilling.mockRejectedValue(error);
+    const check = creditCheck();
+    const commit = createCommitCreditsOnce(check as never);
+
+    await expect(commit({ chatId: "chat_1", versionId: "version_1" })).rejects.toBe(error);
+    expect(settleGenerationBilling).toHaveBeenCalledOnce();
+    expect(check.commit).not.toHaveBeenCalled();
   });
 
   it("keeps a persistent failure out of the standalone credit ledger", async () => {

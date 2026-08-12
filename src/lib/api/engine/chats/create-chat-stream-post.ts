@@ -372,7 +372,9 @@ export async function handleCreateChatStreamPost(req: Request): Promise<Response
         })();
 
         const creditUser = creditCheck.user;
-        const commitCreditsOnce = createCommitCreditsOnce(creditCheck);
+        const commitCreditsOnce = createCommitCreditsOnce(creditCheck, {
+          rejectIfNegativeFixedCommit: Boolean(metaPlanMode),
+        });
 
         try {
           const metaPayload =

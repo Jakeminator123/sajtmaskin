@@ -1,4 +1,5 @@
 import type { prepareCredits } from "@/lib/credits/server";
+import { InsufficientCreditsError } from "@/lib/db/services/transactions";
 
 type CreditCheck = Awaited<ReturnType<typeof prepareCredits>> & { ok: true };
 
@@ -7,11 +8,23 @@ export type GenerationChargeTarget = {
   versionId: string;
 };
 
+export type CommitCreditsOnceOptions = {
+  /**
+   * Targetless work such as plan mode has no version ledger to settle later.
+   * Recheck the locked balance at commit time and reject a raced overdraft
+   * before the stream emits `done`.
+   */
+  rejectIfNegativeFixedCommit?: boolean;
+};
+
 /**
  * Wraps a credit check's commit function so it can only fire once.
  * Both the create-chat and follow-up handlers use this exact pattern.
  */
-export function createCommitCreditsOnce(creditCheck: CreditCheck) {
+export function createCommitCreditsOnce(
+  creditCheck: CreditCheck,
+  options: CommitCreditsOnceOptions = {},
+) {
   let charged = false;
   return async (target?: GenerationChargeTarget) => {
     if (charged) return;
@@ -71,6 +84,10 @@ export function createCommitCreditsOnce(creditCheck: CreditCheck) {
           settlementError = null;
           break;
         } catch (error) {
+          // This is a definitive business rejection, not a transient
+          // reconciliation failure. Propagate it before the stream emits
+          // `done`; the pending marker remains for audit without overdrafting.
+          if (error instanceof InsufficientCreditsError) throw error;
           settlementError = error;
         }
       }
@@ -80,10 +97,14 @@ export function createCommitCreditsOnce(creditCheck: CreditCheck) {
       return;
     }
 
-    try {
-      await creditCheck.commit();
-    } catch (error) {
-      console.error("[credits] Failed to charge:", error);
+    if (options.rejectIfNegativeFixedCommit) {
+      await creditCheck.commit({ rejectIfNegative: true });
+    } else {
+      try {
+        await creditCheck.commit();
+      } catch (error) {
+        console.error("[credits] Failed to charge:", error);
+      }
     }
   };
 }

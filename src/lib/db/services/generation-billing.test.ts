@@ -141,4 +141,53 @@ describe("resolveGenerationChargeDecision", () => {
       shouldClaimFreeGeneration: false,
     });
   });
+
+  it.each([
+    {
+      label: "no usage",
+      input: { hasCompletePrice: false, llmCalls: 0, hasIncompleteUsage: false },
+      status: "no_usage",
+    },
+    {
+      label: "incomplete usage",
+      input: { hasCompletePrice: false, llmCalls: 1, hasIncompleteUsage: true },
+      status: "usage_incomplete",
+    },
+    {
+      label: "unpriced usage",
+      input: { hasCompletePrice: false, llmCalls: 1, hasIncompleteUsage: false },
+      status: "unpriced",
+    },
+  ])("claims the entitlement without hiding $label reconciliation state", ({ input, status }) => {
+    expect(
+      resolveGenerationChargeDecision({
+        ...complete,
+        ...input,
+      }),
+    ).toMatchObject({
+      desiredCredits: 0,
+      status,
+      freeGenerationApplied: true,
+      shouldClaimFreeGeneration: true,
+    });
+  });
+
+  it("keeps incomplete reconciliation status even on an already-free version", () => {
+    expect(
+      resolveGenerationChargeDecision({
+        ...complete,
+        hasCompletePrice: false,
+        llmCalls: 1,
+        hasIncompleteUsage: true,
+        lockedCredits: 3,
+        existingFreeGenerationApplied: true,
+        freeGenerationAvailable: false,
+      }),
+    ).toMatchObject({
+      desiredCredits: 0,
+      status: "needs_reconciliation",
+      freeGenerationApplied: true,
+      shouldClaimFreeGeneration: false,
+    });
+  });
 });

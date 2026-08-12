@@ -23,7 +23,7 @@ import { existsSync } from "node:fs";
 
 import { config as loadEnvFile } from "dotenv";
 import { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { calculateCustomerCharge, calculateModelCost } from "../../src/lib/billing/model-cost";
 import { checkDbEnvTarget, loadDbTargets, resolveConfiguredDbUrl } from "./check-db-env-target.mjs";
@@ -81,6 +81,15 @@ describe.skipIf(!target.url)("generationsdebitering mot riktig Postgres", () => 
   const historicalVersionId = `ver_gbtest_historical_${runTag}`;
   const historicalOldUsageId = `usage_gbtest_historical_old_${runTag}`;
   const historicalNewUsageId = `usage_gbtest_historical_new_${runTag}`;
+  const zeroUserId = `usr_gbtest_zero_${runTag}`;
+  const zeroProjectId = `prj_gbtest_zero_${runTag}`;
+  const zeroChatId = `chat_gbtest_zero_${runTag}`;
+  const zeroFirstMessageId = `msg_gbtest_zero_1_${runTag}`;
+  const zeroSecondMessageId = `msg_gbtest_zero_2_${runTag}`;
+  const zeroFirstVersionId = `ver_gbtest_zero_1_${runTag}`;
+  const zeroSecondVersionId = `ver_gbtest_zero_2_${runTag}`;
+  const zeroFirstUsageId = `usage_gbtest_zero_1_${runTag}`;
+  const zeroSecondUsageId = `usage_gbtest_zero_2_${runTag}`;
   const initialBalance = 1_000_000;
   const frozenCostMicroUsd = 1_000_000;
   const model = "gpt-5.6-luna";
@@ -114,6 +123,12 @@ describe.skipIf(!target.url)("generationsdebitering mot riktig Postgres", () => 
         initialBalance,
       ],
     );
+    await pool.query(
+      `insert into users (
+         id, email, name, provider, diamonds, free_generation_available, email_verified
+       ) values ($1, $2, $3, 'email', 0, true, true)`,
+      [zeroUserId, `generation-billing-zero-${runTag}@example.invalid`, "Zero balance race"],
+    );
     await pool.query("insert into app_projects (id, user_id, name) values ($1, $2, $3)", [
       projectId,
       userId,
@@ -137,6 +152,15 @@ describe.skipIf(!target.url)("generationsdebitering mot riktig Postgres", () => 
         model,
       ],
     );
+    await pool.query("insert into app_projects (id, user_id, name) values ($1, $2, $3)", [
+      zeroProjectId,
+      zeroUserId,
+      "zero balance generation race",
+    ]);
+    await pool.query(
+      "insert into engine_chats (id, project_id, title, model) values ($1, $2, $3, $4)",
+      [zeroChatId, zeroProjectId, "zero balance generation race", model],
+    );
     await pool.query(
       `insert into engine_messages (id, chat_id, role, content)
        values ($1, $3, 'assistant', 'first'), ($2, $3, 'assistant', 'second')`,
@@ -155,6 +179,26 @@ describe.skipIf(!target.url)("generationsdebitering mot riktig Postgres", () => 
         firstMessageId,
         secondMessageId,
         JSON.stringify({ "app/page.tsx": "export default function Page() { return null; }" }),
+      ],
+    );
+    await pool.query(
+      `insert into engine_messages (id, chat_id, role, content)
+       values ($1, $3, 'assistant', 'zero first'), ($2, $3, 'assistant', 'zero second')`,
+      [zeroFirstMessageId, zeroSecondMessageId, zeroChatId],
+    );
+    await pool.query(
+      `insert into engine_versions (
+         id, chat_id, message_id, version_number, files_json, edit_kind
+       ) values
+         ($1, $3, $4, 1, $6, null),
+         ($2, $3, $5, 2, $6, null)`,
+      [
+        zeroFirstVersionId,
+        zeroSecondVersionId,
+        zeroChatId,
+        zeroFirstMessageId,
+        zeroSecondMessageId,
+        JSON.stringify({ "app/page.tsx": "export default function Zero() { return null; }" }),
       ],
     );
     await pool.query(
@@ -209,6 +253,28 @@ describe.skipIf(!target.url)("generationsdebitering mot riktig Postgres", () => 
       `insert into llm_usage (
          id, chat_id, version_id, user_id, phase, provider, model,
          input_tokens, cached_input_tokens, cache_write_tokens, output_tokens,
+         reasoning_tokens, cost_microusd, pricing_version, cost_breakdown, ok
+       ) values
+         ($1, $3, $4, $5, 'codegen', 'openai', $6, $7, 0, 0, $8, 0, $9, 'gbtest-v1', $10, true),
+         ($2, $3, $11, $5, 'codegen', 'openai', $6, $7, 0, 0, $8, 0, $9, 'gbtest-v1', $10, true)`,
+      [
+        zeroFirstUsageId,
+        zeroSecondUsageId,
+        zeroChatId,
+        zeroFirstVersionId,
+        zeroUserId,
+        model,
+        inputTokens,
+        outputTokens,
+        frozenCostMicroUsd,
+        JSON.stringify({ ...costBreakdown, priceVersion: "gbtest-v1" }),
+        zeroSecondVersionId,
+      ],
+    );
+    await pool.query(
+      `insert into llm_usage (
+         id, chat_id, version_id, user_id, phase, provider, model,
+         input_tokens, cached_input_tokens, cache_write_tokens, output_tokens,
          reasoning_tokens, cost_microusd, pricing_version, cost_breakdown, ok, created_at
        ) values (
          $1, $2, $3, $4, 'historical-codegen', 'openai', $5,
@@ -231,11 +297,53 @@ describe.skipIf(!target.url)("generationsdebitering mot riktig Postgres", () => 
     billing = await import("../../src/lib/db/services/generation-billing");
   }, 60_000);
 
+  beforeEach(async () => {
+    await pool.query("delete from generation_billings where version_id = any($1::text[])", [
+      [
+        firstVersionId,
+        secondVersionId,
+        historicalVersionId,
+        zeroFirstVersionId,
+        zeroSecondVersionId,
+      ],
+    ]);
+    await pool.query("delete from transactions where user_id = any($1::text[])", [
+      [userId, historicalUserId, zeroUserId],
+    ]);
+    await pool.query("delete from llm_usage where id = any($1::text[])", [
+      [lateUsageId, historicalNewUsageId],
+    ]);
+    await pool.query(
+      `update users
+          set diamonds = $2,
+              free_generation_available = true,
+              free_generation_claimed_version_id = null,
+              free_generation_claimed_at = null
+        where id = any($1::text[])`,
+      [[userId, historicalUserId], initialBalance],
+    );
+    await pool.query(
+      `update users
+          set diamonds = 0,
+              free_generation_available = true,
+              free_generation_claimed_version_id = null,
+              free_generation_claimed_at = null
+        where id = $1`,
+      [zeroUserId],
+    );
+  });
+
   afterAll(async () => {
     if (!pool) return;
     await pool
       .query("delete from generation_billings where version_id = any($1::text[])", [
-        [firstVersionId, secondVersionId, historicalVersionId],
+        [
+          firstVersionId,
+          secondVersionId,
+          historicalVersionId,
+          zeroFirstVersionId,
+          zeroSecondVersionId,
+        ],
       ])
       .catch(() => null);
     await pool
@@ -246,26 +354,30 @@ describe.skipIf(!target.url)("generationsdebitering mot riktig Postgres", () => 
           lateUsageId,
           historicalOldUsageId,
           historicalNewUsageId,
+          zeroFirstUsageId,
+          zeroSecondUsageId,
         ],
       ])
       .catch(() => null);
     await pool
       .query("delete from transactions where user_id = any($1::text[])", [
-        [userId, historicalUserId],
+        [userId, historicalUserId, zeroUserId],
       ])
       .catch(() => null);
     await pool
       .query("delete from engine_chats where id = any($1::text[])", [
-        [chatId, historicalChatId],
+        [chatId, historicalChatId, zeroChatId],
       ])
       .catch(() => null);
     await pool
       .query("delete from app_projects where id = any($1::text[])", [
-        [projectId, historicalProjectId],
+        [projectId, historicalProjectId, zeroProjectId],
       ])
       .catch(() => null);
     await pool
-      .query("delete from users where id = any($1::text[])", [[userId, historicalUserId]])
+      .query("delete from users where id = any($1::text[])", [
+        [userId, historicalUserId, zeroUserId],
+      ])
       .catch(() => null);
     await pool.end().catch(() => null);
   }, 60_000);
@@ -488,6 +600,129 @@ describe.skipIf(!target.url)("generationsdebitering mot riktig Postgres", () => 
         [historicalNewUsageId, true],
       ]),
     );
+  }, 60_000);
+
+  it("avvisar den andra av två parallella nollsaldo-generationer utan övertrassering", async () => {
+    const settings = await billing.getGenerationBillingSettings();
+    const expectedCharge = calculateCustomerCharge({
+      providerCostMicroUsd: frozenCostMicroUsd,
+      usdToSekOre: settings.usdToSekOre,
+      markupBasisPoints: settings.markupBasisPoints,
+      sekPerCreditOre: settings.sekPerCreditOre,
+    });
+    expect(expectedCharge.credits).toBeGreaterThan(0);
+
+    await Promise.all(
+      [zeroFirstVersionId, zeroSecondVersionId].map((versionId) =>
+        billing.establishGenerationBilling({
+          chatId: zeroChatId,
+          versionId,
+          userId: zeroUserId,
+          claimKey: `claim-${versionId}`,
+        }),
+      ),
+    );
+
+    const settlements = await Promise.allSettled(
+      [zeroFirstVersionId, zeroSecondVersionId].map(async (versionId) => ({
+        versionId,
+        result: await billing.settleGenerationBilling({
+          chatId: zeroChatId,
+          versionId,
+          userId: zeroUserId,
+        }),
+      })),
+    );
+    const fulfilled = settlements
+      .filter((settlement) => settlement.status === "fulfilled")
+      .map((settlement) => settlement.value);
+    const rejected = settlements.filter((settlement) => settlement.status === "rejected");
+    const freeSettlement = fulfilled.find(
+      (settlement) => settlement.result.status === "free_generation",
+    );
+    expect(fulfilled).toHaveLength(1);
+    expect(freeSettlement?.result).toMatchObject({
+      creditsCharged: 0,
+      creditsAddedThisRun: 0,
+      freeGenerationApplied: true,
+    });
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]).toMatchObject({
+      reason: {
+        name: "InsufficientCreditsError",
+        code: "INSUFFICIENT_CREDITS",
+        required: expectedCharge.credits,
+        available: 0,
+      },
+    });
+
+    const rejectedVersionId = [zeroFirstVersionId, zeroSecondVersionId].find(
+      (versionId) => versionId !== freeSettlement?.versionId,
+    )!;
+    await expect(
+      billing.settleGenerationBilling({
+        chatId: zeroChatId,
+        versionId: rejectedVersionId,
+        userId: zeroUserId,
+      }),
+    ).rejects.toMatchObject({
+      name: "InsufficientCreditsError",
+      code: "INSUFFICIENT_CREDITS",
+      required: expectedCharge.credits,
+      available: 0,
+    });
+
+    const { rows: userRows } = await pool.query<{
+      diamonds: number;
+      free_generation_available: boolean;
+      free_generation_claimed_version_id: string | null;
+    }>(
+      `select diamonds, free_generation_available, free_generation_claimed_version_id
+         from users where id = $1`,
+      [zeroUserId],
+    );
+    expect(userRows[0]).toEqual({
+      diamonds: 0,
+      free_generation_available: false,
+      free_generation_claimed_version_id: freeSettlement?.versionId,
+    });
+
+    const { rows: billingRows } = await pool.query<{
+      version_id: string;
+      status: string;
+      credits_charged: number;
+      free_generation_applied: boolean;
+      llm_calls: number;
+      transaction_ids: string[] | null;
+    }>(
+      `select version_id, status, credits_charged,
+              free_generation_applied, llm_calls, transaction_ids
+         from generation_billings
+        where version_id = any($1::text[])
+        order by version_id`,
+      [[zeroFirstVersionId, zeroSecondVersionId]],
+    );
+    const byVersion = new Map(billingRows.map((row) => [row.version_id, row]));
+    expect(byVersion.get(freeSettlement!.versionId)).toMatchObject({
+      status: "free_generation",
+      credits_charged: 0,
+      free_generation_applied: true,
+      llm_calls: 1,
+      transaction_ids: [],
+    });
+    expect(byVersion.get(rejectedVersionId)).toMatchObject({
+      status: "pending",
+      credits_charged: 0,
+      free_generation_applied: false,
+      llm_calls: 0,
+      transaction_ids: null,
+    });
+
+    const { rows: transactionRows } = await pool.query<{ count: string }>(
+      "select count(*)::text as count from transactions where user_id = $1",
+      [zeroUserId],
+    );
+    expect(transactionRows[0]?.count).toBe("0");
   }, 60_000);
 
   it("ger exakt en gratis version, debiterar nästa och är idempotent vid återkörning", async () => {

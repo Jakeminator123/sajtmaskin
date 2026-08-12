@@ -55,6 +55,10 @@ async function evaluateCredits(
 
   if (user) {
     const isTest = isTestUser(user);
+    // This is a preliminary request gate, not the authoritative entitlement
+    // claim. Version settlement locks the user row, grants the entitlement to
+    // at most one completed version, and rejects a concurrent paid loser when
+    // the freshly locked balance cannot cover its calculated usage.
     const usingFreeGeneration =
       !isTest &&
       options.allowFreeGeneration === true &&

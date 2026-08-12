@@ -45,6 +45,7 @@ const dumpPlanModePlannerPrompts = vi.hoisted(() => vi.fn());
 const logPlanModeGenerationStart = vi.hoisted(() => vi.fn());
 const resolvePlanModePlannerSettings = vi.hoisted(() => vi.fn());
 const createOwnEnginePlanModeResponse = vi.hoisted(() => vi.fn());
+const createCommitCreditsOnce = vi.hoisted(() => vi.fn(() => vi.fn(async () => undefined)));
 const buildPreGenerationContractGateParams = vi.hoisted(() => vi.fn(() => null));
 const createPreGenerationContractGateReadableStream = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() =>
@@ -454,7 +455,7 @@ vi.mock("@/lib/gen/stream/finalize-version", () => ({
 }));
 
 vi.mock("@/lib/api/engine/chats/credits-handler", () => ({
-  createCommitCreditsOnce: vi.fn(() => vi.fn(async () => undefined)),
+  createCommitCreditsOnce,
 }));
 
 vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
@@ -1022,6 +1023,10 @@ describe("POST /api/engine/chats/[chatId]/stream own-engine follow-up route (mig
     expect(prepareGenerationContext).toHaveBeenCalled();
     expect(createGenerationPipeline).not.toHaveBeenCalled();
     expect(prewarmPreviewSession).not.toHaveBeenCalled();
+    expect(createCommitCreditsOnce).toHaveBeenCalledWith(
+      expect.anything(),
+      { rejectIfNegativeFixedCommit: true },
+    );
   });
 
   // Kreditgrinden ligger före prompt-loggen och före user-raden, så ett avslag
