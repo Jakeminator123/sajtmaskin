@@ -282,55 +282,6 @@
     },
     "notes": "selected_build_model means: follow the resolved build profile model from buildProfiles/defaults or env override. The Premium tier replaces the retired fast/cheap tier and runs GPT-5.6 Sol for planner/generator/verifier/deploy-assistant; its planner and generator use the Responses API with reasoning mode pro and high effort. The Premium FIXER is pinned to gpt-5.6-sol without thinking (owner decision 2026-08-11: prefer Sol for targeted repairs; thinking stays off so repair latency stays bounded — Max still pins fixer to gpt-5.3-codex). Persisted `fast` selections are accepted only as a compatibility alias and canonicalized to `premium`. The persisted chat.model remains the tier build model so repair and background verification can recover the tier; generated-version telemetry records the resolved phase model."
   },
-  "perTierRepairPolicies": {
-    "premium": {
-      "deterministicAutofixPasses": 2,
-      "syntaxFixPasses": 4,
-      "serverRepairPasses": 2
-    },
-    "pro": {
-      "deterministicAutofixPasses": 2,
-      "syntaxFixPasses": 3,
-      "serverRepairPasses": 2
-    },
-    "max": {
-      "deterministicAutofixPasses": 2,
-      "syntaxFixPasses": 4,
-      "serverRepairPasses": 2
-    },
-    "codex": {
-      "deterministicAutofixPasses": 2,
-      "syntaxFixPasses": 4,
-      "serverRepairPasses": 2
-    },
-    "anthropic": {
-      "deterministicAutofixPasses": 2,
-      "syntaxFixPasses": 3,
-      "serverRepairPasses": 2
-    }
-  },
-  "perTierTimeouts": {
-    "premium": {
-      "engineRouteMaxDurationSeconds": 950,
-      "verifierTimeoutMs": 240000
-    },
-    "pro": {
-      "engineRouteMaxDurationSeconds": 360,
-      "verifierTimeoutMs": 120000
-    },
-    "max": {
-      "engineRouteMaxDurationSeconds": 950,
-      "verifierTimeoutMs": 240000
-    },
-    "codex": {
-      "engineRouteMaxDurationSeconds": 950,
-      "verifierTimeoutMs": 240000
-    },
-    "anthropic": {
-      "engineRouteMaxDurationSeconds": 750,
-      "verifierTimeoutMs": 120000
-    }
-  },
   "perTierBriefing": {
     "premium": {
       "briefingModel": "openai/gpt-5.6-sol"
@@ -711,7 +662,6 @@
   "generatedSiteIntegrationPlaceholders": {
     "harmlessEnvFragmentFile": "40-harmless-placeholders.env.txt",
     "tier3StubEnvFragmentFile": "41-tier3-stub-placeholders.env.txt",
-    "policyDocRelativeToConfig": "user_degraded_env.txt",
     "preGenerationContractsEntry": "src/lib/gen/contract/pre-generation-contracts.ts",
     "notes": "Targets generated user Next.js apps, not Sajtmaskin app env. F2 ('design preview') merges BOTH layers into `.env.local`. F3 ('bygg integrationer') strips the tier-3-stub layer and requires real values from project env vars (validated by `tier3-build-spec.ts`). Per-key classification lives in `src/lib/integrations/placeholder-harmless.ts`. Loader: `readGeneratedSitePlaceholdersEnvText()` in `load-generated-site-placeholders.ts`."
   },

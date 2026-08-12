@@ -1,5 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -38,7 +39,12 @@ type Entry = {
   ciStatus: string;
   runtimeEnforced: boolean;
   runtimeStatus: string;
-  backoffice: { surface: string | null; editable: boolean; writePath: string | null; danger: string };
+  backoffice: {
+    surface: string | null;
+    editable: boolean;
+    writePath: string | null;
+    danger: string;
+  };
   mobility: string;
   notes: string;
 };
@@ -54,17 +60,33 @@ const REGISTRIES: Array<{ name: string; file: string; requiredIds: string[] }> =
     name: "schema-registry",
     file: "config/control-plane/schema-registry.json",
     requiredIds: [
+      "backoffice-domain-map-schema",
       "ai-models-manifest",
       "env-server-schema",
       "db-schema",
       "dossier-manifest-schema",
+      "scaffold-manifests",
+      "embeddings-blob-manifest-schema",
+      "variant-template-addenda-schema",
       "control-plane-registry-schema",
     ],
   },
   {
     name: "policy-registry",
     file: "config/control-plane/policy-registry.json",
-    requiredIds: ["env-policy", "manifest-repair-policies", "manifest-per-tier-timeouts", "agent-rules"],
+    requiredIds: [
+      "backoffice-domain-map",
+      "env-policy",
+      "manifest-repair-policies",
+      "manifest-pre-generation-contracts",
+      "manifest-per-tier-briefing",
+      "embeddings-blob-manifest-runtime",
+      "variant-template-addenda-runtime",
+      "prompt-heuristic-tokens",
+      "tier3-sdk-deny",
+      "naming-dictionary",
+      "agent-rules",
+    ],
   },
 ];
 
@@ -115,6 +137,10 @@ describe.each(REGISTRIES)("control-plane $name", ({ file, requiredIds }) => {
       if (entry.ciStatus === "hard") expect(entry.validator).not.toBeNull();
       // declared/unenforced entries must explain themselves
       if (entry.runtimeEnforced === false) expect(entry.notes.trim().length).toBeGreaterThan(0);
+      expect(
+        entry.runtimeEnforced,
+        `entry ${entry.id} runtimeEnforced disagrees with runtimeStatus=${entry.runtimeStatus}`,
+      ).toBe(entry.runtimeStatus === "wired");
       // runtime-wired entries must carry a validator OR an explicit waiver, so a
       // runtime-enforced editable policy can never ship with no structural guarantee
       if (entry.runtimeEnforced === true && entry.validator === null) {
@@ -165,6 +191,209 @@ describe.each(REGISTRIES)("control-plane $name", ({ file, requiredIds }) => {
   });
 });
 
+describe("control-plane registry schema path safety", () => {
+  const schema = JSON.parse(
+    readFileSync(join(REPO_ROOT, "docs/schemas/strict/control-plane-registry.schema.json"), "utf8"),
+  ) as object;
+  const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
+  const baseEntry: Entry = {
+    id: "test-owner",
+    sourceOfTruth: "src/lib/env.ts",
+    type: "runtime-authority",
+    validator: "typecheck",
+    ciStatus: "hard",
+    runtimeEnforced: true,
+    runtimeStatus: "wired",
+    backoffice: { surface: null, editable: false, writePath: null, danger: "low" },
+    mobility: "risky",
+    notes: "Fixture owner.",
+  };
+
+  function isSchemaValid(entry: Entry): boolean {
+    return validate({ schemaVersion: 1, entries: [entry] });
+  }
+
+  it("accepts repo-relative owners, JSON fragments and single-segment globs", () => {
+    for (const sourceOfTruth of [
+      "src/lib/env.ts",
+      "config/ai_models/manifest.json#repairPolicies",
+      "src/lib/gen/scaffolds/*/manifest.ts",
+    ]) {
+      expect(isSchemaValid({ ...baseEntry, sourceOfTruth }), sourceOfTruth).toBe(true);
+    }
+  });
+
+  it.each([
+    "C:/outside/owner.ts",
+    "/outside/owner.ts",
+    "../outside/owner.ts",
+    "src/../outside/owner.ts",
+    "src\\lib\\env.ts",
+    "src/lib/env.ts#missing",
+    "src/lib/gen/*.ts#missing",
+  ])("rejects unsafe sourceOfTruth %s", (sourceOfTruth) => {
+    expect(isSchemaValid({ ...baseEntry, sourceOfTruth })).toBe(false);
+  });
+
+  it.each(["C:/outside/file.json", "/outside/file.json", "../outside/file.json", "src\\x.ts"])(
+    "rejects unsafe Backoffice writePath %s",
+    (writePath) => {
+      expect(
+        isSchemaValid({
+          ...baseEntry,
+          backoffice: { surface: "Översikt", editable: true, writePath, danger: "low" },
+        }),
+      ).toBe(false);
+    },
+  );
+});
+
+describe("control-plane registry coverage", () => {
+  const schemaRegistry = loadRegistry("config/control-plane/schema-registry.json");
+  const policyRegistry = loadRegistry("config/control-plane/policy-registry.json");
+
+  it("has unique ids across both registries", () => {
+    const ids = [...schemaRegistry.entries, ...policyRegistry.entries].map((entry) => entry.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("uses exact Backoffice PAGE_SPECS names for every declared surface", () => {
+    // Parse the declarative PageSpec names without importing backoffice.pages:
+    // that module imports Streamlit page implementations and would turn this
+    // metadata test into an environment-dependent UI smoke test.
+    const pageRegistry = readFileSync(join(REPO_ROOT, "backoffice/pages/__init__.py"), "utf8");
+    const pageNames = new Set(
+      [...pageRegistry.matchAll(/PageSpec\((?:\s|#[^\r\n]*(?:\r?\n|$))*["']([^"']+)["']/g)].map(
+        (match) => match[1],
+      ),
+    );
+    expect(pageNames.size).toBe(36);
+    expect(pageNames.has("Scaffold-poäng")).toBe(true);
+    for (const entry of [...schemaRegistry.entries, ...policyRegistry.entries]) {
+      const surface = entry.backoffice.surface;
+      if (surface === null) continue;
+      expect(
+        pageNames.has(surface),
+        `${entry.id} names unknown Backoffice surface ${surface}`,
+      ).toBe(true);
+    }
+  });
+
+  it("gives every strict schema/spec exactly one explicit owner row", () => {
+    const strictSources = readdirSync(join(REPO_ROOT, "docs/schemas/strict"))
+      .filter((name) => name.endsWith(".schema.json"))
+      .map((name) => `docs/schemas/strict/${name}`)
+      .sort();
+    const sourceCounts = new Map<string, number>();
+    for (const entry of schemaRegistry.entries) {
+      const source = entry.sourceOfTruth.split("#")[0];
+      if (!source.startsWith("docs/schemas/strict/") || source.includes("*")) continue;
+      sourceCounts.set(source, (sourceCounts.get(source) ?? 0) + 1);
+    }
+    for (const source of strictSources) {
+      expect(sourceCounts.get(source), `${source} must have exactly one registry row`).toBe(1);
+    }
+    expect([...sourceCounts.keys()].sort()).toEqual(strictSources);
+  });
+
+  it.each([
+    [
+      "config/embeddings-blob-manifest.json",
+      "docs/schemas/strict/embeddings-blob-manifest.schema.json",
+    ],
+    [
+      "config/variant-template-addenda.json",
+      "docs/schemas/strict/variant-template-addenda.schema.json",
+    ],
+  ])("keeps %s valid against its strict JSON Schema mirror", (dataPath, schemaPath) => {
+    const data = JSON.parse(readFileSync(join(REPO_ROOT, dataPath), "utf8")) as object;
+    const schema = JSON.parse(readFileSync(join(REPO_ROOT, schemaPath), "utf8")) as object;
+    const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
+    expect(validate(data), JSON.stringify(validate.errors, null, 2)).toBe(true);
+  });
+});
+
+describe("owner decision register", () => {
+  const decisions = readFileSync(join(REPO_ROOT, "docs/decisions/README.md"), "utf8");
+  function parseDecisionRow(line: string): string[] {
+    const cells: string[] = [];
+    let cell = "";
+    let escaped = false;
+    for (const char of line.slice(1, -1)) {
+      if (escaped) {
+        cell += char;
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "|") {
+        cells.push(cell.trim());
+        cell = "";
+      } else {
+        cell += char;
+      }
+    }
+    if (escaped) cell += "\\";
+    cells.push(cell.trim());
+    return cells;
+  }
+
+  function decisionRowErrors(line: string): string[] {
+    const cells = parseDecisionRow(line);
+    const errors: string[] = [];
+    if (cells.length !== 4) errors.push(`expected 4 cells, found ${cells.length}`);
+    const source = cells[3] ?? "";
+    if (!source) errors.push("canonical source is empty");
+    if (source.toLowerCase() === "samma") errors.push("canonical source is shorthand");
+    if (!/\[[^\]]+\]\((?:\.\.\/)+[^)]+\)/.test(source)) {
+      errors.push("canonical source must contain a repo-relative Markdown link");
+    }
+    if (/(?:^|\/)plans\/(?:active|archived|avklarat)(?:\/|\))/.test(source)) {
+      errors.push("canonical source points at plan history");
+    }
+    if (source.includes("BUG-SWARM-BACKLOG.md")) errors.push("canonical source is backlog");
+    return errors;
+  }
+
+  const decisionRows = decisions
+    .split(/\r?\n/)
+    .filter((line) => /^\| 20\d\d-\d\d-\d\d \|/.test(line));
+
+  it("points current decisions at canonical owners rather than shorthand or work queues", () => {
+    for (const row of decisionRows) {
+      expect(decisionRowErrors(row), `invalid canonical decision source: ${row}`).toEqual([]);
+    }
+  });
+
+  it("rejects malformed, empty, arbitrary and queue-owned canonical sources", () => {
+    const invalidRows = [
+      "| 2026-08-12 | Test | Decision | |",
+      "| 2026-08-12 | Test | Decision | arbitrary prose |",
+      "| 2026-08-12 | Test | Decision | [`plan`](../plans/active/example.md) |",
+      "| 2026-08-12 | Test | Decision | [`plan`](../../docs/plans/archived/example.md) |",
+      "| 2026-08-12 | Test | Decision | [`plan`](../plans/avklarat/README.md) |",
+      "| 2026-08-12 | Test | Decision | [`queue`](../../BUG-SWARM-BACKLOG.md) |",
+      "| 2026-08-12 | Test | Decision with an unescaped | pipe | [`owner`](../../src/x.ts) |",
+    ];
+    for (const row of invalidRows) {
+      expect(decisionRowErrors(row).length, `${row} should be forbidden`).toBeGreaterThan(0);
+    }
+  });
+
+  it("accepts multiple repo-relative owner links and escaped table pipes", () => {
+    const row =
+      "| 2026-08-12 | Test | Decision with an escaped \\| separator | [`owner`](../../src/x.ts) + [`contract`](../contracts/x.md) |";
+    expect(decisionRowErrors(row)).toEqual([]);
+  });
+
+  it("keeps delivery history out and records the current cleanup ownership decisions", () => {
+    expect(decisions).not.toContain("| Leveransordning");
+    expect(decisions).toContain("| Backoffice-karta");
+    expect(decisions).toContain("| Ordlista/validering");
+    expect(decisions).toContain("| Städning/legacy");
+    expect(decisions).toContain("| Konfigurationsyta");
+  });
+});
+
 describe("control-plane Backoffice and CI truth", () => {
   const policyRegistry = loadRegistry("config/control-plane/policy-registry.json");
   const schemaRegistry = loadRegistry("config/control-plane/schema-registry.json");
@@ -189,6 +418,27 @@ describe("control-plane Backoffice and CI truth", () => {
         writePath: null,
       });
     }
+  });
+
+  it("points scaffold manifests at their real Backoffice editor", () => {
+    expect(schemaById.get("scaffold-manifests")?.backoffice).toMatchObject({
+      surface: "Scaffolds: titta & justera",
+      editable: true,
+      writePath: "src/lib/gen/scaffolds/*/manifest.ts",
+    });
+  });
+
+  it("distinguishes the editable AI manifest from its read-only schema mirror", () => {
+    expect(schemaById.get("ai-models-manifest-jsonschema")?.backoffice).toMatchObject({
+      surface: "ai_models",
+      editable: false,
+      writePath: null,
+    });
+    expect(byId.get("manifest-per-tier-briefing")?.backoffice).toMatchObject({
+      surface: "ai_models",
+      editable: true,
+      writePath: "config/ai_models/manifest.json",
+    });
   });
 
   it("keeps read-only policies out of the editor map", () => {

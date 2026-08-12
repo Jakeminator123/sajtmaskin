@@ -30,7 +30,7 @@ const REPO_ROOT = resolve(HERE, "..", "..");
 const OUT_REL = "docs/canvases/llm-flow.canvas.txt";
 const OUT_JSON_REL = "docs/canvases/llm-flow.canvas.json";
 const CONFIG_REL = "scripts/canvas/llm-flow-canvas.config.json";
-const DOMAIN_MAP_REL = "config/dashboard/domain-map.json";
+const DOMAIN_MAP_REL = "config/backoffice/domain-map.json";
 const BACKLOG_REL = "BUG-SWARM-BACKLOG.md";
 // Kanonisk LLM-fas-doc: faserna låses mot dess "## FAS N"-rubriker när den finns.
 const LLM_PIPELINE_REL = "docs/architecture/llm-pipeline.md";
@@ -135,13 +135,58 @@ function basename(p) {
  *  over-matcha). Helt valfria: en process utan traffar visas som stabil. En
  *  process som saknas har faller tillbaka pa enbart langa fil-stammar. */
 const STRONG_TERMS = {
-  "LLM-faser & runtime-sanning": ["phase-routing", "phaserouting", "buildprofile", "build-profile", "tier-routing", "fixer/verifier"],
-  "Codegen core": ["autofix", "cross-file", "null-render", "static-core", "domain-inference", "prompt-heuristic", "system-prompt"],
+  "LLM-faser & runtime-sanning": [
+    "phase-routing",
+    "phaserouting",
+    "buildprofile",
+    "build-profile",
+    "tier-routing",
+    "fixer/verifier",
+  ],
+  "Codegen core": [
+    "autofix",
+    "cross-file",
+    "null-render",
+    "static-core",
+    "domain-inference",
+    "prompt-heuristic",
+    "system-prompt",
+  ],
   "prompt-core": ["core rules", "prompt-core", "core-contract", "systemprompt", "system prompt"],
-  "ai_models": ["manifest.json", "phase-routing", "token-budget", "tokenbudget", "repair-pass", "build-spec", "buildspec", "promptlimits", "partial-file repair"],
+  ai_models: [
+    "manifest.json",
+    "phase-routing",
+    "token-budget",
+    "tokenbudget",
+    "repair-pass",
+    "build-spec",
+    "buildspec",
+    "promptlimits",
+    "partial-file repair",
+  ],
   "Scaffolds: titta & justera": ["scaffold", "dossier", "capability", "route-plan", "routeplan"],
-  "Scaffolds & varianter: skapa, redigera, klona, ta bort": ["scaffold-variant", "variant-json", "scaffold-variants"],
-  "Preview och versioner": ["preview", "verifier", "finalize-design", "quality gate", "quality-gate", "warm-typecheck", "product-postcheck", "server-verify", "event-bus", "build plan", "f3 ", " f3", "f2 ", " f2", "repair gate"],
+  "Scaffolds & varianter: skapa, redigera, klona, ta bort": [
+    "scaffold-variant",
+    "variant-json",
+    "scaffold-variants",
+  ],
+  "Preview och versioner": [
+    "preview",
+    "verifier",
+    "finalize-design",
+    "quality gate",
+    "quality-gate",
+    "warm-typecheck",
+    "product-postcheck",
+    "server-verify",
+    "event-bus",
+    "build plan",
+    "f3 ",
+    " f3",
+    "f2 ",
+    " f2",
+    "repair gate",
+  ],
   Eval: ["eval", "baseline", "merge-syntax", "merge syntax", "arcade-with-klarna"],
 };
 
@@ -152,7 +197,9 @@ function keywordsFor(name, page) {
   const terms = new Set((STRONG_TERMS[name] || []).map((t) => t.toLowerCase()));
   const paths = [...(page.canonicalPaths || []), ...(page.codeReaders || [])];
   for (const p of paths) {
-    const stem = basename(p).toLowerCase().replace(/\.[a-z]+$/u, "");
+    const stem = basename(p)
+      .toLowerCase()
+      .replace(/\.[a-z]+$/u, "");
     // Bara distinkta fler-ords-stammar (innehaller bindestreck) och langa nog.
     if (stem.includes("-") && stem.length >= 9) terms.add(stem);
   }
@@ -224,7 +271,11 @@ export function selectTopOpenRisks(backlogRows, cap = 12) {
   const rest = candidates.filter((r) => r.prio !== "P0");
   const shown = [...p0, ...rest.slice(0, Math.max(0, cap - p0.length))];
   return {
-    rows: shown.map((r) => ({ prio: r.prio || "-", blocker: r.blocker, fynd: truncate(r.fynd, 110) })),
+    rows: shown.map((r) => ({
+      prio: r.prio || "-",
+      blocker: r.blocker,
+      fynd: truncate(r.fynd, 110),
+    })),
     omitted: candidates.length - shown.length,
   };
 }
@@ -244,8 +295,7 @@ function evalSignal(summary) {
         ? s.exactHitRatePercent
         : null;
   // semanticTop1Accuracy kan vara fraktion (0–1) eller procent; normalisera till procent.
-  const exactHitPct =
-    rawAcc == null ? null : rawAcc <= 1 ? Math.round(rawAcc * 1000) / 10 : rawAcc;
+  const exactHitPct = rawAcc == null ? null : rawAcc <= 1 ? Math.round(rawAcc * 1000) / 10 : rawAcc;
   const rows = Array.isArray(summary.results)
     ? summary.results.map((r) => ({
         id: String(r.id ?? "?"),
@@ -267,7 +317,11 @@ function evalSignal(summary) {
 /** Antal commits de senaste `sinceDays` dagarna som ror processens paths. */
 function churnFor(page, sinceDays) {
   const paths = [...(page.canonicalPaths || []), ...(page.codeReaders || [])]
-    .map((p) => String(p).replace(/\s*\(.*\)\s*$/u, "").trim()) // strippa "(...)"-noter
+    .map((p) =>
+      String(p)
+        .replace(/\s*\(.*\)\s*$/u, "")
+        .trim(),
+    ) // strippa "(...)"-noter
     .map((p) => p.replace(/\*.*$/u, "")) // strippa glob-svansar -> katalog
     .filter(Boolean)
     .filter((p) => existsSync(join(REPO_ROOT, p)));
@@ -284,7 +338,10 @@ function deriveStatus({ override, matched, churn, evalForProcess, churnHot }) {
   const hasBlocker = matched.some((r) => r.blocker);
   if (hasBlocker) return "blocked";
   const openCount = matched.length;
-  const evalWeak = evalForProcess && typeof evalForProcess.exactHitPct === "number" && evalForProcess.exactHitPct < 90;
+  const evalWeak =
+    evalForProcess &&
+    typeof evalForProcess.exactHitPct === "number" &&
+    evalForProcess.exactHitPct < 90;
   if (openCount > 0 || evalWeak) return "shaky";
   if (churn >= churnHot) return "ongoing";
   return "done";
@@ -321,7 +378,13 @@ export function buildData() {
     const churn = churnFor(page, sinceDays);
     const isEvalProcess = /eval/i.test(name);
     const evalForProcess = isEvalProcess ? evals : null;
-    const status = deriveStatus({ override: overrides[name], matched, churn, evalForProcess, churnHot });
+    const status = deriveStatus({
+      override: overrides[name],
+      matched,
+      churn,
+      evalForProcess,
+      churnHot,
+    });
 
     const openByPrio = { P0: 0, P1: 0, P2: 0, P3: 0, other: 0 };
     for (const r of matched) {
@@ -606,7 +669,7 @@ export default function LLMFlowCanvas() {
         <CardBody>
           <Stack gap={6}>
             <Text size="small" tone="secondary">
-              Ogonblicksbild vid korningstillfallet. Fil-kallorna (config/dashboard/domain-map.json,
+              Ogonblicksbild vid korningstillfallet. Fil-kallorna (config/backoffice/domain-map.json,
               BUG-SWARM-BACKLOG.md, eval-rapporten) lases fran working tree, medan commit {d.meta.commit}
               och churn speglar committat lage (git log).
             </Text>

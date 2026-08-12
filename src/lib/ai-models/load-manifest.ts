@@ -267,21 +267,11 @@ const matchingSchema = z.object({
 const generatedSiteIntegrationPlaceholdersSchema = z.object({
   harmlessEnvFragmentFile: z.string(),
   tier3StubEnvFragmentFile: z.string(),
-  policyDocRelativeToConfig: z.string().optional(),
   preGenerationContractsEntry: z.string().optional(),
   notes: z.string().optional(),
 });
 
-/**
- * Per-tier policy overrides.
- *
- * VALIDATE-ONLY: these are present in config/ai_models/manifest.json and shown
- * read-only in backoffice, but nothing in the generation pipeline consumes them
- * yet. Global routeTimeouts / repairPolicies are what apply at runtime.
- * `perTierBriefing` is the exception: create-chat and clear-redesign consume
- * its selected tier entry, with the global briefing default as fallback.
- * See config/control-plane/policy-registry.json for each field's runtimeStatus.
- */
+/** Runtime-wired per-tier briefing model overrides. */
 function tierKeyedSchema<T extends z.ZodTypeAny>(inner: T) {
   return z.object({
     premium: inner,
@@ -292,23 +282,10 @@ function tierKeyedSchema<T extends z.ZodTypeAny>(inner: T) {
   });
 }
 
-const perTierTimeoutSchema = z.object({
-  engineRouteMaxDurationSeconds: z.number(),
-  verifierTimeoutMs: z.number(),
-});
-
-const perTierRepairPolicySchema = z.object({
-  deterministicAutofixPasses: z.number(),
-  syntaxFixPasses: z.number(),
-  serverRepairPasses: z.number(),
-});
-
 const perTierBriefingEntrySchema = z.object({
   briefingModel: z.string(),
 });
 
-const perTierTimeoutsSchema = tierKeyedSchema(perTierTimeoutSchema);
-const perTierRepairPoliciesSchema = tierKeyedSchema(perTierRepairPolicySchema);
 const perTierBriefingSchema = tierKeyedSchema(perTierBriefingEntrySchema);
 
 export const aiModelsManifestSchema = z.object({
@@ -333,9 +310,6 @@ export const aiModelsManifestSchema = z.object({
   phaseRouting: phaseRoutingSchema,
   repairPolicies: repairPoliciesSchema,
   qualityGateTiers: qualityGateTiersSchema,
-  // Timeout/repair overrides are validate-only; perTierBriefing is runtime-wired.
-  perTierTimeouts: perTierTimeoutsSchema.optional(),
-  perTierRepairPolicies: perTierRepairPoliciesSchema.optional(),
   perTierBriefing: perTierBriefingSchema.optional(),
   promptOrchestration: promptOrchestrationSchema,
   postGenerationPasses: postGenerationPassesSchema,
@@ -377,8 +351,6 @@ export type ContractProviderRuleFromManifest = z.infer<typeof contractProviderRu
 export type PreGenerationContractsConfigFromManifest = z.infer<
   typeof preGenerationContractsConfigSchema
 >;
-export type PerTierTimeoutsFromManifest = z.infer<typeof perTierTimeoutsSchema>;
-export type PerTierRepairPoliciesFromManifest = z.infer<typeof perTierRepairPoliciesSchema>;
 export type PerTierBriefingFromManifest = z.infer<typeof perTierBriefingSchema>;
 
 function parseManifest(): AiModelsManifest {
@@ -572,21 +544,9 @@ export function getMatchStrategy(point: MatchPoint): MatchStrategy {
 }
 
 /**
- * Read-only accessors for the per-tier policy overrides.
- *
- * Timeout and repair entries remain validate-only. `perTierBriefing` is read
- * by server auto-brief model selection; its optional shape preserves the
- * global briefing default as a compatibility fallback.
+ * Read-only accessor for the per-tier briefing override. Its optional shape
+ * preserves the global briefing default as a compatibility fallback.
  */
-export function getPerTierTimeoutsFromManifest(): PerTierTimeoutsFromManifest | undefined {
-  return getAiModelsManifest().perTierTimeouts;
-}
-
-export function getPerTierRepairPoliciesFromManifest():
-  PerTierRepairPoliciesFromManifest | undefined {
-  return getAiModelsManifest().perTierRepairPolicies;
-}
-
 export function getPerTierBriefingFromManifest(): PerTierBriefingFromManifest | undefined {
   return getAiModelsManifest().perTierBriefing;
 }

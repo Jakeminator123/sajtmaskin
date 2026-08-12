@@ -188,30 +188,6 @@
         "integrationsBuild": { "$ref": "#/$defs/qualityGateCheckArray" }
       }
     },
-    "perTierTimeouts": {
-      "type": "object",
-      "description": "VALIDATE-ONLY per-tier timeout overrides. Declared-only: validated but not wired to runtime (global routeTimeouts apply). See config/control-plane/policy-registry.json.",
-      "required": ["premium", "pro", "max", "codex", "anthropic"],
-      "properties": {
-        "premium": { "$ref": "#/$defs/perTierTimeout" },
-        "pro": { "$ref": "#/$defs/perTierTimeout" },
-        "max": { "$ref": "#/$defs/perTierTimeout" },
-        "codex": { "$ref": "#/$defs/perTierTimeout" },
-        "anthropic": { "$ref": "#/$defs/perTierTimeout" }
-      }
-    },
-    "perTierRepairPolicies": {
-      "type": "object",
-      "description": "VALIDATE-ONLY per-tier repair-pass overrides. Declared-only: validated but not wired to runtime (global repairPolicies apply).",
-      "required": ["premium", "pro", "max", "codex", "anthropic"],
-      "properties": {
-        "premium": { "$ref": "#/$defs/perTierRepairPolicy" },
-        "pro": { "$ref": "#/$defs/perTierRepairPolicy" },
-        "max": { "$ref": "#/$defs/perTierRepairPolicy" },
-        "codex": { "$ref": "#/$defs/perTierRepairPolicy" },
-        "anthropic": { "$ref": "#/$defs/perTierRepairPolicy" }
-      }
-    },
     "perTierBriefing": {
       "type": "object",
       "description": "Runtime-wired per-tier auto-brief model defaults. Explicit prompt-assist selection and the selected provider's auto-brief env override take precedence; global briefing defaults are the compatibility fallback.",
@@ -387,7 +363,6 @@
           "type": "string",
           "description": "Filename under config/ai_models/ for placeholder values stripped from F3 merges."
         },
-        "policyDocRelativeToConfig": { "type": "string" },
         "preGenerationContractsEntry": { "type": "string" },
         "notes": { "type": "string" }
       }
@@ -505,23 +480,6 @@
       "items": {
         "type": "string",
         "enum": ["typecheck", "build", "lint"]
-      }
-    },
-    "perTierTimeout": {
-      "type": "object",
-      "required": ["engineRouteMaxDurationSeconds", "verifierTimeoutMs"],
-      "properties": {
-        "engineRouteMaxDurationSeconds": { "type": "number" },
-        "verifierTimeoutMs": { "type": "number" }
-      }
-    },
-    "perTierRepairPolicy": {
-      "type": "object",
-      "required": ["deterministicAutofixPasses", "syntaxFixPasses", "serverRepairPasses"],
-      "properties": {
-        "deterministicAutofixPasses": { "type": "number" },
-        "syntaxFixPasses": { "type": "number" },
-        "serverRepairPasses": { "type": "number" }
       }
     },
     "perTierBriefingEntry": {

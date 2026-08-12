@@ -1,5 +1,5 @@
 {
-  "_comment": "VALFRI override for build-llm-flow-canvas.mjs. Hela filen kan raderas - generatorn auto-upptacker allt fran config/dashboard/domain-map.json + backlog + evals. Andra bara det du vill las fast.",
+  "_comment": "VALFRI override for build-llm-flow-canvas.mjs. Hela filen kan raderas - generatorn auto-upptacker allt fran config/backoffice/domain-map.json + backlog + evals. Andra bara det du vill las fast.",
   "churnSinceDays": 14,
   "churnHotThreshold": 4,
   "includeAllPages": false,

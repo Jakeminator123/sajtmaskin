@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { llmUsage } from "@/lib/db/schema";
@@ -95,9 +95,7 @@ export async function attachChatToUnassignedLlmUsage(
         eq(llmUsage.session_id, sessionId),
         sql`${llmUsage.chat_id} IS NULL`,
         gt(llmUsage.created_at, sql`now() - (${String(maxAgeMinutes)} || ' minutes')::interval`),
-        ...(claimKey
-          ? [sql`${llmUsage.meta} ->> 'claimKey' = ${claimKey}`]
-          : []),
+        ...(claimKey ? [sql`${llmUsage.meta} ->> 'claimKey' = ${claimKey}`] : []),
       ),
     )
     .returning({ id: llmUsage.id });
@@ -149,62 +147,4 @@ export async function attachVersionToUnassignedLlmUsage(
     )
     .returning({ id: llmUsage.id });
   return rows.length;
-}
-
-export async function getLlmUsageForVersion(versionId: string): Promise<LlmUsageRow[]> {
-  assertDbConfigured();
-  return db
-    .select()
-    .from(llmUsage)
-    .where(eq(llmUsage.version_id, versionId))
-    .orderBy(desc(llmUsage.created_at));
-}
-
-export async function getLlmUsageForChat(chatId: string, limit = 200): Promise<LlmUsageRow[]> {
-  assertDbConfigured();
-  return db
-    .select()
-    .from(llmUsage)
-    .where(eq(llmUsage.chat_id, chatId))
-    .orderBy(desc(llmUsage.created_at))
-    .limit(limit);
-}
-
-export type LlmUsageRollupRow = {
-  phase: string;
-  model: string;
-  calls: number;
-  inputTokens: number;
-  cachedInputTokens: number;
-  outputTokens: number;
-};
-
-/**
- * Förbrukning per fas och modell för en användare. Grunden för att svara på
- * "vad kostar den här användaren" utan att gissa utifrån antal genereringar.
- */
-export async function getLlmUsageRollupForUser(
-  userId: string,
-  options?: { days?: number },
-): Promise<LlmUsageRollupRow[]> {
-  assertDbConfigured();
-  const days = Math.min(Math.max(options?.days ?? 30, 1), 365);
-  const rows = await db
-    .select({
-      phase: llmUsage.phase,
-      model: llmUsage.model,
-      calls: sql<number>`count(*)::int`,
-      inputTokens: sql<number>`coalesce(sum(${llmUsage.input_tokens}), 0)::int`,
-      cachedInputTokens: sql<number>`coalesce(sum(${llmUsage.cached_input_tokens}), 0)::int`,
-      outputTokens: sql<number>`coalesce(sum(${llmUsage.output_tokens}), 0)::int`,
-    })
-    .from(llmUsage)
-    .where(
-      and(
-        eq(llmUsage.user_id, userId),
-        gt(llmUsage.created_at, sql`now() - (${String(days)} || ' days')::interval`),
-      ),
-    )
-    .groupBy(llmUsage.phase, llmUsage.model);
-  return rows;
 }

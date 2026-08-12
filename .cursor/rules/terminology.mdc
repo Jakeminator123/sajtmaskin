@@ -5,29 +5,9 @@ alwaysApply: true
 
 # Terminologi
 
-**Kanonisk och enda ordlista:** [`docs/architecture/glossary.md`](../../docs/architecture/glossary.md) — kärntermer, namnskuggor, legacy, URL-nivåer, fas-skillnad och agent-/modellplan bor där. Slå upp den när en term är oklar. `config/naming-dictionary.json` är en valideringsseed, inte ett andra glossary.
+**Kanonisk och enda ordlista:** [`docs/architecture/glossary.md`](../../docs/architecture/glossary.md). Slå upp [kärntermer](../../docs/architecture/glossary.md#kärntermer) och [namnskuggor/legacy](../../docs/architecture/glossary.md#namnskuggor-och-legacy) där när ett ord är oklart. `config/naming-dictionary.json` innehåller bara maskinregler för validering och är inte en andra ordlista.
 
 Inför inte nya svåra begrepp om ett befintligt ord räcker. Ändrar en term semantik: uppdatera glossaryn **och** den faktiska signalägaren.
-
-## De vanligaste förväxlingarna
-
-| Undvik | Använd |
-|---|---|
-| generatorn, v0-motorn | `own-engine` |
-| sandbox, demo | `preview` / `VM` / `preview_host` |
-| mallar/templates för runtime-startpunkter | `scaffolds` |
-| "templates" om capability-moduler | `dossiers` (UI-label: **Byggblock**) — v0-mallar i galleriet är ett separat system |
-| capability och dossier som synonymer | `Capability` = behov/intentnyckel; `Dossier`/Byggblock = vald implementation/provider |
-| hard = kräver alltid F3 | `Kopplad` (`hard`) = extern provider; `Kräver F3` härleds separat av `dossierRequiresF3()` |
-| soft = ingen dependency | `Fristående` (`soft`) = ingen extern provider/secret; npm-paket kan fortfarande finnas |
-| tier 2/tier 3 | F2 (`fidelity2`) / F3 (`fidelity3`) |
-| "Bygg integrationer" = märk F2 som klar | Bygg alla planerade, ännu obyggda Byggblock som kräver F3 i en separat F3-version; exakt fork bara när inget återstår att bygga |
-| `sourceRepoUrl` som setup-länk | `envVars[].setupUrl` för användarens nyckelhämtning; `sourceRepoUrl` för källproveniens |
-| autofix, url-expand, import-repair | `Normalize` · LLM-fix → `RepairGate` |
-| quality gate / preview-check | `RenderGate` (F2) · build gate/readiness → `ReleaseGate` (F3) |
-| warning, soft fail, degraded | `Advisory` · hard fail/blocking → `Blocker` |
-| `demoUrl`, "publicerad URL" | `previewUrl` (VM) vs `liveUrl` (prod) vs `customDomain` |
-| dashboard om adminytan | `backoffice/` |
 
 Kodidentifierare, filnamn, telemetri-nycklar, event-typer, enum-värden och DB-strängar behåller sina legacy-namn — mappa i text i stället för att döpa om.
 

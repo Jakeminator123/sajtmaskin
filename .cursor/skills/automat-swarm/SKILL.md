@@ -22,16 +22,16 @@ A **report factory**: the orchestrator (the main agent running `/automat`) launc
 2. **No git.** No commit/branch/checkout/push. Writing to `.cursor/swarms/` is safe because it is gitignored (no HEAD movement, no worktree needed).
 3. **Write only to `.cursor/swarms/`.** Raw reports → `runs/<ts>/`, curated findings → `FINDINGS.md`. Nothing else is written.
 4. **Never auto-touch `BUG-SWARM-BACKLOG.md`.** Promotion of a confirmed finding is a separate manual `/buggrapport` step.
-5. **Keep volume cheap.** Models come from the canonical table in [`.cursor/README.md § Modellval för subagenter`](../../README.md#modellval-för-subagenter-kanonisk-tabell): `<grok-4.5>` for every round — scan, distill and falsification alike. `<grok-4.5>` is a placeholder: resolve it against the `cursor-grok-4.5` entry in your own session's `<available_subagent_models>`. Never copy a slug from an older line — the exact form differs between sessions, and a slug that is not validated silently runs on the (expensive) parent model.
+5. **Keep volume cheap.** Models come from the canonical rule in [`subagent-models.mdc`](../../rules/subagent-models.mdc): `<grok-4.5>` for every round — scan, distill and falsification alike. `<grok-4.5>` is a placeholder: resolve it against the `cursor-grok-4.5` entry in your own session's `<available_subagent_models>`. Never copy a slug from an older line — the exact form differs between sessions, and a slug that is not validated silently runs on the (expensive) parent model.
 6. **Keep reports short.** Max **6** table rows per agent and no closing prose. Every returned line lands in the orchestrator's context and is re-sent on every later turn — brevity in the subagent prompt is the main cost lever in this skill.
 
 ## Round types — rounds alternate
 
 More breadth on top of unverified findings just grows the pile. Odd rounds widen, even rounds prune.
 
-| Round | Type | Agents | Model | Job |
-|---|---|---|---|---|
-| 1, 3, 5 … | **Scan** | 8, one lane each | `<grok-4.5>` | find new candidates in rotating lanes |
+| Round     | Type              | Agents                            | Model        | Job                                       |
+| --------- | ----------------- | --------------------------------- | ------------ | ----------------------------------------- |
+| 1, 3, 5 … | **Scan**          | 8, one lane each                  | `<grok-4.5>` | find new candidates in rotating lanes     |
 | 2, 4, 6 … | **Falsification** | one per unverified finding, max 8 | `<grok-4.5>` | try to prove the finding is **not** a bug |
 
 `/automat 3` is therefore scan → falsify → scan. If a falsification round has no unverified findings left, run a scan round instead. A finding is falsified **at most once** — an `oklar` verdict stays unverified and is never re-swarmed.
@@ -64,22 +64,22 @@ Prioritize, in order: P0/P1 runtime regressions, false-green gates (verify/quali
 
 The orchestrator rotates through these. Slugs are used in filenames.
 
-| # | Lane | Primärt område |
-|---|------|----------------|
-| 1 | `frontend/first-page` | landing/start (`src/app/`), hydration, blank screen, imports |
-| 2 | `frontend/builder` | builder UI/chat (`src/app/builder/`, `src/components/builder/`, `src/lib/hooks/chat/`) |
-| 3 | `frontend/preview` | preview-panel (`src/components/builder/preview-panel/`, `src/lib/gen/preview/`) |
-| 4 | `frontend/navigation` | routes, länkar, 404, guards (`src/app/`) |
-| 5 | `backend/api-routes` | API-kontrakt, timeouts, auth (`src/app/api/**`) |
-| 6 | `backend/db-tenant` | queries, RLS, schema drift (`src/lib/db/**`, `src/lib/tenant.ts`) |
-| 7 | `backend/env-config` | env-namn, saknade vars, prod/dev-paritet (`src/lib/env.ts`, `config/env-policy.json`, `docs/ENV.md`) |
-| 8 | `ai-flow/init-llm` | init-generering (`src/lib/gen/`, `src/lib/providers/own-engine/`) |
-| 9 | `ai-flow/follow-up` | follow-up/repair/edit (`src/lib/gen/stream/`, follow-up-orchestration) |
-| 10 | `ai-flow/fidelity2-vs-3` | F2 vs F3 gating (`src/lib/gen/verify/`, finalize-design) |
-| 11 | `quality/dead-code` | oanvända exports, orphan-filer, död kod |
-| 12 | `quality/naming-overlap` | dubbelnamn, skuggning, drift mot `docs/architecture/glossary.md` |
-| 13 | `quality/tests` | testluckor, false-green |
-| 14 | `ops/github-vercel-bots` | missade fynd från Codex/Vercel/Bugbot PR-kommentarer + `BUG-SWARM-BACKLOG.md`-luckor |
+| #   | Lane                     | Primärt område                                                                                       |
+| --- | ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| 1   | `frontend/first-page`    | landing/start (`src/app/`), hydration, blank screen, imports                                         |
+| 2   | `frontend/builder`       | builder UI/chat (`src/app/builder/`, `src/components/builder/`, `src/lib/hooks/chat/`)               |
+| 3   | `frontend/preview`       | preview-panel (`src/components/builder/preview-panel/`, `src/lib/gen/preview/`)                      |
+| 4   | `frontend/navigation`    | routes, länkar, 404, guards (`src/app/`)                                                             |
+| 5   | `backend/api-routes`     | API-kontrakt, timeouts, auth (`src/app/api/**`)                                                      |
+| 6   | `backend/db-tenant`      | queries, RLS, schema drift (`src/lib/db/**`, `src/lib/tenant.ts`)                                    |
+| 7   | `backend/env-config`     | env-namn, saknade vars, prod/dev-paritet (`src/lib/env.ts`, `config/env-policy.json`, `docs/ENV.md`) |
+| 8   | `ai-flow/init-llm`       | init-generering (`src/lib/gen/`, `src/lib/providers/own-engine/`)                                    |
+| 9   | `ai-flow/follow-up`      | follow-up/repair/edit (`src/lib/gen/stream/`, follow-up-orchestration)                               |
+| 10  | `ai-flow/fidelity2-vs-3` | F2 vs F3 gating (`src/lib/gen/verify/`, finalize-design)                                             |
+| 11  | `quality/dead-code`      | oanvända exports, orphan-filer, död kod                                                              |
+| 12  | `quality/naming-overlap` | dubbelnamn, skuggning, drift mot `docs/architecture/glossary.md`                                     |
+| 13  | `quality/tests`          | testluckor, false-green                                                                              |
+| 14  | `ops/github-vercel-bots` | missade fynd från Codex/Vercel/Bugbot PR-kommentarer + `BUG-SWARM-BACKLOG.md`-luckor                 |
 
 ## Prompt templates
 

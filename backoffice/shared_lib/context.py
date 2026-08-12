@@ -8,7 +8,6 @@ from pathlib import Path
 @dataclass(frozen=True)
 class BackofficeContext:
     repo_root: Path
-    dashboard_dir: Path
     config_dir: Path
     variants_dir: Path
     scripts_dir: Path
@@ -53,7 +52,6 @@ def find_repo_root(start: Path | None = None) -> Path:
 
 def build_backoffice_context(repo_root: Path | None = None) -> BackofficeContext:
     root = (repo_root or find_repo_root()).resolve()
-    dashboard_dir = root / "config" / "dashboard"
     config_dir = root / "config"
     variants_dir = config_dir / "scaffold-variants"
     scripts_dir = root / "scripts"
@@ -63,11 +61,10 @@ def build_backoffice_context(repo_root: Path | None = None) -> BackofficeContext
     llm_index_dir = root / "logs" / "llm-segmentts-and-index"
     return BackofficeContext(
         repo_root=root,
-        dashboard_dir=dashboard_dir,
         config_dir=config_dir,
         variants_dir=variants_dir,
         scripts_dir=scripts_dir,
-        domain_map_json=dashboard_dir / "domain-map.json",
+        domain_map_json=config_dir / "backoffice" / "domain-map.json",
         manifest_json=config_dir / "ai_models" / "manifest.json",
         env_local=root / ".env.local",
         manage_env_script=scripts_dir / "env" / "manage_env.py",

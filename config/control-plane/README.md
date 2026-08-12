@@ -1,21 +1,28 @@
 # Control plane
 
-This folder is the **control-plane surface**: a machine-readable map of every
-schema, policy, rule and runtime-authority that governs Sajtmaskin. It exists so
-a future Backoffice v2 (and any agent) can answer "where does authority X live,
-who enforces it, and is it safe to move?" without grepping the whole repo.
+This folder is the **control-plane surface**: a machine-readable inventory of
+registered schemas, policies, rules and runtime authorities that govern
+Sajtmaskin. It is exhaustive for `docs/schemas/strict/*.schema.json` and for the
+known-authority sets enforced by `control-plane:check`; other in-code policies
+are added as individual entries when they become maintained control-plane
+surfaces. It exists so a future Backoffice v2 (and any agent) can answer "where
+does registered authority X live, who enforces it, and is it safe to move?"
+without treating a representative file or a catch-all glob as ownership proof.
 
 The control plane does **not** add new enforcement. It is a registry/index that
-points at the existing sources of truth (code is always source of truth — see
-`AGENTS.md`). A small validator (`npm run control-plane:check`) keeps the map
-honest.
+points at the authority selected per fact type: executable behavior is owned by
+code, while declarative decisions may be owned by a manifest, policy, registry
+or schema. The precedence contract lives in
+[`docs/documentation-lifecycle.md`](../../docs/documentation-lifecycle.md); the
+generated registry view is never a second owner. A small validator
+(`npm run control-plane:check`) keeps the index honest.
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `schema-registry.json` | Schemas + runtime-authority contracts (Zod/Drizzle/JSON Schema). |
-| `policy-registry.json` | Policy / rule / config authorities (manifest fragments, config JSON, code policy modules). |
+| File                                                     | Purpose                                                                                      |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `schema-registry.json`                                   | Schemas + runtime-authority contracts (Zod/Drizzle/JSON Schema).                             |
+| `policy-registry.json`                                   | Policy / rule / config authorities (manifest fragments, config JSON, code policy modules).   |
 | `docs/schemas/strict/control-plane-registry.schema.json` | JSON Schema (draft 2020-12) describing the entry shape; both registries validate against it. |
 
 Each registry is an object: `{ "schemaVersion": 1, "entries": [ ... ] }`.
@@ -24,19 +31,19 @@ Each registry is an object: `{ "schemaVersion": 1, "entries": [ ... ] }`.
 
 Every entry has exactly these fields:
 
-| Field | Type | Meaning |
-|-------|------|---------|
-| `id` | string (kebab-case, unique within a registry) | Stable identifier. |
-| `sourceOfTruth` | string (repo-relative path) | The authoritative file. May be a glob (`src/lib/gen/scaffolds/*/manifest.ts`) or a `file#fragment` (`config/ai_models/manifest.json#repairPolicies`). |
-| `type` | `schema` \| `policy` \| `rule` \| `runtime-authority` | What kind of authority this is. |
-| `validator` | string \| null | npm script that validates it (e.g. `db:schema-drift`), or `null` if none. |
-| `validatorWaiver` | string (optional) | Explicit justification allowing `runtimeEnforced: true` with a `null` `validator` (e.g. "validated structurally by a strict schema + test", or "hand-parsed, no standalone validator yet — tracked follow-up"). Required by the validator when `runtimeEnforced` is `true` and `validator` is `null`. |
-| `ciStatus` | `hard` \| `warn` \| `manual` \| `none` | How CI treats it. `hard` = blocks, `warn` = non-blocking, `manual` = run by hand, `none` = no CI. |
-| `runtimeEnforced` | boolean | **Is this actually read/enforced by the app at runtime?** |
-| `runtimeStatus` | `wired` \| `declared-only` \| `n/a` | `wired` = a runtime read-path consumes it. `declared-only` = present + maybe validated but **NOT wired to runtime** (nothing in the app consumes it yet). `n/a` = not a runtime concern (editor/CI/tooling). |
-| `backoffice` | object | `{ surface, editable, writePath, danger }` — where/if Backoffice exposes it. |
-| `mobility` | `safe` \| `risky` \| `leave` | Can this file be physically moved? `leave` = do not move (tooling/Cursor/runtime expects the path). |
-| `notes` | string | Free-form. **Required (non-empty) when `runtimeEnforced` is false** — explain why it is not a runtime read-path. |
+| Field             | Type                                                  | Meaning                                                                                                                                                                                                                                                                                               |
+| ----------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`              | string (kebab-case, unique across both registries)    | Stable identifier.                                                                                                                                                                                                                                                                                    |
+| `sourceOfTruth`   | string (repo-relative path)                           | The authoritative file. May be a glob (`src/lib/gen/scaffolds/*/manifest.ts`) or a `file#fragment` (`config/ai_models/manifest.json#repairPolicies`).                                                                                                                                                 |
+| `type`            | `schema` \| `policy` \| `rule` \| `runtime-authority` | What kind of authority this is.                                                                                                                                                                                                                                                                       |
+| `validator`       | string \| null                                        | npm script that validates it (e.g. `db:schema-drift`), or `null` if none.                                                                                                                                                                                                                             |
+| `validatorWaiver` | string (optional)                                     | Explicit justification allowing `runtimeEnforced: true` with a `null` `validator` (e.g. "validated structurally by a strict schema + test", or "hand-parsed, no standalone validator yet — tracked follow-up"). Required by the validator when `runtimeEnforced` is `true` and `validator` is `null`. |
+| `ciStatus`        | `hard` \| `warn` \| `manual` \| `none`                | How CI treats it. `hard` = blocks, `warn` = non-blocking, `manual` = run by hand, `none` = no CI.                                                                                                                                                                                                     |
+| `runtimeEnforced` | boolean                                               | **Is this actually read/enforced by the app at runtime?**                                                                                                                                                                                                                                             |
+| `runtimeStatus`   | `wired` \| `declared-only` \| `n/a`                   | `wired` = a runtime read-path consumes it. `declared-only` = present + maybe validated but **NOT wired to runtime** (nothing in the app consumes it yet). `n/a` = not a runtime concern (editor/CI/tooling).                                                                                          |
+| `backoffice`      | object                                                | `{ surface, editable, writePath, danger }` — where/if Backoffice exposes it.                                                                                                                                                                                                                          |
+| `mobility`        | `safe` \| `risky` \| `leave`                          | Can this file be physically moved? `leave` = do not move (tooling/Cursor/runtime expects the path).                                                                                                                                                                                                   |
+| `notes`           | string                                                | Free-form. **Required (non-empty) when `runtimeEnforced` is false** — explain why it is not a runtime read-path.                                                                                                                                                                                      |
 
 ### `runtimeEnforced` vs `runtimeStatus` (read this twice)
 
@@ -46,18 +53,25 @@ These two fields are the whole point of the map:
   enforces this. Changing it changes behavior.
 - `runtimeEnforced: false` + `runtimeStatus: declared-only` — the value exists
   (and may be schema-validated) but **no runtime code consumes it**. It is a
-  declaration only. Example: `config/ai_models/manifest.json#perTierTimeouts` is
-  validated but global `routeTimeouts` is what actually applies at runtime.
+  declaration only. Such entries need an explicit reason and should be removed
+  when they are speculative configuration rather than a maintained contract.
 - `runtimeStatus: n/a` — not a runtime concern at all (editor `$schema` mirrors,
   CI-only term checks, the registry schema itself).
 
 Never read `declared-only` as "wired". If you wire a `declared-only` authority
-into runtime later, flip both fields and update the notes.
+into runtime later, flip both fields and update the notes. Conversely, do not
+keep speculative settings as false configuration surfaces: reintroduction
+requires a real runtime owner and a focused test.
 
 ### `backoffice` object
 
 ```json
-{ "surface": "AI Models", "editable": true, "writePath": "config/ai_models/manifest.json", "danger": "low" }
+{
+  "surface": "ai_models",
+  "editable": true,
+  "writePath": "config/ai_models/manifest.json",
+  "danger": "low"
+}
 ```
 
 - `surface` — Backoffice page/section name, or `null` if not surfaced.
@@ -83,9 +97,11 @@ into runtime later, flip both fields and update the notes.
 
 `npm run control-plane:check` (also run in CI) validates both registries against
 the JSON Schema and enforces the cross-cutting rules above (existence of
-`sourceOfTruth`, unique ids, hard-gate-needs-validator,
-runtime-wired-needs-validator-or-waiver, declared-only-needs-notes,
-known-authority allowlist). A lightweight vitest
+`sourceOfTruth`, ids unique across both registries, exact one-row ownership for
+every `docs/schemas/strict/*.schema.json`, hard-gate-needs-validator,
+`runtimeEnforced` iff `runtimeStatus: wired`, runtime-wired-needs-validator-or-waiver,
+declared-only-needs-notes, exact `backoffice.surface` parity with `PAGE_SPECS`,
+expanded known-authority allowlists). A lightweight vitest
 (`src/lib/control-plane/registry.test.ts`) covers the same invariants so
 `npm run test:ci` catches drift too.
 
