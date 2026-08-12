@@ -2,14 +2,37 @@
   // Öppna denna fil i Cursor (File → Open Workspace from File…).
   // En rot = huvudcheckouten. Lägg inte till worktrees eller globala Cursor-mappar här.
   //
-  // Editor-settings bor i .vscode/settings.json (canonical) och gäller denna rot
-  // oavsett om du öppnar mappen eller workspace-filen. Duplicera dem inte här.
+  // Editor-settings bor i .vscode/settings.json (canonical). Resurs-/mappscopade
+  // värden gäller även här; de sex Window-scopade undantagen speglas nedan.
   "folders": [
     {
       "name": "sajtmaskin",
       "path": "."
     }
   ],
+  // `.vscode/settings.json` är canonical. VS Code ignorerar dock dess
+  // Window-scopade värden i `.code-workspace`-läge, så bara de speglas här.
+  "settings": {
+    "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+    "terminal.integrated.defaultProfile.windows": "PowerShell 7",
+    "terminal.integrated.profiles.windows": {
+      "PowerShell 7": {
+        "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+        "args": ["-NoLogo"],
+        "icon": "terminal-powershell"
+      }
+    },
+    "terminal.integrated.automationProfile.windows": {
+      "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+      "args": ["-NoLogo", "-NoProfile"]
+    },
+    "terminal.integrated.env.windows": {
+      "PATH": "${env:LOCALAPPDATA}\\Volta\\bin;C:\\Program Files\\Volta;${env:LOCALAPPDATA}\\cursor-agent;${env:PATH}",
+      "GIT_SSH": "C:\\Windows\\System32\\OpenSSH\\ssh.exe",
+      "GIT_SSH_COMMAND": "C:/Windows/System32/OpenSSH/ssh.exe"
+    },
+    "js/ts.experimental.useTsgo": false
+  },
   "extensions": {
     "recommendations": [
       "openai.chatgpt"
