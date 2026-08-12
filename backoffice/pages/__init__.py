@@ -38,6 +38,7 @@ from . import (
     scaffolds,
     selection_rationale,
     shadcn_audit,
+    template_curator,
     templates_blob,
     user_degraded_env,
 )
@@ -128,6 +129,13 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         templates_blob.render,
         mode="run",
         blurb="v0-mallar i Vercel Blob — inspiration för nya varianter, inte en byggsten i sig.",
+    ),
+    PageSpec(
+        "Mallar (v0): kurera Blob-arkiv",
+        "Byggstenar",
+        template_curator.render,
+        mode="run",
+        blurb="Välj ett exakt urval Blob-arkiv och kör en begränsad statisk analys utan att exekvera mallkod.",
     ),
     # ── LLM & prompts ────────────────────────────────────────────────────
     PageSpec(
@@ -383,6 +391,8 @@ PAGE_QUERY_ALIASES = {
     "templates": "Mallar (v0): inspiration & uppladdning",
     "blob": "Mallar (v0): inspiration & uppladdning",
     "Mallar → Blob-upload": "Mallar (v0): inspiration & uppladdning",
+    "template-curator": "Mallar (v0): kurera Blob-arkiv",
+    "mallkurering": "Mallar (v0): kurera Blob-arkiv",
     "scaffold-performance": "Scaffold-poäng",
     "scaffold-poang": "Scaffold-poäng",
     "Scaffold Performance": "Scaffold-poäng",

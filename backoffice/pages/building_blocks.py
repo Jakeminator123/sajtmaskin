@@ -123,6 +123,7 @@ BLOCK_CARDS: tuple[BlockCard, ...] = (
         choose_caption="Mallar matchas inte — de importeras ordagrant",
         actions=(
             ("Ladda upp mallar", "Mallar (v0): inspiration & uppladdning"),
+            ("Kurera arkiv", "Mallar (v0): kurera Blob-arkiv"),
             ("Använd som inspiration", "Guide: ny scaffold eller variant (AI)"),
         ),
     ),

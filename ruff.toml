@@ -5,9 +5,9 @@
 # obemärkta (#872 rensade sex sådana för hand, hittade med en tillfälligt
 # installerad pyflakes).
 #
-# Yta: `npm run lint:py` pekar explicit på `backoffice/` + `sajtmaskin_backoffice.py`.
-# Att bredda till `scripts/` är en egen uppgift — se `BUG-SWARM-BACKLOG.md`,
-# sektionen "Säkerhet, infra och teknisk skuld".
+# Yta: `npm run lint:py` pekar explicit på `backoffice/`, kuratorns avgränsade
+# Python-paket och `sajtmaskin_backoffice.py`. Att
+# bredda den globala lintytan till hela `scripts/` är fortfarande en egen uppgift.
 #
 # Detta är INTE en required CI-check. Merge-grinden mot master är oförändrad.
 

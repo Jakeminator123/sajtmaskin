@@ -267,7 +267,7 @@ describe("control-plane registry coverage", () => {
         (match) => match[1],
       ),
     );
-    expect(pageNames.size).toBe(36);
+    expect(pageNames.size).toBe(37);
     expect(pageNames.has("Scaffold-poäng")).toBe(true);
     for (const entry of [...schemaRegistry.entries, ...policyRegistry.entries]) {
       const surface = entry.backoffice.surface;
