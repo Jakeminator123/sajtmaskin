@@ -216,6 +216,52 @@ describe("PreviewPanelDossiers status", () => {
     expect(screen.getAllByText("Bygg integrationer")).toHaveLength(1);
   });
 
+  it("does not tell users to re-run F3 when built-demo needs a real env value", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
+        dossiers: [
+          {
+            id: "stripe-checkout",
+            label: "Stripe Checkout",
+            class: "hard",
+            capability: "payments",
+            summary: "Stripe-baserad checkout.",
+            complexity: "medium",
+            requiresF3: true,
+            configured: false,
+            dependencies: [],
+            envVars: [
+              {
+                key: "STRIPE_SECRET_KEY",
+                required: true,
+                enforcement: "build",
+                purpose: "Stripe auth.",
+                hasRealValue: false,
+                placeholderCovered: true,
+              },
+            ],
+            status: "built-demo",
+            missingKeys: [],
+            missingLiveKeys: [],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    fireEvent.click(await screen.findByText("Stripe Checkout"));
+    expect(
+      screen.getByText(/Demo just nu\. Lägg till STRIPE_SECRET_KEY för att gå live\./),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Kör "Bygg integrationer" igen/)).toBeNull();
+  });
+
   // Owner decision 2026-07-13 (replaces the old catalog/status-only lock):
   // opening with env-key detail FOCUSES the dossier owning those keys and the
   // expanded row carries a masked write-only input for each missing key.
