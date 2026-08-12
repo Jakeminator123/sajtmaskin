@@ -9,11 +9,7 @@ import {
 } from "@/lib/builder/build-intent";
 
 export type BuilderEntryKind =
-  | "template"
-  | "prompt-handoff"
-  | "audit"
-  | "project-restore"
-  | "blank";
+  "template" | "prompt-handoff" | "audit" | "project-restore" | "blank";
 
 export interface BuilderEntryState {
   entryKind: BuilderEntryKind;
@@ -22,6 +18,7 @@ export interface BuilderEntryState {
   projectParam: string | null;
   templateId: string | null;
   chatIdParam: string | null;
+  forceNew: boolean;
   source: string | null;
   buildIntentParam: BuildIntent;
   buildMethodParam: BuildMethod | null;
@@ -32,10 +29,9 @@ export interface BuilderEntryState {
   isProjectRestoreCandidate: boolean;
 }
 
-export function deriveBuilderEntryState(
-  searchParams: ReadonlyURLSearchParams,
-): BuilderEntryState {
+export function deriveBuilderEntryState(searchParams: ReadonlyURLSearchParams): BuilderEntryState {
   const chatIdParam = searchParams.get("chatId");
+  const forceNew = searchParams.get("new") === "1";
   const promptParam = searchParams.get("prompt");
   const promptId = searchParams.get("promptId");
   const projectParam = searchParams.get("project");
@@ -43,15 +39,13 @@ export function deriveBuilderEntryState(
   const source = searchParams.get("source");
   const buildIntentParam = normalizeBuildIntent(searchParams.get("buildIntent"));
   const buildMethodParam =
-    normalizeBuildMethod(searchParams.get("buildMethod")) ||
-    (source === "audit" ? "audit" : null);
+    normalizeBuildMethod(searchParams.get("buildMethod")) || (source === "audit" ? "audit" : null);
 
   const isTemplateEntry = Boolean(templateId);
   const isAuditEntry = source === "audit";
   const shouldFetchPromptHandoff = !isTemplateEntry && Boolean(promptId);
   const hasPromptDrivenEntry = Boolean(promptParam || promptId);
-  const hasEntryParams =
-    isTemplateEntry || hasPromptDrivenEntry || isAuditEntry;
+  const hasEntryParams = isTemplateEntry || hasPromptDrivenEntry || isAuditEntry;
 
   let entryKind: BuilderEntryKind = "blank";
   if (isTemplateEntry) {
@@ -71,6 +65,7 @@ export function deriveBuilderEntryState(
     projectParam,
     templateId,
     chatIdParam,
+    forceNew,
     source,
     buildIntentParam,
     buildMethodParam,

@@ -8,7 +8,10 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/api/", "/admin", "/builder", "/projects"],
+      // `/admin` is deliberately omitted so robots.txt does not advertise the
+      // private slug. The route itself requires an admin account and declares
+      // `noindex` in its metadata.
+      disallow: ["/api/", "/builder", "/projects"],
     },
     sitemap: `${BASE_URL}/sitemap.xml`,
   };

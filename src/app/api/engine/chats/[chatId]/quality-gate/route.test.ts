@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
+const getRequestUserId = vi.hoisted(() => vi.fn());
 const getVersionFiles = vi.hoisted(() => vi.fn());
 const getLatestVersion = vi.hoisted(() => vi.fn());
 const getVersionById = vi.hoisted(() => vi.fn());
@@ -46,6 +47,7 @@ vi.mock("@/lib/rateLimit", () => ({
 
 vi.mock("@/lib/tenant", () => ({
   getEngineVersionForChatByIdForRequest,
+  getRequestUserId,
 }));
 
 vi.mock("@/lib/db/promote-guard", () => ({
@@ -121,6 +123,7 @@ import {
 describe("POST quality-gate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getRequestUserId.mockResolvedValue("user-1");
     getLatestVersion.mockResolvedValue({ id: "ver-1" });
     getVersionById.mockResolvedValue({ id: "ver-f2", chat_id: "chat-1" });
     checkTier3ReadinessForVersion.mockResolvedValue({
@@ -140,6 +143,28 @@ describe("POST quality-gate", () => {
     maybeAnalyzeVisualQAForPassedExportable.mockReturnValue(undefined);
     describeQualityGateVerification.mockReturnValue("Automatic verification passed.");
     isQualityGateDisabledByEnv.mockReturnValue(false);
+  });
+
+  it("rejects guests before reading version state or starting verifier work", async () => {
+    getRequestUserId.mockResolvedValue("guest:session-1");
+
+    const res = await POST(
+      new Request("http://localhost/api/engine/chats/chat-1/quality-gate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId: "ver-1", gate: "designPreview" }),
+      }),
+      { params: Promise.resolve({ chatId: "chat-1" }) },
+    );
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toMatchObject({
+      success: false,
+      requiresAuth: true,
+    });
+    expect(getEngineVersionForChatByIdForRequest).not.toHaveBeenCalled();
+    expect(getVersionFiles).not.toHaveBeenCalled();
+    expect(runQualityGateChecks).not.toHaveBeenCalled();
   });
 
   it("rejects an empty checks array before touching verify dependencies", async () => {

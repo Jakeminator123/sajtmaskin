@@ -14,6 +14,7 @@ export interface AuthUser {
   name: string | null;
   image: string | null;
   diamonds: number;
+  freeGenerationAvailable?: boolean;
   emailVerified?: boolean;
   provider: "google" | "email" | "anonymous";
   github_token: string | null;

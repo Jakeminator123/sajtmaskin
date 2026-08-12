@@ -5,8 +5,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getOrCreateGuestUsage } from "@/lib/db/services/guests";
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,33 +21,18 @@ export async function GET(req: NextRequest) {
           name: user.name,
           image: user.image,
           diamonds: user.diamonds,
+          freeGenerationAvailable: user.free_generation_available,
           provider: user.provider,
           emailVerified: user.email_verified,
         },
       });
     }
 
-    // Not authenticated - return guest info
-    const sessionId = getSessionIdFromRequest(req);
-    let guestUsage = null;
-
-    if (sessionId) {
-      guestUsage = await getOrCreateGuestUsage(sessionId);
-    }
-
     return NextResponse.json({
       success: true,
       authenticated: false,
       user: null,
-      guest: guestUsage
-        ? {
-            sessionId,
-            generationsUsed: guestUsage.generations_used,
-            refinesUsed: guestUsage.refines_used,
-            canGenerate: guestUsage.generations_used < 1,
-            canRefine: guestUsage.refines_used < 1,
-          }
-        : null,
+      guest: null,
     });
   } catch (error) {
     console.error("[API/auth/me] Error:", error);

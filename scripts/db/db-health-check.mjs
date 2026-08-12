@@ -7,11 +7,12 @@
  *   - connection        (latency_ms + ok)
  *   - tables[]          (för varje förväntad tabell):
  *       name, exists, row_count_estimate, row_count_exact,
- *       has_pk, indexes[], expected_indexes_present, latency_ms
+ *       has_pk, indexes[], missing_indexes[], missing_columns[], latency_ms
  *   - connections       (pg_stat_activity: total (hela instansen) + this_database,
  *                        usable_connections, headroom — serversidans utrymme
  *                        inför A3-poolbeslutet; best-effort, fäller aldrig `ok`)
  *   - missing_indexes[] (förväntade men ej skapade — viktigt!)
+ *   - missing_columns[] (smal lista runtimekritiska additiva kolumner)
  *   - extra_indexes[]   (finns i DB men inte deklarerade i schema.ts)
  *   - summary           (counts + samlad latens)
  *
@@ -34,10 +35,7 @@ import { normalizeEnvUrl, warnIfProdLikeReadTarget } from "./db-target-guard.mjs
 config({ path: ".env.local" });
 
 const SNAPSHOT_FLAG = process.argv.includes("--snapshot");
-const SNAPSHOT_PATH = join(
-  process.cwd(),
-  "data/observability/db-health-snapshots.ndjson",
-);
+const SNAPSHOT_PATH = join(process.cwd(), "data/observability/db-health-snapshots.ndjson");
 
 // Förväntade tabeller — synkad med src/lib/db/schema.ts. Om en tabell läggs
 // till i schemat, lägg till den här också så hälsokollen ser den.
@@ -83,6 +81,9 @@ const EXPECTED_TABLES = [
   "oc_debug_findings",
   // Tokenförbrukning per LLM-anrop
   "llm_usage",
+  // Usage-baserad generationskostnad + operatörsinställningar
+  "generation_billing_settings",
+  "generation_billings",
   // Domains
   "domain_orders",
 ];
@@ -112,6 +113,12 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
     { name: "idx_llm_usage_version", columns: ["version_id"] },
     { name: "idx_llm_usage_user_created", columns: ["user_id", "created_at"] },
     { name: "idx_llm_usage_created", columns: ["created_at"] },
+  ],
+  generation_billings: [
+    { name: "generation_billings_version_unique", columns: ["version_id"] },
+    { name: "idx_generation_billings_chat", columns: ["chat_id"] },
+    { name: "idx_generation_billings_user_created", columns: ["user_id", "created_at"] },
+    { name: "idx_generation_billings_created", columns: ["created_at"] },
   ],
   version_comments: [
     { name: "idx_version_comments_version", columns: ["version_id"] },
@@ -251,6 +258,13 @@ const EXPECTED_INDEXES_WITH_COLUMNS = {
   ],
 };
 
+// Runtimekritiska additiva kolumner som inte får försvinna bara för att
+// tabellen och dess index fortfarande finns. Håll listan smal: full live
+// dev↔prod-kolumnparitet ägs av check-schema-parity.mjs.
+const EXPECTED_REQUIRED_COLUMNS = {
+  generation_billings: ["claim_keys", "free_generation_eligible", "usage_started_at"],
+};
+
 const ENABLE_EXACT_COUNT = process.argv.includes("--exact-count");
 
 function redactConnectionString(connStr) {
@@ -275,9 +289,7 @@ if (!connectionString) {
   // backoffice (som läser stdout via subprocess.run) bara såg tomt svar
   // och tappade konfig-fail-grenens schema. Skicka JSON till stdout så
   // database_health.py kan rendera felet meningsfullt.
-  console.log(
-    JSON.stringify({ ok: false, error: "Missing database connection URL." }),
-  );
+  console.log(JSON.stringify({ ok: false, error: "Missing database connection URL." }));
   process.exit(1);
 }
 
@@ -290,8 +302,7 @@ url.searchParams.delete("supa");
 const pool = new Pool({
   connectionString: url.toString(),
   ssl: {
-    rejectUnauthorized:
-      process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false",
+    rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false",
   },
   max: 2,
   connectionTimeoutMillis: 10_000,
@@ -377,6 +388,15 @@ async function getTableInfo(name) {
   if (exists.rows.length === 0) {
     return { name, exists: false };
   }
+
+  const columnRows = await pool.query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_name = $1 AND table_schema = 'public'`,
+    [name],
+  );
+  const columns = columnRows.rows.map((row) => row.column_name);
+  const expectedColumns = EXPECTED_REQUIRED_COLUMNS[name] || [];
+  const missingColumns = expectedColumns.filter((column) => !columns.includes(column));
 
   const idxRows = await pool.query(
     `SELECT indexname FROM pg_indexes WHERE tablename = $1 AND schemaname = 'public' ORDER BY indexname`,
@@ -484,6 +504,8 @@ async function getTableInfo(name) {
     indexes,
     expected_indexes: expected.map((e) => e.name),
     missing_indexes: missing,
+    expected_columns: expectedColumns,
+    missing_columns: missingColumns,
     aliased_indexes: aliasedFor, // {expected_name: actual_alias_in_db}
     row_count_estimate,
     row_count_exact,
@@ -514,6 +536,7 @@ async function run() {
 
   const tables = [];
   const allMissingIndexes = [];
+  const allMissingColumns = [];
 
   for (const name of EXPECTED_TABLES) {
     const info = await getTableInfo(name);
@@ -521,6 +544,11 @@ async function run() {
     if (info.exists && info.missing_indexes && info.missing_indexes.length > 0) {
       for (const idxName of info.missing_indexes) {
         allMissingIndexes.push({ table: name, index: idxName });
+      }
+    }
+    if (info.exists && info.missing_columns && info.missing_columns.length > 0) {
+      for (const column of info.missing_columns) {
+        allMissingColumns.push({ table: name, column });
       }
     }
   }
@@ -561,9 +589,7 @@ async function run() {
     .reduce((sum, t) => sum + (t.row_count_estimate || 0), 0);
 
   const totalTablesMissing = tables.filter((t) => !t.exists).length;
-  const tableProbeFailures = tables.filter(
-    (t) => t.exists && t.probe_error,
-  ).length;
+  const tableProbeFailures = tables.filter((t) => t.exists && t.probe_error).length;
 
   const out = {
     // BUG-FIX 2026-04-24: tidigare ignorerades saknade tabeller helt — `ok`
@@ -575,7 +601,8 @@ async function run() {
       connTest.error === null &&
       totalTablesMissing === 0 &&
       tableProbeFailures === 0 &&
-      allMissingIndexes.length === 0,
+      allMissingIndexes.length === 0 &&
+      allMissingColumns.length === 0,
     timestamp: startedAt,
     target: redactConnectionString(connectionString),
     is_prod_like: inspection.isProdLike,
@@ -589,9 +616,11 @@ async function run() {
       total_rows_estimate: totalRows,
       total_indexes_missing: allMissingIndexes.length,
       total_indexes_extra: extraIndexes.length,
+      total_required_columns_missing: allMissingColumns.length,
     },
     tables,
     missing_indexes: allMissingIndexes,
+    missing_columns: allMissingColumns,
     extra_indexes: extraIndexes,
   };
 

@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { transactions, users } from "@/lib/db/schema";
@@ -86,16 +86,6 @@ export async function createTransaction(
 
     return rows[0];
   });
-}
-
-export async function hasSignupBonusTransaction(userId: string): Promise<boolean> {
-  assertDbConfigured();
-  const rows = await db
-    .select({ id: transactions.id })
-    .from(transactions)
-    .where(and(eq(transactions.user_id, userId), eq(transactions.type, "signup_bonus")))
-    .limit(1);
-  return Boolean(rows[0]);
 }
 
 export async function getUserTransactions(userId: string, limit = 10): Promise<Transaction[]> {

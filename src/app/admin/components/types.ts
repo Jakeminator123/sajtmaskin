@@ -201,3 +201,96 @@ export interface TeamStatus {
   teams: TeamPlanInfo[];
   warnings: string[];
 }
+
+export interface GenerationBillingSettingsPayload {
+  markupBasisPoints: number;
+  markupMultiplier: number;
+  usdToSekOre: number;
+  usdToSek: number;
+  sekPerCreditOre: number;
+  sekPerCredit: number;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+export interface GenerationBillingRowPayload {
+  id: string;
+  versionId: string;
+  versionNumber: number | null;
+  chatId: string;
+  chatTitle: string | null;
+  projectId: string | null;
+  projectName: string | null;
+  userId: string | null;
+  userName: string | null;
+  userEmail: string | null;
+  status: string;
+  providerCostMicroUsd: number;
+  providerCostOre: number;
+  markupBasisPoints: number;
+  billableOre: number;
+  usdToSekOre: number;
+  sekPerCreditOre: number;
+  creditsCharged: number;
+  freeGenerationApplied: boolean;
+  llmCalls: number;
+  inputTokens: number;
+  cachedInputTokens: number;
+  cacheWriteTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  pricingVersion: string;
+  priceBreakdown: unknown;
+  promptExcerpt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GenerationBillingPayload {
+  success: boolean;
+  settings: GenerationBillingSettingsPayload;
+  days: number;
+  windowStart: string;
+  windowEnd: string;
+  summary: {
+    generations: number;
+    providerCostOre: number;
+    billableOre: number;
+    creditsCharged: number;
+    freeGenerations: number;
+    llmCalls: number;
+    openAiProviderCostMicroUsd: number;
+  };
+  users: Array<{
+    userId: string | null;
+    name: string;
+    email: string | null;
+    generations: number;
+    providerCostOre: number;
+    creditsCharged: number;
+    freeGenerations: number;
+  }>;
+  generations: GenerationBillingRowPayload[];
+  openAiReconciliation: {
+    status: "ok" | "unconfigured" | "error";
+    scope: "organization";
+    attribution: "daily_org_project_api_key_line_item_only";
+    windowStart: string;
+    windowEnd: string;
+    totalCostMicroUsd: number;
+    currency: "usd";
+    buckets: Array<{
+      startTime: string;
+      endTime: string;
+      costMicroUsd: number;
+    }>;
+    lineItems: Array<{
+      lineItem: string;
+      projectId: string | null;
+      apiKeyId: string | null;
+      costMicroUsd: number;
+    }>;
+    fetchedAt: string | null;
+    error: string | null;
+  };
+}

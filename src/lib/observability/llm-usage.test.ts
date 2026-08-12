@@ -4,6 +4,8 @@ const after = vi.hoisted(() => vi.fn());
 const createLlmUsageRecord = vi.hoisted(() => vi.fn());
 const attachVersionToUnassignedLlmUsage = vi.hoisted(() => vi.fn());
 const attachChatToUnassignedLlmUsage = vi.hoisted(() => vi.fn());
+const establishGenerationBilling = vi.hoisted(() => vi.fn());
+const settleExistingGenerationBillingIfPresent = vi.hoisted(() => vi.fn());
 const dbState = vi.hoisted(() => ({ configured: true }));
 
 vi.mock("next/server", () => ({ after }));
@@ -18,6 +20,11 @@ vi.mock("@/lib/db/services/llm-usage", () => ({
   createLlmUsageRecord,
   attachVersionToUnassignedLlmUsage,
   attachChatToUnassignedLlmUsage,
+}));
+
+vi.mock("@/lib/db/services/generation-billing", () => ({
+  establishGenerationBilling,
+  settleExistingGenerationBillingIfPresent,
 }));
 
 const {
@@ -55,6 +62,7 @@ describe("normalizeUsage", () => {
     ).toEqual({
       inputTokens: 100,
       cachedInputTokens: 40,
+      cacheWriteTokens: null,
       outputTokens: 20,
       reasoningTokens: 5,
     });
@@ -78,6 +86,7 @@ describe("normalizeUsage", () => {
     ).toEqual({
       inputTokens: 900,
       cachedInputTokens: 512,
+      cacheWriteTokens: null,
       outputTokens: 120,
       reasoningTokens: 64,
     });
@@ -91,6 +100,39 @@ describe("normalizeUsage", () => {
         input_tokens_details: { cached_tokens: 8 },
       }),
     ).toMatchObject({ inputTokens: 50, outputTokens: 10, cachedInputTokens: 8 });
+  });
+
+  it("läser AI SDK:s separata cache read/write-detaljer", () => {
+    expect(
+      normalizeUsage({
+        inputTokens: 100,
+        inputTokenDetails: { cacheReadTokens: 40, cacheWriteTokens: 10 },
+        outputTokens: 20,
+        outputTokenDetails: { reasoningTokens: 7 },
+      }),
+    ).toEqual({
+      inputTokens: 100,
+      cachedInputTokens: 40,
+      cacheWriteTokens: 10,
+      outputTokens: 20,
+      reasoningTokens: 7,
+    });
+  });
+
+  it("normaliserar rå Anthropic-input till total inklusive cache", () => {
+    expect(
+      normalizeUsage({
+        input_tokens: 70,
+        cache_read_input_tokens: 20,
+        cache_creation_input_tokens: 10,
+        output_tokens: 5,
+      }),
+    ).toMatchObject({
+      inputTokens: 100,
+      cachedInputTokens: 20,
+      cacheWriteTokens: 10,
+      outputTokens: 5,
+    });
   });
 
   it("räknar embeddings-tokens som input", () => {
@@ -232,6 +274,8 @@ describe("recordLlmUsageAsync", () => {
     // DB-lagret laddas lazy och bara när env pekar på en databas.
     vi.stubEnv("POSTGRES_URL", "postgres://user:pass@localhost:5432/test");
     dbState.configured = true;
+    establishGenerationBilling.mockResolvedValue(undefined);
+    settleExistingGenerationBillingIfPresent.mockResolvedValue(null);
     resetLlmUsageWarning();
   });
 
@@ -267,6 +311,53 @@ describe("recordLlmUsageAsync", () => {
       phase: "embeddings",
       provider: "openai",
       inputTokens: 12,
+    });
+  });
+
+  it("settlar inte versionerad usage innan finalize har etablerat billing-markören", async () => {
+    createLlmUsageRecord.mockResolvedValue({
+      version_id: "version_pending",
+      chat_id: "chat_1",
+      user_id: "user_1",
+    });
+    settleExistingGenerationBillingIfPresent.mockResolvedValue(null);
+
+    await recordLlmUsageAsync({
+      phase: "verifier",
+      model: "gpt-5.5",
+      usage: { inputTokens: 10 },
+      versionId: "version_pending",
+      chatId: "chat_1",
+    });
+
+    expect(settleExistingGenerationBillingIfPresent).toHaveBeenCalledWith({
+      chatId: "chat_1",
+      versionId: "version_pending",
+      userId: "user_1",
+    });
+    expect(establishGenerationBilling).not.toHaveBeenCalled();
+  });
+
+  it("räknar om sen usage efter att finalize har etablerat billing-markören", async () => {
+    createLlmUsageRecord.mockResolvedValue({
+      version_id: "version_complete",
+      chat_id: "chat_1",
+      user_id: "user_1",
+    });
+    settleExistingGenerationBillingIfPresent.mockResolvedValue({ status: "charged" });
+
+    await recordLlmUsageAsync({
+      phase: "verifier",
+      model: "gpt-5.5",
+      usage: { inputTokens: 10 },
+      versionId: "version_complete",
+      chatId: "chat_1",
+    });
+
+    expect(settleExistingGenerationBillingIfPresent).toHaveBeenCalledWith({
+      chatId: "chat_1",
+      versionId: "version_complete",
+      userId: "user_1",
     });
   });
 
@@ -311,7 +402,9 @@ describe("attachVersionToPendingUsage", () => {
     attachVersionToUnassignedLlmUsage.mockResolvedValue(3);
     attachVersionToPendingUsage("chat_1", "ver_1");
     await vi.waitFor(() =>
-      expect(attachVersionToUnassignedLlmUsage).toHaveBeenCalledWith("chat_1", "ver_1"),
+      expect(attachVersionToUnassignedLlmUsage).toHaveBeenCalledWith("chat_1", "ver_1", {
+        claimKey: undefined,
+      }),
     );
   });
 

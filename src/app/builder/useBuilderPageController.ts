@@ -606,6 +606,7 @@ export function useBuilderPageController() {
     chatId,
     chatIdParam,
     entryKind: entry.entryKind,
+    forceNew: entry.forceNew,
     hasEntryParams,
     isAuthLoading,
     paletteState,

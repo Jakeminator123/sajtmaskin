@@ -134,9 +134,7 @@ export const deployments = pgTable(
     chatIdx: index("idx_deployments_chat_id").on(table.chatId),
     projectIdx: index("idx_deployments_project").on(table.projectId),
     versionIdx: index("idx_deployments_version").on(table.versionId),
-    vercelDeploymentIdx: index("idx_deployments_vercel_deployment_id").on(
-      table.vercelDeploymentId,
-    ),
+    vercelDeploymentIdx: index("idx_deployments_vercel_deployment_id").on(table.vercelDeploymentId),
   }),
 );
 
@@ -326,7 +324,15 @@ export const users = pgTable(
     github_id: text("github_id"),
     github_username: text("github_username"),
     github_token: text("github_token"),
-    diamonds: integer("diamonds").default(50).notNull(),
+    diamonds: integer("diamonds").default(0).notNull(),
+    /**
+     * One account-bound, completed own-engine generation may settle without
+     * debiting coins. The claim is made under the user-row lock in
+     * `settleGenerationBilling`; preflight never consumes it.
+     */
+    free_generation_available: boolean("free_generation_available").default(true).notNull(),
+    free_generation_claimed_version_id: text("free_generation_claimed_version_id"),
+    free_generation_claimed_at: timestamptz("free_generation_claimed_at"),
     tier: text("tier"),
     email_verified: boolean("email_verified").default(false).notNull(),
     verification_token: text("verification_token"),
@@ -395,14 +401,9 @@ export const transactions = pgTable(
     // Idempotency guard for Stripe webhooks: a given session id may only
     // ever produce one transaction row, so a duplicate webhook delivery
     // surfaces as a unique-violation we can swallow.
-    stripeSessionIdx: uniqueIndex("transactions_stripe_session_idx").on(
-      table.stripe_session_id,
-    ),
+    stripeSessionIdx: uniqueIndex("transactions_stripe_session_idx").on(table.stripe_session_id),
     userIdx: index("idx_transactions_user_id").on(table.user_id),
-    userCreatedIdx: index("idx_transactions_user_created").on(
-      table.user_id,
-      table.created_at,
-    ),
+    userCreatedIdx: index("idx_transactions_user_created").on(table.user_id, table.created_at),
   }),
 );
 
@@ -535,10 +536,7 @@ export const userAudits = pgTable(
   },
   (table) => ({
     userIdx: index("idx_user_audits_user_id").on(table.user_id),
-    userCreatedIdx: index("idx_user_audits_user_created").on(
-      table.user_id,
-      table.created_at,
-    ),
+    userCreatedIdx: index("idx_user_audits_user_created").on(table.user_id, table.created_at),
   }),
 );
 
@@ -584,7 +582,9 @@ export const engineMessages = pgTable(
   "engine_messages",
   {
     id: text("id").primaryKey(),
-    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => engineChats.id, { onDelete: "cascade" }),
     role: text("role").notNull(),
     content: text("content").notNull(),
     uiParts: jsonb("ui_parts").$type<Record<string, unknown>[] | null>(),
@@ -606,10 +606,7 @@ export const engineMessages = pgTable(
      * created_at. Utan det här indexet blir det sequential scan.
      * Långbänk 2026-04-24.
      */
-    chatCreatedIdx: index("idx_engine_messages_chat_created").on(
-      table.chatId,
-      table.createdAt,
-    ),
+    chatCreatedIdx: index("idx_engine_messages_chat_created").on(table.chatId, table.createdAt),
   }),
 );
 
@@ -617,7 +614,9 @@ export const engineVersions = pgTable(
   "engine_versions",
   {
     id: text("id").primaryKey(),
-    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => engineChats.id, { onDelete: "cascade" }),
     messageId: text("message_id"),
     versionNumber: integer("version_number").notNull(),
     filesJson: text("files_json").notNull(),
@@ -686,10 +685,7 @@ export const engineVersions = pgTable(
       table.chatId,
       table.versionNumber,
     ),
-    chatCreatedIdx: index("idx_engine_versions_chat_created").on(
-      table.chatId,
-      table.createdAt,
-    ),
+    chatCreatedIdx: index("idx_engine_versions_chat_created").on(table.chatId, table.createdAt),
   }),
 );
 
@@ -735,7 +731,9 @@ export const engineGenerationLogs = pgTable(
   "engine_generation_logs",
   {
     id: text("id").primaryKey(),
-    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => engineChats.id, { onDelete: "cascade" }),
     model: text("model").notNull(),
     promptTokens: integer("prompt_tokens"),
     completionTokens: integer("completion_tokens"),
@@ -813,7 +811,9 @@ export const generationTelemetry = pgTable(
   "generation_telemetry",
   {
     id: text("id").primaryKey(),
-    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => engineChats.id, { onDelete: "cascade" }),
     versionId: text("version_id").references(() => engineVersions.id, { onDelete: "cascade" }),
     scaffoldId: text("scaffold_id"),
     scaffoldAlternatives: jsonb("scaffold_alternatives").$type<string[] | null>(),
@@ -871,8 +871,12 @@ export const versionComments = pgTable(
   "version_comments",
   {
     id: text("id").primaryKey(),
-    versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
-    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => engineVersions.id, { onDelete: "cascade" }),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => engineChats.id, { onDelete: "cascade" }),
     userId: text("user_id"),
     authorName: text("author_name"),
     content: text("content").notNull(),
@@ -890,8 +894,12 @@ export const versionApprovals = pgTable(
   "version_approvals",
   {
     id: text("id").primaryKey(),
-    versionId: text("version_id").notNull().references(() => engineVersions.id, { onDelete: "cascade" }),
-    chatId: text("chat_id").notNull().references(() => engineChats.id, { onDelete: "cascade" }),
+    versionId: text("version_id")
+      .notNull()
+      .references(() => engineVersions.id, { onDelete: "cascade" }),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => engineChats.id, { onDelete: "cascade" }),
     userId: text("user_id"),
     approverName: text("approver_name"),
     status: text("status").notNull().default("pending"),
@@ -940,8 +948,13 @@ export const llmUsage = pgTable(
     model_tier: text("model_tier"),
     input_tokens: integer("input_tokens"),
     cached_input_tokens: integer("cached_input_tokens"),
+    cache_write_tokens: integer("cache_write_tokens"),
     output_tokens: integer("output_tokens"),
     reasoning_tokens: integer("reasoning_tokens"),
+    /** Frozen cost snapshot captured when this provider response is observed. */
+    cost_microusd: integer("cost_microusd"),
+    pricing_version: text("pricing_version"),
+    cost_breakdown: jsonb("cost_breakdown"),
     duration_ms: integer("duration_ms"),
     ok: boolean("ok").default(true).notNull(),
     error_code: text("error_code"),
@@ -953,6 +966,82 @@ export const llmUsage = pgTable(
     versionIdx: index("idx_llm_usage_version").on(table.version_id),
     userCreatedIdx: index("idx_llm_usage_user_created").on(table.user_id, table.created_at),
     createdIdx: index("idx_llm_usage_created").on(table.created_at),
+  }),
+);
+
+/**
+ * Operatörsstyrda parametrar för usage-baserad generationsdebitering.
+ * Heltalsenheter gör att beräkningen kan reproduceras utan flyttalsdrift:
+ * basis points (X2 = 20 000) och öre (10,50 SEK = 1 050).
+ */
+export const generationBillingSettings = pgTable("generation_billing_settings", {
+  id: text("id").primaryKey(),
+  markup_basis_points: integer("markup_basis_points").default(20_000).notNull(),
+  usd_to_sek_ore: integer("usd_to_sek_ore").default(1_050).notNull(),
+  sek_per_credit_ore: integer("sek_per_credit_ore").default(300).notNull(),
+  updated_by: text("updated_by"),
+  updated_at: timestamptz("updated_at").defaultNow().notNull(),
+});
+
+/**
+ * Revisionsspår per genererad version. Inga FK: kostnad och debitering ska
+ * överleva normal städning av chattar/projekt, precis som `llm_usage`.
+ */
+export const generationBillings = pgTable(
+  "generation_billings",
+  {
+    id: text("id").primaryKey(),
+    version_id: text("version_id").notNull(),
+    chat_id: text("chat_id").notNull(),
+    user_id: text("user_id"),
+    status: text("status").default("pending").notNull(),
+    provider_cost_microusd: integer("provider_cost_microusd").default(0).notNull(),
+    provider_cost_ore: integer("provider_cost_ore").default(0).notNull(),
+    markup_basis_points: integer("markup_basis_points").notNull(),
+    billable_ore: integer("billable_ore").default(0).notNull(),
+    usd_to_sek_ore: integer("usd_to_sek_ore").notNull(),
+    sek_per_credit_ore: integer("sek_per_credit_ore").notNull(),
+    credits_charged: integer("credits_charged").default(0).notNull(),
+    /**
+     * Only successful own-engine generation markers may consume the account's
+     * one free generation. Markers created for historical/imported
+     * post-processing deliberately set this to false.
+     */
+    free_generation_eligible: boolean("free_generation_eligible").default(true).notNull(),
+    free_generation_applied: boolean("free_generation_applied").default(false).notNull(),
+    claim_keys: jsonb("claim_keys")
+      .$type<string[]>()
+      .default(sql`'[]'::jsonb`)
+      .notNull(),
+    /**
+     * Inclusive lower bound for usage billed by this marker. Normal finalized
+     * generations keep null so their earlier brief/codegen calls are included.
+     * A marker created immediately before post-processing an older/imported
+     * version stores database NOW() here, excluding historical version usage.
+     */
+    usage_started_at: timestamptz("usage_started_at"),
+    llm_calls: integer("llm_calls").default(0).notNull(),
+    input_tokens: integer("input_tokens").default(0).notNull(),
+    cached_input_tokens: integer("cached_input_tokens").default(0).notNull(),
+    cache_write_tokens: integer("cache_write_tokens").default(0).notNull(),
+    output_tokens: integer("output_tokens").default(0).notNull(),
+    reasoning_tokens: integer("reasoning_tokens").default(0).notNull(),
+    pricing_version: text("pricing_version").notNull(),
+    price_breakdown: jsonb("price_breakdown"),
+    transaction_ids: jsonb("transaction_ids").$type<string[] | null>(),
+    first_usage_at: timestamptz("first_usage_at"),
+    last_usage_at: timestamptz("last_usage_at"),
+    created_at: timestamptz("created_at").defaultNow().notNull(),
+    updated_at: timestamptz("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    versionUnique: uniqueIndex("generation_billings_version_unique").on(table.version_id),
+    chatIdx: index("idx_generation_billings_chat").on(table.chat_id),
+    userCreatedIdx: index("idx_generation_billings_user_created").on(
+      table.user_id,
+      table.created_at,
+    ),
+    createdIdx: index("idx_generation_billings_created").on(table.created_at),
   }),
 );
 

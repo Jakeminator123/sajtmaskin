@@ -21,10 +21,7 @@ import {
 } from "@/lib/gen/stream/post-finalize-policies";
 import { getUnsignaledDetectedIntegrations } from "@/lib/gen/stream/shared-own-engine-helpers";
 import { parseCodeFilesFromFilesJson } from "@/lib/gen/version-manager";
-import {
-  triggerBuildErrorRepair,
-  triggerServerVerification,
-} from "@/lib/gen/verify/server-verify";
+import { triggerBuildErrorRepair, triggerServerVerification } from "@/lib/gen/verify/server-verify";
 import type { BuilderIntegrationEnvelope } from "@/lib/gen/stream/builder-stream-contract";
 import { previewUrlField } from "@/lib/api/preview-url-contract";
 import { formatSSEEvent } from "@/lib/streaming";
@@ -101,7 +98,7 @@ function resolvePreviewUrlHint(chatId: string, previewWillRun: boolean): string 
 }
 
 /**
- * After `finalizeAndSaveVersion`: integration hints, `done` SSE, credits, preview boot,
+ * After `finalizeAndSaveVersion`: durable billing marker, integration hints, `done` SSE, preview boot,
  * background server verification. Keeps `generation-stream.ts` readable.
  */
 export async function runOwnEngineStreamPostFinalize(params: {
@@ -111,8 +108,10 @@ export async function runOwnEngineStreamPostFinalize(params: {
   accumulatedContent: string;
   toolSignaledProviders: Set<string>;
   engineStartedAt: number;
-  commitCredits: () => Promise<void>;
+  commitCredits: (target?: { chatId: string; versionId: string }) => Promise<void>;
   buildSpec: BuildSpec;
+  /** Called immediately after the persisted-version `done` SSE is enqueued. */
+  onDoneEmitted?: () => void;
   /** Stream ended without a normal `done` event; prefer parsing raw accumulated SSE text for preview files. */
   recoveredAfterStreamAbort?: boolean;
   /** 0 = first generation, 1+ = quality-gate-triggered repair pass. */
@@ -127,9 +126,17 @@ export async function runOwnEngineStreamPostFinalize(params: {
     engineStartedAt,
     commitCredits,
     buildSpec,
+    onDoneEmitted,
     recoveredAfterStreamAbort = false,
     repairPassIndex = 0,
   } = params;
+
+  // A persisted version is not reported as completed until its durable
+  // billing work marker exists. Attribution/settlement failures remain
+  // recoverable from that marker, while marker failure itself propagates and
+  // prevents a misleading `done` event.
+  await commitCredits({ chatId, versionId: finalized.version.id });
+
   const requestedCapabilities = normalizeRequestedCapabilities(
     (finalized as FinalizeResult & { requestedCapabilities?: unknown }).requestedCapabilities,
   );
@@ -141,10 +148,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
   // (design) hör de hemma i `env.example`-filen tyst, inte i chatten.
   // I F3 (integrations) får de fram som vanligt.
   const isIntegrationsStage = buildSpec.previewPolicy === "fidelity3";
-  const newDetected = getUnsignaledDetectedIntegrations(
-    accumulatedContent,
-    toolSignaledProviders,
-  );
+  const newDetected = getUnsignaledDetectedIntegrations(accumulatedContent, toolSignaledProviders);
   if (newDetected.length > 0) {
     if (isIntegrationsStage) {
       const integrationPayload: BuilderIntegrationEnvelope = { items: newDetected };
@@ -188,11 +192,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
       /* no preview files */
     }
   }
-  if (
-    recoveredAfterStreamAbort &&
-    parsedForPreview.length === 0 &&
-    accumulatedContent.trim()
-  ) {
+  if (recoveredAfterStreamAbort && parsedForPreview.length === 0 && accumulatedContent.trim()) {
     try {
       parsedForPreview = parseCodeProject(accumulatedContent).files;
     } catch {
@@ -257,6 +257,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
       }),
     ),
   );
+  onDoneEmitted?.();
 
   // Cross-file import repair diagnostics: stubs are shippable-but-hollow and
   // rewires are shippable-but-worth-surfacing. Keep both as warning rows, not
@@ -286,26 +287,23 @@ export async function runOwnEngineStreamPostFinalize(params: {
         },
       };
     });
-    const missingCapabilityWarnings =
-      hasVisual3dCapability
-        ? []
-        : finalized.crossFileStubs
-            .filter(matchesThreeDStubPattern)
-            .map((stub) => ({
-              chatId,
-              versionId: finalized.version.id,
-              level: "warning" as const,
-              category: "merge:cross-file-stub-3d-capability",
-              message:
-                "3D-fil stubbed utan visual-3d capability — overväg att be med 'capability-add' explicit.",
-              meta: {
-                sourceFile: stub.sourceFile,
-                missingImport: stub.missingImport,
-                stubFile: stub.stubFile,
-                requestedCapabilities,
-                repairPassIndex,
-              },
-            }));
+    const missingCapabilityWarnings = hasVisual3dCapability
+      ? []
+      : finalized.crossFileStubs.filter(matchesThreeDStubPattern).map((stub) => ({
+          chatId,
+          versionId: finalized.version.id,
+          level: "warning" as const,
+          category: "merge:cross-file-stub-3d-capability",
+          message:
+            "3D-fil stubbed utan visual-3d capability — overväg att be med 'capability-add' explicit.",
+          meta: {
+            sourceFile: stub.sourceFile,
+            missingImport: stub.missingImport,
+            stubFile: stub.stubFile,
+            requestedCapabilities,
+            repairPassIndex,
+          },
+        }));
     const allWarningPayloads = [...warningPayloads, ...missingCapabilityWarnings];
     await createEngineVersionErrorLogs(allWarningPayloads).catch((err) => {
       warnLog("engine", "Failed to persist cross-file-stub warnings", {
@@ -354,7 +352,6 @@ export async function runOwnEngineStreamPostFinalize(params: {
     warmEslint: finalized.warmEslint ?? null,
   });
   devLogFinalizeSite();
-  await commitCredits();
 
   if (isTier2PreviewConfigured() && previewWillRun) {
     safeEnqueue(enc.encode(formatSSEEvent("progress", { step: "preview", phase: "starting" })));
@@ -378,8 +375,7 @@ export async function runOwnEngineStreamPostFinalize(params: {
           // F3 previews must strip tier3-stub placeholders so missing real
           // env vars surface as a runtime failure instead of being silently
           // backfilled with `sk_test_...`-style stubs.
-          lifecycleStage:
-            buildSpec.previewPolicy === "fidelity3" ? "integrations" : "design",
+          lifecycleStage: buildSpec.previewPolicy === "fidelity3" ? "integrations" : "design",
           // Våg 2: seed F2 preview `.env.local` with stubs for the selected
           // dossiers' env keys so the dossier UI renders its demo/mock mode.
           selectedDossierEnvKeys: finalized.selectedDossierEnvKeys,
@@ -478,7 +474,9 @@ export async function runOwnEngineStreamPostFinalize(params: {
               previewMode: sr.previewMode,
               previewTier: sr.fidelityTier,
               runtimeConfirmed: sr.runtimeReady,
-              ...(sr.prodBuildVerified !== undefined ? { prodBuildVerified: sr.prodBuildVerified } : {}),
+              ...(sr.prodBuildVerified !== undefined
+                ? { prodBuildVerified: sr.prodBuildVerified }
+                : {}),
               ...(sr.prodBuildLogSnippet ? { prodBuildLogSnippet: sr.prodBuildLogSnippet } : {}),
             }),
           ),

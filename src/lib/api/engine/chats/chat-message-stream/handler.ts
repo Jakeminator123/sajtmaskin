@@ -5,7 +5,10 @@
  */
 import { NextResponse } from "next/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
-import { detectFollowUpCapabilities, type FollowUpCapabilityDetection } from "@/lib/builder/follow-up-capability-detection";
+import {
+  detectFollowUpCapabilities,
+  type FollowUpCapabilityDetection,
+} from "@/lib/builder/follow-up-capability-detection";
 import { mergeDossierIdCapabilities } from "@/lib/builder/dossier-id-request";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
@@ -22,10 +25,7 @@ import {
 } from "@/lib/gen/orchestration-snapshot";
 import { createPreviewPrewarmLeaseKey } from "@/lib/gen/preview/preview-prewarm";
 import { PROMPT_WRAPPER_HEADINGS, wrapWithSection } from "@/lib/gen/prompt-wrapper-contract";
-import {
-  normalizeRequestAttachments,
-  summarizeDesignReferences,
-} from "@/lib/gen/request-metadata";
+import { normalizeRequestAttachments, summarizeDesignReferences } from "@/lib/gen/request-metadata";
 import { appendHydratedTextAttachmentExcerpts } from "@/lib/gen/attachment-text-hydrate";
 import { extractAppRoutePathsFromFilePaths } from "@/lib/gen/route-plan";
 import {
@@ -35,10 +35,7 @@ import {
 import { devLogAppend } from "@/lib/logging/devLog";
 import { PROMPT_SOURCE_UI_PART_TYPE } from "@/lib/builder/types";
 import { readRunStatusForChat } from "@/lib/logging/run-status-reader";
-import {
-  DEFAULT_MODEL_ID,
-  getBuildProfileId,
-} from "@/lib/models/catalog";
+import { DEFAULT_MODEL_ID, getBuildProfileId } from "@/lib/models/catalog";
 import { resolveModelSelection } from "@/lib/models/selection";
 import { wrapStreamForPromptToDoneMetric } from "@/lib/observability/prompt-to-done-stream";
 import {
@@ -102,108 +99,116 @@ export async function handleMessageStreamRequest(
     // Samma ägarkontext som init-vägen: allt LLM-arbete i den här turen (brief-
     // delta, klassificerare, codegen, verifier, RepairGate) knyts till chatten.
     runWithLlmUsageContext({ sessionId }, async () => {
-    const promptStartedAt = Date.now();
-    try {
-      const { chatId } = await ctx.params;
-      setLlmUsageContext({ chatId });
-      const body = await req.json().catch(() => ({}));
-      const validationResult = sendMessageSchema.safeParse(body);
-      if (!validationResult.success) {
-        return attachSessionCookie(
-          NextResponse.json(
-            { error: "Validation failed", details: validationResult.error.issues },
-            { status: 400 },
-          ),
-        );
-      }
-
-      const {
-        message,
-        attachments,
-        modelId,
-        thinking,
-        imageGenerations,
-        system,
-        meta,
-        promptSource,
-      } =
-        validationResult.data;
-      const requestAttachments = normalizeRequestAttachments(attachments);
-      const parsedMeta = parseChatRequestMeta(meta);
-      const modelSelection = resolveModelSelection({
-        requestedModelId: modelId,
-        requestedModelTier: parsedMeta.modelTier,
-        fallbackTier: DEFAULT_MODEL_ID,
-      });
-      const engineChat = await getEngineChatByIdForRequest(req, chatId, { sessionId });
-      if (!engineChat) {
-        return attachSessionCookie(
-          NextResponse.json({ error: "Chat not found" }, { status: 404 }),
-        );
-      }
-      // Ägaren måste sättas HÄR, inte efter kreditkollen: intent-klassificeraren
-      // och brief-deltat kör innan dess och skulle annars bli oattribuerade.
-      // `getRequestUserId` ger `users.id` eller `guest:<sessionId>`. Uppslaget är
-      // observability och får aldrig fälla turen — därav safeUsageOwnerId.
-      const usageOwnerId = await safeUsageOwnerId(() =>
-        getRequestUserId(req, { sessionId }),
-      );
-      setLlmUsageContext({ userId: usageOwnerId ?? `guest:${sessionId}` });
-
-      // P0 stream-abort recovery (2026-04-26). Versionless-chat hard guard.
-      // If the most recent generation/repair stream for this chat died
-      // before producing a version (provider abort, transport reset,
-      // server-restart, lazy-staleness), there is nothing to repair: a
-      // followup_general here would route into the variant matcher with
-      // priorVariantId:null and trigger a variant_lock_fallback against
-      // a chat that has no scaffold-lock to lock to. Hard 409 stops the
-      // race at the door — the client is expected to spawn a new chat
-      // instead. Read-only check; the fallback "no log on disk" path is
-      // treated as live (we err on letting through, never on blocking).
-      // The try/catch is defensive against repo-stub mismatches in tests
-      // and against transient DB errors — both should fail open (let the
-      // followup through) rather than 500 the route.
-      let existingVersionsForChat: Awaited<ReturnType<typeof chatRepo.getVersionsByChat>> = [];
-      // Distinguishes a genuine empty result (new/versionless chat) from a
-      // fail-open catch (transient DB/repo error). Only a CONFIRMED-empty chat
-      // may prewarm: a follow-up whose version lookup merely threw must never
-      // be treated as new (that would restart its warm preview workspace).
-      let versionsQuerySucceeded = false;
+      const promptStartedAt = Date.now();
       try {
-        existingVersionsForChat = await chatRepo.getVersionsByChat(engineChat.id);
-        versionsQuerySucceeded = true;
-      } catch {
-        existingVersionsForChat = [];
-      }
-      if (existingVersionsForChat.length === 0) {
-        const runStatus = readRunStatusForChat(engineChat.id);
-        if (runStatus && runStatus.status === "aborted" && !runStatus.versionId) {
+        const { chatId } = await ctx.params;
+        setLlmUsageContext({ chatId });
+        const body = await req.json().catch(() => ({}));
+        const validationResult = sendMessageSchema.safeParse(body);
+        if (!validationResult.success) {
           return attachSessionCookie(
             NextResponse.json(
-              {
-                error: "versionless_chat_aborted",
-                message:
-                  "Den här chatten har ingen version att reparera — generationen avbröts. Starta om i en ny chat.",
-                chatStatus: {
-                  status: runStatus.status,
-                  statusReason: runStatus.statusReason,
-                  hasVersion: false,
-                  updatedAt: runStatus.updatedAt,
-                },
-              },
-              { status: 409 },
+              { error: "Validation failed", details: validationResult.error.issues },
+              { status: 400 },
             ),
           );
         }
-      }
 
-      const resolvedModelId = modelSelection.modelId;
+        const {
+          message,
+          attachments,
+          modelId,
+          thinking,
+          imageGenerations,
+          system,
+          meta,
+          promptSource,
+        } = validationResult.data;
+        const requestAttachments = normalizeRequestAttachments(attachments);
+        const parsedMeta = parseChatRequestMeta(meta);
+        const modelSelection = resolveModelSelection({
+          requestedModelId: modelId,
+          requestedModelTier: parsedMeta.modelTier,
+          fallbackTier: DEFAULT_MODEL_ID,
+        });
+        const engineChat = await getEngineChatByIdForRequest(req, chatId, { sessionId });
+        if (!engineChat) {
+          return attachSessionCookie(
+            NextResponse.json({ error: "Chat not found" }, { status: 404 }),
+          );
+        }
+        // Ägaren måste sättas HÄR, inte efter kreditkollen: intent-klassificeraren
+        // och brief-deltat kör innan dess och skulle annars bli oattribuerade.
+        // `getRequestUserId` ger `users.id` eller `guest:<sessionId>`. Uppslaget är
+        // observability och får aldrig fälla turen — därav safeUsageOwnerId.
+        const usageOwnerId = await safeUsageOwnerId(() => getRequestUserId(req, { sessionId }));
+        setLlmUsageContext({ userId: usageOwnerId ?? `guest:${sessionId}` });
+        if (!usageOwnerId || usageOwnerId.startsWith("guest:")) {
+          return attachSessionCookie(
+            NextResponse.json(
+              {
+                success: false,
+                error:
+                  "Skapa ett konto eller logga in för att fortsätta bygga. Kontot får en kostnadsfri första generering.",
+                requiresAuth: true,
+              },
+              { status: 401 },
+            ),
+          );
+        }
+
+        // P0 stream-abort recovery (2026-04-26). Versionless-chat hard guard.
+        // If the most recent generation/repair stream for this chat died
+        // before producing a version (provider abort, transport reset,
+        // server-restart, lazy-staleness), there is nothing to repair: a
+        // followup_general here would route into the variant matcher with
+        // priorVariantId:null and trigger a variant_lock_fallback against
+        // a chat that has no scaffold-lock to lock to. Hard 409 stops the
+        // race at the door — the client is expected to spawn a new chat
+        // instead. Read-only check; the fallback "no log on disk" path is
+        // treated as live (we err on letting through, never on blocking).
+        // The try/catch is defensive against repo-stub mismatches in tests
+        // and against transient DB errors — both should fail open (let the
+        // followup through) rather than 500 the route.
+        let existingVersionsForChat: Awaited<ReturnType<typeof chatRepo.getVersionsByChat>> = [];
+        // Distinguishes a genuine empty result (new/versionless chat) from a
+        // fail-open catch (transient DB/repo error). Only a CONFIRMED-empty chat
+        // may prewarm: a follow-up whose version lookup merely threw must never
+        // be treated as new (that would restart its warm preview workspace).
+        let versionsQuerySucceeded = false;
+        try {
+          existingVersionsForChat = await chatRepo.getVersionsByChat(engineChat.id);
+          versionsQuerySucceeded = true;
+        } catch {
+          existingVersionsForChat = [];
+        }
+        if (existingVersionsForChat.length === 0) {
+          const runStatus = readRunStatusForChat(engineChat.id);
+          if (runStatus && runStatus.status === "aborted" && !runStatus.versionId) {
+            return attachSessionCookie(
+              NextResponse.json(
+                {
+                  error: "versionless_chat_aborted",
+                  message:
+                    "Den här chatten har ingen version att reparera — generationen avbröts. Starta om i en ny chat.",
+                  chatStatus: {
+                    status: runStatus.status,
+                    statusReason: runStatus.statusReason,
+                    hasVersion: false,
+                    updatedAt: runStatus.updatedAt,
+                  },
+                },
+                { status: 409 },
+              ),
+            );
+          }
+        }
+
+        const resolvedModelId = modelSelection.modelId;
         const resolvedModelTier = modelSelection.modelTier;
         const buildProfileId = getBuildProfileId(resolvedModelTier);
         const resolvedThinking =
-          typeof thinking === "boolean"
-            ? thinking
-            : getDefaultThinkingEnabled();
+          typeof thinking === "boolean" ? thinking : getDefaultThinkingEnabled();
         const resolvedImageGenerations =
           typeof imageGenerations === "boolean" ? imageGenerations : true;
         const metaBuildMethod = parsedMeta.buildMethod;
@@ -260,26 +265,25 @@ export async function handleMessageStreamRequest(
           // IDOR guard: the caller can request a re-mapping to any
           // project id, so we must independently verify they actually
           // own the target project before re-pointing the chat row.
-          const ownedTarget = await getAppProjectByIdForRequest(
-            req,
-            metaAppProjectId,
-            { sessionId },
-          );
+          const ownedTarget = await getAppProjectByIdForRequest(req, metaAppProjectId, {
+            sessionId,
+          });
           if (!ownedTarget) {
-            return attachSessionCookie(
-              NextResponse.json({ error: "forbidden" }, { status: 403 }),
-            );
+            return attachSessionCookie(NextResponse.json({ error: "forbidden" }, { status: 403 }));
           }
           try {
             await chatRepo.updateChatProjectId(engineChat.id, ownedTarget.id);
             engineChat.project_id = ownedTarget.id;
           } catch (error) {
-            console.warn("[API/engine/chats/:chatId/stream] Failed to repair chat project mapping", {
-              chatId,
-              currentProjectId: engineChat.project_id,
-              targetProjectId: ownedTarget.id,
-              error: error instanceof Error ? error.message : String(error),
-            });
+            console.warn(
+              "[API/engine/chats/:chatId/stream] Failed to repair chat project mapping",
+              {
+                chatId,
+                currentProjectId: engineChat.project_id,
+                targetProjectId: ownedTarget.id,
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
           }
         }
 
@@ -312,10 +316,7 @@ export async function handleMessageStreamRequest(
           engineChat.orchestration_snapshot ?? null,
         );
 
-        const previousFiles = await resolveFollowUpPreviousFiles(
-          chatId,
-          metaEngineBaseVersionId,
-        );
+        const previousFiles = await resolveFollowUpPreviousFiles(chatId, metaEngineBaseVersionId);
 
         // 5-2 stale-base gate — mirrors finalize-design's `stale_design_version`
         // 409 (finalize-design/route.ts). A follow-up must not silently build
@@ -416,19 +417,17 @@ export async function handleMessageStreamRequest(
           previousFilesCount: previousFiles.length,
         });
         const hasFollowUpBase = followUpPredicate.isOrchestrationFollowUp;
-        const existingRoutePaths =
-          hasFollowUpBase
-            ? extractAppRoutePathsFromFilePaths(previousFiles.map((file) => file.path))
-            : [];
+        const existingRoutePaths = hasFollowUpBase
+          ? extractAppRoutePathsFromFilePaths(previousFiles.map((file) => file.path))
+          : [];
 
-        const existingShellRoutePaths =
-          hasFollowUpBase
-            ? extractAppRoutePathsFromFilePaths(
-                previousFiles
-                  .filter((file) => isShellPageContent(file.content ?? ""))
-                  .map((file) => file.path),
-              )
-            : [];
+        const existingShellRoutePaths = hasFollowUpBase
+          ? extractAppRoutePathsFromFilePaths(
+              previousFiles
+                .filter((file) => isShellPageContent(file.content ?? ""))
+                .map((file) => file.path),
+            )
+          : [];
 
         const skipIntentClassification =
           metaPromptSourcePreservePayload || metaPromptSourceTechnical;
@@ -452,19 +451,20 @@ export async function handleMessageStreamRequest(
         // deterministic result as before; only an explicit `small-llm` opt-in
         // takes the LLM path (with fail-safe fallback to the same keyword
         // classifier). See follow-up-intent-router.ts.
-        const followUpIntent = hasFollowUpBase && !skipIntentClassification
-          ? followUpClarificationAnswer
-            ? // The chosen quick-reply carries the intent the original prompt
-              // lacked ("Gör en tydlig redesign …" → clear-redesign). Classify
-              // answer-first so delta-brief/scaffold-unlock still fire, while
-              // capability detection and the wrapper below keep reading the
-              // original detailed request.
-              classifyFollowUpClarificationAnswerIntent(
-                followUpClarificationAnswer.answer,
-                followUpClarificationAnswer.sourceUserMessage,
-              )
-            : await classifyFollowUpIntentWithStrategy(followUpIntentMessage)
-          : "neutral";
+        const followUpIntent =
+          hasFollowUpBase && !skipIntentClassification
+            ? followUpClarificationAnswer
+              ? // The chosen quick-reply carries the intent the original prompt
+                // lacked ("Gör en tydlig redesign …" → clear-redesign). Classify
+                // answer-first so delta-brief/scaffold-unlock still fire, while
+                // capability detection and the wrapper below keep reading the
+                // original detailed request.
+                classifyFollowUpClarificationAnswerIntent(
+                  followUpClarificationAnswer.answer,
+                  followUpClarificationAnswer.sourceUserMessage,
+                )
+              : await classifyFollowUpIntentWithStrategy(followUpIntentMessage)
+            : "neutral";
         // Plan 06 (2026-04-24): detect dossier-mappable capabilities in the
         // follow-up text so `selectDossiersForRequest` actually sees the
         // signal even when the snapshot-hydrated brief and the keyword-based
@@ -500,15 +500,14 @@ export async function handleMessageStreamRequest(
             followUpIntent,
             capabilityIds: followUpCapabilityDetection.capabilityIds,
             tierByCapability: followUpCapabilityDetection.tierByCapability,
-            referencesExistingCapability:
-              followUpCapabilityDetection.referencesExistingCapability,
-            modifyReferenceMatches:
-              followUpCapabilityDetection.modifyReferenceMatches,
+            referencesExistingCapability: followUpCapabilityDetection.referencesExistingCapability,
+            modifyReferenceMatches: followUpCapabilityDetection.modifyReferenceMatches,
           });
         }
-        const followUpClarification = hasFollowUpBase && !skipFollowUpClarification
-          ? resolveFollowUpClarification(message)
-          : null;
+        const followUpClarification =
+          hasFollowUpBase && !skipFollowUpClarification
+            ? resolveFollowUpClarification(message)
+            : null;
         if (followUpClarification) {
           devLogAppend("latest", {
             type: "site.message.awaiting_input",
@@ -679,6 +678,7 @@ export async function handleMessageStreamRequest(
         };
         const creditCheck = await prepareCredits(req, "prompt.refine", creditContext, {
           sessionId,
+          allowFreeGeneration: !metaPlanMode,
         });
         if (!creditCheck.ok) {
           // Grinden ligger före prompt-loggen och före user-raden, så ett avslag
@@ -702,7 +702,7 @@ export async function handleMessageStreamRequest(
         // prewarm session. The digest reuses rateLimit.ts identity (verified
         // user, else trusted IP), never the rotatable guest cookie.
         const prewarmLeaseKey = createPreviewPrewarmLeaseKey(req, {
-          userId: creditCheck.user?.id,
+          userId: creditCheck.user.id,
         });
         await recordFollowUpPromptLog({
           chatId,
@@ -865,19 +865,19 @@ export async function handleMessageStreamRequest(
           versionsQuerySucceeded,
           existingVersionsForChat,
         });
-    } catch (err) {
-      return buildStreamErrorResponse({
-        err,
-        req,
-        requestId,
-        promptStartedAt,
-        kind: "followup",
-        logLabel: "Send message error",
-        devLogType: "comm.error.send",
-        devLogExtras: { chatId: null },
-        attachSessionCookie,
-      });
-    }
+      } catch (err) {
+        return buildStreamErrorResponse({
+          err,
+          req,
+          requestId,
+          promptStartedAt,
+          kind: "followup",
+          logLabel: "Send message error",
+          devLogType: "comm.error.send",
+          devLogExtras: { chatId: null },
+          attachSessionCookie,
+        });
+      }
     });
 
   return options.skipRateLimit ? runHandler() : withRateLimit(req, "message:send", runHandler);

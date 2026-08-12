@@ -35,9 +35,7 @@ import {
   X,
   AlertCircle,
   Search,
-  ShieldCheck,
 } from "lucide-react";
-import { isAdminEmailClient } from "@/lib/auth/is-admin-client";
 
 // ═══════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -311,19 +309,6 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                     <Wand2 className="text-brand-teal h-4 w-4" />
                     Köp credits
                   </Link>
-
-                  {/* Adminpanel — only rendered for admin accounts. Access is
-                      enforced server-side; this is just the shortcut. */}
-                  {isAdminEmailClient(user?.email) && (
-                    <Link
-                      href="/admin"
-                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 transition-colors hover:bg-gray-800/50"
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      <ShieldCheck className="text-brand-blue h-4 w-4" />
-                      Adminpanel
-                    </Link>
-                  )}
 
                   {/* Logout */}
                   <button

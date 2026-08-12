@@ -1290,11 +1290,18 @@ class VercelSourceTests(unittest.TestCase):
     def test_env_policy_marks_the_local_only_keys(self) -> None:
         policy = json.loads((REPO_ROOT / "config" / "env-policy.json").read_text(encoding="utf-8"))
         rules = {rule["key"]: rule for rule in policy["rules"]}
-        for key in ("OPENAI_ADMIN_KEY", "DID_API_KEY", "MAX_GEN_LOGS"):
+        for key in ("DID_API_KEY", "MAX_GEN_LOGS"):
             self.assertIn(key, policy["extraKnownKeys"], key)
             self.assertIn(key, rules, key)
             self.assertEqual(rules[key]["classification"], "local_only", key)
             self.assertEqual(rules[key]["recommendedVercelTargets"], [], key)
+
+        openai_admin = rules["OPENAI_ADMIN_KEY"]
+        self.assertEqual(openai_admin["classification"], "optional_runtime")
+        self.assertEqual(
+            openai_admin["recommendedVercelTargets"],
+            ["development", "preview", "production"],
+        )
 
     def test_first_deployment_id_handles_uid_and_id(self) -> None:
         self.assertEqual(vercel._first_deployment_id({"deployments": [{"uid": "dpl_1"}]}), "dpl_1")

@@ -25,7 +25,14 @@ describe("admin navigation", () => {
     const adminRoot = path.join(APP_DIR, "admin");
     const hrefs = new Set(ADMIN_SECTIONS.map((section) => section.href));
 
-    const known = ["/admin", "/admin/statistik", "/admin/data", "/admin/miljo", "/admin/loggar"];
+    const known = [
+      "/admin",
+      "/admin/statistik",
+      "/admin/genereringar",
+      "/admin/data",
+      "/admin/miljo",
+      "/admin/loggar",
+    ];
     for (const href of known) {
       const relative = href === "/admin" ? "" : href.replace("/admin/", "");
       const file = path.join(adminRoot, relative, "page.tsx");

@@ -63,26 +63,27 @@ förvärmningen. Skelettets `package.json` byggs numera scaffold-medvetet:
 orkestreringen har redan valt `ScaffoldId` innan prewarm anropas, så
 `prewarmPreviewSession` skannar den valda scaffoldens egna
 prompt-filer (`gen/scaffolds/<id>/files/`) med samma `mergePackageJsonWithBaseline`
-+ dep-completer-mekanism som finalize-vägen kör över modellens riktiga output —
-samma dependency-källa, olika kod. Matchar modellens genererade kod scaffoldens
-importer (vanligt, då modellen prompt:as med exakt det innehållet) och emitterar
-modellen ingen egen `package.json`, blir finalize-filen byte-identisk med den
-prewarm installerade och hostens fingerprint-jämförelse (paket.json/lockfiles)
-träffar → installationen skippas. Vid mismatch (dep-completer eller modellen
-lägger till paket scaffolden inte importerar) körs en riktig install vid
-finalize, men npm återanvänder det redan varma `node_modules` — fortfarande en
-vinst. Utan känd scaffold-id faller skelettet tillbaka till den fasta baslinjen
-(oförändrat från tidigare). Hosten accepterar prewarm endast för en oägd chat
-och en aktiv kanonisk rate-limit-subject-lease; sena prewarm-anrop kan därför
-aldrig nedgradera en riktig version. Lease-HMAC kräver konfigurerad
-preview-host API-nyckel; annars skippar appen optional prewarm. Skelettet
-hålls bakom hostens auto-refreshande HTTP-sida och alla WS-upgrades nekas
-tills riktig replacement passerat readiness. Misslyckat övertagande ger
-stabil 503 tills explicit retry; bootfel behåller lease-cooldown mot
-install-spray. Normal credit commit/refund ändras inte. Preview-host måste
-deployas och verifieras före appen; flaggan är default av och aktiveras inte
-av denna ändring. Se `docs/ENV.md` och
-`docs/schemas/preview-session-contract.md`.
+
+- dep-completer-mekanism som finalize-vägen kör över modellens riktiga output —
+  samma dependency-källa, olika kod. Matchar modellens genererade kod scaffoldens
+  importer (vanligt, då modellen prompt:as med exakt det innehållet) och emitterar
+  modellen ingen egen `package.json`, blir finalize-filen byte-identisk med den
+  prewarm installerade och hostens fingerprint-jämförelse (paket.json/lockfiles)
+  träffar → installationen skippas. Vid mismatch (dep-completer eller modellen
+  lägger till paket scaffolden inte importerar) körs en riktig install vid
+  finalize, men npm återanvänder det redan varma `node_modules` — fortfarande en
+  vinst. Utan känd scaffold-id faller skelettet tillbaka till den fasta baslinjen
+  (oförändrat från tidigare). Hosten accepterar prewarm endast för en oägd chat
+  och en aktiv kanonisk rate-limit-subject-lease; sena prewarm-anrop kan därför
+  aldrig nedgradera en riktig version. Lease-HMAC kräver konfigurerad
+  preview-host API-nyckel; annars skippar appen optional prewarm. Skelettet
+  hålls bakom hostens auto-refreshande HTTP-sida och alla WS-upgrades nekas
+  tills riktig replacement passerat readiness. Misslyckat övertagande ger
+  stabil 503 tills explicit retry; bootfel behåller lease-cooldown mot
+  install-spray. Normal credit commit/refund ändras inte. Preview-host måste
+  deployas och verifieras före appen; flaggan är default av och aktiveras inte
+  av denna ändring. Se `docs/ENV.md` och
+  `docs/schemas/preview-session-contract.md`.
 
 Kodankare:
 
@@ -131,12 +132,12 @@ Typisk ordning i runtime:
    follow-up-bevarande mot tidigare version.
 9. preflight kontrollerar preview-/verification-blockers före persist.
 10. persist sparar assistant-rad, version, snapshot, preflight-loggar,
-   telemetry (`meta.streamMs` = codegen-SSE wall-clock till finalize-start;
-   `meta.postStreamSteps` = per-steg-tider inkl. `materialize_images`) och
-   event/status-underlag.
+    telemetry (`meta.streamMs` = codegen-SSE wall-clock till finalize-start;
+    `meta.postStreamSteps` = per-steg-tider inkl. `materialize_images`) och
+    event/status-underlag.
 11. preview startas, patchas eller resyncas mot den persistade versionen. En
-   tidigare best-effort-förvärmning får återanvändas, men är aldrig själv ett
-   bevis på att den persistade versionen är redo.
+    tidigare best-effort-förvärmning får återanvändas, men är aldrig själv ett
+    bevis på att den persistade versionen är redo.
 12. RenderGate (kod: `designPreview` quality gate) kör F2 render/preview-kontroll:
     typecheck är Advisory utom render-risk-koder. Ägare: **klienten**
     (`post-checks.ts` → `POST /quality-gate`) — server-verify skippas för F2
@@ -220,9 +221,9 @@ bevaras när ett fortsatt valt Byggblock också äger dem.
 
 ## F2/F3-regler
 
-| Läge | Syfte | Gate |
-|---|---|---|
-| F2 / `design` / `fidelity2` | Design-preview och snabb iteration | RenderGate (kod: `designPreview`) |
+| Läge                              | Syfte                              | Gate                                   |
+| --------------------------------- | ---------------------------------- | -------------------------------------- |
+| F2 / `design` / `fidelity2`       | Design-preview och snabb iteration | RenderGate (kod: `designPreview`)      |
 | F3 / `integrations` / `fidelity3` | Integrationer, build, deploybarhet | ReleaseGate (kod: `integrationsBuild`) |
 
 F3 ska triggas explicit, t.ex. via finalize-design-flöde. Prompten ska inte auto-promota till F3 bara för att den nämner Stripe, auth eller databas.
@@ -253,7 +254,7 @@ samma `files_json` som F2-basen. ReleaseGate körs utan codegen; F2 lämnas orö
 
 - **F3/`integrations`:** hård gate — deploy tillåts endast när versionen är
   bevisat grön (`verification_state = passed` eller `release_state =
-  promoted`). Allt annat (pending/verifying/repairing/repair_available) ger
+promoted`). Allt annat (pending/verifying/repairing/repair_available) ger
   `409 DEPLOY_RELEASE_GATE_NOT_GREEN`.
 - **F2/`design`:** mjuk gate — server-verify körs aldrig
   (`design_preview_skip_verify`), så bara `verification_state = failed`
@@ -282,11 +283,11 @@ hela finalize igen. Deploy-fel loggas dessutom för Error-log RAG via
 
 När en F3-generation slutar tool-only (`suggestIntegration` utan kod) parkas chatten i awaiting-input med en persisterad F3-continuation-marker (`f3-continuation.ts`). Markern bär signalerade providers och en rundräknare. Svaret klassas server-side:
 
-- **Godkänn** ärver F3 och kör en *approval-runda* som tvingar kodgenerering: `suggestIntegration`/`requestEnvVar` dras ur tool-setet, ett byggdirektiv med graceful not-configured-fallback injiceras i prompten, och godkända providers mappas till dossier-capabilities (t.ex. stripe → payments) så hard-dossierns verbatim-mallar väljs in via `selectDossiersForRequest`.
+- **Godkänn** ärver F3 och kör en _approval-runda_ som tvingar kodgenerering: `suggestIntegration`/`requestEnvVar` dras ur tool-setet, ett byggdirektiv med graceful not-configured-fallback injiceras i prompten, och godkända providers mappas till dossier-capabilities (t.ex. stripe → payments) så hard-dossierns verbatim-mallar väljs in via `selectDossiersForRequest`.
 - **Avvisa** konsumerar markern och avslutar F3 lugnt med ett bekräftelsemeddelande — ingen generation körs.
 - **Loop-breaker:** max en upprepad tool-only-runda per F3-kick. Andra upprepningen avslutar F3 med ett terminalt meddelande utan ny marker.
 
-**F3-capability-scope (mot capability-inflation).** I F3 lyfts F2-muten, så prompt-filtret + can-only-grow-golvet skulle annars återställa *varje* capability Deep Brief någonsin nominerade (analytics, auth, payments …) och göra en enda ask till en full-SaaS env-vägg. Golvet körs som vanligt; därefter FILTRERAR `scopeF3DossierCapabilities` (`orchestrate/follow-up-freeze.ts`) F3-setet till unionen av: (a) capabilities som *aktuellt meddelande* härleder, (b) providers/capabilities användaren *uttryckligen godkänt* — durabelt över rundor via `f3ApprovedCapabilities`/`f3ApprovedProviders` i orchestration-snapshoten (skrivs av approval-rundan, läses via follow-up-kontraktet), och (c) integrationer med *faktiskt filbevis* i basversionen (`resolveDossiersPresentInVersion`). Setet dependency-expanderas (`expandDependentCapabilities` — tabellen är tom sedan 2026-08-06 när paddle-billing parkerades, men mekanismen och alias-normaliseringen kvarstår (den tidigare ai-tool-calling⇒droppa-ai-chat-dedupen dog med etapp 4)). Spekulativa brief-/golv-capabilities utan bevis, ask eller godkännande droppas (loggas som `f3_capability_scope_dropped`), och det scopade setet är auktoritativt även när det är tomt (`disableBriefFallback` i selektionen). En approval-runda utan något byggbart alls (inga providers, inga persisterade godkännanden, inget filbevis) stängs ärligt med `f3_approval_nothing_to_build` i stället för en dömd tyst runda. Design-rundor är oförändrade (can-only-grow gäller där). Deep Brief nominerar `analytics`/`error-tracking` bara på explicit ask.
+**F3-capability-scope (mot capability-inflation).** I F3 lyfts F2-muten, så prompt-filtret + can-only-grow-golvet skulle annars återställa _varje_ capability Deep Brief någonsin nominerade (analytics, auth, payments …) och göra en enda ask till en full-SaaS env-vägg. Golvet körs som vanligt; därefter FILTRERAR `scopeF3DossierCapabilities` (`orchestrate/follow-up-freeze.ts`) F3-setet till unionen av: (a) capabilities som _aktuellt meddelande_ härleder, (b) providers/capabilities användaren _uttryckligen godkänt_ — durabelt över rundor via `f3ApprovedCapabilities`/`f3ApprovedProviders` i orchestration-snapshoten (skrivs av approval-rundan, läses via follow-up-kontraktet), och (c) integrationer med _faktiskt filbevis_ i basversionen (`resolveDossiersPresentInVersion`). Setet dependency-expanderas (`expandDependentCapabilities` — tabellen är tom sedan 2026-08-06 när paddle-billing parkerades, men mekanismen och alias-normaliseringen kvarstår (den tidigare ai-tool-calling⇒droppa-ai-chat-dedupen dog med etapp 4)). Spekulativa brief-/golv-capabilities utan bevis, ask eller godkännande droppas (loggas som `f3_capability_scope_dropped`), och det scopade setet är auktoritativt även när det är tomt (`disableBriefFallback` i selektionen). En approval-runda utan något byggbart alls (inga providers, inga persisterade godkännanden, inget filbevis) stängs ärligt med `f3_approval_nothing_to_build` i stället för en dömd tyst runda. Design-rundor är oförändrade (can-only-grow gäller där). Deep Brief nominerar `analytics`/`error-tracking` bara på explicit ask.
 
 **Samma capability-källa i init och follow-up:** båda vägarna kör
 `detectFollowUpCapabilities` + explicit dossier-id-resolution innan
@@ -319,7 +320,7 @@ Fast Edit Lane är inte en follow-up-codegen. Den är deterministisk och skapar 
 
 **Syntaxgrind (enda verifieringen i lanen).** Inget steg nedströms kontrollerar
 en quick edit innan den når preview-VM:en, så `applyQuickEdits` avvisar hela
-op-satsen (`parse_regression`, HTTP 422) när en ändrad fil får *fler*
+op-satsen (`parse_regression`, HTTP 422) när en ändrad fil får _fler_
 parse-fel än den hade — mätt med `countParseErrors` (TS-parsern) server-side.
 Redan trasiga filer får förbli lika trasiga; grinden stoppar bara
 försämringar. Undantag: kodvyns spar-knapp skickar `guardSyntax: false`,
@@ -336,3 +337,101 @@ borttagningen skulle göra filen oparsbar (`jsx_delete_unsafe`) eller när noden
 går att adressera (`jsx_delete_unsupported`).
 
 Kodankare: `src/lib/gen/quick-edit/`.
+
+## Generationskostnad och credit-debitering
+
+Sajtmaskins own-engine-genereringar debiteras efter loggad tokenusage, inte
+enbart efter vald modellnivå. `/admin/genereringar` visar användaren, prompten,
+den genererade versionen, tokenkategorierna, beräknad leverantörskostnad,
+prisregeln och de credits som drogs.
+
+### Varför inget webhook-flöde
+
+Synkrona och strömmade modellkörningar ger usage i API-svaret. Det är den enda
+källan som kan knytas exakt till Sajtmaskins `chatId`, `versionId` och `userId`.
+OpenAI:s organisations-API för [usage](https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage)
+och [costs](https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/costs)
+är aggregerat i tidsbuckets och används för konto-/fakturaavstämning, inte som
+hot path per slutanvändargenerering. En `OPENAI_ADMIN_KEY` ger organisationsvid
+åtkomst och används server-side av den adminskyddade kontoavstämningen. Den får
+finnas som Sensitive Vercel-hemlighet men aldrig exponeras till klienten; vanlig
+`OPENAI_API_KEY` används av runtime-anropen.
+
+OpenAI-webhooken i repot tar emot bakgrundsjobb som batch/fine-tuning. Den får
+inte ett event för varje vanligt streamat Responses-/Chat-anrop och äger därför
+inte debiteringen. Anthropic exponerar på samma sätt input, cache creation,
+cache read och output i Messages-svarets usage-objekt.
+
+### Formel och snapshot
+
+Alla lagrade ekonomiska värden är heltal:
+
+```text
+providerCostOre = round(providerCostMicroUsd × usdToSekOre / 1 000 000)
+billableOre     = round(providerCostOre × markupBasisPoints / 10 000)
+credits         = ceil(billableOre / sekPerCreditOre)
+```
+
+Standardvärdena är X2,0, 10,50 SEK/USD och 3 SEK per credit. De kan ändras i
+admin. Varje version fryser parametrarna när dess första billingrad skapas;
+senare adminändringar skriver aldrig om historiska kredittransaktioner.
+
+Tokenpriser läses från `config/ai_models/pricing.json`. Input delas upp i
+ordinarie input, cache read och cache write. Reasoning ingår redan i
+output-totalen och läggs inte på en andra gång. Modellernas dokumenterade
+long-context-multiplikator appliceras per LLM-anrop.
+
+Detta är en reproducerbar kostnadsberäkning från leverantörens usage och
+offentliga rate card, inte leverantörens slutliga fakturarad. Avtalade rabatter,
+regionalt inference-påslag och separat prissatta serververktyg kan ge avvikelse.
+Organisations-API:t används därför fortsatt för periodisk avstämning.
+
+### Debiteringsflöde
+
+1. Varje LLM-anrop sparar `llm_usage`, inklusive cache read/write.
+2. När finalize har lyckats etablerar slutflödet först en durabel
+   `generation_billings`-rad. Raden sparar requestens unika claim-nyckel
+   append-only utan att ändra den frysta prisregeln. Därefter väntar det in usage-skrivningarna och
+   stämplar tidiga brief-/embeddingrader med `version_id`; ett fel i den
+   best-effort-attachningen kan därför inte ta bort admin-retryvägen.
+3. Settlement räknar sedan om hela versionen och låser billingraden.
+4. Skillnaden mot redan dragna credits debiteras eller återbetalas. Användarsaldo,
+   `transactions` och billingraden uppdateras i samma DB-transaktion.
+5. Sena verifier-/repair-anrop triggar samma settlement igen endast när
+   finalize-markören redan finns. Usage som skrivs medan finalize pågår får
+   aldrig själv markera versionen som slutförd eller claima gratisgenereringen.
+   Parallella försök kan därför inte dubbeldebitera.
+6. Manuell LLM-repair av en äldre/importerad version som saknar marker kör en
+   icke-gratis credit-preflight innan LLM-anropet och skapar sedan en explicit
+   post-processing-marker (`free_generation_eligible = false`). Markern får
+   samtidigt `usage_started_at = NOW()` från databasen innan repair-anropet;
+   settlement och admin-omstämning räknar därför endast usage från och med den
+   gränsen, inte äldre usage som redan låg på den importerade/historiska
+   versionen. Varje ny repair kör samma credit-preflight och lägger till sin
+   claim-nyckel, men konfliktuppdateringen ändrar varken usage-gränsen eller den
+   frysta prisregeln. Kostnaden blir därmed avstämningsbar utan att verifieringen
+   förbrukar kontots kostnadsfria första sajtgenerering. Själva VM-quality-gaten
+   använder ingen LLM och skapar därför ingen ekonomisk marker på egen hand.
+
+Anonyma användare får inte starta generation. Ett konto har i stället exakt en
+kostnadsfri, slutförd own-engine-version; entitlementen claimas under samma
+användarradslås som settlement och samma version förblir gratis vid idempotenta
+omkörningar och sen usage. Testkonton får kostnadsspår men inget credit-drag.
+Om usage eller ett verifierat modellpris saknas markeras raden för avstämning
+utan ett osäkert reservdrag. Den befintliga fasta modellkostnaden används
+fortfarande som förhandsgrind eftersom exakt slutusage är okänd före körningen.
+Settlement lämnar en durabel `pending`-rad före debittransaktionen; admin kan
+köra en idempotent omstämning av väntande billingrader. Om attachningen bröts
+använder omstämningen de sparade claim-nycklarna för exakt attribuering utan
+tidsgräns innan settlement. Den tar också upp redan avstämda rader när dagens
+antal marker-avgränsade `llm_usage`-rader skiljer sig från snapshoten. En saknad billingrad
+infereras medvetet inte från usage, eftersom `version_id` kan finnas innan
+finalize har slutförts.
+
+Dataägarna är `llm_usage` (anrop/tokens), `generation_billing_settings`
+(operatörsregeln), `generation_billings` (snapshot per version), `transactions`
+(faktisk saldoändring) och `config/ai_models/pricing.json` (rate card). Billing-
+tabellerna saknar innehålls-FK så ekonomispåret överlever normal städning.
+
+Kör `npm run db:migrate` före release och kontrollera därefter en ny generation
+i `/admin/genereringar`. Periodsumman stäms av mot leverantörens konto-API.

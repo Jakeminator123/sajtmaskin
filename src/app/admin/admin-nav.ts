@@ -1,4 +1,12 @@
-import { Activity, Database, FileText, Key, LayoutDashboard, type LucideIcon } from "lucide-react";
+import {
+  Activity,
+  Coins,
+  Database,
+  FileText,
+  Key,
+  LayoutDashboard,
+  type LucideIcon,
+} from "lucide-react";
 
 /**
  * What a section does to the system — rendered as a badge in the menu and on the
@@ -42,6 +50,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     description: "Besök, nya användare och nya projekt över tid.",
     icon: Activity,
     kind: "read",
+  },
+  {
+    href: "/admin/genereringar",
+    label: "Genereringar",
+    description: "Självkostnad, användardebitering och påslag per AI-generering.",
+    icon: Coins,
+    kind: "write",
   },
   {
     href: "/admin/data",

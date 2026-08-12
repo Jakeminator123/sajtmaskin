@@ -5,6 +5,7 @@ import type { FinalizeResult } from "@/lib/gen/stream/finalize-version";
 
 const finalizeAndSaveVersionMock = vi.hoisted(() => vi.fn());
 const addMessageMock = vi.hoisted(() => vi.fn());
+const failVersionVerificationMock = vi.hoisted(() => vi.fn());
 const logGenerationMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/db/client", () => ({
@@ -14,7 +15,7 @@ vi.mock("@/lib/db/client", () => ({
 
 vi.mock("@/lib/db/chat-repository-pg", () => ({
   addMessage: addMessageMock,
-  failVersionVerification: vi.fn(),
+  failVersionVerification: failVersionVerificationMock,
   logGeneration: logGenerationMock,
 }));
 
@@ -66,6 +67,29 @@ async function collectSseEvents(stream: ReadableStream<Uint8Array>): Promise<
     events.push(...parsed.events);
   }
   return events;
+}
+
+async function collectSseEventsUntilError(stream: ReadableStream<Uint8Array>): Promise<{
+  events: Array<{ event: string; data: unknown }>;
+  error: unknown;
+}> {
+  const reader = stream.getReader();
+  const dec = new TextDecoder();
+  let buffer = "";
+  const events: Array<{ event: string; data: unknown }> = [];
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) throw new Error("Expected stream to fail");
+      buffer += dec.decode(value, { stream: true });
+      const parsed = parseSSEBuffer(buffer);
+      events.push(...parsed.events);
+      buffer = parsed.remaining;
+    }
+  } catch (error) {
+    return { events, error };
+  }
 }
 
 function pipelineStreamFromSsePayload(payload: string): ReadableStream<Uint8Array> {
@@ -124,6 +148,8 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
     finalizeAndSaveVersionMock.mockResolvedValue(mockFinalizeResult);
     addMessageMock.mockReset();
     addMessageMock.mockResolvedValue(null);
+    failVersionVerificationMock.mockReset();
+    failVersionVerificationMock.mockResolvedValue(true);
     logGenerationMock.mockReset();
     logGenerationMock.mockResolvedValue(null);
     commitCredits.mockClear();
@@ -1086,5 +1112,41 @@ describe("createOwnEngineGenerationStream (golden SSE)", () => {
       "in-progress",
       expect.objectContaining({ type: "site.empty_generation" }),
     );
+  });
+
+  it("fails the caller stream when the durable billing marker cannot be established", async () => {
+    const markerError = new Error("billing marker unavailable");
+    const commitCreditsWithMarker = vi.fn().mockRejectedValue(markerError);
+    const params = providerFaultParams("chat_marker_failure", {});
+    const out = createOwnEngineGenerationStream({
+      ...params,
+      pipelineStream: pipelineStreamFromSsePayload(
+        // No pipeline `done`: this forces the caller's cleanup recovery lane,
+        // where marker errors used to be swallowed before a successful null-
+        // version `done` closed the stream.
+        formatSSEEvent("content", {
+          text: '```tsx file="app/page.tsx"\nexport default function Page(){return null}\n```',
+        }),
+      ),
+      commitCredits: commitCreditsWithMarker,
+    });
+
+    const result = await collectSseEventsUntilError(out);
+
+    expect(result.error).toBe(markerError);
+    expect(result.events.filter((event) => event.event === "done")).toHaveLength(0);
+    expect(commitCreditsWithMarker).toHaveBeenCalledTimes(1);
+    expect(commitCreditsWithMarker).toHaveBeenCalledWith({
+      chatId: "chat_marker_failure",
+      versionId: "ver_golden_1",
+    });
+    expect(failVersionVerificationMock).toHaveBeenCalledWith(
+      "ver_golden_1",
+      expect.stringContaining("streamavbrott"),
+    );
+    // The cleanup lane must not create a second version after a terminal
+    // marker failure; the version is already persisted and reconcilable only
+    // after the marker succeeds on a later explicit retry.
+    expect(finalizeAndSaveVersionMock).toHaveBeenCalledTimes(1);
   });
 });

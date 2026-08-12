@@ -1,9 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const handleCreateChatStreamPost = vi.hoisted(() => vi.fn());
+const attachVersionToPendingUsageAsync = vi.hoisted(() => vi.fn());
+const getLlmUsageContext = vi.hoisted(() => vi.fn(() => ({ claimKey: "claim_stream_1" })));
+const establishGenerationBilling = vi.hoisted(() => vi.fn());
+const settleGenerationBilling = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/api/engine/chats/create-chat-stream-post", () => ({
   handleCreateChatStreamPost,
+}));
+
+vi.mock("@/lib/observability/llm-usage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/observability/llm-usage")>()),
+  attachVersionToPendingUsageAsync,
+  getLlmUsageContext,
+}));
+
+vi.mock("@/lib/db/services/generation-billing", () => ({
+  establishGenerationBilling,
+  settleGenerationBilling,
 }));
 
 // --- v0-side mocks (migrated) so the real create-chat-stream-post can run when
@@ -499,9 +514,13 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     }));
 
     commitCredits.mockResolvedValue(undefined);
+    attachVersionToPendingUsageAsync.mockResolvedValue(undefined);
+    establishGenerationBilling.mockResolvedValue(undefined);
+    settleGenerationBilling.mockResolvedValue(undefined);
     prepareCredits.mockResolvedValue({
       ok: true,
       user: { id: "user_1" },
+      isTest: false,
       commit: commitCredits,
     });
     resolveAppProjectIdForRequest.mockResolvedValue("app_proj_1");
@@ -692,6 +711,30 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
       verificationBlocked: false,
       previewBlockingReason: null,
     });
+    expect(establishGenerationBilling).toHaveBeenCalledWith({
+      chatId: "engine_chat_1",
+      versionId: "ver_1",
+      userId: "user_1",
+      isTest: false,
+      claimKey: "claim_stream_1",
+    });
+    expect(attachVersionToPendingUsageAsync).toHaveBeenCalledWith(
+      "engine_chat_1",
+      "ver_1",
+      "claim_stream_1",
+    );
+    expect(settleGenerationBilling).toHaveBeenCalledWith({
+      chatId: "engine_chat_1",
+      versionId: "ver_1",
+      userId: "user_1",
+      isTest: false,
+    });
+    expect(establishGenerationBilling.mock.invocationCallOrder[0]).toBeLessThan(
+      attachVersionToPendingUsageAsync.mock.invocationCallOrder[0]!,
+    );
+    expect(attachVersionToPendingUsageAsync.mock.invocationCallOrder[0]).toBeLessThan(
+      settleGenerationBilling.mock.invocationCallOrder[0]!,
+    );
     expect(finalizeOrHandleEmptyGeneration).toHaveBeenCalledWith(
       expect.objectContaining({
         emptyGenerationReason: "done_empty_output",

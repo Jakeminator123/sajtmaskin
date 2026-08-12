@@ -13,15 +13,15 @@ interface RequireAuthModalProps {
 
 const REASONS = {
   generation: {
-    title: "Du har använt din gratis generation",
+    title: "Skapa konto för att generera",
     description:
-      "Skapa ett konto för att fortsätta bygga webbplatser. Du får 50 credits efter verifierad e-post.",
+      "Generering kräver ett konto. När kontot är aktiverat får du din första generering utan coin-debitering.",
     icon: Wand2,
   },
   refine: {
-    title: "Du har använt din gratis förfining",
+    title: "Logga in för att fortsätta bygga",
     description:
-      "Skapa ett konto för att fortsätta förfina din design. Du får 50 credits efter verifierad e-post.",
+      "Skapa ett konto eller logga in. Kontots första färdiga generering är kostnadsfri.",
     icon: Wand2,
   },
   credits: {
@@ -67,13 +67,13 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
         <div className="absolute inset-0 bg-black/70 backdrop-blur-lg" onClick={onClose} />
 
         {/* Modal */}
-        <div className="animate-in fade-in zoom-in-95 relative w-full max-w-md overflow-hidden rounded-2xl border border-border/35 bg-card/85 shadow-2xl backdrop-blur-2xl duration-200">
-          <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-primary/12 via-transparent to-primary/4" />
+        <div className="animate-in fade-in zoom-in-95 border-border/35 bg-card/85 relative w-full max-w-md overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-2xl duration-200">
+          <div className="from-primary/12 to-primary/4 pointer-events-none absolute inset-0 bg-linear-to-br via-transparent" />
 
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-20 rounded-lg border border-border/20 bg-secondary/60 p-1.5 text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary"
+            className="border-border/20 bg-secondary/60 text-muted-foreground hover:text-foreground hover:bg-secondary absolute top-4 right-4 z-20 rounded-lg border p-1.5 transition-colors"
             aria-label="Stäng inloggningskrav"
           >
             <X className="h-5 w-5" />
@@ -82,24 +82,24 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
           {/* Content */}
           <div className="relative z-10 p-8 text-center">
             {/* Icon */}
-            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl border border-primary/25 bg-primary/10">
-              <Icon className="h-8 w-8 text-primary" />
+            <div className="border-primary/25 bg-primary/10 mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl border">
+              <Icon className="text-primary h-8 w-8" />
             </div>
 
             {/* Title */}
-            <h2 className="mb-3 text-2xl font-(--font-heading) tracking-tight text-foreground">
+            <h2 className="text-foreground mb-3 text-2xl font-(--font-heading) tracking-tight">
               {reasonData.title}
             </h2>
 
             {/* Description */}
-            <p className="mb-6 text-muted-foreground">{reasonData.description}</p>
+            <p className="text-muted-foreground mb-6">{reasonData.description}</p>
 
             {/* Bonus badge */}
             {reason !== "credits" && (
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-2">
-                <Coins className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium text-primary">
-                  +50 credits efter verifiering
+              <div className="border-primary/25 bg-primary/10 mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-2">
+                <Wand2 className="text-primary h-4 w-4" />
+                <span className="text-primary text-sm font-medium">
+                  Första genereringen utan coin-debitering
                 </span>
               </div>
             )}
@@ -111,7 +111,7 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
                 <>
                   <Button
                     onClick={() => (window.location.href = "/buy-credits")}
-                    className="h-11 w-full bg-primary text-primary-foreground font-medium hover:bg-primary/90"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-full font-medium"
                   >
                     <Coins className="mr-2 h-4 w-4" />
                     Köp credits
@@ -119,7 +119,7 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
                   <Button
                     variant="outline"
                     onClick={onClose}
-                    className="h-11 w-full border-border/35 bg-secondary/50 text-foreground hover:bg-secondary/75"
+                    className="border-border/35 bg-secondary/50 text-foreground hover:bg-secondary/75 h-11 w-full"
                   >
                     Avbryt
                   </Button>
@@ -129,14 +129,14 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
                 <>
                   <Button
                     onClick={() => handleAuthClick("register")}
-                    className="h-11 w-full bg-primary text-primary-foreground font-medium hover:bg-primary/90"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 h-11 w-full font-medium"
                   >
                     Skapa gratis konto
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => handleAuthClick("login")}
-                    className="h-11 w-full border-border/35 bg-secondary/50 text-foreground hover:bg-secondary/75"
+                    className="border-border/35 bg-secondary/50 text-foreground hover:bg-secondary/75 h-11 w-full"
                   >
                     Har redan konto? Logga in
                   </Button>

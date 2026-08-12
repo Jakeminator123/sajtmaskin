@@ -1,23 +1,23 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "title": "Sajtmaskin model price table (USD per 1M tokens)",
   "description": "Canonical per-token price DATA (not just prose like 25-pricing.md). Read by scripts/db/generation-cost.mjs and the backoffice 'Generation Cost' page to turn logged token volumes into money. Prices are per 1,000,000 tokens in USD. Always re-verify against the provider pages before budget decisions — providers change prices.",
-  "verifiedAt": "2026-08-01",
+  "verifiedAt": "2026-08-12",
   "sources": [
     {
       "vendor": "OpenAI",
       "url": "https://developers.openai.com/api/docs/pricing",
-      "note": "Standard text-token rates and GPT-5.6 long-context uplift. Verified 2026-08-01."
+      "note": "Standard text-token rates, cache-write rates and GPT-5.6 long-context uplift. Verified 2026-08-12."
     },
     {
       "vendor": "OpenAI",
-      "url": "https://developers.openai.com/api/docs/models/gpt-5.5",
-      "note": ">272K input tokens => 2x input / 1.5x output for the whole session (standard/batch/flex)."
+      "url": "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+      "note": ">272K input tokens => 2x input / 1.5x output for the whole request; cache writes are 1.25x uncached input."
     },
     {
       "vendor": "Anthropic",
       "url": "https://platform.claude.com/docs/en/about-claude/models/overview",
-      "note": "Claude rates mirrored from config/ai_models/25-pricing.md (repo reference). Not re-verified live in this table."
+      "note": "Claude base and prompt-cache rates. Verified 2026-08-12."
     }
   ],
   "unit": "usd_per_1M_tokens",
@@ -26,7 +26,7 @@
     "note": "Approximate USD->SEK. Not a live rate. Adjust here (or in the backoffice UI) to reprice everything in SEK."
   },
   "notes": [
-    "cachedInput is the discounted rate for prompt-cache HITS. Sajtmaskin does not log cached_tokens today, so the cost tools treat ALL input as uncached (an upper bound). See BUG-SWARM-BACKLOG / prompt-cache follow-up.",
+    "cachedInput is the discounted rate for prompt-cache HITS; cacheWriteInput is the provider's cache-creation rate. Runtime logging stores both categories separately.",
     "Tiers: standard = default sync API. batch = Batch API (~50% off, async). flex = Flex processing (cheaper, slower). priority = Priority processing (premium latency).",
     "Codex-suffixed models (gpt-5.3-codex) are NOT on the public per-token pricing page and are billed via the Codex credit rate card; the value here is an ESTIMATE flagged with estimated:true.",
     "Regional processing (data residency) endpoints add a 10% uplift for models released on/after 2026-03-05 — not modeled here."
@@ -41,7 +41,7 @@
         "aboveMultiplier": { "input": 2, "output": 1.5 }
       },
       "tiers": {
-        "standard": { "input": 5, "cachedInput": 0.5, "output": 30 }
+        "standard": { "input": 5, "cachedInput": 0.5, "cacheWriteInput": 6.25, "output": 30 }
       }
     },
     "gpt-5.6-terra": {
@@ -53,7 +53,7 @@
         "aboveMultiplier": { "input": 2, "output": 1.5 }
       },
       "tiers": {
-        "standard": { "input": 2, "cachedInput": 0.2, "output": 12 }
+        "standard": { "input": 2.5, "cachedInput": 0.25, "cacheWriteInput": 3.125, "output": 15 }
       }
     },
     "gpt-5.6-luna": {
@@ -65,7 +65,7 @@
         "aboveMultiplier": { "input": 2, "output": 1.5 }
       },
       "tiers": {
-        "standard": { "input": 0.2, "cachedInput": 0.02, "output": 1.2 }
+        "standard": { "input": 1, "cachedInput": 0.1, "cacheWriteInput": 1.25, "output": 6 }
       }
     },
     "gpt-5.5": {
@@ -200,28 +200,27 @@
       "provider": "anthropic",
       "label": "Claude Opus 4.8",
       "match": ["claude-opus-4.8", "claude-opus-4-8"],
-      "sourceNote": "Från repo 25-pricing.md; ej live-verifierad här. Anthropic cachad-läsning ~0.1x input men modelleras ej (null).",
+      "sourceNote": "Verifierat mot Anthropic Models/Pricing 2026-08-12. Cache write avser standardens 5-minuterscache.",
       "tiers": {
-        "standard": { "input": 5, "cachedInput": null, "output": 25 }
+        "standard": { "input": 5, "cachedInput": 0.5, "cacheWriteInput": 6.25, "output": 25 }
       }
     },
     "claude-opus-4.6": {
       "provider": "anthropic",
       "label": "Claude Opus 4.6",
       "match": ["claude-opus-4.6", "claude-opus-4-6"],
-      "sourceNote": "Från repo 25-pricing.md; legacy.",
+      "sourceNote": "Legacy. Cache write avser standardens 5-minuterscache.",
       "tiers": {
-        "standard": { "input": 5, "cachedInput": null, "output": 25 }
+        "standard": { "input": 5, "cachedInput": 0.5, "cacheWriteInput": 6.25, "output": 25 }
       }
     },
     "claude-haiku-4-5": {
       "provider": "anthropic",
       "label": "Claude Haiku 4.5",
       "match": ["claude-haiku-4-5", "claude-haiku-4.5"],
-      "estimated": true,
-      "estimateNote": "Pris ej i repo-referensen; verifiera mot Anthropic innan du litar på kostnaden.",
+      "sourceNote": "Verifierat mot Anthropic Models/Pricing 2026-08-12. Cache write avser standardens 5-minuterscache.",
       "tiers": {
-        "standard": { "input": 1, "cachedInput": null, "output": 5 }
+        "standard": { "input": 1, "cachedInput": 0.1, "cacheWriteInput": 1.25, "output": 5 }
       }
     }
   }

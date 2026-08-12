@@ -5,14 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getOrCreateGuestUsage } from "@/lib/db/services/guests";
 import { isTestUser } from "@/lib/db/services/users";
-import {
-  getCreditCost,
-  type CreditAction,
-  type PricingContext,
-} from "@/lib/credits/pricing";
+import { getCreditCost, type CreditAction, type PricingContext } from "@/lib/credits/pricing";
 
 const VALID_ACTIONS = new Set<CreditAction>([
   "prompt.create",
@@ -59,7 +53,9 @@ export async function GET(req: NextRequest) {
     if (user) {
       // Admin/test users always have unlimited credits
       const isAdmin = isTestUser(user);
-      const canProceed = isAdmin || user.diamonds >= cost;
+      const isGenerationAction = action === "prompt.create" || action === "prompt.refine";
+      const usingFreeGeneration = !isAdmin && isGenerationAction && user.free_generation_available;
+      const canProceed = isAdmin || usingFreeGeneration || user.diamonds >= cost;
 
       return NextResponse.json({
         success: true,
@@ -68,63 +64,24 @@ export async function GET(req: NextRequest) {
         authenticated: true,
         balance: isAdmin ? 9999 : user.diamonds,
         cost: isAdmin ? 0 : cost,
+        freeGenerationAvailable: user.free_generation_available,
+        usingFreeGeneration,
       });
-    }
-
-    // Guest user - check usage limits
-    const sessionId = getSessionIdFromRequest(req);
-
-    if (!sessionId) {
-      return NextResponse.json({
-        success: true,
-        canProceed: true,
-        reason: null,
-        authenticated: false,
-        cost,
-        guest: {
-          generationsUsed: 0,
-          refinesUsed: 0,
-        },
-      });
-    }
-
-    const guestUsage = await getOrCreateGuestUsage(sessionId);
-
-    let canProceed = false;
-    let reason: string | null = null;
-    const guestAction =
-      action === "prompt.refine"
-        ? "refine"
-        : action.startsWith("prompt.")
-          ? "generate"
-          : null;
-
-    if (guestAction === "generate") {
-      canProceed = guestUsage.generations_used < 1;
-      if (!canProceed) {
-        reason = "Du har använt din gratis generation. Skapa ett konto för att fortsätta bygga!";
-      }
-    } else if (guestAction === "refine") {
-      canProceed = guestUsage.refines_used < 1;
-      if (!canProceed) {
-        reason = "Du har använt din gratis förfining. Skapa ett konto för att fortsätta förfina!";
-      }
-    } else {
-      canProceed = false;
-      reason = "Du måste vara inloggad för att fortsätta.";
     }
 
     return NextResponse.json({
       success: true,
-      canProceed,
-      reason,
+      canProceed: false,
+      reason:
+        "Skapa ett konto eller logga in för att fortsätta. Kontot får en kostnadsfri första generering.",
       authenticated: false,
       cost,
+      requiresAuth: true,
       guest: {
-        generationsUsed: guestUsage.generations_used,
-        refinesUsed: guestUsage.refines_used,
-        canGenerate: guestUsage.generations_used < 1,
-        canRefine: guestUsage.refines_used < 1,
+        generationsUsed: 0,
+        refinesUsed: 0,
+        canGenerate: false,
+        canRefine: false,
       },
     });
   } catch (error) {

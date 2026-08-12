@@ -134,6 +134,9 @@ export const serverSchema = z.object({
 
   // AI – Direct OpenAI (Responses API)
   OPENAI_API_KEY: z.string().optional(),
+  /** Server-only organization Admin key. Used exclusively by the admin-gated
+   *  Costs API reconciliation; never sent to the browser or generation path. */
+  OPENAI_ADMIN_KEY: z.string().optional(),
   /** Standard Webhooks-signeringssecret (whsec_…) för inkommande OpenAI
    *  plattforms-webhooks på POST /api/webhooks/openai (kvitton för
    *  background-/batch-jobb — inte pipelines synkrona anrop). */

@@ -265,8 +265,9 @@ async function promoteVersionWithRetry(
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
-  // Server-verify kan starta verifier/RepairGate i den här requesten; scopet ger
-  // deras tokenrader chat- och versionsägare.
+  // Quality-gaten är VM-baserad och gör inga LLM-anrop. Kontexten behåller
+  // ändå versionsägarskapet för observability och framtida deterministiska
+  // verifiersteg; en separat /repair-request äger eventuell betald RepairGate.
   return withRateLimit(req, "engine:quality-gate", () =>
     runWithLlmUsageContext({}, () => handlePOST(req, ctx)),
   );
@@ -286,12 +287,24 @@ async function handlePOST(req: Request, ctx: { params: Promise<{ chatId: string 
     }
 
     const { versionId, gate } = validation.data;
+    const usageOwnerId = await safeUsageOwnerId(() => getRequestUserId(req));
     setLlmUsageContext({
       chatId,
       versionId,
-      // Verifier/RepairGate startade härifrån ska attribueras som allt annat.
-      userId: await safeUsageOwnerId(() => getRequestUserId(req)),
+      // Behåll explicit ägare även om dagens quality-gate är helt deterministisk.
+      userId: usageOwnerId,
     });
+    if (!usageOwnerId || usageOwnerId.startsWith("guest:")) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Skapa ett konto eller logga in för att fortsätta bygga. Kontot får en kostnadsfri första generering.",
+          requiresAuth: true,
+        },
+        { status: 401 },
+      );
+    }
 
     const scopedVersion = await getEngineVersionForChatByIdForRequest(req, chatId, versionId);
     if (!scopedVersion) {

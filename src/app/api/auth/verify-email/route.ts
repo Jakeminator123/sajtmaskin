@@ -8,15 +8,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createTransaction, hasSignupBonusTransaction } from "@/lib/db/services/transactions";
 import {
   getUserByVerificationToken,
-  isAdminEmail,
   markEmailVerified,
 } from "@/lib/db/services/users";
 import { URLS } from "@/lib/config";
-
-const SIGNUP_BONUS_CREDITS = 50;
 
 export async function GET(req: NextRequest) {
   const appOrigin = URLS.baseUrl;
@@ -38,25 +34,6 @@ export async function GET(req: NextRequest) {
     }
 
     await markEmailVerified(user.id);
-
-    const shouldGrantSignupBonus =
-      user.provider === "email" && !isAdminEmail((user.email || "").toLowerCase());
-
-    if (shouldGrantSignupBonus) {
-      try {
-        const alreadyAwarded = await hasSignupBonusTransaction(user.id);
-        if (!alreadyAwarded) {
-          await createTransaction(
-            user.id,
-            "signup_bonus",
-            SIGNUP_BONUS_CREDITS,
-            "Välkomstbonus efter e-postverifiering",
-          );
-        }
-      } catch (bonusErr) {
-        console.error("[API/auth/verify-email] Failed to award signup bonus:", bonusErr);
-      }
-    }
 
     return NextResponse.redirect(`${appOrigin}/?verified=success`);
   } catch (error) {
