@@ -11,4 +11,6 @@ Inför inte nya svåra begrepp om ett befintligt ord räcker. Ändrar en term se
 
 Kodidentifierare, filnamn, telemetri-nycklar, event-typer, enum-värden och DB-strängar behåller sina legacy-namn — mappa i text i stället för att döpa om.
 
+**Viktig förväxling:** en importerad Template/ZIP/GitHub körs i **Importerat repo-läge**. Den importerade projektkontexten är Dynamic Context, inte builderns `Scaffold: Av`-basprojekt och inte en syntetisk Scaffold.
+
 **Signal-gate:** ny signal? Hitta canonical source först. Ändra ägaren, inte fem konsumenter.
