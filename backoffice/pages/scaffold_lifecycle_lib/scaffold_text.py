@@ -158,12 +158,22 @@ def _render_manifest_ts(
 
 
 def _upsert_scaffold_union_entry(text: str, scaffold_id: str) -> str:
-    if f'"{scaffold_id}"' in text:
-        return text
-    marker = "\n\nexport type ScaffoldMode ="
-    idx = text.find(marker)
-    if idx < 0:
+    marker = re.search(r"\r?\n\r?\nexport type ScaffoldMode\s*=", text)
+    if marker is None:
         raise ValueError("Could not locate ScaffoldId union terminator in types.ts.")
+    idx = marker.start()
+    union_start_matches = list(
+        re.finditer(r"^export type ScaffoldId\s*=", text[:idx], flags=re.MULTILINE)
+    )
+    if len(union_start_matches) != 1:
+        raise ValueError("Could not locate exactly one ScaffoldId union in types.ts.")
+    union_text = text[union_start_matches[0].start() : idx]
+    member_pattern = re.compile(
+        rf'^\s*\|\s*"{re.escape(_escape_ts_string(scaffold_id))}"\s*;?\s*$',
+        flags=re.MULTILINE,
+    )
+    if member_pattern.search(union_text):
+        return text
     prefix = text[:idx].rstrip()
     if prefix.endswith(";"):
         prefix = prefix[:-1]
@@ -174,10 +184,10 @@ def _upsert_scaffold_union_entry(text: str, scaffold_id: str) -> str:
 
 
 def _normalize_scaffold_union_semicolon(text: str) -> str:
-    marker = "\n\nexport type ScaffoldMode ="
-    idx = text.find(marker)
-    if idx < 0:
+    marker = re.search(r"\r?\n\r?\nexport type ScaffoldMode\s*=", text)
+    if marker is None:
         return text
+    idx = marker.start()
     prefix = text[:idx].rstrip()
     if not prefix.endswith(";"):
         prefix = prefix + ";"
@@ -188,6 +198,12 @@ def _normalize_scaffold_union_semicolon(text: str) -> str:
 
 def _types_path(ctx: BackofficeContext) -> Path:
     return ctx.scaffolds_dir / "types.ts"
+
+
+
+
+def _client_list_path(ctx: BackofficeContext) -> Path:
+    return ctx.scaffolds_dir / "scaffold-client-list.generated.ts"
 
 
 

@@ -4,6 +4,7 @@ import {
   isNearIdenticalParentSectionRect,
   isSameInsertionPoint,
   nearestInsertionPoint,
+  sectionZonesFromCode,
   type BridgeSectionCandidate,
   type SectionZone,
 } from "./sectionAnalyzer";
@@ -155,5 +156,33 @@ describe("isSameInsertionPoint", () => {
     expect(isSameInsertionPoint(null, null)).toBe(true);
     expect(isSameInsertionPoint(null, point)).toBe(false);
     expect(isSameInsertionPoint(point, null)).toBe(false);
+  });
+});
+
+describe("sectionZonesFromCode", () => {
+  it("builds named placement bands from homepage source", () => {
+    const code = `
+export default function Page() {
+  return (
+    <main>
+      <section className="hero-banner">Welcome</section>
+      <section className="features-grid">Items</section>
+      <footer className="site-footer">Bye</footer>
+    </main>
+  );
+}
+`;
+    const zones = sectionZonesFromCode(code);
+    expect(zones.length).toBeGreaterThanOrEqual(2);
+    expect(zones.some((z) => z.type === "hero")).toBe(true);
+    const mid = nearestInsertionPoint(40, zones);
+    expect(mid.placement.startsWith("after-")).toBe(true);
+    expect(mid.label.startsWith("Efter")).toBe(true);
+  });
+
+  it("returns empty when no sections are detectable", () => {
+    expect(sectionZonesFromCode("export default function Page() { return <main />; }")).toEqual(
+      [],
+    );
   });
 });

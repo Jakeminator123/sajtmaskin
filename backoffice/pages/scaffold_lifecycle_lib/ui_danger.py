@@ -210,9 +210,14 @@ def _render_dependency_report(report: dict[str, Any]) -> None:
             "action": "Rensas automatiskt",
         },
         {
-            "dependency": "types.ts union + client list",
+            "dependency": "types.ts-union + genererad klientlista",
             "status": _status_text(report["typesUnionPresent"] or report["clientListPresent"]),
-            "action": "Uppdateras automatiskt",
+            "action": (
+                "Uppdateras automatiskt"
+                if report.get("clientListStatus", "ok") == "ok"
+                else "Klientprojektionen regenereras vid radering "
+                f"(nu: {report.get('clientListStatus')})"
+            ),
         },
         {
             "dependency": "registry.ts imports + registry list",

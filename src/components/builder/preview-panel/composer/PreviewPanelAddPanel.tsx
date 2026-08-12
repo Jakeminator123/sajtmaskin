@@ -76,6 +76,12 @@ export function PreviewPanelAddPanel({
       className="flex w-[280px] shrink-0 flex-col border-r border-violet-900/50 bg-zinc-950/95"
       aria-label="Lägg till"
     >
+      <div className="border-b border-violet-900/40 px-3 py-2">
+        <p className="text-[11px] font-medium text-violet-100">Lägg till i sajten</p>
+        <p className="mt-0.5 text-[10px] leading-snug text-zinc-500">
+          Dra till previewn för placering, eller klicka och välj var det ska sitta.
+        </p>
+      </div>
       <div
         className="flex items-center gap-1 border-b border-violet-900/40 px-2 py-2"
         role="tablist"

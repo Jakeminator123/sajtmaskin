@@ -157,6 +157,7 @@ class CreateScaffoldTransactionTests(unittest.TestCase):
         )
         for filename in (
             "types.ts",
+            "scaffold-client-list.generated.ts",
             "registry.ts",
             "scaffold-embedding-locale.ts",
         ):
@@ -212,17 +213,25 @@ class CreateScaffoldTransactionTests(unittest.TestCase):
         )
         self.ctx = build_backoffice_context(self.root)
         self.types_path = self.scaffolds_dir / "types.ts"
+        self.client_list_path = self.scaffolds_dir / "scaffold-client-list.generated.ts"
         self.registry_path = self.scaffolds_dir / "registry.ts"
         self.locale_path = self.scaffolds_dir / "scaffold-embedding-locale.ts"
         self.original_bytes = {
             path: path.read_bytes()
             for path in (
                 self.types_path,
+                self.client_list_path,
                 self.registry_path,
                 self.locale_path,
                 self.schema_path,
             )
         }
+        generator_patcher = patch(
+            "backoffice.pages.scaffold_lifecycle_lib.client_projection."
+            "regenerate_scaffold_client_projection"
+        )
+        self.generator_mock = generator_patcher.start()
+        self.addCleanup(generator_patcher.stop)
 
     def _create(self, scaffold_id: str) -> None:
         sl._create_scaffold(
@@ -253,7 +262,8 @@ class CreateScaffoldTransactionTests(unittest.TestCase):
             self.assertTrue((new_scaffold_dir / "manifest.ts").is_file())
             self.assertTrue((new_scaffold_dir / "files" / "app" / "page.tsx").is_file())
             for path in self.original_bytes:
-                self.assertIn(scaffold_id, path.read_text(encoding="utf-8"))
+                if path != self.client_list_path:
+                    self.assertIn(scaffold_id, path.read_text(encoding="utf-8"))
             self.assertEqual(payload["sourceTemplateIds"], self.source_template_ids)
             return ["forced runtime/addendum reference failure"]
 
@@ -388,7 +398,8 @@ class CreateScaffoldTransactionTests(unittest.TestCase):
             self.assertTrue(variant_path.is_file())
             self.assertTrue((new_scaffold_dir / "manifest.ts").is_file())
             for control_path in self.original_bytes:
-                self.assertIn(scaffold_id, control_path.read_text(encoding="utf-8"))
+                if control_path != self.client_list_path:
+                    self.assertIn(scaffold_id, control_path.read_text(encoding="utf-8"))
             raise OSError("forced post-write starter failure")
 
         with (
