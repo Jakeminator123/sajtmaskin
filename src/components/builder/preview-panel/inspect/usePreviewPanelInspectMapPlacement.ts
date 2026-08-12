@@ -214,6 +214,8 @@ export function usePreviewPanelInspectMapPlacement(options: {
   );
   // Live inspect/bridge vinner; kodbaserad fallback gör att drag/placement
   // fortfarande kan erbjuda "Efter Hero" när preview-zoner saknas.
+  const sectionZonesApproximate =
+    liveSectionZones.length === 0 && codeSectionZones.length > 0;
   const sectionZones = useMemo(
     () => (liveSectionZones.length > 0 ? liveSectionZones : codeSectionZones),
     [liveSectionZones, codeSectionZones],
@@ -421,6 +423,7 @@ export function usePreviewPanelInspectMapPlacement(options: {
     setHoveredPlacement,
     handleToggleInspect,
     sectionZones,
+    sectionZonesApproximate,
     applyBridgeSectionCandidates,
     handlePlacementMouseMove,
     handlePlacementClick,

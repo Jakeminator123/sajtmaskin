@@ -91,6 +91,32 @@ describe("tryInsertPageBlockIntoHomePage", () => {
     expect(r.ok).toBe(false);
   });
 
+  it("fails closed when the hero is behind a conditional expression", () => {
+    const page = `export default function Page() {
+  return (
+    <main>
+      {showHero && <HeroSection title="Hi" />}
+      <section className="features">More</section>
+    </main>
+  );
+}
+`;
+    expect(tryInsertPageBlockIntoHomePage(page, snippet, "after-hero").ok).toBe(false);
+  });
+
+  it("ignores commented-out hero markup", () => {
+    const page = `export default function Page() {
+  return (
+    <main>
+      {/* <section className="hero">Old</section> */}
+      <section className="features">More</section>
+    </main>
+  );
+}
+`;
+    expect(tryInsertPageBlockIntoHomePage(page, snippet, "after-hero").ok).toBe(false);
+  });
+
   it("prefers the section host over a nested hero-card child", () => {
     const page = `export default function Page() {
   return (

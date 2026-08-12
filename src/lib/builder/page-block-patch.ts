@@ -55,6 +55,31 @@ function isSelfClosingTag(tag: string, slash: string): boolean {
 }
 
 /**
+ * Mask comments so regex matching cannot latch onto commented-out JSX.
+ * Replaces comment bodies with spaces to preserve indices.
+ */
+export function maskJsxCommentsForScan(source: string): string {
+  return source
+    .replace(/\{\/\*[\s\S]*?\*\//g, (m) => " ".repeat(m.length))
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => " ".repeat(m.length))
+    .replace(/(^|[^:])\/\/[^\n]*/g, (m) => " ".repeat(m.length));
+}
+
+function looksLikeConditionalJsxHost(source: string, openStart: number, end: number): boolean {
+  const before = source.slice(Math.max(0, openStart - 48), openStart);
+  if (/(&&|\|\||\?\s*$|\?\s*<)/.test(before.replace(/\s+/g, " "))) return true;
+  // Ternary / logical before the tag: `{cond && <Hero` or `{cond ? <Hero`
+  if (/[{(]\s*(?:[\w.?!"'`]+|\([^)]*\))\s*(&&|\|\||\?)\s*$/.test(before.replace(/\n/g, " "))) {
+    return true;
+  }
+  const after = source.slice(end, Math.min(source.length, end + 24));
+  // Closing the expression right after the host: `<Hero />}` / `<Hero></Hero> )`
+  if (/^\s*[})]/.test(after)) return true;
+  if (/^\s*:/.test(after)) return true;
+  return false;
+}
+
+/**
  * Hitta slutindex (exklusivt) för det bästa JSX-elementet vars öppningstag
  * matchar sektionstypen. Fail-closed: returnerar null vid tvetydighet.
  */
@@ -62,12 +87,14 @@ function findSectionEndIndex(pageContent: string, sectionType: string): number |
   const markers = AFTER_SECTION_MARKERS[sectionType];
   if (!markers || markers.length === 0) return null;
 
+  const scan = maskJsxCommentsForScan(pageContent);
+
   type Candidate = { score: number; end: number; openStart: number };
   const candidates: Candidate[] = [];
 
   const openRe = /<([A-Za-z][\w.-]*)\b([^>]*)(\/?)>/g;
   let match: RegExpExecArray | null;
-  while ((match = openRe.exec(pageContent)) !== null) {
+  while ((match = openRe.exec(scan)) !== null) {
     const tag = match[1];
     const rawAttrs = match[2] ?? "";
     const selfClosing =
@@ -91,13 +118,18 @@ function findSectionEndIndex(pageContent: string, sectionType: string): number |
 
     const openStart = match.index;
     const openEnd = openRe.lastIndex;
+    let end: number;
     if (selfClosing) {
-      candidates.push({ score, end: openEnd, openStart });
-      continue;
+      end = openEnd;
+    } else {
+      const closed = findMatchingCloseEnd(scan, tag, openEnd);
+      if (closed == null) continue;
+      end = closed;
     }
 
-    const end = findMatchingCloseEnd(pageContent, tag, openEnd);
-    if (end == null) continue;
+    // Conditional/ternary hosts must go to AI — inserting siblings breaks JSX.
+    if (looksLikeConditionalJsxHost(scan, openStart, end)) continue;
+
     candidates.push({ score, end, openStart });
   }
 
@@ -131,7 +163,11 @@ function findMatchingCloseEnd(
     if (!nextClose) return null;
 
     if (nextOpen && nextOpen.index < nextClose.index) {
-      const innerSelfClosing = isSelfClosingTag(tag, nextOpen[2] ?? "");
+      const rawAttrs = nextOpen[1] ?? "";
+      const innerSelfClosing =
+        Boolean(nextOpen[2]) ||
+        /\/\s*$/.test(rawAttrs) ||
+        isSelfClosingTag(tag, "");
       cursor = openToken.lastIndex;
       if (!innerSelfClosing) depth += 1;
       continue;
