@@ -320,8 +320,14 @@ scratch-*.json
 docs/plans/**/*.run.log.jsonl
 docs/plans/**/run.log.jsonl
 
-# Local agent tooling (Cursor skills symlink) — never deployed, keep out of git
-.agents/
+# Agent-local state is ignored; explicit repo skills may be tracked below.
+# Godnatt-bugg is a project capability, not a deployed application asset.
+!.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/godnatt-bugg/
+!.agents/skills/godnatt-bugg/**
 
 .vercel
 
