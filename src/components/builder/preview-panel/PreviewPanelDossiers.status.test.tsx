@@ -262,6 +262,52 @@ describe("PreviewPanelDossiers status", () => {
     expect(screen.queryByText(/Kör "Bygg integrationer" igen/)).toBeNull();
   });
 
+  it("does not treat optional unset env keys as required for live", async () => {
+    stubFetch({
+      wired: wiredResponse({
+        counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
+        dossiers: [
+          {
+            id: "openai-chat",
+            label: "OpenAI Chat",
+            class: "hard",
+            capability: "ai-chat",
+            summary: "Chat with OpenAI.",
+            complexity: "medium",
+            requiresF3: true,
+            configured: false,
+            dependencies: [],
+            envVars: [
+              {
+                key: "OPENAI_ORG_ID",
+                required: false,
+                enforcement: "feature-runtime",
+                purpose: "Optional org scoping.",
+                hasRealValue: false,
+                placeholderCovered: false,
+              },
+            ],
+            status: "built-demo",
+            missingKeys: [],
+            missingLiveKeys: [],
+            lastVerified: "2026-01-01",
+          },
+        ],
+      }),
+    });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    fireEvent.click(await screen.findByText("OpenAI Chat"));
+    expect(screen.queryByText(/Lägg till OPENAI_ORG_ID/)).toBeNull();
+    expect(
+      screen.getByText(/runtime-nyckel saknas|serverkod inte påvisad/i),
+    ).toBeTruthy();
+  });
+
   // Owner decision 2026-07-13 (replaces the old catalog/status-only lock):
   // opening with env-key detail FOCUSES the dossier owning those keys and the
   // expanded row carries a masked write-only input for each missing key.
