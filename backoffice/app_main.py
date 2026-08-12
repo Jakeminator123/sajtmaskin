@@ -14,6 +14,8 @@ from backoffice.shared import (
     render_where_panel,
 )
 
+_APP_TITLE = "Sajtmaskin Backoffice"
+
 
 def _page_from_nav_query() -> str | None:
     try:
@@ -32,15 +34,10 @@ def _page_from_nav_query() -> str | None:
         return None
 
 
-def run_backoffice_app(
-    *,
-    title: str = "Sajtmaskin Backoffice",
-    legacy_source: str | None = None,
-    initial_page: str | None = None,
-) -> None:
+def run_backoffice_app() -> None:
     ensure_utf8_stdio()
     st.set_page_config(
-        page_title=title,
+        page_title=_APP_TITLE,
         page_icon="⚙",
         layout="wide",
         initial_sidebar_state="expanded",
@@ -72,9 +69,7 @@ def run_backoffice_app(
     domain_map = load_domain_map(str(ctx.domain_map_json))
 
     if "backoffice_nav" not in st.session_state:
-        st.session_state["backoffice_nav"] = (
-            _page_from_nav_query() or initial_page or PAGE_NAMES[0]
-        )
+        st.session_state["backoffice_nav"] = _page_from_nav_query() or PAGE_NAMES[0]
 
     current_spec = PAGE_MAP.get(st.session_state["backoffice_nav"], PAGE_MAP[PAGE_NAMES[0]])
     current_group = current_spec.group
@@ -133,11 +128,7 @@ def run_backoffice_app(
             st.cache_data.clear()
             st.rerun()
 
-    st.title(title)
-    if legacy_source:
-        st.info(
-            f"Detta är den konsoliderade backoffice-appen. Du öppnade den via legacy-entrypointen `{legacy_source}`."
-        )
+    st.title(_APP_TITLE)
     spec = PAGE_MAP[page]
     st.caption(f"Område: **{spec.group}** · {MODE_BADGES.get(spec.mode, ('', ''))[0]} {spec.mode}")
     page_summary = ((domain_map.get("pages") or {}).get(page) or {}).get("summary")

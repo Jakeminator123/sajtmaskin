@@ -37,7 +37,7 @@ def main() -> None:
     # backoffice, so it wins over any stale/conflicting OS-level OPENAI_API_KEY
     # (etc.) already set at User/Machine scope on the host.
     load_dotenv(".env.local", override=True)
-    run_backoffice_app(title="Sajtmaskin Backoffice")
+    run_backoffice_app()
 
 
 def _running_under_streamlit() -> bool:
