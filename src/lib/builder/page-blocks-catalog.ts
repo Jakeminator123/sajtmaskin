@@ -1,7 +1,6 @@
 /**
  * Page blocks catalog — generella sajtsektioner för Visual Composer.
  *
- * **Inte** samma sak som `ai-elements-catalog.ts` (AI-UI-primitives för chatt/preview-ytor).
  * Composer använder dessa block för drag-and-drop mot startsidan.
  */
 
