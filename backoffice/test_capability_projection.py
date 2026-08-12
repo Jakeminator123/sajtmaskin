@@ -45,6 +45,8 @@ class LoadGroupViewTests(unittest.TestCase):
 
         payloads = (
             "{ not json",
+            "null",
+            "[]",
             json.dumps({}),
             json.dumps({"groups": None}),
             json.dumps({"groups": []}),

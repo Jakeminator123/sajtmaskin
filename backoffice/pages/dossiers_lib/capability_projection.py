@@ -28,6 +28,8 @@ def _load_group_view(capability_map_path: Path) -> dict[str, Any]:
         data = json.loads(capability_map_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return {}
+    if not isinstance(data, dict):
+        return {}
     groups = data.get("groups")
     return groups if isinstance(groups, dict) else {}
 
