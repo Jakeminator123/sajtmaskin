@@ -543,11 +543,12 @@ export function releaseLease(state, { token, reason, now }) {
 }
 
 function hasAcceptedCurrentReview(current) {
-  return current.reviewPasses.some(
-    (review) =>
-      review.sha === current.headSha &&
-      (review.verdict === "clean" || review.verdict === "findings-fixed"),
-  );
+  for (let index = current.reviewPasses.length - 1; index >= 0; index -= 1) {
+    const review = current.reviewPasses[index];
+    if (review.sha !== current.headSha) continue;
+    return review.verdict === "clean" || review.verdict === "findings-fixed";
+  }
+  return false;
 }
 
 function validateStageEvidence(current, mode) {
@@ -566,6 +567,9 @@ function validateStageEvidence(current, mode) {
     }
     if (!SHA_PATTERN.test(current.headSha ?? "")) {
       throw new RunStateError("draft-pr kräver en exakt 40-teckens head-SHA.");
+    }
+    if (mode === "pilot" && current.isDraft !== true) {
+      throw new RunStateError("Pilot draft-pr kräver verifierat is-draft=true.", 8);
     }
     if (mode === "evaluation") {
       if (
@@ -618,10 +622,9 @@ export function assertWorktreeBinding(state, cwd) {
   }
 }
 
-function normalizeFsPath(path) {
-  return resolve(path)
-    .replace(/[\\/]+$/u, "")
-    .toLowerCase();
+export function normalizeFsPath(path, platform = process.platform) {
+  const normalized = resolve(path).replace(/[\\/]+$/u, "");
+  return platform === "win32" ? normalized.toLowerCase() : normalized;
 }
 
 function assertRunnableState(state) {

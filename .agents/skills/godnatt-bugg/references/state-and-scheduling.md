@@ -56,7 +56,7 @@ worktree och senaste state:
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs queue
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs claim --token TOKEN --sm-id SM-022
 
-Flytta exakt ett stage i taget:
+Flytta exakt ett stage i taget i full mode:
 
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name verified
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name investigated
@@ -69,6 +69,11 @@ Flytta exakt ett stage i taget:
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name ready-to-merge
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name merged --merge-sha 40_HEX_MERGE_SHA
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name cleanup
+
+Pilot registrerar samma PR först efter GitHub-verifiering att den fortfarande
+är draft och stannar därefter vid `draft-pr`:
+
+    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name draft-pr --pr 123 --sha 40_HEX_HEAD_SHA --is-draft true
 
 Evaluation registrerar draft/adminspärren på draft-pr-staget och stannar där:
 

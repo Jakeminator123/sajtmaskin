@@ -193,12 +193,17 @@ Commitera avsiktligt, pusha och skapa draft-PR mot master. Sätt backloggradens
 PR-referens och gör same-PR-arkivering enligt BUG-SWARM-BACKLOG.md. Fixed-raden
 lämnar bara Aktiv kö genom PR:n som faktiskt mergas.
 
-Registrera PR och exakt 40-teckens head-SHA:
+I full mode, registrera PR och exakt 40-teckens head-SHA:
 
     node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name draft-pr --pr PR --sha FULL_HEAD_SHA
 
-I pilot: pausa här, pausa automationen och visa PR, run-id samt promotionCode.
-State tillåter inte nästa stage utan giltig capability-promotion.
+I pilot: verifiera via GitHub att PR:n är draft och registrera beviset explicit:
+
+    node .agents/skills/godnatt-bugg/scripts/run-state.mjs stage --token TOKEN --name draft-pr --pr PR --sha FULL_HEAD_SHA --is-draft true
+
+Pausa sedan här, pausa automationen och visa PR, run-id samt promotionCode.
+State tillåter inte nästa stage utan verifierat draft-bevis och giltig
+capability-promotion.
 
 I evaluation: verifiera via GitHub att PR:n är draft och att titel/body har de
 exakta adminmarkörerna. Registrera därefter spärrarna tillsammans med PR/SHA:

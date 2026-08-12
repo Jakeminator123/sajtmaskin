@@ -17,6 +17,7 @@ import {
   claimCandidate,
   completePass,
   createRunState,
+  normalizeFsPath,
   parseActiveQueue,
   pauseRun,
   promoteRun,
@@ -119,7 +120,7 @@ function advanceToDraft(
       now,
     });
   }
-  const evaluationMetadata =
+  const draftMetadata =
     state.mode === "evaluation"
       ? {
           isDraft: true,
@@ -129,11 +130,13 @@ function advanceToDraft(
           prBodyMarker: EVALUATION_BODY_MARKER,
           blockingLabel: "do-not-merge",
         }
-      : {};
+      : state.mode === "pilot"
+        ? { isDraft: true }
+        : {};
   return advanceStage(state, {
     token,
     stage: "draft-pr",
-    metadata: { prNumber, headSha, ...evaluationMetadata },
+    metadata: { prNumber, headSha, ...draftMetadata },
     now,
   });
 }
@@ -413,6 +416,32 @@ describe("pass state machine", () => {
     );
   });
 
+  it("requires verified draft evidence for pilot PRs", () => {
+    let state = claimed(acquired(pilot()));
+    for (const stage of ["verified", "investigated"]) {
+      state = advanceStage(state, { token: "token-1", stage, now: LATER });
+    }
+    state = advanceStage(state, {
+      token: "token-1",
+      stage: "worktree-ready",
+      metadata: { branch: "fix/sm-022-safe-cleanup", worktree: PASS_WORKTREE },
+      now: LATER,
+    });
+    state = advanceStage(state, { token: "token-1", stage: "implemented", now: LATER });
+    state = advanceStage(state, { token: "token-1", stage: "reviewed", now: LATER });
+
+    assert.throws(
+      () =>
+        advanceStage(state, {
+          token: "token-1",
+          stage: "draft-pr",
+          metadata: { prNumber: 123, headSha: HEAD_SHA, isDraft: false },
+          now: LATER,
+        }),
+      /Pilot draft-pr kräver verifierat is-draft=true/u,
+    );
+  });
+
   it("requires a current-SHA review and caps PR review passes at three", () => {
     let state = advanceToDraft(claimed());
     state = advanceStage(state, { token: "token-1", stage: "ci-review", now: LATER });
@@ -635,6 +664,52 @@ describe("pass state machine", () => {
     );
   });
 
+  it("uses the latest current-SHA review verdict for merge eligibility", () => {
+    let state = advanceToDraft(claimed());
+    state = advanceStage(state, { token: "token-1", stage: "ci-review", now: LATER });
+    state = recordReviewPass(state, {
+      token: "token-1",
+      source: "codex",
+      verdict: "clean",
+      sha: HEAD_SHA,
+      now: LATER,
+    });
+    state = recordReviewPass(state, {
+      token: "token-1",
+      source: "pr-ai-review",
+      verdict: "blocked",
+      sha: HEAD_SHA,
+      note: "senare fynd",
+      now: LATER,
+    });
+    assert.throws(
+      () =>
+        advanceStage(state, {
+          token: "token-1",
+          stage: "ready-to-merge",
+          now: LATER,
+        }),
+      /godkänd review för exakt aktuell head-SHA/u,
+    );
+
+    state = recordReviewPass(state, {
+      token: "token-1",
+      source: "bugbot-local",
+      verdict: "findings-fixed",
+      sha: HEAD_SHA,
+      note: "senaste fynd åtgärdade",
+      now: LATER,
+    });
+    assert.equal(
+      advanceStage(state, {
+        token: "token-1",
+        stage: "ready-to-merge",
+        now: LATER,
+      }).current.stage,
+      "ready-to-merge",
+    );
+  });
+
   it("does not decrement remaining when a candidate is skipped", () => {
     const state = skipCandidate(claimed(), {
       token: "token-1",
@@ -669,6 +744,14 @@ describe("pass state machine", () => {
     assert.throws(
       () => assertWorktreeBinding(state, resolve("ett-annat-worktree")),
       /bunden till ett annat app-worktree/u,
+    );
+  });
+
+  it("preserves case on case-sensitive systems but folds it on Windows", () => {
+    assert.notEqual(normalizeFsPath("/repo/Task", "linux"), normalizeFsPath("/repo/task", "linux"));
+    assert.equal(
+      normalizeFsPath("C:/Repo/Task", "win32"),
+      normalizeFsPath("c:/repo/task", "win32"),
     );
   });
 });
