@@ -525,6 +525,60 @@ os._exit(90)
         self.assertEqual(tree_bytes(primary_dir), primary_before)
         self.assertEqual(successor.read_bytes(), successor_before)
 
+    def test_partial_quarantine_delete_surfaces_journal_recovery_failure(self) -> None:
+        """Recovery/journal failure must not claim byte-exact rollback success."""
+        import shutil
+
+        from backoffice.pages.dossiers_lib import io as dossiers_io
+
+        self._write_hard_manifest("acme-cms", capability="cms", is_default=True)
+        successor = self._write_hard_manifest(
+            "beta-cms", capability="cms", is_default=False
+        )
+        self._write_hard_manifest("gamma-cms", capability="cms", is_default=False)
+        original_rmtree = shutil.rmtree
+
+        def partially_delete_then_fail(
+            path: object, *args: object, **kwargs: object
+        ) -> None:
+            target = Path(path)  # type: ignore[arg-type]
+            if ".backoffice-delete-" in target.name:
+                next(
+                    candidate for candidate in target.rglob("*") if candidate.is_file()
+                ).unlink()
+                raise OSError("simulerad partiell quarantine-radering")
+            original_rmtree(path, *args, **kwargs)  # type: ignore[arg-type]
+
+        recover_calls = {"n": 0}
+
+        def recover_then_fail_journal() -> tuple[bool, str]:
+            # Call 1: mutation-lock decorator startup recovery must succeed.
+            recover_calls["n"] += 1
+            if recover_calls["n"] == 1:
+                return True, ""
+            return False, "journal clear failed"
+
+        with (
+            mock.patch(
+                "backoffice.pages.dossiers_lib.io.shutil.rmtree",
+                partially_delete_then_fail,
+            ),
+            mock.patch.object(
+                dossiers_io,
+                "_recover_pending_default_transaction_locked",
+                side_effect=recover_then_fail_journal,
+            ),
+        ):
+            ok, msg = dossiers_page._delete_dossier_dir(
+                self._chosen(), replacement_default_path=successor
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("ofullständig", msg)
+        self.assertIn("journal clear failed", msg)
+        self.assertNotIn("byte-exakt", msg)
+        self.assertGreaterEqual(recover_calls["n"], 2)
+
     def test_rename_keyboard_interrupt_rolls_back_then_reraises(self) -> None:
         primary = self._write_hard_manifest(
             "acme-cms", capability="cms", is_default=True

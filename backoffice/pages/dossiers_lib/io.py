@@ -2543,11 +2543,13 @@ def _delete_dossier_dir(
                     "Rollbacken blev ofullständig: " + "; ".join(rollback_errors)
                 )
             raise
-        if successor_rollback_error or primary_rollback_error:
+        # Include recovery/journal failures — not only primary/successor restore.
+        # Otherwise a pending journal can remain while we claim byte-exact success,
+        # and the next dossiers page load hard-stops mutations via startup recovery.
+        if rollback_errors:
             return False, (
                 f"Quarantine-raderingen misslyckades ({exc}) och rollbacken blev "
-                f"ofullständig (successor={successor_rollback_error}, "
-                f"primär={primary_rollback_error}). Återställ från backup."
+                f"ofullständig ({'; '.join(rollback_errors)}). Återställ från backup."
             )
         return False, (
             f"Quarantine-raderingen misslyckades ({exc}) — live-trädet och "
