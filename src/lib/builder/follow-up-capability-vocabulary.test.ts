@@ -14,9 +14,10 @@ import { CAPABILITY_VOCABULARY } from "./follow-up-capability-vocabulary";
  * injecting no dossier at runtime.
  *
  * Read through the registry (the same walk runtime does), NOT through
- * `_index/capability-map.json`: that generated view has no freshness gate, so
- * a just-renamed capability could keep this test green while selection found
- * nothing.
+ * `_index/capability-map.json`: CI keeps that generated Backoffice/tooling view
+ * fresh, but manifests remain the runtime owner. Testing the live registry
+ * keeps this guarantee attached to the executable source rather than a
+ * projection.
  */
 const liveCapabilityIds = new Set(getAllDossiers().map((entry) => entry.capability));
 

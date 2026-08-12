@@ -943,7 +943,7 @@ def render(ctx: BackofficeContext) -> None:
     inspiration_lookup, inspiration_sources = _load_inspiration_lookup(ctx)
     runtime_dossier_counts = _count_runtime_dossiers(ctx)
 
-    st.header("Scaffolds & varianter: skapa, klona, ta bort")
+    st.header(PAGE_NAME)
     render_building_blocks_nav(PAGE_NAME)
     st.markdown(
         "Här skapar och klonar du **scaffolds** (startpunkter) och **varianter** "

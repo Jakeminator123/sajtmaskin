@@ -85,13 +85,13 @@ def _render_tree_view(
 
     if unresolved_links:
         with st.expander(
-            f"Oupplösta sourceTemplateIds ({len(unresolved_links)}) — legacy-etiketter, ofarliga",
+            f"Oupplösta sourceTemplateIds ({len(unresolved_links)}) — måste åtgärdas",
             expanded=False,
         ):
             st.caption(
-                "Id:n som varken finns i Blob-manifestet eller i en lokal legacy-katalog. "
-                "De påverkar inte runtime (bara en textrad i prompten) och kan bytas ut mot "
-                "Blob-id:n via **Guide** när varianten ändå uppdateras."
+                "Id:n som inte finns i Blob-manifestet kan inte väljas som "
+                "runtime-inspiration och fälls av integritetsgrinden. Byt dem mot "
+                "giltiga Blob-id:n via **Guide** innan varianten sparas."
             )
             for template_id in unresolved_links:
                 st.markdown(f"- `{template_id}`")

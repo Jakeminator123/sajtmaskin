@@ -124,24 +124,24 @@
       "id": "scaffold-variant-schema",
       "sourceOfTruth": "docs/schemas/strict/scaffold-variant.schema.json",
       "type": "schema",
-      "validator": null,
-      "ciStatus": "none",
+      "validator": "backoffice:test",
+      "ciStatus": "hard",
       "runtimeEnforced": false,
       "runtimeStatus": "n/a",
       "backoffice": {
-        "surface": null,
+        "surface": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
         "editable": false,
         "writePath": null,
         "danger": "low"
       },
       "mobility": "safe",
-      "notes": "editor $schema only; runtime hand-parses variants in scaffold-variants/registry.ts."
+      "notes": "Backoffice create/edit validates before save and backoffice:test validates every committed variant against this schema; runtime separately hand-parses variants in scaffold-variants/registry.ts."
     },
     {
       "id": "domain-rules-schema",
       "sourceOfTruth": "docs/schemas/strict/domain-rules.schema.json",
       "type": "schema",
-      "validator": "control-plane:check",
+      "validator": "backoffice:test",
       "ciStatus": "hard",
       "runtimeEnforced": false,
       "runtimeStatus": "n/a",
@@ -158,7 +158,7 @@
       "id": "prompt-heuristic-tokens-schema",
       "sourceOfTruth": "docs/schemas/strict/prompt-heuristic-tokens.schema.json",
       "type": "schema",
-      "validator": "control-plane:check",
+      "validator": "backoffice:test",
       "ciStatus": "hard",
       "runtimeEnforced": false,
       "runtimeStatus": "n/a",
@@ -206,8 +206,25 @@
       "notes": "TS scaffold manifests; structurally validated by scaffold-manifest-validation.test.ts."
     },
     {
-      "id": "telemetry-strict-schemas",
+      "id": "strict-schema-catalog",
       "sourceOfTruth": "docs/schemas/strict/*.schema.json",
+      "type": "schema",
+      "validator": null,
+      "ciStatus": "none",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "Catalog/coverage entry only. Exact schema entries own validator attribution; the glob also contains forward declarations and preview-session-contract, which is a machine-readable spec rather than JSON Schema."
+    },
+    {
+      "id": "db-health-report-schema",
+      "sourceOfTruth": "docs/schemas/strict/db-health-check-report.schema.json",
       "type": "schema",
       "validator": "test:ci",
       "ciStatus": "hard",
@@ -220,7 +237,143 @@
         "danger": "low"
       },
       "mobility": "safe",
-      "notes": "telemetry/health JSON-schema contracts asserted by health-schemas.test.ts + llm-telemetry-schemas.test.ts; some are forward-declared (no emitter yet)."
+      "notes": "AJV fixture validation in src/lib/db/health-schemas.test.ts; no live database validation in CI."
+    },
+    {
+      "id": "redis-health-report-schema",
+      "sourceOfTruth": "docs/schemas/strict/redis-health-check-report.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "AJV fixture validation in src/lib/db/health-schemas.test.ts; no live Redis validation in CI."
+    },
+    {
+      "id": "db-performance-audit-line-schema",
+      "sourceOfTruth": "docs/schemas/strict/db-perf-indexes-audit-line.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "AJV fixture validation in src/lib/db/health-schemas.test.ts; emitted NDJSON lines are not runtime-validated."
+    },
+    {
+      "id": "llm-fixer-aborted-telemetry-schema",
+      "sourceOfTruth": "docs/schemas/strict/llm-fixer-aborted.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "AJV payload fixtures in src/lib/logging/llm-telemetry-schemas.test.ts; observability-only, not runtime-validated."
+    },
+    {
+      "id": "dossier-verbatim-restored-telemetry-schema",
+      "sourceOfTruth": "docs/schemas/strict/dossier-verbatim-restored.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "AJV payload fixtures in src/lib/logging/llm-telemetry-schemas.test.ts; observability-only, not runtime-validated."
+    },
+    {
+      "id": "llm-fixer-partial-response-telemetry-schema",
+      "sourceOfTruth": "docs/schemas/strict/llm-fixer-partial-response.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "AJV payload fixtures in src/lib/logging/llm-telemetry-schemas.test.ts; observability-only, not runtime-validated."
+    },
+    {
+      "id": "site-aborted-telemetry-schema",
+      "sourceOfTruth": "docs/schemas/strict/site-aborted.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "AJV payload fixtures in src/lib/logging/llm-telemetry-schemas.test.ts; observability-only, not runtime-validated."
+    },
+    {
+      "id": "site-done-telemetry-schema",
+      "sourceOfTruth": "docs/schemas/strict/site-done-telemetry.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "AJV payload fixtures in src/lib/logging/llm-telemetry-schemas.test.ts; observability-only, not runtime-validated."
+    },
+    {
+      "id": "product-postcheck-telemetry-schema",
+      "sourceOfTruth": "docs/schemas/strict/product-postcheck.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "AJV payload fixtures in src/lib/logging/llm-telemetry-schemas.test.ts; observability-only, not runtime-validated."
     },
     {
       "id": "integration-manifest-schema",

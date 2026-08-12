@@ -5,8 +5,9 @@
  *
  * The mapping below is hand-curated: each variant gets the Blob templates that
  * best match its visual direction (category + title + variant motif).
- * `sourceTemplateIds` stays a provenance label (no runtime join) — this just
- * makes the label truthful and resolvable in backoffice.
+ * Runtime resolves `sourceTemplateIds` against that Blob manifest and selects
+ * at most one eligible inspiration template. This remap keeps those candidates
+ * truthful and resolvable in both runtime and backoffice.
  *
  * Usage: node scripts/scaffolds/remap-variant-source-templates.mjs
  */

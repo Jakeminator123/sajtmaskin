@@ -34,7 +34,7 @@ from backoffice.shared import (
 EXPECTED_BUILDING_BLOCK_ORDER = (
     "Byggstenar: översikt",
     "Scaffolds: titta & justera",
-    "Scaffolds & varianter: skapa, klona, ta bort",
+    "Scaffolds & varianter: skapa, redigera, klona, ta bort",
     "Guide: ny scaffold eller variant (AI)",
     "Byggblock (dossiers)",
     "Mallar (v0): inspiration & uppladdning",
@@ -44,6 +44,7 @@ EXPECTED_BUILDING_BLOCK_ORDER = (
 LEGACY_NAV_KEYS = (
     "Scaffolds",
     "Scaffold Lifecycle",
+    "Scaffolds & varianter: skapa, klona, ta bort",
     "Scaffold Wizard",
     "Dossiers (legoklossar)",
     "Mallar → Blob-upload",

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-PAGE_NAME = "Scaffolds & varianter: skapa, klona, ta bort"
+PAGE_NAME = "Scaffolds & varianter: skapa, redigera, klona, ta bort"
 
 
 

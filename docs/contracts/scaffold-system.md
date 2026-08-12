@@ -1,26 +1,19 @@
 # Scaffold-systemet
 
-**Senast uppdaterad:** 2026-08-01 (30 variants; en allowlistad Blob-template kan användas som init-inspiration). **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
+**Senast uppdaterad:** 2026-08-11. **Kod är source of truth** (`src/lib/gen/scaffolds/`, `config/scaffold-variants/`, `data/dossiers/`).
 
 Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar med dossiers. Rent kontrakt finns i [`../schemas/scaffold-contract.md`](../schemas/scaffold-contract.md).
 
 ---
 
-## 1. De nio scaffolds — översikt
+## 1. Aktuell scaffold- och variantkatalog
 
-| ID | Label | siteKind | complexity | allowedBuildIntents | Variants | Default-variant |
-|---|---|---|---|---|---|---|
-| `base-nextjs` | Base Next.js | marketing | simple | website, template | 4 | `starter-neutral` |
-| `landing-page` | Landing Page | marketing | medium | website, template | **10** | `corporate-grid` |
-| `saas-landing` | SaaS Landing | marketing | medium | website, template | 2 | `friendly-saas` |
-| `portfolio` | Portfolio | editorial | medium | website, template | 2 | `minimal-studio` |
-| `blog` | Blog | editorial | medium | website, template | 2 | `editorial-serif` |
-| `dashboard` | Dashboard | app | advanced | app | 2 | `glass-frosted` |
-| `auth-pages` | Auth Pages | app | simple | website, app, template | 2 | `clean-auth` |
-| `ecommerce` | E-handel | commerce | advanced | website, template | 3 | `megastore-clean` |
-| `app-shell` | App Shell | app | medium | app | 3 | `clean-utility` |
-
-**Totalt:** 9 scaffolds, 30 variants (variant-JSON under `config/scaffold-variants/<scaffold>/`, exkl. `_index/`). Variants ojämnt fördelade. De två wizard-skapade (2026-07: `futuristic-investment-landing`, `quantum-aegis`) är fullt kuraterade.
+Identiteter, antal, defaults och ägarrelationer genereras deterministiskt från
+runtime-källorna. Läs de aktuella vyerna i
+[`scaffolds.generated.md`](../generated/scaffolds.generated.md) och
+[`variants.generated.md`](../generated/variants.generated.md). Det här
+handskrivna kontraktet äger stabil semantik och arbetsflöden, inte flyktiga
+inventarier.
 
 > Historisk not (2026-04-23, OMTAG fas 2·B / M1): den tidigare marketing-scaffolden
 > för multi-section brand storytelling slogs ihop med `landing-page`. Dess två
@@ -31,13 +24,13 @@ Snabb översikt över runtime-scaffolds, scaffold-variants och hur de samspelar 
 
 Per scaffold finns en eller flera variants med design-axes (label, description, keywords, fontPairings, signatureMotif, themeTokens, promptHints, colorMode, default).
 
-**Sedan 2026-04-17 (Val A genomförd):** fälten `styleRules`, `sectionInventory`, `avoidPatterns`, `worldClassRubric` är borttagna ur `ScaffoldVariant`-typen och alla variant-JSON-filer (då 21, idag 30). Variants levererar nu enbart **högsignal design-axes**. Generic regelmotor-genererat brus är borta från prompten.
+**Sedan 2026-04-17 (Val A genomförd):** fälten `styleRules`, `sectionInventory`, `avoidPatterns`, `worldClassRubric` är borttagna ur `ScaffoldVariant`-typen och alla variant-JSON-filer. Variants levererar nu enbart **högsignal design-axes**. Generic regelmotor-genererat brus är borta från prompten.
 
 **Variant-kvalitet:** `corporate-grid` (landing-page) och `base-nextjs`-varianterna är handredigerade referenser.
 
-**`sourceTemplateIds`:** alla variants pekar på **riktiga v0-mall-Blob-id:n** i `src/lib/templates/template-blob-manifest.json` (legacy-slugs från den borttagna external-template-pipelinen remappades 2026-07-22). Listan är en ordnad kandidatpool; init-runtime väljer **högst en** mall via `template-inspiration.ts`. Tillåtna helprojektskategorier är `landing-pages`, `website-templates`, `apps-and-games`, `dashboards`, `login-and-sign-up`, `e-commerce` och `blog-and-portfolio`. `ai`, `animations`, `components`, `layouts` och `design-systems` väljs inte. Den valda stillbilden skickas som style-only visionreferens och ZIP:en ger högst tre, totalt 9 000 tecken långa frontendutdrag (huvudsida, direkt komponent, global CSS/layout). Scaffold, brief, routes och kontrakt äger fortfarande implementationen; mallens brand, assets, paketversioner, routes och backend antas aldrig. Om Blob-läsningen misslyckas fortsätter genereringen utan kodutdrag.
+**`sourceTemplateIds`:** alla variants pekar på **riktiga v0-mall-Blob-id:n** i `src/lib/templates/template-blob-manifest.json` (legacy-slugs från den borttagna external-template-pipelinen remappades 2026-07-22). Listan är en ordnad kandidatpool; init-runtime väljer **högst en** mall via `template-inspiration.ts`. Källordningen gäller normalt, men en senare kandidat som inte uttryckligen har `previewFits: false` föredras framför en tidigare kandidat som har det. Tillåtna helprojektskategorier är `landing-pages`, `website-templates`, `apps-and-games`, `dashboards`, `login-and-sign-up`, `e-commerce` och `blog-and-portfolio`. `ai` väljs normalt inte, med ett explicit granskat undantag för `h4nibkqysVJ` (AEGIS-Ω), vars id, kategori och arkiv-SHA måste matcha den låsta runtime-allowlisten. `animations`, `components`, `layouts` och `design-systems` väljs inte. Den valda stillbilden skickas som style-only visionreferens. Frontendutdragen hämtas i första hand från det SHA-bundna `config/variant-template-addenda.json`; saknad, inaktuell eller ogiltig addendum faller tillbaka till en begränsad läsning av Blob-ZIP:en. Ett explicit `disabled`-addendum ger inga kodutdrag och ingen ZIP-fallback. Båda vägarna ger högst tre, totalt 9 000 tecken långa utdrag (huvudsida, direkt komponent, global CSS/layout). Scaffold, brief, routes och kontrakt äger fortfarande implementationen; mallens brand, assets, paketversioner, routes och backend antas aldrig. Om fallback-läsningen misslyckas fortsätter genereringen utan kodutdrag.
 
-**Integritetsgrind:** `src/lib/gen/scaffold-variants/variant-integrity.test.ts` (körs i `npm run scaffolds:validate` + test-sviten) blockerar halvfärdiga variants: saknade/tunna `signaturePatterns`, döda `sourceTemplateIds`, embeddings-index som inte matchar variant-setet, samt fler än en default per scaffold.
+**Integritetsgrind:** `src/lib/gen/scaffold-variants/variant-integrity.test.ts` (körs i `npm run scaffolds:validate` + test-sviten) blockerar halvfärdiga variants: saknade/tunna `signaturePatterns`, döda `sourceTemplateIds`, embeddings-index som inte matchar variant-setet, samt allt annat än exakt en default per scaffold.
 
 ---
 
@@ -85,15 +78,16 @@ Prompt / Deep Brief
 |---|---|---|
 | Scaffold | `src/lib/gen/scaffolds/<id>/manifest.ts` + `files/` | Startstruktur, routes, baseline-filer, checklistor |
 | Variant | `config/scaffold-variants/<scaffoldId>/<variantId>.json` | Visuellt uttryck: motif, fontpar, theme tokens, prompt hints |
-| Variant-template | En allowlistad Blob-ZIP + stillbild vald från variantens `sourceTemplateIds` | Init-inspiration: stilbild + begränsad frontendstruktur, aldrig projektägare |
+| Variant-template | En allowlistad mall + stillbild vald från variantens `sourceTemplateIds`; SHA-addendum först, Blob-ZIP som fallback | Init-inspiration: stilbild + begränsad frontendstruktur, aldrig projektägare |
 | Dossier | `data/dossiers/{hard,soft}/<id>/` | Capability-bunden referens/instruktion, validerad mot strict schema |
 | Research/embeddings | Genererade artefakter under `src/lib/gen/scaffolds/` och `config/scaffold-variants/_index/` | Stöd för matchning och prioritering, inte ny sanningskälla |
 
 Legacy external-template/template-library-flöden är historik. Kontraktsdokumentet
 och skripten togs bort ur repot 2026-07-09 — arkivkopia finns i syskonmappen
 `../gamla-skript-till-scaffolds/` utanför repot och i git-historiken (`4ba06d96e`).
-Den nya en-template-vägen läser den redan befintliga Blob-ZIP:en direkt och
-återinför därför inte den gamla repo-cache-/template-library-mappen.
+Den nya en-template-vägen använder ett SHA-bundet addendum först och läser den
+redan befintliga Blob-ZIP:en endast som kompatibilitetsfallback. Den återinför
+därför inte den gamla repo-cache-/template-library-mappen.
 
 ---
 
@@ -359,7 +353,7 @@ Vid scaffold-borttagning, sammanslagning eller variantfältsförändring:
 
 ### Backoffice
 
-`npm run backoffice` startar Streamlit-appen (`sajtmaskin_backoffice.py`). Byggstenar-ytor (omdöpta 2026-07-24, gamla `?nav=`-slugs fungerar fortfarande): **Byggstenar: översikt** (mental modell, renderad ur glossary + kontraktsdocs), **Scaffolds: titta & justera** (översikt + termguide + detaljer + metadata-redigering), **Scaffolds & varianter: skapa, klona, ta bort** (skapa/klona/radera + varianter + baseline-återställning), **Guide: ny scaffold eller variant (AI)** (AI-guidat skapande), **Byggblock (dossiers)** och **Mallar (v0): inspiration & uppladdning**. Telemetri-poängen bor i **Scaffold-poäng** (gruppen Telemetri & loggar). Alla sparningar säkerhetskopieras (sidan **Återställning**).
+`npm run backoffice` startar Streamlit-appen (`sajtmaskin_backoffice.py`). Byggstenar-ytor (omdöpta 2026-07-24, gamla `?nav=`-slugs fungerar fortfarande): **Byggstenar: översikt** (mental modell, renderad ur glossary + kontraktsdocs), **Scaffolds: titta & justera** (översikt + termguide + detaljer + metadata-redigering), **Scaffolds & varianter: skapa, redigera, klona, ta bort** (skapa/redigera/klona/radera + varianter + baseline-återställning), **Guide: ny scaffold eller variant (AI)** (AI-guidat skapande), **Byggblock (dossiers)** och **Mallar (v0): inspiration & uppladdning**. Telemetri-poängen bor i **Scaffold-poäng** (gruppen Telemetri & loggar). Alla sparningar säkerhetskopieras (sidan **Återställning**).
 
 ---
 

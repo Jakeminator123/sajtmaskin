@@ -157,7 +157,7 @@ need compatibility.
 
 ## Backoffice lifecycle
 
-`Scaffolds & varianter: skapa, klona, ta bort` i backoffice (tidigare `Scaffold Lifecycle`) kan nu skapa och radera scaffold-shells som
+`Scaffolds & varianter: skapa, redigera, klona, ta bort` i backoffice (tidigare `Scaffold Lifecycle`) kan nu skapa och radera scaffold-shells som
 en del av runtime-registret.
 
 Create-flödet:
