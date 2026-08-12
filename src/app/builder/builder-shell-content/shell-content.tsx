@@ -21,6 +21,7 @@ import { localizeVerificationSummary } from "@/lib/builder/version-history-statu
 import { cn } from "@/lib/utils";
 import { Eye, MessageSquare } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useState } from "react";
 import { BuilderLayout } from "../BuilderLayout";
 import type { BuilderViewModel } from "../useBuilderPageController";
 import { BuilderShellDialogs } from "./shell-dialogs";
@@ -48,6 +49,8 @@ const VersionHistory = dynamic(
 );
 
 export function BuilderShellContent(vm: BuilderViewModel) {
+  const [hasMountedImportModal, setHasMountedImportModal] = useState(vm.isImportModalOpen);
+
   const {
     isBusy,
     isPreviewLoading,
@@ -169,6 +172,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         chatId={vm.chatId}
         activeVersionId={vm.activeVersionId}
         onOpenImport={() => {
+          setHasMountedImportModal(true);
           vm.setIsImportModalOpen(true);
         }}
         onExportGitHub={() => setGithubExportOpen(true)}
@@ -492,22 +496,24 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         </div>
       </div>
 
-      <InitFromRepoModal
-        isOpen={vm.isImportModalOpen}
-        onClose={() => vm.setIsImportModalOpen(false)}
-        onSuccess={(newChatId, _v0ProjectInternalId) => {
-          vm.setChatId(newChatId);
-          if (vm.appProjectId) {
-            vm.applyAppProjectId(vm.appProjectId, { chatId: newChatId });
-          } else {
-            const params = new URLSearchParams(vm.searchParams.toString());
-            params.set("chatId", newChatId);
-            vm.router.replace(`/builder?${params.toString()}`);
-          }
-          vm.setMessages([]);
-          vm.setCurrentPreviewUrl(null);
-        }}
-      />
+      {hasMountedImportModal ? (
+        <InitFromRepoModal
+          isOpen={vm.isImportModalOpen}
+          onClose={() => vm.setIsImportModalOpen(false)}
+          onSuccess={(newChatId, _v0ProjectInternalId) => {
+            vm.setChatId(newChatId);
+            if (vm.appProjectId) {
+              vm.applyAppProjectId(vm.appProjectId, { chatId: newChatId });
+            } else {
+              const params = new URLSearchParams(vm.searchParams.toString());
+              params.set("chatId", newChatId);
+              vm.router.replace(`/builder?${params.toString()}`);
+            }
+            vm.setMessages([]);
+            vm.setCurrentPreviewUrl(null);
+          }}
+        />
+      ) : null}
 
       <RequireAuthModal
         isOpen={Boolean(vm.authModalReason)}
