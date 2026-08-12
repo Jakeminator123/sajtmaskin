@@ -1,0 +1,91 @@
+KOMMANDON — projekt-bas-app / Scaffold: Av
+==========================================
+
+Vad hände när embeddings failade?
+---------------------------------
+Worktreen saknade node_modules (ingen junction/install).
+Då körde `npx tsx` en fristående tsx utan projektets deps →
+`Cannot find module 'dotenv/config'`.
+
+Det är INTE ett fel i embeddings-skripten. Fixa först miljön:
+
+
+  # Kör från HUVUDCHECKOUTEN (sajtmaskin), inte från worktreen:
+  npm run worktree:link -- ..\sajtmaskin-feat-kontrollstatistik
+
+  # Alternativ (långsammare): i worktreen
+  npm ci
+
+(Status 2026-08-12: worktree:link är redan körd för
+sajtmaskin-feat-kontrollstatistik — dotenv/tsx ska finnas.)
+
+
+När ska embeddings köras?
+-------------------------
+Efter att en NY scaffold eller scaffold-variant lagts till/ändrats
+så att auto-match / variant-match känner av den i prod.
+
+Ej automatiskt vid create — måste köras manuellt (eller i din
+lokala release-rutin) och skrivas till Vercel Blob.
+
+
+Kommandon (i worktreen, efter worktree:link)
+--------------------------------------------
+
+  # Viktigt: skripten laddar `dotenv/config` som läser `.env` — Blob-token
+  # ligger ofta bara i `.env.local`. Peka därför explicit:
+  $env:DOTENV_CONFIG_PATH = ".env.local"
+  npm run scaffolds:embeddings
+  npm run scaffolds:variant-embeddings
+
+  # Om `npx` frågar om tsx / failar på dotenv: använd lokal bin i stället
+  #   .\node_modules\.bin\tsx.cmd scripts/embeddings/generate-scaffold-embeddings.ts
+  #   .\node_modules\.bin\tsx.cmd scripts/scaffolds/generate-variant-embeddings.ts
+
+Vad de gör:
+  scaffolds:embeddings
+    Bygger vektorer för alla runtime-scaffolds (inkl. projekt-bas-app)
+    och uppdaterar Blob + lokal cache.
+
+  scaffolds:variant-embeddings
+    Samma för scaffold-variants (t.ex. projekt-bas-app/neutral-core).
+
+Kräver typiskt:
+  - OPENAI_API_KEY (i .env eller .env.local)
+  - BLOB_READ_WRITE_TOKEN (ofta bara i .env.local) — utan den blir det
+    bara lokal cache och prod får inte nya vektorer.
+
+Efteråt (valfritt kontroll):
+  npm run embeddings:ensure
+  npm run scaffolds:validate
+
+Kört 2026-08-12 i denna worktree (med DOTENV_CONFIG_PATH=.env.local):
+  scaffold-embeddings → blob (10 ids, inkl. projekt-bas-app)
+  variant-embeddings → blob (31 variants)
+
+
+Var ska kommandona köras?
+-------------------------
+I den worktree/branch där scaffold-koden finns (t.ex.
+sajtmaskin-feat-kontrollstatistik), INTE nödvändigtvis i master-
+checkouten — men `node_modules` måste finnas (worktree:link eller npm ci).
+
+Efter Blob-upload: ska lokala JSON raderas / git-committas?
+----------------------------------------------------------
+NEJ till git: embeddings-JSON är gitignorerade (cache only).
+Source of truth = Vercel Blob + committed
+`config/embeddings-blob-manifest.json` (URL + timestamps).
+
+Lokala filer:
+  src/lib/gen/scaffolds/scaffold-embeddings.json
+  config/scaffold-variants/_index/variant-embeddings.json
+får ligga kvar som cache (synkas av `embeddings:ensure` / prebuild).
+Radera dem gärna om du vill — de laddas ner igen. Committa dem ALDRIG
+(`npm run embeddings:check-untracked` failar annars).
+
+
+Obs
+---
+Template/import-vägen ska INTE använda projekt-bas-app.
+Dessa embeddings styr auto-/variant-match för fritext; Av-wiring
+mappar Scaffold: Av → projekt-bas-app separat i kod.

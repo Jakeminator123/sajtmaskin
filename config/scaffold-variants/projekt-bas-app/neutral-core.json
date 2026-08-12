@@ -1,0 +1,70 @@
+{
+  "fontPairings": [
+    {
+      "heading": "Geist",
+      "body": "Geist"
+    },
+    {
+      "heading": "Inter",
+      "body": "Inter"
+    }
+  ],
+  "themeTokens": {
+    "background": "oklch(0.15 0.004 0)",
+    "foreground": "oklch(0.95 0.004 0)",
+    "card": "oklch(0.18 0.004 0)",
+    "cardForeground": "oklch(0.95 0.004 0)",
+    "primary": "oklch(0.58 0.16 258)",
+    "primaryForeground": "oklch(0.98 0 0)",
+    "secondary": "oklch(0.22 0.004 0)",
+    "secondaryForeground": "oklch(0.95 0.004 0)",
+    "muted": "oklch(0.22 0.004 0)",
+    "mutedForeground": "oklch(0.72 0.004 0)",
+    "accent": "oklch(0.25 0.004 0)",
+    "accentForeground": "oklch(0.95 0.004 0)",
+    "border": "oklch(0.28 0.004 0)",
+    "ring": "oklch(0.58 0.16 258)",
+    "radius": "0.625rem",
+    "bodyBackgroundImage": "none"
+  },
+  "id": "neutral-core",
+  "scaffoldId": "projekt-bas-app",
+  "label": "projekt-bas-app Neutral",
+  "description": "Neutral minimal variant for Scaffold: Av — thin Next.js app baseline without product chrome.",
+  "keywords": [
+    "projekt",
+    "bas",
+    "app",
+    "minimal",
+    "neutral",
+    "starter",
+    "core"
+  ],
+  "signatureMotif": "blank app canvas, calm tokens, and room for the prompt to define the product",
+  "colorMode": "either",
+  "promptHints": [
+    "Stay minimal until the prompt defines a domain — no invented sidebar, dashboard, or marketing sections.",
+    "Prefer a clean single entry screen, then grow routes and components from the user's request."
+  ],
+  "sourceTemplateIds": [
+    "sV0OtrkXM6x",
+    "ov3ApgfOdx5",
+    "Pf7lw1nypu5"
+  ],
+  "signaturePatterns": {
+    "layouts": [
+      "Start from a single primary screen with clear hierarchy; add routes only when the prompt needs them.",
+      "Keep the first viewport calm: one title, one short supporting line, and space for the product UI to emerge.",
+      "Use a simple full-width content column with consistent spacing — no forced multi-section marketing stack."
+    ],
+    "motifs": [
+      "Neutral surfaces with a single restrained accent color, comfortable spacing, and a readable typographic hierarchy.",
+      "Soft consistent corner radius and light borders so components read as calm and extension-friendly."
+    ],
+    "antiPatterns": [
+      "Avoid hero+CTA marketing landings, feature-card grids, sidebars, or dashboards unless the user asked for them.",
+      "Do not lock in a strong niche aesthetic; keep the expression flexible until the user's actual domain is known."
+    ]
+  },
+  "default": true
+}

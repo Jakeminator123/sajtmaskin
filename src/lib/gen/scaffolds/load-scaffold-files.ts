@@ -21,6 +21,7 @@ const KNOWN_SCAFFOLD_IDS = new Set([
   "auth-pages",
   "ecommerce",
   "app-shell",
+  "projekt-bas-app",
 ]);
 
 export function loadScaffoldFiles(scaffoldId: string): ScaffoldFile[] {

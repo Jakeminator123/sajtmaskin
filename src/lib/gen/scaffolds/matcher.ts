@@ -16,6 +16,7 @@ import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { InferredCapabilities } from "@/lib/gen/capability-inference";
 import { getScaffoldById, getScaffoldIds } from "./registry";
+import { SCAFFOLD_OFF_BASELINE_ID } from "./types";
 import {
   searchScaffoldsWithDiagnostics,
   type ScaffoldSearchResponse,
@@ -761,7 +762,11 @@ export async function matchScaffoldAuto(
   const embedBias = readEmbedVsKeywordBias();
 
   const provisionalWebsiteAppEvidence = appScore + dashboardScore;
-  const top = semantic.results.find((result) =>
+  // Av-baseline is selectable only via scaffoldMode "off", never Auto match.
+  const autoResults = semantic.results.filter(
+    (result) => result.scaffold.id !== SCAFFOLD_OFF_BASELINE_ID,
+  );
+  const top = autoResults.find((result) =>
     canRankForBuildIntent(result.scaffold, buildIntent, provisionalWebsiteAppEvidence),
   );
   const embeddingTopResult =

@@ -36,7 +36,8 @@
         "dashboard",
         "auth-pages",
         "ecommerce",
-        "app-shell"
+        "app-shell",
+        "projekt-bas-app"
       ],
       "description": "Which scaffold this variant belongs to. Must match the parent directory name."
     },

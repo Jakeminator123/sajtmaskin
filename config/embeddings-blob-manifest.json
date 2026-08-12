@@ -1,7 +1,7 @@
 {
   "$schema": "../docs/schemas/strict/embeddings-blob-manifest.schema.json",
   "_meta": {
-    "updatedAt": "2026-08-11T14:24:53.683Z"
+    "updatedAt": "2026-08-12T06:10:59.182Z"
   },
   "artifacts": {
     "template": {
@@ -12,12 +12,12 @@
     "scaffold": {
       "key": "embeddings/scaffold-embeddings.json",
       "url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/embeddings/scaffold-embeddings.json",
-      "updatedAt": "2026-08-11T14:24:53.681Z"
+      "updatedAt": "2026-08-12T06:02:23.734Z"
     },
     "variant": {
       "key": "embeddings/variant-embeddings.json",
       "url": "https://nhrq4gu42kcujmov.public.blob.vercel-storage.com/embeddings/variant-embeddings.json",
-      "updatedAt": "2026-08-11T14:23:01.154Z"
+      "updatedAt": "2026-08-12T06:10:59.181Z"
     }
   }
 }
