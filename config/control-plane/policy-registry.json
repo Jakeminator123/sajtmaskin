@@ -223,23 +223,6 @@
       "notes": "human policy text for generated-site degraded env; no runtime loader reads it."
     },
     {
-      "id": "structural-file-priorities",
-      "sourceOfTruth": "config/structural-file-priorities.json",
-      "type": "policy",
-      "validator": null,
-      "ciStatus": "none",
-      "runtimeEnforced": false,
-      "runtimeStatus": "declared-only",
-      "backoffice": {
-        "surface": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
-        "editable": true,
-        "writePath": "config/structural-file-priorities.json",
-        "danger": "low"
-      },
-      "mobility": "safe",
-      "notes": "backoffice scaffold-lifecycle display only."
-    },
-    {
       "id": "placeholder-harmless",
       "sourceOfTruth": "src/lib/integrations/placeholder-harmless.ts",
       "type": "policy",

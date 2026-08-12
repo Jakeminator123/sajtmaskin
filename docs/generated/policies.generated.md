@@ -10,7 +10,7 @@
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:c3e6f7135e30415e -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:1df82ad99d801a14 -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:24ea00682b2cfcdd -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:239e3dad449cb1b8 -->
 
 # Policies
 
@@ -204,7 +204,7 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 ## Control-plane registry
 
-This index contains 43 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
+This index contains 42 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
 
 | ID                                            | Type                | Canonical source                                             | Validator               | CI status | Runtime status  | Runtime enforced |
 | --------------------------------------------- | ------------------- | ------------------------------------------------------------ | ----------------------- | --------- | --------------- | ---------------- |
@@ -223,7 +223,6 @@ This index contains 43 control-plane entries. It is a map to canonical owners, n
 | `placeholder-harmless`                        | `policy`            | `src/lib/integrations/placeholder-harmless.ts`               | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `prompt-heuristic-tokens`                     | `policy`            | `config/prompt-heuristic-tokens.json`                        | `backoffice:test`       | `hard`    | `wired`         | Yes              |
 | `shadcn-mirror-audit-policy`                  | `policy`            | `config/shadcn-mirror-audit-policy.json`                     | `mirror:audit`          | `manual`  | `declared-only` | No               |
-| `structural-file-priorities`                  | `policy`            | `config/structural-file-priorities.json`                     | —                       | `none`    | `declared-only` | No               |
 | `tier3-sdk-deny`                              | `policy`            | `config/integrations/tier3-sdk-deny.json`                    | `test:ci`               | `hard`    | `wired`         | Yes              |
 | `user-degraded-env`                           | `policy`            | `config/user_degraded_env.txt`                               | —                       | `none`    | `declared-only` | No               |
 | `ai-models-manifest`                          | `schema`            | `config/ai_models/manifest.json`                             | `test:ci`               | `hard`    | `wired`         | Yes              |
