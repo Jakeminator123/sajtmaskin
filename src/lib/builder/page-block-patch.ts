@@ -19,7 +19,8 @@ export function resolveHomePageFilePath(files: FlatFile[]): string | null {
 
 /** Markörer som matchar sektionens *identitet* (klass/id/komponentnamn), inte generiska HTML-taggar. */
 const AFTER_SECTION_MARKERS: Record<string, RegExp[]> = {
-  hero: [/\bhero\b/i, /\bbanner\b/i, /\bjumbotron\b/i],
+  // Avoid lone /\bbanner\b/ — cookie-/promo-banner would steal after-hero.
+  hero: [/\bhero\b/i, /\bjumbotron\b/i, /\bHero(?:Section|Block|Banner)?\b/],
   header: [/\bheader\b/i, /\bnavbar\b/i, /\bnav-bar\b/i, /\btopbar\b/i],
   features: [/\bfeatures?\b/i, /\bbenefits?\b/i, /\bservices?\b/i],
   pricing: [/\bpricing\b/i, /\bplans?\b/i, /\bpackages?\b/i],
@@ -44,6 +45,9 @@ const PREFERRED_SECTION_TAGS = new Set([
   "nav",
 ]);
 
+/** Reject weak sole matches (e.g. nested utility class without a real host). */
+const MIN_ACCEPT_SCORE = 3;
+
 function isSelfClosingTag(tag: string, slash: string): boolean {
   if (slash) return true;
   const lower = tag.toLowerCase();
@@ -65,8 +69,12 @@ function findSectionEndIndex(pageContent: string, sectionType: string): number |
   let match: RegExpExecArray | null;
   while ((match = openRe.exec(pageContent)) !== null) {
     const tag = match[1];
-    const attrs = match[2] ?? "";
-    const selfClosing = isSelfClosingTag(tag, match[3] ?? "");
+    const rawAttrs = match[2] ?? "";
+    const selfClosing =
+      Boolean(match[3]) ||
+      /\/\s*$/.test(rawAttrs) ||
+      isSelfClosingTag(tag, "");
+    const attrs = rawAttrs.replace(/\/\s*$/, "").trimEnd();
     const haystack = `${tag} ${attrs}`;
     if (!markers.some((re) => re.test(haystack))) continue;
 
@@ -74,6 +82,7 @@ function findSectionEndIndex(pageContent: string, sectionType: string): number |
     let score = 0;
     if (PREFERRED_SECTION_TAGS.has(tag.toLowerCase())) score += 3;
     if (/^[A-Z]/.test(tag)) score += 2;
+    if (markers.some((re) => re.test(tag))) score += 2;
     if (new RegExp(`\\b${sectionType}\\b`, "i").test(haystack)) score += 2;
     // Nested utility classes like "hero-card" inside a real hero score lower.
     if (/className\s*=/.test(attrs) && new RegExp(`\\b${sectionType}-`, "i").test(attrs)) {
@@ -96,6 +105,7 @@ function findSectionEndIndex(pageContent: string, sectionType: string): number |
 
   candidates.sort((a, b) => b.score - a.score || a.openStart - b.openStart);
   const best = candidates[0];
+  if (best.score < MIN_ACCEPT_SCORE) return null;
   // Ambiguous: two top-scoring matches → fail closed to AI.
   if (candidates.length > 1 && candidates[1].score === best.score) {
     return null;

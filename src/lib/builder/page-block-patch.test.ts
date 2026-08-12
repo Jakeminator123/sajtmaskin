@@ -112,6 +112,37 @@ describe("tryInsertPageBlockIntoHomePage", () => {
     }
   });
 
+  it("fails closed when only a promo-banner matches after-hero", () => {
+    const page = `export default function Page() {
+  return (
+    <main>
+      <div className="promo-banner">Sale</div>
+      <section className="features">More</section>
+    </main>
+  );
+}
+`;
+    expect(tryInsertPageBlockIntoHomePage(page, snippet, "after-hero").ok).toBe(false);
+  });
+
+  it("inserts after a PascalCase HeroSection component", () => {
+    const page = `export default function Page() {
+  return (
+    <main>
+      <HeroSection title="Hi" />
+      <section className="features">More</section>
+    </main>
+  );
+}
+`;
+    const r = tryInsertPageBlockIntoHomePage(page, snippet, "after-hero");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.content.indexOf(snippet)).toBeGreaterThan(r.content.indexOf("<HeroSection"));
+      expect(r.content.indexOf(snippet)).toBeLessThan(r.content.indexOf('className="features"'));
+    }
+  });
+
   it("rejects when main is missing", () => {
     const r = tryInsertPageBlockIntoHomePage("<div>nope</div>", snippet, "top");
     expect(r.ok).toBe(false);
