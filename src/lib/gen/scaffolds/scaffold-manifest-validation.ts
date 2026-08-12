@@ -35,7 +35,7 @@ const VALID_FILE_SERIALIZATIONS: ReadonlySet<ScaffoldFileSerialization> = new Se
  *
  *  - **Scaffolds** (this module + `src/lib/gen/scaffolds/<id>/files/`) are
  *    Sajtmaskin's internal manifest format. They MUST use `app/`-prefix
- *    (Next.js root layout). All 9 current scaffolds follow this. The check
+ *    (Next.js root layout). All current scaffolds follow this. The check
  *    below fails loud if a future scaffold drifts to `src/app/`.
  *
  *  - **LLM-emitted project files** (the actual user-generated site) MAY use
