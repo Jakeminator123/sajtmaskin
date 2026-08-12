@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import tempfile
 import urllib.request
+import uuid
 import zipfile
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
@@ -717,9 +718,10 @@ def curate_templates(
 def write_report(report: Mapping[str, Any], repo_root: Path, *, output_path: Path | None = None) -> Path:
     reports_dir = repo_root / "data" / "backoffice" / "template-curator" / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
-    destination = output_path or reports_dir / f"template-curation-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.json"
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    destination = output_path or reports_dir / f"template-curation-{stamp}-{uuid.uuid4().hex}.json"
     destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
+    temporary = destination.with_name(f".{destination.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
     temporary.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(destination)
     return destination

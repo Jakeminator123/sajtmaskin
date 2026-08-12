@@ -9,6 +9,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
+from scripts.template_curator.cli import main as curator_cli_main
 from scripts.template_curator.runner import (
     MAX_ARCHIVE_BYTES,
     CuratorError,
@@ -16,6 +17,7 @@ from scripts.template_curator.runner import (
     inspect_zip_safety,
     profile_template,
     run_audit,
+    write_report,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -231,6 +233,23 @@ class TemplateCuratorProfileTests(unittest.TestCase):
         self.assertEqual(profile["archiveSha256"], hashlib.sha256(payload).hexdigest())
         self.assertEqual(profile["features"][0]["implementationPaths"], ["src/main.tsx"])
         self.assertFalse(profile["addendum"]["automaticMutation"])
+
+
+class TemplateCuratorReportAndCliGuardTests(unittest.TestCase):
+    def test_write_report_does_not_overwrite_same_second_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            first = write_report({"run": 1}, root)
+            second = write_report({"run": 2}, root)
+            self.assertNotEqual(first, second)
+            self.assertTrue(first.is_file())
+            self.assertTrue(second.is_file())
+            self.assertEqual(json.loads(first.read_text(encoding="utf-8"))["run"], 1)
+            self.assertEqual(json.loads(second.read_text(encoding="utf-8"))["run"], 2)
+
+    def test_analyze_requires_an_explicit_bounded_selector(self) -> None:
+        with self.assertRaisesRegex(SystemExit, "requires --ids, --category, and/or --limit"):
+            curator_cli_main(["--analyze"])
 
 
 if __name__ == "__main__":

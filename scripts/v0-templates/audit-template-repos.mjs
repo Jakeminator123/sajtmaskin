@@ -243,9 +243,56 @@ function boundedStringMap(value, label, issues) {
 // Replace comments and literal text with equal-length spaces. Template expression code
 // is preserved while the surrounding literal is masked. The stack-based lexer visits
 // each source character at most once, including nested template expressions.
+// Regex literals are a distinct state so quotes inside `/["']/` cannot swallow
+// later `process.env` / `import.meta.env` reads.
+const REGEX_PREFIX_CHARS = new Set("=(,;:!&|?+-*%^~[{".split(""));
+const REGEX_KEYWORD_PREFIXES = new Set([
+  "return",
+  "throw",
+  "case",
+  "else",
+  "do",
+  "typeof",
+  "void",
+  "yield",
+  "await",
+  "new",
+  "delete",
+  "in",
+  "of",
+]);
+
 function codeView(source) {
   const out = new Array(source.length);
   const stack = [{ kind: "code", templateExpression: false, braceDepth: 0 }];
+  let regexAllowed = true;
+  let ident = "";
+  const finishIdent = () => {
+    if (ident && REGEX_KEYWORD_PREFIXES.has(ident)) regexAllowed = true;
+    ident = "";
+  };
+  const noteCodeChar = (emitted) => {
+    if (/[A-Za-z_$]/u.test(emitted)) {
+      ident += emitted;
+      regexAllowed = false;
+      return;
+    }
+    if (ident && /[0-9]/u.test(emitted)) {
+      ident += emitted;
+      regexAllowed = false;
+      return;
+    }
+    if (/\s/u.test(emitted)) {
+      finishIdent();
+      return;
+    }
+    finishIdent();
+    regexAllowed = REGEX_PREFIX_CHARS.has(emitted);
+  };
+  const enterNonCode = () => {
+    finishIdent();
+    regexAllowed = false;
+  };
   for (let i = 0; i < source.length; i++) {
     const char = source[i],
       next = source[i + 1];
@@ -257,28 +304,39 @@ function codeView(source) {
         continue;
       }
       if (char === "/" && next === "/") {
+        enterNonCode();
         out[i] = out[i + 1] = " ";
         i++;
         stack.push({ kind: "line" });
         continue;
       }
       if (char === "/" && next === "*") {
+        enterNonCode();
         out[i] = out[i + 1] = " ";
         i++;
         stack.push({ kind: "block" });
         continue;
       }
+      if (char === "/" && regexAllowed) {
+        enterNonCode();
+        out[i] = " ";
+        stack.push({ kind: "re", inClass: false });
+        continue;
+      }
       if (char === "'") {
+        enterNonCode();
         out[i] = " ";
         stack.push({ kind: "sq" });
         continue;
       }
       if (char === '"') {
+        enterNonCode();
         out[i] = " ";
         stack.push({ kind: "dq" });
         continue;
       }
       if (char === "`") {
+        enterNonCode();
         out[i] = " ";
         stack.push({ kind: "tpl" });
         continue;
@@ -288,11 +346,15 @@ function codeView(source) {
         else if (char === "}") state.braceDepth--;
       }
       out[i] = char;
+      noteCodeChar(char);
       continue;
     }
     if (state.kind === "line") {
       out[i] = char === "\n" ? "\n" : " ";
-      if (char === "\n") stack.pop();
+      if (char === "\n") {
+        stack.pop();
+        regexAllowed = true;
+      }
       continue;
     }
     if (state.kind === "block") {
@@ -300,7 +362,28 @@ function codeView(source) {
         out[i] = out[i + 1] = " ";
         i++;
         stack.pop();
+        regexAllowed = true;
       } else out[i] = char === "\n" ? "\n" : " ";
+      continue;
+    }
+    if (state.kind === "re") {
+      if (char === "\\") {
+        out[i] = " ";
+        if (i + 1 < source.length) out[++i] = " ";
+        continue;
+      }
+      if (state.inClass) {
+        out[i] = char === "\n" ? "\n" : " ";
+        if (char === "]") state.inClass = false;
+        continue;
+      }
+      if (char === "[") {
+        out[i] = " ";
+        state.inClass = true;
+        continue;
+      }
+      out[i] = char === "\n" ? "\n" : " ";
+      if (char === "/") stack.pop();
       continue;
     }
     if (char === "\\") {
@@ -312,6 +395,8 @@ function codeView(source) {
       out[i] = out[i + 1] = " ";
       i++;
       stack.push({ kind: "code", templateExpression: true, braceDepth: 0 });
+      regexAllowed = true;
+      ident = "";
       continue;
     }
     const closes =
@@ -319,7 +404,11 @@ function codeView(source) {
       (state.kind === "dq" && char === '"') ||
       (state.kind === "tpl" && char === "`");
     out[i] = char === "\n" ? "\n" : " ";
-    if (closes) stack.pop();
+    if (closes) {
+      stack.pop();
+      regexAllowed = false;
+      ident = "";
+    }
   }
   return out.join("");
 }

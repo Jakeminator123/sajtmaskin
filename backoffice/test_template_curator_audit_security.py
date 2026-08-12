@@ -318,6 +318,22 @@ class TemplateCuratorAuditSecurityTests(unittest.TestCase):
         self.assertIn("env-scan-incomplete(evidence-cap)", audit["issues"])
         self.assertLessEqual(len(audit["envPlacementDetail"]), 40)
 
+    def test_regex_literal_quotes_do_not_mask_later_env_reads(self) -> None:
+        payload = _next_project(
+            'const re = /["\' ]/; const token = process.env.REGEX_FOLLOWED_SECRET;\n'
+            "export default function Page() { return <main>{token}</main> }"
+        )
+        audit = self._run_audit({"regex-env": payload})["regex-env"]
+        self.assertIn("REGEX_FOLLOWED_SECRET", audit["envUncovered"])
+
+    def test_env_like_text_inside_regex_literals_is_not_an_env_read(self) -> None:
+        payload = _next_project(
+            "const re = /process.env.FAKE_IN_REGEX/;\n"
+            "export default function Page() { return <main /> }"
+        )
+        audit = self._run_audit({"regex-fake": payload})["regex-fake"]
+        self.assertNotIn("FAKE_IN_REGEX", audit["envUncovered"])
+
     def test_node_downloader_restricts_urls_and_disables_redirects(self) -> None:
         program = """
           import { ARCHIVE_REDIRECT_POLICY, isAllowedArchiveUrl } from './scripts/v0-templates/audit-template-repos.mjs';

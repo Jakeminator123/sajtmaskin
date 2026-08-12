@@ -38,6 +38,10 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _bounded_analyze_selectors(args: argparse.Namespace) -> bool:
+    return bool(_parse_csv(args.ids) or _parse_csv(args.category) or args.limit)
+
+
 def _selection(snapshot: Any, args: argparse.Namespace) -> list[Any]:
     scope = catalog.CatalogScope(args.scope)
     records = list(catalog.scope_records(snapshot, scope))
@@ -86,6 +90,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.limit is not None and args.limit < 1:
         raise SystemExit("--limit must be a positive integer")
     repo_root = args.repo_root.resolve()
+    if args.analyze and not _bounded_analyze_selectors(args):
+        raise SystemExit(
+            "--analyze requires --ids, --category, and/or --limit so Blob downloads stay bounded.",
+        )
     snapshot = catalog.load_catalog(repo_root=repo_root)
     records = _selection(snapshot, args)
     if not args.analyze:
