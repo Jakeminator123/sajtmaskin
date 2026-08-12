@@ -24,7 +24,7 @@ describe("describeEnvKeyValueState", () => {
       hasRealValue: false,
       placeholderCovered: false,
     });
-    expect(state.label).toBe("Kräver riktigt värde");
+    expect(state.label).toBe("Lägg till före bygge");
     expect(state.tone).toBe("warning");
   });
 
@@ -37,7 +37,7 @@ describe("describeEnvKeyValueState", () => {
       hasRealValue: false,
       placeholderCovered: true,
     });
-    expect(state.label).toBe("Kräver riktigt värde");
+    expect(state.label).toBe("Lägg till före bygge");
     expect(state.tone).toBe("warning");
   });
 
@@ -51,7 +51,7 @@ describe("describeEnvKeyValueState", () => {
       hasRealValue: false,
       placeholderCovered: true,
     });
-    expect(state.label).toBe("Lägg till för livefunktion");
+    expect(state.label).toBe("Lägg till för att gå live");
     expect(state.tone).toBe("warning");
   });
 
@@ -61,7 +61,7 @@ describe("describeEnvKeyValueState", () => {
       hasRealValue: false,
       placeholderCovered: true,
     });
-    expect(state.label).toBe("Auto-placeholder i F2");
+    expect(state.label).toBe("Demo-värde används");
     expect(state.tone).toBe("muted");
   });
 
@@ -79,28 +79,26 @@ describe("describeEnvKeyValueState", () => {
 describe("describeDossierStatus", () => {
   it("never claims live for built-demo (the demo fallback is running)", () => {
     const demo = describeDossierStatus("built-demo", "design");
-    expect(demo.label).toBe("Byggd — demo aktiv");
+    expect(demo.label).toBe("Demo");
     expect(demo.tone).toBe("warning");
 
     const live = describeDossierStatus("built-live", "integrations");
-    expect(live.label).toBe("Byggd — live");
+    expect(live.label).toBe("Live");
     expect(live.tone).toBe("success");
   });
 
   it("labels a build-key-blocked dossier as blocked in both stages", () => {
     expect(describeDossierStatus("blocked-build", "design").label).toBe(
-      "Blockerad — nyckel krävs",
+      "Nyckel krävs",
     );
     expect(describeDossierStatus("blocked-build", "integrations").label).toBe(
-      "Blockerad — nyckel krävs",
+      "Nyckel krävs",
     );
   });
 
   it("labels planned per stage", () => {
-    expect(describeDossierStatus("planned", "design").label).toBe(
-      "Planerad — kopplas in i nästa steg",
-    );
-    expect(describeDossierStatus("planned", "integrations").label).toBe("Planerad — ej byggd");
+    expect(describeDossierStatus("planned", "design").label).toBe("Inte byggd än");
+    expect(describeDossierStatus("planned", "integrations").label).toBe("Inte byggd än");
   });
 });
 

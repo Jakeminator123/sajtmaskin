@@ -266,14 +266,20 @@ function stripInspectParam(search) {
 }
 
 /**
- * Next-internal endpoints that dev-mode serves on ROOT-ABSOLUTE paths,
- * ignoring basePath. Concrete repro (TODO #4): the Next DevTools/dev-overlay
- * requests its own font at `/__nextjs_font/geist-latin.woff2` — no chatId
- * prefix — so `routeInfoFromPathname` reads `__nextjs_font` as a chatId,
- * finds no session and the request falls through to the generic JSON 404.
- * The asset itself is served fine at `/<chatId>/__nextjs_font/...`.
+ * Root-absolute paths emitted by code running inside a multiplexed preview.
+ *
+ * Next dev ignores basePath for some internal requests. Generated apps also
+ * keep deploy-portable endpoint URLs such as `/api/chat`; browsers do not add
+ * Next's basePath to `fetch()` or SDK transport URLs. Browser-initiated calls
+ * can therefore use the page Referer to recover the owning chat and proxy the
+ * request as `/<chatId><originalPath>`.
+ *
+ * Keep app routing deliberately narrow: normal page paths must still 404 when
+ * they omit the chatId, while every generated App Router API route shares the
+ * stable `/api/*` namespace.
  */
 const NEXT_INTERNAL_ROOT_PATH_RE = /^\/(?:__nextjs_[^/]+|_next)(?:\/|$)/;
+const APP_API_ROOT_PATH_RE = /^\/api(?:\/|$)/;
 
 /** ChatId of the page the request came from (first path segment of Referer). */
 function chatIdFromReferer(req) {
@@ -289,15 +295,20 @@ function chatIdFromReferer(req) {
 }
 
 /**
- * Resolve a session for root-absolute Next-internal requests by falling back
- * to the Referer's chatId. Returns `{ info: { chatId, restPath }, state }`
+ * Resolve a session for supported root-absolute runtime requests by falling
+ * back to the Referer's chatId. Returns `{ info: { chatId, restPath }, state }`
  * (restPath = the FULL original pathname, since upstream serves the asset
  * under the chatId basePath) or `null` when the fallback does not apply.
  * Returns the already-fetched runtime state so the caller avoids a second
  * synchronous store read on this hot path.
  */
-function nextInternalRefererFallback(req, pathname) {
-  if (!NEXT_INTERNAL_ROOT_PATH_RE.test(pathname)) return null;
+function rootAbsoluteRefererFallback(req, pathname) {
+  if (
+    !NEXT_INTERNAL_ROOT_PATH_RE.test(pathname) &&
+    !APP_API_ROOT_PATH_RE.test(pathname)
+  ) {
+    return null;
+  }
   const refChatId = chatIdFromReferer(req);
   if (!refChatId) return null;
   const refState = getRuntimeStateForChat(refChatId);
@@ -341,10 +352,9 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
   }
   let state = getRuntimeStateForChat(info.chatId);
   if (!state.session) {
-    // TODO(#4) mitigation: dev-overlay/devtools assets arrive WITHOUT the
-    // chatId prefix. Recover the session from the Referer header so the
-    // request proxies to `/<chatId><originalPath>` instead of JSON-404:ing.
-    const fallback = nextInternalRefererFallback(req, pathname);
+    // Root-absolute Next internals and browser-initiated `/api/*` calls arrive
+    // WITHOUT the multiplexing prefix. Recover it from the iframe Referer.
+    const fallback = rootAbsoluteRefererFallback(req, pathname);
     if (!fallback) return false;
     info = fallback.info;
     state = fallback.state;
@@ -413,12 +423,10 @@ async function proxyPreviewRequest(req, res, pathname, search = "") {
 async function proxyPreviewUpgrade(req, socket, head, pathname, search = "") {
   let info = routeInfoFromPathname(pathname);
   if (!info) return false;
-  // Mirror the HTTP path's TODO(#4) mitigation: a root-absolute Next-internal
-  // WS upgrade (no chatId prefix) would otherwise parse `_next`/`__nextjs_*`
-  // as the chatId and be dropped for the missing session.
+  // Mirror the HTTP fallback for root-absolute runtime WS upgrades.
   let state = getRuntimeStateForChat(info.chatId);
   if (!state.session) {
-    const fallback = nextInternalRefererFallback(req, pathname);
+    const fallback = rootAbsoluteRefererFallback(req, pathname);
     if (fallback) {
       info = fallback.info;
       state = fallback.state;
@@ -635,6 +643,7 @@ module.exports = {
   proxyPreviewRequest,
   proxyPreviewUpgrade,
   chatIdFromReferer,
+  APP_API_ROOT_PATH_RE,
   NEXT_INTERNAL_ROOT_PATH_RE,
   shouldHoldPrewarmTraffic,
 };

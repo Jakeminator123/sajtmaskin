@@ -356,7 +356,6 @@ export async function runPostGenerationChecks(params: {
       lucideLinkMisuse: baseline.lucideLinkMisuse,
       suspiciousUseCalls: baseline.suspiciousUseCalls,
       designTokens: baseline.designTokens,
-      seoReview: baseline.seoReview,
       sanityIssues: baseline.sanityIssues,
       sanityErrors: baseline.sanityErrors,
       sanityWarnings: baseline.sanityWarnings,

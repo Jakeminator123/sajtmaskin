@@ -94,12 +94,26 @@ export type F3StatusDetail = {
  * the just-created/promoted F3 `versionId` this status is actually about).
  */
 export function describeF3SuccessTitle(
-  counts: { builtLive: number; builtDemo: number } | null | undefined,
+  counts:
+    | {
+        builtLive: number;
+        builtDemo: number;
+        blockedBuild?: number;
+        planned?: number;
+      }
+    | null
+    | undefined,
 ): string {
   const parts: string[] = [];
   if (counts && counts.builtLive > 0) parts.push(`${counts.builtLive} live`);
-  if (counts && counts.builtDemo > 0) parts.push(`${counts.builtDemo} demo aktiv`);
-  return parts.length > 0 ? `Byggd — ${parts.join(", ")}` : "Byggd — integrationerna är inbyggda";
+  if (counts && counts.builtDemo > 0) parts.push(`${counts.builtDemo} demo`);
+  if (counts && (counts.blockedBuild ?? 0) > 0) {
+    parts.push(`${counts.blockedBuild} väntar på nyckel`);
+  }
+  if (counts && (counts.planned ?? 0) > 0) parts.push(`${counts.planned} inte byggd`);
+  return parts.length > 0
+    ? `Byggblock — ${parts.join(", ")}`
+    : "Integrationsbygget är klart";
 }
 
 /**
@@ -114,7 +128,18 @@ export function describeF3SuccessTitle(
  */
 export function resolveF3StatusTitle<
   T extends { title: string; usesLiveDossierCounts?: boolean },
->(status: T, dossierCounts: { builtLive: number; builtDemo: number } | null | undefined): T {
+>(
+  status: T,
+  dossierCounts:
+    | {
+        builtLive: number;
+        builtDemo: number;
+        blockedBuild?: number;
+        planned?: number;
+      }
+    | null
+    | undefined,
+): T {
   if (!status.usesLiveDossierCounts || !dossierCounts) return status;
   return { ...status, title: describeF3SuccessTitle(dossierCounts) };
 }

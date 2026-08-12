@@ -19,11 +19,19 @@ process.env.SAJTMASKIN_PREVIEW_HMR_PROXY = "true";
 let upstreamUpgradeHits = 0;
 let lastUpstreamHeaders = null;
 let lastUpstreamUrl = null;
+let lastUpstreamMethod = null;
+let lastUpstreamBody = null;
 const upstream = http.createServer((req, res) => {
   lastUpstreamHeaders = req.headers;
   lastUpstreamUrl = req.url;
-  res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-  res.end("<!doctype html><html><body>SKELETON_OR_LAST_GOOD_HTML</body></html>");
+  lastUpstreamMethod = req.method;
+  const chunks = [];
+  req.on("data", (chunk) => chunks.push(chunk));
+  req.on("end", () => {
+    lastUpstreamBody = Buffer.concat(chunks).toString("utf8");
+    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.end("<!doctype html><html><body>SKELETON_OR_LAST_GOOD_HTML</body></html>");
+  });
 });
 upstream.on("upgrade", (_req, socket) => {
   upstreamUpgradeHits += 1;
@@ -95,12 +103,12 @@ async function json(pathname) {
   return { status: response.status, body: await response.json() };
 }
 
-// Raw request so we can set the (browser-forbidden) `Origin` header, which
-// undici `fetch` would silently drop.
-function rawGet(pathname, headers = {}) {
+// Raw request so we can set browser-managed Origin/Referer headers and verify
+// that proxying preserves method, query and body.
+function rawRequest(pathname, { method = "GET", headers = {}, body = "" } = {}) {
   return new Promise((resolve, reject) => {
     const req = http.request(
-      { host: "127.0.0.1", port: hostAddress.port, path: pathname, method: "GET", headers },
+      { host: "127.0.0.1", port: hostAddress.port, path: pathname, method, headers },
       (res) => {
         const chunks = [];
         res.on("data", (chunk) => chunks.push(chunk));
@@ -110,8 +118,13 @@ function rawGet(pathname, headers = {}) {
       },
     );
     req.on("error", reject);
+    if (body) req.write(body);
     req.end();
   });
+}
+
+function rawGet(pathname, headers = {}) {
+  return rawRequest(pathname, { headers });
 }
 
 async function websocketHandshake(pathname) {
@@ -283,6 +296,43 @@ try {
     flyOrigin,
     "app-owned route must keep its Origin header",
   );
+
+  // (d) Generated clients intentionally use deploy-portable root API URLs.
+  // In multiplexed preview the Referer supplies the missing chatId prefix.
+  const requestBody = JSON.stringify({ message: "Vilka skor passar för regn?" });
+  lastUpstreamHeaders = null;
+  lastUpstreamUrl = null;
+  lastUpstreamMethod = null;
+  lastUpstreamBody = null;
+  const rootApi = await rawRequest(`/api/chat?mode=demo`, {
+    method: "POST",
+    headers: {
+      Origin: flyOrigin,
+      Referer: `${hostBase}/${originSession.chatId}/skor`,
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(requestBody),
+    },
+    body: requestBody,
+  });
+  assert.equal(rootApi.status, 200);
+  assert.equal(lastUpstreamUrl, `/${originSession.chatId}/api/chat?mode=demo`);
+  assert.equal(lastUpstreamMethod, "POST");
+  assert.equal(lastUpstreamBody, requestBody);
+  assert.equal(
+    lastUpstreamHeaders?.origin,
+    flyOrigin,
+    "app-owned root API route must keep its Origin header",
+  );
+
+  // No Referer means no owning preview. Never guess or route to another chat.
+  lastUpstreamUrl = null;
+  const unscopedApi = await rawRequest(`/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: requestBody,
+  });
+  assert.equal(unscopedApi.status, 404);
+  assert.equal(lastUpstreamUrl, null);
 
   console.log("[test-preview-proxy-contract] All proxy contracts green.");
 } finally {

@@ -11,10 +11,7 @@ import {
   isPreviewPendingInVm,
 } from "./post-checks-preview";
 import type { FileDiff } from "./post-checks-diff";
-import type {
-  SeoReview,
-  SuspiciousUseCall,
-} from "./post-checks-analysis";
+import type { SuspiciousUseCall } from "./post-checks-analysis";
 import type {
   DesignTokenSummary,
   StreamQualitySignal,
@@ -110,8 +107,7 @@ export function buildPostCheckArtifacts(params: {
   lucideLinkMisuse: string[];
   suspiciousUseCalls: SuspiciousUseCall[];
   designTokens: DesignTokenSummary | null;
-  /** Advisory-only: feeds the `seo` error-log row, never the chat UI. */
-  seoReview: SeoReview;
+  /** Shared server/client sanity result for readiness diagnostics. */
   sanityIssues: SanityIssue[];
   sanityErrors: SanityIssue[];
   sanityWarnings: SanityIssue[];
@@ -132,7 +128,6 @@ export function buildPostCheckArtifacts(params: {
     lucideLinkMisuse,
     suspiciousUseCalls,
     designTokens,
-    seoReview,
     sanityIssues,
     sanityErrors,
     sanityWarnings,
@@ -448,19 +443,6 @@ export function buildPostCheckArtifacts(params: {
       category: "project-sanity",
       message: "Kodsanity rapporterade problem.",
       meta: { issues: sanityIssues.slice(0, 20) },
-    });
-  }
-  if (!seoReview.passed) {
-    // Advisory-only row: launch readiness (`buildSeoAdvisoriesFromMeta`) and
-    // VersionDiagnosticsDialog read this — it never surfaces in the chat.
-    logItems.push({
-      level: "warning",
-      category: "seo",
-      message: `SEO review hittade ${seoReview.issues.length} launch-varning(ar).`,
-      meta: {
-        issues: seoReview.issues,
-        signals: seoReview.signals,
-      },
     });
   }
   if (imageValidation?.broken?.length) {

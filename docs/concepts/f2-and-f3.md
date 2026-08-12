@@ -3,6 +3,12 @@
 F2 och F3 är två olika kontrakt. F2 prioriterar trovärdig design och snabb
 iteration. F3 prioriterar riktiga integrationer, build och deploybarhet.
 
+De är **versions- och gate-lanes**, inte ett svartvitt mognadsbetyg på hela
+sajten. Demo/live/planerad avgörs per Byggblock. En OpenAI-chatt kan därför
+vara live i en integrationsversion samtidigt som tre andra hårda Byggblock
+fortfarande är planerade eller kör demo. Ett lyckat integrationsbygge ska inte
+förändra chattens visuella design; det byter wiring och verifieringskrav.
+
 |                  | F2 / `fidelity2`                            | F3 / `fidelity3`                  |
 | ---------------- | ------------------------------------------- | --------------------------------- |
 | Syfte            | Design och preview                          | Integration, build och deploy     |

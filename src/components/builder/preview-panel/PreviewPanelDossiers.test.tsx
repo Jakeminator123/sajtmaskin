@@ -116,7 +116,7 @@ describe("PreviewPanelDossiers", () => {
     expect(screen.queryByText("0")).toBeNull();
   });
 
-  it("defaults the popover to 'Bläddra katalog' when nothing is wired, and lists catalog dossiers grouped by category", async () => {
+  it("defaults the popover to 'Fler byggblock' when nothing is wired, and lists catalog dossiers grouped by category", async () => {
     stubFetch({ wired: wiredResponse() /* total: 0 */ });
 
     render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
@@ -133,19 +133,19 @@ describe("PreviewPanelDossiers", () => {
     expect(screen.getByText("Stripe Checkout")).toBeTruthy();
     expect(screen.getByText("Klarna Checkout")).toBeTruthy();
     expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "Inkopplade (0)" }).getAttribute("data-state")).toBe(
+    expect(screen.getByRole("tab", { name: "På sajten (0)" }).getAttribute("data-state")).toBe(
       "inactive",
     );
     expect(
-      screen.getByRole("tab", { name: "Bläddra katalog (3)" }).getAttribute("data-state"),
+      screen.getByRole("tab", { name: "Fler byggblock (3)" }).getAttribute("data-state"),
     ).toBe("active");
-    expect(screen.getByText("Katalog: 3 totalt · 2 kopplade · 1 fristående")).toBeTruthy();
-    // The "Inkopplade"-tab's empty-state copy must NOT be what greets the
+    expect(screen.getByText("Katalog: 3 totalt · 2 externa · 1 utan tjänst")).toBeTruthy();
+    // The "På sajten" tab's empty-state copy must NOT be what greets the
     // user when there is nothing wired — the catalog tab is shown instead.
     expect(screen.queryByText("Inga byggblock är inkopplade i den här versionen.")).toBeNull();
   });
 
-  it("filters the catalog by Kopplade and Fristående without hiding the F3 signal", async () => {
+  it("filters the catalog by external-service need without hiding the integration-build signal", async () => {
     stubFetch({ wired: wiredResponse() });
 
     render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
@@ -154,7 +154,9 @@ describe("PreviewPanelDossiers", () => {
       openDossiersPanel();
     });
 
-    const standaloneFilter = await screen.findByRole("button", { name: "Fristående (1)" });
+    const standaloneFilter = await screen.findByRole("button", {
+      name: "Ingen extern tjänst (1)",
+    });
     fireEvent.click(standaloneFilter);
 
     expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
@@ -162,13 +164,13 @@ describe("PreviewPanelDossiers", () => {
     expect(screen.queryByText("Betalning & handel")).toBeNull();
     expect(standaloneFilter.getAttribute("aria-pressed")).toBe("true");
 
-    fireEvent.click(screen.getByRole("button", { name: "Kopplade (2)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Extern tjänst (2)" }));
 
     expect(screen.getByText("Stripe Checkout")).toBeTruthy();
     expect(screen.getByText("Klarna Checkout")).toBeTruthy();
     expect(screen.queryByText("Bildgalleri med lightbox")).toBeNull();
-    expect(screen.getAllByText("Kopplad")).toHaveLength(2);
-    expect(screen.getAllByText("Kräver F3")).toHaveLength(1);
+    expect(screen.getAllByText("Extern tjänst")).toHaveLength(2);
+    expect(screen.getAllByText("Bygg integrationer")).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Alla (3)" }));
     expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
@@ -183,7 +185,9 @@ describe("PreviewPanelDossiers", () => {
       openDossiersPanel();
     });
 
-    const standaloneFilter = await screen.findByRole("button", { name: "Fristående (1)" });
+    const standaloneFilter = await screen.findByRole("button", {
+      name: "Ingen extern tjänst (1)",
+    });
     fireEvent.click(standaloneFilter);
     expect(screen.queryByText("Stripe Checkout")).toBeNull();
 
@@ -226,7 +230,7 @@ describe("PreviewPanelDossiers", () => {
     });
     // Hard pick in F2: the popover STAYS OPEN and shows the surface-only notice.
     expect(
-      screen.getByText(/ritas bara som yta i designläget/i),
+      screen.getByText(/I designen visas en demo/i),
     ).toBeTruthy();
 
     // One-shot lock: a second click on another row does nothing.
@@ -264,7 +268,7 @@ describe("PreviewPanelDossiers", () => {
     expect(onRequestDossier).not.toHaveBeenCalled();
   });
 
-  it("keeps 'Inkopplade' as the default tab when the version already has wired dossiers", async () => {
+  it("keeps 'På sajten' as the default tab when the version already has wired dossiers", async () => {
     stubFetch({
       wired: wiredResponse({
         counts: { total: 1, hard: 0, soft: 1, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 0 },
@@ -299,7 +303,7 @@ describe("PreviewPanelDossiers", () => {
     await waitFor(() => {
       expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
     });
-    expect(screen.getByRole("tab", { name: "Inkopplade (1)" }).getAttribute("data-state")).toBe(
+    expect(screen.getByRole("tab", { name: "På sajten (1)" }).getAttribute("data-state")).toBe(
       "active",
     );
     // Lucka 2 (ägarbeslut 2026-08-11): the old "Version: N kopplade · M
@@ -414,7 +418,7 @@ describe("PreviewPanelDossiers", () => {
   // såg ut att kräva F3 även när den var klar i designläget, och demoläget —
   // det enda som säger vad besökaren faktiskt ser utan nycklar — syntes inte
   // alls. Katalogen visar F3-kravet FÖRE valet, raden efter valet.
-  it("visar alla tre axlarna: Kopplad/Fristående, Kräver F3 och demoläget", async () => {
+  it("visar en enkel status på raden och tjänst/demoläge i detaljerna", async () => {
     stubFetch({
       wired: wiredResponse({
         counts: { total: 1, hard: 1, soft: 0, builtLive: 0, builtDemo: 1, blockedBuild: 0, planned: 0 },
@@ -446,15 +450,16 @@ describe("PreviewPanelDossiers", () => {
     });
 
     const row = await screen.findByText("Databas — Postgres");
-    expect(screen.getByText("Kopplad")).toBeTruthy();
-    expect(screen.getByText("Kräver F3")).toBeTruthy();
+    expect(screen.getByText("Demo")).toBeTruthy();
+    expect(screen.queryByText("Extern tjänst")).toBeNull();
     // Demoläget bor i den expanderade raden (där det finns plats för det).
     expect(screen.queryByText(/Demoläge: Medskickad demo-data/)).toBeNull();
     fireEvent.click(row);
+    expect(screen.getByText("Extern tjänst")).toBeTruthy();
     expect(screen.getByText(/Demoläge: Medskickad demo-data/)).toBeTruthy();
   });
 
-  it("sätter INGEN Kräver F3-badge på ett kopplat byggblock som är klart i designläget", async () => {
+  it("visar byggsteget bara för katalogbyggblock som behöver det", async () => {
     stubFetch({ wired: wiredResponse() /* total: 0 → katalog-tabben */ });
 
     render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
@@ -463,9 +468,10 @@ describe("PreviewPanelDossiers", () => {
     });
 
     await screen.findByText("Klarna Checkout");
-    // Båda katalograderna är Kopplade; bara Stripe kräver F3.
-    expect(screen.getAllByText("Kopplad")).toHaveLength(2);
-    expect(screen.getAllByText("Kräver F3")).toHaveLength(1);
+    // Båda katalograderna använder en extern tjänst; bara Stripe behöver
+    // det separata integrationsbygget.
+    expect(screen.getAllByText("Extern tjänst")).toHaveLength(2);
+    expect(screen.getAllByText("Bygg integrationer")).toHaveLength(1);
   });
 
   // Owner decision 2026-07-13 (replaces the old catalog/status-only lock):
@@ -1174,7 +1180,7 @@ describe("PreviewPanelDossiers", () => {
     await waitFor(() => {
       expect(
         screen.getByText(
-          'Ifylld — byggblocket är nu "Byggd — live". Previewn startas om med det nya värdet.',
+          'Ifylld — byggblocket är nu "Live". Previewn startas om med det nya värdet.',
         ),
       ).toBeTruthy();
     });

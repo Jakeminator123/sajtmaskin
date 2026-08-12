@@ -339,6 +339,12 @@ vi.mock("@/lib/gen/stream/shared-own-engine-helpers", () => ({
 
 import { POST, maxDuration, runtime } from "./route";
 
+const realHandleCreateChatStreamPost = (
+  await vi.importActual<typeof import("@/lib/api/engine/chats/create-chat-stream-post")>(
+    "@/lib/api/engine/chats/create-chat-stream-post",
+  )
+).handleCreateChatStreamPost;
+
 describe("POST /api/engine/chats/stream", () => {
   it("delegates to create-chat stream handler", async () => {
     const expected = new Response("ok", { status: 201 });
@@ -400,7 +406,7 @@ async function readSseEvents(response: Response) {
 }
 
 describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
     failVersionVerification.mockResolvedValue(null);
     buildGenerationInputPackage.mockImplementation(
@@ -631,10 +637,7 @@ describe("POST /api/engine/chats/stream own-engine route (migrated from v0)", ()
     // Wire engine-route POST through to the real create-chat-stream handler so
     // these migrated tests exercise the actual implementation, not the
     // delegation mock used by the existing engine tests above.
-    const realModule = await vi.importActual<
-      typeof import("@/lib/api/engine/chats/create-chat-stream-post")
-    >("@/lib/api/engine/chats/create-chat-stream-post");
-    handleCreateChatStreamPost.mockImplementation(realModule.handleCreateChatStreamPost);
+    handleCreateChatStreamPost.mockImplementation(realHandleCreateChatStreamPost);
   });
 
   it("finalizes an own-engine generation and emits preview data on done", async () => {

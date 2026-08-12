@@ -99,22 +99,26 @@ export function DossiersPopoverView({
     const classDescriptor = describeDossierClass(entry.class);
     const mockDescriptor = describeDossierMockMode(entry.mock);
     const isExpanded = expandedId === entry.id;
+    const labelId = `dossier-label-${entry.id}`;
+    const detailsId = `dossier-details-${entry.id}`;
     return (
       <li key={entry.id} className="rounded-md border border-gray-800 bg-black/20">
         <button
           type="button"
           onClick={() => setExpandedId(isExpanded ? null : entry.id)}
           aria-expanded={isExpanded}
+          aria-controls={detailsId}
           className="flex w-full items-center gap-2 px-2.5 py-2 text-left hover:bg-gray-800/40"
         >
           <ChevronRight
+            aria-hidden="true"
             className={cn(
               "h-3.5 w-3.5 shrink-0 text-gray-500 transition-transform",
               isExpanded && "rotate-90",
             )}
           />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[12px] font-medium text-gray-100">
+            <span id={labelId} className="block truncate text-[12px] font-medium text-gray-100">
               {entry.label}
             </span>
             {/* Svensk gruppetikett i stället för rå capability-slug (t.ex.
@@ -123,22 +127,8 @@ export function DossiersPopoverView({
               {resolveDossierGroup(entry.capability).label}
             </span>
           </span>
-          {/* Tre oberoende axlar, i den ordning de betyder något för
-              användaren: behöver den nycklar → byggs den i F3 → var i flödet
-              står den nu. Ingen av dem kan härledas ur någon annan. */}
-          <Badge
-            variant="outline"
-            className={cn(
-              "shrink-0 text-[9px]",
-              entry.class === "hard"
-                ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
-                : "border-gray-600/50 bg-gray-500/10 text-gray-300",
-            )}
-            title={classDescriptor.hint}
-          >
-            {classDescriptor.label}
-          </Badge>
-          {entry.requiresF3 ? <RequiresF3Badge /> : null}
+          {/* Den stängda raden svarar på en fråga: fungerar blocket nu?
+              Teknisk klass och byggsteg finns i den öppnade detaljen. */}
           <Badge
             variant="outline"
             className={cn("text-[10px]", TONE_BADGE_CLASS[descriptor.tone])}
@@ -148,13 +138,18 @@ export function DossiersPopoverView({
           </Badge>
         </button>
         {isExpanded ? (
-          <div className="space-y-2 border-t border-gray-800 px-2.5 py-2 text-[11px] text-gray-300">
+          <div
+            id={detailsId}
+            role="region"
+            aria-labelledby={labelId}
+            className="space-y-2 border-t border-gray-800 px-2.5 py-2 text-[11px] text-gray-300"
+          >
             <p className="text-gray-400">{entry.summarySv ?? entry.summary}</p>
             <div className="flex flex-wrap gap-1.5 text-[10px] text-gray-500">
               <span className="rounded bg-gray-800/60 px-1.5 py-0.5" title={classDescriptor.hint}>
                 {entry.class === "hard"
-                  ? "Kopplad (kräver extern tjänst/nycklar)"
-                  : "Fristående (inga nycklar behövs)"}
+                  ? "Extern tjänst"
+                  : "Ingen extern tjänst"}
               </span>
               {/* Demoläget är den enda av de tre axlarna som säger vad
                   besökaren faktiskt ser innan nycklarna finns. */}
@@ -169,12 +164,22 @@ export function DossiersPopoverView({
             </div>
             {entry.status === "blocked-build" && entry.missingKeys.length > 0 ? (
               <p className="text-amber-300">
-                Blockerar &quot;Bygg integrationer&quot;: {entry.missingKeys.join(", ")}
+                Lägg till {entry.missingKeys.join(", ")} innan du kör &quot;Bygg integrationer&quot;.
               </p>
             ) : null}
             {entry.status === "built-demo" && entry.missingLiveKeys.length > 0 ? (
               <p className="text-amber-300">
-                Demo-läge — lägg till för livefunktion: {entry.missingLiveKeys.join(", ")}
+                Demo just nu. Lägg till {entry.missingLiveKeys.join(", ")} för att gå live.
+              </p>
+            ) : null}
+            {entry.status === "built-demo" && entry.missingLiveKeys.length === 0 ? (
+              <p className="text-amber-300">
+                Demo just nu. Kör &quot;Bygg integrationer&quot; igen för riktig funktion.
+              </p>
+            ) : null}
+            {entry.status === "planned" ? (
+              <p className="text-gray-300">
+                Inte byggd ännu. Kör &quot;Bygg integrationer&quot; för riktig funktion.
               </p>
             ) : null}
             {entry.envVars.length > 0 ? (
@@ -341,12 +346,12 @@ export function DossiersPopoverView({
           size="sm"
           title={
             needsAttention
-              ? "Byggblock: en integration är blockerad eller kör i demo-läge — klicka för att fylla i nycklar"
-              : "Visa och konfigurera inkopplade byggblock"
+              ? "Ett byggblock kör demo eller väntar på en nyckel — öppna Byggblock"
+              : "Visa byggblock på sajten"
           }
           className={cn("relative text-gray-400 hover:text-white", className)}
         >
-          <Boxes className="mr-1 h-4 w-4" />
+          <Boxes aria-hidden="true" className="mr-1 h-4 w-4" />
           Byggblock
           {count !== null && count > 0 ? (
             <Badge
@@ -366,19 +371,19 @@ export function DossiersPopoverView({
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-80 border-gray-800 bg-gray-950 p-0 text-gray-200"
+        className="w-[min(20rem,calc(100vw-1rem))] border-gray-800 bg-gray-950 p-0 text-gray-200"
       >
         <div className="flex items-center justify-between border-b border-gray-800 px-3 py-2">
           <span className="flex items-center gap-1.5 text-[12px] font-semibold text-white">
             Byggblock
             {loading && freshData ? (
-              <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+              <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin text-gray-400" />
             ) : null}
           </span>
           {activeTab === "catalog" && catalogData ? (
-            <span className="text-[10px] text-gray-500">
-              Katalog: {catalogCounts.total} totalt · {catalogCounts.hard} kopplade ·{" "}
-              {catalogCounts.soft} fristående
+            <span className="min-w-0 max-w-[65%] truncate text-right text-[10px] text-gray-500">
+              Katalog: {catalogCounts.total} totalt · {catalogCounts.hard} externa ·{" "}
+              {catalogCounts.soft} utan tjänst
             </span>
           ) : activeTab === "catalog" && catalogLoading ? (
             <span className="text-[10px] text-gray-500">Katalog: läser…</span>
@@ -403,18 +408,18 @@ export function DossiersPopoverView({
               value="wired"
               className="rounded-none border-0 px-1.5 py-1 text-[11px] text-gray-400 shadow-none data-[state=active]:bg-transparent data-[state=active]:text-white"
             >
-              Inkopplade{freshData ? ` (${freshData.counts.total})` : ""}
+              På sajten{freshData ? ` (${freshData.counts.total})` : ""}
             </TabsTrigger>
             <TabsTrigger
               value="catalog"
               className="rounded-none border-0 px-1.5 py-1 text-[11px] text-gray-400 shadow-none data-[state=active]:bg-transparent data-[state=active]:text-white"
             >
-              Bläddra katalog{catalogData ? ` (${catalogCounts.total})` : ""}
+              Fler byggblock{catalogData ? ` (${catalogCounts.total})` : ""}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="wired" className="mt-0">
-            <div className="max-h-105 overflow-y-auto p-2">
+            <div className="max-h-[min(26.25rem,calc(100dvh-8rem))] overflow-y-auto p-2">
           {loading && !freshData ? (
             <div className="flex items-center gap-2 px-1 py-3 text-[11px] text-gray-400">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -424,7 +429,7 @@ export function DossiersPopoverView({
             <p className="px-1 py-3 text-[11px] text-rose-300">{error}</p>
           ) : freshData && freshData.dossiers.length === 0 ? (
             <p className="px-1 py-3 text-[11px] text-gray-400">
-              Inga byggblock är inkopplade i den här versionen.
+              Inga byggblock används i den här versionen.
             </p>
           ) : (
             <div className="space-y-3">
@@ -568,16 +573,16 @@ export function DossiersPopoverView({
               >
                 Byggblocket &quot;{pickedEntry.label}&quot; läggs till via chatten.
                 {pickedEntry.class === "hard"
-                  ? " Kopplade byggblock ritas bara som yta i designläget och kopplas in på riktigt vid \u201dBygg integrationer\u201d."
+                  ? " I designen visas en demo. Kör \u201dBygg integrationer\u201d för riktig funktion."
                   : null}
               </p>
             ) : null}
-            <div className="max-h-105 overflow-y-auto p-2">
+            <div className="max-h-[min(26.25rem,calc(100dvh-8rem))] overflow-y-auto p-2">
               {catalogData && catalogData.groups.length > 0 ? (
                 <div
                   role="group"
                   aria-label="Filtrera katalogen"
-                  className="mb-2 flex items-center gap-1"
+                  className="mb-2 flex flex-wrap items-center gap-1"
                 >
                   <Button
                     type="button"
@@ -597,7 +602,7 @@ export function DossiersPopoverView({
                     aria-pressed={catalogClassFilter === "hard"}
                     onClick={() => setCatalogClassFilter("hard")}
                   >
-                    Kopplade ({catalogCounts.hard})
+                    Extern tjänst ({catalogCounts.hard})
                   </Button>
                   <Button
                     type="button"
@@ -607,7 +612,7 @@ export function DossiersPopoverView({
                     aria-pressed={catalogClassFilter === "soft"}
                     onClick={() => setCatalogClassFilter("soft")}
                   >
-                    Fristående ({catalogCounts.soft})
+                    Ingen extern tjänst ({catalogCounts.soft})
                   </Button>
                 </div>
               ) : null}
@@ -632,7 +637,7 @@ export function DossiersPopoverView({
                 <p className="px-1 py-3 text-[11px] text-gray-400">Katalogen är tom.</p>
               ) : catalogData && filteredCatalogGroups.length === 0 ? (
                 <p className="px-1 py-3 text-[11px] text-gray-400">
-                  Inga {catalogClassFilter === "hard" ? "kopplade" : "fristående"} byggblock i
+                  Inga {catalogClassFilter === "hard" ? "externa" : "fristående"} byggblock i
                   katalogen.
                 </p>
               ) : (

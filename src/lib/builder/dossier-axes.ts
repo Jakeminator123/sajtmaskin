@@ -70,13 +70,13 @@ const MOCK_MODE_HINTS: Record<DossierMockMode, string> = {
 export function describeDossierClass(dossierClass: "hard" | "soft"): DossierAxisDescriptor {
   if (dossierClass === "hard") {
     return {
-      label: "Kopplad",
-      hint: "Kräver en extern tjänst med nycklar. Byggblocket läggs ändå alltid in — utan nycklar kör det sitt demoläge.",
+      label: "Extern tjänst",
+      hint: "Använder en extern tjänst. Utan nycklar visar byggblocket sitt demoläge.",
     };
   }
   return {
-    label: "Fristående",
-    hint: "Behöver bara npm-paket — inga externa konton eller nycklar.",
+    label: "Ingen extern tjänst",
+    hint: "Fungerar utan externa konton eller nycklar.",
   };
 }
 
@@ -101,12 +101,12 @@ export function describeDossierMockMode(
 export function describeF3Requirement(requiresF3: boolean): DossierAxisDescriptor {
   if (requiresF3) {
     return {
-      label: "Kräver F3",
-      hint: 'Den riktiga integrationen byggs i steget "Bygg integrationer" — byggblocket har en byggnödvändig nyckel eller serverkod. I designläget ritas ytan och demoläget.',
+      label: "Bygg integrationer",
+      hint: 'Den riktiga funktionen skapas när du kör "Bygg integrationer". Innan dess kan ytan visas som demo.',
     };
   }
   return {
-    label: "Klar i designläget",
+    label: "Klar utan extra bygge",
     hint: 'Fungerar färdigt redan i designläget — ingen "Bygg integrationer"-runda behövs.',
   };
 }

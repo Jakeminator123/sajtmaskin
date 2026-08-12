@@ -27,7 +27,6 @@ import {
 } from "@/lib/chat-readiness";
 import {
   buildReleaseGateBlocker,
-  buildSeoAdvisoriesFromMeta,
   withReadinessCategory,
 } from "./readiness-payload";
 import { findInvalidJsonConfigPaths } from "@/lib/deploy/version-file-integrity";
@@ -535,11 +534,6 @@ async function buildEngineReadiness(
     // the card (it often contains internal vocabulary). Logs retain the detail.
     warnings.push(buildPreviewWarning(null, previewMeta.previewCode));
   }
-  const latestSeoWarning = errorLogs.find((log) => log.category === "seo");
-  if (latestSeoWarning) {
-    warnings.push(...buildSeoAdvisoriesFromMeta(latestSeoWarning.meta));
-  }
-
   // Ö4a: mirrors the LLM-vs-deterministic branch in `/finalize-design`:
   // a provider-specific dossier still waiting to be installed OR an already-
   // present integration with a real build requirement needs the LLM path.

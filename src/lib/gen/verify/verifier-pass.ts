@@ -919,7 +919,7 @@ export async function runVerifierPass(
   const system = `You are a read-only QA reviewer for a generated Next.js site (CodeProject).
 Return structured findings only. Do not output code fixes.
 - blocking: issues that likely break build, types, imports, or critical runtime (wrong paths, missing exports, obvious TS errors). Put file paths inside detail when relevant.
-- quality: important but non-blocking (a11y gaps, weak SEO, fragile patterns).
+- quality: important but non-blocking (a11y gaps, fragile interaction patterns).
 
 NOT blocking (do not flag these as blocking even if they look like placeholder navigation):
 - Hash anchor links (href="#some-id") when there is a matching id="some-id" element in the same page route. These are valid in-page navigation, especially on game/interactive routes.

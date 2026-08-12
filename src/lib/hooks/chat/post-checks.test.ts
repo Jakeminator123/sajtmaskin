@@ -1470,7 +1470,7 @@ describe("runPostGenerationChecks", () => {
     );
   });
 
-  it("keeps SEO advisory out of the chat output but persists the seo error-log row", async () => {
+  it("leaves SEO polish to publishing and emits no per-version SEO diagnostics", async () => {
     const onAutoFix = vi.fn();
     const store = createMessageStore();
     const files = buildSeoIssueFiles();
@@ -1519,9 +1519,8 @@ describe("runPostGenerationChecks", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    // 2026-07-23 declutter: the SEO/analytics/editorial/business review
-    // panels were removed from the chat post-check. SEO survives only as an
-    // advisory error-log row (launch readiness + Publicera opt-in).
+    // SEO-polish belongs to the existing Publicera opt-in. Ordinary version
+    // postchecks keep runtime/sanity signals but emit no SEO review row.
     const postCheck = getToolPart("Post-check", store);
     const output = postCheck?.output as Record<string, unknown>;
     expect(output.seoSummary).toBeUndefined();
@@ -1534,11 +1533,7 @@ describe("runPostGenerationChecks", () => {
     const errorLogCall = fetchCalls.find(
       (call) => call.url.includes("/error-log") && call.init?.method === "POST",
     );
-    expect(errorLogCall).toBeDefined();
-    const body = JSON.parse(String(errorLogCall?.init?.body ?? "{}")) as {
-      logs?: Array<{ category?: string }>;
-    };
-    expect(body.logs?.some((log) => log.category === "seo")).toBe(true);
+    expect(errorLogCall).toBeUndefined();
 
     expect(onAutoFix).not.toHaveBeenCalled();
   });

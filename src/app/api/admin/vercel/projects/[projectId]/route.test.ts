@@ -3,9 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const requireAdminAccess = vi.hoisted(() => vi.fn());
 const deleteProject = vi.hoisted(() => vi.fn());
 const isVercelConfigured = vi.hoisted(() => vi.fn());
+const existsSync = vi.hoisted(() => vi.fn());
+const readFileSync = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/admin", () => ({ requireAdminAccess }));
 vi.mock("@/lib/vercel/vercel-client", () => ({ deleteProject, isVercelConfigured }));
+vi.mock("node:fs", () => ({
+  default: { existsSync, readFileSync },
+  existsSync,
+  readFileSync,
+}));
 
 const { DELETE } = await import("./route");
 
@@ -32,6 +39,7 @@ beforeEach(() => {
   requireAdminAccess.mockResolvedValue({ ok: true, user: { email: "admin@example.com" } });
   isVercelConfigured.mockReturnValue(true);
   deleteProject.mockResolvedValue(undefined);
+  existsSync.mockReturnValue(false);
   process.env.VERCEL_PROJECT_ID = "prj_sajtmaskin_self";
 });
 

@@ -53,6 +53,13 @@ Current key rule:
 - preview-host path/runtime key is `/{chatId}`
 - legacy incoming `projectId` in preview-host payloads is accepted only as an
   alias for `chatId`
+- generated clients may keep deploy-portable root API URLs (`/api/*`). In a
+  multiplexed browser preview the host recovers the current `chatId` from the
+  page Referer and proxies the request as `/{chatId}/api/*`, while
+  preserving method, body and query. Without a matching live session it does
+  not guess or rewrite. External callbacks, server-to-server requests and other
+  Referer-less callers must use the explicitly scoped preview URL; this fallback
+  is only for browser-initiated traffic from the rendered preview.
 
 ### Verify lane
 

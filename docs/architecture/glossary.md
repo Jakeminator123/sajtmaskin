@@ -80,7 +80,7 @@ Kort ordlista för termer som lätt blandas ihop. Bara begrepp som återkommer i
 | Publicera | Deploy av aktuell version till produktion (skapar/uppdaterar `liveUrl`). Inte GitHub, inte domänköp. |
 | Domänkoppling | Koppla + verifiera en domän mot kundprojektets hosting. Skilj från domänköp, som sker hos extern leverantör (Loopia m.fl.). |
 | GitHubExport | Valfri export av en versions filer till användarens GitHub-repo (user eller org). Power-user-flöde, inte en del av Publicera. |
-| SEO (release) | Release-feature: deterministisk SEO-injektion vid publicering via `applySeoToProjectFiles` (robots, sitemap, opengraph, layout-metadata) + brief-guidning. Tillhör F3/publicera-livscykeln. **Inte** en dossier/capability-modul. |
+| SEO (release) | Valfri release-feature: granskning och deterministisk SEO-injektion vid publicering via `applySeoToProjectFiles` när **Optimera för Google** är på. En grundläggande title/description-bas kan finnas i sajten, men per-versions-SEO-review körs inte. **Inte** en dossier/capability-modul. |
 
 ## Kontrollbegrepp och kod-legacy
 
@@ -91,10 +91,10 @@ Kanoniska namn ovan styr docs och löptext. Kod-identifierare och telemetri-nyck
 | Normalize | Mekanisk kodstädning före LLM. | autofix, mekanisk autofix, url-expand, deterministisk import-repair |
 | RepairGate | Enda LLM-repair-porten. | runLlmRepairGate/RepairLedger, LLM-fix, syntax-fixer, verifier-fixer, server-repair-LLM |
 | RenderGate | F2: preview bootar/renderar; typecheck Advisory utom render-risk-koder. | quality gate (designPreview), preview-check |
-| ReleaseGate | F3: typecheck → build, explicit; placeholders alltid OK för env (lint borttagen ur blockerande lane 2026-07-22). | quality gate (integrationsBuild), build gate, readiness |
+| ReleaseGate | Integrationsversion: typecheck → build, explicit; bara kataloggodkända placeholders kan uppfylla env-policy (lint borttagen ur blockerande lane 2026-07-22). | quality gate (integrationsBuild), build gate, readiness |
 | Advisory | Synligt men ej blockerande. | warning, soft fail, degraded/typecheck_advisory |
 | Blocker | Stoppar promote/preview. | hard fail, blocking, preview-blocking |
-| CapabilitySmoke | Capability-specifik DOM/render-smoke. | product postcheck |
+| CapabilitySmoke | Begränsad DOM-/runtime-smoke av previewn. Den provar inte automatiskt varje capability eller extern provider. | product postcheck |
 | Defektsignatur | Stabil nyckel per **felklass** i `engine_version_error_logs`, skriven som `meta.defect.{kind,signature}` på den kanoniska skrivvägen. Två rader med samma signatur är samma fel även i olika chattar, vilket är det som gör "hur ofta händer det här" mätbart. Beskriver inte allvarlighet — vad som blockerar avgörs av gates. | `classifyVersionDefect`, `meta.defect` |
 
 ## Byggval: reglage → signal → mottagare
