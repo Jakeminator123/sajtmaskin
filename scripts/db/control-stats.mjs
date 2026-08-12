@@ -5,6 +5,8 @@
  * kommer ifran: vilken kontroll (quality gate, autofix, LLM-fix, preflight,
  * server-verify, post-repair) som star for flest fel/varningar, plus
  * telemetri-nyckeltal per scaffold och quality-gate-utfall.
+ * Null-scaffold: `nullScaffoldCohorts` delar `(null)` i imported_repo /
+ * scaffold_off / invalid_manual / unknown_null med preview tri-state.
  *
  * Usage:
  *   node scripts/db/control-stats.mjs --json --env=.env.vercel.production.pulled --days=14 --allow-insecure-ssl
@@ -232,17 +234,50 @@ try {
 
   // 8) Per scaffold: volym, preview-utfall, autofix/LLM-fix-frekvens.
   // M#pv1: preview_ready = runtime confirmed ready (preview_success IS TRUE,
-  // endast rader efter semantik-cutoffen — legacy-rader räknas inte);
-  // pending/failed/legacy are visible in telemetryTotals, not folded in here.
+  // endast rader efter semantik-cutoffen — legacy-rader räknas inte).
+  // Tri-state: ready / failed / pending (null) — aldrig bara ready/runs.
   out.byScaffold = await safe(
     "byScaffold",
-    `SELECT COALESCE(scaffold_id,'(null)') AS scaffold, COUNT(*)::int AS runs,
+    `SELECT COALESCE(scaffold_id,'(null)') AS scaffold,
+            COUNT(*) FILTER (WHERE created_at >= ${PV_CUT})::int AS runs,
             SUM(CASE WHEN created_at >= ${PV_CUT} AND preview_success IS TRUE THEN 1 ELSE 0 END)::int AS preview_ready,
+            SUM(CASE WHEN created_at >= ${PV_CUT} AND preview_success IS FALSE THEN 1 ELSE 0 END)::int AS preview_failed,
+            SUM(CASE WHEN created_at >= ${PV_CUT} AND preview_success IS NULL THEN 1 ELSE 0 END)::int AS preview_pending,
+            COUNT(*) FILTER (WHERE created_at < ${PV_CUT})::int AS preview_legacy,
             SUM(CASE WHEN autofix_applied THEN 1 ELSE 0 END)::int AS autofix_runs,
             SUM(CASE WHEN syntax_fixer_used THEN 1 ELSE 0 END)::int AS llm_fix_runs,
             SUM(preflight_error_count)::int AS preflight_errors
      FROM generation_telemetry WHERE created_at > ${W}
      GROUP BY 1 ORDER BY runs DESC`,
+  );
+
+  // 8b) Null-scaffold-kohort: "(null)" i byScaffold är blandat. Dela upp med
+  //     chat-historik (imported_repo) + scaffold_selection_method. Visa tri-state
+  //     så pending inte tolkas som failure.
+  out.nullScaffoldCohorts = await safe(
+    "nullScaffoldCohorts",
+    `SELECT
+       CASE
+         WHEN EXISTS (
+           SELECT 1 FROM engine_versions ev
+           WHERE ev.chat_id = gt.chat_id
+             AND ev.edit_kind = 'imported_repo'
+         ) THEN 'imported_repo'
+         WHEN gt.scaffold_selection_method = 'off' THEN 'scaffold_off'
+         WHEN gt.scaffold_selection_method = 'manual'
+              AND gt.scaffold_id IS NULL THEN 'invalid_manual'
+         ELSE 'unknown_null'
+       END AS cohort,
+       COUNT(*) FILTER (WHERE gt.created_at >= ${PV_CUT})::int AS runs,
+       SUM(CASE WHEN gt.created_at >= ${PV_CUT} AND gt.preview_success IS TRUE THEN 1 ELSE 0 END)::int AS preview_ready,
+       SUM(CASE WHEN gt.created_at >= ${PV_CUT} AND gt.preview_success IS FALSE THEN 1 ELSE 0 END)::int AS preview_failed,
+       SUM(CASE WHEN gt.created_at >= ${PV_CUT} AND gt.preview_success IS NULL THEN 1 ELSE 0 END)::int AS preview_pending,
+       COUNT(*) FILTER (WHERE gt.created_at < ${PV_CUT})::int AS preview_legacy
+     FROM generation_telemetry gt
+     WHERE gt.created_at > ${W}
+       AND gt.scaffold_id IS NULL
+     GROUP BY 1
+     ORDER BY runs DESC`,
   );
 
   // 9) Versions-slutlagen: hur manga fastnar i repairing/pending vs passed.
