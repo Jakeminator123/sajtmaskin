@@ -769,9 +769,10 @@ fallen (den är klientens URL-handoff: `stream-handlers.ts` sätter iframe-URL
 - `scripts/db/control-stats.mjs` `telemetryTotals` skiljer
   `preview_ready` / `preview_failed` / `preview_pending` (tidigare buntades
   `null` in i `preview_not_ok`) och redovisar pre-cutoff-rader separat som
-  `legacy_preview_flag`; `byScaffold` har samma tri-state per scaffold.
-  `nullScaffoldCohorts` delar `scaffold_id IS NULL` i `imported_repo` /
-  `scaffold_off` / `invalid_manual` / `unknown_null` (pending ≠ failed).
+  `legacy_preview_flag`; `byScaffold` har samma tri-state per scaffold
+  (post-cutoff `runs` så ready+failed+pending = runs; `preview_legacy` för
+  pre-cutoff). `nullScaffoldCohorts` delar `scaffold_id IS NULL` i
+  `imported_repo` / `scaffold_off` / `invalid_manual` / `unknown_null`.
 - Backoffice `generation_history._preview_label`: `ready` / `failed` /
   `pending`, och pre-cutoff `true` renderas som `legacy (preflight)` (läser
   radens `created_at`; cutoff-värdet dupliceras från `control-stats.mjs` med

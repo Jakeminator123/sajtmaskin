@@ -238,10 +238,12 @@ try {
   // Tri-state: ready / failed / pending (null) — aldrig bara ready/runs.
   out.byScaffold = await safe(
     "byScaffold",
-    `SELECT COALESCE(scaffold_id,'(null)') AS scaffold, COUNT(*)::int AS runs,
+    `SELECT COALESCE(scaffold_id,'(null)') AS scaffold,
+            COUNT(*) FILTER (WHERE created_at >= ${PV_CUT})::int AS runs,
             SUM(CASE WHEN created_at >= ${PV_CUT} AND preview_success IS TRUE THEN 1 ELSE 0 END)::int AS preview_ready,
             SUM(CASE WHEN created_at >= ${PV_CUT} AND preview_success IS FALSE THEN 1 ELSE 0 END)::int AS preview_failed,
             SUM(CASE WHEN created_at >= ${PV_CUT} AND preview_success IS NULL THEN 1 ELSE 0 END)::int AS preview_pending,
+            COUNT(*) FILTER (WHERE created_at < ${PV_CUT})::int AS preview_legacy,
             SUM(CASE WHEN autofix_applied THEN 1 ELSE 0 END)::int AS autofix_runs,
             SUM(CASE WHEN syntax_fixer_used THEN 1 ELSE 0 END)::int AS llm_fix_runs,
             SUM(preflight_error_count)::int AS preflight_errors
@@ -266,10 +268,11 @@ try {
               AND gt.scaffold_id IS NULL THEN 'invalid_manual'
          ELSE 'unknown_null'
        END AS cohort,
-       COUNT(*)::int AS runs,
+       COUNT(*) FILTER (WHERE gt.created_at >= ${PV_CUT})::int AS runs,
        SUM(CASE WHEN gt.created_at >= ${PV_CUT} AND gt.preview_success IS TRUE THEN 1 ELSE 0 END)::int AS preview_ready,
        SUM(CASE WHEN gt.created_at >= ${PV_CUT} AND gt.preview_success IS FALSE THEN 1 ELSE 0 END)::int AS preview_failed,
-       SUM(CASE WHEN gt.created_at >= ${PV_CUT} AND gt.preview_success IS NULL THEN 1 ELSE 0 END)::int AS preview_pending
+       SUM(CASE WHEN gt.created_at >= ${PV_CUT} AND gt.preview_success IS NULL THEN 1 ELSE 0 END)::int AS preview_pending,
+       COUNT(*) FILTER (WHERE gt.created_at < ${PV_CUT})::int AS preview_legacy
      FROM generation_telemetry gt
      WHERE gt.created_at > ${W}
        AND gt.scaffold_id IS NULL
