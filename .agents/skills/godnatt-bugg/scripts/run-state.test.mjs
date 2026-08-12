@@ -634,7 +634,10 @@ describe("pass state machine", () => {
       state.history.filter((entry) => entry.kind === "evaluation-draft-completed").length,
       2,
     );
-    assert.equal(state.history.some((entry) => entry.item?.mergeSha), false);
+    assert.equal(
+      state.history.some((entry) => entry.item?.mergeSha),
+      false,
+    );
   });
 
   it("invalidates a clean review when head SHA changes", () => {

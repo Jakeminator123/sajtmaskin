@@ -41,11 +41,7 @@ export const STAGES = Object.freeze([
 
 const MODES = new Set(["pilot", "evaluation", "full"]);
 const FULL_OUTCOMES = new Set(["fixed", "already-resolved", "reclassified"]);
-const EVALUATION_OUTCOMES = new Set([
-  "draft-fix",
-  "draft-already-resolved",
-  "draft-reclassified",
-]);
+const EVALUATION_OUTCOMES = new Set(["draft-fix", "draft-already-resolved", "draft-reclassified"]);
 const REVIEW_SOURCES = new Set(["bugbot", "bugbot-local", "pr-ai-review", "codex", "manual"]);
 const REVIEW_VERDICTS = new Set(["clean", "findings-fixed", "blocked"]);
 const SHA_PATTERN = /^[a-f0-9]{40}$/iu;
@@ -583,16 +579,10 @@ function validateStageEvidence(current, mode) {
         );
       }
       if (current.prTitlePrefix !== EVALUATION_TITLE_PREFIX) {
-        throw new RunStateError(
-          `Evaluation-PR kräver title-prefix: ${EVALUATION_TITLE_PREFIX}`,
-          8,
-        );
+        throw new RunStateError(`Evaluation-PR kräver title-prefix: ${EVALUATION_TITLE_PREFIX}`, 8);
       }
       if (current.prBodyMarker !== EVALUATION_BODY_MARKER) {
-        throw new RunStateError(
-          `Evaluation-PR kräver body-marker: ${EVALUATION_BODY_MARKER}`,
-          8,
-        );
+        throw new RunStateError(`Evaluation-PR kräver body-marker: ${EVALUATION_BODY_MARKER}`, 8);
       }
     }
   }
