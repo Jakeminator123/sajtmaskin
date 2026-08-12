@@ -65,6 +65,10 @@ import { Label } from "@/components/ui/label";
 import { BuilderPublishControl } from "./BuilderPublishControl";
 import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 
+const MANUALLY_SELECTABLE_SCAFFOLD_CLIENT_LIST = SCAFFOLD_CLIENT_LIST.filter(
+  ({ id }) => id !== SCAFFOLD_OFF_BASELINE_ID,
+);
+
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
