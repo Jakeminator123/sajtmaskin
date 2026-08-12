@@ -2,6 +2,23 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "id": "backoffice-domain-map-schema",
+      "sourceOfTruth": "docs/schemas/strict/backoffice-domain-map.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": "Översikt",
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "leave",
+      "notes": "Strict schema for config/backoffice/domain-map.json. Ajv shape and referenced-path parity are asserted by src/lib/config/backoffice-domain-map.parity.test.ts."
+    },
+    {
       "id": "ai-models-manifest",
       "sourceOfTruth": "config/ai_models/manifest.json",
       "type": "schema",
@@ -10,7 +27,7 @@
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
-        "surface": "AI Models",
+        "surface": "ai_models",
         "editable": true,
         "writePath": "config/ai_models/manifest.json",
         "danger": "low"
@@ -27,13 +44,13 @@
       "runtimeEnforced": false,
       "runtimeStatus": "n/a",
       "backoffice": {
-        "surface": "AI Models",
-        "editable": true,
-        "writePath": "config/ai_models/manifest.schema.json",
+        "surface": "ai_models",
+        "editable": false,
+        "writePath": null,
         "danger": "low"
       },
       "mobility": "safe",
-      "notes": "editor/CI mirror only; runtime authority is the Zod schema in load-manifest.ts."
+      "notes": "Read-only validation mirror consumed by the ai_models editor; Backoffice writes manifest.json, never this schema. Runtime authority is the Zod schema in load-manifest.ts."
     },
     {
       "id": "env-server-schema",
@@ -44,7 +61,7 @@
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
-        "surface": "Env Policy",
+        "surface": "env-policy",
         "editable": false,
         "writePath": null,
         "danger": "high"
@@ -61,7 +78,7 @@
       "runtimeEnforced": false,
       "runtimeStatus": "n/a",
       "backoffice": {
-        "surface": "Env Policy",
+        "surface": "env-policy",
         "editable": false,
         "writePath": null,
         "danger": "low"
@@ -95,7 +112,7 @@
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
-        "surface": "Database Health",
+        "surface": "Databashälsa",
         "editable": false,
         "writePath": null,
         "danger": "high"
@@ -112,7 +129,7 @@
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
-        "surface": "Dossiers",
+        "surface": "Byggblock (dossiers)",
         "editable": false,
         "writePath": null,
         "danger": "medium"
@@ -197,20 +214,88 @@
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
+        "surface": "Scaffolds: titta & justera",
+        "editable": true,
+        "writePath": "src/lib/gen/scaffolds/*/manifest.ts",
+        "danger": "medium"
+      },
+      "mobility": "risky",
+      "notes": "Canonical TS scaffold manifests; metadata is edited by Backoffice and create/edit/delete lifecycle operations write the same manifest glob. Structurally validated by scaffold-manifest-validation.test.ts."
+    },
+    {
+      "id": "dossier-stub-created-schema",
+      "sourceOfTruth": "docs/schemas/strict/dossier-stub-created.schema.json",
+      "type": "schema",
+      "validator": "docs:test",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "Forward declaration for cross-file stub warnings currently persisted as engine_version_error_logs category merge:cross-file-stub, not as a standalone runtime-validated event. The strict-schema inventory contract locks this classification."
+    },
+    {
+      "id": "embeddings-blob-manifest-schema",
+      "sourceOfTruth": "docs/schemas/strict/embeddings-blob-manifest.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
         "surface": null,
         "editable": false,
         "writePath": null,
         "danger": "medium"
       },
       "mobility": "risky",
-      "notes": "TS scaffold manifests; structurally validated by scaffold-manifest-validation.test.ts."
+      "notes": "Strict JSON Schema mirror for config/embeddings-blob-manifest.json; committed data is AJV-tested in registry.test.ts. Runtime and embeddings:ensure use a separate lightweight typed parser, so this schema is not claimed as their runtime authority."
     },
     {
-      "id": "strict-schema-catalog",
-      "sourceOfTruth": "docs/schemas/strict/*.schema.json",
+      "id": "image-replaced-with-placeholder-schema",
+      "sourceOfTruth": "docs/schemas/strict/image-replaced-with-placeholder.schema.json",
       "type": "schema",
-      "validator": null,
-      "ciStatus": "none",
+      "validator": "docs:test",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "Forward declaration for a legacy debugLog payload emitted by image-validator; console/debug telemetry is not runtime-validated. The strict-schema inventory contract locks this classification."
+    },
+    {
+      "id": "llm-repair-gate-deduped-telemetry-schema",
+      "sourceOfTruth": "docs/schemas/strict/llm-repair-gate-deduped.schema.json",
+      "type": "schema",
+      "validator": "docs:test",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "declared-only",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "safe",
+      "notes": "Observability-only devLogAppend event schema; emitted NDJSON is not runtime-validated. The strict-schema inventory contract locks this classification."
+    },
+    {
+      "id": "preview-session-contract-spec",
+      "sourceOfTruth": "docs/schemas/strict/preview-session-contract.schema.json",
+      "type": "schema",
+      "validator": "docs:test",
+      "ciStatus": "hard",
       "runtimeEnforced": false,
       "runtimeStatus": "n/a",
       "backoffice": {
@@ -220,7 +305,24 @@
         "danger": "low"
       },
       "mobility": "safe",
-      "notes": "Catalog/coverage entry only. Exact schema entries own validator attribution; the glob also contains forward declarations and preview-session-contract, which is a machine-readable spec rather than JSON Schema."
+      "notes": "Machine-readable documentation spec, not JSON Schema and not a runtime owner. Canonical executable owners are the TypeScript files listed inside the spec; docs:test locks its inventory classification."
+    },
+    {
+      "id": "variant-template-addenda-schema",
+      "sourceOfTruth": "docs/schemas/strict/variant-template-addenda.schema.json",
+      "type": "schema",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": null,
+        "editable": false,
+        "writePath": null,
+        "danger": "medium"
+      },
+      "mobility": "risky",
+      "notes": "Strict JSON Schema mirror for config/variant-template-addenda.json; committed data is AJV-tested in registry.test.ts. Runtime enforcement belongs to the Zod authority in variant-template-addendum.ts."
     },
     {
       "id": "db-health-report-schema",
@@ -418,7 +520,7 @@
       "runtimeEnforced": false,
       "runtimeStatus": "n/a",
       "backoffice": {
-        "surface": "Control Plane",
+        "surface": "Control Plane (cockpit)",
         "editable": false,
         "writePath": null,
         "danger": "low"

@@ -10,7 +10,6 @@ const materializeImages = vi.hoisted(() => vi.fn());
 const runVerifierPass = vi.hoisted(() => vi.fn());
 const isVerifierPassEnabled = vi.hoisted(() => vi.fn());
 const buildPreviewHtml = vi.hoisted(() => vi.fn());
-const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const repairGeneratedFiles = vi.hoisted(() => vi.fn());
 const buildCompleteProject = vi.hoisted(() => vi.fn());
 const addAssistantMessageAndCreateDraftVersion = vi.hoisted(() => vi.fn());
@@ -30,9 +29,7 @@ const validateGeneratedCode = vi.hoisted(() => vi.fn());
 const emitBusEvent = vi.hoisted(() => vi.fn());
 const subscribeEventBus = vi.hoisted(() => vi.fn());
 const recordPhaseDuration = vi.hoisted(() => vi.fn());
-const observePhase = vi.hoisted(() =>
-  vi.fn(async (_params: unknown, run: () => unknown) => run()),
-);
+const observePhase = vi.hoisted(() => vi.fn(async (_params: unknown, run: () => unknown) => run()));
 const incPartialFileRepair = vi.hoisted(() => vi.fn());
 
 // Mock the FEATURES gate so optional dossier RAG / recurring-patterns
@@ -84,8 +81,7 @@ vi.mock("@/lib/gen/verify/verifier-pass", () => ({
   runVerifierPass,
   formatVerifierFindingsAsFixerErrors: (findings: {
     blocking: Array<{ id: string; detail: string }>;
-  }) =>
-    findings.blocking.map((f) => `[verifier:${f.id}] ${f.detail}`),
+  }) => findings.blocking.map((f) => `[verifier:${f.id}] ${f.detail}`),
   // SAJ-61 c5: file-path extractor consumed by `verifier-phase` to seed
   // `runLlmRepairGate({ requiredFiles })`. The unit tests don't care
   // about the exact list, just that the export exists.
@@ -98,12 +94,11 @@ vi.mock("@/lib/gen/verify/verifier-pass", () => ({
   // Tier-3 policy filter — inert here (identity) so these tests keep asserting
   // the unfiltered verifier→repair flow. Its own behaviour is covered in
   // `verifier-pass.test.ts`.
-  suppressTier3StrippedImportFindings: <T,>(findings: T) => findings,
+  suppressTier3StrippedImportFindings: <T>(findings: T) => findings,
 }));
 
 vi.mock("@/lib/gen/preview/build-preview-document", () => ({
   buildPreviewHtml,
-  buildPreviewUrl,
 }));
 
 vi.mock("@/lib/gen/autofix/repair-generated-files", () => ({
@@ -167,7 +162,14 @@ vi.mock("@/lib/utils/debug", () => ({
 }));
 
 vi.mock("@/lib/db/client", () => ({
-  db: new Proxy({}, { get() { return vi.fn(); } }),
+  db: new Proxy(
+    {},
+    {
+      get() {
+        return vi.fn();
+      },
+    },
+  ),
   dbConfigured: false,
 }));
 
@@ -228,7 +230,6 @@ describe("finalizeAndSaveVersion", () => {
     materializeImages.mockReset();
     runVerifierPass.mockReset();
     buildPreviewHtml.mockReset();
-    buildPreviewUrl.mockReset();
     repairGeneratedFiles.mockReset();
     buildCompleteProject.mockReset();
     addAssistantMessageAndCreateDraftVersion.mockReset();
@@ -255,7 +256,8 @@ describe("finalizeAndSaveVersion", () => {
     incPartialFileRepair.mockReset();
 
     runAutoFix.mockResolvedValue({
-      fixedContent: '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      fixedContent:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       fixes: [],
       warnings: [],
       dependencies: [],
@@ -269,7 +271,8 @@ describe("finalizeAndSaveVersion", () => {
       durationMs: 0,
     });
     validateAndFix.mockResolvedValue({
-      content: '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      content:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       hadErrors: false,
       fixerUsed: false,
       fixerImproved: false,
@@ -282,7 +285,8 @@ describe("finalizeAndSaveVersion", () => {
     });
     expandUrls.mockImplementation((value: string) => value);
     materializeImages.mockResolvedValue({
-      content: '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
+      content:
+        '```tsx file="src/app/page.tsx"\nexport default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }\n```',
       replacedCount: 0,
       skippedCount: 0,
       resolvedUrls: new Set<string>(),
@@ -318,7 +322,8 @@ describe("finalizeAndSaveVersion", () => {
         },
         {
           path: "src/app/page.tsx",
-          content: "export default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }",
+          content:
+            "export default function Page() { return (<main><h1>Hello from Acme</h1><p>Welcome to Acme — modern infrastructure, careful onboarding, friendly support every day, and a dedicated success manager who actually picks up the phone within seconds of dialing</p></main>); }",
           language: "tsx",
         },
       ]),
@@ -362,14 +367,12 @@ describe("finalizeAndSaveVersion", () => {
     failVersionVerification.mockResolvedValue({});
     createEngineVersionErrorLogs.mockResolvedValue([]);
     createGenerationTelemetryRecord.mockResolvedValue({ id: "telemetry_1" });
-    buildPreviewUrl.mockReturnValue("https://preview.example/chat_1/ver_1");
   });
 
   it("replaces known dead image URLs before persisting the next version", async () => {
     const deadUrl =
       "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=1200&h=800&fit=crop";
-    const replacementUrl =
-      "https://images.unsplash.com/photo-1647164789794?w=1200&h=800&fit=crop";
+    const replacementUrl = "https://images.unsplash.com/photo-1647164789794?w=1200&h=800&fit=crop";
     const content = `\`\`\`tsx file="src/app/page.tsx"
 export default function Page() {
   return <img src="${deadUrl}" alt="Neon glassblowing studio" />;
@@ -458,9 +461,7 @@ export default function Page() {
 
       expect(addAssistantMessageAndUpdateExistingVersion).toHaveBeenCalledTimes(1);
       const call = addAssistantMessageAndUpdateExistingVersion.mock.calls[0];
-      expect(call?.[4]).toEqual(
-        expect.objectContaining({ thinking: "Repair reasoning trace" }),
-      );
+      expect(call?.[4]).toEqual(expect.objectContaining({ thinking: "Repair reasoning trace" }));
     });
 
     it("persists selected dossier env keys on the create path (dossier-env rehydrering)", async () => {
@@ -515,9 +516,7 @@ export default function Page() {
       });
 
       const call = addAssistantMessageAndUpdateExistingVersion.mock.calls[0];
-      expect(call?.[4]).toEqual(
-        expect.objectContaining({ selectedDossierEnvKeysBackfill: null }),
-      );
+      expect(call?.[4]).toEqual(expect.objectContaining({ selectedDossierEnvKeysBackfill: null }));
     });
 
     it("passes thinking: null when no reasoning was collected", async () => {
@@ -629,10 +628,7 @@ export default function Page() {
       buildIntent: undefined,
     });
 
-    const saved = updateChatOrchestrationSnapshot.mock.calls[0]?.[1] as Record<
-      string,
-      unknown
-    >;
+    const saved = updateChatOrchestrationSnapshot.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(saved.fileEvidenceCapabilities).toEqual([]);
     expect(saved.fileEvidenceDossierIds).toEqual([]);
     expect(saved.mutedCapabilities).toEqual(["auth"]);
@@ -666,10 +662,7 @@ export default function Page() {
       buildIntent: undefined,
     });
 
-    const saved = updateChatOrchestrationSnapshot.mock.calls[0]?.[1] as Record<
-      string,
-      unknown
-    >;
+    const saved = updateChatOrchestrationSnapshot.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(saved.fileEvidenceCapabilities).toEqual(["auth"]);
     expect(saved.fileEvidenceDossierIds).toEqual(["supabase-auth"]);
     expect(saved.mutedCapabilities).toEqual([]);
@@ -677,7 +670,9 @@ export default function Page() {
   });
 
   it("propagates when transactional assistant+draft persist fails (no manual message delete)", async () => {
-    addAssistantMessageAndCreateDraftVersion.mockRejectedValueOnce(new Error("draft insert failed"));
+    addAssistantMessageAndCreateDraftVersion.mockRejectedValueOnce(
+      new Error("draft insert failed"),
+    );
 
     await expect(
       finalizeAndSaveVersion({
@@ -1380,7 +1375,6 @@ export default function Page() {
     expect(result.previewUrl).toBeNull();
     expect(result.preflight.previewBlocked).toBe(true);
     expect(result.preflight.verificationBlocked).toBe(true);
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
       "gpt-5.4",
@@ -1415,7 +1409,6 @@ export default function Page() {
       "Automatic preflight could not build a renderable own-engine preview entrypoint.",
     );
     expect(result.preflight.primaryPreviewTarget).toBe("preview");
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
     expect(logGeneration).toHaveBeenCalledWith(
       "chat_1",
       "gpt-5.4",
@@ -2866,7 +2859,9 @@ export default function Page() {
       expect(runVerifierPass).toHaveBeenCalledTimes(2);
       const fixerLogCalls = devLogAppend.mock.calls.filter(
         (call) =>
-          call[1] && typeof call[1] === "object" && (call[1] as { type?: string }).type === "verifier-pass.fixer",
+          call[1] &&
+          typeof call[1] === "object" &&
+          (call[1] as { type?: string }).type === "verifier-pass.fixer",
       );
       expect(fixerLogCalls).toHaveLength(1);
       const fixerLogPayload = fixerLogCalls[0]?.[1] as Record<string, unknown>;

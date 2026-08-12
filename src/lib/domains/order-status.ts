@@ -28,11 +28,3 @@ export const LIVE_DOMAIN_ORDER_STATUSES: readonly DomainOrderStatus[] = [
   "registering",
   "registered",
 ];
-
-/** Terminal statuses that release the name for another attempt. */
-export const RELEASED_DOMAIN_ORDER_STATUSES: readonly DomainOrderStatus[] = [
-  "expired",
-  "canceled",
-  "registration_failed",
-  "refunded",
-];

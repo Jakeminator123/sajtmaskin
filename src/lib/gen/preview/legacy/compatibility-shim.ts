@@ -5,17 +5,14 @@
  *
  * Tier-2 helpers live in `@/lib/gen/preview/preview-url-classifier`.
  */
-import {
-  isTier2LivePreviewUrl,
-  normalizePreviewUrl,
-} from "../preview-url-classifier";
+import { isTier2LivePreviewUrl, normalizePreviewUrl } from "../preview-url-classifier";
 
 const OWN_ENGINE_PREVIEW_PATH = "/api/preview-render";
 
 /**
  * When the legacy compatibility (shim) preview is disabled, it is suppressed
  * end-to-end:
- * - `buildPreviewUrl` returns null so no shim URL is ever constructed
+ * - engine APIs never construct new shim URLs
  * - `/api/preview-render` returns HTTP 410 with an explanatory page
  * - `isShimOrMissingPreviewUrl` always returns true so the tier-2 VM
  *   bootstrap re-attempts even if a stale shim URL leaks in from persisted state

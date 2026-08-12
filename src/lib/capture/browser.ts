@@ -56,7 +56,7 @@ let captureBrowserGate: Promise<void> = Promise.resolve();
  * här du ska titta först.
  */
 /**
- * Mätsteg för /tmp-svälten (plan 2026-08-11-prodkorning-observability/02):
+ * Mätsteg för `/tmp`-reprot i `BUG-SWARM-BACKLOG.md` § Behöver repro:
  * Chromium loggade "free space in temporary directory: 0" och dog i
  * `browser.newPage`. Fluid Compute återanvänder instansen, så /tmp ackumulerar
  * (Sparticuz-binär, läckta Playwright-profiler, run-NDJSON). En rad per launch

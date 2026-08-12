@@ -137,24 +137,3 @@ export async function saveProjectData(
     throw new Error(result.error || "Failed to save project data");
   }
 }
-
-// Upload image
-export async function uploadImage(
-  projectId: string,
-  file: File,
-): Promise<{ url: string; filename: string }> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const response = await fetch(`/api/projects/${projectId}/upload`, {
-    method: "POST",
-    body: formData,
-  });
-  const data = await response.json();
-
-  if (!data.success) {
-    throw new Error(data.error || "Failed to upload image");
-  }
-
-  return { url: data.image.url, filename: data.image.filename };
-}

@@ -63,19 +63,19 @@ type CanvasData = {
 const DATA: CanvasData = {
   "meta": {
     "repo": "Jakeminator123/sajtmaskin",
-    "commit": "ad129f6de",
-    "commitDate": "2026-08-05",
+    "commit": "f3f6f0bda",
+    "commitDate": "2026-08-12",
     "sinceDays": 14
   },
   "totals": {
     "processes": 8,
     "openP0": 0,
     "openP1": 1,
-    "openP2": 13,
-    "openP3": 7,
+    "openP2": 15,
+    "openP3": 9,
     "blocked": 1,
     "shaky": 4,
-    "evalExactHitPct": 98.46
+    "evalExactHitPct": null
   },
   "processes": [
     {
@@ -91,7 +91,7 @@ const DATA: CanvasData = {
         "P3": 1,
         "other": 0
       },
-      "churn": 22,
+      "churn": 30,
       "summary": "Överblick: manifestets buildProfiles + phaseRouting, resolverade fixer/verifier per tier, inläst DEFAULT_MODEL_ID från catalog.ts, fas-readme under logs/llm-segmentts-and-index/rea",
       "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
     },
@@ -108,7 +108,7 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 6,
+      "churn": 8,
       "summary": "Ordning och lista över Core Rules-fragment (= statisk systemprompt) för own-engine. Själva texterna ligger som filer under prompt-core/. Sidan husar också tre kringliggande config-",
       "note": "2 oppna backlog-rader (P0:0 P1:0 P2:2 P3:0)"
     },
@@ -125,43 +125,43 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 1,
+      "churn": 2,
       "summary": "Markdown-fragment (= Core Rules) som concateneras till statisk systemprompt (se codegen-core-manifest.json). Sätter stack, output-format, behavior, komponentkontrakt. Aldrig per-re",
-      "note": "1 commits / 14d"
+      "note": "2 commits / 14d"
     },
     {
       "name": "ai_models",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 1,
+      "openBugs": 3,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
-        "P2": 0,
-        "P3": 1,
+        "P2": 1,
+        "P3": 2,
         "other": 0
       },
-      "churn": 19,
+      "churn": 32,
       "summary": "Modellregister och LLM-kedja: byggprofiler, prompt assist, brief/defaults, phase-routing för planner/fixer/verifier, repair-passgränser, tokenbudgetar, route-timeouts och placehold",
-      "note": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
+      "note": "3 oppna backlog-rader (P0:0 P1:0 P2:1 P3:2)"
     },
     {
       "name": "Scaffolds: titta & justera",
       "status": "shaky",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "openBugs": 5,
+      "openBugs": 7,
       "openByPrio": {
         "P0": 0,
         "P1": 0,
         "P2": 4,
-        "P3": 1,
+        "P3": 3,
         "other": 0
       },
-      "churn": 18,
+      "churn": 22,
       "summary": "Samlad scaffold-vy (konsoliderad 2026-07-21 från Runtime scaffolds + Scaffolds + Mental modell): dynamiska filträd direkt från respektive scaffold-rot, kopiering till webbläsarens ",
-      "note": "5 oppna backlog-rader (P0:0 P1:0 P2:4 P3:1)"
+      "note": "7 oppna backlog-rader (P0:0 P1:0 P2:4 P3:3)"
     },
     {
       "name": "Scaffolds & varianter: skapa, redigera, klona, ta bort",
@@ -176,24 +176,24 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 30,
+      "churn": 60,
       "summary": "Backoffice-yta för runtime-scaffolds och deras scaffold-variants: tradvy scaffold -> varianter, create scaffold-shell via kloning av befintlig scaffold, CRUD för variant-JSON, bero",
-      "note": "Aktiv: 30 commits / 14d"
+      "note": "Aktiv: 60 commits / 14d"
     },
     {
       "name": "Preview och versioner",
       "status": "blocked",
       "statusLabel": "Blockerat",
       "tone": "danger",
-      "openBugs": 9,
+      "openBugs": 12,
       "openByPrio": {
         "P0": 0,
         "P1": 1,
-        "P2": 5,
-        "P3": 3,
+        "P2": 6,
+        "P3": 5,
         "other": 0
       },
-      "churn": 25,
+      "churn": 33,
       "summary": "Tier-2 VM-preview, F2/F3-livscykel (`engine_versions.lifecycle_stage`), repair/promotion, prompt-dumps och logg/telemetri för buildern. `done` kan bära `previewPending` och `previe",
       "note": "BLOCKER: `SM-007` **Domänköpets restlista är en releasegrind, inte en aktiv incident:** tolv fynd …"
     },
@@ -210,9 +210,9 @@ const DATA: CanvasData = {
         "P3": 0,
         "other": 0
       },
-      "churn": 5,
+      "churn": 11,
       "summary": "Backoffice-yta för scaffold-selection-eval och codegen-eval. Scaffold-eval läser senaste lokala JSON-rapport. Codegen-delen visar baseline-status, kan köra `npm run eval:gate` manu",
-      "note": "Aktiv: 5 commits / 14d"
+      "note": "Aktiv: 11 commits / 14d"
     }
   ],
   "shaky": [
@@ -226,7 +226,13 @@ const DATA: CanvasData = {
       "name": "Scaffolds: titta & justera",
       "statusLabel": "Skakigt",
       "tone": "warning",
-      "reason": "5 oppna backlog-rader (P0:0 P1:0 P2:4 P3:1)"
+      "reason": "7 oppna backlog-rader (P0:0 P1:0 P2:4 P3:3)"
+    },
+    {
+      "name": "ai_models",
+      "statusLabel": "Skakigt",
+      "tone": "warning",
+      "reason": "3 oppna backlog-rader (P0:0 P1:0 P2:1 P3:2)"
     },
     {
       "name": "Codegen core",
@@ -236,12 +242,6 @@ const DATA: CanvasData = {
     },
     {
       "name": "LLM-faser & runtime-sanning",
-      "statusLabel": "Skakigt",
-      "tone": "warning",
-      "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
-    },
-    {
-      "name": "ai_models",
       "statusLabel": "Skakigt",
       "tone": "warning",
       "reason": "1 oppna backlog-rader (P0:0 P1:0 P2:0 P3:1)"
@@ -271,17 +271,7 @@ const DATA: CanvasData = {
     {
       "prio": "P2",
       "blocker": false,
-      "fynd": "`SM-004` **Postgres-dossier kan återställa helper utan schemafil:** `index.ts` är verbatim och importerar en …"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
       "fynd": "`SM-005` **F3-prompten kan få två integrationsauktoriteter samtidigt:** approval-planen renderas medan pre-ge…"
-    },
-    {
-      "prio": "P2",
-      "blocker": false,
-      "fynd": "`SM-006` **Dependency-backfill tappar provideridentitet:** backfillen återselekterar default-dossier ur capab…"
     },
     {
       "prio": "P2",
@@ -307,407 +297,20 @@ const DATA: CanvasData = {
       "prio": "P2",
       "blocker": false,
       "fynd": "`SM-014` **Tier-2-iframens `onLoad` avtäcker previewn före runtime är redo:** rå `onLoad` sätter `iframeLoadi…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "`SM-015` **Dämpad normaltext klarar inte AA:** `muted-foreground/70` och `text-gray-500` ligger under 4,5:1 m…"
+    },
+    {
+      "prio": "P2",
+      "blocker": false,
+      "fynd": "`SM-017` **Kvalitetsgrinden stämplas grön innan grinden körts:** finalize skriver `preflight_passed` i det fä…"
     }
   ],
-  "topOpenRisksOmitted": 2,
-  "evals": {
-    "exactHitPct": 98.46,
-    "acceptableHitPct": null,
-    "total": 65,
-    "errors": null,
-    "rows": [
-      {
-        "id": "landing_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "landing_02",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "high"
-      },
-      {
-        "id": "landing_03",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "landing_04",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "landing_05",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "saas_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "saas_02",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "saas_03",
-        "ok": true,
-        "method": "keyword",
-        "confidence": "medium"
-      },
-      {
-        "id": "saas_04",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "saas_05",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "portfolio_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "portfolio_02",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "portfolio_03",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "portfolio_04",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "portfolio_05",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "blog_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "blog_02",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "blog_03",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "blog_04",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "blog_05",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "dashboard_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "dashboard_02",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "dashboard_03",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "medium"
-      },
-      {
-        "id": "dashboard_04",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "medium"
-      },
-      {
-        "id": "dashboard_05",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "appshell_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "appshell_02",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "medium"
-      },
-      {
-        "id": "appshell_03",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "appshell_04",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "appshell_05",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "medium"
-      },
-      {
-        "id": "auth_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "auth_02",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "auth_03",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "auth_04",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "high"
-      },
-      {
-        "id": "ecom_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "ecom_02",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "ecom_03",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "ecom_04",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "ecom_05",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "photoshop_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "photoshop_02",
-        "ok": false,
-        "method": "keyword",
-        "confidence": "medium"
-      },
-      {
-        "id": "photoshop_03",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "medium"
-      },
-      {
-        "id": "photoshop_04",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "hospitality_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "hospitality_02",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "hospitality_03",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "hospitality_04",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "hospitality_05",
-        "ok": true,
-        "method": "default",
-        "confidence": "low"
-      },
-      {
-        "id": "contentsite_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "contentsite_02",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "contentsite_03",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "contentsite_04",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "high"
-      },
-      {
-        "id": "contentsite_05",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      },
-      {
-        "id": "base_01",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "high"
-      },
-      {
-        "id": "base_02",
-        "ok": true,
-        "method": "default",
-        "confidence": "low"
-      },
-      {
-        "id": "base_03",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "high"
-      },
-      {
-        "id": "base_04",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "high"
-      },
-      {
-        "id": "cross_01",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "cross_02",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "medium"
-      },
-      {
-        "id": "cross_03",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "cross_04",
-        "ok": true,
-        "method": "default",
-        "confidence": "low"
-      },
-      {
-        "id": "cross_05",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "high"
-      },
-      {
-        "id": "cross_06",
-        "ok": true,
-        "method": "embedding",
-        "confidence": "high"
-      },
-      {
-        "id": "cross_07",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "medium"
-      },
-      {
-        "id": "cross_08",
-        "ok": true,
-        "method": "agreement",
-        "confidence": "high"
-      }
-    ]
-  },
+  "topOpenRisksOmitted": 4,
+  "evals": null,
   "phases": [
     "FAS 1 - Intent: prompt, brief, scaffold/variant/dossiers, route plan",
     "FAS 2 - Orkestrering & build: system prompt, codegen, finalize, autofix, verifier, persist",
@@ -849,7 +452,7 @@ export default function LLMFlowCanvas() {
         <CardBody>
           <Stack gap={6}>
             <Text size="small" tone="secondary">
-              Ogonblicksbild vid korningstillfallet. Fil-kallorna (config/dashboard/domain-map.json,
+              Ogonblicksbild vid korningstillfallet. Fil-kallorna (config/backoffice/domain-map.json,
               BUG-SWARM-BACKLOG.md, eval-rapporten) lases fran working tree, medan commit {d.meta.commit}
               och churn speglar committat lage (git log).
             </Text>

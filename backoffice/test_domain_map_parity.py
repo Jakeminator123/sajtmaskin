@@ -18,7 +18,7 @@ from backoffice import REPO_ROOT
 from backoffice.pages import PAGE_NAMES, PAGE_QUERY_ALIASES, overview
 from backoffice.shared import read_json
 
-DOMAIN_MAP_JSON = REPO_ROOT / "config" / "dashboard" / "domain-map.json"
+DOMAIN_MAP_JSON = REPO_ROOT / "config" / "backoffice" / "domain-map.json"
 
 
 class DomainMapParityTests(unittest.TestCase):

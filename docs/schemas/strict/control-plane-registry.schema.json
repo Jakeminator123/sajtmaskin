@@ -20,6 +20,20 @@
   "$defs": {
     "entry": {
       "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": { "runtimeStatus": { "const": "wired" } },
+            "required": ["runtimeStatus"]
+          },
+          "then": {
+            "properties": { "runtimeEnforced": { "const": true } }
+          },
+          "else": {
+            "properties": { "runtimeEnforced": { "const": false } }
+          }
+        }
+      ],
       "required": [
         "id",
         "sourceOfTruth",
@@ -37,11 +51,12 @@
         "id": {
           "type": "string",
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-          "description": "Unique kebab-case identifier within the registry."
+          "description": "Unique kebab-case identifier across both control-plane registries."
         },
         "sourceOfTruth": {
           "type": "string",
           "minLength": 1,
+          "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)(?:[^#*]+\\.jsonc?#[A-Za-z0-9_.-]+|[^#]+)$",
           "description": "Repo-relative path to the authoritative file. May be a glob (contains '*') or a 'path#fragment' reference into a JSON file."
         },
         "type": {
@@ -87,6 +102,7 @@
             },
             "writePath": {
               "type": ["string", "null"],
+              "pattern": "^(?![A-Za-z]:)(?![/\\\\])(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$",
               "description": "File Backoffice writes to, or null."
             },
             "danger": {

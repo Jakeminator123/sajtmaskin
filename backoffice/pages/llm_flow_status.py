@@ -75,7 +75,7 @@ def render(ctx: BackofficeContext) -> None:
     st.caption(
         "Deterministisk status över LLM-flödets processer (Klart / Pågår / Skakigt / "
         "Blockerat), genererad av `scripts/canvas/build-llm-flow-canvas.mjs` från "
-        "`config/dashboard/domain-map.json`, `BUG-SWARM-BACKLOG.md`, eval-rapporten och "
+        "`config/backoffice/domain-map.json`, `BUG-SWARM-BACKLOG.md`, eval-rapporten och "
         "git-churn. Backoffice regenererar vid start; samma data driver Cursor-canvasen."
     )
 
