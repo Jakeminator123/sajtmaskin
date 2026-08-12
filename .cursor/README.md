@@ -9,7 +9,7 @@ Se [`docs/README.md`](../docs/README.md) — tunn dokumentationsrouter. Snabb or
 - **Föredra** att öppna **`sajtmaskin.code-workspace`** i repots rot (`File → Open Workspace from File…`). Den är committad, pekar på en rot (`.`) med visningsnamnet `sajtmaskin`, och håller Cursor-sessionen konsekvent. Att öppna bara mappen fungerar också, men skapa inte två parallella fönster (folder + workspace) mot samma checkout.
 - Lägg **inte** till globala Cursor-sökvägar (t.ex. `%USERPROFILE%\.cursor\plans`) eller andra worktrees som extra workspace-mappar — det ger brus i Problems/sök.
 - **Standard:** huvudcheckouten `…\sajtmaskin` på `master` i ett eget fönster. Separata worktrees öppnas i egna fönster och tas bort när de inte längre bär unikt arbete.
-- **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`** (canonical). Workspace-filen duplicerar dem **inte** — folder-settings gäller ändå när roten ingår i workspace.
+- **VS Code / Cursor-delade** inställningar: **`.vscode/settings.json`** är canonical. När du öppnar mappen gäller hela filen. I `.code-workspace`-läge tillämpar VS Code bara dess resurs-/mappscopade värden, så workspace-filen speglar de sex Window-scopade TypeScript-/terminalvärdena som annars ignoreras. Ändra värdena i `.vscode` först och håll den smala speglingen synkad; duplicera inte resten av filen.
 - **Endast Cursor**: **`.cursor/settings.json`** (t.ex. plugins). Den ersätter inte `.vscode` för vanliga tillägg.
 - Markdown-projektkonfiguration: **`.markdownlint.json`**, **`.markdownlintignore`**. Filer _utanför_ repot kräver i regel **User Settings** (`markdownlint.ignore`) eller att de inte ingår i workspace.
 
