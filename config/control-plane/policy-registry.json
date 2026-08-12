@@ -2,6 +2,23 @@
   "schemaVersion": 1,
   "entries": [
     {
+      "id": "backoffice-domain-map",
+      "sourceOfTruth": "config/backoffice/domain-map.json",
+      "type": "rule",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": false,
+      "runtimeStatus": "n/a",
+      "backoffice": {
+        "surface": "Översikt",
+        "editable": false,
+        "writePath": null,
+        "danger": "low"
+      },
+      "mobility": "leave",
+      "notes": "Backoffice-only metadata projection mapping registered pages to canonical owners, docs, schemas and code readers. It is not imported by the Next.js runtime; strict schema and path/page parity are CI-tested."
+    },
+    {
       "id": "env-policy",
       "sourceOfTruth": "config/env-policy.json",
       "type": "policy",
@@ -10,7 +27,7 @@
       "runtimeEnforced": false,
       "runtimeStatus": "declared-only",
       "backoffice": {
-        "surface": "Env Policy",
+        "surface": "env-policy",
         "editable": true,
         "writePath": "config/env-policy.json",
         "danger": "medium"
@@ -27,7 +44,7 @@
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
-        "surface": "AI Models",
+        "surface": "ai_models",
         "editable": true,
         "writePath": "config/ai_models/manifest.json",
         "danger": "low"
@@ -44,7 +61,7 @@
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
-        "surface": "AI Models",
+        "surface": "ai_models",
         "editable": true,
         "writePath": "config/ai_models/manifest.json",
         "danger": "low"
@@ -61,7 +78,7 @@
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
-        "surface": "AI Models",
+        "surface": "ai_models",
         "editable": true,
         "writePath": "config/ai_models/manifest.json",
         "danger": "low"
@@ -70,51 +87,17 @@
       "notes": "provider/auth/db/payment inference."
     },
     {
-      "id": "manifest-per-tier-timeouts",
-      "sourceOfTruth": "config/ai_models/manifest.json#perTierTimeouts",
-      "type": "policy",
-      "validator": "control-plane:check",
-      "ciStatus": "warn",
-      "runtimeEnforced": false,
-      "runtimeStatus": "declared-only",
-      "backoffice": {
-        "surface": "AI Models > Per-tier policy",
-        "editable": false,
-        "writePath": null,
-        "danger": "low"
-      },
-      "mobility": "leave",
-      "notes": "VALIDATE-ONLY. Present in manifest + shown read-only in backoffice but NOT wired to runtime; global routeTimeouts apply. Validated by Zod (optional) after this change."
-    },
-    {
-      "id": "manifest-per-tier-repair-policies",
-      "sourceOfTruth": "config/ai_models/manifest.json#perTierRepairPolicies",
-      "type": "policy",
-      "validator": "control-plane:check",
-      "ciStatus": "warn",
-      "runtimeEnforced": false,
-      "runtimeStatus": "declared-only",
-      "backoffice": {
-        "surface": "AI Models > Per-tier policy",
-        "editable": false,
-        "writePath": null,
-        "danger": "low"
-      },
-      "mobility": "leave",
-      "notes": "VALIDATE-ONLY; global repairPolicies apply at runtime."
-    },
-    {
       "id": "manifest-per-tier-briefing",
       "sourceOfTruth": "config/ai_models/manifest.json#perTierBriefing",
       "type": "policy",
-      "validator": "control-plane:check",
+      "validator": "test:ci",
       "ciStatus": "hard",
       "runtimeEnforced": true,
       "runtimeStatus": "wired",
       "backoffice": {
-        "surface": "AI Models > Per-tier policy",
-        "editable": false,
-        "writePath": null,
+        "surface": "ai_models",
+        "editable": true,
+        "writePath": "config/ai_models/manifest.json",
         "danger": "low"
       },
       "mobility": "leave",
@@ -197,7 +180,7 @@
       "runtimeEnforced": false,
       "runtimeStatus": "declared-only",
       "backoffice": {
-        "surface": "Shadcn Audit",
+        "surface": "shadcn-audit",
         "editable": true,
         "writePath": "config/shadcn-mirror-audit-policy.json",
         "danger": "low"
@@ -274,7 +257,7 @@
       "notes": "Cursor agent governance (*.mdc); not app runtime; Cursor expects this path."
     },
     {
-      "id": "code-policy-modules",
+      "id": "server-auto-brief-policy",
       "sourceOfTruth": "src/lib/builder/server-auto-brief-policy.ts",
       "type": "policy",
       "validator": "test:ci",
@@ -288,7 +271,103 @@
         "danger": "low"
       },
       "mobility": "safe",
-      "notes": "representative of in-code policy modules (also build-spec/policy-inference.ts, orchestrate/policy-helpers.ts, dossiers/verbatim-policy.ts, finalize-version/policy.ts, verify/server-repair-policy.ts, openclaw/chat-context-policy.ts); kept near domain by design."
+      "notes": "Canonical server-side Deep Brief eligibility policy; kept near its runtime consumers by design."
+    },
+    {
+      "id": "build-spec-policy-inference",
+      "sourceOfTruth": "src/lib/gen/build-spec/policy-inference.ts",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": { "surface": null, "editable": false, "writePath": null, "danger": "medium" },
+      "mobility": "risky",
+      "notes": "Canonical inference of BuildSpec change scope, quality, preview, verification and context policies."
+    },
+    {
+      "id": "orchestration-policy-helpers",
+      "sourceOfTruth": "src/lib/gen/orchestrate/policy-helpers.ts",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": { "surface": null, "editable": false, "writePath": null, "danger": "medium" },
+      "mobility": "risky",
+      "notes": "Canonical orchestration promotion and continuity policy helpers."
+    },
+    {
+      "id": "dossier-verbatim-policy",
+      "sourceOfTruth": "src/lib/gen/dossiers/verbatim-policy.ts",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": { "surface": null, "editable": false, "writePath": null, "danger": "high" },
+      "mobility": "risky",
+      "notes": "Canonical post-merge restoration policy for dossier files whose effective injection mode is verbatim."
+    },
+    {
+      "id": "embeddings-blob-manifest-runtime",
+      "sourceOfTruth": "src/lib/gen/embeddings/embeddings-storage.ts",
+      "type": "runtime-authority",
+      "validator": "embeddings:ensure",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": { "surface": null, "editable": false, "writePath": null, "danger": "medium" },
+      "mobility": "risky",
+      "notes": "Typed lightweight parser and runtime fallback for config/embeddings-blob-manifest.json; embeddings:ensure validates the required artifact keys, URLs and reachability."
+    },
+    {
+      "id": "variant-template-addenda-runtime",
+      "sourceOfTruth": "src/lib/gen/scaffold-variants/variant-template-addendum.ts",
+      "type": "runtime-authority",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": { "surface": null, "editable": false, "writePath": null, "danger": "medium" },
+      "mobility": "risky",
+      "notes": "Canonical Zod runtime authority for the SHA-bound variant-template addenda registry; variant-integrity tests in test:ci enforce path, prompt-boundary, duplicate and aggregate-budget invariants beyond the JSON Schema mirror."
+    },
+    {
+      "id": "finalize-version-policy",
+      "sourceOfTruth": "src/lib/gen/stream/finalize-version/policy.ts",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": { "surface": null, "editable": false, "writePath": null, "danger": "high" },
+      "mobility": "risky",
+      "notes": "Canonical finalize-path decisions for materialization limits, verifier triggers and fast/deep execution."
+    },
+    {
+      "id": "server-repair-policy",
+      "sourceOfTruth": "src/lib/gen/verify/server-repair-policy.ts",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": { "surface": null, "editable": false, "writePath": null, "danger": "high" },
+      "mobility": "risky",
+      "notes": "Canonical server repair-loop continuation and stop policy."
+    },
+    {
+      "id": "openclaw-chat-context-policy",
+      "sourceOfTruth": "src/lib/openclaw/chat-context-policy.ts",
+      "type": "policy",
+      "validator": "test:ci",
+      "ciStatus": "hard",
+      "runtimeEnforced": true,
+      "runtimeStatus": "wired",
+      "backoffice": { "surface": null, "editable": false, "writePath": null, "danger": "medium" },
+      "mobility": "risky",
+      "notes": "Canonical OpenClaw chat-context selection and routing policy."
     }
   ]
 }

@@ -48,7 +48,7 @@ Parent-agenten äger beslutet. Subagenter ger korta risksignaler, inte facit.
    - `bugagent` om kod/pipeline/API/runtime ändrats.
    - `docs-backoffice-schema-agent` om docs/schemas/backoffice/config/dossiers/scripts kan ha driftat.
    - `städagent` bara vid stor/stökig diff, cleanup/rename, eller många otrackade filer.
-   - Använd modell `<grok-4.5>` om en explicit modell väljs (scan-rollen i [`.cursor/README.md § Modellval för subagenter`](../README.md#modellval-för-subagenter-kanonisk-tabell)).
+   - Använd modell `<grok-4.5>` om en explicit modell väljs (scan-rollen i [`subagent-models.mdc`](../rules/subagent-models.mdc)).
 5. Subagenternas format ska vara kort:
 
 ```text
@@ -69,7 +69,7 @@ Minimal fix: <1 mening>
 7. **Backlog-avstämning** ([`BUG-SWARM-BACKLOG.md`](../../BUG-SWARM-BACKLOG.md) — håll den sann i samma svep):
    - **Fixade i svepet:** om en rad i `## Aktiv kö` adresserades → **flytta** den till `## Arkiv` i `BUG-SWARM-BACKLOG.md` som `[x]` med commit/PR-ref. Bocka inte av på plats.
    - **Nya bekräftade defekter:** lägg en `[ ]`-rad i `## Aktiv kö` (källa `M#<n>`) med fil-ankare, per `/buggrapport`-formatet.
-   - **Visade sig vara val/repro:** flytta till `## Beslut & policy` eller `## Behöver repro` i stället.
+   - **Visade sig vara val/repro:** flytta till `## Väntar på ägarbeslut` eller `## Behöver repro` i stället.
    - Skriv aldrig "FIXAD" i prosan på en `[ ]`-rad (`npm run check:bug-backlog` failar på motsägelsen).
    - Detta är den löpande sanningsmekanismen — backloggen får aldrig driva ur fas med koden.
 8. Verifiera med minsta relevanta set:

@@ -3,7 +3,6 @@ import { normalizeRoutePath } from "./utils";
 import { findPageFile, findCssFiles, findComponentFiles } from "./file-resolution";
 import { normalizePreviewCss, buildPreviewBaseCss } from "./css";
 import { buildPreviewScript } from "./script-builder";
-import { isShimPreviewDisabled } from "./legacy/compatibility-shim";
 import { applyPreviewOnlyRulesToFiles } from "./preview-only-files";
 import {
   INSPECT_BRIDGE_SCRIPT_ROUTE,
@@ -25,16 +24,13 @@ export function buildPreviewHtml(rawFiles: CodeFile[], routePath?: string | null
 
   const cssFiles = findCssFiles(files);
   const componentFiles = findComponentFiles(files, pageFile.path);
-  const customCss = normalizePreviewCss(
-    cssFiles
-      .map((f) => f.content)
-      .join("\n"),
-  );
+  const customCss = normalizePreviewCss(cssFiles.map((f) => f.content).join("\n"));
   const baseCss = buildPreviewBaseCss();
   const previewScript = buildPreviewScript(pageFile, componentFiles, normalizedRoute);
 
   const allContent = [pageFile, ...componentFiles, ...cssFiles].map((f) => f.content).join("\n");
-  const wantsDark = /className=["'][^"']*\bdark\b/.test(allContent) || /class=["'][^"']*\bdark\b/.test(allContent);
+  const wantsDark =
+    /className=["'][^"']*\bdark\b/.test(allContent) || /class=["'][^"']*\bdark\b/.test(allContent);
   const htmlClass = wantsDark ? ' class="dark"' : "";
 
   // Inspector-bridge (opt-in, default av). Same-origin shim → relativ src,
@@ -126,34 +122,4 @@ export function buildPreviewHtml(rawFiles: CodeFile[], routePath?: string | null
   ${inspectBridgeTag}
 </body>
 </html>`;
-}
-
-/**
- * Creates a preview URL for a given chatId + versionId.
- * Points to the /api/preview-render endpoint which serves the HTML.
- *
- * Returns `null` when shim preview is disabled — which is the **default**
- * since 2026-04 (D4): operators must explicitly set
- * `SAJTMASKIN_SHIM_PREVIEW_DISABLED=0` (or `false` / `off` / `no`) to opt
- * back in. Callers should fall back to the tier-2 VM preview.
- */
-export function buildPreviewUrl(
-  chatId: string,
-  versionId: string,
-  projectId?: string | null,
-  routePath?: string | null,
-): string | null {
-  if (isShimPreviewDisabled()) return null;
-  const params = new URLSearchParams({
-    chatId,
-    versionId,
-  });
-  if (projectId) {
-    params.set("projectId", projectId);
-  }
-  const normalizedRoute = normalizeRoutePath(routePath);
-  if (normalizedRoute !== "/") {
-    params.set("route", normalizedRoute);
-  }
-  return `/api/preview-render?${params.toString()}`;
 }

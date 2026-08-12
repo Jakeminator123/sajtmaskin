@@ -212,7 +212,7 @@ function renderHtml(data) {
     ${risks}
     ${evals}
     <footer>
-      Källa: config/dashboard/domain-map.json, BUG-SWARM-BACKLOG.md, eval-rapport
+      Källa: config/backoffice/domain-map.json, BUG-SWARM-BACKLOG.md, eval-rapport
       (scaffold-selection / baseline-master), git-churn (committat läge).
       Manuell uppdatering: <code>npm run canvas:open</code> (HTML) ·
       <code>npm run canvas:build</code> (sparad .txt + .json) ·

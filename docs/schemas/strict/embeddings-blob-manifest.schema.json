@@ -5,8 +5,11 @@
   "description": "Committed public URL map for platform embedding JSON in Vercel Blob. No secrets.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["_meta", "artifacts"],
+  "required": ["$schema", "_meta", "artifacts"],
   "properties": {
+    "$schema": {
+      "const": "../docs/schemas/strict/embeddings-blob-manifest.schema.json"
+    },
     "_meta": {
       "type": "object",
       "additionalProperties": false,

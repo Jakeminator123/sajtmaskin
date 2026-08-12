@@ -3,10 +3,7 @@ import { appProjects, deployments, engineChats } from "@/lib/db/schema";
 import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { getChatByIdForRequest, getEngineChatByIdForRequest } from "@/lib/tenant";
-import {
-  normalizeDomainHostname,
-  resolveLiveUrl,
-} from "@/lib/live-site-url";
+import { normalizeDomainHostname, resolveLiveUrl } from "@/lib/live-site-url";
 
 export type DeploymentStatus = "pending" | "building" | "ready" | "error" | "cancelled";
 
@@ -91,10 +88,7 @@ export async function updateDeploymentStatus(
       .update(deployments)
       .set({ ...metadataValues, status })
       .where(
-        and(
-          eq(deployments.id, deploymentId),
-          sql`${deployments.status} is distinct from 'error'`,
-        ),
+        and(eq(deployments.id, deploymentId), sql`${deployments.status} is distinct from 'error'`),
       )
       .returning({ id: deployments.id });
     if (claimed.length > 0) {
@@ -103,10 +97,7 @@ export async function updateDeploymentStatus(
     // Row already in `error` (or gone): merge late metadata but never re-signal
     // the transition, so the duplicate never produces a second error log.
     if (hasExtraMetadata) {
-      await db
-        .update(deployments)
-        .set(metadataValues)
-        .where(eq(deployments.id, deploymentId));
+      await db.update(deployments).set(metadataValues).where(eq(deployments.id, deploymentId));
     }
     return { transitionedToError: false };
   }
@@ -124,9 +115,7 @@ export async function updateDeploymentStatus(
  * including sites published before the cache column existed. Prefers a `ready`
  * deployment; otherwise takes the most recent one that carries a project id.
  */
-export async function getLatestVercelProjectIdForChat(
-  chatId: string,
-): Promise<string | null> {
+export async function getLatestVercelProjectIdForChat(chatId: string): Promise<string | null> {
   const rows = await db
     .select({
       vercelProjectId: deployments.vercelProjectId,
@@ -151,9 +140,7 @@ export async function getLatestVercelProjectIdForChat(
  * läsning körs — precis som `getLatestVercelProjectIdForChat` ovan, som också
  * är chat-scopad utan egen req-guard.
  */
-export async function getLinkedDomainForChat(
-  chatId: string,
-): Promise<string | null> {
+export async function getLinkedDomainForChat(chatId: string): Promise<string | null> {
   const rows = await db
     .select({ domain: deployments.domain })
     .from(deployments)
@@ -177,9 +164,7 @@ export async function getLinkedDomainForChat(
  * project-name lock and deploy target must prefer THIS id whenever a domain
  * is linked, so a republish always goes to the project the domain sits on.
  */
-export async function getLinkedDomainProjectIdForChat(
-  chatId: string,
-): Promise<string | null> {
+export async function getLinkedDomainProjectIdForChat(chatId: string): Promise<string | null> {
   const rows = await db
     .select({ vercelProjectId: deployments.vercelProjectId })
     .from(deployments)
@@ -264,10 +249,7 @@ export async function resolveCanonicalVercelProjectForDomain(
     return {
       domain: customDomain,
       source: "custom",
-      projectId: await resolveLatestOrCachedVercelProjectId(
-        chatId,
-        ownedProject.vercel_project_id,
-      ),
+      projectId: await resolveLatestOrCachedVercelProjectId(chatId, ownedProject.vercel_project_id),
     };
   }
 
@@ -278,10 +260,7 @@ export async function resolveCanonicalVercelProjectForDomain(
     return {
       domain: brandedDomain,
       source: "branded",
-      projectId: await resolveLatestOrCachedVercelProjectId(
-        chatId,
-        ownedProject.vercel_project_id,
-      ),
+      projectId: await resolveLatestOrCachedVercelProjectId(chatId, ownedProject.vercel_project_id),
     };
   }
 
@@ -303,16 +282,6 @@ export async function resolveCanonicalVercelProjectForDomain(
     source: "none",
     projectId: await resolveLatestOrCachedVercelProjectId(chatId, ownedProject.vercel_project_id),
   };
-}
-
-export async function setDeploymentDomain(
-  deploymentId: string,
-  domain: string,
-): Promise<void> {
-  await db
-    .update(deployments)
-    .set({ domain, updatedAt: new Date() })
-    .where(eq(deployments.id, deploymentId));
 }
 
 export async function setDeploymentDomainForRequest(
@@ -399,7 +368,5 @@ export async function resolveDeploymentLiveUrlForChat(params: {
   // Only a legacy Vercel hostname is safe as fallback when the feature gate or
   // verification state has been revoked.
   const fallbackHost = normalizeDomainHostname(params.fallbackUrl);
-  return fallbackHost?.endsWith(".vercel.app")
-    ? `https://${fallbackHost}`
-    : null;
+  return fallbackHost?.endsWith(".vercel.app") ? `https://${fallbackHost}` : null;
 }

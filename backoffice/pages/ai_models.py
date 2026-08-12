@@ -740,96 +740,42 @@ def _render_repair_budget_timeout(ctx: BackofficeContext, man_path, manifest: di
         st.rerun()
 
 
-def _render_per_tier_policies(manifest: dict[str, Any]) -> None:
-    """Surface tier-differentierade fält (perTierTimeouts/RepairPolicies/Briefing).
+def _render_per_tier_briefing(manifest: dict[str, Any]) -> None:
+    """Surface the runtime-wired perTierBriefing model overrides."""
 
-    Timeout/repair är declared-only. Briefing är wired: create-chat och
-    clear-redesign väljer modell från den aktiva byggprofilens post, med global
-    briefing-default som fallback. Read-only-vy: fälten ligger som top-level-
-    objekt i manifestet och bevaras vid all edit (write_json skriver tillbaka
-    hela manifestet). Edit görs via manifest.json-tabben.
-    """
-
-    timeouts = manifest.get("perTierTimeouts") or {}
-    policies = manifest.get("perTierRepairPolicies") or {}
     briefing = manifest.get("perTierBriefing") or {}
 
-    st.markdown("### Tier-differentierade policys")
+    st.markdown("### Tier-differentierad briefing")
     st.caption(
-        "`perTierTimeouts` och `perTierRepairPolicies` är **declared-only / EJ wired**; "
-        "globala timeout- och repairvärden gäller. `perTierBriefing` är **wired** och "
-        "väljer auto-brief-modell efter byggprofil. Explicit prompt-assist-modell och "
-        "vald providers auto-brief-env vinner; global briefing-default används om "
-        "tier-posten saknas. Read-only-vy; edit görs via manifest.json-tabben."
+        "`perTierBriefing` är **wired** och väljer auto-brief-modell efter byggprofil. "
+        "Explicit prompt-assist-modell och vald providers auto-brief-env vinner; "
+        "global briefing-default används om tier-posten saknas. Read-only-vy; "
+        "edit görs via manifest.json-tabben."
     )
 
-    has_any = bool(timeouts or policies or briefing)
-    if not has_any:
+    if not briefing:
         st.info(
-            "Inga `perTier*`-fält hittades i manifestet. Förvänta sig 5 tiers "
-            "(premium/pro/max/codex/anthropic) i vart och ett av `perTierTimeouts`, "
-            "`perTierRepairPolicies`, `perTierBriefing`."
+            "Inget `perTierBriefing`-fält hittades i manifestet. Förvänta sig 5 tiers "
+            "(premium/pro/max/codex/anthropic)."
         )
         return
 
     tiers = ["premium", "pro", "max", "codex", "anthropic"]
 
-    if timeouts:
-        st.markdown("#### perTierTimeouts")
-        st.dataframe(
-            [
-                {
-                    "tier": tier,
-                    "engineRouteMaxDurationSeconds": (
-                        timeouts.get(tier) or {}
-                    ).get("engineRouteMaxDurationSeconds", "—"),
-                    "verifierTimeoutMs": (
-                        timeouts.get(tier) or {}
-                    ).get("verifierTimeoutMs", "—"),
-                }
-                for tier in tiers
-            ],
-            hide_index=True,
-            width="stretch",
-        )
-
-    if policies:
-        st.markdown("#### perTierRepairPolicies")
-        st.dataframe(
-            [
-                {
-                    "tier": tier,
-                    "deterministicAutofixPasses": (
-                        policies.get(tier) or {}
-                    ).get("deterministicAutofixPasses", "—"),
-                    "syntaxFixPasses": (
-                        policies.get(tier) or {}
-                    ).get("syntaxFixPasses", "—"),
-                    "serverRepairPasses": (
-                        policies.get(tier) or {}
-                    ).get("serverRepairPasses", "—"),
-                }
-                for tier in tiers
-            ],
-            hide_index=True,
-            width="stretch",
-        )
-
-    if briefing:
-        st.markdown("#### perTierBriefing · wired till runtime")
-        st.dataframe(
-            [
-                {
-                    "tier": tier,
-                    "briefingModel": human_model_label(
-                        str((briefing.get(tier) or {}).get("briefingModel", ""))
-                    ),
-                }
-                for tier in tiers
-            ],
-            hide_index=True,
-            width="stretch",
-        )
+    st.markdown("#### perTierBriefing · wired till runtime")
+    st.dataframe(
+        [
+            {
+                "tier": tier,
+                "briefingModel": human_model_label(
+                    str((briefing.get(tier) or {}).get("briefingModel", ""))
+                ),
+            }
+            for tier in tiers
+        ],
+        hide_index=True,
+        width="stretch",
+    )
 
 
 def _render_other_route_models(man_path, manifest: dict[str, Any]) -> None:
@@ -963,11 +909,10 @@ def render(ctx: BackofficeContext) -> None:
     elif models_part == "Repair / budget / timeout":
         _render_repair_budget_timeout(ctx, man_path, manifest)
     elif models_part == "Per-tier policy":
-        _render_per_tier_policies(manifest)
+        _render_per_tier_briefing(manifest)
     elif models_part == "Övriga route-modeller":
         _render_other_route_models(man_path, manifest)
     elif models_part == "Workloads":
         _render_workloads(manifest)
     elif models_part == "manifest.json":
         _render_manifest_json(ctx, man_path, manifest)
-

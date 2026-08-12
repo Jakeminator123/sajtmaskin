@@ -1,15 +1,27 @@
 import { spawnSync } from "node:child_process";
+import type { SpawnSyncReturns } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CodeFile } from "@/lib/gen/parser";
-import {
-  formatTypecheckDiagnosticsForRepair,
-  runPreVmTypecheck,
-} from "./warm-typecheck";
+import { formatTypecheckDiagnosticsForRepair, runPreVmTypecheck } from "./warm-typecheck";
 
 describe("runPreVmTypecheck", () => {
+  function subprocessResult(
+    overrides: Partial<SpawnSyncReturns<string>>,
+  ): SpawnSyncReturns<string> {
+    return {
+      pid: 1,
+      output: [null, "", ""],
+      stdout: "",
+      stderr: "",
+      status: 0,
+      signal: null,
+      ...overrides,
+    } as SpawnSyncReturns<string>;
+  }
+
   it("skips when feature flag is off and force is not set", async () => {
     const original = process.env.SAJTMASKIN_PRE_VM_TYPECHECK;
     delete process.env.SAJTMASKIN_PRE_VM_TYPECHECK;
@@ -95,6 +107,66 @@ describe("runPreVmTypecheck", () => {
       });
       expect(result.skipped).toBe("cache_cold");
       expect(result.ok).toBe(true);
+    });
+  });
+
+  describe("subprocess classification", () => {
+    let cacheDir: string;
+
+    beforeAll(() => {
+      cacheDir = mkdtempSync(join(tmpdir(), "warm-typecheck-process-"));
+      mkdirSync(join(cacheDir, "node_modules"), { recursive: true });
+      writeFileSync(
+        join(cacheDir, "tsconfig.json"),
+        JSON.stringify({ compilerOptions: { paths: { "@/*": ["./*"] } } }),
+        "utf8",
+      );
+    });
+
+    afterAll(() => rmSync(cacheDir, { recursive: true, force: true }));
+
+    it("classifies a non-diagnostic process failure as unavailable", async () => {
+      let command = "";
+      let args: readonly string[] = [];
+      const result = await runPreVmTypecheck({
+        scaffoldId: "landing-page",
+        files: [{ path: "app/page.tsx", content: "export default 1", language: "tsx" }],
+        force: true,
+        cacheDirOverride: cacheDir,
+        spawnSyncOverride: ((receivedCommand: string, receivedArgs: readonly string[]) => {
+          command = receivedCommand;
+          args = receivedArgs;
+          return subprocessResult({ status: 1, stderr: "tsc failed to start" });
+        }) as typeof spawnSync,
+      });
+      expect(command).toBe(process.execPath);
+      expect(args[0].replace(/\\/g, "/")).toContain("node_modules/typescript/bin/tsc");
+      expect(result).toMatchObject({ ok: true, skipped: "tsc_unavailable", diagnostics: [] });
+    });
+
+    it("keeps parseable diagnostics from a nonzero tsc exit", async () => {
+      const result = await runPreVmTypecheck({
+        scaffoldId: "landing-page",
+        files: [{ path: "app/page.tsx", content: "export default 1", language: "tsx" }],
+        force: true,
+        cacheDirOverride: cacheDir,
+        spawnSyncOverride: (() =>
+          subprocessResult({
+            status: 2,
+            stdout: "app/page.tsx(1,1): error TS2322: Type mismatch.\n",
+          })) as unknown as typeof spawnSync,
+      });
+      expect(result.ok).toBe(false);
+      expect(result.skipped).toBeUndefined();
+      expect(result.diagnostics).toEqual([
+        {
+          filePath: "app/page.tsx",
+          line: 1,
+          column: 1,
+          code: "TS2322",
+          message: "Type mismatch.",
+        },
+      ]);
     });
   });
 });
@@ -189,9 +261,7 @@ describe("runPreVmTypecheck against a real provisioned warm cache", () => {
       scaffoldId: SCAFFOLD_ID,
       force: true,
       cacheDirOverride: cacheDir,
-      files: [
-        file("lib/ably/client.ts", 'import * as Ably from "ably";\nexport default Ably;\n'),
-      ],
+      files: [file("lib/ably/client.ts", 'import * as Ably from "ably";\nexport default Ably;\n')],
     });
 
     expect(result.ok).toBe(false);
@@ -231,7 +301,7 @@ describe("runPreVmTypecheck against a real provisioned warm cache", () => {
           [
             'import { createBrowserClient } from "@supabase/ssr";',
             "export const client = createBrowserClient(",
-            '  process.env.NEXT_PUBLIC_SUPABASE_URL!,',
+            "  process.env.NEXT_PUBLIC_SUPABASE_URL!,",
             '  "anon",',
             ");",
           ].join("\n"),

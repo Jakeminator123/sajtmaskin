@@ -41,19 +41,12 @@ export type EngineVersionLifecycleLike = {
 };
 
 /** Read the lifecycle stage from a row, defaulting to `"design"` for legacy rows. */
-export function resolveEngineVersionLifecycleStage(
+function resolveEngineVersionLifecycleStage(
   version: EngineVersionLifecycleLike | null | undefined,
 ): EngineVersionLifecycleStage {
   const raw = version?.lifecycleStage ?? version?.lifecycle_stage ?? null;
   if (raw === "integrations") return "integrations";
   return "design";
-}
-
-/** Read the parent version id (F2 row that this F3 row was forked from). */
-export function resolveEngineVersionParentId(
-  version: EngineVersionLifecycleLike | null | undefined,
-): string | null {
-  return version?.parentVersionId ?? version?.parent_version_id ?? null;
 }
 
 /**
@@ -80,13 +73,7 @@ export function isServerVerifyExpectedForLifecycle(
 }
 
 export type EngineVersionLifecycleStatus =
-  | "draft"
-  | "verifying"
-  | "repairing"
-  | "repair_available"
-  | "failed"
-  | "superseded"
-  | "promoted";
+  "draft" | "verifying" | "repairing" | "repair_available" | "failed" | "superseded" | "promoted";
 
 export type QualityTier = "none" | "preview" | "tier2" | "production";
 
@@ -242,10 +229,10 @@ export function sortEngineVersionsNewestFirst<T extends EngineVersionLifecycleLi
  * Pick the preferred version for follow-ups and UI display.
  *
  * Semantics: newest non-failed, non-superseded version wins. `promoted` is a
- * quality signal (used by deploy via `selectDeployTargetEngineVersion`), NOT
- * a version-selection signal — otherwise a newer draft is silently ignored
- * and follow-ups merge against stale files. `superseded` rows are abandoned
- * mid-verify snapshots that a newer version replaced — never prefer them.
+ * quality signal, NOT a version-selection signal — otherwise a newer draft is
+ * silently ignored and follow-ups merge against stale files. `superseded` rows
+ * are abandoned mid-verify snapshots that a newer version replaced — never
+ * prefer them.
  */
 export function selectPreferredEngineVersion<T extends EngineVersionLifecycleLike>(
   versions: T[],
@@ -261,23 +248,4 @@ export function selectPreferredEngineVersion<T extends EngineVersionLifecycleLik
       return status !== "failed" && status !== "superseded";
     }) ?? sorted[0]
   );
-}
-
-/**
- * Pick the preferred deploy target. Latest non-failed `integrations` (F3)
- * row beats the latest design (F2) row — the F2 row may still be the
- * builder's currently-edited surface, but deploys should ship the
- * integrations build when one exists.
- */
-export function selectDeployTargetEngineVersion<T extends EngineVersionLifecycleLike>(
-  versions: T[],
-): T | undefined {
-  const sorted = sortEngineVersionsNewestFirst(versions);
-  const integrations = sorted.find((version) => {
-    if (resolveEngineVersionLifecycleStage(version) !== "integrations") return false;
-    const status = resolveEngineVersionLifecycleStatus(version);
-    return status !== "failed" && status !== "superseded";
-  });
-  if (integrations) return integrations;
-  return selectPreferredEngineVersion(versions);
 }

@@ -10,7 +10,7 @@
 <!-- source-fingerprint: config/ai_models/manifest.json#qualityGateTiers sha256:35ec9a07b2bbf971 -->
 <!-- source-fingerprint: config/env-policy.json sha256:c3e6f7135e30415e -->
 <!-- source-fingerprint: data/dossiers/{hard,soft}/*/manifest.json#env-policy sha256:1df82ad99d801a14 -->
-<!-- source-fingerprint: config/control-plane/*-registry.json sha256:61d087c0fc21260e -->
+<!-- source-fingerprint: config/control-plane/*-registry.json sha256:f2212a0ead2a11ad -->
 
 # Policies
 
@@ -204,49 +204,62 @@ Only key names and policy metadata are emitted. Values and secret-like note text
 
 ## Control-plane registry
 
-This index contains 42 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
+This index contains 55 control-plane entries. It is a map to canonical owners, not a runtime policy layer.
 
-| ID                                            | Type                | Canonical source                                             | Validator               | CI status | Runtime status  | Runtime enforced |
-| --------------------------------------------- | ------------------- | ------------------------------------------------------------ | ----------------------- | --------- | --------------- | ---------------- |
-| `agent-rules`                                 | `rule`              | `.cursor/rules`                                              | —                       | `none`    | `n/a`           | No               |
-| `code-policy-modules`                         | `policy`            | `src/lib/builder/server-auto-brief-policy.ts`                | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `domain-rules`                                | `policy`            | `config/domain-rules.json`                                   | `backoffice:test`       | `hard`    | `wired`         | Yes              |
-| `env-policy`                                  | `policy`            | `config/env-policy.json`                                     | `env:audit`             | `manual`  | `declared-only` | No               |
-| `generated-site-placeholders`                 | `policy`            | `config/ai_models/40-harmless-placeholders.env.txt`          | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `manifest-per-tier-briefing`                  | `policy`            | `config/ai_models/manifest.json#perTierBriefing`             | `control-plane:check`   | `hard`    | `wired`         | Yes              |
-| `manifest-per-tier-repair-policies`           | `policy`            | `config/ai_models/manifest.json#perTierRepairPolicies`       | `control-plane:check`   | `warn`    | `declared-only` | No               |
-| `manifest-per-tier-timeouts`                  | `policy`            | `config/ai_models/manifest.json#perTierTimeouts`             | `control-plane:check`   | `warn`    | `declared-only` | No               |
-| `manifest-pre-generation-contracts`           | `policy`            | `config/ai_models/manifest.json#preGenerationContracts`      | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `manifest-quality-gate-tiers`                 | `policy`            | `config/ai_models/manifest.json#qualityGateTiers`            | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `manifest-repair-policies`                    | `policy`            | `config/ai_models/manifest.json#repairPolicies`              | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `naming-dictionary`                           | `policy`            | `config/naming-dictionary.json`                              | `check:terms:contract`  | `hard`    | `n/a`           | No               |
-| `placeholder-harmless`                        | `policy`            | `src/lib/integrations/placeholder-harmless.ts`               | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `prompt-heuristic-tokens`                     | `policy`            | `config/prompt-heuristic-tokens.json`                        | `backoffice:test`       | `hard`    | `wired`         | Yes              |
-| `shadcn-mirror-audit-policy`                  | `policy`            | `config/shadcn-mirror-audit-policy.json`                     | `mirror:audit`          | `manual`  | `declared-only` | No               |
-| `tier3-sdk-deny`                              | `policy`            | `config/integrations/tier3-sdk-deny.json`                    | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `user-degraded-env`                           | `policy`            | `config/user_degraded_env.txt`                               | —                       | `none`    | `declared-only` | No               |
-| `ai-models-manifest`                          | `schema`            | `config/ai_models/manifest.json`                             | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `ai-models-manifest-jsonschema`               | `schema`            | `config/ai_models/manifest.schema.json`                      | —                       | `none`    | `n/a`           | No               |
-| `chat-request-schemas`                        | `runtime-authority` | `src/lib/validations/chatSchemas.ts`                         | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `control-plane-registry-schema`               | `schema`            | `docs/schemas/strict/control-plane-registry.schema.json`     | `control-plane:check`   | `hard`    | `n/a`           | No               |
-| `db-health-report-schema`                     | `schema`            | `docs/schemas/strict/db-health-check-report.schema.json`     | `test:ci`               | `hard`    | `declared-only` | No               |
-| `db-performance-audit-line-schema`            | `schema`            | `docs/schemas/strict/db-perf-indexes-audit-line.schema.json` | `test:ci`               | `hard`    | `declared-only` | No               |
-| `db-schema`                                   | `runtime-authority` | `src/lib/db/schema.ts`                                       | `db:schema-drift`       | `hard`    | `wired`         | Yes              |
-| `domain-rules-schema`                         | `schema`            | `docs/schemas/strict/domain-rules.schema.json`               | `backoffice:test`       | `hard`    | `n/a`           | No               |
-| `dossier-manifest-schema`                     | `schema`            | `docs/schemas/strict/dossier.schema.json`                    | `dossiers:validate-all` | `hard`    | `wired`         | Yes              |
-| `dossier-verbatim-restored-telemetry-schema`  | `schema`            | `docs/schemas/strict/dossier-verbatim-restored.schema.json`  | `test:ci`               | `hard`    | `declared-only` | No               |
-| `env-policy-schema`                           | `schema`            | `docs/schemas/strict/env-policy.schema.json`                 | `test:ci`               | `hard`    | `n/a`           | No               |
-| `env-server-schema`                           | `runtime-authority` | `src/lib/env.ts`                                             | `typecheck`             | `hard`    | `wired`         | Yes              |
-| `integration-manifest-schema`                 | `runtime-authority` | `src/lib/integrations/integration-manifest.ts`               | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `llm-fixer-aborted-telemetry-schema`          | `schema`            | `docs/schemas/strict/llm-fixer-aborted.schema.json`          | `test:ci`               | `hard`    | `declared-only` | No               |
-| `llm-fixer-partial-response-telemetry-schema` | `schema`            | `docs/schemas/strict/llm-fixer-partial-response.schema.json` | `test:ci`               | `hard`    | `declared-only` | No               |
-| `plan-artifact-schema`                        | `runtime-authority` | `src/lib/gen/plan/schema.ts`                                 | `test:ci`               | `hard`    | `wired`         | Yes              |
-| `product-postcheck-telemetry-schema`          | `schema`            | `docs/schemas/strict/product-postcheck.schema.json`          | `test:ci`               | `hard`    | `declared-only` | No               |
-| `prompt-heuristic-tokens-schema`              | `schema`            | `docs/schemas/strict/prompt-heuristic-tokens.schema.json`    | `backoffice:test`       | `hard`    | `n/a`           | No               |
-| `redis-health-report-schema`                  | `schema`            | `docs/schemas/strict/redis-health-check-report.schema.json`  | `test:ci`               | `hard`    | `declared-only` | No               |
-| `scaffold-manifests`                          | `runtime-authority` | `src/lib/gen/scaffolds/*/manifest.ts`                        | `scaffolds:validate`    | `hard`    | `wired`         | Yes              |
-| `scaffold-variant-schema`                     | `schema`            | `docs/schemas/strict/scaffold-variant.schema.json`           | `backoffice:test`       | `hard`    | `n/a`           | No               |
-| `site-aborted-telemetry-schema`               | `schema`            | `docs/schemas/strict/site-aborted.schema.json`               | `test:ci`               | `hard`    | `declared-only` | No               |
-| `site-done-telemetry-schema`                  | `schema`            | `docs/schemas/strict/site-done-telemetry.schema.json`        | `test:ci`               | `hard`    | `declared-only` | No               |
-| `strict-schema-catalog`                       | `schema`            | `docs/schemas/strict/*.schema.json`                          | —                       | `none`    | `n/a`           | No               |
-| `tier3-sdk-deny-schema`                       | `schema`            | `docs/schemas/strict/tier3-sdk-deny.schema.json`             | `test:ci`               | `hard`    | `n/a`           | No               |
+| ID                                            | Type                | Canonical source                                                  | Validator               | CI status | Runtime status  | Runtime enforced |
+| --------------------------------------------- | ------------------- | ----------------------------------------------------------------- | ----------------------- | --------- | --------------- | ---------------- |
+| `agent-rules`                                 | `rule`              | `.cursor/rules`                                                   | —                       | `none`    | `n/a`           | No               |
+| `backoffice-domain-map`                       | `rule`              | `config/backoffice/domain-map.json`                               | `test:ci`               | `hard`    | `n/a`           | No               |
+| `build-spec-policy-inference`                 | `policy`            | `src/lib/gen/build-spec/policy-inference.ts`                      | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `domain-rules`                                | `policy`            | `config/domain-rules.json`                                        | `backoffice:test`       | `hard`    | `wired`         | Yes              |
+| `dossier-verbatim-policy`                     | `policy`            | `src/lib/gen/dossiers/verbatim-policy.ts`                         | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `embeddings-blob-manifest-runtime`            | `runtime-authority` | `src/lib/gen/embeddings/embeddings-storage.ts`                    | `embeddings:ensure`     | `hard`    | `wired`         | Yes              |
+| `env-policy`                                  | `policy`            | `config/env-policy.json`                                          | `env:audit`             | `manual`  | `declared-only` | No               |
+| `finalize-version-policy`                     | `policy`            | `src/lib/gen/stream/finalize-version/policy.ts`                   | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `generated-site-placeholders`                 | `policy`            | `config/ai_models/40-harmless-placeholders.env.txt`               | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `manifest-per-tier-briefing`                  | `policy`            | `config/ai_models/manifest.json#perTierBriefing`                  | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `manifest-pre-generation-contracts`           | `policy`            | `config/ai_models/manifest.json#preGenerationContracts`           | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `manifest-quality-gate-tiers`                 | `policy`            | `config/ai_models/manifest.json#qualityGateTiers`                 | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `manifest-repair-policies`                    | `policy`            | `config/ai_models/manifest.json#repairPolicies`                   | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `naming-dictionary`                           | `policy`            | `config/naming-dictionary.json`                                   | `check:terms:contract`  | `hard`    | `n/a`           | No               |
+| `openclaw-chat-context-policy`                | `policy`            | `src/lib/openclaw/chat-context-policy.ts`                         | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `orchestration-policy-helpers`                | `policy`            | `src/lib/gen/orchestrate/policy-helpers.ts`                       | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `placeholder-harmless`                        | `policy`            | `src/lib/integrations/placeholder-harmless.ts`                    | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `prompt-heuristic-tokens`                     | `policy`            | `config/prompt-heuristic-tokens.json`                             | `backoffice:test`       | `hard`    | `wired`         | Yes              |
+| `server-auto-brief-policy`                    | `policy`            | `src/lib/builder/server-auto-brief-policy.ts`                     | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `server-repair-policy`                        | `policy`            | `src/lib/gen/verify/server-repair-policy.ts`                      | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `shadcn-mirror-audit-policy`                  | `policy`            | `config/shadcn-mirror-audit-policy.json`                          | `mirror:audit`          | `manual`  | `declared-only` | No               |
+| `tier3-sdk-deny`                              | `policy`            | `config/integrations/tier3-sdk-deny.json`                         | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `user-degraded-env`                           | `policy`            | `config/user_degraded_env.txt`                                    | —                       | `none`    | `declared-only` | No               |
+| `variant-template-addenda-runtime`            | `runtime-authority` | `src/lib/gen/scaffold-variants/variant-template-addendum.ts`      | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `ai-models-manifest`                          | `schema`            | `config/ai_models/manifest.json`                                  | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `ai-models-manifest-jsonschema`               | `schema`            | `config/ai_models/manifest.schema.json`                           | —                       | `none`    | `n/a`           | No               |
+| `backoffice-domain-map-schema`                | `schema`            | `docs/schemas/strict/backoffice-domain-map.schema.json`           | `test:ci`               | `hard`    | `n/a`           | No               |
+| `chat-request-schemas`                        | `runtime-authority` | `src/lib/validations/chatSchemas.ts`                              | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `control-plane-registry-schema`               | `schema`            | `docs/schemas/strict/control-plane-registry.schema.json`          | `control-plane:check`   | `hard`    | `n/a`           | No               |
+| `db-health-report-schema`                     | `schema`            | `docs/schemas/strict/db-health-check-report.schema.json`          | `test:ci`               | `hard`    | `declared-only` | No               |
+| `db-performance-audit-line-schema`            | `schema`            | `docs/schemas/strict/db-perf-indexes-audit-line.schema.json`      | `test:ci`               | `hard`    | `declared-only` | No               |
+| `db-schema`                                   | `runtime-authority` | `src/lib/db/schema.ts`                                            | `db:schema-drift`       | `hard`    | `wired`         | Yes              |
+| `domain-rules-schema`                         | `schema`            | `docs/schemas/strict/domain-rules.schema.json`                    | `backoffice:test`       | `hard`    | `n/a`           | No               |
+| `dossier-manifest-schema`                     | `schema`            | `docs/schemas/strict/dossier.schema.json`                         | `dossiers:validate-all` | `hard`    | `wired`         | Yes              |
+| `dossier-stub-created-schema`                 | `schema`            | `docs/schemas/strict/dossier-stub-created.schema.json`            | `docs:test`             | `hard`    | `declared-only` | No               |
+| `dossier-verbatim-restored-telemetry-schema`  | `schema`            | `docs/schemas/strict/dossier-verbatim-restored.schema.json`       | `test:ci`               | `hard`    | `declared-only` | No               |
+| `embeddings-blob-manifest-schema`             | `schema`            | `docs/schemas/strict/embeddings-blob-manifest.schema.json`        | `test:ci`               | `hard`    | `n/a`           | No               |
+| `env-policy-schema`                           | `schema`            | `docs/schemas/strict/env-policy.schema.json`                      | `test:ci`               | `hard`    | `n/a`           | No               |
+| `env-server-schema`                           | `runtime-authority` | `src/lib/env.ts`                                                  | `typecheck`             | `hard`    | `wired`         | Yes              |
+| `image-replaced-with-placeholder-schema`      | `schema`            | `docs/schemas/strict/image-replaced-with-placeholder.schema.json` | `docs:test`             | `hard`    | `declared-only` | No               |
+| `integration-manifest-schema`                 | `runtime-authority` | `src/lib/integrations/integration-manifest.ts`                    | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `llm-fixer-aborted-telemetry-schema`          | `schema`            | `docs/schemas/strict/llm-fixer-aborted.schema.json`               | `test:ci`               | `hard`    | `declared-only` | No               |
+| `llm-fixer-partial-response-telemetry-schema` | `schema`            | `docs/schemas/strict/llm-fixer-partial-response.schema.json`      | `test:ci`               | `hard`    | `declared-only` | No               |
+| `llm-repair-gate-deduped-telemetry-schema`    | `schema`            | `docs/schemas/strict/llm-repair-gate-deduped.schema.json`         | `docs:test`             | `hard`    | `declared-only` | No               |
+| `plan-artifact-schema`                        | `runtime-authority` | `src/lib/gen/plan/schema.ts`                                      | `test:ci`               | `hard`    | `wired`         | Yes              |
+| `preview-session-contract-spec`               | `schema`            | `docs/schemas/strict/preview-session-contract.schema.json`        | `docs:test`             | `hard`    | `n/a`           | No               |
+| `product-postcheck-telemetry-schema`          | `schema`            | `docs/schemas/strict/product-postcheck.schema.json`               | `test:ci`               | `hard`    | `declared-only` | No               |
+| `prompt-heuristic-tokens-schema`              | `schema`            | `docs/schemas/strict/prompt-heuristic-tokens.schema.json`         | `backoffice:test`       | `hard`    | `n/a`           | No               |
+| `redis-health-report-schema`                  | `schema`            | `docs/schemas/strict/redis-health-check-report.schema.json`       | `test:ci`               | `hard`    | `declared-only` | No               |
+| `scaffold-manifests`                          | `runtime-authority` | `src/lib/gen/scaffolds/*/manifest.ts`                             | `scaffolds:validate`    | `hard`    | `wired`         | Yes              |
+| `scaffold-variant-schema`                     | `schema`            | `docs/schemas/strict/scaffold-variant.schema.json`                | `backoffice:test`       | `hard`    | `n/a`           | No               |
+| `site-aborted-telemetry-schema`               | `schema`            | `docs/schemas/strict/site-aborted.schema.json`                    | `test:ci`               | `hard`    | `declared-only` | No               |
+| `site-done-telemetry-schema`                  | `schema`            | `docs/schemas/strict/site-done-telemetry.schema.json`             | `test:ci`               | `hard`    | `declared-only` | No               |
+| `tier3-sdk-deny-schema`                       | `schema`            | `docs/schemas/strict/tier3-sdk-deny.schema.json`                  | `test:ci`               | `hard`    | `n/a`           | No               |
+| `variant-template-addenda-schema`             | `schema`            | `docs/schemas/strict/variant-template-addenda.schema.json`        | `test:ci`               | `hard`    | `n/a`           | No               |

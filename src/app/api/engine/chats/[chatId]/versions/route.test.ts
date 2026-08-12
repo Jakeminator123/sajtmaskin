@@ -6,7 +6,6 @@ const getEngineVersionForChatByIdForRequest = vi.hoisted(() => vi.fn());
 const getChatByV0ChatIdForRequest = vi.hoisted(() => vi.fn());
 const getVersionsByChat = vi.hoisted(() => vi.fn());
 const updateVersionPreviewUrl = vi.hoisted(() => vi.fn());
-const buildPreviewUrl = vi.hoisted(() => vi.fn());
 const maybeAutoAcceptTimedOutRepair = vi.hoisted(() =>
   vi.fn(async (v: unknown) => ({ version: v, wasAutoAccepted: false })),
 );
@@ -39,10 +38,6 @@ vi.mock("@/lib/db/chat-repository-pg", () => ({
 
 vi.mock("@/lib/db/services/version-errors", () => ({
   createEngineVersionErrorLogs,
-}));
-
-vi.mock("@/lib/gen/preview/build-preview-document", () => ({
-  buildPreviewUrl,
 }));
 
 // Innehållsrevision R15: list path batches revision reads (not N+1). Mocked so
@@ -118,7 +113,6 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     getChatByV0ChatIdForRequest.mockReset();
     getVersionsByChat.mockReset();
     updateVersionPreviewUrl.mockReset();
-    buildPreviewUrl.mockReset();
     maybeAutoAcceptTimedOutRepair.mockReset();
     maybeAutoAcceptTimedOutRepair.mockImplementation(async (v: unknown) => ({
       version: v,
@@ -154,16 +148,18 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
       },
     ]);
 
-    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1/versions"), {
-      params: Promise.resolve({ chatId: "chat_1" }),
-    });
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      },
+    );
     const json = await response.json();
 
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
     expect(json.versions[0].previewUrl).toBeNull();
     expect(json.versions[0]).not.toHaveProperty("legacyShimPreviewUrl");
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
   it("forwards lifecycleStage so VersionHistory tooltip can tell F2 design from F3 integrations", async () => {
@@ -199,9 +195,12 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
       },
     ]);
 
-    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1/versions"), {
-      params: Promise.resolve({ chatId: "chat_1" }),
-    });
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      },
+    );
     const json = await response.json();
 
     expect(response.status).toBe(200);
@@ -225,18 +224,18 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
         promoted_at: null,
       },
     ]);
-    buildPreviewUrl.mockReturnValue("/api/preview-render?chatId=chat_1&versionId=ver_ok");
-
-    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1/versions"), {
-      params: Promise.resolve({ chatId: "chat_1" }),
-    });
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      },
+    );
     const json = await response.json();
 
     expect(response.status).toBe(200);
     expect(json.versions).toHaveLength(1);
     expect(json.versions[0].previewUrl).toBeNull();
     expect(json.versions[0]).not.toHaveProperty("legacyShimPreviewUrl");
-    expect(buildPreviewUrl).not.toHaveBeenCalled();
   });
 
   it("reconciles a still-spinning bus badge to the terminal DB state (no perpetual VersionHistory spinner)", async () => {
@@ -270,9 +269,12 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
       },
     ]);
 
-    const response = await GET(new Request("https://example.com/api/engine/chats/chat_1/versions"), {
-      params: Promise.resolve({ chatId: "chat_1" }),
-    });
+    const response = await GET(
+      new Request("https://example.com/api/engine/chats/chat_1/versions"),
+      {
+        params: Promise.resolve({ chatId: "chat_1" }),
+      },
+    );
     const json = await response.json();
 
     expect(response.status).toBe(200);
@@ -469,10 +471,7 @@ describe("GET /api/engine/chats/[chatId]/versions", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(updateVersionPreviewUrl).toHaveBeenCalledWith(
-      "ver_1",
-      "https://sandbox.example/ver_1",
-    );
+    expect(updateVersionPreviewUrl).toHaveBeenCalledWith("ver_1", "https://sandbox.example/ver_1");
     expect(json).toEqual({
       success: true,
       versionId: "ver_1",

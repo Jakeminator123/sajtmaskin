@@ -174,12 +174,8 @@ describe("contract docs source coverage", () => {
     const exact = controlPlaneEntries.find(
       (entry) => entry.sourceOfTruth === "docs/schemas/strict/scaffold-variant.schema.json",
     );
-    const wildcard = controlPlaneEntries.find(
-      (entry) => entry.sourceOfTruth === "docs/schemas/strict/*.schema.json",
-    );
-    if (!exact || !wildcard) throw new Error("expected exact and catalog schema entries");
+    if (!exact) throw new Error("expected exact schema entry");
     exact.validator = "exact-validator";
-    wildcard.validator = "wildcard-validator";
 
     const changed = await buildGeneratedDocs({ controlPlaneEntries });
     const schemaRows = changed.get(GENERATED_DOC_FAMILIES.schemas.output)?.split("\n");
@@ -191,8 +187,7 @@ describe("contract docs source coverage", () => {
     );
 
     expect(schemaRow).toContain("exact-validator");
-    expect(schemaRow).not.toContain("wildcard-validator");
-    expect(forwardDeclarationRow).not.toContain("wildcard-validator");
+    expect(forwardDeclarationRow).toContain("docs:test");
   });
 
   it("does not claim test:ci for forward declarations or non-schema contracts", () => {

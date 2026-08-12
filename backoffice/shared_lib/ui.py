@@ -188,7 +188,7 @@ def render_where_panel(page: str, dm: dict[str, Any]) -> None:
     meta = (dm.get("pages") or {}).get(page)
     if not meta:
         st.info(
-            f"Saknar post för **{page}** i `config/dashboard/domain-map.json`. "
+            f"Saknar post för **{page}** i `config/backoffice/domain-map.json`. "
             "Lägg till en `pages`-nyckel som matchar vynamnet."
         )
         return
@@ -198,7 +198,7 @@ def render_where_panel(page: str, dm: dict[str, Any]) -> None:
     ):
         # NB: `summary` is already rendered once as the page caption in
         # app_main.py — don't repeat it here (avoids the same text twice).
-        st.markdown("**Källfiler** (dashboarden skriver under `config/` där det är relevant)")
+        st.markdown("**Källfiler** (Backoffice skriver under `config/` där det är relevant)")
         for line in meta.get("canonicalPaths") or []:
             st.markdown(f"- `{line}`")
         st.markdown(

@@ -10,13 +10,13 @@ Vinnaren committas på sin kedja-branch; ingen push/PR utan begäran.
 
 ## Argument
 
-| Kommando | Betyder |
-|---|---|
-| `/kedja <bugg eller backlog-rad>` | kör pipelinen på den buggen |
-| `/kedja` | fråga användaren vilken bugg — välj aldrig själv |
-| `... kandidater=3` | 3 fix-kandidater i steg 5 i stället för 2 |
+| Kommando                          | Betyder                                          |
+| --------------------------------- | ------------------------------------------------ |
+| `/kedja <bugg eller backlog-rad>` | kör pipelinen på den buggen                      |
+| `/kedja`                          | fråga användaren vilken bugg — välj aldrig själv |
+| `... kandidater=3`                | 3 fix-kandidater i steg 5 i stället för 2        |
 
-Modellslug: [`.cursor/README.md` § Modellval](../README.md#modellval-för-subagenter-kanonisk-tabell) — `<grok-4.5>` upplöst mot sessionens `cursor-grok-4.5*`.
+Modellslug: [`subagent-models.mdc`](../rules/subagent-models.mdc) — `<grok-4.5>` upplöst mot sessionens `cursor-grok-4.5*`.
 
 ## Delegerat läge — STANDARD för dyra orkestratorer
 

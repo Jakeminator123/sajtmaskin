@@ -88,19 +88,6 @@ function mirrorToBugRegister(payloads: DebugFindingPayload[]): void {
   );
 }
 
-export async function createDebugFinding(
-  payload: DebugFindingPayload,
-): Promise<DebugFinding> {
-  assertDbConfigured();
-  const now = new Date();
-  const rows = await db
-    .insert(ocDebugFindings)
-    .values(mapPayload(payload, now))
-    .returning();
-  mirrorToBugRegister([payload]);
-  return rows[0] as DebugFinding;
-}
-
 export async function createDebugFindings(
   payloads: DebugFindingPayload[],
 ): Promise<DebugFinding[]> {
@@ -112,21 +99,6 @@ export async function createDebugFindings(
     .values(payloads.map((payload) => mapPayload(payload, now)))
     .returning();
   mirrorToBugRegister(payloads);
-  return rows as DebugFinding[];
-}
-
-export async function listDebugFindingsByRun(
-  runId: string,
-  limit = DEFAULT_QUERY_LIMIT,
-): Promise<DebugFinding[]> {
-  assertDbConfigured();
-  if (!runId) return [];
-  const rows = await db
-    .select()
-    .from(ocDebugFindings)
-    .where(eq(ocDebugFindings.run_id, runId))
-    .orderBy(desc(ocDebugFindings.created_at))
-    .limit(limit);
   return rows as DebugFinding[];
 }
 
