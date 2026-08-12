@@ -1,0 +1,18 @@
+{
+  // Öppna denna fil i Cursor (File → Open Workspace from File…).
+  // En rot = huvudcheckouten. Lägg inte till worktrees eller globala Cursor-mappar här.
+  //
+  // Editor-settings bor i .vscode/settings.json (canonical) och gäller denna rot
+  // oavsett om du öppnar mappen eller workspace-filen. Duplicera dem inte här.
+  "folders": [
+    {
+      "name": "sajtmaskin",
+      "path": "."
+    }
+  ],
+  "extensions": {
+    "recommendations": [
+      "openai.chatgpt"
+    ]
+  }
+}
