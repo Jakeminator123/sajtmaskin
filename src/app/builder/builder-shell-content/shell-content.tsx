@@ -4,7 +4,7 @@ import { ChatInterface } from "@/components/builder/chat/ChatInterface";
 import { MessageList } from "@/components/builder/chat/MessageList";
 import { PreviewPanel } from "@/components/builder/preview-panel/PreviewPanel";
 import { BuilderPreviewTools } from "@/components/builder/shell/BuilderPreviewTools";
-import { ChatOutputCollapseBar } from "@/components/builder/chat/ChatOutputCollapseBar";
+import { FloatingCollapsedChatInput } from "@/components/builder/chat/FloatingCollapsedChatInput";
 import { BuilderHeader } from "@/components/builder/shell/BuilderHeader";
 import { ModelTraceOverlay } from "@/components/builder/diagnostics/ModelTraceOverlay";
 import { LaunchReadinessCard } from "@/components/builder/readiness/LaunchReadinessCard";
@@ -278,13 +278,11 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         </button>
       </div>
 
-      {/* Ö9: nedfälld chat lägger sig som en rad under previewen i stället för
-          som en kolumn bredvid den — det är så previewen får ytan tillbaka.
-          `flex-col-reverse` håller chatten (först i DOM) kvar längst ned. */}
+      {/* Ö9: nedfälld chat på desktop (lg+) är en flytande dragbar box över
+          previewen — inte en dockad bottenremsa. Mobil behåller flödeslayout. */}
       <div
         className={cn(
-          "flex min-h-0 flex-1 overflow-hidden",
-          isChatOutputCollapsed && "lg:flex-col-reverse",
+          "relative flex min-h-0 flex-1 overflow-hidden",
         )}
       >
         <div
@@ -293,44 +291,48 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           className={cn(
             "border-border bg-background min-h-0 w-full flex-col lg:flex",
             isChatOutputCollapsed
-              ? "lg:w-full lg:shrink-0 lg:border-t"
+              ? "lg:pointer-events-none lg:absolute lg:inset-0 lg:z-30 lg:border-0 lg:bg-transparent"
               : "border-r lg:w-96",
+            isChatOutputCollapsed && "max-lg:border-t",
             mobileTab === "chat" ? "flex" : "hidden",
           )}
         >
-          <LaunchReadinessCard
-            readiness={vm.deployReadiness}
-            isLoading={vm.isDeployReadinessLoading}
-            lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
-            hasAnyVersion={vm.effectiveVersionsList.length > 0}
-          />
-          {/* Lucka 3 (ägarbeslut 2026-08-11): render while an F3-blocked
-              episode is tracked at all — NOT only while `missingByIntegration`
-              is still non-empty. `visibleF3Requirements` shrinks that list
-              client-side as keys are saved, but "Fortsätt integrationsbygget"
-              (the only caller of `requestF3Rebuild`) must stay reachable right
-              after the user fills the LAST key too (Bugbot, 4th pass on this
-              diff — gating on the empty list here removed the button, not
-              just the surface's own now-removed "allt klart"-text). The
-              surface itself hides its intro text + key list when nothing is
-              missing; the retry button is always rendered. */}
-          {visibleF3Requirements ? (
-            <F3RequirementsSurface
-              projectId={visibleF3Requirements.projectId ?? vm.appProjectId}
-              missingByIntegration={visibleF3Requirements.missingByIntegration}
-              onRetry={() =>
-                requestF3Rebuild(visibleF3Requirements.parentVersionId)
-              }
-            />
-          ) : null}
-          {visibleF3Status ? (
-            <F3StatusSurface
-              status={visibleF3Status}
-              chatId={vm.chatId}
-              versionId={visibleF3Status.versionId ?? null}
+          {/* Lansering / F3 stannar utanför float-boxen; göms i collapsed lg+. */}
+          <div className={cn(isChatOutputCollapsed && "lg:hidden")}>
+            <LaunchReadinessCard
+              readiness={vm.deployReadiness}
+              isLoading={vm.isDeployReadinessLoading}
               lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+              hasAnyVersion={vm.effectiveVersionsList.length > 0}
             />
-          ) : null}
+            {/* Lucka 3 (ägarbeslut 2026-08-11): render while an F3-blocked
+                episode is tracked at all — NOT only while `missingByIntegration`
+                is still non-empty. `visibleF3Requirements` shrinks that list
+                client-side as keys are saved, but "Fortsätt integrationsbygget"
+                (the only caller of `requestF3Rebuild`) must stay reachable right
+                after the user fills the LAST key too (Bugbot, 4th pass on this
+                diff — gating on the empty list here removed the button, not
+                just the surface's own now-removed "allt klart"-text). The
+                surface itself hides its intro text + key list when nothing is
+                missing; the retry button is always rendered. */}
+            {visibleF3Requirements ? (
+              <F3RequirementsSurface
+                projectId={visibleF3Requirements.projectId ?? vm.appProjectId}
+                missingByIntegration={visibleF3Requirements.missingByIntegration}
+                onRetry={() =>
+                  requestF3Rebuild(visibleF3Requirements.parentVersionId)
+                }
+              />
+            ) : null}
+            {visibleF3Status ? (
+              <F3StatusSurface
+                status={visibleF3Status}
+                chatId={vm.chatId}
+                versionId={visibleF3Status.versionId ?? null}
+                lifecycleStage={vm.deployReadiness?.info?.lifecycleStage ?? null}
+              />
+            ) : null}
+          </div>
           {/* Ägarbeslut 2026-07-22: ProjectEnvVarsPanel är borttagen — Byggblock-
               popovern (PreviewPanelDossiers) är den enda env-ytan i både F2 och F3. */}
           <div
@@ -363,52 +365,43 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onClose={() => setTipPanelOpen(false)}
             />
           </div>
-          {/* Ö3/Del B: i nedfällt läge centreras BARA chatten (fliken + inputen)
-              som en box i mitten — inte Lansering-panelen (Del F) ovanför. På
-              smal skärm ger `w-full` full bredd så boxen inte blir en remsa. */}
-          <div
-            className={cn(
-              "flex flex-col",
-              isChatOutputCollapsed && "mx-auto w-full max-w-2xl",
-            )}
-          >
-            {vm.messages.length > 0 ? (
-              <ChatOutputCollapseBar
-                isCollapsed={isChatOutputCollapsed}
-                onToggle={chatOutputCollapse.toggle}
-                messageCount={vm.messages.length}
-                isStreaming={vm.isAnyStreaming}
-                statusText={chatCollapseStatusText}
-              />
-            ) : null}
-            <ChatInterface
+          <FloatingCollapsedChatInput
+            floatEnabled={isChatOutputCollapsed}
             chatId={vm.chatId}
-            initialPrompt={vm.initialPrompt}
-            onCreateChat={vm.requestCreateChat}
-            onSendMessage={sendMessage}
-            onPromptAssistModeReset={vm.handlePromptAssistModeReset}
-            isFigmaInputOpen={isFigmaInputOpen}
-            onFigmaInputOpenChange={setIsFigmaInputOpen}
-            isBusy={isBusy}
-            isPreparingPrompt={vm.isPreparingPrompt}
-            mediaEnabled={vm.mediaEnabled}
-            continuePlanMode={Boolean(latestPendingReply?.planMode)}
-            followUpBaseInfo={followUpBaseInfo}
-            previewModes={
-              vm.currentPreviewUrl
-                ? {
-                    composerOpen: previewSurface.composerMode,
-                    onToggleComposer: previewSurface.toggleComposer,
-                    composerDisabled: previewSurface.viewMode !== "preview",
-                    inspectAvailable: previewSurface.inspectorEnabled,
-                    inspectOpen: previewSurface.inspectMode,
-                    onToggleInspect: previewSurface.toggleInspect,
-                    inspectDisabled: previewSurface.viewMode !== "preview",
-                  }
-                : null
-            }
-          />
-          </div>
+            isCollapsed={isChatOutputCollapsed}
+            onToggleCollapse={chatOutputCollapse.toggle}
+            messageCount={vm.messages.length}
+            isStreaming={vm.isAnyStreaming}
+            statusText={chatCollapseStatusText}
+          >
+            <ChatInterface
+              chatId={vm.chatId}
+              initialPrompt={vm.initialPrompt}
+              onCreateChat={vm.requestCreateChat}
+              onSendMessage={sendMessage}
+              onPromptAssistModeReset={vm.handlePromptAssistModeReset}
+              isFigmaInputOpen={isFigmaInputOpen}
+              onFigmaInputOpenChange={setIsFigmaInputOpen}
+              isBusy={isBusy}
+              isPreparingPrompt={vm.isPreparingPrompt}
+              mediaEnabled={vm.mediaEnabled}
+              continuePlanMode={Boolean(latestPendingReply?.planMode)}
+              followUpBaseInfo={followUpBaseInfo}
+              previewModes={
+                vm.currentPreviewUrl
+                  ? {
+                      composerOpen: previewSurface.composerMode,
+                      onToggleComposer: previewSurface.toggleComposer,
+                      composerDisabled: previewSurface.viewMode !== "preview",
+                      inspectAvailable: previewSurface.inspectorEnabled,
+                      inspectOpen: previewSurface.inspectMode,
+                      onToggleInspect: previewSurface.toggleInspect,
+                      inspectDisabled: previewSurface.viewMode !== "preview",
+                    }
+                  : null
+              }
+            />
+          </FloatingCollapsedChatInput>
           <BuilderShellDialogs
             vm={vm}
             githubExportOpen={githubExportOpen}
