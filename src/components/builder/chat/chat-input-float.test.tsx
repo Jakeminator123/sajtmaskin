@@ -5,6 +5,7 @@ import {
   clampChatInputFloatPosition,
   defaultChatInputFloatPosition,
   readChatInputFloatPosition,
+  resolveFloatPlacementSeed,
   writeChatInputFloatPosition,
 } from "@/lib/builder/chat-input-float-position";
 import { fireEvent, render, renderHook, screen, act } from "@testing-library/react";
@@ -52,6 +53,26 @@ describe("chat-input-float-position", () => {
 
   it("exposes a small drag threshold", () => {
     expect(CHAT_INPUT_FLOAT_DRAG_THRESHOLD_PX).toBe(4);
+  });
+
+  it("does not inherit another chat's in-memory coords when seeding", () => {
+    const box = { width: 400, height: 200 };
+    const viewport = { width: 1200, height: 900 };
+    const previousChatCoords = { x: 12, y: 34 };
+    // New chat has no stored position — must get default, not previousChatCoords.
+    const seeded = resolveFloatPlacementSeed(null, box, viewport);
+    expect(seeded).toEqual(defaultChatInputFloatPosition(box, viewport));
+    expect(seeded).not.toEqual(previousChatCoords);
+
+    writeChatInputFloatPosition("chat_b", previousChatCoords);
+    const fromStorage = resolveFloatPlacementSeed(
+      readChatInputFloatPosition("chat_b"),
+      box,
+      viewport,
+    );
+    expect(fromStorage).toEqual(
+      clampChatInputFloatPosition(previousChatCoords, box, viewport),
+    );
   });
 });
 

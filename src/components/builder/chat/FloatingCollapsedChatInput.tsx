@@ -15,6 +15,7 @@ import { useChatInputFloatPosition } from "@/components/builder/chat/useChatInpu
 import {
   CHAT_INPUT_FLOAT_DRAG_THRESHOLD_PX,
   readChatInputFloatPosition,
+  resolveFloatPlacementSeed,
 } from "@/lib/builder/chat-input-float-position";
 import { cn } from "@/lib/utils";
 
@@ -65,7 +66,7 @@ export function FloatingCollapsedChatInput({
   const isLgUp = useIsLgUp();
   const floatActive = floatEnabled && isLgUp;
   const rootRef = useRef<HTMLDivElement>(null);
-  const { position, setPosition, placeDefault } = useChatInputFloatPosition(chatId);
+  const { position, setPosition } = useChatInputFloatPosition(chatId);
   const positionRef = useRef(position);
   positionRef.current = position;
 
@@ -89,17 +90,12 @@ export function FloatingCollapsedChatInput({
   const ensurePlaced = useCallback(() => {
     const box = readBox();
     if (!box) return;
-    // Always seed from storage for the current chat — never reuse another
-    // chat's in-memory coords (chat switch while still collapsed).
+    // Seed only from THIS chat's storage (or default). Never reuse
+    // positionRef from a previous chatId — that leaked placement across chats.
     const stored = readChatInputFloatPosition(chatId);
-    if (stored) {
-      setPosition(stored, box);
-    } else if (positionRef.current) {
-      setPosition(positionRef.current, box);
-    } else {
-      placeDefault(box);
-    }
-  }, [chatId, placeDefault, readBox, setPosition]);
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    setPosition(resolveFloatPlacementSeed(stored, box, viewport), box);
+  }, [chatId, readBox, setPosition]);
 
   // Place / re-clamp when float engages or chat switches.
   useLayoutEffect(() => {

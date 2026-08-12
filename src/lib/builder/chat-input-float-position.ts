@@ -50,6 +50,20 @@ export function defaultChatInputFloatPosition(
   );
 }
 
+/**
+ * Seed for a chat's float box: stored coords for THAT chat, else default.
+ * Never reuse another chat's in-memory position — that would leak placement
+ * across chats when switching while collapsed.
+ */
+export function resolveFloatPlacementSeed(
+  stored: ChatInputFloatPosition | null,
+  box: ChatInputFloatBoxSize,
+  viewport: ChatInputFloatViewport,
+): ChatInputFloatPosition {
+  if (stored) return clampChatInputFloatPosition(stored, box, viewport);
+  return defaultChatInputFloatPosition(box, viewport);
+}
+
 export function readChatInputFloatPosition(chatId: string | null): ChatInputFloatPosition | null {
   if (!chatId || typeof window === "undefined") return null;
   try {
