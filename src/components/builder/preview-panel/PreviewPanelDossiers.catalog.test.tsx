@@ -1,0 +1,178 @@
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PreviewPanelDossiers } from "./PreviewPanelDossiers";
+import { openDossiersPanel } from "@/lib/builder/project-env-events";
+import { stubFetch, wiredResponse } from "./PreviewPanelDossiers.test-support";
+
+describe("PreviewPanelDossiers catalog", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("always shows the trigger button; the count badge only renders when total > 0", async () => {
+    stubFetch({ wired: wiredResponse({ counts: { total: 0, hard: 0, soft: 0, builtLive: 0, builtDemo: 0, blockedBuild: 0, planned: 0 } }) });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Byggblock/i })).toBeTruthy();
+    });
+    // No numeric badge next to the trigger label when nothing is wired.
+    expect(screen.queryByText("0")).toBeNull();
+  });
+
+  it("defaults the popover to 'Fler byggblock' when nothing is wired, and lists catalog dossiers grouped by category", async () => {
+    stubFetch({ wired: wiredResponse() /* total: 0 */ });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    // Open via the shared event (same mechanism other builder surfaces use —
+    // avoids depending on Radix's pointer-driven trigger-click behavior).
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Betalning & handel")).toBeTruthy();
+    });
+    expect(screen.getByText("Stripe Checkout")).toBeTruthy();
+    expect(screen.getByText("Klarna Checkout")).toBeTruthy();
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "På sajten (0)" }).getAttribute("data-state")).toBe(
+      "inactive",
+    );
+    expect(
+      screen.getByRole("tab", { name: "Fler byggblock (3)" }).getAttribute("data-state"),
+    ).toBe("active");
+    expect(screen.getByText("Katalog: 3 totalt · 2 externa · 1 utan tjänst")).toBeTruthy();
+    // The "På sajten" tab's empty-state copy must NOT be what greets the
+    // user when there is nothing wired — the catalog tab is shown instead.
+    expect(screen.queryByText("Inga byggblock är inkopplade i den här versionen.")).toBeNull();
+  });
+
+  it("filters the catalog by external-service need without hiding the integration-build signal", async () => {
+    stubFetch({ wired: wiredResponse() });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const standaloneFilter = await screen.findByRole("button", {
+      name: "Fristående (1)",
+    });
+    fireEvent.click(standaloneFilter);
+
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
+    expect(screen.queryByText("Stripe Checkout")).toBeNull();
+    expect(screen.queryByText("Betalning & handel")).toBeNull();
+    expect(standaloneFilter.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Kopplad (2)" }));
+
+    expect(screen.getByText("Stripe Checkout")).toBeTruthy();
+    expect(screen.getByText("Klarna Checkout")).toBeTruthy();
+    expect(screen.queryByText("Bildgalleri med lightbox")).toBeNull();
+    expect(screen.getAllByText("Kopplad")).toHaveLength(2);
+    expect(screen.getAllByText("Bygg integrationer")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Alla (3)" }));
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
+  });
+
+  it("resets the class filter when the popover closes so the next open shows the full catalog", async () => {
+    stubFetch({ wired: wiredResponse() });
+
+    render(<PreviewPanelDossiers chatId="chat_1" versionId="ver_1" />);
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const standaloneFilter = await screen.findByRole("button", {
+      name: "Fristående (1)",
+    });
+    fireEvent.click(standaloneFilter);
+    expect(screen.queryByText("Stripe Checkout")).toBeNull();
+
+    // Close (Escape) and reopen: a leftover filter must not make the catalog
+    // look truncated on the next, unrelated open.
+    fireEvent.keyDown(document, { key: "Escape" });
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const allFilter = await screen.findByRole("button", { name: "Alla (3)" });
+    expect(allFilter.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("Stripe Checkout")).toBeTruthy();
+    expect(screen.getByText("Bildgalleri med lightbox")).toBeTruthy();
+  });
+
+  it("sends id+label via onRequestDossier when a catalog row is picked and keeps the popover open with a design-stage surface-only notice for a HARD dossier", async () => {
+    stubFetch({ wired: wiredResponse({ lifecycleStage: "design" }) });
+    const onRequestDossier = vi.fn();
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        lifecycleStage="design"
+        onRequestDossier={onRequestDossier}
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    const stripeRow = await screen.findByTitle("Lägg till byggblocket Stripe Checkout");
+    fireEvent.click(stripeRow);
+
+    expect(onRequestDossier).toHaveBeenCalledWith({
+      id: "stripe-checkout",
+      label: "Stripe Checkout",
+    });
+    // Hard pick in F2: the popover STAYS OPEN and shows the surface-only notice.
+    expect(
+      screen.getByText(/I designen visas en demo/i),
+    ).toBeTruthy();
+
+    // One-shot lock: a second click on another row does nothing.
+    const klarnaRow = screen.getByText("Klarna Checkout").closest("button");
+    expect(klarnaRow).toBeTruthy();
+    fireEvent.click(klarnaRow!);
+    expect(onRequestDossier).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks catalog picks while a generation streams or a question is pending (catalogPickDisabled)", async () => {
+    stubFetch({ wired: wiredResponse() });
+    const onRequestDossier = vi.fn();
+
+    render(
+      <PreviewPanelDossiers
+        chatId="chat_1"
+        versionId="ver_1"
+        onRequestDossier={onRequestDossier}
+        catalogPickDisabled
+      />,
+    );
+
+    await act(async () => {
+      openDossiersPanel();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Vänta tills pågående generering är klar/i),
+      ).toBeTruthy();
+    });
+    const stripeRow = screen.getByText("Stripe Checkout").closest("button");
+    expect(stripeRow?.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(stripeRow!);
+    expect(onRequestDossier).not.toHaveBeenCalled();
+  });
+
+});
+
