@@ -3,7 +3,7 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "install": "npm ci --no-audit --no-fund",
+  "install": "npm ci --no-audit --no-fund && npm run embeddings:ensure",
   "start": "node scripts/db/db-init.mjs || true",
   "terminals": [
     { "name": "dev", "command": "npm run dev" },
